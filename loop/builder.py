@@ -1013,9 +1013,15 @@ def restore_merge_loss(main_ref='origin/main', rules=None):
     return not after.returncode
 
 
+def reopened(pr):
+    """When the PR was last reopened, else 0: the fix runs before it no longer count (L82)."""
+    events = orders.gh('api', f'repos/{{owner}}/{{repo}}/issues/{pr}/events?per_page=100', '--paginate', '--slurp')
+    return max((orders.created(e['created_at']) for page in events for e in page if e['event'] == 'reopened'), default=0)
+
+
 def fix_task(pr, head, cause, run_id=0, output=None):
     """The fix run's task, or None when the PR moved past `head`, is not a Builder PR, no longer fails a `check` or
-    `rules` cause there, or used its ATTEMPTS. A plumbing cause (L82) is exempt from ATTEMPTS and writes `plumbing=true`
+    `rules` cause there, or used its ATTEMPTS since it was last reopened. A plumbing cause (L82) is exempt from ATTEMPTS and writes `plumbing=true`
     to the step output file `output`, so its run posts no attempt."""
     current = view(pr)
     if current['state'] != 'OPEN' or current['headRefOid'] != head or not current['headRefName'].startswith('build/'):
@@ -1030,7 +1036,7 @@ def fix_task(pr, head, cause, run_id=0, output=None):
     if output:
         with open(output, 'a') as out:
             out.write('plumbing=true\n' * plumbing + 'merge_loss=true\n' * merge_loss)
-    attempts = orders.marked(pr, '<!-- fix-attempt -->')
+    attempts = orders.marked(pr, '<!-- fix-attempt -->', reopened(pr))
     verdicts = orders.marked(pr, 'VERDICT:')
     answered = orders.created(attempts[-1]['created_at']) if attempts else 0
     if cause == 'review' and verdicts and answered > orders.created(verdicts[-1]['created_at']) and \
@@ -1148,10 +1154,26 @@ def status(head, state, description, run_url, context='review'):
          '-f', f'description={description}', '-f', f'target_url={run_url}')
 
 
+FOLLOWUP = re.compile(r'^FOLLOWUP:[ \t]*(.*(?:\n(?!\s*$).*)*)', re.M)
+
+
+def follow_up(pr, findings):
+    """L24: file the approve's `FOLLOWUP:` block (its lines up to the next blank one) as one Issue, and return the
+    findings with the block replaced by a `Follow-up:` line naming it."""
+    block = FOLLOWUP.search(findings)
+    if not block:
+        return findings
+    text = block[1].strip()
+    title = f'Follow-up from PR #{pr}: ' + (text.splitlines() or [''])[0][:80]
+    url = call('issue', 'create', '--title', title, '--body',
+               f'{text}\n\nFound by the review of PR #{pr}, whose scenario does not name this case.').strip()
+    return FOLLOWUP.sub(f'Follow-up: {url}', findings, 1)
+
+
 def review_post(pr, head, reviewer, answer, ran, run_url):
     """Publish a review run's answer on `head`: a VERDICT comment and the `review` status; a reject on a Builder PR
     starts a fix run. Lines that would forge a verdict field are dropped. A run whose model did no work (`ran` false)
-    leaves `review` pending for pick to rerun. False when a run that worked holds no verdict."""
+    leaves `review` pending for pick to rerun. An approve's `FOLLOWUP:` block becomes an Issue. False when a run that worked holds no verdict."""
     current = view(pr)
     if current['state'] != 'OPEN' or current['headRefOid'] != head:
         print(f'PR #{pr} moved past {head}; the newer head gets its own review')
@@ -1167,6 +1189,8 @@ def review_post(pr, head, reviewer, answer, ran, run_url):
         return False
     findings = '\n'.join(line for line in str(answer.get('findings', '')).splitlines()
                          if not re.match(r'(VERDICT|Head|Reviewed-by-Agent):', line))
+    if verdict == 'approve':
+        findings = follow_up(pr, findings)
     comment(pr, f'VERDICT: {verdict}\nHead: {head}\n\n{findings}\n\nReviewed-by-Agent: {reviewer}')
     status(head, 'success' if verdict == 'approve' else 'failure', f'The review run answered {verdict}', run_url)
     if verdict == 'reject' and current['headRefName'].startswith('build/') and not current['isCrossRepository']:
