@@ -76,8 +76,8 @@ export default defineConfig({
     environment: "jsdom",
     // A shard's real-Claude and Chromium files starve the first test of a file past vitest's 5 s (owner's choice, 2026-10-17); a test that sets its own longer limit keeps it.
     testTimeout: 15_000,
-    // L122: a test merged before the stress job runs twice before it fails; the lane lists a pass on the retry as flaky.
-    // The `new-tests-stress` job passes `--retry 0`. No web test asserts a product's time bound on a real clock.
+    // L122: a flaky test runs twice before it fails; the lane lists a pass on the retry as flaky.
+    // No web test asserts a product's time bound on a real clock.
     retry: 1,
     // Complete per-test evidence stays in check logs, alongside human failure diagnostics.
     reporters: ["default", ["json", { stdout: true }]],
