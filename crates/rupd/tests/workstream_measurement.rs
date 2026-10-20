@@ -369,6 +369,16 @@ async fn u3016a_moves_and_removal_keep_recorded_attribution() {
         w.contributions(2).await["contributions"],
         moved["contributions"]
     );
+    w.append(request("late", 40));
+    let late = w.contributions(3).await;
+    let arrival = late["contributions"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|c| c["identity"] == "request:late")
+        .unwrap();
+    assert_eq!(arrival["home"], other);
+    assert_eq!(arrival["maker"], "renamed");
     w.client
         .request("rail.remove", json!({"id":w.home}))
         .await
@@ -377,8 +387,14 @@ async fn u3016a_moves_and_removal_keep_recorded_attribution() {
     w.append(request("before", 20));
     w.append(request("after", 30));
     w.reopen().await;
-    let read = w.contributions(1).await;
-    assert_eq!(read["contributions"][0]["identity"], "request:after");
+    let read = w.contributions(2).await;
+    assert!(
+        read["contributions"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .all(|c| c["identity"] != "request:before")
+    );
     w.client
         .request("rail.remove", json!({"id":other}))
         .await
@@ -395,8 +411,24 @@ async fn u3016a_moves_and_removal_keep_recorded_attribution() {
 #[tokio::test]
 async fn u3016d_reconnect_reconciles_without_double_counting() {
     let mut w = World::start().await;
+    let mut subscribed = Client::connect(&w.daemon.socket).await.unwrap();
+    subscribed
+        .request("events.subscribe", Value::Null)
+        .await
+        .unwrap();
     w.append(request("retained", 20));
     let first = w.contributions(1).await;
+    tokio::time::timeout(Duration::from_secs(3), async {
+        loop {
+            let event = subscribed.next_event().await.unwrap();
+            if let contracts::EventData::MeasurementsChanged { revision } = event.data {
+                assert_eq!(revision, first["revision"]);
+                break;
+            }
+        }
+    })
+    .await
+    .unwrap();
     std::fs::remove_file(w.source()).unwrap();
     tokio::time::timeout(Duration::from_secs(3), async {
         loop {
@@ -457,6 +489,8 @@ async fn u3016a_intervals_use_the_launch_owner_and_source_clock() {
     })
     .await
     .unwrap();
+    let unknown = url.replace(url.split('/').nth(3).unwrap(), "unowned");
+    assert_eq!(post(&unknown, intervals(&w.source_id())).await, 404);
     assert_eq!(post(&url, intervals("unowned-conversation")).await, 422);
     assert_eq!(post(&url, intervals(&w.source_id())).await, 200);
     assert_eq!(post(&url, intervals(&w.source_id())).await, 200);

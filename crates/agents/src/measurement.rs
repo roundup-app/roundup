@@ -39,15 +39,17 @@ impl Agents {
                 let Some(shared) = me.upgrade() else { break };
                 let collecting = Arc::clone(&shared);
                 let launcher = launcher.clone();
-                let revision = tokio::task::spawn_blocking(move || {
+                let (revision, has_measurements) = tokio::task::spawn_blocking(move || {
                     let mut rail = collecting.rail();
                     rail.collect_measurements(&launcher, (collecting.clock)());
-                    rail.measurement_revision()
+                    Ok::<_, RpcError>((rail.measurement_revision()?, rail.has_measurements()?))
                 })
                 .await
                 .expect("measurement observer worker")
                 .expect("Project measurement storage");
-                if seen.as_ref() != Some(&revision) {
+                // Initial unsupported/no-work coverage is read state. Publish revisions of
+                // retained observations, including their later failures and erasure.
+                if (has_measurements || seen.is_some()) && seen.as_ref() != Some(&revision) {
                     seen = Some(revision.clone());
                     shared
                         .bus
@@ -109,7 +111,7 @@ impl Agents {
                     shared
                         .runs()
                         .get(&owner)
-                        .is_some_and(|slot| slot.attempt() == lifetime && !slot.closing())
+                        .is_some_and(|slot| slot.attempt() == lifetime)
                 })
             },
         )
