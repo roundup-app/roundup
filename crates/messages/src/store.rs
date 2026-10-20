@@ -66,7 +66,7 @@ pub(crate) struct Restart {
 }
 
 pub(crate) struct Store {
-    db: Connection,
+    pub(crate) db: Connection,
     /// Agents under a Takeover. Held in memory only (B6): never persisted, so a restarted
     /// Daemon has none.
     active_takeovers: HashMap<String, Binding>,

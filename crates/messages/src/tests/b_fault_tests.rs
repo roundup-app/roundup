@@ -431,3 +431,61 @@ async fn b28_status_acknowledgement_waits_for_delivery_to_finish() {
     .await
     .expect("status acknowledged after delivery completes");
 }
+
+fn fire(operation: &str) -> reaction::Fire {
+    reaction::Fire {
+        reaction: "r1".into(),
+        operation: operation.into(),
+        to: "a".into(),
+        body: "ship it".into(),
+        evidence: "run".into(),
+        matched: false,
+    }
+}
+
+fn save_reaction(h: &Faulty, state: &str, max: u32) {
+    let record = json!({"state": state, "max_firings": max}).to_string();
+    h.messages
+        .store()
+        .unwrap()
+        .db
+        .execute(
+            "INSERT INTO reactions (id, actor_key, operation, request, record) VALUES ('r1','u','o','q',?1)",
+            [record],
+        )
+        .unwrap();
+}
+
+#[tokio::test]
+async fn nr3_firing_and_message_commit_together() {
+    let dir = tempfile::tempdir().unwrap();
+    let h = Faulty::new(dir.path());
+    save_reaction(&h, "active", 2);
+
+    h.arm("reaction", Fail::Err);
+    h.messages.fire_reaction(fire("one")).await.unwrap_err();
+    assert!(h.messages.firings_of("r1").unwrap().is_empty());
+    let listed = h.call("message.list", json!({})).await.unwrap();
+    assert!(listed.as_array().unwrap().is_empty(), "{listed}");
+
+    let (first, message) = h.messages.fire_reaction(fire("one")).await.unwrap();
+    assert_eq!((first.ordinal, first.message), (1, message.id));
+    assert_eq!(message.body, "ship it");
+    assert_eq!(first.definition, r#"{"state":"active","max_firings":2}"#);
+    // A retry is the same firing and the same Message; nothing new is sent.
+    let (again, same) = h.messages.fire_reaction(fire("one")).await.unwrap();
+    assert_eq!((again.id, same.id), (first.id, message.id));
+    // The bound counts accepted firings only.
+    h.messages.fire_reaction(fire("two")).await.unwrap();
+    h.messages.fire_reaction(fire("three")).await.unwrap_err();
+    assert_eq!(h.messages.firings_of("r1").unwrap().len(), 2);
+}
+
+#[tokio::test]
+async fn nr3_a_stopped_reaction_accepts_no_firing() {
+    let dir = tempfile::tempdir().unwrap();
+    let h = Faulty::new(dir.path());
+    save_reaction(&h, "stopped", 1);
+    h.messages.fire_reaction(fire("one")).await.unwrap_err();
+    assert!(h.messages.firings_of("r1").unwrap().is_empty());
+}
