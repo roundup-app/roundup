@@ -28,6 +28,8 @@ import { failureOf, outcomeOf } from "./failureOf";
 import { RowButton } from "./RowButton";
 import { createSortedList } from "./sortedList";
 import { Sortable } from "../ui/sortable";
+import { TreeView } from "../ui/TreeView";
+import { createTreeCollection } from "@ark-ui/solid/tree-view";
 import { shelfScope } from "../shelf/scope";
 import { Groups } from "../shelf/Groups";
 import { useTodoList } from "./todoList";
@@ -75,6 +77,8 @@ export const OpenRow = (props: {
   sorted?: SortedRow;
   /** U3708: the Shelf list's tree place of this row; absent for the Rail's copy. */
   place?: { level: number; parent: number | null };
+  /** U3708: `ui/TreeView`'s `treeitem` props for this row (its role and level). */
+  treeItem?: JSX.HTMLAttributes<HTMLElement>;
   /** U3709: what Tab and ⇧Tab do on this row; `null` where the key is not this row's. */
   nest?: { in: (() => Promise<string | null>) | null; out: (() => Promise<string | null>) | null };
 }) => {
@@ -174,8 +178,8 @@ export const OpenRow = (props: {
       data-actions-open={near?.near() || listOpen() ? "true" : undefined}
       data-shelf-row={props.nested ? undefined : ""}
       data-selected={props.selected ? "true" : undefined}
-      role={props.place ? "treeitem" : undefined}
-      aria-level={props.place?.level}
+      role={props.treeItem?.role}
+      aria-level={props.treeItem?.["aria-level"]}
       data-level={props.place?.level}
       style={props.place ? { "padding-inline-start": `calc(var(--space-2) + ${props.place.level - 1} * var(--space-5))` } : undefined}
       class={props.nested ? "todo-row" : "todo-row todo-inset"}
@@ -470,16 +474,30 @@ export const Todos = () => {
       <Show when={open().length + done().length > 0}>
         <Groups items={() => [...open(), ...done()]} home={todo => todo.home} maker={todo => todo.creator}>{items => {
         const tree = createMemo(() => treeRows(items().filter(todo => !todo.done)));
+
+        const collection = createMemo(() => {
+          const children = (parent: number | null): { id: string; children?: unknown[] }[] =>
+            tree().filter((row) => row.parent === parent).map((row) => ({ id: String(row.todo.id), children: children(row.todo.id) }));
+
+          return createTreeCollection<{ id: string; children?: unknown[] }>({
+            nodeToValue: (node) => node.id,
+            nodeToString: (node) => node.id,
+            rootNode: { id: "root", children: children(null) },
+          });
+        });
+
         const placeOf = (id: number) => tree().find((row) => row.todo.id === id) ?? { level: 1, parent: null };
 
         return <>
-        <Sortable.Root class="todo-list shelf-list" role="tree" plain ids={tree().map((row) => String(row.todo.id))} external={sorted.external} tree={{
+        <TreeView.Root collection={collection()}>
+        <Sortable.Root class="todo-list shelf-list" plain ids={tree().map((row) => String(row.todo.id))} external={sorted.external} tree={{
           rows: tree().map((row) => ({ id: String(row.todo.id), parent: row.parent === null ? null : String(row.parent) })),
           get indent() { return parseFloat(getComputedStyle(document.documentElement).getPropertyValue("--space-5")) || 24; },
           nests: () => true,
           onMove: (move) => void dropOf(tree(), items().filter((todo) => !todo.done), Number(move.id), move.parent === null ? null : Number(move.parent), move.index),
           onPreview: () => undefined,
         }}>
+        <TreeView.Tree style={{ padding: "0" }}>
         <For each={tree().map((row) => row.todo)}>
           {(todo, at) => {
             const row = { get level() { return placeOf(todo.id).level; }, get parent() { return placeOf(todo.id).parent; } };
@@ -487,7 +505,10 @@ export const Todos = () => {
             return (
             <Sortable.Item id={String(todo.id)} index={at()} pressable>
               {(parts) => (
+            <TreeView.NodeProvider node={{ id: String(todo.id) }} indexPath={collection().getIndexPath(String(todo.id)) ?? []}>
+            <TreeView.Item asChild={(itemProps) =>
             <OpenRow
+              treeItem={itemProps()}
               todo={todo}
               selected={selection.selected().includes(todo.id) || selectedId() === todo.id}
               pressed={selection.selected().includes(todo.id)}
@@ -508,12 +529,15 @@ export const Todos = () => {
                   mounted(id, row);
                 } else rows.delete(id);
               }}
-            />
+            />} />
+            </TreeView.NodeProvider>
               )}
             </Sortable.Item>
           );}}
         </For>
+        </TreeView.Tree>
         </Sortable.Root>
+        </TreeView.Root>
         <Show when={unfolded()}>
             <For each={items().filter(todo => todo.done)}>
               {(todo) => (

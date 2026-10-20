@@ -39,11 +39,12 @@ describe("u3708 the Todos list is a tree drawn from blockers", () => {
   it("u3708_the_list_is_a_tree_of_treeitems_with_levels", async () => {
     await mountTodos([todo(1), todo(2, { blocked: true, blockers: [1] })]);
     await screen.findAllByRole("treeitem");
-    const tree = document.querySelector<HTMLElement>(".todo-list");
+    const list = document.querySelector<HTMLElement>(".todo-list");
+    const tree = within(list!).getByRole("tree");
     const items = [...document.querySelectorAll<HTMLElement>("[data-level]")];
 
-    expect(tree?.getAttribute("role")).toBe("tree");
-    expect(items.every((item) => item.closest(".todo-list") === tree)).toBe(true);
+    expect(tree.getAttribute("data-scope")).toBe("tree-view");
+    expect(items.every((item) => item.closest("[role=tree]") === tree)).toBe(true);
 
     expect(items.map((item) => item.getAttribute("role"))).toEqual(["treeitem", "treeitem"]);
     expect(items.map((item) => item.getAttribute("aria-level"))).toEqual(["1", "2"]);
@@ -111,7 +112,8 @@ describe("u3711 a move that would make a cycle is refused and says why", () => {
     buttonOf(2).focus();
     fireEvent.keyDown(buttonOf(2), { key: "Tab" });
 
-    await waitFor(() => expect(within(rowOf(2)).getByText(/would wait on itself/)).toBeTruthy());
+    await waitFor(() => expect(within(rowOf(2)).getByRole("alert").textContent).toBe("todo 1 would wait on itself through todo 2"));
+    expect(within(rowOf(2)).getByRole("alert").querySelector("svg")).not.toBeNull();
     expect(ids()).toEqual([1, 2]);
     expect(document.activeElement).toBe(buttonOf(2));
   });
