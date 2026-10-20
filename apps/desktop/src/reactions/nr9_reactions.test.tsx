@@ -84,3 +84,37 @@ it("nr9_failed_creation_preserves_original_draft", async () => {
   expect(sent).toMatchObject([{ operation: "op-1", instruction: "exact\n words " }, { operation: "op-1", instruction: "exact\n words " }]);
   expect(connected.drafts.list().filter((draft) => draft.destination.surface === "reactions")).toEqual([]);
 });
+
+
+it("nr9_overlapping_names_keep_the_selected_identity_through_creation", async () => {
+  const { app, connected } = await mountAskBar([], null, [
+    agent("a", "idle", "ready", { name: "Builder" }),
+    agent("b", "idle", "ready", { name: "Builder" }),
+  ]);
+
+  app.handlers["reaction.list"] = () => [];
+  app.handlers["reaction.preview"] = () => ({ at: "2026-10-21T09:00:00Z", utc: "2026-10-21T09:00:00Z", offset: "Z" });
+  app.handlers["reaction.create"] = () => saved({ target: "b", condition: { kind: "agents", ids: ["a"], any: false } });
+  connected.drafts.edit({ surface: "reactions", object: "create", recipient: null }, {
+    operation: "op-overlap", name: "Ship it", target: "", instruction: "go", kind: "agents", ids: [], any: false,
+    repository: "", number: "", atDate: "", atTime: "", atOffset: "Z", expDate: "2026-10-21", expTime: "09:00", expOffset: "Z",
+    maxFirings: "1", rearm: false,
+  }, null, "ordinary");
+  fireEvent.click(await screen.findByRole("button", { name: copy.reactionCreate }));
+  fireEvent.click(screen.getByRole("combobox", { name: copy.reactionTarget }));
+  fireEvent.click(await screen.findByRole("option", { name: "Builder (b)" }));
+  fireEvent.click(screen.getByRole("checkbox", { name: "Builder (a)" }));
+  const preview = screen.getByRole("region", { name: copy.reactionPreview });
+
+  expect(within(preview).getByText("Builder (b)")).toBeTruthy();
+  expect(within(preview).getByText(/Builder \(a\)/)).toBeTruthy();
+  const save = screen.getByRole("button", { name: copy.reactionSave });
+
+  await waitFor(() => expect(save).toHaveProperty("disabled", false));
+  fireEvent.click(save);
+  const detail = await screen.findByRole("region", { name: copy.reactionDetail("Ship it") });
+
+  expect(app.calls.find((call) => call.method === "reaction.create")?.params).toMatchObject({ target: "b", condition: { ids: ["a"] } });
+  expect(within(detail).getByText("Builder (b)")).toBeTruthy();
+  expect(within(detail).getByText(/Builder \(a\)/)).toBeTruthy();
+});
