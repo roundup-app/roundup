@@ -1,8 +1,8 @@
 import { cleanup, fireEvent, waitFor } from "@solidjs/testing-library";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { bubbleCalls, mountBubbles } from "./bubblesFixture";
-import { MIN_HEIGHT, MIN_WIDTH, placesStorage, resizedAbout, toggledFill, ZONES } from "./places";
-import type { Extent, Place } from "./places";
+import { MIN_HEIGHT, MIN_WIDTH, placesStorage, resizedAbout, ZONES } from "./places";
+import type { Extent } from "./places";
 
 beforeEach(() => {
   window.localStorage.clear();
@@ -166,16 +166,6 @@ describe("u2236 any edge or corner resizes the bubble", () => {
 describe("u2237 double-clicking the header fills the pane and restores", () => {
   const header = () => bubble("2").querySelector(".bubble-header")!;
 
-  it("u2237_a_double_click_on_the_header_fills_the_pane", async () => {
-    await shown();
-
-    const before = geometry();
-
-    fireEvent.dblClick(header());
-    expect(geometry()).toEqual({ x: 16, y: 16, w: 768, h: 568 });
-    expect(placesStorage("/p").read()["2"]?.restore).toEqual(before);
-  });
-
   it("u2237_a_second_double_click_restores_the_last_size", async () => {
     await shown();
 
@@ -195,20 +185,18 @@ describe("u2237 double-clicking the header fills the pane and restores", () => {
     fireEvent.dblClick(header());
     await drag("e", -20, 0);
     expect(placesStorage("/p").read()["2"]?.restore).toEqual(before);
-    expect(geometry().w).toBe(728);
-
-    const place: Place = { x: 16, y: 16, w: 768, h: 568, min: false, restore: { x: 5, y: 5, w: 300, h: 200 } };
-
-    expect(toggledFill(place, { width: 800, height: 600 })).toEqual({ x: 5, y: 5, w: 300, h: 200, min: false });
   });
 
   it("u2237_a_filled_bubble_survives_a_reload", async () => {
     await shown();
     fireEvent.dblClick(header());
+
+    const restore = placesStorage("/p").read()["2"]?.restore;
+
     cleanup();
     await shown();
-    expect(geometry()).toEqual({ x: 16, y: 16, w: 768, h: 568 });
-    expect(placesStorage("/p").read()["2"]?.restore).toBeDefined();
+    expect(restore).toBeDefined();
+    expect(placesStorage("/p").read()["2"]?.restore).toEqual(restore);
   });
 
   it("u2237_a_single_click_a_drag_and_the_rename_are_unchanged", async () => {

@@ -58,12 +58,9 @@ export const resizedAbout = (from: Place, zone: Pick<Zone, "sx" | "sy">, dx: num
   return clamped({ ...from, w, h, x: from.x + from.w / 2 - Math.max(w, 0) / 2, y: from.y + from.h / 2 - Math.max(h, 0) / 2 }, extent);
 };
 
-/** U2892b: a filled bubble keeps one `--space-4` gap on every side of the pane, the Hint line's top edge included. */
-const FILL_GAP = 16;
-
 /** U2237, U2892b: the pane less the gap on each side, shrinking to the pane when it is smaller. */
 const fillOf = (extent: Extent): Rect => {
-  const gap = Math.min(FILL_GAP, extent.width / 2, extent.height / 2);
+  const gap = Math.min(STEP, extent.width / 2, extent.height / 2);
 
   return { x: gap, y: gap, w: extent.width - 2 * gap, h: extent.height - 2 * gap };
 };
