@@ -64,4 +64,10 @@ it("u2875d_real_import_reopen_and_resume", async () => {
   expect(again.child?.id).toBe(first.child?.id);
   expect(again.child?.can_resume).toBe(true);
   expect(await app.rpc("terminal.list", null)).toEqual([]);
+
+  // Reopening the App shows the Workstream with its closed child offering Resume, and starts nothing.
+  cleanup();
+  render(() => <App app={createServedApp(real.base)} reducedMotion={() => true} clock={Date.now} createEmulator={emulators.factory} />);
+  await waitFor(() => expect(document.querySelector(`[data-id="${again.child?.id}"] button[aria-label=Resume]`)).toBeTruthy());
+  expect(await app.rpc("terminal.list", null)).toEqual([]);
 }, 120_000);
