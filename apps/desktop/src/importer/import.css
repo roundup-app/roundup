@@ -4,6 +4,7 @@
   gap: var(--space-4);
   box-sizing: border-box;
   width: min(36rem, calc(100vw - var(--space-6) * 2));
+  overflow-y: auto;
   max-height: calc(100vh - var(--space-6) * 2);
   box-shadow: var(--shadow-drawer);
 }
@@ -117,7 +118,6 @@
   margin-block-end: var(--space-3);
 }
 
-.import-note,
 .import-activity {
   color: var(--text-dim);
   font-size: var(--text-small);
@@ -127,4 +127,12 @@
 .import-unavailable {
   grid-column: 1 / -1;
   padding-block: var(--space-2);
+}
+
+.import-failure {
+  color: var(--red);
+  margin: 0;
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
+  flex-shrink: 0;
 }
