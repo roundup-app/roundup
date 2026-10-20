@@ -384,6 +384,8 @@ const NO_TOOL: [&str; 52] = [
     "open_target",
     "open_in_editor",
     "save_pasted_image",
+    // U2694a: the native menu of the user's right-click
+    "show_context_menu",
     // U449–U451: the user's native window, which an Agent cannot move or rename.
     "plugin:window-bar|set_window_title",
     "plugin:window-bar|drag_window",

@@ -2,7 +2,7 @@ import type { Event as DaemonEvent } from "@contracts/Event";
 import type { RpcMethodName, RpcMethods } from "@contracts/methods";
 import { OWN_CONTRACT } from "../app/contractMatch";
 import { RpcError } from "../app/seam";
-import type { AppSeam, DaemonExit, DaemonExited, FileDrop, OpenTarget, OutputMessage, PastedImage, Project } from "../app/seam";
+import type { AppSeam, DaemonExit, DaemonExited, FileDrop, MenuItem, OpenTarget, OutputMessage, PastedImage, Project } from "../app/seam";
 
 const CONFLICT = -32003;
 
@@ -64,6 +64,9 @@ export type FakeApp = AppSeam & {
   /** The same calls with their `line`. */
   editorCalls: { path: string; line?: number }[];
   editorFailure: RpcError | null;
+  /** Every menu `show_context_menu` was called with, in order; `menuChoice` is the id it resolves (`null`: the menu closed with no choice). */
+  shownMenus: { items: MenuItem[]; x: number; y: number }[];
+  menuChoice: string | null;
   /** Every image `save_pasted_image` was called with, in order; `saveImageFailure` is what it rejects with and `savedImagePath` what it resolves. */
   savedImages: PastedImage[];
   saveImageFailure: RpcError | null;
@@ -112,6 +115,8 @@ export const createFakeApp = (): FakeApp => {
     editorCalls: [],
     editorFailure: null,
     savedImages: [],
+    shownMenus: [],
+    menuChoice: null,
     saveImageFailure: null,
     savedImagePath: "/Users/me/Library/Caches/roundup-pasted/pasted-1-abcd1234.png",
     opened: {
@@ -224,6 +229,7 @@ export const createFakeApp = (): FakeApp => {
         openTarget: app.openTarget,
         openInEditor: app.openInEditor,
         savePastedImage: app.savePastedImage,
+        showContextMenu: app.showContextMenu,
       });
       Object.defineProperty(other, "windowTitleHandler", {
         get: () => app.windowTitleHandler,
@@ -294,6 +300,11 @@ export const createFakeApp = (): FakeApp => {
 
       app.editorOpened.push(path);
       app.editorCalls.push(line === undefined ? { path } : { path, line });
+    },
+    showContextMenu: async (items, x, y) => {
+      app.shownMenus.push({ items, x, y });
+
+      return app.menuChoice;
     },
     savePastedImage: async (image) => {
       if (app.saveImageFailure) throw app.saveImageFailure;
