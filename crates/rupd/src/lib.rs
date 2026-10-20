@@ -2632,6 +2632,10 @@ mod tests {
         let config = root.path().join("config");
         import_source(&config, root.path(), 1, "2026-10-20T12:00:00Z");
         let opens = Arc::new(AtomicUsize::new(0));
+        let workers = Arc::new(AtomicUsize::new(0));
+        let peak = Arc::new(AtomicUsize::new(0));
+        let active_workers = workers.clone();
+        let peak_workers = peak.clone();
         let (entered, waiting) = tokio::sync::oneshot::channel();
         let entered = std::sync::Mutex::new(Some(entered));
         let (release, gate) = std::sync::mpsc::channel();
@@ -2651,9 +2655,18 @@ mod tests {
                 if requests.fetch_add(1, Ordering::SeqCst) == 1 {
                     requested.lock().unwrap().take().unwrap().send(()).unwrap();
                 }
+            } else if phase == "worker" {
+                peak_workers.fetch_max(
+                    active_workers.fetch_add(1, Ordering::SeqCst) + 1,
+                    Ordering::SeqCst,
+                );
+            } else if phase == "finished" {
+                active_workers.fetch_sub(1, Ordering::SeqCst);
             } else if phase == "open" {
                 observed.fetch_add(1, Ordering::SeqCst);
-            } else if let Some(entered) = entered.lock().unwrap().take() {
+            } else if phase == "record"
+                && let Some(entered) = entered.lock().unwrap().take()
+            {
                 entered.send(()).unwrap();
                 gate.lock()
                     .unwrap()
@@ -2680,12 +2693,15 @@ mod tests {
                 .is_some()
         );
         assert_eq!(opens.load(Ordering::SeqCst), 1);
+        assert_eq!(workers.load(Ordering::SeqCst), 1);
         release.send(()).unwrap();
         let first = first.await.unwrap();
         let second = second.await.unwrap();
         assert!(first.get("error").is_some(), "{first}");
         assert!(second.get("result").is_some(), "{second}");
         assert_eq!(opens.load(Ordering::SeqCst), 2);
+        assert_eq!(peak.load(Ordering::SeqCst), 1);
+        assert_eq!(workers.load(Ordering::SeqCst), 0);
     }
 
     #[tokio::test]
