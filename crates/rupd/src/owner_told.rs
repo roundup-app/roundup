@@ -203,7 +203,7 @@ async fn flush(told: &mut Told, reader: &Reader) {
             )
             .await;
         if let Err(err) = sent {
-            eprintln!("rupd: Todo changes for {id} not sent: {err}");
+            eprintln!("owner told: Todo changes for {id} not sent: {err}");
         }
     }
 }
