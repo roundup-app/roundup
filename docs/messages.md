@@ -398,6 +398,11 @@ laws are unchanged.
 
 Serves P1 and P3. An Agent asks `agent.wake {ids, any?}` to be told when all, or any, of the named Agents finish (`idle`, `done`, `error` or `needs-you`), and ends its turn instead of polling. The request is a row in `wakes` (migration 003 of `crates/messages`, saved in `project.db`), so a Daemon restart keeps it (D6). `rupd`'s `Waker` decides it from the Event log (`Bus::saved_after`, D10) and the present Kinds; a firing deletes the row and inserts the one `[wake]` note from `rupd` in one transaction, so it fires exactly once and is typed as B39 says. The note is outside B1's open bound and B22's caps. A child that enters `error` or `needs-you` always sends its parent a `[digest]` note at once (B43), which replaces B21's push for that change. There is no timer: only Events and the restart replay wake a request. The MCP tool `agent_wake` and `rup agent wake <id>... [--any]` are built from the one command list (I1), and the Brief says to wake instead of poll.
 
+
+## Reaction firing (NR3, NR8)
+
+A Reaction firing is accepted by `Messages::fire_reaction` in the one transaction that inserts its Message: the check that the Reaction is active with a firing left, the Message, and the `reaction_firings` row (`project.db`, migration 0009) holding the definition bytes and evidence as accepted. A fault before the commit leaves neither; after it, both, with the ids they were given. A retried `operation` returns the first firing and sends nothing. The Message is from the Daemon, outside B1's open bound like a Wake note, and is otherwise an ordinary Message: B2, B6, B32, B39 and B40 decide whether it is pending, Held, delivered or dropped, and recovery starts no program. `reaction.get` shows the firing's `matched` flag and the Message's status as `outcome`; delivery is not verified work. This adds no delivery state, so M1 to M10 and `proofs/messages` stand unchanged.
+
 ## B6 Door answers
 
 Door `decision.answer` calls for a taken-over child use the same durable `HeldAction`

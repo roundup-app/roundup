@@ -107,6 +107,10 @@ impl World {
         &self.nodes
     }
 
+    pub fn todos(&self) -> Vec<contracts::todo::Todo> {
+        self.todos.clone()
+    }
+
     pub fn sources(&self) -> messages::digest::Sources<'_> {
         messages::digest::Sources {
             nodes: &self.nodes,
