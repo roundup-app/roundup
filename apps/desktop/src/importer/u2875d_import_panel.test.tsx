@@ -1,5 +1,5 @@
 import { cleanup, fireEvent, screen, waitFor } from "@solidjs/testing-library";
-import { afterEach, expect, it } from "vitest";
+import { afterEach, expect, it, vi } from "vitest";
 import { render } from "@solidjs/testing-library";
 import { connectProject, ConnectedProjectContext } from "../state/connectedProject";
 import { Rail } from "../rail/Rail";
@@ -8,7 +8,7 @@ import { connectFakeProject } from "../terminal/paneHarness";
 import { workstream } from "../testing/nodes";
 import { createFakeApp } from "../testing/fakeApp";
 
-afterEach(() => { cleanup(); localStorage.clear(); });
+afterEach(() => { cleanup(); localStorage.clear(); vi.useRealTimers(); });
 
 const candidates = [
   { source: "s1", title: "first", cwd: "", last_activity_ms: 2n, revision: "r1" },
@@ -200,4 +200,23 @@ it.each([false, true])("u2875d_cancel_consumes_only_the_current_draft (empty: %s
   expect(isChecked(/first/)).toBe(true);
   expect(isChecked(/second/)).toBe(false);
   expect(calls(app, "project.importCommit")).toHaveLength(1);
+});
+
+
+it("u3037d_discovery_deadline_and_retry", async () => {
+  const { app } = await mount();
+  app.handlers["project.importDiscover"] = () => new Promise(() => {});
+  vi.useFakeTimers();
+  fireEvent.click(screen.getByRole("button", { name: "Import Claude Code work" }));
+  expect(screen.getByRole("status")).toBeTruthy();
+  expect(screen.getByRole("button", { name: "Cancel" })).toHaveProperty("disabled", false);
+  await vi.advanceTimersByTimeAsync(20_000);
+  expect(screen.getByRole("alert")).toBeTruthy();
+  expect(screen.queryByRole("status")).toBeNull();
+  expect(calls(app, "project.importCommit")).toHaveLength(0);
+  app.handlers["project.importDiscover"] = () => ({ candidates, excluded: [] });
+  fireEvent.click(screen.getByRole("button", { name: "Refresh" }));
+  await vi.advanceTimersByTimeAsync(0);
+  expect(screen.getByRole("checkbox", { name: /first/ })).toBeTruthy();
+  expect(screen.getByRole("button", { name: "Import" })).toHaveProperty("disabled", true);
 });
