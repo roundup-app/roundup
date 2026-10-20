@@ -1,9 +1,11 @@
 //! NR1: saved reaction definitions in the Project database. Creation validates everything before it
-//! writes, and the Actor is the connection's, never the payload's. Evaluation and firing are later slices.
+//! writes, and the Actor is the connection's, never the payload's. A firing is accepted by `messages` in the
+//! write that makes its Message (NR3); evaluating a condition is a later slice.
 use std::collections::HashSet;
+use std::sync::Arc;
 
 use contracts::reaction::{
-    Condition, CreateParams, Observation, Reaction, ReactionId, RunParams, State,
+    Condition, CreateParams, Firing, Observation, Reaction, ReactionId, RunParams, State,
 };
 use contracts::{Actor, ActorKind};
 use rpc::{RpcError, code};
@@ -121,7 +123,21 @@ fn read(record: &str) -> Result<Reaction, RpcError> {
     serde_json::from_str(record).map_err(RpcError::internal)
 }
 
+fn outcome(message: &Option<contracts::message::Message>) -> String {
+    message
+        .as_ref()
+        .and_then(|m| serde_json::to_value(m.status).ok())
+        .and_then(|v| v.as_str().map(str::to_owned))
+        .unwrap_or_else(|| "unknown".into())
+}
+
 impl Daemon {
+    fn messages(&self) -> Result<&Arc<messages::Messages>, RpcError> {
+        self.sender
+            .get()
+            .ok_or_else(|| RpcError::internal("messages are not open"))
+    }
+
     /// NR1: `reaction.create`, `.list`, `.get`, `.stop` and `.run`.
     pub(crate) async fn reaction_call(
         &self,
@@ -159,34 +175,89 @@ impl Daemon {
                 let list = rows
                     .iter()
                     .filter(|(owner, _)| actor.kind == ActorKind::User || *owner == mine)
-                    .map(|(_, record)| read(record))
+                    .map(|(_, record)| read(record).and_then(|saved| self.with_firings(saved)))
                     .collect::<Result<Vec<_>, _>>()?;
                 return rpc::reply(&list);
             }
             "reaction.get" => {
                 let p: ReactionId = rpc::params(args)?;
-                self.reaction_own(actor, &p.id)?.1
+                self.with_firings(self.reaction_own(actor, &p.id)?.1)?
             }
             "reaction.stop" => {
                 let p: ReactionId = rpc::params(args)?;
-                self.reaction_stop(actor, &p.id)?
+                let stopped = self.reaction_stop(actor, &p.id)?;
+                self.with_firings(stopped)?
             }
             "reaction.run" => {
                 let p: RunParams = rpc::params(args)?;
-                let (_, saved) = self.reaction_own(actor, &p.id)?;
-                if saved.state == State::Stopped {
-                    return Err(RpcError::conflict(
-                        "a stopped reaction cannot run; create a new one",
-                    ));
-                }
-                self.agents.guard_reach(actor, &saved.target, true)?;
-                return Err(RpcError::conflict(
-                    "reaction.run is not available yet: running a reaction lands in a later slice",
-                ));
+                self.reaction_run(actor, p).await?
             }
             _ => return Err(RpcError::new(code::METHOD_NOT_FOUND, method)),
         };
         rpc::reply(&reaction)
+    }
+
+    /// The record with its accepted firings and what is left of the bound, read from the write that
+    /// accepted them rather than from the saved definition.
+    fn with_firings(&self, mut saved: Reaction) -> Result<Reaction, RpcError> {
+        saved.firings = self
+            .messages()?
+            .firings_of(&saved.id)?
+            .into_iter()
+            .map(|(f, message)| Firing {
+                outcome: outcome(&message),
+                id: f.id,
+                ordinal: f.ordinal,
+                message: f.message,
+                matched: f.matched,
+                evidence: f.evidence,
+                definition: f.definition,
+            })
+            .collect();
+        saved.remaining = saved
+            .max_firings
+            .saturating_sub(u32::try_from(saved.firings.len()).unwrap_or(u32::MAX));
+        Ok(saved)
+    }
+
+    /// NR4's explicit run, as far as NR3 needs it: one accepted firing that claims no condition held.
+    async fn reaction_run(&self, actor: &Actor, p: RunParams) -> Result<Reaction, RpcError> {
+        let (_, saved) = self.reaction_own(actor, &p.id)?;
+        let first = self
+            .messages()?
+            .firings_of(&p.id)?
+            .iter()
+            .any(|(f, _)| f.operation == p.operation);
+        if first {
+            return self.with_firings(saved);
+        }
+        if saved.state == State::Stopped {
+            return Err(RpcError::conflict(
+                "a stopped reaction cannot run; create a new one",
+            ));
+        }
+        let saved = self.with_firings(saved)?;
+        if instant("expires_at", &saved.expires_at)? <= OffsetDateTime::now_utc() {
+            return Err(RpcError::conflict("the reaction expired; create a new one"));
+        }
+        self.agents.guard_reach(actor, &saved.target, true)?;
+        let evidence = serde_json::json!({
+            "source": "run",
+            "condition": "not claimed",
+            "by": key(actor),
+            "reported": actor.kind == ActorKind::Agent,
+        });
+        self.messages()?
+            .fire_reaction(messages::reaction::Fire {
+                reaction: saved.id.clone(),
+                operation: p.operation,
+                to: saved.target.clone(),
+                body: saved.instruction.clone(),
+                evidence: evidence.to_string(),
+                matched: false,
+            })
+            .await?;
+        self.with_firings(saved)
     }
 
     fn reaction_create(
