@@ -24,7 +24,7 @@ export type LaneBrowser = {
   /** Writes the Checks and a screenshot through the shared capture directory when enabled. */
   capture: (id: string, step: string) => Promise<void>;
   /** Reloads the harness, makes one Todo per title, the third blocked by the first, and shows the Todos tab. */
-  seedTodos: (titles: readonly string[]) => Promise<void>;
+  seedTodos: (titles: readonly string[], blocked?: boolean) => Promise<void>;
   /** The Todo ids in the order the Shelf shows them. */
   order: () => Promise<number[]>;
   /** The `method` of every call the fake Daemon took since the last reset, with its params. */
@@ -80,7 +80,7 @@ export const openLane = async (width: number, scheme: "light" | "dark", name: st
       writeFileSync(join(dir, `${width}x${width === 1280 ? 800 : 950}-${scheme}-${step}.checks.json`), JSON.stringify(await evaluate<Checks>("window.__checks()")) + "\n");
       await browser("screenshot", join(dir, `${width}x${width === 1280 ? 800 : 950}-${scheme}-${step}.png`));
     },
-    seedTodos: async (titles) => {
+    seedTodos: async (titles, blocked = true) => {
       await reload();
       await evaluate(`(async () => {
         const rpc = window.__fake.app.rpc;
@@ -88,7 +88,7 @@ export const openLane = async (width: number, scheme: "light" | "dark", name: st
         window.__fake.actAs({ kind: 'agent', id: 'tokens', parent: null });
         const made = [];
         for (const title of ${JSON.stringify(titles)}) made.push(await rpc('todo.create', { title, body: null, blockers: null }));
-        await rpc('todo.setBlockers', { id: made[2].id, blockers: [made[0].id] });
+        if (${blocked}) await rpc('todo.setBlockers', { id: made[2].id, blockers: [made[0].id] });
         window.__fake.actAs({ kind: 'user', id: 'you', parent: null });
         const tab = document.querySelector('#shelf-tab-todos');
         if (tab.getAttribute('aria-expanded') !== 'true') tab.click();
