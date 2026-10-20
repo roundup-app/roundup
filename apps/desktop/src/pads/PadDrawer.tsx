@@ -69,11 +69,13 @@ const PadBody = (props: {
   };
 
   const sourceLabel = copy.copyField(copy.draftField("source").toLowerCase());
+
   const statusLabel = () => {
     const status = copy.draftStatus[connected.drafts.list().filter(draft => draft.destination.surface === destination.surface && draft.destination.object === destination.object && (props.revision === undefined || draft.revision === props.revision)).at(-1)?.status ?? "draft"];
 
     return props.revision === undefined ? copy.draftIdentity(copy.currentDraft, status) : status;
   };
+
   let conflictVersion = 0;
   const [pad, setPad] = createSignal(props.initial);
   const [shown, setShown] = createSignal(parsed?.success ? parsed.output.source : source);

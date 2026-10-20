@@ -273,7 +273,7 @@ it.each([
   const revisions = structuredClone(connected.drafts.list());
   await openPad("drawing-draft", selected ? { connected, pads: state.pads, revision: retained.revision } : undefined);
   await screen.findByTestId("canvas");
-  expect(current().initialData.elements[0]?.version).toBe(2);
+  expect(current().initialData.elements).toEqual([{ id: "a", version: 2 }, { id: "t", version: 1 }, { id: "e2", version: 1 }]);
   expect(screen.getByRole("button", { name: "Resume" })).toBeTruthy();
   expect(writes(app.calls)).toEqual([]);
   expect(connected.drafts.list()).toEqual(revisions);
