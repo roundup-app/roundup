@@ -180,6 +180,7 @@ it("u2875d_cancel_consumes_only_the_current_draft", async () => {
   const { app, connected } = await mount();
 
   app.handlers["project.importCommit"] = () => { throw new RpcError(-32003, "daemon said no"); };
+
   await open();
   fireEvent.click(screen.getByRole("checkbox", { name: /first/ }));
   fireEvent.click(screen.getByRole("button", { name: "Import 1" }));
