@@ -321,10 +321,10 @@ impl Rail {
             for position in positions {
                 let position: Position =
                     serde_json::from_str(&position.map_err(sql)?).map_err(RpcError::internal)?;
-                if let Some(gap) = position.gap {
-                    if !source.coverage.contains(&gap) {
-                        source.coverage.push(gap);
-                    }
+                if let Some(gap) = position.gap
+                    && !source.coverage.contains(&gap)
+                {
+                    source.coverage.push(gap);
                 }
             }
         }
