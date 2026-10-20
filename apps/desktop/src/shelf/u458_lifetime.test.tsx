@@ -27,11 +27,11 @@ it("u458_hidden_rows_and_context_changes_clear_selection", async () => {
 });
 
 it("u458_tick_blocker_and_drag_keep_their_actions", async () => {
-  const { app, connected } = await mountTodos([todo(1), todo(2, { blockers: [1], blocked: true })]);
-  fireEvent.click(await screen.findByRole("button", { name: /#2 / }), { metaKey: true });
-  fireEvent.click(screen.getByRole("button", { name: "Open blocker todo 1" }), { metaKey: true });
+  const { app, connected } = await mountTodos([todo(1), todo(2), todo(3, { blockers: [1, 2], blocked: true })]);
+  fireEvent.click(await screen.findByRole("button", { name: /#3 / }), { metaKey: true });
+  fireEvent.click(screen.getByRole("button", { name: "Open blocker todo 2" }), { metaKey: true });
   expect(connected.drawer.content()).not.toBeNull();
   expect(screen.getByText("1 selected")).toBeTruthy();
-  fireEvent.click(screen.getByRole("checkbox", { name: "Complete todo 2" }), { metaKey: true });
-  expect(app.calls.filter((call) => call.method === "todo.complete").map((call) => call.params)).toEqual([{ id: 2 }]);
+  fireEvent.click(screen.getByRole("checkbox", { name: "Complete todo 3" }), { metaKey: true });
+  expect(app.calls.filter((call) => call.method === "todo.complete").map((call) => call.params)).toEqual([{ id: 3 }]);
 });
