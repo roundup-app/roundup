@@ -186,3 +186,7 @@ failure with the actual exit code and repair. No observer failure proves accepta
 Policy: the specification Issue closes on this acceptance document and its
 validated dependent implementation work order. Only that dependent Issue owns
 implementation completion; this document alone proves no runtime acceptance.
+
+R2965 observer requirement for X14: `x14_flood_leaves_rail_events_unlagged_and_cleans_up`: ten real PTYs flood while Rail markers travel on the actual Bus, followed by process cleanup. In-memory chunks cannot reveal PTY reader starvation or surviving flood children.
+
+R2965 observer requirement for X14 library capability: `x14_library_screen_edit_observation_survives_checkpoint_replay` and `x14_library_screen_restore_state_is_bounded`: isolated child address spaces sample RSS after 1 and 64 MiB of parser input. Shared test-process RSS includes unrelated tests and cannot detect retained parser storage reliably. Parser replay assertions themselves stay in-process.
