@@ -301,7 +301,8 @@ class L89(unittest.TestCase):
         for changed, tests in (([test, 'docs/perf.md'], [test]), (['crates/rupd/src/lib.rs'], [affected.DAEMON]),
                                (['scenarios/loop-rules.md'], []),
                                (['apps/desktop/observers/U1/run.py'], []), (['loop/builder.py'], []),
-                               ([test, 'apps/desktop/src/rail/Rail.tsx'], 'all'), (['scenarios/app.md'], 'all'),
+                               ([test, 'apps/desktop/src/rail/Rail.tsx'], ['apps/desktop/src/rail/Rail.tsx', test]),
+                               (['apps/desktop/vite.config.ts'], 'all'), (['apps/desktop/index.html'], 'all'), (['scenarios/app.md'], 'all'),
                                (['pnpm-lock.yaml'], 'all')):
             self.assertEqual(tests, affected.web(changed), changed)
 
