@@ -124,6 +124,20 @@ run("u3710 dragging sideways sets depth and dragging vertically sets order", () 
     expect(made[0]!.params.blockers?.[0]).toBe(order[0]);
   }, 60_000);
 
+  it("u3711_a_refused_drop_shows_the_cause_and_changes_nothing", async () => {
+    await setup();
+
+    const order = await ids();
+    const second = await centre(1);
+
+    await page.call(`() => { window.__fake.failNext(-32003, 'todo would wait on itself'); return true; }`);
+    await drag(second, { x: second.x + 30, y: second.y });
+    await page.until(`() => document.querySelector('[role=alert]') !== null`);
+    await settled();
+    expect((await calls()).map((c) => c.method)).toEqual(["todo.setBlockers"]);
+    expect(await ids()).toEqual(order);
+  }, 60_000);
+
   it("u3710_escape_and_a_release_outside_call_nothing", async () => {
     await setup();
 

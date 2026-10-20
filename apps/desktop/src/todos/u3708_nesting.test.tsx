@@ -38,8 +38,12 @@ describe("u3708 the Todos list is a tree drawn from blockers", () => {
 
   it("u3708_the_list_is_a_tree_of_treeitems_with_levels", async () => {
     await mountTodos([todo(1), todo(2, { blocked: true, blockers: [1] })]);
-    await screen.findByRole("tree");
+    await screen.findAllByRole("treeitem");
+    const tree = document.querySelector<HTMLElement>(".todo-list");
     const items = [...document.querySelectorAll<HTMLElement>("[data-level]")];
+
+    expect(tree?.getAttribute("role")).toBe("tree");
+    expect(items.every((item) => item.closest(".todo-list") === tree)).toBe(true);
 
     expect(items.map((item) => item.getAttribute("role"))).toEqual(["treeitem", "treeitem"]);
     expect(items.map((item) => item.getAttribute("aria-level"))).toEqual(["1", "2"]);
@@ -113,14 +117,16 @@ describe("u3711 a move that would make a cycle is refused and says why", () => {
   });
 
   it("u3711_the_webview_never_checks_for_a_cycle", async () => {
-    const { app } = await mountTodos([todo(1), todo(2, { blocked: true, blockers: [1] })]);
+    const { app } = await mountTodos([todo(1, { blocked: true, blockers: [2] }), todo(2, { blocked: true, blockers: [1] })]);
 
-    app.handlers["todo.setBlockers"] = () => { throw new RpcError(-32003, "cycle"); };
+    app.handlers["todo.setBlockers"] = () => { throw new RpcError(-32003, "todo 2 would wait on itself through todo 1"); };
 
-    await screen.findByRole("tree");
-    buttonOf(1).focus();
-    fireEvent.keyDown(buttonOf(1), { key: "Tab" });
-    expect(callsTo(app, "todo.setBlockers")).toEqual([]);
+    await screen.findAllByRole("treeitem");
+    buttonOf(2).focus();
+    fireEvent.keyDown(buttonOf(2), { key: "Tab" });
+
+    await waitFor(() => expect(within(rowOf(2)).getByRole("alert").textContent).toMatch(/would wait on itself/));
+    expect(callsTo(app, "todo.setBlockers")).toHaveLength(1);
   });
 });
 

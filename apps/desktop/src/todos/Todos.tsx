@@ -473,7 +473,7 @@ export const Todos = () => {
         const placeOf = (id: number) => tree().find((row) => row.todo.id === id) ?? { level: 1, parent: null };
 
         return <>
-        <Sortable.Root class="todo-list shelf-list" plain ids={tree().map((row) => String(row.todo.id))} external={sorted.external} tree={{
+        <Sortable.Root class="todo-list shelf-list" role="tree" plain ids={tree().map((row) => String(row.todo.id))} external={sorted.external} tree={{
           rows: tree().map((row) => ({ id: String(row.todo.id), parent: row.parent === null ? null : String(row.parent) })),
           get indent() { return parseFloat(getComputedStyle(document.documentElement).getPropertyValue("--space-5")) || 24; },
           nests: () => true,
