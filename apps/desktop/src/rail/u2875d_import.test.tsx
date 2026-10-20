@@ -82,6 +82,7 @@ describe("u2875d the import panel is an ordinary Rail action", () => {
     fireEvent.click(screen.getByRole("button", { name: "Import Claude Code work" }));
     fireEvent.click(await screen.findByText("First"));
     fireEvent.click(await screen.findByRole("button", { name: "Import 1" }));
+
     const reopen = async () => {
       fireEvent.click(screen.getByLabelText("Close api"));
       await waitFor(() => expect(screen.queryByRole("tab", { name: /^api/ })).toBeNull());
@@ -100,6 +101,11 @@ describe("u2875d the import panel is an ordinary Rail action", () => {
     await reopen();
     expect(await screen.findByRole("button", { name: "Import 1" })).toBeTruthy();
     expect(daemon.calls.filter((call) => call.method === "project.importCommit")).toHaveLength(1);
+    cleanup();
+
+    const restored = createImport(daemon, path("api"), () => undefined);
+
+    expect([...restored.selected().keys()]).toEqual(["s2"]);
   });
 
   it("u2875d_acknowledgement_does_not_consume_a_reselected_revision", async () => {
@@ -156,8 +162,11 @@ describe("u2875d the import panel is an ordinary Rail action", () => {
   it("u2875d_restore_failure_preserves_saved_choices_until_storage_recovers", async () => {
     const key = "roundup:import:/p";
     const record = JSON.stringify({ open: true, period: "month", selected: [{ source: "s1", revision: "r1", title: "First" }] });
+
     localStorage.setItem(key, record);
+
     const read = Storage.prototype.getItem;
+
     const reads = vi.spyOn(Storage.prototype, "getItem").mockImplementation(function (this: Storage, name: string) {
       if (name === key) throw new Error("unreadable");
 
