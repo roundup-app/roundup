@@ -166,6 +166,7 @@ it("nr9_cli_mcp_and_app_share_authority", async () => {
     })()`);
     await activate('.reaction-form .reaction-actions button', true);
     await wait("document.querySelector('.reaction-form').textContent.includes('Creation refused for observation')");
+    await evaluate("document.querySelector('.reaction-form [role=alert]').scrollIntoView({ block: 'center' })");
     await capture("failed-create");
     expect(await evaluate("document.querySelector('.reaction-form textarea').value")).toBe(" exact newer\n words 🧭 ");
     await activate('.reaction-form .reaction-actions button', true);
