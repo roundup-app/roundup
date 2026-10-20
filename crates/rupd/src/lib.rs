@@ -13,6 +13,7 @@ mod event_log;
 mod handshake;
 mod link;
 mod output;
+mod owner_told;
 mod reaction;
 mod reaction_time;
 mod removal;
@@ -75,6 +76,7 @@ pub struct Daemon {
     pushes: std::sync::Mutex<Option<tokio::sync::broadcast::Receiver<contracts::Event>>>,
     /// B2704a: retain committed names even when the live event ring lags.
     renames: std::sync::Mutex<Option<rpc::Subscription>>,
+    owner_events: std::sync::Mutex<Option<rpc::Subscription>>,
     /// B41: subscribed at `open`, taken once with `pushes`.
     wake_events: std::sync::Mutex<Option<tokio::sync::broadcast::Receiver<contracts::Event>>>,
     /// B41: serialises the decisions on Wake requests.
@@ -442,6 +444,7 @@ impl Daemon {
             notes: std::sync::Mutex::new(Some(bus.subscribe())),
             wake_events: std::sync::Mutex::new(Some(bus.subscribe())),
             renames: std::sync::Mutex::new(Some(bus.subscribe_after(None)?)),
+            owner_events: std::sync::Mutex::new(Some(bus.subscribe_after(None)?)),
             wake_gate: Default::default(),
             clears: clear::Clears::new(Arc::clone(&agents)),
             checkpoints: Arc::clone(&checkpoints),
@@ -449,7 +452,11 @@ impl Daemon {
             pushes: std::sync::Mutex::new(Some(bus.subscribe())),
             resources: Default::default(),
             publications: deliverables::Publications::open(dir)?,
-            reactions: Arc::new(reaction::Reactions::open(dir)?),
+            reactions: {
+                let reactions = reaction::Reactions::open(dir)?;
+                reactions.listen(bus.subscribe());
+                Arc::new(reactions)
+            },
             prompt_effect_gate: std::env::var_os("RUPD_PROMPT_EFFECT_GATE").map(Into::into),
             waits: std::sync::Mutex::new(Some((
                 bus.subscribe(),
@@ -564,6 +571,14 @@ impl Daemon {
         {
             tokio::spawn(wake::tell_renames(self.reader(), renames));
         }
+        if let Some(owner_events) = self
+            .owner_events
+            .lock()
+            .unwrap_or_else(|p| p.into_inner())
+            .take()
+        {
+            tokio::spawn(owner_told::tell_owners(self.reader(), owner_events));
+        }
         let wake_events = self
             .wake_events
             .lock()
@@ -587,6 +602,9 @@ impl Daemon {
                 .run(),
             );
         }
+        if let (Some(events), Some(evaluator)) = (self.reactions.take_events(), self.evaluator()) {
+            tokio::spawn(evaluator.run(events));
+        }
         if let (Some(events), Some(sender)) = (events, self.sender.get()) {
             tokio::spawn(digest::push_changes(
                 self.reader(),
@@ -595,6 +613,15 @@ impl Daemon {
                 events,
             ));
         }
+    }
+
+    fn evaluator(&self) -> Option<reaction::Evaluator> {
+        Some(reaction::Evaluator {
+            reactions: Arc::clone(&self.reactions),
+            reader: self.reader(),
+            messages: Arc::clone(self.sender.get()?),
+            bus: self.bus.clone(),
+        })
     }
 
     fn waker(&self) -> Option<wake::Waker> {
