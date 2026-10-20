@@ -901,3 +901,10 @@
   gap: var(--space-3);
   margin-block: var(--space-3);
 }
+
+/* U2875d: the import opener is a Rail row, inset like the tree's rows, at the button's own Token height. */
+.rail > button.rail-import[data-button] {
+  justify-content: flex-start;
+  margin-inline: var(--space-6) var(--space-4);
+  padding-left: var(--space-3);
+}
