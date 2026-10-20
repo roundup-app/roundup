@@ -67,6 +67,7 @@
 .import-list .app-checkbox {
   display: grid;
   grid-column: 1 / -1;
+  grid-template-columns: subgrid;
   align-items: center;
   min-height: var(--space-6);
   padding-block: var(--space-2);
