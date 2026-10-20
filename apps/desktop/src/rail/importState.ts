@@ -26,12 +26,13 @@ export const createImport = (app: AppSeam, path: string, onOpened: (workstream: 
   const [stale, setStale] = createSignal<string[]>([]);
   const [loading, setLoading] = createSignal(false);
   const [pending, setPending] = createSignal(false);
+  const [retentionFailure, setRetentionFailure] = createSignal<string | null>(null);
   const [failure, setFailure] = createSignal<string | null>(null);
   const [failed, setFailed] = createSignal<ReadonlyMap<string, string>>(new Map());
   let latest = 0;
 
   const persist = () => {
-    store.write({ open: open(), period: period(), selected: [...selected()].map(([source, entry]) => ({ source, ...entry })) });
+    setRetentionFailure(store.write({ open: open(), period: period(), selected: [...selected()].map(([source, entry]) => ({ source, ...entry })) }));
   };
 
   const refresh = async () => {
@@ -69,7 +70,8 @@ export const createImport = (app: AppSeam, path: string, onOpened: (workstream: 
   };
 
   return {
-    open, period, selected, discovery, verified, stale, loading, pending, failure, failed,
+    open, period, selected, discovery, verified, stale, loading, pending, failure, failed, retentionFailure,
+    retryStorage: persist,
     show: () => { setOpen(true); persist(); void refresh(); },
     cancel: () => { latest++; batch(() => { setOpen(false); setSelected(new Map()); setDiscovery(null); setVerified(false); setStale([]); setFailed(new Map()); setFailure(null); setLoading(false); }); persist(); },
     refresh,
@@ -86,7 +88,8 @@ export const createImport = (app: AppSeam, path: string, onOpened: (workstream: 
       if (pending() || !verified() || selected().size === 0) return;
       setPending(true);
       setFailure(null);
-      const selections: ImportSelection[] = [...selected()].map(([source, entry]) => ({ source, revision: entry.revision }));
+      const submitted = new Map(selected());
+      const selections: ImportSelection[] = [...submitted].map(([source, entry]) => ({ source, revision: entry.revision }));
 
       try {
         const { outcomes } = await app.rpc("project.importCommit", { selections });
@@ -99,7 +102,11 @@ export const createImport = (app: AppSeam, path: string, onOpened: (workstream: 
         }
 
         batch(() => {
-          const rest = new Map([...selected()].filter(([source]) => refused.has(source)));
+          const rest = new Map(selected());
+
+          for (const outcome of outcomes) {
+            if (outcome.error === null && outcome.workstream !== null && rest.get(outcome.source) === submitted.get(outcome.source)) rest.delete(outcome.source);
+          }
 
           setSelected(rest);
           setFailed(refused);
