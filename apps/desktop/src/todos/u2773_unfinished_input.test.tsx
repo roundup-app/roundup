@@ -1,7 +1,9 @@
-import { cleanup, fireEvent, screen, waitFor, within } from "@solidjs/testing-library";
+import { cleanup, fireEvent, render, screen, waitFor, within } from "@solidjs/testing-library";
 import { afterEach, expect, it, vi } from "vitest";
 import { workstream } from "../testing/nodes";
 import { RpcError } from "../app/seam";
+import { Todos } from "./Todos";
+import { ConnectedProjectContext } from "../state/connectedProject";
 import { TodoDrawer } from "./TodoDrawer";
 import { mountTodos, todo } from "./testHarness";
 
@@ -220,7 +222,7 @@ it("u2773e_todos_blocker_recovery_copies_complete_form", async () => {
   await screen.findByText("conflict");
   fireEvent.click(screen.getByRole("button", { name: "Copy Todo" }));
   expect(JSON.parse(writeText.mock.calls[0]![0])).toEqual({ title: "todo 1", body: "", done: false, blockers: ["2"], baseBlockers: [], expected_change: 1,
-    originalTitle: "todo 1", originalBody: "", originalDone: false, originalBlockers: [], originalChange: 1, action: "add", blocker: 2 });
+    home: null, originalTitle: "todo 1", originalBody: "", originalDone: false, originalBlockers: [], originalChange: 1, action: "add", blocker: 2 });
 });
 
 it("u2773a_todos_blocker_choice_survives_a_failed_incoming_history_read", async () => {
@@ -327,19 +329,24 @@ it("u2773b_todos_failed_title_reopens_without_duplicating_revision", async () =>
 });
 
 
-it.each(["title", "body"] as const)("u3021c_open_restores_exact_revision_without_rpc_todo_%s", async name => {
+it.each([
+  ["title", "failed"], ["title", "unknown"], ["body", "failed"], ["body", "unknown"],
+] as const)("u3021c_open_restores_exact_revision_without_rpc_todo_%s_%s", async (name, outcome) => {
   const { app, connected, todos } = await mountTodos([todo(1, { title: "original", body: "base" })]);
   const destination = { surface: "todos", object: "1", recipient: name };
   const text = name === "body" ? "  e\u0301 🧪\n次の行  " : "  title e\u0301 🧪  ";
+
   const form = { text, base: name === "title" ? "original" : "base", expected_change: 1,
     title: "original", body: "base", done: false, blockers: [] };
+
   const selection = { start: 2, end: 5, direction: "backward" as const };
   const a = connected.drafts.edit(destination, form, selection, "ordinary").draft;
   connected.drafts.submit(a.revision);
-  connected.drafts.settle(a.revision, "failed");
+  connected.drafts.settle(a.revision, outcome);
   const b = connected.drafts.edit(destination, { ...form, text: "newer B" }, selection, "ordinary").draft;
   const before = connected.drafts.list();
   const calls = [...app.calls];
+
   const open = (revision: string) => connected.drawer.open(() => <TodoDrawer id={1} todos={todos}
     recovery={{ project: connected.project.path, revision }} />, "key");
 
@@ -355,4 +362,130 @@ it.each(["title", "body"] as const)("u3021c_open_restores_exact_revision_without
   expect(await screen.findByRole("textbox", { name: name === "title" ? "Title" : "Body" })).toHaveProperty("value", "newer B");
   expect(connected.drafts.list()).toEqual(before);
   expect(app.calls).toEqual(calls);
+});
+
+
+it.each(["failed", "unknown"] as const)("u3021c_open_restores_exact_revision_without_rpc_todo_creation_%s", async outcome => {
+  const { app, connected, todos } = await mountTodos([], true, [workstream("a"), workstream("b")]);
+  const destination = { surface: "todos", object: "new", recipient: "a" };
+  const selection = { start: 2, end: 5, direction: "backward" as const };
+  const a = connected.drafts.edit(destination, { title: "  e\u0301 🧪 title  ", home: "a" }, selection, "ordinary").draft;
+  connected.drafts.submit(a.revision); connected.drafts.settle(a.revision, outcome);
+  connected.drafts.edit(destination, { title: "newer B", home: "a" }, selection, "ordinary");
+  await waitFor(() => expect(todos.isLoaded()).toBe(true));
+  connected.rail.select("b");
+  const before = connected.drafts.list();
+  const calls = [...app.calls];
+
+  const opened = render(() => <ConnectedProjectContext.Provider value={connected}>
+    <Todos recovery={{ project: connected.project.path, revision: a.revision, list: todos }} />
+  </ConnectedProjectContext.Provider>);
+
+  const field = screen.getByRole<HTMLInputElement>("textbox", { name: "New Todo title" });
+  await waitFor(() => expect(document.activeElement).toBe(field));
+  expect([field.value, field.selectionStart, field.selectionEnd, field.selectionDirection]).toEqual(["  e\u0301 🧪 title  ", 2, 5, "backward"]);
+  fireEvent.blur(field); fireEvent.keyDown(field, { key: "Escape" });
+  expect(connected.drafts.list()).toEqual(before);
+  expect(app.calls).toEqual(calls);
+  opened.unmount();
+});
+
+
+it.each(["failed", "unknown"] as const)("u3021c_open_restores_exact_revision_without_rpc_todo_blockers_%s", async outcome => {
+  const { app, connected, todos } = await mountTodos([todo(1), todo(2)]);
+  const destination = { surface: "todos", object: "1", recipient: "blockers:original" };
+
+  const form = { title: "  captured 🧪  ", body: "  e\u0301\n次の行  ", done: false, blockers: ["2"], baseBlockers: [], expected_change: 1,
+    originalTitle: "todo 1", originalBody: "", originalDone: false, originalBlockers: [], originalChange: 1, action: "add", blocker: 2 };
+
+  const a = connected.drafts.edit(destination, form, null, "ordinary").draft;
+  connected.drafts.submit(a.revision); connected.drafts.settle(a.revision, outcome);
+  connected.drafts.edit(destination, { ...form, blockers: [] }, null, "ordinary");
+  const before = connected.drafts.list();
+  const calls = [...app.calls];
+  connected.drawer.open(() => <TodoDrawer id={1} todos={todos} recovery={{ project: connected.project.path, revision: a.revision }} />, "key");
+  const drawer = within(await screen.findByRole("complementary", { name: "Drawer" }));
+  expect((await drawer.findByText("captured 🧪")).textContent).toBe("  captured 🧪  ");
+  expect(drawer.getByText("e\u0301 次の行").textContent).toBe("  e\u0301\n次の行  ");
+  expect(drawer.getByRole("button", { name: "Remove blocker #2" })).toBeTruthy();
+  expect(connected.drafts.list()).toEqual(before);
+  expect(app.calls).toEqual(calls);
+  fireEvent.click(drawer.getByRole("button", { name: "Save" }));
+  await waitFor(() => expect(connected.drafts.list().some(draft => draft.revision === a.revision)).toBe(outcome === "unknown"));
+  expect(app.calls.slice(calls.length)).toEqual(outcome === "unknown" ? [] : [{ method: "todo.setBlockers", params: { id: 1, blockers: [2], expected_change: 1 } }]);
+  expect(connected.drafts.list().at(-1)?.value.blockers).toEqual([]);
+});
+
+
+it.each(["failed", "unknown", "acknowledged"] as const)("u3021c_todo_selected_save_uses_captured_change_%s", async outcome => {
+  const { app, connected, todos } = await mountTodos([todo(1, { body: "changed elsewhere" })]);
+  const destination = { surface: "todos", object: "1", recipient: "body" };
+  const form = { text: "  A 🧪\n次の行  ", base: "old base", expected_change: 7, title: "todo 1", body: "old base", done: false, blockers: [] };
+  const a = connected.drafts.edit(destination, form, null, "ordinary").draft;
+  connected.drafts.submit(a.revision); connected.drafts.settle(a.revision, outcome === "acknowledged" ? "failed" : outcome);
+  const b = connected.drafts.edit(destination, { ...form, text: "newer B" }, null, "ordinary").draft;
+  app.handlers["todo.update"] = () => outcome === "acknowledged" ? todo(1, { body: form.text }) : Promise.reject(new RpcError(-32003, "captured conflict"));
+  connected.drawer.open(() => <TodoDrawer id={1} todos={todos} recovery={{ project: connected.project.path, revision: a.revision }} />, "key");
+  await screen.findByRole("textbox", { name: "Body" });
+  const calls = [...app.calls];
+  fireEvent.click(screen.getByRole("button", { name: "Save" }));
+
+  if (outcome === "failed") await screen.findByText("captured conflict");
+  expect(app.calls.slice(calls.length)).toEqual(outcome === "unknown" ? [] : [{ method: "todo.update", params: { id: 1, title: null, body: form.text, expected_change: 7 } }]);
+
+  if (outcome === "acknowledged") await waitFor(() => expect(connected.drafts.list()).toEqual([b]));
+  else expect(connected.drafts.list()).toEqual([{ ...a, status: outcome }, b]);
+});
+
+it.each(["failed", "unknown"] as const)("u3021c_todo_selected_creation_save_keeps_captured_home_%s", async outcome => {
+  const { app, connected, todos } = await mountTodos([], true, [workstream("a"), workstream("b")]);
+  await waitFor(() => expect(todos.isLoaded()).toBe(true));
+  const destination = { surface: "todos", object: "new", recipient: "a" };
+  const a = connected.drafts.edit(destination, { title: "  authored 🧪  ", home: "a" }, null, "ordinary").draft;
+  connected.drafts.submit(a.revision); connected.drafts.settle(a.revision, outcome);
+  const b = connected.drafts.edit(destination, { title: "newer B", home: "a" }, null, "ordinary").draft;
+  connected.rail.select("b");
+  const calls = [...app.calls];
+  render(() => <ConnectedProjectContext.Provider value={connected}><Todos recovery={{ project: connected.project.path, revision: a.revision, list: todos }} /></ConnectedProjectContext.Provider>);
+  const field = screen.getByRole("textbox", { name: "New Todo title" });
+  fireEvent.keyDown(field, { key: "Enter", code: "Enter" });
+
+  if (outcome === "failed") await waitFor(() => expect(app.calls.some(call => call.method === "todo.move")).toBe(true));
+
+  if (outcome === "unknown") expect(field).toHaveProperty("value", "  authored 🧪  ");
+  expect(app.calls.slice(calls.length)).toEqual(outcome === "unknown" ? [] : [
+    { method: "todo.create", params: { title: "authored 🧪", body: null, blockers: null } },
+    { method: "todo.move", params: { id: 1, home: "a" } },
+  ]);
+  expect(connected.drafts.list()).toEqual(outcome === "unknown" ? [{ ...a, status: outcome }, b] : [b]);
+});
+
+it.each(["project", "facts-project", "object", "home", "removed"] as const)("u3021c_todo_selected_revision_refuses_wrong_%s", async mismatch => {
+  const { app, connected, todos } = await mountTodos(mismatch === "removed" ? [todo(2)] : [todo(1), todo(2)]);
+
+  const a = connected.drafts.edit({ surface: "todos", object: mismatch === "object" ? "2" : "1", recipient: "body" },
+    { text: "never retarget", base: "", home: mismatch === "home" ? "gone-home" : null, expected_change: 1, title: "todo 1", body: "", done: false, blockers: [] }, null, "ordinary").draft;
+
+  const calls = [...app.calls];
+  connected.drawer.open(() => <TodoDrawer id={1} todos={mismatch === "facts-project" ? { ...todos, project: "/other-project" } : todos}
+    recovery={{ project: mismatch === "project" ? "/other-project" : connected.project.path, revision: a.revision }} />, "key");
+  await waitFor(() => expect(screen.getByRole("complementary", { name: "Drawer" }).getAttribute("data-settling")).toBe("false"));
+  expect(screen.queryByRole("textbox")).toBeNull();
+  expect(screen.queryByRole("button", { name: "Save" })).toBeNull();
+  expect(app.calls).toEqual(calls);
+  expect(connected.drafts.list()).toEqual([a]);
+});
+
+it.each(["project", "facts-project", "object", "home", "removed"] as const)("u3021c_todo_creation_refuses_wrong_%s", async mismatch => {
+  const { app, connected, todos } = await mountTodos([], true, [workstream("a"), workstream("b")]);
+  await waitFor(() => expect(todos.isLoaded()).toBe(true));
+
+  const a = connected.drafts.edit({ surface: "todos", object: mismatch === "object" ? "1" : "new", recipient: mismatch === "removed" ? "gone-home" : "a" },
+    { title: "never retarget", home: mismatch === "home" ? "b" : mismatch === "removed" ? "gone-home" : "a" }, null, "ordinary").draft;
+
+  const calls = [...app.calls];
+  render(() => <ConnectedProjectContext.Provider value={connected}><Todos recovery={{ project: mismatch === "project" ? "/other-project" : connected.project.path, revision: a.revision, list: mismatch === "facts-project" ? { ...todos, project: "/other-project" } : todos }} /></ConnectedProjectContext.Provider>);
+  expect(screen.queryByRole("textbox")).toBeNull();
+  expect(app.calls).toEqual(calls);
+  expect(connected.drafts.list()).toEqual([a]);
 });

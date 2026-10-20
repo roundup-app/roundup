@@ -45,7 +45,12 @@ export const mountTodos = async (initial: Todo[], reducedMotion = true, rail: Ra
 
 
   let todos!: TodosState;
-  const Shelf = () => { todos = useTodoList(); return <Todos />; };
+
+  const Shelf = () => {
+    todos = useTodoList();
+
+    return <Todos />;
+  };
 
   const { unmount } = render(() => (
     <ConnectedProjectContext.Provider value={connected}>
