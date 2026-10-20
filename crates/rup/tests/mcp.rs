@@ -423,6 +423,11 @@ fn quoted_after(file: &str, marker: &str) -> Vec<String> {
 fn seam_commands() -> Vec<String> {
     let table = quoted_after("apps/desktop/src/app/seam.ts", "SEAM_COMMANDS = [");
     let mut registered = quoted_after("crates/desktop/src/lib.rs", "generate_handler![");
+    for command in &mut registered {
+        if let Some((_, name)) = command.rsplit_once("::") {
+            *command = name.to_owned();
+        }
+    }
     registered.extend(
         quoted_after("crates/desktop/src/window.rs", "generate_handler![")
             .into_iter()
