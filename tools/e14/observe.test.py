@@ -96,6 +96,22 @@ class E14(unittest.TestCase):
             with self.assertRaisesRegex(ValueError, "execution intervals"):
                 observer.rust_rows(report)
 
+    def test_l122_a_test_that_passed_on_retry_is_listed_flaky_and_keeps_its_last_interval(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            directory = Path(temporary)
+            report = directory / "junit.xml"
+            report.write_text('<testsuites tests="2"><testsuite>'
+                '<testcase classname="rup::e2e" name="steady" timestamp="2026-10-18T00:00:00.000+00:00" time="0.001"/>'
+                '<testcase classname="rup::e2e" name="racy" timestamp="2026-10-18T00:00:00.000+00:00" time="0.001">'
+                '<flakyFailure message="x"/></testcase></testsuite></testsuites>')
+            events = directory / "rust-events"
+            events.mkdir()
+            for name, start, code in (("steady", 1, 0), ("racy", 1, 1), ("racy", 2, 0)):
+                (events / f"{name}{start}.json").write_text(json.dumps(dict(
+                    id=f"rup::e2e::{name}", start=start, end=start + 0.5, exit_code=code)))
+            self.assertEqual([r["start"] for r in observer.rust_rows(report)], [1, 2])
+            self.assertEqual(observer.flaky_rust(report), ["rup::e2e::racy"])
+
     def test_e14_nextest_report_keeps_b21_lifecycle(self):
         with tempfile.TemporaryDirectory() as temporary:
             directory = Path(temporary)
@@ -124,7 +140,7 @@ class E14(unittest.TestCase):
             self.assertEqual(failed.returncode, 100, failed.stdout + failed.stderr)
             execution = json.loads(next((directory / "rust-events").iterdir()).read_text())
             self.assertNotEqual(execution["exit_code"], 0)
-            with self.assertRaisesRegex(ValueError, "failed or retried Rust test"):
+            with self.assertRaisesRegex(ValueError, "failed Rust test"):
                 observer.rust_rows(report)
 
     def test_e14_memory_collector_finishes_only_after_stop(self):
