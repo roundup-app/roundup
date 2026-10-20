@@ -860,7 +860,7 @@ export const Bubbles = (props: { screens: Screens }) => {
       <Panel.Root open={!place().min} onPointerDownOutside={dismissed}>
         <Portal>
           <Panel.Content ref={(element: HTMLElement) => (panel = element)} class="bubble-frame" role="presentation" popover="manual"
-            style={{ left: `${origin().left}px`, top: `${origin().top}px`, "--bubble-pane-left": `${origin().left}px`, "--bubble-pane-top": `${origin().top}px`, "--bubble-pane-width": `${origin().width}px`, "--bubble-pane-height": `${origin().height}px` }}>
+            style={{ left: `${origin().left}px`, top: `${origin().top}px` }}>
             <section class="bubble" data-bubble={id} role="group" aria-label={nameFor(terminal()!)} hidden={place().min}
               style={{ left: `${place().x}px`, top: `${place().y}px`, width: `${place().w}px`, height: `${place().h}px` }}>
               <header class="bubble-header" tabindex="0" ref={header} onPointerDown={(event) => {
