@@ -46,6 +46,8 @@ it("nr9_cli_mcp_and_app_share_authority", async () => {
     await mkdir(dir, { recursive: true });
     await writeFile(join(dir, `${step}.checks.json`), JSON.stringify(await evaluate("window.__checks()")));
 
+    if (step === "failed-create") await evaluate("document.querySelector('.reaction-form > [role=alert]').scrollIntoView({ block: 'center' })");
+
     if (screenshot) await browser("screenshot", join(dir, `${step}.png`));
   };
 
@@ -166,7 +168,6 @@ it("nr9_cli_mcp_and_app_share_authority", async () => {
     })()`);
     await activate('.reaction-form .reaction-actions button', true);
     await wait("document.querySelector('.reaction-form').textContent.includes('Creation refused for observation')");
-    await evaluate("document.querySelector('.reaction-form [role=alert]').scrollIntoView({ block: 'center' })");
     await capture("failed-create");
     expect(await evaluate("document.querySelector('.reaction-form textarea').value")).toBe(" exact newer\n words 🧭 ");
     await activate('.reaction-form .reaction-actions button', true);
