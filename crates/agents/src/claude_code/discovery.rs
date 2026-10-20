@@ -87,10 +87,37 @@ impl Launcher {
     ) -> Result<ImportDiscovery, RpcError> {
         let generation = self.discovery.0.fetch_add(1, Ordering::SeqCst) + 1;
         let deadline = Instant::now() + Duration::from_secs(18);
+        #[cfg(any(test, feature = "test-support"))]
+        if let Some(observer) = &self.import_observer {
+            observer(project, "request");
+        }
+        // Wait without occupying a blocking worker. An abandoned reader keeps the
+        // owned permit until its next record boundary, even if its caller goes away.
+        let reader =
+            tokio::time::timeout_at(deadline.into(), self.discovery.1.clone().lock_owned())
+                .await
+                .map_err(|_| {
+                    RpcError::not_accepted("discovery took too long; Refresh to try again")
+                })?;
+        if self.discovery.0.load(Ordering::SeqCst) != generation {
+            return Err(RpcError::conflict(
+                "discovery superseded; Refresh to try again",
+            ));
+        }
         let launcher = self.clone();
         let project = project.to_path_buf();
         tokio::task::spawn_blocking(move || {
-            launcher.discover(&project, (now_ms, period_ms), generation, deadline)
+            let _reader = reader;
+            #[cfg(any(test, feature = "test-support"))]
+            if let Some(observer) = &launcher.import_observer {
+                observer(&project, "worker");
+            }
+            let found = launcher.discover(&project, (now_ms, period_ms), generation, deadline);
+            #[cfg(any(test, feature = "test-support"))]
+            if let Some(observer) = &launcher.import_observer {
+                observer(&project, "finished");
+            }
+            found
         })
         .await
         .map_err(RpcError::internal)?
@@ -104,11 +131,6 @@ impl Launcher {
         deadline: Instant,
     ) -> Result<ImportDiscovery, RpcError> {
         let (now_ms, period_ms) = window;
-        #[cfg(any(test, feature = "test-support"))]
-        if let Some(observer) = &self.import_observer {
-            observer(project, "request");
-        }
-        let _reader = self.discovery.1.lock().expect("discovery lock poisoned");
         let check = || {
             if self.discovery.0.load(Ordering::SeqCst) != generation {
                 Err(RpcError::conflict(
