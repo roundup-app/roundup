@@ -572,6 +572,42 @@ def keep(branch, issue, run_url):
         call('api', '-X', 'DELETE', '/installation/token')
 
 
+ATTACH_PER_COMMAND = 50
+IMAGES = ('.png', '.jpg')
+
+
+def attach(branch):
+    """L23: attach the rendered captures under `artifacts/ux/` to the open PR from `branch`, 50 to a `gh pr edit --attach`.
+    The upload needs a user token, which only this call holds: `PR_ATTACH_TOKEN` is set on the step that runs it, after
+    the model ends. Captures are evidence for people, so a failure here exits 1 and changes no PR."""
+    # The run works in its own worktree on `branch`; the checkout the step starts in may not be it.
+    listing = subprocess.run(['git', 'worktree', 'list', '--porcelain'], check=True, text=True, capture_output=True,
+                             timeout=60).stdout
+    trees = {block.split('\nbranch refs/heads/')[1].split('\n')[0]: block.split('\n')[0].removeprefix('worktree ')
+             for block in listing.split('\n\n') if '\nbranch refs/heads/' in block}
+    base = Path(trees.get(branch, '.'))
+    files = sorted(path for pattern in ('*.png', '*.jpg', '*.webm', '*.mp4', '*.mov')
+                   for path in (base / 'artifacts/ux').glob(f'**/{pattern}')
+                   if 'base' not in path.parts and 'head' not in path.parts)
+    if not files:
+        print('no captures to attach')
+        return
+    token = os.environ.get('PR_ATTACH_TOKEN', '')
+    if not token:
+        print('::error::PR_ATTACH_TOKEN is not set; captures not attached')
+        sys.exit(1)
+    prs = orders.gh('pr', 'list', '--head', branch, '--state', 'open', '--json', 'number')
+    if not prs:
+        print(f'::error::captures not attached: {branch} has no open PR')
+        sys.exit(1)
+    number = str(prs[0]['number'])
+    for start in range(0, len(files), ATTACH_PER_COMMAND):
+        # gh rejects alt text on a video.
+        flags = [flag for path in files[start:start + ATTACH_PER_COMMAND]
+                 for flag in ('--attach', f'{path}#{path.parent.name}/{path.stem}' if path.suffix in IMAGES else str(path))]
+        subprocess.run(['gh', 'pr', 'edit', number, *flags], check=True, timeout=300, env={**os.environ, 'GH_TOKEN': token})
+
+
 def busy():
     """Issues whose `build #<issue> / build` job (`build #<issue>` before build-issue.yml) has not completed in any
     unfinished build.yml run; its `after` job holds no slot."""
@@ -1229,6 +1265,8 @@ def main(args):
                           flags=('--max-turns', str(turns), '--allowedTools', READ_ONLY_TOOLS))
         case ['pick']:
             pick(slot_count())
+        case ['attach', branch]:
+            attach(branch)
         case ['keep', branch, *issue] if len(issue) < 2 and all(number.isdigit() for number in issue):
             keep(branch, int(issue[0]) if issue else None, run_url)
         case ['screen', branch]:
@@ -1258,7 +1296,7 @@ def main(args):
         case ['critic-post', pr, head, critic, ran] if pr.isdigit() and ran in ('true', 'false'):
             return 0 if critic_post(int(pr), head, critic, sys.stdin.read(), ran == 'true', run_url) else 1
         case _:
-            print('usage: builder.py prompt [<role>] | worked <file> | engine [<schema>] | engine-read-only <schema> | claude-read-only <review|critic> <schema> | keep <branch> [<issue>] | resolve-generated | restore-merge-loss | pick | screen <branch> | '
+            print('usage: builder.py prompt [<role>] | worked <file> | engine [<schema>] | engine-read-only <schema> | claude-read-only <review|critic> <schema> | keep <branch> [<issue>] | attach <branch> | resolve-generated | restore-merge-loss | pick | screen <branch> | '
                   'built <issue> <slug> <ran> '
                   '<verdict> | fix-task <pr> <head> <cause> | fixed <pr> <cause> <ran> <verdict> <plumbing> | review-task <pr> <head> | '
                   'review-post <pr> <head> <reviewer> <ran> | critic-task <pr> <head> | critic-post <pr> <head> <critic> <ran>',
