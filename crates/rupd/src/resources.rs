@@ -179,10 +179,20 @@ struct State {
     agents: HashSet<String>,
 }
 
-#[derive(Default)]
 pub(crate) struct Sampler {
     state: tokio::sync::Mutex<State>,
     disks: Arc<Mutex<HashMap<PathBuf, Disk>>>,
+    walk: Arc<dyn Fn(&Path) -> Option<u64> + Send + Sync>,
+}
+
+impl Default for Sampler {
+    fn default() -> Self {
+        Self {
+            state: Default::default(),
+            disks: Default::default(),
+            walk: Arc::new(dir_size),
+        }
+    }
 }
 
 impl Sampler {
@@ -253,9 +263,13 @@ impl Sampler {
             let stale = disk.walked.is_none_or(|at| at.elapsed() >= DISK_TTL);
             if stale && !disk.walking {
                 disk.walking = true;
-                let (disks, path) = (Arc::clone(&self.disks), (*path).clone());
+                let (disks, path, walk) = (
+                    Arc::clone(&self.disks),
+                    (*path).clone(),
+                    Arc::clone(&self.walk),
+                );
                 std::thread::spawn(move || {
-                    let bytes = dir_size(&path);
+                    let bytes = walk(&path);
                     let mut disks = disks.lock().unwrap_or_else(|p| p.into_inner());
                     let disk = disks.entry(path).or_default();
                     disk.bytes = bytes;
@@ -428,33 +442,55 @@ mod tests {
     #[tokio::test]
     async fn d8_a_disk_size_is_cached_for_30_s_and_the_walk_never_holds_the_call_past_1_s() {
         let dir = tempfile::tempdir().unwrap();
-        let sampler = Sampler::default();
+        let mut sampler = Sampler::default();
         let cached = dir.path().join("cached");
         let unknown = dir.path().join("unknown");
         std::fs::create_dir(&cached).unwrap();
         std::fs::create_dir(&unknown).unwrap();
-        // Seed the production state of two walks still in flight. No directory's size or
-        // host filesystem speed can guarantee that precondition by creating many files.
-        for (path, bytes) in [(&cached, Some(7)), (&unknown, None)] {
-            sampler.disks.lock().unwrap().insert(
-                path.clone(),
-                Disk {
-                    bytes,
-                    walked: None,
-                    walking: true,
-                },
-            );
-        }
+        std::fs::write(cached.join("before"), [0; 7]).unwrap();
+        assert_eq!(sampler.sizes(&[&cached]).await[&cached], Some(7));
+        std::fs::write(cached.join("after"), [0; 2]).unwrap();
+        sampler
+            .disks
+            .lock()
+            .unwrap()
+            .get_mut(&cached)
+            .unwrap()
+            .walked = Some(Instant::now() - Duration::from_secs(30));
+
+        // Block the actual walk, not the sampler state. Moving it onto the caller must fail
+        // this bound too. The finite hold prevents that mutant from stranding the test thread.
+        let release = Arc::new((Mutex::new(false), std::sync::Condvar::new()));
+        let held = Arc::clone(&release);
+        let (entered, arrivals) = std::sync::mpsc::channel();
+        sampler.walk = Arc::new(move |path| {
+            entered.send(()).unwrap();
+            let (lock, ready) = &*held;
+            let _hold = ready
+                .wait_timeout_while(lock.lock().unwrap(), Duration::from_secs(3), |released| {
+                    !*released
+                })
+                .unwrap();
+            dir_size(path)
+        });
         let start = Instant::now();
         let sizes = tokio::time::timeout(
             Duration::from_millis(1500),
             sampler.sizes(&[&cached, &unknown]),
         )
-        .await
-        .expect("an in-flight walk must not hold the call past its budget");
-        assert!(start.elapsed() < Duration::from_millis(1500));
+        .await;
+        let elapsed = start.elapsed();
+        // Release both real walks even if the caller exceeded its budget.
+        *release.0.lock().unwrap() = true;
+        release.1.notify_all();
+        assert!(elapsed < Duration::from_millis(1500));
+        let sizes = sizes.expect("a walk must not hold the call past its budget");
+        assert_eq!(arrivals.try_iter().count(), 2);
         assert_eq!(sizes[&cached], Some(7));
         assert_eq!(sizes[&unknown], None);
+        let finished = sampler.sizes(&[&cached, &unknown]).await;
+        assert_eq!(finished[&cached], Some(9));
+        assert_eq!(finished[&unknown], Some(0));
     }
 
     #[tokio::test]
