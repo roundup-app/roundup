@@ -53,7 +53,8 @@ export const Capture = () => {
   };
 
   const file = (keepOpen: boolean) => {
-    const title = text().trim();
+    const draft = text();
+    const title = draft.trim();
 
     if (title === "") return;
 
@@ -75,7 +76,7 @@ export const Capture = () => {
         hide();
 
         if (!(error instanceof Error)) throw error;
-        placeBack(title, error.message);
+        placeBack(draft, error.message);
       }
     })();
   };
@@ -89,7 +90,16 @@ export const Capture = () => {
         initialFocusEl={() => input ?? null}
         finalFocusEl={() => returnTo instanceof HTMLElement && returnTo.isConnected ? returnTo : null}
         onEscapeKeyDown={(event) => event.stopImmediatePropagation()}>
-        <Dialog.Content class="capture" ref={(element) => { panel = element; }}>
+        <Dialog.Content class="capture" ref={(element) => {
+          panel = element;
+          const centre = document.querySelector(".centre")?.getBoundingClientRect();
+
+          if (centre) {
+            element.style.setProperty("--capture-left", `${centre.left + centre.width / 2}px`);
+            element.style.setProperty("--capture-top", `${centre.top}px`);
+            element.style.setProperty("--capture-width", `${centre.width}px`);
+          }
+        }}>
           <textarea
             class="capture-field"
             rows={1}
