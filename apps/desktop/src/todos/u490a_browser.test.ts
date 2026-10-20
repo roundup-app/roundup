@@ -68,12 +68,12 @@ const state = (rows: string) => page.call<State>(`rows => ({
 })`, rows);
 
 /** A pointer drag in small steps, as a hand makes one. */
-/** `to` may be measured once the drag has started: U3718 opens every owner's group then, which moves the rows. */
-const drag = async (from: Point, to: Point | (() => Promise<Point>), release = true) => {
+/** `to` is measured once the drag has started: U3718 opens every owner's group then, which moves the rows. */
+const drag = async (from: Point, to: () => Promise<Point>, release = true) => {
   await page.pointer("down", from.x, from.y);
   await page.pointer("move", from.x, from.y - 6);
 
-  const target = typeof to === "function" ? await to() : to;
+  const target = await to();
 
   for (let step = 1; step <= 8; step++) await page.pointer("move", from.x + ((target.x - from.x) * step) / 8, from.y - 6 + ((target.y - from.y + 6) * step) / 8);
 
@@ -140,7 +140,7 @@ for (const list of [nested, shelf]) {
       const first = await centre(rows, 0);
       const last = await centre(rows, (await state(rows)).ids.length - 1);
 
-      await drag(last, first, false);
+      await drag(last, async () => first, false);
       await page.press("Escape", "Escape");
       await page.pointer("up", first.x, first.y);
       await settled();

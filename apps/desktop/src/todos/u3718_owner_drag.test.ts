@@ -5,6 +5,7 @@ import type { LaneBrowser } from "./laneBrowser";
 type Point = { x: number; y: number };
 
 const ROW = (id: number) => `.shelf [data-id="${id}"] .shelf-title`;
+
 const HEAD = `.shelf [data-shelf-group="me"] .shelf-group-head`;
 
 const centre = (lane: LaneBrowser, selector: string) => lane.evaluate<Point>(`(() => { const el = document.querySelector(${JSON.stringify(selector)}); el.scrollIntoView({ block: "center" }); const b = el.getBoundingClientRect(); return { x: Math.round(b.left + b.width / 2), y: Math.round(b.top + b.height / 2) }; })()`);
