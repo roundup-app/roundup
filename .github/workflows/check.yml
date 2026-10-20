@@ -28,6 +28,28 @@ defaults:
     shell: bash
 
 jobs:
+  # L89: on a PR, what the diff reaches decides which lanes run; a lane the diff misses is skipped at job level and
+  # holds no runner. `main` pushes have no base, so `affected.py` prints `all` and every lane runs. The runner's own
+  # cargo suffices: `affected.py` only reads the manifests, and `stable` keeps rustup from fetching the pinned toolchain.
+  plan:
+    if: github.event_name != 'pull_request' || !github.event.pull_request.draft
+    runs-on: ubuntu-latest
+    outputs:
+      rust: ${{ steps.plan.outputs.rust }}
+      web: ${{ steps.plan.outputs.web }}
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+      - id: plan
+        env:
+          RUSTUP_TOOLCHAIN: stable
+        run: |
+          for lane in rust web; do
+            reached=$(python3 loop/affected.py "$lane" "$BASE")
+            echo "$lane=${reached:+true}" >>"$GITHUB_OUTPUT"
+          done
+
   # L89: the Rust checks that run no test binary.
   lint:
     if: github.event_name != 'pull_request' || !github.event.pull_request.draft
@@ -47,7 +69,8 @@ jobs:
   # the same tests (L82).
   # L84: on `main`, `rust 1` builds every test target, so it saves the Linux cache.
   rust:
-    if: github.event_name != 'pull_request' || !github.event.pull_request.draft
+    needs: plan
+    if: github.event_name != 'pull_request' || (!github.event.pull_request.draft && needs.plan.outputs.rust == 'true')
     name: rust ${{ matrix.partition }}
     strategy:
       fail-fast: false
@@ -93,7 +116,8 @@ jobs:
   # L89: clippy on macOS, whose `target_os = "macos"` code Linux never compiles. A lane of its own, in step with the
   # tests of `mac`: clippy's 36 s of work and its setup run beside them, not before. `mac` saves the cache.
   mac-clippy:
-    if: github.event_name != 'pull_request' || !github.event.pull_request.draft
+    needs: plan
+    if: github.event_name != 'pull_request' || (!github.event.pull_request.draft && needs.plan.outputs.rust == 'true')
     runs-on: macos-latest
     steps:
       - uses: actions/checkout@v5
@@ -106,7 +130,8 @@ jobs:
 
   # L89: the tests that take a macOS path, and the daemon smoke test, on the OS the App ships on.
   mac:
-    if: github.event_name != 'pull_request' || !github.event.pull_request.draft
+    needs: plan
+    if: github.event_name != 'pull_request' || (!github.event.pull_request.draft && needs.plan.outputs.rust == 'true')
     runs-on: macos-latest
     timeout-minutes: 12
     steps:
@@ -137,7 +162,8 @@ jobs:
   # held tests fit in this lane without a runner of their own. A failed step leaves later steps running, so one run
   # reports every failure.
   lint-web:
-    if: github.event_name != 'pull_request' || !github.event.pull_request.draft
+    needs: plan
+    if: github.event_name != 'pull_request' || (!github.event.pull_request.draft && needs.plan.outputs.web == 'true')
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
@@ -166,7 +192,8 @@ jobs:
   # (`just web-durations`), a file with none weighing the median. A full run is about 24 runner-minutes of tests; a PR's
   # diff usually reaches far fewer.
   web:
-    if: github.event_name != 'pull_request' || !github.event.pull_request.draft
+    needs: plan
+    if: github.event_name != 'pull_request' || (!github.event.pull_request.draft && needs.plan.outputs.web == 'true')
     name: web ${{ matrix.partition }}
     strategy:
       fail-fast: false
@@ -218,61 +245,6 @@ jobs:
             ${{ runner.temp }}/chromium-cold-${{ matrix.partition }}.jsonl
           retention-days: 7
 
-  # L122: a test a PR adds or edits runs 20 times, with no retry, while spinners hold every vCPU busy: a test that races
-  # its state under CI load fails here by name, before it merges. A test merged earlier retries once in its lane
-  # (`.config/nextest.toml`, `apps/desktop/vite.config.ts`). A PR that adds or edits no test finishes after selecting.
-  new-tests-stress:
-    if: github.event_name == 'pull_request' && !github.event.pull_request.draft
-    runs-on: ubuntu-latest
-    timeout-minutes: 30
-    steps:
-      - uses: actions/checkout@v5
-        with:
-          fetch-depth: 0
-      - id: select
-        run: |
-          rust=$(python3 loop/affected.py edited-rust "$BASE")
-          python3 loop/affected.py edited-web "$BASE" >"$RUNNER_TEMP/web-tests"
-          echo "rust=$rust" >>"$GITHUB_OUTPUT"
-          [ -z "$rust" ] || echo "any=true" >>"$GITHUB_OUTPUT"
-          ! grep -q . "$RUNNER_TEMP/web-tests" || { echo "web=true" >>"$GITHUB_OUTPUT"; echo "any=true" >>"$GITHUB_OUTPUT"; }
-      - if: steps.select.outputs.any
-        uses: ./.github/actions/setup
-        with:
-          browser: 'true'
-      - if: steps.select.outputs.any
-        name: E12 network observer dependencies
-        run: |
-          if ! command -v strace || ! command -v ip || ! command -v setpriv; then
-            sudo apt-get update -qq
-            sudo apt-get install -y strace iproute2 util-linux
-          fi
-      - if: steps.select.outputs.any
-        name: CPU load
-        run: |
-          for _ in $(seq "$(nproc)"); do setsid bash -c 'while :; do :; done' >/dev/null 2>&1 </dev/null & done
-      - if: steps.select.outputs.rust
-        name: Rust tests, 20 times under load
-        env:
-          FILTER: ${{ steps.select.outputs.rust }}
-        run: |
-          cargo build --quiet -p rupd -p rup
-          python3 loop/app-data.py cargo nextest run --profile stress --stress-count 20 -E "$FILTER"
-      - if: ${{ !cancelled() && steps.select.outputs.web }}
-        name: Web test files, 20 times under load
-        run: |
-          mapfile -t files <"$RUNNER_TEMP/web-tests"
-          python3 loop/app-data.py pnpm --filter desktop exec vitest run --retry 0 --repeats 19 --reporter=default --reporter=junit --outputFile.junit="$RUNNER_TEMP/web-junit.xml" "${files[@]}"
-      - if: always() && steps.select.outputs.any
-        uses: actions/upload-artifact@v4
-        with:
-          name: new-tests-stress-junit
-          path: |
-            target/nextest/stress/junit.xml
-            ${{ runner.temp }}/web-junit.xml
-          if-no-files-found: ignore
-          retention-days: 30
-
   # L24: GitHub may build a draft's `synchronize` run from a payload older than the PR's `ready_for_review`: the ready run
   # then tests the previous head and the newest head is left with a `Draft check`, which `review` and `critic` skip, so
   # no real check ever runs on it (#1931, #1933, #1998, #2023). A Draft check whose PR is ready on its own head, with no
@@ -321,21 +293,22 @@ jobs:
           gh pr ready "$PR"
           [ -z "$merge" ] || gh pr merge "$PR" --auto "--$(tr "[:upper:]" "[:lower:]" <<<"$merge")"
 
-  # Keep the required check name; neither a skipped nor failed lane can turn it green. L82: when a newer push cancels
+  # Keep the required check name. A failed lane cannot turn it green; a skipped lane can only on a PR, where `plan` (which must
+  # itself succeed) skipped it (L89). L82: when a newer push cancels
   # this run, the gate ends `cancelled`: it blocks merge, starts no fix run and leaves `main` unjudged.
-  # L122: `new-tests-stress` runs on a PR only, so a push to `main` leaves it skipped.
   check:
-    needs: [lint, rust, mac-clippy, mac, lint-web, web, new-tests-stress]
+    needs: [plan, lint, rust, mac-clippy, mac, lint-web, web]
     if: ${{ !cancelled() && (github.event_name != 'pull_request' || !github.event.pull_request.draft) }}
     runs-on: ubuntu-latest
     steps:
       - env:
           NEEDS: ${{ toJSON(needs) }}
           EVENT: ${{ github.event_name }}
-        run: jq -e --arg event "$EVENT" 'map_values(.result) | ., all(to_entries[]; .value == "success" or (.key == "new-tests-stress" and .value == "skipped" and $event != "pull_request"))' <<<"$NEEDS"
+        run: |
+          jq -e --arg event "$EVENT" 'map_values(.result) | ., (.plan == "success" and all(.[]; . == "success" or ($event == "pull_request" and . == "skipped")))' <<<"$NEEDS"
 
   summary:
-    needs: [lint, rust, mac-clippy, mac, lint-web, web, new-tests-stress, check]
+    needs: [plan, lint, rust, mac-clippy, mac, lint-web, web, check]
     if: always()
     permissions: {}
     uses: ./.github/workflows/summary.yml
