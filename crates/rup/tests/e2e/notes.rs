@@ -223,7 +223,25 @@ async fn b47_a_replay_of_status_flips_starts_no_door_turn() {
     .unwrap();
     drive(&s.user, &s.a, STOP).await;
     drive(&s.user, &s.a, WORK).await;
-    tokio::time::sleep(Duration::from_secs(2)).await;
+    h21_poll(
+        "the updated Digest and all setup notes to be delivered",
+        async || {
+            let listed = s
+                .user
+                .request("message.list", json!({ "to": s.door }))
+                .await
+                .unwrap();
+            let messages = listed.as_array().unwrap();
+            (messages.iter().any(|m| {
+                m["from"]["id"] == "rupd"
+                    && m["body"]
+                        .as_str()
+                        .is_some_and(|body| body.contains("  last: found it\n"))
+            }) && messages.iter().all(|m| m["status"] == "delivered"))
+            .then_some(())
+        },
+    )
+    .await;
     let before = (made(&s.user, &s.door).await, typed(&prompts, 0).await.len());
     for _ in 0..5 {
         drive(&s.user, &s.a, STOP).await;
