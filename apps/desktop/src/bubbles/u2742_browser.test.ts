@@ -146,6 +146,27 @@ it("u2742d_switch_respects_repeat_modifiers_and_focus_ownership", async () => {
   await wait(focused("103"));
   await browser("press", "Escape");
   await wait(`window.__fake.app.calls.some(c => c.method === 'terminal.write' && c.params.id === '103' && atob(c.params.data) === '\\x1b')`);
+
+  // Hints are pointer-transparent (resources/styles.css); their strip and the header still receive the press.
+  for (const target of [".hint-line", ".project-tab[data-selected] .tab-name-button"]) {
+    const receiver = target === ".hint-line" ? ".resource-strip" : target;
+
+    await read(`(() => {
+      window.__outsidePresses = 0;
+      document.querySelector('${receiver}').addEventListener('pointerdown', () => window.__outsidePresses++, {once:true});
+      window.__outsideStart = window.__fake.app.calls.length;
+    })()`);
+    const at = await read<{ x: number; y: number }>(`(() => { const r = document.querySelector('${target}').getBoundingClientRect(); return {x:r.x+r.width/2,y:r.y+r.height/2}; })()`);
+
+    await browser("mouse", "move", String(Math.round(at.x)), String(Math.round(at.y)));
+    await browser("mouse", "down", "left");
+    await browser("mouse", "up", "left");
+    await wait(`!document.querySelector('.bubble:not([hidden])')`);
+    expect(await read(`({presses:window.__outsidePresses, mutations:window.__fake.app.calls.slice(window.__outsideStart).filter(c => ['terminal.open','terminal.close','terminal.write','takeover.begin','takeover.end','agent.prompt'].includes(c.method))})`), target).toEqual({ presses: 1, mutations: [] });
+    await browser("click", '.terminal-tab[data-bubble="103"]');
+    await wait(focused("103"));
+  }
+
   // The real tab rename field owns ⌘B; it must never be mistaken for a Terminal tab.
   await read(`document.querySelector('.terminal-tab[data-bubble="103"] .terminal-tab-name').dispatchEvent(new MouseEvent('dblclick',{bubbles:true}))`);
   await wait(`!!document.querySelector('.terminal-tab-editor input')`);
@@ -153,11 +174,14 @@ it("u2742d_switch_respects_repeat_modifiers_and_focus_ownership", async () => {
   expect(await read(`!!document.activeElement?.closest('.terminal-tab-editor')`)).toBe(true);
   await browser("press", "Escape");
   await read(`document.querySelector('[data-id="runner"]').focus()`);
+  await read(`window.__helpReturn = document.activeElement; window.__helpStart = window.__fake.app.calls.length`);
   await browser("press", "?");
   await wait(`!!document.querySelector('.help')`);
   await key();
   expect(await read(`!!document.activeElement?.closest('.help')`)).toBe(true);
   await browser("press", "Escape");
+  await wait(`!document.querySelector('.help') && document.activeElement === window.__helpReturn`);
+  expect(await read(`window.__fake.app.calls.slice(window.__helpStart).filter(c => ['terminal.open','terminal.close','terminal.write','takeover.begin','takeover.end','agent.prompt'].includes(c.method))`)).toEqual([]);
   await browser("open", new URL("/harness.html?seed=tree-40", origin).href);
   await wait(`!!document.querySelector('#shelf-tab-pads')`);
   await browser("click", "#shelf-tab-pads");
