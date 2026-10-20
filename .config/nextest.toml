@@ -1,6 +1,18 @@
 # L89: a failing test stops no other; a check run reports every failure at once.
 [profile.default]
 fail-fast = false
+# L122: a test merged before the stress job runs twice before it fails; a pass on the retry is listed as flaky in the
+# lane's job summary (`tools/e14/observe.py`). Custom profiles inherit it.
+retries = 1
+
+# L122: the `new-tests-stress` job runs a PR's added or edited tests with `--stress-count 20` under CPU load. A racing
+# test must fail there, so it never retries.
+[profile.stress]
+retries = 0
+
+# The `check` job uploads it.
+[profile.stress.junit]
+path = "junit.xml"
 
 # Tests that assert a product's upper bound on real elapsed time each run alone: no other test shares the
 # runner's CPUs while one is timed. They start first, so the wait for a free runner is paid before the rest.
@@ -16,6 +28,8 @@ filter = '''
 '''
 threads-required = 'num-test-threads'
 priority = 100
+# L122: a slow run is the regression this group exists to catch, never a flake to run again.
+retries = 0
 
 # L89: the Mac lane runs only the tests that take a macOS path (`target_os = "macos"`) and B6's cleanup_completion
 # tests, whose Terminal exit confirmation differs by host PTY; Linux runs the whole suite.
