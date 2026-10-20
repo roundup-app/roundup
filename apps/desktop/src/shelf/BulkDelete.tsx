@@ -147,7 +147,7 @@ export const createBulkDelete = <Id,>(props: {
     run: key,
   }]);
 
-  registerKeys({ kind: "region", element: () => document.querySelector<HTMLElement>(".shelf-tabs") ?? undefined }, [{
+  registerKeys({ kind: "region", element: () => host ? document.querySelector<HTMLElement>(".shelf-tabs") ?? undefined : undefined }, [{
     chords: ["Escape"],
     when: () => props.selected().length > 0,
     run: key,

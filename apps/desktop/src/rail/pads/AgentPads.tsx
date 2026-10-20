@@ -130,6 +130,14 @@ export const PadRows = (props: { pads: AgentPads; depth: number; trail: readonly
     connected.drawer.open(() => <PadDrawer name={name} pads={props.pads.all} onLateFailure={props.pads.setFailure} />, activationSource(event));
   };
 
+  const padMenu = (name: string, event: MouseEvent) => {
+    event.stopPropagation();
+    openOnRelease(event, (x, y) => void contextMenu(connected.app, [
+      ...linkEntries(connected.app, "pad", name, connected.rail.nodes, (node) => connected.rail.exitOf(node) === null, props.pads.setFailure),
+      { id: "delete", label: copy.delete, run: () => { setSelected([name]); bulk.ask(); } },
+    ], x, y));
+  };
+
   const leaves = () => props.pads.owned().length + props.pads.ownedTodos().length;
   const last = (at: number) => at === leaves() - 1 && !props.children;
 
@@ -152,13 +160,7 @@ export const PadRows = (props: { pads: AgentPads; depth: number; trail: readonly
                     <button
                       {...trigger({
                         onClick: (event) => openPad(pad.name, event),
-                        onContextMenu: (event: MouseEvent) => {
-                          event.stopPropagation();
-                          openOnRelease(event, (x, y) => void contextMenu(connected.app, [
-                            ...linkEntries(connected.app, "pad", pad.name, connected.rail.nodes, (node) => connected.rail.exitOf(node) === null, props.pads.setFailure),
-                            { id: "delete", label: copy.delete, run: () => { setSelected([pad.name]); bulk.ask(); } },
-                          ], x, y));
-                        },
+                        onContextMenu: (event: MouseEvent) => padMenu(pad.name, event),
                       })}
                       type="button"
                       data-button="quiet"
