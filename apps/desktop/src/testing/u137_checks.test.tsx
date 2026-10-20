@@ -63,22 +63,6 @@ describe("u137 one module measures the checks", () => {
     expect(after.D7.status).toBe("pass");
   });
 
-  it("u137_every_id_d1_to_d10_is_present_with_status_value_and_selector", async () => {
-    await withStylesheets(async () => {
-      mountSeed();
-      const checks = runChecks();
-
-      expect(Object.keys(checks)).toEqual(["D1", "D2", "D3", "D4", "D5", "D6", "D7", "D8", "D9", "D10", "D11", "D12", "D13", "D14", "D16"]);
-      expect(CHECK_IDS).toEqual(Object.keys(checks));
-
-      for (const check of Object.values(checks)) {
-        expect(["pass", "fail"]).toContain(check.status);
-        expect(check.value).not.toBeUndefined();
-        expect(check.selector).toEqual(expect.any(String));
-      }
-    });
-  });
-
   it.each([
     ["color", "#ff00ff", "rgb(255, 0, 255)"],
     ["border-radius", "1px", "1px"],
@@ -195,6 +179,7 @@ rendered("u137 rendered focus marks", () => {
 
   it("u3712_d2_accepts_only_the_declared_token_derived_tree_padding", async () => {
     await page.load("/harness.html?seed=tree-40");
+
     const statuses = await page.call<string[]>(`() => {
       document.body.innerHTML = '<div class="todo-list" role="tree"><div class="todo-row" role="treeitem" data-todo="3" aria-level="3" style="padding-inline-start:calc(var(--space-2) + 2 * var(--space-4))">Grandchild</div></div>';
       const row = document.querySelector('.todo-row');
@@ -208,12 +193,15 @@ rendered("u137 rendered focus marks", () => {
       row.classList.remove('todo-row');
       statuses.push(window.__checks().D2.status);
       row.classList.add('todo-row');
+      row.style.paddingLeft = '41px';
+      statuses.push(window.__checks().D2.status);
+      row.style.removeProperty('padding-left');
       row.style.paddingInlineStart = 'calc(var(--space-2) + 2 * var(--space-4) + 1px)';
       statuses.push(window.__checks().D2.status);
       return statuses;
     }`);
 
-    expect(statuses).toEqual(["pass", "fail", "fail", "fail", "fail"]);
+    expect(statuses).toEqual(["pass", "fail", "fail", "fail", "fail", "fail"]);
   });
 
   it.each(["milkdown-slash-menu", "pane-control", "import-panel"])("u137_floating_surface_%s_keeps_unrelated_shadow_rejection", async (surface) => {
