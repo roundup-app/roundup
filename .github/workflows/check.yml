@@ -5,7 +5,7 @@ run-name: ${{ github.event_name == 'pull_request' && github.event.pull_request.d
 on:
   workflow_dispatch:
   # A draft's head is skipped: its Builder is still pushing red tests. ready_for_review runs check on the finished
-  # head, which starts its review (L24).
+  # head, whose `pre` run starts its review (L24).
   pull_request:
     types: [opened, synchronize, reopened, ready_for_review]
   push:
@@ -17,6 +17,10 @@ concurrency:
   group: check-${{ github.event_name == 'push' && format('push-{0}', github.sha) || (github.event_name == 'pull_request' && github.event.pull_request.draft && format('draft-{0}', github.ref) || github.ref) }}
   cancel-in-progress: true
 
+# L24: on a PR, the lanes wait for the head's approval. `pre` lints and starts the review; `approved` ends this run
+# `cancelled` until `review` and `critic` both succeed on the head, and the post job of the approval that completes the
+# pair reruns this run, so a reject or an unreviewed head never holds a lane.
+#
 # L89: a PR's lanes test only what its diff reaches (`loop/affected.py`): the merge ref's first parent is the `main` it
 # merges into. An empty base, on every other event, tests everything.
 env:
@@ -28,10 +32,32 @@ defaults:
     shell: bash
 
 jobs:
+  # L24: a PR head's lanes start only on its approval. Before it, the run is cancelled, so the gate ends `cancelled`
+  # (L82): it blocks merge and starts no fix run. Every other event passes.
+  approved:
+    if: github.event_name != 'pull_request' || !github.event.pull_request.draft
+    runs-on: ubuntu-latest
+    permissions:
+      actions: write
+      statuses: read
+    steps:
+      - env:
+          GH_TOKEN: ${{ github.token }}
+          HEAD: ${{ github.event.pull_request.head.sha }}
+        run: |
+          [ "$GITHUB_EVENT_NAME" = pull_request ] || exit 0
+          gh api "repos/$GITHUB_REPOSITORY/commits/$HEAD/status" \
+            | jq -e '[.statuses[] | select(.context == "review" or .context == "critic")] | length == 2 and all(.[]; .state == "success")' >/dev/null && exit 0
+          gh run cancel "$GITHUB_RUN_ID"
+          # The cancel ends this job; a job that outlives it fails rather than let the lanes start.
+          sleep 120
+          exit 1
+
   # L89: on a PR, what the diff reaches decides which lanes run; a lane the diff misses is skipped at job level and
   # holds no runner. `main` pushes have no base, so `affected.py` prints `all` and every lane runs. The runner's own
   # cargo suffices: `affected.py` only reads the manifests, and `stable` keeps rustup from fetching the pinned toolchain.
   plan:
+    needs: approved
     if: github.event_name != 'pull_request' || !github.event.pull_request.draft
     runs-on: ubuntu-latest
     outputs:
@@ -49,17 +75,6 @@ jobs:
             reached=$(python3 loop/affected.py "$lane" "$BASE")
             echo "$lane=${reached:+true}" >>"$GITHUB_OUTPUT"
           done
-
-  # L89: the Rust checks that run no test binary.
-  lint:
-    if: github.event_name != 'pull_request' || !github.event.pull_request.draft
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v5
-        with:
-          fetch-depth: 0
-      - uses: ./.github/actions/setup
-      - run: python3 loop/app-data.py just lint-rust
 
   # L89: the Rust suite in five lanes, one test thread per vCPU of the 4-vCPU runner: more threads than vCPUs starve
   # the timed waits of daemons, fake Claude and sqlite. Each lane compiles the test binaries for about 90 s before its
@@ -157,36 +172,6 @@ jobs:
           python3 loop/app-data.py python3 loop/app-data.test.py
           python3 loop/app-data.py python3 loop/launch-sites.test.py
 
-  # L89: the web checks that run no test, then the two U26 regression tests that hold Chromium's startup for real seconds:
-  # neither depends on which web tests run, so they run once here and not in every shard. The lint takes 40 s, so the
-  # held tests fit in this lane without a runner of their own. A failed step leaves later steps running, so one run
-  # reports every failure.
-  lint-web:
-    needs: plan
-    if: github.event_name != 'pull_request' || (!github.event.pull_request.draft && needs.plan.outputs.web == 'true')
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v5
-        with:
-          fetch-depth: 0
-      - uses: ./.github/actions/setup
-        with:
-          rust: 'false'
-          browser: 'true'
-      - run: python3 loop/app-data.py just lint-web
-      - id: deps
-        name: U26 Linux fault observer dependencies
-        if: ${{ !cancelled() }}
-        run: |
-          sudo apt-get update -qq
-          sudo apt-get install -y bpftrace libfuse3-dev fuse3 pkg-config
-      - name: U26 held cold startup regression
-        if: ${{ !cancelled() && steps.deps.outcome == 'success' }}
-        run: python3 loop/app-data.py python3 tools/chromium-faults/cold.test.py
-      - name: U26 held file-backed fault
-        if: ${{ !cancelled() && steps.deps.outcome == 'success' }}
-        run: python3 loop/app-data.py python3 tools/chromium-faults/test.py
-
   # L89: the web tests in seven shards; `--shard` goes through the sequencer of `apps/desktop/src/testing/shardSequencer.ts`,
   # which gives each test file, longest first, to the shard it makes finish soonest by the durations measured on `main`
   # (`just web-durations`), a file with none weighing the median. A full run is about 24 runner-minutes of tests; a PR's
@@ -245,59 +230,11 @@ jobs:
             ${{ runner.temp }}/chromium-cold-${{ matrix.partition }}.jsonl
           retention-days: 7
 
-  # L24: GitHub may build a draft's `synchronize` run from a payload older than the PR's `ready_for_review`: the ready run
-  # then tests the previous head and the newest head is left with a `Draft check`, which `review` and `critic` skip, so
-  # no real check ever runs on it (#1931, #1933, #1998, #2023). A Draft check whose PR is ready on its own head, with no
-  # real check run on that head, turns the PR draft and ready again as the Claude App, whose events start workflows
-  # (a `GITHUB_TOKEN`'s do not), and re-arms the auto-merge that turning it draft disarmed.
-  rekick:
-    if: github.event_name == 'pull_request' && github.event.pull_request.draft
-    runs-on: ubuntu-latest
-    permissions:
-      actions: read
-      contents: read
-      id-token: write
-      pull-requests: read
-    env:
-      PR: ${{ github.event.pull_request.number }}
-      HEAD: ${{ github.event.pull_request.head.sha }}
-    steps:
-      - id: stale
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          ready() { gh api "repos/$GITHUB_REPOSITORY/pulls/$PR" | jq -e --arg head "$HEAD" '(.draft | not) and .head.sha == $head' >/dev/null; }
-          ready || exit 0
-          # The ready run, if it tested this head, appears within seconds.
-          sleep 30
-          ready || exit 0
-          gh api "repos/$GITHUB_REPOSITORY/actions/workflows/check.yml/runs?head_sha=$HEAD&event=pull_request" \
-            | jq -e '[.workflow_runs[] | select(.display_title == "Check" and .conclusion != "cancelled")] | length > 0' >/dev/null && exit 0
-          echo 'stale=true' >>"$GITHUB_OUTPUT"
-      - if: steps.stale.outputs.stale
-        uses: actions/checkout@v5
-        with:
-          ref: main
-          persist-credentials: false
-      - if: steps.stale.outputs.stale
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          merge=$(gh pr view "$PR" --json autoMergeRequest --jq '.autoMergeRequest.mergeMethod // empty')
-          # `app_token` prints its own `::add-mask::` line before returning the token; the last line is the token.
-          APP_TOKEN=$(python3 -c 'import sys; sys.path.insert(0, "loop"); import builder; print(builder.app_token())' | tail -n 1)
-          echo "::add-mask::$APP_TOKEN"
-          export GH_TOKEN=$APP_TOKEN
-          trap 'gh api -X DELETE /installation/token' EXIT
-          gh pr ready "$PR" --undo
-          gh pr ready "$PR"
-          [ -z "$merge" ] || gh pr merge "$PR" --auto "--$(tr "[:upper:]" "[:lower:]" <<<"$merge")"
-
   # Keep the required check name. A failed lane cannot turn it green; a skipped lane can only on a PR, where `plan` (which must
   # itself succeed) skipped it (L89). L82: when a newer push cancels
   # this run, the gate ends `cancelled`: it blocks merge, starts no fix run and leaves `main` unjudged.
   check:
-    needs: [plan, lint, rust, mac-clippy, mac, lint-web, web]
+    needs: [plan, rust, mac-clippy, mac, web]
     if: ${{ !cancelled() && (github.event_name != 'pull_request' || !github.event.pull_request.draft) }}
     runs-on: ubuntu-latest
     steps:
@@ -308,11 +245,11 @@ jobs:
           jq -e --arg event "$EVENT" 'map_values(.result) | ., (.plan == "success" and all(.[]; . == "success" or ($event == "pull_request" and . == "skipped")))' <<<"$NEEDS"
 
   summary:
-    needs: [plan, lint, rust, mac-clippy, mac, lint-web, web, check]
+    needs: [approved, plan, rust, mac-clippy, mac, web, check]
     if: always()
     permissions: {}
     uses: ./.github/workflows/summary.yml
     with:
       results: ${{ toJSON(needs) }}
       purpose: Check Rust and web behavior
-      next: Success starts review of this head; a failure blocks merge and starts a fix run on a Builder PR.
+      next: Success lets the PR merge; a failure blocks merge and starts a fix run on a Builder PR. A PR head not yet approved ends cancelled.
