@@ -381,12 +381,12 @@ class L122(unittest.TestCase):
         source = ('use super::*;\n#[test]\nfn first() {\n    work();\n}\n\n#[tokio::test]\nasync fn second() {\n'
                   '    work();\n}\n\nfn helper() {}\n    #[test] fn third() { work(); }\n')
         for touched, names in (({4}, ['first']), ({9}, ['second']), ({7}, ['second']), ({12}, ['third']), ({13}, ['third']),
-                               ({1}, []), ({5, 8}, ['first', 'second'])):
+                               ({1}, ['first']), ({5, 8}, ['first', 'second'])):
             self.assertEqual(names, affected.rust_tests(source, touched), touched)
         decorated = ('fn helper() {}\n/// Why.\n#[should_panic(\n    expected = "x"\n)]\n#[test]\n#[ignore]\nfn fourth() {\n    work();\n}\n')
         for touched in ({2}, {3}, {4}, {5}, {6}, {7}, {9}):
             self.assertEqual(['fourth'], affected.rust_tests(decorated, touched), touched)
-        self.assertEqual([], affected.rust_tests(decorated, {1}))
+        self.assertEqual(['fourth'], affected.rust_tests(decorated, {1}))
         quoted = 'fn helper() {}\n#[should_panic(expected = "[")]\n#[test] // ]\nfn fifth() {}\n'
         self.assertEqual(['fifth'], affected.rust_tests(quoted, {2}))
         for attribute in ('#[should_panic(/* [ */ expected = "boom")]', '#[should_panic(expected = r#"["#)]',
