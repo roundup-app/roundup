@@ -4,6 +4,7 @@ use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 
 use rpc::RpcError;
+use serde_json::Value;
 use sha2::{Digest, Sha256};
 use std::io::{BufRead, BufReader, Read};
 use std::sync::atomic::Ordering;
@@ -39,24 +40,10 @@ pub struct ImportDiscovery {
 }
 
 // U3037c: 397 MB eligible sources must fit the ten-second discovery budget.
-// BufRead and serde reuse bounded record storage; discovery never retains payloads.
+// BufRead bounds each record; only candidate metadata survives the next record.
 const MAX_RECORD: u64 = 8 * 1024 * 1024;
 const MAX_SNAPSHOT: usize = 512 * 1024 * 1024;
 const MAX_FILES: usize = 10_000;
-
-#[derive(serde::Deserialize)]
-#[serde(rename_all = "camelCase")]
-struct Record {
-    #[serde(rename = "type")]
-    kind: Option<String>,
-    is_sidechain: Option<bool>,
-    session_id: Option<String>,
-    cwd: Option<String>,
-    timestamp: Option<String>,
-    custom_title: Option<String>,
-    agent_name: Option<String>,
-    ai_title: Option<String>,
-}
 
 pub(super) fn encoded(cwd: &Path) -> String {
     cwd.to_string_lossy()
@@ -69,7 +56,7 @@ pub(super) fn encoded(cwd: &Path) -> String {
         .collect()
 }
 
-fn possible_bucket(bucket: &Path, project: &Path) -> bool {
+fn is_possible_bucket(bucket: &Path, project: &Path) -> bool {
     let prefix = encoded(project);
     // Long vendor bucket names can be truncated/hashed: keep them for record validation.
     if prefix.len() > 200 {
@@ -153,7 +140,7 @@ impl Launcher {
                 return Err(RpcError::not_accepted("too many storage buckets"));
             }
             let bucket = bucket.map_err(RpcError::internal)?.path();
-            let possible = possible_bucket(&bucket, &project);
+            let possible = is_possible_bucket(&bucket, &project);
             let files = match std::fs::read_dir(&bucket) {
                 Ok(files) => files,
                 Err(error) if possible => {
@@ -274,7 +261,7 @@ impl Launcher {
         }
         if let Some(path) = selected.filter(|path| {
             path.parent()
-                .is_some_and(|bucket| possible_bucket(bucket, &project))
+                .is_some_and(|bucket| is_possible_bucket(bucket, &project))
         }) {
             let mut bytes = Vec::new();
             let deadline = Instant::now() + Duration::from_secs(18);
@@ -378,19 +365,19 @@ fn scan(
         if line == b"\n" {
             continue;
         }
-        if line.iter().find(|byte| !byte.is_ascii_whitespace()) != Some(&b'{') {
-            return Ok(Scan::Excluded("malformed record"));
-        }
-        let Ok(record) = serde_json::from_slice::<Record>(&line) else {
+        let Ok(record) = serde_json::from_slice::<Value>(&line) else {
             return Ok(Scan::Excluded("malformed record"));
         };
-        if record.is_sidechain == Some(true) {
+        if !record.is_object() {
+            return Ok(Scan::Excluded("malformed record"));
+        }
+        if record["isSidechain"] == true {
             return Ok(Scan::Excluded("subagent record"));
         }
-        if record.session_id.as_deref().is_some_and(|id| id != stem) {
+        if record["sessionId"].as_str().is_some_and(|id| id != stem) {
             return Ok(Scan::Excluded("identity does not match source"));
         }
-        if let Some(cwd) = record.cwd.filter(|cwd| !cwd.is_empty()) {
+        if let Some(cwd) = record["cwd"].as_str().filter(|cwd| !cwd.is_empty()) {
             let cwd = PathBuf::from(cwd);
             if !cwds.contains(&cwd) {
                 if cwds.len() >= 64 {
@@ -399,16 +386,21 @@ fn scan(
                 cwds.push(cwd);
             }
         }
-        if let Some(ms) = record.timestamp.as_deref().and_then(millis)
+        if let Some(ms) = record["timestamp"].as_str().and_then(millis)
             && ms <= now_ms
         {
             latest = latest.max(Some(ms));
         }
-        let name = |name: Option<String>| name.filter(|s| !s.trim().is_empty());
-        match record.kind.as_deref() {
-            Some("custom-title") => custom = name(record.custom_title).or(custom),
-            Some("agent-name") => agent = name(record.agent_name).or(agent),
-            Some("ai-title") => ai = name(record.ai_title).or(ai),
+        let name = |key: &str| {
+            record[key]
+                .as_str()
+                .filter(|s| !s.trim().is_empty())
+                .map(str::to_owned)
+        };
+        match record["type"].as_str() {
+            Some("custom-title") => custom = name("customTitle").or(custom),
+            Some("agent-name") => agent = name("agentName").or(agent),
+            Some("ai-title") => ai = name("aiTitle").or(ai),
             _ => {}
         }
     }
@@ -512,7 +504,7 @@ mod tests {
 
     #[tokio::test]
     async fn u2875a_activity_is_not_file_mtime() {
-        let root = tempfile::tempdir().unwrap();
+        let root = tempfile::tempdir_in(std::env::temp_dir().canonicalize().unwrap()).unwrap();
         let project = root.path().join("project");
         let sub = project.join("sub");
         std::fs::create_dir_all(&sub).unwrap();
@@ -621,7 +613,7 @@ mod tests {
 
     #[tokio::test]
     async fn u2875a_sources_are_ordered_and_not_duplicated() {
-        let root = tempfile::tempdir().unwrap();
+        let root = tempfile::tempdir_in(std::env::temp_dir().canonicalize().unwrap()).unwrap();
         let project = root.path().join("project");
         std::fs::create_dir_all(&project).unwrap();
         let config = root.path().join("config");
@@ -666,7 +658,7 @@ mod tests {
 
     #[tokio::test]
     async fn u3037a_bucket_pruning_keeps_possible_members() {
-        let root = tempfile::tempdir().unwrap();
+        let root = tempfile::tempdir_in(std::env::temp_dir().canonicalize().unwrap()).unwrap();
         let project = root.path().join("a.b_c-d🦊");
         let sub = project.join("nested");
         let collision = root.path().join("a-b-c-d--");
@@ -716,7 +708,7 @@ mod tests {
 
     #[tokio::test]
     async fn u3037a_long_bucket_prefixes_remain_possible_members() {
-        let root = tempfile::tempdir().unwrap();
+        let root = tempfile::tempdir_in(std::env::temp_dir().canonicalize().unwrap()).unwrap();
         let project = root.path().join("a".repeat(100)).join("b".repeat(100));
         std::fs::create_dir_all(&project).unwrap();
         let config = root.path().join("config");
@@ -738,7 +730,7 @@ mod tests {
 
     #[tokio::test]
     async fn u3037a_old_files_are_not_opened() {
-        let root = tempfile::tempdir().unwrap();
+        let root = tempfile::tempdir_in(std::env::temp_dir().canonicalize().unwrap()).unwrap();
         let project = root.path().join("project");
         std::fs::create_dir(&project).unwrap();
         let config = root.path().join("config");
@@ -781,7 +773,7 @@ mod tests {
 
     #[tokio::test]
     async fn u3037b_streaming_preserves_candidate_and_revision() {
-        let root = tempfile::tempdir().unwrap();
+        let root = tempfile::tempdir_in(std::env::temp_dir().canonicalize().unwrap()).unwrap();
         let project = root.path().join("project");
         std::fs::create_dir(&project).unwrap();
         let config = root.path().join("config");
@@ -812,7 +804,7 @@ mod tests {
 
     #[tokio::test]
     async fn u3037b_malformed_complete_record_is_refused() {
-        let root = tempfile::tempdir().unwrap();
+        let root = tempfile::tempdir_in(std::env::temp_dir().canonicalize().unwrap()).unwrap();
         let project = root.path().join("project");
         std::fs::create_dir(&project).unwrap();
         let config = root.path().join("config");
@@ -820,19 +812,30 @@ mod tests {
         store(&config, "x", SESSION, &valid);
         let launcher = launcher(&config);
         let preview = launcher.discover_recent(&project, NOW, DAY).await.unwrap();
-        store(&config, "x", SESSION, &(valid + "{broken}\n"));
-        let found = launcher.discover_recent(&project, NOW, DAY).await.unwrap();
-        assert!(found.candidates.is_empty());
-        assert_eq!(found.excluded[0].reason, "malformed record");
-        let refused = launcher
-            .read_import_snapshot(&project, SESSION, &preview.candidates[0].revision, NOW)
-            .unwrap_err();
-        assert!(refused.message.contains("malformed record"));
+        let path = config
+            .join("projects")
+            .join(encoded(&project))
+            .join(format!("{SESSION}.jsonl"));
+        for broken in [
+            b"{broken}\n".as_slice(),
+            b"{\"payload\":\"\xff\"}\n".as_slice(),
+        ] {
+            let mut bytes = valid.as_bytes().to_vec();
+            bytes.extend_from_slice(broken);
+            std::fs::write(&path, bytes).unwrap();
+            let found = launcher.discover_recent(&project, NOW, DAY).await.unwrap();
+            assert!(found.candidates.is_empty());
+            assert_eq!(found.excluded[0].reason, "malformed record");
+            let refused = launcher
+                .read_import_snapshot(&project, SESSION, &preview.candidates[0].revision, NOW)
+                .unwrap_err();
+            assert!(refused.message.contains("malformed record"));
+        }
     }
 
     #[tokio::test]
     async fn u3037b_oversized_records_are_explicitly_refused() {
-        let root = tempfile::tempdir().unwrap();
+        let root = tempfile::tempdir_in(std::env::temp_dir().canonicalize().unwrap()).unwrap();
         let project = root.path().join("project");
         std::fs::create_dir(&project).unwrap();
         let config = root.path().join("config");
