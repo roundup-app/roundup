@@ -177,6 +177,11 @@ pub const METHODS: &[Method] = &[
         "reaction_CreateParams",
         "reaction_Reaction",
     ),
+    m(
+        "reaction.preview",
+        "reaction_PreviewParams",
+        "reaction_Preview",
+    ),
     m("reaction.list", "null", "reaction_Reaction[]"),
     m("reaction.get", "reaction_ReactionId", "reaction_Reaction"),
     m("reaction.stop", "reaction_ReactionId", "reaction_Reaction"),

@@ -16,6 +16,7 @@ mod output;
 mod owner_told;
 mod reaction;
 mod reaction_checks;
+mod reaction_time;
 mod removal;
 mod resize;
 mod resources;
@@ -586,6 +587,21 @@ impl Daemon {
             .take();
         if let (Some(events), Some(waker)) = (wake_events, self.waker()) {
             tokio::spawn(waker.run(events));
+        }
+        if let Some(sender) = self.sender.get().filter(|_| {
+            !self
+                .reactions
+                .timed
+                .swap(true, std::sync::atomic::Ordering::SeqCst)
+        }) {
+            tokio::spawn(
+                reaction_time::Timer::new(
+                    Arc::clone(&self.reactions),
+                    Arc::clone(&self.agents),
+                    Arc::clone(sender),
+                )
+                .run(),
+            );
         }
         if let (Some(events), Some(evaluator)) = (self.reactions.take_events(), self.evaluator()) {
             tokio::spawn(evaluator.run(events));
