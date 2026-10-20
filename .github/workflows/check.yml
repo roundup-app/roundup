@@ -225,6 +225,12 @@ jobs:
     if: github.event_name == 'pull_request' && !github.event.pull_request.draft
     runs-on: ubuntu-latest
     timeout-minutes: 30
+    # PR #2973 exhausted 30 minutes repeating 13 web files on one runner.
+    # Each shard keeps all 20 repetitions and its own full CPU load.
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [1, 2, 3, 4]
     steps:
       - uses: actions/checkout@v5
         with:
@@ -251,7 +257,7 @@ jobs:
         name: CPU load
         run: |
           for _ in $(seq "$(nproc)"); do setsid bash -c 'while :; do :; done' >/dev/null 2>&1 </dev/null & done
-      - if: steps.select.outputs.rust
+      - if: steps.select.outputs.rust && matrix.shard == 1
         name: Rust tests, 20 times under load
         env:
           FILTER: ${{ steps.select.outputs.rust }}
@@ -260,13 +266,15 @@ jobs:
           python3 loop/app-data.py cargo nextest run --profile stress --stress-count 20 -E "$FILTER"
       - if: ${{ !cancelled() && steps.select.outputs.web }}
         name: Web test files, 20 times under load
+        env:
+          SHARD: ${{ matrix.shard }}
         run: |
           mapfile -t files <"$RUNNER_TEMP/web-tests"
-          python3 loop/app-data.py pnpm --filter desktop exec vitest run --retry 0 --repeats 19 --reporter=default --reporter=junit --outputFile.junit="$RUNNER_TEMP/web-junit.xml" "${files[@]}"
+          python3 loop/app-data.py pnpm --filter desktop exec vitest run --shard "$SHARD/4" --retry 0 --repeats 19 --reporter=default --reporter=junit --outputFile.junit="$RUNNER_TEMP/web-junit.xml" "${files[@]}"
       - if: always() && steps.select.outputs.any
         uses: actions/upload-artifact@v4
         with:
-          name: new-tests-stress-junit
+          name: new-tests-stress-junit-${{ matrix.shard }}
           path: |
             target/nextest/stress/junit.xml
             ${{ runner.temp }}/web-junit.xml
