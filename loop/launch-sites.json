@@ -494,6 +494,11 @@
     "data": "Daemon::open receives an explicit temporary .roundup path; no fallback data resolver.",
     "kind": "in-process"
   },
+  "crates/rup/tests/lk.rs": {
+    "cleanup": "No separate built-Daemon launch site.",
+    "data": "Production implementation, test caller, client or name reference; launches delegate to the owners above.",
+    "kind": "reference"
+  },
   "crates/rup/tests/m12.rs": {
     "cleanup": "No separate built-Daemon launch site.",
     "data": "Production implementation, test caller, client or name reference; launches delegate to the owners above.",
