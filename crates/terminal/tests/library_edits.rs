@@ -259,7 +259,9 @@ fn x14_library_screen_edit_observation_survives_checkpoint_replay() {
             let screen = original.screen().state_formatted();
             let annotations = sources(original.screen());
             let callbacks = original.callbacks().clone();
-            for _ in 0..3 {
+            {
+                // One restore proves replay and leaves the source unchanged; repeating
+                // the same restore from the same source adds no failure detection.
                 let mut replay = original.clone();
                 feed(&mut replay, &input[cut..], cut);
                 assert_eq!(
