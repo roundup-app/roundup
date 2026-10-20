@@ -3,6 +3,7 @@ import { afterEach, expect, it } from "vitest";
 import { render } from "@solidjs/testing-library";
 import { connectProject, ConnectedProjectContext } from "../state/connectedProject";
 import { Rail } from "../rail/Rail";
+import { RpcError } from "../app/seam";
 import { connectFakeProject } from "../terminal/paneHarness";
 import { workstream } from "../testing/nodes";
 import { createFakeApp } from "../testing/fakeApp";
@@ -48,7 +49,7 @@ it("u2875d_keyboard_pointer_and_recovery", async () => {
   expect(calls(app, "project.importDiscover")[0]?.params).toEqual({ period: "week" });
 
   // Keyboard: Escape inside the panel cancels, changing no Rail data.
-  await waitFor(() => expect(document.activeElement).toBe(screen.getByRole("button", { name: "Last week" })));
+  await waitFor(() => expect(document.activeElement).toBe(screen.getByRole("dialog")));
   fireEvent.keyDown(document.activeElement ?? document.body, { code: "Escape", key: "Escape", keyCode: 27 });
   await waitFor(() => expect(screen.queryByRole("checkbox")).toBeNull());
   expect(calls(app, "project.importCommit")).toHaveLength(0);
@@ -119,10 +120,10 @@ it("u2875d_period_change_clears_selection_and_success_opens_the_closed_child", a
   await waitFor(() => expect(connected.rail.selected()).toBe("a1"));
 });
 
-it("u2875d_rejected_call_keeps_period_and_selection", async () => {
+it.each([new RpcError(-32003, "daemon said no"), new Error("daemon said no")])("u2875d_rejected_call_keeps_period_and_selection (%s)", async (failure) => {
   const { app, connected } = await mount();
 
-  app.handlers["project.importCommit"] = () => { throw new Error("daemon said no"); };
+  app.handlers["project.importCommit"] = () => { throw failure; };
 
   await open();
   fireEvent.click(screen.getByRole("button", { name: "Last month" }));
@@ -163,8 +164,10 @@ it("u2875a_discovery_exclusions_remain_visible_after_partial_failure", async () 
   const { app } = await mount();
   app.handlers["project.importCommit"] = () => {
     app.handlers["project.importDiscover"] = () => ({ candidates: [candidates[1]!], excluded: [{ source: "s1", reason: "source unavailable" }] });
+
     return { outcomes: [{ source: "s1", workstream: null, agent: null, error: "copy refused" }] };
   };
+
   await open();
   fireEvent.click(screen.getByRole("checkbox", { name: /first/ }));
   fireEvent.click(screen.getByRole("button", { name: "Import 1" }));

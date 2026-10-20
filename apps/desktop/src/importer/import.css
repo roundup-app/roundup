@@ -116,3 +116,15 @@
   grid-column: 2;
   margin-block-end: var(--space-3);
 }
+
+.import-note,
+.import-activity {
+  color: var(--text-dim);
+  font-size: var(--text-small);
+  margin: 0;
+}
+
+.import-unavailable {
+  grid-column: 1 / -1;
+  padding-block: var(--space-2);
+}
