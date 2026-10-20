@@ -6,6 +6,8 @@
 mod daemon;
 #[path = "e2e/notes.rs"]
 mod notes;
+#[path = "e2e/reaction.rs"]
+mod reaction;
 #[path = "e2e/wake.rs"]
 mod wake;
 

@@ -173,6 +173,15 @@ pub const METHODS: &[Method] = &[
     m("agent.digest", "agent_NodeId", "agent_Digest"),
     m("agent.wake", "agent_WakeParams", "agent_Woken"),
     m(
+        "reaction.create",
+        "reaction_CreateParams",
+        "reaction_Reaction",
+    ),
+    m("reaction.list", "null", "reaction_Reaction[]"),
+    m("reaction.get", "reaction_ReactionId", "reaction_Reaction"),
+    m("reaction.stop", "reaction_ReactionId", "reaction_Reaction"),
+    m("reaction.run", "reaction_RunParams", "reaction_Reaction"),
+    m(
         "agent.spawnPrompt",
         "agent_NodeId",
         "{ prompt: string | null }",
