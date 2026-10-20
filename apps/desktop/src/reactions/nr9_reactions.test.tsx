@@ -182,3 +182,14 @@ it("nr9_reload_and_project_switch_keep_the_original_recipient_without_sending", 
   expect(reopened.connected.drafts.list().at(-1)?.value.target).toBe("a");
   expect([...first.app.calls, ...other.app.calls, ...reopened.app.calls].filter(call => call.method === "reaction.create" || call.method === "reaction.run")).toHaveLength(0);
 });
+
+it("nr9_saved_reactions_remain_inspectable_after_the_last_agent_is_removed", async () => {
+  const { app } = await mountAskBar([], null, []);
+  app.handlers["reaction.list"] = () => [saved()];
+  app.handlers["reaction.get"] = () => saved();
+  window.dispatchEvent(new Event("focus"));
+  fireEvent.click(await screen.findByRole("button", { name: /Ship it/ }));
+  const detail = await screen.findByRole("region", { name: copy.reactionDetail("Ship it") });
+  expect(within(detail).getByText(copy.reactionGone("a"))).toBeTruthy();
+  expect(app.calls.filter(call => call.method === "reaction.run" || call.method === "agent.spawn")).toHaveLength(0);
+});
