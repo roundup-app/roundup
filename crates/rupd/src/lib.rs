@@ -2032,6 +2032,45 @@ mod tests {
         (dir, daemon)
     }
 
+    // No runtime or listener: opening these stores starts no Daemon tasks or children.
+    // Exercise the actual subscribe method and its producing Bus without thousands of RPC
+    // renames, Touch writes and unrelated background observers.
+    #[test]
+    fn x14_daemon_observer_capacity_matches_its_receiver() {
+        use contracts::EventData;
+        use tokio::sync::broadcast::error::TryRecvError;
+        let dir = tempfile::tempdir().unwrap();
+        let daemon = test_daemon(dir.path()).unwrap();
+        let (mut receiver, capacity) = daemon.subscribe();
+        assert!(capacity > 0);
+        for index in 0..capacity {
+            daemon.bus.emit(
+                Actor {
+                    id: index.to_string(),
+                    ..Actor::user()
+                },
+                EventData::RailChanged,
+            );
+        }
+        for index in 0..capacity {
+            let event = receiver.try_recv().unwrap();
+            assert!(matches!(event.data, EventData::RailChanged));
+            assert_eq!(event.actor.id, index.to_string());
+        }
+        assert!(matches!(receiver.try_recv(), Err(TryRecvError::Empty)));
+        for index in 0..=capacity {
+            daemon.bus.emit(
+                Actor {
+                    id: index.to_string(),
+                    ..Actor::user()
+                },
+                EventData::RailChanged,
+            );
+        }
+        assert!(matches!(receiver.try_recv(), Err(TryRecvError::Lagged(1))));
+        assert_eq!(receiver.try_recv().unwrap().actor.id, "1");
+    }
+
     struct RailReply(Value);
 
     #[async_trait::async_trait]

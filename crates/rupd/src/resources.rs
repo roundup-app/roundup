@@ -373,6 +373,10 @@ mod tests {
         assert_eq!(sampler.sizes(&[&path]).await[&path], Some(10));
         std::fs::write(dir.path().join("b"), [0u8; 5]).unwrap();
         assert_eq!(sampler.sizes(&[&path]).await[&path], Some(10));
+        // Advance only the cache's stored completion time: expire it at D8's 30 s boundary.
+        sampler.disks.lock().unwrap().get_mut(&path).unwrap().walked =
+            Some(Instant::now() - Duration::from_secs(30));
+        assert_eq!(sampler.sizes(&[&path]).await[&path], Some(15));
         drop(dir);
         assert_eq!(sampler.sizes(&[&path]).await[&path], None);
     }
@@ -413,7 +417,7 @@ mod tests {
         assert_eq!(sampler.sample(&both, &HashMap::new()).await.agents.len(), 2);
 
         // A second later `a2` is done: the caller no longer passes it.
-        tokio::time::sleep(Duration::from_millis(1100)).await;
+        sampler.state.lock().await.at = Some(Instant::now() - Duration::from_secs(1));
         let got = sampler.sample(&both[..1], &HashMap::new()).await;
         assert_eq!(
             got.agents.iter().map(|a| a.id.as_str()).collect::<Vec<_>>(),
@@ -424,31 +428,33 @@ mod tests {
     #[tokio::test]
     async fn d8_a_disk_size_is_cached_for_30_s_and_the_walk_never_holds_the_call_past_1_s() {
         let dir = tempfile::tempdir().unwrap();
-        for d in 0..200 {
-            let sub = dir.path().join(format!("d{d}"));
-            std::fs::create_dir(&sub).unwrap();
-            for f in 0..1000 {
-                std::fs::File::create(sub.join(f.to_string())).unwrap();
-            }
-        }
         let sampler = Sampler::default();
-        let path = dir.path().to_path_buf();
-
-        let start = Instant::now();
-        let first = sampler.sizes(&[&path]).await[&path];
-        assert!(start.elapsed() < Duration::from_millis(1500));
-        // Either the walk finished in time or the size is not ready: never a wrong number.
-        assert!(first.is_none() || first == Some(0));
-
-        // Once walked, a second call inside 30 s does not walk again.
-        let deadline = Instant::now() + Duration::from_secs(30);
-        while sampler.sizes(&[&path]).await[&path].is_none() {
-            assert!(Instant::now() < deadline, "the walk never finished");
+        let cached = dir.path().join("cached");
+        let unknown = dir.path().join("unknown");
+        std::fs::create_dir(&cached).unwrap();
+        std::fs::create_dir(&unknown).unwrap();
+        // Seed the production state of two walks still in flight. No directory's size or
+        // host filesystem speed can guarantee that precondition by creating many files.
+        for (path, bytes) in [(&cached, Some(7)), (&unknown, None)] {
+            sampler.disks.lock().unwrap().insert(
+                path.clone(),
+                Disk {
+                    bytes,
+                    walked: None,
+                    walking: true,
+                },
+            );
         }
-        let walked = sampler.disks.lock().unwrap()[&path].walked;
-        std::fs::write(dir.path().join("late"), [0u8; 9]).unwrap();
-        assert_eq!(sampler.sizes(&[&path]).await[&path], Some(0));
-        assert_eq!(sampler.disks.lock().unwrap()[&path].walked, walked);
+        let start = Instant::now();
+        let sizes = tokio::time::timeout(
+            Duration::from_millis(1500),
+            sampler.sizes(&[&cached, &unknown]),
+        )
+        .await
+        .expect("an in-flight walk must not hold the call past its budget");
+        assert!(start.elapsed() < Duration::from_millis(1500));
+        assert_eq!(sizes[&cached], Some(7));
+        assert_eq!(sizes[&unknown], None);
     }
 
     #[tokio::test]
