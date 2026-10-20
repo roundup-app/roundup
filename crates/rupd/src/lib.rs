@@ -876,6 +876,9 @@ impl Daemon {
             }
             self.require_workstream(&params).await?;
         }
+        if matches!(method, "todo.create" | "todo.assign") {
+            self.require_owner(&params).await?;
+        }
         if matches!(
             method,
             "terminal.snapshot"
@@ -1004,6 +1007,7 @@ impl Daemon {
         }
         if method == "rail.remove" && outcome.is_ok() {
             self.reset_orphaned_homes().await?;
+            self.reset_orphaned_owners().await?;
             self.reset_orphaned_pad_homes().await?;
             return outcome;
         }
@@ -1414,6 +1418,60 @@ impl Daemon {
             }
             Some(_) => Ok(()),
         }
+    }
+
+    /// T16, T17: an `owner` is the user or an Agent the Rail holds, never an Extension.
+    async fn require_owner(&self, params: &Value) -> Result<(), RpcError> {
+        let Some(owner) = rpc::params::<OwnerOnly>(params.clone())?.owner else {
+            return Ok(());
+        };
+        match owner.kind {
+            ActorKind::User if owner == Actor::user() => Ok(()),
+            ActorKind::Agent => {
+                let nodes = self.rail().await?;
+                if nodes.iter().any(|node| {
+                    node.id == owner.id && node.kind == contracts::agent::NodeKind::Agent
+                }) {
+                    Ok(())
+                } else {
+                    Err(RpcError::not_found(format!("agent {}", owner.id)))
+                }
+            }
+            _ => Err(RpcError::new(
+                code::INVALID_PARAMS,
+                "an owner is the user or an Agent",
+            )),
+        }
+    }
+
+    /// T17: after `rail.remove`, each Todo whose owner Agent left the Rail is Unassigned, in id order.
+    async fn reset_orphaned_owners(&self) -> Result<(), RpcError> {
+        let rail: std::collections::HashSet<String> =
+            self.rail().await?.into_iter().map(|node| node.id).collect();
+        let todos = self
+            .modules
+            .get("todo")
+            .ok_or_else(|| RpcError::internal("todo module is not registered"))?;
+        let ctx = self.ctx(Actor::daemon());
+        let listed: Vec<contracts::todo::Todo> =
+            serde_json::from_value(todos.call(&ctx, "todo.list", Value::Null).await?)
+                .map_err(RpcError::internal)?;
+        let mut orphaned: Vec<u32> = listed
+            .into_iter()
+            .filter(|todo| {
+                todo.owner.as_ref().is_some_and(|owner| {
+                    owner.kind == ActorKind::Agent && !rail.contains(&owner.id)
+                })
+            })
+            .map(|todo| todo.id)
+            .collect();
+        orphaned.sort_unstable();
+        for id in orphaned {
+            todos
+                .call(&ctx, "todo.assign", json!({ "id": id, "owner": null }))
+                .await?;
+        }
+        Ok(())
     }
 
     /// D8: the Resource use of every running Agent and the Project's total. The Rail is read as
@@ -2350,6 +2408,12 @@ fn messages_env(touches: Arc<provenance::Touches>) -> messages::Env {
         });
     }
     env
+}
+
+/// The `owner` of a `todo.create` or `todo.assign`.
+#[derive(serde::Deserialize)]
+struct OwnerOnly {
+    owner: Option<Actor>,
 }
 
 /// The `home` of a `todo.move` or `pad.move`.

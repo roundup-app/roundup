@@ -335,6 +335,8 @@ const NO_TOOL: [&str; 55] = [
     // U462: only the open Drawer fetches and acknowledges the user's Todo history.
     "todo.getHistory",
     "todo.readHistory",
+    // T17: an Agent cannot assign in this delivery.
+    "todo.assign",
     "message.deliver",
     "message.drop",
     "takeover.begin",

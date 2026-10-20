@@ -478,6 +478,8 @@ export const copy = {
   titleChange: (value1: CopyValue) => `Title: ${value1}`,
   bodyChange: (value1: CopyValue) => `Body: ${value1}`,
   open: "Open",
+  me: "Me",
+  ownerChange: (value1: CopyValue) => `Owner: ${value1}`,
   waitsOnJoin: (value1: CopyValue) => `Waits on: ${value1}`,
   removedBlockersJoin: (value1: CopyValue) => `Removed blockers: ${value1}`,
   todoHistory: "Todo history",
