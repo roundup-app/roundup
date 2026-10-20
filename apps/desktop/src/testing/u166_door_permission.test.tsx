@@ -11,10 +11,7 @@ import type { StartedDaemon } from "./realDaemonFixture";
 
 let real: StartedDaemon;
 
-let pump: ReturnType<typeof setInterval> | undefined;
-
 afterEach(async () => {
-  clearInterval(pump);
   cleanup();
   await real?.stop();
 });
@@ -33,25 +30,25 @@ const settle = async (answer: "allow" | "deny", prompt: string) => {
   const app = mount();
   const rail = await screen.findByRole("region", { name: "Rail" });
   const workstreams = async () => (await app.rpc("rail.tree", null)).filter((node) => node.kind === "workstream");
-  const ready = async () => expect((await app.rpc("rail.tree", null)).map((node) => node.status?.label)).not.toContain("starting");
   const messages = async () => (await app.rpc("message.list", { to: null, status: null })).map((message) => [message.body, message.status]);
 
-  // A Door started with no message first hears its Clarification order (O2), which the fake also asks about;
-  // the pump allows each such Decision, never the one for the typed prompt.
-  pump = setInterval(async () => {
-    try {
-      for (const decision of await app.rpc("decision.list", null)) if (!decision.args.includes(prompt)) await app.rpc("decision.answer", { id: decision.id, answer: "allow", proof: await app.daemonProof() });
-    } catch {
-      // The Daemon or the App is gone; the test has ended.
-    }
-  }, 300);
-
   const startDoor = async () => {
+    const id = (await workstreams()).at(-1)!.id;
+
     fireEvent.click(await within(rail).findByRole("button", { name: /Start supervisor/i }));
-    await waitFor(ready, { timeout: 30_000 });
+    // SessionStart can read idle before the initial prompt begins. Wait for this
+    // Door's fixture reply, then its Stop, before another Workstream can affect it.
+    await waitFor(async () => {
+      const door = (await workstreams()).find((node) => node.id === id)!;
+
+      expect(door.terminal_id).not.toBeNull();
+      expect((await app.rpc("terminal.screen", { id: door.terminal_id! })).lines.join("\n")).toContain("Ready for your instructions.");
+      expect((await workstreams()).find((node) => node.id === id)?.status?.kind).toBe("idle");
+    }, { timeout: 60_000 });
   };
 
   fireEvent.click((await screen.findAllByRole("button", { name: /^(New Workstream|Add Workstream)$/ }))[0]!);
+  await waitFor(async () => expect(await workstreams()).toHaveLength(1), { timeout: 30_000 });
   await startDoor();
   // The add is disabled while the Door is pending (U143).
   const add = await within(rail).findByRole("button", { name: /^\s*(New Workstream|Add Workstream)$/ });
@@ -85,7 +82,6 @@ const settle = async (answer: "allow" | "deny", prompt: string) => {
   await waitFor(async () => expect((await workstreams()).find((workstream) => workstream.id === second?.id)?.status?.kind).toBe("idle"), { timeout: 60_000 });
   await waitFor(() => expect(rail.querySelector(`.rail-row[data-id="${first?.id}"]`)?.getAttribute("data-kind")).toBe("needs-you"), { timeout: 30_000 });
   await waitFor(() => expect(rail.querySelector(`.rail-row[data-id="${second?.id}"]`)?.getAttribute("data-kind")).toBe("idle"), { timeout: 30_000 });
-  clearInterval(pump);
 
   const otherBefore = (await workstreams()).find((room) => room.id === second?.id)?.status?.kind;
   const toSecond = async () => (await app.rpc("message.list", { to: null, status: null })).filter((message) => message.to === second?.id);
@@ -108,7 +104,6 @@ const settle = async (answer: "allow" | "deny", prompt: string) => {
   await waitFor(() => expect(rail.querySelector(`.rail-row[data-id="${first?.id}"]`)?.getAttribute("data-kind")).toBe("idle"), { timeout: 30_000 });
 
   if (answer === "allow") {
-    await waitFor(async () => expect((await app.rpc("todo.list", null)).map((todo) => todo.title)).toContain(prompt), { timeout: 30_000 });
     expect(await screen.findByText(new RegExp(prompt), { selector: "[data-todo] *" }, { timeout: 30_000 })).toBeTruthy();
   }
 

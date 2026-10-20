@@ -406,4 +406,26 @@ mod tests {
             matches!(&seen[1], EventData::DecisionCleared(c) if c.outcome == contracts::decision::Outcome::Terminal)
         );
     }
+
+    #[tokio::test]
+    async fn a2703a_prompt_errors_use_rail_names() {
+        let watched = Watched::named();
+        let agents = owner_agents(watched.shared.clone(), watched._dir.path());
+        let busy = agents.prompt("7013", "hello").await.unwrap_err();
+        assert!(matches!(busy, crate::PromptError::Busy { .. }));
+        assert!(busy.to_string().contains("sad") && !busy.to_string().contains("7013"));
+        // NotAccepted's Rail-name path is already proved with physical bytes by
+        // h11_a_lost_submit_is_not_accepted_and_nothing_is_sent_again.
+        watched
+            .shared
+            .stop(contracts::Actor::user(), "7013")
+            .await
+            .unwrap();
+        let stopped = agents.prompt("7013", "hello").await.unwrap_err();
+        assert!(matches!(stopped, crate::PromptError::NotFound { .. }));
+        assert!(stopped.to_string().contains("sad") && !stopped.to_string().contains("7013"));
+        let gone = agents.prompt("8013", "hello").await.unwrap_err();
+        assert!(gone.to_string().contains("an Agent that is gone"));
+        assert!(!gone.to_string().contains("8013"));
+    }
 }
