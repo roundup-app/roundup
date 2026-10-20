@@ -6,7 +6,7 @@ use contracts::reaction::Reaction;
 use rpc::code;
 use serde_json::{Value, json};
 
-use super::wake::{messages, scene};
+use super::wake::{STOP, WORK, drive, messages, notes, project_db, scene, start_again, still};
 use super::{actor, agent_in_as, client_as};
 
 fn definition(target: &str, instruction: &str) -> Value {
@@ -261,4 +261,145 @@ async fn nr8_existing_delivery_guards_and_reported_outcomes() {
     let evidence: Value = serde_json::from_str(&firing.evidence).unwrap();
     assert_eq!(evidence["reported"], json!(true));
     assert!(!firing.matched);
+}
+
+async fn watching(s: &super::wake::Scene, name: &str, ids: &[&String], extra: Value) -> Reaction {
+    let mut body = definition(&s.w, name);
+    body["operation"] = json!(name);
+    body["condition"]["ids"] = json!(ids);
+    for (key, value) in extra.as_object().unwrap() {
+        if key == "any" {
+            body["condition"]["any"] = value.clone();
+        } else {
+            body[key] = value.clone();
+        }
+    }
+    made(&s.user, "reaction.create", body).await
+}
+
+async fn current(s: &super::wake::Scene, r: &Reaction) -> Reaction {
+    made(&s.user, "reaction.get", json!({ "id": r.id })).await
+}
+
+#[tokio::test]
+async fn nr2_agent_conditions_match_once_without_a_model() {
+    let s = scene(&[]).await;
+    let all = watching(&s, "all-done", &[&s.a, &s.b], json!({})).await;
+    drive(&s.user, &s.a, STOP).await;
+    still(&s.user, &s.w, "all-done", 0).await;
+    drive(&s.user, &s.b, STOP).await;
+    let sent = notes(&s.user, &s.w, "all-done", 1).await;
+    // A finish seen again, a flip and a second finish add nothing.
+    drive(&s.user, &s.a, WORK).await;
+    drive(&s.user, &s.a, STOP).await;
+    still(&s.user, &s.w, "all-done", 1).await;
+    let fired = current(&s, &all).await;
+    assert_eq!((fired.firings.len(), fired.remaining), (1, 0));
+    assert_eq!(
+        fired.firings[0].message,
+        sent[0]["id"].as_u64().unwrap() as u32
+    );
+    assert!(fired.firings[0].matched);
+    let evidence: Value = serde_json::from_str(&fired.firings[0].evidence).unwrap();
+    assert_eq!(evidence["agents"][0]["name"], json!("alpha"));
+    assert_eq!(evidence["reported"], json!(true));
+
+    // Already finished Agents match on activation, once, for `any` and for `all`.
+    watching(&s, "any-now", &[&s.a, &s.b], json!({ "any": true })).await;
+    watching(&s, "all-now", &[&s.a, &s.b], json!({})).await;
+    assert_eq!(messages(&s.user, &s.w, "any-now").await.len(), 1);
+    still(&s.user, &s.w, "all-now", 1).await;
+}
+
+#[tokio::test]
+async fn nr4_bounds_rearm_stop_and_target_races() {
+    let s = scene(&[]).await;
+    let twice = watching(
+        &s,
+        "twice",
+        &[&s.a],
+        json!({ "rearm": true, "max_firings": 2 }),
+    )
+    .await;
+    drive(&s.user, &s.a, STOP).await;
+    notes(&s.user, &s.w, "twice", 1).await;
+    // Still finished: a refresh does not re-arm.
+    drive(&s.user, &s.a, STOP).await;
+    still(&s.user, &s.w, "twice", 1).await;
+    drive(&s.user, &s.a, WORK).await;
+    drive(&s.user, &s.a, STOP).await;
+    notes(&s.user, &s.w, "twice", 2).await;
+    let spent = current(&s, &twice).await;
+    assert_eq!(
+        spent.firings.iter().map(|f| f.ordinal).collect::<Vec<_>>(),
+        [1, 2]
+    );
+    assert_eq!(spent.remaining, 0);
+    let refused = s
+        .user
+        .request("reaction.run", json!({ "id": twice.id, "operation": "x" }))
+        .await
+        .unwrap_err();
+    assert_eq!(refused.code, code::CONFLICT);
+
+    // An explicit run spends the one firing; the condition then adds none.
+    let once = watching(&s, "once-run", &[&s.a, &s.b], json!({})).await;
+    let ran = made(
+        &s.user,
+        "reaction.run",
+        json!({ "id": once.id, "operation": "go" }),
+    )
+    .await;
+    assert_eq!(ran.remaining, 0);
+    drive(&s.user, &s.b, STOP).await;
+    still(&s.user, &s.w, "once-run", 1).await;
+
+    // Stopped first: a later finish is accepted by nothing.
+    drive(&s.user, &s.b, WORK).await;
+    let stopped = watching(&s, "stopped", &[&s.b], json!({})).await;
+    made(&s.user, "reaction.stop", json!({ "id": stopped.id })).await;
+    drive(&s.user, &s.b, STOP).await;
+    still(&s.user, &s.w, "stopped", 0).await;
+    assert!(current(&s, &stopped).await.firings.is_empty());
+}
+
+#[tokio::test]
+async fn nr5_gaps_require_condition_specific_evidence() {
+    let mut s = scene(&[]).await;
+    // A named Agent that is gone: nothing matches, and inspection says why.
+    let gone = watching(&s, "gone", &[&s.a, &s.b], json!({})).await;
+    s.user
+        .request("rail.remove", json!({ "id": s.b }))
+        .await
+        .unwrap();
+    drive(&s.user, &s.a, STOP).await;
+    still(&s.user, &s.w, "gone", 0).await;
+    let seen = current(&s, &gone).await;
+    assert_eq!(seen.observation.health, "unavailable");
+    assert!(seen.observation.gap.is_some() && seen.observation.recovery.is_some());
+
+    // Expired history with current state that is sufficient reconciles, and the gap stays recorded.
+    drive(&s.user, &s.a, WORK).await;
+    let mut body = definition(&s.door, "expired");
+    body["condition"]["ids"] = json!([s.a]);
+    let live = made(&s.user, "reaction.create", body).await;
+    still(&s.user, &s.door, "expired", 0).await;
+    drop(s.user);
+    s.project.crash();
+    project_db(&s.project)
+        .execute("DELETE FROM events", [])
+        .unwrap();
+    project_db(&s.project)
+        .execute(
+            "UPDATE reaction_watch SET state = json_set(state, '$.seen', 0)",
+            [],
+        )
+        .unwrap();
+    s.project.restart(&[]);
+    let user = s.project.client().await;
+    start_again(&user, &s.door).await;
+    notes(&user, &s.door, "expired", 1).await;
+    let after = made(&user, "reaction.get", json!({ "id": live.id })).await;
+    assert!(after.observation.gap.unwrap().contains("expired"));
+    assert_eq!(after.firings.len(), 1);
 }

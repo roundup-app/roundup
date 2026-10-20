@@ -434,3 +434,7 @@ behind the actions released at the end, and a Daemon restart drops the connectio
 A begin that races a read is isolated by the child's effect lock. The user's own
 reads are never held. Rewind has no Daemon method yet, so there is no call to hold.
 Integration-tested for M3 and M4; Message proofs and laws are unchanged.
+
+## Reaction evaluation (NR2, NR4, NR5)
+
+The Daemon decides an Agents Reaction from `agent.status` Events and the Rail's present Kinds, never from a Model or a clock, in the same Kind sense as Wake (B41). It reads the Event head, then the Rail, then replays the Events after the head, and accepts a firing only through `Messages::fire_reaction` with the operation `auto-<n>`, so a crash between acceptance and its saved progress returns the first firing. A repeat-enabled Reaction re-arms only after every named Agent was seen not finished since the last firing. Stop, explicit run and automatic acceptance meet in `fire_reaction`'s one write, which reads the state and the bound. Expired Event history or a failed read records a gap; an Agent with no present state never matches. No delivery state is added, so M1 to M10 stand unchanged.
