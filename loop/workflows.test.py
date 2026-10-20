@@ -404,6 +404,20 @@ class L122(unittest.TestCase):
         self.assertEqual({4, 5}, affected.touched_lines('@@ -3 +4,2 @@ fn x\n+a\n+b\n'))
         self.assertEqual({7}, affected.touched_lines('@@ -7,2 +6,0 @@\n-a\n-b\n'.replace('+6,0', '+7,0')))
 
+    def test_l122_the_stress_job_skips_an_edited_web_test_file_that_starts_a_real_daemon(self):
+        import io
+        import sys
+        from contextlib import redirect_stdout
+        from unittest.mock import patch
+        sys.path.insert(0, str(ROOT / 'loop'))
+        import affected
+        daemon, ordinary = 'apps/desktop/src/testing/u144_real_daemon.test.tsx', 'apps/desktop/src/rail/u357_fold_line.test.ts'
+        out = {'merge-base': 'fork\n', 'diff': f'{daemon}\n{ordinary}\n', 'ls-files': ''}
+        with patch.object(affected.subprocess, 'run', side_effect=lambda args, **_: subprocess.CompletedProcess(
+                args, 0, out[args[1]])), redirect_stdout(io.StringIO()) as printed:
+            self.assertEqual(affected.main(['affected.py', 'edited-web', 'origin/main']), 0)
+        self.assertEqual([ordinary.removeprefix('apps/desktop/')], printed.getvalue().split())
+
     def test_l122_check_fails_on_a_pull_request_unless_the_stress_job_succeeded(self):
         source = (ROOT / '.github/workflows/check.yml').read_text()
         program = re.search(r"jq -e --arg event \"\$EVENT\" '(.*)' <<<", source)[1]
