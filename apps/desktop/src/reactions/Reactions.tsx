@@ -6,7 +6,6 @@ import type { Preview } from "@contracts/reaction/Preview";
 import type { Condition } from "@contracts/reaction/Condition";
 import { copy } from "../copy";
 import { ErrorLine } from "../ink/ErrorLine";
-import { resolvedWorkstream } from "../rail/layout";
 import { useConnectedProject } from "../state/connectedProject";
 import { Checkbox } from "../ui/Checkbox";
 import { Select } from "../ui/Select";
@@ -294,7 +293,7 @@ const ReactionForm = (props: { onDone: (made: Reaction) => void; onCancel: () =>
   let disposed = false;
 
   onCleanup(() => { disposed = true; });
-  const agents = () => rail.nodes.filter((node) => node.kind === "agent");
+  const agents = () => rail.nodes.filter((node) => node.kind === "agent" || (node.kind === "workstream" && node.status !== null));
   const nameOf = useNames();
   const instant = createPreview(() => form().atDate, () => form().atTime, () => form().atOffset);
   const expiry = createPreview(() => form().expDate, () => form().expTime, () => form().expOffset);
@@ -323,7 +322,7 @@ const ReactionForm = (props: { onDone: (made: Reaction) => void; onCancel: () =>
     return Number.isSafeInteger(Number(f.maxFirings)) && Number(f.maxFirings) > 0 && f.name.trim() !== "" && f.target !== "" && f.instruction.trim() !== "" && condition() !== null && resolvedAt(expiry) !== null && !busy();
   };
 
-  const home = () => resolvedWorkstream(rail.nodes, form().target);
+  const home = () => rail.nodes.find(node => node.id === form().target)?.parent ?? null;
 
   const submit = async () => {
     const draft = current();
