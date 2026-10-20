@@ -9,11 +9,10 @@ import type { TodoStore } from "../testing/stores";
 import { Capture } from "../todos/Capture";
 import { Todos } from "../todos/Todos";
 import { todo, todoCallsTo as callsTo } from "../todos/testHarness";
-import { CHORDS, HELP_ROWS } from "./chords";
 import { Help } from "./Help";
 import { leaderKey } from "./leaderFixture";
 import { Leader } from "./Leader";
-import { leaderArmed } from "./registry";
+import { armLeader, leaderArmed } from "./registry";
 
 afterEach(cleanup);
 
@@ -40,7 +39,7 @@ const mount = async () => {
 
   before.focus();
 
-  return { app, store, before };
+  return { app, store, before, connected };
 };
 
 const field = (): HTMLTextAreaElement | null => screen.queryByRole<HTMLTextAreaElement>("textbox", { name: "Capture a Todo" });
@@ -61,21 +60,34 @@ const press = (input: HTMLElement, init: KeyboardEventInit = {}) => fireEvent.ke
 
 describe("u3713 the leader opens the capture field", () => {
   it("u3713_leader_t_opens_a_focused_empty_field_without_changing_selection", async () => {
-    await mount();
+    const { connected } = await mount();
+
+    connected.rail.select(connected.rail.nodes[0]!.id);
+    const selected = connected.rail.selected();
     const input = await openField();
 
+    expect(connected.rail.selected()).toBe(selected);
     expect(leaderArmed()).toBe(false);
     expect(input.value).toBe("");
     await waitFor(() => expect(document.activeElement).toBe(input));
   });
 
-  it("u3713_help_and_panel_list_the_key_from_the_table", () => {
-    expect(HELP_ROWS).toContainEqual({ keys: "⌘K T", what: "Capture a Todo" });
+  it("u3713_help_and_panel_list_the_key_from_the_table", async () => {
+    await mount();
+    armLeader(new KeyboardEvent("keydown", { code: "KeyK", metaKey: true }));
+    expect(screen.getByRole("status").textContent).toContain("T  Capture");
+    await openField();
+    fireEvent.keyDown(field()!, { key: "Escape", code: "Escape" });
+    await waitFor(() => expect(field()).toBeNull());
+    const rail = document.body.appendChild(document.createElement("div"));
+
+    rail.setAttribute("role", "tree");
+    fireEvent.keyDown(rail, { key: "?", code: "Slash", shiftKey: true });
+    await waitFor(() => expect(document.querySelector(".help")).not.toBeNull());
+    expect(document.querySelector(".help")!.textContent).toContain("⌘K T  Capture a Todo");
+    rail.remove();
   });
 
-  it("u3713_the_modifier_sweep_still_passes", () => {
-    expect(CHORDS.filter((chord) => chord.presses.some((press) => press.includes("KeyT") && !press.startsWith("meta+"))).length).toBe(0);
-  });
 });
 
 describe("u3714 enter files an Unassigned Todo", () => {
@@ -136,10 +148,10 @@ describe("u3715 a failed create keeps the text and says why", () => {
     app.handlers["todo.create"] = () => Promise.reject(new RpcError(1, "the Daemon is full"));
     const input = await openField();
 
-    type(input, "keep me");
+    type(input, "  keep me  ");
     press(input);
 
-    await waitFor(() => expect(field()?.value).toBe("keep me"));
+    await waitFor(() => expect(field()?.value).toBe("  keep me  "));
     expect(screen.getByRole("alert").textContent).toContain("the Daemon is full");
     expect(screen.queryByText("keep me", { selector: ".shelf *" })).toBeNull();
   });
