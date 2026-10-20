@@ -90,7 +90,7 @@ impl Reactions {
             params![id, state],
         );
         if let Err(err) = saved {
-            eprintln!("rupd: reaction: watch not kept: {err}");
+            eprintln!("reaction: watch not kept: {err}");
         }
     }
 
@@ -362,7 +362,7 @@ impl Evaluator {
             }
             // Stopped, or the bound was spent by an explicit run first: nothing more is accepted.
             Err(err) if err.code == code::CONFLICT => {}
-            Err(err) => eprintln!("rupd: reaction {}: not fired: {}", r.id, err.message),
+            Err(err) => eprintln!("reaction {}: not fired: {}", r.id, err.message),
         }
     }
 }
