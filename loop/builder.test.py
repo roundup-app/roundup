@@ -794,7 +794,7 @@ def branch(path, commits, pushed):
 
 
 class Attach(unittest.TestCase):
-    def run_attach(self, token, shots=('ux/U1/a.png', 'ux/U1/head/b.png', 'ux/U1/c.webm')):
+    def run_attach(self, token, shots=('ux/U1/a.png', 'ux/U1/head/b.png', 'ux/U1/c.webm', 'ux/U2/d.png'), body='Scenarios: U1'):
         with tempfile.TemporaryDirectory() as path, chdir(path):
             # The run's worktree is not the directory the step starts in.
             path = f'{path}/wt'
@@ -803,7 +803,7 @@ class Attach(unittest.TestCase):
                 Path(path, 'artifacts', shot).touch()
             out = io.StringIO()
             with patch.dict(os.environ, PR_ATTACH_TOKEN=token, GH_TOKEN='app'), \
-                    patch.object(builder.orders, 'gh', return_value=[dict(number=7)]), \
+                    patch.object(builder.orders, 'gh', return_value=[dict(number=7, body=body)]), \
                     patch.object(builder.subprocess, 'run') as run, redirect_stdout(out):
                 run.return_value.stdout = f'worktree /x\nbranch refs/heads/main\n\nworktree {path}\nbranch refs/heads/build/U1\n'
                 try:
@@ -827,6 +827,12 @@ class Attach(unittest.TestCase):
         self.assertEqual(command, ['gh', 'pr', 'edit', '7', '--attach', f'{self.tree}/artifacts/ux/U1/a.png#U1/a', '--attach',
                                    f'{self.tree}/artifacts/ux/U1/c.webm'])
         self.assertEqual(run.call_args.kwargs['env']['GH_TOKEN'], 'user')
+
+    def test_l23_a_capture_of_a_scenario_the_pr_does_not_name_is_not_attached(self):
+        code, out, run = self.run_attach('user', body='Scenarios: U3')
+        self.assertEqual(code, 0)
+        self.assertIn('no captures to attach', out)
+        self.assertEqual([c.args[0][0] for c in run.call_args_list], ['git'])
 
 
 class Keep(unittest.TestCase):
