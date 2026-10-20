@@ -793,6 +793,42 @@ def branch(path, commits, pushed):
     return git
 
 
+class Attach(unittest.TestCase):
+    def run_attach(self, token, shots=('ux/U1/a.png', 'ux/U1/head/b.png', 'ux/U1/c.webm')):
+        with tempfile.TemporaryDirectory() as path, chdir(path):
+            # The run's worktree is not the directory the step starts in.
+            path = f'{path}/wt'
+            for shot in shots:
+                Path(path, 'artifacts', shot).parent.mkdir(parents=True, exist_ok=True)
+                Path(path, 'artifacts', shot).touch()
+            out = io.StringIO()
+            with patch.dict(os.environ, PR_ATTACH_TOKEN=token, GH_TOKEN='app'), \
+                    patch.object(builder.orders, 'gh', return_value=[dict(number=7)]), \
+                    patch.object(builder.subprocess, 'run') as run, redirect_stdout(out):
+                run.return_value.stdout = f'worktree /x\nbranch refs/heads/main\n\nworktree {path}\nbranch refs/heads/build/U1\n'
+                try:
+                    builder.attach('build/U1')
+                    code = 0
+                except SystemExit as exit:
+                    code = exit.code
+        self.tree = path
+        return code, out.getvalue(), run
+
+    def test_l23_a_missing_attach_token_fails_loud_and_touches_no_pr(self):
+        code, out, run = self.run_attach('')
+        self.assertEqual(code, 1)
+        self.assertIn('::error::PR_ATTACH_TOKEN is not set; captures not attached', out)
+        self.assertEqual([c.args[0][0] for c in run.call_args_list], ['git'])
+
+    def test_l23_captures_attach_to_the_branch_pr_with_only_the_attach_token(self):
+        code, _, run = self.run_attach('user')
+        self.assertEqual(code, 0)
+        command = run.call_args.args[0]
+        self.assertEqual(command, ['gh', 'pr', 'edit', '7', '--attach', f'{self.tree}/artifacts/ux/U1/a.png#U1/a', '--attach',
+                                   f'{self.tree}/artifacts/ux/U1/c.webm'])
+        self.assertEqual(run.call_args.kwargs['env']['GH_TOKEN'], 'user')
+
+
 class Keep(unittest.TestCase):
     def test_l23_a_run_that_outlived_its_token_keeps_its_commits_and_a_draft_names_its_issue(self):
         body = ('Refs #1\nScenarios: U1\n\nThe run https://run/1 ended with these commits and no open PR, so `keep` '
