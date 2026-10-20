@@ -8,7 +8,7 @@ use std::time::Duration;
 
 use contracts::{
     Actor, ActorKind, HistoryParams, IdentifyParams, TouchedParams, agent, checkpoint, decision,
-    deliverable, message, pad, project, terminal, todo, workstream,
+    deliverable, link, message, pad, project, terminal, todo, workstream,
 };
 use rmcp::model::{
     CacheScope, CallToolRequestParams, CallToolResponse, CallToolResult, ContentBlock,
@@ -416,6 +416,10 @@ fn offered_tools() -> Vec<Offered> {
         ),
         offered::<pad::CreateParams>("pad.create", "Create a Pad you own."),
         offered::<pad::PadName>("pad.read", "Read one Pad."),
+        offered::<link::LinkUrl>(
+            "link.read",
+            "Read what a roundup:// link names, as it is now: a Pad, Todo, Agent, Workstream or Terminal of this Project.",
+        ),
         offered_without_params("pad.list", "List every Pad."),
         offered::<pad::WriteParams>(
             "pad.write",

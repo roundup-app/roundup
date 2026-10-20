@@ -228,7 +228,7 @@ fn assert_exit_1_with_one_line_naming(output: &Output, socket: &Path) {
 
 /// M5: the methods with a tool for every Agent, each named after its method with the dot replaced
 /// by `_`, bar `agent.setOrder` (O4), whose tool is `agent_set_order`.
-const TOOL_METHODS: [&str; 69] = [
+const TOOL_METHODS: [&str; 70] = [
     "agent.wake",
     "deliverable.publish",
     "deliverable.list",
@@ -247,6 +247,7 @@ const TOOL_METHODS: [&str; 69] = [
     "todo.delete",
     "pad.create",
     "pad.read",
+    "link.read",
     "pad.list",
     "pad.write",
     "pad.append",
