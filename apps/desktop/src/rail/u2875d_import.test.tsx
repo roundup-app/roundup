@@ -70,7 +70,7 @@ describe("u2875d the import panel is an ordinary Rail action", () => {
     expect(calls(app, "project.importCommit").length).toBe(3);
   });
 
-  it("u2875d_late_acknowledgement_preserves_newer_selection_across_project_navigation", async () => {
+  it("u2875d_late_acknowledgement_preserves_newer_selection_across_project_close_and_reopen", async () => {
     const { app } = await openTabs({ api: [workstream("w1")], web: [] });
     fireEvent.click(tab("api"));
     await waitFor(() => expect(tab("api").getAttribute("aria-selected")).toBe("true"));
@@ -82,20 +82,22 @@ describe("u2875d the import panel is an ordinary Rail action", () => {
     fireEvent.click(screen.getByRole("button", { name: "Import Claude Code work" }));
     fireEvent.click(await screen.findByText("First"));
     fireEvent.click(await screen.findByRole("button", { name: "Import 1" }));
-    fireEvent.click(tab("web"));
-    await waitFor(() => expect(tab("web").getAttribute("aria-selected")).toBe("true"));
-    fireEvent.click(tab("api"));
-    await waitFor(() => expect(tab("api").getAttribute("aria-selected")).toBe("true"));
+    const reopen = async () => {
+      fireEvent.click(screen.getByLabelText("Close api"));
+      await waitFor(() => expect(screen.queryByRole("tab", { name: /^api/ })).toBeNull());
+      app.chooser.path = path("api");
+      fireEvent.click(screen.getByRole("button", { name: "Open a folder" }));
+      await waitFor(() => expect(tab("api").getAttribute("aria-busy")).toBe("false"));
+    };
+
+    await reopen();
     const refresh = screen.queryByRole("button", { name: "Refresh" });
 
     if (refresh) fireEvent.click(refresh);
     fireEvent.click(await screen.findByText("Second"));
     release({ outcomes: [{ source: "s1", workstream: "w1", agent: "a1", error: null }] });
     await waitFor(() => expect(screen.queryByRole("button", { name: "Import 2" })).toBeNull());
-    fireEvent.click(tab("web"));
-    await waitFor(() => expect(tab("web").getAttribute("aria-selected")).toBe("true"));
-    fireEvent.click(tab("api"));
-    await waitFor(() => expect(tab("api").getAttribute("aria-selected")).toBe("true"));
+    await reopen();
     expect(await screen.findByRole("button", { name: "Import 1" })).toBeTruthy();
     expect(daemon.calls.filter((call) => call.method === "project.importCommit")).toHaveLength(1);
   });
@@ -148,6 +150,36 @@ describe("u2875d the import panel is an ordinary Rail action", () => {
       expect(daemon.calls.filter((call) => call.method === "project.importCommit")).toEqual([]);
     } finally {
       writes.mockRestore();
+    }
+  });
+
+  it("u2875d_restore_failure_preserves_saved_choices_until_storage_recovers", async () => {
+    const key = "roundup:import:/p";
+    const record = JSON.stringify({ open: true, period: "month", selected: [{ source: "s1", revision: "r1", title: "First" }] });
+    localStorage.setItem(key, record);
+    const read = Storage.prototype.getItem;
+    const reads = vi.spyOn(Storage.prototype, "getItem").mockImplementation(function (this: Storage, name: string) {
+      if (name === key) throw new Error("unreadable");
+
+      return read.call(this, name);
+    });
+
+    try {
+      const { app } = await mountRail([]);
+      app.handlers["project.importDiscover"] = () => found();
+      fireEvent.click(screen.getByRole("button", { name: "Import Claude Code work" }));
+      await screen.findByText(/Import choices could not be restored/);
+      fireEvent.click(await screen.findByText("Second"));
+      expect(read.call(localStorage, key)).toBe(record);
+      reads.mockRestore();
+      fireEvent.click(screen.getByRole("button", { name: "Try again" }));
+      expect(await screen.findByRole("button", { name: "Import 2" })).toBeTruthy();
+      cleanup();
+      const restored = createImport(app, "/p", () => undefined);
+      expect([restored.period(), [...restored.selected().keys()]]).toEqual(["month", ["s1", "s2"]]);
+      expect(calls(app, "project.importCommit")).toEqual([]);
+    } finally {
+      reads.mockRestore();
     }
   });
 
