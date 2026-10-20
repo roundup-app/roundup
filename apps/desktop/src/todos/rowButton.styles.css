@@ -178,3 +178,14 @@
 .todo-row-actions { display: none; flex: none; gap: var(--space-1); margin-left: var(--space-3); position: relative; z-index: 1; }
 .todo-row:hover .todo-row-actions,
 .todo-row:focus-within .todo-row-actions { display: flex; }
+
+/* U3720: the owner list floats over the Shelf: opaque, lifted, and as tall as the window leaves room for. */
+.owner-picker {
+  background-color: var(--ground);
+  box-shadow: var(--shadow-drawer);
+  box-sizing: border-box;
+  max-height: var(--available-height, calc(100vh - var(--space-6)));
+  overflow-y: auto;
+  z-index: 100;
+}
+.owner-picker:focus-visible { outline: none; }

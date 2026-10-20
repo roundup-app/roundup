@@ -122,7 +122,8 @@ const pageOf = (doc: Document): Page => {
     return computed;
   };
 
-  const visible = (el: Element) => !el.closest("[hidden], [aria-hidden=true]") && style(el).display !== "none";
+  // An element inside a `display: none` ancestor has no layout, so no check can read it.
+  const visible = (el: Element): boolean => !el.closest("[hidden], [aria-hidden=true]") && style(el).display !== "none" && !(el.parentElement && el.parentElement !== doc.body && !visible(el.parentElement));
 
   return { doc, view, rules, states: new Map(), elements: [...doc.body.querySelectorAll("*")].filter((el) => !/^(SCRIPT|STYLE)$/.test(el.tagName) && visible(el)), style, token, resolve };
 };
@@ -532,7 +533,7 @@ const d8 = (page: Page): Measure => {
     };
 
     // U375 requires the Watch overlay to cast the Drawer shadow on its surface.
-    const surfaceShadow = el.matches(".milkdown-slash-menu, .pane-control, .worktree-panel, .app-mentions-panel") && shadowParts(shadow) !== "" && shadowParts(shadow) === shadowParts("var(--shadow-drawer)");
+    const surfaceShadow = el.matches(".milkdown-slash-menu, .pane-control, .worktree-panel, .app-mentions-panel, .owner-picker") && shadowParts(shadow) !== "" && shadowParts(shadow) === shadowParts("var(--shadow-drawer)");
 
     if (shadow && shadow !== "none" && !surfaceShadow && !el.matches("aside, aside *, .bubble") && el.tagName !== "ASIDE") return { boxShadow: shadow };
 

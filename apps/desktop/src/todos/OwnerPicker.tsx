@@ -29,7 +29,7 @@ export const OwnerPicker = (props: {
   >
     <Portal>
       <Menu.Positioner>
-        <Menu.Content aria-label={copy.ownersFor(props.target()?.id ?? "")}>
+        <Menu.Content class="owner-picker" aria-label={copy.ownersFor(props.target()?.id ?? "")}>
           <For each={props.offers()}>{offer => <Menu.Item value={offer.id}>{offer.name}</Menu.Item>}</For>
         </Menu.Content>
       </Menu.Positioner>
