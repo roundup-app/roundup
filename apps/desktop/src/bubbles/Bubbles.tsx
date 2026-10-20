@@ -5,7 +5,7 @@ import { Dialog } from "../ui/Dialog";
 import { Editable } from "../ui/Editable";
 import { FlatAdd, FlatTab } from "../ui/FlatTab";
 import { IconButton } from "../ui/IconButton";
-import { Menu } from "../ui/Menu";
+import { contextMenu, linkEntries, openOnRelease, PULL_DISTANCE } from "../ui/contextMenu";
 import { Panel } from "../ui/Panel";
 import { copy } from "../copy";
 import { createEffect, createMemo, createSignal, For, on, onCleanup, onMount, Show, untrack } from "solid-js";
@@ -42,7 +42,6 @@ const zoneBox = (place: Place, zone: Zone) => {
 };
 
 /** U421 engineering call 1: past the 3 to 4 px a hand wobbles while it clicks. */
-const PULL_DISTANCE = 8;
 
 const FALLBACK_EXTENT: Extent = { width: 800, height: 600 };
 
@@ -895,7 +894,6 @@ export const Bubbles = (props: { screens: Screens }) => {
 
     const name = () => nameFor(terminal());
     const [nameRef, nameCut] = createCut();
-    let renameChosen = false;
     let destination = Object.freeze({ surface: "bubbles", object: terminal().incarnation, recipient: id });
     const current = () => records().filter(draft => draft.destination.object === destination.object && draft.destination.recipient === id && draft.status === "draft").at(-1);
     let base = "";
@@ -944,15 +942,19 @@ export const Bubbles = (props: { screens: Screens }) => {
 
     const tab = () => document.querySelector<HTMLElement>(`button.terminal-tab[data-bubble="${id}"]`);
 
-    return <Menu.Root positioning={{ strategy: "fixed" }} onSelect={({ value }) => { renameChosen = value === "rename"; }}
-      onOpenChange={({ open }) => {
-        // The menu hands focus back to its trigger as it closes; the editor starts after that.
-        if (open || !renameChosen) return;
+    /** U2694b: Rename, Send to Agent ▸, Copy Link and Close, as the system menu of the tab. */
+    const tabMenu = (x: number, y: number) => {
+      const agents = rail.nodes.filter((node) => node.kind === "agent");
 
-        renameChosen = false;
-        setTimeout(start);
-      }}>
-      <Menu.ContextTrigger asChild={(trigger) => <FlatTab {...trigger({ class: "terminal-tab-pair" })} selected={!placeOf(id).min} data-bubble={id}>
+      return contextMenu(app, [
+        { id: "rename", label: copy.rename, run: start },
+        ...linkEntries(app, "terminal", id, agents, (node) => rail.exitOf(node) === null, setFailure),
+        { id: "close", label: copy.close, ...(lastTarget() === id ? { shortcut: "⌘K W" } : {}), run: () => close(id) },
+      ], x, y);
+    };
+
+    return <>
+      <FlatTab class="terminal-tab-pair" onContextMenu={(event: MouseEvent) => openOnRelease(event, (x, y) => void tabMenu(x, y))} selected={!placeOf(id).min} data-bubble={id}>
         <Show when={editing() === id} fallback={
           <Tip content={name()} cut={nameCut}>
             {(trigger) => (
@@ -1007,11 +1009,8 @@ export const Bubbles = (props: { screens: Screens }) => {
           </div>
         </Show>
         <IconButton aria-label={copy.closeTerminal(name())} onClick={() => void close(id)}><Icon name="x" /></IconButton>
-      </FlatTab>} />
-      <Portal><Menu.Positioner><Menu.Content>
-        <Menu.Item value="rename">{copy.rename}</Menu.Item>
-      </Menu.Content></Menu.Positioner></Portal>
-    </Menu.Root>;
+      </FlatTab>
+    </>;
   };
 
   return (
