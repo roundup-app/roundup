@@ -29,13 +29,12 @@ import { RowButton } from "./RowButton";
 import { createSortedList } from "./sortedList";
 import { Sortable } from "../ui/sortable";
 import { TreeView } from "../ui/TreeView";
-import { createTreeCollection } from "@ark-ui/solid/tree-view";
 import { shelfScope } from "../shelf/scope";
 import { Groups } from "../shelf/Groups";
 import { useTodoList } from "./todoList";
 import { TodoDrawer } from "./TodoDrawer";
 import { shownTodos } from "./shownTodos";
-import { doneTodos, kindOf, openBlockersOf, planDrop, treeRows, type NestedRow } from "./todoView";
+import { doneTodos, kindOf, openBlockersOf, planDrop, treeCollection, treeRows, type NestedRow } from "./todoView";
 
 const KIND_LABEL = { idle: copy.idle, blocked: copy.blocked, done: copy.done } as const;
 
@@ -475,16 +474,7 @@ export const Todos = () => {
         <Groups items={() => [...open(), ...done()]} home={todo => todo.home} maker={todo => todo.creator}>{items => {
         const tree = createMemo(() => treeRows(items().filter(todo => !todo.done)));
 
-        const collection = createMemo(() => {
-          const children = (parent: number | null): { id: string; children?: unknown[] }[] =>
-            tree().filter((row) => row.parent === parent).map((row) => ({ id: String(row.todo.id), children: children(row.todo.id) }));
-
-          return createTreeCollection<{ id: string; children?: unknown[] }>({
-            nodeToValue: (node) => node.id,
-            nodeToString: (node) => node.id,
-            rootNode: { id: "root", children: children(null) },
-          });
-        });
+        const collection = createMemo(() => treeCollection(tree()));
 
         const placeOf = (id: number) => tree().find((row) => row.todo.id === id) ?? { level: 1, parent: null };
 
