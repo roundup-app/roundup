@@ -228,7 +228,12 @@ pub async fn tell_owners(reader: Reader, mut events: rpc::Subscription) {
 
 #[cfg(test)]
 mod tests {
+    use std::sync::{Arc, Mutex};
+
+    use async_trait::async_trait;
     use contracts::todo::TodoId;
+    use rpc::{Bus, Ctx, Module, RpcError};
+    use serde_json::Value;
 
     use super::*;
 
@@ -391,12 +396,99 @@ mod tests {
         );
     }
 
-    #[test]
-    fn t18_takeover_holds_and_removed_agent_drops() {
-        let a = Some(agent_actor("a"));
+    struct Stub {
+        nodes: Mutex<Vec<Value>>,
+        sent: Mutex<Vec<Value>>,
+    }
+
+    #[async_trait]
+    impl Module for Stub {
+        fn namespaces(&self) -> &'static [&'static str] {
+            &["rail", "todo", "pad", "message"]
+        }
+
+        async fn call(&self, _: &Ctx, method: &str, params: Value) -> Result<Value, RpcError> {
+            match method {
+                "rail.tree" => Ok(Value::Array(self.nodes.lock().unwrap().clone())),
+                "todo.list" | "pad.list" | "message.list" => Ok(json!([])),
+                "message.send" => {
+                    self.sent.lock().unwrap().push(params);
+                    Err(RpcError::internal("stub"))
+                }
+                other => panic!("unexpected {other}"),
+            }
+        }
+    }
+
+    fn node(id: &str, kind: &str, terminal: bool) -> Value {
+        json!({
+            "id": id, "kind": "agent", "name": id, "parent": null, "order": 0,
+            "status": {"kind": kind, "label": kind, "since": 0},
+            "attempt": "1", "status_revision": null,
+            "terminal_id": terminal.then_some("t"), "worktree": null, "can_resume": false,
+            "yolo": false, "channel": null, "work": null, "stray": [], "model": null,
+            "effort": null,
+        })
+    }
+
+    fn rig(nodes: Vec<Value>) -> (Arc<Stub>, Reader) {
+        let dir = tempfile::tempdir().unwrap();
+        let daemon = crate::Daemon::open(&dir.path().join("data")).unwrap();
+        let stub = Arc::new(Stub {
+            nodes: Mutex::new(nodes),
+            sent: Mutex::new(Vec::new()),
+        });
+        let mut modules = daemon.modules.clone();
+        for name in ["rail", "todo", "pad", "message"] {
+            modules.insert(name, stub.clone());
+        }
+        let reader = Reader::new(&modules, Bus::new(), daemon.touches.clone(), None);
+        (stub, reader)
+    }
+
+    fn assigned() -> Told {
         let mut told = told_with(vec![todo(1, "Ship", None, vec![])]);
+        let a = Some(agent_actor("a"));
         told.record(&updated(Actor::user(), todo(1, "Ship", a, vec![])));
-        told.drop_agent("a");
-        assert!(told.take("a").is_none());
+        told
+    }
+
+    #[tokio::test]
+    async fn t18_idle_agent_is_told_at_once_with_one_message() {
+        let (stub, reader) = rig(vec![node("a", "idle", true)]);
+        let mut told = assigned();
+        flush(&mut told, &reader).await;
+        let sent = stub.sent.lock().unwrap().clone();
+        assert_eq!(
+            sent,
+            vec![json!({
+                "to": "a", "kind": "note",
+                "body": "[todos]\n- Ship: assigned to you (rup todo get 1)",
+            })]
+        );
+        flush(&mut told, &reader).await;
+        assert_eq!(stub.sent.lock().unwrap().len(), 1);
+    }
+
+    #[tokio::test]
+    async fn t18_takeover_holds_and_removed_agent_drops() {
+        // Any Kind but idle (a Takeover shows as one) holds the changes until the turn ends.
+        let (stub, reader) = rig(vec![node("a", "working", true)]);
+        let mut told = assigned();
+        flush(&mut told, &reader).await;
+        assert!(stub.sent.lock().unwrap().is_empty());
+        *stub.nodes.lock().unwrap() = vec![node("a", "idle", true)];
+        flush(&mut told, &reader).await;
+        assert_eq!(stub.sent.lock().unwrap().len(), 1);
+        // A removed Agent, and one with no Terminal program, are dropped and never retried.
+        for nodes in [vec![], vec![node("a", "idle", false)]] {
+            *stub.nodes.lock().unwrap() = nodes;
+            let mut told = assigned();
+            flush(&mut told, &reader).await;
+            assert!(told.waiting().is_empty());
+            *stub.nodes.lock().unwrap() = vec![node("a", "idle", true)];
+            flush(&mut told, &reader).await;
+            assert_eq!(stub.sent.lock().unwrap().len(), 1);
+        }
     }
 }
