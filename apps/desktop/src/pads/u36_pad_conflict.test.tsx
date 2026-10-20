@@ -730,9 +730,20 @@ it.each(["failed", "unknown"] as const)("u3021c_open_restores_exact_revision_wit
   expect(app.calls).toEqual(calls);
   expect(connected.drafts.list()).toEqual(retained);
   const b = retained.at(-1)!;
+  const editing = await openPad(original.name, { connected, pads: [original], revision: a.revision });
+  editing.setSelectionRange(3, 5, "forward");
+  expect(connected.drafts.list()).toContainEqual(b);
+  fireEvent.input(editing, { target: { value: "edited A 🌱" } });
+  connected.drawer.close("key");
+  await waitFor(() => expect(screen.queryByRole("textbox", { name: "Pad body" })).toBeNull());
+  const { draftStorage } = await import("../state/storage");
+  const durable = draftStorage(connected.project.path).list();
+  expect(durable).toContainEqual(b);
+  expect(durable.some(draft => draft.value.source === "edited A 🌱")).toBe(true);
+  const afterEditing = connected.drafts.list();
   const reopened = await openPad(original.name, { connected, pads: [original], revision: b.revision });
   expect(reopened.value).toBe("B 🪁");
-  expect(connected.drafts.list()).toEqual(retained);
+  expect(connected.drafts.list()).toEqual(afterEditing);
   expect(app.calls).toEqual(calls);
 });
 
