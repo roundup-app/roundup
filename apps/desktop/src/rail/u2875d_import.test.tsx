@@ -33,8 +33,9 @@ describe("u2875d the import panel is an ordinary Rail action", () => {
     fireEvent.click(screen.getByRole("button", { name: "Import Claude Code work" }));
     await screen.findByText("First");
     fireEvent.click(screen.getByText("First"));
-    fireEvent.keyDown(screen.getByRole("region", { name: "Import Claude Code work" }), { key: "Escape" });
-    expect(screen.queryByText("First")).toBeNull();
+    await waitFor(() => expect(document.activeElement).toBe(screen.getByRole("dialog", { name: "Import Claude Code work" })));
+    fireEvent.keyDown(screen.getByRole("dialog", { name: "Import Claude Code work" }), { key: "Escape", code: "Escape", keyCode: 27 });
+    await waitFor(() => expect(screen.queryByText("First")).toBeNull());
     expect(app.calls.filter((call) => call.method !== "project.importDiscover" && call.method.startsWith("project.")).length).toBe(0);
 
     // A rejected call keeps the selection and the panel.
@@ -60,13 +61,14 @@ describe("u2875d the import panel is an ordinary Rail action", () => {
     // Retry targets the failed source only, and a pending confirm cannot submit twice.
     let release: (result: ImportResult) => void = () => undefined;
     app.handlers["project.importCommit"] = () => new Promise<ImportResult>((resolve) => { release = resolve; });
-    const retry = screen.getByRole("button", { name: "Retry failed" });
+    const retry = screen.getByRole("button", { name: "Import 1" });
+    await waitFor(() => expect(retry).toHaveProperty("disabled", false));
     fireEvent.click(retry);
     fireEvent.click(retry);
     await waitFor(() => expect(calls(app, "project.importCommit").length).toBe(3));
     expect(calls(app, "project.importCommit")[2]!.params).toEqual({ selections: [{ source: "s2", revision: "r2" }] });
     release({ outcomes: [{ source: "s2", workstream: "w1", agent: "a2", error: null }] });
-    await waitFor(() => expect(screen.queryByRole("region", { name: "Import Claude Code work" })).toBeNull());
+    await waitFor(() => expect(screen.queryByRole("dialog", { name: "Import Claude Code work" })).toBeNull());
     expect(calls(app, "project.importCommit").length).toBe(3);
   });
 
@@ -218,7 +220,7 @@ describe("u2875d the import panel is an ordinary Rail action", () => {
     fireEvent.click(await screen.findByText("First"));
     fireEvent.click(await screen.findByRole("button", { name: "Import 1" }));
 
-    await waitFor(() => expect(rowOf("w1").closest("[role=treeitem]")?.getAttribute("aria-selected")).toBe("true"));
+    await waitFor(() => expect(rowOf("a1").closest("[role=treeitem]")?.getAttribute("aria-selected")).toBe("true"));
     expect(rowOf("a1").querySelector("button[aria-label=Resume]")).toBeTruthy();
     fireEvent.focusIn(rowOf("w1").querySelector<HTMLElement>("button[aria-label=Collapse]")!);
     expect(screen.getByRole("button", { name: "Start supervisor" })).toBeTruthy();

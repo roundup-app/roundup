@@ -164,12 +164,12 @@ export const connectProject = async (
 
   if (ended) stopDecisions();
 
-  const onImported = (id: string) => {
-    void rail.refresh().then(() => rail.select(id));
+  const onImported = (id: string, agent: string | null) => {
+    void rail.refresh().then(() => rail.select(agent ?? id));
   };
 
   // Import selections and pending acknowledgements share the App-owned Project lifetime.
-  const importing = drafts.importing ?? createImport(app, project.path, onImported);
+  const importing = drafts.importing ?? createImport(app, project.path, onImported, drafts);
 
   importing.reconnect(app, onImported);
   drafts.importing = importing;
