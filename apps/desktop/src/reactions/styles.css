@@ -34,16 +34,19 @@
 }
 
 .reaction-row {
-  justify-content: space-between;
+  justify-content: flex-start;
+  gap: var(--space-2);
 }
 
 .reaction-row .reaction-name {
-  flex: 1;
+  min-width: 0;
+  overflow-wrap: anywhere;
 }
 
 .reaction-row .reaction-state {
   flex: none;
   white-space: nowrap;
+  cursor: default;
 }
 
 .reaction-back {
@@ -88,6 +91,7 @@
 
 .reaction-title {
   margin: 0;
+  overflow-wrap: anywhere;
   font: inherit;
 }
 
@@ -140,11 +144,30 @@
 
 .reaction-form .app-select-trigger {
   border-radius: 0;
+  color: var(--grey);
 }
 
 .reaction-form .app-select-trigger:hover,
-.reaction-form .app-select-trigger:active,
 .reaction-form .app-select-trigger[data-state="open"] {
-  color: var(--grey);
+  color: var(--text);
   background-color: var(--ground);
+}
+
+.reaction-form .app-select-trigger:active {
+  color: var(--ink-pressed);
+  background-color: var(--ground);
+}
+
+body:has(.reaction-form) .app-select-list {
+  box-shadow: var(--shadow-drawer);
+}
+
+body:has(.reaction-form) .app-select-item {
+  color: var(--grey);
+  border-radius: 0;
+}
+
+body:has(.reaction-form) .app-select-item:is([data-highlighted], [data-state="checked"]) {
+  color: var(--text);
+  background-color: transparent;
 }

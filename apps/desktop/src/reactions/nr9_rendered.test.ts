@@ -46,7 +46,7 @@ it("nr9_cli_mcp_and_app_share_authority", async () => {
     await mkdir(dir, { recursive: true });
     await writeFile(join(dir, `${step}.checks.json`), JSON.stringify(await evaluate("window.__checks()")));
 
-    if (step === "failed-create") await evaluate("document.querySelector('.reaction-form > [role=alert]').scrollIntoView({ block: 'center' })");
+    if (step === "failed-create" || step === "unknown-create") await evaluate("document.querySelector('.reaction-form > [role=alert]').scrollIntoView({ block: 'center' })");
 
     if (screenshot) await browser("screenshot", join(dir, `${step}.png`));
   };
@@ -57,7 +57,10 @@ it("nr9_cli_mcp_and_app_share_authority", async () => {
     if (keyboard) {
       await evaluate(`document.querySelector(${JSON.stringify(selector)}).focus()`);
       await browser("press", "Enter");
-    } else await browser("click", selector);
+    } else {
+      await evaluate(`document.querySelector(${JSON.stringify(selector)}).scrollIntoView({ block: 'center' })`);
+      await browser("click", selector);
+    }
   };
 
   try {
@@ -69,7 +72,7 @@ it("nr9_cli_mcp_and_app_share_authority", async () => {
     const expires = new Date(Date.now() + 86_400_000).toISOString();
     const at = new Date(Date.now() + 43_200_000).toISOString();
     const resolved = await app.rpc("reaction.preview", { date: at.slice(0, 10), time: at.slice(11, 19), offset: "+00:00" });
-    const created: Reaction = JSON.parse((await cli("--agent", target.id, "reaction", "create", "cli-create", "Saved reaction", target.id, "exact instruction\n retained ", expires, "--condition", JSON.stringify({ kind: "instant", at: resolved.at, late: "once-before-expiry" }))).stdout);
+    const created: Reaction = JSON.parse((await cli("--agent", target.id, "reaction", "create", "cli-create", "R".repeat(256), target.id, "exact instruction\n retained ", expires, "--condition", JSON.stringify({ kind: "instant", at: resolved.at, late: "once-before-expiry" }))).stdout);
 
     // The MCP shim resolves the connection's Actor, rather than accepting the App user's authority.
     const mcp = spawn(resolve("../../target/debug/rup"), ["mcp", agents[1]!.id], { env: socketEnv, stdio: ["pipe", "pipe", "pipe"] });
@@ -131,7 +134,14 @@ it("nr9_cli_mcp_and_app_share_authority", async () => {
     await wait("document.activeElement?.matches('.reaction-row')");
     await activate('[data-reaction-opener="create"]', true);
     await wait("!!document.querySelector('.reaction-form')");
-    await activate('.reaction-form .app-select-trigger');
+    const trigger = await evaluate("(() => { const bounds = document.querySelector('.reaction-form .app-select-trigger').getBoundingClientRect(); return { x: bounds.x + bounds.width / 2, y: bounds.y + bounds.height / 2 }; })()");
+    await browser("mouse", "move", String(Math.round(trigger.x)), String(Math.round(trigger.y)));
+    await browser("mouse", "down", "left");
+    await capture("target-pressed");
+    await browser("mouse", "up", "left");
+    await wait("!!document.querySelector('.app-select-list [role=option]')");
+    await browser("hover", '.app-select-list [role="option"]:nth-child(2)');
+    await capture("target-options");
     await activate('.app-select-list [role="option"]:nth-child(2)');
     await wait("document.querySelector('.reaction-form .app-select-trigger').textContent.includes('(1)')");
     await evaluate(`(() => {
@@ -170,9 +180,37 @@ it("nr9_cli_mcp_and_app_share_authority", async () => {
     await wait("document.querySelector('.reaction-form').textContent.includes('Creation refused for observation')");
     await capture("failed-create");
     expect(await evaluate("document.querySelector('.reaction-form textarea').value")).toBe(" exact newer\n words 🧭 ");
+    await evaluate(`(() => {
+      const send = window.fetch;
+      let lost = false;
+      window.fetch = async (url, options) => {
+        const response = await send(url, options);
+        if (!lost && options?.body && JSON.parse(options.body).method === 'reaction.create') {
+          lost = true;
+          await response.text();
+          throw new Error('Creation reply lost after acceptance');
+        }
+        return response;
+      };
+    })()`);
     await activate('.reaction-form .reaction-actions button', true);
+    await wait("document.querySelector('.reaction-form').textContent.includes('Creation acceptance unknown')");
+    await capture("unknown-create");
+    expect((await app.rpc("reaction.list", null)).filter(reaction => reaction.name === "Form reaction")).toHaveLength(1);
+    await evaluate("(() => { const field = document.querySelector('.reaction-form textarea'); field.value = 'newer unsent instruction'; field.dispatchEvent(new Event('input', { bubbles: true })); })()");
+    expect(await evaluate("document.querySelector('.reaction-form .reaction-actions button').disabled")).toBe(true);
+    await evaluate("[...document.querySelectorAll('.reaction-form button')].find(button => button.textContent === 'Check creation').click()");
+    await wait("!document.querySelector('.reaction-form').textContent.includes('Creation acceptance unknown')");
+    expect(await evaluate("document.querySelector('.reaction-form textarea').value")).toBe("newer unsent instruction");
+    await capture("reconciled-form");
+    await activate('.reaction-back');
+    await capture("reconciled-list");
+    await wait("[...document.querySelectorAll('.reaction-row')].some(row => row.textContent.includes('Form reaction'))");
+    const createdForms = (await app.rpc("reaction.list", null)).filter(reaction => reaction.name === "Form reaction");
+    expect(createdForms).toHaveLength(1);
+    const formReaction = createdForms[0]!;
+    await activate(`[data-reaction-opener="${formReaction.id}"]`);
     await wait("document.querySelector('.reaction-detail')?.textContent.includes('Form reaction')");
-    const formReaction = (await app.rpc("reaction.list", null)).find(reaction => reaction.name === "Form reaction")!;
     expect(formReaction.instruction).toBe(" exact newer\n words 🧭 ");
     expect(formReaction.target).toBe(target.id);
     await capture("created");

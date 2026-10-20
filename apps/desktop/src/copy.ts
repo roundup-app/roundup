@@ -425,6 +425,8 @@ export const copy = {
   reactionRun: "Run now",
   reactionMissing: "This reaction is no longer listed",
   reactionDetail: (name: string) => `Reaction ${name}`,
+  reactionCheckCreation: "Check creation",
+  reactionCreationUnknown: (cause: string) => `Creation acceptance unknown. Check creation before saving another reaction. ${cause}`,
   reactionNotCreated: (cause: string) => `Reaction not created: ${cause}`,
   reactionState: (state: string, health: string) => `${state}, ${health}`,
   reactionName: "Name",
