@@ -4,13 +4,13 @@ run-name: "${{ format('Fix PR #{0}: {1}', inputs.pr || github.event.workflow_run
 # L82: a fix run answers one cause on a Builder PR: a failed check or rules run, a reject, a conflict with main, or a
 # draft its run left unfinished. A conflict only in generated files is resolved by a script with no model run, and so is a `rules` failure only on `rules.sh merge-loss` (L120), by restoring main's
 # version of each file it lists. A PR gets
-# three fix runs that worked (two with `CLAUDE_API` set); the fourth cause closes the PR, deletes its branch and hands its Issue the causes. The fix run, on Claude Code or Codex (L23), pushes with the Claude App's token, so its push starts check, then review, again.
-# A reject answered with no push (a body edit) has `after` rerun its review run, since no check ends to start one.
-# A check or rules run that a newer run on the same head superseded starts no fix run and counts no attempt, and neither
+# three fix runs that worked (two with `CLAUDE_API` set); the fourth cause closes the PR, deletes its branch and hands its Issue the causes. The fix run, on Claude Code or Codex (L23), pushes with the Claude App's token, so its push starts pre, then review, then check, again.
+# A reject answered with no push (a body edit) has `after` rerun its review run, since no `pre` run ends to start one.
+# A check, pre or rules run that a newer run on the same head superseded starts no fix run and counts no attempt, and neither
 # does a plumbing cause (a conflict, a `rules` failure about PR shape): it gets a run with no comment, up to six per PR.
 on:
   workflow_run:
-    workflows: [check, loop]
+    workflows: [check, loop, pre]
     types: [completed]
   workflow_dispatch:
     inputs:
@@ -240,5 +240,5 @@ jobs:
     with:
       results: ${{ toJSON(needs) }}
       purpose: Fix a Builder PR
-      next: The fix run's push starts check and review again, or a reject answered with no push reruns its review run; a draft
+      next: The fix run's push starts pre, review and check again, or a reject answered with no push reruns its review run; a draft
         with a Stopped line goes where its screen sends it.

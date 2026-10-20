@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""L89: the tests a diff reaches. Usage: loop/affected.py rust|web|boxd [base]
+"""L89: the tests a diff reaches. Usage: loop/affected.py rust|web|boxd [base] | shards <test files|all>
 
 Prints `all` when no base is given or the diff since <base> can move any test; else one line per selection: for `rust`
 the workspace crates to test, for `web` the files that still exist, as absolute paths, to pass `vitest related`.
@@ -37,6 +37,17 @@ BOXD_READS = ('loop/agent-runners/', 'loop/builder.py', 'loop/affected.py', 'loo
               '.github/workflows/', '.github/actions/setup/', '.github/actionlint.yaml',
               'package.json', 'pnpm-lock.yaml', 'pnpm-workspace.yaml', '.npmrc', 'justfile',
               'AGENTS.md', 'scenarios/loop-boxd.md')
+
+
+# A web shard costs about four minutes of setup, so one is worth about this many test files; a full run has 7 shards.
+FILES_PER_SHARD = 50
+MAX_SHARDS = 7
+
+
+def shards(files):
+    """The web shard numbers for `files` test files, or 'all': one shard per FILES_PER_SHARD, at least one, at most
+    MAX_SHARDS."""
+    return list(range(1, MAX_SHARDS + 1 if files == 'all' else min(MAX_SHARDS, max(1, -(-files // FILES_PER_SHARD))) + 1))
 
 
 def under(path, prefixes):
@@ -91,6 +102,9 @@ def workspace():
 
 
 def main(argv):
+    if len(argv) == 3 and argv[1] == 'shards':
+        print(json.dumps(shards(argv[2] if argv[2] == 'all' else int(argv[2]))))
+        return 0
     if len(argv) not in (2, 3) or argv[1] not in ('rust', 'web', 'boxd'):
         print(__doc__, file=sys.stderr)
         return 2
