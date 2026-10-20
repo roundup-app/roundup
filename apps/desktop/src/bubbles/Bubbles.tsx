@@ -944,7 +944,7 @@ export const Bubbles = (props: { screens: Screens }) => {
 
     /** U2694b: Rename, Send to Agent ▸, Copy Link and Close, as the system menu of the tab. */
     const tabMenu = (x: number, y: number) => {
-      const agents = rail.nodes.filter((node) => node.kind === "agent");
+      const agents = rail.nodes;
 
       return contextMenu(app, [
         { id: "rename", label: copy.rename, run: start },
