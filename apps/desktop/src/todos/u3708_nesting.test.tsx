@@ -62,6 +62,7 @@ describe("u3708 the Todos list is a tree drawn from blockers", () => {
     app.emit(todoEvent("todo.updated", store.todos[1]!));
 
     await waitFor(() => expect(levelOf(2)).toBe(1));
+    await waitFor(() => expect(document.activeElement).toBe(buttonOf(2)));
   });
 });
 
@@ -80,7 +81,7 @@ describe("u3709 Tab nests a row and shift Tab un-nests it", () => {
   });
 
   it("u3709_shift_tab_removes_the_first_blocker", async () => {
-    const { app, store } = await mountTodos([todo(1), todo(2, { blocked: true, blockers: [1] })]);
+    const { app, store } = await mountTodos([todo(1), todo(2, { blocked: true, blockers: [1] }), todo(3, { blocked: true, blockers: [1] })]);
 
     await screen.findByRole("tree");
     buttonOf(2).focus();
@@ -104,7 +105,7 @@ describe("u3709 Tab nests a row and shift Tab un-nests it", () => {
 
 describe("u3711 a move that would make a cycle is refused and says why", () => {
   it("u3711_a_refused_move_returns_the_row_and_shows_the_cause", async () => {
-    const { app } = await mountTodos([todo(1), todo(2)]);
+    const { app, store } = await mountTodos([todo(1), todo(2)]);
 
     app.handlers["todo.setBlockers"] = () => { throw new RpcError(-32003, "todo 1 would wait on itself through todo 2"); };
 
@@ -116,6 +117,11 @@ describe("u3711 a move that would make a cycle is refused and says why", () => {
     expect(within(rowOf(2)).getByRole("alert").querySelector("svg")).not.toBeNull();
     expect(ids()).toEqual([1, 2]);
     expect(document.activeElement).toBe(buttonOf(2));
+
+    store.todos = store.todos.map((item) => item.id === 1 ? { ...item, title: "renamed" } : item);
+    app.emit(todoEvent("todo.updated", store.todos[0]!));
+    await waitFor(() => expect(buttonOf(1).textContent).toBe("renamed"));
+    expect(within(rowOf(2)).queryByRole("alert")).toBeNull();
   });
 
   it("u3711_the_webview_never_checks_for_a_cycle", async () => {
