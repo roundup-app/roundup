@@ -259,10 +259,58 @@ jobs:
           cargo build --quiet -p rupd -p rup
           python3 loop/app-data.py cargo nextest run --profile stress --stress-count 20 -E "$FILTER"
       - if: ${{ !cancelled() && steps.select.outputs.web }}
-        name: Web test files, 20 times under load
+        name: Edited web tests, 20 times under load
         run: |
-          mapfile -t files <"$RUNNER_TEMP/web-tests"
-          python3 loop/app-data.py pnpm --filter desktop exec vitest run --retry 0 --repeats 19 --reporter=default --reporter=junit --outputFile.junit="$RUNNER_TEMP/web-junit.xml" "${files[@]}"
+          # L122: reuse the Babel parser already installed for source checks, rather than guessing test bodies from braces.
+          node --input-type=module >"$RUNNER_TEMP/web-test-lines" <<'JS'
+          import { readFileSync } from 'node:fs';
+          import { execFileSync } from 'node:child_process';
+          import { createRequire } from 'node:module';
+          const require = createRequire(`${process.cwd()}/apps/desktop/package.json`);
+          const { parse } = require('@babel/parser');
+          const t = require('@babel/types');
+
+          const git = (...args) => execFileSync('git', args, {encoding: 'utf8'});
+          const fork = git('merge-base', process.env.BASE, 'HEAD').trim();
+          const files = readFileSync(`${process.env.RUNNER_TEMP}/web-tests`, 'utf8').trim().split('\n').filter(Boolean);
+          for (const file of files) {
+            const path = `apps/desktop/${file}`;
+            const patch = git('diff', '-U0', '--no-renames', fork, '--', path);
+            const touched = new Set();
+            for (const match of patch.matchAll(/^@@ -\S+ \+(\d+)(?:,(\d+))? @@/gm)) {
+              const first = Number(match[1]);
+              const count = Math.max(Number(match[2] ?? 1), 1);
+              for (let line = first; line < first + count; line++) touched.add(line);
+            }
+            const source = parse(readFileSync(path, 'utf8'), {sourceType: 'module',
+              plugins: ['typescript', ...(path.endsWith('.tsx') ? ['jsx'] : [])]});
+            const selected = new Set();
+            const visit = node => {
+              if (t.isCallExpression(node)) {
+                let callee = node.callee;
+                while (t.isCallExpression(callee) || t.isMemberExpression(callee)) {
+                  callee = t.isMemberExpression(callee) ? callee.object : callee.callee;
+                }
+                if (t.isIdentifier(callee) && ['it', 'test'].includes(callee.name)
+                    && node.arguments.some(arg => t.isArrowFunctionExpression(arg) || t.isFunctionExpression(arg))) {
+                  const first = node.loc.start.line;
+                  const last = node.loc.end.line;
+                  if ([...touched].some(line => first <= line && line <= last)) selected.add(first);
+                }
+              }
+              for (const key of t.VISITOR_KEYS[node.type] ?? []) {
+                const child = node[key];
+                if (Array.isArray(child)) child.filter(Boolean).forEach(visit);
+                else if (child) visit(child);
+              }
+            };
+            visit(source);
+            for (const line of selected) console.log(`${file}:${line}`);
+          }
+          JS
+          mapfile -t files <"$RUNNER_TEMP/web-test-lines"
+          if [ "${#files[@]}" -eq 0 ]; then exit 0; fi
+          python3 loop/app-data.py pnpm --filter desktop exec vitest run --retry 0 --repeats 19 --includeTaskLocation --reporter=default --reporter=junit --outputFile.junit="$RUNNER_TEMP/web-junit.xml" "${files[@]}"
       - if: always() && steps.select.outputs.any
         uses: actions/upload-artifact@v4
         with:
