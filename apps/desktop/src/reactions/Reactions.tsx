@@ -48,9 +48,14 @@ const conditionText = (condition: Condition, nameOf: (id: string) => string): st
 
 /** NR9: saved reactions remain readable when their Agents no longer exist. */
 export const createReactions = () => {
-  const { app, daemonExit } = useConnectedProject();
+  const { app, drafts, daemonExit } = useConnectedProject();
 
-  const [read, { refetch }] = createResource(async (_key, { value }): Promise<{ list: Reaction[]; failure: string | null }> => {
+  // Project-owned submissions outlive the overview; settlement refreshes its current mount.
+  const submissions = createMemo(() => daemonExit() === null ? JSON.stringify(drafts.list()
+    .filter(draft => draft.destination.surface === "reactions" && (draft.status === "pending" || draft.status === "unknown"))
+    .map(draft => draft.revision)) : false);
+
+  const [read, { refetch }] = createResource(submissions, async (_key, { value }): Promise<{ list: Reaction[]; failure: string | null }> => {
     try {
       return { list: await app.rpc("reaction.list", null), failure: null };
     } catch (error) {
@@ -84,7 +89,7 @@ export const Reactions = (props: { state: ReturnType<typeof createReactions> }) 
     return facts.daemonExit() !== null || facts.rail.failure() ? "unverified" : !target.success || target.output === "" || facts.rail.nodes.some((node) => node.id === target.output) ? "available" : "unavailable";
   });
 
-  const { read, refresh, refetch } = props.state;
+  const { read, refetch } = props.state;
 
   const back = () => {
     setView({ kind: "list" });
@@ -146,7 +151,6 @@ export const Reactions = (props: { state: ReturnType<typeof createReactions> }) 
     <Show when={view().kind === "create"}>
       <ReactionForm onDone={(created, reveal) => {
         setMade(created);
-        refresh();
 
         if (reveal) {
           setView({ kind: "detail", id: created.id });
