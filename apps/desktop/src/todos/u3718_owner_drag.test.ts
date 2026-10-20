@@ -74,7 +74,7 @@ describe("u3718 a Todo dragged to another owner's group", () => {
   }, 120_000);
 
   it("u3718_a_drop_on_the_own_group_reorders_and_never_assigns", async () => {
-    await lane.seedTodos(["first", "second", "third"]);
+    await lane.seedTodos(["first", "second", "third"], false);
 
     const [one, two] = await lane.order();
     const from = await lift(lane, one!);
