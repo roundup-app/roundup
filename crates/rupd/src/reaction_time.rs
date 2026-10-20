@@ -52,10 +52,11 @@ pub(crate) fn preview(p: &PreviewParams) -> Result<contracts::reaction::Preview,
         8 if shaped(&p.time, "99:99:99") => p.time.clone(),
         _ => return Err(invalid("time must be HH:MM or HH:MM:SS")),
     };
-    if p.offset != "Z"
-        && !(shaped(&p.offset[1.min(p.offset.len())..], "99:99")
-            && p.offset.starts_with(['+', '-']))
-    {
+    let signed = p
+        .offset
+        .strip_prefix(['+', '-'])
+        .is_some_and(|rest| shaped(rest, "99:99"));
+    if p.offset != "Z" && !signed {
         return Err(invalid(
             "an explicit UTC offset (Z, +HH:MM or -HH:MM) is required: a local time without one can be ambiguous or not exist",
         ));
@@ -258,6 +259,18 @@ mod tests {
             late,
             now,
         )
+    }
+
+    #[test]
+    fn nr6_preview_refuses_a_non_ascii_offset() {
+        for offset in ["é", "é0:00", "+é:00", "+0é:00", ""] {
+            let refused = preview(&PreviewParams {
+                date: "2026-10-21".into(),
+                time: "09:00".into(),
+                offset: offset.into(),
+            });
+            assert!(refused.is_err(), "{offset:?}");
+        }
     }
 
     #[test]
