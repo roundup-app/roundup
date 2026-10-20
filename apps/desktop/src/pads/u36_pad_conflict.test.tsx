@@ -1,4 +1,4 @@
-import { cleanup, fireEvent, screen, waitFor, within } from "@solidjs/testing-library";
+import { cleanup, fireEvent, render, screen, waitFor, within } from "@solidjs/testing-library";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   AGENT,
@@ -10,6 +10,9 @@ import {
   waitForReload,
   writeAdopted,
 } from "./padsFixture";
+import { DrawerHost } from "../drawer/DrawerHost";
+import { PadDrawer } from "./PadDrawer";
+import { ConnectedProjectContext } from "../state/connectedProject";
 import { USER } from "../testing/nodes";
 import type { Pad } from "@contracts/pad/Pad";
 
@@ -701,4 +704,90 @@ it("u2773b_pads_matching_source_does_not_acknowledge_an_unknown_write", async ()
   expect(connected.drafts.list()).toEqual([snapshot]);
   expect(app.calls.filter(call => call.method === "pad.write")).toHaveLength(1);
   expect(state.pads[0]?.text).toBe("submitted é");
+});
+
+
+it.each(["failed", "unknown"] as const)("u3021c_open_restores_exact_revision_without_rpc_pads_%s", async (outcome) => {
+  const original = padOf("selected", USER, "  base\n\n");
+  const { app, connected } = await openShelf([original]);
+  const destination = { surface: "pads", object: original.incarnation, recipient: null };
+  const value = { originalName: original.name, source: "  A 🌱 é\nsecond\n\n", base: original.text, baseRevision: 1 };
+  const a = connected.drafts.edit(destination, value, { start: 2, end: 9, direction: "backward" }, "ordinary").draft;
+  connected.drafts.submit(a.revision);
+  connected.drafts.edit(destination, { ...value, source: "B 🪁" }, { start: 1, end: 2, direction: "forward" }, "ordinary");
+  connected.drafts.settle(a.revision, outcome);
+  const retained = structuredClone(connected.drafts.list());
+  // Recovery can mount with loaded facts after the ordinary Shelf has gone away.
+  cleanup();
+  render(() => <ConnectedProjectContext.Provider value={connected}><DrawerHost drawer={connected.drawer} reducedMotion={() => true} /></ConnectedProjectContext.Provider>);
+  const calls = [...app.calls];
+  const field = await openPad(original.name, { connected, pads: [original], revision: a.revision });
+  expect(field.value).toBe("A 🌱 é\nsecond");
+  expect([field.selectionStart, field.selectionEnd, field.selectionDirection]).toEqual([2, 9, "backward"]);
+  fireEvent.focusOut(field);
+  connected.drawer.close("key");
+  await waitFor(() => expect(screen.queryByRole("textbox", { name: "Pad body" })).toBeNull());
+  expect(app.calls).toEqual(calls);
+  expect(connected.drafts.list()).toEqual(retained);
+  const b = retained.at(-1)!;
+  const editing = await openPad(original.name, { connected, pads: [original], revision: a.revision });
+  editing.setSelectionRange(3, 5, "forward");
+  expect(connected.drafts.list()).toContainEqual(b);
+  fireEvent.input(editing, { target: { value: "edited A 🌱" } });
+  connected.drawer.close("key");
+  await waitFor(() => expect(screen.queryByRole("textbox", { name: "Pad body" })).toBeNull());
+  const { draftStorage } = await import("../state/storage");
+  const durable = draftStorage(connected.project.path).list();
+  expect(durable).toContainEqual(b);
+  expect(durable.some(draft => draft.value.source === "  edited A 🌱\n\n")).toBe(true);
+  const afterEditing = connected.drafts.list();
+  const reopened = await openPad(original.name, { connected, pads: [original], revision: b.revision });
+  expect(reopened.value).toBe("B 🪁");
+  expect(connected.drafts.list()).toEqual(afterEditing);
+  expect(app.calls).toEqual(calls);
+});
+
+
+it.each(["Project", "facts-Project", "incarnation", "removed", "name", "unloaded", "failed-list"])("u3021c_open_refuses_unavailable_original_pad_%s", async (mismatch) => {
+  const original = padOf("identity", USER, "base");
+  const first = await openShelf([original]);
+  const a = first.connected.drafts.edit({ surface: "pads", object: original.incarnation, recipient: null }, { originalName: original.name, source: "retained", base: "base", baseRevision: 1 }, null, "ordinary").draft;
+  let target = first;
+
+  if (mismatch === "Project") {
+    cleanup();
+    target = await openShelf([original], false, false, "/other");
+  }
+
+  const pads = mismatch === "removed" ? [] : mismatch === "incarnation" ? [{ ...original, incarnation: "replacement" }] : [original];
+  const calls = [...target.app.calls];
+  const connected = target.connected;
+  connected.drawer.open(() => <ConnectedProjectContext.Provider value={connected}><PadDrawer name={mismatch === "name" ? "different" : original.name} recovery={{ project: mismatch === "facts-Project" ? "/other" : connected.project.path, revision: a.revision, list: { pads: () => pads, loaded: () => mismatch !== "unloaded", failure: () => mismatch === "failed-list" ? "disconnected" : null, reload: async () => {} } }} pads={() => pads} onLateFailure={() => {}} /></ConnectedProjectContext.Provider>, "key");
+  expect(screen.queryByRole("textbox", { name: "Pad body" })).toBeNull();
+  expect(target.app.calls).toEqual(calls);
+  expect(first.connected.drafts.list()).toEqual([a]);
+});
+
+it.each(["failed", "unknown"] as const)("u3021c_resume_selected_pad_keeps_authorization_%s", async (outcome) => {
+  const original = padOf("resume-selected", USER, "base");
+  const { app, connected } = await openShelf([original]);
+  const destination = { surface: "pads", object: original.incarnation, recipient: null };
+  const a = connected.drafts.edit(destination, { originalName: original.name, source: "  A 🌱 é\nsecond\n\n", base: "base", baseRevision: 1 }, null, "ordinary").draft;
+  connected.drafts.submit(a.revision);
+  const b = connected.drafts.edit(destination, { ...a.value, source: "B 🪁" }, null, "ordinary").draft;
+  connected.drafts.settle(a.revision, outcome);
+  await openPad(original.name, { connected, pads: [original], revision: a.revision });
+  const before = app.calls.length;
+  fireEvent.click(screen.getByRole("button", { name: "Resume" }));
+
+  if (outcome === "unknown") {
+    await screen.findByRole("alert");
+    expect(app.calls.slice(before)).toEqual([{ method: "pad.read", params: { name: original.name } }]);
+    expect(connected.drafts.list()[0]?.status).toBe("unknown");
+  } else {
+    await waitFor(() => expect(connected.drafts.list()).toEqual([b]));
+    expect(app.calls.slice(before)).toEqual([{ method: "pad.write", params: { name: original.name, text: "  A 🌱 é\nsecond\n\n", expectedRevision: 1, expectedIncarnation: original.incarnation } }]);
+  }
+
+  expect(connected.drafts.list().at(-1)).toEqual(b);
 });
