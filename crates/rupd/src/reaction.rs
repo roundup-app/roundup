@@ -5,7 +5,8 @@ use std::collections::HashSet;
 use std::sync::Arc;
 
 use contracts::reaction::{
-    Condition, CreateParams, Firing, Observation, Reaction, ReactionId, RunParams, State,
+    Condition, CreateParams, Firing, Observation, PreviewParams, Reaction, ReactionId, RunParams,
+    State,
 };
 use contracts::{Actor, ActorKind};
 use rpc::{RpcError, code};
@@ -24,7 +25,11 @@ const MAX_INSTRUCTION: usize = 16 * 1024;
 const SOURCES: [&str; 3] = ["agents", "pr-checks", "instant"];
 
 pub(crate) struct Reactions {
-    db: std::sync::Mutex<Connection>,
+    pub(crate) db: std::sync::Mutex<Connection>,
+    /// NR6: a saved reaction's time may have changed; the Timer re-reads.
+    pub(crate) changed: tokio::sync::Notify,
+    /// Whether the Timer is running.
+    pub(crate) timed: std::sync::atomic::AtomicBool,
 }
 
 impl Reactions {
@@ -34,12 +39,16 @@ impl Reactions {
             db: std::sync::Mutex::new(
                 Connection::open_in_memory().expect("test reaction database"),
             ),
+            changed: Default::default(),
+            timed: Default::default(),
         }
     }
 
     pub(crate) fn open(data: &std::path::Path) -> Result<Self, rpc::OpenError> {
         Ok(Self {
             db: std::sync::Mutex::new(Connection::open(data.join("project.db"))?),
+            changed: Default::default(),
+            timed: Default::default(),
         })
     }
 }
@@ -111,7 +120,11 @@ fn shape(p: &CreateParams, now: OffsetDateTime) -> Result<(u32, bool), RpcError>
             }
         }
         Condition::Instant { at, .. } => {
-            if instant("at", at)? >= expires {
+            let at = crate::reaction_time::canonical(at)?;
+            if at <= now {
+                return Err(invalid("at must be later than now"));
+            }
+            if at >= expires {
                 return Err(invalid("at must be earlier than expires_at"));
             }
         }
@@ -157,6 +170,10 @@ impl Daemon {
                 supported(&args)?;
                 let p: CreateParams = rpc::params(args)?;
                 self.reaction_create(actor, &world, p)?
+            }
+            "reaction.preview" => {
+                let p: PreviewParams = rpc::params(args)?;
+                return rpc::reply(&crate::reaction_time::preview(&p)?);
             }
             "reaction.list" => {
                 let db = self
@@ -314,6 +331,7 @@ impl Daemon {
         let id: String = tx
             .query_row("SELECT lower(hex(randomblob(16)))", [], |r| r.get(0))
             .map_err(RpcError::internal)?;
+        let waiting = matches!(p.condition, Condition::Instant { .. });
         let reaction = Reaction {
             project,
             id: id.clone(),
@@ -330,7 +348,11 @@ impl Daemon {
             created_at: now.format(&Rfc3339).map_err(RpcError::internal)?,
             state: State::Active,
             observation: Observation {
-                health: "not-observing".into(),
+                health: if waiting {
+                    "waiting".into()
+                } else {
+                    "not-observing".into()
+                },
                 cursor: None,
             },
             firings: Vec::new(),
@@ -342,6 +364,7 @@ impl Daemon {
         )
         .map_err(RpcError::internal)?;
         tx.commit().map_err(RpcError::internal)?;
+        self.reactions.changed.notify_one();
         Ok(reaction)
     }
 

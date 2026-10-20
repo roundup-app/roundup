@@ -92,6 +92,8 @@ import type { RenameParams as project_RenameParams } from "./project/RenameParam
 import type { Resources as project_Resources } from "./project/Resources";
 import type { Worktrees as project_Worktrees } from "./project/Worktrees";
 import type { CreateParams as reaction_CreateParams } from "./reaction/CreateParams";
+import type { Preview as reaction_Preview } from "./reaction/Preview";
+import type { PreviewParams as reaction_PreviewParams } from "./reaction/PreviewParams";
 import type { Reaction as reaction_Reaction } from "./reaction/Reaction";
 import type { ReactionId as reaction_ReactionId } from "./reaction/ReactionId";
 import type { RunParams as reaction_RunParams } from "./reaction/RunParams";
@@ -202,6 +204,7 @@ export type RpcMethods = {
   "agent.digest": { params: agent_NodeId; result: agent_Digest };
   "agent.wake": { params: agent_WakeParams; result: agent_Woken };
   "reaction.create": { params: reaction_CreateParams; result: reaction_Reaction };
+  "reaction.preview": { params: reaction_PreviewParams; result: reaction_Preview };
   "reaction.list": { params: null; result: reaction_Reaction[] };
   "reaction.get": { params: reaction_ReactionId; result: reaction_Reaction };
   "reaction.stop": { params: reaction_ReactionId; result: reaction_Reaction };
