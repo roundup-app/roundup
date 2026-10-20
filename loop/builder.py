@@ -1013,9 +1013,15 @@ def restore_merge_loss(main_ref='origin/main', rules=None):
     return not after.returncode
 
 
+def reopened(pr):
+    """When the PR was last reopened, else 0: the fix runs before it no longer count (L82)."""
+    events = orders.gh('api', f'repos/{{owner}}/{{repo}}/issues/{pr}/events?per_page=100', '--paginate', '--slurp')
+    return max((orders.created(e['created_at']) for page in events for e in page if e['event'] == 'reopened'), default=0)
+
+
 def fix_task(pr, head, cause, run_id=0, output=None):
     """The fix run's task, or None when the PR moved past `head`, is not a Builder PR, no longer fails a `check` or
-    `rules` cause there, or used its ATTEMPTS. A plumbing cause (L82) is exempt from ATTEMPTS and writes `plumbing=true`
+    `rules` cause there, or used its ATTEMPTS since it was last reopened. A plumbing cause (L82) is exempt from ATTEMPTS and writes `plumbing=true`
     to the step output file `output`, so its run posts no attempt."""
     current = view(pr)
     if current['state'] != 'OPEN' or current['headRefOid'] != head or not current['headRefName'].startswith('build/'):
@@ -1030,7 +1036,7 @@ def fix_task(pr, head, cause, run_id=0, output=None):
     if output:
         with open(output, 'a') as out:
             out.write('plumbing=true\n' * plumbing + 'merge_loss=true\n' * merge_loss)
-    attempts = orders.marked(pr, '<!-- fix-attempt -->')
+    attempts = orders.marked(pr, '<!-- fix-attempt -->', reopened(pr))
     verdicts = orders.marked(pr, 'VERDICT:')
     answered = orders.created(attempts[-1]['created_at']) if attempts else 0
     if cause == 'review' and verdicts and answered > orders.created(verdicts[-1]['created_at']) and \
