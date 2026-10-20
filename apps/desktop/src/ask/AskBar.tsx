@@ -18,6 +18,7 @@ import { Portal } from "solid-js/web";
 import { shelfScope } from "../shelf/scope";
 import type { RailNode } from "@contracts/agent/RailNode";
 import { AskRows } from "./AskRows";
+import { Reactions } from "../reactions/Reactions";
 import "./styles.css";
 
 /** The leading `@` and the letters after it, while the user has not yet typed the space that ends the name (U504). */
@@ -233,7 +234,7 @@ export const AskBar = () => {
           <ErrorLine message={copy.draftRetention(connected.project.path, copy.draftSurface("ask"), problem().cause)} />
           <button type="button" data-button="quiet" onClick={() => drafts.retry()}>{copy.storageRetry}</button>
         </div>}</Show>
-        <Show when={!over()}><ProjectOverview /><Deliverables state={deliverables} /></Show>
+        <Show when={!over()}><ProjectOverview /><Reactions /><Deliverables state={deliverables} /></Show>
         <AskRows keys={scope} onOpened={() => close(false)} />
       </section>
     </Show>

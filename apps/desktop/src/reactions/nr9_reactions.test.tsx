@@ -1,0 +1,86 @@
+import { cleanup, fireEvent, screen, waitFor, within } from "@solidjs/testing-library";
+import { afterEach, expect, it } from "vitest";
+import type { Reaction } from "@contracts/reaction/Reaction";
+import { RpcError } from "../app/seam";
+import { agent } from "../testing/nodes";
+import { mountAskBar } from "../ask/askFixture";
+import { copy } from "../copy";
+
+afterEach(cleanup);
+
+const saved = (patch: Partial<Reaction> = {}): Reaction => ({
+  project: "p", id: "r1", name: "Ship it", actor: { kind: "user", id: "u", parent: null }, home: null, target: "a",
+  instruction: "go", condition: { kind: "agents", ids: ["a"], any: false }, max_firings: 1, remaining: 1, rearm: false,
+  expires_at: "2026-10-21T09:00:00Z", created_at: "2026-10-20T09:00:00Z", state: "active",
+  observation: { health: "observing", cursor: null, gap: null, recovery: null, evidence: null }, firings: [], ...patch,
+});
+
+const mount = async (list: () => Reaction[]) => {
+  const mounted = await mountAskBar([], null, [agent("a", "idle", "ready")]);
+
+  mounted.app.handlers["reaction.list"] = list;
+  window.dispatchEvent(new Event("focus"));
+
+  return mounted;
+};
+
+it("nr9_create_inspect_stop_run_and_focus", async () => {
+  let current = saved();
+  const { app } = await mount(() => [current]);
+  const row = await screen.findByRole("button", { name: /Ship it/ });
+
+  row.focus();
+  fireEvent.click(row);
+  const detail = await screen.findByRole("region", { name: copy.reactionDetail("Ship it") });
+
+  expect(within(detail).getByText("go")).toBeTruthy();
+  expect(app.calls.map((call) => call.method)).not.toContain("reaction.run");
+  app.handlers["reaction.stop"] = () => (current = saved({ state: "stopped" }));
+  app.handlers["reaction.run"] = () => current;
+  fireEvent.click(within(detail).getByRole("button", { name: copy.reactionRun }));
+  await waitFor(() => expect(app.calls.filter((call) => call.method === "reaction.run")).toHaveLength(1));
+  fireEvent.click(within(detail).getByRole("button", { name: copy.reactionStop }));
+  await waitFor(() => expect(within(detail).getByRole("button", { name: copy.reactionRun })).toHaveProperty("disabled", true));
+  fireEvent.click(within(detail).getByRole("button", { name: copy.reactionBack }));
+  await waitFor(() => expect(document.activeElement).toBe(screen.getByRole("button", { name: /Ship it/ })));
+});
+
+it("nr9_failed_creation_preserves_original_draft", async () => {
+  const { app, connected } = await mount(() => []);
+  await screen.findByText(copy.reactionsEmpty);
+
+  const destination = { surface: "reactions", object: "create", recipient: null };
+
+  const value = {
+    operation: "op-1", name: "Mine", target: "a", instruction: "exact\n words ", kind: "pr-checks", ids: [], any: false,
+    repository: "o/r", number: "7", atDate: "", atTime: "", atOffset: "Z", expDate: "2026-10-21", expTime: "09:00", expOffset: "Z",
+    maxFirings: "1", rearm: false,
+  };
+
+  connected.drafts.edit(destination, value, null, "ordinary");
+  app.handlers["reaction.preview"] = () => ({ at: "2026-10-21T09:00:00Z", utc: "2026-10-21T09:00:00Z", offset: "Z" });
+  let refuse = true;
+
+  app.handlers["reaction.create"] = () => {
+    if (refuse) throw new RpcError(-32000, "no room");
+
+    return saved();
+  };
+
+  fireEvent.click(await screen.findByRole("button", { name: copy.reactionCreate }));
+
+  const save = await screen.findByRole("button", { name: copy.reactionSave });
+
+  await waitFor(() => expect(save).toHaveProperty("disabled", false));
+  fireEvent.click(save);
+  await screen.findByText(copy.reactionNotCreated("no room"));
+  expect(screen.getByLabelText(copy.reactionInstruction)).toHaveProperty("value", "exact\n words ");
+  refuse = false;
+  fireEvent.click(screen.getByRole("button", { name: copy.reactionSave }));
+  await screen.findByRole("region", { name: copy.reactionDetail("Ship it") });
+
+  const sent = app.calls.filter((call) => call.method === "reaction.create").map((call) => call.params);
+
+  expect(sent).toMatchObject([{ operation: "op-1", instruction: "exact\n words " }, { operation: "op-1", instruction: "exact\n words " }]);
+  expect(connected.drafts.list().filter((draft) => draft.destination.surface === "reactions")).toEqual([]);
+});
