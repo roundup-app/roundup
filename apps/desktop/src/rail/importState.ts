@@ -47,7 +47,6 @@ export const createImport = (app: AppSeam, path: string, onOpened: (workstream: 
   })?.revision : retained?.revision;
 
   let baseline = JSON.stringify(record);
-  let initialRestorePending = restored.status === "failed";
 
   const [open, setOpen] = createSignal(saved?.open ?? false);
   const [period, setPeriodSignal] = createSignal<ImportPeriod>(saved?.period ?? "week");
@@ -61,7 +60,6 @@ export const createImport = (app: AppSeam, path: string, onOpened: (workstream: 
   const [failure, setFailure] = createSignal<string | null>(null);
   const [failed, setFailed] = createSignal<ReadonlyMap<string, string>>(new Map());
   const [restoreFailure, setRestoreFailure] = createSignal(restored.status === "failed");
-  let periodEdited = false;
   let latest = 0;
 
   const choices = () => versions().flatMap(entry => {
@@ -214,26 +212,6 @@ export const createImport = (app: AppSeam, path: string, onOpened: (workstream: 
     retryStorage: () => {
       drafts?.retry();
 
-      if (restoreFailure() && initialRestorePending) {
-        const result = store.restore();
-
-        if (result.status === "failed") return;
-
-        if (result.status === "restored") {
-          baseline = JSON.stringify(result.value);
-
-          if (!periodEdited) setPeriodSignal(result.value.period);
-          setSelected(new Map([...result.value.selected.map((entry) => [entry.source, entry] as const), ...selected()]));
-          setVerified(false);
-        }
-
-        setRestoreFailure(false);
-        initialRestorePending = false;
-        persist();
-
-        return;
-      }
-
       persist(false);
     },
     show: () => {
@@ -264,7 +242,7 @@ export const createImport = (app: AppSeam, path: string, onOpened: (workstream: 
       persist(false);
     },
     refresh,
-    setPeriod: (next: ImportPeriod) => { if (pending() || next === period()) return; periodEdited = true; setSelected(new Map()); setFailed(new Map()); setPeriodSignal(next); persist(); void refresh(); },
+    setPeriod: (next: ImportPeriod) => { if (pending() || next === period()) return; setSelected(new Map()); setFailed(new Map()); setPeriodSignal(next); persist(); void refresh(); },
     choose: (source: string, title: string, revision: string, chosen: boolean) => {
       const next = new Map(selected());
 
