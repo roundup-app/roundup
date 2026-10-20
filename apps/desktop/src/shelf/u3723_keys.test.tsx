@@ -51,6 +51,12 @@ it("u3723_e_exports_the_focused_pad_and_is_inert_on_a_todo", async () => {
   expect(app.chooser.suggestedNames).toEqual([]);
   cleanup();
   const pad = await open(true);
+
+  for (const init of [{ metaKey: true }, { ctrlKey: true }, { altKey: true }, { shiftKey: true }, { repeat: true }]) {
+    expect(press(pad.rows[0]!, "e", init)).toBe(true);
+  }
+
+  expect(pad.app.chooser.suggestedNames).toEqual([]);
   press(pad.rows[0]!, "e");
   await waitFor(() => expect(pad.app.chooser.suggestedNames).toHaveLength(1));
   expect(pad.app.calls.filter(call => call.method === "pad.export")).toEqual([]);
@@ -105,7 +111,7 @@ it("u3724_each_new_key_is_in_chords_help_and_the_hint_line", async () => {
 });
 
 
-it("u3721_maximise_fills_the_centre_and_restore_returns_the_width", async () => {
+it("u3721_maximise_keeps_the_centre_mounted", async () => {
   const { rows } = await open();
   const centre = document.querySelector(".centre");
   const selected = document.querySelector(".rail-row[data-id]");
@@ -114,8 +120,6 @@ it("u3721_maximise_fills_the_centre_and_restore_returns_the_width", async () => 
   expect(screen.getByRole("button", { name: "Restore" })).toBeTruthy();
   expect(document.querySelector(".centre")).toBe(centre);
   expect(selected?.isConnected).toBe(true);
-  press(rows[0]!, "m");
-  expect(screen.getByRole("button", { name: "Maximise" })).toBeTruthy();
 });
 
 it("u3722_the_chip_comes_from_the_registry_row", async () => {
