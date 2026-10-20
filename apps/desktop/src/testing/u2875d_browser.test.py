@@ -16,7 +16,7 @@ records = []
 
 def browser(*args):
     result = subprocess.run(
-        ["agent-browser", "--session", session, "--json", *args],
+        ["agent-browser", "--session", session, "--profile", profile, "--json", *args],
         text=True, capture_output=True, timeout=40,
     )
     if result.returncode or not result.stdout:
@@ -41,7 +41,7 @@ def capture(step):
 
 with TemporaryDirectory(prefix="u2875d-profile-") as profile:
     try:
-        browser("--profile", profile, "open", origin + "harness.html?seed=tree-40&import=dense")
+        browser("open", origin + "harness.html?seed=tree-40&import=dense")
         browser("set", "viewport", "1512", "950")
         browser("set", "media", "dark")
         browser("wait", ".rail-import")
