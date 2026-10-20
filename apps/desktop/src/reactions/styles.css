@@ -142,6 +142,11 @@
   flex-direction: column;
 }
 
+.reaction-form .app-checkbox {
+  min-height: var(--space-5);
+  padding-inline: var(--space-2);
+}
+
 .reaction-form .app-select-trigger {
   border-radius: 0;
   color: var(--grey);
