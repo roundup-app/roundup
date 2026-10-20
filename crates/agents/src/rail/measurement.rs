@@ -49,16 +49,6 @@ impl Rail {
         Ok(())
     }
 
-    pub(crate) fn has_measurements(&self) -> Result<bool, RpcError> {
-        self.db
-            .query_row(
-                "SELECT EXISTS(SELECT 1 FROM measurement_revisions)",
-                [],
-                |r| r.get(0),
-            )
-            .map_err(sql)
-    }
-
     pub(crate) fn measurement_revision(&self) -> Result<String, RpcError> {
         self.db
             .query_row("SELECT revision FROM measurement_state", [], |r| {
