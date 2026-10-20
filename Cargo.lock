@@ -4239,6 +4239,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "test-spans"
+version = "0.0.0"
+dependencies = [
+ "proc-macro2",
+ "syn 2.0.119",
+]
+
+[[package]]
 name = "thiserror"
 version = "1.0.69"
 source = "registry+https://github.com/rust-lang/crates.io-index"
