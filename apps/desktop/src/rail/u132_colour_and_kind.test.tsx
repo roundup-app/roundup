@@ -69,6 +69,7 @@ describe("u132 colour and Kind", () => {
   it("u132_rows_keep_their_kind_with_u361_tick_boxes_on_todos", async () => {
     await mountSeed("tree-40");
     const known = new Set<string | null>(KINDS);
+    fireEvent.click(await waitFor(() => document.querySelector<HTMLElement>('[data-shelf-group="unassigned"] [data-part="branch-control"]') ?? Promise.reject(new Error("no group"))));
     await screen.findAllByRole("button", { name: /#5/ });
     const shelfRows = [...document.querySelectorAll(".todo-row-button")];
     const shelfRowBoxes = shelfRows.map((button) => button.closest(".shelf-row")!);

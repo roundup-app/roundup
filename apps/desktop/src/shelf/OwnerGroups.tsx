@@ -2,6 +2,7 @@ import { createEffect, createMemo, createSignal, For, on, type Accessor, type JS
 import { createTreeCollection } from "@ark-ui/solid/collection";
 import { TreeView } from "../ui/TreeView";
 import { Icon } from "../ink/Icon";
+import { IconButton } from "../ui/IconButton";
 import { copy } from "../copy";
 import type { OwnerGroup } from "./scope";
 
@@ -44,9 +45,7 @@ export const OwnerGroups = <T,>(props: {
               <TreeView.BranchIndicator><Icon name={closed().includes(id) ? "right" : "down"} /></TreeView.BranchIndicator>
               <TreeView.BranchText>{group().name}</TreeView.BranchText>
             </TreeView.BranchControl>
-            <button type="button" data-button="add" class="shelf-group-add" aria-label={copy.addTodoTo(group().name)}
-              onKeyDown={event => event.stopPropagation()}
-              onClick={() => props.onAdd(group())}><Icon name="plus" /></button>
+            <IconButton class="shelf-group-add" aria-label={copy.addTodoTo(group().name)} onKeyDown={event => event.stopPropagation()} onClick={() => props.onAdd(group())}><Icon name="plus" /></IconButton>
           </div>
           <TreeView.BranchContent>{props.children(group)}</TreeView.BranchContent>
         </TreeView.Branch>
