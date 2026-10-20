@@ -38,8 +38,6 @@ const STRUCTURE = new Set([
   'input, textarea, select, [contenteditable="true"]', "select, input, button",
   "input, textarea, select, [contenteditable], .todo-blocker", "visual-source is-open",
   'ui-monospace, "SF Mono", Menlo, monospace', "no open Project: a region read the ConnectedProject outside one",
-  // U3708: the id of the TreeView collection's root node, never shown.
-  "root",
   "the Rail's indent step has no width", "  last: ", "  open todos: ", "  pads: ",
 ]);
 

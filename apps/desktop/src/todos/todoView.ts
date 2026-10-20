@@ -1,4 +1,5 @@
 import type { Todo } from "@contracts/todo/Todo";
+import { createTreeCollection } from "@ark-ui/solid/tree-view";
 import { beforeOf } from "./beforeOf";
 
 const byId = (a: Todo, b: Todo): number => a.id - b.id;
@@ -92,4 +93,18 @@ export const planDrop = (rows: readonly NestedRow[], flat: readonly Todo[], all:
   if (before !== beforeOf(all, alone, id, alone.indexOf(id))) plan.before = before;
 
   return plan;
+};
+
+type TreeNode = { id: string; children?: TreeNode[] };
+
+/** The rows as the TreeView's collection: each row's children are the rows naming it as parent. */
+export const treeCollection = (rows: readonly NestedRow[]) => {
+  const children = (parent: number | null): TreeNode[] =>
+    rows.filter((row) => row.parent === parent).map((row) => ({ id: String(row.todo.id), children: children(row.todo.id) }));
+
+  return createTreeCollection<TreeNode>({
+    nodeToValue: (node) => node.id,
+    nodeToString: (node) => node.id,
+    rootNode: { id: "root", children: children(null) },
+  });
 };
