@@ -8,6 +8,7 @@ pub mod digest_schema;
 mod hops;
 mod inbox;
 mod pushes;
+pub mod reaction;
 mod restart;
 mod retirement;
 #[doc(hidden)]
@@ -314,16 +315,18 @@ impl Messages {
         p: SendParams,
         merge: bool,
     ) -> Result<Message, RpcError> {
-        self.send_message_with(ctx, p, merge, None).await
+        self.send_message_with(ctx, p, merge, None, None).await
     }
 
-    /// `send_message`; with `wake`, the Wake request of that number is fired in the same write (B42).
+    /// `send_message`; with `wake`, the Wake request of that number is fired in the same write (B42);
+    /// with `reaction`, the firing is accepted in the same write (NR3).
     async fn send_message_with(
         &self,
         ctx: &Ctx,
         p: SendParams,
         merge: bool,
         wake: Option<u32>,
+        reaction: Option<&reaction::Fire>,
     ) -> Result<Message, RpcError> {
         if is_receiver(&ctx.actor, &p.to) {
             return Err(RpcError::new(
@@ -378,7 +381,14 @@ impl Messages {
                 if let Some(wake) = wake {
                     self.fire_inside(store, wake)?;
                 }
-                if !digest && wake.is_none() && store.count_open(&p.to)? >= OPEN_BOUND {
+                if let Some(fire) = reaction {
+                    store.check_firing(fire)?;
+                }
+                if !digest
+                    && wake.is_none()
+                    && reaction.is_none()
+                    && store.count_open(&p.to)? >= OPEN_BOUND
+                {
                     return Err(RpcError::conflict(format!(
                         "{} already has {OPEN_BOUND} pending or held Messages",
                         p.to
@@ -437,6 +447,10 @@ impl Messages {
                 )?;
                 if wake.is_some() {
                     (self.inner.fault)("wake").map_err(RpcError::internal)?;
+                }
+                if let Some(fire) = reaction {
+                    store.accept_firing(fire, message.id)?;
+                    (self.inner.fault)("reaction").map_err(RpcError::internal)?;
                 }
                 self.answer(ctx, store, &message)?;
                 if let Some(rest) = &chain_rest {
