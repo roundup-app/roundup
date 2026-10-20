@@ -463,6 +463,49 @@ async fn u3016d_reconnect_reconciles_without_double_counting() {
     assert_eq!(read["contributions"], first["contributions"]);
 }
 
+#[tokio::test]
+async fn u3016d_empty_collection_failures_notify_subscribers() {
+    let w = World::start().await;
+    w.append(json!({"type":"result"}));
+    let good = tokio::time::timeout(Duration::from_secs(3), async {
+        loop {
+            let read = w.read().await;
+            if read["sources"][0]["last_good"].is_number() {
+                break read;
+            }
+            tokio::time::sleep(Duration::from_millis(20)).await;
+        }
+    })
+    .await
+    .expect("the empty source is successfully collected");
+    let mut subscribed = Client::connect(&w.daemon.socket).await.unwrap();
+    subscribed
+        .request("events.subscribe", Value::Null)
+        .await
+        .unwrap();
+    std::fs::rename(w.source(), w.source().with_extension("held")).unwrap();
+    tokio::time::timeout(Duration::from_secs(3), async {
+        loop {
+            let event = subscribed.next_event().await.unwrap();
+            if let contracts::EventData::MeasurementsChanged { revision } = event.data {
+                let failed = w.read().await;
+                if failed["sources"][0]["cause"].is_string() {
+                    assert_eq!(revision, failed["revision"]);
+                    assert_ne!(failed["revision"], good["revision"]);
+                    assert_eq!(failed["contributions"], json!([]));
+                    assert_eq!(
+                        failed["sources"][0]["last_good"],
+                        good["sources"][0]["last_good"]
+                    );
+                    break;
+                }
+            }
+        }
+    })
+    .await
+    .expect("failure is published even before any consumption exists");
+}
+
 async fn post(url: &str, body: Value) -> u16 {
     let script = "import sys,urllib.request,urllib.error\ntry:\n r=urllib.request.urlopen(urllib.request.Request(sys.argv[1],sys.argv[2].encode(),{'Content-Type':'application/json'})); print(r.status)\nexcept urllib.error.HTTPError as e: print(e.code)";
     let out = tokio::process::Command::new("python3")
