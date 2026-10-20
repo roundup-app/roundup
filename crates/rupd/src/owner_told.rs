@@ -433,7 +433,7 @@ mod tests {
 
     fn rig(nodes: Vec<Value>) -> (Arc<Stub>, Reader) {
         let dir = tempfile::tempdir().unwrap();
-        let daemon = crate::Daemon::open(&dir.path().join("data")).unwrap();
+        let daemon = crate::test_daemon(&dir.path().join("data")).unwrap();
         let stub = Arc::new(Stub {
             nodes: Mutex::new(nodes),
             sent: Mutex::new(Vec::new()),
