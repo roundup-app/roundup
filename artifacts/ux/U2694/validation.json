@@ -1,0 +1,33 @@
+{
+  "related": {
+    "files": 206,
+    "tests": 1756,
+    "passed": 1752,
+    "failed": 1,
+    "pending": 3,
+    "success": false
+  },
+  "retry": {
+    "files": 3,
+    "tests": 5,
+    "passed": 5,
+    "failed": 0,
+    "pending": 0,
+    "success": true,
+    "filesPassed": [
+      "src/testing/u166_door_permission.test.tsx",
+      "src/testing/u351_kinds_real_daemon.test.tsx",
+      "src/testing/u356_blocked_real_daemon.test.tsx"
+    ]
+  },
+  "commands": {
+    "related": "pnpm --filter desktop exec vitest related --run src/rail/styles.css src/rail/menu/RailConfirm.tsx src/testing/checks.ts",
+    "retry": "pnpm --filter desktop exec vitest run --maxWorkers=1 src/testing/u351_kinds_real_daemon.test.tsx src/testing/u356_blocked_real_daemon.test.tsx src/testing/u166_door_permission.test.tsx"
+  },
+  "repair": "Removed the interrupted capture run's stale /tmp/roundup-cargo-build.lock after confirming no compiler held it. Reran the two setup timeouts and the permission fixture timeout; all five tests passed.",
+  "lint": {
+    "just lint-web": "passed",
+    "just lint-rust": "passed"
+  },
+  "capture": "just capture U2694 interrupted after attachment failed; manual isolated headless captures and readings retained."
+}

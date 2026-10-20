@@ -1,0 +1,30 @@
+{
+  "observer": "builder-39443371929: isolated headless agent-browser session",
+  "baseline": "be9cda34c05b1127ef44b9998631bccef10cba5a",
+  "viewport": [
+    1512,
+    950
+  ],
+  "scheme": "dark",
+  "seed": "tree-40",
+  "confirmation": {
+    "workstream": "auth-refactor",
+    "width": 360,
+    "goes": [
+      "login-store",
+      "docs"
+    ],
+    "stays": [
+      "token-rotation: Running"
+    ],
+    "entries": "separate rows"
+  },
+  "escape": {
+    "dialogClosed": true,
+    "focusRow": "auth",
+    "removeCalls": 0
+  },
+  "delta": "D1-D14 remain passing on confirmation and failure; D16 passes on both revisions",
+  "captureUpload": "unsupported authentication type",
+  "nativeMenu": "not observed in Chromium"
+}
