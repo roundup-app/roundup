@@ -1,13 +1,13 @@
 name: critic
 run-name: Critic ${{ github.event.workflow_run.head_branch }}
 
-# L103: one design-critic run per PR head that changes apps/desktop/src, once check passes on it; a PR that changes
+# L103: one design-critic run per PR head that changes apps/desktop/src, once `pre` passes on it; a PR that changes
 # nothing there gets `critic` success with no model run. A workflow_run job runs main's copy of this file, so no PR
 # changes its own critic. The run holds a read token and answers in a fixed schema; `post` publishes the answer as a
 # CRITIC comment and the `critic` status the ruleset requires, and a reject starts a fix run with cause `critic`.
 on:
   workflow_run:
-    workflows: [check]
+    workflows: [pre]
     types: [completed]
 
 # Workflow concurrency precedes task admission: isolate draft completions before they can cancel a real run.
@@ -55,7 +55,7 @@ jobs:
           [ -n "$pr" ] || exit 0
           code=0
           python3 loop/builder.py critic-task "$pr" "$HEAD" >"$RUNNER_TEMP/task.md" || code=$?
-          # 3: a draft, the PR moved on, or no UI change (critic already success); `gh pr ready` reruns check and so this run.
+          # 3: a draft, the PR moved on, or no UI change (critic already success); `gh pr ready` reruns pre and so this run.
           [ "$code" != 3 ] || exit 0
           [ "$code" = 0 ] || exit "$code"
           python3 loop/builder.py prompt design-critic <"$RUNNER_TEMP/task.md"
@@ -204,4 +204,4 @@ jobs:
     with:
       results: ${{ toJSON(needs) }}
       purpose: Judge a UI PR head against the user's design bar
-      next: An approval passes the critic status; a reject on a Builder PR starts a fix run.
+      next: An approval passes the critic status and, with the review's, starts the tests; a reject on a Builder PR starts a fix run.
