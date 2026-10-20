@@ -14,6 +14,7 @@ mod handshake;
 mod link;
 mod output;
 mod owner_told;
+mod reaction;
 mod removal;
 mod resize;
 mod resources;
@@ -92,6 +93,7 @@ pub struct Daemon {
     /// D8: samples only inside `project.resources`.
     resources: resources::Sampler,
     publications: deliverables::Publications,
+    reactions: reaction::Reactions,
     /// B6's isolated observer pauses a Door action or guarded call before its effect; absent in production.
     prompt_effect_gate: Option<std::path::PathBuf>,
 }
@@ -449,6 +451,7 @@ impl Daemon {
             pushes: std::sync::Mutex::new(Some(bus.subscribe())),
             resources: Default::default(),
             publications: deliverables::Publications::open(dir)?,
+            reactions: reaction::Reactions::open(dir)?,
             prompt_effect_gate: std::env::var_os("RUPD_PROMPT_EFFECT_GATE").map(Into::into),
             waits: std::sync::Mutex::new(Some((
                 bus.subscribe(),
@@ -630,6 +633,7 @@ impl Daemon {
             // Preserve the wire reader's authenticated identity while earlier actions finish.
             conn.actor = actor.unwrap_or_else(|| self.decision_actor(conn));
         } else if method.starts_with("deliverable.")
+            || method.starts_with("reaction.")
             || matches!(
                 method,
                 "rail.rename"
@@ -838,6 +842,9 @@ impl Daemon {
             .await?;
         if namespace == "deliverable" {
             return self.deliverable_call(conn, method, params).await;
+        }
+        if namespace == "reaction" {
+            return self.reaction_call(conn, method, params).await;
         }
         if method == "attachment.save" {
             return self.attachments.save(params);
@@ -1842,7 +1849,7 @@ async fn handle(stream: UnixStream, daemon: Arc<Daemon>) -> io::Result<()> {
             daemon.decision_actor(&conn)
         } else if method
             .as_deref()
-            .is_some_and(|m| m.starts_with("deliverable."))
+            .is_some_and(|m| m.starts_with("deliverable.") || m.starts_with("reaction."))
             || matches!(
                 method.as_deref(),
                 Some(
