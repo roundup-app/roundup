@@ -1250,12 +1250,14 @@ def touches_desktop(pr):
 
 def critic_task(pr, head):
     """The design critic's task (L103), or None when the PR is not open at `head` or is a draft. A PR that changes
-    nothing under `apps/desktop/src/` gets its `critic` status `success` here, with no model run."""
+    nothing under `apps/desktop/src/` gets its `critic` status `success` here, with no model run, and so completes the pair
+    when `review` approved first (L24)."""
     current = view(pr)
     if current['state'] != 'OPEN' or current['headRefOid'] != head or current['isDraft']:
         return None
     if not touches_desktop(pr):
         status(head, 'success', 'The PR changes nothing under apps/desktop/src: no design critic run', '', 'critic')
+        start_tests(current)
         return None
     lines = [f'Critique PR #{pr}, head {head}, as `.agents/design-critic.md` says.',
              *re.findall(r'^(?:Scenarios|Moves):.*$', current['body'] or '', re.M),

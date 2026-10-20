@@ -43,6 +43,7 @@ jobs:
     steps:
       - env:
           GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
           HEAD: ${{ github.event.pull_request.head.sha }}
         run: |
           [ "$GITHUB_EVENT_NAME" = pull_request ] || exit 0
