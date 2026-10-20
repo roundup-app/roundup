@@ -5,7 +5,7 @@
   box-sizing: border-box;
   width: min(36rem, calc(100vw - var(--space-6) * 2));
   max-height: calc(100vh - var(--space-6) * 2);
-  box-shadow: none;
+  box-shadow: var(--shadow-drawer);
 }
 
 .import-panel [data-part="title"] {
