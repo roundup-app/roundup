@@ -439,16 +439,16 @@ const ReactionForm = (props: { onDone: (made: Reaction, reveal: boolean) => void
     <Show when={form().kind === "agents"}>
       <div class="reaction-agents" role="group" aria-label={copy.reactionWatched}>
         <span class="reaction-label">{copy.reactionWatched}</span>
-        <For each={agents()}>{(node) => <Checkbox label={nameOf(node.id)} checked={form().ids.includes(node.id)}
-          onCheckedChange={(checked) => set({ ids: checked ? [...form().ids, node.id] : form().ids.filter((id) => id !== node.id) })} />}</For>
-        <Checkbox label={copy.reactionAny} checked={form().any} onCheckedChange={(any) => set({ any })} />
+        <For each={agents()}>{(node) => <Checkbox checked={form().ids.includes(node.id)}
+          onCheckedChange={(checked) => set({ ids: checked ? [...form().ids, node.id] : form().ids.filter((id) => id !== node.id) })}>{nameOf(node.id)}</Checkbox>}</For>
+        <Checkbox checked={form().any} onCheckedChange={(any) => set({ any })}>{copy.reactionAny}</Checkbox>
       </div>
     </Show>
     <Show when={form().kind === "pr-checks"}>{repositoryField}{numberField}</Show>
     <Show when={form().kind === "instant"}>{atFields}</Show>
     {expiryFields}
     {maxField}
-    <Checkbox label={copy.reactionRearm} checked={form().rearm} onCheckedChange={(rearm) => set({ rearm })} />
+    <Checkbox checked={form().rearm} onCheckedChange={(rearm) => set({ rearm })}>{copy.reactionRearm}</Checkbox>
     <section class="reaction-preview" aria-label={copy.reactionPreview}>
       <span class="reaction-label">{copy.reactionPreview}</span>
       <dl class="reaction-facts">
