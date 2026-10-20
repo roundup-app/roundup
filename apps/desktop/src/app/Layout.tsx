@@ -98,7 +98,7 @@ export const Layout = (props: {
 
     if (!windowElement || !shelf?.animate || !placement().animated || !opened || previous?.[0] === maximised) return;
     const style = getComputedStyle(windowElement);
-    const displacement = windowElement.clientWidth - (windowElement.querySelector(".rail")?.clientWidth ?? 0) - parseFloat(style.getPropertyValue("--shelf-span"));
+    const displacement = windowElement.clientWidth - (windowElement.querySelector(".rail")?.getBoundingClientRect().width ?? 0) - parseFloat(style.getPropertyValue("--shelf-span"));
     const duration = style.getPropertyValue("--duration-drawer").trim();
     maximiseSlide = shelf.animate([
       { transform: `translateX(${offset + (maximised ? displacement : -displacement)}px)` },

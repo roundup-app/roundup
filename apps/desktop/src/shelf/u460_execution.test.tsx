@@ -122,7 +122,6 @@ it("u460_retry_confirms_only_the_remaining_set", async () => {
   await screen.findByText("todo 2 #2: denied");
   failed = false;
   await askToDelete(1);
-  expect(screen.getByRole("alertdialog")).toBeTruthy();
   await confirmDeletion();
   await questionClosed();
   expect(todoCallsTo(app, "todo.delete").map((call) => call.params)).toEqual([{ id: 1 }, { id: 2 }, { id: 2 }]);

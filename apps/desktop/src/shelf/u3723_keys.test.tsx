@@ -131,3 +131,22 @@ it("u3722_the_chip_comes_from_the_registry_row", async () => {
   fireEvent.keyDown(button, { key: keys.toLowerCase(), code: row.presses[0]! });
   expect(screen.getByRole("button", { name: "Restore" })).toBe(button);
 });
+
+it.each(["naming", "drawer"])("u3723_keys_are_inert_in_the_%s_field", async place => {
+  const { app, rows } = await open(place === "naming");
+  let field: HTMLElement;
+
+  if (place === "naming") {
+    fireEvent.click(screen.getByRole("button", { name: "Add Pad" }));
+    field = screen.getByLabelText("Pad name");
+  } else {
+    fireEvent.click(rows[0]!);
+    await waitFor(() => expect(document.querySelector(".todo-detail-title .todo-editable p")).not.toBeNull());
+    fireEvent.dblClick(document.querySelector(".todo-detail-title .todo-editable p")!);
+    field = await screen.findByLabelText("Title");
+  }
+
+  for (const key of ["d", "e", "m"]) expect(press(field, key)).toBe(true);
+  expect(app.calls.filter(call => call.method.endsWith(".delete") || call.method === "pad.export")).toEqual([]);
+  expect(screen.queryByRole("alertdialog")).toBeNull();
+});
