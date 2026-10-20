@@ -179,7 +179,7 @@ export const copy = {
   importRefresh: "Refresh",
   importChanged: "Changed since it was shown. Refresh to import it.",
   importStale: (value1: CopyValue) => `${value1} earlier selected no longer match. Refresh and choose again.`,
-  importConfirm: (value1: CopyValue) => `Import ${value1}`,
+  importConfirm: (value1: CopyValue) => value1 === 0 ? "Import" : `Import ${value1}`,
   rename: "Rename",
   terminalName: "Terminal name",
   terminalMenu: "Terminal",
