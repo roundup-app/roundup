@@ -128,6 +128,7 @@ pub const METHODS: &[Method] = &[
     m("todo.update", "todo_UpdateParams", "todo_Todo"),
     m("todo.complete", "todo_TodoId", "todo_Todo"),
     m("todo.setBlockers", "todo_SetBlockersParams", "todo_Todo"),
+    m("todo.assign", "todo_AssignParams", "todo_Todo"),
     m("todo.move", "todo_MoveParams", "todo_Todo"),
     m("todo.reorder", "todo_ReorderParams", "todo_Todo"),
     m("todo.delete", "todo_TodoId", "null"),

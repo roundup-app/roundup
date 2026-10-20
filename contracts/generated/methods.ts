@@ -107,6 +107,7 @@ import type { SpawnParams as terminal_SpawnParams } from "./terminal/SpawnParams
 import type { TerminalId as terminal_TerminalId } from "./terminal/TerminalId";
 import type { TerminalInfo as terminal_TerminalInfo } from "./terminal/TerminalInfo";
 import type { WriteParams as terminal_WriteParams } from "./terminal/WriteParams";
+import type { AssignParams as todo_AssignParams } from "./todo/AssignParams";
 import type { CreateParams as todo_CreateParams } from "./todo/CreateParams";
 import type { History as todo_History } from "./todo/History";
 import type { MoveParams as todo_MoveParams } from "./todo/MoveParams";
@@ -164,6 +165,7 @@ export type RpcMethods = {
   "todo.update": { params: todo_UpdateParams; result: todo_Todo };
   "todo.complete": { params: todo_TodoId; result: todo_Todo };
   "todo.setBlockers": { params: todo_SetBlockersParams; result: todo_Todo };
+  "todo.assign": { params: todo_AssignParams; result: todo_Todo };
   "todo.move": { params: todo_MoveParams; result: todo_Todo };
   "todo.reorder": { params: todo_ReorderParams; result: todo_Todo };
   "todo.delete": { params: todo_TodoId; result: null };

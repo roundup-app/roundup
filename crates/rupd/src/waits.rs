@@ -80,6 +80,7 @@ mod tests {
                 parent: None,
             },
             home: None,
+            owner: None,
         }
     }
 

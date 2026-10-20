@@ -16,6 +16,7 @@ const todo = (id: number, over: Partial<Todo> = {}): Todo => ({
   created_at: 0,
   creator: USER,
   home: null,
+  owner: null,
   ...over,
 });
 
