@@ -39,6 +39,7 @@ describe("u2694 the Rail's system menu", () => {
       incarnation: "notes-1", name: "notes", owner: { kind: "agent", id: "a", parent: null },
       text: "", updated_at: 0, revision: 1, home: null,
     }]);
+
     fireEvent.click(await screen.findByRole("button", { name: "1 pads" }));
 
     const pad = await screen.findByRole("button", { name: "notes" });
