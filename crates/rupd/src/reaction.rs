@@ -13,7 +13,8 @@ use serde::{Deserialize, Serialize};
 use tokio::sync::broadcast::{Receiver, error::RecvError};
 
 use contracts::reaction::{
-    Condition, CreateParams, Firing, Observation, Reaction, ReactionId, RunParams, State,
+    Condition, CreateParams, Firing, Observation, PreviewParams, Reaction, ReactionId, RunParams,
+    State,
 };
 use contracts::{Actor, ActorKind};
 use rpc::{RpcError, code};
@@ -33,7 +34,11 @@ const MAX_INSTRUCTION: usize = 16 * 1024;
 const SOURCES: [&str; 3] = ["agents", "pr-checks", "instant"];
 
 pub(crate) struct Reactions {
-    db: std::sync::Mutex<Connection>,
+    pub(crate) db: std::sync::Mutex<Connection>,
+    /// NR6: a saved reaction's time may have changed; the Timer re-reads.
+    pub(crate) changed: tokio::sync::Notify,
+    /// Whether the Timer is running.
+    pub(crate) timed: std::sync::atomic::AtomicBool,
     /// Serialises activation and every evaluation, so no two decide one reaction at once.
     gate: tokio::sync::Mutex<()>,
     /// Subscribed at open, taken once by the evaluator, so no Event falls between open and run.
@@ -47,6 +52,8 @@ impl Reactions {
             db: std::sync::Mutex::new(
                 Connection::open_in_memory().expect("test reaction database"),
             ),
+            changed: Default::default(),
+            timed: Default::default(),
             gate: Default::default(),
             events: Default::default(),
         }
@@ -55,6 +62,8 @@ impl Reactions {
     pub(crate) fn open(data: &std::path::Path) -> Result<Self, rpc::OpenError> {
         Ok(Self {
             db: std::sync::Mutex::new(Connection::open(data.join("project.db"))?),
+            changed: Default::default(),
+            timed: Default::default(),
             gate: Default::default(),
             events: Default::default(),
         })
@@ -205,6 +214,9 @@ impl Evaluator {
     /// NR2: starts watching `reaction` if it is not, then decides it. The head is read before the Rail,
     /// so a finish between the two is replayed rather than missed.
     pub(crate) async fn observe(&self, reaction: &Reaction, live: Option<&Event>) {
+        if !matches!(reaction.condition, Condition::Agents { .. }) {
+            return;
+        }
         let _gate = self.reactions.gate.lock().await;
         let head = self
             .bus
@@ -367,6 +379,56 @@ impl Evaluator {
     }
 }
 
+impl Reactions {
+    /// Every saved reaction still active, oldest first.
+    pub(crate) fn active(&self) -> Result<Vec<Reaction>, RpcError> {
+        let db = self.db.lock().expect("reaction database poisoned");
+        let mut stmt = db
+            .prepare("SELECT record FROM reactions ORDER BY rowid")
+            .map_err(RpcError::internal)?;
+        let rows = stmt
+            .query_map([], |r| r.get::<_, String>(0))
+            .and_then(|rows| rows.collect::<Result<Vec<_>, _>>())
+            .map_err(RpcError::internal)?;
+        rows.iter()
+            .map(|record| read(record))
+            .filter(|saved| saved.as_ref().map_or(true, |s| s.state == State::Active))
+            .collect()
+    }
+
+    /// Records what the observer saw. A reaction stopped meanwhile stays stopped.
+    pub(crate) fn observe(
+        &self,
+        id: &str,
+        health: &str,
+        cause: Option<String>,
+        end: Option<State>,
+    ) {
+        let db = self.db.lock().expect("reaction database poisoned");
+        let saved = db
+            .query_row("SELECT record FROM reactions WHERE id=?1", [id], |r| {
+                r.get::<_, String>(0)
+            })
+            .optional();
+        let Ok(Some(record)) = saved else { return };
+        let Ok(mut saved) = read(&record) else { return };
+        if saved.state != State::Active {
+            return;
+        }
+        saved.observation.health = health.into();
+        saved.observation.cause = cause;
+        if let Some(state) = end {
+            saved.state = state;
+        }
+        if let Ok(record) = serde_json::to_string(&saved) {
+            let _ = db.execute(
+                "UPDATE reactions SET record=?2 WHERE id=?1",
+                params![id, record],
+            );
+        }
+    }
+}
+
 fn invalid(text: impl Into<String>) -> RpcError {
     RpcError::new(code::INVALID_PARAMS, text)
 }
@@ -434,7 +496,11 @@ fn shape(p: &CreateParams, now: OffsetDateTime) -> Result<(u32, bool), RpcError>
             }
         }
         Condition::Instant { at, .. } => {
-            if instant("at", at)? >= expires {
+            let at = crate::reaction_time::canonical(at)?;
+            if at <= now {
+                return Err(invalid("at must be later than now"));
+            }
+            if at >= expires {
                 return Err(invalid("at must be earlier than expires_at"));
             }
         }
@@ -479,11 +545,30 @@ impl Daemon {
             "reaction.create" => {
                 supported(&args)?;
                 let p: CreateParams = rpc::params(args)?;
-                let created = self.reaction_create(actor, &world, p)?;
+                let pin = match &p.condition {
+                    Condition::PrChecks { repository, number } => {
+                        Some(crate::reaction_checks::pin(
+                            crate::reaction_checks::read(
+                                &self.agents,
+                                &self.ctx(Actor::daemon()),
+                                &p.target,
+                            )
+                            .await,
+                            repository,
+                            *number,
+                        ))
+                    }
+                    _ => None,
+                };
+                let created = self.reaction_create(actor, &world, p, pin)?;
                 if let Some(evaluator) = self.evaluator() {
                     evaluator.observe(&created, None).await;
                 }
                 self.with_firings(created)?
+            }
+            "reaction.preview" => {
+                let p: PreviewParams = rpc::params(args)?;
+                return rpc::reply(&crate::reaction_time::preview(&p)?);
             }
             "reaction.list" => {
                 let rows = {
@@ -549,6 +634,7 @@ impl Daemon {
                 gap: watch.gap,
                 recovery: watch.recovery,
                 evidence: watch.evidence,
+                ..saved.observation
             };
         }
         saved.remaining = saved
@@ -597,11 +683,12 @@ impl Daemon {
         self.with_firings(saved)
     }
 
-    fn reaction_create(
+    pub(crate) fn reaction_create(
         &self,
         actor: &Actor,
         world: &crate::digest::World,
         p: CreateParams,
+        pin: Option<Result<String, RpcError>>,
     ) -> Result<Reaction, RpcError> {
         let request = serde_json::to_string(&p).map_err(RpcError::internal)?;
         let mut db = self
@@ -645,12 +732,14 @@ impl Daemon {
                 node(id)?;
             }
         }
+        let pin = pin.transpose()?;
         let project: String = tx
             .query_row("SELECT id FROM reaction_project", [], |r| r.get(0))
             .map_err(RpcError::internal)?;
         let id: String = tx
             .query_row("SELECT lower(hex(randomblob(16)))", [], |r| r.get(0))
             .map_err(RpcError::internal)?;
+        let waiting = pin.is_some() || matches!(p.condition, Condition::Instant { .. });
         let reaction = Reaction {
             project,
             id: id.clone(),
@@ -667,8 +756,14 @@ impl Daemon {
             created_at: now.format(&Rfc3339).map_err(RpcError::internal)?,
             state: State::Active,
             observation: Observation {
-                health: "not-observing".into(),
+                health: if waiting {
+                    "waiting".into()
+                } else {
+                    "not-observing".into()
+                },
                 cursor: None,
+                pinned_head: pin,
+                cause: None,
                 gap: None,
                 recovery: None,
                 evidence: None,
@@ -682,6 +777,7 @@ impl Daemon {
         )
         .map_err(RpcError::internal)?;
         tx.commit().map_err(RpcError::internal)?;
+        self.reactions.changed.notify_one();
         Ok(reaction)
     }
 

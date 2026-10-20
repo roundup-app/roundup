@@ -88,6 +88,7 @@ export const CONTRACT = {
     "reaction.create": "33a48eb67c6e4c23",
     "reaction.get": "7a49092cc92f0d7f",
     "reaction.list": "16af7af3f74821be",
+    "reaction.preview": "2cf9405213ef3186",
     "reaction.run": "d467f24943fc4b9d",
     "reaction.stop": "7f76744550a78b3b",
     "route.list": "5aac961a9745025c",
