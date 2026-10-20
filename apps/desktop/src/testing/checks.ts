@@ -264,7 +264,7 @@ const d3 = (page: Page): Measure => {
 // D4: every Rail, Shelf and Drawer row draws a Glyph, so no Kind is carried by colour alone.
 const d4 = ({ doc }: Page): Measure => {
   const rows = [...doc.querySelectorAll("[role=treeitem][data-id], aside li, aside [role=listitem]")].filter((row) => !row.closest(".milkdown-slash-menu") || row.matches("[data-id], [role=listitem], [role=treeitem]"));
-  const bare = rows.find((row) => !row.querySelector(".glyph svg, .glyph"));
+  const bare = rows.find((row) => !row.querySelector(".glyph svg, .glyph, .todo-tick")); // U361, U3708: a Todo row's tick box is its mark
 
   return { ok: !bare, value: { rows: rows.length }, selector: bare ? selectorOf(bare) : "" };
 };
