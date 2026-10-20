@@ -552,10 +552,9 @@ pub(super) async fn watch(
 
 #[cfg(test)]
 mod tests {
-    use std::sync::mpsc;
-    const TRIALS: usize = 20_000;
     use std::collections::VecDeque;
     use std::sync::Arc;
+    use std::sync::mpsc;
     use std::thread;
     use std::time::Duration;
 
@@ -721,8 +720,7 @@ mod tests {
 
         assert_eq!(err.code, rpc::code::NOT_FOUND);
     }
-    /// A held Signal whose `rail.rename` fails (here, because another connection holds the
-    /// write lock) must not panic while `finish_starting` still holds `rail` and `runs`: a panic
+    /// A held Signal whose `rail.rename` fails (a SQLite trigger refuses the update) must not panic while `finish_starting` still holds `rail` and `runs`: a panic
     /// there would poison both mutexes, so every later `rail()`/`runs()` call would panic too.
     #[test]
     fn a14_a_failed_rail_write_for_a_held_signal_does_not_poison_the_locks() {
@@ -739,7 +737,7 @@ mod tests {
                 json!({"hook_event_name": "UserPromptSubmit", "prompt": "fix the build"}),
             ));
         }
-        let lock = lock_db_for_writes(dir.path());
+        let db = refuse_rail_writes(dir.path());
 
         let prompts = shared.finish_starting(&id, "1", |named| Run {
             yolo: false,
@@ -762,7 +760,7 @@ mod tests {
             cwd: "/".into(),
         });
 
-        drop(lock);
+        db.execute_batch("DROP TRIGGER fail_write").unwrap();
         assert_eq!(prompts.unwrap(), Vec::<String>::new());
         // Neither lock was poisoned by the failed write: both can still be acquired.
         assert!(matches!(shared.runs().get(&id), Some(Slot::Running(_))));
@@ -792,7 +790,7 @@ mod tests {
             // Never reached if the save aborts the drain as it must.
             held.push_back((Actor::daemon(), json!({"hook_event_name": "Stop"})));
         }
-        let lock = lock_db_for_writes(dir.path());
+        let db = refuse_rail_writes(dir.path());
 
         let result = shared.finish_starting(&id, "1", |named| Run {
             yolo: false,
@@ -815,7 +813,7 @@ mod tests {
             cwd: "/".into(),
         });
 
-        drop(lock);
+        db.execute_batch("DROP TRIGGER fail_write").unwrap();
         assert!(result.is_err());
         let runs = shared.runs();
         let Some(Slot::Running(run)) = runs.get(&id) else {
@@ -824,47 +822,60 @@ mod tests {
         // The Stop held after the SessionStart was never drained: the abort is immediate.
         assert_eq!(run.adapter.status().unwrap().kind, Kind::Working);
     }
-    /// `finish_starting` takes `rail` then `runs` for its whole swap into `Running` and its drain
-    /// of what was held, so a Signal released the instant the Agent is registered still cannot
-    /// land ahead of the one held for it (A14). So this does not race blindly: a rendezvous over a
-    /// zero-capacity channel holds the late call at the threshold of its own call to `observe`
-    /// until `finish_starting`'s `build` hook — already a plain closure argument, not a new
-    /// public seam — confirms, by having been called at all, that both locks are still held.
-    /// Only then are both sides let go. That leaves exactly the race the fix is answerable for:
-    /// once released, a correct `finish_starting` never lets go of `runs` until every held Signal
-    /// is applied, so the late call cannot win no matter how the OS schedules it; a regressed one
-    /// drops `runs` early and must then win a second, real race to re-lock it before the already-
-    /// waiting late call does — a race this test cannot referee, only repeat (`TRIALS`).
+    /// Keep all 20,000 interleavings using one reusable late-observer thread. The
+    /// build rendezvous checks lock exclusion before releasing the actual late Signal.
     #[test]
     fn a14_a_signal_released_once_the_agent_is_registered_never_outruns_the_held_one() {
         let (_dir, bus, shared) = shared_over_temp_dir(Arc::new(|| 0));
         let mut events = bus.subscribe();
-        for i in 0..TRIALS {
-            let id = i.to_string();
-            shared.runs().insert(
-                id.clone(),
-                Slot::Starting {
-                    attempt: "1".into(),
-                    since: 0,
-                    named: false,
-                    held: VecDeque::from([(
-                        Actor::daemon(),
-                        json!({"hook_event_name": "PreToolUse", "tool_name": "Bash"}),
-                    )]),
-                },
-            );
-
-            // `build` is called with both locks already held, so reaching here and blocking
-            // proves `finish_starting` cannot have let either go yet.
-            let (holding_tx, holding_rx) = mpsc::sync_channel::<()>(0);
-            let (go_tx, go_rx) = mpsc::sync_channel::<()>(0);
-            let registering = {
-                let shared = Arc::clone(&shared);
-                let id = id.clone();
-                thread::spawn(move || {
-                    shared.finish_starting(&id, "1", |named| {
-                        holding_tx.send(()).unwrap();
-                        go_rx.recv().unwrap();
+        let (observe, observations) = mpsc::sync_channel::<String>(0);
+        let (about, arriving) = mpsc::sync_channel(0);
+        let (done, completed) = mpsc::sync_channel(0);
+        let late_shared = Arc::clone(&shared);
+        thread::scope(move |scope| {
+            scope.spawn(move || {
+                let shared = late_shared;
+                for id in observations {
+                    assert!(matches!(
+                        shared.rail.try_lock(),
+                        Err(std::sync::TryLockError::WouldBlock)
+                    ));
+                    assert!(matches!(
+                        shared.runs.try_lock(),
+                        Err(std::sync::TryLockError::WouldBlock)
+                    ));
+                    about.send(()).unwrap();
+                    shared
+                        .observe(
+                            Actor::daemon(),
+                            &id,
+                            "1",
+                            Observation::Signal(
+                                json!({"hook_event_name":"Stop", "tool_name":"Bash"}),
+                            ),
+                        )
+                        .unwrap();
+                    done.send(()).unwrap();
+                }
+            });
+            for i in 0..20_000 {
+                let id = i.to_string();
+                shared.runs().insert(
+                    id.clone(),
+                    Slot::Starting {
+                        attempt: "1".into(),
+                        since: 0,
+                        named: false,
+                        held: VecDeque::from([(
+                            Actor::daemon(),
+                            json!({"hook_event_name":"PreToolUse", "tool_name":"Bash"}),
+                        )]),
+                    },
+                );
+                shared
+                    .finish_starting(&id, "1", |named| {
+                        observe.send(id.clone()).unwrap();
+                        arriving.recv().unwrap();
                         Run {
                             yolo: false,
                             startup_context: true,
@@ -877,53 +888,30 @@ mod tests {
                             first_pending: false,
                             first_completion: None,
                             first_prompt: None,
-                            steer: None,
                             session_started: false,
                             starred: false,
+                            steer: None,
                             interrupt: None,
                             named,
                             terminal_id: id.clone(),
                             cwd: "/".into(),
                         }
                     })
-                })
-            };
-            holding_rx.recv().unwrap();
-
-            // A zero-capacity send only completes once this thread is received by the line
-            // below, so by the time it does, the late call's very next step is `observe`.
-            let (about_tx, about_rx) = mpsc::sync_channel::<()>(0);
-            let late = {
-                let shared = Arc::clone(&shared);
-                let id = id.clone();
-                thread::spawn(move || {
-                    about_tx.send(()).unwrap();
-                    shared.observe(
-                        Actor::daemon(),
-                        &id,
-                        "1",
-                        Observation::Signal(
-                            json!({"hook_event_name": "Stop", "tool_name": "Bash"}),
-                        ),
-                    )
-                })
-            };
-            about_rx.recv().unwrap();
-            go_tx.send(()).unwrap();
-
-            registering.join().unwrap().unwrap();
-            late.join().unwrap().unwrap();
-
-            let mut kinds = vec![];
-            while let Ok(event) = events.try_recv() {
-                if let EventData::AgentStatus(s) = event.data
-                    && s.id == id
-                {
-                    kinds.push(s.status.kind);
+                    .unwrap();
+                completed.recv().unwrap();
+                let mut kinds = vec![];
+                while let Ok(event) = events.try_recv() {
+                    if let EventData::AgentStatus(s) = event.data
+                        && s.id == id
+                    {
+                        kinds.push(s.status.kind);
+                    }
                 }
+                assert_eq!(kinds, [Kind::Working, Kind::Idle], "trial {i}");
+                shared.runs().remove(&id);
             }
-            assert_eq!(kinds, [Kind::Working, Kind::Idle], "trial {i}");
-        }
+            drop(observe);
+        });
     }
     #[tokio::test]
     async fn b37_a7_old_title_tick_exit_and_signal_do_not_change_a_new_run() {
@@ -998,5 +986,38 @@ mod tests {
             );
             assert_eq!(node.status, Some(status.status));
         }
+    }
+
+    #[tokio::test]
+    async fn a21_a_failed_save_after_spawn_returned_errors_settles_error_and_stops_the_terminal() {
+        let (dir, _, shared) = shared_over_temp_dir(Arc::new(|| 0));
+        let id = running_agent(&shared, None);
+        let (killed, mut kills) = tokio::sync::mpsc::unbounded_channel();
+        let agents = owner_agents(shared, dir.path()).with_terminal_kills(move |id| {
+            killed.send(id).unwrap();
+            async { Ok(()) }
+        });
+        let db = refuse_rail_writes(dir.path());
+        let result = agents.shared.observe(Actor::daemon(), &id, "1", Observation::Signal(json!({
+            "hook_event_name":"SessionStart", "session_id":"11111111-1111-1111-1111-111111111111", "source":"startup"
+        })));
+        assert!(result.is_err());
+        let node = agents.shared.node(&id).unwrap();
+        assert_eq!(node.status.as_ref().unwrap().kind, Kind::Error);
+        assert!(
+            node.status
+                .unwrap()
+                .label
+                .contains("cannot save conversation")
+        );
+        assert!(!node.can_resume);
+        assert_eq!(
+            tokio::time::timeout(PATIENCE, kills.recv())
+                .await
+                .unwrap()
+                .as_deref(),
+            Some("1")
+        );
+        db.execute_batch("DROP TRIGGER fail_write").unwrap();
     }
 }

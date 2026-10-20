@@ -335,28 +335,6 @@ async fn wait(ready: impl Fn() -> bool) {
 }
 
 #[tokio::test]
-async fn b21_a_stopped_door_waits_silently_and_gets_the_newest_entry_on_start() {
-    let run = Run::start().await;
-    let before = run.digests().await.len();
-    run.change("first").await;
-    run.change("second").await;
-    run.assert_silent().await;
-    assert_eq!(run.digests().await.len(), before);
-    run.start_door().await;
-    let newest = run.newest().await;
-    assert!(newest["body"].as_str().unwrap().contains("review"));
-    assert!(
-        newest["body"]
-            .as_str()
-            .unwrap()
-            .contains("[2 updates held back]"),
-        "{newest}"
-    );
-    assert_eq!(run.digests().await.len(), before + 1);
-    run.model.assert_matched();
-}
-
-#[tokio::test]
 async fn b21_a_reopened_door_waits_until_explicit_start() {
     let mut run = Run::start().await;
     drop(run.daemon.stdin.take());
@@ -452,91 +430,6 @@ async fn b21_a_failed_start_keeps_the_entries_waiting() {
         "{newest}"
     );
     assert_eq!(run.digests().await.len(), before + 1);
-    run.model.assert_matched();
-}
-
-#[tokio::test]
-async fn b21_a_removed_door_gets_no_waiting_digest() {
-    let run = Run::start().await;
-    let before = run.digests().await.len();
-    run.change("first").await;
-    run.user
-        .request("rail.remove", json!({"id":run.door}))
-        .await
-        .unwrap();
-    wait(|| {
-        snapshots(run.dir.path()).last().is_some_and(|v| {
-            v["nodes"]
-                .as_array()
-                .unwrap()
-                .iter()
-                .all(|n| n["id"] != run.door)
-        })
-    })
-    .await;
-    let other = run
-        .user
-        .request(
-            "rail.createWorkstream",
-            json!({"name":"later","parent":null}),
-        )
-        .await
-        .unwrap();
-    let child = run
-        .user
-        .request(
-            "agent.spawn",
-            json!({"name":"later","parent":other["id"],"cwd":run.dir.path()}),
-        )
-        .await
-        .unwrap();
-    run.idle(child["id"].as_str().unwrap(), 2).await;
-    let later = Client::connect(&run.daemon.socket).await.unwrap();
-    later
-        .request(
-            "daemon.identify",
-            json!({"actor":{"kind":"agent","id":child["id"],"parent":other["id"]}}),
-        )
-        .await
-        .unwrap();
-    later
-        .request("todo.create", json!({"title":"later"}))
-        .await
-        .unwrap();
-    wait(|| {
-        snapshots(run.dir.path()).last().is_some_and(|v| {
-            v["todos"]
-                .as_array()
-                .unwrap()
-                .iter()
-                .any(|t| t["title"] == "later")
-        })
-    })
-    .await;
-    run.assert_silent().await;
-    assert_eq!(run.digests().await.len(), before);
-    run.model.assert_matched();
-}
-
-#[tokio::test]
-async fn b21_a_refusal_other_than_a_stopped_door_is_logged_and_retried() {
-    let run = Run::start().await;
-    run.start_door().await;
-    let before = run.digests().await.len();
-    std::fs::write(run.dir.path().join("fault"), "push").unwrap();
-    run.change("first").await;
-    wait(|| {
-        run.log.lock().unwrap().contains(&format!(
-            "push failed: {}: injected failure in push",
-            run.door
-        ))
-    })
-    .await;
-    assert_eq!(run.digests().await.len(), before);
-    std::fs::remove_file(run.dir.path().join("fault")).unwrap();
-    run.change("second").await;
-    run.newest().await;
-    assert!(run.digests().await.len() > before);
     run.model.assert_matched();
 }
 

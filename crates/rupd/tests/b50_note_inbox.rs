@@ -63,7 +63,7 @@ print('READY', flush=True)
 line = b''
 while True:
     data = os.read(0, 1)
-    if not data: break
+    if not data or data == b'\x03': break
     # The Terminal read caps at 200 lines; the bytes typed are counted from this file instead.
     with open(here + '/typed.bin', 'ab') as typed: typed.write(data)
     if data == b'\r':
@@ -140,6 +140,12 @@ impl Run {
     }
 
     async fn start_case(protocol: u64, scout: bool) -> Self {
+        let mut run = Self::open(protocol, scout).await;
+        run.spawn().await;
+        run
+    }
+
+    async fn open(protocol: u64, scout: bool) -> Self {
         let dir = tempfile::tempdir().unwrap();
         let data = tempfile::tempdir().unwrap();
         let fake = dir.path().join("claude");
@@ -162,7 +168,7 @@ impl Run {
             )
             .await
             .unwrap();
-        let mut run = Self {
+        Self {
             daemon,
             dir,
             data,
@@ -174,9 +180,7 @@ impl Run {
             terminal: Value::Null,
             attempt: Value::Null,
             started_with: AtomicUsize::new(0),
-        };
-        run.spawn().await;
-        run
+        }
     }
 
     async fn spawn(&mut self) {
@@ -872,11 +876,7 @@ async fn b2704a_takeover_holds_rename_notes() {
 
 #[tokio::test]
 async fn b2704a_workstream_rename_notifies_its_door() {
-    let mut run = Run::start().await;
-    run.user
-        .request("agent.stop", json!({"id":run.child}))
-        .await
-        .unwrap();
+    let mut run = Run::open(1, false).await;
     let workstream = run
         .user
         .request("rail.createWorkstream", json!({"name":"sad","parent":null}))
@@ -935,11 +935,7 @@ async fn b2704a_unchanged_names_produce_no_note() {
 
 #[tokio::test]
 async fn b2704a_first_prompt_rename_notifies() {
-    let mut run = Run::start().await;
-    run.user
-        .request("agent.stop", json!({"id":run.child}))
-        .await
-        .unwrap();
+    let mut run = Run::open(1, false).await;
     let node = run
         .user
         .request("agent.spawn", json!({"cwd":run.dir.path()}))
@@ -981,11 +977,8 @@ async fn b2704a_first_prompt_rename_notifies() {
         .await
         .unwrap();
     assert_eq!(messages.as_array().unwrap().len(), 1);
-}
-
-#[tokio::test]
-async fn b2704a_unchanged_names_produce_no_note_for_a_no_word_first_prompt() {
-    let mut run = Run::start().await;
+    // The other first-prompt branch consumes the name guard without emitting a rename.
+    // Reuse the Daemon; only a new unnamed child is needed to exercise that branch.
     run.user
         .request("agent.stop", json!({"id":run.child}))
         .await
