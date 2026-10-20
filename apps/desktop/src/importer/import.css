@@ -5,8 +5,17 @@
   box-sizing: border-box;
   width: min(36rem, calc(100vw - var(--space-6) * 2));
   max-height: calc(100vh - var(--space-6) * 2);
-  box-shadow: none;
-  border: 1px solid var(--hairline);
+}
+
+.import-panel [data-part="title"] {
+  font-weight: 600;
+  margin-block-end: var(--space-2);
+}
+
+.import-period [role="radio"]:focus-visible {
+  outline: none;
+  text-decoration: underline;
+  text-underline-offset: var(--space-1);
 }
 
 .import-period,
@@ -65,6 +74,8 @@
   flex-direction: column;
   min-width: 0;
   flex: 1;
+  gap: var(--space-1);
+  line-height: 1.4;
 }
 
 .import-title,

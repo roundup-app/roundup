@@ -99,7 +99,7 @@ export const ImportPanel = (props: { open: boolean; opener: HTMLElement | undefi
   };
 
   const confirm = async (): Promise<void> => {
-    if (pending() || wanted().size === 0) return;
+    if (pending() || !found() || wanted().size === 0) return;
     const selections = [...wanted()].map(([source, revision]) => ({ source, revision }));
     const retained = drafts.edit(destination, { period: period(), ...packed(wanted()) }, null, "ordinary").draft;
     drafts.submit(retained.revision);
@@ -194,7 +194,7 @@ export const ImportPanel = (props: { open: boolean; opener: HTMLElement | undefi
             <button data-button="quiet" type="button" class="word" onClick={() => void discover()} disabled={pending()}>{copy.importRefresh}</button>
             <span class="import-actions">
               <button data-button="quiet" type="button" class="word" onClick={dismiss}>{copy.cancel}</button>
-              <button data-button="quiet" type="button" class="word import-confirm" disabled={pending() || wanted().size === 0} onClick={() => void confirm()}>
+              <button data-button="quiet" type="button" class="word import-confirm" disabled={pending() || !found() || wanted().size === 0} onClick={() => void confirm()}>
                 {copy.importConfirm(wanted().size)}
               </button>
             </span>
