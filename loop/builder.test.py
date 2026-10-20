@@ -56,10 +56,10 @@ class GitHub:
     """Answers builder.py's reads from fixed data and records its writes."""
 
     def __init__(self, view=None, prs=(), notes=(), labels=(), diff='', runs=None, files=(), run=None, state='open',
-                 merged=(), queued=True, closer='Bot', history=(), steps=(), order='Scenarios: U1\n', file=''):
+                 merged=(), queued=True, closer='Bot', history=(), steps=(), order='Scenarios: U1\n', file='', events=()):
         self.view, self.prs, self.notes, self.labels, self.diff, self.runs = view, list(prs), list(notes), labels, diff, runs or {}
         self.files, self.run, self.state, self.merged, self.queued, self.closer = files, run, state, list(merged), queued, closer
-        self.history, self.steps, self.order, self.file = list(history), list(steps), order, file
+        self.history, self.steps, self.order, self.file, self.events = list(history), list(steps), order, file, list(events)
         self.writes = []
 
     def read(self, *args):
@@ -71,6 +71,8 @@ class GitHub:
             return self.run
         if '/comments' in args[1]:
             return [self.notes]
+        if '/events' in args[1]:
+            return [self.events]
         if '/files' in args[1]:
             return [[dict(filename=name) for name in self.files]]
         if 'created=' in args[1]:
@@ -98,6 +100,8 @@ class GitHub:
         self.writes.append(args)
         if args[0] == 'api' and args[1].endswith('/comments'):
             self.notes.append(note(args[3].removeprefix('body=')))
+        if args[:2] == ('issue', 'create'):
+            return 'https://github.com/o/r/issues/77\n'
         return ''
 
     def __enter__(self):
@@ -916,6 +920,13 @@ class Fix(unittest.TestCase):
             self.assertIsNone(builder.fix_task(9, HEAD, 'check'))
         self.assertTrue(github.flagged())
 
+    def test_l82_a_reopened_pr_counts_only_the_fix_runs_after_the_reopen(self):
+        before = [note('<!-- fix-attempt -->\nFix run r answered `check`.', ago=900 - n) for n in range(3)]
+        reopen = [dict(event='closed', created_at=stamp(600)), dict(event='reopened', created_at=stamp(500))]
+        with GitHub(view=pr(statusCheckRollup=FAILED), notes=before, events=reopen) as github:
+            self.assertIn('`check` failed on this head', builder.fix_task(9, HEAD, 'check'))
+        self.assertEqual(github.writes, [])
+
     def test_l82_a_reject_a_fix_run_answered_waits_for_the_new_review(self):
         reject = note('VERDICT: reject\nno Scenarios line', ago=600)
         with GitHub(view=pr(statusCheckRollup=FAILED), notes=[reject, note('<!-- fix-attempt -->\nFix run r answered `review`.', ago=300)]) as github:
@@ -1432,6 +1443,18 @@ class Review(unittest.TestCase):
         self.assertIn(('api', f'repos/{{owner}}/{{repo}}/statuses/{HEAD}', '-f', 'state=failure', '-f', 'context=review',
                        '-f', 'description=The review run answered reject', '-f', 'target_url=https://run/3'), github.writes)
         self.assertEqual(github.fixes(), [('-f', 'pr=9', '-f', f'head={HEAD}', '-f', 'cause=review')])
+
+    def test_l24_an_approve_files_its_followup_block_as_one_issue_and_a_reject_files_none(self):
+        findings = 'NOTE: x\n\nFOLLOWUP: an empty name crashes\nloop/a.py:3\ninput: ""\n\nNOTE: y'
+        with GitHub(view=pr()) as github:
+            builder.review_post(9, HEAD, 'reviewer-1', json.dumps(dict(verdict='approve', findings=findings)), True, 'https://run/3')
+        created = [w for w in github.writes if w[:2] == ('issue', 'create')]
+        self.assertEqual(len(created), 1)
+        self.assertIn('loop/a.py:3', created[0][-1])
+        self.assertEqual(github.bodies(), [f'VERDICT: approve\nHead: {HEAD}\n\nNOTE: x\n\nFollow-up: https://github.com/o/r/issues/77\n\nNOTE: y\n\nReviewed-by-Agent: reviewer-1'])
+        with GitHub(view=pr()) as github:
+            builder.review_post(9, HEAD, 'reviewer-1', json.dumps(dict(verdict='reject', findings=findings)), True, 'https://run/3')
+        self.assertEqual([w for w in github.writes if w[:2] == ('issue', 'create')], [])
 
     def test_l24_an_approval_on_a_user_pr_starts_no_fix(self):
         with GitHub(view=pr(headRefName='stock-loop')) as github:
