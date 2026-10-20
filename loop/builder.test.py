@@ -56,10 +56,10 @@ class GitHub:
     """Answers builder.py's reads from fixed data and records its writes."""
 
     def __init__(self, view=None, prs=(), notes=(), labels=(), diff='', runs=None, files=(), run=None, state='open',
-                 merged=(), queued=True, closer='Bot', history=(), steps=(), order='Scenarios: U1\n', file=''):
+                 merged=(), queued=True, closer='Bot', history=(), steps=(), order='Scenarios: U1\n', file='', events=()):
         self.view, self.prs, self.notes, self.labels, self.diff, self.runs = view, list(prs), list(notes), labels, diff, runs or {}
         self.files, self.run, self.state, self.merged, self.queued, self.closer = files, run, state, list(merged), queued, closer
-        self.history, self.steps, self.order, self.file = list(history), list(steps), order, file
+        self.history, self.steps, self.order, self.file, self.events = list(history), list(steps), order, file, list(events)
         self.writes = []
 
     def read(self, *args):
@@ -71,6 +71,8 @@ class GitHub:
             return self.run
         if '/comments' in args[1]:
             return [self.notes]
+        if '/events' in args[1]:
+            return [self.events]
         if '/files' in args[1]:
             return [[dict(filename=name) for name in self.files]]
         if 'created=' in args[1]:
@@ -98,6 +100,8 @@ class GitHub:
         self.writes.append(args)
         if args[0] == 'api' and args[1].endswith('/comments'):
             self.notes.append(note(args[3].removeprefix('body=')))
+        if args[:2] == ('issue', 'create'):
+            return 'https://github.com/o/r/issues/77\n'
         return ''
 
     def __enter__(self):
@@ -794,7 +798,7 @@ def branch(path, commits, pushed):
 
 
 class Attach(unittest.TestCase):
-    def run_attach(self, token, shots=('ux/U1/a.png', 'ux/U1/head/b.png', 'ux/U1/c.webm')):
+    def run_attach(self, token, shots=('ux/U1/a.png', 'ux/U1/head/b.png', 'ux/U1/c.webm', 'ux/U2/d.png'), body='Scenarios: U1'):
         with tempfile.TemporaryDirectory() as path, chdir(path):
             # The run's worktree is not the directory the step starts in.
             path = f'{path}/wt'
@@ -803,7 +807,7 @@ class Attach(unittest.TestCase):
                 Path(path, 'artifacts', shot).touch()
             out = io.StringIO()
             with patch.dict(os.environ, PR_ATTACH_TOKEN=token, GH_TOKEN='app'), \
-                    patch.object(builder.orders, 'gh', return_value=[dict(number=7)]), \
+                    patch.object(builder.orders, 'gh', return_value=[dict(number=7, body=body)]), \
                     patch.object(builder.subprocess, 'run') as run, redirect_stdout(out):
                 run.return_value.stdout = f'worktree /x\nbranch refs/heads/main\n\nworktree {path}\nbranch refs/heads/build/U1\n'
                 try:
@@ -827,6 +831,12 @@ class Attach(unittest.TestCase):
         self.assertEqual(command, ['gh', 'pr', 'edit', '7', '--attach', f'{self.tree}/artifacts/ux/U1/a.png#U1/a', '--attach',
                                    f'{self.tree}/artifacts/ux/U1/c.webm'])
         self.assertEqual(run.call_args.kwargs['env']['GH_TOKEN'], 'user')
+
+    def test_l23_a_capture_of_a_scenario_the_pr_does_not_name_is_not_attached(self):
+        code, out, run = self.run_attach('user', body='Scenarios: U3')
+        self.assertEqual(code, 0)
+        self.assertIn('no captures to attach', out)
+        self.assertEqual([c.args[0][0] for c in run.call_args_list], ['git'])
 
 
 class Keep(unittest.TestCase):
@@ -909,6 +919,13 @@ class Fix(unittest.TestCase):
         with GitHub(view=pr(body='Scenarios: U1\n', statusCheckRollup=FAILED), notes=attempts) as github:
             self.assertIsNone(builder.fix_task(9, HEAD, 'check'))
         self.assertTrue(github.flagged())
+
+    def test_l82_a_reopened_pr_counts_only_the_fix_runs_after_the_reopen(self):
+        before = [note('<!-- fix-attempt -->\nFix run r answered `check`.', ago=900 - n) for n in range(3)]
+        reopen = [dict(event='closed', created_at=stamp(600)), dict(event='reopened', created_at=stamp(500))]
+        with GitHub(view=pr(statusCheckRollup=FAILED), notes=before, events=reopen) as github:
+            self.assertIn('`check` failed on this head', builder.fix_task(9, HEAD, 'check'))
+        self.assertEqual(github.writes, [])
 
     def test_l82_a_reject_a_fix_run_answered_waits_for_the_new_review(self):
         reject = note('VERDICT: reject\nno Scenarios line', ago=600)
@@ -1426,6 +1443,18 @@ class Review(unittest.TestCase):
         self.assertIn(('api', f'repos/{{owner}}/{{repo}}/statuses/{HEAD}', '-f', 'state=failure', '-f', 'context=review',
                        '-f', 'description=The review run answered reject', '-f', 'target_url=https://run/3'), github.writes)
         self.assertEqual(github.fixes(), [('-f', 'pr=9', '-f', f'head={HEAD}', '-f', 'cause=review')])
+
+    def test_l24_an_approve_files_its_followup_block_as_one_issue_and_a_reject_files_none(self):
+        findings = 'NOTE: x\n\nFOLLOWUP: an empty name crashes\nloop/a.py:3\ninput: ""\n\nNOTE: y'
+        with GitHub(view=pr()) as github:
+            builder.review_post(9, HEAD, 'reviewer-1', json.dumps(dict(verdict='approve', findings=findings)), True, 'https://run/3')
+        created = [w for w in github.writes if w[:2] == ('issue', 'create')]
+        self.assertEqual(len(created), 1)
+        self.assertIn('loop/a.py:3', created[0][-1])
+        self.assertEqual(github.bodies(), [f'VERDICT: approve\nHead: {HEAD}\n\nNOTE: x\n\nFollow-up: https://github.com/o/r/issues/77\n\nNOTE: y\n\nReviewed-by-Agent: reviewer-1'])
+        with GitHub(view=pr()) as github:
+            builder.review_post(9, HEAD, 'reviewer-1', json.dumps(dict(verdict='reject', findings=findings)), True, 'https://run/3')
+        self.assertEqual([w for w in github.writes if w[:2] == ('issue', 'create')], [])
 
     def test_l24_an_approval_on_a_user_pr_starts_no_fix(self):
         with GitHub(view=pr(headRefName='stock-loop')) as github:
