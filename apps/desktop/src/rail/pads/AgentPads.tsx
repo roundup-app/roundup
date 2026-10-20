@@ -1,3 +1,5 @@
+import { contextMenu, linkEntries, openOnRelease } from "../../ui/contextMenu";
+import { createBulkDelete } from "../../shelf/BulkDelete";
 import { activationSource } from "../../keys/registry";
 import { copy } from "../../copy";
 import { createMemo, createSignal, For, Show } from "solid-js";
@@ -106,6 +108,22 @@ const Leaf = (props: { depth: number; trail: readonly boolean[]; last: boolean; 
 /** The Pad leaves, then the open Todo leaves, one level below `depth`, folded at rest; a click opens a Pad's Drawer as the Shelf's list does (U20). Opening changes no selection (U64). `children` tells that the Agent's own child rows follow, so the last leaf's trunk runs on. */
 export const PadRows = (props: { pads: AgentPads; depth: number; trail: readonly boolean[]; children: boolean }) => {
   const connected = useConnectedProject();
+  const list = usePadList();
+  const [selected, setSelected] = createSignal<readonly string[]>([]);
+  const clear = () => setSelected([]);
+
+  const bulk = createBulkDelete({
+    selected,
+    targets: () => props.pads.owned().map((pad) => ({ id: pad.name, label: pad.name, owner: connected.rail.nameOf(pad.owner) })),
+    context: () => connected.rail.selected() ?? "overview",
+    noun: copy.pads, replace: setSelected, clear, cancelSelection: clear,
+    remove: (name) => failureOf(() => connected.app.rpc("pad.delete", { name })),
+    reload: async () => {
+      await list.reload();
+
+      return list.failure();
+    },
+  });
 
   const openPad = (name: string, event: MouseEvent) => {
     props.pads.setFailure(null);
@@ -134,6 +152,13 @@ export const PadRows = (props: { pads: AgentPads; depth: number; trail: readonly
                     <button
                       {...trigger({
                         onClick: (event) => openPad(pad.name, event),
+                        onContextMenu: (event: MouseEvent) => {
+                          event.stopPropagation();
+                          openOnRelease(event, (x, y) => void contextMenu(connected.app, [
+                            ...linkEntries(connected.app, "pad", pad.name, connected.rail.nodes, (node) => connected.rail.exitOf(node) === null, props.pads.setFailure),
+                            { id: "delete", label: copy.delete, run: () => { setSelected([pad.name]); bulk.ask(); } },
+                          ], x, y));
+                        },
                       })}
                       type="button"
                       data-button="quiet"
@@ -171,6 +196,7 @@ export const PadRows = (props: { pads: AgentPads; depth: number; trail: readonly
           </For>
         </Sortable.Root>
       </Show>
+      <bulk.Bar />
       <Show when={props.pads.failure()}>{(message) => <ErrorLine message={message()} />}</Show>
     </>
   );
