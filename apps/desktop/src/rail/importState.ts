@@ -17,7 +17,8 @@ const savedSchema = v.object({
 /** U2875d: the import panel's state for one Project. The period and the unsubmitted selection are kept per Project path and restored unverified: only the user's confirm after a refresh submits. */
 export const createImport = (app: AppSeam, path: string, onOpened: (workstream: string) => void) => {
   const store = storedValue(`roundup:import:${path}`, savedSchema);
-  const saved = store.read();
+  const restored = store.restore();
+  const saved = restored.status === "restored" ? restored.value : null;
   const [open, setOpen] = createSignal(saved?.open ?? false);
   const [period, setPeriodSignal] = createSignal<ImportPeriod>(saved?.period ?? "week");
   const [selected, setSelected] = createSignal<ReadonlyMap<string, { revision: string; title: string }>>(new Map(saved?.selected.map((entry) => [entry.source, entry]) ?? []));
@@ -29,9 +30,12 @@ export const createImport = (app: AppSeam, path: string, onOpened: (workstream: 
   const [retentionFailure, setRetentionFailure] = createSignal<string | null>(null);
   const [failure, setFailure] = createSignal<string | null>(null);
   const [failed, setFailed] = createSignal<ReadonlyMap<string, string>>(new Map());
+  const [restoreFailure, setRestoreFailure] = createSignal(restored.status === "failed");
+  let periodEdited = false;
   let latest = 0;
 
   const persist = () => {
+    if (restoreFailure()) return;
     setRetentionFailure(store.write({ open: open(), period: period(), selected: [...selected()].map(([source, entry]) => ({ source, ...entry })) }));
   };
 
@@ -70,12 +74,36 @@ export const createImport = (app: AppSeam, path: string, onOpened: (workstream: 
   };
 
   return {
-    open, period, selected, discovery, verified, stale, loading, pending, failure, failed, retentionFailure,
-    retryStorage: persist,
+    open, period, selected, discovery, verified, stale, loading, pending, failure, failed, retentionFailure, restoreFailure,
+    reconnect: (nextApp: AppSeam, nextOpened: typeof onOpened) => {
+      app = nextApp;
+      onOpened = nextOpened;
+      latest++;
+      setLoading(false);
+      setDiscovery(null);
+      setVerified(false);
+    },
+    retryStorage: () => {
+      if (restoreFailure()) {
+        const result = store.restore();
+
+        if (result.status === "failed") return;
+
+        if (result.status === "restored") {
+          if (!periodEdited) setPeriodSignal(result.value.period);
+          setSelected(new Map([...result.value.selected.map((entry) => [entry.source, entry] as const), ...selected()]));
+          setVerified(false);
+        }
+
+        setRestoreFailure(false);
+      }
+
+      persist();
+    },
     show: () => { setOpen(true); persist(); void refresh(); },
     cancel: () => { latest++; batch(() => { setOpen(false); setSelected(new Map()); setDiscovery(null); setVerified(false); setStale([]); setFailed(new Map()); setFailure(null); setLoading(false); }); persist(); },
     refresh,
-    setPeriod: (next: ImportPeriod) => { setPeriodSignal(next); persist(); void refresh(); },
+    setPeriod: (next: ImportPeriod) => { periodEdited = true; setPeriodSignal(next); persist(); void refresh(); },
     choose: (source: string, title: string, revision: string, chosen: boolean) => {
       const next = new Map(selected());
 
