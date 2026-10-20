@@ -2,7 +2,7 @@ import { cleanup, fireEvent, screen, waitFor, within } from "@solidjs/testing-li
 import { afterEach, expect, it } from "vitest";
 import type { Reaction } from "@contracts/reaction/Reaction";
 import { RpcError } from "../app/seam";
-import { agent } from "../testing/nodes";
+import { agent, door } from "../testing/nodes";
 import { mountAskBar } from "../ask/askFixture";
 import { copy } from "../copy";
 
@@ -192,4 +192,15 @@ it("nr9_saved_reactions_remain_inspectable_after_the_last_agent_is_removed", asy
   const detail = await screen.findByRole("region", { name: copy.reactionDetail("Ship it") });
   expect(within(detail).getByText(copy.reactionGone("a"))).toBeTruthy();
   expect(app.calls.filter(call => call.method === "reaction.run" || call.method === "agent.spawn")).toHaveLength(0);
+});
+
+it("nr9_can_select_the_existing_supervisor_without_starting_it", async () => {
+  const { app } = await mountAskBar([], null, [door("lead", "idle", "ready", { name: "Supervisor" })]);
+  fireEvent.click(await screen.findByRole("button", { name: copy.reactionCreate }));
+  fireEvent.click(screen.getByRole("combobox", { name: copy.reactionTarget }));
+  fireEvent.click(await screen.findByRole("option", { name: "Supervisor (lead)" }));
+  const preview = screen.getByRole("region", { name: copy.reactionPreview });
+  await within(preview).findAllByText("Supervisor (lead)");
+  expect(screen.getByRole("checkbox", { name: "Supervisor (lead)" })).toBeTruthy();
+  expect(app.calls.filter(call => call.method === "agent.spawn" || call.method === "agent.run")).toHaveLength(0);
 });
