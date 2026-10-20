@@ -1,3 +1,5 @@
+import { openLane } from "../todos/laneBrowser";
+import { captureDir } from "../testing/captures";
 import { cleanup, fireEvent, screen, waitFor } from "@solidjs/testing-library";
 import { afterEach, expect, it } from "vitest";
 import { render } from "@solidjs/testing-library";
@@ -129,3 +131,43 @@ it.each([false, true])("u2875d_cancel_consumes_only_the_current_draft (empty: %s
   expect(isChecked(/second/)).toBe(false);
   expect(calls(app, "project.importCommit")).toHaveLength(1);
 });
+
+
+it.skipIf(!captureDir("U3049a"))("u3049a_u3049b_rendered_conflict_recovery", async () => {
+  const lane = await openLane(1512, "dark", "builder-3049");
+
+  try {
+    await lane.evaluate(`(() => {
+      window.__fake.app.handlers['project.importDiscover'] = () => ({ candidates: Array.from({ length: 10 }, (_, at) => ({ source: 's' + (at + 1), revision: 'preview-' + (at + 1), title: ('長い会話 🪁 ' + (at + 1) + ' ').repeat(12), cwd: 'src', last_activity_ms: 1n })), excluded: [] });
+      return true;
+    })()`);
+    await lane.browser("click", ".rail-import");
+    await lane.until("document.querySelectorAll('.import-check').length === 10");
+    await lane.capture("U3049a", "before");
+    await lane.browser("click", ".import-list li:first-child .import-check");
+    await lane.until("document.querySelector('.import-confirm')?.textContent === 'Import 1'");
+    await lane.evaluate(`(() => {
+      localStorage.setItem('roundup:import:/Users/you/harness', JSON.stringify({ open: true, period: 'month', selected: [{ source: 's2', revision: 'preview-2', title: ('長い会話 🪁 2 ').repeat(12) }] }));
+      document.querySelectorAll('.import-check')[2].click();
+      return true;
+    })()`);
+    await lane.until("!!document.querySelector('.import-recovery [role=status]')");
+    await lane.capture("U3049a", "conflict");
+    expect(await lane.calls("project.importCommit")).toEqual([]);
+    await lane.browser("focus", ".import-recovery button");
+    await lane.browser("press", "Enter");
+    await lane.until("document.querySelector('.import-confirm')?.disabled && document.querySelector('.import-confirm')?.textContent === 'Import 1'");
+    await lane.capture("U3049b", "recovered");
+    await lane.evaluate(`(() => {
+      const read = Storage.prototype.getItem;
+      Storage.prototype.getItem = function(key) { if (key === 'roundup:import:/Users/you/harness') throw new Error('unreadable'); return read.call(this, key); };
+      document.querySelector('.import-recovery button').click();
+      return true;
+    })()`);
+    await lane.until("document.querySelector('.import-panel').textContent.includes('could not be restored')");
+    await lane.capture("U3049b", "retention-failure");
+    expect(await lane.calls("project.importCommit")).toEqual([]);
+  } finally {
+    await lane.close();
+  }
+}, 120_000);
