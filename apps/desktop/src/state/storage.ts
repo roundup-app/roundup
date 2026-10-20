@@ -255,18 +255,25 @@ export const draftStorage = (project: string) => {
 
       return structuredClone(problem);
     },
-    edit: (target: Destination, value: Draft["value"], caret: Draft["selection"], policy: Draft["policy"]): RetainedDraft => {
+    /** Omitting replaces edits the destination's current drafts; a revision replaces only
+     * that editable draft, and null starts a draft without consuming another editor's work.
+     * Submitted revisions remain until acknowledgement or explicit discard.
+     */
+    edit: (target: Destination, value: Draft["value"], caret: Draft["selection"], policy: Draft["policy"], replaces?: string | null): RetainedDraft => {
       const draft: Draft = structuredClone({
         revision: crypto.randomUUID(), destination: target, value, selection: caret, policy, status: "draft",
       });
 
+      const replaced = (previous: Draft) => previous.status === "draft" && sameDestination(previous.destination, target)
+        && (replaces === undefined || previous.revision === replaces);
+
       for (const previous of drafts) {
-        if (previous.status === "draft" && sameDestination(previous.destination, target) && durable.has(previous.revision)) {
+        if (replaced(previous) && durable.has(previous.revision)) {
           removed.add(previous.revision);
         }
       }
 
-      drafts = drafts.filter((previous) => previous.status !== "draft" || !sameDestination(previous.destination, target));
+      drafts = drafts.filter((previous) => !replaced(previous));
       drafts.push(draft);
       const failure = retain(draft);
 

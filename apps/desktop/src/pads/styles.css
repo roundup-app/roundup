@@ -157,6 +157,10 @@
   min-width: 0;
 }
 
+.pad-inset .entry-field {
+  font: inherit;
+}
+
 .pad-rich-editor .visual-source:not(.is-open) {
   height: 0;
   margin: 0;
