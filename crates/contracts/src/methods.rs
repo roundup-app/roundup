@@ -49,8 +49,9 @@ pub const METHODS: &[Method] = &[
     m(
         "daemon.ping",
         "null",
-        "{ pong: true, pid: number, project: string, contract: { fingerprint: string, methods: string[] } }",
+        "{ pong: true, pid: number, project: string, projectKey: string, contract: { fingerprint: string, methods: string[] } }",
     ),
+    m("link.read", "link_LinkUrl", "link_LinkContent"),
     m("daemon.identify", "common_IdentifyParams", "null"),
     m(
         "events.subscribe",
@@ -227,6 +228,16 @@ pub const METHODS: &[Method] = &[
     m("project.setMcp", "project_Mcp", "null"),
     m("project.setPrepared", "project_Prepared", "null"),
     m("project.getPrepared", "null", "project_Prepared"),
+    m(
+        "project.importDiscover",
+        "project_ImportDiscoverParams",
+        "project_ImportDiscovery",
+    ),
+    m(
+        "project.importCommit",
+        "project_ImportCommitParams",
+        "project_ImportResult",
+    ),
     m("project.prepareDirectory", "project_PrepareParams", "null"),
     m("project.get", "null", "project_ProjectSettings"),
     m("project.setModels", "project_ProjectModels", "null"),

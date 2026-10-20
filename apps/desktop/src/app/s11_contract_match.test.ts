@@ -14,7 +14,7 @@ const connectTo = async (contract: { fingerprint: string; methods: string[] } | 
   // SAFETY: a Daemon built before A38 answers `{ pong: true }`, which the generated result type no longer allows.
   const old = { pong: true } as RpcMethods["daemon.ping"]["result"];
 
-  app.handlers["daemon.ping"] = () => (contract ? { pong: true, pid: 1, project: "/p", contract } : old);
+  app.handlers["daemon.ping"] = () => (contract ? { pong: true, pid: 1, project: "/p", projectKey: "p-0000000000000000", contract } : old);
 
   const connected = await connectProject(app, { name: "p", path: "/p" }, () => false, () => 0);
 
