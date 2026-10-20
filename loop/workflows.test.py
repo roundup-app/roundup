@@ -323,6 +323,14 @@ class L89(unittest.TestCase):
         self.assertFalse(passes('pull_request', plan='skipped'))
         self.assertFalse(passes('pull_request', plan='failure', rust='skipped'))
 
+    def test_l89_a_pr_runs_one_web_shard_per_fifty_selected_files_and_main_runs_seven(self):
+        import sys
+        sys.path.insert(0, str(ROOT / 'loop'))
+        import affected
+        for files, shards in ((0, [1]), (1, [1]), (50, [1]), (51, [1, 2]), (120, [1, 2, 3]), (9999, [1, 2, 3, 4, 5, 6, 7]),
+                              ('all', [1, 2, 3, 4, 5, 6, 7])):
+            self.assertEqual(shards, affected.shards(files), files)
+
     def test_l89_a_builder_check_reaches_its_uncommitted_and_untracked_files(self):
         import io
         import sys
