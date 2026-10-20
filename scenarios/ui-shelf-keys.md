@@ -12,4 +12,4 @@ Module: `apps/desktop` (the webview). Acceptance for #2899. Webview only: no App
 
 Policy: implementation boundary is `apps/desktop/src/shelf/`, `keys/`, `copy.ts` and the explicitly named regression callers; reuse `ui/Tooltip`, `keys/KeyChip` and U460's confirmation, add no state machine. `m`, `d` and `e` are chosen to collide with no Shelf key on `main` (U3720 owns `o`, U460 owns Backspace).
 
-Observer: the named Vitest cases against the fake App; one headless U26 Chromium session at 1512×950, dark and light, on `tree-40`. Moves: D2, D5, D6. Linux/Chromium is the rendered observer; the user reports what they meet on the Mac.
+Observer: the named Vitest cases against the fake App; one headless U26 Chromium session at 1512×950, dark, on `tree-40`. Moves: D2, D5, D6. Linux/Chromium is the rendered observer; the user reports what they meet on the Mac.
