@@ -793,6 +793,37 @@ def branch(path, commits, pushed):
     return git
 
 
+class Attach(unittest.TestCase):
+    def run_attach(self, token, shots=('ux/U1/a.png', 'ux/U1/head/b.png')):
+        with tempfile.TemporaryDirectory() as path, chdir(path):
+            for shot in shots:
+                Path('artifacts', shot).parent.mkdir(parents=True, exist_ok=True)
+                Path('artifacts', shot).touch()
+            out = io.StringIO()
+            with patch.dict(os.environ, PR_ATTACH_TOKEN=token, GH_TOKEN='app'), \
+                    patch.object(builder.orders, 'gh', return_value=[dict(number=7)]), \
+                    patch.object(builder.subprocess, 'run') as run, redirect_stdout(out):
+                try:
+                    builder.attach('build/U1')
+                    code = 0
+                except SystemExit as exit:
+                    code = exit.code
+        return code, out.getvalue(), run
+
+    def test_l23_a_missing_attach_token_fails_loud_and_touches_no_pr(self):
+        code, out, run = self.run_attach('')
+        self.assertEqual(code, 1)
+        self.assertIn('::error::PR_ATTACH_TOKEN is not set; captures not attached', out)
+        run.assert_not_called()
+
+    def test_l23_captures_attach_to_the_branch_pr_with_only_the_attach_token(self):
+        code, _, run = self.run_attach('user')
+        self.assertEqual(code, 0)
+        command = run.call_args.args[0]
+        self.assertEqual(command, ['gh', 'pr', 'edit', '7', '--attach', 'artifacts/ux/U1/a.png#U1/a'])
+        self.assertEqual(run.call_args.kwargs['env']['GH_TOKEN'], 'user')
+
+
 class Keep(unittest.TestCase):
     def test_l23_a_run_that_outlived_its_token_keeps_its_commits_and_a_draft_names_its_issue(self):
         body = ('Refs #1\nScenarios: U1\n\nThe run https://run/1 ended with these commits and no open PR, so `keep` '

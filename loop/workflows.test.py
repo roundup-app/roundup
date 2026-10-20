@@ -122,6 +122,16 @@ class Permissions(unittest.TestCase):
             self.assertIn(f'python3 "{loop}/builder.py" engine', step, workflow)
             self.assertNotIn('github.token', step, workflow)
 
+    def test_l23_only_the_attach_step_after_the_model_holds_the_attach_token_and_its_failure_stops_nothing(self):
+        for workflow in ('build-issue', 'fix'):
+            source = (ROOT / f'.github/workflows/{workflow}.yml').read_text()
+            holders = [step for step in source.split('\n      - ') if 'PR_ATTACH_TOKEN' in step]
+            self.assertEqual(len(holders), 1, workflow)
+            self.assertIn('id: attach', holders[0], workflow)
+            self.assertIn('continue-on-error: true', holders[0], workflow)
+            self.assertNotIn('PR_ATTACH_TOKEN', source.split('      - id: engine\n', 1)[1].split('\n      - ', 1)[0], workflow)
+        self.assertNotIn('PR_ATTACH_TOKEN', (ROOT / '.agents/builder.md').read_text())
+
     def test_l23_with_claude_api_no_step_receives_the_max_token_and_no_claude_code_action_runs(self):
         for workflow in ('build-issue', 'fix', 'review', 'critic'):
             source = (ROOT / f'.github/workflows/{workflow}.yml').read_text()
