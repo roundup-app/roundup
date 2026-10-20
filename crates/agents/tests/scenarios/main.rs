@@ -13,6 +13,7 @@ mod landing;
 mod m7;
 mod naming;
 mod orders;
+mod pr_checks;
 mod prepared_observer;
 mod prepared_support;
 mod rail;
