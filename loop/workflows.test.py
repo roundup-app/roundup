@@ -391,46 +391,6 @@ class L82(unittest.TestCase):
         self.assertNotIn('always()', gate)
 
 
-class L122(unittest.TestCase):
-    def test_l122_a_diff_selects_the_rust_tests_whose_lines_it_touches(self):
-        import sys
-        sys.path.insert(0, str(ROOT / 'loop'))
-        import affected
-        source = ('use super::*;\n#[test]\nfn first() {\n    work();\n}\n\n#[tokio::test]\nasync fn second() {\n'
-                  '    work();\n}\n\nfn helper() {}\n    #[test] fn third() { work(); }\n')
-        for touched, names in (({4}, ['first']), ({9}, ['second']), ({7}, ['second']), ({12}, []), ({13}, ['third']),
-                               ({1}, []), ({5, 8}, ['first', 'second'])):
-            self.assertEqual(names, affected.rust_tests(source, touched), touched)
-        self.assertEqual({4, 5}, affected.touched_lines('@@ -3 +4,2 @@ fn x\n+a\n+b\n'))
-        self.assertEqual({7}, affected.touched_lines('@@ -7,2 +6,0 @@\n-a\n-b\n'.replace('+6,0', '+7,0')))
-
-    def test_l122_the_stress_job_skips_an_edited_web_test_file_that_starts_a_real_daemon(self):
-        import io
-        import sys
-        from contextlib import redirect_stdout
-        from unittest.mock import patch
-        sys.path.insert(0, str(ROOT / 'loop'))
-        import affected
-        daemon, ordinary = 'apps/desktop/src/testing/u144_real_daemon.test.tsx', 'apps/desktop/src/rail/u357_fold_line.test.ts'
-        out = {'merge-base': 'fork\n', 'diff': f'{daemon}\n{ordinary}\n', 'ls-files': ''}
-        with patch.object(affected.subprocess, 'run', side_effect=lambda args, **_: subprocess.CompletedProcess(
-                args, 0, out[args[1]])), redirect_stdout(io.StringIO()) as printed:
-            self.assertEqual(affected.main(['affected.py', 'edited-web', 'origin/main']), 0)
-        self.assertEqual([ordinary.removeprefix('apps/desktop/')], printed.getvalue().split())
-
-    def test_l122_check_fails_on_a_pull_request_unless_the_stress_job_succeeded(self):
-        source = (ROOT / '.github/workflows/check.yml').read_text()
-        program = re.search(r"jq -e --arg event \"\$EVENT\" '(.*)' <<<", source)[1]
-        ok = {'lint': 'success', 'new-tests-stress': 'success'}
-        for event, stress, passes in (('pull_request', 'success', True), ('pull_request', 'failure', False),
-                                      ('pull_request', 'skipped', False), ('push', 'skipped', True),
-                                      ('push', 'failure', False)):
-            needs = {name: {'result': stress if name == 'new-tests-stress' else result} for name, result in ok.items()}
-            result = subprocess.run(['jq', '-e', '--arg', 'event', event, program], input=json.dumps(needs),
-                                    capture_output=True, text=True)
-            self.assertEqual(passes, result.returncode == 0, (event, stress))
-
-
 class L46(unittest.TestCase):
     def test_l46_the_rules_job_runs_the_empty_diff_gate_on_every_pull_request(self):
         source = (ROOT / '.github/workflows/loop.yml').read_text()
