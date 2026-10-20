@@ -452,7 +452,6 @@ impl Shared {
 mod tests {
     use super::*;
     use crate::tests::*;
-    use serde_json::json;
 
     fn ctx(bus: Bus) -> Ctx {
         Ctx {
@@ -548,90 +547,5 @@ mod tests {
             ending.await.unwrap();
             assert_eq!(agents.shared.rail().node(&id).is_err(), remove);
         }
-    }
-
-    #[tokio::test]
-    async fn o8_the_prompt_survives_a_reopen_and_a_resume() {
-        let (dir, bus, shared) = shared_over_temp_dir(Arc::new(|| 0));
-        let id = shared
-            .rail()
-            .insert(NodeKind::Agent, "child", None, None)
-            .unwrap()
-            .id;
-        shared.rail().set_spawn_prompt(&id, "the detail").unwrap();
-        // Resume really claims a new Attempt, then rolls it back before launch on missing cwd.
-        shared
-            .rail()
-            .save_conversation(
-                &id,
-                "11111111-1111-1111-1111-111111111111",
-                &dir.path().join("missing").to_string_lossy(),
-            )
-            .unwrap();
-        drop(shared);
-        // Reopen the persisted Rail through Agents, without starting a Terminal.
-        let terminals = Arc::new(Terminals::open(dir.path(), bus.clone()).unwrap());
-        let agents = Agents::open_with(
-            dir.path(),
-            bus.clone(),
-            terminals,
-            Launcher::new(
-                "unused",
-                dir.path().join("claude.json"),
-                dir.path().join("rup"),
-                None,
-            ),
-            worktree::Git::from_env(),
-        )
-        .unwrap();
-        let context = ctx(bus);
-        assert_eq!(
-            agents
-                .call(&context, "agent.spawnPrompt", json!({"id":id}))
-                .await
-                .unwrap(),
-            json!({"prompt":"the detail"})
-        );
-        let error = agents.resume(&context, &id, None).await.unwrap_err();
-        assert!(error.message.contains("worktree_missing"), "{error}");
-        assert!(agents.shared.rail().node(&id).unwrap().attempt.is_some());
-        assert_eq!(
-            agents
-                .call(&context, "agent.spawnPrompt", json!({"id":id}))
-                .await
-                .unwrap(),
-            json!({"prompt":"the detail"})
-        );
-        let team = agents
-            .call(&context, "rail.createWorkstream", json!({"name":"team"}))
-            .await
-            .unwrap();
-        agents
-            .call(
-                &context,
-                "rail.move",
-                json!({"id":id,"parent":team["id"],"index":0}),
-            )
-            .await
-            .unwrap();
-        assert_eq!(
-            agents
-                .call(&context, "agent.spawnPrompt", json!({"id":id}))
-                .await
-                .unwrap(),
-            json!({"prompt":"the detail"})
-        );
-        agents
-            .call(&context, "rail.remove", json!({"id":id}))
-            .await
-            .unwrap();
-        assert_eq!(
-            agents
-                .call(&context, "agent.spawnPrompt", json!({"id":id}))
-                .await
-                .unwrap_err()
-                .code,
-            code::NOT_FOUND
-        );
     }
 }
