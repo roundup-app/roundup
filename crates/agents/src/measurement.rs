@@ -27,13 +27,17 @@ pub(crate) struct Batch {
 impl Agents {
     /// Start the Daemon's passive observer after configuring the shared Project dependencies.
     pub fn observe_measurements(&self) {
-        if !self.shared.rail().claim_measurement_observer() {
-            return;
-        }
+        let mut seen = {
+            let mut rail = self.shared.rail();
+            if !rail.claim_measurement_observer() {
+                return;
+            }
+            rail.measurement_revision()
+                .expect("Project measurement storage")
+        };
         let me = Arc::downgrade(&self.shared);
         let launcher = self.launcher.clone();
         tokio::spawn(async move {
-            let mut seen = None;
             loop {
                 tokio::time::sleep(Duration::from_millis(500)).await;
                 let Some(shared) = me.upgrade() else { break };
@@ -47,8 +51,8 @@ impl Agents {
                 .await
                 .expect("measurement observer worker")
                 .expect("Project measurement storage");
-                if seen.as_ref() != Some(&revision) {
-                    seen = Some(revision.clone());
+                if seen != revision {
+                    seen = revision.clone();
                     shared
                         .bus
                         .emit(Actor::daemon(), EventData::MeasurementsChanged { revision });
