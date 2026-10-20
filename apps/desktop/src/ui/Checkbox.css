@@ -4,16 +4,16 @@
   gap: var(--space-2);
   min-height: var(--space-5);
   padding-inline: var(--space-2);
-  border-radius: var(--radius-control);
   cursor: pointer;
+  color: var(--grey);
 }
 
 .app-checkbox:hover {
-  background-color: var(--hover);
+  color: var(--text);
 }
 
 .app-checkbox:active {
-  background-color: var(--pressed);
+  color: var(--grey);
   transition-duration: 0s;
 }
 
@@ -24,7 +24,6 @@
   justify-content: center;
   width: var(--space-3);
   height: var(--space-3);
-  border-radius: var(--radius-control);
   background-color: var(--hover);
   color: var(--text);
 }

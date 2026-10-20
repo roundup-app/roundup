@@ -33,7 +33,11 @@ type View = { kind: "list" } | { kind: "create" } | { kind: "detail"; id: string
 const useNames = () => {
   const { rail } = useConnectedProject();
 
-  return (id: string) => rail.nodes.find((node) => node.id === id)?.name ?? copy.reactionGone(id);
+  return (id: string) => {
+    const node = rail.nodes.find((node) => node.id === id);
+
+    return node ? `${node.name} (${id})` : copy.reactionGone(id);
+  };
 };
 
 const conditionText = (condition: Condition, nameOf: (id: string) => string): string =>
@@ -308,7 +312,7 @@ const ReactionForm = (props: { onDone: (made: Reaction) => void; onCancel: () =>
     <h3 class="reaction-title">{copy.reactionCreate}</h3>
     {nameField}
     <Select label={copy.reactionTarget} value={form().target}
-      choices={[{ value: "", label: copy.reactionPickTarget }, ...agents().map((node) => ({ value: node.id, label: node.name }))]}
+      choices={[{ value: "", label: copy.reactionPickTarget }, ...agents().map((node) => ({ value: node.id, label: nameOf(node.id) }))]}
       onValueChange={(target) => set({ target })} />
     {instructionField}
     <Select label={copy.reactionCondition} value={form().kind}
@@ -317,7 +321,7 @@ const ReactionForm = (props: { onDone: (made: Reaction) => void; onCancel: () =>
     <Show when={form().kind === "agents"}>
       <div class="reaction-agents" role="group" aria-label={copy.reactionWatched}>
         <span class="reaction-label">{copy.reactionWatched}</span>
-        <For each={agents()}>{(node) => <Checkbox label={node.name} checked={form().ids.includes(node.id)}
+        <For each={agents()}>{(node) => <Checkbox label={nameOf(node.id)} checked={form().ids.includes(node.id)}
           onCheckedChange={(checked) => set({ ids: checked ? [...form().ids, node.id] : form().ids.filter((id) => id !== node.id) })} />}</For>
         <Checkbox label={copy.reactionAny} checked={form().any} onCheckedChange={(any) => set({ any })} />
       </div>
