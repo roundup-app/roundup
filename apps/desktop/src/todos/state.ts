@@ -14,6 +14,8 @@ export type TodosState = {
   byId: Accessor<ReadonlyMap<number, Todo>>;
   /** The message of the last failed `todo.list`, until a later one succeeds. */
   failure: Accessor<string | null>;
+  /** Shows `todo` as a row until the returned call removes it: a create's optimistic row (U3714), which the Daemon's reply confirms or U3715 removes. */
+  show: (todo: Todo) => () => void;
   /** True once the first `todo.list` has answered, so U38's empty line never flashes before it. */
   isLoaded: Accessor<boolean>;
 };
@@ -66,7 +68,16 @@ export const createTodosState = (app: AppSeam, events: Events): TodosState => {
   );
   void reload();
 
-  const byId = createMemo(() => new Map(shelf.todos.map((todo) => [todo.id, todo])));
+  const [pending, setPending] = createSignal<readonly Todo[]>([]);
 
-  return { reload, all: () => shelf.todos, byId, failure, isLoaded };
+  const show = (todo: Todo) => {
+    setPending((rows) => [...rows, todo]);
+
+    return () => setPending((rows) => rows.filter((row) => row !== todo));
+  };
+
+  const all = () => pending().length === 0 ? shelf.todos : [...shelf.todos, ...pending()];
+  const byId = createMemo(() => new Map(all().map((todo) => [todo.id, todo])));
+
+  return { reload, all, show, byId, failure, isLoaded };
 };
