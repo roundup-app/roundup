@@ -139,7 +139,8 @@ export const createBulkDelete = <Id,>(props: {
   };
 
   registerKeys(shelfKeyScope, [
-    { chords: ["Escape", "Backspace"], when: event => props.selected().length > 0 && !(event.target instanceof Element && event.target.closest("input, textarea, select, [contenteditable], .todo-blocker")), run: key },
+    { chords: ["Escape"], when: event => props.selected().length > 0 && !(event.target instanceof Element && event.target.closest("input, textarea, select, [contenteditable], .todo-blocker")), run: key },
+    { chords: ["Backspace"], when: event => props.selected().length > 0 && event.target instanceof Element && event.target.closest(".shelf-bulk") !== null, run: key },
   ]);
 
   registerKeys({ kind: "region", element: () => document.querySelector<HTMLElement>(".shelf-tabs") ?? undefined }, [{

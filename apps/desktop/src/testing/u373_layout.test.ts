@@ -40,8 +40,13 @@ run("u373 the tabs", () => {
     await page.call(`() => document.querySelector('#shelf-tab-todos').focus()`);
     // shelfKeys.moveFocus finishes its focus move synchronously within each key event.
     await page.press("Tab", "Tab");
+    expect(await page.call<string>(`() => document.activeElement.getAttribute('aria-label')`)).toBe("Maximise");
+    await page.press("Tab", "Tab");
+    expect(await page.call<string>(`() => document.activeElement.getAttribute('aria-label')`)).toBe("Close work items");
+    await page.press("Tab", "Tab");
     expect(await page.call<boolean>(`() => document.activeElement.closest('.shelf [role="tabpanel"]') !== null`)).toBe(true);
-    await page.press("Tab", "Tab", 8);
+
+    for (let step = 0; step < 3; step++) await page.press("Tab", "Tab", 8);
     expect(await page.call<string>(`() => document.activeElement.id`)).toBe("shelf-tab-todos");
   });
 
