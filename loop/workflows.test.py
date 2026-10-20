@@ -389,6 +389,11 @@ class L122(unittest.TestCase):
         self.assertEqual([], affected.rust_tests(decorated, {1}))
         quoted = 'fn helper() {}\n#[should_panic(expected = "[")]\n#[test] // ]\nfn fifth() {}\n'
         self.assertEqual(['fifth'], affected.rust_tests(quoted, {2}))
+        for attribute in ('#[should_panic(/* [ */ expected = "boom")]', '#[should_panic(expected = r#"["#)]',
+                          '#[should_panic(expected = "a\n[")]', '#[should_panic(\n    /* ] ] */\n    expected = "boom"\n)]'):
+            hidden = f'fn helper() {{}}\n{attribute}\n#[test]\nfn example() {{ panic!("boom"); }}\n'
+            self.assertEqual(['example'], affected.rust_tests(hidden, {2}), attribute)
+        self.assertEqual([], affected.rust_tests('fn a() {}\n#[test]\nfn b() {}\n', {1}))
         self.assertEqual({4, 5}, affected.touched_lines('@@ -3 +4,2 @@ fn x\n+a\n+b\n'))
         self.assertEqual({7}, affected.touched_lines('@@ -7,2 +6,0 @@\n-a\n-b\n'.replace('+6,0', '+7,0')))
 

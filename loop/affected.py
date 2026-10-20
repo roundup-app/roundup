@@ -78,18 +78,16 @@ def is_web_test(path):
     return path.startswith(APP + 'src/') and path.endswith(('.test.ts', '.test.tsx'))
 
 
-def decoration_start(lines, index):
-    """The index of the first line of the doc comment or whole attribute that ends at `lines[index]`, or None when that
-    line ends neither; an attribute may span lines, balanced by its brackets."""
-    if re.match(r'\s*///', lines[index]):
-        return index
-    depth = 0
-    for first in range(index, -1, -1):
-        code = re.sub(r'"(?:\\.|[^"\\])*"|\'(?:\\.|[^\'\\])\'|//.*', '', lines[first])
-        depth += code.count('[') - code.count(']')
-        if depth == 0:
-            return first if lines[first].lstrip().startswith('#[') else None
-    return None
+def decorated_start(lines, index):
+    """The index of the first line of the attributes and doc comments above `lines[index]`: the line after the nearest
+    line above that ends an earlier item (`}`, `;` or `{`) at an indent no deeper than `lines[index]`. It reads no
+    brackets, strings or comments, so it may start early, which only selects a test more often, never less."""
+    indent = len(lines[index]) - len(lines[index].lstrip())
+    for above in range(index - 1, -1, -1):
+        line = lines[above]
+        if line.rstrip().endswith(('}', ';', '{')) and len(line) - len(line.lstrip()) <= indent:
+            return above + 1
+    return 0
 
 
 def rust_tests(source, touched):
@@ -106,9 +104,7 @@ def rust_tests(source, touched):
         indent = re.match(r'\s*', lines[fn])[0]
         end = fn if lines[fn].rstrip().endswith('}') else next(
             (n for n in range(fn + 1, len(lines)) if lines[n].rstrip() == indent + '}'), len(lines) - 1)
-        first = start
-        while first and (decorated := decoration_start(lines, first - 1)) is not None:
-            first = decorated
+        first = decorated_start(lines, start)
         if any(first < number <= end + 1 for number in touched):
             names.append(re.search(r'fn\s+(\w+)', lines[fn])[1])
     return names
