@@ -58,9 +58,16 @@
   overflow-y: auto;
 }
 
+.import-list li {
+  display: grid;
+  grid-template-columns: var(--space-5) minmax(0, 1fr);
+  column-gap: var(--space-3);
+}
+
 .import-list label {
-  display: flex;
-  gap: var(--space-3);
+  display: grid;
+  grid-column: 1 / -1;
+  grid-template-columns: subgrid;
   align-items: center;
   min-height: var(--space-6);
   padding-block: var(--space-2);
@@ -106,6 +113,6 @@
 }
 
 .import-error {
-  margin-inline-start: calc(var(--space-5) + var(--space-3));
+  grid-column: 2;
   margin-block-end: var(--space-3);
 }
