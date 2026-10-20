@@ -423,11 +423,11 @@ it.each(["discovery", "retry"])("u3049a_detects_external_record_before_%s_write"
   expect(calls(app, "project.importCommit")).toEqual([]);
 });
 
-// Replaces the old U2875d retry test: merging restored and local input violates U3049b.
 it.each([false, true])("u3049b_initial_restore_retry_keeps_versions_separate_recovered_%s", async (recovered) => {
   localStorage.setItem(importKey(), externalChoices);
   const read = Storage.prototype.getItem;
   let unreadable = true;
+
   const reads = vi.spyOn(Storage.prototype, "getItem").mockImplementation(function (this: Storage, key: string) {
     if (key === importKey() && unreadable) throw new Error("unreadable");
 
@@ -440,6 +440,7 @@ it.each([false, true])("u3049b_initial_restore_retry_keeps_versions_separate_rec
     fireEvent.click(screen.getByRole("button", { name: "Import Claude Code work" }));
     await screen.findByRole("checkbox", { name: /一つ目/ });
     await screen.findByText(/Import choices could not be restored/);
+
     // A successful ordinary save must not leave retry in an initial-restore mode.
     if (recovered) {
       unreadable = false;
