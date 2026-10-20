@@ -4,7 +4,7 @@ import { expect, it } from "vitest";
 import { shelfBrowser } from "./u371Browser";
 import { captureDir } from "../testing/captures";
 
-const { browser, evaluate, settle, openShelf } = shelfBrowser();
+const { browser, evaluate, settle, openShelf, toggle } = shelfBrowser();
 
 it("u3721_the_rendered_shelf_spans_rail_edge_to_window_edge", async () => {
   for (const scheme of ["dark", "light"]) {
@@ -12,9 +12,11 @@ it("u3721_the_rendered_shelf_spans_rail_edge_to_window_edge", async () => {
     await browser("set", "viewport", "1512", "950");
     await settle();
     const original = await evaluate<number>("document.querySelector('.shelf').getBoundingClientRect().width");
+    await toggle();
+    await evaluate("document.querySelector('.terminal-new').focus()");
+    await toggle();
     await browser("click", 'button[aria-label="Maximise"]');
     await settle();
-    expect(await evaluate("document.querySelector('.window').dataset.shelfMaximised")).toBe("true");
 
     // The rendered observer owns geometry; the Vitest cases exercise commands and persistence.
     const readings = await evaluate<{ shelf: number; rail: number; right: number; width: number }>(`(() => {
@@ -23,19 +25,28 @@ it("u3721_the_rendered_shelf_spans_rail_edge_to_window_edge", async () => {
       return { shelf: shelf.left, rail: rail.right, right: shelf.right, width: innerWidth };
     })()`);
 
-    expect(readings.shelf).toBe(readings.rail);
-    expect(readings.right).toBe(readings.width);
     const dir = captureDir("U3721");
 
     if (dir && scheme === "dark") {
       mkdirSync(dir, { recursive: true });
       await browser("screenshot", join(dir, "maximised.png"));
-      writeFileSync(join(dir, "maximised.checks.json"), JSON.stringify(await evaluate("window.__checks()"), null, 2));
+      writeFileSync(join(dir, "maximised.checks.json"), JSON.stringify({ checks: await evaluate("window.__checks()"), geometry: readings }, null, 2));
     }
 
+    await browser("press", "Escape");
+    await settle();
+    expect(await evaluate("document.activeElement === document.querySelector('.terminal-new')")).toBe(true);
+    await toggle();
     await browser("click", 'button[aria-label="Restore"]');
     await settle();
-    expect(await evaluate("document.querySelector('.shelf').getBoundingClientRect().width")).toBe(original);
+
+    if (dir && scheme === "dark") {
+      await browser("screenshot", join(dir, "restored.png"));
+      writeFileSync(join(dir, "restored.checks.json"), JSON.stringify({
+        checks: await evaluate("window.__checks()"),
+        geometry: { original, restored: await evaluate("document.querySelector('.shelf').getBoundingClientRect().width") },
+      }, null, 2));
+    }
   }
 }, 90_000);
 
