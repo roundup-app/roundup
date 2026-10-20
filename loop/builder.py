@@ -675,15 +675,17 @@ def choose(rows, taken, free):
 def failed(pr):
     """The required checks, by name, whose latest result on the PR's head is a failure. A check run counts once no run of
     its workflow is still going on that head, and only if it ended last of its name there: a newer run on the same head
-    supersedes an older run's failure (L82)."""
+    supersedes an older run's failure (L82). A failed `pre` reads as `check`."""
     going = running(pr)
     last = {}
     for check in pr.get('statusCheckRollup') or []:
         name = check.get('name') or check.get('context')
-        if name in ('check', 'rules', 'review', 'critic') and check.get('workflowName') not in going and \
+        if name in ('pre', 'check', 'rules', 'review', 'critic') and check.get('workflowName') not in going and \
                 (check.get('completedAt') or '') >= (last.get(name, {}).get('completedAt') or ''):
             last[name] = check
-    return [name for name, check in last.items() if (check.get('conclusion') or check.get('state')) == 'FAILURE']
+    # A failed `pre` (the lints, L24) is a `check` cause: one fix run answers either.
+    return list(dict.fromkeys('check' if name == 'pre' else name for name, check in last.items()
+                              if (check.get('conclusion') or check.get('state')) == 'FAILURE'))
 
 
 def stopped(pr):
@@ -1099,8 +1101,8 @@ def exhaust(current, attempts, verdicts, cause):
 
 def fixed(pr, cause, ran, run_url, verdict=None, plumbing=False):
     """After a fix run that worked (`ran`): count the attempt on the PR (a `plumbing` run, L82, counts none), then hand the PR on with its screen `verdict`.
-    A ready head that still holds the reject this run answered, with no `check` running on it, gets its review run
-    again: with no push or re-ready, no `check` ends to start one (L24)."""
+    A ready head that still holds the reject this run answered, with no `pre` or `check` running on it, gets its review run
+    again: with no push or re-ready, no `pre` run ends to start one (L24)."""
     if not ran:
         print('the run made no tool call; it counts as no attempt')
         return
@@ -1108,7 +1110,7 @@ def fixed(pr, cause, ran, run_url, verdict=None, plumbing=False):
         comment(pr, f'<!-- fix-attempt -->\nFix run {run_url} answered `{cause}`.')
     current = link(view(pr))
     ended(current, verdict, run_url)
-    if cause in ('review', 'critic') and not current['isDraft'] and 'check' not in running(current):
+    if cause in ('review', 'critic') and not current['isDraft'] and not {'pre', 'check'} & running(current):
         for run in review_runs(current, 'FAILURE', cause):
             call('run', 'rerun', run)
 
@@ -1154,6 +1156,38 @@ def status(head, state, description, run_url, context='review'):
          '-f', f'description={description}', '-f', f'target_url={run_url}')
 
 
+# L24: how often `start_tests` looks for a `check` run that is still reading the statuses, and how long between looks.
+TESTS_LOOKS, TESTS_PAUSE = 20, 15
+
+
+def start_tests(current):
+    """L24: once `review` and `critic` both succeed on the PR's head, rerun its `check` run. A PR's `check` ends
+    `cancelled` before its lanes while the pair is incomplete; this rerun is the lanes' start, so a reject or an unreviewed
+    head runs no test. Nothing happens for a draft, while either status is not `success`, or when the run already reran
+    (the other approval of the pair got there first), passed or failed. A run still on its first attempt is on its way to
+    reading the statuses, so it is waited for."""
+    head = current['headRefOid']
+    states = {item['context']: item['state']
+              for item in orders.gh('api', f'repos/{{owner}}/{{repo}}/commits/{head}/status')['statuses']}
+    if current['isDraft'] or (states.get('review'), states.get('critic')) != ('success', 'success'):
+        return
+    for _ in range(TESTS_LOOKS):
+        runs = orders.gh('api', f'repos/{{owner}}/{{repo}}/actions/workflows/check.yml/runs?head_sha={head}&event=pull_request'
+                         )['workflow_runs']
+        # GitHub lists the newest first; a draft's run (`Draft check`) tests nothing.
+        run = next((run for run in runs if run['display_title'] == 'Check'), None)
+        if not run:
+            raise RuntimeError(f'no check run on {head} to start the tests with')
+        if run['status'] == 'completed':
+            if run['conclusion'] == 'cancelled':
+                call('run', 'rerun', str(run['id']))
+            return
+        if run['run_attempt'] > 1:
+            return
+        time.sleep(TESTS_PAUSE)
+    raise RuntimeError(f'check run {run["id"]} on {head} did not end')
+
+
 FOLLOWUP = re.compile(r'^FOLLOWUP:[ \t]*(.*(?:\n(?!\s*$).*)*)', re.M)
 
 
@@ -1195,6 +1229,8 @@ def review_post(pr, head, reviewer, answer, ran, run_url):
     status(head, 'success' if verdict == 'approve' else 'failure', f'The review run answered {verdict}', run_url)
     if verdict == 'reject' and current['headRefName'].startswith('build/') and not current['isCrossRepository']:
         dispatch_fix(pr, head, 'review')
+    if verdict == 'approve':
+        start_tests(current)
     return True
 
 
@@ -1214,12 +1250,14 @@ def touches_desktop(pr):
 
 def critic_task(pr, head):
     """The design critic's task (L103), or None when the PR is not open at `head` or is a draft. A PR that changes
-    nothing under `apps/desktop/src/` gets its `critic` status `success` here, with no model run."""
+    nothing under `apps/desktop/src/` gets its `critic` status `success` here, with no model run, and so completes the pair
+    when `review` approved first (L24)."""
     current = view(pr)
     if current['state'] != 'OPEN' or current['headRefOid'] != head or current['isDraft']:
         return None
     if not touches_desktop(pr):
         status(head, 'success', 'The PR changes nothing under apps/desktop/src: no design critic run', '', 'critic')
+        start_tests(current)
         return None
     lines = [f'Critique PR #{pr}, head {head}, as `.agents/design-critic.md` says.',
              *re.findall(r'^(?:Scenarios|Moves):.*$', current['body'] or '', re.M),
@@ -1268,6 +1306,8 @@ def critic_post(pr, head, critic, answer, ran, run_url):
     status(head, 'success' if verdict == 'approve' else 'failure', f'The critic run answered {verdict}', run_url, 'critic')
     if verdict == 'reject' and current['headRefName'].startswith('build/') and not current['isCrossRepository']:
         dispatch_fix(pr, head, 'critic')
+    if verdict == 'approve':
+        start_tests(current)
     return True
 
 

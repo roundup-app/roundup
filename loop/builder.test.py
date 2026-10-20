@@ -56,10 +56,12 @@ class GitHub:
     """Answers builder.py's reads from fixed data and records its writes."""
 
     def __init__(self, view=None, prs=(), notes=(), labels=(), diff='', runs=None, files=(), run=None, state='open',
-                 merged=(), queued=True, closer='Bot', history=(), steps=(), order='Scenarios: U1\n', file='', events=()):
+                 merged=(), queued=True, closer='Bot', history=(), steps=(), order='Scenarios: U1\n', file='', events=(),
+                 statuses=None, check_runs=()):
         self.view, self.prs, self.notes, self.labels, self.diff, self.runs = view, list(prs), list(notes), labels, diff, runs or {}
         self.files, self.run, self.state, self.merged, self.queued, self.closer = files, run, state, list(merged), queued, closer
         self.history, self.steps, self.order, self.file, self.events = list(history), list(steps), order, file, list(events)
+        self.statuses, self.check_runs = statuses or {}, list(check_runs)
         self.writes = []
 
     def read(self, *args):
@@ -79,6 +81,10 @@ class GitHub:
             return [dict(workflow_runs=[dict(id=run, display_title=title) for run, title, _ in self.history])]
         if '/actions/jobs/' in args[1]:
             return dict(steps=[dict(name=name, conclusion=conclusion) for name, conclusion in self.steps])
+        if args[1].endswith('/status'):
+            return dict(statuses=[dict(context=name, state=state) for name, state in self.statuses.items()])
+        if '/workflows/check.yml/runs' in args[1]:
+            return dict(workflow_runs=self.check_runs)
         if '/actions/workflows/' in args[1]:
             status = args[1].split('status=')[1].split('&')[0]
             return dict(workflow_runs=[dict(id=run) for run, (state, _) in self.runs.items() if state == status])
@@ -966,6 +972,7 @@ class Fix(unittest.TestCase):
                     self.assertIsNone(builder.fix_task(9, HEAD, cause))
             self.assertEqual(github.writes, [])
         for rollup, cause in (([ran('check', 'SUCCESS', 300), ran('check', 'FAILURE', 60)], 'check'),
+                              ([ran('pre', 'FAILURE', 60, 'pre')], 'check'),  # the lints fail before any review or test
                               ([ran('rules', 'SUCCESS', 300, 'loop'), ran('rules', 'FAILURE', 60, 'loop')], 'rules')):
             self.assertEqual(builder.repairs([pr(statusCheckRollup=rollup)], NOW), [(9, HEAD, cause)])
             with GitHub(view=pr(statusCheckRollup=rollup)):
@@ -977,7 +984,9 @@ class Fix(unittest.TestCase):
             builder.fixed(9, 'review', True, 'https://run/2')
         self.assertIn(('run', 'rerun', '77'), github.writes)
         running = rejected + [dict(name='rust', workflowName='check', status='IN_PROGRESS')]
-        for cause, view in (('review', pr(statusCheckRollup=running)), ('review', pr()), ('check', pr(statusCheckRollup=rejected)),
+        linting = rejected + [dict(name='lint', workflowName='pre', status='IN_PROGRESS')]
+        for cause, view in (('review', pr(statusCheckRollup=running)), ('review', pr(statusCheckRollup=linting)), ('review', pr()),
+                            ('check', pr(statusCheckRollup=rejected)),
                             ('review', pr(isDraft=True, body='Stopped: which colour?', statusCheckRollup=rejected))):
             with GitHub(view=view) as github:
                 builder.fixed(9, cause, True, 'https://run/2')
@@ -1208,6 +1217,12 @@ class Critic(unittest.TestCase):
         self.assertIn(('api', f'repos/{{owner}}/{{repo}}/statuses/{HEAD}', '-f', 'state=success', '-f', 'context=critic',
                        '-f', 'description=The PR changes nothing under apps/desktop/src: no design critic run',
                        '-f', 'target_url='), github.writes)
+
+    def test_l24_a_pr_with_no_src_change_reruns_the_cancelled_check_when_review_approved_first(self):
+        run = dict(id=55, display_title='Check', status='completed', conclusion='cancelled', run_attempt=1)
+        with GitHub(view=pr(), files=['loop/x.sh'], statuses=dict(review='success', critic='success'), check_runs=[run]) as github:
+            builder.critic_task(9, HEAD)
+        self.assertIn(('run', 'rerun', '55'), github.writes)
 
     def test_l103_a_pr_past_the_300_file_diff_limit_still_gets_its_critic_task(self):
         changed = [f'artifacts/ux/{index}.png' for index in range(400)] + UI
@@ -1455,6 +1470,40 @@ class Review(unittest.TestCase):
         with GitHub(view=pr()) as github:
             builder.review_post(9, HEAD, 'reviewer-1', json.dumps(dict(verdict='reject', findings=findings)), True, 'https://run/3')
         self.assertEqual([w for w in github.writes if w[:2] == ('issue', 'create')], [])
+
+    def test_l24_only_the_approval_that_completes_the_pair_reruns_the_cancelled_check(self):
+        # `check` ends `cancelled` before its lanes until `review` and `critic` both succeed on the head.
+        waiting = [dict(id=55, display_title='Check', status='completed', conclusion='cancelled', run_attempt=1),
+                   dict(id=44, display_title='Draft check', status='completed', conclusion='success', run_attempt=1)]
+        approve = '{"verdict":"approve","findings":""}'
+        for name, view, answer, statuses, runs, rerun in (
+                ('pair complete', pr(), approve, dict(review='success', critic='success'), waiting, True),
+                ('critic missing', pr(), approve, dict(review='success'), waiting, False),
+                ('critic rejected', pr(), approve, dict(review='success', critic='failure'), waiting, False),
+                ('reject', pr(), '{"verdict":"reject","findings":"x"}', dict(review='failure', critic='success'), waiting, False),
+                ('draft', pr(isDraft=True), approve, dict(review='success', critic='success'), waiting, False),
+                ('already rerun', pr(), approve, dict(review='success', critic='success'),
+                 [dict(waiting[0], status='in_progress', conclusion=None, run_attempt=2)], False),
+                ('tests ran', pr(), approve, dict(review='success', critic='success'),
+                 [dict(waiting[0], conclusion='failure')], False)):
+            with self.subTest(name), GitHub(view=view, statuses=statuses, check_runs=runs) as github:
+                builder.review_post(9, HEAD, 'reviewer-1', answer, True, 'https://run/3')
+            self.assertEqual(('run', 'rerun', '55') in github.writes, rerun)
+
+    def test_l24_the_critic_approval_that_completes_the_pair_reruns_the_cancelled_check(self):
+        run = dict(id=55, display_title='Check', status='completed', conclusion='cancelled', run_attempt=1)
+        with GitHub(view=pr(), statuses=dict(review='success', critic='success'), check_runs=[run]) as github:
+            builder.critic_post(9, HEAD, 'critic-1', '{"verdict":"approve","findings":""}', True, 'https://run/3')
+        self.assertIn(('run', 'rerun', '55'), github.writes)
+
+    def test_l24_a_check_run_still_reading_the_statuses_is_waited_for_and_none_fails_loud(self):
+        first = dict(id=55, display_title='Check', status='in_progress', conclusion=None, run_attempt=1)
+        with GitHub(view=pr(), statuses=dict(review='success', critic='success'), check_runs=[first]) as github, \
+                patch.object(builder.time, 'sleep'), self.assertRaises(RuntimeError):
+            builder.start_tests(pr())
+        self.assertNotIn(('run', 'rerun', '55'), github.writes)
+        with GitHub(view=pr(), statuses=dict(review='success', critic='success')), self.assertRaises(RuntimeError):
+            builder.start_tests(pr())
 
     def test_l24_an_approval_on_a_user_pr_starts_no_fix(self):
         with GitHub(view=pr(headRefName='stock-loop')) as github:
