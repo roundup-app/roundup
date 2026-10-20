@@ -301,9 +301,26 @@ class L89(unittest.TestCase):
         for changed, tests in (([test, 'docs/perf.md'], [test]), (['crates/rupd/src/lib.rs'], [affected.DAEMON]),
                                (['scenarios/loop-rules.md'], []),
                                (['apps/desktop/observers/U1/run.py'], []), (['loop/builder.py'], []),
-                               ([test, 'apps/desktop/src/rail/Rail.tsx'], 'all'), (['scenarios/app.md'], 'all'),
+                               ([test, 'apps/desktop/src/rail/Rail.tsx'], ['apps/desktop/src/rail/Rail.tsx', test]),
+                               (['apps/desktop/vite.config.ts'], 'all'), (['apps/desktop/index.html'], 'all'), (['scenarios/app.md'], 'all'),
                                (['pnpm-lock.yaml'], 'all')):
             self.assertEqual(tests, affected.web(changed), changed)
+
+    def test_l89_the_gate_accepts_a_skipped_lane_only_on_a_pull_request(self):
+        gate = (ROOT / '.github/workflows/check.yml').read_text().split('\n  check:\n', 1)[1].split('\n  summary:\n', 1)[0]
+        script = gate.split('        run: |\n', 1)[1]
+
+        def passes(event, **results):
+            lanes = {'plan': 'success', 'lint': 'success', 'rust': 'success', 'web': 'success', **results}
+            needs = json.dumps({lane: {'result': result} for lane, result in lanes.items()})
+            return subprocess.run(['bash', '-c', script], env={**os.environ, 'NEEDS': needs, 'EVENT': event},
+                                  capture_output=True).returncode == 0
+
+        self.assertTrue(passes('pull_request', rust='skipped', web='skipped'))
+        self.assertFalse(passes('push', rust='skipped'))
+        self.assertFalse(passes('pull_request', rust='failure'))
+        self.assertFalse(passes('pull_request', plan='skipped'))
+        self.assertFalse(passes('pull_request', plan='failure', rust='skipped'))
 
     def test_l89_a_builder_check_reaches_its_uncommitted_and_untracked_files(self):
         import io
@@ -389,46 +406,6 @@ class L82(unittest.TestCase):
         gate = (ROOT / '.github/workflows/check.yml').read_text().split('\n  check:\n', 1)[1].split('\n  summary:\n', 1)[0]
         self.assertIn('${{ !cancelled() && ', gate)
         self.assertNotIn('always()', gate)
-
-
-class L122(unittest.TestCase):
-    def test_l122_a_diff_selects_the_rust_tests_whose_lines_it_touches(self):
-        import sys
-        sys.path.insert(0, str(ROOT / 'loop'))
-        import affected
-        source = ('use super::*;\n#[test]\nfn first() {\n    work();\n}\n\n#[tokio::test]\nasync fn second() {\n'
-                  '    work();\n}\n\nfn helper() {}\n    #[test] fn third() { work(); }\n')
-        for touched, names in (({4}, ['first']), ({9}, ['second']), ({7}, ['second']), ({12}, []), ({13}, ['third']),
-                               ({1}, []), ({5, 8}, ['first', 'second'])):
-            self.assertEqual(names, affected.rust_tests(source, touched), touched)
-        self.assertEqual({4, 5}, affected.touched_lines('@@ -3 +4,2 @@ fn x\n+a\n+b\n'))
-        self.assertEqual({7}, affected.touched_lines('@@ -7,2 +6,0 @@\n-a\n-b\n'.replace('+6,0', '+7,0')))
-
-    def test_l122_the_stress_job_skips_an_edited_web_test_file_that_starts_a_real_daemon(self):
-        import io
-        import sys
-        from contextlib import redirect_stdout
-        from unittest.mock import patch
-        sys.path.insert(0, str(ROOT / 'loop'))
-        import affected
-        daemon, ordinary = 'apps/desktop/src/testing/u144_real_daemon.test.tsx', 'apps/desktop/src/rail/u357_fold_line.test.ts'
-        out = {'merge-base': 'fork\n', 'diff': f'{daemon}\n{ordinary}\n', 'ls-files': ''}
-        with patch.object(affected.subprocess, 'run', side_effect=lambda args, **_: subprocess.CompletedProcess(
-                args, 0, out[args[1]])), redirect_stdout(io.StringIO()) as printed:
-            self.assertEqual(affected.main(['affected.py', 'edited-web', 'origin/main']), 0)
-        self.assertEqual([ordinary.removeprefix('apps/desktop/')], printed.getvalue().split())
-
-    def test_l122_check_fails_on_a_pull_request_unless_the_stress_job_succeeded(self):
-        source = (ROOT / '.github/workflows/check.yml').read_text()
-        program = re.search(r"jq -e --arg event \"\$EVENT\" '(.*)' <<<", source)[1]
-        ok = {'lint': 'success', 'new-tests-stress': 'success'}
-        for event, stress, passes in (('pull_request', 'success', True), ('pull_request', 'failure', False),
-                                      ('pull_request', 'skipped', False), ('push', 'skipped', True),
-                                      ('push', 'failure', False)):
-            needs = {name: {'result': stress if name == 'new-tests-stress' else result} for name, result in ok.items()}
-            result = subprocess.run(['jq', '-e', '--arg', 'event', event, program], input=json.dumps(needs),
-                                    capture_output=True, text=True)
-            self.assertEqual(passes, result.returncode == 0, (event, stress))
 
 
 class L46(unittest.TestCase):
