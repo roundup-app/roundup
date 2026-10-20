@@ -529,3 +529,14 @@ async fn nr5_gaps_require_condition_specific_evidence() {
     assert!(after.observation.gap.unwrap().contains("expired"));
     assert_eq!(after.firings.len(), 1);
 }
+
+#[tokio::test]
+async fn nr7_a_pr_without_worktree_evidence_saves_nothing() {
+    let s = scene(&[]).await;
+    let mut body = definition(&s.w, "ship it");
+    body["condition"] =
+        json!({ "kind": "pr-checks", "repository": "github.com/acme/one", "number": 23 });
+    let err = s.user.request("reaction.create", body).await.unwrap_err();
+    assert!(err.message.contains("pr-checks"), "{}", err.message);
+    assert!(listed(&s.user).await.is_empty());
+}

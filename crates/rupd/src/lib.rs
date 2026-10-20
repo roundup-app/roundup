@@ -15,6 +15,7 @@ mod link;
 mod output;
 mod owner_told;
 mod reaction;
+mod reaction_checks;
 mod reaction_time;
 mod removal;
 mod resize;
@@ -606,6 +607,17 @@ impl Daemon {
             tokio::spawn(evaluator.run(events));
         }
         if let (Some(events), Some(sender)) = (events, self.sender.get()) {
+            // Once, with the other watchers: `start_pushes` runs on every call, and `events` is taken once.
+            tokio::spawn(
+                reaction_checks::Watcher {
+                    reactions: Arc::clone(&self.reactions),
+                    agents: Arc::clone(&self.agents),
+                    messages: Arc::clone(sender),
+                    bus: self.bus.clone(),
+                    touches: Arc::clone(&self.touches),
+                }
+                .run(),
+            );
             tokio::spawn(digest::push_changes(
                 self.reader(),
                 Arc::clone(sender),
