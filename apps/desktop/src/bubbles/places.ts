@@ -58,12 +58,22 @@ export const resizedAbout = (from: Place, zone: Pick<Zone, "sx" | "sy">, dx: num
   return clamped({ ...from, w, h, x: from.x + from.w / 2 - Math.max(w, 0) / 2, y: from.y + from.h / 2 - Math.max(h, 0) / 2 }, extent);
 };
 
-/** U2237: the whole pane. */
-const filled = (place: Place, extent: Extent): boolean => place.x === 0 && place.y === 0 && place.w === extent.width && place.h === extent.height;
+/** U2237, U2892b: the pane less the gap on each side, shrinking to the pane when it is smaller. */
+const fillOf = (extent: Extent): Rect => {
+  const gap = Math.min(STEP, extent.width / 2, extent.height / 2);
+
+  return { x: gap, y: gap, w: extent.width - 2 * gap, h: extent.height - 2 * gap };
+};
+
+const filled = (place: Place, extent: Extent): boolean => {
+  const fill = fillOf(extent);
+
+  return place.x === fill.x && place.y === fill.y && place.w === fill.w && place.h === fill.h;
+};
 
 /** U2237: a filled bubble returns to its `restore` rectangle, else it fills the pane and keeps its rectangle as `restore`. */
 export const toggledFill = (place: Place, extent: Extent): Place => {
-  if (!filled(place, extent)) return { ...place, x: 0, y: 0, w: extent.width, h: extent.height, restore: { x: place.x, y: place.y, w: place.w, h: place.h } };
+  if (!filled(place, extent)) return { ...place, ...fillOf(extent), restore: { x: place.x, y: place.y, w: place.w, h: place.h } };
 
   if (place.restore === undefined) return place;
 
