@@ -18,7 +18,7 @@ Policy: this scenario supersedes the bordered box and the grey selected ground o
 
 **U2234 rename stays inside the tab.** Given a Project tab (U183) or a Terminal tab (U511a) in rename, then opening the field does not select the tab, in the selected and an inactive tab. Asserted by `u2234_a_rename_field_opens_without_selecting_the_tab` for both surfaces.
 
-**U2235 many Terminal tabs stay inside the centre pane.** Narrows U534 only in tab look; every clause of U534 and U469's Dense layout stays. Given the selected Agent with 8 Runs (seed `bubbles`) and an open Shelf, at 1512 by 950, the one supported size (U453), in dark, then extra tabs are reached by keyboard focus, each tab's full name stays its accessible name, shown by the shared Tooltip when cut (U477 allows no new `title=`). Asserted by `u2235_flat_tabs_scroll_inside_the_pane_and_stay_reachable`.
+**U2235 many Terminal tabs stay inside the centre pane.** Narrows U534 only in tab look; every clause of U534 and U469's Dense layout stays. Given the selected Agent with 8 Runs (seed `bubbles`) and an open Shelf, at 1512 by 950, the one supported size (U453), in light and dark, then extra tabs are reached by keyboard focus, each tab's full name stays its accessible name, shown by the shared Tooltip when cut (U477 allows no new `title=`). Asserted by `u2235_flat_tabs_scroll_inside_the_pane_and_stay_reachable`.
 
 **Retirements and updates (policy).** The implementation run changes the checks that pinned the box or the pill, each naming the test that still proves its then-clause:
 - `u440_a_tab_is_one_bordered_box` is retired; `u440_boxed_tabs_keep_passing_checks` is retired; the design critic judges the Checks (AGENTS.md rule 10).
