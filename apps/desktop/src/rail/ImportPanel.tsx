@@ -49,12 +49,13 @@ export const ImportPanel = (props: { state: ImportState; disabled: boolean }) =>
           </ul>
         </>
       )}</Show>
-      <Show when={s().retentionFailure()}>
-        <ErrorLine message={copy.importRetentionFailure} />
-        <button data-button="quiet" class="word" onClick={() => s().retryStorage()}>{copy.retryStorage}</button>
-      </Show>
       <Show when={s().failure()}>{(message) => <ErrorLine message={message()} />}</Show>
       </div>
+      <Show when={s().retentionFailure()}>
+        <ErrorLine message={copy.importRetentionFailure} />
+        <p class="light">{copy.importRetentionRecovery}</p>
+        <button data-button="quiet" class="word" onClick={() => s().retryStorage()}>{copy.retryStorage}</button>
+      </Show>
       <div class="rail-import-actions">
         <button data-button="quiet" class="word" aria-disabled={props.disabled || s().pending() || !s().verified() || s().selected().size === 0 ? true : undefined}
           onClick={() => { if (!props.disabled) void s().confirm(); }}>

@@ -913,6 +913,10 @@
   padding: var(--space-3);
 }
 
+.rail-import > :not(.rail-import-scroll) {
+  flex: none;
+}
+
 .rail-import-scroll {
   display: flex;
   flex-direction: column;
