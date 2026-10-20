@@ -28,6 +28,28 @@ defaults:
     shell: bash
 
 jobs:
+  # L89: on a PR, what the diff reaches decides which lanes run; a lane the diff misses is skipped at job level and
+  # holds no runner. `main` pushes have no base, so `affected.py` prints `all` and every lane runs. The runner's own
+  # cargo suffices: `affected.py` only reads the manifests, and `stable` keeps rustup from fetching the pinned toolchain.
+  plan:
+    if: github.event_name != 'pull_request' || !github.event.pull_request.draft
+    runs-on: ubuntu-latest
+    outputs:
+      rust: ${{ steps.plan.outputs.rust }}
+      web: ${{ steps.plan.outputs.web }}
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+      - id: plan
+        env:
+          RUSTUP_TOOLCHAIN: stable
+        run: |
+          for lane in rust web; do
+            reached=$(python3 loop/affected.py "$lane" "$BASE")
+            echo "$lane=${reached:+true}" >>"$GITHUB_OUTPUT"
+          done
+
   # L89: the Rust checks that run no test binary.
   lint:
     if: github.event_name != 'pull_request' || !github.event.pull_request.draft
@@ -47,7 +69,8 @@ jobs:
   # the same tests (L82).
   # L84: on `main`, `rust 1` builds every test target, so it saves the Linux cache.
   rust:
-    if: github.event_name != 'pull_request' || !github.event.pull_request.draft
+    needs: plan
+    if: github.event_name != 'pull_request' || (!github.event.pull_request.draft && needs.plan.outputs.rust == 'true')
     name: rust ${{ matrix.partition }}
     strategy:
       fail-fast: false
@@ -93,7 +116,8 @@ jobs:
   # L89: clippy on macOS, whose `target_os = "macos"` code Linux never compiles. A lane of its own, in step with the
   # tests of `mac`: clippy's 36 s of work and its setup run beside them, not before. `mac` saves the cache.
   mac-clippy:
-    if: github.event_name != 'pull_request' || !github.event.pull_request.draft
+    needs: plan
+    if: github.event_name != 'pull_request' || (!github.event.pull_request.draft && needs.plan.outputs.rust == 'true')
     runs-on: macos-latest
     steps:
       - uses: actions/checkout@v5
@@ -106,7 +130,8 @@ jobs:
 
   # L89: the tests that take a macOS path, and the daemon smoke test, on the OS the App ships on.
   mac:
-    if: github.event_name != 'pull_request' || !github.event.pull_request.draft
+    needs: plan
+    if: github.event_name != 'pull_request' || (!github.event.pull_request.draft && needs.plan.outputs.rust == 'true')
     runs-on: macos-latest
     timeout-minutes: 12
     steps:
@@ -137,7 +162,8 @@ jobs:
   # held tests fit in this lane without a runner of their own. A failed step leaves later steps running, so one run
   # reports every failure.
   lint-web:
-    if: github.event_name != 'pull_request' || !github.event.pull_request.draft
+    needs: plan
+    if: github.event_name != 'pull_request' || (!github.event.pull_request.draft && needs.plan.outputs.web == 'true')
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
@@ -166,7 +192,8 @@ jobs:
   # (`just web-durations`), a file with none weighing the median. A full run is about 24 runner-minutes of tests; a PR's
   # diff usually reaches far fewer.
   web:
-    if: github.event_name != 'pull_request' || !github.event.pull_request.draft
+    needs: plan
+    if: github.event_name != 'pull_request' || (!github.event.pull_request.draft && needs.plan.outputs.web == 'true')
     name: web ${{ matrix.partition }}
     strategy:
       fail-fast: false
@@ -266,19 +293,22 @@ jobs:
           gh pr ready "$PR"
           [ -z "$merge" ] || gh pr merge "$PR" --auto "--$(tr "[:upper:]" "[:lower:]" <<<"$merge")"
 
-  # Keep the required check name; neither a skipped nor failed lane can turn it green. L82: when a newer push cancels
+  # Keep the required check name. A failed lane cannot turn it green; a skipped lane can only on a PR, where `plan` (which must
+  # itself succeed) skipped it (L89). L82: when a newer push cancels
   # this run, the gate ends `cancelled`: it blocks merge, starts no fix run and leaves `main` unjudged.
   check:
-    needs: [lint, rust, mac-clippy, mac, lint-web, web]
+    needs: [plan, lint, rust, mac-clippy, mac, lint-web, web]
     if: ${{ !cancelled() && (github.event_name != 'pull_request' || !github.event.pull_request.draft) }}
     runs-on: ubuntu-latest
     steps:
       - env:
           NEEDS: ${{ toJSON(needs) }}
-        run: jq -e 'map_values(.result) | ., all(.[]; . == "success")' <<<"$NEEDS"
+          EVENT: ${{ github.event_name }}
+        run: |
+          jq -e --arg event "$EVENT" 'map_values(.result) | ., (.plan == "success" and all(.[]; . == "success" or ($event == "pull_request" and . == "skipped")))' <<<"$NEEDS"
 
   summary:
-    needs: [lint, rust, mac-clippy, mac, lint-web, web, check]
+    needs: [plan, lint, rust, mac-clippy, mac, lint-web, web, check]
     if: always()
     permissions: {}
     uses: ./.github/workflows/summary.yml
