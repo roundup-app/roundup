@@ -634,7 +634,8 @@ const widest = (found: { diff: number; row: Element }[]): Measure => {
   return { ok: !worst || worst.diff <= 1, value: worst?.diff ?? 0, selector: worst ? selectorOf(worst.row) : "" };
 };
 
-// D12: Glyphs and titles align after U3708's declared tree indent; later lines start at their own title.
+// D12: U3726's tick-only rows share a title column; rows with the extra Glyph
+// keep their own column. U3708's tree indent shifts both; later lines align with their title.
 const d12 = (page: Page): Measure => {
   const rows = shelfRows(page);
 
@@ -652,9 +653,14 @@ const d12 = (page: Page): Measure => {
       ? (Number(row.getAttribute("aria-level")) - 1) * parseFloat(page.token("space-4") ?? "0") : 0;
 
     const glyphs = own.map(({ row }) => left(row.querySelector(".shelf-glyph")?.firstElementChild ?? null) - indent(row));
-    const titles = own.map(({ row }) => left(row.querySelector(".shelf-title")) - indent(row));
+
+    const tickOnly = (row: Element) => list === "todos" && row.querySelector(".shelf-glyph > .todo-tick") !== null
+      && row.querySelector(".shelf-glyph > [data-state]") === null;
 
     own.forEach(({ row }, index) => {
+      const titles = own.filter((one) => tickOnly(one.row) === tickOnly(row))
+        .map((one) => left(one.row.querySelector(".shelf-title")) - indent(one.row));
+
       found.push({ diff: Math.max(...glyphs) - Math.min(...glyphs), row: own[index]!.row });
       found.push({ diff: Math.max(...titles) - Math.min(...titles), row });
 
