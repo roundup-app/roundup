@@ -1,8 +1,16 @@
 //! NR1: saved reaction definitions in the Project database. Creation validates everything before it
 //! writes, and the Actor is the connection's, never the payload's. A firing is accepted by `messages` in the
-//! write that makes its Message (NR3); evaluating a condition is a later slice.
+//! write that makes its Message (NR3). NR2, NR4 and NR5: an Agents condition is evaluated here from
+//! `agent.status` Events and the Rail's present Kinds, never by a Model; PR checks and instants are later
+//! slices.
 use std::collections::HashSet;
 use std::sync::Arc;
+
+use contracts::agent::RailNode;
+use contracts::{Event, EventData};
+use rpc::Bus;
+use serde::{Deserialize, Serialize};
+use tokio::sync::broadcast::{Receiver, error::RecvError};
 
 use contracts::reaction::{
     Condition, CreateParams, Firing, Observation, Reaction, ReactionId, RunParams, State,
@@ -14,6 +22,7 @@ use serde_json::Value;
 use time::OffsetDateTime;
 use time::format_description::well_known::Rfc3339;
 
+use crate::digest::{Reader, World};
 use crate::wake::is_agent;
 use crate::{Conn, Daemon};
 
@@ -25,6 +34,10 @@ const SOURCES: [&str; 3] = ["agents", "pr-checks", "instant"];
 
 pub(crate) struct Reactions {
     pub(crate) db: std::sync::Mutex<Connection>,
+    /// Serialises activation and every evaluation, so no two decide one reaction at once.
+    gate: tokio::sync::Mutex<()>,
+    /// Subscribed at open, taken once by the evaluator, so no Event falls between open and run.
+    events: std::sync::Mutex<Option<Receiver<Event>>>,
 }
 
 impl Reactions {
@@ -34,13 +47,323 @@ impl Reactions {
             db: std::sync::Mutex::new(
                 Connection::open_in_memory().expect("test reaction database"),
             ),
+            gate: Default::default(),
+            events: Default::default(),
         }
     }
 
     pub(crate) fn open(data: &std::path::Path) -> Result<Self, rpc::OpenError> {
         Ok(Self {
             db: std::sync::Mutex::new(Connection::open(data.join("project.db"))?),
+            gate: Default::default(),
+            events: Default::default(),
         })
+    }
+
+    pub(crate) fn listen(&self, events: Receiver<Event>) {
+        *self.events.lock().expect("reaction events poisoned") = Some(events);
+    }
+
+    pub(crate) fn take_events(&self) -> Option<Receiver<Event>> {
+        self.events.lock().expect("reaction events poisoned").take()
+    }
+
+    fn watch(&self, id: &str) -> Option<Watch> {
+        let db = self.db.lock().expect("reaction database poisoned");
+        let state: Option<String> = db
+            .query_row(
+                "SELECT state FROM reaction_watch WHERE reaction=?1",
+                [id],
+                |r| r.get(0),
+            )
+            .optional()
+            .ok()
+            .flatten();
+        state.and_then(|state| serde_json::from_str(&state).ok())
+    }
+
+    fn save_watch(&self, id: &str, watch: &Watch) {
+        let state = serde_json::to_string(watch).expect("watch serialises");
+        let saved = self.db.lock().expect("reaction database poisoned").execute(
+            "INSERT INTO reaction_watch (reaction, state) VALUES (?1, ?2)
+             ON CONFLICT(reaction) DO UPDATE SET state = excluded.state",
+            params![id, state],
+        );
+        if let Err(err) = saved {
+            eprintln!("reaction: watch not kept: {err}");
+        }
+    }
+
+    /// Every active reaction whose condition is Agents.
+    fn agent_reactions(&self) -> Vec<Reaction> {
+        let db = self.db.lock().expect("reaction database poisoned");
+        let Ok(mut stmt) = db.prepare("SELECT record FROM reactions ORDER BY rowid") else {
+            return Vec::new();
+        };
+        let rows = stmt
+            .query_map([], |r| r.get::<_, String>(0))
+            .and_then(|rows| rows.collect::<Result<Vec<_>, _>>())
+            .unwrap_or_default();
+        rows.iter()
+            .filter_map(|record| read(record).ok())
+            .filter(|r| r.state == State::Active && matches!(r.condition, Condition::Agents { .. }))
+            .collect()
+    }
+}
+
+/// What the evaluator knows of one Agents reaction, saved after each decision.
+#[derive(Clone, Default, Serialize, Deserialize)]
+struct Watch {
+    /// The Event number up to which the reaction was decided.
+    seen: u64,
+    /// The named Agents seen finished since it was last armed.
+    finished: Vec<String>,
+    /// While not armed: the named Agents seen not finished since the last firing.
+    unfinished: Vec<String>,
+    armed: bool,
+    /// Automatic firings accepted; the next one's operation is `auto-<round + 1>`, so a retry after a
+    /// crash between the acceptance and this save returns the firing already made.
+    round: u32,
+    health: String,
+    gap: Option<String>,
+    recovery: Option<String>,
+    evidence: Option<String>,
+}
+
+impl Watch {
+    /// NR4: only a finish seen while armed counts; once fired, every named Agent must be seen not
+    /// finished before the next finish does, so a still-true condition never re-arms.
+    fn observe(&mut self, ids: &[String], id: &str, finished: bool) {
+        if finished {
+            if self.armed && !self.finished.iter().any(|f| f == id) {
+                self.finished.push(id.to_owned());
+            }
+        } else if !self.armed && !self.unfinished.iter().any(|f| f == id) {
+            self.unfinished.push(id.to_owned());
+            if ids.iter().all(|id| self.unfinished.contains(id)) {
+                self.armed = true;
+                self.unfinished.clear();
+                self.finished.clear();
+            }
+        }
+    }
+
+    fn unavailable(&mut self, gap: String, recovery: &str) {
+        self.health = "unavailable".into();
+        self.gap = Some(gap);
+        self.recovery = Some(recovery.into());
+    }
+}
+
+/// NR2: follows the Events and fires a reaction whose Agents condition holds.
+#[derive(Clone)]
+pub(crate) struct Evaluator {
+    pub reactions: Arc<Reactions>,
+    pub reader: Reader,
+    pub messages: Arc<messages::Messages>,
+    pub bus: Bus,
+}
+
+fn kind_of(world: &World, id: &str) -> Option<contracts::Kind> {
+    node_of(world, id).and_then(|node| node.status.as_ref().map(|status| status.kind))
+}
+
+fn node_of<'a>(world: &'a World, id: &str) -> Option<&'a RailNode> {
+    world
+        .nodes()
+        .iter()
+        .find(|node| node.id == id && is_agent(node))
+}
+
+impl Evaluator {
+    /// Runs until the Bus closes: every Agents reaction is decided again from the log at the start and
+    /// after a lag, and each live Event decides them.
+    pub(crate) async fn run(self, mut events: Receiver<Event>) {
+        self.each(None).await;
+        loop {
+            match events.recv().await {
+                Ok(event) => {
+                    if matches!(
+                        event.data,
+                        EventData::AgentStatus(_) | EventData::RailChanged
+                    ) {
+                        self.each(Some(&event)).await;
+                    }
+                }
+                Err(RecvError::Lagged(_)) => self.each(None).await,
+                Err(RecvError::Closed) => return,
+            }
+        }
+    }
+
+    async fn each(&self, live: Option<&Event>) {
+        for reaction in self.reactions.agent_reactions() {
+            self.observe(&reaction, live).await;
+        }
+    }
+
+    /// NR2: starts watching `reaction` if it is not, then decides it. The head is read before the Rail,
+    /// so a finish between the two is replayed rather than missed.
+    pub(crate) async fn observe(&self, reaction: &Reaction, live: Option<&Event>) {
+        let _gate = self.reactions.gate.lock().await;
+        let head = self
+            .bus
+            .subscribe_after(None)
+            .map_or(0, |events| events.head());
+        let mut watch = self.reactions.watch(&reaction.id).unwrap_or_else(|| Watch {
+            seen: head,
+            armed: true,
+            health: "observing".into(),
+            ..Watch::default()
+        });
+        self.decide(reaction, &mut watch, head, live).await;
+        self.reactions.save_watch(&reaction.id, &watch);
+    }
+
+    async fn decide(&self, r: &Reaction, w: &mut Watch, head: u64, live: Option<&Event>) {
+        let Condition::Agents { ids, any } = &r.condition else {
+            return;
+        };
+        let Ok(expires) = instant("expires_at", &r.expires_at) else {
+            return;
+        };
+        let used = self
+            .messages
+            .firings_of(&r.id)
+            .map_or(u32::MAX, |f| u32::try_from(f.len()).unwrap_or(u32::MAX));
+        if r.state != State::Active || used >= r.max_firings || OffsetDateTime::now_utc() >= expires
+        {
+            return;
+        }
+        let world =
+            match self.reader.world().await {
+                Ok(world) => world,
+                Err(err) => {
+                    w.unavailable(
+                    format!("the Agent state was not read after Event {}: {}", w.seen, err.message),
+                    "observation resumes at the next successful read; nothing matches meanwhile",
+                );
+                    return;
+                }
+            };
+        let mut events = match self.bus.saved_after(w.seen) {
+            Ok((events, _)) => events,
+            Err(err) if err.code == code::EVENTS_EXPIRED => {
+                w.gap = Some(format!("the Event history after {} expired", w.seen));
+                w.recovery = Some(
+                    "the present state of every named Agent decides; an Agent without one stays unmatched"
+                        .into(),
+                );
+                w.seen = head;
+                Vec::new()
+            }
+            Err(err) => {
+                w.unavailable(
+                    format!("the Events after {} were not read: {}", w.seen, err.message),
+                    "observation resumes at the next successful read; nothing matches meanwhile",
+                );
+                return;
+            }
+        };
+        if let Some(event) = live
+            && event.seq.is_none_or(|seq| {
+                seq > w.seen
+                    && events
+                        .last()
+                        .and_then(|e| e.seq)
+                        .is_none_or(|last| seq > last)
+            })
+        {
+            events.push(event.clone());
+        }
+        for event in &events {
+            if let Some(seq) = event.seq {
+                w.seen = w.seen.max(seq);
+            }
+            if let EventData::AgentStatus(status) = &event.data
+                && ids.contains(&status.id)
+            {
+                w.observe(
+                    ids,
+                    &status.id,
+                    messages::wake::finished(status.status.kind),
+                );
+            }
+        }
+        let gone: Vec<&String> = ids
+            .iter()
+            .filter(|id| kind_of(&world, id).is_none())
+            .collect();
+        if !gone.is_empty() || node_of(&world, &r.target).is_none() {
+            let names: Vec<&str> = gone
+                .iter()
+                .map(|id| id.as_str())
+                .chain(
+                    node_of(&world, &r.target)
+                        .is_none()
+                        .then_some(r.target.as_str()),
+                )
+                .collect();
+            w.unavailable(
+                format!(
+                    "{} no longer names an Agent with a state; no condition matches it",
+                    names.join(", ")
+                ),
+                "stop this reaction and create one naming the Agents that exist",
+            );
+            return;
+        }
+        for id in ids {
+            if let Some(kind) = kind_of(&world, id) {
+                w.observe(ids, id, messages::wake::finished(kind));
+            }
+        }
+        w.health = "observing".into();
+        let facts: Vec<serde_json::Value> = ids
+            .iter()
+            .filter_map(|id| node_of(&world, id))
+            .map(|node| serde_json::json!({ "id": node.id, "name": node.name, "kind": node.status.as_ref().map(|s| s.kind) }))
+            .collect();
+        let evidence = serde_json::json!({
+            "source": "agents",
+            "condition": if any.unwrap_or(false) { "any" } else { "all" },
+            "cursor": w.seen,
+            "finished": w.finished,
+            "agents": facts,
+            "reported": true,
+        })
+        .to_string();
+        w.evidence = Some(evidence.clone());
+        let holds = if any.unwrap_or(false) {
+            !w.finished.is_empty()
+        } else {
+            ids.iter().all(|id| w.finished.contains(id))
+        };
+        if !(w.armed && holds) {
+            return;
+        }
+        let fired = self
+            .messages
+            .fire_reaction(messages::reaction::Fire {
+                reaction: r.id.clone(),
+                operation: format!("auto-{}", w.round + 1),
+                to: r.target.clone(),
+                body: r.instruction.clone(),
+                evidence,
+                matched: true,
+            })
+            .await;
+        match fired {
+            Ok(_) => {
+                w.round += 1;
+                w.armed = false;
+                w.finished.clear();
+                w.unfinished.clear();
+            }
+            // Stopped, or the bound was spent by an explicit run first: nothing more is accepted.
+            Err(err) if err.code == code::CONFLICT => {}
+            Err(err) => eprintln!("reaction {}: not fired: {}", r.id, err.message),
+        }
     }
 }
 
@@ -221,21 +544,26 @@ impl Daemon {
                     }
                     _ => None,
                 };
-                self.reaction_create(actor, &world, p, pin)?
+                let created = self.reaction_create(actor, &world, p, pin)?;
+                if let Some(evaluator) = self.evaluator() {
+                    evaluator.observe(&created, None).await;
+                }
+                self.with_firings(created)?
             }
             "reaction.list" => {
-                let db = self
-                    .reactions
-                    .db
-                    .lock()
-                    .expect("reaction database poisoned");
-                let mut stmt = db
-                    .prepare("SELECT actor_key, record FROM reactions ORDER BY rowid")
-                    .map_err(RpcError::internal)?;
-                let rows = stmt
-                    .query_map([], |r| Ok((r.get::<_, String>(0)?, r.get::<_, String>(1)?)))
-                    .and_then(|rows| rows.collect::<Result<Vec<_>, _>>())
-                    .map_err(RpcError::internal)?;
+                let rows = {
+                    let db = self
+                        .reactions
+                        .db
+                        .lock()
+                        .expect("reaction database poisoned");
+                    let mut stmt = db
+                        .prepare("SELECT actor_key, record FROM reactions ORDER BY rowid")
+                        .map_err(RpcError::internal)?;
+                    stmt.query_map([], |r| Ok((r.get::<_, String>(0)?, r.get::<_, String>(1)?)))
+                        .and_then(|rows| rows.collect::<Result<Vec<_>, _>>())
+                        .map_err(RpcError::internal)?
+                };
                 let mine = key(actor);
                 let list = rows
                     .iter()
@@ -279,6 +607,16 @@ impl Daemon {
                 definition: f.definition,
             })
             .collect();
+        if let Some(watch) = self.reactions.watch(&saved.id) {
+            saved.observation = Observation {
+                health: watch.health,
+                cursor: Some(watch.seen),
+                gap: watch.gap,
+                recovery: watch.recovery,
+                evidence: watch.evidence,
+                ..saved.observation
+            };
+        }
         saved.remaining = saved
             .max_firings
             .saturating_sub(u32::try_from(saved.firings.len()).unwrap_or(u32::MAX));
@@ -406,6 +744,9 @@ impl Daemon {
                 cursor: None,
                 pinned_head: pin,
                 cause: None,
+                gap: None,
+                recovery: None,
+                evidence: None,
             },
             firings: Vec::new(),
         };

@@ -452,7 +452,11 @@ impl Daemon {
             pushes: std::sync::Mutex::new(Some(bus.subscribe())),
             resources: Default::default(),
             publications: deliverables::Publications::open(dir)?,
-            reactions: Arc::new(reaction::Reactions::open(dir)?),
+            reactions: {
+                let reactions = reaction::Reactions::open(dir)?;
+                reactions.listen(bus.subscribe());
+                Arc::new(reactions)
+            },
             prompt_effect_gate: std::env::var_os("RUPD_PROMPT_EFFECT_GATE").map(Into::into),
             waits: std::sync::Mutex::new(Some((
                 bus.subscribe(),
@@ -583,6 +587,9 @@ impl Daemon {
         if let (Some(events), Some(waker)) = (wake_events, self.waker()) {
             tokio::spawn(waker.run(events));
         }
+        if let (Some(events), Some(evaluator)) = (self.reactions.take_events(), self.evaluator()) {
+            tokio::spawn(evaluator.run(events));
+        }
         if let (Some(events), Some(sender)) = (events, self.sender.get()) {
             // Once, with the other watchers: `start_pushes` runs on every call, and `events` is taken once.
             tokio::spawn(
@@ -602,6 +609,15 @@ impl Daemon {
                 events,
             ));
         }
+    }
+
+    fn evaluator(&self) -> Option<reaction::Evaluator> {
+        Some(reaction::Evaluator {
+            reactions: Arc::clone(&self.reactions),
+            reader: self.reader(),
+            messages: Arc::clone(self.sender.get()?),
+            bus: self.bus.clone(),
+        })
     }
 
     fn waker(&self) -> Option<wake::Waker> {
