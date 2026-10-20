@@ -38,7 +38,7 @@ export const ImportPanel = (props: { state: ImportState; disabled: boolean }) =>
           <ul class="rail-import-list">
             <For each={found().candidates}>{(candidate) => (
               <li>
-                <Checkbox checked={s().selected().has(candidate.source)} disabled={s().pending()} onCheckedChange={(chosen) => s().choose(candidate.source, candidate.title, candidate.revision, chosen)}>
+                <Checkbox checked={s().selected().has(candidate.source)} onCheckedChange={(chosen) => s().choose(candidate.source, candidate.title, candidate.revision, chosen)}>
                   <span class="rail-import-title">{candidate.title}</span>
                   <Show when={candidate.cwd !== ""}><span class="light rail-import-cwd">{candidate.cwd}</span></Show>
                 </Checkbox>
@@ -49,6 +49,10 @@ export const ImportPanel = (props: { state: ImportState; disabled: boolean }) =>
           </ul>
         </>
       )}</Show>
+      <Show when={s().retentionFailure()}>
+        <ErrorLine message={copy.importRetentionFailure} />
+        <button data-button="quiet" class="word" onClick={() => s().retryStorage()}>{copy.retryStorage}</button>
+      </Show>
       <Show when={s().failure()}>{(message) => <ErrorLine message={message()} />}</Show>
       </div>
       <div class="rail-import-actions">

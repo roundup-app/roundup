@@ -327,6 +327,7 @@ export const copy = {
   clearName: (value1: CopyValue) => `Clear ${value1}`,
   addWorkstream: "Add Workstream",
   addWorkstreamWord: " Workstream",
+  importRetentionFailure: "Import choices could not be saved for reload. Keep this window open; your choices are still here. Retry storage before closing.",
   importWork: "Import Claude Code work",
   importPeriod: "Period",
   importDay: "Last day",

@@ -1,5 +1,6 @@
 import { createContext, createRoot, createSignal, getOwner, onCleanup, useContext } from "solid-js";
 import type { Accessor } from "solid-js";
+import { createImport } from "../rail/importState";
 import { draftStorage } from "./storage";
 import { checkContract } from "../app/contractMatch";
 import { connectEvents } from "../app/events";
@@ -111,6 +112,7 @@ export type ConnectedProject = {
   app: AppSeam;
   events: Events;
   rail: RailState;
+  importing: ReturnType<typeof createImport>;
   worktrees: ReturnType<typeof createWorktreeState>;
   drawer: DrawerState;
   decisions: DecisionsState;
@@ -160,7 +162,11 @@ export const connectProject = async (
 
   if (ended) stopDecisions();
 
-  return { project, drafts, app, events, rail, worktrees: createWorktreeState(app, rail, now, daemonExit), drawer: createDrawer(), decisions, asks: createAsks(app, events), takeover: createTakeover(app, events, daemonExit), reducedMotion, now, contractNotice, daemonExit, stopTerminalScheme: () => { stopDecisions(); stopTerminalScheme(); } };
+  const importing = createImport(app, project.path, (id) => {
+    void rail.refresh().then(() => rail.select(id));
+  });
+
+  return { project, drafts, app, events, rail, importing, worktrees: createWorktreeState(app, rail, now, daemonExit), drawer: createDrawer(), decisions, asks: createAsks(app, events), takeover: createTakeover(app, events, daemonExit), reducedMotion, now, contractNotice, daemonExit, stopTerminalScheme: () => { stopDecisions(); stopTerminalScheme(); } };
 };
 
 /** App-run authority for owners outside a connection, including Project tabs.

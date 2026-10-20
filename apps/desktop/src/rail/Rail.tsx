@@ -28,7 +28,6 @@ import type { RowActions } from "./RowIcons";
 import type { SpawnParams } from "@contracts/agent/SpawnParams";
 import { ClearPrompt } from "./ClearPrompt";
 import { ImportPanel } from "./ImportPanel";
-import { createImport } from "./importState";
 import { INTERNAL_CODE, RpcError } from "../app/seam";
 import { clearingOf } from "./clear";
 import { draftsOf } from "./persist/storage";
@@ -51,7 +50,7 @@ export const Rail = () => {
   const revisions = createMemo(() => new Map(retained.records().map((draft) => [draft.revision, draft])));
   const menu = createRailMenu(app, rail, setFailure, connected.events, connected.drafts);
 
-  const importing = createImport(app, project.path, (id) => setWanted(id));
+  const importing = connected.importing;
 
   const clearPrompt = createMemo(() => {
     const node = menu.clearTarget();
