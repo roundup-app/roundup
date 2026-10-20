@@ -24,7 +24,7 @@ const MAX_INSTRUCTION: usize = 16 * 1024;
 const SOURCES: [&str; 3] = ["agents", "pr-checks", "instant"];
 
 pub(crate) struct Reactions {
-    db: std::sync::Mutex<Connection>,
+    pub(crate) db: std::sync::Mutex<Connection>,
 }
 
 impl Reactions {
@@ -41,6 +41,56 @@ impl Reactions {
         Ok(Self {
             db: std::sync::Mutex::new(Connection::open(data.join("project.db"))?),
         })
+    }
+}
+
+impl Reactions {
+    /// Every saved reaction still active, oldest first.
+    pub(crate) fn active(&self) -> Result<Vec<Reaction>, RpcError> {
+        let db = self.db.lock().expect("reaction database poisoned");
+        let mut stmt = db
+            .prepare("SELECT record FROM reactions ORDER BY rowid")
+            .map_err(RpcError::internal)?;
+        let rows = stmt
+            .query_map([], |r| r.get::<_, String>(0))
+            .and_then(|rows| rows.collect::<Result<Vec<_>, _>>())
+            .map_err(RpcError::internal)?;
+        rows.iter()
+            .map(|record| read(record))
+            .filter(|saved| saved.as_ref().map_or(true, |s| s.state == State::Active))
+            .collect()
+    }
+
+    /// Records what the observer saw. A reaction stopped meanwhile stays stopped.
+    pub(crate) fn observe(
+        &self,
+        id: &str,
+        health: &str,
+        cause: Option<String>,
+        end: Option<State>,
+    ) {
+        let db = self.db.lock().expect("reaction database poisoned");
+        let saved = db
+            .query_row("SELECT record FROM reactions WHERE id=?1", [id], |r| {
+                r.get::<_, String>(0)
+            })
+            .optional();
+        let Ok(Some(record)) = saved else { return };
+        let Ok(mut saved) = read(&record) else { return };
+        if saved.state != State::Active {
+            return;
+        }
+        saved.observation.health = health.into();
+        saved.observation.cause = cause;
+        if let Some(state) = end {
+            saved.state = state;
+        }
+        if let Ok(record) = serde_json::to_string(&saved) {
+            let _ = db.execute(
+                "UPDATE reactions SET record=?2 WHERE id=?1",
+                params![id, record],
+            );
+        }
     }
 }
 
@@ -156,7 +206,22 @@ impl Daemon {
             "reaction.create" => {
                 supported(&args)?;
                 let p: CreateParams = rpc::params(args)?;
-                self.reaction_create(actor, &world, p)?
+                let pin = match &p.condition {
+                    Condition::PrChecks { repository, number } => {
+                        Some(crate::reaction_checks::pin(
+                            crate::reaction_checks::read(
+                                &self.agents,
+                                &self.ctx(Actor::daemon()),
+                                &p.target,
+                            )
+                            .await,
+                            repository,
+                            *number,
+                        ))
+                    }
+                    _ => None,
+                };
+                self.reaction_create(actor, &world, p, pin)?
             }
             "reaction.list" => {
                 let db = self
@@ -265,6 +330,7 @@ impl Daemon {
         actor: &Actor,
         world: &crate::digest::World,
         p: CreateParams,
+        pin: Option<Result<String, RpcError>>,
     ) -> Result<Reaction, RpcError> {
         let request = serde_json::to_string(&p).map_err(RpcError::internal)?;
         let mut db = self
@@ -308,6 +374,7 @@ impl Daemon {
                 node(id)?;
             }
         }
+        let pin = pin.transpose()?;
         let project: String = tx
             .query_row("SELECT id FROM reaction_project", [], |r| r.get(0))
             .map_err(RpcError::internal)?;
@@ -330,8 +397,15 @@ impl Daemon {
             created_at: now.format(&Rfc3339).map_err(RpcError::internal)?,
             state: State::Active,
             observation: Observation {
-                health: "not-observing".into(),
+                health: if pin.is_some() {
+                    "waiting"
+                } else {
+                    "not-observing"
+                }
+                .into(),
                 cursor: None,
+                pinned_head: pin,
+                cause: None,
             },
             firings: Vec::new(),
         };

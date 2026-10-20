@@ -3,4 +3,12 @@
 /**
  * Whether the condition's source is being watched; `not-observing` until its slice lands.
  */
-export type Observation = { health: string, cursor: number | null, };
+export type Observation = { health: string, cursor: number | null, 
+/**
+ * NR7: the PR head a PrChecks reaction is pinned to.
+ */
+pinned_head?: string, 
+/**
+ * NR7: why the condition cannot match now, or why it was invalidated; absent while it can.
+ */
+cause?: string, };

@@ -262,3 +262,14 @@ async fn nr8_existing_delivery_guards_and_reported_outcomes() {
     assert_eq!(evidence["reported"], json!(true));
     assert!(!firing.matched);
 }
+
+#[tokio::test]
+async fn nr7_a_pr_without_worktree_evidence_saves_nothing() {
+    let s = scene(&[]).await;
+    let mut body = definition(&s.w, "ship it");
+    body["condition"] =
+        json!({ "kind": "pr-checks", "repository": "github.com/acme/one", "number": 23 });
+    let err = s.user.request("reaction.create", body).await.unwrap_err();
+    assert!(err.message.contains("pr-checks"), "{}", err.message);
+    assert!(listed(&s.user).await.is_empty());
+}

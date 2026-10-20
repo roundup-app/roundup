@@ -19,7 +19,8 @@ pub enum Condition {
         #[ts(optional)]
         any: Option<bool>,
     },
-    /// The required checks of a named PR's head passed.
+    /// The required checks of a named PR's head passed. `repository` is `host/owner/name`; the PR is the
+    /// one the target Agent's Worktree holds, and its head is pinned at activation.
     PrChecks { repository: String, number: u32 },
     /// One explicit instant: RFC 3339 with its UTC offset, and what to do when it is missed.
     Instant { at: String, late: LatePolicy },
@@ -82,6 +83,8 @@ pub struct RunParams {
 pub enum State {
     Active,
     Stopped,
+    /// NR7: the pinned PR head moved; a replacement is an explicit new reaction.
+    Invalidated,
 }
 
 /// Whether the condition's source is being watched; `not-observing` until its slice lands.
@@ -91,6 +94,14 @@ pub struct Observation {
     pub health: String,
     #[ts(type = "number | null")]
     pub cursor: Option<u64>,
+    /// NR7: the PR head a PrChecks reaction is pinned to.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[ts(optional)]
+    pub pinned_head: Option<String>,
+    /// NR7: why the condition cannot match now, or why it was invalidated; absent while it can.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[ts(optional)]
+    pub cause: Option<String>,
 }
 
 /// An accepted firing and the Message it made (NR3, NR8). `matched` says whether a condition held; an
