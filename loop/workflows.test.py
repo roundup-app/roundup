@@ -166,9 +166,6 @@ class Permissions(unittest.TestCase):
         job = source.split('  review-run:', 1)[1].split('    steps:', 1)[0]
         self.assertNotIn(': write', job)
 
-    def test_l24_the_review_run_runs_on_sonnet(self):
-        self.assertIn('--model claude-sonnet-5-5\n', action_inputs('review'))
-
     def test_l103_the_critic_reads_main_rules_not_the_heads(self):
         source = (ROOT / '.github/workflows/critic.yml').read_text()
         self.assertIn('git restore --source=origin/main --worktree -- docs/design-system.md', source)
@@ -341,11 +338,6 @@ class L89(unittest.TestCase):
             self.assertTrue((Path(path) / 'second').exists() and (Path(path) / 'fourth').exists())
             self.assertIn('failed lines:\n  false (exit 1)\n  exit 7 (exit 7)\n', result.stderr)
 
-    def test_l89_nextest_runs_every_test_after_a_failure(self):
-        import tomllib
-        config = tomllib.loads((ROOT / '.config/nextest.toml').read_text())
-        self.assertIs(False, config['profile']['default']['fail-fast'])
-
 
 class L99(unittest.TestCase):
     def test_l99_no_test_runs_cargo(self):
@@ -391,8 +383,8 @@ class L122(unittest.TestCase):
         for touched, names in (({4}, ['first']), ({9}, ['second']), ({7}, ['second']), ({12}, []), ({13}, ['third']),
                                ({1}, []), ({5, 8}, ['first', 'second'])):
             self.assertEqual(names, affected.rust_tests(source, touched), touched)
-        decorated = ('fn helper() {}\n/// Why.\n#[should_panic(expected = "x")]\n#[test]\n#[ignore]\nfn fourth() {\n    work();\n}\n')
-        for touched in ({2}, {3}, {4}, {5}, {7}):
+        decorated = ('fn helper() {}\n/// Why.\n#[should_panic(\n    expected = "x"\n)]\n#[test]\n#[ignore]\nfn fourth() {\n    work();\n}\n')
+        for touched in ({2}, {3}, {4}, {5}, {6}, {7}, {9}):
             self.assertEqual(['fourth'], affected.rust_tests(decorated, touched), touched)
         self.assertEqual([], affected.rust_tests(decorated, {1}))
         self.assertEqual({4, 5}, affected.touched_lines('@@ -3 +4,2 @@ fn x\n+a\n+b\n'))

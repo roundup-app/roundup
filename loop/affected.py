@@ -78,6 +78,19 @@ def is_web_test(path):
     return path.startswith(APP + 'src/') and path.endswith(('.test.ts', '.test.tsx'))
 
 
+def decoration_start(lines, index):
+    """The index of the first line of the doc comment or whole attribute that ends at `lines[index]`, or None when that
+    line ends neither; an attribute may span lines, balanced by its brackets."""
+    if re.match(r'\s*///', lines[index]):
+        return index
+    depth = 0
+    for first in range(index, -1, -1):
+        depth += lines[first].count('[') - lines[first].count(']')
+        if depth == 0:
+            return first if lines[first].lstrip().startswith('#[') else None
+    return None
+
+
 def rust_tests(source, touched):
     """The names of the Rust test functions of `source` (text) that a line of `touched` (1-based numbers) falls in, from
     the first attribute or doc comment of its run above the test to the closing brace at the `fn` line's indent."""
@@ -93,8 +106,8 @@ def rust_tests(source, touched):
         end = fn if lines[fn].rstrip().endswith('}') else next(
             (n for n in range(fn + 1, len(lines)) if lines[n].rstrip() == indent + '}'), len(lines) - 1)
         first = start
-        while first and re.match(r'\s*(?:#\[|///)', lines[first - 1]):
-            first -= 1
+        while first and (decorated := decoration_start(lines, first - 1)) is not None:
+            first = decorated
         if any(first < number <= end + 1 for number in touched):
             names.append(re.search(r'fn\s+(\w+)', lines[fn])[1])
     return names
