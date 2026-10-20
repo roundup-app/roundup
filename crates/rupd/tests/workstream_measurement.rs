@@ -464,6 +464,62 @@ async fn u3016d_reconnect_reconciles_without_double_counting() {
 }
 
 #[tokio::test]
+async fn u3016d_skipped_requests_remain_uncovered_after_success_and_reopen() {
+    let mut w = World::start().await;
+    let mut missing_identity = request("rejected", 99);
+    missing_identity
+        .as_object_mut()
+        .unwrap()
+        .remove("requestId");
+    w.append(missing_identity);
+    tokio::time::timeout(Duration::from_secs(3), async {
+        loop {
+            if w.read().await["sources"][0]["cause"]
+                .as_str()
+                .is_some_and(|cause| cause.contains("request identity unavailable"))
+            {
+                break;
+            }
+            tokio::time::sleep(Duration::from_millis(20)).await;
+        }
+    })
+    .await
+    .unwrap();
+    w.append(request("accepted", 20));
+    let good = w.contributions(1).await;
+    w.reopen().await;
+    let reopened = w.contributions(1).await;
+    assert_eq!(reopened["contributions"], good["contributions"]);
+    let cli =
+        tokio::process::Command::new(Path::new(env!("CARGO_BIN_EXE_rupd")).with_file_name("rup"))
+            .args(["--json", "project", "measurements", "--agent", &w.agent])
+            .env("RUPD_SOCKET", &w.daemon.socket)
+            .output()
+            .await
+            .unwrap();
+    assert!(
+        cli.status.success(),
+        "{}",
+        String::from_utf8_lossy(&cli.stderr)
+    );
+    let public: Value = serde_json::from_slice(&cli.stdout).unwrap();
+    for read in [&good, &reopened, &public] {
+        assert!(
+            read["sources"][0]["coverage"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .any(|gap| {
+                    gap.as_str().is_some_and(|gap| {
+                        gap.contains("skipped") && gap.contains("request identity unavailable")
+                    })
+                }),
+            "skipped requests must remain disclosed: {read}"
+        );
+    }
+}
+
+#[tokio::test]
 async fn u3016d_empty_collection_failures_notify_subscribers() {
     let w = World::start().await;
     w.append(json!({"type":"result"}));
