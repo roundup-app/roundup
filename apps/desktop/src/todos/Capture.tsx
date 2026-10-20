@@ -21,7 +21,7 @@ export const Capture = () => {
   const [failure, setFailure] = createSignal<string | null>(null);
   const [failed, setFailed] = createSignal<string | null>(null);
   let returnTo: Element | null = null;
-  let input: HTMLInputElement | undefined;
+  let input: HTMLTextAreaElement | undefined;
   let panel: HTMLElement | undefined;
 
   const show = () => {
@@ -89,9 +89,10 @@ export const Capture = () => {
         initialFocusEl={() => input ?? null}
         finalFocusEl={() => returnTo instanceof HTMLElement && returnTo.isConnected ? returnTo : null}
         onEscapeKeyDown={(event) => event.stopImmediatePropagation()}>
-        <Dialog.Content class="capture" aria-label={copy.captureLabel} ref={(element) => { panel = element; }}>
-          <input
+        <Dialog.Content class="capture" ref={(element) => { panel = element; }}>
+          <textarea
             class="capture-field"
+            rows={1}
             aria-label={copy.captureLabel}
             placeholder={copy.capturePlaceholder}
             value={text()}

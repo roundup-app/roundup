@@ -43,7 +43,7 @@ const mount = async () => {
   return { app, store, before };
 };
 
-const field = (): HTMLInputElement | null => screen.queryByRole<HTMLInputElement>("textbox", { name: "Capture a Todo" });
+const field = (): HTMLTextAreaElement | null => screen.queryByRole<HTMLTextAreaElement>("textbox", { name: "Capture a Todo" });
 
 const openField = async () => {
   leaderKey("KeyT");
