@@ -412,6 +412,12 @@ export const Todos = (props: {
     && draft.destination.object === "new" && draft.destination.recipient === creationHome()
     && (creationRevision() !== null ? draft.revision === creationRevision() : draft.status === "draft"));
 
+  createEffect(() => {
+    const revision = creationRevision();
+
+    if (typing() && revision !== null && !creation()) setTyping(false);
+  });
+
   let creationRow: HTMLDivElement | undefined;
 
   registerKeys({ kind: "region", element: () => creationRow }, [{
@@ -424,7 +430,15 @@ export const Todos = (props: {
     const previous = creation();
     const caret = { start: field.selectionStart ?? 0, end: field.selectionEnd ?? 0, direction: field.selectionDirection ?? "none" };
 
-    if ((!creationRevision() && field.value === "") || (!previous && field.value === "") || (previous?.value.title === field.value && (props.recovery || JSON.stringify(previous.selection) === JSON.stringify(caret)))) return;
+    if (creationRevision() !== null && !previous) return;
+
+    if (previous?.value.title === field.value) {
+      if ((!props.recovery || document.activeElement === field) && JSON.stringify(previous.selection) !== JSON.stringify(caret)) connected.drafts.setSelection(previous.revision, caret);
+
+      return;
+    }
+
+    if (field.value === "" && !previous) return;
 
     setCreationRevision(connected.drafts.edit(creationTarget(), { title: field.value, home: creationHome() }, caret, "ordinary", creationRevision()).draft.revision);
   };
