@@ -8,6 +8,8 @@ Terms: Project, Project data, Daemon, App (`GLOSSARY.md`). Related: N1 (`scenari
 
 **N7 every test launch keeps data temporary.** Given every repository test, harness and observer that launches the built `rupd`, including shell scripts and CI's ping round trip, when it launches, then it supplies a non-empty absolute `ROUNDUP_DATA_DIR` within a temporary folder owned by that run, never a caller's App data folder (`n7_launch_sites_use_owned_data`). When a run succeeds or fails after launch, then it waits for its Daemon to exit before deleting that folder (`n7_launch_sites_clean_on_success_and_failure`). The audit includes `crates/perf/src/measure.rs`, [U346's executable observer](../docs/evidence.md#u346-executable-observer), the real-Daemon harness recipe and workflow launches; entries that only name a fake executable or open a Daemon in-process are classified separately rather than mistaken for real launches (`n7_launch_sites_use_owned_data`). Policy: N1's explicit fallback observer is the sole exception to setting `ROUNDUP_DATA_DIR`; it unsets it only with HOME and XDG_DATA_HOME pointing inside its own temporary directory, and removes that directory afterwards. Production Daemon launches retain N1's fallback.
 
+Cost observer (TC1): `n7_launch_sites_clean_on_success_and_failure` needs actual child PIDs and reaping across launch, failed startup, failed restart and observer panic; a fake child cannot prove the Daemon exits before temporary data is deleted.
+
 **N8 CI detects an App data write.** Given each `check` job that runs tests or launches a real Daemon (every test runs there), when its test commands execute, then their HOME and XDG_DATA_HOME resolve inside a fresh temporary guard directory; toolchain and dependency locations can remain explicit paths outside it (`n8_guard_wraps_all_test_jobs`). When the commands finish, including a non-zero exit, then the guard checks the macOS `Library/Application Support/dev.roundup.app`, Linux `.local/share/dev.roundup.app` and XDG `dev.roundup.app` locations inside that directory, prints one row per failure and exits as follows (`n8_guard_reports_writes_and_command_failure`):
 
 | Failure | Row | Exit |
@@ -27,3 +29,5 @@ Policy: this work deletes none of the user's existing folders, including earlier
 3. `crates/rupd/src/data.rs:18` resolves the data folder; lines 37–43 define the macOS and Linux fallback paths.
 4. `crates/perf/src/measure.rs:215` and `:264` launch real Daemons without a data override.
 5. `.github/workflows/check.yml:37`, `:56` and `:70` run test commands; line 42 also launches a real Daemon.
+
+R2965 observer requirement for N7: `perf::n7_launch_sites_clean_on_success_and_failure`: run the perf executable's two launch sites with the built Daemon, on success and hook failure; inspect data directories and OS process liveness. A substituted launcher cannot reveal an unreaped actual Daemon or a missing data override at either executable boundary.

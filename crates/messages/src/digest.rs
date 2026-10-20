@@ -637,6 +637,7 @@ mod tests {
                 parent: None,
             },
             home: Some("m".into()),
+            owner: None,
         }
     }
 

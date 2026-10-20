@@ -30,7 +30,14 @@ async fn screen_with(client: &Client, id: &str, text: &str) -> Value {
             .request("terminal.screen", json!({ "id": id }))
             .await
             .unwrap();
-        if screen["lines"].to_string().contains(text) {
+        // The echoed input also holds `text`; the output line is the one equal to it,
+        // and the prompt after it means the screen has stopped changing.
+        let lines = screen["lines"].as_array().unwrap();
+        if lines
+            .iter()
+            .position(|l| l == text)
+            .is_some_and(|at| at + 1 < lines.len())
+        {
             return screen;
         }
         tokio::time::sleep(Duration::from_millis(50)).await;

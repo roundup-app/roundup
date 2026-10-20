@@ -50,7 +50,12 @@ pub(crate) fn compose(nodes: &[RailNode], todos: &[Todo], id: &str) -> Result<Co
     let todos = todos
         .iter()
         .filter(|todo| {
-            !todo.done && todo.creator.kind == ActorKind::Agent && todo.creator.id == node.id
+            let is_node = |actor: &Actor| actor.kind == ActorKind::Agent && actor.id == node.id;
+            !todo.done
+                && match &todo.owner {
+                    Some(owner) => is_node(owner),
+                    None => is_node(&todo.creator),
+                }
         })
         .map(|todo| ContextTodo {
             id: todo.id,
@@ -207,6 +212,7 @@ mod tests {
                 parent: None,
             },
             home: None,
+            owner: None,
         }
     }
 
@@ -280,6 +286,44 @@ mod tests {
             .map(|todo| (todo.id, todo.blocked))
             .collect();
         assert_eq!(seen, [(1, false), (4, true)]);
+    }
+
+    #[test]
+    fn e2_lists_todos_an_agent_owns() {
+        let agent = |id: &str| Actor {
+            kind: ActorKind::Agent,
+            id: id.into(),
+            parent: None,
+        };
+        let mut todos = [
+            todo(1, "3", false, vec![], false),
+            todo(2, "3", false, vec![], false),
+            todo(3, "2", false, vec![], false),
+            todo(4, "3", true, vec![], false),
+        ];
+        todos[0].owner = Some(agent("2"));
+        todos[1].owner = Some(Actor::user());
+        todos[2].owner = Some(agent("3"));
+        todos[3].owner = Some(agent("2"));
+
+        let context = compose(&rail(), &todos, "2").unwrap();
+
+        let seen: Vec<_> = context.todos.iter().map(|todo| todo.id).collect();
+        assert_eq!(seen, [1]);
+    }
+
+    #[test]
+    fn e2_lists_its_unassigned_creations() {
+        let mut todos = [
+            todo(1, "2", false, vec![], false),
+            todo(2, "2", false, vec![], false),
+        ];
+        todos[1].owner = Some(Actor::user());
+
+        let context = compose(&rail(), &todos, "2").unwrap();
+
+        let seen: Vec<_> = context.todos.iter().map(|todo| todo.id).collect();
+        assert_eq!(seen, [1]);
     }
 
     #[test]

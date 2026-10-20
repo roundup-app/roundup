@@ -13,6 +13,10 @@ mod event_log;
 mod handshake;
 mod link;
 mod output;
+mod owner_told;
+mod reaction;
+mod reaction_checks;
+mod reaction_time;
 mod removal;
 mod resize;
 mod resources;
@@ -73,6 +77,7 @@ pub struct Daemon {
     pushes: std::sync::Mutex<Option<tokio::sync::broadcast::Receiver<contracts::Event>>>,
     /// B2704a: retain committed names even when the live event ring lags.
     renames: std::sync::Mutex<Option<rpc::Subscription>>,
+    owner_events: std::sync::Mutex<Option<rpc::Subscription>>,
     /// B41: subscribed at `open`, taken once with `pushes`.
     wake_events: std::sync::Mutex<Option<tokio::sync::broadcast::Receiver<contracts::Event>>>,
     /// B41: serialises the decisions on Wake requests.
@@ -90,6 +95,7 @@ pub struct Daemon {
     /// D8: samples only inside `project.resources`.
     resources: resources::Sampler,
     publications: deliverables::Publications,
+    reactions: Arc<reaction::Reactions>,
     /// B6's isolated observer pauses a Door action or guarded call before its effect; absent in production.
     prompt_effect_gate: Option<std::path::PathBuf>,
 }
@@ -439,6 +445,7 @@ impl Daemon {
             notes: std::sync::Mutex::new(Some(bus.subscribe())),
             wake_events: std::sync::Mutex::new(Some(bus.subscribe())),
             renames: std::sync::Mutex::new(Some(bus.subscribe_after(None)?)),
+            owner_events: std::sync::Mutex::new(Some(bus.subscribe_after(None)?)),
             wake_gate: Default::default(),
             clears: clear::Clears::new(Arc::clone(&agents)),
             checkpoints: Arc::clone(&checkpoints),
@@ -446,6 +453,11 @@ impl Daemon {
             pushes: std::sync::Mutex::new(Some(bus.subscribe())),
             resources: Default::default(),
             publications: deliverables::Publications::open(dir)?,
+            reactions: {
+                let reactions = reaction::Reactions::open(dir)?;
+                reactions.listen(bus.subscribe());
+                Arc::new(reactions)
+            },
             prompt_effect_gate: std::env::var_os("RUPD_PROMPT_EFFECT_GATE").map(Into::into),
             waits: std::sync::Mutex::new(Some((
                 bus.subscribe(),
@@ -560,6 +572,14 @@ impl Daemon {
         {
             tokio::spawn(wake::tell_renames(self.reader(), renames));
         }
+        if let Some(owner_events) = self
+            .owner_events
+            .lock()
+            .unwrap_or_else(|p| p.into_inner())
+            .take()
+        {
+            tokio::spawn(owner_told::tell_owners(self.reader(), owner_events));
+        }
         let wake_events = self
             .wake_events
             .lock()
@@ -568,7 +588,36 @@ impl Daemon {
         if let (Some(events), Some(waker)) = (wake_events, self.waker()) {
             tokio::spawn(waker.run(events));
         }
+        if let Some(sender) = self.sender.get().filter(|_| {
+            !self
+                .reactions
+                .timed
+                .swap(true, std::sync::atomic::Ordering::SeqCst)
+        }) {
+            tokio::spawn(
+                reaction_time::Timer::new(
+                    Arc::clone(&self.reactions),
+                    Arc::clone(&self.agents),
+                    Arc::clone(sender),
+                )
+                .run(),
+            );
+        }
+        if let (Some(events), Some(evaluator)) = (self.reactions.take_events(), self.evaluator()) {
+            tokio::spawn(evaluator.run(events));
+        }
         if let (Some(events), Some(sender)) = (events, self.sender.get()) {
+            // Once, with the other watchers: `start_pushes` runs on every call, and `events` is taken once.
+            tokio::spawn(
+                reaction_checks::Watcher {
+                    reactions: Arc::clone(&self.reactions),
+                    agents: Arc::clone(&self.agents),
+                    messages: Arc::clone(sender),
+                    bus: self.bus.clone(),
+                    touches: Arc::clone(&self.touches),
+                }
+                .run(),
+            );
             tokio::spawn(digest::push_changes(
                 self.reader(),
                 Arc::clone(sender),
@@ -576,6 +625,15 @@ impl Daemon {
                 events,
             ));
         }
+    }
+
+    fn evaluator(&self) -> Option<reaction::Evaluator> {
+        Some(reaction::Evaluator {
+            reactions: Arc::clone(&self.reactions),
+            reader: self.reader(),
+            messages: Arc::clone(self.sender.get()?),
+            bus: self.bus.clone(),
+        })
     }
 
     fn waker(&self) -> Option<wake::Waker> {
@@ -619,6 +677,7 @@ impl Daemon {
             // Preserve the wire reader's authenticated identity while earlier actions finish.
             conn.actor = actor.unwrap_or_else(|| self.decision_actor(conn));
         } else if method.starts_with("deliverable.")
+            || method.starts_with("reaction.")
             || matches!(
                 method,
                 "rail.rename"
@@ -828,6 +887,9 @@ impl Daemon {
         if namespace == "deliverable" {
             return self.deliverable_call(conn, method, params).await;
         }
+        if namespace == "reaction" {
+            return self.reaction_call(conn, method, params).await;
+        }
         if method == "attachment.save" {
             return self.attachments.save(params);
         }
@@ -875,6 +937,9 @@ impl Daemon {
                 return Err(RpcError::forbidden("an Agent may not move a pad"));
             }
             self.require_workstream(&params).await?;
+        }
+        if matches!(method, "todo.create" | "todo.assign") {
+            self.require_owner(&params).await?;
         }
         if matches!(
             method,
@@ -1004,6 +1069,7 @@ impl Daemon {
         }
         if method == "rail.remove" && outcome.is_ok() {
             self.reset_orphaned_homes().await?;
+            self.reset_orphaned_owners().await?;
             self.reset_orphaned_pad_homes().await?;
             return outcome;
         }
@@ -1416,6 +1482,60 @@ impl Daemon {
         }
     }
 
+    /// T16, T17: an `owner` is the user or an Agent the Rail holds, never an Extension.
+    async fn require_owner(&self, params: &Value) -> Result<(), RpcError> {
+        let Some(owner) = rpc::params::<OwnerOnly>(params.clone())?.owner else {
+            return Ok(());
+        };
+        match owner.kind {
+            ActorKind::User if owner == Actor::user() => Ok(()),
+            ActorKind::Agent => {
+                let nodes = self.rail().await?;
+                if nodes.iter().any(|node| {
+                    node.id == owner.id && node.kind == contracts::agent::NodeKind::Agent
+                }) {
+                    Ok(())
+                } else {
+                    Err(RpcError::not_found(format!("agent {}", owner.id)))
+                }
+            }
+            _ => Err(RpcError::new(
+                code::INVALID_PARAMS,
+                "an owner is the user or an Agent",
+            )),
+        }
+    }
+
+    /// T17: after `rail.remove`, each Todo whose owner Agent left the Rail is Unassigned, in id order.
+    async fn reset_orphaned_owners(&self) -> Result<(), RpcError> {
+        let rail: std::collections::HashSet<String> =
+            self.rail().await?.into_iter().map(|node| node.id).collect();
+        let todos = self
+            .modules
+            .get("todo")
+            .ok_or_else(|| RpcError::internal("todo module is not registered"))?;
+        let ctx = self.ctx(Actor::daemon());
+        let listed: Vec<contracts::todo::Todo> =
+            serde_json::from_value(todos.call(&ctx, "todo.list", Value::Null).await?)
+                .map_err(RpcError::internal)?;
+        let mut orphaned: Vec<u32> = listed
+            .into_iter()
+            .filter(|todo| {
+                todo.owner.as_ref().is_some_and(|owner| {
+                    owner.kind == ActorKind::Agent && !rail.contains(&owner.id)
+                })
+            })
+            .map(|todo| todo.id)
+            .collect();
+        orphaned.sort_unstable();
+        for id in orphaned {
+            todos
+                .call(&ctx, "todo.assign", json!({ "id": id, "owner": null }))
+                .await?;
+        }
+        Ok(())
+    }
+
     /// D8: the Resource use of every running Agent and the Project's total. The Rail is read as
     /// the Daemon, so the call changes nothing and logs no Touch.
     async fn project_resources(&self) -> Result<Value, RpcError> {
@@ -1773,7 +1893,7 @@ async fn handle(stream: UnixStream, daemon: Arc<Daemon>) -> io::Result<()> {
             daemon.decision_actor(&conn)
         } else if method
             .as_deref()
-            .is_some_and(|m| m.starts_with("deliverable."))
+            .is_some_and(|m| m.starts_with("deliverable.") || m.starts_with("reaction."))
             || matches!(
                 method.as_deref(),
                 Some(
@@ -1906,10 +2026,53 @@ mod tests {
         daemon.dispatch(&mut conn, line, None).await.unwrap()
     }
 
+    pub(super) fn daemon_in(dir: &Path) -> Daemon {
+        Daemon::open(dir).unwrap()
+    }
+
     fn daemon() -> (tempfile::TempDir, Daemon) {
         let dir = tempfile::tempdir().unwrap();
-        let daemon = Daemon::open(dir.path()).unwrap();
+        let daemon = daemon_in(dir.path());
         (dir, daemon)
+    }
+
+    // No runtime or listener: opening these stores starts no Daemon tasks or children.
+    // Exercise the actual subscribe method and its producing Bus without thousands of RPC
+    // renames, Touch writes and unrelated background observers.
+    #[test]
+    fn x14_daemon_observer_capacity_matches_its_receiver() {
+        use contracts::EventData;
+        use tokio::sync::broadcast::error::TryRecvError;
+        let dir = tempfile::tempdir().unwrap();
+        let daemon = test_daemon(dir.path()).unwrap();
+        let (mut receiver, capacity) = daemon.subscribe();
+        assert!(capacity > 0);
+        for index in 0..capacity {
+            daemon.bus.emit(
+                Actor {
+                    id: index.to_string(),
+                    ..Actor::user()
+                },
+                EventData::RailChanged,
+            );
+        }
+        for index in 0..capacity {
+            let event = receiver.try_recv().unwrap();
+            assert!(matches!(event.data, EventData::RailChanged));
+            assert_eq!(event.actor.id, index.to_string());
+        }
+        assert!(matches!(receiver.try_recv(), Err(TryRecvError::Empty)));
+        for index in 0..=capacity {
+            daemon.bus.emit(
+                Actor {
+                    id: index.to_string(),
+                    ..Actor::user()
+                },
+                EventData::RailChanged,
+            );
+        }
+        assert!(matches!(receiver.try_recv(), Err(TryRecvError::Lagged(1))));
+        assert_eq!(receiver.try_recv().unwrap().actor.id, "1");
     }
 
     struct RailReply(Value);
@@ -2350,6 +2513,12 @@ fn messages_env(touches: Arc<provenance::Touches>) -> messages::Env {
         });
     }
     env
+}
+
+/// The `owner` of a `todo.create` or `todo.assign`.
+#[derive(serde::Deserialize)]
+struct OwnerOnly {
+    owner: Option<Actor>,
 }
 
 /// The `home` of a `todo.move` or `pad.move`.

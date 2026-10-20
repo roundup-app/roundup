@@ -125,6 +125,18 @@ A Door's fixed-size envelope about one direct child, `{name, kind, last, todos, 
 **Wake request** (`agent.wake`):
 An Agent's saved ask to be told, once, when all or any of named Agents finish (`idle`, `done`, `error` or `needs-you`): decided from `agent.status` Events and the Event log, never a clock, and gone after its one `[wake]` note (`scenarios/messages.md` B41 to B44). A request that fires nothing answers `why`, `already working` (B48).
 
+**Reaction** (`reaction.create`, `.list`, `.get`, `.stop`, `.run`; user label: Reaction):
+A saved, immutable instruction a declared condition delivers once to a target Agent as a Message: Project, Home, authorizing Actor from the connection, exact target and words, a typed condition (named Agents finished, a PR's checks passed, or one instant; a PR's checks pin the head observed at activation and match only complete fresh `agent.worktreeState` evidence for it, a moved head ending the reaction as `invalidated`), a finite firing bound, an absolute expiry and a re-arm rule. A retried `operation` returns the first definition and a different payload refuses; a refusal saves nothing. To change one, stop it and create another (`scenarios/named-reactions.md` NR1). Not a Wake request, which is an Agent's one-time ask.
+
+**Preview** (`reaction.preview`; user label: Time preview):
+The exact date, local time, UTC offset and UTC instant a Reaction's `instant` condition will keep, resolved from a typed date, time and offset before activation. It saves nothing; a Reaction is created with the preview's `at` text and never reinterpreted after a time-zone change. A missed instant follows its late policy once: `once-before-expiry` fires on recovery before expiry, `skip` fires nothing; neither fires at or after expiry (`scenarios/named-reactions.md` NR6).
+
+**Firing** (a Reaction's `firings`):
+One accepted delivery of a Reaction's instruction, written in the same Project-database transaction as its Message: the definition's bytes and the source evidence as accepted, an ordinal that spends one of the finite bound, whether a condition `matched` (an explicit `reaction.run` claims none), and the Message's status as its outcome. Never changed after it is written; delivery is not verified work, and an Agent's result in the evidence is reported (`scenarios/named-reactions.md` NR3, NR8).
+
+**Observation** (a Reaction's `observation`; `reaction_watch`, `project.db` migration 0010):
+What the Daemon's evaluator knows of an Agents Reaction: the Event `cursor` it decided up to, its `health` (`observing`, or `unavailable` while a read failed or a named Agent or the target is gone), the last `evidence`, and any `gap` with its `recovery`. A Reaction is activated by reading the Event head, then the Rail, then replaying the Events after the head, so a finish in between is replayed. Automatic firings use the operation `auto-<n>`, so a retry after a crash returns the firing already made. A gap, once recorded, stays recorded after current Agent state reconciles it; a named Agent without a state never matches (`scenarios/named-reactions.md` NR2, NR4, NR5).
+
 **Mark**:
 The Daemon’s durable record of one Agent at a Checkpoint: the end of its conversation and a snapshot of its tracked and untracked working files git does not ignore. A complete set belongs to one Iteration; invalidated Marks remain stored but unusable (A35).
 
@@ -169,7 +181,7 @@ The git working directory assigned exclusively to one Agent when the Project's `
 A Worktree the user enrolled with `project.setPrepared`: it keeps its path and ignored dependency files across assignments, is parked on a detached commit when released, and is assigned to one Agent only after the Project's readiness command exits 0 (G2542a). A failed or uncertain assignment leaves it unavailable until `project.prepareDirectory` succeeds.
 
 **Worktree state**:
-How far an Agent's Worktree is from its Base: `ahead` and `behind` in commits, and `dirty` when it has changes outside `.roundup/` (`agent.worktreeState`). Its optional forge facts are `WorktreeCi` (`WorktreeCiState` and staleness) and `WorktreePr` (positive PR number and staleness); neither changes these local facts.
+How far an Agent's Worktree is from its Base: `ahead` and `behind` in commits, and `dirty` when it has changes outside `.roundup/` (`agent.worktreeState`). Its optional forge facts are `WorktreeCi` (`WorktreeCiState` and staleness) and `WorktreePr` (positive PR number and staleness); neither changes these local facts. `WorktreeEvidence` is the PR's required-check set read through `gh`: its `WorktreeEvidenceState` (complete, incomplete, stale-head, unknown or unavailable), repository, head, `WorktreeRequiredCheck` list, read time and revision; only a complete state lists checks.
 
 **Changed file**:
 A file the Agent's Worktree differs in from its Base, with a status of added, modified, renamed, deleted or untracked (`agent.changedFiles`).
@@ -242,6 +254,10 @@ The panel `?` opens over the centre pane, listing each chord and what it does.
 **Todo**:
 An item with an optional blocker list of other Todos, with a Home, in one order, the user's.
 _Avoid_: task, ticket
+
+**Owner** (`owner`):
+Who does a Todo's work: the user (shown as "Me", still refining the Todo's seed), one Agent, or nobody (shown as "Unassigned"). It is never `creator`, who wrote the Todo. `todo.create` may name one; `todo.assign` changes it and is recorded in the Todo's history. An owner Agent that ends keeps its Todos; removing it from the Rail unassigns them (T16, T17).
+_Avoid_: assignee
 
 **Sketch**:
 A Pad holding Mermaid or drawing blocks; the Pad contracts are unchanged. Workstream-scoped storage is still open.

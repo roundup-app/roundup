@@ -56,10 +56,10 @@ class GitHub:
     """Answers builder.py's reads from fixed data and records its writes."""
 
     def __init__(self, view=None, prs=(), notes=(), labels=(), diff='', runs=None, files=(), run=None, state='open',
-                 merged=(), queued=True, closer='Bot', history=(), steps=(), order='Scenarios: U1\n', file=''):
+                 merged=(), queued=True, closer='Bot', history=(), steps=(), order='Scenarios: U1\n', file='', events=()):
         self.view, self.prs, self.notes, self.labels, self.diff, self.runs = view, list(prs), list(notes), labels, diff, runs or {}
         self.files, self.run, self.state, self.merged, self.queued, self.closer = files, run, state, list(merged), queued, closer
-        self.history, self.steps, self.order, self.file = list(history), list(steps), order, file
+        self.history, self.steps, self.order, self.file, self.events = list(history), list(steps), order, file, list(events)
         self.writes = []
 
     def read(self, *args):
@@ -71,6 +71,8 @@ class GitHub:
             return self.run
         if '/comments' in args[1]:
             return [self.notes]
+        if '/events' in args[1]:
+            return [self.events]
         if '/files' in args[1]:
             return [[dict(filename=name) for name in self.files]]
         if 'created=' in args[1]:
@@ -98,6 +100,8 @@ class GitHub:
         self.writes.append(args)
         if args[0] == 'api' and args[1].endswith('/comments'):
             self.notes.append(note(args[3].removeprefix('body=')))
+        if args[:2] == ('issue', 'create'):
+            return 'https://github.com/o/r/issues/77\n'
         return ''
 
     def __enter__(self):
@@ -189,6 +193,7 @@ if os.environ.get('CODEX_MODE') == 'limit':
     print(json.dumps(dict(type='turn.failed', error=dict(message='usage limit reached'))))
     sys.exit(1)
 print(json.dumps(dict(type='item.completed', item=dict(type='command_execution', aggregated_output='TOKEN=hidden'))))
+print(json.dumps(dict(type='turn.completed', usage=dict(input_tokens=1000, cached_input_tokens=750, output_tokens=40))))
 print('not json')
 open(answer, 'w').write('{"ask":""}')
 sys.exit(int(os.environ.get('EXIT', '0')))
@@ -226,6 +231,7 @@ class Codex(unittest.TestCase):
             self.assertIn('TOKEN=hidden', Path(home, 'events.jsonl').read_text())
         self.assertEqual(seen['prompt'], 'Build U1.')
         self.assertEqual(seen['args'][:6], ['exec', '--json', '--model', 'gpt-6.1-sol', '--sandbox', 'danger-full-access'])
+        self.assertEqual(seen['args'][6:8], ['-c', 'model_reasoning_effort="medium"'])
         self.assertEqual(seen['args'][-3:], ['--output-schema', f'{home}/schema.json', '-'])
         self.assertEqual(seen['env'], dict(CODEX_HOME=home, GH_TOKEN='fresh', CODEX_AUTH=None,
                                            GIT_AUTHOR_NAME='chatgpt-codex-connector[bot]',
@@ -234,7 +240,8 @@ class Codex(unittest.TestCase):
                                             actions='read', checks='read'),))
         self.assertEqual(calls, 'gh auth setup-git --hostname github.com\ngh api -X DELETE /installation/token\n')
         self.assertTrue(log.startswith('::add-mask::access\n::add-mask::refresh\n'))
-        self.assertIn('\nitem.completed command_execution\nnot an event \n', log)
+        self.assertIn('\nitem.completed command_execution\n', log)
+        self.assertIn('usage of gpt-6.1-sol: input 1000, cached input 750 (75%), output 40\n', log)
         self.assertNotIn('hidden', log)
         self.assertNotIn('not json', log)
         execution, answer = output.split('\n', 1)
@@ -440,17 +447,42 @@ class Pick(unittest.TestCase):
             self.assertEqual(builder.codex_slots(2, [(9, 7), (None, 8)]), ({5, 9}, -1))
 
     def test_l23_a_fix_run_frees_its_codex_slot_when_its_model_job_ends(self):
-        runs = [dict(id=7, display_title='Fix PR #9: check'), dict(id=8, display_title='Fix PR #10: review'),
-                dict(id=11, display_title='Fix build/U1'), dict(id=12, display_title='Fix PR #12: conflict')]
+        running = 'in_progress'
+        runs = [dict(id=7, display_title='Fix PR #9: check', status=running), dict(id=8, display_title='Fix PR #10: review', status=running),
+                dict(id=11, display_title='Fix build/U1', status=running), dict(id=12, display_title='Fix PR #12: conflict', status=running),
+                dict(id=13, display_title='Fix PR #14: check', status='pending')]
         jobs = {7: [dict(name='task', status='completed'), dict(name='fix-run', status='completed'),
                     dict(name='after', status='in_progress')],
                 8: [dict(name='fix-run', status='in_progress')],
                 11: [dict(name='task', status='in_progress')],
-                12: []}
+                12: [],
+                13: []}
         with patch.object(builder, 'live_fixes', return_value=runs), \
                 patch.object(builder.orders, 'gh', side_effect=lambda *args: dict(jobs=jobs[int(args[1].split('/')[-2])])):
             self.assertEqual(builder.fixing(), [(10, 8), (None, 11), (12, 12)])
-            self.assertEqual(builder.fixing(run_id=12), [(10, 8), (None, 11)])
+            self.assertEqual(builder.fixing(run_id=12), [(10, 8), (None, 11)])  # run 13 is pending: no slot
+            self.assertEqual(builder.fix_prs(), {9, 10, 12, 14})
+
+    def test_l23_review_and_critic_runs_on_codex_think_at_high_effort_and_build_runs_at_medium(self):
+        for command, effort in (('engine-read-only', 'high'), ('engine', 'medium')):
+            with self.subTest(command=command), patch.object(builder, 'codex', return_value=0) as codex, \
+                    patch.object(builder, 'worked', return_value=True), patch.object(builder, 'switched', return_value=False), \
+                    patch.dict(os.environ, RUNNER_TEMP='/tmp', GITHUB_OUTPUT=os.devnull), patch.object(sys, 'stdin', io.StringIO('x')):
+                builder.main([command, '{}'] if command == 'engine-read-only' else [command])
+            self.assertEqual(codex.call_args.args[-1], effort)
+
+    def test_l23_a_pr_with_a_live_fix_run_gets_no_second(self):
+        prs = [pr(number=2), pr(number=3)]
+        sent, errors = [], io.StringIO()
+        with patch.object(builder.orders, 'gh', return_value=prs), patch.object(builder, 'fixing', return_value=[]), \
+                patch.object(builder, 'fix_prs', return_value={2}), patch.object(builder, 'codex_slots', return_value=(set(), 5)), \
+                patch.object(builder, 'repairs', side_effect=lambda prs, now, taken: [(p['number'], HEAD, 'check') for p in prs]), \
+                patch.object(builder, 'dispatch_fix', side_effect=lambda n, head, cause: sent.append(n)), \
+                patch.object(builder, 'unreviewed', return_value=[]), patch.object(builder.orders, 'read_orders', return_value=[]), \
+                redirect_stdout(io.StringIO()), redirect_stderr(errors):
+            builder.pick(5)
+        self.assertEqual(sent, [3])
+        self.assertIn('Fix for PR #2 (check) waits: a fix run for it is already live.', errors.getvalue())
 
     def test_l23_pick_starts_fixes_ready_prs_first_then_builds_only_in_free_codex_slots(self):
         prs = [pr(number=1, isDraft=True), pr(number=2), pr(number=3)]
@@ -459,7 +491,8 @@ class Pick(unittest.TestCase):
             output, errors = io.StringIO(), io.StringIO()
             sent = []
             with self.subTest(free=free), patch.object(builder.orders, 'gh', return_value=prs), \
-                    patch.object(builder, 'fixing', return_value=[]), patch.object(builder, 'codex_slots', return_value=(set(), free)), \
+                    patch.object(builder, 'fixing', return_value=[]), patch.object(builder, 'fix_prs', return_value=set()), \
+                    patch.object(builder, 'codex_slots', return_value=(set(), free)), \
                     patch.object(builder, 'repairs', side_effect=lambda prs, now, taken: [(p['number'], HEAD, 'check') for p in prs]), \
                     patch.object(builder, 'dispatch_fix', side_effect=lambda n, head, cause: sent.append(n)), \
                     patch.object(builder, 'unreviewed', return_value=[]), \
@@ -651,6 +684,7 @@ class Built(unittest.TestCase):
 
         def codex(argv, **kwargs):
             Path(argv[argv.index('--output-last-message') + 1]).write_text(json.dumps(verdict))
+            return subprocess.CompletedProcess(argv, 0, stdout='', stderr='')
 
         with tempfile.TemporaryDirectory() as path, patch.dict(os.environ, CODEX_ONLY='1', RUNNER_TEMP=path,
                                                                CODEX_AUTH=Codex.LOGIN), \
@@ -658,6 +692,7 @@ class Built(unittest.TestCase):
             self.assertEqual(builder.screen('Check it?'), verdict)
         argv = run.call_args.args[0]
         self.assertEqual((argv[0], argv[argv.index('--model') + 1]), ('codex', builder.CODEX_MODEL))
+        self.assertEqual(argv[argv.index('-c') + 1], 'model_reasoning_effort="low"')
 
     def test_l79_an_empty_verdict_never_asks_the_user_and_the_run_summary_says_so(self):
         ask = 'Should the Rail hide archived Agents?'
@@ -762,6 +797,48 @@ def branch(path, commits, pushed):
     return git
 
 
+class Attach(unittest.TestCase):
+    def run_attach(self, token, shots=('ux/U1/a.png', 'ux/U1/head/b.png', 'ux/U1/c.webm', 'ux/U2/d.png'), body='Scenarios: U1'):
+        with tempfile.TemporaryDirectory() as path, chdir(path):
+            # The run's worktree is not the directory the step starts in.
+            path = f'{path}/wt'
+            for shot in shots:
+                Path(path, 'artifacts', shot).parent.mkdir(parents=True, exist_ok=True)
+                Path(path, 'artifacts', shot).touch()
+            out = io.StringIO()
+            with patch.dict(os.environ, PR_ATTACH_TOKEN=token, GH_TOKEN='app'), \
+                    patch.object(builder.orders, 'gh', return_value=[dict(number=7, body=body)]), \
+                    patch.object(builder.subprocess, 'run') as run, redirect_stdout(out):
+                run.return_value.stdout = f'worktree /x\nbranch refs/heads/main\n\nworktree {path}\nbranch refs/heads/build/U1\n'
+                try:
+                    builder.attach('build/U1')
+                    code = 0
+                except SystemExit as exit:
+                    code = exit.code
+        self.tree = path
+        return code, out.getvalue(), run
+
+    def test_l23_a_missing_attach_token_fails_loud_and_touches_no_pr(self):
+        code, out, run = self.run_attach('')
+        self.assertEqual(code, 1)
+        self.assertIn('::error::PR_ATTACH_TOKEN is not set; captures not attached', out)
+        self.assertEqual([c.args[0][0] for c in run.call_args_list], ['git'])
+
+    def test_l23_captures_attach_to_the_branch_pr_with_only_the_attach_token(self):
+        code, _, run = self.run_attach('user')
+        self.assertEqual(code, 0)
+        command = run.call_args.args[0]
+        self.assertEqual(command, ['gh', 'pr', 'edit', '7', '--attach', f'{self.tree}/artifacts/ux/U1/a.png#U1/a', '--attach',
+                                   f'{self.tree}/artifacts/ux/U1/c.webm'])
+        self.assertEqual(run.call_args.kwargs['env']['GH_TOKEN'], 'user')
+
+    def test_l23_a_capture_of_a_scenario_the_pr_does_not_name_is_not_attached(self):
+        code, out, run = self.run_attach('user', body='Scenarios: U3')
+        self.assertEqual(code, 0)
+        self.assertIn('no captures to attach', out)
+        self.assertEqual([c.args[0][0] for c in run.call_args_list], ['git'])
+
+
 class Keep(unittest.TestCase):
     def test_l23_a_run_that_outlived_its_token_keeps_its_commits_and_a_draft_names_its_issue(self):
         body = ('Refs #1\nScenarios: U1\n\nThe run https://run/1 ended with these commits and no open PR, so `keep` '
@@ -842,6 +919,13 @@ class Fix(unittest.TestCase):
         with GitHub(view=pr(body='Scenarios: U1\n', statusCheckRollup=FAILED), notes=attempts) as github:
             self.assertIsNone(builder.fix_task(9, HEAD, 'check'))
         self.assertTrue(github.flagged())
+
+    def test_l82_a_reopened_pr_counts_only_the_fix_runs_after_the_reopen(self):
+        before = [note('<!-- fix-attempt -->\nFix run r answered `check`.', ago=900 - n) for n in range(3)]
+        reopen = [dict(event='closed', created_at=stamp(600)), dict(event='reopened', created_at=stamp(500))]
+        with GitHub(view=pr(statusCheckRollup=FAILED), notes=before, events=reopen) as github:
+            self.assertIn('`check` failed on this head', builder.fix_task(9, HEAD, 'check'))
+        self.assertEqual(github.writes, [])
 
     def test_l82_a_reject_a_fix_run_answered_waits_for_the_new_review(self):
         reject = note('VERDICT: reject\nno Scenarios line', ago=600)
@@ -1359,6 +1443,18 @@ class Review(unittest.TestCase):
         self.assertIn(('api', f'repos/{{owner}}/{{repo}}/statuses/{HEAD}', '-f', 'state=failure', '-f', 'context=review',
                        '-f', 'description=The review run answered reject', '-f', 'target_url=https://run/3'), github.writes)
         self.assertEqual(github.fixes(), [('-f', 'pr=9', '-f', f'head={HEAD}', '-f', 'cause=review')])
+
+    def test_l24_an_approve_files_its_followup_block_as_one_issue_and_a_reject_files_none(self):
+        findings = 'NOTE: x\n\nFOLLOWUP: an empty name crashes\nloop/a.py:3\ninput: ""\n\nNOTE: y'
+        with GitHub(view=pr()) as github:
+            builder.review_post(9, HEAD, 'reviewer-1', json.dumps(dict(verdict='approve', findings=findings)), True, 'https://run/3')
+        created = [w for w in github.writes if w[:2] == ('issue', 'create')]
+        self.assertEqual(len(created), 1)
+        self.assertIn('loop/a.py:3', created[0][-1])
+        self.assertEqual(github.bodies(), [f'VERDICT: approve\nHead: {HEAD}\n\nNOTE: x\n\nFollow-up: https://github.com/o/r/issues/77\n\nNOTE: y\n\nReviewed-by-Agent: reviewer-1'])
+        with GitHub(view=pr()) as github:
+            builder.review_post(9, HEAD, 'reviewer-1', json.dumps(dict(verdict='reject', findings=findings)), True, 'https://run/3')
+        self.assertEqual([w for w in github.writes if w[:2] == ('issue', 'create')], [])
 
     def test_l24_an_approval_on_a_user_pr_starts_no_fix(self):
         with GitHub(view=pr(headRefName='stock-loop')) as github:
