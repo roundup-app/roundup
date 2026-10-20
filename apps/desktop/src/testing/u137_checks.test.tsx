@@ -193,7 +193,7 @@ rendered("u137 rendered focus marks", () => {
   }, 90_000);
   afterAll(async () => { await page?.close(); });
 
-  it.each(["milkdown-slash-menu", "pane-control"])("u137_floating_surface_%s_keeps_unrelated_shadow_rejection", async (surface) => {
+  it.each(["milkdown-slash-menu", "pane-control", "import-panel"])("u137_floating_surface_%s_keeps_unrelated_shadow_rejection", async (surface) => {
     for (const scheme of ["light", "dark"] as const) {
       await page.scheme(scheme);
       await page.load("/harness.html?seed=tree-40");
