@@ -379,6 +379,56 @@ impl Evaluator {
     }
 }
 
+impl Reactions {
+    /// Every saved reaction still active, oldest first.
+    pub(crate) fn active(&self) -> Result<Vec<Reaction>, RpcError> {
+        let db = self.db.lock().expect("reaction database poisoned");
+        let mut stmt = db
+            .prepare("SELECT record FROM reactions ORDER BY rowid")
+            .map_err(RpcError::internal)?;
+        let rows = stmt
+            .query_map([], |r| r.get::<_, String>(0))
+            .and_then(|rows| rows.collect::<Result<Vec<_>, _>>())
+            .map_err(RpcError::internal)?;
+        rows.iter()
+            .map(|record| read(record))
+            .filter(|saved| saved.as_ref().map_or(true, |s| s.state == State::Active))
+            .collect()
+    }
+
+    /// Records what the observer saw. A reaction stopped meanwhile stays stopped.
+    pub(crate) fn observe(
+        &self,
+        id: &str,
+        health: &str,
+        cause: Option<String>,
+        end: Option<State>,
+    ) {
+        let db = self.db.lock().expect("reaction database poisoned");
+        let saved = db
+            .query_row("SELECT record FROM reactions WHERE id=?1", [id], |r| {
+                r.get::<_, String>(0)
+            })
+            .optional();
+        let Ok(Some(record)) = saved else { return };
+        let Ok(mut saved) = read(&record) else { return };
+        if saved.state != State::Active {
+            return;
+        }
+        saved.observation.health = health.into();
+        saved.observation.cause = cause;
+        if let Some(state) = end {
+            saved.state = state;
+        }
+        if let Ok(record) = serde_json::to_string(&saved) {
+            let _ = db.execute(
+                "UPDATE reactions SET record=?2 WHERE id=?1",
+                params![id, record],
+            );
+        }
+    }
+}
+
 fn invalid(text: impl Into<String>) -> RpcError {
     RpcError::new(code::INVALID_PARAMS, text)
 }
@@ -495,7 +545,22 @@ impl Daemon {
             "reaction.create" => {
                 supported(&args)?;
                 let p: CreateParams = rpc::params(args)?;
-                let created = self.reaction_create(actor, &world, p)?;
+                let pin = match &p.condition {
+                    Condition::PrChecks { repository, number } => {
+                        Some(crate::reaction_checks::pin(
+                            crate::reaction_checks::read(
+                                &self.agents,
+                                &self.ctx(Actor::daemon()),
+                                &p.target,
+                            )
+                            .await,
+                            repository,
+                            *number,
+                        ))
+                    }
+                    _ => None,
+                };
+                let created = self.reaction_create(actor, &world, p, pin)?;
                 if let Some(evaluator) = self.evaluator() {
                     evaluator.observe(&created, None).await;
                 }
@@ -569,6 +634,7 @@ impl Daemon {
                 gap: watch.gap,
                 recovery: watch.recovery,
                 evidence: watch.evidence,
+                ..saved.observation
             };
         }
         saved.remaining = saved
@@ -617,11 +683,12 @@ impl Daemon {
         self.with_firings(saved)
     }
 
-    fn reaction_create(
+    pub(crate) fn reaction_create(
         &self,
         actor: &Actor,
         world: &crate::digest::World,
         p: CreateParams,
+        pin: Option<Result<String, RpcError>>,
     ) -> Result<Reaction, RpcError> {
         let request = serde_json::to_string(&p).map_err(RpcError::internal)?;
         let mut db = self
@@ -665,13 +732,14 @@ impl Daemon {
                 node(id)?;
             }
         }
+        let pin = pin.transpose()?;
         let project: String = tx
             .query_row("SELECT id FROM reaction_project", [], |r| r.get(0))
             .map_err(RpcError::internal)?;
         let id: String = tx
             .query_row("SELECT lower(hex(randomblob(16)))", [], |r| r.get(0))
             .map_err(RpcError::internal)?;
-        let waiting = matches!(p.condition, Condition::Instant { .. });
+        let waiting = pin.is_some() || matches!(p.condition, Condition::Instant { .. });
         let reaction = Reaction {
             project,
             id: id.clone(),
@@ -694,6 +762,8 @@ impl Daemon {
                     "not-observing".into()
                 },
                 cursor: None,
+                pinned_head: pin,
+                cause: None,
                 gap: None,
                 recovery: None,
                 evidence: None,
