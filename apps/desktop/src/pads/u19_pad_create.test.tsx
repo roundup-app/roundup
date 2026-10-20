@@ -193,4 +193,18 @@ it.each([true, false])("u3021c_open_restores_exact_revision_without_rpc_pad_crea
   connected.drawer.close("key");
   expect(connected.drafts.list()).toEqual(retained);
   expect(app.calls).toEqual(calls);
+  connected.drawer.open(() => <ConnectedProjectContext.Provider value={connected}><Pads recovery={{ project: connected.project.path, revision: a.revision, list: { pads: () => [], loaded: () => true, failure: () => null, reload: async () => {} } }} /></ConnectedProjectContext.Provider>, "key");
+  const editing = await within(screen.getByLabelText("Drawer")).findByLabelText<HTMLInputElement>("Pad name");
+  await waitFor(() => expect(document.activeElement).toBe(editing));
+  const b = retained.at(-1)!;
+  editing.setSelectionRange(3, 5, "forward");
+  fireEvent.select(editing);
+  expect(connected.drafts.list()).toContainEqual(b);
+  fireEvent.input(editing, { target: { value: "edited A 🌱" } });
+  connected.drawer.close("key");
+  const { draftStorage } = await import("../state/storage");
+  const durable = draftStorage(connected.project.path).list();
+  expect(durable).toContainEqual(b);
+  expect(durable.some(draft => draft.value.name === "edited A 🌱")).toBe(true);
+  expect(app.calls).toEqual(calls);
 });
