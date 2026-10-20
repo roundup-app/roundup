@@ -29,12 +29,13 @@ import { failureOf, outcomeOf } from "./failureOf";
 import { RowButton } from "./RowButton";
 import { createSortedList } from "./sortedList";
 import { Sortable } from "../ui/sortable";
+import { TreeView } from "../ui/TreeView";
 import { shelfScope } from "../shelf/scope";
 import { Groups } from "../shelf/Groups";
 import { useTodoList } from "./todoList";
 import { TodoDrawer } from "./TodoDrawer";
 import { shownTodos } from "./shownTodos";
-import { doneTodos, kindOf, openBlockersOf } from "./todoView";
+import { doneTodos, kindOf, openBlockersOf, planDrop, treeCollection, treeRows, type NestedRow } from "./todoView";
 
 const KIND_LABEL = { idle: copy.idle, blocked: copy.blocked, done: copy.done } as const;
 
@@ -74,12 +75,27 @@ export const OpenRow = (props: {
   registerRow?: (id: number, row: HTMLButtonElement | null) => void;
   /** U490a: a row ordered through `ui/Sortable` instead. */
   sorted?: SortedRow;
+  /** U3708: the Shelf list's tree place of this row; absent for the Rail's copy. */
+  place?: { level: number; parent: number | null };
+  /** U3708: `ui/TreeView`'s `treeitem` props for this row (its role and level). */
+  treeItem?: JSX.HTMLAttributes<HTMLElement>;
+  /** U3709: what Tab and ⇧Tab do on this row; `null` where the key is not this row's. */
+  nest?: { in: (() => Promise<string | null>) | null; out: (() => Promise<string | null>) | null };
 }) => {
   const connected = useConnectedProject();
   const near = props.nested ? createNear() : null;
   const [listOpen, setListOpen] = createSignal(false);
   const waitingOn = createMemo(() => openBlockersOf(props.todo, props.known));
-  const [failure, setFailure] = createSignal<string | null>(null);
+
+  // U3708: the other open blockers, in `blockers` order, after the one the row nests under.
+  const alsoWaiting = createMemo(() => props.todo.blockers.flatMap((id) => props.known.get(id) ?? [])
+    .filter((blocker) => !blocker.done && blocker.id !== props.place?.parent && (props.place?.parent != null || waitingOn().length > 1)));
+
+  const alsoWaitingLine = createMemo(() => copy.alsoWaitsOn(alsoWaiting().map((blocker) => blocker.title).join(copy.comma)));
+
+  const [actionFailure, setFailure] = createSignal<string | null>(null);
+  const [moveFailure, setMoveFailure] = createSignal<string | null>(null);
+  const failure = createMemo(() => moveFailure() ?? actionFailure());
 
   const complete = async () => {
     const message = await props.onComplete(props.todo);
@@ -103,7 +119,7 @@ export const OpenRow = (props: {
     props.sorted?.button(null);
   });
 
-  props.sorted?.fail(setFailure);
+  props.sorted?.fail(setMoveFailure);
 
   const head = (
     <div class="row-head">
@@ -115,6 +131,8 @@ export const OpenRow = (props: {
           selectionActive={props.selectionActive}
           onClick={(event) => props.onPick ? props.onPick(props.todo, event) : props.onOpen(props.todo, activationSource(event))}
           reorderable={props.sorted !== undefined}
+          nest={props.nest ? (out) => (out ? props.nest?.out : props.nest?.in) ?? null : undefined}
+          onNest={async (run) => setMoveFailure(await run())}
           onKeyDown={(event) => {
             props.onSelectionKey?.(props.todo, event);
 
@@ -157,13 +175,17 @@ export const OpenRow = (props: {
     <ShelfRow
       glyph={props.nested ? <KindGlyph kind={kindOf(props.todo)} /> : <>
         <TickBox todo={props.todo} onComplete={complete} />
-        <Show when={props.todo.blocked}><KindGlyph kind="blocked" /></Show>
+        <Show when={props.todo.blocked && props.place?.parent == null}><KindGlyph kind="blocked" /></Show>
       </>}
       data-id={props.nested ? undefined : props.todo.id}
       data-todo={props.todo.id}
       data-actions-open={near?.near() || listOpen() ? "true" : undefined}
       data-shelf-row={props.nested ? undefined : ""}
       data-selected={props.selected ? "true" : undefined}
+      role={props.treeItem?.role}
+      aria-level={props.treeItem?.["aria-level"]}
+      data-level={props.place?.level}
+      style={props.place ? { "padding-inline-start": `calc(var(--space-2) + ${props.place.level - 1} * var(--space-4))` } : undefined}
       class={props.nested ? "todo-row" : "todo-row todo-inset"}
       head={props.nested ? undefined : head}
       {...near?.handlers}
@@ -176,17 +198,15 @@ export const OpenRow = (props: {
         <p class="item-description" data-todo-description>{props.todo.body.trim()}</p>
       </Show>
       <Show when={failure()}>{(message) => <ErrorLine message={message()} />}</Show>
-      <Show when={props.nested || (failure() === null && waitingOn().length > 0)}>
+      <Show when={props.nested}>
         <p class="shelf-meta" data-todo-meta>
           <Show when={props.nested}><span data-mono>{copy.todoNumberMark}{props.todo.id}</span>{" "}</Show>
-          <Show when={failure() === null && waitingOn().length > 0}>
+          <Show when={props.nested && failure() === null && waitingOn().length > 0}>
             <span data-todo-waits>
               <Tip class="todo-tooltip" text={copy.waitsOnTitles(waitingOn().map((blocker) => blocker.title).join(copy.comma))}>{(trigger) => <span {...trigger()}>{copy.waitsOnWord}</span>}</Tip><span class="todo-blockers"><For each={waitingOn()}>{(blocker, index) => (
                 <>
                   <Show when={index() > 0}><span>{copy.comma}</span></Show>
-                  <Tip class="todo-tooltip" text={copy.waitsOnTitles(waitingOn().map((blocker) => blocker.title).join(copy.comma))}>{(trigger) => <button {...trigger()} data-button="quiet" type="button" class="word todo-blocker" data-mono={props.nested ? "" : undefined} aria-label={props.nested ? undefined : copy.openBlocker(blocker.title)} onClick={(event) => props.onOpen(blocker, activationSource(event))}>
-                    {props.nested ? `#${blocker.id}` : blocker.title}
-                  </button>}</Tip>
+                  <button data-button="quiet" type="button" class="word todo-blocker" data-mono="" onClick={(event) => props.onOpen(blocker, activationSource(event))}>#{blocker.id}</button>
                 </>
               )}</For></span>
             </span>
@@ -194,6 +214,17 @@ export const OpenRow = (props: {
           <Show when={props.nested}>
             {" "}<span data-todo-home>{copy.in}<span data-mono>{homeNameOf(connected.rail.nodes, props.todo.home)}</span></span>
           </Show>
+        </p>
+      </Show>
+      <Show when={!props.nested && failure() === null && alsoWaiting().length > 0}>
+        <p class="shelf-meta" data-todo-meta>
+          {/* oxlint-disable-next-line anti-slop/no-tooltip-bypass -- U3708 requires the full ellipsized sentence in title; Tip also owns its rendered tooltip. */}
+          <Tip class="todo-tooltip" text={alsoWaitingLine()}>{(trigger) => <span {...trigger()} data-todo-also-waits title={alsoWaitingLine()}><span>{copy.alsoWaitsOn("")}</span><span class="todo-blockers"><For each={alsoWaiting()}>{(blocker, index) => (
+            <>
+              <Show when={index() > 0}><span>{copy.comma}</span></Show>
+              <button data-button="quiet" type="button" class="word todo-blocker" aria-label={copy.openBlocker(blocker.title)} onClick={(event) => props.onOpen(blocker, activationSource(event))}>{blocker.title}</button>
+            </>
+          )}</For></span></span>}</Tip>
         </p>
       </Show>
     </ShelfRow>
@@ -275,6 +306,54 @@ export const Todos = () => {
       move: (id, home) => failureOf(() => connected.app.rpc("todo.move", { id, home })),
     },
   });
+
+  // U138, U3709: reordering retained DOM nodes can lose native focus without mounting a new button.
+  let nestFocus: number | null = null;
+
+  createEffect(() => {
+    open().forEach(todo => todo.blockers.join());
+    const id = nestFocus;
+
+    if (id === null) return;
+    queueMicrotask(() => {
+      if (nestFocus !== id) return;
+      nestFocus = null;
+
+      if (document.activeElement === document.body || document.activeElement === null) rows.get(id)?.focus();
+    });
+  });
+
+  /** U3709, U3711: Tab nests a row under the one above it and ⇧Tab un-nests it, each one `todo.setBlockers`; the Daemon refuses a cycle (T4). */
+  const nestOf = (todo: Todo, parent: number | null, above: Todo | null, first: boolean) => {
+    const call = (blockers: number[]) => async () => {
+      nestFocus = todo.id;
+
+      const message = await failureOf(() => connected.app.rpc("todo.setBlockers", { id: todo.id, blockers }));
+
+      if (message !== null) nestFocus = null;
+
+      return message;
+    };
+
+    return {
+      in: first || above === null || parent === above.id ? null : call([above.id, ...todo.blockers.filter((id) => id !== above.id)]),
+      out: parent === null ? null : call(todo.blockers.filter((id) => id !== parent)),
+    };
+  };
+
+  /** U3710, U3711: a drop sets blockers, then order once that resolves; a refusal shows on the row and the Daemon's list stays. */
+  const dropOf = async (rows: NestedRow[], flat: Todo[], id: number, parent: number | null, index: number) => {
+    const plan = planDrop(rows, flat, todos.all(), id, parent, index);
+
+    if (plan.blockers !== undefined) {
+      const blockers = plan.blockers;
+      const message = await failureOf(() => connected.app.rpc("todo.setBlockers", { id, blockers }));
+
+      if (message !== null) return sorted.show(id, message);
+    }
+
+    if (plan.before !== undefined) sorted.show(id, await sorted.reorderTo(id, plan.before));
+  };
 
   const rows = new Map<number, HTMLButtonElement>();
   let plusButton: HTMLButtonElement | undefined;
@@ -405,13 +484,35 @@ export const Todos = () => {
         <EmptyState icon="check" heading={copy.noTodosYet} hint={copy.noTodosHint} />
       </Show>
       <Show when={open().length + done().length > 0}>
-        <Groups items={() => [...open(), ...done()]} home={todo => todo.home} maker={todo => todo.creator}>{items => <>
-        <Sortable.Root class="todo-list shelf-list" plain ids={items().filter(todo => !todo.done).map((todo) => String(todo.id))} onOrderChange={sorted.order} external={sorted.external}>
-        <For each={items().filter(todo => !todo.done)}>
-          {(todo, at) => (
+        <Groups items={() => [...open(), ...done()]} home={todo => todo.home} maker={todo => todo.creator}>{items => {
+        const tree = createMemo(() => treeRows(items().filter(todo => !todo.done)));
+
+        const collection = createMemo(() => treeCollection(tree()));
+
+        const placeOf = (id: number) => tree().find((row) => row.todo.id === id) ?? { level: 1, parent: null };
+
+        return <>
+        <TreeView.Root collection={collection()}>
+        <Sortable.Root class="todo-list shelf-list" plain ids={tree().map((row) => String(row.todo.id))} external={sorted.external} tree={{
+          holdPlace: true,
+          rows: tree().map((row) => ({ id: String(row.todo.id), parent: row.parent === null ? null : String(row.parent) })),
+          get indent() { return parseFloat(getComputedStyle(document.documentElement).getPropertyValue("--space-4")) || 16; },
+          nests: () => true,
+          onMove: (move) => void dropOf(tree(), items().filter((todo) => !todo.done), Number(move.id), move.parent === null ? null : Number(move.parent), move.index),
+          onPreview: () => undefined,
+        }}>
+        <TreeView.Tree aria-label={copy.todos} style={{ padding: "0" }}>
+        <For each={tree().map((row) => row.todo)}>
+          {(todo, at) => {
+            const row = { get level() { return placeOf(todo.id).level; }, get parent() { return placeOf(todo.id).parent; } };
+
+            return (
             <Sortable.Item id={String(todo.id)} index={at()} pressable>
               {(parts) => (
+            <TreeView.NodeProvider node={{ id: String(todo.id) }} indexPath={collection().getIndexPath(String(todo.id)) ?? []}>
+            <TreeView.Item asChild={(itemProps) =>
             <OpenRow
+              treeItem={itemProps()}
               todo={todo}
               selected={selection.selected().includes(todo.id) || selectedId() === todo.id}
               pressed={selection.selected().includes(todo.id)}
@@ -421,19 +522,24 @@ export const Todos = () => {
               known={todos.byId()}
               onOpen={show}
               onComplete={complete}
-              sorted={sorted.row(todo.id, parts, () => items().filter(todo => !todo.done).map(todo => todo.id))}
+              sorted={sorted.row(todo.id, parts, () => tree().map(({ todo }) => todo.id))}
+              place={row}
+              nest={nestOf(todo, row.parent, tree()[at() - 1]?.todo ?? null, at() === 0)}
               registerRow={(id, row) => {
                 selection.register(id, row);
 
                 if (row) rows.set(id, row);
                 else rows.delete(id);
               }}
-            />
+            />} />
+            </TreeView.NodeProvider>
               )}
             </Sortable.Item>
-          )}
+          );}}
         </For>
+        </TreeView.Tree>
         </Sortable.Root>
+        </TreeView.Root>
         <Show when={unfolded()}>
             <For each={items().filter(todo => todo.done)}>
               {(todo) => (
@@ -461,7 +567,7 @@ export const Todos = () => {
               )}
             </For>
         </Show>
-        </>}</Groups>
+        </>; }}</Groups>
       </Show>
       <Show when={typing()}>
         <div class="shelf-list">

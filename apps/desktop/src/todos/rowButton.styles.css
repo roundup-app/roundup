@@ -106,10 +106,10 @@
 .shelf-row.todo-inset:has(> .shelf-head) > .shelf-glyph {
   grid-column: 1;
   grid-row: 1 / span 2;
-  height: auto;
   align-self: start;
-  align-items: flex-start;
-  flex-direction: column;
+  flex-direction: row;
+  align-items: center;
+  height: var(--space-5);
 }
 
 .shelf-row.todo-inset > .shelf-text {
@@ -129,13 +129,13 @@
 }
 
 /* Keep the prefix separate while the title list clips once, in reading order. */
-.todo-inset [data-todo-waits] {
+.todo-inset :is([data-todo-waits], [data-todo-also-waits]) {
   display: flex;
   min-width: 0;
   align-items: center;
 }
 
-.todo-inset [data-todo-waits] > span:first-child {
+.todo-inset :is([data-todo-waits], [data-todo-also-waits]) > span:first-child {
   flex: none;
   white-space: pre;
 }
@@ -178,3 +178,21 @@
 .todo-row-actions { display: none; flex: none; gap: var(--space-1); margin-left: var(--space-3); position: relative; z-index: 1; }
 .todo-row:hover .todo-row-actions,
 .todo-row:focus-within .todo-row-actions { display: flex; }
+
+/* U3712: reserve one Glyph column for the tick and external-blocker mark on the same baseline. */
+.shelf-row.todo-inset {
+  grid-template-columns: calc(var(--space-5) + var(--space-4)) minmax(0, 1fr);
+}
+
+/* U3708: the tree row shares the title's ink feedback, without a hover box. */
+.todo-row[role="treeitem"] {
+  color: var(--grey);
+  cursor: pointer;
+}
+.todo-row[role="treeitem"]:hover {
+  color: var(--text);
+}
+.todo-row[role="treeitem"]:active {
+  color: var(--ink-pressed);
+  transition-duration: 0s;
+}
