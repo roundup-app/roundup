@@ -65,3 +65,5 @@ Preparation uses the Project's explicit command before enrollment. Cold creation
 
 
 Reference: `origin/main` commit `7497e0038` (2026-10-17). Specification validation: `loop/rules.sh vocab` and `loop/rules.sh scenario-ids` must exit 0. Implementation runs both lints and related tests, delivers the observer and records managed-Mac evidence separately. This specification claims no launch timing or Defender result.
+
+R2965 observer requirement for G2542e: `g2542e_warm_launch_observer`: twenty real Git assignments and Node/Rust/Python smoke-test launches with dependency-root filesystem observation and wall-clock latency. Controlled time cannot measure filesystem/process cost or observe unexpected installer activity.
