@@ -1,5 +1,5 @@
 import "./import.css";
-import { createEffect, createSignal, For, onCleanup, Show } from "solid-js";
+import { createEffect, createSignal, For, onCleanup, Show, untrack } from "solid-js";
 import { Portal } from "solid-js/web";
 import * as v from "valibot";
 import type { ImportCandidate } from "@contracts/project/ImportCandidate";
@@ -43,12 +43,13 @@ export const ImportPanel = (props: { open: boolean; opener: HTMLElement | undefi
   const [failure, setFailure] = createSignal<string | null>(null);
   const [refused, setRefused] = createSignal<ReadonlyMap<string, string>>(new Map());
   const [pending, setPending] = createSignal(false);
+  const [stale, setStale] = createSignal(0);
   let ticket = 0;
   let panel: HTMLElement | undefined;
   let radios: HTMLDivElement | undefined;
   registerKeys({ kind: "layer", element: () => panel, active: () => props.open, modal: true }, []);
 
-  createEffect(() => { if (props.open) void discover(); });
+  createEffect(() => { if (props.open) void untrack(() => discover()); });
 
   const keep = (): void => {
     if (wanted().size === 0 && period() === "week") drafts.discard(drafts.list().find((draft) => draft.destination.surface === SURFACE
@@ -69,13 +70,12 @@ export const ImportPanel = (props: { open: boolean; opener: HTMLElement | undefi
       const current = new Map(result.candidates.map((candidate) => [candidate.source, candidate.revision]));
       const changed = [...wanted()].flatMap(([source, revision]): [string, string][] => current.get(source) === revision ? [] : [[source, copy.importChanged]]);
       setWanted((previous) => new Map([...previous].filter(([source, revision]) => current.get(source) === revision)));
+      setStale(changed.length);
       setRefused(new Map([...changed, ...keep]));
     } catch (error) {
       if (mine === ticket) setFailure(error instanceof Error ? error.message : String(error));
     }
   };
-
-  const staleCount = (): number => saved ? saved.sources.filter((source) => !wanted().has(source)).length : 0;
 
   const toggle = (candidate: ImportCandidate): void => {
     if (pending()) return;
@@ -93,6 +93,7 @@ export const ImportPanel = (props: { open: boolean; opener: HTMLElement | undefi
   const choose = (next: ImportPeriod): void => {
     if (pending() || next === period()) return;
     setPeriod(next);
+    setWanted(new Map());
     keep();
     void discover();
   };
@@ -108,14 +109,17 @@ export const ImportPanel = (props: { open: boolean; opener: HTMLElement | undefi
     try {
       const result = await app.rpc("project.importCommit", { selections });
       const failed = result.outcomes.filter((outcome) => outcome.error !== null);
-      const created = result.outcomes.find((outcome) => outcome.error === null && outcome.workstream !== null)?.workstream ?? null;
+      const first = result.outcomes.find((outcome) => outcome.error === null && outcome.workstream !== null);
 
       if (failed.length === 0) {
         drafts.settle(retained.revision, "acknowledged");
         reset();
         props.onClose();
 
-        if (created !== null) rail.select(created);
+        if (first) {
+          await rail.refresh();
+          rail.select(first.agent ?? first.workstream);
+        }
 
         return;
       }
@@ -136,6 +140,7 @@ export const ImportPanel = (props: { open: boolean; opener: HTMLElement | undefi
 
   const reset = (): void => {
     ticket += 1;
+    setStale(0);
     setWanted(new Map());
     setRefused(new Map());
     setPeriod("week");
@@ -168,7 +173,7 @@ export const ImportPanel = (props: { open: boolean; opener: HTMLElement | undefi
           <Show when={found()} fallback={<Show when={!failure()}><p role="status">{copy.importLooking}</p></Show>}>
             {(result) => <>
               <Show when={result().candidates.length === 0}><p role="status">{copy.importNone}</p></Show>
-              <Show when={staleCount() > 0}><p role="status">{copy.importStale(staleCount())}</p></Show>
+              <Show when={stale() > 0}><p role="status">{copy.importStale(stale())}</p></Show>
               <ul class="import-list" aria-label={copy.importResults}>
                 <For each={result().candidates}>{(candidate) => (
                   <li>
