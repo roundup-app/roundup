@@ -725,3 +725,14 @@ The retained target identity of a Deliverable: local bytes with length and SHA-2
 
 **Resolution** (`Resolution`, `UnavailableCause`):
 The exact retained target or an explicit cause preventing its use. Missing or corrupt revisions and revoked access never authorize substitution by a current path, title or same-named Pad.
+
+**Measurement** (`project.measurements`):
+A retained source contribution attributed to its original Project, maker Agent, Home at
+observation and Attempt when known. A source revision replaces the same contribution's
+consumption; the revision journal preserves earlier facts. `Consumed` holds four disjoint
+categories (input, output, cache read and cache write), with missing values unknown.
+`MeasurementValue` is a request or an `Execution` interval (Agent or tool); source wall-clock
+endpoints retain their meaning and never imply monotonic continuity. `Measurements` is a
+coherent read at one retained revision; `MeasurementsChanged` (`project.measurementsChanged`)
+tells subscribers to reconcile that revision. `MeasurementSource` reports last good collection,
+failure cause and uncovered history. Explicit Project/Workstream deletion remains effective.
