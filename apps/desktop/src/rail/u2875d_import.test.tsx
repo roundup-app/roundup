@@ -248,3 +248,22 @@ describe("u2875d the import panel is an ordinary Rail action", () => {
     expect(calls(app, "project.importCommit")).toEqual([]);
   });
 });
+
+it("u3049a_external_save_keeps_both_versions", async () => {
+  const { app, connected } = await mountRail([]);
+  const titles = ["一つ目 🪁 " .repeat(12), "別の窓 🌙 ".repeat(12), "三つ目 🌿 ".repeat(12)];
+  app.handlers["project.importDiscover"] = () => ({ candidates: titles.map((title, at) => ({ source: `s${at + 1}`, revision: `preview-${at + 1}`, title, cwd: "", last_activity_ms: 1n })), excluded: [] });
+  fireEvent.click(screen.getByRole("button", { name: "Import Claude Code work" }));
+  fireEvent.click(await screen.findByRole("checkbox", { name: new RegExp("一つ目") }));
+  localStorage.setItem("roundup:import:/p", JSON.stringify({ open: true, period: "month", selected: [{ source: "s2", revision: "preview-2", title: titles[1] }] }));
+  fireEvent.click(screen.getByRole("checkbox", { name: new RegExp("三つ目") }));
+  expect(await screen.findByRole("status", { name: /conflict/i })).toBeTruthy();
+  const forms = connected.drafts.list().filter(draft => draft.destination.surface === "import").map(draft => draft.value);
+  expect(forms).toEqual(expect.arrayContaining([
+    expect.objectContaining({ period: "month", sources: ["s2"], revisions: ["preview-2"], titles: [titles[1]] }),
+    expect.objectContaining({ period: "week", sources: ["s1", "s3"], revisions: ["preview-1", "preview-3"], titles: [titles[0], titles[2]] }),
+  ]));
+  expect(connected.importing.period()).toBe("week");
+  expect([...connected.importing.selected().keys()]).toEqual(["s1", "s3"]);
+  expect(calls(app, "project.importCommit")).toEqual([]);
+});
