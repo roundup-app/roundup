@@ -85,7 +85,8 @@ def decoration_start(lines, index):
         return index
     depth = 0
     for first in range(index, -1, -1):
-        depth += lines[first].count('[') - lines[first].count(']')
+        code = re.sub(r'"(?:\\.|[^"\\])*"|\'(?:\\.|[^\'\\])\'|//.*', '', lines[first])
+        depth += code.count('[') - code.count(']')
         if depth == 0:
             return first if lines[first].lstrip().startswith('#[') else None
     return None

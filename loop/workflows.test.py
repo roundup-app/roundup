@@ -387,6 +387,8 @@ class L122(unittest.TestCase):
         for touched in ({2}, {3}, {4}, {5}, {6}, {7}, {9}):
             self.assertEqual(['fourth'], affected.rust_tests(decorated, touched), touched)
         self.assertEqual([], affected.rust_tests(decorated, {1}))
+        quoted = 'fn helper() {}\n#[should_panic(expected = "[")]\n#[test] // ]\nfn fifth() {}\n'
+        self.assertEqual(['fifth'], affected.rust_tests(quoted, {2}))
         self.assertEqual({4, 5}, affected.touched_lines('@@ -3 +4,2 @@ fn x\n+a\n+b\n'))
         self.assertEqual({7}, affected.touched_lines('@@ -7,2 +6,0 @@\n-a\n-b\n'.replace('+6,0', '+7,0')))
 
