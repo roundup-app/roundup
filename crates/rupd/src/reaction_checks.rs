@@ -456,7 +456,7 @@ mod tests {
     #[tokio::test]
     async fn nr7_checks_read_evidence_from_a_fake_gh_through_the_daemon() {
         use std::os::unix::fs::PermissionsExt;
-        let (project, daemon, client, _watcher, target) = daemon().await;
+        let (project, daemon, client, watcher, target) = daemon().await;
         // The Agents' project directory is the Worktree's git root.
         let repo = project.path().to_owned();
         for args in [
@@ -496,6 +496,20 @@ mod tests {
         assert_eq!(state["evidence"]["state"], "complete");
         assert_eq!(state["evidence"]["repository"], REPO);
         assert_eq!(state["evidence"]["head"], head.as_str());
+        // The Watcher's own read of that evidence, not a fed one, fires a reaction pinned to its head
+        // once, and never one pinned to another head.
+        let pinned = save(&daemon, &target, REPO, 23, &head).await;
+        let moved = save(&daemon, &target, REPO, 23, &"2".repeat(40)).await;
+        watcher.check().await;
+        watcher.check().await;
+        assert_eq!(
+            get(&client, &pinned).await["firings"]
+                .as_array()
+                .unwrap()
+                .len(),
+            1
+        );
+        assert_eq!(get(&client, &moved).await["firings"], json!([]));
     }
 
     #[tokio::test]
