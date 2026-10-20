@@ -115,7 +115,7 @@ def edited_rust(git, fork, changed, untracked):
             continue
         source = (ROOT / path).read_text()
         touched = range(1, len(source.splitlines()) + 1) if path in untracked \
-            else touched_lines(git('diff', '-U0', '--no-renames', fork, '--', path))
+            else touched_lines(git('diff', '--no-ext-diff', '-U0', '--no-renames', fork, '--', path))
         names += rust_tests(source, touched)
     return ' | '.join(f'test(/(^|::){name}$/)' for name in sorted(set(names)))
 
@@ -152,7 +152,7 @@ def edited_web(git, fork, changed, untracked):
             continue
         source = (ROOT / path).read_text()
         touched = range(1, len(source.splitlines()) + 1) if path in untracked \
-            else touched_lines(git('diff', '-U0', '--no-renames', fork, '--', path))
+            else touched_lines(git('diff', '--no-ext-diff', '-U0', '--no-renames', fork, '--', path))
         pattern = web_tests(source, touched)
         if pattern != '':
             out.append(path.removeprefix(APP) + ('' if pattern is None else '\t' + pattern))
