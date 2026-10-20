@@ -15,6 +15,8 @@ mod link;
 mod output;
 mod owner_told;
 mod reaction;
+mod reaction_checks;
+mod reaction_time;
 mod removal;
 mod resize;
 mod resources;
@@ -93,7 +95,7 @@ pub struct Daemon {
     /// D8: samples only inside `project.resources`.
     resources: resources::Sampler,
     publications: deliverables::Publications,
-    reactions: reaction::Reactions,
+    reactions: Arc<reaction::Reactions>,
     /// B6's isolated observer pauses a Door action or guarded call before its effect; absent in production.
     prompt_effect_gate: Option<std::path::PathBuf>,
 }
@@ -451,7 +453,11 @@ impl Daemon {
             pushes: std::sync::Mutex::new(Some(bus.subscribe())),
             resources: Default::default(),
             publications: deliverables::Publications::open(dir)?,
-            reactions: reaction::Reactions::open(dir)?,
+            reactions: {
+                let reactions = reaction::Reactions::open(dir)?;
+                reactions.listen(bus.subscribe());
+                Arc::new(reactions)
+            },
             prompt_effect_gate: std::env::var_os("RUPD_PROMPT_EFFECT_GATE").map(Into::into),
             waits: std::sync::Mutex::new(Some((
                 bus.subscribe(),
@@ -582,7 +588,36 @@ impl Daemon {
         if let (Some(events), Some(waker)) = (wake_events, self.waker()) {
             tokio::spawn(waker.run(events));
         }
+        if let Some(sender) = self.sender.get().filter(|_| {
+            !self
+                .reactions
+                .timed
+                .swap(true, std::sync::atomic::Ordering::SeqCst)
+        }) {
+            tokio::spawn(
+                reaction_time::Timer::new(
+                    Arc::clone(&self.reactions),
+                    Arc::clone(&self.agents),
+                    Arc::clone(sender),
+                )
+                .run(),
+            );
+        }
+        if let (Some(events), Some(evaluator)) = (self.reactions.take_events(), self.evaluator()) {
+            tokio::spawn(evaluator.run(events));
+        }
         if let (Some(events), Some(sender)) = (events, self.sender.get()) {
+            // Once, with the other watchers: `start_pushes` runs on every call, and `events` is taken once.
+            tokio::spawn(
+                reaction_checks::Watcher {
+                    reactions: Arc::clone(&self.reactions),
+                    agents: Arc::clone(&self.agents),
+                    messages: Arc::clone(sender),
+                    bus: self.bus.clone(),
+                    touches: Arc::clone(&self.touches),
+                }
+                .run(),
+            );
             tokio::spawn(digest::push_changes(
                 self.reader(),
                 Arc::clone(sender),
@@ -590,6 +625,15 @@ impl Daemon {
                 events,
             ));
         }
+    }
+
+    fn evaluator(&self) -> Option<reaction::Evaluator> {
+        Some(reaction::Evaluator {
+            reactions: Arc::clone(&self.reactions),
+            reader: self.reader(),
+            messages: Arc::clone(self.sender.get()?),
+            bus: self.bus.clone(),
+        })
     }
 
     fn waker(&self) -> Option<wake::Waker> {
@@ -1982,10 +2026,53 @@ mod tests {
         daemon.dispatch(&mut conn, line, None).await.unwrap()
     }
 
+    pub(super) fn daemon_in(dir: &Path) -> Daemon {
+        Daemon::open(dir).unwrap()
+    }
+
     fn daemon() -> (tempfile::TempDir, Daemon) {
         let dir = tempfile::tempdir().unwrap();
-        let daemon = Daemon::open(dir.path()).unwrap();
+        let daemon = daemon_in(dir.path());
         (dir, daemon)
+    }
+
+    // No runtime or listener: opening these stores starts no Daemon tasks or children.
+    // Exercise the actual subscribe method and its producing Bus without thousands of RPC
+    // renames, Touch writes and unrelated background observers.
+    #[test]
+    fn x14_daemon_observer_capacity_matches_its_receiver() {
+        use contracts::EventData;
+        use tokio::sync::broadcast::error::TryRecvError;
+        let dir = tempfile::tempdir().unwrap();
+        let daemon = test_daemon(dir.path()).unwrap();
+        let (mut receiver, capacity) = daemon.subscribe();
+        assert!(capacity > 0);
+        for index in 0..capacity {
+            daemon.bus.emit(
+                Actor {
+                    id: index.to_string(),
+                    ..Actor::user()
+                },
+                EventData::RailChanged,
+            );
+        }
+        for index in 0..capacity {
+            let event = receiver.try_recv().unwrap();
+            assert!(matches!(event.data, EventData::RailChanged));
+            assert_eq!(event.actor.id, index.to_string());
+        }
+        assert!(matches!(receiver.try_recv(), Err(TryRecvError::Empty)));
+        for index in 0..=capacity {
+            daemon.bus.emit(
+                Actor {
+                    id: index.to_string(),
+                    ..Actor::user()
+                },
+                EventData::RailChanged,
+            );
+        }
+        assert!(matches!(receiver.try_recv(), Err(TryRecvError::Lagged(1))));
+        assert_eq!(receiver.try_recv().unwrap().actor.id, "1");
     }
 
     struct RailReply(Value);

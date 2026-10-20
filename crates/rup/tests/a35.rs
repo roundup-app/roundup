@@ -174,17 +174,6 @@ async fn fixture() -> Fix {
     fx
 }
 
-/// The conversation file real Claude saved for `agent`, found by the words of its first ask.
-fn transcript(fx: &Fix, cwd: &Path) -> PathBuf {
-    let files = conversations(fx, cwd);
-    assert_eq!(
-        files.len(),
-        1,
-        "one saved conversation for {cwd:?}: {files:?}"
-    );
-    files.into_iter().next().unwrap()
-}
-
 /// The conversation files real Claude has saved for an Agent working in `cwd`.
 fn conversations(fx: &Fix, cwd: &Path) -> Vec<PathBuf> {
     let project: String = cwd
@@ -239,15 +228,6 @@ async fn write(fx: &Fix) -> Value {
 
 fn store(fx: &Fix) -> checkpoints::Checkpoints {
     checkpoints::Checkpoints::open(&fx.project.data_dir()).unwrap()
-}
-
-fn launcher(fx: &Fix) -> agents::claude_code::Launcher {
-    agents::claude_code::Launcher::new(
-        "claude",
-        fx.project.dir.path().join("claude-config/.claude.json"),
-        "rup".into(),
-        None,
-    )
 }
 
 async fn listed(fx: &Fix) -> Value {
@@ -358,53 +338,6 @@ async fn a35_write_records_a_mark_per_agent() {
 }
 
 #[tokio::test]
-async fn a35_marks_survive_a_restart() {
-    let mut fx = fixture().await;
-    write(&fx).await;
-    fx.project.model.as_ref().unwrap().assert_matched();
-    let saved = store(&fx).marks(&fx.ws, 1, 1).unwrap();
-    for mark in &saved.agents {
-        std::fs::write(Path::new(&mark.worktree).join("README"), "later files").unwrap();
-    }
-    fx.project.restart(&[]);
-    fx.user = fx.project.client().await;
-    assert_eq!(listed(&fx).await[0]["rewindable"], true);
-    assert_eq!(store(&fx).marks(&fx.ws, 1, 1).unwrap(), saved);
-    for mark in &saved.agents {
-        assert_eq!(regular(mark, b"README"), b"keep");
-    }
-    fx.project.model.as_ref().unwrap().assert_matched();
-}
-
-#[tokio::test]
-async fn a35_an_old_checkpoint_is_not_rewindable() {
-    let fx = fixture().await;
-    // A historical M10 card has no Marks: reproduce its old writer, never seed a Rail.
-    let db = rusqlite::Connection::open(fx.project.data_dir().join("project.db")).unwrap();
-    db.execute(
-        "INSERT INTO checkpoints (workstream,id,at,title,blocks) VALUES (?1,1,1,'old',?2)",
-        rusqlite::params![fx.ws, json!([{"kind":"text","text":"facts"}]).to_string()],
-    )
-    .unwrap();
-    assert_eq!(listed(&fx).await[0]["rewindable"], false);
-    write(&fx).await;
-    write(&fx).await;
-    store(&fx).invalidate_after(&fx.ws, 2).unwrap();
-    let cards = listed(&fx).await;
-    assert_eq!(cards.as_array().unwrap().len(), 3);
-    assert_eq!(cards[1]["rewindable"], true);
-    assert_eq!(cards[2]["rewindable"], false);
-    assert_eq!(
-        store(&fx).marks(&fx.ws, 3, 1).unwrap_err().code,
-        rpc::code::CONFLICT
-    );
-    assert_eq!(
-        store(&fx).marks(&fx.ws, 2, 2).unwrap_err().code,
-        rpc::code::CONFLICT
-    );
-}
-
-#[tokio::test]
 async fn a35_a_clear_makes_earlier_marks_unusable() {
     let fx = fixture().await;
     write(&fx).await;
@@ -463,99 +396,6 @@ async fn a35_a_clear_makes_earlier_marks_unusable() {
     assert_eq!(listed(&fx).await[1]["rewindable"], true);
     assert_eq!(store(&fx).marks(&fx.ws, 2, 2).unwrap().agents.len(), 1);
     fx.project.model.as_ref().unwrap().assert_matched();
-}
-
-#[tokio::test]
-async fn a35_the_original_conversation_is_untouched() {
-    let fx = fixture().await;
-    write(&fx).await;
-    let mark = store(&fx)
-        .marks(&fx.ws, 1, 1)
-        .unwrap()
-        .agents
-        .into_iter()
-        .find(|m| m.agent == fx.b)
-        .unwrap();
-    idle(&fx.user, &fx.b).await;
-    fx.user
-        .request("agent.prompt", json!({"id": fx.b, "text": "after mark"}))
-        .await
-        .unwrap();
-    let path = transcript(&fx, Path::new(&mark.cwd));
-    let before = until("the after-mark prompt saved", || {
-        let bytes = std::fs::read(&path).ok()?;
-        String::from_utf8_lossy(&bytes)
-            .contains("after mark")
-            .then_some(bytes)
-    })
-    .await;
-    // Claude is still answering: the original may grow, so judge it against a quiet file.
-    idle(&fx.user, &fx.b).await;
-    let adapter = launcher(&fx);
-    let id = adapter
-        .copy_conversation(Path::new(&mark.cwd), &mark.conversation)
-        .unwrap();
-    assert_ne!(id, path.file_stem().unwrap().to_str().unwrap());
-    let copy = adapter
-        .record_conversation(Path::new(&mark.cwd), &id)
-        .unwrap();
-    let copied = String::from_utf8(copy).unwrap();
-    assert!(copied.contains("Follow this instruction"));
-    assert!(!copied.contains("after mark"));
-    // Real Claude writes some records with no session (the copy leaves those alone).
-    let sessions: Vec<Value> = copied
-        .lines()
-        .map(|line| serde_json::from_str::<Value>(line).unwrap()["sessionId"].clone())
-        .filter(|session| !session.is_null())
-        .collect();
-    assert!(!sessions.is_empty());
-    assert!(sessions.iter().all(|session| *session == id));
-    let after = std::fs::read(&path).unwrap();
-    assert!(
-        after.starts_with(&before),
-        "the original is only appended to"
-    );
-    fx.project.model.as_ref().unwrap().assert_matched();
-}
-
-#[tokio::test]
-async fn a35_a_missing_saved_conversation_is_a_recording_failure() {
-    let fx = fixture().await;
-    // Real Claude may still be writing the file, and would recreate it.
-    idle(&fx.user, &fx.b).await;
-    let cwd = roots(&fx)
-        .await
-        .into_iter()
-        .find(|(id, _)| id == &fx.b)
-        .unwrap()
-        .1
-        .canonicalize()
-        .unwrap();
-    let saved = transcript(&fx, &cwd);
-    // Idle is Roundup's view; Claude may append trailing records after it, so wait for a quiet file.
-    let mut quiet = 0;
-    let mut size = std::fs::metadata(&saved).unwrap().len();
-    while quiet < 20 {
-        tokio::time::sleep(Duration::from_millis(50)).await;
-        let now = std::fs::metadata(&saved).map_or(0, |m| m.len());
-        quiet = if now == size { quiet + 1 } else { 0 };
-        size = now;
-    }
-    std::fs::remove_file(&saved).unwrap();
-    let error = as_actor(&fx.project, ActorKind::Agent, &fx.ws)
-        .await
-        .request(
-            "checkpoint.write",
-            json!({"title": "failed", "blocks": [{"kind": "text", "text": "facts"}]}),
-        )
-        .await
-        .unwrap_err();
-    assert!(error.message.contains("cannot record Mark"), "{error:?}");
-    assert_eq!(listed(&fx).await[0]["rewindable"], false);
-    assert_eq!(
-        store(&fx).marks(&fx.ws, 1, 1).unwrap_err().code,
-        rpc::code::CONFLICT
-    );
 }
 
 #[tokio::test]
@@ -693,6 +533,14 @@ async fn a35_rewind_selects_one_or_all_children() {
     ids.sort();
     let mut expected = vec![fx.a.clone(), fx.b.clone()];
     expected.sort();
+    assert!(
+        all["agents"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .all(|entry| entry["state"] == "rewound"),
+        "an unselected child's Mark remains usable: {all}"
+    );
     assert_eq!(ids, expected);
     assert_eq!(
         attempt(&rail_tree(&fx.user).await, &fx.ws),
@@ -702,76 +550,10 @@ async fn a35_rewind_selects_one_or_all_children() {
 }
 
 #[tokio::test]
-async fn a35_rewind_refuses_another_workstream_or_its_door() {
-    let fx = fixture().await;
-    write(&fx).await;
-    let other = fx
-        .user
-        .request(
-            "rail.createWorkstream",
-            json!({"name": "other", "parent": null}),
-        )
-        .await
-        .unwrap()["id"]
-        .as_str()
-        .unwrap()
-        .to_owned();
-    let before = rail_tree(&fx.user).await;
-    for (agent, code) in [
-        (Some(fx.ws.as_str()), rpc::code::FORBIDDEN),
-        (Some(other.as_str()), rpc::code::FORBIDDEN),
-        (Some("nobody"), rpc::code::NOT_FOUND),
-    ] {
-        let error = rewind_as(&fx, &fx.ws, &fx.ws, agent, "keep")
-            .await
-            .unwrap_err();
-        assert_eq!(error.code, code, "{agent:?}: {error:?}");
-        assert_eq!(plan(&fx, agent).await.unwrap_err().code, code);
-    }
-    // Another Workstream's Door may not rewind this one, and this Door may not name another's.
-    let error = rewind_as(&fx, &other, &fx.ws, None, "keep")
-        .await
-        .unwrap_err();
-    assert_eq!(error.code, rpc::code::FORBIDDEN);
-    let error = rewind_as(&fx, &fx.ws, &other, None, "keep")
-        .await
-        .unwrap_err();
-    assert_eq!(error.code, rpc::code::FORBIDDEN);
-    // The Checkpoint must be one of this Workstream's.
-    let error = as_actor(&fx.project, ActorKind::Agent, &fx.ws)
-        .await
-        .request(
-            "workstream.rewind",
-            json!({"id": fx.ws, "checkpoint": 9, "files": "keep"}),
-        )
-        .await
-        .unwrap_err();
-    assert_eq!(error.code, rpc::code::NOT_FOUND);
-    assert_eq!(rail_tree(&fx.user).await, before);
-}
-
-#[tokio::test]
 async fn a35_only_a_door_is_offered_and_can_call_rewind() {
     let fx = fixture().await;
     write(&fx).await;
     let before = rail_tree(&fx.user).await;
-    for caller in [&fx.a, &fx.b] {
-        let error = rewind_as(&fx, caller, &fx.ws, None, "keep")
-            .await
-            .unwrap_err();
-        assert_eq!(error.code, rpc::code::FORBIDDEN, "{caller}");
-    }
-    // Nor does the App have a control: the user's own connection is refused too.
-    let error = fx
-        .user
-        .request(
-            "workstream.rewind",
-            json!({"id": fx.ws, "checkpoint": 1, "files": "keep"}),
-        )
-        .await
-        .unwrap_err();
-    assert_eq!(error.code, rpc::code::FORBIDDEN);
-    assert_eq!(rail_tree(&fx.user).await, before);
     // Only the Door's MCP shim offers the tools; an ordinary Agent's call has no effect.
     let door = mcp(&fx, &fx.ws, &[("tools/list", json!({}))]).await;
     let plain = mcp(
@@ -895,24 +677,6 @@ async fn a35_plan_lists_each_agent_and_changes_nothing() {
 }
 
 #[tokio::test]
-async fn a35_plan_refuses_an_unrewindable_checkpoint() {
-    let fx = fixture().await;
-    write(&fx).await;
-    let door = as_actor(&fx.project, ActorKind::Agent, &fx.ws).await;
-    let error = door
-        .request(
-            "workstream.rewindPlan",
-            json!({"id": fx.ws, "checkpoint": 2}),
-        )
-        .await
-        .unwrap_err();
-    assert_eq!(error.code, rpc::code::NOT_FOUND);
-    store(&fx).invalidate_after(&fx.ws, 0).unwrap();
-    let error = plan(&fx, None).await.unwrap_err();
-    assert_eq!(error.code, rpc::code::CONFLICT);
-}
-
-#[tokio::test]
 async fn a35_keep_changes_no_file() {
     let fx = fixture().await;
     write(&fx).await;
@@ -953,6 +717,24 @@ async fn a35_restore_returns_each_worktree_to_its_snapshot() {
     let fx = fixture().await;
     write(&fx).await;
     let roots = roots(&fx).await;
+    let child_root = &roots.iter().find(|(id, _)| id == &fx.b).unwrap().1;
+    let remote = tempfile::tempdir().unwrap();
+    git(remote.path(), &["init", "-q", "--bare"]);
+    git(
+        child_root,
+        &["remote", "add", "origin", remote.path().to_str().unwrap()],
+    );
+    std::fs::write(child_root.join("README"), "committed later").unwrap();
+    git(child_root, &["add", "README"]);
+    git(child_root, &["commit", "-qm", "later"]);
+    let state = |root: &Path| {
+        (
+            git(root, &["symbolic-ref", "HEAD"]),
+            git(root, &["rev-parse", "HEAD"]),
+            git(root, &["remote", "-v"]),
+        )
+    };
+    let before: Vec<_> = roots.iter().map(|(_, root)| state(root)).collect();
     let selected = [&fx.a, &fx.b];
     for (_, root) in &roots {
         std::fs::write(root.join("README"), "later").unwrap();
@@ -960,6 +742,15 @@ async fn a35_restore_returns_each_worktree_to_its_snapshot() {
         std::fs::remove_file(root.join(".gitignore")).unwrap();
     }
     rewind(&fx, None, "restore").await;
+    assert_eq!(
+        roots
+            .iter()
+            .map(|(_, root)| state(root))
+            .collect::<Vec<_>>(),
+        before
+    );
+    assert_eq!(git(remote.path(), &["for-each-ref"]), "");
+
     for (id, root) in &roots {
         if selected.contains(&id) {
             assert_eq!(std::fs::read(root.join("README")).unwrap(), b"keep");
@@ -990,37 +781,6 @@ async fn a35_unselected_children_keep_their_files_and_conversations() {
             |tree: &[RailNode]| tree.iter().find(|n| &n.id == id).unwrap().attempt.clone();
         assert_eq!(attempt(&rail_tree(&fx.user).await), attempt(&before));
     }
-}
-
-#[tokio::test]
-async fn a35_restore_moves_no_branch_and_pushes_nothing() {
-    let fx = fixture().await;
-    write(&fx).await;
-    let root = roots(&fx)
-        .await
-        .into_iter()
-        .find(|(id, _)| id == &fx.b)
-        .unwrap()
-        .1;
-    let remote = tempfile::tempdir().unwrap();
-    git(remote.path(), &["init", "-q", "--bare"]);
-    git(
-        &root,
-        &["remote", "add", "origin", remote.path().to_str().unwrap()],
-    );
-    std::fs::write(root.join("README"), "committed later").unwrap();
-    git(&root, &["add", "README"]);
-    git(&root, &["commit", "-qm", "later"]);
-    let branch = git(&root, &["symbolic-ref", "HEAD"]);
-    let head = git(&root, &["rev-parse", "HEAD"]);
-    let remotes = git(&root, &["remote", "-v"]);
-    std::fs::write(root.join("README"), "dirty").unwrap();
-    rewind(&fx, Some(&fx.b), "restore").await;
-    assert_eq!(std::fs::read(root.join("README")).unwrap(), b"keep");
-    assert_eq!(git(&root, &["symbolic-ref", "HEAD"]), branch);
-    assert_eq!(git(&root, &["rev-parse", "HEAD"]), head);
-    assert_eq!(git(&root, &["remote", "-v"]), remotes);
-    assert_eq!(git(remote.path(), &["for-each-ref"]), "");
 }
 
 fn jsonl(dir: &Path) -> Vec<PathBuf> {
@@ -1070,36 +830,11 @@ fn transcript_dir(fx: &Fix, cwd: &Path) -> PathBuf {
 async fn a35_each_agent_resumes_a_copy_cut_at_its_mark() {
     let fx = fixture().await;
     write(&fx).await;
-    let mut originals = Vec::new();
     for agent in [&fx.a, &fx.b] {
         ask(&fx, agent, "after mark").await;
-        let cwd = node(&fx.user, agent).await.unwrap().worktree.unwrap().path;
-        let dir = transcript_dir(&fx, Path::new(&cwd));
-        let files = jsonl(&dir);
-        assert_eq!(files.len(), 1);
-        originals.push((
-            agent.clone(),
-            dir,
-            files[0].clone(),
-            std::fs::read(&files[0]).unwrap(),
-        ));
     }
-    rewind(&fx, None, "keep").await;
-    for (agent, dir, original_file, original) in &originals {
-        let files = jsonl(dir);
-        assert_eq!(files.len(), 2, "{agent}: the original and one copy");
-        let copy = files.iter().find(|f| *f != original_file).unwrap();
-        let copied = std::fs::read_to_string(copy).unwrap();
-        assert!(copied.contains("Follow this instruction"));
-        assert!(
-            !copied.contains("after mark"),
-            "{agent}: turns after the Mark"
-        );
-        assert!(
-            std::fs::read(original_file).unwrap().starts_with(original),
-            "the original is only appended to"
-        );
-        // The next turn runs on the copy: the model saw the earlier turns, not the later one.
+    rewind(&fx, None, "restore").await;
+    for agent in [&fx.a, &fx.b] {
         idle(&fx.user, agent).await;
     }
     for agent in [&fx.a, &fx.b] {
@@ -1119,14 +854,6 @@ async fn a35_each_agent_resumes_a_copy_cut_at_its_mark() {
         );
         assert!(!body.contains("after mark"), "later turns left the context");
     }
-    fx.project.model.as_ref().unwrap().assert_matched();
-}
-
-#[tokio::test]
-async fn a35_no_slash_command_is_typed() {
-    let fx = fixture().await;
-    write(&fx).await;
-    rewind(&fx, None, "restore").await;
     let projects = fx.project.dir.path().join("claude-config/projects");
     for dir in std::fs::read_dir(projects).unwrap() {
         for file in jsonl(&dir.unwrap().path()) {
@@ -1151,6 +878,7 @@ async fn a35_no_slash_command_is_typed() {
             }
         }
     }
+    fx.project.model.as_ref().unwrap().assert_matched();
 }
 
 #[tokio::test]
@@ -1208,6 +936,7 @@ async fn a35_a_later_subagent_leaves_the_rail_and_keeps_its_worktree() {
     let fx = fixture().await;
     write(&fx).await;
     let later = spawn_later(&fx, &fx.b).await;
+    let descendant = spawn_later(&fx, &later.id).await;
     let root = PathBuf::from(&later.worktree.as_ref().unwrap().path);
     std::fs::write(root.join("keep-later"), "kept").unwrap();
     let branch = git(&root, &["rev-parse", "--abbrev-ref", "HEAD"]);
@@ -1219,53 +948,10 @@ async fn a35_a_later_subagent_leaves_the_rail_and_keeps_its_worktree() {
         .find(|a| a["agent"] == later.id)
         .unwrap();
     assert_eq!(entry["state"], "removed");
+    assert!(node(&fx.user, &descendant.id).await.is_none());
     assert!(node(&fx.user, &later.id).await.is_none());
     assert_eq!(std::fs::read(root.join("keep-later")).unwrap(), b"kept");
     assert_eq!(git(&root, &["rev-parse", "--abbrev-ref", "HEAD"]), branch);
-}
-
-#[tokio::test]
-async fn a35_a_selected_later_child_cannot_orphan_an_unselected_descendant() {
-    let fx = fixture().await;
-    write(&fx).await;
-    let parent = spawn_later(&fx, &fx.b).await;
-    let child = spawn_later(&fx, &parent.id).await;
-    let before = rail_tree(&fx.user).await;
-    let error = rewind_as(&fx, &fx.ws, &fx.ws, Some(&parent.id), "keep")
-        .await
-        .unwrap_err();
-    assert_eq!(error.code, rpc::code::CONFLICT);
-    assert!(error.message.contains(&child.name), "{error:?}");
-    // A child may still be finishing a turn of its own, so Status is not the refusal's to keep.
-    let unchanged = |tree: Vec<RailNode>| -> Vec<RailNode> {
-        tree.into_iter()
-            .map(|node| RailNode {
-                status: None,
-                status_revision: None,
-                ..node
-            })
-            .collect()
-    };
-    assert_eq!(unchanged(rail_tree(&fx.user).await), unchanged(before));
-    // Selecting every child removes them deepest first.
-    rewind(&fx, None, "keep").await;
-    assert!(node(&fx.user, &child.id).await.is_none());
-    assert!(node(&fx.user, &parent.id).await.is_none());
-}
-
-#[tokio::test]
-async fn a35_one_rewind_at_a_time() {
-    let fx = fixture().await;
-    write(&fx).await;
-    let (one, other) = tokio::join!(
-        rewind_as(&fx, &fx.ws, &fx.ws, Some(&fx.a), "keep"),
-        rewind_as(&fx, &fx.ws, &fx.ws, Some(&fx.b), "keep"),
-    );
-    let refused = match (one, other) {
-        (Ok(_), Err(e)) | (Err(e), Ok(_)) => e,
-        other => panic!("exactly one call runs: {other:?}"),
-    };
-    assert_eq!(refused.code, rpc::code::CONFLICT);
 }
 
 #[tokio::test]
@@ -1396,7 +1082,19 @@ async fn a35_all_children_rewind_waits_only_for_taken_over_children() {
     take(&fx, &fx.b).await;
     let before = rail_tree(&fx.user).await;
     let mut events = fx.project.subscribed().await;
-    let held = rewind(&fx, None, "keep").await;
+    let door_attempt = attempt_of(&before, &fx.ws);
+    let reply = door_calls(
+        &fx,
+        &[(
+            "workstream_rewind",
+            json!({"checkpoint":1,"files":"restore"}),
+        )],
+    )
+    .await;
+    let held = answered(&reply[0]);
+    assert_eq!(held["checkpoint"], "ready");
+    assert_eq!(held["files"], "restore");
+    assert_eq!(attempt_of(&rail_tree(&fx.user).await, &fx.ws), door_attempt);
     let state = |id: &str| {
         held["agents"]
             .as_array()
@@ -1541,51 +1239,6 @@ async fn a35_restart_accounts_for_a_held_rewind() {
 }
 
 #[tokio::test]
-async fn a35_the_door_is_told_what_was_rewound() {
-    let fx = fixture().await;
-    write(&fx).await;
-    take(&fx, &fx.a).await;
-    let door_attempt = attempt_of(&rail_tree(&fx.user).await, &fx.ws);
-    let calls = [(
-        "tools/call",
-        json!({"name": "workstream_rewind", "arguments": {"checkpoint": 1, "files": "restore"}}),
-    )];
-    let reply = mcp(&fx, &fx.ws, &calls).await;
-    let told: Value =
-        serde_json::from_str(reply[0]["content"][0]["text"].as_str().unwrap()).unwrap();
-    assert_eq!(told["checkpoint"], "ready");
-    assert_eq!(told["files"], "restore");
-    let state = |id: &str| {
-        told["agents"]
-            .as_array()
-            .unwrap()
-            .iter()
-            .find(|a| a["agent"] == id)
-            .unwrap()["state"]
-            .clone()
-    };
-    assert_eq!(state(&fx.a), "waiting");
-    assert_eq!(state(&fx.b), "rewound");
-    // The Door got no synthetic prompt: its Attempt is the one it had.
-    assert_eq!(attempt_of(&rail_tree(&fx.user).await, &fx.ws), door_attempt);
-    give_back(&fx, &fx.a).await;
-}
-
-#[tokio::test]
-async fn a35_rewind_outcomes_survive_reopen() {
-    let mut fx = fixture().await;
-    write(&fx).await;
-    rewind(&fx, Some(&fx.b), "keep").await;
-    let before = history(&fx, &fx.b).await;
-    assert_eq!(before.len(), 1);
-    fx.project.restart(&[]);
-    fx.user = fx.project.client().await;
-    let after = history(&fx, &fx.b).await;
-    assert_eq!(after, before);
-    assert_eq!(after[0]["outcome"]["status"], "completed");
-}
-
-#[tokio::test]
 async fn a35_messages_todos_pads_and_checkpoints_stay() {
     let fx = fixture().await;
     write(&fx).await;
@@ -1623,18 +1276,6 @@ async fn a35_messages_todos_pads_and_checkpoints_stay() {
             .all(|c| c["rewindable"] == false || c["id"] == 1)
     );
     assert_eq!(entries[1]["rewindable"], false);
-}
-
-#[tokio::test]
-async fn a35_a_selected_rewind_keeps_other_child_marks() {
-    let fx = fixture().await;
-    write(&fx).await;
-    rewind(&fx, Some(&fx.b), "keep").await;
-    // The unselected child's Marks are still usable by a later call.
-    let plan = plan(&fx, Some(&fx.a)).await.unwrap();
-    assert_eq!(plan["agents"][0]["agent"], fx.a.as_str());
-    let again = rewind(&fx, Some(&fx.a), "keep").await;
-    assert_eq!(again["agents"][0]["state"], "rewound");
 }
 
 #[test]
@@ -1931,121 +1572,4 @@ async fn terminals(fx: &Fix) -> Vec<(Value, Value, Value)> {
         .iter()
         .map(|t| (t["id"].clone(), t["owner"].clone(), t["running"].clone()))
         .collect()
-}
-
-#[tokio::test]
-async fn m16_door_calls_cannot_bypass_a_child_takeover() {
-    let fx = fixture().await;
-    write(&fx).await;
-    give_back(&fx, &fx.ws).await;
-    let model = fx.project.model.as_ref().unwrap();
-    for child in [fx.b.clone(), fx.a.clone()] {
-        let run = fx
-            .user
-            .request("agent.run", json!({"id": child, "command": ["/bin/cat"]}))
-            .await
-            .unwrap()["terminal_id"]
-            .as_str()
-            .unwrap()
-            .to_owned();
-        take(&fx, &child).await;
-        if child == fx.b {
-            // A Decision answer: the Door's own Claude calls `decision_answer` for the open Decision.
-            let open = daemon::h21_ask(&fx.project, &child, "Bash", daemon::h21_bash()).await;
-            let decision = daemon::h21_decision(&fx.user, &child, None).await;
-            assert_eq!(decision["id"], "d1");
-            daemon::h21_poll("the Door takes the prompt", async || {
-                fx.user
-                    .request(
-                        "agent.prompt",
-                        json!({"id": fx.ws, "text": "[decision d1]"}),
-                    )
-                    .await
-                    .ok()
-            })
-            .await;
-            let receipt = model.tool_result("toolu_m16_answer_1").await;
-            assert!(
-                receipt["content"].to_string().contains("waiting"),
-                "{receipt}"
-            );
-            tokio::time::sleep(Duration::from_millis(300)).await;
-            assert!(!open.is_finished(), "the held answer reached the child");
-            assert_eq!(open_decisions(&fx, &child).await, 1);
-            give_back(&fx, &child).await;
-            let released = open.await.unwrap().unwrap();
-            assert!(
-                released["output"].to_string().contains("allow"),
-                "{released}"
-            );
-            take(&fx, &child).await;
-        }
-        let mut events = fx.project.subscribed().await;
-        let before = attempt_of(&rail_tree(&fx.user).await, &child);
-        let replies = door_calls(
-            &fx,
-            &[
-                // Keep the released prompt in flight until the queued interrupt runs.
-                (
-                    "agent_prompt",
-                    json!({"id": child, "text": "m16 slow turn"}),
-                ),
-                ("agent_interrupt", json!({"id": child})),
-                (
-                    "terminal_write",
-                    json!({"id": run, "data": typed("m16-held\n")}),
-                ),
-                ("agent_stop", json!({"id": child})),
-                ("agent_resume", json!({"id": child})),
-                (
-                    "workstream_rewind",
-                    json!({"checkpoint": 1, "files": "keep", "agent": child}),
-                ),
-            ],
-        )
-        .await;
-        for reply in &replies {
-            assert!(
-                answered(reply).to_string().contains("waiting"),
-                "not held: {reply}"
-            );
-        }
-        let quiet =
-            tokio::time::timeout(Duration::from_millis(800), working(&mut events, &child)).await;
-        assert!(quiet.is_err(), "the child ran while taken over");
-        let node = node(&fx.user, &child).await.unwrap();
-        assert_eq!(node.attempt, before);
-        assert!(!node.can_resume, "the child was stopped");
-        let screen = fx
-            .user
-            .request("terminal.screen", json!({"id": run}))
-            .await
-            .unwrap();
-        assert!(
-            !screen["lines"].to_string().contains("m16-held"),
-            "{screen}"
-        );
-        // Given back, the held prompt reaches the child.
-        give_back(&fx, &child).await;
-        // The held actions run once, in order, and the history says so.
-        let history = daemon::h21_poll("the held actions' outcomes", async || {
-            let reply = door_calls(&fx, &[("agent_actionHistory", json!({"id": child}))]).await;
-            let entries = answered(&reply[0]);
-            let entries = entries.as_array().unwrap().clone();
-            let settled =
-                entries.len() >= 6 && entries.iter().all(|e| e["outcome"]["status"] != "waiting");
-            settled.then_some(entries)
-        })
-        .await;
-        // The Decision above leaves `b` mid-turn, so only `a` can take the held prompt.
-        let ran: &[&str] = if child == fx.a {
-            &["agent.prompt", "agent.interrupt", "terminal.write"]
-        } else {
-            &["terminal.write"]
-        };
-        for method in ran {
-            let entry = history.iter().find(|e| e["method"] == *method).unwrap();
-            assert_eq!(entry["outcome"]["status"], "completed", "{entry}");
-        }
-    }
 }

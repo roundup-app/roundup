@@ -3094,24 +3094,28 @@ mod tests {
 
     #[tokio::test(flavor = "multi_thread", worker_threads = 4)]
     async fn b1_concurrent_sends_at_the_bound_never_both_succeed() {
+        let dir = tempfile::tempdir().unwrap();
+        let bus = Bus::new();
+        let touches = Arc::new(Touches::in_memory().unwrap());
+        let messages = Arc::new(
+            Messages::open(
+                dir.path(),
+                bus.clone(),
+                FakeRail::new(vec![agent_node("b", Kind::Working)]),
+                noop_deliver(),
+            )
+            .unwrap(),
+        );
+        let make_ctx = |actor: Actor| Ctx {
+            actor,
+            bus: bus.clone(),
+            touches: Arc::clone(&touches),
+        };
         for _ in 0..40 {
-            let dir = tempfile::tempdir().unwrap();
-            let bus = Bus::new();
-            let touches = Arc::new(Touches::in_memory().unwrap());
-            let messages = Arc::new(
-                Messages::open(
-                    dir.path(),
-                    bus.clone(),
-                    FakeRail::new(vec![agent_node("b", Kind::Working)]),
-                    noop_deliver(),
-                )
-                .unwrap(),
-            );
-            let make_ctx = |actor: Actor| Ctx {
-                actor,
-                bus: bus.clone(),
-                touches: Arc::clone(&touches),
-            };
+            // Exercise the same SQL admission/transaction path without paying for
+            // 40 WAL databases and 1,240 durable seed inserts. Durability is not B1's race.
+            *messages.inner.store.lock().unwrap() =
+                Store::open(std::path::Path::new(":memory:")).unwrap();
             for n in 0..31 {
                 messages
                     .call(
