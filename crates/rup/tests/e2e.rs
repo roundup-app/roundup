@@ -6,6 +6,8 @@
 mod daemon;
 #[path = "e2e/notes.rs"]
 mod notes;
+#[path = "e2e/reaction.rs"]
+mod reaction;
 #[path = "e2e/wake.rs"]
 mod wake;
 
@@ -63,7 +65,8 @@ async fn agent_created_a_todo(fixture: &str) -> (Project, RailNode, Todo) {
 
 #[tokio::test]
 async fn e11_a_tool_result_matches_the_next_turn() {
-    let (project, _, todo) = agent_created_a_todo("d3_the_todo_the_agent_created_is_listed").await;
+    let (project, agent, todo) =
+        agent_created_a_todo("d3_the_todo_the_agent_created_is_listed").await;
 
     let listed: Vec<Todo> = serde_json::from_value(
         project
@@ -78,13 +81,6 @@ async fn e11_a_tool_result_matches_the_next_turn() {
     assert_eq!(listed.len(), 1);
     assert_eq!(listed[0].id, todo.id);
     assert_eq!(listed[0].title, "split checkout");
-}
-
-#[tokio::test]
-async fn d3_provenance_names_the_agent_that_created_the_todo() {
-    let (project, agent, todo) =
-        agent_created_a_todo("d3_provenance_names_the_agent_that_created_the_todo").await;
-
     let history: Vec<Touch> = serde_json::from_value(
         project
             .client()
@@ -1539,6 +1535,172 @@ async fn home_of(client: &rpc::Client, id: u32) -> Value {
         .clone()
 }
 
+fn owner_json(kind: &str, id: &str) -> Value {
+    json!({"kind": kind, "id": id, "parent": null})
+}
+
+async fn owner_of(client: &rpc::Client, id: u32) -> Value {
+    client
+        .request("todo.get", json!({ "id": id }))
+        .await
+        .unwrap()["owner"]
+        .clone()
+}
+
+/// T16, T17: the Daemon checks an owner against the Rail and a rejected call leaves no trace.
+#[tokio::test]
+async fn t17_rejections_leave_no_trace() {
+    let project = start(&[]);
+    let client = project.client().await;
+    let agent = agent_in(&project, &client, None).await;
+    let id = todo_at(&client, "a").await;
+    let history = || async {
+        client
+            .request(
+                "provenance.history",
+                json!({ "item": format!("todo:{id}") }),
+            )
+            .await
+            .unwrap()
+    };
+    let touched = history().await;
+    for owner in [owner_json("agent", "nope"), owner_json("agent", "r1")] {
+        let err = client
+            .request("todo.assign", json!({ "id": id, "owner": owner }))
+            .await
+            .unwrap_err();
+        assert_eq!(err.code, rpc::code::NOT_FOUND);
+    }
+    let ext = client
+        .request(
+            "todo.assign",
+            json!({ "id": id, "owner": owner_json("ext", "x") }),
+        )
+        .await
+        .unwrap_err();
+    assert_eq!(ext.code, rpc::code::INVALID_PARAMS);
+    let made = client
+        .request(
+            "todo.create",
+            json!({ "title": "b", "owner": owner_json("agent", "nope") }),
+        )
+        .await
+        .unwrap_err();
+    assert_eq!(made.code, rpc::code::NOT_FOUND);
+    let made = client
+        .request(
+            "todo.create",
+            json!({ "title": "b", "owner": owner_json("ext", "x") }),
+        )
+        .await
+        .unwrap_err();
+    assert_eq!(made.code, rpc::code::INVALID_PARAMS);
+    assert_eq!(history().await, touched);
+    assert_eq!(owner_of(&client, id).await, Value::Null);
+    let listed = client.request("todo.list", json!(null)).await.unwrap();
+    assert_eq!(listed.as_array().unwrap().len(), 1);
+    client
+        .request(
+            "todo.assign",
+            json!({ "id": id, "owner": owner_json("agent", &agent) }),
+        )
+        .await
+        .unwrap();
+    assert_eq!(owner_of(&client, id).await, owner_json("agent", &agent));
+}
+
+/// T17: `rail.remove` of an owner Agent unassigns its Todos, in id order, after the Agent is gone.
+#[tokio::test]
+async fn t17_rail_remove_unassigns_its_todos() {
+    let project = start(&[]);
+    let mut events = project.subscribed().await;
+    let client = project.client().await;
+    let agent = agent_in(&project, &client, None).await;
+    let (a, b, c) = (
+        todo_at(&client, "a").await,
+        todo_at(&client, "b").await,
+        todo_at(&client, "c").await,
+    );
+    for id in [c, a] {
+        client
+            .request(
+                "todo.assign",
+                json!({ "id": id, "owner": owner_json("agent", &agent) }),
+            )
+            .await
+            .unwrap();
+    }
+    client
+        .request(
+            "todo.assign",
+            json!({ "id": b, "owner": owner_json("user", "you") }),
+        )
+        .await
+        .unwrap();
+    for _ in 0..6 {
+        next(&mut events, |data| {
+            matches!(data, EventData::TodoUpdated(_) | EventData::TodoCreated(_)).then_some(())
+        })
+        .await;
+    }
+
+    client
+        .request("rail.remove", json!({ "id": agent }))
+        .await
+        .unwrap();
+
+    let first = next(&mut events, |data| match data {
+        EventData::TodoUpdated(todo) => Some(todo.id),
+        _ => None,
+    })
+    .await;
+    let second = next(&mut events, |data| match data {
+        EventData::TodoUpdated(todo) => Some(todo.id),
+        _ => None,
+    })
+    .await;
+    assert_eq!([first, second], [a, c]);
+    assert!(rail_tree(&client).await.iter().all(|node| node.id != agent));
+    assert_eq!(owner_of(&client, a).await, Value::Null);
+    assert_eq!(owner_of(&client, c).await, Value::Null);
+    assert_eq!(owner_of(&client, b).await, owner_json("user", "you"));
+}
+
+/// T17: an owner Agent that stops keeps its Todos, and assigning one sends the Agent no Message.
+#[tokio::test]
+async fn t17_a_stopped_agent_keeps_its_todos_and_assign_tells_no_agent() {
+    let project = start(&[]);
+    let mut events = project.subscribed().await;
+    let client = project.client().await;
+    let agent = agent_in(&project, &client, None).await;
+    let id = todo_at(&client, "a").await;
+    client
+        .request(
+            "todo.assign",
+            json!({ "id": id, "owner": owner_json("agent", &agent) }),
+        )
+        .await
+        .unwrap();
+    let sent = client
+        .request("message.list", json!({ "to": agent }))
+        .await
+        .unwrap();
+    assert_eq!(sent, json!([]));
+    for _ in 0..2 {
+        next(&mut events, |data| {
+            matches!(data, EventData::TodoUpdated(_) | EventData::TodoCreated(_)).then_some(())
+        })
+        .await;
+    }
+
+    client
+        .request("agent.stop", json!({ "id": agent }))
+        .await
+        .unwrap();
+
+    assert_eq!(owner_of(&client, id).await, owner_json("agent", &agent));
+}
+
 /// T12, T13: a Todo moves to a Workstream, the Daemon checks the Rail, and the Home survives a restart.
 #[tokio::test]
 async fn t13_move_checks_the_rail_and_survives_a_restart() {
@@ -2713,31 +2875,30 @@ async fn a33_reading(client: &rpc::Client, id: &str, kind: Kind) -> contracts::S
 }
 
 #[tokio::test]
-async fn a33_an_idle_agent_with_a_blocked_todo_reads_blocked() {
-    let (_project, client, agent) =
-        a33_blocked_agent("a33_an_idle_agent_with_a_blocked_todo_reads_blocked").await;
-    let status = a33_reading(&client, &agent.id, Kind::Blocked).await;
-    assert_eq!(status.label, "waits on #1");
-}
-
-#[tokio::test]
 async fn a33_completing_the_blocker_reads_idle() {
     let (_project, client, agent) =
         a33_blocked_agent("a33_completing_the_blocker_reads_idle").await;
-    a33_reading(&client, &agent.id, Kind::Blocked).await;
+    let blocked = a33_reading(&client, &agent.id, Kind::Blocked).await;
+    assert_eq!(blocked.label, "waits on #1");
     client
         .request("todo.complete", json!({ "id": 1 }))
         .await
         .unwrap();
     a33_reading(&client, &agent.id, Kind::Idle).await;
-}
-
-#[tokio::test]
-async fn a33_deleting_the_todo_reads_idle() {
-    let (_project, client, agent) = a33_blocked_agent("a33_deleting_the_todo_reads_idle").await;
+    let blocker = client
+        .request("todo.create", json!({"title":"next blocker"}))
+        .await
+        .unwrap();
+    client
+        .request(
+            "todo.setBlockers",
+            json!({"id":2,"blockers":[blocker["id"]]}),
+        )
+        .await
+        .unwrap();
     a33_reading(&client, &agent.id, Kind::Blocked).await;
     client
-        .request("todo.delete", json!({ "id": 2 }))
+        .request("todo.delete", json!({"id":2}))
         .await
         .unwrap();
     a33_reading(&client, &agent.id, Kind::Idle).await;

@@ -22,7 +22,7 @@ A verdict is a comment the review workflow posts (L24), or one a person with wri
 VERDICT: approve|reject
 Head: <full SHA reviewed>
 
-<one finding per line: `rule <n>: <file>:<line> <defect>`, or `NOTE: <text>` in an approve>
+<one finding per line: `rule <n>: <file>:<line> <defect>`, or `NOTE: <text>` in an approve, or in an approve one `FOLLOWUP: <finding>` block for a case the scenarios do not name (L24)>
 
 Reviewed-by-Agent: <id differing from every Author-Agent>
 ```

@@ -22,6 +22,8 @@ pub struct Todo {
     pub creator: Actor,
     /// The Workstream (a Rail id) this Todo belongs to; `None` is the Project root. A Todo from before this field reads as `None`.
     pub home: Option<String>,
+    /// Who does the work (T16): the user, one Agent, or `None` for Unassigned. Never `creator`.
+    pub owner: Option<Actor>,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize, TS, JsonSchema)]
@@ -30,6 +32,20 @@ pub struct CreateParams {
     pub title: String,
     pub body: Option<String>,
     pub blockers: Option<Vec<u32>>,
+    /// Omitted or `None` is Unassigned.
+    #[ts(optional)]
+    pub owner: Option<Actor>,
+}
+
+/// Sets the owner, `None` for Unassigned. `expected_change` is the last captured History Change
+/// sequence; mismatch is CONFLICT, and omission is unconditional.
+#[derive(Clone, Debug, Serialize, Deserialize, TS, JsonSchema)]
+#[ts(export, export_to = "todo/")]
+pub struct AssignParams {
+    pub id: u32,
+    pub owner: Option<Actor>,
+    #[ts(optional)]
+    pub expected_change: Option<u32>,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize, TS, JsonSchema)]
@@ -86,6 +102,9 @@ pub struct Values {
     pub body: String,
     pub done: bool,
     pub blockers: Vec<u32>,
+    /// A change recorded before owners existed reads `None`.
+    #[serde(default)]
+    pub owner: Option<Actor>,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, TS)]
