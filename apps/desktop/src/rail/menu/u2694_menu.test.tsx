@@ -40,6 +40,7 @@ describe("u2694 the Rail's system menu", () => {
       text: "", updated_at: 0, revision: 1, home: null,
     }]);
     fireEvent.click(await screen.findByRole("button", { name: "1 pads" }));
+
     const pad = await screen.findByRole("button", { name: "notes" });
     const press = new MouseEvent("contextmenu", { bubbles: true, cancelable: true, buttons: 2, clientX: 10, clientY: 10 });
 

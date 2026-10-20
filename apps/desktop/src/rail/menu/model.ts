@@ -65,12 +65,7 @@ export const createRailMenu = (app: AppSeam, rail: RailState, onFailure: (messag
     }
   };
 
-  const stop = (node: RailNode) =>
-    node.kind === "agent"
-      ? app.rpc("agent.stop", { id: node.id })
-      : node.terminal_id !== null
-        ? app.rpc("terminal.kill", { id: node.terminal_id })
-        : Promise.resolve(null);
+  const stop = (node: RailNode) => app.rpc("agent.stop", { id: node.id });
 
   /** One stop path: the menu's item and the Rail's icon both end here. */
   const chooseStop = () => {
