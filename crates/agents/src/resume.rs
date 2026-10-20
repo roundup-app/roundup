@@ -447,3 +447,191 @@ impl Shared {
         });
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::tests::*;
+    use serde_json::json;
+
+    fn ctx(bus: Bus) -> Ctx {
+        Ctx {
+            actor: Actor::user(),
+            bus,
+            touches: Arc::new(provenance::Touches::in_memory().unwrap()),
+        }
+    }
+
+    #[tokio::test]
+    async fn a2693a_stop_failure_launches_nothing() {
+        let (dir, bus, shared) = shared_over_temp_dir(Arc::new(|| 0));
+        let id = running_agent(&shared, None);
+        shared.rail().allocate_attempt(&id).unwrap();
+        shared
+            .rail()
+            .save_conversation(
+                &id,
+                "11111111-1111-1111-1111-111111111111",
+                &dir.path().to_string_lossy(),
+            )
+            .unwrap();
+        let launches = Arc::new(std::sync::atomic::AtomicUsize::new(0));
+        let launched = launches.clone();
+        let agents = owner_agents(shared, dir.path())
+            .with_terminal_kills(|_| async { Err(RpcError::internal("kill failed")) })
+            .with_resume_effect(move |_, _| {
+                launched.fetch_add(1, Ordering::SeqCst);
+                Ok(())
+            });
+        let error = agents
+            .resume(&ctx(bus), &id, Some(contracts::agent::ResumeMode::Yolo))
+            .await
+            .unwrap_err();
+        assert!(error.message.contains("kill failed"), "{error}");
+        assert_eq!(launches.load(Ordering::SeqCst), 0);
+        assert!(agents.shared.terminals.list().is_empty());
+        let runs = agents.shared.runs();
+        assert!(matches!(runs.get(&id), Some(Slot::Running(run)) if !run.yolo));
+    }
+
+    #[tokio::test]
+    async fn a2693a_a_stop_or_removal_claim_refuses_an_explicit_resume() {
+        for remove in [false, true] {
+            let (dir, bus, shared) = shared_over_temp_dir(Arc::new(|| 0));
+            let id = running_agent(&shared, None);
+            shared.rail().allocate_attempt(&id).unwrap();
+            shared
+                .rail()
+                .save_conversation(
+                    &id,
+                    "11111111-1111-1111-1111-111111111111",
+                    &dir.path().to_string_lossy(),
+                )
+                .unwrap();
+            let (entered, mut entries) = tokio::sync::mpsc::unbounded_channel();
+            let release = Arc::new(tokio::sync::Notify::new());
+            let released = release.clone();
+            let agents = owner_agents(shared, dir.path()).with_terminal_kills(move |_| {
+                let entered = entered.clone();
+                let release = released.clone();
+                async move {
+                    entered.send(()).unwrap();
+                    release.notified().await;
+                    Ok(())
+                }
+            });
+            let shared = agents.shared.clone();
+            let ending = async {
+                if remove {
+                    shared.remove(Actor::user(), &id).await
+                } else {
+                    shared.stop(Actor::user(), &id).await
+                }
+            };
+            tokio::pin!(ending);
+            tokio::select! {
+                entry = entries.recv() => entry.unwrap(),
+                result = &mut ending => panic!("ending completed before release: {result:?}"),
+            }
+            let error = agents
+                .resume(&ctx(bus), &id, Some(contracts::agent::ResumeMode::Yolo))
+                .await
+                .unwrap_err();
+            assert_eq!(error.code, code::CONFLICT);
+            assert!(error.message.contains("stopping"), "{error}");
+            assert_eq!(
+                agents.shared.rail().node(&id).unwrap().attempt.as_deref(),
+                Some("1")
+            );
+            assert!(agents.shared.terminals.list().is_empty());
+            release.notify_one();
+            ending.await.unwrap();
+            assert_eq!(agents.shared.rail().node(&id).is_err(), remove);
+        }
+    }
+
+    #[tokio::test]
+    async fn o8_the_prompt_survives_a_reopen_and_a_resume() {
+        let (dir, bus, shared) = shared_over_temp_dir(Arc::new(|| 0));
+        let id = shared
+            .rail()
+            .insert(NodeKind::Agent, "child", None, None)
+            .unwrap()
+            .id;
+        shared.rail().set_spawn_prompt(&id, "the detail").unwrap();
+        // Resume really claims a new Attempt, then rolls it back before launch on missing cwd.
+        shared
+            .rail()
+            .save_conversation(
+                &id,
+                "11111111-1111-1111-1111-111111111111",
+                &dir.path().join("missing").to_string_lossy(),
+            )
+            .unwrap();
+        drop(shared);
+        // Reopen the persisted Rail through Agents, without starting a Terminal.
+        let terminals = Arc::new(Terminals::open(dir.path(), bus.clone()).unwrap());
+        let agents = Agents::open_with(
+            dir.path(),
+            bus.clone(),
+            terminals,
+            Launcher::new(
+                "unused",
+                dir.path().join("claude.json"),
+                dir.path().join("rup"),
+                None,
+            ),
+            worktree::Git::from_env(),
+        )
+        .unwrap();
+        let context = ctx(bus);
+        assert_eq!(
+            agents
+                .call(&context, "agent.spawnPrompt", json!({"id":id}))
+                .await
+                .unwrap(),
+            json!({"prompt":"the detail"})
+        );
+        let error = agents.resume(&context, &id, None).await.unwrap_err();
+        assert!(error.message.contains("worktree_missing"), "{error}");
+        assert!(agents.shared.rail().node(&id).unwrap().attempt.is_some());
+        assert_eq!(
+            agents
+                .call(&context, "agent.spawnPrompt", json!({"id":id}))
+                .await
+                .unwrap(),
+            json!({"prompt":"the detail"})
+        );
+        let team = agents
+            .call(&context, "rail.createWorkstream", json!({"name":"team"}))
+            .await
+            .unwrap();
+        agents
+            .call(
+                &context,
+                "rail.move",
+                json!({"id":id,"parent":team["id"],"index":0}),
+            )
+            .await
+            .unwrap();
+        assert_eq!(
+            agents
+                .call(&context, "agent.spawnPrompt", json!({"id":id}))
+                .await
+                .unwrap(),
+            json!({"prompt":"the detail"})
+        );
+        agents
+            .call(&context, "rail.remove", json!({"id":id}))
+            .await
+            .unwrap();
+        assert_eq!(
+            agents
+                .call(&context, "agent.spawnPrompt", json!({"id":id}))
+                .await
+                .unwrap_err()
+                .code,
+            code::NOT_FOUND
+        );
+    }
+}
