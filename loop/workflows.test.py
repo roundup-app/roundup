@@ -391,6 +391,10 @@ class L122(unittest.TestCase):
         for touched, names in (({4}, ['first']), ({9}, ['second']), ({7}, ['second']), ({12}, []), ({13}, ['third']),
                                ({1}, []), ({5, 8}, ['first', 'second'])):
             self.assertEqual(names, affected.rust_tests(source, touched), touched)
+        decorated = ('fn helper() {}\n/// Why.\n#[should_panic(expected = "x")]\n#[test]\n#[ignore]\nfn fourth() {\n    work();\n}\n')
+        for touched in ({2}, {3}, {4}, {5}, {7}):
+            self.assertEqual(['fourth'], affected.rust_tests(decorated, touched), touched)
+        self.assertEqual([], affected.rust_tests(decorated, {1}))
         self.assertEqual({4, 5}, affected.touched_lines('@@ -3 +4,2 @@ fn x\n+a\n+b\n'))
         self.assertEqual({7}, affected.touched_lines('@@ -7,2 +6,0 @@\n-a\n-b\n'.replace('+6,0', '+7,0')))
 

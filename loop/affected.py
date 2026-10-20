@@ -80,7 +80,7 @@ def is_web_test(path):
 
 def rust_tests(source, touched):
     """The names of the Rust test functions of `source` (text) that a line of `touched` (1-based numbers) falls in, from
-    the test's attribute to the closing brace at the `fn` line's indent."""
+    the first attribute or doc comment of its run above the test to the closing brace at the `fn` line's indent."""
     lines = source.splitlines()
     names = []
     for start, line in enumerate(lines):
@@ -92,7 +92,10 @@ def rust_tests(source, touched):
         indent = re.match(r'\s*', lines[fn])[0]
         end = fn if lines[fn].rstrip().endswith('}') else next(
             (n for n in range(fn + 1, len(lines)) if lines[n].rstrip() == indent + '}'), len(lines) - 1)
-        if any(start < number <= end + 1 for number in touched):
+        first = start
+        while first and re.match(r'\s*(?:#\[|///)', lines[first - 1]):
+            first -= 1
+        if any(first < number <= end + 1 for number in touched):
             names.append(re.search(r'fn\s+(\w+)', lines[fn])[1])
     return names
 
