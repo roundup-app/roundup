@@ -1,4 +1,4 @@
-import { cleanup, fireEvent, waitFor } from "@solidjs/testing-library";
+import { cleanup, fireEvent, screen, waitFor, within } from "@solidjs/testing-library";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { RpcError } from "../../app/seam";
 import { agent, door, workstream } from "../../testing/nodes";
@@ -21,6 +21,41 @@ describe("u2694 the Rail's system menu", () => {
     expect(entry(app, "Remove")).toMatchObject({ shortcut: "⌘⌫" });
     open("a");
     expect(app.menuLabels()).toEqual(["Rename", "Restart", "Start YOLO", "Stop", "Resume", "Send to Agent", "Copy Link", "Remove"]);
+  });
+
+  it("u2694b_stopping_a_door_calls_agent_stop", async () => {
+    const { app } = await mountRail([door("w", "idle", "ready")]);
+    app.handlers["agent.stop"] = () => null;
+
+    open("w");
+    await app.pickMenu("Stop");
+
+    expect(railCallsTo(app, "agent.stop")).toEqual([{ id: "w" }]);
+    expect(railCallsTo(app, "terminal.kill")).toEqual([]);
+  });
+
+  it("u2694e_an_agent_owned_pad_opens_its_menu_on_release", async () => {
+    const { app } = await mountRail([agent("a", "idle", "ready")], [], undefined, () => true, {}, [{
+      incarnation: "notes-1", name: "notes", owner: { kind: "agent", id: "a", parent: null },
+      text: "", updated_at: 0, revision: 1, home: null,
+    }]);
+    fireEvent.click(await screen.findByRole("button", { name: "1 pads" }));
+    const pad = await screen.findByRole("button", { name: "notes" });
+    const press = new MouseEvent("contextmenu", { bubbles: true, cancelable: true, buttons: 2, clientX: 10, clientY: 10 });
+
+    fireEvent(pad, press);
+    expect(press.defaultPrevented).toBe(true);
+    expect(app.shownMenus).toHaveLength(0);
+    fireEvent.pointerUp(document, { button: 2, clientX: 10, clientY: 10 });
+
+    expect(app.menuLabels()).toEqual(["Send to Agent", "Copy Link", "Delete"]);
+    await app.pickMenu("Delete");
+    const question = await screen.findByRole("alertdialog");
+    expect(question.textContent).toContain("notes");
+    expect(railCallsTo(app, "pad.delete")).toEqual([]);
+    fireEvent.click(within(question).getByRole("button", { name: "Keep" }));
+    await waitFor(() => expect(screen.queryByRole("alertdialog")).toBeNull());
+    expect(railCallsTo(app, "pad.delete")).toEqual([]);
   });
 
   it("u2694b_a_group_offers_remove_only", async () => {
