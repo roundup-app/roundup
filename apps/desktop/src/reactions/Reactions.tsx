@@ -1,5 +1,6 @@
 import { createEffect, createMemo, createResource, createSignal, For, onCleanup, Show, type Accessor } from "solid-js";
 import * as v from "valibot";
+import type { Message } from "@contracts/message/Message";
 import type { Reaction } from "@contracts/reaction/Reaction";
 import type { Preview } from "@contracts/reaction/Preview";
 import type { Condition } from "@contracts/reaction/Condition";
@@ -43,13 +44,14 @@ const useNames = () => {
 const conditionText = (condition: Condition, nameOf: (id: string) => string): string =>
   condition.kind === "agents" ? copy.reactionAgents(condition.ids.map(nameOf), condition.any === true)
     : condition.kind === "pr-checks" ? copy.reactionPrChecks(condition.repository, condition.number)
-      : copy.reactionInstant(condition.at);
+      : copy.reactionInstant(condition.at, condition.late);
 
 /** NR9: the Project overview's named reactions: a list, a create form that previews, and a detail with stop and run. */
 export const Reactions = () => {
   const { app, drafts, daemonExit } = useConnectedProject();
   const [view, setView] = createSignal<View>({ kind: "list" });
   const [actionFailure, setActionFailure] = createSignal<string | null>(null);
+  const [pending, setPending] = createSignal(false);
   const [made, setMade] = createSignal<Reaction | null>(null);
   let opener = "";
 
@@ -84,17 +86,36 @@ export const Reactions = () => {
     opener = next.kind === "detail" ? next.id : next.kind;
     setActionFailure(null);
     setView(next);
+    queueMicrotask(() => document.querySelector<HTMLButtonElement>(".reaction-back")?.focus());
   };
+
+  const selected = () => {
+    const current = view();
+
+    return current.kind === "detail" ? current.id : null;
+  };
+
+  const [inspection, { refetch: inspect }] = createResource(selected, async (id): Promise<{ value: Reaction | null; failure: string | null }> => {
+    try {
+      return { value: await app.rpc("reaction.get", { id }), failure: null };
+    } catch (error) {
+      if (!(error instanceof Error)) throw error;
+
+      return { value: null, failure: error.message };
+    }
+  });
 
   const detail = createMemo(() => {
     const current = view();
 
     if (current.kind !== "detail") return undefined;
 
-    return read().list.find((reaction) => reaction.id === current.id) ?? (made()?.id === current.id ? made()! : undefined);
+    return (inspection()?.value?.id === current.id ? inspection()?.value : undefined) ?? (made()?.id === current.id ? made()! : undefined) ?? read().list.find((reaction) => reaction.id === current.id);
   });
 
   const act = async (reaction: Reaction, method: "reaction.stop" | "reaction.run") => {
+    if (pending()) return;
+    setPending(true);
     setActionFailure(null);
 
     try {
@@ -104,12 +125,17 @@ export const Reactions = () => {
       setActionFailure(error.message);
     }
 
-    refresh();
+    if (daemonExit() === null) {
+      await refetch();
+      await inspect();
+    }
+
+    setPending(false);
   };
 
   return <section class="reactions" aria-label={copy.reactions}>
     <Show when={view().kind === "create"}>
-      <ReactionForm onDone={(created) => { setMade(created); refresh(); setView({ kind: "detail", id: created.id }); }} onCancel={back} />
+      <ReactionForm onDone={(created) => { setMade(created); refresh(); setView({ kind: "detail", id: created.id }); queueMicrotask(() => document.querySelector<HTMLButtonElement>(".reaction-back")?.focus()); }} onCancel={back} />
     </Show>
     <Show when={view().kind === "detail"}>
       <Show when={detail()} fallback={<><ErrorLine message={copy.reactionMissing} /><button type="button" data-button="quiet" onClick={back}>{copy.reactionBack}</button></>}>
@@ -117,10 +143,12 @@ export const Reactions = () => {
           <button type="button" data-button="quiet" class="reaction-back" onClick={back}>{copy.reactionBack}</button>
           <h3 class="reaction-title">{reaction().name}</h3>
           <Show when={actionFailure()}>{(message) => <ErrorLine message={message()} />}</Show>
+          <Show when={inspection()?.failure}>{message => <ErrorLine message={message()} />}</Show>
           <Facts reaction={reaction()} />
           <div class="reaction-actions">
-            <button type="button" data-button="quiet" disabled={reaction().state !== "active"} onClick={() => void act(reaction(), "reaction.stop")}>{copy.reactionStop}</button>
-            <button type="button" data-button="quiet" disabled={reaction().state !== "active" || reaction().remaining < 1} onClick={() => void act(reaction(), "reaction.run")}>{copy.reactionRun}</button>
+            <button type="button" data-button="quiet" onClick={() => { void inspect(); }}>{copy.refresh}</button>
+            <button type="button" data-button="quiet" disabled={pending() || reaction().state !== "active"} onClick={() => void act(reaction(), "reaction.stop")}>{copy.reactionStop}</button>
+            <button type="button" data-button="quiet" disabled={pending() || reaction().state !== "active" || reaction().remaining < 1} onClick={() => void act(reaction(), "reaction.run")}>{copy.reactionRun}</button>
           </div>
         </div>}
       </Show>
@@ -133,12 +161,16 @@ export const Reactions = () => {
       <Show when={read().failure}>{(message) => <p class="reaction-empty" role="status">{message()}</p>}</Show>
       <Show when={read().list.length > 0} fallback={<p class="reaction-empty">{copy.reactionsEmpty}</p>}>
         <ul class="reaction-list">
-          <For each={read().list}>{(reaction) => <li>
-            <button type="button" data-button="quiet" class="reaction-row overview-entry" data-reaction-opener={reaction.id} onClick={() => open({ kind: "detail", id: reaction.id })}>
-              <span class="reaction-name">{reaction.name}</span>
-              <span class="reaction-state" data-state={reaction.state}>{copy.reactionState(reaction.state, reaction.observation.health)}</span>
+          <For each={read().list.map(reaction => reaction.id)}>{(id) => {
+            const reaction = () => read().list.find(reaction => reaction.id === id)!;
+
+            return <li>
+            <button type="button" data-button="quiet" class="reaction-row overview-entry" data-reaction-opener={id} onClick={() => open({ kind: "detail", id })}>
+              <span class="reaction-name">{reaction().name}</span>
+              <span class="reaction-state" data-state={reaction().state}>{copy.reactionState(reaction().state, reaction().observation.health)}</span>
             </button>
-          </li>}</For>
+          </li>;
+          }}</For>
         </ul>
       </Show>
     </Show>
@@ -147,11 +179,30 @@ export const Reactions = () => {
 
 const Facts = (props: { reaction: Reaction }) => {
   const nameOf = useNames();
-  const { rail } = useConnectedProject();
+  const { app } = useConnectedProject();
   const r = () => props.reaction;
-  const home = () => r().home ?? resolvedWorkstream(rail.nodes, r().target);
+  const [messageId, setMessageId] = createSignal<number | null>(null);
 
-  return <dl class="reaction-facts">
+  const [message, { refetch }] = createResource(messageId, async (id): Promise<{ value: Message | null; failure: string | null }> => {
+    try {
+      return { value: await app.rpc("message.get", { id }), failure: null };
+    } catch (error) {
+      if (!(error instanceof Error)) throw error;
+
+      return { value: null, failure: error.message };
+    }
+  });
+
+  let returnId: number | null = null;
+
+  const closeMessage = () => {
+    setMessageId(null);
+    queueMicrotask(() => document.querySelector<HTMLButtonElement>(`[data-firing-message="${returnId}"]`)?.focus());
+  };
+
+  const home = () => r().home;
+
+  return <Show when={messageId() !== null} fallback={<dl class="reaction-facts">
     <dt>{copy.reactionAuthority}</dt><dd>{copy.reactionActor(r().actor.kind, r().actor.id)}</dd>
     <dt>{copy.reactionHome}</dt><dd>{home() ? nameOf(home()!) : copy.reactionNoHome}</dd>
     <dt>{copy.reactionTarget}</dt><dd>{nameOf(r().target)}</dd>
@@ -159,6 +210,8 @@ const Facts = (props: { reaction: Reaction }) => {
     <dt>{copy.reactionCondition}</dt><dd>{conditionText(r().condition, nameOf)}</dd>
     <dt>{copy.reactionBound}</dt><dd>{copy.reactionRemaining(r().remaining, r().max_firings, r().rearm)}</dd>
     <dt>{copy.reactionExpires}</dt><dd><time datetime={r().expires_at}>{copy.reactionWhen(r().expires_at)}</time></dd>
+    <dt>{copy.reactionCursor}</dt><dd>{r().observation.cursor ?? copy.reactionNoEvidence}</dd>
+    <Show when={r().observation.pinned_head}>{head => <><dt>{copy.reactionHead}</dt><dd>{head()}</dd></>}</Show>
     <dt>{copy.reactionObservation}</dt>
     <dd>
       <span>{r().observation.health}</span>
@@ -169,9 +222,19 @@ const Facts = (props: { reaction: Reaction }) => {
     </dd>
     <dt>{copy.reactionFirings}</dt>
     <dd><Show when={r().firings.length > 0} fallback={copy.reactionNoFirings}>
-      <ol class="reaction-firings"><For each={r().firings}>{(firing) => <li data-outcome={firing.outcome}>{copy.reactionFiring(firing.ordinal, firing.message, firing.outcome, firing.matched)}</li>}</For></ol>
+      <ol class="reaction-firings"><For each={r().firings}>{(firing) => <li data-outcome={firing.outcome}><button type="button" data-button="quiet" data-firing-message={firing.message} onClick={() => { returnId = firing.message; setMessageId(firing.message); }}>{copy.reactionFiring(firing.ordinal, firing.message, firing.outcome, firing.matched)}</button></li>}</For></ol>
     </Show></dd>
-  </dl>;
+  </dl>}>
+    <section aria-label={copy.reactionMessage(messageId()!)}>
+      <button type="button" data-button="quiet" ref={element => queueMicrotask(() => element.focus())} onClick={closeMessage}>{copy.reactionBackToFiring}</button>
+      <Show when={message()?.failure}>{failure => <><ErrorLine message={failure()} /><button type="button" data-button="quiet" onClick={() => void refetch()}>{copy.retry}</button></>}</Show>
+      <Show when={!message.loading && message()?.value}>{value => <dl class="reaction-facts">
+        <dt>{copy.reactionTarget}</dt><dd>{nameOf(value().to)}</dd>
+        <dt>{copy.reactionMessage(messageId()!)}</dt><dd class="reaction-instruction">{value().body}</dd>
+        <dt>{copy.reactionMessageState}</dt><dd data-state={value().status}>{value().status}{value().reason ? ` · ${value().reason}` : ""}</dd>
+      </dl>}</Show>
+    </section>
+  </Show>;
 };
 
 type Resolved = { preview: Preview | null; error: string | null };
@@ -180,7 +243,7 @@ const createPreview = (date: Accessor<string>, time: Accessor<string>, offset: A
   const { app } = useConnectedProject();
   const key = createMemo(() => date() && time() && offset() ? { date: date(), time: time(), offset: offset() } : null);
 
-  return createResource(key, async (params): Promise<Resolved> => {
+  const [read] = createResource(key, async (params): Promise<Resolved> => {
     try {
       return { preview: await app.rpc("reaction.preview", params), error: null };
     } catch (error) {
@@ -188,18 +251,16 @@ const createPreview = (date: Accessor<string>, time: Accessor<string>, offset: A
 
       return { preview: null, error: error.message };
     }
-  })[0];
+  });
+
+  return createMemo(() => key() === null || read.loading ? undefined : read());
 };
 
 const ReactionForm = (props: { onDone: (made: Reaction) => void; onCancel: () => void }) => {
-  const { app, rail, drafts } = useConnectedProject();
+  const { app, rail, drafts, project } = useConnectedProject();
   const records = () => drafts.list().filter((draft) => draft.destination.surface === destination.surface && draft.destination.object === destination.object);
 
-  const current = () => {
-    const last = records().at(-1);
-
-    return last?.status === "draft" || last?.status === "failed" ? last : undefined;
-  };
+  const current = () => records().at(-1);
 
   const fresh = blank(crypto.randomUUID());
 
@@ -209,12 +270,21 @@ const ReactionForm = (props: { onDone: (made: Reaction) => void; onCancel: () =>
     return parsed.success ? parsed.output : fresh;
   };
 
-  const set = (patch: Partial<Form>) => { drafts.edit(destination, { ...form(), ...patch }, null, "ordinary"); };
+  const set = (patch: Partial<Form>) => {
+    const last = current();
+    // A submitted or refused payload owns its operation id; a changed payload needs a new one.
+    const operation = last && last.status !== "draft" ? crypto.randomUUID() : form().operation;
+
+    drafts.edit(destination, { ...form(), ...patch, operation }, null, "ordinary");
+  };
 
   createEffect(() => { onCleanup(drafts.editor(destination)); });
 
   const [failure, setFailure] = createSignal<string | null>(null);
   const [busy, setBusy] = createSignal(false);
+  let disposed = false;
+
+  onCleanup(() => { disposed = true; });
   const agents = () => rail.nodes.filter((node) => node.kind === "agent");
   const nameOf = useNames();
   const instant = createPreview(() => form().atDate, () => form().atTime, () => form().atOffset);
@@ -241,7 +311,7 @@ const ReactionForm = (props: { onDone: (made: Reaction) => void; onCancel: () =>
   const ready = () => {
     const f = form();
 
-    return f.name.trim() !== "" && f.target !== "" && f.instruction.trim() !== "" && condition() !== null && resolvedAt(expiry) !== null && !busy();
+    return Number.isSafeInteger(Number(f.maxFirings)) && Number(f.maxFirings) > 0 && f.name.trim() !== "" && f.target !== "" && f.instruction.trim() !== "" && condition() !== null && resolvedAt(expiry) !== null && !busy();
   };
 
   const home = () => resolvedWorkstream(rail.nodes, form().target);
@@ -260,11 +330,12 @@ const ReactionForm = (props: { onDone: (made: Reaction) => void; onCancel: () =>
     try {
       const made = await app.rpc("reaction.create", {
         operation: f.operation, name: f.name, target: f.target, instruction: f.instruction, condition: cond,
-        max_firings: Number(f.maxFirings) || 1, rearm: f.rearm, expires_at: until,
+        max_firings: Number(f.maxFirings), rearm: f.rearm, expires_at: until,
       });
 
       drafts.settle(draft.revision, "acknowledged");
-      props.onDone(made);
+
+      if (!disposed && !current()) props.onDone(made);
     } catch (error) {
       if (!(error instanceof Error)) throw error;
       drafts.settle(draft.revision, "failed");
@@ -312,7 +383,7 @@ const ReactionForm = (props: { onDone: (made: Reaction) => void; onCancel: () =>
     <h3 class="reaction-title">{copy.reactionCreate}</h3>
     {nameField}
     <Select label={copy.reactionTarget} value={form().target}
-      choices={[{ value: "", label: copy.reactionPickTarget }, ...agents().map((node) => ({ value: node.id, label: nameOf(node.id) }))]}
+      choices={[{ value: "", label: copy.reactionPickTarget }, ...agents().map((node) => ({ value: node.id, label: nameOf(node.id) })), ...(form().target && !agents().some(node => node.id === form().target) ? [{ value: form().target, label: nameOf(form().target) }] : [])]}
       onValueChange={(target) => set({ target })} />
     {instructionField}
     <Select label={copy.reactionCondition} value={form().kind}
@@ -343,6 +414,7 @@ const ReactionForm = (props: { onDone: (made: Reaction) => void; onCancel: () =>
         <dt>{copy.reactionExpires}</dt><dd>{resolvedAt(expiry) ?? copy.reactionIncomplete}</dd>
       </dl>
     </section>
+    <Show when={drafts.problem()}>{problem => <><ErrorLine message={copy.draftRetention(project.path, copy.draftSurface("reactions"), problem().cause)} /><button type="button" data-button="quiet" onClick={() => drafts.retry()}>{copy.storageRetry}</button></>}</Show>
     <Show when={failure()}>{(message) => <ErrorLine message={message()} />}</Show>
     <div class="reaction-actions">
       <button type="submit" data-button="quiet" disabled={!ready()}>{copy.reactionSave}</button>

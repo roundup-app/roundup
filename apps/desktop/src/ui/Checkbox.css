@@ -31,3 +31,24 @@
 .app-checkbox[data-state="checked"] .app-checkbox-control {
   background-color: var(--selected);
 }
+
+.app-checkbox:has(:focus-visible) .app-checkbox-control {
+  outline: var(--keyboard-ring);
+  outline-offset: var(--keyboard-ring-width);
+}
+
+.app-checkbox input {
+  min-height: var(--space-5);
+  font: inherit;
+  cursor: pointer;
+  color: var(--grey);
+}
+
+.app-checkbox input:hover {
+  color: var(--text);
+}
+
+.app-checkbox input:active {
+  color: var(--ink-pressed);
+  transition-duration: 0s;
+}

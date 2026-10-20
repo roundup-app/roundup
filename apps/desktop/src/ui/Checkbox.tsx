@@ -10,5 +10,5 @@ export const Checkbox = (props: { label: string; checked: boolean; onCheckedChan
       <ArkCheckbox.Indicator><Check size={12} aria-hidden="true" /></ArkCheckbox.Indicator>
     </ArkCheckbox.Control>
     <ArkCheckbox.Label>{props.label}</ArkCheckbox.Label>
-    <ArkCheckbox.HiddenInput />
+    <ArkCheckbox.HiddenInput style={{ margin: 0 }} />
   </ArkCheckbox.Root>;
