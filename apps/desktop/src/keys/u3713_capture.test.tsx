@@ -2,6 +2,7 @@ import { cleanup, fireEvent, render, screen, waitFor } from "@solidjs/testing-li
 import { afterEach, describe, expect, it } from "vitest";
 import { RpcError } from "../app/seam";
 import { ConnectedProjectContext, connectProject } from "../state/connectedProject";
+import { agent, workstream } from "../testing/nodes";
 import { createFakeApp } from "../testing/fakeApp";
 import { showEverything, withScopeRow } from "../testing/showEverything";
 import { todoHandlers } from "../testing/stores";
@@ -16,13 +17,13 @@ import { armLeader, leaderArmed } from "./registry";
 
 afterEach(cleanup);
 
-const mount = async () => {
+const mount = async (path = `/test-capture/${crypto.randomUUID()}`) => {
   const app = createFakeApp();
-  app.handlers["rail.tree"] = () => withScopeRow([]);
+  app.handlers["rail.tree"] = () => withScopeRow([workstream("w"), agent("a", "idle", "idle")]);
   const store: TodoStore = { todos: [] };
   Object.assign(app.handlers, todoHandlers(store, () => {}));
 
-  const connected = await connectProject(app, { name: "p", path: `/test-capture/${crypto.randomUUID()}` }, () => true, () => 0);
+  const connected = await connectProject(app, { name: "p", path }, () => true, () => 0);
 
   await showEverything(connected);
   render(() => (
@@ -167,10 +168,11 @@ describe("u3715 a failed create keeps the text and says why", () => {
     type(field()!, "second");
     fail();
 
-    await screen.findByRole("button", { name: "Use failed text" });
+    await screen.findByLabelText("Recovered capture draft");
     expect(field()!.value).toBe("second");
-    fireEvent.click(screen.getByRole("button", { name: "Use failed text" }));
-    expect(field()!.value).toBe("first");
+    press(field()!, { shiftKey: true });
+    expect(screen.getByLabelText<HTMLTextAreaElement>("Recovered capture draft").value).toBe("first");
+
   });
 });
 
@@ -197,4 +199,36 @@ describe("u3716 shift enter files and keeps the field open", () => {
 
     await waitFor(() => expect(field()!.value).toBe("again"));
   });
+});
+
+it("u2773a_capture_restores_exact_work_after_project_remount_and_reload", async () => {
+  const path = `/test-capture/${crypto.randomUUID()}`;
+  const { app } = await mount(path);
+  const input = await openField();
+  type(input, "  unfinished é\n😀  ");
+  input.setSelectionRange(3, 9, "backward");
+  fireEvent.select(input);
+  cleanup();
+  const other = await mount();
+  expect((await openField()).value).toBe("");
+  cleanup();
+  const reopened = await mount(path);
+  const restored = await openField();
+  expect(restored.value).toBe("  unfinished é\n😀  ");
+  await waitFor(() => expect([restored.selectionStart, restored.selectionEnd, restored.selectionDirection]).toEqual([3, 9, "backward"]));
+  expect(callsTo(app, "todo.create")).toEqual([]);
+  expect(callsTo(other.app, "todo.create")).toEqual([]);
+  expect(callsTo(reopened.app, "todo.create")).toEqual([]);
+});
+
+it.each(["w", "a"])("u3714_pending_capture_is_visible_under_selection_%s", async (selection) => {
+  const { connected, app } = await mount();
+  connected.rail.select(selection);
+  let answer!: () => void;
+  app.handlers["todo.create"] = () => new Promise(resolve => { answer = () => resolve(todo(9)); });
+  const input = await openField();
+  type(input, "visible pending");
+  press(input, { shiftKey: true });
+  expect(screen.getByText("visible pending")).not.toBeNull();
+  answer();
 });
