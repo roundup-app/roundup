@@ -33,7 +33,7 @@ import { Groups } from "../shelf/Groups";
 import { useTodoList } from "./todoList";
 import { TodoDrawer } from "./TodoDrawer";
 import { shownTodos } from "./shownTodos";
-import { doneTodos, kindOf, openBlockersOf, treeRows } from "./todoView";
+import { doneTodos, kindOf, openBlockersOf, planDrop, treeRows, type NestedRow } from "./todoView";
 
 const KIND_LABEL = { idle: copy.idle, blocked: copy.blocked, done: copy.done } as const;
 
@@ -325,6 +325,20 @@ export const Todos = () => {
     };
   };
 
+  /** U3710, U3711: a drop sets blockers, then order once that resolves; a refusal shows on the row and the Daemon's list stays. */
+  const dropOf = async (rows: NestedRow[], flat: Todo[], id: number, parent: number | null, index: number) => {
+    const plan = planDrop(rows, flat, todos.all(), id, parent, index);
+
+    if (plan.blockers !== undefined) {
+      const blockers = plan.blockers;
+      const message = await failureOf(() => connected.app.rpc("todo.setBlockers", { id, blockers }));
+
+      if (message !== null) return sorted.show(id, message);
+    }
+
+    if (plan.before !== undefined) sorted.show(id, await sorted.reorderTo(id, plan.before));
+  };
+
   const rows = new Map<number, HTMLButtonElement>();
   let plusButton: HTMLButtonElement | undefined;
 
@@ -459,7 +473,13 @@ export const Todos = () => {
         const placeOf = (id: number) => tree().find((row) => row.todo.id === id) ?? { level: 1, parent: null };
 
         return <>
-        <Sortable.Root class="todo-list shelf-list" plain ids={tree().map((row) => String(row.todo.id))} onOrderChange={sorted.order} external={sorted.external}>
+        <Sortable.Root class="todo-list shelf-list" plain ids={tree().map((row) => String(row.todo.id))} external={sorted.external} tree={{
+          rows: tree().map((row) => ({ id: String(row.todo.id), parent: row.parent === null ? null : String(row.parent) })),
+          get indent() { return parseFloat(getComputedStyle(document.documentElement).getPropertyValue("--space-5")) || 24; },
+          nests: () => true,
+          onMove: (move) => void dropOf(tree(), items().filter((todo) => !todo.done), Number(move.id), move.parent === null ? null : Number(move.parent), move.index),
+          onPreview: () => undefined,
+        }}>
         <For each={tree().map((row) => row.todo)}>
           {(todo, at) => {
             const row = { get level() { return placeOf(todo.id).level; }, get parent() { return placeOf(todo.id).parent; } };

@@ -64,7 +64,9 @@ describe("u491a Shelf questions and navigation", () => {
     await lane.until(`document.querySelector('.shelf .todo-row[data-id]').dataset.id === '${two}'`);
     expect(await rows(lane)).toEqual([two, one, three]);
     expect(await lane.evaluate<boolean>(`document.activeElement === document.querySelector('.shelf [data-id="${one}"] .todo-row-button')`)).toBe(true);
-    await lane.tabTo(`Move up@${one}`);
+    // U3709: Tab on a row button nests a row that has one above it, so the Move up button takes focus directly.
+    await lane.evaluate(`(() => { document.querySelector('.shelf [data-id="${one}"] [aria-label="Move up"]').focus(); return true; })()`);
+    expect(await lane.focused()).toBe(`Move up@${one}`);
     await lane.browser("press", "Enter");
     await lane.until(`document.querySelector('.shelf .todo-row[data-id]').dataset.id === '${one}'`);
     expect(await rows(lane)).toEqual([one, two, three]);

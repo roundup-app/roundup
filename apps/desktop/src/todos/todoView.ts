@@ -1,4 +1,5 @@
 import type { Todo } from "@contracts/todo/Todo";
+import { beforeOf } from "./beforeOf";
 
 const byId = (a: Todo, b: Todo): number => a.id - b.id;
 
@@ -55,4 +56,40 @@ export const treeRows = (list: readonly Todo[]): NestedRow[] => {
   for (const todo of list) if (!seen.has(todo.id)) rows.push({ todo, level: 1, parent: null });
 
   return rows;
+};
+
+/** U3710: what a drop of `id` under `parent` at `index` among that parent's other children changes: its new `blockers` (absent when its depth is kept) and the `before` of a `todo.reorder` (absent when its place is kept). */
+export type DropPlan = { blockers?: number[]; before?: number | null };
+
+/** `flat` is the list's open Todos in the Daemon's order (T10); `all` is every Todo, as `beforeOf` reads it. */
+export const planDrop = (rows: readonly NestedRow[], flat: readonly Todo[], all: readonly Todo[], id: number, parent: number | null, index: number): DropPlan => {
+  const own = rows.find((row) => row.todo.id === id);
+
+  if (!own) return {};
+
+  const moving = new Set([id]);
+
+  for (const row of rows) if (row.parent !== null && moving.has(row.parent)) moving.add(row.todo.id);
+
+  const remaining = rows.filter((row) => !moving.has(row.todo.id));
+  const level = parent === null ? 1 : (remaining.find((row) => row.todo.id === parent)?.level ?? 0) + 1;
+  const plan: DropPlan = {};
+
+  if (parent !== own.parent) {
+    const others = own.todo.blockers.filter((blocker) => blocker !== parent && (level > own.level || blocker !== own.parent));
+
+    plan.blockers = parent === null ? others : [parent, ...others];
+  }
+
+  const siblings = remaining.filter((row) => row.parent === parent);
+  const anchor = siblings.at(-1) ?? remaining.find((row) => row.todo.id === parent);
+  const next = siblings[index]?.todo.id ?? (anchor === undefined ? undefined : remaining.slice(remaining.indexOf(anchor) + 1).find((row) => row.level <= anchor.level)?.todo.id);
+  const order = remaining.map((row) => row.todo.id);
+  const to = next === undefined ? order.length : order.indexOf(next);
+  const before = beforeOf(all, order, id, to);
+  const alone = flat.flatMap((todo) => (!moving.has(todo.id) || todo.id === id ? [todo.id] : []));
+
+  if (before !== beforeOf(all, alone, id, alone.indexOf(id))) plan.before = before;
+
+  return plan;
 };
