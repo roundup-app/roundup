@@ -1445,6 +1445,11 @@ class Review(unittest.TestCase):
         self.assertNotIn('own files', rules)
         self.assertIn(reject, verdicts)
 
+    def test_l24_the_review_task_carries_the_work_order_the_pr_names(self):
+        task = self.review_task('Closes #1497\nScenarios: U467\n\nMy rationale.', '# T\n\n**U467 one.** Given a Door.\n')
+        self.assertIn('The work order:\n\nHide archived Agents\n\nScenarios: U1', task)
+        self.assertNotIn('My rationale', task)
+
     def test_l24_a_named_scenario_main_does_not_hold_is_said_to_be_missing(self):
         task = self.review_task('Scenarios: U467, U470\n', '# T\n\n**U467 one.** Given a Door.\n')
         self.assertIn('**U467 one.** Given a Door.', task)
