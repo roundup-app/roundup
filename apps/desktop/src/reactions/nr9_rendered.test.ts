@@ -39,13 +39,14 @@ it("nr9_cli_mcp_and_app_share_authority", async () => {
   const socketEnv = { ...process.env, RUPD_SOCKET: join(real.dir, "rupd.sock") };
   const cli = (...args: string[]) => execute(resolve("../../target/debug/rup"), ["--json", ...args], { env: socketEnv });
 
-  const capture = async (step: string) => {
+  const capture = async (step: string, screenshot = true) => {
     const dir = captureDir("NR9");
 
     if (!dir) return;
     await mkdir(dir, { recursive: true });
     await writeFile(join(dir, `${step}.checks.json`), JSON.stringify(await evaluate("window.__checks()")));
-    await browser("screenshot", join(dir, `${step}.png`));
+
+    if (screenshot) await browser("screenshot", join(dir, `${step}.png`));
   };
 
   const activate = async (selector: string, keyboard = false) => {
@@ -143,6 +144,11 @@ it("nr9_cli_mcp_and_app_share_authority", async () => {
     await browser("press", "Space");
     await browser("press", "Tab");
     await capture("form");
+    await browser("set", "media", "light");
+    await wait("matchMedia('(prefers-color-scheme: light)').matches");
+    await capture("light-form", false);
+    await browser("set", "media", "dark");
+    await wait("matchMedia('(prefers-color-scheme: dark)').matches");
 
     await evaluate("document.querySelector('.reaction-form .reaction-actions button').scrollIntoView({ block: 'center' })");
     await capture("form-bottom");
@@ -188,6 +194,7 @@ it("nr9_cli_mcp_and_app_share_authority", async () => {
     await activate(`[data-reaction-opener="${created.id}"]`);
     await wait("document.querySelector('.reaction-firings')?.textContent.includes('dropped')");
     await capture("dropped");
+
     for (const node of await app.rpc("rail.tree", null)) await app.rpc("rail.remove", { id: node.id });
     await browser("reload");
     await activate(`[data-reaction-opener="${created.id}"]`);

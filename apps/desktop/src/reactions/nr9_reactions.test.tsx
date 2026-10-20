@@ -200,7 +200,8 @@ it("nr9_can_select_the_existing_supervisor_without_starting_it", async () => {
   fireEvent.click(screen.getByRole("combobox", { name: copy.reactionTarget }));
   fireEvent.click(await screen.findByRole("option", { name: "Supervisor (lead)" }));
   const preview = screen.getByRole("region", { name: copy.reactionPreview });
-  await within(preview).findAllByText("Supervisor (lead)");
+  await within(preview).findByText("Supervisor (lead)");
+  expect(within(preview).getByText(copy.reactionNoHome)).toBeTruthy();
   expect(screen.getByRole("checkbox", { name: "Supervisor (lead)" })).toBeTruthy();
   expect(app.calls.filter(call => call.method === "agent.spawn" || call.method === "agent.run")).toHaveLength(0);
 });
