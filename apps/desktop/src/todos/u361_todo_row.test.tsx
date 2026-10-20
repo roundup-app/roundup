@@ -12,7 +12,7 @@ describe("u361 a Todo row holds a tick box, its title and what it waits on", () 
     const box = await screen.findByRole<HTMLInputElement>("checkbox", { name: "Complete ship it" });
 
     expect(box.checked).toBe(false);
-    expect(within(rowOf(4)).getByRole("img", { name: "Blocked" })).toBeTruthy();
+    expect(rowOf(4).getAttribute("aria-level")).toBe("2");
     expect(boxOf(rowOf(4)).getAttribute("aria-label")).toBe("Complete later");
 
     fireEvent.click(box);
@@ -96,15 +96,15 @@ describe("u361 a Todo row holds a tick box, its title and what it waits on", () 
 
     await screen.findByText("session store");
 
-    const waits = rowOf(5).querySelector<HTMLElement>("[data-todo-waits]")!;
+    const waits = rowOf(5).querySelector<HTMLElement>("[data-todo-also-waits]")!;
 
-    expect(waits.textContent?.replace(/\s+/g, " ").trim()).toBe("Waits on migrate, later");
+    expect(waits.textContent?.replace(/\s+/g, " ").trim()).toBe("also waits on: migrate");
 
-    fireEvent.click(within(waits).getByRole("button", { name: "Open blocker later" }));
+    fireEvent.click(within(waits).getByRole("button", { name: "Open blocker migrate" }));
 
     const drawer = await screen.findByRole("complementary", { name: "Drawer" });
 
-    await waitFor(() => expect(within(drawer).getByText("later")).toBeTruthy());
-    await waitFor(() => expect(callsTo(app, "todo.getHistory").map((call) => call.params)).toEqual([{ id: 6 }]));
+    await waitFor(() => expect(within(drawer).getByText("migrate")).toBeTruthy());
+    await waitFor(() => expect(callsTo(app, "todo.getHistory").map((call) => call.params)).toEqual([{ id: 4 }]));
   });
 });

@@ -1,10 +1,10 @@
 import "./sortable.css";
 import { Accessibility, Cursor, Feedback, PointerActivationConstraints, PointerSensor, type Draggable } from "@dnd-kit/dom";
 import { effect } from "@dnd-kit/state";
-import { DragDropProvider } from "@dnd-kit/solid";
+import { DragDropProvider, type DragDropProviderProps } from "@dnd-kit/solid";
 import { isSortable } from "@dnd-kit/dom/sortable";
 import { useSortable, type UseSortableInput } from "@dnd-kit/solid/sortable";
-import { mergeProps, onCleanup, splitProps, type JSX } from "solid-js";
+import { mergeProps, onCleanup, splitProps, untrack, type JSX } from "solid-js";
 
 /** A press that moves less than this is a click. */
 const PRESS_DRAG_PX = 4;
@@ -32,6 +32,8 @@ export type SortableMove = { id: string; parent: string | null; index: number };
 /** Rows with a parent: a drop reports `onMove` instead of the flat order. */
 type SortableTree = {
   rows: readonly TreeRow[];
+  /** Keep other rows in their original places during the preview (U3710). */
+  holdPlace?: boolean;
   /** One level of indentation in pixels: how far right of where the drag began picks the next deeper parent. */
   indent: number;
   nests: (id: string) => boolean;
@@ -133,6 +135,9 @@ const swallowNextClick = (): (() => void) => {
 const Root = <T extends ExternalTarget>(props: RootProps<T>) => {
   const [local, rest] = splitProps(props, ["ids", "onOrderChange", "tree", "external", "plain", "onDrag", "children"]);
   let over: T | null = null;
+  let list: HTMLDivElement | undefined;
+  let projectedIndex: number | null = null;
+  let indent: { element: HTMLElement; padding: string; start: number; depth: number } | null = null;
 
   // Keyboard drags choose depth with ArrowLeft and ArrowRight; `slot` is the gap `depth` belongs to.
   let keyboard: { slot: number; depth: number } | null = null;
@@ -143,6 +148,8 @@ const Root = <T extends ExternalTarget>(props: RootProps<T>) => {
     if (drop?.parent === previewed?.parent && drop?.index === previewed?.index && drop?.depth === previewed?.depth) return;
 
     previewed = drop;
+
+    if (indent && drop && local.tree) indent.element.style.paddingInlineStart = `${indent.start + (drop.depth - indent.depth) * local.tree.indent}px`;
     local.tree?.onPreview(drop);
   };
 
@@ -167,7 +174,7 @@ const Root = <T extends ExternalTarget>(props: RootProps<T>) => {
     const tree = local.tree;
 
     if (!tree || !isSortable(source)) return;
-    preview(resolve(tree, String(source.id), source.index, { initial: position.initial.x, current: position.current.x }).drop);
+    preview(resolve(tree, String(source.id), projectedIndex ?? source.index, { initial: position.initial.x, current: position.current.x }).drop);
   };
 
   const mark = (next: T | null) => {
@@ -186,11 +193,35 @@ const Root = <T extends ExternalTarget>(props: RootProps<T>) => {
 
   onCleanup(() => { stopRestoringFocus?.(); stopListening?.(); mark(null); });
 
-  return <DragDropProvider onDragStart={(event) => {
+  // Installing even a no-op dragover callback makes dnd-kit save a new DOM position, changing flat-list restoration.
+  // The provider reads every spread prop during cleanup; keep its callback shape independent of removed rows.
+  const treeEvents: Pick<DragDropProviderProps, "onDragOver"> = untrack(() => local.tree?.holdPlace) ? {
+    onDragOver: (event) => {
+      // U3710 holds siblings in place: use the library's collision target without its optimistic DOM reorder.
+      event.preventDefault();
+      const { source, target, position } = event.operation;
+
+      if (isSortable(target)) projectedIndex = target.index;
+      track(source, position);
+    },
+  } : {};
+
+  return <DragDropProvider {...treeEvents} onDragStart={(event) => {
     const tree = local.tree;
     const source = event.operation.source;
 
     previewed = null;
+    projectedIndex = tree?.holdPlace && isSortable(source) ? source.index : null;
+
+    if (tree?.holdPlace && isSortable(source) && source.element instanceof HTMLElement) {
+      indent = {
+        element: source.element,
+        padding: source.element.style.paddingInlineStart,
+        start: parseFloat(getComputedStyle(source.element).paddingInlineStart),
+        depth: withDepth(tree.rows).find(row => row.id === String(source.id))?.depth ?? 0,
+      };
+    }
+
     stopListening?.();
     local.onDrag?.(true);
 
@@ -224,13 +255,13 @@ const Root = <T extends ExternalTarget>(props: RootProps<T>) => {
   }} plugins={(defaults) => defaults.filter((plugin) => plugin !== Cursor && !(local.plain && plugin === Accessibility)).map((plugin) => plugin === Feedback ? Feedback.configure({ dropAnimation: null, keyboardTransition: null }) : plugin)} onDragMove={(event) => {
     const { source, position } = event.operation;
 
-    track(source, position);
-
-    if (!local.external || !source) return;
     // The library dispatches dragmove before it applies the move, so the destination is `to`, else the current position plus `by`.
     const x = event.to?.x ?? position.current.x + (event.by?.x ?? 0);
     const y = event.to?.y ?? position.current.y + (event.by?.y ?? 0);
 
+    track(source, { initial: position.initial, current: { x } });
+
+    if (!local.external || !source) return;
     mark(local.external.target(String(source.id), x, y));
   }} onDragEnd={(event) => {
     const source = event.operation.source;
@@ -258,11 +289,17 @@ const Root = <T extends ExternalTarget>(props: RootProps<T>) => {
     }
 
     const tree = local.tree;
+    const point = event.operation.position.current;
+    const box = list?.getBoundingClientRect();
+    const inside = !pointerDrag || (box && point.x >= box.left && point.x < box.right && point.y >= box.top && point.y < box.bottom);
 
-    const final = tree && !event.canceled && isSortable(source)
-      ? resolve(tree, String(source.id), source.index, { initial: event.operation.position.initial.x, current: event.operation.position.current.x })
+    const final = tree && inside && !event.canceled && isSortable(source)
+      ? resolve(tree, String(source.id), projectedIndex ?? source.index, { initial: event.operation.position.initial.x, current: event.operation.position.current.x })
       : null;
 
+    if (indent) indent.element.style.paddingInlineStart = indent.padding;
+    indent = null;
+    projectedIndex = null;
     keyboard = null;
     previewed = null;
     tree?.onPreview(null);
@@ -290,7 +327,7 @@ const Root = <T extends ExternalTarget>(props: RootProps<T>) => {
     if (moved === undefined) return;
     order.splice(source.index, 0, moved);
     local.onOrderChange?.(order);
-  }}><div {...rest} data-plain={local.plain ? "" : undefined}>{local.children}</div></DragDropProvider>;
+  }}><div {...rest} ref={list} data-plain={local.plain ? "" : undefined}>{local.children}</div></DragDropProvider>;
 };
 
 type ItemProps = Pick<UseSortableInput, "id" | "index" | "disabled"> & {

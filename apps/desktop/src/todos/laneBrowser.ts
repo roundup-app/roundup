@@ -1,16 +1,22 @@
 import { execFile } from "node:child_process";
-import { mkdtempSync, mkdirSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, mkdtempSync, mkdirSync, rmSync, writeFileSync } from "node:fs";
+import { createRequire } from "node:module";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { promisify } from "node:util";
-import { createServer } from "vite";
-import type { ViteDevServer } from "vite";
+import { appServer } from "../testing/appServer";
 import { captureDir } from "../testing/captures";
 import type { Checks } from "../testing/checks";
 
 const exec = promisify(execFile);
 
-/** One headless Chromium on a fresh profile and its own Vite server, driven by `agent-browser` on the U26 harness; never the user's browser. */
+// PR #2973: 20 --version calls cost 4.038 s through the npm wrapper,
+// versus 0.156 s for the bundled CLI. Hundreds of inputs repeat that startup.
+const native = join(createRequire(import.meta.url).resolve("agent-browser/package.json"), "..", "bin", `agent-browser-${process.platform}-${process.arch}${process.platform === "win32" ? ".exe" : ""}`);
+
+const executable = existsSync(native) ? native : "agent-browser";
+
+/** One headless Chromium on a fresh profile, driven by `agent-browser` on the shared U26 harness server; never the user's browser. */
 export type LaneBrowser = {
   browser: (...args: string[]) => Promise<string>;
   /** Evaluates a constant expression in the page and returns its JSON value. */
@@ -24,7 +30,7 @@ export type LaneBrowser = {
   /** Writes the Checks and a screenshot through the shared capture directory when enabled. */
   capture: (id: string, step: string) => Promise<void>;
   /** Reloads the harness, makes one Todo per title, the third blocked by the first, and shows the Todos tab. */
-  seedTodos: (titles: readonly string[]) => Promise<void>;
+  seedTodos: (titles: readonly string[], blocked?: boolean) => Promise<void>;
   /** The Todo ids in the order the Shelf shows them. */
   order: () => Promise<number[]>;
   /** The `method` of every call the fake Daemon took since the last reset, with its params. */
@@ -35,13 +41,10 @@ export type LaneBrowser = {
 
 export const openLane = async (width: number, scheme: "light" | "dark", name: string, reduced = false): Promise<LaneBrowser> => {
   const profile = mkdtempSync(join(tmpdir(), `${name}-browser-`));
-  const cacheDir = mkdtempSync(join(tmpdir(), `${name}-vite-`));
-  const server: ViteDevServer = await createServer({ root: process.cwd(), cacheDir, server: { host: "127.0.0.1", port: 0, hmr: false }, logLevel: "silent" });
-
-  await server.listen();
+  const server = await appServer();
 
   const session = `${name}-${process.pid}-${width}-${scheme}`;
-  const browser = async (...args: string[]) => (await exec("agent-browser", ["--session", session, "--profile", profile, ...args], { timeout: 60_000 })).stdout;
+  const browser = async (...args: string[]) => (await exec(executable, ["--session", session, "--profile", profile, ...args], { timeout: 60_000 })).stdout;
   // SAFETY: agent-browser prints the JSON value of the evaluated expression.
   const evaluate = async <T,>(script: string): Promise<T> => JSON.parse(await browser("eval", script)) as T;
   const until = async (predicate: string) => { await browser("wait", "--fn", predicate); };
@@ -80,7 +83,7 @@ export const openLane = async (width: number, scheme: "light" | "dark", name: st
       writeFileSync(join(dir, `${width}x${width === 1280 ? 800 : 950}-${scheme}-${step}.checks.json`), JSON.stringify(await evaluate<Checks>("window.__checks()")) + "\n");
       await browser("screenshot", join(dir, `${width}x${width === 1280 ? 800 : 950}-${scheme}-${step}.png`));
     },
-    seedTodos: async (titles) => {
+    seedTodos: async (titles, blocked = true) => {
       await reload();
       await evaluate(`(async () => {
         const rpc = window.__fake.app.rpc;
@@ -88,7 +91,7 @@ export const openLane = async (width: number, scheme: "light" | "dark", name: st
         window.__fake.actAs({ kind: 'agent', id: 'tokens', parent: null });
         const made = [];
         for (const title of ${JSON.stringify(titles)}) made.push(await rpc('todo.create', { title, body: null, blockers: null }));
-        await rpc('todo.setBlockers', { id: made[2].id, blockers: [made[0].id] });
+        if (${blocked}) await rpc('todo.setBlockers', { id: made[2].id, blockers: [made[0].id] });
         window.__fake.actAs({ kind: 'user', id: 'you', parent: null });
         const tab = document.querySelector('#shelf-tab-todos');
         if (tab.getAttribute('aria-expanded') !== 'true') tab.click();
@@ -100,7 +103,7 @@ export const openLane = async (width: number, scheme: "light" | "dark", name: st
     },
     order: () => evaluate<number[]>("[...document.querySelectorAll('.shelf .todo-row[data-id]')].map(row => Number(row.dataset.id))"),
     close: async () => {
-      try { await browser("close"); } finally { await server.close(); rmSync(profile, { recursive: true, force: true }); rmSync(cacheDir, { recursive: true, force: true }); }
+      try { await browser("close"); } finally { await server.close(); rmSync(profile, { recursive: true, force: true }); }
     },
   };
 };

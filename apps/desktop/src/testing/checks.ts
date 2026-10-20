@@ -635,7 +635,7 @@ const widest = (found: { diff: number; row: Element }[]): Measure => {
   return { ok: !worst || worst.diff <= 1, value: worst?.diff ?? 0, selector: worst ? selectorOf(worst.row) : "" };
 };
 
-// D12: in each list the Glyphs share a left x, the first words share a left x, and every later line starts at its row's title.
+// D12: Glyphs and titles align after U3708's declared tree indent; later lines start at their own title.
 const d12 = (page: Page): Measure => {
   const rows = shelfRows(page);
 
@@ -648,14 +648,18 @@ const d12 = (page: Page): Measure => {
 
   for (const list of SHELF_LISTS) {
     const own = rows.filter((one) => one.list === list);
-    const glyphs = own.map(({ row }) => left(row.querySelector(".shelf-glyph")?.firstElementChild ?? null));
-    const titles = own.map(({ row }) => left(row.querySelector(".shelf-title")));
+
+    const indent = (row: Element) => list === "todos" && row.matches('[role="treeitem"]')
+      ? (Number(row.getAttribute("aria-level")) - 1) * parseFloat(page.token("space-4") ?? "0") : 0;
+
+    const glyphs = own.map(({ row }) => left(row.querySelector(".shelf-glyph")?.firstElementChild ?? null) - indent(row));
+    const titles = own.map(({ row }) => left(row.querySelector(".shelf-title")) - indent(row));
 
     own.forEach(({ row }, index) => {
       found.push({ diff: Math.max(...glyphs) - Math.min(...glyphs), row: own[index]!.row });
       found.push({ diff: Math.max(...titles) - Math.min(...titles), row });
 
-      for (const line of [...(row.querySelector(".shelf-text")?.children ?? [])].slice(1)) found.push({ diff: Math.abs(left(line) - titles[index]!), row });
+      for (const line of [...(row.querySelector(".shelf-text")?.children ?? [])].slice(1)) found.push({ diff: Math.abs(left(line) - left(row.querySelector(".shelf-title"))), row });
     });
   }
 

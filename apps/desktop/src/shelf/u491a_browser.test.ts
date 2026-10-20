@@ -31,6 +31,7 @@ describe("u491a Shelf questions and navigation", () => {
   };
 
   it("u490a_pointer_reorders_with_the_title_tooltip_open", async () => {
+    await lane.seedTodos(["first", "second", "third"], false);
     const [one, two, three] = await rows(lane);
     await lane.browser("hover", `.shelf [data-id="${three}"] .shelf-title`);
     await lane.until("[...document.querySelectorAll('[role=tooltip]')].some(tip => tip.textContent === 'third')");
@@ -59,6 +60,7 @@ describe("u491a Shelf questions and navigation", () => {
   }, 120_000);
 
   it("u490a_tab_space_enter_reorders", async () => {
+    await lane.seedTodos(["first", "second", "third"], false);
     const [one, two, three] = await rows(lane);
 
     await lane.browser("focus", ".shelf-add");
@@ -67,7 +69,9 @@ describe("u491a Shelf questions and navigation", () => {
     await lane.until(`document.querySelector('.shelf .todo-row[data-id]').dataset.id === '${two}'`);
     expect(await rows(lane)).toEqual([two, one, three]);
     expect(await lane.evaluate<boolean>(`document.activeElement === document.querySelector('.shelf [data-id="${one}"] .todo-row-button')`)).toBe(true);
-    await lane.tabTo(`Move up@${one}`);
+    // U3709: Tab on a row button nests a row that has one above it, so the Move up button takes focus directly.
+    await lane.evaluate(`(() => { document.querySelector('.shelf [data-id="${one}"] [aria-label="Move up"]').focus(); return true; })()`);
+    expect(await lane.focused()).toBe(`Move up@${one}`);
     await lane.browser("press", "Enter");
     await lane.until(`document.querySelector('.shelf .todo-row[data-id]').dataset.id === '${one}'`);
     expect(await rows(lane)).toEqual([one, two, three]);
@@ -75,14 +79,17 @@ describe("u491a Shelf questions and navigation", () => {
   }, 120_000);
 
   it("u491a_owned_tooltips_reveal_titles_and_blockers", async () => {
-    const [one, , three] = await rows(lane);
+    const [one, three, two] = await rows(lane);
 
     await lane.browser("hover", `.shelf [data-id="${one}"] .shelf-title`);
     await lane.until("[...document.querySelectorAll('[role=tooltip]')].some(tip => tip.textContent === 'first')");
     expect(await lane.evaluate<string[]>("[...document.querySelectorAll('[role=tooltip]')].map(tip => tip.textContent)")).toContain("first");
+    // U3708: the third Todo nests under its first blocker, so only a second blocker draws a line.
+    await lane.evaluate(`(async () => { await window.__fake.app.rpc('todo.setBlockers', { id: ${three}, blockers: [${one}, ${two}] }); return true; })()`);
+    await lane.until(`!!document.querySelector('.shelf [data-id="${three}"] .todo-blocker')`);
     await lane.browser("hover", `.shelf [data-id="${three}"] .todo-blocker`);
-    await lane.until("[...document.querySelectorAll('[role=tooltip]')].some(tip => tip.textContent === 'Waits on first')");
-    expect(await lane.evaluate<string[]>("[...document.querySelectorAll('[role=tooltip]')].map(tip => tip.textContent)")).toContain("Waits on first");
+    await lane.until("[...document.querySelectorAll('[role=tooltip]')].some(tip => tip.textContent === 'also waits on: second')");
+    expect(await lane.evaluate<string[]>("[...document.querySelectorAll('[role=tooltip]')].map(tip => tip.textContent)")).toContain("also waits on: second");
   }, 120_000);
 
   it("u492a_failed_reorder_dismisses_the_title_tooltip", async () => {
