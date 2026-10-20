@@ -56,10 +56,10 @@ class GitHub:
     """Answers builder.py's reads from fixed data and records its writes."""
 
     def __init__(self, view=None, prs=(), notes=(), labels=(), diff='', runs=None, files=(), run=None, state='open',
-                 merged=(), queued=True, closer='Bot', history=(), steps=(), order='Scenarios: U1\n', file=''):
+                 merged=(), queued=True, closer='Bot', history=(), steps=(), order='Scenarios: U1\n', file='', events=()):
         self.view, self.prs, self.notes, self.labels, self.diff, self.runs = view, list(prs), list(notes), labels, diff, runs or {}
         self.files, self.run, self.state, self.merged, self.queued, self.closer = files, run, state, list(merged), queued, closer
-        self.history, self.steps, self.order, self.file = list(history), list(steps), order, file
+        self.history, self.steps, self.order, self.file, self.events = list(history), list(steps), order, file, list(events)
         self.writes = []
 
     def read(self, *args):
@@ -71,6 +71,8 @@ class GitHub:
             return self.run
         if '/comments' in args[1]:
             return [self.notes]
+        if '/events' in args[1]:
+            return [self.events]
         if '/files' in args[1]:
             return [[dict(filename=name) for name in self.files]]
         if 'created=' in args[1]:
@@ -915,6 +917,13 @@ class Fix(unittest.TestCase):
         with GitHub(view=pr(body='Scenarios: U1\n', statusCheckRollup=FAILED), notes=attempts) as github:
             self.assertIsNone(builder.fix_task(9, HEAD, 'check'))
         self.assertTrue(github.flagged())
+
+    def test_l82_a_reopened_pr_counts_only_the_fix_runs_after_the_reopen(self):
+        before = [note('<!-- fix-attempt -->\nFix run r answered `check`.', ago=900 - n) for n in range(3)]
+        reopen = [dict(event='closed', created_at=stamp(600)), dict(event='reopened', created_at=stamp(500))]
+        with GitHub(view=pr(statusCheckRollup=FAILED), notes=before, events=reopen) as github:
+            self.assertIn('`check` failed on this head', builder.fix_task(9, HEAD, 'check'))
+        self.assertEqual(github.writes, [])
 
     def test_l82_a_reject_a_fix_run_answered_waits_for_the_new_review(self):
         reject = note('VERDICT: reject\nno Scenarios line', ago=600)
