@@ -8,7 +8,6 @@ runs from where HEAD forked from <base> to the working tree, untracked files inc
 counts. No output: no test reaches the diff. Exit 2: bad usage; a failed git or cargo call exits non-zero.
 L122: `edited-rust` prints a nextest filter expression naming the Rust tests the diff adds or edits, `edited-web` the
 test files it adds or edits, as paths from `apps/desktop/`; both need a base."""
-from bisect import bisect_left
 import json
 from pathlib import Path
 import re
@@ -79,21 +78,13 @@ def is_web_test(path):
     return path.startswith(APP + 'src/') and path.endswith(('.test.ts', '.test.tsx'))
 
 
-def rust_tests(source, touched):
-    """The names of the Rust test functions of `source` (text) that an edit of `touched` (1-based line numbers) may
-    have changed: for each line, the nearest test `fn` at or after it (its attributes and doc comments sit above) and
-    every test before that one (one of them holds the line in its body). It reads no brackets, strings or comments, so
-    test-like text inside a string cannot hide the enclosing test; it selects extra tests, which only adds stress
-    runs."""
-    lines = source.splitlines()
-    tests = []
-    for start, line in enumerate(lines):
-        if not re.match(r'\s*#\[(?:\w+::)*test\b', line):
-            continue
-        fn = next((n for n in range(start, len(lines)) if re.match(r'(?:.*\])?\s*(?:pub\s+)?(?:async\s+)?fn\s', lines[n])), None)
-        if fn is not None:
-            tests.append((fn + 1, re.search(r'fn\s+(\w+)', lines[fn])[1]))
-    return sorted({name for number in touched for _, name in tests[:bisect_left(tests, (number,)) + 1]})
+def rust_tests(path, touched):
+    """The names of the Rust test functions of the file at `path` whose span (`crates/test-spans`: first attribute or
+    doc comment to closing brace) holds a line of `touched` (1-based numbers); a line in no test selects none."""
+    spans = subprocess.run(['cargo', 'run', '--quiet', '-p', 'test-spans', '--', str(path)], cwd=ROOT, check=True,
+                           stdout=subprocess.PIPE, text=True).stdout.splitlines()
+    return sorted(name for first, last, name in map(str.split, spans)
+                  if any(int(first) <= number <= int(last) for number in touched))
 
 
 def touched_lines(patch):
@@ -111,10 +102,9 @@ def edited_rust(git, fork, changed, untracked):
     for path in changed:
         if not path.endswith('.rs') or not path.startswith('crates/') or not (ROOT / path).exists():
             continue
-        source = (ROOT / path).read_text()
-        touched = range(1, len(source.splitlines()) + 1) if path in untracked \
+        touched = range(1, len((ROOT / path).read_text().splitlines()) + 1) if path in untracked \
             else touched_lines(git('diff', '-U0', '--no-renames', fork, '--', path))
-        names += rust_tests(source, touched)
+        names += rust_tests(ROOT / path, touched)
     return ' | '.join(f'test(/(^|::){name}$/)' for name in sorted(set(names)))
 
 
