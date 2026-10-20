@@ -39,10 +39,10 @@ Data for the QA sweep and the Design critic.
 No Builder prompt lists these.
 
 - `tree-40`, 1512x950, dark, the Todo Drawer open on `#5`.
-- `agents-10`, 1512x950, light, `prefers-contrast: more`.
+- `agents-10`, 1512x950, dark, `prefers-contrast: more`.
 - `tree-40` with a 60-character Agent name (U29), 1512x950, dark.
 - `first-run`, 1512x950, dark.
-- `conflict`, 1512x950, light, a Pad Drawer open.
+- `conflict`, 1512x950, dark, a Pad Drawer open.
 
 ## Rules the Checks do not cover
 

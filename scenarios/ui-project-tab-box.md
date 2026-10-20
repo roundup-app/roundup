@@ -6,7 +6,7 @@ Webview only: no App command, no Daemon method, no `contracts/` file; U441 alone
 
 Seen on `main`: the hover touches the name because the name is a `quiet` button with no inline pad (`--button-inline: 0`, `apps/desktop/src/buttons.css`); the hover covers the name only and the × gets its own square because the tab is two buttons (`header/ProjectTab.tsx`); the × and the `+` sit off the name's line because `.header`, `.strip`, `.tablist` and `.project-tab` align on `baseline` (`header/strip.styles.css`, `apps/desktop/src/styles.css`) and the × is a 24 px `icon` button.
 
-**U440 a Project tab is one box on one centre line.** Given the strip with one, two and eight open Projects (U26 seeds `first-run`, `agents-10`, `tree-40`), light and dark, at 1280 by 820 and 1280 by 800, then:
+**U440 a Project tab is one box on one centre line.** Given the strip with one, two and eight open Projects (U26 seeds `first-run`, `agents-10`, `tree-40`), dark, at 1280 by 820 and 1280 by 800, then:
 
 - **One box.** Each tab is one element with a 1 px `--hairline` border, whose name, Tab mark and × are all inside it, with an inset of a space step on each side, so the name never touches the border. The tab's name and × are not separate hover surfaces. Test: `u440_a_tab_is_one_bordered_box`.
 - **No icon.** A tab holds no folder or editor icon (those are the Rail rows', #1098). Test: `u440_a_tab_has_no_project_icon`.
