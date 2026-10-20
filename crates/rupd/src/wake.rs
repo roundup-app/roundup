@@ -38,7 +38,7 @@ pub struct Waker {
     pub gate: Arc<tokio::sync::Mutex<Gate>>,
 }
 
-fn is_agent(node: &RailNode) -> bool {
+pub(crate) fn is_agent(node: &RailNode) -> bool {
     match node.kind {
         NodeKind::Agent => true,
         NodeKind::Workstream => node.attempt.is_some(),
