@@ -17,4 +17,12 @@ recovery: string | null,
 /**
  * The source facts of the last evaluation, as reported by the source.
  */
-evidence: string | null, };
+evidence: string | null, 
+/**
+ * NR7: the PR head a PrChecks reaction is pinned to.
+ */
+pinned_head?: string, 
+/**
+ * NR7: why the condition cannot match now, or why it was invalidated; absent while it can.
+ */
+cause?: string, };
