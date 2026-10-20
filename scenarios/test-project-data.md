@@ -27,3 +27,5 @@ Policy: this work deletes none of the user's existing folders, including earlier
 3. `crates/rupd/src/data.rs:18` resolves the data folder; lines 37–43 define the macOS and Linux fallback paths.
 4. `crates/perf/src/measure.rs:215` and `:264` launch real Daemons without a data override.
 5. `.github/workflows/check.yml:37`, `:56` and `:70` run test commands; line 42 also launches a real Daemon.
+
+R2965 observer requirement for N7: `perf::n7_launch_sites_clean_on_success_and_failure`: run the perf executable's two launch sites with the built Daemon, on success and hook failure; inspect data directories and OS process liveness. A substituted launcher cannot reveal an unreaped actual Daemon or a missing data override at either executable boundary.
