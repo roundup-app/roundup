@@ -577,7 +577,8 @@ IMAGES = ('.png', '.jpg')
 
 
 def attach(branch):
-    """L23: attach the rendered captures under `artifacts/ux/` to the open PR from `branch`, 50 to a `gh pr edit --attach`.
+    """L23: attach the rendered captures under `artifacts/ux/<id>/` of the scenarios the open PR from `branch` names on its
+    `Scenarios:` line, 50 to a `gh pr edit --attach`; the directory also holds other scenarios' captures, untracked.
     The upload needs a user token, which only this call holds: `PR_ATTACH_TOKEN` is set on the step that runs it, after
     the model ends. Captures are evidence for people, so a failure here exits 1 and changes no PR."""
     # The run works in its own worktree on `branch`; the checkout the step starts in may not be it.
@@ -586,21 +587,26 @@ def attach(branch):
     trees = {block.split('\nbranch refs/heads/')[1].split('\n')[0]: block.split('\n')[0].removeprefix('worktree ')
              for block in listing.split('\n\n') if '\nbranch refs/heads/' in block}
     base = Path(trees.get(branch, '.'))
-    files = sorted(path for pattern in ('*.png', '*.jpg', '*.webm', '*.mp4', '*.mov')
-                   for path in (base / 'artifacts/ux').glob(f'**/{pattern}')
-                   if 'base' not in path.parts and 'head' not in path.parts)
-    if not files:
+    captures = sorted(path for pattern in ('*.png', '*.jpg', '*.webm', '*.mp4', '*.mov')
+                      for path in (base / 'artifacts/ux').glob(f'**/{pattern}')
+                      if 'base' not in path.parts and 'head' not in path.parts)
+    if not captures:
         print('no captures to attach')
         return
     token = os.environ.get('PR_ATTACH_TOKEN', '')
     if not token:
         print('::error::PR_ATTACH_TOKEN is not set; captures not attached')
         sys.exit(1)
-    prs = orders.gh('pr', 'list', '--head', branch, '--state', 'open', '--json', 'number')
+    prs = orders.gh('pr', 'list', '--head', branch, '--state', 'open', '--json', 'number,body')
     if not prs:
         print(f'::error::captures not attached: {branch} has no open PR')
         sys.exit(1)
     number = str(prs[0]['number'])
+    ids = re.split(r'[,\s]+', orders.field(prs[0]['body'] or '', 'Scenarios', ''))
+    files = [path for path in captures if path.relative_to(base / 'artifacts/ux').parts[0] in ids]
+    if not files:
+        print('no captures to attach')
+        return
     for start in range(0, len(files), ATTACH_PER_COMMAND):
         # gh rejects alt text on a video.
         flags = [flag for path in files[start:start + ATTACH_PER_COMMAND]
