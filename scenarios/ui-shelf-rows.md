@@ -20,9 +20,9 @@ Tests (`u360_`) in `apps/desktop/src/testing/`, against fixture pages with stubb
 
 Moves: D2, D12, D13, D14.
 
-**U379 where a Shelf row washes, a click acts.** Found by #1008: on `tree-40` a Todo's description or `#<id>` line and a Pad's `owned by <owner name>` line take the row's `--hover` wash with cursor `auto`, and a click opens nothing, because only the title button opens the Drawer (`apps/desktop/src/todos/Todos.tsx:84-100`). Narrows U359's Plain and U17. Given the Shelf's `Todos` and `Pads` tabs on `tree-40` (U26), dark, at 1280 by 820 and 1280 by 800, when a test clicks each line of a `.shelf-row` (title, description, meta) at the line's centre, then:
+**U379 where a Shelf row washes, a click acts.** Found by #1008: on `tree-40` a Todo's description or `#<id>` line and a Pad's `owned by <owner name>` line take the row's `--hover` wash with cursor `auto`, and a click opens nothing, because only the title button opens the Drawer (`apps/desktop/src/todos/Todos.tsx:84-100`). Narrows U359's Plain and U17. Given the Shelf's `Todos` and `Pads` tabs on `tree-40` (U26), light and dark, at 1280 by 820 and 1280 by 800, when a test clicks each line of a `.shelf-row` (title, description, meta) at the line's centre, then:
 
 - **One target.** A click on any such line opens the row's Drawer (U17) exactly as a click on its title does, and calls nothing else. Test: `u379_every_line_of_a_row_is_a_click_target`.
-- **Kept.** Tab order, drag (U155) and `⌥↑`/`⌥↓` hold; `window.__checks()` passes D1 to D14 (U136) with no Check passing on `main` regressing. Test: `u379_the_row_still_reorders_and_keeps_its_focus`.
+- **Kept.** Tab order, drag (U155) and `⌥↑`/`⌥↓` hold; `window.__checks()` in dark passes D1 to D14 (U136, U3725) with no Check passing on `main` regressing. Test: `u379_the_row_still_reorders_and_keeps_its_focus`.
 
-Observer: the U26 harness at both viewports clicks each line of each row on `tree-40` with `agent-browser` (headless, fresh profile) and writes the Drawer read to `artifacts/ux/U379/`. Moves: D5, D6.
+Observer: the U26 harness at both viewports clicks each line of each row on `tree-40` with `agent-browser` (headless, fresh profile) and writes the Drawer read to `artifacts/ux/U379/`. Captures and critic Check readings use dark only (U3725); behavioral clicks keep both schemes. Moves: D5, D6.
