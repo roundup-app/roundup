@@ -31,5 +31,9 @@ messages = { path = "../messages" }
 provenance = { path = "../provenance" }
 tokio = { workspace = true, features = ["test-util"] }
 
+[features]
+# Fixture entries for another crate's tests; dev-dependencies only.
+test-support = []
+
 [lints]
 workspace = true
