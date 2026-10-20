@@ -43,14 +43,16 @@ export const shelfKeys = (props: { frame: ShelfFrame; shelf: () => HTMLElement |
 
     if (opening) {
       returnTo = held instanceof HTMLElement && held !== document.body ? held : null;
-    } else if (held instanceof HTMLElement && (props.shelf()?.contains(held) || held.closest(".shelf-tabs"))) {
+    }
+
+    props.frame.toggle(source);
+
+    if (!opening && held instanceof HTMLElement && (props.shelf()?.contains(held) || held.closest(".shelf-tabs"))) {
       if (returnTo?.isConnected) returnTo.focus({ preventScroll: true });
       else held.blur();
 
       returnTo = null;
     }
-
-    props.frame.toggle(source);
 
     if (opening) queueMicrotask(() => selectedTab()?.focus({ preventScroll: true }));
   };

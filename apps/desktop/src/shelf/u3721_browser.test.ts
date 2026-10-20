@@ -30,7 +30,8 @@ it("u3721_the_rendered_shelf_spans_rail_edge_to_window_edge", async () => {
     if (dir && scheme === "dark") {
       mkdirSync(dir, { recursive: true });
       await browser("screenshot", join(dir, "maximised.png"));
-      writeFileSync(join(dir, "maximised.checks.json"), JSON.stringify({ checks: await evaluate("window.__checks()"), geometry: readings }, null, 2));
+      writeFileSync(join(dir, "maximised.checks.json"), JSON.stringify(await evaluate("window.__checks()"), null, 2));
+      writeFileSync(join(dir, "maximised.geometry.json"), JSON.stringify(readings, null, 2));
     }
 
     await browser("press", "Escape");
@@ -42,10 +43,8 @@ it("u3721_the_rendered_shelf_spans_rail_edge_to_window_edge", async () => {
 
     if (dir && scheme === "dark") {
       await browser("screenshot", join(dir, "restored.png"));
-      writeFileSync(join(dir, "restored.checks.json"), JSON.stringify({
-        checks: await evaluate("window.__checks()"),
-        geometry: { original, restored: await evaluate("document.querySelector('.shelf').getBoundingClientRect().width") },
-      }, null, 2));
+      writeFileSync(join(dir, "restored.checks.json"), JSON.stringify(await evaluate("window.__checks()"), null, 2));
+      writeFileSync(join(dir, "restored.geometry.json"), JSON.stringify({ original, restored: await evaluate("document.querySelector('.shelf').getBoundingClientRect().width") }, null, 2));
     }
   }
 }, 90_000);
