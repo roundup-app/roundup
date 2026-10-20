@@ -1,3 +1,4 @@
+import { shelfKeyScope } from "./keys";
 import { copy } from "../copy";
 import { createContext, createEffect, createMemo, createSignal, For, on, onCleanup, Show, useContext } from "solid-js";
 import type { Accessor, JSX } from "solid-js";
@@ -34,7 +35,6 @@ export const createBulkDelete = <Id,>(props: {
   let revision = 0;
   let deleteButton: HTMLButtonElement | undefined;
   let keep: HTMLButtonElement | undefined;
-  let barElement: HTMLDivElement | undefined;
   let returnTo: HTMLElement | null = null;
   let panel: HTMLDivElement | undefined;
   registerKeys({ kind: "layer", element: () => panel, active: () => question() !== null, modal: true }, []);
@@ -58,9 +58,9 @@ export const createBulkDelete = <Id,>(props: {
     if (held.targets.some((target) => !eligible.some((row) => row.id === target.id))) setQuestion(null);
   });
 
-  const ask = (done = false) => {
+  const ask = (done = false, focused?: Id) => {
     if (question()) return;
-    const targets = done ? props.done?.() ?? [] : props.targets().filter((target) => props.selected().includes(target.id));
+    const targets = done ? props.done?.() ?? [] : props.targets().filter((target) => focused === undefined ? props.selected().includes(target.id) : target.id === focused);
 
     if (targets.length === 0) return;
     const unique = [...new Map(targets.map((target) => [target.id, { ...target }])).values()];
@@ -138,14 +138,9 @@ export const createBulkDelete = <Id,>(props: {
     }
   };
 
-  registerKeys({ kind: "region", element: () => barElement }, [{ chords: ["Escape", "Backspace"], when: () => props.selected().length > 0, run: key }]);
-
-  // Escape cancels the selection from anywhere in the Shelf frame; a naming field or a blocker link keeps its own.
-  registerKeys({ kind: "region", element: () => host?.mount()?.closest<HTMLElement>(".shelf") ?? undefined }, [{
-    chords: ["Escape"],
-    when: (event) => props.selected().length > 0 && !(event.target instanceof Element && event.target.closest("input, textarea, select, [contenteditable], .todo-blocker")),
-    run: key,
-  }]);
+  registerKeys(shelfKeyScope, [
+    { chords: ["Escape", "Backspace"], when: event => props.selected().length > 0 && !(event.target instanceof Element && event.target.closest("input, textarea, select, [contenteditable], .todo-blocker")), run: key },
+  ]);
 
   registerKeys({ kind: "region", element: () => document.querySelector<HTMLElement>(".shelf-tabs") ?? undefined }, [{
     chords: ["Escape"],
@@ -168,7 +163,7 @@ export const createBulkDelete = <Id,>(props: {
 
   const bar = () => (
     <Show when={props.selected().length > 0 || failures().length > 0}>
-      <div class="shelf-bulk" ref={(element) => { barElement = element; }} role="group" aria-label={copy.shelfDeletion}>
+      <div class="shelf-bulk" role="group" aria-label={copy.shelfDeletion}>
         <Show when={props.selected().length > 0}>
           <div class="shelf-bulk-line" hidden={question() !== null}>
             <span>{props.selected().length}{copy.selected}</span>
@@ -195,7 +190,7 @@ export const createBulkDelete = <Id,>(props: {
         <AlertDialog.Positioner asChild={(positioner) => <aside {...positioner({})} />}>
           <AlertDialog.Content class="shelf-question" ref={(element) => { panel = element; }} onKeyDown={(press) => press.stopPropagation()}>
             <Show when={question()}>{(held) => <>
-              <AlertDialog.Title>{copy.deleteWord}{held().targets.length}{held().done ? copy.doneCount : ""} {props.noun}{copy.questionMark}</AlertDialog.Title>
+              <AlertDialog.Title>{copy.deleteWord}{held().targets.length}{held().done ? copy.doneCount : ""} {held().targets.length === 1 ? (props.noun === "Todos" ? copy.todo : copy.pad) : props.noun}{copy.questionMark}</AlertDialog.Title>
               <AlertDialog.Description>
                 <div class="shelf-question-targets">
                   <For each={held().targets}>{(target) => <p><Show when={props.noun === "Todos"}><span class="mono" data-mono>#{String(target.id)}</span>{" "}</Show>{target.label}</p>}</For>

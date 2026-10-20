@@ -5,6 +5,7 @@ import { Tip } from "../ui/Tip";
 import { activationSource } from "../keys/registry";
 import { copy } from "../copy";
 import { createSelection } from "../shelf/selection";
+import { shelfRowKeys } from "../shelf/keys";
 import { createBulkDelete } from "../shelf/BulkDelete";
 import { failureOf } from "../todos/failureOf";
 import { OwnerMark } from "../ink/OwnerMark";
@@ -114,6 +115,16 @@ export const Pads = () => {
 
       return list.failure();
     },
+  });
+
+  shelfRowKeys({
+    focused: selection.focused,
+    exportPad: name => void failure.run(async () => {
+      const path = await connected.app.chooseSavePath(`${name}.md`);
+
+      if (path !== null) await connected.app.rpc("pad.export", { name, path });
+    }),
+    remove: name => bulk.ask(false, name),
   });
 
   const isEmpty = createMemo(() => list.loaded() && pads().length === 0 && list.failure() === null);
