@@ -2,6 +2,7 @@ import { cleanup, fireEvent, screen, waitFor, within } from "@solidjs/testing-li
 import { afterEach, expect, it, vi } from "vitest";
 import { workstream } from "../testing/nodes";
 import { RpcError } from "../app/seam";
+import { TodoDrawer } from "./TodoDrawer";
 import { mountTodos, todo } from "./testHarness";
 
 afterEach(() => { cleanup(); localStorage.clear(); vi.restoreAllMocks(); vi.unstubAllGlobals(); });
@@ -323,4 +324,35 @@ it("u2773b_todos_failed_title_reopens_without_duplicating_revision", async () =>
   fireEvent.select(field);
   expect(connected.drafts.list().map(draft => [draft.status, draft.selection])).toEqual([["failed", { start: 2, end: 3, direction: "backward" }]]);
   expect(screen.getByRole("button", { name: "Copy Todo", description: /Failed.*Title.*refused title/ })).toBeTruthy();
+});
+
+
+it.each(["title", "body"] as const)("u3021c_open_restores_exact_revision_without_rpc_todo_%s", async name => {
+  const { app, connected, todos } = await mountTodos([todo(1, { title: "original", body: "base" })]);
+  const destination = { surface: "todos", object: "1", recipient: name };
+  const text = name === "body" ? "  e\u0301 🧪\n次の行  " : "  title e\u0301 🧪  ";
+  const form = { text, base: name === "title" ? "original" : "base", expected_change: 1,
+    title: "original", body: "base", done: false, blockers: [] };
+  const selection = { start: 2, end: 5, direction: "backward" as const };
+  const a = connected.drafts.edit(destination, form, selection, "ordinary").draft;
+  connected.drafts.submit(a.revision);
+  connected.drafts.settle(a.revision, "failed");
+  const b = connected.drafts.edit(destination, { ...form, text: "newer B" }, selection, "ordinary").draft;
+  const before = connected.drafts.list();
+  const calls = [...app.calls];
+  const open = (revision: string) => connected.drawer.open(() => <TodoDrawer id={1} todos={todos}
+    recovery={{ project: connected.project.path, revision }} />, "key");
+
+  open(a.revision);
+  const field = await screen.findByRole<HTMLTextAreaElement>("textbox", { name: name === "title" ? "Title" : "Body" });
+  await waitFor(() => expect(field.selectionDirection).toBe("backward"));
+  expect([field.value, field.selectionStart, field.selectionEnd]).toEqual([text, 2, 5]);
+  field.focus(); fireEvent.blur(field);
+  connected.drawer.close("key");
+  expect(connected.drafts.list()).toEqual(before);
+  expect(app.calls).toEqual(calls);
+  open(b.revision);
+  expect(await screen.findByRole("textbox", { name: name === "title" ? "Title" : "Body" })).toHaveProperty("value", "newer B");
+  expect(connected.drafts.list()).toEqual(before);
+  expect(app.calls).toEqual(calls);
 });

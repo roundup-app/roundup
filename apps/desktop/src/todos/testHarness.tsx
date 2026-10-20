@@ -12,6 +12,8 @@ import { showEverything, withScopeRow } from "../testing/showEverything";
 import { todoHandlers } from "../testing/stores";
 import type { TodoStore } from "../testing/stores";
 import { Todos } from "./Todos";
+import { useTodoList } from "./todoList";
+import type { TodosState } from "./state";
 import { Rail } from "../rail/Rail";
 
 export const todo = (id: number, over: Partial<Todo> = {}): Todo => ({
@@ -42,13 +44,16 @@ export const mountTodos = async (initial: Todo[], reducedMotion = true, rail: Ra
   await showEverything(connected);
 
 
+  let todos!: TodosState;
+  const Shelf = () => { todos = useTodoList(); return <Todos />; };
+
   const { unmount } = render(() => (
     <ConnectedProjectContext.Provider value={connected}>
       <Layout
         header="roundup"
         rail={renderRail ? <Rail /> : null}
         centre={null}
-        shelf={<Todos />}
+        shelf={<Shelf />}
         overlay={<DrawerHost drawer={connected.drawer} reducedMotion={() => reducedMotion} />}
       />
     </ConnectedProjectContext.Provider>
@@ -59,7 +64,7 @@ export const mountTodos = async (initial: Todo[], reducedMotion = true, rail: Ra
 
   if (disclosure) fireEvent.click(disclosure);
 
-  return { app, store, connected, unmount };
+  return { app, store, connected, todos, unmount };
 };
 
 export const todoCallsTo = (app: ReturnType<typeof createFakeApp>, method: string) =>
