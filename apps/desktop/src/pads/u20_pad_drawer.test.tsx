@@ -1,4 +1,4 @@
-import { cleanup, fireEvent, screen, waitFor } from "@solidjs/testing-library";
+import { cleanup, fireEvent, render, screen, waitFor } from "@solidjs/testing-library";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   AGENT,
@@ -10,6 +10,9 @@ import {
   waitForReload,
   writeAdopted,
 } from "./padsFixture";
+import { DrawerHost } from "../drawer/DrawerHost";
+import { ConnectedProjectContext } from "../state/connectedProject";
+import { PadDrawer } from "./PadDrawer";
 import { USER } from "../testing/nodes";
 import type { Pad } from "@contracts/pad/Pad";
 
@@ -24,17 +27,6 @@ const edit = (field: HTMLTextAreaElement, value: string) => {
   fireEvent.focusOut(field);
 };
 
-const methodsAfterOpen = (calls: string[]) =>
-  calls.filter(
-    (method) =>
-      method !== "daemon.ping" &&
-      method !== "terminal.scheme" &&
-      method !== "rail.tree" &&
-      method !== "terminal.list" &&
-      method !== "pad.list" &&
-      method !== "decision.list",
-  );
-
 describe("u20 open and edit", () => {
   it("u20_a_pad_the_user_owns_has_editable_text", async () => {
     await openShelf([padOf("release-checklist", USER, "x")]);
@@ -48,14 +40,19 @@ describe("u20 open and edit", () => {
   });
 
   // Rule 10: the title/owner appearance belongs to the paired rendered Pad observer.
-  it("u20_opening_calls_provenance_history_then_pad_read_once", async () => {
-    const { calls } = await openShelf([padOf("auth-notes", AGENT)]);
+  it("u20_opening_calls_provenance_history_then_pad_read_once_without_a_Shelf", async () => {
+    const original = padOf("auth-notes", AGENT);
+    const { app, connected } = await openShelf([original]);
+    cleanup();
+    render(() => <ConnectedProjectContext.Provider value={connected}><DrawerHost drawer={connected.drawer} reducedMotion={() => true} /></ConnectedProjectContext.Provider>);
+    const before = app.calls.length;
+    connected.drawer.open(() => <PadDrawer name={original.name} pads={() => [original]} onLateFailure={() => {}} />, "key");
+    await screen.findByRole("textbox", { name: "Pad body" });
 
-    await openPad("auth-notes");
-
-    expect(methodsAfterOpen(calls())).toEqual([
+    expect(app.calls.slice(before).map(call => call.method)).toEqual([
       "provenance.history",
       "pad.read",
+      "pad.list",
     ]);
   });
 
