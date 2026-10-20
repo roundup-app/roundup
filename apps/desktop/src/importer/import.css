@@ -27,10 +27,12 @@
 
 .import-words {
   align-items: center;
+  justify-content: space-between;
 }
 
-.import-refresh {
-  margin-inline-end: auto;
+.import-actions {
+  display: flex;
+  gap: var(--space-3);
 }
 
 .import-confirm:not(:disabled) {
@@ -56,11 +58,6 @@
 
 .import-check {
   flex: none;
-  margin: 0;
-  width: var(--space-4);
-  height: var(--space-4);
-  font-size: var(--text-small);
-  accent-color: var(--text);
 }
 
 .import-text {
