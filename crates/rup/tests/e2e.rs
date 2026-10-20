@@ -65,7 +65,8 @@ async fn agent_created_a_todo(fixture: &str) -> (Project, RailNode, Todo) {
 
 #[tokio::test]
 async fn e11_a_tool_result_matches_the_next_turn() {
-    let (project, _, todo) = agent_created_a_todo("d3_the_todo_the_agent_created_is_listed").await;
+    let (project, agent, todo) =
+        agent_created_a_todo("d3_the_todo_the_agent_created_is_listed").await;
 
     let listed: Vec<Todo> = serde_json::from_value(
         project
@@ -80,13 +81,6 @@ async fn e11_a_tool_result_matches_the_next_turn() {
     assert_eq!(listed.len(), 1);
     assert_eq!(listed[0].id, todo.id);
     assert_eq!(listed[0].title, "split checkout");
-}
-
-#[tokio::test]
-async fn d3_provenance_names_the_agent_that_created_the_todo() {
-    let (project, agent, todo) =
-        agent_created_a_todo("d3_provenance_names_the_agent_that_created_the_todo").await;
-
     let history: Vec<Touch> = serde_json::from_value(
         project
             .client()
@@ -2881,31 +2875,30 @@ async fn a33_reading(client: &rpc::Client, id: &str, kind: Kind) -> contracts::S
 }
 
 #[tokio::test]
-async fn a33_an_idle_agent_with_a_blocked_todo_reads_blocked() {
-    let (_project, client, agent) =
-        a33_blocked_agent("a33_an_idle_agent_with_a_blocked_todo_reads_blocked").await;
-    let status = a33_reading(&client, &agent.id, Kind::Blocked).await;
-    assert_eq!(status.label, "waits on #1");
-}
-
-#[tokio::test]
 async fn a33_completing_the_blocker_reads_idle() {
     let (_project, client, agent) =
         a33_blocked_agent("a33_completing_the_blocker_reads_idle").await;
-    a33_reading(&client, &agent.id, Kind::Blocked).await;
+    let blocked = a33_reading(&client, &agent.id, Kind::Blocked).await;
+    assert_eq!(blocked.label, "waits on #1");
     client
         .request("todo.complete", json!({ "id": 1 }))
         .await
         .unwrap();
     a33_reading(&client, &agent.id, Kind::Idle).await;
-}
-
-#[tokio::test]
-async fn a33_deleting_the_todo_reads_idle() {
-    let (_project, client, agent) = a33_blocked_agent("a33_deleting_the_todo_reads_idle").await;
+    let blocker = client
+        .request("todo.create", json!({"title":"next blocker"}))
+        .await
+        .unwrap();
+    client
+        .request(
+            "todo.setBlockers",
+            json!({"id":2,"blockers":[blocker["id"]]}),
+        )
+        .await
+        .unwrap();
     a33_reading(&client, &agent.id, Kind::Blocked).await;
     client
-        .request("todo.delete", json!({ "id": 2 }))
+        .request("todo.delete", json!({"id":2}))
         .await
         .unwrap();
     a33_reading(&client, &agent.id, Kind::Idle).await;
