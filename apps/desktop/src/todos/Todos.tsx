@@ -92,7 +92,9 @@ export const OpenRow = (props: {
 
   const alsoWaitingLine = createMemo(() => copy.alsoWaitsOn(alsoWaiting().map((blocker) => blocker.title).join(copy.comma)));
 
-  const [failure, setFailure] = createSignal<string | null>(null);
+  const [actionFailure, setFailure] = createSignal<string | null>(null);
+  const [moveFailure, setMoveFailure] = createSignal<string | null>(null);
+  const failure = createMemo(() => moveFailure() ?? actionFailure());
 
   const complete = async () => {
     const message = await props.onComplete(props.todo);
@@ -116,7 +118,7 @@ export const OpenRow = (props: {
     props.sorted?.button(null);
   });
 
-  props.sorted?.fail(setFailure);
+  props.sorted?.fail(setMoveFailure);
 
   const head = (
     <div class="row-head">
@@ -129,7 +131,7 @@ export const OpenRow = (props: {
           onClick={(event) => props.onPick ? props.onPick(props.todo, event) : props.onOpen(props.todo, activationSource(event))}
           reorderable={props.sorted !== undefined}
           nest={props.nest ? (out) => (out ? props.nest?.out : props.nest?.in) ?? null : undefined}
-          onNest={async (run) => setFailure(await run())}
+          onNest={async (run) => setMoveFailure(await run())}
           onKeyDown={(event) => {
             props.onSelectionKey?.(props.todo, event);
 
@@ -302,16 +304,21 @@ export const Todos = () => {
     },
   });
 
-  // U138, U3709: the refetch that moves a nested row remounts it, so its new button takes focus (`mounted`) while focus is unclaimed.
+  // U138, U3709: reordering retained DOM nodes can lose native focus without mounting a new button.
   let nestFocus: number | null = null;
 
-  const mounted = (id: number, button: HTMLButtonElement) => {
-    if (nestFocus !== id) return;
-    nestFocus = null;
+  createEffect(() => {
+    open().forEach(todo => todo.blockers.join());
+    const id = nestFocus;
+
+    if (id === null) return;
     queueMicrotask(() => {
-      if (button.isConnected && (document.activeElement === document.body || document.activeElement === null)) button.focus();
+      if (nestFocus !== id) return;
+      nestFocus = null;
+
+      if (document.activeElement === document.body || document.activeElement === null) rows.get(id)?.focus();
     });
-  };
+  });
 
   /** U3709, U3711: Tab nests a row under the one above it and ⇧Tab un-nests it, each one `todo.setBlockers`; the Daemon refuses a cycle (T4). */
   const nestOf = (todo: Todo, parent: number | null, above: Todo | null, first: boolean) => {
@@ -484,6 +491,7 @@ export const Todos = () => {
         return <>
         <TreeView.Root collection={collection()}>
         <Sortable.Root class="todo-list shelf-list" plain ids={tree().map((row) => String(row.todo.id))} external={sorted.external} tree={{
+          holdPlace: true,
           rows: tree().map((row) => ({ id: String(row.todo.id), parent: row.parent === null ? null : String(row.parent) })),
           get indent() { return parseFloat(getComputedStyle(document.documentElement).getPropertyValue("--space-4")) || 16; },
           nests: () => true,
@@ -517,10 +525,8 @@ export const Todos = () => {
               registerRow={(id, row) => {
                 selection.register(id, row);
 
-                if (row) {
-                  rows.set(id, row);
-                  mounted(id, row);
-                } else rows.delete(id);
+                if (row) rows.set(id, row);
+                else rows.delete(id);
               }}
             />} />
             </TreeView.NodeProvider>

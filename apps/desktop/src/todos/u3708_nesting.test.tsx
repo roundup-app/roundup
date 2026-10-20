@@ -118,6 +118,8 @@ describe("u3711 a move that would make a cycle is refused and says why", () => {
     expect(ids()).toEqual([1, 2]);
     expect(document.activeElement).toBe(buttonOf(2));
 
+    fireEvent.click(document.body);
+    expect(within(rowOf(2)).getByRole("alert")).toBeTruthy();
     store.todos = store.todos.map((item) => item.id === 1 ? { ...item, title: "renamed" } : item);
     app.emit(todoEvent("todo.updated", store.todos[0]!));
     await waitFor(() => expect(buttonOf(1).textContent).toBe("renamed"));

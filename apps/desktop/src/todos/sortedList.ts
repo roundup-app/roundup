@@ -56,6 +56,8 @@ export const createSortedList = (source: {
   };
 
   createEffect(on(() => source.ids().join(), settle, { defer: true }));
+  // Reconcile keeps the array and unchanged rows: observe field changes as well as membership.
+  createEffect(on(() => JSON.stringify(source.all()), () => fails.forEach((show) => show(null)), { defer: true }));
   createEffect(() => {
     const all = source.all();
     const ids = source.ids();
