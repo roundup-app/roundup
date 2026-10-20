@@ -37,7 +37,7 @@ const withBlocked = (todos: Todo[]): Todo[] =>
   }));
 
 /** Replaces `store.todos` with `change` applied, derives `blocked`, and announces `todo.updated` for `id` and `todo.unblocked` for every Todo the change freed. */
-const values = (todo: Todo): Values => ({ title: todo.title, body: todo.body, done: todo.done, blockers: [...todo.blockers].toSorted() });
+const values = (todo: Todo): Values => ({ title: todo.title, body: todo.body, done: todo.done, blockers: [...todo.blockers].toSorted(), owner: todo.owner });
 
 const recordChanges = (store: TodoStore, before: Todo[]) => {
   for (const todo of store.todos) {
@@ -99,7 +99,7 @@ const todoMethods = (store: TodoStore, announce: Announce, actor: () => Actor): 
   },
   "todo.create": ({ title, body, blockers }) => {
     const id = Math.max(0, ...store.todos.map((todo) => todo.id)) + 1;
-    const created: Todo = { id, title, body: body ?? "", done: false, blockers: blockers ?? [], blocked: false, created_at: Date.now(), creator: actor(), home: null };
+    const created: Todo = { id, title, body: body ?? "", done: false, blockers: blockers ?? [], blocked: false, created_at: Date.now(), creator: actor(), home: null, owner: null };
     store.todos = withBlocked([...store.todos, created]);
     recordChanges(store, []);
     const stored = find(store.todos, (todo) => todo.id === id, `todo ${id}`);
