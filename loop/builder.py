@@ -572,6 +572,48 @@ def keep(branch, issue, run_url):
         call('api', '-X', 'DELETE', '/installation/token')
 
 
+ATTACH_PER_COMMAND = 50
+IMAGES = ('.png', '.jpg')
+
+
+def attach(branch):
+    """L23: attach the rendered captures under `artifacts/ux/<id>/` of the scenarios the open PR from `branch` names on its
+    `Scenarios:` line, 50 to a `gh pr edit --attach`; the directory also holds other scenarios' captures, untracked.
+    The upload needs a user token, which only this call holds: `PR_ATTACH_TOKEN` is set on the step that runs it, after
+    the model ends. Captures are evidence for people, so a failure here exits 1 and changes no PR."""
+    # The run works in its own worktree on `branch`; the checkout the step starts in may not be it.
+    listing = subprocess.run(['git', 'worktree', 'list', '--porcelain'], check=True, text=True, capture_output=True,
+                             timeout=60).stdout
+    trees = {block.split('\nbranch refs/heads/')[1].split('\n')[0]: block.split('\n')[0].removeprefix('worktree ')
+             for block in listing.split('\n\n') if '\nbranch refs/heads/' in block}
+    base = Path(trees.get(branch, '.'))
+    captures = sorted(path for pattern in ('*.png', '*.jpg', '*.webm', '*.mp4', '*.mov')
+                      for path in (base / 'artifacts/ux').glob(f'**/{pattern}')
+                      if 'base' not in path.parts and 'head' not in path.parts)
+    if not captures:
+        print('no captures to attach')
+        return
+    token = os.environ.get('PR_ATTACH_TOKEN', '')
+    if not token:
+        print('::error::PR_ATTACH_TOKEN is not set; captures not attached')
+        sys.exit(1)
+    prs = orders.gh('pr', 'list', '--head', branch, '--state', 'open', '--json', 'number,body')
+    if not prs:
+        print(f'::error::captures not attached: {branch} has no open PR')
+        sys.exit(1)
+    number = str(prs[0]['number'])
+    ids = re.split(r'[,\s]+', orders.field(prs[0]['body'] or '', 'Scenarios', ''))
+    files = [path for path in captures if path.relative_to(base / 'artifacts/ux').parts[0] in ids]
+    if not files:
+        print('no captures to attach')
+        return
+    for start in range(0, len(files), ATTACH_PER_COMMAND):
+        # gh rejects alt text on a video.
+        flags = [flag for path in files[start:start + ATTACH_PER_COMMAND]
+                 for flag in ('--attach', f'{path}#{path.parent.name}/{path.stem}' if path.suffix in IMAGES else str(path))]
+        subprocess.run(['gh', 'pr', 'edit', number, *flags], check=True, timeout=300, env={**os.environ, 'GH_TOKEN': token})
+
+
 def busy():
     """Issues whose `build #<issue> / build` job (`build #<issue>` before build-issue.yml) has not completed in any
     unfinished build.yml run; its `after` job holds no slot."""
@@ -971,9 +1013,15 @@ def restore_merge_loss(main_ref='origin/main', rules=None):
     return not after.returncode
 
 
+def reopened(pr):
+    """When the PR was last reopened, else 0: the fix runs before it no longer count (L82)."""
+    events = orders.gh('api', f'repos/{{owner}}/{{repo}}/issues/{pr}/events?per_page=100', '--paginate', '--slurp')
+    return max((orders.created(e['created_at']) for page in events for e in page if e['event'] == 'reopened'), default=0)
+
+
 def fix_task(pr, head, cause, run_id=0, output=None):
     """The fix run's task, or None when the PR moved past `head`, is not a Builder PR, no longer fails a `check` or
-    `rules` cause there, or used its ATTEMPTS. A plumbing cause (L82) is exempt from ATTEMPTS and writes `plumbing=true`
+    `rules` cause there, or used its ATTEMPTS since it was last reopened. A plumbing cause (L82) is exempt from ATTEMPTS and writes `plumbing=true`
     to the step output file `output`, so its run posts no attempt."""
     current = view(pr)
     if current['state'] != 'OPEN' or current['headRefOid'] != head or not current['headRefName'].startswith('build/'):
@@ -988,7 +1036,7 @@ def fix_task(pr, head, cause, run_id=0, output=None):
     if output:
         with open(output, 'a') as out:
             out.write('plumbing=true\n' * plumbing + 'merge_loss=true\n' * merge_loss)
-    attempts = orders.marked(pr, '<!-- fix-attempt -->')
+    attempts = orders.marked(pr, '<!-- fix-attempt -->', reopened(pr))
     verdicts = orders.marked(pr, 'VERDICT:')
     answered = orders.created(attempts[-1]['created_at']) if attempts else 0
     if cause == 'review' and verdicts and answered > orders.created(verdicts[-1]['created_at']) and \
@@ -1106,10 +1154,26 @@ def status(head, state, description, run_url, context='review'):
          '-f', f'description={description}', '-f', f'target_url={run_url}')
 
 
+FOLLOWUP = re.compile(r'^FOLLOWUP:[ \t]*(.*(?:\n(?!\s*$).*)*)', re.M)
+
+
+def follow_up(pr, findings):
+    """L24: file the approve's `FOLLOWUP:` block (its lines up to the next blank one) as one Issue, and return the
+    findings with the block replaced by a `Follow-up:` line naming it."""
+    block = FOLLOWUP.search(findings)
+    if not block:
+        return findings
+    text = block[1].strip()
+    title = f'Follow-up from PR #{pr}: ' + (text.splitlines() or [''])[0][:80]
+    url = call('issue', 'create', '--title', title, '--body',
+               f'{text}\n\nFound by the review of PR #{pr}, whose scenario does not name this case.').strip()
+    return FOLLOWUP.sub(f'Follow-up: {url}', findings, 1)
+
+
 def review_post(pr, head, reviewer, answer, ran, run_url):
     """Publish a review run's answer on `head`: a VERDICT comment and the `review` status; a reject on a Builder PR
     starts a fix run. Lines that would forge a verdict field are dropped. A run whose model did no work (`ran` false)
-    leaves `review` pending for pick to rerun. False when a run that worked holds no verdict."""
+    leaves `review` pending for pick to rerun. An approve's `FOLLOWUP:` block becomes an Issue. False when a run that worked holds no verdict."""
     current = view(pr)
     if current['state'] != 'OPEN' or current['headRefOid'] != head:
         print(f'PR #{pr} moved past {head}; the newer head gets its own review')
@@ -1125,6 +1189,8 @@ def review_post(pr, head, reviewer, answer, ran, run_url):
         return False
     findings = '\n'.join(line for line in str(answer.get('findings', '')).splitlines()
                          if not re.match(r'(VERDICT|Head|Reviewed-by-Agent):', line))
+    if verdict == 'approve':
+        findings = follow_up(pr, findings)
     comment(pr, f'VERDICT: {verdict}\nHead: {head}\n\n{findings}\n\nReviewed-by-Agent: {reviewer}')
     status(head, 'success' if verdict == 'approve' else 'failure', f'The review run answered {verdict}', run_url)
     if verdict == 'reject' and current['headRefName'].startswith('build/') and not current['isCrossRepository']:
@@ -1229,6 +1295,8 @@ def main(args):
                           flags=('--max-turns', str(turns), '--allowedTools', READ_ONLY_TOOLS))
         case ['pick']:
             pick(slot_count())
+        case ['attach', branch]:
+            attach(branch)
         case ['keep', branch, *issue] if len(issue) < 2 and all(number.isdigit() for number in issue):
             keep(branch, int(issue[0]) if issue else None, run_url)
         case ['screen', branch]:
@@ -1258,7 +1326,7 @@ def main(args):
         case ['critic-post', pr, head, critic, ran] if pr.isdigit() and ran in ('true', 'false'):
             return 0 if critic_post(int(pr), head, critic, sys.stdin.read(), ran == 'true', run_url) else 1
         case _:
-            print('usage: builder.py prompt [<role>] | worked <file> | engine [<schema>] | engine-read-only <schema> | claude-read-only <review|critic> <schema> | keep <branch> [<issue>] | resolve-generated | restore-merge-loss | pick | screen <branch> | '
+            print('usage: builder.py prompt [<role>] | worked <file> | engine [<schema>] | engine-read-only <schema> | claude-read-only <review|critic> <schema> | keep <branch> [<issue>] | attach <branch> | resolve-generated | restore-merge-loss | pick | screen <branch> | '
                   'built <issue> <slug> <ran> '
                   '<verdict> | fix-task <pr> <head> <cause> | fixed <pr> <cause> <ran> <verdict> <plumbing> | review-task <pr> <head> | '
                   'review-post <pr> <head> <reviewer> <ran> | critic-task <pr> <head> | critic-post <pr> <head> <critic> <ran>',
