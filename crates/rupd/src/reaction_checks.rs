@@ -454,6 +454,65 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn nr7_checks_read_evidence_from_a_fake_gh_through_the_daemon() {
+        use std::os::unix::fs::PermissionsExt;
+        let (project, daemon, client, watcher, target) = daemon().await;
+        // The Agents' project directory is the Worktree's git root.
+        let repo = project.path().to_owned();
+        for args in [
+            &["init", "-b", "main"][..],
+            &[
+                "-c",
+                "user.name=t",
+                "-c",
+                "user.email=t@example.invalid",
+                "commit",
+                "--allow-empty",
+                "-m",
+                "x",
+            ],
+            &["branch", "base"],
+        ] {
+            let status = std::process::Command::new("git")
+                .current_dir(&repo)
+                .args(args)
+                .status()
+                .unwrap();
+            assert!(status.success());
+        }
+        let head = "1".repeat(40);
+        let gh = project.path().join("gh");
+        std::fs::write(
+            &gh,
+            format!("#!/bin/sh\ncase \"$1 $2\" in\n\"pr view\") echo '{{\"number\":23,\"headRefOid\":\"{head}\",\"url\":\"https://github.com/acme/one/pull/23\"}}';;\n\"pr checks\") echo '[{{\"name\":\"check\",\"bucket\":\"pass\"}}]';;\nesac\n"),
+        )
+        .unwrap();
+        std::fs::set_permissions(&gh, std::fs::Permissions::from_mode(0o755)).unwrap();
+        daemon.agents.set_evidence_from_gh(&target, &repo, &gh);
+        let state = client
+            .request("agent.worktreeState", json!({ "id": target }))
+            .await
+            .unwrap();
+        assert_eq!(state["evidence"]["state"], "complete");
+        assert_eq!(state["evidence"]["repository"], REPO);
+        assert_eq!(state["evidence"]["head"], head.as_str());
+        // The Watcher's own read of that evidence, not a fed one, fires a reaction pinned to its head
+        // once, and never one pinned to another head.
+        let pinned = save(&daemon, &target, REPO, 23, &head).await;
+        let moved = save(&daemon, &target, REPO, 23, &"2".repeat(40)).await;
+        watcher.check().await;
+        watcher.check().await;
+        assert_eq!(
+            get(&client, &pinned).await["firings"]
+                .as_array()
+                .unwrap()
+                .len(),
+            1
+        );
+        assert_eq!(get(&client, &moved).await["firings"], json!([]));
+    }
+
+    #[tokio::test]
     async fn nr7_checks_require_complete_pinned_head_evidence() {
         let (_project, daemon, client, watcher, target) = daemon().await;
         let feed: Feed = Arc::new(std::sync::Mutex::new(passed("a")));

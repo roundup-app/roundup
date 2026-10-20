@@ -567,6 +567,46 @@ fn drain(
     }
 }
 
+/// NR7 fixture seam for a Daemon test: gives the Agent a Worktree at `path` (a git repository on
+/// `main` with a `base` branch) and publishes one passing full read for it, reading its PR's
+/// required checks with `gh`, so `agent.worktreeState` serves that evidence.
+#[cfg(feature = "test-support")]
+impl super::Agents {
+    pub fn set_evidence_from_gh(&self, id: &str, path: &Path, gh: &Path) {
+        let shared = &self.shared;
+        shared
+            .rail()
+            .set_worktree(
+                id,
+                &contracts::agent::Worktree {
+                    path: path.to_string_lossy().into_owned(),
+                    branch: "main".into(),
+                    base: "base".into(),
+                },
+            )
+            .unwrap();
+        for lane in &mut shared.worktrunk.state.lock().unwrap().lanes {
+            lane.since = Some(Instant::now());
+        }
+        let ids = identities(shared).unwrap();
+        let path = &ids.iter().find(|i| i.agent == id).unwrap().path;
+        let row = serde_json::json!({"branch":"main","worktree":{"path":path},"checks":{"status":"passed","source":"pr","stale":false},"pr":{"number":23}});
+        let bytes = serde_json::to_vec(&serde_json::json!({"schema":2,"repo":{},"collected":{"ci":true,"summary":false},"items":[row]})).unwrap();
+        let recorded = parse(&bytes).unwrap();
+        let identity = ids.iter().find(|i| i.agent == id).unwrap().clone();
+        let mut results = BTreeMap::from([(identity, recorded.items[0].facts())]);
+        attach_evidence(gh, &mut results, &shared.worktrunk.cancelled);
+        publish(
+            &shared.worktrunk.state,
+            true,
+            Ok(results),
+            ids,
+            &shared.worktrunk.cancelled,
+            Instant::now(),
+        );
+    }
+}
+
 #[cfg(test)]
 mod tests;
 
