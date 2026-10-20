@@ -189,6 +189,7 @@ if os.environ.get('CODEX_MODE') == 'limit':
     print(json.dumps(dict(type='turn.failed', error=dict(message='usage limit reached'))))
     sys.exit(1)
 print(json.dumps(dict(type='item.completed', item=dict(type='command_execution', aggregated_output='TOKEN=hidden'))))
+print(json.dumps(dict(type='turn.completed', usage=dict(input_tokens=1000, cached_input_tokens=750, output_tokens=40))))
 print('not json')
 open(answer, 'w').write('{"ask":""}')
 sys.exit(int(os.environ.get('EXIT', '0')))
@@ -226,6 +227,7 @@ class Codex(unittest.TestCase):
             self.assertIn('TOKEN=hidden', Path(home, 'events.jsonl').read_text())
         self.assertEqual(seen['prompt'], 'Build U1.')
         self.assertEqual(seen['args'][:6], ['exec', '--json', '--model', 'gpt-6.1-sol', '--sandbox', 'danger-full-access'])
+        self.assertEqual(seen['args'][6:8], ['-c', 'model_reasoning_effort="medium"'])
         self.assertEqual(seen['args'][-3:], ['--output-schema', f'{home}/schema.json', '-'])
         self.assertEqual(seen['env'], dict(CODEX_HOME=home, GH_TOKEN='fresh', CODEX_AUTH=None,
                                            GIT_AUTHOR_NAME='chatgpt-codex-connector[bot]',
@@ -234,7 +236,8 @@ class Codex(unittest.TestCase):
                                             actions='read', checks='read'),))
         self.assertEqual(calls, 'gh auth setup-git --hostname github.com\ngh api -X DELETE /installation/token\n')
         self.assertTrue(log.startswith('::add-mask::access\n::add-mask::refresh\n'))
-        self.assertIn('\nitem.completed command_execution\nnot an event \n', log)
+        self.assertIn('\nitem.completed command_execution\n', log)
+        self.assertIn('usage of gpt-6.1-sol: input 1000, cached input 750 (75%), output 40\n', log)
         self.assertNotIn('hidden', log)
         self.assertNotIn('not json', log)
         execution, answer = output.split('\n', 1)
@@ -440,17 +443,42 @@ class Pick(unittest.TestCase):
             self.assertEqual(builder.codex_slots(2, [(9, 7), (None, 8)]), ({5, 9}, -1))
 
     def test_l23_a_fix_run_frees_its_codex_slot_when_its_model_job_ends(self):
-        runs = [dict(id=7, display_title='Fix PR #9: check'), dict(id=8, display_title='Fix PR #10: review'),
-                dict(id=11, display_title='Fix build/U1'), dict(id=12, display_title='Fix PR #12: conflict')]
+        running = 'in_progress'
+        runs = [dict(id=7, display_title='Fix PR #9: check', status=running), dict(id=8, display_title='Fix PR #10: review', status=running),
+                dict(id=11, display_title='Fix build/U1', status=running), dict(id=12, display_title='Fix PR #12: conflict', status=running),
+                dict(id=13, display_title='Fix PR #14: check', status='pending')]
         jobs = {7: [dict(name='task', status='completed'), dict(name='fix-run', status='completed'),
                     dict(name='after', status='in_progress')],
                 8: [dict(name='fix-run', status='in_progress')],
                 11: [dict(name='task', status='in_progress')],
-                12: []}
+                12: [],
+                13: []}
         with patch.object(builder, 'live_fixes', return_value=runs), \
                 patch.object(builder.orders, 'gh', side_effect=lambda *args: dict(jobs=jobs[int(args[1].split('/')[-2])])):
             self.assertEqual(builder.fixing(), [(10, 8), (None, 11), (12, 12)])
-            self.assertEqual(builder.fixing(run_id=12), [(10, 8), (None, 11)])
+            self.assertEqual(builder.fixing(run_id=12), [(10, 8), (None, 11)])  # run 13 is pending: no slot
+            self.assertEqual(builder.fix_prs(), {9, 10, 12, 14})
+
+    def test_l23_review_and_critic_runs_on_codex_think_at_high_effort_and_build_runs_at_medium(self):
+        for command, effort in (('engine-read-only', 'high'), ('engine', 'medium')):
+            with self.subTest(command=command), patch.object(builder, 'codex', return_value=0) as codex, \
+                    patch.object(builder, 'worked', return_value=True), patch.object(builder, 'switched', return_value=False), \
+                    patch.dict(os.environ, RUNNER_TEMP='/tmp', GITHUB_OUTPUT=os.devnull), patch.object(sys, 'stdin', io.StringIO('x')):
+                builder.main([command, '{}'] if command == 'engine-read-only' else [command])
+            self.assertEqual(codex.call_args.args[-1], effort)
+
+    def test_l23_a_pr_with_a_live_fix_run_gets_no_second(self):
+        prs = [pr(number=2), pr(number=3)]
+        sent, errors = [], io.StringIO()
+        with patch.object(builder.orders, 'gh', return_value=prs), patch.object(builder, 'fixing', return_value=[]), \
+                patch.object(builder, 'fix_prs', return_value={2}), patch.object(builder, 'codex_slots', return_value=(set(), 5)), \
+                patch.object(builder, 'repairs', side_effect=lambda prs, now, taken: [(p['number'], HEAD, 'check') for p in prs]), \
+                patch.object(builder, 'dispatch_fix', side_effect=lambda n, head, cause: sent.append(n)), \
+                patch.object(builder, 'unreviewed', return_value=[]), patch.object(builder.orders, 'read_orders', return_value=[]), \
+                redirect_stdout(io.StringIO()), redirect_stderr(errors):
+            builder.pick(5)
+        self.assertEqual(sent, [3])
+        self.assertIn('Fix for PR #2 (check) waits: a fix run for it is already live.', errors.getvalue())
 
     def test_l23_pick_starts_fixes_ready_prs_first_then_builds_only_in_free_codex_slots(self):
         prs = [pr(number=1, isDraft=True), pr(number=2), pr(number=3)]
@@ -459,7 +487,8 @@ class Pick(unittest.TestCase):
             output, errors = io.StringIO(), io.StringIO()
             sent = []
             with self.subTest(free=free), patch.object(builder.orders, 'gh', return_value=prs), \
-                    patch.object(builder, 'fixing', return_value=[]), patch.object(builder, 'codex_slots', return_value=(set(), free)), \
+                    patch.object(builder, 'fixing', return_value=[]), patch.object(builder, 'fix_prs', return_value=set()), \
+                    patch.object(builder, 'codex_slots', return_value=(set(), free)), \
                     patch.object(builder, 'repairs', side_effect=lambda prs, now, taken: [(p['number'], HEAD, 'check') for p in prs]), \
                     patch.object(builder, 'dispatch_fix', side_effect=lambda n, head, cause: sent.append(n)), \
                     patch.object(builder, 'unreviewed', return_value=[]), \
@@ -651,6 +680,7 @@ class Built(unittest.TestCase):
 
         def codex(argv, **kwargs):
             Path(argv[argv.index('--output-last-message') + 1]).write_text(json.dumps(verdict))
+            return subprocess.CompletedProcess(argv, 0, stdout='', stderr='')
 
         with tempfile.TemporaryDirectory() as path, patch.dict(os.environ, CODEX_ONLY='1', RUNNER_TEMP=path,
                                                                CODEX_AUTH=Codex.LOGIN), \
@@ -658,6 +688,7 @@ class Built(unittest.TestCase):
             self.assertEqual(builder.screen('Check it?'), verdict)
         argv = run.call_args.args[0]
         self.assertEqual((argv[0], argv[argv.index('--model') + 1]), ('codex', builder.CODEX_MODEL))
+        self.assertEqual(argv[argv.index('-c') + 1], 'model_reasoning_effort="low"')
 
     def test_l79_an_empty_verdict_never_asks_the_user_and_the_run_summary_says_so(self):
         ask = 'Should the Rail hide archived Agents?'
