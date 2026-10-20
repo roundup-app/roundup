@@ -250,6 +250,14 @@ impl Module for Agents {
                 self.set_prepared(params(value)?).await?;
                 reply(&())
             }
+            "project.importDiscover" => {
+                let params: contracts::project::ImportDiscoverParams = params(value)?;
+                reply(&self.import_discover(ctx, params)?)
+            }
+            "project.importCommit" => {
+                let params: contracts::project::ImportCommitParams = params(value)?;
+                reply(&self.import_commit(ctx, params).await?)
+            }
             "project.getPrepared" => reply(&shared.rail().get_prepared()?),
             "project.prepareDirectory" => {
                 let PrepareParams { path } = params(value)?;
