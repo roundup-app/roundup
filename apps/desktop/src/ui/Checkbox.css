@@ -4,6 +4,35 @@
   gap: var(--space-2);
   min-width: 0;
   cursor: pointer;
+  position: relative;
+}
+
+/* The library's input stays the row's click target: it covers the row, unseen, so D2, D6 and D7 measure a real hit area. */
+.app-checkbox > input {
+  position: absolute !important;
+  inset: 0 !important;
+  width: 100% !important;
+  height: 100% !important;
+  margin: 0 !important;
+  clip: auto !important;
+  clip-path: none !important;
+  overflow: visible !important;
+  opacity: 0;
+  font: inherit;
+  cursor: pointer;
+}
+
+.app-checkbox > input:hover {
+  color: var(--text);
+}
+
+.app-checkbox > input:focus-visible {
+  outline: none;
+}
+
+.app-checkbox > input:active {
+  background-color: var(--pressed);
+  transition-duration: 0s;
 }
 
 /* The library's input is visually hidden, so the shared keyboard ring draws around the row. */

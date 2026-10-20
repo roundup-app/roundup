@@ -45,7 +45,7 @@ export const ImportPanel = (props: { state: ImportState; disabled: boolean }) =>
                 <Show when={s().failed().get(candidate.source)}>{(cause) => <ErrorLine message={cause()} />}</Show>
               </li>
             )}</For>
-            <For each={found().excluded}>{(entry) => <li class="light" aria-disabled="true">{copy.importUnavailable(entry.reason)}</li>}</For>
+            <For each={found().excluded}>{(entry) => <li class="light rail-import-title" aria-disabled="true">{copy.importUnavailable(entry.reason)}</li>}</For>
           </ul>
         </>
       )}</Show>
