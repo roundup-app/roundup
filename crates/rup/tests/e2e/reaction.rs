@@ -193,3 +193,72 @@ async fn nr1_invalid_bounds_save_nothing() {
     assert!(listed(&s.user).await.is_empty());
     assert!(messages(&s.user, &s.w, "").await.is_empty());
 }
+
+async fn made(client: &rpc::Client, method: &str, body: Value) -> Reaction {
+    serde_json::from_value(client.request(method, body).await.unwrap()).unwrap()
+}
+
+#[tokio::test]
+async fn nr3_reopen_preserves_accepted_definition_and_message() {
+    let mut s = scene(&[]).await;
+    let mut body = definition(&s.w, "ship it");
+    body["condition"]["ids"] = json!([s.a]);
+    let saved = made(&s.user, "reaction.create", body.clone()).await;
+    let run = json!({ "id": saved.id, "operation": "go" });
+    let fired = made(&s.user, "reaction.run", run.clone()).await;
+    let again = made(&s.user, "reaction.run", run.clone()).await;
+    assert_eq!(fired.firings, again.firings);
+    assert_eq!((fired.firings.len(), fired.remaining), (1, 0));
+    let firing = fired.firings[0].clone();
+    assert!(!firing.matched);
+    assert!(firing.definition.contains("ship it"));
+    assert_eq!(messages(&s.user, &s.w, "ship it").await.len(), 1);
+
+    // Stopping and creating another never touches what was accepted.
+    made(&s.user, "reaction.stop", json!({ "id": saved.id })).await;
+    body["operation"] = json!("op-2");
+    body["instruction"] = json!("something else");
+    made(&s.user, "reaction.create", body).await;
+    let err = s
+        .user
+        .request(
+            "reaction.run",
+            json!({ "id": saved.id, "operation": "again" }),
+        )
+        .await
+        .unwrap_err();
+    assert_eq!(err.code, code::CONFLICT);
+
+    drop(s.user);
+    s.project.restart(&[]);
+    let user = s.project.client().await;
+    let kept = made(&user, "reaction.get", json!({ "id": saved.id })).await;
+    assert_eq!(kept.firings, vec![firing.clone()]);
+    let sent = messages(&user, &s.w, "ship it").await;
+    assert_eq!(sent.len(), 1);
+    assert_eq!(sent[0]["id"], json!(firing.message));
+    assert!(messages(&user, &s.w, "something else").await.is_empty());
+}
+
+#[tokio::test]
+async fn nr8_existing_delivery_guards_and_reported_outcomes() {
+    let s = scene(&[]).await;
+    let mut body = definition(&s.w, "report back");
+    body["condition"]["ids"] = json!([s.a]);
+    let saved = made(&s.as_w, "reaction.create", body).await;
+    let fired = made(
+        &s.as_w,
+        "reaction.run",
+        json!({ "id": saved.id, "operation": "go" }),
+    )
+    .await;
+    let firing = &fired.firings[0];
+    let sent = messages(&s.user, &s.w, "report back").await;
+    // The firing links to the Message and shows the status the Message history holds.
+    assert_eq!(sent[0]["id"], json!(firing.message));
+    assert_eq!(sent[0]["status"], json!(firing.outcome));
+    // An Agent's run is labeled reported, and it claims no match.
+    let evidence: Value = serde_json::from_str(&firing.evidence).unwrap();
+    assert_eq!(evidence["reported"], json!(true));
+    assert!(!firing.matched);
+}

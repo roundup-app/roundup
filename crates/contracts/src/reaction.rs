@@ -93,12 +93,22 @@ pub struct Observation {
     pub cursor: Option<u64>,
 }
 
-/// An accepted firing and the Message it made.
+/// An accepted firing and the Message it made (NR3, NR8). `matched` says whether a condition held; an
+/// explicit run claims none. `outcome` is the Message's status in the history, and a delivered Message
+/// is not verified work.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, TS)]
 #[ts(export, export_to = "reaction/")]
 pub struct Firing {
     pub id: String,
+    pub ordinal: u32,
     pub message: u32,
+    pub matched: bool,
+    /// The source facts it was accepted on, frozen; an Agent's result in it is reported, not verified.
+    pub evidence: String,
+    /// The definition's bytes when it was accepted, frozen.
+    pub definition: String,
+    /// `pending`, `held`, `delivered` or `dropped`.
+    pub outcome: String,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, TS)]
