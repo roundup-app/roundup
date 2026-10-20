@@ -4,7 +4,7 @@ import { effect } from "@dnd-kit/state";
 import { DragDropProvider, type DragDropProviderProps } from "@dnd-kit/solid";
 import { isSortable } from "@dnd-kit/dom/sortable";
 import { useSortable, type UseSortableInput } from "@dnd-kit/solid/sortable";
-import { mergeProps, onCleanup, splitProps, type JSX } from "solid-js";
+import { mergeProps, onCleanup, splitProps, untrack, type JSX } from "solid-js";
 
 /** A press that moves less than this is a click. */
 const PRESS_DRAG_PX = 4;
@@ -191,7 +191,8 @@ const Root = <T extends ExternalTarget>(props: RootProps<T>) => {
   onCleanup(() => { stopRestoringFocus?.(); stopListening?.(); mark(null); });
 
   // Installing even a no-op dragover callback makes dnd-kit save a new DOM position, changing flat-list restoration.
-  const treeEvents = (): Pick<DragDropProviderProps, "onDragOver"> => local.tree?.holdPlace ? {
+  // The provider reads every spread prop during cleanup; keep its callback shape independent of removed rows.
+  const treeEvents: Pick<DragDropProviderProps, "onDragOver"> = untrack(() => local.tree?.holdPlace) ? {
     onDragOver: (event) => {
       // U3710 holds siblings in place: use the library's collision target without its optimistic DOM reorder.
       event.preventDefault();
@@ -202,7 +203,7 @@ const Root = <T extends ExternalTarget>(props: RootProps<T>) => {
     },
   } : {};
 
-  return <DragDropProvider {...treeEvents()} onDragStart={(event) => {
+  return <DragDropProvider {...treeEvents} onDragStart={(event) => {
     const tree = local.tree;
     const source = event.operation.source;
 
