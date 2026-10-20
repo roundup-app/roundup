@@ -57,11 +57,11 @@ class GitHub:
 
     def __init__(self, view=None, prs=(), notes=(), labels=(), diff='', runs=None, files=(), run=None, state='open',
                  merged=(), queued=True, closer='Bot', history=(), steps=(), order='Scenarios: U1\n', file='', events=(),
-                 statuses=None, check_runs=()):
+                 statuses=None, check_runs=(), diffs=None):
         self.view, self.prs, self.notes, self.labels, self.diff, self.runs = view, list(prs), list(notes), labels, diff, runs or {}
         self.files, self.run, self.state, self.merged, self.queued, self.closer = files, run, state, list(merged), queued, closer
         self.history, self.steps, self.order, self.file, self.events = list(history), list(steps), order, file, list(events)
-        self.statuses, self.check_runs = statuses or {}, list(check_runs)
+        self.statuses, self.check_runs, self.diffs = statuses or {}, list(check_runs), diffs or {}
         self.writes = []
 
     def read(self, *args):
@@ -103,6 +103,8 @@ class GitHub:
             return self.diff
         if args[0] == 'api' and '/contents/' in args[1]:
             return self.file
+        if args[0] == 'api' and '/compare/' in args[1]:
+            return self.diffs.get(args[1].rsplit('...', 1)[1], '')
         self.writes.append(args)
         if args[0] == 'api' and args[1].endswith('/comments'):
             self.notes.append(note(args[3].removeprefix('body=')))
@@ -1509,6 +1511,24 @@ class Review(unittest.TestCase):
         self.assertNotIn(('run', 'rerun', '55'), github.writes)
         with GitHub(view=pr(), statuses=dict(review='success', critic='success')), self.assertRaises(RuntimeError):
             builder.start_tests(pr())
+
+    def test_l24_an_unchanged_diff_keeps_the_earlier_approval_and_a_changed_one_gets_a_full_run(self):
+        def diff(line):
+            return f'diff --git a/x b/x\n--- a/x\n+++ b/x\n@@ -1 +1 @@\n-old\n+{line}\n'
+        early = 'b' * 40
+        run = dict(id=55, display_title='Check', status='completed', conclusion='cancelled', run_attempt=1)
+        for name, marker, context, task, now, kept in (
+                ('review', 'VERDICT', 'review', builder.review_task, 'same', True),
+                ('critic', 'CRITIC', 'critic', builder.critic_task, 'same', True),
+                ('changed', 'VERDICT', 'review', builder.review_task, 'other', False)):
+            with self.subTest(name), GitHub(view=pr(), files=['apps/desktop/src/App.tsx'], check_runs=[run],
+                                            statuses=dict(review='success', critic='success'),
+                                            notes=[note(f'{marker}: approve\nHead: {early}\n\nok')],
+                                            diffs={HEAD: diff(now), early: diff('same')}) as github:
+                self.assertEqual(task(9, HEAD) is None, kept)
+            success = [w for w in github.writes if f'context={context}' in w and 'state=success' in w]
+            self.assertEqual(len(success), int(kept))
+            self.assertEqual(('run', 'rerun', '55') in github.writes, kept)
 
     def test_l24_an_approval_on_a_user_pr_starts_no_fix(self):
         with GitHub(view=pr(headRefName='stock-loop')) as github:
