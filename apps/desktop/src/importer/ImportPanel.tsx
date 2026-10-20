@@ -173,7 +173,7 @@ export const ImportPanel = (props: { open: boolean; opener: HTMLElement | undefi
                 <For each={result().candidates}>{(candidate) => (
                   <li>
                     <label>
-                      <input type="checkbox" class="import-check" checked={wanted().has(candidate.source)} disabled={pending()} onChange={() => toggle(candidate)} />
+                      <input type="checkbox" class="todo-tick import-check" checked={wanted().has(candidate.source)} disabled={pending()} onChange={() => toggle(candidate)} />
                       <span class="import-text">
                         <span class="import-title">{candidate.title}</span>
                         <span class="import-cwd">{candidate.cwd === "" ? copy.importProjectFolder : candidate.cwd}</span>
@@ -186,11 +186,13 @@ export const ImportPanel = (props: { open: boolean; opener: HTMLElement | undefi
             </>}
           </Show>
           <p class="import-words">
-            <button data-button="quiet" type="button" class="word import-refresh" onClick={() => void discover()} disabled={pending()}>{copy.importRefresh}</button>
-            <button data-button="quiet" type="button" class="word" onClick={dismiss}>{copy.cancel}</button>
-            <button data-button="quiet" type="button" class="word import-confirm" disabled={pending() || wanted().size === 0} onClick={() => void confirm()}>
-              {copy.importConfirm(wanted().size)}
-            </button>
+            <button data-button="quiet" type="button" class="word" onClick={() => void discover()} disabled={pending()}>{copy.importRefresh}</button>
+            <span class="import-actions">
+              <button data-button="quiet" type="button" class="word" onClick={dismiss}>{copy.cancel}</button>
+              <button data-button="quiet" type="button" class="word import-confirm" disabled={pending() || wanted().size === 0} onClick={() => void confirm()}>
+                {copy.importConfirm(wanted().size)}
+              </button>
+            </span>
           </p>
         </Dialog.Content>
       </Dialog.Positioner></Portal>
