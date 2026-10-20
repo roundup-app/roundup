@@ -19,6 +19,7 @@ const mount = async (list: () => Reaction[]) => {
   const mounted = await mountAskBar([], null, [agent("a", "idle", "ready")]);
 
   mounted.app.handlers["reaction.list"] = list;
+  mounted.app.handlers["reaction.get"] = ({ id }) => list().find(reaction => reaction.id === id)!;
   window.dispatchEvent(new Event("focus"));
 
   return mounted;
@@ -39,6 +40,7 @@ it("nr9_create_inspect_stop_run_and_focus", async () => {
   app.handlers["reaction.run"] = () => current;
   fireEvent.click(within(detail).getByRole("button", { name: copy.reactionRun }));
   await waitFor(() => expect(app.calls.filter((call) => call.method === "reaction.run")).toHaveLength(1));
+  await waitFor(() => expect(within(detail).getByRole("button", { name: copy.reactionStop })).toHaveProperty("disabled", false));
   fireEvent.click(within(detail).getByRole("button", { name: copy.reactionStop }));
   await waitFor(() => expect(within(detail).getByRole("button", { name: copy.reactionRun })).toHaveProperty("disabled", true));
   fireEvent.click(within(detail).getByRole("button", { name: copy.reactionBack }));
@@ -120,19 +122,19 @@ it("nr9_overlapping_names_keep_the_selected_identity_through_creation", async ()
 
 it("nr9_firing_opens_only_its_recorded_message_and_returns_focus", async () => {
   const { app } = await mount(() => [saved({ firings: [{ id: "f1", ordinal: 1, message: 42, matched: true, evidence: "finished", definition: "{}", outcome: "held" }] })]);
-  app.handlers["message.get"] = () => ({ id: 42, from: { kind: "user", id: "u", parent: null }, to: "a", body: "exact accepted instruction", kind: "note", replyTo: null, status: "dropped", reason: "receiver removed", passedFrom: null, at: 0 });
+  app.handlers["message.get"] = () => ({ id: 42, from: { kind: "user", id: "u", parent: null }, to: "a", body: "exact accepted instruction", kind: "note", replyTo: null, status: "dropped", reason: "receiver gone", passedFrom: null, at: 0 });
   fireEvent.click(await screen.findByRole("button", { name: /Ship it/ }));
   const link = await screen.findByRole("button", { name: /Message #42/ });
   fireEvent.click(link);
   await screen.findByText("exact accepted instruction");
   expect(app.calls.filter(call => call.method === "message.get").map(call => call.params)).toEqual([{ id: 42 }]);
-  expect(screen.getByText("receiver removed")).toBeTruthy();
-  fireEvent.click(screen.getByRole("button", { name: copy.reactionBack }));
-  await waitFor(() => expect(document.activeElement).toBe(link));
+  expect(screen.getByText(/receiver gone/)).toBeTruthy();
+  fireEvent.click(screen.getByRole("button", { name: copy.reactionBackToFiring }));
+  await waitFor(() => expect(document.activeElement).toBe(screen.getByRole("button", { name: /Message #42/ })));
   expect(app.calls.filter(call => call.method === "reaction.run" || call.method === "message.send")).toHaveLength(0);
 });
 
-it("nr9_acknowledged_older_submit_preserves_newer_revision_and_navigation", async () => {
+it.each(["acknowledged", "failed"] as const)("nr9_%s_older_submit_preserves_newer_revision_and_navigation", async outcome => {
   const { app, connected } = await mount(() => []);
   const destination = { surface: "reactions", object: "create", recipient: null };
   connected.drafts.edit(destination, {
@@ -141,18 +143,42 @@ it("nr9_acknowledged_older_submit_preserves_newer_revision_and_navigation", asyn
   }, null, "ordinary");
   app.handlers["reaction.preview"] = () => ({ at: "2026-10-21T09:00:00Z", utc: "2026-10-21T09:00:00Z", offset: "Z" });
   let acknowledge!: (reaction: Reaction) => void;
-  app.handlers["reaction.create"] = () => new Promise(resolve => { acknowledge = resolve; });
+  let refuse!: (error: Error) => void;
+  app.handlers["reaction.create"] = () => new Promise((resolve, reject) => { acknowledge = resolve; refuse = reject; });
   fireEvent.click(await screen.findByRole("button", { name: copy.reactionCreate }));
   const save = screen.getByRole("button", { name: copy.reactionSave });
   await waitFor(() => expect(save).toHaveProperty("disabled", false));
   fireEvent.click(save);
   expect(screen.getByLabelText(copy.reactionInstruction)).toHaveProperty("value", "old exact words");
   fireEvent.input(screen.getByLabelText(copy.reactionInstruction), { target: { value: " newer\n exact 🧭 " } });
-  acknowledge(saved());
-  await waitFor(() => expect(connected.drafts.list()).toHaveLength(1));
+
+  if (outcome === "acknowledged") acknowledge(saved());
+  else refuse(new RpcError(-32000, "old refusal"));
+  await waitFor(() => expect(connected.drafts.list().some(draft => draft.status === "pending")).toBe(false));
   expect(screen.getByLabelText(copy.reactionInstruction)).toHaveProperty("value", " newer\n exact 🧭 ");
-  expect(connected.drafts.list()[0]?.value.operation).not.toBe("original");
+  expect(connected.drafts.list().at(-1)?.value.operation).not.toBe("original");
   fireEvent.click(screen.getByRole("button", { name: copy.reactionBack }));
   fireEvent.click(screen.getByRole("button", { name: copy.reactionCreate }));
   expect(screen.getByLabelText(copy.reactionInstruction)).toHaveProperty("value", " newer\n exact 🧭 ");
+});
+
+
+it("nr9_reload_and_project_switch_keep_the_original_recipient_without_sending", async () => {
+  const first = await mount(() => []);
+  const path = first.connected.project.path;
+  fireEvent.click(await screen.findByRole("button", { name: copy.reactionCreate }));
+  fireEvent.input(screen.getByLabelText(copy.reactionInstruction), { target: { value: " original e\u0301\n 🧭 " } });
+  fireEvent.click(screen.getByRole("combobox", { name: copy.reactionTarget }));
+  fireEvent.click(await screen.findByRole("option", { name: "a (a)" }));
+  await waitFor(() => expect(first.connected.drafts.list().at(-1)?.value.target).toBe("a"));
+  first.unmount();
+  const other = await mountAskBar([], null, [agent("a", "idle", "ready")]);
+  fireEvent.click(await screen.findByRole("button", { name: copy.reactionCreate }));
+  expect(screen.getByLabelText(copy.reactionInstruction)).toHaveProperty("value", "");
+  other.unmount();
+  const reopened = await mountAskBar([], null, [agent("replacement", "idle", "ready", { name: "a" })], false, path);
+  fireEvent.click(await screen.findByRole("button", { name: copy.reactionCreate }));
+  expect(screen.getByLabelText(copy.reactionInstruction)).toHaveProperty("value", " original e\u0301\n 🧭 ");
+  expect(reopened.connected.drafts.list().at(-1)?.value.target).toBe("a");
+  expect([...first.app.calls, ...other.app.calls, ...reopened.app.calls].filter(call => call.method === "reaction.create" || call.method === "reaction.run")).toHaveLength(0);
 });
