@@ -54,7 +54,7 @@ it("u2875d_keyboard_pointer_and_recovery", async () => {
   expect(calls(app, "project.importCommit")).toHaveLength(0);
   await open();
 
-  fireEvent.click(screen.getByRole("radio", { name: "Last month" }));
+  fireEvent.click(screen.getByRole("button", { name: "Last month" }));
   await waitFor(() => expect(calls(app, "project.importDiscover").at(-1)?.params).toEqual({ period: "month" }));
   await waitFor(() => expect(screen.getByRole("checkbox", { name: /second/ })).toBeTruthy());
   fireEvent.click(screen.getByRole("checkbox", { name: /second/ }));
@@ -108,7 +108,7 @@ it("u2875d_period_change_clears_selection_and_success_opens_the_closed_child", a
   await open();
   fireEvent.click(screen.getByRole("checkbox", { name: /first/ }));
   expect(isChecked(/first/)).toBe(true);
-  fireEvent.click(screen.getByRole("radio", { name: "Last month" }));
+  fireEvent.click(screen.getByRole("button", { name: "Last month" }));
   await waitFor(() => expect(calls(app, "project.importDiscover")).toHaveLength(2));
   await waitFor(() => expect(screen.getByRole("checkbox", { name: /first/ })).toBeTruthy());
   expect(isChecked(/first/)).toBe(false);
@@ -129,7 +129,7 @@ it("u2875d_rejected_call_keeps_period_and_selection", async () => {
   fireEvent.click(screen.getByRole("button", { name: "Import 1" }));
   await waitFor(() => expect(screen.getByText("daemon said no")).toBeTruthy());
   expect(isChecked(/first/)).toBe(true);
-  expect(screen.getByRole("radio", { name: "Last week" }).getAttribute("aria-checked")).toBe("true");
+  expect(screen.getByRole("button", { name: "Last week" }).getAttribute("aria-pressed")).toBe("true");
 });
 
 it("u2875d_draft_stays_with_its_original_project", async () => {
