@@ -61,4 +61,4 @@ Images and videos are never committed (`.gitignore` skips them under `artifacts/
 
 ## Tests that race
 
-A test waits on the state it reads, with a bounded failure; it never waits on a fixed sleep or a padded timeout (L122). `check`'s `new-tests-stress` job runs every test a PR adds or edits 20 times under CPU load with no retry, and fails it as "flaky under load: <test>". Fix the wait: raise no timeout and add no retry. A test merged earlier that passes only on its retry appears under "Flaky" in its lane's job summary.
+A test waits on the state it reads, with a bounded failure; it never waits on a fixed sleep or a padded timeout (L122). Fix a flaky wait: raise no timeout and add no retry. A test that passes only on its retry appears under "Flaky" in its lane's job summary.
