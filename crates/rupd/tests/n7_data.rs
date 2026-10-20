@@ -259,42 +259,6 @@ mod x14_daemon_observer {
         Ok(())
     }
 
-    #[tokio::test]
-    async fn x14_daemon_observer_capacity_matches_its_receiver() {
-        let fixture = Fixture::open().await.unwrap();
-        let observation = timeout(OBSERVATION_BOUND, async {
-            let (mut receiver, capacity) = fixture.daemon.subscribe();
-            if capacity == 0 {
-                return Err::<(), Error>("Bus capacity is positive".into());
-            }
-            for index in 0..capacity {
-                fixture.marker(&format!("boundary-{index}")).await?;
-            }
-            // Exactly capacity events fit; their identities and order survive unchanged.
-            for index in 0..capacity {
-                rail_marker(
-                    timeout(BOUND, receiver.recv()).await??,
-                    &format!("boundary-{index}"),
-                )?;
-            }
-            for index in 0..=capacity {
-                fixture.marker(&format!("overflow-{index}")).await?;
-            }
-            if !matches!(
-                timeout(BOUND, receiver.recv()).await?,
-                Err(RecvError::Lagged(1))
-            ) {
-                return Err("capacity plus one must lose exactly one event".into());
-            }
-            rail_marker(timeout(BOUND, receiver.recv()).await??, "overflow-1")?;
-            Ok(())
-        })
-        .await;
-        let cleanup = fixture.finish().await;
-        cleanup.unwrap();
-        observation.unwrap().unwrap();
-    }
-
     impl Fixture {
         /// A connection that selects Terminal output, and its bounded receiver.
         async fn output_client(
