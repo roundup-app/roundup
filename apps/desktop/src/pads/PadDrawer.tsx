@@ -29,12 +29,12 @@ const PadRichEditor = lazy(() => import("./PadRichEditor"));
 const PadBody = (props: {
   initial: Pad;
   revision?: string;
-  list: PadList;
+  list?: PadList;
   pads: Accessor<readonly Pad[]>;
   onLateFailure: (message: string) => void;
 }) => {
   const connected = useConnectedProject();
-  const list = props.list;
+  const list = props.list ?? usePadList();
   const name = props.initial.name;
   const destination = { surface: "pads", object: props.initial.incarnation, recipient: null };
   const retained = connected.drafts.list().filter(draft => draft.destination.surface === "pads" && draft.destination.object === destination.object && (props.revision === undefined || draft.revision === props.revision)).at(-1);
@@ -591,8 +591,6 @@ export const PadDrawer = (props: {
     return original ? <PadBody initial={original} revision={recovery.revision} list={recovery.list} pads={recovery.list.pads} onLateFailure={props.onLateFailure} /> : null;
   }
 
-  const list = usePadList();
-
   return (
     <ItemDrawer
       item={`pad:${props.name}`}
@@ -603,7 +601,6 @@ export const PadDrawer = (props: {
       {(pad) => (
         <PadBody
           initial={pad}
-          list={list}
           pads={props.pads}
           onLateFailure={props.onLateFailure}
         />
