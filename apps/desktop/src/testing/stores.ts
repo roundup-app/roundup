@@ -97,9 +97,9 @@ const todoMethods = (store: TodoStore, announce: Announce, actor: () => Actor): 
 
     return null;
   },
-  "todo.create": ({ title, body, blockers }) => {
+  "todo.create": ({ title, body, blockers, owner }) => {
     const id = Math.max(0, ...store.todos.map((todo) => todo.id)) + 1;
-    const created: Todo = { id, title, body: body ?? "", done: false, blockers: blockers ?? [], blocked: false, created_at: Date.now(), creator: actor(), home: null, owner: null };
+    const created: Todo = { id, title, body: body ?? "", done: false, blockers: blockers ?? [], blocked: false, created_at: Date.now(), creator: actor(), home: null, owner: owner ?? null };
     store.todos = withBlocked([...store.todos, created]);
     recordChanges(store, []);
     const stored = find(store.todos, (todo) => todo.id === id, `todo ${id}`);
@@ -115,6 +115,8 @@ const todoMethods = (store: TodoStore, announce: Announce, actor: () => Actor): 
     changeTodos(store, announce, id, (todos) => todos.map((todo) => (todo.id === id ? { ...todo, done: true } : todo))),
   "todo.setBlockers": ({ id, blockers }) =>
     changeTodos(store, announce, id, (todos) => todos.map((todo) => (todo.id === id ? { ...todo, blockers } : todo))),
+  "todo.assign": ({ id, owner }) =>
+    changeTodos(store, announce, id, (todos) => todos.map((todo) => (todo.id === id ? { ...todo, owner } : todo))),
   "todo.move": ({ id, home }) =>
     changeTodos(store, announce, id, (todos) => todos.map((todo) => (todo.id === id ? { ...todo, home } : todo))),
   "todo.reorder": ({ id, before }) => {

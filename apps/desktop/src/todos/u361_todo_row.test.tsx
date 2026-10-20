@@ -84,7 +84,7 @@ describe("u361 a Todo row holds a tick box, its title and what it waits on", () 
       expect(row.textContent).not.toMatch(/\bin (project root|\w+)$/);
     }
 
-    expect(rowOf(7).textContent?.trim()).toBe("Feedback 2:");
+    expect(rowOf(7).textContent?.trim()).toBe("Feedback 2:Assign");
   });
 
   it("u361_waits_on_names_blockers_by_title", async () => {

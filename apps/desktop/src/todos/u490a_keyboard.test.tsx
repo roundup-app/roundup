@@ -67,7 +67,7 @@ describe("u490a an Agent's list orders within itself", () => {
     key(5, "ArrowUp");
     await waitFor(() => expect(callsTo(app, "todo.reorder")).toHaveLength(2));
     expect(callsTo(app, "todo.reorder")[1]).toEqual({ method: "todo.reorder", params: { id: 5, before: 4 } });
-    await waitFor(() => expect(ids(screen.getByRole("region", { name: "Todos" }))).toEqual([3, 5, 4, 1, 2, 6]));
+    await waitFor(() => expect(ids(screen.getByRole("region", { name: "Todos" }))).toEqual([1, 2, 3, 5, 4, 6]));
   });
 
   it("u490a_keyboard_reorders_moves_focus_with_the_row_and_shows_a_failure", async () => {

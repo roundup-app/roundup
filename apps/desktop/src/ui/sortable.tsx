@@ -10,7 +10,7 @@ import { mergeProps, onCleanup, splitProps, type JSX } from "solid-js";
 const PRESS_DRAG_PX = 4;
 
 /** A drop target outside the list; `element` carries `data-drop` while the pointer is over it. */
-type ExternalTarget = { element: HTMLElement };
+type ExternalTarget = { element: HTMLElement; /** Carried instead of the list's `attribute` while the pointer is over this target. */ attribute?: string };
 
 type External<T extends ExternalTarget> = {
   /** The target under the pointer for a dragged row, else null. */
@@ -48,6 +48,8 @@ type RootProps<T extends ExternalTarget> = JSX.HTMLAttributes<HTMLDivElement> & 
   external?: External<T> | undefined;
   /** The handles are buttons that keep their own meaning: the library adds no live region and no `aria-pressed`, `aria-grabbed`, `aria-disabled`, role description or description to them, and the list draws no box or radius around a moved row. */
   plain?: boolean;
+  /** Called with true when a drag of one of this list's rows starts and false when it ends. */
+  onDrag?: ((active: boolean) => void) | undefined;
 };
 
 type DepthRow = TreeRow & { depth: number };
@@ -129,7 +131,7 @@ const swallowNextClick = (): (() => void) => {
 };
 
 const Root = <T extends ExternalTarget>(props: RootProps<T>) => {
-  const [local, rest] = splitProps(props, ["ids", "onOrderChange", "tree", "external", "plain", "children"]);
+  const [local, rest] = splitProps(props, ["ids", "onOrderChange", "tree", "external", "plain", "onDrag", "children"]);
   let over: T | null = null;
 
   // Keyboard drags choose depth with ArrowLeft and ArrowRight; `slot` is the gap `depth` belongs to.
@@ -169,11 +171,12 @@ const Root = <T extends ExternalTarget>(props: RootProps<T>) => {
   };
 
   const mark = (next: T | null) => {
-    const attribute = local.external?.attribute ?? "data-drop";
+    const attributeOf = (target: T | null) => target?.attribute ?? local.external?.attribute ?? "data-drop";
 
     if (next?.element !== over?.element) {
-      over?.element.removeAttribute(attribute);
-      next?.element.setAttribute(attribute, "");
+      if (over) over.element.removeAttribute(attributeOf(over));
+
+      if (next) next.element.setAttribute(attributeOf(next), "");
     }
 
     over = next;
@@ -189,6 +192,7 @@ const Root = <T extends ExternalTarget>(props: RootProps<T>) => {
 
     previewed = null;
     stopListening?.();
+    local.onDrag?.(true);
 
     if (!tree || !isSortable(source) || !(event.operation.activatorEvent instanceof KeyboardEvent)) {
       keyboard = null;
@@ -234,6 +238,7 @@ const Root = <T extends ExternalTarget>(props: RootProps<T>) => {
     const pointerDrag = !(event.operation.activatorEvent instanceof KeyboardEvent);
 
     mark(null);
+    local.onDrag?.(false);
     stopListening?.();
     stopListening = undefined;
 
