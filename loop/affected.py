@@ -122,7 +122,7 @@ def edited_rust(git, fork, changed, untracked):
 
 def web_tests(source, touched):
     """The `vitest -t` pattern of the web tests of `source` (text) that a line of `touched` (1-based numbers) falls in,
-    from the `it(`/`test(` line to its closing line at the same indent; '' when none is touched; None when a touched
+    from the `it(`/`test(` line to its closing line at the same indent, past a table's `]` line; '' when none is touched; None when a touched
     test has no literal title to match (`.each`, a computed title)."""
     lines = source.splitlines()
     indent = lambda line: len(line) - len(line.lstrip())
@@ -131,7 +131,8 @@ def web_tests(source, touched):
         call = re.match(r'\s*(?:it|test)(?:\.\w+)*\(', line)
         if not call:
             continue
-        stop = next((n for n in range(start + 1, len(lines)) if lines[n].strip() and indent(lines[n]) <= indent(line)),
+        stop = next((n for n in range(start + 1, len(lines)) if lines[n].strip() and indent(lines[n]) <= indent(line)
+                    and not lines[n].lstrip().startswith(']')),
                     len(lines))
         end = stop if stop < len(lines) and lines[stop].lstrip().startswith(('}', ')')) else stop - 1
         if not any(start < number <= end + 1 for number in touched):
