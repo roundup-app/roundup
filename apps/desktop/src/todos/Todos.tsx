@@ -318,7 +318,7 @@ export const Todos = () => {
   let plusButton: HTMLButtonElement | undefined;
   let tab: HTMLElement | undefined;
 
-  const rowButtonOf = (id: number) => rows.get(id) ?? document.querySelector<HTMLElement>(`[data-todo="${id}"] .row-head button`);
+  const rowButtonOf = (id: number) => (rows.get(id)?.isConnected ? rows.get(id) : null) ?? document.querySelector<HTMLElement>(`[data-todo="${id}"] .row-head button`);
 
   /** U3720: the owner list closes with focus back on the row, found again after the refetch. */
   const stopPicking = () => {
@@ -329,10 +329,37 @@ export const Todos = () => {
     if (id !== undefined) queueMicrotask(() => rowButtonOf(id)?.focus());
   };
 
+  // U3720: a chosen Todo moves to its new group's row once `todo.updated` has refetched, which replaces the row that held focus.
+  const [regrouped, setRegrouped] = createSignal<{ id: number; owner: Actor | null } | null>(null);
+
+  createEffect(() => {
+    const request = regrouped();
+    const arrived = request && todos.byId().get(request.id);
+
+    if (!request || !arrived || !sameOwner(arrived.owner, request.owner)) return;
+
+    const id = request.id;
+
+    queueMicrotask(() => {
+      const held = document.activeElement;
+
+      if (held && held !== document.body && held.isConnected && !held.closest("[role=menu]")) return setRegrouped(null);
+
+      const button = rowButtonOf(id);
+
+      if (button) {
+        button.focus();
+        setRegrouped(null);
+      }
+    });
+  });
+
   const assign = async (id: number, owner: Actor | null) => {
     const message = await failureOf(() => connected.app.rpc("todo.assign", { id, owner }));
 
     pickFails.get(id)?.(message);
+
+    if (message === null) setRegrouped({ id, owner });
   };
 
   registerKeys({ kind: "region", element: () => tab }, [{

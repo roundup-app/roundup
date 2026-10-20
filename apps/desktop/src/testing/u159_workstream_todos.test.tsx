@@ -73,6 +73,7 @@ const count = (name: string) => screen.getByRole("tab", { name: new RegExp(`^${n
 
 const ownTodos = (id: string) => [...document.querySelectorAll(`[data-shelf-group="${id}"] [data-todo]`)].flatMap(el => el.closest('[data-shelf-group]')?.getAttribute('data-shelf-group') === id ? [Number(el.getAttribute('data-todo'))] : []);
 
+// The Todo placement clauses moved to U3717: u3717_todos_group_by_owner_once_each and u3717_group_order_is_me_agents_unassigned.
 it("u2744a_shelf_scope_overview_groups_every_item_once", async () => {
   await mount();
   await waitFor(() => expect(ids()).toEqual([1, 2, 5, 3, 4, 6, 7, 8, 9, 10, 12]));
@@ -85,6 +86,7 @@ it("u2744a_shelf_scope_overview_groups_every_item_once", async () => {
   await waitFor(() => expect(groupIds()).toEqual(["w", "a", "v", "r", "unassigned"]));
 });
 
+// The Todo folding clause is proved by u3717_unassigned_starts_folded; this keeps the shared disclosure keys.
 it("u2744a_shelf_scope_unassigned_starts_folded", async () => {
   const { connected } = await mount();
   await waitFor(() => expect(disclosure("unassigned")).toBeTruthy());
@@ -104,6 +106,7 @@ it("u2744a_shelf_scope_unassigned_starts_folded", async () => {
   expect(screen.getByRole("button", { name: /#2 / })).toBeTruthy();
 });
 
+// The Todo scope clause moved to u3717_scope_still_selects_by_home_and_maker; this keeps the counts.
 it("u2744a_shelf_scope_counts_follow_the_scope", async () => {
   const { connected } = await mount();
   await waitFor(() => expect([count("Todos"), count("Pads")]).toEqual(["11", "12"]));
@@ -115,6 +118,18 @@ it("u2744a_shelf_scope_counts_follow_the_scope", async () => {
   expect(screen.getByRole("button", { name: /1 done/ })).toBeTruthy();
   connected.rail.select("a");
   await waitFor(() => expect([count("Todos"), count("Pads")]).toEqual(["2", "3"]));
+});
+
+it("u3717_scope_still_selects_by_home_and_maker", async () => {
+  const { connected } = await mount();
+  await waitFor(() => expect(groupIds()).toEqual(["me", "a", "b", "unassigned"]));
+  connected.rail.select("w");
+  await waitFor(() => expect(ids()).toEqual([1, 2, 6, 8, 12]));
+  expect(groupIds()).toEqual(["me", "a", "unassigned"]);
+  expect([ownTodos("me"), ownTodos("a"), ownTodos("unassigned")]).toEqual([[1], [2], [6, 8, 12]]);
+  connected.rail.select("a");
+  await waitFor(() => expect(ids()).toEqual([2, 5]));
+  expect(groupIds()).toEqual(["a"]);
 });
 
 it("u2744a_shelf_scope_stopped_agent_items_show", async () => {
@@ -148,6 +163,7 @@ it("u2744a_shelf_scope_moved_item_follows_its_home", async () => {
   await waitFor(() => expect(ids()).toEqual([2, 5]));
 });
 
+// The Todo empty-group clause: u3717_group_order_is_me_agents_unassigned shows only groups holding a Todo.
 it("u2744a_shelf_scope_empty_groups_are_omitted", async () => {
   const { connected, app } = await mount();
   connected.rail.select("v");

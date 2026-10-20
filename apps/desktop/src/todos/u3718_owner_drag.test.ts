@@ -27,11 +27,11 @@ const lift = async (lane: LaneBrowser, id: number) => {
 describe("u3718 a Todo dragged to another owner's group", () => {
   let lane: LaneBrowser;
 
-  beforeAll(async () => { lane = await openLane(1512, "light", "u3718"); }, 180_000);
+  beforeAll(async () => { lane = await openLane(1512, "dark", "u3718"); }, 180_000);
 
   afterAll(async () => { await lane?.close(); });
 
-  it("u3718_every_owner_is_a_drop_target_while_dragging_and_a_drop_assigns_once", async () => {
+  it("u3718_every_owner_is_a_drop_target_while_dragging", async () => {
     await lane.seedTodos(["first", "second", "third"]);
 
     const [one] = await lane.order();
@@ -43,6 +43,7 @@ describe("u3718 a Todo dragged to another owner's group", () => {
 
     await move(lane, to.x, to.y);
     await lane.until(`!!document.querySelector('[data-drop-target]')`);
+    await lane.capture("shelf-owner", "drag-over-group");
     await lane.browser("mouse", "up");
     await lane.until(`document.querySelector('.shelf [data-id="${one}"]')?.closest('[data-shelf-group]')?.dataset.shelfGroup === 'me'`);
 
@@ -50,7 +51,7 @@ describe("u3718 a Todo dragged to another owner's group", () => {
     expect(await lane.calls("todo.reorder")).toEqual([]);
   }, 120_000);
 
-  it("u3718_esc_calls_nothing", async () => {
+  it("u3718_esc_and_an_outside_drop_call_nothing", async () => {
     await lane.seedTodos(["first", "second", "third"]);
 
     const [one] = await lane.order();
@@ -61,7 +62,82 @@ describe("u3718 a Todo dragged to another owner's group", () => {
     await lane.browser("press", "Escape");
     await lane.browser("mouse", "up");
     await new Promise(resolve => setTimeout(resolve, 500));
+    expect(await lane.calls("todo.assign")).toEqual([]);
+
+    await lift(lane, one!);
+    await move(lane, 2, 2);
+    await lane.browser("mouse", "up");
+    await new Promise(resolve => setTimeout(resolve, 500));
 
     expect(await lane.calls("todo.assign")).toEqual([]);
+    expect(await lane.calls("todo.move")).toEqual([]);
+  }, 120_000);
+
+  it("u3718_a_drop_on_the_own_group_reorders_and_never_assigns", async () => {
+    await lane.seedTodos(["first", "second", "third"]);
+
+    const [one, two] = await lane.order();
+    const from = await lift(lane, one!);
+    const to = await centre(lane, ROW(two!));
+
+    await move(lane, from.x, (from.y + to.y) / 2);
+    await move(lane, to.x, to.y + 8);
+    await lane.browser("mouse", "up");
+    await lane.until(`window.__fake.app.calls.some(call => call.method === 'todo.reorder')`);
+
+    expect(await lane.calls("todo.assign")).toEqual([]);
+  }, 120_000);
+
+  it("u3718_a_rail_drop_moves_home_and_keeps_the_owner", async () => {
+    await lane.seedTodos(["first", "second", "third"]);
+
+    const [one] = await lane.order();
+    const from = await lift(lane, one!);
+    const to = await centre(lane, `[data-part="branch"][aria-expanded] > .rail-row`);
+
+    await move(lane, from.x, from.y - 40);
+    await move(lane, to.x, to.y);
+    await lane.browser("mouse", "up");
+    await lane.until(`window.__fake.app.calls.some(call => call.method === 'todo.move')`);
+
+    expect(await lane.calls("todo.assign")).toEqual([]);
+  }, 120_000);
+
+  it("u3718_the_row_moves_only_after_the_refetch", async () => {
+    await lane.seedTodos(["first", "second", "third"]);
+
+    const [one] = await lane.order();
+
+    await lane.evaluate(`(() => { const app = window.__fake.app; const real = app.handlers["todo.assign"]; window.__gate = new Promise(open => { window.__open = open; }); app.handlers["todo.assign"] = async (params) => { await window.__gate; return real(params); }; return true; })()`);
+    await lift(lane, one!);
+    const to = await centre(lane, HEAD);
+
+    await move(lane, to.x, to.y);
+    await lane.browser("mouse", "up");
+    await lane.until(`window.__fake.app.calls.some(call => call.method === 'todo.assign')`);
+
+    expect(await lane.evaluate<string>(`document.querySelector('.shelf [data-id="${one}"]').closest('[data-shelf-group]').dataset.shelfGroup`)).toBe("unassigned");
+    await lane.evaluate(`(() => { window.__open(); return true; })()`);
+    await lane.until(`document.querySelector('.shelf [data-id="${one}"]')?.closest('[data-shelf-group]')?.dataset.shelfGroup === 'me'`);
+  }, 120_000);
+
+  it("u3720_esc_and_click_outside_close_and_restore_focus", async () => {
+    await lane.seedTodos(["first", "second", "third"]);
+
+    const [one] = await lane.order();
+
+    for (const close of [() => lane.browser("press", "Escape"), () => lane.browser("mouse", "move", "2", "2").then(() => lane.browser("mouse", "down")).then(() => lane.browser("mouse", "up"))]) {
+      await lane.evaluate(`(() => { document.querySelector('.shelf [data-id="${one}"] .shelf-title').closest('button').focus(); return true; })()`);
+      await lane.browser("press", "o");
+      await lane.until(`!!document.querySelector('[role=menu]')`);
+      await close();
+      await lane.until(`!document.querySelector('[role=menu]')`);
+      await lane.until(`document.activeElement.closest('[data-id="${one}"]') !== null`);
+    }
+
+    await lane.browser("click", `button[aria-label="add todo to Unassigned"]`);
+    await lane.until(`document.activeElement.matches('input, textarea')`);
+    await lane.capture("shelf-owner", "new-todo-field");
+    await lane.browser("press", "Escape");
   }, 120_000);
 });

@@ -2,7 +2,9 @@ import { cleanup, fireEvent, screen, waitFor, within } from "@solidjs/testing-li
 import { afterEach, expect, it } from "vitest";
 import { RpcError } from "../app/seam";
 import { agent } from "../testing/nodes";
-import { mountTodos, todo, todoCallsTo as callsTo } from "./testHarness";
+import { CHORDS, HELP_ROWS, hintsFor } from "../keys/chords";
+import { copy } from "../copy";
+import { mountTodos, todo, todoEvent, todoCallsTo as callsTo } from "./testHarness";
 
 afterEach(cleanup);
 
@@ -127,4 +129,92 @@ it("u3720_a_failed_assign_shows_its_cause_and_keeps_the_group", async () => {
 
   expect(await screen.findByText(/no such owner/)).toBeTruthy();
   expect(document.querySelector('[data-shelf-group="a"] [data-todo="3"]')).toBeTruthy();
+});
+
+const content = (id: string) => document.querySelector(`[data-shelf-group="${id}"] [data-part="branch-content"]`)!;
+
+it("u3717_group_order_is_me_agents_unassigned", async () => {
+  await mountTodos([todo(1, { owner: by("b") }), todo(2, { owner: by("a") }), todo(3, { owner: ME }), todo(4)], true, [agent("a", "idle", "A", { name: "alpha", order: 1 }), agent("b", "idle", "B", { name: "beta", order: 0 })]);
+
+  await waitFor(() => expect(groups()).toEqual(["me", "b", "a", "unassigned"]));
+});
+
+it("u3717_unassigned_starts_folded", async () => {
+  const { app, store } = await mountTodos([todo(1, { owner: ME })]);
+  await waitFor(() => expect(groups()).toEqual(["me"]));
+
+  store.todos = [...store.todos, todo(4)];
+  app.emit(todoEvent("todo.created", store.todos[1]!));
+
+  await waitFor(() => expect(groups()).toEqual(["me", "unassigned"]));
+  expect(content("unassigned").hasAttribute("hidden")).toBe(true);
+  expect(content("me").hasAttribute("hidden")).toBe(false);
+});
+
+it("u3717_owner_event_regroups_the_row", async () => {
+  const { app, store } = await mount();
+  await waitFor(() => expect(groups()).toContain("b"));
+
+  store.todos = store.todos.map((each) => each.id === 4 ? { ...each, owner: by("b") } : each);
+  app.emit(todoEvent("todo.updated", store.todos.find((each) => each.id === 4)!));
+
+  await waitFor(() => expect(document.querySelector('[data-shelf-group="b"] [data-todo="4"]')).toBeTruthy());
+  expect(document.querySelector('[data-shelf-group="unassigned"] [data-todo="4"]')).toBeNull();
+});
+
+it("u3719_esc_closes_and_returns_focus_to_the_plus", async () => {
+  const { app } = await mount();
+  await waitFor(() => expect(groups()).toContain("me"));
+  const plus = screen.getByRole("button", { name: "add todo to Me" });
+
+  fireEvent.click(plus);
+  fireEvent.keyDown(await screen.findByRole("textbox", { name: "New Todo title" }), { key: "Escape" });
+
+  await waitFor(() => expect(document.activeElement).toBe(plus));
+  expect(screen.queryByRole("textbox", { name: "New Todo title" })).toBeNull();
+  expect(callsTo(app, "todo.create")).toEqual([]);
+});
+
+it("u3719_the_plus_is_keyboard_reachable_with_its_name", async () => {
+  await mount();
+  await waitFor(() => expect(groups()).toContain("me"));
+  const plus = screen.getByRole("button", { name: "add todo to alpha" });
+
+  expect(plus.tabIndex).toBeGreaterThanOrEqual(0);
+  expect(plus.matches('[data-part="branch-control"] *')).toBe(false);
+  plus.focus();
+  expect(document.activeElement).toBe(plus);
+});
+
+it("u3720_esc_closes_the_owner_list_and_restores_focus_to_the_row", async () => {
+  await mount();
+  await waitFor(() => expect(groups()).toContain("a"));
+  const row = await screen.findByRole("button", { name: "Idle #3 todo 3" });
+
+  row.focus();
+  fireEvent.keyDown(row, { key: "o", code: "KeyO" });
+  await waitFor(() => expect(document.activeElement).toBe(screen.getByRole("menu")));
+  fireEvent.keyDown(screen.getByRole("menu"), { key: "Escape" });
+  await waitFor(() => expect(screen.queryByRole("menu")).toBeNull());
+  await waitFor(() => expect(document.activeElement?.closest("[data-todo]")?.getAttribute("data-todo")).toBe("3"));
+});
+
+it("u3720_choosing_assigns_once_and_returns_focus_to_the_row", async () => {
+  const { app } = await mount();
+  await waitFor(() => expect(groups()).toContain("a"));
+  fireEvent.click(await screen.findByRole("button", { name: "assign #3", hidden: true }));
+  fireEvent.click(within(await screen.findByRole("menu")).getByText("Unassigned"));
+
+  await waitFor(() => expect(callsTo(app, "todo.assign")).toHaveLength(1));
+  await waitFor(() => expect(document.activeElement?.closest("[data-todo]")?.getAttribute("data-todo")).toBe("3"));
+  expect(document.activeElement).not.toBe(document.body);
+});
+
+it("u3720_the_key_is_a_registered_shelf_binding_listed_in_help", () => {
+  const owned = CHORDS.filter((chord) => chord.presses.includes("KeyO"));
+
+  expect(owned).toHaveLength(1);
+  expect(owned[0]).toMatchObject({ inShelf: true, keys: "O" });
+  expect(HELP_ROWS).toContainEqual(expect.objectContaining({ keys: "O", what: copy.assignTodo }));
+  expect(hintsFor("shelf").map((hint) => hint.keys)).toContain("O");
 });
