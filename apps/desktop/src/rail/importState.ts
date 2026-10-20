@@ -42,8 +42,8 @@ export const createImport = (app: AppSeam, path: string, onOpened: (workstream: 
   let draftRevision = record && usable ? versions().find(entry => {
     const parsed = v.safeParse(form, entry.value);
 
-    return entry.revision === record.revision || (parsed.success && parsed.output.period === record.period
-      && JSON.stringify(parsed.output.sources.map((source, at) => ({ source, revision: parsed.output.revisions[at] ?? "", title: parsed.output.titles?.[at] ?? source }))) === JSON.stringify(record.selected));
+    return record.revision ? entry.revision === record.revision : parsed.success && parsed.output.period === record.period
+      && JSON.stringify(parsed.output.sources.map((source, at) => ({ source, revision: parsed.output.revisions[at] ?? "", title: parsed.output.titles?.[at] ?? source }))) === JSON.stringify(record.selected);
   })?.revision : retained?.revision;
 
   let baseline = JSON.stringify(record);
@@ -67,11 +67,11 @@ export const createImport = (app: AppSeam, path: string, onOpened: (workstream: 
   const choices = () => versions().flatMap(entry => {
     const parsed = v.safeParse(form, entry.value);
 
-    return parsed.success ? [{ revision: entry.revision, ...parsed.output }] : [];
+    return parsed.success ? [{ revision: entry.revision, status: entry.status, ...parsed.output }] : [];
   });
 
-  const hasConflict = () => choices().length > 1 && choices().some(entry => entry.external);
-  const value = () => ({ external: choices().some(entry => entry.external), period: period(), sources: [...selected().keys()], revisions: [...selected().values()].map(entry => entry.revision), titles: [...selected().values()].map(entry => entry.title) });
+  const hasConflict = () => choices().length > 1 && (choices().some(entry => entry.external) || choices().filter(entry => entry.status === "draft").length > 1);
+  const value = () => ({ external: hasConflict() || choices().some(entry => entry.external), period: period(), sources: [...selected().keys()], revisions: [...selected().values()].map(entry => entry.revision), titles: [...selected().values()].map(entry => entry.title) });
 
   // The Import record is a second writer's input, not a cache we may replace blindly.
   // Retain it in the existing Project revision holder before advancing our baseline.
@@ -88,6 +88,12 @@ export const createImport = (app: AppSeam, path: string, onOpened: (workstream: 
     const next = JSON.stringify(saved);
 
     if (next !== baseline && saved) {
+      if (saved.revision && !versions().some(entry => entry.revision === saved.revision)) {
+        const problem = drafts?.retry();
+
+        if (problem?.cause === "changed") drafts?.retry();
+      }
+
       const external = { period: saved.period, sources: saved.selected.map(entry => entry.source), revisions: saved.selected.map(entry => entry.revision), titles: saved.selected.map(entry => entry.title) };
       const known = choices().some(entry => JSON.stringify({ period: entry.period, sources: entry.sources, revisions: entry.revisions, titles: entry.titles }) === JSON.stringify(external));
 
