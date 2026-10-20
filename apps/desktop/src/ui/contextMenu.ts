@@ -57,7 +57,7 @@ const linkOf = async (app: AppSeam, kind: LinkKind, id: string | number): Promis
     keys.set(app, key);
   }
 
-  return `roundup://${kind}/${encodeURIComponent(String(id))}?project=${encodeURIComponent(await key)}`;
+  return copy.linkUrl(kind, encodeURIComponent(String(id)), encodeURIComponent(await key));
 };
 
 /** U2694c: Copy Link and Send to Agent ▸ for one object; `agents` are the Project's Agents in Rail order, `fail` shows U80's line. */
@@ -88,7 +88,7 @@ export const linkEntries = (
         enabled: running(agent),
         run: () => attempt(async () => {
           const link = await linkOf(app, kind, id);
-          const params: RpcMethods["message.send"]["params"] = { to: agent.id, kind: "note", body: `${link}\nrup link read ${link}`, replyTo: null };
+          const params: RpcMethods["message.send"]["params"] = { to: agent.id, kind: "note", body: copy.linkNote(link), replyTo: null };
 
           await app.rpc("message.send", params);
         }),
