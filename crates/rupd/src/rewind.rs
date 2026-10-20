@@ -587,7 +587,7 @@ mod tests {
             (3,'agent','Nested',2,0), (4,'workstream','Other',NULL,1);",
         )
         .unwrap();
-        let daemon = Daemon::open(dir.path()).unwrap();
+        let daemon = crate::tests::daemon_in(dir.path());
         (dir, daemon)
     }
 
@@ -756,7 +756,7 @@ mod tests {
         card(dir.path(), 3, Some(marks()));
         daemon.checkpoints.invalidate_after("1", 2).unwrap();
         drop(daemon);
-        let daemon = Daemon::open(dir.path()).unwrap();
+        let daemon = crate::tests::daemon_in(dir.path());
         let cards = listed(&daemon).await;
         assert_eq!(cards.as_array().unwrap().len(), 3);
         assert_eq!(cards[0]["rewindable"], false);
@@ -887,7 +887,7 @@ mod tests {
         assert_eq!(before[0]["method"], "workstream.rewind");
         assert_eq!(before[0]["params"]["checkpoint"], 7);
         drop(daemon);
-        let daemon = Daemon::open(dir.path()).unwrap();
+        let daemon = crate::tests::daemon_in(dir.path());
         let after = call(
             &daemon,
             Actor::user(),
