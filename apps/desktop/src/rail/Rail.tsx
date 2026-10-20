@@ -14,7 +14,7 @@ import { TreeView } from "../ui/TreeView";
 import { railCollection } from "./collection";
 import { useConnectedProject } from "../state/connectedProject";
 import { doorStateOf } from "./doorState";
-import { RailMenu } from "./menu/RailMenu";
+import { RailConfirm } from "./menu/RailConfirm";
 import { createRailMenu } from "./menu/model";
 import { agentKindsBelow, isWorkstream, layoutRail, siblingsOf } from "./layout";
 import type { NodeRow } from "./layout";
@@ -47,7 +47,9 @@ export const Rail = () => {
   const retained = draftsOf(connected.drafts);
   // #2788: avoid rescanning all drafts per recovery row; 10k lookups took 527 ms with find, 0.6 ms with Map.
   const revisions = createMemo(() => new Map(retained.records().map((draft) => [draft.revision, draft])));
-  const menu = createRailMenu(app, rail, setFailure, connected.events, connected.drafts);
+  const menu = createRailMenu(app, rail, setFailure, connected.events, connected.drafts, (id) => {
+    rowElement(id)?.querySelector(".name")?.dispatchEvent(new MouseEvent("dblclick", { bubbles: true }));
+  });
 
   const clearPrompt = createMemo(() => {
     const node = menu.clearTarget();
@@ -217,9 +219,7 @@ export const Rail = () => {
 
     const ids = nodeIds();
     const next = ids[ids.indexOf(node.id) + 1] ?? ids[ids.indexOf(node.id) - 1];
-    const box = row.getBoundingClientRect();
-
-    menu.requestRemove(node, rail.exitOf(node), box.left, box.bottom, () => {
+    menu.requestRemove(node, rail.exitOf(node), () => {
       if (next === undefined || rail.selected() !== node.id) return;
 
       rail.select(next);
@@ -234,7 +234,7 @@ export const Rail = () => {
 
     if (row && node) {
       const box = row.getBoundingClientRect();
-      menu.open(node, rail.exitOf(node), box.left, box.bottom);
+      void menu.open(node, rail.exitOf(node), box.left, box.bottom);
     }
   };
 
@@ -407,9 +407,7 @@ export const Rail = () => {
   };
 
   const stopFromIcon = (node: RailNode, exit: ExitState | null) => {
-    const box = rowElement(node.id)?.getBoundingClientRect();
-
-    menu.requestStop(node, exit, box?.left ?? 0, box?.bottom ?? 0);
+    menu.requestStop(node, exit);
   };
 
   /** O11: whether a note has been in flight for 500 ms, when U81's `asking the Door…` shows. */
@@ -611,7 +609,7 @@ export const Rail = () => {
                           lifted={parts.isDragging()}
                           sortRef={parts.ref}
                           actions={actionsOf(view().node)}
-                          onOpenMenu={(press) => menu.open(view().node, rail.exitOf(view().node), press.clientX, press.clientY)}
+                          onOpenMenu={(x, y) => void menu.open(view().node, rail.exitOf(view().node), x, y)}
                         />
                         }</Sortable.Item>
                         </TreeView.NodeProvider>
@@ -698,9 +696,9 @@ export const Rail = () => {
       <Show when={asking()}>
         <p class="light">{copy.askingTheDoor}</p>
       </Show>
-      <Show when={menu.state() !== null || clearPrompt() !== null}>
+      <RailConfirm menu={menu} />
+      <Show when={clearPrompt() !== null}>
         <Portal>
-          <RailMenu menu={menu} />
           <Show when={clearPrompt()}>
             {(node) => (
               <div
