@@ -325,7 +325,7 @@ impl Daemon {
         self.with_firings(saved)
     }
 
-    fn reaction_create(
+    pub(crate) fn reaction_create(
         &self,
         actor: &Actor,
         world: &crate::digest::World,

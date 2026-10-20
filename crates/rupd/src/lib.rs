@@ -583,19 +583,18 @@ impl Daemon {
         if let (Some(events), Some(waker)) = (wake_events, self.waker()) {
             tokio::spawn(waker.run(events));
         }
-        if let Some(messages) = self.sender.get() {
+        if let (Some(events), Some(sender)) = (events, self.sender.get()) {
+            // Once, with the other watchers: `start_pushes` runs on every call, and `events` is taken once.
             tokio::spawn(
                 reaction_checks::Watcher {
                     reactions: Arc::clone(&self.reactions),
                     agents: Arc::clone(&self.agents),
-                    messages: Arc::clone(messages),
+                    messages: Arc::clone(sender),
                     bus: self.bus.clone(),
                     touches: Arc::clone(&self.touches),
                 }
                 .run(),
             );
-        }
-        if let (Some(events), Some(sender)) = (events, self.sender.get()) {
             tokio::spawn(digest::push_changes(
                 self.reader(),
                 Arc::clone(sender),

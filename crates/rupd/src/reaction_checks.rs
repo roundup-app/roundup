@@ -153,6 +153,17 @@ impl Watcher {
 
     /// Decides every active PrChecks reaction once, from a fresh read of its target's Worktree.
     pub(crate) async fn check(&self) {
+        self.check_with(|target: String, ctx: Ctx| async move {
+            read(&self.agents, &ctx, &target).await
+        })
+        .await;
+    }
+
+    async fn check_with<F, Fut>(&self, state_of: F)
+    where
+        F: Fn(String, Ctx) -> Fut,
+        Fut: std::future::Future<Output = Result<WorktreeState, RpcError>> + Send,
+    {
         let active = match self.reactions.active() {
             Ok(active) => active,
             Err(error) => {
@@ -185,7 +196,7 @@ impl Watcher {
                 bus: self.bus.clone(),
                 touches: Arc::clone(&self.touches),
             };
-            let state = read(&self.agents, &ctx, &saved.target).await;
+            let state = state_of(saved.target.clone(), ctx).await;
             let verdict = decide(&pin, repository, *number, &state);
             self.apply(saved, &pin, &state, verdict).await;
         }
@@ -285,27 +296,174 @@ mod tests {
         )
     }
 
-    fn verdict(s: WorktreeState) -> Verdict {
-        decide("a", REPO, 23, &Ok(s))
+    /// The state each Worktree read returns, set by the test between checks.
+    type Feed = Arc<std::sync::Mutex<WorktreeState>>;
+
+    async fn daemon() -> (
+        tempfile::TempDir,
+        Arc<crate::Daemon>,
+        rpc::Client,
+        Watcher,
+        String,
+    ) {
+        use std::os::unix::fs::PermissionsExt;
+        let project = tempfile::tempdir().unwrap();
+        let dir = project.path().join(".roundup");
+        std::fs::create_dir(&dir).unwrap();
+        let fake = project.path().join("fake-claude");
+        std::fs::write(&fake, "#!/bin/sh\nif [ \"$1\" = plugin ] && [ \"$2\" = test ]; then echo 'Q11 runtime hook closure: 1 pass'; exit 0; fi\nwhile read line; do :; done\n").unwrap();
+        std::fs::set_permissions(&fake, std::fs::Permissions::from_mode(0o755)).unwrap();
+        let rup = project.path().join("rup");
+        std::fs::write(&rup, "").unwrap();
+        crate::storage::open(&dir).unwrap();
+        let bus = rpc::Bus::new();
+        let terminals = Arc::new(terminal::Terminals::open(&dir, bus.clone()).unwrap());
+        let agents = Arc::new(
+            agents::Agents::open_with(
+                &dir,
+                bus.clone(),
+                terminals.clone(),
+                agents::claude_code::Launcher::new(
+                    fake.to_str().unwrap(),
+                    project.path().join("claude.json"),
+                    rup,
+                    None,
+                ),
+                agents::worktree::Git::from_env(),
+            )
+            .unwrap(),
+        );
+        let messages = Arc::new(
+            messages::Messages::open(
+                &dir,
+                bus.clone(),
+                agents.clone(),
+                Arc::new(|_, _| Box::pin(async { Err(messages::Refusal::Busy) })),
+            )
+            .unwrap(),
+        );
+        let sender = Arc::new(std::sync::OnceLock::new());
+        sender.set(messages.clone()).ok();
+        let touches = Arc::new(provenance::Touches::open(&dir.join("provenance.db")).unwrap());
+        let mut daemon = crate::Daemon {
+            terminals: terminals.clone(),
+            modules: Default::default(),
+            todos: Arc::new(todos::Todos::open(&dir, bus.clone()).unwrap()),
+            pads: Arc::new(pads::Pads::open(&dir, bus.clone()).unwrap()),
+            door_first_steers: Default::default(),
+            child_effects: Default::default(),
+            specialists: Default::default(),
+            held_actions: crate::resize::HeldActions::open(&dir).unwrap(),
+            bus: bus.clone(),
+            project: dir.to_path_buf(),
+            project_key: String::new(),
+            touches: touches.clone(),
+            digests: Default::default(),
+            pushes: Default::default(),
+            waits: Default::default(),
+            resources: Default::default(),
+            publications: crate::deliverables::Publications::in_memory(dir.join("deliverables")),
+            reactions: Arc::new(Reactions::open(&dir).unwrap()),
+            prompt_effect_gate: None,
+            agents: agents.clone(),
+            notes: Default::default(),
+            renames: std::sync::Mutex::new(None),
+            owner_events: std::sync::Mutex::new(None),
+            wake_events: Default::default(),
+            wake_gate: Default::default(),
+            sender,
+            attachments: crate::attachment::Attachments::open(&dir),
+            clears: Default::default(),
+            checkpoints: Arc::new(checkpoints::Checkpoints::open(&dir).unwrap()),
+            rewinding: Default::default(),
+        };
+        daemon.register(daemon.todos.clone());
+        daemon.register(daemon.pads.clone());
+        daemon.register(daemon.checkpoints.clone());
+        daemon.register(messages.clone());
+        daemon.register(agents.clone());
+        daemon.register(terminals);
+        let daemon = Arc::new(daemon);
+        let socket = project.path().join("rupd.sock");
+        tokio::spawn(crate::serve(
+            tokio::net::UnixListener::bind(&socket).unwrap(),
+            daemon.clone(),
+        ));
+        let client = rpc::Client::connect(&socket).await.unwrap();
+        let target = client
+            .request(
+                "agent.spawn",
+                json!({"cwd":project.path(),"prompt":null,"parent":null}),
+            )
+            .await
+            .unwrap()["id"]
+            .as_str()
+            .unwrap()
+            .to_owned();
+        // The Daemon's own Watcher ticks once on the first request, then every 20 seconds: let that first
+        // tick finish, with nothing saved, so only the fed reads below decide.
+        tokio::time::sleep(Duration::from_millis(300)).await;
+        let watcher = Watcher {
+            reactions: Arc::clone(&daemon.reactions),
+            agents,
+            messages,
+            bus,
+            touches,
+        };
+        (project, daemon, client, watcher, target)
     }
 
-    #[test]
-    fn nr7_checks_require_complete_pinned_head_evidence() {
-        assert_eq!(verdict(passed("a")), Verdict::Match);
-        assert_eq!(pin(Ok(passed("a")), REPO, 23).unwrap(), "a");
+    async fn save(
+        daemon: &crate::Daemon,
+        target: &str,
+        repository: &str,
+        number: u32,
+        pin: &str,
+    ) -> String {
+        let params: contracts::reaction::CreateParams = serde_json::from_value(json!({
+            "operation": format!("{repository}#{number}#{}", pin),
+            "name": "ship",
+            "target": target,
+            "instruction": "ship it",
+            "condition": {"kind": "pr-checks", "repository": repository, "number": number},
+            "expires_at": "2099-01-01T00:00:00Z",
+        }))
+        .unwrap();
+        let world = daemon.reader().world().await.unwrap();
+        daemon
+            .reaction_create(&Actor::user(), &world, params, Some(Ok(pin.into())))
+            .unwrap()
+            .id
+    }
 
-        // An old pass followed by a changed head, even a failing one, invalidates; it never matches.
-        assert!(matches!(verdict(passed("b")), Verdict::Invalidate(_)));
-        assert!(matches!(
-            verdict(state(
-                WorktreeEvidenceState::Complete,
-                "b",
-                WorktreeCheckConclusion::Failed
-            )),
-            Verdict::Invalidate(_)
-        ));
+    async fn run(watcher: &Watcher, feed: &Feed) {
+        let feed = Arc::clone(feed);
+        watcher
+            .check_with(|_, _| {
+                let state = feed.lock().unwrap().clone();
+                async move { Ok(state) }
+            })
+            .await;
+    }
 
-        // Each gap waits with a cause and is never a pass, and none can activate a reaction.
+    async fn get(client: &rpc::Client, id: &str) -> Value {
+        client
+            .request("reaction.get", json!({ "id": id }))
+            .await
+            .unwrap()
+    }
+
+    #[tokio::test]
+    async fn nr7_checks_require_complete_pinned_head_evidence() {
+        let (_project, daemon, client, watcher, target) = daemon().await;
+        let feed: Feed = Arc::new(std::sync::Mutex::new(passed("a")));
+        let one = save(&daemon, &target, REPO, 23, "a").await;
+        // The same PR number, pinned in another repository, must never match this evidence.
+        let two = save(&daemon, &target, "github.com/acme/two", 23, "a").await;
+        // A reaction pinned to an earlier head.
+        let old = save(&daemon, &target, REPO, 24, "a").await;
+
+        // Each gap exposes its cause and never fires.
         let mut gaps = Vec::new();
         for kind in [
             WorktreeEvidenceState::Incomplete,
@@ -332,27 +490,96 @@ mod tests {
         none.evidence = None;
         gaps.push(none);
         for gap in gaps {
-            assert!(matches!(verdict(gap.clone()), Verdict::Wait(cause) if !cause.is_empty()));
-            if gap.evidence.as_ref().is_none_or(|e| {
-                e.checks.is_empty() || e.state != WorktreeEvidenceState::Complete || e.stale
-            }) {
-                assert!(pin(Ok(gap), REPO, 23).is_err());
-            }
+            *feed.lock().unwrap() = gap;
+            run(&watcher, &feed).await;
+            let saved = get(&client, &one).await;
+            assert_eq!(saved["state"], "active");
+            assert_eq!(saved["observation"]["health"], "waiting");
+            assert!(saved["observation"]["cause"].as_str().unwrap().len() > 3);
+            assert_eq!(saved["firings"], json!([]));
         }
+        // A failed refresh waits with its cause too.
+        watcher
+            .check_with(|_, _| async { Err(RpcError::internal("offline")) })
+            .await;
+        assert!(
+            get(&client, &one).await["observation"]["cause"]
+                .as_str()
+                .unwrap()
+                .contains("offline")
+        );
 
-        // Same PR number in another repository, or another PR, cannot cross-match.
-        assert!(matches!(
-            decide("a", "github.com/acme/two", 23, &Ok(passed("a"))),
-            Verdict::Wait(cause) if cause.contains("github.com/acme/one")
-        ));
-        assert!(matches!(
-            decide("a", REPO, 24, &Ok(passed("a"))),
-            Verdict::Wait(_)
-        ));
-        // A failed refresh waits.
-        assert!(matches!(
-            decide("a", REPO, 23, &Err(RpcError::internal("offline"))),
-            Verdict::Wait(_)
-        ));
+        // Complete passing evidence for the pinned head fires the reaction once, and again for nobody.
+        *feed.lock().unwrap() = passed("a");
+        run(&watcher, &feed).await;
+        run(&watcher, &feed).await;
+        let fired = get(&client, &one).await;
+        assert_eq!(fired["firings"].as_array().unwrap().len(), 1);
+        let evidence: Value =
+            serde_json::from_str(fired["firings"][0]["evidence"].as_str().unwrap()).unwrap();
+        assert_eq!(evidence["head"], "a");
+        // The firing's operation is the pinned head: a replay of it adds nothing.
+        let replay = watcher
+            .messages
+            .fire_reaction(messages::reaction::Fire {
+                reaction: one.clone(),
+                operation: "pr-checks:a".into(),
+                to: target.clone(),
+                body: "ship it".into(),
+                evidence: String::new(),
+                matched: true,
+            })
+            .await
+            .unwrap();
+        assert_eq!(replay.0.id, fired["firings"][0]["id"]);
+        assert_eq!(
+            get(&client, &one).await["firings"]
+                .as_array()
+                .unwrap()
+                .len(),
+            1
+        );
+        assert_eq!(fired["firings"][0]["matched"], true);
+        let sent = client
+            .request("message.list", json!({ "to": target }))
+            .await
+            .unwrap();
+        assert_eq!(
+            sent.as_array()
+                .unwrap()
+                .iter()
+                .filter(|m| m["body"] == "ship it")
+                .count(),
+            1
+        );
+
+        // The other repository and the other PR waited, naming what the evidence was for.
+        let cross = get(&client, &two).await;
+        assert_eq!(cross["firings"], json!([]));
+        assert!(
+            cross["observation"]["cause"]
+                .as_str()
+                .unwrap()
+                .contains(REPO)
+        );
+        assert_eq!(get(&client, &old).await["firings"], json!([]));
+
+        // A moved head, even to a failing one, ends a reaction pinned to the old head.
+        let moved = save(&daemon, &target, REPO, 23, "z").await;
+        *feed.lock().unwrap() = state(
+            WorktreeEvidenceState::Complete,
+            "b",
+            WorktreeCheckConclusion::Failed,
+        );
+        run(&watcher, &feed).await;
+        let ended = get(&client, &moved).await;
+        assert_eq!(ended["state"], "invalidated");
+        assert!(
+            ended["observation"]["cause"]
+                .as_str()
+                .unwrap()
+                .contains("moved")
+        );
+        assert_eq!(ended["firings"], json!([]));
     }
 }
