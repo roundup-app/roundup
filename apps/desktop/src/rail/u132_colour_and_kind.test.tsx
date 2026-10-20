@@ -76,14 +76,15 @@ describe("u132 colour and Kind", () => {
     expect(shelfRows.length).toBeGreaterThan(0);
 
     // A Workstream has no Kind, so its row draws a chevron and no Kind Glyph.
-    for (const row of screen.getAllByRole("treeitem").filter((row) => row.hasAttribute("data-id")).filter((item) => !item.hasAttribute("aria-expanded")))
+    for (const row of screen.getAllByRole("treeitem").filter((row) => row.hasAttribute("data-id") && !row.hasAttribute("data-todo")).filter((item) => !item.hasAttribute("aria-expanded")))
       expect(drawnIn(row), row.outerHTML.slice(0, 300)).toHaveLength(1);
 
     // U361 replaces the idle/done Todo Glyph with a native tick box,
     // retaining the blocked Glyph and the done fold's summary Glyph.
     for (const row of shelfRowBoxes) {
       const box = row.querySelector<HTMLInputElement>('input[type="checkbox"]');
-      const blocked = row.querySelector('.todo-row-button')?.getAttribute("aria-label")?.startsWith("Blocked ");
+      // U3708: a nested row's Glyph is its place in the tree, so only a level-1 blocked Todo draws one.
+      const blocked = row.querySelector('.todo-row-button')?.getAttribute("aria-label")?.startsWith("Blocked ") && row.getAttribute("data-level") === "1";
 
       expect(drawnIn(row), row.outerHTML.slice(0, 300)).toHaveLength(box ? blocked ? 1 : 0 : 1);
 
