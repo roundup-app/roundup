@@ -93,7 +93,7 @@ it("u462_stale_response_cannot_replace_selected_history", async () => {
   fireEvent.click(await screen.findByRole("button", { name: "Idle #1 todo 1" }));
   await waitFor(() => expect(todoCallsTo(m.app, "todo.getHistory")).toHaveLength(1));
   m.connected.drawer.close();
-  answer({ changes: [{ seq: 99, before: null, after: { title: "Stale", body: "", done: false, blockers: [] } }], unread: 99 });
+  answer({ changes: [{ seq: 99, before: null, after: { title: "Stale", body: "", done: false, blockers: [], owner: null } }], unread: 99 });
   await Promise.resolve();
   expect(todoCallsTo(m.app, "todo.readHistory")).toHaveLength(0);
   expect(screen.queryByText("Title: Stale")).toBeNull();
@@ -107,7 +107,7 @@ it("u462_closed_drawer_response_does_not_acknowledge_before_unmount", async () =
   fireEvent.click(await screen.findByRole("button", { name: "Idle #1 todo 1" }));
   await waitFor(() => expect(todoCallsTo(m.app, "todo.getHistory")).toHaveLength(1));
   m.connected.drawer.close();
-  answer({ changes: [{ seq: 99, before: null, after: { title: "Stale", body: "", done: false, blockers: [] } }], unread: 99 });
+  answer({ changes: [{ seq: 99, before: null, after: { title: "Stale", body: "", done: false, blockers: [], owner: null } }], unread: 99 });
   await Promise.resolve();
 
   expect(todoCallsTo(m.app, "todo.readHistory")).toHaveLength(0);
@@ -124,4 +124,17 @@ it("u462_live_refresh_does_not_acknowledge_changes_absent_from_opening", async (
   await open(m);
 
   expect(within(panel()).getByRole("separator", { name: "Unread changes" }).nextElementSibling?.textContent).toBe("Body: Arrived after opening");
+});
+
+it("t17_history_shows_an_owner_only_change", async () => {
+  const m = await mountTodos([todo(1)]);
+  const values = { title: "todo 1", body: "", done: false, blockers: [] };
+  const user = { kind: "user" as const, id: "u", parent: null };
+  m.app.handlers["todo.getHistory"] = () => ({ unread: null, changes: [
+    { seq: 1, before: { ...values, owner: null }, after: { ...values, owner: user } },
+    { seq: 2, before: { ...values, owner: user }, after: { ...values, owner: null } },
+  ] });
+  await open(m);
+  const history = within(panel()).getByRole("region", { name: "Todo history" });
+  expect([...history.querySelectorAll("[data-change]")].map((entry) => entry.textContent)).toEqual(["Owner: Me", "Owner: Unassigned"]);
 });

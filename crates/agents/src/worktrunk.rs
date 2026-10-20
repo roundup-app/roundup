@@ -10,6 +10,8 @@ use std::time::{Duration, Instant};
 
 use serde::Deserialize;
 
+use crate::pr_checks::{self, Evidence, Gap};
+
 const LIMIT: u64 = 8 * 1024 * 1024;
 const TIMEOUT: Duration = Duration::from_secs(10);
 const LOCAL_INTERVAL: Duration = Duration::from_secs(5);
@@ -37,6 +39,8 @@ pub(super) struct Identity {
 pub(super) struct Facts {
     pub ci: Option<(String, bool)>,
     pub pr: Option<(u64, bool)>,
+    /// NR10: the PR's required checks and whether the read has gone stale.
+    pub evidence: Option<(Evidence, bool)>,
 }
 
 #[derive(Deserialize)]
@@ -132,6 +136,7 @@ impl Row {
                 .as_ref()
                 .and_then(|pr| pr.number)
                 .map(|number| (number.get(), false)),
+            evidence: None,
         }
     }
 }
@@ -157,6 +162,7 @@ pub(super) struct Collector {
     state: Arc<Mutex<State>>,
     cancelled: Arc<AtomicBool>,
     executable: PathBuf,
+    gh: PathBuf,
 }
 impl Default for Collector {
     fn default() -> Self {
@@ -164,6 +170,7 @@ impl Default for Collector {
             state: Arc::new(Mutex::new(State::default())),
             cancelled: Arc::new(AtomicBool::new(false)),
             executable: PathBuf::from("wt"),
+            gh: PathBuf::from("gh"),
         }
     }
 }
@@ -186,16 +193,20 @@ impl Collector {
             let state = Arc::clone(&self.state);
             let cancelled = Arc::clone(&self.cancelled);
             let executable = self.executable.clone();
+            let gh = self.gh.clone();
             let project = shared.project_dir.clone();
             let git = shared.git.reader();
             // The Rail snapshot is taken on the worker; no filesystem read is added
             // to worktree_state's interaction path.
             tokio::task::spawn_blocking(move || {
                 let snapshot = weak.upgrade().and_then(|shared| identities(&shared));
-                let result = snapshot
+                let mut result = snapshot
                     .as_ref()
                     .ok_or_else(|| "Project unavailable".into())
                     .and_then(|ids| collect(&executable, &project, &git, ids, full, &cancelled));
+                if full && let Ok(results) = &mut result {
+                    attach_evidence(&gh, results, &cancelled);
+                }
                 let current = weak.upgrade().and_then(|shared| identities(&shared));
                 publish(
                     &state,
@@ -263,6 +274,27 @@ fn stale(facts: &mut Facts) {
     }
     if let Some((_, stale)) = &mut facts.pr {
         *stale = true;
+    }
+    if let Some((_, stale)) = &mut facts.evidence {
+        *stale = true;
+    }
+}
+
+/// NR10: reads each matched PR's required checks with `gh` in its Worktree, within one shared
+/// deadline; a row the deadline or a cancel reaches keeps an unavailable read, never a pass.
+fn attach_evidence(gh: &Path, results: &mut Results, cancelled: &AtomicBool) {
+    let deadline = Instant::now() + TIMEOUT;
+    for (id, facts) in results.iter_mut() {
+        if facts.pr.is_none() {
+            continue;
+        }
+        let left = deadline.saturating_duration_since(Instant::now());
+        let evidence = if cancelled.load(Ordering::Acquire) || left.is_zero() {
+            Evidence::Incomplete(Gap::TimedOut)
+        } else {
+            pr_checks::read(gh, &id.path, left)
+        };
+        facts.evidence = Some((evidence, false));
     }
 }
 
