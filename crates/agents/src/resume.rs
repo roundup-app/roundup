@@ -447,3 +447,105 @@ impl Shared {
         });
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::tests::*;
+
+    fn ctx(bus: Bus) -> Ctx {
+        Ctx {
+            actor: Actor::user(),
+            bus,
+            touches: Arc::new(provenance::Touches::in_memory().unwrap()),
+        }
+    }
+
+    #[tokio::test]
+    async fn a2693a_stop_failure_launches_nothing() {
+        let (dir, bus, shared) = shared_over_temp_dir(Arc::new(|| 0));
+        let id = running_agent(&shared, None);
+        shared.rail().allocate_attempt(&id).unwrap();
+        shared
+            .rail()
+            .save_conversation(
+                &id,
+                "11111111-1111-1111-1111-111111111111",
+                &dir.path().to_string_lossy(),
+            )
+            .unwrap();
+        let launches = Arc::new(std::sync::atomic::AtomicUsize::new(0));
+        let launched = launches.clone();
+        let agents = owner_agents(shared, dir.path())
+            .with_terminal_kills(|_| async { Err(RpcError::internal("kill failed")) })
+            .with_resume_effect(move |_, _| {
+                launched.fetch_add(1, Ordering::SeqCst);
+                Ok(())
+            });
+        let error = agents
+            .resume(&ctx(bus), &id, Some(contracts::agent::ResumeMode::Yolo))
+            .await
+            .unwrap_err();
+        assert!(error.message.contains("kill failed"), "{error}");
+        assert_eq!(launches.load(Ordering::SeqCst), 0);
+        assert!(agents.shared.terminals.list().is_empty());
+        let runs = agents.shared.runs();
+        assert!(matches!(runs.get(&id), Some(Slot::Running(run)) if !run.yolo));
+    }
+
+    #[tokio::test]
+    async fn a2693a_a_stop_or_removal_claim_refuses_an_explicit_resume() {
+        for remove in [false, true] {
+            let (dir, bus, shared) = shared_over_temp_dir(Arc::new(|| 0));
+            let id = running_agent(&shared, None);
+            shared.rail().allocate_attempt(&id).unwrap();
+            shared
+                .rail()
+                .save_conversation(
+                    &id,
+                    "11111111-1111-1111-1111-111111111111",
+                    &dir.path().to_string_lossy(),
+                )
+                .unwrap();
+            let (entered, mut entries) = tokio::sync::mpsc::unbounded_channel();
+            let release = Arc::new(tokio::sync::Notify::new());
+            let released = release.clone();
+            let agents = owner_agents(shared, dir.path()).with_terminal_kills(move |_| {
+                let entered = entered.clone();
+                let release = released.clone();
+                async move {
+                    entered.send(()).unwrap();
+                    release.notified().await;
+                    Ok(())
+                }
+            });
+            let shared = agents.shared.clone();
+            let ending = async {
+                if remove {
+                    shared.remove(Actor::user(), &id).await
+                } else {
+                    shared.stop(Actor::user(), &id).await
+                }
+            };
+            tokio::pin!(ending);
+            tokio::select! {
+                entry = entries.recv() => entry.unwrap(),
+                result = &mut ending => panic!("ending completed before release: {result:?}"),
+            }
+            let error = agents
+                .resume(&ctx(bus), &id, Some(contracts::agent::ResumeMode::Yolo))
+                .await
+                .unwrap_err();
+            assert_eq!(error.code, code::CONFLICT);
+            assert!(error.message.contains("stopping"), "{error}");
+            assert_eq!(
+                agents.shared.rail().node(&id).unwrap().attempt.as_deref(),
+                Some("1")
+            );
+            assert!(agents.shared.terminals.list().is_empty());
+            release.notify_one();
+            ending.await.unwrap();
+            assert_eq!(agents.shared.rail().node(&id).is_err(), remove);
+        }
+    }
+}

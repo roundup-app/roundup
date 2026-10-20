@@ -436,13 +436,30 @@ mod tests {
                             }
                         })
                     });
-                    let checkpoint = db.query_row("PRAGMA wal_checkpoint(TRUNCATE)", [], |row| {
-                        Ok((
-                            row.get::<_, i64>(0)?,
-                            row.get::<_, i64>(1)?,
-                            row.get::<_, i64>(2)?,
-                        ))
-                    });
+                    let deadline =
+                        std::time::Instant::now() + std::time::Duration::from_millis(500);
+                    let checkpoint = loop {
+                        let remaining =
+                            deadline.saturating_duration_since(std::time::Instant::now());
+                        db.busy_timeout(remaining).unwrap();
+                        let result = db.query_row("PRAGMA wal_checkpoint(TRUNCATE)", [], |row| {
+                            Ok((
+                                row.get::<_, i64>(0)?,
+                                row.get::<_, i64>(1)?,
+                                row.get::<_, i64>(2)?,
+                            ))
+                        });
+                        // The lease peer also checkpoints before each lease. SQLite skips
+                        // the busy handler for a competing checkpoint and returns no counts.
+                        // Retry only that collision, within the original checkpoint budget;
+                        // a reader that outlives the budget must still fail this observation.
+                        if !matches!(result, Ok((1, -1, -1)))
+                            || std::time::Instant::now() >= deadline
+                        {
+                            break result;
+                        }
+                        std::thread::yield_now();
+                    };
                     stop.store(true, std::sync::atomic::Ordering::Relaxed);
                     if let Some(input) = input {
                         input.join().unwrap();
@@ -840,5 +857,40 @@ mod tests {
             },
             Some(("1", "2")),
         );
+    }
+
+    #[test]
+    fn a2681a_stopping_attempt_hides_parts() {
+        let (dir, _, shared) = shared_over_temp_dir(Arc::new(|| 0));
+        let id = running_agent(&shared, None);
+        let conversation = "11111111-1111-1111-1111-111111111111";
+        let cwd = dir.path().canonicalize().unwrap();
+        let key: String = cwd
+            .to_string_lossy()
+            .chars()
+            .map(|c| if c.is_ascii_alphanumeric() { c } else { '-' })
+            .collect();
+        let path = dir
+            .path()
+            .join("projects")
+            .join(key)
+            .join(format!("{conversation}.jsonl"));
+        std::fs::create_dir_all(path.parent().unwrap()).unwrap();
+        std::fs::write(path, "{}\n").unwrap();
+        shared
+            .rail()
+            .save_conversation(&id, conversation, &cwd.to_string_lossy())
+            .unwrap();
+        if let Some(Slot::Running(run)) = shared.runs().get_mut(&id) {
+            run.ended = true;
+        }
+        assert!(
+            shared.node(&id).unwrap().overview.is_some(),
+            "fixture must have visible parts before stopping"
+        );
+        if let Some(Slot::Running(run)) = shared.runs().get_mut(&id) {
+            run.closing = true;
+        }
+        assert!(shared.node(&id).unwrap().overview.is_none());
     }
 }

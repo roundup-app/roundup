@@ -77,7 +77,10 @@ run("u364 on the real Daemon", () => {
     await openHarness();
 
     for (let workstream = 1; workstream <= 2; workstream++) {
-      await page.call(`() => [...document.querySelectorAll("button")].find((each) => (each.getAttribute("aria-label") === "Add Workstream" || each.textContent.includes("New Workstream"))).click()`);
+      // Rail.canSpawn disables Add until the preceding Door start finishes.
+      await page.until(`() => document.querySelector('[aria-label="Add Workstream"]')?.getAttribute('aria-disabled') !== 'true'`);
+      await page.call(`() => document.querySelector('[aria-label="Add Workstream"]').click()`);
+      await page.until(`() => document.querySelectorAll('.rail [role="treeitem"][aria-level="1"]').length === ${workstream}`, 30_000);
       await page.until(`() => document.querySelectorAll('.rail-row[data-kind]').length > 0 && Boolean([...document.querySelectorAll("button")].find((each) => /Start supervisor/i.test(each.textContent)) || document.querySelector('.pane-screen'))`, 30_000);
       await page.until(`() => { const door = [...document.querySelectorAll("button")].find((each) => /Start supervisor/i.test(each.textContent)); if (door && !door.disabled) door.click(); return !door; }`, 60_000);
 
