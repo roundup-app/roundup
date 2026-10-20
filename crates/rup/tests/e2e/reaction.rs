@@ -263,6 +263,132 @@ async fn nr8_existing_delivery_guards_and_reported_outcomes() {
     assert!(!firing.matched);
 }
 
+/// `YYYY-MM-DD` and `HH:MM:SS` in UTC, `secs` from now.
+fn utc_in(secs: u64) -> (String, String) {
+    let t = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .unwrap()
+        .as_secs()
+        + secs;
+    let (days, rest) = ((t / 86_400) as i64, t % 86_400);
+    // Civil date from days since 1970-01-01 (Howard Hinnant's algorithm).
+    let z = days + 719_468;
+    let era = z.div_euclid(146_097);
+    let doe = z.rem_euclid(146_097);
+    let yoe = (doe - doe / 1460 + doe / 36_524 - doe / 146_096) / 365;
+    let doy = doe - (365 * yoe + yoe / 4 - yoe / 100);
+    let mp = (5 * doy + 2) / 153;
+    let day = doy - (153 * mp + 2) / 5 + 1;
+    let month = if mp < 10 { mp + 3 } else { mp - 9 };
+    let year = yoe + era * 400 + i64::from(month <= 2);
+    (
+        format!("{year:04}-{month:02}-{day:02}"),
+        format!(
+            "{:02}:{:02}:{:02}",
+            rest / 3600,
+            rest % 3600 / 60,
+            rest % 60
+        ),
+    )
+}
+
+#[tokio::test]
+async fn nr6_preview_requires_unambiguous_time() {
+    let s = scene(&[]).await;
+    let preview = |date: &str, time: &str, offset: &str| {
+        s.user.request(
+            "reaction.preview",
+            json!({ "date": date, "time": time, "offset": offset }),
+        )
+    };
+    let ok = preview("2098-06-01", "09:00", "+01:00").await.unwrap();
+    assert_eq!(ok["at"], "2098-06-01T09:00:00+01:00");
+    assert_eq!(ok["utc"], "2098-06-01T08:00:00Z");
+    for (date, time, offset) in [
+        ("2098-06-01", "09:00", ""),
+        ("2098-06-01", "09:00", "Europe/London"),
+        ("2098-06-01", "09:00", "+0100"),
+        ("2098-02-30", "09:00", "Z"),
+        ("2098-06-01", "24:30", "Z"),
+        ("every monday", "9am", "Z"),
+    ] {
+        let err = preview(date, time, offset).await.unwrap_err();
+        assert_eq!(err.code, code::INVALID_PARAMS, "{date} {time} {offset}");
+    }
+
+    // Activation keeps exactly what the preview resolved and nothing else.
+    let mut body = definition(&s.w, "at nine");
+    body["condition"] = json!({ "kind": "instant", "at": ok["at"], "late": "skip" });
+    let saved = made(&s.user, "reaction.create", body.clone()).await;
+    assert_eq!(
+        serde_json::to_value(&saved.condition).unwrap()["at"],
+        ok["at"]
+    );
+    for (n, at) in [
+        "2098-06-01T08:00:00.0Z",
+        "2098-06-01T09:00+01:00",
+        "2001-01-01T00:00:00Z",
+    ]
+    .into_iter()
+    .enumerate()
+    {
+        body["operation"] = json!(format!("bad-{n}"));
+        body["condition"]["at"] = json!(at);
+        let err = s
+            .user
+            .request("reaction.create", body.clone())
+            .await
+            .unwrap_err();
+        assert_eq!(err.code, code::INVALID_PARAMS, "{at}");
+    }
+    assert_eq!(listed(&s.user).await.len(), 1);
+}
+
+#[tokio::test]
+async fn nr6_instant_fires_once_and_survives_reopen() {
+    let mut s = scene(&[]).await;
+    let (date, time) = utc_in(2);
+    let at = s
+        .user
+        .request(
+            "reaction.preview",
+            json!({ "date": date, "time": time, "offset": "Z" }),
+        )
+        .await
+        .unwrap();
+    let mut body = definition(&s.w, "it is time");
+    body["condition"] = json!({ "kind": "instant", "at": at["at"], "late": "once-before-expiry" });
+    let saved = made(&s.user, "reaction.create", body).await;
+    assert_eq!(saved.observation.health, "waiting");
+    assert!(messages(&s.user, &s.w, "it is time").await.is_empty());
+
+    let mut fired = saved.clone();
+    for _ in 0..100 {
+        fired = made(&s.user, "reaction.get", json!({ "id": saved.id })).await;
+        if !fired.firings.is_empty() {
+            break;
+        }
+        tokio::time::sleep(std::time::Duration::from_millis(100)).await;
+    }
+    assert_eq!(fired.firings.len(), 1);
+    assert!(fired.firings[0].matched);
+    let evidence: Value = serde_json::from_str(&fired.firings[0].evidence).unwrap();
+    assert_eq!(
+        (evidence["late"].clone(), evidence["at"].clone()),
+        (json!(false), at["at"].clone())
+    );
+    assert_eq!(messages(&s.user, &s.w, "it is time").await.len(), 1);
+
+    // Reopening re-reads the saved instant and fires nothing more.
+    drop(s.user);
+    s.project.restart(&[]);
+    let user = s.project.client().await;
+    tokio::time::sleep(std::time::Duration::from_millis(500)).await;
+    let kept = made(&user, "reaction.get", json!({ "id": saved.id })).await;
+    assert_eq!(kept.firings, fired.firings);
+    assert_eq!(messages(&user, &s.w, "it is time").await.len(), 1);
+}
+
 async fn watching(s: &super::wake::Scene, name: &str, ids: &[&String], extra: Value) -> Reaction {
     let mut body = definition(&s.w, name);
     body["operation"] = json!(name);
