@@ -1,13 +1,11 @@
 #!/usr/bin/env python3
-"""L89: the tests a diff reaches. Usage: loop/affected.py rust|web|boxd|edited-rust|edited-web [base]
+"""L89: the tests a diff reaches. Usage: loop/affected.py rust|web|boxd [base]
 
 Prints `all` when no base is given or the diff since <base> can move any test; else one line per selection: for `rust`
 the workspace crates to test, for `web` the files that still exist, as absolute paths, to pass `vitest related`.
 The `boxd` selector prints `all` only for runner, integration or package-configuration changes. The diff
 runs from where HEAD forked from <base> to the working tree, untracked files included, so a Builder's uncommitted change
-counts. No output: no test reaches the diff. Exit 2: bad usage; a failed git or cargo call exits non-zero.
-L122: `edited-rust` prints a nextest filter expression naming the Rust tests the diff adds or edits, `edited-web` the
-test files it adds or edits, as paths from `apps/desktop/`; both need a base."""
+counts. No output: no test reaches the diff. Exit 2: bad usage; a failed git or cargo call exits non-zero."""
 import json
 from pathlib import Path
 import re
@@ -78,47 +76,6 @@ def is_web_test(path):
     return path.startswith(APP + 'src/') and path.endswith(('.test.ts', '.test.tsx'))
 
 
-def rust_tests(source, touched):
-    """The names of the Rust test functions of `source` (text) that a line of `touched` (1-based numbers) falls in, from
-    the test's attribute to the closing brace at the `fn` line's indent."""
-    lines = source.splitlines()
-    names = []
-    for start, line in enumerate(lines):
-        if not re.match(r'\s*#\[(?:\w+::)*test\b', line):
-            continue
-        fn = next((n for n in range(start, len(lines)) if re.match(r'(?:.*\])?\s*(?:pub\s+)?(?:async\s+)?fn\s', lines[n])), None)
-        if fn is None:
-            continue
-        indent = re.match(r'\s*', lines[fn])[0]
-        end = fn if lines[fn].rstrip().endswith('}') else next(
-            (n for n in range(fn + 1, len(lines)) if lines[n].rstrip() == indent + '}'), len(lines) - 1)
-        if any(start < number <= end + 1 for number in touched):
-            names.append(re.search(r'fn\s+(\w+)', lines[fn])[1])
-    return names
-
-
-def touched_lines(patch):
-    """The 1-based line numbers of the new file that a `git diff -U0` patch of one file adds or edits; a deletion
-    touches the line it sits before."""
-    touched = set()
-    for first, count in re.findall(r'^@@ -\S+ \+(\d+)(?:,(\d+))? @@', patch, re.M):
-        touched |= set(range(int(first), int(first) + max(int(count or 1), 1)))
-    return touched
-
-
-def edited_rust(git, fork, changed, untracked):
-    """The nextest filter expression of the Rust tests the diff adds or edits; empty when it touches none."""
-    names = []
-    for path in changed:
-        if not path.endswith('.rs') or not path.startswith('crates/') or not (ROOT / path).exists():
-            continue
-        source = (ROOT / path).read_text()
-        touched = range(1, len(source.splitlines()) + 1) if path in untracked \
-            else touched_lines(git('diff', '-U0', '--no-renames', fork, '--', path))
-        names += rust_tests(source, touched)
-    return ' | '.join(f'test(/(^|::){name}$/)' for name in sorted(set(names)))
-
-
 def boxd(changed):
     """Select the runner regressions only when their code, callers or execution configuration can change."""
     return 'all' if any(under(path, BOXD_READS) for path in changed) else []
@@ -136,13 +93,10 @@ def workspace():
 
 
 def main(argv):
-    if len(argv) not in (2, 3) or argv[1] not in ('rust', 'web', 'boxd', 'edited-rust', 'edited-web'):
+    if len(argv) not in (2, 3) or argv[1] not in ('rust', 'web', 'boxd'):
         print(__doc__, file=sys.stderr)
         return 2
     lane, base = argv[1], argv[2] if len(argv) == 3 else ''
-    if lane.startswith('edited') and not base:
-        print(__doc__, file=sys.stderr)
-        return 2
     if not base:
         print('all')
         return 0
@@ -151,12 +105,6 @@ def main(argv):
     tracked = git('diff', '--name-only', '--no-renames', fork).split()
     untracked = git('ls-files', '--others', '--exclude-standard').split()
     changed = tracked + untracked
-    if lane == 'edited-rust':
-        print(edited_rust(git, fork, changed, untracked))
-        return 0
-    if lane == 'edited-web':
-        print('\n'.join(path.removeprefix(APP) for path in sorted(changed) if is_web_test(path) and (ROOT / path).exists()))
-        return 0
     selected = crates(changed, workspace()) if lane == 'rust' else (web(changed) if lane == 'web' else boxd(changed))
     if selected != 'all' and lane == 'web':
         selected = [str(ROOT / path) for path in selected if (ROOT / path).exists()]
