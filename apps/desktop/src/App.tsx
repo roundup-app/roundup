@@ -24,6 +24,7 @@ import { railStorage } from "./rail/persist/storage";
 import { Rail } from "./rail/Rail";
 import { Help } from "./keys/Help";
 import { Leader } from "./keys/Leader";
+import { Capture } from "./todos/Capture";
 import { Keys } from "./keys/Keys";
 import { createNow } from "./state/clock";
 import type { Clock } from "./state/clock";
@@ -420,6 +421,7 @@ export const App = (props: {
                   <DrawerHost drawer={open.drawer} reducedMotion={open.reducedMotion} />
                   <Help />
                   <Leader />
+                  <Capture />
                 </>
               )}
             </InProject>

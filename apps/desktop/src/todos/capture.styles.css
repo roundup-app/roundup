@@ -1,0 +1,25 @@
+/* U3713: one line over the centre, no other chrome. */
+.capture {
+  position: fixed;
+  top: var(--space-6);
+  left: 50%;
+  transform: translateX(-50%);
+  width: calc(var(--space-6) * 12);
+  max-width: 90vw;
+}
+
+.capture-field {
+  box-sizing: border-box;
+  width: 100%;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--text);
+  font: inherit;
+}
+
+.capture-field::placeholder {
+  color: var(--grey);
+  opacity: 1;
+}

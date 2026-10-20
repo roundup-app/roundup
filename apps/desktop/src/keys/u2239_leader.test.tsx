@@ -34,7 +34,7 @@ const shelf = (): string | undefined => document.querySelector<HTMLElement>(".wi
 describe("u2239 the leader takes the next key", () => {
   it("u2239_each_leader_key_runs_its_action_once", async () => {
     await open();
-    expect(LEADER.map((entry) => entry.keys)).toEqual(["J", "⇧J", "K", "M", "W", "S"]);
+    expect(LEADER.map((entry) => entry.keys)).toEqual(["J", "⇧J", "K", "M", "W", "S", "T"]);
 
     expect(arm().defaultPrevented).toBe(true);
     expect(leaderArmed()).toBe(true);
