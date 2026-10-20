@@ -1,0 +1,94 @@
+{
+  "D1": {
+    "selector": "",
+    "status": "pass",
+    "value": []
+  },
+  "D10": {
+    "selector": "",
+    "status": "fail",
+    "value": {
+      "contrast": "no-preference",
+      "failing": [
+        "D2"
+      ],
+      "scheme": "dark",
+      "viewport": "1512x950"
+    }
+  },
+  "D11": {
+    "selector": "",
+    "status": "pass",
+    "value": "no Thread"
+  },
+  "D12": {
+    "selector": "div.shelf-row[data-id=\"4\"]",
+    "status": "pass",
+    "value": 0
+  },
+  "D13": {
+    "selector": "",
+    "status": "pass",
+    "value": 0
+  },
+  "D14": {
+    "selector": "",
+    "status": "pass",
+    "value": {
+      "rows": 15
+    }
+  },
+  "D16": {
+    "selector": "",
+    "status": "pass",
+    "value": "no Thread"
+  },
+  "D2": {
+    "selector": "div.shelf-row[data-id=\"3\"]",
+    "status": "fail",
+    "value": {
+      "padding-left": "40px"
+    }
+  },
+  "D3": {
+    "selector": "",
+    "status": "pass",
+    "value": []
+  },
+  "D4": {
+    "selector": "",
+    "status": "pass",
+    "value": {
+      "rows": 47
+    }
+  },
+  "D5": {
+    "selector": "",
+    "status": "pass",
+    "value": []
+  },
+  "D6": {
+    "selector": "",
+    "status": "pass",
+    "value": {
+      "targets": 250
+    }
+  },
+  "D7": {
+    "selector": "",
+    "status": "pass",
+    "value": {
+      "targets": 250
+    }
+  },
+  "D8": {
+    "selector": "",
+    "status": "pass",
+    "value": []
+  },
+  "D9": {
+    "selector": "",
+    "status": "pass",
+    "value": []
+  }
+}
