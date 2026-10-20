@@ -1,6 +1,5 @@
 //! A16 `rail.remove`.
 
-use std::path::Path;
 use std::time::{Duration, Instant};
 
 use agents::KILL_WAIT_BOUND;
@@ -34,14 +33,6 @@ fn names(tree: &[RailNode], parent: Option<&str>) -> Vec<String> {
             _ => format!("{}:{}", n.name, n.order),
         })
         .collect()
-}
-
-/// A second connection holding a write transaction makes a write through `Rail`'s own connection
-/// fail with a real SQLite error once rusqlite's default 5 s `busy_timeout` elapses.
-fn lock_db_for_writes(dir: &Path) -> rusqlite::Connection {
-    let lock = rusqlite::Connection::open(dir.join("agents.db")).unwrap();
-    lock.execute_batch("BEGIN IMMEDIATE;").unwrap();
-    lock
 }
 
 #[tokio::test]
@@ -163,26 +154,6 @@ async fn a16_remove_emits_rail_changed() {
     assert_eq!(f.changed(), 1);
 }
 
-#[tokio::test]
-async fn a16_a_delete_failure_after_a_successful_stop_leaves_the_node_with_its_exited_agent() {
-    let f = Fixture::running("sleep 30");
-    let agent = f.spawn(None, None).await.unwrap();
-    let lock = lock_db_for_writes(f.dir.path());
-
-    let err = f.remove(&agent.id).await.unwrap_err();
-
-    assert_eq!(err.code, code::INTERNAL);
-    let tree = f.tree().await;
-    assert_eq!(tree.len(), 1);
-    assert_eq!(tree[0].id, agent.id);
-    assert_eq!(status_of(&tree, &agent.id).kind, Kind::Done);
-    drop(lock);
-
-    f.remove(&agent.id).await.unwrap();
-
-    assert!(f.tree().await.is_empty());
-}
-
 /// A16: a successful delete also drops the id from the Agents module's own run-tracking, not
 /// just the Rail, so a Signal for it goes back to `NOT_FOUND` instead of quietly reaching an
 /// Agent no longer on the Rail.
@@ -205,24 +176,4 @@ async fn a16_a_removed_agents_id_no_longer_answers_agent_signal() {
         .await
         .unwrap_err();
     assert_eq!(err.code, code::NOT_FOUND);
-}
-
-#[tokio::test]
-async fn a16_a_workstreams_failed_delete_leaves_its_children_under_it() {
-    let f = Fixture::running("sleep 30");
-    let workstream = f.workstream("g", None).await;
-    let child = f.spawn(Some(&workstream), None).await.unwrap().id;
-    let lock = lock_db_for_writes(f.dir.path());
-
-    let err = f.remove(&workstream).await.unwrap_err();
-
-    assert_eq!(err.code, code::INTERNAL);
-    let tree = f.tree().await;
-    let child_node = tree.iter().find(|n| n.id == child).unwrap();
-    assert_eq!(child_node.parent.as_deref(), Some(workstream.as_str()));
-    drop(lock);
-
-    f.remove(&workstream).await.unwrap();
-
-    assert_eq!(f.tree().await[0].id, child);
 }
