@@ -388,6 +388,50 @@ it.each(["failed", "unknown"] as const)("u3021c_open_restores_exact_revision_wit
   expect(connected.drafts.list()).toEqual(before);
   expect(app.calls).toEqual(calls);
   opened.unmount();
+
+  const changedSelection = { start: 7, end: 12, direction: "forward" as const };
+  const reopen = () => render(() => <ConnectedProjectContext.Provider value={connected}>
+    <Todos recovery={{ project: connected.project.path, revision: a.revision, list: todos }} />
+  </ConnectedProjectContext.Provider>);
+  const selected = reopen();
+  const selectedField = screen.getByRole<HTMLInputElement>("textbox", { name: "New Todo title" });
+  await waitFor(() => expect(document.activeElement).toBe(selectedField));
+  selectedField.setSelectionRange(7, 12, "forward");
+  fireEvent.select(selectedField);
+  fireEvent.keyDown(selectedField, { key: "Escape" });
+  selected.unmount();
+  const restored = reopen();
+  const restoredField = screen.getByRole<HTMLInputElement>("textbox", { name: "New Todo title" });
+  await waitFor(() => expect(document.activeElement).toBe(restoredField));
+  expect([restoredField.selectionStart, restoredField.selectionEnd, restoredField.selectionDirection]).toEqual([7, 12, "forward"]);
+  expect(connected.drafts.list()).toEqual(before.map(draft => draft.revision === a.revision ? { ...draft, selection: changedSelection } : draft));
+  expect(app.calls).toEqual(calls);
+  restored.unmount();
+});
+
+it("u3021c_todo_creation_discard_from_another_control_closes_the_selected_editor", async () => {
+  const { app, connected, todos } = await mountTodos([]);
+  await waitFor(() => expect(todos.isLoaded()).toBe(true));
+  const destination = { surface: "todos", object: "new", recipient: null };
+  const a = connected.drafts.edit(destination, { title: "discard A", home: null }, null, "ordinary").draft;
+  connected.drafts.submit(a.revision);
+  connected.drafts.settle(a.revision, "failed");
+  const b = connected.drafts.edit(destination, { title: "keep B", home: null }, null, "ordinary").draft;
+  const calls = [...app.calls];
+  const opened = render(() => <ConnectedProjectContext.Provider value={connected}>
+    <Todos recovery={{ project: connected.project.path, revision: a.revision, list: todos }} />
+  </ConnectedProjectContext.Provider>);
+  const field = screen.getByRole<HTMLInputElement>("textbox", { name: "New Todo title" });
+  await waitFor(() => expect(document.activeElement).toBe(field));
+  // The Shelf's recovery control is mounted separately from the recovered creation editor.
+  fireEvent.click(screen.getAllByRole("button", { name: "Discard this revision", description: /discard A/ })[0]!);
+  expect(screen.queryByRole("textbox", { name: "New Todo title" })).toBeNull();
+  fireEvent.keyDown(field, { key: "Escape" });
+  opened.unmount();
+  fireEvent.click(screen.getByRole("button", { name: "Add Todo" }));
+  expect(screen.getByRole("textbox", { name: "New Todo title" })).toHaveProperty("value", "keep B");
+  expect(connected.drafts.list()).toEqual([b]);
+  expect(app.calls).toEqual(calls);
 });
 
 
