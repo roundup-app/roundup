@@ -60,12 +60,12 @@ const linkOf = async (app: AppSeam, kind: LinkKind, id: string | number): Promis
   return copy.linkUrl(kind, encodeURIComponent(String(id)), encodeURIComponent(await key));
 };
 
-/** U2694c: Copy Link and Send to Agent ▸ for one object; `agents` are the Project's Agents in Rail order, `fail` shows U80's line. */
+/** U2694c: Copy Link and Send to Agent ▸ for one object; `nodes` are the Project's Rail nodes in order, `fail` shows U80's line. */
 export const linkEntries = (
   app: AppSeam,
   kind: LinkKind,
   id: string | number,
-  agents: RailNode[],
+  nodes: readonly RailNode[],
   running: (node: RailNode) => boolean,
   fail: (message: string) => void,
 ): MenuEntry[] => {
@@ -82,7 +82,7 @@ export const linkEntries = (
     {
       id: "send",
       label: copy.sendToAgentMenu,
-      children: agents.map((agent): MenuEntry => ({
+      children: nodes.flatMap((agent): MenuEntry[] => agent.kind !== "agent" && agent.attempt === null ? [] : [{
         id: `send:${agent.id}`,
         label: agent.name,
         enabled: running(agent),
@@ -92,7 +92,7 @@ export const linkEntries = (
 
           await app.rpc("message.send", params);
         }),
-      })),
+      }]),
     },
     { id: "copy-link", label: copy.copyLink, run: () => attempt(async () => { await navigator.clipboard.writeText(await linkOf(app, kind, id)); }) },
   ];

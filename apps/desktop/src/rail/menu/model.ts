@@ -208,7 +208,7 @@ export const createRailMenu = (app: AppSeam, rail: RailState, onFailure: (messag
 
     if (node.kind === "workstream" && node.attempt === null) return [remove];
 
-    const agents = rail.nodes.filter((candidate) => candidate.kind === "agent");
+    const agents = rail.nodes;
 
     const items: MenuEntry[] = [
       { id: "rename", label: copy.rename, shortcut: copy.renameChord, run: () => rename(node.id) },
