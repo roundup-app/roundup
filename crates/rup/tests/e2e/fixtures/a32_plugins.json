@@ -2,10 +2,149 @@
   "fixtures": [
     {
       "match": {
+        "toolCallId": "toolu_q11_clear_0",
+        "toolResultContains": "Launching skill: hope:intent"
+      },
+      "response": {
+        "content": "Plugin observer complete."
+      }
+    },
+    {
+      "match": {
+        "toolCallId": "toolu_q11_resume_2_2",
+        "toolResultContains": "Launching skill: hold:grasp"
+      },
+      "response": {
+        "content": "Plugin observer complete."
+      }
+    },
+    {
+      "match": {
+        "toolCallId": "toolu_q11_resume_2_1",
+        "toolResultContains": "<tool_use_error>Skill hunch:fly cannot be used with Skill tool due to disable-model-invocation."
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "toolu_q11_resume_2_2",
+            "name": "Skill",
+            "arguments": "{\"skill\": \"hold:grasp\"}"
+          }
+        ]
+      }
+    },
+    {
+      "match": {
+        "toolCallId": "toolu_q11_resume_2_0",
+        "toolResultContains": "Launching skill: hope:intent"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "toolu_q11_resume_2_1",
+            "name": "Skill",
+            "arguments": "{\"skill\": \"hunch:fly\"}"
+          }
+        ]
+      }
+    },
+    {
+      "match": {
+        "userMessage": "Q11 plugin inventory after resume 2"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "toolu_q11_resume_2_0",
+            "name": "Skill",
+            "arguments": "{\"skill\": \"hope:intent\"}"
+          }
+        ]
+      }
+    },
+    {
+      "match": {
+        "toolCallId": "toolu_q11_resume_1_0",
+        "toolResultContains": "Launching skill: hope:intent"
+      },
+      "response": {
+        "content": "Plugin observer complete."
+      }
+    },
+    {
+      "match": {
+        "userMessage": "Q11 plugin inventory after resume 1"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "toolu_q11_resume_1_0",
+            "name": "Skill",
+            "arguments": "{\"skill\": \"hope:intent\"}"
+          }
+        ]
+      }
+    },
+    {
+      "match": {
+        "toolCallId": "toolu_q11_initial_child_2",
+        "toolResultContains": "Launching skill: hold:grasp"
+      },
+      "response": {
+        "content": "Plugin observer complete."
+      }
+    },
+    {
+      "match": {
+        "toolCallId": "toolu_q11_initial_child_1",
+        "toolResultContains": "<tool_use_error>Skill hunch:fly cannot be used with Skill tool due to disable-model-invocation."
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "toolu_q11_initial_child_2",
+            "name": "Skill",
+            "arguments": "{\"skill\": \"hold:grasp\"}"
+          }
+        ]
+      }
+    },
+    {
+      "match": {
+        "toolCallId": "toolu_q11_initial_child_0",
+        "toolResultContains": "Launching skill: hope:intent"
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "toolu_q11_initial_child_1",
+            "name": "Skill",
+            "arguments": "{\"skill\": \"hunch:fly\"}"
+          }
+        ]
+      }
+    },
+    {
+      "match": {
+        "toolCallId": "toolu_q11_initial_door_0",
+        "toolResultContains": "Launching skill: hope:intent"
+      },
+      "response": {
+        "content": "Plugin observer complete."
+      }
+    },
+    {
+      "match": {
         "userMessage": "No Handoff was written, so every Todo and Pad was archived."
       },
       "response": {
-        "content": "The archive Handoff was received."
+        "toolCalls": [
+          {
+            "id": "toolu_q11_clear_0",
+            "name": "Skill",
+            "arguments": "{\"skill\": \"hope:intent\"}"
+          }
+        ]
       }
     },
     {
@@ -53,6 +192,11 @@
             "id": "toolu_a32_child",
             "name": "mcp__roundup__agent_spawn",
             "arguments": "{\"cwd\": \".\", \"order\": {\"kind\": \"work\", \"title\": \"Child work\", \"ask\": \"A32 start grandchild\", \"done\": \"grandchild started\", \"limits\": []}}"
+          },
+          {
+            "id": "toolu_q11_initial_door_0",
+            "name": "Skill",
+            "arguments": "{\"skill\": \"hope:intent\"}"
           }
         ]
       }
@@ -76,6 +220,11 @@
             "id": "toolu_a32_grandchild",
             "name": "mcp__roundup__agent_spawn",
             "arguments": "{\"cwd\": \".\", \"order\": {\"kind\": \"work\", \"title\": \"Grandchild work\", \"ask\": \"A32 grandchild finish\", \"done\": \"finished\", \"limits\": []}}"
+          },
+          {
+            "id": "toolu_q11_initial_child_0",
+            "name": "Skill",
+            "arguments": "{\"skill\": \"hope:intent\"}"
           }
         ]
       }
