@@ -702,3 +702,30 @@ it("u2773b_pads_matching_source_does_not_acknowledge_an_unknown_write", async ()
   expect(app.calls.filter(call => call.method === "pad.write")).toHaveLength(1);
   expect(state.pads[0]?.text).toBe("submitted é");
 });
+
+
+it.each(["failed", "unknown"] as const)("u3021c_open_restores_exact_revision_without_rpc_pads_%s", async (outcome) => {
+  const original = padOf("selected", USER, "  base\n\n");
+  const { app, connected } = await openShelf([original]);
+  const destination = { surface: "pads", object: original.incarnation, recipient: null };
+  const value = { originalName: original.name, source: "  A 🌱 é\nsecond\n\n", base: original.text, baseRevision: 1 };
+  const a = connected.drafts.edit(destination, value, { start: 2, end: 9, direction: "backward" }, "ordinary").draft;
+  connected.drafts.submit(a.revision);
+  connected.drafts.edit(destination, { ...value, source: "B 🪁" }, { start: 1, end: 2, direction: "forward" }, "ordinary");
+  connected.drafts.settle(a.revision, outcome);
+  const retained = structuredClone(connected.drafts.list());
+  const calls = [...app.calls];
+  const field = await openPad(original.name, { connected, pads: [original], revision: a.revision });
+  expect(field.value).toBe("A 🌱 é\nsecond");
+  expect([field.selectionStart, field.selectionEnd, field.selectionDirection]).toEqual([2, 9, "backward"]);
+  fireEvent.focusOut(field);
+  connected.drawer.close("key");
+  await waitFor(() => expect(screen.queryByRole("textbox", { name: "Pad body" })).toBeNull());
+  expect(app.calls).toEqual(calls);
+  expect(connected.drafts.list()).toEqual(retained);
+  const b = retained.at(-1)!;
+  const reopened = await openPad(original.name, { connected, pads: [original], revision: b.revision });
+  expect(reopened.value).toBe("B 🪁");
+  expect(connected.drafts.list()).toEqual(retained);
+  expect(app.calls).toEqual(calls);
+});

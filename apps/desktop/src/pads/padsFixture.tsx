@@ -19,6 +19,7 @@ import {
   ConnectedProjectContext,
 } from "../state/connectedProject";
 import { Pads } from "./Pads";
+import { PadDrawer } from "./PadDrawer";
 // PadDrawer loads the editor lazily; evaluating it here keeps its cold load (seconds on a loaded CI runner) out of the first test's 5 s.
 import "./PadRichEditor";
 
@@ -145,9 +146,13 @@ const trackEditors = () => {
 };
 
 /** Opens a Pad's Drawer and returns its scroll root with textarea-shaped `value` accessors over the document, so a test can type `fireEvent.input(field, { target: { value } })` and read what the Pad holds. */
-export const openPad = async (name: string) => {
+export const openPad = async (name: string, recovery?: { connected: Awaited<ReturnType<typeof connectProject>>; pads: readonly Pad[]; revision: string }) => {
   trackEditors();
-  fireEvent.click(await screen.findByText(name));
+
+  if (recovery) {
+    const { connected, pads, revision } = recovery;
+    connected.drawer.open(() => <ConnectedProjectContext.Provider value={connected}><PadDrawer name={name} pads={() => pads} revision={revision} onLateFailure={() => {}} /></ConnectedProjectContext.Provider>, "key");
+  } else fireEvent.click(await screen.findByText(name));
   const surface = await screen.findByRole<HTMLElement>("textbox", { name: "Pad body" }, { timeout: 5000 });
   const root = surface.closest<HTMLElement>(".pad-editor");
   const editor = editors.at(-1);
