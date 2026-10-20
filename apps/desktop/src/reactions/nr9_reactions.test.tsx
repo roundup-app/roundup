@@ -205,3 +205,55 @@ it("nr9_can_select_the_existing_supervisor_without_starting_it", async () => {
   expect(screen.getByRole("checkbox", { name: "Supervisor (lead)" })).toBeTruthy();
   expect(app.calls.filter(call => call.method === "agent.spawn" || call.method === "agent.run")).toHaveLength(0);
 });
+
+
+it.each(["back", "edit"])("nr9_acknowledgement_refreshes_the_list_after_%s", async action => {
+  let list: Reaction[] = [];
+  const { app, connected } = await mount(() => list);
+  connected.drafts.edit({ surface: "reactions", object: "create", recipient: null }, {
+    operation: "original", name: "Original", target: "a", instruction: "old exact words", kind: "agents", ids: ["a"], any: false,
+    repository: "", number: "", atDate: "", atTime: "", atOffset: "Z", expDate: "2026-10-21", expTime: "09:00", expOffset: "Z", maxFirings: "1", rearm: false,
+  }, null, "ordinary");
+  app.handlers["reaction.preview"] = () => ({ at: "2026-10-21T09:00:00Z", utc: "2026-10-21T09:00:00Z", offset: "Z" });
+  let acknowledge!: (reaction: Reaction) => void;
+  app.handlers["reaction.create"] = () => new Promise(resolve => { acknowledge = resolve; });
+  fireEvent.click(await screen.findByRole("button", { name: copy.reactionCreate }));
+  const save = screen.getByRole("button", { name: copy.reactionSave });
+  await waitFor(() => expect(save).toHaveProperty("disabled", false));
+  fireEvent.click(save);
+  if (action === "back") fireEvent.click(screen.getByRole("button", { name: copy.reactionBack }));
+  else fireEvent.input(screen.getByLabelText(copy.reactionInstruction), { target: { value: "new words" } });
+  list = [saved()];
+  acknowledge(list[0]!);
+  await waitFor(() => expect(connected.drafts.list().some(draft => draft.status === "pending")).toBe(false));
+  if (action === "edit") fireEvent.click(screen.getByRole("button", { name: copy.reactionBack }));
+  fireEvent.click(await screen.findByRole("button", { name: /Ship it/ }));
+  const detail = await screen.findByRole("region", { name: copy.reactionDetail("Ship it") });
+  expect(within(detail).getByRole("button", { name: copy.reactionStop })).toHaveProperty("disabled", false);
+});
+
+it.each([new Error("connection lost"), new RpcError(-32603, "internal error")])("nr9_unknown_creation_reconciles_original_operation_before_newer_submit_%s", async error => {
+  const { app, connected } = await mount(() => []);
+  connected.drafts.edit({ surface: "reactions", object: "create", recipient: null }, {
+    operation: "original", name: "Original", target: "a", instruction: "old exact words", kind: "agents", ids: ["a"], any: false,
+    repository: "", number: "", atDate: "", atTime: "", atOffset: "Z", expDate: "2026-10-21", expTime: "09:00", expOffset: "Z", maxFirings: "1", rearm: false,
+  }, null, "ordinary");
+  app.handlers["reaction.preview"] = () => ({ at: "2026-10-21T09:00:00Z", utc: "2026-10-21T09:00:00Z", offset: "Z" });
+  app.handlers["reaction.create"] = () => { throw error; };
+  fireEvent.click(await screen.findByRole("button", { name: copy.reactionCreate }));
+  const save = screen.getByRole("button", { name: copy.reactionSave });
+  await waitFor(() => expect(save).toHaveProperty("disabled", false));
+  fireEvent.click(save);
+  await waitFor(() => expect(connected.drafts.list()[0]?.status).toBe("unknown"));
+  fireEvent.input(screen.getByLabelText(copy.reactionInstruction), { target: { value: "new words" } });
+  expect(save).toHaveProperty("disabled", true);
+  fireEvent.click(screen.getByRole("button", { name: copy.reactionBack }));
+  fireEvent.click(screen.getByRole("button", { name: copy.reactionCreate }));
+  app.handlers["reaction.create"] = () => saved();
+  fireEvent.click(screen.getByRole("button", { name: "Check creation" }));
+  await waitFor(() => expect(connected.drafts.list().some(draft => draft.status === "unknown")).toBe(false));
+  const sent = app.calls.filter(call => call.method === "reaction.create").map(call => call.params);
+  expect(sent).toHaveLength(2);
+  expect(sent[1]).toEqual(sent[0]);
+  expect(screen.getByLabelText(copy.reactionInstruction)).toHaveProperty("value", "new words");
+});
