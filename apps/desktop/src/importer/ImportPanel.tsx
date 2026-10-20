@@ -1,5 +1,6 @@
 import "./import.css";
 import { createEffect, createSignal, For, onCleanup, Show } from "solid-js";
+import { Portal } from "solid-js/web";
 import * as v from "valibot";
 import type { ImportCandidate } from "@contracts/project/ImportCandidate";
 import type { ImportDiscovery } from "@contracts/project/ImportDiscovery";
@@ -44,7 +45,7 @@ export const ImportPanel = (props: { open: boolean; opener: HTMLElement | undefi
   const [pending, setPending] = createSignal(false);
   let ticket = 0;
   let panel: HTMLElement | undefined;
-  let cancel: HTMLButtonElement | undefined;
+  let radios: HTMLDivElement | undefined;
   registerKeys({ kind: "layer", element: () => panel, active: () => props.open, modal: true }, []);
 
   createEffect(() => { if (props.open) void discover(); });
@@ -151,12 +152,12 @@ export const ImportPanel = (props: { open: boolean; opener: HTMLElement | undefi
   };
 
   return (
-    <Dialog.Root open={props.open} initialFocusEl={() => cancel ?? null} finalFocusEl={() => props.opener?.isConnected ? props.opener : null}
+    <Dialog.Root open={props.open} initialFocusEl={() => radios?.querySelector<HTMLElement>("[aria-checked=true]") ?? null} finalFocusEl={() => props.opener?.isConnected ? props.opener : null}
       onOpenChange={(details) => { if (!details.open) dismiss(); }}>
-      <Dialog.Positioner>
+      <Portal><Dialog.Backdrop /><Dialog.Positioner class="import-positioner">
         <Dialog.Content class="import-panel" ref={(element) => (panel = element)}>
           <Dialog.Title>{copy.importTitle}</Dialog.Title>
-          <div role="radiogroup" aria-label={copy.importPeriod} class="import-period">
+          <div role="radiogroup" aria-label={copy.importPeriod} class="import-period" ref={radios}>
             <For each={PERIODS}>{(each) => (
               <button type="button" role="radio" data-button="quiet" aria-checked={period() === each} onClick={() => choose(each)}>
                 {copy.importPeriodName(each)}
@@ -172,9 +173,11 @@ export const ImportPanel = (props: { open: boolean; opener: HTMLElement | undefi
                 <For each={result().candidates}>{(candidate) => (
                   <li>
                     <label>
-                      <input type="checkbox" checked={wanted().has(candidate.source)} disabled={pending()} onChange={() => toggle(candidate)} />
-                      <span class="import-title">{candidate.title}</span>
-                      <span class="import-cwd">{candidate.cwd === "" ? copy.importProjectFolder : candidate.cwd}</span>
+                      <input type="checkbox" class="import-check" checked={wanted().has(candidate.source)} disabled={pending()} onChange={() => toggle(candidate)} />
+                      <span class="import-text">
+                        <span class="import-title">{candidate.title}</span>
+                        <span class="import-cwd">{candidate.cwd === "" ? copy.importProjectFolder : candidate.cwd}</span>
+                      </span>
                     </label>
                     <Show when={refused().get(candidate.source)}>{(reason) => <p role="alert" data-tone="red">{reason()}</p>}</Show>
                   </li>
@@ -183,14 +186,14 @@ export const ImportPanel = (props: { open: boolean; opener: HTMLElement | undefi
             </>}
           </Show>
           <p class="import-words">
-            <button data-button="quiet" type="button" class="word" ref={(element) => (cancel = element)} onClick={dismiss}>{copy.cancel}</button>
-            <button data-button="quiet" type="button" class="word" onClick={() => void discover()} disabled={pending()}>{copy.importRefresh}</button>
-            <button data-button="quiet" type="button" class="word" disabled={pending() || wanted().size === 0} onClick={() => void confirm()}>
+            <button data-button="quiet" type="button" class="word import-refresh" onClick={() => void discover()} disabled={pending()}>{copy.importRefresh}</button>
+            <button data-button="quiet" type="button" class="word" onClick={dismiss}>{copy.cancel}</button>
+            <button data-button="quiet" type="button" class="word import-confirm" disabled={pending() || wanted().size === 0} onClick={() => void confirm()}>
               {copy.importConfirm(wanted().size)}
             </button>
           </p>
         </Dialog.Content>
-      </Dialog.Positioner>
+      </Dialog.Positioner></Portal>
     </Dialog.Root>
   );
 };

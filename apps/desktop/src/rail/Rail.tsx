@@ -525,7 +525,7 @@ export const Rail = () => {
         </span>
       </Show>
     </button>
-    <button type="button" data-button="quiet" class="rail-import" ref={importOpener} disabled={daemonExit() !== null} onClick={() => setImporting(true)}>
+    <button type="button" data-button="quiet" class="word rail-import" ref={importOpener} disabled={daemonExit() !== null} onClick={() => setImporting(true)}>
       {copy.importTitle}
     </button>
     <ImportPanel open={importing()} opener={importOpener} onClose={() => setImporting(false)} />

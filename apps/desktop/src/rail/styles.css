@@ -901,3 +901,12 @@
   gap: var(--space-3);
   margin-block: var(--space-3);
 }
+
+/* U2875d: the import opener is a Rail row, inset like the tree's rows with the footer button's height. */
+.rail-import {
+  justify-content: flex-start;
+  min-height: 28px;
+  margin-inline: var(--space-4);
+  --button-lead: 0;
+  --button-inline: 0;
+}
