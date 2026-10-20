@@ -90,6 +90,8 @@ export const OpenRow = (props: {
   const alsoWaiting = createMemo(() => props.todo.blockers.flatMap((id) => props.known.get(id) ?? [])
     .filter((blocker) => !blocker.done && blocker.id !== props.place?.parent && (props.place?.parent != null || waitingOn().length > 1)));
 
+  const alsoWaitingLine = createMemo(() => copy.alsoWaitsOn(alsoWaiting().map((blocker) => blocker.title).join(copy.comma)));
+
   const [failure, setFailure] = createSignal<string | null>(null);
 
   const complete = async () => {
@@ -180,7 +182,7 @@ export const OpenRow = (props: {
       role={props.treeItem?.role}
       aria-level={props.treeItem?.["aria-level"]}
       data-level={props.place?.level}
-      style={props.place ? { "padding-inline-start": `calc(var(--space-2) + ${props.place.level - 1} * var(--space-5))` } : undefined}
+      style={props.place ? { "padding-inline-start": `calc(var(--space-2) + ${props.place.level - 1} * var(--space-4))` } : undefined}
       class={props.nested ? "todo-row" : "todo-row todo-inset"}
       head={props.nested ? undefined : head}
       {...near?.handlers}
@@ -213,12 +215,13 @@ export const OpenRow = (props: {
       </Show>
       <Show when={!props.nested && failure() === null && alsoWaiting().length > 0}>
         <p class="shelf-meta" data-todo-meta>
-          <Tip class="todo-tooltip" text={copy.alsoWaitsOn(alsoWaiting().map((blocker) => blocker.title).join(copy.comma))}>{(trigger) => <span {...trigger()} data-todo-also-waits>{copy.alsoWaitsOn("")}<For each={alsoWaiting()}>{(blocker, index) => (
+          {/* oxlint-disable-next-line anti-slop/no-tooltip-bypass -- U3708 requires the full ellipsized sentence in title; Tip also owns its rendered tooltip. */}
+          <Tip class="todo-tooltip" text={alsoWaitingLine()}>{(trigger) => <span {...trigger()} data-todo-also-waits title={alsoWaitingLine()}><span>{copy.alsoWaitsOn("")}</span><span class="todo-blockers"><For each={alsoWaiting()}>{(blocker, index) => (
             <>
               <Show when={index() > 0}><span>{copy.comma}</span></Show>
               <button data-button="quiet" type="button" class="word todo-blocker" aria-label={copy.openBlocker(blocker.title)} onClick={(event) => props.onOpen(blocker, activationSource(event))}>{blocker.title}</button>
             </>
-          )}</For></span>}</Tip>
+          )}</For></span></span>}</Tip>
         </p>
       </Show>
     </ShelfRow>
@@ -482,12 +485,12 @@ export const Todos = () => {
         <TreeView.Root collection={collection()}>
         <Sortable.Root class="todo-list shelf-list" plain ids={tree().map((row) => String(row.todo.id))} external={sorted.external} tree={{
           rows: tree().map((row) => ({ id: String(row.todo.id), parent: row.parent === null ? null : String(row.parent) })),
-          get indent() { return parseFloat(getComputedStyle(document.documentElement).getPropertyValue("--space-5")) || 24; },
+          get indent() { return parseFloat(getComputedStyle(document.documentElement).getPropertyValue("--space-4")) || 16; },
           nests: () => true,
           onMove: (move) => void dropOf(tree(), items().filter((todo) => !todo.done), Number(move.id), move.parent === null ? null : Number(move.parent), move.index),
           onPreview: () => undefined,
         }}>
-        <TreeView.Tree style={{ padding: "0" }}>
+        <TreeView.Tree aria-label={copy.todos} style={{ padding: "0" }}>
         <For each={tree().map((row) => row.todo)}>
           {(todo, at) => {
             const row = { get level() { return placeOf(todo.id).level; }, get parent() { return placeOf(todo.id).parent; } };
