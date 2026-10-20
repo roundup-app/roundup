@@ -18,7 +18,7 @@ import { Portal } from "solid-js/web";
 import { shelfScope } from "../shelf/scope";
 import type { RailNode } from "@contracts/agent/RailNode";
 import { AskRows } from "./AskRows";
-import { Reactions } from "../reactions/Reactions";
+import { createReactions, Reactions } from "../reactions/Reactions";
 import "./styles.css";
 
 /** The leading `@` and the letters after it, while the user has not yet typed the space that ends the name (U504). */
@@ -29,6 +29,7 @@ export const AskBar = () => {
   const connected = useConnectedProject();
   const { asks, rail, daemonExit, drafts } = connected;
   const deliverables = createDeliverables();
+  const reactions = createReactions();
   const madeScope = shelfScope(connected);
   const [over, setOver] = createSignal(false);
   const destination = { surface: "ask", object: "ask-bar", recipient: null };
@@ -106,7 +107,7 @@ export const AskBar = () => {
   let returnTo: Element | null = null;
 
   // With no Workstream at all the Pane's "New Workstream" is the way in, so home leaves it uncovered.
-  const shown = () => over() || (rail.selected() === null && (rail.nodes.length > 0 || deliverables.records().length > 0 || deliverables.failure() !== null));
+  const shown = () => over() || (rail.selected() === null && (rail.nodes.length > 0 || deliverables.records().length > 0 || deliverables.failure() !== null || reactions.read().list.length > 0 || reactions.read().failure !== null));
 
   createEffect(() => {
     if (shown()) onCleanup(drafts.editor(destination));
@@ -234,7 +235,7 @@ export const AskBar = () => {
           <ErrorLine message={copy.draftRetention(connected.project.path, copy.draftSurface("ask"), problem().cause)} />
           <button type="button" data-button="quiet" onClick={() => drafts.retry()}>{copy.storageRetry}</button>
         </div>}</Show>
-        <Show when={!over()}><ProjectOverview /><Reactions /><Deliverables state={deliverables} /></Show>
+        <Show when={!over()}><ProjectOverview /><Reactions state={reactions} /><Deliverables state={deliverables} /></Show>
         <AskRows keys={scope} onOpened={() => close(false)} />
       </section>
     </Show>

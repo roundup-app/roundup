@@ -46,21 +46,9 @@ const conditionText = (condition: Condition, nameOf: (id: string) => string): st
     : condition.kind === "pr-checks" ? copy.reactionPrChecks(condition.repository, condition.number)
       : copy.reactionInstant(condition.at, condition.late);
 
-/** NR9: the Project overview's named reactions: a list, a create form that previews, and a detail with stop and run. */
-export const Reactions = () => {
-  const { app, drafts, daemonExit } = useConnectedProject();
-  const [view, setView] = createSignal<View>({ kind: "list" });
-  const [actionFailure, setActionFailure] = createSignal<string | null>(null);
-  const [pending, setPending] = createSignal(false);
-  const [made, setMade] = createSignal<Reaction | null>(null);
-  let opener = "";
-
-  drafts.validate("reactions", formSchema);
-  drafts.registerRecovery("reactions", (draft, facts) => {
-    const target = v.safeParse(v.string(), draft.value.target);
-
-    return facts.daemonExit() !== null || facts.rail.failure() ? "unverified" : !target.success || target.output === "" || facts.rail.nodes.some((node) => node.id === target.output) ? "available" : "unavailable";
-  });
+/** NR9: saved reactions remain readable when their Agents no longer exist. */
+export const createReactions = () => {
+  const { app, daemonExit } = useConnectedProject();
 
   const [read, { refetch }] = createResource(async (_key, { value }): Promise<{ list: Reaction[]; failure: string | null }> => {
     try {
@@ -76,6 +64,27 @@ export const Reactions = () => {
 
   window.addEventListener("focus", refresh);
   onCleanup(() => window.removeEventListener("focus", refresh));
+
+  return { read, refresh, refetch };
+};
+
+/** NR9: the Project overview's named reactions: a list, a create form that previews, and a detail with stop and run. */
+export const Reactions = (props: { state: ReturnType<typeof createReactions> }) => {
+  const { app, drafts, daemonExit } = useConnectedProject();
+  const [view, setView] = createSignal<View>({ kind: "list" });
+  const [actionFailure, setActionFailure] = createSignal<string | null>(null);
+  const [pending, setPending] = createSignal(false);
+  const [made, setMade] = createSignal<Reaction | null>(null);
+  let opener = "";
+
+  drafts.validate("reactions", formSchema);
+  drafts.registerRecovery("reactions", (draft, facts) => {
+    const target = v.safeParse(v.string(), draft.value.target);
+
+    return facts.daemonExit() !== null || facts.rail.failure() ? "unverified" : !target.success || target.output === "" || facts.rail.nodes.some((node) => node.id === target.output) ? "available" : "unavailable";
+  });
+
+  const { read, refresh, refetch } = props.state;
 
   const back = () => {
     setView({ kind: "list" });

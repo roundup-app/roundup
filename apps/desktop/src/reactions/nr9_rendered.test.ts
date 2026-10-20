@@ -188,6 +188,11 @@ it("nr9_cli_mcp_and_app_share_authority", async () => {
     await activate(`[data-reaction-opener="${created.id}"]`);
     await wait("document.querySelector('.reaction-firings')?.textContent.includes('dropped')");
     await capture("dropped");
+    for (const node of await app.rpc("rail.tree", null)) await app.rpc("rail.remove", { id: node.id });
+    await browser("reload");
+    await activate(`[data-reaction-opener="${created.id}"]`);
+    await wait("document.querySelector('.reaction-detail')?.textContent.includes('not in this Project')");
+    await capture("retired-project");
     await browser("set", "media", "light");
     await wait("matchMedia('(prefers-color-scheme: light)').matches");
     expect(await evaluate("document.querySelector('.reaction-detail').textContent")).toContain(target.id);
