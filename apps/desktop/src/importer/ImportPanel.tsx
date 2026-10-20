@@ -47,6 +47,21 @@ export const ImportPanel = (props: { open: boolean; opener: HTMLElement | undefi
           </div>
           <p class="import-note">{copy.importBase}</p>
           <Show when={!state.verified() && wanted().size > 0}><p role="status">{copy.importRestored(wanted().size)}</p></Show>
+          <Show when={state.hasConflict()}>
+            <section class="import-recovery" aria-label={copy.importChoices}>
+              <p role="status" aria-label={copy.importConflict}>{copy.importConflictExplanation}</p>
+              <For each={state.choices()}>{(choice, at) => (
+                <section aria-label={copy.importChoice(at() + 1)}>
+                  <p>{copy.importPeriodName(choice.period)}</p>
+                  <ul><For each={choice.sources}>{(source, index) => <li>{choice.titles?.[index()] ?? source}</li>}</For></ul>
+                  <div class="import-actions">
+                    <button type="button" data-button="quiet" disabled={pending()} onClick={() => state.restoreChoice(choice.revision)}>{copy.importOpenChoice(at() + 1)}</button>
+                    <button type="button" data-button="quiet" disabled={pending()} onClick={() => state.discardChoice(choice.revision)}>{copy.importDiscardChoice(at() + 1)}</button>
+                  </div>
+                </section>
+              )}</For>
+            </section>
+          </Show>
           <Show when={state.restoreFailure() || state.retentionFailure()}>
             <ErrorLine message={state.restoreFailure() ? copy.importRestoreFailure : copy.importRetentionFailure} />
             <p>{copy.importRetentionRecovery}</p>
