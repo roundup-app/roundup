@@ -78,13 +78,18 @@ def is_web_test(path):
     return path.startswith(APP + 'src/') and path.endswith(('.test.ts', '.test.tsx'))
 
 
-def rust_tests(path, touched):
-    """The names of the Rust test functions of the file at `path` whose span (`crates/test-spans`: first attribute or
-    doc comment to closing brace) holds a line of `touched` (1-based numbers); a line in no test selects none."""
-    spans = subprocess.run(['cargo', 'run', '--quiet', '-p', 'test-spans', '--', str(path)], cwd=ROOT, check=True,
-                           stdout=subprocess.PIPE, text=True).stdout.splitlines()
-    return sorted(name for first, last, name in map(str.split, spans)
-                  if any(int(first) <= number <= int(last) for number in touched))
+def test_spans(path):
+    """The Rust test functions of the file at `path` as (first line, last line, name): `crates/test-spans` reads from
+    the first attribute or doc comment to the closing brace."""
+    out = subprocess.run(['cargo', 'run', '--quiet', '-p', 'test-spans', '--', str(path)], cwd=ROOT, check=True,
+                         stdout=subprocess.PIPE, text=True).stdout
+    return [(int(first), int(last), name) for first, last, name in map(str.split, out.splitlines())]
+
+
+def rust_tests(spans, touched):
+    """The names of the test functions of `spans` that hold a line of `touched` (1-based numbers); a line in no test
+    selects none."""
+    return sorted(name for first, last, name in spans if any(first <= number <= last for number in touched))
 
 
 def touched_lines(patch):
@@ -104,7 +109,7 @@ def edited_rust(git, fork, changed, untracked):
             continue
         touched = range(1, len((ROOT / path).read_text().splitlines()) + 1) if path in untracked \
             else touched_lines(git('diff', '-U0', '--no-renames', fork, '--', path))
-        names += rust_tests(ROOT / path, touched)
+        names += rust_tests(test_spans(ROOT / path), touched)
     return ' | '.join(f'test(/(^|::){name}$/)' for name in sorted(set(names)))
 
 
