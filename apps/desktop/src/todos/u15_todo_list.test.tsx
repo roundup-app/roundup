@@ -17,7 +17,7 @@ describe("u15 Todo list", () => {
     expect(screen.getByRole("checkbox", { name: "Complete refresh tokens", checked: false })).toBeTruthy();
   });
 
-  it("u15_a_blocked_todo_has_the_pause_glyph_and_a_second_line_naming_its_open_blockers_in_id_order", async () => {
+  it("u15_a_blocked_todo_nests_under_its_first_blocker_and_names_the_others_on_a_second_line", async () => {
     await mountTodos([
       todo(5, { title: "session store", blocked: true, blockers: [6, 4] }),
       todo(6, { title: "later" }),
@@ -26,11 +26,11 @@ describe("u15 Todo list", () => {
 
     await screen.findByText(/session store/);
 
-    assertKind(screen.getByRole("button", { name: "Blocked #5 session store" }), "blocked", "dashed");
-    expect([rows()[2], screen.getByText(/^Waits on/).closest("[data-todo-waits]")?.textContent]).toEqual(["session store", "Waits on migrate, later"]);
+    expect(screen.getByRole("button", { name: "Blocked #5 session store" })).toBeTruthy();
+    expect([rows().slice(1, 4), document.querySelector("[data-todo-also-waits]")?.textContent]).toEqual([["migrate", "later", "session store"], "also waits on: migrate"]);
   });
 
-  it("u15_a_done_blocker_is_not_named_on_the_blocked_todos_second_line", async () => {
+  it("u15_a_done_blocker_is_not_named_and_does_not_nest", async () => {
     await mountTodos([
       todo(5, { title: "session store", blocked: true, blockers: [4, 6] }),
       todo(4, { done: true }),
@@ -39,7 +39,8 @@ describe("u15 Todo list", () => {
 
     await screen.findByText(/session store/);
 
-    expect(screen.getByText(/^Waits on/).closest("[data-todo-waits]")?.textContent).toBe("Waits on todo 6");
+    expect(document.querySelector("[data-todo-also-waits]")).toBeNull();
+    expect(document.querySelector('[data-id="5"]')?.getAttribute("aria-level")).toBe("2");
   });
 
   it("u15_done_todos_fold_into_one_line_counting_them", async () => {
