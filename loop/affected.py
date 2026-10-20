@@ -128,7 +128,7 @@ def web_tests(source, touched):
     indent = lambda line: len(line) - len(line.lstrip())
     titles = []
     for start, line in enumerate(lines):
-        call = re.match(r'\s*(?:it|test)(?:\.\w+)*\(', line)
+        call = re.match(r'\s*(?:it|test)(?:\.\w+)*\s*[<(]', line)
         if not call:
             continue
         stop = next((n for n in range(start + 1, len(lines)) if lines[n].strip() and indent(lines[n]) <= indent(line)
