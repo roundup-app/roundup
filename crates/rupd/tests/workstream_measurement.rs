@@ -429,21 +429,35 @@ async fn u3016d_reconnect_reconciles_without_double_counting() {
     })
     .await
     .unwrap();
-    std::fs::remove_file(w.source()).unwrap();
-    tokio::time::timeout(Duration::from_secs(3), async {
+    let held = w.source().with_extension("held");
+    std::fs::rename(w.source(), &held).unwrap();
+    let failed = tokio::time::timeout(Duration::from_secs(3), async {
         loop {
             let read = w.read().await;
             if read["sources"][0]["cause"].is_string() {
                 assert_eq!(read["contributions"], first["contributions"]);
                 assert!(read["sources"][0]["last_good"].is_number());
-                break;
+                break read;
             }
             tokio::time::sleep(Duration::from_millis(20)).await;
         }
     })
     .await
     .unwrap();
-    w.append(request("retained", 20));
+    std::fs::rename(&held, w.source()).unwrap();
+    tokio::time::timeout(Duration::from_secs(3), async {
+        loop {
+            let read = w.read().await;
+            if read["sources"][0]["cause"].is_null() {
+                assert_ne!(read["revision"], failed["revision"]);
+                assert_eq!(read["contributions"], first["contributions"]);
+                break;
+            }
+            tokio::time::sleep(Duration::from_millis(20)).await;
+        }
+    })
+    .await
+    .expect("retry clears failure even when the source position is unchanged");
     w.reopen().await;
     let read = w.contributions(1).await;
     assert_eq!(read["contributions"], first["contributions"]);
@@ -507,4 +521,39 @@ async fn u3016a_intervals_use_the_launch_owner_and_source_clock() {
         w.contributions(2).await["contributions"],
         read["contributions"]
     );
+}
+
+#[tokio::test]
+async fn u3016d_rejected_exports_retain_failure_until_successful_retry() {
+    let w = World::start().await;
+    w.append(request("retained", 20));
+    w.contributions(1).await;
+    let url = std::fs::read_to_string(w.project.join(format!("endpoint-{}", w.agent))).unwrap();
+    let valid = intervals(&w.source_id());
+    assert_eq!(post(&url, valid.clone()).await, 200);
+    let mut good = w.contributions(3).await;
+    assert!(good["sources"][0]["cause"].is_null());
+    let mut missing_end = valid.clone();
+    missing_end["resourceSpans"][0]["scopeSpans"][0]["spans"][0]
+        .as_object_mut()
+        .unwrap()
+        .remove("endTimeUnixNano");
+    let mut wrong_type = valid.clone();
+    wrong_type["resourceSpans"][0]["scopeSpans"][0]["spans"][0]["endTimeUnixNano"] = json!(7);
+    for invalid in [missing_end, wrong_type] {
+        assert_eq!(post(&url, invalid).await, 422);
+        let failed = w.read().await;
+        assert!(failed["sources"][0]["cause"].is_string());
+        assert_ne!(failed["revision"], good["revision"]);
+        assert_eq!(failed["contributions"], good["contributions"]);
+        assert_eq!(
+            failed["sources"][0]["last_good"],
+            good["sources"][0]["last_good"]
+        );
+        assert_eq!(post(&url, valid.clone()).await, 200);
+        good = w.read().await;
+        assert!(good["sources"][0]["cause"].is_null());
+        assert_ne!(good["revision"], failed["revision"]);
+        assert_eq!(good["contributions"], failed["contributions"]);
+    }
 }
