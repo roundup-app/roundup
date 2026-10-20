@@ -8,6 +8,7 @@ runs from where HEAD forked from <base> to the working tree, untracked files inc
 counts. No output: no test reaches the diff. Exit 2: bad usage; a failed git or cargo call exits non-zero.
 L122: `edited-rust` prints a nextest filter expression naming the Rust tests the diff adds or edits, `edited-web` the
 test files it adds or edits, as paths from `apps/desktop/`; both need a base."""
+from bisect import bisect_left
 import json
 from pathlib import Path
 import re
@@ -79,26 +80,23 @@ def is_web_test(path):
 
 
 def rust_tests(source, touched):
-    """The names of the Rust test functions of `source` (text) that a line of `touched` (1-based numbers) falls in, from
-    the line after the previous test's end (the file's start for the first) to the closing brace at the `fn` line's
-    indent. It reads no brackets, strings or comments, so it starts early, which only selects a test more often."""
+    """The names of the Rust test functions of `source` (text) that an edit of `touched` (1-based line numbers) may
+    have changed: for each line, the nearest test `fn` at or after it (its attributes and doc comments sit above) and
+    the nearest before it (its body). It reads no brackets, strings or comments, so it selects one test more than
+    needed at most, which only adds a stress run."""
     lines = source.splitlines()
-    names = []
-    after = 0
+    tests = []
     for start, line in enumerate(lines):
         if not re.match(r'\s*#\[(?:\w+::)*test\b', line):
             continue
         fn = next((n for n in range(start, len(lines)) if re.match(r'(?:.*\])?\s*(?:pub\s+)?(?:async\s+)?fn\s', lines[n])), None)
-        if fn is None:
-            continue
-        indent = re.match(r'\s*', lines[fn])[0]
-        end = fn if lines[fn].rstrip().endswith('}') else next(
-            (n for n in range(fn + 1, len(lines)) if lines[n].rstrip() == indent + '}'), len(lines) - 1)
-        first = min(after, start)
-        after = end + 1
-        if any(first < number <= end + 1 for number in touched):
-            names.append(re.search(r'fn\s+(\w+)', lines[fn])[1])
-    return names
+        if fn is not None:
+            tests.append((fn + 1, re.search(r'fn\s+(\w+)', lines[fn])[1]))
+    names = set()
+    for number in touched:
+        split = bisect_left(tests, (number,))
+        names |= {name for _, name in tests[split:split + 1] + tests[max(split - 1, 0):split]}
+    return sorted(names)
 
 
 def touched_lines(patch):
