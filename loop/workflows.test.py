@@ -435,7 +435,9 @@ class L24(unittest.TestCase):
 
     def approved(self, event, statuses):
         """Run the `approved` job's script with `gh` answering `statuses`; the gh calls, and the exit code."""
-        script = textwrap.dedent(self.jobs('check')['approved'].rsplit('        run: |\n', 1)[1])
+        job = self.jobs('check')['approved']
+        self.assertIn('GH_REPO: ${{ github.repository }}', job)  # no checkout: `gh run cancel` has no git remote to read
+        script = textwrap.dedent(job.rsplit('        run: |\n', 1)[1])
         with tempfile.TemporaryDirectory() as folder:
             root = Path(folder)
             (root / 'bin').mkdir()

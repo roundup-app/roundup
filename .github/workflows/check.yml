@@ -43,6 +43,7 @@ jobs:
     steps:
       - env:
           GH_TOKEN: ${{ github.token }}
+          # The job checks nothing out, so `gh run cancel` finds its repository here.
           GH_REPO: ${{ github.repository }}
           HEAD: ${{ github.event.pull_request.head.sha }}
         run: |
