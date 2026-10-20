@@ -1133,6 +1133,34 @@ def clauses(ids):
     return '\n\n'.join(['\n'.join(text).rstrip() for text in found.values()] + missing)
 
 
+def patch_id(head):
+    """`git patch-id --stable` of the PR's diff at `head` against its merge base with `main`; '' for an empty diff."""
+    diff = call('api', f'repos/{{owner}}/{{repo}}/compare/main...{head}', '-H', 'Accept: application/vnd.github.diff')
+    found = subprocess.run(['git', 'patch-id', '--stable'], input=diff, check=True, text=True, capture_output=True).stdout
+    return found.split()[0] if found else ''
+
+
+def carried(current, marker, context):
+    """L24: whether `context` keeps an earlier approval for the PR's head. When the diff there has the patch-id of the
+    diff at a head whose `marker` comment approved, set the same `success` status naming that head and complete the pair;
+    a head GitHub can no longer diff is skipped, so the run is a full one."""
+    head = current['headRefOid']
+    now = patch_id(head)
+    for note in reversed(orders.marked(current['number'], marker)):
+        if not note['body'].startswith(f'{marker} approve'):
+            continue
+        earlier = orders.field(note['body'], 'Head')
+        try:
+            same = now and patch_id(earlier) == now
+        except subprocess.CalledProcessError:
+            continue
+        if same:
+            status(head, 'success', f'The diff is unchanged since {earlier[:9]}, which the {context} run approved', '', context)
+            start_tests(current)
+            return True
+    return False
+
+
 def review_task(pr, head):
     """The review run's task, or None when the PR is not open at `head` or is a draft: the body's `Scenarios:` and
     `Moves:` lines and never the rest of the body (rule 5), the work order (the title and body of the Issue the body
@@ -1140,6 +1168,8 @@ def review_task(pr, head):
     as `main` holds it, then the earlier verdicts, whose findings the run re-derives."""
     current = view(pr)
     if current['state'] != 'OPEN' or current['headRefOid'] != head or current['isDraft']:
+        return None
+    if carried(current, 'VERDICT:', 'review'):
         return None
     named = re.findall(r'^(?:Scenarios|Moves):.*$', current['body'] or '', re.M)
     ids = ' '.join(line for line in named if line.startswith('Scenarios:'))
@@ -1263,6 +1293,8 @@ def critic_task(pr, head):
     if not touches_desktop(pr):
         status(head, 'success', 'The PR changes nothing under apps/desktop/src: no design critic run', '', 'critic')
         start_tests(current)
+        return None
+    if carried(current, 'CRITIC:', 'critic'):
         return None
     lines = [f'Critique PR #{pr}, head {head}, as `.agents/design-critic.md` says.',
              *re.findall(r'^(?:Scenarios|Moves):.*$', current['body'] or '', re.M),
