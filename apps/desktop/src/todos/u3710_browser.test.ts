@@ -135,7 +135,8 @@ run("u3710 dragging sideways sets depth and dragging vertically sets order", () 
     await page.until(`() => document.querySelector('[role=alert]') !== null`);
     await settled();
     expect(await page.call<string>(`() => document.querySelector('[role=alert]').textContent`)).toBe("todo would wait on itself");
-    expect((await calls()).map((c) => c.method)).toEqual(["todo.setBlockers"]);
+    // The refused call throws before the fake records it, so nothing else was called.
+    expect(await calls()).toEqual([]);
     expect(await ids()).toEqual(order);
   }, 60_000);
 
