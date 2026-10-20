@@ -13,4 +13,8 @@ creator: Actor,
 /**
  * The Workstream (a Rail id) this Todo belongs to; `None` is the Project root. A Todo from before this field reads as `None`.
  */
-home: string | null, };
+home: string | null, 
+/**
+ * Who does the work (T16): the user, one Agent, or `None` for Unassigned. Never `creator`.
+ */
+owner: Actor | null, };
