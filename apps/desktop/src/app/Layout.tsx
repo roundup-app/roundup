@@ -105,6 +105,13 @@ export const Layout = (props: {
       { transform: `translateX(${offset + (expanded ? displacement : -displacement)}px)` },
       { transform: "translateX(0)" },
     ], { duration: parseFloat(duration) * (duration.endsWith("ms") ? 1 : 1000), easing: style.getPropertyValue("--easing-out").trim() });
+    const slide = maximiseSlide;
+
+    const settled = () => {
+      if (maximiseSlide === slide && placement().open) setShelfSliding(false);
+    };
+
+    void slide.finished.then(settled, settled);
   }, { defer: true }));
   createEffect(() => { if (!placement().open) maximiseSlide?.cancel(); });
   onCleanup(() => maximiseSlide?.cancel());
