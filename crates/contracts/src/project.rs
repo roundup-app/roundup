@@ -141,3 +141,77 @@ pub struct Resources {
     pub agents: Vec<AgentResources>,
     pub total: ResourceTotal,
 }
+
+/// U2875a: how far back `project.importDiscover` looks, counted from the call.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize, TS, JsonSchema)]
+#[serde(rename_all = "lowercase")]
+#[ts(export, export_to = "project/")]
+pub enum ImportPeriod {
+    Day,
+    Week,
+    Month,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, TS, JsonSchema)]
+#[ts(export, export_to = "project/")]
+pub struct ImportDiscoverParams {
+    pub period: ImportPeriod,
+}
+
+/// One recent conversation the user may import. `revision` binds a confirmation to what was shown.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, TS)]
+#[ts(export, export_to = "project/")]
+pub struct ImportCandidate {
+    pub source: String,
+    pub title: String,
+    /// The conversation's working directory, relative to the Project ("" is the Project folder).
+    pub cwd: String,
+    pub last_activity_ms: i64,
+    pub revision: String,
+}
+
+/// A conversation that is not selectable, with the reason the user reads.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, TS)]
+#[ts(export, export_to = "project/")]
+pub struct ImportExclusion {
+    pub source: String,
+    pub reason: String,
+}
+
+/// Newest first; equal times by source identity.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, TS)]
+#[ts(export, export_to = "project/")]
+pub struct ImportDiscovery {
+    pub candidates: Vec<ImportCandidate>,
+    pub excluded: Vec<ImportExclusion>,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, TS, JsonSchema)]
+#[ts(export, export_to = "project/")]
+pub struct ImportSelection {
+    pub source: String,
+    pub revision: String,
+}
+
+/// U2875b: import the user's selection into this Project. At most 50 selections per call.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, TS, JsonSchema)]
+#[ts(export, export_to = "project/")]
+pub struct ImportCommitParams {
+    pub selections: Vec<ImportSelection>,
+}
+
+/// One source's result: the created (or earlier created) nodes, or the cause it was refused.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, TS)]
+#[ts(export, export_to = "project/")]
+pub struct ImportOutcome {
+    pub source: String,
+    pub workstream: Option<String>,
+    pub agent: Option<String>,
+    pub error: Option<String>,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, TS)]
+#[ts(export, export_to = "project/")]
+pub struct ImportResult {
+    pub outcomes: Vec<ImportOutcome>,
+}
