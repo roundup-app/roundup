@@ -390,9 +390,11 @@ it.each(["failed", "unknown"] as const)("u3021c_open_restores_exact_revision_wit
   opened.unmount();
 
   const changedSelection = { start: 7, end: 12, direction: "forward" as const };
+
   const reopen = () => render(() => <ConnectedProjectContext.Provider value={connected}>
     <Todos recovery={{ project: connected.project.path, revision: a.revision, list: todos }} />
   </ConnectedProjectContext.Provider>);
+
   const selected = reopen();
   const selectedField = screen.getByRole<HTMLInputElement>("textbox", { name: "New Todo title" });
   await waitFor(() => expect(document.activeElement).toBe(selectedField));
@@ -418,9 +420,11 @@ it("u3021c_todo_creation_discard_from_another_control_closes_the_selected_editor
   connected.drafts.settle(a.revision, "failed");
   const b = connected.drafts.edit(destination, { title: "keep B", home: null }, null, "ordinary").draft;
   const calls = [...app.calls];
+
   const opened = render(() => <ConnectedProjectContext.Provider value={connected}>
     <Todos recovery={{ project: connected.project.path, revision: a.revision, list: todos }} />
   </ConnectedProjectContext.Provider>);
+
   const field = screen.getByRole<HTMLInputElement>("textbox", { name: "New Todo title" });
   await waitFor(() => expect(document.activeElement).toBe(field));
   // The Shelf's recovery control is mounted separately from the recovered creation editor.
