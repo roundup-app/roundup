@@ -282,9 +282,22 @@
   --button-radius: var(--radius-row);
 }
 
-/* D8, D10: the confirm is a flat sunken surface with no shadow. */
+/* U2694: the dialog replaces the floating menu; its opaque surface keeps the standard panel shadow. */
 .rail-confirm.app-dialog {
-  box-shadow: none;
+  box-sizing: border-box;
+  width: min(360px, calc(100vw - var(--space-6)));
+}
+
+.rail-confirm [data-part="description"] {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+/* Keep retains initial focus without a box around the word. */
+.rail-confirm .word:focus {
+  outline: none;
+  color: var(--accent);
 }
 
 .rail-confirm-line {
