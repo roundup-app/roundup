@@ -11,6 +11,7 @@ let page: ChromePage;
 beforeAll(async () => {
   if (!found) throw new Error("U3710 needs Chromium");
   page = await openPage(found);
+  await setup();
 }, 90_000);
 
 afterAll(async () => { await page?.close(); });
@@ -56,9 +57,24 @@ const drag = async (from: Point, to: Point, release = true) => {
   if (release) await page.pointer("up", to.x, to.y);
 };
 
-const settled = () => new Promise((resolve) => setTimeout(resolve, 500));
+const settled = () => page.until(`() => !document.querySelector("[data-dnd-dragging], [data-dnd-placeholder]")`);
 
 run("u3710 dragging sideways sets depth and dragging vertically sets order", () => {
+  it("u3709_shift_tab_keeps_focus_when_siblings_change_tree_order", async () => {
+    await setup();
+    const order = await ids();
+
+    await page.call(`async order => {
+      await window.__fake.app.rpc('todo.setBlockers', {id: order[1], blockers: [order[0]]});
+      await window.__fake.app.rpc('todo.setBlockers', {id: order[2], blockers: [order[0]]});
+    }`, order);
+    await page.until(`() => document.querySelectorAll('.shelf .todo-list [aria-level="2"]').length === 2`);
+    await page.call(`rows => document.querySelectorAll(rows)[1].focus()`, rows);
+    await page.press("Tab", "Tab", 8);
+    await page.until(`() => document.querySelectorAll('.shelf .todo-list [aria-level="2"]').length === 1`);
+    expect(await page.call<number>(`() => Number(document.activeElement.closest('[data-todo]')?.dataset.todo)`)).toBe(order[1]);
+  });
+
   it("u3710_a_sideways_drag_calls_set_blockers_and_a_vertical_one_calls_reorder", async () => {
     await setup();
 
@@ -152,7 +168,13 @@ run("u3710 dragging sideways sets depth and dragging vertically sets order", () 
     expect(await calls()).toEqual([]);
 
     await setup();
-    await drag(await centre(1), { x: 5, y: 790 });
+    const first = await centre(0);
+    const last = await centre((await ids()).length - 1);
+
+    // First project a different order inside the list, then release outside it.
+    await drag(last, { x: last.x, y: first.y }, false);
+    await page.pointer("move", 900, first.y);
+    await page.pointer("up", 900, first.y);
     await settled();
     expect(await calls()).toEqual([]);
   }, 60_000);
