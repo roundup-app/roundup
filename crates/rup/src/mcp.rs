@@ -8,7 +8,7 @@ use std::time::Duration;
 
 use contracts::{
     Actor, ActorKind, HistoryParams, IdentifyParams, TouchedParams, agent, checkpoint, decision,
-    deliverable, link, message, pad, project, terminal, todo, workstream,
+    deliverable, link, message, pad, project, reaction, terminal, todo, workstream,
 };
 use rmcp::model::{
     CacheScope, CallToolRequestParams, CallToolResponse, CallToolResult, ContentBlock,
@@ -404,6 +404,20 @@ fn offered_tools() -> Vec<Offered> {
         offered::<deliverable::DeliverableId>(
             "deliverable.remove",
             "Explicitly remove a publication. User only; the identity and key cannot be reused.",
+        ),
+        offered::<reaction::CreateParams>(
+            "reaction.create",
+            "Save a named instruction that a declared condition (named Agents finished, a PR's checks passed, or one instant) delivers once to a target Agent as a Message. Needs an `operation` retry key, an `expires_at` and a target that is you or in your Reach; the definition is immutable, so to change it stop it and create another. A refusal saves nothing.",
+        ),
+        offered_without_params("reaction.list", "List the reactions you authorized."),
+        offered::<reaction::ReactionId>("reaction.get", "Read one reaction you authorized."),
+        offered::<reaction::ReactionId>(
+            "reaction.stop",
+            "Stop a reaction you authorized; no later firing is accepted.",
+        ),
+        offered::<reaction::RunParams>(
+            "reaction.run",
+            "Spend one remaining firing of a reaction you authorized now, with an `operation` retry key. Refused while the reaction is stopped.",
         ),
         offered::<todo::CreateParams>("todo.create", "Create a Todo."),
         offered::<todo::TodoId>("todo.get", "Read one Todo."),
