@@ -4819,10 +4819,10 @@ async fn a2693a_real_claude_skips_only_yolo_tool_permissions() {
         .await
         .unwrap();
     let id = node["id"].as_str().unwrap();
-    for (mode, prompt, expected_calls, tool) in [
-        (None, "A2693 normal tool", 1, "toolu_a2693_0"),
-        (Some("yolo"), "A2693 yolo tool", 1, "toolu_a2693_1"),
-        (Some("normal"), "A2693 restarted tool", 2, "toolu_a2693_2"),
+    for (mode, prompt, expected_calls) in [
+        (None, "A2693 normal tool", 1),
+        (Some("yolo"), "A2693 yolo tool", 1),
+        (Some("normal"), "A2693 restarted tool", 2),
     ] {
         if let Some(mode) = mode {
             client
@@ -4849,9 +4849,6 @@ async fn a2693a_real_claude_skips_only_yolo_tool_permissions() {
                 .await
                 .unwrap();
         }
-        // A resumed Attempt can still read idle before the tool runs; its result
-        // proves the permission outcome settled before we inspect the effect.
-        model.tool_result(tool).await;
         turn_done(model, &client, id, prompt).await;
         assert_eq!(
             std::fs::read_to_string(&calls).unwrap().lines().count(),
