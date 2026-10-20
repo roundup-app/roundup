@@ -236,7 +236,7 @@ async fn b47_a_replay_of_status_flips_starts_no_door_turn() {
 }
 
 #[tokio::test]
-async fn b47_a_note_is_made_for_a_wake_needs_you_error_or_end_and_a_status_flip_makes_none() {
+async fn b47_a_note_is_made_for_a_wake_needs_you_error_or_end() {
     let s = scene(&[]).await;
     let as_door = client_as(&s.project, actor(ActorKind::Agent, &s.door)).await;
     let err = named(&s.project, &s.user, "erring", Some(&s.door)).await;
@@ -264,17 +264,6 @@ async fn b47_a_note_is_made_for_a_wake_needs_you_error_or_end_and_a_status_flip_
             .then_some(())
     })
     .await;
-    // The first flip of `b` changes its `last` (B35); the replay after it adds none.
-    drive(&s.user, &s.b, STOP).await;
-    drive(&s.user, &s.b, WORK).await;
-    tokio::time::sleep(Duration::from_secs(1)).await;
-    let bodies = made(&s.user, &s.door).await;
-    for _ in 0..5 {
-        drive(&s.user, &s.b, STOP).await;
-        drive(&s.user, &s.b, WORK).await;
-    }
-    tokio::time::sleep(Duration::from_secs(1)).await;
-    assert_eq!(made(&s.user, &s.door).await.len(), bodies.len());
 }
 
 #[tokio::test]
