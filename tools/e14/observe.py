@@ -42,8 +42,8 @@ def rust_rows(path):
     for case in report.iter("testcase"):
         if case.find("skipped") is not None:
             continue
-        if any(case.find(tag) is not None for tag in ("failure", "error", "rerunFailure", "rerunError", "flakyFailure", "flakyError")):
-            raise ValueError(f"failed or retried Rust test: {case.attrib}")
+        if any(case.find(tag) is not None for tag in ("failure", "error", "rerunFailure", "rerunError")):
+            raise ValueError(f"failed Rust test: {case.attrib}")
         suite, name = case.attrib["classname"], case.attrib["name"]
         start = datetime.fromisoformat(case.attrib["timestamp"]).timestamp() * 1000
         # Conservatively include every test in the real-Claude binaries, including B21.
@@ -52,15 +52,28 @@ def rust_rows(path):
     if len(rows) != int(report.attrib["tests"]):
         raise ValueError("incomplete Rust lifecycle report")
     executions = [json.loads(p.read_text()) for p in (path.parent / "rust-events").glob("*.json")]
-    if len(executions) != len(rows) or {r["id"] for r in executions} != {r["id"] for r in rows}:
+    # L122: a retried test has one interval per attempt; the last attempt is the one that passed.
+    by_id = {r["id"]: r for r in sorted(executions, key=lambda r: r["start"])}
+    if set(by_id) != {r["id"] for r in rows} or len(executions) - len(by_id) != len(flaky_rust(path)):
         raise ValueError("missing or duplicate Rust execution intervals")
-    by_id = {r["id"]: r for r in executions}
     for row in rows:
         execution = by_id[row["id"]]
         if execution["exit_code"] != 0:
             raise ValueError(f"failed Rust execution: {row['id']}")
         row.update(start=execution["start"], end=execution["end"])
     return rows
+
+
+def flaky_rust(path):
+    """L122: the Rust tests that failed, then passed on a retry, from nextest's JUnit report."""
+    return [f'{case.attrib["classname"]}::{case.attrib["name"]}' for case in ET.parse(path).getroot().iter("testcase")
+            if case.find("flakyFailure") is not None or case.find("flakyError") is not None]
+
+
+def flaky_web(path):
+    """L122: the web tests that passed only on a retry, from the lifecycle reporter's file."""
+    return [row["id"] for module in json.loads(path.read_text())["modules"] for row in module["tests"]
+            if row["status"] == "passed" and row["retries"]]
 
 
 def nextest_config(root, output, profile):
@@ -88,8 +101,8 @@ def web_rows(path):
         for row in module["tests"]:
             if row["status"] == "skipped":
                 continue
-            if row["status"] != "passed" or row["retries"] or row["repeats"]:
-                raise ValueError(f"failed or retried web test: {row['id']}")
+            if row["status"] != "passed" or row["repeats"]:
+                raise ValueError(f"failed web test: {row['id']}")
             rows.append(row)
     return rows
 
@@ -134,6 +147,19 @@ def memory(args):
     raise ValueError("memory observer exceeded 15 minutes without lane completion")
 
 
+def report_flaky(lane, output):
+    """L122: lists the lane's tests that passed only on a retry under "Flaky" in the job summary and as a warning."""
+    report = output / ("junit.xml" if lane.startswith("rust") else "web.json")
+    flaky = (flaky_rust if lane.startswith("rust") else flaky_web)(report) if report.exists() else []
+    if not flaky:
+        return
+    for test in flaky:
+        print(f"::warning title=Flaky ({lane})::{test} passed only on retry")
+    if "GITHUB_STEP_SUMMARY" in os.environ:
+        with open(os.environ["GITHUB_STEP_SUMMARY"], "a") as summary:
+            summary.write(f"### Flaky ({lane})\n\n" + "".join(f"- `{test}`\n" for test in flaky) + "\n")
+
+
 def run(args):
     import psutil  # Installed only for observation, not for report validation.
 
@@ -160,7 +186,7 @@ def run(args):
         reporter = output / "reporter.mjs"
         reporter.write_text(Path(__file__).with_name("reporter.mjs.in").read_text())
         config = output / "vitest.config.mjs"
-        config.write_text("import desktop from " + json.dumps(str(root / "apps/desktop/vite.config.ts")) + ";\nexport default { ...desktop, test: { ...desktop.test, reporters: [...desktop.test.reporters, " + json.dumps(str(reporter)) + "] } };\n")
+        config.write_text("import desktop from " + json.dumps(str(root / "apps/desktop/vite.config.ts")) + ";\nexport default { ...desktop, test: { ...desktop.test, reporters: [...desktop.test.reporters, " + json.dumps(str(reporter)) + ", [\"junit\", { outputFile: " + json.dumps(str(output / "junit.xml")) + " }]] } };\n")
         command = ["python3", "loop/app-data.py", "python3", "tools/chromium-faults/observe.py", "--log", str(Path(os.environ["RUNNER_TEMP"]) / f"chromium-faults-{args.lane[3:]}.jsonl") if "RUNNER_TEMP" in os.environ else str(output / "chromium-faults.jsonl"), "--", "just", "test-web-since", args.base, f"--shard={args.lane[3:]}/7", "--config", str(config)]
     metadata = dict(lane=args.lane, commit=commit, full=not args.base, observer=observer, cache=cache, locks=locks, command=command,
                     runner={"name": os.environ.get("RUNNER_NAME", platform.node()), "hostname": platform.node(), "os": platform.platform(), "cpu_count": os.cpu_count(), "cpu": platform.processor(), "total_memory": psutil.virtual_memory().total,
@@ -204,6 +230,7 @@ def run(args):
         (output / "memory.jsonl").write_bytes(args.memory_log.read_bytes())
         metadata["memory"]["coverage"] = "from before CI setup through test command completion"
         (output / "lane.json").write_text(json.dumps(metadata, indent=2) + "\n")
+    report_flaky(args.lane, output)
     if metadata["exit_code"]:
         return metadata["exit_code"] if metadata["exit_code"] > 0 else 1
     if args.lane.startswith("rust") and (output / "junit.xml").exists():
