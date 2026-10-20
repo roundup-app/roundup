@@ -172,6 +172,7 @@ export const copy = {
   importTitle: "Import Claude Code work",
   importPeriod: "Period",
   importPeriodName: (value1: "day" | "week" | "month") => `Last ${value1}`,
+  importBase: "Worktree files come from the current Project Base. Historical uncommitted edits are not reconstructed.",
   importLooking: "Looking for conversations…",
   importNone: "No conversations to import in this period.",
   importResults: "Conversations",

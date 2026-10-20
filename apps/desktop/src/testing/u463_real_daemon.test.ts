@@ -1,5 +1,5 @@
 import { execFile } from "node:child_process";
-import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { promisify } from "node:util";
@@ -17,12 +17,12 @@ const ART = captureDir("U463");
 // E10: the Door's Claude is the pinned one, its model aimock serving these turns.
 const DOOR_REQUEST = resolve(process.cwd(), "src/testing/fixtures/u463_door_request.json");
 
-const observer = async (width: number, input: "keyboard" | "pointer", name: string, fixture?: string, running?: StartedDaemon) => {
+const observer = async (width: number, input: "keyboard" | "pointer", name: string, fixture?: string, running?: StartedDaemon, env: Record<string, string> = {}) => {
   const executable = chromePath();
 
   if (!executable) throw new Error("U463 needs a Chrome binary: set CHROME_PATH");
 
-  const real = running ?? await startRealDaemon({}, true, undefined, fixture);
+  const real = running ?? await startRealDaemon(env, true, undefined, fixture);
   const profile = await mkdtemp(join(tmpdir(), "u463-browser-"));
   const config = join(profile, "agent-browser-config.json");
 
@@ -30,10 +30,10 @@ const observer = async (width: number, input: "keyboard" | "pointer", name: stri
   await writeFile(config, "{}");
   const session = `u463-${process.pid}-${width}-${input}-${name}`;
 
-  const env = Object.fromEntries(Object.entries(process.env).filter(([key]) => !key.startsWith("AGENT_BROWSER_")));
+  const browserEnv = Object.fromEntries(Object.entries(process.env).filter(([key]) => !key.startsWith("AGENT_BROWSER_")));
 
   const browser = async (...args: string[]) => {
-    const { stdout } = await execute("agent-browser", ["--executable-path", executable, "--args", "--no-sandbox", "--config", config, "--session", session, "--profile", profile, "--json", ...args], { env, timeout: 60_000, maxBuffer: 4 * 1024 * 1024 }).catch((error) => { throw new Error(`${error.message}\n${error.stdout}\n${error.stderr}`); });
+    const { stdout } = await execute("agent-browser", ["--executable-path", executable, "--args", "--no-sandbox", "--config", config, "--session", session, "--profile", profile, "--json", ...args], { env: browserEnv, timeout: 60_000, maxBuffer: 4 * 1024 * 1024 }).catch((error) => { throw new Error(`${error.message}\n${error.stdout}\n${error.stderr}`); });
     const reply = JSON.parse(stdout);
 
     expect(reply.success, stdout).toBe(true);
@@ -226,6 +226,7 @@ it("u2773g_journey_retains_unfinished_work", async () => {
   try {
     await browser("open", `${real.base}/harness.html?daemon=1&seed=first-run`);
     await browser("set", "viewport", "1512", "950");
+    await browser("set", "media", "dark");
     await wait("document.body.textContent.includes('Open a folder to start')");
     await activate('[aria-label="Centre"] button');
     await wait("!!document.querySelector('.pane-action')");
@@ -340,6 +341,7 @@ it("u2773g_journey_retains_unfinished_work", async () => {
 
     if (captureDir("U2773g")) {
       // Reuse the densest established diff seed solely for the critic observer.
+
       for (const state of ["dense", "dense&retention"]) {
         await browser("open", `${real.base}/src/changes/u2540.html?${state}`);
         await wait("!!document.querySelector('.worktree-control')");
@@ -390,6 +392,7 @@ it("u2773a_changes_real_project_reopen_and_reload_restore_exact_form", async () 
     await writeFile(join(node.worktree!.path, "result.txt"), "changed result\nsecond line\n");
     await browser("open", `${real.base}/harness.html?daemon=1`);
     await browser("set", "viewport", "1512", "950");
+    await browser("set", "media", "dark");
     await form();
     await browser("fill", ".note-form textarea", text);
     await browser("find", "label", "End line", "fill", "2");
@@ -410,3 +413,91 @@ it("u2773a_changes_real_project_reopen_and_reload_restore_exact_form", async () 
     }
   } finally { await fixture.close(); }
 }, 180_000);
+
+it("u2875d_real_import_reopen_and_resume", async () => {
+  const fixture = await observer(1512, "pointer", "import", undefined, undefined, { FAKE_CLAUDE_LAUNCH_LOG: "/dev/null" });
+  const { real, browser, wait, activate, app } = fixture;
+
+  try {
+    const recorded = await readFile(resolve(process.cwd(), "../../crates/agents/tests/fixtures/import-2.1.300/top-level.jsonl"), "utf8");
+    const stamped = recorded.replaceAll("/fixture/project", real.dir).replace(/"timestamp":"[^"]+"/g, () => `"timestamp":"${new Date().toISOString()}"`);
+    const bucket = join(real.dir, "claude-config", "projects", "bucket");
+
+    await mkdir(bucket, { recursive: true });
+    await writeFile(join(bucket, "00000001-1111-4111-8111-111111111111.jsonl"), stamped);
+    await browser("open", `${real.base}/harness.html?daemon=1`);
+    await browser("set", "viewport", "1512", "950");
+    await browser("set", "media", "dark");
+    await wait("!!document.querySelector('.rail-import')");
+    await activate(".rail-import");
+    await wait("!!document.querySelector('.import-check')");
+    await activate(".import-check");
+    await wait("!document.querySelector('.import-confirm').disabled");
+    await activate(".import-confirm");
+    await wait("!document.querySelector('.import-panel') && !!document.querySelector('.rail-row[data-id]')");
+    const child = (await app.rpc("rail.tree", null)).find((node) => node.kind === "agent")!;
+    const parent = (await app.rpc("rail.tree", null)).find((node) => node.id === child.parent)!;
+
+    expect([child.terminal_id, child.attempt, child.status_revision, child.can_resume]).toEqual([null, null, null, true]);
+    expect(await app.rpc("terminal.list", null)).toEqual([]);
+    await wait(`[...document.querySelectorAll('button')].some(button => button.getAttribute('aria-label') === 'Start supervisor')`);
+
+    const captures = captureDir("U2875d");
+
+    if (captures) {
+      await mkdir(captures, { recursive: true });
+      await browser("screenshot", join(captures, "imported-closed.png"));
+    }
+
+    // A fresh page cannot reuse the old connection after a Daemon restart.
+    await browser("open", "about:blank");
+    await real.restart();
+    await browser("open", `${real.base}/harness.html?daemon=1`);
+    await wait(`!!document.querySelector('.rail-row[data-id="${child.id}"]')`);
+    await activate(`.rail-row[data-id="${child.id}"] .name`);
+    await wait(`[...document.querySelectorAll('button')].some(button => button.getAttribute('aria-label') === 'Resume')`);
+    await browser("find", "role", "button", "click", "--name", "Resume", "--exact");
+    await wait(`!!document.querySelector('.rail-row[data-id="${child.id}"][data-kind="idle"]')`);
+    const resumed = (await app.rpc("rail.tree", null)).find((node) => node.id === child.id)!;
+
+    expect(resumed.attempt).toBe("1");
+    expect(resumed.terminal_id).not.toBeNull();
+    expect((await app.rpc("terminal.list", null)).map((terminal) => terminal.id)).toContain(resumed.terminal_id);
+    await browser("find", "role", "button", "click", "--name", "Start supervisor", "--exact");
+    await wait(`!!document.querySelector('.rail-row[data-id="${parent.id}"][data-kind="idle"]')`);
+    expect((await app.rpc("rail.tree", null)).find((node) => node.id === parent.id)?.terminal_id).not.toBeNull();
+
+    if (captures) {
+      await browser("set", "media", "dark");
+      await browser("open", `${real.base}/harness.html?seed=tree-40`);
+      await wait("!!window.__fake && !!document.querySelector('.rail-import')");
+      await browser("eval", `(() => {
+        const app = window.__fake.app;
+        window.__importCandidates = Array.from({ length: 10 }, (_, i) => ({ source: 's' + i, title: '調査と実装 — résumé — ' + 'Long conversation title '.repeat(8) + i, cwd: 'packages/deep/' + 'folder/'.repeat(10) + 'destination-' + i, last_activity_ms: BigInt(Date.now() - i * 1000), revision: 'r' + i }));
+        app.handlers['project.importDiscover'] = () => ({ candidates: window.__importCandidates, excluded: [{ source: 'missing', reason: 'Source unavailable: recorded folder no longer exists.' }] });
+        app.handlers['project.importCommit'] = ({ selections }) => ({ outcomes: selections.map(entry => ({ source: entry.source, workstream: null, agent: null, error: 'Copy refused: source changed. Refresh and choose again.' })) });
+      })()`);
+      await activate(".rail-import");
+      await wait("document.querySelectorAll('.import-check').length === 10");
+
+      const capture = async (step: string) => {
+        await browser("screenshot", join(captures, `${step}.png`));
+        await writeFile(join(captures, `${step}.checks.json`), JSON.stringify((await browser("eval", "window.__checks()")).result));
+      };
+
+      await capture("dense");
+      await activate(".import-check");
+      await wait("!document.querySelector('.import-confirm').disabled");
+      await activate(".import-confirm");
+      await wait("document.querySelector('.import-error')?.textContent.includes('Copy refused')");
+      await capture("partial-failure");
+
+      for (const state of ["failure", "empty", "loading"]) {
+        await browser("eval", `window.__fake.app.handlers['project.importDiscover'] = ${state === "failure" ? "() => { throw new Error('Discovery unavailable: permission denied. Retry with Refresh.'); }" : state === "empty" ? "() => ({ candidates: [], excluded: [] })" : "() => new Promise(() => {})"}`);
+        await browser("find", "role", "button", "click", "--name", "Refresh", "--exact");
+        await wait(state === "failure" ? "document.querySelector('.import-panel [role=alert]')?.textContent.includes('Discovery unavailable')" : state === "empty" ? "document.querySelector('.import-panel [role=status]')?.textContent.includes('No conversations')" : "document.querySelector('.import-panel [role=status]')?.textContent.includes('Looking')");
+        await capture(state);
+      }
+    }
+  } finally { await fixture.close(); }
+}, 240_000);

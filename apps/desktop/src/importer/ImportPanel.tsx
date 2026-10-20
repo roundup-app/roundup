@@ -5,6 +5,7 @@ import * as v from "valibot";
 import type { ImportCandidate } from "@contracts/project/ImportCandidate";
 import type { ImportDiscovery } from "@contracts/project/ImportDiscovery";
 import type { ImportPeriod } from "@contracts/project/ImportPeriod";
+import { INTERNAL_CODE, RpcError } from "../app/seam";
 import { copy } from "../copy";
 import { ErrorLine } from "../ink/ErrorLine";
 import { registerKeys } from "../keys/registry";
@@ -33,7 +34,7 @@ export const ImportPanel = (props: { open: boolean; opener: HTMLElement | undefi
   onCleanup(release);
 
   const parsed = v.safeParse(form, drafts.list().filter((draft) => draft.destination.surface === SURFACE
-    && draft.destination.object === project.path && draft.status === "draft").at(-1)?.value);
+    && draft.destination.object === project.path).at(-1)?.value);
 
   const saved = parsed.success ? parsed.output : null;
 
@@ -57,7 +58,7 @@ export const ImportPanel = (props: { open: boolean; opener: HTMLElement | undefi
     else drafts.edit(destination, { period: period(), ...packed(wanted()) }, null, "ordinary");
   };
 
-  const discover = async (keep: ReadonlyMap<string, string> = new Map()): Promise<void> => {
+  const discover = async (keep: ReadonlyMap<string, string> = refused()): Promise<void> => {
     const mine = ++ticket;
     setFound(null);
     setFailure(null);
@@ -94,6 +95,7 @@ export const ImportPanel = (props: { open: boolean; opener: HTMLElement | undefi
     if (pending() || next === period()) return;
     setPeriod(next);
     setWanted(new Map());
+    setRefused(new Map());
     keep();
     void discover();
   };
@@ -131,7 +133,7 @@ export const ImportPanel = (props: { open: boolean; opener: HTMLElement | undefi
       keep();
       await discover(reasons);
     } catch (error) {
-      drafts.settle(retained.revision, "failed");
+      drafts.settle(retained.revision, error instanceof RpcError && error.code !== -32004 && error.code !== INTERNAL_CODE ? "failed" : "unknown");
       setFailure(error instanceof Error ? error.message : String(error));
     } finally {
       setPending(false);
@@ -169,6 +171,7 @@ export const ImportPanel = (props: { open: boolean; opener: HTMLElement | undefi
               </button>
             )}</For>
           </div>
+          <p class="import-note">{copy.importBase}</p>
           <Show when={failure()}>{(message) => <ErrorLine message={message()} />}</Show>
           <Show when={found()} fallback={<Show when={!failure()}><p role="status">{copy.importLooking}</p></Show>}>
             {(result) => <>
@@ -182,11 +185,14 @@ export const ImportPanel = (props: { open: boolean; opener: HTMLElement | undefi
                       <span class="import-text">
                         <span class="import-title">{candidate.title}</span>
                         <span class="import-cwd"><bdi>{candidate.cwd === "" ? copy.importProjectFolder : candidate.cwd}</bdi></span>
+                        <time class="import-activity" dateTime={new Date(Number(candidate.last_activity_ms)).toISOString()}>{new Date(Number(candidate.last_activity_ms)).toLocaleString()}</time>
                       </span>
                     </label>
                     <Show when={refused().get(candidate.source)}>{(reason) => <div class="import-error"><ErrorLine message={reason()} /></div>}</Show>
                   </li>
                 )}</For>
+                <For each={result().excluded}>{(excluded) => <li><div class="import-text import-unavailable"><span class="import-title">{excluded.source}</span><ErrorLine message={excluded.reason} /></div></li>}</For>
+                <For each={[...refused()].filter(([source]) => !result().candidates.some((candidate) => candidate.source === source))}>{([source, reason]) => <li><div class="import-text import-unavailable"><span class="import-title">{source}</span><ErrorLine message={reason} /></div></li>}</For>
               </ul>
             </>}
           </Show>
