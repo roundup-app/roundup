@@ -197,6 +197,12 @@ impl Rail {
             .map_err(sql)?
             .unwrap_or(false);
         if same && batch.contributions.is_empty() && batch.cause.is_none() {
+            self.db
+                .execute(
+                    "DELETE FROM measurement_positions WHERE source=?1 AND file='collection'",
+                    [&owner.source],
+                )
+                .map_err(sql)?;
             return Ok(());
         }
         let tx = self.db.transaction().map_err(sql)?;
