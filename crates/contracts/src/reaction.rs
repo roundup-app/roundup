@@ -19,7 +19,8 @@ pub enum Condition {
         #[ts(optional)]
         any: Option<bool>,
     },
-    /// The required checks of a named PR's head passed.
+    /// The required checks of a named PR's head passed. `repository` is `host/owner/name`; the PR is the
+    /// one the target Agent's Worktree holds, and its head is pinned at activation.
     PrChecks { repository: String, number: u32 },
     /// One explicit instant: RFC 3339 with its UTC offset, and what to do when it is missed.
     Instant { at: String, late: LatePolicy },
@@ -32,6 +33,30 @@ pub enum Condition {
 pub enum LatePolicy {
     OnceBeforeExpiry,
     Skip,
+}
+
+/// NR6 `reaction.preview`: a civil date, time and UTC offset the user typed. There is no zone name: an
+/// offset is the only form with no ambiguous or nonexistent local time.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, TS, JsonSchema)]
+#[serde(deny_unknown_fields)]
+#[ts(export, export_to = "reaction/")]
+pub struct PreviewParams {
+    /// `YYYY-MM-DD`.
+    pub date: String,
+    /// `HH:MM` or `HH:MM:SS`.
+    pub time: String,
+    /// `Z` or `+HH:MM` / `-HH:MM`.
+    pub offset: String,
+}
+
+/// What activation keeps: `at` is the exact `Condition::Instant` text to submit, `utc` the instant it
+/// resolves to.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, TS, JsonSchema)]
+#[ts(export, export_to = "reaction/")]
+pub struct Preview {
+    pub at: String,
+    pub utc: String,
+    pub offset: String,
 }
 
 /// `reaction.create`: the caller's Actor comes from its connection, never from here.
@@ -82,6 +107,8 @@ pub struct RunParams {
 pub enum State {
     Active,
     Stopped,
+    /// NR7: the pinned PR head moved; a replacement is an explicit new reaction.
+    Invalidated,
 }
 
 /// Whether the condition's source is being watched: `not-observing` until a source is, then
@@ -99,6 +126,14 @@ pub struct Observation {
     pub recovery: Option<String>,
     /// The source facts of the last evaluation, as reported by the source.
     pub evidence: Option<String>,
+    /// NR7: the PR head a PrChecks reaction is pinned to.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[ts(optional)]
+    pub pinned_head: Option<String>,
+    /// NR7: why the condition cannot match now, or why it was invalidated; absent while it can.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[ts(optional)]
+    pub cause: Option<String>,
 }
 
 /// An accepted firing and the Message it made (NR3, NR8). `matched` says whether a condition held; an

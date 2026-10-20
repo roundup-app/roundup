@@ -108,6 +108,10 @@ const TOOLS: &[(&str, &str)] = &[
         "reaction_create",
         "save a named instruction that a declared condition (named Agents finished, a PR's checks passed or one instant) delivers once to a target Agent that is you or in your Reach; it needs an `operation` retry key and an expiry, and to change one you stop it and create another",
     ),
+    (
+        "reaction_preview",
+        "resolve a date, time and UTC offset to the exact `instant` condition `at` and its UTC instant before creating a time reaction; it saves nothing",
+    ),
     ("reaction_list", "list the reactions you authorized"),
     (
         "reaction_get",
