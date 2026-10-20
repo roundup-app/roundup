@@ -318,8 +318,16 @@ p {
   right: 0;
   bottom: 0;
   left: var(--rail-width);
-  background-color: var(--scrim);
   opacity: 0;
+  pointer-events: none;
+}
+
+/* Dim the whole window while keeping the existing outside-click target. */
+.shelf-scrim::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  background-color: var(--scrim);
   pointer-events: none;
 }
 
