@@ -98,6 +98,8 @@ class GitHub:
         self.writes.append(args)
         if args[0] == 'api' and args[1].endswith('/comments'):
             self.notes.append(note(args[3].removeprefix('body=')))
+        if args[:2] == ('issue', 'create'):
+            return 'https://github.com/o/r/issues/77\n'
         return ''
 
     def __enter__(self):
@@ -1432,6 +1434,18 @@ class Review(unittest.TestCase):
         self.assertIn(('api', f'repos/{{owner}}/{{repo}}/statuses/{HEAD}', '-f', 'state=failure', '-f', 'context=review',
                        '-f', 'description=The review run answered reject', '-f', 'target_url=https://run/3'), github.writes)
         self.assertEqual(github.fixes(), [('-f', 'pr=9', '-f', f'head={HEAD}', '-f', 'cause=review')])
+
+    def test_l24_an_approve_files_its_followup_block_as_one_issue_and_a_reject_files_none(self):
+        findings = 'NOTE: x\n\nFOLLOWUP: an empty name crashes\nloop/a.py:3\ninput: ""\n\nNOTE: y'
+        with GitHub(view=pr()) as github:
+            builder.review_post(9, HEAD, 'reviewer-1', json.dumps(dict(verdict='approve', findings=findings)), True, 'https://run/3')
+        created = [w for w in github.writes if w[:2] == ('issue', 'create')]
+        self.assertEqual(len(created), 1)
+        self.assertIn('loop/a.py:3', created[0][-1])
+        self.assertEqual(github.bodies(), [f'VERDICT: approve\nHead: {HEAD}\n\nNOTE: x\n\nFollow-up: https://github.com/o/r/issues/77\n\nNOTE: y\n\nReviewed-by-Agent: reviewer-1'])
+        with GitHub(view=pr()) as github:
+            builder.review_post(9, HEAD, 'reviewer-1', json.dumps(dict(verdict='reject', findings=findings)), True, 'https://run/3')
+        self.assertEqual([w for w in github.writes if w[:2] == ('issue', 'create')], [])
 
     def test_l24_an_approval_on_a_user_pr_starts_no_fix(self):
         with GitHub(view=pr(headRefName='stock-loop')) as github:
