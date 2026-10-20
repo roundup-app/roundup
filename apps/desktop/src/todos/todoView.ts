@@ -100,7 +100,7 @@ type TreeNode = { id: string; children?: TreeNode[] };
 /** The rows as the TreeView's collection: each row's children are the rows naming it as parent. */
 export const treeCollection = (rows: readonly NestedRow[]) => {
   const children = (parent: number | null): TreeNode[] =>
-    rows.filter((row) => row.parent === parent).map((row) => ({ id: String(row.todo.id), children: children(row.todo.id) }));
+    rows.flatMap((row) => (row.parent === parent ? [{ id: String(row.todo.id), children: children(row.todo.id) }] : []));
 
   return createTreeCollection<TreeNode>({
     nodeToValue: (node) => node.id,
