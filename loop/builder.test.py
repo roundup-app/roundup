@@ -1218,6 +1218,12 @@ class Critic(unittest.TestCase):
                        '-f', 'description=The PR changes nothing under apps/desktop/src: no design critic run',
                        '-f', 'target_url='), github.writes)
 
+    def test_l24_a_pr_with_no_src_change_reruns_the_cancelled_check_when_review_approved_first(self):
+        run = dict(id=55, display_title='Check', status='completed', conclusion='cancelled', run_attempt=1)
+        with GitHub(view=pr(), files=['loop/x.sh'], statuses=dict(review='success', critic='success'), check_runs=[run]) as github:
+            builder.critic_task(9, HEAD)
+        self.assertIn(('run', 'rerun', '55'), github.writes)
+
     def test_l103_a_pr_past_the_300_file_diff_limit_still_gets_its_critic_task(self):
         changed = [f'artifacts/ux/{index}.png' for index in range(400)] + UI
         with GitHub(view=pr(), files=changed) as github:
