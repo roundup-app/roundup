@@ -7,7 +7,7 @@ The `boxd` selector prints `all` only for runner, integration or package-configu
 runs from where HEAD forked from <base> to the working tree, untracked files included, so a Builder's uncommitted change
 counts. No output: no test reaches the diff. Exit 2: bad usage; a failed git or cargo call exits non-zero.
 L122: `edited-rust` prints a nextest filter expression naming the Rust tests the diff adds or edits, `edited-web` the
-test files it adds or edits, as paths from `apps/desktop/`; both need a base."""
+test files it adds or edits, less those that start a real `rupd`, as paths from `apps/desktop/`; both need a base."""
 import json
 from pathlib import Path
 import re
@@ -30,6 +30,8 @@ APP = 'apps/desktop/'
 WEB_EVERYTHING = ('contracts/', 'docs/wireframes.md', 'docs/design-system.md', 'scenarios/app.md')
 # The module every web test that starts a real `rupd` imports.
 DAEMON = 'apps/desktop/src/testing/realDaemonPlugin.ts'
+# L122: a web test file importing either module starts a real `rupd`; the fixture spawns it, the plugin serves it.
+STARTS_DAEMON = re.compile(r'''from\s+["']\S*/realDaemon(?:Fixture|Plugin)(?:\.ts)?["']''')
 # Web tests that read a folder outside the App from disk: a change under the folder reaches each.
 WEB_READS = {'artifacts/ux/': ('apps/desktop/src/testing/captures.test.ts',)}
 # L121: the prepared runner, its callers and the package/CI configuration its regressions execute under.
@@ -72,6 +74,10 @@ def web(changed):
                   {test for prefix, tests in WEB_READS.items() if any(under(path, [prefix]) for path in changed)
                    for test in tests} |
                   ({DAEMON} if any(path.startswith('crates/') for path in changed) else set()))
+
+
+def starts_daemon(path):
+    return bool(STARTS_DAEMON.search((ROOT / path).read_text()))
 
 
 def is_web_test(path):
@@ -155,7 +161,8 @@ def main(argv):
         print(edited_rust(git, fork, changed, untracked))
         return 0
     if lane == 'edited-web':
-        print('\n'.join(path.removeprefix(APP) for path in sorted(changed) if is_web_test(path) and (ROOT / path).exists()))
+        print('\n'.join(path.removeprefix(APP) for path in sorted(changed)
+                        if is_web_test(path) and (ROOT / path).exists() and not starts_daemon(path)))
         return 0
     selected = crates(changed, workspace()) if lane == 'rust' else (web(changed) if lane == 'web' else boxd(changed))
     if selected != 'all' and lane == 'web':
