@@ -61,11 +61,7 @@ impl Launcher {
             return Err(RpcError::internal("invalid saved conversation id"));
         }
         let cwd = cwd.canonicalize().map_err(RpcError::internal)?;
-        let project: String = cwd
-            .to_string_lossy()
-            .chars()
-            .map(|c| if c.is_ascii_alphanumeric() { c } else { '-' })
-            .collect();
+        let project = super::discovery::encoded(&cwd);
         Ok(self
             .conversation_dir
             .join("projects")

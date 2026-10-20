@@ -421,7 +421,7 @@ it("u2875d_real_import_reopen_and_resume", async () => {
   try {
     const recorded = await readFile(resolve(process.cwd(), "../../crates/agents/tests/fixtures/import-2.1.300/top-level.jsonl"), "utf8");
     const stamped = recorded.replaceAll("/fixture/project", real.dir).replace(/"timestamp":"[^"]+"/g, () => `"timestamp":"${new Date().toISOString()}"`);
-    const bucket = join(real.dir, "claude-config", "projects", "bucket");
+    const bucket = join(real.dir, "claude-config", "projects", real.dir.replace(/[^a-zA-Z0-9]/g, "-"));
 
     await mkdir(bucket, { recursive: true });
     await writeFile(join(bucket, "00000001-1111-4111-8111-111111111111.jsonl"), stamped);
@@ -442,7 +442,7 @@ it("u2875d_real_import_reopen_and_resume", async () => {
     expect(await app.rpc("terminal.list", null)).toEqual([]);
     await wait(`[...document.querySelectorAll('button')].some(button => button.getAttribute('aria-label') === 'Start supervisor')`);
 
-    const captures = captureDir("U2875d");
+    const captures = captureDir("U3037d") ?? captureDir("U2875d");
 
     if (captures) {
       await mkdir(captures, { recursive: true });
@@ -468,6 +468,7 @@ it("u2875d_real_import_reopen_and_resume", async () => {
     expect((await app.rpc("rail.tree", null)).find((node) => node.id === parent.id)?.terminal_id).not.toBeNull();
 
     if (captures) {
+      await browser("record", "start", join(captures, "recovery.webm"));
       await browser("set", "media", "dark");
       await browser("open", `${real.base}/harness.html?seed=tree-40`);
       await wait("!!window.__fake && !!document.querySelector('.rail-import')");
@@ -492,12 +493,14 @@ it("u2875d_real_import_reopen_and_resume", async () => {
       await wait("document.querySelector('.import-error')?.textContent.includes('Copy refused')");
       await capture("partial-failure");
 
-      for (const state of ["failure", "empty", "loading"]) {
-        await browser("eval", `window.__fake.app.handlers['project.importDiscover'] = ${state === "failure" ? "() => { throw new Error('Discovery unavailable: permission denied. Retry with Refresh.'); }" : state === "empty" ? "() => ({ candidates: [], excluded: [] })" : "() => new Promise(() => {})"}`);
+      for (const state of ["failure", "empty", "loading", ...(captureDir("U3037d") ? ["rpc-timeout", "deadline"] : [])]) {
+        await browser("eval", `window.__fake.app.handlers['project.importDiscover'] = ${state === "failure" ? "() => { throw new Error('Discovery unavailable: permission denied. Retry with Refresh.'); }" : state === "rpc-timeout" ? "() => { throw new Error('no reply to project.importDiscover within 30s; whether the Daemon accepted the request is unknown. Refresh to try again.\\nSource: /a/very/long/path/without/spaces/that/must/wrap/and/remain/readable/while/the/recovery/actions/stay/available'); }" : state === "empty" ? "() => ({ candidates: [], excluded: [] })" : "() => new Promise(() => {})"}`);
         await browser("find", "role", "button", "click", "--name", "Refresh", "--exact");
-        await wait(state === "failure" ? "document.querySelector('.import-panel [role=alert]')?.textContent.includes('Discovery unavailable')" : state === "empty" ? "document.querySelector('.import-panel [role=status]')?.textContent.includes('No conversations')" : "document.querySelector('.import-panel [role=status]')?.textContent.includes('Looking')");
+        await wait(state === "rpc-timeout" ? "document.querySelector('.import-panel [role=alert]')?.textContent.includes('within 30s')" : state === "deadline" ? "document.querySelector('.import-panel [role=alert]')?.textContent.includes('too long')" : state === "failure" ? "document.querySelector('.import-panel [role=alert]')?.textContent.includes('Discovery unavailable')" : state === "empty" ? "document.querySelector('.import-panel [role=status]')?.textContent.includes('No conversations')" : "document.querySelector('.import-panel [role=status]')?.textContent.includes('Looking')");
         await capture(state);
       }
+
+      await browser("record", "stop");
     }
   } finally { await fixture.close(); }
 }, 240_000);

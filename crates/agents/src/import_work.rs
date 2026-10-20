@@ -18,7 +18,7 @@ fn user_only(ctx: &Ctx) -> Result<(), RpcError> {
 }
 
 impl Agents {
-    pub(super) fn import_discover(
+    pub(super) async fn import_discover(
         &self,
         ctx: &Ctx,
         params: ImportDiscoverParams,
@@ -29,9 +29,10 @@ impl Agents {
             ImportPeriod::Week => 7,
             ImportPeriod::Month => 30,
         };
-        let found =
-            self.launcher
-                .discover_recent(self.project_dir(), store::now_ms(), days * DAY_MS)?;
+        let found = self
+            .launcher
+            .discover_recent(self.project_dir(), store::now_ms(), days * DAY_MS)
+            .await?;
         let rail = self.shared.rail();
         let mut out = ImportDiscovery {
             candidates: Vec::new(),

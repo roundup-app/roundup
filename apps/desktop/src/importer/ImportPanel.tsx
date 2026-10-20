@@ -7,7 +7,6 @@ import type { ImportDiscovery } from "@contracts/project/ImportDiscovery";
 import type { ImportPeriod } from "@contracts/project/ImportPeriod";
 import { INTERNAL_CODE, RpcError } from "../app/seam";
 import { copy } from "../copy";
-import { ErrorLine } from "../ink/ErrorLine";
 import { registerKeys } from "../keys/registry";
 import { useConnectedProject } from "../state/connectedProject";
 import { Dialog } from "../ui/Dialog";
@@ -49,11 +48,15 @@ export const ImportPanel = (props: { open: boolean; opener: HTMLElement | undefi
   const [pending, setPending] = createSignal(false);
   const [stale, setStale] = createSignal(0);
   let ticket = 0;
+  let deadline: ReturnType<typeof setTimeout> | undefined;
+  const invalidate = (): void => { ticket += 1; clearTimeout(deadline); };
+
+  onCleanup(invalidate);
   let panel: HTMLElement | undefined;
   let periods: HTMLDivElement | undefined;
   registerKeys({ kind: "layer", element: () => panel, active: () => props.open, modal: true }, []);
 
-  createEffect(() => { if (props.open) void untrack(() => discover()); });
+  createEffect(() => { if (props.open) void untrack(() => discover()); else invalidate(); });
 
   const keep = (): void => {
     if (wanted().size === 0 && period() === "week") {
@@ -67,7 +70,13 @@ export const ImportPanel = (props: { open: boolean; opener: HTMLElement | undefi
   };
 
   const discover = async (keep: ReadonlyMap<string, string> = refused()): Promise<void> => {
-    const mine = ++ticket;
+    invalidate();
+    const mine = ticket;
+    deadline = setTimeout(() => {
+      if (mine !== ticket) return;
+      invalidate();
+      setFailure(copy.importTimeout);
+    }, 20_000);
     setFound(null);
     setFailure(null);
 
@@ -75,6 +84,7 @@ export const ImportPanel = (props: { open: boolean; opener: HTMLElement | undefi
       const result = await app.rpc("project.importDiscover", { period: period() });
 
       if (mine !== ticket) return;
+      clearTimeout(deadline);
       setFound(result);
       const current = new Map(result.candidates.map((candidate) => [candidate.source, candidate.revision]));
       const changed = [...wanted()].flatMap(([source, revision]): [string, string][] => current.get(source) === revision ? [] : [[source, copy.importChanged]]);
@@ -82,7 +92,10 @@ export const ImportPanel = (props: { open: boolean; opener: HTMLElement | undefi
       setStale(changed.length);
       setRefused(new Map([...changed, ...keep]));
     } catch (error) {
-      if (mine === ticket) setFailure(error instanceof Error ? error.message : String(error));
+      if (mine === ticket) {
+        clearTimeout(deadline);
+        setFailure(error instanceof Error ? error.message : String(error));
+      }
     }
   };
 
@@ -151,7 +164,7 @@ export const ImportPanel = (props: { open: boolean; opener: HTMLElement | undefi
 
   const reset = (): void => {
     draftRevision = undefined;
-    ticket += 1;
+    invalidate();
     setStale(0);
     setWanted(new Map());
     setRefused(new Map());
@@ -180,8 +193,7 @@ export const ImportPanel = (props: { open: boolean; opener: HTMLElement | undefi
               </button>
             )}</For>
           </div>
-          <p class="import-note">{copy.importBase}</p>
-          <Show when={failure()}>{(message) => <ErrorLine message={message()} />}</Show>
+          <Show when={failure()}>{(message) => <p role="alert" class="import-failure">{message()}</p>}</Show>
           <Show when={found()} fallback={<Show when={!failure()}><p role="status">{copy.importLooking}</p></Show>}>
             {(result) => <>
               <Show when={result().candidates.length === 0}><p role="status">{copy.importNone}</p></Show>
@@ -197,11 +209,11 @@ export const ImportPanel = (props: { open: boolean; opener: HTMLElement | undefi
                         <time class="import-activity" dateTime={new Date(Number(candidate.last_activity_ms)).toISOString()}>{new Date(Number(candidate.last_activity_ms)).toLocaleString()}</time>
                       </span>
                     </label>
-                    <Show when={refused().get(candidate.source)}>{(reason) => <div class="import-error"><ErrorLine message={reason()} /></div>}</Show>
+                    <Show when={refused().get(candidate.source)}>{(reason) => <div class="import-error"><p role="alert" class="import-failure">{reason()}</p></div>}</Show>
                   </li>
                 )}</For>
-                <For each={result().excluded}>{(excluded) => <li><div class="import-text import-unavailable"><span class="import-title">{excluded.source}</span><ErrorLine message={excluded.reason} /></div></li>}</For>
-                <For each={[...refused()].filter(([source]) => !result().candidates.some((candidate) => candidate.source === source))}>{([source, reason]) => <li><div class="import-text import-unavailable"><span class="import-title">{source}</span><ErrorLine message={reason} /></div></li>}</For>
+                <For each={result().excluded}>{(excluded) => <li><div class="import-text import-unavailable"><span class="import-title">{excluded.source}</span><p role="alert" class="import-failure">{excluded.reason}</p></div></li>}</For>
+                <For each={[...refused()].filter(([source]) => !result().candidates.some((candidate) => candidate.source === source))}>{([source, reason]) => <li><div class="import-text import-unavailable"><span class="import-title">{source}</span><p role="alert" class="import-failure">{reason}</p></div></li>}</For>
               </ul>
             </>}
           </Show>
