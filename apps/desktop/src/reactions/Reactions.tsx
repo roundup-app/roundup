@@ -5,6 +5,7 @@ import type { Reaction } from "@contracts/reaction/Reaction";
 import type { Preview } from "@contracts/reaction/Preview";
 import type { Condition } from "@contracts/reaction/Condition";
 import { copy } from "../copy";
+import { RpcError } from "../app/seam";
 import { ErrorLine } from "../ink/ErrorLine";
 import { useConnectedProject } from "../state/connectedProject";
 import { Checkbox } from "../ui/Checkbox";
@@ -143,7 +144,15 @@ export const Reactions = (props: { state: ReturnType<typeof createReactions> }) 
 
   return <section class="reactions" aria-label={copy.reactions}>
     <Show when={view().kind === "create"}>
-      <ReactionForm onDone={(created) => { setMade(created); refresh(); setView({ kind: "detail", id: created.id }); queueMicrotask(() => document.querySelector<HTMLButtonElement>(".reaction-back")?.focus()); }} onCancel={back} />
+      <ReactionForm onDone={(created, reveal) => {
+        setMade(created);
+        refresh();
+
+        if (reveal) {
+          setView({ kind: "detail", id: created.id });
+          queueMicrotask(() => document.querySelector<HTMLButtonElement>(".reaction-back")?.focus());
+        }
+      }} onCancel={back} />
     </Show>
     <Show when={view().kind === "detail"}>
       <Show when={detail()} fallback={<><ErrorLine message={copy.reactionMissing} /><button type="button" data-button="quiet" onClick={back}>{copy.reactionBack}</button></>}>
@@ -264,11 +273,12 @@ const createPreview = (date: Accessor<string>, time: Accessor<string>, offset: A
   return createMemo(() => key() === null || read.loading ? undefined : read());
 };
 
-const ReactionForm = (props: { onDone: (made: Reaction) => void; onCancel: () => void }) => {
+const ReactionForm = (props: { onDone: (made: Reaction, reveal: boolean) => void; onCancel: () => void }) => {
   const { app, rail, drafts, project } = useConnectedProject();
   const records = () => drafts.list().filter((draft) => draft.destination.surface === destination.surface && draft.destination.object === destination.object);
 
   const current = () => records().at(-1);
+  const unresolved = () => records().find(draft => draft.status === "pending" || draft.status === "unknown");
 
   const fresh = blank(crypto.randomUUID());
 
@@ -319,7 +329,7 @@ const ReactionForm = (props: { onDone: (made: Reaction) => void; onCancel: () =>
   const ready = () => {
     const f = form();
 
-    return Number.isSafeInteger(Number(f.maxFirings)) && Number(f.maxFirings) > 0 && f.name.trim() !== "" && f.target !== "" && f.instruction.trim() !== "" && condition() !== null && resolvedAt(expiry) !== null && !busy();
+    return Number.isSafeInteger(Number(f.maxFirings)) && Number(f.maxFirings) > 0 && f.name.trim() !== "" && f.target !== "" && f.instruction.trim() !== "" && condition() !== null && resolvedAt(expiry) !== null && !busy() && !unresolved();
   };
 
   const home = () => rail.nodes.find(node => node.id === form().target)?.parent ?? null;
@@ -330,8 +340,12 @@ const ReactionForm = (props: { onDone: (made: Reaction) => void; onCancel: () =>
     const until = resolvedAt(expiry);
     const f = form();
 
-    if (!draft || !cond || !until || !drafts.submit(draft.revision)) return;
+    if (!draft || !cond || !until || unresolved() || !drafts.submit(draft.revision)) return;
 
+    await send(draft.revision, f, cond, until);
+  };
+
+  const send = async (revision: string, f: Form, cond: Condition, until: string) => {
     setFailure(null);
     setBusy(true);
 
@@ -341,13 +355,38 @@ const ReactionForm = (props: { onDone: (made: Reaction) => void; onCancel: () =>
         max_firings: Number(f.maxFirings), rearm: f.rearm, expires_at: until,
       });
 
-      drafts.settle(draft.revision, "acknowledged");
-
-      if (!disposed && !current()) props.onDone(made);
+      drafts.settle(revision, "acknowledged");
+      props.onDone(made, !disposed && !current());
     } catch (error) {
       if (!(error instanceof Error)) throw error;
-      drafts.settle(draft.revision, "failed");
-      setFailure(copy.reactionNotCreated(error.message));
+      const refused = error instanceof RpcError && [-32700, -32601, -32602, -32001, -32002, -32003].includes(error.code);
+      drafts.settle(revision, refused ? "failed" : "unknown");
+      setFailure(refused ? copy.reactionNotCreated(error.message) : copy.reactionCreationUnknown(error.message));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const reconcile = async () => {
+    const draft = unresolved();
+
+    if (!draft || draft.status !== "unknown" || busy()) return;
+
+    const f = v.parse(formSchema, draft.value);
+    setBusy(true);
+    setFailure(null);
+
+    try {
+      const until = await app.rpc("reaction.preview", { date: f.expDate, time: f.expTime, offset: f.expOffset });
+
+      const cond: Condition = f.kind === "agents" ? { kind: "agents", ids: f.ids, any: f.any }
+        : f.kind === "pr-checks" ? { kind: "pr-checks", repository: f.repository, number: Number(f.number) }
+          : { kind: "instant", at: (await app.rpc("reaction.preview", { date: f.atDate, time: f.atTime, offset: f.atOffset })).at, late: "once-before-expiry" };
+
+      await send(draft.revision, f, cond, until.at);
+    } catch (error) {
+      if (!(error instanceof Error)) throw error;
+      setFailure(copy.reactionCreationUnknown(error.message));
     } finally {
       setBusy(false);
     }
@@ -423,7 +462,8 @@ const ReactionForm = (props: { onDone: (made: Reaction) => void; onCancel: () =>
       </dl>
     </section>
     <Show when={drafts.problem()}>{problem => <><ErrorLine message={copy.draftRetention(project.path, copy.draftSurface("reactions"), problem().cause)} /><button type="button" data-button="quiet" onClick={() => drafts.retry()}>{copy.storageRetry}</button></>}</Show>
-    <Show when={failure()}>{(message) => <ErrorLine message={message()} />}</Show>
+    <Show when={unresolved()?.status === "unknown"}><ErrorLine message={failure() ?? copy.reactionCreationUnknown("")} /><button type="button" data-button="quiet" disabled={busy()} onClick={() => void reconcile()}>{copy.reactionCheckCreation}</button></Show>
+    <Show when={unresolved()?.status !== "unknown" && failure()}>{(message) => <ErrorLine message={message()} />}</Show>
     <div class="reaction-actions">
       <button type="submit" data-button="quiet" disabled={!ready()}>{copy.reactionSave}</button>
     </div>
