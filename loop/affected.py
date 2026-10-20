@@ -78,23 +78,13 @@ def is_web_test(path):
     return path.startswith(APP + 'src/') and path.endswith(('.test.ts', '.test.tsx'))
 
 
-def decorated_start(lines, index):
-    """The index of the first line of the attributes and doc comments above `lines[index]`: the line after the nearest
-    line above that ends an earlier item (`}`, `;` or `{`) at an indent no deeper than `lines[index]`. It reads no
-    brackets, strings or comments, so it may start early, which only selects a test more often, never less."""
-    indent = len(lines[index]) - len(lines[index].lstrip())
-    for above in range(index - 1, -1, -1):
-        line = lines[above]
-        if line.rstrip().endswith(('}', ';', '{')) and len(line) - len(line.lstrip()) <= indent:
-            return above + 1
-    return 0
-
-
 def rust_tests(source, touched):
     """The names of the Rust test functions of `source` (text) that a line of `touched` (1-based numbers) falls in, from
-    the first attribute or doc comment of its run above the test to the closing brace at the `fn` line's indent."""
+    the line after the previous test's end (the file's start for the first) to the closing brace at the `fn` line's
+    indent. It reads no brackets, strings or comments, so it starts early, which only selects a test more often."""
     lines = source.splitlines()
     names = []
+    after = 0
     for start, line in enumerate(lines):
         if not re.match(r'\s*#\[(?:\w+::)*test\b', line):
             continue
@@ -104,7 +94,8 @@ def rust_tests(source, touched):
         indent = re.match(r'\s*', lines[fn])[0]
         end = fn if lines[fn].rstrip().endswith('}') else next(
             (n for n in range(fn + 1, len(lines)) if lines[n].rstrip() == indent + '}'), len(lines) - 1)
-        first = decorated_start(lines, start)
+        first = min(after, start)
+        after = end + 1
         if any(first < number <= end + 1 for number in touched):
             names.append(re.search(r'fn\s+(\w+)', lines[fn])[1])
     return names
