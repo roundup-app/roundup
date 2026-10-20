@@ -20,11 +20,15 @@ export const OwnerGroups = <T,>(props: {
 }) => {
   const [closed, setClosed] = createSignal(["unassigned"]);
 
-  const shown = createMemo(() => {
+  const shown = createMemo<OwnerGroup<T>[]>((previous = []) => {
     const groups = props.groups().filter(group => group.items.length > 0 || props.dragging() || props.adding() === group.id);
 
-    // U3710, U3718: empty drop targets follow populated groups so revealing them never moves the source rows.
-    return props.dragging() ? [...groups.filter(group => group.items.length > 0), ...groups.filter(group => group.items.length === 0)] : groups;
+    if (!props.dragging()) return groups;
+
+    // U3710, U3718: append newly revealed targets and hold their places even when an owner's Todos change mid-drag.
+    const order = new Map(previous.map((group, at) => [group.id, at]));
+
+    return groups.toSorted((a, b) => (order.get(a.id) ?? groups.length) - (order.get(b.id) ?? groups.length));
   });
 
   const collection = createMemo(() => createTreeCollection<Entry>({
