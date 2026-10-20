@@ -488,6 +488,7 @@ export const copy = {
   todoNumberMark: "#",
   waitsOnTitles: (value1: CopyValue) => `Waits on ${value1}`,
   waitsOnWord: "Waits on ",
+  alsoWaitsOn: (value1: CopyValue) => `also waits on: ${value1}`,
   openBlocker: (value1: CopyValue) => `Open blocker ${value1}`,
   in: "In ",
   addTodo: "Add Todo",
