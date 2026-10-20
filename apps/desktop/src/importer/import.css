@@ -1,0 +1,130 @@
+.import-panel {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  box-sizing: border-box;
+  width: min(36rem, calc(100vw - var(--space-6) * 2));
+  max-height: calc(100vh - var(--space-6) * 2);
+  box-shadow: var(--shadow-drawer);
+}
+
+.import-panel [data-part="title"] {
+  font-weight: 600;
+  margin-block-end: var(--space-2);
+}
+
+.import-period button:focus-visible {
+  outline: none;
+  text-decoration: underline;
+  text-underline-offset: var(--space-1);
+}
+
+.import-period,
+.import-words {
+  display: flex;
+  gap: var(--space-3);
+  margin: 0;
+}
+
+.import-period [aria-pressed="true"] {
+  color: var(--text);
+  font-weight: 600;
+}
+
+.import-period [aria-pressed="false"] {
+  color: var(--text-dim);
+}
+
+.import-words {
+  align-items: center;
+  justify-content: space-between;
+}
+
+.import-actions {
+  display: flex;
+  gap: var(--space-3);
+}
+
+.import-confirm:not(:disabled) {
+  font-weight: 600;
+}
+
+.import-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  max-height: 50vh;
+  overflow-x: hidden;
+  overflow-y: auto;
+}
+
+.import-list li {
+  display: grid;
+  grid-template-columns: var(--space-5) minmax(0, 1fr);
+  column-gap: var(--space-3);
+}
+
+.import-list label {
+  display: grid;
+  grid-column: 1 / -1;
+  grid-template-columns: subgrid;
+  align-items: center;
+  min-height: var(--space-6);
+  padding-block: var(--space-2);
+}
+
+.import-check {
+  flex: none;
+}
+
+.import-text {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  flex: 1;
+  gap: var(--space-1);
+  line-height: 1.4;
+}
+
+.import-title,
+.import-cwd {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.import-cwd {
+  color: var(--text-dim);
+  font-size: var(--text-small);
+  direction: rtl;
+  text-align: left;
+}
+
+.import-positioner {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  align-items: flex-start;
+  padding-block: var(--space-6);
+  box-sizing: border-box;
+  justify-content: center;
+  z-index: 3;
+}
+
+.import-error {
+  grid-column: 2;
+  margin-block-end: var(--space-3);
+}
+
+.import-note,
+.import-activity {
+  color: var(--text-dim);
+  font-size: var(--text-small);
+  margin: 0;
+}
+
+.import-unavailable {
+  grid-column: 1 / -1;
+  padding-block: var(--space-2);
+}

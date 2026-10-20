@@ -301,9 +301,26 @@ class L89(unittest.TestCase):
         for changed, tests in (([test, 'docs/perf.md'], [test]), (['crates/rupd/src/lib.rs'], [affected.DAEMON]),
                                (['scenarios/loop-rules.md'], []),
                                (['apps/desktop/observers/U1/run.py'], []), (['loop/builder.py'], []),
-                               ([test, 'apps/desktop/src/rail/Rail.tsx'], 'all'), (['scenarios/app.md'], 'all'),
+                               ([test, 'apps/desktop/src/rail/Rail.tsx'], ['apps/desktop/src/rail/Rail.tsx', test]),
+                               (['apps/desktop/vite.config.ts'], 'all'), (['apps/desktop/index.html'], 'all'), (['scenarios/app.md'], 'all'),
                                (['pnpm-lock.yaml'], 'all')):
             self.assertEqual(tests, affected.web(changed), changed)
+
+    def test_l89_the_gate_accepts_a_skipped_lane_only_on_a_pull_request(self):
+        gate = (ROOT / '.github/workflows/check.yml').read_text().split('\n  check:\n', 1)[1].split('\n  summary:\n', 1)[0]
+        script = gate.split('        run: |\n', 1)[1]
+
+        def passes(event, **results):
+            lanes = {'plan': 'success', 'lint': 'success', 'rust': 'success', 'web': 'success', **results}
+            needs = json.dumps({lane: {'result': result} for lane, result in lanes.items()})
+            return subprocess.run(['bash', '-c', script], env={**os.environ, 'NEEDS': needs, 'EVENT': event},
+                                  capture_output=True).returncode == 0
+
+        self.assertTrue(passes('pull_request', rust='skipped', web='skipped'))
+        self.assertFalse(passes('push', rust='skipped'))
+        self.assertFalse(passes('pull_request', rust='failure'))
+        self.assertFalse(passes('pull_request', plan='skipped'))
+        self.assertFalse(passes('pull_request', plan='failure', rust='skipped'))
 
     def test_l89_a_builder_check_reaches_its_uncommitted_and_untracked_files(self):
         import io
