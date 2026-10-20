@@ -790,33 +790,6 @@ async fn named_idle() -> (Arc<Fixture>, String) {
 }
 
 #[tokio::test]
-async fn a2703a_prompt_errors_use_rail_names() {
-    let (f, id) = named_idle().await;
-    f.call("rail.rename", json!({"id": id, "name": "sad"}))
-        .await
-        .unwrap();
-    signal(&f, &id, "UserPromptSubmit").await;
-    let busy = f.agents.prompt(&id, "hello").await.unwrap_err();
-    assert!(matches!(busy, agents::PromptError::Busy { .. }));
-    assert!(busy.to_string().contains("sad") && !busy.to_string().contains("7013"));
-    signal(&f, &id, "Stop").await;
-    let rejected = f.agents.prompt(&id, "hello").await.unwrap_err();
-    assert!(matches!(rejected, agents::PromptError::NotAccepted { .. }));
-    assert!(
-        rejected
-            .to_string()
-            .contains("sad did not accept the prompt")
-    );
-    f.call("agent.stop", json!({"id":id})).await.unwrap();
-    let stopped = f.agents.prompt(&id, "hello").await.unwrap_err();
-    assert!(matches!(stopped, agents::PromptError::NotFound { .. }));
-    assert!(stopped.to_string().contains("sad") && !stopped.to_string().contains("7013"));
-    let gone = f.agents.prompt("8013", "hello").await.unwrap_err();
-    assert!(gone.to_string().contains("an Agent that is gone"));
-    assert!(!gone.to_string().contains("8013"));
-}
-
-#[tokio::test]
 async fn a2703a_prompt_failure_uses_renamed_rail_name() {
     let (f, id) = named_idle().await;
     for name in ["sad", "glad"] {

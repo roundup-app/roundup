@@ -777,12 +777,29 @@ async fn o8_the_prompt_survives_a_reopen_and_a_resume() {
     .await
     .unwrap();
     f.call("agent.stop", json!({"id": child})).await.unwrap();
-    let f = f.reopen();
+    let mut f = f.reopen();
+    // Refuse only after start returned a real Terminal and resume claimed it. This
+    // exercises launch and completed cleanup without waiting for the ack deadline.
+    f.agents = f.agents.with_resume_effect(|phase, _| {
+        if phase == "claimed" {
+            Err(RpcError::conflict("O8: launched resume refused"))
+        } else {
+            Ok(())
+        }
+    });
     assert_eq!(
         spawn_prompt(&f, &child).await.unwrap(),
         json!({"prompt": "the detail"})
     );
-    f.call("agent.resume", json!({"id": child})).await.ok();
+    let error = f
+        .call("agent.resume", json!({"id": child}))
+        .await
+        .unwrap_err();
+    assert!(
+        error.message.contains("O8: launched resume refused"),
+        "{error}"
+    );
+    assert!(f.terminals.list().iter().all(|terminal| !terminal.running));
     assert_eq!(
         spawn_prompt(&f, &child).await.unwrap(),
         json!({"prompt": "the detail"})
