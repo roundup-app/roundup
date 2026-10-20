@@ -74,7 +74,7 @@ component navigation, dismissal and focus (`u491a_shortcut_scope`, showing the
 Drawer/Shelf shortcut works once while mounted and stops after unmount).
 
 **U492a migration preserves the rendered journey and budgets.** Given
-`tree-40` with the Shelf and Todo Drawer, at 1512×950 in light and
+`tree-40` with the Shelf and Todo Drawer, at 1512×950 in
 dark, when the reorder, bulk-delete cancellation/success/failure, tab and Home
 menu paths above run, then D2, D5 and D6 pass and no Check passing on the same
 main baseline regresses (`u492a_rendered_checks`). D2 is the type/space Token
