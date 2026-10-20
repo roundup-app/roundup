@@ -33,6 +33,7 @@ type Recovery = (draft: Draft, facts: {
 }) => Availability;
 
 type ProjectDrafts = Drafts & {
+  importing: ReturnType<typeof createImport> | null;
   /** Surface-owned identity extraction, installed independently of the original editor.
    * App-run lifetime; facts come from the inspected connection, never a captured old one.
    */
@@ -64,6 +65,7 @@ export const createProjectDrafts = () => {
     const recovery = new Map<string, Recovery>();
 
     const holder: ProjectDrafts = {
+      importing: null,
       editor: storage.editor,
       recoverable: () => {
         revision();
@@ -162,9 +164,15 @@ export const connectProject = async (
 
   if (ended) stopDecisions();
 
-  const importing = createImport(app, project.path, (id) => {
+  const onImported = (id: string) => {
     void rail.refresh().then(() => rail.select(id));
-  });
+  };
+
+  // Import selections and pending acknowledgements share the App-owned Project lifetime.
+  const importing = drafts.importing ?? createImport(app, project.path, onImported);
+
+  importing.reconnect(app, onImported);
+  drafts.importing = importing;
 
   return { project, drafts, app, events, rail, importing, worktrees: createWorktreeState(app, rail, now, daemonExit), drawer: createDrawer(), decisions, asks: createAsks(app, events), takeover: createTakeover(app, events, daemonExit), reducedMotion, now, contractNotice, daemonExit, stopTerminalScheme: () => { stopDecisions(); stopTerminalScheme(); } };
 };

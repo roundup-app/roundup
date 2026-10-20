@@ -51,8 +51,8 @@ export const ImportPanel = (props: { state: ImportState; disabled: boolean }) =>
       )}</Show>
       <Show when={s().failure()}>{(message) => <ErrorLine message={message()} />}</Show>
       </div>
-      <Show when={s().retentionFailure()}>
-        <ErrorLine message={copy.importRetentionFailure} />
+      <Show when={s().restoreFailure() || s().retentionFailure()}>
+        <ErrorLine message={s().restoreFailure() ? copy.importRestoreFailure : copy.importRetentionFailure} />
         <p class="light">{copy.importRetentionRecovery}</p>
         <button data-button="quiet" class="word" onClick={() => s().retryStorage()}>{copy.retryStorage}</button>
       </Show>
