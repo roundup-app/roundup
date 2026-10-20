@@ -8,9 +8,9 @@ import type { Actor } from "@contracts/Actor";
 import { copy } from "../copy";
 
 /** The Rail's TreeView owns disclosure clicks, focus and arrow keys for Shelf groups. */
-export const Groups = <T,>(props: { items: Accessor<readonly T[]>; home: (item: T) => string | null; maker: (item: T) => Actor; children: (items: Accessor<T[]>) => JSX.Element }) => {
+export const Groups = <T,>(props: { items: Accessor<readonly T[]>; isUngrouped?: (item: T) => boolean; home: (item: T) => string | null; maker: (item: T) => Actor; children: (items: Accessor<T[]>) => JSX.Element }) => {
   const connected = useConnectedProject();
-  const groups = createMemo(() => shelfGroups(connected, props.items(), props.home, props.maker));
+  const groups = createMemo(() => shelfGroups(connected, props.items().filter(item => !props.isUngrouped?.(item)), props.home, props.maker));
   const [closed, setClosed] = createSignal(["unassigned"]);
 
   type Entry = { id: string; name: string; children: Entry[] };
@@ -44,7 +44,9 @@ export const Groups = <T,>(props: { items: Accessor<readonly T[]>; home: (item: 
     </TreeView.NodeProvider>;
   };
 
-  return <Show when={groups()[0]?.id !== "flat"} fallback={props.children(() => [...props.items()])}>
+  return <>
+    <Show when={props.items().some(item => props.isUngrouped?.(item))}>{props.children(() => props.items().filter(item => props.isUngrouped?.(item)))}</Show>
+    <Show when={groups()[0]?.id !== "flat"} fallback={props.children(() => props.items().filter(item => !props.isUngrouped?.(item)))}>
     <TreeView.Root collection={collection()} expandedValue={collection().getBranchValues().filter(id => !closed().includes(id))} selectedValue={[]} expandOnClick
       onExpandedChange={details => {
         const branches = collection().getBranchValues();
@@ -55,5 +57,5 @@ export const Groups = <T,>(props: { items: Accessor<readonly T[]>; home: (item: 
         <For each={groups().map(group => group.id)}>{(id, at) => branch(id, () => [at()])}</For>
       </TreeView.Tree>
     </TreeView.Root>
-  </Show>;
+  </Show></>;
 };

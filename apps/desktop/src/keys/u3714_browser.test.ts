@@ -91,4 +91,53 @@ it("u3714_capture_in_two_chords_on_tree_40", async () => {
   await browser("press", "Enter");
   await wait(`!!document.querySelector('.capture [role=alert]')`);
   await capture("U3715", "failed");
+  await browser("press", "Escape");
+  await wait(`!document.querySelector('.capture')`);
+  await read(`(async () => {
+    const { RpcError } = await import('/src/app/seam.ts');
+    window.__fake.app.handlers['todo.create'] = () => new Promise((resolve, reject) => {
+      window.__rejectCapture = () => reject(new RpcError(-32003, 'could not file the earlier thought'));
+    });
+  })()`);
+  await browser("press", "Meta+k");
+  await wait(`!!document.querySelector('.leader')`);
+  await browser("press", "t");
+  await wait(`document.activeElement === document.querySelector('.capture-field')`);
+  await browser("keyboard", "type", "Earlier thought to recover");
+  await browser("press", "Shift+Enter");
+  await wait(`document.querySelector('.capture-field').value === ''`);
+  await browser("keyboard", "type", "A newer thought stays current");
+  await read(`window.__rejectCapture()`);
+  await wait(`!!document.querySelector('[aria-label="Recovered capture draft"]')`);
+  await capture("U3715", "earlier-failure");
+  await browser("press", "Shift+Enter");
+  await wait(`document.querySelector('.capture-field').value === ''`);
+  await capture("U3716", "newer-submitted");
+
+}, 60_000);
+
+it("u2773a_capture_restores_exact_text_and_caret_after_webview_reload", async () => {
+  await browser("open", new URL("/harness.html?seed=tree-40", origin).href);
+  await wait(`!!window.__fake && !!document.querySelector('.rail-row')`);
+  await browser("press", "Meta+k");
+  await wait(`!!document.querySelector('.leader')`);
+  await browser("press", "t");
+  await wait(`document.activeElement === document.querySelector('.capture-field')`);
+  await read(`(() => {
+    const field = document.querySelector('.capture-field');
+    field.value = '  unfinished é\\n😀  ';
+    field.dispatchEvent(new Event('input', { bubbles: true }));
+    field.setSelectionRange(3, 9, 'backward');
+    field.dispatchEvent(new Event('select', { bubbles: true }));
+  })()`);
+  await browser("reload");
+  await wait(`!!window.__fake && !!document.querySelector('.rail-row')`);
+  await browser("press", "Meta+k");
+  await wait(`!!document.querySelector('.leader')`);
+  await browser("press", "t");
+  await wait(`document.activeElement === document.querySelector('.capture-field')`);
+  expect(await read(`(() => {
+    const field = document.querySelector('.capture-field');
+    return { text: field.value, caret: [field.selectionStart, field.selectionEnd, field.selectionDirection], sends: window.__fake.app.calls.filter(call => call.method === 'todo.create').length };
+  })()`)).toEqual({ text: "  unfinished é\n😀  ", caret: [3, 9, "backward"], sends: 0 });
 }, 60_000);
