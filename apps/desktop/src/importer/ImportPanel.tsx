@@ -33,10 +33,13 @@ export const ImportPanel = (props: { open: boolean; opener: HTMLElement | undefi
   const release = drafts.editor(destination);
   onCleanup(release);
 
-  const parsed = v.safeParse(form, drafts.list().filter((draft) => draft.destination.surface === SURFACE
-    && draft.destination.object === project.path).at(-1)?.value);
+  const restored = drafts.list().filter((draft) => draft.destination.surface === SURFACE
+    && draft.destination.object === project.path).at(-1);
+
+  const parsed = v.safeParse(form, restored?.value);
 
   const saved = parsed.success ? parsed.output : null;
+  let draftRevision = saved ? restored?.revision : undefined;
 
   const [period, setPeriod] = createSignal<ImportPeriod>(saved ? saved.period : "week");
   const [wanted, setWanted] = createSignal(new Map((saved?.sources ?? []).map((source, at) => [source, saved?.revisions[at] ?? ""])));
@@ -53,9 +56,14 @@ export const ImportPanel = (props: { open: boolean; opener: HTMLElement | undefi
   createEffect(() => { if (props.open) void untrack(() => discover()); });
 
   const keep = (): void => {
-    if (wanted().size === 0 && period() === "week") drafts.discard(drafts.list().find((draft) => draft.destination.surface === SURFACE
-      && draft.destination.object === project.path && draft.status === "draft")?.revision ?? "");
-    else drafts.edit(destination, { period: period(), ...packed(wanted()) }, null, "ordinary");
+    if (wanted().size === 0 && period() === "week") {
+      if (draftRevision) drafts.discard(draftRevision);
+      draftRevision = undefined;
+
+      return;
+    }
+
+    draftRevision = drafts.edit(destination, { period: period(), ...packed(wanted()) }, null, "ordinary").draft.revision;
   };
 
   const discover = async (keep: ReadonlyMap<string, string> = refused()): Promise<void> => {
@@ -104,6 +112,7 @@ export const ImportPanel = (props: { open: boolean; opener: HTMLElement | undefi
     if (pending() || !found() || wanted().size === 0) return;
     const selections = [...wanted()].map(([source, revision]) => ({ source, revision }));
     const retained = drafts.edit(destination, { period: period(), ...packed(wanted()) }, null, "ordinary").draft;
+    draftRevision = retained.revision;
     drafts.submit(retained.revision);
     setPending(true);
     setFailure(null);
@@ -141,6 +150,7 @@ export const ImportPanel = (props: { open: boolean; opener: HTMLElement | undefi
   };
 
   const reset = (): void => {
+    draftRevision = undefined;
     ticket += 1;
     setStale(0);
     setWanted(new Map());
@@ -151,9 +161,8 @@ export const ImportPanel = (props: { open: boolean; opener: HTMLElement | undefi
 
   const dismiss = (): void => {
     if (pending()) return;
-    const draft = drafts.list().filter((entry) => entry.destination.surface === SURFACE && entry.destination.object === project.path).at(-1);
 
-    if (draft) drafts.discard(draft.revision);
+    if (draftRevision) drafts.discard(draftRevision);
     reset();
     props.onClose();
   };
