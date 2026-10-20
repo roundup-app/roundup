@@ -98,3 +98,51 @@ pub async fn show_context_menu<R: Runtime>(
     choice.0.lock().expect("choice lock").take();
     Ok(picked)
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use tauri::test::mock_app;
+
+    fn item(id: &str, label: &str, shortcut: Option<&str>, children: Option<Vec<Item>>) -> Item {
+        Item {
+            id: id.to_owned(),
+            label: label.to_owned(),
+            shortcut: shortcut.map(str::to_owned),
+            enabled: true,
+            children,
+        }
+    }
+
+    fn plain<R: Runtime>(built: MenuItemKind<R>) -> MenuItem<R> {
+        match built {
+            MenuItemKind::MenuItem(plain) => plain,
+            _ => panic!("expected a plain item"),
+        }
+    }
+
+    /// U2694a: the host builds each item with no accelerator; a chord is label text only, so no `NSMenu` key equivalent fires from the menu bar.
+    #[test]
+    fn u2694a_no_item_carries_an_accelerator() {
+        let app = mock_app();
+        let rename = plain(kind(app.handle(), &item("rename", "Rename", Some("F2"), None)).unwrap());
+        let copy = plain(kind(app.handle(), &item("copy", "Copy Link", None, None)).unwrap());
+
+        assert_eq!(rename.text().unwrap(), "Rename\tF2");
+        assert_eq!(copy.text().unwrap(), "Copy Link");
+    }
+
+    /// U2694a: a `children` list is a submenu, each child an item with its own id and enabled state.
+    #[test]
+    fn u2694a_children_build_a_submenu() {
+        let app = mock_app();
+        let mut gone = item("send:x", "x", None, None);
+        gone.enabled = false;
+        let built = kind(app.handle(), &item("send", "Send to Agent", None, Some(vec![item("send:a", "a", None, None), gone]))).unwrap();
+        let MenuItemKind::Submenu(sub) = built else { panic!("expected a submenu") };
+        let children: Vec<_> = sub.items().unwrap().into_iter().map(plain).collect();
+
+        assert_eq!(children.iter().map(|child| child.text().unwrap()).collect::<Vec<_>>(), ["a", "x"]);
+        assert_eq!(children.iter().map(|child| child.is_enabled().unwrap()).collect::<Vec<_>>(), [true, false]);
+    }
+}
