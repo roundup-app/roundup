@@ -3807,6 +3807,7 @@ async fn a32_a_failed_stop_retries_without_double_archive() {
     let ids: Vec<_> = rail_tree(&client).await.into_iter().map(|n| n.id).collect();
     assert_eq!(ids.iter().filter(|id| **id == door).count(), 1);
     assert!(!ids.contains(&a));
+    assert!(!ids.contains(&b));
     let pads = client.request("pad.list", Value::Null).await.unwrap();
     assert_eq!(sections(&pads), 4, "a retry archives nothing twice");
     until(
