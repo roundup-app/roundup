@@ -5,6 +5,7 @@ import { RpcError } from "../app/seam";
 import { agent, door } from "../testing/nodes";
 import { mountAskBar } from "../ask/askFixture";
 import { copy } from "../copy";
+import { openTabs, path, tab } from "../header/stripFixture";
 
 afterEach(cleanup);
 
@@ -274,4 +275,49 @@ it.each([
   expect(sent).toHaveLength(reload ? 1 : 2);
   expect(sent.at(-1)).toEqual(original);
   expect(screen.getByLabelText(copy.reactionInstruction)).toHaveProperty("value", "new words");
+});
+
+
+it("nr9_creation_acknowledgement_refreshes_the_remounted_project", async () => {
+  const nodes = Array.from({ length: 10 }, (_, index) => agent(`a${index}`, "idle", "ready"));
+  const { app } = await openTabs({ original: nodes, other: [agent("b", "idle", "ready")] });
+  const original = app.of(path("original"));
+  let current: Reaction | null = null;
+  original.handlers["reaction.list"] = () => current ? [current] : [];
+  original.handlers["reaction.get"] = () => current!;
+  original.handlers["reaction.stop"] = () => (current = { ...current!, state: "stopped" });
+  original.handlers["reaction.preview"] = () => ({ at: "2026-10-21T09:00:00Z", utc: "2026-10-21T09:00:00Z", offset: "Z" });
+  let acknowledge!: (reaction: Reaction) => void;
+  original.handlers["reaction.create"] = () => new Promise(resolve => { acknowledge = resolve; });
+
+  fireEvent.click(tab("original"));
+  await waitFor(() => expect(document.querySelector('[role="treeitem"][data-id="a0"]')).toBeTruthy());
+  fireEvent.click(await screen.findByRole("button", { name: copy.reactionCreate }));
+  fireEvent.input(screen.getByLabelText(copy.reactionName), { target: { value: "Ship it" } });
+  fireEvent.input(screen.getByLabelText(copy.reactionInstruction), { target: { value: "go" } });
+  fireEvent.click(screen.getByRole("combobox", { name: copy.reactionTarget }));
+  fireEvent.click(await screen.findByRole("option", { name: "a0 (a0)" }));
+  fireEvent.click(screen.getByRole("checkbox", { name: "a0 (a0)" }));
+  fireEvent.input(screen.getByLabelText(copy.reactionDate), { target: { value: "2026-10-21" } });
+  fireEvent.input(screen.getByLabelText(copy.reactionTime), { target: { value: "09:00" } });
+  const save = screen.getByRole("button", { name: copy.reactionSave });
+  await waitFor(() => expect(save).toHaveProperty("disabled", false));
+  fireEvent.click(save);
+  await waitFor(() => expect(original.calls.filter(call => call.method === "reaction.create")).toHaveLength(1));
+
+  fireEvent.click(tab("other"));
+  await waitFor(() => expect(document.querySelector('[role="treeitem"][data-id="b"]')).toBeTruthy());
+  await screen.findByText(copy.reactionsEmpty);
+  fireEvent.click(tab("original"));
+  await waitFor(() => expect(document.querySelector('[role="treeitem"][data-id="a0"]')).toBeTruthy());
+  await screen.findByText(copy.reactionsEmpty);
+  current = saved({ target: "a0", condition: { kind: "agents", ids: ["a0"], any: false } });
+  acknowledge(current);
+
+  fireEvent.click(await screen.findByRole("button", { name: /Ship it/ }));
+  const detail = await screen.findByRole("region", { name: copy.reactionDetail("Ship it") });
+  fireEvent.click(within(detail).getByRole("button", { name: copy.reactionStop }));
+  await waitFor(() => expect(within(detail).getByRole("button", { name: copy.reactionStop })).toHaveProperty("disabled", true));
+  expect(original.calls.filter(call => call.method === "reaction.stop").map(call => call.params)).toEqual([{ id: "r1" }]);
+  expect(app.of(path("other")).calls.filter(call => call.method === "reaction.create" || call.method === "reaction.stop")).toHaveLength(0);
 });
