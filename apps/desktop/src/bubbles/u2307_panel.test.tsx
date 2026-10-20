@@ -37,10 +37,10 @@ const shown = async () => {
   return mounted;
 };
 
-it("u2307a_an_outside_press_minimises_and_still_reaches_its_target", async () => {
+it.each([".pane", ".hint-line", ".terminal-new"])("u2307a_an_outside_press_minimises_and_still_reaches_its_target (%s)", async (target) => {
   await shown();
 
-  const outside = document.querySelector<HTMLElement>(".pane")!;
+  const outside = document.querySelector<HTMLElement>(target)!;
   let reached = 0;
 
   outside.addEventListener("pointerdown", () => reached++);
@@ -50,6 +50,7 @@ it("u2307a_an_outside_press_minimises_and_still_reaches_its_target", async () =>
   fireEvent.pointerDown(outside, { button: 0, pointerType: "mouse" });
   await new Promise((done) => setTimeout(done, 20));
   expect(bubble()).toBeNull();
+  expect(reached).toBe(2);
 });
 
 it("u2307a_a_press_inside_or_on_its_own_tab_does_not_minimise", async () => {
