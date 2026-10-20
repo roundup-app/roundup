@@ -19,6 +19,7 @@ export const OwnerGroups = <T,>(props: {
   children: (group: Accessor<OwnerGroup<T>>) => JSX.Element;
 }) => {
   const [closed, setClosed] = createSignal(["unassigned"]);
+
   const shown = createMemo(() => {
     const groups = props.groups().filter(group => group.items.length > 0 || props.dragging() || props.adding() === group.id);
 
