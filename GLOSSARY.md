@@ -128,6 +128,9 @@ An Agent's saved ask to be told, once, when all or any of named Agents finish (`
 **Reaction** (`reaction.create`, `.list`, `.get`, `.stop`, `.run`; user label: Reaction):
 A saved, immutable instruction a declared condition delivers once to a target Agent as a Message: Project, Home, authorizing Actor from the connection, exact target and words, a typed condition (named Agents finished, a PR's checks passed, or one instant), a finite firing bound, an absolute expiry and a re-arm rule. A retried `operation` returns the first definition and a different payload refuses; a refusal saves nothing. To change one, stop it and create another (`scenarios/named-reactions.md` NR1). Not a Wake request, which is an Agent's one-time ask.
 
+**Preview** (`reaction.preview`; user label: Time preview):
+The exact date, local time, UTC offset and UTC instant a Reaction's `instant` condition will keep, resolved from a typed date, time and offset before activation. It saves nothing; a Reaction is created with the preview's `at` text and never reinterpreted after a time-zone change. A missed instant follows its late policy once: `once-before-expiry` fires on recovery before expiry, `skip` fires nothing; neither fires at or after expiry (`scenarios/named-reactions.md` NR6).
+
 **Firing** (a Reaction's `firings`):
 One accepted delivery of a Reaction's instruction, written in the same Project-database transaction as its Message: the definition's bytes and the source evidence as accepted, an ordinal that spends one of the finite bound, whether a condition `matched` (an explicit `reaction.run` claims none), and the Message's status as its outcome. Never changed after it is written; delivery is not verified work, and an Agent's result in the evidence is reported (`scenarios/named-reactions.md` NR3, NR8).
 
