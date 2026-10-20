@@ -66,7 +66,7 @@ jobs:
           if [ -n "$COUNT" ]; then
             # The test files vitest's module graph reaches from the diff. The shards partition whatever the lane runs,
             # so a count short of `affected.py web`'s extra tests only makes a shard slower.
-            pnpm --filter desktop exec vitest list --filesOnly --changed HEAD^1 >"$RUNNER_TEMP/web-files.txt"
+            python3 loop/app-data.py pnpm --filter desktop exec vitest list --filesOnly --changed HEAD^1 >"$RUNNER_TEMP/web-files.txt"
             files=$(grep -c '\.test\.tsx\?$' "$RUNNER_TEMP/web-files.txt" || true)
           fi
           echo "web_shards=$(python3 loop/affected.py shards "$files")" >>"$GITHUB_OUTPUT"
