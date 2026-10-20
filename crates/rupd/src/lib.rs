@@ -15,6 +15,7 @@ mod link;
 mod output;
 mod owner_told;
 mod reaction;
+mod reaction_checks;
 mod removal;
 mod resize;
 mod resources;
@@ -93,7 +94,7 @@ pub struct Daemon {
     /// D8: samples only inside `project.resources`.
     resources: resources::Sampler,
     publications: deliverables::Publications,
-    reactions: reaction::Reactions,
+    reactions: Arc<reaction::Reactions>,
     /// B6's isolated observer pauses a Door action or guarded call before its effect; absent in production.
     prompt_effect_gate: Option<std::path::PathBuf>,
 }
@@ -451,7 +452,7 @@ impl Daemon {
             pushes: std::sync::Mutex::new(Some(bus.subscribe())),
             resources: Default::default(),
             publications: deliverables::Publications::open(dir)?,
-            reactions: reaction::Reactions::open(dir)?,
+            reactions: Arc::new(reaction::Reactions::open(dir)?),
             prompt_effect_gate: std::env::var_os("RUPD_PROMPT_EFFECT_GATE").map(Into::into),
             waits: std::sync::Mutex::new(Some((
                 bus.subscribe(),
@@ -581,6 +582,18 @@ impl Daemon {
             .take();
         if let (Some(events), Some(waker)) = (wake_events, self.waker()) {
             tokio::spawn(waker.run(events));
+        }
+        if let Some(messages) = self.sender.get() {
+            tokio::spawn(
+                reaction_checks::Watcher {
+                    reactions: Arc::clone(&self.reactions),
+                    agents: Arc::clone(&self.agents),
+                    messages: Arc::clone(messages),
+                    bus: self.bus.clone(),
+                    touches: Arc::clone(&self.touches),
+                }
+                .run(),
+            );
         }
         if let (Some(events), Some(sender)) = (events, self.sender.get()) {
             tokio::spawn(digest::push_changes(
