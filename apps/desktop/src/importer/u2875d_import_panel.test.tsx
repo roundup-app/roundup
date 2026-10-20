@@ -1,10 +1,11 @@
 import { cleanup, fireEvent, screen, waitFor } from "@solidjs/testing-library";
 import { afterEach, expect, it } from "vitest";
 import { render } from "@solidjs/testing-library";
-import { ConnectedProjectContext } from "../state/connectedProject";
+import { connectProject, ConnectedProjectContext } from "../state/connectedProject";
 import { Rail } from "../rail/Rail";
 import { connectFakeProject } from "../terminal/paneHarness";
 import { workstream } from "../testing/nodes";
+import { createFakeApp } from "../testing/fakeApp";
 
 afterEach(() => { cleanup(); localStorage.clear(); });
 
@@ -90,4 +91,57 @@ it("u2875d_partial_failure_keeps_failed_selection_and_stale_restore_never_submit
   expect(isChecked(/first/)).toBe(false);
   expect(calls(app, "project.importCommit")).toHaveLength(before);
   candidates[0]!.revision = "r1";
+});
+
+it("u2875d_period_change_clears_selection_and_success_opens_the_closed_child", async () => {
+  const { app, connected } = await mount();
+
+  app.handlers["project.importCommit"] = () => ({ outcomes: [{ source: "s1", workstream: "w1", agent: "a1", error: null }] });
+  app.handlers["rail.tree"] = () => [workstream("ws", { name: "ws" }), workstream("w1", { name: "first" }), workstream("a1", { name: "first" })];
+  await open();
+  fireEvent.click(screen.getByRole("checkbox", { name: /first/ }));
+  expect(isChecked(/first/)).toBe(true);
+  fireEvent.click(screen.getByRole("radio", { name: "Last month" }));
+  await waitFor(() => expect(calls(app, "project.importDiscover")).toHaveLength(2));
+  await waitFor(() => expect(screen.getByRole("checkbox", { name: /first/ })).toBeTruthy());
+  expect(isChecked(/first/)).toBe(false);
+  expect(screen.getByRole("button", { name: "Import" })).toHaveProperty("disabled", true);
+
+  fireEvent.click(screen.getByRole("checkbox", { name: /first/ }));
+  fireEvent.click(screen.getByRole("button", { name: "Import 1" }));
+  await waitFor(() => expect(connected.rail.selected()).toBe("a1"));
+});
+
+it("u2875d_rejected_call_keeps_period_and_selection", async () => {
+  const { app } = await mount();
+
+  app.handlers["project.importCommit"] = () => { throw new Error("daemon said no"); };
+
+  await open();
+  fireEvent.click(screen.getByRole("checkbox", { name: /first/ }));
+  fireEvent.click(screen.getByRole("button", { name: "Import 1" }));
+  await waitFor(() => expect(screen.getByText("daemon said no")).toBeTruthy());
+  expect(isChecked(/first/)).toBe(true);
+  expect(screen.getByRole("radio", { name: "Last week" }).getAttribute("aria-checked")).toBe("true");
+});
+
+it("u2875d_draft_stays_with_its_original_project", async () => {
+  const { app } = await mount();
+
+  await open();
+  fireEvent.click(screen.getByRole("checkbox", { name: /first/ }));
+  cleanup();
+
+  const other = createFakeApp();
+
+  other.handlers["rail.tree"] = () => [workstream("ws", { name: "ws" })];
+  other.handlers["terminal.list"] = () => [];
+  other.handlers["project.importDiscover"] = () => ({ candidates, excluded: [] });
+  const elsewhere = await connectProject(other, { name: "q", path: "/q" }, () => false, () => 0, () => null);
+
+  render(() => <ConnectedProjectContext.Provider value={elsewhere}><Rail /></ConnectedProjectContext.Provider>);
+  await open();
+  expect(isChecked(/first/)).toBe(false);
+  expect(calls(app, "project.importCommit")).toHaveLength(0);
+  expect(other.calls.filter((call) => call.method === "project.importCommit")).toHaveLength(0);
 });
