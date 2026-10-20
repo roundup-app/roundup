@@ -539,4 +539,46 @@ mod tests {
             .expect("the watch ends")
             .unwrap();
     }
+
+    #[tokio::test]
+    async fn a16_a_delete_failure_after_a_successful_stop_leaves_the_node_with_its_exited_agent() {
+        let (dir, _, shared) = shared_over_temp_dir(Arc::new(|| 0));
+        let id = running_agent(&shared, None);
+        let db = rusqlite::Connection::open(dir.path().join("agents.db")).unwrap();
+        db.execute_batch("CREATE TRIGGER fail_delete BEFORE DELETE ON nodes BEGIN SELECT RAISE(ABORT,'delete refused'); END;").unwrap();
+        let error = shared.remove(Actor::user(), &id).await.unwrap_err();
+        assert_eq!(error.code, rpc::code::INTERNAL);
+        let tree = shared.tree().unwrap();
+        assert_eq!(tree.len(), 1);
+        assert_eq!(tree[0].id, id);
+        assert_eq!(tree[0].status.as_ref().unwrap().kind, Kind::Done);
+        db.execute_batch("DROP TRIGGER fail_delete").unwrap();
+        shared.remove(Actor::user(), &id).await.unwrap();
+        assert!(shared.tree().unwrap().is_empty());
+    }
+
+    #[tokio::test]
+    async fn a16_a_workstreams_failed_delete_leaves_its_children_under_it() {
+        let (dir, _, shared) = shared_over_temp_dir(Arc::new(|| 0));
+        let group = shared
+            .rail()
+            .insert(NodeKind::Workstream, "group", None, None)
+            .unwrap()
+            .id;
+        let child = running_agent(&shared, Some(&group));
+        let db = rusqlite::Connection::open(dir.path().join("agents.db")).unwrap();
+        db.execute_batch("CREATE TRIGGER fail_delete BEFORE DELETE ON nodes BEGIN SELECT RAISE(ABORT,'delete refused'); END;").unwrap();
+        let error = shared.remove(Actor::user(), &group).await.unwrap_err();
+        assert_eq!(error.code, rpc::code::INTERNAL);
+        assert_eq!(
+            shared.node(&child).unwrap().parent.as_deref(),
+            Some(group.as_str())
+        );
+        db.execute_batch("DROP TRIGGER fail_delete").unwrap();
+        shared.remove(Actor::user(), &group).await.unwrap();
+        let tree = shared.tree().unwrap();
+        assert_eq!(tree.len(), 1);
+        assert_eq!(tree[0].id, child);
+        assert_eq!(tree[0].parent, None);
+    }
 }

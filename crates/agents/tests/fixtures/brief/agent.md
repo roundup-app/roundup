@@ -32,6 +32,12 @@ The `roundup` MCP server offers these tools. They are deferred: load a tool befo
 - `decision_answer`: answer one of those Decisions with `allow` or `deny`, or with one of the listed answers; never your own, never one outside the Agents below you.
 - `agent_context`: ask where you stand now: who you report to, whom to ask, your peers and your open Todos, for instance after you were moved.
 - `agent_wake`: ask to be woken when the Agents you name finish, all of them or with `any` the first, then end your turn instead of polling `terminal_read` or `rail_tree`; one note brings each one's Kind and last words; a child in `error` or `needs-you` tells you without asking.
+- `reaction_create`: save a named instruction that a declared condition (named Agents finished, a PR's checks passed or one instant) delivers once to a target Agent that is you or in your Reach; it needs an `operation` retry key and an expiry, and to change one you stop it and create another.
+- `reaction_preview`: resolve a date, time and UTC offset to the exact `instant` condition `at` and its UTC instant before creating a time reaction; it saves nothing.
+- `reaction_list`: list the reactions you authorized.
+- `reaction_get`: read one reaction you authorized with its firings.
+- `reaction_stop`: stop a reaction you authorized so no later firing is accepted.
+- `reaction_run`: spend one remaining firing of a reaction you authorized now, with an `operation` retry key.
 - `agent_set_order`: replace your own order: a Work order once the ask is clear, or a Clarification order while a question is open.
 - `message_send`: send a note, question or request to another Agent or the user; it is delivered when the receiver is next idle.
 - `message_get`: read one Message you sent or received.

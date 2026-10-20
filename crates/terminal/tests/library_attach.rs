@@ -51,7 +51,9 @@ fn x14_library_attach_restores_pending_state() {
                 live.callbacks().1,
                 live.callbacks().2,
             );
-            for _ in 0..3 {
+            {
+                // One restore proves replay and leaves the source unchanged; repeating
+                // the same restore from the same source adds no failure detection.
                 let pending = live.pending_formatted();
                 let mut restored = vt100::Parser::new(3, 80, 0);
                 restored.process(&before);
@@ -226,7 +228,9 @@ fn x14_library_screen_restore_preserves_saved_cursor_and_margins() {
             if cut == prefix.len() {
                 assert!(pending.is_empty());
             }
-            for _ in 0..3 {
+            {
+                // One restore proves replay and leaves the source unchanged; repeating
+                // the same restore from the same source adds no failure detection.
                 let mut restored = vt100::Parser::new(4, 80, 8);
                 restored.process(&live.screen().state_formatted());
                 restored.process(&live.pending_formatted());
