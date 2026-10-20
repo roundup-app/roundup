@@ -151,7 +151,7 @@ export const ImportPanel = (props: { open: boolean; opener: HTMLElement | undefi
 
   const dismiss = (): void => {
     if (pending()) return;
-    const draft = drafts.list().find((entry) => entry.destination.surface === SURFACE && entry.destination.object === project.path);
+    const draft = drafts.list().filter((entry) => entry.destination.surface === SURFACE && entry.destination.object === project.path).at(-1);
 
     if (draft) drafts.discard(draft.revision);
     reset();
