@@ -384,7 +384,7 @@ mod tests {
         daemon.register(agents.clone());
         daemon.register(terminals);
         let daemon = Arc::new(daemon);
-        let socket = project.path().join("rupd.sock");
+        let socket = project.path().join("daemon.sock");
         tokio::spawn(crate::serve(
             tokio::net::UnixListener::bind(&socket).unwrap(),
             daemon.clone(),
