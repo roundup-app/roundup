@@ -573,13 +573,21 @@ def keep(branch, issue, run_url):
 
 
 ATTACH_PER_COMMAND = 50
+IMAGES = ('.png', '.jpg')
 
 
 def attach(branch):
     """L23: attach the rendered captures under `artifacts/ux/` to the open PR from `branch`, 50 to a `gh pr edit --attach`.
     The upload needs a user token, which only this call holds: `PR_ATTACH_TOKEN` is set on the step that runs it, after
     the model ends. Captures are evidence for people, so a failure here exits 1 and changes no PR."""
-    files = sorted(path for pattern in ('*.png', '*.jpg', '*.webm', '*.mp4', '*.mov') for path in Path('artifacts/ux').glob(f'**/{pattern}')
+    # The run works in its own worktree on `branch`; the checkout the step starts in may not be it.
+    listing = subprocess.run(['git', 'worktree', 'list', '--porcelain'], check=True, text=True, capture_output=True,
+                             timeout=60).stdout
+    trees = {block.split('\nbranch refs/heads/')[1].split('\n')[0]: block.split('\n')[0].removeprefix('worktree ')
+             for block in listing.split('\n\n') if '\nbranch refs/heads/' in block}
+    base = Path(trees.get(branch, '.'))
+    files = sorted(path for pattern in ('*.png', '*.jpg', '*.webm', '*.mp4', '*.mov')
+                   for path in (base / 'artifacts/ux').glob(f'**/{pattern}')
                    if 'base' not in path.parts and 'head' not in path.parts)
     if not files:
         print('no captures to attach')
@@ -594,8 +602,9 @@ def attach(branch):
         sys.exit(1)
     number = str(prs[0]['number'])
     for start in range(0, len(files), ATTACH_PER_COMMAND):
+        # gh rejects alt text on a video.
         flags = [flag for path in files[start:start + ATTACH_PER_COMMAND]
-                 for flag in ('--attach', f'{path}#{path.parent.name}/{path.stem}')]
+                 for flag in ('--attach', f'{path}#{path.parent.name}/{path.stem}' if path.suffix in IMAGES else str(path))]
         subprocess.run(['gh', 'pr', 'edit', number, *flags], check=True, timeout=300, env={**os.environ, 'GH_TOKEN': token})
 
 
