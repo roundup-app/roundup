@@ -60,6 +60,8 @@ export const createImport = (app: AppSeam, path: string, onOpened: (workstream: 
 
   const refresh = async () => {
     const mine = ++latest;
+    setDiscovery(null);
+    setVerified(false);
     setLoading(true);
     setFailure(null);
 
