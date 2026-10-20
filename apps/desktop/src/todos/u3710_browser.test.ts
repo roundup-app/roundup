@@ -121,16 +121,18 @@ run("u3710 dragging sideways sets depth and dragging vertically sets order", () 
 
     const order = await ids();
     const first = await centre(0);
+    // Empty owner targets can add a scrollbar during the drag; leave room for it inside the list.
+    const right = await page.call<number>(`rows => document.querySelector(rows).closest('.todo-list').getBoundingClientRect().right - 32`, rows);
 
-    // The first row has no row above: far right changes nothing.
-    await drag(first, { x: first.x + 200, y: first.y });
+    // The first row has no row above: far right inside the list changes nothing.
+    await drag(first, { x: Math.min(first.x + 200, right), y: first.y });
     await settled();
     expect(await calls()).toEqual([]);
 
     // The second row goes one level under the first, however far right the pointer is.
     const second = await centre(1);
 
-    await drag(second, { x: second.x + 300, y: second.y });
+    await drag(second, { x: Math.min(second.x + 300, right), y: second.y });
     await page.until(`() => window.__fake.app.calls.slice(window.__mark).some(c => c.method === 'todo.setBlockers')`);
     await settled();
 

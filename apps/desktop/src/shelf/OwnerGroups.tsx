@@ -19,7 +19,12 @@ export const OwnerGroups = <T,>(props: {
   children: (group: Accessor<OwnerGroup<T>>) => JSX.Element;
 }) => {
   const [closed, setClosed] = createSignal(["unassigned"]);
-  const shown = createMemo(() => props.groups().filter(group => group.items.length > 0 || props.dragging() || props.adding() === group.id));
+  const shown = createMemo(() => {
+    const groups = props.groups().filter(group => group.items.length > 0 || props.dragging() || props.adding() === group.id);
+
+    // U3710, U3718: empty drop targets follow populated groups so revealing them never moves the source rows.
+    return props.dragging() ? [...groups.filter(group => group.items.length > 0), ...groups.filter(group => group.items.length === 0)] : groups;
+  });
 
   const collection = createMemo(() => createTreeCollection<Entry>({
     rootNode: { id: "root", name: "", children: shown().map(group => ({ id: group.id, name: group.name, children: [{ id: `${group.id}:items`, name: "", children: [] }] })) },
