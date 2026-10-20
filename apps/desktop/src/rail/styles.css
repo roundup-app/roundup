@@ -920,6 +920,9 @@
   min-height: 0;
   overflow-x: hidden;
   overflow-y: auto;
+  scrollbar-width: none;
+  padding-bottom: var(--space-3);
+  mask-image: linear-gradient(to bottom, var(--ground) calc(100% - var(--space-3)), transparent);
 }
 
 .rail-import-list {
@@ -945,7 +948,12 @@
   gap: var(--space-4);
 }
 
+.rail-import-actions button[aria-disabled="true"] {
+  color: var(--grey);
+}
+
 .rail-import-entry {
+  margin-block: var(--space-3);
   flex: none;
   justify-content: flex-start;
   padding-inline: var(--space-3);

@@ -7,16 +7,13 @@
   position: relative;
 }
 
-/* The library's input stays the row's click target: it covers the row, unseen, so D2, D6 and D7 measure a real hit area. */
+/* Ark owns keyboard and checked state; the transparent input covers the complete labelled hit area. */
 .app-checkbox > input {
-  position: absolute !important;
-  inset: 0 !important;
-  width: 100% !important;
-  height: 100% !important;
-  margin: 0 !important;
-  clip: auto !important;
-  clip-path: none !important;
-  overflow: visible !important;
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  margin: 0;
   opacity: 0;
   font: inherit;
   cursor: pointer;
@@ -26,7 +23,7 @@
   outline: none;
 }
 
-.app-checkbox:active:not([data-disabled]) {
+.app-checkbox > input:active:not(:disabled) {
   background-color: var(--pressed);
   transition-duration: 0s;
 }
@@ -37,8 +34,14 @@
   outline-offset: 0;
 }
 
-.app-checkbox:hover .app-checkbox-label {
+.app-checkbox > input:hover:not(:disabled),
+.app-checkbox:has(input:hover:not(:disabled)) .app-checkbox-label {
   color: var(--text);
+}
+
+.app-checkbox:has(input:active:not(:disabled)) {
+  background-color: var(--pressed);
+  transition-duration: 0s;
 }
 
 .app-checkbox-box::before {
@@ -46,9 +49,13 @@
   color: var(--grey);
 }
 
+.app-checkbox:has(input:hover:not(:disabled)) .app-checkbox-box::before,
+.app-checkbox-box[data-state="checked"]::before {
+  color: var(--text);
+}
+
 .app-checkbox-box[data-state="checked"]::before {
   content: "●";
-  color: var(--text);
 }
 
 .app-checkbox-label {

@@ -8,6 +8,6 @@ export const Checkbox = (props: { checked: boolean; disabled?: boolean; onChecke
     onCheckedChange={(details) => props.onCheckedChange(details.checked === true)}>
     <ArkCheckbox.Control class="app-checkbox-box" />
     <ArkCheckbox.Label class="app-checkbox-label">{props.children}</ArkCheckbox.Label>
-    <ArkCheckbox.HiddenInput />
+    <ArkCheckbox.HiddenInput asChild={(input) => <input {...input()} style="" />} />
   </ArkCheckbox.Root>
 );
