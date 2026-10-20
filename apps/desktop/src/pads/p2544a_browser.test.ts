@@ -212,6 +212,15 @@ it("u3021c_open_restores_exact_revision_without_rpc_browser_focus", async () => 
     await evaluate("[window.__selectedPad.calls, window.__selectedPad.retained]"),
   );
 
+  await browser("click", "[aria-label='Pad body']");
+  await browser("press", "ArrowLeft");
+  expect(await evaluate(`(() => {
+    const p = window.__selectedPad;
+    const saved = JSON.parse(localStorage.getItem('roundup:drafts:' + p.connected.project.path)).drafts;
+    return [p.connected.drafts.list().find(d => d.revision === p.b.revision), saved.find(d => d.revision === p.b.revision)];
+  })()`)).toEqual(await evaluate("[window.__selectedPad.b, window.__selectedPad.b]"));
+  await browser("eval", "window.__selectedPad.retained = window.__selectedPad.connected.drafts.list()");
+
   const output = captureDir("U3021c");
 
   if (output) {

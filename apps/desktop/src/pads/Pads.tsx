@@ -64,7 +64,7 @@ export const Pads = (props: {
 
     if (captured === fingerprint) return;
     captured = fingerprint;
-    revision = connected.drafts.edit(creation, { name: name(), home }, caret, "ordinary").draft.revision;
+    revision = connected.drafts.edit(creation, { name: name(), home }, caret, "ordinary", revision ?? null).draft.revision;
   };
 
   let plusButton: HTMLButtonElement | undefined;

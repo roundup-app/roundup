@@ -61,20 +61,7 @@ describe("u19 create", () => {
     expect(screen.getByLabelText("Pad name")).toBeTruthy();
   });
 
-  it("u19_invalid_params_shows_the_message_and_keeps_the_field", async () => {
-    const { app } = await openShelf([]);
-    app.handlers["pad.create"] = () => {
-      throw new RpcError(-32602, "name must not contain /");
-    };
-
-    await typeName("a/b");
-
-    expect((await screen.findByText(/must not contain/)).textContent).toBe(
-      "name must not contain /",
-    );
-    expect(screen.getByLabelText("Pad name")).toBeTruthy();
-  });
-
+  // Rule 10: u19_a_conflict_shows_the_message_and_keeps_the_field also proves RPC refusal retention; the duplicate invalid-params example is retired.
   it("u19_clicking_plus_again_replaces_the_message_with_a_fresh_field", async () => {
     const { app } = await openShelf([]);
     app.handlers["pad.create"] = () => {
