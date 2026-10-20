@@ -653,6 +653,7 @@ const d12 = (page: Page): Measure => {
       ? (Number(row.getAttribute("aria-level")) - 1) * parseFloat(page.token("space-4") ?? "0") : 0;
 
     const glyphs = own.map(({ row }) => left(row.querySelector(".shelf-glyph")?.firstElementChild ?? null) - indent(row));
+
     const tickOnly = (row: Element) => list === "todos" && row.querySelector(".shelf-glyph > .todo-tick") !== null
       && row.querySelector(".shelf-glyph > [data-state]") === null;
 
