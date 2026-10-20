@@ -454,12 +454,11 @@ export const Todos = () => {
         <EmptyState icon="check" heading={copy.noTodosYet} hint={copy.noTodosHint} />
       </Show>
       <Show when={open().length + done().length > 0}>
-        <Groups items={() => [...open(), ...done()]} home={todo => todo.home} maker={todo => todo.creator}>{items => <>
-        <Sortable.Root class="todo-list shelf-list" plain ids={treeRows(items().filter(todo => !todo.done)).map((row) => String(row.todo.id))} onOrderChange={sorted.order} external={sorted.external}>
-        <For each={treeRows(items().filter(todo => !todo.done))}>
-          {(row, at) => {
-            const todo = row.todo;
-            const tree = () => treeRows(items().filter(todo => !todo.done));
+        <Groups items={() => [...open(), ...done()]} home={todo => todo.home} maker={todo => todo.creator}>{items => { const tree = createMemo(() => treeRows(items().filter(todo => !todo.done))); const placeOf = (id: number) => tree().find((row) => row.todo.id === id) ?? { level: 1, parent: null }; return <>
+        <Sortable.Root class="todo-list shelf-list" plain ids={tree().map((row) => String(row.todo.id))} onOrderChange={sorted.order} external={sorted.external}>
+        <For each={tree().map((row) => row.todo)}>
+          {(todo, at) => {
+            const row = { get level() { return placeOf(todo.id).level; }, get parent() { return placeOf(todo.id).parent; } };
 
             return (
             <Sortable.Item id={String(todo.id)} index={at()} pressable>
@@ -475,8 +474,8 @@ export const Todos = () => {
               onOpen={show}
               onComplete={complete}
               sorted={sorted.row(todo.id, parts, () => tree().map(({ todo }) => todo.id))}
-              place={{ level: row.level, parent: row.parent }}
-              nest={nestOf(todo, row.parent, tree().at(at() - 1)?.todo ?? null, at() === 0)}
+              place={row}
+              nest={nestOf(todo, row.parent, tree()[at() - 1]?.todo ?? null, at() === 0)}
               registerRow={(id, row) => {
                 selection.register(id, row);
 
@@ -518,7 +517,7 @@ export const Todos = () => {
               )}
             </For>
         </Show>
-        </>}</Groups>
+        </>; }}</Groups>
       </Show>
       <Show when={typing()}>
         <div class="shelf-list">
