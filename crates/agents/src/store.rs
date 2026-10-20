@@ -592,13 +592,11 @@ pub(super) mod tests {
         (dir, bus, shared)
     }
 
-    /// A second connection holding a write transaction makes a write through `Rail`'s own
-    /// connection fail with a real SQLite error once rusqlite's default 5 s `busy_timeout`
-    /// elapses, without reaching into `Rail`'s private `db` field.
-    pub(crate) fn lock_db_for_writes(dir: &std::path::Path) -> rusqlite::Connection {
-        let lock = rusqlite::Connection::open(dir.join("agents.db")).unwrap();
-        lock.execute_batch("BEGIN IMMEDIATE;").unwrap();
-        lock
+    /// Fail real Rail writes immediately; SQLite lock waiting is not the behavior under test.
+    pub(crate) fn refuse_rail_writes(dir: &std::path::Path) -> rusqlite::Connection {
+        let db = rusqlite::Connection::open(dir.join("agents.db")).unwrap();
+        db.execute_batch("CREATE TRIGGER fail_write BEFORE UPDATE ON nodes BEGIN SELECT RAISE(ABORT,'write refused'); END;").unwrap();
+        db
     }
 
     /// `Shared` wired like `shared_over_temp_dir`, but every kill fails.
