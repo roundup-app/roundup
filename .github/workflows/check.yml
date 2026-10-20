@@ -224,9 +224,10 @@ jobs:
   new-tests-stress:
     if: github.event_name == 'pull_request' && !github.event.pull_request.draft
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 60
     # PR #2973 exhausted 30 minutes repeating 13 web files on one runner.
     # Each shard keeps all 20 repetitions and its own full CPU load.
+    # A single browser file is indivisible; allow its repetitions to finish.
     strategy:
       fail-fast: false
       matrix:
