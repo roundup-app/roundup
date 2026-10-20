@@ -120,7 +120,7 @@ const PadBody = (props: {
     captured = fingerprint;
     const value = { originalName: name, source, base: originalBase, baseRevision: originalRevision };
     const complete = snapshot ? { ...value, editorSource: snapshot.source, document: snapshot.document, editorCaret: snapshot.trailingCaret } : value;
-    draftRevision = connected.drafts.edit(destination, complete, selection, "ordinary").draft.revision;
+    draftRevision = connected.drafts.edit(destination, complete, selection, "ordinary", draftRevision ?? null).draft.revision;
   };
 
   /** Moves the source and its dirty/clean baseline together so a resolved change cannot remain a conflict. */

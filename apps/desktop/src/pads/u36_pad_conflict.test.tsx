@@ -739,7 +739,7 @@ it.each(["failed", "unknown"] as const)("u3021c_open_restores_exact_revision_wit
   const { draftStorage } = await import("../state/storage");
   const durable = draftStorage(connected.project.path).list();
   expect(durable).toContainEqual(b);
-  expect(durable.some(draft => draft.value.source === "edited A 🌱")).toBe(true);
+  expect(durable.some(draft => draft.value.source === "  edited A 🌱\n\n")).toBe(true);
   const afterEditing = connected.drafts.list();
   const reopened = await openPad(original.name, { connected, pads: [original], revision: b.revision });
   expect(reopened.value).toBe("B 🪁");
