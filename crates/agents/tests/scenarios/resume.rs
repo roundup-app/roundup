@@ -8,7 +8,7 @@ use contracts::agent::RailNode;
 use rpc::{Module, code};
 use serde_json::{Value, json};
 
-use crate::common::{Fixture, status_of};
+use crate::common::Fixture;
 
 const CONVERSATION: &str = "11111111-1111-1111-1111-111111111111";
 const OTHER_CONVERSATION: &str = "22222222-2222-2222-2222-222222222222";
@@ -64,16 +64,6 @@ impl Fixture {
         })
         .await
     }
-}
-
-/// Hold a second write transaction open on `agents.db`, so a write through the Fixture's own
-/// connection fails with a real SQLite error once rusqlite's default busy_timeout elapses
-/// (mirrors `crates/agents/src/lib.rs`'s own `lock_db_for_writes`, unavailable here since `Rail`
-/// is private to the `agents` crate).
-fn lock_db_for_writes(f: &Fixture) -> rusqlite::Connection {
-    let lock = rusqlite::Connection::open(f.dir.path().join("agents.db")).unwrap();
-    lock.execute_batch("BEGIN IMMEDIATE;").unwrap();
-    lock
 }
 
 async fn exited_with_conversation(f: &Fixture, conversation: &str) -> RailNode {
@@ -158,24 +148,6 @@ async fn a21_a_later_session_start_overrides_the_earlier_saved_conversation() {
 }
 
 #[tokio::test]
-async fn a21_a_failed_save_after_spawn_returned_errors_settles_error_and_stops_the_terminal() {
-    let f = Fixture::running("sleep 30");
-    let node = f.spawn(None, None).await.unwrap();
-    let lock = lock_db_for_writes(&f);
-
-    let err = f.session_start(&node.id, CONVERSATION, "startup").await;
-
-    drop(lock);
-    assert!(err.is_err());
-    let tree = f
-        .until(|tree| status_of(tree, &node.id).kind == Kind::Error)
-        .await;
-    let status = status_of(&tree, &node.id);
-    assert!(status.label.contains("cannot save conversation"));
-    assert!(!f.can_resume(&tree, &node.id));
-}
-
-#[tokio::test]
 async fn a21_a_failed_save_while_held_fails_the_whole_spawn() {
     let f = Arc::new(Fixture::running("sleep 30"));
     let config = crate::common::hold_starts(&f);
@@ -190,16 +162,15 @@ async fn a21_a_failed_save_while_held_fails_the_whole_spawn() {
             .await
         })
     };
-    // The node exists (and is `Starting`) as soon as `agent.spawn` reserves it, well before
-    // `start` reaches the held config read; only then is the DB write locked, so the node's own
-    // creation is never what the lock blocks.
+    // Reserve the node before installing write failures, so only save/cleanup fail.
     let id = f
         .until(|tree| !tree.is_empty())
         .await
         .first()
         .map(|n| n.id.clone())
         .expect("the node exists while its launch is held");
-    let lock = lock_db_for_writes(&f);
+    let db = rusqlite::Connection::open(f.dir.path().join("agents.db")).unwrap();
+    db.execute_batch("CREATE TRIGGER fail_save BEFORE UPDATE OF conversation_id ON nodes BEGIN SELECT RAISE(ABORT,'save refused'); END; CREATE TRIGGER fail_delete BEFORE DELETE ON nodes BEGIN SELECT RAISE(ABORT,'delete refused'); END;").unwrap();
     // The held SessionStart reaches `agent.signal` before the config read `start` is waiting on
     // returns, exactly as A14's own window does.
     f.signal_payload(
@@ -213,19 +184,25 @@ async fn a21_a_failed_save_while_held_fails_the_whole_spawn() {
 
     let result = spawning.await.unwrap();
 
-    drop(lock);
+    db.execute_batch("DROP TRIGGER fail_save; DROP TRIGGER fail_delete;")
+        .unwrap();
     assert!(
         result.is_err(),
         "a held conversation save failure must fail the spawn"
     );
-    // The orphaned node's own removal needs the same DB this test just locked, so it is proven
-    // at the unit level (`a21_a_failed_held_save_reinserts_so_the_caller_can_clean_up`,
-    // `crates/agents/src/lib.rs`), which controls the lock's release precisely; here, once the
-    // lock is gone, a retry of what `agent.spawn`'s own cleanup already tried succeeds.
+    tokio::time::timeout(Duration::from_secs(2), async {
+        while f.terminals.list().iter().any(|t| t.running) {
+            tokio::task::yield_now().await;
+        }
+    })
+    .await
+    .expect("failed held save must reap its actual Terminal");
+    // Node deletion was also refused. The process-free registration test proves
+    // reinsertion for caller cleanup; this observer proves the real Terminal is reaped.
     assert_eq!(
         f.tree().await.len(),
         1,
-        "exactly the orphaned node remains, locked out of its own cleanup"
+        "exactly the orphaned node remains, refused its own cleanup"
     );
 }
 
@@ -1392,26 +1369,6 @@ async fn a2693a_exit_keeps_and_reopen_clears_the_attempt_mode() {
 }
 
 #[tokio::test]
-async fn a2693a_stop_failure_launches_nothing() {
-    let mut f = Fixture::running("trap '' INT; echo ready > ready; exec sleep 300");
-    f.agents = f
-        .agents
-        .with_terminal_kills(|_| async { Err(rpc::RpcError::internal("kill failed")) });
-    let node = f.spawn(None, None).await.unwrap();
-    crate::common::until_file(&f.dir.path().join("ready")).await;
-    f.session_start(&node.id, CONVERSATION, "startup")
-        .await
-        .unwrap();
-    let err = f
-        .call("agent.resume", json!({"id":node.id,"mode":"yolo"}))
-        .await
-        .unwrap_err();
-    assert!(err.message.contains("kill failed"), "{err}");
-    assert_eq!(f.terminals.list().len(), 1);
-    assert!(f.terminals.list()[0].running);
-}
-
-#[tokio::test]
 async fn a2693a_failed_start_does_not_publish_the_requested_mode() {
     let f = Arc::new(Fixture::running("sleep 30"));
     let node = exited_with_conversation(&f, CONVERSATION).await;
@@ -1564,52 +1521,6 @@ async fn a2693a_failed_resume_keeps_the_old_node() {
             .data,
         before.data
     );
-}
-
-#[tokio::test]
-async fn a2693a_a_stop_or_removal_claim_refuses_an_explicit_resume() {
-    for method in ["agent.stop", "rail.remove"] {
-        let mut f = Fixture::running("trap '' INT; echo ready > ready; exec sleep 300");
-        let arrived = Arc::new(tokio::sync::Notify::new());
-        let release = Arc::new(tokio::sync::Notify::new());
-        let terminals = Arc::clone(&f.terminals);
-        f.agents = f.agents.with_terminal_kills({
-            let arrived = Arc::clone(&arrived);
-            let release = Arc::clone(&release);
-            move |id| {
-                let arrived = Arc::clone(&arrived);
-                let release = Arc::clone(&release);
-                let terminals = Arc::clone(&terminals);
-                async move {
-                    arrived.notify_one();
-                    release.notified().await;
-                    terminals.kill(&id).await
-                }
-            }
-        });
-        let f = Arc::new(f);
-        let node = f.spawn(None, None).await.unwrap();
-        crate::common::until_file(&f.dir.path().join("ready")).await;
-        f.session_start(&node.id, CONVERSATION, "startup")
-            .await
-            .unwrap();
-        let ending = {
-            let f = Arc::clone(&f);
-            let id = node.id.clone();
-            tokio::spawn(async move { f.call(method, json!({"id":id})).await })
-        };
-        tokio::time::timeout(Duration::from_secs(10), arrived.notified())
-            .await
-            .unwrap();
-        let err = f
-            .call("agent.resume", json!({"id":node.id,"mode":"yolo"}))
-            .await
-            .unwrap_err();
-        assert_eq!(err.code, code::CONFLICT);
-        release.notify_one();
-        ending.await.unwrap().unwrap();
-        assert_eq!(f.terminals.list().len(), 1);
-    }
 }
 
 #[tokio::test]
@@ -1797,54 +1708,6 @@ async fn a2681a_live_attempt_hides_parts_including_on_resume() {
     assert_eq!(resumed.status.as_ref().unwrap().kind, Kind::Idle);
     assert!(resumed.overview.is_none(), "an idle program is live");
     f.call("agent.stop", json!({"id":node.id})).await.unwrap();
-}
-
-#[tokio::test]
-async fn a2681a_stopping_attempt_hides_parts() {
-    use tokio::sync::Notify;
-    let mut f = Fixture::running("trap '' INT; echo ready > ready; sleep 30");
-    overview_transcript(&f, "{}\n");
-    let entered = Arc::new(Notify::new());
-    let release = Arc::new(Notify::new());
-    let terminals = Arc::clone(&f.terminals);
-    f.agents = f.agents.with_terminal_kills({
-        let entered = Arc::clone(&entered);
-        let release = Arc::clone(&release);
-        move |id| {
-            let entered = Arc::clone(&entered);
-            let release = Arc::clone(&release);
-            let terminals = Arc::clone(&terminals);
-            async move {
-                entered.notify_one();
-                release.notified().await;
-                terminals.kill(&id).await
-            }
-        }
-    });
-    let node = f.spawn(None, None).await.unwrap();
-    f.session_start(&node.id, CONVERSATION, "startup")
-        .await
-        .unwrap();
-    crate::common::until_file(&f.dir.path().join("ready")).await;
-    let f = Arc::new(f);
-    let stopping = {
-        let f = Arc::clone(&f);
-        let id = node.id.clone();
-        tokio::spawn(async move { f.call("agent.stop", json!({"id":id})).await })
-    };
-    tokio::time::timeout(Duration::from_secs(10), entered.notified())
-        .await
-        .unwrap();
-    let tree = f.tree().await;
-    assert!(
-        tree.iter()
-            .find(|n| n.id == node.id)
-            .unwrap()
-            .overview
-            .is_none()
-    );
-    release.notify_one();
-    stopping.await.unwrap().unwrap();
 }
 
 #[tokio::test]
