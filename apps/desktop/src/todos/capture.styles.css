@@ -1,25 +1,41 @@
-/* U3713: one line over the centre, no other chrome. */
-.capture {
+/* U3713: an opaque panel over the centre pane, clear of the title bar, with the Switcher's surface and hairline (D8: no shadow). */
+.capture.app-dialog {
   position: fixed;
-  top: var(--space-6);
-  left: 50%;
+  top: calc(var(--space-6) + var(--space-5));
+  left: calc(var(--rail-width) + (100vw - var(--rail-width)) / 2);
   transform: translateX(-50%);
-  width: calc(var(--space-6) * 12);
-  max-width: 90vw;
+  width: min(480px, calc(100vw - var(--rail-width) - var(--space-5)));
+  padding: var(--space-2);
+  background-color: var(--ground);
+  border-radius: var(--radius-row);
+  border: 1px solid var(--hairline);
+  box-shadow: none;
 }
 
+/* A one-row textarea: a text field, so D6 and D7 skip it (U353); focus is the caret alone. */
 .capture-field {
   box-sizing: border-box;
+  display: block;
   width: 100%;
   margin: 0;
-  padding: 0;
+  padding: var(--space-2) var(--space-3);
   border: 0;
   background: transparent;
   color: var(--text);
   font: inherit;
+  resize: none;
+  overflow: hidden;
+}
+
+.capture-field:focus {
+  outline-width: 0;
 }
 
 .capture-field::placeholder {
   color: var(--grey);
   opacity: 1;
+}
+
+.capture .ink {
+  margin: var(--space-2) var(--space-3) 0;
 }
