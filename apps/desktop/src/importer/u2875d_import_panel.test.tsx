@@ -47,8 +47,15 @@ it("u2875d_keyboard_pointer_and_recovery", async () => {
   await open();
   expect(calls(app, "project.importDiscover")[0]?.params).toEqual({ period: "week" });
 
+  // Keyboard: Escape inside the panel cancels, changing no Rail data.
+  await new Promise((later) => setTimeout(later, 150));
+  fireEvent.keyDown(document.activeElement ?? document.body, { code: "Escape", key: "Escape", keyCode: 27 });
+  await waitFor(() => expect(screen.queryByRole("checkbox")).toBeNull());
+  expect(calls(app, "project.importCommit")).toHaveLength(0);
+  await open();
+
   fireEvent.click(screen.getByRole("radio", { name: "Last month" }));
-  await waitFor(() => expect(calls(app, "project.importDiscover")[1]?.params).toEqual({ period: "month" }));
+  await waitFor(() => expect(calls(app, "project.importDiscover").at(-1)?.params).toEqual({ period: "month" }));
   await waitFor(() => expect(screen.getByRole("checkbox", { name: /second/ })).toBeTruthy());
   fireEvent.click(screen.getByRole("checkbox", { name: /second/ }));
 
