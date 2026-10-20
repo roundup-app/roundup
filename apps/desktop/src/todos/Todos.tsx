@@ -454,7 +454,11 @@ export const Todos = () => {
         <EmptyState icon="check" heading={copy.noTodosYet} hint={copy.noTodosHint} />
       </Show>
       <Show when={open().length + done().length > 0}>
-        <Groups items={() => [...open(), ...done()]} home={todo => todo.home} maker={todo => todo.creator}>{items => { const tree = createMemo(() => treeRows(items().filter(todo => !todo.done))); const placeOf = (id: number) => tree().find((row) => row.todo.id === id) ?? { level: 1, parent: null }; return <>
+        <Groups items={() => [...open(), ...done()]} home={todo => todo.home} maker={todo => todo.creator}>{items => {
+        const tree = createMemo(() => treeRows(items().filter(todo => !todo.done)));
+        const placeOf = (id: number) => tree().find((row) => row.todo.id === id) ?? { level: 1, parent: null };
+
+        return <>
         <Sortable.Root class="todo-list shelf-list" plain ids={tree().map((row) => String(row.todo.id))} onOrderChange={sorted.order} external={sorted.external}>
         <For each={tree().map((row) => row.todo)}>
           {(todo, at) => {
