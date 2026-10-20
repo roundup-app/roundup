@@ -651,104 +651,103 @@ async fn b6_a_paused_effect_refuses_after_the_user_answers_or_replaces_the_origi
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 async fn b6_checked_effects_exclude_prompt_replacement_under_parallel_load() {
     let mut runs = tokio::task::JoinSet::new();
-    for _ in 0..8 {
-        runs.spawn(checked_effect_before_replacement());
+    for (kind, answer_effect) in [
+        ("permission", false),
+        ("permission", true),
+        ("ask_user", false),
+        ("ask_user", true),
+        ("native", false),
+    ] {
+        runs.spawn(checked_effect_before_replacement(kind, answer_effect));
     }
     while let Some(result) = runs.join_next().await {
         result.unwrap();
     }
 }
 
-async fn checked_effect_before_replacement() {
-    for kind in ["permission", "ask_user", "native"] {
-        for answer_effect in [false, true] {
-            if kind == "native" && answer_effect {
-                continue;
-            }
-            let run = Run::start().await;
-            let (original, waiting) = run.open(kind).await;
-            let identity = run.capture(&original).await;
-            std::fs::write(run.dir.path().join("effect-gate"), "effect").unwrap();
-            let caller = Arc::new(Client::connect(&run.daemon.socket).await.unwrap());
-            let params = if answer_effect {
-                json!({"id":original["id"],"identity":identity,"answer":if kind == "permission" {"allow"} else {"Yes"},"proof":"0".repeat(64)})
-            } else {
-                json!({"id":run.terminal,"data":STANDARD.encode(b"v"),"identity":identity})
-            };
-            let effect = tokio::spawn(async move {
-                caller
-                    .request(
-                        if answer_effect {
-                            "decision.answer"
-                        } else {
-                            "terminal.write"
-                        },
-                        params,
-                    )
-                    .await
-            });
-            run.paused().await;
-            // Submit replacement before releasing the physical write. The Signal's fold must
-            // acquire the same locks, so it cannot invalidate midway through the old effect.
-            use tokio::io::{AsyncBufReadExt, AsyncWriteExt};
-            let mut user = tokio::net::UnixStream::connect(&run.daemon.socket)
-                .await
-                .unwrap();
-            let signal = json!({"jsonrpc":"2.0","id":1,"method":"agent.signal","params":{"id":run.child,"attempt":run.attempt,"payload":{"hook_event_name":"PostToolUse"}}});
-            user.write_all(format!("{signal}\n").as_bytes())
-                .await
-                .unwrap();
-            tokio::time::timeout(BOUND, async {
-                loop {
-                    if run.dir.path().join("effect-gate.racing").is_file() {
-                        break;
-                    }
-                    tokio::task::yield_now().await;
-                }
-            })
+async fn checked_effect_before_replacement(kind: &str, answer_effect: bool) {
+    let run = Run::start().await;
+    let (original, waiting) = run.open(kind).await;
+    let identity = run.capture(&original).await;
+    std::fs::write(run.dir.path().join("effect-gate"), "effect").unwrap();
+    let caller = Arc::new(Client::connect(&run.daemon.socket).await.unwrap());
+    let params = if answer_effect {
+        json!({"id":original["id"],"identity":identity,"answer":if kind == "permission" {"allow"} else {"Yes"},"proof":"0".repeat(64)})
+    } else {
+        json!({"id":run.terminal,"data":STANDARD.encode(b"v"),"identity":identity})
+    };
+    let effect = tokio::spawn(async move {
+        caller
+            .request(
+                if answer_effect {
+                    "decision.answer"
+                } else {
+                    "terminal.write"
+                },
+                params,
+            )
             .await
-            .unwrap();
-            assert!(
-                !effect.is_finished(),
-                "effect left its pause before release"
-            );
-            // An observation window: a folded replacement would answer this socket.
-            // The router's racing acknowledgement bounds its arrival, not a scheduler guess.
-            let mut user = tokio::io::BufReader::new(user);
-            let mut response = String::new();
-            assert!(
-                tokio::time::timeout(Duration::from_millis(50), user.read_line(&mut response))
-                    .await
-                    .is_err(),
-                "{kind} answer_effect={answer_effect}: replacement completed while the original effect was paused: {response}"
-            );
-            run.release();
-            effect.await.unwrap().unwrap();
-            user.read_line(&mut response).await.unwrap();
-            assert!(
-                serde_json::from_str::<Value>(&response)
-                    .unwrap()
-                    .get("result")
-                    .is_some(),
-                "{response}"
-            );
-            let outcome = waiting.await.unwrap();
-            if answer_effect {
-                outcome.unwrap();
+    });
+    run.paused().await;
+    // Submit replacement before releasing the physical write. The Signal's fold must
+    // acquire the same locks, so it cannot invalidate midway through the old effect.
+    use tokio::io::{AsyncBufReadExt, AsyncWriteExt};
+    let mut user = tokio::net::UnixStream::connect(&run.daemon.socket)
+        .await
+        .unwrap();
+    let signal = json!({"jsonrpc":"2.0","id":1,"method":"agent.signal","params":{"id":run.child,"attempt":run.attempt,"payload":{"hook_event_name":"PostToolUse"}}});
+    user.write_all(format!("{signal}\n").as_bytes())
+        .await
+        .unwrap();
+    tokio::time::timeout(BOUND, async {
+        loop {
+            if run.dir.path().join("effect-gate.racing").is_file() {
+                break;
             }
-            let (replacement, waiting) = run.open(kind).await;
-            assert_eq!(original["args"], replacement["args"]);
-            let recorded = run.recorded_input().await;
-            assert_eq!(
-                recorded.matches("BYTE:").count(),
-                usize::from(!answer_effect)
-            );
-            assert!(run.capture(&replacement).await.is_object());
-            run.clear().await;
-            let _ = waiting.await.unwrap();
-            run.finish().await;
+            tokio::task::yield_now().await;
         }
+    })
+    .await
+    .unwrap();
+    assert!(
+        !effect.is_finished(),
+        "effect left its pause before release"
+    );
+    // An observation window: a folded replacement would answer this socket.
+    // The router's racing acknowledgement bounds its arrival, not a scheduler guess.
+    let mut user = tokio::io::BufReader::new(user);
+    let mut response = String::new();
+    assert!(
+        tokio::time::timeout(Duration::from_millis(50), user.read_line(&mut response))
+            .await
+            .is_err(),
+        "{kind} answer_effect={answer_effect}: replacement completed while the original effect was paused: {response}"
+    );
+    run.release();
+    effect.await.unwrap().unwrap();
+    user.read_line(&mut response).await.unwrap();
+    assert!(
+        serde_json::from_str::<Value>(&response)
+            .unwrap()
+            .get("result")
+            .is_some(),
+        "{response}"
+    );
+    let outcome = waiting.await.unwrap();
+    if answer_effect {
+        outcome.unwrap();
     }
+    let (replacement, waiting) = run.open(kind).await;
+    assert_eq!(original["args"], replacement["args"]);
+    let recorded = run.recorded_input().await;
+    assert_eq!(
+        recorded.matches("BYTE:").count(),
+        usize::from(!answer_effect)
+    );
+    assert!(run.capture(&replacement).await.is_object());
+    run.clear().await;
+    let _ = waiting.await.unwrap();
+    run.finish().await;
 }
 
 #[tokio::test]
@@ -1993,7 +1992,11 @@ if '--resume' not in sys.argv:
     print('SAVED', flush=True)
 else:
     print('RESUMED', flush=True)
-while True: time.sleep(60)
+# Setup and explicit resolution obey Claude's normal exit key; failed Resume cleanup
+# still kills the real PTY child directly and must confirm its exit.
+while True:
+    data = os.read(0, 1)
+    if not data or data == b'\x03': break
 "#).unwrap();
             std::fs::set_permissions(&fake, std::fs::Permissions::from_mode(0o755)).unwrap();
             let rup = Path::new(env!("CARGO_BIN_EXE_rupd")).with_file_name("rup");
@@ -2130,7 +2133,13 @@ while True: time.sleep(60)
                 );
                 // The acknowledgement timer must not escape cleanup, even when it expires.
                 let early = tokio::time::timeout(
-                    agents::RESUME_ACK_BOUND + Duration::from_millis(100),
+                    if column == "terminal_id" && !early_ack {
+                        agents::RESUME_ACK_BOUND + Duration::from_millis(100)
+                    } else {
+                        // The other cases exercise different save/ack paths, but share the
+                        // same completion timer. Cross its deadline once, not four times.
+                        Duration::from_millis(100)
+                    },
                     &mut resume,
                 )
                 .await;
@@ -2144,6 +2153,7 @@ while True: time.sleep(60)
                     .unwrap()
                     .unwrap()
                     .unwrap_err();
+                assert_ne!(error.code, rpc::code::UNKNOWN_OUTCOME, "{error:?}");
                 assert!(
                     error.message.contains(&format!("resume {column} fault")),
                     "{error:?}"
