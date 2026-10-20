@@ -10,6 +10,7 @@ pub mod common;
 pub mod decision;
 pub mod deliverable;
 pub mod event;
+pub mod link;
 pub mod message;
 pub mod methods;
 pub mod pad;
