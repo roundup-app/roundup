@@ -7,7 +7,8 @@ The `boxd` selector prints `all` only for runner, integration or package-configu
 runs from where HEAD forked from <base> to the working tree, untracked files included, so a Builder's uncommitted change
 counts. No output: no test reaches the diff. Exit 2: bad usage; a failed git or cargo call exits non-zero.
 L122: `edited-rust` prints a nextest filter expression naming the Rust tests the diff adds or edits, `edited-web` the
-test files it adds or edits, as paths from `apps/desktop/`; both need a base."""
+tests it adds or edits, one `path<TAB>regex` line per test file, as a path from `apps/desktop/` and a `vitest -t` pattern
+of the test titles the diff touches (no pattern: a test it cannot name); both need a base."""
 import json
 from pathlib import Path
 import re
@@ -119,6 +120,45 @@ def edited_rust(git, fork, changed, untracked):
     return ' | '.join(f'test(/(^|::){name}$/)' for name in sorted(set(names)))
 
 
+def web_tests(source, touched):
+    """The `vitest -t` pattern of the web tests of `source` (text) that a line of `touched` (1-based numbers) falls in,
+    from the `it(`/`test(` line to its closing line at the same indent; '' when none is touched; None when a touched
+    test has no literal title to match (`.each`, a computed title)."""
+    lines = source.splitlines()
+    indent = lambda line: len(line) - len(line.lstrip())
+    titles = []
+    for start, line in enumerate(lines):
+        call = re.match(r'\s*(?:it|test)(?:\.\w+)*\(', line)
+        if not call:
+            continue
+        stop = next((n for n in range(start + 1, len(lines)) if lines[n].strip() and indent(lines[n]) <= indent(line)),
+                    len(lines))
+        end = stop if stop < len(lines) and lines[stop].lstrip().startswith(('}', ')')) else stop - 1
+        if not any(start < number <= end + 1 for number in touched):
+            continue
+        title = re.match(r'(["\'`])(.*?)(?:\1|\$\{)', line[call.end():].lstrip())
+        if not title or not title[2]:
+            return None
+        titles.append(re.escape(title[2]))
+    return '|'.join(sorted(set(titles)))
+
+
+def edited_web(git, fork, changed, untracked):
+    """One `path<TAB>pattern` line per web test file the diff adds or edits that holds a touched test; edits outside a
+    test, as outside a Rust `fn`, select nothing."""
+    out = []
+    for path in sorted(changed):
+        if not is_web_test(path) or not (ROOT / path).exists():
+            continue
+        source = (ROOT / path).read_text()
+        touched = range(1, len(source.splitlines()) + 1) if path in untracked \
+            else touched_lines(git('diff', '-U0', '--no-renames', fork, '--', path))
+        pattern = web_tests(source, touched)
+        if pattern != '':
+            out.append(path.removeprefix(APP) + ('' if pattern is None else '\t' + pattern))
+    return '\n'.join(out)
+
+
 def boxd(changed):
     """Select the runner regressions only when their code, callers or execution configuration can change."""
     return 'all' if any(under(path, BOXD_READS) for path in changed) else []
@@ -155,7 +195,7 @@ def main(argv):
         print(edited_rust(git, fork, changed, untracked))
         return 0
     if lane == 'edited-web':
-        print('\n'.join(path.removeprefix(APP) for path in sorted(changed) if is_web_test(path) and (ROOT / path).exists()))
+        print(edited_web(git, fork, changed, untracked))
         return 0
     selected = crates(changed, workspace()) if lane == 'rust' else (web(changed) if lane == 'web' else boxd(changed))
     if selected != 'all' and lane == 'web':
