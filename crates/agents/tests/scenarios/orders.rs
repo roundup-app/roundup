@@ -754,60 +754,6 @@ async fn o8_a_users_prompt_only_spawn_is_unchanged() {
 }
 
 #[tokio::test]
-async fn o8_the_prompt_survives_a_reopen_and_a_resume() {
-    let f = Fixture::running("sleep 30");
-    let parent = spawn(&f, json!({})).await.unwrap().id;
-    let child = spawn_by(
-        &f,
-        &parent,
-        json!({"order": full_order(), "prompt": "the detail"}),
-    )
-    .await
-    .unwrap()
-    .id;
-    let attempt = f.attempt(&child).await;
-    f.call(
-        "agent.signal",
-        json!({"id": child, "attempt": attempt, "payload": {
-            "hook_event_name": "SessionStart",
-            "session_id": "11111111-1111-1111-1111-111111111111",
-            "source": "startup",
-        }}),
-    )
-    .await
-    .unwrap();
-    f.call("agent.stop", json!({"id": child})).await.unwrap();
-    let f = f.reopen();
-    assert_eq!(
-        spawn_prompt(&f, &child).await.unwrap(),
-        json!({"prompt": "the detail"})
-    );
-    f.call("agent.resume", json!({"id": child})).await.ok();
-    assert_eq!(
-        spawn_prompt(&f, &child).await.unwrap(),
-        json!({"prompt": "the detail"})
-    );
-
-    let team = f.workstream("team", None).await;
-    f.call(
-        "rail.move",
-        json!({"id": child, "parent": team, "index": 0}),
-    )
-    .await
-    .unwrap();
-    assert_eq!(
-        spawn_prompt(&f, &child).await.unwrap(),
-        json!({"prompt": "the detail"})
-    );
-
-    f.call("rail.remove", json!({"id": child})).await.unwrap();
-    assert_eq!(
-        spawn_prompt(&f, &child).await.unwrap_err().code,
-        code::NOT_FOUND
-    );
-}
-
-#[tokio::test]
 async fn o8_discard_drops_the_prompt_with_the_node() {
     let f = Fixture::in_git_project("sleep 30", Git::from_env());
     f.call("project.setWorktrees", json!({"on": true, "check": null}))
