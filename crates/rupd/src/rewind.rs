@@ -569,3 +569,329 @@ impl Daemon {
         }));
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use rpc::Module;
+
+    // Open production stores only: no server, socket, task, PTY, git or vendor program.
+    // Persisted Rail rows model a reopened Project, rather than substituting a Rail module.
+    fn fixture() -> (tempfile::TempDir, Daemon) {
+        let dir = tempfile::tempdir().unwrap();
+        crate::storage::open(dir.path()).unwrap();
+        let db = rusqlite::Connection::open(dir.path().join("project.db")).unwrap();
+        db.execute_batch(
+            "INSERT INTO nodes(id,kind,name,parent,ord) VALUES
+            (1,'workstream','Door',NULL,0), (2,'agent','Child',1,0),
+            (3,'agent','Nested',2,0), (4,'workstream','Other',NULL,1);",
+        )
+        .unwrap();
+        let daemon = Daemon::open(dir.path()).unwrap();
+        (dir, daemon)
+    }
+
+    fn door() -> Actor {
+        Actor {
+            kind: ActorKind::Agent,
+            id: "1".into(),
+            parent: None,
+        }
+    }
+
+    async fn call(
+        daemon: &Daemon,
+        actor: Actor,
+        method: &str,
+        params: Value,
+    ) -> Result<Value, RpcError> {
+        let (events, _) = tokio::sync::mpsc::unbounded_channel();
+        let mut conn = crate::Conn {
+            actor,
+            peer: None,
+            events,
+            output: None,
+        };
+        let request = json!({"jsonrpc":"2.0", "id":1, "method":method, "params":params});
+        let reply = daemon
+            .dispatch(&mut conn, &request.to_string(), None)
+            .await
+            .unwrap();
+        if let Some(error) = reply.get("error") {
+            Err(serde_json::from_value(error.clone()).unwrap())
+        } else {
+            Ok(reply["result"].clone())
+        }
+    }
+
+    fn card(dir: &std::path::Path, id: u32, marks: Option<checkpoints::Marks>) {
+        let db = rusqlite::Connection::open(dir.join("project.db")).unwrap();
+        db.execute(
+            "INSERT INTO checkpoints VALUES ('1',?1,1,'ready','[]')",
+            [id],
+        )
+        .unwrap();
+        if let Some(marks) = marks {
+            db.execute(
+                "INSERT INTO marks(workstream,checkpoint,iteration,content) VALUES ('1',?1,?2,?3)",
+                rusqlite::params![id, marks.iteration, serde_json::to_string(&marks).unwrap()],
+            )
+            .unwrap();
+        }
+    }
+
+    fn marks() -> checkpoints::Marks {
+        checkpoints::Marks {
+            iteration: 1,
+            agents: vec![],
+        }
+    }
+
+    async fn listed(daemon: &Daemon) -> Value {
+        daemon
+            .checkpoints
+            .call(
+                &daemon.ctx(door()),
+                "checkpoint.list",
+                json!({"workstream": "1"}),
+            )
+            .await
+            .unwrap()
+    }
+
+    #[tokio::test]
+    async fn a35_rewind_refuses_another_workstream_or_its_door() {
+        let (_dir, daemon) = fixture();
+        let before = daemon.rail().await.unwrap();
+        for method in ["workstream.rewind", "workstream.rewindPlan"] {
+            for (agent, code) in [
+                ("1", code::FORBIDDEN),
+                ("4", code::FORBIDDEN),
+                ("nobody", code::NOT_FOUND),
+            ] {
+                let error = call(
+                    &daemon,
+                    door(),
+                    method,
+                    json!({"id":"1", "checkpoint":1, "agent":agent, "files":"keep"}),
+                )
+                .await
+                .unwrap_err();
+                assert_eq!(error.code, code);
+            }
+            for (actor, id) in [
+                (
+                    Actor {
+                        id: "4".into(),
+                        ..door()
+                    },
+                    "1",
+                ),
+                (door(), "4"),
+                (Actor::user(), "1"),
+                (
+                    Actor {
+                        id: "2".into(),
+                        ..door()
+                    },
+                    "1",
+                ),
+            ] {
+                assert_eq!(
+                    call(
+                        &daemon,
+                        actor,
+                        method,
+                        json!({"id":id,"checkpoint":1,"files":"keep"})
+                    )
+                    .await
+                    .unwrap_err()
+                    .code,
+                    code::FORBIDDEN
+                );
+            }
+            assert_eq!(
+                call(
+                    &daemon,
+                    door(),
+                    method,
+                    json!({"id":"1","checkpoint":9,"files":"keep"})
+                )
+                .await
+                .unwrap_err()
+                .code,
+                code::NOT_FOUND
+            );
+        }
+        assert_eq!(daemon.rail().await.unwrap(), before);
+        assert!(daemon.terminals.list().is_empty());
+    }
+
+    #[tokio::test]
+    async fn a35_plan_refuses_an_unrewindable_checkpoint() {
+        let (dir, daemon) = fixture();
+        card(dir.path(), 1, Some(marks()));
+        daemon.checkpoints.invalidate_after("1", 0).unwrap();
+        for method in ["workstream.rewind", "workstream.rewindPlan"] {
+            assert_eq!(
+                call(
+                    &daemon,
+                    door(),
+                    method,
+                    json!({"id":"1","checkpoint":1,"files":"keep"})
+                )
+                .await
+                .unwrap_err()
+                .code,
+                code::CONFLICT
+            );
+        }
+    }
+
+    #[tokio::test]
+    async fn a35_an_old_checkpoint_is_not_rewindable() {
+        let (dir, daemon) = fixture();
+        card(dir.path(), 1, None);
+        card(dir.path(), 2, Some(marks()));
+        card(dir.path(), 3, Some(marks()));
+        daemon.checkpoints.invalidate_after("1", 2).unwrap();
+        drop(daemon);
+        let daemon = Daemon::open(dir.path()).unwrap();
+        let cards = listed(&daemon).await;
+        assert_eq!(cards.as_array().unwrap().len(), 3);
+        assert_eq!(cards[0]["rewindable"], false);
+        assert_eq!(cards[1]["rewindable"], true);
+        assert_eq!(cards[2]["rewindable"], false);
+        for (id, iteration) in [(1, 1), (3, 1), (2, 2)] {
+            assert_eq!(
+                daemon
+                    .checkpoints
+                    .marks("1", id, iteration)
+                    .unwrap_err()
+                    .code,
+                code::CONFLICT
+            );
+        }
+    }
+
+    #[tokio::test]
+    async fn a35_a_missing_saved_conversation_is_a_recording_failure() {
+        let (dir, daemon) = fixture();
+        let db = rusqlite::Connection::open(dir.path().join("project.db")).unwrap();
+        db.execute("UPDATE nodes SET conversation_id='12345678-1234-4234-8234-123456789abc', conversation_cwd=?1 WHERE id=3",
+            [dir.path().to_str().unwrap()]).unwrap();
+        let error = daemon
+            .checkpoints
+            .call(
+                &daemon.ctx(door()),
+                "checkpoint.write",
+                json!({"title":"failed","blocks":[{"kind":"text","text":"facts"}]}),
+            )
+            .await
+            .unwrap_err();
+        assert!(error.message.contains("cannot record Mark"), "{error:?}");
+        assert_eq!(listed(&daemon).await[0]["rewindable"], false);
+        assert_eq!(
+            daemon.checkpoints.marks("1", 1, 1).unwrap_err().code,
+            code::CONFLICT
+        );
+    }
+
+    #[tokio::test]
+    async fn a35_one_rewind_at_a_time() {
+        let (_dir, daemon) = fixture();
+        let slot = Arc::new(Mutex::new(None));
+        daemon
+            .rewinding
+            .slots
+            .lock()
+            .await
+            .insert("1".into(), slot.clone());
+        let _running = slot.lock().await;
+        let error = call(
+            &daemon,
+            door(),
+            "workstream.rewind",
+            json!({"id":"1","checkpoint":1,"agent":"3","files":"keep"}),
+        )
+        .await
+        .unwrap_err();
+        assert_eq!(error.code, code::CONFLICT);
+        assert!(error.message.contains("already being rewound"));
+        assert!(daemon.terminals.list().is_empty());
+    }
+    #[tokio::test]
+    async fn a35_a_selected_later_child_cannot_orphan_an_unselected_descendant() {
+        let (dir, daemon) = fixture();
+        card(dir.path(), 1, Some(marks()));
+        let before = daemon.rail().await.unwrap();
+        for method in ["workstream.rewind", "workstream.rewindPlan"] {
+            let error = call(
+                &daemon,
+                door(),
+                method,
+                json!({"id":"1","checkpoint":1,"agent":"2","files":"keep"}),
+            )
+            .await
+            .unwrap_err();
+            assert_eq!(error.code, code::CONFLICT);
+            assert!(error.message.contains("Nested"), "{error:?}");
+        }
+        assert_eq!(daemon.rail().await.unwrap(), before);
+        assert!(daemon.terminals.list().is_empty());
+        assert!(daemon.held_actions.rewinds("1").unwrap().is_empty());
+    }
+
+    #[tokio::test]
+    async fn a35_rewind_outcomes_survive_reopen() {
+        let (dir, daemon) = fixture();
+        let child = daemon
+            .rail()
+            .await
+            .unwrap()
+            .into_iter()
+            .find(|n| n.id == "3")
+            .unwrap();
+        let action = daemon
+            .held_actions
+            .accept_as(
+                &door(),
+                &child,
+                HeldCall::Rewind(RewindParams {
+                    id: "1".into(),
+                    checkpoint: 7,
+                    files: Files::Keep,
+                    agent: Some("3".into()),
+                }),
+                ResizeOutcome::InProgress,
+            )
+            .unwrap();
+        daemon
+            .held_actions
+            .outcome(&action.id, ResizeOutcome::Completed)
+            .unwrap();
+        let before = call(
+            &daemon,
+            Actor::user(),
+            "agent.actionHistory",
+            json!({"id":"3"}),
+        )
+        .await
+        .unwrap();
+        assert_eq!(before.as_array().unwrap().len(), 1);
+        assert_eq!(before[0]["outcome"]["status"], "completed");
+        assert_eq!(before[0]["method"], "workstream.rewind");
+        assert_eq!(before[0]["params"]["checkpoint"], 7);
+        drop(daemon);
+        let daemon = Daemon::open(dir.path()).unwrap();
+        let after = call(
+            &daemon,
+            Actor::user(),
+            "agent.actionHistory",
+            json!({"id":"3"}),
+        )
+        .await
+        .unwrap();
+        assert_eq!(after, before);
+    }
+}
