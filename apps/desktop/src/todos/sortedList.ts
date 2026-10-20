@@ -77,7 +77,12 @@ export const createSortedList = (source: {
     setMovedFocus(null);
     queueMicrotask(() => {
       if (document.activeElement === document.body || document.activeElement === null) {
-        (ids.includes(request.id) ? buttons.get(request.id) ?? document.querySelector<HTMLElement>(`[data-todo="${request.id}"] .row-head button`) : request.element)?.focus();
+        const row = ids.includes(request.id) ? buttons.get(request.id) ?? document.querySelector<HTMLElement>(`[data-todo="${request.id}"] .row-head button`) : request.element;
+
+        row?.focus();
+
+        // A folded owner group keeps its moved row hidden; its disclosure keeps focus reachable.
+        if (document.activeElement === document.body) request.element.querySelector<HTMLElement>('[data-part="branch-control"]')?.focus();
       }
     });
   });

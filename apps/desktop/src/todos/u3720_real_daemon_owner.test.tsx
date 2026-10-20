@@ -12,8 +12,7 @@ import { createServedApp } from "../testing/realSeam";
 
 const execute = promisify(execFile);
 
-// Replaces the jsdom readback: only this browser observer proves pointer drops,
-// keyboard assignment and group creation reach the real Daemon and survive reload.
+// U3720 requires real pointer and keyboard input; jsdom cannot observe group drop targets.
 it("u3720_real_daemon_owner_assign", async () => {
   const executable = chromePath();
 
@@ -24,6 +23,7 @@ it("u3720_real_daemon_owner_assign", async () => {
   await writeFile(config, "{}");
   const session = `u3720-${process.pid}`;
   const env = Object.fromEntries(Object.entries(process.env).filter(([key]) => !key.startsWith("AGENT_BROWSER_")));
+
   const browser = async (...args: string[]) => {
     const { stdout } = await execute("agent-browser", ["--executable-path", executable, "--args", "--no-sandbox", "--config", config, "--session", session, "--profile", profile, "--json", ...args], { env, timeout: 60_000, maxBuffer: 4 * 1024 * 1024 });
     const reply = JSON.parse(stdout);
@@ -31,6 +31,7 @@ it("u3720_real_daemon_owner_assign", async () => {
 
     return reply.data;
   };
+
   const evaluate = async (source: string) => (await browser("eval", source)).result;
   const until = (source: string) => browser("wait", "--fn", source);
   const group = (id: string) => `.shelf [data-shelf-group="${id}"]`;
@@ -39,12 +40,14 @@ it("u3720_real_daemon_owner_assign", async () => {
   const app = createServedApp(real.base);
   const me: Actor = { kind: "user", id: "you", parent: null };
   const expected = new Map<number, { owner: Actor | null; group: string }>();
+
   const observe = async (id: number, owner: Actor | null, target: string) => {
     await until(`document.querySelector('.shelf [data-todo="${id}"]')?.closest('[data-shelf-group]')?.dataset.shelfGroup === ${JSON.stringify(target)}`);
     expect((await app.rpc("todo.list", null)).find(todo => todo.id === id)?.owner).toEqual(owner);
     expect(await evaluate("document.activeElement === document.body")).toBe(false);
     expected.set(id, { owner, group: target });
   };
+
   const capture = async (step: string) => {
     const dir = captureDir("shelf-owner");
 
@@ -53,13 +56,15 @@ it("u3720_real_daemon_owner_assign", async () => {
     await writeFile(join(dir, `${step}.checks.json`), JSON.stringify(await evaluate("window.__checks()")) + "\n");
     await browser("screenshot", join(dir, `${step}.png`));
   };
+
   const lift = async (id: number) => {
     const from = await point(row(id));
     await browser("mouse", "move", String(from.x), String(from.y));
     await browser("mouse", "down");
     await browser("mouse", "move", String(from.x), String(from.y - 6));
-    await until(`!!document.querySelector('${group("me")}')`);
+    await until(`!!document.querySelector('[data-dnd-placeholder]')`);
   };
+
   const drop = async (target: string) => {
     const to = await point(`${group(target)} .shelf-group-head`);
     await browser("mouse", "move", String(to.x), String(to.y));
@@ -69,19 +74,27 @@ it("u3720_real_daemon_owner_assign", async () => {
 
   try {
     const agents = [];
+
     for (const name of ["Owner alpha", "Owner beta"]) agents.push(await app.rpc("agent.spawn", { cwd: real.dir, prompt: null, parent: null, name }));
     const actor = (id: string): Actor => ({ kind: "agent", id, parent: null });
     const owners = [{ id: "me", label: "Me", actor: me }, ...agents.map(agent => ({ id: agent.id, label: agent.name!, actor: actor(agent.id) })), { id: "unassigned", label: "Unassigned", actor: null }];
-    for (const owner of owners) await app.rpc("todo.create", { title: `initial ${owner.label}`, body: null, blockers: null, owner: owner.actor });
+
+    for (const owner of owners) {
+      const params = { title: `initial ${owner.label}`, body: null, blockers: null };
+
+      await app.rpc("todo.create", owner.actor ? { ...params, owner: owner.actor } : params);
+    }
+
     const moved = await app.rpc("todo.create", { title: "pointer assignment", body: null, blockers: null });
     const keyed = await app.rpc("todo.create", { title: "keyboard assignment", body: null, blockers: null, owner: me });
     await browser("set", "viewport", "1512", "950");
     await browser("set", "media", "dark");
     await browser("open", `${real.base}/harness.html?daemon=1`);
     await browser("wait", "#shelf-tab-todos");
-    await browser("click", "#shelf-tab-todos");
+    await browser("click", "[data-todo-root]");
+    await evaluate("(() => { const tab = document.querySelector('#shelf-tab-todos'); if (tab.getAttribute('aria-expanded') !== 'true') tab.click(); return true; })()");
     await until(`!!document.querySelector('${group("unassigned")}')`);
-    await browser("click", `${group("unassigned")} [data-part="branch-control"]`);
+    await evaluate(`(() => { const group = document.querySelector('${group("unassigned")}'); if (group.dataset.state === 'closed') group.querySelector('[data-part="branch-control"]').click(); return true; })()`);
     await until(`!!document.querySelector('${row(moved.id)}') && !document.querySelector('${row(moved.id)}').closest('[hidden]')`);
 
     // The folded Agent header takes a pointer drop without unfolding first.
@@ -108,21 +121,38 @@ it("u3720_real_daemon_owner_assign", async () => {
     await observe(keyed.id, actor(agents[0]!.id), agents[0]!.id);
     await until(`document.activeElement.closest('[data-todo]')?.dataset.todo === '${keyed.id}'`);
 
+
     for (const owner of owners) {
-      await browser("click", `button[aria-label="add todo to ${owner.label}"]`);
+      if (owner.id === "me") {
+        await browser("focus", `button[aria-label="add todo to ${owner.label}"]`);
+        await browser("press", "Enter");
+      } else {
+        const plus = await point(`button[aria-label="add todo to ${owner.label}"]`);
+
+        await browser("mouse", "move", String(plus.x), String(plus.y));
+        await browser("mouse", "down");
+        await browser("mouse", "up");
+      }
+
       await until(`document.activeElement.matches('input[aria-label="New Todo title"]')`);
+
       if (owner.id === "me") await capture("dark-new-todo-field");
       await browser("fill", 'input[aria-label="New Todo title"]', `added ${owner.label}`);
       await browser("press", "Enter");
-      await until(`!document.querySelector('input[aria-label="New Todo title"]')`);
+      await until(`document.querySelector('input[aria-label="New Todo title"]')?.value === '' && [...document.querySelectorAll('.shelf .shelf-title')].some(el => el.textContent === ${JSON.stringify(`added ${owner.label}`)})`);
       const made = (await app.rpc("todo.list", null)).find(todo => todo.title === `added ${owner.label}`)!;
       await observe(made.id, owner.actor, owner.id);
+      // EntryRow keeps an empty field open for another title; close it before
+      // measuring the next plus, so its ResizeObserver cannot scroll that target.
+      await browser("press", "Escape");
+      await until(`document.activeElement.getAttribute('aria-label') === ${JSON.stringify(`add todo to ${owner.label}`)}`);
     }
 
     await browser("reload");
     await browser("wait", "#shelf-tab-todos");
     await browser("focus", "#shelf-tab-todos");
     await until(`!!document.querySelector('${group("me")}')`);
+
     for (const [id, target] of expected) await observe(id, target.owner, target.group);
 
     // Remove an owner after lifting, before releasing on its stale header.
@@ -137,6 +167,9 @@ it("u3720_real_daemon_owner_assign", async () => {
     await until(`!!document.querySelector('.shelf [data-todo="${moved.id}"] [role="alert"]')`);
     await observe(moved.id, me, "me");
     expect(await evaluate(`document.querySelector('.shelf [data-todo="${moved.id}"] [role="alert"]').textContent`)).toMatch(/agent|owner|found|exist/i);
+  } catch (error) {
+    console.error(await evaluate("JSON.stringify({text:document.body.innerText, active:document.activeElement.outerHTML, fields:[...document.querySelectorAll('.entry-field')].map(el=>el.outerHTML)})").catch(() => "browser unavailable"));
+    throw error;
   } finally {
     try { await browser("close"); } finally { await real.stop(); await rm(profile, { recursive: true, force: true }); }
   }

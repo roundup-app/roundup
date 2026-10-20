@@ -108,7 +108,7 @@ describe("u3718 a Todo dragged to another owner's group", () => {
 
     const [one] = await lane.order();
 
-    await lane.evaluate(`(() => { const app = window.__fake.app; const real = app.handlers["todo.assign"]; window.__gate = new Promise(open => { window.__open = open; }); app.handlers["todo.assign"] = async (params) => { await window.__gate; return real(params); }; return true; })()`);
+    await lane.evaluate(`(() => { const app = window.__fake.app; const real = app.handlers["todo.list"]; window.__gate = new Promise(open => { window.__open = open; }); app.handlers["todo.list"] = async (params) => { await window.__gate; return real(params); }; return true; })()`);
     await lift(lane, one!);
     const to = await centre(lane, HEAD);
 

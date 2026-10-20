@@ -436,6 +436,8 @@ export const Todos = () => {
 
     if (!draft || !connected.drafts.submit(draft.revision)) return;
     const home = creationHome();
+    const recipient = creationRecipient();
+    const field = document.querySelector<HTMLInputElement>(".todos-tab .entry-field");
 
     try {
       const made = await connected.app.rpc("todo.create", owner === null ? { title, body: null, blockers: null } : { title, body: null, blockers: null, owner });
@@ -447,6 +449,10 @@ export const Todos = () => {
       if (!(error instanceof Error)) throw error;
       connected.drafts.settle(draft.revision, outcomeOf(error));
       setCreateFailure(error.message);
+      const retained = v.safeParse(v.string(), draft.value.title);
+
+      // EntryRow clears on submit; restore only this field's unchanged failed revision.
+      if (field?.isConnected && field.value === "" && creationRecipient() === recipient && !creation() && retained.success) field.value = retained.output;
     }
   };
 

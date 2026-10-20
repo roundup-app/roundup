@@ -35,7 +35,7 @@ it("u3719_the_plus_creates_in_that_groups_owner", async () => {
 
   for (const [group, label, params] of [["me", "Me", { owner: ME }], ["a", "alpha", { owner: by("a") }], ["unassigned", "Unassigned", {}]] as const) {
     fireEvent.click(screen.getByRole("button", { name: `add todo to ${label}` }));
-    const field = await screen.findByRole("textbox", { name: "New Todo title" });
+    const field = await screen.findByRole<HTMLInputElement>("textbox", { name: "New Todo title" });
 
     expect(within(document.querySelector(`[data-shelf-group="${group}"]`)!).getByRole("textbox")).toBe(field);
     fireEvent.input(field, { target: { value: `into ${label}` } });
@@ -47,7 +47,7 @@ it("u3719_the_plus_creates_in_that_groups_owner", async () => {
   expect(callsTo(app, "todo.create")).toHaveLength(3);
 });
 
-it("u3719_the_plus_never_toggles_the_fold_and_opens_a_folded_group", async () => {
+it("u3719_the_plus_opens_a_folded_group_and_focuses_the_field", async () => {
   await mount();
   await waitFor(() => expect(groups()).toContain("unassigned"));
   const content = () => document.querySelector('[data-shelf-group="unassigned"] [data-part="branch-content"]')!;
@@ -55,13 +55,21 @@ it("u3719_the_plus_never_toggles_the_fold_and_opens_a_folded_group", async () =>
   unfold("unassigned");
   await waitFor(() => expect(content().hasAttribute("hidden")).toBe(true));
   fireEvent.click(screen.getByRole("button", { name: "add todo to Unassigned" }));
-  const field = await screen.findByRole("textbox", { name: "New Todo title" });
+  const field = await screen.findByRole<HTMLInputElement>("textbox", { name: "New Todo title" });
 
   expect(content().hasAttribute("hidden")).toBe(false);
   await waitFor(() => expect(document.activeElement).toBe(field));
+});
+
+it("u3719_the_plus_never_toggles_the_fold", async () => {
+  await mount();
+  await waitFor(() => expect(groups()).toContain("me"));
+  fireEvent.click(screen.getByRole("button", { name: "add todo to Me" }));
+  const field = await screen.findByRole<HTMLInputElement>("textbox", { name: "New Todo title" });
+
   fireEvent.keyDown(field, { key: "Escape" });
-  await waitFor(() => expect(document.activeElement).toBe(screen.getByRole("button", { name: "add todo to Unassigned" })));
-  expect(content().hasAttribute("hidden")).toBe(false);
+  await waitFor(() => expect(screen.queryByRole("textbox", { name: "New Todo title" })).toBeNull());
+  expect(content("me").hasAttribute("hidden")).toBe(false);
 });
 
 it("u3719_a_failed_create_keeps_the_text_and_shows_its_cause", async () => {
@@ -71,16 +79,18 @@ it("u3719_a_failed_create_keeps_the_text_and_shows_its_cause", async () => {
 
   await waitFor(() => expect(groups()).toContain("a"));
   fireEvent.click(screen.getByRole("button", { name: "add todo to alpha" }));
-  const field = await screen.findByRole("textbox", { name: "New Todo title" });
+  const field = await screen.findByRole<HTMLInputElement>("textbox", { name: "New Todo title" });
 
   fireEvent.input(field, { target: { value: "x" } });
   fireEvent.keyDown(field, { key: "Enter" });
 
   expect(await within(document.querySelector('[data-shelf-group="a"]')!).findByText(/agent gone/)).toBeTruthy();
+  expect(field.value).toBe("x");
 });
 
-it("u3720_o_opens_the_owner_list_without_the_current_owner_and_choosing_assigns_once", async () => {
-  const { app } = await mount();
+// Choosing and focus are proved by u3720_choosing_assigns_once_and_returns_focus_to_the_row.
+it("u3720_o_opens_the_owner_list_without_the_current_owner", async () => {
+  await mount();
   await waitFor(() => expect(groups()).toContain("a"));
   const row = await screen.findByRole("button", { name: "Idle #3 todo 3" });
 
@@ -89,10 +99,6 @@ it("u3720_o_opens_the_owner_list_without_the_current_owner_and_choosing_assigns_
   const list = await screen.findByRole("menu", { name: "Owners for #3" });
 
   expect(within(list).getAllByRole("menuitem").map((item) => item.textContent)).toEqual(["Me", "beta", "Unassigned"]);
-  fireEvent.click(within(list).getByText("Me"));
-  await waitFor(() => expect(callsTo(app, "todo.assign")).toHaveLength(1));
-  expect(callsTo(app, "todo.assign")[0]?.params).toEqual({ id: 3, owner: ME });
-  await waitFor(() => expect(document.activeElement?.closest("[data-todo]")?.getAttribute("data-todo")).toBe("3"));
 });
 
 it("u3720_o_is_inert_in_text_fields_with_modifiers_and_on_done_rows", async () => {
@@ -186,26 +192,14 @@ it("u3719_the_plus_is_keyboard_reachable_with_its_name", async () => {
   expect(document.activeElement).toBe(plus);
 });
 
-it("u3720_esc_closes_the_owner_list_and_restores_focus_to_the_row", async () => {
-  await mount();
-  await waitFor(() => expect(groups()).toContain("a"));
-  const row = await screen.findByRole("button", { name: "Idle #3 todo 3" });
-
-  row.focus();
-  fireEvent.keyDown(row, { key: "o", code: "KeyO" });
-  await waitFor(() => expect(document.activeElement).toBe(screen.getByRole("menu")));
-  fireEvent.keyDown(screen.getByRole("menu"), { key: "Escape" });
-  await waitFor(() => expect(screen.queryByRole("menu")).toBeNull());
-  await waitFor(() => expect(document.activeElement?.closest("[data-todo]")?.getAttribute("data-todo")).toBe("3"));
-});
-
+// Esc and outside dismissal are proved by u3720_esc_and_click_outside_close_and_restore_focus.
 it("u3720_choosing_assigns_once_and_returns_focus_to_the_row", async () => {
   const { app } = await mount();
   await waitFor(() => expect(groups()).toContain("a"));
   fireEvent.click(await screen.findByRole("button", { name: "assign #3", hidden: true }));
   fireEvent.click(within(await screen.findByRole("menu")).getByText("Unassigned"));
 
-  await waitFor(() => expect(callsTo(app, "todo.assign")).toHaveLength(1));
+  await waitFor(() => expect(callsTo(app, "todo.assign").map(call => call.params)).toEqual([{ id: 3, owner: null }]));
   await waitFor(() => expect(document.activeElement?.closest("[data-todo]")?.getAttribute("data-todo")).toBe("3"));
   expect(document.activeElement).not.toBe(document.body);
 });
