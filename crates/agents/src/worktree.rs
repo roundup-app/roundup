@@ -448,6 +448,7 @@ impl Git {
         Ok(WorktreeState {
             ci: None,
             pr: None,
+            evidence: None,
             ahead,
             behind,
             dirty: self.dirty(worktree)?,
