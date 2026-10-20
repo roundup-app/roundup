@@ -3,8 +3,10 @@ import { afterEach, describe, expect, it } from "vitest";
 import type { ImportDiscovery } from "@contracts/project/ImportDiscovery";
 import type { ImportResult } from "@contracts/project/ImportResult";
 import { RpcError } from "../app/seam";
-import { workstream } from "../testing/nodes";
-import { mountRail } from "./railFixture";
+import { createFakeApp } from "../testing/fakeApp";
+import { agent, workstream } from "../testing/nodes";
+import { createImport } from "./importState";
+import { exitedTerminal, mountRail, rowOf } from "./railFixture";
 
 afterEach(() => { cleanup(); localStorage.clear(); });
 
@@ -82,5 +84,42 @@ describe("u2875d the import panel is an ordinary Rail action", () => {
     await screen.findByText(/Changed or gone since you chose them: First/);
     expect(calls(app, "project.importDiscover").map((call) => call.params)).toEqual([{ period: "month" }]);
     expect(screen.getAllByRole("checkbox").every((box) => box instanceof HTMLInputElement && !box.checked)).toBe(true);
+  });
+
+  it("u2875d_success_opens_the_created_workstream_with_resume_and_start_supervisor", async () => {
+    const { app } = await mountRail([workstream("w1"), agent("a1", "done", "done", { parent: "w1", can_resume: true })], [exitedTerminal("a1", 0)]);
+    app.handlers["project.importDiscover"] = () => found();
+    app.handlers["project.importCommit"] = () => ({ outcomes: [{ source: "s1", workstream: "w1", agent: "a1", error: null }] });
+
+    fireEvent.click(screen.getByRole("button", { name: "Import Claude Code work" }));
+    fireEvent.click(await screen.findByText("First"));
+    fireEvent.click(await screen.findByRole("button", { name: "Import 1" }));
+
+    await waitFor(() => expect(rowOf("w1").closest("[role=treeitem]")?.getAttribute("aria-selected")).toBe("true"));
+    expect(rowOf("a1").querySelector("button[aria-label=Resume]")).toBeTruthy();
+    fireEvent.focusIn(rowOf("w1").querySelector<HTMLElement>("button[aria-label=Collapse]")!);
+    expect(screen.getByRole("button", { name: "Start supervisor" })).toBeTruthy();
+    expect(calls(app, "agent.resume")).toEqual([]);
+  });
+
+  it("u2875d_period_and_selection_stay_with_their_original_project", async () => {
+    const app = createFakeApp();
+    app.handlers["project.importDiscover"] = () => found();
+    const first = createImport(app, "/p", () => undefined);
+
+    first.show();
+    await waitFor(() => expect(first.verified()).toBe(true));
+    first.setPeriod("month");
+    first.choose("s1", "First", "r1", true);
+
+    const other = createImport(app, "/q", () => undefined);
+
+    expect([other.period(), other.selected().size, other.open()]).toEqual(["week", 0, false]);
+    other.cancel();
+
+    const reopened = createImport(app, "/p", () => undefined);
+
+    expect([reopened.period(), [...reopened.selected().keys()], reopened.open(), reopened.verified()]).toEqual(["month", ["s1"], true, false]);
+    expect(calls(app, "project.importCommit")).toEqual([]);
   });
 });
