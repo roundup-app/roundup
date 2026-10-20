@@ -227,6 +227,16 @@ pub const METHODS: &[Method] = &[
     m("project.setMcp", "project_Mcp", "null"),
     m("project.setPrepared", "project_Prepared", "null"),
     m("project.getPrepared", "null", "project_Prepared"),
+    m(
+        "project.importDiscover",
+        "project_ImportDiscoverParams",
+        "project_ImportDiscovery",
+    ),
+    m(
+        "project.importCommit",
+        "project_ImportCommitParams",
+        "project_ImportResult",
+    ),
     m("project.prepareDirectory", "project_PrepareParams", "null"),
     m("project.get", "null", "project_ProjectSettings"),
     m("project.setModels", "project_ProjectModels", "null"),

@@ -1,16 +1,7 @@
 use super::*;
 
 impl Agents {
-    // #2875 is the scheduled caller. Keep this private until the public import capability
-    // lands with its discovery, authority and App observers; this lifecycle never launches.
-    #[cfg_attr(
-        not(test),
-        expect(
-            dead_code,
-            reason = "internal publication lifecycle for the scoped #2875 caller"
-        )
-    )]
-    async fn import_conversation(
+    pub(super) async fn import_conversation(
         &self,
         source: &str,
         revision: &str,
@@ -745,6 +736,94 @@ mod tests {
             agents.shared.node(&ids.1).unwrap().name,
             "Untitled conversation"
         );
+    }
+
+    #[tokio::test]
+    async fn u2875a_u2875b_import_methods_are_user_only_and_list_then_commit() {
+        use serde_json::json;
+        const ID: &str = "22222222-2222-4222-8222-222222222222";
+        let (dir, agents, _) = fixture();
+        let project = dir.path().canonicalize().unwrap();
+        let bucket = dir.path().join("projects/bucket");
+        std::fs::create_dir_all(&bucket).unwrap();
+        let n = time::OffsetDateTime::now_utc();
+        let ts = format!(
+            "{:04}-{:02}-{:02}T{:02}:{:02}:{:02}Z",
+            n.year(),
+            u8::from(n.month()),
+            n.day(),
+            n.hour(),
+            n.minute(),
+            n.second()
+        );
+        std::fs::write(
+            bucket.join(format!("{ID}.jsonl")),
+            format!(
+                "{{\"type\":\"user\",\"isSidechain\":false,\"cwd\":\"{}\",\"sessionId\":\"{ID}\",\"timestamp\":\"{ts}\"}}\n",
+                project.join("src").display()
+            ),
+        )
+        .unwrap();
+        let ctx = |actor: contracts::Actor| rpc::Ctx {
+            actor,
+            bus: Bus::new(),
+            touches: Arc::new(provenance::Touches::in_memory().unwrap()),
+        };
+        let agent = contracts::Actor {
+            kind: contracts::ActorKind::Agent,
+            id: "7".into(),
+            parent: None,
+        };
+        for method in ["project.importDiscover", "project.importCommit"] {
+            let params = json!({"period": "day", "selections": []});
+            let err = agents
+                .call(&ctx(agent.clone()), method, params)
+                .await
+                .unwrap_err();
+            assert_eq!(err.code, rpc::RpcError::forbidden("").code);
+        }
+        let user = ctx(contracts::Actor::user());
+        let listed: contracts::project::ImportDiscovery = serde_json::from_value(
+            agents
+                .call(&user, "project.importDiscover", json!({"period": "day"}))
+                .await
+                .unwrap(),
+        )
+        .unwrap();
+        assert_eq!(listed.candidates.len(), 1);
+        assert_eq!(listed.candidates[0].cwd, "src");
+        let selection = json!({"source": ID, "revision": listed.candidates[0].revision});
+        let committed: contracts::project::ImportResult = serde_json::from_value(
+            agents
+                .call(
+                    &user,
+                    "project.importCommit",
+                    json!({"selections": [selection]}),
+                )
+                .await
+                .unwrap(),
+        )
+        .unwrap();
+        assert!(committed.outcomes[0].error.is_none());
+        // The imported conversation is no longer selectable, and a stale revision is refused.
+        let again: contracts::project::ImportDiscovery = serde_json::from_value(
+            agents
+                .call(&user, "project.importDiscover", json!({"period": "day"}))
+                .await
+                .unwrap(),
+        )
+        .unwrap();
+        assert!(again.candidates.is_empty());
+        assert_eq!(again.excluded[0].reason, "already in this Project");
+        let stale = agents
+            .call(
+                &user,
+                "project.importCommit",
+                json!({"selections": [{"source": "33333333-3333-4333-8333-333333333333", "revision": "x"}]}),
+            )
+            .await
+            .unwrap();
+        assert!(stale["outcomes"][0]["error"].is_string());
     }
 
     #[tokio::test]
