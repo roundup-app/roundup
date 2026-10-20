@@ -170,7 +170,7 @@ export const Pads = (props: {
         <div class="shelf-list">
           <ShelfRow glyph={<span class="light"><OwnerMark owner={USER} decorative /></span>} class="entry-row pad-inset">
             <Editable.Root edit value={name()} readOnly={invalid()} selectOnFocus={false} submitMode="none" onValueChange={({ value }) => { setName(value); capture(); }}>
-            <Editable.Input class="entry-field shelf-title" aria-label={copy.padName} placeholder={copy.newPadPlaceholder} value={name()}
+            <Editable.Input type="text" class="entry-field shelf-title" aria-label={copy.padName} placeholder={copy.newPadPlaceholder} value={name()}
               ref={(input) => {
                 field = input;
                 queueMicrotask(() => {
