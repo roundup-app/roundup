@@ -6,7 +6,7 @@ Webview only. No App command, no Daemon method and nothing under `contracts/` ch
 
 **U170 five button kinds, each defined once.** Given `docs/design-system.md`, when a test renders the App, then there are exactly five button kinds: **primary** (`--accent` label, the one action of a state), **quiet** (`--grey` label at rest, `--text` on hover, no surface at rest), **add** (a `+` mark and a label, quiet, trailing a list or group), **row action** (a word or mark shown on a row's hover, focus or selection, and always reachable by keyboard), and **icon button** (a 16 px mark in a 24 px square, with an `aria-label`). Every `button`, `[role=button]` and click target in the Rail, Shelf, Drawer and centre carries one `data-button` attribute naming its kind, and a click target with none fails. A row is not a button: a `treeitem` row of the Rail, a Shelf row and a Todo's title (U139) are exempt, take no `data-button`, and are styled only by U172's Item, Selection and Workstream-row clauses; any button inside a row (its row action, its chevron) is still one of the five kinds. New Tokens (a pressed surface, a disabled label tone) are added to the table in `docs/design-system.md` with a light and a dark value, and U130 still holds. Test: `u170_`.
 
-**U171 every kind shows every state.** Given the Tokens in both schemes, then the design critic judges that the disabled tone is 4.5:1 against the ground and the sunken surface and that the pressed surface differs from the hover surface (AGENTS.md rule 10). A disabled button stays focusable and keeps `aria-disabled`, never the `disabled` attribute, so its reason can be read as its `title`. Test: `u510_disabled_behavior_is_preserved`.
+**U171 every kind shows every state.** Given the Tokens in dark, then the design critic judges that the disabled tone is 4.5:1 against the ground and the sunken surface and that the pressed surface differs from the hover surface (AGENTS.md rule 10). A disabled button stays focusable and keeps `aria-disabled`, never the `disabled` attribute, so its reason can be read as its `title`. Test: `u510_disabled_behavior_is_preserved`.
 
 **U172 the sidebar's hierarchy.** Given the Rail and the Shelf on the seeds `agents-10` and `tree-40` (U26) in both schemes, when a test reads the rendered tree and computed style, then:
 
@@ -18,7 +18,7 @@ Webview only. No App command, no Daemon method and nothing under `contracts/` ch
 
 Test: `u172_` against the fake App seam: structure, order and text by role and `data-` attribute, the persisted collapse by remounting.
 
-**U173 the sidebar reads as elegant, well designed and tasteful.** Given the sidebar after U170 to U172 on `agents-10` and `tree-40`, in both schemes, when the Reviewer (a fresh run holding the issue's reference list below, never the author's rationale) opens `just harness` in `agent-browser` and captures the Rail and the Shelf, then it answers each line with a measurement or capture, and the clause fails when any line is "no" or missing:
+**U173 the sidebar reads as elegant, well designed and tasteful.** Given the sidebar after U170 to U172 on `agents-10` and `tree-40`, in dark, when the Reviewer (a fresh run holding the issue's reference list below, never the author's rationale) opens `just harness` in `agent-browser` and captures the Rail and the Shelf, then it answers each line with a measurement or capture, and the clause fails when any line is "no" or missing:
 
 > Amended by U403 and U404: lines 2 and 4 read the new rows, with a chevron and no badge or value.
 
@@ -31,7 +31,7 @@ Test: `u172_` against the fake App seam: structure, order and text by role and `
 7. Every button of the sidebar is one of the five kinds (U170) and shows its states (U171).
 8. Beside the reference's attributes, the Reviewer states in one line whether the whole reads elegant, well designed and tasteful, and names the one thing that most spoils it, if any. That line is a `NOTE:` that a fix run reads; lines 1 to 7 decide.
 
-Before and after captures, `__checks()` readings (U137) and the answers go to `artifacts/ux/U173/`. D1 to D10 pass on the seeds in both schemes and no Check passing on `main` regresses (U136). The WKWebView rendering stays the user's `just app` observation.
+Before and after captures, `__checks()` readings (U137) and the answers go to `artifacts/ux/U173/`. D1 to D10 pass on the seeds in dark and no Check passing on `main` regresses (U136). The WKWebView rendering stays the user's `just app` observation.
 
 Tests are named `u170_` to `u172_` in `apps/desktop/src/app/` against the fake App seam; U173 is read by the Reviewer and QA, and `qa.yml` (L66) captures its seeds on each sweep.
 
