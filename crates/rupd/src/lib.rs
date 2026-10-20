@@ -2486,6 +2486,7 @@ mod tests {
     }
 
     fn import_source(config: &Path, cwd: &Path, number: usize, timestamp: &str) -> PathBuf {
+        let cwd = cwd.canonicalize().unwrap_or_else(|_| cwd.to_path_buf());
         let bucket: String = cwd
             .to_string_lossy()
             .chars()
@@ -2694,6 +2695,12 @@ mod tests {
         use std::time::{Instant, SystemTime, UNIX_EPOCH};
         let root = tempfile::tempdir().unwrap();
         let config = root.path().join("config");
+        let project = root.path().join("project");
+        let unrelated = root.path().join("unrelated-project");
+        std::fs::create_dir(&project).unwrap();
+        std::fs::create_dir(&unrelated).unwrap();
+        let project = project.canonicalize().unwrap();
+        let unrelated = unrelated.canonicalize().unwrap();
         let now = time::OffsetDateTime::now_utc();
         let mut total = 0u64;
         for i in 0..1260 {
@@ -2703,15 +2710,11 @@ mod tests {
                 8..=10 => 15,
                 _ => 60,
             };
-            let cwd = if i < 630 {
-                root.path().to_path_buf()
-            } else {
-                root.path().join("../unrelated-project")
-            };
+            let cwd = if i < 630 { &project } else { &unrelated };
             let stamp = (now - time::Duration::days(age))
                 .format(&time::format_description::well_known::Rfc3339)
                 .unwrap();
-            let path = import_source(&config, &cwd, i, &stamp);
+            let path = import_source(&config, cwd, i, &stamp);
             let header = std::fs::read(&path).unwrap();
             let size = if i == 0 {
                 397_000_000
@@ -2738,7 +2741,10 @@ mod tests {
             writer.flush().unwrap();
             writer
                 .get_ref()
-                .set_modified(SystemTime::now() - Duration::from_secs(age as u64 * 86400))
+                .set_modified(
+                    SystemTime::now()
+                        - Duration::from_secs(if i < 630 { age as u64 * 86400 } else { 0 }),
+                )
                 .unwrap();
             assert_eq!(std::fs::metadata(path).unwrap().len(), size);
             total += size;
@@ -2750,7 +2756,7 @@ mod tests {
             "rup".into(),
             None,
         );
-        let daemon = Arc::new(import_daemon(root.path(), launcher));
+        let daemon = Arc::new(import_daemon(&project, launcher));
         let socket = root.path().join("observer.sock");
         let listener = UnixListener::bind(&socket).unwrap();
         let service = tokio::spawn(serve(listener, daemon));
@@ -2814,6 +2820,16 @@ mod tests {
                 Some(expected),
                 "{response}"
             );
+            let sources: Vec<_> = response["candidates"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .map(|candidate| candidate["source"].as_str().unwrap())
+                .collect();
+            let expected_sources: Vec<_> = (0..expected)
+                .map(|i| format!("{i:08}-1111-4111-8111-111111111111"))
+                .collect();
+            assert_eq!(sources, expected_sources);
             assert!(elapsed < Duration::from_secs(10), "{period}: {elapsed:?}");
         }
         assert_eq!(
