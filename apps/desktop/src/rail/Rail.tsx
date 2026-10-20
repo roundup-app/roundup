@@ -42,7 +42,6 @@ export const Rail = () => {
 
   const attention = createMemo(() => attentionCount(rail.nodes));
   const [scrolled, setScrolled] = createSignal(false);
-  const [importing, setImporting] = createSignal(false);
   let importOpener: HTMLButtonElement | undefined;
   const collapsed = rail.collapsed;
   const [unfolded, setUnfolded] = createSignal<ReadonlySet<string | null>>(new Set());
@@ -51,6 +50,8 @@ export const Rail = () => {
   // #2788: avoid rescanning all drafts per recovery row; 10k lookups took 527 ms with find, 0.6 ms with Map.
   const revisions = createMemo(() => new Map(retained.records().map((draft) => [draft.revision, draft])));
   const menu = createRailMenu(app, rail, setFailure, connected.events, connected.drafts);
+
+  const importing = connected.importing;
 
   const clearPrompt = createMemo(() => {
     const node = menu.clearTarget();
@@ -525,10 +526,10 @@ export const Rail = () => {
         </span>
       </Show>
     </button>
-    <button type="button" data-button="quiet" class="word rail-import" ref={importOpener} disabled={daemonExit() !== null} onClick={() => setImporting(true)}>
+    <button type="button" data-button="quiet" class="word rail-import" ref={importOpener} disabled={daemonExit() !== null} onClick={() => importing.show()}>
       {copy.importTitle}
     </button>
-    <ImportPanel open={importing()} opener={importOpener} onClose={() => setImporting(false)} />
+    <ImportPanel open={importing.open()} opener={importOpener} onClose={() => importing.cancel()} />
     <div class="rail-scroll" onScroll={(event) => setScrolled(event.currentTarget.scrollTop > 0)}>
     <TreeView.Root
       class="rail-tree"
