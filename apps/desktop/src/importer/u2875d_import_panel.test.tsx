@@ -175,3 +175,22 @@ it("u2875a_discovery_exclusions_remain_visible_after_partial_failure", async () 
   expect(screen.getByText("copy refused")).toBeTruthy();
   expect(screen.getByRole("button", { name: "Refresh" })).toBeTruthy();
 });
+
+it("u2875d_cancel_consumes_only_the_current_draft", async () => {
+  const { app, connected } = await mount();
+
+  app.handlers["project.importCommit"] = () => { throw new RpcError(-32003, "daemon said no"); };
+  await open();
+  fireEvent.click(screen.getByRole("checkbox", { name: /first/ }));
+  fireEvent.click(screen.getByRole("button", { name: "Import 1" }));
+  await waitFor(() => expect(screen.getByText("daemon said no")).toBeTruthy());
+  fireEvent.click(screen.getByRole("checkbox", { name: /second/ }));
+  fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
+  await waitFor(() => expect(screen.queryByRole("checkbox")).toBeNull());
+  cleanup();
+  render(() => <ConnectedProjectContext.Provider value={connected}><Rail /></ConnectedProjectContext.Provider>);
+  await open();
+  expect(isChecked(/first/)).toBe(true);
+  expect(isChecked(/second/)).toBe(false);
+  expect(calls(app, "project.importCommit")).toHaveLength(1);
+});
