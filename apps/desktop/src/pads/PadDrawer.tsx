@@ -17,6 +17,7 @@ import { useConnectedProject } from "../state/connectedProject";
 import { createFailure } from "./failure";
 import { RpcError, INTERNAL_CODE } from "../app/seam";
 import { usePadList } from "../rail/pads/padList";
+import type { PadList } from "../rail/pads/padList";
 import { USER } from "./owner";
 import { cutName, markedLine, wholeWord } from "./nameLine";
 
@@ -27,14 +28,16 @@ const PadRichEditor = lazy(() => import("./PadRichEditor"));
 
 const PadBody = (props: {
   initial: Pad;
+  revision?: string;
+  list: PadList;
   pads: Accessor<readonly Pad[]>;
   onLateFailure: (message: string) => void;
 }) => {
   const connected = useConnectedProject();
-  const list = usePadList();
+  const list = props.list;
   const name = props.initial.name;
   const destination = { surface: "pads", object: props.initial.incarnation, recipient: null };
-  const retained = connected.drafts.list().filter(draft => draft.destination.surface === "pads" && draft.destination.object === destination.object).at(-1);
+  const retained = connected.drafts.list().filter(draft => draft.destination.surface === "pads" && draft.destination.object === destination.object && (props.revision === undefined || draft.revision === props.revision)).at(-1);
 
   const parsed = retained ? v.safeParse(v.pipe(
     v.object({
@@ -66,7 +69,11 @@ const PadBody = (props: {
   };
 
   const sourceLabel = copy.copyField(copy.draftField("source").toLowerCase());
-  const statusLabel = () => copy.draftIdentity(copy.currentDraft, copy.draftStatus[connected.drafts.list().filter(draft => draft.destination.surface === destination.surface && draft.destination.object === destination.object).at(-1)?.status ?? "draft"]);
+  const statusLabel = () => {
+    const status = copy.draftStatus[connected.drafts.list().filter(draft => draft.destination.surface === destination.surface && draft.destination.object === destination.object && (props.revision === undefined || draft.revision === props.revision)).at(-1)?.status ?? "draft"];
+
+    return props.revision === undefined ? copy.draftIdentity(copy.currentDraft, status) : status;
+  };
   let conflictVersion = 0;
   const [pad, setPad] = createSignal(props.initial);
   const [shown, setShown] = createSignal(parsed?.success ? parsed.output.source : source);
@@ -95,7 +102,7 @@ const PadBody = (props: {
   const saveAfterPause = debounce(() => flush(), 500);
 
   const capture = () => {
-    if (invalid()) return;
+    if (invalid() || (recovered && !editor)) return;
     const text = currentDraft();
     const snapshot = text === null && !closed ? editor?.snapshot() : null;
 
@@ -519,6 +526,11 @@ const PadBody = (props: {
             }
 
             if (recovered?.selection) ready.restoreSelection(recovered.selection);
+            else if (recovered) {
+              // An uncaptured caret acquires the editor's initial position without creating a revision.
+              draftSelection = ready.selection();
+              captured = JSON.stringify([recovered.value.source, draftSelection, recovered.value.document ?? null]);
+            }
           }}
         />
       </Suspense>
@@ -557,10 +569,27 @@ const PadBody = (props: {
 /** Body of a Pad's Drawer: the Pad is read once, as the user's Touch, after the history that last-touch line shows. */
 export const PadDrawer = (props: {
   name: string;
+  /** Select a retained revision in this Project, using pads' already-loaded identity facts.
+   * Missing revisions or originals render no editor; recovery never performs opening reads.
+   */
+  recovery?: { project: string; revision: string; list: PadList };
   pads: Accessor<readonly Pad[]>;
   onLateFailure: (message: string) => void;
 }) => {
   const connected = useConnectedProject();
+
+  if (props.recovery !== undefined) {
+    const recovery = props.recovery;
+
+    if (recovery.project !== connected.project.path) return null;
+
+    const retained = connected.drafts.list().find(draft => draft.revision === recovery.revision && draft.destination.surface === "pads" && draft.destination.recipient === null);
+    const initial = recovery.list.loaded() && recovery.list.failure() === null ? recovery.list.pads().find(pad => pad.name === props.name && pad.incarnation === retained?.destination.object && retained?.value.originalName === pad.name) : undefined;
+
+    return initial ? <PadBody initial={initial} revision={recovery.revision} list={recovery.list} pads={recovery.list.pads} onLateFailure={props.onLateFailure} /> : null;
+  }
+
+  const list = usePadList();
 
   return (
     <ItemDrawer
@@ -572,6 +601,7 @@ export const PadDrawer = (props: {
       {(pad) => (
         <PadBody
           initial={pad}
+          list={list}
           pads={props.pads}
           onLateFailure={props.onLateFailure}
         />

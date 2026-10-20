@@ -237,6 +237,9 @@ export default function PadRichEditor(props: {
       ready = true;
       crepe.setReadonly(props.readonly);
 
+      // Focus may let ProseMirror adopt the DOM caret; restore the caller's selection after that.
+      if (!props.readonly) field.focus();
+
       props.onReady({
         getText,
         setText: (text) => {
@@ -309,8 +312,6 @@ export default function PadRichEditor(props: {
         focus: () => field.focus(),
         unchanged: () => document().eq(originalDocument),
       });
-
-      if (!props.readonly) field.focus();
     }).catch((error) => {
       if (!closed) setFailure(error instanceof Error ? error.message : String(error));
     });
