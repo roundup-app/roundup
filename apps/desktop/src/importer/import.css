@@ -142,3 +142,13 @@
   display: grid;
   gap: var(--space-2);
 }
+
+.import-recovery ul {
+  padding-inline-start: var(--space-4);
+}
+
+.import-panel p.ink[role="alert"] {
+  overflow: visible;
+  text-overflow: clip;
+  white-space: normal;
+}

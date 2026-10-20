@@ -2,6 +2,7 @@ import { cleanup, fireEvent, render, screen, waitFor } from "@solidjs/testing-li
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { ImportDiscovery } from "@contracts/project/ImportDiscovery";
 import type { ImportResult } from "@contracts/project/ImportResult";
+import { draftStorage } from "../state/storage";
 import { App } from "../App";
 import { fakeEmulators } from "../terminal/paneHarness";
 import { RpcError } from "../app/seam";
@@ -270,15 +271,23 @@ const clickSource = async (title: string) => {
 
 const importConflict = () => screen.getByRole("status", { name: /conflict/i });
 
-it("u3049a_external_save_keeps_both_versions", async () => {
+it.each([false, true])("u3049a_external_save_keeps_both_versions_shared_record_%s", async (shared) => {
   const { app, connected } = await mountRail([]);
   app.handlers["project.importDiscover"] = concurrentFound;
   fireEvent.click(screen.getByRole("button", { name: "Import Claude Code work" }));
-  fireEvent.click(await screen.findByRole("checkbox", { name: new RegExp("一つ目") }));
-  localStorage.setItem("roundup:import:/p", JSON.stringify({ open: true, period: "month", selected: [{ source: "s2", revision: "preview-2", title: titles[1] }] }));
-  fireEvent.click(screen.getByRole("checkbox", { name: new RegExp("三つ目") }));
+  await screen.findByRole("checkbox", { name: /一つ目/ });
+  await clickSource("一つ目");
+  let externalRevision: string | undefined;
+
+  if (shared) {
+    externalRevision = draftStorage("/p").edit({ surface: "import", object: "/p", recipient: null }, { period: "month", sources: ["s2"], revisions: ["preview-2"], titles: [titles[1]!] }, null, "ordinary").draft.revision;
+  }
+
+  localStorage.setItem("roundup:import:/p", JSON.stringify({ revision: externalRevision, open: true, period: "month", selected: [{ source: "s2", revision: "preview-2", title: titles[1] }] }));
+  await clickSource("三つ目");
   expect(await screen.findByRole("status", { name: /conflict/i })).toBeTruthy();
   const forms = connected.drafts.list().filter(draft => draft.destination.surface === "import").map(draft => draft.value);
+  expect(forms).toHaveLength(2);
   expect(forms).toEqual(expect.arrayContaining([
     expect.objectContaining({ period: "month", sources: ["s2"], revisions: ["preview-2"], titles: [titles[1]] }),
     expect.objectContaining({ period: "week", sources: ["s1", "s3"], revisions: ["preview-1", "preview-3"], titles: [titles[0], titles[2]] }),
@@ -365,15 +374,17 @@ it("u3049b_reopen_keeps_conflicting_choices", async () => {
   expect(calls(daemon, "project.importCommit")).toEqual([]);
 });
 
-it("u3049b_discard_consumes_only_selected_version", async () => {
+it.each([1, 2])("u3049b_discard_consumes_only_selected_version_%s", async (number) => {
   const { app, daemon, other } = await conflictingProjects();
-  fireEvent.click(screen.getByRole("button", { name: "Discard choices 2" }));
+  fireEvent.click(screen.getByRole("button", { name: `Discard choices ${number}` }));
   expect(screen.queryByRole("status", { name: /conflict/i })).toBeNull();
   cleanup();
   render(() => <App app={app} reducedMotion={() => false} clock={() => 0} createEmulator={fakeEmulators().factory} />);
-  await screen.findByRole("button", { name: "Import 1" });
-  expect(screen.getByRole("button", { name: "Last month" }).getAttribute("aria-pressed")).toBe("true");
-  expect(JSON.parse(localStorage.getItem(importKey(path("api")))!).selected).toEqual(JSON.parse(externalChoices).selected);
+  const sources = number === 2 ? ["s2"] : ["s1", "s3"];
+
+  await screen.findByRole("button", { name: `Import ${sources.length}` });
+  expect(screen.getByRole("button", { name: number === 2 ? "Last month" : "Last week" }).getAttribute("aria-pressed")).toBe("true");
+  expect(JSON.parse(localStorage.getItem(importKey(path("api")))!).selected).toEqual(sources.map(source => ({ source, revision: `preview-${source.slice(1)}`, title: titles[Number(source.slice(1)) - 1] })));
   expect(JSON.parse(localStorage.getItem(`roundup:drafts:${path("api")}`)!).drafts.filter((entry: { destination: { surface: string } }) => entry.destination.surface === "import")).toHaveLength(1);
   expect(localStorage.getItem(importKey(path("web")))).toBe(other);
   expect(calls(daemon, "project.importCommit")).toEqual([]);

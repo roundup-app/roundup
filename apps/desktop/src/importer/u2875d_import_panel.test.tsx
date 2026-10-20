@@ -165,6 +165,7 @@ it.skipIf(!captureDir("U3049a"))("u3049a_u3049b_rendered_conflict_recovery", asy
       return true;
     })()`);
     await lane.until("document.querySelector('.import-panel').textContent.includes('could not be restored')");
+    await lane.browser("scrollintoview", ".import-panel [role=alert]");
     await lane.capture("U3049b", "retention-failure");
     expect(await lane.calls("project.importCommit")).toEqual([]);
   } finally {
