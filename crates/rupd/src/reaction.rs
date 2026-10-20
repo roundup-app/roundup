@@ -214,6 +214,9 @@ impl Evaluator {
     /// NR2: starts watching `reaction` if it is not, then decides it. The head is read before the Rail,
     /// so a finish between the two is replayed rather than missed.
     pub(crate) async fn observe(&self, reaction: &Reaction, live: Option<&Event>) {
+        if !matches!(reaction.condition, Condition::Agents { .. }) {
+            return;
+        }
         let _gate = self.reactions.gate.lock().await;
         let head = self
             .bus
