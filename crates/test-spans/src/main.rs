@@ -70,11 +70,11 @@ impl Tests {
                     (TokenTree::Group(attr), Some(TokenTree::Punct(hash)))
                         if hash.as_char() == '#' && attr.delimiter() == Delimiter::Bracket =>
                     {
-                        is_test |= attr
+                        let path = attr
                             .stream()
                             .into_iter()
-                            .last()
-                            .is_some_and(|tree| tree.to_string() == "test");
+                            .take_while(|tree| !matches!(tree, TokenTree::Group(_)));
+                        is_test |= path.last().is_some_and(|tree| tree.to_string() == "test");
                         first -= 2;
                     }
                     (TokenTree::Ident(word), _) if word == "pub" || word == "async" => first -= 1,
@@ -168,6 +168,8 @@ mod tests {
     #[test]
     fn l122_a_test_a_macro_defines_has_a_span() {
         let source = "macro_rules! define_test {\n    () => {\n        #[test]\n        fn example() {\n            assert_eq!(1, 1);\n        }\n    };\n}\ndefine_test!();\n";
+        assert_eq!(of(source), [named(3, 6, "example")]);
+        let source = "macro_rules! define_test {\n    () => {\n        #[tokio::test(flavor = \"current_thread\")]\n        async fn example() {\n            assert_eq!(1, 1);\n        }\n    };\n}\n";
         assert_eq!(of(source), [named(3, 6, "example")]);
     }
 }
