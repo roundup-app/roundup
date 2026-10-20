@@ -282,11 +282,12 @@
   --button-radius: var(--radius-row);
 }
 
-.rail-menu-question {
-  padding: var(--space-2);
+/* D8, D10: the confirm is a flat sunken surface with no shadow. */
+.rail-confirm.app-dialog {
+  box-shadow: none;
 }
 
-.rail-menu-line {
+.rail-confirm-line {
   padding: 0 var(--space-2);
   overflow: hidden;
   color: var(--grey);
@@ -294,12 +295,12 @@
   white-space: nowrap;
 }
 
-.rail-menu-name {
+.rail-confirm-name {
   padding-left: var(--space-4);
 }
 
 /* U367: kept Agents' reasons remain readable when the confirm is narrow. */
-.rail-menu-stay {
+.rail-confirm-stay {
   overflow-wrap: anywhere;
   white-space: normal;
 }
