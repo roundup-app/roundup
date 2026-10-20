@@ -217,6 +217,19 @@ impl Rail {
             .map_err(sql)
     }
 
+    /// U2875a: whether a roundup Agent already holds this vendor conversation, or an earlier
+    /// import of it was recorded (removal keeps the record).
+    pub(super) fn represents_source(&self, source: &str) -> Result<bool, RpcError> {
+        self.db
+            .query_row(
+                "SELECT EXISTS(SELECT 1 FROM closed_sources WHERE source=?1)
+                    OR EXISTS(SELECT 1 FROM nodes WHERE conversation_id=?1)",
+                [source],
+                |row| row.get(0),
+            )
+            .map_err(sql)
+    }
+
     pub(super) fn closed_copy(&mut self, source: &str, copy: &[u8]) -> Result<(), RpcError> {
         let changed = self
             .db

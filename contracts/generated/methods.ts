@@ -58,6 +58,8 @@ import type { ListParams as deliverable_ListParams } from "./deliverable/ListPar
 import type { MoveParams as deliverable_MoveParams } from "./deliverable/MoveParams";
 import type { PublishParams as deliverable_PublishParams } from "./deliverable/PublishParams";
 import type { Resolution as deliverable_Resolution } from "./deliverable/Resolution";
+import type { LinkContent as link_LinkContent } from "./link/LinkContent";
+import type { LinkUrl as link_LinkUrl } from "./link/LinkUrl";
 import type { ListParams as message_ListParams } from "./message/ListParams";
 import type { Message as message_Message } from "./message/Message";
 import type { MessageId as message_MessageId } from "./message/MessageId";
@@ -75,6 +77,10 @@ import type { PadName as pad_PadName } from "./pad/PadName";
 import type { SetOwnerParams as pad_SetOwnerParams } from "./pad/SetOwnerParams";
 import type { SetStorageParams as pad_SetStorageParams } from "./pad/SetStorageParams";
 import type { WriteParams as pad_WriteParams } from "./pad/WriteParams";
+import type { ImportCommitParams as project_ImportCommitParams } from "./project/ImportCommitParams";
+import type { ImportDiscoverParams as project_ImportDiscoverParams } from "./project/ImportDiscoverParams";
+import type { ImportDiscovery as project_ImportDiscovery } from "./project/ImportDiscovery";
+import type { ImportResult as project_ImportResult } from "./project/ImportResult";
 import type { Mcp as project_Mcp } from "./project/Mcp";
 import type { ModelList as project_ModelList } from "./project/ModelList";
 import type { OpenParams as project_OpenParams } from "./project/OpenParams";
@@ -129,7 +135,8 @@ export type RpcMethods = {
   "ask.send": { params: ask_SendParams; result: ask_Ask };
   "ask.list": { params: null; result: ask_Ask[] };
   "ask.pick": { params: ask_PickParams; result: ask_Ask };
-  "daemon.ping": { params: null; result: { pong: true, pid: number, project: string, contract: { fingerprint: string, methods: string[] } } };
+  "daemon.ping": { params: null; result: { pong: true, pid: number, project: string, projectKey: string, contract: { fingerprint: string, methods: string[] } } };
+  "link.read": { params: link_LinkUrl; result: link_LinkContent };
   "daemon.identify": { params: common_IdentifyParams; result: null };
   "events.subscribe": { params: common_SubscribeParams | null; result: common_SubscribeResult };
   "provenance.history": { params: common_HistoryParams; result: common_Touch[] };
@@ -210,6 +217,8 @@ export type RpcMethods = {
   "project.setMcp": { params: project_Mcp; result: null };
   "project.setPrepared": { params: project_Prepared; result: null };
   "project.getPrepared": { params: null; result: project_Prepared };
+  "project.importDiscover": { params: project_ImportDiscoverParams; result: project_ImportDiscovery };
+  "project.importCommit": { params: project_ImportCommitParams; result: project_ImportResult };
   "project.prepareDirectory": { params: project_PrepareParams; result: null };
   "project.get": { params: null; result: project_ProjectSettings };
   "project.setModels": { params: project_ProjectModels; result: null };

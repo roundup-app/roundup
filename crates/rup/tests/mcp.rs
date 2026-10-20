@@ -228,7 +228,7 @@ fn assert_exit_1_with_one_line_naming(output: &Output, socket: &Path) {
 
 /// M5: the methods with a tool for every Agent, each named after its method with the dot replaced
 /// by `_`, bar `agent.setOrder` (O4), whose tool is `agent_set_order`.
-const TOOL_METHODS: [&str; 69] = [
+const TOOL_METHODS: [&str; 70] = [
     "agent.wake",
     "deliverable.publish",
     "deliverable.list",
@@ -247,6 +247,7 @@ const TOOL_METHODS: [&str; 69] = [
     "todo.delete",
     "pad.create",
     "pad.read",
+    "link.read",
     "pad.list",
     "pad.write",
     "pad.append",
@@ -323,7 +324,7 @@ const DOOR_METHODS: [&str; 8] = [
 ];
 
 /// M5: the methods and App commands with no tool; the reasons are in `scenarios/mcp.md`.
-const NO_TOOL: [&str; 53] = [
+const NO_TOOL: [&str; 55] = [
     // U2539b, U2540a: the App's Worktree comparison; an Agent reads its own diff with git.
     "agent.changedFiles",
     "agent.compareFile",
@@ -374,6 +375,9 @@ const NO_TOOL: [&str; 53] = [
     "project.setPrepared",
     "project.getPrepared",
     "project.prepareDirectory",
+    // U2875: only the user imports recent Claude Code conversations
+    "project.importDiscover",
+    "project.importCommit",
     "agent.setModel",
     // D8: the App's Resource strip
     "project.resources",
