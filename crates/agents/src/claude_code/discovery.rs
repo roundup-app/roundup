@@ -287,7 +287,7 @@ impl Launcher {
                     ))
                 }
             };
-            if let Scan::Member(candidate) = scan(
+            match scan(
                 self,
                 &path,
                 source,
@@ -295,9 +295,16 @@ impl Launcher {
                 (now_ms, i64::MAX),
                 &check,
                 Some(&mut bytes),
-            )? && candidate.revision == revision
-            {
-                return Ok((candidate, bytes));
+            )? {
+                Scan::Member(candidate) if candidate.revision == revision => {
+                    return Ok((candidate, bytes));
+                }
+                Scan::Excluded(reason) => {
+                    return Err(RpcError::conflict(format!(
+                        "cannot import {source}: {reason}; Refresh to try again"
+                    )));
+                }
+                _ => {}
             }
         }
         Err(changed())
@@ -809,18 +816,18 @@ mod tests {
         let project = root.path().join("project");
         std::fs::create_dir(&project).unwrap();
         let config = root.path().join("config");
-        store(
-            &config,
-            "x",
-            SESSION,
-            &(record("user", &project, "2026-10-18T12:00:00Z") + "\n{broken}\n"),
-        );
-        let found = launcher(&config)
-            .discover_recent(&project, NOW, DAY)
-            .await
-            .unwrap();
+        let valid = record("user", &project, "2026-10-18T12:00:00Z") + "\n";
+        store(&config, "x", SESSION, &valid);
+        let launcher = launcher(&config);
+        let preview = launcher.discover_recent(&project, NOW, DAY).await.unwrap();
+        store(&config, "x", SESSION, &(valid + "{broken}\n"));
+        let found = launcher.discover_recent(&project, NOW, DAY).await.unwrap();
         assert!(found.candidates.is_empty());
         assert_eq!(found.excluded[0].reason, "malformed record");
+        let refused = launcher
+            .read_import_snapshot(&project, SESSION, &preview.candidates[0].revision, NOW)
+            .unwrap_err();
+        assert!(refused.message.contains("malformed record"));
     }
 
     #[tokio::test]

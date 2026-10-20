@@ -46,11 +46,11 @@ export const ImportPanel = (props: { open: boolean; opener: HTMLElement | undefi
           </div>
           <Show when={!state.verified() && wanted().size > 0}><p role="status">{copy.importRestored(wanted().size)}</p></Show>
           <Show when={state.restoreFailure() || state.retentionFailure()}>
-            <p role="alert" class="import-failure">{state.restoreFailure() ? copy.importRestoreFailure : copy.importRetentionFailure}</p>
+            <p role="alert" data-kind="error" class="import-failure">{state.restoreFailure() ? copy.importRestoreFailure : copy.importRetentionFailure}</p>
             <p>{copy.importRetentionRecovery}</p>
             <button type="button" data-button="quiet" onClick={state.retryStorage}>{copy.retryStorage}</button>
           </Show>
-          <Show when={failure()}>{(message) => <p role="alert" class="import-failure">{message()}</p>}</Show>
+          <Show when={failure()}>{(message) => <p role="alert" data-kind="error" class="import-failure">{message()}</p>}</Show>
           <Show when={found()} fallback={<Show when={state.loading()}><p role="status">{copy.importLooking}</p></Show>}>
             {(result) => <>
               <Show when={result().candidates.length === 0}><p role="status">{copy.importNone}</p></Show>
@@ -65,11 +65,11 @@ export const ImportPanel = (props: { open: boolean; opener: HTMLElement | undefi
                         <time class="import-activity" dateTime={new Date(Number(candidate.last_activity_ms)).toISOString()}>{new Date(Number(candidate.last_activity_ms)).toLocaleString()}</time>
                       </span>
                     </Checkbox>
-                    <Show when={refused().get(candidate.source)}>{(reason) => <div class="import-error"><p role="alert" class="import-failure">{reason()}</p></div>}</Show>
+                    <Show when={refused().get(candidate.source)}>{(reason) => <div class="import-error"><p role="alert" data-kind="error" class="import-failure">{reason()}</p></div>}</Show>
                   </li>
                 )}</For>
-                <For each={result().excluded}>{(excluded) => <li><div class="import-text import-unavailable"><span class="import-title">{excluded.source}</span><p role="alert" class="import-failure">{excluded.reason}</p></div></li>}</For>
-                <For each={[...refused()].filter(([source]) => !result().candidates.some((candidate) => candidate.source === source))}>{([source, reason]) => <li><div class="import-text import-unavailable"><span class="import-title">{source}</span><p role="alert" class="import-failure">{reason}</p></div></li>}</For>
+                <For each={result().excluded}>{(excluded) => <li><div class="import-text import-unavailable"><span class="import-title">{excluded.source}</span><p role="alert" data-kind="error" class="import-failure">{excluded.reason}</p></div></li>}</For>
+                <For each={[...refused()].filter(([source]) => !result().candidates.some((candidate) => candidate.source === source))}>{([source, reason]) => <li><div class="import-text import-unavailable"><span class="import-title">{source}</span><p role="alert" data-kind="error" class="import-failure">{reason}</p></div></li>}</For>
               </ul>
             </>}
           </Show>
