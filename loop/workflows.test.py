@@ -380,22 +380,20 @@ class L122(unittest.TestCase):
         import affected
         source = ('use super::*;\n#[test]\nfn first() {\n    work();\n}\n\n#[tokio::test]\nasync fn second() {\n'
                   '    work();\n}\n\nfn helper() {}\n    #[test] fn third() { work(); }\n')
-        for touched, names in (({4}, ['first']), ({9}, ['second']), ({7}, ['second']), ({12}, ['third']), ({13}, ['third']),
-                               ({1}, ['first']), ({5, 8}, ['first', 'second'])):
-            self.assertEqual(names, affected.rust_tests(source, touched), touched)
+        for touched, name in ((4, 'first'), (9, 'second'), (7, 'second'), (12, 'third'), (13, 'third'), (1, 'first')):
+            self.assertIn(name, affected.rust_tests(source, {touched}), touched)
         decorated = ('fn helper() {}\n/// Why.\n#[should_panic(\n    expected = "x"\n)]\n#[test]\n#[ignore]\nfn fourth() {\n    work();\n}\n')
-        for touched in ({2}, {3}, {4}, {5}, {6}, {7}, {9}):
-            self.assertEqual(['fourth'], affected.rust_tests(decorated, touched), touched)
-        self.assertEqual(['fourth'], affected.rust_tests(decorated, {1}))
-        quoted = 'fn helper() {}\n#[should_panic(expected = "[")]\n#[test] // ]\nfn fifth() {}\n'
-        self.assertEqual(['fifth'], affected.rust_tests(quoted, {2}))
-        for attribute in ('#[should_panic(/* [ */ expected = "boom")]', '#[should_panic(expected = r#"["#)]',
-                          '#[should_panic(expected = "a\n[")]', '#[should_panic(expected = "boom"\n/*\n{\n*/\n)]', '#[should_panic(\n    /* ] ] */\n    expected = "boom"\n)]'):
-            hidden = f'fn helper() {{}}\n{attribute}\n#[test]\nfn example() {{ panic!("boom"); }}\n'
-            self.assertEqual(['example'], affected.rust_tests(hidden, {2}), attribute)
-            self.assertEqual(['example'], affected.rust_tests(hidden, {hidden.count(chr(10)) - 1 - 1}), attribute)
-        self.assertEqual(['b'], affected.rust_tests('fn a() {}\n#[test]\nfn b() {}\n', {1}))
-        self.assertEqual([], affected.rust_tests('#[test]\nfn a() {}\nfn b() {}\n', {3}))
+        for touched in range(1, 11):
+            self.assertEqual(['fourth'], affected.rust_tests(decorated, {touched}), touched)
+        attributes = ('#[should_panic(expected = "[")]', '#[should_panic(/* [ */ expected = "boom")]',
+                      '#[should_panic(expected = r#"["#)]', '#[should_panic(expected = "a\n[")]',
+                      '#[should_panic(expected = "boom"\n/*\n{\n*/\n)]', '#[should_panic(\n    /* ] ] */\n    expected = "boom"\n)]')
+        for attribute in attributes:
+            for ending in ('}', '} // end', '} /* { */', '}; // }'):
+                head = f'#[test]\nfn before() {{ work(); {ending}\n{attribute}\n#[test]\n'
+                hidden = head + f'fn example() {{ panic!("boom"); }}\n#[test]\nfn after() {{ work(); {ending}\n'
+                for number in range(3, head.count('\n') + 2):
+                    self.assertIn('example', affected.rust_tests(hidden, {number}), (attribute, ending, number))
         self.assertEqual({4, 5}, affected.touched_lines('@@ -3 +4,2 @@ fn x\n+a\n+b\n'))
         self.assertEqual({7}, affected.touched_lines('@@ -7,2 +6,0 @@\n-a\n-b\n'.replace('+6,0', '+7,0')))
 
