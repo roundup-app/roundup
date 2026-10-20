@@ -25,13 +25,19 @@ import { shownPads } from "./shownPads";
 import { shelfScope } from "../shelf/scope";
 import { Groups } from "../shelf/Groups";
 import { usePadList } from "../rail/pads/padList";
+import type { PadList } from "../rail/pads/padList";
 
 /** The Shelf's `pads` list; `pad.list` logs no Touch, so refetching it on every `pad.changed` leaves no trace in Provenance. One fetch serves the list and any open Drawer. */
-export const Pads = () => {
+export const Pads = (props: {
+  /** Open this Project's retained creation revision without submitting it. */
+  recovery?: { project: string; revision: string; list: PadList };
+}) => {
   const connected = useConnectedProject();
-  const list = usePadList();
+
+  if (props.recovery && props.recovery.project !== connected.project.path) return null;
+
+  const list = props.recovery?.list ?? usePadList();
   const pads = list.pads;
-  const [naming, setNaming] = createSignal(false);
   const creation = { surface: "pads", object: "creation", recipient: null };
 
   const retentionProblem = () => {
@@ -41,7 +47,8 @@ export const Pads = () => {
   };
 
   const nameLabel = copy.copyField(copy.draftField("name").toLowerCase());
-  const restored = connected.drafts.list().filter(draft => draft.destination.surface === "pads" && draft.destination.object === "creation").at(-1);
+  const restored = connected.drafts.list().filter(draft => draft.destination.surface === "pads" && draft.destination.object === "creation" && draft.destination.recipient === null && (props.recovery?.revision === undefined || draft.revision === props.recovery?.revision)).at(-1);
+  const [naming, setNaming] = createSignal(props.recovery?.revision !== undefined && restored !== undefined);
   const parsed = restored ? v.safeParse(v.object({ name: v.string(), home: v.nullable(v.string()) }), restored.value) : null;
   const [invalid, setInvalid] = createSignal(Boolean(parsed && !parsed.success));
   const [name, setName] = createSignal(parsed?.success ? parsed.output.name : "");
@@ -49,11 +56,16 @@ export const Pads = () => {
   let field: HTMLInputElement | undefined;
   let home = parsed?.success ? parsed.output.home : null;
   let caret = restored?.selection ?? null;
+  let captured = restored ? JSON.stringify([restored.value.name, restored.value.home, caret]) : null;
 
   const capture = () => {
     if (invalid()) return;
     caret = field ? { start: field.selectionStart ?? 0, end: field.selectionEnd ?? 0, direction: field.selectionDirection ?? "none" } : caret;
-    revision = connected.drafts.edit(creation, { name: name(), home }, caret, "ordinary").draft.revision;
+    const fingerprint = JSON.stringify([name(), home, caret]);
+
+    if (captured === fingerprint) return;
+    captured = fingerprint;
+    revision = connected.drafts.edit(creation, { name: name(), home }, caret, "ordinary", revision ?? null).draft.revision;
   };
 
   let plusButton: HTMLButtonElement | undefined;
@@ -81,6 +93,7 @@ export const Pads = () => {
 
         if (revision === submitted.draft.revision) {
           revision = undefined;
+          captured = null;
           setName("");
         }
 
@@ -158,7 +171,7 @@ export const Pads = () => {
         <div class="shelf-list">
           <ShelfRow glyph={<span class="light"><OwnerMark owner={USER} decorative /></span>} class="entry-row pad-inset">
             <Editable.Root edit value={name()} readOnly={invalid()} selectOnFocus={false} submitMode="none" onValueChange={({ value }) => { setName(value); capture(); }}>
-            <Editable.Input class="entry-field shelf-title" aria-label={copy.padName} placeholder={copy.newPadPlaceholder} value={name()}
+            <Editable.Input type="text" class="entry-field shelf-title" aria-label={copy.padName} placeholder={copy.newPadPlaceholder} value={name()}
               ref={(input) => {
                 field = input;
                 queueMicrotask(() => {
@@ -166,6 +179,11 @@ export const Pads = () => {
                   input.focus();
 
                   if (caret) input.setSelectionRange(caret.start, caret.end, caret.direction);
+                  else if (restored) {
+                    // Focus supplies an uncaptured caret; retaining it would replace the current creation draft.
+                    caret = { start: input.selectionStart ?? 0, end: input.selectionEnd ?? 0, direction: input.selectionDirection ?? "none" };
+                    captured = JSON.stringify([name(), home, caret]);
+                  }
                 });
               }}
               onInput={(event) => { setName(event.currentTarget.value); capture(); }}
@@ -188,7 +206,7 @@ export const Pads = () => {
         <div class="diff-actions">
         <button data-button="primary" type="button" onClick={() => connected.drafts.retry()}>{copy.storageRetry}</button>
         <button data-button="quiet" type="button" onClick={() => void navigator.clipboard.writeText(name()).catch(error => failure.show(copy.copyDraftFailure(String(error))))}>{nameLabel}</button>
-        <button data-button="quiet" type="button" onClick={() => { if (revision) connected.drafts.discard(revision); revision = undefined; setName(""); setInvalid(false); }}>{copy.discardRevision}</button>
+        <button data-button="quiet" type="button" onClick={() => { if (revision) connected.drafts.discard(revision); revision = undefined; captured = null; setName(""); setInvalid(false); }}>{copy.discardRevision}</button>
         </div>
       </div>}</Show>
       <bulk.Bar />
