@@ -1,5 +1,6 @@
 import { copy } from "../../copy";
 import { For, Show } from "solid-js";
+import { Portal } from "solid-js/web";
 import type { RailMenuModel } from "./model";
 import { goesLine, goingNames, staysLine } from "./removal";
 import { AlertDialog } from "../../ui/Dialog";
@@ -11,8 +12,9 @@ export const RailConfirm = (props: { menu: RailMenuModel }) => {
   return (
     <AlertDialog.Root open={props.menu.state()?.confirming === true} initialFocusEl={() => keep ?? null}
       onOpenChange={(details) => { if (!details.open) props.menu.close(); }}>
+      <Portal>
       <AlertDialog.Positioner>
-        <AlertDialog.Content class="close-dialog">
+        <AlertDialog.Content class="close-dialog rail-confirm">
           <Show when={props.menu.state()}>
             {(current) => (
               <>
@@ -24,11 +26,11 @@ export const RailConfirm = (props: { menu: RailMenuModel }) => {
                 <Show when={current().node.kind === "workstream" && current().action === "remove" ? current().removal : undefined}>
                   {(removal) => (
                     <AlertDialog.Description>
-                      <span class="rail-menu-line">{goesLine(removal())}</span>
-                      <For each={goingNames(removal())}>{(name) => <span class="rail-menu-line rail-menu-name">{name}</span>}</For>
-                      <Show when={staysLine(removal())}>{(line) => <span class="rail-menu-line rail-menu-stay">{line()}</span>}</Show>
+                      <span class="rail-confirm-line">{goesLine(removal())}</span>
+                      <For each={goingNames(removal())}>{(name) => <span class="rail-confirm-line rail-confirm-name">{name}</span>}</For>
+                      <Show when={staysLine(removal())}>{(line) => <span class="rail-confirm-line rail-confirm-stay">{line()}</span>}</Show>
                       <For each={removal().stays.agents}>
-                        {(stay) => <span class="rail-menu-line rail-menu-name rail-menu-stay">{copy.toastLine(stay.name, stay.reason)}</span>}
+                        {(stay) => <span class="rail-confirm-line rail-confirm-name rail-confirm-stay">{copy.toastLine(stay.name, stay.reason)}</span>}
                       </For>
                     </AlertDialog.Description>
                   )}
@@ -45,6 +47,7 @@ export const RailConfirm = (props: { menu: RailMenuModel }) => {
           </Show>
         </AlertDialog.Content>
       </AlertDialog.Positioner>
+      </Portal>
     </AlertDialog.Root>
   );
 };
