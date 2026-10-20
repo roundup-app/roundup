@@ -1,6 +1,9 @@
-import { cleanup, fireEvent, screen, waitFor } from "@solidjs/testing-library";
+import { cleanup, fireEvent, render, screen, waitFor, within } from "@solidjs/testing-library";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { AGENT, CONFLICT, openShelf, padOf, RpcError } from "./padsFixture";
+import { DrawerHost } from "../drawer/DrawerHost";
+import { Pads } from "./Pads";
+import { ConnectedProjectContext } from "../state/connectedProject";
 import { USER } from "../testing/nodes";
 
 afterEach(cleanup);
@@ -15,15 +18,7 @@ const typeName = async (name: string) => {
 };
 
 describe("u19 create", () => {
-  // Rule 10: u19_the_name_field_is_a_row_after_the_last_pad also proves plus opens the field.
-  it("u19_the_name_field_is_a_row_after_the_last_pad", async () => {
-    await openShelf([padOf("notes", USER)]);
-
-    fireEvent.click(await screen.findByRole("button", { name: "Add Pad" }));
-
-    expect(screen.getByText("notes").compareDocumentPosition(await screen.findByLabelText("Pad name")) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
-  });
-
+  // Rule 10: row positioning is retired to the design critic; u19_escape_closes_the_name_field_and_calls_nothing proves Add opens the form.
   it("u19_escape_closes_the_name_field_and_calls_nothing", async () => {
     const { calls } = await openShelf([]);
     fireEvent.click(await screen.findByRole("button", { name: "Add Pad" }));
@@ -172,4 +167,30 @@ it("u2773e_recovery_actions_keep_surface_draft", async () => {
   } finally {
     writes.mockRestore();
   }
+});
+
+
+it.each([true, false])("u3021c_open_restores_exact_revision_without_rpc_pad_creation_captured_caret_%s", async (capturedCaret) => {
+  const { app, connected } = await openShelf([]);
+  const destination = { surface: "pads", object: "creation", recipient: null };
+  const a = connected.drafts.edit(destination, { name: "  earlier é 🪁  ", home: AGENT.id }, capturedCaret ? { start: 2, end: 7, direction: "backward" } : null, "ordinary").draft;
+  connected.drafts.submit(a.revision);
+  connected.drafts.edit(destination, { name: "newer 🌱", home: null }, null, "ordinary");
+  connected.drafts.settle(a.revision, "failed");
+  const retained = structuredClone(connected.drafts.list());
+  cleanup();
+  render(() => <ConnectedProjectContext.Provider value={connected}><DrawerHost drawer={connected.drawer} reducedMotion={() => true} /></ConnectedProjectContext.Provider>);
+  const calls = [...app.calls];
+  connected.drawer.open(() => <ConnectedProjectContext.Provider value={connected}><Pads recovery={{ project: connected.project.path, revision: a.revision, list: { pads: () => [], loaded: () => true, failure: () => null, reload: async () => {} } }} /></ConnectedProjectContext.Provider>, "key");
+  const field = await within(screen.getByLabelText("Drawer")).findByLabelText<HTMLInputElement>("Pad name");
+  await waitFor(() => expect(document.activeElement).toBe(field));
+  expect(field.value).toBe("  earlier é 🪁  ");
+
+  if (capturedCaret) expect([field.selectionStart, field.selectionEnd, field.selectionDirection]).toEqual([2, 7, "backward"]);
+
+  fireEvent.select(field);
+  fireEvent.blur(field);
+  connected.drawer.close("key");
+  expect(connected.drafts.list()).toEqual(retained);
+  expect(app.calls).toEqual(calls);
 });

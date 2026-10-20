@@ -1,4 +1,7 @@
 import { execFile } from "node:child_process";
+import { mkdir, writeFile } from "node:fs/promises";
+import { join } from "node:path";
+import { captureDir } from "../testing/captures";
 import { promisify } from "node:util";
 import { afterAll, beforeAll, expect, it } from "vitest";
 import { appServer } from "../testing/appServer";
@@ -168,3 +171,61 @@ it("p2544e_visual_blocks_survive_autosave", async () => {
   expect(JSON.parse(drawing?.[1] ?? "null")).toMatchObject({ elements: [{ type: "rectangle" }] });
   expect(drawn.replace(/```excalidraw\n[\s\S]*?\n```/, '```excalidraw\n{"type":"excalidraw","elements":[]}\n```')).toBe(afterMermaid);
 }, 240_000);
+
+
+// Chromium's focus adopts its DOM caret after creation; jsdom does not exercise that reset.
+it("u3021c_open_restores_exact_revision_without_rpc_browser_focus", async () => {
+  await browser("open", `${server.resolvedUrls.local[0]}harness.html?seed=tree-40`);
+  await browser("eval", "localStorage.clear()");
+  await browser("reload");
+  await browser("set", "media", "dark");
+  await browser("wait", "#shelf-tab-pads");
+  await browser("eval", `(async () => {
+    const moduleSource = await (await fetch('/src/pads/PadDrawer.tsx')).text();
+    const dependencies = moduleSource.split('"').filter(path => path.includes('/deps/'));
+    const { createComponent } = await import(dependencies.find(path => path.includes('/solid-js.js')));
+    const { render } = await import(dependencies.find(path => path.includes('/solid-js_web.js')));
+    const { connectProject, ConnectedProjectContext } = await import('/src/state/connectedProject.ts');
+    const { PadDrawer } = await import('/src/pads/PadDrawer.tsx');
+    const { DrawerHost } = await import('/src/drawer/DrawerHost.tsx');
+    const app = window.__fake.app;
+    const pads = await app.rpc('pad.list', null);
+    const pad = pads.find(p => p.name === 'pad-3');
+    const connected = await connectProject(app, app.opened.project, () => false, Date.now);
+    const destination = { surface: 'pads', object: pad.incarnation, recipient: null };
+    const a = connected.drafts.edit(destination, { originalName: pad.name, source: 'A 🌱 é\\nsecond', base: pad.text, baseRevision: pad.revision }, { start: 2, end: 7, direction: 'backward' }, 'ordinary').draft;
+    connected.drafts.submit(a.revision);
+    const b = connected.drafts.edit(destination, { ...a.value, source: 'B 🪁' }, null, 'ordinary').draft;
+    connected.drafts.settle(a.revision, 'failed');
+    const root = document.createElement('div');
+    document.body.append(root);
+    render(() => createComponent(ConnectedProjectContext.Provider, { value: connected, get children() { return createComponent(DrawerHost, { drawer: connected.drawer, reducedMotion: () => true }); } }), root);
+    const list = { pads: () => pads, loaded: () => true, failure: () => null, reload: async () => {} };
+    const show = revision => connected.drawer.open(() => createComponent(ConnectedProjectContext.Provider, { value: connected, get children() { return createComponent(PadDrawer, { name: pad.name, recovery: { project: connected.project.path, revision, list }, pads: list.pads, onLateFailure: () => {} }); } }), 'key');
+    window.__selectedPad = { connected, app, b, show, calls: [...app.calls], retained: connected.drafts.list() };
+    show(a.revision);
+  })()`);
+  await browser("wait", "[aria-label='Pad body']");
+  expect(await evaluate("window.getSelection().toString()")).toBe(" 🌱 é");
+  await browser("click", ".pad-head-name");
+  expect(await evaluate("(() => { const p = window.__selectedPad; return [p.app.calls, p.connected.drafts.list()]; })()")).toEqual(
+    await evaluate("[window.__selectedPad.calls, window.__selectedPad.retained]"),
+  );
+
+  const output = captureDir("U3021c");
+
+  if (output) {
+    await mkdir(output, { recursive: true });
+    await browser("screenshot", join(output, "selected-pad-blurred.png"));
+    await writeFile(join(output, "selected-pad.checks.json"), JSON.stringify(await evaluate("window.__checks()"), null, 2));
+  }
+
+  await browser("eval", "window.__selectedPad.connected.drawer.close('key')");
+  await browser("wait", "--fn", "!document.querySelector('.pad-body')");
+  await browser("eval", "window.__selectedPad.show(window.__selectedPad.b.revision)");
+  await browser("wait", "[aria-label='Pad body']");
+  expect(await evaluate("document.querySelector('[aria-label=\"Pad body\"]').textContent")).toBe("B 🪁");
+  expect(await evaluate("(() => { const p = window.__selectedPad; return [p.app.calls, p.connected.drafts.list()]; })()")).toEqual(
+    await evaluate("[window.__selectedPad.calls, window.__selectedPad.retained]"),
+  );
+}, 90_000);
