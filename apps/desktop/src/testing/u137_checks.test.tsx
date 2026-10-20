@@ -193,6 +193,29 @@ rendered("u137 rendered focus marks", () => {
   }, 90_000);
   afterAll(async () => { await page?.close(); });
 
+  it("u3712_d2_accepts_only_the_declared_token_derived_tree_padding", async () => {
+    await page.load("/harness.html?seed=tree-40");
+    const statuses = await page.call<string[]>(`() => {
+      document.body.innerHTML = '<div class="todo-list" role="tree"><div class="todo-row" role="treeitem" data-todo="3" aria-level="3" style="padding-inline-start:calc(var(--space-2) + 2 * var(--space-4))">Grandchild</div></div>';
+      const row = document.querySelector('.todo-row');
+      const statuses = [window.__checks().D2.status];
+      row.style.paddingInlineStart = '40px';
+      statuses.push(window.__checks().D2.status);
+      row.style.paddingInlineStart = 'calc(var(--space-2) + 2 * var(--space-4))';
+      row.setAttribute('aria-level', '2');
+      statuses.push(window.__checks().D2.status);
+      row.setAttribute('aria-level', '3');
+      row.classList.remove('todo-row');
+      statuses.push(window.__checks().D2.status);
+      row.classList.add('todo-row');
+      row.style.paddingInlineStart = 'calc(var(--space-2) + 2 * var(--space-4) + 1px)';
+      statuses.push(window.__checks().D2.status);
+      return statuses;
+    }`);
+
+    expect(statuses).toEqual(["pass", "fail", "fail", "fail", "fail"]);
+  });
+
   it.each(["milkdown-slash-menu", "pane-control", "import-panel"])("u137_floating_surface_%s_keeps_unrelated_shadow_rejection", async (surface) => {
     for (const scheme of ["light", "dark"] as const) {
       await page.scheme(scheme);
