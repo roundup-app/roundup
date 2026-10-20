@@ -402,7 +402,7 @@ export const Todos = () => {
         <EmptyState icon="check" heading={copy.noTodosYet} hint={copy.noTodosHint} />
       </Show>
       <Show when={open().length + done().length > 0}>
-        <Groups items={() => [...open(), ...done()]} home={todo => todo.home} maker={todo => todo.creator}>{items => <>
+        <Groups isUngrouped={todo => todo.id < 0} items={() => [...open(), ...done()]} home={todo => todo.home} maker={todo => todo.creator}>{items => <>
         <Sortable.Root class="todo-list shelf-list" plain ids={items().filter(todo => !todo.done).map((todo) => String(todo.id))} onOrderChange={sorted.order} external={sorted.external}>
         <For each={items().filter(todo => !todo.done)}>
           {(todo, at) => (
