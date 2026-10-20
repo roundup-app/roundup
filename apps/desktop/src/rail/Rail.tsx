@@ -14,6 +14,7 @@ import { TreeView } from "../ui/TreeView";
 import { railCollection } from "./collection";
 import { useConnectedProject } from "../state/connectedProject";
 import { doorStateOf } from "./doorState";
+import { ImportPanel } from "../importer/ImportPanel";
 import { RailMenu } from "./menu/RailMenu";
 import { createRailMenu } from "./menu/model";
 import { agentKindsBelow, isWorkstream, layoutRail, siblingsOf } from "./layout";
@@ -27,7 +28,6 @@ import type { ExitState } from "../state/rail";
 import type { RowActions } from "./RowIcons";
 import type { SpawnParams } from "@contracts/agent/SpawnParams";
 import { ClearPrompt } from "./ClearPrompt";
-import { ImportPanel } from "./ImportPanel";
 import { INTERNAL_CODE, RpcError } from "../app/seam";
 import { clearingOf } from "./clear";
 import { draftsOf } from "./persist/storage";
@@ -42,6 +42,7 @@ export const Rail = () => {
 
   const attention = createMemo(() => attentionCount(rail.nodes));
   const [scrolled, setScrolled] = createSignal(false);
+  let importOpener: HTMLButtonElement | undefined;
   const collapsed = rail.collapsed;
   const [unfolded, setUnfolded] = createSignal<ReadonlySet<string | null>>(new Set());
   const [failure, setFailure] = createSignal<string | null>(null);
@@ -525,10 +526,10 @@ export const Rail = () => {
         </span>
       </Show>
     </button>
-    <Show when={!importing.open()}>
-      <button type="button" data-button="quiet" class="word rail-import-entry" aria-disabled={daemonExit() === null ? undefined : true}
-        onClick={() => { if (daemonExit() === null) importing.show(); }}>{copy.importWork}</button>
-    </Show>
+    <button type="button" data-button="quiet" class="word rail-import" ref={importOpener} disabled={daemonExit() !== null} onClick={() => importing.show()}>
+      {copy.importTitle}
+    </button>
+    <ImportPanel open={importing.open()} opener={importOpener} onClose={() => importing.cancel()} />
     <div class="rail-scroll" onScroll={(event) => setScrolled(event.currentTarget.scrollTop > 0)}>
     <TreeView.Root
       class="rail-tree"
@@ -728,7 +729,6 @@ export const Rail = () => {
         </Portal>
       </Show>
       <Show when={failure() ?? rail.workstreamFailure() ?? rail.doorFailure(rail.selected() ?? "") ?? rail.storageFailure()}>{(message) => <ErrorLine message={message()} />}</Show>
-      <Show when={importing.open()}><ImportPanel state={importing} disabled={daemonExit() !== null} /></Show>
       <div class="rail-actions">
         <button data-button="add"
           aria-label={copy.addWorkstream}

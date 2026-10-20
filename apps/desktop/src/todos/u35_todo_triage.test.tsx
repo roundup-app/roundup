@@ -8,7 +8,7 @@ afterEach(cleanup);
 
 const drawer = () => screen.getByRole("complementary", { name: "Drawer" });
 
-const blocked = () => todo(5, { title: "session store", blocked: true, blockers: [4, 6] });
+const blocked = () => todo(5, { title: "session store", blocked: true, blockers: [6, 4] });
 
 const shelf = () => [blocked(), todo(4, { title: "migrate" }), todo(6, { title: "later" })];
 
@@ -79,7 +79,7 @@ describe("u35 Todo triage without the Drawer", () => {
 
   it("u35_a_blockers_title_opens_that_blockers_drawer_and_not_the_blocked_todos_own_drawer", async () => {
     await mountTodos(shelf());
-    await screen.findByText(/^Waits on/);
+    await screen.findByText(/^also waits on/);
 
     fireEvent.click(screen.getByRole("button", { name: "Open blocker migrate" }));
 
@@ -93,7 +93,7 @@ describe("u35 Todo triage without the Drawer", () => {
 
   it("u35_a_blockers_title_click_opens_the_drawer_exactly_once", async () => {
     const { connected } = await mountTodos(shelf());
-    await screen.findByText(/^Waits on/);
+    await screen.findByText(/^also waits on/);
     const opened: unknown[] = [];
     const open = connected.drawer.open.bind(connected.drawer);
     connected.drawer.open = (content) => {
@@ -108,26 +108,26 @@ describe("u35 Todo triage without the Drawer", () => {
 
   it("u35_the_blockers_title_is_reachable_by_keyboard", async () => {
     await mountTodos(shelf());
-    await screen.findByText(/^Waits on/);
+    await screen.findByText(/^also waits on/);
 
     expect(screen.getByRole("button", { name: "Open blocker migrate" }).closest("button")).not.toBeNull();
   });
 
   it("u35_a_failed_complete_shows_its_message_in_place_of_the_second_line", async () => {
     const { app } = await mountTodos(shelf());
-    await screen.findByText(/^Waits on/);
+    await screen.findByText(/^also waits on/);
     app.handlers["todo.complete"] = () => Promise.reject(new RpcError(-32000, "cannot complete"));
 
     fireEvent.mouseEnter(rowOf(5));
     fireEvent.click(within(rowOf(5)).getByRole("checkbox"));
 
     expect((await screen.findByText(/cannot complete/)).textContent).toBe("cannot complete");
-    expect(screen.queryByText(/^Waits on/)).toBeNull();
+    expect(screen.queryByText(/^also waits on/)).toBeNull();
   });
 
   it("u35_a_failed_complete_still_calls_todo_complete_with_the_rows_id", async () => {
     const { app } = await mountTodos(shelf());
-    await screen.findByText(/^Waits on/);
+    await screen.findByText(/^also waits on/);
     app.handlers["todo.complete"] = () => Promise.reject(new RpcError(-32000, "cannot complete"));
 
     fireEvent.mouseEnter(rowOf(5));
@@ -139,7 +139,7 @@ describe("u35 Todo triage without the Drawer", () => {
 
   it("u35_a_failed_completes_message_clears_on_the_next_click", async () => {
     const { app } = await mountTodos(shelf());
-    await screen.findByText(/^Waits on/);
+    await screen.findByText(/^also waits on/);
     app.handlers["todo.complete"] = () => Promise.reject(new RpcError(-32000, "cannot complete"));
     fireEvent.mouseEnter(rowOf(5));
     fireEvent.click(within(rowOf(5)).getByRole("checkbox"));
@@ -190,7 +190,7 @@ describe("u35 Todo triage without the Drawer", () => {
 
   it("u35_a_click_anywhere_in_the_shelf_clears_another_rows_failure", async () => {
     const { app } = await mountTodos(shelf());
-    await screen.findByText(/^Waits on/);
+    await screen.findByText(/^also waits on/);
     app.handlers["todo.complete"] = () => Promise.reject(new RpcError(-32000, "cannot complete"));
     fireEvent.mouseEnter(rowOf(5));
     fireEvent.click(within(rowOf(5)).getByRole("checkbox"));
@@ -217,9 +217,9 @@ describe("u35 Todo triage without the Drawer", () => {
     await waitFor(() => expect(callsTo(app, "todo.complete")).toEqual([{ method: "todo.complete", params: { id: 3 } }]));
   });
 
-  it("u35_a_blocked_rows_second_line_changes_only_once_todo_unblocked_refetches_the_list", async () => {
+  it("u35_a_blocked_rows_depth_changes_only_once_todo_unblocked_refetches_the_list", async () => {
     const { app, store } = await mountTodos([todo(5, { title: "session store", blocked: true, blockers: [4] }), todo(4, { title: "migrate" })]);
-    await screen.findByText(/^Waits on/);
+    await screen.findByRole("tree");
 
     fireEvent.mouseEnter(rowOf(4));
     fireEvent.click(within(rowOf(4)).getByRole("checkbox"));
@@ -227,11 +227,11 @@ describe("u35 Todo triage without the Drawer", () => {
     store.todos = [todo(5, { title: "session store" }), todo(4, { title: "migrate", done: true })];
 
     // No todo.updated for #5: unblocking only ever reaches the webview as todo.unblocked (T3).
-    expect(screen.getByText(/^Waits on/).closest("[data-todo-waits]")?.textContent).toBe("Waits on migrate");
+    expect(rowOf(5).getAttribute("aria-level")).toBe("2");
 
     app.emit({ actor: USER, name: "todo.unblocked", data: { id: 5 } });
 
-    await waitFor(() => expect(screen.queryByText(/^Waits on/)).toBeNull());
+    await waitFor(() => expect(rowOf(5).getAttribute("aria-level")).toBe("1"));
   });
 
   it("u35_a_rows_shelf_click_listener_is_removed_once_the_shelf_unmounts", async () => {
