@@ -9,10 +9,17 @@ repo=pathlib.Path(__file__).resolve().parents[4]
 root=pathlib.Path(tempfile.mkdtemp(prefix='u3016-production-'))
 for part in ('home','config','project','data'): (root/part).mkdir()
 records=[]
+exports=[]
 class Handler(http.server.BaseHTTPRequestHandler):
  def log_message(self,*args):pass
  def do_POST(self):
   body=json.loads(self.rfile.read(int(self.headers['Content-Length'])))
+  if self.path=='/v1/traces':
+   import urllib.request
+   exports.append({'received':time.time_ns(),'body':body})
+   target=(root/'trace-endpoint').read_text()
+   response=urllib.request.urlopen(urllib.request.Request(target,json.dumps(body).encode(),{'Content-Type':'application/json'}))
+   data=response.read();self.send_response(response.status);self.send_header('Content-Length',str(len(data)));self.end_headers();self.wfile.write(data);return
   if 'messages' not in self.path:self.send_response(404);self.end_headers();return
   n=len(records)+1
   records.append({'n':n,'received':time.time_ns()})
@@ -43,9 +50,11 @@ args=sys.argv[1:]
 env=os.environ.copy()
 if args[:2] not in [['plugin','list'],['plugin','test']]:
  args+=['-p','observe-source-parent-3016','--allowedTools','Agent','--output-format','json']
+ with open(%r,'w') as sink: sink.write(env['OTEL_EXPORTER_OTLP_TRACES_ENDPOINT'])
+ env['OTEL_EXPORTER_OTLP_TRACES_ENDPOINT']=%r+'/v1/traces'
  env.update(ANTHROPIC_API_KEY='sk-fixture-only',ANTHROPIC_BASE_URL=%r,CLAUDE_CODE_MAX_RETRIES='0',CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC='1',DISABLE_AUTOUPDATER='1',CLAUDE_CODE_DISABLE_OFFICIAL_MARKETPLACE_AUTOINSTALL='1')
 os.execve(binary,[binary]+args,env)
-'''%(str(binary),url))
+'''%(str(binary),str(root/'trace-endpoint'),url,url))
 wrapper.chmod(0o755)
 config=root/'config'
 (config/'settings.json').write_text(json.dumps({'permissions':{'defaultMode':'default'}}))
@@ -79,19 +88,42 @@ try:
  assert sum(c['value']['category']=='agent' for c in intervals)==4
  assert sum(c['value']['category']=='tool' for c in intervals)==1
  local={}
+ locations={}
  for path in config.glob('projects/**/*.jsonl'):
   for line in path.read_text().splitlines():
    row=json.loads(line)
    if row.get('type')=='assistant' and row.get('requestId'):
     local[row['requestId']]=row
+    locations[row['requestId']]=path.parent.name=='subagents'
  assert set(local)=={f'req_source_{n}' for n in range(1,5)}
+ assert sum(locations.values())==1, locations
  import datetime
  local_delay=[]
  for contribution in requests:
   row=local[contribution['identity'].removeprefix('request:')]
+  n=int(row['requestId'].rsplit('_',1)[1])
+  expected={'input':100*n,'output':20*n,'cache_read':400*n,'cache_write':50*n}
+  assert contribution['value']['usage']==expected
+  raw=row['message']['usage']
+  assert [raw[k] for k in ('input_tokens','output_tokens','cache_read_input_tokens','cache_creation_input_tokens')]==list(expected.values())
   source_at=datetime.datetime.fromisoformat(row['timestamp'].replace('Z','+00:00')).timestamp()*1000
   local_delay.append(contribution['observed']-source_at)
  span_delay=[c['observed']-int(c['value']['end_unix_ns'])/1e6 for c in intervals]
+ raw_spans={}
+ arrivals={}
+ for batch in exports:
+  for resource in batch['body']['resourceSpans']:
+   for scope in resource['scopeSpans']:
+    for span in scope['spans']:
+     identity=f"interval:{span['traceId']}:{span['spanId']}"
+     raw_spans[identity]=span;arrivals[identity]=batch['received']
+ for c in intervals:
+  raw=raw_spans[c['identity']]
+  assert raw['name'] in ('claude_code.llm_request','claude_code.tool.execution')
+  assert c['value']['start_unix_ns']==str(int(raw['startTimeUnixNano']))
+  assert c['value']['end_unix_ns']==str(int(raw['endTimeUnixNano']))
+ export_to_read=[(accepted[c['identity']]-arrivals[c['identity']])/1e6 for c in intervals]
+ excluded=sorted({span['name'] for identity,span in raw_spans.items() if identity not in accepted})
  cli=subprocess.run([str(repo/'target/debug/rup'),'--json','project','measurements','--agent',str(node['id'])],env=env,capture_output=True,text=True,check=True)
  assert json.loads(cli.stdout)['contributions']==last['contributions']
  daemon.terminate();daemon.wait(timeout=5)
@@ -104,7 +136,7 @@ try:
   except (OSError,RuntimeError):time.sleep(.02)
  assert reopened['contributions']==last['contributions']
  version=subprocess.run([str(binary),'--version'],env=env,capture_output=True,text=True,check=True).stdout.strip()
- print(json.dumps({'binary_version':version,'binary_sha256':hashlib.sha256(binary.read_bytes()).hexdigest(),'raw_requests':len(records),'local_requests':len(local),'accepted_requests':len(requests),'model_intervals':4,'tool_intervals':1,'totals':totals,'record_timestamp_to_accept_ms':local_delay,'span_end_to_accept_ms':span_delay,'public_read_max_ms':max(reads),'public_read_p95_ms':sorted(reads)[int(.95*(len(reads)-1))],'read_samples':len(reads),'cli_and_reopen':'same retained contributions','unsupported':'active execution, clock lifetime across restart, human wait and Message-correlated coordination; permission-check spans excluded','local_artifacts':str(root)},indent=2))
+ print(json.dumps({'binary_version':version,'binary_sha256':hashlib.sha256(binary.read_bytes()).hexdigest(),'raw_requests':len(records),'local_requests':len(local),'accepted_requests':len(requests),'model_intervals':4,'tool_intervals':1,'raw_completed_spans':len(raw_spans),'excluded_span_names':excluded,'export_arrival_to_public_read_ms':export_to_read,'totals':totals,'record_timestamp_to_accept_ms':local_delay,'span_end_to_accept_ms':span_delay,'public_read_max_ms':max(reads),'public_read_p95_ms':sorted(reads)[int(.95*(len(reads)-1))],'read_samples':len(reads),'cli_and_reopen':'same retained contributions','unsupported':'active execution, clock lifetime across restart, human wait and Message-correlated coordination; permission-check spans excluded','local_artifacts':str(root)},indent=2))
 
 finally:
  daemon.terminate()

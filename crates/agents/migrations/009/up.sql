@@ -58,3 +58,16 @@ CREATE TABLE measurement_attempts (
  attempt TEXT NOT NULL,
  PRIMARY KEY(agent,source,attempt)
 );
+
+-- Keep the source's last placement even when its maker is removed before the next pass.
+-- Accepted contributions retain their original Home and maker bytes.
+CREATE TRIGGER measurement_placement AFTER UPDATE OF parent,name ON nodes
+BEGIN
+ UPDATE measurement_owners SET
+  maker=(SELECT name FROM nodes WHERE CAST(id AS TEXT)=measurement_owners.agent),
+  home=(WITH RECURSIVE chain(id,parent,kind) AS (
+   SELECT id,parent,kind FROM nodes WHERE CAST(id AS TEXT)=measurement_owners.agent
+   UNION ALL SELECT n.id,n.parent,n.kind FROM nodes n JOIN chain c ON n.id=c.parent
+  ) SELECT CAST(id AS TEXT) FROM chain WHERE kind='workstream' LIMIT 1)
+ WHERE disabled=0 AND EXISTS(SELECT 1 FROM nodes WHERE CAST(id AS TEXT)=measurement_owners.agent);
+END;
