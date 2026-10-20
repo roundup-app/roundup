@@ -223,7 +223,7 @@ export const copy = {
   captureATodo: "Capture a Todo",
   captureLabel: "Capture a Todo",
   capturePlaceholder: "A thought, then ⏎",
-  useFailedText: "Use failed text",
+  recoveredCaptureDraft: "Recovered capture draft",
   leaderWaitsForAKey: "Wait for one more key",
   switchToARowByName: "Switch to a row by name",
   takeControlInTheSwitcher: "Take control, in the switcher",
