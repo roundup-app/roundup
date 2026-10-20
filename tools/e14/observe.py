@@ -187,7 +187,7 @@ def run(args):
         reporter.write_text(Path(__file__).with_name("reporter.mjs.in").read_text())
         config = output / "vitest.config.mjs"
         config.write_text("import desktop from " + json.dumps(str(root / "apps/desktop/vite.config.ts")) + ";\nexport default { ...desktop, test: { ...desktop.test, reporters: [...desktop.test.reporters, " + json.dumps(str(reporter)) + ", [\"junit\", { outputFile: " + json.dumps(str(output / "junit.xml")) + " }]] } };\n")
-        command = ["python3", "loop/app-data.py", "python3", "tools/chromium-faults/observe.py", "--log", str(Path(os.environ["RUNNER_TEMP"]) / f"chromium-faults-{args.lane[3:]}.jsonl") if "RUNNER_TEMP" in os.environ else str(output / "chromium-faults.jsonl"), "--", "just", "test-web-since", args.base, f"--shard={args.lane[3:]}/7", "--config", str(config)]
+        command = ["python3", "loop/app-data.py", "python3", "tools/chromium-faults/observe.py", "--log", str(Path(os.environ["RUNNER_TEMP"]) / f"chromium-faults-{args.lane[3:]}.jsonl") if "RUNNER_TEMP" in os.environ else str(output / "chromium-faults.jsonl"), "--", "just", "test-web-since", args.base, f"--shard={args.lane[3:]}/{args.shards}", "--config", str(config)]
     metadata = dict(lane=args.lane, commit=commit, full=not args.base, observer=observer, cache=cache, locks=locks, command=command,
                     runner={"name": os.environ.get("RUNNER_NAME", platform.node()), "hostname": platform.node(), "os": platform.platform(), "cpu_count": os.cpu_count(), "cpu": platform.processor(), "total_memory": psutil.virtual_memory().total,
                             "image": os.environ.get("ImageOS"), "image_version": os.environ.get("ImageVersion"), "type": os.environ.get("RUNNER_ENVIRONMENT", "local"),
@@ -317,6 +317,7 @@ def main():
     lane = sub.add_parser("run")
     lane.add_argument("--lane", choices=LANES, required=True)
     lane.add_argument("--output", type=Path, required=True)
+    lane.add_argument("--shards", type=int, default=sum(name.startswith("web") for name in LANES), help="The web shard count the lane's number is one of")
     lane.add_argument("--cache-state", required=True, help="Actual restore hits/misses and keys, or explicit cold-cache preparation")
     lane.add_argument("--memory-log", type=Path, help="Whole-job collector started before CI setup")
     collector = sub.add_parser("memory")
