@@ -218,6 +218,61 @@ jobs:
             ${{ runner.temp }}/chromium-cold-${{ matrix.partition }}.jsonl
           retention-days: 7
 
+  # L122: a test a PR adds or edits runs 20 times, with no retry, while spinners hold every vCPU busy: a test that races
+  # its state under CI load fails here by name, before it merges. A test merged earlier retries once in its lane
+  # (`.config/nextest.toml`, `apps/desktop/vite.config.ts`). A PR that adds or edits no test finishes after selecting.
+  new-tests-stress:
+    if: github.event_name == 'pull_request' && !github.event.pull_request.draft
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+      - id: select
+        run: |
+          rust=$(python3 loop/affected.py edited-rust "$BASE")
+          python3 loop/affected.py edited-web "$BASE" >"$RUNNER_TEMP/web-tests"
+          echo "rust=$rust" >>"$GITHUB_OUTPUT"
+          [ -z "$rust" ] || echo "any=true" >>"$GITHUB_OUTPUT"
+          [ ! -s "$RUNNER_TEMP/web-tests" ] || { echo "web=true" >>"$GITHUB_OUTPUT"; echo "any=true" >>"$GITHUB_OUTPUT"; }
+      - if: steps.select.outputs.any
+        uses: ./.github/actions/setup
+        with:
+          browser: 'true'
+      - if: steps.select.outputs.any
+        name: E12 network observer dependencies
+        run: |
+          if ! command -v strace || ! command -v ip || ! command -v setpriv; then
+            sudo apt-get update -qq
+            sudo apt-get install -y strace iproute2 util-linux
+          fi
+      - if: steps.select.outputs.any
+        name: CPU load
+        run: |
+          for _ in $(seq "$(nproc)"); do setsid bash -c 'while :; do :; done' >/dev/null 2>&1 </dev/null & done
+      - if: steps.select.outputs.rust
+        name: Rust tests, 20 times under load
+        env:
+          FILTER: ${{ steps.select.outputs.rust }}
+        run: |
+          cargo build --quiet -p rupd -p rup
+          python3 loop/app-data.py cargo nextest run --profile stress --stress-count 20 -E "$FILTER"
+      - if: ${{ !cancelled() && steps.select.outputs.web }}
+        name: Web test files, 20 times under load
+        run: |
+          mapfile -t files <"$RUNNER_TEMP/web-tests"
+          python3 loop/app-data.py pnpm --filter desktop exec vitest run --retry 0 --repeats 19 --reporter=default --reporter=junit --outputFile.junit="$RUNNER_TEMP/web-junit.xml" "${files[@]}"
+      - if: always() && steps.select.outputs.any
+        uses: actions/upload-artifact@v4
+        with:
+          name: new-tests-stress-junit
+          path: |
+            target/nextest/stress/junit.xml
+            ${{ runner.temp }}/web-junit.xml
+          if-no-files-found: ignore
+          retention-days: 30
+
   # L24: GitHub may build a draft's `synchronize` run from a payload older than the PR's `ready_for_review`: the ready run
   # then tests the previous head and the newest head is left with a `Draft check`, which `review` and `critic` skip, so
   # no real check ever runs on it (#1931, #1933, #1998, #2023). A Draft check whose PR is ready on its own head, with no
@@ -268,17 +323,19 @@ jobs:
 
   # Keep the required check name; neither a skipped nor failed lane can turn it green. L82: when a newer push cancels
   # this run, the gate ends `cancelled`: it blocks merge, starts no fix run and leaves `main` unjudged.
+  # L122: `new-tests-stress` runs on a PR only, so a push to `main` leaves it skipped.
   check:
-    needs: [lint, rust, mac-clippy, mac, lint-web, web]
+    needs: [lint, rust, mac-clippy, mac, lint-web, web, new-tests-stress]
     if: ${{ !cancelled() && (github.event_name != 'pull_request' || !github.event.pull_request.draft) }}
     runs-on: ubuntu-latest
     steps:
       - env:
           NEEDS: ${{ toJSON(needs) }}
-        run: jq -e 'map_values(.result) | ., all(.[]; . == "success")' <<<"$NEEDS"
+          EVENT: ${{ github.event_name }}
+        run: jq -e --arg event "$EVENT" 'map_values(.result) | ., all(to_entries[]; .value == "success" or (.key == "new-tests-stress" and .value == "skipped" and $event != "pull_request"))' <<<"$NEEDS"
 
   summary:
-    needs: [lint, rust, mac-clippy, mac, lint-web, web, check]
+    needs: [lint, rust, mac-clippy, mac, lint-web, web, new-tests-stress, check]
     if: always()
     permissions: {}
     uses: ./.github/workflows/summary.yml
