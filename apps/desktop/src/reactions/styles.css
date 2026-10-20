@@ -1,0 +1,70 @@
+.reactions,
+.reaction-list,
+.reaction-form,
+.reaction-detail,
+.reaction-agents,
+.reaction-when {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  min-width: 0;
+}
+
+.reaction-list,
+.reaction-firings {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.reaction-head,
+.reaction-actions,
+.reaction-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+  min-width: 0;
+}
+
+.reaction-name,
+.reaction-instruction,
+.reaction-facts dd {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.reaction-instruction {
+  white-space: pre-wrap;
+}
+
+.reaction-state,
+.reaction-empty {
+  color: var(--grey);
+}
+
+.reaction-facts {
+  display: grid;
+  grid-template-columns: max-content 1fr;
+  gap: var(--space-1) var(--space-2);
+  margin: 0;
+}
+
+.reaction-facts dt {
+  color: var(--grey);
+}
+
+.reaction-facts dd {
+  margin: 0;
+}
+
+.reaction-field {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.reaction-title {
+  margin: 0;
+  font: inherit;
+}
