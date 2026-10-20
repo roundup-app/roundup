@@ -409,6 +409,10 @@ fn offered_tools() -> Vec<Offered> {
             "reaction.create",
             "Save a named instruction that a declared condition (named Agents finished, a PR's checks passed, or one instant) delivers once to a target Agent as a Message. Needs an `operation` retry key, an `expires_at` and a target that is you or in your Reach; the definition is immutable, so to change it stop it and create another. A refusal saves nothing.",
         ),
+        offered::<reaction::PreviewParams>(
+            "reaction.preview",
+            "Resolve a date, time and UTC offset to the exact `instant` condition `at` and its UTC instant, before creating a time reaction. Saves nothing.",
+        ),
         offered_without_params("reaction.list", "List the reactions you authorized."),
         offered::<reaction::ReactionId>("reaction.get", "Read one reaction you authorized."),
         offered::<reaction::ReactionId>(

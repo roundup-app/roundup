@@ -35,6 +35,30 @@ pub enum LatePolicy {
     Skip,
 }
 
+/// NR6 `reaction.preview`: a civil date, time and UTC offset the user typed. There is no zone name: an
+/// offset is the only form with no ambiguous or nonexistent local time.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, TS, JsonSchema)]
+#[serde(deny_unknown_fields)]
+#[ts(export, export_to = "reaction/")]
+pub struct PreviewParams {
+    /// `YYYY-MM-DD`.
+    pub date: String,
+    /// `HH:MM` or `HH:MM:SS`.
+    pub time: String,
+    /// `Z` or `+HH:MM` / `-HH:MM`.
+    pub offset: String,
+}
+
+/// What activation keeps: `at` is the exact `Condition::Instant` text to submit, `utc` the instant it
+/// resolves to.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, TS, JsonSchema)]
+#[ts(export, export_to = "reaction/")]
+pub struct Preview {
+    pub at: String,
+    pub utc: String,
+    pub offset: String,
+}
+
 /// `reaction.create`: the caller's Actor comes from its connection, never from here.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, TS, JsonSchema)]
 #[serde(deny_unknown_fields)]
