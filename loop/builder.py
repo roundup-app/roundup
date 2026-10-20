@@ -1135,14 +1135,19 @@ def clauses(ids):
 
 def review_task(pr, head):
     """The review run's task, or None when the PR is not open at `head` or is a draft: the body's `Scenarios:` and
-    `Moves:` lines and never the rest of the body (rule 5), the full text of each scenario the `Scenarios:` line names
+    `Moves:` lines and never the rest of the body (rule 5), the work order (the title and body of the Issue the body
+    names, which is the order and not the author's rationale), the full text of each scenario the `Scenarios:` line names
     as `main` holds it, then the earlier verdicts, whose findings the run re-derives."""
     current = view(pr)
     if current['state'] != 'OPEN' or current['headRefOid'] != head or current['isDraft']:
         return None
     named = re.findall(r'^(?:Scenarios|Moves):.*$', current['body'] or '', re.M)
     ids = ' '.join(line for line in named if line.startswith('Scenarios:'))
-    lines = [f'Review PR #{pr}, head {head}.', *named, '\nThe scenarios, as `main` holds them:\n\n' +
+    linked = LINKED.search(current['body'] or '')
+    order = orders.gh('issue', 'view', linked[1], '--json', 'title,body') if linked else None
+    lines = [f'Review PR #{pr}, head {head}.', *named,
+             *([f"\nThe work order:\n\n{order['title']}\n\n{order['body'] or ''}"] if order else []),
+             '\nThe scenarios, as `main` holds them:\n\n' +
              (clauses(ids) or 'The PR names none.')]
     earlier = [c['body'] for c in orders.marked(pr, 'VERDICT:')]
     if earlier:
