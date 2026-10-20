@@ -275,7 +275,7 @@ jobs:
     steps:
       - env:
           NEEDS: ${{ toJSON(needs) }}
-        run: jq -e 'map_values(.result) | ., all(.value == "success")' <<<"$NEEDS"
+        run: jq -e 'map_values(.result) | ., all(.[]; . == "success")' <<<"$NEEDS"
 
   summary:
     needs: [lint, rust, mac-clippy, mac, lint-web, web, check]
