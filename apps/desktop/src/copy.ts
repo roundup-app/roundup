@@ -340,7 +340,7 @@ export const copy = {
   importConfirm: (count: number) => count === 0 ? "Import" : `Import ${count}`,
   importRestored: (count: number) => `${count} chosen earlier; refresh to check they are unchanged`,
   importStale: (titles: string[]) => `Changed or gone since you chose them: ${titles.join(", ")}. Choose again.`,
-  importUnavailable: (source: string, reason: string) => `${source}: ${reason}`,
+  importUnavailable: (reason: string) => `Unavailable conversation: ${reason}`,
   name: "Name",
   collapse: "Collapse",
   retryDoor: "Retry supervisor",
