@@ -71,6 +71,10 @@ const TOOLS: &[(&str, &str)] = &[
         "start a Pad, a named text you own, for notes you want to keep",
     ),
     ("pad_read", "read one Pad"),
+    (
+        "link_read",
+        "read what a roundup:// link names, as it is now",
+    ),
     ("pad_list", "see which Pads exist"),
     ("pad_write", "rewrite a Pad you own"),
     ("pad_append", "add text to the end of any Pad"),

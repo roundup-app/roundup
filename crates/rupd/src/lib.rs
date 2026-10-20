@@ -11,6 +11,7 @@ mod deliverables;
 mod digest;
 mod event_log;
 mod handshake;
+mod link;
 mod output;
 mod removal;
 mod resize;
@@ -55,6 +56,8 @@ pub struct Daemon {
     child_effects: std::sync::Mutex<HashMap<String, std::sync::Weak<tokio::sync::RwLock<()>>>>,
     /// A31: the Project folder, where the Skills of an Agent with no Worktree are read.
     project: std::path::PathBuf,
+    /// LK1: the Project's key, the name of its data folder (`data::project_data`).
+    project_key: String,
     touches: Arc<Touches>,
     /// B19: which Pads each Door's earlier digests already named.
     digests: Arc<messages::digest::Seen>,
@@ -424,6 +427,10 @@ impl Daemon {
             touches,
             bus: bus.clone(),
             project: std::path::absolute(project).unwrap_or_else(|_| project.to_path_buf()),
+            project_key: dir
+                .file_name()
+                .map(|name| name.to_string_lossy().into_owned())
+                .unwrap_or_default(),
             attachments: attachment::Attachments::open(dir),
             digests: Arc::new(messages::digest::Seen::open(&dir.join("project.db"))?),
             sender: Arc::clone(&messages),
@@ -823,6 +830,9 @@ impl Daemon {
         }
         if method == "attachment.save" {
             return self.attachments.save(params);
+        }
+        if method == "link.read" {
+            return self.link_read(conn, params).await;
         }
         if method == "project.resources" {
             return self.project_resources().await;

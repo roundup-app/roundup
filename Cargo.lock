@@ -3216,6 +3216,7 @@ dependencies = [
  "hyper-util",
  "messages",
  "pads",
+ "percent-encoding",
  "provenance",
  "rpc",
  "rusqlite",
