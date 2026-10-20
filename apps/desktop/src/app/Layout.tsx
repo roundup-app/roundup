@@ -1,13 +1,12 @@
 import Maximize from "lucide-solid/icons/maximize";
 import Minimize from "lucide-solid/icons/minimize";
 import X from "lucide-solid/icons/x";
-import { Tip } from "../ui/Tip";
 import { IconButton } from "../ui/IconButton";
 import { CHORDS } from "../keys/chords";
 import { activationSource } from "../keys/registry";
 import type { ActivationSource } from "../keys/registry";
 import { copy } from "../copy";
-import { createEffect, createSignal, on, onCleanup, onMount, Show, splitProps } from "solid-js";
+import { createEffect, createMemo, createSignal, on, onCleanup, onMount, Show, splitProps } from "solid-js";
 import type { JSX } from "solid-js";
 import { ResizeEdge } from "../resize/ResizeEdge";
 import { setShelfSliding } from "../shelf/sliding";
@@ -91,20 +90,23 @@ export const Layout = (props: {
   }, { defer: true }));
   let maximiseSlide: Animation | undefined;
 
-  createEffect(on(() => [mode() === "reserved" && placement().maximised === true, placement().open] as const, ([maximised, opened], previous) => {
+  const maximised = createMemo(() => placement().maximised === true);
+
+  createEffect(on(maximised, (expanded) => {
     const shelf = windowElement?.querySelector<HTMLElement>(".shelf");
     const offset = shelf && maximiseSlide?.playState === "running" ? new DOMMatrixReadOnly(getComputedStyle(shelf).transform).m41 : 0;
     maximiseSlide?.cancel();
 
-    if (!windowElement || !shelf?.animate || !placement().animated || !opened || previous?.[0] === maximised) return;
+    if (!windowElement || !shelf?.animate || mode() !== "reserved" || !placement().animated || !placement().open) return;
     const style = getComputedStyle(windowElement);
     const displacement = windowElement.clientWidth - (windowElement.querySelector(".rail")?.getBoundingClientRect().width ?? 0) - parseFloat(style.getPropertyValue("--shelf-span"));
     const duration = style.getPropertyValue("--duration-drawer").trim();
     maximiseSlide = shelf.animate([
-      { transform: `translateX(${offset + (maximised ? displacement : -displacement)}px)` },
+      { transform: `translateX(${offset + (expanded ? displacement : -displacement)}px)` },
       { transform: "translateX(0)" },
     ], { duration: parseFloat(duration) * (duration.endsWith("ms") ? 1 : 1000), easing: style.getPropertyValue("--easing-out").trim() });
   }, { defer: true }));
+  createEffect(() => { if (!placement().open) maximiseSlide?.cancel(); });
   onCleanup(() => maximiseSlide?.cancel());
   onCleanup(() => setShelfSliding(false));
 
@@ -145,9 +147,7 @@ export const Layout = (props: {
           </IconButton>
         </Show>
         <Show when={placement().onClose}>
-          <Tip text={copy.close} chord={CHORDS.find(row => row.keys === "Esc")}>
-            {(trigger) => <button {...trigger()} type="button" aria-label={copy.closeShelf} data-button="icon" class="word" onClick={() => placement().onClose?.()}><X class="icon" aria-hidden="true" /></button>}
-          </Tip>
+          <IconButton aria-label={copy.closeShelf} tooltip={copy.close} chord={CHORDS.find(row => row.keys === "Esc")} onClick={() => placement().onClose?.()}><X class="icon" aria-hidden="true" /></IconButton>
         </Show>
       </div>
       {props.shelf}

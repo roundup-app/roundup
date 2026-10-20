@@ -120,7 +120,7 @@ export const Pads = () => {
   shelfRowKeys({
     focused: selection.focused,
     exportPad: name => void failure.run(async () => {
-      const path = await connected.app.chooseSavePath(`${name}.md`);
+      const path = await connected.app.chooseSavePath([name, ".md"].join(""));
 
       if (path !== null) await connected.app.rpc("pad.export", { name, path });
     }),
