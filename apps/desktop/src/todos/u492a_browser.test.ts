@@ -19,7 +19,9 @@ describe.each([[1280, "light"], [1512, "dark"], [1280, "dark"], [1512, "light"]]
 
     await read(lane, "baseline");
 
-    // Reorder by Move down, then a failed one.
+    // Reorder by Move down, then a failed one, on a flat list: a nested row's order is its parent's (U3708).
+    await lane.seedTodos(["first", "second", "third"], false);
+
     const initial = await lane.order();
     const [one] = initial;
 
@@ -96,7 +98,7 @@ describe.each([[1280, "light"], [1512, "dark"], [1280, "dark"], [1512, "light"]]
     })()`);
     await lane.until("document.querySelectorAll('.shelf .todo-row').length >= 13");
 
-    const ids = await lane.order();
+    const ids = (await lane.order()).toSorted((left, right) => left - right);
 
     // An injected move error shows on its row.
     await lane.evaluate("(() => { window.__fake.failNext(-32001, 'cannot move this Todo because the Daemon refused it'); return true; })()");

@@ -10,7 +10,7 @@ export const TickBox = (props: { todo: Todo; onComplete?: () => Promise<string |
   return (
     <input
       type="checkbox"
-      class="todo-tick"
+      class="todo-tick glyph"
       style={{ "outline-offset": "calc(-1 * var(--space-1))" }}
       aria-label={copy.completeTodo(props.todo.title)}
       checked={props.todo.done}
