@@ -27,6 +27,8 @@ import type { ExitState } from "../state/rail";
 import type { RowActions } from "./RowIcons";
 import type { SpawnParams } from "@contracts/agent/SpawnParams";
 import { ClearPrompt } from "./ClearPrompt";
+import { ImportPanel } from "./ImportPanel";
+import { createImport } from "./importState";
 import { INTERNAL_CODE, RpcError } from "../app/seam";
 import { clearingOf } from "./clear";
 import { draftsOf } from "./persist/storage";
@@ -48,6 +50,8 @@ export const Rail = () => {
   // #2788: avoid rescanning all drafts per recovery row; 10k lookups took 527 ms with find, 0.6 ms with Map.
   const revisions = createMemo(() => new Map(retained.records().map((draft) => [draft.revision, draft])));
   const menu = createRailMenu(app, rail, setFailure, connected.events, connected.drafts);
+
+  const importing = createImport(app, project.path, (id) => setWanted(id));
 
   const clearPrompt = createMemo(() => {
     const node = menu.clearTarget();
@@ -522,6 +526,10 @@ export const Rail = () => {
         </span>
       </Show>
     </button>
+    <Show when={!importing.open()}>
+      <button type="button" data-button="quiet" class="word rail-import-entry" aria-disabled={daemonExit() === null ? undefined : true}
+        onClick={() => { if (daemonExit() === null) importing.show(); }}>{copy.importWork}</button>
+    </Show>
     <div class="rail-scroll" onScroll={(event) => setScrolled(event.currentTarget.scrollTop > 0)}>
     <TreeView.Root
       class="rail-tree"
@@ -721,6 +729,7 @@ export const Rail = () => {
         </Portal>
       </Show>
       <Show when={failure() ?? rail.workstreamFailure() ?? rail.doorFailure(rail.selected() ?? "") ?? rail.storageFailure()}>{(message) => <ErrorLine message={message()} />}</Show>
+      <Show when={importing.open()}><ImportPanel state={importing} disabled={daemonExit() !== null} /></Show>
       <div class="rail-actions">
         <button data-button="add"
           aria-label={copy.addWorkstream}

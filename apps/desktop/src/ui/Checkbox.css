@@ -1,0 +1,28 @@
+.app-checkbox {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-2);
+  min-width: 0;
+  cursor: default;
+}
+
+.app-checkbox-box::before {
+  content: "○";
+  color: var(--grey);
+}
+
+.app-checkbox-box[data-state="checked"]::before {
+  content: "●";
+  color: var(--text);
+}
+
+.app-checkbox-label {
+  display: flex;
+  min-width: 0;
+  gap: var(--space-1);
+}
+
+.app-checkbox[data-disabled] {
+  opacity: 1;
+  color: var(--grey);
+}
