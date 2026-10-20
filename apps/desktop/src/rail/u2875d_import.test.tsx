@@ -164,39 +164,6 @@ describe("u2875d the import panel is an ordinary Rail action", () => {
     }
   });
 
-  it("u2875d_restore_failure_preserves_saved_choices_until_storage_recovers", async () => {
-    const key = "roundup:import:/p";
-    const record = JSON.stringify({ open: true, period: "month", selected: [{ source: "s1", revision: "r1", title: "First" }] });
-
-    localStorage.setItem(key, record);
-
-    const read = Storage.prototype.getItem;
-
-    const reads = vi.spyOn(Storage.prototype, "getItem").mockImplementation(function (this: Storage, name: string) {
-      if (name === key) throw new Error("unreadable");
-
-      return read.call(this, name);
-    });
-
-    try {
-      const { app } = await mountRail([]);
-      app.handlers["project.importDiscover"] = () => found();
-      fireEvent.click(screen.getByRole("button", { name: "Import Claude Code work" }));
-      await screen.findByText(/Import choices could not be restored/);
-      fireEvent.click(await screen.findByText("Second"));
-      expect(read.call(localStorage, key)).toBe(record);
-      reads.mockRestore();
-      fireEvent.click(screen.getByRole("button", { name: "Try again" }));
-      expect(await screen.findByRole("button", { name: "Import 2" })).toBeTruthy();
-      cleanup();
-      const restored = createImport(app, "/p", () => undefined);
-      expect([restored.period(), [...restored.selected().keys()]]).toEqual(["month", ["s1", "s2"]]);
-      expect(calls(app, "project.importCommit")).toEqual([]);
-    } finally {
-      reads.mockRestore();
-    }
-  });
-
   it("u2875d_restored_selection_never_submits_and_a_changed_source_needs_refresh", async () => {
     localStorage.setItem("roundup:import:/p", JSON.stringify({ open: true, period: "month", selected: [{ source: "s1", revision: "r1", title: "First" }] }));
     const { app } = await mountRail([workstream("w1")]);
@@ -454,4 +421,51 @@ it.each(["discovery", "retry"])("u3049a_detects_external_record_before_%s_write"
   await screen.findByRole("status", { name: /conflict/i });
   expect(screen.getAllByRole("button", { name: /Open choices/ })).toHaveLength(2);
   expect(calls(app, "project.importCommit")).toEqual([]);
+});
+
+// Replaces the old U2875d retry test: merging restored and local input violates U3049b.
+it.each([false, true])("u3049b_initial_restore_retry_keeps_versions_separate_recovered_%s", async (recovered) => {
+  localStorage.setItem(importKey(), externalChoices);
+  const read = Storage.prototype.getItem;
+  let unreadable = true;
+  const reads = vi.spyOn(Storage.prototype, "getItem").mockImplementation(function (this: Storage, key: string) {
+    if (key === importKey() && unreadable) throw new Error("unreadable");
+
+    return read.call(this, key);
+  });
+
+  try {
+    const { app, connected } = await mountRail([]);
+    app.handlers["project.importDiscover"] = concurrentFound;
+    fireEvent.click(screen.getByRole("button", { name: "Import Claude Code work" }));
+    await screen.findByRole("checkbox", { name: /一つ目/ });
+    await screen.findByText(/Import choices could not be restored/);
+    // A successful ordinary save must not leave retry in an initial-restore mode.
+    if (recovered) {
+      unreadable = false;
+      localStorage.removeItem(importKey());
+    }
+
+    await clickSource("一つ目");
+    localStorage.setItem(importKey(), externalChoices);
+    unreadable = true;
+    await clickSource("三つ目");
+    expect(read.call(localStorage, importKey())).toBe(externalChoices);
+    unreadable = false;
+    fireEvent.click(screen.getByRole("button", { name: "Try again" }));
+    expect(importConflict()).toBeTruthy();
+    expect(connected.importing.choices().sort((a, b) => a.period.localeCompare(b.period)).map(entry => [entry.period, entry.sources, entry.revisions, entry.titles])).toEqual([
+      ["month", ["s2"], ["preview-2"], [titles[1]]], ["week", ["s1", "s3"], ["preview-1", "preview-3"], [titles[0], titles[2]]],
+    ]);
+    expect([connected.importing.period(), [...connected.importing.selected().keys()]]).toEqual(["week", ["s1", "s3"]]);
+    cleanup();
+    const reopened = await mountRail([]);
+    expect(reopened.connected.importing.choices().map(entry => [entry.period, entry.sources])).toEqual(expect.arrayContaining([
+      ["month", ["s2"]], ["week", ["s1", "s3"]],
+    ]));
+    expect(calls(app, "project.importCommit")).toEqual([]);
+    expect(calls(reopened.app, "project.importCommit")).toEqual([]);
+  } finally {
+    reads.mockRestore();
+  }
 });
