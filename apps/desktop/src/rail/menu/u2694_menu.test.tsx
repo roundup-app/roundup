@@ -1,0 +1,105 @@
+import { cleanup, fireEvent, waitFor } from "@solidjs/testing-library";
+import { afterEach, describe, expect, it, vi } from "vitest";
+import { RpcError } from "../../app/seam";
+import { agent, door, workstream } from "../../testing/nodes";
+import { exitedTerminal, mountRail, railCallsTo, rowOf } from "../railFixture";
+
+afterEach(cleanup);
+
+const open = (name: string) => fireEvent.contextMenu(rowOf(name), { clientX: 120, clientY: 80 });
+
+const entry = (app: { shownMenus: { items: { label: string; enabled: boolean; children?: { label: string; enabled: boolean }[] }[] }[] }, label: string) =>
+  app.shownMenus.at(-1)!.items.find((item) => item.label === label)!;
+
+describe("u2694 the Rail's system menu", () => {
+  it("u2694b_the_items_of_each_object", async () => {
+    const { app } = await mountRail([door("w", "idle", "idle"), agent("a", "working", "busy")]);
+
+    open("w");
+    expect(app.menuLabels()).toEqual(["Rename", "Restart", "Start YOLO", "Stop", "Resume", "Clear…", "Send to Agent", "Copy Link", "Remove"]);
+    expect(entry(app, "Rename")).toMatchObject({ shortcut: "F2" });
+    expect(entry(app, "Remove")).toMatchObject({ shortcut: "⌘⌫" });
+    open("a");
+    expect(app.menuLabels()).toEqual(["Rename", "Restart", "Start YOLO", "Stop", "Resume", "Send to Agent", "Copy Link", "Remove"]);
+  });
+
+  it("u2694b_a_group_offers_remove_only", async () => {
+    const { app } = await mountRail([workstream("g")]);
+
+    open("g");
+
+    expect(app.menuLabels()).toEqual(["Remove"]);
+  });
+
+  it("u2694d_restart_calls_resume_normal_and_start_yolo_calls_resume_yolo", async () => {
+    const { app } = await mountRail([agent("a", "working", "busy", { yolo: true })]);
+    app.handlers["agent.resume"] = () => agent("a", "working", "busy");
+
+    open("a");
+    await app.pickMenu("Restart");
+    open("a");
+    expect(entry(app, "Start YOLO").enabled).toBe(false);
+    await app.closeMenu();
+
+    expect(railCallsTo(app, "agent.resume")).toEqual([{ id: "a", mode: "normal" }]);
+  });
+
+  it("u2694d_the_item_of_the_current_mode_is_disabled", async () => {
+    const { app } = await mountRail([agent("a", "working", "busy")]);
+
+    open("a");
+
+    expect(entry(app, "Restart").enabled).toBe(false);
+    expect(entry(app, "Start YOLO").enabled).toBe(true);
+  });
+
+  it("u2694d_a_failed_resume_shows_the_failure_line", async () => {
+    const { app } = await mountRail([agent("a", "working", "busy")]);
+    app.handlers["agent.resume"] = () => { throw new RpcError(-32003, "already running"); };
+
+    open("a");
+    await app.pickMenu("Start YOLO");
+
+    await waitFor(() => expect(document.body.textContent).toContain("already running"));
+  });
+
+  it("u2694c_send_to_agent_sends_a_note_with_the_link_and_the_read_command", async () => {
+    const { app } = await mountRail([agent("a", "working", "busy"), agent("b", "working", "busy"), agent("x", "done", "done")], [exitedTerminal("x", 0)]);
+    app.handlers["daemon.ping"] = () => ({ pong: true, pid: 1, project: "/p", projectKey: "p-1", contract: { fingerprint: "", methods: [] } });
+    app.handlers["message.send"] = () => ({}) as never;
+
+    open("a");
+    expect((app.shownMenus.at(-1)!.items.find((item) => item.label === "Send to Agent")!.children ?? []).map((child) => [child.label, child.enabled]))
+      .toEqual([["a", true], ["b", true], ["x", false]]);
+    await app.pickMenu("b");
+
+    await waitFor(() => expect(railCallsTo(app, "message.send")).toEqual([
+      { to: "b", kind: "note", body: "roundup://agent/a?project=p-1\nrup link read roundup://agent/a?project=p-1", replyTo: null },
+    ]));
+  });
+
+  it("u2694c_copy_link_writes_the_link", async () => {
+    const { app } = await mountRail([agent("a", "working", "busy")]);
+    const write = vi.fn(async () => {});
+    Object.defineProperty(navigator, "clipboard", { value: { writeText: write }, configurable: true });
+    app.handlers["daemon.ping"] = () => ({ pong: true, pid: 1, project: "/p", projectKey: "p-1", contract: { fingerprint: "", methods: [] } });
+
+    open("a");
+    await app.pickMenu("Copy Link");
+
+    await waitFor(() => expect(write).toHaveBeenCalledWith("roundup://agent/a?project=p-1"));
+  });
+
+  it("u2694a_choosing_an_item_runs_its_action_and_null_runs_nothing", async () => {
+    const { app } = await mountRail([agent("a", "idle", "idle")]);
+    app.handlers["agent.stop"] = () => null;
+
+    open("a");
+    await app.closeMenu();
+    expect(railCallsTo(app, "agent.stop")).toEqual([]);
+    open("a");
+    await app.pickMenu("Stop");
+
+    await waitFor(() => expect(railCallsTo(app, "agent.stop")).toEqual([{ id: "a" }]));
+  });
+});

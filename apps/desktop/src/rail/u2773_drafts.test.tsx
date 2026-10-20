@@ -87,23 +87,23 @@ it("u2773a_rail_clear_restores_exact_reason_and_selection", async () => {
   const { rowOf } = await import("./railFixture");
   vi.stubGlobal("ResizeObserver", class { observe() {} disconnect() {} });
 
-  const reopen = () => {
+  const reopen = async (app: { pickMenu: (label: string) => Promise<void> }) => {
     fireEvent.contextMenu(rowOf("ws"), { clientX: 10, clientY: 10 });
-    fireEvent.click(screen.getByRole("menuitem", { name: "Clear…" }));
+    await app.pickMenu("Clear…");
   };
 
   const reason = () => screen.getByRole<HTMLTextAreaElement>("textbox", { name: /Why clear/ });
 
   try {
-    await mountRail([door("w", "idle", "idle", { name: "ws" })]);
-    reopen();
+    const first = await mountRail([door("w", "idle", "idle", { name: "ws" })]);
+    await reopen(first.app);
     fireEvent.input(reason(), { target: { value: " exact\ne\u0301 😀 " } });
     reason().setSelectionRange(2, 5, "backward");
     fireEvent.select(reason());
     fireEvent.keyDown(reason(), { key: "Escape" });
     cleanup();
     const mounted = await mountRail([door("w", "idle", "idle", { name: "ws" })]);
-    reopen();
+    await reopen(mounted.app);
     await Promise.resolve();
     expect(reason().value).toBe(" exact\ne\u0301 😀 ");
     expect([reason().selectionStart, reason().selectionEnd, reason().selectionDirection]).toEqual([2, 5, "backward"]);
@@ -179,7 +179,7 @@ it("u2773a_rail_clear_failure_does_not_take_focus", async () => {
     const mounted = await mountRail([door("w", "idle", "idle", { name: "ws" })]);
     mounted.app.handlers["workstream.clear"] = () => ({ pending: true });
     fireEvent.contextMenu(rowOf("ws"), { clientX: 10, clientY: 10 });
-    fireEvent.click(screen.getByRole("menuitem", { name: "Clear…" }));
+    await mounted.app.pickMenu("Clear…");
     const reason = screen.getByRole<HTMLTextAreaElement>("textbox", { name: /Why clear/ });
     await Promise.resolve();
     fireEvent.input(reason, { target: { value: " exact 😀 " } });
@@ -203,18 +203,18 @@ it("u2773a_rail_clear_reopens_on_same_project_connection", async () => {
   const { Rail } = await import("./Rail");
   vi.stubGlobal("ResizeObserver", class { observe() {} disconnect() {} });
 
-  const reopen = () => {
+  const reopen = async (app: { pickMenu: (label: string) => Promise<void> }) => {
     fireEvent.contextMenu(rowOf("ws"), { clientX: 10, clientY: 10 });
-    fireEvent.click(screen.getByRole("menuitem", { name: "Clear…" }));
+    await app.pickMenu("Clear…");
   };
 
   try {
     const mounted = await mountRail([door("w", "idle", "idle", { name: "ws" })]);
-    reopen();
+    await reopen(mounted.app);
     fireEvent.input(screen.getByRole("textbox", { name: /Why clear/ }), { target: { value: " exact\n😀 " } });
     cleanup();
     render(() => <ConnectedProjectContext.Provider value={mounted.connected}><Rail /></ConnectedProjectContext.Provider>);
-    reopen();
+    await reopen(mounted.app);
     await Promise.resolve();
     const reason = screen.getByRole<HTMLTextAreaElement>("textbox", { name: /Why clear/ });
     expect(reason.value).toBe(" exact\n😀 ");
@@ -285,9 +285,9 @@ it("u2773b_rail_unknown_clear_reopens_without_retry", async () => {
   const { waitFor } = await import("@solidjs/testing-library");
   vi.stubGlobal("ResizeObserver", class { observe() {} disconnect() {} });
 
-  const reopen = () => {
+  const reopen = async (app: { pickMenu: (label: string) => Promise<void> }) => {
     fireEvent.contextMenu(rowOf("ws"), { clientX: 10, clientY: 10 });
-    fireEvent.click(screen.getByRole("menuitem", { name: "Clear…" }));
+    await app.pickMenu("Clear…");
   };
 
   const reason = () => screen.getByRole<HTMLTextAreaElement>("textbox", { name: /Why clear/ });
@@ -297,13 +297,13 @@ it("u2773b_rail_unknown_clear_reopens_without_retry", async () => {
     const mounted = await mountRail([door("w", "idle", "idle", { name: "ws" })]);
     mounted.app.handlers["workstream.clear"] = () => { throw new RpcError(-32603, "connection lost"); };
 
-    reopen();
+    await reopen(mounted.app);
     fireEvent.input(reason(), { target: { value: " A\n😀 " } });
     fireEvent.submit(reason().closest("form")!);
     await screen.findByText("connection lost");
     await waitFor(() => expect(submit().disabled).toBe(true));
     fireEvent.keyDown(reason(), { key: "Escape" });
-    reopen();
+    await reopen(mounted.app);
     await waitFor(() => expect(document.activeElement).toBe(reason()));
     expect(reason().value).toBe(" A\n😀 ");
     expect(submit().disabled).toBe(true);
@@ -323,15 +323,15 @@ it("u2773a_rail_pending_clear_hides_without_discard_or_retry", async () => {
   const { waitFor } = await import("@solidjs/testing-library");
   vi.stubGlobal("ResizeObserver", class { observe() {} disconnect() {} });
 
-  const reopen = () => {
+  const reopen = async (app: { pickMenu: (label: string) => Promise<void> }) => {
     fireEvent.contextMenu(rowOf("ws"), { clientX: 10, clientY: 10 });
-    fireEvent.click(screen.getByRole("menuitem", { name: "Clear…" }));
+    await app.pickMenu("Clear…");
   };
 
   try {
     const mounted = await mountRail([door("w", "idle", "idle", { name: "ws" })]);
     mounted.app.handlers["workstream.clear"] = () => ({ pending: true });
-    reopen();
+    await reopen(mounted.app);
     const reason = screen.getByRole<HTMLTextAreaElement>("textbox", { name: /Why clear/ });
     await waitFor(() => expect(document.activeElement).toBe(reason));
     fireEvent.input(reason, { target: { value: " exact\ne\u0301 😀 " } });
@@ -340,7 +340,7 @@ it("u2773a_rail_pending_clear_hides_without_discard_or_retry", async () => {
     expect(screen.queryByRole("dialog", { name: "Clear ws" })).toBeNull();
     expect(screen.getByLabelText<HTMLTextAreaElement>("Recovered rail draft").value).toBe(" exact\ne\u0301 😀 ");
     mounted.app.emit(event({ name: "workstream.clearFailed", data: { id: "w", code: -32008, message: "not acknowledged" } }));
-    reopen();
+    await reopen(mounted.app);
     expect(screen.getByRole<HTMLTextAreaElement>("textbox", { name: /Why clear/ }).value).toBe(" exact\ne\u0301 😀 ");
     expect(railCallsTo(mounted.app, "workstream.clear")).toHaveLength(1);
   } finally { vi.unstubAllGlobals(); }
