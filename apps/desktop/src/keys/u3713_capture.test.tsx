@@ -201,7 +201,7 @@ describe("u3716 shift enter files and keeps the field open", () => {
   });
 });
 
-it("u2773a_capture_restores_exact_work_after_project_remount_and_reload", async () => {
+it("u2773a_capture_restores_exact_work_after_project_remount", async () => {
   const path = `/test-capture/${crypto.randomUUID()}`;
   const { app } = await mount(path);
   const input = await openField();

@@ -39,3 +39,14 @@
 .capture .ink {
   margin: var(--space-2) var(--space-3) 0;
 }
+
+.capture-recovery > .ink {
+  display: block;
+}
+
+.capture-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--space-3);
+  padding: var(--space-2) var(--space-3);
+}

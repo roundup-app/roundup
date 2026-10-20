@@ -55,7 +55,7 @@
     "selector": "",
     "status": "pass",
     "value": {
-      "rows": 32
+      "rows": 40
     }
   },
   "D5": {
@@ -67,14 +67,14 @@
     "selector": "",
     "status": "pass",
     "value": {
-      "targets": 182
+      "targets": 186
     }
   },
   "D7": {
     "selector": "",
     "status": "pass",
     "value": {
-      "targets": 182
+      "targets": 186
     }
   },
   "D8": {
