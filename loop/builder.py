@@ -36,6 +36,9 @@ SCREEN_BUDGET = 0.25
 READ_ONLY = {'review': ('claude-sonnet-5-5', 60, 1.5, 'medium'), 'critic': ('claude-sonnet-5-5', 80, 3, 'high')}
 BUILD_EFFORT = 'medium'
 SCREEN_EFFORT = 'low'
+# L23: the Codex `model_reasoning_effort` of a build or fix run (the Claude `BUILD_EFFORT`) and of a review or critic run.
+CODEX_BUILD_EFFORT = BUILD_EFFORT
+CODEX_READ_ONLY_EFFORT = 'high'
 API_ATTEMPTS = 2
 READ_ONLY_TOOLS = 'Bash,Read,Glob,Grep,Skill'
 SCREEN_SCHEMA = {'type': 'object', 'required': ['verdict', 'reason', 'preview'],
@@ -179,10 +182,12 @@ def screen_on_codex(ask):
     home = codex_home(os.environ.get('CODEX_AUTH', ''), Path(tempfile.mkdtemp(dir=os.environ['RUNNER_TEMP'])))
     answer = home / 'answer.json'
     (home / 'schema.json').write_text(json.dumps(SCREEN_SCHEMA))
-    subprocess.run(['codex', 'exec', '--model', CODEX_MODEL, '--sandbox', 'read-only', '--output-schema',
-                    str(home / 'schema.json'), '--output-last-message', str(answer), '-'],
-                   input=f'{role("screen")}\n## Ask\n\n{ask}\n', text=True, capture_output=True, timeout=300,
-                   check=True, env={**os.environ, 'CODEX_HOME': str(home)})
+    run = subprocess.run(['codex', 'exec', '--json', '--model', CODEX_MODEL, '--sandbox', 'read-only',
+                          '-c', f'model_reasoning_effort="{SCREEN_EFFORT}"', '--output-schema',
+                          str(home / 'schema.json'), '--output-last-message', str(answer), '-'],
+                         input=f'{role("screen")}\n## Ask\n\n{ask}\n', text=True, capture_output=True, timeout=300,
+                         check=True, env={**os.environ, 'CODEX_HOME': str(home)})
+    log_usage('screen', run.stdout.splitlines())
     return answer.read_text()
 
 
@@ -380,6 +385,30 @@ def log_cost(label, cost):
                 out.write(f'- {line}\n')
 
 
+def event_of(line):
+    """The event dict in the JSON `line` of a Codex run's events; {} for a line that holds none."""
+    try:
+        event = json.loads(line)
+    except ValueError:
+        return {}
+    return event if isinstance(event, dict) else {}
+
+
+def log_usage(label, lines):
+    """One line of the log and the job summary for a Codex call's token use, summed over the `usage` of the
+    `turn.completed` events among the JSON `lines` it printed: input, cached input and output tokens, and the cached share
+    of the input."""
+    usage = [event.get('usage') or {} for event in map(event_of, lines) if event.get('type') == 'turn.completed']
+    total = {key: sum(turn.get(key, 0) for turn in usage) for key in ('input_tokens', 'cached_input_tokens', 'output_tokens')}
+    share = f"{total['cached_input_tokens'] / total['input_tokens']:.0%}" if total['input_tokens'] else 'n/a'
+    line = (f"usage of {label}: input {total['input_tokens']}, cached input {total['cached_input_tokens']} ({share}), "
+            f"output {total['output_tokens']}" if usage else f'usage of {label}: not reported')
+    print(line, flush=True)
+    if summary := os.environ.get('GITHUB_STEP_SUMMARY'):
+        with open(summary, 'a') as out:
+            out.write(f'- {line}\n')
+
+
 def say_why(events):
     """Annotate as an error what a Claude Code run that used no tool said: the text of its assistant messages and the
     `subtype`, `is_error`, `result` and `errors` of its result event, each cut to 1000 characters. No token is in them: the
@@ -453,32 +482,33 @@ def strict(schema):
     return schema
 
 
-def codex(login, prompt, model, schema, output, rights=RUN_RIGHTS):
+def codex(login, prompt, model, schema, output, rights=RUN_RIGHTS, effort=CODEX_BUILD_EFFORT):
     """L23: run `prompt` on Codex's `model` in this checkout, signed in with the ChatGPT login `login`, answering the JSON
     Schema `schema` unless it is None. Appends the step output `execution_file`, Codex's event lines, before the run
     starts, so a run cut off still leaves them, then `structured_output`, its answer. `rights` is as `stream` reads it.
-    Returns Codex's exit code."""
+    Runs at the reasoning `effort` and logs its token use (`log_usage`). Returns Codex's exit code."""
     home = codex_home(login, codex_directory())
     events, answer = home / 'events.jsonl', home / 'answer.json'
     with open(output, 'a') as out:
         out.write(f'execution_file={events}\n')
     command = ['codex', 'exec', '--json', '--model', model, '--sandbox', 'danger-full-access',
-               '--output-last-message', str(answer)]
+               '-c', f'model_reasoning_effort="{effort}"', '--output-last-message', str(answer)]
     if schema is not None:
         (home / 'schema.json').write_text(json.dumps(strict(json.loads(schema)), separators=(',', ':')))
         command += ['--output-schema', str(home / 'schema.json')]
     code = stream([*command, '-'], prompt, events, {**os.environ, 'CODEX_HOME': str(home)}, CODEX_ACCOUNT, rights)
+    log_usage(model, events.read_text().splitlines())
     if schema is not None and answer.is_file():
         answer_out(output, answer.read_text().strip())
     return code
 
 
-def engine(prompt, schema, output, rights=RUN_RIGHTS):
+def engine(prompt, schema, output, rights=RUN_RIGHTS, effort=CODEX_BUILD_EFFORT):
     """L23: run `prompt` on Codex and, when that model used no tool (a usage limit or a setup failure such as a
     broken ChatGPT login, as `worked` reads it, so the checkout is untouched), on Claude Code. With `CLAUDE_API` set Codex
     never starts: Claude Code runs on API credit at once. The ChatGPT login leaves the
     environment first, so a Claude Code run's shell never holds it. With `CODEX_ONLY` set there is no Claude Code: a Codex
-    run that did no work fails. `rights` is as `stream` reads it. Returns the exit code of the run that was last."""
+    run that did no work fails. `rights` is as `stream` reads it; `effort` is Codex's reasoning effort. Returns the exit code of the run that was last."""
     login = os.environ.pop('CODEX_AUTH', '')
     if switched():
         return claude(prompt, CLAUDE_MODEL, schema, output, rights)
@@ -486,7 +516,7 @@ def engine(prompt, schema, output, rights=RUN_RIGHTS):
 
     def codex_or_none():
         try:
-            return codex(login, prompt, CODEX_MODEL, schema, output, rights)
+            return codex(login, prompt, CODEX_MODEL, schema, output, rights, effort)
         except ValueError as error:  # a broken login is a setup failure: no tool use, so the other engine runs
             print(f'::error::Codex did not start: {error}')
             return 1
@@ -565,11 +595,12 @@ def live_fixes():
 
 
 def fixing(run_id=None):
-    """(PR, run id) for each live fix run other than `run_id` whose `fix-run` model job has not ended, including runs
-    waiting on a branch; the PR is None for a run that names none."""
+    """(PR, run id) for each fix run other than `run_id` that is `in_progress` and whose `fix-run` model job has not ended;
+    the PR is None for a run that names none. A run still `pending` behind its PR's `fix-<pr>` concurrency group holds
+    no slot (`fix_prs` names its PR)."""
     held = []
     for run in live_fixes():
-        if run['id'] == run_id:
+        if run['id'] == run_id or run['status'] != 'in_progress':
             continue
         jobs = orders.gh('api', f"repos/{{owner}}/{{repo}}/actions/runs/{run['id']}/jobs?per_page=100")['jobs']
         if not any(job['name'] == 'fix-run' and job['status'] == 'completed' for job in jobs):
@@ -578,9 +609,14 @@ def fixing(run_id=None):
     return held
 
 
+def fix_prs():
+    """The PRs with a live fix run, pending or not: none gets a second."""
+    return {int(number[1]) for run in live_fixes() if (number := re.match(r'Fix PR #(\d+):', run['display_title']))}
+
+
 def codex_slots(most, fixes):
     """The Issues build jobs hold and the PRs `fixes` (as `fixing` lists them) hold, and how many of `most` Codex slots
-    stay free: each queued or running build job and each such fix run holds one, so a fix run frees its slot when its
+    stay free: each queued or running build job and each in-progress fix run holds one, so a fix run frees its slot when its
     model job ends, as a build job does (L23). Issue and PR numbers never collide."""
     issues = busy()
     return issues | {pr for pr, _ in fixes if pr}, most - len(issues) - len(fixes)
@@ -674,7 +710,11 @@ def pick(most):
     prs = orders.gh('pr', 'list', '--state', 'open', '--limit', '200', '--json',
                     'number,headRefName,headRefOid,isDraft,isCrossRepository,mergeable,body,statusCheckRollup')
     taken, free = codex_slots(most, fixing())
+    queued = fix_prs()
     for pr, head, cause in repairs(sorted(prs, key=lambda pr: pr['isDraft']), time.time(), taken):
+        if pr in queued:
+            print(f'Fix for PR #{pr} ({cause}) waits: a fix run for it is already live.', file=sys.stderr)
+            continue
         if free < 1:
             print(f'Fix for PR #{pr} ({cause}) waits: build jobs and fix runs hold all {most} Codex slots.', file=sys.stderr)
             continue
@@ -1182,7 +1222,7 @@ def main(args):
         case ['engine', *schema] if len(schema) < 2:
             return engine(sys.stdin.read(), schema[0] if schema else None, os.environ['GITHUB_OUTPUT'])
         case ['engine-read-only', schema]:
-            return engine(sys.stdin.read(), schema, os.environ['GITHUB_OUTPUT'], rights=None)
+            return engine(sys.stdin.read(), schema, os.environ['GITHUB_OUTPUT'], rights=None, effort=CODEX_READ_ONLY_EFFORT)
         case ['claude-read-only', who, schema] if who in READ_ONLY:
             model, turns, budget, effort = READ_ONLY[who]
             return claude(sys.stdin.read(), model, schema, os.environ['GITHUB_OUTPUT'], rights=None, budget=budget, effort=effort,
