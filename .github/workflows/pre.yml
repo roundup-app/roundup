@@ -1,0 +1,157 @@
+name: pre
+# The same titles as `check`: a draft's event is marked, so a later `ready_for_review` completion cannot be mistaken for it.
+run-name: ${{ github.event_name == 'pull_request' && github.event.pull_request.draft && 'Draft check' || 'Check' }}
+
+# L24: the cheap gate. A PR head's lints (no test shard, no macOS runner) run first; `review.yml` and `critic.yml` start
+# when `pre` succeeds on a ready head, and `check` runs the tests only once both approve it. A push to `main` runs
+# the lints here too, beside the tests of `check`.
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
+  push:
+    branches: [main]
+
+# L82: a newer push cancels an older run; a draft's run has its own group, as `check`'s has, and a push to `main` a group
+# per commit, so a merge never cancels the run of the commit before it.
+concurrency:
+  group: pre-${{ github.event_name == 'push' && format('push-{0}', github.sha) || (github.event.pull_request.draft && format('draft-{0}', github.ref) || github.ref) }}
+  cancel-in-progress: true
+
+# L89: a PR's lints run only where its diff reaches (`loop/affected.py`), as `check`'s lanes do; an empty base, on a push to
+# `main`, runs everything.
+env:
+  BASE: ${{ github.event_name == 'pull_request' && 'HEAD^1' || '' }}
+
+# L98: bash -eo pipefail, so a failure left of a pipe fails the step.
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  # L89: what the diff reaches decides whether `lint-web` runs; a lint the diff misses is skipped at job level and holds no
+  # runner. The runner's own cargo suffices, as in `check`.
+  plan:
+    if: github.event_name != 'pull_request' || !github.event.pull_request.draft
+    runs-on: ubuntu-latest
+    outputs:
+      web: ${{ steps.plan.outputs.web }}
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+      - id: plan
+        run: |
+          reached=$(python3 loop/affected.py web "$BASE")
+          echo "web=${reached:+true}" >>"$GITHUB_OUTPUT"
+
+  # L89: the Rust checks that run no test binary.
+  lint:
+    if: github.event_name != 'pull_request' || !github.event.pull_request.draft
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+      - uses: ./.github/actions/setup
+      - run: python3 loop/app-data.py just lint-rust
+
+  # L89: the web checks that run no test, then the two U26 regression tests that hold Chromium's startup for real seconds:
+  # neither depends on which web tests run, so they run once here and not in every shard. The lint takes 40 s, so the
+  # held tests fit in this lane without a runner of their own. A failed step leaves later steps running, so one run
+  # reports every failure.
+  lint-web:
+    needs: plan
+    if: github.event_name != 'pull_request' || (!github.event.pull_request.draft && needs.plan.outputs.web == 'true')
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+      - uses: ./.github/actions/setup
+        with:
+          rust: 'false'
+          browser: 'true'
+      - run: python3 loop/app-data.py just lint-web
+      - id: deps
+        name: U26 Linux fault observer dependencies
+        if: ${{ !cancelled() }}
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y bpftrace libfuse3-dev fuse3 pkg-config
+      - name: U26 held cold startup regression
+        if: ${{ !cancelled() && steps.deps.outcome == 'success' }}
+        run: python3 loop/app-data.py python3 tools/chromium-faults/cold.test.py
+      - name: U26 held file-backed fault
+        if: ${{ !cancelled() && steps.deps.outcome == 'success' }}
+        run: python3 loop/app-data.py python3 tools/chromium-faults/test.py
+
+  # L24: GitHub may build a draft's `synchronize` run from a payload older than the PR's `ready_for_review`: the ready run
+  # then judges the previous head and the newest head is left with a `Draft check`, which `review` and `critic` skip, so
+  # no real run of `pre` ever starts its review (#1931, #1933, #1998, #2023). A Draft check whose PR is ready on its own head, with no
+  # real `pre` run on that head, turns the PR draft and ready again as the Claude App, whose events start workflows
+  # (a `GITHUB_TOKEN`'s do not), and re-arms the auto-merge that turning it draft disarmed.
+  rekick:
+    if: github.event_name == 'pull_request' && github.event.pull_request.draft
+    runs-on: ubuntu-latest
+    permissions:
+      actions: read
+      contents: read
+      id-token: write
+      pull-requests: read
+    env:
+      PR: ${{ github.event.pull_request.number }}
+      HEAD: ${{ github.event.pull_request.head.sha }}
+    steps:
+      - id: stale
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          ready() { gh api "repos/$GITHUB_REPOSITORY/pulls/$PR" | jq -e --arg head "$HEAD" '(.draft | not) and .head.sha == $head' >/dev/null; }
+          ready || exit 0
+          # The ready run, if it tested this head, appears within seconds.
+          sleep 30
+          ready || exit 0
+          gh api "repos/$GITHUB_REPOSITORY/actions/workflows/pre.yml/runs?head_sha=$HEAD&event=pull_request" \
+            | jq -e '[.workflow_runs[] | select(.display_title == "Check" and .conclusion != "cancelled")] | length > 0' >/dev/null && exit 0
+          echo 'stale=true' >>"$GITHUB_OUTPUT"
+      - if: steps.stale.outputs.stale
+        uses: actions/checkout@v5
+        with:
+          ref: main
+          persist-credentials: false
+      - if: steps.stale.outputs.stale
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          merge=$(gh pr view "$PR" --json autoMergeRequest --jq '.autoMergeRequest.mergeMethod // empty')
+          # `app_token` prints its own `::add-mask::` line before returning the token; the last line is the token.
+          APP_TOKEN=$(python3 -c 'import sys; sys.path.insert(0, "loop"); import builder; print(builder.app_token())' | tail -n 1)
+          echo "::add-mask::$APP_TOKEN"
+          export GH_TOKEN=$APP_TOKEN
+          trap 'gh api -X DELETE /installation/token' EXIT
+          gh pr ready "$PR" --undo
+          gh pr ready "$PR"
+          [ -z "$merge" ] || gh pr merge "$PR" --auto "--$(tr "[:upper:]" "[:lower:]" <<<"$merge")"
+
+  # The name `review.yml` and `critic.yml` wait on. A failed lint cannot turn it green; a skipped one can only on a PR,
+  # where `plan` (which must itself succeed) skipped it, as `check` reads its lanes (L89).
+  pre:
+    needs: [plan, lint, lint-web]
+    if: ${{ !cancelled() && (github.event_name != 'pull_request' || !github.event.pull_request.draft) }}
+    runs-on: ubuntu-latest
+    steps:
+      - env:
+          NEEDS: ${{ toJSON(needs) }}
+          EVENT: ${{ github.event_name }}
+        run: |
+          jq -e --arg event "$EVENT" 'map_values(.result) | ., (.plan == "success" and all(.[]; . == "success" or ($event == "pull_request" and . == "skipped")))' <<<"$NEEDS"
+
+  summary:
+    needs: [plan, lint, lint-web, pre]
+    if: always()
+    permissions: {}
+    uses: ./.github/workflows/summary.yml
+    with:
+      results: ${{ toJSON(needs) }}
+      purpose: Lint a PR head before its review
+      next: Success starts review of this head; a failure blocks merge and starts a fix run on a Builder PR.
