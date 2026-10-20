@@ -167,16 +167,16 @@ if sys.argv[3] == 'nested-leak':
 
 class DraftCheckRekick(unittest.TestCase):
     def rekick(self):
-        check = (ROOT / '.github/workflows/check.yml').read_text()
-        return check, check.split('\n  rekick:\n', 1)[1].split('\n  # Keep the required check name', 1)[0]
+        pre = (ROOT / '.github/workflows/pre.yml').read_text()
+        return pre, pre.split('\n  rekick:\n', 1)[1].split('\n  # The name `review.yml`', 1)[0]
 
     def test_l24_a_draft_check_on_a_ready_head_asks_the_app_for_a_real_check(self):
         # #1931, #1933, #1998, #2023: the ready run tested the previous head and the newest head kept a `Draft check`,
         # which review and critic skip. Only an App's ready event starts the real check; `GITHUB_TOKEN` events start none.
-        check, rekick = self.rekick()
-        self.assertIn('types: [opened, synchronize, reopened, ready_for_review]', check)
+        pre, rekick = self.rekick()
+        self.assertIn('types: [opened, synchronize, reopened, ready_for_review]', pre)
         self.assertIn("if: github.event_name == 'pull_request' && github.event.pull_request.draft", rekick)
-        self.assertEqual(check.count('id-token: write'), 1)
+        self.assertEqual(pre.count('id-token: write'), 1)
 
     def test_l24_the_rekick_step_runs_every_gh_call_with_the_app_token(self):
         _, rekick = self.rekick()
