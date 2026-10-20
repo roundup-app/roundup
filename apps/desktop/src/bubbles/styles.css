@@ -26,14 +26,10 @@
   pointer-events: auto;
 }
 
-/* A native backdrop shares the pane coordinates without intercepting the outside press (U2307a). */
+/* U2892a: a native backdrop covers the whole window, the Hint line and tabs included, without intercepting the outside press (U2307a). */
 .bubble-frame::backdrop {
   position: fixed;
-  inset: auto;
-  left: var(--bubble-pane-left);
-  top: var(--bubble-pane-top);
-  width: var(--bubble-pane-width);
-  height: var(--bubble-pane-height);
+  inset: 0;
   pointer-events: none;
   background: none;
 }
