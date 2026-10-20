@@ -34,6 +34,7 @@ mod decision;
 pub mod marks;
 mod models;
 pub mod placement;
+pub mod pr_checks;
 pub use asks::Asks;
 pub use models::mcp_on;
 mod name;
