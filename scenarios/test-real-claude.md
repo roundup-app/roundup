@@ -157,3 +157,66 @@ Use [aimock](https://github.com/CopilotKit/aimock), whose [v1.45.1 release](http
 
 
 **E2704b real Claude speaks its current Rail name.** Given a started Agent named `sad` in an isolated test Project, when asked `who are you`, its answer identifies itself as `sad` and contains no machine-id token. Rename it through `rail.rename` to `sad-2`, wait for B2704a's rename note in the Claude inbox to be acknowledged by its `msg_id` in the transcript (B50–B52), with no Terminal delivery, then ask again: the answer identifies itself as `sad-2`, not `sad` as its current name, and contains no machine-id token. Repeat for a Door and Scout. Observer: `e2704b_real_claude_answers_with_current_rail_name` in `crates/rup/tests`, using real Claude through roundup's hooks and MCP. A fake-Claude or model fixture reply scripted to say the expected name proves transport only and does not satisfy this observer (policy). Record commit, Claude version, Context, delivered note and answers on Issue #2704; use an authorized isolated real-model run, or the required logged-in Mac observation when unavailable. Existing credential stripping and personal-profile isolation remain policy. This scenario extends this file's test ownership for #2704 only; it does not expand E10's migration inventory (policy).
+
+
+**E2962 slow real-Claude tests prove only what needs a real program.** Given the fixed 45-test inventory below, apply rule 10 to every entry. Scope: `crates/rup/tests/` and the existing scenario clauses those tests prove; no production behaviour, contract, dependency migration or loop machinery change (policy). This scenario supersedes E10's real-Claude requirement and its no-other-exemption clause for this inventory only; E11–E14 still govern tests that retain real Claude (policy).
+
+- **Cut:** remove a test when its break is already rejected by the compiler, type check or lint, it asserts only a value copied from the implementation, or another test fails for the same break. For each removed then-clause, name the surviving test and its assertions, or explicitly retire that scenario clause. For a compiler/type/lint cut, also name the rejecting check and the break it rejects; copied-value assertions alone do not establish that a behaviour is covered (policy).
+- **Make cheap:** when the same break can fail a test starting no process, browser, Daemon, PTY or Claude, replace the expensive test with that test. Preserve the scenario outcome and name its asserting test in the scenario and the implementation mapping. Calling a fixture that starts a program does not qualify as process-free (policy).
+- **Keep:** retain an expensive test only when its scenario explicitly names the real program or elapsed-clock boundary required, the outcome observed through it, and the break a process-free test cannot catch. Add this need to the existing scenario if absent; merely saying “integration” or “real Claude” is insufficient. A real-clock need does not by itself justify launching Claude (policy).
+- Every listed entry receives exactly one action in the implementation PR's 45-row table: original name, action, surviving/replacement test and scenario clause (or retirement), and the rejecting check or required real boundary as applicable. Renames and merged tests map back to every original entry. Merging tests is allowed only when each covered scenario still has a test whose assertions fail for its break; the same assertions hidden behind one successful path do not prove unexecuted cases. Apply rule 10 to all tests in any edited test file (policy).
+- The implementation PR reports the sum of durations for the kept tests from its own successful head's `check` run, beside the 608 s baseline below. Include run URL, head SHA, each kept test's duration and the arithmetic; count a shared surviving test once, report removed tests as zero, and list replacement process-free durations separately. No kept tests means a kept sum of 0 s. Missing, skipped or unreported kept tests do not establish a sum; rerun/correct the observation rather than treating missing data as zero. A faster total obtained by dropping unretired behaviour is not acceptance. No extra timing test or workflow change is required (policy).
+
+Observer: independent review of the mapping, scenario needs and assertion bodies, execution of the surviving/replacement tests, and the implementation head's `check` timing output (policy). This is test-retention policy, not a new product outcome or a coverage target; no self-referential test of this text is required (policy). Existing checks 1–4 above remain applicable. No P1–P13 product path changes; their Gates acquire no new path and their Observers are preserved (policy).
+
+## E2962 fixed inventory
+
+Baseline: `rup::real_claude` on successful [check run 39378452452](https://github.com/saadshahd/roundup/actions/runs/39378452452), commit `b9809141a98c881e41ce55726a8eb773442dfcc8`; reported group total 608 s (policy). Per-test times below are rounded; compare against the reported group total, not a sum presented as unrounded precision (policy).
+
+| test | binary | seconds |
+|---|---|---|
+| `h15_every_hook_call_of_a_hundred_tool_use_loop_is_answered_and_the_final_stop_leaves_the_agent_idle` | `rup::real_claude` | 32.5 |
+| `a32_a_failed_restart_keeps_the_workstream` | `rup::real_claude` | 27.7 |
+| `a32_no_handoff_times_out_and_changes_nothing` | `rup::real_claude` | 23.4 |
+| `a32_without_handoff_archives_everything` | `rup::real_claude` | 22.6 |
+| `a32_a_failed_stop_retries_without_double_archive` | `rup::real_claude` | 20.6 |
+| `a32_unkept_todos_and_pads_are_archived_not_lost` | `rup::real_claude` | 20.6 |
+| `a32_the_workstream_and_its_terminals_survive` | `rup::real_claude` | 20.2 |
+| `a32_subagents_stop_deepest_first_and_leave_the_rail` | `rup::real_claude` | 19.7 |
+| `a32_the_door_restarts_fresh_from_the_handoff` | `rup::real_claude` | 19.1 |
+| `a32_iteration_advances_once` | `rup::real_claude` | 19.0 |
+| `a32_a_bad_id_in_the_handoff_keeps_the_clear_pending` | `rup::real_claude` | 18.6 |
+| `a32_kept_items_keep_their_ids_and_owners` | `rup::real_claude` | 18.5 |
+| `e6_a_shim_started_at_once_goes_pending_to_up_and_never_missing` | `rup::real_claude` | 17.4 |
+| `a2693a_real_claude_resumes_yolo_and_restarts_normal` | `rup::real_claude` | 15.9 |
+| `a32_no_slash_command_is_typed` | `rup::real_claude` | 15.3 |
+| `a32_an_empty_reason_changes_nothing` | `rup::real_claude` | 14.4 |
+| `q11_plugins_survive_real_daemon_launch_resume_and_workstream_clear` | `rup::real_claude` | 13.5 |
+| `a32_a_valid_clear_only_asks_the_door` | `rup::real_claude` | 13.5 |
+| `a32_worktrees_and_branches_survive_even_dirty` | `rup::real_claude` | 13.4 |
+| `a26_a_subagent_started_by_a_subagent_sits_three_deep_under_the_door_through_rup_mcp` | `rup::real_claude` | 12.8 |
+| `e14_roundup_launches_and_resumes_real_claude` | `rup::real_claude` | 12.1 |
+| `a32_resume_is_held_until_session_start` | `rup::real_claude` | 11.9 |
+| `e12_a_complete_turn_has_only_loopback_traffic` | `rup::real_claude` | 11.9 |
+| `b2693b_real_yolo_receiver_takes_a_note_without_approval` | `rup::real_claude` | 11.8 |
+| `a32_message_list_spans_iterations` | `rup::real_claude` | 11.6 |
+| `h21_observer_a_door_allows_its_childs_permission_request_and_the_touch_names_it` | `rup::real_claude` | 11.5 |
+| `lc9_the_profile_holds_in_the_real_tui` | `rup::real_claude` | 11.2 |
+| `m16_real_claude_runs_tests_with_bash_without_a_run` | `rup::real_claude` | 10.5 |
+| `a32_only_the_door_may_hand_off` | `rup::real_claude` | 10.2 |
+| `b55_a_restart_and_start_door_still_holds_no_word` | `rup::real_claude` | 9.5 |
+| `f3_a_door_starts_a_child_with_agent_spawn_and_the_child_is_the_doors_own` | `rup::real_claude` | 9.4 |
+| `e12_model_routing_keeps_credentials_out_of_hooks_and_mcp` | `rup::real_claude` | 9.0 |
+| `e6_no_shim_is_missing_with_the_status_unchanged_and_hooks_do_not_count` | `rup::real_claude` | 8.8 |
+| `e12_a_fresh_configuration_accepts_the_first_prompt` | `rup::real_claude` | 8.7 |
+| `h21_observer_the_childs_and_another_workstreams_agents_are_forbidden_and_the_user_wins` | `rup::real_claude` | 8.4 |
+| `a2693a_real_claude_skips_only_yolo_tool_permissions` | `rup::real_claude` | 8.2 |
+| `h21_a_message_delivered_after_the_decision_cleared_is_still_typed` | `rup::real_claude` | 8.0 |
+| `e6_a_late_shim_goes_missing_then_up` | `rup::real_claude` | 7.7 |
+| `b55_thirty_idle_edges_of_the_new_session_type_none_of_it` | `rup::real_claude` | 7.7 |
+| `b55_the_next_session_holds_no_word_of_the_old_ask` | `rup::real_claude` | 7.2 |
+| `x17_real_claude_takes_the_apps_scheme_at_start_and_on_a_switch` | `rup::real_claude` | 7.2 |
+| `b55_pending_held_and_waiting_messages_of_the_old_iteration_are_not_replayed` | `rup::real_claude` | 7.0 |
+| `b55_the_word_appears_only_inside_the_handoff_when_the_summary_has_it` | `rup::real_claude` | 6.9 |
+| `b37_real_claude_receives_d1_after_a_scripted_server_error` | `rup::real_claude` | 6.7 |
+| `f3_a_door_spawns_into_a_worktree_when_the_setting_is_on` | `rup::real_claude` | 6.0 |
