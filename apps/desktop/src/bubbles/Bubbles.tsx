@@ -949,7 +949,7 @@ export const Bubbles = (props: { screens: Screens }) => {
       return contextMenu(app, [
         { id: "rename", label: copy.rename, run: start },
         ...linkEntries(app, "terminal", id, agents, (node) => rail.exitOf(node) === null, setFailure),
-        { id: "close", label: copy.close, ...(lastTarget() === id ? { shortcut: "⌘K W" } : {}), run: () => close(id) },
+        { id: "close", label: copy.close, shortcut: lastTarget() === id ? "⌘K W" : undefined, run: () => close(id) },
       ], x, y);
     };
 
