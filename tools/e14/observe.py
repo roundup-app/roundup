@@ -167,29 +167,32 @@ def run(args):
                             "image": os.environ.get("ImageOS"), "image_version": os.environ.get("ImageVersion"), "type": os.environ.get("RUNNER_ENVIRONMENT", "local"),
                             "run": os.environ.get("GITHUB_RUN_ID"), "attempt": os.environ.get("GITHUB_RUN_ATTEMPT")},
                     memory={"source": "psutil.virtual_memory: total - available (whole runner, all processes)", "psutil": psutil.__version__, "sample_interval_ms": 50})
-    # Sampling in the supervising process means an observer error cannot be lost in a thread.
-    with (output / "memory.jsonl").open("w") as memory:
-        def sample():
-            vm = psutil.virtual_memory()
-            memory.write(json.dumps(dict(at=time.time() * 1000, used=vm.total - vm.available, total=vm.total)) + "\n")
-            memory.flush()
-        sample()
-        metadata["started"] = time.time() * 1000
-        clock = time.monotonic()
-        child = subprocess.Popen(command, env=env)
-        try:
-            while child.poll() is None:
-                sample()
-                time.sleep(0.05)
-            metadata["exit_code"] = child.returncode
-        finally:
-            if child.poll() is None:
-                child.terminate()
-                child.wait()
-            metadata["elapsed_seconds"] = time.monotonic() - clock
-            metadata["ended"] = time.time() * 1000
+    # Sampling in the supervising process means an observer error cannot be lost in a thread. Samples stay in
+    # memory until the lane ends: a write() during the build's debug-info flood blocks in the kernel's dirty-page
+    # throttle for over a second, and the gap check would then fail the lane for the disk, not the sampler.
+    samples = []
+
+    def sample():
+        vm = psutil.virtual_memory()
+        samples.append(dict(at=time.time() * 1000, used=vm.total - vm.available, total=vm.total))
+    sample()
+    metadata["started"] = time.time() * 1000
+    clock = time.monotonic()
+    child = subprocess.Popen(command, env=env)
+    try:
+        while child.poll() is None:
             sample()
-            (output / "lane.json").write_text(json.dumps(metadata, indent=2) + "\n")
+            time.sleep(0.05)
+        metadata["exit_code"] = child.returncode
+    finally:
+        if child.poll() is None:
+            child.terminate()
+            child.wait()
+        metadata["elapsed_seconds"] = time.monotonic() - clock
+        metadata["ended"] = time.time() * 1000
+        sample()
+        (output / "memory.jsonl").write_text("".join(json.dumps(row) + "\n" for row in samples))
+        (output / "lane.json").write_text(json.dumps(metadata, indent=2) + "\n")
     if args.memory_log:
         args.memory_log.with_suffix(".stop").touch()
         for _ in range(40):

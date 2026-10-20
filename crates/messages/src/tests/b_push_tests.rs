@@ -648,6 +648,7 @@ async fn b21_two_stopped_changes_release_one_newest_entry_of_weight_two() {
             created_at: 0,
             creator: agent("d"),
             home: Some("top".into()),
+            owner: None,
         });
         let changes = seen.changed(&digest::Sources {
             nodes: &nodes,

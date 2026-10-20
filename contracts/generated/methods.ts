@@ -91,6 +91,10 @@ import type { ProjectSettings as project_ProjectSettings } from "./project/Proje
 import type { RenameParams as project_RenameParams } from "./project/RenameParams";
 import type { Resources as project_Resources } from "./project/Resources";
 import type { Worktrees as project_Worktrees } from "./project/Worktrees";
+import type { CreateParams as reaction_CreateParams } from "./reaction/CreateParams";
+import type { Reaction as reaction_Reaction } from "./reaction/Reaction";
+import type { ReactionId as reaction_ReactionId } from "./reaction/ReactionId";
+import type { RunParams as reaction_RunParams } from "./reaction/RunParams";
 import type { OpenParams as terminal_OpenParams } from "./terminal/OpenParams";
 import type { Opened as terminal_Opened } from "./terminal/Opened";
 import type { OutputStarted as terminal_OutputStarted } from "./terminal/OutputStarted";
@@ -107,6 +111,7 @@ import type { SpawnParams as terminal_SpawnParams } from "./terminal/SpawnParams
 import type { TerminalId as terminal_TerminalId } from "./terminal/TerminalId";
 import type { TerminalInfo as terminal_TerminalInfo } from "./terminal/TerminalInfo";
 import type { WriteParams as terminal_WriteParams } from "./terminal/WriteParams";
+import type { AssignParams as todo_AssignParams } from "./todo/AssignParams";
 import type { CreateParams as todo_CreateParams } from "./todo/CreateParams";
 import type { History as todo_History } from "./todo/History";
 import type { MoveParams as todo_MoveParams } from "./todo/MoveParams";
@@ -164,6 +169,7 @@ export type RpcMethods = {
   "todo.update": { params: todo_UpdateParams; result: todo_Todo };
   "todo.complete": { params: todo_TodoId; result: todo_Todo };
   "todo.setBlockers": { params: todo_SetBlockersParams; result: todo_Todo };
+  "todo.assign": { params: todo_AssignParams; result: todo_Todo };
   "todo.move": { params: todo_MoveParams; result: todo_Todo };
   "todo.reorder": { params: todo_ReorderParams; result: todo_Todo };
   "todo.delete": { params: todo_TodoId; result: null };
@@ -195,6 +201,11 @@ export type RpcMethods = {
   "agent.skills": { params: agent_NodeId; result: agent_Skills };
   "agent.digest": { params: agent_NodeId; result: agent_Digest };
   "agent.wake": { params: agent_WakeParams; result: agent_Woken };
+  "reaction.create": { params: reaction_CreateParams; result: reaction_Reaction };
+  "reaction.list": { params: null; result: reaction_Reaction[] };
+  "reaction.get": { params: reaction_ReactionId; result: reaction_Reaction };
+  "reaction.stop": { params: reaction_ReactionId; result: reaction_Reaction };
+  "reaction.run": { params: reaction_RunParams; result: reaction_Reaction };
   "agent.spawnPrompt": { params: agent_NodeId; result: { prompt: string | null } };
   "agent.setOrder": { params: agent_SetOrderParams; result: agent_RailNode | agent_HeldAction };
   "agent.channelUp": { params: agent_NodeId; result: null };

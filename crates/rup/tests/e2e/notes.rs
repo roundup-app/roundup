@@ -9,7 +9,7 @@ use serde_json::{Value, json};
 
 use super::daemon::{h21_ask, h21_bash, h21_poll, start};
 use super::wake::{
-    FAIL, STOP, WORK, ask, drive, named, notes, scene, start_again, status_of, typed,
+    FAIL, STOP, WORK, ask, drive, named, notes, scene, start_again, status_of, still, typed,
 };
 use super::{actor, client_as};
 
@@ -503,4 +503,32 @@ async fn b49_the_note_never_holds_the_terminal_reply() {
     let note = end_note(&s, None, Some("ZEBRA")).await;
     assert!(!note.contains("ZEBRA"), "{note}");
     assert_eq!(last_of(&note), "ended with no finding");
+}
+
+#[tokio::test]
+async fn t18_three_changes_in_a_turn_one_message_with_a_real_agent() {
+    let s = scene(&[]).await;
+    // `a` is working: three changes during its turn.
+    let owner = json!({ "kind": "agent", "id": s.a });
+    for title in ["One", "Two", "Three"] {
+        s.user
+            .request("todo.create", json!({ "title": title, "owner": owner }))
+            .await
+            .unwrap();
+    }
+    tokio::time::sleep(Duration::from_millis(600)).await;
+    assert!(
+        notes(&s.user, &s.a, "[todos]", 0).await.is_empty(),
+        "nothing is sent mid-turn"
+    );
+    drive(&s.user, &s.a, STOP).await;
+    let sent = notes(&s.user, &s.a, "[todos]", 1).await;
+    let body = sent[0]["body"].as_str().unwrap();
+    for title in ["One", "Two", "Three"] {
+        assert!(
+            body.contains(&format!("- {title}: assigned to you")),
+            "{body}"
+        );
+    }
+    still(&s.user, &s.a, "[todos]", 1).await;
 }

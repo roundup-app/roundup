@@ -60,16 +60,29 @@ fn u2556a_optional_network_facts() {
             row.facts(),
             Facts {
                 ci: Some(("passed".into(), false)),
-                pr: Some((42, false))
+                pr: Some((42, false)),
+                evidence: None
             }
         );
     }
     for (checks, pr, expected) in [
-        (Value::Null, Value::Null, Facts { ci: None, pr: None }),
+        (
+            Value::Null,
+            Value::Null,
+            Facts {
+                ci: None,
+                pr: None,
+                evidence: None,
+            },
+        ),
         (
             json!({"status":null,"source":"pr","stale":false}),
             json!({"number":null}),
-            Facts { ci: None, pr: None },
+            Facts {
+                ci: None,
+                pr: None,
+                evidence: None,
+            },
         ),
         (
             json!({"status":"passed","source":"pr","stale":true}),
@@ -77,6 +90,7 @@ fn u2556a_optional_network_facts() {
             Facts {
                 ci: Some(("passed".into(), true)),
                 pr: Some((42, false)),
+                evidence: None,
             },
         ),
         (
@@ -85,6 +99,7 @@ fn u2556a_optional_network_facts() {
             Facts {
                 ci: Some(("unknown".into(), false)),
                 pr: Some((8, false)),
+                evidence: None,
             },
         ),
         (
@@ -93,12 +108,17 @@ fn u2556a_optional_network_facts() {
             Facts {
                 ci: Some(("conflicts".into(), true)),
                 pr: Some((9, false)),
+                evidence: None,
             },
         ),
         (
             Value::Null,
             json!({"review":"approved"}),
-            Facts { ci: None, pr: None },
+            Facts {
+                ci: None,
+                pr: None,
+                evidence: None,
+            },
         ),
     ] {
         let parsed = parse(&envelope(
@@ -262,6 +282,7 @@ fn u2556b_failures_preserve_local_state() {
     let facts = Facts {
         ci: Some(("passed".into(), false)),
         pr: Some((4, false)),
+        evidence: None,
     };
     publish(
         &collector.state,
@@ -276,7 +297,8 @@ fn u2556b_failures_preserve_local_state() {
         collector.facts(&id, start + FULL_INTERVAL).unwrap(),
         Facts {
             ci: Some(("passed".into(), true)),
-            pr: Some((4, true))
+            pr: Some((4, true)),
+            evidence: None
         }
     );
     publish(
@@ -291,7 +313,8 @@ fn u2556b_failures_preserve_local_state() {
         collector.facts(&id, start).unwrap(),
         Facts {
             ci: Some(("passed".into(), true)),
-            pr: Some((4, true))
+            pr: Some((4, true)),
+            evidence: None
         }
     );
     let git_read = super::super::worktree::Git::from_env().bounded();
@@ -348,6 +371,7 @@ fn u2556b_late_results_do_not_cross_identity() {
                 Facts {
                     ci: None,
                     pr: Some((1, false)),
+                    evidence: None,
                 },
             )])),
             identities(&shared).unwrap(),
@@ -720,5 +744,118 @@ async fn u2556a_base_state_is_authoritative_with_optional_wire_facts() {
     assert_eq!(
         wire(agents.worktree_state(&node.id).await.unwrap()),
         json!({"ahead":1,"behind":1,"dirty":false})
+    );
+}
+
+/// NR10: the public `agent.worktreeState` carries the repository, PR head and complete
+/// required-check set, and every gap stays distinct from a complete pass.
+#[tokio::test]
+async fn nr10_public_worktree_evidence_preserves_head_and_completeness() {
+    let repo = repository();
+    let (data, _bus, mut shared) = super::super::store::tests::shared_over_temp_dir(Arc::new(|| 0));
+    Arc::get_mut(&mut shared).unwrap().project_dir = repo.path().to_owned();
+    git(repo.path(), &["branch", "base"]);
+    let node = shared
+        .rail()
+        .insert(contracts::agent::NodeKind::Agent, "fixture", None, None)
+        .unwrap();
+    shared
+        .rail()
+        .set_worktree(
+            &node.id,
+            &contracts::agent::Worktree {
+                path: repo.path().to_string_lossy().into_owned(),
+                branch: "main".into(),
+                base: "base".into(),
+            },
+        )
+        .unwrap();
+    for lane in &mut shared.worktrunk.state.lock().unwrap().lanes {
+        lane.since = Some(Instant::now());
+    }
+    let agents = super::super::store::tests::owner_agents(shared.clone(), data.path());
+    let ids = identities(&shared).unwrap();
+    let recorded = parse(&envelope(json!([row(repo.path())]))).unwrap();
+    let publish_read = |gh: &Path| {
+        let mut results = BTreeMap::from([(ids[0].clone(), recorded.items[0].facts())]);
+        attach_evidence(gh, &mut results, &shared.worktrunk.cancelled);
+        publish(
+            &shared.worktrunk.state,
+            true,
+            Ok(results),
+            ids.clone(),
+            &shared.worktrunk.cancelled,
+            Instant::now(),
+        );
+    };
+    let gh = |url: &str, head: &str, rows: &str, code: i32| {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("gh");
+        std::fs::write(
+            &path,
+            format!(
+                "#!/bin/sh\ncase \"$1 $2\" in\n\"pr view\") echo '{{\"number\":23,\"headRefOid\":\"{head}\",\"url\":\"{url}\"}}';;\n\"pr checks\") echo '{rows}'; exit {code};;\nesac\n"
+            ),
+        )
+        .unwrap();
+        std::fs::set_permissions(&path, std::fs::Permissions::from_mode(0o755)).unwrap();
+        (dir, path)
+    };
+    let evidence = async || {
+        serde_json::to_value(agents.worktree_state(&node.id).await.unwrap()).unwrap()["evidence"]
+            .clone()
+    };
+    let pass = r#"[{"name":"check","bucket":"pass"}]"#;
+    let head = "1".repeat(40);
+
+    let (_a, a) = gh("https://github.com/acme/one/pull/23", &head, pass, 0);
+    publish_read(&a);
+    let one = evidence().await;
+    assert_eq!(one["state"], "complete");
+    assert_eq!(one["repository"], "github.com/acme/one");
+    assert_eq!(one["head"], head.as_str());
+    assert_eq!(
+        one["checks"],
+        json!([{"name":"check","conclusion":"passed"}])
+    );
+    assert_eq!(one["stale"], false);
+
+    let (_b, b) = gh("https://github.com/acme/two/pull/23", &head, pass, 0);
+    publish_read(&b);
+    let two = evidence().await;
+    assert_eq!(two["repository"], "github.com/acme/two");
+    assert_ne!(one["revision"], two["revision"]);
+
+    let moved = "2".repeat(40);
+    let (_c, c) = gh("https://github.com/acme/two/pull/23", &moved, pass, 0);
+    publish_read(&c);
+    assert_ne!(evidence().await["revision"], two["revision"]);
+
+    let pending = r#"[{"name":"check","bucket":"pending"}]"#;
+    let (_d, d) = gh("https://github.com/acme/two/pull/23", &head, pending, 8);
+    publish_read(&d);
+    assert_eq!(
+        evidence().await,
+        json!({"state":"incomplete","stale":false,"checks":[]})
+    );
+    publish_read(Path::new("/nonexistent/gh"));
+    assert_eq!(
+        evidence().await,
+        json!({"state":"unavailable","stale":false,"checks":[]})
+    );
+
+    publish_read(&a);
+    publish(
+        &shared.worktrunk.state,
+        true,
+        Err("offline".into()),
+        ids,
+        &shared.worktrunk.cancelled,
+        Instant::now(),
+    );
+    let stale = evidence().await;
+    assert_eq!(
+        (&stale["state"], &stale["stale"]),
+        (&json!("complete"), &json!(true))
     );
 }
