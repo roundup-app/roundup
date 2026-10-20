@@ -125,3 +125,16 @@ it("u462_live_refresh_does_not_acknowledge_changes_absent_from_opening", async (
 
   expect(within(panel()).getByRole("separator", { name: "Unread changes" }).nextElementSibling?.textContent).toBe("Body: Arrived after opening");
 });
+
+it("t17_history_shows_an_owner_only_change", async () => {
+  const m = await mountTodos([todo(1)]);
+  const values = { title: "todo 1", body: "", done: false, blockers: [] };
+  const user = { kind: "user" as const, id: "u", parent: null };
+  m.app.handlers["todo.getHistory"] = () => ({ unread: null, changes: [
+    { seq: 1, before: { ...values, owner: null }, after: { ...values, owner: user } },
+    { seq: 2, before: { ...values, owner: user }, after: { ...values, owner: null } },
+  ] });
+  await open(m);
+  const history = within(panel()).getByRole("region", { name: "Todo history" });
+  expect([...history.querySelectorAll("[data-change]")].map((entry) => entry.textContent)).toEqual(["Owner: Me", "Owner: Unassigned"]);
+});
