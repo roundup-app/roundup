@@ -84,13 +84,21 @@ pub enum State {
     Stopped,
 }
 
-/// Whether the condition's source is being watched; `not-observing` until its slice lands.
+/// Whether the condition's source is being watched: `not-observing` until a source is, then
+/// `observing`, or `unavailable` while a read failed or a named identity is gone (NR5). A gap, once
+/// recorded, stays recorded after the state is reconciled.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, TS)]
 #[ts(export, export_to = "reaction/")]
 pub struct Observation {
     pub health: String,
     #[ts(type = "number | null")]
     pub cursor: Option<u64>,
+    /// What was not observed, and since where.
+    pub gap: Option<String>,
+    /// What restores observation.
+    pub recovery: Option<String>,
+    /// The source facts of the last evaluation, as reported by the source.
+    pub evidence: Option<String>,
 }
 
 /// An accepted firing and the Message it made (NR3, NR8). `matched` says whether a condition held; an
