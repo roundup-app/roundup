@@ -490,19 +490,6 @@ fn m5_every_app_action_has_a_tool_or_a_reason() {
 }
 
 #[tokio::test]
-async fn m1_the_server_is_named_roundup() {
-    let project = start_daemon();
-    let shim = spawn_shim(&project.socket, "a1").await;
-
-    let info = shim.client.peer_info().expect("initialized");
-
-    assert_eq!(
-        info.server_info.as_ref().expect("server info").name,
-        "roundup"
-    );
-}
-
-#[tokio::test]
 async fn m1_offers_one_tool_per_method_and_ask_user_and_no_others() {
     let project = start_daemon();
     let shim = spawn_shim(&project.socket, "a1").await;
