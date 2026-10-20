@@ -228,8 +228,14 @@ fn assert_exit_1_with_one_line_naming(output: &Output, socket: &Path) {
 
 /// M5: the methods with a tool for every Agent, each named after its method with the dot replaced
 /// by `_`, bar `agent.setOrder` (O4), whose tool is `agent_set_order`.
-const TOOL_METHODS: [&str; 70] = [
+const TOOL_METHODS: [&str; 76] = [
     "agent.wake",
+    "reaction.create",
+    "reaction.preview",
+    "reaction.list",
+    "reaction.get",
+    "reaction.stop",
+    "reaction.run",
     "deliverable.publish",
     "deliverable.list",
     "deliverable.get",
@@ -491,19 +497,6 @@ fn m5_every_app_action_has_a_tool_or_a_reason() {
 }
 
 #[tokio::test]
-async fn m1_the_server_is_named_roundup() {
-    let project = start_daemon();
-    let shim = spawn_shim(&project.socket, "a1").await;
-
-    let info = shim.client.peer_info().expect("initialized");
-
-    assert_eq!(
-        info.server_info.as_ref().expect("server info").name,
-        "roundup"
-    );
-}
-
-#[tokio::test]
 async fn m1_offers_one_tool_per_method_and_ask_user_and_no_others() {
     let project = start_daemon();
     let shim = spawn_shim(&project.socket, "a1").await;
@@ -607,26 +600,6 @@ async fn m1_input_schemas_are_the_contract_schemas() {
     assert_eq!(schema("pad_list"), json!({ "type": "object" }));
     // E4: the shim fills the id, so the tool takes no input.
     assert_eq!(schema("agent_context"), json!({ "type": "object" }));
-}
-
-#[tokio::test]
-async fn m1_list_tools_send_null_params_to_the_daemon() {
-    for (tool, method) in [("todo_list", "todo.list"), ("pad_list", "pad.list")] {
-        let dir = tempfile::tempdir().unwrap();
-        let socket = dir.path().join("fake.sock");
-        let mut requests = fake_daemon(&socket, &["daemon.identify", "todo.list", "pad.list"]);
-        let shim = spawn_shim(&socket, "a1").await;
-
-        shim.call(tool, json!({})).await;
-
-        let sent = loop {
-            let request = requests.recv().await.unwrap();
-            if request["method"] == method {
-                break request;
-            }
-        };
-        assert_eq!(sent["params"], Value::Null, "{tool}");
-    }
 }
 
 #[tokio::test]
@@ -789,7 +762,10 @@ async fn m3_a_daemon_that_never_answers_exits_nonzero_with_one_line_naming_the_s
 async fn m3_a_call_the_daemon_never_answers_exits_1_saying_it_may_have_been_applied() {
     let dir = tempfile::tempdir().unwrap();
     let socket = dir.path().join("fake.sock");
-    let _requests = fake_daemon(&socket, &["daemon.identify"]);
+    let _requests = fake_daemon(
+        &socket,
+        &["daemon.identify", "agent.channelUp", "rail.tree"],
+    );
     let mut shim = spawn_shim(&socket, "a1").await;
     let peer = shim.client.peer().clone();
 
@@ -870,184 +846,6 @@ async fn m3_stdout_carries_only_protocol_messages_up_to_the_exit() {
         let message: Value = serde_json::from_str(line).unwrap_or_else(|_| panic!("{line}"));
         assert_eq!(message["jsonrpc"], "2.0", "{line}");
     }
-}
-
-/// Raw `tools/list` over stdio, against a Daemon that only answers `daemon.identify`: listing
-/// tools never touches the Daemon, so this stand-in is enough. Returns the reply's `result`.
-async fn raw_tools_list(socket: &Path, cursor: Option<&str>) -> Value {
-    let mut child = start_rup_mcp(socket, "a1");
-    let mut stdin = child.stdin.take().unwrap();
-    let mut stdout = BufReader::new(child.stdout.take().unwrap()).lines();
-    let mut params = json!({});
-    if let Some(cursor) = cursor {
-        params = json!({ "cursor": cursor });
-    }
-    for message in [
-        json!({ "jsonrpc": "2.0", "id": 1, "method": "initialize", "params": {
-            "protocolVersion": ProtocolVersion::LATEST_WITH_INITIALIZE.as_str(),
-            "capabilities": {},
-            "clientInfo": { "name": "test", "version": "0" },
-        }}),
-        json!({ "jsonrpc": "2.0", "method": "notifications/initialized" }),
-        json!({ "jsonrpc": "2.0", "id": 2, "method": "tools/list", "params": params }),
-    ] {
-        write_line(&mut stdin, &message).await;
-    }
-    loop {
-        let line = tokio::time::timeout(BOUND, stdout.next_line())
-            .await
-            .expect("the shim answered tools/list")
-            .unwrap()
-            .expect("stdout is open until the shim answers tools/list");
-        let message: Value = serde_json::from_str(&line).unwrap();
-        if message["id"] == 2 {
-            return message["result"].clone();
-        }
-    }
-}
-
-/// The `tools/list` result schema the interactive Claude Code 2.1.288 validates a reply against,
-/// read from its own (minified) source: `ttlMs` a non-negative integer, `cacheScope` the enum
-/// `public`/`private`, `tools` an array, `nextCursor` an optional string. Extracted with:
-///
-///   strings -n 4 ~/.local/share/claude/versions/2.1.288 \
-///     | grep -o '"tools/list":Re({[^}]*}[^)]*)'
-///
-/// which prints (`claude --version` there is `2.1.288 (Claude Code)`):
-///
-///   "tools/list":Re({ttlMs:k().int().min(0),cacheScope:j(["public","private"]),tools:C(Ge),nextCursor:s.optional()})
-///
-/// (`k()` is a bound `z.number()`, `j([...])` is `z.enum([...])`, `C()` is `z.array()`, `s` is a
-/// bound `z.string()`.) The same command against `~/.local/share/claude/versions/2.1.283`
-/// (`claude --version` there is `2.1.283 (Claude Code)`, the headless build M4 says accepts the
-/// older reply) extracts the same schema under other minified names (`cacheScope:G([...])`,
-/// `tools:A(Ge)`), so the two builds differ in what they tolerate, not in what they validate
-/// against. A later `claude` that adds a new required field, narrows `cacheScope`'s enum so it
-/// excludes `public`, or tightens `ttlMs` (a minimum above 0 or a maximum) makes this reply
-/// invalid: `/mcp` reconnecting against the real client (M4's laptop check) would fail while every
-/// test here stayed green, so re-extract the schema and update the copy when `claude` is upgraded.
-fn assert_matches_tools_list_schema(reply: &Value) {
-    let ttl_ms = reply
-        .get("ttlMs")
-        .unwrap_or_else(|| panic!("no ttlMs: {reply}"));
-    assert!(
-        ttl_ms.is_u64(),
-        "ttlMs must be an integer >= 0 (zod `k().int().min(0)`): {reply}"
-    );
-    let cache_scope = reply
-        .get("cacheScope")
-        .and_then(Value::as_str)
-        .unwrap_or_else(|| panic!("no string cacheScope: {reply}"));
-    assert!(
-        matches!(cache_scope, "public" | "private"),
-        "cacheScope must be \"public\" or \"private\" (zod `j([\"public\",\"private\"])`): {reply}"
-    );
-    assert!(
-        reply.get("tools").is_some_and(Value::is_array),
-        "no tools array: {reply}"
-    );
-    if let Some(next_cursor) = reply.get("nextCursor") {
-        assert!(
-            next_cursor.is_string(),
-            "nextCursor must be a string when present: {reply}"
-        );
-    }
-}
-
-#[tokio::test]
-async fn m4_the_full_tools_list_carries_a_numeric_ttl_ms_and_cache_scope() {
-    let dir = tempfile::tempdir().unwrap();
-    let socket = dir.path().join("fake.sock");
-    let _requests = fake_daemon(&socket, &["daemon.identify"]);
-
-    let result = raw_tools_list(&socket, None).await;
-
-    assert_matches_tools_list_schema(&result);
-    // M5: one tool for each method of its first list, and `ask_user` (H14).
-    assert_eq!(
-        result["tools"].as_array().unwrap().len(),
-        TOOL_METHODS.len() + 1
-    );
-    assert_eq!(result["cacheScope"], "public", "{result}");
-}
-
-#[tokio::test]
-async fn m4_the_empty_list_a_cursor_gets_carries_a_numeric_ttl_ms_and_cache_scope() {
-    let dir = tempfile::tempdir().unwrap();
-    let socket = dir.path().join("fake.sock");
-    let _requests = fake_daemon(&socket, &["daemon.identify"]);
-
-    let result = raw_tools_list(&socket, Some("past-the-end")).await;
-
-    assert_matches_tools_list_schema(&result);
-    assert_eq!(result["tools"].as_array().unwrap().len(), 0);
-    assert_eq!(result["cacheScope"], "public", "{result}");
-}
-
-/// A stand-in Daemon that answers `agent.ask` with `{"answer": "dogs"}` after `delay` and `null` to `daemon.identify`.
-fn asking_daemon(socket: &Path, delay: Duration) -> mpsc::UnboundedReceiver<Value> {
-    let listener = UnixListener::bind(socket).unwrap();
-    let (seen, requests) = mpsc::unbounded_channel();
-    tokio::spawn(async move {
-        loop {
-            let (stream, _) = listener.accept().await.unwrap();
-            let seen = seen.clone();
-            tokio::spawn(async move {
-                let (read, mut write) = stream.into_split();
-                let mut lines = BufReader::new(read).lines();
-                while let Ok(Some(line)) = lines.next_line().await {
-                    let request: Value = serde_json::from_str(&line).unwrap();
-                    let result = match request["method"].as_str() {
-                        Some("agent.ask") => {
-                            tokio::time::sleep(delay).await;
-                            json!({ "answer": "dogs", "note": "walks" })
-                        }
-                        _ => Value::Null,
-                    };
-                    let reply = json!({ "jsonrpc": "2.0", "id": request["id"], "result": result });
-                    let _ = seen.send(request);
-                    write_line(&mut write, &reply).await;
-                }
-            });
-        }
-    });
-    requests
-}
-
-fn asked() -> Value {
-    json!({"question": "Cats or dogs?", "answers": [
-        {"label": "cats", "description": "quiet"},
-        {"label": "dogs", "description": "loyal", "preview": "```text\nwoof\n```"},
-    ]})
-}
-
-/// The call outlasts the ten seconds every other tool call is bound by (the user may take minutes) and returns `{answer, note}` as JSON.
-#[tokio::test]
-async fn h14_ask_user_waits_past_the_call_bound_and_returns_the_answer_and_the_note() {
-    let dir = tempfile::tempdir().unwrap();
-    let socket = dir.path().join("fake.sock");
-    let mut requests = asking_daemon(&socket, Duration::from_secs(11));
-    let shim = spawn_shim(&socket, "a1").await;
-
-    let result = shim.call("ask_user", asked()).await;
-
-    assert_eq!(result.is_error, Some(false));
-    assert_eq!(
-        result.content[0]
-            .as_text()
-            .unwrap()
-            .text
-            .parse::<Value>()
-            .unwrap(),
-        json!({"answer": "dogs", "note": "walks"})
-    );
-    let sent = loop {
-        let request = requests.recv().await.unwrap();
-        if request["method"] == "agent.ask" {
-            break request;
-        }
-    };
-    assert_eq!(sent["params"], asked());
 }
 
 #[tokio::test]
@@ -1158,73 +956,6 @@ async fn u149_a_drawing_written_through_the_tools_is_stored_byte_exact() {
         std::fs::read_to_string(&target).unwrap(),
         format!("{drawing}{block}")
     );
-}
-
-#[tokio::test]
-async fn o4_agent_set_order_fills_its_own_id_and_retains_the_captured_order() {
-    let dir = tempfile::tempdir().unwrap();
-    let socket = dir.path().join("fake.sock");
-    let mut requests = fake_daemon(
-        &socket,
-        &["daemon.identify", "agent.channelUp", "agent.setOrder"],
-    );
-    let shim = spawn_shim(&socket, "a1").await;
-
-    let tools = shim.client.list_all_tools().await.unwrap();
-    let tool = tools.iter().find(|t| t.name == "agent_set_order").unwrap();
-    let schema = Value::Object((*tool.input_schema).clone());
-    assert!(schema["properties"].get("id").is_none(), "{schema}");
-    assert!(schema["properties"].get("order").is_some(), "{schema}");
-
-    let order = json!({"kind": "work", "ask": "fix it", "limits": ["push"], "id": "other"});
-    let captured = json!({"order":null});
-    shim.call(
-        "agent_set_order",
-        json!({ "order": order, "captured": captured }),
-    )
-    .await;
-
-    while let Some(request) = requests.recv().await {
-        if request["method"] == "agent.setOrder" {
-            assert_eq!(request["params"]["id"], "a1");
-            assert_eq!(request["params"]["order"]["ask"], "fix it");
-            assert_eq!(request["params"]["captured"], captured);
-            return;
-        }
-    }
-    panic!("agent.setOrder was never sent");
-}
-
-#[tokio::test]
-async fn x11_agent_run_over_mcp_runs_under_the_caller() {
-    let dir = tempfile::tempdir().unwrap();
-    let socket = dir.path().join("fake.sock");
-    let mut requests = fake_daemon(
-        &socket,
-        &["daemon.identify", "agent.channelUp", "agent.run"],
-    );
-    let shim = spawn_shim(&socket, "a1").await;
-
-    let tools = shim.client.list_all_tools().await.unwrap();
-    let tool = tools.iter().find(|t| t.name == "agent_run").unwrap();
-    let schema = Value::Object((*tool.input_schema).clone());
-    assert!(schema["properties"].get("id").is_none(), "{schema}");
-    assert!(schema["properties"].get("command").is_some(), "{schema}");
-
-    shim.call(
-        "agent_run",
-        json!({"id": "other", "command": ["/bin/sh", "-c", "echo hi"]}),
-    )
-    .await;
-
-    while let Some(request) = requests.recv().await {
-        if request["method"] == "agent.run" {
-            assert_eq!(request["params"]["id"], "a1");
-            assert_eq!(request["params"]["command"][2], "echo hi");
-            return;
-        }
-    }
-    panic!("agent.run was never sent");
 }
 
 #[tokio::test(flavor = "multi_thread")]

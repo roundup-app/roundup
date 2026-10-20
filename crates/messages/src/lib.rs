@@ -8,6 +8,7 @@ pub mod digest_schema;
 mod hops;
 mod inbox;
 mod pushes;
+pub mod reaction;
 mod restart;
 mod retirement;
 #[doc(hidden)]
@@ -314,16 +315,18 @@ impl Messages {
         p: SendParams,
         merge: bool,
     ) -> Result<Message, RpcError> {
-        self.send_message_with(ctx, p, merge, None).await
+        self.send_message_with(ctx, p, merge, None, None).await
     }
 
-    /// `send_message`; with `wake`, the Wake request of that number is fired in the same write (B42).
+    /// `send_message`; with `wake`, the Wake request of that number is fired in the same write (B42);
+    /// with `reaction`, the firing is accepted in the same write (NR3).
     async fn send_message_with(
         &self,
         ctx: &Ctx,
         p: SendParams,
         merge: bool,
         wake: Option<u32>,
+        reaction: Option<&reaction::Fire>,
     ) -> Result<Message, RpcError> {
         if is_receiver(&ctx.actor, &p.to) {
             return Err(RpcError::new(
@@ -378,7 +381,14 @@ impl Messages {
                 if let Some(wake) = wake {
                     self.fire_inside(store, wake)?;
                 }
-                if !digest && wake.is_none() && store.count_open(&p.to)? >= OPEN_BOUND {
+                if let Some(fire) = reaction {
+                    store.check_firing(fire)?;
+                }
+                if !digest
+                    && wake.is_none()
+                    && reaction.is_none()
+                    && store.count_open(&p.to)? >= OPEN_BOUND
+                {
                     return Err(RpcError::conflict(format!(
                         "{} already has {OPEN_BOUND} pending or held Messages",
                         p.to
@@ -437,6 +447,10 @@ impl Messages {
                 )?;
                 if wake.is_some() {
                     (self.inner.fault)("wake").map_err(RpcError::internal)?;
+                }
+                if let Some(fire) = reaction {
+                    store.accept_firing(fire, message.id)?;
+                    (self.inner.fault)("reaction").map_err(RpcError::internal)?;
                 }
                 self.answer(ctx, store, &message)?;
                 if let Some(rest) = &chain_rest {
@@ -3080,24 +3094,28 @@ mod tests {
 
     #[tokio::test(flavor = "multi_thread", worker_threads = 4)]
     async fn b1_concurrent_sends_at_the_bound_never_both_succeed() {
+        let dir = tempfile::tempdir().unwrap();
+        let bus = Bus::new();
+        let touches = Arc::new(Touches::in_memory().unwrap());
+        let messages = Arc::new(
+            Messages::open(
+                dir.path(),
+                bus.clone(),
+                FakeRail::new(vec![agent_node("b", Kind::Working)]),
+                noop_deliver(),
+            )
+            .unwrap(),
+        );
+        let make_ctx = |actor: Actor| Ctx {
+            actor,
+            bus: bus.clone(),
+            touches: Arc::clone(&touches),
+        };
         for _ in 0..40 {
-            let dir = tempfile::tempdir().unwrap();
-            let bus = Bus::new();
-            let touches = Arc::new(Touches::in_memory().unwrap());
-            let messages = Arc::new(
-                Messages::open(
-                    dir.path(),
-                    bus.clone(),
-                    FakeRail::new(vec![agent_node("b", Kind::Working)]),
-                    noop_deliver(),
-                )
-                .unwrap(),
-            );
-            let make_ctx = |actor: Actor| Ctx {
-                actor,
-                bus: bus.clone(),
-                touches: Arc::clone(&touches),
-            };
+            // Exercise the same SQL admission/transaction path without paying for
+            // 40 WAL databases and 1,240 durable seed inserts. Durability is not B1's race.
+            *messages.inner.store.lock().unwrap() =
+                Store::open(std::path::Path::new(":memory:")).unwrap();
             for n in 0..31 {
                 messages
                     .call(

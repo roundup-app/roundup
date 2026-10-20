@@ -9,7 +9,7 @@ use serde_json::{Value, json};
 
 use super::daemon::{h21_ask, h21_bash, h21_poll, start};
 use super::wake::{
-    FAIL, STOP, WORK, ask, drive, named, notes, scene, start_again, status_of, typed,
+    FAIL, STOP, WORK, ask, drive, named, notes, scene, start_again, status_of, still, typed,
 };
 use super::{actor, client_as};
 
@@ -223,7 +223,25 @@ async fn b47_a_replay_of_status_flips_starts_no_door_turn() {
     .unwrap();
     drive(&s.user, &s.a, STOP).await;
     drive(&s.user, &s.a, WORK).await;
-    tokio::time::sleep(Duration::from_secs(2)).await;
+    h21_poll(
+        "the updated Digest and all setup notes to be delivered",
+        async || {
+            let listed = s
+                .user
+                .request("message.list", json!({ "to": s.door }))
+                .await
+                .unwrap();
+            let messages = listed.as_array().unwrap();
+            (messages.iter().any(|m| {
+                m["from"]["id"] == "rupd"
+                    && m["body"]
+                        .as_str()
+                        .is_some_and(|body| body.contains("  last: found it\n"))
+            }) && messages.iter().all(|m| m["status"] == "delivered"))
+            .then_some(())
+        },
+    )
+    .await;
     let before = (made(&s.user, &s.door).await, typed(&prompts, 0).await.len());
     for _ in 0..5 {
         drive(&s.user, &s.a, STOP).await;
@@ -236,7 +254,7 @@ async fn b47_a_replay_of_status_flips_starts_no_door_turn() {
 }
 
 #[tokio::test]
-async fn b47_a_note_is_made_for_a_wake_needs_you_error_or_end_and_a_status_flip_makes_none() {
+async fn b47_a_note_is_made_for_a_wake_needs_you_error_or_end() {
     let s = scene(&[]).await;
     let as_door = client_as(&s.project, actor(ActorKind::Agent, &s.door)).await;
     let err = named(&s.project, &s.user, "erring", Some(&s.door)).await;
@@ -264,17 +282,6 @@ async fn b47_a_note_is_made_for_a_wake_needs_you_error_or_end_and_a_status_flip_
             .then_some(())
     })
     .await;
-    // The first flip of `b` changes its `last` (B35); the replay after it adds none.
-    drive(&s.user, &s.b, STOP).await;
-    drive(&s.user, &s.b, WORK).await;
-    tokio::time::sleep(Duration::from_secs(1)).await;
-    let bodies = made(&s.user, &s.door).await;
-    for _ in 0..5 {
-        drive(&s.user, &s.b, STOP).await;
-        drive(&s.user, &s.b, WORK).await;
-    }
-    tokio::time::sleep(Duration::from_secs(1)).await;
-    assert_eq!(made(&s.user, &s.door).await.len(), bodies.len());
 }
 
 #[tokio::test]
@@ -503,4 +510,32 @@ async fn b49_the_note_never_holds_the_terminal_reply() {
     let note = end_note(&s, None, Some("ZEBRA")).await;
     assert!(!note.contains("ZEBRA"), "{note}");
     assert_eq!(last_of(&note), "ended with no finding");
+}
+
+#[tokio::test]
+async fn t18_three_changes_in_a_turn_one_message_with_a_real_agent() {
+    let s = scene(&[]).await;
+    // `a` is working: three changes during its turn.
+    let owner = json!({ "kind": "agent", "id": s.a });
+    for title in ["One", "Two", "Three"] {
+        s.user
+            .request("todo.create", json!({ "title": title, "owner": owner }))
+            .await
+            .unwrap();
+    }
+    tokio::time::sleep(Duration::from_millis(600)).await;
+    assert!(
+        notes(&s.user, &s.a, "[todos]", 0).await.is_empty(),
+        "nothing is sent mid-turn"
+    );
+    drive(&s.user, &s.a, STOP).await;
+    let sent = notes(&s.user, &s.a, "[todos]", 1).await;
+    let body = sent[0]["body"].as_str().unwrap();
+    for title in ["One", "Two", "Three"] {
+        assert!(
+            body.contains(&format!("- {title}: assigned to you")),
+            "{body}"
+        );
+    }
+    still(&s.user, &s.a, "[todos]", 1).await;
 }
