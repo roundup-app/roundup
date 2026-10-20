@@ -79,6 +79,20 @@ describe("u2694 the Rail's system menu", () => {
     ]));
   });
 
+  it("u2694c_send_to_agent_lists_the_projects_agents_in_rail_order", async () => {
+    const { app } = await mountRail([
+      door("w", "idle", "ready"),
+      agent("a", "working", "busy", { parent: "w" }),
+      door("exited", "done", "done", { order: 1 }),
+      workstream("group", { order: 2 }),
+    ], [exitedTerminal("exited", 0)]);
+
+    open("w");
+
+    expect(entry(app, "Send to Agent").children?.map((child) => [child.label, child.enabled]))
+      .toEqual([["w", true], ["a", true], ["exited", false]]);
+  });
+
   it("u2694c_copy_link_writes_the_link", async () => {
     const { app } = await mountRail([agent("a", "working", "busy")]);
     const write = vi.fn(async () => {});

@@ -28,3 +28,15 @@ it("u2694b_complete_calls_todo_complete", async () => {
 
   await waitFor(() => expect(callsTo(app, "todo.complete")).toEqual([{ method: "todo.complete", params: { id: 5 } }]));
 });
+
+it("u2694b_a_completed_todo_keeps_complete_disabled", async () => {
+  const { app } = await mountTodos([todo(5, { title: "session store", done: true })], true);
+
+  fireEvent.click(screen.getByRole("button", { name: /1 done/ }));
+  fireEvent.contextMenu(await rowOf("session store"), { clientX: 10, clientY: 10 });
+
+  expect(app.shownMenus.at(-1)!.items.find((item) => item.id === "complete"))
+    .toMatchObject({ enabled: false });
+  await app.pickMenu("Complete");
+  expect(callsTo(app, "todo.complete")).toEqual([]);
+});
