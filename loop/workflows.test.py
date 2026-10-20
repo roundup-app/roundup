@@ -7,6 +7,7 @@ import re
 from pathlib import Path
 import subprocess
 import tempfile
+import textwrap
 import unittest
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -43,7 +44,7 @@ def workflow_expression(expression, run):
 
 class DownstreamDraft(unittest.TestCase):
     def check_title(self, draft, event='pull_request', title='Draft check'):
-        source = (ROOT / '.github/workflows/check.yml').read_text()
+        source = (ROOT / '.github/workflows/pre.yml').read_text()
         run_name = next(line.removeprefix('run-name: ') for line in source.splitlines()
                         if line.startswith('run-name: '))
         context = {'github.event_name': event, 'github.event.pull_request.draft': draft,
@@ -102,7 +103,7 @@ class DownstreamDraft(unittest.TestCase):
     def test_l24_gate_definitions_and_publishers_remain_trusted(self):
         for workflow in ('review', 'critic'):
             source = (ROOT / f'.github/workflows/{workflow}.yml').read_text()
-            self.assertIn('workflow_run:\n    workflows: [check]', source)
+            self.assertIn('workflow_run:\n    workflows: [pre]', source)
             self.assertNotIn('pull_request_target:', source)
             for name in ('task', 'post'):
                 job = re.split(r'\n  [a-z][a-z-]*:', source.split(f'\n  {name}:\n', 1)[1], maxsplit=1)[0]
@@ -322,6 +323,14 @@ class L89(unittest.TestCase):
         self.assertFalse(passes('pull_request', plan='skipped'))
         self.assertFalse(passes('pull_request', plan='failure', rust='skipped'))
 
+    def test_l89_a_pr_runs_one_web_shard_per_fifty_selected_files_and_main_runs_seven(self):
+        import sys
+        sys.path.insert(0, str(ROOT / 'loop'))
+        import affected
+        for files, shards in ((0, [1]), (1, [1]), (50, [1]), (51, [1, 2]), (120, [1, 2, 3]), (9999, [1, 2, 3, 4, 5, 6, 7]),
+                              ('all', [1, 2, 3, 4, 5, 6, 7])):
+            self.assertEqual(shards, affected.shards(files), files)
+
     def test_l89_a_builder_check_reaches_its_uncommitted_and_untracked_files(self):
         import io
         import sys
@@ -385,7 +394,12 @@ class L99(unittest.TestCase):
 
 class L82(unittest.TestCase):
     def test_l82_draft_check_cannot_cancel_a_ready_check(self):
-        source = (ROOT / '.github/workflows/check.yml').read_text()
+        for workflow in ('check', 'pre'):
+            with self.subTest(workflow=workflow):
+                self.draft_check_cannot_cancel_a_ready_check(workflow)
+
+    def draft_check_cannot_cancel_a_ready_check(self, workflow):
+        source = (ROOT / f'.github/workflows/{workflow}.yml').read_text()
         group = source.split('concurrency:\n', 1)[1].split('  cancel-in-progress:', 1)[0]
         import json
         expression = group.split('${{', 1)[1].split('}}', 1)[0]
@@ -406,6 +420,54 @@ class L82(unittest.TestCase):
         gate = (ROOT / '.github/workflows/check.yml').read_text().split('\n  check:\n', 1)[1].split('\n  summary:\n', 1)[0]
         self.assertIn('${{ !cancelled() && ', gate)
         self.assertNotIn('always()', gate)
+
+
+class L24(unittest.TestCase):
+    def jobs(self, workflow):
+        source = (ROOT / f'.github/workflows/{workflow}.yml').read_text()
+        return {name: body for name, body in re.findall(r'^  ([a-z-]+):\n((?:(?:    .*)?\n)+)', source.split('\njobs:\n', 1)[1], re.M)}
+
+    def test_l24_review_and_critic_wait_for_the_lints_alone_and_fix_answers_them(self):
+        for workflow in ('review', 'critic'):
+            self.assertIn('workflow_run:\n    workflows: [pre]', (ROOT / f'.github/workflows/{workflow}.yml').read_text())
+        self.assertEqual({'plan', 'lint', 'lint-web', 'rekick', 'pre', 'summary'}, set(self.jobs('pre')))
+        self.assertIn('workflows: [check, loop, pre]', (ROOT / '.github/workflows/fix.yml').read_text())
+
+    def test_l24_no_test_lane_starts_before_the_approval(self):
+        jobs = self.jobs('check')
+        self.assertEqual({'approved', 'plan', 'rust', 'mac-clippy', 'mac', 'web', 'check', 'summary'}, set(jobs))
+        self.assertIn('needs: approved\n', jobs['plan'])
+        for lane in ('rust', 'mac-clippy', 'mac', 'web'):
+            self.assertIn('needs: plan\n', jobs[lane], lane)
+        self.assertRegex(jobs['check'], r'needs: \[plan, ')
+
+    def approved(self, event, statuses):
+        """Run the `approved` job's script with `gh` answering `statuses`; the gh calls, and the exit code."""
+        job = self.jobs('check')['approved']
+        self.assertIn('GH_REPO: ${{ github.repository }}', job)  # no checkout: `gh run cancel` has no git remote to read
+        script = textwrap.dedent(job.rsplit('        run: |\n', 1)[1])
+        with tempfile.TemporaryDirectory() as folder:
+            root = Path(folder)
+            (root / 'bin').mkdir()
+            for name, body in (('gh', 'echo "$*" >>"$CALLS"\n[ "$1" != api ] || echo "$STATUSES"'), ('sleep', 'true')):
+                (root / 'bin' / name).write_text(f'#!/bin/bash\n{body}\n')
+                (root / 'bin' / name).chmod(0o755)
+            result = subprocess.run(['bash', '-eo', 'pipefail', '-c', script], text=True, capture_output=True,
+                                    env={**os.environ, 'PATH': f'{root}/bin:{os.environ["PATH"]}', 'CALLS': f'{root}/calls',
+                                         'GITHUB_EVENT_NAME': event, 'GITHUB_REPOSITORY': 'o/r', 'GITHUB_RUN_ID': '7',
+                                         'HEAD': 'h', 'GH_TOKEN': 't', 'STATUSES': json.dumps(dict(statuses=statuses))})
+            calls = (root / 'calls').read_text().splitlines() if (root / 'calls').exists() else []
+            return calls, result.returncode
+
+    def test_l24_a_pr_head_passes_only_with_review_and_critic_success_else_its_run_is_cancelled(self):
+        both = [dict(context='review', state='success'), dict(context='critic', state='success')]
+        self.assertEqual(self.approved('pull_request', both), (['api repos/o/r/commits/h/status'], 0))
+        for statuses in (both[:1], [both[0], dict(context='critic', state='pending')],
+                         [dict(context='review', state='failure'), both[1]], []):
+            with self.subTest(statuses=statuses):
+                self.assertEqual(self.approved('pull_request', statuses),
+                                 (['api repos/o/r/commits/h/status', 'run cancel 7'], 1))
+        self.assertEqual(self.approved('push', []), ([], 0))
 
 
 class L46(unittest.TestCase):
