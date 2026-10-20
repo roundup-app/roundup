@@ -761,7 +761,7 @@ it.each(["failed", "unknown"] as const)("u3021c_resume_selected_pad_keeps_author
   const original = padOf("resume-selected", USER, "base");
   const { app, connected } = await openShelf([original]);
   const destination = { surface: "pads", object: original.incarnation, recipient: null };
-  const a = connected.drafts.edit(destination, { originalName: original.name, source: "A 🌱", base: "base", baseRevision: 1 }, null, "ordinary").draft;
+  const a = connected.drafts.edit(destination, { originalName: original.name, source: "  A 🌱 é\nsecond\n\n", base: "base", baseRevision: 1 }, null, "ordinary").draft;
   connected.drafts.submit(a.revision);
   const b = connected.drafts.edit(destination, { ...a.value, source: "B 🪁" }, null, "ordinary").draft;
   connected.drafts.settle(a.revision, outcome);
@@ -775,7 +775,7 @@ it.each(["failed", "unknown"] as const)("u3021c_resume_selected_pad_keeps_author
     expect(connected.drafts.list()[0]?.status).toBe("unknown");
   } else {
     await waitFor(() => expect(connected.drafts.list()).toEqual([b]));
-    expect(app.calls.slice(before)).toEqual([{ method: "pad.write", params: { name: original.name, text: "A 🌱", expectedRevision: 1, expectedIncarnation: original.incarnation } }]);
+    expect(app.calls.slice(before)).toEqual([{ method: "pad.write", params: { name: original.name, text: "  A 🌱 é\nsecond\n\n", expectedRevision: 1, expectedIncarnation: original.incarnation } }]);
   }
 
   expect(connected.drafts.list().at(-1)).toEqual(b);
