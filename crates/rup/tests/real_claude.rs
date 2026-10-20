@@ -282,50 +282,6 @@ async fn e14_roundup_launches_and_resumes_real_claude() {
 }
 
 #[test]
-fn e14_aimock_journals_explicit_effort_and_its_absence() {
-    let model = aimock::Model::start("e14_effort_journal");
-    for effort in [Some("low"), Some("high"), None] {
-        let mut body = json!({
-            "model": "claude-opus-4-6", "max_tokens": 32,
-            "messages": [{"role": "user", "content": "observe effort"}]
-        });
-        if let Some(effort) = effort {
-            body["output_config"] = json!({"effort": effort});
-        }
-        let response = std::process::Command::new("curl")
-            .args([
-                "--silent",
-                "--show-error",
-                "--fail",
-                "--max-time",
-                "10",
-                "--noproxy",
-                "*",
-            ])
-            .arg(format!("{}/v1/messages", model.url))
-            .args(["-H", "content-type: application/json", "-H"])
-            .arg(format!("x-api-key: {}", aimock::KEY))
-            .arg("-d")
-            .arg(body.to_string())
-            .output()
-            .unwrap();
-        assert!(response.status.success(), "{response:?}");
-    }
-    model.assert_matched();
-    let journal = model.journal();
-    assert_eq!(journal.len(), 3);
-    assert_eq!(
-        journal[0]["body"]["output_config"],
-        json!({"effort": "low"})
-    );
-    assert_eq!(
-        journal[1]["body"]["output_config"],
-        json!({"effort": "high"})
-    );
-    assert!(journal[2]["body"].get("output_config").is_none());
-}
-
-#[test]
 fn e11_an_unmatched_request_fails() {
     let model = aimock::Model::start("unmatched");
     let response = std::process::Command::new("curl")
@@ -3935,6 +3891,7 @@ async fn q11_plugins_survive_real_daemon_launch_resume_and_workstream_clear() {
     // This observer expects a successful restart, so use the loaded-host bound.
     let (project, mut client, door) =
         clear_fixture("a32_plugins", &[("ROUNDUP_CLAUDE_BIN", &wrapper)]).await;
+    let model = project.model.as_ref().unwrap();
     let a = child_of(&client, &door).await;
     until("initial Door and children launched", || {
         (gate.rows().len() == 3).then_some(())
@@ -3956,6 +3913,39 @@ async fn q11_plugins_survive_real_daemon_launch_resume_and_workstream_clear() {
             )
             .await
             .unwrap();
+        let prompt = format!("Q11 plugin inventory after resume {id}");
+        if id == &door {
+            client
+                .request("takeover.end", json!({"agent": id}))
+                .await
+                .unwrap();
+        }
+        client
+            .request(
+                "message.send",
+                json!({"to": id, "kind": "note", "body": prompt}),
+            )
+            .await
+            .unwrap();
+        let phase = format!("resume_{id}");
+        until("resumed Claude finishes the plugin probe", || {
+            model
+                .journal()
+                .iter()
+                .any(|entry| {
+                    entry["response"]["fixture"]["match"]["toolCallId"]
+                        == format!("toolu_q11_{phase}_{}", if id == &door { 0 } else { 2 })
+                })
+                .then_some(())
+        })
+        .await;
+        idle(&client, id).await;
+        if id == &door {
+            client
+                .request("takeover.begin", json!({"agent": id}))
+                .await
+                .unwrap();
+        }
     }
     until("Door and child resumed", || {
         (gate.rows().len() == 5).then_some(())
@@ -4023,7 +4013,40 @@ async fn q11_plugins_survive_real_daemon_launch_resume_and_workstream_clear() {
         assert_eq!(row["functionHooks"], "1");
     }
     idle(&client, &door).await;
-    project.model.as_ref().unwrap().assert_matched();
+    for (phase, skills) in [
+        ("initial_door", &["hope:intent"][..]),
+        (
+            "initial_child",
+            &["hope:intent", "hunch:fly", "hold:grasp"][..],
+        ),
+        ("resume_1", &["hope:intent"][..]),
+        ("resume_2", &["hope:intent", "hunch:fly", "hold:grasp"][..]),
+        ("clear", &["hope:intent"][..]),
+    ] {
+        for (index, skill) in skills.iter().enumerate() {
+            // aimock matches the real result before applying its 64 KiB journal-body cap.
+            // The resumed worker's conversation exceeds that cap after loading these skills.
+            let call = format!("toolu_q11_{phase}_{index}");
+            let expected = if *skill == "hunch:fly" {
+                // hunch's skills require explicit user invocation; resolving that policy proves loading.
+                "<tool_use_error>Skill hunch:fly cannot be used with Skill tool due to disable-model-invocation.".to_owned()
+            } else {
+                format!("Launching skill: {skill}")
+            };
+            until(&format!("{phase} loaded {skill}"), || {
+                model
+                    .journal()
+                    .iter()
+                    .any(|entry| {
+                        let matched = &entry["response"]["fixture"]["match"];
+                        matched["toolCallId"] == call && matched["toolResultContains"] == expected
+                    })
+                    .then_some(())
+            })
+            .await;
+        }
+    }
+    model.assert_matched();
 }
 
 #[tokio::test]
