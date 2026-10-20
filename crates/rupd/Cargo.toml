@@ -25,6 +25,7 @@ percent-encoding = "2"
 url = "2"
 terminal = { path = "../terminal" }
 todos = { path = "../todos" }
+time = { version = "0.3.55", features = ["parsing", "formatting"] }
 tokio.workspace = true
 cap-std = "4"
 rustix = { version = "1", features = ["fs"] }

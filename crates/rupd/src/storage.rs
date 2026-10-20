@@ -309,6 +309,15 @@ mod tests {
             .execute_batch(include_str!("../migrations/project/0004-deliverables.sql"))
             .unwrap();
         expected.extend(standalone::schema(&resize_schema));
+        resize_schema
+            .execute_batch(include_str!("../migrations/project/0008-reactions.sql"))
+            .unwrap();
+        resize_schema
+            .execute_batch(include_str!(
+                "../migrations/project/0010-reaction-watch.sql"
+            ))
+            .unwrap();
+        expected.extend(standalone::schema(&resize_schema));
         let actual: std::collections::BTreeMap<_, _> =
             standalone::schema(&db).into_iter().collect();
         assert_eq!(actual, expected);

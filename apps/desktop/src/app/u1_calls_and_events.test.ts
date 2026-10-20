@@ -20,6 +20,7 @@ const TODO: Todo = {
   created_at: 0,
   creator: { kind: "user", id: "you", parent: null },
   home: null,
+  owner: null,
 };
 
 const NOT_FOUND = -32001;

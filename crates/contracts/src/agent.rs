@@ -95,6 +95,68 @@ pub struct WorktreeState {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     #[ts(optional)]
     pub pr: Option<WorktreePr>,
+    // NR10: the required checks of `pr`, bound to its repository and head.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[ts(optional)]
+    pub evidence: Option<WorktreeEvidence>,
+}
+
+/// NR10: only `Complete` carries a concluded required-check set; every other state keeps
+/// `checks` empty so it never reads as passing.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, TS)]
+#[serde(rename_all = "kebab-case")]
+#[ts(export, export_to = "agent/")]
+pub enum WorktreeEvidenceState {
+    Complete,
+    /// A required check is pending or none is required.
+    Incomplete,
+    /// The PR head moved while the checks were read.
+    StaleHead,
+    /// The forge read failed in a way that does not say why.
+    Unknown,
+    /// No usable `gh`, login, GitHub remote or answer in time.
+    Unavailable,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize, TS)]
+#[serde(rename_all = "kebab-case")]
+#[ts(export, export_to = "agent/")]
+pub enum WorktreeCheckConclusion {
+    Passed,
+    Failed,
+    Skipped,
+    Cancelled,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, TS)]
+#[ts(export, export_to = "agent/")]
+pub struct WorktreeRequiredCheck {
+    pub name: String,
+    pub conclusion: WorktreeCheckConclusion,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, TS)]
+#[ts(export, export_to = "agent/")]
+pub struct WorktreeEvidence {
+    pub state: WorktreeEvidenceState,
+    /// The read is older than the refresh interval or a later refresh failed.
+    pub stale: bool,
+    /// `host/owner/name`, so two repositories sharing a PR number stay distinct.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[ts(optional)]
+    pub repository: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[ts(optional)]
+    pub head: Option<String>,
+    pub checks: Vec<WorktreeRequiredCheck>,
+    /// Seconds since the Unix epoch.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[ts(optional, type = "number")]
+    pub read_at: Option<u64>,
+    /// Changes whenever the repository, PR, head or check set does.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[ts(optional)]
+    pub revision: Option<String>,
 }
 
 /// Optional forge checks, independent of an Agent's Kind or local git state.
