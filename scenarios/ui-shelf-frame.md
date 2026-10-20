@@ -4,7 +4,7 @@ Module: `apps/desktop` (the webview). Ids: U369, U370, U371, U372, U373.
 
 Webview only: no App command, no Daemon method and nothing under `contracts/` changes. U369 and U371's geometry is amended for #1612; their earlier fixed-pane overlay acceptance is replaced. The remaining tab, depth and motion acceptance stays in force.
 
-Observer: isolated headless Chromium against the real U26 harness (`.agents/data/harness.md`), light and dark, at 1512×950 on `tree-40`, `agents-10` and `first-run`. Measure boxes after the slide settles; allow at most 1 px rounding. The fallback is exercised at 1280×800 by resizing the Rail to 480 px and the Shelf to 560 px (U389, U390), not by introducing an unsupported window width (U453). No native Mac observation is required.
+Observer: isolated headless Chromium against the real U26 harness (`.agents/data/harness.md`), dark, at 1512×950 on `tree-40`, `agents-10` and `first-run`. Measure boxes after the slide settles; allow at most 1 px rounding. The fallback is exercised at 1280×800 by resizing the Rail to 480 px and the Shelf to 560 px (U389, U390), not by introducing an unsupported window width (U453). No native Mac observation is required.
 
 Engineering calls:
 
