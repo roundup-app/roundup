@@ -98,6 +98,15 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: python3 "$RUNNER_TEMP/loop/builder.py" keep "build/$SLUG" "$ISSUE"
+      # L23: captures need a user token the App token cannot stand in for; only this step holds it, after the model ends.
+      # A failure leaves the PR and Issue as they are: captures are evidence for people.
+      - id: attach
+        if: always() && steps.task.outputs.due == 'true'
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR_ATTACH_TOKEN: ${{ secrets.PR_ATTACH_TOKEN }}
+        run: python3 "$RUNNER_TEMP/loop/builder.py" attach "build/$SLUG"
       - id: worked
         if: always() && steps.task.outputs.due == 'true'
         env:
