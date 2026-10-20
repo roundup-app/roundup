@@ -575,7 +575,7 @@ mod tests {
     use super::*;
     use rpc::Module;
 
-    // Open production stores only: no server, socket, task, PTY, git or vendor program.
+    // Open production stores only: no server, socket, PTY, git or vendor program.
     // Persisted Rail rows model a reopened Project, rather than substituting a Rail module.
     fn fixture() -> (tempfile::TempDir, Daemon) {
         let dir = tempfile::tempdir().unwrap();
@@ -808,13 +808,17 @@ mod tests {
             .await
             .insert("1".into(), slot.clone());
         let _running = slot.lock().await;
-        let error = call(
-            &daemon,
-            door(),
-            "workstream.rewind",
-            json!({"id":"1","checkpoint":1,"agent":"3","files":"keep"}),
+        let error = tokio::time::timeout(
+            std::time::Duration::from_secs(1),
+            call(
+                &daemon,
+                door(),
+                "workstream.rewind",
+                json!({"id":"1","checkpoint":1,"agent":"3","files":"keep"}),
+            ),
         )
         .await
+        .expect("a contending rewind must refuse rather than wait")
         .unwrap_err();
         assert_eq!(error.code, code::CONFLICT);
         assert!(error.message.contains("already being rewound"));
