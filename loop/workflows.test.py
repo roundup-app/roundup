@@ -394,6 +394,8 @@ class L122(unittest.TestCase):
                 hidden = head + f'fn example() {{ panic!("boom"); }}\n#[test]\nfn after() {{ work(); {ending}\n'
                 for number in range(3, head.count('\n') + 2):
                     self.assertIn('example', affected.rust_tests(hidden, {number}), (attribute, ending, number))
+        decoy = '#[test]\nfn actual() {\n    let fixture = r#"\n#[test]\nfn decoy() {}\n"#;\n    check(fixture);\n}\n#[test]\nfn following() {}\n'
+        self.assertIn('actual', affected.rust_tests(decoy, {7}))
         self.assertEqual({4, 5}, affected.touched_lines('@@ -3 +4,2 @@ fn x\n+a\n+b\n'))
         self.assertEqual({7}, affected.touched_lines('@@ -7,2 +6,0 @@\n-a\n-b\n'.replace('+6,0', '+7,0')))
 

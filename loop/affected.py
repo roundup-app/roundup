@@ -82,8 +82,9 @@ def is_web_test(path):
 def rust_tests(source, touched):
     """The names of the Rust test functions of `source` (text) that an edit of `touched` (1-based line numbers) may
     have changed: for each line, the nearest test `fn` at or after it (its attributes and doc comments sit above) and
-    the nearest before it (its body). It reads no brackets, strings or comments, so it selects one test more than
-    needed at most, which only adds a stress run."""
+    every test before that one (one of them holds the line in its body). It reads no brackets, strings or comments, so
+    test-like text inside a string cannot hide the enclosing test; it selects extra tests, which only adds stress
+    runs."""
     lines = source.splitlines()
     tests = []
     for start, line in enumerate(lines):
@@ -92,11 +93,7 @@ def rust_tests(source, touched):
         fn = next((n for n in range(start, len(lines)) if re.match(r'(?:.*\])?\s*(?:pub\s+)?(?:async\s+)?fn\s', lines[n])), None)
         if fn is not None:
             tests.append((fn + 1, re.search(r'fn\s+(\w+)', lines[fn])[1]))
-    names = set()
-    for number in touched:
-        split = bisect_left(tests, (number,))
-        names |= {name for _, name in tests[split:split + 1] + tests[max(split - 1, 0):split]}
-    return sorted(names)
+    return sorted({name for number in touched for _, name in tests[:bisect_left(tests, (number,)) + 1]})
 
 
 def touched_lines(patch):
