@@ -42,8 +42,13 @@ describe("u491a Shelf questions and navigation", () => {
 
     await lane.browser("mouse", "move", String(points.from.x), String(points.from.y));
     await lane.browser("mouse", "down");
+    // U3718: a live drag names every owner, so empty groups open above and the row's target moves; measure it once the drag has started.
+    await lane.browser("mouse", "move", String(points.from.x), String(points.from.y - 6));
+    await lane.until("!!document.querySelector('.shelf [data-shelf-group=\"me\"]')");
 
-    for (let step = 1; step <= 8; step++) await lane.browser("mouse", "move", String(Math.round(points.from.x + (points.to.x - points.from.x) * step / 8)), String(Math.round(points.from.y + (points.to.y - points.from.y) * step / 8)));
+    const to = await lane.evaluate<{ x: number; y: number }>(`(() => { const title = document.querySelector('.shelf [data-id="${one}"] .shelf-title'); title.scrollIntoView({ block: 'center' }); const rect = title.getBoundingClientRect(); return { x: Math.round(rect.left + rect.width / 2), y: Math.round(rect.top + rect.height / 2) }; })()`);
+
+    for (let step = 1; step <= 8; step++) await lane.browser("mouse", "move", String(Math.round(points.from.x + (to.x - points.from.x) * step / 8)), String(Math.round(points.from.y - 6 + (to.y - points.from.y + 6) * step / 8)));
 
     await lane.browser("mouse", "up");
     await lane.until(`document.querySelector('.shelf .todo-row[data-id]').dataset.id === '${three}'`);

@@ -40,6 +40,8 @@ it("u460_rendered_bulk_actions_name_failures", async () => {
       return true;
     })()`);
     await settle();
+    await evaluate(`(() => { document.querySelector('.shelf [data-shelf-group="unassigned"][data-state="closed"] [data-part="branch-control"]')?.click(); return true; })()`);
+    await settle();
     await evaluate(`(() => { const rows = document.querySelectorAll('.todo-row-button[aria-pressed]'); rows[2].dispatchEvent(new MouseEvent('click', { bubbles: true, metaKey: true })); rows[3].dispatchEvent(new MouseEvent('click', { bubbles: true, shiftKey: true })); return true; })()`);
     await settle();
     await evaluate(`(() => { document.querySelector('.shelf-bulk button').click(); return true; })()`);

@@ -56,9 +56,11 @@ const openShelf = async (tab: "Todos" | "Pads", all = false) => {
     expect(screen.getByRole("tabpanel", { name: new RegExp(`^${tab}`) })).toBeTruthy();
   });
 
-  if (all) {
-    fireEvent.click(document.querySelector('[data-todo-root]')!);
-    const unassigned = document.querySelector<HTMLElement>('[data-shelf-group="unassigned"] [data-part="branch-control"]');
+  if (all) fireEvent.click(document.querySelector('[data-todo-root]')!);
+
+  // U3717: Unassigned starts folded.
+  if (tab === "Todos") {
+    const unassigned = await waitFor(() => document.querySelector<HTMLElement>('[data-shelf-group="unassigned"][data-state="closed"] [data-part="branch-control"]') ?? Promise.reject(new Error("no group"))).catch(() => null);
 
     if (unassigned) fireEvent.click(unassigned);
   }
