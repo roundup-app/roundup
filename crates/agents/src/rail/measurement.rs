@@ -307,10 +307,28 @@ impl Rail {
             })
             .collect::<Result<Vec<_>, RpcError>>()?
         };
-        let sources = {
+        let mut sources = {
             let mut query=tx.prepare("SELECT o.source,o.agent,MAX(p.last_good),GROUP_CONCAT(p.cause,'; ') FROM measurement_owners o LEFT JOIN measurement_positions p ON p.source=o.source WHERE o.disabled=0 GROUP BY o.source ORDER BY o.source").map_err(sql)?;
             query.query_map([],|r|Ok(MeasurementSource {source:r.get(0)?,agent:r.get(1)?,last_good:r.get(2)?,cause:r.get(3)?,coverage:vec!["completed local request records; earlier missing history uncovered; execution spans unavailable unless emitted to this Attempt's collector; human and coordination waits not collected".into()]})).map_err(sql)?.collect::<Result<Vec<_>,_>>().map_err(sql)?
         };
+        let mut query = tx
+            .prepare("SELECT position FROM measurement_positions WHERE source=?1")
+            .map_err(sql)?;
+        for source in &mut sources {
+            let positions = query
+                .query_map([&source.source], |r| r.get::<_, String>(0))
+                .map_err(sql)?;
+            for position in positions {
+                let position: Position =
+                    serde_json::from_str(&position.map_err(sql)?).map_err(RpcError::internal)?;
+                if let Some(gap) = position.gap {
+                    if !source.coverage.contains(&gap) {
+                        source.coverage.push(gap);
+                    }
+                }
+            }
+        }
+        drop(query);
         tx.commit().map_err(sql)?;
         Ok(Measurements {
             project: project.to_string_lossy().into_owned(),

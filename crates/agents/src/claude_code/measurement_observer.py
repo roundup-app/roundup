@@ -44,7 +44,7 @@ url=f'http://127.0.0.1:{server.server_port}'
 binary=repo/'node_modules/@anthropic-ai/claude-code/bin/claude.exe'
 wrapper=root/'claude'
 wrapper.write_text('''#!/usr/bin/env python3
-import os,sys
+import os,sys,subprocess,pathlib
 binary=%r
 args=sys.argv[1:]
 env=os.environ.copy()
@@ -53,8 +53,11 @@ if args[:2] not in [['plugin','list'],['plugin','test']]:
  with open(%r,'w') as sink: sink.write(env['OTEL_EXPORTER_OTLP_TRACES_ENDPOINT'])
  env['OTEL_EXPORTER_OTLP_TRACES_ENDPOINT']=%r+'/v1/traces'
  env.update(ANTHROPIC_API_KEY='sk-fixture-only',ANTHROPIC_BASE_URL=%r,CLAUDE_CODE_MAX_RETRIES='0',CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC='1',DISABLE_AUTOUPDATER='1',CLAUDE_CODE_DISABLE_OFFICIAL_MARKETPLACE_AUTOINSTALL='1')
-os.execve(binary,[binary]+args,env)
-'''%(str(binary),str(root/'trace-endpoint'),url,url))
+result=subprocess.run([binary]+args,env=env)
+if args[:2] not in [['plugin','list'],['plugin','test']]:
+ pathlib.Path(%r).write_text(str(result.returncode))
+sys.exit(result.returncode)
+'''%(str(binary),str(root/'trace-endpoint'),url,url,str(root/'vendor-exit')))
 wrapper.chmod(0o755)
 config=root/'config'
 (config/'settings.json').write_text(json.dumps({'permissions':{'defaultMode':'default'}}))
@@ -79,13 +82,19 @@ try:
   for c in last['contributions']:accepted.setdefault(c['identity'],time.time_ns())
   requests=[c for c in last['contributions'] if c['value']['kind']=='request']
   intervals=[c for c in last['contributions'] if c['value']['kind']=='interval']
-  if len(requests)>=4 and any(c['value']['category']=='tool' for c in intervals):break
+  emitted={f'request:req_source_{record["n"]}' for record in records}
+  emitted_spans={f"interval:{span['traceId']}:{span['spanId']}" for batch in exports for resource in batch['body']['resourceSpans'] for scope in resource['scopeSpans'] for span in scope['spans'] if span['name'] in ('claude_code.llm_request','claude_code.tool.execution')}
+  if (root/'vendor-exit').exists() and {c['identity'] for c in requests}==emitted and {c['identity'] for c in intervals}==emitted_spans:break
   time.sleep(.02)
  (root/'public.json').write_text(json.dumps(last));(root/'wire-summary.json').write_text(json.dumps(records))
  totals={key:sum(c['value']['usage'][key] for c in requests) for key in ('input','output','cache_read','cache_write')}
- assert totals=={'input':1000,'output':200,'cache_read':4000,'cache_write':500}, totals
- assert len(requests)==4 and len(intervals)==5
- assert sum(c['value']['category']=='agent' for c in intervals)==4
+ assert (root/'vendor-exit').read_text()=='0', 'pinned vendor did not complete successfully'
+ assert len(records)>=3, 'parent/tool/child exchange did not complete'
+ assert {c['identity'] for c in requests}==emitted
+ expected_totals={key:sum(rate*record['n'] for record in records) for key,rate in (('input',100),('output',20),('cache_read',400),('cache_write',50))}
+ assert totals==expected_totals, (totals,expected_totals)
+ assert len(intervals)==len(records)+1
+ assert sum(c['value']['category']=='agent' for c in intervals)==len(records)
  assert sum(c['value']['category']=='tool' for c in intervals)==1
  local={}
  locations={}
@@ -95,7 +104,7 @@ try:
    if row.get('type')=='assistant' and row.get('requestId'):
     local[row['requestId']]=row
     locations[row['requestId']]=path.parent.name=='subagents'
- assert set(local)=={f'req_source_{n}' for n in range(1,5)}
+ assert set(local)=={f'req_source_{record["n"]}' for record in records}
  assert sum(locations.values())==1, locations
  import datetime
  local_delay=[]
@@ -136,7 +145,7 @@ try:
   except (OSError,RuntimeError):time.sleep(.02)
  assert reopened['contributions']==last['contributions']
  version=subprocess.run([str(binary),'--version'],env=env,capture_output=True,text=True,check=True).stdout.strip()
- print(json.dumps({'binary_version':version,'binary_sha256':hashlib.sha256(binary.read_bytes()).hexdigest(),'raw_requests':len(records),'local_requests':len(local),'accepted_requests':len(requests),'model_intervals':4,'tool_intervals':1,'raw_completed_spans':len(raw_spans),'excluded_span_names':excluded,'export_arrival_to_public_read_ms':export_to_read,'totals':totals,'record_timestamp_to_accept_ms':local_delay,'span_end_to_accept_ms':span_delay,'public_read_max_ms':max(reads),'public_read_p95_ms':sorted(reads)[int(.95*(len(reads)-1))],'read_samples':len(reads),'cli_and_reopen':'same retained contributions','unsupported':'active execution, clock lifetime across restart, human wait and Message-correlated coordination; permission-check spans excluded','local_artifacts':str(root)},indent=2))
+ print(json.dumps({'binary_version':version,'binary_sha256':hashlib.sha256(binary.read_bytes()).hexdigest(),'raw_requests':len(records),'local_requests':len(local),'accepted_requests':len(requests),'model_intervals':sum(c['value']['category']=='agent' for c in intervals),'tool_intervals':1,'raw_completed_spans':len(raw_spans),'excluded_span_names':excluded,'export_arrival_to_public_read_ms':export_to_read,'totals':totals,'record_timestamp_to_accept_ms':local_delay,'span_end_to_accept_ms':span_delay,'public_read_max_ms':max(reads),'public_read_p95_ms':sorted(reads)[int(.95*(len(reads)-1))],'read_samples':len(reads),'cli_and_reopen':'same retained contributions','unsupported':'active execution, clock lifetime across restart, human wait and Message-correlated coordination; permission-check spans excluded','local_artifacts':str(root)},indent=2))
 
 finally:
  daemon.terminate()

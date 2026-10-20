@@ -75,10 +75,8 @@ fn read(path: &Path, file: String, mut position: Position, source: &str) -> Resu
     }
     let incarnation = format!("{}:{}", metadata.dev(), metadata.ino());
     if position.incarnation != incarnation || metadata.len() < position.offset {
-        position = Position {
-            incarnation,
-            offset: 0,
-        };
+        position.incarnation = incarnation;
+        position.offset = 0;
     }
     let mut input = std::fs::File::open(path).map_err(|e| e.to_string())?;
     input
@@ -107,7 +105,12 @@ fn read(path: &Path, file: String, mut position: Position, source: &str) -> Resu
         match parse(&line, source) {
             Ok(Some(contribution)) => contributions.push(contribution),
             Ok(None) => {}
-            Err(e) => cause = Some(e),
+            Err(e) => {
+                position.gap.get_or_insert_with(|| {
+                    format!("local request records skipped; first rejection: {e}")
+                });
+                cause = Some(e);
+            }
         }
     }
     Ok(Batch {

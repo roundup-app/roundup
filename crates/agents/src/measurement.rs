@@ -15,6 +15,7 @@ pub(crate) struct Contribution {
 pub(crate) struct Position {
     pub incarnation: String,
     pub offset: u64,
+    pub gap: Option<String>,
 }
 
 pub(crate) struct Batch {

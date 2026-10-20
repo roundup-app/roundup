@@ -504,6 +504,7 @@ async fn u3016d_skipped_requests_remain_uncovered_after_success_and_reopen() {
     );
     let public: Value = serde_json::from_slice(&cli.stdout).unwrap();
     for read in [&good, &reopened, &public] {
+        assert!(read["sources"][0]["cause"].is_null());
         assert!(
             read["sources"][0]["coverage"]
                 .as_array()
