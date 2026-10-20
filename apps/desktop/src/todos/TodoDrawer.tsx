@@ -49,13 +49,16 @@ export const TodoDrawer = (props: {
       || blockersForm.success && retained.destination.recipient?.startsWith("blockers:")))) return null;
 
   const [blockerRevision, setBlockerRevision] = createSignal(blockersForm.success ? retained?.revision : undefined);
-  const blockerDraft = () => drafts.list().find(draft => draft.revision === blockerRevision());
+  const blockerDraft = () => blockerRevision() === undefined ? undefined : drafts.list().find(draft => draft.revision === blockerRevision());
 
   const blockerForm = () => {
     const parsed = v.safeParse(blockerSchema, blockerDraft()?.value);
 
     return parsed.success ? parsed.output : undefined;
   };
+
+  const titleRevision = () => retained?.destination.recipient === "title" ? retained.revision : undefined;
+  const bodyRevision = () => retained?.destination.recipient === "body" ? retained.revision : undefined;
 
   const [titleFailure, setTitleFailure] = createSignal<string | null>(null);
   const [captured, setCaptured] = createSignal<Change>();
@@ -81,7 +84,7 @@ export const TodoDrawer = (props: {
 
     if (props.recovery && (current?.home !== originalHome)) return undefined;
 
-    const form = blockerForm();
+    const form = props.recovery ? blockerForm() : undefined;
 
     return current && form ? { ...current, title: form.title, body: form.body, done: form.done, blockers: form.blockers.map(Number) } : current;
   };
@@ -295,7 +298,7 @@ export const TodoDrawer = (props: {
                   <EditableText
                     todo={current()}
                     captured={captured}
-                    revision={retained?.destination.recipient === "title" ? retained.revision : undefined}
+                    revision={titleRevision()}
                     onFailure={setTitleFailure}
                     name="title"
                     multiline={false}
@@ -307,7 +310,7 @@ export const TodoDrawer = (props: {
                 <EditableText
                   todo={current()}
                   captured={captured}
-                  revision={retained?.destination.recipient === "body" ? retained.revision : undefined}
+                  revision={bodyRevision()}
                   name="body"
                   multiline
                   commit={async (body, expected_change) => { await app.rpc("todo.update", { id: props.id, title: null, body, expected_change }); }}
