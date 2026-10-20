@@ -1670,6 +1670,41 @@ async fn t17_rail_remove_unassigns_its_todos() {
     assert_eq!(owner_of(&client, b).await, owner_json("user", "you"));
 }
 
+/// T17: an owner Agent that stops keeps its Todos, and assigning one sends the Agent no Message.
+#[tokio::test]
+async fn t17_a_stopped_agent_keeps_its_todos_and_assign_tells_no_agent() {
+    let project = start(&[]);
+    let mut events = project.subscribed().await;
+    let client = project.client().await;
+    let agent = agent_in(&project, &client, None).await;
+    let id = todo_at(&client, "a").await;
+    client
+        .request(
+            "todo.assign",
+            json!({ "id": id, "owner": owner_json("agent", &agent) }),
+        )
+        .await
+        .unwrap();
+    let sent = client
+        .request("message.list", json!({ "to": agent }))
+        .await
+        .unwrap();
+    assert_eq!(sent, json!([]));
+    for _ in 0..2 {
+        next(&mut events, |data| {
+            matches!(data, EventData::TodoUpdated(_) | EventData::TodoCreated(_)).then_some(())
+        })
+        .await;
+    }
+
+    client
+        .request("agent.stop", json!({ "id": agent }))
+        .await
+        .unwrap();
+
+    assert_eq!(owner_of(&client, id).await, owner_json("agent", &agent));
+}
+
 /// T12, T13: a Todo moves to a Workstream, the Daemon checks the Rail, and the Home survives a restart.
 #[tokio::test]
 async fn t13_move_checks_the_rail_and_survives_a_restart() {
