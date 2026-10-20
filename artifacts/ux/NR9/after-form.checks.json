@@ -1,0 +1,95 @@
+{
+  "D1": {
+    "status": "pass",
+    "value": [],
+    "selector": ""
+  },
+  "D2": {
+    "status": "fail",
+    "value": {
+      "fontSize": "13.3333px"
+    },
+    "selector": "input#checkbox:cl-67:input"
+  },
+  "D3": {
+    "status": "pass",
+    "value": [],
+    "selector": ""
+  },
+  "D4": {
+    "status": "pass",
+    "value": {
+      "rows": 9
+    },
+    "selector": ""
+  },
+  "D5": {
+    "status": "pass",
+    "value": [],
+    "selector": ""
+  },
+  "D6": {
+    "status": "fail",
+    "value": {
+      "height": 1
+    },
+    "selector": "input#checkbox:cl-67:input"
+  },
+  "D7": {
+    "status": "fail",
+    "value": {
+      "pressed": 3,
+      "instant": false
+    },
+    "selector": "input#checkbox:cl-67:input"
+  },
+  "D8": {
+    "status": "pass",
+    "value": [],
+    "selector": ""
+  },
+  "D9": {
+    "status": "pass",
+    "value": [],
+    "selector": ""
+  },
+  "D10": {
+    "status": "fail",
+    "value": {
+      "failing": [
+        "D2",
+        "D6",
+        "D7"
+      ],
+      "scheme": "dark",
+      "contrast": "no-preference",
+      "viewport": "1512x950"
+    },
+    "selector": ""
+  },
+  "D11": {
+    "status": "pass",
+    "value": "no Thread",
+    "selector": ""
+  },
+  "D12": {
+    "status": "pass",
+    "value": "no Shelf row",
+    "selector": ""
+  },
+  "D13": {
+    "status": "pass",
+    "value": 0,
+    "selector": ""
+  },
+  "D14": {
+    "status": "pass",
+    "value": "no Shelf row",
+    "selector": ""
+  },
+  "D16": {
+    "status": "pass",
+    "value": "no Thread",
+    "selector": ""
+  }
+}

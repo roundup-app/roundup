@@ -85,7 +85,6 @@ it("nr9_failed_creation_preserves_original_draft", async () => {
   expect(connected.drafts.list().filter((draft) => draft.destination.surface === "reactions")).toEqual([]);
 });
 
-
 it("nr9_overlapping_names_keep_the_selected_identity_through_creation", async () => {
   const { app, connected } = await mountAskBar([], null, [
     agent("a", "idle", "ready", { name: "Builder" }),
@@ -103,11 +102,11 @@ it("nr9_overlapping_names_keep_the_selected_identity_through_creation", async ()
   fireEvent.click(await screen.findByRole("button", { name: copy.reactionCreate }));
   fireEvent.click(screen.getByRole("combobox", { name: copy.reactionTarget }));
   fireEvent.click(await screen.findByRole("option", { name: "Builder (b)" }));
-  fireEvent.click(screen.getByRole("checkbox", { name: "Builder (a)" }));
   const preview = screen.getByRole("region", { name: copy.reactionPreview });
 
-  expect(within(preview).getByText("Builder (b)")).toBeTruthy();
-  expect(within(preview).getByText(/Builder \(a\)/)).toBeTruthy();
+  await within(preview).findByText("Builder (b)");
+  fireEvent.click(screen.getByRole("checkbox", { name: "Builder (a)" }));
+  await within(preview).findByText(/Builder \(a\)/);
   const save = screen.getByRole("button", { name: copy.reactionSave });
 
   await waitFor(() => expect(save).toHaveProperty("disabled", false));

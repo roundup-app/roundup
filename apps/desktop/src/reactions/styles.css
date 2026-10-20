@@ -106,7 +106,7 @@
   color: inherit;
   background: var(--hover);
   border: 0;
-  border-radius: var(--radius-control);
+  border-radius: 0;
 }
 
 .reaction-field textarea {
@@ -115,13 +115,11 @@
 }
 
 .reaction-field input:hover {
-  background: var(--selected);
   cursor: text;
 }
 
 .reaction-field input:active {
-  background: var(--pressed);
-  transition-duration: 0s;
+  color: var(--text);
 }
 
 .reaction-field input::placeholder,
@@ -138,4 +136,15 @@
 .reaction-preview {
   display: flex;
   flex-direction: column;
+}
+
+.reaction-form .app-select-trigger {
+  border-radius: 0;
+}
+
+.reaction-form .app-select-trigger:hover,
+.reaction-form .app-select-trigger:active,
+.reaction-form .app-select-trigger[data-state="open"] {
+  color: var(--grey);
+  background-color: var(--ground);
 }
