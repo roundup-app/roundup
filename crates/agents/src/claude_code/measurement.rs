@@ -176,7 +176,7 @@ pub(crate) async fn listen(
     failed: impl Fn(String) + Send + Sync + 'static,
     alive: impl Fn() -> bool + Send + 'static,
 ) -> Result<std::collections::BTreeMap<String, String>, rpc::RpcError> {
-    use axum::{Json, Router, http::StatusCode, routing::post};
+    use axum::{Json, Router, extract::rejection::JsonRejection, http::StatusCode, routing::post};
     let listener = tokio::net::TcpListener::bind("127.0.0.1:0")
         .await
         .map_err(rpc::RpcError::internal)?;
@@ -192,10 +192,17 @@ pub(crate) async fn listen(
     let failed = std::sync::Arc::new(failed);
     let app = Router::new().route(
         &route,
-        post(move |Json(body): Json<Export>| {
+        post(move |body: Result<Json<Export>, JsonRejection>| {
             let accept = accept.clone();
             let failed = failed.clone();
             async move {
+                let body = match body {
+                    Ok(Json(body)) => body,
+                    Err(rejection) => {
+                        failed(rejection.body_text());
+                        return (rejection.status(), "interval export unavailable");
+                    }
+                };
                 match spans(body).and_then(|(source, contributions)| accept(source, contributions))
                 {
                     Ok(()) => (StatusCode::OK, "{}"),
