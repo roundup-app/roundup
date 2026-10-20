@@ -2026,9 +2026,13 @@ mod tests {
         daemon.dispatch(&mut conn, line, None).await.unwrap()
     }
 
+    pub(super) fn daemon_in(dir: &Path) -> Daemon {
+        Daemon::open(dir).unwrap()
+    }
+
     fn daemon() -> (tempfile::TempDir, Daemon) {
         let dir = tempfile::tempdir().unwrap();
-        let daemon = Daemon::open(dir.path()).unwrap();
+        let daemon = daemon_in(dir.path());
         (dir, daemon)
     }
 
