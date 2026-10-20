@@ -1,5 +1,6 @@
 import { createContext, createRoot, createSignal, getOwner, onCleanup, useContext } from "solid-js";
 import type { Accessor } from "solid-js";
+import { createImport } from "../rail/importState";
 import { draftStorage } from "./storage";
 import { checkContract } from "../app/contractMatch";
 import { connectEvents } from "../app/events";
@@ -32,6 +33,7 @@ type Recovery = (draft: Draft, facts: {
 }) => Availability;
 
 type ProjectDrafts = Drafts & {
+  importing: ReturnType<typeof createImport> | null;
   /** Surface-owned identity extraction, installed independently of the original editor.
    * App-run lifetime; facts come from the inspected connection, never a captured old one.
    */
@@ -63,6 +65,7 @@ export const createProjectDrafts = () => {
     const recovery = new Map<string, Recovery>();
 
     const holder: ProjectDrafts = {
+      importing: null,
       editor: storage.editor,
       recoverable: () => {
         revision();
@@ -111,6 +114,7 @@ export type ConnectedProject = {
   app: AppSeam;
   events: Events;
   rail: RailState;
+  importing: ReturnType<typeof createImport>;
   worktrees: ReturnType<typeof createWorktreeState>;
   drawer: DrawerState;
   decisions: DecisionsState;
@@ -160,7 +164,17 @@ export const connectProject = async (
 
   if (ended) stopDecisions();
 
-  return { project, drafts, app, events, rail, worktrees: createWorktreeState(app, rail, now, daemonExit), drawer: createDrawer(), decisions, asks: createAsks(app, events), takeover: createTakeover(app, events, daemonExit), reducedMotion, now, contractNotice, daemonExit, stopTerminalScheme: () => { stopDecisions(); stopTerminalScheme(); } };
+  const onImported = (id: string, agent: string | null) => {
+    void rail.refresh().then(() => rail.select(agent ?? id));
+  };
+
+  // Import selections and pending acknowledgements share the App-owned Project lifetime.
+  const importing = drafts.importing ?? createImport(app, project.path, onImported, drafts);
+
+  importing.reconnect(app, onImported);
+  drafts.importing = importing;
+
+  return { project, drafts, app, events, rail, importing, worktrees: createWorktreeState(app, rail, now, daemonExit), drawer: createDrawer(), decisions, asks: createAsks(app, events), takeover: createTakeover(app, events, daemonExit), reducedMotion, now, contractNotice, daemonExit, stopTerminalScheme: () => { stopDecisions(); stopTerminalScheme(); } };
 };
 
 /** App-run authority for owners outside a connection, including Project tabs.

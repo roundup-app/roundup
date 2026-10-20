@@ -12,4 +12,4 @@ Scope (policy): `apps/desktop/src/keys/` (`chords.ts`, Help, hints), `apps/deskt
 
 **U3716 `⇧⏎` files and keeps the field open.** Given the open field with non-blank text, when the user presses `⇧⏎`, then `todo.create` is called once as U3714 says, the field stays open, focused and empty, and the Todo's row shows at once; a failure (U3715) puts the text back. Focus return waits for the field's close. Tests (`u3716_`): `u3716_shift_enter_files_and_leaves_an_empty_focused_field`, `u3716_a_failed_shift_enter_restores_the_text`.
 
-Look (policy): the field's rendered state meets D2, D5 and D6 (`docs/design-system.md`, heading `The checks`) in light, dark and increased contrast with the failure text visible; only Tokens; the design critic judges it (rule 10). Moves D2, D5, D6.
+Look (policy): the field's rendered state meets D2, D5 and D6 (`docs/design-system.md`, heading `The checks`) in dark and increased contrast with the failure text visible; only Tokens; the design critic judges it (rule 10). Moves D2, D5, D6.

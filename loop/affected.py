@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""L89: the tests a diff reaches. Usage: loop/affected.py rust|web|boxd [base]
+"""L89: the tests a diff reaches. Usage: loop/affected.py rust|web|boxd [base] | shards <test files|all>
 
 Prints `all` when no base is given or the diff since <base> can move any test; else one line per selection: for `rust`
 the workspace crates to test, for `web` the files that still exist, as absolute paths, to pass `vitest related`.
@@ -22,8 +22,10 @@ CRATE_READS = {'contracts/': 'contracts', 'spikes/': 'agents', 'apps/desktop/src
                'apps/desktop/vite.config.ts': 'desktop', 'crates/desktop/src/lib.rs': 'rup',
                'crates/rpc/src/error.rs': 'contracts', 'crates/rup/src/mcp.rs': 'agents',
                'crates/rup/tests/common/': 'desktop', 'crates/rup/tests/e2e/': 'rupd', 'crates/rupd/src/': 'agents'}
-# Browser tests serve the whole App through Vite, outside vitest's module graph, so any App file but a test or an
-# observer script reaches them; so do the contracts the App imports and the documents tests read from disk.
+# Browser tests serve the whole App through Vite, outside vitest's module graph, so `vitest related` cannot select them:
+# on a PR, an App source file goes to `vitest related` anyway, and a browser test it breaks shows on `main`, which runs
+# every web test. The App's other files (its config, its HTML), the contracts the App imports and the documents tests
+# read from disk reach every test.
 APP = 'apps/desktop/'
 WEB_EVERYTHING = ('contracts/', 'docs/wireframes.md', 'docs/design-system.md', 'scenarios/app.md')
 # The module every web test that starts a real `rupd` imports.
@@ -35,6 +37,17 @@ BOXD_READS = ('loop/agent-runners/', 'loop/builder.py', 'loop/affected.py', 'loo
               '.github/workflows/', '.github/actions/setup/', '.github/actionlint.yaml',
               'package.json', 'pnpm-lock.yaml', 'pnpm-workspace.yaml', '.npmrc', 'justfile',
               'AGENTS.md', 'scenarios/loop-boxd.md')
+
+
+# A web shard costs about four minutes of setup, so one is worth about this many test files; a full run has 7 shards.
+FILES_PER_SHARD = 50
+MAX_SHARDS = 7
+
+
+def shards(files):
+    """The web shard numbers for `files` test files, or 'all': one shard per FILES_PER_SHARD, at least one, at most
+    MAX_SHARDS."""
+    return list(range(1, MAX_SHARDS + 1 if files == 'all' else min(MAX_SHARDS, max(1, -(-files // FILES_PER_SHARD))) + 1))
 
 
 def under(path, prefixes):
@@ -60,20 +73,16 @@ def crates(changed, workspace):
 
 
 def web(changed):
-    """The paths to pass `vitest related` for the web tests the changed paths reach: each changed test, each test reading
-    a changed folder, and the real-`rupd` fixture when a crate changed; 'all' when one can move any test or reaches the
-    App the browser serves."""
-    app = (path for path in changed if path.startswith(APP) and not path.startswith(APP + 'observers/'))
-    if any(under(path, EVERYTHING + WEB_EVERYTHING) for path in changed) or not all(map(is_web_test, app)):
+    """The paths to pass `vitest related` for the web tests the changed paths reach: each changed App source file, each
+    test reading a changed folder, and the real-`rupd` fixture when a crate changed; 'all' when one can move any test:
+    an App file outside `src/`, a toolchain file, a contract or a document tests read."""
+    app = [path for path in changed if path.startswith(APP) and not path.startswith(APP + 'observers/')]
+    if any(under(path, EVERYTHING + WEB_EVERYTHING) for path in changed) or not all(path.startswith(APP + 'src/') for path in app):
         return 'all'
-    return sorted({path for path in changed if is_web_test(path)} |
+    return sorted(set(app) |
                   {test for prefix, tests in WEB_READS.items() if any(under(path, [prefix]) for path in changed)
                    for test in tests} |
                   ({DAEMON} if any(path.startswith('crates/') for path in changed) else set()))
-
-
-def is_web_test(path):
-    return path.startswith(APP + 'src/') and path.endswith(('.test.ts', '.test.tsx'))
 
 
 def boxd(changed):
@@ -93,6 +102,9 @@ def workspace():
 
 
 def main(argv):
+    if len(argv) == 3 and argv[1] == 'shards':
+        print(json.dumps(shards(argv[2] if argv[2] == 'all' else int(argv[2]))))
+        return 0
     if len(argv) not in (2, 3) or argv[1] not in ('rust', 'web', 'boxd'):
         print(__doc__, file=sys.stderr)
         return 2
