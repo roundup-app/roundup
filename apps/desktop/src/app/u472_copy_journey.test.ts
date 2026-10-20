@@ -136,3 +136,52 @@ it("u472_copy_preserves_journey_actions_and_failure_text", async () => {
   expect(await evaluate("document.body.textContent.includes('todo 2')")).toBe(true);
 
 }, 120_000);
+
+// App boundary: Help over the overlay Shelf is not covered by the Bubble key proofs.
+it("u2892c_backdrops_preserve_layer_key_ownership", async () => {
+  await load(origin, "tree-40", 1512, "dark");
+  await browser("set", "viewport", "1512", "950");
+  await wait("Boolean(document.querySelector('.rail-row[data-id=\"payments\"]'))");
+  await browser("click", '.rail-row[data-id="payments"]');
+  await wait("Boolean(document.querySelector('.pane-screen textarea'))");
+  // Layout measures this Token-derived floor on resize, as the U2892 capture observer does.
+  await evaluate(`document.querySelector('.window').style.setProperty('--centre-min-width', String(parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--space-6')) * 40) + 'px')`);
+  await browser("set", "viewport", "1511", "950");
+  await browser("set", "viewport", "1512", "950");
+  await wait("document.querySelector('.window').dataset.shelfMode === 'overlay' && !!document.querySelector('.shelf-scrim')");
+
+  const pressAt = async (selector: string) => {
+    const at = await evaluate(`(() => { const r = document.querySelector(${JSON.stringify(selector)}).getBoundingClientRect(); return {x:r.x+r.width/2,y:r.y+r.height/2}; })()`);
+
+    await browser("mouse", "move", String(Math.round(at.x)), String(Math.round(at.y)));
+    await browser("mouse", "down", "left");
+    await browser("mouse", "up", "left");
+  };
+
+  for (const dismissal of ["Escape", "outside"] as const) {
+    await browser("focus", '.rail-row[data-id="payments"]');
+    await evaluate("window.__backdropReturn = document.activeElement; window.__backdropStart = window.__fake.app.calls.length");
+    await browser("press", "?");
+    await wait("!!document.activeElement?.closest('.help')");
+    await browser("press", "Meta+t");
+    await browser("press", "Meta+b");
+    await browser("press", "Enter");
+    expect(await evaluate("!!document.activeElement?.closest('.help')")).toBe(true);
+
+    if (dismissal === "Escape") await browser("press", "Escape");
+    else await pressAt('.rail [aria-label="Add Workstream"]');
+
+    await wait("!document.querySelector('.help') && document.activeElement === window.__backdropReturn");
+    expect(await evaluate(`({shelf:document.querySelector('.shelf').dataset.open, selected:document.querySelector('.rail-row[data-selected=true]')?.dataset.id, mutations:window.__fake.app.calls.slice(window.__backdropStart).filter(c => ['terminal.open','terminal.close','terminal.write','takeover.begin','takeover.end','agent.prompt','rail.createWorkstream','rail.startDoor','todo.delete','pad.delete'].includes(c.method))})`)).toEqual({ shelf: "true", selected: "payments", mutations: [] });
+  }
+
+  // The visual scrim extends over the header, whose controls remain reachable.
+  await browser("click", ".project-tab[data-selected] .tab-name-button");
+  expect(await evaluate("!!document.activeElement?.closest('.project-tab') && document.querySelector('.shelf').dataset.open === 'true'")).toBe(true);
+  await browser("focus", '.rail-row[data-id="payments"]');
+  await evaluate("window.__backdropReturn = document.activeElement; window.__backdropStart = window.__fake.app.calls.length");
+  // The Hint line is in the scrim's existing dismissal target. Its press closes only the Shelf.
+  await pressAt(".hint-line");
+  await wait("document.querySelector('.shelf').hidden && !document.querySelector('.shelf-scrim')");
+  expect(await evaluate(`({focus:document.activeElement === window.__backdropReturn, mutations:window.__fake.app.calls.slice(window.__backdropStart).filter(c => ['terminal.open','terminal.close','terminal.write','takeover.begin','takeover.end','agent.prompt','rail.createWorkstream','rail.startDoor','todo.delete','pad.delete'].includes(c.method))})`)).toEqual({ focus: true, mutations: [] });
+}, 120_000);

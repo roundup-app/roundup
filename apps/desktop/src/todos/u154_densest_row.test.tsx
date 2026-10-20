@@ -22,7 +22,7 @@ describe("u154 the row on the densest data", () => {
     const row = rowOf(12);
 
     expect(rowOf(1).querySelector("[data-todo-home]")).toBeNull();
-    expect(row.querySelector("[data-todo-waits]")?.textContent).toBe("Waits on todo 2, todo 3, todo 4, todo 5, todo 6, todo 7, todo 8, todo 9, todo 10, todo 11");
+    expect(row.querySelector("[data-todo-also-waits]")?.textContent).toBe("also waits on: todo 3, todo 4, todo 5, todo 6, todo 7, todo 8, todo 9, todo 10, todo 11");
     expect(screen.getByRole("button", { name: `Idle #1 ${"t".repeat(120)}` })).toBeTruthy();
   });
 
@@ -36,7 +36,7 @@ describe("u154 the row on the densest data", () => {
     fireEvent.click(await screen.findByRole("checkbox", { name: "Complete todo 12" }));
     await screen.findByText("could not complete the todo");
 
-    expect(rowOf(12).querySelector("[data-todo-waits]")).toBeNull();
+    expect(rowOf(12).querySelector("[data-todo-also-waits]")).toBeNull();
     expect(rowOf(12).querySelector("[data-todo-home]")).toBeNull();
   });
 });

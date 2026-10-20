@@ -92,7 +92,7 @@ for (const by of ["pointer", "keyboard"] as const) {
       await waitFor(() => expect(callsTo(mounted.app, "todo.setBlockers")).toEqual([{ method: "todo.setBlockers", params: { id: 2, blockers: [1], expected_change: 2 } }]));
       refetch(mounted);
 
-      await waitFor(() => expect(rowOf(2).querySelector("[data-todo-waits]")?.textContent).toBe("Waits on todo 1"));
+      await waitFor(() => expect(rowOf(2).getAttribute("aria-level")).toBe("2"));
     });
 
     it(`u152_unblock_${by}`, async () => {
@@ -102,13 +102,14 @@ for (const by of ["pointer", "keyboard"] as const) {
       press(within(drawer()).getByRole("button", { name: "Remove blocker #1" }), by);
       await waitFor(() => expect(callsTo(mounted.app, "todo.setBlockers")).toEqual([{ method: "todo.setBlockers", params: { id: 2, blockers: [3], expected_change: 2 } }]));
       refetch(mounted);
-      await waitFor(() => expect(rowOf(2).querySelector("[data-todo-waits]")?.textContent).toBe("Waits on todo 3"));
+      await waitFor(() => expect(rowOf(2).querySelector("[data-todo-also-waits]")).toBeNull());
+      expect(rowOf(2).getAttribute("aria-level")).toBe("2");
 
       press(within(drawer()).getByRole("button", { name: "Remove blocker #3" }), by);
       await waitFor(() => expect(callsTo(mounted.app, "todo.setBlockers")[1]?.params).toEqual({ id: 2, blockers: [], expected_change: 4 }));
       refetch(mounted);
 
-      await waitFor(() => expect(rowOf(2).querySelector("[data-todo-waits]")).toBeNull());
+      await waitFor(() => expect(rowOf(2).getAttribute("aria-level")).toBe("1"));
     });
 
     it(`u152_complete_from_the_row_${by}`, async () => {
@@ -169,7 +170,8 @@ describe("u152 focus stays in the Drawer", () => {
     mounted.store.todos = mounted.store.todos.map((t) => (t.id === 2 ? { ...t, blockers: [3] } : t));
     refetch(mounted);
 
-    await waitFor(() => expect(rowOf(2).querySelector("[data-todo-waits]")?.textContent).toBe("Waits on todo 3"));
+    await waitFor(() => expect(rowOf(2).querySelector("[data-todo-also-waits]")).toBeNull());
+      expect(rowOf(2).getAttribute("aria-level")).toBe("2");
     expect(document.activeElement).not.toBe(document.body);
     expect(drawer().contains(document.activeElement)).toBe(true);
   });
@@ -193,6 +195,6 @@ describe("u152 remove a blocker", () => {
     fireEvent.click(within(drawer()).getByRole("button", { name: "Remove blocker #1" }));
 
     expect((await within(drawer()).findByText(/cannot remove/)).textContent).toBe("cannot remove");
-    expect(rowOf(2).querySelector("[data-todo-waits]")?.textContent).toBe("Waits on todo 1");
+    expect(rowOf(2).getAttribute("aria-level")).toBe("2");
   });
 });

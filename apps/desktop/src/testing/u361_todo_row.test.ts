@@ -80,7 +80,7 @@ run("u361 the rendered Todo row", () => {
         await page.call(FIXTURE);
         await page.until(`() => Boolean(document.querySelector('.shelf .todo-row-button'))`);
         // The real keyboard generates the native change event; visit the row controls until its tick box.
-        await page.call(`() => document.querySelector('.shelf [data-todo-waits]').closest('.shelf-row').querySelector('.todo-row-button').focus()`);
+        await page.call(`() => document.querySelector('.shelf [data-todo-also-waits]').closest('.shelf-row').querySelector('.todo-row-button').focus()`);
 
         for (let at = 0; at < 8; at++) {
           await page.press("Tab", "Tab");
