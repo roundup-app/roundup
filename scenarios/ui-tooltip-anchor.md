@@ -21,7 +21,7 @@ Rendered observer (policy, no layout test): isolated headless Chromium on U26, `
 Existing checks on origin/main (not claims of this implementation):
 
 1. D2, `docs/design-system.md`, heading `The checks`: type and spacing Tokens.
-2. D5, `docs/design-system.md`, heading `The checks`: text and glyph contrast in both themes.
+2. D5, `docs/design-system.md`, heading `The checks`: text and glyph contrast in dark.
 3. D6, `docs/design-system.md`, heading `The checks`: rest, hover, focus and click targets; do not turn state into a control.
 
 Reuse direction (policy): retain Ark Tooltip through `ui/Tooltip.tsx`; use its positioning anchor hook rather than adding an engine. The implementation verifies current library support and supplies rule 9's source and maintenance evidence when adding machinery files. Consider `@floating-ui/dom` (duplicates Ark's positioning engine), Kobalte (a second component library) and Tippy.js (an extra non-Solid wrapper); these are investigation directions, not verified release claims. No custom tooltip state machine. Progress and engineering questions belong on #2749, never in scenario Work tables.
