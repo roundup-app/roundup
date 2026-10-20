@@ -86,7 +86,7 @@ export const shelfKeys = (props: { frame: ShelfFrame; shelf: () => HTMLElement |
 
   const stop = createRoot((dispose) => {
     registerKeys(shelfKeyScope, [{ chords: chordsFor("M"), when: event => canShelfKey(event) && props.frame.open() && props.shelf()?.closest(".window")?.getAttribute("data-shelf-mode") !== "overlay", run: () => props.frame.toggleMaximise("key") }]);
-    registerKeys({ kind: "app" }, [{ chords: ["Escape"], when: canEscape, run: () => toggle("key") }]);
+    registerKeys({ kind: "app" }, [{ chords: chordsFor("Esc"), when: canEscape, run: () => toggle("key") }]);
 
     return dispose;
   });
