@@ -13,6 +13,7 @@ export const SHELF_TABS = [
 export type ShelfTab = (typeof SHELF_TABS)[number]["value"];
 
 const frameSchema = v.object({
+  maximised: v.optional(v.boolean(), false),
   open: v.optional(v.boolean(), true),
   tab: v.fallback(v.picklist(SHELF_TABS.map(tab => tab.value)), "todos"),
 });
@@ -29,6 +30,8 @@ export type ShelfFrame = {
   shown: Accessor<boolean>;
   /** True from the first toggle of a Project; a restored state never animates (U370). */
   animated: Accessor<boolean>;
+  maximised: Accessor<boolean>;
+  toggleMaximise: (source?: ActivationSource) => void;
   tab: Accessor<ShelfTab>;
   setTab: (tab: ShelfTab) => void;
   toggle: (source?: ActivationSource) => void;
@@ -38,6 +41,7 @@ export type ShelfFrame = {
 
 /** U370, U373: the Shelf's open state and open tab for the active Project, restored in the frame the Project first shows. */
 export const createShelfFrame = (path: Accessor<string | null>, reducedMotion: Accessor<boolean>, reflow: () => void): ShelfFrame => {
+  const [maximised, setMaximised] = createSignal(false);
   const [open, setOpen] = createSignal(true);
   const [rendered, setRendered] = createSignal(true);
   const [shown, setShown] = createSignal(true);
@@ -47,7 +51,7 @@ export const createShelfFrame = (path: Accessor<string | null>, reducedMotion: A
   const save = () => {
     const at = path();
 
-    if (at !== null) storageOf(at).write({ open: open(), tab: tab() });
+    if (at !== null) storageOf(at).write({ open: open(), tab: tab(), maximised: maximised() });
   };
 
   createComputed(
@@ -55,6 +59,7 @@ export const createShelfFrame = (path: Accessor<string | null>, reducedMotion: A
       const stored = at === null ? null : storageOf(at).read();
       const restored = stored?.open ?? true;
 
+      setMaximised(stored?.maximised ?? false);
       setAnimated(false);
       setOpen(restored);
       setRendered(restored);
@@ -88,6 +93,12 @@ export const createShelfFrame = (path: Accessor<string | null>, reducedMotion: A
 
   return {
     open,
+    maximised,
+    toggleMaximise: (source = "pointer") => {
+      setAnimated(source !== "key" && !reducedMotion());
+      setMaximised(value => !value);
+      save();
+    },
     rendered,
     shown,
     animated,

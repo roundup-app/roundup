@@ -181,3 +181,16 @@
 .shelf-groups [data-part="branch"] { cursor: pointer; }
 .shelf-groups [data-part="branch-content"] { padding-inline-start: 0; }
 .shelf-groups [data-part="branch-indicator"] { display: flex; flex: none; }
+
+.shelf-controls {
+  position: absolute;
+  top: var(--space-1);
+  right: var(--space-4);
+  display: flex;
+  gap: var(--space-2);
+  z-index: 1;
+}
+.shelf-bar { max-width: calc(100% - var(--space-6) * 2 - var(--space-4)); box-sizing: border-box; }
+.shelf:has(.shelf-controls button):not(:has(.shelf-bar)) { padding-top: var(--space-6); }
+.window[data-shelf-maximised="true"] .shelf { width: calc(100% - var(--rail-width)); }
+.window[data-shelf-maximised="true"][data-shelf="open"] .centre { visibility: hidden; }

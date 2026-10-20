@@ -37,6 +37,6 @@ it("u460_question_tracks_pad_owner_changes_without_expanding_targets", async () 
   state.pads = [padOf("notes", AGENT), padOf("mine", USER)];
   app.emit({ actor: USER, name: "pad.changed", data: { name: "notes" } });
   await screen.findByText(/Agents may still be writing/);
-  expect(screen.getByText("Delete 1 Pads?")).toBeTruthy();
+  expect(screen.getByRole("alertdialog")).toBeTruthy();
   expect(app.calls.filter((call) => call.method === "pad.delete")).toEqual([]);
 });

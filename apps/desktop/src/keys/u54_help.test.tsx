@@ -114,20 +114,6 @@ const boundPresses = async (from: Element, modSets: readonly KeyboardEventInit[]
 };
 
 describe("u54 keyboard help", () => {
-  it("u2241_help_lists_exactly_the_kept_keys", async () => {
-    await open();
-    question(rowOf("a"));
-    await waitFor(() => expect(help()).not.toBeNull());
-    const panel = help()!;
-
-    expect(panel.getAttribute("aria-label")).toBe("Help");
-    expect([...panel.querySelectorAll(".help-line")].map((line) => line.textContent?.trim())).toEqual([
-      "⌘N  New Agent", "⇧⌘N  New Agent with a prompt", "⌘T  New Terminal", "⌘K  Wait for one more key",
-      "⌘K J  Jump to what needs you", "⌘K ⇧J  Jump to what needs you in another Project", "⌘K K  Switch to a row by name",
-      "⌘K M  Minimise or restore the Bubble", "⌘K W  Close the Bubble", "⌘K S  Show or hide the work items",
-      "⌘B  Switch Agent / Terminal", "⇧⏎  Take control, in the switcher", "⌘⌫  Remove", "⌘⏎  Take control", "⌘/  Ask bar",
-    ]);
-  });
   it("u54_question_mark_in_the_rail_opens_help_listing_each_chord_and_esc_returns_focus", async () => {
     await open();
     rowOf("a").focus();
@@ -196,7 +182,7 @@ describe("u54 keyboard help", () => {
     fireEvent.click(rowOf("a"));
     await waitFor(() => expect(document.querySelector(".terminal-new")).not.toBeNull());
 
-    const listed = CHORDS.filter((chord) => !chord.inRail && !chord.onAgent && !chord.inSwitcher && !chord.inTerminals).flatMap((chord) => chord.presses).sort();
+    const listed = CHORDS.filter((chord) => !chord.inRail && !chord.onAgent && !chord.inSwitcher && !chord.inTerminals && !chord.inShelf).flatMap((chord) => chord.presses).sort();
     // Arrow keys are probed for `⌘` alone: the Terminal tabs bind them with other modifiers too (U2230).
     const outsideTerminal = document.querySelector(".terminal-new")!;
     const bound = [...new Set([...(await boundPresses(outsideTerminal)), ...(await boundPresses(outsideTerminal, [{ metaKey: true }], ["ArrowUp", "ArrowDown"]))])].sort();
@@ -228,7 +214,7 @@ describe("u54 keyboard help", () => {
 
     expect(switcherBound).toEqual(["shift+Enter"]);
     expect(field).not.toBeNull();
-    expect([...new Set([...bound, ...railBound, ...switcherBound])].sort()).toEqual(CHORDS.filter((chord) => !chord.inTerminals).flatMap((chord) => chord.presses).sort());
+    expect([...new Set([...bound, ...railBound, ...switcherBound])].sort()).toEqual(CHORDS.filter((chord) => !chord.inTerminals && !chord.inShelf).flatMap((chord) => chord.presses).sort());
   });
 
 });

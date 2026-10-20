@@ -18,6 +18,7 @@ const placeAt = (focus: Element | null, selectedIsAgent: boolean): HintPlace | n
     : focus.closest(".drawer") ? "drawer"
     : focus.closest("[role=dialog]") ? null
     : focus.closest("[data-bubble]") ? "bubble"
+    : focus.closest(".shelf") ? "shelf"
     : focus.closest('[role="tree"]') ? "rail"
     : inWatchedPane || focus.closest(".pane-screen") ? "agent"
     : null;
