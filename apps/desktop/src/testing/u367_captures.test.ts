@@ -38,34 +38,20 @@ const openConfirm = async () => {
   await page.call(`() => {
     document.querySelector('.rail-row[data-id="backend"]').dispatchEvent(new MouseEvent("contextmenu", { bubbles: true, clientX: 120, clientY: 80 }));
   }`);
-  await page.until(`() => [...document.querySelectorAll('[role="menuitem"]')].some((each) => each.textContent.trim() === "Remove")`);
-  await page.call(`() => [...document.querySelectorAll('[role="menuitem"]')].find((each) => each.textContent.trim() === "Remove").click()`);
+  await page.until(`() => window.__fake.app.shownMenus.length > 0`);
+  await page.call(`() => window.__fake.app.pickMenu("Remove")`);
   await page.until(`() => /Unlanded work: Uncommitted changes/.test(document.body.textContent)`);
 };
 
 run("u367 the confirm", () => {
   vi.setConfig({ testTimeout: 60_000 });
 
-  it("u367_remove_across_the_rail_resize_edge_calls_once", async () => {
-    await openConfirm();
-
-    const point = await page.call<{ x: number; y: number }>(`() => {
-      const edge = document.querySelector(".rail-edge").getBoundingClientRect();
-      const button = [...document.querySelectorAll('.rail-menu button')].find(button => button.textContent === 'Remove').getBoundingClientRect();
-      return { x: edge.left + 4, y: (button.top + button.bottom) / 2 };
-    }`);
-
-    await page.click(point.x, point.y);
-    await page.until(`() => !document.querySelector('.rail-menu') && !document.querySelector('.rail-row[data-id="backend"]')`);
-    expect(await page.call<number>(`() => window.__fake.app.calls.filter(call => call.method === 'rail.remove' && call.params.id === 'backend').length`)).toBe(1);
-  });
-
   it("u367_a_failed_removal_keeps_the_row_and_shows_the_message_on_the_densest_seed", async () => {
     await openConfirm();
     await page.call(`() => { window.__fake.app.handlers['rail.remove'] = () => { throw new Error('removal failed; work kept'); }; }`);
 
     const point = await page.call<{ x: number; y: number }>(`() => {
-      const button = [...document.querySelectorAll('.rail-menu button')].find(button => button.textContent === 'Remove').getBoundingClientRect();
+      const button = [...document.querySelectorAll('[role=alertdialog] button')].find(button => button.textContent === 'Remove').getBoundingClientRect();
       return { x: (button.left + button.right) / 2, y: (button.top + button.bottom) / 2 };
     }`);
 

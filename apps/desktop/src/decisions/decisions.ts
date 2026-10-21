@@ -13,7 +13,7 @@ const outcomes = { acknowledged: "acknowledged", failed: "failed", unknown: "unk
 
 const availability = { available: "available", unavailable: "unavailable", unverified: "unverified" } as const;
 
-const draftSchema = v.object({ daemon: v.string(), agent: v.string(), attempt: v.string(), decision: v.string(), choice: v.nullable(v.string()), note: v.string() });
+const draftSchema = v.object({ daemon: v.string(), agent: v.string(), attempt: v.string(), decision: v.string(), choice: v.nullable(v.string()), note: v.string(), selectedRevision: v.optional(v.string()) });
 
 /** Stable storage destination: a reused Decision id must not replace an older Prompt's draft. */
 export const promptKey = (prompt: PromptIdentity): string => JSON.stringify([prompt.daemon, prompt.agent, prompt.attempt, prompt.decision]);

@@ -128,6 +128,7 @@ pub const METHODS: &[Method] = &[
     m("todo.list", "null", "todo_Todo[]"),
     m("todo.update", "todo_UpdateParams", "todo_Todo"),
     m("todo.complete", "todo_TodoId", "todo_Todo"),
+    m("todo.reopen", "todo_TodoId", "todo_Todo"),
     m("todo.setBlockers", "todo_SetBlockersParams", "todo_Todo"),
     m("todo.assign", "todo_AssignParams", "todo_Todo"),
     m("todo.move", "todo_MoveParams", "todo_Todo"),
@@ -197,6 +198,7 @@ pub const METHODS: &[Method] = &[
         "agent_SetOrderParams",
         "agent_RailNode | agent_HeldAction",
     ),
+    m("agent.instructions", "agent_NodeId", "agent_Instructions"),
     m("agent.channelUp", "agent_NodeId", "null"),
     m(
         "agent.signal",
@@ -264,6 +266,31 @@ pub const METHODS: &[Method] = &[
         "attachment.save",
         "attachment_SaveParams",
         "attachment_Saved",
+    ),
+    m(
+        "message.progress",
+        "message_ProgressParams",
+        "message_Progress",
+    ),
+    m(
+        "message.report",
+        "message_ReportParams",
+        "message_ResultReport",
+    ),
+    m(
+        "message.acceptResult",
+        "message_AcceptResultParams",
+        "message_ResultAcceptance",
+    ),
+    m(
+        "message.verifyResult",
+        "message_ResultId",
+        "message_ResultObservation",
+    ),
+    m(
+        "message.resolveResult",
+        "message_ResolveResultParams",
+        "message_ResultObservation",
     ),
     m("message.send", "message_SendParams", "message_Message"),
     m("message.pass", "message_MessageId", "message_Message"),

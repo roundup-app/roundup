@@ -19,7 +19,7 @@ those seams rather than adding a queue or another Adapter seam.
 | `delivered` | receipt acknowledged by the Agent on the selected transport, or stored for the user (B10/B15) | final |
 | `dropped` | ended without delivery, with a reason | final |
 
-Default Route is `auto`. A Held Message never blocks a later one (B7). Delivery acknowledgement follows the selected transport (B39/B40, B50–B52): user prompts use `UserPromptSubmit`; non-user inbox Messages use the transcript receipt for `msg_id`. Successful writing alone is not delivery. An unacknowledged id may be retried after restart, without another delivered transition or escalation chain. `blocked` is unchanged: this series gives Routes no say in Kind (`GLOSSARY.md`, "Who decides Kind").
+Default Route is `auto`. A Held Message never blocks a later one (B7). Delivery acknowledgement follows the selected transport (B39/B40, B50–B52): user prompts use `UserPromptSubmit`; non-user inbox Messages use the transcript receipt for `msg_id`. Successful writing alone is not delivery. A prompt id line cannot acknowledge an inbox Message or block a prompt that names one. An unacknowledged id may be retried after restart, without another delivered transition or escalation chain. `blocked` is unchanged: this series gives Routes no say in Kind (`GLOSSARY.md`, "Who decides Kind").
 
 ## B50 to B52: authenticated sender selects transport
 
@@ -32,11 +32,11 @@ For an Agent receiver, both `note` and `question` use this table; authenticated 
 
 Messages addressed to the user have no Agent inbox: B10 stores direct Messages and B15 holds the final Escalated question. No non-user Message reaches `Agents::prompt` or a Terminal fallback, including questions, generated hops, retries and explicit user delivery. Reuse the existing Adapter, store, holds and escalation chain; no replacement queue or conversion of question to note.
 
-The Adapter owns socket authentication, protocol checking, envelope and receiving Attempt permission mode. An inbox question remains a durable `question` with its original sender, body, id, `replyTo` and `passedFrom`. The received content identifies the kind and the id to answer; transport metadata does not rewrite the stored body. Receipt resolves the same Message id through the existing transcript mechanism. The in-flight record precedes the socket write, and the Message stays pending until receipt. Repeated idle edges skip an in-flight id in this Daemon run. After restart an unacknowledged id may be resent with the same `msg_id`; this is a transport retry, not a second Message, answer or hop. An acknowledged id is never resent and emits `message.delivered` once.
+The Adapter owns socket authentication, protocol checking, envelope and receiving Attempt permission mode. An inbox question remains a durable `question` with its original sender, body, id, `replyTo` and `passedFrom`. The Adapter prefixes question content with `[question, replyTo: <id>]`; notes keep their existing content. This identifies the kind and the id to answer; transport metadata does not rewrite the stored body. Questions never enter note folding or note queue-bound exemptions, even when their authored body starts with `[digest]` or `[wake]`. Receipt resolves the same Message id through the existing transcript mechanism. The in-flight record precedes the socket write, and the Message stays pending until receipt. Repeated idle edges skip an in-flight id in this Daemon run. After restart an unacknowledged id may be resent with the same `msg_id`; this is a transport retry, not a second Message, answer or hop. An acknowledged id is never resent and emits `message.delivered` once.
 
-Missing or Mismatch holds either non-user kind for `inbox`, exposes the existing Rail fact and emits one held event with no false delivery. Mismatch returns `INBOX_UNAVAILABLE` after storing the held Message; Missing retains the existing send response. Manual `message.deliver` requires a usable inbox or fails visibly while leaving it held. A passing check at eligible idle or Attempt start releases inbox holds in order only after every remaining Takeover/input hold ends; AskFirst/Drop retain their own semantics. Explicit user delivery retains its hold override but cannot select another transport. The merged inbox-recovery repair's final-hold guards apply to questions as well as notes.
+Missing or Mismatch holds either non-user kind for `inbox`, exposes the existing Rail fact and emits one held event with no false delivery. Mismatch returns `INBOX_UNAVAILABLE` after storing the held Message; Missing retains the existing send response. Manual `message.deliver` requires a usable inbox or fails visibly while leaving it held. A passing check at eligible idle or Attempt start releases inbox holds in order only after every remaining Takeover/input hold ends; AskFirst/Drop retain their own semantics. Explicit user delivery retains its hold override but cannot select another transport. Recovery binds a held id to the checked current Attempt before making it pending and arms its bound at release. The merged inbox-recovery repair's final-hold guards apply to questions as well as notes.
 
-The vendor also suppresses consecutive equal sender/text entries within a receiving Attempt. B51(g) generalizes the existing refusal to the latest pending/delivered non-user Message across both kinds: equal sender and body refuses a new send before allocating a Message or chain id, even across note/question kinds. Other sender/body, an intervening different entry, and another receiving Attempt are tested non-refusal boundaries. Same-id retries are distinct from new sends. The implementation documents this boundary against the Adapter fixture/peer observer; a release or generated hop cannot silently lose a question to the vendor repeat filter. A refused held Message remains available for user action; a refused new hop follows B16's unable-to-take skip. Distinct accepted questions keep distinct ids and chains.
+The vendor suppresses consecutive equal sender/text entries within a receiving Attempt. B51(g) conservatively refuses equal authenticated sender/body against the latest pending/delivered non-user Message in B7 delivery-rank order across both kinds, before allocating a Message or chain id. Tests cover all four ordered kind pairs and all non-user senders; another sender/body, an intervening entry or a new receiving Attempt remains accepted. A repeated same id is a B52 retry. Adapter fixtures for 2.1.300 and 2.1.302 pin the envelope and full question content; the Daemon fake peer suppresses repeated `msg_id` values and consecutive equal sender/content envelopes. The question header includes its distinct id, but does not relax the sender/body refusal. Recovery and manual release can deliver older ids after newer ids; the repeat boundary follows that release order, never allocation id. A refused held Message remains held and explicit delivery exposes `CONFLICT`; a refused new hop follows B16's unable-to-take skip. Distinct accepted questions keep distinct Message and chain ids.
 
 ### Escalation and holds
 
@@ -44,7 +44,7 @@ B13–B17's chain is frozen at send: initial receiver, nearest ancestors in its 
 
 ### Model interpretation and observers
 
-The existing `Type(id)` effect denotes the selected delivery transport; for non-user Messages it is an inbox effect, not Terminal typing. Missing/Mismatch projects that attempted transport to a hold, outside `step`. The pure model's atomic delivery abstraction does not establish Rust's in-flight, transcript or vendor repeat behavior. This specification changes acceptance; it does not claim those runtime paths already satisfy it. The separate model-correspondence finding remains separate work.
+The existing `Type(id)` effect denotes the selected delivery transport; for non-user Messages it is an inbox effect, not Terminal typing. Missing/Mismatch projects that attempted transport to a hold, outside `step`. The pure model's atomic delivery abstraction does not establish Rust's in-flight, transcript or vendor repeat behavior. The sender/kind routing, receipt, hold and escalation observers exercise the Rust path independently of the model. The separate model-correspondence finding remains separate work.
 
 Affected laws: M1 (delivery/receipt and same-id retry), M2 (hold ownership), M3 (Takeover isolation), M4 (release order), M5 (unique ids and final states), M6 (no silent loss), M7 (receiver ending), M8 (bounded escalation and current-hop answer), M9 (restart replay), M10 (eligible-idle progress). No law may be weakened. The implementing Contract PR updates every changed interface's callers together and keeps the model and this interpretation agreeing. `just proofs` must print `ALL PROOFS CHECK`; it proves models, not Rust wiring.
 
@@ -469,3 +469,49 @@ Integration-tested for M3 and M4; Message proofs and laws are unchanged.
 ## Reaction evaluation (NR2, NR4, NR5)
 
 The Daemon decides an Agents Reaction from `agent.status` Events and the Rail's present Kinds, never from a Model or a clock, in the same Kind sense as Wake (B41). It reads the Event head, then the Rail, then replays the Events after the head, and accepts a firing only through `Messages::fire_reaction` with the operation `auto-<n>`, so a crash between acceptance and its saved progress returns the first firing. A repeat-enabled Reaction re-arms only after every named Agent was seen not finished since the last firing. Stop, explicit run and automatic acceptance meet in `fire_reaction`'s one write, which reads the state and the bound. Expired Event history or a failed read records a gap; an Agent with no present state never matches. No delivery state is added, so M1 to M10 stand unchanged.
+
+## Passive coordination measurement
+
+`send_message_with` observes the initiating authenticated Agent only when its existing
+`nudge` / `settle_logged` routing future yields Pending. The observation retains the
+original Project, Agent, Attempt and Message identity, ending when that call returns
+or is cancelled. Pending Message residence and Wake registration supply no blocking
+interval. The observer cannot authorize, deliver, hold, drop or retry a Message.
+
+M1–M10 retain their transitions and laws: this adds no Type effect (M1/M3), changes
+no queue or retained identity (M4/M5/M6), revives no receiver (M7), changes no hop
+(M8/M9), and adds no progress requirement or await (M10). Routes and Held authority
+(M2) are unchanged. `proofs/messages` therefore needs no model or law change.
+
+
+## External result reconciliation (U3078h)
+
+An unknown external effect remains current across later claims, instruction changes
+and reopen. A later report or acceptance cannot remove that guard, and retained-byte
+or PR checks cannot resolve it. `message.resolveResult` is user-only: the Daemon GETs
+the read-only receipt URL the user designates as authoritative, without credentials,
+redirects, Model calls or Messages. A response is a `ResultResolution`, for example:
+
+```json
+{"target":{"id":"payment","revision":"v1"},"revision":"provider-receipt-37","observed_at":1792540800,"outcome":{"kind":"completed"}}
+```
+
+`observed_at` is Unix seconds at the source observation, not an effect timestamp.
+The other outcomes are `{"kind":"not-performed"}` and
+`{"kind":"inconclusive","cause":"provider still reconciling"}`.
+The user command is `rup message resolve-result <project> <id> <report> <source> --json`;
+it needs no Agent flag. A vendor child remains an authenticated Agent and is refused,
+even when the CLI identifies as the user.
+
+The source must return this declared receipt contract; arbitrary provider responses
+are unsupported. Only a fresh, exact-target/version, revision-bearing conclusive
+receipt resolves the report. HTTP/parse/read failures, stale or future timestamps,
+wrong versions and inconclusive answers append unknown causes and checking actions.
+Conclusive observations retain the source, authorizer and receipt in the existing
+Message fact holder, readable after restart. Verification can read that retained
+resolution without contacting the source again. A later failed read preserves the
+historical conclusive evidence. Completion and confirmed non-performance are distinct;
+continuation eligibility remains outside this holder.
+
+M1–M10, Message/Route/Held/Takeover transitions and `proofs/messages` stay unchanged:
+resolution reads and appends evidence; it neither creates nor delivers a Message.

@@ -82,30 +82,81 @@ mod tests {
         include!("../tests/support/store_migrations.rs");
     }
 
-    #[test]
-    fn n2705a_a_fresh_project_stores_a_sender_name() {
+    #[tokio::test]
+    async fn t19_main_project_upgrades_without_losing_todo_history() {
+        use contracts::Actor;
+        use rpc::Ctx;
+        use serde_json::{Value, json};
+
         let dir = tempfile::tempdir().unwrap();
-        open(dir.path()).unwrap();
-        let db = Connection::open(dir.path().join("project.db")).unwrap();
-        let count: i64 = db
-            .query_row("SELECT count(*) FROM message_sender_names", [], |r| {
-                r.get(0)
-            })
-            .unwrap();
-        assert_eq!(count, 0);
-        db.execute(
-            "INSERT INTO message_sender_names(agent, name) VALUES (?1, ?2)",
-            params!["7013", "sad"],
+        let mut db = Connection::open(dir.path().join("project.db")).unwrap();
+        // Freeze main 25e81a6d5's sequence: deriving it from migrations() would
+        // hide an insertion that shifts an already-shipped SQLite version.
+        let shipped = [
+            SCHEMA,
+            ANSWERS,
+            RESIZES,
+            ASKS,
+            ACTIONS,
+            PAD_REVISIONS,
+            EVENTS,
+            MCP,
+            FLIGHT,
+            WAKES,
+            include_str!("../migrations/project/0001-prepared.sql"),
+            include_str!("../migrations/project/0002-message-sender-names.sql"),
+            include_str!("../migrations/project/0003-pad-sources.sql"),
+            include_str!("../migrations/project/0004-deliverables.sql"),
+            include_str!("../migrations/project/0005-ask-submissions.sql"),
+            include_str!("../migrations/project/0006-closed-sources.sql"),
+            include_str!("../migrations/project/0007-todo-owner.sql"),
+            include_str!("../migrations/project/0008-reactions.sql"),
+            include_str!("../migrations/project/0009-reaction-firings.sql"),
+            include_str!("../migrations/project/0010-reaction-watch.sql"),
+            include_str!("../migrations/project/0011-measurements.sql"),
+            include_str!("../migrations/project/0012-instruction-revisions.sql"),
+            include_str!("../migrations/project/0013-instruction-messages.sql"),
+        ];
+        apply(&mut db, shipped.into_iter().map(M::up).collect()).unwrap();
+        db.execute_batch(
+            r#"INSERT INTO todos(id,title,body,done,created_at)
+               VALUES(1,'shipped Todo','kept body',1,42);
+               INSERT INTO changes(todo,after_values,after_touch)
+               VALUES(1,'{"title":"shipped Todo","body":"kept body","done":true,"blockers":[]}',0);"#,
         )
         .unwrap();
-        let name: String = db
-            .query_row(
-                "SELECT name FROM message_sender_names WHERE agent = ?1",
-                ["7013"],
-                |r| r.get(0),
-            )
+        drop(db);
+
+        let daemon = crate::test_daemon(dir.path()).unwrap();
+        let ctx = Ctx {
+            actor: Actor::user(),
+            bus: daemon.bus.clone(),
+            touches: daemon.touches.clone(),
+        };
+        let todos = &daemon.modules["todo"];
+        let history = todos
+            .call(&ctx, "todo.getHistory", json!({"id":1}))
+            .await
             .unwrap();
-        assert_eq!(name, "sad");
+        assert_eq!(history["changes"].as_array().unwrap().len(), 1);
+        assert_eq!(history["changes"][0]["actor"], Value::Null);
+        assert_eq!(history["changes"][0]["after"]["done"], true);
+        let reopened = todos
+            .call(&ctx, "todo.reopen", json!({"id":1}))
+            .await
+            .unwrap();
+        assert_eq!(reopened["id"], 1);
+        assert_eq!(reopened["title"], "shipped Todo");
+        assert_eq!(reopened["body"], "kept body");
+        assert_eq!(reopened["done"], false);
+        let history = todos
+            .call(&ctx, "todo.getHistory", json!({"id":1}))
+            .await
+            .unwrap();
+        assert_eq!(history["changes"].as_array().unwrap().len(), 2);
+        assert_eq!(history["changes"][1]["actor"], json!(Actor::user()));
+        assert_eq!(history["changes"][1]["before"]["done"], true);
+        assert_eq!(history["changes"][1]["after"]["done"], false);
     }
 
     #[test]
@@ -229,6 +280,74 @@ mod tests {
         assert_eq!(rows(&db, "routes"), route);
     }
 
+    /// U3078a/b: an existing version-24 Project must gain evidence storage on upgrade.
+    #[tokio::test]
+    async fn u3078a_main_database_upgrade_keeps_progress_readable() {
+        use contracts::Actor;
+        use serde_json::json;
+
+        let dir = tempfile::tempdir().unwrap();
+        let mut db = Connection::open(dir.path().join("project.db")).unwrap();
+        // Pin main's released sequence, independently of the candidate's added-file order.
+        let released = [
+            include_str!("../migrations/project/0001-prepared.sql"),
+            include_str!("../migrations/project/0002-message-sender-names.sql"),
+            include_str!("../migrations/project/0003-pad-sources.sql"),
+            include_str!("../migrations/project/0004-deliverables.sql"),
+            include_str!("../migrations/project/0005-ask-submissions.sql"),
+            include_str!("../migrations/project/0006-closed-sources.sql"),
+            include_str!("../migrations/project/0007-todo-owner.sql"),
+            include_str!("../migrations/project/0008-reactions.sql"),
+            include_str!("../migrations/project/0009-reaction-firings.sql"),
+            include_str!("../migrations/project/0010-reaction-watch.sql"),
+            include_str!("../migrations/project/0011-measurements.sql"),
+            include_str!("../migrations/project/0012-instruction-revisions.sql"),
+            include_str!("../migrations/project/0013-instruction-messages.sql"),
+            include_str!("../migrations/project/0014-reaction-firing-identities.sql"),
+        ];
+        apply(
+            &mut db,
+            migrations()
+                .into_iter()
+                .take(10)
+                .chain(released.into_iter().map(M::up))
+                .collect(),
+        )
+        .unwrap();
+        drop(db);
+
+        let daemon = crate::test_daemon(dir.path()).unwrap();
+        let (events, _) = tokio::sync::mpsc::unbounded_channel();
+        let mut conn = crate::Conn {
+            actor: Actor::user(),
+            peer: None,
+            events,
+            output: None,
+        };
+        let home = daemon
+            .route(
+                &mut conn,
+                "rail.createWorkstream",
+                json!({"name":"Kept work"}),
+            )
+            .await
+            .unwrap();
+        let instructions = daemon
+            .route(&mut conn, "agent.instructions", json!({"id":home["id"]}))
+            .await
+            .unwrap();
+        let progress = daemon
+            .route(
+                &mut conn,
+                "message.progress",
+                json!({"project":daemon.project,"id":home["id"]}),
+            )
+            .await
+            .unwrap();
+        assert_eq!(progress["instructions"], instructions);
+        assert_eq!(progress["results"], json!([]));
+    }
+
     #[tokio::test]
     async fn n16_all_stores_share_one_project_database() {
         use crate::{Conn, Daemon};
@@ -315,6 +434,17 @@ mod tests {
         resize_schema
             .execute_batch(include_str!(
                 "../migrations/project/0010-reaction-watch.sql"
+            ))
+            .unwrap();
+        expected.extend(standalone::schema(&resize_schema));
+        // Project-only retention observes the same Message admission/receipt transaction.
+        resize_schema
+            .execute_batch(include_str!("../../messages/migrations/001/up.sql"))
+            .unwrap();
+        resize_schema.execute_batch(FLIGHT).unwrap();
+        resize_schema
+            .execute_batch(include_str!(
+                "../migrations/project/0013-instruction-messages.sql"
             ))
             .unwrap();
         expected.extend(standalone::schema(&resize_schema));

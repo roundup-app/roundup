@@ -20,9 +20,9 @@ const mountSelected = async () => {
 
 const openMenu = (name: string) => fireEvent.contextMenu(rowOf(name), { clientX: 10, clientY: 10 });
 
-const open = () => {
+const open = async (app: { pickMenu: (label: string) => Promise<void> }) => {
   openMenu("ws");
-  fireEvent.click(screen.getByRole("menuitem", { name: "Clear…" }));
+  await app.pickMenu("Clear…");
 };
 
 const reasonField = () => screen.getByRole<HTMLTextAreaElement>("textbox", { name: /Why clear/ });
@@ -41,8 +41,8 @@ afterEach(() => { cleanup(); vi.unstubAllGlobals(); });
 
 describe("u350 the user clears a Workstream from the Rail", () => {
   it("u350_clear_is_disabled_without_a_reason", async () => {
-    await mountSelected();
-    open();
+    const { app } = await mountSelected();
+    await open(app);
     await waitFor(() => expect(document.activeElement).toBe(reasonField()));
 
     expect(document.body.textContent).toContain("and stops 1 Subagent; their files stay");
@@ -60,7 +60,7 @@ describe("u350 the user clears a Workstream from the Rail", () => {
   it("u350_one_call_with_the_trimmed_reason", async () => {
     const { app } = await mountSelected();
 
-    open();
+    await open(app);
     type("  too much  ");
     fireEvent.submit(reasonField().closest("form")!);
     await waitFor(() => expect(railCallsTo(app, "workstream.clear")).toHaveLength(1));
@@ -71,13 +71,13 @@ describe("u350 the user clears a Workstream from the Rail", () => {
   it("u350_keep_and_esc_call_nothing", async () => {
     const { app } = await mountSelected();
 
-    open();
+    await open(app);
     type("x");
     fireEvent.click(screen.getByRole("button", { name: "Keep" }));
 
     expect(screen.queryByRole("textbox", { name: /Why clear/ })).toBeNull();
 
-    open();
+    await open(app);
     fireEvent.keyDown(reasonField(), { key: "Escape" });
 
     expect(screen.queryByRole("textbox", { name: /Why clear/ })).toBeNull();
@@ -87,7 +87,7 @@ describe("u350 the user clears a Workstream from the Rail", () => {
   it("u350_pending_removes_nothing_and_hides_the_menu_item", async () => {
     const { app } = await mountSelected();
 
-    open();
+    await open(app);
     type("why");
     fireEvent.click(clearButton());
     await waitFor(() => expect(document.body.textContent).toContain("The supervisor is writing the summary"));
@@ -99,7 +99,7 @@ describe("u350 the user clears a Workstream from the Rail", () => {
 
     openMenu("ws");
 
-    expect(screen.queryByRole("menuitem", { name: "Clear…" })).toBeNull();
+    expect(app.shownMenus.at(-1)?.items.find((item) => item.label === "Clear…")?.enabled).toBe(false);
 
     app.emit(event({ name: "workstream.cleared", data: { id: "w", iteration: 2 } }));
 
@@ -109,7 +109,7 @@ describe("u350 the user clears a Workstream from the Rail", () => {
   it("u350_a_missing_handoff_offers_clear_without_handoff", async () => {
     const { app } = await mountSelected();
 
-    open();
+    await open(app);
     type("why");
     fireEvent.click(clearButton());
     await waitFor(() => expect(railCallsTo(app, "workstream.clear")).toHaveLength(1));
@@ -129,7 +129,7 @@ describe("u350 the user clears a Workstream from the Rail", () => {
 
     app.handlers["workstream.clear"] = () => { throw new RpcError(-32003, "the Door is not running"); };
 
-    open();
+    await open(app);
     type("why");
     fireEvent.click(clearButton());
     await screen.findByText("the Door is not running");
@@ -138,10 +138,10 @@ describe("u350 the user clears a Workstream from the Rail", () => {
   });
 
   it("u350_no_clear_item_on_a_subagent", async () => {
-    await mountSelected();
+    const { app } = await mountSelected();
 
     openMenu("a");
 
-    expect(screen.queryByRole("menuitem", { name: "Clear…" })).toBeNull();
+    expect(app.menuLabels()).not.toContain("Clear…");
   });
 });

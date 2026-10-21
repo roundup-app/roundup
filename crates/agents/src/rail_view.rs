@@ -281,10 +281,12 @@ impl Agents {
                 self.rail_name(&id)?
             )));
         }
-        let node = self
-            .shared
-            .rail()
-            .set_order(&id, &order, captured.as_ref())?;
+        let (node, revision) = {
+            let mut rail = self.shared.rail();
+            let node = rail.set_order(&id, &order, captured.as_ref())?;
+            let revision = rail.order_revision(&id)?;
+            (node, revision)
+        };
         ctx.touch(contracts::Verb::Wrote, &format!("agent:{id}"))?;
         ctx.emit(EventData::RailChanged);
         let takeover = self
@@ -299,7 +301,17 @@ impl Agents {
                 ));
             }
             self.shared
-                .prompt(&id, &order::steer(&order, None), None, None, false, None)
+                .prompt(
+                    &id,
+                    &order::steer(&order, None),
+                    None,
+                    None,
+                    false,
+                    Some(PromptRecord {
+                        revision,
+                        written: None,
+                    }),
+                )
                 .await
                 .map_err(|err| match err {
                     SteerError::Refused(reason) => {
@@ -318,7 +330,20 @@ impl Agents {
             let shared = Arc::clone(&self.shared);
             let text = order::steer(&order, None);
             tokio::spawn(async move {
-                if let Err(err) = shared.prompt(&id, &text, None, None, false, None).await {
+                if let Err(err) = shared
+                    .prompt(
+                        &id,
+                        &text,
+                        None,
+                        None,
+                        false,
+                        Some(PromptRecord {
+                            revision,
+                            written: None,
+                        }),
+                    )
+                    .await
+                {
                     eprintln!("agents: the new order of {id} was not steered: {err}");
                 }
             });
