@@ -395,7 +395,9 @@ export const Todos = (props: {
         if (document.activeElement === null || document.activeElement === document.body) {
           const target = request.target !== null ? rows.get(request.target) : undefined;
 
-          (target ?? plusButton)?.focus();
+          if (target && !target.closest("[hidden], [inert]")) target.focus();
+
+          if (document.activeElement === null || document.activeElement === document.body) plusButton?.focus();
         }
 
         return false;
@@ -479,9 +481,9 @@ export const Todos = (props: {
     connected.drawer.open(content, source);
   };
 
-  const toggle = async (todo: Todo) => {
+  const toggle = async (todo: Todo, ids: readonly number[]) => {
     const reopening = todo.done;
-    const target = rowAfter(todo.id, (reopening ? done() : open()).map((candidate) => candidate.id));
+    const target = rowAfter(todo.id, ids);
 
     const message = await failureOf(() => reopening
       ? connected.app.rpc("todo.reopen", { id: todo.id })
@@ -569,7 +571,7 @@ export const Todos = (props: {
               onSelectionKey={selectionKey}
               known={todos.byId()}
               onOpen={show}
-              onToggle={toggle}
+              onToggle={todo => toggle(todo, tree().map(row => row.todo.id))}
               sorted={sorted.row(todo.id, parts, () => tree().map(({ todo }) => todo.id))}
               place={row}
               nest={nestOf(todo, row.parent, tree()[at() - 1]?.todo ?? null, at() === 0)}
@@ -597,7 +599,7 @@ export const Todos = (props: {
                   todo={todo}
                   known={todos.byId()}
                   onOpen={show}
-                  onToggle={toggle}
+                  onToggle={todo => toggle(todo, items().filter(candidate => candidate.done).map(candidate => candidate.id))}
                   selected={shown()?.id === todo.id}
                   pressed={selection.selected().includes(todo.id)}
                   selectionActive={selection.selected().length > 0}
