@@ -1,3 +1,4 @@
+import { MeasurementDashboard } from "./MeasurementDashboard";
 import { Portal } from "solid-js/web";
 import { copy } from "../copy";
 import { shelfSliding } from "../shelf/sliding";
@@ -76,6 +77,15 @@ export const Pane = (props: { notice?: string | null; createEmulator?: EmulatorF
 
   props.screensRef?.(screens);
 
+  const [dashboard, setDashboard] = createSignal(false);
+  let dashboardAction: HTMLButtonElement | undefined;
+
+  const backFromDashboard = () => {
+    setDashboard(false);
+    queueMicrotask(() => dashboardAction?.focus());
+  };
+
+  createEffect(on(rail.selected, () => setDashboard(false), { defer: true }));
   const selected = createMemo(() => rail.nodes.find((node) => node.id === rail.selected()) ?? null);
 
   /** Why the selected Workstream's Door is not running, so a stopped, failed or still-starting Door each read differently. */
@@ -374,6 +384,11 @@ export const Pane = (props: { notice?: string | null; createEmulator?: EmulatorF
 
   return (
     <div class="pane" data-takeover={taken() ? "" : undefined} onFocusOut={leftThePane}>
+      <Show when={selected()?.kind === "workstream"}>
+        <div class="measurement-action" classList={{ "pane-origin-hidden": dashboard() }}><button ref={dashboardAction} data-button="quiet" type="button" onClick={() => setDashboard(true)}>{copy.costAndTime}</button></div>
+      </Show>
+      <Show when={dashboard() && selected()?.kind === "workstream" ? selected()!.id : null} keyed>{(home) => <MeasurementDashboard home={home} name={selected()?.name ?? ""} back={backFromDashboard} />}</Show>
+      <div class="pane-origin" classList={{ "pane-origin-hidden": dashboard() }}>
       <Show when={connected.decisions.listFailure()}>
         {(message) => (
           <div class="decision-list-failure">
@@ -471,6 +486,7 @@ export const Pane = (props: { notice?: string | null; createEmulator?: EmulatorF
             <button data-button="quiet" type="button" class="word pane-latest" onClick={() => screens.returnToBottom(id())}>{copy.latest}</button>
           )}
         </Show>
+      </div>
       </div>
       <div class="pane-failure">
         <Show when={notice() ?? rail.workstreamFailure()}>{(message) => <ErrorLine message={message()} />}</Show>

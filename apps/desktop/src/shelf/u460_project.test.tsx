@@ -20,6 +20,7 @@ it("u460_pending_delete_stays_with_its_project", async () => {
   render(() => <App app={app} reducedMotion={() => true} clock={() => 0} createEmulator={fakeEmulators().factory} />);
   fireEvent.click(await screen.findByRole("tab", { name: "harness" }));
   await showEverythingInApp();
+  fireEvent.click(await waitFor(() => document.querySelector<HTMLElement>('[data-shelf-group="unassigned"] [data-part="branch-control"]') ?? Promise.reject(new Error("no group"))));
   const list = screen.getByRole("region", { name: "Todos" });
   const rows = within(list).getAllByRole("button").filter((row) => row.classList.contains("todo-row-button") && row.hasAttribute("aria-pressed"));
   fireEvent.click(rows[0]!, { metaKey: true });

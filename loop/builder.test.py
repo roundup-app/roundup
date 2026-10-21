@@ -416,22 +416,18 @@ class Pick(unittest.TestCase):
                 dict(issue=4, slug='K', state='blocked', reason='duplicate work Key; x')]
         self.assertEqual(builder.choose(rows, {1}, 5), [])
 
-    def test_l96_a_struck_invalid_order_yields_no_repair_entry(self):
+    def test_l96_a_struck_invalid_order_yields_no_repair_entry_until_its_cooldown_ends(self):
         now = time.time()
-        rows = builder.orders.cool([invalid_row(1), invalid_row(2)], {1: [now - 60] * 3, 2: [now - 60]}, now)
+        rows = builder.orders.cool([invalid_row(1), invalid_row(2)], {1: [now - 60], 2: [now - builder.orders.COOLDOWN - 60]}, now)
         self.assertEqual([r['issue'] for r in builder.choose(rows, set(), 5)], [2])
 
     def test_l96_a_failed_repair_records_a_strike(self):
-        bad = dict(state='open', labels=[], body='Key: K\n')
-        with GitHub(), patch.object(builder.orders, 'gh', return_value=bad), \
-             patch.object(builder, 'labels', return_value=set()), patch.object(builder, 'call') as call:
+        with GitHub(order='Key: K\n') as github:
             builder.built(1, 'repair-1', True, '', 'https://run')
-        self.assertIn('<!-- strike -->', ' '.join(call.call_args[0]))
-        good = dict(bad, body=ROOT_BODY)
-        with patch.object(builder.orders, 'gh', return_value=good), \
-             patch.object(builder, 'labels', return_value=set()), patch.object(builder, 'call') as call:
+        self.assertTrue(github.bodies()[0].startswith('<!-- strike -->'))
+        with GitHub(order=ROOT_BODY) as github:
             builder.built(1, 'repair-1', True, '', 'https://run')
-        call.assert_not_called()
+        self.assertEqual(github.writes, [])
 
     def test_l96_pick_reports_the_invalid_count(self):
         import io
@@ -491,6 +487,19 @@ class Pick(unittest.TestCase):
             builder.pick(5)
         self.assertEqual(sent, [3])
         self.assertIn('Fix for PR #2 (check) waits: a fix run for it is already live.', errors.getvalue())
+
+    def test_l23_a_failed_review_rerun_still_prints_the_build_matrix(self):
+        rows = [dict(issue=31, slug='U31', state='ready')]
+        output, errors = io.StringIO(), io.StringIO()
+        failure = subprocess.CalledProcessError(1, ['gh', 'api'])
+        with patch.object(builder.orders, 'gh', return_value=[pr(number=2)]), patch.object(builder, 'fixing', return_value=[]), \
+                patch.object(builder, 'fix_prs', return_value=set()), patch.object(builder, 'codex_slots', return_value=(set(), 5)), \
+                patch.object(builder, 'repairs', return_value=[]), patch.object(builder, 'unreviewed', return_value=[(2, '77')]), \
+                patch.object(builder, 'rerun_review', side_effect=failure), \
+                patch.object(builder.orders, 'read_orders', return_value=rows), redirect_stdout(output), redirect_stderr(errors):
+            builder.pick(5)
+        self.assertEqual([row['issue'] for row in json.loads(output.getvalue())], [31])
+        self.assertIn('::error::Rerun of review run 77 on PR #2 failed', errors.getvalue())
 
     def test_l23_pick_starts_fixes_ready_prs_first_then_builds_only_in_free_codex_slots(self):
         prs = [pr(number=1, isDraft=True), pr(number=2), pr(number=3)]
@@ -626,6 +635,27 @@ class Built(unittest.TestCase):
                 builder.built(1, 'U1', True, answer, 'https://run/1')
             self.assertEqual(github.bodies(), ['<!-- strike -->\nThe build run https://run/1 ended with no PR, no settled Issue and no ask.'])
             self.assertFalse(github.flagged())
+
+    def test_l34_the_sixth_strike_in_a_day_asks_the_user_once_listing_each_strike(self):
+        old = note('<!-- strike -->\nyesterday', ago=builder.orders.DAY + 60)
+        strikes = [note(f'<!-- strike -->\nPR #{n} used its 3 fix runs: https://github.com/o/r/pull/{n}; last cause: '
+                        f'review rejected: finding {n}\nmore', ago=600 - n) for n in range(1, 6)]
+        with GitHub(notes=[old] + strikes[:4]) as github:
+            builder.strike(1, 'fifth')
+        self.assertFalse(github.flagged())
+        with GitHub(notes=[old] + strikes) as github:
+            builder.strike(1, 'sixth')
+        self.assertTrue(github.flagged())
+        asked = github.bodies()[1]
+        self.assertTrue(asked.startswith('<!-- needs-user -->\nThis Issue was struck 6 times in 24 hours'))
+        for n in range(1, 6):
+            self.assertIn(f'- PR #{n} used its 3 fix runs: https://github.com/o/r/pull/{n}; last cause: review rejected: finding {n}\n', asked)
+        self.assertTrue(asked.endswith('\n- sixth'))
+        self.assertNotIn('yesterday', asked)
+        with GitHub(notes=[old] + strikes + [note('<!-- strike -->\nsixth')], labels=('flag:needs-user',)) as github:
+            builder.strike(1, 'seventh')
+        self.assertEqual(len(github.bodies()), 1)
+        self.assertFalse(github.flagged())
 
     def test_l79_a_build_runs_ask_goes_where_its_screen_verdict_says(self):
         ask = 'Should the Rail hide archived Agents?'
@@ -919,7 +949,7 @@ class Fix(unittest.TestCase):
             for text in ('https://github.com/o/r/pull/9', HEAD, 'fix 1', 'fix 3', 'review rejected: first finding', 'review rejected: bad name'):
                 self.assertIn(text, first[0])
             self.assertNotIn('original build', first[0])
-            self.assertTrue(first[1].startswith('<!-- strike -->'))
+            self.assertEqual(first[1], '<!-- strike -->\nPR #9 used its 3 fix runs: https://github.com/o/r/pull/9; last cause: review rejected: bad name')
             self.assertIn(('pr', 'close', '9', '--delete-branch'), github.writes)
             self.assertFalse(github.flagged())
             self.assertIsNone(builder.fix_task(9, HEAD, 'review'))
@@ -934,6 +964,32 @@ class Fix(unittest.TestCase):
         with GitHub(view=pr(body='Scenarios: U1\n', statusCheckRollup=FAILED), notes=attempts) as github:
             self.assertIsNone(builder.fix_task(9, HEAD, 'check'))
         self.assertTrue(github.flagged())
+
+    def test_l82_a_pr_out_of_fix_runs_whose_head_review_and_critic_approved_is_revived_once_per_head(self):
+        attempts = [note(f'<!-- fix-attempt -->\nFix run https://github.com/o/r/actions/runs/{n} answered `check`.',
+                         ago=300 - n * 50) for n in (1, 2, 3)]
+        view = pr(url='https://github.com/o/r/pull/9', body='Refs #5\nScenarios: U1\n', commits=[], statusCheckRollup=FAILED)
+        review, critic = note(f'VERDICT: approve\nHead: {HEAD}\n\nok', ago=120), note(f'CRITIC: approve\nHead: {HEAD}\n\nok', ago=110)
+        for files, verdicts in (((), [review]), (UI, [review, critic])):
+            with self.subTest(files=files), GitHub(view=view, files=files, notes=attempts + verdicts) as github:
+                self.assertIn('`check` failed on this head', builder.fix_task(9, HEAD, 'check'))
+                revived = github.bodies()
+                self.assertEqual(len(revived), 1)
+                self.assertTrue(revived[0].startswith(f'<!-- fix-revive -->\nHead: {HEAD}\n'))
+                self.assertNotIn(('pr', 'close', '9', '--delete-branch'), github.writes)
+                # The revive restarts the count: the next cause gets its run with nothing more posted.
+                self.assertIn('`check` failed on this head', builder.fix_task(9, HEAD, 'check'))
+                self.assertEqual(github.bodies(), revived)
+        rejected = note(f'VERDICT: reject\nHead: {HEAD}\n\nbad name', ago=100)
+        moved = note(f'VERDICT: approve\nHead: {"b" * 40}\n\nok', ago=100)
+        critic_rejected = note(f'CRITIC: reject\nHead: {HEAD}\n\nugly', ago=100)
+        revived = note(f'<!-- fix-revive -->\nHead: {HEAD}\n\nonce', ago=280)
+        for files, notes in (((), [review, rejected]), ((), [moved]), (UI, [review]), (UI, [review, critic, critic_rejected]),
+                             ((), [revived, review])):
+            with self.subTest(files=files, notes=notes), GitHub(view=view, files=files, notes=attempts + notes) as github:
+                self.assertIsNone(builder.fix_task(9, HEAD, 'check'))
+                self.assertTrue(github.bodies()[0].startswith('<!-- fix-exhausted #9 -->'))
+                self.assertIn(('pr', 'close', '9', '--delete-branch'), github.writes)
 
     def test_l82_a_reopened_pr_counts_only_the_fix_runs_after_the_reopen(self):
         before = [note('<!-- fix-attempt -->\nFix run r answered `check`.', ago=900 - n) for n in range(3)]
@@ -1566,7 +1622,9 @@ class Review(unittest.TestCase):
     def test_l24_pick_reruns_an_ended_review_that_did_no_model_work(self):
         prs = [pr(number=1, statusCheckRollup=[dict(context='review', state='PENDING', targetUrl='https://x/actions/runs/77')]),
                pr(number=2, isDraft=True, statusCheckRollup=[dict(context='review', state='PENDING', targetUrl='https://x/actions/runs/78')]),
-               pr(number=3, statusCheckRollup=[dict(context='review', state='ERROR', targetUrl='https://x/actions/runs/79')])]
+               pr(number=3, statusCheckRollup=[dict(context='review', state='ERROR', targetUrl='https://x/actions/runs/79')]),
+               pr(number=4, headRefName='dependabot/npm_and_yarn/vite',
+                  statusCheckRollup=[dict(context='review', state='PENDING', targetUrl='https://x/actions/runs/80')])]
         self.assertEqual(builder.unreviewed(prs), [(1, '77')])
         with GitHub(run=dict(status='completed', attempt=1, url='https://x/actions/runs/77')) as github:
             builder.rerun_review(1, '77')

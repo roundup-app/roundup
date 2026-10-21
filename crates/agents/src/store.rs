@@ -300,6 +300,18 @@ impl Agents {
         id: &str,
         notes: &[claude_code::inbox::Entry],
     ) -> Result<(), contracts::agent::Inbox> {
+        // Native socket connect/write is synchronous: a Ready routing future can still
+        // have blocked on IO. Only a validated native endpoint earns this evidence;
+        // missing/held inboxes and generic pending Messages earn no coordination time.
+        let waiting: Vec<_> = if self.launcher.inbox_check(id) == contracts::agent::Inbox::Ok {
+            notes
+                .iter()
+                .filter(|note| note.actor.kind == contracts::ActorKind::Agent)
+                .filter_map(|note| self.observe_coordination(&note.actor.id, note.id))
+                .collect()
+        } else {
+            Vec::new()
+        };
         let runs = self.shared.runs();
         let yolo = matches!(runs.get(id), Some(Slot::Running(run)) if run.yolo);
         self.launcher
@@ -307,6 +319,7 @@ impl Agents {
             .inspect_err(|state| {
                 self.shared.events.inbox.set(id, *state);
             })?;
+        drop(waiting);
         drop(runs);
         // Claude Code may have taken the entries up before they were in flight.
         self.shared.events.inbox.rescan(id);

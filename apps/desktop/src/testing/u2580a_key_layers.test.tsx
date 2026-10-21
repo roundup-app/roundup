@@ -57,6 +57,8 @@ const load = async (reduced = false) => {
   await evaluate(`(() => { localStorage.clear(); return true; })()`);
   await browser("open", url);
   await browser("wait", ".shelf-tabs");
+  await browser("wait", "--fn", `!!document.querySelector('.shelf [data-shelf-group="unassigned"] [data-part="branch-control"], .shelf [data-todo] button')`);
+  await evaluate(`(() => { document.querySelector('.shelf [data-shelf-group="unassigned"][data-state="closed"] [data-part="branch-control"]')?.click(); return true; })()`);
   await browser("wait", "--fn", `!!document.querySelector('.shelf [data-todo] button')`);
   await settle();
 };

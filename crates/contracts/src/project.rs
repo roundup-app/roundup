@@ -399,3 +399,114 @@ pub enum MoneyScope {
     Request,
     Conversation,
 }
+
+/// The disjoint consumed category used to rank a Workstream's contributors.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize, TS, JsonSchema)]
+#[serde(rename_all = "snake_case")]
+#[ts(export, export_to = "project/")]
+pub enum ConsumedCategory {
+    Input,
+    Output,
+    CacheRead,
+    CacheWrite,
+    #[default]
+    Total,
+}
+
+/// Later pages require the revision returned by the first page; a changed revision conflicts.
+#[derive(Clone, Debug, Serialize, Deserialize, TS, JsonSchema)]
+#[ts(export, export_to = "project/")]
+#[serde(deny_unknown_fields)]
+pub struct MeasurementSummaryParams {
+    pub home: String,
+    #[serde(default)]
+    pub category: ConsumedCategory,
+    #[serde(default)]
+    pub offset: u32,
+    pub revision: Option<String>,
+}
+
+/// Exact known subtotal and number of contributions lacking this category.
+/// A contributor with no retained requests counts as one unknown contribution.
+#[derive(Clone, Debug, Serialize, Deserialize, TS)]
+#[ts(export, export_to = "project/")]
+pub struct ConsumedSubtotal {
+    pub known: String,
+    pub missing: u32,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize, TS)]
+#[ts(export, export_to = "project/")]
+pub struct ConsumedTotals {
+    pub input: ConsumedSubtotal,
+    pub output: ConsumedSubtotal,
+    pub cache_read: ConsumedSubtotal,
+    pub cache_write: ConsumedSubtotal,
+    pub total: ConsumedSubtotal,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize, TS)]
+#[ts(export, export_to = "project/")]
+pub struct MeasurementContributor {
+    pub agent: String,
+    pub maker: String,
+    pub removed: bool,
+    pub tokens: ConsumedTotals,
+    pub cost: MeasurementCost,
+    pub time: MeasurementTime,
+    pub coverage: Vec<String>,
+}
+
+/// One Workstream's consumed tokens, ranked in pages of at most twenty at one revision.
+/// Money and time retain their separate evidence contract; they are not token totals.
+#[derive(Clone, Debug, Serialize, Deserialize, TS)]
+#[ts(export, export_to = "project/")]
+pub struct MeasurementSummary {
+    pub project: String,
+    pub home: String,
+    pub revision: String,
+    pub category: ConsumedCategory,
+    pub cause: Option<String>,
+    #[ts(type = "number | null")]
+    pub last_observed: Option<i64>,
+    pub tokens: ConsumedTotals,
+    pub cost: MeasurementCost,
+    pub time: MeasurementTime,
+    pub coverage: Vec<String>,
+    pub contributors: u32,
+    pub rows: Vec<MeasurementContributor>,
+    pub next_offset: Option<u32>,
+}
+
+/// Money evidence remains partitioned by scope, currency and reference basis.
+#[derive(Clone, Debug, Default, Serialize, Deserialize, TS)]
+#[ts(export, export_to = "project/")]
+pub struct MeasurementCost {
+    pub reported: Vec<ReportedMoney>,
+    pub reference: Vec<ReferenceEstimate>,
+    pub unavailable: Vec<String>,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize, TS)]
+#[ts(export, export_to = "project/")]
+pub struct ReferenceEstimate {
+    pub amount: String,
+    pub missing: Vec<String>,
+    pub rates: ReferenceRates,
+}
+
+/// Nanoseconds are exact strings. Summed time partitions Attempts, not wall time.
+#[derive(Clone, Debug, Serialize, Deserialize, TS)]
+#[ts(export, export_to = "project/")]
+pub struct MeasurementTime {
+    pub elapsed_ns: Option<String>,
+    pub summed_ns: String,
+    pub execution_ns: String,
+    pub tools_ns: String,
+    pub human_ns: String,
+    pub coordination_ns: String,
+    pub other_ns: String,
+    pub unmeasured_ns: String,
+    pub active: bool,
+    pub coverage: Vec<String>,
+}

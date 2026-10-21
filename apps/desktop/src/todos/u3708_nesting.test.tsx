@@ -9,7 +9,7 @@ const levelOf = (id: number) => Number(rowOf(id).getAttribute("aria-level"));
 
 const ids = () => [...document.querySelectorAll<HTMLElement>("[data-level]")].map((row) => Number(row.dataset.id));
 
-const buttonOf = (id: number) => within(rowOf(id)).getByRole<HTMLButtonElement>("button", { name: new RegExp(`todo ${id}\\b|#${id}\\b`) });
+const buttonOf = (id: number) => within(rowOf(id)).getByRole<HTMLButtonElement>("button", { name: new RegExp(`^(Idle|Blocked|Done) #${id}\\b`) });
 
 describe("u3708 the Todos list is a tree drawn from blockers", () => {
   it("u3708_depth_is_read_from_the_first_blocker", async () => {

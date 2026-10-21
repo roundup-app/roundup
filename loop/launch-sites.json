@@ -71,6 +71,11 @@
     "data": "Uses audited desktop fixture or a fake/client reference; no separate built-Daemon launch.",
     "kind": "reference"
   },
+  "apps/desktop/src/terminal/u3016_browser.test.ts": {
+    "cleanup": "Launch owner above supplies cleanup; this caller launches no executable itself.",
+    "data": "Uses audited desktop fixture or a fake/client reference; no separate built-Daemon launch.",
+    "kind": "reference"
+  },
   "apps/desktop/src/terminal/u59_real_daemon.test.ts": {
     "cleanup": "No separate built-Daemon launch site.",
     "data": "Production implementation, test caller, client or name reference; launches delegate to the owners above.",
@@ -199,6 +204,11 @@
   "apps/desktop/src/todos/u461_rendered.test.ts": {
     "cleanup": "No separate built-Daemon launch site.",
     "data": "Production implementation, test caller, client or name reference; launches delegate to the owners above.",
+    "kind": "reference"
+  },
+  "apps/desktop/src/todos/u3720_real_daemon_owner.test.tsx": {
+    "cleanup": "Launch owner above supplies cleanup; this caller launches no executable itself.",
+    "data": "Uses audited desktop fixture or a fake/client reference; no separate built-Daemon launch.",
     "kind": "reference"
   },
   "crates/agents/r16/owner-read/isolate.py": {
