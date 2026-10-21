@@ -245,6 +245,65 @@ mod time_tests {
         }
     }
 
+    #[tokio::test]
+    async fn u3016b_token_totals_reconcile_by_source() {
+        use contracts::project::{Consumed, MeasurementValue};
+        let w = World::new();
+        let home = w
+            .agents
+            .shared
+            .rail()
+            .insert(NodeKind::Workstream, "Measured work", None, None)
+            .unwrap()
+            .id;
+        let a = w.agent(Some(&home));
+        let b = w.agent(Some(&home));
+        for (agent, input, output, cache_read, cache_write) in
+            [(&a, 100, 20, 400, 50), (&b, 200, 30, 0, 0)]
+        {
+            let fact = contracts::project::Measurement {
+                identity: format!("request:{agent}"),
+                source: format!("source:{agent}"),
+                source_revision: "1".into(),
+                agent: agent.clone(),
+                attempt: Some("1".into()),
+                home: Some(home.clone()),
+                maker: agent.clone(),
+                observed: 1000,
+                value: MeasurementValue::Request {
+                    usage: Consumed {
+                        input: Some(input),
+                        output: Some(output),
+                        cache_read: Some(cache_read),
+                        cache_write: Some(cache_write),
+                    },
+                    cost: None,
+                },
+                coverage: vec![],
+            };
+            let db = rusqlite::Connection::open(w.dir.path().join("agents.db")).unwrap();
+            db.execute("INSERT INTO measurement_revisions(identity,source_revision,source,agent,attempt,home,maker,observed,value,coverage) VALUES(?1,?2,?3,?4,?5,?6,?7,?8,?9,'[]')",rusqlite::params![fact.identity,fact.source_revision,fact.source,fact.agent,fact.attempt,fact.home,fact.maker,fact.observed,serde_json::to_string(&fact.value).unwrap()]).unwrap();
+        }
+        let read = w
+            .agents
+            .call(
+                &w.ctx,
+                "project.measurementSummary",
+                json!({"home":home,"category":"total","offset":0}),
+            )
+            .await
+            .unwrap();
+        assert_eq!(
+            read["tokens"],
+            json!({"input":{"known":"300","missing":0},"output":{"known":"50","missing":0},"cache_read":{"known":"400","missing":0},"cache_write":{"known":"50","missing":0},"total":{"known":"800","missing":0}})
+        );
+        assert_eq!(read["contributors"], 2);
+        assert_eq!(read["rows"][0]["agent"], a);
+        assert_eq!(read["rows"][0]["tokens"]["total"]["known"], "570");
+        assert_eq!(read["rows"][1]["agent"], b);
+        assert_eq!(read["rows"][1]["tokens"]["total"]["known"], "230");
+    }
+
     fn activity<'a>(read: &'a Value, kind: &str) -> Vec<&'a Value> {
         read["time_evidence"]
             .as_array()
