@@ -35,6 +35,7 @@ import { Sortable } from "../ui/sortable";
 import { TreeView } from "../ui/TreeView";
 import { shelfScope } from "../shelf/scope";
 import { OwnerGroups } from "../shelf/OwnerGroups";
+import { NewWorkstream } from "./NewWorkstream";
 import { OwnerPicker } from "./OwnerPicker";
 import { ownerGroups, ownersOnRail, sameOwner } from "../shelf/scope";
 import type { Actor } from "@contracts/Actor";
@@ -431,6 +432,7 @@ export const Todos = (props: {
   };
 
   // U3720: a chosen Todo moves to its new group's row once `todo.updated` has refetched, which replaces the row that held focus.
+  const [naming, setNaming] = createSignal<number | null>(null);
   const [revealed, setRevealed] = createSignal<string | null>(null);
   const [regrouped, setRegrouped] = createSignal<{ id: number; owner: Actor | null } | null>(null);
 
@@ -774,7 +776,16 @@ export const Todos = (props: {
         </Show>
         </>; }}</OwnerGroups>
       </Show>
-      <OwnerPicker target={picking} offers={offers} choose={(id, owner) => void assign(id, owner)} close={stopPicking} />
+      <OwnerPicker target={picking} offers={offers} choose={(id, owner) => void assign(id, owner)} close={stopPicking} newWorkstream={setNaming} />
+      <NewWorkstream target={naming} returnTo={rowButtonOf} done={(id, made) => {
+        setNaming(null);
+
+        // U3743, U138: the Todo is the new Door's, so its row is found again once `todo.updated` has refetched it.
+        if (made) {
+          setRevealed("unassigned");
+          setRegrouped({ id, owner: { kind: "agent", id: made.id, parent: null } });
+        } else queueMicrotask(() => rowButtonOf(id)?.focus());
+      }} />
       <Show when={typing() && (adding() === null || fieldGroupGone())}>
         {field()}
       </Show>

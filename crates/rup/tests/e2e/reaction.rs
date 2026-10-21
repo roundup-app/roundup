@@ -934,6 +934,8 @@ async fn nr3_legacy_firings_keep_identity_on_upgrade_and_replay() {
                 DROP TABLE message_results;
                 ALTER TABLE changes DROP COLUMN changed_at;
                 ALTER TABLE changes DROP COLUMN actor;
+                DROP TABLE workstream_queue;
+                ALTER TABLE settings DROP COLUMN workstream_cap;
                 PRAGMA user_version = 23;",
             )
             .unwrap();
