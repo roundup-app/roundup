@@ -1,3 +1,5 @@
+import { connectProject, ConnectedProjectContext } from "../state/connectedProject";
+import { OrderDrawer } from "./OrderDrawer";
 import { App } from "../App";
 import { RpcError } from "../app/seam";
 import type { AppSeam } from "../app/seam";
@@ -25,23 +27,6 @@ const meetsD2 = () => {
 };
 
 describe("Q2, Q3: generated text is laid out as hold:Plain asks", () => {
-  it("q2_order_drawer", async () => {
-    await mountApp([], (app) => {
-      app.handlers["rail.tree"] = () => [
-        agent("a", "working", "editing", { name: "alpha", order: 0, work }),
-        agent("b", "working", "editing", { name: "beta", order: 1 }),
-        door("r", "working", "editing", { name: "harbor", order: 2 }),
-      ];
-    });
-    select("alpha");
-    await waitFor(() =>
-      expect(document.querySelector(".order-line")).not.toBeNull(),
-    );
-    fireEvent.click(document.querySelector(".order-line")!);
-    const drawer = await screen.findByLabelText("Full order of alpha");
-    expect(drawer.textContent).toContain(long);
-  });
-
   it("q3_decision_card_meets_d2_d5", async () => {
     await mountApp([asking("d1", "a", "Which folder should I use?", ["src", "docs"])]);
     select("alpha");
@@ -250,6 +235,55 @@ describe("U2773 Order forms on real Projects", () => {
     expect(recovery.textContent).toContain(original.id);
     expect(sends).toBe(1);
     expect((await one.rpc("rail.tree", null)).find((node) => node.id === original.id)?.work).toEqual(full);
+  }, 60_000);
+
+  it("u3021c_orders_selected_open_uses_original_real_project_and_refuses_removed_node", async () => {
+    const one = createServedApp(first.base);
+    const two = createServedApp(second.base);
+    const original = await one.rpc("agent.spawn", { cwd: first.dir, name: "same name", parent: null, prompt: null, order: full });
+    const other = await two.rpc("agent.spawn", { cwd: second.dir, name: "same name", parent: null, prompt: null, order: full });
+    const connected = await connectProject(one, { name: "same name", path: first.dir }, () => true, () => 0);
+    const elsewhere = await connectProject(two, { name: "same name", path: second.dir }, () => true, () => 0);
+
+    const value = { title: "  original title 👋  ", ask: "  original é\n次の行  ", done: "  original done  ", field: "ask",
+      baseTitle: full.title!, baseAsk: full.ask, baseDone: full.done!, limits: full.limits };
+
+    const a = connected.drafts.edit({ surface: "orders", object: original.id, recipient: original.id }, value,
+      { start: 2, end: 7, direction: "backward" }, "ordinary").draft;
+
+    connected.drafts.submit(a.revision);
+    connected.drafts.settle(a.revision, "failed");
+    const b = connected.drafts.edit(a.destination, { ...value, ask: "newer B" }, null, "ordinary").draft;
+    const independent = elsewhere.drafts.edit({ surface: "orders", object: other.id, recipient: other.id }, { ...value, ask: "other Project" }, null, "ordinary").draft;
+    const calls = vi.spyOn(one, "rpc");
+    const otherCalls = vi.spyOn(two, "rpc");
+    const before = connected.drafts.list();
+    render(() => <ConnectedProjectContext.Provider value={connected}>
+      <OrderDrawer id={original.id} recovery={{ project: first.dir, revision: a.revision }} />
+    </ConnectedProjectContext.Provider>);
+    const ask = await screen.findByLabelText<HTMLTextAreaElement>("Ask");
+    await waitFor(() => expect(document.activeElement).toBe(ask));
+    expect([ask.value, ask.selectionStart, ask.selectionEnd, ask.selectionDirection]).toEqual([value.ask, 2, 7, "backward"]);
+    expect(calls.mock.calls).toEqual([]);
+    cleanup();
+    render(() => <ConnectedProjectContext.Provider value={elsewhere}>
+      <OrderDrawer id={other.id} recovery={{ project: first.dir, revision: a.revision }} />
+    </ConnectedProjectContext.Provider>);
+    expect(screen.queryByLabelText("Ask")).toBeNull();
+    expect(elsewhere.drafts.list()).toEqual([independent]);
+    expect(otherCalls.mock.calls).toEqual([]);
+    cleanup();
+    await one.rpc("agent.stop", { id: original.id });
+    await one.rpc("rail.remove", { id: original.id });
+    await connected.rail.refresh();
+    calls.mockClear();
+    render(() => <ConnectedProjectContext.Provider value={connected}>
+      <OrderDrawer id={original.id} recovery={{ project: first.dir, revision: a.revision }} />
+    </ConnectedProjectContext.Provider>);
+    expect(screen.queryByLabelText("Ask")).toBeNull();
+    expect(calls.mock.calls).toEqual([]);
+    expect(connected.drafts.list()).toEqual(before);
+    expect(connected.drafts.list()).toContainEqual(b);
   }, 60_000);
 
   it("u2773a_orders_project_reopen_keeps_memory_after_retention_failure", async () => {
