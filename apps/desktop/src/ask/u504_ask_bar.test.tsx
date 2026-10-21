@@ -556,12 +556,12 @@ it("u3021c_ask_ordinary_edits_preserve_recovered_work_after_older_settlement", a
   expect([input()!.value, input()!.selectionStart, input()!.selectionEnd, input()!.selectionDirection]).toEqual(["A recovered edit", 2, 5, "backward"]);
 });
 
-it("u3021c_ask_opening_current_work_keeps_its_edits_current", async () => {
+it.each(["failed", "unknown"] as const)("u3021c_ask_opening_current_work_keeps_its_edits_current_%s", async outcome => {
   const { connected, setRecovery } = await mountAskBar();
 
   type("current A");
   const a = connected.drafts.list()[0]!;
-  connected.drafts.submit(a.revision); connected.drafts.settle(a.revision, "failed");
+  connected.drafts.submit(a.revision); connected.drafts.settle(a.revision, outcome);
   setRecovery({ project: connected.project.path, revision: a.revision });
   await waitFor(() => expect(document.activeElement).toBe(input()));
   type("edited current A");
