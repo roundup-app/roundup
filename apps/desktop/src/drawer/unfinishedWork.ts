@@ -15,7 +15,7 @@ const typed = new Set(["name", "title", "body", "text", "note", "document", "ask
 
 /** A credential draft's values are never rendered; Copy is their only exposure (U2773h). */
 export const typedText = (draft: Row): string[] => Object.entries(draft.value)
-  .filter(([field, value]) => ((typed.has(field) && !(field === "name" && draft.destination.surface === "ask")) || (draft.policy === "credential" && field === "password")) && String(value ?? "").trim() !== "")
+  .filter(([field, value]) => (((typed.has(field) || (field === "source" && draft.destination.surface === "pads")) && !(field === "name" && draft.destination.surface === "ask")) || (draft.policy === "credential" && field === "password")) && String(value ?? "").trim() !== "")
   .map(([, value]) => String(value));
 
 /**
