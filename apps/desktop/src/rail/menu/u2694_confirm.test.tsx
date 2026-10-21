@@ -7,6 +7,7 @@ import { agent, door, workstream } from "../../testing/nodes";
 import { exitedTerminal, mountRail, railCallsTo, rowOf } from "../railFixture";
 
 afterEach(cleanup);
+
 stubDialogLayout();
 
 const open = (name: string) => fireEvent.contextMenu(rowOf(name), { clientX: 120, clientY: 80 });

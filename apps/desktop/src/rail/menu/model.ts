@@ -209,7 +209,7 @@ export const createRailMenu = (app: AppSeam, rail: RailState, onFailure: (messag
       { id: "rename", label: copy.rename, shortcut: copy.renameChord, run: () => rename(node.id) },
       { id: "restart", label: copy.restart, enabled: node.yolo, run: () => restart(node, "normal") },
       { id: "yolo", label: copy.startYolo, enabled: !node.yolo, run: () => restart(node, "yolo") },
-      { id: "stop", label: copy.stop, enabled: isRunning(node, exit), run: () => attempt(async () => { await stop(node); }) },
+      { id: "stop", label: copy.stop, enabled: isRunning(node, exit), run: () => requestStop(node, exit) },
       { id: "resume", label: copy.resume, enabled: isResumable(node, exit), run: () => resume(node.id) },
     ];
 

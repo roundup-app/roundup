@@ -171,6 +171,9 @@
 
 .shelf-question-words button:last-child { color: var(--text); }
 
+/* Keep retains initial focus without a box around the word. */
+.shelf-question .word:focus { outline: none; color: var(--accent); }
+
 .shelf-tab[data-open="false"] { color: var(--grey); }
 
 /* U2744a: quiet scope and Rail disclosures use the existing type and space scale. */
