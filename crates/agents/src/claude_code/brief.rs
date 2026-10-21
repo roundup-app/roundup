@@ -220,6 +220,10 @@ const TOOLS: &[(&str, &str)] = &[
     ),
     ("project_get", "read the Project's settings"),
     (
+        "project_measurements",
+        "read retained measurements and collection coverage",
+    ),
+    (
         "project_setWorktrees",
         "turn Worktrees on or off for the Project and set the command Landing runs",
     ),

@@ -207,8 +207,8 @@ def imp_t(b: Bool) -> T(S.implies(b, True{})):
 # ---- M3
 def tk_of(+s: M.World) -> Bool:
   match s:
-    case M.W{+q, +haf, +htk, +t, +d, +u, +tt, +rl, +n, +tk, +i, +g}:
-      tk
+    case M.W{+q, +haf, +htk, +t, +d, +u, +tt, +rl, +n, +tk, +us, +i, +g}:
+      Bool.or(tk, us)
 
 # B32: the user's own Messages have no exemption, so only the Messages the user delivered by hand may be typed while the user holds the Terminal.
 def UR(+u: +List<Nat>, +rl: +List<Nat>) -> +List<Nat>:
@@ -223,16 +223,20 @@ def inv3(+s: M.World) -> Bool:
 def imp_nil(b: Bool, +ys: +List<Nat>) -> T(S.implies(b, S.all_in([], ys))):
   imp_t(b)
 
-def flush_go3(+q: +List<Nat>, +haf: +List<Nat>, +htk: +List<Nat>, +t: +List<Nat>, +d: +List<Nat>, +u: +List<Nat>, +tt: +List<Nat>, +rl: +List<Nat>, +n: Nat, +tk: Bool, +i: Bool, +g: Bool, +h1: T(S.implies(tk, S.all_in(q, UR(u, rl)))), +h: T(S.all_in(tt, UR(u, rl)))) -> T(inv3(M.flush_go(q, M.W{[], haf, htk, t, d, u, tt, rl, n, tk, i, g}))):
+def flush_go3(+q: +List<Nat>, +haf: +List<Nat>, +htk: +List<Nat>, +t: +List<Nat>, +d: +List<Nat>, +u: +List<Nat>, +tt: +List<Nat>, +rl: +List<Nat>, +n: Nat, +tk: Bool, +us: Bool, +i: Bool, +g: Bool, +h1: T(S.implies(Bool.or(tk, us), S.all_in(q, UR(u, rl)))), +h: T(S.all_in(tt, UR(u, rl)))) -> T(inv3(M.flush_go(q, M.W{[], haf, htk, t, d, u, tt, rl, n, tk, us, i, g}))):
   match q:
     case Nil{}:
-      and_i(S.all_in(tt, UR(u, rl)), S.implies(tk, S.all_in([], UR(u, rl))), h, imp_nil(tk, UR(u, rl)))
+      and_i(S.all_in(tt, UR(u, rl)), S.implies(Bool.or(tk, us), S.all_in([], UR(u, rl))), h, imp_nil(Bool.or(tk, us), UR(u, rl)))
     case Con{+x, +rest}:
       match tk:
         case True{}:
-          flush_go3(rest, haf, htk, M.snoc(t, x), d, u, M.snoc(tt, x), rl, n, True{}, False{}, g, all_in_tl(x, rest, UR(u, rl), h1), all_in_snoc_i(tt, UR(u, rl), x, h, mem_in_hd(x, rest, UR(u, rl), h1)))
+          flush_go3(rest, haf, htk, M.snoc(t, x), d, u, M.snoc(tt, x), rl, n, True{}, us, False{}, g, all_in_tl(x, rest, UR(u, rl), h1), all_in_snoc_i(tt, UR(u, rl), x, h, mem_in_hd(x, rest, UR(u, rl), h1)))
         case False{}:
-          flush_go3(rest, haf, htk, M.snoc(t, x), d, u, tt, rl, n, False{}, False{}, g, {==}, h)
+          match us:
+            case True{}:
+              flush_go3(rest, haf, htk, M.snoc(t, x), d, u, M.snoc(tt, x), rl, n, False{}, True{}, False{}, g, all_in_tl(x, rest, UR(u, rl), h1), all_in_snoc_i(tt, UR(u, rl), x, h, mem_in_hd(x, rest, UR(u, rl), h1)))
+            case False{}:
+              flush_go3(rest, haf, htk, M.snoc(t, x), d, u, tt, rl, n, False{}, False{}, False{}, g, {==}, h)
 
 def flush_b3(i: Bool, +s: M.World, +h: T(inv3(s))) -> T(inv3(M.flush_b(i, s))):
   match i:
@@ -240,13 +244,13 @@ def flush_b3(i: Bool, +s: M.World, +h: T(inv3(s))) -> T(inv3(M.flush_b(i, s))):
       h
     case True{}:
       match s:
-        case M.W{+q, +haf, +htk, +t, +d, +u, +tt, +rl, +n, +tk, +i, +g}:
-          flush_go3(q, haf, htk, t, d, u, tt, rl, n, tk, i, g, and_r(S.all_in(tt, UR(u, rl)), S.implies(tk, S.all_in(q, UR(u, rl))), h), and_l(S.all_in(tt, UR(u, rl)), S.implies(tk, S.all_in(q, UR(u, rl))), h))
+        case M.W{+q, +haf, +htk, +t, +d, +u, +tt, +rl, +n, +tk, +us, +i, +g}:
+          flush_go3(q, haf, htk, t, d, u, tt, rl, n, tk, us, i, g, and_r(S.all_in(tt, UR(u, rl)), S.implies(Bool.or(tk, us), S.all_in(q, UR(u, rl))), h), and_l(S.all_in(tt, UR(u, rl)), S.implies(Bool.or(tk, us), S.all_in(q, UR(u, rl))), h))
 
 def flush3(+s: M.World, +h: T(inv3(s))) -> T(inv3(M.flush(s))):
   match s:
-    case M.W{+q, +haf, +htk, +t, +d, +u, +tt, +rl, +n, +tk, +i, +g}:
-      flush_b3(i, M.W{q, haf, htk, t, d, u, tt, rl, n, tk, i, g}, h)
+    case M.W{+q, +haf, +htk, +t, +d, +u, +tt, +rl, +n, +tk, +us, +i, +g}:
+      flush_b3(i, M.W{q, haf, htk, t, d, u, tt, rl, n, tk, us, i, g}, h)
 
 def imp_mono(tk: Bool, A: Bool, B: Bool, f: T(A) -> T(B), +h: T(S.implies(tk, A))) -> T(S.implies(tk, B)):
   match tk:
@@ -278,88 +282,96 @@ def send_auto3(fu: Bool, +s: M.World, +h: T(inv3(s))) -> T(inv3(M.send_auto(fu, 
   match fu:
     case True{}:
       match s:
-        case M.W{+q, +haf, +htk, +t, +d, +u, +tt, +rl, +n, +tk, +i, +g}:
+        case M.W{+q, +haf, +htk, +t, +d, +u, +tt, +rl, +n, +tk, +us, +i, +g}:
           match tk:
             case True{}:
               h
             case False{}:
-              flush3(M.W{M.snoc(q, n), haf, htk, t, d, M.snoc(u, n), tt, rl, 1n+n, False{}, i, g}, h)
+              match us:
+                case True{}:
+                  h
+                case False{}:
+                  flush3(M.W{M.snoc(q, n), haf, htk, t, d, M.snoc(u, n), tt, rl, 1n+n, False{}, False{}, i, g}, h)
     case False{}:
       match s:
-        case M.W{+q, +haf, +htk, +t, +d, +u, +tt, +rl, +n, +tk, +i, +g}:
+        case M.W{+q, +haf, +htk, +t, +d, +u, +tt, +rl, +n, +tk, +us, +i, +g}:
           match tk:
             case True{}:
               h
             case False{}:
-              flush3(M.W{M.snoc(q, n), haf, htk, t, d, u, tt, rl, 1n+n, False{}, i, g}, h)
+              match us:
+                case True{}:
+                  h
+                case False{}:
+                  flush3(M.W{M.snoc(q, n), haf, htk, t, d, u, tt, rl, 1n+n, False{}, False{}, i, g}, h)
 
 def send_ask3(fu: Bool, +s: M.World, +h: T(inv3(s))) -> T(inv3(M.send_live(M.AskFirst{}, fu, s))):
   match fu:
     case True{}:
       match s:
-        case M.W{+q, +haf, +htk, +t, +d, +u, +tt, +rl, +n, +tk, +i, +g}:
-          I3_grow(q, tt, u, rl, M.snoc(u, n), rl, tk, h, ur_mono_u(u, rl, n))
+        case M.W{+q, +haf, +htk, +t, +d, +u, +tt, +rl, +n, +tk, +us, +i, +g}:
+          I3_grow(q, tt, u, rl, M.snoc(u, n), rl, Bool.or(tk, us), h, ur_mono_u(u, rl, n))
     case False{}:
       match s:
-        case M.W{+q, +haf, +htk, +t, +d, +u, +tt, +rl, +n, +tk, +i, +g}:
+        case M.W{+q, +haf, +htk, +t, +d, +u, +tt, +rl, +n, +tk, +us, +i, +g}:
           h
 
 def send_drop3(fu: Bool, +s: M.World, +h: T(inv3(s))) -> T(inv3(M.send_live(M.RouteDrop{}, fu, s))):
   match fu:
     case True{}:
       match s:
-        case M.W{+q, +haf, +htk, +t, +d, +u, +tt, +rl, +n, +tk, +i, +g}:
-          I3_grow(q, tt, u, rl, M.snoc(u, n), rl, tk, h, ur_mono_u(u, rl, n))
+        case M.W{+q, +haf, +htk, +t, +d, +u, +tt, +rl, +n, +tk, +us, +i, +g}:
+          I3_grow(q, tt, u, rl, M.snoc(u, n), rl, Bool.or(tk, us), h, ur_mono_u(u, rl, n))
     case False{}:
       match s:
-        case M.W{+q, +haf, +htk, +t, +d, +u, +tt, +rl, +n, +tk, +i, +g}:
+        case M.W{+q, +haf, +htk, +t, +d, +u, +tt, +rl, +n, +tk, +us, +i, +g}:
           h
 
 def send_ev3(fu: Bool, r: M.Route, +s: M.World, +h: T(inv3(s))) -> T(inv3(M.send_ev(fu, r, s))):
   match r:
     case M.Auto{}:
       match s:
-        case M.W{+q, +haf, +htk, +t, +d, +u, +tt, +rl, +n, +tk, +i, +g}:
+        case M.W{+q, +haf, +htk, +t, +d, +u, +tt, +rl, +n, +tk, +us, +i, +g}:
           match g:
             case True{}:
               h
             case False{}:
-              send_auto3(fu, M.W{q, haf, htk, t, d, u, tt, rl, n, tk, i, False{}}, h)
+              send_auto3(fu, M.W{q, haf, htk, t, d, u, tt, rl, n, tk, us, i, False{}}, h)
     case M.AskFirst{}:
       match s:
-        case M.W{+q, +haf, +htk, +t, +d, +u, +tt, +rl, +n, +tk, +i, +g}:
+        case M.W{+q, +haf, +htk, +t, +d, +u, +tt, +rl, +n, +tk, +us, +i, +g}:
           match g:
             case True{}:
               h
             case False{}:
-              send_ask3(fu, M.W{q, haf, htk, t, d, u, tt, rl, n, tk, i, False{}}, h)
+              send_ask3(fu, M.W{q, haf, htk, t, d, u, tt, rl, n, tk, us, i, False{}}, h)
     case M.RouteDrop{}:
       match s:
-        case M.W{+q, +haf, +htk, +t, +d, +u, +tt, +rl, +n, +tk, +i, +g}:
+        case M.W{+q, +haf, +htk, +t, +d, +u, +tt, +rl, +n, +tk, +us, +i, +g}:
           match g:
             case True{}:
               h
             case False{}:
-              send_drop3(fu, M.W{q, haf, htk, t, d, u, tt, rl, n, tk, i, False{}}, h)
+              send_drop3(fu, M.W{q, haf, htk, t, d, u, tt, rl, n, tk, us, i, False{}}, h)
 
 def idle_ev3(+s: M.World, +h: T(inv3(s))) -> T(inv3(M.idle_ev(s))):
   match s:
-    case M.W{+q, +haf, +htk, +t, +d, +u, +tt, +rl, +n, +tk, +i, +g}:
+    case M.W{+q, +haf, +htk, +t, +d, +u, +tt, +rl, +n, +tk, +us, +i, +g}:
       match g:
         case True{}:
           h
         case False{}:
-          flush3(M.W{q, haf, htk, t, d, u, tt, rl, n, tk, True{}, False{}}, h)
+          flush3(M.W{q, haf, htk, t, d, u, tt, rl, n, tk, us, True{}, False{}}, h)
 
 def busy_ev3(+s: M.World, +h: T(inv3(s))) -> T(inv3(M.busy_ev(s))):
   match s:
-    case M.W{+q, +haf, +htk, +t, +d, +u, +tt, +rl, +n, +tk, +i, +g}:
+    case M.W{+q, +haf, +htk, +t, +d, +u, +tt, +rl, +n, +tk, +us, +i, +g}:
       h
 
 def exit3(+s: M.World, +h: T(inv3(s))) -> T(inv3(M.exit_(s))):
   match s:
-    case M.W{+q, +haf, +htk, +t, +d, +u, +tt, +rl, +n, +tk, +i, +g}:
-      and_i(S.all_in(tt, UR(u, rl)), S.implies(tk, S.all_in([], UR(u, rl))), and_l(S.all_in(tt, UR(u, rl)), S.implies(tk, S.all_in(q, UR(u, rl))), h), imp_nil(tk, UR(u, rl)))
+    case M.W{+q, +haf, +htk, +t, +d, +u, +tt, +rl, +n, +tk, +us, +i, +g}:
+      and_i(S.all_in(tt, UR(u, rl)), S.implies(Bool.or(tk, us), S.all_in([], UR(u, rl))), and_l(S.all_in(tt, UR(u, rl)), S.implies(Bool.or(tk, us), S.all_in(q, UR(u, rl))), h), imp_nil(Bool.or(tk, us), UR(u, rl)))
 
 def ks_in(b: Bool, +x: Nat, +tail: +List<Nat>, +u: +List<Nat>, hm: T(b) -> T(M.mem(x, u)), +ht: T(S.all_in(tail, u))) -> T(S.all_in(M.keep_step(b, x, tail), u)):
   match b:
@@ -377,13 +389,43 @@ def keep_users_in(+q: +List<Nat>, +u: +List<Nat>) -> T(S.all_in(M.keep_users(q, 
 
 def takeover_begin3(+s: M.World, +h: T(inv3(s))) -> T(inv3(M.takeover_begin(s))):
   match s:
-    case M.W{+q, +haf, +htk, +t, +d, +u, +tt, +rl, +n, +tk, +i, +g}:
-      and_i(S.all_in(tt, UR(u, rl)), S.all_in(M.keep_users(q, []), UR(u, rl)), and_l(S.all_in(tt, UR(u, rl)), S.implies(tk, S.all_in(q, UR(u, rl))), h), all_in_trans(M.keep_users(q, []), [], UR(u, rl), keep_users_in(q, []), {==}))
+    case M.W{+q, +haf, +htk, +t, +d, +u, +tt, +rl, +n, +tk, +us, +i, +g}:
+      and_i(S.all_in(tt, UR(u, rl)), S.all_in(M.keep_users(q, []), UR(u, rl)), and_l(S.all_in(tt, UR(u, rl)), S.implies(Bool.or(tk, us), S.all_in(q, UR(u, rl))), h), all_in_trans(M.keep_users(q, []), [], UR(u, rl), keep_users_in(q, []), {==}))
+
+def user_input3(+s: M.World, +h: T(inv3(s))) -> T(inv3(M.user_input(s))):
+  match s:
+    case M.W{+q, +haf, +htk, +t, +d, +u, +tt, +rl, +n, +tk, +us, +i, +g}:
+      match tk:
+        case True{}:
+          and_i(S.all_in(tt, UR(u, rl)), S.all_in(M.keep_users(q, []), UR(u, rl)), and_l(S.all_in(tt, UR(u, rl)), S.all_in(q, UR(u, rl)), h), all_in_trans(M.keep_users(q, []), [], UR(u, rl), keep_users_in(q, []), {==}))
+        case False{}:
+          and_i(S.all_in(tt, UR(u, rl)), S.all_in(M.keep_users(q, []), UR(u, rl)), and_l(S.all_in(tt, UR(u, rl)), S.implies(us, S.all_in(q, UR(u, rl))), h), all_in_trans(M.keep_users(q, []), [], UR(u, rl), keep_users_in(q, []), {==}))
 
 def takeover_end3(+s: M.World, +h: T(inv3(s))) -> T(inv3(M.takeover_end(s))):
   match s:
-    case M.W{+q, +haf, +htk, +t, +d, +u, +tt, +rl, +n, +tk, +i, +g}:
-      flush3(M.W{List.append(&2, Nat, q, htk), haf, [], t, d, u, tt, rl, n, False{}, i, g}, and_i(S.all_in(tt, UR(u, rl)), True{}, and_l(S.all_in(tt, UR(u, rl)), S.implies(tk, S.all_in(q, UR(u, rl))), h), {==}))
+    case M.W{+q, +haf, +htk, +t, +d, +u, +tt, +rl, +n, +tk, +us, +i, +g}:
+      match tk:
+        case True{}:
+          match us:
+            case True{}:
+              h
+            case False{}:
+              flush3(M.W{List.append(&2, Nat, q, htk), haf, [], t, d, u, tt, rl, n, False{}, False{}, i, g}, and_i(S.all_in(tt, UR(u, rl)), True{}, and_l(S.all_in(tt, UR(u, rl)), S.all_in(q, UR(u, rl)), h), {==}))
+        case False{}:
+          match us:
+            case True{}:
+              h
+            case False{}:
+              flush3(M.W{List.append(&2, Nat, q, htk), haf, [], t, d, u, tt, rl, n, False{}, False{}, i, g}, h)
+
+def user_submit3(+s: M.World, +h: T(inv3(s))) -> T(inv3(M.user_submit(s))):
+  match s:
+    case M.W{+q, +haf, +htk, +t, +d, +u, +tt, +rl, +n, +tk, +us, +i, +g}:
+      match tk:
+        case True{}:
+          h
+        case False{}:
+          flush3(M.W{List.append(&2, Nat, q, htk), haf, [], t, d, u, tt, rl, n, False{}, False{}, i, g}, and_i(S.all_in(tt, UR(u, rl)), True{}, and_l(S.all_in(tt, UR(u, rl)), S.implies(Bool.or(tk, us), S.all_in(q, UR(u, rl))), h), {==}))
 
 def deliver_if3(b: Bool, +id: Nat, +s: M.World, +h: T(inv3(s))) -> T(inv3(M.deliver_if(b, id, s))):
   match b:
@@ -391,8 +433,8 @@ def deliver_if3(b: Bool, +id: Nat, +s: M.World, +h: T(inv3(s))) -> T(inv3(M.deli
       h
     case True{}:
       match s:
-        case M.W{+q, +haf, +htk, +t, +d, +u, +tt, +rl, +n, +tk, +i, +g}:
-          flush3(M.W{M.snoc(q, id), M.remove(id, haf), htk, t, d, u, tt, M.snoc(rl, id), n, tk, i, g}, I3_snoc(q, tt, u, rl, u, M.snoc(rl, id), tk, id, h, ur_mono_rl(u, rl, id), mem_ur_rl(u, rl, id)))
+        case M.W{+q, +haf, +htk, +t, +d, +u, +tt, +rl, +n, +tk, +us, +i, +g}:
+          flush3(M.W{M.snoc(q, id), M.remove(id, haf), htk, t, d, u, tt, M.snoc(rl, id), n, tk, us, i, g}, I3_snoc(q, tt, u, rl, u, M.snoc(rl, id), Bool.or(tk, us), id, h, ur_mono_rl(u, rl, id), mem_ur_rl(u, rl, id)))
 
 def deliver_tk3(b: Bool, +id: Nat, +s: M.World, +h: T(inv3(s))) -> T(inv3(M.deliver_tk(b, id, s))):
   match b:
@@ -400,8 +442,8 @@ def deliver_tk3(b: Bool, +id: Nat, +s: M.World, +h: T(inv3(s))) -> T(inv3(M.deli
       h
     case True{}:
       match s:
-        case M.W{+q, +haf, +htk, +t, +d, +u, +tt, +rl, +n, +tk, +i, +g}:
-          flush3(M.W{M.snoc(q, id), haf, M.remove(id, htk), t, d, u, tt, M.snoc(rl, id), n, tk, i, g}, I3_snoc(q, tt, u, rl, u, M.snoc(rl, id), tk, id, h, ur_mono_rl(u, rl, id), mem_ur_rl(u, rl, id)))
+        case M.W{+q, +haf, +htk, +t, +d, +u, +tt, +rl, +n, +tk, +us, +i, +g}:
+          flush3(M.W{M.snoc(q, id), haf, M.remove(id, htk), t, d, u, tt, M.snoc(rl, id), n, tk, us, i, g}, I3_snoc(q, tt, u, rl, u, M.snoc(rl, id), Bool.or(tk, us), id, h, ur_mono_rl(u, rl, id), mem_ur_rl(u, rl, id)))
 
 def deliver_pick3(a: Bool, b: Bool, +id: Nat, +s: M.World, +h: T(inv3(s))) -> T(inv3(M.deliver_pick(a, b, id, s))):
   match a:
@@ -412,8 +454,8 @@ def deliver_pick3(a: Bool, b: Bool, +id: Nat, +s: M.World, +h: T(inv3(s))) -> T(
 
 def user_deliver3(+id: Nat, +s: M.World, +h: T(inv3(s))) -> T(inv3(M.user_deliver(id, s))):
   match s:
-    case M.W{+q, +haf, +htk, +t, +d, +u, +tt, +rl, +n, +tk, +i, +g}:
-      deliver_pick3(Bool.and(M.mem(id, haf), Bool.not(g)), Bool.and(M.mem(id, htk), Bool.not(g)), id, M.W{q, haf, htk, t, d, u, tt, rl, n, tk, i, g}, h)
+    case M.W{+q, +haf, +htk, +t, +d, +u, +tt, +rl, +n, +tk, +us, +i, +g}:
+      deliver_pick3(Bool.and(M.mem(id, haf), Bool.not(g)), Bool.and(M.mem(id, htk), Bool.not(g)), id, M.W{q, haf, htk, t, d, u, tt, rl, n, tk, us, i, g}, h)
 
 def drop_if3(b: Bool, +id: Nat, +s: M.World, +h: T(inv3(s))) -> T(inv3(M.drop_if(b, id, s))):
   match b:
@@ -421,7 +463,7 @@ def drop_if3(b: Bool, +id: Nat, +s: M.World, +h: T(inv3(s))) -> T(inv3(M.drop_if
       h
     case True{}:
       match s:
-        case M.W{+q, +haf, +htk, +t, +d, +u, +tt, +rl, +n, +tk, +i, +g}:
+        case M.W{+q, +haf, +htk, +t, +d, +u, +tt, +rl, +n, +tk, +us, +i, +g}:
           h
 
 def drop_tk3(b: Bool, +id: Nat, +s: M.World, +h: T(inv3(s))) -> T(inv3(M.drop_tk(b, id, s))):
@@ -430,7 +472,7 @@ def drop_tk3(b: Bool, +id: Nat, +s: M.World, +h: T(inv3(s))) -> T(inv3(M.drop_tk
       h
     case True{}:
       match s:
-        case M.W{+q, +haf, +htk, +t, +d, +u, +tt, +rl, +n, +tk, +i, +g}:
+        case M.W{+q, +haf, +htk, +t, +d, +u, +tt, +rl, +n, +tk, +us, +i, +g}:
           h
 
 def drop_pick3(a: Bool, b: Bool, +id: Nat, +s: M.World, +h: T(inv3(s))) -> T(inv3(M.drop_pick(a, b, id, s))):
@@ -442,15 +484,19 @@ def drop_pick3(a: Bool, b: Bool, +id: Nat, +s: M.World, +h: T(inv3(s))) -> T(inv
 
 def user_drop3(+id: Nat, +s: M.World, +h: T(inv3(s))) -> T(inv3(M.user_drop(id, s))):
   match s:
-    case M.W{+q, +haf, +htk, +t, +d, +u, +tt, +rl, +n, +tk, +i, +g}:
-      drop_pick3(M.mem(id, haf), M.mem(id, htk), id, M.W{q, haf, htk, t, d, u, tt, rl, n, tk, i, g}, h)
+    case M.W{+q, +haf, +htk, +t, +d, +u, +tt, +rl, +n, +tk, +us, +i, +g}:
+      drop_pick3(M.mem(id, haf), M.mem(id, htk), id, M.W{q, haf, htk, t, d, u, tt, rl, n, tk, us, i, g}, h)
 
 def restart3(alive: Bool, +s: M.World, +h: T(inv3(s))) -> T(inv3(M.restart(alive, s))):
   match alive:
     case True{}:
-      takeover_end3(M.busy_ev(s), busy_ev3(s, h))
+      match s:
+        case M.W{+q, +haf, +htk, +t, +d, +u, +tt, +rl, +n, +tk, +us, +i, +g}:
+          and_i(S.all_in(tt, UR(u, rl)), True{}, and_l(S.all_in(tt, UR(u, rl)), S.implies(Bool.or(tk, us), S.all_in(q, UR(u, rl))), h), {==})
     case False{}:
-      takeover_end3(M.exit_(s), exit3(s, h))
+      match s:
+        case M.W{+q, +haf, +htk, +t, +d, +u, +tt, +rl, +n, +tk, +us, +i, +g}:
+          and_i(S.all_in(tt, UR(u, rl)), True{}, and_l(S.all_in(tt, UR(u, rl)), S.implies(Bool.or(tk, us), S.all_in(q, UR(u, rl))), h), {==})
 
 def step3(e: M.Ev, +s: M.World, +h: T(inv3(s))) -> T(inv3(M.step(e, s))):
   match e:
@@ -467,11 +513,11 @@ def step3(e: M.Ev, +s: M.World, +h: T(inv3(s))) -> T(inv3(M.step(e, s))):
     case M.TakeoverEnd{}:
       takeover_end3(s, h)
     case M.UserInput{}:
-      takeover_begin3(s, h)
+      user_input3(s, h)
     case M.UserSubmit{}:
-      takeover_end3(s, h)
+      user_submit3(s, h)
     case M.UserClear{}:
-      takeover_end3(s, h)
+      user_submit3(s, h)
     case M.UserDeliver{id}:
       user_deliver3(id, s, h)
     case M.UserDrop{id}:
@@ -507,21 +553,21 @@ def Laws.m3_takeover_isolates(evs):
   m3_main(evs)
 
 # ---- M2
-def fl_go2(+q: +List<Nat>, +haf: +List<Nat>, +htk: +List<Nat>, +t: +List<Nat>, +d: +List<Nat>, +u: +List<Nat>, +tt: +List<Nat>, +rl: +List<Nat>, +n: Nat, +tk: Bool, +i: Bool, +g: Bool, +s0: +List<Nat>) -> T(S.all_in(haf, S.held_af(M.flush_go(q, M.W{s0, haf, htk, t, d, u, tt, rl, n, tk, i, g})))):
+def fl_go2(+q: +List<Nat>, +haf: +List<Nat>, +htk: +List<Nat>, +t: +List<Nat>, +d: +List<Nat>, +u: +List<Nat>, +tt: +List<Nat>, +rl: +List<Nat>, +n: Nat, +us: Bool, +tk: Bool, +i: Bool, +g: Bool, +s0: +List<Nat>) -> T(S.all_in(haf, S.held_af(M.flush_go(q, M.W{s0, haf, htk, t, d, u, tt, rl, n, tk, us, i, g})))):
   match q:
     case Nil{}:
       all_in_refl(haf)
     case Con{+x, +rest}:
-      fl_go2(rest, haf, htk, M.snoc(t, x), d, u, M.record(tk, x, tt), rl, n, tk, False{}, g, [])
+      fl_go2(rest, haf, htk, M.snoc(t, x), d, u, M.record(Bool.or(tk, us), x, tt), rl, n, us, tk, False{}, g, [])
 
 def fl2(+s: M.World) -> T(S.all_in(S.held_af(s), S.held_af(M.flush(s)))):
   match s:
-    case M.W{+q, +haf, +htk, +t, +d, +u, +tt, +rl, +n, +tk, +i, +g}:
+    case M.W{+q, +haf, +htk, +t, +d, +u, +tt, +rl, +n, +tk, +us, +i, +g}:
       match i:
         case False{}:
           all_in_refl(haf)
         case True{}:
-          fl_go2(q, haf, htk, t, d, u, tt, rl, n, tk, True{}, g, [])
+          fl_go2(q, haf, htk, t, d, u, tt, rl, n, us, tk, True{}, g, [])
 
 def H2(+s: M.World, +s2: M.World) -> Bool:
   S.all_in(S.held_af(s), S.held_af(s2))
@@ -530,34 +576,42 @@ def send_auto2(fu: Bool, +s: M.World) -> T(H2(s, M.send_auto(fu, s))):
   match fu:
     case True{}:
       match s:
-        case M.W{+q, +haf, +htk, +t, +d, +u, +tt, +rl, +n, +tk, +i, +g}:
+        case M.W{+q, +haf, +htk, +t, +d, +u, +tt, +rl, +n, +tk, +us, +i, +g}:
           match tk:
             case True{}:
               all_in_refl(haf)
             case False{}:
-              fl2(M.W{M.snoc(q, n), haf, htk, t, d, M.snoc(u, n), tt, rl, 1n+n, False{}, i, g})
+              match us:
+                case True{}:
+                  all_in_refl(haf)
+                case False{}:
+                  fl2(M.W{M.snoc(q, n), haf, htk, t, d, M.snoc(u, n), tt, rl, 1n+n, False{}, False{}, i, g})
     case False{}:
       match s:
-        case M.W{+q, +haf, +htk, +t, +d, +u, +tt, +rl, +n, +tk, +i, +g}:
+        case M.W{+q, +haf, +htk, +t, +d, +u, +tt, +rl, +n, +tk, +us, +i, +g}:
           match tk:
             case True{}:
               all_in_refl(haf)
             case False{}:
-              fl2(M.W{M.snoc(q, n), haf, htk, t, d, u, tt, rl, 1n+n, False{}, i, g})
+              match us:
+                case True{}:
+                  all_in_refl(haf)
+                case False{}:
+                  fl2(M.W{M.snoc(q, n), haf, htk, t, d, u, tt, rl, 1n+n, False{}, False{}, i, g})
 
 def send_ev2(fu: Bool, r: M.Route, +s: M.World) -> T(H2(s, M.send_ev(fu, r, s))):
   match r:
     case M.Auto{}:
       match s:
-        case M.W{+q, +haf, +htk, +t, +d, +u, +tt, +rl, +n, +tk, +i, +g}:
+        case M.W{+q, +haf, +htk, +t, +d, +u, +tt, +rl, +n, +tk, +us, +i, +g}:
           match g:
             case True{}:
               all_in_refl(haf)
             case False{}:
-              send_auto2(fu, M.W{q, haf, htk, t, d, u, tt, rl, n, tk, i, False{}})
+              send_auto2(fu, M.W{q, haf, htk, t, d, u, tt, rl, n, tk, us, i, False{}})
     case M.AskFirst{}:
       match s:
-        case M.W{+q, +haf, +htk, +t, +d, +u, +tt, +rl, +n, +tk, +i, +g}:
+        case M.W{+q, +haf, +htk, +t, +d, +u, +tt, +rl, +n, +tk, +us, +i, +g}:
           match g:
             case True{}:
               all_in_refl(haf)
@@ -565,7 +619,7 @@ def send_ev2(fu: Bool, r: M.Route, +s: M.World) -> T(H2(s, M.send_ev(fu, r, s)))
               all_in_snoc_self(haf, n)
     case M.RouteDrop{}:
       match s:
-        case M.W{+q, +haf, +htk, +t, +d, +u, +tt, +rl, +n, +tk, +i, +g}:
+        case M.W{+q, +haf, +htk, +t, +d, +u, +tt, +rl, +n, +tk, +us, +i, +g}:
           match g:
             case True{}:
               all_in_refl(haf)
@@ -578,40 +632,52 @@ def step2(e: M.Ev, +s: M.World) -> T(S.implies(Bool.not(S.is_user_call(e)), H2(s
       send_ev2(fu, r, s)
     case M.Idle{}:
       match s:
-        case M.W{+q, +haf, +htk, +t, +d, +u, +tt, +rl, +n, +tk, +i, +g}:
+        case M.W{+q, +haf, +htk, +t, +d, +u, +tt, +rl, +n, +tk, +us, +i, +g}:
           match g:
             case True{}:
               all_in_refl(haf)
             case False{}:
-              fl2(M.W{q, haf, htk, t, d, u, tt, rl, n, tk, True{}, False{}})
+              fl2(M.W{q, haf, htk, t, d, u, tt, rl, n, tk, us, True{}, False{}})
     case M.Busy{}:
       match s:
-        case M.W{+q, +haf, +htk, +t, +d, +u, +tt, +rl, +n, +tk, +i, +g}:
+        case M.W{+q, +haf, +htk, +t, +d, +u, +tt, +rl, +n, +tk, +us, +i, +g}:
           all_in_refl(haf)
     case M.Exit{}:
       match s:
-        case M.W{+q, +haf, +htk, +t, +d, +u, +tt, +rl, +n, +tk, +i, +g}:
+        case M.W{+q, +haf, +htk, +t, +d, +u, +tt, +rl, +n, +tk, +us, +i, +g}:
           all_in_refl(haf)
     case M.TakeoverBegin{}:
       match s:
-        case M.W{+q, +haf, +htk, +t, +d, +u, +tt, +rl, +n, +tk, +i, +g}:
+        case M.W{+q, +haf, +htk, +t, +d, +u, +tt, +rl, +n, +tk, +us, +i, +g}:
           all_in_refl(haf)
     case M.TakeoverEnd{}:
       match s:
-        case M.W{+q, +haf, +htk, +t, +d, +u, +tt, +rl, +n, +tk, +i, +g}:
-          fl2(M.W{List.append(&2, Nat, q, htk), haf, [], t, d, u, tt, rl, n, False{}, i, g})
+        case M.W{+q, +haf, +htk, +t, +d, +u, +tt, +rl, +n, +tk, +us, +i, +g}:
+          match us:
+            case True{}:
+              all_in_refl(haf)
+            case False{}:
+              fl2(M.W{List.append(&2, Nat, q, htk), haf, [], t, d, u, tt, rl, n, False{}, False{}, i, g})
     case M.UserInput{}:
       match s:
-        case M.W{+q, +haf, +htk, +t, +d, +u, +tt, +rl, +n, +tk, +i, +g}:
+        case M.W{+q, +haf, +htk, +t, +d, +u, +tt, +rl, +n, +tk, +us, +i, +g}:
           all_in_refl(haf)
     case M.UserSubmit{}:
       match s:
-        case M.W{+q, +haf, +htk, +t, +d, +u, +tt, +rl, +n, +tk, +i, +g}:
-          fl2(M.W{List.append(&2, Nat, q, htk), haf, [], t, d, u, tt, rl, n, False{}, i, g})
+        case M.W{+q, +haf, +htk, +t, +d, +u, +tt, +rl, +n, +tk, +us, +i, +g}:
+          match tk:
+            case True{}:
+              all_in_refl(haf)
+            case False{}:
+              fl2(M.W{List.append(&2, Nat, q, htk), haf, [], t, d, u, tt, rl, n, False{}, False{}, i, g})
     case M.UserClear{}:
       match s:
-        case M.W{+q, +haf, +htk, +t, +d, +u, +tt, +rl, +n, +tk, +i, +g}:
-          fl2(M.W{List.append(&2, Nat, q, htk), haf, [], t, d, u, tt, rl, n, False{}, i, g})
+        case M.W{+q, +haf, +htk, +t, +d, +u, +tt, +rl, +n, +tk, +us, +i, +g}:
+          match tk:
+            case True{}:
+              all_in_refl(haf)
+            case False{}:
+              fl2(M.W{List.append(&2, Nat, q, htk), haf, [], t, d, u, tt, rl, n, False{}, False{}, i, g})
     case M.UserDeliver{id}:
       {==}
     case M.UserDrop{id}:
@@ -620,39 +686,39 @@ def step2(e: M.Ev, +s: M.World) -> T(S.implies(Bool.not(S.is_user_call(e)), H2(s
       match alive:
         case True{}:
           match s:
-            case M.W{+q, +haf, +htk, +t, +d, +u, +tt, +rl, +n, +tk, +i, +g}:
-              fl2(M.W{List.append(&2, Nat, q, htk), haf, [], t, d, u, tt, rl, n, False{}, False{}, g})
+            case M.W{+q, +haf, +htk, +t, +d, +u, +tt, +rl, +n, +tk, +us, +i, +g}:
+              fl2(M.W{List.append(&2, Nat, q, htk), haf, [], t, d, u, tt, rl, n, False{}, False{}, False{}, g})
         case False{}:
           match s:
-            case M.W{+q, +haf, +htk, +t, +d, +u, +tt, +rl, +n, +tk, +i, +g}:
-              fl2(M.W{[], haf, [], t, List.append(&2, Nat, d, List.append(&2, Nat, q, htk)), u, tt, rl, n, False{}, False{}, True{}})
+            case M.W{+q, +haf, +htk, +t, +d, +u, +tt, +rl, +n, +tk, +us, +i, +g}:
+              fl2(M.W{[], haf, [], t, List.append(&2, Nat, d, List.append(&2, Nat, q, htk)), u, tt, rl, n, False{}, False{}, False{}, True{}})
     case M.Ask{o, c}:
       match s:
-        case M.W{+q, +haf, +htk, +t, +d, +u, +tt, +rl, +n, +tk, +i, +g}:
+        case M.W{+q, +haf, +htk, +t, +d, +u, +tt, +rl, +n, +tk, +us, +i, +g}:
           all_in_refl(haf)
     case M.HopMade{}:
       match s:
-        case M.W{+q, +haf, +htk, +t, +d, +u, +tt, +rl, +n, +tk, +i, +g}:
+        case M.W{+q, +haf, +htk, +t, +d, +u, +tt, +rl, +n, +tk, +us, +i, +g}:
           all_in_refl(haf)
     case M.HopEnded{}:
       match s:
-        case M.W{+q, +haf, +htk, +t, +d, +u, +tt, +rl, +n, +tk, +i, +g}:
+        case M.W{+q, +haf, +htk, +t, +d, +u, +tt, +rl, +n, +tk, +us, +i, +g}:
           all_in_refl(haf)
     case M.BoundPassed{}:
       match s:
-        case M.W{+q, +haf, +htk, +t, +d, +u, +tt, +rl, +n, +tk, +i, +g}:
+        case M.W{+q, +haf, +htk, +t, +d, +u, +tt, +rl, +n, +tk, +us, +i, +g}:
           all_in_refl(haf)
     case M.Answer{}:
       match s:
-        case M.W{+q, +haf, +htk, +t, +d, +u, +tt, +rl, +n, +tk, +i, +g}:
+        case M.W{+q, +haf, +htk, +t, +d, +u, +tt, +rl, +n, +tk, +us, +i, +g}:
           all_in_refl(haf)
     case M.Escalate{}:
       match s:
-        case M.W{+q, +haf, +htk, +t, +d, +u, +tt, +rl, +n, +tk, +i, +g}:
+        case M.W{+q, +haf, +htk, +t, +d, +u, +tt, +rl, +n, +tk, +us, +i, +g}:
           all_in_refl(haf)
     case M.Reply{}:
       match s:
-        case M.W{+q, +haf, +htk, +t, +d, +u, +tt, +rl, +n, +tk, +i, +g}:
+        case M.W{+q, +haf, +htk, +t, +d, +u, +tt, +rl, +n, +tk, +us, +i, +g}:
           all_in_refl(haf)
 
 def m2_main(+evs: +List<M.Ev>, e: M.Ev) -> T(S.implies(Bool.not(S.is_user_call(e)), S.all_in(S.held_af(S.world(evs)), S.held_af(M.step(e, S.world(evs)))))):
@@ -687,54 +753,62 @@ def prefix_drop(+l: +List<Nat>, +y: Nat, +m: +List<Nat>, +h: T(S.is_prefix(M.sno
         case Con{+z, +m2}:
           and_i(Nat.is_eq(x, z), S.is_prefix(rest, m2), and_l(Nat.is_eq(x, z), S.is_prefix(M.snoc(rest, y), m2), h), prefix_drop(rest, y, m2, and_r(Nat.is_eq(x, z), S.is_prefix(M.snoc(rest, y), m2), h)))
 
-def fl_go4(+q: +List<Nat>, +haf: +List<Nat>, +htk: +List<Nat>, +t: +List<Nat>, +d: +List<Nat>, +u: +List<Nat>, +tt: +List<Nat>, +rl: +List<Nat>, +n: Nat, +tk: Bool, +i: Bool, +g: Bool, +s0: +List<Nat>) -> T(S.is_prefix(t, S.typed(M.flush_go(q, M.W{s0, haf, htk, t, d, u, tt, rl, n, tk, i, g})))):
+def fl_go4(+q: +List<Nat>, +haf: +List<Nat>, +htk: +List<Nat>, +t: +List<Nat>, +d: +List<Nat>, +u: +List<Nat>, +tt: +List<Nat>, +rl: +List<Nat>, +n: Nat, +us: Bool, +tk: Bool, +i: Bool, +g: Bool, +s0: +List<Nat>) -> T(S.is_prefix(t, S.typed(M.flush_go(q, M.W{s0, haf, htk, t, d, u, tt, rl, n, tk, us, i, g})))):
   match q:
     case Nil{}:
       prefix_refl(t)
     case Con{+x, +rest}:
-      prefix_drop(t, x, S.typed(M.flush_go(rest, M.W{[], haf, htk, M.snoc(t, x), d, u, M.record(tk, x, tt), rl, n, tk, False{}, g})), fl_go4(rest, haf, htk, M.snoc(t, x), d, u, M.record(tk, x, tt), rl, n, tk, False{}, g, []))
+      prefix_drop(t, x, S.typed(M.flush_go(rest, M.W{[], haf, htk, M.snoc(t, x), d, u, M.record(Bool.or(tk, us), x, tt), rl, n, tk, us, False{}, g})), fl_go4(rest, haf, htk, M.snoc(t, x), d, u, M.record(Bool.or(tk, us), x, tt), rl, n, us, tk, False{}, g, []))
 
 def fl4(+s: M.World) -> T(S.is_prefix(S.typed(s), S.typed(M.flush(s)))):
   match s:
-    case M.W{+q, +haf, +htk, +t, +d, +u, +tt, +rl, +n, +tk, +i, +g}:
+    case M.W{+q, +haf, +htk, +t, +d, +u, +tt, +rl, +n, +tk, +us, +i, +g}:
       match i:
         case False{}:
           prefix_refl(t)
         case True{}:
-          fl_go4(q, haf, htk, t, d, u, tt, rl, n, tk, True{}, g, [])
+          fl_go4(q, haf, htk, t, d, u, tt, rl, n, us, tk, True{}, g, [])
 
 def send_auto4(fu: Bool, +s: M.World) -> T(S.is_prefix(S.typed(s), S.typed(M.send_auto(fu, s)))):
   match fu:
     case True{}:
       match s:
-        case M.W{+q, +haf, +htk, +t, +d, +u, +tt, +rl, +n, +tk, +i, +g}:
+        case M.W{+q, +haf, +htk, +t, +d, +u, +tt, +rl, +n, +tk, +us, +i, +g}:
           match tk:
             case True{}:
               prefix_refl(t)
             case False{}:
-              fl4(M.W{M.snoc(q, n), haf, htk, t, d, M.snoc(u, n), tt, rl, 1n+n, False{}, i, g})
+              match us:
+                case True{}:
+                  prefix_refl(t)
+                case False{}:
+                  fl4(M.W{M.snoc(q, n), haf, htk, t, d, M.snoc(u, n), tt, rl, 1n+n, False{}, False{}, i, g})
     case False{}:
       match s:
-        case M.W{+q, +haf, +htk, +t, +d, +u, +tt, +rl, +n, +tk, +i, +g}:
+        case M.W{+q, +haf, +htk, +t, +d, +u, +tt, +rl, +n, +tk, +us, +i, +g}:
           match tk:
             case True{}:
               prefix_refl(t)
             case False{}:
-              fl4(M.W{M.snoc(q, n), haf, htk, t, d, u, tt, rl, 1n+n, False{}, i, g})
+              match us:
+                case True{}:
+                  prefix_refl(t)
+                case False{}:
+                  fl4(M.W{M.snoc(q, n), haf, htk, t, d, u, tt, rl, 1n+n, False{}, False{}, i, g})
 
 def send_ev4(fu: Bool, r: M.Route, +s: M.World) -> T(S.is_prefix(S.typed(s), S.typed(M.send_ev(fu, r, s)))):
   match r:
     case M.Auto{}:
       match s:
-        case M.W{+q, +haf, +htk, +t, +d, +u, +tt, +rl, +n, +tk, +i, +g}:
+        case M.W{+q, +haf, +htk, +t, +d, +u, +tt, +rl, +n, +tk, +us, +i, +g}:
           match g:
             case True{}:
               prefix_refl(t)
             case False{}:
-              send_auto4(fu, M.W{q, haf, htk, t, d, u, tt, rl, n, tk, i, False{}})
+              send_auto4(fu, M.W{q, haf, htk, t, d, u, tt, rl, n, tk, us, i, False{}})
     case M.AskFirst{}:
       match s:
-        case M.W{+q, +haf, +htk, +t, +d, +u, +tt, +rl, +n, +tk, +i, +g}:
+        case M.W{+q, +haf, +htk, +t, +d, +u, +tt, +rl, +n, +tk, +us, +i, +g}:
           match g:
             case True{}:
               prefix_refl(t)
@@ -742,7 +816,7 @@ def send_ev4(fu: Bool, r: M.Route, +s: M.World) -> T(S.is_prefix(S.typed(s), S.t
               prefix_refl(t)
     case M.RouteDrop{}:
       match s:
-        case M.W{+q, +haf, +htk, +t, +d, +u, +tt, +rl, +n, +tk, +i, +g}:
+        case M.W{+q, +haf, +htk, +t, +d, +u, +tt, +rl, +n, +tk, +us, +i, +g}:
           match g:
             case True{}:
               prefix_refl(t)
@@ -753,23 +827,23 @@ def deliver_if4(b: Bool, +id: Nat, +s: M.World) -> T(S.is_prefix(S.typed(s), S.t
   match b:
     case False{}:
       match s:
-        case M.W{+q, +haf, +htk, +t, +d, +u, +tt, +rl, +n, +tk, +i, +g}:
+        case M.W{+q, +haf, +htk, +t, +d, +u, +tt, +rl, +n, +tk, +us, +i, +g}:
           prefix_refl(t)
     case True{}:
       match s:
-        case M.W{+q, +haf, +htk, +t, +d, +u, +tt, +rl, +n, +tk, +i, +g}:
-          fl4(M.W{M.snoc(q, id), M.remove(id, haf), htk, t, d, u, tt, M.snoc(rl, id), n, tk, i, g})
+        case M.W{+q, +haf, +htk, +t, +d, +u, +tt, +rl, +n, +tk, +us, +i, +g}:
+          fl4(M.W{M.snoc(q, id), M.remove(id, haf), htk, t, d, u, tt, M.snoc(rl, id), n, tk, us, i, g})
 
 def deliver_tk4(b: Bool, +id: Nat, +s: M.World) -> T(S.is_prefix(S.typed(s), S.typed(M.deliver_tk(b, id, s)))):
   match b:
     case False{}:
       match s:
-        case M.W{+q, +haf, +htk, +t, +d, +u, +tt, +rl, +n, +tk, +i, +g}:
+        case M.W{+q, +haf, +htk, +t, +d, +u, +tt, +rl, +n, +tk, +us, +i, +g}:
           prefix_refl(t)
     case True{}:
       match s:
-        case M.W{+q, +haf, +htk, +t, +d, +u, +tt, +rl, +n, +tk, +i, +g}:
-          fl4(M.W{M.snoc(q, id), haf, M.remove(id, htk), t, d, u, tt, M.snoc(rl, id), n, tk, i, g})
+        case M.W{+q, +haf, +htk, +t, +d, +u, +tt, +rl, +n, +tk, +us, +i, +g}:
+          fl4(M.W{M.snoc(q, id), haf, M.remove(id, htk), t, d, u, tt, M.snoc(rl, id), n, tk, us, i, g})
 
 def deliver_pick4(a: Bool, b: Bool, +id: Nat, +s: M.World) -> T(S.is_prefix(S.typed(s), S.typed(M.deliver_pick(a, b, id, s)))):
   match a:
@@ -782,22 +856,22 @@ def drop_if4(b: Bool, +id: Nat, +s: M.World) -> T(S.is_prefix(S.typed(s), S.type
   match b:
     case False{}:
       match s:
-        case M.W{+q, +haf, +htk, +t, +d, +u, +tt, +rl, +n, +tk, +i, +g}:
+        case M.W{+q, +haf, +htk, +t, +d, +u, +tt, +rl, +n, +tk, +us, +i, +g}:
           prefix_refl(t)
     case True{}:
       match s:
-        case M.W{+q, +haf, +htk, +t, +d, +u, +tt, +rl, +n, +tk, +i, +g}:
+        case M.W{+q, +haf, +htk, +t, +d, +u, +tt, +rl, +n, +tk, +us, +i, +g}:
           prefix_refl(t)
 
 def drop_tk4(b: Bool, +id: Nat, +s: M.World) -> T(S.is_prefix(S.typed(s), S.typed(M.drop_tk(b, id, s)))):
   match b:
     case False{}:
       match s:
-        case M.W{+q, +haf, +htk, +t, +d, +u, +tt, +rl, +n, +tk, +i, +g}:
+        case M.W{+q, +haf, +htk, +t, +d, +u, +tt, +rl, +n, +tk, +us, +i, +g}:
           prefix_refl(t)
     case True{}:
       match s:
-        case M.W{+q, +haf, +htk, +t, +d, +u, +tt, +rl, +n, +tk, +i, +g}:
+        case M.W{+q, +haf, +htk, +t, +d, +u, +tt, +rl, +n, +tk, +us, +i, +g}:
           prefix_refl(t)
 
 def drop_pick4(a: Bool, b: Bool, +id: Nat, +s: M.World) -> T(S.is_prefix(S.typed(s), S.typed(M.drop_pick(a, b, id, s)))):
@@ -813,85 +887,97 @@ def step4(e: M.Ev, +s: M.World) -> T(S.is_prefix(S.typed(s), S.typed(M.step(e, s
       send_ev4(fu, r, s)
     case M.Idle{}:
       match s:
-        case M.W{+q, +haf, +htk, +t, +d, +u, +tt, +rl, +n, +tk, +i, +g}:
+        case M.W{+q, +haf, +htk, +t, +d, +u, +tt, +rl, +n, +tk, +us, +i, +g}:
           match g:
             case True{}:
               prefix_refl(t)
             case False{}:
-              fl4(M.W{q, haf, htk, t, d, u, tt, rl, n, tk, True{}, False{}})
+              fl4(M.W{q, haf, htk, t, d, u, tt, rl, n, tk, us, True{}, False{}})
     case M.Busy{}:
       match s:
-        case M.W{+q, +haf, +htk, +t, +d, +u, +tt, +rl, +n, +tk, +i, +g}:
+        case M.W{+q, +haf, +htk, +t, +d, +u, +tt, +rl, +n, +tk, +us, +i, +g}:
           prefix_refl(t)
     case M.Exit{}:
       match s:
-        case M.W{+q, +haf, +htk, +t, +d, +u, +tt, +rl, +n, +tk, +i, +g}:
+        case M.W{+q, +haf, +htk, +t, +d, +u, +tt, +rl, +n, +tk, +us, +i, +g}:
           prefix_refl(t)
     case M.TakeoverBegin{}:
       match s:
-        case M.W{+q, +haf, +htk, +t, +d, +u, +tt, +rl, +n, +tk, +i, +g}:
+        case M.W{+q, +haf, +htk, +t, +d, +u, +tt, +rl, +n, +tk, +us, +i, +g}:
           prefix_refl(t)
     case M.TakeoverEnd{}:
       match s:
-        case M.W{+q, +haf, +htk, +t, +d, +u, +tt, +rl, +n, +tk, +i, +g}:
-          fl4(M.W{List.append(&2, Nat, q, htk), haf, [], t, d, u, tt, rl, n, False{}, i, g})
+        case M.W{+q, +haf, +htk, +t, +d, +u, +tt, +rl, +n, +tk, +us, +i, +g}:
+          match us:
+            case True{}:
+              prefix_refl(t)
+            case False{}:
+              fl4(M.W{List.append(&2, Nat, q, htk), haf, [], t, d, u, tt, rl, n, False{}, False{}, i, g})
     case M.UserInput{}:
       match s:
-        case M.W{+q, +haf, +htk, +t, +d, +u, +tt, +rl, +n, +tk, +i, +g}:
+        case M.W{+q, +haf, +htk, +t, +d, +u, +tt, +rl, +n, +tk, +us, +i, +g}:
           prefix_refl(t)
     case M.UserSubmit{}:
       match s:
-        case M.W{+q, +haf, +htk, +t, +d, +u, +tt, +rl, +n, +tk, +i, +g}:
-          fl4(M.W{List.append(&2, Nat, q, htk), haf, [], t, d, u, tt, rl, n, False{}, i, g})
+        case M.W{+q, +haf, +htk, +t, +d, +u, +tt, +rl, +n, +tk, +us, +i, +g}:
+          match tk:
+            case True{}:
+              prefix_refl(t)
+            case False{}:
+              fl4(M.W{List.append(&2, Nat, q, htk), haf, [], t, d, u, tt, rl, n, False{}, False{}, i, g})
     case M.UserClear{}:
       match s:
-        case M.W{+q, +haf, +htk, +t, +d, +u, +tt, +rl, +n, +tk, +i, +g}:
-          fl4(M.W{List.append(&2, Nat, q, htk), haf, [], t, d, u, tt, rl, n, False{}, i, g})
+        case M.W{+q, +haf, +htk, +t, +d, +u, +tt, +rl, +n, +tk, +us, +i, +g}:
+          match tk:
+            case True{}:
+              prefix_refl(t)
+            case False{}:
+              fl4(M.W{List.append(&2, Nat, q, htk), haf, [], t, d, u, tt, rl, n, False{}, False{}, i, g})
     case M.UserDeliver{+id}:
       match s:
-        case M.W{+q, +haf, +htk, +t, +d, +u, +tt, +rl, +n, +tk, +i, +g}:
-          deliver_pick4(Bool.and(M.mem(id, haf), Bool.not(g)), Bool.and(M.mem(id, htk), Bool.not(g)), id, M.W{q, haf, htk, t, d, u, tt, rl, n, tk, i, g})
+        case M.W{+q, +haf, +htk, +t, +d, +u, +tt, +rl, +n, +tk, +us, +i, +g}:
+          deliver_pick4(Bool.and(M.mem(id, haf), Bool.not(g)), Bool.and(M.mem(id, htk), Bool.not(g)), id, M.W{q, haf, htk, t, d, u, tt, rl, n, tk, us, i, g})
     case M.UserDrop{+id}:
       match s:
-        case M.W{+q, +haf, +htk, +t, +d, +u, +tt, +rl, +n, +tk, +i, +g}:
-          drop_pick4(M.mem(id, haf), M.mem(id, htk), id, M.W{q, haf, htk, t, d, u, tt, rl, n, tk, i, g})
+        case M.W{+q, +haf, +htk, +t, +d, +u, +tt, +rl, +n, +tk, +us, +i, +g}:
+          drop_pick4(M.mem(id, haf), M.mem(id, htk), id, M.W{q, haf, htk, t, d, u, tt, rl, n, tk, us, i, g})
     case M.Restart{alive}:
       match alive:
         case True{}:
           match s:
-            case M.W{+q, +haf, +htk, +t, +d, +u, +tt, +rl, +n, +tk, +i, +g}:
-              fl4(M.W{List.append(&2, Nat, q, htk), haf, [], t, d, u, tt, rl, n, False{}, False{}, g})
+            case M.W{+q, +haf, +htk, +t, +d, +u, +tt, +rl, +n, +tk, +us, +i, +g}:
+              fl4(M.W{List.append(&2, Nat, q, htk), haf, [], t, d, u, tt, rl, n, False{}, False{}, False{}, g})
         case False{}:
           match s:
-            case M.W{+q, +haf, +htk, +t, +d, +u, +tt, +rl, +n, +tk, +i, +g}:
-              fl4(M.W{[], haf, [], t, List.append(&2, Nat, d, List.append(&2, Nat, q, htk)), u, tt, rl, n, False{}, False{}, True{}})
+            case M.W{+q, +haf, +htk, +t, +d, +u, +tt, +rl, +n, +tk, +us, +i, +g}:
+              fl4(M.W{[], haf, [], t, List.append(&2, Nat, d, List.append(&2, Nat, q, htk)), u, tt, rl, n, False{}, False{}, False{}, True{}})
     case M.Ask{o, c}:
       match s:
-        case M.W{+q, +haf, +htk, +t, +d, +u, +tt, +rl, +n, +tk, +i, +g}:
+        case M.W{+q, +haf, +htk, +t, +d, +u, +tt, +rl, +n, +tk, +us, +i, +g}:
           prefix_refl(t)
     case M.HopMade{}:
       match s:
-        case M.W{+q, +haf, +htk, +t, +d, +u, +tt, +rl, +n, +tk, +i, +g}:
+        case M.W{+q, +haf, +htk, +t, +d, +u, +tt, +rl, +n, +tk, +us, +i, +g}:
           prefix_refl(t)
     case M.HopEnded{}:
       match s:
-        case M.W{+q, +haf, +htk, +t, +d, +u, +tt, +rl, +n, +tk, +i, +g}:
+        case M.W{+q, +haf, +htk, +t, +d, +u, +tt, +rl, +n, +tk, +us, +i, +g}:
           prefix_refl(t)
     case M.BoundPassed{}:
       match s:
-        case M.W{+q, +haf, +htk, +t, +d, +u, +tt, +rl, +n, +tk, +i, +g}:
+        case M.W{+q, +haf, +htk, +t, +d, +u, +tt, +rl, +n, +tk, +us, +i, +g}:
           prefix_refl(t)
     case M.Answer{}:
       match s:
-        case M.W{+q, +haf, +htk, +t, +d, +u, +tt, +rl, +n, +tk, +i, +g}:
+        case M.W{+q, +haf, +htk, +t, +d, +u, +tt, +rl, +n, +tk, +us, +i, +g}:
           prefix_refl(t)
     case M.Escalate{}:
       match s:
-        case M.W{+q, +haf, +htk, +t, +d, +u, +tt, +rl, +n, +tk, +i, +g}:
+        case M.W{+q, +haf, +htk, +t, +d, +u, +tt, +rl, +n, +tk, +us, +i, +g}:
           prefix_refl(t)
     case M.Reply{}:
       match s:
-        case M.W{+q, +haf, +htk, +t, +d, +u, +tt, +rl, +n, +tk, +i, +g}:
+        case M.W{+q, +haf, +htk, +t, +d, +u, +tt, +rl, +n, +tk, +us, +i, +g}:
           prefix_refl(t)
 
 def m4_main(+evs: +List<M.Ev>, e: M.Ev) -> T(S.is_prefix(S.typed(S.world(evs)), S.typed(M.step(e, S.world(evs))))):
@@ -918,7 +1004,7 @@ def imp_and_r(b: Bool, x: Bool, y: Bool, +h: T(S.implies(b, Bool.and(x, y)))) ->
 def G7(+s: M.World) -> Bool:
   S.implies(S.gone(s), Bool.and(S.is_nil(S.queue(s)), S.is_nil(S.held_tk(s))))
 
-def flush_go7(+q: +List<Nat>, +haf: +List<Nat>, +htk: +List<Nat>, +t: +List<Nat>, +d: +List<Nat>, +u: +List<Nat>, +tt: +List<Nat>, +rl: +List<Nat>, +n: Nat, +tk: Bool, +i: Bool, +g: Bool, +hq: T(S.implies(g, S.is_nil(q))), +hh: T(S.implies(g, S.is_nil(htk)))) -> T(G7(M.flush_go(q, M.W{[], haf, htk, t, d, u, tt, rl, n, tk, i, g}))):
+def flush_go7(+q: +List<Nat>, +haf: +List<Nat>, +htk: +List<Nat>, +t: +List<Nat>, +d: +List<Nat>, +u: +List<Nat>, +tt: +List<Nat>, +rl: +List<Nat>, +n: Nat, +us: Bool, +tk: Bool, +i: Bool, +g: Bool, +hq: T(S.implies(g, S.is_nil(q))), +hh: T(S.implies(g, S.is_nil(htk)))) -> T(G7(M.flush_go(q, M.W{[], haf, htk, t, d, u, tt, rl, n, tk, us, i, g}))):
   match q:
     case Nil{}:
       match g:
@@ -929,47 +1015,55 @@ def flush_go7(+q: +List<Nat>, +haf: +List<Nat>, +htk: +List<Nat>, +t: +List<Nat>
     case Con{+x, +rest}:
       match g:
         case True{}:
-          no(T(G7(M.flush_go(x <> rest, M.W{[], haf, htk, t, d, u, tt, rl, n, tk, i, True{}}))), hq)
+          no(T(G7(M.flush_go(x <> rest, M.W{[], haf, htk, t, d, u, tt, rl, n, tk, us, i, True{}}))), hq)
         case False{}:
-          flush_go7(rest, haf, htk, M.snoc(t, x), d, u, M.record(tk, x, tt), rl, n, tk, False{}, False{}, {==}, {==})
+          flush_go7(rest, haf, htk, M.snoc(t, x), d, u, M.record(Bool.or(tk, us), x, tt), rl, n, us, tk, False{}, False{}, {==}, {==})
 
 def flush7(+s: M.World, +h: T(G7(s))) -> T(G7(M.flush(s))):
   match s:
-    case M.W{+q, +haf, +htk, +t, +d, +u, +tt, +rl, +n, +tk, +i, +g}:
+    case M.W{+q, +haf, +htk, +t, +d, +u, +tt, +rl, +n, +tk, +us, +i, +g}:
       match i:
         case False{}:
           h
         case True{}:
-          flush_go7(q, haf, htk, t, d, u, tt, rl, n, tk, True{}, g, imp_and_l(g, S.is_nil(q), S.is_nil(htk), h), imp_and_r(g, S.is_nil(q), S.is_nil(htk), h))
+          flush_go7(q, haf, htk, t, d, u, tt, rl, n, us, tk, True{}, g, imp_and_l(g, S.is_nil(q), S.is_nil(htk), h), imp_and_r(g, S.is_nil(q), S.is_nil(htk), h))
 
-def send_auto7(fu: Bool, +q: +List<Nat>, +haf: +List<Nat>, +htk: +List<Nat>, +t: +List<Nat>, +d: +List<Nat>, +u: +List<Nat>, +tt: +List<Nat>, +rl: +List<Nat>, +n: Nat, +tk: Bool, +i: Bool) -> T(G7(M.send_auto(fu, M.W{q, haf, htk, t, d, u, tt, rl, n, tk, i, False{}}))):
+def send_auto7(fu: Bool, +q: +List<Nat>, +haf: +List<Nat>, +htk: +List<Nat>, +t: +List<Nat>, +d: +List<Nat>, +u: +List<Nat>, +tt: +List<Nat>, +rl: +List<Nat>, +n: Nat, +tk: Bool, +us: Bool, +i: Bool) -> T(G7(M.send_auto(fu, M.W{q, haf, htk, t, d, u, tt, rl, n, tk, us, i, False{}}))):
   match fu:
     case True{}:
       match tk:
         case True{}:
           {==}
         case False{}:
-          flush7(M.W{M.snoc(q, n), haf, htk, t, d, M.snoc(u, n), tt, rl, 1n+n, False{}, i, False{}}, {==})
+          match us:
+            case True{}:
+              {==}
+            case False{}:
+              flush7(M.W{M.snoc(q, n), haf, htk, t, d, M.snoc(u, n), tt, rl, 1n+n, False{}, False{}, i, False{}}, {==})
     case False{}:
       match tk:
         case True{}:
           {==}
         case False{}:
-          flush7(M.W{M.snoc(q, n), haf, htk, t, d, u, tt, rl, 1n+n, False{}, i, False{}}, {==})
+          match us:
+            case True{}:
+              {==}
+            case False{}:
+              flush7(M.W{M.snoc(q, n), haf, htk, t, d, u, tt, rl, 1n+n, False{}, False{}, i, False{}}, {==})
 
 def send_ev7(fu: Bool, r: M.Route, +s: M.World, +h: T(G7(s))) -> T(G7(M.send_ev(fu, r, s))):
   match r:
     case M.Auto{}:
       match s:
-        case M.W{+q, +haf, +htk, +t, +d, +u, +tt, +rl, +n, +tk, +i, +g}:
+        case M.W{+q, +haf, +htk, +t, +d, +u, +tt, +rl, +n, +tk, +us, +i, +g}:
           match g:
             case True{}:
               h
             case False{}:
-              send_auto7(fu, q, haf, htk, t, d, u, tt, rl, n, tk, i)
+              send_auto7(fu, q, haf, htk, t, d, u, tt, rl, n, tk, us, i)
     case M.AskFirst{}:
       match s:
-        case M.W{+q, +haf, +htk, +t, +d, +u, +tt, +rl, +n, +tk, +i, +g}:
+        case M.W{+q, +haf, +htk, +t, +d, +u, +tt, +rl, +n, +tk, +us, +i, +g}:
           match g:
             case True{}:
               h
@@ -977,7 +1071,7 @@ def send_ev7(fu: Bool, r: M.Route, +s: M.World, +h: T(G7(s))) -> T(G7(M.send_ev(
               {==}
     case M.RouteDrop{}:
       match s:
-        case M.W{+q, +haf, +htk, +t, +d, +u, +tt, +rl, +n, +tk, +i, +g}:
+        case M.W{+q, +haf, +htk, +t, +d, +u, +tt, +rl, +n, +tk, +us, +i, +g}:
           match g:
             case True{}:
               h
@@ -986,7 +1080,7 @@ def send_ev7(fu: Bool, r: M.Route, +s: M.World, +h: T(G7(s))) -> T(G7(M.send_ev(
 
 def takeover_begin7(+s: M.World, +h: T(G7(s))) -> T(G7(M.takeover_begin(s))):
   match s:
-    case M.W{+q, +haf, +htk, +t, +d, +u, +tt, +rl, +n, +tk, +i, +g}:
+    case M.W{+q, +haf, +htk, +t, +d, +u, +tt, +rl, +n, +tk, +us, +i, +g}:
       match q:
         case Nil{}:
           match htk:
@@ -995,36 +1089,71 @@ def takeover_begin7(+s: M.World, +h: T(G7(s))) -> T(G7(M.takeover_begin(s))):
             case Con{+y, +yr}:
               match g:
                 case True{}:
-                  no(T(G7(M.takeover_begin(M.W{[], haf, y <> yr, t, d, u, tt, rl, n, tk, i, True{}}))), h)
+                  no(T(G7(M.takeover_begin(M.W{[], haf, y <> yr, t, d, u, tt, rl, n, tk, us, i, True{}}))), h)
                 case False{}:
                   {==}
         case Con{+x, +xr}:
           match g:
             case True{}:
-              no(T(G7(M.takeover_begin(M.W{x <> xr, haf, htk, t, d, u, tt, rl, n, tk, i, True{}}))), h)
+              no(T(G7(M.takeover_begin(M.W{x <> xr, haf, htk, t, d, u, tt, rl, n, tk, us, i, True{}}))), h)
             case False{}:
               {==}
 
-def takeover_end7(+s: M.World, +h: T(G7(s))) -> T(G7(M.takeover_end(s))):
+def user_input7(+s: M.World, +h: T(G7(s))) -> T(G7(M.user_input(s))):
   match s:
-    case M.W{+q, +haf, +htk, +t, +d, +u, +tt, +rl, +n, +tk, +i, +g}:
+    case M.W{+q, +haf, +htk, +t, +d, +u, +tt, +rl, +n, +tk, +us, +i, +g}:
       match q:
         case Nil{}:
           match htk:
             case Nil{}:
-              flush7(M.W{[], haf, [], t, d, u, tt, rl, n, False{}, i, g}, h)
+              imp_t(g)
             case Con{+y, +yr}:
               match g:
                 case True{}:
-                  no(T(G7(M.takeover_end(M.W{[], haf, y <> yr, t, d, u, tt, rl, n, tk, i, True{}}))), h)
+                  no(T(G7(M.user_input(M.W{[], haf, y <> yr, t, d, u, tt, rl, n, tk, us, i, True{}}))), h)
                 case False{}:
-                  flush7(M.W{y <> yr, haf, [], t, d, u, tt, rl, n, False{}, i, False{}}, {==})
+                  {==}
         case Con{+x, +xr}:
           match g:
             case True{}:
-              no(T(G7(M.takeover_end(M.W{x <> xr, haf, htk, t, d, u, tt, rl, n, tk, i, True{}}))), h)
+              no(T(G7(M.user_input(M.W{x <> xr, haf, htk, t, d, u, tt, rl, n, tk, us, i, True{}}))), h)
             case False{}:
-              flush7(M.W{List.append(&2, Nat, x <> xr, htk), haf, [], t, d, u, tt, rl, n, False{}, i, False{}}, {==})
+              {==}
+
+def release7(held: Bool, +s: M.World, +h: T(G7(s))) -> T(G7(M.release(held, s))):
+  match held:
+    case True{}:
+      h
+    case False{}:
+      match s:
+        case M.W{+q, +haf, +htk, +t, +d, +u, +tt, +rl, +n, +tk, +us, +i, +g}:
+          match q:
+            case Nil{}:
+              match htk:
+                case Nil{}:
+                  flush7(M.W{[], haf, [], t, d, u, tt, rl, n, tk, us, i, g}, h)
+                case Con{+y, +yr}:
+                  match g:
+                    case True{}:
+                      no(T(G7(M.release(False{}, M.W{[], haf, y <> yr, t, d, u, tt, rl, n, tk, us, i, True{}}))), h)
+                    case False{}:
+                      flush7(M.W{y <> yr, haf, [], t, d, u, tt, rl, n, tk, us, i, False{}}, {==})
+            case Con{+x, +xr}:
+              match g:
+                case True{}:
+                  no(T(G7(M.release(False{}, M.W{x <> xr, haf, htk, t, d, u, tt, rl, n, tk, us, i, True{}}))), h)
+                case False{}:
+                  flush7(M.W{List.append(&2, Nat, x <> xr, htk), haf, [], t, d, u, tt, rl, n, tk, us, i, False{}}, {==})
+
+def takeover_end7(+s: M.World, +h: T(G7(s))) -> T(G7(M.takeover_end(s))):
+  match s:
+    case M.W{+q, +haf, +htk, +t, +d, +u, +tt, +rl, +n, +tk, +us, +i, +g}:
+      release7(us, M.W{q, haf, htk, t, d, u, tt, rl, n, False{}, us, i, g}, h)
+
+def user_submit7(+s: M.World, +h: T(G7(s))) -> T(G7(M.user_submit(s))):
+  match s:
+    case M.W{+q, +haf, +htk, +t, +d, +u, +tt, +rl, +n, +tk, +us, +i, +g}:
+      release7(tk, M.W{q, haf, htk, t, d, u, tt, rl, n, tk, False{}, i, g}, h)
 
 def notand(m: Bool) -> T(Bool.not(Bool.and(m, False{}))):
   match m:
@@ -1044,30 +1173,30 @@ def deliver_pick7(a: Bool, b: Bool, +id: Nat, +s: M.World, +h: T(G7(s)), +ha: T(
   match a:
     case True{}:
       match s:
-        case M.W{+q, +haf, +htk, +t, +d, +u, +tt, +rl, +n, +tk, +i, +g}:
+        case M.W{+q, +haf, +htk, +t, +d, +u, +tt, +rl, +n, +tk, +us, +i, +g}:
           match g:
             case True{}:
-              no(T(G7(M.deliver_pick(True{}, b, id, M.W{q, haf, htk, t, d, u, tt, rl, n, tk, i, True{}}))), ha)
+              no(T(G7(M.deliver_pick(True{}, b, id, M.W{q, haf, htk, t, d, u, tt, rl, n, tk, us, i, True{}}))), ha)
             case False{}:
-              flush7(M.W{M.snoc(q, id), M.remove(id, haf), htk, t, d, u, tt, M.snoc(rl, id), n, tk, i, False{}}, {==})
+              flush7(M.W{M.snoc(q, id), M.remove(id, haf), htk, t, d, u, tt, M.snoc(rl, id), n, tk, us, i, False{}}, {==})
     case False{}:
       match b:
         case False{}:
           h
         case True{}:
           match s:
-            case M.W{+q, +haf, +htk, +t, +d, +u, +tt, +rl, +n, +tk, +i, +g}:
+            case M.W{+q, +haf, +htk, +t, +d, +u, +tt, +rl, +n, +tk, +us, +i, +g}:
               match g:
                 case True{}:
-                  no(T(G7(M.deliver_pick(False{}, True{}, id, M.W{q, haf, htk, t, d, u, tt, rl, n, tk, i, True{}}))), hb)
+                  no(T(G7(M.deliver_pick(False{}, True{}, id, M.W{q, haf, htk, t, d, u, tt, rl, n, tk, us, i, True{}}))), hb)
                 case False{}:
-                  flush7(M.W{M.snoc(q, id), haf, M.remove(id, htk), t, d, u, tt, M.snoc(rl, id), n, tk, i, False{}}, {==})
+                  flush7(M.W{M.snoc(q, id), haf, M.remove(id, htk), t, d, u, tt, M.snoc(rl, id), n, tk, us, i, False{}}, {==})
 
 def drop_pick7(a: Bool, b: Bool, +id: Nat, +s: M.World, +h: T(G7(s))) -> T(G7(M.drop_pick(a, b, id, s))):
   match a:
     case True{}:
       match s:
-        case M.W{+q, +haf, +htk, +t, +d, +u, +tt, +rl, +n, +tk, +i, +g}:
+        case M.W{+q, +haf, +htk, +t, +d, +u, +tt, +rl, +n, +tk, +us, +i, +g}:
           h
     case False{}:
       match b:
@@ -1075,14 +1204,14 @@ def drop_pick7(a: Bool, b: Bool, +id: Nat, +s: M.World, +h: T(G7(s))) -> T(G7(M.
           h
         case True{}:
           match s:
-            case M.W{+q, +haf, +htk, +t, +d, +u, +tt, +rl, +n, +tk, +i, +g}:
+            case M.W{+q, +haf, +htk, +t, +d, +u, +tt, +rl, +n, +tk, +us, +i, +g}:
               match htk:
                 case Nil{}:
                   h
                 case Con{+y, +yr}:
                   match g:
                     case True{}:
-                      no(T(G7(M.drop_pick(False{}, True{}, id, M.W{q, haf, y <> yr, t, d, u, tt, rl, n, tk, i, True{}}))), and_r(S.is_nil(q), False{}, h))
+                      no(T(G7(M.drop_pick(False{}, True{}, id, M.W{q, haf, y <> yr, t, d, u, tt, rl, n, tk, us, i, True{}}))), and_r(S.is_nil(q), False{}, h))
                     case False{}:
                       {==}
 
@@ -1092,48 +1221,48 @@ def step7(e: M.Ev, +s: M.World, +h: T(G7(s))) -> T(G7(M.step(e, s))):
       send_ev7(fu, r, s, h)
     case M.Idle{}:
       match s:
-        case M.W{+q, +haf, +htk, +t, +d, +u, +tt, +rl, +n, +tk, +i, +g}:
+        case M.W{+q, +haf, +htk, +t, +d, +u, +tt, +rl, +n, +tk, +us, +i, +g}:
           match g:
             case True{}:
               h
             case False{}:
-              flush7(M.W{q, haf, htk, t, d, u, tt, rl, n, tk, True{}, False{}}, {==})
+              flush7(M.W{q, haf, htk, t, d, u, tt, rl, n, tk, us, True{}, False{}}, {==})
     case M.Busy{}:
       match s:
-        case M.W{+q, +haf, +htk, +t, +d, +u, +tt, +rl, +n, +tk, +i, +g}:
+        case M.W{+q, +haf, +htk, +t, +d, +u, +tt, +rl, +n, +tk, +us, +i, +g}:
           h
     case M.Exit{}:
       match s:
-        case M.W{+q, +haf, +htk, +t, +d, +u, +tt, +rl, +n, +tk, +i, +g}:
+        case M.W{+q, +haf, +htk, +t, +d, +u, +tt, +rl, +n, +tk, +us, +i, +g}:
           {==}
     case M.TakeoverBegin{}:
       takeover_begin7(s, h)
     case M.TakeoverEnd{}:
       takeover_end7(s, h)
     case M.UserInput{}:
-      takeover_begin7(s, h)
+      user_input7(s, h)
     case M.UserSubmit{}:
-      takeover_end7(s, h)
+      user_submit7(s, h)
     case M.UserClear{}:
-      takeover_end7(s, h)
+      user_submit7(s, h)
     case M.UserDeliver{+id}:
       match s:
-        case M.W{+q, +haf, +htk, +t, +d, +u, +tt, +rl, +n, +tk, +i, +g}:
-          deliver_pick7(Bool.and(M.mem(id, haf), Bool.not(g)), Bool.and(M.mem(id, htk), Bool.not(g)), id, M.W{q, haf, htk, t, d, u, tt, rl, n, tk, i, g}, h, ab7(M.mem(id, haf), g), ab7(M.mem(id, htk), g))
+        case M.W{+q, +haf, +htk, +t, +d, +u, +tt, +rl, +n, +tk, +us, +i, +g}:
+          deliver_pick7(Bool.and(M.mem(id, haf), Bool.not(g)), Bool.and(M.mem(id, htk), Bool.not(g)), id, M.W{q, haf, htk, t, d, u, tt, rl, n, tk, us, i, g}, h, ab7(M.mem(id, haf), g), ab7(M.mem(id, htk), g))
     case M.UserDrop{+id}:
       match s:
-        case M.W{+q, +haf, +htk, +t, +d, +u, +tt, +rl, +n, +tk, +i, +g}:
-          drop_pick7(M.mem(id, haf), M.mem(id, htk), id, M.W{q, haf, htk, t, d, u, tt, rl, n, tk, i, g}, h)
+        case M.W{+q, +haf, +htk, +t, +d, +u, +tt, +rl, +n, +tk, +us, +i, +g}:
+          drop_pick7(M.mem(id, haf), M.mem(id, htk), id, M.W{q, haf, htk, t, d, u, tt, rl, n, tk, us, i, g}, h)
     case M.Restart{alive}:
       match alive:
         case True{}:
           match s:
-            case M.W{+q, +haf, +htk, +t, +d, +u, +tt, +rl, +n, +tk, +i, +g}:
-              takeover_end7(M.W{q, haf, htk, t, d, u, tt, rl, n, tk, False{}, g}, h)
+            case M.W{+q, +haf, +htk, +t, +d, +u, +tt, +rl, +n, +tk, +us, +i, +g}:
+              release7(False{}, M.W{q, haf, htk, t, d, u, tt, rl, n, False{}, False{}, False{}, g}, h)
         case False{}:
           match s:
-            case M.W{+q, +haf, +htk, +t, +d, +u, +tt, +rl, +n, +tk, +i, +g}:
-              takeover_end7(M.W{[], haf, [], t, List.append(&2, Nat, d, List.append(&2, Nat, q, htk)), u, tt, rl, n, tk, False{}, True{}}, {==})
+            case M.W{+q, +haf, +htk, +t, +d, +u, +tt, +rl, +n, +tk, +us, +i, +g}:
+              {==}
     case M.Ask{o, c}:
       h
     case M.HopMade{}:
@@ -1160,7 +1289,7 @@ def send_gone7(fu: Bool, r: M.Route, +s: M.World) -> T(S.implies(S.gone(s), Nat.
   match r:
     case M.Auto{}:
       match s:
-        case M.W{+q, +haf, +htk, +t, +d, +u, +tt, +rl, +n, +tk, +i, +g}:
+        case M.W{+q, +haf, +htk, +t, +d, +u, +tt, +rl, +n, +tk, +us, +i, +g}:
           match g:
             case True{}:
               eq_refl(n)
@@ -1168,7 +1297,7 @@ def send_gone7(fu: Bool, r: M.Route, +s: M.World) -> T(S.implies(S.gone(s), Nat.
               {==}
     case M.AskFirst{}:
       match s:
-        case M.W{+q, +haf, +htk, +t, +d, +u, +tt, +rl, +n, +tk, +i, +g}:
+        case M.W{+q, +haf, +htk, +t, +d, +u, +tt, +rl, +n, +tk, +us, +i, +g}:
           match g:
             case True{}:
               eq_refl(n)
@@ -1176,7 +1305,7 @@ def send_gone7(fu: Bool, r: M.Route, +s: M.World) -> T(S.implies(S.gone(s), Nat.
               {==}
     case M.RouteDrop{}:
       match s:
-        case M.W{+q, +haf, +htk, +t, +d, +u, +tt, +rl, +n, +tk, +i, +g}:
+        case M.W{+q, +haf, +htk, +t, +d, +u, +tt, +rl, +n, +tk, +us, +i, +g}:
           match g:
             case True{}:
               eq_refl(n)
@@ -1221,53 +1350,53 @@ def imp10(g: Bool, X: Bool, f: T(Bool.not(g)) -> T(X)) -> T(S.implies(Bool.not(g
 def idle2(+s: M.World) -> M.World:
   M.step(M.Idle{}, M.step(M.Busy{}, s))
 
-def fgo_alive10(+q: +List<Nat>, +haf: +List<Nat>, +htk: +List<Nat>, +t: +List<Nat>, +d: +List<Nat>, +u: +List<Nat>, +tt: +List<Nat>, +rl: +List<Nat>, +n: Nat, +tk: Bool, +i: Bool) -> T(Bool.not(S.gone(M.flush_go(q, M.W{[], haf, htk, t, d, u, tt, rl, n, tk, i, False{}})))):
+def fgo_alive10(+q: +List<Nat>, +haf: +List<Nat>, +htk: +List<Nat>, +t: +List<Nat>, +d: +List<Nat>, +u: +List<Nat>, +tt: +List<Nat>, +rl: +List<Nat>, +n: Nat, +us: Bool, +tk: Bool, +i: Bool) -> T(Bool.not(S.gone(M.flush_go(q, M.W{[], haf, htk, t, d, u, tt, rl, n, tk, us, i, False{}})))):
   match q:
     case Nil{}:
       {==}
     case Con{+x, +rest}:
-      fgo_alive10(rest, haf, htk, M.snoc(t, x), d, u, M.record(tk, x, tt), rl, n, tk, False{})
+      fgo_alive10(rest, haf, htk, M.snoc(t, x), d, u, M.record(Bool.or(tk, us), x, tt), rl, n, us, tk, False{})
 
-def fgo_empty10(p: Nat, +q: +List<Nat>, +haf: +List<Nat>, +htk: +List<Nat>, +t: +List<Nat>, +d: +List<Nat>, +u: +List<Nat>, +tt: +List<Nat>, +rl: +List<Nat>, +n: Nat, +tk: Bool, +i: Bool, +g: Bool) -> T(Nat.is_le(S.len(S.queue(M.flush_go(q, M.W{[], haf, htk, t, d, u, tt, rl, n, tk, i, g}))), p)):
+def fgo_empty10(p: Nat, +q: +List<Nat>, +haf: +List<Nat>, +htk: +List<Nat>, +t: +List<Nat>, +d: +List<Nat>, +u: +List<Nat>, +tt: +List<Nat>, +rl: +List<Nat>, +n: Nat, +us: Bool, +tk: Bool, +i: Bool, +g: Bool) -> T(Nat.is_le(S.len(S.queue(M.flush_go(q, M.W{[], haf, htk, t, d, u, tt, rl, n, tk, us, i, g}))), p)):
   match q:
     case Nil{}:
       le_zero(p)
     case Con{+x, +rest}:
-      fgo_empty10(p, rest, haf, htk, M.snoc(t, x), d, u, M.record(tk, x, tt), rl, n, tk, False{}, g)
+      fgo_empty10(p, rest, haf, htk, M.snoc(t, x), d, u, M.record(Bool.or(tk, us), x, tt), rl, n, us, tk, False{}, g)
 
 def g10(+s: M.World, +hg: T(Bool.not(S.gone(s)))) -> T(Bool.not(S.gone(idle2(s)))):
   match s:
-    case M.W{+q, +haf, +htk, +t, +d, +u, +tt, +rl, +n, +tk, +i, +g}:
+    case M.W{+q, +haf, +htk, +t, +d, +u, +tt, +rl, +n, +tk, +us, +i, +g}:
       match q:
         case Nil{}:
           match g:
             case True{}:
-              no(T(Bool.not(S.gone(idle2(M.W{[], haf, htk, t, d, u, tt, rl, n, tk, i, True{}})))), hg)
+              no(T(Bool.not(S.gone(idle2(M.W{[], haf, htk, t, d, u, tt, rl, n, tk, us, i, True{}})))), hg)
             case False{}:
               {==}
         case Con{+x, +rest}:
           match g:
             case True{}:
-              no(T(Bool.not(S.gone(idle2(M.W{x <> rest, haf, htk, t, d, u, tt, rl, n, tk, i, True{}})))), hg)
+              no(T(Bool.not(S.gone(idle2(M.W{x <> rest, haf, htk, t, d, u, tt, rl, n, tk, us, i, True{}})))), hg)
             case False{}:
-              fgo_alive10(rest, haf, htk, M.snoc(t, x), d, u, M.record(tk, x, tt), rl, n, tk, False{})
+              fgo_alive10(rest, haf, htk, M.snoc(t, x), d, u, M.record(Bool.or(tk, us), x, tt), rl, n, us, tk, False{})
 
 def k10(p: Nat, +s: M.World, +hg: T(Bool.not(S.gone(s))), +hk: T(Nat.is_le(S.len(S.queue(s)), 1n+p))) -> T(Nat.is_le(S.len(S.queue(idle2(s))), p)):
   match s:
-    case M.W{+q, +haf, +htk, +t, +d, +u, +tt, +rl, +n, +tk, +i, +g}:
+    case M.W{+q, +haf, +htk, +t, +d, +u, +tt, +rl, +n, +tk, +us, +i, +g}:
       match q:
         case Nil{}:
           match g:
             case True{}:
-              no(T(Nat.is_le(S.len(S.queue(idle2(M.W{[], haf, htk, t, d, u, tt, rl, n, tk, i, True{}}))), p)), hg)
+              no(T(Nat.is_le(S.len(S.queue(idle2(M.W{[], haf, htk, t, d, u, tt, rl, n, tk, us, i, True{}}))), p)), hg)
             case False{}:
               le_zero(p)
         case Con{+x, +rest}:
           match g:
             case True{}:
-              no(T(Nat.is_le(S.len(S.queue(idle2(M.W{x <> rest, haf, htk, t, d, u, tt, rl, n, tk, i, True{}}))), p)), hg)
+              no(T(Nat.is_le(S.len(S.queue(idle2(M.W{x <> rest, haf, htk, t, d, u, tt, rl, n, tk, us, i, True{}}))), p)), hg)
             case False{}:
-              fgo_empty10(p, rest, haf, htk, M.snoc(t, x), d, u, M.record(tk, x, tt), rl, n, tk, False{}, False{})
+              fgo_empty10(p, rest, haf, htk, M.snoc(t, x), d, u, M.record(Bool.or(tk, us), x, tt), rl, n, us, tk, False{}, False{})
 
 def cyc10(+k: Nat, +s: M.World, +hg: T(Bool.not(S.gone(s))), +hk: T(Nat.is_le(S.len(S.queue(s)), k))) -> T(S.is_nil(S.queue(M.run(S.cycle(k), s)))):
   match k:
@@ -2238,12 +2367,12 @@ def inv_rt(+q: +List<Nat>, +a: +List<Nat>, +k: +List<Nat>, +t: +List<Nat>, +d: +
 def invw(+s: M.World) -> Bool:
   IV(S.queue(s), S.held_af(s), S.held_tk(s), S.typed(s), S.dropped(s), S.next_id(s))
 
-def fgo(+q: +List<Nat>, +haf: +List<Nat>, +htk: +List<Nat>, +t: +List<Nat>, +d: +List<Nat>, +u: +List<Nat>, +tt: +List<Nat>, +rl: +List<Nat>, +n: Nat, +tk: Bool, +i: Bool, +g: Bool, +h: T(IV(q, haf, htk, t, d, n))) -> T(invw(M.flush_go(q, M.W{[], haf, htk, t, d, u, tt, rl, n, tk, i, g}))):
+def fgo(+q: +List<Nat>, +haf: +List<Nat>, +htk: +List<Nat>, +t: +List<Nat>, +d: +List<Nat>, +u: +List<Nat>, +tt: +List<Nat>, +rl: +List<Nat>, +n: Nat, +us: Bool, +tk: Bool, +i: Bool, +g: Bool, +h: T(IV(q, haf, htk, t, d, n))) -> T(invw(M.flush_go(q, M.W{[], haf, htk, t, d, u, tt, rl, n, tk, us, i, g}))):
   match q:
     case Nil{}:
       h
     case Con{+x, +rest}:
-      fgo(rest, haf, htk, M.snoc(t, x), d, u, M.record(tk, x, tt), rl, n, tk, False{}, g, inv_mv(x, rest, haf, htk, t, d, n, h))
+      fgo(rest, haf, htk, M.snoc(t, x), d, u, M.record(Bool.or(tk, us), x, tt), rl, n, us, tk, False{}, g, inv_mv(x, rest, haf, htk, t, d, n, h))
 
 def fb(i: Bool, +s: M.World, +h: T(invw(s))) -> T(invw(M.flush_b(i, s))):
   match i:
@@ -2251,32 +2380,40 @@ def fb(i: Bool, +s: M.World, +h: T(invw(s))) -> T(invw(M.flush_b(i, s))):
       h
     case True{}:
       match s:
-        case M.W{+q, +haf, +htk, +t, +d, +u, +tt, +rl, +n, +tk, +i, +g}:
-          fgo(q, haf, htk, t, d, u, tt, rl, n, tk, i, g, h)
+        case M.W{+q, +haf, +htk, +t, +d, +u, +tt, +rl, +n, +tk, +us, +i, +g}:
+          fgo(q, haf, htk, t, d, u, tt, rl, n, us, tk, i, g, h)
 
 def fl(+s: M.World, +h: T(invw(s))) -> T(invw(M.flush(s))):
   match s:
-    case M.W{+q, +haf, +htk, +t, +d, +u, +tt, +rl, +n, +tk, +i, +g}:
-      fb(i, M.W{q, haf, htk, t, d, u, tt, rl, n, tk, i, g}, h)
+    case M.W{+q, +haf, +htk, +t, +d, +u, +tt, +rl, +n, +tk, +us, +i, +g}:
+      fb(i, M.W{q, haf, htk, t, d, u, tt, rl, n, tk, us, i, g}, h)
 
 def send_auto_inv(fu: Bool, +s: M.World, +h: T(invw(s))) -> T(invw(M.send_auto(fu, s))):
   match fu:
     case True{}:
       match s:
-        case M.W{+q, +haf, +htk, +t, +d, +u, +tt, +rl, +n, +tk, +i, +g}:
+        case M.W{+q, +haf, +htk, +t, +d, +u, +tt, +rl, +n, +tk, +us, +i, +g}:
           match tk:
             case True{}:
               inv_sendK(q, haf, htk, t, d, n, h)
             case False{}:
-              fl(M.W{M.snoc(q, n), haf, htk, t, d, M.snoc(u, n), tt, rl, 1n+n, False{}, i, g}, inv_sendQ(q, haf, htk, t, d, n, h))
+              match us:
+                case True{}:
+                  inv_sendK(q, haf, htk, t, d, n, h)
+                case False{}:
+                  fl(M.W{M.snoc(q, n), haf, htk, t, d, M.snoc(u, n), tt, rl, 1n+n, False{}, False{}, i, g}, inv_sendQ(q, haf, htk, t, d, n, h))
     case False{}:
       match s:
-        case M.W{+q, +haf, +htk, +t, +d, +u, +tt, +rl, +n, +tk, +i, +g}:
+        case M.W{+q, +haf, +htk, +t, +d, +u, +tt, +rl, +n, +tk, +us, +i, +g}:
           match tk:
             case True{}:
               inv_sendK(q, haf, htk, t, d, n, h)
             case False{}:
-              fl(M.W{M.snoc(q, n), haf, htk, t, d, u, tt, rl, 1n+n, False{}, i, g}, inv_sendQ(q, haf, htk, t, d, n, h))
+              match us:
+                case True{}:
+                  inv_sendK(q, haf, htk, t, d, n, h)
+                case False{}:
+                  fl(M.W{M.snoc(q, n), haf, htk, t, d, u, tt, rl, 1n+n, False{}, False{}, i, g}, inv_sendQ(q, haf, htk, t, d, n, h))
 
 def send_live_inv(r: M.Route, fu: Bool, +s: M.World, +h: T(invw(s))) -> T(invw(M.send_live(r, fu, s))):
   match r:
@@ -2284,11 +2421,11 @@ def send_live_inv(r: M.Route, fu: Bool, +s: M.World, +h: T(invw(s))) -> T(invw(M
       send_auto_inv(fu, s, h)
     case M.AskFirst{}:
       match s:
-        case M.W{+q, +haf, +htk, +t, +d, +u, +tt, +rl, +n, +tk, +i, +g}:
+        case M.W{+q, +haf, +htk, +t, +d, +u, +tt, +rl, +n, +tk, +us, +i, +g}:
           inv_sendA(q, haf, htk, t, d, n, h)
     case M.RouteDrop{}:
       match s:
-        case M.W{+q, +haf, +htk, +t, +d, +u, +tt, +rl, +n, +tk, +i, +g}:
+        case M.W{+q, +haf, +htk, +t, +d, +u, +tt, +rl, +n, +tk, +us, +i, +g}:
           inv_sendD(q, haf, htk, t, d, n, h)
 
 def send_inv(r: M.Route, fu: Bool, g: Bool, +s: M.World, +h: T(invw(s))) -> T(invw(M.send(r, fu, g, s))):
@@ -2300,37 +2437,55 @@ def send_inv(r: M.Route, fu: Bool, g: Bool, +s: M.World, +h: T(invw(s))) -> T(in
 
 def send_ev_inv(fu: Bool, r: M.Route, +s: M.World, +h: T(invw(s))) -> T(invw(M.send_ev(fu, r, s))):
   match s:
-    case M.W{+q, +haf, +htk, +t, +d, +u, +tt, +rl, +n, +tk, +i, +g}:
-      send_inv(r, fu, g, M.W{q, haf, htk, t, d, u, tt, rl, n, tk, i, g}, h)
+    case M.W{+q, +haf, +htk, +t, +d, +u, +tt, +rl, +n, +tk, +us, +i, +g}:
+      send_inv(r, fu, g, M.W{q, haf, htk, t, d, u, tt, rl, n, tk, us, i, g}, h)
 
 def idle_inv(+s: M.World, +h: T(invw(s))) -> T(invw(M.idle_ev(s))):
   match s:
-    case M.W{+q, +haf, +htk, +t, +d, +u, +tt, +rl, +n, +tk, +i, +g}:
+    case M.W{+q, +haf, +htk, +t, +d, +u, +tt, +rl, +n, +tk, +us, +i, +g}:
       match g:
         case True{}:
           h
         case False{}:
-          fl(M.W{q, haf, htk, t, d, u, tt, rl, n, tk, True{}, False{}}, h)
+          fl(M.W{q, haf, htk, t, d, u, tt, rl, n, tk, us, True{}, False{}}, h)
 
 def busy_inv(+s: M.World, +h: T(invw(s))) -> T(invw(M.busy_ev(s))):
   match s:
-    case M.W{+q, +haf, +htk, +t, +d, +u, +tt, +rl, +n, +tk, +i, +g}:
+    case M.W{+q, +haf, +htk, +t, +d, +u, +tt, +rl, +n, +tk, +us, +i, +g}:
       h
 
 def exit_inv(+s: M.World, +h: T(invw(s))) -> T(invw(M.exit_(s))):
   match s:
-    case M.W{+q, +haf, +htk, +t, +d, +u, +tt, +rl, +n, +tk, +i, +g}:
+    case M.W{+q, +haf, +htk, +t, +d, +u, +tt, +rl, +n, +tk, +us, +i, +g}:
       inv_ex(q, haf, htk, t, d, n, h)
 
 def tb_inv(+s: M.World, +h: T(invw(s))) -> T(invw(M.takeover_begin(s))):
   match s:
-    case M.W{+q, +haf, +htk, +t, +d, +u, +tt, +rl, +n, +tk, +i, +g}:
+    case M.W{+q, +haf, +htk, +t, +d, +u, +tt, +rl, +n, +tk, +us, +i, +g}:
+      inv_tb(q, haf, htk, t, d, n, [], h)
+
+def ui_inv(+s: M.World, +h: T(invw(s))) -> T(invw(M.user_input(s))):
+  match s:
+    case M.W{+q, +haf, +htk, +t, +d, +u, +tt, +rl, +n, +tk, +us, +i, +g}:
       inv_tb(q, haf, htk, t, d, n, [], h)
 
 def te_inv(+s: M.World, +h: T(invw(s))) -> T(invw(M.takeover_end(s))):
   match s:
-    case M.W{+q, +haf, +htk, +t, +d, +u, +tt, +rl, +n, +tk, +i, +g}:
-      fl(M.W{List.append(&2, Nat, q, htk), haf, [], t, d, u, tt, rl, n, False{}, i, g}, inv_te(q, haf, htk, t, d, n, h))
+    case M.W{+q, +haf, +htk, +t, +d, +u, +tt, +rl, +n, +tk, +us, +i, +g}:
+      match us:
+        case True{}:
+          h
+        case False{}:
+          fl(M.W{List.append(&2, Nat, q, htk), haf, [], t, d, u, tt, rl, n, False{}, False{}, i, g}, inv_te(q, haf, htk, t, d, n, h))
+
+def us_inv(+s: M.World, +h: T(invw(s))) -> T(invw(M.user_submit(s))):
+  match s:
+    case M.W{+q, +haf, +htk, +t, +d, +u, +tt, +rl, +n, +tk, +us, +i, +g}:
+      match tk:
+        case True{}:
+          h
+        case False{}:
+          fl(M.W{List.append(&2, Nat, q, htk), haf, [], t, d, u, tt, rl, n, False{}, False{}, i, g}, inv_te(q, haf, htk, t, d, n, h))
 
 def deliver_if_inv(b: Bool, +id: Nat, +s: M.World, +h: T(invw(s)), hm: T(b) -> T(M.mem(id, S.held_af(s)))) -> T(invw(M.deliver_if(b, id, s))):
   match b:
@@ -2338,8 +2493,8 @@ def deliver_if_inv(b: Bool, +id: Nat, +s: M.World, +h: T(invw(s)), hm: T(b) -> T
       h
     case True{}:
       match s:
-        case M.W{+q, +haf, +htk, +t, +d, +u, +tt, +rl, +n, +tk, +i, +g}:
-          fl(M.W{M.snoc(q, id), M.remove(id, haf), htk, t, d, u, tt, M.snoc(rl, id), n, tk, i, g}, inv_di(q, haf, htk, t, d, n, id, hm({==}), h))
+        case M.W{+q, +haf, +htk, +t, +d, +u, +tt, +rl, +n, +tk, +us, +i, +g}:
+          fl(M.W{M.snoc(q, id), M.remove(id, haf), htk, t, d, u, tt, M.snoc(rl, id), n, tk, us, i, g}, inv_di(q, haf, htk, t, d, n, id, hm({==}), h))
 
 def deliver_tk_inv(b: Bool, +id: Nat, +s: M.World, +h: T(invw(s)), hm: T(b) -> T(M.mem(id, S.held_tk(s)))) -> T(invw(M.deliver_tk(b, id, s))):
   match b:
@@ -2347,8 +2502,8 @@ def deliver_tk_inv(b: Bool, +id: Nat, +s: M.World, +h: T(invw(s)), hm: T(b) -> T
       h
     case True{}:
       match s:
-        case M.W{+q, +haf, +htk, +t, +d, +u, +tt, +rl, +n, +tk, +i, +g}:
-          fl(M.W{M.snoc(q, id), haf, M.remove(id, htk), t, d, u, tt, M.snoc(rl, id), n, tk, i, g}, inv_dt(q, haf, htk, t, d, n, id, hm({==}), h))
+        case M.W{+q, +haf, +htk, +t, +d, +u, +tt, +rl, +n, +tk, +us, +i, +g}:
+          fl(M.W{M.snoc(q, id), haf, M.remove(id, htk), t, d, u, tt, M.snoc(rl, id), n, tk, us, i, g}, inv_dt(q, haf, htk, t, d, n, id, hm({==}), h))
 
 def deliver_pick_inv(a: Bool, b: Bool, +id: Nat, +s: M.World, +h: T(invw(s)), ha: T(a) -> T(M.mem(id, S.held_af(s))), hb: T(b) -> T(M.mem(id, S.held_tk(s)))) -> T(invw(M.deliver_pick(a, b, id, s))):
   match a:
@@ -2359,8 +2514,8 @@ def deliver_pick_inv(a: Bool, b: Bool, +id: Nat, +s: M.World, +h: T(invw(s)), ha
 
 def user_deliver_inv(+id: Nat, +s: M.World, +h: T(invw(s))) -> T(invw(M.user_deliver(id, s))):
   match s:
-    case M.W{+q, +haf, +htk, +t, +d, +u, +tt, +rl, +n, +tk, +i, +g}:
-      deliver_pick_inv(Bool.and(M.mem(id, haf), Bool.not(g)), Bool.and(M.mem(id, htk), Bool.not(g)), id, M.W{q, haf, htk, t, d, u, tt, rl, n, tk, i, g}, h, hh => and_l(M.mem(id, haf), Bool.not(g), hh), hh => and_l(M.mem(id, htk), Bool.not(g), hh))
+    case M.W{+q, +haf, +htk, +t, +d, +u, +tt, +rl, +n, +tk, +us, +i, +g}:
+      deliver_pick_inv(Bool.and(M.mem(id, haf), Bool.not(g)), Bool.and(M.mem(id, htk), Bool.not(g)), id, M.W{q, haf, htk, t, d, u, tt, rl, n, tk, us, i, g}, h, hh => and_l(M.mem(id, haf), Bool.not(g), hh), hh => and_l(M.mem(id, htk), Bool.not(g), hh))
 
 def drop_if_inv(b: Bool, +id: Nat, +s: M.World, +h: T(invw(s)), hm: T(b) -> T(M.mem(id, S.held_af(s)))) -> T(invw(M.drop_if(b, id, s))):
   match b:
@@ -2368,7 +2523,7 @@ def drop_if_inv(b: Bool, +id: Nat, +s: M.World, +h: T(invw(s)), hm: T(b) -> T(M.
       h
     case True{}:
       match s:
-        case M.W{+q, +haf, +htk, +t, +d, +u, +tt, +rl, +n, +tk, +i, +g}:
+        case M.W{+q, +haf, +htk, +t, +d, +u, +tt, +rl, +n, +tk, +us, +i, +g}:
           inv_ri(q, haf, htk, t, d, n, id, hm({==}), h)
 
 def drop_tk_inv(b: Bool, +id: Nat, +s: M.World, +h: T(invw(s)), hm: T(b) -> T(M.mem(id, S.held_tk(s)))) -> T(invw(M.drop_tk(b, id, s))):
@@ -2377,7 +2532,7 @@ def drop_tk_inv(b: Bool, +id: Nat, +s: M.World, +h: T(invw(s)), hm: T(b) -> T(M.
       h
     case True{}:
       match s:
-        case M.W{+q, +haf, +htk, +t, +d, +u, +tt, +rl, +n, +tk, +i, +g}:
+        case M.W{+q, +haf, +htk, +t, +d, +u, +tt, +rl, +n, +tk, +us, +i, +g}:
           inv_rt(q, haf, htk, t, d, n, id, hm({==}), h)
 
 def drop_pick_inv(a: Bool, b: Bool, +id: Nat, +s: M.World, +h: T(invw(s)), ha: T(a) -> T(M.mem(id, S.held_af(s))), hb: T(b) -> T(M.mem(id, S.held_tk(s)))) -> T(invw(M.drop_pick(a, b, id, s))):
@@ -2389,15 +2544,19 @@ def drop_pick_inv(a: Bool, b: Bool, +id: Nat, +s: M.World, +h: T(invw(s)), ha: T
 
 def user_drop_inv(+id: Nat, +s: M.World, +h: T(invw(s))) -> T(invw(M.user_drop(id, s))):
   match s:
-    case M.W{+q, +haf, +htk, +t, +d, +u, +tt, +rl, +n, +tk, +i, +g}:
-      drop_pick_inv(M.mem(id, haf), M.mem(id, htk), id, M.W{q, haf, htk, t, d, u, tt, rl, n, tk, i, g}, h, hh => hh, hh => hh)
+    case M.W{+q, +haf, +htk, +t, +d, +u, +tt, +rl, +n, +tk, +us, +i, +g}:
+      drop_pick_inv(M.mem(id, haf), M.mem(id, htk), id, M.W{q, haf, htk, t, d, u, tt, rl, n, tk, us, i, g}, h, hh => hh, hh => hh)
 
 def restart_inv(alive: Bool, +s: M.World, +h: T(invw(s))) -> T(invw(M.restart(alive, s))):
   match alive:
     case True{}:
-      te_inv(M.busy_ev(s), busy_inv(s, h))
+      match s:
+        case M.W{+q, +haf, +htk, +t, +d, +u, +tt, +rl, +n, +tk, +us, +i, +g}:
+          inv_te(q, haf, htk, t, d, n, h)
     case False{}:
-      te_inv(M.exit_(s), exit_inv(s, h))
+      match s:
+        case M.W{+q, +haf, +htk, +t, +d, +u, +tt, +rl, +n, +tk, +us, +i, +g}:
+          inv_ex(q, haf, htk, t, d, n, h)
 
 def step_inv(e: M.Ev, +s: M.World, +h: T(invw(s))) -> T(invw(M.step(e, s))):
   match e:
@@ -2414,11 +2573,11 @@ def step_inv(e: M.Ev, +s: M.World, +h: T(invw(s))) -> T(invw(M.step(e, s))):
     case M.TakeoverEnd{}:
       te_inv(s, h)
     case M.UserInput{}:
-      tb_inv(s, h)
+      ui_inv(s, h)
     case M.UserSubmit{}:
-      te_inv(s, h)
+      us_inv(s, h)
     case M.UserClear{}:
-      te_inv(s, h)
+      us_inv(s, h)
     case M.UserDeliver{id}:
       user_deliver_inv(id, s, h)
     case M.UserDrop{id}:
@@ -2479,11 +2638,11 @@ def restart_replay(alive: Bool, +s: M.World) -> {S.records(M.step(M.Restart{aliv
   match alive:
     case True{}:
       match s:
-        case M.W{+q, +haf, +htk, +t, +d, +u, +tt, +rl, +n, +tk, +i, +g}:
+        case M.W{+q, +haf, +htk, +t, +d, +u, +tt, +rl, +n, +tk, +us, +i, +g}:
           {==}
     case False{}:
       match s:
-        case M.W{+q, +haf, +htk, +t, +d, +u, +tt, +rl, +n, +tk, +i, +g}:
+        case M.W{+q, +haf, +htk, +t, +d, +u, +tt, +rl, +n, +tk, +us, +i, +g}:
           {==}
 
 def Laws.m9_restart_is_a_replay(evs, alive):
@@ -3084,12 +3243,12 @@ def a35_m3(+before: +List<M.Ev>, +during: +List<M.Ev>, +after: +List<M.Ev>) -> T
 
 def a35_reserved_stop(s: M.World) -> {S.records(M.step(M.restart_event(True{}, M.Exit{}), s)) == S.records(s) : S.Rec}:
   match s:
-    case M.W{+q, +haf, +htk, +t, +d, +u, +tt, +rl, +n, +tk, +i, +g}:
+    case M.W{+q, +haf, +htk, +t, +d, +u, +tt, +rl, +n, +tk, +us, +i, +g}:
       {==}
 
 def a35_reserved_reopen(s: M.World, alive: Bool) -> {S.records(M.step(M.restart_event(True{}, M.Restart{alive}), s)) == S.records(s) : S.Rec}:
   match s:
-    case M.W{+q, +haf, +htk, +t, +d, +u, +tt, +rl, +n, +tk, +i, +g}:
+    case M.W{+q, +haf, +htk, +t, +d, +u, +tt, +rl, +n, +tk, +us, +i, +g}:
       {==}
 
 def a35_prompt_record_is_idempotent(+j: M.PromptJournal) -> {M.record_prompt(M.record_prompt(j)) == M.record_prompt(j) : M.PromptJournal}:
@@ -3100,7 +3259,7 @@ def a35_prompt_record_is_idempotent(+j: M.PromptJournal) -> {M.record_prompt(M.r
           {==}
         case M.Unrecorded{}:
           match world:
-            case M.W{+q, +haf, +htk, +t, +d, +u, +tt, +rl, +n, +tk, +i, +g}:
+            case M.W{+q, +haf, +htk, +t, +d, +u, +tt, +rl, +n, +tk, +us, +i, +g}:
               {==}
 
 def a35_m4(+before: +List<M.Ev>, +during: +List<M.Ev>, +after: +List<M.Ev>, e: M.Ev) -> T(S.is_prefix(S.typed(S.world(M.restart_window(before, during, after))), S.typed(M.step(e, S.world(M.restart_window(before, during, after)))))):
@@ -3120,7 +3279,7 @@ def a35_m10(+before: +List<M.Ev>, +during: +List<M.Ev>, +after: +List<M.Ev>) -> 
 
 def a35_reserved_idle(s: M.World) -> {S.records(M.step(M.restart_event(True{}, M.Idle{}), s)) == S.records(s) : S.Rec}:
   match s:
-    case M.W{+q, +haf, +htk, +t, +d, +u, +tt, +rl, +n, +tk, +i, +g}:
+    case M.W{+q, +haf, +htk, +t, +d, +u, +tt, +rl, +n, +tk, +us, +i, +g}:
       {==}
 
 def a35_m9(+before: +List<M.Ev>, +during: +List<M.Ev>, +after: +List<M.Ev>, +alive: Bool) -> {S.records(M.step(M.Restart{alive}, S.world(M.restart_window(before, during, after)))) == S.replay(S.records(S.world(M.restart_window(before, during, after))), alive) : S.Rec}:
@@ -3146,7 +3305,7 @@ def a35_prompt_m6(+j: M.PromptJournal, +h: T(a35_prompt_count(j))) -> T(a35_prom
           h
         case M.Unrecorded{}:
           match world:
-            case M.W{+q, +haf, +htk, +t, +d, +u, +tt, +rl, +n, +tk, +i, +g}:
+            case M.W{+q, +haf, +htk, +t, +d, +u, +tt, +rl, +n, +tk, +us, +i, +g}:
               a35_sum_record(q, haf, htk, t, d, n, h)
 
 def a35_prompt_m1(+j: M.PromptJournal, +h: T(invw(M.journal_world(j)))) -> T(S.nodup(S.typed(M.journal_world(M.record_prompt(j))))):
@@ -3155,11 +3314,11 @@ def a35_prompt_m1(+j: M.PromptJournal, +h: T(invw(M.journal_world(j)))) -> T(S.n
       match record:
         case M.Recorded{id}:
           match world:
-            case M.W{+q, +haf, +htk, +t, +d, +u, +tt, +rl, +n, +tk, +i, +g}:
+            case M.W{+q, +haf, +htk, +t, +d, +u, +tt, +rl, +n, +tk, +us, +i, +g}:
               p3(q, haf, htk, t, d, n, h)
         case M.Unrecorded{}:
           match world:
-            case M.W{+q, +haf, +htk, +t, +d, +u, +tt, +rl, +n, +tk, +i, +g}:
+            case M.W{+q, +haf, +htk, +t, +d, +u, +tt, +rl, +n, +tk, +us, +i, +g}:
               nd_snoc(t, n, p3(q, haf, htk, t, d, n, h), bd_fresh(t, n, p18(q, haf, htk, t, d, n, h)))
 
 def a35_prompt_m4(+j: M.PromptJournal) -> T(S.is_prefix(S.typed(M.journal_world(j)), S.typed(M.journal_world(M.record_prompt(j))))):
@@ -3170,7 +3329,7 @@ def a35_prompt_m4(+j: M.PromptJournal) -> T(S.is_prefix(S.typed(M.journal_world(
           prefix_refl(S.typed(world))
         case M.Unrecorded{}:
           match world:
-            case M.W{+q, +haf, +htk, +t, +d, +u, +tt, +rl, +n, +tk, +i, +g}:
+            case M.W{+q, +haf, +htk, +t, +d, +u, +tt, +rl, +n, +tk, +us, +i, +g}:
               prefix_snoc(t, n)
 
 def a35_prompt_disjoint_dropped(+j: M.PromptJournal, +h: T(invw(M.journal_world(j)))) -> T(S.disjoint(S.typed(M.journal_world(M.record_prompt(j))), S.dropped(M.journal_world(M.record_prompt(j))))):
@@ -3179,11 +3338,11 @@ def a35_prompt_disjoint_dropped(+j: M.PromptJournal, +h: T(invw(M.journal_world(
       match record:
         case M.Recorded{id}:
           match world:
-            case M.W{+q, +haf, +htk, +t, +d, +u, +tt, +rl, +n, +tk, +i, +g}:
+            case M.W{+q, +haf, +htk, +t, +d, +u, +tt, +rl, +n, +tk, +us, +i, +g}:
               p14(q, haf, htk, t, d, n, h)
         case M.Unrecorded{}:
           match world:
-            case M.W{+q, +haf, +htk, +t, +d, +u, +tt, +rl, +n, +tk, +i, +g}:
+            case M.W{+q, +haf, +htk, +t, +d, +u, +tt, +rl, +n, +tk, +us, +i, +g}:
               dj_snoc_l(t, d, n, p14(q, haf, htk, t, d, n, h), bd_fresh(d, n, p19(q, haf, htk, t, d, n, h)))
 
 def a35_prompt_disjoint_queue(+j: M.PromptJournal, +h: T(invw(M.journal_world(j)))) -> T(S.disjoint(S.typed(M.journal_world(M.record_prompt(j))), S.queue(M.journal_world(M.record_prompt(j))))):
@@ -3192,11 +3351,11 @@ def a35_prompt_disjoint_queue(+j: M.PromptJournal, +h: T(invw(M.journal_world(j)
       match record:
         case M.Recorded{id}:
           match world:
-            case M.W{+q, +haf, +htk, +t, +d, +u, +tt, +rl, +n, +tk, +i, +g}:
+            case M.W{+q, +haf, +htk, +t, +d, +u, +tt, +rl, +n, +tk, +us, +i, +g}:
               dj_sym(q, t, p7(q, haf, htk, t, d, n, h))
         case M.Unrecorded{}:
           match world:
-            case M.W{+q, +haf, +htk, +t, +d, +u, +tt, +rl, +n, +tk, +i, +g}:
+            case M.W{+q, +haf, +htk, +t, +d, +u, +tt, +rl, +n, +tk, +us, +i, +g}:
               dj_snoc_l(t, q, n, dj_sym(q, t, p7(q, haf, htk, t, d, n, h)), bd_fresh(q, n, p15(q, haf, htk, t, d, n, h)))
 
 def a35_prompt_disjoint_ask_first(+j: M.PromptJournal, +h: T(invw(M.journal_world(j)))) -> T(S.disjoint(S.typed(M.journal_world(M.record_prompt(j))), S.held_af(M.journal_world(M.record_prompt(j))))):
@@ -3205,11 +3364,11 @@ def a35_prompt_disjoint_ask_first(+j: M.PromptJournal, +h: T(invw(M.journal_worl
       match record:
         case M.Recorded{id}:
           match world:
-            case M.W{+q, +haf, +htk, +t, +d, +u, +tt, +rl, +n, +tk, +i, +g}:
+            case M.W{+q, +haf, +htk, +t, +d, +u, +tt, +rl, +n, +tk, +us, +i, +g}:
               dj_sym(haf, t, p10(q, haf, htk, t, d, n, h))
         case M.Unrecorded{}:
           match world:
-            case M.W{+q, +haf, +htk, +t, +d, +u, +tt, +rl, +n, +tk, +i, +g}:
+            case M.W{+q, +haf, +htk, +t, +d, +u, +tt, +rl, +n, +tk, +us, +i, +g}:
               dj_snoc_l(t, haf, n, dj_sym(haf, t, p10(q, haf, htk, t, d, n, h)), bd_fresh(haf, n, p16(q, haf, htk, t, d, n, h)))
 
 def a35_prompt_disjoint_takeover(+j: M.PromptJournal, +h: T(invw(M.journal_world(j)))) -> T(S.disjoint(S.typed(M.journal_world(M.record_prompt(j))), S.held_tk(M.journal_world(M.record_prompt(j))))):
@@ -3218,11 +3377,11 @@ def a35_prompt_disjoint_takeover(+j: M.PromptJournal, +h: T(invw(M.journal_world
       match record:
         case M.Recorded{id}:
           match world:
-            case M.W{+q, +haf, +htk, +t, +d, +u, +tt, +rl, +n, +tk, +i, +g}:
+            case M.W{+q, +haf, +htk, +t, +d, +u, +tt, +rl, +n, +tk, +us, +i, +g}:
               dj_sym(htk, t, p12(q, haf, htk, t, d, n, h))
         case M.Unrecorded{}:
           match world:
-            case M.W{+q, +haf, +htk, +t, +d, +u, +tt, +rl, +n, +tk, +i, +g}:
+            case M.W{+q, +haf, +htk, +t, +d, +u, +tt, +rl, +n, +tk, +us, +i, +g}:
               dj_snoc_l(t, htk, n, dj_sym(htk, t, p12(q, haf, htk, t, d, n, h)), bd_fresh(htk, n, p17(q, haf, htk, t, d, n, h)))
 
 # M9 extended to the stored reservation frame: reserved records replay unchanged; outside
@@ -3247,7 +3406,7 @@ def a35_store_m9(+reserved: Bool, +j: M.PromptJournal, +alive: Bool) -> {S.recor
       match j:
         case M.Journal{record, world}:
           match world:
-            case M.W{+q, +haf, +htk, +t, +d, +u, +tt, +rl, +n, +tk, +i, +g}:
+            case M.W{+q, +haf, +htk, +t, +d, +u, +tt, +rl, +n, +tk, +us, +i, +g}:
               {==}
     case False{}:
       match j:
@@ -3266,22 +3425,22 @@ def a35_retirement_completion_idempotent(r: M.Retirement) -> {M.complete_retirem
 # M5/M6: stop, loss, reopen and rejected delivery preserve every status list and its order.
 def a35_retirement_stop(r: M.Retirement, w: M.World) -> {S.records(M.step(M.retirement_event(r, M.Exit{}), w)) == S.records(w) : S.Rec}:
   match w:
-    case M.W{+q, +haf, +htk, +t, +d, +u, +tt, +rl, +n, +tk, +i, +g}:
+    case M.W{+q, +haf, +htk, +t, +d, +u, +tt, +rl, +n, +tk, +us, +i, +g}:
       {==}
 
 def a35_retirement_idle_never_types(r: M.Retirement, w: M.World) -> {S.typed(M.step(M.retirement_event(r, M.Idle{}), w)) == S.typed(w) : +List<Nat>}:
   match w:
-    case M.W{+q, +haf, +htk, +t, +d, +u, +tt, +rl, +n, +tk, +i, +g}:
+    case M.W{+q, +haf, +htk, +t, +d, +u, +tt, +rl, +n, +tk, +us, +i, +g}:
       {==}
 
 def a35_retirement_send_refused(r: M.Retirement, w: M.World, user: Bool, route: M.Route) -> {S.records(M.step(M.retirement_event(r, M.Send{user, route}), w)) == S.records(w) : S.Rec}:
   match w:
-    case M.W{+q, +haf, +htk, +t, +d, +u, +tt, +rl, +n, +tk, +i, +g}:
+    case M.W{+q, +haf, +htk, +t, +d, +u, +tt, +rl, +n, +tk, +us, +i, +g}:
       {==}
 
 def a35_retirement_manual_delivery_refused(r: M.Retirement, w: M.World, id: Nat) -> {S.records(M.step(M.retirement_event(r, M.UserDeliver{id}), w)) == S.records(w) : S.Rec}:
   match w:
-    case M.W{+q, +haf, +htk, +t, +d, +u, +tt, +rl, +n, +tk, +i, +g}:
+    case M.W{+q, +haf, +htk, +t, +d, +u, +tt, +rl, +n, +tk, +us, +i, +g}:
       {==}
 
 # M9: the SQLite retirement frame replays archived records, including after Rail removal.
@@ -3289,17 +3448,17 @@ def a35_retirement_reopen_records(s: M.RetirementStore) -> {S.records(M.retireme
   match s:
     case M.Retained{r, w}:
       match w:
-        case M.W{+q, +haf, +htk, +t, +d, +u, +tt, +rl, +n, +tk, +i, +g}:
+        case M.W{+q, +haf, +htk, +t, +d, +u, +tt, +rl, +n, +tk, +us, +i, +g}:
           {==}
 
 def a35_retirement_takeover_end_records(w: M.World) -> {S.records(M.retirement_takeover_end(w)) == S.records(w) : S.Rec}:
   match w:
-    case M.W{+q, +haf, +htk, +t, +d, +u, +tt, +rl, +n, +tk, +i, +g}:
+    case M.W{+q, +haf, +htk, +t, +d, +u, +tt, +rl, +n, +tk, +us, +i, +g}:
       {==}
 
 def a35_retirement_reopen_selection(s: M.RetirementStore) -> {M.retirement_state(M.reopen_retirement(s)) == M.retirement_state(s) : M.Retirement}:
   match s:
     case M.Retained{r, w}:
       match w:
-        case M.W{+q, +haf, +htk, +t, +d, +u, +tt, +rl, +n, +tk, +i, +g}:
+        case M.W{+q, +haf, +htk, +t, +d, +u, +tt, +rl, +n, +tk, +us, +i, +g}:
           {==}

@@ -66,6 +66,7 @@ The `roundup` MCP server offers these tools. They are deferred: load a tool befo
 - `agent_worktreeState`: read what a Worktree holds and whether it can land; yours or one in your Reach.
 - `route_list`: see the Routes: whom each Agent's questions go to.
 - `project_get`: read the Project's settings.
+- `project_measurements`: read retained measurements and collection coverage.
 - `project_setWorktrees`: turn Worktrees on or off for the Project and set the command Landing runs.
 - `provenance_history`: list the Touches on one item, such as `todo:3` or `rail:5`.
 - `provenance_touched`: list the Touches one Actor made.

@@ -1748,6 +1748,7 @@ fn failure(id: &Value, err: &RpcError) -> Value {
 
 /// Accept connections until the listener fails.
 pub async fn serve(listener: UnixListener, daemon: Arc<Daemon>) -> io::Result<()> {
+    daemon.agents.observe_measurements();
     let mut exits = daemon.bus.subscribe();
     daemon.reconcile_actions().await.map_err(io::Error::other)?;
     let weak = Arc::downgrade(&daemon);
