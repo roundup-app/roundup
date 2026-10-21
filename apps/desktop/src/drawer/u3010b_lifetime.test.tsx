@@ -67,6 +67,7 @@ it("u3010b_exit_preserves_draft_and_submit_identity", () => {
   const { drawer, panel } = setup();
 
   drawer.open(() => <input aria-label="draft" />);
+  // SAFETY: the element rendered above is an `<input>`.
   const draft = screen.getByLabelText("draft") as HTMLInputElement;
 
   draft.value = "typed";
