@@ -40,3 +40,18 @@ it("u2694b_a_completed_todo_keeps_complete_disabled", async () => {
   await app.pickMenu("Complete");
   expect(callsTo(app, "todo.complete")).toEqual([]);
 });
+
+it("u2694b_deleting_a_completed_todo_keeps_other_completed_todos", async () => {
+  const { app } = await mountTodos([todo(5, { title: "chosen", done: true }), todo(6, { title: "keep", done: true })], true);
+
+  fireEvent.click(screen.getByRole("button", { name: /2 done/ }));
+  fireEvent.contextMenu(await rowOf("chosen"), { clientX: 10, clientY: 10 });
+  await app.pickMenu("Delete");
+  await screen.findByRole("alertdialog");
+  expect(callsTo(app, "todo.delete")).toEqual([]);
+  fireEvent.click(screen.getByRole("button", { name: /^Delete/ }));
+
+  await waitFor(() => expect(screen.queryByRole("alertdialog")).toBeNull());
+  expect(callsTo(app, "todo.delete")).toEqual([{ method: "todo.delete", params: { id: 5 } }]);
+  expect(await rowOf("keep")).toBeTruthy();
+});

@@ -1,7 +1,8 @@
 import { cleanup, fireEvent, screen, waitFor, within } from "@solidjs/testing-library";
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { todo } from "../../todos/testHarness";
 import { RpcError } from "../../app/seam";
-import { agent, door, workstream } from "../../testing/nodes";
+import { agent, door, event, workstream } from "../../testing/nodes";
 import { exitedTerminal, mountRail, railCallsTo, rowOf } from "../railFixture";
 
 afterEach(cleanup);
@@ -58,6 +59,24 @@ describe("u2694 the Rail's system menu", () => {
     fireEvent.click(within(question).getByRole("button", { name: "Keep" }));
     await waitFor(() => expect(screen.queryByRole("alertdialog")).toBeNull());
     expect(railCallsTo(app, "pad.delete")).toEqual([]);
+  });
+
+  it("u2694e_an_agent_owned_todo_opens_its_menu_on_release", async () => {
+    const { app } = await mountRail([agent("a", "idle", "ready")], [], undefined, () => true);
+    app.handlers["todo.list"] = () => [todo(5, { creator: { kind: "agent", id: "a", parent: null } })];
+    app.emit(event({ name: "todo.created", data: todo(5, { creator: { kind: "agent", id: "a", parent: null } }) }));
+    fireEvent.click(await screen.findByRole("button", { name: "1 todos" }));
+    const row = await screen.findByRole("button", { name: /#5 todo 5/ });
+    const press = new MouseEvent("contextmenu", { bubbles: true, cancelable: true, buttons: 2, clientX: 10, clientY: 10 });
+
+    fireEvent(row, press);
+    expect(press.defaultPrevented).toBe(true);
+    expect(app.shownMenus).toHaveLength(0);
+    fireEvent.pointerUp(document, { button: 2, clientX: 10, clientY: 10 });
+    expect(app.menuLabels()).toEqual(["Complete", "Send to Agent", "Copy Link", "Delete"]);
+    app.handlers["todo.complete"] = () => null;
+    await app.pickMenu("Complete");
+    expect(railCallsTo(app, "todo.complete")).toEqual([{ id: 5 }]);
   });
 
   it("u2694b_a_group_offers_remove_only", async () => {

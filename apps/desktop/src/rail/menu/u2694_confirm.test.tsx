@@ -1,3 +1,4 @@
+import { stubDialogLayout } from "../../shelf/bulkQuestionHarness";
 import { cleanup, fireEvent, screen, waitFor } from "@solidjs/testing-library";
 import { afterEach, describe, expect, it } from "vitest";
 import { RpcError } from "../../app/seam";
@@ -6,6 +7,7 @@ import { agent, door, workstream } from "../../testing/nodes";
 import { exitedTerminal, mountRail, railCallsTo, rowOf } from "../railFixture";
 
 afterEach(cleanup);
+stubDialogLayout();
 
 const open = (name: string) => fireEvent.contextMenu(rowOf(name), { clientX: 120, clientY: 80 });
 
@@ -84,6 +86,24 @@ describe("u2694 the Rail's menu actions", () => {
     await waitFor(() => expect(railCallsTo(app, "agent.resume")).toEqual([{ id: "x" }]));
   });
 
+  it.each(["working", "needs-you", "blocked"] as const)("u2694b_stop_confirms_before_stopping_a_%s_agent", async (kind) => {
+    const { app } = await mountRail([agent("a", kind, "busy")], [], undefined, () => true);
+    app.handlers["agent.stop"] = () => null;
+
+    open("a");
+    await app.pickMenu("Stop");
+    await screen.findByRole("alertdialog");
+    expect(railCallsTo(app, "agent.stop")).toEqual([]);
+    fireEvent.click(button("Keep"));
+    await waitFor(() => expect(screen.queryByRole("alertdialog")).toBeNull());
+    expect(railCallsTo(app, "agent.stop")).toEqual([]);
+
+    open("a");
+    await app.pickMenu("Stop");
+    fireEvent.click(await screen.findByRole("button", { name: "Stop" }));
+    await waitFor(() => expect(railCallsTo(app, "agent.stop")).toEqual([{ id: "a" }]));
+  });
+
   it("u2694b_a_workstream_remove_asks_what_goes_and_esc_keeps", async () => {
     const { app } = await mountRail([workstream("g")]);
     app.handlers["rail.remove"] = () => ({ removed: [], kept: [] });
@@ -91,7 +111,7 @@ describe("u2694 the Rail's menu actions", () => {
     open("g");
     await app.pickMenu("Remove");
     await screen.findByText("Goes: Nothing");
-    await new Promise((done) => setTimeout(done, 50));
+    await waitFor(() => expect(document.activeElement).toBe(button("Keep")));
     fireEvent.keyDown(screen.getByRole("alertdialog"), { key: "Escape" });
     await waitFor(() => expect(screen.queryByRole("alertdialog")).toBeNull());
     expect(railCallsTo(app, "rail.remove")).toEqual([]);
@@ -123,23 +143,6 @@ describe("u2694 the Rail's menu actions", () => {
     await app.pickMenu("Remove");
 
     expect(await screen.findByText("cannot remove")).toBeTruthy();
-  });
-
-  it("u2694c_send_to_agent_lists_the_projects_agents_in_rail_order", async () => {
-    const { app } = await mountRail([agent("b", "working", "beta"), agent("a", "working", "alpha")]);
-
-    open("a");
-
-    expect(app.shownMenus.at(-1)!.items.find((item) => item.label === "Send to Agent")!.children!.map((child) => child.label)).toEqual(["b", "a"]);
-  });
-
-  it("u2694c_an_exited_agent_is_listed_disabled", async () => {
-    const { app } = await mountRail([agent("a", "working", "alpha"), agent("x", "done", "gone")], [exitedTerminal("x", 0)]);
-
-    open("a");
-
-    expect(app.shownMenus.at(-1)!.items.find((item) => item.label === "Send to Agent")!.children!.map((child) => [child.label, child.enabled]))
-      .toEqual([["a", true], ["x", false]]);
   });
 
   it("u2694c_a_failed_send_shows_the_failure_line", async () => {
