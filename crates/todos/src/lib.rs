@@ -370,6 +370,31 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn t19_reopen_preserves_identity_fields_and_order() {
+        let dir = tempfile::tempdir().unwrap();
+        let h = Harness::new(dir.path());
+        made(
+            &h,
+            json!({"title":"ship", "body":"details", "owner": owner_of(&agent("a"))}),
+        )
+        .await;
+        made(&h, json!({"title":"other"})).await;
+        h.call("todo.move", json!({"id":1,"home":"r1"}))
+            .await
+            .unwrap();
+        h.call("todo.reorder", json!({"id":1,"before":null}))
+            .await
+            .unwrap();
+        h.call("todo.complete", json!({"id":1})).await.unwrap();
+        let mut expected = h.call("todo.list", json!({})).await.unwrap();
+        expected[1]["done"] = json!(false);
+        let reopened = h.call("todo.reopen", json!({"id":1})).await.unwrap();
+        assert_eq!(reopened, expected[1]);
+        assert_eq!(h.call("todo.get", json!({"id":1})).await.unwrap(), reopened);
+        assert_eq!(h.call("todo.list", json!({})).await.unwrap(), expected);
+    }
+
+    #[tokio::test]
     async fn t15_initial_values_and_field_changes() {
         let dir = tempfile::tempdir().unwrap();
         let h = Harness::new(dir.path());
