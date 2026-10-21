@@ -1168,7 +1168,7 @@ async fn nr3_watch_write_failure_is_visible_and_keeps_eligible_work() {
         }
         let recovered = watching(&s, "watch-write", &[&s.a], mode.clone()).await;
         assert_eq!(recovered.firings, failed.firings);
-        assert_eq!(recovered.remaining, 3 - accepted as u32);
+        assert_eq!(recovered.remaining, 3 - u32::try_from(accepted).unwrap());
         assert!(recovered.observation.cause.is_none());
         assert!(recovered.observation.recovery.is_none());
         if reopen {
@@ -1181,7 +1181,7 @@ async fn nr3_watch_write_failure_is_visible_and_keeps_eligible_work() {
         let next = watching(&s, "watch-write", &[&s.a], mode).await;
         assert_eq!(
             (next.firings.len(), next.remaining),
-            (accepted + 1, 2 - accepted as u32)
+            (accepted + 1, 2 - u32::try_from(accepted).unwrap())
         );
         assert_eq!(&next.firings[..accepted], failed.firings.as_slice());
         assert_eq!(
