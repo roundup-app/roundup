@@ -150,6 +150,7 @@ rpc_helper = r"""window.__u462rpc=async(method,params=null)=>{
 
 def real():
     browser('set', 'viewport', '1512', '950')
+    browser('set', 'media', 'dark')
     browser('open', origin + '/harness.html?daemon=1')
     wait('Boolean(document.querySelector(".rail-actions button"))')
     evaluate(rpc_helper)
@@ -317,6 +318,7 @@ def send(text):
 
 def restarted():
     browser('set', 'viewport', '1512', '950')
+    browser('set', 'media', 'dark')
     browser('open', origin + '/harness.html?daemon=1')
     wait('Boolean(document.querySelector(".rail-actions button"))')
     evaluate(rpc_helper)
