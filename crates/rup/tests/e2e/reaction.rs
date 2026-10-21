@@ -544,6 +544,7 @@ async fn nr7_a_pr_without_worktree_evidence_saves_nothing() {
 #[tokio::test]
 async fn nr3_automatic_write_failure_is_inspectable_and_recovers() {
     let mut s = scene(&[]).await;
+    s.w = s.door.clone();
     let saved = watching(&s, "failed firing", &[&s.a], json!({})).await;
     project_db(&s.project).execute_batch("CREATE TRIGGER refuse_reaction BEFORE INSERT ON reaction_firings BEGIN SELECT RAISE(ABORT, 'reaction write refused'); END;").unwrap();
     drive(&s.user, &s.a, STOP).await;
@@ -594,8 +595,7 @@ async fn nr3_automatic_write_failure_is_inspectable_and_recovers() {
     project_db(&s.project)
         .execute_batch("DROP TRIGGER refuse_reaction")
         .unwrap();
-    drive(&s.user, &s.w, WORK).await;
-    drive(&s.user, &s.a, STOP).await;
+    start_again(&s.user, &s.door).await;
     let sent = notes(&s.user, &s.w, "failed firing", 1).await;
     let recovered = current(&s, &saved).await;
     assert_eq!((recovered.firings.len(), recovered.remaining), (1, 0));
@@ -616,7 +616,6 @@ async fn nr3_automatic_write_failure_is_inspectable_and_recovers() {
             .unwrap()
             .contains(&json!(s.a))
     );
-    drive(&s.user, &s.a, STOP).await;
     drop(s.user);
     s.project.restart(&[]);
     s.user = s.project.client().await;

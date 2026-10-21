@@ -373,9 +373,9 @@ impl Evaluator {
             Ok(_) => {
                 w.health = "observing".into();
                 w.cause = None;
-                if w.gap.is_none() {
-                    w.recovery = None;
-                }
+                w.recovery = w.gap.as_ref().map(|_| {
+                    "the recorded source gap remains; authoritative current Agent state reconciled observation".into()
+                });
                 w.round += 1;
                 w.armed = false;
                 w.finished.clear();
