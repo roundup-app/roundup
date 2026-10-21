@@ -179,7 +179,8 @@
 .shelf-scope-name { flex: 1; min-width: 0; overflow-wrap: anywhere; }
 .shelf-bar > div, .shelf-scope-action:not([hidden]) { display: contents; }
 .shelf-scope-action[hidden] { display: none; }
-.shelf-bar .shelf-add { flex: none; align-self: flex-start; margin-inline-start: auto; margin-block: 0 calc(var(--space-4) - var(--space-6)); padding-block: 0; min-height: 0; height: var(--space-6); align-items: flex-start; padding-inline: var(--space-1); font-size: var(--text-body); line-height: var(--space-4); color: var(--accent); }
+.shelf-bar .shelf-add { position: relative; flex: none; align-self: flex-start; margin-inline-start: auto; margin-block: 0; padding-block: 0; min-height: 0; height: var(--space-4); align-items: flex-start; padding-inline: var(--space-1); font-size: var(--text-body); line-height: var(--space-4); color: var(--accent); }
+.shelf-bar .shelf-add::before { content: ''; position: absolute; inset-block: calc(-1 * var(--space-1)); inset-inline: 0; }
 .shelf-groups.app-tree { padding: 0; }
 .shelf-groups [data-part="branch-control"] { padding-inline: 0; color: var(--grey); font-size: var(--text-caption); font-family: var(--font-ui); overflow-wrap: anywhere; }
 .shelf-groups [data-part="branch-control"]:hover { color: var(--text); background: transparent; }
