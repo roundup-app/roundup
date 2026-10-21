@@ -59,7 +59,7 @@ describe("u360 D12 left edges", () => {
       for (const offset of [0, 1, 2, -3]) {
         page(list("todos", 1, 0));
         document.querySelector("section")!.insertAdjacentHTML("beforeend", `
-          <div class="shelf-row entry-row" data-id="new-todo" data-box="0,60,160,32">
+          <div class="shelf-row entry-row" data-box="0,60,160,32">
             <span class="shelf-glyph"><input class="todo-tick" type="checkbox" data-box="0,60,24,24"></span>
             <div class="shelf-text"><input class="entry-field" placeholder="New Todo" value="${value}"
               style="padding-left: 3px; border-left: 1px solid" data-box="${box(20 + offset, 60, 120, 24)}"></div>
@@ -73,7 +73,7 @@ describe("u360 D12 left edges", () => {
           value: Math.abs(offset),
         });
 
-        if (offset !== 0) expect(result.selector).toBe('div.shelf-row[data-id="new-todo"]');
+        if (offset !== 0) expect(result.selector).toBe('input.entry-field');
       }
     }
   });
