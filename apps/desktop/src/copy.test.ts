@@ -64,7 +64,10 @@ const candidates = (source: string): { line: number; text: string }[] => {
 
     if (parent?.type === "JSXAttribute" && (parent.name.type !== "JSXIdentifier" || !UI_ATTRIBUTES.test(parent.name.name))) return;
 
-    visit(node.expression, [], (each) => { if (each.type === "Identifier") used.add(each.name); });
+    // A UI attribute's JSX value (a `fallback` element) shows only its own text and UI attributes, never its other props.
+    const shown = (inner: readonly Node[]) => !inner.some((each) => each.type === "JSXAttribute" && (each.name.type !== "JSXIdentifier" || !UI_ATTRIBUTES.test(each.name.name)));
+
+    visit(node.expression, [], (each, inner) => { if (each.type === "Identifier" && shown(inner)) used.add(each.name); });
   });
 
   for (const name of used) {
