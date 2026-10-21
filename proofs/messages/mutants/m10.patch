@@ -3,9 +3,9 @@
 @@ -84,7 +84,7 @@
      case Con{+x, +rest}:
        match s:
-         case W{+q0, +haf, +htk, +t, +d, +u, +tt, +rl, +n, +tk, +i, +g}:
--          flush_go(rest, W{[], haf, htk, snoc(t, x), d, u, record(tk, x, tt), rl, n, tk, False{}, g})
-+          flush_go(rest, W{x <> q0, haf, htk, snoc(t, x), d, u, record(tk, x, tt), rl, n, tk, False{}, g})
+         case W{+q0, +haf, +htk, +t, +d, +u, +tt, +rl, +n, +tk, +us, +i, +g}:
+-          flush_go(rest, W{[], haf, htk, snoc(t, x), d, u, record(Bool.or(tk, us), x, tt), rl, n, tk, us, False{}, g})
++          flush_go(rest, W{x <> q0, haf, htk, snoc(t, x), d, u, record(Bool.or(tk, us), x, tt), rl, n, tk, us, False{}, g})
  
  def flush_b(i: Bool, s: World) -> World:
    match i:

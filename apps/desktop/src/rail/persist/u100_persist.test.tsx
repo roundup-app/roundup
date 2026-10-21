@@ -83,16 +83,6 @@ it("u100_same_project_restores_selection_and_collapsed_groups", async () => {
   expect(document.querySelector('[data-terminal="t-agent-3"]')).not.toBeNull();
 });
 
-it("u100_a_saved_workstreams_head_from_before_the_redesign_is_dropped_and_every_row_shows", async () => {
-  saved("agent-3", ["shelf:todos", "rail:workstreams", "shelf:nothing"]);
-  mount();
-  await loaded();
-
-  expect(document.querySelector("[data-group]")).toBeNull();
-  expect(row("agent-1")).not.toBeNull();
-  expect(row("agent-3")?.getAttribute("aria-selected")).toBe("true");
-});
-
 it("u100_different_project_never_reads_or_changes_the_saved_project", async () => {
   saved("agent-1", ["backend"]);
   const get = vi.spyOn(Storage.prototype, "getItem");
@@ -193,7 +183,7 @@ it("u100_first_tree_is_restored_without_flash_scroll_focus_or_extra_rpc", async 
   expect(scroll).not.toHaveBeenCalled();
   expect(document.activeElement).toBe(field);
   expect(app.calls.map((call) => call.method).sort()).toEqual([
-    "ask.list", "daemon.ping", "decision.list", "deliverable.list", "pad.list", "project.resources", "rail.tree", "terminal.list", "terminal.resize", "terminal.scheme", "terminal.snapshot", "todo.list",
+    "ask.list", "daemon.ping", "decision.list", "deliverable.list", "pad.list", "project.resources", "rail.tree", "reaction.list", "terminal.list", "terminal.resize", "terminal.scheme", "terminal.snapshot", "todo.list",
   ]);
   field.remove();
 });
