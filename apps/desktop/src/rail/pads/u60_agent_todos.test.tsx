@@ -88,6 +88,19 @@ describe("u60 an Agent's Todos under it", () => {
     expect(within(group).getByRole("button", { name: /#4 todo 4/ })).toBeTruthy();
   });
 
+  it("u461a_reopening_controls_belong_to_their_rail_tree_leaf", async () => {
+    await mount(TREE, [todo(1, { creator: by("a1"), done: true })]);
+    await opened();
+
+    const rail = within(screen.getByRole("tree", { name: "Rail" }));
+    const box = await rail.findByRole("checkbox", { name: "Reopen todo 1" });
+    const leaf = box.closest('[role="treeitem"]');
+
+    expect(leaf).not.toBeNull();
+    expect(leaf?.getAttribute("aria-level")).toBe("3");
+    expect(within(leaf!).getByRole("button", { name: /#1 todo 1/ })).toBeTruthy();
+  });
+
   it("u60_a_click_on_a_todo_opens_its_drawer_without_a_creator_line", async () => {
     const { connected } = await mount(TREE, [todo(1, { creator: by("a1") })]);
 
