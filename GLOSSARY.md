@@ -760,3 +760,20 @@ An observed activity is active, ended at an observed Clock point, or interrupted
 
 **Measurement wait** (`MeasurementWait`):
 The observation of one continuously blocking operation. It carries no delivery or control authority.
+
+**Request cost** (`RequestCost`, `CacheWrites`):
+The observed opaque Model and independently observed five-minute/one-hour cache-write
+classes of one retained request. Classes partition its consumed cache writes; a missing
+class is unknown. `unavailable` explains missing evidence. Old retained requests with
+no cost evidence remain unknown until their source is replayed.
+
+**Reference rates** (`ReferenceRates`):
+An Adapter-matched, versioned and dated offline category rate basis, with currency,
+exact decimal rates, token denominator, source link and comparison assumptions. It
+supports a separately labelled reference estimate, never a subscription bill.
+
+**Reported money** (`ReportedMoney`, `MoneyScope`, `MeasurementValue::Money`):
+An exact source amount with its currency when established, source, pricing basis and
+request or inclusive conversation scope. Conversation totals include their constituent
+requests and native children: they never add to request money or reference estimates.
+A currency not established by its source is unknown; no conversion is inferred.

@@ -290,6 +290,7 @@ impl Rail {
                             maker: r.get(6)?,
                             observed: r.get(7)?,
                             value: contracts::project::MeasurementValue::Request {
+                                cost: None,
                                 usage: contracts::project::Consumed {
                                     input: None,
                                     output: None,
