@@ -19,7 +19,7 @@ run("u461 and u462 isolated rendered observers", () => {
   let server: AppServer;
   let baseline: ViteDevServer | undefined;
   let cache: string;
-  let real: StartedDaemon;
+  let real: StartedDaemon | undefined;
 
   beforeAll(async () => {
     cache = await mkdtemp(join(tmpdir(), "u461-vite-"));
@@ -30,9 +30,6 @@ run("u461 and u462 isolated rendered observers", () => {
       baseline = await createServer({ root: baseRoot, configFile: join(baseRoot, "vite.config.ts"), cacheDir: join(cache, "base"), server: { host: "127.0.0.1", port: 0, hmr: false }, logLevel: "silent" });
       await baseline.listen();
     }
-
-    // E10: the Door's Claude is the pinned one, its model aimock serving this file's turns.
-    real = await startRealDaemon({}, true, undefined, join(process.cwd(), "src/testing/fixtures/u461_door_todos.json"));
   }, 120_000);
 
   afterAll(async () => {
@@ -51,6 +48,8 @@ run("u461 and u462 isolated rendered observers", () => {
   }, 300_000);
 
   it("u462_real_daemon_history_and_reads", async () => {
+    // E10: the Door's Claude is the pinned one, its model aimock serving this file's turns.
+    real = await startRealDaemon({}, true, undefined, join(process.cwd(), "src/testing/fixtures/u461_door_todos.json"));
     await promisify(execFile)("python3", ["src/todos/u461_browser.test.py", "real", real.base, ...output], { timeout: 180_000, maxBuffer: 2 * 1024 * 1024 });
     await real.restart();
     await promisify(execFile)("python3", ["src/todos/u461_browser.test.py", "restart", real.base, ...output], { timeout: 120_000, maxBuffer: 2 * 1024 * 1024 });
@@ -71,6 +70,7 @@ describe.skipIf(!captureDir("U461b"))("u461b browser environment", () => {
 
   afterAll(async () => {
     await server?.close();
+
     if (output) await rm(output, { recursive: true, force: true });
   });
 
@@ -79,11 +79,14 @@ describe.skipIf(!captureDir("U461b"))("u461b browser environment", () => {
   }, 120_000);
 
   it("u461b_capture_requires_observed_emulation", async () => {
-    await driver("capture-valid");
-    const readings: { environment: { width: number; height: number; dark: boolean } } = JSON.parse(await readFile(join(output, "capture-valid.json"), "utf8"));
+    const valid = captureDir("U461b")!;
+
+    await driver("capture-valid", valid);
+    const readings: { environment: { width: number; height: number; dark: boolean } } = JSON.parse(await readFile(join(valid, "capture-valid.json"), "utf8"));
 
     expect(readings.environment).toEqual({ width: 1512, height: 950, dark: true });
-    expect((await readFile(join(output, "capture-valid.png"))).subarray(0, 8)).toEqual(Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]));
+    expect((await readFile(join(valid, "capture-valid.png"))).subarray(0, 8)).toEqual(Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]));
+
     for (const mode of ["capture-viewport-mismatch", "capture-scheme-mismatch"]) {
       const directory = join(output, mode);
 
