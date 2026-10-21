@@ -172,13 +172,6 @@ impl Timer {
     }
 
     async fn fire(&self, saved: &Reaction, at: OffsetDateTime, now: OffsetDateTime, late: bool) {
-        let refuse = |why: RpcError| {
-            self.reactions
-                .mark(&saved.id, &format!("refused: {}", why.message))
-        };
-        if let Err(why) = self.agents.guard_reach(&saved.actor, &saved.target, true) {
-            return refuse(why);
-        }
         let at_text = match &saved.condition {
             Condition::Instant { at, .. } => at.as_str(),
             _ => "",
@@ -191,6 +184,29 @@ impl Timer {
             "observed": stamp(now.to_offset(time::UtcOffset::UTC)),
             "late": late,
         });
+        let refuse = |why: RpcError| {
+            let db = self
+                .reactions
+                .db
+                .lock()
+                .expect("reaction database poisoned");
+            let _ = db.execute(
+                "UPDATE reactions SET record = json_set(record,
+                   '$.observation.health', 'acceptance-failed',
+                   '$.observation.cause', ?2,
+                   '$.observation.recovery', ?3,
+                   '$.observation.evidence', ?4) WHERE id = ?1",
+                params![
+                    saved.id,
+                    why.message,
+                    "remove the acceptance failure; the timer retries on its next wake or Project reopen, applying the saved late policy and expiry",
+                    evidence.to_string(),
+                ],
+            );
+        };
+        if let Err(why) = self.agents.guard_reach(&saved.actor, &saved.target, true) {
+            return refuse(why);
+        }
         let fired = self
             .messages
             .fire_reaction(messages::reaction::Fire {
@@ -219,7 +235,8 @@ impl Reactions {
             "SELECT record FROM reactions
              WHERE json_extract(record, '$.state') = 'active'
                AND json_extract(record, '$.condition.kind') = 'instant'
-               AND json_extract(record, '$.observation.health') IN ('not-observing', 'waiting')
+               AND (json_extract(record, '$.observation.health') IN ('not-observing', 'waiting', 'acceptance-failed')
+                    OR json_extract(record, '$.observation.health') LIKE 'refused:%')
                AND NOT EXISTS (SELECT 1 FROM reaction_firings WHERE reaction = reactions.id)",
         ) else {
             return Vec::new();
@@ -238,7 +255,8 @@ impl Reactions {
     fn mark(&self, id: &str, health: &str) {
         let db = self.db.lock().expect("reaction database poisoned");
         let _ = db.execute(
-            "UPDATE reactions SET record = json_set(record, '$.observation.health', ?2) WHERE id = ?1",
+            "UPDATE reactions SET record = json_set(record, '$.observation.health', ?2,
+                '$.observation.cause', NULL, '$.observation.recovery', NULL) WHERE id = ?1",
             params![id, health],
         );
     }
