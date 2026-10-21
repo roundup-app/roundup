@@ -17,6 +17,9 @@ export const startAppServer = async ({ root = process.cwd() }: { root?: string }
   const server = await createServer({ root, cacheDir, server: { port: 0, strictPort: false, hmr: false, host: "127.0.0.1" }, logLevel: "silent", optimizeDeps: { include: ["@solidjs/testing-library"] } });
 
   await server.listen();
+  // Compile the harness's static imports before a browser's App-readiness bound starts.
+  await server.warmupRequest("/src/testing/harness.tsx");
+  await server.waitForRequestsIdle();
 
   return {
     resolvedUrls: { local: server.resolvedUrls?.local ?? [] },

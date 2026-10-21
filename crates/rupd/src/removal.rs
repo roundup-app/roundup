@@ -32,7 +32,7 @@ impl Daemon {
         let caller = actor.clone();
         let (removal, (files, events)) = self.agents.remove_workstream_with(
             actor.clone(), id, move |db, removal| {
-                let mut events = todos.remove_workstream(db, &home, removal)?;
+                let mut events = todos.remove_workstream(db, &home, &caller, removal)?;
                 let (files, pad_events) = pads.remove_workstream(db, &home, removal)?;
                 events.extend(pad_events);
                 db.execute("UPDATE deliverables SET home=NULL, record=json_set(record,'$.home',NULL) WHERE home=?1 AND removed=0",[&home]).map_err(RpcError::internal)?;

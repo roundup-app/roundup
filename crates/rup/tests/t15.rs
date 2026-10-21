@@ -433,3 +433,73 @@ async fn u2773c_returning_to_original_values_does_not_revive_a_stale_change() {
         rpc::code::CONFLICT
     );
 }
+
+#[tokio::test]
+async fn t19_daemon_reopen_refreshes_dependents() {
+    let mut project = start(&[]);
+    let client = project.client().await;
+    client
+        .request("todo.create", json!({"title":"blocker"}))
+        .await
+        .unwrap();
+    client
+        .request("todo.create", json!({"title":"dependent","blockers":[1]}))
+        .await
+        .unwrap();
+    client
+        .request("todo.complete", json!({"id":1}))
+        .await
+        .unwrap();
+    let mut events = project.subscribed().await;
+    let reopened = client
+        .request("todo.reopen", json!({"id":1}))
+        .await
+        .unwrap();
+    assert_eq!(reopened["done"], false);
+    let updated = daemon::next(&mut events, |event| match event {
+        contracts::EventData::TodoUpdated(todo) => Some(serde_json::to_value(todo).unwrap()),
+        contracts::EventData::TodoUnblocked(_) => panic!("reopen must not unblock"),
+        _ => None,
+    })
+    .await;
+    assert_eq!(updated, reopened);
+    let list = client.request("todo.list", json!(null)).await.unwrap();
+    assert_eq!(list[1]["blocked"], true);
+    assert_eq!(list[1]["blockers"], json!([1]));
+    let history = client
+        .request("todo.getHistory", json!({"id":1}))
+        .await
+        .unwrap();
+    let touches = client
+        .request("provenance.history", json!({"item":"todo:1"}))
+        .await
+        .unwrap();
+    assert_eq!(
+        history["changes"][2]["actor"],
+        json!(contracts::Actor::user())
+    );
+    project.restart(&[]);
+    let client = project.client().await;
+    assert_eq!(
+        client.request("todo.list", json!(null)).await.unwrap(),
+        list
+    );
+    assert_eq!(
+        client
+            .request("todo.getHistory", json!({"id":1}))
+            .await
+            .unwrap(),
+        history
+    );
+    assert_eq!(
+        client
+            .request("provenance.history", json!({"item":"todo:1"}))
+            .await
+            .unwrap(),
+        touches
+    );
+    assert_eq!(
+        client.request("todo.get", json!({"id":1})).await.unwrap(),
+        reopened
+    );
+}

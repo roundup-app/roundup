@@ -66,10 +66,10 @@ const opened = async () => {
 };
 
 describe("u60 an Agent's Todos under it", () => {
-  it("u60_the_control_counts_pads_and_open_todos_together", async () => {
+  it("u461a_the_rail_control_counts_pads_and_done_and_open_todos", async () => {
     await mount(TREE, [todo(1, { creator: by("a1") }), todo(2, { creator: by("a1"), done: true })], [padOf("n", by("a1"))]);
 
-    await waitFor(() => expect(control(rowOf("auth"))?.textContent?.trim()).toBe("2"));
+    await waitFor(() => expect(control(rowOf("auth"))?.textContent?.trim()).toBe("3"));
     expect(control(rowOf("docs"))).toBeNull();
   });
 
@@ -86,6 +86,19 @@ describe("u60 an Agent's Todos under it", () => {
     expect([...group.querySelectorAll("[data-todo], .rail-pad")].map((row) => row.getAttribute("data-todo") ?? "pad")).toEqual(["pad", "3", "4", "5"]);
     expect(within(group).getByText(/Waits on/).closest("[data-todo-waits]")?.textContent).toContain("#4");
     expect(within(group).getByRole("button", { name: /#4 todo 4/ })).toBeTruthy();
+  });
+
+  it("u461a_reopening_controls_belong_to_their_rail_tree_leaf", async () => {
+    await mount(TREE, [todo(1, { creator: by("a1"), done: true })]);
+    await opened();
+
+    const rail = within(screen.getByRole("tree", { name: "Rail" }));
+    const box = await rail.findByRole("checkbox", { name: "Reopen todo 1" });
+    const leaf = box.closest<HTMLElement>('[role="treeitem"]');
+
+    expect(leaf).not.toBeNull();
+    expect(leaf?.getAttribute("aria-level")).toBe("2");
+    expect(within(leaf!).getByRole("button", { name: /#1 todo 1/ })).toBeTruthy();
   });
 
   it("u60_a_click_on_a_todo_opens_its_drawer_without_a_creator_line", async () => {
@@ -114,18 +127,32 @@ describe("u60 an Agent's Todos under it", () => {
     expect(within(screen.getByLabelText("Drawer")).queryByText("Created by gone")).toBeNull();
   });
 
-  it("u60_complete_works_on_a_todo_under_its_agent", async () => {
-    const { app } = await mount(TREE, [todo(1, { creator: by("a1") })]);
-
+  it.each([false])("u461a_pending_and_failure_preserve_accepted_value in Rail done=%s", async (done) => {
+    const { app } = await mount(TREE, [todo(1, { creator: by("a1"), done })]);
     await opened();
 
-    const row = within(screen.getByRole("tree", { name: "Rail" })).getByRole("button", { name: /#1 todo 1/ }).closest<HTMLElement>("[data-todo]")!;
-
-    fireEvent.mouseEnter(row);
-    fireEvent.click(within(row).getByRole("button", { name: "Complete" }));
-
-    await waitFor(() => expect(app.calls.filter((call) => call.method === "todo.complete")).toEqual([{ method: "todo.complete", params: { id: 1 } }]));
-    await waitFor(() => expect(control(rowOf("auth"))).toBeNull());
+    const rail = within(screen.getByRole("tree", { name: "Rail" }));
+    const box = await rail.findByRole<HTMLInputElement>("checkbox", { name: `${done ? "Reopen" : "Complete"} todo 1` });
+    const method = done ? "todo.reopen" : "todo.complete";
+    const accept = app.handlers[method]!;
+    let reject!: (error: Error) => void;
+    app.handlers[method] = () => new Promise((_, fail) => { reject = fail; });
+    box.focus();
+    fireEvent.click(box);
+    fireEvent.click(box);
+    expect(app.calls.filter(call => call.method === method)).toEqual([{ method, params: { id: 1 } }]);
+    expect(box.checked).toBe(done);
+    reject(new Error("Try reopening again"));
+    await rail.findByText("Try reopening again");
+    expect(box.checked).toBe(done);
+    expect(document.activeElement).toBe(box);
+    app.handlers[method] = accept;
+    fireEvent.click(box);
+    await waitFor(() => expect(box.checked).toBe(!done));
+    expect(app.calls.filter(call => call.method === method)).toHaveLength(2);
+    expect(document.activeElement).toBe(box);
+    expect(document.querySelector(".drawer")?.getAttribute("data-open")).toBe("false");
+    expect(app.calls.filter(call => [done ? "todo.complete" : "todo.reopen", "todo.delete", "todo.move"].includes(call.method))).toHaveLength(0);
   });
 
   it("u60_the_rail_and_the_shelf_share_one_todo_list_and_the_rows_leave_the_agents_alone", async () => {
