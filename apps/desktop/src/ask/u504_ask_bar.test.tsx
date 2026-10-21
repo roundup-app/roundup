@@ -219,7 +219,7 @@ it.each(["refused", "unknown", "acknowledged"] as const)("u2773b_ask_settlement_
 
   if (older) {
     fireEvent.click(screen.getByRole("button", { name: "Recover unfinished work" }));
-    fireEvent.click(await screen.findByRole("button", { name: "Discard this revision" }));
+    fireEvent.click(await screen.findByRole("button", { name: "Discard" }));
   }
 
   reopened.unmount();
@@ -331,11 +331,11 @@ it("u2773e_recovery_actions_keep_surface_draft", async () => {
     expect(screen.getByRole("alert").textContent).toContain(mounted.connected.project.path);
     expect(screen.getByRole("alert").textContent).toContain("Ask");
     fireEvent.click(screen.getByRole("button", { name: "Recover unfinished work" }));
-    fireEvent.click(await screen.findByRole("button", { name: "Copy text" }));
-    expect(clipboard).toHaveBeenCalledWith(exact);
+    expect(await screen.findByRole("button", { name: "Open" })).toBeTruthy();
+    expect(clipboard).not.toHaveBeenCalled();
     expect(input()!.value).toBe(exact);
     writes.mockRestore();
-    fireEvent.click(screen.getByRole("button", { name: "Retry storage only" }));
+    fireEvent.click(screen.getByRole("button", { name: "Try again" }));
     expect(screen.queryByRole("alert")).toBeNull();
     expect(sent(mounted.app)).toEqual([]);
     const path = mounted.connected.project.path;
@@ -343,14 +343,13 @@ it("u2773e_recovery_actions_keep_surface_draft", async () => {
     const reopened = await mountAskBar([], null, undefined, false, path);
     expect(input()!.value).toBe(exact);
     reopened.connected.rail.select("ann");
-    fireEvent.click(screen.getByRole("button", { name: "Recover unfinished work" }));
-    fireEvent.click(await screen.findByRole("button", { name: "Discard this revision" }));
+    expect(screen.queryByRole("button", { name: "Recover unfinished work" })).toBeNull();
     reopened.connected.rail.select(null);
-    expect(input()!.value).toBe("");
+    expect(input()!.value).toBe(exact);
     expect(sent(reopened.app)).toEqual([]);
     reopened.unmount();
     await mountAskBar([], null, undefined, false, path);
-    expect(input()!.value).toBe("");
+    expect(input()!.value).toBe(exact);
   } finally {
     vi.restoreAllMocks();
     vi.unstubAllGlobals();
@@ -508,10 +507,9 @@ it("u3021c_copy_and_discard_keep_other_revisions_ask", async () => {
   try {
     connected.rail.select("ann");
     fireEvent.click(screen.getByRole("button", { name: "Recover unfinished work" }));
-    fireEvent.click(await screen.findByRole("button", { name: `Inspect · Ask · ask-bar · ${a.revision}` }));
-    fireEvent.click(screen.getByRole("button", { name: "Copy text" }));
+    fireEvent.click(await screen.findByRole("button", { name: "Copy" }));
     expect(clipboard.mock.calls).toEqual([[exact]]);
-    fireEvent.click(screen.getByRole("button", { name: "Discard this revision" }));
+    fireEvent.click(screen.getByRole("button", { name: "Discard" }));
     expect(connected.drafts.list()).toEqual([b]);
     const path = connected.project.path;
     mounted.unmount();

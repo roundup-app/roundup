@@ -152,12 +152,81 @@ it("u3021c_copy_and_discard_keep_other_revisions", async () => {
   expect(app.calls.filter(({ method }) => method === "agent.setOrder" || method === "message.send")).toEqual([]);
 });
 
-it("u2773h_credential_values_remain_hidden", async () => {
+it("u2773h_credential_values_remain_hidden_until_copy", async () => {
   const drafts = createProjectDrafts();
+  const holder = drafts(FIRST.path);
   const secret = "sentinel-credential-recovery";
+  const { revision } = holder.edit({ surface: "decisions", object: "original-prompt", recipient: "original-agent" }, { password: secret }, null, "credential").draft;
 
-  drafts(FIRST.path).edit({ surface: "decisions", object: "original-prompt", recipient: "original-agent" }, { password: secret }, null, "credential");
+  holder.submit(revision);
+  holder.settle(revision, "failed");
   mount(drafts);
-  await screen.findByRole("tab", { name: FIRST.name });
+  const clipboard = vi.fn(async (_text: string) => {});
+
+  Object.defineProperty(navigator, "clipboard", { configurable: true, value: { writeText: clipboard } });
+  fireEvent.click(await screen.findByRole("button", { name: "Recover unfinished work" }));
+  const recovery = await screen.findByRole("region", { name: "Unfinished work" });
+
   expect(document.body.innerHTML).not.toContain(secret);
+  fireEvent.click(within(recovery).getByRole("button", { name: "Copy" }));
+  expect(clipboard).toHaveBeenCalledWith(secret);
+});
+
+it.each(["pads", "todos"])("u3021c_open_restores_exact_revision_without_rpc_%s_creation", async (surface) => {
+  const drafts = createProjectDrafts();
+  const holder = drafts(FIRST.path);
+  const exact = "  Naïve 🪁 name  ";
+  const revision = failedSave(holder, surface === "pads" ? { surface, object: "creation", recipient: null } : { surface, object: "new", recipient: null }, surface === "pads" ? { name: exact, home: null } : { title: exact, home: null });
+  const app = mount(drafts);
+
+  fireEvent.click((await screen.findAllByRole("button", { name: "Recover unfinished work" }))[0]!);
+  const row = within(await screen.findByRole("region", { name: "Unfinished work" })).getAllByRole("listitem").find((item) => item.dataset.revision === revision)!;
+  const before = app.calls.length;
+
+  fireEvent.click(within(row).getByRole("button", { name: "Open" }));
+  await vi.waitFor(() => expect([...document.querySelectorAll<HTMLInputElement>("input, textarea")].some((field) => field.value === exact)).toBe(true));
+  expect(app.calls.slice(before).filter(({ method }) => !/\.(list|read|get)/.test(method))).toEqual([]);
+  expect(holder.list().map((draft) => draft.revision)).toContain(revision);
+});
+
+const owners = {
+  pad: async () => {
+    fireEvent.click(await screen.findByRole("tab", { name: "Pads" }));
+    fireEvent.click(await screen.findByRole("button", { name: "Add Pad" }));
+
+    return screen.findByLabelText<HTMLInputElement>("Pad name");
+  },
+  todo: async () => {
+    fireEvent.click(await screen.findByRole("button", { name: "Add Todo" }));
+
+    return screen.findByRole<HTMLInputElement>("textbox", { name: "New Todo title" });
+  },
+  name: async () => {
+    fireEvent.dblClick(document.querySelector(".tab-name")!);
+
+    return screen.findByRole<HTMLInputElement>("textbox", { name: "Project name" });
+  },
+};
+
+it.each(Object.entries(owners))("u3021d_acknowledged_typing_has_no_outside_mutations_%s", async (_owner, openField) => {
+  mount(createProjectDrafts());
+  await screen.findByRole("tab", { name: FIRST.name });
+  await screen.findAllByText(/^(new )?Workstream$/);
+  const field = await openField();
+
+  await new Promise((done) => setTimeout(done, 300));
+  const outside: MutationRecord[] = [];
+  const observer = new MutationObserver((records) => outside.push(...records.filter((record) => !field.contains(record.target) && record.target !== field)));
+
+  observer.observe(document.body, { subtree: true, childList: true, characterData: true });
+
+  for (let count = 1; count <= 20; count++) {
+    fireEvent.input(field, { target: { value: "x".repeat(count) } });
+    await new Promise((done) => setTimeout(done));
+  }
+
+  await new Promise((done) => setTimeout(done, 50));
+  outside.push(...observer.takeRecords().filter((record) => !field.contains(record.target) && record.target !== field));
+  observer.disconnect();
+  expect(outside.map((record) => `${record.type}:${record.target.nodeName}:${record.addedNodes.length}:${record.removedNodes.length}`)).toEqual([]);
 });
