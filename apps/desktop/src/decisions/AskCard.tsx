@@ -1,5 +1,5 @@
 import { copy } from "../copy";
-import { createMemo, For, Show } from "solid-js";
+import { batch, createMemo, createSignal, For, Show } from "solid-js";
 import * as v from "valibot";
 import { Markdown } from "../plain/Markdown";
 import type { PromptIdentity } from "@contracts/decision/PromptIdentity";
@@ -31,7 +31,7 @@ const value = (at: number | null) => (at === null ? null : String(at));
 const position = (answer: string | null) => (answer === null ? null : Number(answer));
 
 /** U406: the answers of an `ask_user` Decision with their tradeoffs, the focused answer's preview, and the note. `focus` is the focused row; `null` is none: the user's own answer. Ark's Listbox moves it, wrapping through none. */
-export const AskCard = (props: { question: Question; identity: PromptIdentity; stuck: () => boolean }) => {
+export const AskCard = (props: { question: Question; identity: PromptIdentity; stuck: () => boolean; selectedRevision?: string | undefined }) => {
   const { drafts, decisions } = useConnectedProject();
   const identity = props.identity;
   const destination = { surface: "decisions", object: promptKey(identity), recipient: identity.agent };
@@ -42,7 +42,15 @@ export const AskCard = (props: { question: Question; identity: PromptIdentity; s
     && draft.value.decision === identity.decision && draft.value.agent === identity.agent && draft.destination.recipient === destination.recipient
     && draft.value.daemon === identity.daemon && draft.value.attempt === identity.attempt);
 
-  const current = () => records().at(-1);
+  const selectedRevision = props.selectedRevision;
+  const [revision, setRevision] = createSignal(selectedRevision);
+
+  // Recovered edits stay independently selectable; they never become the ordinary current form.
+  const current = () => selectedRevision === undefined
+    ? records().filter(draft => draft.value.selectedRevision === undefined).at(-1)
+    : records().find(draft => draft.revision === revision());
+
+  const restorable = () => selectedRevision === undefined || current() !== undefined && decisions.availability(identity) !== "unavailable";
 
   const focus = () => {
     const choice = v.safeParse(v.nullable(v.string()), current()?.value.choice);
@@ -58,7 +66,16 @@ export const AskCard = (props: { question: Question; identity: PromptIdentity; s
 
   let field: HTMLTextAreaElement | undefined;
   const caret = () => field ? { start: field.selectionStart, end: field.selectionEnd, direction: field.selectionDirection } : null;
-  const edit = (choice: string | null, note: string) => drafts.edit(destination, { ...identity, choice, note }, caret(), "ordinary");
+
+  const edit = (choice: string | null, note: string) => batch(() => {
+    const form = selectedRevision === undefined ? { ...identity, choice, note } : { ...identity, choice, note, selectedRevision };
+    const replaces = current()?.revision ?? null;
+    const result = drafts.edit(destination, form, caret(), "ordinary", replaces);
+
+    if (selectedRevision !== undefined) setRevision(result.draft.revision);
+
+    return result;
+  });
 
   const retainSelection = () => {
     const draft = current();
@@ -73,7 +90,7 @@ export const AskCard = (props: { question: Question; identity: PromptIdentity; s
     return at === null ? undefined : answers()[at];
   });
 
-  const sendable = () => !props.stuck() && !records().some(draft => draft.status === "pending" || draft.status === "unknown") && (focused() !== undefined || note().trim() !== "");
+  const sendable = () => restorable() && (selectedRevision === undefined || decisions.availability(identity) === "available") && !props.stuck() && !records().some(draft => draft.status === "pending" || draft.status === "unknown") && (focused() !== undefined || note().trim() !== "");
 
   const send = () => {
     if (!sendable()) return;
@@ -97,52 +114,58 @@ export const AskCard = (props: { question: Question; identity: PromptIdentity; s
   };
 
   return (
-    <Listbox.Root answers={items()} value={value(focus())} highlightedValue={value(focus())} pending={props.stuck()} disabled={false}
-      onValueChange={(answer) => select(position(answer))} onHighlightChange={(answer) => select(position(answer))}>
-      <Show when={answers().length > 0}>
-        <Listbox.Content class="ask-answers" aria-label={copy.answers}>
-          <For each={items()}>
-            {(each) => (
-              <Listbox.Item item={each}>
-                <Show when={each.recommended}>
-                  <span class="ask-recommended light">{copy.recommended}</span>
-                </Show>
-              </Listbox.Item>
-            )}
-          </For>
-        </Listbox.Content>
-      </Show>
-      <Show when={focused()?.preview}>
-        {(preview) => (
-          <div class="ask-preview">
-            <p class="ask-preview-head light">{focused()!.label}</p>
-            <Markdown class="decision-preview" body={preview()} />
-          </div>
-        )}
-      </Show>
-      <form class="ask-note" onSubmit={(submit) => { submit.preventDefault(); send(); }}>
-        <Listbox.NoteTextarea
-          rows={1}
-          ref={element => {
-            field = element;
-            queueMicrotask(() => {
-              const selection = current()?.selection;
+    <Show when={restorable()}>
+      <Listbox.Root answers={items()} value={value(focus())} highlightedValue={value(focus())} pending={props.stuck()} disabled={false}
+        onValueChange={(answer) => select(position(answer))} onHighlightChange={(answer) => select(position(answer))}>
+        <Show when={answers().length > 0}>
+          <Listbox.Content class="ask-answers" aria-label={copy.answers}>
+            <For each={items()}>
+              {(each) => (
+                <Listbox.Item item={each}>
+                  <Show when={each.recommended}>
+                    <span class="ask-recommended light">{copy.recommended}</span>
+                  </Show>
+                </Listbox.Item>
+              )}
+            </For>
+          </Listbox.Content>
+        </Show>
+        <Show when={focused()?.preview}>
+          {(preview) => (
+            <div class="ask-preview">
+              <p class="ask-preview-head light">{focused()!.label}</p>
+              <Markdown class="decision-preview" body={preview()} />
+            </div>
+          )}
+        </Show>
+        <form class="ask-note" onSubmit={(submit) => { submit.preventDefault(); send(); }}>
+          <Listbox.NoteTextarea
+            rows={1}
+            ref={element => {
+              field = element;
+              queueMicrotask(() => {
+                const selection = current()?.selection;
 
-              if (element.isConnected && selection) element.setSelectionRange(selection.start, selection.end, selection.direction);
-            });
-          }}
-          onSelect={retainSelection} onKeyUp={retainSelection} onClick={retainSelection}
-          onKeyDown={event => {
-            if (event.key === "Enter" && !event.shiftKey && !event.isComposing) { event.preventDefault(); send(); }
-          }}
-          maxLength={NOTE_MAX}
-          aria-label={copy.note}
-          placeholder={focused() ? copy.noteForOrYourOwnAnswer(focused()!.label) : copy.yourOwnAnswer}
-          value={note()}
-          onInput={(input) => edit(focused()?.label ?? null, input.currentTarget.value)}
-        />{" "}
-        <button data-button="quiet" type="submit" class="word" aria-disabled={sendable() ? undefined : true}>{copy.send}</button>
-      </form>
-    </Listbox.Root>
+                if (!element.isConnected) return;
+
+                if (selectedRevision !== undefined) element.focus();
+
+                if (selection) element.setSelectionRange(selection.start, selection.end, selection.direction);
+              });
+            }}
+            onSelect={retainSelection} onKeyUp={retainSelection} onClick={retainSelection}
+            onKeyDown={event => {
+              if (event.key === "Enter" && !event.shiftKey && !event.isComposing) { event.preventDefault(); send(); }
+            }}
+            maxLength={NOTE_MAX}
+            aria-label={copy.note}
+            placeholder={focused() ? copy.noteForOrYourOwnAnswer(focused()!.label) : copy.yourOwnAnswer}
+            value={note()}
+            onInput={(input) => edit(focused()?.label ?? null, input.currentTarget.value)}
+          />{" "}
+          <button data-button="quiet" type="submit" class="word" aria-disabled={sendable() ? undefined : true}>{copy.send}</button>
+        </form>
+      </Listbox.Root>
+    </Show>
   );
 };
