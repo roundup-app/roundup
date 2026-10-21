@@ -102,6 +102,9 @@ const boundPresses = async (from: Element, modSets: readonly KeyboardEventInit[]
         // `⌘/` opens the Ask bar, which would swallow every later probe.
         document.querySelector(".ask-input")?.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true, cancelable: true }));
 
+        // `⇧⌘T` opens the capture field, a modal layer that would take every later probe.
+        document.querySelector(".capture-field")?.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true, cancelable: true }));
+
         // `⇧⌘N` opens the spawn prompt, which would stop `⌘K` from opening the switcher.
         document.querySelector(".spawn-prompt-field:not([readonly])")?.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true, cancelable: true }));
       }
@@ -124,7 +127,7 @@ describe("u54 keyboard help", () => {
     expect([...panel.querySelectorAll(".help-line")].map((line) => line.textContent?.trim())).toEqual([
       "⌘N  New Agent", "⇧⌘N  New Agent with a prompt", "⌘T  New Terminal", "⌘K  Wait for one more key",
       "⌘K J  Jump to what needs you", "⌘K ⇧J  Jump to what needs you in another Project", "⌘K K  Switch to a row by name",
-      "⌘K M  Minimise or restore the Bubble", "⌘K W  Close the Bubble", "⌘K S  Show or hide the work items", "⌘K T  Capture a Todo",
+      "⌘K M  Minimise or restore the Bubble", "⌘K W  Close the Bubble", "⌘K S  Show or hide the work items", "⌘K T  Capture a Todo", "⇧⌘T  Capture a Todo",
       "⌘B  Switch Agent / Terminal", "⇧⏎  Take control, in the switcher", "⌘⌫  Remove", "⌘⏎  Take control", "⌘/  Ask bar", "O  Assign a Todo to an owner",
       "M  Maximise", "D  Delete row", "E  Export .md", "Esc  Close",
     ]);
