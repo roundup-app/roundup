@@ -116,6 +116,7 @@ pub struct Change {
     pub actor: Option<Actor>,
     /// Unix milliseconds when the Daemon recorded the Change; history recorded before it has no time.
     #[serde(default)]
+    #[ts(type = "number | null")]
     pub changed_at: Option<i64>,
     /// None denotes creation or an old Todo's current baseline.
     pub before: Option<Values>,

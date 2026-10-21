@@ -10,7 +10,7 @@ actor: Actor | null,
 /**
  * Unix milliseconds when the Daemon recorded the Change; history recorded before it has no time.
  */
-changed_at: bigint | null, 
+changed_at: number | null, 
 /**
  * None denotes creation or an old Todo's current baseline.
  */
