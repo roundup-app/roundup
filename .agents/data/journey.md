@@ -48,3 +48,4 @@ The owner wants a native macOS App, not a web page. A UI PR that breaks one of t
 - A state is never a bare control word. No text node outside a control equals a control label from the App copy catalogue (`Done`, `Open`, `Copy`, `Discard`); section heads are exempt.
 - Choosing from other items is a menu. Picking one item from a list of others (a blocker, an Agent, a Model) opens the shared `apps/desktop/src/ui/Combobox.tsx`: floating, anchored to its trigger, filtered by typing, closed by Escape with focus back on the trigger. It never expands the list inline in the page.
 - Actions sit on their row. A row's text actions sit on the baseline of the row's first line, within 1 px.
+- A modal's centre sits at the window's centre within 1 px on both axes; only `ui/Dialog.tsx` positions a modal (#3083).
