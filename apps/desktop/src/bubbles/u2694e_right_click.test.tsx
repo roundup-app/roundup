@@ -155,11 +155,16 @@ it.each(cases)("u2694g_context_click_requests_only_the_target_rows_menu: $ctrl $
 });
 
 it("u2694g_dismissal_keeps_the_prior_selection_and_pane", async () => {
-  const { app } = await mountApp("tree-40", true);
+  const { app } = await mountApp("bubbles");
+  fireEvent.click(row("runner"));
+  const tab = await screen.findByRole("button", { name: "cargo test" });
+  fireEvent.click(tab);
+  fireEvent.click(await screen.findByRole("button", { name: "Minimise" }));
   const before = pane();
-  gesture(row("branch"), true, true);
+  expect(before.some(([, hidden]) => hidden)).toBe(true);
+  gesture(row("first-workstream"), true, true);
   await app.closeMenu();
-  expect(selected()).toBe("w");
+  expect(selected()).toBe("runner");
   expect(pane()).toEqual(before);
 });
 
