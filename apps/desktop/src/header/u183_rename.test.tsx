@@ -2,7 +2,11 @@ import { cleanup, render, fireEvent, screen, waitFor, within } from "@solidjs/te
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { App } from "../App";
 import { fakeEmulators } from "../terminal/paneHarness";
-import { createRoot } from "solid-js";
+import { createRoot, createSignal } from "solid-js";
+import { createProjectDrafts, ProjectDraftsContext } from "../state/connectedProject";
+import { createFakeApp } from "../testing/fakeApp";
+import { Tabs } from "../ui/Tabs";
+import { ProjectTab } from "./ProjectTab";
 import { createProjectsState } from "../state/projects";
 import { RpcError } from "../app/seam";
 import { renderTabs, openTabs, path, tab, projectTabs } from "./stripFixture";
@@ -384,4 +388,61 @@ it("u2773c_header_legacy_recovery_never_guesses_a_base", async () => {
   expect(within(dialog).getByText("  legacy 雪  ", { exact: true, normalizer: text => text })).toBeDefined();
   expect(within(dialog).getByRole("status", { name: "" }).textContent).toContain("original name changed");
   expect(sends).not.toHaveBeenCalled();
+});
+
+
+const selectedHeader = async (outcome: "failed" | "unknown" = "failed") => {
+  window.localStorage.clear();
+  const app = createFakeApp();
+  app.add(path("api"), "same name");
+  app.add(path("web"), "same name");
+  const authority = createProjectDrafts();
+  const drafts = authority(path("api"));
+  const destination = { surface: "header", object: path("api"), recipient: null };
+  const a = drafts.edit(destination, { name: "  A e\u0301 🪁 雪  ", base: "same name" },
+    { start: 2, end: 7, direction: "backward" }, "ordinary").draft;
+  drafts.submit(a.revision);
+  drafts.settle(a.revision, outcome);
+  const b = drafts.edit(destination, { name: "  B 雪  ", base: "same name" },
+    { start: 1, end: 4, direction: "forward" }, "ordinary").draft;
+  const [recovery, recover] = createSignal<{ project: string; revision: string }>();
+  const reads = vi.spyOn(app, "projects");
+  const sends = vi.spyOn(app, "renameProject");
+  let projects!: ReturnType<typeof createProjectsState>;
+  const view = render(() => {
+    projects = createProjectsState(app);
+
+    return <ProjectDraftsContext.Provider value={authority}><Tabs.Root value={path("api")}><Tabs.List>
+      <ProjectTab tab={{ path: path("api"), name: "same name", base: "same name", busy: false, running: [], needsYou: 0, error: 0, exitText: null }}
+        selected recovery={recovery()} onMark={() => {}} onClose={() => {}}
+        onRename={(name, base) => projects.rename(path("api"), name, base)} />
+    </Tabs.List></Tabs.Root></ProjectDraftsContext.Provider>;
+  });
+  await waitFor(() => expect(projects.loaded()).toBe(true));
+  const calls = () => ({ rpc: [...app.calls], reads: [...reads.mock.calls], sends: [...sends.mock.calls] });
+  const open = (revision: string, project = path("api")) => recover({ project, revision });
+
+  return { app, authority, drafts, destination, a, b, open, view, calls, sends };
+};
+
+it.each(["failed", "unknown"] as const)("u3021c_open_restores_exact_revision_without_rpc_header_%s", async outcome => {
+  const { drafts, a, b, open, calls } = await selectedHeader(outcome);
+  const before = drafts.list();
+  const beforeCalls = calls();
+  open(a.revision);
+  const input = await screen.findByRole<HTMLInputElement>("textbox", { name: "Project name" });
+  await waitFor(() => expect(document.activeElement).toBe(input));
+  expect([input.value, input.selectionStart, input.selectionEnd, input.selectionDirection])
+    .toEqual([a.value.name, 2, 7, "backward"]);
+  input.focus();
+  fireEvent.blur(input);
+  expect(screen.queryByRole("textbox")).toBeNull();
+  expect(drafts.list()).toEqual(before);
+  open(b.revision);
+  const newer = await screen.findByRole<HTMLInputElement>("textbox", { name: "Project name" });
+  expect([newer.value, newer.selectionStart, newer.selectionEnd, newer.selectionDirection])
+    .toEqual([b.value.name, 1, 4, "forward"]);
+  press("Escape");
+  expect(drafts.list()).toEqual(before);
+  expect(calls()).toEqual(beforeCalls);
 });
