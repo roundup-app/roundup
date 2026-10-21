@@ -76,3 +76,25 @@ to an isolated real directory rather than trusting this literal path.
 | --- | ---: | --- |
 | top-level.jsonl | 45 | `58caf6d0cbf422977241acfd539e74fef6fb2beb07a6fc6c4904adb8c66c5915` |
 | subagent.jsonl | 14 | `cf9d3419e9e8289911d74ae588cb1c62873eac6db37173646fdbb13f1bd3c61b` |
+
+## Bucket encoding observer (U3037a)
+
+On 2026-10-20, the pinned `2.1.300` binary was run in disposable HOME and
+CLAUDE_CONFIG_DIR folders, with a dummy key, loopback port 9 as its model endpoint,
+updates and nonessential traffic disabled. Print-mode requests were stopped after
+8–12 seconds; no successful model response or continuation is claimed. The local
+JSONL bucket entries and their recorded cwd were inspected.
+
+| cwd suffix | observed bucket suffix |
+| --- | --- |
+| `a.b_c-d/nested 名` | `a-b-c-d-nested--` |
+| `punct.a_b-c/nested 🦊` | `punct-a-b-c-nested---` |
+
+The absolute path is encoded by replacing each non-ASCII-alphanumeric UTF-16 unit
+with `-`, including `/`, punctuation and each half of a supplementary character.
+Launching through a directory symlink recorded and encoded its canonical target,
+not the alias. A canonical path over 200 encoded units produced a 200-unit prefix
+plus `-` and a hash suffix. Discovery therefore keeps long Project prefixes
+conservatively for record validation; it does not guess that hash or infer
+membership from an encoding collision. Continuation copies share the same
+UTF-16 encoding helper for ordinary-length paths.
