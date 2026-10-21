@@ -34,7 +34,7 @@
 }
 
 .import-period [aria-pressed="false"] {
-  color: var(--text-dim);
+  color: var(--grey);
 }
 
 .import-words {
@@ -100,14 +100,14 @@
 
 .import-meta {
   display: flex;
-  flex-wrap: wrap;
   column-gap: var(--space-3);
   min-width: 0;
-  color: var(--text-dim);
+  color: var(--grey);
   font-size: var(--text-small);
 }
 
 .import-cwd {
+  flex: 1 1 0;
   min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -115,7 +115,7 @@
 }
 
 .import-excluded {
-  color: var(--text-dim);
+  color: var(--grey);
   font-size: var(--text-small);
 }
 
@@ -148,10 +148,14 @@
   white-space: normal;
 }
 
+.import-meta time {
+  flex: none;
+}
+
 .import-failure {
+  flex: none;
   color: var(--red);
   margin: 0;
   overflow-wrap: anywhere;
   white-space: pre-wrap;
-  flex-shrink: 0;
 }
