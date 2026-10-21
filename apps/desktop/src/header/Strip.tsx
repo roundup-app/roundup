@@ -1,3 +1,4 @@
+import type { App as AppCalls } from "../app/seam";
 import type { ProjectsState } from "../state/projects";
 import { Tabs } from "../ui/Tabs";
 import { IconButton } from "../ui/IconButton";
@@ -38,6 +39,8 @@ export const Strip = (props: {
   onRename: (path: string, name: string, base?: string) => ReturnType<ProjectsState["rename"]>;
   onClose: (path: string) => void;
   onChoose: () => void;
+  /** U2694a: the seam that shows a tab's system menu. */
+  app?: Pick<AppCalls, "showContextMenu"> | undefined;
 }) => {
   const [asking, setAsking] = createSignal<string | null>(null);
   // An edge that says the same thing is not a change: a slot resizes the list only when its cap really appears, changes or goes, so measuring cannot chase its own layout.
@@ -251,6 +254,7 @@ export const Strip = (props: {
                   onMark={() => props.onMark(path)}
                   onRename={(name, base) => props.onRename(path, name, base)}
                   onClose={() => requestClose(tab())}
+                  app={props.app}
                 />
               );
             }}

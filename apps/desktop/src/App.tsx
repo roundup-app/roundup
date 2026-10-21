@@ -354,6 +354,7 @@ export const App = (props: {
               onRename={renameProject}
               onClose={(path) => void projects.close(path)}
               onChoose={() => void projects.choose()}
+              app={props.app}
             />
           </WindowBar>
         }

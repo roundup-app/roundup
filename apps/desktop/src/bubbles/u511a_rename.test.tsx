@@ -115,7 +115,7 @@ it("u511a_click_away_commits_before_the_target_action", async () => {
   await edit("2");
   fireEvent.input(field()!, { target: { value: "kept" } });
   fireEvent.pointerDown(tab("1")!);
-  fireEvent.blur(field()!);
+  tab("1")!.focus();
   await waitFor(() => expect(tab("2")?.getAttribute("aria-label")).toBe("kept"));
 });
 
@@ -145,10 +145,10 @@ it("u511a_name_survives_selection_and_webview_reload", async () => {
 });
 
 it("u511a_context_rename_uses_the_same_editor", async () => {
-  await mountBubbles();
+  const { app } = await mountBubbles();
   fireEvent.contextMenu(tab("2")!, { clientX: 10, clientY: 10 });
-  await waitFor(() => expect(document.querySelector('[role="menuitem"]')?.textContent).toBe("Rename"));
-  fireEvent.click(document.querySelector('[role="menuitem"]')!);
+  expect(app.menuLabels()[0]).toBe("Rename");
+  await app.pickMenu("Rename");
   await waitFor(() => expect(document.activeElement).toBe(field()));
   expect(field()!.value).toBe("zsh");
   expect(document.querySelector(".terminal-tab-editor button")).toBeNull();

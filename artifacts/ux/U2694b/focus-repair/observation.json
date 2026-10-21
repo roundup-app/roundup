@@ -1,0 +1,37 @@
+{
+  "agent": "builder-39548004342",
+  "base": "00c12306aaec5104868858c1a6f20234cce01228",
+  "scenarios": [
+    "U2694b"
+  ],
+  "viewport": [
+    1512,
+    950
+  ],
+  "scheme": "dark",
+  "seeds": [
+    "agents-10",
+    "tree-40"
+  ],
+  "focus": {
+    "baseline": "Escape after keyboard Remove on focused unselected agent-4 returned to Terminal input. Keep had outline-style none in all nine confirmation screens.",
+    "repair": "Each confirmation has a visible 2px solid keyboard outline. Escape returns to agent-4; ArrowDown moves to agent-5. The regression test mounts the Rail and Pane together.",
+    "browserPath": "Fresh isolated session: select agent-1, wait for Terminal focus, focus unselected agent-4, ContextMenu \u2192 Remove \u2192 Escape \u2192 ArrowDown. The baseline stays in Terminal input; the repair walks agent-4 \u2192 agent-5."
+  },
+  "copy": "The single-target questions read Delete 1 Pad? and Delete 1 Todo?.",
+  "failure": "owned-pad-failure-repair.png shows cannot delete this Pad in the open Shelf on tree-40.",
+  "checks": "Ten paired screens: 140 D1-D14 readings still pass; D16 also passes on all head screens. Automated D6 does not detect the outline override: focus.json and screenshots supply that evidence.",
+  "native": "NSMenu D2/D5/D6/D8 and VoiceOver cannot be measured on Linux. No native pass is claimed; the existing U2694 Mac observer remains with Issue #2916.",
+  "captureCommand": "just capture U2694b was invoked; its duplicate full-suite run was stopped. The scenario captures were completed separately in the isolated headless agent-browser session builder-39548004342.",
+  "assertionCuts": {
+    "u460_pads.test.tsx": "Replaced the obsolete plural title assertion with the actual frozen target set in u460_question_tracks_pad_owner_changes_without_expanding_targets.",
+    "u460_execution.test.tsx": "Removed the obsolete title assertion; u460_retry_confirms_only_the_remaining_set still proves the exact delete call sequence.",
+    "u460_real_daemon.test.tsx": "deleteSelected now waits for Keep focus inside the alertdialog. u460_bulk_todo_delete_preserves_t6_across_homes, u460_deleted_pad_updates_do_not_recreate_it and u460_deleted_rows_stay_absent_after_reopening_the_project still prove the resulting deletion sets, owner refusals and reopen behavior."
+  },
+  "validation": {
+    "lints": "just lint-web and just lint-rust passed; ALL PROOFS CHECK; vocab and merge-loss passed.",
+    "related": "2065 passed, nine failed, four skipped. Two timeouts and four browser launches passed in isolated reruns; the corrected title helper resolved the two assertion failures and their dependent reopen failure. The two cold-build setup files passed warm (three tests); the remaining skip is intentional.",
+    "isolated": "31 tests passed across all six failed test files, retry disabled, one worker. Three cold-build cases passed separately, retry disabled.",
+    "runner": "The broad runner was terminated after emitting its complete JSON report because child processes kept it alive."
+  }
+}

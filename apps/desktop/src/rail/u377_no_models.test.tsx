@@ -19,7 +19,7 @@ describe("u377 u378 the Rail offers no Model", () => {
     fireEvent.keyDown(document, { key: ",", code: "Comma", metaKey: true });
     fireEvent.contextMenu(rowOf("a"));
 
-    expect(screen.getAllByRole("menuitem").map((each) => each.textContent)).not.toContain("Model…");
+    expect(mounted.app.menuLabels()).not.toContain("Model…");
     expect(screen.queryByRole("dialog", { name: "Models" })).toBeNull();
     expect(document.body.textContent).not.toMatch(/Effort|Add agent|Default \(|Claude Code default/);
     expect(document.querySelector("select, [role=combobox], .models-sheet, .rail-agent-picker")).toBeNull();

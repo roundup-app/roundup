@@ -71,15 +71,12 @@ const capture = async (step: string) => {
 
 const key = async (name: string) => browser("eval", `document.activeElement.dispatchEvent(new KeyboardEvent('keydown', {key:${JSON.stringify(name)},bubbles:true,cancelable:true}))`);
 
-it("u511a_keyboard_context_menu_renames_and_click_away_commits_without_swallowing_the_click", async () => {
+it("u511a_click_away_commits_without_swallowing_the_click", async () => {
   await browser("open", new URL('/harness.html?seed=bubbles', origin).href);
   await until(`!!window.__fake`);
   await browser("click", '[data-id="runner"]');
   await until(`!!document.querySelector('.terminal-tab-name')`);
-  await browser("eval", `(() => { const tab = document.querySelector('.terminal-tab'); tab.focus(); tab.dispatchEvent(new MouseEvent('contextmenu', { bubbles:true, cancelable:true })); })()`);
-  await until(`!!document.querySelector('[role="menuitem"]')`);
-  await key("ArrowDown");
-  await key("Enter");
+  await browser("eval", `document.querySelector('.terminal-tab-name').dispatchEvent(new MouseEvent('dblclick', { bubbles: true }))`);
   await until(`document.activeElement?.matches('.terminal-tab-editor input')`);
   await browser("fill", '.terminal-tab-editor input', 'xy');
   const pressed = await read<string | null>(`document.querySelector('.terminal-tab-pair:nth-child(2) .terminal-tab').getAttribute('aria-pressed')`);
