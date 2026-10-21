@@ -500,6 +500,36 @@ mod time_tests {
     }
 
     #[tokio::test]
+    async fn u3016c_time_categories_use_observed_intervals() {
+        let w = World::new();
+        let home = w.home();
+        let db = rusqlite::Connection::open(w.dir.path().join("agents.db")).unwrap();
+        let point = |seconds: u64| json!({"unix_ms":1000+seconds*1000,"monotonic_ns":(seconds*1_000_000_000).to_string()});
+        let observed = |activity: Value, start, end| json!({"kind":"observed","activity":activity,"clock_lifetime":"test","start":point(start),"segments":[{"start":point(start),"end":point(end)}],"state":{"kind":"ended","at":point(end)}});
+        let mut facts = vec![
+            ("a", observed(json!({"kind":"attempt"}),0,10)),
+            ("b", observed(json!({"kind":"attempt"}),0,10)),
+            ("a", observed(json!({"kind":"decision","decision":"question"}),6,8)),
+            ("a", observed(json!({"kind":"coordination","message":1}),8,9)),
+        ];
+        for (agent, category, start, end) in [("a","agent",0,10),("b","agent",0,10),("a","tool",2,6),("a","tool",3,5)] {
+            facts.push((agent,json!({"kind":"interval","category":category,"clock":"source-wall","start_unix_ns":((start+1)*1_000_000_000_u64).to_string(),"end_unix_ns":((end+1)*1_000_000_000_u64).to_string()})));
+        }
+        for (i,(agent,value)) in facts.iter().enumerate() {
+            db.execute("INSERT INTO measurement_revisions(identity,source_revision,source,agent,attempt,home,maker,observed,value,coverage) VALUES(?1,'1','fixture',?2,'1',?3,?2,11000,?4,'[]')",rusqlite::params![format!("time-{i}"),agent,home,value.to_string()]).unwrap();
+        }
+        let read=w.summary(&home,"total").await;
+        assert_eq!(read["time"]["elapsed_ns"],"10000000000");
+        assert_eq!(read["time"]["summed_ns"],"20000000000");
+        assert_eq!(read["time"]["execution_ns"],"13000000000");
+        assert_eq!(read["time"]["tools_ns"],"4000000000");
+        assert_eq!(read["time"]["human_ns"],"2000000000");
+        assert_eq!(read["time"]["coordination_ns"],"1000000000");
+        assert_eq!(read["time"]["other_ns"],"0");
+        assert_eq!(read["time"]["unmeasured_ns"],"0");
+    }
+
+    #[tokio::test]
     async fn u3016b_token_totals_reconcile_by_source() {
         let w = World::new();
         let home = w
