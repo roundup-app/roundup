@@ -19,6 +19,8 @@ import { getMarkdown, replaceAll } from "@milkdown/kit/utils";
 import { sourceForDocument } from "./sourceForDocument";
 import { visualBlocks } from "./visualBlocks";
 import { visualKinds } from "./visualKinds";
+import "@milkdown/crepe/theme/common/style.css";
+import "@milkdown/crepe/theme/classic.css";
 
 export type PadEditorHandle = {
   /** null pauses saving because the edited blocks cannot be mapped to authored source. */
@@ -185,8 +187,6 @@ export default function PadRichEditor(props: {
 
       // Crepe owns navigation; mirror its rendered selection without intercepting keys.
       const updateMenu = () => {
-        host?.querySelectorAll<HTMLInputElement>("input:not([type])").forEach(input => input.setAttribute("type", "text"));
-
         const menu = menuHost?.querySelector(".milkdown-slash-menu");
         const list = menu?.querySelector(".menu-groups");
         const shown = menu?.getAttribute("data-show") === "true";
