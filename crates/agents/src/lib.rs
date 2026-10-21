@@ -37,6 +37,7 @@ pub mod placement;
 mod pr_checks;
 pub use asks::Asks;
 pub use models::mcp_on;
+mod measurement;
 mod name;
 mod order;
 mod peer;

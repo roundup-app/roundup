@@ -680,10 +680,12 @@ impl Store {
         self.get(id)
     }
 
-    /// B51(d): every Message held for `inbox` to `agent` becomes `pending`, in id order, as one
-    /// write.
+    /// B51(d), B6, B32: inbox recovery releases in id order only after both Terminal holds end.
     pub(crate) fn release_inbox_held(&mut self, agent: &str) -> Result<Vec<Message>, RpcError> {
         self.atomically(|store| {
+            if store.holds_terminal(agent) {
+                return Ok(Vec::new());
+            }
             let ids: Vec<u32> = store
                 .db
                 .prepare(
