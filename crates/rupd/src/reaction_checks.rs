@@ -455,8 +455,20 @@ mod tests {
 
     #[tokio::test]
     async fn nr8_pr_checks_refuse_revoked_authority_without_accepting_work() {
-        let (project, daemon, client, watcher, target) = daemon().await;
-        let author = client
+        let (project, daemon, client, watcher, author) = daemon().await;
+        let actor = Actor {
+            kind: contracts::ActorKind::Agent,
+            id: author,
+            parent: None,
+        };
+        let as_author = rpc::Client::connect(&project.path().join("daemon.sock"))
+            .await
+            .unwrap();
+        as_author
+            .request("daemon.identify", json!({"actor": actor}))
+            .await
+            .unwrap();
+        let target = as_author
             .request(
                 "agent.spawn",
                 json!({
@@ -468,18 +480,6 @@ mod tests {
             .as_str()
             .unwrap()
             .to_owned();
-        client
-            .request(
-                "rail.move",
-                json!({"id": target, "parent": author, "index": 0}),
-            )
-            .await
-            .unwrap();
-        let actor = Actor {
-            kind: contracts::ActorKind::Agent,
-            id: author,
-            parent: None,
-        };
         let params = serde_json::from_value(json!({
             "operation": "revoked", "name": "ship", "target": target,
             "instruction": "ship it", "condition": {"kind": "pr-checks", "repository": REPO, "number": 23},

@@ -583,6 +583,9 @@ async fn nr8_automatic_firing_refuses_a_target_moved_out_of_reach() {
     )
     .await;
     assert!(seen.firings.is_empty(), "unauthorized firing: {seen:?}");
+    assert_eq!(seen.remaining, 1);
+    assert_eq!(seen.state, contracts::reaction::State::Invalidated);
+    assert!(seen.observation.cause.as_deref().unwrap().contains("Reach"));
     assert!(
         messages(&s.user, &s.a, "revoked reaction instruction")
             .await
