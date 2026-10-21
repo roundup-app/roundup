@@ -364,6 +364,10 @@ pub(crate) fn tools(door: bool) -> Vec<Offered> {
 /// I1, I9: every entry of the one list, the streams included.
 pub(crate) fn commands(door: bool) -> Vec<Offered> {
     let mut list = offered_tools();
+    list.push(offered_without_params(
+        "project.measurements",
+        "Read retained Project measurements and collection coverage.",
+    ));
     list.extend([
         agent_digest(),
         workstream_handoff(),
