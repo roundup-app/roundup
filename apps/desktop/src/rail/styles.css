@@ -294,12 +294,6 @@
   gap: var(--space-1);
 }
 
-/* Keep retains initial focus without a box around the word. */
-.rail-confirm .word:focus {
-  outline: none;
-  color: var(--accent);
-}
-
 .rail-confirm-line {
   padding: 0 var(--space-2);
   overflow: hidden;

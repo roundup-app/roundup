@@ -1,0 +1,29 @@
+{
+  "agent": "builder-39548004342",
+  "base": "00c12306aaec5104868858c1a6f20234cce01228",
+  "scenarios": [
+    "U2694b"
+  ],
+  "viewport": [
+    1512,
+    950
+  ],
+  "scheme": "dark",
+  "seeds": [
+    "agents-10",
+    "tree-40"
+  ],
+  "focus": {
+    "baseline": "Escape after keyboard Remove on focused unselected agent-4 returned to Terminal input. Keep had outline-style none in all nine confirmation screens.",
+    "repair": "Each confirmation has a visible 2px solid keyboard outline. Escape returns to agent-4; ArrowDown moves to agent-5. The regression test mounts the Rail and Pane together."
+  },
+  "copy": "The single-target questions read Delete 1 Pad? and Delete 1 Todo?.",
+  "failure": "owned-pad-failure-repair.png shows cannot delete this Pad in the open Shelf on tree-40.",
+  "checks": "Ten paired screens: 140 D1-D14 readings still pass; D16 also passes on all head screens. Automated D6 does not detect the outline override: focus.json and screenshots supply that evidence.",
+  "native": "NSMenu D2/D5/D6/D8 and VoiceOver cannot be measured on Linux. No native pass is claimed; the existing U2694 Mac observer remains with Issue #2916.",
+  "captureCommand": "just capture U2694b was invoked; its duplicate full-suite run was stopped. The scenario captures were completed separately in the isolated headless agent-browser session builder-39548004342.",
+  "assertionCuts": {
+    "u460_pads.test.tsx": "Replaced the obsolete plural title assertion with the actual frozen target set in u460_question_tracks_pad_owner_changes_without_expanding_targets.",
+    "u460_execution.test.tsx": "Removed the obsolete title assertion; u460_retry_confirms_only_the_remaining_set still proves the exact delete call sequence."
+  }
+}
