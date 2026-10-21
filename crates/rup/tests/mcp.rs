@@ -332,7 +332,7 @@ const DOOR_METHODS: [&str; 8] = [
 ];
 
 /// M5: the methods and App commands with no tool; the reasons are in `scenarios/mcp.md`.
-const NO_TOOL: [&str; 55] = [
+const NO_TOOL: [&str; 56] = [
     // U2539b, U2540a: the App's Worktree comparison; an Agent reads its own diff with git.
     "agent.changedFiles",
     "agent.compareFile",
@@ -397,6 +397,8 @@ const NO_TOOL: [&str; 55] = [
     "open_target",
     "open_in_editor",
     "save_pasted_image",
+    // U2694a: the native menu of the user's right-click
+    "show_context_menu",
     // U449–U451: the user's native window, which an Agent cannot move or rename.
     "plugin:window-bar|set_window_title",
     "plugin:window-bar|drag_window",
@@ -434,6 +436,11 @@ fn quoted_after(file: &str, marker: &str) -> Vec<String> {
 fn seam_commands() -> Vec<String> {
     let table = quoted_after("apps/desktop/src/app/seam.ts", "SEAM_COMMANDS = [");
     let mut registered = quoted_after("crates/desktop/src/lib.rs", "generate_handler![");
+    for command in &mut registered {
+        if let Some((_, name)) = command.rsplit_once("::") {
+            *command = name.to_owned();
+        }
+    }
     registered.extend(
         quoted_after("crates/desktop/src/window.rs", "generate_handler![")
             .into_iter()

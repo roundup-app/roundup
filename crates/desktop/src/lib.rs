@@ -2,6 +2,7 @@
 
 mod config;
 mod daemon;
+mod menu;
 mod open;
 mod paste;
 mod state;
@@ -34,6 +35,8 @@ pub fn build<R: Runtime>(
         .plugin(tauri_plugin_dialog::init())
         .plugin(window::plugin())
         .manage(AppState::new(config))
+        .manage(menu::Choice::default())
+        .on_menu_event(|app, event| app.state::<menu::Choice>().chosen(&event))
         .invoke_handler(tauri::generate_handler![
             projects,
             open_project,
@@ -46,7 +49,8 @@ pub fn build<R: Runtime>(
             daemon_proof,
             open_target,
             open_in_editor,
-            save_pasted_image
+            save_pasted_image,
+            menu::show_context_menu
         ])
         .setup(move |app| {
             let state = app.state::<AppState>();
