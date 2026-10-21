@@ -5,6 +5,8 @@ import type { Decision } from "@contracts/decision/Decision";
 import type { Kind } from "@contracts/Kind";
 import type { RailNode } from "@contracts/agent/RailNode";
 import type { KeptReason } from "@contracts/agent/KeptReason";
+import type { ImportCandidate } from "@contracts/project/ImportCandidate";
+import type { ImportOutcome } from "@contracts/project/ImportOutcome";
 import type { Removal } from "@contracts/agent/Removal";
 import type { Pad } from "@contracts/pad/Pad";
 import type { Todo } from "@contracts/todo/Todo";
@@ -22,7 +24,7 @@ const NOT_FOUND = -32001;
 
 const KINDS: Kind[] = ["error", "needs-you", "blocked", "working", "idle", "done"];
 
-export const SEEDS = ["first-run", "agents-10", "tree-40", "daemon-exits", "conflict", "empty-project", "door-stopped", "door-report", "decisions", "earlier-run", "tabs-8", "bubbles", "resources"] as const;
+export const SEEDS = ["first-run", "agents-10", "tree-40", "daemon-exits", "conflict", "empty-project", "door-stopped", "door-report", "decisions", "earlier-run", "tabs-8", "bubbles", "resources", "import-candidates"] as const;
 
 export type SeedName = (typeof SEEDS)[number];
 
@@ -127,7 +129,7 @@ const exitCodeOf = (target: RailNode): number | null => {
 };
 
 /** Installs a Daemon that keeps the Rail, Todos and Pads in memory and sends the Events a real one sends after the same write. */
-const installDaemon = (app: FakeApp, tree: RailNode[], now: number, withShelf: boolean, withBubbles = false): Controls => {
+const installDaemon = (app: FakeApp, tree: RailNode[], now: number, withShelf: boolean, withBubbles = false, withImports = false): Controls => {
   const nodes = structuredClone(tree);
   const exits = new Map<string, number | null>();
   const outputOffsets = new Map<string, number>();
@@ -173,6 +175,44 @@ const installDaemon = (app: FakeApp, tree: RailNode[], now: number, withShelf: b
     padHandlers({ pads: withShelf ? padsAt(now) : [], history: [{ actor: USER, verb: "wrote", item: "todo:1", at: now - 5 * MINUTE }] }, send, () => maker),
   );
   app.handlers["rail.tree"] = () => structuredClone(nodes);
+
+  const candidates: ImportCandidate[] = withImports ? Array.from({ length: 10 }, (_, index) => ({
+    source: `s${index}`,
+    title: `調査と実装 — résumé — ${"Long conversation title ".repeat(8)}${index}`,
+    cwd: `packages/deep/${"folder/".repeat(10)}destination-${index}`,
+    last_activity_ms: BigInt(now - index * MINUTE),
+    revision: `r${index}`,
+  })) : [];
+
+  const imported = new Map<string, ImportOutcome>();
+  let refuseFirst = withImports;
+
+  app.handlers["project.importDiscover"] = () => ({
+    candidates: structuredClone(candidates.filter((candidate) => !imported.has(candidate.source))),
+    excluded: withImports ? [{ source: "missing", reason: "Source unavailable: recorded folder no longer exists." }] : [],
+  });
+  app.handlers["project.importCommit"] = ({ selections }) => ({ outcomes: selections.map((selection): ImportOutcome => {
+    const previous = imported.get(selection.source);
+
+    if (previous) return previous;
+
+    const candidate = candidates.find((each) => each.source === selection.source && each.revision === selection.revision);
+    const error = !candidate ? "Source changed: refresh and choose again." : selection.source === "s0" && refuseFirst ? "Copy refused: source unreadable. Retry." : null;
+
+    if (error || !candidate) {
+      refuseFirst = false;
+
+      return { source: selection.source, workstream: null, agent: null, error };
+    }
+
+    const parent = append(null, (id, order) => workstream(id, { name: candidate.title, order, status: null }));
+    const child = append(parent.id, (id, order) => agent(id, "done", "", { name: candidate.title, parent: parent.id, order, status: null, terminal_id: null, attempt: null, status_revision: null, can_resume: true }));
+    const outcome = { source: candidate.source, workstream: parent.id, agent: child.id, error: null };
+    imported.set(candidate.source, outcome);
+
+    return outcome;
+  }) });
+
   const owned = new Map<string, { owner: string; title: string | null }>();
   let ownedCount = 0;
 
@@ -413,7 +453,7 @@ const afterFirstLoad = (app: FakeApp, action: () => void) => {
 /** A fake App on a Daemon holding the named seed; `now` is the clock the Statuses are measured from. */
 export const seedApp = (name: SeedName, now: number): Controls => {
   const app = createFakeApp();
-  const tree = name === "tree-40" ? nestedTree(now) : cyclingAgents(now, 10, () => null);
+  const tree = (name === "tree-40" || name === "import-candidates") ? nestedTree(now) : cyclingAgents(now, 10, () => null);
 
   const nodes = name === "first-run" || name === "empty-project"
     ? []
@@ -440,7 +480,7 @@ export const seedApp = (name: SeedName, now: number): Controls => {
       ? [door("first-workstream", "done", "finished", { name: "first workstream", status: statusAt(now, "done", "finished", 0) })]
       : tree;
 
-  const controls = installDaemon(app, nodes, now, name === "tree-40" || name === "conflict", name === "bubbles");
+  const controls = installDaemon(app, nodes, now, name === "tree-40" || name === "conflict" || name === "import-candidates", name === "bubbles", name === "import-candidates");
   app.opened.project = name === "first-run" ? null : PROJECT;
 
   if (name === "tabs-8") {
