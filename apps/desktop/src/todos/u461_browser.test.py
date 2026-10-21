@@ -190,8 +190,35 @@ def restarted():
     save('U462', 'real-daemon-restart', result)
 
 
+def u461b_fresh_profile_uses_requested_emulation():
+    scheme = mode.removeprefix('emulation-')
+    for _ in range(2):
+        browser('set', 'viewport', '1512', '950')
+        browser('set', 'media', scheme)
+        browser('open', origin + '/harness.html?seed=tree-40')
+        observed = evaluate("({width:innerWidth,height:innerHeight,dark:matchMedia('(prefers-color-scheme: dark)').matches})")
+        assert observed == {'width': 1512, 'height': 950, 'dark': scheme == 'dark'}, observed
+
+
+def u461b_capture_requires_observed_emulation():
+    browser('open', origin + '/harness.html?seed=tree-40')
+    browser('set', 'viewport', '1512', '950')
+    browser('set', 'media', 'dark')
+    wait('Boolean(window.__fake && document.querySelector(".rail"))')
+    evaluate(setup)
+    wait('Boolean(document.querySelector("[data-change]"))')
+    evaluate('window.__fake.failNext(-32003,"Unable to complete this Todo")')
+    browser('click', '.drawer input[type=checkbox]')
+    wait('document.querySelector(".drawer").textContent.includes("Unable to complete this Todo")')
+    if mode == 'capture-viewport-mismatch':
+        browser('set', 'viewport', '1280', '800')
+    elif mode == 'capture-scheme-mismatch':
+        browser('set', 'media', 'light')
+    save('U461', mode, evaluate(reading))
+
+
 try:
-    {'fake': fake, 'real': real, 'restart': restarted, 'baseline': baseline}[mode]()
+    {'fake': fake, 'real': real, 'restart': restarted, 'baseline': baseline, 'emulation-light': u461b_fresh_profile_uses_requested_emulation, 'emulation-dark': u461b_fresh_profile_uses_requested_emulation, 'capture-valid': u461b_capture_requires_observed_emulation, 'capture-viewport-mismatch': u461b_capture_requires_observed_emulation, 'capture-scheme-mismatch': u461b_capture_requires_observed_emulation}[mode]()
 finally:
     browser('close')
     profile.cleanup()

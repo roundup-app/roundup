@@ -1,5 +1,5 @@
 import { execFile } from "node:child_process";
-import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, readFile, readdir, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { promisify } from "node:util";
@@ -55,6 +55,42 @@ run("u461 and u462 isolated rendered observers", () => {
     await real.restart();
     await promisify(execFile)("python3", ["src/todos/u461_browser.test.py", "restart", real.base, ...output], { timeout: 120_000, maxBuffer: 2 * 1024 * 1024 });
     await real.model!.assertMatched();
+  }, 300_000);
+});
+
+
+describe.skipIf(!captureDir("U461b"))("u461b browser environment", () => {
+  let server: AppServer;
+  let output: string;
+  const driver = async (mode: string, directory = output) => promisify(execFile)("python3", ["src/todos/u461_browser.test.py", mode, server.resolvedUrls.local[0]!, directory], { timeout: 120_000, maxBuffer: 2 * 1024 * 1024 });
+
+  beforeAll(async () => {
+    server = await appServer();
+    output = await mkdtemp(join(tmpdir(), "u461b-captures-"));
+  });
+
+  afterAll(async () => {
+    await server?.close();
+    if (output) await rm(output, { recursive: true, force: true });
+  });
+
+  it.each(["light", "dark"])("u461b_fresh_profile_uses_requested_emulation %s", async (scheme) => {
+    await driver(`emulation-${scheme}`);
+  }, 120_000);
+
+  it("u461b_capture_requires_observed_emulation", async () => {
+    await driver("capture-valid");
+    const readings: { environment: { width: number; height: number; dark: boolean } } = JSON.parse(await readFile(join(output, "capture-valid.json"), "utf8"));
+
+    expect(readings.environment).toEqual({ width: 1512, height: 950, dark: true });
+    expect((await readFile(join(output, "capture-valid.png"))).subarray(0, 8)).toEqual(Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]));
+    for (const mode of ["capture-viewport-mismatch", "capture-scheme-mismatch"]) {
+      const directory = join(output, mode);
+
+      await mkdir(directory);
+      await expect(driver(mode, directory)).rejects.toMatchObject({ code: 1, stderr: expect.stringMatching(/expected.*1512.*950.*True.*observed/s) });
+      expect(await readdir(directory)).toEqual([]);
+    }
   }, 300_000);
 });
 
