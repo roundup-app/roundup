@@ -348,12 +348,15 @@ it("dv6_bound_share_copies_the_selected_publication_and_resolves_its_retained_re
   render(() => <ConnectedProjectContext.Provider value={connected}><AskBar /></ConnectedProjectContext.Provider>);
   const made = await screen.findByRole("region", { name: "Made" });
 
-  for (const record of [published, external]) {
+  for (const [index, record] of [published, external, published].entries()) {
     const row = made.querySelector<HTMLElement>(`[data-deliverable="${record.id}"]`)!;
-    await within(row).findByRole("button");
-    fireEvent.contextMenu(row, { clientX: 10, clientY: 10 });
-    expect(app.showContextMenu).toHaveBeenCalledTimes(record === published ? 1 : 2);
-    await waitFor(() => expect(copied).toHaveLength(record === published ? 1 : 2));
+    const button = await within(row).findByRole("button");
+    button.focus();
+
+    if (index === 0) fireEvent.contextMenu(row, { clientX: 10, clientY: 10 });
+    else fireEvent.keyDown(button, index === 1 ? { key: "ContextMenu" } : { key: "F10", shiftKey: true });
+    expect(app.showContextMenu).toHaveBeenCalledTimes(index + 1);
+    await waitFor(() => expect(copied).toHaveLength(index + 1));
     const reference = copied.at(-1)!;
     const url = reference.split("\n")[0]!;
     expect(reference).toBe(`${url}\nrup link read ${url}`);
