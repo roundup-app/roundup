@@ -65,19 +65,19 @@ export const ProjectSettings = () => {
     <button data-button="quiet" class="word rail-import" type="button" onClick={() => void show()}>{copy.projectSettings}</button>
     <Show when={open()}>
       <Dialog.Root open onOpenChange={({ open }) => setOpen(open)}>
-        <Portal><Dialog.Positioner><Dialog.Content aria-label={copy.projectSettings}>
+        <Portal><Dialog.Positioner><Dialog.Content class="project-settings" aria-label={copy.projectSettings}><div class="app-dialog-form">
           <Dialog.Title>{copy.projectSettings}</Dialog.Title>
-          <label>
+          <label class="app-dialog-field">
             <span>{copy.runAtMost}</span>
             <input inputMode="numeric" aria-label={copy.workstreamsAtOnce} value={text()} disabled={saved() === null}
               onInput={event => setText(event.currentTarget.value)} onBlur={commit}
               onKeyDown={event => { if (event.key === "Enter" && !event.isComposing) { event.preventDefault(); commit(); } }} />
             <span>{copy.workstreamsAtOnce}</span>
           </label>
-          <Checkbox checked={saved() === null} onCheckedChange={checked => void save(checked ? null : (capOf(text()) ?? 1))}>{copy.noLimit}</Checkbox>
+          <Checkbox class="app-dialog-checkbox" checked={saved() === null} onCheckedChange={checked => void save(checked ? null : (capOf(text()) ?? 1))}>{copy.noLimit}</Checkbox>
           <Show when={failure()}>{message => <ErrorLine message={message()} />}</Show>
-          <Dialog.CloseTrigger data-button="quiet">{copy.close}</Dialog.CloseTrigger>
-        </Dialog.Content></Dialog.Positioner></Portal>
+          <div class="app-dialog-actions"><Dialog.CloseTrigger data-button="quiet">{copy.close}</Dialog.CloseTrigger></div>
+        </div></Dialog.Content></Dialog.Positioner></Portal>
       </Dialog.Root>
     </Show>
   </>;

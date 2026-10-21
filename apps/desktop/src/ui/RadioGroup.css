@@ -18,11 +18,21 @@
   height: var(--space-4);
   border-radius: var(--radius-drawer);
   border: 1px solid var(--grey);
+  display: grid;
+  place-items: center;
+  box-sizing: border-box;
 }
 
 .app-radio-mark[data-state="checked"] {
   border-color: var(--text);
-  background: radial-gradient(circle, var(--text) 40%, transparent 45%);
+}
+
+.app-radio-mark[data-state="checked"]::after {
+  content: "";
+  width: var(--space-2);
+  height: var(--space-2);
+  border-radius: var(--radius-drawer);
+  background: var(--text);
 }
 
 /* The library's input is visually hidden, so the shared keyboard ring draws around the row. */

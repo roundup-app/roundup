@@ -26,3 +26,48 @@
 .app-dialog:focus-visible {
   outline: none;
 }
+
+/* A titled form dialog: the title leads, fields stack on space Tokens, the actions sit right-aligned. */
+.app-dialog-form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  min-width: min(360px, calc(100vw - var(--space-6)));
+}
+
+.app-dialog-form [data-part="title"] {
+  font-size: var(--text-title);
+  font-weight: 600;
+}
+
+.app-dialog-field {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.app-dialog-form input:not([type="checkbox"], [type="radio"]) {
+  font-size: var(--text-body);
+}
+
+.app-dialog-field input {
+  width: var(--space-6);
+  text-align: center;
+}
+
+.app-dialog-checkbox {
+  min-height: var(--space-5);
+  align-items: center;
+}
+
+.app-dialog-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--space-2);
+}
+
+.app-dialog-name {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}

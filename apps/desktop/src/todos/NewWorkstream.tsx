@@ -52,9 +52,9 @@ export const NewWorkstream = (props: { target: Accessor<number | null>; done: (i
     return <Dialog.Root open onOpenChange={({ open }) => { if (!open) props.done(id(), null); }} finalFocusEl={() => props.returnTo(id())}>
       <Portal><Dialog.Positioner>
         <Dialog.Content class="new-workstream" aria-label={copy.newWorkstreamTitle}>
-          <form onSubmit={event => { event.preventDefault(); void create(); }}>
+          <form class="app-dialog-form" onSubmit={event => { event.preventDefault(); void create(); }}>
             <Dialog.Title>{copy.newWorkstreamTitle}</Dialog.Title>
-            <label>
+            <label class="app-dialog-name">
               <span>{copy.workstreamNameLabel}</span>
               <input value={name()} aria-label={copy.workstreamNameLabel} onInput={event => setName(event.currentTarget.value)} />
             </label>
@@ -65,7 +65,7 @@ export const NewWorkstream = (props: { target: Accessor<number | null>; done: (i
                 choices={others().map(todo => ({ value: String(todo.id), label: `#${todo.id} ${todo.title}` }))} />
             </Show>
             <Show when={failure()}>{message => <ErrorLine message={message()} />}</Show>
-            <div class="new-workstream-actions">
+            <div class="app-dialog-actions">
               <Dialog.CloseTrigger data-button="quiet">{copy.cancel}</Dialog.CloseTrigger>
               <button type="submit" data-button="primary" disabled={!ready()}>{copy.createWorkstream}</button>
             </div>

@@ -423,10 +423,17 @@ export const Todos = (props: {
   const rowButtonOf = (id: number) => (rows.get(id)?.isConnected ? rows.get(id) : null) ?? document.querySelector<HTMLElement>(`[data-todo="${id}"] .row-head button`);
 
   /** U3720: the owner list closes with focus back on the row, found again after the refetch. */
+  let namingNext: number | null = null;
+
   const stopPicking = () => {
     const id = picking()?.id;
+    const name = namingNext;
 
+    namingNext = null;
     setPicking(null);
+
+    // U3743: the dialog opens once the picker has closed and given its focus back, so it keeps focus.
+    if (name !== null) return void setTimeout(() => setNaming(name), 0);
 
     if (id !== undefined) queueMicrotask(() => rowButtonOf(id)?.focus());
   };
@@ -776,7 +783,7 @@ export const Todos = (props: {
         </Show>
         </>; }}</OwnerGroups>
       </Show>
-      <OwnerPicker target={picking} offers={offers} choose={(id, owner) => void assign(id, owner)} close={stopPicking} newWorkstream={setNaming} />
+      <OwnerPicker target={picking} offers={offers} choose={(id, owner) => void assign(id, owner)} close={stopPicking} newWorkstream={id => { namingNext = id; }} />
       <NewWorkstream target={naming} returnTo={rowButtonOf} done={(id, made) => {
         setNaming(null);
 
