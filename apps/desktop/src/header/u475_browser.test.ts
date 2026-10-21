@@ -121,9 +121,9 @@ it("u2773a_header_restores_exact_work_browser", async () => {
   await browser("eval", `(() => { Storage.prototype.setItem = () => { throw new Error('disk full'); }; const field = document.querySelector('.tab-rename'); field.value = '  newer 雪  '; field.dispatchEvent(new Event('input', {bubbles:true})); field.dispatchEvent(new KeyboardEvent('keydown', {key:'Escape', bubbles:true})); })()`);
   await browser("wait", "--fn", `!!document.querySelector('.draft-recovery[role=status]')`);
   await browser("screenshot", "/tmp/header-retention-failure.png");
-  await browser("eval", `document.querySelector('[aria-label="Recover unfinished work"]').click()`);
-  await browser("wait", "--fn", `!!document.querySelector('.draft-recovery .draft-revisions li')`);
-  expect(await read<string[]>(`[...document.querySelectorAll('.draft-recovery .draft-revisions li')].map(row => [...row.querySelectorAll('button')].map(button => button.textContent).join('|'))`)).toEqual(['Open|Discard']);
+  await browser("eval", `document.querySelector('[aria-label^="Recover unfinished work ·"]').click()`);
+  await browser("wait", "--fn", `!!document.querySelector('[role="dialog"]')`);
+  expect(await read<string>(`document.querySelector('[role="dialog"] .draft-value').textContent`)).toBe('  newer 雪  ');
   await browser("screenshot", "/tmp/header-recovery.png");
   await browser("eval", `window.__u2773Checks = window.__checks()`);
   console.log("U2773 rendered observer", await read<string>("JSON.stringify(window.__u2773Checks)"));
