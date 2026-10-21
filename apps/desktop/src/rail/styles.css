@@ -407,6 +407,16 @@
   min-width: 0;
 }
 
+/* U461a: a rejected toggle keeps its message below the Rail Todo's controls. */
+.rail-leaf .shelf-text:has(> [role="alert"]) {
+  flex-wrap: wrap;
+}
+
+.rail-leaf .shelf-text > [role="alert"] {
+  flex-basis: 100%;
+  order: 1;
+}
+
 .rail-leaf .row-head {
   display: flex;
   align-items: center;
