@@ -811,3 +811,74 @@ async fn nr6_failed_acceptance_retries_on_timer_wake_and_reopen() {
     assert_eq!(sent.len(), 1);
     assert_eq!(sent[0]["id"], json!(firing.message));
 }
+
+#[tokio::test]
+async fn nr4_explicit_retry_key_cannot_consume_automatic_identity() {
+    for manual_first in [true, false] {
+        let mut s = scene(&[]).await;
+        let saved = watching(
+            &s,
+            "manual and automatic",
+            &[&s.a],
+            json!({ "rearm": true, "max_firings": 2 }),
+        )
+        .await;
+        let run = json!({ "id": saved.id, "operation": "auto-1" });
+        if manual_first {
+            let manual = made(&s.user, "reaction.run", run.clone()).await;
+            assert!(!manual.firings[0].matched);
+            let retry = made(&s.user, "reaction.run", run.clone()).await;
+            assert_eq!(retry.firings, manual.firings);
+            assert_eq!(retry.remaining, 1);
+        }
+        drive(&s.user, &s.a, STOP).await;
+        let observed = super::daemon::h21_poll("automatic completion evaluated", async || {
+            let seen = current(&s, &saved).await;
+            let completed = seen
+                .observation
+                .evidence
+                .as_deref()
+                .and_then(|text| serde_json::from_str::<Value>(text).ok())
+                .is_some_and(|evidence| {
+                    evidence["finished"]
+                        .as_array()
+                        .is_some_and(|ids| ids.contains(&json!(s.a)))
+                });
+            completed.then_some(seen)
+        })
+        .await;
+        let accepted = if manual_first {
+            observed
+        } else {
+            assert_eq!(observed.firings.len(), 1);
+            made(&s.user, "reaction.run", run.clone()).await
+        };
+        assert_eq!(
+            accepted.firings.len(),
+            2,
+            "automatic/manual collision: {accepted:?}"
+        );
+        assert_eq!(accepted.remaining, 0);
+        assert_eq!(
+            accepted
+                .firings
+                .iter()
+                .map(|f| (f.ordinal, f.matched))
+                .collect::<Vec<_>>(),
+            [(1, !manual_first), (2, manual_first)]
+        );
+        assert_ne!(accepted.firings[0].message, accepted.firings[1].message);
+        let retry = made(&s.user, "reaction.run", run.clone()).await;
+        assert_eq!(retry.firings, accepted.firings);
+        drop(s.user);
+        s.project.restart(&[]);
+        s.user = s.project.client().await;
+        let replayed = made(&s.user, "reaction.run", run).await;
+        assert_eq!(replayed.firings, accepted.firings);
+        assert_eq!(replayed.remaining, 0);
+        assert_eq!(
+            messages(&s.user, &s.w, "manual and automatic").await.len(),
+            2
+        );
+    }
+}
