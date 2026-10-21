@@ -110,9 +110,6 @@ pub struct Values {
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, TS)]
 #[ts(export, export_to = "todo/")]
 pub struct Change {
-    /// Authenticated writer; history recorded before T19 has no known Actor.
-    #[serde(default)]
-    pub actor: Option<Actor>,
     pub seq: u32,
     /// Authenticated writer; history recorded before T19 has no known Actor.
     #[serde(default)]

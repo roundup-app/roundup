@@ -2,11 +2,7 @@
 import type { Actor } from "../Actor";
 import type { Values } from "./Values";
 
-export type Change = { 
-/**
- * Authenticated writer; history recorded before T19 has no known Actor.
- */
-actor: Actor | null, seq: number, 
+export type Change = { seq: number, 
 /**
  * Authenticated writer; history recorded before T19 has no known Actor.
  */
