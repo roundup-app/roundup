@@ -1112,6 +1112,13 @@ mod tests {
         assert!(bytes > 0 && bytes <= 524_289, "read {bytes} bytes");
         eprintln!("U3082b 400 MB: {elapsed:?}; {bytes} content bytes read");
         assert!(elapsed < Duration::from_secs(2), "{elapsed:?}");
+        // Confirmation is outside the preview measurements: this revision must
+        // retain the complete source even though preview skipped its payload records.
+        let (confirmed, retained) = launcher
+            .read_import_snapshot(&project, SESSION, &candidate.revision, NOW)
+            .unwrap();
+        assert_eq!(&confirmed, candidate);
+        assert_eq!(retained.len(), 400_000_000 - b"{\"torn\":".len());
     }
 
     #[tokio::test]
