@@ -785,7 +785,12 @@ async fn nr6_failed_acceptance_retries_on_timer_wake_and_reopen() {
     body["condition"]["at"] = json!("2098-06-01T09:00:00Z");
     made(&s.user, "reaction.create", body).await;
     let sent = notes(&s.user, &s.w, "retry time", 1).await;
-    let recovered = current(&s, &saved).await;
+    // Timer::fire records successful observation after fire_reaction finishes delivery.
+    let recovered = super::daemon::h21_poll("timer records successful acceptance", async || {
+        let seen = current(&s, &saved).await;
+        matches!(seen.observation.health.as_str(), "fired" | "fired late").then_some(seen)
+    })
+    .await;
     assert_eq!((recovered.firings.len(), recovered.remaining), (1, 0));
     assert!(recovered.observation.cause.is_none());
     assert!(recovered.observation.recovery.is_none());
