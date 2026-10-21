@@ -1004,6 +1004,8 @@ async fn nr4_every_participant_rearms_before_a_new_completion() {
 async fn nr4_all_requires_post_rearm_completions_after_daemon_reopen() {
     let mut s = scene(&[]).await;
     s.w = super::start_door(&s.user).await;
+    s.a = super::start_door(&s.user).await;
+    s.b = super::start_door(&s.user).await;
     drive(&s.user, &s.a, STOP).await;
     drive(&s.user, &s.b, STOP).await;
     let saved = watching(
@@ -1045,6 +1047,8 @@ async fn nr4_all_requires_post_rearm_completions_after_daemon_reopen() {
 async fn nr4_expired_history_cannot_invent_a_post_rearm_completion() {
     let mut s = scene(&[]).await;
     s.w = super::start_door(&s.user).await;
+    s.a = super::start_door(&s.user).await;
+    s.b = super::start_door(&s.user).await;
     drive(&s.user, &s.a, STOP).await;
     drive(&s.user, &s.b, STOP).await;
     let saved = watching(

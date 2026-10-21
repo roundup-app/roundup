@@ -271,9 +271,11 @@ impl Evaluator {
                     return;
                 }
             };
+        let mut reconcile = live.is_none();
         let mut events = match self.bus.saved_after(w.seen) {
             Ok((events, _)) => events,
             Err(err) if err.code == code::EVENTS_EXPIRED => {
+                reconcile = true;
                 w.gap = Some(format!("the Event history after {} expired", w.seen));
                 w.recovery = Some(
                     "the present state of every named Agent decides; an Agent without one stays unmatched"
@@ -338,14 +340,17 @@ impl Evaluator {
             );
             return;
         }
-        // Reconcile finishes before non-finishes: one snapshot may complete re-arm, but its
-        // already-finished Agents do not establish a completion after that boundary.
-        for finished in [true, false] {
-            for id in ids {
-                if kind_of(&world, id)
-                    .is_some_and(|kind| messages::wake::finished(kind) == finished)
-                {
-                    w.observe(ids, id, finished);
+        // Live completion order comes from Events. Re-reading a snapshot taken before those
+        // Events could erase a completion and then count its unchanged state as a new one.
+        if reconcile {
+            // A recovery snapshot may re-arm, but cannot also supply its new completion set.
+            for finished in [true, false] {
+                for id in ids {
+                    if kind_of(&world, id)
+                        .is_some_and(|kind| messages::wake::finished(kind) == finished)
+                    {
+                        w.observe(ids, id, finished);
+                    }
                 }
             }
         }
