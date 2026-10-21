@@ -1,6 +1,6 @@
 {
   "base": "e8351db8e",
-  "head": "2347c066f85bac237016c8dad76dbfa0267f3f6e",
+  "head": "fdc8b29d132449e0d102a8fee36a68cd26294c2b",
   "browser": "isolated headless agent-browser, fresh test profile",
   "viewport": [
     1512,
@@ -28,7 +28,9 @@
     "selectionBranchesAndBubbles": "unchanged after each gesture and dismissal",
     "minimisedBubbles": "remained minimised",
     "checks": "D1-D14 and D16 pass in every head capture; paired delta has no regressions",
-    "rejectedStop": "visible on tree-40; prior backend selection retained"
+    "rejectedStop": "visible on tree-40; prior backend selection retained",
+    "railMoveCalls": 0
   },
-  "nativeObserver": "Not observed in Chromium; the user reports what they meet on the Mac."
+  "nativeObserver": "Not observed in Chromium; the user reports what they meet on the Mac.",
+  "pointerEvents": "PointerEvent with pointerType mouse, isPrimary true, pointerId 1; MouseEvent for mouse/contextmenu/click"
 }
