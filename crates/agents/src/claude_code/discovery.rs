@@ -5,7 +5,7 @@ use std::path::{Path, PathBuf};
 
 use rpc::RpcError;
 use serde_json::Value;
-use std::io::{BufRead, BufReader, Read, Seek, SeekFrom};
+use std::io::{BufRead, BufReader, Read};
 use std::os::unix::fs::MetadataExt;
 use std::sync::atomic::Ordering;
 use std::time::{Duration, Instant, UNIX_EPOCH};
@@ -39,11 +39,9 @@ pub struct ImportDiscovery {
     pub excluded: Vec<ImportExclusion>,
 }
 
-// U3082b: the owner measured 50 s for week/600 MB. Preview reads at most
-// 256 KiB at each end plus 64 KiB overlap preserves boundary records.
-// Commit alone validates every complete record.
-const PREVIEW_REGION: u64 = 256 * 1024;
-const PREVIEW_OVERLAP: u64 = 64 * 1024;
+// U3082b: the owner measured 50 s for week/600 MB. One metadata projection
+// skips payload allocation; only confirmation materializes and validates payloads.
+const MAX_PREVIEW: u64 = 4_000_000_000;
 const MAX_RECORD: u64 = 8 * 1024 * 1024;
 const MAX_SNAPSHOT: usize = 512 * 1024 * 1024;
 const MAX_FILES: usize = 10_000;
@@ -371,6 +369,22 @@ fn source_revision(metadata: &std::fs::Metadata) -> String {
     )
 }
 
+// Serde skips every unlisted field with IgnoredAny instead of building payload Values.
+// Value preserves the existing treatment of optional fields with other JSON types.
+#[derive(Default, serde::Deserialize)]
+#[serde(default, rename_all = "camelCase")]
+struct Metadata {
+    #[serde(rename = "type")]
+    kind: Value,
+    is_sidechain: Value,
+    session_id: Value,
+    cwd: Value,
+    timestamp: Value,
+    custom_title: Value,
+    agent_name: Value,
+    ai_title: Value,
+}
+
 fn scan(
     launcher: &Launcher,
     path: &Path,
@@ -378,81 +392,65 @@ fn scan(
     project: &Path,
     window: (i64, i64),
     check: &impl Fn() -> Result<(), RpcError>,
-    mut retained: Option<&mut Vec<u8>>,
+    retained: Option<&mut Vec<u8>>,
 ) -> Result<Scan, RpcError> {
-    let (now_ms, period_ms) = window;
     if !is_uuid(stem) {
         return Ok(Scan::Excluded("unsupported source name".into()));
     }
-    #[cfg(not(any(test, feature = "test-support")))]
-    let _ = launcher;
     #[cfg(any(test, feature = "test-support"))]
     if let Some(observer) = &launcher.import_observer {
         observer(path, "open", 0);
     }
     let mut file = std::fs::File::open(path).map_err(|err| io_error(path, err))?;
-    let revision = source_revision(&file.metadata().map_err(|err| io_error(path, err))?);
-    let preview = retained.is_none();
-    let mut regions = Vec::new();
-    if preview {
-        let len = file.metadata().map_err(|err| io_error(path, err))?.len();
-        let head = len.min(PREVIEW_REGION + PREVIEW_OVERLAP);
-        file.by_ref()
-            .take(head)
-            .read_to_end(&mut regions)
-            .map_err(|err| io_error(path, err))?;
-        #[cfg(any(test, feature = "test-support"))]
-        if let Some(observer) = &launcher.import_observer {
-            observer(path, "bytes", regions.len() as u64);
-        }
-        if len > head {
-            // Include the whole record crossing the head boundary; dropping it
-            // could silently lose the only recent activity or title.
-            let Some(end) = regions[(PREVIEW_REGION - 1) as usize..]
-                .iter()
-                .position(|b| *b == b'\n')
-                .map(|offset| PREVIEW_REGION as usize - 1 + offset)
-            else {
-                return Ok(Scan::Excluded(
-                    "unsupported metadata layout: record exceeds 64 KiB preview boundary overlap"
-                        .into(),
-                ));
-            };
-            regions.truncate(end + 1);
-            // When regions meet, start at the head's next record so overlapping
-            // metadata is never replayed out of order.
-            let boundary = (regions.len() as u64).max(len.saturating_sub(PREVIEW_REGION));
-            let start = (regions.len() as u64).max(boundary.saturating_sub(PREVIEW_OVERLAP));
-            file.seek(SeekFrom::Start(start - 1))
-                .map_err(|err| io_error(path, err))?;
-            let mut tail = Vec::new();
-            file.by_ref()
-                .take(PREVIEW_REGION + PREVIEW_OVERLAP + 1)
-                .read_to_end(&mut tail)
-                .map_err(|err| io_error(path, err))?;
-            #[cfg(any(test, feature = "test-support"))]
-            if let Some(observer) = &launcher.import_observer {
-                observer(path, "bytes", tail.len() as u64);
-            }
-            let Some(first) = tail[..=(boundary - start) as usize]
-                .iter()
-                .rposition(|b| *b == b'\n')
-            else {
-                return Ok(Scan::Excluded(
-                    "unsupported metadata layout: record exceeds 64 KiB preview boundary overlap"
-                        .into(),
-                ));
-            };
-            regions.extend_from_slice(&tail[first + 1..]);
-        }
+    let metadata = file.metadata().map_err(|err| io_error(path, err))?;
+    let revision = source_revision(&metadata);
+    let result = scan_reader(
+        launcher,
+        path,
+        (stem, &revision),
+        project,
+        window,
+        check,
+        (&mut file, metadata.len(), retained),
+    )?;
+    check()?;
+    if source_revision(&file.metadata().map_err(|err| io_error(path, err))?) != revision
+        || source_revision(&path.metadata().map_err(|err| io_error(path, err))?) != revision
+    {
+        return Err(RpcError::conflict(format!(
+            "source changed since preview: {}; Refresh to try again",
+            path.display()
+        )));
     }
-    let input: Box<dyn Read + '_> = if preview {
-        Box::new(std::io::Cursor::new(regions))
-    } else {
-        Box::new(&mut file)
-    };
-    let mut reader = BufReader::new(input);
-    let mut line = Vec::new();
+    Ok(result)
+}
+
+// The reader is also the synthetic filesystem seam for the 4 GB policy ceiling.
+fn scan_reader(
+    launcher: &Launcher,
+    path: &Path,
+    identity: (&str, &str),
+    project: &Path,
+    window: (i64, i64),
+    check: &impl Fn() -> Result<(), RpcError>,
+    input: (impl Read, u64, Option<&mut Vec<u8>>),
+) -> Result<Scan, RpcError> {
+    #[cfg(not(any(test, feature = "test-support")))]
+    let _ = launcher;
+    let (stem, revision) = identity;
+    let (now_ms, period_ms) = window;
+    let (input, len, mut retained) = input;
+    let preview = retained.is_none();
+    if preview && len > MAX_PREVIEW {
+        return Ok(Scan::Excluded(format!(
+            "{}: source exceeds 4,000,000,000 byte metadata read limit",
+            path.display()
+        )));
+    }
+    // Capture the length: growth never extends this pass or allocates a source-sized buffer.
+    let mut reader = BufReader::with_capacity(64 * 1024, input.take(len));
+    let mut line = Vec::with_capacity(MAX_RECORD as usize);
+    let mut consumed = 0u64;
     let mut complete = false;
     let mut cwds: Vec<PathBuf> = Vec::new();
     let mut latest: Option<i64> = None;
@@ -466,17 +464,18 @@ fn scan(
         line.clear();
         let read = reader
             .by_ref()
-            .take(MAX_RECORD + 1)
+            .take(MAX_RECORD)
             .read_until(b'\n', &mut line);
         let size = read.map_err(|err| io_error(path, err))?;
         #[cfg(any(test, feature = "test-support"))]
-        if !preview && let Some(observer) = &launcher.import_observer {
+        if let Some(observer) = &launcher.import_observer {
             observer(path, "bytes", size as u64);
         }
         if size == 0 {
             break;
         }
-        if size as u64 > MAX_RECORD {
+        consumed += size as u64;
+        if size as u64 == MAX_RECORD && line.last() != Some(&b'\n') {
             return Ok(Scan::Excluded("record exceeds 8 MiB limit".into()));
         }
         if line.last() != Some(&b'\n') {
@@ -494,19 +493,28 @@ fn scan(
         if line == b"\n" {
             continue;
         }
-        let Ok(record) = serde_json::from_slice::<Value>(&line) else {
-            return Ok(Scan::Excluded("malformed record".into()));
-        };
-        if !record.is_object() {
+        if line.iter().find(|byte| !byte.is_ascii_whitespace()) != Some(&b'{') {
             return Ok(Scan::Excluded("malformed record".into()));
         }
-        if record["isSidechain"] == true {
+        let parsed = if preview {
+            serde_json::from_slice::<Metadata>(&line)
+        } else {
+            // Full JSON/UTF-8 validation only for the selected source; retention uses
+            // these same bytes, never a second read of the mutable source.
+            serde_json::from_slice::<Value>(&line).and_then(serde_json::from_value::<Metadata>)
+        };
+        let Ok(record) = parsed else {
+            return Ok(Scan::Excluded(
+                "malformed record or unsupported metadata layout".into(),
+            ));
+        };
+        if record.is_sidechain == true {
             return Ok(Scan::Excluded("subagent record".into()));
         }
-        if record["sessionId"].as_str().is_some_and(|id| id != stem) {
+        if record.session_id.as_str().is_some_and(|id| id != stem) {
             return Ok(Scan::Excluded("identity does not match source".into()));
         }
-        if let Some(cwd) = record["cwd"].as_str().filter(|cwd| !cwd.is_empty()) {
+        if let Some(cwd) = record.cwd.as_str().filter(|cwd| !cwd.is_empty()) {
             let cwd = PathBuf::from(cwd);
             if !cwds.contains(&cwd) {
                 if cwds.len() >= 64 {
@@ -515,31 +523,44 @@ fn scan(
                 cwds.push(cwd);
             }
         }
-        if let Some(ms) = record["timestamp"].as_str().and_then(millis)
+        if let Some(ms) = record.timestamp.as_str().and_then(millis)
             && ms <= now_ms
         {
             latest = latest.max(Some(ms));
         }
-        let name = |key: &str| {
-            record[key]
+        let name = |value: &Value| {
+            value
                 .as_str()
                 .filter(|s| !s.trim().is_empty())
                 .map(str::to_owned)
         };
-        match record["type"].as_str() {
-            Some("custom-title") => custom = name("customTitle").or(custom),
-            Some("agent-name") => agent = name("agentName").or(agent),
-            Some("ai-title") => ai = name("aiTitle").or(ai),
+        match record.kind.as_str() {
+            Some("custom-title") => custom = name(&record.custom_title).or(custom),
+            Some("agent-name") => agent = name(&record.agent_name).or(agent),
+            Some("ai-title") => ai = name(&record.ai_title).or(ai),
             _ => {}
         }
+        let metadata_size = cwds.iter().map(|cwd| cwd.as_os_str().len()).sum::<usize>()
+            + [&custom, &agent, &ai]
+                .into_iter()
+                .flatten()
+                .map(String::len)
+                .sum::<usize>();
+        if metadata_size > MAX_RECORD as usize {
+            return Ok(Scan::Excluded(
+                "retained metadata exceeds 8 MiB limit".into(),
+            ));
+        }
+        #[cfg(any(test, feature = "test-support"))]
+        if let Some(observer) = &launcher.import_observer {
+            observer(path, "record-buffer", line.len() as u64);
+            observer(path, "metadata-buffer", metadata_size as u64);
+        }
     }
-    drop(reader);
     check()?;
-    if source_revision(&file.metadata().map_err(|err| io_error(path, err))?) != revision
-        || source_revision(&path.metadata().map_err(|err| io_error(path, err))?) != revision
-    {
-        return Err(RpcError::conflict(format!(
-            "source changed since preview: {}; Refresh to try again",
+    if consumed != len {
+        return Ok(Scan::Excluded(format!(
+            "{}: incomplete metadata coverage; source ended before captured size",
             path.display()
         )));
     }
@@ -591,7 +612,7 @@ fn scan(
             .unwrap_or_else(|| "Untitled conversation".into()),
         cwd: relative.to_path_buf(),
         last_activity_ms: latest,
-        revision,
+        revision: revision.to_owned(),
     }))
 }
 
@@ -943,51 +964,12 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn u3037b_preview_preserves_records_crossing_boundaries() {
-        let root = tempfile::tempdir().unwrap();
-        let project = root.path().join("project");
-        std::fs::create_dir(&project).unwrap();
-        let config = root.path().join("config");
-        let header = record("user", &project, "2026-10-01T00:00:00Z") + "\n";
-        let metadata = format!(
-            "{{\"type\":\"custom-title\",\"customTitle\":\"Boundary rename\",\"timestamp\":\"2026-10-18T12:00:00Z\",\"payload\":\"{}\"}}\n",
-            "x".repeat(60_000)
-        );
-        for len in [300_000, 400_000, 800_000] {
-            for boundary in [256 * 1024, len - 256 * 1024] {
-                let mut bytes = header.as_bytes().to_vec();
-                bytes.resize(boundary - metadata.len() / 2, b'\n');
-                bytes.extend_from_slice(metadata.as_bytes());
-                bytes.resize(len - 8, b'\n');
-                bytes.extend_from_slice(b"{\"torn\":");
-                store(&config, "x", SESSION, std::str::from_utf8(&bytes).unwrap());
-                let launcher = launcher(&config);
-                let found = launcher
-                    .discover_recent(&project, NOW, 7 * DAY)
-                    .await
-                    .unwrap();
-                assert_eq!(found.candidates.len(), 1, "{len}/{boundary}: {found:?}");
-                assert!(found.excluded.is_empty());
-                let candidate = &found.candidates[0];
-                assert_eq!(candidate.title, "Boundary rename", "{len}/{boundary}");
-                assert_eq!(candidate.last_activity_ms, NOW - DAY);
-                let (confirmed, retained) = launcher
-                    .read_import_snapshot(&project, SESSION, &candidate.revision, NOW)
-                    .unwrap();
-                assert_eq!(&confirmed, candidate);
-                assert_eq!(retained, bytes[..bytes.len() - 8]);
-            }
-        }
-    }
-
-    #[tokio::test]
-    async fn u3037b_middle_metadata_is_preserved_or_explicitly_refused() {
+    async fn u3037b_middle_metadata_is_preserved() {
         let root = tempfile::tempdir().unwrap();
         let project = root.path().join("project");
         std::fs::create_dir(&project).unwrap();
         let config = root.path().join("config");
         let diagnostic = format!("{{\"payload\":\"{}\"}}\n", "x".repeat(60_000));
-        let mut failures = Vec::new();
         for title in [false, true] {
             let header = record(
                 "user",
@@ -998,35 +980,65 @@ mod tests {
                     "2026-10-01T00:00:00Z"
                 },
             ) + "\n";
-            let middle = if title {
-                "{\"type\":\"custom-title\",\"customTitle\":\"User chosen title\"}\n".into()
-            } else {
-                record("user", &project, "2026-10-18T12:00:00Z") + "\n"
-            };
-            store(
-                &config,
-                "x",
-                SESSION,
-                &(header + &diagnostic.repeat(7) + &middle + &diagnostic.repeat(7)),
-            );
-            let found = launcher(&config)
-                .discover_recent(&project, NOW, 7 * DAY)
-                .await
-                .unwrap();
-            let preserved = found.candidates.first().is_some_and(|candidate| {
-                candidate.last_activity_ms == NOW - DAY
-                    && (!title || candidate.title == "User chosen title")
-            });
-            let refused = found.candidates.is_empty()
-                && found.excluded.iter().any(|source| {
-                    source.source == SESSION
-                        && source.reason.contains("unsupported metadata layout")
-                });
-            if !preserved && !refused {
-                failures.push(format!("title={title}: {found:?}"));
+            let mut previous_len = None;
+            for variant in [false, true] {
+                let middle = if title {
+                    format!(
+                        "{{\"type\":\"custom-title\",\"customTitle\":\"{}\"}}\n",
+                        if variant {
+                            "User chosen title"
+                        } else {
+                            "Another good name"
+                        }
+                    )
+                } else {
+                    record(
+                        "user",
+                        &project,
+                        if variant {
+                            "2026-10-18T12:00:00Z"
+                        } else {
+                            "2026-10-01T12:00:00Z"
+                        },
+                    ) + "\n"
+                };
+                let text = header.clone() + &diagnostic.repeat(7) + &middle + &diagnostic.repeat(7);
+                if let Some(len) = previous_len {
+                    assert_eq!(text.len(), len);
+                }
+                previous_len = Some(text.len());
+                store(&config, "x", SESSION, &text);
+                let path = config
+                    .join("projects")
+                    .join(encoded(&project))
+                    .join(format!("{SESSION}.jsonl"));
+                std::fs::File::open(path)
+                    .unwrap()
+                    .set_modified(UNIX_EPOCH + Duration::from_millis(NOW as u64))
+                    .unwrap();
+                let found = launcher(&config)
+                    .discover_recent(&project, NOW, 7 * DAY)
+                    .await
+                    .unwrap();
+                assert!(found.excluded.is_empty(), "{found:?}");
+                if title || variant {
+                    assert_eq!(found.candidates.len(), 1, "{found:?}");
+                    assert_eq!(found.candidates[0].last_activity_ms, NOW - DAY);
+                    if title {
+                        assert_eq!(
+                            found.candidates[0].title,
+                            if variant {
+                                "User chosen title"
+                            } else {
+                                "Another good name"
+                            }
+                        );
+                    }
+                } else {
+                    assert!(found.candidates.is_empty(), "{found:?}");
+                }
             }
         }
-        assert!(failures.is_empty(), "middle metadata lost: {failures:#?}");
     }
 
     #[tokio::test]
@@ -1057,14 +1069,13 @@ mod tests {
                 }
                 std::fs::write(&path, bytes).unwrap();
                 let found = launcher.discover_recent(&project, NOW, DAY).await.unwrap();
-                if middle {
+                if let Some(candidate) = found.candidates.first() {
                     let refused = launcher
-                        .read_import_snapshot(&project, SESSION, &found.candidates[0].revision, NOW)
+                        .read_import_snapshot(&project, SESSION, &candidate.revision, NOW)
                         .unwrap_err();
                     assert!(refused.message.contains("malformed record"), "{refused:?}");
                 } else {
-                    assert!(found.candidates.is_empty());
-                    assert_eq!(found.excluded[0].reason, "malformed record");
+                    assert!(found.excluded[0].reason.contains("malformed record"));
                 }
             }
         }
@@ -1160,6 +1171,161 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn u3037b_source_changed_during_metadata_pass_is_refused() {
+        use std::io::Write;
+        let root = tempfile::tempdir().unwrap();
+        let project = root.path().join("project");
+        std::fs::create_dir(&project).unwrap();
+        let config = root.path().join("config");
+        store(
+            &config,
+            "x",
+            SESSION,
+            &(record("user", &project, "2026-10-18T12:00:00Z") + "\n"),
+        );
+        let once = std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false));
+        let mut launcher = launcher(&config);
+        launcher.import_observer = Some(std::sync::Arc::new(move |path, phase, _| {
+            if phase == "record" && !once.swap(true, Ordering::SeqCst) {
+                std::fs::File::options()
+                    .append(true)
+                    .open(path)
+                    .unwrap()
+                    .write_all(b"{}\n")
+                    .unwrap();
+            }
+        }));
+        let error = launcher
+            .discover_recent(&project, NOW, DAY)
+            .await
+            .unwrap_err();
+        assert!(
+            error.message.contains("changed since preview") && error.message.contains("Refresh"),
+            "{error:?}"
+        );
+    }
+
+    #[test]
+    fn u3037b_metadata_and_coverage_bounds_are_explicit() {
+        let root = tempfile::tempdir().unwrap();
+        let project = root.path().canonicalize().unwrap();
+        let launcher = launcher(root.path());
+        let header = record("user", &project, "2026-10-18T12:00:00Z") + "\n";
+        let oversized_metadata = header.clone()
+            + &format!(
+                "{{\"type\":\"custom-title\",\"customTitle\":\"{}\"}}\n{{\"type\":\"agent-name\",\"agentName\":\"{}\"}}\n",
+                "x".repeat(5 * 1024 * 1024),
+                "y".repeat(5 * 1024 * 1024)
+            );
+        for (text, declared, cause) in [
+            (
+                header.as_bytes(),
+                header.len() as u64 + 1,
+                "incomplete metadata coverage",
+            ),
+            (
+                oversized_metadata.as_bytes(),
+                oversized_metadata.len() as u64,
+                "retained metadata exceeds",
+            ),
+        ] {
+            let found = scan_reader(
+                &launcher,
+                Path::new("source.jsonl"),
+                (SESSION, "revision"),
+                &project,
+                (NOW, DAY),
+                &|| Ok(()),
+                (text, declared, None),
+            )
+            .unwrap();
+            assert!(matches!(found, Scan::Excluded(ref reason) if reason.contains(cause)));
+        }
+    }
+
+    #[test]
+    #[ignore = "U3037b synthetic 4 GB read-ceiling observer; run separately from fast tests"]
+    fn u3037b_preview_bounds_are_explicit() {
+        struct Repeated {
+            header: std::io::Cursor<Vec<u8>>,
+            record: Vec<u8>,
+            offset: usize,
+            bytes: std::sync::Arc<std::sync::atomic::AtomicU64>,
+        }
+        impl Read for Repeated {
+            fn read(&mut self, buffer: &mut [u8]) -> std::io::Result<usize> {
+                let prefix = self.header.read(buffer)?;
+                if prefix != 0 {
+                    self.bytes.fetch_add(prefix as u64, Ordering::Relaxed);
+                    return Ok(prefix);
+                }
+                let n = buffer.len().min(self.record.len() - self.offset);
+                buffer[..n].copy_from_slice(&self.record[self.offset..self.offset + n]);
+                self.offset = (self.offset + n) % self.record.len();
+                self.bytes.fetch_add(n as u64, Ordering::Relaxed);
+                Ok(n)
+            }
+        }
+        let root = tempfile::tempdir().unwrap();
+        let project = root.path().canonicalize().unwrap();
+        let launcher = launcher(root.path());
+        let header = record("user", &project, "2026-10-18T12:00:00Z")
+            + "\n{\"type\":\"custom-title\",\"customTitle\":\"Exact ceiling\"}\n";
+        let bytes = std::sync::Arc::new(std::sync::atomic::AtomicU64::new(0));
+        for len in [4_000_000_000, 4_000_000_001] {
+            bytes.store(0, Ordering::Relaxed);
+            // Repeat a bounded record forever: Take must stop at the captured length.
+            // The final partial record is the permitted torn tail.
+            let payload = format!("{{\"payload\":\"{}\"}}\n", "x".repeat(65536 - 15));
+            let input = Repeated {
+                header: std::io::Cursor::new(header.as_bytes().to_vec()),
+                record: payload.into_bytes(),
+                offset: 0,
+                bytes: bytes.clone(),
+            };
+            let result = scan_reader(
+                &launcher,
+                Path::new("source.jsonl"),
+                (SESSION, "revision"),
+                &project,
+                (NOW, DAY),
+                &|| Ok(()),
+                (input, len, None),
+            )
+            .unwrap();
+            if len == 4_000_000_000 {
+                let Scan::Member(candidate) = result else {
+                    panic!("at-limit source was excluded");
+                };
+                assert_eq!(candidate.title, "Exact ceiling");
+                assert_eq!(candidate.last_activity_ms, NOW - DAY);
+                assert_eq!(candidate.cwd, PathBuf::new());
+                assert_eq!(bytes.load(Ordering::Relaxed), len);
+            } else {
+                assert!(
+                    matches!(result, Scan::Excluded(reason) if reason.contains("source.jsonl") && reason.contains("read limit"))
+                );
+                assert_eq!(bytes.load(Ordering::Relaxed), 0);
+            }
+        }
+    }
+
+    fn rss_kib() -> u64 {
+        std::fs::read_to_string("/proc/self/status")
+            .ok()
+            .and_then(|text| {
+                text.lines().find_map(|line| {
+                    line.strip_prefix("VmRSS:")?
+                        .split_whitespace()
+                        .next()?
+                        .parse()
+                        .ok()
+                })
+            })
+            .unwrap_or(0)
+    }
+
+    #[tokio::test]
     #[ignore = "U3082b generates 400 MB of real storage; run in the test profile separately"]
     async fn u3082b_large_preview_finishes_under_two_seconds() {
         use std::io::Write;
@@ -1167,71 +1333,113 @@ mod tests {
         let project = root.path().join("project");
         std::fs::create_dir(&project).unwrap();
         let config = root.path().join("config");
-        let header = record("user", &project, "2026-10-18T12:00:00Z") + "\n";
-        store(&config, "x", SESSION, &header);
-        let path = config
-            .join("projects")
-            .join(encoded(&project))
-            .join(format!("{SESSION}.jsonl"));
-        let title = format!(
-            "{{\"type\":\"custom-title\",\"customTitle\":\"Near the end\",\"payload\":\"{}\"}}\n",
-            "x".repeat(60_000)
-        );
-        let end = b"{\"torn\":";
-        let mut writer =
-            std::io::BufWriter::new(std::fs::File::options().append(true).open(&path).unwrap());
-        let payload = format!("{{\"payload\":\"{}\"}}\n", "x".repeat(65536 - 15));
-        let title_start = 400_000_000 - 256 * 1024 - title.len() / 2;
-        for (index, mut remaining) in [
-            title_start - header.len(),
-            400_000_000 - title_start - title.len() - end.len(),
-        ]
-        .into_iter()
-        .enumerate()
-        {
-            while remaining >= payload.len() {
-                writer.write_all(payload.as_bytes()).unwrap();
-                remaining -= payload.len();
+        for variant in 0..3 {
+            let header = record(
+                "user",
+                &project,
+                if variant == 2 {
+                    "2026-10-01T12:00:00Z"
+                } else {
+                    "2026-10-18T12:00:00Z"
+                },
+            ) + "\n";
+            store(&config, "x", SESSION, &header);
+            let path = config
+                .join("projects")
+                .join(encoded(&project))
+                .join(format!("{SESSION}.jsonl"));
+            let title = format!(
+                "{{\"type\":\"custom-title\",\"customTitle\":\"Near the end\",\"payload\":\"{}\"}}\n",
+                "x".repeat(60_000)
+            );
+            let activity = record(
+                "user",
+                &project,
+                if variant == 2 {
+                    "2026-10-18T12:00:00Z"
+                } else {
+                    "2026-10-01T12:00:00Z"
+                },
+            ) + "\n";
+            let end = b"{\"torn\":";
+            let payload = format!("{{\"payload\":\"{}\"}}\n", "x".repeat(65536 - 15));
+            let mut writer =
+                std::io::BufWriter::new(std::fs::File::options().append(true).open(&path).unwrap());
+            let title_start = if variant == 1 {
+                200_000_000
+            } else {
+                400_000_000 - 256 * 1024 - title.len() / 2
+            };
+            let activity_start = if variant == 2 {
+                200_000_000
+            } else {
+                399_999_000
+            };
+            let mut events = [
+                (title_start, title.as_bytes()),
+                (activity_start, activity.as_bytes()),
+                (400_000_000 - end.len(), end.as_slice()),
+            ];
+            events.sort_by_key(|(offset, _)| *offset);
+            let mut written = header.len();
+            for (offset, text) in events {
+                let mut remaining = offset - written;
+                while remaining >= payload.len() {
+                    writer.write_all(payload.as_bytes()).unwrap();
+                    remaining -= payload.len();
+                }
+                writer.write_all(&vec![b'\n'; remaining]).unwrap();
+                writer.write_all(text).unwrap();
+                written = offset + text.len();
             }
-            writer.write_all(&vec![b'\n'; remaining]).unwrap();
-            if index == 0 {
-                writer.write_all(title.as_bytes()).unwrap();
-            }
+            writer.flush().unwrap();
+            assert_eq!(std::fs::metadata(&path).unwrap().len(), 400_000_000);
+            let bytes = std::sync::Arc::new(std::sync::atomic::AtomicU64::new(0));
+            let observed = bytes.clone();
+            let baseline = rss_kib();
+            let peak = std::sync::Arc::new(std::sync::atomic::AtomicU64::new(baseline));
+            let observed_peak = peak.clone();
+            let mut launcher = launcher(&config);
+            launcher.import_observer =
+                Some(std::sync::Arc::new(move |_, phase, count| match phase {
+                    "bytes" => {
+                        observed.fetch_add(count, Ordering::Relaxed);
+                    }
+                    "record-buffer" | "metadata-buffer" => {
+                        assert!(count <= 8 * 1024 * 1024, "{phase}: {count}");
+                        if observed.load(Ordering::Relaxed) % (1024 * 1024) < 65536 {
+                            observed_peak.fetch_max(rss_kib(), Ordering::Relaxed);
+                        }
+                    }
+                    _ => {}
+                }));
+            let start = Instant::now();
+            let found = launcher
+                .discover_recent(&project, NOW, 7 * DAY)
+                .await
+                .unwrap();
+            let elapsed = start.elapsed();
+            assert_eq!(found.candidates.len(), 1, "{found:?}");
+            let candidate = &found.candidates[0];
+            assert_eq!(candidate.title, "Near the end");
+            assert_eq!(candidate.cwd, PathBuf::new());
+            assert_eq!(candidate.last_activity_ms, NOW - DAY);
+            assert!(!candidate.revision.is_empty());
+            let bytes = bytes.load(Ordering::Relaxed);
+            assert_eq!(bytes, 400_000_000);
+            eprintln!(
+                "U3082b 400 MB variant {variant}: {elapsed:?}; {bytes} content bytes read; peak additional RSS {} KiB",
+                peak.load(Ordering::Relaxed).saturating_sub(baseline)
+            );
+            assert!(elapsed < Duration::from_secs(2), "{elapsed:?}");
+            // Confirmation is outside the preview measurements: this revision must
+            // retain the complete source even though preview skipped its payload records.
+            let (confirmed, retained) = launcher
+                .read_import_snapshot(&project, SESSION, &candidate.revision, NOW)
+                .unwrap();
+            assert_eq!(&confirmed, candidate);
+            assert_eq!(retained.len(), 400_000_000 - b"{\"torn\":".len());
         }
-        writer.write_all(end).unwrap();
-        writer.flush().unwrap();
-        assert_eq!(std::fs::metadata(&path).unwrap().len(), 400_000_000);
-        let bytes = std::sync::Arc::new(std::sync::atomic::AtomicU64::new(0));
-        let observed = bytes.clone();
-        let mut launcher = launcher(&config);
-        launcher.import_observer = Some(std::sync::Arc::new(move |_, phase, count| {
-            if phase == "bytes" {
-                observed.fetch_add(count, Ordering::Relaxed);
-            }
-        }));
-        let start = Instant::now();
-        let found = launcher
-            .discover_recent(&project, NOW, 7 * DAY)
-            .await
-            .unwrap();
-        let elapsed = start.elapsed();
-        assert_eq!(found.candidates.len(), 1, "{found:?}");
-        let candidate = &found.candidates[0];
-        assert_eq!(candidate.title, "Near the end");
-        assert_eq!(candidate.cwd, PathBuf::new());
-        assert_eq!(candidate.last_activity_ms, NOW - DAY);
-        assert!(!candidate.revision.is_empty());
-        let bytes = bytes.load(Ordering::Relaxed);
-        assert!(bytes > 0 && bytes <= 655_361, "read {bytes} bytes");
-        eprintln!("U3082b 400 MB: {elapsed:?}; {bytes} content bytes read");
-        assert!(elapsed < Duration::from_secs(2), "{elapsed:?}");
-        // Confirmation is outside the preview measurements: this revision must
-        // retain the complete source even though preview skipped its payload records.
-        let (confirmed, retained) = launcher
-            .read_import_snapshot(&project, SESSION, &candidate.revision, NOW)
-            .unwrap();
-        assert_eq!(&confirmed, candidate);
-        assert_eq!(retained.len(), 400_000_000 - b"{\"torn\":".len());
     }
 
     #[tokio::test]
