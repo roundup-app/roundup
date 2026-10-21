@@ -433,8 +433,14 @@ fn evidence_wire(evidence: Evidence, stale: bool) -> WorktreeEvidence {
                 })
                 .collect(),
         },
+        Evidence::Pending(read) => WorktreeEvidence {
+            repository: Some(format!("{}/{}", read.host, read.repository)),
+            head: Some(read.head),
+            read_at: Some(read.read_at),
+            ..incomplete(S::Incomplete)
+        },
         Evidence::Incomplete(gap) => incomplete(match gap {
-            Gap::Pending | Gap::NoRequiredChecks => S::Incomplete,
+            Gap::NoRequiredChecks => S::Incomplete,
             Gap::StaleHead => S::StaleHead,
             Gap::ReadFailed => S::Unknown,
             Gap::GhMissing
