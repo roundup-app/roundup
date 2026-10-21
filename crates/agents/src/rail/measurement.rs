@@ -632,18 +632,64 @@ impl Timing {
     }
 
     pub(crate) fn acknowledge_attempt(&mut self, agent: &str, attempt: &str) {
-        use contracts::project::TimedActivity;
+        use contracts::project::{MeasurementValue, TimeState, TimedActivity};
+        let phases: Vec<_> = self
+            .launches
+            .iter()
+            .filter(|(_, fact)| {
+                fact.agent == agent
+                    && fact.attempt.as_deref() == Some(attempt)
+                    && matches!(
+                        fact.value,
+                        MeasurementValue::Observed {
+                            activity: TimedActivity::Idle { .. },
+                            ..
+                        }
+                    )
+            })
+            .map(|(identity, _)| identity.clone())
+            .collect();
+        for identity in phases {
+            let mut fact = self
+                .launches
+                .remove(&identity)
+                .expect("provisional idle phase");
+            let active = matches!(
+                fact.value,
+                MeasurementValue::Observed {
+                    state: TimeState::Active,
+                    ..
+                }
+            );
+            if active {
+                self.progress(&mut fact, false);
+            }
+            let failed = if let Err(error) = self.persist(&mut fact) {
+                self.record_failure(&identity, &fact.source, error.message);
+                true
+            } else {
+                false
+            };
+            if active || failed {
+                self.active.insert(identity, fact);
+            }
+        }
         self.begin(agent, attempt, TimedActivity::Attempt);
         if let Some(identity) = self.begin(agent, attempt, TimedActivity::Startup) {
             self.end(&identity);
         }
     }
 
-    pub(crate) fn observe_status(&mut self, event: &contracts::agent::StatusEvent) {
+    pub(crate) fn observe_status(
+        &mut self,
+        event: &contracts::agent::StatusEvent,
+        acknowledged: bool,
+    ) {
         use contracts::project::{MeasurementValue, TimeState, TimedActivity};
         let idle: Vec<_> = self
             .active
             .iter()
+            .chain(self.launches.iter())
             .filter(|(_, fact)| {
                 fact.agent == event.id
                     && fact.attempt.as_deref() == Some(&event.attempt)
@@ -660,17 +706,37 @@ impl Timing {
             .collect();
         if event.status.kind == contracts::Kind::Idle {
             if idle.is_empty() {
-                self.begin(
-                    &event.id,
-                    &event.attempt,
-                    TimedActivity::Idle {
-                        status_revision: event.status_revision.clone(),
-                    },
-                );
+                let activity = TimedActivity::Idle {
+                    status_revision: event.status_revision.clone(),
+                };
+                if acknowledged {
+                    self.begin(&event.id, &event.attempt, activity);
+                } else {
+                    let identity = format!(
+                        "roundup:idle:{}:{}:{}",
+                        event.id, event.attempt, event.status_revision
+                    );
+                    match self.begin_fact(&identity, &event.id, &event.attempt, activity, false) {
+                        Ok(Some(fact)) => {
+                            self.launches.insert(identity, fact);
+                        }
+                        Ok(None) => {}
+                        Err(error) => self.record_failure(
+                            &identity,
+                            &format!("roundup:{}", event.id),
+                            error.message,
+                        ),
+                    }
+                }
             }
         } else {
             for identity in idle {
-                self.end(&identity);
+                if let Some(mut fact) = self.launches.remove(&identity) {
+                    self.progress(&mut fact, true);
+                    self.launches.insert(identity, fact);
+                } else {
+                    self.end(&identity);
+                }
             }
         }
     }
@@ -801,7 +867,15 @@ impl Timing {
     pub(crate) fn sample(&mut self) {
         let mut launches = std::mem::take(&mut self.launches);
         for fact in launches.values_mut() {
-            self.progress(fact, false);
+            if matches!(
+                fact.value,
+                contracts::project::MeasurementValue::Observed {
+                    state: contracts::project::TimeState::Active,
+                    ..
+                }
+            ) {
+                self.progress(fact, false);
+            }
         }
         self.launches = launches;
         let identities: Vec<_> = self.active.keys().cloned().collect();
@@ -811,6 +885,7 @@ impl Timing {
     }
 
     pub(crate) fn end_attempt(&mut self, agent: &str, attempt: &str) {
+        self.abandon_attempt(agent, attempt);
         let identities: Vec<_> = self
             .active
             .iter()
