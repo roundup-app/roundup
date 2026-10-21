@@ -134,6 +134,8 @@ struct Watch {
     /// crash between the acceptance and this save returns the firing already made.
     round: u32,
     health: String,
+    #[serde(default)]
+    cause: Option<String>,
     gap: Option<String>,
     recovery: Option<String>,
     evidence: Option<String>,
@@ -331,7 +333,9 @@ impl Evaluator {
                 w.observe(ids, id, messages::wake::finished(kind));
             }
         }
-        w.health = "observing".into();
+        if w.cause.is_none() {
+            w.health = "observing".into();
+        }
         let facts: Vec<serde_json::Value> = ids
             .iter()
             .filter_map(|id| node_of(&world, id))
@@ -375,6 +379,11 @@ impl Evaluator {
             .await;
         match fired {
             Ok(_) => {
+                w.health = "observing".into();
+                w.cause = None;
+                w.recovery = w.gap.as_ref().map(|_| {
+                    "the recorded source gap remains; authoritative current Agent state reconciled observation".into()
+                });
                 w.round += 1;
                 w.armed = false;
                 w.finished.clear();
@@ -382,7 +391,13 @@ impl Evaluator {
             }
             // Stopped, or the bound was spent by an explicit run first: nothing more is accepted.
             Err(err) if err.code == code::CONFLICT => {}
-            Err(err) => eprintln!("reaction {}: not fired: {}", r.id, err.message),
+            Err(err) => {
+                w.health = "acceptance-failed".into();
+                w.cause = Some(err.message);
+                w.recovery = Some(
+                    "remove the acceptance failure; the next Agent observation or Project reopen retries within the remaining bound and expiry".into(),
+                );
+            }
         }
     }
 }
@@ -650,6 +665,7 @@ impl Daemon {
         if let Some(watch) = self.reactions.watch(&saved.id) {
             saved.observation = Observation {
                 health: watch.health,
+                cause: watch.cause,
                 cursor: Some(watch.seen),
                 gap: watch.gap,
                 recovery: watch.recovery,
