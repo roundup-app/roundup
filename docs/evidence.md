@@ -176,3 +176,14 @@ Attempt `1`. Send the recall question with `agent.prompt`; wait for the new answ
 in `terminal.snapshot`. Inspect `/__aimock/journal` for both prior turns in the
 second request and matched status 200 for every request. Stop only the Daemon,
 Claude and model fixture started by this observer.
+
+Validation on the same revision: 67 selected Agents import/Resume/Worktree tests
+passed (`cargo nextest run -p agents -E 'test(u2875) | test(a22_) | test(g2_)'`),
+as did 35 selected UI tests in `importer/u2875d_import_panel.test.tsx` and
+`rail/u2875d_import.test.tsx`. The isolated headless real-Daemon test
+`u2875d_real_import_reopen_and_resume` in `testing/u463_real_daemon.test.ts`
+passed import, restart, Resume and start-supervisor. The rendered observer
+`testing/u2875d_rendered.test.ts`, selected with `ROUNDUP_CAPTURES=U2875d`,
+produced dark 1512×950 Rail/dense/partial-failure/unavailable PNGs and Check
+readings; every Check passed on all four screens. Payload names are
+`artifacts/ux/U2875d/observer-<step>.png` and `.checks.json`.
