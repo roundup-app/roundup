@@ -57,6 +57,17 @@ def flag(name):
     return sys.argv[sys.argv.index(name) + 1]
 
 
+def session_mode():
+    """B2706: `--permission-mode` when passed, else the user's `permissions.defaultMode`."""
+    if "--permission-mode" in sys.argv:
+        return flag("--permission-mode")
+    try:
+        mode = json.load(open(os.path.join(os.environ["CLAUDE_CONFIG_DIR"], "settings.json")))["permissions"]["defaultMode"]
+    except (OSError, KeyError, ValueError):
+        return "default"
+    return mode if mode in ("default", "acceptEdits", "plan", "auto") else "default"
+
+
 def run_commands():
     env = {**os.environ, **json.load(open(flag("--settings"))).get("env", {})}
     done = []
@@ -217,7 +228,7 @@ def watch_inbox(server, turn):
     recorded in the transcript with its `origin` before its turn."""
     agent = json.load(open(flag("--settings")))["hooks"]["Stop"][0]["hooks"][0]["command"].split()[-1].strip("'")
     transcript = os.path.join(os.environ["CLAUDE_CONFIG_DIR"], "transcript-" + agent + ".jsonl")
-    mode = flag("--permission-mode")
+    mode = session_mode()
     seen = set()
 
     def take(line):
