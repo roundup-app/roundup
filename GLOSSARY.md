@@ -767,6 +767,48 @@ An observed activity is active, ended at an observed Clock point, or interrupted
 **Measurement wait** (`MeasurementWait`):
 The observation of one continuously blocking operation. It carries no delivery or control authority.
 
+**Result report** (`ResultReport`, `ReportParams`, `message.report`):
+An authenticated Agent's claim about its own Attempt's submitted Instruction delivery,
+retained in the Project Message holder with exact instruction, original Workstream,
+Home at report, pending next action and published Deliverable identity. A report key
+reconciles equal retries and refuses conflicting ones. It never proves acceptance or
+verification. `ResultTarget` names the claimed target identity and revision;
+`ResultState` distinguishes reported work from an unknown external effect.
+
+**Result acceptance** (`ResultAcceptance`, `AcceptResultParams`, `message.acceptResult`):
+The user's acceptance and evidence for one exact Result report, without independent
+verification. `ResultId` selects that report within its original Project and Agent.
+
+**Result check** (`ResultCheck`, `ResultObservation`, `message.verifyResult`):
+A declared authoritative condition observed by the Daemon, retaining its source
+revision and verdict separately from claims and acceptance. Publication checks prove
+only retained-byte integrity; PR checks use fresh, complete forge evidence for the
+exact declared repository/PR/head. Unsupported sources and uncertain external effects
+remain unknown with a cause and checking action. Agent status and Terminal prose
+supply no verification authority.
+
+**Result resolution** (`ResultResolution`, `ResultOutcome`, `ResolveResultParams`, `message.resolveResult`):
+A Daemon GET of an authoritative receipt source explicitly chosen by the user, never
+by an Agent. The receipt names the exact `ResultTarget`, an opaque source revision,
+Unix observation seconds and a completed, not-performed or inconclusive outcome.
+HTTPS (or literal loopback HTTP), a five-second deadline, no redirects and a 64 KiB
+response bound apply. A receipt older than 60 seconds, more than five seconds ahead,
+without a source revision, for another target/version, unavailable or inconclusive
+records an unknown cause and checking action. A conclusive receipt is retained as a
+resolved `ResultObservation` with source and authorizing Actor. It resolves only that
+unknown-effect report; acceptance and publication integrity cannot resolve it.
+No effect or continuation is issued by resolution. The receipt endpoint is a declared
+read-only source; choosing it grants no Agent permission to choose another source.
+
+**Progress** (`Progress`, `ProgressParams`, `ResultProgress`, `message.progress`):
+Passive inspection of retained instructions, Result reports, acceptance, source
+observations and exact publication availability. Historical evidence stays readable;
+unresolved external effects stay current across later claims and instruction changes
+until their exact-version Result resolution. They block completion checks and current
+attribution of later claims for that target. Other current attribution requires the
+same Order and latest Instruction revision, plus the latest reported version of that
+target. Opening or inspecting Progress starts nothing and sends no Message.
+
 **Request cost** (`RequestCost`, `CacheWrites`):
 The observed opaque Model and independently observed five-minute/one-hour cache-write
 classes of one retained request. Classes partition its consumed cache writes; a missing

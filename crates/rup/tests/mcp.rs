@@ -228,7 +228,7 @@ fn assert_exit_1_with_one_line_naming(output: &Output, socket: &Path) {
 
 /// M5: the methods with a tool for every Agent, each named after its method with the dot replaced
 /// by `_`, bar `agent.setOrder` (O4), whose tool is `agent_set_order`.
-const TOOL_METHODS: [&str; 78] = [
+const TOOL_METHODS: [&str; 83] = [
     "agent.wake",
     "reaction.create",
     "reaction.preview",
@@ -263,6 +263,11 @@ const TOOL_METHODS: [&str; 78] = [
     "pad.export",
     "pad.setStorage",
     // B12
+    "message.progress",
+    "message.report",
+    "message.acceptResult",
+    "message.verifyResult",
+    "message.resolveResult",
     "message.send",
     "message.get",
     "message.list",
@@ -513,20 +518,6 @@ async fn m1_offers_one_tool_per_method_and_ask_user_and_no_others() {
 }
 
 #[tokio::test]
-async fn b45_agent_wake_is_offered_to_every_agent() {
-    let project = start_daemon();
-    let shim = spawn_shim(&project.socket, "a1").await;
-
-    let tools = shim.client.list_all_tools().await.unwrap();
-
-    let tool = tools.iter().find(|t| t.name == "agent_wake").unwrap();
-    assert_eq!(
-        Value::Object((*tool.input_schema).clone()),
-        serde_json::to_value(schemars::schema_for!(contracts::agent::WakeParams)).unwrap()
-    );
-}
-
-#[tokio::test]
 async fn m1_input_schemas_are_the_contract_schemas() {
     let project = start_daemon();
     let shim = spawn_shim(&project.socket, "a1").await;
@@ -539,6 +530,30 @@ async fn m1_input_schemas_are_the_contract_schemas() {
 
     let derived = |schema| serde_json::to_value(schema).unwrap();
     let expected = [
+        (
+            "agent_wake",
+            derived(schemars::schema_for!(contracts::agent::WakeParams)),
+        ),
+        (
+            "message_progress",
+            derived(schemars::schema_for!(message::ProgressParams)),
+        ),
+        (
+            "message_report",
+            derived(schemars::schema_for!(message::ReportParams)),
+        ),
+        (
+            "message_acceptResult",
+            derived(schemars::schema_for!(message::AcceptResultParams)),
+        ),
+        (
+            "message_verifyResult",
+            derived(schemars::schema_for!(message::ResultId)),
+        ),
+        (
+            "message_resolveResult",
+            derived(schemars::schema_for!(message::ResolveResultParams)),
+        ),
         (
             "todo_create",
             derived(schemars::schema_for!(todo::CreateParams)),
