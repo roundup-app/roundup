@@ -109,7 +109,6 @@ async fn b6_terminal_input_invalidates_identity_before_the_next_signal() {
     run.finish().await;
 }
 
-
 #[tokio::test]
 async fn u3750_a_card_answer_delivers_once_while_the_terminal_prompt_is_open() {
     let run = Run::start().await;
