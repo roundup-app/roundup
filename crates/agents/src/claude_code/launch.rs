@@ -139,12 +139,24 @@ const STALE: Duration = Duration::from_secs(10);
 /// break it, and the second break would remove the lock the first had just taken.
 static TRUSTING: Mutex<()> = Mutex::new(());
 
+#[cfg(any(test, feature = "test-support"))]
+pub type ImportObserver = Arc<dyn Fn(&Path, &'static str) + Send + Sync>;
+
 #[derive(Clone)]
 pub struct Launcher {
     pub(super) bin: String,
     /// Claude Code's own config file, where it remembers which folders are trusted.
     claude_json: PathBuf,
     pub(super) conversation_dir: PathBuf,
+    /// Filesystem observer for isolated import tests; absent from production builds.
+    #[cfg(any(test, feature = "test-support"))]
+    pub import_observer: Option<ImportObserver>,
+    // One active discovery reader per Project, shared by worker clones. A newer scan
+    // invalidates the older reader at its next record boundary (U3037d).
+    pub(super) discovery: (
+        Arc<std::sync::atomic::AtomicU64>,
+        Arc<tokio::sync::Mutex<()>>,
+    ),
     /// The `rup` the hooks run, by absolute path: a hook's PATH is not ours to trust.
     rup: PathBuf,
     /// The user's home folder, never trusted: Claude never saves trust for it, and a saved one
@@ -278,6 +290,12 @@ impl Launcher {
         };
         Self {
             conversation_dir,
+            #[cfg(any(test, feature = "test-support"))]
+            import_observer: None,
+            discovery: (
+                Arc::new(std::sync::atomic::AtomicU64::new(0)),
+                Arc::new(tokio::sync::Mutex::new(())),
+            ),
             bin: bin.into(),
             claude_json,
             rup,
