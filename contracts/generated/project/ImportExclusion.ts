@@ -3,4 +3,12 @@
 /**
  * A conversation that is not selectable, with the reason the user reads.
  */
-export type ImportExclusion = { source: string, reason: string, };
+export type ImportExclusion = { source: string, reason: string, 
+/**
+ * The conversation's title, when it is known.
+ */
+title: string | null, 
+/**
+ * Its last activity, or the source file's modified time when none is recorded.
+ */
+last_activity_ms: bigint | null, };

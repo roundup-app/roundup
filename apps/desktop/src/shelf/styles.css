@@ -155,10 +155,6 @@
 .shelf-tab[data-selected] { --button-surface: transparent; --button-hover: transparent; }
 .shelf-panel.app-tabs-content { padding: 0; }
 .shelf-question {
-  position: fixed;
-  bottom: var(--space-6);
-  right: var(--space-4);
-  z-index: 100;
   width: calc(var(--shelf-width) - var(--space-6));
   box-sizing: border-box;
   max-height: calc(100vh - var(--space-6));

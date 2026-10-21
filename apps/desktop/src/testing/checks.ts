@@ -545,7 +545,7 @@ const d8 = (page: Page): Measure => {
     };
 
     // U375 requires the Watch overlay to cast the Drawer shadow on its surface.
-    const surfaceShadow = el.matches(".milkdown-slash-menu, .pane-control, .worktree-panel, .app-mentions-panel, .owner-picker, .rail-confirm.app-dialog, .import-panel, .capture.app-dialog, .app-select-list[data-scope=select][data-part=content][role=listbox]") && shadowParts(shadow) !== "" && shadowParts(shadow) === shadowParts("var(--shadow-drawer)");
+    const surfaceShadow = el.matches(".milkdown-slash-menu, .pane-control, .worktree-panel, .app-mentions-panel, .owner-picker, .rail-confirm.app-dialog, .todo-delete-confirm.app-dialog, .import-panel, .capture.app-dialog, .app-select-list[data-scope=select][data-part=content][role=listbox]") && shadowParts(shadow) !== "" && shadowParts(shadow) === shadowParts("var(--shadow-drawer)");
 
     if (shadow && shadow !== "none" && !surfaceShadow && !el.matches("aside, aside *, .bubble") && el.tagName !== "ASIDE") return { boxShadow: shadow };
 
