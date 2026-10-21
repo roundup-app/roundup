@@ -156,8 +156,8 @@
 
 /* Keep the selection wash uniform under a line that clips across inline controls. */
 .shelf-row.todo-inset[data-selected="true"] {
-  background-image: none;
-  background-color: var(--selected);
+  background-image: linear-gradient(var(--selected), var(--selected));
+  background-size: auto;
 }
 
 .shelf-row.todo-inset[data-selected="true"]::before {
