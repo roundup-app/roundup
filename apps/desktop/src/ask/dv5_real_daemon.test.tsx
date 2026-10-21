@@ -443,12 +443,14 @@ it("dv6_guarded_send_retries_the_same_identity_through_existing_held_delivery", 
       return rpc(method, params);
     };
 
-    fireEvent.contextMenu(row);
+    const button = within(row).getByRole("button");
+    button.focus();
+    fireEvent.keyDown(button, { key: "ContextMenu" });
     expect(app.showContextMenu).toHaveBeenCalledTimes(1);
     expect(await messages()).toEqual([]);
     expect(sends).toEqual([]);
     choice = `send:${receiver.id}`;
-    fireEvent.contextMenu(row);
+    fireEvent.keyDown(button, { key: "F10", shiftKey: true });
     await within(row).findByRole("alert");
     expect(sends).toEqual([]);
     interrupted = false;
