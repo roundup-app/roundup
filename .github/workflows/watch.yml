@@ -1,0 +1,69 @@
+name: watch
+run-name: Watch the loop
+
+# L123: every 15 minutes, with no model. GitHub skips most `build.yml` schedule ticks and a quiet loop has no event to start a build, so this kicks
+# one after 70 minutes without a build run; reruns the failed jobs of a red `main` push run once; and files one work Issue when the rerun fails too.
+on:
+  schedule:
+    - cron: '7,22,37,52 * * * *'
+  workflow_dispatch:
+
+permissions:
+  actions: write
+  issues: write
+  contents: read
+
+# L98: bash -eo pipefail, so a failure left of a pipe fails the step.
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  watch:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    concurrency:
+      group: watch
+      cancel-in-progress: false
+    env:
+      GH_TOKEN: ${{ github.token }}
+      GH_REPO: ${{ github.repository }}
+    steps:
+      # A GITHUB_TOKEN workflow_dispatch starts a workflow, as build-issue.yml's `after` relies on.
+      - name: Kick a build after 70 quiet minutes
+        run: |
+          last=$(gh run list --workflow build.yml --limit 1 --json createdAt --jq '.[0].createdAt // empty')
+          if [ -z "$last" ] || [ $(( $(date -u +%s) - $(date -u -d "$last" +%s) )) -gt 4200 ]; then
+            gh workflow run build.yml --ref main
+            echo "kicked build.yml: last build run ${last:-never}" >>"$GITHUB_STEP_SUMMARY"
+          fi
+
+      - name: Rerun a red main once, then file it
+        run: |
+          filed=false
+          for workflow in check pre; do
+            run=$(gh run list --workflow "$workflow.yml" --branch main --event push --limit 1 \
+              --json databaseId,status,conclusion,attempt,headSha,url --jq '.[0] // empty')
+            [ -n "$run" ] || continue
+            [ "$(jq -r .status <<<"$run")" = completed ] && [ "$(jq -r .conclusion <<<"$run")" = failure ] || continue
+            id=$(jq -r .databaseId <<<"$run")
+            if [ "$(jq -r .attempt <<<"$run")" -le 1 ]; then
+              gh run rerun "$id" --failed
+              echo "reran failed jobs of $workflow run $id" >>"$GITHUB_STEP_SUMMARY"
+              continue
+            fi
+            sha=$(jq -r '.headSha[0:7]' <<<"$run")
+            title="Red main: $workflow $sha"
+            open=$(gh issue list --state open --search "\"$title\" in:title" --json title --jq "[.[] | select(.title == \"$title\")] | length")
+            [ "$open" = 0 ] || continue
+            jobs=$(gh run view "$id" --json jobs --jq '[.jobs[] | select(.conclusion == "failure") | "- " + .name] | join("\n")')
+            gh issue create --title "$title" --label loop:work --body "$(printf '%s\n' \
+              "\`main\` is red: \`$workflow\` failed on $sha and again on its rerun. Repair the cause by a PR; never revert the merge or weaken a test." \
+              '' 'Failing jobs:' "$jobs" '' "Run: $(jq -r .url <<<"$run")" '' \
+              'Scenarios: L123' \
+              'Specification: [scenarios/loop-rules.md](https://github.com/saadshahd/roundup/blob/main/scenarios/loop-rules.md)' \
+              "Key: red-main-$workflow-$sha" 'Priority: 0' 'Mode: implement')"
+            filed=true
+          done
+          # An Issue a GITHUB_TOKEN opens starts no workflow, so ask for the build here.
+          if [ "$filed" = true ]; then gh workflow run build.yml --ref main; fi
