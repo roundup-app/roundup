@@ -13,6 +13,10 @@ outputs = dict(zip(['U461', 'U462', 'U461a'], sys.argv[3:6]))
 
 
 def browser(*args):
+    if args[0] == 'open' and len(args) > 1:
+        browser('open')
+        # Each caller waits for its App state; loading unrelated assets must not decide readiness.
+        return browser('eval', 'requestAnimationFrame(()=>location.assign(%s)); true' % json.dumps(args[1]))
     result = subprocess.run(['agent-browser', '--session', session, '--profile', profile.name,
                              '--args', '--no-sandbox', '--json', *args], text=True,
                             capture_output=True, timeout=45)
