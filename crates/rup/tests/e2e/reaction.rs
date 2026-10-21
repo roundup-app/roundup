@@ -1058,36 +1058,55 @@ async fn nr4_all_keeps_pre_rearm_finishes_excluded_after_reopen_and_expiry() {
 
 #[tokio::test]
 async fn nr5_gap_recovery_cannot_reuse_a_pre_rearm_finish() {
-    let s = scene(&[]).await;
-    drive(&s.user, &s.a, STOP).await;
-    drive(&s.user, &s.b, STOP).await;
-    let mode = json!({ "any": true, "rearm": true, "max_firings": 2 });
-    let first = watching(&s, "gap-rearm", &[&s.a, &s.b], mode.clone()).await;
-    drive(&s.user, &s.a, WORK).await;
-    drive(&s.user, &s.a, STOP).await;
-    drive(&s.user, &s.b, WORK).await;
-    watching(&s, "gap-rearm", &[&s.a, &s.b], mode.clone()).await;
-    // Expire retained source history after the evaluator has saved the live re-arm boundary.
-    project_db(&s.project)
-        .execute_batch(
+    for rearmed in [false, true] {
+        let s = scene(&[]).await;
+        drive(&s.user, &s.a, STOP).await;
+        drive(&s.user, &s.b, STOP).await;
+        let mode = json!({ "any": true, "rearm": true, "max_firings": 2 });
+        let first = watching(&s, "gap-rearm", &[&s.b, &s.a], mode.clone()).await;
+        drive(&s.user, &s.a, WORK).await;
+        watching(&s, "gap-rearm", &[&s.b, &s.a], mode.clone()).await;
+        let before: String = project_db(&s.project)
+            .query_row(
+                "SELECT state FROM reaction_watch WHERE reaction=?1",
+                [&first.id],
+                |r| r.get(0),
+            )
+            .unwrap();
+        drive(&s.user, &s.a, STOP).await;
+        drive(&s.user, &s.b, WORK).await;
+        watching(&s, "gap-rearm", &[&s.b, &s.a], mode.clone()).await;
+        // Expire history either before the observer saved A's finish and B's re-arm, or after it.
+        // B comes first in the definition, so a snapshot cannot depend on participant order.
+        let db = project_db(&s.project);
+        if !rearmed {
+            db.execute(
+                "UPDATE reaction_watch SET state=?1 WHERE reaction=?2",
+                [&before, &first.id],
+            )
+            .unwrap();
+        }
+        db.execute_batch(
             "DELETE FROM events;
-         UPDATE reaction_watch SET state=json_set(state, '$.seen', 0);",
+             UPDATE reaction_watch SET state=json_set(state, '$.seen', 0);",
         )
         .unwrap();
-    let recovered = watching(&s, "gap-rearm", &[&s.a, &s.b], mode.clone()).await;
-    assert!(
-        recovered
-            .observation
-            .gap
-            .as_deref()
-            .unwrap()
-            .contains("expired")
-    );
-    assert_eq!(recovered.firings, first.firings);
-    assert_eq!(recovered.remaining, 1);
-    assert_eq!(messages(&s.user, &s.w, "gap-rearm").await.len(), 1);
-    drive(&s.user, &s.b, STOP).await;
-    let completed = watching(&s, "gap-rearm", &[&s.a, &s.b], mode).await;
-    assert_eq!((completed.firings.len(), completed.remaining), (2, 0));
-    assert_eq!(messages(&s.user, &s.w, "gap-rearm").await.len(), 2);
+        drop(db);
+        let recovered = watching(&s, "gap-rearm", &[&s.b, &s.a], mode.clone()).await;
+        assert!(
+            recovered
+                .observation
+                .gap
+                .as_deref()
+                .unwrap()
+                .contains("expired")
+        );
+        assert_eq!(recovered.firings, first.firings);
+        assert_eq!(recovered.remaining, 1);
+        assert_eq!(messages(&s.user, &s.w, "gap-rearm").await.len(), 1);
+        drive(&s.user, &s.b, STOP).await;
+        let completed = watching(&s, "gap-rearm", &[&s.b, &s.a], mode).await;
+        assert_eq!((completed.firings.len(), completed.remaining), (2, 0));
+        assert_eq!(messages(&s.user, &s.w, "gap-rearm").await.len(), 2);
+    }
 }
