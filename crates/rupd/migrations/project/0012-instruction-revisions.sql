@@ -18,7 +18,8 @@ CREATE VIEW instruction_placement AS
  WITH RECURSIVE chain(agent,id,parent,kind) AS (
   SELECT CAST(id AS TEXT),id,parent,kind FROM nodes
   UNION ALL SELECT c.agent,n.id,n.parent,n.kind FROM nodes n JOIN chain c ON n.id=c.parent
- ) SELECT agent,CAST(id AS TEXT) AS home FROM chain WHERE kind='workstream';
+  WHERE c.kind NOT IN ('workstream','room','group')
+ ) SELECT agent,CAST(id AS TEXT) AS home FROM chain WHERE kind IN ('workstream','room','group');
 INSERT INTO instruction_homes SELECT CAST(n.id AS TEXT),p.home FROM nodes n
  LEFT JOIN instruction_placement p ON p.agent=CAST(n.id AS TEXT);
 INSERT INTO instruction_revisions(agent,workstream,work)
