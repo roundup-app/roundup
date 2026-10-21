@@ -26,3 +26,9 @@
   border-radius: var(--radius-scrollbar);
   background: var(--scrollbar-thumb) !important;
 }
+
+@media (prefers-reduced-motion: reduce) {
+  .xterm .xterm-scrollable-element > .scrollbar {
+    transition: none !important;
+  }
+}
