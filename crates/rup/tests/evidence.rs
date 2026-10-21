@@ -512,3 +512,104 @@ async fn u3078h_later_claims_cannot_supersede_unresolved_effects() {
         assert!(observed["cause"].as_str().unwrap().contains("external effect"));
     }
 }
+
+struct Source {
+    url: String,
+    task: tokio::task::JoinHandle<()>,
+}
+impl Drop for Source {
+    fn drop(&mut self) {
+        self.task.abort();
+    }
+}
+impl Source {
+    async fn new(body: Value, status: u16) -> Self {
+        use tokio::io::{AsyncReadExt, AsyncWriteExt};
+        let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let url = format!("http://{}/receipt", listener.local_addr().unwrap());
+        let task = tokio::spawn(async move {
+            loop {
+                let (mut stream, _) = listener.accept().await.unwrap();
+                let mut request = vec![0; 4096];
+                let size = stream.read(&mut request).await.unwrap();
+                assert!(String::from_utf8_lossy(&request[..size]).starts_with("GET /receipt "));
+                let body = body.to_string();
+                stream.write_all(format!("HTTP/1.1 {status} Receipt\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{body}",body.len()).as_bytes()).await.unwrap();
+            }
+        });
+        Self { url, task }
+    }
+}
+
+fn receipt(report: &Value, outcome: Value) -> Value {
+    let now = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_secs();
+    json!({"target":report["request"]["target"],"revision":"receipt-37","observed_at":now,"outcome":outcome})
+}
+
+#[tokio::test]
+async fn u3078h_exact_external_resolution_survives_reopen() {
+    let mut e = Evidence::with("effect-claim").await;
+    let calls = std::fs::read(e.logs.path().join("report.effects")).unwrap();
+    let prompts = std::fs::read(e.logs.path().join("prompts")).unwrap();
+    let messages = e.client.request("message.list", json!({})).await.unwrap();
+    for (index, report) in e.effects.as_array().unwrap().iter().enumerate() {
+        let outcome = if index == 1 { "not-performed" } else { "completed" };
+        {
+            let evidence = receipt(report, json!({"kind":outcome}));
+            let source = Source::new(evidence.clone(), 200).await;
+            let mut q = e.query();
+            q["report"] = report["report"].clone();
+            q["source"] = json!(source.url);
+            let observed = e.client.request("message.resolveResult", q).await.unwrap();
+            assert_eq!(observed["verdict"], "resolved");
+            assert_eq!(observed["evidence"], evidence);
+            assert_eq!(observed["source"], source.url);
+            assert_eq!(observed["authorizer"]["kind"], "user");
+            let progress = e.progress().await;
+            assert_eq!(progress["results"][1 + index * 2]["current"], false);
+            assert_eq!(progress["results"][2 + index * 2]["current"], true);
+            assert_eq!(progress["results"][1 + index * 2]["observations"].as_array().unwrap().last().unwrap(), &observed);
+        }
+    }
+    let before = e.progress().await;
+    e.project.restart(&[]);
+    e.client = e.project.client().await;
+    let after = e.progress().await;
+    assert_eq!(after["results"], before["results"]);
+    assert_eq!(e.client.request("message.list", json!({})).await.unwrap(), messages);
+    assert_eq!(std::fs::read(e.logs.path().join("report.effects")).unwrap(), calls);
+    assert_eq!(std::fs::read(e.logs.path().join("prompts")).unwrap(), prompts);
+}
+
+#[tokio::test]
+async fn u3078h_unusable_external_evidence_leaves_the_effect_unknown() {
+    let e = Evidence::with("effect-claim").await;
+    let report = &e.effects[0];
+    let valid = receipt(report, json!({"kind":"completed"}));
+    let mut gaps = vec![(json!({}), 200), (valid.clone(), 503)];
+    for (field, value) in [
+        ("target", json!({"id":"deployment","revision":"v2"})),
+        ("target", json!({"id":"another-payment","revision":"v1"})),
+        ("revision", json!("")),
+        ("observed_at", json!(0)),
+        ("outcome", json!({"kind":"inconclusive","cause":"provider still reconciling"})),
+    ] {
+        let mut gap = valid.clone();
+        gap[field] = value;
+        gaps.push((gap, 200));
+    }
+    for (body, status) in gaps {
+        let source = Source::new(body, status).await;
+        let mut q = e.query();
+        q["report"] = report["report"].clone();
+        q["source"] = json!(source.url);
+        let observed = e.client.request("message.resolveResult", q).await.unwrap();
+        assert_eq!(observed["verdict"], "unknown");
+        assert!(!observed["cause"].as_str().unwrap().is_empty());
+        assert!(!observed["action"].as_str().unwrap().is_empty());
+        let progress = e.progress().await;
+        assert_eq!(progress["results"][1]["current"], true);
+        assert_eq!(progress["results"][2]["current"], false);
+        assert_eq!(progress["results"][1]["observations"].as_array().unwrap().last().unwrap(), &observed);
+    }
+}
