@@ -1,9 +1,13 @@
-import { cleanup, fireEvent, screen, waitFor } from "@solidjs/testing-library";
+import { cleanup, fireEvent, render, screen, waitFor } from "@solidjs/testing-library";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { gate, mountApp, select } from "../decisions/decisionsFixture";
 import { RpcError } from "../app/seam";
 import type { Kind } from "@contracts/Kind";
 import type { Order } from "@contracts/agent/Order";
+import { connectProject, ConnectedProjectContext } from "../state/connectedProject";
+import { createFakeApp } from "../testing/fakeApp";
+import { DrawerHost } from "../drawer/DrawerHost";
+import { OrderDrawer } from "./OrderDrawer";
 import { agent, clarifying, door } from "../testing/nodes";
 
 beforeEach(() => window.localStorage.clear());
@@ -328,4 +332,50 @@ it("u2773c_orders_untouched_editor_follows_external_change", async () => {
   fireEvent.click(screen.getByRole("button", { name: "Save" }));
   await waitFor(() => expect(app.calls.filter((call) => call.method === "agent.setOrder").map((call) => call.params))
     .toEqual([{ id: "a", order: { ...latest, ask: "My edit after update" }, captured: { order: latest } }]));
+});
+
+const selectedOrder = async (outcome: "failed" | "unknown" = "failed") => {
+  const app = createFakeApp();
+  let nodes = [agent("a", "working", "editing", { name: "same name", work: full })];
+  app.handlers["rail.tree"] = () => nodes;
+  const connected = await connectProject(app, { name: "same name", path: "/original" }, () => true, () => 0);
+  const destination = { surface: "orders", object: "a", recipient: "a" };
+  const value = { title: "  title 👋  ", ask: "  é 🧪\n次の行  ", done: "  done ✓  ", field: "ask",
+    baseTitle: full.title!, baseAsk: full.ask, baseDone: full.done!, limits };
+  const selection = { start: 2, end: 7, direction: "backward" as const };
+  const a = connected.drafts.edit(destination, value, selection, "ordinary").draft;
+  connected.drafts.submit(a.revision);
+  connected.drafts.settle(a.revision, outcome);
+  const b = connected.drafts.edit(destination, { ...value, ask: "newer B\n👋", field: "done" },
+    { start: 1, end: 4, direction: "forward" }, "ordinary").draft;
+  render(() => <ConnectedProjectContext.Provider value={connected}>
+    <DrawerHost drawer={connected.drawer} reducedMotion={() => true} />
+  </ConnectedProjectContext.Provider>);
+  const open = (revision: string, project = connected.project.path, id = "a") => connected.drawer.open(
+    () => <OrderDrawer id={id} recovery={{ project, revision }} />, "key");
+
+  return { app, connected, a, b, value, open, setNodes: (next: typeof nodes) => { nodes = next; } };
+};
+
+it.each(["failed", "unknown"] as const)("u3021c_open_restores_exact_revision_without_rpc_orders_%s", async outcome => {
+  const { app, connected, a, b, value, open } = await selectedOrder(outcome);
+  const before = connected.drafts.list();
+  const calls = [...app.calls];
+  open(a.revision);
+  const ask = await screen.findByLabelText<HTMLTextAreaElement>("Ask");
+  await waitFor(() => expect(document.activeElement).toBe(ask));
+  expect(["Title", "Ask", "Done when"].map(label => screen.getByLabelText<HTMLTextAreaElement>(label).value))
+    .toEqual([value.title, value.ask, value.done]);
+  expect([ask.selectionStart, ask.selectionEnd, ask.selectionDirection]).toEqual([2, 7, "backward"]);
+  ask.focus(); fireEvent.blur(ask);
+  connected.drawer.close("key");
+  expect(connected.drafts.list()).toEqual(before);
+  expect(app.calls).toEqual(calls);
+  open(b.revision);
+  const done = await screen.findByLabelText<HTMLTextAreaElement>("Done when");
+  await waitFor(() => expect(document.activeElement).toBe(done));
+  expect(screen.getByLabelText("Ask")).toHaveProperty("value", "newer B\n👋");
+  expect([done.selectionStart, done.selectionEnd, done.selectionDirection]).toEqual([1, 4, "forward"]);
+  expect(connected.drafts.list()).toEqual(before);
+  expect(app.calls).toEqual(calls);
 });
