@@ -12,7 +12,7 @@ use crate::{Messages, SendParams};
 /// One firing to accept: `body` goes to `to` as a Message from the Daemon.
 pub struct Fire {
     pub reaction: String,
-    /// The caller's retry key: a second firing with it is the first.
+    /// Opaque retry key within explicit runs or automatic matches, separated by `matched`.
     pub operation: String,
     pub to: String,
     pub body: String,
@@ -111,14 +111,14 @@ impl Store {
 
 impl Messages {
     /// NR3: in one write, accepts the firing and creates its Message, under the same delivery rules as
-    /// any Message from the Daemon. A retried `operation` returns the firing it first made and sends
+    /// any Message from the Daemon. A retried `(matched, operation)` returns its first firing and sends
     /// nothing.
     pub async fn fire_reaction(&self, fire: Fire) -> Result<(Firing, Message), RpcError> {
         let earlier = self
             .store()?
             .firings(&fire.reaction)?
             .into_iter()
-            .find(|firing| firing.operation == fire.operation);
+            .find(|firing| firing.operation == fire.operation && firing.matched == fire.matched);
         if let Some(firing) = earlier {
             return self.firing_message(firing);
         }

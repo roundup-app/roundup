@@ -811,3 +811,167 @@ async fn nr6_failed_acceptance_retries_on_timer_wake_and_reopen() {
     assert_eq!(sent.len(), 1);
     assert_eq!(sent[0]["id"], json!(firing.message));
 }
+
+#[tokio::test]
+async fn nr4_explicit_retry_key_cannot_consume_automatic_identity() {
+    for manual_first in [true, false] {
+        let mut s = scene(&[]).await;
+        let saved = watching(
+            &s,
+            "manual and automatic",
+            &[&s.a],
+            json!({ "rearm": true, "max_firings": 2 }),
+        )
+        .await;
+        let run = json!({ "id": saved.id, "operation": "auto-1" });
+        if manual_first {
+            let manual = made(&s.user, "reaction.run", run.clone()).await;
+            assert!(!manual.firings[0].matched);
+            let retry = made(&s.user, "reaction.run", run.clone()).await;
+            assert_eq!(retry.firings, manual.firings);
+            assert_eq!(retry.remaining, 1);
+        }
+        drive(&s.user, &s.a, STOP).await;
+        let observed = super::daemon::h21_poll("automatic completion evaluated", async || {
+            let seen = current(&s, &saved).await;
+            let completed = seen
+                .observation
+                .evidence
+                .as_deref()
+                .and_then(|text| serde_json::from_str::<Value>(text).ok())
+                .is_some_and(|evidence| {
+                    evidence["finished"]
+                        .as_array()
+                        .is_some_and(|ids| ids.contains(&json!(s.a)))
+                });
+            completed.then_some(seen)
+        })
+        .await;
+        let accepted = if manual_first {
+            observed
+        } else {
+            assert_eq!(observed.firings.len(), 1);
+            made(&s.user, "reaction.run", run.clone()).await
+        };
+        assert_eq!(
+            accepted.firings.len(),
+            2,
+            "automatic/manual collision: {accepted:?}"
+        );
+        assert_eq!(accepted.remaining, 0);
+        assert_eq!(
+            accepted
+                .firings
+                .iter()
+                .map(|f| (f.ordinal, f.matched))
+                .collect::<Vec<_>>(),
+            [(1, !manual_first), (2, manual_first)]
+        );
+        assert_ne!(accepted.firings[0].message, accepted.firings[1].message);
+        let retry = made(&s.user, "reaction.run", run.clone()).await;
+        assert_eq!(retry.firings, accepted.firings);
+        drop(s.user);
+        s.project.restart(&[]);
+        s.user = s.project.client().await;
+        let replayed = made(&s.user, "reaction.run", run).await;
+        assert_eq!(replayed.firings, accepted.firings);
+        assert_eq!(replayed.remaining, 0);
+        assert_eq!(
+            messages(&s.user, &s.w, "manual and automatic").await.len(),
+            2
+        );
+    }
+}
+
+#[tokio::test]
+async fn nr3_legacy_firings_keep_identity_on_upgrade_and_replay() {
+    let acceptance = |f: &contracts::reaction::Firing| {
+        (
+            f.id.clone(),
+            f.ordinal,
+            f.message,
+            f.matched,
+            f.evidence.clone(),
+            f.definition.clone(),
+        )
+    };
+    for manual_first in [true, false] {
+        let mut s = scene(&[]).await;
+        s.w = super::start_door(&s.user).await;
+        let mut body = definition(&s.w, "legacy firing");
+        body["condition"]["ids"] = json!([s.a]);
+        body["rearm"] = json!(true);
+        body["max_firings"] = json!(2);
+        let saved = made(&s.user, "reaction.create", body.clone()).await;
+        let watch: String = project_db(&s.project)
+            .query_row(
+                "SELECT state FROM reaction_watch WHERE reaction=?1",
+                [&saved.id],
+                |r| r.get(0),
+            )
+            .unwrap();
+        let run = json!({ "id": saved.id, "operation": "auto-1" });
+        let first = if manual_first {
+            made(&s.user, "reaction.run", run.clone()).await
+        } else {
+            drive(&s.user, &s.a, STOP).await;
+            // Retried creation waits for the evaluator, including its saved Watch.
+            made(&s.user, "reaction.create", body.clone()).await
+        };
+        assert_eq!(first.firings.len(), 1);
+        drop(s.user);
+        s.project.crash();
+        {
+            let db = project_db(&s.project);
+            // Recreate the pre-upgrade database with the accepted row's original bytes and ids.
+            db.execute_batch("ALTER TABLE reaction_firings RENAME TO accepted_firings;")
+                .unwrap();
+            db.execute_batch(super::REACTION_FIRINGS_V1).unwrap();
+            db.execute_batch(
+                "INSERT INTO reaction_firings SELECT * FROM accepted_firings;
+                DROP TABLE accepted_firings;
+                PRAGMA user_version = 23;",
+            )
+            .unwrap();
+            if !manual_first {
+                // NR3's crash between firing commit and Watch save: automatic replay must reuse it.
+                db.execute(
+                    "UPDATE reaction_watch SET state=?1 WHERE reaction=?2",
+                    [&watch, &saved.id],
+                )
+                .unwrap();
+            }
+        }
+        s.project.restart(&[]);
+        s.user = s.project.client().await;
+        start_again(&s.user, &s.w).await;
+        let replayed = made(&s.user, "reaction.create", body).await;
+        assert_eq!(
+            acceptance(&replayed.firings[0]),
+            acceptance(&first.firings[0])
+        );
+        assert_eq!(
+            replayed.firings.len(),
+            if manual_first { 2 } else { 1 },
+            "{replayed:?}"
+        );
+        let ran = made(&s.user, "reaction.run", run.clone()).await;
+        assert_eq!(ran.firings.len(), 2);
+        assert_eq!(ran.remaining, 0);
+        assert_eq!(acceptance(&ran.firings[0]), acceptance(&first.firings[0]));
+        assert_eq!(ran.firings[1].matched, manual_first);
+        let retry = made(&s.user, "reaction.run", run).await;
+        assert_eq!(
+            retry.firings.iter().map(acceptance).collect::<Vec<_>>(),
+            ran.firings.iter().map(acceptance).collect::<Vec<_>>()
+        );
+        let sent = messages(&s.user, &s.w, "legacy firing").await;
+        assert_eq!(sent.len(), 2);
+        for firing in &ran.firings {
+            assert!(
+                sent.iter()
+                    .any(|message| message["id"] == json!(firing.message))
+            );
+        }
+    }
+}
