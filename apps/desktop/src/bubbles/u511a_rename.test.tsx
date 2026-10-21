@@ -351,3 +351,44 @@ it("u2773e_recovery_actions_keep_surface_draft_bubbles", async () => {
   expect(mounted.connected.drafts.list()).toEqual([]);
   expect(bubbleCalls(mounted.app, "terminal.write")).toEqual([]);
 });
+
+
+const selectedBubbles = async (outcome: "failed" | "unknown" = "failed") => {
+  const mounted = await mountBubbles();
+  const drafts = mounted.connected.drafts;
+  const destination = { surface: "bubbles", object: TERMINALS[1]!.incarnation, recipient: "2" };
+  const a = drafts.edit(destination, { name: "  A e\u0301 🫧 雪  ", base: "zsh" },
+    { start: 2, end: 7, direction: "backward" }, "ordinary").draft;
+  drafts.submit(a.revision);
+  drafts.settle(a.revision, outcome);
+  const b = drafts.edit(destination, { name: "  B 雪  ", base: "zsh" },
+    { start: 1, end: 4, direction: "forward" }, "ordinary").draft;
+  const open = (revision: string, project = "/p") => mounted.recover({ project, revision });
+
+  return { ...mounted, drafts, destination, a: drafts.list().find(draft => draft.revision === a.revision)!, b, open };
+};
+
+it.each(["failed", "unknown"] as const)("u3021c_open_restores_exact_revision_without_rpc_bubbles_%s", async outcome => {
+  const { app, drafts, a, b, open, connected } = await selectedBubbles(outcome);
+  const before = drafts.list();
+  const calls = [...app.calls];
+  const writes = vi.spyOn(Storage.prototype, "setItem");
+  open(a.revision);
+  await waitFor(() => expect(document.activeElement).toBe(field()));
+  expect(field()).not.toBeNull();
+  expect([field()!.value, field()!.selectionStart, field()!.selectionEnd, field()!.selectionDirection])
+    .toEqual([a.value.name, 2, 7, "backward"]);
+  field()!.focus();
+  fireEvent.blur(field()!);
+  await waitFor(() => expect(field()).toBeNull());
+  open(b.revision);
+  await waitFor(() => expect(field()?.value).toBe(b.value.name));
+  await waitFor(() => expect(document.activeElement).toBe(field()));
+  expect([field()!.selectionStart, field()!.selectionEnd, field()!.selectionDirection]).toEqual([1, 4, "forward"]);
+  connected.rail.select("other");
+  await waitFor(() => expect(field()).toBeNull());
+  expect(drafts.list()).toEqual(before);
+  expect(app.calls).toEqual(calls);
+  expect(writes).not.toHaveBeenCalled();
+  writes.mockRestore();
+});
