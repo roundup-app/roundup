@@ -148,11 +148,9 @@
 }
 
 .todo-inset .todo-blocker {
-  max-width: 100%;
+  display: inline;
+  line-height: var(--space-5);
   vertical-align: baseline;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
 }
 
 .todo-row .row-head { min-width: 0; display: flex; align-items: center; }
@@ -228,16 +226,4 @@
 
 @media (prefers-reduced-motion: reduce) {
   .todo-done-fold { transition: none; }
-}
-
-/* Every dependency keeps its own clipped text box inside the selected row's
-   ground, including the last dependency on a dense list. */
-.todo-inset .todo-blockers {
-  display: flex;
-  align-items: center;
-}
-
-.todo-inset .todo-blocker {
-  flex: 0 1 auto;
-  min-width: 0;
 }
