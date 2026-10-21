@@ -82,6 +82,7 @@ import type { ImportDiscoverParams as project_ImportDiscoverParams } from "./pro
 import type { ImportDiscovery as project_ImportDiscovery } from "./project/ImportDiscovery";
 import type { ImportResult as project_ImportResult } from "./project/ImportResult";
 import type { Mcp as project_Mcp } from "./project/Mcp";
+import type { Measurements as project_Measurements } from "./project/Measurements";
 import type { ModelList as project_ModelList } from "./project/ModelList";
 import type { OpenParams as project_OpenParams } from "./project/OpenParams";
 import type { PrepareParams as project_PrepareParams } from "./project/PrepareParams";
@@ -132,6 +133,7 @@ import type { RewindPlan as workstream_RewindPlan } from "./workstream/RewindPla
 import type { RewindPlanParams as workstream_RewindPlanParams } from "./workstream/RewindPlanParams";
 
 export type RpcMethods = {
+  "project.measurements": { params: null; result: project_Measurements };
   "deliverable.publish": { params: deliverable_PublishParams; result: deliverable_Deliverable };
   "deliverable.list": { params: deliverable_ListParams; result: deliverable_Deliverable[] };
   "deliverable.get": { params: deliverable_DeliverableId; result: deliverable_Deliverable };
