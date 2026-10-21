@@ -9,6 +9,11 @@ impl Agents {
         revision: &str,
         now_ms: i64,
     ) -> Result<(String, String), RpcError> {
+        // Published work no longer depends on the external original. Concurrent first
+        // imports still converge under prepare_closed's lifecycle lock after validation.
+        if let Some((workstream, agent, true)) = self.shared.rail().closed_source(source)? {
+            return Ok((workstream, agent));
+        }
         let project = self.project_dir().to_owned();
         let launcher = self.launcher.clone();
         let (src, rev) = (source.to_owned(), revision.to_owned());
