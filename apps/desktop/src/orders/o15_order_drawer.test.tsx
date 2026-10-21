@@ -336,21 +336,31 @@ it("u2773c_orders_untouched_editor_follows_external_change", async () => {
 
 const selectedOrder = async (outcome: "failed" | "unknown" = "failed") => {
   const app = createFakeApp();
-  let nodes = [agent("a", "working", "editing", { name: "same name", work: full })];
+
+  let nodes = [
+    agent("a", "working", "editing", { name: "same name", work: full }),
+    agent("other", "working", "editing", { name: "same name", work: full }),
+  ];
+
   app.handlers["rail.tree"] = () => nodes;
   const connected = await connectProject(app, { name: "same name", path: "/original" }, () => true, () => 0);
   const destination = { surface: "orders", object: "a", recipient: "a" };
+
   const value = { title: "  title 👋  ", ask: "  é 🧪\n次の行  ", done: "  done ✓  ", field: "ask",
     baseTitle: full.title!, baseAsk: full.ask, baseDone: full.done!, limits };
+
   const selection = { start: 2, end: 7, direction: "backward" as const };
   const a = connected.drafts.edit(destination, value, selection, "ordinary").draft;
   connected.drafts.submit(a.revision);
   connected.drafts.settle(a.revision, outcome);
+
   const b = connected.drafts.edit(destination, { ...value, ask: "newer B\n👋", field: "done" },
     { start: 1, end: 4, direction: "forward" }, "ordinary").draft;
+
   render(() => <ConnectedProjectContext.Provider value={connected}>
     <DrawerHost drawer={connected.drawer} reducedMotion={() => true} />
   </ConnectedProjectContext.Provider>);
+
   const open = (revision: string, project = connected.project.path, id = "a") => connected.drawer.open(
     () => <OrderDrawer id={id} recovery={{ project, revision }} />, "key");
 
@@ -376,6 +386,113 @@ it.each(["failed", "unknown"] as const)("u3021c_open_restores_exact_revision_wit
   await waitFor(() => expect(document.activeElement).toBe(done));
   expect(screen.getByLabelText("Ask")).toHaveProperty("value", "newer B\n👋");
   expect([done.selectionStart, done.selectionEnd, done.selectionDirection]).toEqual([1, 4, "forward"]);
+  expect(connected.drafts.list()).toEqual(before);
+  expect(app.calls).toEqual(calls);
+});
+
+it("u3021c_orders_editing_selected_failure_preserves_newer_current_work", async () => {
+  const { app, connected, a, b, open } = await selectedOrder();
+  const calls = [...app.calls];
+  open(a.revision);
+  const ask = await screen.findByLabelText<HTMLTextAreaElement>("Ask");
+  await waitFor(() => expect(document.activeElement).toBe(ask));
+  fireEvent.input(ask, { target: { value: "edited A\n🧭" } });
+  ask.setSelectionRange(1, 5, "backward");
+  fireEvent.select(ask);
+  expect(connected.drafts.list()).toContainEqual(b);
+  expect(connected.drafts.list()).toContainEqual({ ...a, status: "failed" });
+  const edited = connected.drafts.list().find(draft => draft.value.ask === "edited A\n🧭")!;
+  connected.drawer.close("key");
+  open(b.revision);
+  const done = await screen.findByLabelText<HTMLTextAreaElement>("Done when");
+  await waitFor(() => expect(document.activeElement).toBe(done));
+  expect(screen.getByLabelText("Ask")).toHaveProperty("value", "newer B\n👋");
+  expect([done.selectionStart, done.selectionEnd, done.selectionDirection]).toEqual([1, 4, "forward"]);
+  connected.drawer.close("key");
+  open(edited.revision);
+  const restored = await screen.findByLabelText<HTMLTextAreaElement>("Ask");
+  await waitFor(() => expect(document.activeElement).toBe(restored));
+  expect([restored.value, restored.selectionStart, restored.selectionEnd, restored.selectionDirection]).toEqual(["edited A\n🧭", 1, 5, "backward"]);
+  expect(app.calls).toEqual(calls);
+});
+
+it.each(["acknowledged", "failed", "unknown"] as const)("u3021c_orders_explicit_save_settles_only_selected_revision_%s", async outcome => {
+  const { app, connected, a, b, open } = await selectedOrder();
+  app.handlers["agent.setOrder"] = () => {
+    if (outcome !== "acknowledged") throw outcome === "failed" ? new RpcError(-32003, "refused") : new Error("unknown acceptance");
+
+    return agent("a", "working", "editing", { work: full });
+  };
+
+  const calls = [...app.calls];
+  open(a.revision);
+  const ask = await screen.findByLabelText<HTMLTextAreaElement>("Ask");
+  await waitFor(() => expect(document.activeElement).toBe(ask));
+  expect(app.calls).toEqual(calls);
+  fireEvent.click(screen.getByRole("button", { name: "Save" }));
+  await waitFor(() => expect(connected.drafts.list().find(draft => draft.revision === a.revision)?.status)
+    .toBe(outcome === "acknowledged" ? undefined : outcome));
+  expect(app.calls.slice(calls.length)).toEqual([{ method: "agent.setOrder", params: {
+    id: "a", order: { kind: "work", title: "title 👋", ask: "é 🧪\n次の行", done: "done ✓", limits }, captured: { order: full },
+  } }]);
+  expect(connected.drafts.list()).toContainEqual(b);
+  connected.drawer.close("key");
+  open(b.revision);
+  expect(await screen.findByLabelText("Ask")).toHaveProperty("value", "newer B\n👋");
+});
+
+it("u3021c_orders_unknown_acceptance_cannot_be_retried_or_edited", async () => {
+  const { app, connected, a, open } = await selectedOrder("unknown");
+  const before = connected.drafts.list();
+  const calls = [...app.calls];
+  open(a.revision);
+  const ask = await screen.findByLabelText<HTMLTextAreaElement>("Ask");
+  expect(ask.readOnly).toBe(true);
+  fireEvent.input(ask, { target: { value: "must not create a retry" } });
+  fireEvent.submit(ask.closest("form")!);
+  expect(connected.drafts.list()).toEqual(before);
+  expect(app.calls).toEqual(calls);
+});
+
+it("u3021c_orders_selected_discard_preserves_other_revisions_durably", async () => {
+  const { app, connected, a, b, open } = await selectedOrder();
+  const calls = [...app.calls];
+  open(a.revision);
+  fireEvent.click(await screen.findByRole("button", { name: "Discard this revision" }));
+  expect(connected.drafts.list()).toEqual([b]);
+  expect(app.calls).toEqual(calls);
+  const reloaded = await connectProject(app, connected.project, () => true, () => 0);
+  expect(reloaded.drafts.list()).toEqual([b]);
+});
+
+it.each(["project", "object", "recipient", "removed", "revision"] as const)("u3021c_orders_refuses_wrong_original_%s", async mismatch => {
+  const { app, connected, a, open, setNodes } = await selectedOrder();
+
+  if (mismatch === "removed") {
+    setNodes([agent("replacement", "working", "editing", { name: "same name", work: full })]);
+    await connected.rail.refresh();
+  }
+
+  const revision = mismatch === "recipient" ? connected.drafts.edit({ ...a.destination, recipient: "other" }, a.value, a.selection, "ordinary").draft.revision : a.revision;
+  const before = connected.drafts.list();
+  const calls = [...app.calls];
+  open(mismatch === "revision" ? "missing" : revision, mismatch === "project" ? "/other" : connected.project.path, mismatch === "object" ? "other" : "a");
+  expect(screen.queryByLabelText("Ask")).toBeNull();
+  expect(screen.queryByRole("button", { name: "Edit order" })).toBeNull();
+  expect(connected.drafts.list()).toEqual(before);
+  expect(app.calls).toEqual(calls);
+});
+
+it("u3021c_orders_selected_save_keeps_captured_base_conflict_guard", async () => {
+  const { app, connected, a, open, setNodes } = await selectedOrder();
+  setNodes([agent("a", "working", "editing", { name: "same name", work: { ...full, ask: "external edit" } })]);
+  await connected.rail.refresh();
+  const calls = [...app.calls];
+  const before = connected.drafts.list();
+  open(a.revision);
+  const ask = await screen.findByLabelText<HTMLTextAreaElement>("Ask");
+  expect(screen.getByRole("alert").textContent).toContain("changed");
+  fireEvent.submit(ask.closest("form")!);
   expect(connected.drafts.list()).toEqual(before);
   expect(app.calls).toEqual(calls);
 });
