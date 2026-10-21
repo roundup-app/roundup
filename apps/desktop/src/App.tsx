@@ -168,7 +168,7 @@ export const App = (props: {
   const clearBrowserSelection = (event: MouseEvent) => {
     document.documentElement.dataset.keyboardFocus = "false";
 
-    if (event.button !== 0) return;
+    if (event.button !== 0 || event.ctrlKey) return;
 
     window.getSelection()?.removeAllRanges();
     const editing = document.activeElement;
@@ -179,12 +179,16 @@ export const App = (props: {
     }
   };
 
+  const suppressBrowserMenu = (event: MouseEvent) => event.preventDefault();
+
   onMount(() => {
+    window.addEventListener("contextmenu", suppressBrowserMenu, true);
     // Start keyboard-visible for native accessibility focus arriving before any page input.
     document.documentElement.dataset.keyboardFocus = "true";
     window.addEventListener("pointerdown", clearBrowserSelection, true);
   });
   onCleanup(() => {
+    window.removeEventListener("contextmenu", suppressBrowserMenu, true);
     window.removeEventListener("pointerdown", clearBrowserSelection, true);
     delete document.documentElement.dataset.keyboardFocus;
   });

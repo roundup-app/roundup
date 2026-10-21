@@ -2,8 +2,9 @@
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
 import { resolve } from "node:path";
-import { readFile, writeFile } from "node:fs/promises";
+import { mkdtemp, rm, readFile, writeFile } from "node:fs/promises";
 import { join } from "node:path";
+import { tmpdir } from "node:os";
 import { cleanup, fireEvent, render, screen, waitFor, within } from "@solidjs/testing-library";
 import { afterAll, afterEach, beforeAll, expect, it, vi } from "vitest";
 import { ConnectedProjectContext, connectProject } from "../state/connectedProject";
@@ -328,4 +329,160 @@ it("u3021c_ask_removed_workstream_refuses_selected_editor_after_reopen", async (
   expect(reopened.drafts.list().find(draft => draft.revision === b.revision)?.value.text).toBe("B current");
   expect(rpc).not.toHaveBeenCalled();
   rpc.mockRestore();
+});
+
+
+it("dv6_bound_share_copies_the_selected_publication_and_resolves_its_retained_revision", async () => {
+  const app = createServedApp(real.base);
+  await app.rpc("pad.create", { name: "share-pad", text: "published exact revision 🌿" });
+  const pad = await app.rpc("pad.read", { name: "share-pad" });
+  const published = await app.rpc("deliverable.publish", { key: "share-pad", title: "Duplicate title", target: { kind: "pad", name: pad.name, incarnation: pad.incarnation, revision: pad.revision } });
+  const external = await app.rpc("deliverable.publish", { key: "share-external", title: "Duplicate title", target: { kind: "external", url: "https://example.com/exact?revision=1" } });
+  await app.rpc("pad.write", { name: pad.name, text: "mutable replacement", expectedRevision: pad.revision });
+  await real.restart();
+  const reader = await app.rpc("agent.spawn", { cwd: real.dir, parent: null, prompt: null, name: "Link reader" });
+  const copied: string[] = [];
+  Object.defineProperty(navigator, "clipboard", { configurable: true, value: { writeText: async (text: string) => { copied.push(text); } } });
+  app.showContextMenu = vi.fn(async () => "copy-link");
+  const connected = await connectProject(app, { path: real.dir, name: "Project" }, () => false, () => 0);
+  render(() => <ConnectedProjectContext.Provider value={connected}><AskBar /></ConnectedProjectContext.Provider>);
+  const made = await screen.findByRole("region", { name: "Made" });
+
+  for (const [index, record] of [published, external, published].entries()) {
+    const row = made.querySelector<HTMLElement>(`[data-deliverable="${record.id}"]`)!;
+    const button = await within(row).findByRole("button");
+    button.focus();
+
+    if (index === 0) fireEvent.contextMenu(row, { clientX: 10, clientY: 10 });
+    else fireEvent.keyDown(button, index === 1 ? { key: "ContextMenu" } : { key: "F10", shiftKey: true });
+    expect(app.showContextMenu).toHaveBeenCalledTimes(index + 1);
+    await waitFor(() => expect(copied).toHaveLength(index + 1));
+    const reference = copied.at(-1)!;
+    const url = reference.split("\n")[0]!;
+    expect(reference).toBe(`${url}\nrup link read ${url}`);
+    expect(url).toBe(`roundup://deliverable/${record.id}?project=${record.project}`);
+    const { stdout } = await exec(resolve("../../target/debug/rup"), ["--json", "--agent", reader.id, "link", "read", url], { env: { ...process.env, RUPD_SOCKET: join(real.dir, "rupd.sock") } });
+    const content = JSON.parse(stdout);
+    expect(content).toMatchObject({ kind: "deliverable", record });
+
+    if (record === published) {
+      expect(content.resolution.kind).toBe("retained");
+      expect(await readFile(content.resolution.path, "utf8")).toBe("published exact revision 🌿");
+    } else expect(content.resolution).toEqual({ kind: "external", url: "https://example.com/exact?revision=1", availability: "not-checked" });
+  }
+});
+
+
+it("dv6_bound_share_refuses_foreign_wrong_removed_and_revoked_identities_without_substitution", async () => {
+  const app = createServedApp(real.base);
+  const second = await startRealDaemon({});
+  const other = createServedApp(second.base);
+
+  try {
+    await app.rpc("pad.create", { name: "revoked-share", text: "original protected revision" });
+    const pad = await app.rpc("pad.read", { name: "revoked-share" });
+    const original = await app.rpc("deliverable.publish", { key: "revoked-share", title: "Same", target: { kind: "pad", name: pad.name, incarnation: pad.incarnation, revision: pad.revision } });
+    const replacement = await other.rpc("deliverable.publish", { key: "same", title: "Same", target: { kind: "external", url: "https://example.com/foreign" } });
+    const url = `roundup://deliverable/${original.id}?project=${original.project}`;
+    await expect(other.rpc("link.read", { url })).rejects.toThrow();
+
+    for (const wrong of [
+      `roundup://deliverable/missing?project=${original.project}`,
+      `roundup://deliverable/${replacement.id}?project=${original.project}`,
+      `roundup://deliverable/${original.id}?project=${replacement.project}`,
+      `roundup://deliverable/${original.id}?project=${(await app.rpc("daemon.ping", null)).projectKey}`,
+    ]) await expect(app.rpc("link.read", { url: wrong })).rejects.toThrow();
+    await app.rpc("pad.delete", { name: pad.name });
+    await app.rpc("pad.create", { name: pad.name, text: "different object with the same name" });
+    await real.restart();
+    expect(await app.rpc("link.read", { url })).toMatchObject({ kind: "deliverable", record: original, resolution: { kind: "unavailable", cause: "access-revoked" } });
+    await app.rpc("deliverable.remove", { project: original.project, id: original.id });
+    await real.restart();
+    await expect(app.rpc("link.read", { url })).rejects.toThrow();
+    const reader = await other.rpc("agent.spawn", { cwd: second.dir, parent: null, prompt: null, name: "Link reader" });
+    const { stdout } = await exec(resolve("../../target/debug/rup"), ["--json", "--agent", reader.id, "link", "read", `roundup://deliverable/${replacement.id}?project=${replacement.project}`], { env: { ...process.env, RUPD_SOCKET: join(second.dir, "rupd.sock") } });
+    expect(JSON.parse(stdout)).toMatchObject({ record: replacement, resolution: { kind: "external", url: "https://example.com/foreign" } });
+  } finally {
+    await second.stop();
+  }
+});
+
+it("dv6_guarded_send_retries_the_same_identity_through_existing_held_delivery", async () => {
+  const logs = await mkdtemp(join(tmpdir(), "dv6-delivery-"));
+  const log = join(logs, "prompts.jsonl");
+  const delivery = await startRealDaemon({ FAKE_CLAUDE_PROMPT_LOG: log });
+  const app = createServedApp(delivery.base);
+
+  try {
+    const publication = await app.rpc("deliverable.publish", { key: "send", title: "Same", target: { kind: "external", url: "https://example.com/selected" } });
+    await app.rpc("deliverable.publish", { key: "other", title: "Same", target: { kind: "external", url: "https://example.com/other" } });
+    const receiver = await app.rpc("agent.spawn", { cwd: delivery.dir, parent: null, prompt: null, name: "Reader", order: { kind: "work", ask: "Read selected publication", limits: [] } });
+    await waitFor(async () => expect((await app.rpc("rail.tree", null)).find(node => node.id === receiver.id)?.status?.kind).toBe("idle"));
+    const connected = await connectProject(app, { path: delivery.dir, name: "Project" }, () => false, () => 0);
+    await connected.rail.settled();
+    render(() => <ConnectedProjectContext.Provider value={connected}><AskBar /></ConnectedProjectContext.Provider>);
+    const made = await screen.findByRole("region", { name: "Made" });
+    const row = made.querySelector<HTMLElement>(`[data-deliverable="${publication.id}"]`)!;
+    const messages = () => app.rpc("message.list", { to: receiver.id, status: null });
+    let choice: string | null = null;
+    app.showContextMenu = vi.fn(async () => choice);
+    const rpc = app.rpc;
+    const sends: unknown[] = [];
+    let refuse = true;
+    let interrupted = true;
+
+    app.rpc = (method, params) => {
+      if (method === "deliverable.resolve" && interrupted) return Promise.reject(new Error("publication read interrupted"));
+
+      if (method === "message.send") {
+        sends.push(params);
+
+        if (refuse) return Promise.reject(new Error("send refused before acceptance"));
+      }
+
+      return rpc(method, params);
+    };
+
+    const button = within(row).getByRole("button");
+    button.focus();
+    fireEvent.keyDown(button, { key: "ContextMenu" });
+    expect(app.showContextMenu).toHaveBeenCalledTimes(1);
+    expect(await messages()).toEqual([]);
+    expect(sends).toEqual([]);
+    choice = `send:${receiver.id}`;
+    fireEvent.keyDown(button, { key: "F10", shiftKey: true });
+    await within(row).findByRole("alert");
+    expect(sends).toEqual([]);
+    interrupted = false;
+    fireEvent.contextMenu(row);
+    await waitFor(() => expect(sends).toHaveLength(1));
+    await within(row).findByRole("alert");
+    expect(await messages()).toEqual([]);
+    await app.rpc("terminal.write", { id: receiver.terminal_id!, data: Buffer.from("unfinished user input").toString("base64") });
+    refuse = false;
+    fireEvent.contextMenu(row);
+    await waitFor(async () => expect(await messages()).toHaveLength(1));
+    const accepted = (await messages())[0]!;
+    const url = `roundup://deliverable/${publication.id}?project=${publication.project}`;
+    expect(accepted).toMatchObject({ to: receiver.id, body: `${url}\nrup link read ${url}`, status: "held", reason: "takeover", kind: "note" });
+    expect(sends).toHaveLength(2);
+    expect(sends[0]).toEqual(sends[1]);
+    expect(await readFile(log, "utf8").catch(() => "")).not.toContain(url);
+    await app.rpc("takeover.begin", { agent: receiver.id });
+    await app.rpc("terminal.write", { id: receiver.terminal_id!, data: Buffer.from("\u0015").toString("base64") });
+    expect((await messages())[0]?.status).toBe("held");
+    await app.rpc("takeover.end", { agent: receiver.id });
+    await waitFor(async () => expect((await messages())[0]?.status).toBe("delivered"));
+    expect((await messages())[0]?.body).toBe(accepted.body);
+    expect(await readFile(log, "utf8")).toContain(url);
+    await app.rpc("deliverable.remove", { project: publication.project, id: publication.id });
+    fireEvent.contextMenu(row);
+    await within(row).findByRole("alert");
+    expect(sends).toHaveLength(2);
+    expect(await messages()).toHaveLength(1);
+  } finally {
+    cleanup();
+    await delivery.stop();
+    await rm(logs, { recursive: true, force: true });
+  }
 });
