@@ -834,10 +834,14 @@ async fn nr10_public_worktree_evidence_preserves_head_and_completeness() {
     let pending = r#"[{"name":"check","bucket":"pending"}]"#;
     let (_d, d) = gh("https://github.com/acme/two/pull/23", &head, pending, 8);
     publish_read(&d);
-    assert_eq!(
-        evidence().await,
-        json!({"state":"incomplete","stale":false,"checks":[]})
-    );
+    let waiting = evidence().await;
+    assert_eq!(waiting["state"], "incomplete");
+    assert_eq!(waiting["stale"], false);
+    assert_eq!(waiting["checks"], json!([]));
+    assert_eq!(waiting["repository"], "github.com/acme/two");
+    assert_eq!(waiting["head"], head);
+    assert!(waiting["read_at"].as_u64().unwrap() > 0);
+    assert!(waiting["revision"].is_null());
     publish_read(Path::new("/nonexistent/gh"));
     assert_eq!(
         evidence().await,
