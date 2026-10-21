@@ -192,8 +192,10 @@
 }
 .shelf-bar { max-width: calc(100% - var(--space-6) * 2 - var(--space-4)); box-sizing: border-box; }
 .shelf:has(.shelf-controls button):not(:has(.shelf-bar)) { padding-top: var(--space-6); }
-.window[data-shelf-maximised="true"] .shelf { width: calc(100% - var(--rail-width)); }
-.window[data-shelf-maximised="true"][data-shelf="open"] .centre { visibility: hidden; }
+.window[data-shelf-maximised="true"]:not(:has(.drawer[data-open="true"])) .shelf { width: calc(100% - var(--rail-width)); }
+.window[data-shelf-maximised="true"][data-shelf="open"]:not(:has(.drawer[data-open="true"])) .centre { visibility: hidden; }
 /* U3724: the hint line stays in view; the Shelf ends above the strip that holds it. */
-.window[data-shelf-maximised="true"][data-shelf="open"] .centre .hint-line { visibility: visible; }
-.window[data-shelf-maximised="true"][data-shelf-mode="reserved"] .shelf { bottom: calc(var(--hint-row-height) + var(--rail-actions-height)); }
+.window[data-shelf-maximised="true"][data-shelf="open"]:not(:has(.drawer[data-open="true"])) .centre .hint-line { visibility: visible; }
+.window[data-shelf-maximised="true"][data-shelf-mode="reserved"]:not(:has(.drawer[data-open="true"])) .shelf { bottom: calc(var(--hint-row-height) + var(--rail-actions-height)); }
+/* The strip under the Shelf shares its ground, so no seam shows beside the hidden Terminal bar. */
+.window[data-shelf-maximised="true"][data-shelf="open"]:not(:has(.drawer[data-open="true"])) .centre { background-color: var(--sunken); }

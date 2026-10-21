@@ -2,6 +2,7 @@ import { KeyChip } from "./KeyChip";
 import { createEffect, createMemo, createSignal, For, onCleanup, onMount } from "solid-js";
 import { hintsFor } from "./chords";
 import type { HintPlace } from "./chords";
+import { copy } from "../copy";
 import { useConnectedProject } from "../state/connectedProject";
 
 /** The pane's state mark while an Agent is Managed (U375). */
@@ -45,7 +46,17 @@ export const HintLine = () => {
 
     if (at === null) return [];
 
-    return hintsFor(at, watching());
+    const shown = hintsFor(at, watching());
+
+    if (at !== "shelf") return shown;
+
+    // The Shelf's own hints follow its state: Restore while maximised, and Export only where `e` acts, on a Pad row.
+    const maximised = focus()?.closest(".window")?.getAttribute("data-shelf-maximised") === "true";
+    const onPad = focus()?.closest(".pad-inset") != null;
+
+    return shown
+      .filter((hint) => hint.label !== copy.exportMd || onPad)
+      .map((hint) => hint.label === copy.maximise && maximised ? { ...hint, label: copy.restore } : hint);
   };
 
   let line: HTMLParagraphElement | undefined;
