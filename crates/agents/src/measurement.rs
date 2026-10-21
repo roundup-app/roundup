@@ -255,6 +255,61 @@ mod time_tests {
     }
 
     #[tokio::test(start_paused = true)]
+    async fn u3016c_other_observed_time_has_positive_sources() {
+        let w = World::new();
+        let id = w.agent(None);
+        w.advance(3).await;
+        w.signal(
+            &id,
+            json!({"hook_event_name":"UserPromptSubmit","prompt":"Fixture prompt"}),
+        );
+        w.advance(3).await;
+        let working = w.read().await;
+        let idle = activity(&working, "idle");
+        assert_eq!(idle.len(), 1);
+        assert_eq!(idle[0]["value"]["start"]["unix_ms"], 1000);
+        assert_eq!(idle[0]["value"]["state"]["at"]["unix_ms"], 4000);
+        assert_eq!(
+            idle[0]["value"]["segments"][0]["end"]["monotonic_ns"],
+            "3000000000"
+        );
+        assert!(working["contributions"].as_array().unwrap().is_empty());
+        w.signal(&id, json!({"hook_event_name":"Stop"}));
+        w.advance(1).await;
+        let later = w.read().await;
+        assert_eq!(activity(&later, "idle").len(), 2);
+        assert_eq!(activity(&later, "idle")[0], idle[0]);
+        assert_eq!(
+            activity(&later, "idle")[1]["value"]["start"]["unix_ms"],
+            7000
+        );
+        let bus = Bus::new();
+        let terms = Arc::new(Terminals::open(w.dir.path(), bus.clone()).unwrap());
+        let reopened = Agents::open_with(
+            w.dir.path(),
+            bus.clone(),
+            terms,
+            w.agents.launcher.clone(),
+            worktree::Git::from_env(),
+        )
+        .unwrap();
+        let ctx = Ctx {
+            actor: Actor::user(),
+            bus,
+            touches: w.ctx.touches.clone(),
+        };
+        let read = reopened
+            .call(&ctx, "project.measurements", Value::Null)
+            .await
+            .unwrap();
+        assert_eq!(activity(&read, "idle")[0], idle[0]);
+        assert_eq!(
+            activity(&read, "idle")[1]["value"]["state"]["kind"],
+            "interrupted"
+        );
+    }
+
+    #[tokio::test(start_paused = true)]
     async fn u3016c_decisions_retain_answer_cancel_and_attempt_end() {
         let w = World::new();
         let first = w.agent(None);
