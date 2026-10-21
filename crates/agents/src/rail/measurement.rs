@@ -85,7 +85,10 @@ impl Rail {
         )
     }
 
-    fn collect_sources(&mut self, launcher: &crate::Launcher, now: i64) -> Result<(), RpcError> {
+    fn collect_sources(&self, launcher: &crate::Launcher, now: i64) -> Result<(), RpcError> {
+        // Retained facts and replay positions must not become readable under an old revision.
+        // The shared borrow lets owner helpers use this same connection inside the transaction.
+        let mut tx = self.db.unchecked_transaction().map_err(sql)?;
         let before = self.db.total_changes();
         let tree = self.tree()?;
         let mut claims: HashMap<String, Vec<String>> = HashMap::new();
@@ -176,7 +179,7 @@ impl Rail {
             match launcher.collect_measurements(Path::new(&owner.cwd), &owner.source, &positions) {
                 Ok(batches) => {
                     for batch in batches {
-                        if let Err(error) = self.accept_batch(&owner, batch, now) {
+                        if let Err(error) = self.accept_batch(&mut tx, &owner, batch, now) {
                             if error.code != rpc::code::CONFLICT {
                                 return Err(error);
                             }
@@ -194,10 +197,16 @@ impl Rail {
                 .execute("UPDATE measurement_state SET revision=revision+1", [])
                 .map_err(sql)?;
         }
-        Ok(())
+        tx.commit().map_err(sql)
     }
 
-    fn accept_batch(&mut self, owner: &Owner, batch: Batch, now: i64) -> Result<(), RpcError> {
+    fn accept_batch(
+        &self,
+        tx: &mut rusqlite::Transaction<'_>,
+        owner: &Owner,
+        batch: Batch,
+        now: i64,
+    ) -> Result<(), RpcError> {
         let position = serde_json::to_string(&batch.position).map_err(RpcError::internal)?;
         let same = self
             .db
@@ -218,7 +227,7 @@ impl Rail {
                 .map_err(sql)?;
             return Ok(());
         }
-        let tx = self.db.transaction().map_err(sql)?;
+        let tx = tx.savepoint().map_err(sql)?;
         for contribution in batch.contributions {
             accept(&tx, owner, contribution, None, now)?;
         }
