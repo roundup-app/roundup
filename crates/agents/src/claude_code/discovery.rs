@@ -525,6 +525,40 @@ mod tests {
     const NOW: i64 = 1_792_411_200_000;
 
     #[tokio::test]
+    async fn u3065_root_project_keeps_root_and_descendant_conversations() {
+        let root = tempfile::tempdir_in(std::env::temp_dir().canonicalize().unwrap()).unwrap();
+        let nested = root.path().join("nested");
+        std::fs::create_dir(&nested).unwrap();
+        let config = root.path().join("config");
+        let project = Path::new("/");
+        let mut expected = Vec::new();
+        for (index, cwd) in [project, root.path(), nested.as_path()]
+            .into_iter()
+            .enumerate()
+        {
+            let id = format!("{index:08}-1111-4111-8111-111111111111");
+            let complete = record("user", cwd, "2026-10-18T12:00:00Z").replace(SESSION, &id) + "\n";
+            store(&config, "x", &id, &(complete.clone() + "{\"torn\":"));
+            expected.push((
+                id,
+                cwd.strip_prefix(project).unwrap().to_path_buf(),
+                hex(&Sha256::digest(complete.as_bytes())),
+            ));
+        }
+        let found = launcher(&config)
+            .discover_recent(project, NOW, 7 * DAY)
+            .await
+            .unwrap();
+        assert!(found.excluded.is_empty());
+        let actual: Vec<_> = found
+            .candidates
+            .into_iter()
+            .map(|candidate| (candidate.source, candidate.cwd, candidate.revision))
+            .collect();
+        assert_eq!(actual, expected);
+    }
+
+    #[tokio::test]
     async fn u2875a_activity_is_not_file_mtime() {
         let root = tempfile::tempdir_in(std::env::temp_dir().canonicalize().unwrap()).unwrap();
         let project = root.path().join("project");
