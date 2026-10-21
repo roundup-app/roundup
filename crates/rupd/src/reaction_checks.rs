@@ -454,6 +454,74 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn nr8_pr_checks_refuse_revoked_authority_without_accepting_work() {
+        let (project, daemon, client, watcher, target) = daemon().await;
+        let author = client
+            .request(
+                "agent.spawn",
+                json!({
+                    "cwd": project.path(), "prompt": null, "parent": null
+                }),
+            )
+            .await
+            .unwrap()["id"]
+            .as_str()
+            .unwrap()
+            .to_owned();
+        client
+            .request(
+                "rail.move",
+                json!({"id": target, "parent": author, "index": 0}),
+            )
+            .await
+            .unwrap();
+        let actor = Actor {
+            kind: contracts::ActorKind::Agent,
+            id: author,
+            parent: None,
+        };
+        let params = serde_json::from_value(json!({
+            "operation": "revoked", "name": "ship", "target": target,
+            "instruction": "ship it", "condition": {"kind": "pr-checks", "repository": REPO, "number": 23},
+            "expires_at": "2099-01-01T00:00:00Z"
+        })).unwrap();
+        let world = daemon.reader().world().await.unwrap();
+        let saved = daemon
+            .reaction_create(&actor, &world, params, Some(Ok("a".into())))
+            .unwrap();
+        client
+            .request(
+                "rail.move",
+                json!({"id": target, "parent": null, "index": 0}),
+            )
+            .await
+            .unwrap();
+        let feed = Arc::new(std::sync::Mutex::new(passed("a")));
+        run(&watcher, &feed).await;
+        run(&watcher, &feed).await;
+        let seen = get(&client, &saved.id).await;
+        assert_eq!(seen["firings"], json!([]));
+        assert_eq!(seen["remaining"], 1);
+        assert_eq!(seen["state"], "invalidated");
+        assert!(
+            seen["observation"]["cause"]
+                .as_str()
+                .unwrap()
+                .contains("Reach")
+        );
+        let sent = client
+            .request("message.list", json!({"to": target}))
+            .await
+            .unwrap();
+        assert!(
+            sent.as_array()
+                .unwrap()
+                .iter()
+                .all(|m| m["body"] != "ship it")
+        );
+    }
+
+    #[tokio::test]
     async fn nr7_checks_read_evidence_from_a_fake_gh_through_the_daemon() {
         use std::os::unix::fs::PermissionsExt;
         let (project, daemon, client, watcher, target) = daemon().await;
