@@ -28,16 +28,17 @@ fn inbox_takes_of(prompts: &Path, id: u64) -> usize {
 }
 
 /// How many `message.delivered` Events for `id` the client received, after the Daemon had every
-/// chance to send more.
+/// chance to send more. Unrelated periodic observations cannot extend this window.
 async fn delivered_events(events: &mut rpc::Client, id: u64) -> usize {
     let mut count = 0;
-    while let Ok(Some(event)) =
-        tokio::time::timeout(Duration::from_millis(700), events.next_event()).await
-    {
+    let quiet = Duration::from_millis(700);
+    let mut deadline = tokio::time::Instant::now() + quiet;
+    while let Ok(Some(event)) = tokio::time::timeout_at(deadline, events.next_event()).await {
         if let contracts::EventData::MessageDelivered(m) = event.data
             && u64::from(m.id) == id
         {
             count += 1;
+            deadline = tokio::time::Instant::now() + quiet;
         }
     }
     count

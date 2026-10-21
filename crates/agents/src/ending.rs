@@ -156,7 +156,7 @@ impl Shared {
                 .await
                 .map_err(RpcError::internal)??;
         }
-        let (terminal_id, worktree) = {
+        let (terminal_id, worktree, measured_attempt) = {
             let rail = self.rail();
             let mut node = rail.node(id)?;
             if checked_node.as_ref().is_some_and(|checked| {
@@ -227,6 +227,7 @@ impl Shared {
                 matches!(ending, Ending::Remove | Ending::Discard)
                     .then_some(node.worktree)
                     .flatten(),
+                node.attempt,
             )
         };
         if let Some(Slot::Running(run)) = self.runs().get_mut(id) {
@@ -244,6 +245,14 @@ impl Shared {
             }
             None => Ok(()),
         };
+        if killed.is_ok()
+            && let Some(attempt) = measured_attempt
+        {
+            self.timing
+                .lock()
+                .expect("measurement timing lock")
+                .end_attempt(id, &attempt);
+        }
         if killed.is_ok()
             && let Some(worktree) = worktree
         {

@@ -9,7 +9,17 @@ impl Module for Agents {
     async fn call(&self, ctx: &Ctx, method: &str, value: Value) -> Result<Value, RpcError> {
         let shared = &self.shared;
         match method {
-            "project.measurements" => reply(&shared.rail().measurements(self.project_dir())?),
+            "project.measurements" => {
+                let mut rail = shared.rail();
+                let mut timing = shared.timing.lock().expect("measurement timing lock");
+                timing.sample();
+                let cause = timing.failure();
+                let mut measurements = rail.measurements(self.project_dir())?;
+                if cause.is_some() {
+                    measurements.cause = cause;
+                }
+                reply(&measurements)
+            }
             "agent.spawn" => reply(&self.spawn(ctx, params(value)?).await?),
             "agent.extras" => reply(&claude_code::extras::available(
                 &self.launcher.extras_sources(self.project_dir()),
