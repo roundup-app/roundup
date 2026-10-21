@@ -1017,7 +1017,8 @@ mod tests {
                     projects.clone()
                 }
                 "bucket enumeration" => {
-                    std::fs::set_permissions(&bucket, std::fs::Permissions::from_mode(0)).unwrap();
+                    std::fs::set_permissions(&bucket, std::fs::Permissions::from_mode(0o000))
+                        .unwrap();
                     bucket.clone()
                 }
                 "source metadata" => {
