@@ -15,6 +15,7 @@ mod handshake;
 mod link;
 mod output;
 mod owner_told;
+mod queue;
 mod reaction;
 mod reaction_checks;
 mod reaction_time;
@@ -73,6 +74,8 @@ pub struct Daemon {
     /// A35: the Marks a rewind reads, and the rewinds under way.
     checkpoints: Arc<checkpoints::Checkpoints>,
     rewinding: rewind::Rewinding,
+    /// A3196: what the Workstream Queue remembers between passes.
+    queue: Arc<queue::Memory>,
     /// B21: subscribed at `open`, so no change is missed before the pusher runs; taken once, when
     /// a Tokio runtime is there to run it.
     pushes: std::sync::Mutex<Option<tokio::sync::broadcast::Receiver<contracts::Event>>>,
@@ -451,6 +454,7 @@ impl Daemon {
             clears: clear::Clears::new(Arc::clone(&agents)),
             checkpoints: Arc::clone(&checkpoints),
             rewinding: Default::default(),
+            queue: Default::default(),
             pushes: std::sync::Mutex::new(Some(bus.subscribe())),
             resources: Default::default(),
             publications: deliverables::Publications::open(dir)?,
@@ -720,6 +724,7 @@ impl Daemon {
 
     async fn route(&self, conn: &mut Conn, method: &str, params: Value) -> Result<Value, RpcError> {
         self.start_pushes();
+        self.start_queue();
         // A child may not turn its Terminal keystrokes into a user's answer by
         // claiming `user`; H21's process identity applies to this input path too.
         let input_actor = if method == "terminal.write" {
@@ -949,6 +954,23 @@ impl Daemon {
         }
         if let Some(outcome) = builtin::call(self, conn, namespace, method, &params) {
             return outcome;
+        }
+        if matches!(
+            method,
+            "todo.startWorkstream"
+                | "workstream.queue"
+                | "workstream.dequeue"
+                | "workstream.queueMove"
+                | "workstream.startNow"
+                | "project.setWorkstreamCap"
+        ) {
+            // P9: a start spends usage, so only the user's own choice changes what starts.
+            if method != "workstream.queue" && conn.actor.kind != ActorKind::User {
+                return Err(RpcError::forbidden(
+                    "only the user starts a Workstream or changes the Queue",
+                ));
+            }
+            return self.queuer().call(&conn.actor, method, params).await;
         }
         // X12: the Agents module resolves Workstream and Project ownership.
         let namespace = if method == "terminal.open" {

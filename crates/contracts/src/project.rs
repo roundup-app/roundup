@@ -49,6 +49,10 @@ pub struct ProjectSettings {
     /// A36: the Model and Effort the user set per Role, and the Models a Door may start a child on.
     pub models: ProjectModels,
     pub mcp: Mcp,
+    /// A3195: the most Workstreams that run at once; `None` is no cap.
+    #[serde(rename = "workstreamCap")]
+    #[ts(rename = "workstreamCap", type = "number | null")]
+    pub workstream_cap: Option<u32>,
 }
 
 /// A36: one Model or Effort the Adapter offers. Outside the Adapter `id` is opaque (P4).
