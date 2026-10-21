@@ -503,7 +503,7 @@ export const Todos = (props: {
     if (todo === undefined) return;
 
     openOnRelease(event, (x, y) => void contextMenu(connected.app, [
-      { id: "complete", label: copy.complete, enabled: !todo.done, run: () => void complete(todo) },
+      { id: "complete", label: copy.complete, enabled: !todo.done, run: () => void toggle(todo, open().map(candidate => candidate.id)) },
       ...linkEntries(connected.app, "todo", todo.id, connected.rail.nodes, (node) => connected.rail.exitOf(node) === null, setCreateFailure),
       { id: "delete", label: copy.delete, run: () => { selection.replace([todo.id]); bulk.ask(); } },
     ], x, y));
