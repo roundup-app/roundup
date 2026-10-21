@@ -147,9 +147,9 @@ def real():
     wait('Boolean(document.querySelector(".rail-actions button"))')
     evaluate(rpc_helper)
     evaluate("[...document.querySelectorAll('button')].find(b=>['New Workstream','Add Workstream'].includes(b.getAttribute('aria-label')??b.textContent.trim())).click()")
-    wait("Boolean(document.querySelector('[data-thread-input]')) || [...document.querySelectorAll('button')].some(b=>/Start supervisor/i.test(b.textContent))")
+    wait("Boolean(document.querySelector('.pane-screen')) || [...document.querySelectorAll('button')].some(b=>/Start supervisor/i.test(b.textContent))")
     evaluate("[...document.querySelectorAll('button')].find(b=>/Start supervisor/i.test(b.textContent))?.click()")
-    wait('Boolean(document.querySelector("[data-thread-input]"))')
+    wait('Boolean(document.querySelector(".pane-screen"))')
     evaluate("(async()=>{let nodes;do{nodes=await window.__u462rpc('rail.tree');if(nodes.some(n=>n.status?.label==='starting'))await new Promise(requestAnimationFrame)}while(nodes.some(n=>n.status?.label==='starting'));})()")
     send('u462-create-todo')
     wait('Boolean(document.querySelector("[data-todo=\\"1\\"] button"))')
@@ -172,10 +172,11 @@ def real():
 
 
 def send(text):
-    browser('fill', '[data-thread-input]', text)
-    wait('document.querySelector(".thread-send")?.getAttribute("aria-disabled")!=="true"')
-    browser('press', 'Enter')
-    wait('document.querySelector("[data-thread-input]").value===""')
+    # U467 replaced the Thread composer with the live Terminal; the public Message
+    # seam still delivers these fixture prompts to the real Door and its MCP tools.
+    evaluate("(async()=>{const door=(await window.__u462rpc('rail.tree')).find(n=>n.kind==='workstream');"
+             "await window.__u462rpc('message.send',{to:door.id,kind:'note',body:"
+             + json.dumps(text) + ",replyTo:null});})()")
 
 
 def restarted():
