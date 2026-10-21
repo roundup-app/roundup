@@ -56,6 +56,7 @@ export const CONTRACT = {
     "message.pass": "5d86d5d07928c6f6",
     "message.progress": "ae67f6bea48e4f87",
     "message.report": "5fba8698e2cb5199",
+    "message.resolveResult": "60cc870ca0afa5ef",
     "message.send": "724edde964c778fd",
     "message.verifyResult": "56ac2cd591b57b21",
     "models.list": "e135644577bcc30d",

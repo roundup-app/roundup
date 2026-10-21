@@ -588,11 +588,38 @@ async fn u3078h_exact_external_resolution_survives_reopen() {
             let mut q = e.query();
             q["report"] = report["report"].clone();
             q["source"] = json!(source.url);
-            let observed = e.client.request("message.resolveResult", q).await.unwrap();
+            let output = tokio::process::Command::new(env!("CARGO_BIN_EXE_rup"))
+                .args([
+                    "message",
+                    "resolveResult",
+                    q["project"].as_str().unwrap(),
+                    q["id"].as_str().unwrap(),
+                    q["report"].as_str().unwrap(),
+                    &source.url,
+                    "--json",
+                ])
+                .env("RUPD_SOCKET", e.project.socket())
+                .env_remove("ROUNDUP_AGENT")
+                .kill_on_drop(true)
+                .output()
+                .await
+                .unwrap();
+            assert!(
+                output.status.success(),
+                "{}",
+                String::from_utf8_lossy(&output.stderr)
+            );
+            let observed: Value = serde_json::from_slice(&output.stdout).unwrap();
             assert_eq!(observed["verdict"], "resolved");
             assert_eq!(observed["evidence"], evidence);
             assert_eq!(observed["source"], source.url);
             assert_eq!(observed["authorizer"]["kind"], "user");
+            drop(source);
+            q.as_object_mut().unwrap().remove("source");
+            assert_eq!(
+                e.client.request("message.verifyResult", q).await.unwrap(),
+                observed
+            );
             let progress = e.progress().await;
             assert_eq!(progress["results"][1 + index * 2]["current"], false);
             assert_eq!(progress["results"][2 + index * 2]["current"], true);

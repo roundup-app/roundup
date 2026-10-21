@@ -5,6 +5,7 @@ import type { ResultObservation } from "./ResultObservation";
 import type { ResultReport } from "./ResultReport";
 
 /**
- * current requires the same instruction and latest reported target version; history remains readable.
+ * Unresolved external effects remain current despite later claims or changed instructions.
+ * Other current results require the same instruction and latest reported target version.
  */
 export type ResultProgress = { report: ResultReport, current: boolean, acceptances: Array<ResultAcceptance>, observations: Array<ResultObservation>, availability: Resolution, };
