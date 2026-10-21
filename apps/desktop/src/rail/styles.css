@@ -158,15 +158,10 @@
   color: var(--amber);
 }
 
-/* U3744: a queued Workstream's place sits in the row's line as light text; it never wraps or moves the row's edges (U112). */
-.rail-row .line > .queue-badge {
-  /* it gives way before the name does: the name keeps its width and the badge shrinks to nothing first. */
-  flex: 0 1000 auto;
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
+/* U3744: a queued Workstream's place sits in the row's tail as light text beside the name; it never wraps or moves the row's edges (U112). */
+.rail-row .row-tail > .queue-badge {
+  flex: none;
   white-space: nowrap;
-  align-self: baseline;
   font-size: var(--text-caption);
   font-variant-numeric: tabular-nums;
 }
