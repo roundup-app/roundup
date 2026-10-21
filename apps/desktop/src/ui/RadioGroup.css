@@ -1,0 +1,31 @@
+.app-radio-group {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.app-radio {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  cursor: pointer;
+  position: relative;
+}
+
+.app-radio-mark {
+  flex: none;
+  width: var(--space-4);
+  height: var(--space-4);
+  border-radius: 50%;
+  border: 1px solid var(--grey);
+}
+
+.app-radio-mark[data-state="checked"] {
+  border-color: var(--text);
+  background: radial-gradient(circle, var(--text) 40%, transparent 45%);
+}
+
+/* The library's input is visually hidden, so the shared keyboard ring draws around the row. */
+.app-radio:has(input:focus-visible) {
+  outline: var(--keyboard-ring);
+}

@@ -433,6 +433,7 @@ async fn g1_the_worktrees_setting_is_set_and_read_through_the_daemon() {
                 ],
             },
             "mcp": {"on": true},
+            "workstreamCap": null,
         })
     );
 }

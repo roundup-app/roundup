@@ -1296,9 +1296,14 @@ fn a35_rewind_has_no_app_only_caller_or_u374_surface() {
             if path.components().any(|c| c.as_os_str() == "generated") {
                 continue;
             }
-            for word in ["workstream.rewind", "rewindPlan", "U374"] {
+            for word in ["workstream.rewind", "rewindPlan"] {
                 assert!(!text.contains(word), "{} names {word}", path.display());
             }
+            // U374 is a retired surface; U3743 and later are other scenarios.
+            let names_u374 = text.match_indices("U374").any(|(at, word)| {
+                !text[at + word.len()..].starts_with(|c: char| c.is_ascii_digit())
+            });
+            assert!(!names_u374, "{} names U374", path.display());
         }
     }
 }

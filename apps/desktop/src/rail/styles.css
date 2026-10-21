@@ -158,6 +158,14 @@
   color: var(--amber);
 }
 
+/* U3744: a queued Workstream's place sits in the row's line as light text; it never wraps or moves the row's edges (U112). */
+.rail-row .line > .queue-badge {
+  flex: none;
+  white-space: nowrap;
+  font-size: var(--text-caption);
+  font-variant-numeric: tabular-nums;
+}
+
 /* U403: the name keeps the room; the Door's Glyph and the right side follow it. */
 .rail-row .line > .fill {
   flex: 1 1 0;

@@ -15,6 +15,8 @@ import { createAsks } from "./asks";
 import type { AsksState } from "./asks";
 import { syncTerminalScheme } from "../terminal/scheme";
 import { createRailState } from "./rail";
+import { createQueue } from "./queue";
+import type { QueueView } from "./queue";
 import { createTakeover } from "./takeover";
 import type { TakeoverState } from "./takeover";
 import type { RailStorage } from "../rail/persist/storage";
@@ -114,6 +116,8 @@ export type ConnectedProject = {
   app: AppSeam;
   events: Events;
   rail: RailState;
+  /** U3744: the Workstreams waiting to start. */
+  queue: QueueView;
   importing: ReturnType<typeof createImport>;
   worktrees: ReturnType<typeof createWorktreeState>;
   drawer: DrawerState;
@@ -164,6 +168,16 @@ export const connectProject = async (
 
   if (ended) stopDecisions();
 
+  let stopQueue = () => {};
+
+  const queue = createRoot((dispose) => {
+    stopQueue = dispose;
+
+    return createQueue(app, events, rail);
+  });
+
+  if (ended) stopQueue();
+
   const onImported = (id: string, agent: string | null) => {
     void rail.refresh().then(() => rail.select(agent ?? id));
   };
@@ -174,7 +188,7 @@ export const connectProject = async (
   importing.reconnect(app, onImported);
   drafts.importing = importing;
 
-  return { project, drafts, app, events, rail, importing, worktrees: createWorktreeState(app, rail, now, daemonExit), drawer: createDrawer(), decisions, asks: createAsks(app, events), takeover: createTakeover(app, events, daemonExit), reducedMotion, now, contractNotice, daemonExit, stopTerminalScheme: () => { stopDecisions(); stopTerminalScheme(); } };
+  return { project, drafts, app, events, rail, queue, importing, worktrees: createWorktreeState(app, rail, now, daemonExit), drawer: createDrawer(), decisions, asks: createAsks(app, events), takeover: createTakeover(app, events, daemonExit), reducedMotion, now, contractNotice, daemonExit, stopTerminalScheme: () => { stopDecisions(); stopQueue(); stopTerminalScheme(); } };
 };
 
 /** App-run authority for owners outside a connection, including Project tabs.
