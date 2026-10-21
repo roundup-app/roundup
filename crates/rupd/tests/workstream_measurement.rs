@@ -339,6 +339,36 @@ async fn u3016b_token_totals_reconcile_by_source() {
         w.contributions(1).await["contributions"],
         read["contributions"]
     );
+    // Aggregate through the actual CLI after source replay and Project reopen.
+    let cli =
+        tokio::process::Command::new(Path::new(env!("CARGO_BIN_EXE_rupd")).with_file_name("rup"))
+            .args([
+                "--json",
+                "--agent",
+                &w.agent,
+                "project",
+                "measurement-summary",
+                &w.home,
+            ])
+            .env("RUPD_SOCKET", &w.daemon.socket)
+            .output()
+            .await
+            .unwrap();
+    assert!(
+        cli.status.success(),
+        "{}",
+        String::from_utf8_lossy(&cli.stderr)
+    );
+    let summary: Value = serde_json::from_slice(&cli.stdout).unwrap();
+    assert_eq!(
+        summary["tokens"],
+        json!({"input":{"known":"100","missing":0},"output":{"known":"30","missing":0},"cache_read":{"known":"400","missing":0},"cache_write":{"known":"50","missing":0},"total":{"known":"580","missing":0}})
+    );
+    assert_eq!(summary["rows"][0]["agent"], w.agent);
+    assert_eq!(
+        summary["rows"][0]["removed"], false,
+        "A Door is an existing contributor"
+    );
 }
 
 #[tokio::test]

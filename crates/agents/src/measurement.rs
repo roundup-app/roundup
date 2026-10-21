@@ -133,6 +133,213 @@ impl Agents {
     }
 }
 
+/// Aggregate the collector's coherent latest revisions; source interpretation stays in the Adapter.
+pub(crate) fn summarize(
+    snapshot: contracts::project::Measurements,
+    tree: Vec<RailNode>,
+    params: contracts::project::MeasurementSummaryParams,
+) -> Result<contracts::project::MeasurementSummary, RpcError> {
+    use contracts::project::{MeasurementContributor, MeasurementSummary, MeasurementValue};
+    if !tree
+        .iter()
+        .any(|node| node.id == params.home && node.kind == NodeKind::Workstream)
+    {
+        return Err(RpcError::not_found("Workstream"));
+    }
+    if params.offset > 0 && params.revision.is_none() {
+        return Err(RpcError::new(
+            rpc::code::INVALID_PARAMS,
+            "Later pages require a measurement revision",
+        ));
+    }
+    if params
+        .revision
+        .as_ref()
+        .is_some_and(|revision| revision != &snapshot.revision)
+    {
+        return Err(RpcError::conflict(
+            "Measurements changed; read again from offset zero",
+        ));
+    }
+    let mut contributors =
+        std::collections::BTreeMap::<String, (String, TokenSum, Vec<String>)>::new();
+    // A source can fail before retaining any fact. Keep that contributor and its failure visible.
+    for source in &snapshot.sources {
+        let Some(maker) = tree.iter().find(|node| node.id == source.agent) else {
+            continue;
+        };
+        let mut node = maker;
+        while node.kind != NodeKind::Workstream {
+            let Some(parent) = tree
+                .iter()
+                .find(|parent| Some(&parent.id) == node.parent.as_ref())
+            else {
+                break;
+            };
+            node = parent;
+        }
+        if node.kind == NodeKind::Workstream && node.id == params.home {
+            contributors
+                .entry(source.agent.clone())
+                .or_insert_with(|| (maker.name.clone(), TokenSum::default(), Vec::new()));
+        }
+    }
+    let mut last_observed = None;
+    for fact in snapshot
+        .contributions
+        .iter()
+        .chain(&snapshot.time_evidence)
+        .filter(|fact| fact.home.as_ref() == Some(&params.home))
+    {
+        last_observed = Some(last_observed.unwrap_or(i64::MIN).max(fact.observed));
+        let row = contributors
+            .entry(fact.agent.clone())
+            .or_insert_with(|| (fact.maker.clone(), TokenSum::default(), Vec::new()));
+        row.2.extend(fact.coverage.iter().cloned());
+        if let MeasurementValue::Request { usage, .. } = &fact.value {
+            row.1.add(usage);
+        }
+    }
+    let mut causes: Vec<_> = snapshot.cause.iter().cloned().collect();
+    let mut total = TokenSum::default();
+    for (agent, (_, tokens, coverage)) in &mut contributors {
+        if tokens.requests == 0 {
+            // Positive absence of request evidence is unknown consumption, never a measured zero.
+            tokens.add(&contracts::project::Consumed {
+                input: None,
+                output: None,
+                cache_read: None,
+                cache_write: None,
+            });
+            coverage.push("No retained request measurements for this contributor".into());
+        }
+        for source in snapshot
+            .sources
+            .iter()
+            .filter(|source| &source.agent == agent)
+        {
+            coverage.extend(source.coverage.iter().cloned());
+            coverage.extend(source.cause.iter().cloned());
+            causes.extend(
+                source
+                    .cause
+                    .iter()
+                    .map(|cause| format!("{}: {cause}", source.source)),
+            );
+        }
+        coverage.sort();
+        coverage.dedup();
+        for i in 0..5 {
+            total.known[i] += tokens.known[i];
+            total.missing[i] += tokens.missing[i];
+        }
+    }
+    let mut ranked: Vec<_> = contributors.into_iter().collect();
+    let category = match params.category {
+        contracts::project::ConsumedCategory::Input => 0,
+        contracts::project::ConsumedCategory::Output => 1,
+        contracts::project::ConsumedCategory::CacheRead => 2,
+        contracts::project::ConsumedCategory::CacheWrite => 3,
+        contracts::project::ConsumedCategory::Total => 4,
+    };
+    ranked.sort_by(|(left, (_, a, _)), (right, (_, b, _))| {
+        (a.missing[category] != 0)
+            .cmp(&(b.missing[category] != 0))
+            .then_with(|| b.known[category].cmp(&a.known[category]))
+            .then_with(|| left.cmp(right))
+    });
+    let count = u32::try_from(ranked.len()).map_err(RpcError::internal)?;
+    if params.offset > count {
+        return Err(RpcError::new(
+            rpc::code::INVALID_PARAMS,
+            "Offset exceeds contributor count",
+        ));
+    }
+    let next = params.offset.saturating_add(20);
+    let mut coverage: Vec<_> = ranked
+        .iter()
+        .flat_map(|(_, (_, _, coverage))| coverage.iter().cloned())
+        .collect();
+    coverage.push(
+        "Only retained observations are counted; earlier missing history is uncovered".into(),
+    );
+    coverage.sort();
+    coverage.dedup();
+    causes.sort();
+    causes.dedup();
+    let rows = ranked
+        .into_iter()
+        .skip(params.offset as usize)
+        .take(20)
+        .map(|(agent, (maker, tokens, coverage))| {
+            Ok(MeasurementContributor {
+                removed: !tree.iter().any(|node| node.id == agent),
+                agent,
+                maker,
+                tokens: tokens.finish()?,
+                coverage,
+            })
+        })
+        .collect::<Result<Vec<_>, RpcError>>()?;
+    Ok(MeasurementSummary {
+        project: snapshot.project,
+        home: params.home,
+        revision: snapshot.revision,
+        category: params.category,
+        cause: (!causes.is_empty()).then(|| causes.join("; ")),
+        last_observed,
+        tokens: total.finish()?,
+        coverage,
+        contributors: count,
+        rows,
+        next_offset: (next < count).then_some(next),
+    })
+}
+
+#[derive(Default)]
+struct TokenSum {
+    known: [u128; 5],
+    missing: [usize; 5],
+    requests: usize,
+}
+
+impl TokenSum {
+    fn add(&mut self, usage: &contracts::project::Consumed) {
+        self.requests += 1;
+        let categories = [
+            usage.input,
+            usage.output,
+            usage.cache_read,
+            usage.cache_write,
+        ];
+        for (index, value) in categories.into_iter().enumerate() {
+            if let Some(value) = value {
+                self.known[index] += u128::from(value);
+                self.known[4] += u128::from(value);
+            } else {
+                self.missing[index] += 1;
+            }
+        }
+        self.missing[4] += usize::from(categories.iter().any(Option::is_none));
+    }
+    fn finish(&self) -> Result<contracts::project::ConsumedTotals, RpcError> {
+        use contracts::project::{ConsumedSubtotal, ConsumedTotals};
+        let subtotal = |index: usize| -> Result<ConsumedSubtotal, RpcError> {
+            Ok(ConsumedSubtotal {
+                known: self.known[index].to_string(),
+                missing: u32::try_from(self.missing[index]).map_err(RpcError::internal)?,
+            })
+        };
+        Ok(ConsumedTotals {
+            input: subtotal(0)?,
+            output: subtotal(1)?,
+            cache_read: subtotal(2)?,
+            cache_write: subtotal(3)?,
+            total: subtotal(4)?,
+        })
+    }
+}
+
 #[cfg(test)]
 mod time_tests {
     use super::*;
@@ -191,6 +398,35 @@ mod time_tests {
                 .observe(Actor::daemon(), id, "1", Observation::Signal(payload))
                 .unwrap();
         }
+        fn request(&self, home: &str, agent: &str, identity: &str, usage: [Option<u64>; 4]) {
+            let value = json!({"kind":"request", "usage": {
+                "input": usage[0], "output": usage[1], "cache_read": usage[2], "cache_write":usage[3]
+            }, "cost":null}).to_string();
+            let mut db = rusqlite::Connection::open(self.dir.path().join("agents.db")).unwrap();
+            let tx = db.transaction().unwrap();
+            tx.execute("INSERT INTO measurement_revisions(identity,source_revision,source,agent,attempt,home,maker,observed,value,coverage) VALUES(?1,?2,'fixture',?3,'1',?4,?5,1000,?2,'[]')",rusqlite::params![identity,value,agent,home,format!("Maker {agent}")]).unwrap();
+            tx.execute("UPDATE measurement_state SET revision=revision+1", [])
+                .unwrap();
+            tx.commit().unwrap();
+        }
+        fn home(&self) -> String {
+            self.agents
+                .shared
+                .rail()
+                .insert(NodeKind::Workstream, "Measured work", None, None)
+                .unwrap()
+                .id
+        }
+        async fn summary(&self, home: &str, category: &str) -> Value {
+            self.agents
+                .call(
+                    &self.ctx,
+                    "project.measurementSummary",
+                    json!({"home":home, "category":category}),
+                )
+                .await
+                .unwrap()
+        }
         async fn read(&self) -> Value {
             self.agents
                 .call(&self.ctx, "project.measurements", Value::Null)
@@ -247,7 +483,6 @@ mod time_tests {
 
     #[tokio::test]
     async fn u3016b_token_totals_reconcile_by_source() {
-        use contracts::project::{Consumed, MeasurementValue};
         let w = World::new();
         let home = w
             .agents
@@ -258,32 +493,8 @@ mod time_tests {
             .id;
         let a = w.agent(Some(&home));
         let b = w.agent(Some(&home));
-        for (agent, input, output, cache_read, cache_write) in
-            [(&a, 100, 20, 400, 50), (&b, 200, 30, 0, 0)]
-        {
-            let fact = contracts::project::Measurement {
-                identity: format!("request:{agent}"),
-                source: format!("source:{agent}"),
-                source_revision: "1".into(),
-                agent: agent.clone(),
-                attempt: Some("1".into()),
-                home: Some(home.clone()),
-                maker: agent.clone(),
-                observed: 1000,
-                value: MeasurementValue::Request {
-                    usage: Consumed {
-                        input: Some(input),
-                        output: Some(output),
-                        cache_read: Some(cache_read),
-                        cache_write: Some(cache_write),
-                    },
-                    cost: None,
-                },
-                coverage: vec![],
-            };
-            let db = rusqlite::Connection::open(w.dir.path().join("agents.db")).unwrap();
-            db.execute("INSERT INTO measurement_revisions(identity,source_revision,source,agent,attempt,home,maker,observed,value,coverage) VALUES(?1,?2,?3,?4,?5,?6,?7,?8,?9,'[]')",rusqlite::params![fact.identity,fact.source_revision,fact.source,fact.agent,fact.attempt,fact.home,fact.maker,fact.observed,serde_json::to_string(&fact.value).unwrap()]).unwrap();
-        }
+        w.request(&home, &a, "a", [Some(100), Some(20), Some(400), Some(50)]);
+        w.request(&home, &b, "b", [Some(200), Some(30), Some(0), Some(0)]);
         let read = w
             .agents
             .call(
@@ -302,6 +513,159 @@ mod time_tests {
         assert_eq!(read["rows"][0]["tokens"]["total"]["known"], "570");
         assert_eq!(read["rows"][1]["agent"], b);
         assert_eq!(read["rows"][1]["tokens"]["total"]["known"], "230");
+    }
+
+    #[tokio::test]
+    async fn u3016b_partial_consumption_keeps_exact_subtotals() {
+        let w = World::new();
+        let home = w.home();
+        w.request(
+            &home,
+            "unknown",
+            "partial",
+            [Some(u64::MAX), None, Some(0), Some(0)],
+        );
+        w.request(&home, "zero", "zero", [Some(0); 4]);
+        let read = w.summary(&home, "output").await;
+        assert_eq!(
+            read["tokens"]["input"],
+            json!({"known":"18446744073709551615", "missing":0})
+        );
+        assert_eq!(read["tokens"]["output"], json!({"known":"0", "missing":1}));
+        assert_eq!(
+            read["tokens"]["total"],
+            json!({"known":"18446744073709551615", "missing":1})
+        );
+        assert_eq!(read["rows"][0]["agent"], "zero");
+        assert_eq!(read["rows"][1]["agent"], "unknown");
+        assert_eq!(read["rows"][1]["maker"], "Maker unknown");
+        assert_eq!(read["rows"][1]["removed"], true);
+    }
+
+    #[tokio::test]
+    async fn u3016e_category_rank_uses_latest_recorded_home_contributions() {
+        let w = World::new();
+        let home = w.home();
+        let other = w.home();
+        w.request(
+            &home,
+            "a",
+            "one",
+            [Some(100), Some(20), Some(400), Some(50)],
+        );
+        w.request(&home, "b", "two", [Some(200), Some(30), Some(0), Some(0)]);
+        // An updated request replaces the older contribution; another Home is excluded.
+        w.request(&home, "b", "two", [Some(200), Some(40), Some(0), Some(0)]);
+        w.request(&other, "a", "later", [Some(999); 4]);
+        let read = w.summary(&home, "output").await;
+        assert_eq!(read["tokens"]["output"]["known"], "60");
+        assert_eq!(read["tokens"]["total"]["known"], "810");
+        assert_eq!(read["rows"][0]["agent"], "b");
+        assert_eq!(read["rows"][1]["agent"], "a");
+        assert_eq!(read["contributors"], 2);
+    }
+
+    #[tokio::test]
+    async fn u3016e_pages_keep_all_contributors_at_one_revision() {
+        let w = World::new();
+        let home = w.home();
+        let expected: Vec<_> = (0..1005).map(|i| format!("former-{i:04}")).collect();
+        for agent in &expected {
+            w.request(&home, agent, agent, [Some(3), Some(0), Some(0), Some(0)]);
+        }
+        let mut page = w.summary(&home, "total").await;
+        assert_eq!(page["contributors"], 1005);
+        assert_eq!(page["tokens"]["total"]["known"], "3015");
+        let revision = page["revision"].clone();
+        let mut ids = Vec::new();
+        loop {
+            let rows = page["rows"].as_array().unwrap();
+            assert!(rows.len() <= 20);
+            ids.extend(
+                rows.iter()
+                    .map(|row| row["agent"].as_str().unwrap().to_owned()),
+            );
+            if page["next_offset"].is_null() {
+                break;
+            }
+            page = w
+                .agents
+                .call(
+                    &w.ctx,
+                    "project.measurementSummary",
+                    json!({"home":home,"offset":page["next_offset"],"revision":revision}),
+                )
+                .await
+                .unwrap();
+            assert_eq!(page["revision"], revision);
+        }
+        assert_eq!(ids, expected);
+        w.request(&home, "new", "new", [Some(1); 4]);
+        let stale = w
+            .agents
+            .call(
+                &w.ctx,
+                "project.measurementSummary",
+                json!({"home":home,"offset":20,"revision":revision}),
+            )
+            .await
+            .unwrap_err();
+        assert_eq!(stale.code, rpc::code::CONFLICT);
+    }
+
+    #[tokio::test]
+    async fn u3016e_unbound_pages_and_missing_workstreams_are_refused() {
+        let w = World::new();
+        let home = w.home();
+        for params in [
+            json!({"home":home,"offset":20}),
+            json!({"home":home,"offset":1,"revision":"0"}),
+            json!({"home":home,"category":"money"}),
+        ] {
+            assert_eq!(
+                w.agents
+                    .call(&w.ctx, "project.measurementSummary", params)
+                    .await
+                    .unwrap_err()
+                    .code,
+                rpc::code::INVALID_PARAMS
+            );
+        }
+        assert_eq!(
+            w.agents
+                .call(
+                    &w.ctx,
+                    "project.measurementSummary",
+                    json!({"home":"missing"})
+                )
+                .await
+                .unwrap_err()
+                .code,
+            rpc::code::NOT_FOUND
+        );
+    }
+
+    #[tokio::test]
+    async fn u3016d_summary_keeps_a_source_failure_before_first_measurement() {
+        let w = World::new();
+        let home = w.home();
+        let id = w.agent(Some(&home));
+        let db = rusqlite::Connection::open(w.dir.path().join("agents.db")).unwrap();
+        db.execute("DELETE FROM measurement_revisions", []).unwrap();
+        db.execute("INSERT INTO measurement_positions(source,file,position,last_good,cause) VALUES(?1,'fixture','{}',NULL,'fixture collection refused')", [format!("roundup:{id}")]).unwrap();
+        let summary = w.summary(&home, "total").await;
+        assert!(
+            summary["cause"]
+                .as_str()
+                .unwrap()
+                .contains("fixture collection refused")
+        );
+        assert_eq!(summary["rows"][0]["agent"], id);
+        assert_eq!(
+            summary["tokens"]["input"],
+            json!({"known":"0", "missing":1})
+        );
+        assert_eq!(summary["last_observed"], Value::Null);
     }
 
     fn activity<'a>(read: &'a Value, kind: &str) -> Vec<&'a Value> {

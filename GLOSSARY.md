@@ -777,3 +777,20 @@ An exact source amount with its currency when established, source, pricing basis
 request or inclusive conversation scope. Conversation totals include their constituent
 requests and native children: they never add to request money or reference estimates.
 A currency not established by its source is unknown; no conversion is inferred.
+
+**Measurement summary** (`MeasurementSummary`, `MeasurementSummaryParams`, `project.measurementSummary`):
+One Workstream's retained consumed tokens and ranked contributors at one Measurement
+revision. Later pages name that revision; a changed revision requires reconciliation.
+It carries collection coverage and failure independently of known consumption.
+
+**Consumed category** (`ConsumedCategory`):
+Input, output, cache read, cache write or their total, chosen to rank contributors.
+
+**Consumed subtotal** (`ConsumedSubtotal`, `ConsumedTotals`):
+An exact known token count with the number of contributions whose count is
+unknown; a contributor without retained requests is one unknown contribution. A total includes known categories even when another category is missing.
+Missing history is separate coverage; it is never a measured zero.
+
+**Measurement contributor** (`MeasurementContributor`):
+An Agent's retained consumption in one Home, including a stopped or removed maker.
+Unknown selected categories rank after fully known ones; ties use stable Agent identity.
