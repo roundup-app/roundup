@@ -215,3 +215,78 @@ pub struct ImportOutcome {
 pub struct ImportResult {
     pub outcomes: Vec<ImportOutcome>,
 }
+
+/// Retained source contributions; latest revisions replace the same identity, never add to it.
+#[derive(Clone, Debug, Serialize, Deserialize, TS)]
+#[ts(export, export_to = "project/")]
+pub struct Measurements {
+    pub project: String,
+    pub cause: Option<String>,
+    pub revision: String,
+    pub contributions: Vec<Measurement>,
+    pub sources: Vec<MeasurementSource>,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize, TS)]
+#[ts(export, export_to = "project/")]
+pub struct Measurement {
+    pub identity: String,
+    pub source: String,
+    pub source_revision: String,
+    pub agent: String,
+    pub attempt: Option<String>,
+    pub home: Option<String>,
+    pub maker: String,
+    #[ts(type = "number")]
+    pub observed: i64,
+    pub value: MeasurementValue,
+    pub coverage: Vec<String>,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, TS)]
+#[serde(tag = "kind", rename_all = "kebab-case")]
+#[ts(export, export_to = "project/")]
+pub enum MeasurementValue {
+    Request {
+        usage: Consumed,
+    },
+    Interval {
+        category: Execution,
+        clock: String,
+        start_unix_ns: String,
+        end_unix_ns: String,
+    },
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize, TS)]
+#[serde(rename_all = "kebab-case")]
+#[ts(export, export_to = "project/")]
+pub enum Execution {
+    Agent,
+    Tool,
+}
+
+/// Disjoint consumed categories. Unknown is not measured zero.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, TS)]
+#[ts(export, export_to = "project/")]
+pub struct Consumed {
+    #[ts(type = "number | null")]
+    pub input: Option<u64>,
+    #[ts(type = "number | null")]
+    pub output: Option<u64>,
+    #[ts(type = "number | null")]
+    pub cache_read: Option<u64>,
+    #[ts(type = "number | null")]
+    pub cache_write: Option<u64>,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize, TS)]
+#[ts(export, export_to = "project/")]
+pub struct MeasurementSource {
+    pub source: String,
+    pub agent: String,
+    #[ts(type = "number | null")]
+    pub last_good: Option<i64>,
+    pub cause: Option<String>,
+    pub coverage: Vec<String>,
+}
