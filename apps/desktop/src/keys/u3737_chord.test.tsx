@@ -184,4 +184,36 @@ describe("u3740 the field shows the Owner and Home", () => {
     await waitFor(() => expect(field()?.value).toBe("stay"));
     expect(screen.getByRole("alert").textContent).toContain("no such Workstream");
   });
+
+  it("u3746_a_retry_after_a_refused_move_moves_the_created_todo_and_creates_none", async () => {
+    const { app } = await open("w");
+    let refuse = true;
+
+    app.handlers["todo.create"] = () => Promise.resolve(todo(5));
+    app.handlers["todo.move"] = () => refuse ? Promise.reject(new RpcError(1, "no such Workstream")) : Promise.resolve(todo(5));
+    fireEvent.input(field()!, { target: { value: "stay" } });
+    press(field()!);
+    await waitFor(() => expect(screen.getByRole("alert").textContent).toContain("no such Workstream"));
+    refuse = false;
+    press(field()!);
+    await waitFor(() => expect(field()).toBeNull());
+    expect(callsTo(app, "todo.create")).toHaveLength(1);
+    expect(callsTo(app, "todo.move")).toHaveLength(2);
+  });
+
+  it("u3746_an_edited_retry_files_a_new_todo", async () => {
+    const { app } = await open("w");
+    let refuse = true;
+
+    app.handlers["todo.create"] = () => Promise.resolve(todo(5));
+    app.handlers["todo.move"] = () => refuse ? Promise.reject(new RpcError(1, "no such Workstream")) : Promise.resolve(todo(5));
+    fireEvent.input(field()!, { target: { value: "stay" } });
+    press(field()!);
+    await waitFor(() => expect(screen.getByRole("alert").textContent).toContain("no such Workstream"));
+    refuse = false;
+    fireEvent.input(field()!, { target: { value: "stay more" } });
+    press(field()!);
+    await waitFor(() => expect(field()).toBeNull());
+    expect(callsTo(app, "todo.create")).toHaveLength(2);
+  });
 });
