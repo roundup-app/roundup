@@ -1404,6 +1404,10 @@ class Critic(unittest.TestCase):
         answered = note('<!-- fix-attempt -->\nFix run r answered `critic`.', ago=10)
         with GitHub(view=pr(), notes=[reject, answered]):
             self.assertIsNone(builder.fix_task(9, HEAD, 'critic'))
+        # A fix run that began before the reject (run 1, 260 s ago) and posted after it never saw it: the reject stays open.
+        racing = note('<!-- fix-attempt -->\nFix run https://github.com/o/r/actions/runs/1 answered `review`.', ago=10)
+        with GitHub(view=pr(), notes=[reject, racing]):
+            self.assertIn(FINDING, builder.fix_task(9, HEAD, 'critic'))
         with GitHub(view=pr(), notes=[]):
             self.assertIsNone(builder.fix_task(9, HEAD, 'critic'))
         # the attempt counts toward the three
