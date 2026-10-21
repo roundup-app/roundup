@@ -26,7 +26,7 @@ import { connectFakeProject } from "./paneHarness";
 import { MeasurementDashboard } from "./MeasurementDashboard";
 import { event } from "../testing/nodes";
 
-import { measurementFixture as summary } from "./measurementFixture";
+import { measurementFixture as summary } from "../testing/measurementFixture";
 
 const dashboard = async () => {
   const mounted = await connectFakeProject([workstream("home")]);

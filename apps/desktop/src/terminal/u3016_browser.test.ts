@@ -10,7 +10,7 @@ import { chromePath } from "../testing/chromePage";
 import { captureDir } from "../testing/captures";
 import { appServer } from "../testing/appServer";
 import type { RpcMethods } from "@contracts/methods";
-import { measurementFixture } from "./measurementFixture";
+import { measurementFixture } from "../testing/measurementFixture";
 
 const exec = promisify(execFile);
 
