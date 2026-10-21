@@ -56,6 +56,8 @@ export const Capture = (props: { onFile: (() => void) | undefined }) => {
   createEffect(() => {
     if (open()) onCleanup(drafts.editor(destination));
   });
+  /** U3746: a Todo created whose move was refused, kept with the title it was filed under so a retry of the same text moves it instead of creating another. */
+  let stranded: { title: string; id: number } | null = null;
   const [failure, setFailure] = createSignal<string | null>(null);
   let returnTo: Element | null = null;
   let input: HTMLTextAreaElement | undefined;
@@ -93,6 +95,7 @@ export const Capture = (props: { onFile: (() => void) | undefined }) => {
 
     if (draft) drafts.discard(draft.revision);
 
+    stranded = null;
     close();
   };
 
@@ -104,6 +107,9 @@ export const Capture = (props: { onFile: (() => void) | undefined }) => {
     if (title === "" || !revision || !drafts.submit(revision.revision)) return;
 
     const { owner, home } = target();
+    const retry = stranded?.title === title && home !== null ? stranded : null;
+
+    stranded = null;
     const row: Todo = { id: --optimistic, title, body: "", done: false, blockers: [], blocked: false, created_at: 0, creator: USER, home, owner };
     const hide = todos.show(row);
 
@@ -115,20 +121,32 @@ export const Capture = (props: { onFile: (() => void) | undefined }) => {
 
     void (async () => {
       let made = false;
+      let id = retry?.id ?? null;
 
       try {
-        const created = await connected.app.rpc("todo.create", owner === null ? { title, body: null, blockers: null } : { title, body: null, blockers: null, owner });
+        if (id === null) {
+          const created = await connected.app.rpc("todo.create", owner === null ? { title, body: null, blockers: null } : { title, body: null, blockers: null, owner });
 
-        made = true;
+          id = created.id;
+          made = true;
+        }
 
-        if (home !== null) await connected.app.rpc("todo.move", { id: created.id, home });
+        if (home !== null) {
+          try {
+            await connected.app.rpc("todo.move", { id, home });
+          } catch (error) {
+            stranded = { title, id };
+            throw error;
+          }
+        }
+
         drafts.settle(revision.revision, "acknowledged");
         await todos.reload();
         hide();
       } catch (error) {
         hide();
 
-        if (made) void todos.reload();
+        if (made || retry) void todos.reload();
 
         if (!(error instanceof Error)) throw error;
         drafts.settle(revision.revision, outcomeOf(error));
