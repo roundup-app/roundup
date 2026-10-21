@@ -9,6 +9,7 @@ import { resolvedWorkstream } from "../rail/layout";
 import { registerKeys } from "../keys/registry";
 import { useConnectedProject } from "../state/connectedProject";
 import { Dialog } from "../ui/Dialog";
+import { Tip } from "../ui/Tip";
 import { USER } from "../pads/owner";
 import { failureOf, outcomeOf } from "./failureOf";
 import { useTodoList } from "./todoList";
@@ -70,6 +71,9 @@ export const Capture = (props: { onFile: (() => void) | undefined }) => {
 
     return { owner, ownerName: owner ? node!.name : null, home: homeName === null ? null : home, homeName };
   };
+
+  const ownerLine = () => target().ownerName === null ? copy.unassigned : copy.captureFor(target().ownerName!);
+  const homeLine = () => copy.captureIn(target().homeName ?? copy.projectRoot);
 
   const show = () => {
     if (open()) return;
@@ -192,8 +196,8 @@ export const Capture = (props: { onFile: (() => void) | undefined }) => {
             }}
           />
           <p class="capture-target">
-            <span title={target().ownerName === null ? copy.unassigned : copy.captureFor(target().ownerName!)}>{target().ownerName === null ? copy.unassigned : copy.captureFor(target().ownerName!)}</span>
-            <span title={copy.captureIn(target().homeName ?? copy.projectRoot)}>{copy.captureIn(target().homeName ?? copy.projectRoot)}</span>
+            <Tip text={ownerLine()}>{(trigger) => <span {...trigger()}>{ownerLine()}</span>}</Tip>
+            <Tip text={homeLine()}>{(trigger) => <span {...trigger()}>{homeLine()}</span>}</Tip>
           </p>
           <Show when={failure()}>{(message) => <ErrorLine message={message()} />}</Show>
           <For each={recovered()}>{draft => <div class="capture-recovery">
