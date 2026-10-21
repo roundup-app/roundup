@@ -1041,7 +1041,8 @@ def fix_task(pr, head, cause, run_id=0, output=None):
             out.write('plumbing=true\n' * plumbing + 'merge_loss=true\n' * merge_loss)
     attempts = orders.marked(pr, '<!-- fix-attempt -->', reopened(pr))
     verdicts = orders.marked(pr, 'VERDICT:')
-    answered = orders.created(attempts[-1]['created_at']) if attempts else 0
+    # A fix run answers only the rejects posted before it began: one posted while it ran is still open.
+    answered = (started(attempts[-1]['body']) or orders.created(attempts[-1]['created_at'])) if attempts else 0
     if cause == 'review' and verdicts and answered > orders.created(verdicts[-1]['created_at']) and \
             time.time() - answered < IDLE:
         # A fix run answered the last reject, and its push or `fixed` starts a new review: that verdict decides, not the old one.
