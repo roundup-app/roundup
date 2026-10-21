@@ -488,6 +488,19 @@ class Pick(unittest.TestCase):
         self.assertEqual(sent, [3])
         self.assertIn('Fix for PR #2 (check) waits: a fix run for it is already live.', errors.getvalue())
 
+    def test_l23_a_failed_review_rerun_still_prints_the_build_matrix(self):
+        rows = [dict(issue=31, slug='U31', state='ready')]
+        output, errors = io.StringIO(), io.StringIO()
+        failure = subprocess.CalledProcessError(1, ['gh', 'api'])
+        with patch.object(builder.orders, 'gh', return_value=[pr(number=2)]), patch.object(builder, 'fixing', return_value=[]), \
+                patch.object(builder, 'fix_prs', return_value=set()), patch.object(builder, 'codex_slots', return_value=(set(), 5)), \
+                patch.object(builder, 'repairs', return_value=[]), patch.object(builder, 'unreviewed', return_value=[(2, '77')]), \
+                patch.object(builder, 'rerun_review', side_effect=failure), \
+                patch.object(builder.orders, 'read_orders', return_value=rows), redirect_stdout(output), redirect_stderr(errors):
+            builder.pick(5)
+        self.assertEqual([row['issue'] for row in json.loads(output.getvalue())], [31])
+        self.assertIn('::error::Rerun of review run 77 on PR #2 failed', errors.getvalue())
+
     def test_l23_pick_starts_fixes_ready_prs_first_then_builds_only_in_free_codex_slots(self):
         prs = [pr(number=1, isDraft=True), pr(number=2), pr(number=3)]
         rows = [dict(issue=n, slug=f'U{n}', state='ready') for n in (31, 32, 33)]
@@ -1609,7 +1622,9 @@ class Review(unittest.TestCase):
     def test_l24_pick_reruns_an_ended_review_that_did_no_model_work(self):
         prs = [pr(number=1, statusCheckRollup=[dict(context='review', state='PENDING', targetUrl='https://x/actions/runs/77')]),
                pr(number=2, isDraft=True, statusCheckRollup=[dict(context='review', state='PENDING', targetUrl='https://x/actions/runs/78')]),
-               pr(number=3, statusCheckRollup=[dict(context='review', state='ERROR', targetUrl='https://x/actions/runs/79')])]
+               pr(number=3, statusCheckRollup=[dict(context='review', state='ERROR', targetUrl='https://x/actions/runs/79')]),
+               pr(number=4, headRefName='dependabot/npm_and_yarn/vite',
+                  statusCheckRollup=[dict(context='review', state='PENDING', targetUrl='https://x/actions/runs/80')])]
         self.assertEqual(builder.unreviewed(prs), [(1, '77')])
         with GitHub(run=dict(status='completed', attempt=1, url='https://x/actions/runs/77')) as github:
             builder.rerun_review(1, '77')
