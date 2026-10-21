@@ -113,3 +113,66 @@ At 1512×950, an isolated headless agent-browser observed the App against the re
 - On `tree-40`, the failed reason and recovery controls remain visible, alongside Sent and the live Kind: [before](../artifacts/ux/A2698a/base/dense.png), [after](../artifacts/ux/A2698a/head/dense.png). D2/D5 pass. D6/D7 fail on `input.todo-tick` on both baseline `9ae183686` and the changed App; D10 reports those failures. All other Checks keep passing. `loop/rules.sh delta` reports no regression; the Ask controls add no D6 failure.
 
 The behavioral observers are A2698a's named A41/H11 and U505/U506 tests. The existing tests in those files retain distinct proofs (byte framing, durable claim, ordinary instruction acceptance, ordering, selection, refusal reason and waiting-part recovery); no complete proof is replaced, so none was removed. The ordinary lost-submit observer additionally rejects local-command Signals; the existing live-row observer now checks immediate Sent and subsequent activity changes.
+
+## U2875 imported continuation in a Worktree
+
+Observed on Linux at `25e81a6d56db8d4a1d3b18ad07f5f10175a793f2`, 2026-10-21,
+with pinned Claude Code **2.1.300** and strict aimock **1.45.1**. This completes
+the import-to-Worktree transport observer, rather than the earlier manual-copy
+probe. [#2875](https://github.com/saadshahd/roundup/issues/2875) owns the work.
+
+```text
+real Claude writes conversation → Daemon discovers and imports → closed Rail child
+  → delete original → restart Daemon → explicit Resume → Attempt 1 in new Worktree
+  → user prompt → real Claude sends retained earlier turns to the model fixture
+```
+
+The run used disposable HOME, CLAUDE_CONFIG_DIR, Project, App data and socket
+paths. Inherited CLAUDE_, ANTHROPIC_, ROUNDUP_ and RUPD_ variables were removed.
+Only a dummy key and loopback model route were supplied; updates, marketplace
+auto-install and nonessential traffic were disabled. No personal configuration
+or subscription credential was read. Egress was not independently traced.
+
+| Observation | Result |
+| --- | --- |
+| Source | Real `claude -p`, with a unique phrase, wrote top-level JSONL; source SHA-256 `37536f6ea75542aead82f1ce671c86e5cfee4afeca7fbb3e49540d0857c1e9a4` |
+| Import | Public `project.importDiscover` (week) and `project.importCommit`; Worktrees enabled with readiness command `true` |
+| Closed state | One Workstream and child Agent; no Attempt or Terminal; `can_resume: true`; empty Terminal list |
+| Files | Destination `.roundup/worktrees/agent-2` held the committed current Base; source bytes matched before deliberate deletion |
+| Reopen | Original JSONL deleted before Daemon restart; same child remained resumable with no Attempt |
+| Explicit Resume | Real SessionStart acknowledged Attempt `1`; Terminal created in the distinct Worktree |
+| Continuation | The resumed model request contained the earlier user phrase and assistant reply, plus the new recall question; the Terminal displayed the new answer |
+| Model journal | Two requests, both matched fixtures with status 200; zero unmatched requests |
+
+Sanitized conversational excerpt from aimock's own request journal:
+
+```text
+request 1: user      Remember this exact import proof phrase: violet-cormorant-6a2b4bb3afa5
+response:  assistant Stored violet-cormorant-6a2b4bb3afa5.
+request 2: user      [the same earlier user turn]
+           assistant Stored violet-cormorant-6a2b4bb3afa5.
+           user      Follow this instruction: What exact import proof phrase did I ask you to remember?
+response:  assistant Earlier phrase: violet-cormorant-6a2b4bb3afa5.
+```
+
+Replies are fixture-authored: this proves retained history reaches real Claude's
+resumed request and its reply reaches the Terminal, not a real model's semantic
+recall. The program, storage, import, Worktree, hooks and acknowledgement are real.
+The user reports what they meet on the Mac.
+
+To repeat the observation, build `cargo build -p rupd -p rup` after `pnpm install`.
+Use the isolated config and loopback routing in
+`crates/rup/tests/e2e/aimock.rs` (`configure`, `routed_claude`, `Model::start_at`).
+Create two strict fixtures matching the two user texts above, with their shown
+responses; choose a fresh phrase each run. Commit a file in a disposable git
+Project and create the source with the pinned `node_modules/.bin/claude -p`.
+Start an attached Daemon with that isolated config and its own socket/data paths,
+enable Worktrees using `project.setWorktrees`, then discover and commit the
+returned source/revision. Read `rail.tree` and `terminal.list` to assert the
+closed state and compare original bytes. Delete only that original JSONL,
+restart the Daemon, and recheck the child. Trust the new Worktree in the isolated
+Claude config, explicitly call `agent.resume`, and require its acknowledged
+Attempt `1`. Send the recall question with `agent.prompt`; wait for the new answer
+in `terminal.snapshot`. Inspect `/__aimock/journal` for both prior turns in the
+second request and matched status 200 for every request. Stop only the Daemon,
+Claude and model fixture started by this observer.
