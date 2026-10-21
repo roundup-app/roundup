@@ -59,20 +59,6 @@ it("u461_keep_and_escape_restore_focus", async () => {
   expect(todoCallsTo(app, "todo.delete")).toHaveLength(0);
 });
 
-it("u461_done_is_checked", async () => {
-  const { app } = await mountTodos([todo(1, { title: "Done Todo", done: true })]);
-
-  fireEvent.click(await screen.findByRole("button", { name: "1 done" }));
-  fireEvent.click(await screen.findByRole("button", { name: "Done #1 Done Todo" }));
-  const box = await within(panel()).findByRole<HTMLInputElement>("checkbox", { name: "Complete Done Todo" });
-
-  expect(box.checked).toBe(true);
-  expect(box.disabled).toBe(true);
-  fireEvent.click(box);
-
-  expect(todoCallsTo(app, "todo.complete")).toHaveLength(0);
-});
-
 it("u461_delete_failure_is_retryable", async () => {
   const { app, connected } = await open();
   let reject!: (error: RpcError) => void;

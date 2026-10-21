@@ -17,6 +17,7 @@ The `roundup` MCP server offers these tools. They are deferred: load a tool befo
 - `todo_list`: see all the work already recorded.
 - `todo_update`: change a Todo's title or body as the work becomes clearer.
 - `todo_complete`: mark a Todo done once its outcome is real.
+- `todo_reopen`: reopen a done Todo when work remains.
 - `todo_setBlockers`: replace the Todos that must finish before this one.
 - `pad_create`: start a Pad, a named text you own, for notes you want to keep.
 - `pad_read`: read one Pad.

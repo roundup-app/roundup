@@ -173,7 +173,7 @@ export const OpenRow = (props: {
   return (
     <ShelfRow
       glyph={props.nested ? <KindGlyph kind={kindOf(props.todo)} /> : <>
-        <TickBox todo={props.todo} onComplete={complete} />
+        <TickBox todo={props.todo} onToggle={complete} />
         <Show when={props.todo.blocked && props.place?.parent == null}><KindGlyph kind="blocked" /></Show>
       </>}
       data-id={props.nested ? undefined : props.todo.id}
@@ -355,21 +355,21 @@ export const Todos = () => {
   const rows = new Map<number, HTMLButtonElement>();
   let plusButton: HTMLButtonElement | undefined;
 
-  // U138: a completed Todo leaves the open list only once its `todo.updated` Event has refetched it, so the row to focus
+  // U138/U461a: a state change leaves its list only once `todo.updated` has refetched it, so the row to focus
   // is held here until this list no longer carries `id`, then it is given to that target, else to the `+` button — but
   // only while focus is still unclaimed (null or the page body), so a request that outlives the user moving focus
   // elsewhere (typing in U16's field, Tab into the pane) never yanks it back.
-  const [awaitingFocus, setAwaitingFocus] = createSignal<{ id: number; target: number | null }[]>([]);
+  const [awaitingFocus, setAwaitingFocus] = createSignal<{ id: number; target: number | null; done: boolean }[]>([]);
 
   createEffect(() => {
-    const openIds = new Set(open().map((todo) => todo.id));
+    const remains = (request: { id: number; done: boolean }) => (request.done ? done() : open()).some(todo => todo.id === request.id);
     const waiting = awaitingFocus();
 
-    if (waiting.every((request) => openIds.has(request.id))) return;
+    if (waiting.every(remains)) return;
 
     setAwaitingFocus(
       waiting.filter((request) => {
-        if (openIds.has(request.id)) return true;
+        if (remains(request)) return true;
 
         if (document.activeElement === null || document.activeElement === document.body) {
           const target = request.target !== null ? rows.get(request.target) : undefined;
@@ -434,11 +434,12 @@ export const Todos = () => {
     connected.drawer.open(content, source);
   };
 
-  const complete = async (todo: Todo) => {
-    const target = rowAfter(todo.id, open().map((candidate) => candidate.id));
-    const message = await failureOf(() => connected.app.rpc("todo.complete", { id: todo.id }));
+  const toggleDone = async (todo: Todo, members = open()) => {
+    const wasDone = todo.done;
+    const target = rowAfter(todo.id, members.map((candidate) => candidate.id));
+    const message = await failureOf(() => connected.app.rpc(todo.done ? "todo.reopen" : "todo.complete", { id: todo.id }));
 
-    if (message === null) setAwaitingFocus((waiting) => [...waiting, { id: todo.id, target }]);
+    if (message === null) setAwaitingFocus((waiting) => [...waiting, { id: todo.id, target, done: wasDone }]);
 
     return message;
   };
@@ -518,7 +519,7 @@ export const Todos = () => {
               onSelectionKey={selectionKey}
               known={todos.byId()}
               onOpen={show}
-              onComplete={complete}
+              onComplete={toggleDone}
               sorted={sorted.row(todo.id, parts, () => tree().map(({ todo }) => todo.id))}
               place={row}
               nest={nestOf(todo, row.parent, tree()[at() - 1]?.todo ?? null, at() === 0)}
@@ -538,10 +539,23 @@ export const Todos = () => {
         </Sortable.Root>
         </TreeView.Root>
         <Show when={unfolded()}>
+          <div class="shelf-list">
             <For each={items().filter(todo => todo.done)}>
-              {(todo) => (
-                <ShelfRow
-                  glyph={<TickBox todo={todo} />}
+              {(todo) => {
+                const [failure, setFailure] = createSignal<string | null>(null);
+                let button: HTMLButtonElement | undefined;
+                onCleanup(() => {
+                  if (rows.get(todo.id) === button) rows.delete(todo.id);
+                });
+
+                return <ShelfRow
+                  glyph={<TickBox todo={todo} onToggle={async () => {
+                    const message = await toggleDone(todo, items().filter(candidate => candidate.done));
+
+                    setFailure(message);
+
+                    return message;
+                  }} />}
                   class="todo-row todo-inset"
                   data-id={todo.id}
                   data-todo={todo.id}
@@ -553,16 +567,17 @@ export const Todos = () => {
                       tooltip={todo.title}
                       pressed={selection.selected().includes(todo.id)}
                       selectionActive={selection.selected().length > 0}
-                      ref={(row) => selection.register(todo.id, row)}
+                      ref={(row) => { button = row; selection.register(todo.id, row); rows.set(todo.id, row); }}
                       onKeyDown={(event) => selectionKey(todo, event)}
                       onClick={(event) => !bulk.pending() && selection.click(todo.id, event, () => show(todo, activationSource(event)))}
                     >
                       {(trigger) => <span {...trigger()} class="shelf-title">{todo.title}</span>}
                     </RowButton>
                   }
-                />
-              )}
+                ><Show when={failure()}>{(message) => <ErrorLine message={message()} />}</Show></ShelfRow>;
+              }}
             </For>
+          </div>
         </Show>
         </>; }}</Groups>
       </Show>

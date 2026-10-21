@@ -1,5 +1,6 @@
 import { cleanup, fireEvent, screen, waitFor, within } from "@solidjs/testing-library";
 import { afterEach, describe, expect, it } from "vitest";
+import { agent as agentNode } from "../testing/nodes";
 import { mountTodos, todo, todoCallsTo as callsTo, todoEvent, todoRowOf as rowOf } from "./testHarness";
 
 afterEach(cleanup);
@@ -26,10 +27,10 @@ describe("u361 a Todo row holds a tick box, its title and what it waits on", () 
 
     fireEvent.click(await screen.findByRole("button", { name: /1 done/ }));
 
-    const done = screen.getByRole<HTMLInputElement>("checkbox", { name: "Complete ship it" });
+    const done = screen.getByRole<HTMLInputElement>("checkbox", { name: "Reopen ship it" });
 
     expect(done.checked).toBe(true);
-    expect(done.disabled).toBe(true);
+    expect(done.disabled).toBe(false);
   });
 
   it("u361_repeated_toggles_while_pending_complete_only_once", async () => {
@@ -52,7 +53,7 @@ describe("u361 a Todo row holds a tick box, its title and what it waits on", () 
     fireEvent.click(box);
 
     expect(callsTo(app, "todo.complete")).toHaveLength(1);
-    expect(box.checked).toBe(true);
+    expect(box.checked).toBe(false);
     expect(within(rowOf(3)).getByRole("button", { name: /todo 3/ })).toBeTruthy();
   });
 
@@ -107,4 +108,73 @@ describe("u361 a Todo row holds a tick box, its title and what it waits on", () 
     await waitFor(() => expect(within(drawer).getByText("migrate")).toBeTruthy());
     await waitFor(() => expect(callsTo(app, "todo.getHistory").map((call) => call.params)).toEqual([{ id: 4 }]));
   });
+});
+
+it.each(["list", "agent-list", "drawer"].flatMap(surface => [true, false].map(done => ({ surface, done }))))("u461a_pending_and_failure_preserve_accepted_value on $surface done=$done", async ({ surface, done }) => {
+  const maker = { kind: "agent", id: "agent-1", parent: null } as const;
+  const { app, connected } = await mountTodos([todo(1, { title: "ship", done, creator: maker })], true, [agentNode("agent-1", "idle", "ready")]);
+
+  if (surface === "agent-list") connected.rail.select("agent-1");
+
+  if (done) fireEvent.click(await screen.findByRole("button", { name: "1 done" }));
+
+  if (surface === "drawer") fireEvent.click(await screen.findByRole("button", { name: `${done ? "Done" : "Idle"} #1 ship` }));
+
+  const area = surface === "drawer" ? within(document.querySelector<HTMLElement>(".drawer")!) : screen;
+  const box = await area.findByRole<HTMLInputElement>("checkbox", { name: `${done ? "Reopen" : "Complete"} ship` });
+  const method = done ? "todo.reopen" : "todo.complete";
+  let reject!: (reason: Error) => void;
+  app.handlers[method] = () => new Promise((_, fail) => { reject = fail; });
+  box.focus();
+  fireEvent.click(box);
+  fireEvent.click(box);
+  expect(callsTo(app, method)).toEqual([{ method, params: { id: 1 } }]);
+  expect(box.checked).toBe(done);
+  reject(new Error("Cannot reopen"));
+  await area.findByText("Cannot reopen");
+  expect(box.checked).toBe(done);
+  expect(document.activeElement).toBe(box);
+  app.handlers[method] = () => new Promise(() => {});
+  fireEvent.click(box);
+  expect(callsTo(app, method)).toHaveLength(2);
+  expect(callsTo(app, done ? "todo.complete" : "todo.reopen")).toHaveLength(0);
+});
+
+it.each([
+  { ids: [1, 2, 3], reopen: 2, next: 3 },
+  { ids: [1, 2], reopen: 2, next: 1 },
+  { ids: [1], reopen: 1, next: null },
+])("u461a_success_refetches_surfaces_and_keeps_focus from $ids", async ({ ids, reopen, next }) => {
+  const { app, store } = await mountTodos(ids.map(id => todo(id, { done: true })));
+  fireEvent.click(await screen.findByRole("button", { name: `${ids.length} done` }));
+  const box = await screen.findByRole<HTMLInputElement>("checkbox", { name: `Reopen todo ${reopen}` });
+  box.focus(); fireEvent.click(box);
+  await waitFor(() => expect(callsTo(app, "todo.reopen")).toHaveLength(1));
+  expect(box.checked).toBe(true);
+  app.emit(todoEvent("todo.updated", store.todos.find(item => item.id === reopen)!));
+  await screen.findByRole("checkbox", { name: `Complete todo ${reopen}` });
+  await waitFor(() => expect(document.activeElement).toBe(next === null
+    ? screen.getByRole("button", { name: "Add Todo" })
+    : screen.getByRole("button", { name: new RegExp(`^Done #${next} `) })));
+  expect(callsTo(app, "todo.complete")).toHaveLength(0);
+  expect(callsTo(app, "todo.delete")).toHaveLength(0);
+  expect(callsTo(app, "todo.move")).toHaveLength(0);
+  expect(callsTo(app, "todo.getHistory")).toHaveLength(0);
+});
+
+it("u461a_success_refetches_surfaces_and_keeps_focus in the Drawer", async () => {
+  const { app, store, connected } = await mountTodos([todo(1, { done: true }), todo(2, { blockers: [1] })]);
+  fireEvent.click(await screen.findByRole("button", { name: "1 done" }));
+  fireEvent.click(await screen.findByRole("button", { name: "Done #1 todo 1" }));
+  const drawer = document.querySelector<HTMLElement>(".drawer")!;
+  const box = await within(drawer).findByRole<HTMLInputElement>("checkbox", { name: "Reopen todo 1" });
+  box.focus(); fireEvent.click(box);
+  await waitFor(() => expect(callsTo(app, "todo.reopen")).toHaveLength(1));
+  app.emit(todoEvent("todo.updated", store.todos[0]!));
+  await waitFor(() => expect(box.checked).toBe(false));
+  expect(document.activeElement).toBe(box);
+  expect(connected.drawer.content()).not.toBeNull();
+  expect(within(rowOf(1)).getByRole<HTMLInputElement>("checkbox").checked).toBe(false);
+  expect(await screen.findByRole("button", { name: "Blocked #2 todo 2" })).toBeTruthy();
+  expect(callsTo(app, "todo.reopen")).toEqual([{ method: "todo.reopen", params: { id: 1 } }]);
 });
