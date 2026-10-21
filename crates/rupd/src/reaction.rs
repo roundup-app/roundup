@@ -355,14 +355,11 @@ impl Evaluator {
         if !(w.armed && holds) {
             return;
         }
-        if let Err(error) = self.agents.guard_reach(&r.actor, &r.target, true) {
-            let cause = format!("the saved authority was refused: {}", error.message);
+        if let Err(why) = self.agents.guard_reach(&r.actor, &r.target, true) {
             w.unavailable(
-                cause.clone(),
-                "stop this reaction and create one with current authority",
+                format!("authority refused: {}", why.message),
+                "the user may inspect or stop this reaction; create a new one with an authorized target",
             );
-            self.reactions
-                .observe(&r.id, "unavailable", Some(cause), Some(State::Invalidated));
             return;
         }
         let fired = self
@@ -597,20 +594,18 @@ impl Daemon {
                 };
                 let mine = key(actor);
                 let mut list = Vec::new();
-                for (owner, record) in rows {
-                    if actor.kind != ActorKind::User && owner != mine {
-                        continue;
-                    }
-                    let saved = read(&record)?;
+                for (_, record) in rows
+                    .iter()
+                    .filter(|(owner, _)| actor.kind == ActorKind::User || *owner == mine)
+                {
+                    let saved = read(record)?;
                     if actor.kind == ActorKind::Agent {
                         match self.agents.guard_reach(actor, &saved.target, true) {
                             Ok(()) => {}
-                            Err(error)
-                                if matches!(error.code, code::FORBIDDEN | code::NOT_FOUND) =>
-                            {
+                            Err(err) if matches!(err.code, code::FORBIDDEN | code::NOT_FOUND) => {
                                 continue;
                             }
-                            Err(error) => return Err(error),
+                            Err(err) => return Err(err),
                         }
                     }
                     list.push(self.with_firings(saved)?);
@@ -810,7 +805,7 @@ impl Daemon {
         Ok(reaction)
     }
 
-    /// The user may inspect any saved definition; its authorizing Agent must still have Reach.
+    /// The user may inspect any saved definition; its authorizing Agent needs current target Reach.
     fn reaction_own(&self, actor: &Actor, id: &str) -> Result<(String, Reaction), RpcError> {
         let db = self
             .reactions

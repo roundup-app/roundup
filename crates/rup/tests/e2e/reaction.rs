@@ -584,8 +584,10 @@ async fn nr8_automatic_firing_refuses_a_target_moved_out_of_reach() {
     .await;
     assert!(seen.firings.is_empty(), "unauthorized firing: {seen:?}");
     assert_eq!(seen.remaining, 1);
-    assert_eq!(seen.state, contracts::reaction::State::Invalidated);
-    assert!(seen.observation.cause.as_deref().unwrap().contains("Reach"));
+    assert_eq!(seen.target, s.a);
+    assert_eq!(seen.observation.health, "unavailable");
+    assert!(seen.observation.gap.as_deref().unwrap().contains("Reach"));
+    assert!(seen.observation.recovery.is_some());
     assert!(
         messages(&s.user, &s.a, "revoked reaction instruction")
             .await
@@ -594,43 +596,64 @@ async fn nr8_automatic_firing_refuses_a_target_moved_out_of_reach() {
 }
 
 #[tokio::test]
-async fn nr1_agent_actions_require_current_reach_but_user_actions_remain_available() {
-    let s = scene(&[]).await;
-    let author = client_as(&s.project, actor(ActorKind::Agent, &s.door)).await;
-    let mut body = definition(&s.a, "user may still run this");
-    body["condition"]["ids"] = json!([s.b]);
-    let saved = made(&author, "reaction.create", body.clone()).await;
-    assert_eq!(listed(&author).await.len(), 1);
-    s.user
-        .request("rail.move", json!({"id": s.a, "parent": null, "index": 0}))
-        .await
-        .unwrap();
-    for method in ["reaction.get", "reaction.stop", "reaction.run"] {
-        let err = author
-            .request(
-                method,
-                if method == "reaction.run" {
-                    json!({"id": saved.id, "operation": "refused"})
+async fn nr1_agent_access_requires_current_reach_while_user_access_remains() {
+    for removed in [false, true] {
+        let s = scene(&[]).await;
+        let author = client_as(&s.project, actor(ActorKind::Agent, &s.door)).await;
+        let mut body = definition(&s.a, "explicit reaction instruction");
+        body["condition"]["ids"] = json!([s.b]);
+        body["max_firings"] = json!(2);
+        body["rearm"] = json!(true);
+        let saved = made(&author, "reaction.create", body.clone()).await;
+        let replayed = made(&author, "reaction.create", body.clone()).await;
+        assert_eq!(replayed.id, saved.id);
+        let original = json!({"id": saved.id, "operation": "original"});
+        let first = made(&author, "reaction.run", original.clone()).await;
+        if removed {
+            s.user
+                .request("rail.remove", json!({"id": s.a}))
+                .await
+                .unwrap();
+        } else {
+            s.user
+                .request("rail.move", json!({"id": s.a, "parent": null, "index": 0}))
+                .await
+                .unwrap();
+        }
+        for (method, args) in [
+            ("reaction.create", body),
+            ("reaction.get", json!({"id": saved.id})),
+            ("reaction.stop", json!({"id": saved.id})),
+            ("reaction.run", original),
+            ("reaction.run", json!({"id": saved.id, "operation": "new"})),
+        ] {
+            let error = author.request(method, args).await.unwrap_err();
+            assert_eq!(
+                error.code,
+                if removed {
+                    code::NOT_FOUND
                 } else {
-                    json!({"id": saved.id})
+                    code::FORBIDDEN
                 },
-            )
-            .await
-            .unwrap_err();
-        assert_eq!(err.code, code::FORBIDDEN, "{method}");
+                "{method}"
+            );
+        }
+        assert!(listed(&author).await.is_empty());
+        let kept = current(&s, &saved).await;
+        assert_eq!(kept.firings.len(), 1);
+        assert_eq!(kept.firings[0].id, first.firings[0].id);
+        assert_eq!(kept.remaining, 1);
+        assert_eq!(serde_json::to_value(kept.state).unwrap(), "active");
+        let run = json!({"id": saved.id, "operation": "user"});
+        if removed {
+            let error = s.user.request("reaction.run", run).await.unwrap_err();
+            assert_eq!(error.code, code::NOT_FOUND);
+        } else {
+            let ran = made(&s.user, "reaction.run", run).await;
+            assert_eq!(ran.firings.len(), 2);
+            assert_eq!(ran.remaining, 0);
+        }
+        let stopped = made(&s.user, "reaction.stop", json!({"id": saved.id})).await;
+        assert_eq!(serde_json::to_value(stopped.state).unwrap(), "stopped");
     }
-    let retry = author.request("reaction.create", body).await.unwrap_err();
-    assert_eq!(retry.code, code::FORBIDDEN);
-    assert!(listed(&author).await.is_empty());
-    let seen = current(&s, &saved).await;
-    assert!(seen.firings.is_empty());
-    let ran = made(
-        &s.user,
-        "reaction.run",
-        json!({"id": saved.id, "operation": "user"}),
-    )
-    .await;
-    assert_eq!(ran.firings.len(), 1);
-    let stopped = made(&s.user, "reaction.stop", json!({"id": saved.id})).await;
-    assert_eq!(stopped.state, contracts::reaction::State::Stopped);
 }
