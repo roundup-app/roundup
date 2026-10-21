@@ -99,14 +99,14 @@ fn a4_the_argv_runs_claude_with_a_per_agent_settings_file() {
     let argv = s.prepare("7").unwrap();
     assert_eq!(argv[..2], ["fake-claude", "--settings"]);
     assert_eq!(argv[3], "--mcp-config");
-    assert_eq!(argv.len(), 11);
+    assert_eq!(argv.len(), 9);
     for file in [&argv[2], &argv[4]] {
         assert!(Path::new(file).starts_with(s.dir.canonicalize().unwrap()));
     }
     // B50: the socket a note arrives on is per Agent, and the mode is the one a note names.
     assert_eq!(argv[7], "--messaging-socket-path");
     assert!(argv[8].ends_with("/7.sock"), "{}", argv[8]);
-    assert_eq!(argv[9..], ["--permission-mode", "default"]);
+    assert!(!argv.contains(&"--permission-mode".to_owned()));
     let other = s.prepare("8").unwrap();
     assert_ne!((&argv[2], &argv[4]), (&other[2], &other[4]));
 }
@@ -956,7 +956,7 @@ fn f2_a_door_starts_with_the_tool_allowlist_once_and_an_agent_without_it() {
     let at = door.iter().position(|arg| arg == "--tools").unwrap();
     assert_eq!(door[at + 1], "Read,Grep,Glob,ToolSearch,Skill");
     assert_eq!(door.iter().filter(|arg| *arg == "--tools").count(), 1);
-    assert_eq!(agent.len(), 11);
+    assert_eq!(agent.len(), 9);
     assert!(!agent.iter().any(|arg| arg == "--tools"));
     assert_eq!(
         agents::claude_code::DOOR_TOOLS,
@@ -2743,4 +2743,33 @@ fn a2681c_only_complete_assistant_card_objects_count() {
         conversation_overview(&[assistant_card(fence)])["card"],
         json!({"intent":"right"})
     );
+}
+
+#[test]
+fn b2706_a_normal_start_passes_no_permission_mode() {
+    let s = setup();
+    let launcher = s.launcher();
+    for setting in [Some("acceptEdits"), None] {
+        if let Some(mode) = setting {
+            let body = format!(r#"{{"permissions":{{"defaultMode":"{mode}"}}}}"#);
+            std::fs::write(s.root.path().join("settings.json"), body).unwrap();
+        }
+        for resume in [None, Some("conv-1")] {
+            let argv = launcher
+                .prepare(folders(&s.dir), "7", "1", &s.cwd, resume, Role::Agent)
+                .unwrap();
+            assert!(!argv.iter().any(|a| a == "--permission-mode"), "{argv:?}");
+            assert_eq!(argv.iter().any(|a| a == "--resume"), resume.is_some());
+        }
+    }
+    let yolo = Pair {
+        yolo: true,
+        ..Pair::default()
+    };
+    let argv = launcher
+        .prepare_on(folders(&s.dir), "7", "1", &s.cwd, None, Role::Agent, &yolo)
+        .unwrap();
+    let at = argv.iter().position(|a| a == "--permission-mode").unwrap();
+    assert_eq!(argv[at + 1], "bypassPermissions");
+    assert!(argv.iter().any(|a| a == "--dangerously-skip-permissions"));
 }
