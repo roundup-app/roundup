@@ -8,7 +8,7 @@ These clauses replace U179's prohibition of Project text outside the strip and i
 
 The journey stage is Understand (`.agents/data/journey.md`): identify the selected Workstream while switching Projects or selecting its Door or Agents. This is title and layout acceptance, not proof of completing the whole journey.
 
-All new rendered checks use 1280×800 and 1600×800, dark. #1236 owns the minimum-width configuration and removal of old narrower checks; this specification adds none. Coordinates below are CSS px in the window's content coordinate system. Box comparisons allow at most 1 px rounding error.
+All new rendered observers use 1280×800 and 1600×800. Behavioral assertions retain light and dark coverage, including `u449_long_title_keeps_its_full_name`'s full text and accessible name, without screenshots or Check readings. Captures and design-critic Check readings use dark only. #1236 owns the minimum-width configuration and removal of old narrower checks; this specification adds none. Coordinates below are CSS px in the window's content coordinate system. Box comparisons allow at most 1 px rounding error.
 
 **U449 one row spans the window above every region.** Given the U26 harness with `first-run`, `agents-10`, `tabs-8` and `tree-40`, then:
 
