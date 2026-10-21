@@ -103,7 +103,7 @@ reading = r"""(() => {
     dependencyGroups:[...d.querySelectorAll('p')].filter(p=>['Waits on','Blocks'].includes(p.textContent)).map(p=>p.textContent),
     failure:[...d.querySelectorAll('[role=alert]')].map(e=>({text:e.textContent,box:box(e)})),
     history:[...d.querySelectorAll('[data-change]')].map(e=>e.textContent),
-    unread:d.querySelector('hr')?.nextElementSibling?.textContent??null};
+    unread:d.querySelector('.todo-history-count')?.dataset.state??null};
 })()"""
 
 
@@ -112,6 +112,8 @@ def fake():
         open_page(origin + '/harness.html?seed=tree-40', scheme)
         wait('Boolean(window.__fake && document.querySelector("[data-id=\\"5\\"] .row-head button"))')
         evaluate(setup)
+        wait('Boolean(document.querySelector(".todo-history-line"))')
+        evaluate('document.querySelector(".todo-history-line").click()')
         wait('Boolean(document.querySelector("[data-change]"))')
         evaluate('(async()=>{await document.fonts.ready;await Promise.all(document.querySelector(".drawer").getAnimations().map(a=>a.finished));})()')
         evaluate('window.__fake.failNext(-32003,"Unable to complete this Todo")')
@@ -171,6 +173,8 @@ def real():
         browser('click', '#shelf-tab-todos')
     wait('Boolean(document.querySelector("[data-todo=\\"1\\"] button"))')
     evaluate('document.querySelector("[data-todo=\\"1\\"] button").click()')
+    wait('Boolean(document.querySelector(".todo-history-line"))')
+    evaluate('document.querySelector(".todo-history-line").click()')
     wait('Boolean(document.querySelector("[data-change]"))')
     evaluate("(async()=>{let h;do{h=await window.__u462rpc('todo.getHistory',{id:1});if(h.unread!==null)await new Promise(requestAnimationFrame)}while(h.unread!==null);})()")
     browser('click', '.drawer .close')
@@ -181,10 +185,13 @@ def real():
     evaluate("[...document.querySelectorAll('button')].find(b=>b.textContent.trim()==='1 done').click()")
     wait('Boolean(document.querySelector("[data-todo=\\"1\\"] button"))')
     evaluate('document.querySelector("[data-todo=\\"1\\"] button").click()')
-    wait('document.querySelectorAll("[data-change]").length===4')
+    wait('Boolean(document.querySelector(".todo-history-line"))')
+    # Unread changes show as a state mark on the collapsed count; opening reads them.
+    assert evaluate("document.querySelector('.todo-history-count').dataset.state") == 'unread'
+    evaluate('document.querySelector(".todo-history-line").click()')
+    wait('document.querySelectorAll("[data-change]").length===6')
     result = evaluate(reading)
-    assert result['history'] == ['Title: Door TodoBody: Initial bodyOpen', 'Title: Evolved TodoBody: Changed body\nSecond line', 'Waits on: #2', 'Done'], result
-    assert result['unread'] == result['history'][1], result
+    assert result['history'] == ['Created Door Todo', 'Wrote the body', 'Renamed to Evolved Todo', 'Wrote the body', 'Now waits on #2', 'Marked done'], result
     save('U462', 'real-daemon-Reopened', result)
 
 
@@ -192,6 +199,8 @@ def reopen_fake():
     open_page(origin + '/harness.html?seed=tree-40')
     wait('Boolean(window.__fake && document.querySelector("[data-id=\\"5\\"] .row-head button"))')
     evaluate(setup)
+    wait('Boolean(document.querySelector(".todo-history-line"))')
+    evaluate('document.querySelector(".todo-history-line").click()')
     wait('Boolean(document.querySelector("[data-change]"))')
     baseline_checks = evaluate('window.__checks()')
     save('U461a', 'open-before-reopen-1512-dark', evaluate(reading))

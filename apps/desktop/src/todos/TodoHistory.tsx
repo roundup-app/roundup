@@ -3,45 +3,83 @@ import { createEffect, createSignal, For, on, onCleanup, Show } from "solid-js";
 import type { History } from "@contracts/todo/History";
 import type { Change } from "@contracts/todo/Change";
 import { ErrorLine } from "../ink/ErrorLine";
+import { Icon } from "../ink/Icon";
 import { useConnectedProject } from "../state/connectedProject";
 import { failureOf } from "./failureOf";
 
+const ids = (list: number[]) => list.map((id) => `#${id}`).join(", ");
+
+/** U3728: one past-tense line per change made, the actor named only when it is not the user. */
 const lines = (change: Change, agentName: (id: string) => string): string[] => {
   const { before, after } = change;
   const text: string[] = [];
 
-  if (!before || before.title !== after.title) text.push(copy.titleChange(after.title));
+  if (!before) text.push(copy.changeCreated(after.title));
+  else if (before.title !== after.title) text.push(copy.changeRenamed(after.title));
 
-  if (!before || before.body !== after.body) text.push(copy.bodyChange(after.body || copy.noBody));
+  if (before ? before.body !== after.body : after.body !== "") text.push(after.body ? copy.changeBodyWritten : copy.changeBodyCleared);
 
-  if (!before || before.done !== after.done) text.push(after.done ? copy.done : copy.open);
+  if (before && before.done !== after.done) text.push(after.done ? copy.changeDone : copy.changeReopened);
   const added = after.blockers.filter((id) => !before?.blockers.includes(id));
   const removed = before?.blockers.filter((id) => !after.blockers.includes(id)) ?? [];
 
-  if (added.length) text.push(copy.waitsOnJoin(added.map((id) => `#${id}`).join(", ")));
+  if (added.length) text.push(copy.changeWaitsOn(ids(added)));
 
-  if (removed.length) text.push(copy.removedBlockersJoin(removed.map((id) => `#${id}`).join(", ")));
+  if (removed.length) text.push(copy.changeStoppedWaitingOn(ids(removed)));
 
   const ownerId = (owner: Change["after"]["owner"]) => (owner ? `${owner.kind}:${owner.id}` : null);
 
   if (ownerId(before?.owner ?? null) !== ownerId(after.owner) && (before || after.owner)) {
-    text.push(copy.ownerChange(!after.owner ? copy.unassigned : after.owner.kind === "agent" ? agentName(after.owner.id) : copy.me));
+    text.push(after.owner ? copy.changeAssigned(after.owner.kind === "agent" ? agentName(after.owner.id) : copy.me) : copy.changeUnassigned);
   }
 
-  return text;
+  const actor = change.actor && change.actor.kind !== "user" ? agentName(change.actor.id) : null;
+
+  return actor ? text.map((line) => copy.changeByActor(line, actor)) : text;
 };
 
-/** History loads only here; its first response captures this opening's unread boundary. */
+type Loaded = { history: History; unread: boolean };
+
+/** History loads with the Drawer, but entries render and the read is sent only once the user opens the line. */
 export const TodoHistory = (props: { id: number; onCapture?: (change: Change | undefined) => void }) => {
   const { app, events, drawer, rail } = useConnectedProject();
   const content = drawer.content();
-  const [history, setHistory] = createSignal<History | null>(null);
+  const [loaded, setLoaded] = createSignal<Loaded | null>(null);
   const [failure, setFailure] = createSignal<string | null>(null);
+  const [opened, setOpened] = createSignal(false);
   let latest = 0;
   let alive = true;
   let boundary: number | null | undefined;
+  let baseline = 0;
   let through = 0;
+  let acknowledged = false;
   let reading: Promise<null> | null = null;
+
+  const unreadIn = (changes: Change[]) => acknowledged ? changes.some((change) => change.seq > through)
+    : boundary !== null || changes.some((change) => change.seq > baseline);
+
+  // The opened section reads the entries it shows, once per Drawer.
+  const read = async () => {
+    const fetched = loaded();
+    const id = props.id;
+
+    if (!opened() || !fetched || reading) return;
+    through = fetched.history.changes.at(-1)?.seq ?? 0;
+
+    if (through === 0) return;
+    reading = app.rpc("todo.readHistory", { id, through }).then(() => null);
+    const message = await failureOf(async () => { await reading; });
+
+    if (message !== null) reading = null;
+    else if (alive && id === props.id) {
+      acknowledged = true;
+      const current = loaded();
+
+      if (current) setLoaded({ ...current, unread: unreadIn(current.history.changes) });
+    }
+
+    if (alive && id === props.id) setFailure(message);
+  };
 
   const refresh = async () => {
     if (drawer.content() !== content) return;
@@ -53,30 +91,22 @@ export const TodoHistory = (props: { id: number; onCapture?: (change: Change | u
 
       if (!alive || mine !== latest || id !== props.id || drawer.content() !== content) return;
       props.onCapture?.(fetched.changes.at(-1));
-      const opening = history() === null;
 
-      if (boundary === undefined) boundary = fetched.unread;
-      // No unread entries on opening: later changes start the rule after the fetched tail.
-      const firstNew = boundary ?? (opening ? null : fetched.changes.find((change) => change.seq > through)?.seq ?? null);
-
-      if (history() === null) through = fetched.changes.at(-1)?.seq ?? 0;
-      setHistory({ changes: fetched.changes, unread: boundary === null ? firstNew : boundary ?? null });
-
-      // Only the opening's fetched prefix is a read; a live refresh must leave later changes unread on reopening.
-      if (through > 0) {
-        reading ??= app.rpc("todo.readHistory", { id, through }).catch((error) => {
-          reading = null;
-          throw error;
-        });
-        await reading;
+      if (boundary === undefined) {
+        boundary = fetched.unread;
+        baseline = fetched.changes.at(-1)?.seq ?? 0;
       }
+
+      setLoaded({ history: fetched, unread: unreadIn(fetched.changes) });
     });
 
     if (alive && mine === latest && id === props.id && drawer.content() === content) setFailure(message);
+    await read();
   };
 
   createEffect(on(() => props.id, () => {
-    boundary = undefined; through = 0; reading = null; setHistory(null); setFailure(null);
+    boundary = undefined; baseline = 0; through = 0; acknowledged = false; reading = null;
+    setLoaded(null); setFailure(null); setOpened(false);
     void refresh();
   }));
   onCleanup(events.subscribe((event) => {
@@ -87,12 +117,31 @@ export const TodoHistory = (props: { id: number; onCapture?: (change: Change | u
   }));
   onCleanup(() => { alive = false; latest++; });
 
-  return <section class="todo-history" aria-label={copy.todoHistory}>
-    <h3>{copy.changes}</h3>
-    <Show when={failure()}>{(message) => <div><ErrorLine message={message()} /><button data-button="quiet" class="word" type="button" onClick={() => void refresh()}>{copy.retryHistory}</button></div>}</Show>
-    <Show when={history()}>{(loaded) => <For each={loaded().changes}>{(change) => <>
-      <Show when={loaded().unread === change.seq}><hr aria-label={copy.unreadChanges} /></Show>
-      <div class="todo-change" data-change={change.seq}><For each={lines(change, (id) => rail.nodes.find((node) => node.id === id)?.name ?? id)}>{(line) => <p>{line}</p>}</For></div>
-    </>}</For>}</Show>
-  </section>;
+  const toggle = () => {
+    const next = !opened();
+
+    setOpened(next);
+
+    if (!next) return;
+
+    // A failed fetch has nothing to read: opening shows its failure and the retry.
+    if (loaded()) void read();
+  };
+
+  const count = () => loaded()?.history.changes.length ?? 0;
+
+  return <Show when={count() > 0 || failure() !== null}>
+    <section class="todo-history" aria-label={copy.todoHistory}>
+      <button type="button" class="todo-history-line" data-button="quiet" aria-expanded={opened()} onClick={toggle}>
+        <Icon name={opened() ? "down" : "right"} />
+        <span class="todo-history-count" data-state={loaded()?.unread ? "unread" : "read"}>{count() > 0 ? copy.changesCount(count()) : copy.changes}</span>
+      </button>
+      <Show when={opened()}>
+        <Show when={failure()}>{(message) => <div><ErrorLine message={message()} /><button data-button="quiet" class="word" type="button" onClick={() => void refresh()}>{copy.retryHistory}</button></div>}</Show>
+        <For each={loaded()?.history.changes ?? []}>{(change) => <>
+          <For each={lines(change, (id) => rail.nodes.find((node) => node.id === id)?.name ?? id)}>{(line) => <p class="todo-change" data-change={change.seq}>{line}</p>}</For>
+        </>}</For>
+      </Show>
+    </section>
+  </Show>;
 };

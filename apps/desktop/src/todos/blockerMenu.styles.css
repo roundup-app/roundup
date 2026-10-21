@@ -1,0 +1,16 @@
+.todo-blocker-menu {
+  width: min(calc(var(--space-5) * 16), 90vw);
+  padding: var(--space-1);
+}
+
+.todo-blocker-menu .app-combobox-item {
+  min-height: var(--space-5);
+}
+
+.todo-blocker-title {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}

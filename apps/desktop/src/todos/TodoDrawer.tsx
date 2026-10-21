@@ -17,7 +17,7 @@ import "./drawer.styles.css";
 import { useConnectedProject } from "../state/connectedProject";
 import { EditableText, TodoDraftRecovery, todoDraftSchema, formSchema, blockerSchema } from "./EditableText";
 import { failureOf, outcomeOf } from "./failureOf";
-import { RowButton } from "./RowButton";
+import { BlockerMenu } from "./BlockerMenu";
 import type { TodosState } from "./state";
 import { blockedBy, blockersOf, kindOf, offeredAsBlockers } from "./todoView";
 
@@ -334,25 +334,13 @@ export const TodoDrawer = (props: {
                     <For each={blockedBy(current(), props.todos.all())}>{(blocked) => <TodoLine todo={blocked} />}</For>
                   </div>
                 </Show>
-                <p>
-                  <button data-button="add" type="button" class="word" ref={(element) => { blockerButton = element; }} onClick={() => setOffering(!offering())}>
-                    <Icon name="plus" />{copy.blockerWord}</button>
-                </p>
-                <Show when={offering()}>
-                  <For each={offeredAsBlockers(answered() ?? current(), props.todos.all())}>
-                    {(other) => (
-                      <RowButton
-                        onClick={() => {
-                          setOffering(false);
-                          blockerButton?.focus();
-                          addBlocker(other.id);
-                        }}
-                      >
-                        {() => <><KindGlyph kind={kindOf(other)} /> <span class="mono">#{other.id}</span>{`  ${other.title}`}</>}
-                      </RowButton>
-                    )}
-                  </For>
-                </Show>
+                <BlockerMenu
+                  open={offering()}
+                  onOpenChange={setOffering}
+                  others={offeredAsBlockers(answered() ?? current(), props.todos.all())}
+                  buttonRef={(element) => { blockerButton = element; }}
+                  onPick={(id) => { blockerButton?.focus(); addBlocker(id); }}
+                />
                 <Show when={blockerForm()}><p><button data-button="quiet" class="word" type="button" onClick={() => void saveBlockers()}>{copy.save}</button></p></Show>
                 <Show when={!props.recovery}><TodoHistory id={props.id} onCapture={setCaptured} /></Show>
               </>
