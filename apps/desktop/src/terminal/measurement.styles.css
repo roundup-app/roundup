@@ -11,7 +11,7 @@
 
 .measurement-action {
   flex: none;
-  padding-inline: var(--space-3);
+  padding: var(--space-2) var(--space-4) 0;
 }
 
 .measurement-dashboard {
@@ -94,7 +94,7 @@
 
 .measurement-dashboard table {
   width: 100%;
-  table-layout: fixed;
+  table-layout: auto;
   border-collapse: collapse;
   margin-block: var(--space-2);
   font-size: var(--text-caption);
@@ -106,12 +106,16 @@
   text-align: right;
   vertical-align: top;
   font-weight: 400;
-  overflow-wrap: anywhere;
+}
+
+.measurement-dashboard td {
+  white-space: nowrap;
 }
 
 .measurement-dashboard th:first-child {
-  width: 30%;
+  width: 25%;
   text-align: left;
+  overflow-wrap: anywhere;
 }
 
 .measurement-dashboard th button {
@@ -124,5 +128,6 @@
 }
 
 .measurement-overview .measurement-cost strong {
-  font-size: var(--text-pad-subheading);
+  font-size: var(--text-title);
+  font-weight: 600;
 }
