@@ -65,29 +65,59 @@ it("u3010b_dispose_mid_slide_clears_sliding", () => {
 
 it("u3010b_exit_preserves_draft_and_submit_identity", () => {
   const { drawer, panel } = setup();
+  const submit = vi.fn();
 
-  drawer.open(() => <input aria-label="draft" />);
-  // SAFETY: the element rendered above is an `<input>`.
-  const draft = screen.getByLabelText("draft") as HTMLInputElement;
+  drawer.open(() => (
+    <form onSubmit={(event) => { event.preventDefault(); submit(); }}>
+      <textarea aria-label="draft" />
+      <button type="submit">Send</button>
+    </form>
+  ));
+  // SAFETY: the element rendered above is a `<textarea>`.
+  const draft = screen.getByLabelText("draft") as HTMLTextAreaElement;
 
-  draft.value = "typed";
+  draft.value = "line one\nline two";
   drawer.close();
+
+  // The retained exit is the same element with the exact text, and takes no new activation.
   expect(screen.getByLabelText("draft")).toBe(draft);
-  expect(draft.value).toBe("typed");
+  expect(draft.value).toBe("line one\nline two");
+  expect(panel.dataset["open"]).toBe("false");
+
   fireEvent.transitionEnd(panel);
   expect(screen.queryByLabelText("draft")).toBeNull();
+  expect(submit).not.toHaveBeenCalled();
 });
 
 it("u3010b_preference_change_preserves_destination_and_focus", () => {
-  const { drawer, setReduced } = setup();
+  const { drawer, setReduced, panel } = setup();
 
   drawer.open(() => <p>detail</p>);
   expect(drawerSliding()).toBe(true);
+  expect(panel.contains(document.activeElement)).toBe(true);
 
+  // Opening: reduced motion settles the latest destination, content and focus stay.
   setReduced(true);
   expect(drawerSliding()).toBe(false);
   expect(screen.queryByText("detail")).not.toBeNull();
+  expect(panel.contains(document.activeElement)).toBe(true);
 
+  // Turning it off replays nothing.
+  setReduced(false);
+  expect(drawerSliding()).toBe(false);
+
+  // Closing and reversal: the latest destination wins and the exit content is gone at once.
   drawer.close();
-  expect(screen.queryByText("detail")).toBeNull();
+  expect(drawerSliding()).toBe(true);
+  drawer.open(() => <p>again</p>);
+  setReduced(true);
+  expect(drawerSliding()).toBe(false);
+  expect(screen.queryByText("again")).not.toBeNull();
+
+  setReduced(false);
+  drawer.close();
+  expect(screen.queryByText("again")).not.toBeNull();
+  setReduced(true);
+  expect(drawerSliding()).toBe(false);
+  expect(screen.queryByText("again")).toBeNull();
 });

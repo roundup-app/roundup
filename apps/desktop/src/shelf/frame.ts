@@ -1,5 +1,5 @@
 import type { ActivationSource } from "../keys/registry";
-import { createComputed, createSignal, on } from "solid-js";
+import { batch, createComputed, createEffect, createSignal, on } from "solid-js";
 import type { Accessor } from "solid-js";
 import * as v from "valibot";
 import { copy } from "../copy";
@@ -69,14 +69,25 @@ export const createShelfFrame = (path: Accessor<string | null>, reducedMotion: A
     }),
   );
 
+  // U3010b: reduced motion switched on mid-slide settles the latest destination now and replays nothing.
+  createEffect(on(reducedMotion, (reduced) => {
+    if (!reduced) return;
+
+    setAnimated(false);
+    lifetime.settle();
+  }, { defer: true }));
+
   const toggle = (source: ActivationSource = "pointer") => {
     const next = !open();
     const slides = source !== "key" && !reducedMotion();
 
-    setAnimated(slides);
-    setOpen(next);
+    // One update: `rendered` must never read false between the open flag and the exit retention changing.
+    batch(() => {
+      setAnimated(slides);
+      setOpen(next);
+      lifetime.retarget(next, slides);
+    });
     save();
-    lifetime.retarget(next, slides);
 
     if (!next) {
       setShown(false);
