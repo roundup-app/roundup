@@ -1868,3 +1868,53 @@ async fn u3016c_elapsed_and_parallel_time_are_distinct_sources() {
         "an unacknowledged launch is no model/tool evidence"
     );
 }
+
+#[tokio::test]
+async fn u3016c_live_resume_ends_the_replaced_attempt() {
+    use std::sync::atomic::{AtomicU64, Ordering};
+    let now = Arc::new(AtomicU64::new(0));
+    let mut f = Fixture::running("sleep 30");
+    let wall = now.clone();
+    let mono = now.clone();
+    f.agents = f
+        .agents
+        .with_clock(move || i64::try_from(wall.load(Ordering::SeqCst)).unwrap())
+        .with_measurement_clock(move || u128::from(mono.load(Ordering::SeqCst)) * 1_000_000);
+    let f = Arc::new(f);
+    let node = f.spawn(None, None).await.unwrap();
+    f.session_start(&node.id, CONVERSATION, "startup")
+        .await
+        .unwrap();
+    now.store(1000, Ordering::SeqCst);
+    let resumed = resume_in_mode(&f, &node, Some("normal")).await;
+    let after_resume = f.call("project.measurements", Value::Null).await.unwrap();
+    let old = after_resume["time_evidence"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|fact| fact["attempt"].as_str() == node.attempt.as_deref())
+        .unwrap();
+    assert_eq!(old["value"]["state"]["kind"], "ended");
+    assert_eq!(old["value"]["state"]["at"]["unix_ms"], 1000);
+    now.store(2000, Ordering::SeqCst);
+    f.call("agent.stop", json!({"id":resumed.id}))
+        .await
+        .unwrap();
+    let stopped = f.call("project.measurements", Value::Null).await.unwrap();
+    assert_eq!(
+        stopped["time_evidence"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .find(|fact| fact["attempt"].as_str() == node.attempt.as_deref())
+            .unwrap(),
+        old,
+        "the replacement cannot extend the old Attempt"
+    );
+    now.store(3000, Ordering::SeqCst);
+    assert_eq!(
+        f.call("project.measurements", Value::Null).await.unwrap()["time_evidence"],
+        stopped["time_evidence"],
+        "stopping the replacement leaves no active lifetime"
+    );
+}
