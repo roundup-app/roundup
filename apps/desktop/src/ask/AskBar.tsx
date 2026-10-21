@@ -39,7 +39,9 @@ export const AskBar = (props: {
   const [over, setOver] = createSignal(false);
   const [selected, setSelected] = createSignal<string | null>(null);
   const destination = { surface: "ask", object: "ask-bar", recipient: null };
-  drafts.validate("ask", v.object({ text: v.string(), workstream: v.optional(v.nullable(v.string())), name: v.optional(v.nullable(v.string())), recovered: v.optional(v.boolean()) }));
+  const formSchema = v.object({ text: v.string(), workstream: v.optional(v.nullable(v.string())), name: v.optional(v.nullable(v.string())), recovered: v.optional(v.literal(true)) });
+
+  drafts.validate("ask", formSchema);
   drafts.registerRecovery("ask", (draft, facts) => {
     const target = v.safeParse(v.string(), draft.value.workstream);
     const available = !target.success || facts.rail.nodes.some(node => node.kind === "workstream" && node.id === target.output);
@@ -58,15 +60,16 @@ export const AskBar = (props: {
     return !connected.drawer.content() && own ? found : null;
   };
 
-  const ordinary = () => {
-    // Recovered edits remain selectable without displacing the ordinary current work.
-    const latest = records().filter(draft => draft.value.recovered !== true).at(-1);
+  // Recovered edits remain selectable without displacing the ordinary current work.
+  const ordinary = () => records().filter(draft => draft.value.recovered !== true).at(-1);
+
+  const current = () => {
+    if (selected() !== null) return records().find(draft => draft.revision === selected() && draft.status !== "pending");
+
+    const latest = ordinary();
 
     return latest?.status === "draft" || latest?.status === "failed" ? latest : undefined;
   };
-
-  const current = () => selected() === null ? ordinary()
-    : records().find(draft => draft.revision === selected() && draft.status !== "pending");
 
   const text = () => {
     const value = v.safeParse(v.string(), current()?.value.text);
@@ -95,7 +98,9 @@ export const AskBar = (props: {
 
     const recovered = previous?.value.recovered === true || (recovering && previous?.revision !== ordinary()?.revision);
 
-    const retained = drafts.edit(destination, { text: value, workstream, name, recovered },
+    const form = { text: value, workstream, name };
+
+    const retained = drafts.edit(destination, recovered ? { ...form, recovered: true } : form,
       field ? { start: field.selectionStart, end: field.selectionEnd, direction: field.selectionDirection } : null, "ordinary",
       previous?.revision ?? null);
 
