@@ -87,17 +87,24 @@ describe("u2694 the Rail's system menu", () => {
     expect(app.menuLabels()).toEqual(["Remove"]);
   });
 
-  it("u2694d_restart_calls_resume_normal_and_start_yolo_calls_resume_yolo", async () => {
-    const { app } = await mountRail([agent("a", "working", "busy", { yolo: true })]);
-    app.handlers["agent.resume"] = () => agent("a", "working", "busy");
+  it.each([
+    ["Restart", true, "normal"],
+    ["Start YOLO", false, "yolo"],
+  ] as const)("u2694d_%s_resumes_in_the_requested_mode", async (action, yolo, mode) => {
+    const { app } = await mountRail([agent("a", "working", "busy", { yolo })]);
+    app.handlers["agent.resume"] = () => {
+      const resumed = agent("a", "working", "busy", { yolo: !yolo });
+      app.handlers["rail.tree"] = () => [resumed];
+
+      return resumed;
+    };
 
     open("a");
-    await app.pickMenu("Restart");
+    await app.pickMenu(action);
     open("a");
-    expect(entry(app, "Start YOLO").enabled).toBe(false);
-    await app.closeMenu();
 
-    expect(railCallsTo(app, "agent.resume")).toEqual([{ id: "a", mode: "normal" }]);
+    expect(entry(app, action).enabled).toBe(false);
+    expect(railCallsTo(app, "agent.resume")).toEqual([{ id: "a", mode }]);
   });
 
   it("u2694d_the_item_of_the_current_mode_is_disabled", async () => {
