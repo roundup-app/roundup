@@ -640,6 +640,21 @@
     "data": "Production implementation, test caller, client or name reference; launches delegate to the owners above.",
     "kind": "reference"
   },
+  "crates/rupd/tests/b6_cleanup_completion.rs": {
+    "cleanup": "No separate built-Daemon launch site.",
+    "data": "Production implementation, test caller, client or name reference; launches delegate to the owners above.",
+    "kind": "reference"
+  },
+  "crates/rupd/tests/lean_specialists.rs": {
+    "cleanup": "No separate built-Daemon launch site.",
+    "data": "Production implementation, test caller, client or name reference; launches delegate to the owners above.",
+    "kind": "reference"
+  },
+  "crates/rupd/tests/support/takeover_run.rs": {
+    "cleanup": "No separate built-Daemon launch site.",
+    "data": "Production implementation, test caller, client or name reference; launches delegate to the owners above.",
+    "kind": "reference"
+  },
   "crates/rupd/tests/d1_attached.rs": {
     "cleanup": "No separate built-Daemon launch site.",
     "data": "Production implementation, test caller, client or name reference; launches delegate to the owners above.",
