@@ -1,3 +1,4 @@
+import { Portal } from "solid-js/web";
 import { todoEditor } from "../drawer/editors";
 import * as v from "valibot";
 import { AlertDialog } from "../ui/Dialog";
@@ -252,7 +253,7 @@ export const TodoDrawer = (props: {
     <>
       <div class="todo-detail">
         <AlertDialog.Root open={asking() && !!todo()} initialFocusEl={() => keepButton ?? null} finalFocusEl={() => deleteButton ?? null} onOpenChange={({ open }) => { if (!open && !deleting()) keep(); }}>
-          <AlertDialog.Positioner>
+          <Portal><AlertDialog.Positioner>
           <AlertDialog.Content class="todo-delete-confirm" ref={(element) => { confirmation = element; }}>
             <AlertDialog.Title>{copy.deleteTodoQuestion}</AlertDialog.Title>
             <Show when={failure()}>{(message) => <ErrorLine message={message()} />}</Show>
@@ -279,7 +280,7 @@ export const TodoDrawer = (props: {
               onClick={keep}
             >{copy.keep}</button>
           </AlertDialog.Content>
-          </AlertDialog.Positioner>
+          </AlertDialog.Positioner></Portal>
         </AlertDialog.Root>
         <Show when={!asking() && failure()}>{(message) => <ErrorLine message={message()} />}</Show>
           <Show

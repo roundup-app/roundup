@@ -7,12 +7,13 @@ import { registerKeys } from "../keys/registry";
 import { useConnectedProject } from "../state/connectedProject";
 import { Checkbox } from "../ui/Checkbox";
 import { Dialog } from "../ui/Dialog";
+import { Disclosure } from "../ui/Disclosure";
 
 const PERIODS: readonly ImportPeriod[] = ["day", "week", "month"];
 
 /** U2875d: the Project's `Import Claude Code work` panel. Opening discovers; nothing submits until `Import` is pressed, and a restored selection waits for a fresh discovery to match it. */
 export const ImportPanel = (props: { open: boolean; opener: HTMLElement | undefined; onClose: () => void }) => {
-  const { importing: state, drafts, project, daemonExit } = useConnectedProject();
+  const { importing: state, drafts, project, daemonExit, now } = useConnectedProject();
   const release = drafts.editor({ surface: "import", object: project.path, recipient: null });
   onCleanup(release);
   const period = state.period;
@@ -21,7 +22,6 @@ export const ImportPanel = (props: { open: boolean; opener: HTMLElement | undefi
   const failure = state.failure;
   const refused = state.failed;
   const pending = state.pending;
-  const stale = state.stale;
   const discover = state.refresh;
   const choose = state.setPeriod;
   const confirm = state.confirm;
@@ -34,7 +34,7 @@ export const ImportPanel = (props: { open: boolean; opener: HTMLElement | undefi
   return (
     <Dialog.Root open={props.open} initialFocusEl={() => periods?.querySelector<HTMLElement>("[aria-pressed=true]") ?? null} finalFocusEl={() => props.opener?.isConnected ? props.opener : null}
       onOpenChange={(details) => { if (!details.open) dismiss(); }}>
-      <Portal><Dialog.Backdrop /><Dialog.Positioner class="import-positioner">
+      <Portal><Dialog.Backdrop /><Dialog.Positioner>
         <Dialog.Content class="import-panel" ref={(element) => (panel = element)}>
           <Dialog.Title>{copy.importTitle}</Dialog.Title>
           <div role="group" aria-label={copy.importPeriod} class="import-period" ref={periods}>
@@ -69,23 +69,31 @@ export const ImportPanel = (props: { open: boolean; opener: HTMLElement | undefi
           <Show when={found()} fallback={<Show when={state.loading()}><p role="status">{copy.importLooking}</p></Show>}>
             {(result) => <>
               <Show when={result().candidates.length === 0}><p role="status">{copy.importNone}</p></Show>
-              <Show when={stale().length > 0}><p role="status">{copy.importStale(stale())}</p></Show>
               <ul class="import-list" aria-label={copy.importResults}>
                 <For each={result().candidates}>{(candidate) => (
                   <li>
                     <Checkbox class="import-check" checked={wanted().has(candidate.source)} onCheckedChange={(checked) => state.choose(candidate.source, candidate.title, candidate.revision, checked)}>
-                      <span class="import-text">
-                        <span class="import-title">{candidate.title}</span>
-                        <span class="import-cwd"><bdi>{candidate.cwd === "" ? copy.importProjectFolder : candidate.cwd}</bdi></span>
-                        <time class="import-activity" dateTime={new Date(Number(candidate.last_activity_ms)).toISOString()}>{new Date(Number(candidate.last_activity_ms)).toLocaleString()}</time>
+                      <span class="import-title">{candidate.title}</span>
+                      <span class="import-meta">
+                        <bdi class="import-cwd">{candidate.cwd === "" ? copy.importProjectFolder : candidate.cwd}</bdi>
+                        <time dateTime={new Date(Number(candidate.last_activity_ms)).toISOString()}>{copy.importAge(Math.max(0, Math.floor((now() - Number(candidate.last_activity_ms)) / 60000)))}</time>
+                        <Show when={refused().get(candidate.source)}>{(reason) => <>
+                          <span role="alert" data-kind="error" class="import-failure">{reason()}</span>
+                          <span class="import-failure">{copy.importRowFix}</span>
+                        </>}</Show>
                       </span>
                     </Checkbox>
-                    <Show when={refused().get(candidate.source)}>{(reason) => <div class="import-error"><p role="alert" data-kind="error" class="import-failure">{reason()}</p></div>}</Show>
                   </li>
                 )}</For>
-                <For each={result().excluded}>{(excluded) => <li><div class="import-text import-unavailable"><span class="import-title">{excluded.source}</span><p role="alert" data-kind="error" class="import-failure">{excluded.reason}</p></div></li>}</For>
-                <For each={[...refused()].filter(([source]) => !result().candidates.some((candidate) => candidate.source === source))}>{([source, reason]) => <li><div class="import-text import-unavailable"><span class="import-title">{source}</span><p role="alert" data-kind="error" class="import-failure">{reason}</p></div></li>}</For>
+                <For each={[...refused()].filter(([source]) => !result().candidates.some((candidate) => candidate.source === source))}>{([source, reason]) => <li><div class="import-text import-unavailable"><span class="import-title">{wanted().get(source)?.title ?? copy.importUnnamed}</span><p role="alert" data-kind="error" class="import-failure">{reason}</p></div></li>}</For>
               </ul>
+              <Show when={result().excluded.length > 0}>
+                <Disclosure class="import-excluded" label={copy.importNotImportable(result().excluded.length)}>
+                  <ul class="import-list">
+                    <For each={result().excluded}>{(excluded) => <li><span class="import-title">{copy.importUnnamed}</span><span class="import-meta">{copy.importExcludedReason(excluded.reason)}</span></li>}</For>
+                  </ul>
+                </Disclosure>
+              </Show>
             </>}
           </Show>
           <p class="import-words">

@@ -141,7 +141,7 @@ for (const by of ["pointer", "keyboard"] as const) {
 
       await openDrawerOf(2);
       press(await within(drawer()).findByRole("button", { name: "Delete Todo" }), by);
-      press(await within(drawer()).findByRole("button", { name: "Delete" }), by);
+      press(await screen.findByRole("button", { name: "Delete" }), by);
       await waitFor(() => expect(callsTo(mounted.app, "todo.delete")).toEqual([{ method: "todo.delete", params: { id: 2 } }]));
       mounted.app.emit(todoEvent("todo.updated", { ...mounted.store.todos[0]! }));
 
