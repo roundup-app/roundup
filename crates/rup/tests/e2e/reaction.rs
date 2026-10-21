@@ -926,10 +926,7 @@ async fn nr3_legacy_firings_keep_identity_on_upgrade_and_replay() {
             // Recreate the pre-upgrade database with the accepted row's original bytes and ids.
             db.execute_batch("ALTER TABLE reaction_firings RENAME TO accepted_firings;")
                 .unwrap();
-            db.execute_batch(include_str!(
-                "../../../rupd/migrations/project/0009-reaction-firings.sql"
-            ))
-            .unwrap();
+            db.execute_batch(super::REACTION_FIRINGS_V1).unwrap();
             db.execute_batch(
                 "INSERT INTO reaction_firings SELECT * FROM accepted_firings;
                 DROP TABLE accepted_firings;
