@@ -75,6 +75,7 @@ export const CONTRACT = {
     "project.getPrepared": "d01f2f236f8dbf2b",
     "project.importCommit": "4e0b7f511051067a",
     "project.importDiscover": "5e6586583f8fc491",
+    "project.measurementSummary": "af1bc5c8e37811a2",
     "project.measurements": "4710e5269892c9d7",
     "project.open": "956b3a47aa4bb933",
     "project.prepareDirectory": "ff411b9863d8ade2",

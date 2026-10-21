@@ -15,7 +15,8 @@ describe("u57 no pane header", () => {
 
     connected.rail.select("a");
 
-    const pane = container.querySelector(".pane");
+    // U3016's Door action sits beside the pane origin, outside the Terminal and order line.
+    const pane = container.querySelector(".pane-origin");
 
     // O6 narrows this: an Agent or Door has its order line above the Terminal; a Terminal has none.
     const orderLine = container.querySelector(".order-line");
