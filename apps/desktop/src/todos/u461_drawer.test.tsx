@@ -2,6 +2,7 @@ import { stubDialogLayout } from "../shelf/bulkQuestionHarness";
 import { cleanup, fireEvent, screen, waitFor, within } from "@solidjs/testing-library";
 import { afterEach, expect, it } from "vitest";
 import { agent } from "../testing/nodes";
+import { TodoDrawer } from "./TodoDrawer";
 import { RpcError } from "../app/seam";
 import { mountTodos, todo, todoCallsTo, todoEvent } from "./testHarness";
 
@@ -185,4 +186,30 @@ it("u461a_success_refetches_surfaces_and_keeps_focus_in_the_drawer", async () =>
   expect(rows[1]!.getAttribute("aria-level")).toBe("2");
   expect(within(rows[1]!).getByRole("button", { name: "Blocked #2 todo 2" })).toBeTruthy();
   expect(within(rows[0]!).getByRole<HTMLInputElement>("checkbox").checked).toBe(false);
+});
+
+it("u461a_recovery_drawer_reopens_accepted_state_and_preserves_the_retained_form", async () => {
+  const { app, connected, todos, store } = await mountTodos([todo(1)]);
+  const destination = { surface: "todos", object: "1", recipient: "blockers:original" };
+
+  const form = { title: "Retained title", body: "Retained body", done: false, blockers: [], baseBlockers: [], expected_change: 1,
+    originalTitle: "todo 1", originalBody: "", originalDone: false, originalBlockers: [], originalChange: 1, action: "add", blocker: 2 };
+
+  const retained = connected.drafts.edit(destination, form, null, "ordinary").draft;
+  connected.drafts.submit(retained.revision); connected.drafts.settle(retained.revision, "failed");
+  await app.rpc("todo.complete", { id: 1 });
+  app.emit(todoEvent("todo.updated", store.todos[0]!));
+  await screen.findByRole("button", { name: "1 done" });
+  const drafts = connected.drafts.list();
+  const calls = [...app.calls];
+  connected.drawer.open(() => <TodoDrawer id={1} todos={todos} recovery={{ project: connected.project.path, revision: retained.revision }} />, "key");
+  const box = await within(panel()).findByRole<HTMLInputElement>("checkbox", { name: "Reopen todo 1" });
+  expect(box.checked).toBe(true);
+  expect(app.calls).toEqual(calls);
+  box.focus(); fireEvent.click(box);
+  await waitFor(() => expect(todoCallsTo(app, "todo.reopen")).toHaveLength(1));
+  app.emit(todoEvent("todo.updated", store.todos[0]!));
+  await waitFor(() => expect(box.checked).toBe(false));
+  expect(document.activeElement).toBe(box);
+  expect(connected.drafts.list()).toEqual(drafts);
 });
