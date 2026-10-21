@@ -685,7 +685,9 @@ const d12 = (page: Page): Measure => {
       const min = titles.reduce((a, b) => a.left < b.left ? a : b);
       const max = titles.reduce((a, b) => a.left > b.left ? a : b);
 
-      found.push({ diff: max.left - min.left, row: max === titles[0] ? min.row : max.row });
+      const row = max === titles[0] ? min.row : max.row;
+
+      found.push({ diff: max.left - min.left, row: row.querySelector(".entry-field") ?? row });
     }
 
     own.forEach(({ row }) => {
