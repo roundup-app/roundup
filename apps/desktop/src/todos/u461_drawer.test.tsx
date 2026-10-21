@@ -1,7 +1,7 @@
 import { stubDialogLayout } from "../shelf/bulkQuestionHarness";
 import { cleanup, fireEvent, screen, waitFor, within } from "@solidjs/testing-library";
 import { afterEach, expect, it } from "vitest";
-import { agent } from "../testing/nodes";
+import { agent, workstream } from "../testing/nodes";
 import { TodoDrawer } from "./TodoDrawer";
 import { RpcError } from "../app/seam";
 import { mountTodos, todo, todoCallsTo, todoEvent } from "./testHarness";
@@ -156,17 +156,24 @@ for (const surface of ["fold", "drawer", "agent", "rail"] as const) {
   }
 }
 
-for (const remaining of [[1, 2, 3], [1, 2], [2]]) {
-  it(`u461a_success_refetches_surfaces_and_keeps_focus ${remaining}`, async () => {
-    const mounted = await mountTodos(remaining.map(id => todo(id, { done: true })));
+for (const { remaining, reopened, target } of [
+  { remaining: [1, 2, 3], reopened: 1, target: /Done #3 / },
+  { remaining: [1, 2, 3], reopened: 3, target: /Done #1 / },
+  { remaining: [1, 2], reopened: 1, target: "Add Todo" },
+]) {
+  it(`u461a_success_refetches_surfaces_and_keeps_focus within the current group ${reopened} ${remaining}`, async () => {
+    const mounted = await mountTodos(remaining.map(id => todo(id, { done: true, home: id === 2 ? "b" : "a" })), true,
+      [workstream("a", { name: "A" }), workstream("b", { name: "B", order: 1 })]);
     fireEvent.click(await screen.findByRole("button", { name: `${remaining.length} done` }));
-    const box = await screen.findByRole<HTMLInputElement>("checkbox", { name: "Reopen todo 2" });
+    const otherGroup = document.querySelector<HTMLElement>('[data-shelf-group="b"] [data-part="branch-control"]')!;
+    fireEvent.click(otherGroup);
+    await waitFor(() => expect(otherGroup.closest("[data-shelf-group]")?.getAttribute("aria-expanded")).toBe("false"));
+    const box = await screen.findByRole<HTMLInputElement>("checkbox", { name: `Reopen todo ${reopened}` });
     box.focus(); fireEvent.click(box);
     await waitFor(() => expect(todoCallsTo(mounted.app, "todo.reopen")).toHaveLength(1));
-    mounted.app.emit(todoEvent("todo.updated", mounted.store.todos.find(t => t.id === 2)!));
-    const target = remaining.includes(3) ? /Done #3 / : remaining.includes(1) ? /Done #1 / : "Add Todo";
+    mounted.app.emit(todoEvent("todo.updated", mounted.store.todos.find(t => t.id === reopened)!));
     await waitFor(() => expect(document.activeElement).toBe(screen.getByRole("button", { name: target })));
-    expect(await screen.findByRole("checkbox", { name: "Complete todo 2" })).toBeTruthy();
+    expect(await screen.findByRole("checkbox", { name: `Complete todo ${reopened}` })).toBeTruthy();
   });
 }
 
