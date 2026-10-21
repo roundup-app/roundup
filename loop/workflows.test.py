@@ -350,14 +350,13 @@ class L89(unittest.TestCase):
         self.assertEqual([['merge-base', 'origin/main', 'HEAD'], ['diff', '--name-only', '--no-renames', 'fork'],
                           ['ls-files', '--others', '--exclude-standard']], calls)
         # An App source file also reaches the tests that read the App's files as text, outside vitest's module graph.
-        scans = ['apps/desktop/src/copy.test.ts', 'apps/desktop/src/testing/captures.test.ts']
+        scans = ['apps/desktop/src/copy.test.ts', 'apps/desktop/src/testing/captures.test.ts', 'apps/desktop/src/a35_surface.test.ts']
         reached = printed.getvalue().split()
         self.assertIn(str(ROOT / test), reached)
         for scan in scans:
             self.assertIn(str(ROOT / scan), reached)
-        self.assertEqual(['rup=a35_surface'], affected.app_scans('rust', [test], {
-            'rup': ('crates/rup', set()), 'rupd': ('crates/rupd', set())}))
-        self.assertEqual([], affected.app_scans('web', ['docs/perf.md'], {}))
+        self.assertIn('apps/desktop/src/a35_surface.test.ts', affected.app_scans([test]))
+        self.assertEqual([], affected.app_scans(['docs/perf.md']))
 
     def test_l89_the_mac_lane_names_every_file_with_a_macos_path(self):
         # A new `target_os = "macos"` path needs its tests in `.config/nextest.toml`'s `mac` profile, then a line here.
