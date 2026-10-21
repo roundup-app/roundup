@@ -19,6 +19,11 @@ const fn m(name: &'static str, params: &'static str, result: &'static str) -> Me
 pub const METHODS: &[Method] = &[
     m("project.measurements", "null", "project_Measurements"),
     m(
+        "project.measurementSummary",
+        "project_MeasurementSummaryParams",
+        "project_MeasurementSummary",
+    ),
+    m(
         "deliverable.publish",
         "deliverable_PublishParams",
         "deliverable_Deliverable",

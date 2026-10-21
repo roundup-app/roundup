@@ -86,3 +86,34 @@ export const shelfGroups = <T,>(connected: ConnectedProject, items: readonly T[]
 
   return (selected?.kind === "workstream" ? roots.filter(group => group.id === selected.id) : roots).flatMap(prune);
 };
+
+/** U3717: who can own a Todo, in the order the Shelf groups them: Me, each Agent on the Rail in Rail order, Unassigned (`actor` null). */
+export type Owner = { id: string; name: string; actor: Actor | null };
+
+const USER_OWNER: Actor = { kind: "user", id: "you", parent: null };
+
+export const ownersOnRail = (connected: ConnectedProject): Owner[] => {
+  const nodes = connected.rail.nodes;
+  const agents = siblingsOf(nodes, null).flatMap(node => [node, ...descendantsOf(nodes, node.id)]).filter(node => node.kind === "agent");
+
+  return [
+    { id: "me", name: copy.me, actor: USER_OWNER },
+    ...agents.map(node => ({ id: node.id, name: node.name, actor: { kind: "agent", id: node.id, parent: null } satisfies Actor })),
+    { id: "unassigned", name: copy.unassigned, actor: null },
+  ];
+};
+
+export const sameOwner = (a: Actor | null, b: Actor | null) => a === null || b === null ? a === b : a.kind === b.kind && a.id === b.id;
+
+export type OwnerGroup<T> = Owner & { items: T[] };
+
+/** U3717: every owner of the Rail with the items it owns once each; an owner that left the Rail reads as Unassigned. Empty groups are kept: the caller decides when they show. */
+export const ownerGroups = <T,>(connected: ConnectedProject, items: readonly T[], ownerOf: (item: T) => Actor | null): OwnerGroup<T>[] => {
+  const empty = (): T[] => [];
+  const groups = ownersOnRail(connected).map(owner => ({ ...owner, items: empty() }));
+  const unassigned = groups[groups.length - 1]!;
+
+  for (const item of items) (groups.find(group => group.actor !== null && sameOwner(group.actor, ownerOf(item))) ?? unassigned).items.push(item);
+
+  return groups;
+};

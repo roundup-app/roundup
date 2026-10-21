@@ -68,6 +68,10 @@ SCENARIO_ID = r'[A-Za-z]+[0-9]+[a-z]?'
 # A scenario file's heading line, `**<id> <title>.**`, where a scenario starts.
 HEADING = re.compile(rf'\*\*({SCENARIO_ID}) ')
 ATTEMPTS = 3
+# L82: the PR comment that gives a Builder PR whose head review and the critic approved its ATTEMPTS again, once per head;
+# and how much of the cause that found no fix run left its Issue's strike quotes.
+REVIVE = '<!-- fix-revive -->'
+STRIKE_CAUSE_CAP = 200
 # L82: causes about a PR's plumbing, not its work, start a fix run that posts no comment and counts no attempt: a conflict
 # with `main`, and a `rules` failure whose every failed step checks PR shape (a base, `Author-Agent` trailers, scenario ids).
 # Actions history counts these runs, and past PLUMBING_RUNS of them on one PR the next such cause counts as any other.
@@ -731,8 +735,9 @@ def running(pr):
 
 
 def unreviewed(prs):
-    """(pr, run id) for each ready PR whose `review` or `critic` status is pending: its run did no model work."""
-    return [(pr['number'], run) for pr in prs if not pr['isDraft']
+    """(pr, run id) for each ready PR whose `review` or `critic` status is pending: its run did no model work. A Dependabot
+    PR is left out: its runs get no secrets, so no rerun can do model work."""
+    return [(pr['number'], run) for pr in prs if not pr['isDraft'] and not pr['headRefName'].startswith('dependabot/')
             for context in ('review', 'critic') for run in review_runs(pr, 'PENDING', context)]
 
 
@@ -765,7 +770,10 @@ def pick(most):
         dispatch_fix(pr, head, cause)
         free -= 1
     for pr, run in unreviewed(prs):
-        rerun_review(pr, run)
+        try:
+            rerun_review(pr, run)
+        except subprocess.CalledProcessError as error:  # one PR's rerun or ask must not stop the build matrix
+            print(f'::error::Rerun of review run {run} on PR #{pr} failed: {error}', file=sys.stderr)
     rows = orders.read_orders()
     print(orders.count_invalid(rows), file=sys.stderr)
     if broken := orders.invalid(rows):
@@ -901,8 +909,15 @@ def built(issue, slug, ran, answer, run_url, verdict=None):
 
 
 def strike(issue, why):
-    """Record one failed try on the Issue; L34 holds an Issue struck `orders.STRIKES` times in a day, asking nobody."""
+    """Record one failed try on the Issue, which L34 cools down. The strike that makes `orders.ASK_STRIKES` in a day asks
+    the user (L79), listing the first line of each of that day's strikes; while the label is on, later ones ask nothing."""
     comment(issue, f'{orders.STRIKE}\n{why}')
+    struck = orders.marked(issue, orders.STRIKE, time.time() - orders.DAY)
+    if len(struck) >= orders.ASK_STRIKES:
+        flag(issue, f'This Issue was struck {len(struck)} times in 24 hours, so the loop holds it. Decide how it goes on '
+                    f'(change the order, split it or close it), then remove `{NEEDS_USER}`. The strikes, oldest first:\n\n'
+                    + '\n'.join('- ' + (c['body'].removeprefix(orders.STRIKE).strip().splitlines() or ['no reason'])[0]
+                                 for c in struck))
 
 
 def view(pr):
@@ -1016,10 +1031,32 @@ def restore_merge_loss(main_ref='origin/main', rules=None):
     return not after.returncode
 
 
-def reopened(pr):
-    """When the PR was last reopened, else 0: the fix runs before it no longer count (L82)."""
+def restarted(pr):
+    """When the PR's fix runs last started over, else 0: its last reopen or `REVIVE` comment. The fix runs before it no
+    longer count (L82)."""
     events = orders.gh('api', f'repos/{{owner}}/{{repo}}/issues/{pr}/events?per_page=100', '--paginate', '--slurp')
-    return max((orders.created(e['created_at']) for page in events for e in page if e['event'] == 'reopened'), default=0)
+    return max([orders.created(e['created_at']) for page in events for e in page if e['event'] == 'reopened'] +
+               [orders.created(c['created_at']) for c in orders.marked(pr, REVIVE)], default=0)
+
+
+def approved(pr, head, marker):
+    """Whether the last `marker` comment (`VERDICT:` or `CRITIC:`) naming `head` approves it."""
+    notes = [c['body'] for c in orders.marked(pr, marker) if orders.field(c['body'], 'Head', '') == head]
+    return bool(notes) and notes[-1].startswith(f'{marker} approve')
+
+
+def revive(current, cause):
+    """L82: give a Builder PR out of fix runs its ATTEMPTS again, once per head, when review and (for a PR that changes
+    `apps/desktop/src/`) the design critic approved that head: post a `REVIVE` comment naming the head and `cause`.
+    Whether it did."""
+    pr, head = current['number'], current['headRefOid']
+    if any(orders.field(c['body'], 'Head', '') == head for c in orders.marked(pr, REVIVE)) or \
+            not approved(pr, head, 'VERDICT:') or (touches_desktop(pr) and not approved(pr, head, 'CRITIC:')):
+        return False
+    comment(pr, f'{REVIVE}\nHead: {head}\n\nThis PR used its {fix_attempts()} fix runs, but review and the design critic '
+                f'approved this head, so it stays open once more: its fix runs count again from here, starting with this '
+                f'run for `{cause}`. A second time out of fix runs on this head closes it.')
+    return True
 
 
 def fix_task(pr, head, cause, run_id=0, output=None):
@@ -1039,7 +1076,7 @@ def fix_task(pr, head, cause, run_id=0, output=None):
     if output:
         with open(output, 'a') as out:
             out.write('plumbing=true\n' * plumbing + 'merge_loss=true\n' * merge_loss)
-    attempts = orders.marked(pr, '<!-- fix-attempt -->', reopened(pr))
+    attempts = orders.marked(pr, '<!-- fix-attempt -->', restarted(pr))
     verdicts = orders.marked(pr, 'VERDICT:')
     # A fix run answers only the rejects posted before it began: one posted while it ran is still open.
     answered = (started(attempts[-1]['body']) or orders.created(attempts[-1]['created_at'])) if attempts else 0
@@ -1053,7 +1090,7 @@ def fix_task(pr, head, cause, run_id=0, output=None):
                                   orders.created(criticisms[-1]['created_at']) > answered):
         # The head moved, or a fix run answered this reject: its next critic run decides.
         return None
-    if len(attempts) >= fix_attempts() and not plumbing:
+    if len(attempts) >= fix_attempts() and not plumbing and not revive(current, cause):
         exhaust(current, attempts, verdicts, cause)
         return None
     findings = [c['body'] for c in {'review': verdicts, 'critic': criticisms}.get(cause, [])][-1:]
@@ -1064,15 +1101,15 @@ def fix_task(pr, head, cause, run_id=0, output=None):
 
 
 def exhaust(current, attempts, verdicts, cause):
-    """A Builder PR out of fix runs: tell its work Issue what failed and strike it, once per PR since it was last
-    reopened, then close the PR unmerged and delete its branch. The closed PR keeps its diff at `refs/pull/<pr>/head`. A PR naming no Issue asks the user."""
+    """A Builder PR out of fix runs: tell its work Issue what failed and strike it with the cause that found no run left,
+    once per PR since its fix runs last started over, then close the PR unmerged and delete its branch. The closed PR keeps its diff at `refs/pull/<pr>/head`. A PR naming no Issue asks the user."""
     pr, branch = current['number'], current['headRefName']
     match = LINKED.search(current['body'] or '')
     if not match:
         flag(pr, f'{fix_attempts()} fix runs did not get this PR to merge, and its body names no Issue to record that on.')
         return
     issue = int(match[1])
-    if orders.marked(issue, f'<!-- fix-exhausted #{pr} -->', reopened(pr)):
+    if orders.marked(issue, f'<!-- fix-exhausted #{pr} -->', restarted(pr)):
         call('pr', 'close', str(pr), '--delete-branch')
         return
     commits = orders.gh('pr', 'view', str(pr), '--json', 'commits')['commits']
@@ -1084,7 +1121,7 @@ def exhaust(current, attempts, verdicts, cause):
         found = [c['body'] for c in marked if orders.created(c['created_at']) <= before][-1:] or ['']
         return f"{cause} rejected: {found[0].split(chr(10) * 2, 1)[-1].strip()}"
 
-    lines, since = [], None
+    lines, since, last = [], None, reason(cause, time.time())
     for attempt in attempts:
         ended_at = orders.created(attempt['created_at'])
         cause_ran = (re.search(r'answered `(\w+)`', attempt['body']) or [None, '?'])[1]
@@ -1097,8 +1134,9 @@ def exhaust(current, attempts, verdicts, cause):
                    f'unmerged; its diff stays at that link, head `{current["headRefOid"]}`. Each line is a cause a fix '
                    f'run answered, its failing check or review finding, and the commits it pushed; the last is the cause '
                    f'that found no run left.\n\n'
-                   + '\n'.join(lines) + f'\n- `{cause}` ({reason(cause, time.time())}): no fix run left\n\nThe next build run continues from that head.')
-    strike(issue, f'PR #{pr} used its {fix_attempts()} fix runs: {current["url"]}')
+                   + '\n'.join(lines) + f'\n- `{cause}` ({last}): no fix run left\n\nThe next build run continues from that head.')
+    strike(issue, f'PR #{pr} used its {fix_attempts()} fix runs: {current["url"]}; last cause: '
+                  + (last.splitlines() or [''])[0][:STRIKE_CAUSE_CAP])
     call('pr', 'close', str(pr), '--delete-branch')
 
 

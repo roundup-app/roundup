@@ -234,14 +234,18 @@ class Orders(unittest.TestCase):
         self.assertEqual([row['state'] for row in rows],['blocked','blocked'])
         self.assertTrue(all('cycle' in row['reason'] for row in rows))
 
-    def test_l34_three_strikes_in_a_day_hold_an_issue_until_the_oldest_ages_out_asking_nobody(self):
+    def test_l34_a_struck_issue_waits_fifteen_minutes_doubled_per_strike_in_a_day_up_to_four_hours_asking_nobody(self):
         now, day = 10 * orders.DAY, orders.DAY
-        rows = orders.classify([issue(1), issue(2, 'U84'), issue(3, 'U85')], {}, [])
-        strikes = {1: [now - 600, now - 300, now - 60], 2: [now - day - 60, now - 300, now - 60], 3: [now - 60] * 2}
-        states = {row['issue']: row for row in orders.cool(rows, strikes, now)}
-        self.assertEqual(states[1]['state'], 'waiting')
-        self.assertIn('3 strikes in 24 hours; ready again at 1970-01-11 23:50 UTC', states[1]['reason'])
-        self.assertEqual([states[n]['state'] for n in (2, 3)], ['ready'] * 2)
+        latest = [now - 60]
+        waits = {1: ([], '00:14'), 3: ([now - 3000] * 2, '00:59'), 5: ([now - 3000] * 4, '03:59'), 6: ([now - 3000] * 5, '03:59')}
+        for k, (earlier, ready_at) in waits.items():
+            with self.subTest(strikes=k):
+                row, = orders.cool(orders.classify([issue()], {}, []), {1: [now - day - 60] + earlier + latest}, now)
+                self.assertEqual((row['state'], row['reason']),
+                                 ('waiting', f'{k} strike{"s" * (k > 1)}; ready again at 1970-01-11 {ready_at} UTC'))
+        ended = {2: [now - 16 * 60], 3: [now - 3 * 3600] + [now - 2 * 3600 - 60] * 2, 4: [now - day - 60] * 6}
+        rows = orders.cool(orders.classify([issue(2, 'U84'), issue(3, 'U85'), issue(4, 'U86')], {}, []), ended, now)
+        self.assertEqual([row['state'] for row in rows], ['ready'] * 3)
 
     def test_l34_only_the_loop_bot_strikes_count(self):
         def api(*args):
