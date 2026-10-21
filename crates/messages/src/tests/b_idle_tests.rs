@@ -564,7 +564,18 @@ async fn b50_routes_and_explicit_delivery_preserve_transport_for_both_kinds() {
             assert_eq!(*inbox.written.lock().unwrap(), [1]);
             on_status(&h.messages.inner, "b", "1", "3", Kind::Idle).await;
             assert_eq!(*inbox.written.lock().unwrap(), [1]);
-            if hold != "drop" {
+            if hold == "drop" {
+                *inbox.state.lock().unwrap() = contracts::agent::Inbox::Missing;
+                let refused = h
+                    .call("message.deliver", json!({"id":2}))
+                    .await
+                    .unwrap_err();
+                assert_eq!(refused.code, code::CONFLICT);
+                assert_eq!(
+                    h.messages.get_or_not_found(2).unwrap().status,
+                    MessageStatus::Dropped
+                );
+            } else {
                 *inbox.state.lock().unwrap() = contracts::agent::Inbox::Missing;
                 let refused = h
                     .call("message.deliver", json!({"id":2}))
