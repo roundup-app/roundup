@@ -1,10 +1,11 @@
+import { mountCentre } from "../../testing/centreFixture";
 import { stubDialogLayout } from "../../shelf/bulkQuestionHarness";
 import { cleanup, fireEvent, screen, waitFor } from "@solidjs/testing-library";
 import { afterEach, describe, expect, it } from "vitest";
 import { RpcError } from "../../app/seam";
 import { CHORDS, LEADER, RAIL_KEYS } from "../../keys/chords";
 import { agent, door, workstream } from "../../testing/nodes";
-import { exitedTerminal, mountRail, railCallsTo, rowOf } from "../railFixture";
+import { exitedTerminal, mountRail, railCallsTo, rowOf, settled } from "../railFixture";
 
 afterEach(cleanup);
 
@@ -122,6 +123,22 @@ describe("u2694 the Rail's menu actions", () => {
     fireEvent.click(await screen.findByRole("button", { name: "Remove" }));
 
     await waitFor(() => expect(railCallsTo(app, "rail.remove")).toEqual([{ id: "g" }]));
+  });
+
+  it("u2694b_escape_returns_focus_to_the_invoking_row_for_keyboard_navigation", async () => {
+    const { app } = await mountCentre([agent("a", "working", "busy"), agent("b", "idle", "idle")], { select: "b" });
+    rowOf("a").focus();
+    fireEvent.keyDown(rowOf("a"), { key: "ContextMenu" });
+    await app.pickMenu("Remove");
+    await waitFor(() => expect(document.activeElement).toBe(button("Keep")));
+
+    fireEvent.keyDown(document.activeElement!, { key: "Escape" });
+    await waitFor(() => expect(document.activeElement).toBe(rowOf("a")));
+    fireEvent.keyDown(document.activeElement!, { key: "ArrowDown" });
+    await settled();
+
+    expect(document.activeElement).toBe(rowOf("b"));
+    expect(removals(app)).toEqual([]);
   });
 
   it("u2694b_a_removed_object_refetches_on_not_found", async () => {
