@@ -1004,8 +1004,9 @@ async fn nr4_every_participant_rearms_before_a_new_completion() {
 async fn nr4_all_keeps_pre_rearm_finishes_excluded_after_reopen_and_expiry() {
     for expired in [false, true] {
         let mut s = scene(&[]).await;
-        // A Door can be started explicitly after reopen, without substituting either watched id.
+        // Doors can be started explicitly after reopen, preserving the watched and target ids.
         s.a = s.door.clone();
+        s.w = super::start_door(&s.user).await;
         drive(&s.user, &s.a, STOP).await;
         drive(&s.user, &s.b, STOP).await;
         let mode = json!({ "rearm": true, "max_firings": 2 });
@@ -1045,6 +1046,7 @@ async fn nr4_all_keeps_pre_rearm_finishes_excluded_after_reopen_and_expiry() {
                     .contains("expired")
             );
         }
+        start_again(&s.user, &s.w).await;
         start_again(&s.user, &s.a).await;
         drive(&s.user, &s.a, WORK).await;
         drive(&s.user, &s.a, STOP).await;
