@@ -3,7 +3,7 @@
 //! write that makes its Message (NR3). NR2, NR4 and NR5: an Agents condition is evaluated here from
 //! `agent.status` Events and the Rail's present Kinds, never by a Model; PR checks and instants are later
 //! slices.
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
 use std::sync::Arc;
 
 use contracts::agent::RailNode;
@@ -35,6 +35,8 @@ const SOURCES: [&str; 3] = ["agents", "pr-checks", "instant"];
 
 pub(crate) struct Reactions {
     pub(crate) db: std::sync::Mutex<Connection>,
+    /// Failed saves retain the latest cursor and re-arm progress until persistence succeeds.
+    unsaved: std::sync::Mutex<HashMap<String, Watch>>,
     /// NR6: a saved reaction's time may have changed; the Timer re-reads.
     pub(crate) changed: tokio::sync::Notify,
     /// Whether the Timer is running.
@@ -52,6 +54,7 @@ impl Reactions {
             db: std::sync::Mutex::new(
                 Connection::open_in_memory().expect("test reaction database"),
             ),
+            unsaved: Default::default(),
             changed: Default::default(),
             timed: Default::default(),
             gate: Default::default(),
@@ -62,6 +65,7 @@ impl Reactions {
     pub(crate) fn open(data: &std::path::Path) -> Result<Self, rpc::OpenError> {
         Ok(Self {
             db: std::sync::Mutex::new(Connection::open(data.join("project.db"))?),
+            unsaved: Default::default(),
             changed: Default::default(),
             timed: Default::default(),
             gate: Default::default(),
@@ -78,6 +82,14 @@ impl Reactions {
     }
 
     fn watch(&self, id: &str) -> Option<Watch> {
+        if let Some(watch) = self
+            .unsaved
+            .lock()
+            .expect("reaction watches poisoned")
+            .get(id)
+        {
+            return Some(watch.clone());
+        }
         let db = self.db.lock().expect("reaction database poisoned");
         let state: Option<String> = db
             .query_row(
@@ -98,8 +110,16 @@ impl Reactions {
              ON CONFLICT(reaction) DO UPDATE SET state = excluded.state",
             params![id, state],
         );
-        if let Err(err) = saved {
-            eprintln!("reaction: watch not kept: {err}");
+        let mut unsaved = self.unsaved.lock().expect("reaction watches poisoned");
+        match saved {
+            Ok(_) => {
+                unsaved.remove(id);
+            }
+            Err(err) => {
+                let mut watch = watch.clone();
+                watch.write_failure = Some(err.to_string());
+                unsaved.insert(id.to_owned(), watch);
+            }
         }
     }
 
@@ -123,6 +143,9 @@ impl Reactions {
 /// What the evaluator knows of one Agents reaction, saved after each decision.
 #[derive(Clone, Default, Serialize, Deserialize)]
 struct Watch {
+    // Kept separately from source/acceptance health so a successful save exposes their actual state.
+    #[serde(skip)]
+    write_failure: Option<String>,
     /// The Event number up to which the reaction was decided.
     seen: u64,
     /// The named Agents seen finished since it was last armed.
@@ -254,13 +277,44 @@ impl Evaluator {
         let Ok(expires) = instant("expires_at", &r.expires_at) else {
             return;
         };
-        let used = self
-            .messages
-            .firings_of(&r.id)
-            .map_or(u32::MAX, |f| u32::try_from(f.len()).unwrap_or(u32::MAX));
+        let firings = match self.messages.firings_of(&r.id) {
+            Ok(firings) => firings,
+            Err(err) => {
+                w.unavailable(
+                    format!("the accepted firings were not read: {}", err.message),
+                    "observation resumes at the next successful read; nothing matches meanwhile",
+                );
+                return;
+            }
+        };
+        let used = u32::try_from(firings.len()).unwrap_or(u32::MAX);
         if r.state != State::Active || used >= r.max_firings || OffsetDateTime::now_utc() >= expires
         {
             return;
+        }
+        let automatic: Vec<_> = firings.iter().filter(|(f, _)| f.matched).collect();
+        let round = u32::try_from(automatic.len()).unwrap_or(u32::MAX);
+        if let Some((firing, _)) = automatic.last()
+            && round > w.round
+        {
+            // Acceptance can outlive several failed Watch saves. Resume after the latest accepted
+            // match so replay cannot count its completion again or reuse an earlier firing id.
+            let cursor = serde_json::from_str::<Value>(&firing.evidence)
+                .ok()
+                .and_then(|e| e["cursor"].as_u64());
+            let Some(cursor) = cursor else {
+                w.unavailable(
+                    "the accepted Agent firing has no source cursor".into(),
+                    "restore its durable source evidence; nothing matches meanwhile",
+                );
+                return;
+            };
+            w.round = round;
+            w.seen = cursor;
+            w.armed = false;
+            w.finished.clear();
+            w.unfinished.clear();
+            w.before_rearm.clear();
         }
         let world =
             match self.reader.world().await {
@@ -685,7 +739,14 @@ impl Daemon {
                 definition: f.definition,
             })
             .collect();
-        if let Some(watch) = self.reactions.watch(&saved.id) {
+        if let Some(mut watch) = self.reactions.watch(&saved.id) {
+            if let Some(cause) = watch.write_failure {
+                watch.health = "observation-save-failed".into();
+                watch.cause = Some(format!("the Agent observation was not saved: {cause}"));
+                watch.recovery = Some(
+                    "remove the storage failure; retry reaction.create with its original operation or allow the next Agent observation to save retained progress; Project reopen replays durable evidence within the remaining bound and expiry".into(),
+                );
+            }
             saved.observation = Observation {
                 health: watch.health,
                 cause: watch.cause,
