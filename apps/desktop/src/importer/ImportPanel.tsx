@@ -77,10 +77,7 @@ export const ImportPanel = (props: { open: boolean; opener: HTMLElement | undefi
                       <span class="import-meta">
                         <bdi class="import-cwd">{candidate.cwd === "" ? copy.importProjectFolder : candidate.cwd}</bdi>
                         <time dateTime={new Date(Number(candidate.last_activity_ms)).toISOString()}>{copy.importAge(Math.max(0, Math.floor((now() - Number(candidate.last_activity_ms)) / 60000)))}</time>
-                        <Show when={refused().get(candidate.source)}>{(reason) => <>
-                          <span role="alert" data-kind="error" class="import-failure">{reason()}</span>
-                          <span class="import-failure">{copy.importRowFix}</span>
-                        </>}</Show>
+                        <Show when={refused().get(candidate.source)}>{(reason) => <span role="alert" data-kind="error" class="import-failure">{reason()} {copy.importRowFix}</span>}</Show>
                       </span>
                     </Checkbox>
                   </li>
