@@ -443,8 +443,8 @@ fn fire(operation: &str) -> reaction::Fire {
     }
 }
 
-fn save_reaction(h: &Faulty, state: &str, max: u32) {
-    let record = json!({"state": state, "max_firings": max}).to_string();
+fn save_reaction(h: &Faulty, state: &str, max: u32, expires: &str) {
+    let record = json!({"state": state, "max_firings": max, "expires_at": expires}).to_string();
     h.messages
         .store()
         .unwrap()
@@ -460,7 +460,7 @@ fn save_reaction(h: &Faulty, state: &str, max: u32) {
 async fn nr3_firing_and_message_commit_together() {
     let dir = tempfile::tempdir().unwrap();
     let h = Faulty::new(dir.path());
-    save_reaction(&h, "active", 2);
+    save_reaction(&h, "active", 2, "2099-01-01T00:00:00Z");
 
     h.arm("reaction", Fail::Err);
     h.messages.fire_reaction(fire("one")).await.unwrap_err();
@@ -471,7 +471,11 @@ async fn nr3_firing_and_message_commit_together() {
     let (first, message) = h.messages.fire_reaction(fire("one")).await.unwrap();
     assert_eq!((first.ordinal, first.message), (1, message.id));
     assert_eq!(message.body, "ship it");
-    assert_eq!(first.definition, r#"{"state":"active","max_firings":2}"#);
+    assert_eq!(
+        first.definition,
+        json!({"state": "active", "max_firings": 2, "expires_at": "2099-01-01T00:00:00Z"})
+            .to_string()
+    );
     // A retry is the same firing and the same Message; nothing new is sent.
     let (again, same) = h.messages.fire_reaction(fire("one")).await.unwrap();
     assert_eq!((again.id, same.id), (first.id, message.id));
@@ -485,7 +489,123 @@ async fn nr3_firing_and_message_commit_together() {
 async fn nr3_a_stopped_reaction_accepts_no_firing() {
     let dir = tempfile::tempdir().unwrap();
     let h = Faulty::new(dir.path());
-    save_reaction(&h, "stopped", 1);
+    save_reaction(&h, "stopped", 1, "2099-01-01T00:00:00Z");
     h.messages.fire_reaction(fire("one")).await.unwrap_err();
     assert!(h.messages.firings_of("r1").unwrap().is_empty());
+}
+
+#[tokio::test]
+async fn nr4_acceptance_rechecks_expiry_after_receiver_read() {
+    use time::OffsetDateTime;
+    use time::format_description::well_known::Rfc3339;
+
+    struct ExpiringRail {
+        rail: Arc<FakeRail>,
+        expires: OffsetDateTime,
+    }
+
+    impl TerminalOwners for ExpiringRail {
+        fn with_terminal_owner(
+            &self,
+            terminal: &str,
+            record: &mut dyn FnMut(Option<&agents::TerminalOwner>) -> Result<(), RpcError>,
+        ) -> Result<(), RpcError> {
+            self.rail.with_terminal_owner(terminal, record)
+        }
+    }
+
+    #[async_trait]
+    impl Module for ExpiringRail {
+        fn namespaces(&self) -> &'static [&'static str] {
+            &["rail"]
+        }
+
+        async fn call(&self, ctx: &Ctx, method: &str, params: Value) -> Result<Value, RpcError> {
+            // Expiry itself bounds the read, not a delay for evaluator readiness.
+            while OffsetDateTime::now_utc() < self.expires {
+                tokio::time::sleep(std::time::Duration::from_millis(1)).await;
+            }
+            self.rail.call(ctx, method, params).await
+        }
+    }
+
+    for matched in [false, true] {
+        let dir = tempfile::tempdir().unwrap();
+        let expires = OffsetDateTime::now_utc() + time::Duration::seconds(1);
+        let rail = Arc::new(ExpiringRail {
+            rail: FakeRail::new(vec![agent_node("a", Kind::Working)]),
+            expires,
+        });
+        let ctx = Ctx {
+            actor: Actor::user(),
+            bus: Bus::new(),
+            touches: Arc::new(provenance::Touches::in_memory().unwrap()),
+        };
+        let messages = Messages::open_with(
+            dir.path(),
+            ctx.bus.clone(),
+            rail,
+            Arc::new(|_, _| Box::pin(async { Ok(()) })),
+            Env::system(Arc::clone(&ctx.touches)),
+        )
+        .unwrap();
+        let record = json!({"state": "active", "max_firings": 2,
+            "expires_at": expires.format(&Rfc3339).unwrap()})
+        .to_string();
+        messages.store().unwrap().db.execute(
+            "INSERT INTO reactions (id, actor_key, operation, request, record) VALUES ('r1','u','o','q',?1)",
+            [record],
+        ).unwrap();
+        assert!(OffsetDateTime::now_utc() < expires);
+        let mut firing = fire("crossing-expiry");
+        firing.matched = matched;
+        let refused = messages.fire_reaction(firing).await.unwrap_err();
+        assert_eq!(refused.code, code::CONFLICT);
+        assert!(refused.message.contains("expired"), "{refused:?}");
+        assert!(messages.firings_of("r1").unwrap().is_empty());
+        let listed = messages
+            .call(&ctx, "message.list", json!({}))
+            .await
+            .unwrap();
+        assert!(listed.as_array().unwrap().is_empty(), "{listed}");
+    }
+}
+
+#[tokio::test]
+async fn nr4_expiry_refuses_new_work_but_retains_accepted_retry_identity() {
+    use time::OffsetDateTime;
+    use time::format_description::well_known::Rfc3339;
+
+    for matched in [false, true] {
+        let dir = tempfile::tempdir().unwrap();
+        let h = Faulty::new(dir.path());
+        let expires = OffsetDateTime::now_utc() + time::Duration::seconds(1);
+        save_reaction(&h, "active", 2, &expires.format(&Rfc3339).unwrap());
+        let mut first = fire("one");
+        first.matched = matched;
+        let (accepted, message) = h.messages.fire_reaction(first).await.unwrap();
+        // Wait for the declared expiry, not evaluator readiness.
+        while OffsetDateTime::now_utc() < expires {
+            tokio::time::sleep(std::time::Duration::from_millis(1)).await;
+        }
+        let mut replay = fire("one");
+        replay.matched = matched;
+        let (again, same) = h.messages.fire_reaction(replay).await.unwrap();
+        assert_eq!((again, same.id), (accepted, message.id));
+        let mut next = fire("two");
+        next.matched = matched;
+        let refused = h.messages.fire_reaction(next).await.unwrap_err();
+        assert_eq!(refused.code, code::CONFLICT);
+        assert!(refused.message.contains("expired"), "{refused:?}");
+        assert_eq!(h.messages.firings_of("r1").unwrap().len(), 1);
+        assert_eq!(
+            h.call("message.list", json!({}))
+                .await
+                .unwrap()
+                .as_array()
+                .unwrap()
+                .len(),
+            1
+        );
+    }
 }
