@@ -19,17 +19,12 @@
   top: var(--space-2);
   right: calc(var(--space-4) + var(--space-5) + var(--space-1));
 }
-.todo-history { display: flex; flex-direction: column; gap: var(--space-4); }
-.todo-history h3 { font: inherit; font-weight: 600; margin: 0; }
-.todo-change { display: flex; flex-direction: column; gap: var(--space-2); }
-.todo-change p { white-space: pre-wrap; overflow-wrap: anywhere; }
-.todo-history hr {
-  border: 0;
-  height: 1px;
-  background: var(--hairline);
-  width: 100%;
-  margin: var(--space-2) 0;
-}
+.todo-history { display: flex; flex-direction: column; gap: var(--space-2); }
+.todo-history-line { display: flex; align-items: center; gap: var(--space-1); align-self: flex-start; }
+.todo-history-count { font-weight: 600; }
+.todo-history-count[data-state="unread"] { color: var(--text); text-decoration: underline; }
+.todo-history-count[data-state="read"] { color: var(--grey); }
+.todo-change { white-space: pre-wrap; overflow-wrap: anywhere; }
 .todo-delete-confirm.app-dialog {
   display: flex;
   flex-wrap: wrap;

@@ -13,7 +13,7 @@ afterEach(() => {
 const blocked = () => todo(5, { title: "session store", body: "Move the cache.", blocked: true, blockers: [4] });
 
 /** Fresh objects per test: the list state reconciles into the objects it is given. */
-const shelf = () => [todo(4, { title: "migrate users" }), blocked(), todo(10, { title: "session tests", blocked: true, blockers: [5] }), todo(7)];
+const shelf = () => [todo(4, { title: "migrate users" }), blocked(), todo(10, { title: "session tests", blocked: true, blockers: [5] }), todo(7), todo(11, { title: "release notes" })];
 
 stubDialogLayout();
 
@@ -87,6 +87,8 @@ describe("u17 Todo detail", () => {
 
   it("u17_opening_the_drawer_reads_history_before_acknowledging_it", async () => {
     const { app } = await openDrawerOf(/#5/);
+    expect(callsTo(app, "todo.readHistory")).toHaveLength(0);
+    fireEvent.click(within(drawer()).getByRole("button", { name: /^Changes/ }));
     await waitFor(() => expect(callsTo(app, "todo.readHistory")).toHaveLength(1));
     expect(app.calls.map((call) => call.method).filter((method) => method === "todo.getHistory" || method === "todo.readHistory")).toEqual(["todo.getHistory", "todo.readHistory"]);
   });
@@ -115,10 +117,7 @@ describe("u17 Todo detail", () => {
 
     fireEvent.click(within(drawer()).getByText("Blocker"));
 
-    expect(within(drawer()).getAllByRole("button").map((button) => button.textContent).filter((text) => text?.includes("#"))).toEqual([
-      " #7  todo 7",
-      " #10  session tests",
-    ]);
+    expect((await screen.findAllByRole("option")).map((option) => option.textContent)).toEqual(["todo 7#7", "release notes#11"]);
   });
 
   it("u17_choosing_an_offered_todo_calls_set_blockers_with_the_whole_new_list", async () => {
@@ -126,7 +125,7 @@ describe("u17 Todo detail", () => {
     app.handlers["todo.setBlockers"] = () => blocked();
     fireEvent.click(within(drawer()).getByText("Blocker"));
 
-    fireEvent.click(within(drawer()).getByRole("button", { name: /#7/ }));
+    fireEvent.click(await screen.findByRole("option", { name: /#7/ }));
 
     await waitFor(() =>
       expect(callsTo(app, "todo.setBlockers")).toEqual([{ method: "todo.setBlockers", params: { id: 5, blockers: [4, 7], expected_change: 2 } }]),
@@ -138,7 +137,7 @@ describe("u17 Todo detail", () => {
     app.handlers["todo.setBlockers"] = () => Promise.reject(new RpcError(-32010, "#10 already waits on #5"));
     fireEvent.click(within(drawer()).getByText("Blocker"));
 
-    fireEvent.click(within(drawer()).getByRole("button", { name: /#10/ }));
+    fireEvent.click(await screen.findByRole("option", { name: /#11/ }));
 
     expect((await within(drawer()).findByText(/already waits/)).textContent).toBe("#10 already waits on #5");
   });
@@ -268,51 +267,53 @@ describe("u17 Todo detail", () => {
   it("u17_two_quick_blocker_picks_both_land_the_second_built_on_the_first", async () => {
     const { app } = await openDrawerOf(/#5/);
     fireEvent.click(within(drawer()).getByText("Blocker"));
-    fireEvent.click(within(drawer()).getByRole("button", { name: /#7/ }));
+    fireEvent.click(await screen.findByRole("option", { name: /#7/ }));
     fireEvent.click(within(drawer()).getByText("Blocker"));
 
-    fireEvent.click(within(drawer()).getByRole("button", { name: /#10/ }));
+    fireEvent.click(await screen.findByRole("option", { name: /#11/ }));
 
     await waitFor(() => expect(callsTo(app, "todo.setBlockers")).toHaveLength(2));
     expect(callsTo(app, "todo.setBlockers").map((call) => call.params)).toEqual([
       { id: 5, blockers: [4, 7], expected_change: 2 },
-      { id: 5, blockers: [4, 7, 10], expected_change: 5 },
+      { id: 5, blockers: [4, 7, 11], expected_change: 6 },
     ]);
   });
 
   it("u17_a_blocker_change_by_another_actor_between_two_picks_is_not_undone_by_the_second", async () => {
     const { app } = await openDrawerOf(/#5/);
     fireEvent.click(within(drawer()).getByText("Blocker"));
-    fireEvent.click(within(drawer()).getByRole("button", { name: /#7/ }));
+    fireEvent.click(await screen.findByRole("option", { name: /#7/ }));
     await waitFor(() => expect(callsTo(app, "todo.setBlockers")).toHaveLength(1));
     await app.handlers["todo.setBlockers"]?.({ id: 5, blockers: [] });
     app.emit(todoEvent("todo.updated", todo(5)));
     await waitFor(() => expect(within(drawer()).queryByText("Waits on")).toBeNull());
 
     fireEvent.click(within(drawer()).getByText("Blocker"));
-    fireEvent.click(within(drawer()).getByRole("button", { name: /#10/ }));
+    fireEvent.click(await screen.findByRole("option", { name: /#11/ }));
 
     await waitFor(() => expect(callsTo(app, "todo.setBlockers")).toHaveLength(2));
-    expect(callsTo(app, "todo.setBlockers")[1]?.params).toEqual({ id: 5, blockers: [10], expected_change: 6 });
+    expect(callsTo(app, "todo.setBlockers")[1]?.params).toEqual({ id: 5, blockers: [11], expected_change: 7 });
   });
 
   it("u17_a_todo_just_picked_is_not_offered_again_before_the_event_arrives", async () => {
     const { app } = await openDrawerOf(/#5/);
     fireEvent.click(within(drawer()).getByText("Blocker"));
-    fireEvent.click(within(drawer()).getByRole("button", { name: /#7/ }));
+    fireEvent.click(await screen.findByRole("option", { name: /#7/ }));
     await waitFor(() => expect(callsTo(app, "todo.setBlockers")).toHaveLength(1));
     // The reply, not the event, is what hides #7; the call is recorded a microtask before it lands.
     await new Promise((settle) => setTimeout(settle, 0));
 
     fireEvent.click(within(drawer()).getByText("Blocker"));
 
-    expect(within(drawer()).queryByRole("button", { name: /#7/ })).toBeNull();
+    await screen.findByRole("option", { name: /#11/ });
+    expect(screen.queryByRole("option", { name: /#7/ })).toBeNull();
   });
 
   it("u17_a_failed_history_read_keeps_current_content_editable", async () => {
     const { app } = await mountTodos(shelf());
     app.handlers["todo.getHistory"] = () => Promise.reject(new RpcError(-32001, "gone"));
     fireEvent.click(await rowButton(/#5/));
+    fireEvent.click(await within(drawer()).findByRole("button", { name: "Changes" }));
     await within(drawer()).findByText("gone");
     expect(within(drawer()).getByText("session store").tabIndex).toBe(0);
     expect(within(drawer()).getByRole("button", { name: "Retry history" })).toBeTruthy();
@@ -351,9 +352,9 @@ describe("u17 Todo detail", () => {
       };
     })();
     fireEvent.click(within(drawer()).getByText("Blocker"));
-    fireEvent.click(within(drawer()).getByRole("button", { name: /#7/ }));
+    fireEvent.click(await screen.findByRole("option", { name: /#7/ }));
     fireEvent.click(within(drawer()).getByText("Blocker"));
-    fireEvent.click(within(drawer()).getByRole("button", { name: /#10/ }));
+    fireEvent.click(await screen.findByRole("option", { name: /#11/ }));
 
     await waitFor(() => expect(callsTo(app, "todo.setBlockers")).toHaveLength(2));
     expect(reportError).toHaveBeenCalledWith("boom");
