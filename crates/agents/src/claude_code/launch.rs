@@ -140,7 +140,7 @@ const STALE: Duration = Duration::from_secs(10);
 static TRUSTING: Mutex<()> = Mutex::new(());
 
 #[cfg(any(test, feature = "test-support"))]
-pub type ImportObserver = Arc<dyn Fn(&Path, &'static str) + Send + Sync>;
+pub type ImportObserver = Arc<dyn Fn(&Path, &'static str, u64) + Send + Sync>;
 
 #[derive(Clone)]
 pub struct Launcher {
