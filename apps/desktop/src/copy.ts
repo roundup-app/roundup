@@ -371,7 +371,16 @@ export const copy = {
   importRetentionRecovery: "Keep this window open; your choices are still here.",
   importRestored: (count: number) => `${count} chosen earlier; refresh to check they are unchanged`,
   importNotImportable: (count: number) => `${count} not importable`,
-  importExcludedReason: (reason: string) => reason === "already in this Project" ? "Already imported" : reason === "ambiguous Project membership" ? "Used more than one folder of this Project" : reason,
+  importExcludedReason: (reason: string) => {
+    const r = reason.toLowerCase();
+    if (r === "already in this project") return "Already imported";
+    if (r === "ambiguous project membership") return "Used more than one folder of this Project";
+    if (r.includes("folder") || r.includes("directory") || r.includes("source unavailable")) return "Its folder is no longer there";
+    if (r.includes("worktree")) return "Lives in a Worktree";
+    if (r.includes("duplicate")) return "Already listed once";
+    if (r.includes("activity")) return "No usable time";
+    return "Can't be read as a conversation";
+  },
   importAge: (minutes: number) => minutes < 1440 ? copy.riskTime(minutes) : `${Math.floor(minutes / 1440)} d ago`,
   importRowFix: "Choose it again, or Refresh.",
   importUnnamed: "Conversation",
