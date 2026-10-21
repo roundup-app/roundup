@@ -975,3 +975,145 @@ async fn nr3_legacy_firings_keep_identity_on_upgrade_and_replay() {
         }
     }
 }
+
+#[tokio::test]
+async fn nr4_every_participant_rearms_before_a_new_completion() {
+    let s = scene(&[]).await;
+    drive(&s.user, &s.a, STOP).await;
+    drive(&s.user, &s.b, STOP).await;
+    let saved = watching(
+        &s,
+        "two-agent-rearm",
+        &[&s.a, &s.b],
+        json!({ "any": true, "rearm": true, "max_firings": 2 }),
+    )
+    .await;
+    notes(&s.user, &s.w, "two-agent-rearm", 1).await;
+    drive(&s.user, &s.a, WORK).await;
+    drive(&s.user, &s.a, STOP).await;
+    still(&s.user, &s.w, "two-agent-rearm", 1).await;
+    // B becoming working completes re-arm, but no Agent has finished after it.
+    drive(&s.user, &s.b, WORK).await;
+    still(&s.user, &s.w, "two-agent-rearm", 1).await;
+    assert_eq!(current(&s, &saved).await.remaining, 1);
+    drive(&s.user, &s.b, STOP).await;
+    assert_eq!(notes(&s.user, &s.w, "two-agent-rearm", 2).await.len(), 2);
+}
+
+#[tokio::test]
+async fn nr4_all_keeps_pre_rearm_finishes_excluded_after_reopen_and_expiry() {
+    for expired in [false, true] {
+        let mut s = scene(&[]).await;
+        // Doors can be started explicitly after reopen, preserving the watched and target ids.
+        s.a = s.door.clone();
+        s.w = super::start_door(&s.user).await;
+        drive(&s.user, &s.a, STOP).await;
+        drive(&s.user, &s.b, STOP).await;
+        let mode = json!({ "rearm": true, "max_firings": 2 });
+        let first = watching(&s, "all-rearm", &[&s.a, &s.b], mode.clone()).await;
+        assert_eq!(first.firings.len(), 1);
+        drive(&s.user, &s.a, WORK).await;
+        drive(&s.user, &s.a, STOP).await;
+        drive(&s.user, &s.b, WORK).await;
+        drive(&s.user, &s.b, STOP).await;
+        // Retried creation waits for evaluation and its Watch save, rather than racing the observer.
+        let waiting = watching(&s, "all-rearm", &[&s.a, &s.b], mode.clone()).await;
+        assert_eq!(waiting.firings, first.firings);
+        assert_eq!(waiting.remaining, 1);
+        drop(s.user);
+        s.project.crash();
+        if expired {
+            project_db(&s.project)
+                .execute_batch(
+                    "DELETE FROM events;
+                 UPDATE reaction_watch SET state=json_set(state, '$.seen', 0);",
+                )
+                .unwrap();
+        }
+        s.project.restart(&[]);
+        s.user = s.project.client().await;
+        let replayed = watching(&s, "all-rearm", &[&s.a, &s.b], mode.clone()).await;
+        assert_eq!(replayed.firings, first.firings);
+        assert_eq!(replayed.remaining, 1);
+        assert_eq!(messages(&s.user, &s.w, "all-rearm").await.len(), 1);
+        if expired {
+            assert!(
+                replayed
+                    .observation
+                    .gap
+                    .as_deref()
+                    .unwrap()
+                    .contains("expired")
+            );
+        }
+        start_again(&s.user, &s.w).await;
+        start_again(&s.user, &s.a).await;
+        drive(&s.user, &s.a, WORK).await;
+        drive(&s.user, &s.a, STOP).await;
+        let completed = watching(&s, "all-rearm", &[&s.a, &s.b], mode).await;
+        assert_eq!((completed.firings.len(), completed.remaining), (2, 0));
+        assert_eq!(completed.firings[0], first.firings[0]);
+        assert_eq!(completed.firings[1].ordinal, 2);
+        assert_eq!(messages(&s.user, &s.w, "all-rearm").await.len(), 2);
+    }
+}
+
+#[tokio::test]
+async fn nr5_gap_recovery_cannot_reuse_a_pre_rearm_finish() {
+    for rearmed in [false, true] {
+        let s = scene(&[]).await;
+        drive(&s.user, &s.a, STOP).await;
+        drive(&s.user, &s.b, STOP).await;
+        let mode = json!({ "any": true, "rearm": true, "max_firings": 2 });
+        let first = watching(&s, "gap-rearm", &[&s.b, &s.a], mode.clone()).await;
+        drive(&s.user, &s.a, WORK).await;
+        watching(&s, "gap-rearm", &[&s.b, &s.a], mode.clone()).await;
+        let before: String = project_db(&s.project)
+            .query_row(
+                "SELECT state FROM reaction_watch WHERE reaction=?1",
+                [&first.id],
+                |r| r.get(0),
+            )
+            .unwrap();
+        drive(&s.user, &s.a, STOP).await;
+        drive(&s.user, &s.b, WORK).await;
+        watching(&s, "gap-rearm", &[&s.b, &s.a], mode.clone()).await;
+        // Expire history either before the observer saved A's finish and B's re-arm, or after it.
+        // B comes first in the definition, so a snapshot cannot depend on participant order.
+        let mut db = project_db(&s.project);
+        let tx = db.transaction().unwrap();
+        if !rearmed {
+            tx.execute(
+                "UPDATE reaction_watch SET state=?1 WHERE reaction=?2",
+                [&before, &first.id],
+            )
+            .unwrap();
+        }
+        // Advance the retained head beyond every pre-gap cursor. Resetting only the Watch's
+        // cursor races an evaluator that loaded the old Watch before this fixture write.
+        tx.execute_batch(
+            "INSERT INTO events (id, event)
+                 SELECT id + 2, event FROM events ORDER BY id DESC LIMIT 1;
+             DELETE FROM events WHERE id < (SELECT MAX(id) FROM events);",
+        )
+        .unwrap();
+        tx.commit().unwrap();
+        drop(db);
+        let recovered = watching(&s, "gap-rearm", &[&s.b, &s.a], mode.clone()).await;
+        assert!(
+            recovered
+                .observation
+                .gap
+                .as_deref()
+                .unwrap()
+                .contains("expired")
+        );
+        assert_eq!(recovered.firings, first.firings);
+        assert_eq!(recovered.remaining, 1);
+        assert_eq!(messages(&s.user, &s.w, "gap-rearm").await.len(), 1);
+        drive(&s.user, &s.b, STOP).await;
+        let completed = watching(&s, "gap-rearm", &[&s.b, &s.a], mode).await;
+        assert_eq!((completed.firings.len(), completed.remaining), (2, 0));
+        assert_eq!(messages(&s.user, &s.w, "gap-rearm").await.len(), 2);
+    }
+}
