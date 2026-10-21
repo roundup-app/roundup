@@ -223,6 +223,13 @@
     "data": "Production implementation, test caller, client or name reference; launches delegate to the owners above.",
     "kind": "reference"
   },
+  "crates/agents/src/claude_code/measurement_observer.py": {
+    "cleanup": "Finally terminates and waits for the Daemon, killing and reaping on timeout; the run-owned evidence folder is retained, never deleted while a Daemon is live.",
+    "data": "Fresh absolute mkdtemp data directory overrides inherited App data; HOME, vendor config and Project are isolated under the same run-owned folder.",
+    "issue": 3026,
+    "kind": "real",
+    "sha256": "a98a814a165e89595917e128c522db11a34a8a20f3f7162e0eabd2d3ad05e533"
+  },
   "crates/agents/src/claude_code/mod.rs": {
     "cleanup": "No separate built-Daemon launch site.",
     "data": "Production implementation, test caller, client or name reference; launches delegate to the owners above.",
@@ -691,6 +698,11 @@
   "crates/rupd/tests/sweep_rupd_harness.rs": {
     "cleanup": "No separate built-Daemon launch site.",
     "data": "Production implementation, test caller, client or name reference; launches delegate to the owners above.",
+    "kind": "reference"
+  },
+  "crates/rupd/tests/workstream_measurement.rs": {
+    "cleanup": "Shared Rupd handle kills and waits on Drop before caller-owned TempDirs drop; reopen explicitly kills and waits before relaunch.",
+    "data": "Delegates launches to support/rupd_harness.rs with an explicit absolute caller-owned TempDir, retained across reopen.",
     "kind": "reference"
   },
   "crates/todos/src/schema.rs": {
