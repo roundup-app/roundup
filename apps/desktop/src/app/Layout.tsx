@@ -14,7 +14,7 @@ import { setResizeDragging } from "../resize/dragging";
 import type { Widths } from "../resize/widths";
 
 /** How the Shelf sits (U369 to U371): in the layout or not, slid in or out, and whether a change slides. */
-export type ShelfPlacement = { open: boolean; rendered: boolean; shown: boolean; animated: boolean; maximised?: boolean; onMaximise?: (source: ActivationSource) => void; onClose?: () => void; onSettle: () => void };
+export type ShelfPlacement = { open: boolean; rendered: boolean; shown: boolean; animated: boolean; maximised?: boolean; onMaximise?: (source: ActivationSource) => void; reducedMotion?: boolean; onClose?: (source?: ActivationSource) => void; onSettle: () => void };
 
 const SETTLED: ShelfPlacement = { open: true, rendered: true, shown: true, animated: false, onSettle: () => {} };
 
@@ -94,7 +94,7 @@ export const Layout = (props: {
 
   createEffect(on(maximised, (expanded) => {
     const shelf = windowElement?.querySelector<HTMLElement>(".shelf");
-    const offset = shelf && maximiseSlide?.playState === "running" ? new DOMMatrixReadOnly(getComputedStyle(shelf).transform).m41 : 0;
+    const offset = shelf && maximiseSlide && (maximiseSlide.playState === "running" || maximiseSlide.playState === "paused") ? new DOMMatrixReadOnly(getComputedStyle(shelf).transform).m41 : 0;
     maximiseSlide?.cancel();
 
     if (!windowElement || !shelf?.animate || mode() !== "reserved" || !placement().animated || !placement().open) return;
@@ -113,7 +113,7 @@ export const Layout = (props: {
 
     void slide.finished.then(settled, settled);
   }, { defer: true }));
-  createEffect(() => { if (!placement().open) maximiseSlide?.cancel(); });
+  createEffect(() => { if (!placement().open || placement().reducedMotion) { maximiseSlide?.cancel(); setShelfSliding(false); } });
   onCleanup(() => maximiseSlide?.cancel());
   onCleanup(() => setShelfSliding(false));
 
@@ -154,7 +154,7 @@ export const Layout = (props: {
           </IconButton>
         </Show>
         <Show when={placement().onClose}>
-          <IconButton aria-label={copy.closeShelf} tooltip={copy.close} chord={CHORDS.find(row => row.keys === "Esc")} onClick={() => placement().onClose?.()}><X class="icon" aria-hidden="true" /></IconButton>
+          <IconButton aria-label={copy.closeShelf} tooltip={copy.close} chord={CHORDS.find(row => row.keys === "Esc")} onClick={event => placement().onClose?.(activationSource(event))}><X class="icon" aria-hidden="true" /></IconButton>
         </Show>
       </div>
       {props.shelf}

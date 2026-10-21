@@ -194,3 +194,6 @@
 .shelf:has(.shelf-controls button):not(:has(.shelf-bar)) { padding-top: var(--space-6); }
 .window[data-shelf-maximised="true"] .shelf { width: calc(100% - var(--rail-width)); }
 .window[data-shelf-maximised="true"][data-shelf="open"] .centre { visibility: hidden; }
+/* U3724: the hint line stays in view; the Shelf ends above the strip that holds it. */
+.window[data-shelf-maximised="true"][data-shelf="open"] .centre .hint-line { visibility: visible; }
+.window[data-shelf-maximised="true"][data-shelf-mode="reserved"] .shelf { bottom: calc(var(--hint-row-height) + var(--rail-actions-height)); }
