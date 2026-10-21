@@ -14,7 +14,9 @@ it("u2773a_todos_restores_exact_work_after_hiding_creation", async () => {
   fireEvent.click(await screen.findByRole("button", { name: "Add Todo" }));
   const text = "  e\u0301 🧪 unfinished  ";
   const field = screen.getByRole<HTMLInputElement>("textbox", { name: "New Todo title" });
+  fireEvent.input(field, { target: { value: "first keystrokes" } });
   fireEvent.input(field, { target: { value: text } });
+  expect(screen.getByRole("textbox", { name: "New Todo title" })).toBe(field);
   field.setSelectionRange(2, 5, "backward");
   fireEvent.select(field);
   fireEvent.keyDown(field, { key: "Escape" });
