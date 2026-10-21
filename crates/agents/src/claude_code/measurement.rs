@@ -571,6 +571,18 @@ mod recovery_tests {
                 .unwrap()
         }
 
+        fn reopen(&mut self) {
+            self.agents = Agents::open_in(
+                self.dir.path(),
+                self.dir.path(),
+                self.ctx.bus.clone(),
+                self.agents.shared.terminals.clone(),
+                self.agents.launcher.clone(),
+                worktree::Git::from_env(),
+            )
+            .unwrap();
+        }
+
         fn db(&self) -> rusqlite::Connection {
             rusqlite::Connection::open(self.dir.path().join("agents.db")).unwrap()
         }
@@ -659,6 +671,32 @@ mod recovery_tests {
                 break;
             }
         }
+    }
+
+    #[tokio::test]
+    async fn u3119b_revision_write_recovery_survives_reopen() {
+        let mut w = Recovery::new();
+        w.append("first");
+        w.collect();
+        let good = w.read().await;
+        let db = w.db();
+        db.execute_batch("ALTER TABLE measurement_state RENAME TO held_measurement_state")
+            .unwrap();
+        w.append("second");
+        w.collect();
+        db.execute_batch("ALTER TABLE held_measurement_state RENAME TO measurement_state")
+            .unwrap();
+
+        w.reopen();
+        w.collect();
+        let recovered = w.read().await;
+        recovered_requests(&good, &recovered);
+
+        w.reopen();
+        w.collect();
+        let replayed = w.read().await;
+        assert_eq!(requests(&replayed), requests(&recovered));
+        assert_eq!(replayed["revision"], recovered["revision"]);
     }
 
     #[tokio::test(start_paused = true)]
