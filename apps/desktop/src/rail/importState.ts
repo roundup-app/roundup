@@ -1,4 +1,5 @@
 import { batch, createSignal } from "solid-js";
+import { copy } from "../copy";
 import * as v from "valibot";
 import type { ImportDiscovery } from "@contracts/project/ImportDiscovery";
 import type { ImportPeriod } from "@contracts/project/ImportPeriod";
@@ -61,6 +62,8 @@ export const createImport = (app: AppSeam, path: string, onOpened: (workstream: 
   const [failed, setFailed] = createSignal<ReadonlyMap<string, string>>(new Map());
   const [restoreFailure, setRestoreFailure] = createSignal(restored.status === "failed");
   let latest = 0;
+  let deadline: ReturnType<typeof setTimeout> | undefined;
+  const invalidate = () => { latest++; clearTimeout(deadline); };
 
   const choices = () => versions().flatMap(entry => {
     const parsed = v.safeParse(form, entry.value);
@@ -132,7 +135,7 @@ export const createImport = (app: AppSeam, path: string, onOpened: (workstream: 
 
     if (!choice || pending()) return;
 
-    latest++;
+    invalidate();
     draftRevision = revision;
     batch(() => {
       setPeriodSignal(choice.period);
@@ -143,7 +146,13 @@ export const createImport = (app: AppSeam, path: string, onOpened: (workstream: 
   };
 
   const refresh = async () => {
-    const mine = ++latest;
+    invalidate();
+    const mine = latest;
+    deadline = setTimeout(() => {
+      if (mine !== latest) return;
+      invalidate();
+      batch(() => { setLoading(false); setFailure(copy.importTimeout); });
+    }, 20_000);
     setDiscovery(null);
     setVerified(false);
     setLoading(true);
@@ -174,7 +183,7 @@ export const createImport = (app: AppSeam, path: string, onOpened: (workstream: 
     } catch (error) {
       if (mine === latest) setFailure(error instanceof Error ? error.message : String(error));
     } finally {
-      if (mine === latest) setLoading(false);
+      if (mine === latest) { clearTimeout(deadline); setLoading(false); }
     }
   };
 
@@ -204,7 +213,7 @@ export const createImport = (app: AppSeam, path: string, onOpened: (workstream: 
     reconnect: (nextApp: AppSeam, nextOpened: typeof onOpened) => {
       app = nextApp;
       onOpened = nextOpened;
-      latest++;
+      invalidate();
       setLoading(false);
       setDiscovery(null);
       setVerified(false);
@@ -229,7 +238,7 @@ export const createImport = (app: AppSeam, path: string, onOpened: (workstream: 
     },
     cancel: () => {
       if (pending()) return;
-      latest++;
+      invalidate();
       persist();
 
       if (draftRevision) drafts?.discard(draftRevision);

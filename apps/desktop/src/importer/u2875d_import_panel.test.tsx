@@ -1,15 +1,16 @@
 import { openLane } from "../todos/laneBrowser";
 import { captureDir } from "../testing/captures";
-import { cleanup, fireEvent, screen, waitFor } from "@solidjs/testing-library";
-import { afterEach, expect, it } from "vitest";
+import { cleanup, fireEvent, screen, waitFor, within } from "@solidjs/testing-library";
+import { afterEach, expect, it, vi } from "vitest";
 import { render } from "@solidjs/testing-library";
-import { ConnectedProjectContext } from "../state/connectedProject";
+import { connectProject, ConnectedProjectContext } from "../state/connectedProject";
 import { Rail } from "../rail/Rail";
 import { RpcError } from "../app/seam";
 import { connectFakeProject } from "../terminal/paneHarness";
 import { workstream } from "../testing/nodes";
+import { createFakeApp } from "../testing/fakeApp";
 
-afterEach(() => { cleanup(); localStorage.clear(); });
+afterEach(() => { cleanup(); localStorage.clear(); vi.useRealTimers(); });
 
 const candidates = [
   { source: "s1", title: "first", cwd: "", last_activity_ms: 2n, revision: "r1" },
@@ -172,3 +173,59 @@ it.skipIf(!captureDir("U3049a"))("u3049a_u3049b_rendered_conflict_recovery", asy
     await lane.close();
   }
 }, 120_000);
+
+it("u3037d_discovery_deadline_and_retry", async () => {
+  const { app } = await mount();
+  app.handlers["project.importDiscover"] = () => new Promise(() => {});
+  vi.useFakeTimers();
+  fireEvent.click(screen.getByRole("button", { name: "Import Claude Code work" }));
+  await vi.advanceTimersByTimeAsync(0);
+  expect(within(screen.getByRole("dialog")).getByRole("status")).toBeTruthy();
+  expect(screen.getByRole("button", { name: "Cancel" })).toHaveProperty("disabled", false);
+  await vi.advanceTimersByTimeAsync(20_000);
+  expect(screen.getByRole("alert")).toBeTruthy();
+  expect(within(screen.getByRole("dialog")).queryByRole("status")).toBeNull();
+  expect(calls(app, "project.importCommit")).toHaveLength(0);
+  app.handlers["project.importDiscover"] = () => ({ candidates, excluded: [] });
+  fireEvent.click(screen.getByRole("button", { name: "Refresh" }));
+  await vi.advanceTimersByTimeAsync(0);
+  expect(screen.getByRole("checkbox", { name: /first/ })).toBeTruthy();
+  expect(screen.getByRole("button", { name: "Import" })).toHaveProperty("disabled", true);
+});
+
+
+it.each(["timeout", "period", "dismiss", "project"])("u3037d_late_results_cannot_replace_current_state (%s)", async (action) => {
+  const { app } = await mount();
+  let complete: (result: { candidates: typeof candidates; excluded: [] }) => void = () => {};
+
+  app.handlers["project.importDiscover"] = () => new Promise((resolve) => { complete = resolve; });
+  vi.useFakeTimers();
+  fireEvent.click(screen.getByRole("button", { name: "Import Claude Code work" }));
+  await vi.advanceTimersByTimeAsync(0);
+  app.handlers["project.importDiscover"] = () => { throw new Error("current failure"); };
+
+  if (action === "timeout") await vi.advanceTimersByTimeAsync(20_000);
+  else if (action === "period") {
+    fireEvent.click(screen.getByRole("button", { name: "Last day" }));
+    await vi.advanceTimersByTimeAsync(0);
+  } else if (action === "dismiss") fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
+  else {
+    cleanup();
+    const other = createFakeApp();
+    other.handlers["rail.tree"] = () => [];
+    other.handlers["terminal.list"] = () => [];
+    other.handlers["project.importDiscover"] = () => { throw new Error("current failure"); };
+
+    const connected = await connectProject(other, { name: "q", path: "/q" }, () => false, () => 0, () => null);
+    render(() => <ConnectedProjectContext.Provider value={connected}><Rail /></ConnectedProjectContext.Provider>);
+    fireEvent.click(screen.getByRole("button", { name: "Import Claude Code work" }));
+    await vi.advanceTimersByTimeAsync(0);
+  }
+
+  complete({ candidates, excluded: [] });
+  await vi.advanceTimersByTimeAsync(0);
+  expect(screen.queryByRole("checkbox", { name: /first/ })).toBeNull();
+
+  if (action !== "dismiss") expect(within(screen.getByRole("dialog")).getByRole("alert")).toBeTruthy();
+  expect(calls(app, "project.importCommit")).toHaveLength(0);
+});
