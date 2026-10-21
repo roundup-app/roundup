@@ -981,6 +981,55 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn u3037b_middle_metadata_is_preserved_or_explicitly_refused() {
+        let root = tempfile::tempdir().unwrap();
+        let project = root.path().join("project");
+        std::fs::create_dir(&project).unwrap();
+        let config = root.path().join("config");
+        let diagnostic = format!("{{\"payload\":\"{}\"}}\n", "x".repeat(60_000));
+        let mut failures = Vec::new();
+        for title in [false, true] {
+            let header = record(
+                "user",
+                &project,
+                if title {
+                    "2026-10-18T12:00:00Z"
+                } else {
+                    "2026-10-01T00:00:00Z"
+                },
+            ) + "\n";
+            let middle = if title {
+                "{\"type\":\"custom-title\",\"customTitle\":\"User chosen title\"}\n".into()
+            } else {
+                record("user", &project, "2026-10-18T12:00:00Z") + "\n"
+            };
+            store(
+                &config,
+                "x",
+                SESSION,
+                &(header + &diagnostic.repeat(7) + &middle + &diagnostic.repeat(7)),
+            );
+            let found = launcher(&config)
+                .discover_recent(&project, NOW, 7 * DAY)
+                .await
+                .unwrap();
+            let preserved = found.candidates.first().is_some_and(|candidate| {
+                candidate.last_activity_ms == NOW - DAY
+                    && (!title || candidate.title == "User chosen title")
+            });
+            let refused = found.candidates.is_empty()
+                && found.excluded.iter().any(|source| {
+                    source.source == SESSION
+                        && source.reason.contains("unsupported metadata layout")
+                });
+            if !preserved && !refused {
+                failures.push(format!("title={title}: {found:?}"));
+            }
+        }
+        assert!(failures.is_empty(), "middle metadata lost: {failures:#?}");
+    }
+
+    #[tokio::test]
     async fn u3037b_malformed_complete_record_is_refused() {
         let root = tempfile::tempdir().unwrap();
         let project = root.path().join("project");
