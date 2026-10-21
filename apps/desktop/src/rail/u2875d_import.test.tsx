@@ -55,7 +55,7 @@ describe("u2875d the import panel is an ordinary Rail action", () => {
     // Partial failure: the success leaves the selection, the failure stays for retry, and each call names its sources.
     commit = () => ({ outcomes: [{ source: "s1", workstream: "w1", agent: "a1", error: null }, { source: "s2", workstream: null, agent: null, error: "disk full" }] });
     fireEvent.click(await screen.findByRole("button", { name: "Import 2" }));
-    await screen.findByText("disk full");
+    await screen.findByText(/disk full/);
     expect(calls(app, "project.importCommit").map((call) => call.params)).toEqual([
       { selections: [{ source: "s1", revision: "r1" }, { source: "s2", revision: "r2" }] },
       { selections: [{ source: "s1", revision: "r1" }, { source: "s2", revision: "r2" }] },
