@@ -446,9 +446,11 @@ const PadBody = (props: {
           </Show>
           <Show when={!ownedByUser()}>
             <span class="pad-owner light" style={wholeWord}>{copy.ownedBy}{connected.rail.nameOf(pad().owner)}</span>
-            <button data-button="quiet" type="button" class="word pad-make-yours" style={wholeWord} onClick={() => void takeIt()}>{copy.makeYours}</button>
           </Show>
         </span>
+        <Show when={!ownedByUser()}>
+          <button data-button="quiet" type="button" class="word pad-make-yours" style={wholeWord} onClick={() => void takeIt()}>{copy.makeYours}</button>
+        </Show>
         <Show when={owner()}>
           <Tip text={copy.ownerName(connected.rail.nameOf(pad().owner))}>{(trigger) => <button {...trigger()}
             data-button="icon"
