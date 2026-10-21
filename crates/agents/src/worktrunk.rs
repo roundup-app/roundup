@@ -294,6 +294,14 @@ fn attach_evidence(gh: &Path, results: &mut Results, cancelled: &AtomicBool) {
         } else {
             pr_checks::read(gh, &id.path, left)
         };
+        let evidence = match evidence {
+            Evidence::Complete(ref read) | Evidence::Pending(ref read)
+                if facts.pr.is_none_or(|(number, _)| number != read.number) =>
+            {
+                Evidence::Incomplete(Gap::ReadFailed)
+            }
+            evidence => evidence,
+        };
         facts.evidence = Some((evidence, false));
     }
 }
