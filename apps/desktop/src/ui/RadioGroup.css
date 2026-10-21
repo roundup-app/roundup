@@ -16,7 +16,7 @@
   flex: none;
   width: var(--space-4);
   height: var(--space-4);
-  border-radius: 50%;
+  border-radius: var(--radius-drawer);
   border: 1px solid var(--grey);
 }
 
