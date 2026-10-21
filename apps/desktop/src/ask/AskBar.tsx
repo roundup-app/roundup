@@ -12,6 +12,7 @@ import { KindGlyph, LABELS } from "../ink/KindGlyph";
 import { attentionOrder } from "../rail/attention";
 import { descendantsOf, resolvedWorkstream, siblingsOf } from "../rail/layout";
 import { Tip } from "../ui/Tip";
+import { contextMenu, linkEntries, openOnRelease } from "../ui/contextMenu";
 import type { Deliverable } from "@contracts/deliverable/Deliverable";
 import { Popover } from "../ui/Popover";
 import { Portal } from "solid-js/web";
@@ -425,7 +426,13 @@ const Deliverables = (props: { state: ReturnType<typeof createDeliverables> }) =
         <button type="button" data-button="quiet" onClick={() => { void props.state.refresh(); }}>{copy.refresh}</button>
       </div>
       <Show when={props.state.failure()}>{message => <ErrorLine message={message()} />}</Show>
-      <ul class="made-list"><For each={records()}>{record => <li class="made-row" data-deliverable={record.id} data-selected={selected() === record.id}>
+      <ul class="made-list"><For each={records()}>{record => <li class="made-row" data-deliverable={record.id} data-selected={selected() === record.id}
+        onContextMenu={event => openOnRelease(event, (x, y) => {
+          setSelected(record.id);
+          setFailure(null);
+          void contextMenu(connected.app, linkEntries(connected.app, { kind: "deliverable", project: record.project, id: record.id },
+            connected.rail.nodes, node => connected.rail.exitOf(node) === null, cause => setFailure({ id: record.id, cause })), x, y);
+        })}>
         <Tip disabled={failure()?.id === record.id} text={record.target.kind === "file" ? `${target(record)} · ${record.target.sha256}` : record.target.kind === "external" ? `${target(record)} · ${copy.deliverableNotChecked}` : target(record)}>{trigger => <button {...trigger()} type="button" data-button="quiet" class="made-open" aria-current={selected() === record.id ? "true" : undefined}
           aria-label={copy.openDeliverable(record.title, record.maker_name, home(record), record.published_at)} aria-disabled={pending() !== null}
           onClick={() => { void open(record); }}>

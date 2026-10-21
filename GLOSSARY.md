@@ -572,7 +572,7 @@ The append-only log of Touches.
 `rupd`, the local process everything else is a client of.
 
 **Link** (`link.read`):
-A durable `roundup://<kind>/<id>?project=<key>` URL naming one Pad, Todo, Agent, Workstream or Terminal of one Project; `link.read` returns the object's content at read time and never a copy (LK1–LK3).
+A durable `roundup://<kind>/<id>?project=<key>` URL naming one object of one Project. For a Pad, Todo, Agent, Workstream or Terminal, `link.read` returns current content (LK1–LK3). A Deliverable Link names its recorded publication identity and resolves its retained revision or explicit current external target, or reports unavailability (DV6); it never names a mutable authoring source.
 
 **Context menu** (`show_context_menu`):
 The macOS system menu (`NSMenu`) a right-click or `ContextMenu` key opens on a Rail row, a Project tab, a Terminal tab, a Pad or a Todo; the webview builds its items and the host pops it up (U2694a).

@@ -226,3 +226,79 @@ it.skipIf(!captureDir("U3021c"))("u3021c_ask_selected_revision_browser_focus", a
     await real.stop();
   }
 }, 120_000);
+
+
+it.skipIf(!captureDir("DV6"))("dv6_bound_share_pointer_and_keyboard_keep_identity_on_the_dense_failure_screen", async () => {
+  const real = await startRealDaemon({}, true);
+  const profile = mkdtempSync(join(tmpdir(), "dv6-profile-"));
+  const session = `dv6-${process.pid}`;
+  writeFileSync(join(profile, "config.json"), "{}");
+  const env = Object.fromEntries(Object.entries(process.env).filter(([key]) => !key.startsWith("AGENT_BROWSER_")));
+  const browser = async (...args: string[]) => (await exec("agent-browser", ["--executable-path", chromePath()!, "--args", "--no-sandbox", "--config", join(profile, "config.json"), "--session", session, "--profile", profile, ...args], { env, timeout: 60_000 })).stdout;
+  // SAFETY: agent-browser serialises the evaluated JSON value.
+  const evaluate = async <T,>(source: string): Promise<T> => JSON.parse(await browser("eval", source)) as T;
+  const app = createServedApp(real.base);
+  const output = captureDir("DV6")!;
+
+  const capture = async (name: string) => {
+    mkdirSync(output, { recursive: true });
+    await browser("screenshot", join(output, `${name}.png`));
+    writeFileSync(join(output, `${name}.checks.json`), JSON.stringify(await evaluate("window.__checks()"), null, 2));
+  };
+
+  try {
+    for (let n = 0; n < 12; n += 1) await app.rpc("deliverable.publish", { key: `dense-${n}`, title: n === 11 ? "Long published result " + "成果📖".repeat(35) : "Same title", target: { kind: "external", url: `https://example.com/${"long-target/".repeat(12)}${n}` } });
+    await app.rpc("pad.create", { name: "selected-pad", text: "Published revision" });
+    const pad = await app.rpc("pad.read", { name: "selected-pad" });
+    const record = await app.rpc("deliverable.publish", { key: "selected", title: "Same title", target: { kind: "pad", name: pad.name, incarnation: pad.incarnation, revision: pad.revision } });
+    await real.restart();
+    await browser("set", "viewport", "1512", "950");
+    await browser("set", "media", "dark");
+    await browser("open", `${real.base}/harness.html?daemon=1`);
+    await browser("wait", "--fn", "document.querySelectorAll('.made-row').length === 13");
+    await capture("before");
+    // A browser has no native host menu. Preserve its selection boundary while the App,
+    // publication reader and clipboard calls run against the real Project.
+    await browser("eval", `(async () => {
+      const source = await (await fetch('/src/ask/AskBar.tsx')).text();
+      const paths = source.split('"').filter(path => path.includes('/deps/'));
+      const { createComponent } = await import(paths.find(path => path.includes('/solid-js.js')));
+      const { render } = await import(paths.find(path => path.includes('/solid-js_web.js')));
+      const { createServedApp } = await import('/src/testing/realSeam.ts');
+      const { App } = await import('/src/App.tsx');
+      const app = createServedApp(location.origin);
+      window.__dv6 = { choice: 'copy-link', copied: [], menus: [] };
+      app.showContextMenu = async entries => { window.__dv6.menus.push(entries); return window.__dv6.choice; };
+      Object.defineProperty(navigator, 'clipboard', { configurable: true, value: { writeText: async text => { window.__dv6.copied.push(text); } } });
+      const root = document.createElement('div');
+      root.id = 'root';
+      document.body.replaceChildren(root);
+      render(() => createComponent(App, { app, reducedMotion: () => true, clock: () => 0 }), root);
+    })()`);
+    await browser("wait", "--fn", "document.querySelectorAll('.made-row').length === 13");
+    const row = `.made-row[data-deliverable="${record.id}"]`;
+    await evaluate(`document.querySelector(${JSON.stringify(row)}).scrollIntoView({ block: 'center' })`);
+    // macOS sends contextmenu on press, then pointerup; Linux Chromium orders it later.
+    await browser("eval", `(() => {
+      const button = document.querySelector(${JSON.stringify(row)} + ' button');
+      button.dispatchEvent(new PointerEvent('pointerdown', {pointerType:'mouse',button:2,buttons:2,bubbles:true}));
+      button.dispatchEvent(new MouseEvent('contextmenu', {button:2,buttons:2,bubbles:true,cancelable:true}));
+      button.dispatchEvent(new PointerEvent('pointerup', {pointerType:'mouse',button:2,buttons:0,bubbles:true}));
+    })()`);
+    await browser("wait", "--fn", "window.__dv6.copied.length === 1");
+    const url = `roundup://deliverable/${record.id}?project=${record.project}`;
+    expect(await evaluate("window.__dv6.copied")).toEqual([`${url}\nrup link read ${url}`]);
+    await capture("copied");
+    await app.rpc("pad.delete", { name: pad.name });
+    await browser("focus", `${row} button`);
+    await browser("eval", `document.querySelector(${JSON.stringify(row)} + ' button').dispatchEvent(new MouseEvent('contextmenu', {bubbles:true,cancelable:true}))`);
+    await browser("wait", "--fn", "!!document.querySelector('.made [role=alert]')");
+    expect(await evaluate("window.__dv6.copied.length")).toBe(1);
+    expect(await evaluate(`document.activeElement === document.querySelector(${JSON.stringify(row)} + ' button')`)).toBe(true);
+    await capture("unavailable");
+  } finally {
+    await browser("close").catch(() => undefined);
+    rmSync(profile, { recursive: true, force: true });
+    await real.stop();
+  }
+}, 120_000);
