@@ -1,5 +1,6 @@
 import { copy } from "../copy";
 import { Show } from "solid-js";
+import { Portal } from "solid-js/web";
 import { registerKeys } from "../keys/registry";
 import { AlertDialog } from "../ui/Dialog";
 import type { StripTab } from "./tab";
@@ -21,7 +22,7 @@ export const CloseDialog = (props: { tab: StripTab | undefined; opener: HTMLElem
   return (
     <AlertDialog.Root open={!!props.tab} initialFocusEl={() => cancel ?? null} finalFocusEl={() => props.opener?.isConnected ? props.opener : null}
       onOpenChange={(details) => { if (!details.open) props.onCancel(); }}>
-      <AlertDialog.Positioner>
+      <Portal><AlertDialog.Positioner>
         <AlertDialog.Content class="close-dialog" ref={(element) => (panel = element)}>
           <Show when={props.tab}>{(tab) => <>
             <AlertDialog.Title>{copy.closeQuestion(tab().name)}</AlertDialog.Title>
@@ -40,7 +41,7 @@ export const CloseDialog = (props: { tab: StripTab | undefined; opener: HTMLElem
             </p>
           </>}</Show>
         </AlertDialog.Content>
-      </AlertDialog.Positioner>
+      </AlertDialog.Positioner></Portal>
     </AlertDialog.Root>
   );
 };

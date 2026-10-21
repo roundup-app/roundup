@@ -30,10 +30,10 @@
   flex-wrap: wrap;
   align-items: center;
   gap: var(--space-3);
-  padding: 0;
-  background: transparent;
-  border-radius: var(--flat-radius);
-  box-shadow: none;
+  padding: var(--space-4);
+  background: var(--sunken);
+  border-radius: var(--radius-drawer);
+  box-shadow: var(--shadow-drawer);
   font-family: var(--font-ui);
 }
 

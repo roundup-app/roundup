@@ -34,7 +34,7 @@
 }
 
 .import-period [aria-pressed="false"] {
-  color: var(--text-dim);
+  color: var(--grey);
 }
 
 .import-words {
@@ -59,21 +59,28 @@
   flex-shrink: 0;
   overflow-x: hidden;
   overflow-y: auto;
+  padding-inline-end: var(--space-2);
 }
 
 .import-list li {
-  display: grid;
-  grid-template-columns: var(--space-5) minmax(0, 1fr);
-  column-gap: var(--space-3);
+  display: flex;
+  flex-direction: column;
+  padding-block: var(--space-1);
 }
 
 .import-list .app-checkbox {
-  display: grid;
-  grid-column: 1 / -1;
-  grid-template-columns: subgrid;
-  align-items: center;
+  align-items: flex-start;
   min-height: var(--space-6);
-  padding-block: var(--space-2);
+  padding-block: var(--space-1);
+}
+
+/* A square tick box, not the shared radio-like circle. */
+.import-check .app-checkbox-box::before {
+  content: "☐";
+}
+
+.import-check .app-checkbox-box[data-state="checked"]::before {
+  content: "☑";
 }
 
 .import-text {
@@ -85,45 +92,38 @@
   line-height: 1.4;
 }
 
-.import-title,
-.import-cwd {
+.import-title {
   min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
-.import-cwd {
-  color: var(--text-dim);
+.import-meta {
+  display: flex;
+  flex-wrap: wrap;
+  column-gap: var(--space-3);
+  min-width: 0;
+  color: var(--grey);
   font-size: var(--text-small);
+}
+
+.import-cwd {
+  flex: 1 1 0;
+  min-width: 8ch;
   direction: rtl;
   text-align: left;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
-.import-positioner {
-  position: fixed;
-  inset: 0;
-  display: flex;
-  align-items: flex-start;
-  padding-block: var(--space-6);
-  box-sizing: border-box;
-  justify-content: center;
-  z-index: 3;
-}
-
-.import-error {
-  grid-column: 2;
-  margin-block-end: var(--space-3);
-}
-
-.import-activity {
-  color: var(--text-dim);
+.import-excluded {
+  color: var(--grey);
   font-size: var(--text-small);
-  margin: 0;
 }
 
 .import-unavailable {
-  grid-column: 1 / -1;
   padding-block: var(--space-2);
 }
 
@@ -152,10 +152,15 @@
   white-space: normal;
 }
 
+.import-meta time {
+  flex: none;
+}
+
 .import-failure {
+  flex: 1 1 100%;
+  min-width: 0;
   color: var(--red);
   margin: 0;
   overflow-wrap: anywhere;
   white-space: pre-wrap;
-  flex-shrink: 0;
 }
