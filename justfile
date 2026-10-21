@@ -38,20 +38,7 @@ test-rust-since base *args:
     case $crates in
         all) exec just test-rust {{args}} ;;
         '') echo "no Rust test reaches the diff since {{base}}" ;;
-        *)
-            # `crate=binary` runs one test binary of the crate; a plain crate runs all its tests. `just` splices its arguments into
-            # the recipe unquoted, so the filterset goes through `printf %q`.
-            packages=(); filters=(); only=()
-            for entry in $crates; do
-                packages+=(-p "${entry%%=*}")
-                case $entry in
-                    *=*) filters+=("(package(${entry%%=*}) & binary(${entry#*=}))"); only+=(1) ;;
-                    *) filters+=("package($entry)") ;;
-                esac
-            done
-            filterset=()
-            if [ ${#only[@]} -gt 0 ]; then filterset=(-E "$(printf %q "$(IFS='|'; echo "${filters[*]}")")"); fi
-            exec just test-rust "${packages[@]}" ${filterset[@]+"${filterset[@]}"} --no-tests pass {{args}} ;;
+        *) exec just test-rust $(printf -- '-p %s ' $crates) --no-tests pass {{args}} ;;
     esac
 
 # The web checks, with the tests the diff since <base> reaches; every test when <base> is empty (L89).
