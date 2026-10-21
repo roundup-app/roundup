@@ -10,6 +10,7 @@ mod decision_notes;
 mod deliverables;
 mod digest;
 mod event_log;
+mod evidence;
 mod handshake;
 mod link;
 mod output;
@@ -681,6 +682,13 @@ impl Daemon {
             || method.starts_with("reaction.")
             || matches!(
                 method,
+                "message.progress"
+                    | "message.report"
+                    | "message.acceptResult"
+                    | "message.verifyResult"
+            )
+            || matches!(
+                method,
                 "rail.rename"
                     | "agent.stop"
                     | "agent.interrupt"
@@ -886,6 +894,12 @@ impl Daemon {
         }
         self.before_prompt_effect(&conn.actor, method, &params)
             .await?;
+        if matches!(
+            method,
+            "message.progress" | "message.report" | "message.acceptResult" | "message.verifyResult"
+        ) {
+            return self.evidence_call(conn, method, params).await;
+        }
         if namespace == "deliverable" {
             return self.deliverable_call(conn, method, params).await;
         }
@@ -1894,25 +1908,31 @@ async fn handle(stream: UnixStream, daemon: Arc<Daemon>) -> io::Result<()> {
             .is_some_and(|m| m.starts_with("decision."))
         {
             daemon.decision_actor(&conn)
-        } else if method
-            .as_deref()
-            .is_some_and(|m| m.starts_with("deliverable.") || m.starts_with("reaction."))
-            || matches!(
-                method.as_deref(),
-                Some(
-                    "rail.rename"
-                        | "agent.stop"
-                        | "agent.interrupt"
-                        | "agent.prompt"
-                        | "agent.setOrder"
-                        | "agent.resume"
-                        | "agent.actionHistory"
-                        | "agent.instructions"
-                        | "workstream.rewind"
-                        | "workstream.rewindPlan"
+        } else if method.as_deref().is_some_and(|m| {
+            m.starts_with("deliverable.")
+                || m.starts_with("reaction.")
+                || matches!(
+                    m,
+                    "message.progress"
+                        | "message.report"
+                        | "message.acceptResult"
+                        | "message.verifyResult"
                 )
+        }) || matches!(
+            method.as_deref(),
+            Some(
+                "rail.rename"
+                    | "agent.stop"
+                    | "agent.interrupt"
+                    | "agent.prompt"
+                    | "agent.setOrder"
+                    | "agent.resume"
+                    | "agent.actionHistory"
+                    | "agent.instructions"
+                    | "workstream.rewind"
+                    | "workstream.rewindPlan"
             )
-        {
+        ) {
             daemon.action_actor(&conn)
         } else {
             conn.actor.clone()

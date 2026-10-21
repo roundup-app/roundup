@@ -5,6 +5,7 @@
 pub mod digest;
 #[doc(hidden)]
 pub mod digest_schema;
+pub mod evidence;
 mod hops;
 mod inbox;
 mod pushes;

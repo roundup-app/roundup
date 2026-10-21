@@ -133,6 +133,22 @@ const TOOLS: &[(&str, &str)] = &[
         "message_send",
         "send a note, question or request to another Agent or the user; it is delivered when the receiver is next idle",
     ),
+    (
+        "message_progress",
+        "inspect retained instructions, reports, user acceptance and declared verification; reading starts nothing",
+    ),
+    (
+        "message_report",
+        "report your own Attempt's result against a submitted instruction delivery and published output; it is only your claim, never user acceptance or verification; retain the same key on retry",
+    ),
+    (
+        "message_acceptResult",
+        "record user acceptance of an exact report; only the user may call this",
+    ),
+    (
+        "message_verifyResult",
+        "observe one report's declared authoritative condition without a Model call; unsupported, stale or unavailable evidence stays unknown and a publication digest proves only its bytes",
+    ),
     ("message_get", "read one Message you sent or received"),
     ("message_list", "see the Messages you sent or received"),
     (

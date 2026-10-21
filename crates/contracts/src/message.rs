@@ -141,3 +141,134 @@ pub struct TakeoverChanged {
     pub agent: String,
     pub on: bool,
 }
+
+/// Read the exact instruction and result history of one Agent in its original Project.
+#[derive(Clone, Debug, Serialize, Deserialize, TS, JsonSchema)]
+#[serde(deny_unknown_fields)]
+#[ts(export, export_to = "message/")]
+pub struct ProgressParams {
+    pub project: String,
+    pub id: String,
+}
+
+/// A caller-selected target revision. Equal names never identify replacement versions.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, TS, JsonSchema)]
+#[serde(deny_unknown_fields)]
+#[ts(export, export_to = "message/")]
+pub struct ResultTarget {
+    pub id: String,
+    pub revision: String,
+}
+
+/// Only the declared condition is checked; no observation verifies all work.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, TS, JsonSchema)]
+#[serde(tag = "kind", rename_all = "kebab-case", deny_unknown_fields)]
+#[ts(export, export_to = "message/")]
+pub enum ResultCheck {
+    /// Confirms the retained publication's exact bytes, never an external effect.
+    Publication {
+        sha256: String,
+    },
+    PrChecks {
+        repository: String,
+        number: u32,
+        head: String,
+    },
+    Unsupported {
+        source: String,
+    },
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize, TS, JsonSchema)]
+#[serde(rename_all = "kebab-case")]
+#[ts(export, export_to = "message/")]
+pub enum ResultState {
+    Reported,
+    /// An issued external effect has no authoritative acknowledgement. Acceptance alone cannot resolve it.
+    UnknownEffect,
+}
+
+/// Agent and Attempt authorship comes from the authenticated connection and retained delivery.
+#[derive(Clone, Debug, Serialize, Deserialize, TS, JsonSchema)]
+#[serde(deny_unknown_fields)]
+#[ts(export, export_to = "message/")]
+pub struct ReportParams {
+    pub project: String,
+    pub id: String,
+    pub key: String,
+    pub delivery: String,
+    pub target: ResultTarget,
+    pub output: crate::deliverable::DeliverableId,
+    pub result: String,
+    pub next: String,
+    pub state: ResultState,
+    pub check: ResultCheck,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize, TS, JsonSchema)]
+#[serde(deny_unknown_fields)]
+#[ts(export, export_to = "message/")]
+pub struct ResultId {
+    pub project: String,
+    pub id: String,
+    pub report: String,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize, TS, JsonSchema)]
+#[serde(deny_unknown_fields)]
+#[ts(export, export_to = "message/")]
+pub struct AcceptResultParams {
+    pub project: String,
+    pub id: String,
+    pub report: String,
+    pub evidence: String,
+}
+
+/// Immutable claim, retaining attribution and exact instruction/output identity.
+/// order_revision precedes this exact instruction; it is never the Order at report time.
+#[derive(Clone, Debug, Serialize, Deserialize, TS)]
+#[ts(export, export_to = "message/")]
+pub struct ResultReport {
+    pub order_revision: Option<String>,
+    pub report: String,
+    pub author: Actor,
+    pub attempt: String,
+    pub home: Option<String>,
+    pub request: ReportParams,
+    pub instruction: crate::agent::InstructionRevision,
+    pub publication: crate::deliverable::Deliverable,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize, TS)]
+#[ts(export, export_to = "message/")]
+pub struct ResultAcceptance {
+    pub actor: Actor,
+    pub evidence: String,
+}
+
+/// A Daemon observation of the report's declared source, never caller-supplied authority.
+#[derive(Clone, Debug, Serialize, Deserialize, TS)]
+#[serde(tag = "verdict", rename_all = "kebab-case")]
+#[ts(export, export_to = "message/")]
+pub enum ResultObservation {
+    Passed { revision: String },
+    Unknown { cause: String, action: String },
+}
+
+/// current requires the same instruction and latest reported target version; history remains readable.
+#[derive(Clone, Debug, Serialize, Deserialize, TS)]
+#[ts(export, export_to = "message/")]
+pub struct ResultProgress {
+    pub report: ResultReport,
+    pub current: bool,
+    pub acceptances: Vec<ResultAcceptance>,
+    pub observations: Vec<ResultObservation>,
+    pub availability: crate::deliverable::Resolution,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize, TS)]
+#[ts(export, export_to = "message/")]
+pub struct Progress {
+    pub instructions: crate::agent::Instructions,
+    pub results: Vec<ResultProgress>,
+}

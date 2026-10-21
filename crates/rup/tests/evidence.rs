@@ -48,6 +48,7 @@ bad.append(wire('message.progress',{'project':project,'id':'1'}))
 # Three uncertain external effects use unsupported sources and cannot be resolved by a report.
 effects=[]
 for effect in ['deployment','payment','push']:
+ with open(sys.argv[2]+'.effects','a') as calls:calls.write(effect+'\n')
  q={**p,'key':effect,'target':{'id':effect,'revision':'v1'},'state':'unknown-effect','check':{'kind':'unsupported','source':effect}}
  effects.append(call('message.report',q))
 if sys.argv[3]=='replace':
@@ -348,6 +349,10 @@ async fn u3078c_changed_revisions_and_unavailable_evidence_do_not_inherit_comple
 #[tokio::test]
 async fn u3078h_unknown_external_effects_require_authoritative_resolution() {
     let e = Evidence::start().await;
+    let calls = std::fs::read(e.logs.path().join("report.effects")).unwrap();
+    assert_eq!(calls, b"deployment\npayment\npush\n");
+    let prompts = std::fs::read(e.logs.path().join("prompts")).unwrap();
+    let messages = e.client.request("message.list", json!({})).await.unwrap();
     for report in e.effects.as_array().unwrap() {
         let mut q = e.query();
         q["report"] = report["report"].clone();
@@ -364,6 +369,18 @@ async fn u3078h_unknown_external_effects_require_authoritative_resolution() {
             unknown
         );
     }
+    assert_eq!(
+        std::fs::read(e.logs.path().join("report.effects")).unwrap(),
+        calls
+    );
+    assert_eq!(
+        std::fs::read(e.logs.path().join("prompts")).unwrap(),
+        prompts
+    );
+    assert_eq!(
+        e.client.request("message.list", json!({})).await.unwrap(),
+        messages
+    );
     let progress = e.progress().await;
     for r in &progress["results"].as_array().unwrap()[1..] {
         assert_eq!(r["report"]["request"]["state"], "unknown-effect");
