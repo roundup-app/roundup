@@ -735,8 +735,9 @@ def running(pr):
 
 
 def unreviewed(prs):
-    """(pr, run id) for each ready PR whose `review` or `critic` status is pending: its run did no model work."""
-    return [(pr['number'], run) for pr in prs if not pr['isDraft']
+    """(pr, run id) for each ready PR whose `review` or `critic` status is pending: its run did no model work. A Dependabot
+    PR is left out: its runs get no secrets, so no rerun can do model work."""
+    return [(pr['number'], run) for pr in prs if not pr['isDraft'] and not pr['headRefName'].startswith('dependabot/')
             for context in ('review', 'critic') for run in review_runs(pr, 'PENDING', context)]
 
 
@@ -769,7 +770,10 @@ def pick(most):
         dispatch_fix(pr, head, cause)
         free -= 1
     for pr, run in unreviewed(prs):
-        rerun_review(pr, run)
+        try:
+            rerun_review(pr, run)
+        except subprocess.CalledProcessError as error:  # one PR's rerun or ask must not stop the build matrix
+            print(f'::error::Rerun of review run {run} on PR #{pr} failed: {error}', file=sys.stderr)
     rows = orders.read_orders()
     print(orders.count_invalid(rows), file=sys.stderr)
     if broken := orders.invalid(rows):
