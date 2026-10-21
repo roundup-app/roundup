@@ -8,6 +8,10 @@ export type Change = {
  */
 actor: Actor | null, seq: number, 
 /**
+ * Authenticated writer; history recorded before T19 has no known Actor.
+ */
+actor: Actor | null, 
+/**
  * None denotes creation or an old Todo's current baseline.
  */
 before: Values | null, after: Values, };

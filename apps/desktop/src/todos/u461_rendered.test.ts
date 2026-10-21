@@ -13,7 +13,7 @@ import { appServer, type AppServer } from "../testing/appServer";
 
 const output = [captureDir("U461") ?? "", captureDir("U462") ?? "", captureDir("U461a") ?? ""];
 
-const run = captureDir("U461") && (captureDir("U462") || captureDir("U461a")) ? describe : describe.skip;
+const run = output.some(Boolean) ? describe : describe.skip;
 
 run("u461 and u462 isolated rendered observers", () => {
   let server: AppServer;
@@ -31,8 +31,7 @@ run("u461 and u462 isolated rendered observers", () => {
       await baseline.listen();
     }
 
-    // E10: the Door's Claude is the pinned one, its model aimock serving this file's turns.
-    if (captureDir("U462")) real = await startRealDaemon({}, true, undefined, join(process.cwd(), "src/testing/fixtures/u461_door_todos.json"));
+
   }, 120_000);
 
   afterAll(async () => {
@@ -43,35 +42,29 @@ run("u461 and u462 isolated rendered observers", () => {
     if (cache) await rm(cache, { recursive: true, force: true });
   });
 
-  it.skipIf(!captureDir("U462"))("u461_drawer_rendered_hierarchy", async () => {
+  it("u461_drawer_rendered_hierarchy", async () => {
     const origin = server.resolvedUrls.local[0]!;
 
     if (baseline) await promisify(execFile)("python3", ["src/todos/u461_browser.test.py", "baseline", baseline.resolvedUrls!.local[0]!, ...output], { timeout: 180_000, maxBuffer: 2 * 1024 * 1024 });
     await promisify(execFile)("python3", ["src/todos/u461_browser.test.py", "fake", origin, ...output], { timeout: 300_000, maxBuffer: 2 * 1024 * 1024 });
   }, 300_000);
 
-  it.skipIf(!captureDir("U462"))("u462_real_daemon_history_and_reads", async () => {
-    await promisify(execFile)("python3", ["src/todos/u461_browser.test.py", "real", real.base, ...output], { timeout: 180_000, maxBuffer: 2 * 1024 * 1024 });
+  it.runIf(Boolean(captureDir("U461a")))("u461a_reopen_rendered", async () => {
+    await promisify(execFile)("python3", ["src/todos/u461_browser.test.py", "reopen-fake", server.resolvedUrls.local[0]!, ...output], { timeout: 180_000, maxBuffer: 2 * 1024 * 1024 });
+  }, 180_000);
+
+  it.runIf(Boolean(captureDir("U461a")))("u461a_each_surface_reopens_by_pointer_and_space", async () => {
+    await promisify(execFile)("python3", ["src/todos/u461_browser.test.py", "reopen-surfaces", server.resolvedUrls.local[0]!, ...output], { timeout: 180_000, maxBuffer: 2 * 1024 * 1024 });
+  }, 180_000);
+
+  it("u461a_real_daemon_user_and_agent_reopen extends u462_real_daemon_history_and_reads", async () => {
+    // E10: the Door's Claude is the pinned one, its model aimock serving this file's turns.
+    real = await startRealDaemon({}, true, undefined, join(process.cwd(), "src/testing/fixtures/u461_door_todos.json"));
+    await promisify(execFile)("python3", ["src/todos/u461_browser.test.py", "reopen-real", real.base, ...output], { timeout: 180_000, maxBuffer: 2 * 1024 * 1024 });
     await real.restart();
-    await promisify(execFile)("python3", ["src/todos/u461_browser.test.py", "restart", real.base, ...output], { timeout: 120_000, maxBuffer: 2 * 1024 * 1024 });
+    await promisify(execFile)("python3", ["src/todos/u461_browser.test.py", "reopen-restart", real.base, ...output], { timeout: 120_000, maxBuffer: 2 * 1024 * 1024 });
     await real.model!.assertMatched();
   }, 300_000);
-  it.skipIf(!captureDir("U461a"))("u461a_reopen_rendered", async () => {
-    await promisify(execFile)("python3", ["src/todos/u461_browser.test.py", "reopen-fake", server.resolvedUrls.local[0]!, ...output], { timeout: 120_000, maxBuffer: 2 * 1024 * 1024 });
-  }, 120_000);
-
-  it.skipIf(!captureDir("U461a"))("u461a_real_daemon_user_and_agent_reopen", async () => {
-    const reopening = await startRealDaemon({}, true);
-
-    try {
-      await promisify(execFile)("python3", ["src/todos/u461_browser.test.py", "reopen-real", reopening.base, ...output, reopening.dir], { timeout: 120_000, maxBuffer: 2 * 1024 * 1024 });
-      await reopening.restart();
-      await promisify(execFile)("python3", ["src/todos/u461_browser.test.py", "reopen-restart", reopening.base, ...output], { timeout: 90_000, maxBuffer: 2 * 1024 * 1024 });
-    } finally {
-      await reopening.stop();
-    }
-  }, 240_000);
-
 });
 
 

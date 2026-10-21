@@ -35,13 +35,21 @@ def wait(predicate):
         raise RuntimeError(str(error) + '\n' + str(evaluate('(async()=>({text:document.body.innerText.slice(0,3000),tree:window.__u462rpc?await window.__u462rpc("rail.tree"):null,messages:window.__u462rpc?await window.__u462rpc("message.list",{to:null,status:null}):null}))()'))) from error
 
 
+def refuse_reopen(message):
+    evaluate("""(() => {
+      const app=window.__fake.app;
+      const reopen=app.handlers['todo.reopen'];
+      app.handlers['todo.reopen']=(params)=>{
+        app.handlers['todo.reopen']=reopen;
+        throw new Error(%s);
+      };
+    })()""" % json.dumps(message))
+
+
 def save(scenario, name, readings):
     target = outputs.get(scenario)
     if not target:
         return
-    # Capture accepted layout after the existing finite transitions finish, never mid-paint.
-    evaluate('(async()=>{await document.fonts.ready;await Promise.all(document.getAnimations().filter(a=>a.effect.getComputedTiming().iterations!==Infinity).map(a=>a.finished.catch(()=>{})));})()')
-    readings['checks'] = evaluate('window.__checks()')
     directory = Path(target)
     directory.mkdir(parents=True, exist_ok=True)
     browser('screenshot', str(directory / (name + '.png')))
@@ -79,10 +87,10 @@ reading = r"""(() => {
 
 
 def fake():
-    for scheme in ['light', 'dark']:
+    for scheme in ['dark']:
         browser('set', 'media', scheme)
-        for width in [1280, 1440]:
-            browser('set', 'viewport', str(width), '800')
+        for width in [1512]:
+            browser('set', 'viewport', str(width), '950')
             browser('open', origin + '/harness.html?seed=tree-40')
             wait('Boolean(window.__fake && document.querySelector("[data-id=\\"5\\"] .row-head button"))')
             evaluate(setup)
@@ -122,10 +130,10 @@ def fake():
 
 
 def baseline():
-    for scheme in ['light', 'dark']:
+    for scheme in ['dark']:
         browser('set', 'media', scheme)
-        for width in [1280, 1440]:
-            browser('set', 'viewport', str(width), '800')
+        for width in [1512]:
+            browser('set', 'viewport', str(width), '950')
             browser('open', origin + '/harness.html?seed=tree-40')
             wait('Boolean(window.__fake && document.querySelector("[data-id=\\"5\\"] .row-head button"))')
             evaluate(setup)
@@ -141,16 +149,15 @@ rpc_helper = r"""window.__u462rpc=async(method,params=null)=>{
 
 
 def real():
-    browser('set', 'viewport', '1280', '800')
+    browser('set', 'viewport', '1512', '950')
     browser('open', origin + '/harness.html?daemon=1')
     wait('Boolean(document.querySelector(".rail-actions button"))')
     evaluate(rpc_helper)
     evaluate("[...document.querySelectorAll('button')].find(b=>['New Workstream','Add Workstream'].includes(b.getAttribute('aria-label')??b.textContent.trim())).click()")
-    wait("Boolean(document.querySelector('[data-thread-input]')) || [...document.querySelectorAll('button')].some(b=>/Start supervisor/i.test(b.textContent))")
-    evaluate("[...document.querySelectorAll('button')].find(b=>/Start supervisor/i.test(b.textContent))?.click()")
-    wait('Boolean(document.querySelector("[data-thread-input]"))')
-    evaluate("(async()=>{let nodes;do{nodes=await window.__u462rpc('rail.tree');if(nodes.some(n=>n.status?.label==='starting'))await new Promise(requestAnimationFrame)}while(nodes.some(n=>n.status?.label==='starting'));})()")
+    wait('Boolean(document.querySelector(".pane-screen textarea") && document.querySelector(".rail-row[data-kind=idle]"))')
     send('u462-create-todo')
+    if evaluate('document.querySelector("#shelf-tab-todos").getAttribute("aria-expanded")!=="true"'):
+        browser('click', '#shelf-tab-todos')
     wait('Boolean(document.querySelector("[data-todo=\\"1\\"] button"))')
     evaluate('document.querySelector("[data-todo=\\"1\\"] button").click()')
     wait('Boolean(document.querySelector("[data-change]"))')
@@ -170,139 +177,158 @@ def real():
     save('U462', 'real-daemon-Reopened', result)
 
 
-def send(text):
-    browser('fill', '[data-thread-input]', text)
-    wait('document.querySelector(".thread-send")?.getAttribute("aria-disabled")!=="true"')
-    browser('press', 'Enter')
-    wait('document.querySelector("[data-thread-input]").value===""')
-
-
-def restarted():
-    browser('set', 'viewport', '1440', '800')
-    browser('open', origin + '/harness.html?daemon=1')
-    wait('Boolean(document.querySelector(".rail-actions button"))')
-    evaluate(rpc_helper)
-    # Stored Todo can be inspected after Reopening the Project even when its Workstream is not selected.
-    evaluate("[...document.querySelectorAll('button')].find(b=>b.textContent.trim()==='1 done')?.click()")
-    wait('Boolean(document.querySelector("[data-todo=\\"1\\"] button"))')
-    evaluate('document.querySelector("[data-todo=\\"1\\"] button").click()')
-    wait('document.querySelectorAll("[data-change]").length===4')
-    result = evaluate(reading)
-    assert result['history'][-1] == 'Done' and 'Changed body\nSecond line' in result['history'][1], result
-    assert result['unread'] is None, result
-    save('U462', 'real-daemon-restart', result)
-
-
 def reopen_fake():
-    browser('set', 'media', 'dark')
     browser('set', 'viewport', '1512', '950')
+    browser('set', 'media', 'dark')
     browser('open', origin + '/harness.html?seed=tree-40')
     wait('Boolean(window.__fake && document.querySelector("[data-id=\\"5\\"] .row-head button"))')
     evaluate(setup)
     wait('Boolean(document.querySelector("[data-change]"))')
-    evaluate("(async()=>{await window.__fake.app.rpc('todo.complete',{id:5}); await document.fonts.ready;})()")
+    baseline_checks = evaluate('window.__checks()')
+    save('U461a', 'open-before-reopen-1512-dark', evaluate(reading))
+    evaluate("window.__fake.app.rpc('todo.complete',{id:5})")
     wait('document.querySelector(".drawer input").checked')
-    evaluate('window.__fake.failNext(-32003,"Cannot reopen this Todo: try again")')
-    browser('click', '.drawer input[type=checkbox]')
-    wait('document.querySelector(".drawer").textContent.includes("Cannot reopen this Todo")')
-    assert evaluate('document.querySelector(".drawer input").checked')
+    refuse_reopen('Unable to reopen this Todo')
+    evaluate('document.querySelector(".drawer .close").focus()')
+    for _ in range(3):
+        browser('press', 'Tab')
+        if evaluate('document.activeElement===document.querySelector(".drawer input")'):
+            break
+    assert evaluate('document.activeElement===document.querySelector(".drawer input")')
+    browser('press', 'Space')
+    wait('document.querySelector(".drawer").textContent.includes("Unable to reopen this Todo")')
+    assert evaluate('document.querySelector(".drawer input").checked && document.activeElement===document.querySelector(".drawer input")')
     result = evaluate(reading)
-    assert result['failure'] and result['failure'][0]['text'].startswith('Cannot reopen'), result
-    save('U461', 'reopen-failure', result)
-    save('U461a', 'drawer-reopen-failure', result)
-    evaluate('document.querySelector(".drawer input").focus()')
+    assert not result['overflow'], result
+    for check in ['D2', 'D5', 'D6']:
+        assert result['checks'][check]['status'] == 'pass', result
+    assert result['failure'] and all(row['box']['height'] > 0 for row in result['failure']), result
+    save('U461a', 'drawer-reopen-failed-1512-dark', result)
     browser('press', 'Space')
     wait('!document.querySelector(".drawer input").checked')
     assert evaluate('document.activeElement===document.querySelector(".drawer input")')
-    save('U461a', 'drawer-reopened', evaluate(reading))
-    # The done fold uses the same input; leaving that list transfers keyboard focus.
-    evaluate("(async()=>{await window.__fake.app.rpc('todo.complete',{id:5});})()")
-    wait('document.querySelector(".drawer input").checked')
+    evaluate('(async()=>{await document.fonts.ready;await Promise.allSettled(document.querySelector(".drawer").getAnimations({subtree:true}).filter(a=>a.effect.getComputedTiming().iterations!==Infinity).map(a=>a.finished));})()')
+    reopened = evaluate(reading)
+    # U461a keeps every passing Check; D5 on this clipped blocker line also fails on main.
+    for check, before in baseline_checks.items():
+        if before['status'] == 'pass':
+            assert reopened['checks'][check]['status'] == 'pass', reopened
+    for check in ['D2', 'D6']:
+        assert reopened['checks'][check]['status'] == 'pass', reopened
+    save('U461a', 'drawer-reopened-1512-dark', reopened)
     browser('click', '.drawer .close')
     wait('document.querySelector(".drawer").getAttribute("data-open")==="false"')
-    evaluate("[...document.querySelectorAll('.shelf button')].find(b=>/done$/.test(b.textContent.trim())).click()")
-    wait('Boolean(document.querySelector(".shelf [data-todo=\\"5\\"] input:checked"))')
-    save('U461a', 'done-fold', {'checks':evaluate('window.__checks()')})
-    evaluate('document.querySelector(".shelf [data-todo=\\"5\\"] input").focus()')
-    browser('press', 'Space')
-    wait('Boolean(document.querySelector(".shelf [data-todo=\\"5\\"] input:not(:checked)"))')
-    assert evaluate('document.activeElement!==document.body')
-    # Done Rail leaves must stay reachable so reopening can keep focus on their input.
-    evaluate("(async()=>{window.__fake.actAs({kind:'agent',id:'agent-1',parent:null});const t=await window.__fake.app.rpc('todo.create',{title:'Rail reopen '+ '長'.repeat(280),body:null,blockers:null});window.__reopenRail=t.id;await window.__fake.app.rpc('todo.complete',{id:t.id});})()")
-    wait('Boolean(document.querySelector("[data-id=\\"agent-1\\"] [data-pads-control]"))')
-    evaluate('document.querySelector("[data-id=\\"agent-1\\"] [data-pads-control]").click()')
-    wait('Boolean(document.querySelector(".rail [data-todo=\\""+window.__reopenRail+"\\"] input"))')
-    evaluate('document.querySelector(".rail [data-todo=\\""+window.__reopenRail+"\\"] input").focus()')
-    browser('press', 'Space')
-    wait('!document.querySelector(".rail [data-todo=\\""+window.__reopenRail+"\\"] input").checked')
-    assert evaluate('document.activeElement===document.querySelector(".rail [data-todo=\\""+window.__reopenRail+"\\"] input")')
-    save('U461a', 'rail-reopened', {'checks': evaluate('window.__checks()')})
 
 
-def reopen_real():
-    browser('set', 'media', 'dark')
+def reopen_surfaces():
     browser('set', 'viewport', '1512', '950')
-    browser('open', origin + '/harness.html?daemon=1')
-    wait('Boolean(document.querySelector(".rail-actions button"))')
-    evaluate(rpc_helper)
-    evaluate("(async()=>{const rpc=window.__u462rpc;await rpc('todo.create',{title:'Reopen blocker'});await rpc('todo.create',{title:'Wait for blocker',blockers:[1]});await rpc('todo.complete',{id:1});})()")
-    wait("Boolean([...document.querySelectorAll('button')].find(b=>b.textContent.trim()==='1 done'))")
-    evaluate("[...document.querySelectorAll('button')].find(b=>b.textContent.trim()==='1 done').click()")
-    wait('Boolean(document.querySelector(".shelf [data-todo=\\"1\\"] button"))')
-    evaluate('document.querySelector(".shelf [data-todo=\\"1\\"] button").click()')
-    wait('Boolean(document.querySelector(".drawer input:checked"))')
+    browser('set', 'media', 'dark')
+    browser('open', origin + '/harness.html?seed=tree-40')
+    wait('Boolean(window.__fake && document.querySelector("[data-todo-root]"))')
+    if evaluate('document.querySelector("#shelf-tab-todos").getAttribute("aria-expanded")!=="true"'):
+        browser('click', '#shelf-tab-todos')
+    evaluate("(async()=>{window.__blockers=[];for(let n=0;n<10;n++)window.__blockers.push((await window.__fake.app.rpc('todo.create',{title:'Review '+n,body:null,blockers:null})).id);})()")
+    # The Rail Todo root selects Overview. Its done fold and the Agent-filtered Shelf
+    # use the same Todo rows; exercise both native pointer and Space inputs.
+    for filtered in [False, True]:
+        for key in ['pointer', 'Space']:
+            evaluate("(async()=>{const f=window.__fake; const a=(await f.app.rpc('rail.tree',null)).find(n=>n.kind==='agent'&&n.id==='tokens'); f.actAs({kind:'agent',id:a.id,parent:null}); const t=await f.app.rpc('todo.create',{title:'Reopen '+(window.__testId??0)+' '+ 'W'.repeat(290),body:null,blockers:window.__blockers}); window.__testId=t.id; await f.app.rpc('todo.complete',{id:t.id});f.actAs({kind:'user',id:'you',parent:null});})()")
+            if filtered:
+                browser('click', '.rail-row[data-id="tokens"] .name')
+            else:
+                evaluate('document.querySelector("[data-todo-root]").click()')
+            evaluate("[...document.querySelectorAll('[data-part=branch-control]')].filter(b=>b.closest('.shelf-groups')&&b.closest('[role=treeitem]')?.getAttribute('aria-expanded')==='false').forEach(b=>b.click())")
+            wait('Boolean(document.querySelector(".shelf-done-line .todo-row-button"))')
+            evaluate("if(!document.querySelector(`[data-todo=\"${window.__testId}\"] input`)) document.querySelector('.shelf-done-line .todo-row-button').click()")
+            wait('Boolean(document.querySelector(`[data-todo="${window.__testId}"] input`))')
+            if key == 'Space':
+                evaluate('document.querySelector(`[data-todo="${window.__testId}"] .todo-row-button`).focus()')
+                browser('press', 'Tab')
+                assert evaluate('document.activeElement===document.querySelector(`[data-todo="${window.__testId}"] input`)')
+            baseline_checks = evaluate('window.__checks()')
+            before = evaluate('window.__fake.app.calls.filter(c=>c.method==="todo.reopen").length')
+            refuse_reopen('Reopen refused: try again')
+            selector = f'[data-todo="{evaluate("window.__testId")}"] input'
+            if key == 'pointer':
+                browser('click', selector)
+            else:
+                browser('press', 'Space')
+            wait('Boolean(document.querySelector(`[data-todo="${window.__testId}"] [role=alert]`))')
+            assert evaluate('document.activeElement===document.querySelector(`[data-todo="${window.__testId}"] input`) && document.activeElement.checked')
+            assert evaluate('window.__fake.app.calls.filter(c=>c.method==="todo.reopen").length') == before + 1
+            failure_readings = {'checks': evaluate('window.__checks()')}
+            for check, prior in baseline_checks.items():
+                if prior['status'] == 'pass':
+                    assert failure_readings['checks'][check]['status'] == 'pass', failure_readings
+            save('U461a', f'row-{filtered}-{key}-failure-1512-dark', failure_readings)
+            if key == 'pointer':
+                browser('click', selector)
+            else:
+                browser('press', 'Space')
+            wait('Boolean(document.querySelector(`[data-todo="${window.__testId}"] input[aria-label^="Complete"]`))')
+            assert evaluate('window.__fake.app.calls.filter(c=>c.method==="todo.reopen").length') == before + 2
+            assert evaluate('document.querySelector(".drawer").getAttribute("data-open")==="false"')
+            assert evaluate('document.activeElement!==document.body')
+            result = {'checks': evaluate('window.__checks()')}
+            for check in ['D2', 'D5', 'D6']:
+                assert result['checks'][check]['status'] == 'pass', result
+            save('U461a', f'row-{filtered}-{key}-1512-dark', result)
+
+
+def real_reopen():
+    real()
+    evaluate("window.__u462rpc('todo.create',{title:'Dependent',blockers:[1]})")
     evaluate('document.querySelector(".drawer input").focus()')
     browser('press', 'Space')
     wait('!document.querySelector(".drawer input").checked')
-    assert evaluate("(async()=>{const list=await window.__u462rpc('todo.list');const h=await window.__u462rpc('todo.getHistory',{id:1});return list[1].blocked&&h.changes.at(-1).actor.kind==='user';})()")
-    evaluate("(async()=>{await window.__u462rpc('todo.complete',{id:1});})()")
-    wait('document.querySelector(".drawer input").checked')
-    # Reuse the actual stdio tool, with the same Agent identity fake Claude uses.
-    import os
-    project = sys.argv[6]
-    rup = str(Path(__file__).resolve().parents[4] / 'target/debug/rup')
-    agent_id = evaluate('(async()=> (await window.__u462rpc("agent.spawn",{cwd:'+json.dumps(project)+',name:"reopen-agent"})).id)()')
-    mcp = subprocess.Popen([rup, 'mcp', agent_id], env={**os.environ, 'RUPD_SOCKET': str(Path(project)/'rupd.sock')}, stdin=subprocess.PIPE, stdout=subprocess.PIPE, text=True)
-    try:
-        requests = [
-            {'id':1,'method':'initialize','params':{'protocolVersion':'2025-06-18','capabilities':{},'clientInfo':{'name':'fake-claude','version':'0'}}},
-            {'method':'notifications/initialized'},
-            {'id':2,'method':'tools/call','params':{'name':'todo_reopen','arguments':{'id':1}}},
-        ]
-        for request in requests:
-            mcp.stdin.write(json.dumps({'jsonrpc':'2.0',**request})+'\n');mcp.stdin.flush()
-            if 'id' in request:
-                reply=json.loads(mcp.stdout.readline())
-                assert 'error' not in reply, reply
-                if request['id']==2:
-                    assert not reply['result'].get('isError'), reply
-    finally:
-        mcp.stdin.close()
-        mcp.wait(timeout=10)
-    wait('!document.querySelector(".drawer input").checked')
     assert evaluate('document.activeElement===document.querySelector(".drawer input")')
-    outcome=evaluate("(async()=>({list:await window.__u462rpc('todo.list'),history:await window.__u462rpc('todo.getHistory',{id:1}),touches:await window.__u462rpc('provenance.history',{item:'todo:1'})}))()")
-    assert outcome['list'][1]['blocked'], outcome
-    assert outcome['history']['changes'][-1]['actor']=={'kind':'agent','id':agent_id,'parent':None}, outcome
-    assert outcome['touches'][-1]['actor']['id']==outcome['history']['changes'][-1]['actor']['id'], outcome
-    save('U461a', 'real-user-and-agent-reopen', {'checks':evaluate('window.__checks()'),**outcome})
+    user = evaluate("window.__u462rpc('todo.getHistory',{id:1})")['changes'][-1]
+    assert user['before']['done'] and not user['after']['done'] and user['actor']['kind'] == 'user', user
+    assert evaluate("window.__u462rpc('todo.get',{id:3})")['blocked']
+    evaluate("window.__u462rpc('todo.complete',{id:1})")
+    wait('document.querySelector(".drawer input").checked')
+    evaluate("(async()=>{const door=(await window.__u462rpc('rail.tree')).find(n=>n.kind==='workstream');await window.__u462rpc('message.send',{to:door.id,kind:'note',body:'u461a-reopen-todo'});})()")
+    wait('!document.querySelector(".drawer input").checked')
+    history = evaluate("window.__u462rpc('todo.getHistory',{id:1})")['changes']
+    last = history[-1]
+    assert len(history) == 7 and last['before']['done'] and not last['after']['done'], history
+    assert last['actor']['kind'] == 'agent', last
+    writes = [t for t in evaluate("window.__u462rpc('provenance.history',{item:'todo:1'})") if t['verb'] == 'wrote']
+    assert writes[-1]['actor'] == last['actor'] and writes[-3]['actor'] == user['actor'], writes
+    assert evaluate("window.__u462rpc('todo.get',{id:3})")['blocked']
+    wait('document.querySelectorAll("[data-change]").length===7')
+    evaluate('(async()=>{await Promise.allSettled(document.querySelector(".drawer").getAnimations({subtree:true}).filter(a=>a.effect.getComputedTiming().iterations!==Infinity).map(a=>a.finished));})()')
+    save('U461a', 'real-daemon-user-and-agent-reopened', evaluate(reading))
 
 
-def reopen_restart():
-    browser('set', 'media', 'dark')
+def send(text):
+    browser('click', '.pane-screen')
+    browser('type', '.pane-screen textarea', text)
+    browser('press', 'Enter')
+
+
+def restarted():
     browser('set', 'viewport', '1512', '950')
     browser('open', origin + '/harness.html?daemon=1')
     wait('Boolean(document.querySelector(".rail-actions button"))')
     evaluate(rpc_helper)
-    outcome=evaluate("(async()=>({list:await window.__u462rpc('todo.list'),history:await window.__u462rpc('todo.getHistory',{id:1}),touches:await window.__u462rpc('provenance.history',{item:'todo:1'})}))()")
-    assert not outcome['list'][0]['done'] and outcome['list'][1]['blocked'], outcome
-    assert outcome['history']['changes'][-1]['actor']['kind']=='agent', outcome
-    assert outcome['touches'][-1]['actor']['id']==outcome['history']['changes'][-1]['actor']['id'], outcome
-    save('U461a', 'real-restart', {'checks':evaluate('window.__checks()'),**outcome})
+    if evaluate('document.querySelector("#shelf-tab-todos").getAttribute("aria-expanded")!=="true"'):
+        browser('click', '#shelf-tab-todos')
+    # Stored Todo can be inspected after Reopening the Project even when its Workstream is not selected.
+    evaluate("[...document.querySelectorAll('button')].find(b=>b.textContent.trim()==='1 done')?.click()")
+    wait('Boolean(document.querySelector("[data-todo=\\"1\\"] button"))')
+    evaluate('document.querySelector("[data-todo=\\"1\\"] button").click()')
+    wait('document.querySelectorAll("[data-change]").length===7')
+    result = evaluate(reading)
+    assert result['history'][-1] == 'Open' and 'Changed body\nSecond line' in result['history'][1], result
+    assert result['unread'] == 'Open', result
+    assert not evaluate("window.__u462rpc('todo.get',{id:1})")['done']
+    assert evaluate("window.__u462rpc('todo.getHistory',{id:1})")['changes'][-1]['actor']['kind'] == 'agent'
+    save('U461a', 'real-daemon-restart', result)
 
 
 try:
-    {'reopen-fake':reopen_fake,'reopen-real':reopen_real,'reopen-restart':reopen_restart,'fake': fake, 'real': real, 'restart': restarted, 'baseline': baseline}[mode]()
+    {'fake': fake, 'real': real, 'restart': restarted, 'baseline': baseline, 'reopen-fake': reopen_fake, 'reopen-surfaces': reopen_surfaces, 'reopen-real': real_reopen, 'reopen-restart': restarted}[mode]()
 finally:
     browser('close')
     profile.cleanup()

@@ -43,9 +43,10 @@ impl Todos {
         &self,
         db: &rusqlite::Connection,
         id: &str,
+        actor: &contracts::Actor,
         removal: &mut contracts::agent::Removal,
     ) -> Result<Vec<EventData>, RpcError> {
-        self.store()?.remove_workstream(db, id, removal)
+        self.store()?.remove_workstream(db, id, actor, removal)
     }
 
     /// The creator is the calling Actor; a `creator` field sent in the params is ignored.

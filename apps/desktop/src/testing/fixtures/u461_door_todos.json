@@ -2,6 +2,29 @@
   "fixtures": [
     {
       "match": {
+        "toolCallId": "toolu_u461a_reopen"
+      },
+      "response": {
+        "content": "Reopened."
+      }
+    },
+    {
+      "match": {
+        "userMessage": "u461a-reopen-todo",
+        "hasToolResult": false
+      },
+      "response": {
+        "toolCalls": [
+          {
+            "id": "toolu_u461a_reopen",
+            "name": "mcp__roundup__todo_reopen",
+            "arguments": "{\"id\":1}"
+          }
+        ]
+      }
+    },
+    {
+      "match": {
         "toolCallId": "toolu_u462a_0"
       },
       "response": {
