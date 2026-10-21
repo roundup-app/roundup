@@ -19,8 +19,8 @@ struct Owner {
 }
 
 impl Rail {
-    pub(crate) fn claim_measurement_observer(&mut self) -> bool {
-        !std::mem::replace(&mut self.measurement_observing, true)
+    pub(crate) fn claim_measurement_observer(&self) -> Option<tokio::sync::OwnedSemaphorePermit> {
+        self.measurement_observing.clone().try_acquire_owned().ok()
     }
     pub(crate) fn observe_measurement_owner(
         &mut self,
@@ -31,10 +31,9 @@ impl Rail {
     ) {
         // Collection failure must not turn a successful conversation acknowledgement into
         // an Agent failure. The public read retains the cause while source collection retries.
-        self.measurement_failure = self
-            .retain_measurement_owner(id, source, cwd, Some(attempt))
-            .err()
-            .map(|e| e.message);
+        if let Err(error) = self.retain_measurement_owner(id, source, cwd, Some(attempt)) {
+            self.measurement_failure = Some(error.message);
+        }
     }
 
     pub(crate) fn retain_measurement_owner(
@@ -54,17 +53,36 @@ impl Rail {
         Ok(())
     }
 
-    pub(crate) fn measurement_revision(&self) -> Result<String, RpcError> {
-        self.db
+    pub(crate) fn measurement_revision(&mut self) -> Result<String, RpcError> {
+        let result = self
+            .db
             .query_row("SELECT revision FROM measurement_state", [], |r| {
                 r.get::<_, i64>(0)
             })
             .map(|r| r.to_string())
-            .map_err(sql)
+            .map_err(sql);
+        match &result {
+            Ok(revision) => self.measurement_revision = Some(revision.clone()),
+            Err(error) => self.measurement_failure = Some(error.message.clone()),
+        }
+        result
     }
 
-    pub(crate) fn collect_measurements(&mut self, launcher: &crate::Launcher, now: i64) {
-        self.measurement_failure = self.collect_sources(launcher, now).err().map(|e| e.message);
+    pub(crate) fn collect_measurements(
+        &mut self,
+        launcher: &crate::Launcher,
+        now: i64,
+    ) -> (Option<String>, Option<String>) {
+        let result = self
+            .collect_sources(launcher, now)
+            .and_then(|()| self.measurement_revision());
+        // Only collection plus its revision read reconciles a collector failure. Owner writes
+        // and successful public reads cannot establish that passive collection has recovered.
+        self.measurement_failure = result.err().map(|error| error.message);
+        (
+            self.measurement_revision.clone(),
+            self.measurement_failure.clone(),
+        )
     }
 
     fn collect_sources(&mut self, launcher: &crate::Launcher, now: i64) -> Result<(), RpcError> {
@@ -225,7 +243,9 @@ impl Rail {
             }
             Ok(())
         };
-        self.measurement_failure = save().err().map(|e| e.message);
+        if let Err(error) = save() {
+            self.measurement_failure = Some(error.message);
+        }
     }
 
     pub(crate) fn accept_intervals(
@@ -269,12 +289,17 @@ impl Rail {
 
     pub(crate) fn measurements(&mut self, project: &Path) -> Result<Measurements, RpcError> {
         let tx = self.db.transaction().map_err(sql)?;
-        let revision = tx
-            .query_row("SELECT revision FROM measurement_state", [], |r| {
-                r.get::<_, i64>(0)
-            })
-            .map_err(sql)?
-            .to_string();
+        let revision = match tx.query_row("SELECT revision FROM measurement_state", [], |r| {
+            r.get::<_, i64>(0)
+        }) {
+            Ok(revision) => revision.to_string(),
+            Err(error) => {
+                let error = sql(error);
+                self.measurement_failure = Some(error.message.clone());
+                return Err(error);
+            }
+        };
+        self.measurement_revision = Some(revision.clone());
         let contributions = {
             let mut query=tx.prepare("SELECT identity,source,source_revision,agent,COALESCE(attempt,(SELECT attempt FROM measurement_request_attempts a WHERE a.identity=measurement_revisions.identity)),home,maker,observed,value,coverage FROM measurement_revisions WHERE revision IN (SELECT MAX(revision) FROM measurement_revisions GROUP BY identity) ORDER BY identity").map_err(sql)?;
             let rows = query

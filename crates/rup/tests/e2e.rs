@@ -11,6 +11,10 @@ mod reaction;
 #[path = "e2e/wake.rs"]
 mod wake;
 
+// The launch-site audit inventories Daemon references in this harness, including migration fixtures.
+const REACTION_FIRINGS_V1: &str =
+    include_str!("../../rupd/migrations/project/0009-reaction-firings.sql");
+
 use std::path::PathBuf;
 use std::process::{Command, Stdio};
 use std::time::{Duration, Instant};
