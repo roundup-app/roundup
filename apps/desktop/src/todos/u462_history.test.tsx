@@ -147,7 +147,22 @@ it("u3728_opening_marks_read_once", async () => {
   expect(within(panel()).getByText("Created todo 1")).toBeTruthy();
   fireEvent.click(within(panel()).getByRole("button", { name: /^Changes/ }));
   fireEvent.click(within(panel()).getByRole("button", { name: /^Changes/ }));
-  await Promise.resolve();
-  expect(todoCallsTo(m.app, "todo.readHistory")).toHaveLength(1);
   await waitFor(() => expect(within(panel()).getByRole("button", { name: "Changes · 1" }).querySelector("[data-state]")?.getAttribute("data-state")).toBe("read"));
+  fireEvent.click(within(panel()).getByRole("button", { name: /^Changes/ }));
+  fireEvent.click(within(panel()).getByRole("button", { name: /^Changes/ }));
+  expect(todoCallsTo(m.app, "todo.readHistory")).toHaveLength(1);
+});
+
+it("u3728_failed_read_retries_without_consuming_unread", async () => {
+  const m = await mountTodos([todo(1)]); await open(m);
+  const original = m.app.handlers["todo.readHistory"]!;
+  m.app.handlers["todo.readHistory"] = () => Promise.reject(new RpcError(-32003, "Read unavailable"));
+  fireEvent.click(within(panel()).getByRole("button", { name: /^Changes/ }));
+  await within(panel()).findByText("Read unavailable");
+  const count = () => within(panel()).getByRole("button", { name: "Changes · 1" }).querySelector("[data-state]")?.getAttribute("data-state");
+  expect(count()).toBe("unread");
+  m.app.handlers["todo.readHistory"] = original;
+  fireEvent.click(within(panel()).getByRole("button", { name: "Retry history" }));
+  await waitFor(() => expect(count()).toBe("read"));
+  expect(todoCallsTo(m.app, "todo.readHistory")).toHaveLength(2);
 });

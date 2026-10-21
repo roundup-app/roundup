@@ -5,6 +5,7 @@
 
 .todo-blocker-menu .app-combobox-item {
   min-height: var(--space-5);
+  padding-block: 0;
 }
 
 .todo-blocker-title {

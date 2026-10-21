@@ -66,6 +66,18 @@ run("u461 and u462 isolated rendered observers", () => {
 });
 
 
+describe.skipIf(!captureDir("U3728"))("u3728 isolated rendered observer", () => {
+  let server: AppServer;
+
+  beforeAll(async () => { server = await appServer(); });
+  afterAll(async () => { await server?.close(); });
+
+  it("u3728_drawer_rendered", async () => {
+    await promisify(execFile)("python3", ["src/todos/u461_browser.test.py", "u3728", server.resolvedUrls.local[0]!, "", "", "", captureDir("U3728")!], { timeout: 180_000, maxBuffer: 2 * 1024 * 1024 });
+  }, 180_000);
+});
+
+
 describe.skipIf(!captureDir("U461b"))("u461b browser environment", () => {
   let server: AppServer;
   let output: string;
