@@ -23,7 +23,8 @@ const GONE_AGENT: &str = "an Agent that is gone";
 pub struct Rail {
     owner_reads: OwnerReads,
     db: Connection,
-    measurement_observing: bool,
+    measurement_observing: Arc<tokio::sync::Semaphore>,
+    measurement_revision: Option<String>,
     measurement_failure: Option<String>,
 }
 
@@ -156,7 +157,8 @@ impl Rail {
         Ok(Self {
             owner_reads: OwnerReads::open(path),
             db,
-            measurement_observing: false,
+            measurement_observing: Arc::new(tokio::sync::Semaphore::new(1)),
+            measurement_revision: None,
             measurement_failure: None,
         })
     }
