@@ -15,8 +15,12 @@ NEEDS_MAC = 'flag:needs-mac'
 WAITS = {NEEDS_USER: 'the user', NEEDS_MAC: "an agent on the user's Mac"}
 BOT = 'github-actions[bot]'
 STRIKE = '<!-- strike -->'
-STRIKES = 3
 DAY = 24 * 3600
+# L34: after its k-th strike in the last DAY an Issue waits COOLDOWN * 2^(k-1) from that strike, at most COOLDOWN_CAP; at
+# ASK_STRIKES the loop asks the user (L79).
+COOLDOWN = 15 * 60
+COOLDOWN_CAP = 4 * 3600
+ASK_STRIKES = 6
 # The repository is public: only the user and the loop's own Apps (a stall Issue, a Builder's prerequisite) file work.
 AUTHORS = ('saadshahd', 'claude[bot]', 'github-actions[bot]')
 
@@ -169,16 +173,23 @@ def classify(issues, dependencies, prs):
 
 
 def cool(rows, strikes, now):
-    """Hold a ready row struck STRIKES times in the last DAY (`strikes` maps an Issue to its strike times) until the oldest
-    of those is a DAY old. Nobody is asked: L94 still counts the Issue as waiting work."""
+    """Hold a ready row struck in the last DAY (`strikes` maps an Issue to its strike times) until its cooldown from the
+    latest strike ends: COOLDOWN doubled for each earlier strike in that DAY, at most COOLDOWN_CAP. It asks nobody (`builder.strike`
+    asks at ASK_STRIKES): L94 still counts the Issue as waiting work."""
     for row in rows:
         recent = sorted(t for t in strikes.get(row['issue'], []) if t > now - DAY)
-        if row.get('invalid') and len(recent) >= STRIKES:
-            # L96: a repair that keeps failing is held, not asked about; the order stays counted.
+        if not recent:
+            continue
+        until = recent[-1] + min(COOLDOWN * 2 ** (len(recent) - 1), COOLDOWN_CAP)
+        if until <= now:
+            continue
+        if row.get('invalid'):
+            # L96: a repair that keeps failing is held, not repaired again; the order stays counted.
             row['held'] = True
-        elif row['state'] == 'ready' and len(recent) >= STRIKES:
-            until = datetime.fromtimestamp(recent[-STRIKES] + DAY, timezone.utc)
-            row.update(state='waiting', reason=f'{STRIKES} strikes in 24 hours; ready again at {until:%Y-%m-%d %H:%M} UTC')
+        elif row['state'] == 'ready':
+            ready_at = datetime.fromtimestamp(until, timezone.utc)
+            row.update(state='waiting',
+                       reason=f'{len(recent)} strike{"s" * (len(recent) > 1)}; ready again at {ready_at:%Y-%m-%d %H:%M} UTC')
     return rows
 
 
