@@ -57,7 +57,23 @@
   display: flex;
   gap: var(--space-3);
   margin: 0;
-  padding: 0 var(--space-3) var(--space-1);
+  padding: var(--space-1) var(--space-3);
   color: var(--grey);
   font: inherit;
+}
+
+.capture-target > span {
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.capture-target > :first-child {
+  flex: 0 1 auto;
+  max-width: 50%;
+}
+
+.capture-target > :last-child {
+  flex: 1 1 0;
 }

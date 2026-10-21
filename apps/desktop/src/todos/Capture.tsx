@@ -192,8 +192,8 @@ export const Capture = (props: { onFile: (() => void) | undefined }) => {
             }}
           />
           <p class="capture-target">
-            <span>{target().ownerName === null ? copy.unassigned : copy.captureFor(target().ownerName!)}</span>
-            <span>{copy.captureIn(target().homeName ?? copy.projectRoot)}</span>
+            <span title={target().ownerName === null ? copy.unassigned : copy.captureFor(target().ownerName!)}>{target().ownerName === null ? copy.unassigned : copy.captureFor(target().ownerName!)}</span>
+            <span title={copy.captureIn(target().homeName ?? copy.projectRoot)}>{copy.captureIn(target().homeName ?? copy.projectRoot)}</span>
           </p>
           <Show when={failure()}>{(message) => <ErrorLine message={message()} />}</Show>
           <For each={recovered()}>{draft => <div class="capture-recovery">
