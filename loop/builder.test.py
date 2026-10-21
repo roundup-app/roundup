@@ -965,7 +965,7 @@ class Fix(unittest.TestCase):
             self.assertIsNone(builder.fix_task(9, HEAD, 'check'))
         self.assertTrue(github.flagged())
 
-    def test_l82_a_pr_out_of_fix_runs_whose_head_review_and_critic_approved_is_revived_once_per_head(self):
+    def test_l82_a_pr_out_of_fix_runs_whose_head_review_and_critic_approved_is_revived_at_most_once(self):
         attempts = [note(f'<!-- fix-attempt -->\nFix run https://github.com/o/r/actions/runs/{n} answered `check`.',
                          ago=300 - n * 50) for n in (1, 2, 3)]
         view = pr(url='https://github.com/o/r/pull/9', body='Refs #5\nScenarios: U1\n', commits=[], statusCheckRollup=FAILED)
@@ -983,9 +983,9 @@ class Fix(unittest.TestCase):
         rejected = note(f'VERDICT: reject\nHead: {HEAD}\n\nbad name', ago=100)
         moved = note(f'VERDICT: approve\nHead: {"b" * 40}\n\nok', ago=100)
         critic_rejected = note(f'CRITIC: reject\nHead: {HEAD}\n\nugly', ago=100)
-        revived = note(f'<!-- fix-revive -->\nHead: {HEAD}\n\nonce', ago=280)
+        earlier = note(f'<!-- fix-revive -->\nHead: {"c" * 40}\n\nonce', ago=280)
         for files, notes in (((), [review, rejected]), ((), [moved]), (UI, [review]), (UI, [review, critic, critic_rejected]),
-                             ((), [revived, review])):
+                             ((), [earlier, review]), (UI, [earlier, review, critic])):
             with self.subTest(files=files, notes=notes), GitHub(view=view, files=files, notes=attempts + notes) as github:
                 self.assertIsNone(builder.fix_task(9, HEAD, 'check'))
                 self.assertTrue(github.bodies()[0].startswith('<!-- fix-exhausted #9 -->'))
