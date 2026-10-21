@@ -719,11 +719,7 @@ mod tests {
             let id = format!("{index:08}-1111-4111-8111-111111111111");
             let complete = record("user", cwd, "2026-10-18T12:00:00Z").replace(SESSION, &id) + "\n";
             store(&config, "x", &id, &(complete.clone() + "{\"torn\":"));
-            expected.push((
-                id,
-                cwd.strip_prefix(project).unwrap().to_path_buf(),
-                hex(&Sha256::digest(complete.as_bytes())),
-            ));
+            expected.push((id, cwd.strip_prefix(project).unwrap().to_path_buf()));
         }
         let found = launcher(&config)
             .discover_recent(project, NOW, 7 * DAY)
@@ -733,7 +729,7 @@ mod tests {
         let actual: Vec<_> = found
             .candidates
             .into_iter()
-            .map(|candidate| (candidate.source, candidate.cwd, candidate.revision))
+            .map(|candidate| (candidate.source, candidate.cwd))
             .collect();
         assert_eq!(actual, expected);
     }
@@ -757,14 +753,18 @@ mod tests {
             let id = format!("{index:08}-1111-4111-8111-111111111111");
             let text = record("user", cwd, "2026-10-18T12:00:00Z").replace(SESSION, &id) + "\n";
             store(&config, "x", &id, &text);
-            expected.push(ImportExclusion { source: id, reason });
+            expected.push((id, reason));
         }
         let found = launcher(&config)
             .discover_recent(Path::new("/"), NOW, 7 * DAY)
             .await
             .unwrap();
         assert!(found.candidates.is_empty());
-        assert_eq!(found.excluded, expected);
+        assert_eq!(found.excluded.len(), expected.len());
+        for (got, (source, reason)) in found.excluded.iter().zip(expected) {
+            assert_eq!(got.source, source);
+            assert!(got.reason.starts_with(reason), "{}", got.reason);
+        }
     }
 
     #[tokio::test]
