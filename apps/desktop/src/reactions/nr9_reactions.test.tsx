@@ -79,6 +79,7 @@ it("nr9_failed_creation_preserves_original_draft", async () => {
   await screen.findByText(copy.reactionNotCreated("no room"));
   expect(screen.getByLabelText(copy.reactionInstruction)).toHaveProperty("value", "exact\n words ");
   refuse = false;
+  await waitFor(() => expect(screen.getByRole("button", { name: copy.reactionSave })).toHaveProperty("disabled", false));
   fireEvent.click(screen.getByRole("button", { name: copy.reactionSave }));
   await screen.findByRole("region", { name: copy.reactionDetail("Ship it") });
 

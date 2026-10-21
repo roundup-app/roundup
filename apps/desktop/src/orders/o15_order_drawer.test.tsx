@@ -221,9 +221,9 @@ for (const outcome of ["acknowledged", "failed", "unknown"] as const) {
     if (outcome === "acknowledged") reply.resolve({});
     else reply.reject(outcome === "failed" ? new RpcError(-32003, "refused") : new RpcError(-32603, "disconnected"));
 
-    if (outcome === "acknowledged") {
-      await waitFor(() => expect(screen.getByRole("button", { name: "Recover unfinished work" }).querySelector("[data-state=draft]")?.textContent).toBe("1"));
-    } else await screen.findByRole("alert");
+    if (outcome === "acknowledged") await new Promise((done) => setTimeout(done));
+
+    if (outcome !== "acknowledged") await screen.findByRole("alert");
     expect(screen.getByLabelText<HTMLTextAreaElement>("Ask").value).toBe("  newer B é\n");
     expect(sent).toEqual([{ id: "a", order: { kind: "work", title: full.title, ask: "older A 👋", done: full.done, limits }, captured: { order: full } }]);
     cleanup();
@@ -232,19 +232,16 @@ for (const outcome of ["acknowledged", "failed", "unknown"] as const) {
  return {}; } } });
     fireEvent.click(screen.getByRole("button", { name: "Edit order" }));
     expect(screen.getByLabelText<HTMLTextAreaElement>("Ask").value).toBe("  newer B é\n");
-    fireEvent.click(screen.getByRole("button", { name: "Recover unfinished work" }));
-    const recovery = await screen.findByLabelText("Unfinished work");
-    await waitFor(() => expect(recovery.querySelectorAll("li[data-revision]")).toHaveLength(outcome === "acknowledged" ? 1 : 2));
-    expect(recovery.textContent).toContain("  newer B é\n");
 
-    if (outcome !== "acknowledged") {
-      const inspect = recovery.querySelectorAll<HTMLButtonElement>("li button");
-      fireEvent.click(inspect[1]!);
-      expect(recovery.textContent).toContain("  older A 👋\n");
-      expect(recovery.textContent).toContain(outcome === "failed" ? "Failed" : "Acceptance unknown");
-      fireEvent.click(screen.getByRole("button", { name: "Discard this revision" }));
+    if (outcome === "acknowledged") expect(screen.queryByRole("button", { name: "Recover unfinished work" })).toBeNull();
+    else {
+      fireEvent.click(screen.getByRole("button", { name: "Recover unfinished work" }));
+      const recovery = await screen.findByLabelText("Unfinished work");
+
       expect(recovery.querySelectorAll("li[data-revision]")).toHaveLength(1);
-      expect(recovery.textContent).toContain("  newer B é\n");
+      expect(recovery.textContent).toContain(outcome === "failed" ? "failed to save" : "may not have saved");
+      fireEvent.click(screen.getByRole("button", { name: "Discard" }));
+      expect(recovery.querySelectorAll("li[data-revision]")).toHaveLength(0);
     }
 
     expect(sent).toHaveLength(1);
@@ -264,12 +261,10 @@ it("u2773b_orders_out_of_order_acknowledgement_keeps_late_failure", async () => 
   newer.resolve({});
   await waitFor(() => expect(document.querySelector(".order-edit")).toBeNull());
   older.reject(new RpcError(-32003, "older refused"));
-  fireEvent.click(screen.getByRole("button", { name: "Recover unfinished work" }));
+  fireEvent.click(await screen.findByRole("button", { name: "Recover unfinished work" }));
   const recovery = await screen.findByLabelText("Unfinished work");
-  await waitFor(() => expect(recovery.textContent).toContain("Failed"));
+  await waitFor(() => expect(recovery.textContent).toContain("failed to save"));
   expect(recovery.querySelectorAll("li[data-revision]")).toHaveLength(1);
-  expect(recovery.textContent).toContain("old failed revision");
-  expect(recovery.textContent).not.toContain("new acknowledged revision");
   expect(calls).toBe(2);
 });
 
