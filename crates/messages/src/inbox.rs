@@ -133,6 +133,7 @@ pub(crate) async fn send(
         let text = texts.next().unwrap_or_default();
         entries.push(Entry {
             id: note.id,
+            actor: note.from.clone(),
             kind: note.kind,
             from,
             one_line: note.kind == MessageKind::Note

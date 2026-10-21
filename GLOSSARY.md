@@ -825,3 +825,34 @@ An exact source amount with its currency when established, source, pricing basis
 request or inclusive conversation scope. Conversation totals include their constituent
 requests and native children: they never add to request money or reference estimates.
 A currency not established by its source is unknown; no conversion is inferred.
+
+**Measurement summary** (`MeasurementSummary`, `MeasurementSummaryParams`, `project.measurementSummary`):
+One Workstream's retained consumed tokens and ranked contributors at one Measurement
+revision. Later pages name that revision; a changed revision requires reconciliation.
+It carries collection coverage and failure independently of known consumption.
+
+**Consumed category** (`ConsumedCategory`):
+Input, output, cache read, cache write or their total, chosen to rank contributors.
+
+**Consumed subtotal** (`ConsumedSubtotal`, `ConsumedTotals`):
+An exact known token count with the number of contributions whose count is
+unknown; a contributor without retained requests is one unknown contribution. A total includes known categories even when another category is missing.
+Missing history is separate coverage; it is never a measured zero.
+
+**Measurement contributor** (`MeasurementContributor`):
+An Agent's retained consumption in one Home, including a stopped or removed maker.
+Unknown selected categories rank after fully known ones; ties use stable Agent identity.
+
+**Measurement cost** (`MeasurementCost`, `ReferenceEstimate`):
+Reported money retained separately by source, currency and request/conversation scope,
+and exact decimal reference estimates grouped only by identical Reference rates.
+Missing evidence names its affected contributor; neither value is a subscription bill.
+
+**Measurement time** (`MeasurementTime`):
+Elapsed since first observed start, separate from summed Attempt nanoseconds, whose
+disjoint categories give human wait, tools, coordination and model execution precedence
+in that order; positive startup/idle is other time and unexplained duration is unmeasured.
+Incomparable clock lifetimes never authorize continuous execution through a gap.
+
+**Collapsible**:
+An expandable App region with a named trigger; closing it retains its content.

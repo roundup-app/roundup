@@ -9,7 +9,14 @@ impl Module for Agents {
     async fn call(&self, ctx: &Ctx, method: &str, value: Value) -> Result<Value, RpcError> {
         let shared = &self.shared;
         match method {
-            "project.measurements" => {
+            "project.measurements" | "project.measurementSummary" => {
+                let summary = if method == "project.measurementSummary" {
+                    Some(params::<contracts::project::MeasurementSummaryParams>(
+                        value,
+                    )?)
+                } else {
+                    None
+                };
                 let mut rail = shared.rail();
                 let mut timing = shared.timing.lock().expect("measurement timing lock");
                 timing.sample();
@@ -18,7 +25,11 @@ impl Module for Agents {
                 if cause.is_some() {
                     measurements.cause = cause;
                 }
-                reply(&measurements)
+                if let Some(params) = summary {
+                    reply(&measurement::summarize(measurements, rail.tree()?, params)?)
+                } else {
+                    reply(&measurements)
+                }
             }
             "agent.spawn" => reply(&self.spawn(ctx, params(value)?).await?),
             "agent.extras" => reply(&claude_code::extras::available(
