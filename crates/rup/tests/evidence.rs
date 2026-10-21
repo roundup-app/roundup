@@ -398,6 +398,7 @@ async fn u3078c_message_replacements_keep_acceptance_historical() {
         .request("message.progress", other_query.clone())
         .await
         .unwrap();
+    assert_eq!(unrelated["results"][0]["current"], true);
 
     let original = before["instructions"]["deliveries"][0]["text"]
         .as_str()

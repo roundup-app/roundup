@@ -800,7 +800,8 @@ observations and exact publication availability. Historical evidence stays reada
 unresolved external effects stay current across later claims and instruction changes
 until their exact-version Result resolution. They block completion checks and current
 attribution of later claims for that target. Other current attribution requires the
-same Order revision and latest reported version of that target. Opening or inspecting Progress starts nothing and sends no Message.
+same Order and latest Instruction revision, plus the latest reported version of that
+target. Opening or inspecting Progress starts nothing and sends no Message.
 
 **Request cost** (`RequestCost`, `CacheWrites`):
 The observed opaque Model and independently observed five-minute/one-hour cache-write
