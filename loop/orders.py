@@ -21,9 +21,13 @@ DAY = 24 * 3600
 AUTHORS = ('saadshahd', 'claude[bot]', 'github-actions[bot]')
 
 
+# Every Issue and PR, paginated, took 38 s at about 3,100 items (2026-10-21).
+GH_TIMEOUT = 120
+
+
 def gh(*args):
     return json.loads(subprocess.run(['gh', *args], check=True, text=True,
-                                   stdout=subprocess.PIPE, timeout=30).stdout)
+                                   stdout=subprocess.PIPE, timeout=GH_TIMEOUT).stdout)
 
 
 def created(item):
