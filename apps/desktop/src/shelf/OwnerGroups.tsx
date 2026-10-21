@@ -23,7 +23,8 @@ export const OwnerGroups = <T,>(props: {
   onAdd: (group: OwnerGroup<T>) => void;
   children: (group: Accessor<OwnerGroup<T>>) => JSX.Element;
 }) => {
-  const [closed, setClosed] = createSignal(["unassigned"]);
+  // A Todo filed before the first group mounts has already counted: the group starts open then.
+  const [closed, setClosed] = createSignal(props.unfold?.() ? [] : ["unassigned"]);
 
   const shown = createMemo<OwnerGroup<T>[]>((previous = []) => {
     const groups = props.groups().filter(group => group.items.length > 0 || props.dragging() || props.adding() === group.id);

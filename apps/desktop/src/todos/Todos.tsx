@@ -8,7 +8,7 @@ import { registerKeys } from "../keys/registry";
 import { activationSource } from "../keys/registry";
 import type { ActivationSource } from "../keys/registry";
 import { copy } from "../copy";
-import { shelfRowKeys } from "../shelf/keys";
+import { shelfKeyScope, shelfRowKeys } from "../shelf/keys";
 import { createBulkDelete } from "../shelf/BulkDelete";
 
 import { createSelection } from "../shelf/selection";
@@ -418,7 +418,6 @@ export const Todos = (props: {
 
   const rows = new Map<number, HTMLButtonElement>();
   let plusButton: HTMLButtonElement | undefined;
-  let tab: HTMLElement | undefined;
 
   const rowButtonOf = (id: number) => (rows.get(id)?.isConnected ? rows.get(id) : null) ?? document.querySelector<HTMLElement>(`[data-todo="${id}"] .row-head button`);
 
@@ -470,7 +469,7 @@ export const Todos = (props: {
     }
   };
 
-  registerKeys({ kind: "region", element: () => tab }, [{
+  registerKeys(shelfKeyScope, [{
     action: CHORDS.find(row => row.keys === "O")!,
     capture: (focus) => {
       const row = focus instanceof HTMLElement && focus.closest(".row-head") && !focus.closest(".todo-row-actions") ? focus.closest<HTMLElement>("[data-shelf-row]") : null;
@@ -695,7 +694,7 @@ export const Todos = (props: {
   };
 
   return (
-    <section aria-label={copy.todos} class="todos-tab" ref={tab} onContextMenu={todoMenu}>
+    <section aria-label={copy.todos} class="todos-tab" onContextMenu={todoMenu}>
       <button
         data-button="add"
         type="button"

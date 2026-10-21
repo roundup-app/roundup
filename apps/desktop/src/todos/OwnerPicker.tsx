@@ -17,6 +17,8 @@ export const OwnerPicker = (props: {
   close: () => void;
 }) => (
   <Menu.Root
+    lazyMount
+    unmountOnExit
     open={props.target() !== null}
     positioning={{ placement: "bottom-start", getAnchorRect: () => props.target()?.anchor.getBoundingClientRect() ?? null }}
     onOpenChange={({ open }) => { if (!open) props.close(); }}

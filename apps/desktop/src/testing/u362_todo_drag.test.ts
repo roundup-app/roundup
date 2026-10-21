@@ -139,7 +139,7 @@ run('u362 rendered Todo drag that moves nothing', () => {
     const id = await page.call<string>(`() => document.querySelector('.shelf .todo-row').dataset.todo`);
     const from = await point(`.shelf [data-todo="${id}"] .todo-row-button`);
     const home = await point('[data-part="branch"][aria-expanded] > .rail-row');
-    const elsewhere = await point('.shelf-head, .shelf');
+    const elsewhere = await point('.shelf-head');
     const calls = () => page.call<string[]>(`() => window.__fake.app.calls.filter(c => c.method === 'todo.move' || c.method === 'todo.reorder').map(c => c.method)`);
 
     // Escape over a Home.
