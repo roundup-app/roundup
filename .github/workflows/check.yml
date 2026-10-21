@@ -133,6 +133,9 @@ jobs:
             sudo apt-get update -qq
             sudo apt-get install -y strace iproute2 util-linux
           fi
+      # B32 compares Rust with executable Bend; setup stays outside the network-free test.
+      - name: Pinned Bend for model correspondence
+        run: just proofs-setup
       - name: test-rust
         run: |
           python3 -m pip install -r tools/e14/requirements.txt

@@ -1,11 +1,5 @@
 --- model.bend
 +++ model.bend
-@@ -191,7 +191,7 @@
- def takeover_begin(s: World) -> World:
-   match s:
-     case W{+q, +haf, +htk, +t, +d, +u, +tt, +rl, +n, +tk, +i, +g}:
--      W{keep_users(q, []), haf, List.append(&2, Nat, htk, drop_users(q, [])), t, d, u, tt, rl, n, True{}, i, g}
-+      W{q, haf, htk, t, d, u, tt, rl, n, True{}, i, g}
- 
- # B6: the Takeover ends; what it held becomes pending, behind what already waits.
- def takeover_end(s: World) -> World:
+@@ -1,1 +1,1 @@
+-      W{keep_users(q, []), haf, List.append(&2, Nat, htk, drop_users(q, [])), t, d, u, tt, rl, n, True{}, us, i, g}
++      W{q, haf, htk, t, d, u, tt, rl, n, True{}, us, i, g}

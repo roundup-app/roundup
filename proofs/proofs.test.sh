@@ -104,6 +104,21 @@ mv "$scratch/l/P.new" "$scratch/l/PROOF.bend"
 out=$(BEND=$real_bend "$scratch/l/mutants/run.sh" m8 2>&1)
 expect "v4b omitted m8 helper dependencies fail the baseline" 1 "FAIL m8: unmutated baseline" "$?" "$out"
 
+# V7: evaluate M3 itself, not just whether a proof helper rejects changed code.
+fresh_real
+patch --batch --forward --fuzz=0 --quiet "$scratch/l/model.bend" "$scratch/l/mutants/m3_unsent.patch" || exit 1
+cat > "$scratch/l/v7.bend" <<'BEND'
+import Base
+import ./model.bend as M
+import ./spec.bend as S
+
+def main() -> Bool:
+  +s = S.world([M.UserInput{}, M.Send{True{}, M.Auto{}}, M.Idle{}])
+  S.all_in(S.tk_typed(s), S.released(s))
+BEND
+out=$(BEND_NO_TELEMETRY=1 "$real_bend" "$scratch/l/v7.bend" 2>&1)
+expect "v7 m3 rejects typing over unsent input without Takeover" 0 "False{}" "$?" "$out"
+
 # Bend boundary failures cannot masquerade as successful mutation evidence.
 fresh; rm "$scratch/l/mutants/run.sh"; out=$(check "$scratch/l")
 expect "v5 a missing mutation runner fails" 1 "mutants/run.sh" "$?" "$out"
