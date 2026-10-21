@@ -932,6 +932,41 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn u3037b_preview_preserves_records_crossing_boundaries() {
+        let root = tempfile::tempdir().unwrap();
+        let project = root.path().join("project");
+        std::fs::create_dir(&project).unwrap();
+        let config = root.path().join("config");
+        let header = record("user", &project, "2026-10-01T00:00:00Z") + "\n";
+        let metadata = format!(
+            "{{\"type\":\"custom-title\",\"customTitle\":\"Boundary rename\",\"timestamp\":\"2026-10-18T12:00:00Z\",\"payload\":\"{}\"}}\n",
+            "x".repeat(60_000)
+        );
+        for len in [300_000, 800_000] {
+            for boundary in [256 * 1024, len - 256 * 1024] {
+                let mut bytes = header.as_bytes().to_vec();
+                bytes.resize(boundary - metadata.len() / 2, b'\n');
+                bytes.extend_from_slice(metadata.as_bytes());
+                bytes.resize(len - 8, b'\n');
+                bytes.extend_from_slice(b"{\"torn\":");
+                store(&config, "x", SESSION, std::str::from_utf8(&bytes).unwrap());
+                let launcher = launcher(&config);
+                let found = launcher.discover_recent(&project, NOW, 7 * DAY).await.unwrap();
+                assert_eq!(found.candidates.len(), 1, "{len}/{boundary}: {found:?}");
+                assert!(found.excluded.is_empty());
+                let candidate = &found.candidates[0];
+                assert_eq!(candidate.title, "Boundary rename", "{len}/{boundary}");
+                assert_eq!(candidate.last_activity_ms, NOW - DAY);
+                let (confirmed, retained) = launcher
+                    .read_import_snapshot(&project, SESSION, &candidate.revision, NOW)
+                    .unwrap();
+                assert_eq!(&confirmed, candidate);
+                assert_eq!(retained, bytes[..bytes.len() - 8]);
+            }
+        }
+    }
+
+    #[tokio::test]
     async fn u3037b_malformed_complete_record_is_refused() {
         let root = tempfile::tempdir().unwrap();
         let project = root.path().join("project");
