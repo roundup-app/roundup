@@ -403,7 +403,7 @@ fn scan(
         window,
         check,
         retained,
-        file.by_ref().take(len),
+        (file.by_ref(), len),
     )?;
     check()?;
     if source_revision(&metadata) != revision
@@ -431,19 +431,27 @@ fn scan_records(
     window: (i64, i64),
     check: &impl Fn() -> Result<(), RpcError>,
     mut retained: Option<&mut Vec<u8>>,
-    input: impl Read,
+    input: (impl Read, u64),
 ) -> Result<Scan, RpcError> {
     let (path, stem) = source;
     let (now_ms, period_ms) = window;
     let preview = retained.is_none();
+    let (input, len) = input;
+    if preview && len > MAX_PREVIEW {
+        return Ok(Scan::Excluded(format!(
+            "{}: source exceeds 4,000,000,000 byte preview limit",
+            path.display()
+        )));
+    }
     #[cfg(not(any(test, feature = "test-support")))]
     let _ = launcher;
-    let mut reader = BufReader::with_capacity(64 * 1024, input);
+    let mut reader = BufReader::with_capacity(64 * 1024, input.take(len));
     let mut line = Vec::with_capacity(MAX_RECORD as usize);
     #[cfg(any(test, feature = "test-support"))]
     if let Some(observer) = &launcher.import_observer {
         observer(path, "buffer", line.capacity() as u64);
     }
+    let mut consumed = 0u64;
     let mut complete = false;
     let mut cwds: Vec<PathBuf> = Vec::new();
     let mut latest: Option<i64> = None;
@@ -468,6 +476,7 @@ fn scan_records(
         if size == 0 {
             break;
         }
+        consumed += size as u64;
         if size as u64 == MAX_RECORD
             && line.last() != Some(&b'\n')
             && !reader
@@ -568,6 +577,12 @@ fn scan_records(
         }
     }
     check()?;
+    if consumed != len {
+        return Ok(Scan::Excluded(format!(
+            "{}: incomplete metadata coverage; source ended before captured size",
+            path.display()
+        )));
+    }
     if !complete {
         return Ok(Scan::Excluded("no complete records".into()));
     }
@@ -1422,6 +1437,41 @@ mod tests {
     }
 
     #[test]
+    fn u3037b_incomplete_metadata_coverage_is_explicit() {
+        let root = tempfile::tempdir().unwrap();
+        let project = root.path().canonicalize().unwrap();
+        let header = record("user", &project, "2026-10-18T12:00:00Z") + "\n";
+        let result = scan_records(
+            &launcher(root.path()),
+            (Path::new("source.jsonl"), SESSION),
+            &project,
+            (NOW, DAY),
+            &|| Ok(()),
+            None,
+            (header.as_bytes(), header.len() as u64 + 1),
+        )
+        .unwrap();
+        assert!(
+            matches!(result, Scan::Excluded(reason) if reason.contains("source.jsonl") && reason.contains("incomplete metadata coverage"))
+        );
+        // The same reader seam enforces the ceiling before invoking Read.
+        let input = std::io::empty();
+        let result = scan_records(
+            &launcher(root.path()),
+            (Path::new("source.jsonl"), SESSION),
+            &project,
+            (NOW, DAY),
+            &|| Ok(()),
+            None,
+            (input, 4_000_000_001),
+        )
+        .unwrap();
+        assert!(
+            matches!(result, Scan::Excluded(reason) if reason.contains("source.jsonl") && reason.contains("preview limit"))
+        );
+    }
+
+    #[test]
     #[ignore = "U3037b streams a synthetic 4 GB reader; run separately from fast tests"]
     fn u3037b_preview_bounds_are_explicit_at_read_ceiling() {
         struct Repeating {
@@ -1461,7 +1511,7 @@ mod tests {
             (NOW, DAY),
             &|| Ok(()),
             None,
-            input.take(4_000_000_000),
+            (input, 4_000_000_000),
         )
         .unwrap();
         let Scan::Member(candidate) = result else {
@@ -1501,6 +1551,7 @@ mod tests {
             ),
             ("{\"timestamp\":[]}\n".into(), "malformed record"),
             ("[]\n".into(), "malformed record"),
+            ("{broken}\n".into(), "malformed record"),
         ] {
             store(&config, "x", SESSION, &(complete.clone() + &suffix));
             let found = launcher(&config)
