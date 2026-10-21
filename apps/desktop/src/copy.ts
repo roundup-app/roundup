@@ -11,6 +11,19 @@ const railDraftStatuses = new Map([["draft", "Draft"], ["pending", "Submitting�
 const railDraftLabels = new Map([["rail-task", "Task"], ["rail-name", "Name"], ["rail-clear", "Clear reason"]]);
 
 /** App-authored labels and prose (U471). Code terms remain keys; authored values pass through unchanged. */
+const importExcludedReasons: [string[], string][] = [
+  [["already in this project"], "Already imported"],
+  [["ambiguous project membership"], "Used more than one folder of this Project"],
+  [["no recorded working directory", "too many recorded directories", "recorded folder no longer exists"], "Its folder is no longer there"],
+  [["inside a worktree"], "Lives in a Worktree"],
+  [["duplicate source identity"], "Already listed once"],
+  [["activity unknown or in the future", "no complete records"], "No usable time"],
+];
+
+/** The Daemon's reason, less a `<path>: ` prefix, equals a fixed string (discovery.rs); a path never picks the cause. */
+const reasonIs = (reason: string, fixed: string) => reason === fixed || reason.endsWith(`: ${fixed}`);
+
+
 export const copy = {
   costAndTime: "Cost and time",
   measurementJoin: (...parts: string[]) => parts.join(" · "),
@@ -291,6 +304,8 @@ export const copy = {
   leaderShortCapture: "Capture",
   captureATodo: "Capture a Todo",
   captureLabel: "Capture a Todo",
+  captureFor: (name: string) => `For ${name}`,
+  captureIn: (name: string) => `In ${name}`,
   capturePlaceholder: "A thought, then ⏎",
   recoveredCaptureDraft: "Recovered capture draft",
   leaderWaitsForAKey: "Wait for one more key",
@@ -416,7 +431,17 @@ export const copy = {
   importRetentionFailure: "Import choices could not be saved for reload.",
   importRetentionRecovery: "Keep this window open; your choices are still here.",
   importRestored: (count: number) => `${count} chosen earlier; refresh to check they are unchanged`,
-  importStale: (titles: string[]) => `Changed or gone since you chose them: ${titles.join(", ")}. Choose again.`,
+  importNotImportable: (count: number) => `${count} not importable`,
+  importExcludedReason: (reason: string) => {
+    const r = reason.toLowerCase();
+    const found = r.startsWith("missing directory ") ? importExcludedReasons[2] : importExcludedReasons.find(([fixed]) => fixed.some((f) => reasonIs(r, f)));
+
+    return found ? found[1] : "Can't be read as a conversation";
+  },
+  importAge: (minutes: number) => minutes < 1440 ? copy.riskTime(minutes) : `${Math.floor(minutes / 1440)} d ago`,
+  importRowFix: "Choose it again, or Refresh.",
+  importRowRefusal: (reason: string) => /retry|refresh|choose/i.test(reason) ? reason : `${reason} ${copy.importRowFix}`,
+  importUnnamed: "Conversation",
   name: "Name",
   collapse: "Collapse",
   retryDoor: "Retry supervisor",

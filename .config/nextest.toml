@@ -33,7 +33,7 @@ default-filter = '''
 | (package(desktop) & binary(s2297a))
 | (package(rup) & binary(project_data) & test(=n1_fallback_uses_a_nested_temporary_home))
 | (package(rupd) & test(/::n1_the_default_data_folder_is_the_apps$/))
-| (package(rupd) & binary(b6_prompt_identity) & test(/^cleanup_completion::/))
+| (package(rupd) & binary(b6_cleanup_completion))
 '''
 
 # L89: the Rust lanes. A lane runs the test binaries its profile names, packed so the lanes' replayed test time (the
@@ -76,6 +76,7 @@ binary_id(=agents)
 | binary_id(=rup::permission)
 | binary_id(=rupd)
 | binary_id(=rupd::b6_prompt_identity)
+| binary_id(=rupd::b6_cleanup_completion)
 | binary_id(=rupd::n7_data)
 | binary_id(=rupd::store_migrations)
 '''
@@ -141,6 +142,7 @@ binary_id(=agents::launch)
 | binary_id(=rup::permission)
 | binary_id(=rupd)
 | binary_id(=rupd::b6_prompt_identity)
+| binary_id(=rupd::b6_cleanup_completion)
 | binary_id(=rupd::n7_data)
 | binary_id(=rupd::store_migrations)
 | binary_id(=agents::scenarios)
