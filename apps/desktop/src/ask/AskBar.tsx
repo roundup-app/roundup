@@ -1,4 +1,4 @@
-import { createResource, createEffect, createMemo, createSignal, For, onCleanup, onMount, Show } from "solid-js";
+import { batch, untrack, createResource, createEffect, createMemo, createSignal, For, onCleanup, onMount, Show } from "solid-js";
 import * as v from "valibot";
 import type { AskSubmission } from "../state/asks";
 import { copy } from "../copy";
@@ -25,15 +25,21 @@ import "./styles.css";
 const mentionOf = (text: string): string | null => /^@(\S*)$/.exec(text)?.[1] ?? null;
 
 /** U504: the Ask bar and its rows. The Project's home screen while the Rail selects no Workstream, and `⌘/` opens it over anything else; Escape closes that and returns focus. */
-export const AskBar = () => {
+export const AskBar = (props: {
+  /** Change on the mounted owner to open one retained revision without reloading its readers.
+   * Closing returns ordinary editing to the current work; selection never submits or reconciles.
+   */
+  recovery?: { project: string; revision: string } | undefined;
+}) => {
   const connected = useConnectedProject();
   const { asks, rail, daemonExit, drafts } = connected;
   const deliverables = createDeliverables();
   const reactions = createReactions();
   const madeScope = shelfScope(connected);
   const [over, setOver] = createSignal(false);
+  const [selected, setSelected] = createSignal<string | null>(null);
   const destination = { surface: "ask", object: "ask-bar", recipient: null };
-  drafts.validate("ask", v.object({ text: v.string(), workstream: v.optional(v.nullable(v.string())), name: v.optional(v.nullable(v.string())) }));
+  drafts.validate("ask", v.object({ text: v.string(), workstream: v.optional(v.nullable(v.string())), name: v.optional(v.nullable(v.string())), recovered: v.optional(v.boolean()) }));
   drafts.registerRecovery("ask", (draft, facts) => {
     const target = v.safeParse(v.string(), draft.value.workstream);
     const available = !target.success || facts.rail.nodes.some(node => node.kind === "workstream" && node.id === target.output);
@@ -52,11 +58,15 @@ export const AskBar = () => {
     return !connected.drawer.content() && own ? found : null;
   };
 
-  const current = () => {
-    const latest = records().at(-1);
+  const ordinary = () => {
+    // Recovered edits remain selectable without displacing the ordinary current work.
+    const latest = records().filter(draft => draft.value.recovered !== true).at(-1);
 
     return latest?.status === "draft" || latest?.status === "failed" ? latest : undefined;
   };
+
+  const current = () => selected() === null ? ordinary()
+    : records().find(draft => draft.revision === selected() && draft.status !== "pending");
 
   const text = () => {
     const value = v.safeParse(v.string(), current()?.value.text);
@@ -81,13 +91,24 @@ export const AskBar = () => {
     const workstream = keep ? captured.output : named?.id ?? null;
     const name = keep ? previousName.output : named?.name ?? null;
 
-    drafts.edit(destination, { text: value, workstream, name }, field ? { start: field.selectionStart, end: field.selectionEnd, direction: field.selectionDirection } : null, "ordinary");
+    const recovering = selected() !== null;
+
+    const recovered = previous?.value.recovered === true || (recovering && previous?.revision !== ordinary()?.revision);
+
+    const retained = drafts.edit(destination, { text: value, workstream, name, recovered },
+      field ? { start: field.selectionStart, end: field.selectionEnd, direction: field.selectionDirection } : null, "ordinary",
+      previous?.revision ?? null);
+
+    if (recovering) setSelected(retained.draft.revision);
   };
 
   const retainSelection = () => {
     const draft = current();
 
-    if (draft && field) drafts.setSelection(draft.revision, { start: field.selectionStart, end: field.selectionEnd, direction: field.selectionDirection });
+    if (!draft || !field?.isConnected) return;
+    const selection = { start: field.selectionStart, end: field.selectionEnd, direction: field.selectionDirection };
+
+    if (JSON.stringify(draft.selection) !== JSON.stringify(selection)) drafts.setSelection(draft.revision, selection);
   };
 
   const restoreSelection = (element: HTMLTextAreaElement) => {
@@ -130,7 +151,9 @@ export const AskBar = () => {
   });
 
   const close = (restore: boolean): void => {
-    setOver(false);
+    batch(() => { setOver(false); setSelected(null); });
+
+    if (field?.isConnected) restoreSelection(field);
 
     if (restore && returnTo instanceof HTMLElement && returnTo.isConnected) returnTo.focus();
   };
@@ -138,8 +161,24 @@ export const AskBar = () => {
   const open = (): void => {
     returnTo = document.activeElement;
     setOver(true);
-    queueMicrotask(() => field?.focus());
+    queueMicrotask(() => {
+      field?.focus();
+
+      if (field) restoreSelection(field);
+    });
   };
+
+  createEffect(() => {
+    const recovery = props.recovery;
+
+    untrack(() => {
+      if (!recovery || recovery.project !== connected.project.path) return;
+      const draft = records().find(entry => entry.revision === recovery.revision);
+
+      if (!draft || draft.status === "pending" || drafts.availability(draft, connected) !== "available") return;
+      batch(() => { setSelected(draft.revision); open(); });
+    });
+  });
 
   registerKeys({ kind: "app" }, [{
     action: CHORDS.find((row) => row.keys === "⌘/")!,
