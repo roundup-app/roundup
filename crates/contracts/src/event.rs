@@ -9,6 +9,8 @@ use crate::{agent, checkpoint, decision, message, pad, project, terminal, todo, 
 #[serde(tag = "name", content = "data")]
 #[ts(export)]
 pub enum EventData {
+    #[serde(rename = "project.measurementsChanged")]
+    MeasurementsChanged { revision: String },
     #[serde(rename = "ask.changed")]
     AskChanged { ask: Box<crate::ask::Ask> },
     #[serde(rename = "terminal.title")]

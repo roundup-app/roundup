@@ -9,6 +9,7 @@ impl Module for Agents {
     async fn call(&self, ctx: &Ctx, method: &str, value: Value) -> Result<Value, RpcError> {
         let shared = &self.shared;
         match method {
+            "project.measurements" => reply(&shared.rail().measurements(self.project_dir())?),
             "agent.spawn" => reply(&self.spawn(ctx, params(value)?).await?),
             "agent.extras" => reply(&claude_code::extras::available(
                 &self.launcher.extras_sources(self.project_dir()),
@@ -252,7 +253,7 @@ impl Module for Agents {
             }
             "project.importDiscover" => {
                 let params: contracts::project::ImportDiscoverParams = params(value)?;
-                reply(&self.import_discover(ctx, params)?)
+                reply(&self.import_discover(ctx, params).await?)
             }
             "project.importCommit" => {
                 let params: contracts::project::ImportCommitParams = params(value)?;
