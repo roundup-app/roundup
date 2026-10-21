@@ -1459,6 +1459,7 @@ async fn b2693b_note_mode_matches_the_receiver_attempt() {
                 &node.id,
                 &[agents::claude_code::inbox::Entry {
                     id: 1,
+                    kind: contracts::message::MessageKind::Note,
                     from: sender.into(),
                     text: "note".into(),
                     one_line: false,
