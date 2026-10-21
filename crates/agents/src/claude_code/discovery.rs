@@ -40,8 +40,10 @@ pub struct ImportDiscovery {
 }
 
 // U3082b: the owner measured 50 s for week/600 MB. Preview reads at most
-// 256 KiB at each end; commit alone validates every complete record.
+// 256 KiB at each end plus 64 KiB overlap preserves boundary records.
+// Commit alone validates every complete record.
 const PREVIEW_REGION: u64 = 256 * 1024;
+const PREVIEW_OVERLAP: u64 = 64 * 1024;
 const MAX_RECORD: u64 = 8 * 1024 * 1024;
 const MAX_SNAPSHOT: usize = 512 * 1024 * 1024;
 const MAX_FILES: usize = 10_000;
@@ -394,7 +396,7 @@ fn scan(
     let mut regions = Vec::new();
     if preview {
         let len = file.metadata().map_err(|err| io_error(path, err))?.len();
-        let head = len.min(PREVIEW_REGION);
+        let head = len.min(PREVIEW_REGION + PREVIEW_OVERLAP);
         file.by_ref()
             .take(head)
             .read_to_end(&mut regions)
@@ -404,32 +406,41 @@ fn scan(
             observer(path, "bytes", regions.len() as u64);
         }
         if len > head {
-            // Never parse a record cut by either seek boundary.
-            let Some(end) = regions.iter().rposition(|b| *b == b'\n') else {
+            // Include the whole record crossing the head boundary; dropping it
+            // could silently lose the only recent activity or title.
+            let Some(end) = regions[(PREVIEW_REGION - 1) as usize..]
+                .iter()
+                .position(|b| *b == b'\n')
+                .map(|offset| PREVIEW_REGION as usize - 1 + offset)
+            else {
                 return Ok(Scan::Excluded(
-                    "record exceeds preview bound (256 KiB)".into(),
+                    "unsupported metadata layout: record exceeds 64 KiB preview boundary overlap"
+                        .into(),
                 ));
             };
             regions.truncate(end + 1);
-            let start = head.max(len.saturating_sub(PREVIEW_REGION));
+            // When regions meet, start at the head's next record so overlapping
+            // metadata is never replayed out of order.
+            let boundary = (regions.len() as u64).max(len.saturating_sub(PREVIEW_REGION));
+            let start = (regions.len() as u64).max(boundary.saturating_sub(PREVIEW_OVERLAP));
             file.seek(SeekFrom::Start(start - 1))
                 .map_err(|err| io_error(path, err))?;
             let mut tail = Vec::new();
             file.by_ref()
-                .take(PREVIEW_REGION + 1)
+                .take(PREVIEW_REGION + PREVIEW_OVERLAP + 1)
                 .read_to_end(&mut tail)
                 .map_err(|err| io_error(path, err))?;
             #[cfg(any(test, feature = "test-support"))]
             if let Some(observer) = &launcher.import_observer {
                 observer(path, "bytes", tail.len() as u64);
             }
-            let Some(first) = tail
+            let Some(first) = tail[..=(boundary - start) as usize]
                 .iter()
-                .position(|b| *b == b'\n')
-                .filter(|first| *first + 1 < tail.len())
+                .rposition(|b| *b == b'\n')
             else {
                 return Ok(Scan::Excluded(
-                    "record exceeds preview bound (256 KiB)".into(),
+                    "unsupported metadata layout: record exceeds 64 KiB preview boundary overlap"
+                        .into(),
                 ));
             };
             regions.extend_from_slice(&tail[first + 1..]);
@@ -942,7 +953,7 @@ mod tests {
             "{{\"type\":\"custom-title\",\"customTitle\":\"Boundary rename\",\"timestamp\":\"2026-10-18T12:00:00Z\",\"payload\":\"{}\"}}\n",
             "x".repeat(60_000)
         );
-        for len in [300_000, 800_000] {
+        for len in [300_000, 400_000, 800_000] {
             for boundary in [256 * 1024, len - 256 * 1024] {
                 let mut bytes = header.as_bytes().to_vec();
                 bytes.resize(boundary - metadata.len() / 2, b'\n');
@@ -951,7 +962,10 @@ mod tests {
                 bytes.extend_from_slice(b"{\"torn\":");
                 store(&config, "x", SESSION, std::str::from_utf8(&bytes).unwrap());
                 let launcher = launcher(&config);
-                let found = launcher.discover_recent(&project, NOW, 7 * DAY).await.unwrap();
+                let found = launcher
+                    .discover_recent(&project, NOW, 7 * DAY)
+                    .await
+                    .unwrap();
                 assert_eq!(found.candidates.len(), 1, "{len}/{boundary}: {found:?}");
                 assert!(found.excluded.is_empty());
                 let candidate = &found.candidates[0];
@@ -986,11 +1000,11 @@ mod tests {
             ] {
                 let mut bytes = valid.as_bytes().to_vec();
                 if middle {
-                    bytes.extend_from_slice(&b"{}\n".repeat(100_000));
+                    bytes.extend_from_slice(&b"{}\n".repeat(140_000));
                 }
                 bytes.extend_from_slice(broken);
                 if middle {
-                    bytes.extend_from_slice(&b"{}\n".repeat(100_000));
+                    bytes.extend_from_slice(&b"{}\n".repeat(140_000));
                 }
                 std::fs::write(&path, bytes).unwrap();
                 let found = launcher.discover_recent(&project, NOW, DAY).await.unwrap();
@@ -1110,16 +1124,31 @@ mod tests {
             .join("projects")
             .join(encoded(&project))
             .join(format!("{SESSION}.jsonl"));
-        let end = b"{\"type\":\"custom-title\",\"customTitle\":\"Near the end\"}\n{\"torn\":";
+        let title = format!(
+            "{{\"type\":\"custom-title\",\"customTitle\":\"Near the end\",\"payload\":\"{}\"}}\n",
+            "x".repeat(60_000)
+        );
+        let end = b"{\"torn\":";
         let mut writer =
             std::io::BufWriter::new(std::fs::File::options().append(true).open(&path).unwrap());
         let payload = format!("{{\"payload\":\"{}\"}}\n", "x".repeat(65536 - 15));
-        let mut remaining = 400_000_000 - header.len() - end.len();
-        while remaining >= payload.len() {
-            writer.write_all(payload.as_bytes()).unwrap();
-            remaining -= payload.len();
+        let title_start = 400_000_000 - 256 * 1024 - title.len() / 2;
+        for (index, mut remaining) in [
+            title_start - header.len(),
+            400_000_000 - title_start - title.len() - end.len(),
+        ]
+        .into_iter()
+        .enumerate()
+        {
+            while remaining >= payload.len() {
+                writer.write_all(payload.as_bytes()).unwrap();
+                remaining -= payload.len();
+            }
+            writer.write_all(&vec![b'\n'; remaining]).unwrap();
+            if index == 0 {
+                writer.write_all(title.as_bytes()).unwrap();
+            }
         }
-        writer.write_all(&vec![b'\n'; remaining]).unwrap();
         writer.write_all(end).unwrap();
         writer.flush().unwrap();
         assert_eq!(std::fs::metadata(&path).unwrap().len(), 400_000_000);
@@ -1144,7 +1173,7 @@ mod tests {
         assert_eq!(candidate.last_activity_ms, NOW - DAY);
         assert!(!candidate.revision.is_empty());
         let bytes = bytes.load(Ordering::Relaxed);
-        assert!(bytes > 0 && bytes <= 524_289, "read {bytes} bytes");
+        assert!(bytes > 0 && bytes <= 655_361, "read {bytes} bytes");
         eprintln!("U3082b 400 MB: {elapsed:?}; {bytes} content bytes read");
         assert!(elapsed < Duration::from_secs(2), "{elapsed:?}");
         // Confirmation is outside the preview measurements: this revision must
@@ -1163,17 +1192,21 @@ mod tests {
         std::fs::create_dir(&project).unwrap();
         let config = root.path().join("config");
         let complete = record("user", &project, "2026-10-18T12:00:00Z") + "\n";
-        store(
-            &config,
-            "x",
-            SESSION,
-            &(complete + &format!("{{\"payload\":\"{}\"}}\n", "x".repeat(9 * 1024 * 1024))),
-        );
-        let found = launcher(&config)
-            .discover_recent(&project, NOW, DAY)
-            .await
-            .unwrap();
-        assert!(found.candidates.is_empty());
-        assert!(found.excluded[0].reason.contains("record exceeds"));
+        for prefix in [String::new(), "{}\n".repeat(140_000)] {
+            store(
+                &config,
+                "x",
+                SESSION,
+                &(complete.clone()
+                    + &prefix
+                    + &format!("{{\"payload\":\"{}\"}}\n", "x".repeat(9 * 1024 * 1024))),
+            );
+            let found = launcher(&config)
+                .discover_recent(&project, NOW, DAY)
+                .await
+                .unwrap();
+            assert!(found.candidates.is_empty());
+            assert!(found.excluded[0].reason.contains("record exceeds"));
+        }
     }
 }
