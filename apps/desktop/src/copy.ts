@@ -297,6 +297,8 @@ export const copy = {
   inboxRow: (agent: string, todo: string) => `${agent} commented on ${todo}`,
   inboxRetry: "Retry Inbox",
   captureLabel: "Capture a Todo",
+  captureFor: (name: string) => `For ${name}`,
+  captureIn: (name: string) => `In ${name}`,
   capturePlaceholder: "A thought, then ⏎",
   recoveredCaptureDraft: "Recovered capture draft",
   leaderWaitsForAKey: "Wait for one more key",
