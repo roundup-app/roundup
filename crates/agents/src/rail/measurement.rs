@@ -86,10 +86,10 @@ impl Rail {
     }
 
     fn collect_sources(&self, launcher: &crate::Launcher, now: i64) -> Result<(), RpcError> {
-        // Retain the replay positions and their public revision together. A failed revision
-        // write rolls back the pass so an unchanged source can be collected again.
+        // Retained facts and replay positions must not become readable under an old revision.
+        // The shared borrow lets owner helpers use this same connection inside the transaction.
         let mut tx = self.db.unchecked_transaction().map_err(sql)?;
-        let before = tx.total_changes();
+        let before = self.db.total_changes();
         let tree = self.tree()?;
         let mut claims: HashMap<String, Vec<String>> = HashMap::new();
         // Recover known local sources for previously saved Agents; Attempt remains unknown.
@@ -179,7 +179,7 @@ impl Rail {
             match launcher.collect_measurements(Path::new(&owner.cwd), &owner.source, &positions) {
                 Ok(batches) => {
                     for batch in batches {
-                        if let Err(error) = Self::accept_batch(&mut tx, &owner, batch, now) {
+                        if let Err(error) = self.accept_batch(&mut tx, &owner, batch, now) {
                             if error.code != rpc::code::CONFLICT {
                                 return Err(error);
                             }
@@ -201,13 +201,15 @@ impl Rail {
     }
 
     fn accept_batch(
-        collection: &mut rusqlite::Transaction<'_>,
+        &self,
+        tx: &mut rusqlite::Transaction<'_>,
         owner: &Owner,
         batch: Batch,
         now: i64,
     ) -> Result<(), RpcError> {
         let position = serde_json::to_string(&batch.position).map_err(RpcError::internal)?;
-        let same = collection
+        let same = self
+            .db
             .query_row(
                 "SELECT position=?2 FROM measurement_positions WHERE source=?1 AND file=?3",
                 params![owner.source, position, batch.file],
@@ -217,7 +219,7 @@ impl Rail {
             .map_err(sql)?
             .unwrap_or(false);
         if same && batch.contributions.is_empty() && batch.cause.is_none() {
-            collection
+            self.db
                 .execute(
                     "DELETE FROM measurement_positions WHERE source=?1 AND file='collection'",
                     [&owner.source],
@@ -225,7 +227,7 @@ impl Rail {
                 .map_err(sql)?;
             return Ok(());
         }
-        let tx = collection.savepoint().map_err(sql)?;
+        let tx = tx.savepoint().map_err(sql)?;
         for contribution in batch.contributions {
             accept(&tx, owner, contribution, None, now)?;
         }
