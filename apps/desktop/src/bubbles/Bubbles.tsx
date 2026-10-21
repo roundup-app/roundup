@@ -950,8 +950,8 @@ export const Bubbles = (props: {
       }
 
       // A selected edit is a separate recovery branch; the ordinary current draft stays current.
-      const value = restored === "branch" ? { name: input.value, base, recovery: true } : { name: input.value, base };
-      revision = drafts.edit(destination, value, caret, "ordinary", revision ?? null).draft.revision;
+      const draftValue = restored === "branch" ? { name: input.value, base, recovery: true } : { name: input.value, base };
+      revision = drafts.edit(destination, draftValue, caret, "ordinary", revision ?? null).draft.revision;
     };
 
     createEffect(on(() => props.recovery, selected => { if (selected) start(selected); }));
