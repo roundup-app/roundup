@@ -62,6 +62,7 @@ const TOOLS: &[(&str, &str)] = &[
         "change a Todo's title or body as the work becomes clearer",
     ),
     ("todo_complete", "mark a Todo done once its outcome is real"),
+    ("todo_reopen", "reopen a done Todo when work remains"),
     (
         "todo_setBlockers",
         "replace the Todos that must finish before this one",

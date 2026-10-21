@@ -1,3 +1,4 @@
+import { agent as agentNode } from "../testing/nodes";
 import { cleanup, fireEvent, screen, waitFor, within } from "@solidjs/testing-library";
 import { afterEach, describe, expect, it } from "vitest";
 import { mountTodos, todo, todoCallsTo as callsTo, todoEvent, todoRowOf as rowOf } from "./testHarness";
@@ -76,4 +77,34 @@ describe("u361 a Todo row holds a tick box, its title and what it waits on", () 
     await waitFor(() => expect(within(drawer).getByText("migrate")).toBeTruthy());
     await waitFor(() => expect(callsTo(app, "todo.getHistory").map((call) => call.params)).toEqual([{ id: 4 }]));
   });
+});
+
+it.each(["list", "agent-list", "drawer"].flatMap(surface => [false].map(done => ({ surface, done }))))("u461a_completion_pending_and_failure_preserve_accepted_value on $surface", async ({ surface, done }) => {
+  const maker = { kind: "agent", id: "agent-1", parent: null } as const;
+  const { app, connected } = await mountTodos([todo(1, { title: "ship", done, creator: maker })], true, [agentNode("agent-1", "idle", "ready")]);
+
+  if (surface === "agent-list") connected.rail.select("agent-1");
+
+  if (done) fireEvent.click(await screen.findByRole("button", { name: "1 done" }));
+
+  if (surface === "drawer") fireEvent.click(await screen.findByRole("button", { name: `${done ? "Done" : "Idle"} #1 ship` }));
+
+  const area = surface === "drawer" ? within(document.querySelector<HTMLElement>(".drawer")!) : screen;
+  const box = await area.findByRole<HTMLInputElement>("checkbox", { name: `${done ? "Reopen" : "Complete"} ship` });
+  const method = done ? "todo.reopen" : "todo.complete";
+  let reject!: (reason: Error) => void;
+  app.handlers[method] = () => new Promise((_, fail) => { reject = fail; });
+  box.focus();
+  fireEvent.click(box);
+  fireEvent.click(box);
+  expect(callsTo(app, method)).toEqual([{ method, params: { id: 1 } }]);
+  expect(box.checked).toBe(done);
+  reject(new Error("Cannot reopen"));
+  await area.findByText("Cannot reopen");
+  expect(box.checked).toBe(done);
+  expect(document.activeElement).toBe(box);
+  app.handlers[method] = () => new Promise(() => {});
+  fireEvent.click(box);
+  expect(callsTo(app, method)).toHaveLength(2);
+  expect(callsTo(app, done ? "todo.complete" : "todo.reopen")).toHaveLength(0);
 });

@@ -463,10 +463,9 @@ async fn t19_daemon_reopen_refreshes_dependents() {
     })
     .await;
     assert_eq!(updated, reopened);
-    assert_eq!(
-        client.request("todo.list", json!(null)).await.unwrap()[1]["blocked"],
-        true
-    );
+    let list = client.request("todo.list", json!(null)).await.unwrap();
+    assert_eq!(list[1]["blocked"], true);
+    assert_eq!(list[1]["blockers"], json!([1]));
     let history = client
         .request("todo.getHistory", json!({"id":1}))
         .await
@@ -481,6 +480,10 @@ async fn t19_daemon_reopen_refreshes_dependents() {
     );
     project.restart(&[]);
     let client = project.client().await;
+    assert_eq!(
+        client.request("todo.list", json!(null)).await.unwrap(),
+        list
+    );
     assert_eq!(
         client
             .request("todo.getHistory", json!({"id":1}))

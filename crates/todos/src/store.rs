@@ -28,6 +28,7 @@ impl Store {
         &self,
         db: &Connection,
         home: &str,
+        actor: &Actor,
         removal: &mut contracts::agent::Removal,
     ) -> Result<Vec<contracts::EventData>, RpcError> {
         use contracts::EventData;
@@ -81,7 +82,7 @@ impl Store {
                     .map_err(RpcError::internal)?;
                 db.execute(
                     "INSERT INTO changes(todo, before_values, after_values, after_touch, actor) VALUES (?1, ?2, ?3, ?4, ?5)",
-                    params![todo.id, serde_json::to_string(previous).map_err(RpcError::internal)?, serde_json::to_string(&after).map_err(RpcError::internal)?, after_touch, creator_json(&Actor::daemon())],
+                    params![todo.id, serde_json::to_string(previous).map_err(RpcError::internal)?, serde_json::to_string(&after).map_err(RpcError::internal)?, after_touch, creator_json(actor)],
                 ).map_err(RpcError::internal)?;
             }
             let was_blocked = todo.blocked;
