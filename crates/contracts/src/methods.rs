@@ -17,6 +17,7 @@ const fn m(name: &'static str, params: &'static str, result: &'static str) -> Me
 }
 
 pub const METHODS: &[Method] = &[
+    m("project.measurements", "null", "project_Measurements"),
     m(
         "deliverable.publish",
         "deliverable_PublishParams",
