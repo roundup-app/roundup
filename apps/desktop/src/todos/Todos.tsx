@@ -2,6 +2,7 @@ import ChevronUp from "lucide-solid/icons/chevron-up";
 import { IconButton } from "../ui/IconButton";
 import { Tip } from "../ui/Tip";
 import { createNear } from "../ink/near";
+import { registerKeys } from "../keys/registry";
 import { activationSource } from "../keys/registry";
 import type { ActivationSource } from "../keys/registry";
 import { copy } from "../copy";
@@ -13,8 +14,8 @@ import { Icon } from "../ink/Icon";
 import { EmptyState } from "../ink/EmptyState";
 import { EntryRow } from "../ink/EntryRow";
 import * as v from "valibot";
-import { untrack } from "solid-js";
-import { TodoDraftRecovery, todoDraftSchema } from "./EditableText";
+import { batch, untrack } from "solid-js";
+import { TodoDraftRecovery, todoDraftSchema, creationSchema } from "./EditableText";
 import type { JSX } from "solid-js";
 import { createEffect, createMemo, createSignal, For, onCleanup, onMount, Show } from "solid-js";
 import type { Todo } from "@contracts/todo/Todo";
@@ -31,6 +32,7 @@ import { Sortable } from "../ui/sortable";
 import { TreeView } from "../ui/TreeView";
 import { shelfScope } from "../shelf/scope";
 import { Groups } from "../shelf/Groups";
+import type { TodosState } from "./state";
 import { useTodoList } from "./todoList";
 import { TodoDrawer } from "./TodoDrawer";
 import { shownTodos } from "./shownTodos";
@@ -231,11 +233,28 @@ export const OpenRow = (props: {
 };
 
 /** The Shelf's `todos` list: open Todos in id order, done ones folded, and the inline field that makes a new one. */
-export const Todos = () => {
+export const Todos = (props: {
+  /** Open a retained creation form using this Project's already-loaded Todo facts. */
+  recovery?: { project: string; revision: string; list: TodosState };
+}) => {
   const connected = useConnectedProject();
   connected.drafts.validate("todos", todoDraftSchema);
-  const todos = useTodoList();
-  const [typing, setTyping] = createSignal(false);
+
+  if (props.recovery && props.recovery.project !== connected.project.path) return null;
+
+  const todos = props.recovery?.list ?? useTodoList();
+
+  const retained = props.recovery ? connected.drafts.list().find(draft => draft.revision === props.recovery?.revision
+    && draft.destination.surface === "todos" && draft.destination.object === "new") : undefined;
+
+  const form = v.safeParse(creationSchema, retained?.value);
+  const homeExists = (home: string | null) => home === null || connected.rail.nodes.some(node => node.id === home && node.kind === "workstream");
+
+  if (props.recovery && (todos.project !== connected.project.path || !todos.isLoaded() || todos.failure() !== null || !retained || !form.success
+    || retained.destination.recipient !== form.output.home || !homeExists(form.output.home))) return null;
+
+  const [creationRevision, setCreationRevision] = createSignal<string | null>(retained?.revision ?? null);
+  const [typing, setTyping] = createSignal(retained !== undefined);
   const [createFailure, setCreateFailure] = createSignal<string | null>(null);
   const [unfolded, setUnfolded] = createSignal(false);
   const scope = shelfScope(connected);
@@ -382,7 +401,7 @@ export const Todos = () => {
     );
   });
 
-  const [creationHome, setCreationHome] = createSignal<string | null>(null);
+  const [creationHome, setCreationHome] = createSignal<string | null>(form.success ? form.output.home : null);
   const creationTarget = () => ({ surface: "todos", object: "new", recipient: creationHome() });
 
   createEffect(() => {
@@ -390,15 +409,38 @@ export const Todos = () => {
   });
 
   const creation = () => connected.drafts.list().findLast(draft => draft.destination.surface === "todos"
-    && draft.destination.object === "new" && draft.destination.recipient === creationHome() && draft.status === "draft");
+    && draft.destination.object === "new" && draft.destination.recipient === creationHome()
+    && (creationRevision() !== null ? draft.revision === creationRevision() : draft.status === "draft"));
+
+  createEffect(() => {
+    const revision = creationRevision();
+
+    if (typing() && revision !== null && !creation()) setTyping(false);
+  });
+
+  let creationRow: HTMLDivElement | undefined;
+
+  registerKeys({ kind: "region", element: () => creationRow }, [{
+    chords: ["Enter"],
+    when: () => creation()?.status === "unknown" || creation()?.status === "pending",
+    run: () => setCreateFailure(copy.draftStatus[creation()?.status ?? "unknown"]),
+  }]);
 
   const retainCreation = (field: HTMLInputElement) => {
     const previous = creation();
     const caret = { start: field.selectionStart ?? 0, end: field.selectionEnd ?? 0, direction: field.selectionDirection ?? "none" };
 
-    if ((!previous && field.value === "") || (previous?.value.title === field.value && JSON.stringify(previous.selection) === JSON.stringify(caret))) return;
+    if (creationRevision() !== null && !previous) return;
 
-    connected.drafts.edit(creationTarget(), { title: field.value, home: creationHome() }, caret, "ordinary");
+    if (previous?.value.title === field.value) {
+      if ((!props.recovery || document.activeElement === field) && JSON.stringify(previous.selection) !== JSON.stringify(caret)) connected.drafts.setSelection(previous.revision, caret);
+
+      return;
+    }
+
+    if (field.value === "" && !previous) return;
+
+    batch(() => setCreationRevision(connected.drafts.edit(creationTarget(), { title: field.value, home: creationHome() }, caret, "ordinary", creationRevision()).draft.revision));
   };
 
   // EntryRow clears after capturing this revision, so another Enter cannot submit it twice.
@@ -407,7 +449,8 @@ export const Todos = () => {
 
     const draft = creation();
 
-    if (!draft || !connected.drafts.submit(draft.revision)) return;
+    if (!homeExists(creationHome()) || !draft || !connected.drafts.submit(draft.revision)) return;
+    setCreationRevision(null);
     const home = creationHome();
 
     try {
@@ -460,6 +503,7 @@ export const Todos = () => {
             return;
           }
 
+          setCreationRevision(null);
           setCreationHome(selectedWorkstream());
           const draft = creation();
 
@@ -469,6 +513,7 @@ export const Todos = () => {
             return;
           }
 
+          setCreationRevision(draft?.revision ?? null);
           setTyping(true);
         }}
       >
@@ -567,7 +612,7 @@ export const Todos = () => {
         </>; }}</Groups>
       </Show>
       <Show when={typing()}>
-        <div class="shelf-list">
+        <div class="shelf-list" ref={element => { creationRow = element; }}>
           <EntryRow
             glyph={<input type="checkbox" class="todo-tick" disabled tabIndex={-1} aria-hidden="true" />}
             class="todo-inset"
