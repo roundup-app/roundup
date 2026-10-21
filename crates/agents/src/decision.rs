@@ -38,6 +38,7 @@ struct Open {
     identity_available: bool,
     /// The authenticated writer of input for this original question.
     terminal_actor: Option<Actor>,
+    timing: Option<crate::MeasurementWait>,
 }
 
 enum PromptInput {
@@ -418,6 +419,12 @@ impl Shared {
                     choices,
                     identity_available: request.identity_available,
                     terminal_actor: None,
+                    timing: crate::rail::decision_wait(
+                        &self.timing,
+                        id,
+                        &run.attempt,
+                        &decision.id,
+                    ),
                 },
             );
             if let Some(old) = replaced {
@@ -794,7 +801,7 @@ impl Shared {
             .history
             .lock()
             .expect("Decision history lock");
-        let (agent, attempt, outcome, waiter, text) = {
+        let (agent, attempt, outcome, waiter, text, timing) = {
             let runs = self.runs();
             let mut open = self.decisions.open();
             if let Some(identity) = &identity {
@@ -942,8 +949,9 @@ impl Shared {
             .map_err(RpcError::internal)?;
             tx.commit().map_err(RpcError::internal)?;
             let waiter = entry.waiter.take().expect("an answerable Decision waits");
+            let timing = entry.timing.take();
             open.remove(&agent);
-            (agent, attempt, outcome, waiter, text)
+            (agent, attempt, outcome, waiter, text, timing)
         };
         cleared(&self.bus, id, outcome);
         let ctx = rpc::Ctx {
@@ -962,6 +970,7 @@ impl Shared {
         waiter
             .send(Ok(text))
             .map_err(|_| RpcError::not_found(format!("decision {id}")))?;
+        drop(timing);
         history
             .execute(
                 "UPDATE decision_answers SET completed = 1 WHERE decision = ?1",
