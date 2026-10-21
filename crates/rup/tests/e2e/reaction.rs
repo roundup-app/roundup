@@ -932,6 +932,7 @@ async fn nr3_legacy_firings_keep_identity_on_upgrade_and_replay() {
                 DROP TABLE accepted_firings;
                 DROP TABLE message_result_facts;
                 DROP TABLE message_results;
+                ALTER TABLE changes DROP COLUMN actor;
                 PRAGMA user_version = 23;",
             )
             .unwrap();
@@ -1118,4 +1119,135 @@ async fn nr5_gap_recovery_cannot_reuse_a_pre_rearm_finish() {
         assert_eq!((completed.firings.len(), completed.remaining), (2, 0));
         assert_eq!(messages(&s.user, &s.w, "gap-rearm").await.len(), 2);
     }
+}
+
+#[tokio::test]
+async fn nr3_watch_write_failure_is_visible_and_keeps_eligible_work() {
+    for (reopen, accepted) in [(false, 1), (true, 1), (true, 2)] {
+        let mut s = scene(&[]).await;
+        // Doors keep their identity and can be explicitly started again after a reopen.
+        s.a = s.door.clone();
+        s.w = super::start_door(&s.user).await;
+        let mode = json!({ "rearm": true, "max_firings": 3 });
+        watching(&s, "watch-write", &[&s.a], mode.clone()).await;
+        project_db(&s.project)
+            .execute_batch(
+                "CREATE TRIGGER fail_watch BEFORE INSERT ON reaction_watch
+             BEGIN SELECT RAISE(ABORT, 'injected watch write failure'); END;",
+            )
+            .unwrap();
+        drive(&s.user, &s.a, STOP).await;
+        // Retrying creation waits for evaluation and the attempted Watch save.
+        let failed = watching(&s, "watch-write", &[&s.a], mode.clone()).await;
+        assert_eq!(
+            failed.firings.len(),
+            1,
+            "the firing committed before its Watch write"
+        );
+        assert!(
+            failed.observation.health != "observing"
+                && (failed.observation.cause.is_some() || failed.observation.gap.is_some())
+                && failed.observation.recovery.is_some(),
+            "a failed durable observation write must be inspectable: {failed:?}"
+        );
+        let mut failed = failed;
+        for _ in 1..accepted {
+            drive(&s.user, &s.a, WORK).await;
+            watching(&s, "watch-write", &[&s.a], mode.clone()).await;
+            drive(&s.user, &s.a, STOP).await;
+            failed = watching(&s, "watch-write", &[&s.a], mode.clone()).await;
+        }
+        assert_eq!(failed.firings.len(), accepted);
+        project_db(&s.project)
+            .execute_batch("DROP TRIGGER fail_watch;")
+            .unwrap();
+        if reopen {
+            drop(s.user);
+            s.project.crash();
+            s.project.restart(&[]);
+            s.user = s.project.client().await;
+        }
+        let recovered = watching(&s, "watch-write", &[&s.a], mode.clone()).await;
+        assert_eq!(recovered.firings, failed.firings);
+        assert_eq!(recovered.remaining, 3 - u32::try_from(accepted).unwrap());
+        assert!(recovered.observation.cause.is_none());
+        assert!(recovered.observation.recovery.is_none());
+        if reopen {
+            start_again(&s.user, &s.w).await;
+            start_again(&s.user, &s.a).await;
+        }
+        drive(&s.user, &s.a, WORK).await;
+        watching(&s, "watch-write", &[&s.a], mode.clone()).await;
+        drive(&s.user, &s.a, STOP).await;
+        let next = watching(&s, "watch-write", &[&s.a], mode).await;
+        assert_eq!(
+            (next.firings.len(), next.remaining),
+            (accepted + 1, 2 - u32::try_from(accepted).unwrap())
+        );
+        assert_eq!(&next.firings[..accepted], failed.firings.as_slice());
+        assert_eq!(
+            messages(&s.user, &s.w, "watch-write").await.len(),
+            accepted + 1
+        );
+    }
+}
+
+#[tokio::test]
+async fn nr5_failed_watch_save_retains_unmatched_evidence_in_memory() {
+    let s = scene(&[]).await;
+    project_db(&s.project)
+        .execute_batch(
+            "CREATE TRIGGER fail_watch BEFORE INSERT ON reaction_watch
+         BEGIN SELECT RAISE(ABORT, 'injected watch write failure'); END;",
+        )
+        .unwrap();
+    let initial = watching(&s, "unsaved-watch", &[&s.a, &s.b], json!({})).await;
+    assert_ne!(initial.observation.health, "observing");
+    assert!(
+        initial
+            .observation
+            .cause
+            .as_deref()
+            .unwrap()
+            .contains("injected watch write failure")
+    );
+    assert!(initial.observation.recovery.is_some());
+    assert!(initial.firings.is_empty());
+    drive(&s.user, &s.a, STOP).await;
+    watching(&s, "unsaved-watch", &[&s.a, &s.b], json!({})).await;
+    drive(&s.user, &s.a, WORK).await;
+    let failed = watching(&s, "unsaved-watch", &[&s.a, &s.b], json!({})).await;
+    let inspected = current(&s, &initial).await;
+    assert_eq!(inspected.observation, failed.observation);
+    let evidence: Value =
+        serde_json::from_str(failed.observation.evidence.as_deref().unwrap()).unwrap();
+    assert_eq!(evidence["finished"], json!([s.a]));
+    assert!(failed.firings.is_empty());
+    // Expire replay history: only the unsaved in-memory Watch still knows A finished.
+    project_db(&s.project)
+        .execute_batch(
+            "INSERT INTO events (id, event)
+             SELECT id + 2, event FROM events ORDER BY id DESC LIMIT 1;
+         DELETE FROM events WHERE id < (SELECT MAX(id) FROM events);
+         DROP TRIGGER fail_watch;",
+        )
+        .unwrap();
+    let recovered = watching(&s, "unsaved-watch", &[&s.a, &s.b], json!({})).await;
+    assert_eq!(recovered.observation.health, "observing");
+    assert!(recovered.observation.cause.is_none());
+    assert!(
+        recovered
+            .observation
+            .gap
+            .as_deref()
+            .unwrap()
+            .contains("expired")
+    );
+    drive(&s.user, &s.b, STOP).await;
+    let completed = watching(&s, "unsaved-watch", &[&s.a, &s.b], json!({})).await;
+    assert_eq!((completed.firings.len(), completed.remaining), (1, 0));
+    assert_eq!(
+        messages(&s.user, &s.w, "unsaved-watch").await[0]["id"],
+        json!(completed.firings[0].message)
+    );
 }

@@ -228,7 +228,7 @@ fn assert_exit_1_with_one_line_naming(output: &Output, socket: &Path) {
 
 /// M5: the methods with a tool for every Agent, each named after its method with the dot replaced
 /// by `_`, bar `agent.setOrder` (O4), whose tool is `agent_set_order`.
-const TOOL_METHODS: [&str; 83] = [
+const TOOL_METHODS: [&str; 84] = [
     "agent.wake",
     "reaction.create",
     "reaction.preview",
@@ -247,6 +247,7 @@ const TOOL_METHODS: [&str; 83] = [
     "todo.list",
     "todo.update",
     "todo.complete",
+    "todo.reopen",
     "todo.setBlockers",
     "todo.move",
     "todo.reorder",
@@ -559,6 +560,7 @@ async fn m1_input_schemas_are_the_contract_schemas() {
             derived(schemars::schema_for!(todo::CreateParams)),
         ),
         ("todo_get", derived(schemars::schema_for!(todo::TodoId))),
+        ("todo_reopen", derived(schemars::schema_for!(todo::TodoId))),
         (
             "todo_update",
             derived(schemars::schema_for!(todo::UpdateParams)),
@@ -1787,4 +1789,44 @@ async fn m2706a_failed_answer_authors_have_names() {
     );
     assert_eq!(decisions[0]["args"], "authored content: missing");
     server.abort();
+}
+
+#[tokio::test]
+async fn t19_mcp_reopen_uses_agent_identity() {
+    let project = start_daemon();
+    let user = client_as(&project.socket, Actor::user()).await;
+    user.request("todo.create", json!({"title":"ship"}))
+        .await
+        .unwrap();
+    user.request("todo.complete", json!({"id":1}))
+        .await
+        .unwrap();
+    let shim = spawn_shim(&project.socket, "a1").await;
+    let result = shim
+        .call("todo_reopen", json!({"id":1,"actor":Actor::user()}))
+        .await;
+    assert_ne!(result.is_error, Some(true));
+    assert_eq!(text(&result)["done"], false);
+    let history = user
+        .request("todo.getHistory", json!({"id":1}))
+        .await
+        .unwrap();
+    assert_eq!(history["changes"][2]["actor"], json!(agent("a1")));
+    let touches = user
+        .request("provenance.history", json!({"item":"todo:1"}))
+        .await
+        .unwrap();
+    let writes: Vec<_> = touches
+        .as_array()
+        .unwrap()
+        .iter()
+        .filter(|touch| touch["verb"] == "wrote")
+        .collect();
+    assert_eq!(writes.len(), 3);
+    assert_eq!(writes[2]["actor"], json!(agent("a1")));
+    let list = user.request("todo.list", Value::Null).await.unwrap();
+    let result = shim.call("todo_reopen", json!({"id":99})).await;
+    assert_eq!(result.is_error, Some(true));
+    assert_eq!(user.request("todo.list", Value::Null).await.unwrap(), list);
+    let _ = shim.client.cancel().await;
 }

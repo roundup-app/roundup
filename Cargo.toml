@@ -41,3 +41,9 @@ opt-level = 3
 
 [profile.dev.package.vte]
 opt-level = 3
+
+# U3082b: scanning 400 MB with IgnoredAny took 2.29–2.57 s in the test profile.
+# Keep the JSON scanner optimised, as with the Terminal parsers above; the Adapter
+# and its tests remain unoptimised and keep the two-second preview budget.
+[profile.dev.package.serde_json]
+opt-level = 3
