@@ -291,6 +291,8 @@ export const copy = {
   leaderShortCapture: "Capture",
   captureATodo: "Capture a Todo",
   captureLabel: "Capture a Todo",
+  captureFor: (name: string) => `For ${name}`,
+  captureIn: (name: string) => `In ${name}`,
   capturePlaceholder: "A thought, then ⏎",
   recoveredCaptureDraft: "Recovered capture draft",
   leaderWaitsForAKey: "Wait for one more key",
