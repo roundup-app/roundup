@@ -179,6 +179,11 @@
 .todo-row:hover .todo-row-actions,
 .todo-row:focus-within .todo-row-actions { display: flex; }
 
+/* Glyph-only Todo rows share the external-blocker title column (D12). */
+.shelf-row.todo-inset {
+  grid-template-columns: calc(var(--space-5) + var(--space-4)) minmax(0, 1fr);
+}
+
 /* U3708: the tree row shares the title's ink feedback, without a hover box. */
 .todo-row[role="treeitem"] {
   color: var(--grey);
