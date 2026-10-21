@@ -147,7 +147,7 @@ export const createBulkDelete = <Id,>(props: {
     run: key,
   }]);
 
-  registerKeys({ kind: "region", element: () => document.querySelector<HTMLElement>(".shelf-tabs") ?? undefined }, [{
+  registerKeys({ kind: "region", element: () => host ? document.querySelector<HTMLElement>(".shelf-tabs") ?? undefined : undefined }, [{
     chords: ["Escape"],
     when: () => props.selected().length > 0,
     run: key,
@@ -195,7 +195,7 @@ export const createBulkDelete = <Id,>(props: {
         <AlertDialog.Positioner asChild={(positioner) => <aside {...positioner({})} />}>
           <AlertDialog.Content class="shelf-question" ref={(element) => { panel = element; }} onKeyDown={(press) => press.stopPropagation()}>
             <Show when={question()}>{(held) => <>
-              <AlertDialog.Title>{copy.deleteWord}{held().targets.length}{held().done ? copy.doneCount : ""} {props.noun}{copy.questionMark}</AlertDialog.Title>
+              <AlertDialog.Title>{`${copy.deleteWord}${held().targets.length}${held().done ? copy.doneCount : ""} ${held().targets.length === 1 ? (props.noun === "Todos" ? copy.todo : copy.pad) : props.noun}${copy.questionMark}`}</AlertDialog.Title>
               <AlertDialog.Description>
                 <div class="shelf-question-targets">
                   <For each={held().targets}>{(target) => <p><Show when={props.noun === "Todos"}><span class="mono" data-mono>#{String(target.id)}</span>{" "}</Show>{target.label}</p>}</For>

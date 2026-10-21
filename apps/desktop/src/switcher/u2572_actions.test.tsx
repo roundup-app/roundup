@@ -148,9 +148,9 @@ it.each([false, true])("u2572b_actions_share_key_behavior_in_the_opening_view: R
 
   if (byAction) { await show(); await chooseAction("Remove", "enter"); }
   else press("Backspace", { metaKey: true }, row);
-  await waitFor(() => expect(document.querySelector('[role="menu"]')).not.toBeNull());
-  press("Escape", {}, document.querySelector('[role="menu"]')!);
-  await waitFor(() => expect(document.querySelector('[role="menu"]')).toBeNull());
+  await waitFor(() => expect(document.querySelector('[role="alertdialog"]')).not.toBeNull());
+  fireEvent.click(within(document.querySelector<HTMLElement>('[role="alertdialog"]')!).getByRole("button", { name: "Keep" }));
+  await waitFor(() => expect(document.querySelector('[role="alertdialog"]')).toBeNull());
   expect(app.calls.filter((call) => call.method === "rail.remove")).toEqual([]);
   expect(connected.rail.selected()).toBe("ann");
 });
