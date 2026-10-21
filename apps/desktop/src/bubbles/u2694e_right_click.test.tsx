@@ -1,4 +1,4 @@
-import { cleanup } from "@solidjs/testing-library";
+import { cleanup, render, screen } from "@solidjs/testing-library";
 import { afterEach, expect, it } from "vitest";
 import { mountBubbles } from "./bubblesFixture";
 
@@ -45,4 +45,33 @@ it("u2694e_a_right_drag_past_the_threshold_pulls_and_opens_no_menu", async () =>
   rightPress(tab, 30);
 
   expect(app.shownMenus).toHaveLength(0);
+});
+
+// U2694f/g exercise the mounted App: row-only fixtures miss Ark activation and Bubble restoration.
+import { App } from "../App";
+import { seedApp } from "../testing/seeds";
+import type { SeedName } from "../testing/seeds";
+import { fakeEmulators } from "../terminal/paneHarness";
+
+const mountApp = async (seed: SeedName = "tree-40") => {
+  const controls = seedApp(seed, 0);
+  const emulators = fakeEmulators();
+  const view = render(() => <App app={controls.app} reducedMotion={() => true} clock={() => 0} createEmulator={emulators.factory} />);
+
+  if (seed === "first-run") await screen.findByRole("button", { name: "Choose folder…" });
+  else await screen.findByRole("tree");
+
+  return { ...controls, ...view };
+};
+
+it.each(["first-run", "empty-project", "tree-40", "bubbles"] as const)("u2694f_contextmenu_is_cancelled_across_the_mounted_app: %s", async (seed) => {
+  const { container } = await mountApp(seed);
+  const targets = container.querySelectorAll(".rail, .rail-row, .trunks, .window-bar, .strip, .centre, .shelf, input, textarea, .pane-screen");
+  expect(targets.length).toBeGreaterThan(0);
+
+  for (const target of targets) {
+    const event = new MouseEvent("contextmenu", { bubbles: true, cancelable: true });
+    target.dispatchEvent(event);
+    expect(event.defaultPrevented, `${seed}: ${target.className}`).toBe(true);
+  }
 });
