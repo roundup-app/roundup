@@ -50,7 +50,10 @@ const editor = async (mounted: Awaited<ReturnType<typeof open>>, availability = 
   const [selection, setSelection] = createSignal<{ revision: string; identity: PromptIdentity } | undefined>();
   const [visible, setVisible] = createSignal(false);
   render(() => {
-    onCleanup(root.dispose);
+    onCleanup(() => {
+      connected.stopTerminalScheme();
+      root.dispose();
+    });
 
     return <ConnectedProjectContext.Provider value={connected}>
       <Show when={visible()}><DecisionCard decision={askingWith("d1", "a", question, three)} name="alpha" focusTerminal={() => {}} ref={() => {}} onFocusIn={() => {}} onFocusOut={() => {}} selected={selection()} /></Show>
