@@ -975,3 +975,27 @@ async fn nr3_legacy_firings_keep_identity_on_upgrade_and_replay() {
         }
     }
 }
+
+#[tokio::test]
+async fn nr4_every_participant_rearms_before_a_new_completion() {
+    let s = scene(&[]).await;
+    drive(&s.user, &s.a, STOP).await;
+    drive(&s.user, &s.b, STOP).await;
+    let saved = watching(
+        &s,
+        "two-agent-rearm",
+        &[&s.a, &s.b],
+        json!({ "any": true, "rearm": true, "max_firings": 2 }),
+    )
+    .await;
+    notes(&s.user, &s.w, "two-agent-rearm", 1).await;
+    drive(&s.user, &s.a, WORK).await;
+    drive(&s.user, &s.a, STOP).await;
+    still(&s.user, &s.w, "two-agent-rearm", 1).await;
+    // B becoming working completes re-arm, but no Agent has finished after it.
+    drive(&s.user, &s.b, WORK).await;
+    still(&s.user, &s.w, "two-agent-rearm", 1).await;
+    assert_eq!(current(&s, &saved).await.remaining, 1);
+    drive(&s.user, &s.b, STOP).await;
+    assert_eq!(notes(&s.user, &s.w, "two-agent-rearm", 2).await.len(), 2);
+}
