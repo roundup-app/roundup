@@ -1,3 +1,4 @@
+import { createSignal } from "solid-js";
 import { render } from "@solidjs/testing-library";
 import type { Ask } from "@contracts/ask/Ask";
 import type { RailNode } from "@contracts/agent/RailNode";
@@ -19,7 +20,7 @@ const TREE: RailNode[] = [
 ];
 
 /** The Ask bar of an open Project on the fake Daemon, with `Keys` for `⌘/`; `asks` seeds `ask.list`. */
-export const mountAskBar = async (asks: Ask[] = [], selected: string | null = null, tree: RailNode[] | Promise<RailNode[]> = TREE, pane = false, path = `/ask-${crypto.randomUUID()}`) => {
+export const mountAskBar = async (asks: Ask[] = [], selected: string | null = null, tree: RailNode[] | Promise<RailNode[]> = structuredClone(TREE), pane = false, path = `/ask-${crypto.randomUUID()}`) => {
   const app = createFakeApp();
 
   app.handlers["rail.tree"] = () => tree instanceof Promise ? [] : tree;
@@ -37,19 +38,21 @@ export const mountAskBar = async (asks: Ask[] = [], selected: string | null = nu
 
   if (selected !== null) connected.rail.select(selected);
 
+  const [recovery, setRecovery] = createSignal<{ project: string; revision: string }>();
+
   const view = render(() => (
     <ConnectedProjectContext.Provider value={connected}>
       <Keys />
       <aside class="rail"><DraftRecoveryEntry /></aside>
       <DrawerHost drawer={connected.drawer} reducedMotion={() => true} />
       <button type="button" class="outside">outside</button>
-      <div class="centre-stack">{pane && <Pane createEmulator={factory} />}<AskBar /></div>
+      <div class="centre-stack">{pane && <Pane createEmulator={factory} />}<AskBar recovery={recovery()} /></div>
     </ConnectedProjectContext.Provider>
   ));
 
   await connected.rail.settled();
 
-  return { app, connected, unmount: view.unmount };
+  return { app, connected, setRecovery, unmount: view.unmount };
 };
 
 export const ask = (id: string, at: number, parts: Ask["parts"], text = parts.map((part) => part.text).join(" ")): Ask => ({ id, text, at: BigInt(at), parts });

@@ -12,6 +12,7 @@ import { startRealDaemon, type StartedDaemon } from "../testing/realDaemonFixtur
 import { RpcError } from "../app/seam";
 import type { OpenTarget } from "../app/seam";
 import { AskBar } from "./AskBar";
+import { createSignal } from "solid-js";
 import { App } from "../App";
 import { fakeEmulators } from "../terminal/paneHarness";
 import { createProjectDrafts } from "../state/connectedProject";
@@ -298,3 +299,33 @@ it("u2773a_ask_restores_original_projects_through_App_reopen", async () => {
     await second.stop();
   }
 }, 120_000);
+
+
+it("u3021c_ask_removed_workstream_refuses_selected_editor_after_reopen", async () => {
+  const app = createServedApp(real.base);
+  const original = await app.rpc("rail.createWorkstream", { name: "Same", parent: null });
+  const connected = await connectProject(app, { path: real.dir, name: "Same" }, () => false, () => 0);
+  const [recovery, setRecovery] = createSignal<{ project: string; revision: string }>();
+  await connected.rail.settled();
+  const destination = { surface: "ask", object: "ask-bar", recipient: null };
+  const a = connected.drafts.edit(destination, { text: "@Same  e\u0301 🌿\n次の行  ", workstream: original.id, name: "Same" }, { start: 2, end: 8, direction: "backward" }, "ordinary").draft;
+  connected.drafts.submit(a.revision); connected.drafts.settle(a.revision, "unknown");
+  const b = connected.drafts.edit(destination, { text: "B current", workstream: null, name: null }, null, "ordinary").draft;
+  await app.rpc("rail.remove", { id: original.id });
+  await app.rpc("rail.createWorkstream", { name: "Same", parent: null });
+  const reopened = await connectProject(app, connected.project, () => false, () => 0);
+  render(() => <ConnectedProjectContext.Provider value={reopened}><AskBar recovery={recovery()} /></ConnectedProjectContext.Provider>);
+  await reopened.rail.settled();
+  await waitFor(() => expect(reopened.drafts.availability(a, reopened)).toBe("unavailable"));
+  const before = reopened.drafts.list();
+  const rpc = vi.spyOn(app, "rpc");
+
+  setRecovery({ project: real.dir, revision: a.revision });
+  await Promise.resolve();
+  expect(document.querySelector<HTMLTextAreaElement>(".ask-input")!.value).toBe("B current");
+  expect(reopened.drafts.list()).toContainEqual({ ...a, status: "unknown" });
+  expect(reopened.drafts.list()).toEqual(before);
+  expect(reopened.drafts.list().find(draft => draft.revision === b.revision)?.value.text).toBe("B current");
+  expect(rpc).not.toHaveBeenCalled();
+  rpc.mockRestore();
+});
