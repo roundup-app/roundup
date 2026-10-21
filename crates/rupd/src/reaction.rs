@@ -169,6 +169,7 @@ impl Watch {
 pub(crate) struct Evaluator {
     pub reactions: Arc<Reactions>,
     pub reader: Reader,
+    pub agents: Arc<agents::Agents>,
     pub messages: Arc<messages::Messages>,
     pub bus: Bus,
 }
@@ -352,6 +353,13 @@ impl Evaluator {
             ids.iter().all(|id| w.finished.contains(id))
         };
         if !(w.armed && holds) {
+            return;
+        }
+        if let Err(why) = self.agents.guard_reach(&r.actor, &r.target, true) {
+            w.unavailable(
+                format!("authority refused: {}", why.message),
+                "the user may inspect or stop this reaction; create a new one with an authorized target",
+            );
             return;
         }
         let fired = self
@@ -585,11 +593,23 @@ impl Daemon {
                         .map_err(RpcError::internal)?
                 };
                 let mine = key(actor);
-                let list = rows
+                let mut list = Vec::new();
+                for (_, record) in rows
                     .iter()
                     .filter(|(owner, _)| actor.kind == ActorKind::User || *owner == mine)
-                    .map(|(_, record)| read(record).and_then(|saved| self.with_firings(saved)))
-                    .collect::<Result<Vec<_>, _>>()?;
+                {
+                    let saved = read(record)?;
+                    if actor.kind == ActorKind::Agent {
+                        match self.agents.guard_reach(actor, &saved.target, true) {
+                            Ok(()) => {}
+                            Err(err) if matches!(err.code, code::FORBIDDEN | code::NOT_FOUND) => {
+                                continue;
+                            }
+                            Err(err) => return Err(err),
+                        }
+                    }
+                    list.push(self.with_firings(saved)?);
+                }
                 return rpc::reply(&list);
             }
             "reaction.get" => {
@@ -781,7 +801,7 @@ impl Daemon {
         Ok(reaction)
     }
 
-    /// The saved definition `id` when `actor` may inspect it: the user, or the Agent that authorized it.
+    /// The user may inspect any saved definition; its authorizing Agent needs current target Reach.
     fn reaction_own(&self, actor: &Actor, id: &str) -> Result<(String, Reaction), RpcError> {
         let db = self
             .reactions
@@ -800,7 +820,11 @@ impl Daemon {
         if actor.kind != ActorKind::User && owner != key(actor) {
             return Err(RpcError::forbidden("another Agent's reaction"));
         }
-        Ok((owner, read(&record)?))
+        let saved = read(&record)?;
+        if actor.kind == ActorKind::Agent {
+            self.agents.guard_reach(actor, &saved.target, true)?;
+        }
+        Ok((owner, saved))
     }
 
     fn reaction_stop(&self, actor: &Actor, id: &str) -> Result<Reaction, RpcError> {

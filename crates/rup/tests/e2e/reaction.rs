@@ -583,9 +583,74 @@ async fn nr8_automatic_firing_refuses_a_target_moved_out_of_reach() {
     )
     .await;
     assert!(seen.firings.is_empty(), "unauthorized firing: {seen:?}");
+    assert_eq!(seen.remaining, 1);
+    assert_eq!(seen.target, s.a);
+    assert_eq!(seen.observation.health, "unavailable");
+    assert!(seen.observation.gap.as_deref().unwrap().contains("Reach"));
+    assert!(seen.observation.recovery.is_some());
     assert!(
         messages(&s.user, &s.a, "revoked reaction instruction")
             .await
             .is_empty()
     );
+}
+
+#[tokio::test]
+async fn nr1_agent_access_requires_current_reach_while_user_access_remains() {
+    for removed in [false, true] {
+        let s = scene(&[]).await;
+        let author = client_as(&s.project, actor(ActorKind::Agent, &s.door)).await;
+        let mut body = definition(&s.a, "explicit reaction instruction");
+        body["condition"]["ids"] = json!([s.b]);
+        body["max_firings"] = json!(2);
+        body["rearm"] = json!(true);
+        let saved = made(&author, "reaction.create", body).await;
+        let original = json!({"id": saved.id, "operation": "original"});
+        let first = made(&author, "reaction.run", original.clone()).await;
+        if removed {
+            s.user
+                .request("rail.remove", json!({"id": s.a}))
+                .await
+                .unwrap();
+        } else {
+            s.user
+                .request("rail.move", json!({"id": s.a, "parent": null, "index": 0}))
+                .await
+                .unwrap();
+        }
+        for (method, args) in [
+            ("reaction.get", json!({"id": saved.id})),
+            ("reaction.stop", json!({"id": saved.id})),
+            ("reaction.run", original),
+            ("reaction.run", json!({"id": saved.id, "operation": "new"})),
+        ] {
+            let error = author.request(method, args).await.unwrap_err();
+            assert_eq!(
+                error.code,
+                if removed {
+                    code::NOT_FOUND
+                } else {
+                    code::FORBIDDEN
+                },
+                "{method}"
+            );
+        }
+        assert!(listed(&author).await.is_empty());
+        let kept = current(&s, &saved).await;
+        assert_eq!(kept.firings.len(), 1);
+        assert_eq!(kept.firings[0].id, first.firings[0].id);
+        assert_eq!(kept.remaining, 1);
+        assert_eq!(serde_json::to_value(kept.state).unwrap(), "active");
+        let run = json!({"id": saved.id, "operation": "user"});
+        if removed {
+            let error = s.user.request("reaction.run", run).await.unwrap_err();
+            assert_eq!(error.code, code::NOT_FOUND);
+        } else {
+            let ran = made(&s.user, "reaction.run", run).await;
+            assert_eq!(ran.firings.len(), 2);
+            assert_eq!(ran.remaining, 0);
+        }
+        let stopped = made(&s.user, "reaction.stop", json!({"id": saved.id})).await;
+        assert_eq!(serde_json::to_value(stopped.state).unwrap(), "stopped");
+    }
 }
