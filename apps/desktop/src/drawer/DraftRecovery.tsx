@@ -55,7 +55,7 @@ const DraftRecovery = () => {
       : surface === "todos" ? todos.all().find((todo) => String(todo.id) === object)?.title
       : surface === "header" && object === project.path ? project.name : node(row)?.name;
 
-    return { place: copy.draftSurface(surface === "rail" && node(row) ? node(row)!.kind : surface), name: String(name ?? (row.draft.policy === "credential" ? "" : typedText(row.draft)[0])).trim().split("\n")[0] };
+    return { place: copy.draftSurface(surface === "rail" && node(row) ? node(row)!.kind : surface), name: String(name ?? (row.draft.policy === "credential" ? "" : typedText(row.draft)[0])).trim().split("\n")[0] ?? "" };
   };
 
   const open = (row: Row) => {
