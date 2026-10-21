@@ -9,6 +9,7 @@ const railDraftLabels = new Map([["rail-task", "Task"], ["rail-name", "Name"], [
 /** App-authored labels and prose (U471). Code terms remain keys; authored values pass through unchanged. */
 export const copy = {
   costAndTime: "Cost and time",
+  measurementJoin: (...parts: string[]) => parts.join(" · "),
   measurementLoading: "Reading measurements…",
   measurementFailed: "Measurements unavailable.",
   measurementCostMissing: (categories: string[]) => `Known subtotal; unavailable: ${categories.join(", ")}.`,

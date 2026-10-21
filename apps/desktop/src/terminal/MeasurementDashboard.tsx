@@ -33,13 +33,13 @@ const Cost = (props: { value: MeasurementCost }) => <div class="measurement-cost
   <For each={props.value.reference}>{(estimate) => <p>
     <strong>{estimate.rates.currency} {estimate.amount}</strong> {copy.measurementReference}
     <Show when={estimate.missing.length > 0}><span class="measurement-note">{copy.measurementCostMissing(estimate.missing)}</span></Show>
-    <span class="measurement-note">{estimate.rates.version} · {estimate.rates.date} · {estimate.rates.basis}</span>
+    <span class="measurement-note">{copy.measurementJoin(estimate.rates.version, estimate.rates.date, estimate.rates.basis)}</span>
     <span class="measurement-note">{copy.measurementRateBasis(estimate.rates)}</span>
     <span class="measurement-note">{estimate.rates.source}</span>
   </p>}</For>
   <For each={props.value.reported}>{(reported) => <p>
     <strong>{reported.currency ?? copy.measurementUnknownCurrency} {reported.amount}</strong> {copy.measurementReported(reported.scope)}
-    <span class="measurement-note">{reported.source} · {reported.basis}</span>
+    <span class="measurement-note">{copy.measurementJoin(reported.source, reported.basis)}</span>
   </p>}</For>
   <Show when={props.value.reference.length === 0 && props.value.reported.length === 0}><p>{copy.measurementUnknown}</p></Show>
   <Show when={props.value.unavailable.length > 0}><p class="measurement-note">{copy.measurementCostPartial}</p></Show>
@@ -174,7 +174,7 @@ export const MeasurementDashboard = (props: { home: string; name: string; back: 
     <Show when={reading().kind === "loading"}><p>{copy.measurementLoading}</p></Show>
     <Show when={cause()}>{(cause) => <div class="measurement-stale" data-state="stale"><p>{snapshot() ? copy.measurementStale : copy.measurementFailed} {cause()}</p><button data-button="quiet" type="button" aria-disabled={pending()} onClick={() => { if (!pending()) void read(retryMore); }}>{copy.retry}</button></div>}</Show>
     <Show when={snapshot()}>{(value) => <>
-      <p class="measurement-note">{copy.measurementObservation(value().last_observed)} · {copy.measurementRevision(value().revision)}</p>
+      <p class="measurement-note">{copy.measurementJoin(copy.measurementObservation(value().last_observed), copy.measurementRevision(value().revision))}</p>
       <Show when={value().contributors === 0}><p>{copy.measurementEmpty}</p></Show>
       <div class="measurement-overview">
         <div><h3>{copy.measurementCost}</h3><Cost value={value().cost} /></div>
