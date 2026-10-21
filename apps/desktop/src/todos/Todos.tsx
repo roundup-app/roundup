@@ -438,7 +438,10 @@ export const Todos = () => {
   const toggle = async (todo: Todo) => {
     const reopening = todo.done;
     const target = rowAfter(todo.id, (reopening ? done() : open()).map((candidate) => candidate.id));
-    const message = await failureOf(() => connected.app.rpc(reopening ? "todo.reopen" : "todo.complete", { id: todo.id }));
+
+    const message = await failureOf(() => reopening
+      ? connected.app.rpc("todo.reopen", { id: todo.id })
+      : connected.app.rpc("todo.complete", { id: todo.id }));
 
     if (message === null) setAwaitingFocus((waiting) => [...waiting, { id: todo.id, target, reopening }]);
 
