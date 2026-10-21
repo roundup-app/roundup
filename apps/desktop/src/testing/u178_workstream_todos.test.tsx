@@ -126,13 +126,13 @@ it("u2744a_shelf_scope_real_daemon", async () => {
 
     const expand = async () => {
       for (;;) {
-        const closed = '.shelf [role="treeitem"][aria-expanded="false"] > [data-part="branch-control"]';
+        const closed = '.shelf [role="treeitem"][aria-expanded="false"] [data-part="branch-control"]';
         const id = await evaluate<string | null>(`[...document.querySelectorAll(${JSON.stringify(closed)})].find(control => control.checkVisibility())?.closest('[data-shelf-group]').dataset.shelfGroup ?? null`);
 
         if (!id) break;
         const group = `.shelf [data-shelf-group="${id}"]`;
 
-        await browser("click", `${group} > [data-part="branch-control"]`);
+        await browser("click", `${group} [data-part="branch-control"]`);
         await until(`document.querySelector(${JSON.stringify(group)})?.getAttribute('aria-expanded') === 'true'`);
       }
 
