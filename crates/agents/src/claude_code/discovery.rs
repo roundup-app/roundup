@@ -259,7 +259,11 @@ impl Launcher {
         revision: &str,
         now_ms: i64,
     ) -> Result<(ImportCandidate, Vec<u8>), RpcError> {
-        let changed = || RpcError::conflict(format!("source changed since preview: {source}"));
+        let changed = || {
+            RpcError::conflict(format!(
+                "source changed since preview: {source}; Refresh to try again"
+            ))
+        };
         if !is_uuid(source) {
             return Err(changed());
         }
