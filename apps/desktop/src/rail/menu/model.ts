@@ -42,10 +42,8 @@ export const createRailMenu = (app: AppSeam, rail: RailState, onFailure: (messag
     setState(null);
   };
 
-  /** U2694a: the system menu of a row; the row is selected first, as U56 says. */
+  /** U2694g: pointer menus address their row without activating it. */
   const open = (node: RailNode, exit: ExitState | null, x: number, y: number, removed?: () => void) => {
-    rail.select(node.id);
-
     return contextMenu(app, entries(node, exit, removed), x, y);
   };
 
@@ -84,6 +82,8 @@ export const createRailMenu = (app: AppSeam, rail: RailState, onFailure: (messag
   };
 
   const resume = async (id: string) => {
+    rail.select(id);
+
     if (resuming.has(id)) return;
 
     resuming.add(id);
