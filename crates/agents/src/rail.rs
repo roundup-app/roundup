@@ -2,6 +2,8 @@
 //! Sibling `order` values are contiguous from 0. Workstreams sit at the root and never nest (A26);
 //! an Agent sits under a Workstream or under the Agent that started it, to any depth.
 
+mod measurement;
+
 use std::path::Path;
 use std::sync::{
     Arc,
@@ -19,6 +21,8 @@ const GONE_AGENT: &str = "an Agent that is gone";
 pub struct Rail {
     owner_reads: OwnerReads,
     db: Connection,
+    measurement_observing: bool,
+    measurement_failure: Option<String>,
 }
 
 pub(super) struct ClosedPreparation {
@@ -150,6 +154,8 @@ impl Rail {
         Ok(Self {
             owner_reads: OwnerReads::open(path),
             db,
+            measurement_observing: false,
+            measurement_failure: None,
         })
     }
 
