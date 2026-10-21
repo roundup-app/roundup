@@ -366,7 +366,7 @@ impl Agents {
             lean: Launcher::load_lean(&self.dir, id),
         };
         let started = attempt.to_owned();
-        let (argv, env) = self
+        let (argv, mut env) = self
             .launcher
             .launch_on(
                 claude_code::Folders {
@@ -381,6 +381,7 @@ impl Agents {
                 &pair,
             )
             .await?;
+        env.extend(self.listen_measurements(id, attempt).await?);
         self.retain_worktree(id).await?;
         let spawned = self.spawn_behind(id, cwd, Some(argv), env, attach).await?;
         self.shared.watch_channel(id, &started);
