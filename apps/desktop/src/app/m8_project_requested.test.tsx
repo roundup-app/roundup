@@ -3,7 +3,6 @@ import { cleanup, fireEvent, render, screen, within } from "@solidjs/testing-lib
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { Requested } from "@contracts/project/Requested";
 import { createProjectDrafts } from "../state/connectedProject";
-import { draftStorage } from "../state/storage";
 import { App } from "../App";
 import { createFakeApp } from "../testing/fakeApp";
 import type { FakeApp } from "../testing/fakeApp";
@@ -59,25 +58,48 @@ describe("m8 an Agent opens and renames Projects", () => {
 });
 
 
-it("u2773h_current_revision_is_distinct", async () => {
-  const holder = draftStorage(FIRST.path);
-  const exact = "  Order e\u0301 🪁\nlast line  ";
-  const saved = holder.edit({ surface: "orders", object: "removed-agent", recipient: "removed-agent" }, { ask: exact, title: "Same name", done: "" }, { start: 2, end: 5, direction: "forward" }, "ordinary").draft;
-  // Two independently retained unsubmitted revisions may arrive from external recovery.
-  window.localStorage.setItem(`roundup:drafts:${FIRST.path}`, JSON.stringify({ version: 1, drafts: [
-    { ...saved, revision: "older-revision", value: { ask: "older" } }, saved,
-  ] }));
-  await started();
-  fireEvent.click(await screen.findByRole("button", { name: "Recover unfinished work" }));
+const mount = (drafts: ReturnType<typeof createProjectDrafts>) => {
+  const app = createFakeApp();
+
+  app.opened.project = FIRST;
+  render(() => <App app={app} drafts={drafts} reducedMotion={() => true} clock={() => 0} />);
+
+  return app;
+};
+
+const failedSave = (holder: ReturnType<ReturnType<typeof createProjectDrafts>>, destination: { surface: string; object: string; recipient: string | null }, value: Record<string, string | boolean | null>) => {
+  const { revision } = holder.edit(destination, value, null, "ordinary").draft;
+
+  holder.submit(revision);
+  holder.settle(revision, "failed");
+
+  return revision;
+};
+
+it("u3021a_recovery_lists_only_work_at_risk", async () => {
+  const drafts = createProjectDrafts();
+  const holder = drafts(FIRST.path);
+  const destination = { surface: "todos", object: "7", recipient: null };
+
+  holder.edit(destination, { title: "typed and saving" }, null, "ordinary");
+  // Picks and unknown availability never qualify.
+  failedSave(holder, { surface: "todos", object: "8", recipient: "period" }, { period: "day", done: false });
+  mount(drafts);
+  await screen.findByRole("tab", { name: FIRST.name });
+  expect(screen.queryByRole("button", { name: "Recover unfinished work" })).toBeNull();
+
+  failedSave(holder, { surface: "todos", object: "9", recipient: null }, { title: "lost when closed" });
+  const entry = await screen.findByRole("button", { name: "Recover unfinished work" });
+
+  expect(entry.textContent).toContain("1");
+  fireEvent.click(entry);
   const recovery = await screen.findByRole("region", { name: "Unfinished work" });
-  const revisions = within(recovery).getAllByRole("listitem");
-  expect(revisions.filter((row) => row.dataset.current === "true").map((row) => row.dataset.revision)).toEqual([saved.revision]);
-  expect(screen.getByText(exact, { exact: true, normalizer: (text) => text })).toBeTruthy();
-  expect(screen.getByRole("button", { name: new RegExp(saved.revision) })).toBeTruthy();
-  window.localStorage.clear();
+
+  expect(within(recovery).getAllByRole("listitem")).toHaveLength(1);
+  expect(holder.list()).toHaveLength(3);
 });
 
-it.each(["envelope", "surface"])("u2773h_invalid_storage_preserves_recoverable_work_%s", async (kind) => {
+it.each(["envelope", "surface"])("u3021b_recovery_actions_and_retry_%s", async (kind) => {
   const incompatible = { revision: "incompatible", destination: { surface: "todos", object: "42", recipient: null }, value: { title: false }, selection: null, status: "draft", policy: "ordinary" };
   const bytes = kind === "surface" ? JSON.stringify({ version: 1, drafts: [incompatible] }, null, 2) : '{"version":999,"drafts":broken';
   window.localStorage.setItem(`roundup:drafts:${FIRST.path}`, bytes);
@@ -89,77 +111,53 @@ it.each(["envelope", "surface"])("u2773h_invalid_storage_preserves_recoverable_w
     holder.discard(incompatible.revision);
   }
 
-  const other = holder.edit({ surface: "todos", object: "other-original", recipient: null }, { title: "  independent 🧭\n" }, null, "ordinary").draft;
-  const saved = holder.edit({ surface: "orders", object: "original", recipient: "original" }, { ask: "  memory 🧭\n" }, null, "ordinary").draft;
-  const app = createFakeApp();
-  app.opened.project = FIRST;
-  render(() => <App app={app} drafts={drafts} reducedMotion={() => true} clock={() => 0} />);
+  const saved = failedSave(holder, { surface: "orders", object: "original", recipient: "original" }, { ask: "  memory 🧭\n" });
+  const app = mount(drafts);
+
   fireEvent.click(await screen.findByRole("button", { name: "Recover unfinished work" }));
   const recovery = await screen.findByRole("region", { name: "Unfinished work" });
   const alert = await within(recovery).findByRole("alert");
-  expect(alert.textContent).toContain(FIRST.path);
-  expect(alert.textContent).toContain(kind === "surface" ? "Todo" : "Order");
-  const clipboard = vi.fn(async (_text: string) => {});
-  Object.defineProperty(navigator, "clipboard", { configurable: true, value: { writeText: clipboard } });
-  const focus = document.activeElement;
 
-  fireEvent.click(screen.getByRole("button", { name: "Copy ask" }));
-  expect(clipboard).toHaveBeenCalledWith("  memory 🧭\n");
-  fireEvent.click(screen.getByRole("button", { name: "Retry storage only" }));
-  expect(holder.list()).toEqual([other, saved]);
-  fireEvent.click(within(recovery).getByRole("button", { name: "Discard this revision" }));
-  expect(holder.list()).toEqual([other]);
-  expect(document.activeElement).toBe(focus);
+  expect(alert.textContent).not.toContain(FIRST.path);
+  expect(within(recovery).queryByRole("button", { name: /Inspect|Copy .+/ })).toBeNull();
+  fireEvent.click(within(alert).getByRole("button", { name: "Try again" }));
+  expect(holder.list().map((draft) => draft.revision)).toEqual([saved]);
   expect(window.localStorage.getItem(`roundup:drafts:${FIRST.path}`)).toBe(bytes);
+  fireEvent.click(within(recovery).getByRole("button", { name: "Discard" }));
+  expect(holder.list()).toEqual([]);
   expect(app.calls.filter(({ method }) => method === "agent.setOrder" || method === "message.send")).toEqual([]);
-
-  if (kind === "surface") expect(holder.problem()).toEqual({ project: FIRST.path, destination: incompatible.destination, revision: incompatible.revision, operation: "restore", cause: "invalid" });
   window.localStorage.clear();
 });
 
-
-it("u2773h_credential_values_remain_hidden_until_copy", async () => {
+it("u3021c_copy_and_discard_keep_other_revisions", async () => {
   const drafts = createProjectDrafts();
-  const secret = "sentinel-credential-recovery";
-  drafts(FIRST.path).edit({ surface: "decisions", object: "original-prompt", recipient: "original-agent" }, { password: secret }, null, "credential");
-  const app = createFakeApp();
-  app.opened.project = FIRST;
-  render(() => <App app={app} drafts={drafts} reducedMotion={() => true} clock={() => 0} />);
-  fireEvent.click(await screen.findByRole("button", { name: "Recover unfinished work" }));
-  await screen.findByRole("region", { name: "Unfinished work" });
-  expect(document.body.innerHTML).not.toContain(secret);
+  const holder = drafts(FIRST.path);
+  const exact = "  Order e\u0301 🪁\nlast line  ";
+  const gone = failedSave(holder, { surface: "orders", object: "removed-agent", recipient: "removed-agent" }, { ask: exact, title: "Same name" });
+  const other = failedSave(holder, { surface: "todos", object: "9", recipient: null }, { title: "other work" });
+  const app = mount(drafts);
   const clipboard = vi.fn(async (_text: string) => {});
+
   Object.defineProperty(navigator, "clipboard", { configurable: true, value: { writeText: clipboard } });
-  fireEvent.click(screen.getByRole("button", { name: "Copy password" }));
-  expect(clipboard).toHaveBeenCalledWith(secret);
-});
-
-
-it("u2773a_terminal_selection_restores_exact_work_shared_unregistered_owner", async () => {
-  const drafts = createProjectDrafts();
-  drafts(FIRST.path).edit({ surface: "terminal_selection", object: "original-terminal", recipient: "original-agent" }, { note: "  unverified 🧭\n" }, null, "ordinary");
-  const app = createFakeApp();
-  app.opened.project = FIRST;
-  render(() => <App app={app} drafts={drafts} reducedMotion={() => true} clock={() => 0} />);
-  fireEvent.click(await screen.findByRole("button", { name: "Recover unfinished work" }));
-  expect(await screen.findByText("Original availability not verified")).toBeTruthy();
-  expect(screen.queryByText("Original object unavailable")).toBeNull();
-});
-
-it.each(["loading", "failed", "creation"])("u2773c_pads_external_change_keeps_original_%s_unverified", async (state) => {
-  const drafts = createProjectDrafts();
-  drafts(FIRST.path).edit({ surface: "pads", object: state === "creation" ? "new-pad" : "original-incarnation", recipient: null }, state === "creation" ? { name: "proposed name", source: "new work" } : { originalName: "original name", source: "exact work", base: "original base" }, null, "ordinary");
-  const app = createFakeApp();
-  app.opened.project = FIRST;
-
-  if (state === "loading") app.handlers["pad.list"] = () => new Promise(() => {});
-
-  if (state === "failed") app.handlers["pad.list"] = async () => { throw new Error("list unavailable"); };
-
-  render(() => <App app={app} drafts={drafts} reducedMotion={() => true} clock={() => 0} />);
   fireEvent.click(await screen.findByRole("button", { name: "Recover unfinished work" }));
   const recovery = await screen.findByRole("region", { name: "Unfinished work" });
-  expect(within(recovery).getByRole("status").dataset.state).toBe("unverified");
-  expect(within(recovery).getByText(state === "creation" ? "new work" : "exact work")).toBeTruthy();
-  expect(app.calls.filter(({ method }) => method.startsWith("pad.") && method !== "pad.list")).toEqual([]);
+  const row = within(recovery).getAllByRole("listitem").find((item) => item.dataset.revision === gone)!;
+
+  expect(within(row).queryByRole("button", { name: "Open" })).toBeNull();
+  fireEvent.click(within(row).getByRole("button", { name: "Copy" }));
+  expect(clipboard).toHaveBeenCalledTimes(1);
+  expect(clipboard).toHaveBeenCalledWith(`${exact}\nSame name`);
+  fireEvent.click(within(row).getByRole("button", { name: "Discard" }));
+  expect(holder.list().map((draft) => draft.revision)).toEqual([other]);
+  expect(app.calls.filter(({ method }) => method === "agent.setOrder" || method === "message.send")).toEqual([]);
+});
+
+it("u2773h_credential_values_remain_hidden", async () => {
+  const drafts = createProjectDrafts();
+  const secret = "sentinel-credential-recovery";
+
+  drafts(FIRST.path).edit({ surface: "decisions", object: "original-prompt", recipient: "original-agent" }, { password: secret }, null, "credential");
+  mount(drafts);
+  await screen.findByRole("tab", { name: FIRST.name });
+  expect(document.body.innerHTML).not.toContain(secret);
 });

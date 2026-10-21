@@ -3,7 +3,7 @@ import { afterEach, expect, it } from "vitest";
 import { workstream } from "../testing/nodes";
 import { mountRail, railCallsTo } from "./railFixture";
 import { ConnectedProjectContext } from "../state/connectedProject";
-import { DraftRecoveryEntry } from "../drawer/DrawerHost";
+import { DraftRecoveryEntry } from "../drawer/DraftRecovery";
 
 afterEach(() => { cleanup(); localStorage.clear(); });
 

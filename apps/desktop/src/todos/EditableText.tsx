@@ -1,7 +1,7 @@
 import { copy } from "../copy";
 import * as v from "valibot";
 import type { Todo } from "@contracts/todo/Todo";
-import { DraftRecoveryEntry } from "../drawer/DrawerHost";
+import { DraftRecoveryEntry } from "../drawer/DraftRecovery";
 import type { Change } from "@contracts/todo/Change";
 import { useConnectedProject } from "../state/connectedProject";
 import { outcomeOf } from "./failureOf";

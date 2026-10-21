@@ -1,3 +1,4 @@
+import { todoEditor } from "../drawer/editors";
 import * as v from "valibot";
 import { AlertDialog } from "../ui/Dialog";
 import { activationSource } from "../keys/registry";
@@ -371,3 +372,5 @@ export const TodoDrawer = (props: {
     </>
   );
 };
+
+todoEditor.set(TodoDrawer);
