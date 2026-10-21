@@ -473,3 +473,124 @@ fn spans(export: Export) -> Result<(String, Vec<Contribution>), String> {
     }
     Ok((source.ok_or("no interval ownership")?, contributions))
 }
+
+#[cfg(test)]
+mod recovery_tests {
+    use crate::*;
+    use serde_json::json;
+    use std::io::Write;
+
+    async fn pass(agents: &Agents, ticks: &mut tokio::sync::mpsc::Receiver<()>) {
+        // The observer schedules one blocking collection per OBSERVATION_PERIOD. Its injected
+        // clock acknowledges entry while holding Rail; taking Rail waits for that pass to finish.
+        tokio::time::advance(crate::measurement::OBSERVATION_PERIOD).await;
+        tokio::time::timeout(Duration::from_secs(2), ticks.recv())
+            .await
+            .expect("the passive collector must keep accepting requests")
+            .unwrap();
+        drop(agents.shared.rail());
+        tokio::task::yield_now().await;
+    }
+
+    #[tokio::test(start_paused = true)]
+    async fn u3016d_storage_read_failure_retries_the_live_source_without_reclaiming() {
+        let (tick, mut ticks) = tokio::sync::mpsc::channel(8);
+        let (dir, bus, shared) = crate::tests::shared_over_temp_dir(Arc::new(move || {
+            tick.try_send(()).unwrap();
+            1000
+        }));
+        let launcher = Launcher::new(
+            "false",
+            dir.path().join("config"),
+            dir.path().join("rup"),
+            None,
+        );
+        let source = "11111111-1111-4111-8111-111111111111";
+        let path = launcher.conversation_path(dir.path(), source).unwrap();
+        std::fs::create_dir_all(path.parent().unwrap()).unwrap();
+        let mut file = std::fs::File::create(&path).unwrap();
+        let request = |id| json!({"type":"assistant","sessionId":source,"requestId":id,"message":{"usage":{"input_tokens":7,"output_tokens":3,"cache_read_input_tokens":0,"cache_creation_input_tokens":0}}});
+        writeln!(file, "{}", request("first")).unwrap();
+        let home = shared
+            .rail()
+            .insert(NodeKind::Workstream, "home", None, None)
+            .unwrap()
+            .id;
+        let id = shared
+            .rail()
+            .insert(NodeKind::Agent, "maker", Some(&home), Some("1"))
+            .unwrap()
+            .id;
+        shared
+            .rail()
+            .save_conversation(&id, source, dir.path().to_str().unwrap())
+            .unwrap();
+        shared
+            .rail()
+            .observe_measurement_owner(&id, source, dir.path().to_str().unwrap(), "1");
+        let agents = Agents {
+            shared,
+            dir: dir.path().into(),
+            launcher,
+        };
+        let ctx = Ctx {
+            actor: Actor::user(),
+            bus: bus.clone(),
+            touches: Arc::new(provenance::Touches::in_memory().unwrap()),
+        };
+        let read = || agents.call(&ctx, "project.measurements", Value::Null);
+        let mut events = bus.subscribe();
+        agents.observe_measurements();
+        tokio::task::yield_now().await;
+        pass(&agents, &mut ticks).await;
+        let good = read().await.unwrap();
+        assert_eq!(good["contributions"].as_array().unwrap().len(), 1);
+        assert!(good["contributions"][0]["attempt"].is_null());
+        while events.try_recv().is_ok() {}
+
+        let db = rusqlite::Connection::open(dir.path().join("agents.db")).unwrap();
+        db.execute_batch("ALTER TABLE measurement_state RENAME TO held_measurement_state")
+            .unwrap();
+        pass(&agents, &mut ticks).await;
+        db.execute_batch("ALTER TABLE held_measurement_state RENAME TO measurement_state")
+            .unwrap();
+        // A successful public read is not collection reconciliation.
+        let stale = read().await.unwrap();
+        // Exercise recovery first: the old worker dies, so the distinct request never arrives.
+        writeln!(file, "{}", request("second")).unwrap();
+        pass(&agents, &mut ticks).await;
+        let recovered = read().await.unwrap();
+        assert_eq!(recovered["contributions"].as_array().unwrap().len(), 2);
+        assert!(
+            stale["cause"]
+                .as_str()
+                .unwrap()
+                .contains("measurement_state")
+        );
+        assert_eq!(stale["contributions"], good["contributions"]);
+        assert_eq!(
+            stale["sources"][0]["last_good"],
+            good["sources"][0]["last_good"]
+        );
+        assert_eq!(stale["revision"], good["revision"]);
+        assert!(recovered["cause"].is_null());
+        assert_eq!(recovered["contributions"][0], good["contributions"][0]);
+        assert!(std::iter::from_fn(|| events.try_recv().ok()).any(|e| matches!(e.data, EventData::MeasurementsChanged {revision} if revision == recovered["revision"])));
+        for _ in 0..4 {
+            agents.observe_measurements();
+        }
+        // Replay the source at a new incarnation, preserving original ownership and totals.
+        let replay = path.with_extension("replay");
+        std::fs::copy(&path, &replay).unwrap();
+        std::fs::rename(replay, &path).unwrap();
+        pass(&agents, &mut ticks).await;
+        assert_eq!(
+            read().await.unwrap()["contributions"],
+            recovered["contributions"]
+        );
+        assert!(
+            ticks.try_recv().is_err(),
+            "start requests must not duplicate collection"
+        );
+    }
+}
