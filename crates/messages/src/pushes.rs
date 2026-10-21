@@ -164,7 +164,7 @@ pub(crate) fn bodies_of(found: &[Message]) -> Vec<String> {
         .iter()
         .rev()
         .map(|message| {
-            if !is_digest(&message.from, &message.body) {
+            if message.kind != MessageKind::Note || !is_digest(&message.from, &message.body) {
                 return message.body.clone();
             }
             let body = without(&message.body, &later);

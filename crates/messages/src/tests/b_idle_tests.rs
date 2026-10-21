@@ -261,6 +261,7 @@ impl NoteInbox for RecoveringInbox {
 }
 
 async fn recovering_note(
+    kind: &str,
     failure: contracts::agent::Inbox,
 ) -> (
     tempfile::TempDir,
@@ -296,7 +297,7 @@ async fn recovering_note(
             agent("a"),
             "message.send",
             json!({
-                "to":"b", "kind":"note", "body":"recover after hold"
+                "to":"b", "kind":kind, "body":"recover after hold"
             }),
         )
         .await;
@@ -344,12 +345,15 @@ fn assert_recovery_held(h: &mut Harness, inbox: &RecoveringInbox, typed: &StdMut
 }
 
 async fn recovery_waits_for_last_hold(takeover: bool) {
-    for failure in [
-        contracts::agent::Inbox::Missing,
-        contracts::agent::Inbox::Mismatch,
-    ] {
+    for (kind, failure) in ["note", "question"].into_iter().flat_map(|kind| {
+        [
+            contracts::agent::Inbox::Missing,
+            contracts::agent::Inbox::Mismatch,
+        ]
+        .map(|failure| (kind, failure))
+    }) {
         for both in [false, true] {
-            let (_dir, mut h, inbox, typed) = recovering_note(failure).await;
+            let (_dir, mut h, inbox, typed) = recovering_note(kind, failure).await;
             terminal_hold(&h, takeover, true).await;
             if both {
                 terminal_hold(&h, !takeover, true).await;
@@ -393,6 +397,7 @@ async fn recovery_waits_for_last_hold(takeover: bool) {
 }
 
 #[tokio::test]
+// B50(f): rejects releasing an inbox hold before the final Terminal hold ends.
 async fn b6_inbox_recovery_waits_for_takeover_to_end() {
     recovery_waits_for_last_hold(true).await;
 }
@@ -405,11 +410,14 @@ async fn b32_inbox_recovery_waits_for_unsent_input_to_end() {
 #[tokio::test]
 async fn b32_inbox_recovery_checks_holds_after_the_inbox_check_completes() {
     for takeover in [false, true] {
-        for failure in [
-            contracts::agent::Inbox::Missing,
-            contracts::agent::Inbox::Mismatch,
-        ] {
-            let (_dir, mut h, inbox, typed) = recovering_note(failure).await;
+        for (kind, failure) in ["note", "question"].into_iter().flat_map(|kind| {
+            [
+                contracts::agent::Inbox::Missing,
+                contracts::agent::Inbox::Mismatch,
+            ]
+            .map(|failure| (kind, failure))
+        }) {
+            let (_dir, mut h, inbox, typed) = recovering_note(kind, failure).await;
             inbox.gate.store(true, std::sync::atomic::Ordering::SeqCst);
             let observation = on_status(&h.messages.inner, "b", "1", "2", Kind::Idle);
             let hold_before_completion = async {
@@ -428,5 +436,273 @@ async fn b32_inbox_recovery_checks_holds_after_the_inbox_check_completes() {
             on_status(&h.messages.inner, "b", "1", "3", Kind::Idle).await;
             assert_eq!(*inbox.written.lock().unwrap(), [1]);
         }
+    }
+}
+
+// B50(a,e): restoring the Note-only transport gate sends a question to the prompt callback.
+#[tokio::test]
+async fn b50_sender_and_kind_choose_only_the_authorized_transport() {
+    for kind in ["note", "question"] {
+        for sender in [
+            Actor::user(),
+            agent("a"),
+            Actor {
+                kind: ActorKind::Ext,
+                id: "ext".into(),
+                parent: None,
+            },
+            Actor::daemon(),
+        ] {
+            let dir = tempfile::tempdir().unwrap();
+            let prompts = Arc::new(StdMutex::new(Vec::new()));
+            let seen = prompts.clone();
+            let h = Harness::with_deliver(
+                dir.path(),
+                vec![agent_node("a", Kind::Working), agent_node("b", Kind::Idle)],
+                Arc::new(move |_, text| {
+                    seen.lock().unwrap().push(text);
+                    Box::pin(async { Ok(()) })
+                }),
+            );
+            let mut completed = h.messages.inner.completed.subscribe();
+            while completed.recv().await.unwrap() != "initial" {}
+            let inbox = Arc::new(RecoveringInbox {
+                state: StdMutex::new(contracts::agent::Inbox::Ok),
+                written: StdMutex::new(vec![]),
+                gate: false.into(),
+                checking: tokio::sync::Notify::new(),
+                finish: tokio::sync::Notify::new(),
+            });
+            h.messages.set_inbox(inbox.clone());
+            let sent = h
+                .call_as(
+                    sender.clone(),
+                    "message.send",
+                    json!({"to":"b", "kind":kind, "body":"which transport?"}),
+                )
+                .await
+                .unwrap();
+            if sender.kind == ActorKind::User {
+                assert_eq!(prompts.lock().unwrap().len(), 1);
+                assert!(inbox.written.lock().unwrap().is_empty());
+            } else {
+                assert!(prompts.lock().unwrap().is_empty(), "{sender:?} {kind}");
+                assert_eq!(*inbox.written.lock().unwrap(), [1]);
+                assert_eq!(
+                    h.call("message.get", json!({"id":sent["id"]}))
+                        .await
+                        .unwrap()["status"],
+                    "pending"
+                );
+            }
+        }
+    }
+}
+
+// B51(g): rejects a kind-scoped repeat filter and allocation before refusal.
+#[tokio::test]
+async fn b51_repeat_refusal_compares_both_kinds_before_allocating() {
+    for first_kind in ["note", "question"] {
+        for next_kind in ["note", "question"] {
+            let (_dir, h, inbox, _) =
+                recovering_note(first_kind, contracts::agent::Inbox::Missing).await;
+            *inbox.state.lock().unwrap() = contracts::agent::Inbox::Ok;
+            on_status(&h.messages.inner, "b", "1", "2", Kind::Idle).await;
+            h.messages.confirm_inbox("b", &[1]);
+            let err = h
+                .call_as(
+                    agent("a"),
+                    "message.send",
+                    json!({"to":"b", "kind":next_kind, "body":"recover after hold"}),
+                )
+                .await
+                .unwrap_err();
+            assert_eq!(err.code, code::CONFLICT);
+            assert_eq!(
+                h.call("message.list", json!({}))
+                    .await
+                    .unwrap()
+                    .as_array()
+                    .unwrap()
+                    .len(),
+                1
+            );
+            assert_eq!(*inbox.written.lock().unwrap(), [1]);
+        }
+    }
+}
+
+// B51(g): allocation order must not replace the order Messages became deliverable.
+#[tokio::test]
+async fn b51_repeat_refusal_uses_the_last_released_message() {
+    let (_dir, h, inbox, _) = recovering_note("note", contracts::agent::Inbox::Missing).await;
+    for body in ["recover after hold", "different"] {
+        h.call_as(
+            agent("a"),
+            "message.send",
+            json!({"to":"b", "kind":"note", "body":body}),
+        )
+        .await
+        .unwrap();
+    }
+    *inbox.state.lock().unwrap() = contracts::agent::Inbox::Ok;
+    on_status(&h.messages.inner, "b", "1", "2", Kind::Idle).await;
+    assert_eq!(*inbox.written.lock().unwrap(), [1, 3]);
+    h.messages.confirm_inbox("b", &[1, 3]);
+    h.call("message.deliver", json!({"id":2})).await.unwrap();
+    assert_eq!(*inbox.written.lock().unwrap(), [1, 3, 2]);
+    h.messages.confirm_inbox("b", &[2]);
+    let err = h
+        .call_as(
+            agent("a"),
+            "message.send",
+            json!({"to":"b", "kind":"question", "body":"recover after hold"}),
+        )
+        .await
+        .unwrap_err();
+    assert_eq!(err.code, code::CONFLICT);
+    assert_eq!(
+        h.call("message.list", json!({}))
+            .await
+            .unwrap()
+            .as_array()
+            .unwrap()
+            .len(),
+        3
+    );
+}
+
+// B50(f): rejects bypassing Routes/Terminal holds, or changing transport on explicit delivery.
+#[tokio::test]
+async fn b50_routes_and_explicit_delivery_preserve_transport_for_both_kinds() {
+    for kind in ["note", "question"] {
+        for hold in ["ask-first", "drop", "takeover", "input"] {
+            let (_dir, h, inbox, prompts) =
+                recovering_note(kind, contracts::agent::Inbox::Missing).await;
+            *inbox.state.lock().unwrap() = contracts::agent::Inbox::Ok;
+            on_status(&h.messages.inner, "b", "1", "2", Kind::Idle).await;
+            h.messages.confirm_inbox("b", &[1]);
+            if matches!(hold, "ask-first" | "drop") {
+                h.call("route.set", json!({"from":"a", "to":"b", "delivery":hold}))
+                    .await
+                    .unwrap();
+            } else {
+                terminal_hold(&h, hold == "takeover", true).await;
+            }
+            let sent = h
+                .call_as(
+                    agent("a"),
+                    "message.send",
+                    json!({"to":"b", "kind":kind, "body":"held question or note"}),
+                )
+                .await
+                .unwrap();
+            assert_eq!(
+                sent["status"],
+                if hold == "drop" { "dropped" } else { "held" }
+            );
+            assert_eq!(*inbox.written.lock().unwrap(), [1]);
+            on_status(&h.messages.inner, "b", "1", "3", Kind::Idle).await;
+            assert_eq!(*inbox.written.lock().unwrap(), [1]);
+            if hold == "drop" {
+                *inbox.state.lock().unwrap() = contracts::agent::Inbox::Missing;
+                let refused = h
+                    .call("message.deliver", json!({"id":2}))
+                    .await
+                    .unwrap_err();
+                assert_eq!(refused.code, code::CONFLICT);
+                assert_eq!(
+                    h.messages.get_or_not_found(2).unwrap().status,
+                    MessageStatus::Dropped
+                );
+            } else {
+                *inbox.state.lock().unwrap() = contracts::agent::Inbox::Missing;
+                let refused = h
+                    .call("message.deliver", json!({"id":2}))
+                    .await
+                    .unwrap_err();
+                assert_eq!(refused.code, code::INBOX_UNAVAILABLE);
+                assert_eq!(*inbox.written.lock().unwrap(), [1]);
+                assert_eq!(
+                    h.messages.get_or_not_found(2).unwrap().status,
+                    MessageStatus::Held
+                );
+                *inbox.state.lock().unwrap() = contracts::agent::Inbox::Ok;
+                h.call("message.deliver", json!({"id":2})).await.unwrap();
+                assert_eq!(*inbox.written.lock().unwrap(), [1, 2]);
+                assert_eq!(
+                    h.messages.get_or_not_found(2).unwrap().status,
+                    MessageStatus::Pending
+                );
+                h.messages.confirm_inbox("b", &[2]);
+                assert_eq!(
+                    h.messages.get_or_not_found(2).unwrap().status,
+                    MessageStatus::Delivered
+                );
+            }
+            assert!(prompts.lock().unwrap().is_empty());
+        }
+    }
+}
+
+// B52(a), B39/B40: rejects clearing in-flight on idle or recording delivery on socket success.
+#[tokio::test]
+async fn b52_every_completed_idle_and_receipt_preserves_one_delivery() {
+    for kind in ["note", "question"] {
+        let (_dir, mut h, inbox, prompts) =
+            recovering_note(kind, contracts::agent::Inbox::Missing).await;
+        for revision in 2..32 {
+            on_status(
+                &h.messages.inner,
+                "b",
+                "1",
+                &revision.to_string(),
+                Kind::Idle,
+            )
+            .await;
+            assert!(inbox.written.lock().unwrap().is_empty());
+            assert_eq!(
+                h.messages.get_or_not_found(1).unwrap().status,
+                MessageStatus::Held
+            );
+        }
+        assert_eq!(
+            h.events().iter().filter(|e| *e == "message.held").count(),
+            1
+        );
+        *inbox.state.lock().unwrap() = contracts::agent::Inbox::Ok;
+        for revision in 32..62 {
+            on_status(
+                &h.messages.inner,
+                "b",
+                "1",
+                &revision.to_string(),
+                Kind::Idle,
+            )
+            .await;
+            assert_eq!(*inbox.written.lock().unwrap(), [1]);
+            assert_eq!(
+                h.messages.get_or_not_found(1).unwrap().status,
+                MessageStatus::Pending
+            );
+            assert!(prompts.lock().unwrap().is_empty());
+        }
+        assert!(!h.events().iter().any(|e| e == "message.delivered"));
+        for _ in 0..2 {
+            h.messages.confirm_inbox("b", &[1]);
+            assert_eq!(
+                h.messages.get_or_not_found(1).unwrap().status,
+                MessageStatus::Delivered
+            );
+        }
+        assert_eq!(
+            h.events()
+                .iter()
+                .filter(|e| *e == "message.delivered")
+                .count(),
+            1
+        );
+        on_status(&h.messages.inner, "b", "1", "62", Kind::Idle).await;
+        assert_eq!(*inbox.written.lock().unwrap(), [1]);
     }
 }
