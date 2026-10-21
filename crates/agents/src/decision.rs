@@ -865,7 +865,7 @@ impl Shared {
                     }
                 }
             }
-            if !entry.decision.answerable {
+            if !entry.decision.answerable && terminal.is_none() {
                 return Err(RpcError::new(
                     code::INVALID_PARAMS,
                     format!("decision {id} can only be answered in the Terminal"),
