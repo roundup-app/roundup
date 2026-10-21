@@ -20,20 +20,34 @@ const formSchema = v.object({
   baseTitle: v.nullable(v.string()), baseAsk: v.string(), baseDone: v.nullable(v.string()), limits: v.array(v.string()),
 });
 
-/** O6: the whole order of one Agent or Door. What it shows follows the Rail, so a changed order reaches it. */
-export const OrderDrawer = (props: { id: string; inline?: boolean }) =>
-  <Show when={props.id} keyed>{(id) => <OrderContent id={id} inline={props.inline ?? false} />}</Show>;
+type OrderInput = {
+  id: string; inline?: boolean;
+  /** Loaded Project and Rail facts authorize recovery without a prompt read. */
+  recovery?: { project: string; revision: string };
+};
 
-const OrderContent = (props: { id: string; inline?: boolean }) => {
+/** O6: the whole order of one Agent or Door. What it shows follows the Rail, so a changed order reaches it. */
+export const OrderDrawer = (props: OrderInput) =>
+  <Show when={props.id} keyed>{(id) => <OrderContent {...props} id={id} />}</Show>;
+
+const OrderContent = (props: OrderInput) => {
   const { rail, app, drafts, project } = useConnectedProject();
   const node = () => rail.nodes.find((each) => each.id === props.id);
   const order = () => node()?.work ?? null;
   const finished = () => node()?.status?.kind === "done";
-  const [editing, setEditing] = createSignal(false);
+
+  const retained = props.recovery ? drafts.list().find(draft => draft.revision === props.recovery?.revision
+    && draft.destination.surface === "orders" && draft.destination.object === props.id
+    && draft.destination.recipient === props.id) : undefined;
+
+  if (props.recovery && (props.recovery.project !== project.path || rail.failure() !== null || !node()
+    || !retained || !v.safeParse(formSchema, retained.value).success)) return null;
+
+  const [editing, setEditing] = createSignal(props.recovery !== undefined);
   const [failure, setFailure] = createSignal<string | null>(null);
 
   /** O10, U83: read on opening the order or selecting a closed Agent; a failed read keeps its text. */
-  const [read] = createResource(() => props.id, async (id): Promise<SpawnRead> => {
+  const [read] = createResource(() => props.recovery ? false : props.id, async (id): Promise<SpawnRead> => {
     try {
       const answer = await app.rpc("agent.spawnPrompt", { id });
 
@@ -59,7 +73,7 @@ const OrderContent = (props: { id: string; inline?: boolean }) => {
     && draft.destination.object === props.id && draft.destination.recipient === props.id);
 
   const current = () => records().filter((draft) => draft.status === "draft").at(-1) ?? records().at(-1);
-  const [selected, selectRevision] = createSignal<string | null>(null);
+  const [selected, selectRevision] = createSignal<string | null>(retained?.revision ?? null);
   const selectedDraft = () => records().find((draft) => draft.revision === selected());
 
   const initial = createMemo(() => {
@@ -102,7 +116,7 @@ const OrderContent = (props: { id: string; inline?: boolean }) => {
   onCleanup(() => { disposed = true; });
 
   const begin = () => {
-    const draft = current();
+    const draft = props.recovery ? selectedDraft() : current();
     const each = order();
 
     if (!draft && each?.kind !== "work") return;
@@ -113,18 +127,27 @@ const OrderContent = (props: { id: string; inline?: boolean }) => {
   const capture = (field: HTMLTextAreaElement) => {
     const parsed = formValue();
 
-    if (!parsed.success || !form) return;
+    if (!parsed.success || !form || selectedDraft()?.status === "unknown") return;
     const fields = new FormData(form);
 
-    const next = drafts.edit(destination(), { ...parsed.output,
+    const edited = { ...parsed.output,
       title: String(fields.get("title") ?? ""), ask: String(fields.get("ask") ?? ""),
       done: String(fields.get("done") ?? ""), field: field.name,
-    }, { start: field.selectionStart, end: field.selectionEnd, direction: field.selectionDirection }, "ordinary");
+    };
+
+    const selection = { start: field.selectionStart, end: field.selectionEnd, direction: field.selectionDirection };
+    const draft = selectedDraft();
+
+    if (draft && edited.title === parsed.output.title && edited.ask === parsed.output.ask
+      && edited.done === parsed.output.done && edited.field === parsed.output.field
+      && selection.start === draft.selection?.start && selection.end === draft.selection?.end
+      && selection.direction === draft.selection?.direction) return;
+    const next = drafts.edit(destination(), edited, selection, "ordinary", props.recovery ? selected() : undefined);
 
     selectRevision(next.draft.revision);
   };
 
-  const saveBlocked = () => conflict() || (selectedDraft() !== undefined
+  const saveBlocked = () => (props.recovery !== undefined && (!node() || !selectedDraft())) || conflict() || (selectedDraft() !== undefined
     && !["draft", "failed"].includes(selectedDraft()!.status));
 
   const recovery = () => selectedDraft() !== undefined && (conflict() || drafts.problem() || ["failed", "unknown"].includes(selectedDraft()?.status ?? ""));
