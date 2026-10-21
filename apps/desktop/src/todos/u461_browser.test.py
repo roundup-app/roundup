@@ -9,7 +9,7 @@ import uuid
 mode, origin = sys.argv[1:3]
 session = 'u461-' + uuid.uuid4().hex
 profile = tempfile.TemporaryDirectory(prefix='u461-profile-')
-outputs = dict(zip(['U461', 'U462'], sys.argv[3:5]))
+outputs = dict(zip(['U461', 'U462', 'U461a'], sys.argv[3:6]))
 
 
 def browser(*args):
@@ -39,6 +39,9 @@ def save(scenario, name, readings):
     target = outputs.get(scenario)
     if not target:
         return
+    # Capture accepted layout after the existing finite transitions finish, never mid-paint.
+    evaluate('(async()=>{await document.fonts.ready;await Promise.all(document.getAnimations().filter(a=>a.effect.getComputedTiming().iterations!==Infinity).map(a=>a.finished.catch(()=>{})));})()')
+    readings['checks'] = evaluate('window.__checks()')
     directory = Path(target)
     directory.mkdir(parents=True, exist_ok=True)
     browser('screenshot', str(directory / (name + '.png')))
@@ -190,8 +193,116 @@ def restarted():
     save('U462', 'real-daemon-restart', result)
 
 
+def reopen_fake():
+    browser('set', 'media', 'dark')
+    browser('set', 'viewport', '1512', '950')
+    browser('open', origin + '/harness.html?seed=tree-40')
+    wait('Boolean(window.__fake && document.querySelector("[data-id=\\"5\\"] .row-head button"))')
+    evaluate(setup)
+    wait('Boolean(document.querySelector("[data-change]"))')
+    evaluate("(async()=>{await window.__fake.app.rpc('todo.complete',{id:5}); await document.fonts.ready;})()")
+    wait('document.querySelector(".drawer input").checked')
+    evaluate('window.__fake.failNext(-32003,"Cannot reopen this Todo: try again")')
+    browser('click', '.drawer input[type=checkbox]')
+    wait('document.querySelector(".drawer").textContent.includes("Cannot reopen this Todo")')
+    assert evaluate('document.querySelector(".drawer input").checked')
+    result = evaluate(reading)
+    assert result['failure'] and result['failure'][0]['text'].startswith('Cannot reopen'), result
+    save('U461', 'reopen-failure', result)
+    save('U461a', 'drawer-reopen-failure', result)
+    evaluate('document.querySelector(".drawer input").focus()')
+    browser('press', 'Space')
+    wait('!document.querySelector(".drawer input").checked')
+    assert evaluate('document.activeElement===document.querySelector(".drawer input")')
+    save('U461a', 'drawer-reopened', evaluate(reading))
+    # The done fold uses the same input; leaving that list transfers keyboard focus.
+    evaluate("(async()=>{await window.__fake.app.rpc('todo.complete',{id:5});})()")
+    wait('document.querySelector(".drawer input").checked')
+    browser('click', '.drawer .close')
+    wait('document.querySelector(".drawer").getAttribute("data-open")==="false"')
+    evaluate("[...document.querySelectorAll('.shelf button')].find(b=>/done$/.test(b.textContent.trim())).click()")
+    wait('Boolean(document.querySelector(".shelf [data-todo=\\"5\\"] input:checked"))')
+    save('U461a', 'done-fold', {'checks':evaluate('window.__checks()')})
+    evaluate('document.querySelector(".shelf [data-todo=\\"5\\"] input").focus()')
+    browser('press', 'Space')
+    wait('Boolean(document.querySelector(".shelf [data-todo=\\"5\\"] input:not(:checked)"))')
+    assert evaluate('document.activeElement!==document.body')
+    # Done Rail leaves must stay reachable so reopening can keep focus on their input.
+    evaluate("(async()=>{window.__fake.actAs({kind:'agent',id:'agent-1',parent:null});const t=await window.__fake.app.rpc('todo.create',{title:'Rail reopen '+ '長'.repeat(280),body:null,blockers:null});window.__reopenRail=t.id;await window.__fake.app.rpc('todo.complete',{id:t.id});})()")
+    wait('Boolean(document.querySelector("[data-id=\\"agent-1\\"] [data-pads-control]"))')
+    evaluate('document.querySelector("[data-id=\\"agent-1\\"] [data-pads-control]").click()')
+    wait('Boolean(document.querySelector(".rail [data-todo=\\""+window.__reopenRail+"\\"] input"))')
+    evaluate('document.querySelector(".rail [data-todo=\\""+window.__reopenRail+"\\"] input").focus()')
+    browser('press', 'Space')
+    wait('!document.querySelector(".rail [data-todo=\\""+window.__reopenRail+"\\"] input").checked')
+    assert evaluate('document.activeElement===document.querySelector(".rail [data-todo=\\""+window.__reopenRail+"\\"] input")')
+    save('U461a', 'rail-reopened', {'checks': evaluate('window.__checks()')})
+
+
+def reopen_real():
+    browser('set', 'media', 'dark')
+    browser('set', 'viewport', '1512', '950')
+    browser('open', origin + '/harness.html?daemon=1')
+    wait('Boolean(document.querySelector(".rail-actions button"))')
+    evaluate(rpc_helper)
+    evaluate("(async()=>{const rpc=window.__u462rpc;await rpc('todo.create',{title:'Reopen blocker'});await rpc('todo.create',{title:'Wait for blocker',blockers:[1]});await rpc('todo.complete',{id:1});})()")
+    wait("Boolean([...document.querySelectorAll('button')].find(b=>b.textContent.trim()==='1 done'))")
+    evaluate("[...document.querySelectorAll('button')].find(b=>b.textContent.trim()==='1 done').click()")
+    wait('Boolean(document.querySelector(".shelf [data-todo=\\"1\\"] button"))')
+    evaluate('document.querySelector(".shelf [data-todo=\\"1\\"] button").click()')
+    wait('Boolean(document.querySelector(".drawer input:checked"))')
+    evaluate('document.querySelector(".drawer input").focus()')
+    browser('press', 'Space')
+    wait('!document.querySelector(".drawer input").checked')
+    assert evaluate("(async()=>{const list=await window.__u462rpc('todo.list');const h=await window.__u462rpc('todo.getHistory',{id:1});return list[1].blocked&&h.changes.at(-1).actor.kind==='user';})()")
+    evaluate("(async()=>{await window.__u462rpc('todo.complete',{id:1});})()")
+    wait('document.querySelector(".drawer input").checked')
+    # Reuse the actual stdio tool, with the same Agent identity fake Claude uses.
+    import os
+    project = sys.argv[6]
+    rup = str(Path(__file__).resolve().parents[4] / 'target/debug/rup')
+    agent_id = evaluate('(async()=> (await window.__u462rpc("agent.spawn",{cwd:'+json.dumps(project)+',name:"reopen-agent"})).id)()')
+    mcp = subprocess.Popen([rup, 'mcp', agent_id], env={**os.environ, 'RUPD_SOCKET': str(Path(project)/'rupd.sock')}, stdin=subprocess.PIPE, stdout=subprocess.PIPE, text=True)
+    try:
+        requests = [
+            {'id':1,'method':'initialize','params':{'protocolVersion':'2025-06-18','capabilities':{},'clientInfo':{'name':'fake-claude','version':'0'}}},
+            {'method':'notifications/initialized'},
+            {'id':2,'method':'tools/call','params':{'name':'todo_reopen','arguments':{'id':1}}},
+        ]
+        for request in requests:
+            mcp.stdin.write(json.dumps({'jsonrpc':'2.0',**request})+'\n');mcp.stdin.flush()
+            if 'id' in request:
+                reply=json.loads(mcp.stdout.readline())
+                assert 'error' not in reply, reply
+                if request['id']==2:
+                    assert not reply['result'].get('isError'), reply
+    finally:
+        mcp.stdin.close()
+        mcp.wait(timeout=10)
+    wait('!document.querySelector(".drawer input").checked')
+    assert evaluate('document.activeElement===document.querySelector(".drawer input")')
+    outcome=evaluate("(async()=>({list:await window.__u462rpc('todo.list'),history:await window.__u462rpc('todo.getHistory',{id:1}),touches:await window.__u462rpc('provenance.history',{item:'todo:1'})}))()")
+    assert outcome['list'][1]['blocked'], outcome
+    assert outcome['history']['changes'][-1]['actor']=={'kind':'agent','id':agent_id,'parent':None}, outcome
+    assert outcome['touches'][-1]['actor']['id']==outcome['history']['changes'][-1]['actor']['id'], outcome
+    save('U461a', 'real-user-and-agent-reopen', {'checks':evaluate('window.__checks()'),**outcome})
+
+
+def reopen_restart():
+    browser('set', 'media', 'dark')
+    browser('set', 'viewport', '1512', '950')
+    browser('open', origin + '/harness.html?daemon=1')
+    wait('Boolean(document.querySelector(".rail-actions button"))')
+    evaluate(rpc_helper)
+    outcome=evaluate("(async()=>({list:await window.__u462rpc('todo.list'),history:await window.__u462rpc('todo.getHistory',{id:1}),touches:await window.__u462rpc('provenance.history',{item:'todo:1'})}))()")
+    assert not outcome['list'][0]['done'] and outcome['list'][1]['blocked'], outcome
+    assert outcome['history']['changes'][-1]['actor']['kind']=='agent', outcome
+    assert outcome['touches'][-1]['actor']['id']==outcome['history']['changes'][-1]['actor']['id'], outcome
+    save('U461a', 'real-restart', {'checks':evaluate('window.__checks()'),**outcome})
+
+
 try:
-    {'fake': fake, 'real': real, 'restart': restarted, 'baseline': baseline}[mode]()
+    {'reopen-fake':reopen_fake,'reopen-real':reopen_real,'reopen-restart':reopen_restart,'fake': fake, 'real': real, 'restart': restarted, 'baseline': baseline}[mode]()
 finally:
     browser('close')
     profile.cleanup()

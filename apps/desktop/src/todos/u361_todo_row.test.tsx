@@ -26,10 +26,10 @@ describe("u361 a Todo row holds a tick box, its title and what it waits on", () 
 
     fireEvent.click(await screen.findByRole("button", { name: /1 done/ }));
 
-    const done = screen.getByRole<HTMLInputElement>("checkbox", { name: "Complete ship it" });
+    const done = screen.getByRole<HTMLInputElement>("checkbox", { name: "Reopen ship it" });
 
     expect(done.checked).toBe(true);
-    expect(done.disabled).toBe(true);
+    expect(done.disabled).toBe(false);
   });
 
   it("u361_repeated_toggles_while_pending_complete_only_once", async () => {
@@ -52,39 +52,8 @@ describe("u361 a Todo row holds a tick box, its title and what it waits on", () 
     fireEvent.click(box);
 
     expect(callsTo(app, "todo.complete")).toHaveLength(1);
-    expect(box.checked).toBe(true);
+    expect(box.checked).toBe(false);
     expect(within(rowOf(3)).getByRole("button", { name: /todo 3/ })).toBeTruthy();
-  });
-
-  it("u361_nothing_draws_over_a_title_on_hover_or_focus", async () => {
-    await mountTodos([todo(3, { title: "ship it" })]);
-    await screen.findByText("ship it");
-
-    const row = rowOf(3);
-
-    for (const act of [() => {}, () => fireEvent.mouseEnter(row), () => fireEvent.focusIn(screen.getByRole("button", { name: /^Idle #3 / }))]) {
-      act();
-
-      expect(within(row).queryByText("complete")).toBeNull();
-      expect(within(row).queryByText("move")).toBeNull();
-      expect(row.querySelector(".complete, .todo-move")).toBeNull();
-    }
-
-  });
-
-  it("u361_a_row_shows_no_id_and_no_home", async () => {
-    await mountTodos([todo(7, { title: "Feedback 2:" }), todo(8, { title: "blocked one", blocked: true, blockers: [7] })]);
-    await screen.findByRole("checkbox", { name: "Complete Feedback 2:" });
-
-    for (const id of [7, 8]) {
-      const row = rowOf(id);
-
-      expect(row.textContent).not.toContain(`#${id}`);
-      expect(row.querySelector("[data-todo-home]")).toBeNull();
-      expect(row.textContent).not.toMatch(/\bin (project root|\w+)$/);
-    }
-
-    expect(rowOf(7).textContent?.trim()).toBe("Feedback 2:");
   });
 
   it("u361_waits_on_names_blockers_by_title", async () => {

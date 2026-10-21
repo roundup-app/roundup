@@ -66,10 +66,10 @@ const opened = async () => {
 };
 
 describe("u60 an Agent's Todos under it", () => {
-  it("u60_the_control_counts_pads_and_open_todos_together", async () => {
+  it("u461a_the_rail_control_counts_reopenable_done_todos", async () => {
     await mount(TREE, [todo(1, { creator: by("a1") }), todo(2, { creator: by("a1"), done: true })], [padOf("n", by("a1"))]);
 
-    await waitFor(() => expect(control(rowOf("auth"))?.textContent?.trim()).toBe("2"));
+    await waitFor(() => expect(control(rowOf("auth"))?.textContent?.trim()).toBe("3"));
     expect(control(rowOf("docs"))).toBeNull();
   });
 
@@ -122,10 +122,10 @@ describe("u60 an Agent's Todos under it", () => {
     const row = within(screen.getByRole("tree", { name: "Rail" })).getByRole("button", { name: /#1 todo 1/ }).closest<HTMLElement>("[data-todo]")!;
 
     fireEvent.mouseEnter(row);
-    fireEvent.click(within(row).getByRole("button", { name: "Complete" }));
+    fireEvent.click(within(row).getByRole("checkbox", { name: "Complete todo 1" }));
 
     await waitFor(() => expect(app.calls.filter((call) => call.method === "todo.complete")).toEqual([{ method: "todo.complete", params: { id: 1 } }]));
-    await waitFor(() => expect(control(rowOf("auth"))).toBeNull());
+    await waitFor(() => expect(within(row).getByRole<HTMLInputElement>("checkbox", { name: "Reopen todo 1" }).checked).toBe(true));
   });
 
   it("u60_the_rail_and_the_shelf_share_one_todo_list_and_the_rows_leave_the_agents_alone", async () => {
