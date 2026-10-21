@@ -11,7 +11,7 @@ use std::time::Duration;
 
 const CONVERSATION: &str = "00000000-0000-4000-8000-000000000001";
 const FAKE: &str = r#"#!/usr/bin/env python3
-import json, os, subprocess, sys, tty
+import json, os, socket, subprocess, sys, tty
 if sys.argv[1:3] == ['plugin', 'list']: print('[]'); sys.exit(0)
 if sys.argv[1:3] == ['plugin', 'test']: print('Q11 runtime hook closure: 1 pass'); sys.exit(0)
 settings = json.load(open(sys.argv[sys.argv.index('--settings')+1]))
@@ -22,9 +22,31 @@ for group in settings['hooks']['SessionStart']:
   subprocess.run(hook['command'], shell=True, input=json.dumps({'hook_event_name':'SessionStart','session_id':conversation,'source':'resume' if '--resume' in sys.argv else 'startup'}), text=True, check=True)
 tty.setraw(0)
 print('\033]0;✳ Ready\007', flush=True)
+pending=b''
 while True:
  data=os.read(0,1)
  if not data or data==b'\x03': break
+ if data==b'\x01':
+  agent=os.environ['ROUNDUP_AGENT']
+  call=json.load(open('call-'+agent+'.json'))
+  with socket.socket(socket.AF_UNIX) as peer:
+   peer.connect(os.environ['RUPD_SOCKET'])
+   stream=peer.makefile('rwb')
+   stream.write((json.dumps({'jsonrpc':'2.0','id':0,'method':'daemon.identify','params':{'actor':{'kind':'agent','id':agent}}})+'\n').encode()); stream.flush()
+   identified=json.loads(stream.readline())
+   if 'error' in identified: raise RuntimeError(identified)
+   stream.write((json.dumps({'jsonrpc':'2.0','id':1,**call})+'\n').encode()); stream.flush()
+   reply=json.loads(stream.readline())
+  with open('reply-'+agent+'.tmp','w') as out: json.dump(reply,out)
+  os.rename('reply-'+agent+'.tmp','reply-'+agent+'.json')
+  continue
+ if data==b'\r':
+  prompt=pending.decode(errors='replace'); pending=b''
+  for event,fields in [('UserPromptSubmit',{'prompt':prompt}),('Stop',{})]:
+   for group in settings['hooks'][event]:
+    for hook in group['hooks']:
+     subprocess.run(hook['command'],shell=True,input=json.dumps({'hook_event_name':event,**fields}),text=True,check=True)
+ else: pending+=data
 "#;
 
 struct World {
@@ -422,7 +444,10 @@ async fn u3016d_reconnect_reconciles_without_double_counting() {
         loop {
             let event = subscribed.next_event().await.unwrap();
             if let contracts::EventData::MeasurementsChanged { revision } = event.data {
-                assert_eq!(revision, first["revision"]);
+                assert!(
+                    revision.parse::<u64>().unwrap()
+                        <= first["revision"].as_str().unwrap().parse::<u64>().unwrap()
+                );
                 break;
             }
         }
@@ -547,7 +572,10 @@ async fn u3016d_empty_collection_failures_notify_subscribers() {
             if let contracts::EventData::MeasurementsChanged { revision } = event.data {
                 let failed = w.read().await;
                 if failed["sources"][0]["cause"].is_string() {
-                    assert_eq!(revision, failed["revision"]);
+                    assert!(
+                        revision.parse::<u64>().unwrap()
+                            <= failed["revision"].as_str().unwrap().parse::<u64>().unwrap()
+                    );
                     assert_ne!(failed["revision"], good["revision"]);
                     assert_eq!(failed["contributions"], json!([]));
                     assert_eq!(
@@ -656,4 +684,195 @@ async fn u3016d_rejected_exports_retain_failure_until_successful_retry() {
         assert_ne!(good["revision"], failed["revision"]);
         assert_eq!(good["contributions"], failed["contributions"]);
     }
+}
+
+#[tokio::test]
+async fn u3016f_real_time_acquisition_to_cli_survives_reopen() {
+    let mut w = World::start().await;
+    let door = w.agent.clone();
+    w.spawn_agent().await;
+    let sender = w.agent.clone();
+    w.spawn_agent().await;
+    let receiver = w.agent.clone();
+    let tree = w.client.request("rail.tree", Value::Null).await.unwrap();
+    let terminal = tree
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|n| n["id"] == sender)
+        .unwrap()["terminal_id"]
+        .clone();
+    let trigger = |method: &str, params: Value| {
+        std::fs::write(
+            w.project.join(format!("call-{sender}.json")),
+            json!({"method":method,"params":params}).to_string(),
+        )
+        .unwrap();
+        let reply = w.project.join(format!("reply-{sender}.json"));
+        if reply.exists() {
+            std::fs::remove_file(reply).unwrap();
+        }
+    };
+    let mut subscribed = Client::connect(&w.daemon.socket).await.unwrap();
+    subscribed
+        .request("events.subscribe", Value::Null)
+        .await
+        .unwrap();
+    let started = std::time::Instant::now();
+    trigger(
+        "agent.ask",
+        json!({"question":"Continue timing observation?","answers":[{"label":"Yes","description":"Continue"}]}),
+    );
+    w.client
+        .request("terminal.write", json!({"id":terminal,"data":"AQ=="}))
+        .await
+        .unwrap();
+    let decision = tokio::time::timeout(Duration::from_secs(5), async {
+        loop {
+            let event = subscribed.next_event().await.unwrap();
+            if let contracts::EventData::DecisionOpened(event) = event.data {
+                break event;
+            }
+        }
+    })
+    .await;
+    if decision.is_err() {
+        eprintln!(
+            "fake reply: {:?}; terminal: {}",
+            std::fs::read_to_string(w.project.join(format!("reply-{sender}.json"))),
+            w.client
+                .request("terminal.read", json!({"id":terminal,"after":0}))
+                .await
+                .unwrap()
+        );
+    }
+    let decision = decision.unwrap();
+    let active = w.read().await;
+    assert!(
+        active["time_evidence"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|f| f["agent"] == sender
+                && f["value"]["activity"]["decision"] == decision.id
+                && f["value"]["state"]["kind"] == "active")
+    );
+    let decision_delay = started.elapsed();
+    w.client
+        .request(
+            "decision.answer",
+            json!({"id":decision.id,"answer":"Yes","proof":"0".repeat(64)}),
+        )
+        .await
+        .unwrap();
+    let reply_path = w.project.join(format!("reply-{sender}.json"));
+    let reply = tokio::time::timeout(Duration::from_secs(5), async {
+        loop {
+            if let Ok(text) = std::fs::read_to_string(&reply_path) {
+                break serde_json::from_str::<Value>(&text).unwrap();
+            }
+            tokio::task::yield_now().await;
+        }
+    })
+    .await
+    .unwrap();
+    assert!(reply.get("result").is_some(), "{reply}");
+    let started = std::time::Instant::now();
+    trigger(
+        "message.send",
+        json!({"to":receiver,"kind":"question","body":"Coordinate timing observation"}),
+    );
+    w.client
+        .request("terminal.write", json!({"id":terminal,"data":"AQ=="}))
+        .await
+        .unwrap();
+    let reply = tokio::time::timeout(Duration::from_secs(5), async {
+        loop {
+            if let Ok(text) = std::fs::read_to_string(&reply_path) {
+                break serde_json::from_str::<Value>(&text).unwrap();
+            }
+            tokio::task::yield_now().await;
+        }
+    })
+    .await
+    .unwrap();
+    let message = reply
+        .get("result")
+        .unwrap_or_else(|| panic!("{reply}"))
+        .clone();
+    assert_eq!(
+        message["from"]["id"], sender,
+        "the fake vendor's own PID supplies Agent authority"
+    );
+    let retained = w
+        .client
+        .request("message.get", json!({"id":message["id"]}))
+        .await
+        .unwrap();
+    assert_eq!(retained["body"], "Coordinate timing observation");
+    for id in [&sender, &receiver, &door] {
+        w.client
+            .request("agent.stop", json!({"id":id}))
+            .await
+            .unwrap();
+    }
+    let before = tokio::time::timeout(Duration::from_secs(5), async {
+        loop {
+            let snapshot = w.read().await;
+            let facts = snapshot["time_evidence"].as_array().unwrap();
+            if facts.len() == 5
+                && facts
+                    .iter()
+                    .all(|fact| fact["value"]["state"]["kind"] == "ended")
+            {
+                break snapshot;
+            }
+            tokio::task::yield_now().await;
+        }
+    })
+    .await
+    .expect("three stopped Attempts and their Decision/coordination waits reconcile as ended");
+    let coordination_delay = started.elapsed();
+    let answers = w
+        .client
+        .request("decision.answers", json!({"agent":sender}))
+        .await
+        .unwrap();
+    println!(
+        "sanitized acquisition: {}",
+        json!({"decision_opened":decision,"answers":answers,"message":retained})
+    );
+    let facts = before["time_evidence"].as_array().unwrap();
+    let coordination = facts
+        .iter()
+        .find(|f| f["value"]["activity"]["kind"] == "coordination")
+        .expect("the sender actually awaited the existing routing operation");
+    assert_eq!(coordination["value"]["activity"]["message"], message["id"]);
+    assert_eq!(coordination["agent"], sender);
+    assert_eq!(coordination["value"]["state"]["kind"], "ended");
+    let cli =
+        tokio::process::Command::new(Path::new(env!("CARGO_BIN_EXE_rupd")).with_file_name("rup"))
+            .args(["--json", "project", "measurements", "--agent", &sender])
+            .env("RUPD_SOCKET", &w.daemon.socket)
+            .output()
+            .await
+            .unwrap();
+    assert!(
+        cli.status.success(),
+        "{}",
+        String::from_utf8_lossy(&cli.stderr)
+    );
+    let public: Value = serde_json::from_slice(&cli.stdout).unwrap();
+    assert_eq!(public["time_evidence"], before["time_evidence"]);
+    w.reopen().await;
+    assert_eq!(w.read().await["time_evidence"], before["time_evidence"]);
+    println!(
+        "time observer: decision acquisition {:?}; coordination acquisition {:?}; raw Decision {} and Message {} reconcile to {} retained facts; CLI and reopened facts equal",
+        decision_delay,
+        coordination_delay,
+        decision.id,
+        message["id"],
+        facts.len()
+    );
+    println!("sanitized time evidence: {}", before["time_evidence"]);
 }

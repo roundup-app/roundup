@@ -734,8 +734,23 @@ A retained source contribution attributed to its original Project, maker Agent, 
 observation and Attempt when known. A source revision replaces the same contribution's
 consumption; the revision journal preserves earlier facts. `Consumed` holds four disjoint
 categories (input, output, cache read and cache write), with missing values unknown.
-`MeasurementValue` is a request or an `Execution` interval (Agent or tool); source wall-clock
+`MeasurementValue` is a request, an `Execution` interval (Agent or tool), or an observed Timed activity; source wall-clock
 endpoints retain their meaning and never imply monotonic continuity. `Measurements` is a
 coherent read at one retained revision; `MeasurementsChanged` (`project.measurementsChanged`)
 tells subscribers to reconcile that revision. `MeasurementSource` reports last good collection,
 failure cause and uncovered history. Explicit Project/Workstream deletion remains effective.
+
+**Timed activity** (`TimedActivity`):
+A roundup-observed Attempt lifetime, blocking Decision, or blocking coordination operation linked to its original Message. It is distinct from model/tool execution.
+
+**Clock point** (`ClockPoint`):
+An observation of local wall time and a monotonic offset within one clock lifetime. Wall time aligns evidence; monotonic offsets measure durations only within that lifetime.
+
+**Observed segment** (`ObservedSegment`):
+Two comparable Clock points bounding continuously observed activity. A sleep, clock disagreement, outage or missing observation leaves a gap between segments.
+
+**Time state** (`TimeState`):
+An observed activity is active, ended at an observed Clock point, or interrupted with its end unknown.
+
+**Measurement wait** (`MeasurementWait`):
+The observation of one continuously blocking operation. It carries no delivery or control authority.
