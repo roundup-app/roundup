@@ -1,4 +1,5 @@
 //! B6 Takeover tests: a real Daemon, a fake Claude and its recorded Terminal input.
+#![allow(dead_code)] // each includer uses its own part of the handle
 use super::rupd_harness;
 
 use base64::{Engine, engine::general_purpose::STANDARD};
