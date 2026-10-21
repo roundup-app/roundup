@@ -599,9 +599,10 @@ impl Messages {
                 "an escalated Message is answered with a reply, or dropped",
             ));
         }
-        if message.reason == Some(Reason::Inbox)
-            || (inbox::is_inbox_message(&message)
-                && (self.inner.inbox.get().is_some() || !cfg!(test)))
+        if message.status == MessageStatus::Held
+            && (message.reason == Some(Reason::Inbox)
+                || (inbox::is_inbox_message(&message)
+                    && (self.inner.inbox.get().is_some() || !cfg!(test))))
         {
             inbox::require_usable(&self.inner, &message.to).await?;
         }
