@@ -175,6 +175,7 @@
   white-space: normal;
 }
 
+.todo-row [data-dnd-dragging] .todo-row-actions, .todo-row[data-dnd-dragging] .todo-row-actions { display: none !important; }
 .todo-row-actions { display: none; flex: none; gap: var(--space-1); margin-left: var(--space-3); position: relative; z-index: 1; }
 .todo-row:hover .todo-row-actions,
 .todo-row:focus-within .todo-row-actions { display: flex; }
@@ -184,7 +185,7 @@
   background-color: var(--ground);
   box-shadow: var(--shadow-drawer);
   box-sizing: border-box;
-  max-height: var(--available-height, calc(100vh - var(--space-6)));
+  max-height: min(var(--available-height, 100vh), calc(var(--space-6) * 8));
   overflow-y: auto;
   z-index: 100;
 }

@@ -55,7 +55,7 @@ export const OwnerGroups = <T,>(props: {
           <div class="shelf-group-head">
             <TreeView.BranchControl class="shelf-group-control" data-button="quiet">
               <TreeView.BranchIndicator><Icon name={closed().includes(id) ? "right" : "down"} /></TreeView.BranchIndicator>
-              <TreeView.BranchText>{group().name}</TreeView.BranchText>
+              <TreeView.BranchText title={group().name}>{group().name}</TreeView.BranchText>
               <span class="shelf-group-count">{group().items.length}</span>
             </TreeView.BranchControl>
             <IconButton class="shelf-group-add" aria-label={copy.addTodoTo(group().name)} onKeyDown={event => event.stopPropagation()} onClick={() => props.onAdd(group())}><Icon name="plus" /></IconButton>
