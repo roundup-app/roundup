@@ -721,6 +721,26 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn t15_restart_retains_change_time() {
+        let dir = tempfile::tempdir().unwrap();
+        let (start, stored) = {
+            let h = Harness::new(dir.path());
+            let start = std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap()
+                .as_millis() as i64;
+            h.call("todo.create", json!({"title": "a"})).await.unwrap();
+            h.call("todo.complete", json!({"id": 1})).await.unwrap();
+            (start, changes(&h, 1).await["changes"].clone())
+        };
+        let reopened = changes(&Harness::new(dir.path()), 1).await["changes"].clone();
+        assert_eq!(reopened, stored);
+        for change in reopened.as_array().unwrap() {
+            assert!(change["changed_at"].as_i64().unwrap() >= start);
+        }
+    }
+
+    #[tokio::test]
     async fn t15_unknown_todo_is_not_found() {
         let dir = tempfile::tempdir().unwrap();
         let h = Harness::new(dir.path());
