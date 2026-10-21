@@ -75,7 +75,8 @@ try:
  for _ in range(500):
   try:rpc('daemon.ping');break
   except (OSError,RuntimeError):time.sleep(.02)
- node=rpc('agent.spawn',{'name':'Source observer','cwd':str(root/'project')})
+ home=rpc('rail.createWorkstream',{'name':'Source observer work'})
+ node=rpc('agent.spawn',{'name':'Source observer','cwd':str(root/'project'),'parent':home['id']})
  start=time.monotonic();accepted={};reads=[];last=None;cost_absent=time.time_ns()
  while time.monotonic()-start<50:
   at=time.perf_counter_ns();last=rpc('project.measurements');reads.append((time.perf_counter_ns()-at)/1e6)
@@ -165,8 +166,49 @@ try:
    break
   except (OSError,RuntimeError):time.sleep(.02)
  assert reopened['contributions']==last['contributions']
+ summary=rpc('project.measurementSummary',{'home':home['id']})
+ assert {key:int(summary['tokens'][key]['known']) for key in totals}==totals
+ assert summary['tokens']['total']=={'known':str(sum(totals.values())),'missing':0}
+ assert Decimal(summary['cost']['reference'][0]['amount'])==reference
+ assert summary['cost']['reported']==[money[0]['value']['reported']]
+ dashboard=None
+ if '--dashboard' in sys.argv:
+  import signal
+  profile=root/'browser-profile';profile.mkdir();(profile/'config.json').write_text('{}')
+  probe=socket.socket();probe.bind(('127.0.0.1',0));port=probe.getsockname()[1];probe.close()
+  vite_env={**env,'ROUNDUP_REAL_PROJECT':str(root/'project'),'ROUNDUP_REAL_PROOF':'0'*64}
+  vite_log=open(root/'vite.log','w')
+  vite=subprocess.Popen(['pnpm','--filter','desktop','exec','vite','--host','127.0.0.1','--port',str(port),'--strictPort'],cwd=repo,env=vite_env,stdout=vite_log,stderr=vite_log,start_new_session=True)
+  browser_env={k:v for k,v in os.environ.items() if not k.startswith('AGENT_BROWSER_')}
+  chrome=os.environ.get('CHROME_PATH','/usr/bin/chromium')
+  browser_command=['agent-browser','--executable-path',chrome,'--args','--no-sandbox','--config',str(profile/'config.json'),'--session','u3016-pinned-'+str(os.getpid()),'--profile',str(profile)]
+  def browser(*args):return subprocess.run(browser_command+list(args),env=browser_env,capture_output=True,text=True,check=True,timeout=60).stdout
+  try:
+   import urllib.request
+   for _ in range(500):
+    try:urllib.request.urlopen('http://127.0.0.1:'+str(port)+'/__roundup_ready',timeout=2).read();break
+    except OSError:time.sleep(.02)
+   browser('set','viewport','1512','950');browser('set','media','dark')
+   browser('open','http://127.0.0.1:'+str(port)+'/harness.html?daemon=1&renderer=dom')
+   selector='.rail [data-id="'+home['id']+'"] [data-part="branch-control"]'
+   browser('wait','--fn','!!document.querySelector('+json.dumps(selector)+')')
+   browser('click',selector)
+   browser('wait','--fn',"!!document.querySelector('.measurement-action button')")
+   browser('click','.measurement-action button')
+   browser('wait','--fn',"document.querySelector('.measurement-dashboard')?.getAttribute('aria-busy') === 'false'")
+   text=json.loads(browser('eval',"document.querySelector('.measurement-dashboard').textContent"))
+   assert format(sum(totals.values()),',') in text
+   assert summary['cost']['reference'][0]['amount'] in text
+   dashboard={'total_displayed':sum(totals.values()),'reference_displayed':summary['cost']['reference'][0]['amount'],'reconciliation':'pinned raw -> production collector -> public summary -> real headless App'}
+   if 'U3016f' in os.environ.get('ROUNDUP_CAPTURES','').split(','):
+    target=repo/'artifacts/ux/U3016f';target.mkdir(parents=True,exist_ok=True)
+    browser('screenshot',str(target/'pinned-vendor.png'))
+    (target/'pinned-vendor.checks.json').write_text(browser('eval','window.__checks()'))
+  finally:
+   subprocess.run(browser_command+['close'],env=browser_env,capture_output=True,timeout=20)
+   os.killpg(vite.pid,signal.SIGTERM);vite.wait(timeout=10);vite_log.close()
  version=subprocess.run([str(binary),'--version'],env=env,capture_output=True,text=True,check=True).stdout.strip()
- print(json.dumps({'binary_version':version,'binary_sha256':hashlib.sha256(binary.read_bytes()).hexdigest(),'observed_models':sorted({r['message']['model'] for r in local.values()}),'reference_basis':requests[0]['value']['cost']['reference'],'source_money':money[0]['value']['reported'],'independent_reference_usd':str(reference),'cache_write_classes':{'five_minute':sum(30*r['n'] for r in records),'one_hour':sum(20*r['n'] for r in records)},'money_availability_to_read_upper_ms':money_delay_bound,'raw_requests':len(records),'local_requests':len(local),'accepted_requests':len(requests),'model_intervals':sum(c['value']['category']=='agent' for c in intervals),'tool_intervals':1,'raw_completed_spans':len(raw_spans),'excluded_span_names':excluded,'export_arrival_to_public_read_ms':export_to_read,'totals':totals,'record_timestamp_to_accept_ms':local_delay,'span_end_to_accept_ms':span_delay,'public_read_max_ms':max(reads),'public_read_p95_ms':sorted(reads)[int(.95*(len(reads)-1))],'read_samples':len(reads),'cli_and_reopen':'same retained contributions','unsupported':'live request money, non-USD source money/conversion, active execution, clock lifetime across restart, human wait and Message-correlated coordination; permission-check spans excluded','local_artifacts':str(root)},indent=2))
+ print(json.dumps({'dashboard':dashboard,'binary_version':version,'binary_sha256':hashlib.sha256(binary.read_bytes()).hexdigest(),'observed_models':sorted({r['message']['model'] for r in local.values()}),'reference_basis':requests[0]['value']['cost']['reference'],'source_money':money[0]['value']['reported'],'independent_reference_usd':str(reference),'cache_write_classes':{'five_minute':sum(30*r['n'] for r in records),'one_hour':sum(20*r['n'] for r in records)},'money_availability_to_read_upper_ms':money_delay_bound,'raw_requests':len(records),'local_requests':len(local),'accepted_requests':len(requests),'model_intervals':sum(c['value']['category']=='agent' for c in intervals),'tool_intervals':1,'raw_completed_spans':len(raw_spans),'excluded_span_names':excluded,'export_arrival_to_public_read_ms':export_to_read,'totals':totals,'record_timestamp_to_accept_ms':local_delay,'span_end_to_accept_ms':span_delay,'public_read_max_ms':max(reads),'public_read_p95_ms':sorted(reads)[int(.95*(len(reads)-1))],'read_samples':len(reads),'cli_and_reopen':'same retained contributions','unsupported':'live request money, non-USD source money/conversion, active execution, clock lifetime across restart, human wait and Message-correlated coordination; permission-check spans excluded','local_artifacts':str(root)},indent=2))
 
 finally:
  daemon.terminate()
