@@ -5,6 +5,8 @@ use contracts::Actor;
 use contracts::message::{Message, MessageKind};
 use rpc::{Ctx, RpcError};
 use rusqlite::{OptionalExtension, params};
+use time::OffsetDateTime;
+use time::format_description::well_known::Rfc3339;
 
 use crate::store::Store;
 use crate::{Messages, SendParams};
@@ -37,17 +39,18 @@ pub struct Firing {
 }
 
 impl Store {
-    /// The reaction must be active and have a firing left, read inside the accepting write so a stop or
-    /// another firing committed first is seen.
+    /// Read the saved bounds inside the accepting write: earlier source/receiver reads and store
+    /// waits cannot authorize a firing after expiry, stop or exhaustion.
     pub(crate) fn check_firing(&self, fire: &Fire) -> Result<(), RpcError> {
-        let row: Option<(String, u32, u32)> = self
+        let row: Option<(String, u32, u32, String)> = self
             .db
             .query_row(
                 "SELECT json_extract(record, '$.state'), json_extract(record, '$.max_firings'),
-                        (SELECT COUNT(*) FROM reaction_firings WHERE reaction = reactions.id)
+                        (SELECT COUNT(*) FROM reaction_firings WHERE reaction = reactions.id),
+                        json_extract(record, '$.expires_at')
                  FROM reactions WHERE id = ?1",
                 params![fire.reaction],
-                |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?)),
+                |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?)),
             )
             .optional()
             .map_err(RpcError::internal)?;
@@ -56,10 +59,17 @@ impl Store {
             Some((state, ..)) if state != "active" => {
                 Err(RpcError::conflict("a stopped reaction cannot fire"))
             }
-            Some((_, max, used)) if used >= max => {
+            Some((_, max, used, _)) if used >= max => {
                 Err(RpcError::conflict("the reaction has no firing left"))
             }
-            Some(_) => Ok(()),
+            Some((_, _, _, expiry)) => {
+                let expires =
+                    OffsetDateTime::parse(&expiry, &Rfc3339).map_err(RpcError::internal)?;
+                if OffsetDateTime::from(crate::now()) >= expires {
+                    return Err(RpcError::conflict("the reaction expired; create a new one"));
+                }
+                Ok(())
+            }
         }
     }
 
