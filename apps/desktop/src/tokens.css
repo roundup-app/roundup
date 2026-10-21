@@ -109,12 +109,14 @@
   :root {
     --grey: var(--text);
     --hairline: rgba(0, 0, 0, 0.4);
+    --scrollbar-thumb: rgba(0, 0, 0, 0.6);
   }
 }
 
 @media (prefers-contrast: more) and (prefers-color-scheme: dark) {
   :root {
     --hairline: rgba(255, 255, 255, 0.4);
+    --scrollbar-thumb: rgba(255, 255, 255, 0.6);
   }
 }
 
