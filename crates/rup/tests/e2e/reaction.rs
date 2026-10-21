@@ -540,3 +540,88 @@ async fn nr7_a_pr_without_worktree_evidence_saves_nothing() {
     assert!(err.message.contains("pr-checks"), "{}", err.message);
     assert!(listed(&s.user).await.is_empty());
 }
+
+#[tokio::test]
+async fn nr3_automatic_write_failure_is_inspectable_and_recovers() {
+    let mut s = scene(&[]).await;
+    let saved = watching(&s, "failed firing", &[&s.a], json!({})).await;
+    project_db(&s.project).execute_batch("CREATE TRIGGER refuse_reaction BEFORE INSERT ON reaction_firings BEGIN SELECT RAISE(ABORT, 'reaction write refused'); END;").unwrap();
+    drive(&s.user, &s.a, STOP).await;
+    let failed = super::daemon::h21_poll("reaction observes failed acceptance", async || {
+        let seen = current(&s, &saved).await;
+        let completed = seen
+            .observation
+            .evidence
+            .as_deref()
+            .and_then(|text| serde_json::from_str::<Value>(text).ok())
+            .is_some_and(|evidence| {
+                evidence["finished"]
+                    .as_array()
+                    .is_some_and(|ids| ids.contains(&json!(s.a)))
+            });
+        completed.then_some(seen)
+    })
+    .await;
+    assert_ne!(
+        failed.observation.health, "observing",
+        "write failure hidden: {failed:?}"
+    );
+    assert!(
+        failed
+            .observation
+            .cause
+            .as_deref()
+            .unwrap()
+            .contains("reaction write refused")
+    );
+    assert!(failed.observation.recovery.is_some());
+    assert_eq!(failed.remaining, 1);
+    // Atomicity itself is proved by messages::tests::b_fault_tests::nr3_firing_and_message_commit_together.
+    // Reopening with the fault still present must retain an inspectable failure and the unspent bound.
+    drop(s.user);
+    s.project.restart(&[]);
+    s.user = s.project.client().await;
+    let kept = current(&s, &saved).await;
+    assert!(
+        kept.observation
+            .cause
+            .as_deref()
+            .unwrap()
+            .contains("reaction write refused")
+    );
+    assert!(kept.observation.recovery.is_some());
+    assert_eq!(kept.remaining, 1);
+    project_db(&s.project)
+        .execute_batch("DROP TRIGGER refuse_reaction")
+        .unwrap();
+    drive(&s.user, &s.a, STOP).await;
+    let sent = notes(&s.user, &s.w, "failed firing", 1).await;
+    let recovered = current(&s, &saved).await;
+    assert_eq!((recovered.firings.len(), recovered.remaining), (1, 0));
+    assert!(recovered.observation.cause.is_none());
+    let firing = &recovered.firings[0];
+    assert_eq!(sent[0]["id"], json!(firing.message));
+    assert!(firing.matched);
+    let definition: Value = serde_json::from_str(&firing.definition).unwrap();
+    assert_eq!(definition["instruction"], saved.instruction);
+    assert_eq!(
+        definition["condition"],
+        serde_json::to_value(&saved.condition).unwrap()
+    );
+    let evidence: Value = serde_json::from_str(&firing.evidence).unwrap();
+    assert!(
+        evidence["finished"]
+            .as_array()
+            .unwrap()
+            .contains(&json!(s.a))
+    );
+    drive(&s.user, &s.a, STOP).await;
+    drop(s.user);
+    s.project.restart(&[]);
+    s.user = s.project.client().await;
+    let replayed = current(&s, &saved).await;
+    assert_eq!(replayed.firings, recovered.firings);
+    let sent = messages(&s.user, &s.w, "failed firing").await;
+    assert_eq!(sent.len(), 1);
+    assert_eq!(sent[0]["id"], json!(firing.message));
+}
