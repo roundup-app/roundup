@@ -1,0 +1,34 @@
+{
+  "base": "e8351db8e",
+  "head": "2347c066f85bac237016c8dad76dbfa0267f3f6e",
+  "browser": "isolated headless agent-browser, fresh test profile",
+  "viewport": [
+    1512,
+    950
+  ],
+  "scheme": "dark",
+  "seeds": [
+    "tree-40",
+    "bubbles",
+    "empty-project",
+    "first-run"
+  ],
+  "gestures": [
+    "right button, contextmenu before release",
+    "right button, contextmenu after release",
+    "Ctrl-click, contextmenu before release, 12 CSS px movement, trailing primary click",
+    "Ctrl-click, contextmenu after release, 12 CSS px movement, trailing primary click"
+  ],
+  "observed": {
+    "rowMenuRequests": "one per row gesture",
+    "emptySurfaceMenuRequests": 0,
+    "terminalOpenCalls": 0,
+    "terminalWriteCalls": 0,
+    "agentSpawnOrResumeCalls": 0,
+    "selectionBranchesAndBubbles": "unchanged after each gesture and dismissal",
+    "minimisedBubbles": "remained minimised",
+    "checks": "D1-D14 and D16 pass in every head capture; paired delta has no regressions",
+    "rejectedStop": "visible on tree-40; prior backend selection retained"
+  },
+  "nativeObserver": "Not observed in Chromium; the user reports what they meet on the Mac."
+}
