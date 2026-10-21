@@ -1,3 +1,4 @@
+import { todoEditor } from "../drawer/editors";
 import * as v from "valibot";
 import { AlertDialog } from "../ui/Dialog";
 import { activationSource } from "../keys/registry";
@@ -77,8 +78,6 @@ export const TodoDrawer = (props: {
     return message;
   };
 
-  const [completed, setCompleted] = createSignal(false);
-
   const todo = () => {
     const current = props.todos.byId().get(props.id);
 
@@ -91,14 +90,14 @@ export const TodoDrawer = (props: {
 
   let titleRow: HTMLDivElement | undefined;
 
-  const complete = () => attempt(async () => {
+  const toggle = () => attempt(async () => {
     const focused = document.activeElement === titleRow?.querySelector("input");
-    await app.rpc("todo.complete", { id: props.id });
-    setCompleted(true);
+    const reopening = props.todos.byId().get(props.id)?.done;
+    await (reopening ? app.rpc("todo.reopen", { id: props.id }) : app.rpc("todo.complete", { id: props.id }));
 
     const stayed = document.activeElement === titleRow?.querySelector("input") || document.activeElement === document.body;
 
-    if (focused && stayed) titleRow?.querySelector<HTMLElement>("p[tabindex]")?.focus();
+    if (!reopening && focused && stayed) titleRow?.querySelector<HTMLElement>("p[tabindex]")?.focus();
   });
 
   // Picks run one after another, each from the list the previous one answered: the list state only catches up when the Event arrives.
@@ -294,7 +293,7 @@ export const TodoDrawer = (props: {
             {(current) => (
               <>
                 <div class="todo-detail-title" ref={(element) => { titleRow = element; }}>
-                  <TickBox todo={{ ...current(), done: completed() || current().done }} onComplete={complete} />
+                  <Show when={props.todos.byId().get(props.id)}>{accepted => <TickBox todo={accepted()} onToggle={toggle} />}</Show>
                   <EditableText
                     todo={current()}
                     captured={captured}
@@ -371,3 +370,5 @@ export const TodoDrawer = (props: {
     </>
   );
 };
+
+todoEditor.set(TodoDrawer);

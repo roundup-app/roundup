@@ -185,6 +185,7 @@ export type RpcMethods = {
   "todo.list": { params: null; result: todo_Todo[] };
   "todo.update": { params: todo_UpdateParams; result: todo_Todo };
   "todo.complete": { params: todo_TodoId; result: todo_Todo };
+  "todo.reopen": { params: todo_TodoId; result: todo_Todo };
   "todo.setBlockers": { params: todo_SetBlockersParams; result: todo_Todo };
   "todo.assign": { params: todo_AssignParams; result: todo_Todo };
   "todo.move": { params: todo_MoveParams; result: todo_Todo };

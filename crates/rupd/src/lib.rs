@@ -2742,6 +2742,215 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn u3082a_non_directory_entries_do_not_break_import() {
+        let root = tempfile::tempdir().unwrap();
+        let config = root.path().join("config");
+        let project = root.path().join("project");
+        std::fs::create_dir(&project).unwrap();
+        let at = time::OffsetDateTime::now_utc()
+            .format(&time::format_description::well_known::Rfc3339)
+            .unwrap();
+        let selected = import_source(&config, &project, 1, &at);
+        let unrelated = import_source(&config, &root.path().join("unrelated"), 2, &at);
+        std::fs::write(config.join("projects/.DS_Store"), b"finder").unwrap();
+        let bucket = selected
+            .parent()
+            .unwrap()
+            .file_name()
+            .unwrap()
+            .to_string_lossy();
+        std::fs::write(
+            config.join("projects").join(format!("{bucket}-file")),
+            b"file",
+        )
+        .unwrap();
+        let opened = Arc::new(std::sync::Mutex::new(Vec::new()));
+        let observed = opened.clone();
+        use std::os::unix::fs::PermissionsExt;
+        let program = root.path().join("claude");
+        let journal = root.path().join("launches");
+        std::fs::write(
+            &program,
+            format!("#!/bin/sh\nprintf launched >> '{}'\n", journal.display()),
+        )
+        .unwrap();
+        std::fs::set_permissions(&program, std::fs::Permissions::from_mode(0o755)).unwrap();
+        let mut launcher = agents::claude_code::Launcher::new(
+            program.to_string_lossy(),
+            config.join(".claude.json"),
+            "rup".into(),
+            None,
+        );
+        launcher.import_observer = Some(Arc::new(move |path, phase, _| {
+            if phase == "open" || phase == "probe" {
+                observed.lock().unwrap().push(path.to_path_buf());
+            }
+        }));
+        let daemon = import_daemon(&project, launcher);
+        let found = import_rpc(&daemon, "project.importDiscover", json!({"period":"week"})).await;
+        let candidate = &found["result"]["candidates"][0];
+        let selection = json!({"source":candidate["source"], "revision":candidate["revision"]});
+        opened.lock().unwrap().clear();
+        let commit = import_rpc(
+            &daemon,
+            "project.importCommit",
+            json!({"selections":[selection.clone()]}),
+        )
+        .await;
+        let outcome = &commit["result"]["outcomes"][0];
+        assert!(outcome["agent"].is_string(), "{commit}");
+        assert_eq!(outcome["error"], Value::Null);
+        assert_eq!(
+            opened.lock().unwrap().as_slice(),
+            &[selected.clone(), selected.clone()]
+        );
+        assert!(!opened.lock().unwrap().contains(&unrelated));
+        let replay = import_rpc(
+            &daemon,
+            "project.importCommit",
+            json!({"selections":[selection]}),
+        )
+        .await;
+        assert_eq!(replay, commit);
+        let retained: Vec<_> = std::fs::read_dir(selected.parent().unwrap())
+            .unwrap()
+            .map(|entry| entry.unwrap().path())
+            .filter(|path| path != &selected)
+            .collect();
+        assert_eq!(retained.len(), 1);
+        let mut original: Value =
+            serde_json::from_slice(&std::fs::read(&selected).unwrap()).unwrap();
+        let mut copied: Value =
+            serde_json::from_slice(&std::fs::read(&retained[0]).unwrap()).unwrap();
+        original.as_object_mut().unwrap().remove("sessionId");
+        copied.as_object_mut().unwrap().remove("sessionId");
+        assert_eq!(copied, original);
+        let tree = import_rpc(&daemon, "rail.tree", Value::Null).await;
+        let nodes: Vec<contracts::agent::RailNode> =
+            serde_json::from_value(tree["result"].clone()).unwrap();
+        let child = nodes
+            .iter()
+            .find(|node| node.id == outcome["agent"].as_str().unwrap())
+            .unwrap();
+        assert_eq!(child.kind, contracts::agent::NodeKind::Agent);
+        assert_eq!(child.parent.as_deref(), outcome["workstream"].as_str());
+        assert!(
+            child.can_resume
+                && child.terminal_id.is_none()
+                && child.attempt.is_none()
+                && child.status_revision.is_none()
+        );
+        assert_eq!(nodes.len(), 2);
+        assert!(!journal.exists());
+        assert_eq!(
+            import_rpc(&daemon, "terminal.list", Value::Null).await["result"],
+            json!([])
+        );
+    }
+
+    async fn refused_import_revision(change: &str) {
+        use std::io::Write;
+        let root = tempfile::tempdir().unwrap();
+        let config = root.path().join("config");
+        let at = time::OffsetDateTime::now_utc()
+            .format(&time::format_description::well_known::Rfc3339)
+            .unwrap();
+        let path = import_source(&config, root.path(), 1, &at);
+        let mut launcher = agents::claude_code::Launcher::new(
+            "must-not-launch",
+            config.join(".claude.json"),
+            "rup".into(),
+            None,
+        );
+        let armed = Arc::new(std::sync::atomic::AtomicBool::new(false));
+        let active = armed.clone();
+        let source = path.clone();
+        launcher.import_observer = Some(Arc::new(move |_, phase, _| {
+            if phase == "record" && active.swap(false, std::sync::atomic::Ordering::SeqCst) {
+                std::fs::File::options()
+                    .append(true)
+                    .open(&source)
+                    .unwrap()
+                    .write_all(b"{}\n")
+                    .unwrap();
+            }
+        }));
+        let daemon = import_daemon(root.path(), launcher);
+        let found = import_rpc(&daemon, "project.importDiscover", json!({"period":"week"})).await;
+        let candidate = &found["result"]["candidates"][0];
+        let selection = json!({"source":candidate["source"], "revision":candidate["revision"]});
+        let before = import_rpc(&daemon, "rail.tree", Value::Null).await;
+        if change == "replace" {
+            let metadata = std::fs::metadata(&path).unwrap();
+            let text = std::fs::read_to_string(&path)
+                .unwrap()
+                .replace("\"user\"", "\"edit\"");
+            let mut file = tempfile::NamedTempFile::new_in(path.parent().unwrap()).unwrap();
+            file.write_all(text.as_bytes()).unwrap();
+            file.as_file()
+                .set_modified(metadata.modified().unwrap())
+                .unwrap();
+            file.persist(&path).unwrap();
+            use std::os::unix::fs::MetadataExt;
+            assert_ne!(metadata.ino(), std::fs::metadata(&path).unwrap().ino());
+            assert_eq!(metadata.len(), std::fs::metadata(&path).unwrap().len());
+            assert_eq!(
+                metadata.modified().unwrap(),
+                std::fs::metadata(&path).unwrap().modified().unwrap()
+            );
+        } else if change == "during" {
+            armed.store(true, std::sync::atomic::Ordering::SeqCst);
+        } else {
+            std::fs::File::options()
+                .append(true)
+                .open(&path)
+                .unwrap()
+                .write_all(b"{}\n")
+                .unwrap();
+        }
+        let refused = import_rpc(
+            &daemon,
+            "project.importCommit",
+            json!({"selections":[selection]}),
+        )
+        .await;
+        let error = refused["result"]["outcomes"][0]["error"].as_str().unwrap();
+        assert!(
+            error.contains("changed since preview") && error.contains("Refresh"),
+            "{refused}"
+        );
+        assert_eq!(import_rpc(&daemon, "rail.tree", Value::Null).await, before);
+        assert_eq!(
+            std::fs::read_dir(path.parent().unwrap()).unwrap().count(),
+            1
+        );
+        assert!(!root.path().join(".roundup/worktrees").exists());
+        // Refresh proves unchanged-source success through the same public seam.
+        let found = import_rpc(&daemon, "project.importDiscover", json!({"period":"week"})).await;
+        let candidate = &found["result"]["candidates"][0];
+        let success = import_rpc(&daemon, "project.importCommit", json!({"selections":[{"source":candidate["source"], "revision":candidate["revision"]}]})).await;
+        assert!(
+            success["result"]["outcomes"][0]["agent"].is_string(),
+            "{success}"
+        );
+    }
+
+    #[tokio::test]
+    async fn u3082c_appended_source_is_refused() {
+        refused_import_revision("append").await;
+    }
+
+    #[tokio::test]
+    async fn u3082c_replaced_source_is_refused() {
+        refused_import_revision("replace").await;
+    }
+
+    #[tokio::test]
+    async fn u3082c_source_changed_during_validation_is_refused() {
+        refused_import_revision("during").await;
+    }
+
+    #[tokio::test]
     async fn u3037b_commit_reads_only_selected_contents() {
         let root = tempfile::tempdir().unwrap();
         let config = root.path().join("config");
@@ -2758,7 +2967,7 @@ mod tests {
             "rup".into(),
             None,
         );
-        launcher.import_observer = Some(Arc::new(move |path, phase| {
+        launcher.import_observer = Some(Arc::new(move |path, phase, _bytes| {
             if phase == "open" {
                 journal.lock().unwrap().push(path.to_path_buf());
             }
@@ -2840,10 +3049,7 @@ mod tests {
                 .unwrap()
                 .contains("changed since preview")
         );
-        assert_eq!(
-            opened.lock().unwrap().as_slice(),
-            std::slice::from_ref(&changed)
-        );
+        assert!(opened.lock().unwrap().is_empty());
         let duplicate = import_source(&config, &root.path().join("sub"), 3, &at);
         std::fs::write(duplicate, std::fs::read(&changed).unwrap()).unwrap();
         opened.lock().unwrap().clear();
@@ -2882,7 +3088,7 @@ mod tests {
             "rup".into(),
             None,
         );
-        launcher.import_observer = Some(Arc::new(move |_, phase| {
+        launcher.import_observer = Some(Arc::new(move |_, phase, _bytes| {
             if phase == "request" {
                 if requests.fetch_add(1, Ordering::SeqCst) == 1 {
                     requested.lock().unwrap().take().unwrap().send(()).unwrap();
@@ -2939,6 +3145,16 @@ mod tests {
     #[tokio::test]
     #[ignore = "U3037c generates 3.5 GB of real storage; run with --release separately from fast tests"]
     async fn u3037c_large_storage_discovery_finishes_before_deadline() {
+        large_storage_discovery(false).await;
+    }
+
+    #[tokio::test]
+    #[ignore = "U3082b generates 900 MB of real storage; run separately from fast tests"]
+    async fn u3082b_week_and_month_load_large_storage() {
+        large_storage_discovery(true).await;
+    }
+
+    async fn large_storage_discovery(owner_storage: bool) {
         use std::io::{BufWriter, Write};
         use std::time::{Instant, SystemTime, UNIX_EPOCH};
         let root = tempfile::tempdir().unwrap();
@@ -2951,31 +3167,60 @@ mod tests {
         let unrelated = unrelated.canonicalize().unwrap();
         let now = time::OffsetDateTime::now_utc();
         let mut total = 0u64;
-        for i in 0..1260 {
+        let file_count = if owner_storage { 153 } else { 1260 };
+        let total_size = if owner_storage {
+            900_000_000
+        } else {
+            3_500_000_000
+        };
+        for i in 0..file_count {
             let age = match i {
                 0..=4 => 0,
                 5..=7 => 3,
                 8..=10 => 15,
                 _ => 60,
             };
-            let cwd = if i < 630 { &project } else { &unrelated };
+            let cwd = if owner_storage {
+                match i {
+                    0..=10 => project.clone(),
+                    11 => project.join("old"),
+                    _ => unrelated.join(format!("bucket-{i}")),
+                }
+            } else if i < 630 {
+                project.clone()
+            } else {
+                unrelated.clone()
+            };
+            std::fs::create_dir_all(&cwd).unwrap();
             let stamp = (now - time::Duration::days(age))
                 .format(&time::format_description::well_known::Rfc3339)
                 .unwrap();
-            let path = import_source(&config, cwd, i, &stamp);
+            let path = import_source(&config, &cwd, i, &stamp);
             let header = std::fs::read(&path).unwrap();
             let size = if i == 0 {
-                397_000_000
+                if owner_storage {
+                    400_000_000
+                } else {
+                    397_000_000
+                }
             } else if i <= 10 {
                 1_000
-            } else if i == 1259 {
-                3_500_000_000 - total
+            } else if i == file_count - 1 {
+                total_size - total
+            } else if owner_storage {
+                3_000_000
             } else {
                 2_484_000
             };
             let mut writer = BufWriter::new(std::fs::File::create(&path).unwrap());
             writer.write_all(&header).unwrap();
-            let mut remaining = size - header.len() as u64;
+            let trailer = if owner_storage && i == 0 {
+                b"{\"type\":\"custom-title\",\"customTitle\":\"Near the end\"}\n{\"torn\":"
+                    .as_slice()
+            } else {
+                b"".as_slice()
+            };
+            let mut remaining = size - header.len() as u64 - trailer.len() as u64;
             while remaining > 0 {
                 let len = remaining.min(65536) as usize;
                 let record = if len >= 15 {
@@ -2986,6 +3231,7 @@ mod tests {
                 writer.write_all(record.as_bytes()).unwrap();
                 remaining -= record.len() as u64;
             }
+            writer.write_all(trailer).unwrap();
             writer.flush().unwrap();
             writer
                 .get_ref()
@@ -2997,19 +3243,36 @@ mod tests {
             assert_eq!(std::fs::metadata(path).unwrap().len(), size);
             total += size;
         }
-        assert_eq!(total, 3_500_000_000);
-        let launcher = agents::claude_code::Launcher::new(
+        assert_eq!(total, total_size);
+        if owner_storage {
+            assert_eq!(
+                std::fs::read_dir(config.join("projects")).unwrap().count(),
+                143
+            );
+        }
+        let bytes = Arc::new(std::sync::atomic::AtomicU64::new(0));
+        let observed = bytes.clone();
+        let mut launcher = agents::claude_code::Launcher::new(
             "must-not-launch",
             config.join(".claude.json"),
             "rup".into(),
             None,
         );
+        launcher.import_observer = Some(Arc::new(move |_, phase, count| {
+            if phase == "bytes" {
+                observed.fetch_add(count, std::sync::atomic::Ordering::Relaxed);
+            }
+        }));
         let daemon = Arc::new(import_daemon(&project, launcher));
         let socket = root.path().join("observer.sock");
         let listener = UnixListener::bind(&socket).unwrap();
         let service = tokio::spawn(serve(listener, daemon));
         let client = rpc::Client::connect(&socket).await.unwrap();
         for (period, expected) in [("day", 5), ("week", 8), ("month", 11)] {
+            if owner_storage && period == "day" {
+                continue;
+            }
+            bytes.store(0, std::sync::atomic::Ordering::Relaxed);
             let rss = || {
                 std::fs::read_to_string("/proc/self/status")
                     .ok()
@@ -3055,12 +3318,15 @@ mod tests {
                 );
             }
             eprintln!(
-                "U3037c peak additional RSS: {} KiB (baseline {baseline} KiB)",
+                "{} peak additional RSS: {} KiB (baseline {baseline} KiB)",
+                if owner_storage { "U3082b" } else { "U3037c" },
                 peak.load(std::sync::atomic::Ordering::Relaxed)
                     .saturating_sub(baseline)
             );
             eprintln!(
-                "U3037c {period}: {elapsed:?}, eligible bytes ~397 MB; total {total}, generated at {:?}",
+                "{} {period}: {elapsed:?}; total {total}; content bytes {}; generated at {:?}",
+                if owner_storage { "U3082b" } else { "U3037c" },
+                bytes.load(std::sync::atomic::Ordering::Relaxed),
                 UNIX_EPOCH.elapsed().unwrap()
             );
             assert_eq!(
@@ -3068,6 +3334,10 @@ mod tests {
                 Some(expected),
                 "{response}"
             );
+            if owner_storage {
+                assert_eq!(response["candidates"][0]["title"], "Near the end");
+                assert_eq!(response["candidates"][0]["cwd"], "");
+            }
             let sources: Vec<_> = response["candidates"]
                 .as_array()
                 .unwrap()
