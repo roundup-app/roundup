@@ -108,7 +108,7 @@
 
 .import-cwd {
   flex: 1 1 0;
-  min-width: 0;
+  min-width: 8ch;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -153,7 +153,8 @@
 }
 
 .import-failure {
-  flex: none;
+  flex: 0 1 auto;
+  min-width: 0;
   color: var(--red);
   margin: 0;
   overflow-wrap: anywhere;

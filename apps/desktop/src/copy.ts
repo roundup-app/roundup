@@ -11,14 +11,18 @@ const railDraftStatuses = new Map([["draft", "Draft"], ["pending", "Submittingâ€
 const railDraftLabels = new Map([["rail-task", "Task"], ["rail-name", "Name"], ["rail-clear", "Clear reason"]]);
 
 /** App-authored labels and prose (U471). Code terms remain keys; authored values pass through unchanged. */
-const importExcludedReasons: [(r: string) => boolean, string][] = [
-  [(r) => r === "already in this project", "Already imported"],
-  [(r) => r === "ambiguous project membership", "Used more than one folder of this Project"],
-  [(r) => r.includes("folder") || r.includes("directory") || r.includes("source unavailable"), "Its folder is no longer there"],
-  [(r) => r.includes("worktree"), "Lives in a Worktree"],
-  [(r) => r.includes("duplicate"), "Already listed once"],
-  [(r) => r.includes("activity"), "No usable time"],
+const importExcludedReasons: [string[], string][] = [
+  [["already in this project"], "Already imported"],
+  [["ambiguous project membership"], "Used more than one folder of this Project"],
+  [["no recorded working directory", "too many recorded directories"], "Its folder is no longer there"],
+  [["inside a worktree"], "Lives in a Worktree"],
+  [["duplicate source identity"], "Already listed once"],
+  [["activity unknown or in the future", "no complete records"], "No usable time"],
 ];
+
+/** The Daemon's reason, less a `<path>: ` prefix, equals a fixed string (discovery.rs); a path never picks the cause. */
+const reasonIs = (reason: string, fixed: string) => reason === fixed || reason.endsWith(`: ${fixed}`);
+
 
 export const copy = {
   costAndTime: "Cost and time",
@@ -428,7 +432,7 @@ export const copy = {
   importNotImportable: (count: number) => `${count} not importable`,
   importExcludedReason: (reason: string) => {
     const r = reason.toLowerCase();
-    const found = importExcludedReasons.find(([test]) => test(r));
+    const found = r.startsWith("missing directory ") ? importExcludedReasons[2] : importExcludedReasons.find(([fixed]) => fixed.some((f) => reasonIs(r, f)));
 
     return found ? found[1] : "Can't be read as a conversation";
   },

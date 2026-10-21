@@ -92,7 +92,7 @@ it.each([new RpcError(-32003, "daemon said no"), new Error("daemon said no")])("
 it("u2875a_discovery_exclusions_remain_visible_after_partial_failure", async () => {
   const { app } = await mount();
   app.handlers["project.importCommit"] = () => {
-    app.handlers["project.importDiscover"] = () => ({ candidates: [candidates[1]!], excluded: [{ source: "s1", reason: "source unavailable", title: null, last_activity_ms: null }] });
+    app.handlers["project.importDiscover"] = () => ({ candidates: [candidates[1]!], excluded: [{ source: "s1", reason: "/p/worktrees/s1.jsonl: no recorded working directory", title: null, last_activity_ms: null }] });
 
     return { outcomes: [{ source: "s1", workstream: null, agent: null, error: "copy refused" }] };
   };
@@ -102,7 +102,7 @@ it("u2875a_discovery_exclusions_remain_visible_after_partial_failure", async () 
   fireEvent.click(await screen.findByRole("button", { name: "Import 1" }));
   fireEvent.click(await screen.findByRole("button", { name: "1 not importable" }));
   await waitFor(() => expect(screen.getByText("Its folder is no longer there")).toBeTruthy());
-  expect(screen.getByText("copy refused")).toBeTruthy();
+  expect(screen.getByText(/copy refused/)).toBeTruthy();
   expect(screen.getByRole("button", { name: "Refresh" })).toBeTruthy();
 });
 
@@ -296,10 +296,10 @@ it("u3083c_failed_import_error_names_cause_and_fix", async () => {
   await open();
   fireEvent.click(screen.getByText("first"));
   fireEvent.click(await screen.findByRole("button", { name: "Import 1" }));
-  const alert = await screen.findByText("copy refused");
+  const alert = await screen.findByText(/copy refused/);
 
   expect(alert.closest("label")).toBe(screen.getByRole("checkbox", { name: /first/ }).closest("label"));
-  expect(alert.parentElement?.textContent).toContain("Choose it again, or Refresh.");
+  expect(alert.textContent).toContain("Choose it again, or Refresh.");
 });
 
 it("u3083a_every_modal_renders_in_the_shared_positioner", async () => {
