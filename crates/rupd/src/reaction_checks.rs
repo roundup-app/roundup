@@ -818,7 +818,19 @@ mod tests {
                 Ok(passed("a"))
             })
             .await;
+        // Replay the same evidence and explicitly run: neither can bypass the saved expiry.
+        watcher.check_with(|_, _| async { Ok(passed("a")) }).await;
+        let refused = client
+            .request(
+                "reaction.run",
+                json!({"id": id, "operation": "expired-run"}),
+            )
+            .await
+            .unwrap_err();
+        assert_eq!(refused.code, rpc::code::CONFLICT);
         let inspected = get(&client, &id).await;
+        assert_eq!(inspected["expires_at"], stamp);
+        assert_eq!(inspected["remaining"], 1);
         assert_eq!(
             inspected["firings"],
             json!([]),
