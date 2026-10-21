@@ -92,7 +92,7 @@ export const TodoDrawer = (props: {
   const toggle = () => attempt(async () => {
     const focused = document.activeElement === titleRow?.querySelector("input");
     const reopening = props.todos.byId().get(props.id)?.done;
-    await app.rpc(reopening ? "todo.reopen" : "todo.complete", { id: props.id });
+    await (reopening ? app.rpc("todo.reopen", { id: props.id }) : app.rpc("todo.complete", { id: props.id }));
 
     const stayed = document.activeElement === titleRow?.querySelector("input") || document.activeElement === document.body;
 

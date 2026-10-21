@@ -547,7 +547,6 @@ export const copy = {
   homesFor: (value1: CopyValue) => `Homes for #${value1}`,
   reopenTodo: (value1: CopyValue) => `Reopen ${value1}`,
   completeTodo: (value1: CopyValue) => `Complete ${value1}`,
-  reopenTodo: (value1: CopyValue) => `Reopen ${value1}`,
   deleteTodoQuestion: "Delete Todo?",
   waitsOn: "Waits on",
   removeBlocker: (value1: CopyValue) => `Remove blocker #${value1}`,

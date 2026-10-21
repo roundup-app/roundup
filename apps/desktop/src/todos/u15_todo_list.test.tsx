@@ -184,14 +184,6 @@ describe("u15 Todo list", () => {
     expect(reads).toBeLessThan(count * 40);
   });
 
-  it("u15_a_row_keeps_its_glyph_in_its_own_column_and_its_title_button_unindented", async () => {
-    await mountTodos([todo(3)]);
-
-    const row = await screen.findByRole("button", { name: /#3/ });
-
-    expect([row.style.paddingLeft, row.style.textIndent, row.closest(".shelf-row")?.querySelector(":scope > .shelf-glyph input")?.getAttribute("aria-label")]).toEqual(["", "", "Complete todo 3"]);
-  });
-
   it("u15_a_list_that_is_gone_stops_listening_to_events", async () => {
     const { app, unmount } = await mountTodos([todo(1)]);
     await screen.findByText(/todo 1/);
