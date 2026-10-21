@@ -20,9 +20,29 @@ use super::Launcher;
 /// another number, or none, is a `mismatch`.
 const PEER_PROTOCOL: u64 = 1;
 
-/// The permission mode an Agent is launched in, and the `from-mode` a note names: a session whose
-/// mode differs from its sender's holds the note for approval.
-pub(super) const PERMISSION_MODE: &str = "default";
+/// B2706: the modes Claude Code lists for `permissions.defaultMode`.
+const MODES: [&str; 4] = ["default", "acceptEdits", "plan", "auto"];
+
+/// B2706: the permission mode a normal Attempt in `cwd` runs in, which is the `from-mode` a note
+/// names (a session whose mode differs from its sender's holds the note for approval): the first
+/// of the local project, project and user settings that names `permissions.defaultMode`; a value
+/// Claude Code does not list, or no layer at all, is `default`.
+pub(super) fn default_mode(config: &Path, cwd: &Path) -> String {
+    [
+        cwd.join(".claude/settings.local.json"),
+        cwd.join(".claude/settings.json"),
+        config.join("settings.json"),
+    ]
+    .iter()
+    .find_map(|file| {
+        let settings: Value = serde_json::from_slice(&std::fs::read(file).ok()?).ok()?;
+        settings["permissions"]["defaultMode"]
+            .as_str()
+            .map(str::to_owned)
+    })
+    .filter(|mode| MODES.contains(&mode.as_str()))
+    .unwrap_or_else(|| "default".into())
+}
 
 /// How long a write to an Agent's socket may block.
 const WRITE_BOUND: Duration = Duration::from_secs(2);
@@ -135,9 +155,14 @@ impl Launcher {
     /// drops a `msg_id` it has taken up.
     pub fn inbox_write(&self, agent: &str, notes: &[Entry], yolo: bool) -> Result<(), Inbox> {
         let permission_mode = if yolo {
-            "bypassPermissions"
+            "bypassPermissions".to_owned()
         } else {
-            PERMISSION_MODE
+            self.modes
+                .lock()
+                .unwrap_or_else(std::sync::PoisonError::into_inner)
+                .get(agent)
+                .cloned()
+                .unwrap_or_else(|| "default".into())
         };
         let socket = self.socket_path(agent);
         let token = self.session(&socket).ok_or(Inbox::Missing)?.token;

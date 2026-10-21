@@ -139,6 +139,37 @@ pub struct ReadHistoryParams {
     pub through: u32,
 }
 
+/// A line on a Todo from the user or an Agent (T20). Not a Message and not History.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, TS)]
+#[ts(export, export_to = "todo/")]
+pub struct Comment {
+    pub id: u32,
+    /// The authenticated Actor that called `todo.comment`.
+    pub author: Actor,
+    pub body: String,
+    #[ts(type = "number")]
+    pub created_at: i64,
+    /// An Agent's comment is unread until the user opens the Todo (T23); the user's own is born read.
+    pub read: bool,
+}
+
+/// Adds a comment to a Todo. The author is the calling Actor, never a param. An Agent's body is one line of at most 280 characters (T21).
+#[derive(Clone, Debug, Serialize, Deserialize, TS, JsonSchema)]
+#[ts(export, export_to = "todo/")]
+pub struct CommentParams {
+    pub id: u32,
+    pub body: String,
+}
+
+/// An unread Agent comment with the Todo it sits on (T23).
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, TS)]
+#[ts(export, export_to = "todo/")]
+pub struct UnreadComment {
+    pub todo: u32,
+    pub title: String,
+    pub comment: Comment,
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

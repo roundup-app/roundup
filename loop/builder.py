@@ -68,7 +68,7 @@ SCENARIO_ID = r'[A-Za-z]+[0-9]+[a-z]?'
 # A scenario file's heading line, `**<id> <title>.**`, where a scenario starts.
 HEADING = re.compile(rf'\*\*({SCENARIO_ID}) ')
 ATTEMPTS = 3
-# L82: the PR comment that gives a Builder PR whose head review and the critic approved its ATTEMPTS again, once per head;
+# L82: the PR comment that gives a Builder PR whose head review and the critic approved its ATTEMPTS again, once per PR;
 # and how much of the cause that found no fix run left its Issue's strike quotes.
 REVIVE = '<!-- fix-revive -->'
 STRIKE_CAUSE_CAP = 200
@@ -1046,16 +1046,16 @@ def approved(pr, head, marker):
 
 
 def revive(current, cause):
-    """L82: give a Builder PR out of fix runs its ATTEMPTS again, once per head, when review and (for a PR that changes
+    """L82: give a Builder PR out of fix runs its ATTEMPTS again, once per PR, when review and (for a PR that changes
     `apps/desktop/src/`) the design critic approved that head: post a `REVIVE` comment naming the head and `cause`.
     Whether it did."""
     pr, head = current['number'], current['headRefOid']
-    if any(orders.field(c['body'], 'Head', '') == head for c in orders.marked(pr, REVIVE)) or \
+    if orders.marked(pr, REVIVE) or \
             not approved(pr, head, 'VERDICT:') or (touches_desktop(pr) and not approved(pr, head, 'CRITIC:')):
         return False
     comment(pr, f'{REVIVE}\nHead: {head}\n\nThis PR used its {fix_attempts()} fix runs, but review and the design critic '
                 f'approved this head, so it stays open once more: its fix runs count again from here, starting with this '
-                f'run for `{cause}`. A second time out of fix runs on this head closes it.')
+                f'run for `{cause}`. A second time out of fix runs closes it.')
     return True
 
 
