@@ -352,6 +352,104 @@ async fn u3078c_changed_revisions_and_unavailable_evidence_do_not_inherit_comple
 }
 
 #[tokio::test]
+async fn u3078c_message_replacements_keep_acceptance_historical() {
+    let mut e = Evidence::start().await;
+    let accepted = e.accept().await;
+    let verified = e
+        .client
+        .request("message.verifyResult", e.result_id())
+        .await
+        .unwrap();
+    let before = e.progress().await;
+    assert_eq!(before["results"][0]["current"], true);
+
+    // Another Agent's accepted result has independent instruction history.
+    let other = e
+        .client
+        .request(
+            "agent.spawn",
+            json!({
+                "cwd": e.project.dir.path(), "parent": e.home, "name": "Unrelated",
+                "order": e.report["instruction"]["order"]
+            }),
+        )
+        .await
+        .unwrap();
+    daemon::next(&mut e.client, |event| match event {
+        contracts::EventData::MessageDelivered(m) if m.body == "evidence-ready" => Some(()),
+        _ => None,
+    })
+    .await;
+    let data: Value =
+        serde_json::from_slice(&std::fs::read(e.logs.path().join("report")).unwrap()).unwrap();
+    let other_query = json!({"project": e.project.dir.path(), "id": other["id"]});
+    e.client
+        .request(
+            "message.acceptResult",
+            json!({
+                "project": e.project.dir.path(), "id": other["id"],
+                "report": data["report"]["report"], "evidence": "Unrelated V1 accepted"
+            }),
+        )
+        .await
+        .unwrap();
+    let unrelated = e
+        .client
+        .request("message.progress", other_query.clone())
+        .await
+        .unwrap();
+
+    let original = before["instructions"]["deliveries"][0]["text"]
+        .as_str()
+        .unwrap();
+    for body in [
+        "Replace the implementation; done when the new checks pass",
+        original,
+    ] {
+        let message = e
+            .client
+            .request(
+                "message.send",
+                json!({
+                    "to": e.report["author"]["id"], "kind": "note", "body": body
+                }),
+            )
+            .await
+            .unwrap();
+        daemon::next(&mut e.client, |event| match event {
+            contracts::EventData::MessageDelivered(m) if json!(m.id) == message["id"] => Some(()),
+            _ => None,
+        })
+        .await;
+        let progress = e.progress().await;
+        assert_eq!(
+            progress["instructions"]["current"],
+            before["instructions"]["current"]
+        );
+        assert_eq!(
+            progress["instructions"]["revisions"]
+                .as_array()
+                .unwrap()
+                .last()
+                .unwrap()["message"],
+            message["id"]
+        );
+        let result = &progress["results"][0];
+        assert_eq!(result["current"], false);
+        assert_eq!(result["report"], e.report);
+        assert_eq!(result["acceptances"], json!([accepted]));
+        assert_eq!(result["observations"], json!([verified]));
+        assert_eq!(
+            e.client
+                .request("message.progress", other_query.clone())
+                .await
+                .unwrap(),
+            unrelated
+        );
+    }
+}
+
+#[tokio::test]
 async fn u3078h_unknown_external_effects_require_authoritative_resolution() {
     let e = Evidence::start().await;
     let calls = std::fs::read(e.logs.path().join("report.effects")).unwrap();
