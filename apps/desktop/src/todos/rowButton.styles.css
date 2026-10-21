@@ -196,3 +196,48 @@
   color: var(--ink-pressed);
   transition-duration: 0s;
 }
+
+/* U53: retain the done rows through a reversible 150 ms fold. The existing
+   150 ms Token matches REORDER_MS; hidden controls stop accepting input at once. */
+.todo-done-fold {
+  display: grid;
+  grid-template-rows: 0fr;
+  transition-property: grid-template-rows;
+  transition-duration: var(--duration-toast);
+  transition-timing-function: var(--easing-out);
+}
+
+.todo-done-fold[data-open="true"] {
+  grid-template-rows: 1fr;
+}
+
+.todo-done-content {
+  min-height: 0;
+  overflow: hidden;
+}
+
+@starting-style {
+  .todo-done-fold[data-open="true"] {
+    grid-template-rows: 0fr;
+  }
+}
+
+.todo-done-fold[data-reduced-motion="true"] {
+  transition: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .todo-done-fold { transition: none; }
+}
+
+/* Every dependency keeps its own clipped text box inside the selected row's
+   ground, including the last dependency on a dense list. */
+.todo-inset .todo-blockers {
+  display: flex;
+  align-items: center;
+}
+
+.todo-inset .todo-blocker {
+  flex: 0 1 auto;
+  min-width: 0;
+}

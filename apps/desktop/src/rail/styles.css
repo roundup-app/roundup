@@ -577,12 +577,15 @@
 }
 
 /* U466: the leaf owns the wash so nesting cannot inset its selection bar. */
-:is(.rail-leaf, .rail-fold):hover {
+.rail-leaf:hover,
+.rail-fold:hover {
   background-image: linear-gradient(var(--hover), var(--hover));
 }
 
-:is(.rail-leaf, .rail-fold):active {
+.rail-leaf:active,
+.rail-fold:active {
   background-image: linear-gradient(var(--pressed), var(--pressed));
+  transition-duration: 0s;
 }
 
 .rail-leaf:has([data-selected="true"]) {
@@ -918,3 +921,5 @@
   margin-inline: var(--space-6) var(--space-4);
   padding-left: var(--space-3);
 }
+
+.rail-leaf[role="treeitem"] { cursor: pointer; }

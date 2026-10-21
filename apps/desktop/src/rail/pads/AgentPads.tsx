@@ -94,6 +94,8 @@ export const PadsControl = (props: { pads: AgentPads }) => {
 /** U405: one leaf hanging on the Agent's trunk, one `--rail-step` under its Glyph; `last` ends the trunk at its elbow. */
 const Leaf = (props: { depth: number; trail: readonly boolean[]; last: boolean; todo?: boolean; children: JSX.Element }) => (
   <div
+    role="treeitem"
+    aria-level={props.depth + 2}
     class="rail-leaf"
     data-leaf={props.todo ? "todo" : "pad"}
     style={{ "--indent": `calc(${props.depth + 1} * var(--rail-step) + var(--rail-inset))` }}
