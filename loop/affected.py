@@ -28,6 +28,9 @@ CRATE_READS = {'contracts/': 'contracts', 'spikes/': 'agents', 'apps/desktop/src
 # read from disk reach every test.
 APP = 'apps/desktop/'
 WEB_EVERYTHING = ('contracts/', 'docs/wireframes.md', 'docs/design-system.md', 'scenarios/app.md')
+# Tests that read the App's source files as text (a directory listing plus a file read) are outside vitest's module graph,
+# so a change to any App source file reaches each; the same holds for a Rust test naming the App's `src` folder.
+WEB_SCAN = re.compile(r'\b(readdirSync|globSync)\(')
 # The module every web test that starts a real `rupd` imports.
 DAEMON = 'apps/desktop/src/testing/realDaemonPlugin.ts'
 # Web tests that read a folder outside the App from disk: a change under the folder reaches each.
@@ -85,6 +88,15 @@ def web(changed):
                   ({DAEMON} if any(path.startswith('crates/') for path in changed) else set()))
 
 
+def app_scans(changed):
+    """The tests that scan the App's source files as text, when a changed path lies in them: each test file in
+    `apps/desktop/src/` that lists a directory and reads a file, as repository paths."""
+    if not any(path.startswith(APP + 'src/') for path in changed):
+        return []
+    return sorted(path.relative_to(ROOT).as_posix() for path in (ROOT / APP / 'src').rglob('*.test.ts*')
+                  if WEB_SCAN.search(text := path.read_text()) and 'readFileSync' in text)
+
+
 def boxd(changed):
     """Select the runner regressions only when their code, callers or execution configuration can change."""
     return 'all' if any(under(path, BOXD_READS) for path in changed) else []
@@ -117,8 +129,10 @@ def main(argv):
     tracked = git('diff', '--name-only', '--no-renames', fork).split()
     untracked = git('ls-files', '--others', '--exclude-standard').split()
     changed = tracked + untracked
-    selected = crates(changed, workspace()) if lane == 'rust' else (web(changed) if lane == 'web' else boxd(changed))
+    crate_folders = workspace() if lane == 'rust' else {}
+    selected = crates(changed, crate_folders) if lane == 'rust' else (web(changed) if lane == 'web' else boxd(changed))
     if selected != 'all' and lane == 'web':
+        selected = sorted(set(selected) | set(app_scans(changed)))
         selected = [str(ROOT / path) for path in selected if (ROOT / path).exists()]
     print(selected if selected == 'all' else '\n'.join(selected))
     return 0

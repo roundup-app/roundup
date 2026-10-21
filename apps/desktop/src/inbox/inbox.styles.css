@@ -1,0 +1,12 @@
+.inbox { display: flex; flex-direction: column; gap: var(--space-3); font-family: var(--font-ui); overflow-wrap: anywhere; }
+.inbox h2 { font: inherit; font-weight: 600; margin: 0; }
+.inbox-row {
+  --button-inline: 0;
+  display: grid;
+  grid-template-columns: auto 1fr;
+  column-gap: var(--space-2);
+  align-items: start;
+  text-align: start;
+}
+.inbox-row > .glyph { grid-row: span 2; }
+.inbox-row-line { grid-column: 2; color: var(--amber); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }

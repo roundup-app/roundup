@@ -228,7 +228,7 @@ fn assert_exit_1_with_one_line_naming(output: &Output, socket: &Path) {
 
 /// M5: the methods with a tool for every Agent, each named after its method with the dot replaced
 /// by `_`, bar `agent.setOrder` (O4), whose tool is `agent_set_order`.
-const TOOL_METHODS: [&str; 85] = [
+const TOOL_METHODS: [&str; 86] = [
     "agent.wake",
     "reaction.create",
     "reaction.preview",
@@ -243,6 +243,7 @@ const TOOL_METHODS: [&str; 85] = [
     "deliverable.move",
     "deliverable.remove",
     "todo.create",
+    "todo.comment",
     "todo.get",
     "todo.list",
     "todo.update",
@@ -339,7 +340,7 @@ const DOOR_METHODS: [&str; 8] = [
 ];
 
 /// M5: the methods and App commands with no tool; the reasons are in `scenarios/mcp.md`.
-const NO_TOOL: [&str; 62] = [
+const NO_TOOL: [&str; 65] = [
     // A3194, A3195, P9: a start spends usage, so only the user's own choice starts a Workstream or sets what may run.
     "todo.startWorkstream",
     "workstream.queue",
@@ -357,6 +358,10 @@ const NO_TOOL: [&str; 62] = [
     // U462: only the open Drawer fetches and acknowledges the user's Todo history.
     "todo.getHistory",
     "todo.readHistory",
+    // T21, T23: an Agent only leaves a comment; the thread and its unread state are the user's to read.
+    "todo.comments",
+    "todo.unread",
+    "todo.markCommentsRead",
     // T17: an Agent cannot assign in this delivery.
     "todo.assign",
     "message.deliver",
@@ -1837,4 +1842,44 @@ async fn t19_mcp_reopen_uses_agent_identity() {
     assert_eq!(result.is_error, Some(true));
     assert_eq!(user.request("todo.list", Value::Null).await.unwrap(), list);
     let _ = shim.client.cancel().await;
+}
+
+#[tokio::test]
+async fn t21_the_tool_description_asks_for_one_plain_line_for_the_user() {
+    let project = start_daemon();
+    let shim = spawn_shim(&project.socket, "a1").await;
+    let tools = shim.client.list_all_tools().await.unwrap();
+    let tool = tools.iter().find(|t| t.name == "todo_comment").unwrap();
+    let description = tool.description.as_deref().unwrap();
+    for phrase in [
+        "only when the user must read it",
+        "question",
+        "blocker",
+        "one short plain line",
+    ] {
+        assert!(description.contains(phrase), "{phrase}: {description}");
+    }
+}
+
+#[tokio::test]
+async fn t21_an_agent_comment_names_its_author_over_mcp_and_cli() {
+    let project = start_daemon();
+    let user = client_as(&project.socket, Actor::user()).await;
+    user.request("todo.create", json!({"title":"ship"}))
+        .await
+        .unwrap();
+    let shim = spawn_shim(&project.socket, "a1").await;
+    let result = shim
+        .call(
+            "todo_comment",
+            json!({"id":1,"body":"which branch?","author":Actor::user()}),
+        )
+        .await;
+    assert_ne!(result.is_error, Some(true));
+    let thread = user
+        .request("todo.comments", json!({"id":1}))
+        .await
+        .unwrap();
+    assert_eq!(thread[0]["author"], json!(agent("a1")));
+    assert_eq!(thread[0]["read"], false);
 }
