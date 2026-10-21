@@ -250,7 +250,12 @@ pub struct Measurement {
 pub enum MeasurementValue {
     Request {
         usage: Consumed,
+        // Old retained records remain explicitly unknown until bounded source replay.
+        #[serde(default)]
+        cost: Option<Box<RequestCost>>,
     },
+    /// Inclusive source totals never add to constituent requests or their reference estimates.
+    Money { reported: ReportedMoney },
     /// Roundup-owned lifetimes and waits. Never model/tool execution.
     Observed {
         activity: TimedActivity,
@@ -334,4 +339,61 @@ pub enum TimeState {
     Active,
     Ended { at: ClockPoint },
     Interrupted,
+}
+
+/// Retained evidence, never a subscription bill. Missing fields are unknown, never zero.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, TS)]
+#[ts(export, export_to = "project/")]
+pub struct RequestCost {
+    pub model: Option<String>,
+    pub cache_write: CacheWrites,
+    pub reference: Option<ReferenceRates>,
+    pub reported: Option<ReportedMoney>,
+    pub unavailable: Vec<String>,
+}
+
+/// Independently observed write classes; they partition Consumed.cache_write, never add to it.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, TS)]
+#[ts(export, export_to = "project/")]
+pub struct CacheWrites {
+    #[ts(type = "number | null")]
+    pub five_minute: Option<u64>,
+    #[ts(type = "number | null")]
+    pub one_hour: Option<u64>,
+}
+
+/// Exact decimal currency units per `per_tokens`; an offline comparison, not observed money.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, TS)]
+#[ts(export, export_to = "project/")]
+pub struct ReferenceRates {
+    pub version: String,
+    pub date: String,
+    pub currency: String,
+    pub source: String,
+    pub basis: String,
+    pub per_tokens: u32,
+    pub input: String,
+    pub output: String,
+    pub cache_read: String,
+    pub cache_write_five_minute: String,
+    pub cache_write_one_hour: String,
+}
+
+/// Source money is separate from reference rates. Currency absence forbids conversion/summing.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, TS)]
+#[ts(export, export_to = "project/")]
+pub struct ReportedMoney {
+    pub scope: MoneyScope,
+    pub amount: String,
+    pub currency: Option<String>,
+    pub source: String,
+    pub basis: String,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, TS)]
+#[serde(rename_all = "kebab-case")]
+#[ts(export, export_to = "project/")]
+pub enum MoneyScope {
+    Request,
+    Conversation,
 }
