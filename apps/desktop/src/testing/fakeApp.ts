@@ -2,7 +2,7 @@ import type { Event as DaemonEvent } from "@contracts/Event";
 import type { RpcMethodName, RpcMethods } from "@contracts/methods";
 import { OWN_CONTRACT } from "../app/contractMatch";
 import { RpcError } from "../app/seam";
-import type { AppSeam, DaemonExit, DaemonExited, FileDrop, OpenTarget, OutputMessage, PastedImage, Project } from "../app/seam";
+import type { AppSeam, DaemonExit, DaemonExited, FileDrop, MenuItem, OpenTarget, OutputMessage, PastedImage, Project } from "../app/seam";
 
 const CONFLICT = -32003;
 
@@ -65,6 +65,16 @@ export type FakeApp = AppSeam & {
   /** The same calls with their `line`. */
   editorCalls: { path: string; line?: number }[];
   editorFailure: RpcError | null;
+  /** Every menu `show_context_menu` was called with, in order; `menuChoice` is the id it resolves (`null`: the menu closed with no choice). */
+  shownMenus: { items: MenuItem[]; x: number; y: number }[];
+  /** `undefined`: the menu stays open until `pickMenu` or `closeMenu`. */
+  menuChoice: string | null | undefined;
+  menuResolve: ((id: string | null) => void) | null;
+  /** Chooses the item labelled `label` (a submenu's child included) of the open menu, and lets the webview run it. */
+  pickMenu(label: string): Promise<void>;
+  closeMenu(): Promise<void>;
+  /** The labels of the last menu shown, top level, with `enabled` when asked. */
+  menuLabels(): string[];
   /** Every image `save_pasted_image` was called with, in order; `saveImageFailure` is what it rejects with and `savedImagePath` what it resolves. */
   savedImages: PastedImage[];
   saveImageFailure: RpcError | null;
@@ -113,6 +123,23 @@ export const createFakeApp = (): FakeApp => {
     editorCalls: [],
     editorFailure: null,
     savedImages: [],
+    shownMenus: [],
+    menuChoice: undefined,
+    menuResolve: null,
+    pickMenu: async (label) => {
+      const flat = (items: MenuItem[]): MenuItem[] => items.flatMap((item) => [item, ...flat(item.children ?? [])]);
+      const found = flat(app.shownMenus.at(-1)?.items ?? []).find((item) => item.label === label);
+
+      if (!found) throw new Error(`no menu item ${label}`);
+
+      app.menuResolve?.(found.id);
+      await new Promise((done) => setTimeout(done, 0));
+    },
+    closeMenu: async () => {
+      app.menuResolve?.(null);
+      await new Promise((done) => setTimeout(done, 0));
+    },
+    menuLabels: () => (app.shownMenus.at(-1)?.items ?? []).map((item) => item.label),
     saveImageFailure: null,
     savedImagePath: "/Users/me/Library/Caches/roundup-pasted/pasted-1-abcd1234.png",
     opened: {
@@ -225,6 +252,7 @@ export const createFakeApp = (): FakeApp => {
         openTarget: app.openTarget,
         openInEditor: app.openInEditor,
         savePastedImage: app.savePastedImage,
+        showContextMenu: app.showContextMenu,
       });
       Object.defineProperty(other, "windowTitleHandler", {
         get: () => app.windowTitleHandler,
@@ -295,6 +323,13 @@ export const createFakeApp = (): FakeApp => {
 
       app.editorOpened.push(path);
       app.editorCalls.push(line === undefined ? { path } : { path, line });
+    },
+    showContextMenu: async (items, x, y) => {
+      app.shownMenus.push({ items, x, y });
+
+      if (app.menuChoice !== undefined) return app.menuChoice;
+
+      return new Promise<string | null>((resolve) => { app.menuResolve = resolve; });
     },
     savePastedImage: async (image) => {
       if (app.saveImageFailure) throw app.saveImageFailure;
