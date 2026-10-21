@@ -9,7 +9,7 @@ type Shared = { list: TodosState; users: number; dispose: () => void };
 const shared = new WeakMap<ConnectedProject, Shared>();
 
 const open = (connected: ConnectedProject): Shared =>
-  createRoot((dispose) => ({ list: createTodosState(connected.app, connected.events), users: 0, dispose }));
+  createRoot((dispose) => ({ list: createTodosState(connected.app, connected.events, connected.project.path), users: 0, dispose }));
 
 /** One `todo.list`, refetched as U15 says, serves the Shelf, the Drawer and every Rail row (U60); it logs no Touch. The fetch and the subscription end with the last reader. */
 export const useTodoList = (): TodosState => {

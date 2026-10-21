@@ -111,7 +111,8 @@ p.ink[role="alert"] {
 }
 
 /* U16, U19, U359: a Shelf row's title line, a Todo's, a Pad's and the entry field's alike, is one 16 px line in a 24 px box, so the Glyph's centre is the first line's centre however far the title wraps. */
-.shelf .shelf-row :is(.todo-row-button, .pad-name, .entry-field) {
+.shelf .shelf-row :is(.todo-row-button, .pad-name),
+.entry-row .entry-field {
   display: block;
   box-sizing: border-box;
   min-height: var(--space-5);
