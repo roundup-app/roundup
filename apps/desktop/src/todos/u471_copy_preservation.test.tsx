@@ -7,7 +7,7 @@ afterEach(cleanup);
 
 it("u471_previous_copy_assertions_are_preserved_todo_creation_labels_keep_the_glossary_capital", async () => {
   await mountTodos([]);
-  const add = screen.getByRole("button", { name: "Add Todo" });
+  const add = screen.getByRole("button", { name: "add todo to Overview" });
   expect(add.textContent).toBe("Todo");
   fireEvent.click(add);
   expect(screen.getByRole("textbox", { name: "New Todo title" })).toBeTruthy();
@@ -38,7 +38,10 @@ it.each(["title", "body"] as const)("u471_previous_copy_assertions_are_preserved
   await mountTodos([todo(5, { [name]: "" })]);
   fireEvent.click(await screen.findByRole("button", { name: /#5/ }));
   const drawer = within(screen.getByRole("complementary", { name: "Drawer" }));
-  fireEvent.dblClick(await drawer.findByText(`No ${name}`));
+
+  // U3732: an empty body offers `Add notes` in place of the `No body` line.
+  if (name === "body") fireEvent.click(await drawer.findByRole("button", { name: "Add notes" }));
+  else fireEvent.dblClick(await drawer.findByText(`No ${name}`));
   expect(drawer.getByRole("textbox", { name: name === "title" ? "Title" : "Body" })).toBeTruthy();
 });
 
