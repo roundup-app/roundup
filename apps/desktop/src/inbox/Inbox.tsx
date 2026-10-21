@@ -2,6 +2,7 @@ import { createSignal, For, onCleanup, Show } from "solid-js";
 import type { UnreadComment } from "@contracts/todo/UnreadComment";
 import { copy } from "../copy";
 import { ErrorLine } from "../ink/ErrorLine";
+import { KindGlyph } from "../ink/KindGlyph";
 import { leaderChord } from "../keys/chords";
 import { activationSource, registerKeys } from "../keys/registry";
 import { useConnectedProject } from "../state/connectedProject";
@@ -45,6 +46,7 @@ export const Inbox = () => {
     <Show when={rows().length === 0 && failure() === null}><p class="light">{copy.inboxEmpty}</p></Show>
     <For each={rows()}>{(row) => <button type="button" class="inbox-row" data-comment={row.comment.id}
       onClick={(event) => drawer.open(() => <TodoHost id={row.todo} />, activationSource(event))}>
+      <KindGlyph kind="needs-you" />
       <span class="inbox-row-name">{copy.inboxRow(rail.nameOf(row.comment.author), row.title)}</span>
       <span class="inbox-row-line">{row.comment.body}</span>
     </button>}</For>

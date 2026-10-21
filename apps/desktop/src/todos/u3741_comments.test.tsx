@@ -37,7 +37,7 @@ it("u3741_a_todo_with_no_comments_shows_the_field_alone", async () => {
   const section = within(panel()).getByRole("region", { name: "Comments · 0" });
   expect(within(section).queryAllByText(/./, { selector: ".todo-comment" })).toHaveLength(0);
   expect(within(section).getByRole("textbox", { name: "Write a comment" })).toBeTruthy();
-  expect(within(section).getByRole("button", { name: "Comment" }).hasAttribute("disabled")).toBe(true);
+  expect(within(section).getByRole("button", { name: "Comment" }).getAttribute("aria-disabled") === "true").toBe(true);
 });
 
 it("u3741_a_comment_is_sent_once_and_kept_on_failure", async () => {

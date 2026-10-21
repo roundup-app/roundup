@@ -57,8 +57,8 @@ export const TodoComments = (props: { id: number }) => {
     <h3>{copy.commentsHeading(thread().length)}</h3>
     <Show when={failure()}>{(message) => <div><ErrorLine message={message()} /><button data-button="quiet" class="word" type="button" onClick={() => void refresh()}>{copy.commentRetry}</button></div>}</Show>
     <For each={thread()}>{(comment) => <div class="todo-comment" data-comment={comment.id}>
-      <p class="todo-comment-head light"><span>{author(comment)}</span> <time datetime={new Date(comment.created_at).toISOString()}>{copy.commentTime(comment.created_at)}</time>
-        <Show when={comment.author.kind === "agent"}> <button data-button="quiet" class="word" type="button" onClick={() => field?.focus()}>{copy.reply}</button></Show></p>
+      <p class="todo-comment-head"><span class="todo-comment-author">{author(comment)}</span> <time datetime={new Date(comment.created_at).toISOString()}>{copy.commentTime(comment.created_at)}</time>
+        <Show when={comment.author.kind === "agent"}><button data-button="quiet" class="word" type="button" onClick={() => field?.focus()}>{copy.reply}</button></Show></p>
       <p class="todo-comment-body">{comment.body}</p>
     </div>}</For>
     <textarea class="todo-comment-field" rows={2} aria-label={copy.commentField} placeholder={copy.commentPlaceholder} value={text()}
@@ -66,6 +66,6 @@ export const TodoComments = (props: { id: number }) => {
       onInput={(event) => setText(event.currentTarget.value)}
       onKeyDown={(event) => { if (event.key === "Enter" && (event.metaKey || event.ctrlKey) && !event.isComposing) { event.preventDefault(); void send(); } }} />
     <Show when={sendFailure()}>{(message) => <ErrorLine message={message()} />}</Show>
-    <p><button data-button="quiet" class="word" type="button" disabled={text().trim() === "" || sending()} onClick={() => void send()}>{copy.comment}</button></p>
+    <p class="todo-comments-send"><button data-button="quiet" class="word" type="button" aria-disabled={text().trim() === "" || sending() ? true : undefined} onClick={() => void send()}>{copy.comment}</button></p>
   </section>;
 };
