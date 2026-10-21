@@ -542,6 +542,8 @@ export const Rail = () => {
           // macOS Ctrl-click must not focus an Ark row or blur unfinished input.
           if (contextClick) event.preventDefault();
         }, true);
+        // A native menu may consume the compatibility click; keyboard activation must still work next.
+        element.addEventListener("keydown", () => { contextClick = false; }, true);
         element.addEventListener("click", (event) => {
           if (!contextClick && !event.ctrlKey) return;
 
