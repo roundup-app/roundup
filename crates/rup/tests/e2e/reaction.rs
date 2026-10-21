@@ -594,6 +594,7 @@ async fn nr3_automatic_write_failure_is_inspectable_and_recovers() {
     project_db(&s.project)
         .execute_batch("DROP TRIGGER refuse_reaction")
         .unwrap();
+    drive(&s.user, &s.w, WORK).await;
     drive(&s.user, &s.a, STOP).await;
     let sent = notes(&s.user, &s.w, "failed firing", 1).await;
     let recovered = current(&s, &saved).await;
@@ -622,6 +623,70 @@ async fn nr3_automatic_write_failure_is_inspectable_and_recovers() {
     let replayed = current(&s, &saved).await;
     assert_eq!(replayed.firings, recovered.firings);
     let sent = messages(&s.user, &s.w, "failed firing").await;
+    assert_eq!(sent.len(), 1);
+    assert_eq!(sent[0]["id"], json!(firing.message));
+}
+
+#[tokio::test]
+async fn nr6_failed_acceptance_retries_on_timer_wake_and_reopen() {
+    let mut s = scene(&[]).await;
+    let (date, time) = utc_in(2);
+    let preview = s
+        .user
+        .request(
+            "reaction.preview",
+            json!({
+                "date": date, "time": time, "offset": "Z"
+            }),
+        )
+        .await
+        .unwrap();
+    let mut body = definition(&s.w, "retry time");
+    body["condition"] =
+        json!({ "kind": "instant", "at": preview["at"], "late": "once-before-expiry" });
+    project_db(&s.project).execute_batch("CREATE TRIGGER refuse_reaction BEFORE INSERT ON reaction_firings BEGIN SELECT RAISE(ABORT, 'reaction write refused'); END;").unwrap();
+    let saved = made(&s.user, "reaction.create", body.clone()).await;
+    let failed = super::daemon::h21_poll("timer acceptance failure", async || {
+        let seen = current(&s, &saved).await;
+        (seen.observation.health != "waiting").then_some(seen)
+    })
+    .await;
+    assert!(
+        failed
+            .observation
+            .cause
+            .as_deref()
+            .unwrap()
+            .contains("reaction write refused")
+    );
+    assert!(failed.observation.recovery.is_some());
+    assert_eq!(failed.remaining, 1);
+    project_db(&s.project)
+        .execute_batch("DROP TRIGGER refuse_reaction")
+        .unwrap();
+    // reaction.create notifies Timer::run: a new future instant wakes observation of the failed one.
+    body["operation"] = json!("wake-timer");
+    body["condition"]["at"] = json!("2098-06-01T09:00:00Z");
+    made(&s.user, "reaction.create", body).await;
+    let sent = notes(&s.user, &s.w, "retry time", 1).await;
+    let recovered = current(&s, &saved).await;
+    assert_eq!((recovered.firings.len(), recovered.remaining), (1, 0));
+    assert!(recovered.observation.cause.is_none());
+    assert!(recovered.observation.recovery.is_none());
+    let firing = &recovered.firings[0];
+    assert_eq!(sent[0]["id"], json!(firing.message));
+    let evidence: Value = serde_json::from_str(&firing.evidence).unwrap();
+    assert_eq!(evidence["at"], preview["at"]);
+    let definition: Value = serde_json::from_str(&firing.definition).unwrap();
+    assert_eq!(
+        definition["condition"],
+        serde_json::to_value(&saved.condition).unwrap()
+    );
+    drop(s.user);
+    s.project.restart(&[]);
+    s.user = s.project.client().await;
+    assert_eq!(current(&s, &saved).await.firings, recovered.firings);
+    let sent = messages(&s.user, &s.w, "retry time").await;
     assert_eq!(sent.len(), 1);
     assert_eq!(sent[0]["id"], json!(firing.message));
 }
