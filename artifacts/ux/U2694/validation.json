@@ -1,0 +1,82 @@
+{
+  "agent": "builder-39448396174",
+  "web": {
+    "command": "pnpm --filter desktop exec vitest related --run src/bubbles/Bubbles.tsx src/pads/Pads.tsx src/rail/menu/model.ts src/todos/Todos.tsx src/ui/contextMenu.ts",
+    "files": 224,
+    "tests": 1920,
+    "passed": 1920,
+    "failed": 0,
+    "success": true
+  },
+  "rust": {
+    "real_claude": {
+      "passed": 50,
+      "default_ignored": 2
+    },
+    "u2694c_real_claude_quotes_the_linked_content": "passed explicitly with --run-ignored only; real Claude, strict loopback aimock, current Pad/Todo/Terminal contents read by rup link read and quoted in the transcript",
+    "repairs": [
+      "34 launches interrupted when the test binary was rebuilt; all re-run.",
+      "x17 palette check rerun with NO_COLOR unset and TERM=xterm-256color; passed."
+    ]
+  },
+  "regressions": {
+    "red": "Door recipient and completed-Todo tests both failed on the original head",
+    "green": "12 targeted menu tests passed; included in the 1920 passing related tests"
+  },
+  "lint": {
+    "just lint-web": "passed",
+    "just lint-rust": "passed"
+  },
+  "capture": {
+    "command": "just capture U2694 invoked; broad suite stopped after the upload failure. Regenerated captures in the isolated headless agent-browser session.",
+    "seed": "tree-40",
+    "viewport": [
+      1512,
+      950
+    ],
+    "scheme": "dark",
+    "screens": [
+      "head/confirm.png",
+      "head/failure.png"
+    ],
+    "checks": "D1-D14 and D16 pass on both screens",
+    "failure": "removal failed; work kept; Workstream retained",
+    "upload": "gh pr edit 2946 --attach: unsupported authentication type",
+    "nativeMenus": "U2694 macOS/VoiceOver observer pending; not observable in Chromium"
+  },
+  "completion": {
+    "agent": "builder-39466542081",
+    "base": "92689f94a933c273ad7afc5d81657ae17807a7bb",
+    "lint": {
+      "just lint-web": "passed",
+      "just lint-rust": "passed, ALL PROOFS CHECK"
+    },
+    "web": {
+      "u2694_scenario_tests": 30,
+      "passed": 30,
+      "daemon_observers": "U351 and U356: 3 tests passed after build-lock setup timeout",
+      "broad_related_suite": "stopped; final fix changes only merge and evidence; full suite remains the pushed head CI check"
+    },
+    "rust": {
+      "initial": "615 cases; 289 passed, 326 failed before daemon binaries existed or with NO_COLOR set",
+      "setup_rerun": "276 passed",
+      "qualified_names_and_scheme_rerun": "51 passed; NO_COLOR unset, TERM=xterm-256color",
+      "link_observer": "u2694c_real_claude_quotes_the_linked_content passed explicitly"
+    },
+    "capture": {
+      "command": "just capture U2694a,U2694b,U2694c,U2694d,U2694e invoked; broad duplicate suite stopped; head screens regenerated with isolated headless agent-browser",
+      "viewport": [
+        1512,
+        950
+      ],
+      "scheme": "dark",
+      "screens": [
+        "head/confirm.png",
+        "head/failure.png"
+      ],
+      "checks": "D1-D14 and D16 pass on both",
+      "upload": "workflow uploads artifacts after the run"
+    },
+    "native": "NSMenu and VoiceOver observer requires the Mac; not observed in Chromium"
+  }
+}

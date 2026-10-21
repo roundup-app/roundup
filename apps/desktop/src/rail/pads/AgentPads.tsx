@@ -1,8 +1,11 @@
+import { contextMenu, linkEntries, openOnRelease } from "../../ui/contextMenu";
+import { createBulkDelete } from "../../shelf/BulkDelete";
 import { activationSource } from "../../keys/registry";
 import { copy } from "../../copy";
 import { createMemo, createSignal, For, Show } from "solid-js";
 import type { JSX } from "solid-js";
 import type { Accessor } from "solid-js";
+import type { Todo } from "@contracts/todo/Todo";
 import type { RailNode } from "@contracts/agent/RailNode";
 import { ErrorLine } from "../../ink/ErrorLine";
 import { Icon } from "../../ink/Icon";
@@ -92,11 +95,12 @@ export const PadsControl = (props: { pads: AgentPads }) => {
 };
 
 /** U405: one leaf hanging on the Agent's trunk, one `--rail-step` under its Glyph; `last` ends the trunk at its elbow. */
-const Leaf = (props: { depth: number; trail: readonly boolean[]; last: boolean; todo?: boolean; children: JSX.Element }) => (
+const Leaf = (props: { depth: number; trail: readonly boolean[]; last: boolean; todo?: boolean; onContextMenu?: (event: MouseEvent) => void; children: JSX.Element }) => (
   <div
     role="treeitem"
     aria-level={props.depth + 2}
     class="rail-leaf"
+    onContextMenu={props.onContextMenu}
     data-leaf={props.todo ? "todo" : "pad"}
     style={{ "--indent": `calc(${props.depth + 1} * var(--rail-step) + var(--rail-inset))` }}
   >
@@ -108,10 +112,59 @@ const Leaf = (props: { depth: number; trail: readonly boolean[]; last: boolean; 
 /** The Pad leaves, then the Todo leaves, one level below `depth`, folded at rest; a click opens a Pad's Drawer as the Shelf's list does (U20). Opening changes no selection (U64). `children` tells that the Agent's own child rows follow, so the last leaf's trunk runs on. */
 export const PadRows = (props: { pads: AgentPads; depth: number; trail: readonly boolean[]; children: boolean }) => {
   const connected = useConnectedProject();
+  const list = usePadList();
+  const [selected, setSelected] = createSignal<readonly string[]>([]);
+  const clear = () => setSelected([]);
+
+  const bulk = createBulkDelete({
+    selected,
+    targets: () => props.pads.owned().map((pad) => ({ id: pad.name, label: pad.name, owner: connected.rail.nameOf(pad.owner) })),
+    context: () => connected.rail.selected() ?? "overview",
+    noun: copy.pads, replace: setSelected, clear, cancelSelection: clear,
+    remove: (name) => failureOf(() => connected.app.rpc("pad.delete", { name })),
+    reload: async () => {
+      await list.reload();
+
+      return list.failure();
+    },
+  });
+
+  const [selectedTodos, setSelectedTodos] = createSignal<readonly number[]>([]);
+  const clearTodos = () => setSelectedTodos([]);
+
+  const todoBulk = createBulkDelete({
+    selected: selectedTodos,
+    targets: () => props.pads.ownedTodos().map((todo) => ({ id: todo.id, label: todo.title })),
+    context: () => connected.rail.selected() ?? "overview",
+    noun: copy.todos, replace: setSelectedTodos, clear: clearTodos, cancelSelection: clearTodos,
+    remove: (id) => failureOf(() => connected.app.rpc("todo.delete", { id })),
+    reload: async () => {
+      await props.pads.todos.reload();
+
+      return props.pads.todos.failure();
+    },
+  });
+
+  const todoMenu = (todo: Todo, event: MouseEvent) => {
+    event.stopPropagation();
+    openOnRelease(event, (x, y) => void contextMenu(connected.app, [
+      { id: "complete", label: copy.complete, enabled: !todo.done, run: async () => { props.pads.setFailure(await failureOf(() => connected.app.rpc("todo.complete", { id: todo.id }))); } },
+      ...linkEntries(connected.app, "todo", todo.id, connected.rail.nodes, (node) => connected.rail.exitOf(node) === null, props.pads.setFailure),
+      { id: "delete", label: copy.delete, run: () => { setSelectedTodos([todo.id]); todoBulk.ask(); } },
+    ], x, y));
+  };
 
   const openPad = (name: string, event: MouseEvent) => {
     props.pads.setFailure(null);
     connected.drawer.open(() => <PadDrawer name={name} pads={props.pads.all} onLateFailure={props.pads.setFailure} />, activationSource(event));
+  };
+
+  const padMenu = (name: string, event: MouseEvent) => {
+    event.stopPropagation();
+    openOnRelease(event, (x, y) => void contextMenu(connected.app, [
+      ...linkEntries(connected.app, "pad", name, connected.rail.nodes, (node) => connected.rail.exitOf(node) === null, props.pads.setFailure),
+      { id: "delete", label: copy.delete, run: () => { setSelected([name]); bulk.ask(); } },
+    ], x, y));
   };
 
   const leaves = () => props.pads.owned().length + props.pads.ownedTodos().length;
@@ -136,6 +189,7 @@ export const PadRows = (props: { pads: AgentPads; depth: number; trail: readonly
                     <button
                       {...trigger({
                         onClick: (event) => openPad(pad.name, event),
+                        onContextMenu: (event: MouseEvent) => padMenu(pad.name, event),
                       })}
                       type="button"
                       data-button="quiet"
@@ -156,7 +210,7 @@ export const PadRows = (props: { pads: AgentPads; depth: number; trail: readonly
                   const sorted = props.pads.reorder.row(todo.id, parts);
 
                   return (
-                    <Leaf depth={props.depth} trail={props.trail} last={last(props.pads.owned().length + at())} todo>
+                    <Leaf depth={props.depth} trail={props.trail} last={last(props.pads.owned().length + at())} todo onContextMenu={(event) => todoMenu(todo, event)}>
                       <OpenRow
                         nested
                         todo={todo}
@@ -175,6 +229,8 @@ export const PadRows = (props: { pads: AgentPads; depth: number; trail: readonly
           </For>
         </Sortable.Root>
       </Show>
+      <bulk.Bar />
+      <todoBulk.Bar />
       <Show when={props.pads.failure()}>{(message) => <ErrorLine message={message()} />}</Show>
     </>
   );

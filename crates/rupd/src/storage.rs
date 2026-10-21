@@ -280,6 +280,74 @@ mod tests {
         assert_eq!(rows(&db, "routes"), route);
     }
 
+    /// U3078a/b: an existing version-24 Project must gain evidence storage on upgrade.
+    #[tokio::test]
+    async fn u3078a_main_database_upgrade_keeps_progress_readable() {
+        use contracts::Actor;
+        use serde_json::json;
+
+        let dir = tempfile::tempdir().unwrap();
+        let mut db = Connection::open(dir.path().join("project.db")).unwrap();
+        // Pin main's released sequence, independently of the candidate's added-file order.
+        let released = [
+            include_str!("../migrations/project/0001-prepared.sql"),
+            include_str!("../migrations/project/0002-message-sender-names.sql"),
+            include_str!("../migrations/project/0003-pad-sources.sql"),
+            include_str!("../migrations/project/0004-deliverables.sql"),
+            include_str!("../migrations/project/0005-ask-submissions.sql"),
+            include_str!("../migrations/project/0006-closed-sources.sql"),
+            include_str!("../migrations/project/0007-todo-owner.sql"),
+            include_str!("../migrations/project/0008-reactions.sql"),
+            include_str!("../migrations/project/0009-reaction-firings.sql"),
+            include_str!("../migrations/project/0010-reaction-watch.sql"),
+            include_str!("../migrations/project/0011-measurements.sql"),
+            include_str!("../migrations/project/0012-instruction-revisions.sql"),
+            include_str!("../migrations/project/0013-instruction-messages.sql"),
+            include_str!("../migrations/project/0014-reaction-firing-identities.sql"),
+        ];
+        apply(
+            &mut db,
+            migrations()
+                .into_iter()
+                .take(10)
+                .chain(released.into_iter().map(M::up))
+                .collect(),
+        )
+        .unwrap();
+        drop(db);
+
+        let daemon = crate::test_daemon(dir.path()).unwrap();
+        let (events, _) = tokio::sync::mpsc::unbounded_channel();
+        let mut conn = crate::Conn {
+            actor: Actor::user(),
+            peer: None,
+            events,
+            output: None,
+        };
+        let home = daemon
+            .route(
+                &mut conn,
+                "rail.createWorkstream",
+                json!({"name":"Kept work"}),
+            )
+            .await
+            .unwrap();
+        let instructions = daemon
+            .route(&mut conn, "agent.instructions", json!({"id":home["id"]}))
+            .await
+            .unwrap();
+        let progress = daemon
+            .route(
+                &mut conn,
+                "message.progress",
+                json!({"project":daemon.project,"id":home["id"]}),
+            )
+            .await
+            .unwrap();
+        assert_eq!(progress["instructions"], instructions);
+        assert_eq!(progress["results"], json!([]));
+    }
+
     #[tokio::test]
     async fn n16_all_stores_share_one_project_database() {
         use crate::{Conn, Daemon};
