@@ -686,7 +686,7 @@ impl Daemon {
             .messages()?
             .firings_of(&p.id)?
             .iter()
-            .any(|(f, _)| f.operation == p.operation);
+            .any(|(f, _)| !f.matched && f.operation == p.operation);
         if first {
             return self.with_firings(saved);
         }

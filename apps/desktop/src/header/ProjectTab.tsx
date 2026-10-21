@@ -16,7 +16,7 @@ import { MARKS, markOf, nameParts, tipOf } from "./tab";
 import type { StripTab } from "./tab";
 
 /** Rename keeps authored keystrokes out of Project shortcuts while leaving native text editing intact. */
-const RenameField = (props: { name: string; recovered: boolean; selection: { start: number; end: number; direction: "forward" | "backward" | "none" } | null; onEdit: (field: HTMLInputElement) => void; onDone: (saved: string | null, refocus: boolean) => void }) => {
+const RenameField = (props: { name: string; restored: "none" | "current" | "selected"; selection: { start: number; end: number; direction: "forward" | "backward" | "none" } | null; onEdit: (field: HTMLInputElement) => void; onDone: (saved: string | null, refocus: boolean) => void }) => {
   let field: HTMLInputElement | undefined;
   let finished = false;
   let changed = false;
@@ -43,7 +43,7 @@ const RenameField = (props: { name: string; recovered: boolean; selection: { sta
   return <input class="tab-rename" aria-label={copy.projectName} value={props.name} ref={field}
     onInput={event => { changed = true; props.onEdit(event.currentTarget); }}
     onSelect={event => { if (!finished && document.activeElement === event.currentTarget) props.onEdit(event.currentTarget); }}
-    onBlur={event => finish((event.relatedTarget instanceof Element && event.relatedTarget.closest(".strip")) || (props.recovered && !changed) ? null : field?.value ?? "", false)} />;
+    onBlur={event => finish((event.relatedTarget instanceof Element && event.relatedTarget.closest(".strip")) || (props.restored === "selected" || (props.restored === "current" && !changed)) ? null : field?.value ?? "", false)} />;
 };
 
 /** One Project's library-owned tab, with a sibling close control. */
@@ -51,13 +51,17 @@ export const ProjectTab = (props: {
   tab: StripTab;
   selected: boolean;
   closeFocus?: boolean;
+  /** Opens only this Project's retained revision with its captured base; absent/foreign,
+   * pending and legacy records stay copy/discard-only. Opening never sends or reads.
+   */
+  recovery?: { project: string; revision: string } | undefined;
   onMark: () => void;
   onRename: (name: string, base?: string) => ReturnType<ProjectsState["rename"]>;
   onClose: () => void;
   ref?: (element: HTMLElement) => void;
 }) => {
   const { near, handlers } = createNear();
-  const [editing, setEditing] = createSignal<number | null>(null);
+  const [editing, setEditing] = createSignal<{ width: number } | null>(null);
   let wrap: HTMLDivElement | undefined;
   let button: HTMLButtonElement | undefined;
   const mark = () => markOf(props.tab);
@@ -68,7 +72,7 @@ export const ProjectTab = (props: {
   drafts?.validate("header", schema);
   drafts?.registerRecovery("header", draft => draft.destination.object === props.tab.path ? "available" : "unavailable");
   const destination = Object.freeze({ surface: "header", object: props.tab.path, recipient: null });
-  const records = createMemo(() => drafts?.list().filter(draft => draft.destination.surface === destination.surface && draft.destination.object === props.tab.path) ?? []);
+  const records = createMemo(() => drafts?.list().filter(draft => draft.destination.surface === destination.surface && draft.destination.object === props.tab.path && draft.destination.recipient === null) ?? []);
   const current = createMemo(() => records().filter(draft => draft.status === "draft").at(-1));
   const [recovering, recover] = createSignal(false);
   const [inspected, inspect] = createSignal<string>();
@@ -101,7 +105,7 @@ export const ProjectTab = (props: {
   let base: string | undefined;
   let restoredSelection: ReturnType<NonNullable<typeof drafts>["list"]>[number]["selection"] = null;
   let initialName = "";
-  let recovered = false;
+  let restored: "none" | "current" | "selected" = "none";
   let revision: string | undefined;
 
   const capture = (field: HTMLInputElement) => {
@@ -110,35 +114,41 @@ export const ProjectTab = (props: {
 
     if (previous?.value.name === field.value && JSON.stringify(previous.selection) === JSON.stringify(selection)) return;
     const value = base === undefined ? { name: field.value } : { name: field.value, base };
-    revision = drafts?.edit(destination, value, selection, "ordinary").draft.revision;
+    revision = drafts?.edit(destination, value, selection, "ordinary", revision ?? null).draft.revision;
   };
 
   createEffect(on(() => props.selected, selected => { if (!selected) setEditing(null); }));
 
-  const edit = () => {
-    const retained = current() ?? records().filter(draft => draft.status === "failed").at(-1);
+  const edit = (selected?: { project: string; revision: string }) => {
+    const retained = selected ? records().find(draft => draft.revision === selected.revision)
+      : current() ?? records().filter(draft => draft.status === "failed").at(-1);
+
     const parsed = retained && v.safeParse(schema, retained.value);
     const value = parsed && parsed.success ? parsed.output : null;
+
+    if (selected && (selected.project !== props.tab.path || !retained || retained.status === "pending" || !value || value.base === undefined)) return;
     // Older shared recovery records had no captured base: keep them copy/discard-only.
     base = value ? value.base : props.tab.base;
     initialName = value?.name ?? props.tab.name;
-    recovered = value !== null;
+    restored = selected ? "selected" : value ? "current" : "none";
     restoredSelection = value ? retained!.selection : null;
     revision = value ? retained!.revision : undefined;
-    setEditing(wrap?.offsetWidth ?? 0);
+    setEditing({ width: wrap?.offsetWidth ?? 0 });
   };
 
+  createEffect(on(() => props.recovery, selected => { if (selected) edit(selected); }));
+
   registerKeys({ kind: "region", element: () => wrap }, [
-    { chords: ["F2"], when: (press) => press.target === button, run: edit },
+    { chords: ["F2"], when: (press) => press.target === button, run: () => edit() },
   ]);
 
   return <Tabs.Context>{(tabs) => <>
     <FlatTab class="project-tab" selected={props.selected} role="presentation" data-path={props.tab.path} data-unfinished={records().length || problem() ? "true" : undefined}
-      style={editing() === null ? undefined : { width: `${editing()}px` }}
+      style={editing() === null ? undefined : { width: `${editing()?.width}px` }}
       ref={(element) => { wrap = element; props.ref?.(element); }}
       onPointerEnter={handlers.onMouseEnter} onPointerLeave={handlers.onMouseLeave}
       onFocusIn={handlers.onFocusIn} onFocusOut={handlers.onFocusOut}>
-      <Show when={editing() === null} fallback={<RenameField name={initialName} recovered={recovered} selection={restoredSelection} onEdit={capture} onDone={(saved, refocus) => {
+      <Show when={editing() === null} fallback={<Show when={editing()} keyed>{_session => <RenameField name={initialName} restored={restored} selection={restoredSelection} onEdit={capture} onDone={(saved, refocus) => {
         setEditing(null);
 
         if (refocus) button?.focus();
@@ -152,12 +162,17 @@ export const ProjectTab = (props: {
         if (saved !== null) {
           const submitted = revision;
 
-          if (submitted) drafts?.submit(submitted);
+          if (submitted && !drafts?.submit(submitted)) {
+            recover(true);
+
+            return;
+          }
+
           void props.onRename(saved, base).then(outcome => {
             if (submitted) drafts?.settle(submitted, outcome.status);
           });
         }
-      }} />}>
+      }} />}</Show>}>
         <Tip ids={{ trigger: tabs().getTriggerProps({ value: props.tab.path }).id }} class="tab-tip" content={<>{props.tab.path}<Show when={mark()}><br />{tipOf(props.tab)}</Show><Show when={shown()}>{draft => <><br />{copy.draftIdentity(copy.unfinishedWork, String(draft().value.name ?? ""))}</>}</Show></>}>
           {(tooltip) =>
               <Tabs.Trigger {...tooltip({})} value={props.tab.path} class="tab-name-button"
@@ -168,7 +183,7 @@ export const ProjectTab = (props: {
                     props.onMark();
                   }
                 }}>
-                <span class="tab-name" onDblClick={edit}><span class="tab-head">{parts()[0]}</span><span class="tab-tail">{parts()[1]}</span></span>
+                <span class="tab-name" onDblClick={() => edit()}><span class="tab-head">{parts()[0]}</span><span class="tab-tail">{parts()[1]}</span></span>
                 <Show when={mark()}>{(shown) => <span class="tab-mark ink" data-tone={MARKS[shown()].tone} data-kind={shown()} role="img" aria-label={MARKS[shown()].label} />}</Show>
               </Tabs.Trigger>
           }
