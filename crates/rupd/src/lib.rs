@@ -2576,7 +2576,7 @@ mod tests {
         let setting = import_rpc(&daemon, "project.setWorktrees", json!({"on":mode != 0})).await;
         assert!(setting.get("error").is_none(), "{setting}");
         if mode == 2 {
-            let prepared = root.path().join("prepared");
+            let prepared = project.join("prepared");
             import_git(
                 &project,
                 &["worktree", "add", "--detach", prepared.to_str().unwrap()],
@@ -2584,7 +2584,7 @@ mod tests {
             let setting = import_rpc(
                 &daemon,
                 "project.setPrepared",
-                json!({"enrolled":[prepared], "readiness":"true"}),
+                json!({"enrolled":[prepared], "readiness":"true", "timeout_ms":1000}),
             )
             .await;
             assert!(setting.get("error").is_none(), "{setting}");
@@ -2687,6 +2687,39 @@ mod tests {
                 replayed["result"], committed["result"],
                 "mode {mode}: {replayed}"
             );
+            assert_eq!(import_resources(&daemon, root.path()).await, before);
+            assert!(!root.path().join("launches").exists());
+        }
+    }
+
+    #[tokio::test]
+    async fn u3126b_first_import_requires_its_original() {
+        for mode in 0..3 {
+            let (root, _launcher, daemon, original, selection) = import_fixture(mode).await;
+            std::fs::remove_file(original).unwrap();
+            let before = import_resources(&daemon, root.path()).await;
+            assert_eq!(before["rail"], json!([]));
+            assert_eq!(before["copies"], json!([]));
+            let refused = import_rpc(
+                &daemon,
+                "project.importCommit",
+                json!({"selections":[selection]}),
+            )
+            .await;
+            let outcome = &refused["result"]["outcomes"][0];
+            assert!(
+                outcome["error"]
+                    .as_str()
+                    .unwrap()
+                    .contains("changed since preview"),
+                "{refused}"
+            );
+            assert!(
+                outcome["error"].as_str().unwrap().contains("Refresh"),
+                "{refused}"
+            );
+            assert!(outcome["workstream"].is_null());
+            assert!(outcome["agent"].is_null());
             assert_eq!(import_resources(&daemon, root.path()).await, before);
             assert!(!root.path().join("launches").exists());
         }
