@@ -11,6 +11,15 @@ const railDraftStatuses = new Map([["draft", "Draft"], ["pending", "Submittingâ€
 const railDraftLabels = new Map([["rail-task", "Task"], ["rail-name", "Name"], ["rail-clear", "Clear reason"]]);
 
 /** App-authored labels and prose (U471). Code terms remain keys; authored values pass through unchanged. */
+const importExcludedReasons: [(r: string) => boolean, string][] = [
+  [(r) => r === "already in this project", "Already imported"],
+  [(r) => r === "ambiguous project membership", "Used more than one folder of this Project"],
+  [(r) => r.includes("folder") || r.includes("directory") || r.includes("source unavailable"), "Its folder is no longer there"],
+  [(r) => r.includes("worktree"), "Lives in a Worktree"],
+  [(r) => r.includes("duplicate"), "Already listed once"],
+  [(r) => r.includes("activity"), "No usable time"],
+];
+
 export const copy = {
   deliverables: "Made",
   deliverableCurrent: "Link Â· current",
@@ -373,13 +382,9 @@ export const copy = {
   importNotImportable: (count: number) => `${count} not importable`,
   importExcludedReason: (reason: string) => {
     const r = reason.toLowerCase();
-    if (r === "already in this project") return "Already imported";
-    if (r === "ambiguous project membership") return "Used more than one folder of this Project";
-    if (r.includes("folder") || r.includes("directory") || r.includes("source unavailable")) return "Its folder is no longer there";
-    if (r.includes("worktree")) return "Lives in a Worktree";
-    if (r.includes("duplicate")) return "Already listed once";
-    if (r.includes("activity")) return "No usable time";
-    return "Can't be read as a conversation";
+    const found = importExcludedReasons.find(([test]) => test(r));
+
+    return found ? found[1] : "Can't be read as a conversation";
   },
   importAge: (minutes: number) => minutes < 1440 ? copy.riskTime(minutes) : `${Math.floor(minutes / 1440)} d ago`,
   importRowFix: "Choose it again, or Refresh.",
