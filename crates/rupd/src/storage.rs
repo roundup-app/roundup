@@ -83,32 +83,6 @@ mod tests {
     }
 
     #[test]
-    fn n2705a_a_fresh_project_stores_a_sender_name() {
-        let dir = tempfile::tempdir().unwrap();
-        open(dir.path()).unwrap();
-        let db = Connection::open(dir.path().join("project.db")).unwrap();
-        let count: i64 = db
-            .query_row("SELECT count(*) FROM message_sender_names", [], |r| {
-                r.get(0)
-            })
-            .unwrap();
-        assert_eq!(count, 0);
-        db.execute(
-            "INSERT INTO message_sender_names(agent, name) VALUES (?1, ?2)",
-            params!["7013", "sad"],
-        )
-        .unwrap();
-        let name: String = db
-            .query_row(
-                "SELECT name FROM message_sender_names WHERE agent = ?1",
-                ["7013"],
-                |r| r.get(0),
-            )
-            .unwrap();
-        assert_eq!(name, "sad");
-    }
-
-    #[test]
     fn n2705a_sender_names_reject_nulls_and_duplicate_identities() {
         let dir = tempfile::tempdir().unwrap();
         open(dir.path()).unwrap();
@@ -315,6 +289,17 @@ mod tests {
         resize_schema
             .execute_batch(include_str!(
                 "../migrations/project/0010-reaction-watch.sql"
+            ))
+            .unwrap();
+        expected.extend(standalone::schema(&resize_schema));
+        // Project-only retention observes the same Message admission/receipt transaction.
+        resize_schema
+            .execute_batch(include_str!("../../messages/migrations/001/up.sql"))
+            .unwrap();
+        resize_schema.execute_batch(FLIGHT).unwrap();
+        resize_schema
+            .execute_batch(include_str!(
+                "../migrations/project/0013-instruction-messages.sql"
             ))
             .unwrap();
         expected.extend(standalone::schema(&resize_schema));

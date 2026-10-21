@@ -947,21 +947,35 @@ async fn u3016c_time_categories_use_observed_intervals_sources() {
         .await
         .unwrap();
     question.await.unwrap();
+    // B50: the non-user coordination wait uses inbox delivery, never a prompt callback.
+    struct WaitingInbox(std::sync::Mutex<Option<tokio::sync::oneshot::Receiver<()>>>);
+    #[async_trait::async_trait]
+    impl messages::NoteInbox for WaitingInbox {
+        async fn check(&self, _: &str) -> contracts::agent::Inbox {
+            let receive = self.0.lock().unwrap().take();
+            if let Some(receive) = receive {
+                receive.await.unwrap();
+            }
+            contracts::agent::Inbox::Ok
+        }
+
+        fn write(
+            &self,
+            _: &str,
+            _: &[agents::claude_code::inbox::Entry],
+        ) -> Result<(), contracts::agent::Inbox> {
+            Ok(())
+        }
+    }
     let (release, receive) = tokio::sync::oneshot::channel::<()>();
-    let receive = Arc::new(std::sync::Mutex::new(Some(receive)));
     let messages = messages::Messages::open(
         dir.path(),
         bus.clone(),
         agents.clone(),
-        Arc::new(move |_, _| {
-            let receive = receive.lock().unwrap().take().unwrap();
-            Box::pin(async move {
-                receive.await.unwrap();
-                Ok(())
-            })
-        }),
+        Arc::new(|_, _| panic!("non-user coordination must not type a prompt")),
     )
     .unwrap();
+    messages.set_inbox(Arc::new(WaitingInbox(std::sync::Mutex::new(Some(receive)))));
     let mut sending = Box::pin(messages.call(
         &sender,
         "message.send",

@@ -376,6 +376,12 @@ The user reading an Agent's Terminal pane without typing into it; no Takeover, s
 **Work order**:
 The ask an Agent works on, optionally its Done condition, and its limits, rules that each read on their own, such as "Change no file in the repo", held on the Agent's Rail node. Not a Work Issue.
 
+**Instruction** (`Instruction`, `InstructionRevision`, `Instructions`, `agent.instructions`, `agent_instructions`):
+Exact Work order values or a Message's identity and body, retained under a never-reused Project revision with its original Agent and Workstream. A replacement is a new revision even with equal bytes; Home follows the user's placement while historical attribution stays fixed.
+
+**Instruction delivery** (`InstructionDelivery`, `InstructionState`):
+An instruction revision's exact words and original Attempt: `prepared` before writer admission, `uncertain` without authoritative receipt, `submitted` after the existing prompt/inbox acknowledgement, or `refused` after an unwritten refusal or Message drop. These are delivery facts, never work completion, acceptance, verification or authority to replay.
+
 **Done condition**:
 The sentence in a Work order that says how the Agent knows it is done (`order.done`).
 
@@ -408,7 +414,7 @@ What `agent.context` returns for one Agent: its own Status, its parent, whom to 
 Whether one Agent's `roundup` MCP server (`rup mcp <id>`) has reported to the Daemon: `pending`, `up` or `missing`. Not the vendor's own channels feature.
 
 **Claude inbox**:
-Claude Code's own messaging socket for a message from another Claude Code instance, which the adapter sends a `note` over instead of typing it (B50). The Rail fact `inbox` is `ok`, `missing` or `mismatch` (B51). Not the user's Inbox.
+Claude Code's own messaging socket for a message from another Claude Code instance, which the Adapter uses for non-user Messages, notes and questions, instead of typing them (B50). The Rail fact `inbox` is `ok`, `missing` or `mismatch` (B51). Not the user's Inbox.
 
 **Mcp**:
 The Project setting `mcp {on}` (`project.setMcp`, M2219): with `on` false, or the Daemon's `ROUNDUP_MCP=off`, an Agent starts with no `roundup` MCP server and its Brief names `rup` commands. Only Agents started afterward change.
