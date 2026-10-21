@@ -120,6 +120,7 @@ export const CONTRACT = {
     "todo.list": "e65f2d968ce36845",
     "todo.move": "bf4d113add2591c9",
     "todo.readHistory": "508a84bd3c2373ff",
+    "todo.reopen": "5a0d269969a6c1fb",
     "todo.reorder": "d34d87b5e512a079",
     "todo.setBlockers": "da323d66222ff5f9",
     "todo.update": "9f9cf679fa3c32c9",

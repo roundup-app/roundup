@@ -70,7 +70,7 @@ export const OpenRow = (props: {
   todo: Todo;
   known: ReadonlyMap<number, Todo>;
   onOpen: (todo: Todo, source: ActivationSource) => void;
-  onComplete: (todo: Todo) => Promise<string | null>;
+  onToggle: (todo: Todo) => Promise<string | null>;
   registerRow?: (id: number, row: HTMLButtonElement | null) => void;
   /** U490a: a row ordered through `ui/Sortable` instead. */
   sorted?: SortedRow;
@@ -96,8 +96,8 @@ export const OpenRow = (props: {
   const [moveFailure, setMoveFailure] = createSignal<string | null>(null);
   const failure = createMemo(() => moveFailure() ?? actionFailure());
 
-  const complete = async () => {
-    const message = await props.onComplete(props.todo);
+  const toggle = async () => {
+    const message = await props.onToggle(props.todo);
 
     setFailure(message);
 
@@ -165,16 +165,15 @@ export const OpenRow = (props: {
               return message;
             }}
           />
-          <button data-button="row-action" type="button" class="word complete" onClick={() => void complete()}>{copy.complete}</button>
         </Show>
       </div>
   );
 
   return (
     <ShelfRow
-      glyph={props.nested ? <KindGlyph kind={kindOf(props.todo)} /> : <>
-        <TickBox todo={props.todo} onComplete={complete} />
-        <Show when={props.todo.blocked && props.place?.parent == null}><KindGlyph kind="blocked" /></Show>
+      glyph={<>
+        <TickBox todo={props.todo} onToggle={toggle} />
+        <Show when={!props.todo.done && props.todo.blocked && props.place?.parent == null}><KindGlyph kind="blocked" /></Show>
       </>}
       data-id={props.nested ? undefined : props.todo.id}
       data-todo={props.todo.id}
@@ -193,7 +192,7 @@ export const OpenRow = (props: {
       }}
     >
       <Show when={props.nested}>{head}</Show>
-      <Show when={props.todo.body.trim() !== ""}>
+      <Show when={!props.todo.done && props.todo.body.trim() !== ""}>
         <p class="item-description" data-todo-description>{props.todo.body.trim()}</p>
       </Show>
       <Show when={failure()}>{(message) => <ErrorLine message={message()} />}</Show>
@@ -215,7 +214,7 @@ export const OpenRow = (props: {
           </Show>
         </p>
       </Show>
-      <Show when={!props.nested && failure() === null && alsoWaiting().length > 0}>
+      <Show when={!props.nested && !props.todo.done && failure() === null && alsoWaiting().length > 0}>
         <p class="shelf-meta" data-todo-meta>
           {/* oxlint-disable-next-line anti-slop/no-tooltip-bypass -- U3708 requires the full ellipsized sentence in title; Tip also owns its rendered tooltip. */}
           <Tip class="todo-tooltip" text={alsoWaitingLine()}>{(trigger) => <span {...trigger()} data-todo-also-waits title={alsoWaitingLine()}><span>{copy.alsoWaitsOn("")}</span><span class="todo-blockers"><For each={alsoWaiting()}>{(blocker, index) => (
@@ -359,17 +358,19 @@ export const Todos = () => {
   // is held here until this list no longer carries `id`, then it is given to that target, else to the `+` button — but
   // only while focus is still unclaimed (null or the page body), so a request that outlives the user moving focus
   // elsewhere (typing in U16's field, Tab into the pane) never yanks it back.
-  const [awaitingFocus, setAwaitingFocus] = createSignal<{ id: number; target: number | null }[]>([]);
+  const [awaitingFocus, setAwaitingFocus] = createSignal<{ id: number; target: number | null; reopening: boolean }[]>([]);
 
   createEffect(() => {
     const openIds = new Set(open().map((todo) => todo.id));
+    const doneIds = new Set(done().map((todo) => todo.id));
+    const remains = (request: { id: number; reopening: boolean }) => (request.reopening ? doneIds : openIds).has(request.id);
     const waiting = awaitingFocus();
 
-    if (waiting.every((request) => openIds.has(request.id))) return;
+    if (waiting.every(remains)) return;
 
     setAwaitingFocus(
       waiting.filter((request) => {
-        if (openIds.has(request.id)) return true;
+        if (remains(request)) return true;
 
         if (document.activeElement === null || document.activeElement === document.body) {
           const target = request.target !== null ? rows.get(request.target) : undefined;
@@ -434,11 +435,12 @@ export const Todos = () => {
     connected.drawer.open(content, source);
   };
 
-  const complete = async (todo: Todo) => {
-    const target = rowAfter(todo.id, open().map((candidate) => candidate.id));
-    const message = await failureOf(() => connected.app.rpc("todo.complete", { id: todo.id }));
+  const toggle = async (todo: Todo) => {
+    const reopening = todo.done;
+    const target = rowAfter(todo.id, (reopening ? done() : open()).map((candidate) => candidate.id));
+    const message = await failureOf(() => connected.app.rpc(reopening ? "todo.reopen" : "todo.complete", { id: todo.id }));
 
-    if (message === null) setAwaitingFocus((waiting) => [...waiting, { id: todo.id, target }]);
+    if (message === null) setAwaitingFocus((waiting) => [...waiting, { id: todo.id, target, reopening }]);
 
     return message;
   };
@@ -518,7 +520,7 @@ export const Todos = () => {
               onSelectionKey={selectionKey}
               known={todos.byId()}
               onOpen={show}
-              onComplete={complete}
+              onToggle={toggle}
               sorted={sorted.row(todo.id, parts, () => tree().map(({ todo }) => todo.id))}
               place={row}
               nest={nestOf(todo, row.parent, tree()[at() - 1]?.todo ?? null, at() === 0)}
@@ -540,26 +542,21 @@ export const Todos = () => {
         <Show when={unfolded()}>
             <For each={items().filter(todo => todo.done)}>
               {(todo) => (
-                <ShelfRow
-                  glyph={<TickBox todo={todo} />}
-                  class="todo-row todo-inset"
-                  data-id={todo.id}
-                  data-todo={todo.id}
-                  data-selected={selection.selected().includes(todo.id) ? "true" : undefined}
-                  head={
-                    <RowButton
-                      hang={false}
-                      label={copy.todoRow(KIND_LABEL[kindOf(todo)], todo.id, todo.title)}
-                      tooltip={todo.title}
-                      pressed={selection.selected().includes(todo.id)}
-                      selectionActive={selection.selected().length > 0}
-                      ref={(row) => selection.register(todo.id, row)}
-                      onKeyDown={(event) => selectionKey(todo, event)}
-                      onClick={(event) => !bulk.pending() && selection.click(todo.id, event, () => show(todo, activationSource(event)))}
-                    >
-                      {(trigger) => <span {...trigger()} class="shelf-title">{todo.title}</span>}
-                    </RowButton>
-                  }
+                <OpenRow
+                  todo={todo}
+                  known={todos.byId()}
+                  onOpen={show}
+                  onToggle={toggle}
+                  selected={shown()?.id === todo.id}
+                  pressed={selection.selected().includes(todo.id)}
+                  selectionActive={selection.selected().length > 0}
+                  onPick={(picked, event) => !bulk.pending() && selection.click(picked.id, event, () => show(picked, activationSource(event)))}
+                  onSelectionKey={selectionKey}
+                  registerRow={(id, row) => {
+                    selection.register(id, row);
+
+                    if (row) rows.set(id, row); else rows.delete(id);
+                  }}
                 />
               )}
             </For>

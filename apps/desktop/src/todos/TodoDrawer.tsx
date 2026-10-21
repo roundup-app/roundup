@@ -47,18 +47,17 @@ export const TodoDrawer = (props: { id: number; todos: TodosState }) => {
     return message;
   };
 
-  const [completed, setCompleted] = createSignal(false);
   const todo = () => props.todos.byId().get(props.id);
   let titleRow: HTMLDivElement | undefined;
 
-  const complete = () => attempt(async () => {
+  const toggle = () => attempt(async () => {
     const focused = document.activeElement === titleRow?.querySelector("input");
-    await app.rpc("todo.complete", { id: props.id });
-    setCompleted(true);
+    const reopening = todo()?.done;
+    await app.rpc(reopening ? "todo.reopen" : "todo.complete", { id: props.id });
 
     const stayed = document.activeElement === titleRow?.querySelector("input") || document.activeElement === document.body;
 
-    if (focused && stayed) titleRow?.querySelector<HTMLElement>("p[tabindex]")?.focus();
+    if (!reopening && focused && stayed) titleRow?.querySelector<HTMLElement>("p[tabindex]")?.focus();
   });
 
   // Picks run one after another, each from the list the previous one answered: the list state only catches up when the Event arrives.
@@ -213,7 +212,7 @@ export const TodoDrawer = (props: { id: number; todos: TodosState }) => {
             {(current) => (
               <>
                 <div class="todo-detail-title" ref={(element) => { titleRow = element; }}>
-                  <TickBox todo={{ ...current(), done: completed() || current().done }} onComplete={complete} />
+                  <TickBox todo={current()} onToggle={toggle} />
                   <EditableText
                     todo={current()}
                     captured={captured}
