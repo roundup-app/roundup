@@ -869,11 +869,14 @@ async fn n18_removal_commits_all_concerns_once() {
         .unwrap();
 
     let mut seen = Vec::new();
-    for _ in 0..5 {
+    while seen.len() < 5 {
         let event = tokio::time::timeout(Duration::from_secs(5), client.next_event())
             .await
             .unwrap()
             .unwrap();
+        if matches!(event.data, EventData::MeasurementsChanged { .. }) {
+            continue;
+        }
         assert!(
             !client
                 .request("rail.tree", Value::Null)
@@ -912,9 +915,17 @@ async fn n18_removal_commits_all_concerns_once() {
         .clone()
     );
     assert!(
-        tokio::time::timeout(Duration::from_millis(100), client.next_event())
-            .await
-            .is_err()
+        tokio::time::timeout(Duration::from_millis(100), async {
+            while let Some(event) = client.next_event().await {
+                assert!(
+                    matches!(event.data, EventData::MeasurementsChanged { .. }),
+                    "unexpected extra removal event: {event:?}"
+                );
+            }
+            panic!("event stream closed during the duplicate-event observation");
+        })
+        .await
+        .is_err()
     );
     for item in [
         format!("todo:{done}"),

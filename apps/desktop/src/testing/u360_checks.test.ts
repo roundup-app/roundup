@@ -54,6 +54,30 @@ describe("u360 D12 left edges", () => {
     expect(runChecks().D12).toMatchObject({ status: "pass", value: 0 });
   });
 
+  it("u3727_d12_measures_the_entry_text_with_tick_only_titles", () => {
+    for (const value of ["", "Keep this draft"]) {
+      for (const offset of [0, 1, 2, -3]) {
+        page(list("todos", 1, 0));
+        document.querySelector("section")!.insertAdjacentHTML("beforeend", `
+          <div class="shelf-row entry-row" data-box="0,60,160,32">
+            <span class="shelf-glyph"><input class="todo-tick" type="checkbox" data-box="0,60,24,24"></span>
+            <div class="shelf-text"><input class="entry-field" placeholder="New Todo" value="${value}"
+              style="padding-left: 3px; border-left: 1px solid" data-box="${box(20 + offset, 60, 120, 24)}"></div>
+          </div>`);
+        document.querySelector(".shelf-glyph > span")!.className = "todo-tick";
+
+        const result = runChecks().D12;
+
+        expect(result).toMatchObject({
+          status: Math.abs(offset) <= 1 ? "pass" : "fail",
+          value: Math.abs(offset),
+        });
+
+        if (offset !== 0) expect(result.selector).toBe('input.entry-field');
+      }
+    }
+  });
+
   it("u360_d12_passes_with_no_shelf_row", () => {
     page("");
     expect(runChecks().D12.status).toBe("pass");

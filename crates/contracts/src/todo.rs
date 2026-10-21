@@ -111,6 +111,9 @@ pub struct Values {
 #[ts(export, export_to = "todo/")]
 pub struct Change {
     pub seq: u32,
+    /// Authenticated writer; history recorded before T19 has no known Actor.
+    #[serde(default)]
+    pub actor: Option<Actor>,
     /// None denotes creation or an old Todo's current baseline.
     pub before: Option<Values>,
     pub after: Values,

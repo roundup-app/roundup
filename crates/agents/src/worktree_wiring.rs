@@ -9,6 +9,11 @@ impl Agents {
         revision: &str,
         now_ms: i64,
     ) -> Result<(String, String), RpcError> {
+        // Published work no longer depends on the external original. Concurrent first
+        // imports still converge under prepare_closed's lifecycle lock after validation.
+        if let Some((workstream, agent, true)) = self.shared.rail().closed_source(source)? {
+            return Ok((workstream, agent));
+        }
         let project = self.project_dir().to_owned();
         let launcher = self.launcher.clone();
         let (src, rev) = (source.to_owned(), revision.to_owned());
@@ -433,8 +438,14 @@ fn evidence_wire(evidence: Evidence, stale: bool) -> WorktreeEvidence {
                 })
                 .collect(),
         },
+        Evidence::Pending(read) => WorktreeEvidence {
+            repository: Some(format!("{}/{}", read.host, read.repository)),
+            head: Some(read.head),
+            read_at: Some(read.read_at),
+            ..incomplete(S::Incomplete)
+        },
         Evidence::Incomplete(gap) => incomplete(match gap {
-            Gap::Pending | Gap::NoRequiredChecks => S::Incomplete,
+            Gap::NoRequiredChecks => S::Incomplete,
             Gap::StaleHead => S::StaleHead,
             Gap::ReadFailed => S::Unknown,
             Gap::GhMissing

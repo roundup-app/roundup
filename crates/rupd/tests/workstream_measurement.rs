@@ -11,20 +11,66 @@ use std::time::Duration;
 
 const CONVERSATION: &str = "00000000-0000-4000-8000-000000000001";
 const FAKE: &str = r#"#!/usr/bin/env python3
-import json, os, subprocess, sys, tty
+import json, os, socket, subprocess, sys, time, tty
 if sys.argv[1:3] == ['plugin', 'list']: print('[]'); sys.exit(0)
 if sys.argv[1:3] == ['plugin', 'test']: print('Q11 runtime hook closure: 1 pass'); sys.exit(0)
 settings = json.load(open(sys.argv[sys.argv.index('--settings')+1]))
 conversation='00000000-0000-4000-8000-%012d' % int(os.environ['ROUNDUP_AGENT'])
 open(os.path.join(os.getcwd(),'endpoint-'+os.environ['ROUNDUP_AGENT']),'w').write(os.environ.get('OTEL_EXPORTER_OTLP_TRACES_ENDPOINT',''))
+tty.setraw(0)
+print('\033]0;✳ Ready\007', flush=True)
+# The public idle Status bounds the title observation before SessionStart.
+if '--resume' not in sys.argv:
+ with socket.socket(socket.AF_UNIX) as peer:
+  peer.settimeout(5)
+  peer.connect(os.environ['RUPD_SOCKET'])
+  stream=peer.makefile('rwb')
+  def request(method, params):
+   stream.write((json.dumps({'jsonrpc':'2.0','id':0,'method':method,'params':params})+'\n').encode()); stream.flush()
+   reply=json.loads(stream.readline())
+   if 'error' in reply: raise RuntimeError(reply)
+   return reply['result']
+  request('daemon.identify', {'actor':{'kind':'agent','id':os.environ['ROUNDUP_AGENT']}})
+  deadline=time.monotonic()+5
+  while not any(node['id']==os.environ['ROUNDUP_AGENT'] and (node.get('status') or {}).get('kind')=='idle' for node in request('rail.tree', None)):
+   if time.monotonic()>deadline: raise RuntimeError('ready title was not observed')
+   time.sleep(.01)
 for group in settings['hooks']['SessionStart']:
  for hook in group['hooks']:
   subprocess.run(hook['command'], shell=True, input=json.dumps({'hook_event_name':'SessionStart','session_id':conversation,'source':'resume' if '--resume' in sys.argv else 'startup'}), text=True, check=True)
 tty.setraw(0)
 print('\033]0;✳ Ready\007', flush=True)
+pending=b''
 while True:
  data=os.read(0,1)
  if not data or data==b'\x03': break
+ if data in [b'\x02', b'\x04']:
+  event = 'UserPromptSubmit' if data == b'\x02' else 'Stop'
+  for group in settings['hooks'][event]:
+   for hook in group['hooks']:
+    subprocess.run(hook['command'], shell=True, input=json.dumps({'hook_event_name':event,'prompt':'Fixture prompt'}), text=True, check=True)
+  continue
+ if data==b'\x01':
+  agent=os.environ['ROUNDUP_AGENT']
+  call=json.load(open('call-'+agent+'.json'))
+  with socket.socket(socket.AF_UNIX) as peer:
+   peer.connect(os.environ['RUPD_SOCKET'])
+   stream=peer.makefile('rwb')
+   stream.write((json.dumps({'jsonrpc':'2.0','id':0,'method':'daemon.identify','params':{'actor':{'kind':'agent','id':agent}}})+'\n').encode()); stream.flush()
+   identified=json.loads(stream.readline())
+   if 'error' in identified: raise RuntimeError(identified)
+   stream.write((json.dumps({'jsonrpc':'2.0','id':1,**call})+'\n').encode()); stream.flush()
+   reply=json.loads(stream.readline())
+  with open('reply-'+agent+'.tmp','w') as out: json.dump(reply,out)
+  os.rename('reply-'+agent+'.tmp','reply-'+agent+'.json')
+  continue
+ if data==b'\r':
+  prompt=pending.decode(errors='replace'); pending=b''
+  for event,fields in [('UserPromptSubmit',{'prompt':prompt}),('Stop',{})]:
+   for group in settings['hooks'][event]:
+    for hook in group['hooks']:
+     subprocess.run(hook['command'],shell=True,input=json.dumps({'hook_event_name':event,**fields}),text=True,check=True)
+ else: pending+=data
 "#;
 
 struct World {
@@ -99,7 +145,23 @@ impl World {
                     .iter()
                     .any(|node| node["id"] == agent && node["status"]["kind"] == "idle")
                 {
-                    break;
+                    let read = self
+                        .client
+                        .request("project.measurements", Value::Null)
+                        .await
+                        .unwrap();
+                    if read["time_evidence"]
+                        .as_array()
+                        .unwrap()
+                        .iter()
+                        .any(|fact| {
+                            fact["agent"] == agent
+                                && fact["value"]["activity"]["kind"] == "startup"
+                                && fact["value"]["state"]["kind"] == "ended"
+                        })
+                    {
+                        break;
+                    }
                 }
                 tokio::time::sleep(Duration::from_millis(20)).await;
             }
@@ -422,7 +484,10 @@ async fn u3016d_reconnect_reconciles_without_double_counting() {
         loop {
             let event = subscribed.next_event().await.unwrap();
             if let contracts::EventData::MeasurementsChanged { revision } = event.data {
-                assert_eq!(revision, first["revision"]);
+                assert!(
+                    revision.parse::<u64>().unwrap()
+                        <= first["revision"].as_str().unwrap().parse::<u64>().unwrap()
+                );
                 break;
             }
         }
@@ -547,7 +612,10 @@ async fn u3016d_empty_collection_failures_notify_subscribers() {
             if let contracts::EventData::MeasurementsChanged { revision } = event.data {
                 let failed = w.read().await;
                 if failed["sources"][0]["cause"].is_string() {
-                    assert_eq!(revision, failed["revision"]);
+                    assert!(
+                        revision.parse::<u64>().unwrap()
+                            <= failed["revision"].as_str().unwrap().parse::<u64>().unwrap()
+                    );
                     assert_ne!(failed["revision"], good["revision"]);
                     assert_eq!(failed["contributions"], json!([]));
                     assert_eq!(
@@ -656,4 +724,648 @@ async fn u3016d_rejected_exports_retain_failure_until_successful_retry() {
         assert_ne!(good["revision"], failed["revision"]);
         assert_eq!(good["contributions"], failed["contributions"]);
     }
+}
+
+#[tokio::test]
+async fn u3016f_real_time_acquisition_to_cli_survives_reopen() {
+    let mut w = World::start().await;
+    let door = w.agent.clone();
+    w.spawn_agent().await;
+    let sender = w.agent.clone();
+    w.spawn_agent().await;
+    let receiver = w.agent.clone();
+    let tree = w.client.request("rail.tree", Value::Null).await.unwrap();
+    let terminal = tree
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|n| n["id"] == sender)
+        .unwrap()["terminal_id"]
+        .clone();
+    let trigger = |method: &str, params: Value| {
+        std::fs::write(
+            w.project.join(format!("call-{sender}.json")),
+            json!({"method":method,"params":params}).to_string(),
+        )
+        .unwrap();
+        let reply = w.project.join(format!("reply-{sender}.json"));
+        if reply.exists() {
+            std::fs::remove_file(reply).unwrap();
+        }
+    };
+    let mut subscribed = Client::connect(&w.daemon.socket).await.unwrap();
+    subscribed
+        .request("events.subscribe", Value::Null)
+        .await
+        .unwrap();
+    let started = std::time::Instant::now();
+    trigger(
+        "agent.ask",
+        json!({"question":"Continue timing observation?","answers":[{"label":"Yes","description":"Continue"}]}),
+    );
+    w.client
+        .request("terminal.write", json!({"id":terminal,"data":"AQ=="}))
+        .await
+        .unwrap();
+    let decision = tokio::time::timeout(Duration::from_secs(5), async {
+        loop {
+            let event = subscribed.next_event().await.unwrap();
+            if let contracts::EventData::DecisionOpened(event) = event.data {
+                break event;
+            }
+        }
+    })
+    .await;
+    if decision.is_err() {
+        eprintln!(
+            "fake reply: {:?}; terminal: {}",
+            std::fs::read_to_string(w.project.join(format!("reply-{sender}.json"))),
+            w.client
+                .request("terminal.read", json!({"id":terminal,"after":0}))
+                .await
+                .unwrap()
+        );
+    }
+    let decision = decision.unwrap();
+    // DecisionOpened precedes retaining its blocking-wait evidence; read the collector's fact.
+    tokio::time::timeout(Duration::from_secs(5), async {
+        loop {
+            let active = w.read().await;
+            if active["time_evidence"].as_array().unwrap().iter().any(|f| {
+                f["agent"] == sender
+                    && f["value"]["activity"]["decision"] == decision.id
+                    && f["value"]["state"]["kind"] == "active"
+            }) {
+                break;
+            }
+            tokio::task::yield_now().await;
+        }
+    })
+    .await
+    .expect("the opened Decision retains its active wait");
+    let decision_delay = started.elapsed();
+    w.client
+        .request(
+            "decision.answer",
+            json!({"id":decision.id,"answer":"Yes","proof":"0".repeat(64)}),
+        )
+        .await
+        .unwrap();
+    let reply_path = w.project.join(format!("reply-{sender}.json"));
+    let reply = tokio::time::timeout(Duration::from_secs(5), async {
+        loop {
+            if let Ok(text) = std::fs::read_to_string(&reply_path) {
+                break serde_json::from_str::<Value>(&text).unwrap();
+            }
+            tokio::task::yield_now().await;
+        }
+    })
+    .await
+    .unwrap();
+    assert!(reply.get("result").is_some(), "{reply}");
+    let started = std::time::Instant::now();
+    trigger(
+        "message.send",
+        json!({"to":receiver,"kind":"question","body":"Coordinate timing observation"}),
+    );
+    w.client
+        .request("terminal.write", json!({"id":terminal,"data":"AQ=="}))
+        .await
+        .unwrap();
+    let reply = tokio::time::timeout(Duration::from_secs(5), async {
+        loop {
+            if let Ok(text) = std::fs::read_to_string(&reply_path) {
+                break serde_json::from_str::<Value>(&text).unwrap();
+            }
+            tokio::task::yield_now().await;
+        }
+    })
+    .await
+    .unwrap();
+    let message = reply
+        .get("result")
+        .unwrap_or_else(|| panic!("{reply}"))
+        .clone();
+    assert_eq!(
+        message["from"]["id"], sender,
+        "the fake vendor's own PID supplies Agent authority"
+    );
+    let retained = w
+        .client
+        .request("message.get", json!({"id":message["id"]}))
+        .await
+        .unwrap();
+    assert_eq!(retained["body"], "Coordinate timing observation");
+    for id in [&sender, &receiver, &door] {
+        w.client
+            .request("agent.stop", json!({"id":id}))
+            .await
+            .unwrap();
+    }
+    let before = tokio::time::timeout(Duration::from_secs(5), async {
+        loop {
+            let snapshot = w.read().await;
+            let facts = snapshot["time_evidence"].as_array().unwrap();
+            if facts
+                .iter()
+                .filter(|f| {
+                    matches!(
+                        f["value"]["activity"]["kind"].as_str(),
+                        Some("attempt" | "decision")
+                    )
+                })
+                .count()
+                == 4
+                && facts
+                    .iter()
+                    .all(|fact| fact["value"]["state"]["kind"] == "ended")
+            {
+                break snapshot;
+            }
+            tokio::task::yield_now().await;
+        }
+    })
+    .await
+    .expect("three stopped Attempts and their Decision wait reconcile as ended");
+    let coordination_delay = started.elapsed();
+    let answers = w
+        .client
+        .request("decision.answers", json!({"agent":sender}))
+        .await
+        .unwrap();
+    println!(
+        "sanitized acquisition: {}",
+        json!({"decision_opened":decision,"answers":answers,"message":retained})
+    );
+    let facts = before["time_evidence"].as_array().unwrap();
+    // B50/B51: a missing inbox holds without a prompt wait. The positive blocking-wait
+    // proof remains u3016c_time_categories_use_observed_intervals_sources, gating the inbox.
+    assert_eq!(retained["status"], "held");
+    assert_eq!(retained["reason"], "inbox");
+    assert!(
+        !facts
+            .iter()
+            .any(|f| f["value"]["activity"]["kind"] == "coordination"),
+        "a nonblocking inbox hold must not invent coordination time"
+    );
+    let cli =
+        tokio::process::Command::new(Path::new(env!("CARGO_BIN_EXE_rupd")).with_file_name("rup"))
+            .args(["--json", "project", "measurements", "--agent", &sender])
+            .env("RUPD_SOCKET", &w.daemon.socket)
+            .output()
+            .await
+            .unwrap();
+    assert!(
+        cli.status.success(),
+        "{}",
+        String::from_utf8_lossy(&cli.stderr)
+    );
+    let public: Value = serde_json::from_slice(&cli.stdout).unwrap();
+    assert_eq!(public["time_evidence"], before["time_evidence"]);
+    w.reopen().await;
+    assert_eq!(w.read().await["time_evidence"], before["time_evidence"]);
+    println!(
+        "time observer: decision acquisition {:?}; nonblocking inbox send {:?}; raw Decision {} and Message {} reconcile to {} retained facts; CLI and reopened facts equal",
+        decision_delay,
+        coordination_delay,
+        decision.id,
+        message["id"],
+        facts.len()
+    );
+    println!("sanitized time evidence: {}", before["time_evidence"]);
+}
+
+#[tokio::test]
+async fn u3016f_real_other_time_acquisition_to_cli_survives_reopen() {
+    let mut w = World::start().await;
+    let first = w.read().await;
+    let phases = |read: &Value, kind: &str| -> Vec<Value> {
+        read["time_evidence"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .filter(|f| f["value"]["activity"]["kind"] == kind)
+            .cloned()
+            .collect()
+    };
+    let startup = phases(&first, "startup");
+    assert_eq!(startup.len(), 1);
+    assert_eq!(startup[0]["value"]["state"]["kind"], "ended");
+    assert!(!startup[0]["value"]["start"].is_null());
+    let opening_idle = phases(&first, "idle");
+    assert_eq!(opening_idle.len(), 1);
+    let mut events = Client::connect(&w.daemon.socket).await.unwrap();
+    events
+        .request("events.subscribe", Value::Null)
+        .await
+        .unwrap();
+    let terminal = w
+        .client
+        .request("rail.tree", Value::Null)
+        .await
+        .unwrap()
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|n| n["id"] == w.agent)
+        .unwrap()["terminal_id"]
+        .clone();
+    let mut transitions = vec![];
+    let mut delays = vec![];
+    for (data, kind) in [
+        ("Ag==", contracts::Kind::Working),
+        ("BA==", contracts::Kind::Idle),
+    ] {
+        let started = std::time::Instant::now();
+        w.client
+            .request("terminal.write", json!({"id":terminal,"data":data}))
+            .await
+            .unwrap();
+        let event = tokio::time::timeout(Duration::from_secs(5), async {
+            loop {
+                let event = events.next_event().await.unwrap();
+                if let contracts::EventData::AgentStatus(event) = event.data
+                    && event.id == w.agent
+                    && event.status.kind == kind
+                    && event.status_revision.parse::<u64>().unwrap()
+                        > opening_idle[0]["value"]["activity"]["status_revision"]
+                            .as_str()
+                            .unwrap()
+                            .parse::<u64>()
+                            .unwrap()
+                {
+                    break event;
+                }
+            }
+        })
+        .await
+        .expect("fake vendor hook produces the actual Adapter Status");
+        let read = w.read().await;
+        assert_eq!(
+            phases(&read, "idle").len(),
+            if kind == contracts::Kind::Idle { 2 } else { 1 }
+        );
+        assert!(
+            read["contributions"].as_array().unwrap().is_empty(),
+            "working is no model execution evidence"
+        );
+        delays.push(started.elapsed().as_millis());
+        transitions.push(serde_json::to_value(event).unwrap());
+    }
+    w.client
+        .request("agent.stop", json!({"id":w.agent}))
+        .await
+        .unwrap();
+    let before = tokio::time::timeout(Duration::from_secs(5), async {
+        loop {
+            let read = w.read().await;
+            if read["time_evidence"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .all(|f| f["value"]["state"]["kind"] == "ended")
+            {
+                break read;
+            }
+            tokio::task::yield_now().await;
+        }
+    })
+    .await
+    .unwrap();
+    assert_eq!(phases(&before, "startup"), startup);
+    let idle = phases(&before, "idle");
+    for (index, fact) in idle.iter().enumerate() {
+        assert_eq!(fact["home"], w.home);
+        assert_eq!(fact["agent"], w.agent);
+        assert_eq!(fact["attempt"], startup[0]["attempt"]);
+        assert_eq!(
+            fact["value"]["clock_lifetime"],
+            startup[0]["value"]["clock_lifetime"]
+        );
+        assert_eq!(
+            fact["value"]["activity"]["status_revision"],
+            if index == 0 {
+                opening_idle[0]["value"]["activity"]["status_revision"].clone()
+            } else {
+                transitions[1]["status_revision"].clone()
+            }
+        );
+    }
+    let endpoint =
+        std::fs::read_to_string(w.project.join(format!("endpoint-{}", w.agent))).unwrap();
+    let mut late = intervals(&w.source_id());
+    let segment = &idle[0]["value"]["segments"][0];
+    let start = i128::from(segment["start"]["unix_ms"].as_i64().unwrap()) * 1_000_000;
+    let end = i128::from(segment["end"]["unix_ms"].as_i64().unwrap()) * 1_000_000;
+    assert!(end > start, "the real idle interval has positive duration");
+    for span in late["resourceSpans"][0]["scopeSpans"][0]["spans"]
+        .as_array_mut()
+        .unwrap()
+    {
+        span["startTimeUnixNano"] = start.to_string().into();
+        span["endTimeUnixNano"] = end.to_string().into();
+    }
+    assert_eq!(post(&endpoint, late).await, 200);
+    let with_execution = w.contributions(2).await;
+    assert_eq!(
+        with_execution["time_evidence"], before["time_evidence"],
+        "late model/tool evidence overlaps idle without discarding either source or inventing a partition"
+    );
+    let cli =
+        tokio::process::Command::new(Path::new(env!("CARGO_BIN_EXE_rupd")).with_file_name("rup"))
+            .args(["--json", "project", "measurements", "--agent", &w.agent])
+            .env("RUPD_SOCKET", &w.daemon.socket)
+            .output()
+            .await
+            .unwrap();
+    assert!(
+        cli.status.success(),
+        "{}",
+        String::from_utf8_lossy(&cli.stderr)
+    );
+    let public: Value = serde_json::from_slice(&cli.stdout).unwrap();
+    assert_eq!(public["time_evidence"], before["time_evidence"]);
+    w.reopen().await;
+    assert_eq!(w.read().await["time_evidence"], before["time_evidence"]);
+    println!(
+        "other-time observer: {}",
+        json!({"project":before["project"],"status_events":transitions,"acquisition_delay_ms":delays,"time_evidence":before["time_evidence"],"clock_meanings":"unix_ms aligns local observations; monotonic_ns durations compare only within clock_lifetime and each segment; gaps remain uncovered"})
+    );
+}
+
+#[tokio::test]
+async fn u3016b_cost_basis_and_missing_coverage_are_explicit() {
+    let w = World::start().await;
+    let mut row = request("mixed-cost", 20);
+    row["message"]["model"] = json!("claude-opus-5-5");
+    row["message"]["usage"]["cache_creation"] =
+        json!({"ephemeral_5m_input_tokens":30,"ephemeral_1h_input_tokens":20});
+    w.append(row);
+    let snapshot = w.contributions(1).await;
+    let cost = &snapshot["contributions"][0]["value"]["cost"];
+    assert_eq!(cost["model"], "claude-opus-5-5");
+    assert_eq!(cost["cache_write"], json!({"five_minute":30,"one_hour":20}));
+    assert_eq!(cost["reference"]["currency"], "USD");
+    assert_eq!(cost["reference"]["input"], "4");
+    assert_eq!(cost["reference"]["output"], "20");
+    assert_eq!(cost["reference"]["cache_read"], "0.20");
+    assert_eq!(cost["reference"]["cache_write_five_minute"], "5");
+    assert_eq!(cost["reference"]["cache_write_one_hour"], "8");
+    assert_eq!(cost["reference"]["per_tokens"], 1_000_000);
+    assert_eq!(cost["reference"]["date"], "2026-10-21");
+    assert!(cost["reported"].is_null());
+    assert!(
+        cost["unavailable"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|v| v.as_str().unwrap().contains("money"))
+    );
+}
+
+#[tokio::test]
+async fn u3016b_reported_money_is_inclusive_exact_and_separate() {
+    let w = World::start().await;
+    w.append(request("constituent", 20));
+    // Decimal spelling must survive the source parser, journal and public CLI unchanged.
+    let line = format!(
+        r#"{{"type":"cost-state","sessionId":"{}","totalCostUSD":0.001190000000000000001,"hasUnknownModelCost":false}}"#,
+        w.source_id()
+    );
+    let mut file = std::fs::OpenOptions::new()
+        .create(true)
+        .append(true)
+        .open(w.source())
+        .unwrap();
+    writeln!(file, "{line}\n{line}").unwrap();
+    let child = w
+        .source()
+        .with_extension("")
+        .join("subagents/summary.jsonl");
+    std::fs::create_dir_all(child.parent().unwrap()).unwrap();
+    std::fs::write(child, format!("{}\n",json!({"type":"cost-state","sessionId":w.source_id(),"totalCostUSD":99,"hasUnknownModelCost":false}))).unwrap();
+    let snapshot = w.contributions(2).await;
+    let money = snapshot["contributions"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|c| c["value"]["kind"] == "money")
+        .unwrap();
+    assert_eq!(
+        money["value"]["reported"]["amount"],
+        "0.001190000000000000001"
+    );
+    assert_eq!(money["value"]["reported"]["currency"], "USD");
+    assert_eq!(money["value"]["reported"]["scope"], "conversation");
+    assert!(
+        money["value"]["reported"]["source"]
+            .as_str()
+            .unwrap()
+            .contains("totalCostUSD")
+    );
+    assert!(money["value"].get("usage").is_none());
+    let cli =
+        tokio::process::Command::new(Path::new(env!("CARGO_BIN_EXE_rupd")).with_file_name("rup"))
+            .args(["--json", "project", "measurements", "--agent", &w.agent])
+            .env("RUPD_SOCKET", &w.daemon.socket)
+            .output()
+            .await
+            .unwrap();
+    assert!(cli.status.success());
+    let public: Value = serde_json::from_slice(&cli.stdout).unwrap();
+    assert_eq!(public["contributions"], snapshot["contributions"]);
+}
+
+#[tokio::test]
+async fn u3016b_cost_metadata_revisions_notify_without_moving_history() {
+    let mut w = World::start().await;
+    w.spawn_agent().await;
+    let mut row = request("metadata", 20);
+    row["message"]["model"] = json!("unknown-model");
+    let original = row.clone();
+    w.append(row.clone());
+    let first = w.contributions(1).await;
+    let mut subscribed = Client::connect(&w.daemon.socket).await.unwrap();
+    subscribed
+        .request("events.subscribe", Value::Null)
+        .await
+        .unwrap();
+    let other = w
+        .client
+        .request("rail.createWorkstream", json!({"name":"later"}))
+        .await
+        .unwrap()["id"]
+        .clone();
+    w.client
+        .request("rail.move", json!({"id":w.agent,"parent":other,"index":0}))
+        .await
+        .unwrap();
+    row["message"]["model"] = json!("claude-opus-5-5");
+    w.append(row.clone());
+    let corrected = tokio::time::timeout(Duration::from_secs(3), async {
+        loop {
+            let read = w.read().await;
+            if read["contributions"][0]["value"]["cost"]["model"] == "claude-opus-5-5" {
+                break read;
+            }
+            tokio::task::yield_now().await;
+        }
+    })
+    .await
+    .unwrap();
+    let before = &first["contributions"][0];
+    let after = &corrected["contributions"][0];
+    assert_ne!(after["source_revision"], before["source_revision"]);
+    assert_eq!(after["value"]["usage"], before["value"]["usage"]);
+    for field in ["agent", "home", "maker", "attempt", "identity", "source"] {
+        assert_eq!(after[field], before[field]);
+    }
+    tokio::time::timeout(Duration::from_secs(3), async {
+        loop {
+            let event = subscribed.next_event().await.unwrap();
+            if let contracts::EventData::MeasurementsChanged { revision } = event.data
+                && revision.parse::<u64>().unwrap()
+                    >= corrected["revision"]
+                        .as_str()
+                        .unwrap()
+                        .parse::<u64>()
+                        .unwrap()
+            {
+                break;
+            }
+        }
+    })
+    .await
+    .expect("metadata-only correction emits the existing measurement-change Event");
+    row["message"]["usage"]["cache_creation"] =
+        json!({"ephemeral_5m_input_tokens":30,"ephemeral_1h_input_tokens":20});
+    w.append(row.clone());
+    let model_corrected = corrected;
+    let corrected = tokio::time::timeout(Duration::from_secs(3), async {
+        loop {
+            let read = w.read().await;
+            if read["contributions"][0]["value"]["cost"]["cache_write"]["one_hour"] == 20 {
+                break read;
+            }
+            tokio::task::yield_now().await;
+        }
+    })
+    .await
+    .unwrap();
+    let after = &corrected["contributions"][0];
+    assert_ne!(
+        after["source_revision"],
+        model_corrected["contributions"][0]["source_revision"]
+    );
+    assert_eq!(after["value"]["usage"], before["value"]["usage"]);
+    w.reopen().await;
+    assert_eq!(
+        w.contributions(1).await["contributions"],
+        corrected["contributions"]
+    );
+    // Force source replay, including the superseded version; retained revisions cannot regress.
+    std::fs::remove_file(w.source()).unwrap();
+    w.append(original);
+    w.append(row);
+    w.append(request("replay-boundary", 0));
+    let replayed = w.contributions(2).await;
+    let retained = replayed["contributions"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|c| c["identity"] == "request:metadata")
+        .unwrap();
+    assert_eq!(retained, after);
+}
+
+#[tokio::test]
+async fn u3016b_unknown_evidence_preserves_partial_coverage_and_zero() {
+    let w = World::start().await;
+    // Supported zero, unknown Model/rate, missing/inconsistent classes, and unknown money
+    // currencies are distinct source facts; none authorizes guessing a bill or conversion.
+    for (id, model, classes, usage) in [
+        (
+            "zero",
+            Some("claude-opus-5-5"),
+            json!({"ephemeral_5m_input_tokens":0,"ephemeral_1h_input_tokens":0}),
+            json!({"input_tokens":0,"output_tokens":0,"cache_read_input_tokens":0,"cache_creation_input_tokens":0}),
+        ),
+        (
+            "unknown",
+            Some("claude-opus-5-5-future"),
+            Value::Null,
+            json!({"input_tokens":100,"cache_creation_input_tokens":50}),
+        ),
+        (
+            "missing",
+            None,
+            Value::Null,
+            json!({"input_tokens":100,"output_tokens":20,"cache_read_input_tokens":400,"cache_creation_input_tokens":50}),
+        ),
+        (
+            "inconsistent",
+            Some("claude-opus-5-5"),
+            json!({"ephemeral_5m_input_tokens":30,"ephemeral_1h_input_tokens":30}),
+            json!({"input_tokens":100,"output_tokens":20,"cache_read_input_tokens":400,"cache_creation_input_tokens":50}),
+        ),
+    ] {
+        let mut row = request(id, 0);
+        row["message"]["model"] = json!(model);
+        row["message"]["usage"] = usage;
+        row["message"]["usage"]["cache_creation"] = classes;
+        w.append(row);
+    }
+    for currency in ["EUR", "JPY", ""] {
+        w.append(json!({"type":"cost-state","sessionId":w.source_id(),"amount":12.345,"currency":currency}));
+    }
+    w.append(json!({"type":"cost-state","sessionId":w.source_id(),"totalCostUSD":0,"hasUnknownModelCost":false}));
+    let read = w.contributions(5).await;
+    for c in read["contributions"].as_array().unwrap() {
+        match c["identity"].as_str().unwrap() {
+            "request:zero" => {
+                assert_eq!(
+                    c["value"]["usage"],
+                    json!({"input":0,"output":0,"cache_read":0,"cache_write":0})
+                );
+                assert_eq!(
+                    c["value"]["cost"]["cache_write"],
+                    json!({"five_minute":0,"one_hour":0})
+                );
+                assert!(c["value"]["cost"]["reference"].is_object());
+            }
+            "request:unknown" | "request:missing" => {
+                assert!(c["value"]["cost"]["reference"].is_null());
+                assert_eq!(c["value"]["usage"]["input"], 100);
+                assert!(c["value"]["cost"]["cache_write"]["five_minute"].is_null());
+                if c["identity"] == "request:unknown" {
+                    assert!(c["value"]["usage"]["output"].is_null());
+                }
+            }
+            "request:inconsistent" => {
+                assert_eq!(c["value"]["usage"]["cache_write"], 50);
+                assert_eq!(
+                    c["value"]["cost"]["cache_write"],
+                    json!({"five_minute":null,"one_hour":null})
+                );
+                assert!(
+                    c["value"]["cost"]["unavailable"]
+                        .as_array()
+                        .unwrap()
+                        .iter()
+                        .any(|v| v.as_str().unwrap().contains("disagree"))
+                );
+            }
+            _ => {
+                assert_eq!(c["value"]["reported"]["amount"], "0");
+                assert_eq!(c["value"]["reported"]["currency"], "USD");
+            }
+        }
+    }
+    assert!(read["sources"].as_array().unwrap().iter().any(|s| {
+        s["coverage"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|v| v.as_str().unwrap().contains("currency"))
+    }));
 }

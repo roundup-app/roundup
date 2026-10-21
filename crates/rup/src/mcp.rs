@@ -432,6 +432,7 @@ fn offered_tools() -> Vec<Offered> {
         offered_without_params("todo.list", "List every Todo."),
         offered::<todo::UpdateParams>("todo.update", "Change a Todo's title or body."),
         offered::<todo::TodoId>("todo.complete", "Mark a Todo done."),
+        offered::<todo::TodoId>("todo.reopen", "Reopen a done Todo."),
         offered::<todo::SetBlockersParams>(
             "todo.setBlockers",
             "Replace a Todo's whole blocker list.",
@@ -440,7 +441,7 @@ fn offered_tools() -> Vec<Offered> {
         offered::<pad::PadName>("pad.read", "Read one Pad."),
         offered::<link::LinkUrl>(
             "link.read",
-            "Read what a roundup:// link names, as it is now: a Pad, Todo, Agent, Workstream or Terminal of this Project.",
+            "Read a Project roundup:// link: current Pad, Todo, Agent, Workstream or Terminal content, or a Deliverable recorded revision/current external target and its availability.",
         ),
         offered_without_params("pad.list", "List every Pad."),
         offered::<pad::WriteParams>(
@@ -454,6 +455,26 @@ fn offered_tools() -> Vec<Offered> {
         ),
         offered::<pad::SetOwnerParams>("pad.setOwner", "Give a Pad to another Actor."),
         offered::<pad::PadName>("pad.delete", "Delete a Pad."),
+        offered::<message::ProgressParams>(
+            "message.progress",
+            "Inspect retained instructions, reports, acceptance and declared verification without starting work.",
+        ),
+        offered::<message::ReportParams>(
+            "message.report",
+            "Report your own Attempt's result for an exact delivered instruction and published output. This is a claim, not acceptance or verification. Use the same key for retries.",
+        ),
+        offered::<message::AcceptResultParams>(
+            "message.acceptResult",
+            "Record user acceptance of one exact reported result with its evidence; only the user may accept.",
+        ),
+        offered::<message::ResultId>(
+            "message.verifyResult",
+            "Observe a report's declared authoritative condition without a Model call; unavailable or unsupported evidence stays unknown.",
+        ),
+        offered::<message::ResolveResultParams>(
+            "message.resolveResult",
+            "User only: authorize a read-only authoritative receipt source for an unknown external effect. Exact target/version and fresh source evidence are required; this never repeats the effect.",
+        ),
         offered::<message::SendParams>(
             "message.send",
             "Send a note or a question to an Agent or the user. You are the sender.",
@@ -618,6 +639,10 @@ fn offered_tools() -> Vec<Offered> {
         offered::<agent::NodeId>(
             "agent.actionHistory",
             "Read your durably accepted child actions and their outcomes. Waiting means accepted, not executed; do not resubmit it. A dropped reason explains an unavailable or uncertain effect.",
+        ),
+        offered::<agent::NodeId>(
+            "agent.instructions",
+            "Read exact instruction revisions and Attempt-bound delivery facts for yourself or an Agent in your Reach. Reading sends nothing; submission never proves completion of work.",
         ),
         agent_context(),
         agent_wake(),
