@@ -79,7 +79,6 @@ impl Daemon {
         params: Value,
     ) -> Result<Value, RpcError> {
         self.start_pushes();
-        self.start_queue();
         // A child may not turn its Terminal keystrokes into a user's answer by
         // claiming `user`; H21's process identity applies to this input path too.
         let input_actor = if method == "terminal.write" {
@@ -309,23 +308,6 @@ impl Daemon {
         }
         if let Some(outcome) = builtin::call(self, conn, namespace, method, &params) {
             return outcome;
-        }
-        if matches!(
-            method,
-            "todo.startWorkstream"
-                | "workstream.queue"
-                | "workstream.dequeue"
-                | "workstream.queueMove"
-                | "workstream.startNow"
-                | "project.setWorkstreamCap"
-        ) {
-            // P9: a start spends usage, so only the user's own choice changes what starts.
-            if method != "workstream.queue" && conn.actor.kind != ActorKind::User {
-                return Err(RpcError::forbidden(
-                    "only the user starts a Workstream or changes the Queue",
-                ));
-            }
-            return self.queuer().call(&conn.actor, method, params).await;
         }
         // X12: the Agents module resolves Workstream and Project ownership.
         let namespace = if method == "terminal.open" {
