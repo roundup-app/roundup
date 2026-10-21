@@ -831,3 +831,224 @@ async fn h14_only_an_agent_asks() {
     assert_eq!(err.code, code::FORBIDDEN);
     assert!(list(&f).await.is_empty());
 }
+
+/// U3016's arithmetic fixture enters both source collectors and the actual routing await.
+#[tokio::test]
+async fn u3016c_time_categories_use_observed_intervals_sources() {
+    use std::future::Future;
+    use std::sync::atomic::{AtomicU64, Ordering};
+    use tokio::io::{AsyncReadExt, AsyncWriteExt};
+    let clock = Arc::new(AtomicU64::new(0));
+    let mut f = Fixture::running(
+        "printf '%s' \"$OTEL_EXPORTER_OTLP_TRACES_ENDPOINT\" > endpoint-$ROUNDUP_AGENT\nsleep 30",
+    )
+    .with_proof("time-test");
+    let wall = clock.clone();
+    let mono = clock.clone();
+    f.agents = f
+        .agents
+        .with_clock(move || i64::try_from(wall.load(Ordering::SeqCst)).unwrap())
+        .with_measurement_clock(move || u128::from(mono.load(Ordering::SeqCst)) * 1_000_000);
+    let first = f.spawn(None, None).await.unwrap();
+    let second = f.spawn(None, None).await.unwrap();
+    let source = "11111111-1111-4111-8111-111111111111";
+    for (node, source) in [
+        (&first, source),
+        (&second, "22222222-2222-4222-8222-222222222222"),
+    ] {
+        f.call("agent.signal",json!({"id":node.id,"attempt":node.attempt,"payload":{"hook_event_name":"SessionStart","session_id":source}})).await.unwrap();
+        f.call(
+            "agent.signal",
+            json!({"id":node.id,"attempt":node.attempt,"payload":{"hook_event_name":"Stop"}}),
+        )
+        .await
+        .unwrap();
+    }
+    let endpoint = tokio::time::timeout(Duration::from_secs(5), async {
+        loop {
+            if let Ok(url) =
+                std::fs::read_to_string(f.dir.path().join(format!("endpoint-{}", first.id)))
+            {
+                break url;
+            }
+            tokio::task::yield_now().await;
+        }
+    })
+    .await
+    .unwrap();
+    let span = |name: &str, id: &str, start: &str, end: &str| json!({"name":name,"traceId":"time-fixture","spanId":id,"startTimeUnixNano":start,"endTimeUnixNano":end,"attributes":[{"key":"session.id","value":{"stringValue":source}}]});
+    let body = json!({"resourceSpans":[{"scopeSpans":[{"spans":[span("claude_code.llm_request","model-early","0","2000000000"),span("claude_code.tool.execution","tool-outer","2000000000","6000000000"),span("claude_code.tool.execution","tool-inner","3000000000","5000000000"),span("claude_code.llm_request","model-late","9000000000","10000000000"),span("claude_code.tool.blocked_on_user","automatic-check","6000000000","8000000000")]}]}]}).to_string();
+    let (host, path) = endpoint
+        .strip_prefix("http://")
+        .unwrap()
+        .split_once('/')
+        .unwrap();
+    for _ in 0..2 {
+        let mut socket = tokio::net::TcpStream::connect(host).await.unwrap();
+        socket.write_all(format!("POST /{path} HTTP/1.1\r\nHost: {host}\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{body}",body.len()).as_bytes()).await.unwrap();
+        let mut reply = Vec::new();
+        socket.read_to_end(&mut reply).await.unwrap();
+        assert!(
+            String::from_utf8(reply)
+                .unwrap()
+                .starts_with("HTTP/1.1 200")
+        );
+    }
+    for sec in 1..=6 {
+        clock.store(sec * 1000, Ordering::SeqCst);
+        f.call("project.measurements", Value::Null).await.unwrap();
+    }
+    let Fixture {
+        agents, dir, bus, ..
+    } = f;
+    let agents = Arc::new(agents);
+    let touches = Arc::new(provenance::Touches::in_memory().unwrap());
+    let user = rpc::Ctx {
+        actor: contracts::Actor::user(),
+        bus: bus.clone(),
+        touches: touches.clone(),
+    };
+    let sender = rpc::Ctx {
+        actor: contracts::Actor {
+            kind: contracts::ActorKind::Agent,
+            id: first.id.clone(),
+            parent: None,
+        },
+        bus: bus.clone(),
+        touches: touches.clone(),
+    };
+    let mut question = Box::pin(agents.call(
+        &sender,
+        "agent.ask",
+        json!({"question":"Continue?","answers":[{"label":"Yes","description":"Continue"}]}),
+    ));
+    assert!(
+        std::future::poll_fn(|cx| std::task::Poll::Ready(question.as_mut().poll(cx)))
+            .await
+            .is_pending()
+    );
+    for sec in 7..=8 {
+        clock.store(sec * 1000, Ordering::SeqCst);
+        agents
+            .call(&user, "project.measurements", Value::Null)
+            .await
+            .unwrap();
+    }
+    let opened = agents
+        .call(&user, "decision.list", Value::Null)
+        .await
+        .unwrap();
+    agents
+        .call(
+            &user,
+            "decision.answer",
+            json!({"id":opened[0]["id"],"answer":"Yes","proof":"time-test"}),
+        )
+        .await
+        .unwrap();
+    question.await.unwrap();
+    let (release, receive) = tokio::sync::oneshot::channel::<()>();
+    let receive = Arc::new(std::sync::Mutex::new(Some(receive)));
+    let messages = messages::Messages::open(
+        dir.path(),
+        bus.clone(),
+        agents.clone(),
+        Arc::new(move |_, _| {
+            let receive = receive.lock().unwrap().take().unwrap();
+            Box::pin(async move {
+                receive.await.unwrap();
+                Ok(())
+            })
+        }),
+    )
+    .unwrap();
+    let mut sending = Box::pin(messages.call(
+        &sender,
+        "message.send",
+        json!({"to":second.id,"kind":"note","body":"coordinate"}),
+    ));
+    assert!(
+        std::future::poll_fn(|cx| std::task::Poll::Ready(sending.as_mut().poll(cx)))
+            .await
+            .is_pending()
+    );
+    clock.store(9000, Ordering::SeqCst);
+    release.send(()).unwrap();
+    let message = sending.await.unwrap();
+    clock.store(10000, Ordering::SeqCst);
+    let read = agents
+        .call(&user, "project.measurements", Value::Null)
+        .await
+        .unwrap();
+    let intervals = read["contributions"].as_array().unwrap();
+    assert_eq!(
+        intervals.len(),
+        4,
+        "automatic vendor checks are not human waits; duplicate exports retain identities"
+    );
+    assert!(intervals.iter().any(|c| c["value"]["category"] == "agent"
+        && c["value"]["start_unix_ns"] == "0"
+        && c["value"]["end_unix_ns"] == "2000000000"));
+    assert!(intervals.iter().any(|c| c["value"]["category"] == "tool"
+        && c["value"]["start_unix_ns"] == "2000000000"
+        && c["value"]["end_unix_ns"] == "6000000000"));
+    assert!(intervals.iter().any(|c| c["value"]["category"] == "tool"
+        && c["value"]["start_unix_ns"] == "3000000000"
+        && c["value"]["end_unix_ns"] == "5000000000"));
+    let facts = read["time_evidence"].as_array().unwrap();
+    assert_eq!(
+        facts
+            .iter()
+            .filter(|c| c["value"]["activity"]["kind"] == "attempt")
+            .count(),
+        2
+    );
+    for (kind, start, end) in [("decision", 6000, 8000), ("coordination", 8000, 9000)] {
+        let fact = facts
+            .iter()
+            .find(|c| c["value"]["activity"]["kind"] == kind)
+            .unwrap();
+        assert_eq!(fact["value"]["start"]["unix_ms"], start);
+        assert_eq!(fact["value"]["state"]["at"]["unix_ms"], end);
+        if kind == "coordination" {
+            assert_eq!(fact["value"]["activity"]["message"], message["id"]);
+        }
+    }
+    let retained = messages
+        .call(&user, "message.get", json!({"id":message["id"]}))
+        .await
+        .unwrap();
+    assert_eq!(retained["body"], "coordinate");
+    messages
+        .save_wake(&first.id, std::slice::from_ref(&second.id), false, &[], 0)
+        .unwrap();
+    // A pending Message returns while its receiver works; it does not extend the caller's wait.
+    agents.call(&user,"agent.signal",json!({"id":second.id,"attempt":second.attempt,"payload":{"hook_event_name":"PreToolUse","tool_name":"Bash"}})).await.unwrap();
+    messages
+        .call(
+            &sender,
+            "message.send",
+            json!({"to":second.id,"kind":"note","body":"pending"}),
+        )
+        .await
+        .unwrap();
+    let negative = agents
+        .call(&user, "project.measurements", Value::Null)
+        .await
+        .unwrap();
+    assert_eq!(
+        negative["time_evidence"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .filter(|c| c["value"]["activity"]["kind"] == "coordination")
+            .count(),
+        1
+    );
+    for id in [&first.id, &second.id] {
+        agents
+            .call(&user, "agent.stop", json!({"id":id}))
+            .await
+            .unwrap();
+    }
+}
