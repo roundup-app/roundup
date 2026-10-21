@@ -11,6 +11,7 @@ import { usePadList } from "../rail/pads/padList";
 import { useTodoList } from "../todos/todoList";
 import { Icon } from "../ink/Icon";
 import { DRAWER_EASING } from "./drawer";
+import { createSlideLifetime } from "../ui/slideLifetime";
 import { setDrawerSliding } from "./sliding";
 import type { DrawerContent, DrawerState } from "./drawer";
 
@@ -48,12 +49,11 @@ export const DrawerHost = (props: { drawer: DrawerState; reducedMotion: Accessor
   );
 
   // U430: the centre moves for as long as the slide runs; with no motion there is no slide.
-  let slideTimer: ReturnType<typeof setTimeout> | undefined;
+  const lifetime = createSlideLifetime();
 
-  const endSlide = () => {
-    clearTimeout(slideTimer);
-    setDrawerSliding(false);
-  };
+  createEffect(() => setDrawerSliding(lifetime.sliding()));
+  onCleanup(() => setDrawerSliding(false));
+  createEffect(on(lifetime.exiting, (exiting, was) => { if (was && !exiting && !isOpen()) setMounted(null); }));
 
   createEffect(
     on(() => [props.drawer.content(), props.drawer.source(), props.reducedMotion()] as const, (_action, previous) => {
@@ -67,29 +67,23 @@ export const DrawerHost = (props: { drawer: DrawerState; reducedMotion: Accessor
 
       if (previous === undefined) return;
 
-      if (instant()) {
-        endSlide();
-        // Flush the settled layout before restoring the Shelf's own transition policy.
-        queueMicrotask(() => {
-          if (current !== revision || !panel()?.isConnected) return;
-          void panel()!.offsetWidth;
-          settleFrame = requestAnimationFrame(() => setSettling(false));
-        });
+      // U3010b: a preference change alone settles; turning reduced motion off replays no slide.
+      const preferenceOnly = previous[0] === props.drawer.content() && previous[1] === props.drawer.source();
 
-        return;
-      }
+      lifetime.retarget(isOpen(), !instant() && !preferenceOnly);
 
-      setDrawerSliding(true);
-      clearTimeout(slideTimer);
-      slideTimer = setTimeout(() => {
-        endSlide();
+      if (!instant()) return;
 
-        if (!isOpen()) setMounted(null);
-      }, 600);
+      // Flush the settled layout before restoring the Shelf's own transition policy.
+      queueMicrotask(() => {
+        if (current !== revision || !panel()?.isConnected) return;
+        void panel()!.offsetWidth;
+        settleFrame = requestAnimationFrame(() => setSettling(false));
+      });
     }),
   );
 
-  onCleanup(() => { revision++; endSlide(); cancelAnimationFrame(settleFrame ?? 0); });
+  onCleanup(() => { revision++; cancelAnimationFrame(settleFrame ?? 0); });
 
   registerKeys({ kind: "layer", element: panel, active: isOpen, modal: false }, [{
     chords: ["Escape"],
@@ -116,9 +110,7 @@ export const DrawerHost = (props: { drawer: DrawerState; reducedMotion: Accessor
       }}
       onTransitionEnd={(event) => {
         if (event.target !== event.currentTarget || (event.propertyName && event.propertyName !== "transform")) return;
-        endSlide();
-
-        if (!isOpen()) setMounted(null);
+        lifetime.settle();
       }}
     >
       <IconButton class="close" aria-label={copy.close} onClick={(event) => props.drawer.close(activationSource(event))}>
