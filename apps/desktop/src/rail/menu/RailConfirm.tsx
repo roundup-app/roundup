@@ -1,16 +1,24 @@
 import { copy } from "../../copy";
-import { For, Show } from "solid-js";
+import { createEffect, For, Show } from "solid-js";
 import { Portal } from "solid-js/web";
 import type { RailMenuModel } from "./model";
 import { goesLine, goingNames, staysLine } from "./removal";
 import { AlertDialog } from "../../ui/Dialog";
 
 /** U56, U367: the question before a stop or a remove, an in-app `alertdialog` since the system menu cannot hold it. Focus starts on `keep`; Esc or a click outside is `keep`. */
-export const RailConfirm = (props: { menu: RailMenuModel }) => {
+export const RailConfirm = (props: { menu: RailMenuModel; rowElement: (id: string) => HTMLElement | undefined }) => {
   let keep: HTMLButtonElement | undefined;
+  let returnTo: HTMLElement | null = null;
+
+  createEffect(() => {
+    const current = props.menu.state();
+
+    if (current?.confirming) returnTo = props.rowElement(current.node.id) ?? null;
+  });
 
   return (
     <AlertDialog.Root open={props.menu.state()?.confirming === true} initialFocusEl={() => keep ?? null}
+      finalFocusEl={() => returnTo?.isConnected ? returnTo : null}
       onOpenChange={(details) => { if (!details.open) props.menu.close(); }}>
       <Portal>
       <AlertDialog.Positioner>

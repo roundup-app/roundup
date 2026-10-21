@@ -705,7 +705,7 @@ export const Rail = () => {
       <Show when={asking()}>
         <p class="light">{copy.askingTheDoor}</p>
       </Show>
-      <RailConfirm menu={menu} />
+      <RailConfirm menu={menu} rowElement={rowElement} />
       <Show when={clearPrompt() !== null}>
         <Portal>
           <Show when={clearPrompt()}>
