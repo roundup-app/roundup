@@ -141,6 +141,8 @@
 }
 
 .todo-inset .todo-blockers {
+  display: flex;
+  align-items: center;
   min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -148,9 +150,13 @@
 }
 
 .todo-inset .todo-blocker {
-  display: inline;
-  line-height: var(--space-5);
+  flex: 0 1 auto;
+  min-width: 0;
+  max-width: 100%;
   vertical-align: baseline;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .todo-row .row-head { min-width: 0; display: flex; align-items: center; }
