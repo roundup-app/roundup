@@ -21,8 +21,23 @@ export const openBlockersOf = (todo: Todo, known: ReadonlyMap<number, Todo>): To
 export const blockedBy = (todo: Todo, all: readonly Todo[]): Todo[] =>
   all.filter((other) => other.blockers.includes(todo.id)).toSorted(byId);
 
-export const offeredAsBlockers = (todo: Todo, all: readonly Todo[]): Todo[] =>
-  all.filter((other) => other.id !== todo.id && !todo.blockers.includes(other.id)).toSorted(byId);
+/** Todos that can wait on `todo`: not itself, not already a blocker, and none that already waits on it, directly or through others. */
+export const offeredAsBlockers = (todo: Todo, all: readonly Todo[]): Todo[] => {
+  const byKnown = new Map(all.map((other) => [other.id, other]));
+
+  const waitsOnTodo = (other: Todo, seen = new Set<number>()): boolean => {
+    if (other.blockers.includes(todo.id)) return true;
+    seen.add(other.id);
+
+    return other.blockers.some((id) => {
+      const next = byKnown.get(id);
+
+      return next !== undefined && !seen.has(id) && waitsOnTodo(next, seen);
+    });
+  };
+
+  return all.filter((other) => other.id !== todo.id && !todo.blockers.includes(other.id) && !waitsOnTodo(other)).toSorted(byId);
+};
 
 /** U3708: a row of the Todos tree: its depth and the Todo it nests under, both read from `blockers` alone. */
 export type NestedRow = { todo: Todo; level: number; parent: number | null };
