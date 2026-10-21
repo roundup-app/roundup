@@ -2,9 +2,13 @@
 
 Design for `scenarios/messages.md` (B1–B18, B39/B40 and B50–B52) Serves `PRINCIPLES.md` P1, P3, P4, P9, P10 and P11 (the ids in `PRINCIPLES.md`, not `pads.md`'s). Terms are in `GLOSSARY.md`; the one new word is "digest" (the type `Digest`, `agent.digest`, the tool `agent_digest`), the user's choice, defined in `GLOSSARY.md`.
 
-## What exists and what does not
+## Existing delivery seams
 
-Exists: the `Delivery` type and the `bus.route` Hook type (`contracts/hooks.ts`), the "Message delivery" paragraph of `docs/architecture.md`, Routes named in ADR 0004, the Inbox wireframe, and `type_prompt` in `crates/agents`, the only path that types into an Agent's Terminal. Missing: a Message type, a store, RPC methods, an MCP tool, and any delivery logic.
+`crates/messages` owns the durable Message store, Routes, holds and escalation chain.
+`crates/rupd` wires delivery to Agents, and `crates/rup` exposes the existing RPC/MCP calls.
+The Adapter input seam supplies user prompt typing and cross-session inbox delivery;
+B50–B52 specify the sender-based selection and receipt rules. These changes reuse
+those seams rather than adding a queue or another Adapter seam.
 
 ## Status of a Message
 
@@ -32,7 +36,7 @@ The Adapter owns socket authentication, protocol checking, envelope and receivin
 
 Missing or Mismatch holds either non-user kind for `inbox`, exposes the existing Rail fact and emits one held event with no false delivery. Mismatch returns `INBOX_UNAVAILABLE` after storing the held Message; Missing retains the existing send response. Manual `message.deliver` requires a usable inbox or fails visibly while leaving it held. A passing check at eligible idle or Attempt start releases inbox holds in order only after every remaining Takeover/input hold ends; AskFirst/Drop retain their own semantics. Explicit user delivery retains its hold override but cannot select another transport. The merged inbox-recovery repair's final-hold guards apply to questions as well as notes.
 
-The vendor also suppresses consecutive equal sender/text entries within a receiving Attempt. B51(e) generalizes the existing refusal to the latest pending/delivered non-user Message across both kinds: equal sender and body refuses a new send before allocating a Message or chain id, even across note/question kinds. Other sender/body, an intervening different entry, and another receiving Attempt are tested non-refusal boundaries. Same-id retries are distinct from new sends. The implementation documents this boundary against the Adapter fixture/peer observer; a release or generated hop cannot silently lose a question to the vendor repeat filter. A refused held Message remains available for user action; a refused new hop follows B16's unable-to-take skip. Distinct accepted questions keep distinct ids and chains.
+The vendor also suppresses consecutive equal sender/text entries within a receiving Attempt. B51(g) generalizes the existing refusal to the latest pending/delivered non-user Message across both kinds: equal sender and body refuses a new send before allocating a Message or chain id, even across note/question kinds. Other sender/body, an intervening different entry, and another receiving Attempt are tested non-refusal boundaries. Same-id retries are distinct from new sends. The implementation documents this boundary against the Adapter fixture/peer observer; a release or generated hop cannot silently lose a question to the vendor repeat filter. A refused held Message remains available for user action; a refused new hop follows B16's unable-to-take skip. Distinct accepted questions keep distinct ids and chains.
 
 ### Escalation and holds
 
