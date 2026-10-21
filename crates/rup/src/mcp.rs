@@ -455,6 +455,26 @@ fn offered_tools() -> Vec<Offered> {
         ),
         offered::<pad::SetOwnerParams>("pad.setOwner", "Give a Pad to another Actor."),
         offered::<pad::PadName>("pad.delete", "Delete a Pad."),
+        offered::<message::ProgressParams>(
+            "message.progress",
+            "Inspect retained instructions, reports, acceptance and declared verification without starting work.",
+        ),
+        offered::<message::ReportParams>(
+            "message.report",
+            "Report your own Attempt's result for an exact delivered instruction and published output. This is a claim, not acceptance or verification. Use the same key for retries.",
+        ),
+        offered::<message::AcceptResultParams>(
+            "message.acceptResult",
+            "Record user acceptance of one exact reported result with its evidence; only the user may accept.",
+        ),
+        offered::<message::ResultId>(
+            "message.verifyResult",
+            "Observe a report's declared authoritative condition without a Model call; unavailable or unsupported evidence stays unknown.",
+        ),
+        offered::<message::ResolveResultParams>(
+            "message.resolveResult",
+            "User only: authorize a read-only authoritative receipt source for an unknown external effect. Exact target/version and fresh source evidence are required; this never repeats the effect.",
+        ),
         offered::<message::SendParams>(
             "message.send",
             "Send a note or a question to an Agent or the user. You are the sender.",

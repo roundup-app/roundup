@@ -1,4 +1,4 @@
-import { cleanup, fireEvent, screen, waitFor } from "@solidjs/testing-library";
+import { cleanup, fireEvent, screen, waitFor, within } from "@solidjs/testing-library";
 import { afterEach, describe, expect, it } from "vitest";
 import { agent, door, workstream } from "../testing/nodes";
 import { exitedTerminal, mountRail, rowOf, settled } from "./railFixture";
@@ -78,17 +78,17 @@ describe("u426 a Rail row shows its icons", () => {
     expect(mounted.rail.selected()).toBe("g");
 
     if (kind !== "idle") {
-      fireEvent.click(screen.getByRole("menuitem", { name: "Stop" }));
+      fireEvent.click(within(await screen.findByRole("alertdialog")).getByRole("button", { name: "Stop" }));
       expect(mounted.rail.selected()).toBe("g");
     }
   });
 
   it("u426_the_row_menu_keeps_stop_resume_and_remove", async () => {
-    await mountRail([agent("a", "working", "busy")]);
+    const { app } = await mountRail([agent("a", "working", "busy")]);
 
     fireEvent.contextMenu(rowOf("a"), { clientX: 10, clientY: 10 });
 
-    expect(screen.getAllByRole("menuitem").map((each) => each.textContent)).toEqual(["Stop", "Remove"]);
+    expect(app.menuLabels()).toEqual(expect.arrayContaining(["Stop", "Resume", "Remove"]));
   });
 
   it("u426_a_stopped_agent_offers_no_stop_icon", async () => {

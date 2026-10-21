@@ -228,7 +228,7 @@ fn assert_exit_1_with_one_line_naming(output: &Output, socket: &Path) {
 
 /// M5: the methods with a tool for every Agent, each named after its method with the dot replaced
 /// by `_`, bar `agent.setOrder` (O4), whose tool is `agent_set_order`.
-const TOOL_METHODS: [&str; 79] = [
+const TOOL_METHODS: [&str; 84] = [
     "agent.wake",
     "reaction.create",
     "reaction.preview",
@@ -264,6 +264,11 @@ const TOOL_METHODS: [&str; 79] = [
     "pad.export",
     "pad.setStorage",
     // B12
+    "message.progress",
+    "message.report",
+    "message.acceptResult",
+    "message.verifyResult",
+    "message.resolveResult",
     "message.send",
     "message.get",
     "message.list",
@@ -333,7 +338,7 @@ const DOOR_METHODS: [&str; 8] = [
 ];
 
 /// M5: the methods and App commands with no tool; the reasons are in `scenarios/mcp.md`.
-const NO_TOOL: [&str; 55] = [
+const NO_TOOL: [&str; 56] = [
     // U2539b, U2540a: the App's Worktree comparison; an Agent reads its own diff with git.
     "agent.changedFiles",
     "agent.compareFile",
@@ -398,6 +403,8 @@ const NO_TOOL: [&str; 55] = [
     "open_target",
     "open_in_editor",
     "save_pasted_image",
+    // U2694a: the native menu of the user's right-click
+    "show_context_menu",
     // U449–U451: the user's native window, which an Agent cannot move or rename.
     "plugin:window-bar|set_window_title",
     "plugin:window-bar|drag_window",
@@ -435,6 +442,11 @@ fn quoted_after(file: &str, marker: &str) -> Vec<String> {
 fn seam_commands() -> Vec<String> {
     let table = quoted_after("apps/desktop/src/app/seam.ts", "SEAM_COMMANDS = [");
     let mut registered = quoted_after("crates/desktop/src/lib.rs", "generate_handler![");
+    for command in &mut registered {
+        if let Some((_, name)) = command.rsplit_once("::") {
+            *command = name.to_owned();
+        }
+    }
     registered.extend(
         quoted_after("crates/desktop/src/window.rs", "generate_handler![")
             .into_iter()
@@ -507,20 +519,6 @@ async fn m1_offers_one_tool_per_method_and_ask_user_and_no_others() {
 }
 
 #[tokio::test]
-async fn b45_agent_wake_is_offered_to_every_agent() {
-    let project = start_daemon();
-    let shim = spawn_shim(&project.socket, "a1").await;
-
-    let tools = shim.client.list_all_tools().await.unwrap();
-
-    let tool = tools.iter().find(|t| t.name == "agent_wake").unwrap();
-    assert_eq!(
-        Value::Object((*tool.input_schema).clone()),
-        serde_json::to_value(schemars::schema_for!(contracts::agent::WakeParams)).unwrap()
-    );
-}
-
-#[tokio::test]
 async fn m1_input_schemas_are_the_contract_schemas() {
     let project = start_daemon();
     let shim = spawn_shim(&project.socket, "a1").await;
@@ -533,6 +531,30 @@ async fn m1_input_schemas_are_the_contract_schemas() {
 
     let derived = |schema| serde_json::to_value(schema).unwrap();
     let expected = [
+        (
+            "agent_wake",
+            derived(schemars::schema_for!(contracts::agent::WakeParams)),
+        ),
+        (
+            "message_progress",
+            derived(schemars::schema_for!(message::ProgressParams)),
+        ),
+        (
+            "message_report",
+            derived(schemars::schema_for!(message::ReportParams)),
+        ),
+        (
+            "message_acceptResult",
+            derived(schemars::schema_for!(message::AcceptResultParams)),
+        ),
+        (
+            "message_verifyResult",
+            derived(schemars::schema_for!(message::ResultId)),
+        ),
+        (
+            "message_resolveResult",
+            derived(schemars::schema_for!(message::ResolveResultParams)),
+        ),
         (
             "todo_create",
             derived(schemars::schema_for!(todo::CreateParams)),

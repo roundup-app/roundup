@@ -1,3 +1,4 @@
+import { openOnRelease } from "../ui/contextMenu";
 import * as v from "valibot";
 import { useConnectedProject } from "../state/connectedProject";
 import "../keys/styles.css";
@@ -142,7 +143,7 @@ export const RailRowView = (props: {
   doorFailure: string | null;
   lifted: boolean;
   sortRef: (element: HTMLElement | undefined) => void;
-  onOpenMenu: (press: MouseEvent) => void;
+  onOpenMenu: (x: number, y: number) => void;
   /** U426: the icons of a Workstream or Agent row. */
   actions: RowActions;
 }) => {
@@ -225,10 +226,7 @@ export const RailRowView = (props: {
     "data-kind": kind() ?? undefined,
     "data-lifted": props.lifted,
     style: { "--indent": `calc(${props.row.depth} * var(--rail-step) + var(--rail-inset))` },
-    onContextMenu: (press: MouseEvent) => {
-      press.preventDefault();
-      props.onOpenMenu(press);
-    },
+    onContextMenu: (press: MouseEvent) => openOnRelease(press, (x, y) => props.onOpenMenu(x, y)),
     ...handlers,
   });
 

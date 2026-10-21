@@ -267,6 +267,31 @@ pub const METHODS: &[Method] = &[
         "attachment_SaveParams",
         "attachment_Saved",
     ),
+    m(
+        "message.progress",
+        "message_ProgressParams",
+        "message_Progress",
+    ),
+    m(
+        "message.report",
+        "message_ReportParams",
+        "message_ResultReport",
+    ),
+    m(
+        "message.acceptResult",
+        "message_AcceptResultParams",
+        "message_ResultAcceptance",
+    ),
+    m(
+        "message.verifyResult",
+        "message_ResultId",
+        "message_ResultObservation",
+    ),
+    m(
+        "message.resolveResult",
+        "message_ResolveResultParams",
+        "message_ResultObservation",
+    ),
     m("message.send", "message_SendParams", "message_Message"),
     m("message.pass", "message_MessageId", "message_Message"),
     m("message.get", "message_MessageId", "message_Message"),
