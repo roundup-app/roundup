@@ -211,13 +211,14 @@ describe("u406 the Card for ask_user", () => {
     select("beta");
     fireEvent.click(await screen.findByRole("button", { name: "Recover unfinished work" }));
     const recovery = await screen.findByRole("region", { name: "Unfinished work" });
-    fireEvent.click(within(recovery).getByRole("button", { name: new RegExp(a.revision) }));
-    await within(recovery).findByText("Original object unavailable");
     const clipboard = vi.fn(async (_text: string) => {});
     Object.defineProperty(navigator, "clipboard", { configurable: true, value: { writeText: clipboard } });
-    fireEvent.click(within(recovery).getByRole("button", { name: "Copy note" }));
+    await waitFor(() => expect(within(recovery).getAllByRole("listitem")).toHaveLength(2));
+    const row = within(within(recovery).getAllByRole("listitem").find((item) => item.dataset.revision === a.revision)!);
+
+    fireEvent.click(row.getByRole("button", { name: "Copy" }));
     expect(clipboard).toHaveBeenCalledExactlyOnceWith(exact);
-    fireEvent.click(within(recovery).getByRole("button", { name: "Discard this revision" }));
+    fireEvent.click(row.getByRole("button", { name: "Discard" }));
     expect(restored.drafts("/p").list()).toEqual([b]);
     expect(restored.drafts("/q").list()).toEqual([q]);
     cleanup();
@@ -259,12 +260,12 @@ describe("u406 the Card for ask_user", () => {
     expect(rpcCalls(app, "decision.capture")).toHaveLength(2);
   });
 
-  it("u2773a_recovery_counts_only_offscreen_decision_work", async () => {
+  it("u3021a_offscreen_decision_work_not_at_risk_has_no_entry", async () => {
     await open();
     fireEvent.input(note(), { target: { value: "unfinished" } });
-    await waitFor(() => expect(screen.queryByRole("button", { name: "Recover unfinished work" })).toBeNull());
     select("beta");
-    expect(await screen.findByRole("button", { name: "Recover unfinished work" })).toBeTruthy();
+    await new Promise((done) => setTimeout(done));
+    expect(screen.queryByRole("button", { name: "Recover unfinished work" })).toBeNull();
   });
 
   it("u2773a_decisions_restores_exact_work", async () => {
@@ -341,12 +342,11 @@ describe("u406 the Card for ask_user", () => {
     expect(calls(restored.app)).toEqual([]);
 
     select("beta");
-    fireEvent.click(await screen.findByRole("button", { name: "Recover unfinished work" }));
-    const recovery = await screen.findByRole("region", { name: "Unfinished work" });
 
-    if (outcome !== "acknowledged") {
-      fireEvent.click(within(recovery).getByRole("button", { name: new RegExp(before[0]!.revision) }));
-      fireEvent.click(within(recovery).getByRole("button", { name: "Discard this revision" }));
+    if (outcome === "acknowledged") expect(screen.queryByRole("button", { name: "Recover unfinished work" })).toBeNull();
+    else {
+      fireEvent.click(await screen.findByRole("button", { name: "Recover unfinished work" }));
+      fireEvent.click(within(await screen.findByRole("region", { name: "Unfinished work" })).getByRole("button", { name: "Discard" }));
     }
 
     expect(restored.drafts("/p").list()).toEqual([before[1]]);
@@ -374,8 +374,7 @@ describe("u406 the Card for ask_user", () => {
     select("beta");
     fireEvent.click(await screen.findByRole("button", { name: "Recover unfinished work" }));
     const recovery = await screen.findByRole("region", { name: "Unfinished work" });
-    fireEvent.click(within(recovery).getByRole("button", { name: new RegExp(saved.revision) }));
-    await within(recovery).findByText("Original object unavailable");
+    await within(recovery).findByRole("button", { name: "Copy" });
     expect(within(recovery).queryByRole("button", { name: "Send" })).toBeNull();
     expect(calls(replacement.app)).toEqual([]);
   });
@@ -400,23 +399,18 @@ describe("u406 the Card for ask_user", () => {
     select("beta");
     fireEvent.click(await screen.findByRole("button", { name: "Recover unfinished work" }));
     const recovery = await screen.findByRole("region", { name: "Unfinished work" });
-    expect(within(recovery).getByRole("alert").textContent).toContain("/p");
+    expect(within(recovery).getByRole("alert").textContent).toContain("Could not store");
     expect(localStorage.getItem(key)).toBe(bytes);
-    const clipboard = vi.fn(async (_text: string) => {});
-    Object.defineProperty(navigator, "clipboard", { configurable: true, value: { writeText: clipboard } });
-    fireEvent.click(within(recovery).getByRole("button", { name: "Copy note" }));
-    expect(clipboard).toHaveBeenCalledWith(exact);
     writes.mockRestore();
-    fireEvent.click(within(recovery).getByRole("button", { name: "Retry storage only" }));
+    fireEvent.click(within(recovery).getByRole("button", { name: "Try again" }));
     expect(drafts("/p").problem()).toBeNull();
     expect(calls(app)).toEqual([]);
     cleanup();
     const fresh = await open();
     expect(note().value).toBe(exact);
     select("beta");
-    fireEvent.click(await screen.findByRole("button", { name: "Recover unfinished work" }));
-    fireEvent.click(await screen.findByRole("button", { name: "Discard this revision" }));
-    expect(fresh.drafts("/p").list()).toEqual([]);
+    expect(screen.queryByRole("button", { name: "Recover unfinished work" })).toBeNull();
+    expect(fresh.drafts("/p").list()).toHaveLength(1);
     expect(calls(fresh.app)).toEqual([]);
   });
 
@@ -435,8 +429,8 @@ describe("u406 the Card for ask_user", () => {
     select("beta");
     fireEvent.click(await screen.findByRole("button", { name: "Recover unfinished work" }));
     const recovery = await screen.findByRole("region", { name: "Unfinished work" });
-    expect(within(recovery).getByRole("alert").textContent).toContain("Decision");
-    fireEvent.click(within(recovery).getByRole("button", { name: "Retry storage only" }));
+    expect(within(recovery).getByRole("alert").textContent).toContain("Could not restore");
+    fireEvent.click(within(recovery).getByRole("button", { name: "Try again" }));
     expect(localStorage.getItem(key)).toBe(invalid);
     expect(fresh.drafts("/p").list().at(-1)?.value.note).toBe("  recoverable é\n👩🏽‍💻  ");
     expect(calls(fresh.app)).toEqual([]);
