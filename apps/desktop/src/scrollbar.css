@@ -2,7 +2,7 @@
 * {
   scrollbar-width: thin;
   scrollbar-color: transparent transparent;
-  transition: scrollbar-color 200ms ease-out;
+  transition: scrollbar-color var(--duration-scrollbar) ease-out;
 }
 
 *:hover {
@@ -18,7 +18,7 @@
 /* The emulator draws its own overlay bar: slim it, keep it out of sight until the pointer is over the Terminal, and leave the fit's 14 px reserve alone so no resize is sent. */
 .xterm .xterm-scrollable-element > .scrollbar {
   opacity: 0 !important;
-  transition: opacity 200ms ease-out !important;
+  transition: opacity var(--duration-scrollbar) ease-out !important;
 }
 
 .xterm .xterm-scrollable-element:hover > .scrollbar {
@@ -29,7 +29,7 @@
   width: 6px !important;
   left: auto !important;
   right: 2px;
-  border-radius: 3px;
+  border-radius: var(--radius-scrollbar);
   background: var(--scrollbar-thumb) !important;
 }
 
