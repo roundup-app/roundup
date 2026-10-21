@@ -56,6 +56,7 @@ export const HintLine = () => {
 
     return shown
       .filter((hint) => hint.label !== copy.exportMd || onPad)
+      .filter((hint) => hint.label !== copy.assign || focus()?.closest("[data-shelf-row]") != null)
       .map((hint) => hint.label === copy.maximise && maximised ? { ...hint, label: copy.restore } : hint);
   };
 

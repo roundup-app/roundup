@@ -219,6 +219,8 @@ const editor = async (kind: typeof editorKinds[number]) => {
     await wait("!!document.querySelector('.ProseMirror[contenteditable=true]')");
     selector = ".ProseMirror";
   } else if (kind === "todo") {
+    // U3717: the seeded Todos are unowned and Unassigned starts folded, so the polled predicate unfolds it.
+    await wait("(() => { document.querySelector('.shelf [data-shelf-group=\"unassigned\"][data-state=\"closed\"] [data-part=\"branch-control\"]')?.click(); return !!document.querySelector('.shelf .todo-row-button'); })()");
     await browser("click", ".shelf .todo-row-button");
     await wait("!!document.querySelector('.todo-detail-title p')");
     await browser("dblclick", ".todo-detail-title p");

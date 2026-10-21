@@ -8,7 +8,7 @@ import { registerKeys } from "../keys/registry";
 import { activationSource } from "../keys/registry";
 import type { ActivationSource } from "../keys/registry";
 import { copy } from "../copy";
-import { shelfRowKeys } from "../shelf/keys";
+import { shelfKeyScope, shelfRowKeys } from "../shelf/keys";
 import { createBulkDelete } from "../shelf/BulkDelete";
 
 import { createSelection } from "../shelf/selection";
@@ -34,7 +34,11 @@ import { createSortedList } from "./sortedList";
 import { Sortable } from "../ui/sortable";
 import { TreeView } from "../ui/TreeView";
 import { shelfScope } from "../shelf/scope";
-import { Groups } from "../shelf/Groups";
+import { OwnerGroups } from "../shelf/OwnerGroups";
+import { OwnerPicker } from "./OwnerPicker";
+import { ownerGroups, ownersOnRail, sameOwner } from "../shelf/scope";
+import type { Actor } from "@contracts/Actor";
+import { CHORDS, TEXT_FIELDS } from "../keys/chords";
 import type { TodosState } from "./state";
 import { useTodoList } from "./todoList";
 import { TodoDrawer } from "./TodoDrawer";
@@ -79,6 +83,10 @@ export const OpenRow = (props: {
   registerRow?: (id: number, row: HTMLButtonElement | null) => void;
   /** U490a: a row ordered through `ui/Sortable` instead. */
   sorted?: SortedRow;
+  /** U3720: opens the owner list for this row. */
+  onAssign?: (todo: Todo, anchor: HTMLElement) => void;
+  /** U3720: a failure the owner list reports for this row. */
+  failWith?: (show: (message: string | null) => void) => void;
   /** U3708: the Shelf list's tree place of this row; absent for the Rail's copy. */
   place?: { level: number; parent: number | null };
   /** U3708: `ui/TreeView`'s `treeitem` props for this row (its role and level). */
@@ -124,6 +132,7 @@ export const OpenRow = (props: {
   });
 
   props.sorted?.fail(setMoveFailure);
+  props.failWith?.(setFailure);
 
   const head = (
     <div class="row-head">
@@ -152,6 +161,9 @@ export const OpenRow = (props: {
         <Show when={!props.nested && props.sorted}>
           <div class="todo-row-actions" role="group" aria-label={copy.rowActionsFor(props.todo.id)}>
             <Show when={props.sorted}>
+              <Show when={props.onAssign}>
+                <button data-button="row-action" type="button" class="word light todo-assign" aria-label={copy.assignTodoNumber(props.todo.id)} onClick={(event) => props.onAssign?.(props.todo, event.currentTarget)}>{copy.assign}</button>
+              </Show>
               <IconButton aria-label={copy.moveUp} onClick={() => props.sorted?.step(-1)}><ChevronUp class="icon" aria-hidden="true" width={16} height={16} stroke-width={1.75} /></IconButton>
               <IconButton aria-label={copy.moveDown} onClick={() => props.sorted?.step(1)}><Icon name="down" /></IconButton>
             </Show>
@@ -298,6 +310,13 @@ export const Todos = (props: {
 
   const isEmpty = createMemo(() => todos.isLoaded() && todos.all().length === 0 && todos.failure() === null);
 
+  /** The id of the group a Todo reads in: its owner, or Unassigned once that Agent left the Rail. */
+  const groupOf = (todo: Todo) => ownerGroups(connected, [todo], item => item.owner).find(group => group.items.length > 0)!.id;
+  const [dragging, setDragging] = createSignal(false);
+  const [adding, setAdding] = createSignal<{ group: string; owner: Actor | null } | null>(null);
+  const [picking, setPicking] = createSignal<{ id: number; anchor: HTMLElement } | null>(null);
+  const pickFails = new Map<number, (message: string | null) => void>();
+
   const sorted = createSortedList({
     ids: () => open().map((todo) => todo.id),
     all: todos.all,
@@ -325,6 +344,27 @@ export const Todos = (props: {
         return null;
       },
       move: (id, home) => failureOf(() => connected.app.rpc("todo.move", { id, home })),
+    },
+    owner: {
+      target: (id, x, y) => {
+        const own = todos.byId().get(id);
+
+        for (const element of document.querySelectorAll<HTMLElement>(".todos-tab [data-shelf-group]")) {
+          const box = element.getBoundingClientRect();
+
+          if (x < box.left || x >= box.right || y < box.top || y >= box.bottom) continue;
+          const group = element.dataset.shelfGroup!;
+          const owner = ownersOnRail(connected).find(each => each.id === group);
+
+          // A drop on the own group reorders (U155), and a group that left the Rail takes nothing.
+          if (!owner || !own || group === groupOf(own)) return null;
+
+          return { element, attribute: "data-drop-target", owner: owner.actor };
+        }
+
+        return null;
+      },
+      assign: (id, owner) => failureOf(() => connected.app.rpc("todo.assign", { id, owner })),
     },
   });
 
@@ -379,6 +419,74 @@ export const Todos = (props: {
   const rows = new Map<number, HTMLButtonElement>();
   let plusButton: HTMLButtonElement | undefined;
 
+  const rowButtonOf = (id: number) => (rows.get(id)?.isConnected ? rows.get(id) : null) ?? document.querySelector<HTMLElement>(`[data-todo="${id}"] .row-head button`);
+
+  /** U3720: the owner list closes with focus back on the row, found again after the refetch. */
+  const stopPicking = () => {
+    const id = picking()?.id;
+
+    setPicking(null);
+
+    if (id !== undefined) queueMicrotask(() => rowButtonOf(id)?.focus());
+  };
+
+  // U3720: a chosen Todo moves to its new group's row once `todo.updated` has refetched, which replaces the row that held focus.
+  const [revealed, setRevealed] = createSignal<string | null>(null);
+  const [regrouped, setRegrouped] = createSignal<{ id: number; owner: Actor | null } | null>(null);
+
+  createEffect(() => {
+    const request = regrouped();
+    const arrived = request && todos.byId().get(request.id);
+
+    if (!request || !arrived || !sameOwner(arrived.owner, request.owner)) return;
+
+    const id = request.id;
+
+    queueMicrotask(() => {
+      const held = document.activeElement;
+
+      if (held && held !== document.body && held.isConnected && !held.closest("[role=menu]")) return (setRegrouped(null), setRevealed(null));
+
+      const button = rowButtonOf(id);
+
+      if (button) {
+        button.focus();
+        setRegrouped(null);
+        setRevealed(null);
+      }
+    });
+  });
+
+  const assign = async (id: number, owner: Actor | null) => {
+    const message = await failureOf(() => connected.app.rpc("todo.assign", { id, owner }));
+
+    pickFails.get(id)?.(message);
+
+    if (message === null) {
+      // U3720, U138: the destination unfolds before its row exists, so focus has a button to land on.
+      setRevealed(ownersOnRail(connected).find(each => sameOwner(each.actor, owner))?.id ?? "unassigned");
+      setRegrouped({ id, owner });
+    }
+  };
+
+  registerKeys(shelfKeyScope, [{
+    action: CHORDS.find(row => row.keys === "O")!,
+    capture: (focus) => {
+      const row = focus instanceof HTMLElement && focus.closest(".row-head") && !focus.closest(".todo-row-actions") ? focus.closest<HTMLElement>("[data-shelf-row]") : null;
+      const id = Number(row?.dataset.todo);
+      const found = row && todos.byId().get(id);
+      const anchor = focus instanceof HTMLElement && !focus.matches(TEXT_FIELDS) ? focus : null;
+
+      return { available: () => !!found && !found.done && anchor !== null, invoke: () => { if (anchor) setPicking({ id, anchor }); } };
+    },
+  }]);
+
+  const offers = () => {
+    const current = todos.byId().get(picking()?.id ?? -1);
+
+    return ownersOnRail(connected).filter(owner => !current || owner.id !== groupOf(current));
+  };
+
   // U138: a completed Todo leaves the open list only once its `todo.updated` Event has refetched it, so the row to focus
   // is held here until this list no longer carries `id`, then it is given to that target, else to the `+` button — but
   // only while focus is still unclaimed (null or the page body), so a request that outlives the user moving focus
@@ -411,14 +519,15 @@ export const Todos = (props: {
   });
 
   const [creationHome, setCreationHome] = createSignal<string | null>(form.success ? form.output.home : null);
-  const creationTarget = () => ({ surface: "todos", object: "new", recipient: creationHome() });
+  const creationRecipient = () => adding() === null ? creationHome() : `${creationHome() ?? ""}/${adding()!.group}`;
+  const creationTarget = () => ({ surface: "todos", object: "new", recipient: creationRecipient() });
 
   createEffect(() => {
     if (typing()) onCleanup(connected.drafts.editor(creationTarget()));
   });
 
   const creation = () => connected.drafts.list().findLast(draft => draft.destination.surface === "todos"
-    && draft.destination.object === "new" && draft.destination.recipient === creationHome()
+    && draft.destination.object === "new" && draft.destination.recipient === creationRecipient()
     && (creationRevision() !== null ? draft.revision === creationRevision() : draft.status === "draft"));
 
   createEffect(() => {
@@ -455,15 +564,18 @@ export const Todos = (props: {
   // EntryRow clears after capturing this revision, so another Enter cannot submit it twice.
   const create = async (title: string) => {
     setCreateFailure(null);
+    const owner = adding()?.owner ?? null;
 
     const draft = creation();
 
     if (!homeExists(creationHome()) || !draft || !connected.drafts.submit(draft.revision)) return;
     setCreationRevision(null);
     const home = creationHome();
+    const recipient = creationRecipient();
+    const field = document.querySelector<HTMLInputElement>(".todos-tab .entry-field");
 
     try {
-      const made = await connected.app.rpc("todo.create", { title, body: null, blockers: null });
+      const made = await connected.app.rpc("todo.create", owner === null ? { title, body: null, blockers: null } : { title, body: null, blockers: null, owner });
       // Creation is acknowledged before placement: a failed move must never invite duplicate creation.
       connected.drafts.settle(draft.revision, "acknowledged");
 
@@ -472,8 +584,76 @@ export const Todos = (props: {
       if (!(error instanceof Error)) throw error;
       connected.drafts.settle(draft.revision, outcomeOf(error));
       setCreateFailure(error.message);
+      const retained = v.safeParse(v.string(), draft.value.title);
+
+      // EntryRow clears on submit; restore only this field's unchanged failed revision.
+      if (field?.isConnected && field.value === "" && creationRecipient() === recipient && !creation() && retained.success) field.value = retained.output;
     }
   };
+
+  /** U3719: an Agent group whose Agent left the Rail keeps its open field at the top, so the create fails as NOT_FOUND and says so. */
+  const fieldGroupGone = () => adding() !== null && !ownersOnRail(connected).some(owner => owner.id === adding()?.group);
+
+  /** U3719: the plus of a group header, or the top button (`null`), opens the one new-Todo field. */
+  const openField = (next: { group: string; owner: Actor | null } | null) => {
+    setCreateFailure(null);
+
+    if (typing() && adding()?.group === next?.group) {
+      document.querySelector<HTMLInputElement>(".todos-tab .entry-field")?.focus();
+
+      return;
+    }
+
+    // U3719: one field is open at a time; opening another discards the first one's text.
+    const previous = typing() ? creation() : undefined;
+
+    batch(() => {
+      if (previous) connected.drafts.discard(previous.revision);
+      setCreationRevision(null);
+    });
+
+    setCreationHome(selectedWorkstream());
+    setAdding(next);
+    const draft = creation();
+
+    if (draft && !v.safeParse(v.string(), draft.value.title).success) {
+      setCreateFailure(copy.draftRetention(connected.project.path, copy.draftSurface("todos"), "invalid"));
+
+      return;
+    }
+
+    setCreationRevision(draft?.revision ?? null);
+    setTyping(true);
+  };
+
+  const field = () => (
+    <div class="shelf-list" ref={element => { creationRow = element; }}>
+      <EntryRow
+        glyph={<input type="checkbox" class="todo-tick" disabled tabIndex={-1} aria-hidden="true" />}
+        class="todo-inset"
+        label={copy.newTodoTitle}
+        placeholder={copy.newTodoPlaceholder}
+        initial={untrack(() => {
+          const draft = creation();
+          const title = v.safeParse(v.string(), draft?.value.title);
+
+          return { text: title.success ? title.output : "", selection: draft?.selection ?? null };
+        })}
+        onEdit={retainCreation}
+        onSubmit={(title) => void create(title)}
+        onClose={(reason) => {
+          const group = adding()?.group;
+
+          setTyping(false);
+          setAdding(null);
+
+          if (reason === "escape") setCreateFailure(null);
+
+          if (reason !== "blur") (document.querySelector<HTMLElement>(`.todos-tab [data-shelf-group="${group}"] .shelf-group-add`) ?? plusButton)?.focus();
+        }}
+      />
+    </div>
+  );
 
   // U153: a row is selected while the Drawer it opened is the one open.
   const [shown, setShown] = createSignal<{ id: number; content: () => JSX.Element } | null>(null);
@@ -514,60 +694,37 @@ export const Todos = (props: {
   };
 
   return (
-    <section aria-label={copy.todos} onContextMenu={todoMenu}>
+    <section aria-label={copy.todos} class="todos-tab" onContextMenu={todoMenu}>
       <button
         data-button="add"
         type="button"
         aria-label={copy.addTodo}
         class="shelf-add"
         ref={(button) => (plusButton = button)}
-        onClick={(event) => {
-          setCreateFailure(null);
-
-          if (typing()) {
-            event.currentTarget.parentElement?.querySelector<HTMLInputElement>(".entry-field")?.focus();
-
-            return;
-          }
-
-          setCreationRevision(null);
-          setCreationHome(selectedWorkstream());
-          const draft = creation();
-
-          if (draft && !v.safeParse(v.string(), draft.value.title).success) {
-            setCreateFailure(copy.draftRetention(connected.project.path, copy.draftSurface("todos"), "invalid"));
-
-            return;
-          }
-
-          setCreationRevision(draft?.revision ?? null);
-          setTyping(true);
-        }}
+        onClick={() => openField(null)}
       >
         <Icon name="plus" />
         <span>{copy.todo}</span>
       </button>
       <Show when={todos.failure()}>{(message) => <ErrorLine message={message()} />}</Show>
-      <Show when={createFailure()}>{(message) => <ErrorLine message={message()} />}</Show>
+      <Show when={createFailure() !== null && (adding() === null || fieldGroupGone())}>{(_) => <ErrorLine message={createFailure()!} />}</Show>
       <Show when={isEmpty() && !typing()}>
         <EmptyState icon="check" heading={copy.noTodosYet} hint={copy.noTodosHint} />
       </Show>
-      <Show when={open().length + done().length > 0}>
-        <Groups unfold={todos.revealed} isUngrouped={todo => todo.id < 0} items={() => [...open(), ...done()]} home={todo => todo.home} maker={todo => todo.creator}>{items => {
-        const tree = createMemo(() => treeRows(items().filter(todo => !todo.done)));
-
+      <Show when={open().length > 0 || adding() !== null}>
+        <OwnerGroups groups={() => ownerGroups(connected, open(), todo => todo.owner)} dragging={dragging} adding={() => adding()?.group ?? null} reveal={revealed} unfold={todos.revealed} onAdd={group => openField({ group: group.id, owner: group.actor })}>{group => {
+        const tree = createMemo(() => treeRows(group().items));
         const collection = createMemo(() => treeCollection(tree()));
-
         const placeOf = (id: number) => tree().find((row) => row.todo.id === id) ?? { level: 1, parent: null };
 
         return <>
         <TreeView.Root collection={collection()}>
-        <Sortable.Root class="todo-list shelf-list" plain ids={tree().map((row) => String(row.todo.id))} external={sorted.external} tree={{
+        <Sortable.Root class="todo-list shelf-list" plain ids={tree().map((row) => String(row.todo.id))} external={sorted.external} onDrag={setDragging} tree={{
           holdPlace: true,
           rows: tree().map((row) => ({ id: String(row.todo.id), parent: row.parent === null ? null : String(row.parent) })),
           get indent() { return parseFloat(getComputedStyle(document.documentElement).getPropertyValue("--space-4")) || 16; },
           nests: () => true,
-          onMove: (move) => void dropOf(tree(), items().filter((todo) => !todo.done), Number(move.id), move.parent === null ? null : Number(move.parent), move.index),
+          onMove: (move) => void dropOf(tree(), group().items, Number(move.id), move.parent === null ? null : Number(move.parent), move.index),
           onPreview: () => undefined,
         }}>
         <TreeView.Tree aria-label={copy.todos} style={{ padding: "0" }}>
@@ -591,6 +748,8 @@ export const Todos = (props: {
               known={todos.byId()}
               onOpen={show}
               onToggle={todo => toggle(todo, tree().map(row => row.todo.id))}
+              onAssign={(item, anchor) => setPicking({ id: item.id, anchor })}
+              failWith={(show) => pickFails.set(todo.id, show)}
               sorted={sorted.row(todo.id, parts, () => tree().map(({ todo }) => todo.id))}
               place={row}
               nest={nestOf(todo, row.parent, tree()[at() - 1]?.todo ?? null, at() === 0)}
@@ -609,16 +768,31 @@ export const Todos = (props: {
         </TreeView.Tree>
         </Sortable.Root>
         </TreeView.Root>
+        <Show when={typing() && !fieldGroupGone() && adding()?.group === group().id}>
+          <Show when={createFailure()}>{(message) => <ErrorLine message={message()} />}</Show>
+          {field()}
+        </Show>
+        </>; }}</OwnerGroups>
+      </Show>
+      <OwnerPicker target={picking} offers={offers} choose={(id, owner) => void assign(id, owner)} close={stopPicking} />
+      <Show when={typing() && (adding() === null || fieldGroupGone())}>
+        {field()}
+      </Show>
+      <TodoDraftRecovery object="new" active={typing()} onDiscard={revision => {
+        if (creation()?.revision === revision) setTyping(false);
+      }} />
+      <Show when={done().length > 0}>
+        <div class="shelf-list">
         <Show when={wasDoneUnfolded()}>
           <div class="todo-done-fold" data-open={unfolded()} data-reduced-motion={connected.reducedMotion()} inert={!unfolded()}>
             <div class="todo-done-content">
-            <For each={items().filter(todo => todo.done)}>
+            <For each={done()}>
               {(todo) => (
                 <OpenRow
                   todo={todo}
                   known={todos.byId()}
                   onOpen={show}
-                  onToggle={todo => toggle(todo, items().filter(candidate => candidate.done).map(candidate => candidate.id))}
+                  onToggle={todo => toggle(todo, done().map(candidate => candidate.id))}
                   selected={shown()?.id === todo.id}
                   pressed={selection.selected().includes(todo.id)}
                   selectionActive={selection.selected().length > 0}
@@ -635,38 +809,6 @@ export const Todos = (props: {
             </div>
           </div>
         </Show>
-        </>; }}</Groups>
-      </Show>
-      <Show when={typing()}>
-        <div class="shelf-list" ref={element => { creationRow = element; }}>
-          <EntryRow
-            glyph={<input type="checkbox" class="todo-tick" disabled tabIndex={-1} aria-hidden="true" />}
-            class="todo-inset"
-            label={copy.newTodoTitle}
-            placeholder={copy.newTodoPlaceholder}
-            initial={untrack(() => {
-              const draft = creation();
-              const title = v.safeParse(v.string(), draft?.value.title);
-
-              return { text: title.success ? title.output : "", selection: draft?.selection ?? null };
-            })}
-            onEdit={retainCreation}
-            onSubmit={(title) => void create(title)}
-            onClose={(reason) => {
-              setTyping(false);
-
-              if (reason === "escape") setCreateFailure(null);
-
-              if (reason !== "blur") plusButton?.focus();
-            }}
-          />
-        </div>
-      </Show>
-      <TodoDraftRecovery object="new" active={typing()} onDiscard={revision => {
-        if (creation()?.revision === revision) setTyping(false);
-      }} />
-      <Show when={done().length > 0}>
-        <div class="shelf-list">
           <ShelfRow glyph={<KindGlyph kind="done" decorative />} class="todo-inset">
             <div class="shelf-done-line">
               <RowButton hang={false} onClick={() => setUnfolded(!unfolded())}>

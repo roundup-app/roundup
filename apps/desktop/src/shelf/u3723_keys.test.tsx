@@ -106,7 +106,9 @@ it("u3724_each_new_key_is_in_chords_help_and_the_hint_line", async () => {
     expect(CHORDS.filter(row => row.keys === keys && row.inShelf)).toHaveLength(1);
     expect(HELP_ROWS.filter(row => row.keys === keys)).toHaveLength(1);
     expect(hintsFor("shelf").filter(row => row.keys === keys)).toHaveLength(1);
-    expect(document.querySelector('.hint-line')?.textContent).toContain(keys);
+
+    // Export is hinted only on a Pad row (HintLine), and a Todo row's line holds M, O and D.
+    if (keys !== "E") expect(document.querySelector('.hint-line')?.textContent).toContain(keys);
   }
 });
 
