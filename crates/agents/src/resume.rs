@@ -211,6 +211,11 @@ impl Agents {
                 return Err(err);
             }
             if let Some(Slot::Resuming { old: Some(old), .. }) = self.shared.runs().get_mut(id) {
+                self.shared
+                    .timing
+                    .lock()
+                    .expect("measurement timing lock")
+                    .end_attempt(id, &old.attempt);
                 old.ended = true;
             }
         }
@@ -386,6 +391,10 @@ impl Shared {
         done: oneshot::Sender<Result<(), RpcError>>,
         error: RpcError,
     ) {
+        self.timing
+            .lock()
+            .expect("measurement timing lock")
+            .abandon_attempt(id, &attempt);
         let Some(terminal_id) = terminal_id else {
             if let Some(old) = old {
                 runs.insert(id.to_owned(), Slot::Running(*old));
