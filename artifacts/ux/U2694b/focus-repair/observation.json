@@ -24,6 +24,7 @@
   "captureCommand": "just capture U2694b was invoked; its duplicate full-suite run was stopped. The scenario captures were completed separately in the isolated headless agent-browser session builder-39548004342.",
   "assertionCuts": {
     "u460_pads.test.tsx": "Replaced the obsolete plural title assertion with the actual frozen target set in u460_question_tracks_pad_owner_changes_without_expanding_targets.",
-    "u460_execution.test.tsx": "Removed the obsolete title assertion; u460_retry_confirms_only_the_remaining_set still proves the exact delete call sequence."
+    "u460_execution.test.tsx": "Removed the obsolete title assertion; u460_retry_confirms_only_the_remaining_set still proves the exact delete call sequence.",
+    "u460_real_daemon.test.tsx": "The deleteSelected helper waits for Keep focus inside the alertdialog instead of asserting the obsolete plural title; all five real-Daemon tests still assert their resulting deletions, ownership fences and reopen behavior."
   }
 }
