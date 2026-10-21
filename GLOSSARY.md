@@ -274,6 +274,9 @@ Return a done Todo to open without changing its identity, Home, owner, blockers 
 Who does a Todo's work: the user (shown as "Me", still refining the Todo's seed), one Agent, or nobody (shown as "Unassigned"). It is never `creator`, who wrote the Todo. `todo.create` may name one; `todo.assign` changes it and is recorded in the Todo's history. An owner Agent that ends keeps its Todos; removing it from the Rail unassigns them (T16, T17).
 _Avoid_: assignee
 
+**Comment** (`todo.comment`, `todo_comment`):
+A line on a Todo from the user or an Agent, shown oldest first with its author and time. Not a Message and not History: it moves no field of the Todo. An Agent's comment is unread, and waits in the Inbox as needs-you, until the user opens the Todo (T20 to T23).
+
 **Sketch**:
 A Pad holding Mermaid or drawing blocks; the Pad contracts are unchanged. Workstream-scoped storage is still open.
 

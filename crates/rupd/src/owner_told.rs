@@ -6,7 +6,7 @@ use std::collections::HashMap;
 use std::time::Duration;
 
 use contracts::agent::{NodeKind, RailNode};
-use contracts::todo::Todo;
+use contracts::todo::{Comment, Todo};
 use contracts::{Actor, ActorKind, Event, EventData, Kind};
 use serde_json::json;
 
@@ -23,6 +23,8 @@ enum Change {
     Taken,
     Blocked(Vec<u32>),
     Unblocked,
+    /// T22: a comment by the user, flattened to one line.
+    Commented(String),
 }
 
 impl Change {
@@ -36,6 +38,7 @@ impl Change {
                 format!("now blocked by {}", ids.join(", "))
             }
             Change::Unblocked => "unblocked".into(),
+            Change::Commented(body) => format!("new comment from you: {body}"),
         }
     }
 }
@@ -45,6 +48,8 @@ impl Change {
 pub struct Told {
     todos: HashMap<u32, Todo>,
     pending: HashMap<String, Vec<(u32, Change)>>,
+    /// The newest comment of each Todo already read, so a comment is told once.
+    comments_seen: HashMap<u32, u32>,
 }
 
 /// The Agent an owner names; Me and Unassigned name none.
@@ -60,6 +65,35 @@ impl Told {
         Self {
             todos: todos.into_iter().map(|todo| (todo.id, todo)).collect(),
             pending: HashMap::new(),
+            comments_seen: HashMap::new(),
+        }
+    }
+
+    /// T22: the user's comments the thread of `id` gained since the last read wait for the owner Agent.
+    /// Comments by an Agent, and on a Todo that has no owner Agent, tell nobody.
+    pub fn commented(&mut self, id: u32, thread: &[Comment]) {
+        let seen = self.comments_seen.get(&id).copied();
+        let fresh: Vec<&Comment> = match seen {
+            Some(seen) => thread.iter().filter(|c| c.id > seen).collect(),
+            None => thread.last().into_iter().collect(),
+        };
+        if let Some(newest) = thread.iter().map(|c| c.id).max() {
+            self.comments_seen.insert(id, newest.max(seen.unwrap_or(0)));
+        }
+        let owner = self.todos.get(&id).and_then(|todo| agent(&todo.owner));
+        let Some(owner) = owner.map(str::to_owned) else {
+            return;
+        };
+        for comment in fresh
+            .into_iter()
+            .filter(|c| c.author.kind == ActorKind::User)
+        {
+            let line = comment
+                .body
+                .split_whitespace()
+                .collect::<Vec<_>>()
+                .join(" ");
+            self.tell(&owner, &comment.author, id, Change::Commented(line));
         }
     }
 
@@ -110,6 +144,7 @@ impl Told {
             }
             EventData::TodoDeleted(id) => {
                 self.todos.remove(&id.id);
+                self.comments_seen.remove(&id.id);
             }
             _ => {}
         }
@@ -208,6 +243,25 @@ async fn flush(told: &mut Told, reader: &Reader) {
     }
 }
 
+/// `record`, but a comment's text is read from the thread, since its event carries only the Todo.
+async fn read(told: &mut Told, reader: &Reader, event: &Event) {
+    let EventData::TodoCommented(todo) = &event.data else {
+        return told.record(event);
+    };
+    let thread = reader
+        .call::<Vec<Comment>>(
+            "todo",
+            "todo.comments",
+            json!({"id": todo.id}),
+            Actor::daemon(),
+        )
+        .await;
+    match thread {
+        Ok(thread) => told.commented(todo.id, &thread),
+        Err(err) => eprintln!("owner told: comments of Todo {} not read: {err}", todo.id),
+    }
+}
+
 /// Runs until the Bus closes.
 pub async fn tell_owners(reader: Reader, mut events: rpc::Subscription) {
     let todos = reader
@@ -217,10 +271,10 @@ pub async fn tell_owners(reader: Reader, mut events: rpc::Subscription) {
         .unwrap_or_default();
     let mut told = Told::new(todos);
     while let Some(event) = events.next().await {
-        told.record(&event);
+        read(&mut told, &reader, &event).await;
         // The rest of one call's events join this batch.
         while let Ok(Some(more)) = tokio::time::timeout(SETTLE, events.next()).await {
-            told.record(&more);
+            read(&mut told, &reader, &more).await;
         }
         flush(&mut told, &reader).await;
     }
@@ -399,6 +453,7 @@ mod tests {
     struct Stub {
         nodes: Mutex<Vec<Value>>,
         sent: Mutex<Vec<Value>>,
+        thread: Mutex<Value>,
     }
 
     #[async_trait]
@@ -411,6 +466,7 @@ mod tests {
             match method {
                 "rail.tree" => Ok(Value::Array(self.nodes.lock().unwrap().clone())),
                 "todo.list" | "pad.list" | "message.list" => Ok(json!([])),
+                "todo.comments" => Ok(self.thread.lock().unwrap().clone()),
                 "message.send" => {
                     self.sent.lock().unwrap().push(params);
                     Err(RpcError::internal("stub"))
@@ -437,6 +493,7 @@ mod tests {
         let stub = Arc::new(Stub {
             nodes: Mutex::new(nodes),
             sent: Mutex::new(Vec::new()),
+            thread: Mutex::new(json!([])),
         });
         let mut modules = daemon.modules.clone();
         for name in ["rail", "todo", "pad", "message"] {
@@ -490,5 +547,81 @@ mod tests {
             flush(&mut told, &reader).await;
             assert_eq!(stub.sent.lock().unwrap().len(), 1);
         }
+    }
+
+    fn comment(id: u32, by: Actor, body: &str) -> Comment {
+        Comment {
+            id,
+            author: by,
+            body: body.into(),
+            created_at: 0,
+            read: false,
+        }
+    }
+
+    #[test]
+    fn t22_a_user_comment_tells_the_owner_agent_once_it_is_idle() {
+        let a = Some(agent_actor("a"));
+        let mut told = told_with(vec![todo(1, "Ship", a, vec![])]);
+        let thread = vec![comment(1, Actor::user(), "use\nthe  main branch")];
+        told.commented(1, &thread);
+        told.commented(1, &thread);
+        assert_eq!(
+            told.take("a").unwrap(),
+            "[todos]\n- Ship: new comment from you: use the main branch (rup todo get 1)"
+        );
+        assert!(told.take("a").is_none());
+    }
+
+    #[test]
+    fn t22_other_comments_tell_nobody() {
+        let a = Some(agent_actor("a"));
+        let mut told = told_with(vec![
+            todo(1, "Mine", a, vec![]),
+            todo(2, "Yours", Some(Actor::user()), vec![]),
+            todo(3, "Nobody", None, vec![]),
+            todo(4, "Theirs", Some(agent_actor("b")), vec![]),
+        ]);
+        told.commented(1, &[comment(1, agent_actor("a"), "q?")]);
+        told.commented(
+            1,
+            &[
+                comment(1, agent_actor("a"), "q?"),
+                comment(2, agent_actor("b"), "hi"),
+            ],
+        );
+        for id in [2, 3] {
+            told.commented(id, &[comment(1, Actor::user(), "x")]);
+        }
+        assert!(told.waiting().is_empty());
+        // A comment by another Agent on `b`'s Todo tells `b` nothing; the user's tells `b` only.
+        told.commented(4, &[comment(1, agent_actor("a"), "x")]);
+        assert!(told.waiting().is_empty());
+    }
+
+    #[tokio::test]
+    async fn t22_a_comment_is_held_under_unsent_input() {
+        // A Takeover or unsent input shows as a Kind but `idle` (B6, B32), so the comment waits with the rest.
+        let (stub, reader) = rig(vec![node("a", "working", true)]);
+        let mut told = told_with(vec![todo(1, "Ship", Some(agent_actor("a")), vec![])]);
+        *stub.thread.lock().unwrap() =
+            serde_json::to_value(vec![comment(1, Actor::user(), "go")]).unwrap();
+        let event = Event {
+            seq: None,
+            actor: Actor::user(),
+            data: EventData::TodoCommented(TodoId { id: 1 }),
+        };
+        read(&mut told, &reader, &event).await;
+        flush(&mut told, &reader).await;
+        assert!(stub.sent.lock().unwrap().is_empty());
+        *stub.nodes.lock().unwrap() = vec![node("a", "idle", true)];
+        flush(&mut told, &reader).await;
+        assert_eq!(
+            stub.sent.lock().unwrap().clone(),
+            vec![json!({
+                "to": "a", "kind": "note",
+                "body": "[todos]\n- Ship: new comment from you: go (rup todo get 1)",
+            })]
+        );
     }
 }
