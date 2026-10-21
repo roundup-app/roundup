@@ -25,9 +25,8 @@ pub(crate) enum Verdict {
     Wait(String),
 }
 
-/// The evidence a state carries for `repository` and `number`, or the cause it has none a reaction may
-/// trust: a missing, stale, other-repository, other-PR or incomplete read.
-pub(crate) fn complete<'a>(
+/// A current PR identity, independently of whether its required checks have concluded.
+pub(crate) fn current<'a>(
     state: &'a WorktreeState,
     repository: &str,
     number: u32,
@@ -46,6 +45,18 @@ pub(crate) fn complete<'a>(
     if pr.stale || evidence.stale {
         return Err("the evidence is stale; the last refresh failed or is old".into());
     }
+    match evidence.state {
+        WorktreeEvidenceState::Complete | WorktreeEvidenceState::Incomplete => {}
+        WorktreeEvidenceState::StaleHead => {
+            return Err("the PR head moved while the checks were read".into());
+        }
+        WorktreeEvidenceState::Unknown => {
+            return Err("the forge read failed without a reason".into());
+        }
+        WorktreeEvidenceState::Unavailable => {
+            return Err("no usable gh, login, GitHub remote or answer in time".into());
+        }
+    }
     if evidence.repository.as_deref() != Some(repository) {
         return Err(format!(
             "the PR is in {}, not {repository}",
@@ -55,20 +66,10 @@ pub(crate) fn complete<'a>(
                 .unwrap_or("an unknown repository")
         ));
     }
-    match evidence.state {
-        WorktreeEvidenceState::Complete if evidence.head.is_some() => Ok(evidence),
-        WorktreeEvidenceState::Complete => Err("the evidence names no head".into()),
-        WorktreeEvidenceState::Incomplete => {
-            Err("a required check is pending, or none is required".into())
-        }
-        WorktreeEvidenceState::StaleHead => {
-            Err("the PR head moved while the checks were read".into())
-        }
-        WorktreeEvidenceState::Unknown => Err("the forge read failed without a reason".into()),
-        WorktreeEvidenceState::Unavailable => {
-            Err("no usable gh, login, GitHub remote or answer in time".into())
-        }
+    if evidence.head.as_ref().is_none_or(|head| head.is_empty()) {
+        return Err("the evidence names no current head".into());
     }
+    Ok(evidence)
 }
 
 pub(crate) fn decide(
@@ -81,13 +82,16 @@ pub(crate) fn decide(
         Ok(state) => state,
         Err(error) => return Verdict::Wait(format!("the Worktree read failed: {}", error.message)),
     };
-    let evidence = match complete(state, repository, number) {
+    let evidence = match current(state, repository, number) {
         Ok(evidence) => evidence,
         Err(cause) => return Verdict::Wait(cause),
     };
     let head = evidence.head.as_deref().unwrap_or_default();
     if head != pin {
         return Verdict::Invalidate(format!("the PR head moved from {pin} to {head}"));
+    }
+    if evidence.state != WorktreeEvidenceState::Complete {
+        return Verdict::Wait("a required check is pending, or none is required".into());
     }
     if evidence.checks.is_empty() {
         return Verdict::Wait("no required check concluded".into());
@@ -113,7 +117,7 @@ pub(crate) async fn read(
     serde_json::from_value(value).map_err(RpcError::internal)
 }
 
-/// The head a new reaction pins: the PR's current head, on complete fresh evidence only.
+/// The head a new reaction pins: a fresh stable identity, including while checks are pending.
 pub(crate) fn pin(
     read: Result<WorktreeState, RpcError>,
     repository: &str,
@@ -122,14 +126,11 @@ pub(crate) fn pin(
     let refuse = |cause: String| {
         RpcError::new(
             rpc::code::INVALID_PARAMS,
-            format!("pr-checks needs complete current evidence to activate: {cause}"),
+            format!("pr-checks needs a current PR identity to activate: {cause}"),
         )
     };
     let state = read.map_err(|e| refuse(format!("the Worktree read failed: {}", e.message)))?;
-    let evidence = complete(&state, repository, number).map_err(refuse)?;
-    if evidence.checks.is_empty() {
-        return Err(refuse("no required check concluded".into()));
-    }
+    let evidence = current(&state, repository, number).map_err(refuse)?;
     Ok(evidence.head.clone().unwrap_or_default())
 }
 
@@ -644,6 +645,38 @@ mod tests {
         assert_eq!(ended["state"], "invalidated");
         assert_eq!(ended["observation"]["pinned_head"], head);
         assert_eq!(ended["firings"], json!([]));
+
+        for unavailable in [false, true] {
+            // Neither a missing head nor a failed forge read supplies activation identity.
+            forge("", "pending");
+            if unavailable {
+                std::fs::remove_file(&gh).unwrap();
+                daemon.agents.set_evidence_from_gh(&target, &repo, &gh);
+            }
+            let refused = client
+                .request(
+                    "reaction.create",
+                    json!({
+                        "operation": format!("no-identity-{unavailable}"), "name": "refused",
+                        "target": target, "instruction": "must not save",
+                        "condition": { "kind": "pr-checks", "repository": REPO, "number": 23 },
+                        "expires_at": "2099-01-01T00:00:00Z"
+                    }),
+                )
+                .await
+                .unwrap_err();
+            assert_eq!(refused.code, rpc::code::INVALID_PARAMS);
+            assert!(
+                refused.message.contains(if unavailable {
+                    "no usable gh"
+                } else {
+                    "forge read failed"
+                }),
+                "{refused:?}"
+            );
+        }
+        let saved = client.request("reaction.list", json!({})).await.unwrap();
+        assert_eq!(saved.as_array().unwrap().len(), 2);
     }
 
     #[tokio::test]

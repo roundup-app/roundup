@@ -61,7 +61,9 @@ const PASS: &str = r#"[{"name":"check","bucket":"pass"},{"name":"rules","bucket"
 fn gap(evidence: Evidence) -> Gap {
     match evidence {
         Evidence::Incomplete(gap) => gap,
-        Evidence::Complete(facts) => panic!("reported complete: {facts:?}"),
+        Evidence::Complete(facts) | Evidence::Pending(facts) => {
+            panic!("reported identity: {facts:?}")
+        }
     }
 }
 
@@ -86,7 +88,11 @@ fn nr10_complete_success_binds_identity_and_head() {
 #[test]
 fn nr10_pending_failed_and_empty_are_distinct() {
     let pending = r#"[{"name":"check","bucket":"pass"},{"name":"rules","bucket":"pending"}]"#;
-    assert_eq!(gap(Gh::new(URL, HEAD, pending, 8).read()), Gap::Pending);
+    let Evidence::Pending(facts) = Gh::new(URL, HEAD, pending, 8).read() else {
+        panic!("pending checks lost their stable identity");
+    };
+    assert_eq!(facts.head, HEAD);
+    assert!(facts.checks.is_empty());
     assert_eq!(
         gap(Gh::new(URL, HEAD, "[]", 1).read()),
         Gap::NoRequiredChecks

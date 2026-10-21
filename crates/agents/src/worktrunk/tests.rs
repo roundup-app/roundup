@@ -791,10 +791,11 @@ async fn nr10_public_worktree_evidence_preserves_head_and_completeness() {
     let gh = |url: &str, head: &str, rows: &str, code: i32| {
         let dir = tempfile::tempdir().unwrap();
         let path = dir.path().join("gh");
+        let number = url.rsplit('/').next().unwrap();
         std::fs::write(
             &path,
             format!(
-                "#!/bin/sh\ncase \"$1 $2\" in\n\"pr view\") echo '{{\"number\":23,\"headRefOid\":\"{head}\",\"url\":\"{url}\"}}';;\n\"pr checks\") echo '{rows}'; exit {code};;\nesac\n"
+                "#!/bin/sh\ncase \"$1 $2\" in\n\"pr view\") echo '{{\"number\":{number},\"headRefOid\":\"{head}\",\"url\":\"{url}\"}}';;\n\"pr checks\") echo '{rows}'; exit {code};;\nesac\n"
             ),
         )
         .unwrap();
@@ -842,6 +843,15 @@ async fn nr10_public_worktree_evidence_preserves_head_and_completeness() {
     assert_eq!(waiting["head"], head);
     assert!(waiting["read_at"].as_u64().unwrap() > 0);
     assert!(waiting["revision"].is_null());
+    // Worktrunk and gh must name the same PR before any head can be attributed to it.
+    for rows in [pass, pending] {
+        let (_other, other) = gh("https://github.com/acme/two/pull/24", &head, rows, 0);
+        publish_read(&other);
+        assert_eq!(
+            evidence().await,
+            json!({"state":"unknown","stale":false,"checks":[]})
+        );
+    }
     publish_read(Path::new("/nonexistent/gh"));
     assert_eq!(
         evidence().await,
