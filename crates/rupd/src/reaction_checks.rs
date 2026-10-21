@@ -787,4 +787,53 @@ mod tests {
         );
         assert_eq!(ended["firings"], json!([]));
     }
+    #[tokio::test]
+    async fn nr4_pr_observation_crossing_expiry_accepts_nothing() {
+        let (_project, daemon, client, watcher, target) = daemon().await;
+        let expires = time::OffsetDateTime::now_utc() + time::Duration::seconds(1);
+        let deadline = tokio::time::Instant::now() + Duration::from_secs(1);
+        let stamp = expires
+            .format(&time::format_description::well_known::Rfc3339)
+            .unwrap();
+        let params = serde_json::from_value(json!({
+            "operation": "expiring-checks", "name": "ship", "target": target,
+            "instruction": "ship it",
+            "condition": {"kind": "pr-checks", "repository": REPO, "number": 23},
+            "expires_at": stamp,
+        }))
+        .unwrap();
+        let world = daemon.reader().world().await.unwrap();
+        let id = daemon
+            .reaction_create(&Actor::user(), &world, params, Some(Ok("a".into())))
+            .unwrap()
+            .id;
+        // The source read begins before expiry and completes at its saved expiry instant.
+        // This is the NR4 expiry boundary itself, not a delay waiting for evaluator readiness.
+        watcher
+            .check_with(|_, _| async move {
+                tokio::time::sleep_until(deadline).await;
+                while time::OffsetDateTime::now_utc() < expires {
+                    tokio::task::yield_now().await;
+                }
+                Ok(passed("a"))
+            })
+            .await;
+        let inspected = get(&client, &id).await;
+        assert_eq!(
+            inspected["firings"],
+            json!([]),
+            "expired source read accepted work: {inspected}"
+        );
+        let sent = client
+            .request("message.list", json!({"to": target}))
+            .await
+            .unwrap();
+        assert!(
+            !sent
+                .as_array()
+                .unwrap()
+                .iter()
+                .any(|m| m["body"] == "ship it")
+        );
+    }
 }
