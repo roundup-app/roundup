@@ -1155,7 +1155,7 @@ impl Store {
             .map_err(RpcError::internal)
     }
 
-    /// B51(g): the latest non-user Message the receiving Attempt has taken up or will take.
+    /// B51(g): the latest non-user Message by B7 delivery rank, including held releases.
     fn last_inbox_message(
         &self,
         to: &str,
@@ -1168,7 +1168,7 @@ impl Store {
                  FROM messages
                  WHERE to_id = ?1 AND status IN ('pending', 'delivered')
                    AND receiver_attempt = ?2 AND from_actor != ?3 AND (?4 IS NULL OR id != ?4)
-                 ORDER BY id DESC LIMIT 1",
+                 ORDER BY rank DESC, id DESC LIMIT 1",
                 params![to, attempt, actor_json(&Actor::user()), except],
                 row_to_message,
             )
