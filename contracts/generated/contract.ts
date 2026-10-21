@@ -12,6 +12,7 @@ export const CONTRACT = {
     "agent.discard": "56f6155cde8d424e",
     "agent.extras": "aecce751dcffa4df",
     "agent.extras_add": "02666c2b3b7ec153",
+    "agent.instructions": "656ce925870a23fd",
     "agent.interrupt": "955c5fa955654c7e",
     "agent.land": "5aba65a94dd09a2a",
     "agent.permission": "4fc43162a2dd39d4",

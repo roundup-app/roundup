@@ -177,6 +177,10 @@ const TOOLS: &[(&str, &str)] = &[
         "rename yourself or a node in your Reach; a waiting receipt means accepted, not executed; read agent_actionHistory for its outcome",
     ),
     (
+        "agent_instructions",
+        "read exact instruction revisions and Attempt-bound delivery facts for yourself or your Reach; reading sends nothing, and submission is not work completion",
+    ),
+    (
         "agent_actionHistory",
         "read your durably accepted child actions and their outcomes; never resubmit a waiting action",
     ),
