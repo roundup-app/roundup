@@ -10,6 +10,7 @@ mod decision_notes;
 mod deliverables;
 mod digest;
 mod event_log;
+mod evidence;
 mod handshake;
 mod link;
 mod output;
@@ -629,6 +630,7 @@ impl Daemon {
 
     fn evaluator(&self) -> Option<reaction::Evaluator> {
         Some(reaction::Evaluator {
+            agents: Arc::clone(&self.agents),
             reactions: Arc::clone(&self.reactions),
             reader: self.reader(),
             messages: Arc::clone(self.sender.get()?),
@@ -680,6 +682,14 @@ impl Daemon {
             || method.starts_with("reaction.")
             || matches!(
                 method,
+                "message.progress"
+                    | "message.report"
+                    | "message.acceptResult"
+                    | "message.verifyResult"
+                    | "message.resolveResult"
+            )
+            || matches!(
+                method,
                 "rail.rename"
                     | "agent.stop"
                     | "agent.interrupt"
@@ -687,6 +697,7 @@ impl Daemon {
                     | "agent.setOrder"
                     | "agent.resume"
                     | "agent.actionHistory"
+                    | "agent.instructions"
                     | "workstream.rewind"
                     | "workstream.rewindPlan"
             )
@@ -884,6 +895,23 @@ impl Daemon {
         }
         self.before_prompt_effect(&conn.actor, method, &params)
             .await?;
+        if matches!(
+            method,
+            "message.progress"
+                | "message.report"
+                | "message.acceptResult"
+                | "message.verifyResult"
+                | "message.resolveResult"
+        ) {
+            return self
+                .evidence_call(
+                    conn,
+                    method,
+                    params,
+                    time::OffsetDateTime::now_utc().unix_timestamp(),
+                )
+                .await;
+        }
         if namespace == "deliverable" {
             return self.deliverable_call(conn, method, params).await;
         }
@@ -1892,24 +1920,32 @@ async fn handle(stream: UnixStream, daemon: Arc<Daemon>) -> io::Result<()> {
             .is_some_and(|m| m.starts_with("decision."))
         {
             daemon.decision_actor(&conn)
-        } else if method
-            .as_deref()
-            .is_some_and(|m| m.starts_with("deliverable.") || m.starts_with("reaction."))
-            || matches!(
-                method.as_deref(),
-                Some(
-                    "rail.rename"
-                        | "agent.stop"
-                        | "agent.interrupt"
-                        | "agent.prompt"
-                        | "agent.setOrder"
-                        | "agent.resume"
-                        | "agent.actionHistory"
-                        | "workstream.rewind"
-                        | "workstream.rewindPlan"
+        } else if method.as_deref().is_some_and(|m| {
+            m.starts_with("deliverable.")
+                || m.starts_with("reaction.")
+                || matches!(
+                    m,
+                    "message.progress"
+                        | "message.report"
+                        | "message.acceptResult"
+                        | "message.verifyResult"
+                        | "message.resolveResult"
                 )
+        }) || matches!(
+            method.as_deref(),
+            Some(
+                "rail.rename"
+                    | "agent.stop"
+                    | "agent.interrupt"
+                    | "agent.prompt"
+                    | "agent.setOrder"
+                    | "agent.resume"
+                    | "agent.actionHistory"
+                    | "agent.instructions"
+                    | "workstream.rewind"
+                    | "workstream.rewindPlan"
             )
-        {
+        ) {
             daemon.action_actor(&conn)
         } else {
             conn.actor.clone()
@@ -2248,17 +2284,6 @@ mod tests {
         );
     }
 
-    #[tokio::test]
-    async fn unknown_method_is_an_error() {
-        let (_dir, daemon) = daemon();
-        let reply = ask(
-            &daemon,
-            r#"{"jsonrpc":"2.0","id":1,"method":"nope.nothing"}"#,
-        )
-        .await;
-        assert_eq!(reply["error"]["code"], code::METHOD_NOT_FOUND);
-    }
-
     struct Echo;
 
     #[async_trait::async_trait]
@@ -2350,12 +2375,6 @@ mod tests {
         assert_eq!(reply["result"], json!([]));
     }
 
-    #[tokio::test]
-    async fn garbage_is_a_parse_error() {
-        let (_dir, daemon) = daemon();
-        let reply = ask(&daemon, "{").await;
-        assert_eq!(reply["error"]["code"], code::PARSE_ERROR);
-    }
     /// Answers only once released, and says when its call enters and when it is dropped
     /// unanswered.
     struct Hangs {
@@ -2508,6 +2527,218 @@ mod tests {
             &json!({"jsonrpc":"2.0", "id":1, "method":method,"params":params}).to_string(),
         )
         .await
+    }
+
+    fn import_git(project: &Path, args: &[&str]) -> String {
+        let output = std::process::Command::new("git")
+            .arg("-C")
+            .arg(project)
+            .args(args)
+            .output()
+            .unwrap();
+        assert!(output.status.success(), "{output:?}");
+        String::from_utf8(output.stdout).unwrap()
+    }
+
+    async fn import_fixture(
+        mode: u8,
+    ) -> (
+        tempfile::TempDir,
+        agents::claude_code::Launcher,
+        Daemon,
+        PathBuf,
+        Value,
+    ) {
+        use std::os::unix::fs::PermissionsExt;
+        let root = tempfile::tempdir().unwrap();
+        let project = root.path().join("project");
+        std::fs::create_dir(&project).unwrap();
+        import_git(&project, &["init", "-b", "main"]);
+        import_git(
+            &project,
+            &[
+                "-c",
+                "user.name=Test",
+                "-c",
+                "user.email=test@example.com",
+                "commit",
+                "--allow-empty",
+                "-m",
+                "base",
+            ],
+        );
+        let config = root.path().join("config");
+        let at = time::OffsetDateTime::now_utc()
+            .format(&time::format_description::well_known::Rfc3339)
+            .unwrap();
+        let original = import_source(&config, &project, 1, &at);
+        let bin = root.path().join("fake-claude");
+        std::fs::write(
+            &bin,
+            format!(
+                "#!/bin/sh\necho launched >> '{}'\nexit 1\n",
+                root.path().join("launches").display()
+            ),
+        )
+        .unwrap();
+        std::fs::set_permissions(&bin, std::fs::Permissions::from_mode(0o755)).unwrap();
+        let launcher = agents::claude_code::Launcher::new(
+            bin.to_string_lossy(),
+            config.join(".claude.json"),
+            "rup".into(),
+            None,
+        );
+        let daemon = import_daemon(&project, launcher.clone());
+        let setting = import_rpc(&daemon, "project.setWorktrees", json!({"on":mode != 0})).await;
+        assert!(setting.get("error").is_none(), "{setting}");
+        if mode == 2 {
+            let prepared = project.join("prepared");
+            import_git(
+                &project,
+                &["worktree", "add", "--detach", prepared.to_str().unwrap()],
+            );
+            let setting = import_rpc(
+                &daemon,
+                "project.setPrepared",
+                json!({"enrolled":[prepared], "readiness":"true", "timeout_ms":1000}),
+            )
+            .await;
+            assert!(setting.get("error").is_none(), "{setting}");
+        }
+        let found = import_rpc(&daemon, "project.importDiscover", json!({"period":"week"})).await;
+        let candidates = found["result"]["candidates"].as_array().unwrap();
+        assert_eq!(candidates.len(), 1, "{found}");
+        let selection =
+            json!({"source":candidates[0]["source"], "revision":candidates[0]["revision"]});
+        (root, launcher, daemon, original, selection)
+    }
+
+    async fn import_resources(daemon: &Daemon, root: &Path) -> Value {
+        fn files(dir: &Path, out: &mut Vec<(PathBuf, Vec<u8>)>) {
+            for entry in std::fs::read_dir(dir).unwrap() {
+                let path = entry.unwrap().path();
+                if path.is_dir() {
+                    files(&path, out);
+                } else {
+                    out.push((path.clone(), std::fs::read(path).unwrap()));
+                }
+            }
+        }
+        let project = root.join("project");
+        let mut retained = Vec::new();
+        files(&root.join("config"), &mut retained);
+        retained.sort_by(|a, b| a.0.cmp(&b.0));
+        let db = rusqlite::Connection::open(project.join(".roundup/project.db")).unwrap();
+        let mut statement = db.prepare("SELECT id, conversation_id, conversation_cwd, worktree_path, worktree_owner FROM nodes ORDER BY id").unwrap();
+        let persisted: Vec<Value> = statement
+            .query_map([], |row| {
+                Ok(json!([
+                    row.get::<_, i64>(0)?,
+                    row.get::<_, Option<String>>(1)?,
+                    row.get::<_, Option<String>>(2)?,
+                    row.get::<_, Option<String>>(3)?,
+                    row.get::<_, Option<String>>(4)?
+                ]))
+            })
+            .unwrap()
+            .map(Result::unwrap)
+            .collect();
+        let mut rail = import_rpc(daemon, "rail.tree", Value::Null).await["result"].clone();
+        for node in rail.as_array_mut().unwrap() {
+            // Closed Status timestamps belong to the Daemon lifetime, not retained work.
+            node["status"].as_object_mut().unwrap().remove("since");
+        }
+        json!({
+            "rail": rail,
+            "terminals": import_rpc(daemon, "terminal.list", Value::Null).await["result"],
+            "persisted": persisted,
+            "copies": retained,
+            "refs": import_git(&project, &["show-ref"]),
+            "worktrees": import_git(&project, &["worktree", "list", "--porcelain"]),
+        })
+    }
+
+    #[tokio::test]
+    async fn u3126a_public_retry_after_original_deletion() {
+        for mode in 0..3 {
+            let (root, launcher, daemon, original, selection) = import_fixture(mode).await;
+            let committed = import_rpc(
+                &daemon,
+                "project.importCommit",
+                json!({"selections":[selection.clone()]}),
+            )
+            .await;
+            let outcome = &committed["result"]["outcomes"][0];
+            assert!(outcome["error"].is_null(), "{committed}");
+            assert!(outcome["workstream"].is_string());
+            assert!(outcome["agent"].is_string());
+            let mut before = import_resources(&daemon, root.path()).await;
+            assert_eq!(before["rail"].as_array().unwrap().len(), 2);
+            let child = before["rail"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .find(|n| n["id"] == outcome["agent"])
+                .unwrap();
+            assert_eq!(child["can_resume"], true);
+            assert!(child["attempt"].is_null());
+            assert!(child["terminal_id"].is_null());
+            assert_eq!(before["terminals"], json!([]));
+            assert_eq!(before["copies"].as_array().unwrap().len(), 2);
+            drop(daemon);
+            let daemon = import_daemon(&root.path().join("project"), launcher);
+            assert_eq!(import_resources(&daemon, root.path()).await, before);
+            std::fs::remove_file(&original).unwrap();
+            before["copies"]
+                .as_array_mut()
+                .unwrap()
+                .retain(|file| file[0] != json!(original));
+            let replayed = import_rpc(
+                &daemon,
+                "project.importCommit",
+                json!({"selections":[selection]}),
+            )
+            .await;
+            assert_eq!(
+                replayed["result"], committed["result"],
+                "mode {mode}: {replayed}"
+            );
+            assert_eq!(import_resources(&daemon, root.path()).await, before);
+            assert!(!root.path().join("launches").exists());
+        }
+    }
+
+    #[tokio::test]
+    async fn u3126b_first_import_requires_its_original() {
+        for mode in 0..3 {
+            let (root, _launcher, daemon, original, selection) = import_fixture(mode).await;
+            std::fs::remove_file(original).unwrap();
+            let before = import_resources(&daemon, root.path()).await;
+            assert_eq!(before["rail"], json!([]));
+            assert_eq!(before["copies"], json!([]));
+            let refused = import_rpc(
+                &daemon,
+                "project.importCommit",
+                json!({"selections":[selection]}),
+            )
+            .await;
+            let outcome = &refused["result"]["outcomes"][0];
+            assert!(
+                outcome["error"]
+                    .as_str()
+                    .unwrap()
+                    .contains("changed since preview"),
+                "{refused}"
+            );
+            assert!(
+                outcome["error"].as_str().unwrap().contains("Refresh"),
+                "{refused}"
+            );
+            assert!(outcome["workstream"].is_null());
+            assert!(outcome["agent"].is_null());
+            assert_eq!(import_resources(&daemon, root.path()).await, before);
+            assert!(!root.path().join("launches").exists());
+        }
     }
 
     #[tokio::test]

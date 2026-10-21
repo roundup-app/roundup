@@ -1,7 +1,8 @@
 import { cleanup, fireEvent, screen, waitFor, within } from "@solidjs/testing-library";
 import { afterEach, expect, it } from "vitest";
 import { RpcError } from "../app/seam";
-import { agent } from "../testing/nodes";
+import { agent, event } from "../testing/nodes";
+import { withScopeRow } from "../testing/showEverything";
 import { CHORDS, HELP_ROWS, hintsFor } from "../keys/chords";
 import { copy } from "../copy";
 import { mountTodos, todo, todoEvent, todoCallsTo as callsTo } from "./testHarness";
@@ -211,4 +212,49 @@ it("u3720_the_key_is_a_registered_shelf_binding_listed_in_help", () => {
   expect(owned[0]).toMatchObject({ inShelf: true, keys: "O" });
   expect(HELP_ROWS).toContainEqual(expect.objectContaining({ keys: "O", what: copy.assignTodo }));
   expect(hintsFor("shelf").map((hint) => hint.keys)).toContain("O");
+});
+
+it("u3719_opening_another_groups_field_discards_the_first_text", async () => {
+  await mount();
+  await waitFor(() => expect(groups()).toContain("a"));
+  fireEvent.click(screen.getByRole("button", { name: "add todo to Me" }));
+  fireEvent.input(await screen.findByRole("textbox", { name: "New Todo title" }), { target: { value: "first" } });
+  fireEvent.click(screen.getByRole("button", { name: "add todo to alpha" }));
+  await waitFor(() => expect(within(document.querySelector('[data-shelf-group="a"]')!).getByRole("textbox")).toBeTruthy());
+  fireEvent.click(screen.getByRole("button", { name: "add todo to Me" }));
+
+  const field = await screen.findByRole<HTMLInputElement>("textbox", { name: "New Todo title" });
+
+  await waitFor(() => expect(within(document.querySelector('[data-shelf-group="me"]')!).getByRole("textbox")).toBe(field));
+  expect(field.value).toBe("");
+});
+
+it("u3720_assigning_into_a_folded_group_unfolds_it_and_focuses_the_row", async () => {
+  await mount();
+  await waitFor(() => expect(groups()).toContain("unassigned"));
+  unfold("unassigned");
+  await waitFor(() => expect(content("unassigned").hasAttribute("hidden")).toBe(true));
+  fireEvent.click(await screen.findByRole("button", { name: "assign #1", hidden: true }));
+  fireEvent.click(within(await screen.findByRole("menu")).getByText("Unassigned"));
+
+  await waitFor(() => expect(document.activeElement?.closest("[data-todo]")?.getAttribute("data-todo")).toBe("1"));
+  expect(content("unassigned").hasAttribute("hidden")).toBe(false);
+});
+
+it("u3719_an_agent_leaving_keeps_the_open_field_and_its_create_fails_with_a_cause", async () => {
+  const { app } = await mount();
+
+  app.handlers["todo.create"] = () => { throw new RpcError(-32004, "agent gone"); };
+  await waitFor(() => expect(groups()).toContain("a"));
+  fireEvent.click(screen.getByRole("button", { name: "add todo to alpha" }));
+  fireEvent.input(await screen.findByRole("textbox", { name: "New Todo title" }), { target: { value: "kept" } });
+  app.handlers["rail.tree"] = () => withScopeRow([]);
+  app.emit(event({ name: "rail.changed" }));
+  await waitFor(() => expect(groups()).not.toContain("a"));
+
+  const field = await screen.findByRole<HTMLInputElement>("textbox", { name: "New Todo title" });
+
+  expect(field.value).toBe("kept");
+  fireEvent.keyDown(field, { key: "Enter" });
+  expect(await screen.findByText(/agent gone/)).toBeTruthy();
 });

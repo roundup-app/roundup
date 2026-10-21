@@ -130,10 +130,15 @@ struct Watch {
     /// While not armed: the named Agents seen not finished since the last firing.
     unfinished: Vec<String>,
     armed: bool,
+    /// Finishes observed before re-arm cannot count again until a non-finished observation.
+    #[serde(default)]
+    before_rearm: Vec<String>,
     /// Automatic firings accepted; the next one's operation is `auto-<round + 1>`, so a retry after a
     /// crash between the acceptance and this save returns the firing already made.
     round: u32,
     health: String,
+    #[serde(default)]
+    cause: Option<String>,
     gap: Option<String>,
     recovery: Option<String>,
     evidence: Option<String>,
@@ -144,15 +149,24 @@ impl Watch {
     /// finished before the next finish does, so a still-true condition never re-arms.
     fn observe(&mut self, ids: &[String], id: &str, finished: bool) {
         if finished {
-            if self.armed && !self.finished.iter().any(|f| f == id) {
+            if !self.armed {
+                if !self.before_rearm.iter().any(|f| f == id) {
+                    self.before_rearm.push(id.to_owned());
+                }
+            } else if !self.before_rearm.iter().any(|f| f == id)
+                && !self.finished.iter().any(|f| f == id)
+            {
                 self.finished.push(id.to_owned());
             }
-        } else if !self.armed && !self.unfinished.iter().any(|f| f == id) {
-            self.unfinished.push(id.to_owned());
-            if ids.iter().all(|id| self.unfinished.contains(id)) {
-                self.armed = true;
-                self.unfinished.clear();
-                self.finished.clear();
+        } else {
+            self.before_rearm.retain(|f| f != id);
+            if !self.armed && !self.unfinished.iter().any(|f| f == id) {
+                self.unfinished.push(id.to_owned());
+                if ids.iter().all(|id| self.unfinished.contains(id)) {
+                    self.armed = true;
+                    self.unfinished.clear();
+                    self.finished.clear();
+                }
             }
         }
     }
@@ -169,6 +183,7 @@ impl Watch {
 pub(crate) struct Evaluator {
     pub reactions: Arc<Reactions>,
     pub reader: Reader,
+    pub agents: Arc<agents::Agents>,
     pub messages: Arc<messages::Messages>,
     pub bus: Bus,
 }
@@ -258,6 +273,7 @@ impl Evaluator {
                     return;
                 }
             };
+        let mut reconcile = w.round == 0;
         let mut events = match self.bus.saved_after(w.seen) {
             Ok((events, _)) => events,
             Err(err) if err.code == code::EVENTS_EXPIRED => {
@@ -267,6 +283,7 @@ impl Evaluator {
                         .into(),
                 );
                 w.seen = head;
+                reconcile = true;
                 Vec::new()
             }
             Err(err) => {
@@ -287,6 +304,19 @@ impl Evaluator {
             })
         {
             events.push(event.clone());
+        }
+        if reconcile {
+            // A snapshot may establish activation or recover a gap, but cannot both re-arm and
+            // supply the next completion set. Replay newer Events only after this older snapshot.
+            for finished in [true, false] {
+                for id in ids {
+                    if kind_of(&world, id)
+                        .is_some_and(|kind| messages::wake::finished(kind) == finished)
+                    {
+                        w.observe(ids, id, finished);
+                    }
+                }
+            }
         }
         for event in &events {
             if let Some(seq) = event.seq {
@@ -325,12 +355,9 @@ impl Evaluator {
             );
             return;
         }
-        for id in ids {
-            if let Some(kind) = kind_of(&world, id) {
-                w.observe(ids, id, messages::wake::finished(kind));
-            }
+        if w.cause.is_none() {
+            w.health = "observing".into();
         }
-        w.health = "observing".into();
         let facts: Vec<serde_json::Value> = ids
             .iter()
             .filter_map(|id| node_of(&world, id))
@@ -354,6 +381,13 @@ impl Evaluator {
         if !(w.armed && holds) {
             return;
         }
+        if let Err(why) = self.agents.guard_reach(&r.actor, &r.target, true) {
+            w.unavailable(
+                format!("authority refused: {}", why.message),
+                "the user may inspect or stop this reaction; create a new one with an authorized target",
+            );
+            return;
+        }
         let fired = self
             .messages
             .fire_reaction(messages::reaction::Fire {
@@ -367,14 +401,26 @@ impl Evaluator {
             .await;
         match fired {
             Ok(_) => {
+                w.health = "observing".into();
+                w.cause = None;
+                w.recovery = w.gap.as_ref().map(|_| {
+                    "the recorded source gap remains; authoritative current Agent state reconciled observation".into()
+                });
                 w.round += 1;
                 w.armed = false;
                 w.finished.clear();
                 w.unfinished.clear();
+                w.before_rearm.clear();
             }
             // Stopped, or the bound was spent by an explicit run first: nothing more is accepted.
             Err(err) if err.code == code::CONFLICT => {}
-            Err(err) => eprintln!("reaction {}: not fired: {}", r.id, err.message),
+            Err(err) => {
+                w.health = "acceptance-failed".into();
+                w.cause = Some(err.message);
+                w.recovery = Some(
+                    "remove the acceptance failure; the next Agent observation or Project reopen retries within the remaining bound and expiry".into(),
+                );
+            }
         }
     }
 }
@@ -585,11 +631,23 @@ impl Daemon {
                         .map_err(RpcError::internal)?
                 };
                 let mine = key(actor);
-                let list = rows
+                let mut list = Vec::new();
+                for (_, record) in rows
                     .iter()
                     .filter(|(owner, _)| actor.kind == ActorKind::User || *owner == mine)
-                    .map(|(_, record)| read(record).and_then(|saved| self.with_firings(saved)))
-                    .collect::<Result<Vec<_>, _>>()?;
+                {
+                    let saved = read(record)?;
+                    if actor.kind == ActorKind::Agent {
+                        match self.agents.guard_reach(actor, &saved.target, true) {
+                            Ok(()) => {}
+                            Err(err) if matches!(err.code, code::FORBIDDEN | code::NOT_FOUND) => {
+                                continue;
+                            }
+                            Err(err) => return Err(err),
+                        }
+                    }
+                    list.push(self.with_firings(saved)?);
+                }
                 return rpc::reply(&list);
             }
             "reaction.get" => {
@@ -630,6 +688,7 @@ impl Daemon {
         if let Some(watch) = self.reactions.watch(&saved.id) {
             saved.observation = Observation {
                 health: watch.health,
+                cause: watch.cause,
                 cursor: Some(watch.seen),
                 gap: watch.gap,
                 recovery: watch.recovery,
@@ -650,7 +709,7 @@ impl Daemon {
             .messages()?
             .firings_of(&p.id)?
             .iter()
-            .any(|(f, _)| f.operation == p.operation);
+            .any(|(f, _)| !f.matched && f.operation == p.operation);
         if first {
             return self.with_firings(saved);
         }
@@ -714,7 +773,11 @@ impl Daemon {
                     "operation already names another definition",
                 ));
             }
-            return read(&record);
+            let saved = read(&record)?;
+            if actor.kind == ActorKind::Agent {
+                self.agents.guard_reach(actor, &saved.target, true)?;
+            }
+            return Ok(saved);
         }
         let now = OffsetDateTime::now_utc();
         let (max, rearm) = shape(&p, now)?;
@@ -781,7 +844,7 @@ impl Daemon {
         Ok(reaction)
     }
 
-    /// The saved definition `id` when `actor` may inspect it: the user, or the Agent that authorized it.
+    /// The user may inspect any saved definition; its authorizing Agent needs current target Reach.
     fn reaction_own(&self, actor: &Actor, id: &str) -> Result<(String, Reaction), RpcError> {
         let db = self
             .reactions
@@ -800,7 +863,11 @@ impl Daemon {
         if actor.kind != ActorKind::User && owner != key(actor) {
             return Err(RpcError::forbidden("another Agent's reaction"));
         }
-        Ok((owner, read(&record)?))
+        let saved = read(&record)?;
+        if actor.kind == ActorKind::Agent {
+            self.agents.guard_reach(actor, &saved.target, true)?;
+        }
+        Ok((owner, saved))
     }
 
     fn reaction_stop(&self, actor: &Actor, id: &str) -> Result<Reaction, RpcError> {

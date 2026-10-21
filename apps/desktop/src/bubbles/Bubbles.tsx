@@ -5,7 +5,7 @@ import { Dialog } from "../ui/Dialog";
 import { Editable } from "../ui/Editable";
 import { FlatAdd, FlatTab } from "../ui/FlatTab";
 import { IconButton } from "../ui/IconButton";
-import { Menu } from "../ui/Menu";
+import { contextMenu, linkEntries, openOnRelease, PULL_DISTANCE } from "../ui/contextMenu";
 import { Panel } from "../ui/Panel";
 import { copy } from "../copy";
 import { createEffect, createMemo, createSignal, For, on, onCleanup, onMount, Show, untrack } from "solid-js";
@@ -42,7 +42,6 @@ const zoneBox = (place: Place, zone: Zone) => {
 };
 
 /** U421 engineering call 1: past the 3 to 4 px a hand wobbles while it clicks. */
-const PULL_DISTANCE = 8;
 
 const FALLBACK_EXTENT: Extent = { width: 800, height: 600 };
 
@@ -61,13 +60,19 @@ const SHIFT = "Shift+".split(" ")[0]!;
 const ARROWS = new Map<string, [number, number]>(Object.entries({ ArrowLeft: [-1, 0], ArrowRight: [1, 0], ArrowUp: [0, -1], ArrowDown: [0, 1] }));
 
 /** U469: the selected Terminals, their Bubble geometry, bottom tabs and opening/cycling chords. */
-export const Bubbles = (props: { screens: Screens }) => {
+export const Bubbles = (props: {
+  screens: Screens;
+  /** Open only this Project's original, non-pending revision in a shown Terminal tab.
+   * Refuse foreign/unavailable work; restore never sends or retries storage.
+   */
+  recovery?: { project: string; revision: string } | undefined;
+}) => {
   const connected = useConnectedProject();
   const { rail, app } = connected;
   const path = connected.project.path;
   const store = placesStorage(path);
   const drafts = connected.drafts;
-  const schema = v.strictObject({ name: v.string(), base: v.string() });
+  const schema = v.strictObject({ name: v.string(), base: v.string(), recovery: v.optional(v.literal(true)) });
   drafts.validate("bubbles", schema);
   drafts.registerRecovery("bubbles", (draft, facts) => {
     return facts.daemonExit() !== null ? "unavailable" : facts.rail.failure() ? "unverified"
@@ -77,7 +82,7 @@ export const Bubbles = (props: { screens: Screens }) => {
   const [recovering, recover] = createSignal(false);
   const [inspected, inspect] = createSignal<string>();
   const [copyFailure, failCopy] = createSignal<string | null>(null);
-  const shownDraft = () => records().find(draft => draft.revision === inspected()) ?? records().filter(draft => draft.status === "draft").at(-1) ?? records().at(-1);
+  const shownDraft = () => records().find(draft => draft.revision === inspected()) ?? records().filter(draft => draft.status === "draft" && !draft.value.recovery).at(-1) ?? records().at(-1);
 
   const problem = () => {
     const failure = drafts.problem();
@@ -119,7 +124,7 @@ export const Bubbles = (props: { screens: Screens }) => {
   const [bar, setBar] = createSignal<HTMLElement>();
   const [measured, setMeasured] = createSignal(false);
   const [origin, setOrigin] = createSignal({ left: 0, top: 0, width: 0, height: 0 });
-  const [editing, setEditing] = createSignal<string | null>(null);
+  const [editing, setEditing] = createSignal<{ id: string } | null>(null);
   createEffect(on(() => rail.selected(), () => setEditing(null), { defer: true }));
   onMount(() => setBar(layer()?.parentElement?.querySelector<HTMLElement>(".resource-strip") ?? undefined));
   const [closing, setClosing] = createSignal<ReadonlySet<string>>(new Set());
@@ -895,20 +900,27 @@ export const Bubbles = (props: { screens: Screens }) => {
 
     const name = () => nameFor(terminal());
     const [nameRef, nameCut] = createCut();
-    let renameChosen = false;
     let destination = Object.freeze({ surface: "bubbles", object: terminal().incarnation, recipient: id });
-    const current = () => records().filter(draft => draft.destination.object === destination.object && draft.destination.recipient === id && draft.status === "draft").at(-1);
+    const current = () => records().filter(draft => draft.destination.object === terminal().incarnation && draft.destination.recipient === id && draft.status === "draft" && !draft.value.recovery).at(-1);
     let base = "";
     let initial = "";
     let revision: string | undefined;
     let selection: ReturnType<typeof drafts.list>[number]["selection"] = null;
-    let recovered = false;
+    let restored: "none" | "current" | "selected" | "branch" = "none";
     const [changed, change] = createSignal(false);
+    const requiresConfirmation = () => restored === "selected" || restored === "branch";
 
-    const start = () => {
-      destination = Object.freeze({ surface: "bubbles", object: terminal().incarnation, recipient: id });
-      const retained = current() ?? records().filter(draft => draft.destination.object === destination.object && draft.destination.recipient === id && draft.status === "failed").at(-1);
+    const start = (selected?: { project: string; revision: string }) => {
+      const target = Object.freeze({ surface: "bubbles", object: terminal().incarnation, recipient: id });
+
+      const retained = selected ? records().find(draft => draft.revision === selected.revision)
+        : current() ?? records().filter(draft => draft.destination.object === target.object && draft.destination.recipient === id && draft.status === "failed").at(-1);
+
       const parsed = retained && v.safeParse(schema, retained.value);
+
+      if (selected && (selected.project !== path || !retained || retained.status === "pending" || !parsed?.success
+        || retained.destination.object !== target.object || retained.destination.recipient !== id
+        || !terminal().running || readOnly())) return;
 
       if (!terminal().running || readOnly() || (retained && !parsed?.success)) {
         openRecovery();
@@ -916,13 +928,15 @@ export const Bubbles = (props: { screens: Screens }) => {
         return;
       }
 
+      destination = target;
+      restored = retained?.value.recovery === true || (selected && retained?.revision !== current()?.revision) ? "branch"
+        : selected ? "selected" : retained ? "current" : "none";
       initial = parsed?.success ? parsed.output.name : name();
       base = parsed?.success ? parsed.output.base : name();
       revision = retained?.revision;
       selection = retained?.selection ?? null;
-      recovered = retained !== undefined;
       change(false);
-      setEditing(id);
+      setEditing({ id });
     };
 
     const capture = (input: HTMLInputElement) => {
@@ -930,30 +944,38 @@ export const Bubbles = (props: { screens: Screens }) => {
       const previous = records().find(draft => draft.revision === revision);
 
       if (previous?.value.name === input.value) {
-        drafts.setSelection(previous.revision, caret);
+        if (JSON.stringify(previous.selection) !== JSON.stringify(caret)) drafts.setSelection(previous.revision, caret);
 
         return;
       }
 
-      revision = drafts.edit(destination, { name: input.value, base }, caret, "ordinary").draft.revision;
+      // A selected edit is a separate recovery branch; the ordinary current draft stays current.
+      const draftValue = restored === "branch" ? { name: input.value, base, recovery: true } : { name: input.value, base };
+      revision = drafts.edit(destination, draftValue, caret, "ordinary", revision ?? null).draft.revision;
     };
 
+    createEffect(on(() => props.recovery, selected => { if (selected) start(selected); }));
+
     createEffect(() => {
-      if (terminal().incarnation !== destination.object || !terminal().running || readOnly()) setEditing(held => held === id ? null : held);
+      if (terminal().incarnation !== destination.object || !terminal().running || readOnly()) setEditing(held => held?.id === id ? null : held);
     });
 
     const tab = () => document.querySelector<HTMLElement>(`button.terminal-tab[data-bubble="${id}"]`);
 
-    return <Menu.Root positioning={{ strategy: "fixed" }} onSelect={({ value }) => { renameChosen = value === "rename"; }}
-      onOpenChange={({ open }) => {
-        // The menu hands focus back to its trigger as it closes; the editor starts after that.
-        if (open || !renameChosen) return;
+    /** U2694b: Rename, Send to Agent ▸, Copy Link and Close, as the system menu of the tab. */
+    const tabMenu = (x: number, y: number) => {
+      const agents = rail.nodes;
 
-        renameChosen = false;
-        setTimeout(start);
-      }}>
-      <Menu.ContextTrigger asChild={(trigger) => <FlatTab {...trigger({ class: "terminal-tab-pair" })} selected={!placeOf(id).min} data-bubble={id}>
-        <Show when={editing() === id} fallback={
+      return contextMenu(app, [
+        { id: "rename", label: copy.rename, run: start },
+        ...linkEntries(app, "terminal", id, agents, (node) => rail.exitOf(node) === null, setFailure),
+        { id: "close", label: copy.close, shortcut: lastTarget() === id ? copy.closeChord : undefined, run: () => close(id) },
+      ], x, y);
+    };
+
+    return <>
+      <FlatTab class="terminal-tab-pair" onContextMenu={(event: MouseEvent) => openOnRelease(event, (x, y) => void tabMenu(x, y))} selected={!placeOf(id).min} data-bubble={id}>
+        <Show when={editing()?.id === id ? editing() : null} keyed fallback={
           <Tip content={name()} cut={nameCut}>
             {(trigger) => (
               <button {...trigger()} type="button" data-button="quiet" data-reads={!placeOf(id).min ? "text" : undefined} class="terminal-tab" data-bubble={id}
@@ -965,9 +987,9 @@ export const Bubbles = (props: { screens: Screens }) => {
               </button>
             )}
           </Tip>
-        }>
+        }>{_edit =>
           <div class="terminal-tab terminal-tab-editor" data-bubble={id} data-pressed={!placeOf(id).min}>
-            <Editable.Root selectOnFocus={false} defaultValue={initial} activationMode="none" submitMode={recovered && !changed() ? "enter" : "both"} finalFocusEl={tab}
+            <Editable.Root selectOnFocus={false} defaultValue={initial} activationMode="none" submitMode={requiresConfirmation() || (restored === "current" && !changed()) ? "enter" : "both"} finalFocusEl={tab}
               onValueCommit={({ value }) => {
                 const submitted = revision;
                 const live = rail.terminals().find(candidate => candidate.incarnation === destination.object && candidate.id === id && candidate.running);
@@ -978,7 +1000,12 @@ export const Bubbles = (props: { screens: Screens }) => {
                   return;
                 }
 
-                if (submitted) drafts.submit(submitted);
+                if (submitted && !drafts.submit(submitted)) {
+                  openRecovery();
+
+                  return;
+                }
+
                 const failure = rename(live, value);
 
                 if (submitted) drafts.settle(submitted, failure === null ? "acknowledged" : "failed");
@@ -993,6 +1020,7 @@ export const Bubbles = (props: { screens: Screens }) => {
                 return null;
               }}</Editable.Context>
               <Editable.Area><Editable.Preview /><Editable.Input aria-label={copy.terminalName}
+                onBlur={() => { if (requiresConfirmation()) setEditing(null); }}
                 onInput={event => { change(true); capture(event.currentTarget); }}
                 onSelect={event => { if (document.activeElement === event.currentTarget && revision) capture(event.currentTarget); }} ref={(input: HTMLInputElement) => {
                 // Chromium's select() leaves focus where it was; the editor takes it, with the whole name selected, after the library's own step.
@@ -1004,14 +1032,11 @@ export const Bubbles = (props: { screens: Screens }) => {
               }} /></Editable.Area>
             </Editable.Root>
             <span class="terminal-tab-slot"><Show when={props.screens.unseen(id)}><span id={`terminal-state-${id}`} class="terminal-tab-unseen" data-state="" role="img" aria-label={copy.unseenOutput}>{copy.unseenMark}</span></Show></span>
-          </div>
+          </div>}
         </Show>
         <IconButton aria-label={copy.closeTerminal(name())} onClick={() => void close(id)}><Icon name="x" /></IconButton>
-      </FlatTab>} />
-      <Portal><Menu.Positioner><Menu.Content>
-        <Menu.Item value="rename">{copy.rename}</Menu.Item>
-      </Menu.Content></Menu.Positioner></Portal>
-    </Menu.Root>;
+      </FlatTab>
+    </>;
   };
 
   return (

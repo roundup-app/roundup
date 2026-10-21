@@ -36,6 +36,8 @@ jobs:
       issues: read
       pull-requests: read
       statuses: write
+      # L24: a carried approval (`carried`) reruns `check` once both statuses pass.
+      actions: write
     outputs:
       pr: ${{ steps.task.outputs.pr }}
       head: ${{ github.event.workflow_run.head_sha }}

@@ -5,6 +5,8 @@ use contracts::Actor;
 use contracts::message::{Message, MessageKind};
 use rpc::{Ctx, RpcError};
 use rusqlite::{OptionalExtension, params};
+use time::OffsetDateTime;
+use time::format_description::well_known::Rfc3339;
 
 use crate::store::Store;
 use crate::{Messages, SendParams};
@@ -12,7 +14,7 @@ use crate::{Messages, SendParams};
 /// One firing to accept: `body` goes to `to` as a Message from the Daemon.
 pub struct Fire {
     pub reaction: String,
-    /// The caller's retry key: a second firing with it is the first.
+    /// Opaque retry key within explicit runs or automatic matches, separated by `matched`.
     pub operation: String,
     pub to: String,
     pub body: String,
@@ -37,17 +39,18 @@ pub struct Firing {
 }
 
 impl Store {
-    /// The reaction must be active and have a firing left, read inside the accepting write so a stop or
-    /// another firing committed first is seen.
+    /// Read the saved bounds inside the accepting write: earlier source/receiver reads and store
+    /// waits cannot authorize a firing after expiry, stop or exhaustion.
     pub(crate) fn check_firing(&self, fire: &Fire) -> Result<(), RpcError> {
-        let row: Option<(String, u32, u32)> = self
+        let row: Option<(String, u32, u32, String)> = self
             .db
             .query_row(
                 "SELECT json_extract(record, '$.state'), json_extract(record, '$.max_firings'),
-                        (SELECT COUNT(*) FROM reaction_firings WHERE reaction = reactions.id)
+                        (SELECT COUNT(*) FROM reaction_firings WHERE reaction = reactions.id),
+                        json_extract(record, '$.expires_at')
                  FROM reactions WHERE id = ?1",
                 params![fire.reaction],
-                |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?)),
+                |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?)),
             )
             .optional()
             .map_err(RpcError::internal)?;
@@ -56,10 +59,17 @@ impl Store {
             Some((state, ..)) if state != "active" => {
                 Err(RpcError::conflict("a stopped reaction cannot fire"))
             }
-            Some((_, max, used)) if used >= max => {
+            Some((_, max, used, _)) if used >= max => {
                 Err(RpcError::conflict("the reaction has no firing left"))
             }
-            Some(_) => Ok(()),
+            Some((_, _, _, expiry)) => {
+                let expires =
+                    OffsetDateTime::parse(&expiry, &Rfc3339).map_err(RpcError::internal)?;
+                if OffsetDateTime::from(crate::now()) >= expires {
+                    return Err(RpcError::conflict("the reaction expired; create a new one"));
+                }
+                Ok(())
+            }
         }
     }
 
@@ -111,14 +121,14 @@ impl Store {
 
 impl Messages {
     /// NR3: in one write, accepts the firing and creates its Message, under the same delivery rules as
-    /// any Message from the Daemon. A retried `operation` returns the firing it first made and sends
+    /// any Message from the Daemon. A retried `(matched, operation)` returns its first firing and sends
     /// nothing.
     pub async fn fire_reaction(&self, fire: Fire) -> Result<(Firing, Message), RpcError> {
         let earlier = self
             .store()?
             .firings(&fire.reaction)?
             .into_iter()
-            .find(|firing| firing.operation == fire.operation);
+            .find(|firing| firing.operation == fire.operation && firing.matched == fire.matched);
         if let Some(firing) = earlier {
             return self.firing_message(firing);
         }

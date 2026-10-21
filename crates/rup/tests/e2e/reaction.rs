@@ -540,3 +540,582 @@ async fn nr7_a_pr_without_worktree_evidence_saves_nothing() {
     assert!(err.message.contains("pr-checks"), "{}", err.message);
     assert!(listed(&s.user).await.is_empty());
 }
+
+#[tokio::test]
+async fn nr8_automatic_firing_refuses_a_target_moved_out_of_reach() {
+    let s = scene(&[]).await;
+    let author = client_as(&s.project, actor(ActorKind::Agent, &s.door)).await;
+    let mut body = definition(&s.a, "revoked reaction instruction");
+    body["condition"]["ids"] = json!([s.b]);
+    let saved = made(&author, "reaction.create", body).await;
+    s.user
+        .request(
+            "rail.move",
+            json!({ "id": s.a, "parent": null, "index": 0 }),
+        )
+        .await
+        .unwrap();
+    let refused = author
+        .request(
+            "reaction.run",
+            json!({ "id": saved.id, "operation": "manual" }),
+        )
+        .await
+        .unwrap_err();
+    assert_eq!(refused.code, code::FORBIDDEN);
+    drive(&s.user, &s.b, STOP).await;
+    let seen = super::daemon::h21_poll(
+        "reaction observes completion after revocation",
+        async || {
+            let seen = current(&s, &saved).await;
+            let completed = seen
+                .observation
+                .evidence
+                .as_deref()
+                .and_then(|text| serde_json::from_str::<Value>(text).ok())
+                .is_some_and(|evidence| {
+                    evidence["finished"]
+                        .as_array()
+                        .is_some_and(|ids| ids.contains(&json!(s.b)))
+                });
+            completed.then_some(seen)
+        },
+    )
+    .await;
+    assert!(seen.firings.is_empty(), "unauthorized firing: {seen:?}");
+    assert_eq!(seen.remaining, 1);
+    assert_eq!(seen.target, s.a);
+    assert_eq!(seen.observation.health, "unavailable");
+    assert!(seen.observation.gap.as_deref().unwrap().contains("Reach"));
+    assert!(seen.observation.recovery.is_some());
+    assert!(
+        messages(&s.user, &s.a, "revoked reaction instruction")
+            .await
+            .is_empty()
+    );
+}
+
+#[tokio::test]
+async fn nr1_agent_access_requires_current_reach_while_user_access_remains() {
+    for removed in [false, true] {
+        let s = scene(&[]).await;
+        let author = client_as(&s.project, actor(ActorKind::Agent, &s.door)).await;
+        let mut body = definition(&s.a, "explicit reaction instruction");
+        body["condition"]["ids"] = json!([s.b]);
+        body["max_firings"] = json!(2);
+        body["rearm"] = json!(true);
+        let saved = made(&author, "reaction.create", body.clone()).await;
+        let replayed = made(&author, "reaction.create", body.clone()).await;
+        assert_eq!(replayed.id, saved.id);
+        let original = json!({"id": saved.id, "operation": "original"});
+        let first = made(&author, "reaction.run", original.clone()).await;
+        if removed {
+            s.user
+                .request("rail.remove", json!({"id": s.a}))
+                .await
+                .unwrap();
+        } else {
+            s.user
+                .request("rail.move", json!({"id": s.a, "parent": null, "index": 0}))
+                .await
+                .unwrap();
+        }
+        for (method, args) in [
+            ("reaction.create", body),
+            ("reaction.get", json!({"id": saved.id})),
+            ("reaction.stop", json!({"id": saved.id})),
+            ("reaction.run", original),
+            ("reaction.run", json!({"id": saved.id, "operation": "new"})),
+        ] {
+            let error = author.request(method, args).await.unwrap_err();
+            assert_eq!(
+                error.code,
+                if removed {
+                    code::NOT_FOUND
+                } else {
+                    code::FORBIDDEN
+                },
+                "{method}"
+            );
+        }
+        assert!(listed(&author).await.is_empty());
+        let kept = current(&s, &saved).await;
+        assert_eq!(kept.firings.len(), 1);
+        assert_eq!(kept.firings[0].id, first.firings[0].id);
+        assert_eq!(kept.remaining, 1);
+        assert_eq!(serde_json::to_value(kept.state).unwrap(), "active");
+        let run = json!({"id": saved.id, "operation": "user"});
+        if removed {
+            let error = s.user.request("reaction.run", run).await.unwrap_err();
+            assert_eq!(error.code, code::NOT_FOUND);
+        } else {
+            let ran = made(&s.user, "reaction.run", run).await;
+            assert_eq!(ran.firings.len(), 2);
+            assert_eq!(ran.remaining, 0);
+        }
+        let stopped = made(&s.user, "reaction.stop", json!({"id": saved.id})).await;
+        assert_eq!(serde_json::to_value(stopped.state).unwrap(), "stopped");
+    }
+}
+
+#[tokio::test]
+async fn nr3_automatic_write_failure_is_inspectable_and_recovers() {
+    let mut s = scene(&[]).await;
+    s.w = s.door.clone();
+    let saved = watching(&s, "failed firing", &[&s.a], json!({})).await;
+    project_db(&s.project).execute_batch("CREATE TRIGGER refuse_reaction BEFORE INSERT ON reaction_firings BEGIN SELECT RAISE(ABORT, 'reaction write refused'); END;").unwrap();
+    drive(&s.user, &s.a, STOP).await;
+    let failed = super::daemon::h21_poll("reaction observes failed acceptance", async || {
+        let seen = current(&s, &saved).await;
+        let completed = seen
+            .observation
+            .evidence
+            .as_deref()
+            .and_then(|text| serde_json::from_str::<Value>(text).ok())
+            .is_some_and(|evidence| {
+                evidence["finished"]
+                    .as_array()
+                    .is_some_and(|ids| ids.contains(&json!(s.a)))
+            });
+        completed.then_some(seen)
+    })
+    .await;
+    assert_ne!(
+        failed.observation.health, "observing",
+        "write failure hidden: {failed:?}"
+    );
+    assert!(
+        failed
+            .observation
+            .cause
+            .as_deref()
+            .unwrap()
+            .contains("reaction write refused")
+    );
+    assert!(failed.observation.recovery.is_some());
+    assert_eq!(failed.remaining, 1);
+    // Atomicity itself is proved by messages::tests::b_fault_tests::nr3_firing_and_message_commit_together.
+    // Reopening with the fault still present must retain an inspectable failure and the unspent bound.
+    drop(s.user);
+    s.project.restart(&[]);
+    s.user = s.project.client().await;
+    let kept = current(&s, &saved).await;
+    assert!(
+        kept.observation
+            .cause
+            .as_deref()
+            .unwrap()
+            .contains("reaction write refused")
+    );
+    assert!(kept.observation.recovery.is_some());
+    assert_eq!(kept.remaining, 1);
+    project_db(&s.project)
+        .execute_batch("DROP TRIGGER refuse_reaction")
+        .unwrap();
+    start_again(&s.user, &s.door).await;
+    let sent = notes(&s.user, &s.w, "failed firing", 1).await;
+    let recovered = current(&s, &saved).await;
+    assert_eq!((recovered.firings.len(), recovered.remaining), (1, 0));
+    assert!(recovered.observation.cause.is_none());
+    let firing = &recovered.firings[0];
+    assert_eq!(sent[0]["id"], json!(firing.message));
+    assert!(firing.matched);
+    let definition: Value = serde_json::from_str(&firing.definition).unwrap();
+    assert_eq!(definition["instruction"], saved.instruction);
+    assert_eq!(
+        definition["condition"],
+        serde_json::to_value(&saved.condition).unwrap()
+    );
+    let evidence: Value = serde_json::from_str(&firing.evidence).unwrap();
+    assert!(
+        evidence["finished"]
+            .as_array()
+            .unwrap()
+            .contains(&json!(s.a))
+    );
+    drop(s.user);
+    s.project.restart(&[]);
+    s.user = s.project.client().await;
+    let replayed = current(&s, &saved).await;
+    assert_eq!(replayed.firings, recovered.firings);
+    let sent = messages(&s.user, &s.w, "failed firing").await;
+    assert_eq!(sent.len(), 1);
+    assert_eq!(sent[0]["id"], json!(firing.message));
+}
+
+#[tokio::test]
+async fn nr6_failed_acceptance_retries_on_timer_wake_and_reopen() {
+    let mut s = scene(&[]).await;
+    let (date, time) = utc_in(2);
+    let preview = s
+        .user
+        .request(
+            "reaction.preview",
+            json!({
+                "date": date, "time": time, "offset": "Z"
+            }),
+        )
+        .await
+        .unwrap();
+    let mut body = definition(&s.w, "retry time");
+    body["condition"] =
+        json!({ "kind": "instant", "at": preview["at"], "late": "once-before-expiry" });
+    project_db(&s.project).execute_batch("CREATE TRIGGER refuse_reaction BEFORE INSERT ON reaction_firings BEGIN SELECT RAISE(ABORT, 'reaction write refused'); END;").unwrap();
+    let saved = made(&s.user, "reaction.create", body.clone()).await;
+    let failed = super::daemon::h21_poll("timer acceptance failure", async || {
+        let seen = current(&s, &saved).await;
+        (seen.observation.health != "waiting").then_some(seen)
+    })
+    .await;
+    assert!(
+        failed
+            .observation
+            .cause
+            .as_deref()
+            .unwrap()
+            .contains("reaction write refused")
+    );
+    assert!(failed.observation.recovery.is_some());
+    assert_eq!(failed.remaining, 1);
+    project_db(&s.project)
+        .execute_batch("DROP TRIGGER refuse_reaction")
+        .unwrap();
+    // reaction.create notifies Timer::run: a new future instant wakes observation of the failed one.
+    body["operation"] = json!("wake-timer");
+    body["condition"]["at"] = json!("2098-06-01T09:00:00Z");
+    made(&s.user, "reaction.create", body).await;
+    let sent = notes(&s.user, &s.w, "retry time", 1).await;
+    // Timer::fire records successful observation after fire_reaction finishes delivery.
+    let recovered = super::daemon::h21_poll("timer records successful acceptance", async || {
+        let seen = current(&s, &saved).await;
+        matches!(seen.observation.health.as_str(), "fired" | "fired late").then_some(seen)
+    })
+    .await;
+    assert_eq!((recovered.firings.len(), recovered.remaining), (1, 0));
+    assert!(recovered.observation.cause.is_none());
+    assert!(recovered.observation.recovery.is_none());
+    let firing = &recovered.firings[0];
+    assert_eq!(sent[0]["id"], json!(firing.message));
+    let evidence: Value = serde_json::from_str(&firing.evidence).unwrap();
+    assert_eq!(evidence["at"], preview["at"]);
+    let definition: Value = serde_json::from_str(&firing.definition).unwrap();
+    assert_eq!(
+        definition["condition"],
+        serde_json::to_value(&saved.condition).unwrap()
+    );
+    drop(s.user);
+    s.project.restart(&[]);
+    s.user = s.project.client().await;
+    assert_eq!(current(&s, &saved).await.firings, recovered.firings);
+    let sent = messages(&s.user, &s.w, "retry time").await;
+    assert_eq!(sent.len(), 1);
+    assert_eq!(sent[0]["id"], json!(firing.message));
+}
+
+#[tokio::test]
+async fn nr4_explicit_retry_key_cannot_consume_automatic_identity() {
+    for manual_first in [true, false] {
+        let mut s = scene(&[]).await;
+        let saved = watching(
+            &s,
+            "manual and automatic",
+            &[&s.a],
+            json!({ "rearm": true, "max_firings": 2 }),
+        )
+        .await;
+        let run = json!({ "id": saved.id, "operation": "auto-1" });
+        if manual_first {
+            let manual = made(&s.user, "reaction.run", run.clone()).await;
+            assert!(!manual.firings[0].matched);
+            let retry = made(&s.user, "reaction.run", run.clone()).await;
+            assert_eq!(retry.firings, manual.firings);
+            assert_eq!(retry.remaining, 1);
+        }
+        drive(&s.user, &s.a, STOP).await;
+        let observed = super::daemon::h21_poll("automatic completion evaluated", async || {
+            let seen = current(&s, &saved).await;
+            let completed = seen
+                .observation
+                .evidence
+                .as_deref()
+                .and_then(|text| serde_json::from_str::<Value>(text).ok())
+                .is_some_and(|evidence| {
+                    evidence["finished"]
+                        .as_array()
+                        .is_some_and(|ids| ids.contains(&json!(s.a)))
+                });
+            completed.then_some(seen)
+        })
+        .await;
+        let accepted = if manual_first {
+            observed
+        } else {
+            assert_eq!(observed.firings.len(), 1);
+            made(&s.user, "reaction.run", run.clone()).await
+        };
+        assert_eq!(
+            accepted.firings.len(),
+            2,
+            "automatic/manual collision: {accepted:?}"
+        );
+        assert_eq!(accepted.remaining, 0);
+        assert_eq!(
+            accepted
+                .firings
+                .iter()
+                .map(|f| (f.ordinal, f.matched))
+                .collect::<Vec<_>>(),
+            [(1, !manual_first), (2, manual_first)]
+        );
+        assert_ne!(accepted.firings[0].message, accepted.firings[1].message);
+        let retry = made(&s.user, "reaction.run", run.clone()).await;
+        assert_eq!(retry.firings, accepted.firings);
+        drop(s.user);
+        s.project.restart(&[]);
+        s.user = s.project.client().await;
+        let replayed = made(&s.user, "reaction.run", run).await;
+        assert_eq!(replayed.firings, accepted.firings);
+        assert_eq!(replayed.remaining, 0);
+        assert_eq!(
+            messages(&s.user, &s.w, "manual and automatic").await.len(),
+            2
+        );
+    }
+}
+
+#[tokio::test]
+async fn nr3_legacy_firings_keep_identity_on_upgrade_and_replay() {
+    let acceptance = |f: &contracts::reaction::Firing| {
+        (
+            f.id.clone(),
+            f.ordinal,
+            f.message,
+            f.matched,
+            f.evidence.clone(),
+            f.definition.clone(),
+        )
+    };
+    for manual_first in [true, false] {
+        let mut s = scene(&[]).await;
+        s.w = super::start_door(&s.user).await;
+        let mut body = definition(&s.w, "legacy firing");
+        body["condition"]["ids"] = json!([s.a]);
+        body["rearm"] = json!(true);
+        body["max_firings"] = json!(2);
+        let saved = made(&s.user, "reaction.create", body.clone()).await;
+        let watch: String = project_db(&s.project)
+            .query_row(
+                "SELECT state FROM reaction_watch WHERE reaction=?1",
+                [&saved.id],
+                |r| r.get(0),
+            )
+            .unwrap();
+        let run = json!({ "id": saved.id, "operation": "auto-1" });
+        let first = if manual_first {
+            made(&s.user, "reaction.run", run.clone()).await
+        } else {
+            drive(&s.user, &s.a, STOP).await;
+            // Retried creation waits for the evaluator, including its saved Watch.
+            made(&s.user, "reaction.create", body.clone()).await
+        };
+        assert_eq!(first.firings.len(), 1);
+        drop(s.user);
+        s.project.crash();
+        {
+            let db = project_db(&s.project);
+            // Recreate the pre-upgrade database with the accepted row's original bytes and ids.
+            db.execute_batch("ALTER TABLE reaction_firings RENAME TO accepted_firings;")
+                .unwrap();
+            db.execute_batch(super::REACTION_FIRINGS_V1).unwrap();
+            db.execute_batch(
+                "INSERT INTO reaction_firings SELECT * FROM accepted_firings;
+                DROP TABLE accepted_firings;
+                DROP TABLE message_result_facts;
+                DROP TABLE message_results;
+                PRAGMA user_version = 23;",
+            )
+            .unwrap();
+            if !manual_first {
+                // NR3's crash between firing commit and Watch save: automatic replay must reuse it.
+                db.execute(
+                    "UPDATE reaction_watch SET state=?1 WHERE reaction=?2",
+                    [&watch, &saved.id],
+                )
+                .unwrap();
+            }
+        }
+        s.project.restart(&[]);
+        s.user = s.project.client().await;
+        start_again(&s.user, &s.w).await;
+        let replayed = made(&s.user, "reaction.create", body).await;
+        assert_eq!(
+            acceptance(&replayed.firings[0]),
+            acceptance(&first.firings[0])
+        );
+        assert_eq!(
+            replayed.firings.len(),
+            if manual_first { 2 } else { 1 },
+            "{replayed:?}"
+        );
+        let ran = made(&s.user, "reaction.run", run.clone()).await;
+        assert_eq!(ran.firings.len(), 2);
+        assert_eq!(ran.remaining, 0);
+        assert_eq!(acceptance(&ran.firings[0]), acceptance(&first.firings[0]));
+        assert_eq!(ran.firings[1].matched, manual_first);
+        let retry = made(&s.user, "reaction.run", run).await;
+        assert_eq!(
+            retry.firings.iter().map(acceptance).collect::<Vec<_>>(),
+            ran.firings.iter().map(acceptance).collect::<Vec<_>>()
+        );
+        let sent = messages(&s.user, &s.w, "legacy firing").await;
+        assert_eq!(sent.len(), 2);
+        for firing in &ran.firings {
+            assert!(
+                sent.iter()
+                    .any(|message| message["id"] == json!(firing.message))
+            );
+        }
+    }
+}
+
+#[tokio::test]
+async fn nr4_every_participant_rearms_before_a_new_completion() {
+    let s = scene(&[]).await;
+    drive(&s.user, &s.a, STOP).await;
+    drive(&s.user, &s.b, STOP).await;
+    let saved = watching(
+        &s,
+        "two-agent-rearm",
+        &[&s.a, &s.b],
+        json!({ "any": true, "rearm": true, "max_firings": 2 }),
+    )
+    .await;
+    notes(&s.user, &s.w, "two-agent-rearm", 1).await;
+    drive(&s.user, &s.a, WORK).await;
+    drive(&s.user, &s.a, STOP).await;
+    still(&s.user, &s.w, "two-agent-rearm", 1).await;
+    // B becoming working completes re-arm, but no Agent has finished after it.
+    drive(&s.user, &s.b, WORK).await;
+    still(&s.user, &s.w, "two-agent-rearm", 1).await;
+    assert_eq!(current(&s, &saved).await.remaining, 1);
+    drive(&s.user, &s.b, STOP).await;
+    assert_eq!(notes(&s.user, &s.w, "two-agent-rearm", 2).await.len(), 2);
+}
+
+#[tokio::test]
+async fn nr4_all_keeps_pre_rearm_finishes_excluded_after_reopen_and_expiry() {
+    for expired in [false, true] {
+        let mut s = scene(&[]).await;
+        // Doors can be started explicitly after reopen, preserving the watched and target ids.
+        s.a = s.door.clone();
+        s.w = super::start_door(&s.user).await;
+        drive(&s.user, &s.a, STOP).await;
+        drive(&s.user, &s.b, STOP).await;
+        let mode = json!({ "rearm": true, "max_firings": 2 });
+        let first = watching(&s, "all-rearm", &[&s.a, &s.b], mode.clone()).await;
+        assert_eq!(first.firings.len(), 1);
+        drive(&s.user, &s.a, WORK).await;
+        drive(&s.user, &s.a, STOP).await;
+        drive(&s.user, &s.b, WORK).await;
+        drive(&s.user, &s.b, STOP).await;
+        // Retried creation waits for evaluation and its Watch save, rather than racing the observer.
+        let waiting = watching(&s, "all-rearm", &[&s.a, &s.b], mode.clone()).await;
+        assert_eq!(waiting.firings, first.firings);
+        assert_eq!(waiting.remaining, 1);
+        drop(s.user);
+        s.project.crash();
+        if expired {
+            project_db(&s.project)
+                .execute_batch(
+                    "DELETE FROM events;
+                 UPDATE reaction_watch SET state=json_set(state, '$.seen', 0);",
+                )
+                .unwrap();
+        }
+        s.project.restart(&[]);
+        s.user = s.project.client().await;
+        let replayed = watching(&s, "all-rearm", &[&s.a, &s.b], mode.clone()).await;
+        assert_eq!(replayed.firings, first.firings);
+        assert_eq!(replayed.remaining, 1);
+        assert_eq!(messages(&s.user, &s.w, "all-rearm").await.len(), 1);
+        if expired {
+            assert!(
+                replayed
+                    .observation
+                    .gap
+                    .as_deref()
+                    .unwrap()
+                    .contains("expired")
+            );
+        }
+        start_again(&s.user, &s.w).await;
+        start_again(&s.user, &s.a).await;
+        drive(&s.user, &s.a, WORK).await;
+        drive(&s.user, &s.a, STOP).await;
+        let completed = watching(&s, "all-rearm", &[&s.a, &s.b], mode).await;
+        assert_eq!((completed.firings.len(), completed.remaining), (2, 0));
+        assert_eq!(completed.firings[0], first.firings[0]);
+        assert_eq!(completed.firings[1].ordinal, 2);
+        assert_eq!(messages(&s.user, &s.w, "all-rearm").await.len(), 2);
+    }
+}
+
+#[tokio::test]
+async fn nr5_gap_recovery_cannot_reuse_a_pre_rearm_finish() {
+    for rearmed in [false, true] {
+        let s = scene(&[]).await;
+        drive(&s.user, &s.a, STOP).await;
+        drive(&s.user, &s.b, STOP).await;
+        let mode = json!({ "any": true, "rearm": true, "max_firings": 2 });
+        let first = watching(&s, "gap-rearm", &[&s.b, &s.a], mode.clone()).await;
+        drive(&s.user, &s.a, WORK).await;
+        watching(&s, "gap-rearm", &[&s.b, &s.a], mode.clone()).await;
+        let before: String = project_db(&s.project)
+            .query_row(
+                "SELECT state FROM reaction_watch WHERE reaction=?1",
+                [&first.id],
+                |r| r.get(0),
+            )
+            .unwrap();
+        drive(&s.user, &s.a, STOP).await;
+        drive(&s.user, &s.b, WORK).await;
+        watching(&s, "gap-rearm", &[&s.b, &s.a], mode.clone()).await;
+        // Expire history either before the observer saved A's finish and B's re-arm, or after it.
+        // B comes first in the definition, so a snapshot cannot depend on participant order.
+        let mut db = project_db(&s.project);
+        let tx = db.transaction().unwrap();
+        if !rearmed {
+            tx.execute(
+                "UPDATE reaction_watch SET state=?1 WHERE reaction=?2",
+                [&before, &first.id],
+            )
+            .unwrap();
+        }
+        // Advance the retained head beyond every pre-gap cursor. Resetting only the Watch's
+        // cursor races an evaluator that loaded the old Watch before this fixture write.
+        tx.execute_batch(
+            "INSERT INTO events (id, event)
+                 SELECT id + 2, event FROM events ORDER BY id DESC LIMIT 1;
+             DELETE FROM events WHERE id < (SELECT MAX(id) FROM events);",
+        )
+        .unwrap();
+        tx.commit().unwrap();
+        drop(db);
+        let recovered = watching(&s, "gap-rearm", &[&s.b, &s.a], mode.clone()).await;
+        assert!(
+            recovered
+                .observation
+                .gap
+                .as_deref()
+                .unwrap()
+                .contains("expired")
+        );
+        assert_eq!(recovered.firings, first.firings);
+        assert_eq!(recovered.remaining, 1);
+        assert_eq!(messages(&s.user, &s.w, "gap-rearm").await.len(), 1);
+        drive(&s.user, &s.b, STOP).await;
+        let completed = watching(&s, "gap-rearm", &[&s.b, &s.a], mode).await;
+        assert_eq!((completed.firings.len(), completed.remaining), (2, 0));
+        assert_eq!(messages(&s.user, &s.w, "gap-rearm").await.len(), 2);
+    }
+}

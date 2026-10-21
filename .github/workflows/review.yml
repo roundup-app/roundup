@@ -32,10 +32,13 @@ jobs:
       github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.event == 'pull_request' &&
       github.event.workflow_run.head_repository.full_name == github.repository
     runs-on: ubuntu-latest
+    # L24: an unchanged diff keeps its approval here (`carried`), which sets the `review` status and reruns `check`.
     permissions:
       contents: read
       issues: read
       pull-requests: read
+      statuses: write
+      actions: write
     outputs:
       pr: ${{ steps.task.outputs.pr }}
       head: ${{ github.event.workflow_run.head_sha }}

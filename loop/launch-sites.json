@@ -739,5 +739,10 @@
     "data": "Owned mktemp canonical absolute data override replaces caller value.",
     "kind": "real",
     "sha256": "16c5a2cf4174b9273aac38bfd5b098759ed2e805d9ad890a6a9135a72328f2ed"
+  },
+  "apps/desktop/src/reactions/nr9_rendered.test.ts": {
+    "cleanup": "Launch owner above supplies cleanup; this caller launches no executable itself.",
+    "data": "Uses audited desktop fixture or a fake/client reference; no separate built-Daemon launch.",
+    "kind": "reference"
   }
 }

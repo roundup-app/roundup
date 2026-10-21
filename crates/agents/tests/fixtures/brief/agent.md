@@ -40,6 +40,11 @@ The `roundup` MCP server offers these tools. They are deferred: load a tool befo
 - `reaction_run`: spend one remaining firing of a reaction you authorized now, with an `operation` retry key.
 - `agent_set_order`: replace your own order: a Work order once the ask is clear, or a Clarification order while a question is open.
 - `message_send`: send a note, question or request to another Agent or the user; it is delivered when the receiver is next idle.
+- `message_progress`: inspect retained instructions, reports, user acceptance and declared verification; reading starts nothing.
+- `message_report`: report your own Attempt's result against a submitted instruction delivery and published output; it is only your claim, never user acceptance or verification; retain the same key on retry.
+- `message_acceptResult`: record user acceptance of an exact report; only the user may call this.
+- `message_verifyResult`: observe one report's declared authoritative condition without a Model call; unsupported, stale or unavailable evidence stays unknown and a publication digest proves only its bytes.
+- `message_resolveResult`: only the user may authorize a read-only authoritative receipt source for an unknown external effect; never repeat that effect to check it.
 - `message_get`: read one Message you sent or received.
 - `message_list`: see the Messages you sent or received.
 - `message_pass`: hand a question you received on to the next Agent above, when it is not yours to answer.
@@ -53,6 +58,7 @@ The `roundup` MCP server offers these tools. They are deferred: load a tool befo
 - `rail_createWorkstream`: make a Workstream at the Project root with `parent` null; Workstreams never nest, and `rail_startDoor` starts its Door next.
 - `rail_startDoor`: start the Door of a Workstream you made or one in your Reach; the Door asks the user what the Workstream is for.
 - `rail_rename`: rename yourself or a node in your Reach; a waiting receipt means accepted, not executed; read agent_actionHistory for its outcome.
+- `agent_instructions`: read exact instruction revisions and Attempt-bound delivery facts for yourself or your Reach; reading sends nothing, and submission is not work completion.
 - `agent_actionHistory`: read your durably accepted child actions and their outcomes; never resubmit a waiting action.
 - `rail_move`: move a node in your Reach; a Workstream moves only to the root.
 - `rail_remove`: remove a node in your Reach, never yourself.

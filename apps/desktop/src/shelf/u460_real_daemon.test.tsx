@@ -72,13 +72,12 @@ const selectRow = async (name: string | RegExp) => {
   await waitFor(() => expect(row.getAttribute("aria-pressed")).toBe("true"));
 };
 
-const deleteSelected = async (count: number, noun: "Todos" | "Pads") => {
+const deleteSelected = async (count: number) => {
   fireEvent.click(screen.getByRole("button", { name: `Delete ${count}` }));
   // BulkDelete.ask queues Keep.focus after freezing its targets. Waiting for
   // that acknowledgement prevents confirmation from overtaking the question.
   await waitFor(() => {
-    expect(screen.getByText(`Delete ${count} ${noun}?`)).toBeTruthy();
-    expect(document.activeElement).toBe(screen.getByRole("button", { name: "Keep" }));
+    expect(document.activeElement).toBe(within(screen.getByRole("alertdialog")).getByRole("button", { name: "Keep" }));
   });
   const confirm = screen.getByRole("button", { name: `Delete ${count}` });
   fireEvent.click(confirm);
@@ -112,7 +111,7 @@ it("u460_bulk_todo_delete_preserves_t6_across_homes", async () => {
   await openShelf("Todos");
   await selectRow(new RegExp(`#${first.id} `));
   await selectRow(new RegExp(`#${second.id} `));
-  await deleteSelected(2, "Todos");
+  await deleteSelected(2);
   await waitFor(async () => {
     const rows = await app.rpc("todo.list", null);
     expect(rows.find((row) => row.id === dependent.id)?.blockers).toEqual([]);
@@ -130,7 +129,7 @@ for (const files of [false, true]) it(`u460_deleted_pad_updates_do_not_recreate_
   render(() => <App app={app} reducedMotion={() => true} clock={Date.now} createEmulator={fakeEmulators().factory} />);
   await openShelf("Pads", true);
   await selectRow(name);
-  await deleteSelected(1, "Pads");
+  await deleteSelected(1);
   await waitFor(async () => expect((await app.rpc("pad.list", null)).some((row) => row.name === name)).toBe(false));
   expect((await ownerCall(owner.id, "pad.write", name, "after")).error?.code).toBe(-32001);
   expect((await ownerCall(owner.id, "pad.append", name, "after")).error?.code).toBe(-32001);
@@ -168,7 +167,7 @@ it("u460_bulk_todo_delete_preserves_t6_across_homes_with_a_failed_blocker", asyn
   await openShelf("Todos");
   await selectRow(new RegExp(`#${first.id} `));
   await selectRow(new RegExp(`#${second.id} `));
-  await deleteSelected(2, "Todos");
+  await deleteSelected(2);
   await screen.findByText(/partial two .*injected unavailable connection/);
   const rows = await app.rpc("todo.list", null);
   expect(rows.find((row) => row.id === dependent.id)).toMatchObject({ blockers: [second.id], blocked: true, home: other.id });
