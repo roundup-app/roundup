@@ -74,7 +74,7 @@ describe("u2694 the Rail's system menu", () => {
     expect(app.shownMenus).toHaveLength(0);
     fireEvent.pointerUp(document, { button: 2, clientX: 10, clientY: 10 });
     expect(app.menuLabels()).toEqual(["Complete", "Send to Agent", "Copy Link", "Delete"]);
-    app.handlers["todo.complete"] = () => null;
+    app.handlers["todo.complete"] = () => todo(5, { done: true });
     await app.pickMenu("Complete");
     expect(railCallsTo(app, "todo.complete")).toEqual([{ id: 5 }]);
   });
