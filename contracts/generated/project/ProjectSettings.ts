@@ -7,4 +7,8 @@ export type ProjectSettings = { worktrees: Worktrees,
 /**
  * A36: the Model and Effort the user set per Role, and the Models a Door may start a child on.
  */
-models: ProjectModels, mcp: Mcp, };
+models: ProjectModels, mcp: Mcp, 
+/**
+ * A3195: the most Workstreams that run at once; `None` is no cap.
+ */
+workstreamCap: number | null, };

@@ -340,6 +340,20 @@ pub const METHODS: &[Method] = &[
         "workstream_Rewind",
     ),
     m("workstream.handoff", "workstream_HandoffParams", "null"),
+    m(
+        "todo.startWorkstream",
+        "workstream_StartWorkstreamParams",
+        "agent_RailNode",
+    ),
+    m("workstream.queue", "null", "workstream_QueueState"),
+    m("workstream.dequeue", "workstream_QueuedWorkstream", "null"),
+    m("workstream.queueMove", "workstream_QueueMoveParams", "null"),
+    m(
+        "workstream.startNow",
+        "workstream_QueuedWorkstream",
+        "agent_RailNode",
+    ),
+    m("project.setWorkstreamCap", "workstream_CapParams", "null"),
 ];
 
 /// Every method name the Daemon serves, sorted.
