@@ -1,6 +1,6 @@
 # The import dialog and every modal sit in the middle
 
-Module: `apps/desktop` (`ui/`, `importer/`, `shelf/`, `header/`, `todos/`, `bubbles/`). Ids: U3083a–U3083d. Acceptance for #3083. Webview only: no App command, no Daemon method, nothing under `contracts/`. Narrows U2875d (`scenarios/import-work.md`): its period, selection, confirm, cancel, retry and restore clauses hold. These are acceptance specifications, not implementation evidence.
+Module: `apps/desktop` (`ui/`, `importer/`, `shelf/`, `header/`, `todos/`, `bubbles/`). Ids: U3083a–U3083d. Acceptance for #3083. Webview, plus `ImportExclusion` carrying the conversation's optional title and time (U3083b); no App command, no new Daemon method. Narrows U2875d (`scenarios/import-work.md`): its period, selection, confirm, cancel, retry and restore clauses hold. These are acceptance specifications, not implementation evidence.
 
 The journey stage is Enter (`.agents/data/journey.md`): the user brings earlier work in through a dialog that opens where they look and lists only what they can import. The taste rules #3021 adds (`scenarios/unfinished-input.md`, "Work at risk") apply to every string below.
 

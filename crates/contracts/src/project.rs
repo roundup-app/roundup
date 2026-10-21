@@ -176,6 +176,10 @@ pub struct ImportCandidate {
 pub struct ImportExclusion {
     pub source: String,
     pub reason: String,
+    /// The conversation's title, when it is known.
+    pub title: Option<String>,
+    /// Its last activity, or the source file's modified time when none is recorded.
+    pub last_activity_ms: Option<i64>,
 }
 
 /// Newest first; equal times by source identity.

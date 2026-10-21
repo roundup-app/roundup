@@ -90,7 +90,10 @@ export const ImportPanel = (props: { open: boolean; opener: HTMLElement | undefi
               <Show when={result().excluded.length > 0}>
                 <Disclosure class="import-excluded" label={copy.importNotImportable(result().excluded.length)}>
                   <ul class="import-list">
-                    <For each={result().excluded}>{(excluded) => <li><span class="import-title">{copy.importUnnamed}</span><span class="import-meta">{copy.importExcludedReason(excluded.reason)}</span></li>}</For>
+                    <For each={result().excluded}>{(excluded) => <li>
+                      <span class="import-title">{excluded.title ?? (excluded.last_activity_ms === null ? copy.importUnnamed : new Date(Number(excluded.last_activity_ms)).toLocaleString())}</span>
+                      <span class="import-meta">{copy.importExcludedReason(excluded.reason)}</span>
+                    </li>}</For>
                   </ul>
                 </Disclosure>
               </Show>

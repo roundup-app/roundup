@@ -189,7 +189,7 @@ const installDaemon = (app: FakeApp, tree: RailNode[], now: number, withShelf: b
 
   app.handlers["project.importDiscover"] = () => ({
     candidates: structuredClone(candidates.filter((candidate) => !imported.has(candidate.source))),
-    excluded: withImports ? [{ source: "missing", reason: "Source unavailable: recorded folder no longer exists." }] : [],
+    excluded: withImports ? [{ source: "missing", reason: "Source unavailable: recorded folder no longer exists.", title: null, last_activity_ms: null }] : [],
   });
   app.handlers["project.importCommit"] = ({ selections }) => ({ outcomes: selections.map((selection): ImportOutcome => {
     const previous = imported.get(selection.source);
