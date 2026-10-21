@@ -386,6 +386,10 @@ impl Shared {
         done: oneshot::Sender<Result<(), RpcError>>,
         error: RpcError,
     ) {
+        self.timing
+            .lock()
+            .expect("measurement timing lock")
+            .abandon_attempt(id, &attempt);
         let Some(terminal_id) = terminal_id else {
             if let Some(old) = old {
                 runs.insert(id.to_owned(), Slot::Running(*old));

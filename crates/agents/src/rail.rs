@@ -3,6 +3,8 @@
 //! an Agent sits under a Workstream or under the Agent that started it, to any depth.
 
 mod measurement;
+pub use measurement::MeasurementWait;
+pub(crate) use measurement::{Timing, decision_wait};
 
 use std::path::Path;
 use std::sync::{

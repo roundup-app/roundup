@@ -383,7 +383,22 @@ impl Agents {
             .await?;
         env.extend(self.listen_measurements(id, attempt).await?);
         self.retain_worktree(id).await?;
-        let spawned = self.spawn_behind(id, cwd, Some(argv), env, attach).await?;
+        self.shared
+            .timing
+            .lock()
+            .expect("measurement timing lock")
+            .prepare_attempt(id, attempt);
+        let spawned = match self.spawn_behind(id, cwd, Some(argv), env, attach).await {
+            Ok(spawned) => spawned,
+            Err(error) => {
+                self.shared
+                    .timing
+                    .lock()
+                    .expect("measurement timing lock")
+                    .abandon_attempt(id, attempt);
+                return Err(error);
+            }
+        };
         self.shared.watch_channel(id, &started);
         if role == Role::Door
             && let Some(marker) = claude_code::settings_marker(&self.dir, id)
