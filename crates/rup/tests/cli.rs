@@ -1324,3 +1324,18 @@ fn strip_status(value: &mut Value) {
         _ => {}
     }
 }
+
+#[tokio::test]
+async fn t21_the_cli_comment_is_the_same_call() {
+    let project = start_daemon().await;
+    let run = on(&project.socket);
+    assert_eq!(code(&run.rup(&["todo", "create", "ship"]).await), 0);
+    let said = run
+        .rup(&["todo", "comment", "1", "which branch?", "--json"])
+        .await;
+    assert_eq!(code(&said), 0, "{}", err(&said));
+    let comment: Value = serde_json::from_str(&out(&said)).unwrap();
+    assert_eq!(comment["author"]["kind"], "agent");
+    assert_eq!(comment["author"]["id"], "a1");
+    assert_eq!(comment["body"], "which branch?");
+}

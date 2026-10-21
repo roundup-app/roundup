@@ -38,7 +38,7 @@ default-filter = '''
 
 # L89: the Rust lanes. A lane runs the test binaries its profile names, packed so the lanes' replayed test time (the
 # per-test seconds of a `main` run through nextest's scheduling: four threads in list order, isolated tests alone first)
-# is as even as whole binaries allow, with the three CPU-heavy daemon binaries (`perf::flood`, `b6_prompt_identity`,
+# is as even as whole binaries allow, with the three CPU-heavy daemon binaries (`perf::flood`, the `rupd` Takeover binaries (`prompt_identity` to `order_base_changes`),
 # `b21_stopped_door`) in three lanes: together their timed waits overran. `ci5` is everything the others do not name:
 # a new test binary runs in `ci5` until it is packed. Edit the lists together.
 [profile.ci1]
@@ -75,7 +75,18 @@ binary_id(=agents)
 | binary_id(=rup::environment)
 | binary_id(=rup::permission)
 | binary_id(=rupd)
-| binary_id(=rupd::b6_prompt_identity)
+| binary_id(=rupd::prompt_identity)
+| binary_id(=rupd::order_steering)
+| binary_id(=rupd::decision_notes)
+| binary_id(=rupd::door_writes)
+| binary_id(=rupd::takeover_races)
+| binary_id(=rupd::door_answers)
+| binary_id(=rupd::held_resizes)
+| binary_id(=rupd::held_renames)
+| binary_id(=rupd::held_stops)
+| binary_id(=rupd::held_door_calls)
+| binary_id(=rupd::held_door_authority)
+| binary_id(=rupd::order_base_changes)
 | binary_id(=rupd::b6_cleanup_completion)
 | binary_id(=rupd::n7_data)
 | binary_id(=rupd::store_migrations)
@@ -103,7 +114,7 @@ default-filter = '''
 binary_id(=agents::state_events)
 | binary_id(=rup::bin/rup)
 | binary_id(=rup::ping)
-| (binary_id(=rup::real_claude) & test(/^a32_/))
+| binary_id(/^rup::a32_/)
 | (binary_id(=rup::a35) & test(/^a35_[eorp]/))
 | binary_id(=rup::t15)
 | binary_id(=rupd::h18_handshake)
@@ -141,7 +152,18 @@ binary_id(=agents::launch)
 | binary_id(=rup::environment)
 | binary_id(=rup::permission)
 | binary_id(=rupd)
-| binary_id(=rupd::b6_prompt_identity)
+| binary_id(=rupd::prompt_identity)
+| binary_id(=rupd::order_steering)
+| binary_id(=rupd::decision_notes)
+| binary_id(=rupd::door_writes)
+| binary_id(=rupd::takeover_races)
+| binary_id(=rupd::door_answers)
+| binary_id(=rupd::held_resizes)
+| binary_id(=rupd::held_renames)
+| binary_id(=rupd::held_stops)
+| binary_id(=rupd::held_door_calls)
+| binary_id(=rupd::held_door_authority)
+| binary_id(=rupd::order_base_changes)
 | binary_id(=rupd::b6_cleanup_completion)
 | binary_id(=rupd::n7_data)
 | binary_id(=rupd::store_migrations)
@@ -160,7 +182,7 @@ binary_id(=agents::launch)
 | binary_id(=agents::state_events)
 | binary_id(=rup::bin/rup)
 | binary_id(=rup::ping)
-| (binary_id(=rup::real_claude) & test(/^a32_/))
+| binary_id(/^rup::a32_/)
 | binary_id(=rup::t15)
 | binary_id(=rupd::h18_handshake)
 | binary_id(=terminal::library_edits)
@@ -174,7 +196,7 @@ binary_id(=agents::launch)
 max-threads = 4
 
 [[profile.default.overrides]]
-filter = '(package(desktop) & binary(d9_app)) | package(rup) & (binary(real_claude) | binary(o12) | binary(a35) | binary(d9) | (binary(e2e) & test(/^(e11_a_tool_result_matches_the_next_turn|b24_a_door_reads_its_brief_then_creates_and_updates_a_todo_over_mcp|a33_an_idle_agent_with_a_blocked_todo_reads_blocked|a33_completing_the_blocker_reads_idle|a33_deleting_the_todo_reads_idle|d3_provenance_names_the_agent_that_created_the_todo|a16_removing_an_agent_leaves_its_pads_and_todos_untouched|t8_creator_survives_removing_the_agent_that_made_the_todo)$/)))'
+filter = '(package(desktop) & binary(d9_app)) | package(rup) & (binary(/^(e12_model_boundary|e6_shim|d2_agent_status|door_actions|a32_clear_failures|a32_clear_survivors|a32_handoff_refusals|a32_iterations|q11_plugins|h21_door_decisions|u516_working_agent|b55_new_session|x17_scheme|yolo_modes|e2704b_rail_name|u2694c_linked_content)$/) | binary(o12) | binary(a35) | binary(d9) | (binary(e2e) & test(/^(e11_a_tool_result_matches_the_next_turn|b24_a_door_reads_its_brief_then_creates_and_updates_a_todo_over_mcp|a33_an_idle_agent_with_a_blocked_todo_reads_blocked|a33_completing_the_blocker_reads_idle|a33_deleting_the_todo_reads_idle|d3_provenance_names_the_agent_that_created_the_todo|a16_removing_an_agent_leaves_its_pads_and_todos_untouched|t8_creator_survives_removing_the_agent_that_made_the_todo)$/)))'
 test-group = 'real-claude'
 
 # E10 E11: reserve the shared pool for B21 so its 8 s acknowledgement stays clear of other real Claudes.

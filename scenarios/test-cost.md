@@ -19,15 +19,15 @@ Inventory: binary names identify the original CI test binaries; seconds are the 
 | `cleanup_completion::b6_resume_completion_waits_for_both_promotion_failure_cleanups` | `rupd::b6_cleanup_completion` | 82.3 |
 | `cleanup_completion::b6_ack_timeout_waits_for_rollback_cleanup_and_accounts_for_refusal` | `rupd::b6_cleanup_completion` | 20.6 |
 | `b21_start_releases_each_changed_child_under_b22s_caps` | `rupd::b21_stopped_door` | 16.9 |
-| `b6_later_door_effects_cannot_overtake_a_released_resize` | `rupd::b6_prompt_identity` | 14.0 |
+| `b6_later_door_effects_cannot_overtake_a_released_resize` | `rupd::held_resizes` | 14.0 |
 | `b21_a_reopened_door_waits_until_explicit_start` | `rupd::b21_stopped_door` | 11.5 |
-| `b6_interrupt_completion_accounts_for_a_blocked_escape_before_takeover` | `rupd::b6_prompt_identity` | 11.1 |
-| `b6_takeover_acquisition_waits_for_a_door_spawned_first_prompt` | `rupd::b6_prompt_identity` | 11.1 |
-| `b6_an_order_completion_waits_for_its_steer_effect` | `rupd::b6_prompt_identity` | 10.8 |
+| `b6_interrupt_completion_accounts_for_a_blocked_escape_before_takeover` | `rupd::door_writes` | 11.1 |
+| `b6_takeover_acquisition_waits_for_a_door_spawned_first_prompt` | `rupd::door_writes` | 11.1 |
+| `b6_an_order_completion_waits_for_its_steer_effect` | `rupd::order_steering` | 10.8 |
 | `b2704a_rename_updates_context_and_queues_one_note` | `rupd::b50_note_inbox` | 10.3 |
 | `resources::tests::d8_a_disk_size_is_cached_for_30_s_and_the_walk_never_holds_the_call_past_1_s` | `rupd` | 10.2 |
 | `b2704a_first_prompt_rename_notifies` | `rupd::b50_note_inbox` | 10.0 |
-| `b6_wire_later_door_effects_wait_for_all_earlier_resizes` | `rupd::b6_prompt_identity` | 9.9 |
+| `b6_wire_later_door_effects_wait_for_all_earlier_resizes` | `rupd::held_resizes` | 9.9 |
 | `cleanup_completion::b6_unconfirmed_terminal_exit_preserves_the_resume_failure_and_blocks_a_blind_retry` | `rupd::b6_cleanup_completion` | 9.7 |
 | `b2704a_workstream_rename_notifies_its_door` | `rupd::b50_note_inbox` | 9.6 |
 | `b21_a_failed_start_keeps_the_entries_waiting` | `rupd::b21_stopped_door` | 9.3 |
@@ -35,10 +35,10 @@ Inventory: binary names identify the original CI test binaries; seconds are the 
 | `b21_a_refusal_other_than_a_stopped_door_is_logged_and_retried` | `rupd::b21_stopped_door` | 9.2 |
 | `x14_daemon_observer::x14_daemon_observer_capacity_matches_its_receiver` | `rupd::n7_data` | 9.1 |
 | `b2704a_unchanged_names_produce_no_note_for_a_no_word_first_prompt` | `rupd::b50_note_inbox` | 8.8 |
-| `b6_checked_effects_exclude_prompt_replacement_under_parallel_load` | `rupd::b6_prompt_identity` | 6.7 |
-| `b6_wire_door_decision_calls_wait_for_all_earlier_resizes` | `rupd::b6_prompt_identity` | 5.8 |
-| `b6_begin_racing_a_door_interrupt_waits_for_the_child_effect` | `rupd::b6_prompt_identity` | 5.7 |
-| `b6_a_door_interrupt_waits_for_takeover_release` | `rupd::b6_prompt_identity` | 5.5 |
+| `b6_checked_effects_exclude_prompt_replacement_under_parallel_load` | `rupd::prompt_identity` | 6.7 |
+| `b6_wire_door_decision_calls_wait_for_all_earlier_resizes` | `rupd::door_answers` | 5.8 |
+| `b6_begin_racing_a_door_interrupt_waits_for_the_child_effect` | `rupd::takeover_races` | 5.7 |
+| `b6_a_door_interrupt_waits_for_takeover_release` | `rupd::held_door_calls` | 5.5 |
 | `cleanup_completion::b6_cleanup_refusal_preserves_the_resume_failure_and_blocks_a_blind_retry` | `rupd::b6_cleanup_completion` | 5.5 |
 
 **T2964b measure the implementation head.** Given T2964a's dispositions and a green `check` on the implementation PR's head, when its CI test timings are read, then the PR reports that run URL and head, each surviving original test's elapsed time and their sum against the recorded 313 s baseline (policy). Include the timings and a separate sum for replacement tests so moving work to another name cannot hide its cost. A cut contributes zero; a split or merge maps its measured tests back to all affected original rows and counts each executed test once in the total. Use per-test elapsed times from that run, not job duration, local timings or the baseline substituted for missing data. Missing timing evidence leaves acceptance unmet. No workflow or loop change is required or authorized by this scenario (policy).
