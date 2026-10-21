@@ -760,3 +760,29 @@ An observed activity is active, ended at an observed Clock point, or interrupted
 
 **Measurement wait** (`MeasurementWait`):
 The observation of one continuously blocking operation. It carries no delivery or control authority.
+
+**Result report** (`ResultReport`, `ReportParams`, `message.report`):
+An authenticated Agent's claim about its own Attempt's submitted Instruction delivery,
+retained in the Project Message holder with exact instruction, original Workstream,
+Home at report, pending next action and published Deliverable identity. A report key
+reconciles equal retries and refuses conflicting ones. It never proves acceptance or
+verification. `ResultTarget` names the claimed target identity and revision;
+`ResultState` distinguishes reported work from an unknown external effect.
+
+**Result acceptance** (`ResultAcceptance`, `AcceptResultParams`, `message.acceptResult`):
+The user's acceptance and evidence for one exact Result report, without independent
+verification. `ResultId` selects that report within its original Project and Agent.
+
+**Result check** (`ResultCheck`, `ResultObservation`, `message.verifyResult`):
+A declared authoritative condition observed by the Daemon, retaining its source
+revision and verdict separately from claims and acceptance. Publication checks prove
+only retained-byte integrity; PR checks use fresh, complete forge evidence for the
+exact declared repository/PR/head. Unsupported sources and uncertain external effects
+remain unknown with a cause and checking action. Agent status and Terminal prose
+supply no verification authority.
+
+**Progress** (`Progress`, `ProgressParams`, `ResultProgress`, `message.progress`):
+Passive inspection of retained instructions, Result reports, acceptance, source
+observations and exact publication availability. Historical evidence stays readable;
+current attribution requires the same Order revision and latest reported version of
+that target. Opening or inspecting Progress starts nothing and sends no Message.
