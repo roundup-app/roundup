@@ -589,3 +589,43 @@ async fn nr8_automatic_firing_refuses_a_target_moved_out_of_reach() {
             .is_empty()
     );
 }
+
+#[tokio::test]
+async fn nr1_agent_actions_require_current_reach_but_user_actions_remain_available() {
+    let s = scene(&[]).await;
+    let author = client_as(&s.project, actor(ActorKind::Agent, &s.door)).await;
+    let mut body = definition(&s.a, "user may still run this");
+    body["condition"]["ids"] = json!([s.b]);
+    let saved = made(&author, "reaction.create", body).await;
+    assert_eq!(listed(&author).await.len(), 1);
+    s.user
+        .request("rail.move", json!({"id": s.a, "parent": null, "index": 0}))
+        .await
+        .unwrap();
+    for method in ["reaction.get", "reaction.stop", "reaction.run"] {
+        let err = author
+            .request(
+                method,
+                if method == "reaction.run" {
+                    json!({"id": saved.id, "operation": "refused"})
+                } else {
+                    json!({"id": saved.id})
+                },
+            )
+            .await
+            .unwrap_err();
+        assert_eq!(err.code, code::FORBIDDEN, "{method}");
+    }
+    assert!(listed(&author).await.is_empty());
+    let seen = current(&s, &saved).await;
+    assert!(seen.firings.is_empty());
+    let ran = made(
+        &s.user,
+        "reaction.run",
+        json!({"id": saved.id, "operation": "user"}),
+    )
+    .await;
+    assert_eq!(ran.firings.len(), 1);
+    let stopped = made(&s.user, "reaction.stop", json!({"id": saved.id})).await;
+    assert_eq!(stopped.state, contracts::reaction::State::Stopped);
+}
