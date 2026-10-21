@@ -683,8 +683,8 @@ def bit(b: Bool) -> Nat:
 
 def projection(s: M.World) -> +List<+List<Nat>>:
   match s:
-    case M.W{{+q, +haf, +htk, +t, +d, +u, +tt, +rl, +n, +tk, +i, +g}}:
-      [q, haf, htk, t, d, [n, bit(i), bit(tk)]]
+    case M.W{{+q, +haf, +htk, +t, +d, +u, +tt, +rl, +n, +tk, +us, +i, +g}}:
+      [q, haf, htk, t, d, [n, bit(i), bit(Bool.or(tk, us))]]
 
 def main() -> +List<+List<+List<Nat>>>:
   [{}]
@@ -693,25 +693,67 @@ def main() -> +List<+List<+List<Nat>>>:
     );
     let file = work.path().join("b32.bend");
     std::fs::write(&file, observer).unwrap();
-    let output = std::process::Command::new(root.join("proofs/.tools/bend/bin/bend"))
-        .env("BEND_NO_TELEMETRY", "1")
-        .arg(&file)
-        .output()
-        .expect("install the pinned checker with just proofs-setup");
-    assert!(
-        output.status.success(),
-        "{}\n{}",
-        String::from_utf8_lossy(&output.stdout),
-        String::from_utf8_lossy(&output.stderr)
-    );
-    let actual = String::from_utf8(output.stdout).unwrap();
-    let normalized = actual
-        .chars()
-        .filter(|c| !c.is_whitespace() && *c != 'n')
-        .collect::<String>();
-    let wanted = format!("{expected:?}").replace(' ', "");
-    assert_eq!(
-        normalized, wanted,
-        "B32 delivery projections differ at an event prefix"
-    );
+    let execute = || {
+        let output = std::process::Command::new(root.join("proofs/.tools/bend/bin/bend"))
+            .env("BEND_NO_TELEMETRY", "1")
+            .arg(&file)
+            .output()
+            .expect("install the pinned checker with just proofs-setup");
+        assert!(
+            output.status.success(),
+            "{}\n{}",
+            String::from_utf8_lossy(&output.stdout),
+            String::from_utf8_lossy(&output.stderr)
+        );
+        let actual = String::from_utf8(output.stdout).unwrap().replace('n', "");
+        serde_json::from_str::<Vec<Vec<Vec<u32>>>>(&actual).expect("Bend delivery projections")
+    };
+    let compare = |actual: &[Vec<Vec<u32>>]| {
+        assert_eq!(
+            actual.len(),
+            expected.len(),
+            "one projection per fixture prefix"
+        );
+        actual.iter().zip(&expected).position(|(a, b)| a != b)
+    };
+    let actual = execute();
+    assert_eq!(compare(&actual), None, "B32 prefix differs: {actual:?}");
+
+    let model_file = work.path().join("model.bend");
+    let model = std::fs::read_to_string(&model_file).unwrap();
+    for (release, broken) in [
+        (
+            "release(us, W{q, haf, htk, t, d, u, tt, rl, n, False{}, us, i, g})",
+            "release(False{}, W{q, haf, htk, t, d, u, tt, rl, n, False{}, False{}, i, g})",
+        ),
+        (
+            "release(tk, W{q, haf, htk, t, d, u, tt, rl, n, tk, False{}, i, g})",
+            "release(False{}, W{q, haf, htk, t, d, u, tt, rl, n, False{}, False{}, i, g})",
+        ),
+    ] {
+        assert_eq!(
+            model.matches(release).count(),
+            1,
+            "B32 mutation must apply once"
+        );
+        std::fs::write(&model_file, model.replace(release, broken)).unwrap();
+        let mutant = execute();
+        let mismatch =
+            compare(&mutant).expect("clearing the other hold must fail the prefix observer");
+        assert_eq!(
+            mutant[mismatch][3],
+            [1],
+            "mutant types at the first release"
+        );
+        assert!(expected[mismatch][3].is_empty());
+        let mut offset = 0;
+        for events in &schedules {
+            offset += events.len();
+            assert_eq!(
+                mutant[offset - 1][3],
+                expected[offset - 1][3],
+                "equal final typed lists must not hide the prefix divergence"
+            );
+        }
+    }
 }
