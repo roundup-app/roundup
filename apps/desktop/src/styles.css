@@ -600,7 +600,7 @@ code {
   min-width: 0;
 }
 
-.draft-destination > .draft-name {
+.draft-text > .draft-name {
   min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
