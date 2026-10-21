@@ -30,8 +30,6 @@ run("u461 and u462 isolated rendered observers", () => {
       baseline = await createServer({ root: baseRoot, configFile: join(baseRoot, "vite.config.ts"), cacheDir: join(cache, "base"), server: { host: "127.0.0.1", port: 0, hmr: false }, logLevel: "silent" });
       await baseline.listen();
     }
-
-
   }, 120_000);
 
   afterAll(async () => {

@@ -141,8 +141,6 @@
 }
 
 .todo-inset .todo-blockers {
-  display: flex;
-  align-items: center;
   min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -150,13 +148,26 @@
 }
 
 .todo-inset .todo-blocker {
-  flex: 0 1 auto;
-  min-width: 0;
   max-width: 100%;
-  vertical-align: baseline;
   overflow: hidden;
-  text-overflow: ellipsis;
+  vertical-align: baseline;
   white-space: nowrap;
+}
+
+/* Keep the selection wash uniform under a line that clips across inline controls. */
+.shelf-row.todo-inset[data-selected="true"] {
+  background-image: none;
+  background-color: var(--selected);
+}
+
+.shelf-row.todo-inset[data-selected="true"]::before {
+  content: "";
+  position: absolute;
+  inset-block: 0;
+  inset-inline-start: 0;
+  width: calc(var(--space-1) / 2);
+  background-color: var(--accent);
+  pointer-events: none;
 }
 
 .todo-row .row-head { min-width: 0; display: flex; align-items: center; }

@@ -218,11 +218,11 @@ def reopen_fake():
     assert evaluate('document.activeElement===document.querySelector(".drawer input")')
     evaluate('(async()=>{await document.fonts.ready;await Promise.allSettled(document.querySelector(".drawer").getAnimations({subtree:true}).filter(a=>a.effect.getComputedTiming().iterations!==Infinity).map(a=>a.finished));})()')
     reopened = evaluate(reading)
-    # U461a keeps every passing Check; D5 on this clipped blocker line also fails on main.
+    # U461a keeps every passing Check, including the selected blocker line.
     for check, before in baseline_checks.items():
         if before['status'] == 'pass':
             assert reopened['checks'][check]['status'] == 'pass', reopened
-    for check in ['D2', 'D6']:
+    for check in ['D2', 'D5', 'D6']:
         assert reopened['checks'][check]['status'] == 'pass', reopened
     save('U461a', 'drawer-reopened-1512-dark', reopened)
     browser('click', '.drawer .close')
