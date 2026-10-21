@@ -1,0 +1,40 @@
+/* U3747: the one scrollbar look. A slim thumb over the content, none at rest; the bar of the element under the pointer shows and fades out when the pointer leaves. Surfaces that hide theirs (the tab strip, Bubbles rows, the Rail) set `scrollbar-width: none` in their own rule. */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: transparent transparent;
+  transition: scrollbar-color 200ms ease-out;
+}
+
+*:hover {
+  scrollbar-color: var(--scrollbar-thumb) transparent;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  * {
+    transition: none;
+  }
+}
+
+/* The emulator draws its own overlay bar: slim it, keep it out of sight until the pointer is over the Terminal, and leave the fit's 14 px reserve alone so no resize is sent. */
+.xterm .xterm-scrollable-element > .scrollbar {
+  opacity: 0 !important;
+  transition: opacity 200ms ease-out !important;
+}
+
+.xterm .xterm-scrollable-element:hover > .scrollbar {
+  opacity: 1 !important;
+}
+
+.xterm .xterm-scrollable-element > .scrollbar > .slider {
+  width: 6px !important;
+  left: auto !important;
+  right: 2px;
+  border-radius: 3px;
+  background: var(--scrollbar-thumb) !important;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .xterm .xterm-scrollable-element > .scrollbar {
+    transition: none !important;
+  }
+}

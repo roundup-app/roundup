@@ -5,6 +5,7 @@ import { createReducedMotion } from "./app/reducedMotion";
 import { createTauriApp } from "./app/tauri";
 import "./tokens.css";
 import "./styles.css";
+import "./scrollbar.css";
 
 const root = document.getElementById("root");
 
