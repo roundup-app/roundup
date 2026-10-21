@@ -8,6 +8,10 @@ export type Change = { seq: number,
  */
 actor: Actor | null, 
 /**
+ * Unix milliseconds when the Daemon recorded the Change; history recorded before it has no time.
+ */
+changed_at: bigint | null, 
+/**
  * None denotes creation or an old Todo's current baseline.
  */
 before: Values | null, after: Values, };

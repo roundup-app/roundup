@@ -114,6 +114,9 @@ pub struct Change {
     /// Authenticated writer; history recorded before T19 has no known Actor.
     #[serde(default)]
     pub actor: Option<Actor>,
+    /// Unix milliseconds when the Daemon recorded the Change; history recorded before it has no time.
+    #[serde(default)]
+    pub changed_at: Option<i64>,
     /// None denotes creation or an old Todo's current baseline.
     pub before: Option<Values>,
     pub after: Values,
