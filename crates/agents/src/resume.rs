@@ -211,6 +211,11 @@ impl Agents {
                 return Err(err);
             }
             if let Some(Slot::Resuming { old: Some(old), .. }) = self.shared.runs().get_mut(id) {
+                self.shared
+                    .timing
+                    .lock()
+                    .expect("measurement timing lock")
+                    .end_attempt(id, &old.attempt);
                 old.ended = true;
             }
         }

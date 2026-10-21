@@ -816,7 +816,22 @@ async fn u3016f_real_time_acquisition_to_cli_survives_reopen() {
             .await
             .unwrap();
     }
-    let before = w.read().await;
+    let before = tokio::time::timeout(Duration::from_secs(5), async {
+        loop {
+            let snapshot = w.read().await;
+            let facts = snapshot["time_evidence"].as_array().unwrap();
+            if facts.len() == 5
+                && facts
+                    .iter()
+                    .all(|fact| fact["value"]["state"]["kind"] == "ended")
+            {
+                break snapshot;
+            }
+            tokio::task::yield_now().await;
+        }
+    })
+    .await
+    .expect("three stopped Attempts and their Decision/coordination waits reconcile as ended");
     let coordination_delay = started.elapsed();
     let answers = w
         .client
