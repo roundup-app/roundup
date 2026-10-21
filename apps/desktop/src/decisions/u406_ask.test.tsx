@@ -1,5 +1,9 @@
-import { cleanup, fireEvent, screen, waitFor, within } from "@solidjs/testing-library";
+import { cleanup, fireEvent, render, screen, waitFor, within } from "@solidjs/testing-library";
 import { describe, expect, it, vi } from "vitest";
+import { createRoot, createSignal, onCleanup, Show } from "solid-js";
+import { ConnectedProjectContext, connectProject } from "../state/connectedProject";
+import { DecisionCard } from "./DecisionCard";
+import type { PromptIdentity } from "@contracts/decision/PromptIdentity";
 import { openLane } from "../todos/laneBrowser";
 import { RpcError } from "../app/seam";
 import { askingWith, card, gate, mountApp, rpcCalls, select } from "./decisionsFixture";
@@ -36,7 +40,81 @@ const press = (target: Element, key: string) => fireEvent.keyDown(target, { key 
 
 const calls = (app: Awaited<ReturnType<typeof open>>["app"]) => rpcCalls(app, "decision.answer");
 
+// The caller supplies already observed Prompt authority; selecting a revision does not reconnect.
+const editor = async (mounted: Awaited<ReturnType<typeof open>>) => {
+  cleanup();
+  const root = createRoot(dispose => ({ dispose, connected: connectProject(mounted.app, { path: "/p", name: "p" }, () => false, () => 0, () => null, undefined, mounted.drafts("/p")) }));
+  const connected = await root.connected;
+  const identity: PromptIdentity = { daemon: "daemon", agent: "a", attempt: "attempt-a", decision: "d1" };
+  await waitFor(() => expect(connected.decisions.availability(identity)).not.toBe("unverified"));
+  const [selection, setSelection] = createSignal<{ revision: string; identity: PromptIdentity } | undefined>();
+  const [visible, setVisible] = createSignal(false);
+  render(() => {
+    onCleanup(root.dispose);
+
+    return <ConnectedProjectContext.Provider value={connected}>
+      <Show when={visible()}><DecisionCard decision={askingWith("d1", "a", question, three)} name="alpha" focusTerminal={() => {}} ref={() => {}} onFocusIn={() => {}} onFocusOut={() => {}} selected={selection()} /></Show>
+    </ConnectedProjectContext.Provider>;
+  });
+
+  return { connected, identity, open: (revision?: string, authority = identity) => { setSelection(revision ? { revision, identity: authority } : undefined); setVisible(true); }, leave: () => setVisible(false) };
+};
+
 describe("u406 the Card for ask_user", () => {
+  it.each(["failed", "unknown"] as const)("u3021c_open_restores_exact_revision_without_rpc_decisions_%s", async status => {
+    const mounted = await open();
+    const exact = "  revision A é\n👩🏽‍💻 second  ";
+    fireEvent.click(rows()[1]!);
+    await selectedIs(1);
+    fireEvent.input(note(), { target: { value: exact } });
+    note().focus();
+    note().setSelectionRange(2, 9, "backward");
+    fireEvent.select(note());
+    const a = mounted.drafts("/p").list()[0]!;
+    mounted.drafts("/p").submit(a.revision);
+    mounted.drafts("/p").settle(a.revision, status);
+    fireEvent.click(rows()[2]!);
+    await selectedIs(2);
+    fireEvent.input(note(), { target: { value: "  newer B\n雪  " } });
+    note().setSelectionRange(1, 4, "forward");
+    fireEvent.select(note());
+    const before = mounted.drafts("/p").list();
+    const selectedEditor = await editor(mounted);
+    const callsBefore = [...mounted.app.calls];
+    selectedEditor.open(a.revision);
+    await waitFor(() => expect(note().value).toBe(exact));
+    await selectedIs(1);
+    expect(document.activeElement).toBe(note());
+    expect([note().selectionStart, note().selectionEnd, note().selectionDirection]).toEqual([2, 9, "backward"]);
+    fireEvent.blur(note());
+    selectedEditor.leave();
+    expect(mounted.app.calls).toEqual(callsBefore);
+    expect(mounted.drafts("/p").list()).toEqual(before);
+    selectedEditor.open(a.revision);
+    await waitFor(() => expect(note().value).toBe(exact));
+    fireEvent.input(note(), { target: { value: exact + "edited" } });
+    const edited = mounted.drafts("/p").list().at(-1)!;
+    expect(mounted.drafts("/p").list()).toContainEqual(before[1]);
+    selectedEditor.leave();
+    selectedEditor.open();
+    await waitFor(() => expect(note().value).toBe("  newer B\n雪  "));
+    await selectedIs(2);
+    expect([note().selectionStart, note().selectionEnd, note().selectionDirection]).toEqual([1, 4, "forward"]);
+    selectedEditor.leave();
+    selectedEditor.open(edited.revision);
+    await waitFor(() => expect(note().value).toBe(exact + "edited"));
+    expect(calls(mounted.app)).toEqual([]);
+    fireEvent.click(send());
+    fireEvent.submit(note().form!);
+    if (status === "unknown") expect(calls(mounted.app)).toEqual([]);
+    else {
+      await waitFor(() => expect(calls(mounted.app)).toHaveLength(1));
+      expect(calls(mounted.app)[0]).toMatchObject({ answer: three[1]!.label, note: exact + "edited", identity: selectedEditor.identity });
+      await waitFor(() => expect(mounted.drafts("/p").list().some(draft => draft.revision === edited.revision)).toBe(false));
+      expect(mounted.drafts("/p").list()).toContainEqual(before[1]);
+    }
+  });
+
   it("u2773a_multiline_arrows_keep_the_chosen_answer", async () => {
     await open();
     fireEvent.input(note(), { target: { value: "first line\nsecond line\nthird line" } });
