@@ -40,6 +40,10 @@ The `roundup` MCP server offers these tools. They are deferred: load a tool befo
 - `reaction_run`: spend one remaining firing of a reaction you authorized now, with an `operation` retry key.
 - `agent_set_order`: replace your own order: a Work order once the ask is clear, or a Clarification order while a question is open.
 - `message_send`: send a note, question or request to another Agent; it is delivered when the receiver is next idle; speak to the user directly in your own Terminal.
+- `message_progress`: inspect retained instructions, reports, user acceptance and declared verification; reading starts nothing.
+- `message_report`: report your own Attempt's result against a submitted instruction delivery and published output; it is only your claim, never user acceptance or verification; retain the same key on retry.
+- `message_acceptResult`: record user acceptance of an exact report; only the user may call this.
+- `message_verifyResult`: observe one report's declared authoritative condition without a Model call; unsupported, stale or unavailable evidence stays unknown and a publication digest proves only its bytes.
 - `message_get`: read one Message you sent or received.
 - `message_list`: see the Messages you sent or received.
 - `message_pass`: hand a question you received on to the next Agent above, when it is not yours to answer.
