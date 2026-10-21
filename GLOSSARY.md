@@ -800,3 +800,17 @@ Missing history is separate coverage; it is never a measured zero.
 **Measurement contributor** (`MeasurementContributor`):
 An Agent's retained consumption in one Home, including a stopped or removed maker.
 Unknown selected categories rank after fully known ones; ties use stable Agent identity.
+
+**Measurement cost** (`MeasurementCost`, `ReferenceEstimate`):
+Reported money retained separately by source, currency and request/conversation scope,
+and exact decimal reference estimates grouped only by identical Reference rates.
+Missing evidence names its affected contributor; neither value is a subscription bill.
+
+**Measurement time** (`MeasurementTime`):
+Elapsed since first observed start, separate from summed Attempt nanoseconds, whose
+disjoint categories give human wait, tools, coordination and model execution precedence
+in that order; positive startup/idle is other time and unexplained duration is unmeasured.
+Incomparable clock lifetimes never authorize continuous execution through a gap.
+
+**Collapsible**:
+An expandable App region with a named trigger; closing it retains its content.

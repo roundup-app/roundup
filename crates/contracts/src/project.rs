@@ -452,6 +452,8 @@ pub struct MeasurementContributor {
     pub maker: String,
     pub removed: bool,
     pub tokens: ConsumedTotals,
+    pub cost: MeasurementCost,
+    pub time: MeasurementTime,
     pub coverage: Vec<String>,
 }
 
@@ -468,8 +470,43 @@ pub struct MeasurementSummary {
     #[ts(type = "number | null")]
     pub last_observed: Option<i64>,
     pub tokens: ConsumedTotals,
+    pub cost: MeasurementCost,
+    pub time: MeasurementTime,
     pub coverage: Vec<String>,
     pub contributors: u32,
     pub rows: Vec<MeasurementContributor>,
     pub next_offset: Option<u32>,
+}
+
+/// Money evidence remains partitioned by scope, currency and reference basis.
+#[derive(Clone, Debug, Default, Serialize, Deserialize, TS)]
+#[ts(export, export_to = "project/")]
+pub struct MeasurementCost {
+    pub reported: Vec<ReportedMoney>,
+    pub reference: Vec<ReferenceEstimate>,
+    pub unavailable: Vec<String>,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize, TS)]
+#[ts(export, export_to = "project/")]
+pub struct ReferenceEstimate {
+    pub amount: String,
+    pub missing: Vec<String>,
+    pub rates: ReferenceRates,
+}
+
+/// Nanoseconds are exact strings. Summed time partitions Attempts, not wall time.
+#[derive(Clone, Debug, Serialize, Deserialize, TS)]
+#[ts(export, export_to = "project/")]
+pub struct MeasurementTime {
+    pub elapsed_ns: Option<String>,
+    pub summed_ns: String,
+    pub execution_ns: String,
+    pub tools_ns: String,
+    pub human_ns: String,
+    pub coordination_ns: String,
+    pub other_ns: String,
+    pub unmeasured_ns: String,
+    pub active: bool,
+    pub coverage: Vec<String>,
 }

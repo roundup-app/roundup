@@ -2,9 +2,11 @@
 import type { ConsumedCategory } from "./ConsumedCategory";
 import type { ConsumedTotals } from "./ConsumedTotals";
 import type { MeasurementContributor } from "./MeasurementContributor";
+import type { MeasurementCost } from "./MeasurementCost";
+import type { MeasurementTime } from "./MeasurementTime";
 
 /**
  * One Workstream's consumed tokens, ranked in pages of at most twenty at one revision.
  * Money and time retain their separate evidence contract; they are not token totals.
  */
-export type MeasurementSummary = { project: string, home: string, revision: string, category: ConsumedCategory, cause: string | null, last_observed: number | null, tokens: ConsumedTotals, coverage: Array<string>, contributors: number, rows: Array<MeasurementContributor>, next_offset: number | null, };
+export type MeasurementSummary = { project: string, home: string, revision: string, category: ConsumedCategory, cause: string | null, last_observed: number | null, tokens: ConsumedTotals, cost: MeasurementCost, time: MeasurementTime, coverage: Array<string>, contributors: number, rows: Array<MeasurementContributor>, next_offset: number | null, };

@@ -184,6 +184,12 @@ pub(crate) fn summarize(
                 .or_insert_with(|| (maker.name.clone(), TokenSum::default(), Vec::new()));
         }
     }
+    let facts: Vec<_> = snapshot
+        .contributions
+        .iter()
+        .chain(&snapshot.time_evidence)
+        .filter(|fact| fact.home.as_ref() == Some(&params.home))
+        .collect();
     let mut last_observed = None;
     for fact in snapshot
         .contributions
@@ -274,9 +280,23 @@ pub(crate) fn summarize(
         .map(|(agent, (maker, tokens, coverage))| {
             Ok(MeasurementContributor {
                 removed: !tree.iter().any(|node| node.id == agent),
-                agent,
+                agent: agent.clone(),
                 maker,
                 tokens: tokens.finish()?,
+                cost: cost_totals(
+                    &facts
+                        .iter()
+                        .copied()
+                        .filter(|fact| fact.agent == agent)
+                        .collect::<Vec<_>>(),
+                ),
+                time: time_totals(
+                    &facts
+                        .iter()
+                        .copied()
+                        .filter(|fact| fact.agent == agent)
+                        .collect::<Vec<_>>(),
+                )?,
                 coverage,
             })
         })
@@ -289,10 +309,318 @@ pub(crate) fn summarize(
         cause: (!causes.is_empty()).then(|| causes.join("; ")),
         last_observed,
         tokens: total.finish()?,
+        cost: cost_totals(&facts),
+        time: time_totals(&facts)?,
         coverage,
         contributors: count,
         rows,
         next_offset: (next < count).then_some(next),
+    })
+}
+
+fn cost_totals(facts: &[&contracts::project::Measurement]) -> contracts::project::MeasurementCost {
+    use bigdecimal::BigDecimal;
+    use contracts::project::{MeasurementCost, MeasurementValue, ReferenceEstimate};
+    let mut result = MeasurementCost::default();
+    for fact in facts {
+        match &fact.value {
+            MeasurementValue::Money { reported } => result.reported.push(reported.clone()),
+            MeasurementValue::Request { usage, cost } => {
+                let Some(cost) = cost else {
+                    result
+                        .unavailable
+                        .push(format!("{}: request cost evidence unavailable", fact.maker));
+                    continue;
+                };
+                result.unavailable.extend(
+                    cost.unavailable
+                        .iter()
+                        .map(|cause| format!("{}: {cause}", fact.maker)),
+                );
+                if let Some(reported) = &cost.reported {
+                    result.reported.push(reported.clone());
+                }
+                let estimate = || -> Option<ReferenceEstimate> {
+                    let rates = cost.reference.as_ref()?;
+                    if rates.per_tokens == 0 {
+                        return None;
+                    }
+                    let mut missing = Vec::new();
+                    let (five, hour) = if usage.cache_write == Some(0) {
+                        (Some(0), Some(0))
+                    } else if cost
+                        .cache_write
+                        .five_minute
+                        .zip(cost.cache_write.one_hour)
+                        .and_then(|(a, b)| a.checked_add(b))
+                        == usage.cache_write
+                    {
+                        (cost.cache_write.five_minute, cost.cache_write.one_hour)
+                    } else {
+                        (None, None)
+                    };
+                    let mut amount = BigDecimal::from(0);
+                    for (name, count, rate) in [
+                        ("input", usage.input, &rates.input),
+                        ("output", usage.output, &rates.output),
+                        ("cache read", usage.cache_read, &rates.cache_read),
+                        (
+                            "five-minute cache write",
+                            five,
+                            &rates.cache_write_five_minute,
+                        ),
+                        ("one-hour cache write", hour, &rates.cache_write_one_hour),
+                    ] {
+                        match (count, rate.parse::<BigDecimal>()) {
+                            (Some(count), Ok(rate)) if rate >= 0 => {
+                                amount += BigDecimal::from(count) * rate
+                            }
+                            _ => missing.push(name.to_owned()),
+                        }
+                    }
+                    Some(ReferenceEstimate {
+                        amount: (amount / BigDecimal::from(rates.per_tokens))
+                            .normalized()
+                            .to_plain_string(),
+                        missing,
+                        rates: rates.clone(),
+                    })
+                };
+                if let Some(estimate) = estimate() {
+                    if let Some(existing) = result
+                        .reference
+                        .iter_mut()
+                        .find(|e| e.rates == estimate.rates)
+                    {
+                        // Both values were constructed with BigDecimal in this function.
+                        let sum = existing
+                            .amount
+                            .parse::<BigDecimal>()
+                            .expect("constructed estimate")
+                            + estimate
+                                .amount
+                                .parse::<BigDecimal>()
+                                .expect("constructed estimate");
+                        existing.amount = sum.normalized().to_plain_string();
+                        existing.missing.extend(estimate.missing);
+                        existing.missing.sort();
+                        existing.missing.dedup();
+                    } else {
+                        result.reference.push(estimate);
+                    }
+                } else {
+                    result.unavailable.push(format!("{}: reference estimate unavailable for this request (rate, token or cache-write class missing)",fact.maker));
+                }
+            }
+            _ => {}
+        }
+    }
+    if !facts
+        .iter()
+        .any(|f| matches!(f.value, MeasurementValue::Request { .. }))
+    {
+        result
+            .unavailable
+            .push("No retained request cost measurements".into());
+    }
+    let mut reported: Vec<contracts::project::ReportedMoney> = Vec::new();
+    for money in result.reported {
+        if let Some(previous) = reported.iter_mut().find(|previous| {
+            money.currency.is_some()
+                && previous.currency == money.currency
+                && previous.source == money.source
+                && previous.basis == money.basis
+                && previous.scope == money.scope
+        }) {
+            match (
+                previous.amount.parse::<BigDecimal>(),
+                money.amount.parse::<BigDecimal>(),
+            ) {
+                (Ok(a), Ok(b)) => previous.amount = (a + b).normalized().to_plain_string(),
+                _ => result
+                    .unavailable
+                    .push("Reported amount could not be reconciled".into()),
+            }
+        } else {
+            reported.push(money);
+        }
+    }
+    result.reported = reported;
+    result.unavailable.sort();
+    result.unavailable.dedup();
+    result
+}
+
+fn time_totals(
+    facts: &[&contracts::project::Measurement],
+) -> Result<contracts::project::MeasurementTime, RpcError> {
+    use contracts::project::{Execution, MeasurementValue, TimeState, TimedActivity};
+    let ns = |s: &str| s.parse::<u128>().map_err(RpcError::internal);
+    let mut totals = [0_u128; 6];
+    let mut first = None::<i64>;
+    let mut last = None::<i64>;
+    let mut unknown_start = false;
+    let mut active = false;
+    let mut adjusted = false;
+    let mut coverage = Vec::new();
+    for attempt in facts {
+        let MeasurementValue::Observed {
+            activity: TimedActivity::Attempt,
+            clock_lifetime,
+            start,
+            segments,
+            state,
+        } = &attempt.value
+        else {
+            continue;
+        };
+        active |= *state == TimeState::Active;
+        unknown_start |= start.is_none();
+        let Some(begin) = start
+            .as_ref()
+            .or_else(|| segments.first().map(|s| &s.start))
+        else {
+            continue;
+        };
+        let Some(end) = segments.last().map(|s| &s.end) else {
+            continue;
+        };
+        first = Some(first.unwrap_or(i64::MAX).min(begin.unix_ms));
+        last = Some(last.unwrap_or(i64::MIN).max(end.unix_ms));
+        let bounds = ns(&begin.monotonic_ns)?..ns(&end.monotonic_ns)?;
+        let wall = (i128::from(end.unix_ms) - i128::from(begin.unix_ms)) * 1_000_000;
+        let clock_adjusted = bounds
+            .end
+            .checked_sub(bounds.start)
+            .map(|duration| {
+                i128::try_from(duration).map(|duration| (wall - duration).abs() > 250_000_000)
+            })
+            .transpose()
+            .map_err(RpcError::internal)?
+            .unwrap_or(true);
+        adjusted |= clock_adjusted;
+        if bounds.start >= bounds.end {
+            continue;
+        }
+        let mut partition = rangemap::RangeMap::new();
+        // The residual is explicitly unmeasured, including discontinuities between samples.
+        partition.insert(bounds.clone(), 5_usize);
+        let mut evidence = Vec::new();
+        for fact in facts
+            .iter()
+            .filter(|f| f.agent == attempt.agent && f.attempt == attempt.attempt)
+        {
+            match &fact.value {
+                MeasurementValue::Observed {
+                    activity,
+                    clock_lifetime: clock,
+                    segments,
+                    ..
+                } if clock == clock_lifetime => {
+                    let category = match activity {
+                        TimedActivity::Decision { .. } => 0,
+                        TimedActivity::Coordination { .. } => 2,
+                        TimedActivity::Startup | TimedActivity::Idle { .. } => 4,
+                        TimedActivity::Attempt => continue,
+                    };
+                    for segment in segments {
+                        evidence.push((
+                            category,
+                            ns(&segment.start.monotonic_ns)?..ns(&segment.end.monotonic_ns)?,
+                        ));
+                    }
+                }
+                MeasurementValue::Interval {
+                    category,
+                    start_unix_ns,
+                    end_unix_ns,
+                    ..
+                } => {
+                    if clock_adjusted {
+                        coverage.push("Source wall intervals cannot be aligned during a wall-clock adjustment; retained evidence remains available, duration is unmeasured".into());
+                        continue;
+                    }
+                    let source_start = start_unix_ns.parse::<i128>().map_err(RpcError::internal)?;
+                    let source_end = end_unix_ns.parse::<i128>().map_err(RpcError::internal)?;
+                    // Align only inside continuously sampled segments. Wall-clock jumps/outages
+                    // must not turn source endpoints into execution through an uncovered gap.
+                    for segment in segments {
+                        let wall_start = i128::from(segment.start.unix_ms) * 1_000_000;
+                        let wall_end = i128::from(segment.end.unix_ms) * 1_000_000;
+                        let left = source_start.max(wall_start);
+                        let right = source_end.min(wall_end);
+                        if left < right {
+                            let anchor = ns(&segment.start.monotonic_ns)?;
+                            let left = anchor
+                                + u128::try_from(left - wall_start).map_err(RpcError::internal)?;
+                            let right = (anchor
+                                + u128::try_from(right - wall_start)
+                                    .map_err(RpcError::internal)?)
+                            .min(ns(&segment.end.monotonic_ns)?);
+                            evidence.push((
+                                if *category == Execution::Tool { 1 } else { 3 },
+                                left..right,
+                            ));
+                        }
+                    }
+                }
+                _ => {}
+            }
+        }
+        // Lower priority first; RangeMap overwrites overlaps and unions equal categories.
+        evidence.sort_by_key(|(priority, _)| std::cmp::Reverse(*priority));
+        for (category, range) in evidence {
+            let range = range.start.max(bounds.start)..range.end.min(bounds.end);
+            if range.start < range.end {
+                partition.insert(range, category);
+            }
+        }
+        for (range, category) in partition.iter() {
+            totals[*category] += range.end - range.start;
+        }
+        coverage.extend(attempt.coverage.iter().cloned());
+        if *state == TimeState::Interrupted {
+            coverage.push("Attempt end unknown after an observation outage".into());
+        }
+    }
+    if unknown_start {
+        coverage.push(
+            "Historical Attempt start unavailable; summed time covers observed bounds only".into(),
+        );
+    }
+    if totals[5] > 0 {
+        coverage.push("Unmeasured duration has no positive category evidence".into());
+    }
+    coverage.sort();
+    coverage.dedup();
+    let elapsed = if unknown_start || adjusted {
+        if adjusted {
+            coverage.push("Wall-clock adjustment makes elapsed time unavailable".into());
+        }
+        None
+    } else {
+        match (first, last) {
+            (Some(first), Some(last)) if last >= first => {
+                Some(((i128::from(last) - i128::from(first)) * 1_000_000).to_string())
+            }
+            (None, None) if facts.is_empty() => Some("0".into()),
+            _ => {
+                coverage.push("No comparable observed Attempt start/end; summed time covers retained bounds only".into());
+                None
+            }
+        }
+    };
+    Ok(contracts::project::MeasurementTime {
+        elapsed_ns: elapsed,
+        summed_ns: totals.iter().sum::<u128>().to_string(),
+        execution_ns: totals[3].to_string(),
+        tools_ns: totals[1].to_string(),
+        human_ns: totals[0].to_string(),
+        coordination_ns: totals[2].to_string(),
+        other_ns: totals[4].to_string(),
+        unmeasured_ns: totals[5].to_string(),
+        active,
+        coverage,
     })
 }
 
@@ -402,9 +730,12 @@ mod time_tests {
             let value = json!({"kind":"request", "usage": {
                 "input": usage[0], "output": usage[1], "cache_read": usage[2], "cache_write":usage[3]
             }, "cost":null}).to_string();
+            self.fact(home, agent, identity, &value);
+        }
+        fn fact(&self, home: &str, agent: &str, identity: &str, value: &str) {
             let mut db = rusqlite::Connection::open(self.dir.path().join("agents.db")).unwrap();
             let tx = db.transaction().unwrap();
-            tx.execute("INSERT INTO measurement_revisions(identity,source_revision,source,agent,attempt,home,maker,observed,value,coverage) VALUES(?1,?2,'fixture',?3,'1',?4,?5,1000,?2,'[]')",rusqlite::params![identity,value,agent,home,format!("Maker {agent}")]).unwrap();
+            tx.execute("INSERT OR IGNORE INTO measurement_revisions(identity,source_revision,source,agent,attempt,home,maker,observed,value,coverage) VALUES(?1,?2,'fixture',?3,'1',?4,?5,1000,?2,'[]')",rusqlite::params![identity,value,agent,home,format!("Maker {agent}")]).unwrap();
             tx.execute("UPDATE measurement_state SET revision=revision+1", [])
                 .unwrap();
             tx.commit().unwrap();
@@ -507,26 +838,86 @@ mod time_tests {
         let point = |seconds: u64| json!({"unix_ms":1000+seconds*1000,"monotonic_ns":(seconds*1_000_000_000).to_string()});
         let observed = |activity: Value, start, end| json!({"kind":"observed","activity":activity,"clock_lifetime":"test","start":point(start),"segments":[{"start":point(start),"end":point(end)}],"state":{"kind":"ended","at":point(end)}});
         let mut facts = vec![
-            ("a", observed(json!({"kind":"attempt"}),0,10)),
-            ("b", observed(json!({"kind":"attempt"}),0,10)),
-            ("a", observed(json!({"kind":"decision","decision":"question"}),6,8)),
-            ("a", observed(json!({"kind":"coordination","message":1}),8,9)),
+            ("a", observed(json!({"kind":"attempt"}), 0, 10)),
+            ("b", observed(json!({"kind":"attempt"}), 0, 10)),
+            (
+                "a",
+                observed(json!({"kind":"decision","decision":"question"}), 6, 8),
+            ),
+            (
+                "a",
+                observed(json!({"kind":"coordination","message":1}), 8, 9),
+            ),
         ];
-        for (agent, category, start, end) in [("a","agent",0,10),("b","agent",0,10),("a","tool",2,6),("a","tool",3,5)] {
+        for (agent, category, start, end) in [
+            ("a", "agent", 0, 10),
+            ("b", "agent", 0, 10),
+            ("a", "tool", 2, 6),
+            ("a", "tool", 3, 5),
+        ] {
             facts.push((agent,json!({"kind":"interval","category":category,"clock":"source-wall","start_unix_ns":((start+1)*1_000_000_000_u64).to_string(),"end_unix_ns":((end+1)*1_000_000_000_u64).to_string()})));
         }
-        for (i,(agent,value)) in facts.iter().enumerate() {
+        for (i, (agent, value)) in facts.iter().enumerate() {
             db.execute("INSERT INTO measurement_revisions(identity,source_revision,source,agent,attempt,home,maker,observed,value,coverage) VALUES(?1,'1','fixture',?2,'1',?3,?2,11000,?4,'[]')",rusqlite::params![format!("time-{i}"),agent,home,value.to_string()]).unwrap();
         }
-        let read=w.summary(&home,"total").await;
-        assert_eq!(read["time"]["elapsed_ns"],"10000000000");
-        assert_eq!(read["time"]["summed_ns"],"20000000000");
-        assert_eq!(read["time"]["execution_ns"],"13000000000");
-        assert_eq!(read["time"]["tools_ns"],"4000000000");
-        assert_eq!(read["time"]["human_ns"],"2000000000");
-        assert_eq!(read["time"]["coordination_ns"],"1000000000");
-        assert_eq!(read["time"]["other_ns"],"0");
-        assert_eq!(read["time"]["unmeasured_ns"],"0");
+        let read = w.summary(&home, "total").await;
+        assert_eq!(read["time"]["elapsed_ns"], "10000000000");
+        assert_eq!(read["time"]["summed_ns"], "20000000000");
+        assert_eq!(read["time"]["execution_ns"], "13000000000");
+        assert_eq!(read["time"]["tools_ns"], "4000000000");
+        assert_eq!(read["time"]["human_ns"], "2000000000");
+        assert_eq!(read["time"]["coordination_ns"], "1000000000");
+        assert_eq!(read["time"]["other_ns"], "0");
+        assert_eq!(read["time"]["unmeasured_ns"], "0");
+    }
+
+    fn point(seconds: u64) -> Value {
+        json!({"unix_ms":1000+seconds*1000,"monotonic_ns":(seconds*1_000_000_000).to_string()})
+    }
+    fn attempt(start: u64, end: u64, active: bool) -> Value {
+        json!({"kind":"observed","activity":{"kind":"attempt"},"clock_lifetime":"test","start":point(start),"segments":[{"start":point(start),"end":point(end)}],"state":if active {json!({"kind":"active"})} else {json!({"kind":"ended","at":point(end)})}})
+    }
+
+    #[tokio::test]
+    async fn u3016c_elapsed_and_parallel_time_are_distinct() {
+        let w = World::new();
+        let home = w.home();
+        w.fact(&home, "a", "first", &attempt(0, 10, false).to_string());
+        w.fact(&home, "b", "parallel", &attempt(0, 10, false).to_string());
+        w.fact(&home, "a", "resumed", &attempt(15, 20, true).to_string());
+        let read = w.summary(&home, "total").await;
+        assert_eq!(read["time"]["elapsed_ns"], "20000000000");
+        assert_eq!(read["time"]["summed_ns"], "25000000000");
+        assert_eq!(read["time"]["active"], true);
+        assert_eq!(read["time"]["unmeasured_ns"], "25000000000");
+    }
+
+    #[tokio::test]
+    async fn u3016c_clock_gaps_and_late_intervals_are_honest() {
+        let w = World::new();
+        let home = w.home();
+        let mut a = attempt(0, 10, false);
+        a["segments"] =
+            json!([{"start":point(0),"end":point(2)},{"start":point(8),"end":point(10)}]);
+        w.fact(&home, "a", "first", &a.to_string());
+        let execution = json!({"kind":"interval","category":"agent","clock":"source wall","start_unix_ns":"1000000000","end_unix_ns":"11000000000"});
+        w.fact(&home, "a", "execution", &execution.to_string());
+        w.fact(&home, "a", "execution", &execution.to_string());
+        let read = w.summary(&home, "total").await;
+        assert_eq!(read["time"]["execution_ns"], "4000000000");
+        assert_eq!(read["time"]["unmeasured_ns"], "6000000000");
+        let (reopened, ctx) = w.reopen();
+        let read = reopened
+            .call(&ctx, "project.measurementSummary", json!({"home":home}))
+            .await
+            .unwrap();
+        assert_eq!(read["time"]["execution_ns"], "4000000000");
+        a["segments"][1]["end"]["unix_ms"] = json!(9000);
+        w.fact(&home, "a", "first", &a.to_string());
+        let read = w.summary(&home, "total").await;
+        assert_eq!(read["time"]["elapsed_ns"], Value::Null);
+        assert_eq!(read["time"]["execution_ns"], "0");
+        assert_eq!(read["time"]["summed_ns"], "10000000000");
     }
 
     #[tokio::test]
@@ -561,6 +952,28 @@ mod time_tests {
         assert_eq!(read["rows"][0]["tokens"]["total"]["known"], "570");
         assert_eq!(read["rows"][1]["agent"], b);
         assert_eq!(read["rows"][1]["tokens"]["total"]["known"], "230");
+    }
+
+    #[tokio::test]
+    async fn u3016b_cost_basis_and_missing_coverage_are_explicit() {
+        let w = World::new();
+        let home = w.home();
+        w.request(
+            &home,
+            "a",
+            "priced",
+            [Some(100), Some(20), Some(400), Some(50)],
+        );
+        w.request(&home, "b", "unknown", [Some(1); 4]);
+        let db = rusqlite::Connection::open(w.dir.path().join("agents.db")).unwrap();
+        let cost = json!({"model":"opaque","cache_write":{"five_minute":30,"one_hour":20},"reported":{"scope":"request","amount":"0.001","currency":"EUR","source":"fixture","basis":"source estimate"},"reference":{"version":"v1","date":"2026-10-21","currency":"USD","source":"https://example.com/rates","basis":"fixture per category","per_tokens":1000000,"input":"3","output":"15","cache_read":"0.3","cache_write_five_minute":"3.75","cache_write_one_hour":"6"},"unavailable":[]});
+        db.execute("UPDATE measurement_revisions SET value=json_set(value,'$.cost',json(?1)) WHERE identity='priced'",[cost.to_string()]).unwrap();
+        let read = w.summary(&home, "total").await;
+        assert_eq!(read["cost"]["reference"][0]["amount"], "0.0009525");
+        assert_eq!(read["cost"]["reference"][0]["rates"]["version"], "v1");
+        assert_eq!(read["cost"]["reported"][0]["amount"], "0.001");
+        assert_eq!(read["cost"]["reported"][0]["currency"], "EUR");
+        assert!(!read["cost"]["unavailable"].as_array().unwrap().is_empty());
     }
 
     #[tokio::test]
@@ -621,6 +1034,7 @@ mod time_tests {
         for agent in &expected {
             w.request(&home, agent, agent, [Some(3), Some(0), Some(0), Some(0)]);
         }
+        let measured = std::time::Instant::now();
         let mut page = w.summary(&home, "total").await;
         assert_eq!(page["contributors"], 1005);
         assert_eq!(page["tokens"]["total"]["known"], "3015");
@@ -647,6 +1061,10 @@ mod time_tests {
                 .unwrap();
             assert_eq!(page["revision"], revision);
         }
+        eprintln!(
+            "U3016e: 1,005 contributors, 51 coherent public pages: {:?}",
+            measured.elapsed()
+        );
         assert_eq!(ids, expected);
         w.request(&home, "new", "new", [Some(1); 4]);
         let stale = w

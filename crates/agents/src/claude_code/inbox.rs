@@ -35,6 +35,8 @@ const CUT: &str = "[cut]";
 /// the text to be cut to one line of the TUI (B50(d)).
 pub struct Entry {
     pub id: u32,
+    /// Retained authenticated Message sender; measurement attribution only, never wire authority.
+    pub actor: contracts::Actor,
     pub kind: MessageKind,
     pub from: String,
     pub text: String,

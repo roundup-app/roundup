@@ -1,0 +1,128 @@
+.pane-origin {
+  display: flex;
+  flex: 1;
+  min-height: 0;
+  flex-direction: column;
+}
+
+.pane-origin-hidden {
+  display: none;
+}
+
+.measurement-action {
+  flex: none;
+  padding-inline: var(--space-3);
+}
+
+.measurement-dashboard {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding: var(--space-4);
+  color: var(--text);
+  font-size: var(--text-body);
+  font-variant-numeric: tabular-nums;
+}
+
+.measurement-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-4);
+}
+
+.measurement-header h2 {
+  min-width: 0;
+  overflow-wrap: anywhere;
+  font-size: var(--text-title);
+  margin: 0;
+}
+
+.measurement-dashboard h3 {
+  font-size: var(--text-body);
+  font-weight: 600;
+  margin: 0 0 var(--space-2);
+}
+
+.measurement-dashboard p {
+  margin: 0 0 var(--space-2);
+  overflow-wrap: anywhere;
+}
+
+.measurement-note {
+  display: block;
+  color: var(--grey);
+  font-size: var(--text-caption);
+  overflow-wrap: anywhere;
+}
+
+.measurement-overview {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: var(--space-4);
+  padding-block: var(--space-4);
+}
+
+.measurement-tokens,
+.measurement-time,
+.measurement-elapsed {
+  margin: 0;
+}
+
+.measurement-tokens > div,
+.measurement-time > div,
+.measurement-elapsed > div {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--space-3);
+  padding-block: var(--space-1);
+}
+
+.measurement-dashboard dd {
+  margin: 0;
+  text-align: right;
+  overflow-wrap: anywhere;
+}
+
+.measurement-detail {
+  margin-top: var(--space-3);
+}
+
+.measurement-detail [data-part="content"] {
+  padding-block: var(--space-2);
+}
+
+.measurement-dashboard table {
+  width: 100%;
+  table-layout: fixed;
+  border-collapse: collapse;
+  margin-block: var(--space-2);
+  font-size: var(--text-caption);
+}
+
+.measurement-dashboard th,
+.measurement-dashboard td {
+  padding: var(--space-2) var(--space-1);
+  text-align: right;
+  vertical-align: top;
+  font-weight: 400;
+  overflow-wrap: anywhere;
+}
+
+.measurement-dashboard th:first-child {
+  width: 30%;
+  text-align: left;
+}
+
+.measurement-dashboard th button {
+  max-width: 100%;
+  overflow-wrap: anywhere;
+}
+
+.measurement-stale {
+  margin-block: var(--space-3);
+}
+
+.measurement-overview .measurement-cost strong {
+  font-size: var(--text-pad-subheading);
+}
