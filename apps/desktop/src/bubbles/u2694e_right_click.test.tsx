@@ -196,3 +196,18 @@ it("u2694f_empty_space_opens_no_menu_or_terminal", async () => {
   expect(pane()).toEqual(before);
   expect(app.calls.slice(calls).filter((call) => call.method === "terminal.open")).toEqual([]);
 });
+
+it("u2694g_keyboard_disclosure_works_when_ctrl_click_has_no_compatibility_click", async () => {
+  const { app } = await mountApp("tree-40", true);
+  fireEvent.pointerDown(row("w"), { button: 0, ctrlKey: true });
+  fireEvent.contextMenu(row("w"), { button: 0, ctrlKey: true });
+  fireEvent.pointerUp(row("w"), { button: 0, ctrlKey: true });
+  await app.closeMenu();
+  const disclosure = row("w").querySelector<HTMLElement>(".rail-chevron")!;
+  disclosure.focus();
+  fireEvent.keyDown(disclosure, { key: " " });
+  fireEvent.keyUp(disclosure, { key: " " });
+  // The browser synthesises this click for Space, without another pointerdown.
+  fireEvent.click(disclosure, { detail: 0 });
+  expect(row("w").closest('[role="treeitem"]')?.getAttribute("aria-expanded")).toBe("false");
+});
