@@ -16,6 +16,7 @@ messages = { path = "../messages" }
 pads = { path = "../pads" }
 provenance = { path = "../provenance" }
 rpc = { path = "../rpc" }
+reqwest = { version = "0.13.5", default-features = false, features = ["rustls"] }
 rusqlite = { workspace = true, features = ["hooks"] }
 rusqlite_migration.workspace = true
 serde.workspace = true
