@@ -7,7 +7,9 @@ import { usePadList } from "../rail/pads/padList";
 import { useTodoList } from "../todos/todoList";
 import { Icon } from "../ink/Icon";
 import { PadDrawer } from "../pads/PadDrawer";
-import { todoEditor } from "./editors";
+import { Pads } from "../pads/Pads";
+import { OrderDrawer } from "../orders/OrderDrawer";
+import { todoCreationEditor, todoEditor } from "./editors";
 import { typedText, useUnfinishedWork } from "./unfinishedWork";
 
 /** Recovery lists only work at risk (U3021a) and never sends mutations. */
@@ -53,7 +55,7 @@ const DraftRecovery = () => {
       : surface === "todos" ? todos.all().find((todo) => String(todo.id) === object)?.title
       : surface === "header" && object === project.path ? project.name : node(row)?.name;
 
-    return { place: copy.draftSurface(surface === "rail" && node(row) ? node(row)!.kind : surface), name: String(name ?? typedText(row.draft)[0]).trim().split("\n")[0] };
+    return { place: copy.draftSurface(surface === "rail" && node(row) ? node(row)!.kind : surface), name: String(name ?? (row.draft.policy === "credential" ? "" : typedText(row.draft)[0])).trim().split("\n")[0] };
   };
 
   const open = (row: Row) => {
@@ -63,15 +65,30 @@ const DraftRecovery = () => {
       return () => drawer.open(() => <PadDrawer name={String(row.draft.value.originalName)} pads={pads.pads} recovery={{ project: project.path, revision: row.draft.revision, list: pads }} onLateFailure={() => {}} />, "key");
     }
 
-    if (surface === "todos" && todos.all().some((todo) => String(todo.id) === object)) {
-      const editor = todoEditor.get();
+    const editor = todoEditor.get();
 
-      return editor ? () => drawer.open(() => editor({ id: Number(object), todos, recovery: { project: project.path, revision: row.draft.revision } }), "key") : null;
+    if (surface === "todos" && editor && todos.all().some((todo) => String(todo.id) === object)) {
+      return () => drawer.open(() => editor({ id: Number(object), todos, recovery: { project: project.path, revision: row.draft.revision } }), "key");
+    }
+
+    if (surface === "pads" && object === "creation") {
+      return () => drawer.open(() => <Pads recovery={{ project: project.path, revision: row.draft.revision, list: pads }} />, "key");
+    }
+
+    const creation = todoCreationEditor.get();
+
+    if (surface === "todos" && object === "new" && creation) {
+      return () => drawer.open(() => creation({ recovery: { project: project.path, revision: row.draft.revision, list: todos } }), "key");
+    }
+
+    if (surface === "orders" && node(row)) {
+      return () => drawer.open(() => <OrderDrawer id={object} recovery={{ project: project.path, revision: row.draft.revision }} />, "key");
     }
 
     const target = node(row);
 
-    return target ? () => rail.select(target.id) : null;
+    // The remaining surfaces keep their editor on screen; Open brings it into view.
+    return () => { if (target) rail.select(target.id); drawer.close("key"); };
   };
 
   return <section class="draft-recovery" aria-label={copy.unfinishedWork}>
@@ -89,7 +106,7 @@ const DraftRecovery = () => {
             </span>
           </div>
           <div class="draft-actions">
-            <Show when={row.cause === "gone"} fallback={<Show when={open(row)}>{(go) => <button data-button="quiet" type="button" onClick={() => go()()}>{copy.openDraft}</button>}</Show>}>
+            <Show when={row.cause === "gone" || row.draft.policy === "credential"} fallback={<button data-button="quiet" type="button" onClick={open(row)}>{copy.openDraft}</button>}>
               <button data-button="quiet" type="button" onClick={() => void copyText(typedText(row.draft).join("\n"))}>{copy.copyDraft}</button>
             </Show>
             <button data-button="quiet" type="button" onClick={() => drafts.discard(row.draft.revision)}>{copy.discardRow}</button>

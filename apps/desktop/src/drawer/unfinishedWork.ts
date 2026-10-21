@@ -5,13 +5,17 @@ import { usePadList } from "../rail/pads/padList";
 
 type Row = ReturnType<ReturnType<typeof useConnectedProject>["drafts"]["list"]>[number];
 
+/** When each revision first qualified, kept across panel openings. */
+const firstSeen = new Map<string, number>();
+
 type Cause = "failed" | "unknown" | "draft" | "gone";
 
 /** Fields that hold text the user typed; everything else is a pick (period, ids, revisions, a tick). */
 const typed = new Set(["name", "title", "body", "text", "note", "document", "ask", "answer", "content", "message", "comment"]);
 
+/** A credential draft's values are never rendered; Copy is their only exposure (U2773h). */
 export const typedText = (draft: Row): string[] => Object.entries(draft.value)
-  .filter(([field, value]) => typed.has(field) && String(value ?? "").trim() !== "")
+  .filter(([field, value]) => ((typed.has(field) && !(field === "name" && draft.destination.surface === "ask")) || (draft.policy === "credential" && field === "password")) && String(value ?? "").trim() !== "")
   .map(([, value]) => String(value));
 
 /**
@@ -23,7 +27,6 @@ export const useUnfinishedWork = () => {
   // Reading the Pad list costs an RPC; only a Pad draft needs it.
   const needsPads = createMemo(() => drafts.list().some((draft) => draft.destination.surface === "pads"));
   const padList = createMemo(() => needsPads() ? usePadList() : null);
-  const firstSeen = new Map<string, number>();
 
   const gone = (draft: Row) => {
     const { surface, object } = draft.destination;

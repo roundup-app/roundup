@@ -1,3 +1,4 @@
+import { todoCreationEditor } from "../drawer/editors";
 import ChevronUp from "lucide-solid/icons/chevron-up";
 import { IconButton } from "../ui/IconButton";
 import { contextMenu, linkEntries, openOnRelease } from "../ui/contextMenu";
@@ -678,3 +679,5 @@ export const Todos = (props: {
     </section>
   );
 };
+
+todoCreationEditor.set(Todos);
