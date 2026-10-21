@@ -274,10 +274,6 @@
 }
 
 .bubble-recovery {
-  position: fixed;
-  top: 50%;
-  left: 50%;
-  transform: translate(-50%, -50%);
   width: calc(100% - var(--space-5) * 2);
   max-width: calc(var(--space-5) * 20);
   max-height: calc(100% - var(--space-5) * 2);

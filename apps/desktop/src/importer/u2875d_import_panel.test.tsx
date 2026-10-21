@@ -1,3 +1,4 @@
+import { readdirSync, readFileSync } from "node:fs";
 import { openLane } from "../todos/laneBrowser";
 import { captureDir } from "../testing/captures";
 import { cleanup, fireEvent, screen, waitFor, within } from "@solidjs/testing-library";
@@ -91,7 +92,7 @@ it.each([new RpcError(-32003, "daemon said no"), new Error("daemon said no")])("
 it("u2875a_discovery_exclusions_remain_visible_after_partial_failure", async () => {
   const { app } = await mount();
   app.handlers["project.importCommit"] = () => {
-    app.handlers["project.importDiscover"] = () => ({ candidates: [candidates[1]!], excluded: [{ source: "s1", reason: "source unavailable" }] });
+    app.handlers["project.importDiscover"] = () => ({ candidates: [candidates[1]!], excluded: [{ source: "s1", reason: "/p/worktrees/s1.jsonl: no recorded working directory", title: null, last_activity_ms: null }] });
 
     return { outcomes: [{ source: "s1", workstream: null, agent: null, error: "copy refused" }] };
   };
@@ -99,8 +100,9 @@ it("u2875a_discovery_exclusions_remain_visible_after_partial_failure", async () 
   await open();
   fireEvent.click(screen.getByText("first"));
   fireEvent.click(await screen.findByRole("button", { name: "Import 1" }));
-  await waitFor(() => expect(screen.getByText("source unavailable")).toBeTruthy());
-  expect(screen.getByText("copy refused")).toBeTruthy();
+  fireEvent.click(await screen.findByRole("button", { name: "1 not importable" }));
+  await waitFor(() => expect(screen.getByText("Its folder is no longer there")).toBeTruthy());
+  expect(screen.getByText(/copy refused/)).toBeTruthy();
   expect(screen.getByRole("button", { name: "Refresh" })).toBeTruthy();
 });
 
@@ -229,3 +231,110 @@ it.each(["timeout", "period", "dismiss", "project"])("u3037d_late_results_cannot
   if (action !== "dismiss") expect(within(screen.getByRole("dialog")).getByRole("alert")).toBeTruthy();
   expect(calls(app, "project.importCommit")).toHaveLength(0);
 });
+
+const mixed = () => {
+  const excluded = [{ source: "sess-dup", reason: "already in this Project", title: "Imported earlier", last_activity_ms: 5n }, { source: "sess-amb", reason: "ambiguous Project membership", title: null, last_activity_ms: 1_700_000_000_000n }];
+
+  return mount().then(({ app }) => {
+    app.handlers["project.importDiscover"] = () => ({ candidates, excluded });
+
+    return app;
+  });
+};
+
+it("u3083b_excluded_rows_absent_until_the_disclosure_opens", async () => {
+  await mixed();
+  await open();
+  const dialog = screen.getByRole("dialog");
+
+  expect(within(screen.getByRole("list", { name: "Conversations" })).getAllByRole("listitem")).toHaveLength(2);
+  expect(within(dialog).queryByText("Already imported")).toBeNull();
+  fireEvent.click(within(dialog).getByRole("button", { name: "2 not importable" }));
+  await within(dialog).findByText("Already imported");
+  fireEvent.click(within(dialog).getByRole("button", { name: "2 not importable" }));
+  await waitFor(() => expect(within(dialog).queryByText("Already imported")).toBeNull());
+});
+
+it("u3083b_no_line_without_excluded", async () => {
+  await mount();
+  await open();
+  expect(screen.queryByText(/not importable/)).toBeNull();
+});
+
+it("u3083b_reasons_are_user_words_and_no_id_renders", async () => {
+  await mixed();
+  await open();
+  const dialog = screen.getByRole("dialog");
+
+  fireEvent.click(within(dialog).getByRole("button", { name: "2 not importable" }));
+  await within(dialog).findByText("Used more than one folder of this Project");
+  expect(within(dialog).getByText("Already imported")).toBeTruthy();
+  expect(within(dialog).getByText("Imported earlier")).toBeTruthy();
+  expect(within(dialog).getByText(new Date(1_700_000_000_000).toLocaleString())).toBeTruthy();
+  expect(dialog.textContent).not.toMatch(/sess-|already in this Project|ambiguous Project/);
+});
+
+it("u3083c_row_is_checkbox_title_and_second_line", async () => {
+  await mount();
+  await open();
+  const box = screen.getByRole("checkbox", { name: /second/ });
+
+  expect(box.getAttribute("type")).toBe("checkbox");
+  fireEvent.click(screen.getByText("second"));
+  await waitFor(() => expect(isChecked(/second/)).toBe(true));
+  fireEvent.click(box);
+  await waitFor(() => expect(isChecked(/second/)).toBe(false));
+  fireEvent.click(box);
+  await waitFor(() => expect(isChecked(/second/)).toBe(true));
+  expect(screen.getByText("sub").closest("label")?.textContent).toContain("second");
+});
+
+it("u3083c_failed_import_error_names_cause_and_fix", async () => {
+  const { app } = await mount();
+
+  app.handlers["project.importCommit"] = () => ({ outcomes: [{ source: "s1", workstream: null, agent: null, error: "copy refused" }] });
+  await open();
+  fireEvent.click(screen.getByText("first"));
+  fireEvent.click(await screen.findByRole("button", { name: "Import 1" }));
+  const alert = await screen.findByText(/copy refused/);
+
+  expect(alert.closest("label")).toBe(screen.getByRole("checkbox", { name: /first/ }).closest("label"));
+  expect(alert.textContent).toContain("Choose it again, or Refresh.");
+});
+
+it("u3083a_every_modal_renders_in_the_shared_positioner", async () => {
+  await mount();
+  await open();
+  expect(screen.getByRole("dialog").parentElement?.classList.contains("app-dialog-positioner")).toBe(true);
+
+  // The other modals: each wraps its Content in the Positioner of ui/Dialog, and no other stylesheet positions one.
+  for (const file of ["shelf/BulkDelete", "header/CloseDialog", "todos/TodoDrawer", "bubbles/Bubbles", "header/ProjectTab", "importer/ImportPanel"]) {
+    const source = readFileSync(`src/${file}.tsx`, "utf8");
+
+    expect(source, file).toMatch(/from "\.\.\/ui\/Dialog"/);
+    expect(source, file).toMatch(/Dialog\.Positioner[\s\S]*Dialog\.Content/);
+  }
+
+  const own = readdirSync("src", { recursive: true, encoding: "utf8" }).filter((file) => file.endsWith(".css") && !file.endsWith("ui/Dialog.css") && /positioner/i.test(readFileSync(`src/${file}`, "utf8")));
+
+  expect(own).toEqual(["ui/Tooltip.css"]);
+});
+
+it.skipIf(!captureDir("U3083a"))("u3083a_modal_centre_is_the_window_centre", async () => {
+  const lane = await openLane(1512, "dark", "builder-3083");
+
+  try {
+    await lane.browser("click", ".rail-import");
+    await lane.until("!!document.querySelector('.import-panel')");
+
+    const off = await lane.evaluate<number[]>(`(() => {
+      const box = document.querySelector('.import-panel').getBoundingClientRect();
+      return [box.left + box.width / 2 - innerWidth / 2, box.top + box.height / 2 - innerHeight / 2];
+    })()`);
+
+    expect(Math.abs(off[0]!)).toBeLessThanOrEqual(1);
+    expect(Math.abs(off[1]!)).toBeLessThanOrEqual(1);
+  } finally {
+    await lane.close();
+  }
+}, 120_000);

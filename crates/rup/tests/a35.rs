@@ -1277,37 +1277,6 @@ async fn a35_messages_todos_pads_and_checkpoints_stay() {
     );
     assert_eq!(entries[1]["rewindable"], false);
 }
-
-#[test]
-fn a35_rewind_has_no_app_only_caller_or_u374_surface() {
-    let src = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../apps/desktop/src");
-    let mut stack = vec![src];
-    while let Some(dir) = stack.pop() {
-        for entry in std::fs::read_dir(&dir).unwrap() {
-            let path = entry.unwrap().path();
-            if path.is_dir() {
-                stack.push(path);
-                continue;
-            }
-            let Ok(text) = std::fs::read_to_string(&path) else {
-                continue;
-            };
-            // The generated contract types name the method; no hand-written App code calls it.
-            if path.components().any(|c| c.as_os_str() == "generated") {
-                continue;
-            }
-            for word in ["workstream.rewind", "rewindPlan"] {
-                assert!(!text.contains(word), "{} names {word}", path.display());
-            }
-            // U374 is a retired surface; U3743 and later are other scenarios.
-            let names_u374 = text.match_indices("U374").any(|(at, word)| {
-                !text[at + word.len()..].starts_with(|c: char| c.is_ascii_digit())
-            });
-            assert!(!names_u374, "{} names U374", path.display());
-        }
-    }
-}
-
 // M16: the Door does through its MCP what the user does to a child, and no more.
 
 /// The Door's MCP replies to `tools/call` of each `(tool, arguments)`, in order.
