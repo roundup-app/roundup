@@ -43,10 +43,10 @@ it("u461_keep_and_escape_restore_focus", async () => {
   const { app } = await open();
   const button = within(panel()).getByRole("button", { name: "Delete Todo" });
   fireEvent.click(button);
-  await waitFor(() => expect(document.activeElement).toBe(within(panel()).getByRole("button", { name: "Keep" })));
+  await waitFor(() => expect(document.activeElement).toBe(screen.getByRole("button", { name: "Keep" })));
   fireEvent.keyDown(document.activeElement!, { key: "Escape", bubbles: true });
   await waitFor(() => expect(document.activeElement).toBe(button));
-  await waitFor(() => expect(within(panel()).queryByRole("button", { name: "Keep" })).toBeNull());
+  await waitFor(() => expect(screen.queryByRole("button", { name: "Keep" })).toBeNull());
   expect(todoCallsTo(app, "todo.delete")).toHaveLength(0);
 });
 
@@ -56,13 +56,13 @@ it("u461_delete_failure_is_retryable", async () => {
   app.handlers["todo.delete"] = () => new Promise((_, fail) => { reject = fail; });
 
   fireEvent.click(within(panel()).getByRole("button", { name: "Delete Todo" }));
-  const confirm = await within(panel()).findByRole("button", { name: "Delete" });
+  const confirm = await screen.findByRole("button", { name: "Delete" });
   fireEvent.click(confirm);
   fireEvent.click(confirm);
 
   expect(todoCallsTo(app, "todo.delete")).toHaveLength(1);
   reject(new RpcError(-32003, "Delete failed"));
-  await within(panel()).findByText("Delete failed");
+  await screen.findByText("Delete failed");
   app.handlers["todo.delete"] = () => null;
   fireEvent.click(confirm);
 

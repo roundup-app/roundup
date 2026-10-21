@@ -11,6 +11,19 @@ const railDraftStatuses = new Map([["draft", "Draft"], ["pending", "Submitting�
 const railDraftLabels = new Map([["rail-task", "Task"], ["rail-name", "Name"], ["rail-clear", "Clear reason"]]);
 
 /** App-authored labels and prose (U471). Code terms remain keys; authored values pass through unchanged. */
+const importExcludedReasons: [string[], string][] = [
+  [["already in this project"], "Already imported"],
+  [["ambiguous project membership"], "Used more than one folder of this Project"],
+  [["no recorded working directory", "too many recorded directories", "recorded folder no longer exists"], "Its folder is no longer there"],
+  [["inside a worktree"], "Lives in a Worktree"],
+  [["duplicate source identity"], "Already listed once"],
+  [["activity unknown or in the future", "no complete records"], "No usable time"],
+];
+
+/** The Daemon's reason, less a `<path>: ` prefix, equals a fixed string (discovery.rs); a path never picks the cause. */
+const reasonIs = (reason: string, fixed: string) => reason === fixed || reason.endsWith(`: ${fixed}`);
+
+
 export const copy = {
   costAndTime: "Cost and time",
   measurementJoin: (...parts: string[]) => parts.join(" · "),
@@ -291,6 +304,8 @@ export const copy = {
   leaderShortCapture: "Capture",
   captureATodo: "Capture a Todo",
   captureLabel: "Capture a Todo",
+  captureFor: (name: string) => `For ${name}`,
+  captureIn: (name: string) => `In ${name}`,
   capturePlaceholder: "A thought, then ⏎",
   recoveredCaptureDraft: "Recovered capture draft",
   leaderWaitsForAKey: "Wait for one more key",
@@ -416,7 +431,17 @@ export const copy = {
   importRetentionFailure: "Import choices could not be saved for reload.",
   importRetentionRecovery: "Keep this window open; your choices are still here.",
   importRestored: (count: number) => `${count} chosen earlier; refresh to check they are unchanged`,
-  importStale: (titles: string[]) => `Changed or gone since you chose them: ${titles.join(", ")}. Choose again.`,
+  importNotImportable: (count: number) => `${count} not importable`,
+  importExcludedReason: (reason: string) => {
+    const r = reason.toLowerCase();
+    const found = r.startsWith("missing directory ") ? importExcludedReasons[2] : importExcludedReasons.find(([fixed]) => fixed.some((f) => reasonIs(r, f)));
+
+    return found ? found[1] : "Can't be read as a conversation";
+  },
+  importAge: (minutes: number) => minutes < 1440 ? copy.riskTime(minutes) : `${Math.floor(minutes / 1440)} d ago`,
+  importRowFix: "Choose it again, or Refresh.",
+  importRowRefusal: (reason: string) => /retry|refresh|choose/i.test(reason) ? reason : `${reason} ${copy.importRowFix}`,
+  importUnnamed: "Conversation",
   name: "Name",
   collapse: "Collapse",
   retryDoor: "Retry supervisor",
@@ -630,17 +655,24 @@ export const copy = {
   blocks: "Blocks",
   blockerWord: " Blocker",
   deleteTodo: "Delete Todo",
-  titleChange: (value1: CopyValue) => `Title: ${value1}`,
-  bodyChange: (value1: CopyValue) => `Body: ${value1}`,
-  open: "Open",
   me: "Me",
-  ownerChange: (value1: CopyValue) => `Owner: ${value1}`,
-  waitsOnJoin: (value1: CopyValue) => `Waits on: ${value1}`,
-  removedBlockersJoin: (value1: CopyValue) => `Removed blockers: ${value1}`,
   todoHistory: "Todo history",
   changes: "Changes",
+  changesCount: (value1: CopyValue) => `Changes · ${value1}`,
   retryHistory: "Retry history",
-  unreadChanges: "Unread changes",
+  changeCreated: (value1: CopyValue) => `Created ${value1}`,
+  changeRenamed: (value1: CopyValue) => `Renamed to ${value1}`,
+  changeBodyWritten: "Wrote the body",
+  changeBodyCleared: "Cleared the body",
+  changeDone: "Marked done",
+  changeReopened: "Reopened",
+  changeWaitsOn: (value1: CopyValue) => `Now waits on ${value1}`,
+  changeStoppedWaitingOn: (value1: CopyValue) => `No longer waits on ${value1}`,
+  changeAssigned: (value1: CopyValue) => `Assigned to ${value1}`,
+  changeUnassigned: "Unassigned",
+  changeByActor: (value1: CopyValue, value2: CopyValue) => `${value1} · ${value2}`,
+  changeAt: (line: CopyValue, at: number) => `${line} · ${new Date(at).toLocaleString(undefined, { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })}`,
+  blockerPlaceholder: "Todo title or #id",
   todoRow: (value1: CopyValue, value2: CopyValue, value3: CopyValue) => `${value1} #${value2} ${value3}`,
   complete: "Complete",
   todoNumberMark: "#",
@@ -673,7 +705,6 @@ export const copy = {
   claudeCode: "Claude Code",
   paste: "Paste",
   copy: "Copy",
-  noBody: "No body",
   comma: ", ",
 
   doneTodos: "done Todos",
