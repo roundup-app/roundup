@@ -16,6 +16,7 @@ import type { Controls } from "./seeds";
 import type { AppSeam } from "../app/seam";
 import "../tokens.css";
 import "../styles.css";
+import "../scrollbar.css";
 import "./todoWorstCase.styles.css";
 
 declare global {
