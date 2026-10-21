@@ -57,6 +57,10 @@ pub(super) fn encoded(cwd: &Path) -> String {
 }
 
 fn is_possible_bucket(bucket: &Path, project: &Path) -> bool {
+    // Root already encodes its separator; requiring another would prune descendants.
+    if project.parent().is_none() {
+        return true;
+    }
     let prefix = encoded(project);
     // Long vendor bucket names can be truncated/hashed: keep them for record validation.
     if prefix.len() > 200 {
@@ -556,6 +560,35 @@ mod tests {
             .map(|candidate| (candidate.source, candidate.cwd, candidate.revision))
             .collect();
         assert_eq!(actual, expected);
+    }
+
+    #[tokio::test]
+    async fn u3065_root_project_keeps_cwd_exclusions() {
+        let root = tempfile::tempdir_in(std::env::temp_dir().canonicalize().unwrap()).unwrap();
+        let linked = root.path().join("linked");
+        std::fs::create_dir(&linked).unwrap();
+        std::fs::write(linked.join(".git"), "gitdir: /unused/worktrees/linked\n").unwrap();
+        let missing = root.path().join("missing");
+        let config = root.path().join("config");
+        let mut expected = Vec::new();
+        for (index, (cwd, reason)) in [
+            (&linked, "inside a Worktree"),
+            (&missing, "missing directory"),
+        ]
+        .into_iter()
+        .enumerate()
+        {
+            let id = format!("{index:08}-1111-4111-8111-111111111111");
+            let text = record("user", cwd, "2026-10-18T12:00:00Z").replace(SESSION, &id) + "\n";
+            store(&config, "x", &id, &text);
+            expected.push(ImportExclusion { source: id, reason });
+        }
+        let found = launcher(&config)
+            .discover_recent(Path::new("/"), NOW, 7 * DAY)
+            .await
+            .unwrap();
+        assert!(found.candidates.is_empty());
+        assert_eq!(found.excluded, expected);
     }
 
     #[tokio::test]
