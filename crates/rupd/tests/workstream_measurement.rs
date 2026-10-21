@@ -876,3 +876,27 @@ async fn u3016f_real_time_acquisition_to_cli_survives_reopen() {
     );
     println!("sanitized time evidence: {}", before["time_evidence"]);
 }
+
+
+#[tokio::test]
+async fn u3016b_cost_basis_and_missing_coverage_are_explicit() {
+    let w = World::start().await;
+    let mut row = request("mixed-cost", 20);
+    row["message"]["model"] = json!("claude-opus-5-5");
+    row["message"]["usage"]["cache_creation"] = json!({"ephemeral_5m_input_tokens":30,"ephemeral_1h_input_tokens":20});
+    w.append(row);
+    let snapshot = w.contributions(1).await;
+    let cost = &snapshot["contributions"][0]["value"]["cost"];
+    assert_eq!(cost["model"], "claude-opus-5-5");
+    assert_eq!(cost["cache_write"], json!({"five_minute":30,"one_hour":20}));
+    assert_eq!(cost["reference"]["currency"], "USD");
+    assert_eq!(cost["reference"]["input"], "4");
+    assert_eq!(cost["reference"]["output"], "20");
+    assert_eq!(cost["reference"]["cache_read"], "0.20");
+    assert_eq!(cost["reference"]["cache_write_five_minute"], "5");
+    assert_eq!(cost["reference"]["cache_write_one_hour"], "8");
+    assert_eq!(cost["reference"]["per_tokens"], 1_000_000);
+    assert_eq!(cost["reference"]["date"], "2026-10-21");
+    assert!(cost["reported"].is_null());
+    assert!(cost["unavailable"].as_array().unwrap().iter().any(|v| v.as_str().unwrap().contains("money")));
+}
