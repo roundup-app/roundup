@@ -5,7 +5,7 @@ use std::path::Path;
 use std::time::{SystemTime, UNIX_EPOCH};
 
 use contracts::Actor;
-use contracts::todo::{Change, Todo, Values};
+use contracts::todo::{Change, Comment, Todo, UnreadComment, Values};
 use rpc::RpcError;
 use rusqlite::{Connection, OptionalExtension, params};
 
@@ -357,6 +357,76 @@ impl Store {
         Ok(())
     }
 
+    /// T20: appends a line to the thread. It is no Change: no field of the Todo moves.
+    pub(crate) fn add_comment(&self, id: u32, author: &Actor, body: &str) -> Result<(), RpcError> {
+        self.get(id)?;
+        // An Agent's comment waits for the user to read it (T23); the user's own is born read.
+        let read = author.kind == contracts::ActorKind::User;
+        self.db
+            .execute(
+                "INSERT INTO comments (todo, author, body, created_at, read) VALUES (?1, ?2, ?3, ?4, ?5)",
+                params![id, creator_json(author), body, now_ms(), read],
+            )
+            .map_err(RpcError::internal)?;
+        Ok(())
+    }
+
+    /// Oldest first.
+    pub(crate) fn comments(&self, id: u32) -> Result<Vec<Comment>, RpcError> {
+        self.get(id)?;
+        self.comment_rows("WHERE todo = ?1 ORDER BY id", params![id])
+    }
+
+    /// Every unread comment with its Todo, oldest first.
+    pub(crate) fn unread(&self) -> Result<Vec<UnreadComment>, RpcError> {
+        let mut stmt = self
+            .db
+            .prepare(
+                "SELECT c.todo, t.title, c.id, c.author, c.body, c.created_at, c.read
+                 FROM comments c JOIN todos t ON t.id = c.todo WHERE c.read = 0 ORDER BY c.id",
+            )
+            .map_err(RpcError::internal)?;
+        let rows = stmt
+            .query_map([], |r| Ok((r.get(0)?, r.get(1)?, comment_row(r, 2)?)))
+            .map_err(RpcError::internal)?;
+        rows.map(|row| {
+            let (todo, title, raw) = row.map_err(RpcError::internal)?;
+            Ok(UnreadComment {
+                todo,
+                title,
+                comment: comment_of(raw)?,
+            })
+        })
+        .collect()
+    }
+
+    /// Whether any comment of the Todo was unread and now is read.
+    pub(crate) fn mark_comments_read(&self, id: u32) -> Result<bool, RpcError> {
+        self.get(id)?;
+        let changed = self
+            .db
+            .execute(
+                "UPDATE comments SET read = 1 WHERE todo = ?1 AND read = 0",
+                [id],
+            )
+            .map_err(RpcError::internal)?;
+        Ok(changed > 0)
+    }
+
+    fn comment_rows(
+        &self,
+        clause: &str,
+        args: impl rusqlite::Params,
+    ) -> Result<Vec<Comment>, RpcError> {
+        let sql = format!("SELECT id, author, body, created_at, read FROM comments {clause}");
+        let mut stmt = self.db.prepare(&sql).map_err(RpcError::internal)?;
+        let rows = stmt
+            .query_map(args, |r| comment_row(r, 0))
+            .map_err(RpcError::internal)?;
+        rows.map(|row| comment_of(row.map_err(RpcError::internal)?))
+            .collect()
+    }
+
     /// Called inside the mutation transaction, before any write or History Change.
     pub(crate) fn require_change(&self, id: u32, expected: Option<u32>) -> Result<(), RpcError> {
         if let Some(expected) = expected {
@@ -471,6 +541,28 @@ impl Store {
     pub(crate) fn require_all(&self, ids: &[u32]) -> Result<(), RpcError> {
         ids.iter().try_for_each(|id| self.get(*id).map(drop))
     }
+}
+
+type CommentRow = (u32, String, String, i64, bool);
+
+fn comment_row(r: &rusqlite::Row<'_>, at: usize) -> rusqlite::Result<CommentRow> {
+    Ok((
+        r.get(at)?,
+        r.get(at + 1)?,
+        r.get(at + 2)?,
+        r.get(at + 3)?,
+        r.get(at + 4)?,
+    ))
+}
+
+fn comment_of((id, author, body, created_at, read): CommentRow) -> Result<Comment, RpcError> {
+    Ok(Comment {
+        id,
+        author: parse_creator(&author).map_err(RpcError::internal)?,
+        body,
+        created_at,
+        read,
+    })
 }
 
 fn values(todo: &Todo) -> Values {

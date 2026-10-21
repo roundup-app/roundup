@@ -52,8 +52,6 @@
   max-height: calc(var(--space-5) * 8);
   overflow-y: auto;
   overflow-x: hidden;
-  scrollbar-width: thin;
-  scrollbar-color: var(--hairline) transparent;
   padding: var(--space-1);
   color: var(--text);
   background-color: var(--ground);

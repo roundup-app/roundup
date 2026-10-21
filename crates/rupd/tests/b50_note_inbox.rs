@@ -25,6 +25,16 @@ if sys.argv[1:3] == ['plugin', 'test']:
     print('Q11 runtime hook closure: 1 pass'); sys.exit(0)
 def flag(name):
     return sys.argv[sys.argv.index(name) + 1]
+def session_mode():
+    if '--permission-mode' in sys.argv:
+        return flag('--permission-mode')
+    for f in (os.getcwd() + '/.claude/settings.local.json', os.getcwd() + '/.claude/settings.json', os.environ['CLAUDE_CONFIG_DIR'] + '/settings.json'):
+        try:
+            mode = json.load(open(f)).get('permissions', {}).get('defaultMode')
+        except (OSError, ValueError):
+            continue
+        if mode: return mode if mode in ('default', 'acceptEdits', 'plan', 'auto') else 'default'
+    return 'default'
 # A session lists itself with its token, and listens; a line is kept only when it is the one
 # Claude Code takes up: past `auth`, and from a sender whose mode is this session's.
 path, token = flag('--messaging-socket-path'), 'peer-token-' + str(os.getpid())
@@ -50,7 +60,7 @@ def take(conn):
         entry = json.loads(line)
         content = entry['message']['content']
         mode = re.search(r'from-mode="([^"]*)"', content).group(1)
-        if mode == flag('--permission-mode'):
+        if mode == session_mode():
             with peer_lock:
                 with open(here + '/received.jsonl', 'a') as out: out.write(line)
                 if entry['msg_id'] in seen_ids or content == last_entry:
@@ -162,7 +172,16 @@ impl Run {
     }
 
     async fn open(protocol: u64, scout: bool) -> Self {
+        Self::open_with(protocol, scout, None).await
+    }
+
+    /// `user_settings` is the user's own `settings.json` in Claude Code's config folder.
+    async fn open_with(protocol: u64, scout: bool, user_settings: Option<&str>) -> Self {
         let dir = tempfile::tempdir().unwrap();
+        if let Some(body) = user_settings {
+            std::fs::create_dir_all(dir.path().join("config")).unwrap();
+            std::fs::write(dir.path().join("config/settings.json"), body).unwrap();
+        }
         let data = tempfile::tempdir().unwrap();
         let fake = dir.path().join("claude");
         std::fs::write(&fake, FAKE).unwrap();
@@ -479,6 +498,30 @@ async fn b50_a_note_goes_over_the_socket_labelled_with_its_sender_and_not_held()
         "{content}"
     );
     assert_eq!(run.rail_inbox().await.as_deref(), Some("ok"));
+}
+
+#[tokio::test]
+async fn b2706_a_note_reaches_an_acceptedits_agent_without_approval() {
+    let mut run = Run::open_with(
+        1,
+        false,
+        Some(r#"{"permissions":{"defaultMode":"acceptEdits"}}"#),
+    )
+    .await;
+    run.spawn().await;
+    let id = run.note("look at the build").await;
+    // The fake takes a line up only when its `from-mode` is the mode its settings give.
+    until("the note is taken up", async || {
+        (run.entries() == [format!("rup-{id}")]).then_some(())
+    })
+    .await;
+    assert!(
+        run.received()[0]["message"]["content"]
+            .as_str()
+            .unwrap()
+            .contains("from-mode=\"acceptEdits\">")
+    );
+    assert_eq!(run.typed().await, 0);
 }
 
 #[tokio::test]

@@ -25,6 +25,29 @@
 .todo-history-count[data-state="unread"] { color: var(--text); text-decoration: underline; }
 .todo-history-count[data-state="read"] { color: var(--grey); }
 .todo-change { white-space: pre-wrap; overflow-wrap: anywhere; }
+.todo-comments { display: flex; flex-direction: column; gap: var(--space-3); }
+.todo-comments h3 { font: inherit; font-weight: 600; margin: 0; }
+.todo-comment { display: flex; flex-direction: column; gap: var(--space-1); }
+.todo-comment p { margin: 0; }
+.todo-comment-body { white-space: pre-wrap; overflow-wrap: anywhere; }
+.todo-comment-field {
+  box-sizing: border-box;
+  width: 100%;
+  padding: var(--space-2) var(--space-3);
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  color: var(--text);
+  font: inherit;
+  resize: none;
+}
+/* U353: a text field, so focus is the accent bar on its leading edge, no ring. */
+.todo-comment-field:focus { outline-width: 0; background-image: linear-gradient(var(--accent), var(--accent)); background-size: var(--space-1) 100%; background-repeat: no-repeat; }
+.todo-comment-head { display: flex; align-items: center; gap: var(--space-3); min-height: var(--space-5); }
+.todo-comment-author { color: var(--text); }
+.todo-comment-head > time { color: var(--grey); }
+.todo-comment-head > button { margin-inline-start: auto; }
+.todo-comments-send { display: flex; justify-content: flex-end; }
 .todo-delete-confirm.app-dialog {
   display: flex;
   flex-wrap: wrap;
@@ -42,6 +65,7 @@
 .todo-detail > .todo-detail-body,
 .todo-detail > .todo-dependencies,
 .todo-detail > .todo-history,
+.todo-detail > .todo-comments,
 .todo-detail > p { margin-left: var(--space-5); }
 
 .todo-draft-recovery {

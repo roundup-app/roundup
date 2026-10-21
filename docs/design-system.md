@@ -40,6 +40,7 @@ Starting values. The thresholds in the checks are fixed; a value that fails a th
 | `--amber` | `#975900` | `#f0a030` | `needs-you` |
 | `--red` | `#c4262e` | `#ff6b6b` | `error` |
 | `--hairline` | `rgba(0,0,0,.10)` | `rgba(255,255,255,.12)` | the one permitted border |
+| `--scrollbar-thumb` | `rgba(0,0,0,.30)` | `rgba(255,255,255,.30)` | the thumb of every scrollbar, shown only while the pointer is over its scrolling element (U3747) |
 | `--shadow-drawer` | `0 8px 32px rgba(0,0,0,.14)` | `0 8px 32px rgba(0,0,0,.5)` | the Drawer, floating menus and the Terminal bubble (U523) |
 | `--shadow-shelf` | `0 0 24px rgba(0,0,0,.10)` | `0 0 24px rgba(0,0,0,.45)` | the open Shelf's leading edge (U371) |
 | `--shadow-scroll` | `inset 0 8px 8px -8px rgba(0,0,0,.18)` | `inset 0 8px 8px -8px rgba(0,0,0,.6)` | a Shelf list's clipped edge (U371) and the Rail tree's top edge beneath the pinned Overview band (U2716a) |

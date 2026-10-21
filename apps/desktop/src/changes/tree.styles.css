@@ -16,7 +16,7 @@
   --trees-focus-ring-offset-override: 1px;
   --trees-search-fg-override: var(--text);
   --trees-search-bg-override: var(--sunken);
-  --trees-scrollbar-thumb-override: var(--grey);
+  --trees-scrollbar-thumb-override: var(--scrollbar-thumb);
   --trees-selected-fg-override: var(--text);
   --trees-selected-bg-override: var(--selected);
   --trees-selected-focused-border-color-override: var(--keyboard-ring-color);

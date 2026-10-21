@@ -170,6 +170,8 @@ pub struct Launcher {
     /// B50: the private folder each Agent's messaging socket is made in, made at the first
     /// launch; gone with the Launcher.
     sockets: Arc<std::sync::OnceLock<tempfile::TempDir>>,
+    /// B2706: the permission mode each Agent's latest normal Attempt runs in, for its notes.
+    pub(super) modes: Arc<Mutex<std::collections::HashMap<String, String>>>,
 }
 
 const QUESTION_FILES: [(&str, &str); 3] = [
@@ -304,6 +306,7 @@ impl Launcher {
             lacks_intent: false,
             plugins: Arc::new(OnceCell::new()),
             sockets: Arc::new(std::sync::OnceLock::new()),
+            modes: Arc::default(),
         }
     }
 
@@ -611,15 +614,16 @@ impl Launcher {
         }
         argv.push("--messaging-socket-path".into());
         argv.push(socket.to_string_lossy().into_owned());
-        argv.push("--permission-mode".into());
-        argv.push(
-            if pair.yolo {
-                "bypassPermissions"
-            } else {
-                super::inbox::PERMISSION_MODE
-            }
-            .into(),
-        );
+        if pair.yolo {
+            argv.extend(["--permission-mode", "bypassPermissions"].map(String::from));
+        } else {
+            // B2706: Claude Code takes the user's own mode; a note names that same mode.
+            let mode = super::inbox::default_mode(&self.conversation_dir, &cwd);
+            self.modes
+                .lock()
+                .unwrap_or_else(std::sync::PoisonError::into_inner)
+                .insert(id.to_string(), mode);
+        }
         if pair.yolo {
             argv.push("--dangerously-skip-permissions".into());
         }
