@@ -549,7 +549,7 @@ export const Todos = (props: {
         <EmptyState icon="check" heading={copy.noTodosYet} hint={copy.noTodosHint} />
       </Show>
       <Show when={open().length + done().length > 0}>
-        <Groups items={() => [...open(), ...done()]} home={todo => todo.home} maker={todo => todo.creator}>{items => {
+        <Groups unfold={todos.revealed} isUngrouped={todo => todo.id < 0} items={() => [...open(), ...done()]} home={todo => todo.home} maker={todo => todo.creator}>{items => {
         const tree = createMemo(() => treeRows(items().filter(todo => !todo.done)));
 
         const collection = createMemo(() => treeCollection(tree()));
