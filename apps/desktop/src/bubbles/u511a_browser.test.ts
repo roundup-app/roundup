@@ -1,12 +1,13 @@
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
-import { mkdtempSync, rmSync } from "node:fs";
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterAll, beforeAll, expect, it } from "vitest";
 import { waitFor } from "@testing-library/dom";
 import { appServer, type AppServer } from "../testing/appServer";
 import { withProjectPair } from "../testing/realDaemonFixture";
+import { captureDir } from "../testing/captures";
 import { createServedApp } from "../testing/realSeam";
 
 const exec = promisify(execFile);
@@ -47,6 +48,7 @@ beforeAll(async () => {
   origin = server.resolvedUrls.local[0]!;
   await browser("--profile", profile, "open", "about:blank");
   await browser("set", "viewport", "1512", "950");
+  await browser("set", "media", "dark");
 }, 90_000);
 
 afterAll(async () => {
@@ -56,6 +58,15 @@ afterAll(async () => {
 const edit = async () => {
   await browser("eval", `document.querySelector('.terminal-tab-name').dispatchEvent(new MouseEvent('dblclick', {bubbles:true}))`);
   await until(`document.activeElement?.matches('.terminal-tab-editor input')`);
+};
+
+const capture = async (step: string) => {
+  const directory = captureDir("U3021c");
+
+  if (!directory) return;
+  mkdirSync(directory, { recursive: true });
+  await browser("screenshot", join(directory, `${step}.png`));
+  writeFileSync(join(directory, `${step}.checks.json`), JSON.stringify(await read(`window.__checks()`), null, 2));
 };
 
 const key = async (name: string) => browser("eval", `document.activeElement.dispatchEvent(new KeyboardEvent('keydown', {key:${JSON.stringify(name)},bubbles:true,cancelable:true}))`);
@@ -77,6 +88,12 @@ it("u511a_click_away_commits_without_swallowing_the_click", async () => {
 
 it("u2773a_bubbles_real_project_reload_and_u2773c_ended_original_recovery", async () => {
   await withProjectPair(async (first, second) => {
+    // Await Vite's App-module readiness before Chromium's navigation deadline starts.
+    await Promise.all([first, second].map(async project => {
+      const ready = await fetch(`${project.base}/__roundup_ready`, { signal: AbortSignal.timeout(60_000) });
+
+      if (!ready.ok) throw new Error(`App preparation failed: ${await ready.text()}`);
+    }));
     const app = createServedApp(first.base);
     const other = createServedApp(second.base);
     const opened = await app.rpc("terminal.open", { workstream: null });
@@ -99,6 +116,7 @@ it("u2773a_bubbles_real_project_reload_and_u2773c_ended_original_recovery", asyn
     await until(`!!document.querySelector('.terminal-tab-name')`);
     expect(await read<boolean>(`!!document.activeElement?.matches('.terminal-tab-editor input')`)).toBe(false);
     await edit();
+    await capture("restored-terminal-name");
     expect(await read<string>(`document.activeElement.value`)).toBe('  exact é 🫧  ');
     expect(await read<unknown[]>(`[document.activeElement.selectionStart,document.activeElement.selectionEnd,document.activeElement.selectionDirection]`)).toEqual([2,5,"backward"]);
     await key("Escape");
@@ -118,7 +136,7 @@ it("u2773a_bubbles_real_project_reload_and_u2773c_ended_original_recovery", asyn
     const after = await read<unknown[]>(`window.__checks()`);
 
     expect(await app.rpc("terminal.list", null)).not.toContainEqual(expect.objectContaining({ running: true }));
-    await browser("screenshot", "/tmp/u2773-bubbles-recovery.png");
+    await capture("unavailable-original");
     // Retain rendered readings for the run log, never assert layout in behavioral tests.
     process.stdout.write(`${JSON.stringify({ before, after })}\n`);
     await browser("open", new URL('/harness.html?seed=tree-40', origin).href);
@@ -137,7 +155,7 @@ it("u2773a_bubbles_real_project_reload_and_u2773c_ended_original_recovery", asyn
     await until(`!!document.querySelector('[role="dialog"] [role="alert"]')`);
     const denseAfter = await read<unknown[]>(`window.__checks()`);
 
-    await browser("screenshot", "/tmp/u2773-bubbles-storage-failure.png");
+    await capture("dense-retention-failure");
     process.stdout.write(`${JSON.stringify({ denseBefore, denseAfter })}\n`);
   });
 }, 240_000);
