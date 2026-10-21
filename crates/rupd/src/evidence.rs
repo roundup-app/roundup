@@ -130,6 +130,10 @@ impl Daemon {
                     || (!blocked
                         && present
                         && instructions.current == report.order_revision
+                        && instructions
+                            .revisions
+                            .last()
+                            .is_some_and(|r| r.revision == report.instruction.revision)
                         && !reports[index + 1..]
                             .iter()
                             .any(|later| later.request.target.id == report.request.target.id));
