@@ -35,7 +35,10 @@ const lines = (change: Change, agentName: (id: string) => string): string[] => {
 
   const actor = change.actor && change.actor.kind !== "user" ? agentName(change.actor.id) : null;
 
-  return actor ? text.map((line) => copy.changeByActor(line, actor)) : text;
+  const named = actor ? text.map((line) => copy.changeByActor(line, actor)) : text;
+
+  // History recorded before the Daemon kept a time has none to show.
+  return change.changed_at === null ? named : named.map((line) => copy.changeAt(line, change.changed_at!));
 };
 
 type Loaded = { history: History; unread: boolean };
