@@ -754,6 +754,60 @@ pub enum ResumeMode {
     Yolo,
 }
 
+/// Exact retained content, independent of the mutable current Order.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, TS, JsonSchema)]
+#[serde(tag = "kind", rename_all = "lowercase")]
+#[ts(export, export_to = "agent/")]
+pub enum Instruction {
+    Order { order: Order },
+    Message { message: u32, text: String },
+}
+
+/// A never-reused revision in its Project, attributed to the original Rail identities.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, TS, JsonSchema)]
+#[ts(export, export_to = "agent/")]
+pub struct InstructionRevision {
+    pub revision: String,
+    pub agent: String,
+    pub workstream: Option<String>,
+    #[serde(flatten)]
+    pub instruction: Instruction,
+}
+
+/// Delivery facts do not establish completion, acceptance or verification of work.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize, TS, JsonSchema)]
+#[serde(rename_all = "lowercase")]
+#[ts(export, export_to = "agent/")]
+pub enum InstructionState {
+    Prepared,
+    Uncertain,
+    Submitted,
+    Refused,
+}
+
+/// Exact text at delivery admission, bound to its original Attempt and revision.
+/// Prepared has not entered the writer; uncertain never authorizes blind replay.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, TS, JsonSchema)]
+#[ts(export, export_to = "agent/")]
+pub struct InstructionDelivery {
+    pub id: String,
+    pub revision: String,
+    pub attempt: String,
+    pub text: String,
+    pub state: InstructionState,
+}
+
+/// Read-only instruction history. Home follows placement; attribution never follows names.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, TS, JsonSchema)]
+#[ts(export, export_to = "agent/")]
+pub struct Instructions {
+    pub project: String,
+    pub home: Option<String>,
+    pub current: Option<String>,
+    pub revisions: Vec<InstructionRevision>,
+    pub deliveries: Vec<InstructionDelivery>,
+}
+
 /// Omission retains exited-Agent-only resume; an explicit mode also restarts a running target.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, TS, JsonSchema)]
 #[ts(export, export_to = "agent/")]

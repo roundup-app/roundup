@@ -687,6 +687,7 @@ impl Daemon {
                     | "agent.setOrder"
                     | "agent.resume"
                     | "agent.actionHistory"
+                    | "agent.instructions"
                     | "workstream.rewind"
                     | "workstream.rewindPlan"
             )
@@ -1905,6 +1906,7 @@ async fn handle(stream: UnixStream, daemon: Arc<Daemon>) -> io::Result<()> {
                         | "agent.setOrder"
                         | "agent.resume"
                         | "agent.actionHistory"
+                        | "agent.instructions"
                         | "workstream.rewind"
                         | "workstream.rewindPlan"
                 )
