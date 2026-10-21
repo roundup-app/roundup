@@ -4,6 +4,7 @@ import type { Accessor } from "solid-js";
 import * as v from "valibot";
 import { copy } from "../copy";
 import { storedValue } from "../state/storage";
+import { createSlideLifetime } from "../ui/slideLifetime";
 
 export const SHELF_TABS = [
   { value: "todos", label: copy.todos, icon: "check" },
@@ -43,7 +44,7 @@ export type ShelfFrame = {
 export const createShelfFrame = (path: Accessor<string | null>, reducedMotion: Accessor<boolean>, reflow: () => void): ShelfFrame => {
   const [maximised, setMaximised] = createSignal(false);
   const [open, setOpen] = createSignal(true);
-  const [rendered, setRendered] = createSignal(true);
+  const lifetime = createSlideLifetime();
   const [shown, setShown] = createSignal(true);
   const [animated, setAnimated] = createSignal(false);
   const [tab, setTabSignal] = createSignal<ShelfTab>("todos");
@@ -61,8 +62,8 @@ export const createShelfFrame = (path: Accessor<string | null>, reducedMotion: A
 
       setMaximised(stored?.maximised ?? false);
       setAnimated(false);
+      lifetime.settle();
       setOpen(restored);
-      setRendered(restored);
       setShown(restored);
       setTabSignal(stored?.tab ?? "todos");
     }),
@@ -75,16 +76,13 @@ export const createShelfFrame = (path: Accessor<string | null>, reducedMotion: A
     setAnimated(slides);
     setOpen(next);
     save();
+    lifetime.retarget(next, slides);
 
     if (!next) {
       setShown(false);
 
-      if (!slides) setRendered(false);
-
       return;
     }
-
-    setRendered(true);
 
     if (slides) reflow();
 
@@ -99,7 +97,7 @@ export const createShelfFrame = (path: Accessor<string | null>, reducedMotion: A
       setMaximised(value => !value);
       save();
     },
-    rendered,
+    rendered: () => open() || lifetime.exiting(),
     shown,
     animated,
     tab,
@@ -108,8 +106,6 @@ export const createShelfFrame = (path: Accessor<string | null>, reducedMotion: A
       save();
     },
     toggle,
-    settle: () => {
-      if (!open()) setRendered(false);
-    },
+    settle: lifetime.settle,
   };
 };
