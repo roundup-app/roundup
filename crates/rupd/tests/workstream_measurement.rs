@@ -877,13 +877,13 @@ async fn u3016f_real_time_acquisition_to_cli_survives_reopen() {
     println!("sanitized time evidence: {}", before["time_evidence"]);
 }
 
-
 #[tokio::test]
 async fn u3016b_cost_basis_and_missing_coverage_are_explicit() {
     let w = World::start().await;
     let mut row = request("mixed-cost", 20);
     row["message"]["model"] = json!("claude-opus-5-5");
-    row["message"]["usage"]["cache_creation"] = json!({"ephemeral_5m_input_tokens":30,"ephemeral_1h_input_tokens":20});
+    row["message"]["usage"]["cache_creation"] =
+        json!({"ephemeral_5m_input_tokens":30,"ephemeral_1h_input_tokens":20});
     w.append(row);
     let snapshot = w.contributions(1).await;
     let cost = &snapshot["contributions"][0]["value"]["cost"];
@@ -898,5 +898,258 @@ async fn u3016b_cost_basis_and_missing_coverage_are_explicit() {
     assert_eq!(cost["reference"]["per_tokens"], 1_000_000);
     assert_eq!(cost["reference"]["date"], "2026-10-21");
     assert!(cost["reported"].is_null());
-    assert!(cost["unavailable"].as_array().unwrap().iter().any(|v| v.as_str().unwrap().contains("money")));
+    assert!(
+        cost["unavailable"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|v| v.as_str().unwrap().contains("money"))
+    );
+}
+
+#[tokio::test]
+async fn u3016b_reported_money_is_inclusive_exact_and_separate() {
+    let w = World::start().await;
+    w.append(request("constituent", 20));
+    // Decimal spelling must survive the source parser, journal and public CLI unchanged.
+    let line = format!(
+        r#"{{"type":"cost-state","sessionId":"{}","totalCostUSD":0.001190000000000000001,"hasUnknownModelCost":false}}"#,
+        w.source_id()
+    );
+    let mut file = std::fs::OpenOptions::new()
+        .create(true)
+        .append(true)
+        .open(w.source())
+        .unwrap();
+    writeln!(file, "{line}\n{line}").unwrap();
+    let child = w
+        .source()
+        .with_extension("")
+        .join("subagents/summary.jsonl");
+    std::fs::create_dir_all(child.parent().unwrap()).unwrap();
+    std::fs::write(child, format!("{}\n",json!({"type":"cost-state","sessionId":w.source_id(),"totalCostUSD":99,"hasUnknownModelCost":false}))).unwrap();
+    let snapshot = w.contributions(2).await;
+    let money = snapshot["contributions"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|c| c["value"]["kind"] == "money")
+        .unwrap();
+    assert_eq!(
+        money["value"]["reported"]["amount"],
+        "0.001190000000000000001"
+    );
+    assert_eq!(money["value"]["reported"]["currency"], "USD");
+    assert_eq!(money["value"]["reported"]["scope"], "conversation");
+    assert!(
+        money["value"]["reported"]["source"]
+            .as_str()
+            .unwrap()
+            .contains("totalCostUSD")
+    );
+    assert!(money["value"].get("usage").is_none());
+    let cli =
+        tokio::process::Command::new(Path::new(env!("CARGO_BIN_EXE_rupd")).with_file_name("rup"))
+            .args(["--json", "project", "measurements", "--agent", &w.agent])
+            .env("RUPD_SOCKET", &w.daemon.socket)
+            .output()
+            .await
+            .unwrap();
+    assert!(cli.status.success());
+    let public: Value = serde_json::from_slice(&cli.stdout).unwrap();
+    assert_eq!(public["contributions"], snapshot["contributions"]);
+}
+
+#[tokio::test]
+async fn u3016b_cost_metadata_revisions_notify_without_moving_history() {
+    let mut w = World::start().await;
+    w.spawn_agent().await;
+    let mut row = request("metadata", 20);
+    row["message"]["model"] = json!("unknown-model");
+    let original = row.clone();
+    w.append(row.clone());
+    let first = w.contributions(1).await;
+    let mut subscribed = Client::connect(&w.daemon.socket).await.unwrap();
+    subscribed
+        .request("events.subscribe", Value::Null)
+        .await
+        .unwrap();
+    let other = w
+        .client
+        .request("rail.createWorkstream", json!({"name":"later"}))
+        .await
+        .unwrap()["id"]
+        .clone();
+    w.client
+        .request("rail.move", json!({"id":w.agent,"parent":other,"index":0}))
+        .await
+        .unwrap();
+    row["message"]["model"] = json!("claude-opus-5-5");
+    w.append(row.clone());
+    let corrected = tokio::time::timeout(Duration::from_secs(3), async {
+        loop {
+            let read = w.read().await;
+            if read["contributions"][0]["value"]["cost"]["model"] == "claude-opus-5-5" {
+                break read;
+            }
+            tokio::task::yield_now().await;
+        }
+    })
+    .await
+    .unwrap();
+    let before = &first["contributions"][0];
+    let after = &corrected["contributions"][0];
+    assert_ne!(after["source_revision"], before["source_revision"]);
+    assert_eq!(after["value"]["usage"], before["value"]["usage"]);
+    for field in ["agent", "home", "maker", "attempt", "identity", "source"] {
+        assert_eq!(after[field], before[field]);
+    }
+    tokio::time::timeout(Duration::from_secs(3), async {
+        loop {
+            let event = subscribed.next_event().await.unwrap();
+            if let contracts::EventData::MeasurementsChanged { revision } = event.data
+                && revision.parse::<u64>().unwrap()
+                    >= corrected["revision"]
+                        .as_str()
+                        .unwrap()
+                        .parse::<u64>()
+                        .unwrap()
+            {
+                break;
+            }
+        }
+    })
+    .await
+    .expect("metadata-only correction emits the existing measurement-change Event");
+    row["message"]["usage"]["cache_creation"] =
+        json!({"ephemeral_5m_input_tokens":30,"ephemeral_1h_input_tokens":20});
+    w.append(row.clone());
+    let model_corrected = corrected;
+    let corrected = tokio::time::timeout(Duration::from_secs(3), async {
+        loop {
+            let read = w.read().await;
+            if read["contributions"][0]["value"]["cost"]["cache_write"]["one_hour"] == 20 {
+                break read;
+            }
+            tokio::task::yield_now().await;
+        }
+    })
+    .await
+    .unwrap();
+    let after = &corrected["contributions"][0];
+    assert_ne!(
+        after["source_revision"],
+        model_corrected["contributions"][0]["source_revision"]
+    );
+    assert_eq!(after["value"]["usage"], before["value"]["usage"]);
+    w.reopen().await;
+    assert_eq!(
+        w.contributions(1).await["contributions"],
+        corrected["contributions"]
+    );
+    // Force source replay, including the superseded version; retained revisions cannot regress.
+    std::fs::remove_file(w.source()).unwrap();
+    w.append(original);
+    w.append(row);
+    w.append(request("replay-boundary", 0));
+    let replayed = w.contributions(2).await;
+    let retained = replayed["contributions"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|c| c["identity"] == "request:metadata")
+        .unwrap();
+    assert_eq!(retained, after);
+}
+
+#[tokio::test]
+async fn u3016b_unknown_evidence_preserves_partial_coverage_and_zero() {
+    let w = World::start().await;
+    // Supported zero, unknown Model/rate, missing/inconsistent classes, and unknown money
+    // currencies are distinct source facts; none authorizes guessing a bill or conversion.
+    for (id, model, classes, usage) in [
+        (
+            "zero",
+            Some("claude-opus-5-5"),
+            json!({"ephemeral_5m_input_tokens":0,"ephemeral_1h_input_tokens":0}),
+            json!({"input_tokens":0,"output_tokens":0,"cache_read_input_tokens":0,"cache_creation_input_tokens":0}),
+        ),
+        (
+            "unknown",
+            Some("claude-opus-5-5-future"),
+            Value::Null,
+            json!({"input_tokens":100,"cache_creation_input_tokens":50}),
+        ),
+        (
+            "missing",
+            None,
+            Value::Null,
+            json!({"input_tokens":100,"output_tokens":20,"cache_read_input_tokens":400,"cache_creation_input_tokens":50}),
+        ),
+        (
+            "inconsistent",
+            Some("claude-opus-5-5"),
+            json!({"ephemeral_5m_input_tokens":30,"ephemeral_1h_input_tokens":30}),
+            json!({"input_tokens":100,"output_tokens":20,"cache_read_input_tokens":400,"cache_creation_input_tokens":50}),
+        ),
+    ] {
+        let mut row = request(id, 0);
+        row["message"]["model"] = json!(model);
+        row["message"]["usage"] = usage;
+        row["message"]["usage"]["cache_creation"] = classes;
+        w.append(row);
+    }
+    for currency in ["EUR", "JPY", ""] {
+        w.append(json!({"type":"cost-state","sessionId":w.source_id(),"amount":12.345,"currency":currency}));
+    }
+    w.append(json!({"type":"cost-state","sessionId":w.source_id(),"totalCostUSD":0,"hasUnknownModelCost":false}));
+    let read = w.contributions(5).await;
+    for c in read["contributions"].as_array().unwrap() {
+        match c["identity"].as_str().unwrap() {
+            "request:zero" => {
+                assert_eq!(
+                    c["value"]["usage"],
+                    json!({"input":0,"output":0,"cache_read":0,"cache_write":0})
+                );
+                assert_eq!(
+                    c["value"]["cost"]["cache_write"],
+                    json!({"five_minute":0,"one_hour":0})
+                );
+                assert!(c["value"]["cost"]["reference"].is_object());
+            }
+            "request:unknown" | "request:missing" => {
+                assert!(c["value"]["cost"]["reference"].is_null());
+                assert_eq!(c["value"]["usage"]["input"], 100);
+                assert!(c["value"]["cost"]["cache_write"]["five_minute"].is_null());
+                if c["identity"] == "request:unknown" {
+                    assert!(c["value"]["usage"]["output"].is_null());
+                }
+            }
+            "request:inconsistent" => {
+                assert_eq!(c["value"]["usage"]["cache_write"], 50);
+                assert_eq!(
+                    c["value"]["cost"]["cache_write"],
+                    json!({"five_minute":null,"one_hour":null})
+                );
+                assert!(
+                    c["value"]["cost"]["unavailable"]
+                        .as_array()
+                        .unwrap()
+                        .iter()
+                        .any(|v| v.as_str().unwrap().contains("disagree"))
+                );
+            }
+            _ => {
+                assert_eq!(c["value"]["reported"]["amount"], "0");
+                assert_eq!(c["value"]["reported"]["currency"], "USD");
+            }
+        }
+    }
+    assert!(read["sources"].as_array().unwrap().iter().any(|s| {
+        s["coverage"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|v| v.as_str().unwrap().contains("currency"))
+    }));
 }

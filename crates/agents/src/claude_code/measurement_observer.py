@@ -27,7 +27,7 @@ class Handler(http.server.BaseHTTPRequestHandler):
   if 'observe-source-child-3016' in text and 'tool_result' not in text:content=[{'type':'text','text':'Child measured.'}]
   elif n==1:content=[{'type':'tool_use','id':'toolu_source_3016','name':'Agent','input':{'description':'Observe local measurement','prompt':'observe-source-child-3016','subagent_type':'general-purpose'}}]
   else:content=[{'type':'text','text':'Measurement observation complete.'}]
-  usage={'input_tokens':100*n,'output_tokens':20*n,'cache_read_input_tokens':400*n,'cache_creation_input_tokens':50*n,'cache_creation':{'ephemeral_5m_input_tokens':50*n,'ephemeral_1h_input_tokens':0}}
+  usage={'input_tokens':100*n,'output_tokens':20*n,'cache_read_input_tokens':400*n,'cache_creation_input_tokens':50*n,'cache_creation':{'ephemeral_5m_input_tokens':30*n,'ephemeral_1h_input_tokens':20*n}}
   msg={'id':f'msg_source_{n}','type':'message','role':'assistant','model':body['model'],'content':[],'stop_reason':None,'stop_sequence':None,'usage':{**usage,'output_tokens':0}}
   events=[('message_start',{'type':'message_start','message':msg})]
   for i,block in enumerate(content):
@@ -76,15 +76,19 @@ try:
   try:rpc('daemon.ping');break
   except (OSError,RuntimeError):time.sleep(.02)
  node=rpc('agent.spawn',{'name':'Source observer','cwd':str(root/'project')})
- start=time.monotonic();accepted={};reads=[];last=None
+ start=time.monotonic();accepted={};reads=[];last=None;cost_absent=time.time_ns()
  while time.monotonic()-start<50:
   at=time.perf_counter_ns();last=rpc('project.measurements');reads.append((time.perf_counter_ns()-at)/1e6)
   for c in last['contributions']:accepted.setdefault(c['identity'],time.time_ns())
   requests=[c for c in last['contributions'] if c['value']['kind']=='request']
   intervals=[c for c in last['contributions'] if c['value']['kind']=='interval']
+  money=[c for c in last['contributions'] if c['value']['kind']=='money']
+  checked=time.time_ns()
+  present=any('"type":"cost-state"' in p.read_text() for p in config.glob('projects/*/*.jsonl'))
+  if not present:cost_absent=checked
   emitted={f'request:req_source_{record["n"]}' for record in records}
   emitted_spans={f"interval:{span['traceId']}:{span['spanId']}" for batch in exports for resource in batch['body']['resourceSpans'] for scope in resource['scopeSpans'] for span in scope['spans'] if span['name'] in ('claude_code.llm_request','claude_code.tool.execution')}
-  if (root/'vendor-exit').exists() and {c['identity'] for c in requests}==emitted and {c['identity'] for c in intervals}==emitted_spans:break
+  if (root/'vendor-exit').exists() and len(money)==1 and {c['identity'] for c in requests}==emitted and {c['identity'] for c in intervals}==emitted_spans:break
   time.sleep(.02)
  (root/'public.json').write_text(json.dumps(last));(root/'wire-summary.json').write_text(json.dumps(records))
  totals={key:sum(c['value']['usage'][key] for c in requests) for key in ('input','output','cache_read','cache_write')}
@@ -97,10 +101,12 @@ try:
  assert sum(c['value']['category']=='agent' for c in intervals)==len(records)
  assert sum(c['value']['category']=='tool' for c in intervals)==1
  local={}
+ summaries=[]
  locations={}
  for path in config.glob('projects/**/*.jsonl'):
   for line in path.read_text().splitlines():
-   row=json.loads(line)
+   row=json.loads(line,parse_float=str)
+   if row.get('type')=='cost-state':summaries.append(row)
    if row.get('type')=='assistant' and row.get('requestId'):
     local[row['requestId']]=row
     locations[row['requestId']]=path.parent.name=='subagents'
@@ -114,9 +120,24 @@ try:
   expected={'input':100*n,'output':20*n,'cache_read':400*n,'cache_write':50*n}
   assert contribution['value']['usage']==expected
   raw=row['message']['usage']
+  cost=contribution['value']['cost']
+  assert cost['model']==row['message']['model']
+  assert cost['cache_write']=={'five_minute':30*n,'one_hour':20*n}
+  rates=cost['reference']
+  assert rates['date']=='2026-10-21' and rates['currency']=='USD' and rates['per_tokens']==1000000
+  assert [rates[k] for k in ('input','output','cache_read','cache_write_five_minute','cache_write_one_hour')]==['4','20','0.20','5','8']
+  assert cost['reported'] is None
   assert [raw[k] for k in ('input_tokens','output_tokens','cache_read_input_tokens','cache_creation_input_tokens')]==list(expected.values())
   source_at=datetime.datetime.fromisoformat(row['timestamp'].replace('Z','+00:00')).timestamp()*1000
   local_delay.append(contribution['observed']-source_at)
+ assert len(money)==1 and summaries
+ assert money[0]['value']['reported']['amount']==str(summaries[-1]['totalCostUSD'])
+ assert money[0]['value']['reported']['currency']=='USD'
+ assert money[0]['value']['reported']['scope']=='conversation'
+ assert 'usage' not in money[0]['value']
+ from decimal import Decimal
+ reference=sum(Decimal('0.00119')*record['n'] for record in records)
+ money_delay_bound=max(0,(accepted[money[0]['identity']]-cost_absent)/1e6)
  span_delay=[c['observed']-int(c['value']['end_unix_ns'])/1e6 for c in intervals]
  raw_spans={}
  arrivals={}
@@ -145,7 +166,7 @@ try:
   except (OSError,RuntimeError):time.sleep(.02)
  assert reopened['contributions']==last['contributions']
  version=subprocess.run([str(binary),'--version'],env=env,capture_output=True,text=True,check=True).stdout.strip()
- print(json.dumps({'binary_version':version,'binary_sha256':hashlib.sha256(binary.read_bytes()).hexdigest(),'raw_requests':len(records),'local_requests':len(local),'accepted_requests':len(requests),'model_intervals':sum(c['value']['category']=='agent' for c in intervals),'tool_intervals':1,'raw_completed_spans':len(raw_spans),'excluded_span_names':excluded,'export_arrival_to_public_read_ms':export_to_read,'totals':totals,'record_timestamp_to_accept_ms':local_delay,'span_end_to_accept_ms':span_delay,'public_read_max_ms':max(reads),'public_read_p95_ms':sorted(reads)[int(.95*(len(reads)-1))],'read_samples':len(reads),'cli_and_reopen':'same retained contributions','unsupported':'active execution, clock lifetime across restart, human wait and Message-correlated coordination; permission-check spans excluded','local_artifacts':str(root)},indent=2))
+ print(json.dumps({'binary_version':version,'binary_sha256':hashlib.sha256(binary.read_bytes()).hexdigest(),'observed_models':sorted({r['message']['model'] for r in local.values()}),'reference_basis':requests[0]['value']['cost']['reference'],'source_money':money[0]['value']['reported'],'independent_reference_usd':str(reference),'cache_write_classes':{'five_minute':sum(30*r['n'] for r in records),'one_hour':sum(20*r['n'] for r in records)},'money_availability_to_read_upper_ms':money_delay_bound,'raw_requests':len(records),'local_requests':len(local),'accepted_requests':len(requests),'model_intervals':sum(c['value']['category']=='agent' for c in intervals),'tool_intervals':1,'raw_completed_spans':len(raw_spans),'excluded_span_names':excluded,'export_arrival_to_public_read_ms':export_to_read,'totals':totals,'record_timestamp_to_accept_ms':local_delay,'span_end_to_accept_ms':span_delay,'public_read_max_ms':max(reads),'public_read_p95_ms':sorted(reads)[int(.95*(len(reads)-1))],'read_samples':len(reads),'cli_and_reopen':'same retained contributions','unsupported':'live request money, non-USD source money/conversion, active execution, clock lifetime across restart, human wait and Message-correlated coordination; permission-check spans excluded','local_artifacts':str(root)},indent=2))
 
 finally:
  daemon.terminate()
