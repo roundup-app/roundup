@@ -19,7 +19,7 @@ const found = (revision = "r1"): ImportDiscovery => ({
     { source: "s1", title: "First", cwd: "", last_activity_ms: 2n, revision },
     { source: "s2", title: "Second", cwd: "src", last_activity_ms: 1n, revision: "r2" },
   ],
-  excluded: [{ source: "s3", reason: "already in this Project" }],
+  excluded: [{ source: "s3", reason: "already in this Project", title: "third", last_activity_ms: 3n }],
 });
 
 const calls = (app: Awaited<ReturnType<typeof mountRail>>["app"], method: string) => app.calls.filter((call) => call.method === method);
@@ -180,6 +180,28 @@ describe("u2875d the import panel is an ordinary Rail action", () => {
     expect(screen.queryByText(/Changed or gone since you chose them/)).toBeNull();
     expect(calls(app, "project.importDiscover").map((call) => call.params)).toEqual([{ period: "month" }]);
     expect(screen.getAllByRole("checkbox").every((box) => box instanceof HTMLInputElement && !box.checked)).toBe(true);
+  });
+
+  it("u3083d_stale_picks_drop_without_a_notice", async () => {
+    localStorage.setItem("roundup:import:/p", JSON.stringify({ open: true, period: "month", selected: [{ source: "s1", revision: "r1", title: "First" }, { source: "s2", revision: "r2", title: "Second" }, { source: "gone", revision: "r9", title: "Gone" }] }));
+    const { app } = await mountRail([workstream("w1")]);
+    app.handlers["project.importDiscover"] = () => found("changed");
+    app.handlers["project.importCommit"] = () => ({ outcomes: [] });
+
+    fireEvent.click(await screen.findByRole("button", { name: "Refresh" }));
+    await waitFor(() => expect(screen.getAllByRole("checkbox").length).toBe(2));
+
+    const checked = (name: RegExp) => {
+      const box = screen.getByRole("checkbox", { name });
+
+      return box instanceof HTMLInputElement && box.checked;
+    };
+
+    expect(screen.queryByText(/Changed or gone since you chose them/)).toBeNull();
+    expect(checked(/First/)).toBe(false);
+    expect(checked(/Second/)).toBe(true);
+    expect(screen.getByRole("button", { name: "Import 1" })).toBeTruthy();
+    expect(calls(app, "project.importCommit")).toEqual([]);
   });
 
   it("u2875d_success_opens_the_created_workstream_with_resume_and_start_supervisor", async () => {

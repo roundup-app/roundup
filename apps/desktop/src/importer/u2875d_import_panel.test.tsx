@@ -92,7 +92,7 @@ it.each([new RpcError(-32003, "daemon said no"), new Error("daemon said no")])("
 it("u2875a_discovery_exclusions_remain_visible_after_partial_failure", async () => {
   const { app } = await mount();
   app.handlers["project.importCommit"] = () => {
-    app.handlers["project.importDiscover"] = () => ({ candidates: [candidates[1]!], excluded: [{ source: "s1", reason: "source unavailable" }] });
+    app.handlers["project.importDiscover"] = () => ({ candidates: [candidates[1]!], excluded: [{ source: "s1", reason: "source unavailable", title: null, last_activity_ms: null }] });
 
     return { outcomes: [{ source: "s1", workstream: null, agent: null, error: "copy refused" }] };
   };
@@ -233,7 +233,7 @@ it.each(["timeout", "period", "dismiss", "project"])("u3037d_late_results_cannot
 });
 
 const mixed = () => {
-  const excluded = [{ source: "sess-dup", reason: "already in this Project" }, { source: "sess-amb", reason: "ambiguous Project membership" }];
+  const excluded = [{ source: "sess-dup", reason: "already in this Project", title: "Imported earlier", last_activity_ms: 5n }, { source: "sess-amb", reason: "ambiguous Project membership", title: null, last_activity_ms: 1_700_000_000_000n }];
 
   return mount().then(({ app }) => {
     app.handlers["project.importDiscover"] = () => ({ candidates, excluded });
@@ -269,6 +269,8 @@ it("u3083b_reasons_are_user_words_and_no_id_renders", async () => {
   fireEvent.click(within(dialog).getByRole("button", { name: "2 not importable" }));
   await within(dialog).findByText("Used more than one folder of this Project");
   expect(within(dialog).getByText("Already imported")).toBeTruthy();
+  expect(within(dialog).getByText("Imported earlier")).toBeTruthy();
+  expect(within(dialog).getByText(new Date(1_700_000_000_000).toLocaleString())).toBeTruthy();
   expect(dialog.textContent).not.toMatch(/sess-|already in this Project|ambiguous Project/);
 });
 
@@ -304,7 +306,35 @@ it("u3083a_every_modal_renders_in_the_shared_positioner", async () => {
   await mount();
   await open();
   expect(screen.getByRole("dialog").parentElement?.classList.contains("app-dialog-positioner")).toBe(true);
-  const own = readdirSync("src", { recursive: true, encoding: "utf8" }).filter((file) => file.endsWith(".css") && !file.endsWith("ui/Dialog.css") && !file.includes("node_modules") && /\.(import|close|shelf|todo|bubble|header|recovery|rail)[\w-]*positioner/.test(readFileSync(`src/${file}`, "utf8")));
 
-  expect(own).toEqual([]);
+  // The other modals: each wraps its Content in the Positioner of ui/Dialog, and no other stylesheet positions one.
+  for (const file of ["shelf/BulkDelete", "header/CloseDialog", "todos/TodoDrawer", "bubbles/Bubbles", "header/ProjectTab", "importer/ImportPanel"]) {
+    const source = readFileSync(`src/${file}.tsx`, "utf8");
+
+    expect(source, file).toMatch(/from "\.\.\/ui\/Dialog"/);
+    expect(source, file).toMatch(/Dialog\.Positioner[\s\S]*Dialog\.Content/);
+  }
+
+  const own = readdirSync("src", { recursive: true, encoding: "utf8" }).filter((file) => file.endsWith(".css") && !file.endsWith("ui/Dialog.css") && /positioner/i.test(readFileSync(`src/${file}`, "utf8")));
+
+  expect(own).toEqual(["ui/Tooltip.css"]);
 });
+
+it.skipIf(!captureDir("U3083a"))("u3083a_modal_centre_is_the_window_centre", async () => {
+  const lane = await openLane(1512, "dark", "builder-3083");
+
+  try {
+    await lane.browser("click", ".rail-import");
+    await lane.until("!!document.querySelector('.import-panel')");
+
+    const off = await lane.evaluate<number[]>(`(() => {
+      const box = document.querySelector('.import-panel').getBoundingClientRect();
+      return [box.left + box.width / 2 - innerWidth / 2, box.top + box.height / 2 - innerHeight / 2];
+    })()`);
+
+    expect(Math.abs(off[0]!)).toBeLessThanOrEqual(1);
+    expect(Math.abs(off[1]!)).toBeLessThanOrEqual(1);
+  } finally {
+    await lane.close();
+  }
+}, 120_000);

@@ -43,6 +43,8 @@ impl Agents {
                 out.excluded.push(ImportExclusion {
                     source: c.source,
                     reason: "already in this Project".into(),
+                    title: Some(c.title),
+                    last_activity_ms: Some(c.last_activity_ms),
                 });
             } else {
                 out.candidates.push(ImportCandidate {
@@ -58,6 +60,8 @@ impl Agents {
             .extend(found.excluded.into_iter().map(|e| ImportExclusion {
                 source: e.source,
                 reason: e.reason,
+                title: None,
+                last_activity_ms: e.modified_ms,
             }));
         Ok(out)
     }
