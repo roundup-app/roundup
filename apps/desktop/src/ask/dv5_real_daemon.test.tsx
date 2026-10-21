@@ -329,3 +329,40 @@ it("u3021c_ask_removed_workstream_refuses_selected_editor_after_reopen", async (
   expect(rpc).not.toHaveBeenCalled();
   rpc.mockRestore();
 });
+
+
+it("dv6_bound_share_copies_the_selected_publication_and_resolves_its_retained_revision", async () => {
+  const app = createServedApp(real.base);
+  await app.rpc("pad.create", { name: "share-pad", text: "published exact revision 🌿" });
+  const pad = await app.rpc("pad.read", { name: "share-pad" });
+  const published = await app.rpc("deliverable.publish", { key: "share-pad", title: "Duplicate title", target: { kind: "pad", name: pad.name, incarnation: pad.incarnation, revision: pad.revision } });
+  const external = await app.rpc("deliverable.publish", { key: "share-external", title: "Duplicate title", target: { kind: "external", url: "https://example.com/exact?revision=1" } });
+  await app.rpc("pad.write", { name: pad.name, text: "mutable replacement", expectedRevision: pad.revision });
+  await real.restart();
+  const copied: string[] = [];
+  Object.defineProperty(navigator, "clipboard", { configurable: true, value: { writeText: async (text: string) => { copied.push(text); } } });
+  app.showContextMenu = vi.fn(async () => "copy-link");
+  const connected = await connectProject(app, { path: real.dir, name: "Project" }, () => false, () => 0);
+  render(() => <ConnectedProjectContext.Provider value={connected}><AskBar /></ConnectedProjectContext.Provider>);
+  const made = await screen.findByRole("region", { name: "Made" });
+
+  for (const record of [published, external]) {
+    const row = made.querySelector(`[data-deliverable="${record.id}"]`)!;
+    await within(row).findByRole("button");
+    fireEvent.contextMenu(row, { clientX: 10, clientY: 10 });
+    expect(app.showContextMenu).toHaveBeenCalledTimes(record === published ? 1 : 2);
+    await waitFor(() => expect(copied).toHaveLength(record === published ? 1 : 2));
+    const reference = copied.at(-1)!;
+    const url = reference.split("\n")[0]!;
+    expect(reference).toBe(`${url}\nrup link read ${url}`);
+    expect(url).toBe(`roundup://deliverable/${record.id}?project=${record.project}`);
+    const { stdout } = await exec(resolve("../../target/debug/rup"), ["--json", "link", "read", url], { env: { ...process.env, RUPD_SOCKET: join(real.dir, "rupd.sock") } });
+    const content = JSON.parse(stdout);
+    expect(content).toMatchObject({ kind: "deliverable", record });
+
+    if (record === published) {
+      expect(content.resolution.kind).toBe("retained");
+      expect(await readFile(content.resolution.path, "utf8")).toBe("published exact revision 🌿");
+    } else expect(content.resolution).toEqual({ kind: "external", url: "https://example.com/exact?revision=1", availability: "not-checked" });
+  }
+});
