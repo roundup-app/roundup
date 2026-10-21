@@ -968,7 +968,7 @@ export const Bubbles = (props: {
 
       return contextMenu(app, [
         { id: "rename", label: copy.rename, run: start },
-        ...linkEntries(app, "terminal", id, agents, (node) => rail.exitOf(node) === null, setFailure),
+        ...linkEntries(app, { kind: "terminal", id: id }, agents, (node) => rail.exitOf(node) === null, setFailure),
         { id: "close", label: copy.close, shortcut: lastTarget() === id ? copy.closeChord : undefined, run: () => close(id) },
       ], x, y);
     };

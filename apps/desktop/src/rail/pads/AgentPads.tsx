@@ -21,17 +21,17 @@ import { useTodoList } from "../../todos/todoList";
 import { ownKeys } from "../rows";
 import { Tip } from "../../ui/Tip";
 import { Trunks } from "../Trunks";
-import { openTodosBy, padsOwnedBy } from "./owned";
+import { todosCreatedBy, padsOwnedBy } from "./owned";
 import { usePadList } from "./padList";
 
-/** The Pads and open Todos under one Rail row (U58, U60): `n` is how many its Agent owns and created together (0 for any other row), `shown` is whether the control is open. */
+/** The Pads and Todos under one Rail row (U58, U60): `n` is how many its Agent owns and created together (0 for any other row), `shown` is whether the control is open. */
 export const createAgentPads = (node: Accessor<RailNode>) => {
   const all = usePadList().pads;
   const todos = useTodoList();
   const [shown, setShown] = createSignal(false);
   const [failure, setFailure] = createSignal<string | null>(null);
   const owned = createMemo(() => (node().kind === "agent" ? padsOwnedBy(all(), node().id) : []));
-  const ownedTodos = createMemo(() => (node().kind === "agent" ? openTodosBy(todos.all(), node().id) : []));
+  const ownedTodos = createMemo(() => (node().kind === "agent" ? todosCreatedBy(todos.all(), node().id) : []));
   const connected = useConnectedProject();
 
   const reorder = createSortedList({
@@ -97,6 +97,8 @@ export const PadsControl = (props: { pads: AgentPads }) => {
 /** U405: one leaf hanging on the Agent's trunk, one `--rail-step` under its Glyph; `last` ends the trunk at its elbow. */
 const Leaf = (props: { depth: number; trail: readonly boolean[]; last: boolean; todo?: boolean; onContextMenu?: (event: MouseEvent) => void; children: JSX.Element }) => (
   <div
+    role="treeitem"
+    aria-level={props.depth + 2}
     class="rail-leaf"
     onContextMenu={props.onContextMenu}
     data-leaf={props.todo ? "todo" : "pad"}
@@ -107,7 +109,7 @@ const Leaf = (props: { depth: number; trail: readonly boolean[]; last: boolean; 
   </div>
 );
 
-/** The Pad leaves, then the open Todo leaves, one level below `depth`, folded at rest; a click opens a Pad's Drawer as the Shelf's list does (U20). Opening changes no selection (U64). `children` tells that the Agent's own child rows follow, so the last leaf's trunk runs on. */
+/** The Pad leaves, then the Todo leaves, one level below `depth`, folded at rest; a click opens a Pad's Drawer as the Shelf's list does (U20). Opening changes no selection (U64). `children` tells that the Agent's own child rows follow, so the last leaf's trunk runs on. */
 export const PadRows = (props: { pads: AgentPads; depth: number; trail: readonly boolean[]; children: boolean }) => {
   const connected = useConnectedProject();
   const list = usePadList();
@@ -147,7 +149,7 @@ export const PadRows = (props: { pads: AgentPads; depth: number; trail: readonly
     event.stopPropagation();
     openOnRelease(event, (x, y) => void contextMenu(connected.app, [
       { id: "complete", label: copy.complete, enabled: !todo.done, run: async () => { props.pads.setFailure(await failureOf(() => connected.app.rpc("todo.complete", { id: todo.id }))); } },
-      ...linkEntries(connected.app, "todo", todo.id, connected.rail.nodes, (node) => connected.rail.exitOf(node) === null, props.pads.setFailure),
+      ...linkEntries(connected.app, { kind: "todo", id: todo.id }, connected.rail.nodes, (node) => connected.rail.exitOf(node) === null, props.pads.setFailure),
       { id: "delete", label: copy.delete, run: () => { setSelectedTodos([todo.id]); todoBulk.ask(); } },
     ], x, y));
   };
@@ -160,7 +162,7 @@ export const PadRows = (props: { pads: AgentPads; depth: number; trail: readonly
   const padMenu = (name: string, event: MouseEvent) => {
     event.stopPropagation();
     openOnRelease(event, (x, y) => void contextMenu(connected.app, [
-      ...linkEntries(connected.app, "pad", name, connected.rail.nodes, (node) => connected.rail.exitOf(node) === null, props.pads.setFailure),
+      ...linkEntries(connected.app, { kind: "pad", id: name }, connected.rail.nodes, (node) => connected.rail.exitOf(node) === null, props.pads.setFailure),
       { id: "delete", label: copy.delete, run: () => { setSelected([name]); bulk.ask(); } },
     ], x, y));
   };
@@ -215,7 +217,9 @@ export const PadRows = (props: { pads: AgentPads; depth: number; trail: readonly
                         known={props.pads.todos.byId()}
                         onOpen={(opened, source) => connected.drawer.open(() => <TodoDrawer id={opened.id} todos={props.pads.todos} />, source)}
                         sorted={sorted}
-                        onComplete={(done) => failureOf(() => connected.app.rpc("todo.complete", { id: done.id }))}
+                        onToggle={(done) => failureOf(() => done.done
+                          ? connected.app.rpc("todo.reopen", { id: done.id })
+                          : connected.app.rpc("todo.complete", { id: done.id }))}
                       />
                     </Leaf>
                   );

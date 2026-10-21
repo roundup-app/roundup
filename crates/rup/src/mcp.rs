@@ -432,6 +432,7 @@ fn offered_tools() -> Vec<Offered> {
         offered_without_params("todo.list", "List every Todo."),
         offered::<todo::UpdateParams>("todo.update", "Change a Todo's title or body."),
         offered::<todo::TodoId>("todo.complete", "Mark a Todo done."),
+        offered::<todo::TodoId>("todo.reopen", "Reopen a done Todo."),
         offered::<todo::SetBlockersParams>(
             "todo.setBlockers",
             "Replace a Todo's whole blocker list.",
@@ -440,7 +441,7 @@ fn offered_tools() -> Vec<Offered> {
         offered::<pad::PadName>("pad.read", "Read one Pad."),
         offered::<link::LinkUrl>(
             "link.read",
-            "Read what a roundup:// link names, as it is now: a Pad, Todo, Agent, Workstream or Terminal of this Project.",
+            "Read a Project roundup:// link: current Pad, Todo, Agent, Workstream or Terminal content, or a Deliverable recorded revision/current external target and its availability.",
         ),
         offered_without_params("pad.list", "List every Pad."),
         offered::<pad::WriteParams>(
