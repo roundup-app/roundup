@@ -197,6 +197,24 @@ mod time_tests {
                 .await
                 .unwrap()
         }
+        fn reopen(&self) -> (Agents, Ctx) {
+            let bus = Bus::new();
+            let terms = Arc::new(Terminals::open(self.dir.path(), bus.clone()).unwrap());
+            let agents = Agents::open_with(
+                self.dir.path(),
+                bus.clone(),
+                terms,
+                self.agents.launcher.clone(),
+                worktree::Git::from_env(),
+            )
+            .unwrap();
+            let ctx = Ctx {
+                actor: Actor::user(),
+                bus,
+                touches: self.ctx.touches.clone(),
+            };
+            (agents, ctx)
+        }
         async fn advance(&self, seconds: u64) {
             for _ in 0..seconds {
                 tokio::time::advance(Duration::from_secs(1)).await;
@@ -283,21 +301,7 @@ mod time_tests {
             activity(&later, "idle")[1]["value"]["start"]["unix_ms"],
             7000
         );
-        let bus = Bus::new();
-        let terms = Arc::new(Terminals::open(w.dir.path(), bus.clone()).unwrap());
-        let reopened = Agents::open_with(
-            w.dir.path(),
-            bus.clone(),
-            terms,
-            w.agents.launcher.clone(),
-            worktree::Git::from_env(),
-        )
-        .unwrap();
-        let ctx = Ctx {
-            actor: Actor::user(),
-            bus,
-            touches: w.ctx.touches.clone(),
-        };
+        let (reopened, ctx) = w.reopen();
         let read = reopened
             .call(&ctx, "project.measurements", Value::Null)
             .await
@@ -307,6 +311,39 @@ mod time_tests {
             activity(&read, "idle")[1]["value"]["state"]["kind"],
             "interrupted"
         );
+    }
+
+    #[tokio::test(start_paused = true)]
+    async fn u3016c_startup_evidence_ends_on_acknowledgement() {
+        let w = World::new();
+        let id = crate::tests::running_agent(&w.agents.shared, None);
+        w.advance(3).await;
+        assert!(
+            w.read().await["time_evidence"]
+                .as_array()
+                .unwrap()
+                .is_empty(),
+            "an unacknowledged launch supplies no retained Attempt"
+        );
+        w.signal(&id, json!({"hook_event_name":"SessionStart"}));
+        let acknowledged = w.read().await;
+        let startup = activity(&acknowledged, "startup")[0];
+        assert_eq!(startup["value"]["start"]["unix_ms"], 1000);
+        assert_eq!(startup["value"]["state"]["at"]["unix_ms"], 4000);
+        assert_eq!(
+            startup["value"]["segments"][0]["end"]["monotonic_ns"],
+            "3000000000"
+        );
+        assert_eq!(startup["agent"], id);
+        assert_eq!(startup["attempt"], "1");
+        w.signal(
+            &id,
+            json!({"hook_event_name":"UserPromptSubmit","prompt":"Fixture prompt"}),
+        );
+        w.advance(2).await;
+        w.signal(&id, json!({"hook_event_name":"SessionStart"}));
+        let later = w.read().await;
+        assert_eq!(activity(&later, "startup"), vec![startup]);
     }
 
     #[tokio::test(start_paused = true)]
@@ -381,7 +418,7 @@ mod time_tests {
     }
 
     #[tokio::test(start_paused = true)]
-    async fn u3016c_clock_gaps_and_late_intervals_are_honest_sources() {
+    async fn u3016c_other_time_evidence_preserves_identity_and_gaps() {
         let w = World::new();
         let id = w.agent(None);
         w.advance(1).await;
@@ -412,6 +449,10 @@ mod time_tests {
                         .unwrap()
             );
         }
+        let idle = activity(&read, "idle")[0];
+        assert_eq!(idle["value"]["segments"], fact["value"]["segments"]);
+        assert_eq!(idle["agent"], id);
+        assert_eq!(idle["attempt"], "1");
         // Late observations for another Attempt and duplicate acknowledgements cannot replace facts.
         w.agents
             .shared
@@ -421,25 +462,18 @@ mod time_tests {
         let duplicate = w.read().await;
         assert_eq!(duplicate["time_evidence"], read["time_evidence"]);
         // Reopen uses the real Project store. No runtime Decision or program is restored.
-        let bus = Bus::new();
-        let terms = Arc::new(Terminals::open(w.dir.path(), bus.clone()).unwrap());
-        let reopened = Agents::open_with(
-            w.dir.path(),
-            bus.clone(),
-            terms,
-            w.agents.launcher.clone(),
-            worktree::Git::from_env(),
-        )
-        .unwrap();
-        let ctx = Ctx {
-            actor: Actor::user(),
-            bus,
-            touches: w.ctx.touches.clone(),
-        };
+        let (reopened, ctx) = w.reopen();
         let read = reopened
             .call(&ctx, "project.measurements", Value::Null)
             .await
             .unwrap();
+        let retained_idle = activity(&read, "idle")[0];
+        assert_eq!(retained_idle["identity"], idle["identity"]);
+        assert_eq!(
+            retained_idle["value"]["segments"],
+            idle["value"]["segments"]
+        );
+        assert_eq!(retained_idle["value"]["state"]["kind"], "interrupted");
         let retained = activity(&read, "attempt")[0];
         assert_eq!(retained["identity"], fact["identity"]);
         assert_eq!(retained["value"]["segments"], fact["value"]["segments"]);
@@ -491,6 +525,16 @@ mod time_tests {
         let attempt = activity(&moved, "attempt")[0];
         assert_eq!(attempt["home"], home);
         assert_eq!(attempt["maker"], "a");
+        assert_eq!(activity(&moved, "startup")[0]["home"], home);
+        assert_eq!(activity(&moved, "idle")[0]["home"], home);
+        w.signal(
+            &id,
+            json!({"hook_event_name":"UserPromptSubmit","prompt":"Fixture prompt"}),
+        );
+        w.signal(&id, json!({"hook_event_name":"Stop"}));
+        let phases = w.read().await;
+        assert_eq!(activity(&phases, "idle")[1]["home"], other);
+        assert_eq!(activity(&phases, "idle")[1]["maker"], "renamed");
         assert_eq!(
             attempt["value"]["start"],
             first["time_evidence"][0]["value"]["start"]
@@ -514,6 +558,8 @@ mod time_tests {
         drop(pending);
         w.agents.shared.rail().remove(&id).unwrap();
         let removed = w.read().await;
+        assert_eq!(activity(&removed, "idle")[0]["agent"], id);
+        assert_eq!(activity(&removed, "idle")[0]["home"], other);
         assert_eq!(activity(&removed, "decision")[0]["agent"], id);
         assert_eq!(activity(&removed, "decision")[0]["home"], other);
         let another = World::new();
@@ -533,7 +579,7 @@ mod time_tests {
     }
 
     #[tokio::test(start_paused = true)]
-    async fn u3016d_reconnect_reconciles_without_double_counting_time_sources() {
+    async fn u3016d_other_time_retention_recovers() {
         let w = World::new();
         let mut events = w.ctx.bus.subscribe();
         let id = w.agent(None);
@@ -545,6 +591,11 @@ mod time_tests {
         let db = rusqlite::Connection::open(w.dir.path().join("agents.db")).unwrap();
         db.execute_batch("CREATE TRIGGER refuse_measurement BEFORE INSERT ON measurement_revisions BEGIN SELECT RAISE(ABORT,'retention refused'); END;").unwrap();
         // Passive timing must not fail an acknowledged Signal or a delivered answer.
+        w.signal(
+            &id,
+            json!({"hook_event_name":"UserPromptSubmit","prompt":"Fixture prompt"}),
+        );
+        w.signal(&id, json!({"hook_event_name":"Stop"}));
         w.signal(&id, json!({"hook_event_name":"SessionStart"}));
         let question = w.ask(&id).await;
         w.advance(1).await;
@@ -592,6 +643,12 @@ mod time_tests {
         let recovered = w.read().await;
         assert!(recovered["cause"].is_null());
         assert_eq!(activity(&recovered, "attempt").len(), 1);
+        assert_eq!(activity(&recovered, "startup").len(), 1);
+        assert_eq!(activity(&recovered, "idle").len(), 2);
+        assert_eq!(
+            activity(&recovered, "idle")[0]["value"]["state"]["kind"],
+            "ended"
+        );
         assert_eq!(activity(&recovered, "decision").len(), 1);
         assert_eq!(
             activity(&recovered, "decision")[0]["value"]["state"]["kind"],
@@ -599,6 +656,15 @@ mod time_tests {
         );
         let repeated = w.read().await;
         assert_eq!(repeated["time_evidence"], recovered["time_evidence"]);
+        w.stop(&id);
+        let ended = w.read().await;
+        let (reopened, ctx) = w.reopen();
+        let read = reopened
+            .call(&ctx, "project.measurements", Value::Null)
+            .await
+            .unwrap();
+        assert_eq!(read["time_evidence"], ended["time_evidence"]);
+        assert!(read["cause"].is_null());
     }
     #[tokio::test(start_paused = true)]
     async fn u3016c_unknown_historical_starts_remain_unknown_sources() {
@@ -615,6 +681,7 @@ mod time_tests {
         let read = w.read().await;
         let fact = activity(&read, "attempt")[0];
         assert!(fact["value"]["start"].is_null());
+        assert!(activity(&read, "startup")[0]["value"]["start"].is_null());
         assert_eq!(fact["attempt"], "1");
         assert!(
             fact["coverage"]
@@ -632,21 +699,7 @@ mod time_tests {
         let id = w.agent(None);
         let failed = w.read().await;
         assert!(failed["time_evidence"].as_array().unwrap().is_empty());
-        let bus = Bus::new();
-        let terminals = Arc::new(Terminals::open(w.dir.path(), bus.clone()).unwrap());
-        let reopened = Agents::open_with(
-            w.dir.path(),
-            bus.clone(),
-            terminals,
-            w.agents.launcher.clone(),
-            worktree::Git::from_env(),
-        )
-        .unwrap();
-        let ctx = Ctx {
-            actor: Actor::user(),
-            bus,
-            touches: w.ctx.touches.clone(),
-        };
+        let (reopened, ctx) = w.reopen();
         let read = reopened
             .call(&ctx, "project.measurements", Value::Null)
             .await
@@ -665,6 +718,13 @@ mod time_tests {
                 .contains("retention refused")
         );
         assert!(read["time_evidence"].as_array().unwrap().is_empty());
+        db.execute_batch("DROP TRIGGER refuse_measurement").unwrap();
+        let recovered = w.read().await;
+        assert!(recovered["cause"].is_null());
+        let startup = activity(&recovered, "startup");
+        assert_eq!(startup.len(), 1);
+        assert_eq!(startup[0]["value"]["start"]["unix_ms"], 1000);
+        assert_eq!(startup[0]["value"]["state"]["kind"], "ended");
     }
     #[tokio::test(start_paused = true)]
     async fn u3016d_reads_do_not_feed_back_measurement_notifications() {

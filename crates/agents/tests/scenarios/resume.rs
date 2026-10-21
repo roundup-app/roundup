@@ -243,7 +243,13 @@ async fn a22_resume_launches_with_resume_flag_and_promotes_on_ack() {
     assert_eq!(resumed.name, node.name);
     assert_eq!(resumed.parent, node.parent);
     let read = f.call("project.measurements", Value::Null).await.unwrap();
-    assert_eq!(read["time_evidence"].as_array().unwrap().len(), 2);
+    let attempts: Vec<_> = read["time_evidence"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .filter(|fact| fact["value"]["activity"]["kind"] == "attempt")
+        .collect();
+    assert_eq!(attempts.len(), 2);
     assert!(
         read["time_evidence"]
             .as_array()
@@ -1795,7 +1801,12 @@ async fn u3016c_elapsed_and_parallel_time_are_distinct_sources() {
     }
     f.call("agent.stop", json!({"id":door})).await.unwrap();
     let stopped = f.call("project.measurements", Value::Null).await.unwrap();
-    let facts = stopped["time_evidence"].as_array().unwrap();
+    let facts: Vec<_> = stopped["time_evidence"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .filter(|fact| fact["value"]["activity"]["kind"] == "attempt")
+        .collect();
     assert_eq!(facts.len(), 2);
     let door_fact = facts.iter().find(|fact| fact["agent"] == door).unwrap();
     assert_eq!(door_fact["value"]["start"]["unix_ms"], 0);
@@ -1836,13 +1847,23 @@ async fn u3016c_elapsed_and_parallel_time_are_distinct_sources() {
         .unwrap();
     let resumed: RailNode = serde_json::from_value(resuming.await.unwrap().unwrap()).unwrap();
     let active = f.call("project.measurements", Value::Null).await.unwrap();
-    assert_eq!(active["time_evidence"].as_array().unwrap().len(), 3);
+    assert_eq!(
+        active["time_evidence"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .filter(|fact| fact["value"]["activity"]["kind"] == "attempt")
+            .count(),
+        3
+    );
     let latest = active["time_evidence"]
         .as_array()
         .unwrap()
         .iter()
         .find(|fact| {
-            fact["agent"] == door && fact["attempt"].as_str() == resumed.attempt.as_deref()
+            fact["agent"] == door
+                && fact["attempt"].as_str() == resumed.attempt.as_deref()
+                && fact["value"]["activity"]["kind"] == "attempt"
         })
         .unwrap();
     assert_eq!(

@@ -26,6 +26,12 @@ pending=b''
 while True:
  data=os.read(0,1)
  if not data or data==b'\x03': break
+ if data in [b'\x02', b'\x04']:
+  event = 'UserPromptSubmit' if data == b'\x02' else 'Stop'
+  for group in settings['hooks'][event]:
+   for hook in group['hooks']:
+    subprocess.run(hook['command'], shell=True, input=json.dumps({'hook_event_name':event,'prompt':'Fixture prompt'}), text=True, check=True)
+  continue
  if data==b'\x01':
   agent=os.environ['ROUNDUP_AGENT']
   call=json.load(open('call-'+agent+'.json'))
@@ -826,7 +832,16 @@ async fn u3016f_real_time_acquisition_to_cli_survives_reopen() {
         loop {
             let snapshot = w.read().await;
             let facts = snapshot["time_evidence"].as_array().unwrap();
-            if facts.len() == 4
+            if facts
+                .iter()
+                .filter(|f| {
+                    matches!(
+                        f["value"]["activity"]["kind"].as_str(),
+                        Some("attempt" | "decision")
+                    )
+                })
+                .count()
+                == 4
                 && facts
                     .iter()
                     .all(|fact| fact["value"]["state"]["kind"] == "ended")
@@ -884,6 +899,164 @@ async fn u3016f_real_time_acquisition_to_cli_survives_reopen() {
         facts.len()
     );
     println!("sanitized time evidence: {}", before["time_evidence"]);
+}
+
+#[tokio::test]
+async fn u3016f_real_other_time_acquisition_to_cli_survives_reopen() {
+    let mut w = World::start().await;
+    let first = w.read().await;
+    let phases = |read: &Value, kind: &str| -> Vec<Value> {
+        read["time_evidence"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .filter(|f| f["value"]["activity"]["kind"] == kind)
+            .cloned()
+            .collect()
+    };
+    let startup = phases(&first, "startup");
+    assert_eq!(startup.len(), 1);
+    assert_eq!(startup[0]["value"]["state"]["kind"], "ended");
+    assert!(!startup[0]["value"]["start"].is_null());
+    let opening_idle = phases(&first, "idle");
+    assert_eq!(opening_idle.len(), 1);
+    let mut events = Client::connect(&w.daemon.socket).await.unwrap();
+    events
+        .request("events.subscribe", Value::Null)
+        .await
+        .unwrap();
+    let terminal = w
+        .client
+        .request("rail.tree", Value::Null)
+        .await
+        .unwrap()
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|n| n["id"] == w.agent)
+        .unwrap()["terminal_id"]
+        .clone();
+    let mut transitions = vec![];
+    let mut delays = vec![];
+    for (data, kind) in [
+        ("Ag==", contracts::Kind::Working),
+        ("BA==", contracts::Kind::Idle),
+    ] {
+        let started = std::time::Instant::now();
+        w.client
+            .request("terminal.write", json!({"id":terminal,"data":data}))
+            .await
+            .unwrap();
+        let event = tokio::time::timeout(Duration::from_secs(5), async {
+            loop {
+                let event = events.next_event().await.unwrap();
+                if let contracts::EventData::AgentStatus(event) = event.data
+                    && event.id == w.agent
+                    && event.status.kind == kind
+                    && event.status_revision.parse::<u64>().unwrap()
+                        > opening_idle[0]["value"]["activity"]["status_revision"]
+                            .as_str()
+                            .unwrap()
+                            .parse::<u64>()
+                            .unwrap()
+                {
+                    break event;
+                }
+            }
+        })
+        .await
+        .expect("fake vendor hook produces the actual Adapter Status");
+        let read = w.read().await;
+        assert_eq!(
+            phases(&read, "idle").len(),
+            if kind == contracts::Kind::Idle { 2 } else { 1 }
+        );
+        assert!(
+            read["contributions"].as_array().unwrap().is_empty(),
+            "working is no model execution evidence"
+        );
+        delays.push(started.elapsed().as_millis());
+        transitions.push(serde_json::to_value(event).unwrap());
+    }
+    w.client
+        .request("agent.stop", json!({"id":w.agent}))
+        .await
+        .unwrap();
+    let before = tokio::time::timeout(Duration::from_secs(5), async {
+        loop {
+            let read = w.read().await;
+            if read["time_evidence"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .all(|f| f["value"]["state"]["kind"] == "ended")
+            {
+                break read;
+            }
+            tokio::task::yield_now().await;
+        }
+    })
+    .await
+    .unwrap();
+    assert_eq!(phases(&before, "startup"), startup);
+    let idle = phases(&before, "idle");
+    for (index, fact) in idle.iter().enumerate() {
+        assert_eq!(fact["home"], w.home);
+        assert_eq!(fact["agent"], w.agent);
+        assert_eq!(fact["attempt"], startup[0]["attempt"]);
+        assert_eq!(
+            fact["value"]["clock_lifetime"],
+            startup[0]["value"]["clock_lifetime"]
+        );
+        assert_eq!(
+            fact["value"]["activity"]["status_revision"],
+            if index == 0 {
+                opening_idle[0]["value"]["activity"]["status_revision"].clone()
+            } else {
+                transitions[1]["status_revision"].clone()
+            }
+        );
+    }
+    let endpoint =
+        std::fs::read_to_string(w.project.join(format!("endpoint-{}", w.agent))).unwrap();
+    let mut late = intervals(&w.source_id());
+    let segment = &idle[0]["value"]["segments"][0];
+    let start = i128::from(segment["start"]["unix_ms"].as_i64().unwrap()) * 1_000_000;
+    let end = i128::from(segment["end"]["unix_ms"].as_i64().unwrap()) * 1_000_000;
+    assert!(end > start, "the real idle interval has positive duration");
+    for span in late["resourceSpans"][0]["scopeSpans"][0]["spans"]
+        .as_array_mut()
+        .unwrap()
+    {
+        span["startTimeUnixNano"] = start.to_string().into();
+        span["endTimeUnixNano"] = end.to_string().into();
+    }
+    assert_eq!(post(&endpoint, late).await, 200);
+    let with_execution = w.contributions(2).await;
+    assert_eq!(
+        with_execution["time_evidence"], before["time_evidence"],
+        "late model/tool evidence overlaps idle without discarding either source or inventing a partition"
+    );
+    let cli =
+        tokio::process::Command::new(Path::new(env!("CARGO_BIN_EXE_rupd")).with_file_name("rup"))
+            .args(["--json", "project", "measurements", "--agent", &w.agent])
+            .env("RUPD_SOCKET", &w.daemon.socket)
+            .output()
+            .await
+            .unwrap();
+    assert!(
+        cli.status.success(),
+        "{}",
+        String::from_utf8_lossy(&cli.stderr)
+    );
+    let public: Value = serde_json::from_slice(&cli.stdout).unwrap();
+    assert_eq!(public["time_evidence"], before["time_evidence"]);
+    w.reopen().await;
+    assert_eq!(w.read().await["time_evidence"], before["time_evidence"]);
+    println!(
+        "other-time observer: {}",
+        json!({"project":before["project"],"status_events":transitions,"acquisition_delay_ms":delays,"time_evidence":before["time_evidence"],"clock_meanings":"unix_ms aligns local observations; monotonic_ns durations compare only within clock_lifetime and each segment; gaps remain uncovered"})
+    );
 }
 
 #[tokio::test]

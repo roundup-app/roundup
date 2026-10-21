@@ -350,11 +350,12 @@ impl Shared {
             if claude_code::is_session_start(payload));
         let star = matches!(&observation, Observation::Title(title) if title.starts_with('✳'));
         if session_start {
-            self.timing.lock().expect("measurement timing lock").begin(
-                id,
-                &run.attempt,
-                contracts::project::TimedActivity::Attempt,
-            );
+            if !run.session_started {
+                self.timing
+                    .lock()
+                    .expect("measurement timing lock")
+                    .acknowledge_attempt(id, &run.attempt);
+            }
             if !run.session_started && run.prompt.is_some() {
                 self.refuse_unless_gate_opens(id, &run.attempt);
             }
@@ -445,6 +446,12 @@ impl Shared {
                 status_revision: run.status_revision.to_string(),
                 status,
             };
+            if run.session_started && !run.ended {
+                self.timing
+                    .lock()
+                    .expect("measurement timing lock")
+                    .observe_status(&event);
+            }
             self.bus
                 .emit(actor.clone(), EventData::AgentStatus(event.into()));
         }
