@@ -10,6 +10,7 @@ use std::path::{Path, PathBuf};
 use std::time::Duration;
 
 use contracts::agent::Inbox;
+use contracts::message::MessageKind;
 use serde_json::{Value, json};
 
 use super::Launcher;
@@ -34,6 +35,7 @@ const CUT: &str = "[cut]";
 /// the text to be cut to one line of the TUI (B50(d)).
 pub struct Entry {
     pub id: u32,
+    pub kind: MessageKind,
     pub from: String,
     pub text: String,
     pub one_line: bool,
@@ -144,7 +146,9 @@ impl Launcher {
         let from = format!("uds:{}", self.socket_dir().join("rupd").display());
         let mut lines = vec![json!({ "type": "auth", "token": token })];
         for note in notes {
-            let text = if note.one_line {
+            let text = if note.kind == MessageKind::Question {
+                format!("[question, replyTo: {}] {}", note.id, note.text)
+            } else if note.one_line {
                 one_line(&note.text)
             } else {
                 note.text.clone()
