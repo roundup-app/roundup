@@ -228,3 +228,174 @@ async fn b2_busy_rollback_preserves_the_next_idle_in_either_order() {
         }
     }
 }
+
+struct RecoveringInbox {
+    state: StdMutex<contracts::agent::Inbox>,
+    written: StdMutex<Vec<u32>>,
+    gate: std::sync::atomic::AtomicBool,
+    checking: tokio::sync::Notify,
+    finish: tokio::sync::Notify,
+}
+
+#[async_trait]
+impl NoteInbox for RecoveringInbox {
+    async fn check(&self, _: &str) -> contracts::agent::Inbox {
+        if self.gate.swap(false, std::sync::atomic::Ordering::SeqCst) {
+            self.checking.notify_one();
+            self.finish.notified().await;
+        }
+        *self.state.lock().unwrap()
+    }
+
+    fn write(
+        &self,
+        _: &str,
+        entries: &[agents::claude_code::inbox::Entry],
+    ) -> Result<(), contracts::agent::Inbox> {
+        self.written
+            .lock()
+            .unwrap()
+            .extend(entries.iter().map(|e| e.id));
+        Ok(())
+    }
+}
+
+async fn recovering_note(
+    failure: contracts::agent::Inbox,
+) -> (
+    tempfile::TempDir,
+    Harness,
+    Arc<RecoveringInbox>,
+    Arc<StdMutex<Vec<String>>>,
+) {
+    let dir = tempfile::tempdir().unwrap();
+    let mut receiver = agent_node("b", Kind::Idle);
+    receiver.terminal_id = Some("terminal-b".into());
+    let typed: Arc<StdMutex<Vec<String>>> = Arc::default();
+    let seen = typed.clone();
+    let h = Harness::with_deliver(
+        dir.path(),
+        vec![agent_node("a", Kind::Working), receiver],
+        Arc::new(move |_, text| {
+            seen.lock().unwrap().push(text);
+            Box::pin(async { Ok(()) })
+        }),
+    );
+    let mut completed = h.messages.inner.completed.subscribe();
+    while completed.recv().await.unwrap() != "initial" {}
+    let inbox = Arc::new(RecoveringInbox {
+        state: StdMutex::new(failure),
+        written: StdMutex::new(vec![]),
+        gate: false.into(),
+        checking: tokio::sync::Notify::new(),
+        finish: tokio::sync::Notify::new(),
+    });
+    h.messages.set_inbox(inbox.clone());
+    let sent = h
+        .call_as(
+            agent("a"),
+            "message.send",
+            json!({
+                "to":"b", "kind":"note", "body":"recover after hold"
+            }),
+        )
+        .await;
+    if failure == contracts::agent::Inbox::Mismatch {
+        assert_eq!(sent.unwrap_err().code, code::INBOX_UNAVAILABLE);
+    } else {
+        assert_eq!(sent.unwrap()["id"], 1);
+    }
+    assert_eq!(
+        h.messages.get_or_not_found(1).unwrap().reason,
+        Some(Reason::Inbox)
+    );
+    (dir, h, inbox, typed)
+}
+
+async fn terminal_hold(h: &Harness, takeover: bool, begin: bool) {
+    if takeover {
+        h.call(
+            if begin {
+                "takeover.begin"
+            } else {
+                "takeover.end"
+            },
+            json!({"agent":"b"}),
+        )
+        .await
+        .unwrap();
+    } else {
+        h.messages
+            .user_wrote("terminal-b", if begin { b"draft" } else { b"\x15" })
+            .await;
+    }
+}
+
+fn assert_recovery_held(h: &mut Harness, inbox: &RecoveringInbox, typed: &StdMutex<Vec<String>>) {
+    assert!(
+        inbox.written.lock().unwrap().is_empty(),
+        "no inbox send during hold"
+    );
+    assert!(typed.lock().unwrap().is_empty(), "no Terminal fallback");
+    let message = h.messages.get_or_not_found(1).unwrap();
+    assert_eq!(message.status, MessageStatus::Held);
+    assert!(!h.messages.store().unwrap().in_flight(1).unwrap());
+    assert!(!h.events().iter().any(|e| e == "message.delivered"));
+}
+
+async fn recovery_waits_for_last_hold(takeover: bool) {
+    for failure in [
+        contracts::agent::Inbox::Missing,
+        contracts::agent::Inbox::Mismatch,
+    ] {
+        for both in [false, true] {
+            let (_dir, mut h, inbox, typed) = recovering_note(failure).await;
+            terminal_hold(&h, takeover, true).await;
+            if both {
+                terminal_hold(&h, !takeover, true).await;
+            }
+            *inbox.state.lock().unwrap() = contracts::agent::Inbox::Ok;
+            on_status(&h.messages.inner, "b", "1", "2", Kind::Idle).await;
+            assert_recovery_held(&mut h, &inbox, &typed);
+            if both {
+                terminal_hold(&h, !takeover, false).await;
+                on_status(&h.messages.inner, "b", "1", "3", Kind::Idle).await;
+                assert_recovery_held(&mut h, &inbox, &typed);
+            }
+            terminal_hold(&h, takeover, false).await;
+            on_status(&h.messages.inner, "b", "1", "4", Kind::Idle).await;
+            assert_eq!(*inbox.written.lock().unwrap(), [1]);
+            assert_eq!(
+                h.messages.get_or_not_found(1).unwrap().status,
+                MessageStatus::Pending
+            );
+            assert!(!h.events().iter().any(|e| e == "message.delivered"));
+            h.messages.confirm_inbox("b", &[1]);
+            h.messages.confirm_inbox("b", &[1]);
+            on_status(&h.messages.inner, "b", "1", "5", Kind::Idle).await;
+            assert_eq!(
+                h.messages.get_or_not_found(1).unwrap().status,
+                MessageStatus::Delivered
+            );
+            assert_eq!(
+                h.events()
+                    .iter()
+                    .filter(|e| *e == "message.delivered")
+                    .count(),
+                1
+            );
+            assert_eq!(*inbox.written.lock().unwrap(), [1]);
+            assert!(typed.lock().unwrap().is_empty());
+        }
+    }
+}
+
+#[tokio::test]
+async fn b6_inbox_recovery_waits_for_takeover_to_end() {
+    recovery_waits_for_last_hold(true).await;
+}
+
+#[tokio::test]
+async fn b32_inbox_recovery_waits_for_unsent_input_to_end() {
+    recovery_waits_for_last_hold(false).await;
+}
