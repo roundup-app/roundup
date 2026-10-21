@@ -43,6 +43,12 @@ const STRUCTURE = new Set([
 
 const UI_ATTRIBUTES = /^(aria-label|aria-description|aria-valuetext|title|placeholder|alt|label|fallback)$/;
 
+// A value only compared (`a === "x"`, a conditional's test) picks what shows; the App never shows the value itself.
+const COMPARISONS = new Set(["===", "!==", "==", "!=", "<", "<=", ">", ">=", "in", "instanceof"]);
+
+const compared = (inner: readonly Node[], node: Node) => [...inner, node].some((each, at, path) =>
+  (each.type === "BinaryExpression" && COMPARISONS.has(each.operator)) || (each.type === "ConditionalExpression" && each.test === path[at + 1]));
+
 const candidates = (source: string): { line: number; text: string }[] => {
   const found: { line: number; text: string }[] = [];
   const tree = parse(source, { sourceType: "module", plugins: ["typescript", "jsx"] });
@@ -67,13 +73,13 @@ const candidates = (source: string): { line: number; text: string }[] => {
     // A UI attribute's JSX value (a `fallback` element) shows only its own text and UI attributes, never its other props.
     const shown = (inner: readonly Node[]) => !inner.some((each) => each.type === "JSXAttribute" && (each.name.type !== "JSXIdentifier" || !UI_ATTRIBUTES.test(each.name.name)));
 
-    visit(node.expression, [], (each, inner) => { if (each.type === "Identifier" && shown(inner)) used.add(each.name); });
+    visit(node.expression, [], (each, inner) => { if (each.type === "Identifier" && shown(inner) && !compared(inner, each)) used.add(each.name); });
   });
 
   for (const name of used) {
     const bound = bindings.get(name);
 
-    if (bound && !["ArrowFunctionExpression", "FunctionExpression", "CallExpression"].includes(bound.type)) visit(bound, [], (each) => { if (each.type === "Identifier") used.add(each.name); });
+    if (bound && !["ArrowFunctionExpression", "FunctionExpression", "CallExpression"].includes(bound.type)) visit(bound, [], (each, inner) => { if (each.type === "Identifier" && !compared(inner, each)) used.add(each.name); });
   }
 
   visit(tree, [], (node, ancestors) => {
