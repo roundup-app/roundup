@@ -18,17 +18,17 @@ import { useTodoList } from "../../todos/todoList";
 import { ownKeys } from "../rows";
 import { Tip } from "../../ui/Tip";
 import { Trunks } from "../Trunks";
-import { todosBy, padsOwnedBy } from "./owned";
+import { todosCreatedBy, padsOwnedBy } from "./owned";
 import { usePadList } from "./padList";
 
-/** The Pads and Todos under one Rail row (U58, U60, U461a): `n` is how many its Agent owns and created together (0 for any other row), `shown` is whether the control is open. */
+/** The Pads and Todos under one Rail row (U58, U60): `n` is how many its Agent owns and created together (0 for any other row), `shown` is whether the control is open. */
 export const createAgentPads = (node: Accessor<RailNode>) => {
   const all = usePadList().pads;
   const todos = useTodoList();
   const [shown, setShown] = createSignal(false);
   const [failure, setFailure] = createSignal<string | null>(null);
   const owned = createMemo(() => (node().kind === "agent" ? padsOwnedBy(all(), node().id) : []));
-  const ownedTodos = createMemo(() => (node().kind === "agent" ? todosBy(todos.all(), node().id) : []));
+  const ownedTodos = createMemo(() => (node().kind === "agent" ? todosCreatedBy(todos.all(), node().id) : []));
   const connected = useConnectedProject();
 
   const reorder = createSortedList({
@@ -161,7 +161,9 @@ export const PadRows = (props: { pads: AgentPads; depth: number; trail: readonly
                         known={props.pads.todos.byId()}
                         onOpen={(opened, source) => connected.drawer.open(() => <TodoDrawer id={opened.id} todos={props.pads.todos} />, source)}
                         sorted={sorted}
-                        onToggle={(done) => failureOf(() => done.done ? connected.app.rpc("todo.reopen", { id: done.id }) : connected.app.rpc("todo.complete", { id: done.id }))}
+                        onComplete={(done) => failureOf(() => done.done
+                          ? connected.app.rpc("todo.reopen", { id: done.id })
+                          : connected.app.rpc("todo.complete", { id: done.id }))}
                       />
                     </Leaf>
                   );
