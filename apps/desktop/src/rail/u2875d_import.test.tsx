@@ -176,7 +176,8 @@ describe("u2875d the import panel is an ordinary Rail action", () => {
     expect(calls(app, "project.importCommit")).toEqual([]);
 
     fireEvent.click(screen.getByRole("button", { name: "Refresh" }));
-    await screen.findByText(/Changed or gone since you chose them: First/);
+    await waitFor(() => expect(screen.getAllByRole("checkbox").length).toBeGreaterThan(0));
+    expect(screen.queryByText(/Changed or gone since you chose them/)).toBeNull();
     expect(calls(app, "project.importDiscover").map((call) => call.params)).toEqual([{ period: "month" }]);
     expect(screen.getAllByRole("checkbox").every((box) => box instanceof HTMLInputElement && !box.checked)).toBe(true);
   });
