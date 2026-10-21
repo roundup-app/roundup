@@ -8,7 +8,7 @@ GitHub auto-merge merges a PR once the ruleset's required checks pass on its hea
 
 ## Scope
 
-Scope is the PR's own commits' diff and the `loop/rules.sh merge-loss` result, judged against the Issue's scenarios, from git alone; the PR body is never scope. `merge-loss` (the `rules` job) fails a file only a merge changed; a merge's dropped main-side lines in own files show in `git show --remerge-diff <merge>`, and review weighs them against the scenario (L120).
+Scope is the PR's own commits' diff and the `loop/rules.sh merge-loss` result, judged against the Issue's scenarios, from git alone; the PR body is never scope. A scenario edit in the diff is in scope when the work order ("The work order:" in the task, the Issue the PR names) asks for it; reject one the order does not ask for, or one that loosens acceptance only to fit the diff. `merge-loss` (the `rules` job) fails a file only a merge changed; a merge's dropped main-side lines in own files show in `git show --remerge-diff <merge>`, and review weighs them against the scenario (L120).
 
 ## Reuse
 
@@ -26,5 +26,7 @@ Head: <full SHA reviewed>
 
 Reviewed-by-Agent: <id differing from every Author-Agent>
 ```
+
+A finding rejects only when an ordinary path reproduces it (or it is in `builder.md`'s always-reject list); one needing an injected failure, a held reply, a second writer, a component removed mid-edit, or code an earlier verdict reviewed unchanged is a `FOLLOWUP:` (L24).
 
 Until a script checks them, `tokens` (L41) are checked by hand.
