@@ -482,3 +482,36 @@ M1–M10 retain their transitions and laws: this adds no Type effect (M1/M3), ch
 no queue or retained identity (M4/M5/M6), revives no receiver (M7), changes no hop
 (M8/M9), and adds no progress requirement or await (M10). Routes and Held authority
 (M2) are unchanged. `proofs/messages` therefore needs no model or law change.
+
+
+## External result reconciliation (U3078h)
+
+An unknown external effect remains current across later claims, instruction changes
+and reopen. A later report or acceptance cannot remove that guard, and retained-byte
+or PR checks cannot resolve it. `message.resolveResult` is user-only: the Daemon GETs
+the read-only receipt URL the user designates as authoritative, without credentials,
+redirects, Model calls or Messages. A response is a `ResultResolution`, for example:
+
+```json
+{"target":{"id":"payment","revision":"v1"},"revision":"provider-receipt-37","observed_at":1792540800,"outcome":{"kind":"completed"}}
+```
+
+`observed_at` is Unix seconds at the source observation, not an effect timestamp.
+The other outcomes are `{"kind":"not-performed"}` and
+`{"kind":"inconclusive","cause":"provider still reconciling"}`.
+The user command is `rup message resolve-result <project> <id> <report> <source> --json`;
+it needs no Agent flag. A vendor child remains an authenticated Agent and is refused,
+even when the CLI identifies as the user.
+
+The source must return this declared receipt contract; arbitrary provider responses
+are unsupported. Only a fresh, exact-target/version, revision-bearing conclusive
+receipt resolves the report. HTTP/parse/read failures, stale or future timestamps,
+wrong versions and inconclusive answers append unknown causes and checking actions.
+Conclusive observations retain the source, authorizer and receipt in the existing
+Message fact holder, readable after restart. Verification can read that retained
+resolution without contacting the source again. A later failed read preserves the
+historical conclusive evidence. Completion and confirmed non-performance are distinct;
+continuation eligibility remains outside this holder.
+
+M1–M10, Message/Route/Held/Takeover transitions and `proofs/messages` stay unchanged:
+resolution reads and appends evidence; it neither creates nor delivers a Message.
