@@ -314,6 +314,52 @@ mod time_tests {
     }
 
     #[tokio::test(start_paused = true)]
+    async fn u3016c_ready_before_acknowledgement_retains_idle_clock_points() {
+        for closes_before_ack in [false, true] {
+            let w = World::new();
+            let id = crate::tests::running_agent(&w.agents.shared, None);
+            w.agents
+                .shared
+                .observe(
+                    Actor::daemon(),
+                    &id,
+                    "1",
+                    Observation::Title("✳ Ready".into()),
+                )
+                .unwrap();
+            w.advance(1).await;
+            if closes_before_ack {
+                w.signal(
+                    &id,
+                    json!({"hook_event_name":"UserPromptSubmit","prompt":"Fixture prompt"}),
+                );
+            }
+            assert!(activity(&w.read().await, "idle").is_empty());
+            w.signal(&id, json!({"hook_event_name":"SessionStart"}));
+            w.advance(3).await;
+            let read = w.read().await;
+            let idle = activity(&read, "idle");
+            assert_eq!(idle.len(), 1);
+            assert_eq!(idle[0]["agent"], id);
+            assert_eq!(idle[0]["attempt"], "1");
+            assert_eq!(idle[0]["value"]["activity"]["status_revision"], "2");
+            assert_eq!(idle[0]["value"]["start"]["unix_ms"], 1000);
+            assert_eq!(
+                idle[0]["value"]["segments"][0]["end"]["monotonic_ns"],
+                if closes_before_ack {
+                    "1000000000"
+                } else {
+                    "4000000000"
+                }
+            );
+            assert_eq!(
+                idle[0]["value"]["state"]["kind"],
+                if closes_before_ack { "ended" } else { "active" }
+            );
+        }
+    }
+
+    #[tokio::test(start_paused = true)]
     async fn u3016c_startup_evidence_ends_on_acknowledgement() {
         let w = World::new();
         let id = crate::tests::running_agent(&w.agents.shared, None);
