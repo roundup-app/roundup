@@ -619,6 +619,10 @@ fn offered_tools() -> Vec<Offered> {
             "agent.actionHistory",
             "Read your durably accepted child actions and their outcomes. Waiting means accepted, not executed; do not resubmit it. A dropped reason explains an unavailable or uncertain effect.",
         ),
+        offered::<agent::NodeId>(
+            "agent.instructions",
+            "Read exact instruction revisions and Attempt-bound delivery facts for yourself or an Agent in your Reach. Reading sends nothing; submission never proves completion of work.",
+        ),
         agent_context(),
         agent_wake(),
         agent_set_order(),
