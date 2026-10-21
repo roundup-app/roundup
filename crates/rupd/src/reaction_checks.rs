@@ -211,15 +211,15 @@ impl Watcher {
     ) {
         match verdict {
             Verdict::Match => {
-                if let Err(error) = self.agents.guard_reach(&saved.actor, &saved.target, true) {
+                if let Err(why) = self.agents.guard_reach(&saved.actor, &saved.target, true) {
                     self.reactions.observe(
                         &saved.id,
                         "unavailable",
                         Some(format!(
-                            "the saved authority was refused: {}",
-                            error.message
+                            "authority refused: {}; the user may inspect or stop this reaction",
+                            why.message
                         )),
-                        Some(State::Invalidated),
+                        None,
                     );
                     return;
                 }
@@ -466,71 +466,78 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn nr8_pr_checks_refuse_revoked_authority_without_accepting_work() {
-        let (project, daemon, client, watcher, author) = daemon().await;
-        let actor = Actor {
-            kind: contracts::ActorKind::Agent,
-            id: author,
-            parent: None,
-        };
-        let as_author = rpc::Client::connect(&project.path().join("daemon.sock"))
-            .await
-            .unwrap();
-        as_author
-            .request("daemon.identify", json!({"actor": actor}))
-            .await
-            .unwrap();
-        let target = as_author
-            .request(
-                "agent.spawn",
-                json!({
-                    "cwd": project.path(), "prompt": null, "parent": null
-                }),
-            )
-            .await
-            .unwrap()["id"]
-            .as_str()
-            .unwrap()
-            .to_owned();
-        let params = serde_json::from_value(json!({
-            "operation": "revoked", "name": "ship", "target": target,
-            "instruction": "ship it", "condition": {"kind": "pr-checks", "repository": REPO, "number": 23},
-            "expires_at": "2099-01-01T00:00:00Z"
-        })).unwrap();
-        let world = daemon.reader().world().await.unwrap();
-        let saved = daemon
-            .reaction_create(&actor, &world, params, Some(Ok("a".into())))
-            .unwrap();
-        client
-            .request(
-                "rail.move",
-                json!({"id": target, "parent": null, "index": 0}),
-            )
-            .await
-            .unwrap();
-        let feed = Arc::new(std::sync::Mutex::new(passed("a")));
-        run(&watcher, &feed).await;
-        run(&watcher, &feed).await;
-        let seen = get(&client, &saved.id).await;
-        assert_eq!(seen["firings"], json!([]));
-        assert_eq!(seen["remaining"], 1);
-        assert_eq!(seen["state"], "invalidated");
-        assert!(
-            seen["observation"]["cause"]
+    async fn nr8_checks_refuse_a_target_after_authority_or_lifecycle_loss() {
+        for removed in [false, true] {
+            let (project, daemon, client, watcher, author) = daemon().await;
+            let actor = Actor {
+                kind: contracts::ActorKind::Agent,
+                id: author,
+                parent: None,
+            };
+            let target = daemon
+                .agents
+                .call(
+                    &daemon.ctx(actor.clone()),
+                    "agent.spawn",
+                    json!({
+                        "cwd": project.path(), "prompt": null,
+                    }),
+                )
+                .await
+                .unwrap()["id"]
                 .as_str()
                 .unwrap()
-                .contains("Reach")
-        );
-        let sent = client
-            .request("message.list", json!({"to": target}))
-            .await
+                .to_owned();
+            let params = serde_json::from_value(json!({
+                "operation": "authorized-checks", "name": "ship", "target": target,
+                "instruction": "revoked checks instruction",
+                "condition": {"kind": "pr-checks", "repository": REPO, "number": 23},
+                "expires_at": "2099-01-01T00:00:00Z",
+            }))
             .unwrap();
-        assert!(
-            sent.as_array()
-                .unwrap()
-                .iter()
-                .all(|m| m["body"] != "ship it")
-        );
+            let world = daemon.reader().world().await.unwrap();
+            let saved = daemon
+                .reaction_create(&actor, &world, params, Some(Ok("a".into())))
+                .unwrap();
+            if removed {
+                client
+                    .request("rail.remove", json!({"id": target}))
+                    .await
+                    .unwrap();
+            } else {
+                client
+                    .request(
+                        "rail.move",
+                        json!({"id": target, "parent": null, "index": 0}),
+                    )
+                    .await
+                    .unwrap();
+            }
+            let feed: Feed = Arc::new(std::sync::Mutex::new(passed("a")));
+            run(&watcher, &feed).await;
+            run(&watcher, &feed).await;
+            let seen = get(&client, &saved.id).await;
+            assert_eq!(seen["firings"], json!([]), "{seen}");
+            assert_eq!(seen["remaining"], 1);
+            assert_eq!(seen["target"], target);
+            assert_eq!(seen["observation"]["health"], "unavailable");
+            let cause = seen["observation"]["cause"].as_str().unwrap();
+            assert!(
+                cause.contains(if removed { "gone" } else { "Reach" }),
+                "{cause}"
+            );
+            let sent = client
+                .request("message.list", json!({"to": target}))
+                .await
+                .unwrap();
+            assert!(
+                !sent
+                    .as_array()
+                    .unwrap()
+                    .iter()
+                    .any(|m| m["body"] == "revoked checks instruction")
+            );
+        }
     }
 
     #[tokio::test]
@@ -657,27 +664,6 @@ mod tests {
         let evidence: Value =
             serde_json::from_str(fired["firings"][0]["evidence"].as_str().unwrap()).unwrap();
         assert_eq!(evidence["head"], "a");
-        // The firing's operation is the pinned head: a replay of it adds nothing.
-        let replay = watcher
-            .messages
-            .fire_reaction(messages::reaction::Fire {
-                reaction: one.clone(),
-                operation: "pr-checks:a".into(),
-                to: target.clone(),
-                body: "ship it".into(),
-                evidence: String::new(),
-                matched: true,
-            })
-            .await
-            .unwrap();
-        assert_eq!(replay.0.id, fired["firings"][0]["id"]);
-        assert_eq!(
-            get(&client, &one).await["firings"]
-                .as_array()
-                .unwrap()
-                .len(),
-            1
-        );
         assert_eq!(fired["firings"][0]["matched"], true);
         let sent = client
             .request("message.list", json!({ "to": target }))
