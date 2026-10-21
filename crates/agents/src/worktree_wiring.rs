@@ -9,6 +9,11 @@ impl Agents {
         revision: &str,
         now_ms: i64,
     ) -> Result<(String, String), RpcError> {
+        // Published work no longer depends on the external original. Concurrent first
+        // imports still converge under prepare_closed's lifecycle lock after validation.
+        if let Some((workstream, agent, true)) = self.shared.rail().closed_source(source)? {
+            return Ok((workstream, agent));
+        }
         let project = self.project_dir().to_owned();
         let launcher = self.launcher.clone();
         let (src, rev) = (source.to_owned(), revision.to_owned());
@@ -433,8 +438,14 @@ fn evidence_wire(evidence: Evidence, stale: bool) -> WorktreeEvidence {
                 })
                 .collect(),
         },
+        Evidence::Pending(read) => WorktreeEvidence {
+            repository: Some(format!("{}/{}", read.host, read.repository)),
+            head: Some(read.head),
+            read_at: Some(read.read_at),
+            ..incomplete(S::Incomplete)
+        },
         Evidence::Incomplete(gap) => incomplete(match gap {
-            Gap::Pending | Gap::NoRequiredChecks => S::Incomplete,
+            Gap::NoRequiredChecks => S::Incomplete,
             Gap::StaleHead => S::StaleHead,
             Gap::ReadFailed => S::Unknown,
             Gap::GhMissing
@@ -737,7 +748,12 @@ mod tests {
         const ID: &str = "11111111-1111-4111-8111-111111111111";
         let (dir, agents, _) = fixture();
         let project = dir.path().canonicalize().unwrap();
-        let bucket = dir.path().join("projects/bucket");
+        let encoded: String = project
+            .to_string_lossy()
+            .chars()
+            .map(|c| if c.is_ascii_alphanumeric() { c } else { '-' })
+            .collect();
+        let bucket = dir.path().join("projects").join(encoded);
         std::fs::create_dir_all(&bucket).unwrap();
         let file = bucket.join(format!("{ID}.jsonl"));
         let line = |ts: &str| {
@@ -751,6 +767,7 @@ mod tests {
         let found = agents
             .launcher
             .discover_recent(&project, now, 86_400_000)
+            .await
             .unwrap();
         let revision = found.candidates[0].revision.clone();
         // The source changes after preview: refused, nothing published.
@@ -771,6 +788,7 @@ mod tests {
         let found = agents
             .launcher
             .discover_recent(&project, now, 86_400_000)
+            .await
             .unwrap();
         let revision = found.candidates[0].revision.clone();
         let ids = agents
@@ -796,7 +814,12 @@ mod tests {
         const ID: &str = "22222222-2222-4222-8222-222222222222";
         let (dir, agents, _) = fixture();
         let project = dir.path().canonicalize().unwrap();
-        let bucket = dir.path().join("projects/bucket");
+        let encoded: String = project
+            .to_string_lossy()
+            .chars()
+            .map(|c| if c.is_ascii_alphanumeric() { c } else { '-' })
+            .collect();
+        let bucket = dir.path().join("projects").join(encoded);
         std::fs::create_dir_all(&bucket).unwrap();
         let n = time::OffsetDateTime::now_utc();
         let ts = format!(

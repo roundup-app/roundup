@@ -1,5 +1,6 @@
 import { cleanup, fireEvent, screen, waitFor, within } from "@solidjs/testing-library";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
+import { createProjectDrafts } from "../state/connectedProject";
 import { event, info } from "../testing/nodes";
 import { bubbleCalls, bubbleChord, mountBubbles, TERMINALS } from "./bubblesFixture";
 
@@ -114,7 +115,7 @@ it("u511a_click_away_commits_before_the_target_action", async () => {
   await edit("2");
   fireEvent.input(field()!, { target: { value: "kept" } });
   fireEvent.pointerDown(tab("1")!);
-  fireEvent.blur(field()!);
+  tab("1")!.focus();
   await waitFor(() => expect(tab("2")?.getAttribute("aria-label")).toBe("kept"));
 });
 
@@ -144,10 +145,10 @@ it("u511a_name_survives_selection_and_webview_reload", async () => {
 });
 
 it("u511a_context_rename_uses_the_same_editor", async () => {
-  await mountBubbles();
+  const { app } = await mountBubbles();
   fireEvent.contextMenu(tab("2")!, { clientX: 10, clientY: 10 });
-  await waitFor(() => expect(document.querySelector('[role="menuitem"]')?.textContent).toBe("Rename"));
-  fireEvent.click(document.querySelector('[role="menuitem"]')!);
+  expect(app.menuLabels()[0]).toBe("Rename");
+  await app.pickMenu("Rename");
   await waitFor(() => expect(document.activeElement).toBe(field()));
   expect(field()!.value).toBe("zsh");
   expect(document.querySelector(".terminal-tab-editor button")).toBeNull();
@@ -350,4 +351,248 @@ it("u2773e_recovery_actions_keep_surface_draft_bubbles", async () => {
   fireEvent.click(within(recovery).getByRole("button", { name: "Discard this revision" }));
   expect(mounted.connected.drafts.list()).toEqual([]);
   expect(bubbleCalls(mounted.app, "terminal.write")).toEqual([]);
+});
+
+
+const selectedBubbles = async (outcome: "failed" | "unknown" = "failed") => {
+  const mounted = await mountBubbles("a", TERMINALS.map(terminal => ({ ...terminal, title: "zsh" })));
+  const drafts = mounted.connected.drafts;
+  const destination = { surface: "bubbles", object: TERMINALS[1]!.incarnation, recipient: "2" };
+
+  const a = drafts.edit(destination, { name: "  A e\u0301 🫧 雪  ", base: "zsh" },
+    { start: 2, end: 7, direction: "backward" }, "ordinary").draft;
+
+  drafts.submit(a.revision);
+  drafts.settle(a.revision, outcome);
+
+  const b = drafts.edit(destination, { name: "  B 雪  ", base: "zsh" },
+    { start: 1, end: 4, direction: "forward" }, "ordinary").draft;
+
+  const open = (revision: string, project = "/p") => mounted.recover({ project, revision });
+
+  return { ...mounted, drafts, destination, a: drafts.list().find(draft => draft.revision === a.revision)!, b, open };
+};
+
+it.each(["failed", "unknown"] as const)("u3021c_open_restores_exact_revision_without_rpc_bubbles_%s", async outcome => {
+  const { app, drafts, a, b, open, connected } = await selectedBubbles(outcome);
+  const before = drafts.list();
+  const calls = [...app.calls];
+  const writes = vi.spyOn(Storage.prototype, "setItem");
+  open(a.revision);
+  await waitFor(() => expect(document.activeElement).toBe(field()));
+  expect(field()).not.toBeNull();
+  expect([field()!.value, field()!.selectionStart, field()!.selectionEnd, field()!.selectionDirection])
+    .toEqual([a.value.name, 2, 7, "backward"]);
+  field()!.focus();
+  fireEvent.blur(field()!);
+  await waitFor(() => expect(field()).toBeNull());
+  open(b.revision);
+  await waitFor(() => expect(field()?.value).toBe(b.value.name));
+  await waitFor(() => expect(document.activeElement).toBe(field()));
+  expect([field()!.selectionStart, field()!.selectionEnd, field()!.selectionDirection]).toEqual([1, 4, "forward"]);
+  connected.rail.select("other");
+  await waitFor(() => expect(field()).toBeNull());
+  expect(drafts.list()).toEqual(before);
+  expect(app.calls).toEqual(calls);
+  expect(writes).not.toHaveBeenCalled();
+  writes.mockRestore();
+});
+
+it.each(["failed", "unknown"] as const)("u3021c_bubbles_editing_selected_revision_keeps_current_work_%s", async outcome => {
+  const { app, drafts, a, b, open } = await selectedBubbles(outcome);
+  const calls = [...app.calls];
+  open(a.revision);
+  await waitFor(() => expect(document.activeElement).toBe(field()));
+  fireEvent.input(field()!, { target: { value: "  edited A 🧭  " } });
+  field()!.setSelectionRange(1, 6, "backward");
+  fireEvent.select(field()!);
+  fireEvent.blur(field()!);
+  await waitFor(() => expect(field()).toBeNull());
+  const edited = drafts.list().find(draft => draft.value.name === "  edited A 🧭  ")!;
+  expect(edited.selection).toEqual({ start: 1, end: 6, direction: "backward" });
+  expect(drafts.list()).toContainEqual(a);
+  expect(drafts.list()).toContainEqual(b);
+  expect(tab("2")!.getAttribute("aria-label")).toBe("zsh");
+  await edit("2");
+  expect([field()!.value, field()!.selectionStart, field()!.selectionEnd, field()!.selectionDirection])
+    .toEqual([b.value.name, 1, 4, "forward"]);
+  open(edited.revision);
+  await waitFor(() => expect(field()?.value).toBe("  edited A 🧭  "));
+  await waitFor(() => expect(document.activeElement).toBe(field()));
+  expect([field()!.selectionStart, field()!.selectionEnd, field()!.selectionDirection]).toEqual([1, 6, "backward"]);
+  fireEvent.keyDown(field()!, { key: "Escape" });
+  expect(app.calls).toEqual(calls);
+  cleanup();
+  const reopened = await mountBubbles();
+
+  await edit("2");
+  expect([field()!.value, field()!.selectionStart, field()!.selectionEnd, field()!.selectionDirection])
+    .toEqual([b.value.name, 1, 4, "forward"]);
+  reopened.recover({ project: "/p", revision: edited.revision });
+  await waitFor(() => expect(field()?.value).toBe("  edited A 🧭  "));
+  await waitFor(() => expect(document.activeElement).toBe(field()));
+  expect([field()!.selectionStart, field()!.selectionEnd, field()!.selectionDirection]).toEqual([1, 6, "backward"]);
+});
+
+it.each(["acknowledged", "failed"] as const)("u3021c_bubbles_confirmation_settles_only_submitted_edit_%s", async outcome => {
+  const { drafts, a, b, open } = await selectedBubbles();
+  open(a.revision);
+  await waitFor(() => expect(document.activeElement).toBe(field()));
+  fireEvent.input(field()!, { target: { value: "edited A" } });
+  const submitted = drafts.list().find(draft => draft.value.name === "edited A")!;
+  const write = Storage.prototype.setItem;
+
+  const writes = vi.spyOn(Storage.prototype, "setItem").mockImplementation(function (this: Storage, key, value) {
+    if (outcome === "failed" && key === "roundup:bubble-places:/p") throw new Error("name write refused");
+
+    return write.call(this, key, value);
+  });
+
+  fireEvent.keyDown(field()!, { key: "Enter" });
+  await waitFor(() => expect(drafts.list().find(draft => draft.revision === submitted.revision)?.status)
+    .toBe(outcome === "acknowledged" ? undefined : "failed"));
+  expect(tab("2")!.getAttribute("aria-label")).toBe(outcome === "acknowledged" ? "edited A" : "zsh");
+  expect(writes.mock.calls.filter(([key, value]) => key === "roundup:bubble-places:/p" && JSON.parse(value)["2"]?.name === "edited A")).toHaveLength(1);
+  expect(drafts.list()).toContainEqual(a);
+  expect(drafts.list()).toContainEqual(b);
+  writes.mockRestore();
+});
+
+it("u3021c_bubbles_selected_edit_keeps_captured_base_conflict_refusal", async () => {
+  const { app, drafts, a, b, open, setListed, connected } = await selectedBubbles();
+  setListed(TERMINALS.map(terminal => terminal.id === "2" ? { ...terminal, title: "external" } : terminal));
+  app.emit(event({ name: "terminal.changed" }));
+  await waitFor(() => expect(connected.rail.terminals().find(terminal => terminal.id === "2")!.title).toBe("external"));
+  open(a.revision);
+  await waitFor(() => expect(document.activeElement).toBe(field()));
+  fireEvent.input(field()!, { target: { value: "my edit" } });
+  fireEvent.keyDown(field()!, { key: "Enter" });
+  const recovery = await screen.findByRole("dialog", { name: "Unfinished work" });
+  expect(within(recovery).getByText(/original name changed/)).toBeDefined();
+  expect(tab("2")!.getAttribute("aria-label")).toBe("external");
+  expect(drafts.list().find(draft => draft.value.name === "my edit")?.value.base).toBe("zsh");
+  expect(drafts.list()).toContainEqual(b);
+});
+
+it("u3021c_bubbles_unknown_acceptance_is_never_retried_unchanged", async () => {
+  const { app, drafts, a, open } = await selectedBubbles("unknown");
+  const before = drafts.list();
+  const calls = [...app.calls];
+  const writes = vi.spyOn(Storage.prototype, "setItem");
+  open(a.revision);
+  await waitFor(() => expect(document.activeElement).toBe(field()));
+  fireEvent.keyDown(field()!, { key: "Enter" });
+  await screen.findByRole("dialog", { name: "Unfinished work" });
+  expect(tab("2")!.getAttribute("aria-label")).toBe("zsh");
+  expect(drafts.list()).toEqual(before);
+  expect(app.calls).toEqual(calls);
+  expect(writes.mock.calls.filter(([key, value]) => key === "roundup:bubble-places:/p" && JSON.parse(value)["2"]?.name !== undefined)).toEqual([]);
+  writes.mockRestore();
+});
+
+it.each(["project", "object", "recipient", "surface", "pending", "missing-base", "missing-revision"] as const)("u3021c_bubbles_refuses_selected_revision_with_wrong_authority_%s", async mismatch => {
+  const { app, drafts, destination, a, open } = await selectedBubbles();
+
+  const wrong = drafts.edit({ ...destination,
+    object: mismatch === "object" ? TERMINALS[0]!.incarnation : destination.object,
+    recipient: mismatch === "recipient" ? "1" : destination.recipient,
+    surface: mismatch === "surface" ? "header" : "bubbles" },
+    mismatch === "missing-base" ? { name: "zsh" } : { name: "zsh", base: "zsh" }, null, "ordinary", null).draft;
+
+  if (mismatch === "pending") drafts.submit(wrong.revision);
+  const before = drafts.list();
+  const calls = [...app.calls];
+  open(mismatch === "project" ? a.revision : mismatch === "missing-revision" ? "absent" : wrong.revision,
+    mismatch === "project" ? "/other" : "/p");
+  expect(field()).toBeNull();
+  expect(drafts.list()).toEqual(before);
+  expect(app.calls).toEqual(calls);
+});
+
+it.each(["stopped", "removed", "replaced", "daemon-exited"] as const)("u3021c_bubbles_refuses_unavailable_original_%s", async unavailable => {
+  const { app, drafts, a, open, setListed, connected, setExit } = await selectedBubbles();
+
+  if (unavailable === "daemon-exited") setExit({ code: 1 });
+  else {
+    setListed(unavailable === "removed" ? TERMINALS.filter(terminal => terminal.id !== "2")
+      : TERMINALS.map(terminal => terminal.id === "2" ? { ...terminal,
+        running: unavailable !== "stopped", incarnation: unavailable === "replaced" ? "new-original" : terminal.incarnation } : terminal));
+    app.emit(event({ name: "terminal.changed" }));
+
+    if (unavailable === "removed") await waitFor(() => expect(connected.rail.terminals().find(terminal => terminal.id === "2")).toBeUndefined());
+    else await waitFor(() => expect(connected.rail.terminals().find(terminal => terminal.id === "2")!)
+      .toMatchObject(unavailable === "stopped" ? { running: false } : { incarnation: "new-original" }));
+  }
+
+  const before = drafts.list();
+  const calls = [...app.calls];
+  open(a.revision);
+  expect(field()).toBeNull();
+  expect(drafts.list()).toEqual(before);
+  expect(app.calls).toEqual(calls);
+});
+
+
+it("u3021c_copy_and_discard_keep_other_revisions_bubbles_after_reopen", async () => {
+  const { drafts, a, b, setListed, app, connected } = await selectedBubbles();
+  const other = createProjectDrafts()("/other");
+  const elsewhere = other.edit(a.destination, { name: "other Project", base: "zsh" }, null, "ordinary").draft;
+
+  setListed(TERMINALS.filter(terminal => terminal.id !== "2"));
+  app.emit(event({ name: "terminal.changed" }));
+  await waitFor(() => expect(connected.rail.terminals().some(terminal => terminal.id === "2")).toBe(false));
+  fireEvent.click(screen.getByRole("button", { name: "Recover unfinished work · Terminal name" }));
+  const dialog = await screen.findByRole("dialog", { name: "Unfinished work" });
+
+  fireEvent.click(within(dialog).getByRole("button", { name: /^Inspect · Failed/ }));
+  expect(within(dialog).getByText("Original object unavailable")).toBeDefined();
+  const clipboard = vi.fn().mockResolvedValue(undefined);
+
+  Object.defineProperty(navigator, "clipboard", { configurable: true, value: { writeText: clipboard } });
+  fireEvent.click(within(dialog).getByRole("button", { name: "Copy name" }));
+  await waitFor(() => expect(clipboard).toHaveBeenCalledExactlyOnceWith("  A e\u0301 🫧 雪  "));
+  fireEvent.click(within(dialog).getByRole("button", { name: "Discard this revision" }));
+  expect(drafts.list()).toEqual([b]);
+  cleanup();
+  const reopened = createProjectDrafts();
+
+  expect(reopened("/p").list()).toEqual([b]);
+  expect(reopened("/other").list()).toEqual([elsewhere]);
+});
+
+
+it("u3021c_bubbles_confirming_retained_failure_consumes_only_that_revision", async () => {
+  const { drafts, a, b, open } = await selectedBubbles();
+
+  open(a.revision);
+  await waitFor(() => expect(document.activeElement).toBe(field()));
+  fireEvent.keyDown(field()!, { key: "Enter" });
+  await waitFor(() => expect(field()).toBeNull());
+  expect(tab("2")!.getAttribute("aria-label")).toBe("A e\u0301 🫧 雪");
+  expect(drafts.list()).toEqual([b]);
+});
+
+it.each(["stopped", "removed", "replaced"] as const)("u3021c_bubbles_closes_recovered_editor_when_original_ends_%s", async unavailable => {
+  const { drafts, a, b, open, setListed, app, connected } = await selectedBubbles();
+
+  open(a.revision);
+  await waitFor(() => expect(document.activeElement).toBe(field()));
+  fireEvent.input(field()!, { target: { value: "  unsent edit 雪  " } });
+  const before = drafts.list();
+
+  setListed(unavailable === "removed" ? TERMINALS.filter(terminal => terminal.id !== "2")
+    : TERMINALS.map(terminal => terminal.id === "2" ? { ...terminal,
+      running: unavailable !== "stopped", incarnation: unavailable === "replaced" ? "replacement" : terminal.incarnation } : terminal));
+  app.emit(event({ name: "terminal.changed" }));
+  await waitFor(() => expect(field()).toBeNull());
+  expect(drafts.list()).toEqual(before);
+  expect(drafts.list()).toContainEqual(b);
+
+  if (unavailable === "replaced") {
+    await waitFor(() => expect(connected.rail.terminals().find(terminal => terminal.id === "2")!.incarnation).toBe("replacement"));
+    await edit("2");
+    expect(field()!.value).toBe("zsh");
+    fireEvent.keyDown(field()!, { key: "Enter" });
+    expect(drafts.list()).toEqual(before);
+  }
 });

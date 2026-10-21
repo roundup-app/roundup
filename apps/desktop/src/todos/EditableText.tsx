@@ -8,13 +8,13 @@ import { outcomeOf } from "./failureOf";
 import { ErrorLine } from "../ink/ErrorLine";
 import { batch, createEffect, createSignal, For, onCleanup, Show } from "solid-js";
 
-const formSchema = v.strictObject({ text: v.string(), base: v.string(), expected_change: v.nullable(v.number()), title: v.string(), body: v.string(), blockers: v.array(v.string()), done: v.boolean() });
+export const formSchema = v.strictObject({ text: v.string(), base: v.string(), home: v.optional(v.nullable(v.string()), null), expected_change: v.nullable(v.number()), title: v.string(), body: v.string(), blockers: v.array(v.string()), done: v.boolean() });
 
-const creationSchema = v.strictObject({ title: v.string(), home: v.nullable(v.string()) });
+export const creationSchema = v.strictObject({ title: v.string(), home: v.nullable(v.string()) });
 
-const blockerSchema = v.strictObject({
+export const blockerSchema = v.strictObject({
   title: v.string(), body: v.string(), done: v.boolean(), blockers: v.array(v.string()), baseBlockers: v.array(v.string()), expected_change: v.nullable(v.number()),
-  originalTitle: v.string(), originalBody: v.string(), originalDone: v.boolean(), originalBlockers: v.array(v.string()), originalChange: v.nullable(v.number()),
+  home: v.optional(v.nullable(v.string()), null), originalTitle: v.string(), originalBody: v.string(), originalDone: v.boolean(), originalBlockers: v.array(v.string()), originalChange: v.nullable(v.number()),
   action: v.picklist(["add", "remove"]), blocker: v.number(),
 });
 
@@ -83,6 +83,8 @@ export const TodoDraftRecovery = (props: { object: string; active?: boolean; inD
 export const EditableText = (props: {
   todo: Todo;
   captured: () => Change | undefined;
+  /** A validated retained revision in this original Todo and field. */
+  revision?: string | undefined;
   multiline: boolean;
   name: "title" | "body";
   onFailure?: (message: string | null) => void;
@@ -114,7 +116,10 @@ export const EditableText = (props: {
   let shown: HTMLParagraphElement | undefined;
 
   const startWith = (width = shown?.getBoundingClientRect().width ?? 0) => {
-    const saved = records().findLast(draft => draft.status === "draft" || draft.status === "failed");
+    const saved = props.revision === undefined
+      ? records().findLast(draft => draft.status === "draft" || draft.status === "failed")
+      : records().find(draft => draft.revision === props.revision);
+
     const parsed = v.safeParse(formSchema, saved?.value);
 
     if (saved && !parsed.success) {
@@ -127,11 +132,13 @@ export const EditableText = (props: {
     const values = change?.after ?? props.todo;
 
     const form = parsed.success ? parsed.output : { text: values[props.name], base: values[props.name], expected_change: change?.seq ?? null,
-      title: values.title, body: values.body, blockers: values.blockers.map(String), done: values.done };
+      home: props.todo.home, title: values.title, body: values.body, blockers: values.blockers.map(String), done: values.done };
 
     setActiveRevision(saved?.revision ?? null);
     setEditing({ form, text: form.text, width, recovered: parsed.success, selection: saved?.selection ?? null });
   };
+
+  if (props.revision !== undefined) startWith(0);
 
   const fit = (element: HTMLTextAreaElement) => {
     element.style.height = "auto";
@@ -153,20 +160,20 @@ export const EditableText = (props: {
       if (started.selection) element.setSelectionRange(started.selection.start, started.selection.end, started.selection.direction);
     });
 
-    const retain = () => batch(() => {
+    const retain = (selectionChanged = false) => batch(() => {
       const value = { ...started.form, text: element.value };
       const selection = { start: element.selectionStart, end: element.selectionEnd, direction: element.selectionDirection };
-      const latest = records().findLast(record => record.revision === activeRevision() || record.status === "draft");
+      const latest = records().find(record => record.revision === activeRevision());
 
-      if (latest && JSON.stringify(latest.value) === JSON.stringify(value) && (latest.status === "failed" || JSON.stringify(latest.selection) === JSON.stringify(selection))) {
+      if (latest && JSON.stringify(v.parse(formSchema, latest.value)) === JSON.stringify(value) && (props.revision !== undefined || latest.status === "failed" || JSON.stringify(latest.selection) === JSON.stringify(selection))) {
         setActiveRevision(latest.revision);
 
-        if (JSON.stringify(latest.selection) !== JSON.stringify(selection)) connected.drafts.setSelection(latest.revision, selection);
+        if ((props.revision === undefined || selectionChanged) && JSON.stringify(latest.selection) !== JSON.stringify(selection)) connected.drafts.setSelection(latest.revision, selection);
 
         return { draft: latest, problem: connected.drafts.problem() };
       }
 
-      const retained = connected.drafts.edit(draftDestination, value, selection, "ordinary");
+      const retained = connected.drafts.edit(draftDestination, value, selection, "ordinary", activeRevision());
 
       setActiveRevision(retained.draft.revision);
 
@@ -176,7 +183,7 @@ export const EditableText = (props: {
     // Delayed selection events from an editor that closed must not resurrect a discarded revision.
     let left = false;
     onCleanup(() => { left = true; });
-    element.addEventListener("select", () => { if (!left && element.isConnected && (element.value !== started.form.base || started.recovered)) retain(); });
+    element.addEventListener("select", () => { if (!left && element.isConnected && (props.revision === undefined || document.activeElement === element) && (element.value !== started.form.base || started.recovered)) retain(true); });
     element.addEventListener("input", () => {
       if (left) return;
 
@@ -205,7 +212,13 @@ export const EditableText = (props: {
         return;
       }
 
-      connected.drafts.submit(draft.revision);
+      if (!connected.drafts.submit(draft.revision)) {
+        setFailure(copy.draftStatus[draft.status]);
+        left = false;
+
+        return;
+      }
+
       setEditing(null);
 
       try {
@@ -275,7 +288,7 @@ export const EditableText = (props: {
       keyed
     >
       {(started) => (<>
-        <Show when={props.captured() && props.captured()?.seq !== started.form.expected_change}><ErrorLine message={copy.changedTodo(props.todo.title)} /></Show>
+        <Show when={(props.captured() && props.captured()?.seq !== started.form.expected_change) || (props.revision !== undefined && props.todo[props.name] !== started.form.base)}><ErrorLine message={copy.changedTodo(props.todo.title)} /></Show>
         <textarea
           ref={field(started)}
           aria-label={props.name === "title" ? copy.title : copy.body}

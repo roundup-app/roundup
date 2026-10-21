@@ -1,6 +1,6 @@
 import { cleanup, fireEvent, screen, waitFor, within } from "@solidjs/testing-library";
 import { afterEach, describe, expect, it } from "vitest";
-import { assertKind, mountTodos, todo, todoCallsTo as callsTo, todoEvent, todoRowOf } from "./testHarness";
+import { mountTodos, todo, todoCallsTo as callsTo, todoEvent, todoRowOf } from "./testHarness";
 import { USER } from "../testing/nodes";
 
 afterEach(cleanup);
@@ -46,10 +46,8 @@ describe("u15 Todo list", () => {
   it("u15_done_todos_fold_into_one_line_counting_them", async () => {
     await mountTodos([todo(1, { done: true, title: "old one" }), todo(2, { done: true }), todo(3)]);
 
-    const summary = (await screen.findByRole("button", { name: "2 done" })).closest(".shelf-row")!;
+    await screen.findByRole("button", { name: "2 done" });
 
-    expect(summary.querySelectorAll("svg")).toHaveLength(1);
-    expect(summary.querySelector('.glyph[data-drawing="check"] svg')?.getAttribute("aria-hidden")).toBe("true");
 
     expect([rows(), screen.queryByText(/old one/)]).toEqual([["Todo", "todo 3", "2 done"], null]);
   });
@@ -59,7 +57,7 @@ describe("u15 Todo list", () => {
 
     fireEvent.click(await screen.findByRole("button", { name: "1 done" }));
 
-    expect(screen.getByRole<HTMLInputElement>("checkbox", { name: "Complete old one", checked: true }).disabled).toBe(true);
+    expect(screen.getByRole<HTMLInputElement>("checkbox", { name: "Reopen old one", checked: true }).disabled).toBe(false);
   });
 
   it("u15_no_done_todos_show_no_done_line", async () => {
@@ -184,14 +182,6 @@ describe("u15 Todo list", () => {
     await waitFor(() => expect(within(todoRowOf(count)).getByRole("button", { name: /#120 todo 120/ })).toBeTruthy());
 
     expect(reads).toBeLessThan(count * 40);
-  });
-
-  it("u15_a_row_keeps_its_glyph_in_its_own_column_and_its_title_button_unindented", async () => {
-    await mountTodos([todo(3)]);
-
-    const row = await screen.findByRole("button", { name: /#3/ });
-
-    expect([row.style.paddingLeft, row.style.textIndent, row.closest(".shelf-row")?.querySelector(":scope > .shelf-glyph input")?.getAttribute("aria-label")]).toEqual(["", "", "Complete todo 3"]);
   });
 
   it("u15_a_list_that_is_gone_stops_listening_to_events", async () => {

@@ -43,6 +43,12 @@ const STRUCTURE = new Set([
 
 const UI_ATTRIBUTES = /^(aria-label|aria-description|aria-valuetext|title|placeholder|alt|label|fallback)$/;
 
+// A value only compared (`a === "x"`, a conditional's test) picks what shows; the App never shows the value itself.
+const COMPARISONS = new Set(["===", "!==", "==", "!=", "<", "<=", ">", ">=", "in", "instanceof"]);
+
+const compared = (inner: readonly Node[], node: Node) => [...inner, node].some((each, at, path) =>
+  (each.type === "BinaryExpression" && COMPARISONS.has(each.operator)) || (each.type === "ConditionalExpression" && each.test === path[at + 1]));
+
 const candidates = (source: string): { line: number; text: string }[] => {
   const found: { line: number; text: string }[] = [];
   const tree = parse(source, { sourceType: "module", plugins: ["typescript", "jsx"] });
@@ -64,13 +70,16 @@ const candidates = (source: string): { line: number; text: string }[] => {
 
     if (parent?.type === "JSXAttribute" && (parent.name.type !== "JSXIdentifier" || !UI_ATTRIBUTES.test(parent.name.name))) return;
 
-    visit(node.expression, [], (each) => { if (each.type === "Identifier") used.add(each.name); });
+    // A UI attribute's JSX value (a `fallback` element) shows only its own text and UI attributes, never its other props.
+    const shown = (inner: readonly Node[]) => !inner.some((each) => each.type === "JSXAttribute" && (each.name.type !== "JSXIdentifier" || !UI_ATTRIBUTES.test(each.name.name)));
+
+    visit(node.expression, [], (each, inner) => { if (each.type === "Identifier" && shown(inner) && !compared(inner, each)) used.add(each.name); });
   });
 
   for (const name of used) {
     const bound = bindings.get(name);
 
-    if (bound && !["ArrowFunctionExpression", "FunctionExpression", "CallExpression"].includes(bound.type)) visit(bound, [], (each) => { if (each.type === "Identifier") used.add(each.name); });
+    if (bound && !["ArrowFunctionExpression", "FunctionExpression", "CallExpression"].includes(bound.type)) visit(bound, [], (each, inner) => { if (each.type === "Identifier" && !compared(inner, each)) used.add(each.name); });
   }
 
   visit(tree, [], (node, ancestors) => {
@@ -128,6 +137,22 @@ const candidates = (source: string): { line: number; text: string }[] => {
 it("u471_every_app_authored_string_comes_from_the_catalogue", () => {
   const missing = sources().flatMap((file) => candidates(readFileSync(join(ROOT, file), "utf8")).map(({ line, text }) => `${file}:${line}: ${text}`));
   expect(missing).toEqual([]);
+});
+
+it("u471_catalogue_distinguishes_internal_fallback_props_from_app_copy", () => {
+  expect(candidates(`
+    let restored: "none" | "current" | "selected" = "none";
+    const label = "recover";
+    const failure = new Error("recovery failed");
+    const view = <Show fallback={<RenameField restored={restored} aria-label="rename">
+      Rename project{format(label)}
+    </RenameField>} />;
+  `)).toEqual([
+    { line: 3, text: "recover" },
+    { line: 4, text: "recovery failed" },
+    { line: 5, text: "rename" },
+    { line: 5, text: "Rename project" },
+  ]);
 });
 
 it("u471_action_labels_describe_the_existing_action_retry_supervisor", async () => {

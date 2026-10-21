@@ -6,6 +6,9 @@ use std::path::{Path, PathBuf};
 use rpc::RpcError;
 use serde_json::Value;
 use sha2::{Digest, Sha256};
+use std::io::{BufRead, BufReader, Read};
+use std::sync::atomic::Ordering;
+use std::time::{Duration, Instant, UNIX_EPOCH};
 use time::OffsetDateTime;
 use time::format_description::well_known::Rfc3339;
 
@@ -36,6 +39,36 @@ pub struct ImportDiscovery {
     pub excluded: Vec<ImportExclusion>,
 }
 
+// U3037c: 397 MB eligible sources must fit the ten-second discovery budget.
+// BufRead bounds each record; only candidate metadata survives the next record.
+const MAX_RECORD: u64 = 8 * 1024 * 1024;
+const MAX_SNAPSHOT: usize = 512 * 1024 * 1024;
+const MAX_FILES: usize = 10_000;
+
+pub(super) fn encoded(cwd: &Path) -> String {
+    cwd.to_string_lossy()
+        .encode_utf16()
+        .map(|unit| {
+            char::from_u32(u32::from(unit))
+                .filter(|c| c.is_ascii_alphanumeric())
+                .unwrap_or('-')
+        })
+        .collect()
+}
+
+fn is_possible_bucket(bucket: &Path, project: &Path) -> bool {
+    let prefix = encoded(project);
+    // Long vendor bucket names can be truncated/hashed: keep them for record validation.
+    if prefix.len() > 200 {
+        return true;
+    }
+    let name = bucket.file_name().unwrap_or_default().to_string_lossy();
+    name == prefix
+        || name
+            .strip_prefix(&prefix)
+            .is_some_and(|rest| rest.starts_with('-'))
+}
+
 enum Scan {
     Member(ImportCandidate),
     OtherProject,
@@ -46,12 +79,72 @@ enum Scan {
 impl Launcher {
     /// Read the effective Claude storage for conversations of `project` active in
     /// `[now_ms - period_ms, now_ms]`. A missing or unreadable storage is an error, never empty.
-    pub fn discover_recent(
+    pub async fn discover_recent(
         &self,
         project: &Path,
         now_ms: i64,
         period_ms: i64,
     ) -> Result<ImportDiscovery, RpcError> {
+        let generation = self.discovery.0.fetch_add(1, Ordering::SeqCst) + 1;
+        let deadline = Instant::now() + Duration::from_secs(18);
+        #[cfg(any(test, feature = "test-support"))]
+        if let Some(observer) = &self.import_observer {
+            observer(project, "request");
+        }
+        // Wait without occupying a blocking worker. An abandoned reader keeps the
+        // owned permit until its next record boundary, even if its caller goes away.
+        let reader =
+            tokio::time::timeout_at(deadline.into(), self.discovery.1.clone().lock_owned())
+                .await
+                .map_err(|_| {
+                    RpcError::not_accepted("discovery took too long; Refresh to try again")
+                })?;
+        if self.discovery.0.load(Ordering::SeqCst) != generation {
+            return Err(RpcError::conflict(
+                "discovery superseded; Refresh to try again",
+            ));
+        }
+        let launcher = self.clone();
+        let project = project.to_path_buf();
+        tokio::task::spawn_blocking(move || {
+            let _reader = reader;
+            #[cfg(any(test, feature = "test-support"))]
+            if let Some(observer) = &launcher.import_observer {
+                observer(&project, "worker");
+            }
+            let found = launcher.discover(&project, (now_ms, period_ms), generation, deadline);
+            #[cfg(any(test, feature = "test-support"))]
+            if let Some(observer) = &launcher.import_observer {
+                observer(&project, "finished");
+            }
+            found
+        })
+        .await
+        .map_err(RpcError::internal)?
+    }
+
+    fn discover(
+        &self,
+        project: &Path,
+        window: (i64, i64),
+        generation: u64,
+        deadline: Instant,
+    ) -> Result<ImportDiscovery, RpcError> {
+        let (now_ms, period_ms) = window;
+        let check = || {
+            if self.discovery.0.load(Ordering::SeqCst) != generation {
+                Err(RpcError::conflict(
+                    "discovery superseded; Refresh to try again",
+                ))
+            } else if Instant::now() >= deadline {
+                Err(RpcError::not_accepted(
+                    "discovery took too long; Refresh to try again",
+                ))
+            } else {
+                Ok(())
+            }
+        };
+        check()?;
         let project = project.canonicalize().map_err(RpcError::internal)?;
         let root = self.conversation_dir.join("projects");
         let buckets = std::fs::read_dir(&root).map_err(|err| {
@@ -62,21 +155,71 @@ impl Launcher {
             }
         })?;
         let mut found: Vec<(String, Scan)> = Vec::new();
-        for bucket in buckets {
+        let mut metadata_bytes = 0;
+        for (index, bucket) in buckets.enumerate() {
+            check()?;
+            if index >= MAX_FILES {
+                return Err(RpcError::not_accepted("too many storage buckets"));
+            }
             let bucket = bucket.map_err(RpcError::internal)?.path();
-            let Ok(files) = std::fs::read_dir(&bucket) else {
-                continue;
+            let possible = is_possible_bucket(&bucket, &project);
+            let files = match std::fs::read_dir(&bucket) {
+                Ok(files) => files,
+                Err(error) if possible => {
+                    return Err(RpcError::internal(format!(
+                        "cannot read conversation bucket: {error}"
+                    )));
+                }
+                Err(_) => continue,
             };
-            for file in files.flatten() {
-                let path = file.path();
-                if path.extension().is_none_or(|ext| ext != "jsonl") || !path.is_file() {
+            for file in files {
+                check()?;
+                if found.len() >= MAX_FILES {
+                    return Err(RpcError::not_accepted(
+                        "storage contains too many conversation files to inspect",
+                    ));
+                }
+                let path = file.map_err(RpcError::internal)?.path();
+                if path.extension().is_none_or(|ext| ext != "jsonl") {
+                    continue;
+                }
+                let metadata = path.metadata();
+                if metadata.as_ref().is_ok_and(|metadata| !metadata.is_file()) {
                     continue;
                 }
                 let stem = path.file_stem().unwrap_or_default().to_string_lossy();
-                found.push((
-                    stem.to_string(),
-                    scan(&path, &stem, &project, now_ms, period_ms),
-                ));
+                let old = metadata
+                    .and_then(|m| m.modified())
+                    .ok()
+                    .and_then(|at| at.duration_since(UNIX_EPOCH).ok())
+                    .is_some_and(|at| {
+                        i128::try_from(at.as_millis()).unwrap_or(i128::MAX)
+                            < i128::from(now_ms.saturating_sub(period_ms))
+                    });
+                let result = if !possible {
+                    Scan::OtherProject
+                } else if old {
+                    Scan::Out
+                } else {
+                    scan(
+                        self,
+                        &path,
+                        &stem,
+                        &project,
+                        (now_ms, period_ms),
+                        &check,
+                        None,
+                    )?
+                };
+                if let Scan::Member(candidate) = &result {
+                    metadata_bytes += candidate.title.len() + candidate.cwd.as_os_str().len();
+                    if metadata_bytes > 16 * 1024 * 1024 {
+                        return Err(RpcError::not_accepted(
+                            "conversation metadata exceeds 16 MiB; narrow the period",
+                        ));
+                    }
+                }
+                found.push((stem.to_string(), result));
             }
         }
         let mut counts: HashMap<String, usize> = HashMap::new();
@@ -116,31 +259,66 @@ impl Launcher {
         revision: &str,
         now_ms: i64,
     ) -> Result<(ImportCandidate, Vec<u8>), RpcError> {
-        let changed = || RpcError::conflict(format!("source changed since preview: {source}"));
-        let found = self.discover_recent(project, now_ms, i64::MAX)?;
-        let candidate = found
-            .candidates
-            .into_iter()
-            .find(|c| c.source == source && c.revision == revision)
-            .ok_or_else(changed)?;
+        let changed = || {
+            RpcError::conflict(format!(
+                "source changed since preview: {source}; Refresh to try again"
+            ))
+        };
+        if !is_uuid(source) {
+            return Err(changed());
+        }
+        let project = project.canonicalize().map_err(RpcError::internal)?;
         let file = format!("{source}.jsonl");
+        let mut selected = None;
         let buckets = std::fs::read_dir(self.conversation_dir.join("projects"))
             .map_err(RpcError::internal)?;
-        for bucket in buckets.flatten() {
-            let Ok(mut bytes) = std::fs::read(bucket.path().join(&file)) else {
-                continue;
+        for (index, bucket) in buckets.enumerate() {
+            if index >= MAX_FILES {
+                return Err(RpcError::not_accepted("too many storage buckets"));
+            }
+            let bucket = bucket.map_err(RpcError::internal)?.path();
+            let path = bucket.join(&file);
+            if path.try_exists().map_err(RpcError::internal)? {
+                if selected.is_some() {
+                    return Err(changed());
+                }
+                selected = Some(path);
+            }
+        }
+        if let Some(path) = selected.filter(|path| {
+            path.parent()
+                .is_some_and(|bucket| is_possible_bucket(bucket, &project))
+        }) {
+            let mut bytes = Vec::new();
+            let deadline = Instant::now() + Duration::from_secs(18);
+            let check = || {
+                if Instant::now() < deadline {
+                    Ok(())
+                } else {
+                    Err(RpcError::not_accepted(
+                        "source validation took too long; Refresh to try again",
+                    ))
+                }
             };
-            bytes.truncate(
-                bytes
-                    .iter()
-                    .rposition(|b| *b == b'\n')
-                    .map_or(0, |at| at + 1),
-            );
-            return if hex(&Sha256::digest(&bytes)) == revision {
-                Ok((candidate, bytes))
-            } else {
-                Err(changed())
-            };
+            match scan(
+                self,
+                &path,
+                source,
+                &project,
+                (now_ms, i64::MAX),
+                &check,
+                Some(&mut bytes),
+            )? {
+                Scan::Member(candidate) if candidate.revision == revision => {
+                    return Ok((candidate, bytes));
+                }
+                Scan::Excluded(reason) => {
+                    return Err(RpcError::conflict(format!(
+                        "cannot import {source}: {reason}; Refresh to try again"
+                    )));
+                }
+                _ => {}
+            }
         }
         Err(changed())
     }
@@ -150,41 +328,87 @@ fn hex(digest: &[u8]) -> String {
     digest.iter().map(|b| format!("{b:02x}")).collect()
 }
 
-fn scan(path: &Path, stem: &str, project: &Path, now_ms: i64, period_ms: i64) -> Scan {
+fn scan(
+    launcher: &Launcher,
+    path: &Path,
+    stem: &str,
+    project: &Path,
+    window: (i64, i64),
+    check: &impl Fn() -> Result<(), RpcError>,
+    mut retained: Option<&mut Vec<u8>>,
+) -> Result<Scan, RpcError> {
+    let (now_ms, period_ms) = window;
     if !is_uuid(stem) {
-        return Scan::Excluded("unsupported source name");
+        return Ok(Scan::Excluded("unsupported source name"));
     }
-    let Ok(mut bytes) = std::fs::read(path) else {
-        return Scan::Excluded("unreadable");
+    #[cfg(not(any(test, feature = "test-support")))]
+    let _ = launcher;
+    #[cfg(any(test, feature = "test-support"))]
+    if let Some(observer) = &launcher.import_observer {
+        observer(path, "open");
+    }
+    let Ok(file) = std::fs::File::open(path) else {
+        return Ok(Scan::Excluded("unreadable"));
     };
-    // An incomplete trailing record is ignored.
-    bytes.truncate(
-        bytes
-            .iter()
-            .rposition(|b| *b == b'\n')
-            .map_or(0, |at| at + 1),
-    );
+    let mut reader = BufReader::new(file);
+    let mut line = Vec::new();
+    let mut digest = Sha256::new();
+    let mut complete = false;
     let mut cwds: Vec<PathBuf> = Vec::new();
     let mut latest: Option<i64> = None;
     let (mut custom, mut agent, mut ai) = (None, None, None);
-    for line in bytes.split(|b| *b == b'\n').filter(|line| !line.is_empty()) {
-        let Ok(record) = serde_json::from_slice::<Value>(line) else {
-            return Scan::Excluded("malformed record");
+    loop {
+        check()?;
+        #[cfg(any(test, feature = "test-support"))]
+        if let Some(observer) = &launcher.import_observer {
+            observer(path, "record");
+        }
+        line.clear();
+        let read = reader
+            .by_ref()
+            .take(MAX_RECORD + 1)
+            .read_until(b'\n', &mut line);
+        let Ok(size) = read else {
+            return Ok(Scan::Excluded("unreadable"));
+        };
+        if size == 0 {
+            break;
+        }
+        if size as u64 > MAX_RECORD {
+            return Ok(Scan::Excluded("record exceeds 8 MiB limit"));
+        }
+        if line.last() != Some(&b'\n') {
+            break;
+        }
+        complete = true;
+        digest.update(&line);
+        if let Some(bytes) = &mut retained {
+            if bytes.len() + line.len() > MAX_SNAPSHOT {
+                return Ok(Scan::Excluded("conversation exceeds 512 MiB import limit"));
+            }
+            bytes.extend_from_slice(&line);
+        }
+        if line == b"\n" {
+            continue;
+        }
+        let Ok(record) = serde_json::from_slice::<Value>(&line) else {
+            return Ok(Scan::Excluded("malformed record"));
         };
         if !record.is_object() {
-            return Scan::Excluded("malformed record");
+            return Ok(Scan::Excluded("malformed record"));
         }
         if record["isSidechain"] == true {
-            return Scan::Excluded("subagent record");
+            return Ok(Scan::Excluded("subagent record"));
         }
-        if let Some(id) = record["sessionId"].as_str()
-            && id != stem
-        {
-            return Scan::Excluded("identity does not match source");
+        if record["sessionId"].as_str().is_some_and(|id| id != stem) {
+            return Ok(Scan::Excluded("identity does not match source"));
         }
         if let Some(cwd) = record["cwd"].as_str().filter(|cwd| !cwd.is_empty()) {
             let cwd = PathBuf::from(cwd);
             if !cwds.contains(&cwd) {
+                if cwds.len() >= 64 {
+                    return Ok(Scan::Excluded("too many recorded directories"));
+                }
                 cwds.push(cwd);
             }
         }
@@ -206,8 +430,9 @@ fn scan(path: &Path, stem: &str, project: &Path, now_ms: i64, period_ms: i64) ->
             _ => {}
         }
     }
-    if bytes.is_empty() {
-        return Scan::Excluded("no complete records");
+    check()?;
+    if !complete {
+        return Ok(Scan::Excluded("no complete records"));
     }
     let mut inside = Vec::new();
     let mut outside = false;
@@ -215,15 +440,15 @@ fn scan(path: &Path, stem: &str, project: &Path, now_ms: i64, period_ms: i64) ->
         match cwd.canonicalize() {
             Ok(real) if real.starts_with(project) => inside.push(real),
             Ok(_) => outside = true,
-            Err(_) if cwd.starts_with(project) => return Scan::Excluded("missing directory"),
+            Err(_) if cwd.starts_with(project) => return Ok(Scan::Excluded("missing directory")),
             Err(_) => outside = true,
         }
     }
     match (inside.as_slice(), outside) {
-        ([], true) => return Scan::OtherProject,
-        ([], false) => return Scan::Excluded("no recorded working directory"),
+        ([], true) => return Ok(Scan::OtherProject),
+        ([], false) => return Ok(Scan::Excluded("no recorded working directory")),
         ([_], false) => {}
-        _ => return Scan::Excluded("ambiguous Project membership"),
+        _ => return Ok(Scan::Excluded("ambiguous Project membership")),
     }
     let cwd = &inside[0];
     let relative = cwd.strip_prefix(project).unwrap_or(Path::new(""));
@@ -233,15 +458,15 @@ fn scan(path: &Path, stem: &str, project: &Path, now_ms: i64, period_ms: i64) ->
         .is_some_and(|c| c.as_os_str() == ".roundup")
         || in_linked_worktree(cwd, project)
     {
-        return Scan::Excluded("inside a Worktree");
+        return Ok(Scan::Excluded("inside a Worktree"));
     }
     let Some(latest) = latest else {
-        return Scan::Excluded("activity unknown or in the future");
+        return Ok(Scan::Excluded("activity unknown or in the future"));
     };
     if latest < now_ms.saturating_sub(period_ms) {
-        return Scan::Out;
+        return Ok(Scan::Out);
     }
-    Scan::Member(ImportCandidate {
+    Ok(Scan::Member(ImportCandidate {
         source: stem.to_owned(),
         title: custom
             .or(agent)
@@ -249,8 +474,8 @@ fn scan(path: &Path, stem: &str, project: &Path, now_ms: i64, period_ms: i64) ->
             .unwrap_or_else(|| "Untitled conversation".into()),
         cwd: relative.to_path_buf(),
         last_activity_ms: latest,
-        revision: hex(&Sha256::digest(&bytes)),
-    })
+        revision: hex(&digest.finalize()),
+    }))
 }
 
 fn millis(text: &str) -> Option<i64> {
@@ -280,7 +505,18 @@ mod tests {
     }
 
     fn store(config: &Path, bucket: &str, id: &str, text: &str) {
-        let dir = config.join("projects").join(bucket);
+        let cwd = text
+            .lines()
+            .filter_map(|line| serde_json::from_str::<serde_json::Value>(line).ok())
+            .find_map(|record| record["cwd"].as_str().map(str::to_owned))
+            .unwrap();
+        let cwd = PathBuf::from(cwd);
+        let bucket = if bucket == "y" {
+            cwd.join("duplicate")
+        } else {
+            cwd
+        };
+        let dir = config.join("projects").join(encoded(&bucket));
         std::fs::create_dir_all(&dir).unwrap();
         std::fs::write(dir.join(format!("{id}.jsonl")), text).unwrap();
     }
@@ -292,9 +528,9 @@ mod tests {
     /// 2026-10-19T12:00:00Z
     const NOW: i64 = 1_792_411_200_000;
 
-    #[test]
-    fn u2875a_activity_is_not_file_mtime() {
-        let root = tempfile::tempdir().unwrap();
+    #[tokio::test]
+    async fn u2875a_activity_is_not_file_mtime() {
+        let root = tempfile::tempdir_in(std::env::temp_dir().canonicalize().unwrap()).unwrap();
         let project = root.path().join("project");
         let sub = project.join("sub");
         std::fs::create_dir_all(&sub).unwrap();
@@ -306,10 +542,12 @@ mod tests {
         store(&config, "a", SESSION, &format!("{old}\n"));
         let found = launcher(&config)
             .discover_recent(&project, NOW, 7 * DAY)
+            .await
             .unwrap();
         assert!(found.candidates.is_empty());
         let wide = launcher(&config)
             .discover_recent(&project, NOW, 30 * DAY)
+            .await
             .unwrap();
         assert_eq!(wide.candidates[0].cwd, PathBuf::from("sub"));
         assert_eq!(wide.candidates[0].title, "Untitled conversation");
@@ -326,6 +564,7 @@ mod tests {
         );
         let found = launcher(&config)
             .discover_recent(&project, NOW, 7 * DAY)
+            .await
             .unwrap();
         assert_eq!(found.candidates.len(), 1);
         assert_eq!(found.candidates[0].title, "Named");
@@ -337,6 +576,7 @@ mod tests {
         );
         let future = launcher(&config)
             .discover_recent(&project, NOW, 7 * DAY)
+            .await
             .unwrap();
         assert!(future.candidates.is_empty());
         assert_eq!(
@@ -380,6 +620,7 @@ mod tests {
         );
         let found = launcher(&config)
             .discover_recent(&project, NOW, 7 * DAY)
+            .await
             .unwrap();
         assert!(found.candidates.is_empty());
         assert!(
@@ -396,9 +637,9 @@ mod tests {
         );
     }
 
-    #[test]
-    fn u2875a_sources_are_ordered_and_not_duplicated() {
-        let root = tempfile::tempdir().unwrap();
+    #[tokio::test]
+    async fn u2875a_sources_are_ordered_and_not_duplicated() {
+        let root = tempfile::tempdir_in(std::env::temp_dir().canonicalize().unwrap()).unwrap();
         let project = root.path().join("project");
         std::fs::create_dir_all(&project).unwrap();
         let config = root.path().join("config");
@@ -410,6 +651,7 @@ mod tests {
         }
         let found = launcher(&config)
             .discover_recent(&project, NOW, 7 * DAY)
+            .await
             .unwrap();
         let ids: Vec<_> = found.candidates.iter().map(|c| c.source.as_str()).collect();
         assert_eq!(ids, [a, b]);
@@ -417,13 +659,224 @@ mod tests {
         store(&config, "y", a, &format!("{r}\n"));
         let found = launcher(&config)
             .discover_recent(&project, NOW, 7 * DAY)
+            .await
             .unwrap();
         assert_eq!(found.candidates.len(), 1);
         assert_eq!(found.excluded[0].reason, "duplicate source identity");
         assert!(
             launcher(&root.path().join("none"))
                 .discover_recent(&project, NOW, DAY)
+                .await
                 .is_err()
         );
+    }
+    fn observed(config: &Path) -> (Launcher, std::sync::Arc<std::sync::Mutex<Vec<PathBuf>>>) {
+        let opened = std::sync::Arc::new(std::sync::Mutex::new(Vec::new()));
+        let journal = opened.clone();
+        let mut launcher = launcher(config);
+        launcher.import_observer = Some(std::sync::Arc::new(move |path, phase| {
+            if phase == "open" {
+                journal.lock().unwrap().push(path.to_path_buf());
+            }
+        }));
+        (launcher, opened)
+    }
+
+    #[tokio::test]
+    async fn u3037a_bucket_pruning_keeps_possible_members() {
+        let root = tempfile::tempdir_in(std::env::temp_dir().canonicalize().unwrap()).unwrap();
+        let project = root.path().join("a.b_c-d🦊");
+        let sub = project.join("nested");
+        let collision = root.path().join("a-b-c-d--");
+        let sibling = root.path().join("a.b_c-d🦊sibling");
+        let outside = root.path().join("other");
+        for dir in [&sub, &collision, &sibling, &outside] {
+            std::fs::create_dir_all(dir).unwrap();
+        }
+        let config = root.path().join("config");
+        for (i, cwd) in [&project, &sub, &collision, &sibling, &outside]
+            .into_iter()
+            .enumerate()
+        {
+            let id = format!("{i:08}-1111-4111-8111-111111111111");
+            store(
+                &config,
+                "x",
+                &id,
+                &(record("user", cwd, "2026-10-18T12:00:00Z").replace(SESSION, &id) + "\n"),
+            );
+        }
+        // A canonical recorded escape in an encoded matching bucket still fails membership.
+        let escape = project.join("escape");
+        std::os::unix::fs::symlink(&outside, &escape).unwrap();
+        let id = "eeeeeeee-1111-4111-8111-111111111111";
+        store(
+            &config,
+            "x",
+            id,
+            &(record("user", &escape, "2026-10-18T12:00:00Z").replace(SESSION, id) + "\n"),
+        );
+        let alias = root.path().join("alias");
+        std::os::unix::fs::symlink(&project, &alias).unwrap();
+        let (launcher, opened) = observed(&config);
+        let found = launcher
+            .discover_recent(&alias, NOW, 7 * DAY)
+            .await
+            .unwrap();
+        assert_eq!(found.candidates.len(), 2);
+        let opens = opened.lock().unwrap();
+        assert_eq!(opens.len(), 4); // Project, nested, encoding collision and escape.
+        assert!(opens.iter().all(|path| {
+            !path.starts_with(config.join("projects").join(encoded(&sibling)))
+                && !path.starts_with(config.join("projects").join(encoded(&outside)))
+        }));
+    }
+
+    #[tokio::test]
+    async fn u3037a_long_bucket_prefixes_remain_possible_members() {
+        let root = tempfile::tempdir_in(std::env::temp_dir().canonicalize().unwrap()).unwrap();
+        let project = root.path().join("a".repeat(100)).join("b".repeat(100));
+        std::fs::create_dir_all(&project).unwrap();
+        let config = root.path().join("config");
+        let name = encoded(&project).chars().take(200).collect::<String>() + "-100y1g";
+        let bucket = config.join("projects").join(name);
+        std::fs::create_dir_all(&bucket).unwrap();
+        std::fs::write(
+            bucket.join(format!("{SESSION}.jsonl")),
+            record("user", &project, "2026-10-18T12:00:00Z") + "\n",
+        )
+        .unwrap();
+        let found = launcher(&config)
+            .discover_recent(&project, NOW, DAY)
+            .await
+            .unwrap();
+        assert_eq!(found.candidates.len(), 1);
+        assert_eq!(found.candidates[0].cwd, Path::new(""));
+    }
+
+    #[tokio::test]
+    async fn u3037a_old_files_are_not_opened() {
+        let root = tempfile::tempdir_in(std::env::temp_dir().canonicalize().unwrap()).unwrap();
+        let project = root.path().join("project");
+        std::fs::create_dir(&project).unwrap();
+        let config = root.path().join("config");
+        store(
+            &config,
+            "x",
+            SESSION,
+            &(record("user", &project, "2026-10-18T12:00:00Z") + "\n"),
+        );
+        let path = config
+            .join("projects")
+            .join(encoded(&project))
+            .join(format!("{SESSION}.jsonl"));
+        let file = std::fs::File::options().write(true).open(&path).unwrap();
+        let boundary = UNIX_EPOCH + Duration::from_millis((NOW - DAY) as u64);
+        file.set_modified(boundary - Duration::from_millis(1))
+            .unwrap();
+        let (launcher, opened) = observed(&config);
+        assert!(
+            launcher
+                .discover_recent(&project, NOW, DAY)
+                .await
+                .unwrap()
+                .candidates
+                .is_empty()
+        );
+        assert!(opened.lock().unwrap().is_empty());
+        file.set_modified(boundary).unwrap();
+        assert_eq!(
+            launcher
+                .discover_recent(&project, NOW, DAY)
+                .await
+                .unwrap()
+                .candidates
+                .len(),
+            1
+        );
+        assert_eq!(*opened.lock().unwrap(), [path]);
+    }
+
+    #[tokio::test]
+    async fn u3037b_streaming_preserves_candidate_and_revision() {
+        let root = tempfile::tempdir_in(std::env::temp_dir().canonicalize().unwrap()).unwrap();
+        let project = root.path().join("project");
+        std::fs::create_dir(&project).unwrap();
+        let config = root.path().join("config");
+        let fixture = include_str!("../../tests/fixtures/import-2.1.300/top-level.jsonl")
+            .replace("/fixture/project", project.to_str().unwrap())
+            .replace("00000001-1111-4111-8111-111111111111", SESSION);
+        let complete = fixture + &format!("{}\n", record("user", &project, "2026-10-18T12:00:00Z"));
+        store(&config, "x", SESSION, &(complete.clone() + "{\"torn\":"));
+        let launcher = launcher(&config);
+        let mut candidates = launcher
+            .discover_recent(&project, NOW, 7 * DAY)
+            .await
+            .unwrap()
+            .candidates;
+        assert_eq!(candidates.len(), 1);
+        let candidate = candidates.pop().unwrap();
+        assert_eq!(candidate.title, "Observed import name");
+        assert_eq!(
+            candidate.revision,
+            hex(&Sha256::digest(complete.as_bytes()))
+        );
+        let (retained, bytes) = launcher
+            .read_import_snapshot(&project, SESSION, &candidate.revision, NOW)
+            .unwrap();
+        assert_eq!(retained, candidate);
+        assert_eq!(bytes, complete.as_bytes());
+    }
+
+    #[tokio::test]
+    async fn u3037b_malformed_complete_record_is_refused() {
+        let root = tempfile::tempdir_in(std::env::temp_dir().canonicalize().unwrap()).unwrap();
+        let project = root.path().join("project");
+        std::fs::create_dir(&project).unwrap();
+        let config = root.path().join("config");
+        let valid = record("user", &project, "2026-10-18T12:00:00Z") + "\n";
+        store(&config, "x", SESSION, &valid);
+        let launcher = launcher(&config);
+        let preview = launcher.discover_recent(&project, NOW, DAY).await.unwrap();
+        let path = config
+            .join("projects")
+            .join(encoded(&project))
+            .join(format!("{SESSION}.jsonl"));
+        for broken in [
+            b"{broken}\n".as_slice(),
+            b"{\"payload\":\"\xff\"}\n".as_slice(),
+        ] {
+            let mut bytes = valid.as_bytes().to_vec();
+            bytes.extend_from_slice(broken);
+            std::fs::write(&path, bytes).unwrap();
+            let found = launcher.discover_recent(&project, NOW, DAY).await.unwrap();
+            assert!(found.candidates.is_empty());
+            assert_eq!(found.excluded[0].reason, "malformed record");
+            let refused = launcher
+                .read_import_snapshot(&project, SESSION, &preview.candidates[0].revision, NOW)
+                .unwrap_err();
+            assert!(refused.message.contains("malformed record"));
+        }
+    }
+
+    #[tokio::test]
+    async fn u3037b_oversized_records_are_explicitly_refused() {
+        let root = tempfile::tempdir_in(std::env::temp_dir().canonicalize().unwrap()).unwrap();
+        let project = root.path().join("project");
+        std::fs::create_dir(&project).unwrap();
+        let config = root.path().join("config");
+        let complete = record("user", &project, "2026-10-18T12:00:00Z") + "\n";
+        store(
+            &config,
+            "x",
+            SESSION,
+            &(complete + &format!("{{\"payload\":\"{}\"}}\n", "x".repeat(9 * 1024 * 1024))),
+        );
+        let found = launcher(&config)
+            .discover_recent(&project, NOW, DAY)
+            .await
+            .unwrap();
+        assert!(found.candidates.is_empty());
+        assert!(found.excluded[0].reason.contains("record exceeds"));
     }
 }

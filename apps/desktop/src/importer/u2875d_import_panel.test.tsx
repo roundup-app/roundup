@@ -1,13 +1,16 @@
-import { cleanup, fireEvent, screen, waitFor } from "@solidjs/testing-library";
-import { afterEach, expect, it } from "vitest";
+import { openLane } from "../todos/laneBrowser";
+import { captureDir } from "../testing/captures";
+import { cleanup, fireEvent, screen, waitFor, within } from "@solidjs/testing-library";
+import { afterEach, expect, it, vi } from "vitest";
 import { render } from "@solidjs/testing-library";
-import { ConnectedProjectContext } from "../state/connectedProject";
+import { connectProject, ConnectedProjectContext } from "../state/connectedProject";
 import { Rail } from "../rail/Rail";
 import { RpcError } from "../app/seam";
 import { connectFakeProject } from "../terminal/paneHarness";
 import { workstream } from "../testing/nodes";
+import { createFakeApp } from "../testing/fakeApp";
 
-afterEach(() => { cleanup(); localStorage.clear(); });
+afterEach(() => { cleanup(); localStorage.clear(); vi.useRealTimers(); });
 
 const candidates = [
   { source: "s1", title: "first", cwd: "", last_activity_ms: 2n, revision: "r1" },
@@ -128,4 +131,101 @@ it.each([false, true])("u2875d_cancel_consumes_only_the_current_draft (empty: %s
   expect(isChecked(/first/)).toBe(true);
   expect(isChecked(/second/)).toBe(false);
   expect(calls(app, "project.importCommit")).toHaveLength(1);
+});
+
+
+it.skipIf(!captureDir("U3049a"))("u3049a_u3049b_rendered_conflict_recovery", async () => {
+  const lane = await openLane(1512, "dark", "builder-3049");
+
+  try {
+    await lane.evaluate(`(() => {
+      window.__fake.app.handlers['project.importDiscover'] = () => ({ candidates: Array.from({ length: 10 }, (_, at) => ({ source: 's' + (at + 1), revision: 'preview-' + (at + 1), title: ('長い会話 🪁 ' + (at + 1) + ' ').repeat(12), cwd: 'src', last_activity_ms: 1n })), excluded: [] });
+      return true;
+    })()`);
+    await lane.browser("click", ".rail-import");
+    await lane.until("document.querySelectorAll('.import-check').length === 10");
+    await lane.capture("U3049a", "before");
+    await lane.browser("click", ".import-list li:first-child .import-check");
+    await lane.until("document.querySelector('.import-confirm')?.textContent === 'Import 1'");
+    await lane.evaluate(`(() => {
+      localStorage.setItem('roundup:import:/Users/you/harness', JSON.stringify({ open: true, period: 'month', selected: [{ source: 's2', revision: 'preview-2', title: ('長い会話 🪁 2 ').repeat(12) }] }));
+      document.querySelectorAll('.import-check')[2].click();
+      return true;
+    })()`);
+    await lane.until("!!document.querySelector('.import-recovery [role=status]')");
+    await lane.capture("U3049a", "conflict");
+    expect(await lane.calls("project.importCommit")).toEqual([]);
+    await lane.browser("focus", ".import-recovery button");
+    await lane.browser("press", "Enter");
+    await lane.until("document.querySelector('.import-confirm')?.disabled && document.querySelector('.import-confirm')?.textContent === 'Import 1'");
+    await lane.capture("U3049b", "recovered");
+    await lane.evaluate(`(() => {
+      const read = Storage.prototype.getItem;
+      Storage.prototype.getItem = function(key) { if (key === 'roundup:import:/Users/you/harness') throw new Error('unreadable'); return read.call(this, key); };
+      document.querySelector('.import-recovery button').click();
+      return true;
+    })()`);
+    await lane.until("document.querySelector('.import-panel').textContent.includes('could not be restored')");
+    await lane.browser("scrollintoview", ".import-panel [role=alert]");
+    await lane.capture("U3049b", "retention-failure");
+    expect(await lane.calls("project.importCommit")).toEqual([]);
+  } finally {
+    await lane.close();
+  }
+}, 120_000);
+
+it("u3037d_discovery_deadline_and_retry", async () => {
+  const { app } = await mount();
+  app.handlers["project.importDiscover"] = () => new Promise(() => {});
+  vi.useFakeTimers();
+  fireEvent.click(screen.getByRole("button", { name: "Import Claude Code work" }));
+  await vi.advanceTimersByTimeAsync(0);
+  expect(within(screen.getByRole("dialog")).getByRole("status")).toBeTruthy();
+  expect(screen.getByRole("button", { name: "Cancel" })).toHaveProperty("disabled", false);
+  await vi.advanceTimersByTimeAsync(20_000);
+  expect(screen.getByRole("alert")).toBeTruthy();
+  expect(within(screen.getByRole("dialog")).queryByRole("status")).toBeNull();
+  expect(calls(app, "project.importCommit")).toHaveLength(0);
+  app.handlers["project.importDiscover"] = () => ({ candidates, excluded: [] });
+  fireEvent.click(screen.getByRole("button", { name: "Refresh" }));
+  await vi.advanceTimersByTimeAsync(0);
+  expect(screen.getByRole("checkbox", { name: /first/ })).toBeTruthy();
+  expect(screen.getByRole("button", { name: "Import" })).toHaveProperty("disabled", true);
+});
+
+
+it.each(["timeout", "period", "dismiss", "project"])("u3037d_late_results_cannot_replace_current_state (%s)", async (action) => {
+  const { app } = await mount();
+  let complete: (result: { candidates: typeof candidates; excluded: [] }) => void = () => {};
+
+  app.handlers["project.importDiscover"] = () => new Promise((resolve) => { complete = resolve; });
+  vi.useFakeTimers();
+  fireEvent.click(screen.getByRole("button", { name: "Import Claude Code work" }));
+  await vi.advanceTimersByTimeAsync(0);
+  app.handlers["project.importDiscover"] = () => { throw new Error("current failure"); };
+
+  if (action === "timeout") await vi.advanceTimersByTimeAsync(20_000);
+  else if (action === "period") {
+    fireEvent.click(screen.getByRole("button", { name: "Last day" }));
+    await vi.advanceTimersByTimeAsync(0);
+  } else if (action === "dismiss") fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
+  else {
+    cleanup();
+    const other = createFakeApp();
+    other.handlers["rail.tree"] = () => [];
+    other.handlers["terminal.list"] = () => [];
+    other.handlers["project.importDiscover"] = () => { throw new Error("current failure"); };
+
+    const connected = await connectProject(other, { name: "q", path: "/q" }, () => false, () => 0, () => null);
+    render(() => <ConnectedProjectContext.Provider value={connected}><Rail /></ConnectedProjectContext.Provider>);
+    fireEvent.click(screen.getByRole("button", { name: "Import Claude Code work" }));
+    await vi.advanceTimersByTimeAsync(0);
+  }
+
+  complete({ candidates, excluded: [] });
+  await vi.advanceTimersByTimeAsync(0);
+  expect(screen.queryByRole("checkbox", { name: /first/ })).toBeNull();
+
+  if (action !== "dismiss") expect(within(screen.getByRole("dialog")).getByRole("alert")).toBeTruthy();
+  expect(calls(app, "project.importCommit")).toHaveLength(0);
 });

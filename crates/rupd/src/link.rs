@@ -2,7 +2,7 @@
 //! through the method of that kind as the caller, so a link gives no caller more than that method.
 
 use contracts::link::{LinkContent, LinkUrl};
-use contracts::{agent, pad, terminal, todo};
+use contracts::{agent, deliverable, pad, terminal, todo};
 use rpc::{RpcError, code, params};
 use serde::de::DeserializeOwned;
 use serde_json::{Value, json};
@@ -10,6 +10,7 @@ use serde_json::{Value, json};
 use crate::{Conn, Daemon};
 
 enum Target {
+    Deliverable(String),
     Pad(String),
     Todo(u32),
     Agent(String),
@@ -34,10 +35,10 @@ fn parse(url: &str) -> Result<(Target, String), RpcError> {
     let kind = url.host_str().unwrap_or_default().to_owned();
     if !matches!(
         kind.as_str(),
-        "pad" | "todo" | "agent" | "workstream" | "terminal"
+        "pad" | "todo" | "agent" | "workstream" | "terminal" | "deliverable"
     ) {
         return Err(invalid(format!(
-            "the kind `{kind}` is not pad, todo, agent, workstream or terminal"
+            "the kind `{kind}` is not pad, todo, agent, workstream, terminal or deliverable"
         )));
     }
     let mut segments = url.path().strip_prefix('/').unwrap_or_default().split('/');
@@ -65,6 +66,7 @@ fn parse(url: &str) -> Result<(Target, String), RpcError> {
         .filter(|key| !key.is_empty())
         .ok_or_else(|| invalid("the `project` parameter is missing"))?;
     let target = match kind.as_str() {
+        "deliverable" => Target::Deliverable(id),
         "pad" => Target::Pad(id),
         "todo" => Target::Todo(
             id.parse()
@@ -81,13 +83,25 @@ impl Daemon {
     pub(crate) async fn link_read(&self, conn: &mut Conn, args: Value) -> Result<Value, RpcError> {
         let LinkUrl { url } = params(args)?;
         let (target, key) = parse(&url)?;
-        if key != self.project_key {
+        // Publications carry their stored Project identity; their reader checks it rather than
+        // the current-content link key, so neither identity can substitute for the other.
+        if !matches!(&target, Target::Deliverable(_)) && key != self.project_key {
             return Err(RpcError::new(
                 code::NOT_FOUND,
                 format!("the link belongs to another Project, `{key}`"),
             ));
         }
         let content = match target {
+            Target::Deliverable(id) => {
+                let args = json!({ "project": key, "id": id });
+                let record: deliverable::Deliverable = self
+                    .read_as(conn, "deliverable", &id, "deliverable.get", args.clone())
+                    .await?;
+                let resolution: deliverable::Resolution = self
+                    .read_as(conn, "deliverable", &id, "deliverable.resolve", args)
+                    .await?;
+                LinkContent::Deliverable { record, resolution }
+            }
             Target::Pad(id) => {
                 let pad: pad::Pad = self
                     .read_as(conn, "pad", &id, "pad.read", json!({ "name": id }))

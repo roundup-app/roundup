@@ -106,6 +106,15 @@ impl Agents {
         } else {
             "agents.db"
         }))?;
+        let timing = Arc::new(Mutex::new(rail::Timing::open(
+            &dir.join(if dir.join("project.db").exists() {
+                "project.db"
+            } else {
+                "agents.db"
+            }),
+            bus.clone(),
+            Arc::new(now_ms),
+        )?));
         Ok(Self {
             shared: Arc::new_cyclic(|me| Shared {
                 worktrunk: crate::worktrunk::Collector::default(),
@@ -120,6 +129,7 @@ impl Agents {
                 },
                 terminals,
                 clock: Arc::new(now_ms),
+                timing,
                 rail_view: rail_view::State {
                     opened: now_ms(),
                     launcher: launcher.clone(),
@@ -224,7 +234,27 @@ impl Agents {
     /// the system's. Call it before the first call is made.
     #[must_use]
     pub fn with_clock(self, clock: impl Fn() -> i64 + Send + Sync + 'static) -> Self {
-        self.configure(|shared| shared.clock = Arc::new(clock))
+        self.configure(|shared| {
+            shared.clock = Arc::new(clock);
+            shared
+                .timing
+                .lock()
+                .expect("measurement timing lock")
+                .set_clock(shared.clock.clone());
+        })
+    }
+
+    /// Supply local monotonic nanoseconds since this observer's start, before any calls.
+    /// Offsets must not decrease. Wall timestamps still come from `with_clock`.
+    #[must_use]
+    pub fn with_measurement_clock(self, clock: impl Fn() -> u128 + Send + Sync + 'static) -> Self {
+        self.configure(|shared| {
+            shared
+                .timing
+                .lock()
+                .expect("measurement timing lock")
+                .set_monotonic(clock)
+        })
     }
 
     /// H11: wait `bound` instead of `STEER_BOUND` for a Steer's `UserPromptSubmit`. Call it
@@ -551,6 +581,10 @@ pub(super) mod tests {
             git: worktree::Git::from_env(),
             project_dir: dir.path().to_owned(),
             rail: Mutex::new(rail::Rail::open(&dir.path().join("agents.db")).unwrap()),
+            timing: Arc::new(Mutex::new(
+                rail::Timing::open(&dir.path().join("agents.db"), bus.clone(), Arc::new(|| 0))
+                    .unwrap(),
+            )),
             runs: Mutex::new(HashMap::new()),
             door_lifecycle: tokio::sync::RwLock::new(()),
             bus: bus.clone(),
@@ -589,6 +623,11 @@ pub(super) mod tests {
             context: None,
             waits: Mutex::new(HashMap::new()),
         });
+        shared
+            .timing
+            .lock()
+            .unwrap()
+            .set_clock(shared.clock.clone());
         (dir, bus, shared)
     }
 
@@ -608,6 +647,10 @@ pub(super) mod tests {
             git: worktree::Git::from_env(),
             project_dir: dir.path().to_owned(),
             rail: Mutex::new(rail::Rail::open(&dir.path().join("agents.db")).unwrap()),
+            timing: Arc::new(Mutex::new(
+                rail::Timing::open(&dir.path().join("agents.db"), bus.clone(), Arc::new(|| 0))
+                    .unwrap(),
+            )),
             runs: Mutex::new(HashMap::new()),
             door_lifecycle: tokio::sync::RwLock::new(()),
             bus: bus.clone(),
@@ -656,6 +699,7 @@ pub(super) mod tests {
             .insert(NodeKind::Agent, "a", parent, Some("1"))
             .unwrap()
             .id;
+        shared.timing.lock().unwrap().prepare_attempt(&id, "1");
         shared.runs().insert(
             id.clone(),
             Slot::Running(Run {
@@ -701,6 +745,10 @@ pub(super) mod tests {
             git: worktree::Git::from_env(),
             project_dir: dir.path().to_owned(),
             rail: Mutex::new(rail::Rail::open(&dir.path().join("agents.db")).unwrap()),
+            timing: Arc::new(Mutex::new(
+                rail::Timing::open(&dir.path().join("agents.db"), bus.clone(), Arc::new(|| 0))
+                    .unwrap(),
+            )),
             runs: Mutex::new(HashMap::new()),
             door_lifecycle: tokio::sync::RwLock::new(()),
             bus: bus.clone(),

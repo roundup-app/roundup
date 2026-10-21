@@ -114,6 +114,7 @@ fn advance(
             || ended(node)
             || accept_receiver(inner, store, node).is_err()
             || store.count_open(&door)? >= OPEN_BOUND
+            || store.is_inbox_repeat(&chain.origin, &door, &chain.body, binding(node).0, None)?
         {
             continue;
         }

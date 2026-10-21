@@ -15,7 +15,7 @@ import "./capture.styles.css";
 let optimistic = 0;
 
 /** U3713 to U3716: `⌘K T` opens a one-line field. `⏎` files an Unassigned Todo and closes it, `⇧⏎` files and keeps it open, Escape cancels. The row shows before the Daemon answers; a failed create puts the text back with the cause. */
-export const Capture = () => {
+export const Capture = (props: { onFile: (() => void) | undefined }) => {
   const connected = useConnectedProject();
   const todos = useTodoList();
   const [open, setOpen] = createSignal(false);
@@ -89,6 +89,8 @@ export const Capture = () => {
     const row: Todo = { id: --optimistic, title, body: "", done: false, blockers: [], blocked: false, created_at: 0, creator: USER, home: null, owner: null };
     const hide = todos.show(row);
 
+    props.onFile?.();
+
     setText("");
 
     if (!keepOpen) close();
@@ -127,7 +129,7 @@ export const Capture = () => {
         initialFocusEl={() => input ?? null}
         finalFocusEl={() => returnTo instanceof HTMLElement && returnTo.isConnected ? returnTo : null}
         onEscapeKeyDown={(event) => { event.stopImmediatePropagation(); discard(); }}>
-        <Dialog.Content class="capture" ref={(element) => {
+        <Dialog.Content class="capture" aria-label={copy.captureLabel} ref={(element) => {
           panel = element;
           const centre = document.querySelector(".centre")?.getBoundingClientRect();
 
@@ -140,6 +142,7 @@ export const Capture = () => {
           <textarea
             class="capture-field"
             rows={1}
+            wrap="off"
             aria-label={copy.captureLabel}
             placeholder={copy.capturePlaceholder}
             value={text()}
