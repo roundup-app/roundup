@@ -30,6 +30,8 @@ pub struct ImportCandidate {
 pub struct ImportExclusion {
     pub source: String,
     pub reason: String,
+    /// The source file's modified time, which names the conversation when no title is known.
+    pub modified_ms: Option<i64>,
 }
 
 #[derive(Debug, Default, PartialEq, Eq)]
@@ -165,7 +167,7 @@ impl Launcher {
                 io_error(&root, err)
             }
         })?;
-        let mut found: Vec<(String, Scan)> = Vec::new();
+        let mut found: Vec<(String, Scan, Option<i64>)> = Vec::new();
         let mut metadata_bytes = 0;
         for (index, bucket) in buckets.enumerate() {
             check()?;
@@ -235,22 +237,32 @@ impl Launcher {
                         ));
                     }
                 }
-                found.push((stem.to_string(), result));
+                let modified_ms = metadata
+                    .modified()
+                    .ok()
+                    .and_then(|at| at.duration_since(UNIX_EPOCH).ok())
+                    .and_then(|at| i64::try_from(at.as_millis()).ok());
+                found.push((stem.to_string(), result, modified_ms));
             }
         }
         let mut counts: HashMap<String, usize> = HashMap::new();
-        for (source, _) in &found {
+        for (source, _, _) in &found {
             *counts.entry(source.clone()).or_default() += 1;
         }
         let mut out = ImportDiscovery::default();
-        for (source, scan) in found {
+        for (source, scan, modified_ms) in found {
             match scan {
                 _ if counts[&source] > 1 => out.excluded.push(ImportExclusion {
                     source,
                     reason: "duplicate source identity".into(),
+                    modified_ms,
                 }),
                 Scan::Member(candidate) => out.candidates.push(candidate),
-                Scan::Excluded(reason) => out.excluded.push(ImportExclusion { source, reason }),
+                Scan::Excluded(reason) => out.excluded.push(ImportExclusion {
+                    source,
+                    reason,
+                    modified_ms,
+                }),
                 Scan::OtherProject | Scan::Out => {}
             }
         }

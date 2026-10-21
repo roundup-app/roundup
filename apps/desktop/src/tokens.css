@@ -20,6 +20,7 @@
   --amber: #975900;
   --red: #c4262e;
   --hairline: rgba(0, 0, 0, 0.1);
+  --scrollbar-thumb: rgba(0, 0, 0, 0.3);
   --root-ground: var(--ground);
   --root-sunken: var(--sunken);
   --root-hover: var(--hover);
@@ -47,11 +48,13 @@
   --radius-row: 6px;
   --radius-control: 6px;
   --radius-drawer: 12px;
+  --radius-scrollbar: 3px;
 
   --easing-out: cubic-bezier(0.32, 0.72, 0, 1);
   --duration-drawer: 180ms;
   --duration-crossfade: 120ms;
   --duration-toast: 150ms;
+  --duration-scrollbar: 200ms;
 
   --font-ui: -apple-system, BlinkMacSystemFont, "SF Pro Text", system-ui, sans-serif;
   --font-mono: ui-monospace, "SF Mono", Menlo, monospace;
@@ -95,6 +98,7 @@
     --amber: #f0a030;
     --red: #ff6b6b;
     --hairline: rgba(255, 255, 255, 0.12);
+    --scrollbar-thumb: rgba(255, 255, 255, 0.3);
     --shadow-drawer: 0 8px 32px rgba(0, 0, 0, 0.5);
     --shadow-shelf: 0 0 24px rgba(0, 0, 0, 0.45);
     --shadow-scroll: inset 0 8px 8px -8px rgba(0, 0, 0, 0.6);
@@ -105,12 +109,14 @@
   :root {
     --grey: var(--text);
     --hairline: rgba(0, 0, 0, 0.4);
+    --scrollbar-thumb: rgba(0, 0, 0, 0.6);
   }
 }
 
 @media (prefers-contrast: more) and (prefers-color-scheme: dark) {
   :root {
     --hairline: rgba(255, 255, 255, 0.4);
+    --scrollbar-thumb: rgba(255, 255, 255, 0.6);
   }
 }
 

@@ -88,7 +88,9 @@ for (const by of ["pointer", "keyboard"] as const) {
 
       await openDrawerOf(2);
       press(within(drawer()).getByRole("button", { name: /Blocker/ }), by);
-      press(await within(drawer()).findByRole("button", { name: /#1 / }), by);
+
+      if (by === "pointer") fireEvent.click(await screen.findByRole("option", { name: /#1/ }));
+      else fireEvent.keyDown(await screen.findByRole("combobox"), { key: "Enter" });
       await waitFor(() => expect(callsTo(mounted.app, "todo.setBlockers")).toEqual([{ method: "todo.setBlockers", params: { id: 2, blockers: [1], expected_change: 2 } }]));
       refetch(mounted);
 
@@ -141,7 +143,7 @@ for (const by of ["pointer", "keyboard"] as const) {
 
       await openDrawerOf(2);
       press(await within(drawer()).findByRole("button", { name: "Delete Todo" }), by);
-      press(await within(drawer()).findByRole("button", { name: "Delete" }), by);
+      press(await screen.findByRole("button", { name: "Delete" }), by);
       await waitFor(() => expect(callsTo(mounted.app, "todo.delete")).toEqual([{ method: "todo.delete", params: { id: 2 } }]));
       mounted.app.emit(todoEvent("todo.updated", { ...mounted.store.todos[0]! }));
 
@@ -155,7 +157,7 @@ describe("u152 focus stays in the Drawer", () => {
     await mountTodos([todo(1), todo(2)]);
     await openDrawerOf(2);
     press(within(drawer()).getByRole("button", { name: /Blocker/ }), "keyboard");
-    press(await within(drawer()).findByRole("button", { name: /#1 / }), "keyboard");
+    fireEvent.keyDown(await screen.findByRole("combobox"), { key: "Enter" });
 
     await waitFor(() => expect(document.activeElement).not.toBe(document.body));
     expect(drawer().contains(document.activeElement)).toBe(true);

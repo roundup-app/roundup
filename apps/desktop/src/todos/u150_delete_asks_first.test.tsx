@@ -31,7 +31,7 @@ describe("u150 delete asks first (Todo)", () => {
 
     await ask();
 
-    expect([drawer().textContent?.includes("Delete Todo?"), within(drawer()).queryByText("Complete"), callsTo(app, "todo.delete")]).toEqual([true, null, []]);
+    expect([document.body.textContent?.includes("Delete Todo?"), screen.queryByText("Complete"), callsTo(app, "todo.delete")]).toEqual([true, null, []]);
   });
 
   it("u150_confirming_calls_todo_delete_once_and_closes_with_no_deleted_line", async () => {
@@ -39,7 +39,7 @@ describe("u150 delete asks first (Todo)", () => {
     app.handlers["todo.delete"] = () => null;
     await ask();
 
-    fireEvent.click(within(drawer()).getByText("Delete"));
+    fireEvent.click(screen.getByText("Delete"));
     app.emit({ actor: USER, name: "todo.deleted", data: { id: 5 } });
 
     await waitFor(() => expect(connected.drawer.content()).toBeNull());
@@ -57,7 +57,7 @@ describe("u150 delete asks first (Todo)", () => {
     fireEvent.click(await screen.findByRole("button", { name: /#5/ }));
     await within(drawer()).findByText("Blocker");
     await ask();
-    fireEvent.click(within(drawer()).getByText("Delete"));
+    fireEvent.click(screen.getByText("Delete"));
     app.emit({ actor: USER, name: "todo.deleted", data: { id: 5 } });
 
     await waitFor(() => expect(screen.queryByRole("button", { name: /#5/ })).toBeNull());
@@ -67,14 +67,14 @@ describe("u150 delete asks first (Todo)", () => {
   it("u150_keep_calls_nothing_and_returns_focus_to_delete", async () => {
     const { app } = await open();
     await ask();
-    const keep = within(drawer()).getByText("Keep");
+    const keep = screen.getByText("Keep");
     await waitFor(() => expect(document.activeElement).toBe(keep));
 
     fireEvent.click(keep);
     await waitFor(() => expect(screen.queryByRole("alertdialog")).toBeNull());
 
     await waitFor(() => expect(document.activeElement).toBe(within(drawer()).getByRole("button", { name: "Delete Todo" })));
-    expect([callsTo(app, "todo.delete"), within(drawer()).queryByText("Keep")]).toEqual([[], null]);
+    expect([callsTo(app, "todo.delete"), screen.queryByText("Keep")]).toEqual([[], null]);
   });
 
   it("u150_esc_dismisses_confirmation_and_calls_nothing", async () => {
@@ -85,7 +85,7 @@ describe("u150 delete asks first (Todo)", () => {
     await waitFor(() => expect(screen.queryByRole("alertdialog")).toBeNull());
 
     expect([connected.drawer.content() === null, callsTo(app, "todo.delete")]).toEqual([false, []]);
-    expect(within(drawer()).queryByText("Keep")).toBeNull();
+    expect(screen.queryByText("Keep")).toBeNull();
   });
 
   it("u150_an_error_keeps_the_drawer_and_the_item", async () => {
@@ -93,9 +93,9 @@ describe("u150 delete asks first (Todo)", () => {
     app.handlers["todo.delete"] = () => Promise.reject(new RpcError(-32001, "not found"));
     await ask();
 
-    fireEvent.click(within(drawer()).getByText("Delete"));
+    fireEvent.click(screen.getByText("Delete"));
 
-    expect([(await within(drawer()).findByText(/not found/)).textContent, connected.drawer.content() === null]).toEqual(["not found", false]);
+    expect([(await screen.findByText(/not found/)).textContent, connected.drawer.content() === null]).toEqual(["not found", false]);
     fireEvent.click(screen.getByRole("button", { name: "Keep" }));
     await waitFor(() => expect(screen.queryByRole("alertdialog")).toBeNull());
     expect(screen.getAllByRole("button", { name: /#5/ }).length).toBeGreaterThan(0);
