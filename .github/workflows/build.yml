@@ -6,11 +6,11 @@ run-name: Build ready work Issues
 # that Issue's model did work, so the slots work as a pool rather than a batch.
 # claude-code-action rejects push events, so a merge starts the build once `check` ends on `main`. The user's or a loop
 # App's new or reopened Issue and a removed `flag:needs-user` or `flag:needs-mac` each add work (L34), so each starts
-# a pick.
+# a pick. A `fix` or `review` run's end frees a slot or leaves a PR for a fix run, so it starts a pick too (L123). Every trigger
+# queues behind `pick`'s own group and never cancels a running one: cancelling a build run kills the build jobs it picked.
 on:
   workflow_run:
-    workflows: [check]
-    branches: [main]
+    workflows: [check, fix, review]
     types: [completed]
   schedule:
     - cron: '17 * * * *'
@@ -30,10 +30,11 @@ jobs:
   # One pick at a time, so two triggers never start one Issue twice; build jobs of earlier runs keep running.
   pick:
     if: >-
-      github.event_name != 'issues' ||
+      (github.event_name != 'workflow_run' || github.event.workflow_run.name != 'check' || github.event.workflow_run.head_branch == 'main') &&
+      (github.event_name != 'issues' ||
       (github.event.action == 'unlabeled' && contains(fromJSON('["flag:needs-user", "flag:needs-mac"]'), github.event.label.name)) ||
       (contains(fromJSON('["opened", "reopened"]'), github.event.action) &&
-       contains(fromJSON('["saadshahd", "claude[bot]", "github-actions[bot]"]'), github.event.issue.user.login))
+       contains(fromJSON('["saadshahd", "claude[bot]", "github-actions[bot]"]'), github.event.issue.user.login)))
     runs-on: ubuntu-latest
     concurrency:
       group: build-pick
