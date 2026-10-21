@@ -21,7 +21,11 @@ fn a35_rewind_has_no_app_only_caller_or_u374_surface() {
                 continue;
             }
             for word in ["workstream.rewind", "rewindPlan", "U374"] {
-                assert!(!text.contains(word), "{} names {word}", path.display());
+                // A whole id only: U3740 is another scenario.
+                let named = text
+                    .match_indices(word)
+                    .any(|(at, _)| !text[at + word.len()..].starts_with(char::is_numeric));
+                assert!(!named, "{} names {word}", path.display());
             }
         }
     }
