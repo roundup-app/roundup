@@ -43,6 +43,7 @@ export const mountBubbles = async (selected: string | null = "a", terminals: Ter
     return null;
   };
 
+  const [recovery, recover] = createSignal<{ project: string; revision: string }>();
   const [exit, setExit] = createSignal<{ code: number | null } | null>(null);
   const connected = await connectProject(app, { name: "p", path: "/p" }, () => false, () => 0, exit);
   const emulators = fakeEmulators();
@@ -56,14 +57,14 @@ export const mountBubbles = async (selected: string | null = "a", terminals: Ter
       <ConnectedProjectContext.Provider value={connected}>
         <div class="centre-stack">
           <Pane createEmulator={emulators.factory} screensRef={setScreens} />
-          <Show when={screens()}>{(shared) => <Bubbles screens={shared()} />}</Show>
+          <Show when={screens()}>{(shared) => <Bubbles screens={shared()} recovery={recovery()} />}</Show>
           <ResourceStrip />
         </div>
       </ConnectedProjectContext.Provider>
     );
   });
 
-  return { app, connected, emulators, setExit, container: rendered.container, setListed: (next: TerminalInfo[]) => (listed = next) };
+  return { app, connected, emulators, setExit, recover, container: rendered.container, setListed: (next: TerminalInfo[]) => (listed = next) };
 };
 
 export const bubbleChord = (key: string, init: KeyboardEventInit = {}, target: Element | Window = window): KeyboardEvent => {

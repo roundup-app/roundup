@@ -334,7 +334,9 @@ pub(super) fn save_signal_conversation(
     let Some(conversation_id) = claude_code::conversation_id(payload) else {
         return Ok(());
     };
-    rail.save_conversation(id, &conversation_id, &run.cwd)
+    rail.save_conversation(id, &conversation_id, &run.cwd)?;
+    rail.observe_measurement_owner(id, &conversation_id, &run.cwd, &run.attempt);
+    Ok(())
 }
 
 /// A22: whether `payload` is the acknowledgement a pending resume waits for: a `SessionStart`

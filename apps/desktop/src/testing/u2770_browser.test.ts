@@ -73,20 +73,6 @@ it("u2770_pointer_and_keyboard_focus", async () => {
       await lane.until(`!(${focused(".ask-input")})`);
       expect(await ring()).toBe("solid");
 
-      // A context menu takes scripted focus after a pointer press and uses arrows thereafter.
-      const at = await lane.evaluate<{ x: number; y: number }>(`(() => { const r = document.querySelector('.rail [data-id="tokens"].rail-row').getBoundingClientRect(); return { x: r.x + r.width / 2, y: r.y + r.height / 2 }; })()`);
-
-      await lane.browser("mouse", "move", String(Math.round(at.x)), String(Math.round(at.y)));
-      await lane.browser("mouse", "down", "right");
-      await lane.browser("mouse", "up", "right");
-      await lane.until("document.activeElement?.matches('.rail-menu [role=menuitem]')");
-      expect(await ring()).toBe("none");
-      await lane.browser("press", "ArrowDown");
-      await lane.until("document.activeElement?.matches('.rail-menu [role=menuitem]:nth-child(2)')");
-      expect(await ring()).toBe("solid");
-      await lane.browser("press", "Escape");
-      await lane.until("!document.querySelector('.rail-menu')");
-
       // A real AlertDialog's first control is focused by its click opener.
       await lane.browser("hover", ".project-tab");
       await lane.until("!!document.querySelector('.project-tab .tab-close')");

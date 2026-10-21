@@ -52,14 +52,15 @@ type Ev is Data:
 # queue: `pending` ids, in the order they became deliverable (B7).
 # held_af: `held` for ask-first. held_tk: `held` for takeover.
 # typed: `delivered` ids, in the order they were written. dropped: `dropped` ids.
-# users: ids the user sent. takeover is the user's hold of the Terminal: a Takeover or unsent input (B32; UserInput begins it, UserSubmit and UserClear end it). next: the next id. takeover, idle, gone: the receiver's state.
-# tk_typed is a proof-only record of the ids typed while a Takeover held; released holds the ids the user delivered
+# users: ids the user sent. takeover and unsent are independent Terminal holds (B6/B32).
+# next: the next id. idle: delivery readiness. gone: the receiver has ended.
+# tk_typed is a proof-only record of the ids typed while either Terminal hold was active; released holds the ids the user delivered
 # by hand (B6: the user's call wins even during a Takeover). The Rust derives both by replay.
 type World is Data:
-  W{queue: +List<Nat>, held_af: +List<Nat>, held_tk: +List<Nat>, typed: +List<Nat>, dropped: +List<Nat>, users: +List<Nat>, tk_typed: +List<Nat>, released: +List<Nat>, next: Nat, takeover: Bool, idle: Bool, gone: Bool}
+  W{queue: +List<Nat>, held_af: +List<Nat>, held_tk: +List<Nat>, typed: +List<Nat>, dropped: +List<Nat>, users: +List<Nat>, tk_typed: +List<Nat>, released: +List<Nat>, next: Nat, takeover: Bool, unsent: Bool, idle: Bool, gone: Bool}
 
 def init() -> World:
-  W{[], [], [], [], [], [], [], [], 1n, False{}, False{}, False{}}
+  W{[], [], [], [], [], [], [], [], 1n, False{}, False{}, False{}, False{}}
 
 def mem(+x: Nat, xs: +List<Nat>) -> Bool:
   match xs:
@@ -100,8 +101,8 @@ def flush_go(q: +List<Nat>, s: World) -> World:
       s
     case Con{+x, +rest}:
       match s:
-        case W{+q0, +haf, +htk, +t, +d, +u, +tt, +rl, +n, +tk, +i, +g}:
-          flush_go(rest, W{[], haf, htk, snoc(t, x), d, u, record(tk, x, tt), rl, n, tk, False{}, g})
+        case W{+q0, +haf, +htk, +t, +d, +u, +tt, +rl, +n, +tk, +us, +i, +g}:
+          flush_go(rest, W{[], haf, htk, snoc(t, x), d, u, record(Bool.or(tk, us), x, tt), rl, n, tk, us, False{}, g})
 
 def flush_b(i: Bool, s: World) -> World:
   match i:
@@ -109,13 +110,13 @@ def flush_b(i: Bool, s: World) -> World:
       s
     case True{}:
       match s:
-        case W{+q, +haf, +htk, +t, +d, +u, +tt, +rl, +n, +tk, +i, +g}:
-          flush_go(q, W{[], haf, htk, t, d, u, tt, rl, n, tk, i, g})
+        case W{+q, +haf, +htk, +t, +d, +u, +tt, +rl, +n, +tk, +us, +i, +g}:
+          flush_go(q, W{[], haf, htk, t, d, u, tt, rl, n, tk, us, i, g})
 
 def flush(s: World) -> World:
   match s:
-    case W{+q, +haf, +htk, +t, +d, +u, +tt, +rl, +n, +tk, +i, +g}:
-      flush_b(i, W{q, haf, htk, t, d, u, tt, rl, n, tk, i, g})
+    case W{+q, +haf, +htk, +t, +d, +u, +tt, +rl, +n, +tk, +us, +i, +g}:
+      flush_b(i, W{q, haf, htk, t, d, u, tt, rl, n, tk, us, i, g})
 
 def keep_step(b: Bool, +x: Nat, tail: +List<Nat>) -> +List<Nat>:
   match b:
@@ -160,27 +161,27 @@ def send_route(fu: Bool, tk: Bool, s: World) -> World:
       match tk:
         case True{}:
           match s:
-            case W{+q, +haf, +htk, +t, +d, +u, +tt, +rl, +n, +tk, +i, +g}:
-              W{q, haf, snoc(htk, n), t, d, snoc(u, n), tt, rl, 1n+n, tk, i, g}
+            case W{+q, +haf, +htk, +t, +d, +u, +tt, +rl, +n, +tk, +us, +i, +g}:
+              W{q, haf, snoc(htk, n), t, d, snoc(u, n), tt, rl, 1n+n, tk, us, i, g}
         case False{}:
           match s:
-            case W{+q, +haf, +htk, +t, +d, +u, +tt, +rl, +n, +tk, +i, +g}:
-              flush(W{snoc(q, n), haf, htk, t, d, snoc(u, n), tt, rl, 1n+n, tk, i, g})
+            case W{+q, +haf, +htk, +t, +d, +u, +tt, +rl, +n, +tk, +us, +i, +g}:
+              flush(W{snoc(q, n), haf, htk, t, d, snoc(u, n), tt, rl, 1n+n, tk, us, i, g})
     case False{}:
       match tk:
         case True{}:
           match s:
-            case W{+q, +haf, +htk, +t, +d, +u, +tt, +rl, +n, +tk, +i, +g}:
-              W{q, haf, snoc(htk, n), t, d, u, tt, rl, 1n+n, tk, i, g}
+            case W{+q, +haf, +htk, +t, +d, +u, +tt, +rl, +n, +tk, +us, +i, +g}:
+              W{q, haf, snoc(htk, n), t, d, u, tt, rl, 1n+n, tk, us, i, g}
         case False{}:
           match s:
-            case W{+q, +haf, +htk, +t, +d, +u, +tt, +rl, +n, +tk, +i, +g}:
-              flush(W{snoc(q, n), haf, htk, t, d, u, tt, rl, 1n+n, tk, i, g})
+            case W{+q, +haf, +htk, +t, +d, +u, +tt, +rl, +n, +tk, +us, +i, +g}:
+              flush(W{snoc(q, n), haf, htk, t, d, u, tt, rl, 1n+n, tk, us, i, g})
 
 def send_auto(fu: Bool, s: World) -> World:
   match s:
-    case W{+q, +haf, +htk, +t, +d, +u, +tt, +rl, +n, +tk, +i, +g}:
-      send_route(fu, tk, W{q, haf, htk, t, d, u, tt, rl, n, tk, i, g})
+    case W{+q, +haf, +htk, +t, +d, +u, +tt, +rl, +n, +tk, +us, +i, +g}:
+      send_route(fu, Bool.or(tk, us), W{q, haf, htk, t, d, u, tt, rl, n, tk, us, i, g})
 
 def send_live(r: Route, fu: Bool, s: World) -> World:
   match r:
@@ -188,12 +189,12 @@ def send_live(r: Route, fu: Bool, s: World) -> World:
       send_auto(fu, s)
     case AskFirst{}:
       match s:
-        case W{+q, +haf, +htk, +t, +d, +u, +tt, +rl, +n, +tk, +i, +g}:
-          W{q, snoc(haf, n), htk, t, d, owned(fu, n, u), tt, rl, 1n+n, tk, i, g}
+        case W{+q, +haf, +htk, +t, +d, +u, +tt, +rl, +n, +tk, +us, +i, +g}:
+          W{q, snoc(haf, n), htk, t, d, owned(fu, n, u), tt, rl, 1n+n, tk, us, i, g}
     case RouteDrop{}:
       match s:
-        case W{+q, +haf, +htk, +t, +d, +u, +tt, +rl, +n, +tk, +i, +g}:
-          W{q, haf, htk, t, snoc(d, n), owned(fu, n, u), tt, rl, 1n+n, tk, i, g}
+        case W{+q, +haf, +htk, +t, +d, +u, +tt, +rl, +n, +tk, +us, +i, +g}:
+          W{q, haf, htk, t, snoc(d, n), owned(fu, n, u), tt, rl, 1n+n, tk, us, i, g}
 
 # B9: a later send to a gone receiver is CONFLICT and changes nothing.
 def send(r: Route, fu: Bool, g: Bool, s: World) -> World:
@@ -207,20 +208,39 @@ def send(r: Route, fu: Bool, g: Bool, s: World) -> World:
 # (the users whose Messages are kept pending are none: `keep_users(q, [])` is empty and `drop_users(q, [])` is `q`).
 def takeover_begin(s: World) -> World:
   match s:
-    case W{+q, +haf, +htk, +t, +d, +u, +tt, +rl, +n, +tk, +i, +g}:
-      W{keep_users(q, []), haf, List.append(&2, Nat, htk, drop_users(q, [])), t, d, u, tt, rl, n, True{}, i, g}
+    case W{+q, +haf, +htk, +t, +d, +u, +tt, +rl, +n, +tk, +us, +i, +g}:
+      W{keep_users(q, []), haf, List.append(&2, Nat, htk, drop_users(q, [])), t, d, u, tt, rl, n, True{}, us, i, g}
 
-# B6: the Takeover ends; what it held becomes pending, behind what already waits.
+# B6/B32: only the last release makes held Messages pending.
+def release(held: Bool, s: World) -> World:
+  match held:
+    case True{}:
+      s
+    case False{}:
+      match s:
+        case W{+q, +haf, +htk, +t, +d, +u, +tt, +rl, +n, +tk, +us, +i, +g}:
+          flush(W{List.append(&2, Nat, q, htk), haf, [], t, d, u, tt, rl, n, tk, us, i, g})
+
 def takeover_end(s: World) -> World:
   match s:
-    case W{+q, +haf, +htk, +t, +d, +u, +tt, +rl, +n, +tk, +i, +g}:
-      flush(W{List.append(&2, Nat, q, htk), haf, [], t, d, u, tt, rl, n, False{}, i, g})
+    case W{+q, +haf, +htk, +t, +d, +u, +tt, +rl, +n, +tk, +us, +i, +g}:
+      release(us, W{q, haf, htk, t, d, u, tt, rl, n, False{}, us, i, g})
+
+def user_input(s: World) -> World:
+  match s:
+    case W{+q, +haf, +htk, +t, +d, +u, +tt, +rl, +n, +tk, +us, +i, +g}:
+      W{keep_users(q, []), haf, List.append(&2, Nat, htk, drop_users(q, [])), t, d, u, tt, rl, n, tk, True{}, i, g}
+
+def user_submit(s: World) -> World:
+  match s:
+    case W{+q, +haf, +htk, +t, +d, +u, +tt, +rl, +n, +tk, +us, +i, +g}:
+      release(tk, W{q, haf, htk, t, d, u, tt, rl, n, tk, False{}, i, g})
 
 # B9: a receiver that is gone has no pending Message; what a Takeover held is dropped with it.
 def exit_(s: World) -> World:
   match s:
-    case W{+q, +haf, +htk, +t, +d, +u, +tt, +rl, +n, +tk, +i, +g}:
-      W{[], haf, [], t, List.append(&2, Nat, d, List.append(&2, Nat, q, htk)), u, tt, rl, n, tk, False{}, True{}}
+    case W{+q, +haf, +htk, +t, +d, +u, +tt, +rl, +n, +tk, +us, +i, +g}:
+      W{[], haf, [], t, List.append(&2, Nat, d, List.append(&2, Nat, q, htk)), u, tt, rl, n, tk, us, False{}, True{}}
 
 def deliver_if(b: Bool, +id: Nat, s: World) -> World:
   match b:
@@ -228,8 +248,8 @@ def deliver_if(b: Bool, +id: Nat, s: World) -> World:
       s
     case True{}:
       match s:
-        case W{+q, +haf, +htk, +t, +d, +u, +tt, +rl, +n, +tk, +i, +g}:
-          flush(W{snoc(q, id), remove(id, haf), htk, t, d, u, tt, snoc(rl, id), n, tk, i, g})
+        case W{+q, +haf, +htk, +t, +d, +u, +tt, +rl, +n, +tk, +us, +i, +g}:
+          flush(W{snoc(q, id), remove(id, haf), htk, t, d, u, tt, snoc(rl, id), n, tk, us, i, g})
 
 def drop_if(b: Bool, +id: Nat, s: World) -> World:
   match b:
@@ -237,8 +257,8 @@ def drop_if(b: Bool, +id: Nat, s: World) -> World:
       s
     case True{}:
       match s:
-        case W{+q, +haf, +htk, +t, +d, +u, +tt, +rl, +n, +tk, +i, +g}:
-          W{q, remove(id, haf), htk, t, snoc(d, id), u, tt, rl, n, tk, i, g}
+        case W{+q, +haf, +htk, +t, +d, +u, +tt, +rl, +n, +tk, +us, +i, +g}:
+          W{q, remove(id, haf), htk, t, snoc(d, id), u, tt, rl, n, tk, us, i, g}
 
 def deliver_tk(b: Bool, +id: Nat, s: World) -> World:
   match b:
@@ -246,8 +266,8 @@ def deliver_tk(b: Bool, +id: Nat, s: World) -> World:
       s
     case True{}:
       match s:
-        case W{+q, +haf, +htk, +t, +d, +u, +tt, +rl, +n, +tk, +i, +g}:
-          flush(W{snoc(q, id), haf, remove(id, htk), t, d, u, tt, snoc(rl, id), n, tk, i, g})
+        case W{+q, +haf, +htk, +t, +d, +u, +tt, +rl, +n, +tk, +us, +i, +g}:
+          flush(W{snoc(q, id), haf, remove(id, htk), t, d, u, tt, snoc(rl, id), n, tk, us, i, g})
 
 def deliver_pick(a: Bool, b: Bool, +id: Nat, s: World) -> World:
   match a:
@@ -259,8 +279,8 @@ def deliver_pick(a: Bool, b: Bool, +id: Nat, s: World) -> World:
 # B3, B6: the user can deliver a Message held for ask-first or for a Takeover, and not once the receiver is gone (B9).
 def user_deliver(+id: Nat, s: World) -> World:
   match s:
-    case W{+q, +haf, +htk, +t, +d, +u, +tt, +rl, +n, +tk, +i, +g}:
-      deliver_pick(Bool.and(mem(id, haf), Bool.not(g)), Bool.and(mem(id, htk), Bool.not(g)), id, W{q, haf, htk, t, d, u, tt, rl, n, tk, i, g})
+    case W{+q, +haf, +htk, +t, +d, +u, +tt, +rl, +n, +tk, +us, +i, +g}:
+      deliver_pick(Bool.and(mem(id, haf), Bool.not(g)), Bool.and(mem(id, htk), Bool.not(g)), id, W{q, haf, htk, t, d, u, tt, rl, n, tk, us, i, g})
 
 def drop_tk(b: Bool, +id: Nat, s: World) -> World:
   match b:
@@ -268,8 +288,8 @@ def drop_tk(b: Bool, +id: Nat, s: World) -> World:
       s
     case True{}:
       match s:
-        case W{+q, +haf, +htk, +t, +d, +u, +tt, +rl, +n, +tk, +i, +g}:
-          W{q, haf, remove(id, htk), t, snoc(d, id), u, tt, rl, n, tk, i, g}
+        case W{+q, +haf, +htk, +t, +d, +u, +tt, +rl, +n, +tk, +us, +i, +g}:
+          W{q, haf, remove(id, htk), t, snoc(d, id), u, tt, rl, n, tk, us, i, g}
 
 def drop_pick(a: Bool, b: Bool, +id: Nat, s: World) -> World:
   match a:
@@ -281,30 +301,30 @@ def drop_pick(a: Bool, b: Bool, +id: Nat, s: World) -> World:
 # B3, B6 as amended in #222 (a dependency: merge #222 first): the user can drop a Message held for ask-first or for a Takeover; the Takeover goes on.
 def user_drop(+id: Nat, s: World) -> World:
   match s:
-    case W{+q, +haf, +htk, +t, +d, +u, +tt, +rl, +n, +tk, +i, +g}:
-      drop_pick(mem(id, haf), mem(id, htk), id, W{q, haf, htk, t, d, u, tt, rl, n, tk, i, g})
+    case W{+q, +haf, +htk, +t, +d, +u, +tt, +rl, +n, +tk, +us, +i, +g}:
+      drop_pick(mem(id, haf), mem(id, htk), id, W{q, haf, htk, t, d, u, tt, rl, n, tk, us, i, g})
 
 def set_idle(b: Bool, s: World) -> World:
   match s:
-    case W{+q, +haf, +htk, +t, +d, +u, +tt, +rl, +n, +tk, +i, +g}:
-      W{q, haf, htk, t, d, u, tt, rl, n, tk, b, g}
+    case W{+q, +haf, +htk, +t, +d, +u, +tt, +rl, +n, +tk, +us, +i, +g}:
+      W{q, haf, htk, t, d, u, tt, rl, n, tk, us, b, g}
 
 def idle_ev(s: World) -> World:
   match s:
-    case W{+q, +haf, +htk, +t, +d, +u, +tt, +rl, +n, +tk, +i, +g}:
+    case W{+q, +haf, +htk, +t, +d, +u, +tt, +rl, +n, +tk, +us, +i, +g}:
       match g:
         case True{}:
-          W{q, haf, htk, t, d, u, tt, rl, n, tk, i, g}
+          W{q, haf, htk, t, d, u, tt, rl, n, tk, us, i, g}
         case False{}:
-          flush(W{q, haf, htk, t, d, u, tt, rl, n, tk, True{}, g})
+          flush(W{q, haf, htk, t, d, u, tt, rl, n, tk, us, True{}, g})
 
 def busy_ev(s: World) -> World:
   set_idle(False{}, s)
 
 def send_ev(fu: Bool, r: Route, s: World) -> World:
   match s:
-    case W{+q, +haf, +htk, +t, +d, +u, +tt, +rl, +n, +tk, +i, +g}:
-      send(r, fu, g, W{q, haf, htk, t, d, u, tt, rl, n, tk, i, g})
+    case W{+q, +haf, +htk, +t, +d, +u, +tt, +rl, +n, +tk, +us, +i, +g}:
+      send(r, fu, g, W{q, haf, htk, t, d, u, tt, rl, n, tk, us, i, g})
 
 # B8: the Daemon is killed and started again. Nothing is typed: a Message is recorded `delivered` before it is typed, so what
 # was typed stays typed and is never typed again. If the Terminal did not survive (A12), the receiver is gone and every
@@ -313,9 +333,13 @@ def send_ev(fu: Bool, r: Route, s: World) -> World:
 def restart(alive: Bool, s: World) -> World:
   match alive:
     case True{}:
-      takeover_end(busy_ev(s))
+      match s:
+        case W{+q, +haf, +htk, +t, +d, +u, +tt, +rl, +n, +tk, +us, +i, +g}:
+          W{List.append(&2, Nat, q, htk), haf, [], t, d, u, tt, rl, n, False{}, False{}, False{}, g}
     case False{}:
-      takeover_end(exit_(s))
+      match s:
+        case W{+q, +haf, +htk, +t, +d, +u, +tt, +rl, +n, +tk, +us, +i, +g}:
+          W{[], haf, [], t, List.append(&2, Nat, d, List.append(&2, Nat, q, htk)), u, tt, rl, n, False{}, False{}, False{}, True{}}
 
 # The whole transition table: one pure, total function of the world and one event.
 def step(e: Ev, s: World) -> World:
@@ -333,11 +357,11 @@ def step(e: Ev, s: World) -> World:
     case TakeoverEnd{}:
       takeover_end(s)
     case UserInput{}:
-      takeover_begin(s)
+      user_input(s)
     case UserSubmit{}:
-      takeover_end(s)
+      user_submit(s)
     case UserClear{}:
-      takeover_end(s)
+      user_submit(s)
     case UserDeliver{id}:
       user_deliver(id, s)
     case UserDrop{id}:
@@ -559,8 +583,8 @@ def record_prompt(j: PromptJournal) -> PromptJournal:
           Journal{Recorded{id}, world}
         case Unrecorded{}:
           match world:
-            case W{+q, +haf, +htk, +t, +d, +u, +tt, +rl, +n, +tk, +i, +g}:
-              Journal{Recorded{n}, W{q, haf, htk, snoc(t, n), d, snoc(u, n), tt, rl, 1n+n, tk, i, g}}
+            case W{+q, +haf, +htk, +t, +d, +u, +tt, +rl, +n, +tk, +us, +i, +g}:
+              Journal{Recorded{n}, W{q, haf, htk, snoc(t, n), d, snoc(u, n), tt, rl, 1n+n, tk, us, i, g}}
 
 def journal_world(j: PromptJournal) -> World:
   match j:
@@ -576,8 +600,8 @@ type ReservationStore is Data:
 # clearing memory here must not promote them early or put a new auto Message under a lost hold.
 def reopen_reserved(world: World) -> World:
   match world:
-    case W{+q, +haf, +htk, +t, +d, +u, +tt, +rl, +n, +tk, +i, +g}:
-      W{q, haf, htk, t, d, u, tt, rl, n, False{}, False{}, g}
+    case W{+q, +haf, +htk, +t, +d, +u, +tt, +rl, +n, +tk, +us, +i, +g}:
+      W{q, haf, htk, t, d, u, tt, rl, n, False{}, False{}, False{}, g}
 
 def reopen_world(reserved: Bool, world: World, alive: Bool) -> World:
   match reserved:
@@ -654,8 +678,8 @@ def retirement_world(s: RetirementStore) -> World:
 # Consent was checked by the coordinator; this ends only the in-memory Takeover, not its hold.
 def retirement_takeover_end(w: World) -> World:
   match w:
-    case W{+q, +haf, +htk, +t, +d, +u, +tt, +rl, +n, +tk, +i, +g}:
-      W{q, haf, htk, t, d, u, tt, rl, n, False{}, False{}, g}
+    case W{+q, +haf, +htk, +t, +d, +u, +tt, +rl, +n, +tk, +us, +i, +g}:
+      W{q, haf, htk, t, d, u, tt, rl, n, False{}, us, False{}, g}
 
 def retirement_state(s: RetirementStore) -> Retirement:
   match s:

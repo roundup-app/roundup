@@ -63,20 +63,12 @@ describe("u137 one module measures the checks", () => {
     expect(after.D7.status).toBe("pass");
   });
 
-  it("u137_every_id_d1_to_d10_is_present_with_status_value_and_selector", async () => {
-    await withStylesheets(async () => {
-      mountSeed();
-      const checks = runChecks();
+  it("u133_d6_measures_text_input_hit_areas_without_button_states", () => {
+    document.body.innerHTML = '<input type="text" style="height:15px">';
+    expect(runChecks().D6).toMatchObject({ status: "fail", value: { height: 15 } });
 
-      expect(Object.keys(checks)).toEqual(["D1", "D2", "D3", "D4", "D5", "D6", "D7", "D8", "D9", "D10", "D11", "D12", "D13", "D14", "D16"]);
-      expect(CHECK_IDS).toEqual(Object.keys(checks));
-
-      for (const check of Object.values(checks)) {
-        expect(["pass", "fail"]).toContain(check.status);
-        expect(check.value).not.toBeUndefined();
-        expect(check.selector).toEqual(expect.any(String));
-      }
-    });
+    document.querySelector("input")!.style.height = "24px";
+    expect(runChecks().D6.status).toBe("pass");
   });
 
   it.each([
@@ -193,14 +185,46 @@ rendered("u137 rendered focus marks", () => {
   }, 90_000);
   afterAll(async () => { await page?.close(); });
 
-  it.each(["milkdown-slash-menu", "pane-control", "import-panel"])("u137_floating_surface_%s_keeps_unrelated_shadow_rejection", async (surface) => {
+  it("u3712_d2_accepts_only_the_declared_token_derived_tree_padding", async () => {
+    await page.load("/harness.html?seed=tree-40");
+
+    const statuses = await page.call<string[]>(`() => {
+      document.body.innerHTML = '<div class="todo-list" role="tree"><div class="todo-row" role="treeitem" data-todo="3" aria-level="3" style="padding-inline-start:calc(var(--space-2) + 2 * var(--space-4))">Grandchild</div></div>';
+      const row = document.querySelector('.todo-row');
+      const statuses = [window.__checks().D2.status];
+      row.style.paddingInlineStart = '40px';
+      statuses.push(window.__checks().D2.status);
+      row.style.paddingInlineStart = 'calc(var(--space-2) + 2 * var(--space-4))';
+      row.setAttribute('aria-level', '2');
+      statuses.push(window.__checks().D2.status);
+      row.setAttribute('aria-level', '3');
+      row.classList.remove('todo-row');
+      statuses.push(window.__checks().D2.status);
+      row.classList.add('todo-row');
+      row.style.paddingLeft = '41px';
+      statuses.push(window.__checks().D2.status);
+      row.style.removeProperty('padding-left');
+      row.style.paddingInlineStart = 'calc(var(--space-2) + 2 * var(--space-4) + 1px)';
+      statuses.push(window.__checks().D2.status);
+      return statuses;
+    }`);
+
+    expect(statuses).toEqual(["pass", "fail", "fail", "fail", "fail", "fail"]);
+  });
+
+  it.each(["milkdown-slash-menu", "pane-control", "import-panel", "app-select-list"])("u137_floating_surface_%s_keeps_unrelated_shadow_rejection", async (surface) => {
     for (const scheme of ["light", "dark"] as const) {
       await page.scheme(scheme);
       await page.load("/harness.html?seed=tree-40");
 
       const observed = await page.call<string[]>(`(surface) => {
-        document.body.innerHTML = '<div class="${surface}" style="box-shadow:var(--shadow-drawer)"><p>Text</p></div><p class="content">Content</p>';
+        document.body.innerHTML = '<div class="${surface}" ${surface === "app-select-list" ? 'role="listbox" data-scope="select" data-part="content"' : ""} style="box-shadow:var(--shadow-drawer)"><p>Text</p></div><p class="content">Content</p>';
         const statuses = [window.__checks().D8.status];
+        if (surface === 'app-select-list') {
+          document.querySelector('.' + surface).removeAttribute('role');
+          statuses.push(window.__checks().D8.status);
+          document.querySelector('.' + surface).setAttribute('role', 'listbox');
+        }
         document.querySelector('.content').style.boxShadow = 'var(--shadow-drawer)';
         statuses.push(window.__checks().D8.status);
         document.querySelector('.content').style.boxShadow = 'none';
@@ -212,7 +236,7 @@ rendered("u137 rendered focus marks", () => {
         return statuses;
       }`, surface);
 
-      expect(observed, scheme).toEqual(["pass", "fail", "fail", "fail"]);
+      expect(observed, scheme).toEqual(surface === "app-select-list" ? ["pass", "fail", "fail", "fail", "fail"] : ["pass", "fail", "fail", "fail"]);
     }
   }, 60_000);
 

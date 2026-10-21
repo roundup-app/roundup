@@ -15,7 +15,7 @@ import { railCollection } from "./collection";
 import { useConnectedProject } from "../state/connectedProject";
 import { doorStateOf } from "./doorState";
 import { ImportPanel } from "../importer/ImportPanel";
-import { RailMenu } from "./menu/RailMenu";
+import { RailConfirm } from "./menu/RailConfirm";
 import { createRailMenu } from "./menu/model";
 import { agentKindsBelow, isWorkstream, layoutRail, siblingsOf } from "./layout";
 import type { NodeRow } from "./layout";
@@ -49,7 +49,10 @@ export const Rail = () => {
   const retained = draftsOf(connected.drafts);
   // #2788: avoid rescanning all drafts per recovery row; 10k lookups took 527 ms with find, 0.6 ms with Map.
   const revisions = createMemo(() => new Map(retained.records().map((draft) => [draft.revision, draft])));
-  const menu = createRailMenu(app, rail, setFailure, connected.events, connected.drafts);
+
+  const menu = createRailMenu(app, rail, setFailure, connected.events, connected.drafts, (id) => {
+    rowElement(id)?.querySelector(".name")?.dispatchEvent(new MouseEvent("dblclick", { bubbles: true }));
+  });
 
   const importing = connected.importing;
 
@@ -221,9 +224,7 @@ export const Rail = () => {
 
     const ids = nodeIds();
     const next = ids[ids.indexOf(node.id) + 1] ?? ids[ids.indexOf(node.id) - 1];
-    const box = row.getBoundingClientRect();
-
-    menu.requestRemove(node, rail.exitOf(node), box.left, box.bottom, () => {
+    menu.requestRemove(node, rail.exitOf(node), () => {
       if (next === undefined || rail.selected() !== node.id) return;
 
       rail.select(next);
@@ -238,7 +239,8 @@ export const Rail = () => {
 
     if (row && node) {
       const box = row.getBoundingClientRect();
-      menu.open(node, rail.exitOf(node), box.left, box.bottom);
+      rail.select(node.id);
+      void menu.open(node, rail.exitOf(node), box.left, box.bottom);
     }
   };
 
@@ -411,9 +413,7 @@ export const Rail = () => {
   };
 
   const stopFromIcon = (node: RailNode, exit: ExitState | null) => {
-    const box = rowElement(node.id)?.getBoundingClientRect();
-
-    menu.requestStop(node, exit, box?.left ?? 0, box?.bottom ?? 0);
+    menu.requestStop(node, exit);
   };
 
   /** O11: whether a note has been in flight for 500 ms, when U81's `asking the Door…` shows. */
@@ -533,7 +533,28 @@ export const Rail = () => {
     <div class="rail-scroll" onScroll={(event) => setScrolled(event.currentTarget.scrollTop > 0)}>
     <TreeView.Root
       class="rail-tree"
-      ref={setContainer}
+      ref={(element) => {
+        setContainer(element);
+        let contextClick = false;
+        element.addEventListener("pointerdown", (event) => {
+          contextClick = event.button === 0 && event.ctrlKey;
+
+          // macOS Ctrl-click must not focus a row, blur unfinished input or arm its sort sensor.
+          if (contextClick) {
+            event.preventDefault();
+            event.stopPropagation();
+          }
+        }, true);
+        // A native menu may consume the compatibility click; keyboard activation must still work next.
+        element.addEventListener("keydown", () => { contextClick = false; }, true);
+        element.addEventListener("click", (event) => {
+          if (!contextClick && !event.ctrlKey) return;
+
+          contextClick = false;
+          event.preventDefault();
+          event.stopPropagation();
+        }, true);
+      }}
       collection={collection()}
       expandedValue={expanded()}
       selectedValue={rail.selected() === null ? [] : [rail.selected()!]}
@@ -619,7 +640,7 @@ export const Rail = () => {
                           lifted={parts.isDragging()}
                           sortRef={parts.ref}
                           actions={actionsOf(view().node)}
-                          onOpenMenu={(press) => menu.open(view().node, rail.exitOf(view().node), press.clientX, press.clientY)}
+                          onOpenMenu={(x, y) => void menu.open(view().node, rail.exitOf(view().node), x, y)}
                         />
                         }</Sortable.Item>
                         </TreeView.NodeProvider>
@@ -706,9 +727,9 @@ export const Rail = () => {
       <Show when={asking()}>
         <p class="light">{copy.askingTheDoor}</p>
       </Show>
-      <Show when={menu.state() !== null || clearPrompt() !== null}>
+      <RailConfirm menu={menu} rowElement={rowElement} />
+      <Show when={clearPrompt() !== null}>
         <Portal>
-          <RailMenu menu={menu} />
           <Show when={clearPrompt()}>
             {(node) => (
               <div

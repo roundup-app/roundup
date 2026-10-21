@@ -75,7 +75,8 @@ Drawer/Shelf shortcut works once while mounted and stops after unmount).
 
 **U492a migration preserves the rendered journey and budgets.** Given
 `tree-40` with the Shelf and Todo Drawer, at 1512×950 in
-dark, when the reorder, bulk-delete cancellation/success/failure, tab and Home
+light and dark for behavioral paths and dark only for captures and critic
+Check readings (U3725), when the reorder, bulk-delete cancellation/success/failure, tab and Home
 menu paths above run, then D2, D5 and D6 pass and no Check passing on the same
 main baseline regresses (`u492a_rendered_checks`). D2 is the type/space Token
 row, D5 the contrast row and D6 the target-state/size row of

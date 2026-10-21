@@ -9,12 +9,12 @@ import type { Events } from "../../app/events";
 import type { ExitState, RailState } from "../../state/rail";
 import { judgeRemoval } from "./removal";
 import type { Removal } from "./removal";
+import { contextMenu, linkEntries } from "../../ui/contextMenu";
+import type { MenuEntry } from "../../ui/contextMenu";
 
 type MenuState = {
   node: RailNode;
   exit: ExitState | null;
-  x: number;
-  y: number;
   confirming: boolean;
   action: "stop" | "remove";
   removed?: (() => void) | undefined;
@@ -34,7 +34,7 @@ const needsConfirmation = ({ node, exit }: MenuState) =>
   isRunning(node, exit) &&
   (node.status?.kind === "working" || node.status?.kind === "needs-you" || node.status?.kind === "blocked");
 
-export const createRailMenu = (app: AppSeam, rail: RailState, onFailure: (message: string) => void, events: Events, storage: ConnectedProject["drafts"]) => {
+export const createRailMenu = (app: AppSeam, rail: RailState, onFailure: (message: string) => void, events: Events, storage: ConnectedProject["drafts"], rename: (id: string) => void) => {
   const [state, setState] = createSignal<MenuState | null>(null);
   const resuming = new Set<string>();
 
@@ -42,9 +42,9 @@ export const createRailMenu = (app: AppSeam, rail: RailState, onFailure: (messag
     setState(null);
   };
 
+  /** U2694g: pointer menus address their row without activating it. */
   const open = (node: RailNode, exit: ExitState | null, x: number, y: number, removed?: () => void) => {
-    rail.select(node.id);
-    setState({ node, exit, x, y, confirming: false, action: "remove", removed });
+    return contextMenu(app, entries(node, exit, removed), x, y);
   };
 
   const attempt = async (call: () => Promise<void>) => {
@@ -63,12 +63,7 @@ export const createRailMenu = (app: AppSeam, rail: RailState, onFailure: (messag
     }
   };
 
-  const stop = (node: RailNode) =>
-    node.kind === "agent"
-      ? app.rpc("agent.stop", { id: node.id })
-      : node.terminal_id !== null
-        ? app.rpc("terminal.kill", { id: node.terminal_id })
-        : Promise.resolve(null);
+  const stop = (node: RailNode) => app.rpc("agent.stop", { id: node.id });
 
   /** One stop path: the menu's item and the Rail's icon both end here. */
   const chooseStop = () => {
@@ -78,8 +73,8 @@ export const createRailMenu = (app: AppSeam, rail: RailState, onFailure: (messag
   };
 
   /** U428: the Rail's stop icon. A `working`, `needs-you` or `blocked` Agent asks first, any other running Agent stops at once. */
-  const requestStop = (node: RailNode, exit: ExitState | null, x: number, y: number) => {
-    const current: MenuState = { node, exit, x, y, confirming: false, action: "stop" };
+  const requestStop = (node: RailNode, exit: ExitState | null) => {
+    const current: MenuState = { node, exit, confirming: false, action: "stop" };
     setState(current);
 
     if (needsConfirmation(current)) setState({ ...current, confirming: true });
@@ -112,14 +107,6 @@ export const createRailMenu = (app: AppSeam, rail: RailState, onFailure: (messag
     }
   };
 
-  const chooseResume = () => {
-    const current = state();
-
-    close();
-
-    if (current) void resume(current.node.id);
-  };
-
   const isResumable = (node: RailNode, exit: ExitState | null) => node.can_resume && !isRunning(node, exit);
 
   /** U350: the Workstream whose reason prompt the Rail shows, opened from its row menu or its clear icon. */
@@ -132,16 +119,6 @@ export const createRailMenu = (app: AppSeam, rail: RailState, onFailure: (messag
     const phase = clearingOf(app, events, node.id, storage).phase();
 
     return phase !== "pending" && (phase === "closed" || clearTarget()?.id !== node.id);
-  };
-
-  const canClear = (current: MenuState) => isClearable(current.node);
-
-  const chooseClear = () => {
-    const current = state();
-
-    close();
-
-    if (current) requestClear(current.node);
   };
 
   /** U427: the Rail's clear icon opens U350's reason prompt for the Workstream. */
@@ -196,9 +173,53 @@ export const createRailMenu = (app: AppSeam, rail: RailState, onFailure: (messag
   };
 
   /** U358: the row menu's `remove` without the pointer: the same confirm, the same `rail.remove`, then `removed` once the Daemon has answered. */
-  const requestRemove = (node: RailNode, exit: ExitState | null, x: number, y: number, removed: () => void) => {
-    open(node, exit, x, y, removed);
+  const requestRemove = (node: RailNode, exit: ExitState | null, removed: () => void) => {
+    setState({ node, exit, confirming: false, action: "remove", removed });
     chooseRemove();
+  };
+
+  /** U2694d: `agent.resume {id, mode}` restarts the same session, running or exited; a failure shows U80's line. */
+  const restart = async (node: RailNode, mode: "normal" | "yolo") => {
+    try {
+      await app.rpc("agent.resume", { id: node.id, mode });
+      await rail.refresh();
+    } catch (error) {
+      if (!(error instanceof RpcError)) throw error;
+
+      onFailure(error.message);
+
+      if (error.code === NOT_FOUND) await rail.refresh();
+    }
+  };
+
+  /** U2694b: a row's items in the table's order; a Group (a Workstream with no Agent at it) offers Remove only. */
+  const entries = (node: RailNode, exit: ExitState | null, removed?: () => void): MenuEntry[] => {
+    const remove: MenuEntry = { id: "remove", label: copy.remove, shortcut: "⌘⌫", run: () => {
+      setState({ node, exit, confirming: false, action: "remove", removed });
+      chooseRemove();
+    } };
+
+    if (node.kind === "workstream" && node.attempt === null) return [remove];
+
+    const agents = rail.nodes;
+
+    const items: MenuEntry[] = [
+      { id: "rename", label: copy.rename, shortcut: copy.renameChord, run: () => rename(node.id) },
+      { id: "restart", label: copy.restart, enabled: node.yolo, run: () => restart(node, "normal") },
+      { id: "yolo", label: copy.startYolo, enabled: !node.yolo, run: () => restart(node, "yolo") },
+      { id: "stop", label: copy.stop, enabled: isRunning(node, exit), run: () => requestStop(node, exit) },
+      { id: "resume", label: copy.resume, enabled: isResumable(node, exit), run: () => { rail.select(node.id);
+
+ return resume(node.id); } },
+    ];
+
+    if (node.kind === "workstream") items.push({ id: "clear", label: copy.clearMenu, enabled: isClearable(node), run: () => requestClear(node) });
+
+    return [
+      ...items,
+      ...linkEntries(app, { kind: node.kind, id: node.id }, agents, (candidate) => isRunning(candidate, rail.exitOf(candidate)), onFailure),
+      remove,
+    ];
   };
 
   return {
@@ -207,8 +228,6 @@ export const createRailMenu = (app: AppSeam, rail: RailState, onFailure: (messag
     close,
     chooseStop,
     chooseRemove,
-    chooseClear,
-    canClear,
     clearTarget,
     hideClear: () => setClearTarget(null),
     requestRemove,
@@ -216,11 +235,8 @@ export const createRailMenu = (app: AppSeam, rail: RailState, onFailure: (messag
     requestClear,
     isClearable,
     isRunning,
-    chooseResume,
     requestResume: (node: RailNode) => void resume(node.id),
     isResumable,
-    canStop: (current: MenuState) => isRunning(current.node, current.exit),
-    canResume: (current: MenuState) => isResumable(current.node, current.exit),
   };
 };
 

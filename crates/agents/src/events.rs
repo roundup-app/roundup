@@ -321,6 +321,12 @@ impl Shared {
             return Ok((None, run.adapter.tick_at()));
         }
         let exited = matches!(observation, Observation::Exit { .. });
+        if exited {
+            self.timing
+                .lock()
+                .expect("measurement timing lock")
+                .end_attempt(id, &run.attempt);
+        }
         match &observation {
             // H6: an Agent that ends takes its Decision with it.
             Observation::Exit { .. } => {
@@ -344,6 +350,12 @@ impl Shared {
             if claude_code::is_session_start(payload));
         let star = matches!(&observation, Observation::Title(title) if title.starts_with('✳'));
         if session_start {
+            if !run.session_started {
+                self.timing
+                    .lock()
+                    .expect("measurement timing lock")
+                    .acknowledge_attempt(id, &run.attempt);
+            }
             if !run.session_started && run.prompt.is_some() {
                 self.refuse_unless_gate_opens(id, &run.attempt);
             }
@@ -434,6 +446,12 @@ impl Shared {
                 status_revision: run.status_revision.to_string(),
                 status,
             };
+            if !run.ended {
+                self.timing
+                    .lock()
+                    .expect("measurement timing lock")
+                    .observe_status(&event, run.session_started);
+            }
             self.bus
                 .emit(actor.clone(), EventData::AgentStatus(event.into()));
         }

@@ -1,0 +1,29 @@
+{
+  "head": "88d39f0f57e9e6c5e98a272104dbcb00b7ad7247",
+  "viewport": "1512x950",
+  "scheme": "dark",
+  "reducedMotionHeightNextFrame": 0.0,
+  "motions": {
+    "close": {
+      "maxFrameIntervalMs": 16.800000000000182,
+      "maxHeightStepPx": 13.1875,
+      "settledMs": 150,
+      "startHeightPx": 32,
+      "endHeightPx": 0
+    },
+    "interrupt": {
+      "maxFrameIntervalMs": 16.700000000000273,
+      "maxHeightStepPx": 13.1875,
+      "settledMs": 0,
+      "startHeightPx": 32,
+      "endHeightPx": 32
+    },
+    "open": {
+      "maxFrameIntervalMs": 16.700000000000273,
+      "maxHeightStepPx": 13.25,
+      "settledMs": 150,
+      "startHeightPx": 0,
+      "endHeightPx": 32
+    }
+  }
+}

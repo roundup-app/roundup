@@ -17,7 +17,7 @@ import { armLeader, leaderArmed } from "./registry";
 
 afterEach(cleanup);
 
-const mount = async (path = `/test-capture/${crypto.randomUUID()}`) => {
+const mount = async (path = `/test-capture/${crypto.randomUUID()}`, onFile?: () => void) => {
   const app = createFakeApp();
   app.handlers["rail.tree"] = () => withScopeRow([workstream("w"), agent("a", "idle", "idle")]);
   const store: TodoStore = { todos: [] };
@@ -31,7 +31,7 @@ const mount = async (path = `/test-capture/${crypto.randomUUID()}`) => {
       <button data-testid="before">before</button>
       <Todos />
       <Leader />
-      <Capture />
+      <Capture onFile={onFile} />
       <Help />
     </ConnectedProjectContext.Provider>
   ));
@@ -231,4 +231,15 @@ it.each(["w", "a"])("u3714_pending_capture_is_visible_under_selection_%s", async
   press(input, { shiftKey: true });
   expect(screen.getByText("visible pending")).not.toBeNull();
   answer();
+});
+
+it("u3714_a_filed_capture_opens_the_shelf_and_stays_visible_once_acknowledged", async () => {
+  let filed = 0;
+  const { store } = await mount(undefined, () => { filed += 1; });
+  const input = await openField();
+  type(input, "kept in view");
+  press(input);
+  expect(filed).toBe(1);
+  await waitFor(() => expect(store.todos.map(item => item.title)).toContain("kept in view"));
+  await waitFor(() => expect(screen.getByText("kept in view").closest("[data-shelf-group=unassigned]")?.querySelector("[data-state=open]")).not.toBeNull());
 });

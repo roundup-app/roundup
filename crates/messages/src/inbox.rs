@@ -1,5 +1,5 @@
-//! B50, B51: a `note` is written to the receiver's Claude inbox, never typed. A failed check holds
-//! it for `inbox` and shows on the Rail; a later passing check releases it.
+//! B50, B51: non-user Messages use the receiver's inbox, never prompt input.
+//! A failed check holds them for `inbox`; recovery waits for the final Terminal hold.
 
 use agents::claude_code::inbox::Entry;
 use contracts::agent::Inbox;
@@ -26,19 +26,23 @@ impl NoteInbox for agents::Agents {
     }
 }
 
-/// B50(e): a Message from the user is typed; one from an Agent, an Extension or `rupd` is a note
-/// when its kind is `note`.
-pub(crate) fn is_note(message: &Message) -> bool {
-    message.kind == MessageKind::Note && message.from.kind != ActorKind::User
+/// B50(e): authenticated sender selects transport, independently of kind.
+pub(crate) fn is_inbox_message(message: &Message) -> bool {
+    message.from.kind != ActorKind::User && message.to != Actor::user().id
 }
 
 /// B51(d): the check at an `idle`; when it passes, what is held for `inbox` becomes `pending`.
-pub(crate) async fn check_and_release(inner: &Inner, inbox: &dyn NoteInbox, agent: &str) -> Inbox {
+pub(crate) async fn check_and_release(
+    inner: &Inner,
+    inbox: &dyn NoteInbox,
+    agent: &str,
+    at: store::Binding,
+) -> Inbox {
     let state = inbox.check(agent).await;
     if state == Inbox::Ok {
-        lock(&inner.store)
-            .release_inbox_held(agent)
-            .expect("message store");
+        let mut store = lock(&inner.store);
+        store.release_inbox_held(agent, at).expect("message store");
+        store.arm_chains((inner.clock)()).expect("message store");
     }
     state
 }
@@ -60,11 +64,11 @@ pub(crate) async fn require_usable(inner: &Inner, agent: &str) -> Result<(), Rpc
 }
 
 /// B51(g): what the sender hears of a note Claude Code would drop for repeating the last one.
-pub(crate) const REPEAT: &str = "same text as your last note; Claude Code drops repeats";
+pub(crate) const REPEAT: &str = "same text as your last Message; Claude Code drops repeats";
 
-/// B51(f), B51(g): whether `p`, sent by `ctx`, is a note from an Agent or an Extension to an Agent.
-pub(crate) fn is_note_send(ctx: &Ctx, p: &SendParams) -> bool {
-    p.kind == MessageKind::Note && ctx.actor.kind != ActorKind::User && p.to != Actor::user().id
+/// B51(f), B51(g): whether this send uses the inbox and its refusal rules.
+pub(crate) fn is_inbox_send(ctx: &Ctx, p: &SendParams) -> bool {
+    ctx.actor.kind != ActorKind::User && p.to != Actor::user().id
 }
 
 /// B51(f): after a note is stored, the sender hears `INBOX_UNAVAILABLE` when its receiver's inbox
@@ -81,7 +85,7 @@ pub(crate) async fn refuse_mismatch(inner: &Arc<Inner>, note: &Message) -> Resul
     hold(inner, std::slice::from_ref(note));
     Err(RpcError::new(
         code::INBOX_UNAVAILABLE,
-        "notes held: Claude Code changed its message format",
+        "Messages held: Claude Code changed its message format",
     ))
 }
 
@@ -129,8 +133,10 @@ pub(crate) async fn send(
         let text = texts.next().unwrap_or_default();
         entries.push(Entry {
             id: note.id,
+            kind: note.kind,
             from,
-            one_line: text.starts_with("[wake]") || text.starts_with("[digest]"),
+            one_line: note.kind == MessageKind::Note
+                && (text.starts_with("[wake]") || text.starts_with("[digest]")),
             text,
         });
     }

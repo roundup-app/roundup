@@ -1,4 +1,4 @@
-import { createMemo, createSignal, For, Show, type Accessor, type JSX } from "solid-js";
+import { createEffect, createMemo, createSignal, For, on, Show, type Accessor, type JSX } from "solid-js";
 import { createTreeCollection } from "@ark-ui/solid/collection";
 import { TreeView } from "../ui/TreeView";
 import { Icon } from "../ink/Icon";
@@ -8,10 +8,12 @@ import type { Actor } from "@contracts/Actor";
 import { copy } from "../copy";
 
 /** The Rail's TreeView owns disclosure clicks, focus and arrow keys for Shelf groups. */
-export const Groups = <T,>(props: { items: Accessor<readonly T[]>; isUngrouped?: (item: T) => boolean; home: (item: T) => string | null; maker: (item: T) => Actor; children: (items: Accessor<T[]>) => JSX.Element }) => {
+export const Groups = <T,>(props: { items: Accessor<readonly T[]>; isUngrouped?: (item: T) => boolean; home: (item: T) => string | null; maker: (item: T) => Actor; /** Each change opens the Unassigned group, so a Todo just filed shows. */ unfold?: Accessor<number>; children: (items: Accessor<T[]>) => JSX.Element }) => {
   const connected = useConnectedProject();
   const groups = createMemo(() => shelfGroups(connected, props.items().filter(item => !props.isUngrouped?.(item)), props.home, props.maker));
   const [closed, setClosed] = createSignal(["unassigned"]);
+
+  createEffect(on(() => props.unfold?.(), () => setClosed(held => held.filter(id => id !== "unassigned")), { defer: true }));
 
   type Entry = { id: string; name: string; children: Entry[] };
 
