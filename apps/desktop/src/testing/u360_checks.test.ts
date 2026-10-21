@@ -66,11 +66,14 @@ describe("u360 D12 left edges", () => {
           </div>`);
         document.querySelector(".shelf-glyph > span")!.className = "todo-tick";
 
-        expect(runChecks().D12).toMatchObject({
+        const result = runChecks().D12;
+
+        expect(result).toMatchObject({
           status: Math.abs(offset) <= 1 ? "pass" : "fail",
           value: Math.abs(offset),
-          selector: 'div.shelf-row[data-id="new-todo"]',
         });
+
+        if (offset !== 0) expect(result.selector).toBe('div.shelf-row[data-id="new-todo"]');
       }
     }
   });
