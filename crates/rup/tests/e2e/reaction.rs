@@ -1089,7 +1089,7 @@ async fn nr5_gap_recovery_cannot_reuse_a_pre_rearm_finish() {
             .unwrap();
         }
         db.execute_batch(
-            "DELETE FROM events;
+            "DELETE FROM events WHERE id < (SELECT MAX(id) FROM events);
              UPDATE reaction_watch SET state=json_set(state, '$.seen', 0);",
         )
         .unwrap();
