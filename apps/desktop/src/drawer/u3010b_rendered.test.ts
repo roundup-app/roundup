@@ -6,7 +6,7 @@ import { shelfBrowser } from "../shelf/u371Browser";
 
 /**
  * U3010b's rendered observer: the Inbox Drawer pointer open, reversal at 50% displaced, reopen at 50% of the return, then Escape,
- * in dark 1512×950 on `tree-40`. Raw timestamped boxes go to artifacts/ux/U3010b/head/ for the design critic; docs/motion.md
+ * in dark 1512×950 on `tree-40`. Raw timestamped boxes go to `captureDir("U3010b")` for the design critic; docs/motion.md
  * names the protocol. Quarter speed is `Animation.playbackRate`, never a longer Token.
  */
 const art = captureDir("U3010b");
