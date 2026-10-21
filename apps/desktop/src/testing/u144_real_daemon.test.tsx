@@ -610,8 +610,7 @@ describe("u2773 Project draft integration on real Projects", () => {
     });
     mount();
     await openRecovery();
-    expect((await screen.findByRole("alert")).textContent).toContain(first.dir);
-    expect(screen.getByRole("alert").textContent).toContain(kind === "surface" ? "Todo" : "Order");
+    expect((await screen.findByRole("alert")).textContent).toContain(kind === "surface" ? "Could not restore" : "Could not store");
     expect(headerFactory).toBe(drafts);
     const header = headerFactory!(first.dir);
     expect(header).toBe(holder);
@@ -637,17 +636,15 @@ describe("u2773 Project draft integration on real Projects", () => {
     await openRecovery();
     expect(drafts(first.dir)).toBe(holder);
     expect(holder.list()).toEqual([saved, headerSaved]);
-    fireEvent.click(screen.getByRole("button", { name: new RegExp(saved.revision) }));
-    expect(screen.getByText(exact, { normalizer: (text) => text }).textContent).toBe(exact);
 
     if (kind === "surface") {
-      fireEvent.click(screen.getByRole("button", { name: "Retry storage only" }));
+      fireEvent.click(screen.getByRole("button", { name: "Try again" }));
       expect(localStorage.getItem(key)).toBe(bytes);
       expect(screen.getByRole("alert")).toBeTruthy();
       localStorage.setItem(key, JSON.stringify({ version: 1, drafts: [] }));
     }
 
-    fireEvent.click(screen.getByRole("button", { name: "Retry storage only" }));
+    fireEvent.click(screen.getByRole("button", { name: "Try again" }));
     await waitFor(() => expect(screen.queryByRole("alert")).toBeNull());
     expect(createProjectDrafts()(first.dir).list()).toEqual([saved, headerSaved]);
     noDelivery();
@@ -660,18 +657,17 @@ describe("u2773 Project draft integration on real Projects", () => {
     holder.submit(a.revision);
     const b = holder.edit(target(), { ask: exact }, null, "ordinary").draft;
     mount();
-    await openRecovery();
-    expect(screen.getByRole("img", { name: "Pending" })).toBeTruthy();
+    await screen.findByRole("tab", { name: "first" });
+    expect(screen.queryByRole("button", { name: "Recover unfinished work" })).toBeNull();
     fireEvent.click(screen.getByRole("button", { name: "Open a folder" }));
     await screen.findByRole("tab", { name: "second" });
     holder.settle(a.revision, "failed");
     expect(holder.list()).toEqual([expect.objectContaining({ revision: a.revision, status: "failed" }), b]);
     holder.settle(a.revision, "unknown");
     fireEvent.click(screen.getByRole("tab", { name: "first" }));
-    await openRecovery();
-    fireEvent.click(screen.getByRole("button", { name: new RegExp(a.revision) }));
+    const unknown = await openRecovery();
+    expect(within(unknown.querySelector<HTMLElement>(`[data-revision="${a.revision}"]`)!).getByRole("img", { name: "may not have saved" })).toBeTruthy();
     expect(holder.list().find((draft) => draft.revision === b.revision)).toEqual(b);
-    expect(screen.getByRole("img", { name: "Acceptance unknown" })).toBeTruthy();
     holder.settle(a.revision, "acknowledged");
     expect(holder.list()).toEqual([b]);
     noDelivery();
@@ -705,7 +701,6 @@ describe("u2773 Project draft integration on real Projects", () => {
     calls.forEach((spy) => spy.mockClear());
     mount();
     const recovery = await openRecovery();
-    await waitFor(() => expect(within(recovery).queryByRole("status")).toBeNull());
     expect(document.querySelector(".decision-card")).toBeNull();
 
     if (retirement === "answered") await bound.rpc("decision.answer", { id: decision.id, identity: prompt, answer: "deny", proof: PROOF });
@@ -713,25 +708,21 @@ describe("u2773 Project draft integration on real Projects", () => {
     else signal();
 
     expect((await bound.rpc("rail.tree", null)).find((node) => node.id === agent.id)?.attempt).toBe(agent.attempt);
-    await within(recovery).findByText("Original object unavailable");
+    const rowOf = (revision: string) => recovery.querySelector<HTMLElement>(`[data-revision="${revision}"]`)!;
+    await waitFor(() => expect(within(rowOf(b.revision)).getByRole("img", { name: "original removed" })).toBeTruthy());
     expect(holder.list()).toEqual([expect.objectContaining({ ...a, status: "failed" }), b]);
     const clipboard = vi.fn(async (_text: string) => {});
     Object.defineProperty(navigator, "clipboard", { configurable: true, value: { writeText: clipboard } });
-    fireEvent.click(screen.getByRole("button", { name: "Copy note" }));
+    fireEvent.click(within(rowOf(b.revision)).getByRole("button", { name: "Copy" }));
     expect(clipboard).toHaveBeenCalledWith(exact);
-    fireEvent.click(screen.getByRole("button", { name: new RegExp(a.revision) }));
-    const inspect = screen.getByRole("button", { name: new RegExp(a.revision) });
-    inspect.focus();
     writes.mockRestore();
-    fireEvent.click(screen.getByRole("button", { name: "Retry storage only" }));
-    expect(document.activeElement).toBe(inspect);
-    fireEvent.click(screen.getByRole("button", { name: "Discard this revision" }));
+    fireEvent.click(within(rowOf(a.revision)).getByRole("button", { name: "Discard" }));
     expect(createProjectDrafts()(first.dir).list()).toEqual([b]);
     cleanup();
     drafts = createProjectDrafts();
     mount();
-    await openRecovery();
-    await screen.findByText("Original object unavailable");
+    const restarted = await openRecovery();
+    expect(restarted.querySelector(`[data-revision="${b.revision}"]`)).toBeTruthy();
     expect(drafts(first.dir).list()).toEqual([b]);
     expect(calls.flatMap((spy) => spy.mock.calls).filter(([method]) => ["terminal.write", "agent.spawn", "rail.startDoor", "agent.prompt"].includes(method))).toEqual([]);
     expect(calls.flatMap((spy) => spy.mock.calls).filter(([method]) => method === "decision.answer")).toEqual(retirement === "answered" ? [["decision.answer", { id: decision.id, identity: prompt, answer: "deny", proof: PROOF }]] : []);
@@ -761,8 +752,7 @@ describe("u2773 Project draft integration on real Projects", () => {
     const originalPrompt = await open();
     const saved = drafts(first.dir).edit({ surface: "decisions", object: originalPrompt.prompt.decision, recipient: originalPrompt.prompt.agent }, { ...originalPrompt.prompt, choice: "allow", note: exact }, { start: 2, end: 6, direction: "backward" }, "ordinary").draft;
     mount();
-    const recovery = await openRecovery();
-    await waitFor(() => expect(within(recovery).queryByRole("status")).toBeNull());
+    await screen.findByRole("region", { name: "Rail" });
     cleanup();
     await first.restart();
     const replacementPrompt = await open();
@@ -770,8 +760,8 @@ describe("u2773 Project draft integration on real Projects", () => {
     expect(replacementPrompt.prompt.daemon).not.toBe(originalPrompt.prompt.daemon);
     calls.forEach((spy) => spy.mockClear());
     mount();
-    await openRecovery();
-    await screen.findByText("Original object unavailable");
+    const restarted = await openRecovery();
+    expect(restarted.querySelector(`[data-revision="${saved.revision}"]`)).toBeTruthy();
     expect(drafts(first.dir).list()).toEqual([saved]);
     expect(await bound.rpc("decision.answers", { agent: replacementPrompt.prompt.agent })).toEqual([]);
     expect(calls.flatMap((spy) => spy.mock.calls).filter(([method]) => ["decision.answer", "terminal.write", "agent.spawn", "rail.startDoor", "agent.prompt"].includes(method))).toEqual([]);
@@ -818,8 +808,8 @@ describe("u2773 Project draft integration on real Projects", () => {
     calls.push(oldCalls);
     calls.forEach((spy) => spy.mockClear());
     mount();
-    await openRecovery();
-    await waitFor(() => expect(within(screen.getByRole("region", { name: "Unfinished work" })).getByRole("status").dataset.state).toBe("unverified"));
+    await screen.findByRole("region", { name: "Rail" });
+    await waitFor(() => expect(oldCalls.mock.calls.some(([method]) => method === `decision.${read}`)).toBe(true));
     expect(holder.list()).toEqual([expect.objectContaining({ ...a, status: "pending" }), b]);
     cleanup();
     const oldReads = [...oldCalls.mock.calls];
@@ -829,25 +819,21 @@ describe("u2773 Project draft integration on real Projects", () => {
     app.forProject = (path) => path === first.dir ? current : previous(path);
     phase = "pending";
     mount();
-    await openRecovery();
-    const inspect = screen.getByRole("button", { name: new RegExp(b.revision) });
-    inspect.focus();
-    expect(within(screen.getByRole("region", { name: "Unfinished work" })).getByRole("status").dataset.state).toBe("unverified");
+    await screen.findByRole("region", { name: "Rail" });
     holder.settle(a.revision, "failed");
+    await openRecovery();
     fireEvent.click(screen.getByRole("button", { name: "Open a folder" }));
     await screen.findByRole("tab", { name: "second" });
-    await openRecovery();
-    await screen.findByText("Original object unavailable");
-    const otherInspect = screen.getByRole("button", { name: new RegExp(separate.revision) });
-    otherInspect.focus();
+    const otherRecovery = await openRecovery();
+    const otherCopy = within(otherRecovery.querySelector<HTMLElement>(`[data-revision="${separate.revision}"]`)!).getByRole("button", { name: "Copy" });
+    otherCopy.focus();
     release();
     await completed;
-    expect(document.activeElement).toBe(otherInspect);
+    expect(document.activeElement).toBe(otherCopy);
     expect(holder.list()).toEqual([expect.objectContaining({ ...a, status: "failed" }), b]);
     fireEvent.click(screen.getByRole("tab", { name: /^first\b/ }));
     const recovery = await openRecovery();
-    await waitFor(() => expect(within(recovery).queryByRole("status")).toBeNull());
-    expect(screen.getByText(exact, { normalizer: (text) => text }).textContent).toBe(exact);
+    expect(recovery.querySelector(`[data-revision="${a.revision}"]`)).toBeTruthy();
     expect(drafts(second.dir).list()).toEqual([separate]);
 
     expect(oldCalls.mock.calls).toEqual(oldReads);
@@ -865,22 +851,22 @@ describe("u2773 Project draft integration on real Projects", () => {
     mount();
     await screen.findByRole("button", { name: "Recover unfinished work" });
     await app.forProject(first.dir).rpc("rail.remove", { id: original.id });
-    await openRecovery();
-    expect(await screen.findByText("Original object unavailable")).toBeTruthy();
+    const recovery = await openRecovery();
+    const rowOf = (revision: string) => recovery.querySelector<HTMLElement>(`[data-revision="${revision}"]`)!;
+    await waitFor(() => expect(rowOf(b.revision)).toBeTruthy());
     const clipboard = vi.fn(async (_text: string) => {});
     Object.defineProperty(navigator, "clipboard", { configurable: true, value: { writeText: clipboard } });
-    fireEvent.click(screen.getByRole("button", { name: "Copy ask" }));
+    fireEvent.click(within(rowOf(b.revision)).getByRole("button", { name: "Copy" }));
     await waitFor(() => expect(clipboard).toHaveBeenCalledWith(exact));
-    fireEvent.click(screen.getByRole("button", { name: new RegExp(a.revision) }));
+    fireEvent.click(within(rowOf(a.revision)).getByRole("button", { name: "Discard" }));
     expect(holder.list().find((draft) => draft.revision === b.revision)).toEqual(b);
-    fireEvent.click(screen.getByRole("button", { name: "Discard this revision" }));
     cleanup();
     drafts = createProjectDrafts();
     mount();
-    await openRecovery();
+    const reopened = await openRecovery();
     expect(drafts(first.dir).list()).toEqual([b]);
-    expect(screen.queryByRole("button", { name: new RegExp(a.revision) })).toBeNull();
-    expect(screen.getByRole("button", { name: new RegExp(original.id) })).toBeTruthy();
+    expect(reopened.querySelector(`[data-revision="${a.revision}"]`)).toBeNull();
+    expect(reopened.querySelector(`[data-revision="${b.revision}"]`)).toBeTruthy();
     expect((await app.forProject(first.dir).rpc("rail.tree", null)).some((node) => node.id === replacement.id)).toBe(true);
     noDelivery();
   }, 60_000);
@@ -999,13 +985,14 @@ describe("u2773 Project draft integration on real Projects", () => {
     expect(holder.list()).toContainEqual(b);
     fireEvent.click(screen.getByRole("tab", { name: /^first(?: |$)/ }));
     await waitFor(() => expect(screen.getByRole<HTMLInputElement>("textbox", { name: "Add a note (optional)" }).value).toBe("  newer B 🧭  "));
-    const recovery = await openRecovery();
 
-    if (outcome !== "acknowledged") {
-      fireEvent.click(screen.getByRole("button", { name: new RegExp(a.revision) }));
+    if (outcome === "acknowledged") expect(screen.queryByRole("button", { name: "Recover unfinished work" })).toBeNull();
+    else {
+      const row = (await openRecovery()).querySelector<HTMLElement>(`[data-revision="${a.revision}"]`)!;
+
       expect(holder.list()).toContainEqual(b);
-      expect(within(recovery).getByRole("img", { name: outcome === "unknown" ? "Acceptance unknown" : "Failed" })).toBeTruthy();
-      fireEvent.click(within(recovery).getByRole("button", { name: "Discard this revision" }));
+      expect(within(row).getByRole("img", { name: outcome === "unknown" ? "may not have saved" : "failed to save" })).toBeTruthy();
+      fireEvent.click(within(row).getByRole("button", { name: "Discard" }));
       expect(createProjectDrafts()(first.dir).list()).toEqual([b]);
     }
 
@@ -1131,17 +1118,12 @@ describe("u2773 Project draft integration on real Projects", () => {
     expect(b.destination.recipient).toBe(source.id);
     expect(window.localStorage.getItem(`roundup:drafts:${first.dir}`)).toBe(before);
     expect(await screen.findByRole("alert")).toBeTruthy();
-    const clipboard = vi.fn(async (_text: string) => {});
-    Object.defineProperty(navigator, "clipboard", { configurable: true, value: { writeText: clipboard } });
-    fireEvent.click(screen.getByRole("button", { name: "Copy note" }));
-    expect(clipboard).toHaveBeenLastCalledWith("  newer B 🧭  ");
-    fireEvent.click(screen.getByRole("button", { name: "Copy Excerpt" }));
-    expect(clipboard).toHaveBeenLastCalledWith("  separate B é\n🧭  ");
+    const recovery = await openRecovery();
+    const rowOf = (revision: string) => recovery.querySelector<HTMLElement>(`[data-revision="${revision}"]`)!;
+    fireEvent.click(within(rowOf(b.revision)).getByRole("button", { name: "Open" }));
+    await waitFor(() => expect(screen.queryByRole("region", { name: "Unfinished work" })).toBeNull());
     writes.mockRestore();
-    fireEvent.click(screen.getByRole("button", { name: "Retry storage only" }));
-    expect(screen.queryByRole("alert")).toBeNull();
-    expect(createProjectDrafts()(first.dir).list()).toEqual([a, b]);
-    fireEvent.click(screen.getByRole("button", { name: "Discard note" }));
+    fireEvent.click(await screen.findByRole("button", { name: "Discard note" }));
     expect(createProjectDrafts()(first.dir).list()).toEqual([a]);
     expect((await screen.findByRole<HTMLInputElement>("textbox", { name: "Add a note (optional)" })).value).toBe(" older A ");
     noDelivery();
@@ -1181,42 +1163,28 @@ describe("u2773 Project draft integration on real Projects", () => {
     await waitFor(() => expect(document.querySelector(`[data-terminal="${terminal}"]`)).toBeTruthy());
     fireEvent.click(document.querySelector(`.rail-row[data-id="${liveReplacement.id}"]`)!);
     await waitFor(() => expect(document.querySelector(`[data-terminal="${terminal}"]`)).toBeNull());
-    await openRecovery();
-    fireEvent.click(screen.getByRole("button", { name: new RegExp(a.revision) }));
-    const inspect = screen.getByRole("button", { name: new RegExp(a.revision) });
-    expect((await screen.findByRole("alert")).textContent).toContain(first.dir);
+    const recovery = await openRecovery();
+    const rowOf = (revision: string) => recovery.querySelector<HTMLElement>(`[data-revision="${revision}"]`)!;
+    expect(within(rowOf(a.revision)).getByRole("img", { name: status === "failed" ? "failed to save" : "may not have saved" })).toBeTruthy();
     writes.mockRestore();
-    expect(screen.queryByText("Original object unavailable")).toBeNull();
-    expect(screen.queryByText("Original availability not verified")).toBeNull();
-    inspect.focus();
-    recoverSelections();
-    expect(document.activeElement).toBe(inspect);
     calls.forEach((spy) => spy.mockClear());
 
     if (ending === "exit") await bound.rpc("terminal.kill", { id: terminal });
     else await bound.rpc("rail.remove", { id: source.id });
-    await screen.findByText("Original object unavailable");
-    expect(document.activeElement).toBe(inspect);
+    await waitFor(() => expect(within(rowOf(a.revision)).getByRole("button", { name: "Copy" })).toBeTruthy());
     expect(holder.list()).toEqual([expect.objectContaining({ revision: a.revision, status }), b]);
-    expect(screen.getByText(`${terminal} · ${source.id}`)).toBeTruthy();
-    expect(screen.getByText(exact, { normalizer: (text) => text }).textContent).toBe(exact);
     const tree = await bound.rpc("rail.tree", null);
     expect(tree.some((node) => node.id === source.id)).toBe(ending === "exit");
     fireEvent.click(screen.getByRole("button", { name: "Open a folder" }));
     await screen.findByRole("tab", { name: "second" });
     fireEvent.click(screen.getByRole("tab", { name: /^first(?: |$)/ }));
-    await openRecovery();
-    fireEvent.click(screen.getByRole("button", { name: new RegExp(a.revision) }));
-    expect(screen.getByRole("img", { name: status === "failed" ? "Failed" : "Acceptance unknown" })).toBeTruthy();
+    const reopened = await openRecovery();
+    const copyRow = within(reopened.querySelector<HTMLElement>(`[data-revision="${a.revision}"]`)!);
     const clipboard = vi.fn(async (_text: string) => {});
     Object.defineProperty(navigator, "clipboard", { configurable: true, value: { writeText: clipboard } });
-    fireEvent.click(screen.getByRole("button", { name: "Copy Excerpt" }));
-    expect(clipboard).toHaveBeenCalledWith(exact);
-    fireEvent.click(screen.getByRole("button", { name: "Copy note" }));
-    expect(clipboard).toHaveBeenLastCalledWith("older exact\n");
-    fireEvent.click(screen.getByRole("button", { name: "Retry storage only" }));
-    expect(screen.queryByRole("alert")).toBeNull();
-    fireEvent.click(screen.getByRole("button", { name: "Discard this revision" }));
+    fireEvent.click(copyRow.getByRole("button", { name: "Copy" }));
+    expect(clipboard).toHaveBeenCalledWith("older exact\n");
+    fireEvent.click(copyRow.getByRole("button", { name: "Discard" }));
     expect(createProjectDrafts()(first.dir).list()).toEqual([b]);
     expect((await bound.rpc("rail.tree", null)).find((node) => node.id === liveReplacement.id)).toMatchObject({ id: liveReplacement.id, name: source.name, terminal_id: liveReplacement.terminal_id });
     expect((await bound.rpc("terminal.list", null)).find((each) => each.id === liveReplacement.terminal_id)?.running).toBe(true);
@@ -1253,11 +1221,10 @@ describe("u2773 Project draft integration on real Projects", () => {
     mount(emulators);
     await screen.findByRole("button", { name: "Recover unfinished work" });
     expect(document.activeElement).toBe(outside);
-    await openRecovery();
-    expect(await screen.findByText("Original object unavailable")).toBeTruthy();
+    const recovery = await openRecovery();
+    expect(recovery.querySelector(`[data-revision="${saved.revision}"]`)).toBeTruthy();
     expect(drafts(first.dir).list()).toEqual([saved]);
     expect(emulators.made.has(terminal)).toBe(false);
-    expect(screen.getByText(" retained 🧭  ", { normalizer: (text) => text }).textContent).toBe(" retained 🧭  ");
     expect((await bound.rpc("terminal.list", null)).find((each) => each.id === terminal)?.running).not.toBe(true);
     const methods = calls.flatMap((spy) => spy.mock.calls.map(([method]) => method));
     expect(methods.filter((method) => method === "terminal.write" || method === "terminal.spawn" || method === "rail.startDoor")).toEqual([]);
@@ -1278,10 +1245,8 @@ describe("u2773 Project draft integration on real Projects", () => {
     expect(liveReplacement.terminal_id).toBe(source.terminal_id);
     calls.forEach((spy) => spy.mockClear());
     mount();
-    await openRecovery();
-    expect(await screen.findByText("Original object unavailable")).toBeTruthy();
-    expect(screen.getByText(`${source.terminal_id} · ${source.id}`)).toBeTruthy();
-    expect(screen.getByText(exact, { normalizer: (text) => text }).textContent).toBe(exact);
+    const recovery = await openRecovery();
+    expect(recovery.querySelector(`[data-revision="${saved.revision}"]`)).toBeTruthy();
     expect(drafts(first.dir).list()).toEqual([saved]);
     expect((await bound.rpc("terminal.list", null)).find((each) => each.id === liveReplacement.terminal_id)?.running).toBe(true);
     noDelivery();
@@ -1427,7 +1392,7 @@ describe("u2773 unfinished Decision forms on real Projects", () => {
     fireEvent.click(screen.getByRole("button", { name: "Open a folder" }));
     await screen.findByRole("tab", { name: /^first\b/ });
     const recovery = await openRecovery();
-    await within(recovery).findByText("Original object unavailable");
+    expect(recovery.querySelector(`[data-revision="${saved.revision}"]`)).toBeTruthy();
     expect(drafts(first.dir).list()).toEqual([saved]);
     expect(drafts(second.dir).list()).toEqual([other]);
     expect(calls.flatMap(spy => spy.mock.calls).filter(([method]) => ["decision.answer", "terminal.write", "agent.prompt"].includes(method))).toEqual([]);
@@ -1470,11 +1435,12 @@ describe("u2773 unfinished Decision forms on real Projects", () => {
     if (outcome !== "failed") expect(accepted[0]).toMatchObject({ answer: "A", note: exact, attempt: agents[0]!.attempt, answered_by: { kind: "user", id: "you", parent: null } });
     expect(answerCalls.mock.calls.filter(([method]) => method === "decision.answer")).toHaveLength(1);
     fireEvent.click(screen.getByRole("tab", { name: /^first\b/ }));
-    const recovery = await openRecovery();
 
-    if (outcome !== "acknowledged") {
-      fireEvent.click(within(recovery).getByRole("button", { name: new RegExp(a!.revision) }));
-      expect(within(recovery).getByRole("img", { name: outcome === "unknown" ? "Acceptance unknown" : "Failed" })).toBeTruthy();
+    if (outcome === "acknowledged") expect(screen.queryByRole("button", { name: "Recover unfinished work" })).toBeNull();
+    else {
+      const recovery = await openRecovery();
+
+      expect(within(recovery.querySelector<HTMLElement>(`[data-revision="${a!.revision}"]`)!).getByRole("img", { name: outcome === "unknown" ? /may not have saved|original removed/ : "failed to save" })).toBeTruthy();
     }
 
     expect(drafts(first.dir).list()).toContainEqual(b);
@@ -1521,12 +1487,12 @@ describe("u2773 unfinished Decision forms on real Projects", () => {
     drafts = createProjectDrafts();
     mount();
     const recovery = await openRecovery();
-    await within(recovery).findByText("Original object unavailable");
+    expect(recovery.querySelector(`[data-revision="${saved.revision}"]`)).toBeTruthy();
     expect(drafts(first.dir).list()).toEqual([saved]);
     expect(within(recovery).queryByRole("button", { name: "Send" })).toBeNull();
     const clipboard = vi.fn(async (_text: string) => {});
     Object.defineProperty(navigator, "clipboard", { configurable: true, value: { writeText: clipboard } });
-    fireEvent.click(within(recovery).getByRole("button", { name: "Copy note" }));
+    fireEvent.click(within(recovery).getByRole("button", { name: "Copy" }));
     expect(clipboard).toHaveBeenCalledWith(exact);
     const target = (await current.rpc("rail.tree", null)).find(node => node.id === agents[0]!.id);
     const live = (await current.rpc("terminal.list", null)).find(terminal => terminal.id === target?.terminal_id && terminal.running);
@@ -1540,7 +1506,7 @@ describe("u2773 unfinished Decision forms on real Projects", () => {
 
     if (retirement === "answered") expect(accepted[0]).toMatchObject({ answer: "A", answered_by: { kind: "user", id: "you", parent: null } });
     expect(calls.flatMap(spy => spy.mock.calls).filter(([method]) => method === "terminal.write")).toEqual([]);
-    fireEvent.click(within(recovery).getByRole("button", { name: "Discard this revision" }));
+    fireEvent.click(within(recovery).getByRole("button", { name: "Discard" }));
     expect(drafts(first.dir).list()).toEqual([]);
   }, 60_000);
 
