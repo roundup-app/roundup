@@ -164,6 +164,7 @@ for (const { remaining, reopened, target } of [
   it(`u461a_success_refetches_surfaces_and_keeps_focus within the current group ${reopened} ${remaining}`, async () => {
     const mounted = await mountTodos(remaining.map(id => todo(id, { done: true, home: id === 2 ? "b" : "a" })), true,
       [workstream("a", { name: "A" }), workstream("b", { name: "B", order: 1 })]);
+
     fireEvent.click(await screen.findByRole("button", { name: `${remaining.length} done` }));
     const otherGroup = document.querySelector<HTMLElement>('[data-shelf-group="b"] [data-part="branch-control"]')!;
     fireEvent.click(otherGroup);
