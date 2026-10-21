@@ -9,6 +9,7 @@ import type { Extras as agent_Extras } from "./agent/Extras";
 import type { ExtrasAddParams as agent_ExtrasAddParams } from "./agent/ExtrasAddParams";
 import type { FileComparison as agent_FileComparison } from "./agent/FileComparison";
 import type { HeldAction as agent_HeldAction } from "./agent/HeldAction";
+import type { Instructions as agent_Instructions } from "./agent/Instructions";
 import type { Landed as agent_Landed } from "./agent/Landed";
 import type { MoveParams as agent_MoveParams } from "./agent/MoveParams";
 import type { NodeId as agent_NodeId } from "./agent/NodeId";
@@ -213,6 +214,7 @@ export type RpcMethods = {
   "reaction.run": { params: reaction_RunParams; result: reaction_Reaction };
   "agent.spawnPrompt": { params: agent_NodeId; result: { prompt: string | null } };
   "agent.setOrder": { params: agent_SetOrderParams; result: agent_RailNode | agent_HeldAction };
+  "agent.instructions": { params: agent_NodeId; result: agent_Instructions };
   "agent.channelUp": { params: agent_NodeId; result: null };
   "agent.signal": { params: agent_SignalParams; result: agent_SignalOutcome | null };
   "agent.permission": { params: decision_PermissionParams; result: decision_PermissionOutput };

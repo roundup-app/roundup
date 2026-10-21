@@ -629,6 +629,7 @@ impl Daemon {
 
     fn evaluator(&self) -> Option<reaction::Evaluator> {
         Some(reaction::Evaluator {
+            agents: Arc::clone(&self.agents),
             reactions: Arc::clone(&self.reactions),
             reader: self.reader(),
             messages: Arc::clone(self.sender.get()?),
@@ -687,6 +688,7 @@ impl Daemon {
                     | "agent.setOrder"
                     | "agent.resume"
                     | "agent.actionHistory"
+                    | "agent.instructions"
                     | "workstream.rewind"
                     | "workstream.rewindPlan"
             )
@@ -1905,6 +1907,7 @@ async fn handle(stream: UnixStream, daemon: Arc<Daemon>) -> io::Result<()> {
                         | "agent.setOrder"
                         | "agent.resume"
                         | "agent.actionHistory"
+                        | "agent.instructions"
                         | "workstream.rewind"
                         | "workstream.rewindPlan"
                 )
