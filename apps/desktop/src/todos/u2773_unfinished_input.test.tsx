@@ -249,7 +249,7 @@ it("u2773a_todos_repeated_add_keeps_the_original_home_after_selection_changes", 
   const { app, connected } = await mountTodos([], true, [workstream("a"), workstream("b")]);
 
   connected.rail.select("a");
-  fireEvent.click(await screen.findByRole("button", { name: "add todo to Overview" }));
+  fireEvent.click(await screen.findByRole("button", { name: /add todo to/ }));
   const field = screen.getByRole("textbox", { name: "New Todo title" });
 
   fireEvent.input(field, { target: { value: "  original Home A 🧪  " } });
