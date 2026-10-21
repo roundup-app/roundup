@@ -14,7 +14,7 @@ import { Icon } from "../ink/Icon";
 import { EmptyState } from "../ink/EmptyState";
 import { EntryRow } from "../ink/EntryRow";
 import * as v from "valibot";
-import { untrack } from "solid-js";
+import { batch, untrack } from "solid-js";
 import { TodoDraftRecovery, todoDraftSchema, creationSchema } from "./EditableText";
 import type { JSX } from "solid-js";
 import { createEffect, createMemo, createSignal, For, onCleanup, onMount, Show } from "solid-js";
@@ -440,7 +440,7 @@ export const Todos = (props: {
 
     if (field.value === "" && !previous) return;
 
-    setCreationRevision(connected.drafts.edit(creationTarget(), { title: field.value, home: creationHome() }, caret, "ordinary", creationRevision()).draft.revision);
+    batch(() => setCreationRevision(connected.drafts.edit(creationTarget(), { title: field.value, home: creationHome() }, caret, "ordinary", creationRevision()).draft.revision));
   };
 
   // EntryRow clears after capturing this revision, so another Enter cannot submit it twice.
