@@ -1117,3 +1117,42 @@ async fn nr5_gap_recovery_cannot_reuse_a_pre_rearm_finish() {
         assert_eq!(messages(&s.user, &s.w, "gap-rearm").await.len(), 2);
     }
 }
+
+#[tokio::test]
+async fn nr3_watch_write_failure_is_visible_and_keeps_eligible_work() {
+    let s = scene(&[]).await;
+    let mode = json!({ "rearm": true, "max_firings": 3 });
+    watching(&s, "watch-write", &[&s.a], mode.clone()).await;
+    project_db(&s.project)
+        .execute_batch(
+            "CREATE TRIGGER fail_watch BEFORE INSERT ON reaction_watch
+         BEGIN SELECT RAISE(ABORT, 'injected watch write failure'); END;",
+        )
+        .unwrap();
+    drive(&s.user, &s.a, STOP).await;
+    // Retrying creation waits for evaluation and the attempted Watch save.
+    let failed = watching(&s, "watch-write", &[&s.a], mode.clone()).await;
+    assert_eq!(
+        failed.firings.len(),
+        1,
+        "the firing committed before its Watch write"
+    );
+    assert!(
+        failed.observation.health != "observing"
+            && (failed.observation.cause.is_some() || failed.observation.gap.is_some())
+            && failed.observation.recovery.is_some(),
+        "a failed durable observation write must be inspectable: {failed:?}"
+    );
+    project_db(&s.project)
+        .execute_batch("DROP TRIGGER fail_watch;")
+        .unwrap();
+    let recovered = watching(&s, "watch-write", &[&s.a], mode.clone()).await;
+    assert_eq!(recovered.firings, failed.firings);
+    drive(&s.user, &s.a, WORK).await;
+    watching(&s, "watch-write", &[&s.a], mode.clone()).await;
+    drive(&s.user, &s.a, STOP).await;
+    let next = watching(&s, "watch-write", &[&s.a], mode).await;
+    assert_eq!(next.firings.len(), 2);
+    assert_eq!(next.firings[0], failed.firings[0]);
+    assert_eq!(messages(&s.user, &s.w, "watch-write").await.len(), 2);
+}
