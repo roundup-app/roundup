@@ -3,10 +3,13 @@ import { createEffect, createSignal, For, onCleanup, Show } from "solid-js";
 import type { Todo } from "@contracts/todo/Todo";
 import { copy } from "../copy";
 import { ErrorLine } from "../ink/ErrorLine";
-import { leaderChord } from "../keys/chords";
+import type { Actor } from "@contracts/Actor";
+import { chordsFor, leaderChord } from "../keys/chords";
+import { resolvedWorkstream } from "../rail/layout";
 import { registerKeys } from "../keys/registry";
 import { useConnectedProject } from "../state/connectedProject";
 import { Dialog } from "../ui/Dialog";
+import { Tip } from "../ui/Tip";
 import { USER } from "../pads/owner";
 import { failureOf, outcomeOf } from "./failureOf";
 import { useTodoList } from "./todoList";
@@ -14,7 +17,7 @@ import "./capture.styles.css";
 
 let optimistic = 0;
 
-/** U3713 to U3716: `⌘K T` opens a one-line field. `⏎` files an Unassigned Todo and closes it, `⇧⏎` files and keeps it open, Escape cancels. The row shows before the Daemon answers; a failed create puts the text back with the cause. */
+/** U3713 to U3716, U3737, U3740: `⌘K T` or `⇧⌘T` opens a one-line field. `⏎` files an Unassigned Todo and closes it, `⇧⏎` files and keeps it open, Escape cancels. The row shows before the Daemon answers; a failed create puts the text back with the cause. */
 export const Capture = (props: { onFile: (() => void) | undefined }) => {
   const connected = useConnectedProject();
   const todos = useTodoList();
@@ -53,10 +56,26 @@ export const Capture = (props: { onFile: (() => void) | undefined }) => {
   createEffect(() => {
     if (open()) onCleanup(drafts.editor(destination));
   });
+  /** U3746: a Todo created whose move was refused, kept with the title it was filed under so a retry of the same text moves it instead of creating another. */
+  let stranded: { title: string; id: number } | null = null;
   const [failure, setFailure] = createSignal<string | null>(null);
   let returnTo: Element | null = null;
   let input: HTMLTextAreaElement | undefined;
   let panel: HTMLElement | undefined;
+
+  /** U3740: what the selection gives a new Todo, read when the line shows and when `⏎` files, so the two agree. */
+  const target = () => {
+    const nodes = connected.rail.nodes;
+    const node = nodes.find(each => each.id === connected.rail.selected());
+    const home = node ? resolvedWorkstream(nodes, node.id) : null;
+    const homeName = home === null ? null : nodes.find(each => each.id === home)?.name ?? null;
+    const owner: Actor | null = node?.kind === "agent" ? { kind: "agent", id: node.id, parent: null } : null;
+
+    return { owner, ownerName: owner ? node!.name : null, home: homeName === null ? null : home, homeName };
+  };
+
+  const ownerLine = () => target().ownerName === null ? copy.unassigned : copy.captureFor(target().ownerName!);
+  const homeLine = () => copy.captureIn(target().homeName ?? copy.projectRoot);
 
   const show = () => {
     if (open()) return;
@@ -76,6 +95,7 @@ export const Capture = (props: { onFile: (() => void) | undefined }) => {
 
     if (draft) drafts.discard(draft.revision);
 
+    stranded = null;
     close();
   };
 
@@ -86,7 +106,11 @@ export const Capture = (props: { onFile: (() => void) | undefined }) => {
 
     if (title === "" || !revision || !drafts.submit(revision.revision)) return;
 
-    const row: Todo = { id: --optimistic, title, body: "", done: false, blockers: [], blocked: false, created_at: 0, creator: USER, home: null, owner: null };
+    const { owner, home } = target();
+    const retry = stranded?.title === title && home !== null ? stranded : null;
+
+    stranded = null;
+    const row: Todo = { id: --optimistic, title, body: "", done: false, blockers: [], blocked: false, created_at: 0, creator: USER, home, owner };
     const hide = todos.show(row);
 
     props.onFile?.();
@@ -96,13 +120,33 @@ export const Capture = (props: { onFile: (() => void) | undefined }) => {
     if (!keepOpen) close();
 
     void (async () => {
+      let made = false;
+      let id = retry?.id ?? null;
+
       try {
-        await connected.app.rpc("todo.create", { title, body: null, blockers: null });
+        if (id === null) {
+          const created = await connected.app.rpc("todo.create", owner === null ? { title, body: null, blockers: null } : { title, body: null, blockers: null, owner });
+
+          id = created.id;
+          made = true;
+        }
+
+        if (home !== null) {
+          try {
+            await connected.app.rpc("todo.move", { id, home });
+          } catch (error) {
+            stranded = { title, id };
+            throw error;
+          }
+        }
+
         drafts.settle(revision.revision, "acknowledged");
         await todos.reload();
         hide();
       } catch (error) {
         hide();
+
+        if (made || retry) void todos.reload();
 
         if (!(error instanceof Error)) throw error;
         drafts.settle(revision.revision, outcomeOf(error));
@@ -121,6 +165,7 @@ export const Capture = (props: { onFile: (() => void) | undefined }) => {
   };
 
   registerKeys({ kind: "leader" }, [{ chords: leaderChord("T"), run: show }]);
+  registerKeys({ kind: "app" }, [{ chords: chordsFor("⇧⌘T"), run: show }]);
   registerKeys({ kind: "layer", element: () => panel, active: open, modal: true }, [{ chords: ["Escape"], run: discard }]);
 
   return (
@@ -168,6 +213,10 @@ export const Capture = (props: { onFile: (() => void) | undefined }) => {
               file(event.shiftKey);
             }}
           />
+          <p class="capture-target">
+            <Tip text={ownerLine()}>{(trigger) => <span {...trigger()}>{ownerLine()}</span>}</Tip>
+            <Tip text={homeLine()}>{(trigger) => <span {...trigger()}>{homeLine()}</span>}</Tip>
+          </p>
           <Show when={failure()}>{(message) => <ErrorLine message={message()} />}</Show>
           <For each={recovered()}>{draft => <div class="capture-recovery">
             <span class="ink" data-state={draft.status}>{copy.draftStatus[draft.status]}</span>

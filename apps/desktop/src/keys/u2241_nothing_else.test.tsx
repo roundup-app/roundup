@@ -7,7 +7,7 @@ import { endLeader } from "./registry";
 
 afterEach(cleanup);
 
-const KEPT = ["meta+KeyN", "meta+shift+KeyN", "meta+KeyT", "meta+KeyK", "meta+Slash"];
+const KEPT = ["meta+KeyN", "meta+shift+KeyN", "meta+KeyT", "meta+KeyK", "meta+shift+KeyT", "meta+Slash"];
 
 /** The Terminal's own `⌘C`, `⌘V`, `⌘=`, `⌘-` and `⌘0` act in the Terminal screen (U101, U102), not at App scope. */
 const TERMINALS_OWN = ["meta+KeyC", "meta+KeyV", "meta+Equal", "meta+Minus", "meta+Digit0", "meta+shift+Equal"];

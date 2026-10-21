@@ -84,7 +84,7 @@ if (query.get("daemon") === "1") {
         cwd: `packages/${"deep-folder/".repeat(10)}destination-${index}`,
         last_activity_ms: 1_792_512_000_000n - BigInt(index * 60_000),
       })),
-      excluded: [{ source: "unavailable-conversation", reason: "Source unavailable: folder no longer exists." }],
+      excluded: [{ source: "unavailable-conversation", reason: "Source unavailable: folder no longer exists.", title: null, last_activity_ms: 1700000000000n }],
     });
     controls.app.handlers["project.importCommit"] = ({ selections }) => ({
       outcomes: selections.map(({ source }, index) => index === 0
