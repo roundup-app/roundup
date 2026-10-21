@@ -189,7 +189,12 @@ def reopen_fake():
     evaluate("window.__fake.app.rpc('todo.complete',{id:5})")
     wait('document.querySelector(".drawer input").checked')
     refuse_reopen('Unable to reopen this Todo')
-    evaluate('document.querySelector(".drawer input").focus()')
+    evaluate('document.querySelector(".drawer .close").focus()')
+    for _ in range(3):
+        browser('press', 'Tab')
+        if evaluate('document.activeElement===document.querySelector(".drawer input")'):
+            break
+    assert evaluate('document.activeElement===document.querySelector(".drawer input")')
     browser('press', 'Space')
     wait('document.querySelector(".drawer").textContent.includes("Unable to reopen this Todo")')
     assert evaluate('document.querySelector(".drawer input").checked && document.activeElement===document.querySelector(".drawer input")')
@@ -236,7 +241,10 @@ def reopen_surfaces():
             wait('Boolean(document.querySelector(".shelf-done-line .todo-row-button"))')
             evaluate("if(!document.querySelector(`[data-todo=\"${window.__testId}\"] input`)) document.querySelector('.shelf-done-line .todo-row-button').click()")
             wait('Boolean(document.querySelector(`[data-todo="${window.__testId}"] input`))')
-            evaluate('document.querySelector(`[data-todo="${window.__testId}"] input`).focus()')
+            if key == 'Space':
+                evaluate('document.querySelector(`[data-todo="${window.__testId}"] .todo-row-button`).focus()')
+                browser('press', 'Tab')
+                assert evaluate('document.activeElement===document.querySelector(`[data-todo="${window.__testId}"] input`)')
             baseline_checks = evaluate('window.__checks()')
             before = evaluate('window.__fake.app.calls.filter(c=>c.method==="todo.reopen").length')
             refuse_reopen('Reopen refused: try again')
