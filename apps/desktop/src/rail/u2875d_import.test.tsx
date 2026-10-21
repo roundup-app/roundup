@@ -248,3 +248,28 @@ describe("u2875d the import panel is an ordinary Rail action", () => {
     expect(calls(app, "project.importCommit")).toEqual([]);
   });
 });
+
+
+it("u3037d_timeout_keeps_selection_until_refresh_verifies_it", async () => {
+  const app = createFakeApp();
+  app.handlers["project.importDiscover"] = () => found();
+  const state = createImport(app, "/deadline-project", () => {});
+  await state.refresh();
+  state.choose("s1", "First", "r1", true);
+  app.handlers["project.importDiscover"] = () => new Promise(() => {});
+  vi.useFakeTimers();
+
+  try {
+    void state.refresh();
+    await vi.advanceTimersByTimeAsync(20_000);
+    expect(state.loading()).toBe(false);
+    expect(state.failure()).toBeTruthy();
+    expect(state.verified()).toBe(false);
+    expect(state.selected().get("s1")?.revision).toBe("r1");
+    app.handlers["project.importDiscover"] = () => found();
+    await state.refresh();
+    expect(state.verified()).toBe(true);
+    expect(state.selected().get("s1")?.revision).toBe("r1");
+    expect(app.calls.filter((call) => call.method === "project.importCommit")).toHaveLength(0);
+  } finally { vi.useRealTimers(); }
+});
