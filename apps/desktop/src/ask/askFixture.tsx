@@ -20,7 +20,7 @@ const TREE: RailNode[] = [
 ];
 
 /** The Ask bar of an open Project on the fake Daemon, with `Keys` for `⌘/`; `asks` seeds `ask.list`. */
-export const mountAskBar = async (asks: Ask[] = [], selected: string | null = null, tree: RailNode[] | Promise<RailNode[]> = TREE, pane = false, path = `/ask-${crypto.randomUUID()}`) => {
+export const mountAskBar = async (asks: Ask[] = [], selected: string | null = null, tree: RailNode[] | Promise<RailNode[]> = structuredClone(TREE), pane = false, path = `/ask-${crypto.randomUUID()}`) => {
   const app = createFakeApp();
 
   app.handlers["rail.tree"] = () => tree instanceof Promise ? [] : tree;
@@ -39,6 +39,7 @@ export const mountAskBar = async (asks: Ask[] = [], selected: string | null = nu
   if (selected !== null) connected.rail.select(selected);
 
   const [recovery, setRecovery] = createSignal<{ project: string; revision: string }>();
+
   const view = render(() => (
     <ConnectedProjectContext.Provider value={connected}>
       <Keys />
