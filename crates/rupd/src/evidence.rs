@@ -94,15 +94,20 @@ impl Daemon {
         };
         let instructions = self.result_instructions(conn, &p).await?;
         let reports = messages.result_reports(&p.id)?;
+        let unresolved: Vec<_> = reports.iter()
+            .filter(|r| r.request.state == ResultState::UnknownEffect)
+            .collect();
         if method == "message.progress" {
             let present = self.rail().await?.iter().any(|n| n.id == p.id);
             let mut results = Vec::new();
             for (index, report) in reports.iter().enumerate() {
-                let current = present
+                let pending = unresolved.iter().any(|r| r.report == report.report);
+                let blocked = unresolved.iter().any(|r| r.request.target.id == report.request.target.id);
+                let current = pending || (!blocked && present
                     && instructions.current == report.order_revision
                     && !reports[index + 1..]
                         .iter()
-                        .any(|later| later.request.target.id == report.request.target.id);
+                        .any(|later| later.request.target.id == report.request.target.id));
                 results.push(ResultProgress {
                     report: report.clone(),
                     current,
@@ -228,6 +233,12 @@ impl Daemon {
         }
         let availability = self.result_availability(conn, report).await?;
         let observation = self.observe_result(conn, report, &availability).await;
+        let observation = if matches!(observation, ResultObservation::Passed { .. })
+            && unresolved.iter().any(|r| r.request.target.id == report.request.target.id) {
+            unknown("an unresolved external effect requires authoritative exact-version resolution")
+        } else {
+            observation
+        };
         messages.observe_result(&report.report, &observation)?;
         rpc::reply(&observation)
     }
