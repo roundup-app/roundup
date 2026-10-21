@@ -130,7 +130,7 @@ const OrderContent = (props: OrderInput) => {
     if (!parsed.success || !form || selectedDraft()?.status === "unknown") return;
     const fields = new FormData(form);
 
-    const value = { ...parsed.output,
+    const edited = { ...parsed.output,
       title: String(fields.get("title") ?? ""), ask: String(fields.get("ask") ?? ""),
       done: String(fields.get("done") ?? ""), field: field.name,
     };
@@ -138,11 +138,11 @@ const OrderContent = (props: OrderInput) => {
     const selection = { start: field.selectionStart, end: field.selectionEnd, direction: field.selectionDirection };
     const draft = selectedDraft();
 
-    if (draft && value.title === parsed.output.title && value.ask === parsed.output.ask
-      && value.done === parsed.output.done && value.field === parsed.output.field
+    if (draft && edited.title === parsed.output.title && edited.ask === parsed.output.ask
+      && edited.done === parsed.output.done && edited.field === parsed.output.field
       && selection.start === draft.selection?.start && selection.end === draft.selection?.end
       && selection.direction === draft.selection?.direction) return;
-    const next = drafts.edit(destination(), value, selection, "ordinary", props.recovery ? selected() : undefined);
+    const next = drafts.edit(destination(), edited, selection, "ordinary", props.recovery ? selected() : undefined);
 
     selectRevision(next.draft.revision);
   };
