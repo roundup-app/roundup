@@ -5,6 +5,7 @@ license.workspace = true
 version.workspace = true
 
 [dependencies]
+axum = { version = "0.8.9", default-features = false, features = ["http1", "json", "tokio"] }
 async-trait.workspace = true
 contracts = { path = "../contracts" }
 checkpoints = { path = "../checkpoints" }
