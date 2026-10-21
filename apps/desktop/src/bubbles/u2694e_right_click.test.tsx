@@ -106,8 +106,12 @@ const branches = () => [...document.querySelectorAll("[role=treeitem][aria-expan
 
 const gesture = (target: Element, ctrl: boolean, early: boolean, distance = 0) => {
   const event = (type: string, buttons: number, x = 10, compatibility = false) => {
-    const press = new MouseEvent(type, { bubbles: true, cancelable: true, button: compatibility || ctrl ? 0 : 2, buttons, ctrlKey: ctrl && !compatibility, clientX: x, clientY: 10 });
-    Object.defineProperty(press, "pointerType", { value: "mouse" });
+    const init = { bubbles: true, cancelable: true, button: compatibility || ctrl ? 0 : 2, buttons, ctrlKey: ctrl && !compatibility, clientX: x, clientY: 10 };
+
+    const press = type.startsWith("pointer")
+      ? new PointerEvent(type, { ...init, pointerType: "mouse", isPrimary: true, pointerId: 1 })
+      : new MouseEvent(type, init);
+
     target.dispatchEvent(press);
 
     return press;
