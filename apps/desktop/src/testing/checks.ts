@@ -647,7 +647,8 @@ const widest = (found: { diff: number; row: Element }[]): Measure => {
 };
 
 // D12: U3726's tick-only rows share a title column; rows with the extra Glyph
-// keep their own column. U3708's tree indent shifts both; later lines align with their title.
+// keep their own column. U3727 includes the entry field’s text edge.
+// U3708's tree indent shifts both; later lines align with their title.
 const d12 = (page: Page): Measure => {
   const rows = shelfRows(page);
 
@@ -669,12 +670,28 @@ const d12 = (page: Page): Measure => {
     const tickOnly = (row: Element) => list === "todos" && row.querySelector(".shelf-glyph > .todo-tick") !== null
       && row.querySelector(".shelf-glyph > [data-state]") === null;
 
-    own.forEach(({ row }, index) => {
-      const titles = own.filter((one) => tickOnly(one.row) === tickOnly(row))
-        .map((one) => left(one.row.querySelector(".shelf-title")) - indent(one.row));
+    const textLeft = (row: Element) => {
+      const field = row.querySelector(".entry-field");
 
-      found.push({ diff: Math.max(...glyphs) - Math.min(...glyphs), row: own[index]!.row });
-      found.push({ diff: Math.max(...titles) - Math.min(...titles), row });
+      return (field ? left(field) + (px(page.style(field).paddingLeft) ?? 0) + (px(page.style(field).borderLeftWidth) ?? 0)
+        : left(row.querySelector(".shelf-title"))) - indent(row);
+    };
+
+    for (const tick of [false, true]) {
+      const titles = own.filter((one) => tickOnly(one.row) === tick).map(({ row }) => ({ left: textLeft(row), row }));
+
+      if (titles.length < 2) continue;
+
+      const min = titles.reduce((a, b) => a.left < b.left ? a : b);
+      const max = titles.reduce((a, b) => a.left > b.left ? a : b);
+
+      const row = max === titles[0] ? min.row : max.row;
+
+      found.push({ diff: max.left - min.left, row: row.querySelector(".entry-field") ?? row });
+    }
+
+    own.forEach(({ row }) => {
+      found.push({ diff: Math.max(...glyphs) - Math.min(...glyphs), row });
 
       for (const line of [...(row.querySelector(".shelf-text")?.children ?? [])].slice(1)) found.push({ diff: Math.abs(left(line) - left(row.querySelector(".shelf-title"))), row });
     });

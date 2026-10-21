@@ -542,6 +542,123 @@ async fn nr7_a_pr_without_worktree_evidence_saves_nothing() {
 }
 
 #[tokio::test]
+async fn nr8_automatic_firing_refuses_a_target_moved_out_of_reach() {
+    let s = scene(&[]).await;
+    let author = client_as(&s.project, actor(ActorKind::Agent, &s.door)).await;
+    let mut body = definition(&s.a, "revoked reaction instruction");
+    body["condition"]["ids"] = json!([s.b]);
+    let saved = made(&author, "reaction.create", body).await;
+    s.user
+        .request(
+            "rail.move",
+            json!({ "id": s.a, "parent": null, "index": 0 }),
+        )
+        .await
+        .unwrap();
+    let refused = author
+        .request(
+            "reaction.run",
+            json!({ "id": saved.id, "operation": "manual" }),
+        )
+        .await
+        .unwrap_err();
+    assert_eq!(refused.code, code::FORBIDDEN);
+    drive(&s.user, &s.b, STOP).await;
+    let seen = super::daemon::h21_poll(
+        "reaction observes completion after revocation",
+        async || {
+            let seen = current(&s, &saved).await;
+            let completed = seen
+                .observation
+                .evidence
+                .as_deref()
+                .and_then(|text| serde_json::from_str::<Value>(text).ok())
+                .is_some_and(|evidence| {
+                    evidence["finished"]
+                        .as_array()
+                        .is_some_and(|ids| ids.contains(&json!(s.b)))
+                });
+            completed.then_some(seen)
+        },
+    )
+    .await;
+    assert!(seen.firings.is_empty(), "unauthorized firing: {seen:?}");
+    assert_eq!(seen.remaining, 1);
+    assert_eq!(seen.target, s.a);
+    assert_eq!(seen.observation.health, "unavailable");
+    assert!(seen.observation.gap.as_deref().unwrap().contains("Reach"));
+    assert!(seen.observation.recovery.is_some());
+    assert!(
+        messages(&s.user, &s.a, "revoked reaction instruction")
+            .await
+            .is_empty()
+    );
+}
+
+#[tokio::test]
+async fn nr1_agent_access_requires_current_reach_while_user_access_remains() {
+    for removed in [false, true] {
+        let s = scene(&[]).await;
+        let author = client_as(&s.project, actor(ActorKind::Agent, &s.door)).await;
+        let mut body = definition(&s.a, "explicit reaction instruction");
+        body["condition"]["ids"] = json!([s.b]);
+        body["max_firings"] = json!(2);
+        body["rearm"] = json!(true);
+        let saved = made(&author, "reaction.create", body.clone()).await;
+        let replayed = made(&author, "reaction.create", body.clone()).await;
+        assert_eq!(replayed.id, saved.id);
+        let original = json!({"id": saved.id, "operation": "original"});
+        let first = made(&author, "reaction.run", original.clone()).await;
+        if removed {
+            s.user
+                .request("rail.remove", json!({"id": s.a}))
+                .await
+                .unwrap();
+        } else {
+            s.user
+                .request("rail.move", json!({"id": s.a, "parent": null, "index": 0}))
+                .await
+                .unwrap();
+        }
+        for (method, args) in [
+            ("reaction.create", body),
+            ("reaction.get", json!({"id": saved.id})),
+            ("reaction.stop", json!({"id": saved.id})),
+            ("reaction.run", original),
+            ("reaction.run", json!({"id": saved.id, "operation": "new"})),
+        ] {
+            let error = author.request(method, args).await.unwrap_err();
+            assert_eq!(
+                error.code,
+                if removed {
+                    code::NOT_FOUND
+                } else {
+                    code::FORBIDDEN
+                },
+                "{method}"
+            );
+        }
+        assert!(listed(&author).await.is_empty());
+        let kept = current(&s, &saved).await;
+        assert_eq!(kept.firings.len(), 1);
+        assert_eq!(kept.firings[0].id, first.firings[0].id);
+        assert_eq!(kept.remaining, 1);
+        assert_eq!(serde_json::to_value(kept.state).unwrap(), "active");
+        let run = json!({"id": saved.id, "operation": "user"});
+        if removed {
+            let error = s.user.request("reaction.run", run).await.unwrap_err();
+            assert_eq!(error.code, code::NOT_FOUND);
+        } else {
+            let ran = made(&s.user, "reaction.run", run).await;
+            assert_eq!(ran.firings.len(), 2);
+            assert_eq!(ran.remaining, 0);
+        }
+        let stopped = made(&s.user, "reaction.stop", json!({"id": saved.id})).await;
+        assert_eq!(serde_json::to_value(stopped.state).unwrap(), "stopped");
+    }
+}
+
+#[tokio::test]
 async fn nr3_automatic_write_failure_is_inspectable_and_recovers() {
     let mut s = scene(&[]).await;
     s.w = s.door.clone();
@@ -668,7 +785,12 @@ async fn nr6_failed_acceptance_retries_on_timer_wake_and_reopen() {
     body["condition"]["at"] = json!("2098-06-01T09:00:00Z");
     made(&s.user, "reaction.create", body).await;
     let sent = notes(&s.user, &s.w, "retry time", 1).await;
-    let recovered = current(&s, &saved).await;
+    // Timer::fire records successful observation after fire_reaction finishes delivery.
+    let recovered = super::daemon::h21_poll("timer records successful acceptance", async || {
+        let seen = current(&s, &saved).await;
+        matches!(seen.observation.health.as_str(), "fired" | "fired late").then_some(seen)
+    })
+    .await;
     assert_eq!((recovered.firings.len(), recovered.remaining), (1, 0));
     assert!(recovered.observation.cause.is_none());
     assert!(recovered.observation.recovery.is_none());

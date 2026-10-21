@@ -629,6 +629,7 @@ impl Daemon {
 
     fn evaluator(&self) -> Option<reaction::Evaluator> {
         Some(reaction::Evaluator {
+            agents: Arc::clone(&self.agents),
             reactions: Arc::clone(&self.reactions),
             reader: self.reader(),
             messages: Arc::clone(self.sender.get()?),
