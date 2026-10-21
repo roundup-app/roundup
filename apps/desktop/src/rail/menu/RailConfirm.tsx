@@ -1,0 +1,61 @@
+import { copy } from "../../copy";
+import { createEffect, For, Show } from "solid-js";
+import { Portal } from "solid-js/web";
+import type { RailMenuModel } from "./model";
+import { goesLine, goingNames, staysLine } from "./removal";
+import { AlertDialog } from "../../ui/Dialog";
+
+/** U56, U367: the question before a stop or a remove, an in-app `alertdialog` since the system menu cannot hold it. Focus starts on `keep`; Esc or a click outside is `keep`. */
+export const RailConfirm = (props: { menu: RailMenuModel; rowElement: (id: string) => HTMLElement | undefined }) => {
+  let keep: HTMLButtonElement | undefined;
+  let returnTo: HTMLElement | null = null;
+
+  createEffect(() => {
+    const current = props.menu.state();
+
+    if (current?.confirming) returnTo = props.rowElement(current.node.id) ?? null;
+  });
+
+  return (
+    <AlertDialog.Root open={props.menu.state()?.confirming === true} initialFocusEl={() => keep ?? null}
+      finalFocusEl={() => returnTo?.isConnected ? returnTo : null}
+      onOpenChange={(details) => { if (!details.open) props.menu.close(); }}>
+      <Portal>
+      <AlertDialog.Positioner>
+        <AlertDialog.Content class="close-dialog rail-confirm">
+          <Show when={props.menu.state()}>
+            {(current) => (
+              <>
+                <AlertDialog.Title>
+                  {current().action === "stop"
+                    ? copy.stopQuestion(current().node.name)
+                    : current().node.kind === "workstream" ? copy.removeQuestion(current().node.name) : copy.stopAndRemoveQuestion(current().node.name)}
+                </AlertDialog.Title>
+                <Show when={current().node.kind === "workstream" && current().action === "remove" ? current().removal : undefined}>
+                  {(removal) => (
+                    <AlertDialog.Description>
+                      <span class="rail-confirm-line">{goesLine(removal())}</span>
+                      <For each={goingNames(removal())}>{(name) => <span class="rail-confirm-line rail-confirm-name">{name}</span>}</For>
+                      <Show when={staysLine(removal())}>{(line) => <span class="rail-confirm-line rail-confirm-stay">{line()}</span>}</Show>
+                      <For each={removal().stays.agents}>
+                        {(stay) => <span class="rail-confirm-line rail-confirm-name rail-confirm-stay">{copy.toastLine(stay.name, stay.reason)}</span>}
+                      </For>
+                    </AlertDialog.Description>
+                  )}
+                </Show>
+                <p class="close-words">
+                  <button data-button="quiet" type="button" class="word" ref={(element) => (keep = element)} onClick={props.menu.close}>{copy.keep}</button>
+                  <button data-button="quiet" type="button" class="word"
+                    onClick={current().action === "stop" ? props.menu.chooseStop : props.menu.chooseRemove}>
+                    {current().action === "stop" ? copy.stop : copy.remove}
+                  </button>
+                </p>
+              </>
+            )}
+          </Show>
+        </AlertDialog.Content>
+      </AlertDialog.Positioner>
+      </Portal>
+    </AlertDialog.Root>
+  );
+};
