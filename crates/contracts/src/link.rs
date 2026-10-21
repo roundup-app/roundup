@@ -5,11 +5,12 @@ use serde::{Deserialize, Serialize};
 use ts_rs::TS;
 
 use crate::agent::{Digest, RailNode};
+use crate::deliverable::{Deliverable, Resolution};
 use crate::pad::Pad;
 use crate::terminal::Screen;
 use crate::todo::Todo;
 
-/// `roundup://<kind>/<id>?project=<key>`, `<kind>` one of `pad`, `todo`, `agent`, `workstream`, `terminal`.
+/// `roundup://<kind>/<id>?project=<key>`, `<kind>` one of `pad`, `todo`, `agent`, `workstream`, `terminal`, `deliverable`.
 #[derive(Clone, Debug, Serialize, Deserialize, TS, JsonSchema)]
 #[ts(export, export_to = "link/")]
 pub struct LinkUrl {
@@ -17,11 +18,16 @@ pub struct LinkUrl {
 }
 
 /// LK2: the object's content now, composed from the method that reads that kind. A Door's
-/// `digest` is `null` for an Agent that is no Door.
+/// `digest` is `null` for an Agent that is no Door. DV6 publication links resolve the recorded
+/// revision or explicit current external target, rather than the mutable authoring source.
 #[derive(Clone, Debug, Serialize, Deserialize, TS)]
 #[serde(tag = "kind", rename_all = "lowercase")]
 #[ts(export, export_to = "link/")]
 pub enum LinkContent {
+    Deliverable {
+        record: Deliverable,
+        resolution: Resolution,
+    },
     Pad {
         id: String,
         pad: Pad,
