@@ -747,16 +747,22 @@ async fn u3016f_real_time_acquisition_to_cli_survives_reopen() {
         );
     }
     let decision = decision.unwrap();
-    let active = w.read().await;
-    assert!(
-        active["time_evidence"]
-            .as_array()
-            .unwrap()
-            .iter()
-            .any(|f| f["agent"] == sender
-                && f["value"]["activity"]["decision"] == decision.id
-                && f["value"]["state"]["kind"] == "active")
-    );
+    // DecisionOpened precedes retaining its blocking-wait evidence; read the collector's fact.
+    tokio::time::timeout(Duration::from_secs(5), async {
+        loop {
+            let active = w.read().await;
+            if active["time_evidence"].as_array().unwrap().iter().any(|f| {
+                f["agent"] == sender
+                    && f["value"]["activity"]["decision"] == decision.id
+                    && f["value"]["state"]["kind"] == "active"
+            }) {
+                break;
+            }
+            tokio::task::yield_now().await;
+        }
+    })
+    .await
+    .expect("the opened Decision retains its active wait");
     let decision_delay = started.elapsed();
     w.client
         .request(
@@ -820,7 +826,7 @@ async fn u3016f_real_time_acquisition_to_cli_survives_reopen() {
         loop {
             let snapshot = w.read().await;
             let facts = snapshot["time_evidence"].as_array().unwrap();
-            if facts.len() == 5
+            if facts.len() == 4
                 && facts
                     .iter()
                     .all(|fact| fact["value"]["state"]["kind"] == "ended")
@@ -831,7 +837,7 @@ async fn u3016f_real_time_acquisition_to_cli_survives_reopen() {
         }
     })
     .await
-    .expect("three stopped Attempts and their Decision/coordination waits reconcile as ended");
+    .expect("three stopped Attempts and their Decision wait reconcile as ended");
     let coordination_delay = started.elapsed();
     let answers = w
         .client
@@ -843,13 +849,16 @@ async fn u3016f_real_time_acquisition_to_cli_survives_reopen() {
         json!({"decision_opened":decision,"answers":answers,"message":retained})
     );
     let facts = before["time_evidence"].as_array().unwrap();
-    let coordination = facts
-        .iter()
-        .find(|f| f["value"]["activity"]["kind"] == "coordination")
-        .expect("the sender actually awaited the existing routing operation");
-    assert_eq!(coordination["value"]["activity"]["message"], message["id"]);
-    assert_eq!(coordination["agent"], sender);
-    assert_eq!(coordination["value"]["state"]["kind"], "ended");
+    // B50/B51: a missing inbox holds without a prompt wait. The positive blocking-wait
+    // proof remains u3016c_time_categories_use_observed_intervals_sources, gating the inbox.
+    assert_eq!(retained["status"], "held");
+    assert_eq!(retained["reason"], "inbox");
+    assert!(
+        !facts
+            .iter()
+            .any(|f| f["value"]["activity"]["kind"] == "coordination"),
+        "a nonblocking inbox hold must not invent coordination time"
+    );
     let cli =
         tokio::process::Command::new(Path::new(env!("CARGO_BIN_EXE_rupd")).with_file_name("rup"))
             .args(["--json", "project", "measurements", "--agent", &sender])
@@ -867,7 +876,7 @@ async fn u3016f_real_time_acquisition_to_cli_survives_reopen() {
     w.reopen().await;
     assert_eq!(w.read().await["time_evidence"], before["time_evidence"]);
     println!(
-        "time observer: decision acquisition {:?}; coordination acquisition {:?}; raw Decision {} and Message {} reconcile to {} retained facts; CLI and reopened facts equal",
+        "time observer: decision acquisition {:?}; nonblocking inbox send {:?}; raw Decision {} and Message {} reconcile to {} retained facts; CLI and reopened facts equal",
         decision_delay,
         coordination_delay,
         decision.id,

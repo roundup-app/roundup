@@ -185,6 +185,17 @@ impl Module for Agents {
                 reply(&())
             }
             "rail.tree" => reply(&shared.tree()?),
+            "agent.instructions" => {
+                let NodeId { id } = params(value)?;
+                if ctx.actor.kind != ActorKind::User {
+                    shared.guard_reach(&ctx.actor, &id, true)?;
+                }
+                reply(
+                    &shared
+                        .rail()
+                        .instructions(&id, &shared.project_dir.to_string_lossy())?,
+                )
+            }
             "agent.spawnPrompt" => {
                 let NodeId { id } = params(value)?;
                 shared.guard_reach(&ctx.actor, &id, true)?;

@@ -250,14 +250,22 @@ impl Agents {
         first: Option<String>,
         startup_context: bool,
     ) -> Result<String, RpcError> {
-        let node = self.shared.rail().node(id)?;
-        // O2, O3: the first Steer is the node's order, whichever way it was set.
-        let spawn_prompt = self.shared.rail().spawn_prompt(id)?;
-        let prompt = first.or_else(|| {
-            node.work
-                .as_ref()
-                .map(|work| order::steer(work, spawn_prompt.as_deref()))
-        });
+        let (node, prompt) = {
+            let mut rail = self.shared.rail();
+            let node = rail.node(id)?;
+            // O2, O3: the first Steer is the node's order, whichever way it was set.
+            let spawn_prompt = rail.spawn_prompt(id)?;
+            let prompt = first.or_else(|| {
+                node.work
+                    .as_ref()
+                    .map(|work| order::steer(work, spawn_prompt.as_deref()))
+            });
+
+            if let (Some(text), Some(revision)) = (&prompt, rail.order_revision(id)?) {
+                rail.prepare_instruction(&revision, attempt, text, true)?;
+            }
+            (node, prompt)
+        };
 
         let retained = node.worktree.map(|w| PathBuf::from(w.path));
         if let Some(path) = &retained
