@@ -287,8 +287,7 @@ const openBody = async (id: number, body: string) => {
   fireEvent.click(await screen.findByRole("button", { name: new RegExp(`^Idle #${id} `) }));
   const drawer = screen.getByRole("complementary", { name: "Drawer" });
 
-  await within(drawer).findByRole("region", { name: "Todo history" });
-  await waitFor(() => expect(drawer.querySelector("[data-change]")).not.toBeNull());
+  await within(drawer).findByRole("button", { name: /^Changes/ });
   fireEvent.dblClick(within(drawer).getByText(body));
 
   return within(drawer).getByRole<HTMLTextAreaElement>("textbox", { name: "Body" });
@@ -492,7 +491,7 @@ it("u2773b_todos_browser_discards_hidden_revision_without_delivery", async () =>
     await browser("wait", '[data-shelf-group="unassigned"] [data-part="branch-control"]');
     await browser("click", '[data-shelf-group="unassigned"] [data-part="branch-control"]');
     await browser("click", `[aria-label="Idle #${original.id} discard by pointer"]`);
-    await browser("wait", ".drawer [data-change]");
+    await browser("wait", ".drawer .todo-history-line");
     await browser("dblclick", ".todo-detail-body p");
     await browser("fill", '[aria-label="Body"]', "  discard editor 🧪  ");
     await browser("eval", `document.querySelector('.drawer [aria-label="Body"]').dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true }))`);

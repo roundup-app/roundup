@@ -9,7 +9,7 @@ import uuid
 mode, origin = sys.argv[1:3]
 session = 'u461-' + uuid.uuid4().hex
 profile = tempfile.TemporaryDirectory(prefix='u461-profile-')
-outputs = dict(zip(['U461', 'U462', 'U461a'], sys.argv[3:6]))
+outputs = dict(zip(['U461', 'U462', 'U461a', 'U3728'], sys.argv[3:7]))
 
 
 def browser(*args):
@@ -103,7 +103,7 @@ reading = r"""(() => {
     dependencyGroups:[...d.querySelectorAll('p')].filter(p=>['Waits on','Blocks'].includes(p.textContent)).map(p=>p.textContent),
     failure:[...d.querySelectorAll('[role=alert]')].map(e=>({text:e.textContent,box:box(e)})),
     history:[...d.querySelectorAll('[data-change]')].map(e=>e.textContent),
-    unread:d.querySelector('hr')?.nextElementSibling?.textContent??null};
+    unread:d.querySelector('.todo-history-count')?.dataset.state??null};
 })()"""
 
 
@@ -112,6 +112,8 @@ def fake():
         open_page(origin + '/harness.html?seed=tree-40', scheme)
         wait('Boolean(window.__fake && document.querySelector("[data-id=\\"5\\"] .row-head button"))')
         evaluate(setup)
+        wait('Boolean(document.querySelector(".todo-history-line"))')
+        evaluate('document.querySelector(".todo-history-line").click()')
         wait('Boolean(document.querySelector("[data-change]"))')
         evaluate('(async()=>{await document.fonts.ready;await Promise.all(document.querySelector(".drawer").getAnimations().map(a=>a.finished));})()')
         evaluate('window.__fake.failNext(-32003,"Unable to complete this Todo")')
@@ -171,6 +173,8 @@ def real():
         browser('click', '#shelf-tab-todos')
     wait('Boolean(document.querySelector("[data-todo=\\"1\\"] button"))')
     evaluate('document.querySelector("[data-todo=\\"1\\"] button").click()')
+    wait('Boolean(document.querySelector(".todo-history-line"))')
+    evaluate('document.querySelector(".todo-history-line").click()')
     wait('Boolean(document.querySelector("[data-change]"))')
     evaluate("(async()=>{let h;do{h=await window.__u462rpc('todo.getHistory',{id:1});if(h.unread!==null)await new Promise(requestAnimationFrame)}while(h.unread!==null);})()")
     browser('click', '.drawer .close')
@@ -181,10 +185,13 @@ def real():
     evaluate("[...document.querySelectorAll('button')].find(b=>b.textContent.trim()==='1 done').click()")
     wait('Boolean(document.querySelector("[data-todo=\\"1\\"] button"))')
     evaluate('document.querySelector("[data-todo=\\"1\\"] button").click()')
-    wait('document.querySelectorAll("[data-change]").length===4')
+    wait('Boolean(document.querySelector(".todo-history-line"))')
+    # Unread changes show as a state mark on the collapsed count; opening reads them.
+    assert evaluate("document.querySelector('.todo-history-count').dataset.state") == 'unread'
+    evaluate('document.querySelector(".todo-history-line").click()')
+    wait('document.querySelectorAll("[data-change]").length===6')
     result = evaluate(reading)
-    assert result['history'] == ['Title: Door TodoBody: Initial bodyOpen', 'Title: Evolved TodoBody: Changed body\nSecond line', 'Waits on: #2', 'Done'], result
-    assert result['unread'] == result['history'][1], result
+    assert result['history'] == ['Created Door Todo', 'Wrote the body', 'Renamed to Evolved Todo', 'Wrote the body', 'Now waits on #2', 'Marked done'], result
     save('U462', 'real-daemon-Reopened', result)
 
 
@@ -192,6 +199,8 @@ def reopen_fake():
     open_page(origin + '/harness.html?seed=tree-40')
     wait('Boolean(window.__fake && document.querySelector("[data-id=\\"5\\"] .row-head button"))')
     evaluate(setup)
+    wait('Boolean(document.querySelector(".todo-history-line"))')
+    evaluate('document.querySelector(".todo-history-line").click()')
     wait('Boolean(document.querySelector("[data-change]"))')
     baseline_checks = evaluate('window.__checks()')
     save('U461a', 'open-before-reopen-1512-dark', evaluate(reading))
@@ -369,12 +378,56 @@ def u461b_capture_requires_observed_emulation():
     save('U461', mode, evaluate(reading))
 
 
+def u3728_drawer():
+    open_page(origin + '/harness.html?seed=tree-40')
+    wait('Boolean(window.__fake && document.querySelector("[data-id=\\"5\\"] .row-head button"))')
+    if evaluate('document.querySelector("#shelf-tab-todos").getAttribute("aria-expanded")!=="true"'):
+        browser('click', '#shelf-tab-todos')
+    evaluate(setup)
+    wait('Boolean(document.querySelector(".todo-history-line"))')
+    evaluate('(async()=>{await document.fonts.ready;await Promise.all(document.querySelector(".drawer").getAnimations().map(a=>a.finished));})()')
+    collapsed = evaluate(reading)
+    assert collapsed['history'] == [] and collapsed['unread'] == 'unread', collapsed
+    assert evaluate('!document.querySelector(".drawer hr") && /^Changes · \\d+/.test(document.querySelector(".todo-history-line").textContent.trim())')
+    save('U3728', 'collapsed-1512-dark', collapsed)
+    evaluate('document.querySelector(".todo-history-line").click()')
+    wait('Boolean(document.querySelector("[data-change]"))')
+    opened = evaluate(reading)
+    assert opened['history'] and opened['unread'] == 'read', opened
+    save('U3728', 'entries-1512-dark', opened)
+    evaluate('window.__fake.failNext(-32003,"Unable to complete this Todo")')
+    browser('click', '.drawer input[type=checkbox]')
+    wait('document.querySelector(".drawer").textContent.includes("Unable to complete this Todo")')
+    failed = evaluate(reading)
+    assert failed['failure'] and all(row['box']['height'] > 0 for row in failed['failure']), failed
+    evaluate('[...document.querySelectorAll(".drawer button")].find(b=>b.textContent.trim()==="Blocker").click()')
+    wait('Boolean(document.querySelector(".todo-blocker-menu .app-combobox-item"))')
+    menu = evaluate("""(() => {
+      const m=document.querySelector('.todo-blocker-menu').getBoundingClientRect();
+      const d=document.querySelector('.drawer').getBoundingClientRect();
+      const row=document.querySelector('.todo-blocker-menu .app-combobox-item').getBoundingClientRect().height;
+      const shelf=document.querySelector('.shelf .todo-row-button').getBoundingClientRect().height;
+      const floating=!document.querySelector('.drawer').contains(document.querySelector('.todo-blocker-menu'));
+      return {menu:{x:m.x,y:m.y,right:m.right,bottom:m.bottom},drawer:{x:d.x,right:d.right},row,shelf,floating,
+        pageOverflow:document.documentElement.scrollWidth>innerWidth,menuOverflow:m.right>innerWidth||m.x<0};
+    })()""")
+    assert menu['floating'] and not menu['pageOverflow'] and not menu['menuOverflow'], menu
+    assert abs(menu['row'] - menu['shelf']) < 0.5, menu
+    result = {**evaluate(reading), 'menu': menu}
+    for check in ['D2', 'D5', 'D6']:
+        assert result['checks'][check]['status'] == 'pass', result
+    save('U3728', 'menu-1512-dark', result)
+    browser('press', 'Escape')
+    wait('!document.querySelector(".todo-blocker-menu .app-combobox-item")')
+
+
 try:
     {
         'fake': fake,
         'real': real,
         'restart': restarted,
         'baseline': baseline,
+        'u3728': u3728_drawer,
         'reopen-fake': reopen_fake,
         'reopen-surfaces': reopen_surfaces,
         'reopen-real': real_reopen,
