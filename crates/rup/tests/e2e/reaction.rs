@@ -1080,19 +1080,24 @@ async fn nr5_gap_recovery_cannot_reuse_a_pre_rearm_finish() {
         watching(&s, "gap-rearm", &[&s.b, &s.a], mode.clone()).await;
         // Expire history either before the observer saved A's finish and B's re-arm, or after it.
         // B comes first in the definition, so a snapshot cannot depend on participant order.
-        let db = project_db(&s.project);
+        let mut db = project_db(&s.project);
+        let tx = db.transaction().unwrap();
         if !rearmed {
-            db.execute(
+            tx.execute(
                 "UPDATE reaction_watch SET state=?1 WHERE reaction=?2",
                 [&before, &first.id],
             )
             .unwrap();
         }
-        db.execute_batch(
-            "DELETE FROM events WHERE id < (SELECT MAX(id) FROM events);
-             UPDATE reaction_watch SET state=json_set(state, '$.seen', 0);",
+        // Advance the retained head beyond every pre-gap cursor. Resetting only the Watch's
+        // cursor races an evaluator that loaded the old Watch before this fixture write.
+        tx.execute_batch(
+            "INSERT INTO events (id, event)
+                 SELECT id + 2, event FROM events ORDER BY id DESC LIMIT 1;
+             DELETE FROM events WHERE id < (SELECT MAX(id) FROM events);",
         )
         .unwrap();
+        tx.commit().unwrap();
         drop(db);
         let recovered = watching(&s, "gap-rearm", &[&s.b, &s.a], mode.clone()).await;
         assert!(
