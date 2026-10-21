@@ -6,10 +6,7 @@
   grid-template-columns: auto 1fr;
   column-gap: var(--space-2);
   align-items: start;
-  padding-block: var(--space-2);
-  color: var(--text);
   text-align: start;
 }
 .inbox-row > .glyph { grid-row: span 2; }
-.inbox-row:hover .inbox-row-name { text-decoration: underline; }
 .inbox-row-line { grid-column: 2; color: var(--amber); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }

@@ -44,7 +44,7 @@ export const Inbox = () => {
     <h2>{copy.inbox}</h2>
     <Show when={failure()}>{(message) => <div><ErrorLine message={message()} /><button data-button="quiet" class="word" type="button" onClick={() => void refresh()}>{copy.inboxRetry}</button></div>}</Show>
     <Show when={rows().length === 0 && failure() === null}><p class="light">{copy.inboxEmpty}</p></Show>
-    <For each={rows()}>{(row) => <button type="button" class="inbox-row" data-comment={row.comment.id}
+    <For each={rows()}>{(row) => <button type="button" data-button="quiet" class="inbox-row" data-comment={row.comment.id}
       onClick={(event) => drawer.open(() => <TodoHost id={row.todo} />, activationSource(event))}>
       <KindGlyph kind="needs-you" />
       <span class="inbox-row-name">{copy.inboxRow(rail.nameOf(row.comment.author), row.title)}</span>
