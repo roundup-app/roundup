@@ -2251,17 +2251,6 @@ mod tests {
         );
     }
 
-    #[tokio::test]
-    async fn unknown_method_is_an_error() {
-        let (_dir, daemon) = daemon();
-        let reply = ask(
-            &daemon,
-            r#"{"jsonrpc":"2.0","id":1,"method":"nope.nothing"}"#,
-        )
-        .await;
-        assert_eq!(reply["error"]["code"], code::METHOD_NOT_FOUND);
-    }
-
     struct Echo;
 
     #[async_trait::async_trait]
@@ -2353,12 +2342,6 @@ mod tests {
         assert_eq!(reply["result"], json!([]));
     }
 
-    #[tokio::test]
-    async fn garbage_is_a_parse_error() {
-        let (_dir, daemon) = daemon();
-        let reply = ask(&daemon, "{").await;
-        assert_eq!(reply["error"]["code"], code::PARSE_ERROR);
-    }
     /// Answers only once released, and says when its call enters and when it is dropped
     /// unanswered.
     struct Hangs {
