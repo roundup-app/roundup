@@ -295,6 +295,7 @@ const TOOL_METHODS: [&str; 77] = [
     "agent.land",
     "agent.worktreeState",
     "project.get",
+    "project.measurements",
     "project.setWorktrees",
     "provenance.history",
     "provenance.touched",
