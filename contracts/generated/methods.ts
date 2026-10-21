@@ -68,6 +68,7 @@ import type { MessageId as message_MessageId } from "./message/MessageId";
 import type { Progress as message_Progress } from "./message/Progress";
 import type { ProgressParams as message_ProgressParams } from "./message/ProgressParams";
 import type { ReportParams as message_ReportParams } from "./message/ReportParams";
+import type { ResolveResultParams as message_ResolveResultParams } from "./message/ResolveResultParams";
 import type { ResultAcceptance as message_ResultAcceptance } from "./message/ResultAcceptance";
 import type { ResultId as message_ResultId } from "./message/ResultId";
 import type { ResultObservation as message_ResultObservation } from "./message/ResultObservation";
@@ -255,6 +256,7 @@ export type RpcMethods = {
   "message.report": { params: message_ReportParams; result: message_ResultReport };
   "message.acceptResult": { params: message_AcceptResultParams; result: message_ResultAcceptance };
   "message.verifyResult": { params: message_ResultId; result: message_ResultObservation };
+  "message.resolveResult": { params: message_ResolveResultParams; result: message_ResultObservation };
   "message.send": { params: message_SendParams; result: message_Message };
   "message.pass": { params: message_MessageId; result: message_Message };
   "message.get": { params: message_MessageId; result: message_Message };
