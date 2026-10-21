@@ -256,6 +256,7 @@ export const Todos = (props: {
   const [typing, setTyping] = createSignal(retained !== undefined);
   const [createFailure, setCreateFailure] = createSignal<string | null>(null);
   const [unfolded, setUnfolded] = createSignal(false);
+  const wasDoneUnfolded = createMemo((mounted) => mounted || unfolded(), false);
   const scope = shelfScope(connected);
   const selectedWorkstream = scope.home;
 
@@ -587,7 +588,9 @@ export const Todos = (props: {
         </TreeView.Tree>
         </Sortable.Root>
         </TreeView.Root>
-        <Show when={unfolded()}>
+        <Show when={wasDoneUnfolded()}>
+          <div class="todo-done-fold" data-open={unfolded()} data-reduced-motion={connected.reducedMotion()} inert={!unfolded()}>
+            <div class="todo-done-content">
             <For each={items().filter(todo => todo.done)}>
               {(todo) => (
                 <OpenRow
@@ -608,6 +611,8 @@ export const Todos = (props: {
                 />
               )}
             </For>
+            </div>
+          </div>
         </Show>
         </>; }}</Groups>
       </Show>

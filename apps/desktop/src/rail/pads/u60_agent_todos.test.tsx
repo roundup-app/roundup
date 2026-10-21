@@ -94,10 +94,10 @@ describe("u60 an Agent's Todos under it", () => {
 
     const rail = within(screen.getByRole("tree", { name: "Rail" }));
     const box = await rail.findByRole("checkbox", { name: "Reopen todo 1" });
-    const leaf = box.closest('[role="treeitem"]');
+    const leaf = box.closest<HTMLElement>('[role="treeitem"]');
 
     expect(leaf).not.toBeNull();
-    expect(leaf?.getAttribute("aria-level")).toBe("3");
+    expect(leaf?.getAttribute("aria-level")).toBe("2");
     expect(within(leaf!).getByRole("button", { name: /#1 todo 1/ })).toBeTruthy();
   });
 
