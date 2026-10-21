@@ -149,6 +149,10 @@ const TOOLS: &[(&str, &str)] = &[
         "message_verifyResult",
         "observe one report's declared authoritative condition without a Model call; unsupported, stale or unavailable evidence stays unknown and a publication digest proves only its bytes",
     ),
+    (
+        "message_resolveResult",
+        "only the user may authorize a read-only authoritative receipt source for an unknown external effect; never repeat that effect to check it",
+    ),
     ("message_get", "read one Message you sent or received"),
     ("message_list", "see the Messages you sent or received"),
     (

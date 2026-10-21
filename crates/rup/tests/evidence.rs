@@ -53,6 +53,7 @@ for effect in ['deployment','payment','push']:
  effects.append(call('message.report',q))
  if sys.argv[3]=='effect-claim':
   call('message.report',{**q,'key':effect+'-claim','state':'reported','check':p['check']})
+bad.append(wire('message.resolveResult',{'project':project,'id':id,'report':effects[0]['report'],'source':'http://127.0.0.1:9/receipt'}))
 if sys.argv[3]=='replace':
  q={**p,'key':'unchanged','target':{'id':'unchanged','revision':'v1'}}
  call('message.report',q)
@@ -498,18 +499,38 @@ async fn u3078h_later_claims_cannot_supersede_unresolved_effects() {
     let progress = e.progress().await;
     for effect in e.effects.as_array().unwrap() {
         let rows = progress["results"].as_array().unwrap();
-        let original = rows.iter().find(|r| r["report"]["report"] == effect["report"]).unwrap();
+        let original = rows
+            .iter()
+            .find(|r| r["report"]["report"] == effect["report"])
+            .unwrap();
         assert_eq!(original["current"], true);
-        let claim = rows.iter().find(|r| r["report"]["request"]["key"] == format!("{}-claim", effect["request"]["target"]["id"].as_str().unwrap())).unwrap();
+        let claim = rows
+            .iter()
+            .find(|r| {
+                r["report"]["request"]["key"]
+                    == format!(
+                        "{}-claim",
+                        effect["request"]["target"]["id"].as_str().unwrap()
+                    )
+            })
+            .unwrap();
         assert_eq!(claim["current"], false);
         let mut q = e.query();
         q["report"] = claim["report"]["report"].clone();
         q["evidence"] = json!("Looks complete");
-        e.client.request("message.acceptResult", q.clone()).await.unwrap();
+        e.client
+            .request("message.acceptResult", q.clone())
+            .await
+            .unwrap();
         q.as_object_mut().unwrap().remove("evidence");
         let observed = e.client.request("message.verifyResult", q).await.unwrap();
         assert_eq!(observed["verdict"], "unknown");
-        assert!(observed["cause"].as_str().unwrap().contains("external effect"));
+        assert!(
+            observed["cause"]
+                .as_str()
+                .unwrap()
+                .contains("external effect")
+        );
     }
 }
 
@@ -542,7 +563,10 @@ impl Source {
 }
 
 fn receipt(report: &Value, outcome: Value) -> Value {
-    let now = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_secs();
+    let now = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .unwrap()
+        .as_secs();
     json!({"target":report["request"]["target"],"revision":"receipt-37","observed_at":now,"outcome":outcome})
 }
 
@@ -553,7 +577,11 @@ async fn u3078h_exact_external_resolution_survives_reopen() {
     let prompts = std::fs::read(e.logs.path().join("prompts")).unwrap();
     let messages = e.client.request("message.list", json!({})).await.unwrap();
     for (index, report) in e.effects.as_array().unwrap().iter().enumerate() {
-        let outcome = if index == 1 { "not-performed" } else { "completed" };
+        let outcome = if index == 1 {
+            "not-performed"
+        } else {
+            "completed"
+        };
         {
             let evidence = receipt(report, json!({"kind":outcome}));
             let source = Source::new(evidence.clone(), 200).await;
@@ -568,7 +596,14 @@ async fn u3078h_exact_external_resolution_survives_reopen() {
             let progress = e.progress().await;
             assert_eq!(progress["results"][1 + index * 2]["current"], false);
             assert_eq!(progress["results"][2 + index * 2]["current"], true);
-            assert_eq!(progress["results"][1 + index * 2]["observations"].as_array().unwrap().last().unwrap(), &observed);
+            assert_eq!(
+                progress["results"][1 + index * 2]["observations"]
+                    .as_array()
+                    .unwrap()
+                    .last()
+                    .unwrap(),
+                &observed
+            );
         }
     }
     let before = e.progress().await;
@@ -576,9 +611,18 @@ async fn u3078h_exact_external_resolution_survives_reopen() {
     e.client = e.project.client().await;
     let after = e.progress().await;
     assert_eq!(after["results"], before["results"]);
-    assert_eq!(e.client.request("message.list", json!({})).await.unwrap(), messages);
-    assert_eq!(std::fs::read(e.logs.path().join("report.effects")).unwrap(), calls);
-    assert_eq!(std::fs::read(e.logs.path().join("prompts")).unwrap(), prompts);
+    assert_eq!(
+        e.client.request("message.list", json!({})).await.unwrap(),
+        messages
+    );
+    assert_eq!(
+        std::fs::read(e.logs.path().join("report.effects")).unwrap(),
+        calls
+    );
+    assert_eq!(
+        std::fs::read(e.logs.path().join("prompts")).unwrap(),
+        prompts
+    );
 }
 
 #[tokio::test]
@@ -592,7 +636,10 @@ async fn u3078h_unusable_external_evidence_leaves_the_effect_unknown() {
         ("target", json!({"id":"another-payment","revision":"v1"})),
         ("revision", json!("")),
         ("observed_at", json!(0)),
-        ("outcome", json!({"kind":"inconclusive","cause":"provider still reconciling"})),
+        (
+            "outcome",
+            json!({"kind":"inconclusive","cause":"provider still reconciling"}),
+        ),
     ] {
         let mut gap = valid.clone();
         gap[field] = value;
@@ -610,6 +657,13 @@ async fn u3078h_unusable_external_evidence_leaves_the_effect_unknown() {
         let progress = e.progress().await;
         assert_eq!(progress["results"][1]["current"], true);
         assert_eq!(progress["results"][2]["current"], false);
-        assert_eq!(progress["results"][1]["observations"].as_array().unwrap().last().unwrap(), &observed);
+        assert_eq!(
+            progress["results"][1]["observations"]
+                .as_array()
+                .unwrap()
+                .last()
+                .unwrap(),
+            &observed
+        );
     }
 }

@@ -470,6 +470,10 @@ fn offered_tools() -> Vec<Offered> {
             "message.verifyResult",
             "Observe a report's declared authoritative condition without a Model call; unavailable or unsupported evidence stays unknown.",
         ),
+        offered::<message::ResolveResultParams>(
+            "message.resolveResult",
+            "User only: authorize a read-only authoritative receipt source for an unknown external effect. Exact target/version and fresh source evidence are required; this never repeats the effect.",
+        ),
         offered::<message::SendParams>(
             "message.send",
             "Send a note or a question to an Agent or the user. You are the sender.",

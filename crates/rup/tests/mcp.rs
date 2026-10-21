@@ -228,7 +228,7 @@ fn assert_exit_1_with_one_line_naming(output: &Output, socket: &Path) {
 
 /// M5: the methods with a tool for every Agent, each named after its method with the dot replaced
 /// by `_`, bar `agent.setOrder` (O4), whose tool is `agent_set_order`.
-const TOOL_METHODS: [&str; 82] = [
+const TOOL_METHODS: [&str; 83] = [
     "agent.wake",
     "reaction.create",
     "reaction.preview",
@@ -267,6 +267,7 @@ const TOOL_METHODS: [&str; 82] = [
     "message.report",
     "message.acceptResult",
     "message.verifyResult",
+    "message.resolveResult",
     "message.send",
     "message.get",
     "message.list",
@@ -541,6 +542,10 @@ async fn m1_input_schemas_are_the_contract_schemas() {
         (
             "message_verifyResult",
             derived(schemars::schema_for!(message::ResultId)),
+        ),
+        (
+            "message_resolveResult",
+            derived(schemars::schema_for!(message::ResolveResultParams)),
         ),
         (
             "todo_create",

@@ -224,6 +224,41 @@ pub struct AcceptResultParams {
     pub evidence: String,
 }
 
+/// Only the user can authorize reading this authoritative, read-only receipt endpoint.
+/// HTTPS is required except for literal loopback HTTP sources; credentials and redirects are refused.
+#[derive(Clone, Debug, Serialize, Deserialize, TS, JsonSchema)]
+#[serde(deny_unknown_fields)]
+#[ts(export, export_to = "message/")]
+pub struct ResolveResultParams {
+    pub project: String,
+    pub id: String,
+    pub report: String,
+    pub source: String,
+}
+
+/// Response of a user-selected authoritative receipt endpoint. The Daemon reads these bytes;
+/// an Agent's report, publication or supplied RPC verdict cannot stand in for them.
+#[derive(Clone, Debug, Serialize, Deserialize, TS, JsonSchema)]
+#[serde(deny_unknown_fields)]
+#[ts(export, export_to = "message/")]
+pub struct ResultResolution {
+    pub target: ResultTarget,
+    pub revision: String,
+    /// Source observation time, Unix seconds; accepted only within the preceding 60 seconds.
+    #[ts(type = "number")]
+    pub observed_at: i64,
+    pub outcome: ResultOutcome,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize, TS, JsonSchema)]
+#[serde(tag = "kind", rename_all = "kebab-case", deny_unknown_fields)]
+#[ts(export, export_to = "message/")]
+pub enum ResultOutcome {
+    Completed,
+    NotPerformed,
+    Inconclusive { cause: String },
+}
+
 /// Immutable claim, retaining attribution and exact instruction/output identity.
 /// order_revision precedes this exact instruction; it is never the Order at report time.
 #[derive(Clone, Debug, Serialize, Deserialize, TS)]
@@ -251,11 +286,23 @@ pub struct ResultAcceptance {
 #[serde(tag = "verdict", rename_all = "kebab-case")]
 #[ts(export, export_to = "message/")]
 pub enum ResultObservation {
-    Passed { revision: String },
-    Unknown { cause: String, action: String },
+    Passed {
+        revision: String,
+    },
+    Unknown {
+        cause: String,
+        action: String,
+    },
+    /// Fresh exact-version external evidence from a source explicitly authorized by the user.
+    Resolved {
+        source: String,
+        authorizer: Actor,
+        evidence: ResultResolution,
+    },
 }
 
-/// current requires the same instruction and latest reported target version; history remains readable.
+/// Unresolved external effects remain current despite later claims or changed instructions.
+/// Other current results require the same instruction and latest reported target version.
 #[derive(Clone, Debug, Serialize, Deserialize, TS)]
 #[ts(export, export_to = "message/")]
 pub struct ResultProgress {

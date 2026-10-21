@@ -286,6 +286,11 @@ pub const METHODS: &[Method] = &[
         "message_ResultId",
         "message_ResultObservation",
     ),
+    m(
+        "message.resolveResult",
+        "message_ResolveResultParams",
+        "message_ResultObservation",
+    ),
     m("message.send", "message_SendParams", "message_Message"),
     m("message.pass", "message_MessageId", "message_Message"),
     m("message.get", "message_MessageId", "message_Message"),
