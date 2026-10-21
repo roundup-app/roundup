@@ -15,6 +15,7 @@ pub(crate) struct Contribution {
 #[derive(Clone, serde::Serialize, serde::Deserialize, Default)]
 #[serde(default)]
 pub(crate) struct Position {
+    pub format: u32,
     pub incarnation: String,
     pub offset: u64,
     pub gap: Option<String>,
