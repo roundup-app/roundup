@@ -1,3 +1,4 @@
+import { createSignal } from "solid-js";
 import { render } from "@solidjs/testing-library";
 import type { Ask } from "@contracts/ask/Ask";
 import type { RailNode } from "@contracts/agent/RailNode";
@@ -37,19 +38,20 @@ export const mountAskBar = async (asks: Ask[] = [], selected: string | null = nu
 
   if (selected !== null) connected.rail.select(selected);
 
+  const [recovery, setRecovery] = createSignal<{ project: string; revision: string }>();
   const view = render(() => (
     <ConnectedProjectContext.Provider value={connected}>
       <Keys />
       <aside class="rail"><DraftRecoveryEntry /></aside>
       <DrawerHost drawer={connected.drawer} reducedMotion={() => true} />
       <button type="button" class="outside">outside</button>
-      <div class="centre-stack">{pane && <Pane createEmulator={factory} />}<AskBar /></div>
+      <div class="centre-stack">{pane && <Pane createEmulator={factory} />}<AskBar recovery={recovery()} /></div>
     </ConnectedProjectContext.Provider>
   ));
 
   await connected.rail.settled();
 
-  return { app, connected, unmount: view.unmount };
+  return { app, connected, setRecovery, unmount: view.unmount };
 };
 
 export const ask = (id: string, at: number, parts: Ask["parts"], text = parts.map((part) => part.text).join(" ")): Ask => ({ id, text, at: BigInt(at), parts });

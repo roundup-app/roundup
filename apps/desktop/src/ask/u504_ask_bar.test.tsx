@@ -378,3 +378,31 @@ it("u2773b_ask_out_of_order_replies_keep_newest_work", async () => {
   expect(connected.drafts.list().map(draft => [draft.value.text, draft.status])).toEqual([[" A 🌿\n ", "failed"], [" C newest\n ", "draft"]]);
   expect(sent(app)).toHaveLength(2);
 });
+
+
+it.each(["failed", "unknown"] as const)("u3021c_open_restores_exact_revision_without_rpc_ask_%s", async outcome => {
+  const mounted = await mountAskBar();
+  const { app, connected, setRecovery } = mounted;
+  const destination = { surface: "ask", object: "ask-bar", recipient: null };
+  const exact = "@ops  e\u0301 🌿\n次の行  ";
+  const selection = { start: 2, end: 8, direction: "backward" as const };
+  const a = connected.drafts.edit(destination, { text: exact, workstream: "ops", name: "ops" }, selection, "ordinary").draft;
+  connected.drafts.submit(a.revision); connected.drafts.settle(a.revision, outcome);
+  const b = connected.drafts.edit(destination, { text: "  newer B 🌱\n ", workstream: null, name: null }, { start: 3, end: 7, direction: "forward" }, "ordinary").draft;
+  connected.rail.select("ann");
+  const before = connected.drafts.list();
+  const calls = [...app.calls];
+
+  setRecovery({ project: connected.project.path, revision: a.revision });
+  await waitFor(() => expect(document.activeElement).toBe(input()));
+  expect([input()!.value, input()!.selectionStart, input()!.selectionEnd, input()!.selectionDirection]).toEqual([exact, 2, 8, "backward"]);
+  input()!.focus(); fireEvent.blur(input()!);
+  press("Escape", {}, input()!);
+  expect(connected.drafts.list()).toEqual(before);
+  expect(app.calls).toEqual(calls);
+  press("/", { metaKey: true }, document.querySelector(".outside")!);
+  await waitFor(() => expect(document.activeElement).toBe(input()));
+  expect([input()!.value, input()!.selectionStart, input()!.selectionEnd, input()!.selectionDirection]).toEqual(["  newer B 🌱\n ", 3, 7, "forward"]);
+  expect(connected.drafts.list().find(draft => draft.revision === b.revision)).toEqual(b);
+  expect(app.calls).toEqual(calls);
+});
