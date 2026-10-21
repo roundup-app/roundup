@@ -1221,6 +1221,19 @@ impl crate::Agents {
                 if matches!(check, PromptInput::Captured(_)) || (user && !bytes.is_empty()) {
                     entry.identity_available = false;
                 }
+                // U3750: the Card cannot answer once the user typed into the open prompt, so the
+                // App reads the Decision as answered in the Terminal only.
+                if user
+                    && !bytes.is_empty()
+                    && matches!(check, PromptInput::Question(_))
+                    && entry.decision.answerable
+                {
+                    entry.decision.answerable = false;
+                    shared.bus.emit(
+                        Actor::daemon(),
+                        EventData::DecisionOpened(entry.decision.clone().into()),
+                    );
+                }
                 if !bytes.is_empty() {
                     entry.terminal_actor = None;
                 }
