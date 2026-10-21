@@ -64,7 +64,7 @@ export const mountTodos = async (initial: Todo[], reducedMotion = true, rail: Ra
     </ConnectedProjectContext.Provider>
   ));
 
-  if (initial.length > 0) await waitFor(() => expect(document.querySelector(".shelf-groups [data-part=branch-control]")).not.toBeNull());
+  if (initial.length > 0) await waitFor(() => expect(document.querySelector(".shelf-groups [data-part=branch-control], .shelf-done-line")).not.toBeNull());
   const disclosure = document.querySelector<HTMLElement>('[data-shelf-group="unassigned"] [data-part="branch-control"]');
 
   if (disclosure) fireEvent.click(disclosure);

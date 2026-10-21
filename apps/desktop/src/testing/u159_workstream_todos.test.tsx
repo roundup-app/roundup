@@ -20,8 +20,8 @@ const mount = async () => {
   const tree = [workstream("w"), node("a", { parent: "w" }), workstream("v", { order: 1 }), node("b", { parent: "v" }), node("r", { order: 2 })];
 
   const store = { todos: [
-    todo(1, { home: "w" }), todo(2, { home: "w", creator: by("a") }), todo(3, { home: "v" }), todo(4),
-    todo(5, { creator: by("a") }), todo(6, { creator: by("b"), home: "w" }), todo(7, { creator: by("r") }),
+    todo(1, { home: "w", owner: USER }), todo(2, { home: "w", creator: by("a"), owner: by("a") }), todo(3, { home: "v", owner: by("b") }), todo(4),
+    todo(5, { creator: by("a"), owner: by("a") }), todo(6, { creator: by("b"), home: "w" }), todo(7, { creator: by("r") }),
     todo(8, { creator: by("gone"), home: "w" }), todo(9, { creator: by("gone") }),
     todo(10, { creator: { kind: "ext", id: "ext", parent: null } }),
     todo(11, { creator: by("a"), home: "w", done: true }), todo(12, { creator: by("w"), home: "w" }),
@@ -48,7 +48,7 @@ const ids = () => [...document.querySelectorAll('.shelf-panel:not([hidden]) [dat
 it("u2744a_shelf_scope_workstream_lists_its_home", async () => {
   const { connected } = await mount();
   connected.rail.select("w");
-  await waitFor(() => expect(ids()).toEqual([1, 6, 8, 12, 2]));
+  await waitFor(() => expect(ids()).toEqual([1, 2, 6, 8, 12]));
   expect(screen.queryByRole("button", { name: /Show all Workstreams/ })).toBeNull();
 });
 
@@ -73,11 +73,12 @@ const count = (name: string) => screen.getByRole("tab", { name: new RegExp(`^${n
 
 const ownTodos = (id: string) => [...document.querySelectorAll(`[data-shelf-group="${id}"] [data-todo]`)].flatMap(el => el.closest('[data-shelf-group]')?.getAttribute('data-shelf-group') === id ? [Number(el.getAttribute('data-todo'))] : []);
 
+// The Todo placement clauses moved to U3717: u3717_todos_group_by_owner_once_each and u3717_group_order_is_me_agents_unassigned.
 it("u2744a_shelf_scope_overview_groups_every_item_once", async () => {
   await mount();
-  await waitFor(() => expect(ids()).toEqual([1, 6, 8, 12, 2, 5, 3, 7, 4, 9, 10]));
-  await waitFor(() => expect(groupIds()).toEqual(["w", "a", "v", "r", "unassigned"]));
-  expect(ownTodos("w")).toEqual([1, 6, 8, 12]);
+  await waitFor(() => expect(ids()).toEqual([1, 2, 5, 3, 4, 6, 7, 8, 9, 10, 12]));
+  await waitFor(() => expect(groupIds()).toEqual(["me", "a", "b", "unassigned"]));
+  expect(ownTodos("me")).toEqual([1]);
   expect(ownTodos("a")).toEqual([2, 5]);
   expect(new Set(ids()).size).toBe(ids().length);
   await tab("Pads");
@@ -85,6 +86,7 @@ it("u2744a_shelf_scope_overview_groups_every_item_once", async () => {
   await waitFor(() => expect(groupIds()).toEqual(["w", "a", "v", "r", "unassigned"]));
 });
 
+// The Todo folding clause is proved by u3717_unassigned_starts_folded; this keeps the shared disclosure keys.
 it("u2744a_shelf_scope_unassigned_starts_folded", async () => {
   const { connected } = await mount();
   await waitFor(() => expect(disclosure("unassigned")).toBeTruthy());
@@ -104,10 +106,11 @@ it("u2744a_shelf_scope_unassigned_starts_folded", async () => {
   expect(screen.getByRole("button", { name: /#2 / })).toBeTruthy();
 });
 
+// The Todo scope clause moved to u3717_scope_still_selects_by_home_and_maker; this keeps the counts.
 it("u2744a_shelf_scope_counts_follow_the_scope", async () => {
   const { connected } = await mount();
   await waitFor(() => expect([count("Todos"), count("Pads")]).toEqual(["11", "12"]));
-  fireEvent.click(disclosure("w"));
+  fireEvent.click(disclosure("me"));
   fireEvent.click(disclosure("unassigned"));
   expect([count("Todos"), count("Pads")]).toEqual(["11", "12"]);
   connected.rail.select("w");
@@ -115,6 +118,18 @@ it("u2744a_shelf_scope_counts_follow_the_scope", async () => {
   expect(screen.getByRole("button", { name: /1 done/ })).toBeTruthy();
   connected.rail.select("a");
   await waitFor(() => expect([count("Todos"), count("Pads")]).toEqual(["2", "3"]));
+});
+
+it("u3717_scope_still_selects_by_home_and_maker", async () => {
+  const { connected } = await mount();
+  await waitFor(() => expect(groupIds()).toEqual(["me", "a", "b", "unassigned"]));
+  connected.rail.select("w");
+  await waitFor(() => expect(ids()).toEqual([1, 2, 6, 8, 12]));
+  expect(groupIds()).toEqual(["me", "a", "unassigned"]);
+  expect([ownTodos("me"), ownTodos("a"), ownTodos("unassigned")]).toEqual([[1], [2], [6, 8, 12]]);
+  connected.rail.select("a");
+  await waitFor(() => expect(ids()).toEqual([2, 5]));
+  expect(groupIds()).toEqual(["a"]);
 });
 
 it("u2744a_shelf_scope_stopped_agent_items_show", async () => {
@@ -136,8 +151,8 @@ it("u2744a_shelf_scope_moved_item_follows_its_home", async () => {
   const { connected, app } = await mount();
   await app.rpc("todo.move", { id: 2, home: "v" });
   await app.rpc("pad.move", { name: "pad-2", home: "v" });
-  await waitFor(() => expect(ownTodos("v")).toEqual([2, 3]));
-  expect(ownTodos("a")).toEqual([5]);
+  connected.rail.select("v");
+  await waitFor(() => expect(ids()).toEqual([2, 3]));
   connected.rail.select("w");
   await waitFor(() => expect(ids()).toEqual([1, 6, 8, 12]));
   await tab("Pads");
@@ -148,6 +163,7 @@ it("u2744a_shelf_scope_moved_item_follows_its_home", async () => {
   await waitFor(() => expect(ids()).toEqual([2, 5]));
 });
 
+// The Todo empty-group clause: u3717_group_order_is_me_agents_unassigned shows only groups holding a Todo.
 it("u2744a_shelf_scope_empty_groups_are_omitted", async () => {
   const { connected, app } = await mount();
   connected.rail.select("v");
@@ -173,8 +189,7 @@ it("u2744a_shelf_scope_events_refresh_membership", async () => {
   await waitFor(() => expect(groupIds()).not.toContain("a"));
   expect(names().filter(name => name === "pad-5")).toHaveLength(1);
   await tab("Todos");
-  await waitFor(() => expect(ownTodos("w")).toContain(2));
-  expect(ownTodos("unassigned")).toContain(5);
+  await waitFor(() => expect(ownTodos("unassigned")).toEqual(expect.arrayContaining([2, 5])));
 });
 
 const chooseTerminal = async (title: string) => {
@@ -208,7 +223,7 @@ it.each([[null, null, null], ["w", "w", null], ["a", "w", null], ["r", null, nul
 });
 
 
-it.each([["work shell", "w", [1, 6, 8, 12, 2], 6], ["root shell", null, [1, 6, 8, 12, 2, 5, 3, 7, 4, 9, 10], 12]] as const)("u2744a_shelf_scope_terminal_follows_its_owner %s", async (title, owner, expected, padCount) => {
+it.each([["work shell", "w", [1, 2, 6, 8, 12], 6], ["root shell", null, [1, 2, 5, 3, 4, 6, 7, 8, 9, 10, 12], 12]] as const)("u2744a_shelf_scope_terminal_follows_its_owner %s", async (title, owner, expected, padCount) => {
   const { connected } = await mount();
   connected.rail.select("a");
   await chooseTerminal(title);
@@ -231,23 +246,24 @@ it("u2744a_shelf_scope_overview_groups_every_item_once_after_reorder", async () 
 it("u458_grouped_ranges_follow_visible_order", async () => {
   await mount();
   const first = await screen.findByRole("button", { name: /#1 / });
-  const sixth = await screen.findByRole("button", { name: /#6 / });
+  const second = await screen.findByRole("button", { name: /#2 / });
+  const fifth = await screen.findByRole("button", { name: /#5 / });
   fireEvent.click(first, { metaKey: true });
-  fireEvent.click(sixth, { shiftKey: true });
-  expect([...document.querySelectorAll('[data-todo][data-selected=true]')].map(row => Number(row.getAttribute('data-todo')))).toEqual([1, 6]);
+  fireEvent.click(fifth, { shiftKey: true });
+  expect([...document.querySelectorAll('[data-todo][data-selected=true]')].map(row => Number(row.getAttribute('data-todo')))).toEqual([1, 2, 5]);
   first.focus();
   fireEvent.keyDown(first, { key: "ArrowDown" });
-  expect(document.activeElement).toBe(sixth);
+  expect(document.activeElement).toBe(second);
 });
 
 it("u2744a_shelf_scope_unassigned_starts_folded_when_first_added_after_folding", async () => {
   const { app, store, pads } = await mount();
   await waitFor(() => expect(groupIds()).toContain("unassigned"));
-  store.todos = store.todos.filter(todo => ![4, 9, 10].includes(todo.id));
+  store.todos = store.todos.filter(todo => ![4, 6, 7, 8, 9, 10, 12].includes(todo.id));
   pads.pads = pads.pads.filter(pad => !["pad-4", "pad-9", "pad-10"].includes(pad.name));
   app.emit(event({ name: "todo.deleted", data: { id: 4 } }));
   await waitFor(() => expect(groupIds()).not.toContain("unassigned"));
-  fireEvent.click(disclosure("w"));
+  fireEvent.click(disclosure("me"));
   await app.rpc("todo.create", { title: "unassigned arrives", body: null, blockers: null });
   await waitFor(() => expect(groupIds()).toContain("unassigned"));
   expect(disclosure("unassigned").closest('[role="treeitem"]')?.getAttribute("aria-expanded")).toBe("false");
