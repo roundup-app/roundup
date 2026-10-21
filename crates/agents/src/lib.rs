@@ -480,6 +480,11 @@ struct SteerWait {
     slash_written: Option<Arc<Mutex<bool>>>,
 }
 
+struct PromptRecord {
+    revision: Option<String>,
+    written: Option<SteerEffect>,
+}
+
 struct SteerSettings {
     before_steer: Option<SteerEffect>,
     /// H13: how long an Interrupt waits for the title to change.
@@ -499,7 +504,7 @@ impl Shared {
         first: Option<&str>,
         original: Option<&str>,
         verbatim: bool,
-        written: Option<SteerEffect>,
+        record: Option<PromptRecord>,
     ) -> Result<(), SteerError> {
         let name = self
             .rail()
@@ -509,7 +514,7 @@ impl Shared {
             id: id.to_owned(),
             name: name.to_owned(),
         };
-        let (terminal_id, submitted, slash_written) = loop {
+        let (terminal_id, attempt, submitted, slash_written) = loop {
             let mut completion = {
                 let mut runs = self.runs();
                 let Some(Slot::Running(run)) = runs.get_mut(id) else {
@@ -569,7 +574,12 @@ impl Shared {
                     if first.is_some() && matches!(run.first_prompt, Some(FirstPrompt::Reserved)) {
                         run.first_prompt = Some(FirstPrompt::Written);
                     }
-                    break (run.terminal_id.clone(), submitted, slash_written);
+                    break (
+                        run.terminal_id.clone(),
+                        run.attempt.clone(),
+                        submitted,
+                        slash_written,
+                    );
                 }
             };
             completion
@@ -577,6 +587,20 @@ impl Shared {
                 .await
                 .map_err(|_| SteerError::Refused(not_found(&name)))?;
         };
+        let delivery = {
+            let mut rail = self.rail();
+            if first.is_some() {
+                rail.first_instruction(id, &attempt)
+            } else if let Some(revision) = record.as_ref().and_then(|r| r.revision.as_deref()) {
+                rail.prepare_instruction(revision, &attempt, text, false)
+                    .map(Some)
+            } else {
+                Ok(None)
+            }
+        }
+        .map_err(|error| SteerError::Refused(PromptError::Rail(error)))?;
+        let retaining = self.me.upgrade();
+        let retained_delivery = delivery.clone();
         let bytes = if verbatim {
             claude_code::verbatim_bytes(text)
         } else {
@@ -592,6 +616,12 @@ impl Shared {
                 if let Some(before) = before {
                     before(&agent)?;
                 }
+                if let (Some(shared), Some(delivery)) = (&retaining, &retained_delivery) {
+                    shared.rail().instruction_state(
+                        delivery,
+                        contracts::agent::InstructionState::Uncertain,
+                    )?;
+                }
                 claude_code::write_submitted(writer, &bytes, slash_written.as_deref()).map_err(
                     |err| {
                         RpcError::unknown_outcome(format!(
@@ -601,6 +631,13 @@ impl Shared {
                 )
             })
             .await;
+        if let (Some(delivery), Err(error)) = (&delivery, &effect)
+            && error.code != code::UNKNOWN_OUTCOME
+        {
+            self.rail()
+                .instruction_state(delivery, contracts::agent::InstructionState::Refused)
+                .map_err(|error| SteerError::Refused(PromptError::Rail(error)))?;
+        }
         let failure = match effect {
             Err(err) if err.code == code::NOT_FOUND => {
                 let name = self
@@ -625,11 +662,21 @@ impl Shared {
                 }
             }
             Ok(()) => {
-                if let Some(written) = written {
+                if let Some(written) = record.and_then(|r| r.written) {
                     written(id).expect("announce a physically written Steer");
                 }
                 match tokio::time::timeout(self.steer_bound, submitted).await {
-                    Ok(Ok(())) => return Ok(()),
+                    Ok(Ok(())) => {
+                        if let Some(delivery) = delivery {
+                            self.rail()
+                                .instruction_state(
+                                    &delivery,
+                                    contracts::agent::InstructionState::Submitted,
+                                )
+                                .map_err(|error| SteerError::Uncertain(PromptError::Rail(error)))?;
+                        }
+                        return Ok(());
+                    }
                     _ => SteerError::Uncertain(PromptError::NotAccepted {
                         id: id.to_owned(),
                         name: self
