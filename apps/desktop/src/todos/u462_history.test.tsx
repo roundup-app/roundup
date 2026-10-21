@@ -127,18 +127,19 @@ it("u3728_entries_read_as_past_tense_lines", async () => {
   const m = await mountTodos([todo(1)]);
   const values = { title: "todo 1", body: "", done: false, blockers: Array.of<number>(), owner: null };
   const agent = { kind: "agent" as const, id: "a1", parent: null };
+  const stamp = Date.UTC(2026, 5, 3, 14, 5);
   m.app.handlers["todo.getHistory"] = () => ({ unread: null, changes: [
-    { actor: null, seq: 1, before: values, after: { ...values, title: "jbkhnj" } },
-    { actor: null, seq: 2, before: { ...values, body: "x" }, after: values },
-    { actor: null, seq: 3, before: values, after: { ...values, done: true } },
-    { actor: null, seq: 4, before: { ...values, done: true }, after: values },
-    { actor: null, seq: 5, before: values, after: { ...values, blockers: [9] } },
-    { actor: agent, seq: 6, before: values, after: { ...values, owner: agent } },
+    { actor: null, changed_at: null, seq: 1, before: values, after: { ...values, title: "jbkhnj" } },
+    { actor: null, changed_at: null, seq: 2, before: { ...values, body: "x" }, after: values },
+    { actor: null, changed_at: null, seq: 3, before: values, after: { ...values, done: true } },
+    { actor: null, changed_at: null, seq: 4, before: { ...values, done: true }, after: values },
+    { actor: null, changed_at: null, seq: 5, before: values, after: { ...values, blockers: [9] } },
+    { actor: agent, changed_at: stamp, seq: 6, before: values, after: { ...values, owner: agent } },
   ] });
   await open(m); await disclose(m);
   const shown = [...panel().querySelectorAll("[data-change]")].map((entry) => entry.textContent);
   expect(shown.slice(0, 5)).toEqual(["Renamed to jbkhnj", "Cleared the body", "Marked done", "Reopened", "Now waits on #9"]);
-  expect(shown[5]).toMatch(/^Assigned to .+ · .+$/);
+  expect(shown[5]).toMatch(/^Assigned to .+ · .+ · .+\d.*$/);
 });
 
 it("u3728_opening_marks_read_once", async () => {

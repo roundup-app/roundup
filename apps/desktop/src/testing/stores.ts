@@ -49,7 +49,7 @@ const recordChanges = (store: TodoStore, before: Todo[], actor: Actor | null) =>
 
     if (!prior && changes.length) continue;
     const seq = Math.max(0, ...[...(store.changes?.values() ?? [])].flat().map((change) => change.seq)) + 1;
-    store.changes?.set(todo.id, [...changes, { seq, before: prior ? values(prior) : null, after, actor, changed_at: Date.now() }]);
+    store.changes?.set(todo.id, [...changes, { seq, before: prior ? values(prior) : null, after, actor, changed_at: null }]);
   }
 };
 
