@@ -540,3 +540,52 @@ async fn nr7_a_pr_without_worktree_evidence_saves_nothing() {
     assert!(err.message.contains("pr-checks"), "{}", err.message);
     assert!(listed(&s.user).await.is_empty());
 }
+
+#[tokio::test]
+async fn nr8_automatic_firing_refuses_a_target_moved_out_of_reach() {
+    let s = scene(&[]).await;
+    let author = client_as(&s.project, actor(ActorKind::Agent, &s.door)).await;
+    let mut body = definition(&s.a, "revoked reaction instruction");
+    body["condition"]["ids"] = json!([s.b]);
+    let saved = made(&author, "reaction.create", body).await;
+    s.user
+        .request(
+            "rail.move",
+            json!({ "id": s.a, "parent": null, "index": 0 }),
+        )
+        .await
+        .unwrap();
+    let refused = author
+        .request(
+            "reaction.run",
+            json!({ "id": saved.id, "operation": "manual" }),
+        )
+        .await
+        .unwrap_err();
+    assert_eq!(refused.code, code::FORBIDDEN);
+    drive(&s.user, &s.b, STOP).await;
+    let seen = super::daemon::h21_poll(
+        "reaction observes completion after revocation",
+        async || {
+            let seen = current(&s, &saved).await;
+            let completed = seen
+                .observation
+                .evidence
+                .as_deref()
+                .and_then(|text| serde_json::from_str::<Value>(text).ok())
+                .is_some_and(|evidence| {
+                    evidence["finished"]
+                        .as_array()
+                        .is_some_and(|ids| ids.contains(&json!(s.b)))
+                });
+            completed.then_some(seen)
+        },
+    )
+    .await;
+    assert!(seen.firings.is_empty(), "unauthorized firing: {seen:?}");
+    assert!(
+        messages(&s.user, &s.a, "revoked reaction instruction")
+            .await
+            .is_empty()
+    );
+}
