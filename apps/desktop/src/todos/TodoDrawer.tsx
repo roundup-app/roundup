@@ -354,7 +354,7 @@ export const TodoDrawer = (props: {
                     )}
                   </For>
                 </Show>
-                <Show when={blockerForm()}><button data-button="quiet" class="word" type="button" onClick={() => void saveBlockers()}>{copy.save}</button></Show>
+                <Show when={blockerForm()}><p><button data-button="quiet" class="word" type="button" onClick={() => void saveBlockers()}>{copy.save}</button></p></Show>
                 <Show when={!props.recovery}><TodoHistory id={props.id} onCapture={setCaptured} /></Show>
               </>
             )}

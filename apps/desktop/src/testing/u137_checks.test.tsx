@@ -63,6 +63,14 @@ describe("u137 one module measures the checks", () => {
     expect(after.D7.status).toBe("pass");
   });
 
+  it("u133_d6_measures_text_input_hit_areas_without_button_states", () => {
+    document.body.innerHTML = '<input type="text" style="height:15px">';
+    expect(runChecks().D6).toMatchObject({ status: "fail", value: { height: 15 } });
+
+    document.querySelector("input")!.style.height = "24px";
+    expect(runChecks().D6.status).toBe("pass");
+  });
+
   it.each([
     ["color", "#ff00ff", "rgb(255, 0, 255)"],
     ["border-radius", "1px", "1px"],
