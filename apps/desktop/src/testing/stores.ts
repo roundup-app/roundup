@@ -3,6 +3,7 @@ import type { EventData } from "@contracts/EventData";
 import type { Touch } from "@contracts/Touch";
 import type { Pad } from "@contracts/pad/Pad";
 import type { Change } from "@contracts/todo/Change";
+import type { Comment } from "@contracts/todo/Comment";
 import type { Values } from "@contracts/todo/Values";
 import type { Todo } from "@contracts/todo/Todo";
 import { RpcError } from "../app/seam";
@@ -18,7 +19,7 @@ const CONFLICT = -32003;
 /** Where a handler reports the Event the real Daemon would send after the same write. */
 export type Announce = (data: EventData) => void;
 
-export type TodoStore = { todos: Todo[]; changes?: Map<number, Change[]>; reads?: Map<number, number> };
+export type TodoStore = { todos: Todo[]; changes?: Map<number, Change[]>; reads?: Map<number, number>; comments?: Map<number, Comment[]> };
 
 export type PadStore = { pads: Pad[]; history: Touch[] };
 
@@ -73,6 +74,7 @@ export const todoHandlers = (store: TodoStore, announce: Announce, actor: () => 
 
   store.changes ??= new Map();
   store.reads ??= new Map();
+  store.comments ??= new Map();
   recordChanges(store, [], null);
 
   return todoMethods(store, announce, actor);
@@ -141,8 +143,39 @@ const todoMethods = (store: TodoStore, announce: Announce, actor: () => Actor): 
 
     return changeTodos(store, announce, id, () => [...others.slice(0, at), moved, ...others.slice(at)], actor());
   },
+  "todo.comment": ({ id, body }) => {
+    find(store.todos, (todo) => todo.id === id, `todo ${id}`);
+
+    if (body.trim() === "") throw new RpcError(INVALID_PARAMS, "a comment needs a body");
+
+    const thread = store.comments?.get(id) ?? [];
+    const next = Math.max(0, ...[...(store.comments?.values() ?? [])].flat().map((comment) => comment.id)) + 1;
+    const comment: Comment = { id: next, author: actor(), body: body.trim(), created_at: Date.now(), read: actor().kind === "user" };
+    store.comments?.set(id, [...thread, comment]);
+    announce({ name: "todo.commented", data: { id } });
+
+    return { ...comment };
+  },
+  "todo.comments": ({ id }) => {
+    find(store.todos, (todo) => todo.id === id, `todo ${id}`);
+
+    return (store.comments?.get(id) ?? []).map((comment) => ({ ...comment }));
+  },
+  "todo.unread": () => store.todos.flatMap((todo) => (store.comments?.get(todo.id) ?? []).filter((comment) => !comment.read).map((comment) => ({ todo: todo.id, title: todo.title, comment: { ...comment } }))),
+  "todo.markCommentsRead": ({ id }) => {
+    find(store.todos, (todo) => todo.id === id, `todo ${id}`);
+    const thread = store.comments?.get(id) ?? [];
+
+    if (thread.some((comment) => !comment.read)) {
+      store.comments?.set(id, thread.map((comment) => ({ ...comment, read: true })));
+      announce({ name: "todo.commentsRead", data: { id } });
+    }
+
+    return null;
+  },
   "todo.delete": ({ id }) => {
     find(store.todos, (todo) => todo.id === id, `todo ${id}`);
+    store.comments?.delete(id);
     const before = store.todos;
     store.todos = withBlocked(store.todos.filter((todo) => todo.id !== id).map((todo) => ({ ...todo, blockers: todo.blockers.filter((blocker) => blocker !== id) })));
     recordChanges(store, before, actor());

@@ -1,0 +1,17 @@
+.inbox { display: flex; flex-direction: column; gap: var(--space-3); font-family: var(--font-ui); overflow-wrap: anywhere; }
+.inbox h2 { font: inherit; font-weight: 600; margin: 0; }
+.inbox-row {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  padding: var(--space-2) var(--space-3);
+  border: 0;
+  border-radius: var(--radius-row);
+  background: transparent;
+  color: var(--text);
+  font: inherit;
+  text-align: start;
+  cursor: pointer;
+}
+.inbox-row:hover { background: var(--hover); }
+.inbox-row-line { color: var(--amber); white-space: pre-wrap; }

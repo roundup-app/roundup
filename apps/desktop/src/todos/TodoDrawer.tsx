@@ -12,6 +12,7 @@ import type { Todo } from "@contracts/todo/Todo";
 import { ErrorLine } from "../ink/ErrorLine";
 import { KindGlyph } from "../ink/KindGlyph";
 import { TickBox } from "./TickBox";
+import { TodoComments } from "./TodoComments";
 import { TodoHistory } from "./TodoHistory";
 import "./drawer.styles.css";
 import { useConnectedProject } from "../state/connectedProject";
@@ -354,6 +355,7 @@ export const TodoDrawer = (props: {
                   </For>
                 </Show>
                 <Show when={blockerForm()}><p><button data-button="quiet" class="word" type="button" onClick={() => void saveBlockers()}>{copy.save}</button></p></Show>
+                <Show when={!props.recovery}><TodoComments id={props.id} /></Show>
                 <Show when={!props.recovery}><TodoHistory id={props.id} onCapture={setCaptured} /></Show>
               </>
             )}
