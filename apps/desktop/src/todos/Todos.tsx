@@ -427,15 +427,12 @@ export const Todos = (props: {
 
   const stopPicking = () => {
     const id = picking()?.id;
-    const name = namingNext;
+    const skipRefocus = namingNext !== null || naming() !== null;
 
-    namingNext = null;
     setPicking(null);
 
-    // U3743: the dialog opens once the picker has closed and given its focus back, so it keeps focus.
-    if (name !== null) return void setTimeout(() => setNaming(name), 0);
-
-    if (id !== undefined) queueMicrotask(() => rowButtonOf(id)?.focus());
+    // U3743: the dialog opens from the select callback, so the picker's close order cannot lose it; the row keeps no focus then.
+    if (!skipRefocus && id !== undefined) queueMicrotask(() => rowButtonOf(id)?.focus());
   };
 
   // U3720: a chosen Todo moves to its new group's row once `todo.updated` has refetched, which replaces the row that held focus.
@@ -783,7 +780,7 @@ export const Todos = (props: {
         </Show>
         </>; }}</OwnerGroups>
       </Show>
-      <OwnerPicker target={picking} offers={offers} choose={(id, owner) => void assign(id, owner)} close={stopPicking} newWorkstream={id => { namingNext = id; }} />
+      <OwnerPicker target={picking} offers={offers} choose={(id, owner) => void assign(id, owner)} close={stopPicking} newWorkstream={id => { namingNext = id; setTimeout(() => { namingNext = null; setNaming(id); }, 0); }} />
       <NewWorkstream target={naming} returnTo={rowButtonOf} done={(id, made) => {
         setNaming(null);
 
