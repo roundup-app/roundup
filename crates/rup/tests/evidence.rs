@@ -54,6 +54,8 @@ for effect in ['deployment','payment','push']:
  if sys.argv[3]=='effect-claim':
   call('message.report',{**q,'key':effect+'-claim','state':'reported','check':p['check']})
 bad.append(wire('message.resolveResult',{'project':project,'id':id,'report':effects[0]['report'],'source':'http://127.0.0.1:9/receipt'}))
+a=subprocess.run([sys.argv[1],'message','resolve-result',project,id,effects[0]['report'],'http://127.0.0.1:9/receipt','--json'],capture_output=True,text=True)
+assert a.returncode==1 and 'only the user' in a.stderr,(a.returncode,a.stdout,a.stderr)
 if sys.argv[3]=='replace':
  q={**p,'key':'unchanged','target':{'id':'unchanged','revision':'v1'}}
  call('message.report',q)
@@ -591,7 +593,7 @@ async fn u3078h_exact_external_resolution_survives_reopen() {
             let output = tokio::process::Command::new(env!("CARGO_BIN_EXE_rup"))
                 .args([
                     "message",
-                    "resolveResult",
+                    "resolve-result",
                     q["project"].as_str().unwrap(),
                     q["id"].as_str().unwrap(),
                     q["report"].as_str().unwrap(),

@@ -499,6 +499,10 @@ redirects, Model calls or Messages. A response is a `ResultResolution`, for exam
 `observed_at` is Unix seconds at the source observation, not an effect timestamp.
 The other outcomes are `{"kind":"not-performed"}` and
 `{"kind":"inconclusive","cause":"provider still reconciling"}`.
+The user command is `rup message resolve-result <project> <id> <report> <source> --json`;
+it needs no Agent flag. A vendor child remains an authenticated Agent and is refused,
+even when the CLI identifies as the user.
+
 The source must return this declared receipt contract; arbitrary provider responses
 are unsupported. Only a fresh, exact-target/version, revision-bearing conclusive
 receipt resolves the report. HTTP/parse/read failures, stale or future timestamps,
