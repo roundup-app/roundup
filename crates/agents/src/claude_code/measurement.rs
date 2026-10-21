@@ -1,7 +1,7 @@
-//! Only completed request records count. Inclusive summaries and latest context size do not.
+//! Completed requests supply consumption; inclusive conversation money stays separate.
 use super::Launcher;
 use crate::measurement::{Batch, Contribution, Position};
-use contracts::project::{Consumed, MeasurementValue};
+use contracts::project::{CacheWrites, Consumed, MeasurementValue, ReferenceRates, RequestCost};
 use serde::Deserialize;
 use sha2::{Digest, Sha256};
 use std::collections::HashMap;
@@ -17,9 +17,13 @@ struct Record {
     session_id: Option<String>,
     request_id: Option<String>,
     message: Option<Message>,
+    #[serde(rename = "totalCostUSD")]
+    total_cost_usd: Option<Box<serde_json::value::RawValue>>,
+    has_unknown_model_cost: Option<bool>,
 }
 #[derive(Deserialize)]
 struct Message {
+    model: Option<String>,
     usage: Option<Usage>,
 }
 #[derive(Deserialize)]
@@ -28,6 +32,12 @@ struct Usage {
     output_tokens: Option<u64>,
     cache_read_input_tokens: Option<u64>,
     cache_creation_input_tokens: Option<u64>,
+    cache_creation: Option<CacheCreation>,
+}
+#[derive(Deserialize)]
+struct CacheCreation {
+    ephemeral_5m_input_tokens: Option<u64>,
+    ephemeral_1h_input_tokens: Option<u64>,
 }
 
 impl Launcher {
@@ -56,25 +66,37 @@ impl Launcher {
             Err(e) => return Err(e.to_string()),
         }
         files.sort();
+        let files_main = path;
         files
             .into_iter()
             .map(|path| {
                 let file = format!("{:x}", Sha256::digest(path.as_os_str().as_encoded_bytes()));
                 let position = positions.get(&file).cloned().unwrap_or_default();
-                read(&path, file, position, source)
+                read(&path, file, position, source, path == files_main)
             })
             .collect()
     }
 }
 
-fn read(path: &Path, file: String, mut position: Position, source: &str) -> Result<Batch, String> {
+fn read(
+    path: &Path,
+    file: String,
+    mut position: Position,
+    source: &str,
+    include_money: bool,
+) -> Result<Batch, String> {
     let metadata =
         std::fs::symlink_metadata(path).map_err(|e| format!("local request records: {e}"))?;
     if !metadata.is_file() || metadata.file_type().is_symlink() {
         return Err("local request source is not a regular file".into());
     }
     let incarnation = format!("{}:{}", metadata.dev(), metadata.ino());
-    if position.incarnation != incarnation || metadata.len() < position.offset {
+    // A bounded one-time replay enriches previously collected requests without moving ownership.
+    if position.format != 1
+        || position.incarnation != incarnation
+        || metadata.len() < position.offset
+    {
+        position.format = 1;
         position.incarnation = incarnation;
         position.offset = 0;
     }
@@ -102,7 +124,7 @@ fn read(path: &Path, file: String, mut position: Position, source: &str) -> Resu
         }
         position.offset += count as u64;
         consumed += count;
-        match parse(&line, source) {
+        match parse(&line, source, include_money) {
             Ok(Some(contribution)) => contributions.push(contribution),
             Ok(None) => {}
             Err(e) => {
@@ -121,23 +143,52 @@ fn read(path: &Path, file: String, mut position: Position, source: &str) -> Resu
     })
 }
 
-fn parse(line: &[u8], source: &str) -> Result<Option<Contribution>, String> {
+fn parse(line: &[u8], source: &str, include_money: bool) -> Result<Option<Contribution>, String> {
     let record: Record =
         serde_json::from_slice(line).map_err(|e| format!("unsupported local record: {e}"))?;
-    if record.kind != "assistant" {
+    if (record.kind != "assistant" && record.kind != "cost-state")
+        || (record.kind == "cost-state" && !include_money)
+    {
         return Ok(None);
     }
     if record.session_id.as_deref() != Some(source) {
         return Err("request ownership does not match retained conversation".into());
     }
+    if record.kind == "cost-state" {
+        use contracts::project::{MoneyScope, ReportedMoney};
+        let raw = record.total_cost_usd.ok_or("reported money unavailable: local conversation total has no established USD amount/currency")?;
+        // RawValue retains the exact decimal lexeme; Number only checks numeric/nonnegative input.
+        let number: serde_json::Number =
+            serde_json::from_str(raw.get()).map_err(|_| "unsupported reported money amount")?;
+        if number.as_f64().is_none_or(|n| n < 0.0) {
+            return Err("unsupported reported money amount".into());
+        }
+        let value = MeasurementValue::Money { reported: ReportedMoney {
+            scope: MoneyScope::Conversation,
+            amount: raw.get().into(),
+            currency: Some("USD".into()),
+            source: "local conversation cost-state.totalCostUSD".into(),
+            basis: if record.has_unknown_model_cost == Some(false) {
+                "vendor-reported inclusive conversation estimate; includes native children; pricing may be configured by vendor; not a charge or subscription bill"
+            } else {
+                "vendor-reported inclusive conversation estimate; includes native children; unknown Model pricing coverage; not a charge or subscription bill"
+            }.into(),
+        }};
+        let revision = format!(
+            "{:x}",
+            Sha256::digest(serde_json::to_vec(&value).map_err(|e| e.to_string())?)
+        );
+        return Ok(Some(Contribution {
+            identity: format!("money:{source}"), revision, value,
+            coverage: vec!["inclusive conversation total; never add to constituent requests or reference estimates; completed-source evidence only; Home move cannot split total".into()], related_request: None,
+        }));
+    }
     let identity = record
         .request_id
         .filter(|s| !s.is_empty())
         .ok_or("request identity unavailable")?;
-    let usage = record
-        .message
-        .and_then(|m| m.usage)
-        .ok_or("request usage unavailable")?;
+    let message = record.message.ok_or("request message unavailable")?;
+    let usage = message.usage.ok_or("request usage unavailable")?;
     if [
         usage.input_tokens,
         usage.output_tokens,
@@ -150,7 +201,9 @@ fn parse(line: &[u8], source: &str) -> Result<Option<Contribution>, String> {
     {
         return Err("request usage exceeds exact public numeric range".into());
     }
+    let cost = request_cost(message.model, &usage);
     let value = MeasurementValue::Request {
+        cost: Some(Box::new(cost)),
         usage: Consumed {
             input: usage.input_tokens,
             output: usage.output_tokens,
@@ -170,6 +223,83 @@ fn parse(line: &[u8], source: &str) -> Result<Option<Contribution>, String> {
         coverage,
         related_request: None,
     }))
+}
+
+// Only these exact response Model ids have a checked reference row. Aliases and provider
+// variants cannot inherit a rate by prefix: that would silently price an unknown Model.
+fn reference(model: Option<&str>) -> Option<ReferenceRates> {
+    let (input, output, read, five, hour) = match model? {
+        "claude-opus-5-5" => ("4", "20", "0.20", "5", "8"),
+        "claude-sonnet-5-5" => ("2", "10", "0.10", "2.50", "4"),
+        "claude-opus-4-6" => ("5", "25", "0.50", "6.25", "10"),
+        _ => return None,
+    };
+    Some(ReferenceRates {
+        version: "reference-2026-10-21.1".into(),
+        date: "2026-10-21".into(),
+        currency: "USD".into(),
+        source: "https://platform.claude.com/docs/en/about-claude/pricing".into(),
+        basis: "standard global first-party list reference; excludes fast mode, residency, negotiated discounts, tools and subscription billing; actual request pricing not established".into(),
+        per_tokens: 1_000_000,
+        input: input.into(),
+        output: output.into(),
+        cache_read: read.into(),
+        cache_write_five_minute: five.into(),
+        cache_write_one_hour: hour.into(),
+    })
+}
+
+fn request_cost(model: Option<String>, usage: &Usage) -> RequestCost {
+    let model = model.filter(|s| !s.is_empty());
+    let reference = reference(model.as_deref());
+    let mut unavailable = vec!["reported money unavailable: completed local request records and configured traces carry no supported money/currency; log-export estimates and inclusive conversation totals are not request charges".into()];
+    if reference.is_none() {
+        unavailable.push("reference rates unavailable: Model unknown or unsupported by the offline reference version".into());
+    }
+    let mut cache_write = CacheWrites {
+        five_minute: usage
+            .cache_creation
+            .as_ref()
+            .and_then(|c| c.ephemeral_5m_input_tokens),
+        one_hour: usage
+            .cache_creation
+            .as_ref()
+            .and_then(|c| c.ephemeral_1h_input_tokens),
+    };
+    if [cache_write.five_minute, cache_write.one_hour]
+        .into_iter()
+        .flatten()
+        .any(|n| n > 9_007_199_254_740_991)
+        || matches!((cache_write.five_minute,cache_write.one_hour,usage.cache_creation_input_tokens),(Some(a),Some(b),Some(total)) if a.checked_add(b)!=Some(total))
+    {
+        cache_write = CacheWrites {
+            five_minute: None,
+            one_hour: None,
+        };
+        unavailable.push("cache-write classes unavailable: source classes exceed exact range or disagree with consumed cache writes".into());
+    }
+    if cache_write.five_minute.is_none() || cache_write.one_hour.is_none() {
+        unavailable.push(
+            "cache-write estimate incomplete: source did not establish both write classes".into(),
+        );
+    }
+    if [
+        usage.input_tokens,
+        usage.output_tokens,
+        usage.cache_read_input_tokens,
+        usage.cache_creation_input_tokens,
+    ]
+    .contains(&None)
+    {
+        unavailable.push("reference estimate incomplete: consumed categories missing; known categories remain usable".into());
+    }
+    RequestCost {
+        model,
+        cache_write,
+        reference,
+        reported: None,
+        unavailable,
+    }
 }
 
 /// HTTP belongs to this Adapter. The random per-launch path is a local capability; payloads
