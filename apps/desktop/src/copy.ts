@@ -14,7 +14,7 @@ const railDraftLabels = new Map([["rail-task", "Task"], ["rail-name", "Name"], [
 const importExcludedReasons: [string[], string][] = [
   [["already in this project"], "Already imported"],
   [["ambiguous project membership"], "Used more than one folder of this Project"],
-  [["no recorded working directory", "too many recorded directories"], "Its folder is no longer there"],
+  [["no recorded working directory", "too many recorded directories", "recorded folder no longer exists"], "Its folder is no longer there"],
   [["inside a worktree"], "Lives in a Worktree"],
   [["duplicate source identity"], "Already listed once"],
   [["activity unknown or in the future", "no complete records"], "No usable time"],
@@ -438,6 +438,7 @@ export const copy = {
   },
   importAge: (minutes: number) => minutes < 1440 ? copy.riskTime(minutes) : `${Math.floor(minutes / 1440)} d ago`,
   importRowFix: "Choose it again, or Refresh.",
+  importRowRefusal: (reason: string) => /retry|refresh|choose/i.test(reason) ? reason : `${reason} ${copy.importRowFix}`,
   importUnnamed: "Conversation",
   name: "Name",
   collapse: "Collapse",

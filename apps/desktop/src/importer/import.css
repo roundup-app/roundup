@@ -59,6 +59,7 @@
   flex-shrink: 0;
   overflow-x: hidden;
   overflow-y: auto;
+  padding-inline-end: var(--space-2);
 }
 
 .import-list li {
@@ -100,6 +101,7 @@
 
 .import-meta {
   display: flex;
+  flex-wrap: wrap;
   column-gap: var(--space-3);
   min-width: 0;
   color: var(--grey);
@@ -109,6 +111,8 @@
 .import-cwd {
   flex: 1 1 0;
   min-width: 8ch;
+  direction: rtl;
+  text-align: left;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -153,7 +157,7 @@
 }
 
 .import-failure {
-  flex: 0 1 auto;
+  flex: 1 1 100%;
   min-width: 0;
   color: var(--red);
   margin: 0;

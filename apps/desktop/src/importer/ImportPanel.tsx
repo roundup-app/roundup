@@ -75,9 +75,9 @@ export const ImportPanel = (props: { open: boolean; opener: HTMLElement | undefi
                     <Checkbox class="import-check" checked={wanted().has(candidate.source)} onCheckedChange={(checked) => state.choose(candidate.source, candidate.title, candidate.revision, checked)}>
                       <span class="import-title">{candidate.title}</span>
                       <span class="import-meta">
-                        <bdi class="import-cwd">{candidate.cwd === "" ? copy.importProjectFolder : candidate.cwd}</bdi>
+                        <span class="import-cwd"><bdi>{candidate.cwd === "" ? copy.importProjectFolder : candidate.cwd}</bdi></span>
                         <time dateTime={new Date(Number(candidate.last_activity_ms)).toISOString()}>{copy.importAge(Math.max(0, Math.floor((now() - Number(candidate.last_activity_ms)) / 60000)))}</time>
-                        <Show when={refused().get(candidate.source)}>{(reason) => <span role="alert" data-kind="error" class="import-failure">{reason()} {copy.importRowFix}</span>}</Show>
+                        <Show when={refused().get(candidate.source)}>{(reason) => <span role="alert" data-kind="error" class="import-failure">{copy.importRowRefusal(reason())}</span>}</Show>
                       </span>
                     </Checkbox>
                   </li>
