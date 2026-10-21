@@ -737,7 +737,12 @@ mod tests {
         const ID: &str = "11111111-1111-4111-8111-111111111111";
         let (dir, agents, _) = fixture();
         let project = dir.path().canonicalize().unwrap();
-        let bucket = dir.path().join("projects/bucket");
+        let encoded: String = project
+            .to_string_lossy()
+            .chars()
+            .map(|c| if c.is_ascii_alphanumeric() { c } else { '-' })
+            .collect();
+        let bucket = dir.path().join("projects").join(encoded);
         std::fs::create_dir_all(&bucket).unwrap();
         let file = bucket.join(format!("{ID}.jsonl"));
         let line = |ts: &str| {
@@ -751,6 +756,7 @@ mod tests {
         let found = agents
             .launcher
             .discover_recent(&project, now, 86_400_000)
+            .await
             .unwrap();
         let revision = found.candidates[0].revision.clone();
         // The source changes after preview: refused, nothing published.
@@ -771,6 +777,7 @@ mod tests {
         let found = agents
             .launcher
             .discover_recent(&project, now, 86_400_000)
+            .await
             .unwrap();
         let revision = found.candidates[0].revision.clone();
         let ids = agents
@@ -796,7 +803,12 @@ mod tests {
         const ID: &str = "22222222-2222-4222-8222-222222222222";
         let (dir, agents, _) = fixture();
         let project = dir.path().canonicalize().unwrap();
-        let bucket = dir.path().join("projects/bucket");
+        let encoded: String = project
+            .to_string_lossy()
+            .chars()
+            .map(|c| if c.is_ascii_alphanumeric() { c } else { '-' })
+            .collect();
+        let bucket = dir.path().join("projects").join(encoded);
         std::fs::create_dir_all(&bucket).unwrap();
         let n = time::OffsetDateTime::now_utc();
         let ts = format!(
