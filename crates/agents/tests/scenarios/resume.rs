@@ -210,6 +210,8 @@ async fn a21_a_failed_save_while_held_fails_the_whole_spawn() {
 async fn a22_resume_launches_with_resume_flag_and_promotes_on_ack() {
     let f = Fixture::running("echo \"$@\" > argv.txt; sleep 30");
     let node = exited_with_conversation(&f, CONVERSATION).await;
+    let old_facts =
+        f.call("project.measurements", Value::Null).await.unwrap()["time_evidence"].clone();
     let f = Arc::new(f);
     let old_attempt = node.attempt.clone().unwrap();
 
@@ -223,6 +225,11 @@ async fn a22_resume_launches_with_resume_flag_and_promotes_on_ack() {
         !f.can_resume(&pending, &node.id),
         "pending while unacknowledged"
     );
+    assert_eq!(
+        f.call("project.measurements", Value::Null).await.unwrap()["time_evidence"],
+        old_facts,
+        "unacknowledged resume supplies no lifetime or execution"
+    );
     f.session_start(&node.id, CONVERSATION, "resume")
         .await
         .unwrap();
@@ -235,6 +242,25 @@ async fn a22_resume_launches_with_resume_flag_and_promotes_on_ack() {
     assert_eq!(resumed.id, node.id);
     assert_eq!(resumed.name, node.name);
     assert_eq!(resumed.parent, node.parent);
+    let read = f.call("project.measurements", Value::Null).await.unwrap();
+    assert_eq!(read["time_evidence"].as_array().unwrap().len(), 2);
+    assert!(
+        read["time_evidence"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|fact| fact == &old_facts[0])
+    );
+    assert!(
+        read["time_evidence"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(
+                |fact| fact["attempt"].as_str() == resumed.attempt.as_deref()
+                    && fact["value"]["state"]["kind"] == "active"
+            )
+    );
     let argv = until_resumed(&f).await;
     assert!(argv.contains(&format!("--resume {CONVERSATION}")));
 }
@@ -331,6 +357,7 @@ async fn a22_a_failed_launch_rolls_back_to_the_old_node() {
         .into_iter()
         .find(|n| n.id == node.id)
         .unwrap();
+    let facts_before = f.call("project.measurements", Value::Null).await.unwrap();
     // `claude` itself cannot run at all, so the Terminal spawn fails, same seam
     // `a4_a_missing_claude_leaves_no_agent_and_no_settings_file` uses.
     std::fs::remove_file(f.dir.path().join("fake-claude")).unwrap();
@@ -343,6 +370,9 @@ async fn a22_a_failed_launch_rolls_back_to_the_old_node() {
         .into_iter()
         .find(|n| n.id == node.id)
         .unwrap();
+    let facts_after = f.call("project.measurements", Value::Null).await.unwrap();
+    assert_eq!(facts_after["time_evidence"], facts_before["time_evidence"]);
+    assert_eq!(facts_after["contributions"], facts_before["contributions"]);
     assert_ne!(err.code, code::NOT_FOUND);
     assert!(after.can_resume, "the old node must stay resumable");
     assert_eq!(after.terminal_id, before.terminal_id);
@@ -1728,5 +1758,113 @@ async fn a2681a_natural_exit_exposes_parts() {
             .unwrap()
             .overview
             .is_some()
+    );
+}
+
+#[tokio::test]
+async fn u3016c_elapsed_and_parallel_time_are_distinct_sources() {
+    use std::sync::atomic::{AtomicU64, Ordering};
+    let now = Arc::new(AtomicU64::new(0));
+    let (claimed, mut claims) = tokio::sync::mpsc::unbounded_channel();
+    let mut f = Fixture::running("sleep 30");
+    let wall = now.clone();
+    let mono = now.clone();
+    f.agents = f
+        .agents
+        .with_clock(move || i64::try_from(wall.load(Ordering::SeqCst)).unwrap())
+        .with_measurement_clock(move || u128::from(mono.load(Ordering::SeqCst)) * 1_000_000)
+        .with_resume_effect(move |phase, _| {
+            if phase == "claimed" {
+                claimed.send(()).unwrap();
+            }
+            Ok(())
+        });
+    let door = f.workstream("door", None).await;
+    f.call("rail.startDoor", json!({"id":door})).await.unwrap();
+    f.session_start(&door, CONVERSATION, "startup")
+        .await
+        .unwrap();
+    let child = f.spawn(Some(&door), None).await.unwrap();
+    f.session_start(&child.id, OTHER_CONVERSATION, "startup")
+        .await
+        .unwrap();
+    for sec in 1..=3 {
+        now.store(sec * 1000, Ordering::SeqCst);
+        f.call("project.measurements", Value::Null).await.unwrap();
+    }
+    f.call("agent.stop", json!({"id":door})).await.unwrap();
+    let stopped = f.call("project.measurements", Value::Null).await.unwrap();
+    let facts = stopped["time_evidence"].as_array().unwrap();
+    assert_eq!(facts.len(), 2);
+    let door_fact = facts.iter().find(|fact| fact["agent"] == door).unwrap();
+    assert_eq!(door_fact["value"]["start"]["unix_ms"], 0);
+    assert_eq!(door_fact["value"]["state"]["at"]["unix_ms"], 3000);
+    assert!(
+        facts
+            .iter()
+            .any(|fact| fact["agent"] == child.id && fact["value"]["state"]["kind"] == "active")
+    );
+    for sec in 4..=5 {
+        now.store(sec * 1000, Ordering::SeqCst);
+        f.call("project.measurements", Value::Null).await.unwrap();
+    }
+    f.call("agent.stop", json!({"id":child.id})).await.unwrap();
+    let ended = f.call("project.measurements", Value::Null).await.unwrap();
+    now.store(10000, Ordering::SeqCst);
+    assert_eq!(
+        f.call("project.measurements", Value::Null).await.unwrap()["time_evidence"],
+        ended["time_evidence"],
+        "the idle gap extends no lifetime"
+    );
+    let f = Arc::new(f);
+    let resuming = {
+        let f = f.clone();
+        let door = door.clone();
+        tokio::spawn(async move { f.call("rail.startDoor", json!({"id":door})).await })
+    };
+    let old = door_fact["attempt"].as_str().unwrap();
+    f.until_attempt_changed(&door, old).await;
+    assert_eq!(
+        f.call("project.measurements", Value::Null).await.unwrap()["time_evidence"],
+        ended["time_evidence"]
+    );
+    claims.recv().await.unwrap();
+    now.store(11000, Ordering::SeqCst);
+    f.session_start(&door, CONVERSATION, "resume")
+        .await
+        .unwrap();
+    let resumed: RailNode = serde_json::from_value(resuming.await.unwrap().unwrap()).unwrap();
+    let active = f.call("project.measurements", Value::Null).await.unwrap();
+    assert_eq!(active["time_evidence"].as_array().unwrap().len(), 3);
+    let latest = active["time_evidence"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|fact| {
+            fact["agent"] == door && fact["attempt"].as_str() == resumed.attempt.as_deref()
+        })
+        .unwrap();
+    assert_eq!(
+        latest["value"]["start"]["unix_ms"], 10000,
+        "the observed launch precedes acknowledgement"
+    );
+    now.store(12000, Ordering::SeqCst);
+    f.call("agent.stop", json!({"id":door})).await.unwrap();
+    let before = f.call("project.measurements", Value::Null).await.unwrap();
+    let f = Arc::try_unwrap(f).ok().unwrap().reopen();
+    assert_eq!(
+        f.call("project.measurements", Value::Null).await.unwrap()["time_evidence"],
+        before["time_evidence"]
+    );
+    std::fs::remove_file(f.dir.path().join("fake-claude")).unwrap();
+    assert!(f.call("rail.startDoor", json!({"id":door})).await.is_err());
+    let failed = f.call("project.measurements", Value::Null).await.unwrap();
+    assert_eq!(
+        failed["time_evidence"], before["time_evidence"],
+        "failed resume does not replace old facts"
+    );
+    assert!(
+        failed["contributions"].as_array().unwrap().is_empty(),
+        "an unacknowledged launch is no model/tool evidence"
     );
 }

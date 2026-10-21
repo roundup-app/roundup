@@ -438,3 +438,16 @@ Integration-tested for M3 and M4; Message proofs and laws are unchanged.
 ## Reaction evaluation (NR2, NR4, NR5)
 
 The Daemon decides an Agents Reaction from `agent.status` Events and the Rail's present Kinds, never from a Model or a clock, in the same Kind sense as Wake (B41). It reads the Event head, then the Rail, then replays the Events after the head, and accepts a firing only through `Messages::fire_reaction` with the operation `auto-<n>`, so a crash between acceptance and its saved progress returns the first firing. A repeat-enabled Reaction re-arms only after every named Agent was seen not finished since the last firing. Stop, explicit run and automatic acceptance meet in `fire_reaction`'s one write, which reads the state and the bound. Expired Event history or a failed read records a gap; an Agent with no present state never matches. No delivery state is added, so M1 to M10 stand unchanged.
+
+## Passive coordination measurement
+
+`send_message_with` observes the initiating authenticated Agent only when its existing
+`nudge` / `settle_logged` routing future yields Pending. The observation retains the
+original Project, Agent, Attempt and Message identity, ending when that call returns
+or is cancelled. Pending Message residence and Wake registration supply no blocking
+interval. The observer cannot authorize, deliver, hold, drop or retry a Message.
+
+M1–M10 retain their transitions and laws: this adds no Type effect (M1/M3), changes
+no queue or retained identity (M4/M5/M6), revives no receiver (M7), changes no hop
+(M8/M9), and adds no progress requirement or await (M10). Routes and Held authority
+(M2) are unchanged. `proofs/messages` therefore needs no model or law change.
