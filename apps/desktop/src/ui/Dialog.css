@@ -10,3 +10,19 @@
   margin: 0;
   font: inherit;
 }
+
+/* The one place a modal is positioned: its centre is the window's centre on both axes. */
+.app-dialog-positioner {
+  position: fixed;
+  inset: 0;
+  z-index: 3;
+  display: grid;
+  place-items: center;
+  box-sizing: border-box;
+  padding: var(--space-6);
+}
+
+.app-dialog:focus,
+.app-dialog:focus-visible {
+  outline: none;
+}
