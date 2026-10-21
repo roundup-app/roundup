@@ -161,7 +161,7 @@ export const PadRows = (props: { pads: AgentPads; depth: number; trail: readonly
                         known={props.pads.todos.byId()}
                         onOpen={(opened, source) => connected.drawer.open(() => <TodoDrawer id={opened.id} todos={props.pads.todos} />, source)}
                         sorted={sorted}
-                        onComplete={(done) => failureOf(() => done.done
+                        onToggle={(done) => failureOf(() => done.done
                           ? connected.app.rpc("todo.reopen", { id: done.id })
                           : connected.app.rpc("todo.complete", { id: done.id }))}
                       />
