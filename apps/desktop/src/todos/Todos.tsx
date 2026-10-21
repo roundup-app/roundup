@@ -1,3 +1,4 @@
+import { todoCreationEditor } from "../drawer/editors";
 import ChevronUp from "lucide-solid/icons/chevron-up";
 import { IconButton } from "../ui/IconButton";
 import { contextMenu, linkEntries, openOnRelease } from "../ui/contextMenu";
@@ -7,6 +8,7 @@ import { registerKeys } from "../keys/registry";
 import { activationSource } from "../keys/registry";
 import type { ActivationSource } from "../keys/registry";
 import { copy } from "../copy";
+import { shelfRowKeys } from "../shelf/keys";
 import { createBulkDelete } from "../shelf/BulkDelete";
 
 import { createSelection } from "../shelf/selection";
@@ -297,6 +299,8 @@ export const Todos = (props: {
     },
     reveal: () => setUnfolded(true),
   });
+
+  shelfRowKeys({ focused: selection.focused, remove: id => bulk.ask(false, id) });
 
   const selectionKey = (todo: Todo, event: KeyboardEvent) => {
     bulk.key(event);
@@ -709,7 +713,7 @@ export const Todos = (props: {
         <EmptyState icon="check" heading={copy.noTodosYet} hint={copy.noTodosHint} />
       </Show>
       <Show when={open().length > 0 || adding() !== null}>
-        <OwnerGroups groups={() => ownerGroups(connected, open(), todo => todo.owner)} dragging={dragging} adding={() => adding()?.group ?? null} reveal={revealed} onAdd={group => openField({ group: group.id, owner: group.actor })}>{group => {
+        <OwnerGroups groups={() => ownerGroups(connected, open(), todo => todo.owner)} dragging={dragging} adding={() => adding()?.group ?? null} reveal={revealed} unfold={todos.revealed} onAdd={group => openField({ group: group.id, owner: group.actor })}>{group => {
         const tree = createMemo(() => treeRows(group().items));
         const collection = createMemo(() => treeCollection(tree()));
         const placeOf = (id: number) => tree().find((row) => row.todo.id === id) ?? { level: 1, parent: null };
@@ -828,3 +832,5 @@ export const Todos = (props: {
     </section>
   );
 };
+
+todoCreationEditor.set(Todos);

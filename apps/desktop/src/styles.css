@@ -600,7 +600,7 @@ code {
   min-width: 0;
 }
 
-.draft-destination > .draft-name {
+.draft-text > .draft-name {
   min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -637,3 +637,8 @@ code {
 }
 
 .draft-destination > .icon { flex-shrink: 0; }
+
+.draft-revisions li { align-items: baseline; }
+.draft-text { display: flex; flex-direction: column; gap: var(--space-1); min-width: 0; }
+.draft-cause { color: var(--grey); }
+.draft-destination { align-items: baseline; }

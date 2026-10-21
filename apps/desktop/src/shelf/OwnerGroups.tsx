@@ -18,6 +18,8 @@ export const OwnerGroups = <T,>(props: {
   adding: Accessor<string | null>;
   /** U3720: the group a reassigned Todo arrived in; it unfolds so the row can take focus. */
   reveal: Accessor<string | null>;
+  /** Each change opens the Unassigned group, so a Todo just captured shows. */
+  unfold?: Accessor<number>;
   onAdd: (group: OwnerGroup<T>) => void;
   children: (group: Accessor<OwnerGroup<T>>) => JSX.Element;
 }) => {
@@ -40,6 +42,8 @@ export const OwnerGroups = <T,>(props: {
   }));
 
   createEffect(on([props.adding, props.reveal], ([adding, reveal]) => setClosed(held => held.filter(each => each !== adding && each !== reveal))));
+
+  createEffect(on(() => props.unfold?.(), () => setClosed(held => held.filter(each => each !== "unassigned")), { defer: true }));
 
   return <TreeView.Root collection={collection()} expandedValue={collection().getBranchValues().filter(id => !closed().includes(id))} selectedValue={[]} expandOnClick
     onExpandedChange={details => {

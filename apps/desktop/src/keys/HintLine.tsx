@@ -2,6 +2,7 @@ import { KeyChip } from "./KeyChip";
 import { createEffect, createMemo, createSignal, For, onCleanup, onMount } from "solid-js";
 import { hintsFor } from "./chords";
 import type { HintPlace } from "./chords";
+import { copy } from "../copy";
 import { useConnectedProject } from "../state/connectedProject";
 
 /** The pane's state mark while an Agent is Managed (U375). */
@@ -18,7 +19,7 @@ const placeAt = (focus: Element | null, selectedIsAgent: boolean): HintPlace | n
     : focus.closest(".drawer") ? "drawer"
     : focus.closest("[role=dialog]") ? null
     : focus.closest("[data-bubble]") ? "bubble"
-    : focus.closest(".shelf [data-shelf-row]") ? "shelf"
+    : focus.closest(".shelf") ? "shelf"
     : focus.closest('[role="tree"]') ? "rail"
     : inWatchedPane || focus.closest(".pane-screen") ? "agent"
     : null;
@@ -45,7 +46,18 @@ export const HintLine = () => {
 
     if (at === null) return [];
 
-    return hintsFor(at, watching());
+    const shown = hintsFor(at, watching());
+
+    if (at !== "shelf") return shown;
+
+    // The Shelf's own hints follow its state: Restore while maximised, and Export only where `e` acts, on a Pad row.
+    const maximised = focus()?.closest(".window")?.getAttribute("data-shelf-maximised") === "true";
+    const onPad = focus()?.closest(".pad-inset") != null;
+
+    return shown
+      .filter((hint) => hint.label !== copy.exportMd || onPad)
+      .filter((hint) => hint.label !== copy.assign || focus()?.closest("[data-shelf-row]") != null)
+      .map((hint) => hint.label === copy.maximise && maximised ? { ...hint, label: copy.restore } : hint);
   };
 
   let line: HTMLParagraphElement | undefined;

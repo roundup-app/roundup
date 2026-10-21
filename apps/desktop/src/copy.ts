@@ -2,6 +2,10 @@ import type { WorktreeCiState } from "@contracts/agent/WorktreeCiState";
 
 type CopyValue = string | number | undefined;
 
+const draftProblem = (cause: string) => `${cause === "write" ? "Could not store unfinished work for reload." : cause === "capacity" ? "Storage for unfinished work is full." : cause === "changed" ? "Stored unfinished work changed in another window." : cause === "unreadable" ? "Could not read stored unfinished work." : "Could not restore stored unfinished work."} Stored data has been preserved.`;
+
+const draftSurfaceLabels = new Map(Object.entries({ rail: "Project item", agent: "Agent", workstream: "Workstream", terminal: "Terminal", orders: "Order", pads: "Pad", todos: "Todo", decisions: "Decision", thread: "Thread", brief: "Brief", notes: "Notes", steer: "Steer", ask: "Ask", header: "Project name", bubbles: "Terminal name", changes: "Agent notes", terminal_selection: "Terminal selection", queries: "Search", reactions: "Reaction" }));
+
 const railDraftStatuses = new Map([["draft", "Draft"], ["pending", "Submitting…"], ["unknown", "Completion unconfirmed"], ["failed", "Not submitted"]]);
 
 const railDraftLabels = new Map([["rail-task", "Task"], ["rail-name", "Name"], ["rail-clear", "Clear reason"]]);
@@ -31,16 +35,24 @@ export const copy = {
   retryStorage: "Try again",
   queryCopied: "Copied",
   discardQuery: "Discard query",
-  draftSurface: (surface: string) => ({ rail: "Project item", agent: "Agent", workstream: "Workstream", terminal: "Terminal", orders: "Order", pads: "Pad", todos: "Todo", decisions: "Decision", thread: "Thread", brief: "Brief", notes: "Notes", steer: "Steer", ask: "Ask", header: "Project name", bubbles: "Terminal name", changes: "Agent notes", terminal_selection: "Terminal selection", queries: "Search", reactions: "Reaction" })[surface] ?? "Unfinished work",
+  draftSurface: (surface: string) => draftSurfaceLabels.get(surface) ?? "Unfinished work",
   draftField: (field: string) => ({ note: "Note", excerpt: "Excerpt", command: "Command", cwd: "Directory", exit: "Exit code", originalName: "Original name", document: "Editor document", editorSource: "Original editor source", editorCaret: "Editor selection context", source: "Source", base: "Original source", name: "Name", title: "Title", ask: "Ask", done: "Done", password: "Password", body: "Text", text: "Text", content: "Text", limits: "Limits" })[field] ?? "Stored value",
   originalDraftObject: "Original object",
   inspectedRevision: (identity: string, state: string) => `${identity} · ${state}`,
   inspectDraft: "Inspect",
   draftIdentity: (...parts: string[]) => parts.join(" · "),
+  hasDraftSurface: (surface: string) => draftSurfaceLabels.has(surface),
   draftSurfaces: (surfaces: string[]) => surfaces.join(", "),
   noDraftRecipient: "No recipient",
   credentialDraftMemoryOnly: "This form contains credentials. Values are hidden here and will not survive a reload.",
   recoverDrafts: "Recover unfinished work",
+  riskCause: { failed: "failed to save", unknown: "may not have saved", draft: "not saved for reload", gone: "original removed" },
+  draftTitle: (place: string, name: string) => `${place} "${name}"`,
+  riskLine: (cause: string, time: string) => `${cause} · ${time}`,
+  riskTime: (minutes: number) => minutes < 1 ? "just now" : minutes < 60 ? `${minutes} min ago` : `${Math.floor(minutes / 60)} h ago`,
+  openDraft: "Open",
+  copyDraft: "Copy",
+  discardRow: "Discard",
   unfinishedWork: "Unfinished work",
   noUnfinishedWork: "No unfinished work in this project.",
   copyProjectName: "Copy name",
@@ -52,7 +64,9 @@ export const copy = {
   discardNote: "Discard note",
   selectionRetentionFailure: (project: string) => `Terminal selection in ${project} could not be saved for reload. Your note is still here.`,
   discardRevision: "Discard this revision",
-  draftRetention: (project: string, surface: string, cause: string) => `${project} · ${surface}: ${cause === "write" ? "Could not store unfinished work for reload." : cause === "capacity" ? "Storage for unfinished work is full." : cause === "changed" ? "Stored unfinished work changed in another window." : cause === "unreadable" ? "Could not read stored unfinished work." : "Could not restore stored unfinished work."} Stored data has been preserved.`,
+  draftProblem,
+  draftRetention: (project: string, surface: string, cause: string) => `${project} · ${surface}: ${draftProblem(cause)}`,
+  tryAgain: "Try again",
   allDraftSurfaces: "stored surfaces",
   copyField: (field: string) => `Copy ${field}`,
   copyDraftFailure: (reason: string) => `Copy failed: ${reason}. Select the text to copy it.`,
@@ -200,6 +214,10 @@ export const copy = {
   extensionOwned: "Extension owned",
   exitedBySignal: "exited by signal",
   help: "Help",
+  closeShelf: "Close work items",
+  maximise: "Maximise",
+  restore: "Restore",
+  deleteFocusedRow: "Delete row",
   shelfKeys: "Work items keys",
   previousNextKeys: "↑ / ↓",
   focusThePreviousNextShelfRow: " Focus the previous / next work items row",
@@ -229,6 +247,11 @@ export const copy = {
   leaderShortMinimise: "Minimise",
   leaderShortClose: "Close",
   leaderShortShelf: "Work items",
+  leaderShortCapture: "Capture",
+  captureATodo: "Capture a Todo",
+  captureLabel: "Capture a Todo",
+  capturePlaceholder: "A thought, then ⏎",
+  recoveredCaptureDraft: "Recovered capture draft",
   leaderWaitsForAKey: "Wait for one more key",
   switchToARowByName: "Switch to a row by name",
   takeControlInTheSwitcher: "Take control, in the switcher",

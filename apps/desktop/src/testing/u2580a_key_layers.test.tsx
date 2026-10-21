@@ -174,6 +174,36 @@ it("u2580a_key_close_and_interrupted_slide_leave_no_stale_content", async () => 
 
     expect(observed).toEqual({ content: false, returned: true });
     await settle();
+
+    // U3010b: pointer open, close, reopen, then each key ends the slide by the next frame with no exit content and U40's return.
+    for (const key of ["Escape", "Enter", "Space"] as const) {
+      const interrupted = await evaluate(`(async () => {
+        const frame = () => new Promise(resolve => requestAnimationFrame(resolve));
+        const click = (selector) => document.querySelector(selector).dispatchEvent(new MouseEvent('click', {bubbles: true, detail: 1}));
+        const button = document.querySelector('.shelf [data-todo] .todo-row-button');
+        button.focus();
+        click('.shelf [data-todo] .todo-row-button');
+        await frame();
+        click('.drawer .close');
+        await frame();
+        button.focus();
+        click('.shelf [data-todo] .todo-row-button');
+        await frame();
+        const close = document.querySelector('.drawer .close');
+        close.focus();
+        close.dispatchEvent(new KeyboardEvent('keydown', {key: ${JSON.stringify(key === "Space" ? " " : key)}, code: ${JSON.stringify(key)}, bubbles: true}));
+        if (${JSON.stringify(key)} !== 'Escape') close.click();
+        return await new Promise(resolve => requestAnimationFrame(() => resolve({
+          content: !!document.querySelector('.drawer > :not(.close)'),
+          returned: document.activeElement === button
+        })));
+      })()`);
+
+      expect(interrupted).toEqual({ content: false, returned: true });
+      await settle();
+    }
+
+    await settle();
     expect(await activate('.shelf [data-todo] .todo-row-button', "Enter")).toMatchObject({ open: true, focus: true });
     await browser("wait", ".todo-detail");
     await evaluate(`(() => { document.querySelector('.drawer').dispatchEvent(new TransitionEvent('transitionend', {propertyName: 'transform'})); return true; })()`);

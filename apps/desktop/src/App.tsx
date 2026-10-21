@@ -11,7 +11,8 @@ import { Reopen } from "./app/Reopen";
 import { createDropTargets } from "./app/dropTargets";
 import type { Requested } from "@contracts/project/Requested";
 import type { App as AppCalls, DaemonExit } from "./app/seam";
-import { DraftRecoveryEntry, DrawerHost } from "./drawer/DrawerHost";
+import { DraftRecoveryEntry } from "./drawer/DraftRecovery";
+import { DrawerHost } from "./drawer/DrawerHost";
 import { WindowBar } from "./header/WindowBar";
 import { Strip } from "./header/Strip";
 import type { StripTab } from "./header/tab";
@@ -24,6 +25,7 @@ import { railStorage } from "./rail/persist/storage";
 import { Rail } from "./rail/Rail";
 import { Help } from "./keys/Help";
 import { Leader } from "./keys/Leader";
+import { Capture } from "./todos/Capture";
 import { Keys } from "./keys/Keys";
 import { createNow } from "./state/clock";
 import type { Clock } from "./state/clock";
@@ -333,7 +335,7 @@ export const App = (props: {
       <Tabs.Context>{(tabs) => <Layout
         tabs={projects.active() === null ? {} : { ...tabs().getContentProps({ value: projects.active()! }), "aria-label": activeTab()?.project.name }}
         widths={widths}
-        shelfPlacement={{ open: frame.open(), rendered: frame.rendered(), shown: frame.shown(), animated: frame.animated(), onClose: () => shelfFocus.toggle("pointer"), onSettle: frame.settle }}
+        shelfPlacement={{ maximised: frame.maximised(), onMaximise: frame.toggleMaximise, open: frame.open(), rendered: frame.rendered(), shown: frame.shown(), animated: frame.animated(), reducedMotion: props.reducedMotion(), onClose: source => shelfFocus.toggle(source), onSettle: frame.settle }}
         header={
           <WindowBar
             app={props.app}
@@ -425,6 +427,7 @@ export const App = (props: {
                   <DrawerHost drawer={open.drawer} reducedMotion={open.reducedMotion} />
                   <Help />
                   <Leader />
+                  <Capture onFile={() => { if (!frame.open()) shelfFocus.toggle("key"); frame.setTab("todos"); }} />
                 </>
               )}
             </InProject>
