@@ -228,51 +228,59 @@ def reopen_surfaces():
     if evaluate('document.querySelector("#shelf-tab-todos").getAttribute("aria-expanded")!=="true"'):
         browser('click', '#shelf-tab-todos')
     evaluate("(async()=>{window.__blockers=[];for(let n=0;n<10;n++)window.__blockers.push((await window.__fake.app.rpc('todo.create',{title:'Review '+n,body:null,blockers:null})).id);})()")
-    # The Rail Todo root selects Overview. Its done fold and the Agent-filtered Shelf
-    # use the same Todo rows; exercise both native pointer and Space inputs.
-    for filtered in [False, True]:
+    # Exercise the root list, Agent-filtered list and actual Rail leaves.
+    for surface in ["overview", "agent", "rail"]:
         for key in ['pointer', 'Space']:
             evaluate("(async()=>{const f=window.__fake; const a=(await f.app.rpc('rail.tree',null)).find(n=>n.kind==='agent'&&n.id==='tokens'); f.actAs({kind:'agent',id:a.id,parent:null}); const t=await f.app.rpc('todo.create',{title:'Reopen '+(window.__testId??0)+' '+ 'W'.repeat(290),body:null,blockers:window.__blockers}); window.__testId=t.id; await f.app.rpc('todo.complete',{id:t.id});f.actAs({kind:'user',id:'you',parent:null});})()")
-            if filtered:
+            if surface != "overview":
                 browser('click', '.rail-row[data-id="tokens"] .name')
             else:
                 evaluate('document.querySelector("[data-todo-root]").click()')
-            evaluate("[...document.querySelectorAll('[data-part=branch-control]')].filter(b=>b.closest('.shelf-groups')&&b.closest('[role=treeitem]')?.getAttribute('aria-expanded')==='false').forEach(b=>b.click())")
-            wait('Boolean(document.querySelector(".shelf-done-line .todo-row-button"))')
-            evaluate("if(!document.querySelector(`[data-todo=\"${window.__testId}\"] input`)) document.querySelector('.shelf-done-line .todo-row-button').click()")
-            wait('Boolean(document.querySelector(`[data-todo="${window.__testId}"] input`))')
+            if surface == 'rail':
+                evaluate("(()=>{const b=document.querySelector('.rail-row[data-id=\"tokens\"] [data-pads-control]');if(b.getAttribute('aria-expanded')!=='true')b.click()})()")
+            else:
+                evaluate("[...document.querySelectorAll('[data-part=branch-control]')].filter(b=>b.closest('.shelf-groups')&&b.closest('[role=treeitem]')?.getAttribute('aria-expanded')==='false').forEach(b=>b.click())")
+                wait('Boolean(document.querySelector(".shelf-done-line .todo-row-button"))')
+                evaluate("if(!document.querySelector(`.shelf [data-todo=\"${window.__testId}\"] input`)) document.querySelector('.shelf-done-line .todo-row-button').click()")
+            scope = '.rail-tree ' if surface == 'rail' else '.shelf '
+            evaluate('window.__testScope='+json.dumps(scope)+';window.__testRow=()=>document.querySelector(window.__testScope+`[data-todo="${window.__testId}"]`)')
+            wait('Boolean(window.__testRow()?.querySelector("input"))')
             if key == 'Space':
-                evaluate('document.querySelector(`[data-todo="${window.__testId}"] .todo-row-button`).focus()')
+                if surface == 'rail':
+                    evaluate('window.__testRow().querySelector("input").focus()')
+                    browser('press', 'Shift+Tab')
+                else:
+                    evaluate('window.__testRow().querySelector(".todo-row-button").focus()')
                 browser('press', 'Tab')
-                assert evaluate('document.activeElement===document.querySelector(`[data-todo="${window.__testId}"] input`)')
+                assert evaluate('document.activeElement===window.__testRow().querySelector("input")')
             baseline_checks = evaluate('window.__checks()')
             before = evaluate('window.__fake.app.calls.filter(c=>c.method==="todo.reopen").length')
             refuse_reopen('Reopen refused: try again')
-            selector = f'[data-todo="{evaluate("window.__testId")}"] input'
+            selector = scope + f'[data-todo="{evaluate("window.__testId")}"] input'
             if key == 'pointer':
                 browser('click', selector)
             else:
                 browser('press', 'Space')
-            wait('Boolean(document.querySelector(`[data-todo="${window.__testId}"] [role=alert]`))')
-            assert evaluate('document.activeElement===document.querySelector(`[data-todo="${window.__testId}"] input`) && document.activeElement.checked')
+            wait('Boolean(window.__testRow().querySelector("[role=alert]"))')
+            assert evaluate('document.activeElement===window.__testRow().querySelector("input") && document.activeElement.checked')
             assert evaluate('window.__fake.app.calls.filter(c=>c.method==="todo.reopen").length') == before + 1
             failure_readings = {'checks': evaluate('window.__checks()')}
             for check, prior in baseline_checks.items():
                 if prior['status'] == 'pass':
                     assert failure_readings['checks'][check]['status'] == 'pass', failure_readings
-            save('U461a', f'row-{filtered}-{key}-failure-1512-dark', failure_readings)
+            save('U461a', f'row-{surface}-{key}-failure-1512-dark', failure_readings)
             if key == 'pointer':
                 browser('click', selector)
             else:
                 browser('press', 'Space')
-            wait('Boolean(document.querySelector(`[data-todo="${window.__testId}"] input[aria-label^="Complete"]`))')
+            wait('Boolean(window.__testRow().querySelector("input[aria-label^=Complete]"))')
             assert evaluate('window.__fake.app.calls.filter(c=>c.method==="todo.reopen").length') == before + 2
             assert evaluate('document.querySelector(".drawer").getAttribute("data-open")==="false"')
             assert evaluate('document.activeElement!==document.body')
             result = {'checks': evaluate('window.__checks()')}
             for check in ['D2', 'D5', 'D6']:
                 assert result['checks'][check]['status'] == 'pass', result
-            save('U461a', f'row-{filtered}-{key}-1512-dark', result)
+            save('U461a', f'row-{surface}-{key}-1512-dark', result)
 
 
 def real_reopen():

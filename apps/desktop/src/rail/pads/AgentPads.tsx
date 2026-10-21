@@ -18,17 +18,17 @@ import { useTodoList } from "../../todos/todoList";
 import { ownKeys } from "../rows";
 import { Tip } from "../../ui/Tip";
 import { Trunks } from "../Trunks";
-import { openTodosBy, padsOwnedBy } from "./owned";
+import { todosCreatedBy, padsOwnedBy } from "./owned";
 import { usePadList } from "./padList";
 
-/** The Pads and open Todos under one Rail row (U58, U60): `n` is how many its Agent owns and created together (0 for any other row), `shown` is whether the control is open. */
+/** The Pads and Todos under one Rail row (U58, U60): `n` is how many its Agent owns and created together (0 for any other row), `shown` is whether the control is open. */
 export const createAgentPads = (node: Accessor<RailNode>) => {
   const all = usePadList().pads;
   const todos = useTodoList();
   const [shown, setShown] = createSignal(false);
   const [failure, setFailure] = createSignal<string | null>(null);
   const owned = createMemo(() => (node().kind === "agent" ? padsOwnedBy(all(), node().id) : []));
-  const ownedTodos = createMemo(() => (node().kind === "agent" ? openTodosBy(todos.all(), node().id) : []));
+  const ownedTodos = createMemo(() => (node().kind === "agent" ? todosCreatedBy(todos.all(), node().id) : []));
   const connected = useConnectedProject();
 
   const reorder = createSortedList({
@@ -103,7 +103,7 @@ const Leaf = (props: { depth: number; trail: readonly boolean[]; last: boolean; 
   </div>
 );
 
-/** The Pad leaves, then the open Todo leaves, one level below `depth`, folded at rest; a click opens a Pad's Drawer as the Shelf's list does (U20). Opening changes no selection (U64). `children` tells that the Agent's own child rows follow, so the last leaf's trunk runs on. */
+/** The Pad leaves, then the Todo leaves, one level below `depth`, folded at rest; a click opens a Pad's Drawer as the Shelf's list does (U20). Opening changes no selection (U64). `children` tells that the Agent's own child rows follow, so the last leaf's trunk runs on. */
 export const PadRows = (props: { pads: AgentPads; depth: number; trail: readonly boolean[]; children: boolean }) => {
   const connected = useConnectedProject();
 

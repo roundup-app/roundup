@@ -60,7 +60,7 @@ export type SortedRow = {
   step: (by: -1 | 1) => void;
 };
 
-/** One open Todo as U15 draws it, with U35's `complete` and `waits on`; `nested` is the Rail's copy (U60), which leaves `data-id` to the Agent rows. */
+/** One Todo as U15/U461a draw it, with U35's `complete` and `waits on`; `nested` is the Rail's copy (U60), which leaves `data-id` to the Agent rows. */
 export const OpenRow = (props: {
   nested?: boolean;
   pressed?: boolean;
@@ -167,14 +167,13 @@ export const OpenRow = (props: {
               return message;
             }}
           />
-          <button data-button="row-action" type="button" class="word complete" onClick={() => void complete()}>{copy.complete}</button>
         </Show>
       </div>
   );
 
   return (
     <ShelfRow
-      glyph={props.nested ? <KindGlyph kind={kindOf(props.todo)} /> : <>
+      glyph={<>
         <TickBox todo={props.todo} onToggle={complete} />
         <Show when={props.todo.blocked && props.place?.parent == null}><KindGlyph kind="blocked" /></Show>
       </>}
