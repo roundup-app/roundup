@@ -1,0 +1,30 @@
+{
+  "agent": "builder-39540666549",
+  "continued": "0dff55b55a67e19bc19eb32200c3f1f242bfbd87",
+  "head": "ac1a8d687",
+  "regressions": {
+    "red": "Completed Todo deletion called todo.delete for both 5 and 6; Stop produced no confirmation for working/needs-you/blocked; owned Todo did not cancel contextmenu or open a menu.",
+    "green": "36 native menu tests passed across 7 files, retry disabled."
+  },
+  "rendered": {
+    "seed": "tree-40",
+    "viewport": [
+      1512,
+      950
+    ],
+    "scheme": "dark",
+    "head": [
+      "owned-pad-confirm",
+      "owned-pad-failure",
+      "owned-todo-confirm",
+      "stop-confirm"
+    ],
+    "checks": "D1-D14 and D16 pass; paired Pad confirmation/refusal delta has 28 still-passing checks and no regressions.",
+    "focus": "Keep retains initial focus; outline style is none.",
+    "native": "NSMenu/AXMenu and VoiceOver require the U2694 Mac observer after merge; Issue #2916 remains open."
+  },
+  "lints": {
+    "just lint-web": "passed",
+    "just lint-rust": "passed, ALL PROOFS CHECK"
+  }
+}

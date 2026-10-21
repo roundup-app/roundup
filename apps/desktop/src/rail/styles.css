@@ -282,11 +282,19 @@
   --button-radius: var(--radius-row);
 }
 
-.rail-menu-question {
-  padding: var(--space-2);
+/* U2694: the dialog replaces the floating menu; its opaque surface keeps the standard panel shadow. */
+.rail-confirm.app-dialog {
+  box-sizing: border-box;
+  width: min(360px, calc(100vw - var(--space-6)));
 }
 
-.rail-menu-line {
+.rail-confirm [data-part="description"] {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.rail-confirm-line {
   padding: 0 var(--space-2);
   overflow: hidden;
   color: var(--grey);
@@ -294,12 +302,12 @@
   white-space: nowrap;
 }
 
-.rail-menu-name {
+.rail-confirm-name {
   padding-left: var(--space-4);
 }
 
 /* U367: kept Agents' reasons remain readable when the confirm is narrow. */
-.rail-menu-stay {
+.rail-confirm-stay {
   overflow-wrap: anywhere;
   white-space: normal;
 }
@@ -405,6 +413,16 @@
   align-items: center;
   gap: var(--space-1);
   min-width: 0;
+}
+
+/* U461a: a rejected toggle keeps its message below the Rail Todo's controls. */
+.rail-leaf .shelf-text:has(> [role="alert"]) {
+  flex-wrap: wrap;
+}
+
+.rail-leaf .shelf-text > [role="alert"] {
+  flex-basis: 100%;
+  order: 1;
 }
 
 .rail-leaf .row-head {
@@ -567,12 +585,15 @@
 }
 
 /* U466: the leaf owns the wash so nesting cannot inset its selection bar. */
-:is(.rail-leaf, .rail-fold):hover {
+.rail-leaf:hover,
+.rail-fold:hover {
   background-image: linear-gradient(var(--hover), var(--hover));
 }
 
-:is(.rail-leaf, .rail-fold):active {
+.rail-leaf:active,
+.rail-fold:active {
   background-image: linear-gradient(var(--pressed), var(--pressed));
+  transition-duration: 0s;
 }
 
 .rail-leaf:has([data-selected="true"]) {
@@ -908,3 +929,5 @@
   margin-inline: var(--space-6) var(--space-4);
   padding-left: var(--space-3);
 }
+
+.rail-leaf[role="treeitem"] { cursor: pointer; }

@@ -1,4 +1,4 @@
-import { cleanup, fireEvent, screen } from "@solidjs/testing-library";
+import { cleanup, fireEvent, screen, within } from "@solidjs/testing-library";
 import { afterEach, expect, it } from "vitest";
 import { AGENT, openShelf, padOf } from "../pads/padsFixture";
 import { USER } from "../testing/nodes";
@@ -37,6 +37,8 @@ it("u460_question_tracks_pad_owner_changes_without_expanding_targets", async () 
   state.pads = [padOf("notes", AGENT), padOf("mine", USER)];
   app.emit({ actor: USER, name: "pad.changed", data: { name: "notes" } });
   await screen.findByText(/Agents may still be writing/);
-  expect(screen.getByRole("alertdialog").querySelectorAll(".shelf-question-targets p")).toHaveLength(1);
+  const question = within(screen.getByRole("alertdialog"));
+  expect(question.getByText("notes")).toBeTruthy();
+  expect(question.queryByText("mine")).toBeNull();
   expect(app.calls.filter((call) => call.method === "pad.delete")).toEqual([]);
 });

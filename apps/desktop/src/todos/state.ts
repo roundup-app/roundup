@@ -7,6 +7,8 @@ import type { AppSeam } from "../app/seam";
 import { failureOf } from "./failureOf";
 
 export type TodosState = {
+  /** Original Project path whose list supplied these identities. */
+  project: string;
   reload: () => Promise<void>;
   /** The Project's Todos as `todo.list` last answered. */
   all: Accessor<readonly Todo[]>;
@@ -14,6 +16,10 @@ export type TodosState = {
   byId: Accessor<ReadonlyMap<number, Todo>>;
   /** The message of the last failed `todo.list`, until a later one succeeds. */
   failure: Accessor<string | null>;
+  /** Shows `todo` as a row until the returned call removes it: a create's optimistic row (U3714), which the Daemon's reply confirms or U3715 removes. */
+  show: (todo: Todo) => () => void;
+  /** Counts shown rows: each is a cue to open the Unassigned group, where the filed Todo lands. */
+  revealed: Accessor<number>;
   /** True once the first `todo.list` has answered, so U38's empty line never flashes before it. */
   isLoaded: Accessor<boolean>;
 };
@@ -21,7 +27,7 @@ export type TodosState = {
 const REFETCH_ON = new Set(["todo.created", "todo.updated", "todo.unblocked", "todo.deleted"]);
 
 /** Subscribes before its first fetch, so no Event between the two is lost. */
-export const createTodosState = (app: AppSeam, events: Events): TodosState => {
+export const createTodosState = (app: AppSeam, events: Events, project: string): TodosState => {
   // Reconciled by id, so a refetch that changes one Todo leaves every other row untouched.
   const [shelf, setShelf] = createStore<{ todos: Todo[] }>({ todos: [] });
   const [failure, setFailure] = createSignal<string | null>(null);
@@ -66,7 +72,19 @@ export const createTodosState = (app: AppSeam, events: Events): TodosState => {
   );
   void reload();
 
-  const byId = createMemo(() => new Map(shelf.todos.map((todo) => [todo.id, todo])));
+  const [pending, setPending] = createSignal<readonly Todo[]>([]);
 
-  return { reload, all: () => shelf.todos, byId, failure, isLoaded };
+  const [revealed, setRevealed] = createSignal(0);
+
+  const show = (todo: Todo) => {
+    setRevealed((count) => count + 1);
+    setPending((rows) => [...rows, todo]);
+
+    return () => setPending((rows) => rows.filter((row) => row !== todo));
+  };
+
+  const all = () => pending().length === 0 ? shelf.todos : [...shelf.todos, ...pending()];
+  const byId = createMemo(() => new Map(all().map((todo) => [todo.id, todo])));
+
+  return { project, reload, all, show, revealed, byId, failure, isLoaded };
 };

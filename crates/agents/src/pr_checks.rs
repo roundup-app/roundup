@@ -1,5 +1,5 @@
 //! Required-check evidence for a PR, read through the user's own `gh` (NR10).
-//! Every incomplete, stale or unavailable read is a `Gap`; only `Evidence::Complete` carries facts.
+//! Pending checks retain a stable current PR identity; only `Evidence::Complete` carries checks.
 use std::io::Read;
 use std::os::unix::process::CommandExt;
 use std::path::Path;
@@ -19,7 +19,6 @@ pub enum Gap {
     ReadFailed,
     TimedOut,
     NoRequiredChecks,
-    Pending,
     /// The PR head moved while the checks were read.
     StaleHead,
     NonGithubRemote,
@@ -39,7 +38,7 @@ pub struct Check {
     pub conclusion: Conclusion,
 }
 
-/// One concluded read: every required check has a conclusion, bound to `head`.
+/// One stable PR read; only complete evidence carries the concluded checks bound to `head`.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct PrChecks {
     pub host: String,
@@ -76,6 +75,8 @@ impl PrChecks {
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum Evidence {
     Complete(PrChecks),
+    /// Identity was stable across the check read, but pending checks cannot authorize a match.
+    Pending(PrChecks),
     Incomplete(Gap),
 }
 
@@ -97,12 +98,12 @@ struct Row {
 pub fn read(gh: &Path, dir: &Path, timeout: Duration) -> Evidence {
     let deadline = Instant::now() + timeout;
     match collect(gh, dir, deadline) {
-        Ok(checks) => Evidence::Complete(checks),
+        Ok(evidence) => evidence,
         Err(gap) => Evidence::Incomplete(gap),
     }
 }
 
-fn collect(gh: &Path, dir: &Path, deadline: Instant) -> Result<PrChecks, Gap> {
+fn collect(gh: &Path, dir: &Path, deadline: Instant) -> Result<Evidence, Gap> {
     let before = view(gh, dir, deadline)?;
     let (host, repository) = identity(&before.url, before.number).ok_or(Gap::ReadFailed)?;
     let rows = run(
@@ -121,7 +122,7 @@ fn collect(gh: &Path, dir: &Path, deadline: Instant) -> Result<PrChecks, Gap> {
         _ => return Err(Gap::ReadFailed),
     };
     let after = view(gh, dir, deadline)?;
-    if after.head != before.head || after.url != before.url {
+    if after.head != before.head || after.url != before.url || after.number != before.number {
         return Err(Gap::StaleHead);
     }
     if rows.is_empty() {
@@ -146,19 +147,21 @@ fn collect(gh: &Path, dir: &Path, deadline: Instant) -> Result<PrChecks, Gap> {
             conclusion,
         });
     }
-    if pending {
-        return Err(Gap::Pending);
-    }
     let read_at = SystemTime::now()
         .duration_since(UNIX_EPOCH)
         .map_or(0, |d| d.as_secs());
-    Ok(PrChecks {
+    let facts = PrChecks {
         host,
         repository,
         number: before.number,
         head: before.head,
-        checks,
+        checks: if pending { Vec::new() } else { checks },
         read_at,
+    };
+    Ok(if pending {
+        Evidence::Pending(facts)
+    } else {
+        Evidence::Complete(facts)
     })
 }
 
@@ -170,7 +173,13 @@ fn view(gh: &Path, dir: &Path, deadline: Instant) -> Result<View, Gap> {
         deadline,
     )?;
     match out.code {
-        0 => serde_json::from_slice(&out.bytes).map_err(|_| Gap::ReadFailed),
+        0 => {
+            let view: View = serde_json::from_slice(&out.bytes).map_err(|_| Gap::ReadFailed)?;
+            if view.head.is_empty() {
+                return Err(Gap::ReadFailed);
+            }
+            Ok(view)
+        }
         4 => Err(Gap::NotLoggedIn),
         // gh exits 1 with no PR JSON when no remote points at a GitHub host.
         1 if non_github_remote(dir) => Err(Gap::NonGithubRemote),

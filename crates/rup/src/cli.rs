@@ -878,20 +878,20 @@ fn gone(socket: &str, why: impl std::fmt::Display) -> Failure {
     ))
 }
 
-async fn connect(agent: &str) -> Result<rpc::Client, Failure> {
+async fn connect(actor: &Actor) -> Result<rpc::Client, Failure> {
     let socket = rpc::socket_path().map_err(|err| Failure::Gone(err.to_string()))?;
     let shown = socket.display().to_string();
     let handshake = async {
         let client = rpc::Client::connect(&socket)
             .await
             .map_err(|err| gone(&shown, err))?;
-        let actor = Actor {
-            kind: ActorKind::Agent,
-            id: agent.to_owned(),
-            parent: None,
-        };
         client
-            .request("daemon.identify", IdentifyParams { actor })
+            .request(
+                "daemon.identify",
+                IdentifyParams {
+                    actor: actor.clone(),
+                },
+            )
             .await
             .map_err(Failure::Rpc)?;
         Ok(client)
@@ -909,11 +909,12 @@ async fn connect(agent: &str) -> Result<rpc::Client, Failure> {
 async fn invoke(
     spec: &Spec,
     offer: &Offered,
-    agent: &str,
+    actor: &Actor,
     arguments: JsonObject,
     json: bool,
 ) -> Result<(Value, Value), Failure> {
-    let client = connect(agent).await?;
+    let client = connect(actor).await?;
+    let agent = &actor.id;
     if spec.door_only {
         match mcp::is_door(&client, agent).await {
             Ok(true) => {}
@@ -972,15 +973,23 @@ async fn call(spec: &Spec, leaf: &ArgMatches, matches: &ArgMatches) -> ExitCode 
                 .ok()
                 .filter(|id| !id.is_empty())
         });
-    let Some(agent) = agent else {
-        return bad_usage("no Agent id: run it in an Agent's shell, or pass --agent <id>");
+    let actor = match (spec.method, agent) {
+        ("message.resolveResult", _) => Actor::user(),
+        (_, Some(id)) => Actor {
+            kind: ActorKind::Agent,
+            id,
+            parent: None,
+        },
+        (_, None) => {
+            return bad_usage("no Agent id: run it in an Agent's shell, or pass --agent <id>");
+        }
     };
     let json = leaf.get_flag("json");
     let offer = mcp::tools(true)
         .into_iter()
         .find(|offer| offer.method == spec.method)
         .expect("the tree is built from the tool list");
-    match invoke(spec, &offer, &agent, arguments, json).await {
+    match invoke(spec, &offer, &actor, arguments, json).await {
         Ok((params, result)) => {
             print_result(spec.method, &params, &result, json);
             ExitCode::from(DONE)

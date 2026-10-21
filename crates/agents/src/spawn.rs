@@ -250,14 +250,22 @@ impl Agents {
         first: Option<String>,
         startup_context: bool,
     ) -> Result<String, RpcError> {
-        let node = self.shared.rail().node(id)?;
-        // O2, O3: the first Steer is the node's order, whichever way it was set.
-        let spawn_prompt = self.shared.rail().spawn_prompt(id)?;
-        let prompt = first.or_else(|| {
-            node.work
-                .as_ref()
-                .map(|work| order::steer(work, spawn_prompt.as_deref()))
-        });
+        let (node, prompt) = {
+            let mut rail = self.shared.rail();
+            let node = rail.node(id)?;
+            // O2, O3: the first Steer is the node's order, whichever way it was set.
+            let spawn_prompt = rail.spawn_prompt(id)?;
+            let prompt = first.or_else(|| {
+                node.work
+                    .as_ref()
+                    .map(|work| order::steer(work, spawn_prompt.as_deref()))
+            });
+
+            if let (Some(text), Some(revision)) = (&prompt, rail.order_revision(id)?) {
+                rail.prepare_instruction(&revision, attempt, text, true)?;
+            }
+            (node, prompt)
+        };
 
         let retained = node.worktree.map(|w| PathBuf::from(w.path));
         if let Some(path) = &retained
@@ -366,7 +374,7 @@ impl Agents {
             lean: Launcher::load_lean(&self.dir, id),
         };
         let started = attempt.to_owned();
-        let (argv, env) = self
+        let (argv, mut env) = self
             .launcher
             .launch_on(
                 claude_code::Folders {
@@ -381,8 +389,24 @@ impl Agents {
                 &pair,
             )
             .await?;
+        env.extend(self.listen_measurements(id, attempt).await?);
         self.retain_worktree(id).await?;
-        let spawned = self.spawn_behind(id, cwd, Some(argv), env, attach).await?;
+        self.shared
+            .timing
+            .lock()
+            .expect("measurement timing lock")
+            .prepare_attempt(id, attempt);
+        let spawned = match self.spawn_behind(id, cwd, Some(argv), env, attach).await {
+            Ok(spawned) => spawned,
+            Err(error) => {
+                self.shared
+                    .timing
+                    .lock()
+                    .expect("measurement timing lock")
+                    .abandon_attempt(id, attempt);
+                return Err(error);
+            }
+        };
         self.shared.watch_channel(id, &started);
         if role == Role::Door
             && let Some(marker) = claude_code::settings_marker(&self.dir, id)

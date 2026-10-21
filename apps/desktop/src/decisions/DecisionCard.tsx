@@ -1,6 +1,7 @@
 import { copy } from "../copy";
 import { createMemo, createResource, For, on, Show } from "solid-js";
 import * as v from "valibot";
+import type { PromptIdentity } from "@contracts/decision/PromptIdentity";
 import type { Decision } from "@contracts/decision/Decision";
 import { ErrorLine } from "../ink/ErrorLine";
 import { Markdown } from "../plain/Markdown";
@@ -24,14 +25,19 @@ const readable = (args: string): string => {
 };
 
 /** The Decision an Agent waits on, with the buttons that answer it; `focusTerminal` hands the keyboard to that Agent's Terminal. */
-export const DecisionCard = (props: { decision: Decision; name: string; focusTerminal: () => void; ref: (card: HTMLElement) => void; onFocusIn: () => void; onFocusOut: (leave: FocusEvent) => void }) => {
+export const DecisionCard = (props: { decision: Decision; name: string; focusTerminal: () => void; ref: (card: HTMLElement) => void; onFocusIn: () => void; onFocusOut: (leave: FocusEvent) => void;
+  /** Already observed original authority and an exact retained revision. Opening performs no capture.
+   * Revisions outside this Project/Prompt are refused; unverified authority permits no Send.
+   */
+  selected?: { revision: string; identity: PromptIdentity } | undefined;
+}) => {
   const { app, decisions, daemonExit, rail } = useConnectedProject();
   const id = createMemo(() => props.decision.id);
   // A refusal refresh changes the Decision, not its question; keep the user's answer draft mounted.
   const questionArgs = createMemo(() => props.decision.tool === "ask_user" ? props.decision.args : null);
   const asked = createMemo(on([id, questionArgs], ([, args]) => args === null ? null : questionOf(args)));
 
-  const [prompt, { refetch }] = createResource(() => asked() ? id() : false, async (id) => {
+  const [prompt, { refetch }] = createResource(() => asked() && !props.selected ? id() : false, async (id) => {
     try { return { identity: await app.rpc("decision.capture", { id }), failure: null }; }
     catch (error) {
       if (!(error instanceof Error)) throw error;
@@ -40,10 +46,19 @@ export const DecisionCard = (props: { decision: Decision; name: string; focusTer
     }
   });
 
+  const editor = createMemo(() => {
+    const selected = props.selected;
+
+    if (selected) return selected.identity.decision === id() && selected.identity.agent === props.decision.agent ? selected : null;
+    const identity = !prompt.loading ? prompt()?.identity : null;
+
+    return identity ? { identity, revision: undefined } : null;
+  });
+
   const unreadable = () => props.decision.tool === "ask_user" && asked() === null;
 
   const answers = () => {
-    if (!props.decision.answerable || unreadable()) return [];
+    if (props.selected || !props.decision.answerable || unreadable()) return [];
 
     return asked() ? [] : ["allow", "deny"];
   };
@@ -83,8 +98,8 @@ export const DecisionCard = (props: { decision: Decision; name: string; focusTer
       <Show when={decisions.answerFailure(id())}>{(message) => <ErrorLine message={message()} />}</Show>
       <Show when={props.decision.answerable ? asked() : null} keyed>
         {(question) => <>
-          <Show when={prompt()?.failure}>{message => <div class="decision-list-failure"><ErrorLine message={message()} /><button type="button" data-button="quiet" onClick={() => void refetch()}>{copy.retry}</button></div>}</Show>
-          <Show when={!prompt.loading ? prompt()?.identity : null} keyed>{identity => <AskCard question={question} identity={identity} stuck={stuck} />}</Show>
+          <Show when={!props.selected && prompt()?.failure}>{message => <div class="decision-list-failure"><ErrorLine message={message()} /><button type="button" data-button="quiet" onClick={() => void refetch()}>{copy.retry}</button></div>}</Show>
+          <Show when={editor()} keyed>{entry => <AskCard question={question} identity={entry.identity} stuck={stuck} selectedRevision={entry.revision} />}</Show>
         </>}
       </Show>
       <div class="decision-buttons">

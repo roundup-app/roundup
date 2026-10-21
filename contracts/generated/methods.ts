@@ -9,6 +9,7 @@ import type { Extras as agent_Extras } from "./agent/Extras";
 import type { ExtrasAddParams as agent_ExtrasAddParams } from "./agent/ExtrasAddParams";
 import type { FileComparison as agent_FileComparison } from "./agent/FileComparison";
 import type { HeldAction as agent_HeldAction } from "./agent/HeldAction";
+import type { Instructions as agent_Instructions } from "./agent/Instructions";
 import type { Landed as agent_Landed } from "./agent/Landed";
 import type { MoveParams as agent_MoveParams } from "./agent/MoveParams";
 import type { NodeId as agent_NodeId } from "./agent/NodeId";
@@ -60,9 +61,18 @@ import type { PublishParams as deliverable_PublishParams } from "./deliverable/P
 import type { Resolution as deliverable_Resolution } from "./deliverable/Resolution";
 import type { LinkContent as link_LinkContent } from "./link/LinkContent";
 import type { LinkUrl as link_LinkUrl } from "./link/LinkUrl";
+import type { AcceptResultParams as message_AcceptResultParams } from "./message/AcceptResultParams";
 import type { ListParams as message_ListParams } from "./message/ListParams";
 import type { Message as message_Message } from "./message/Message";
 import type { MessageId as message_MessageId } from "./message/MessageId";
+import type { Progress as message_Progress } from "./message/Progress";
+import type { ProgressParams as message_ProgressParams } from "./message/ProgressParams";
+import type { ReportParams as message_ReportParams } from "./message/ReportParams";
+import type { ResolveResultParams as message_ResolveResultParams } from "./message/ResolveResultParams";
+import type { ResultAcceptance as message_ResultAcceptance } from "./message/ResultAcceptance";
+import type { ResultId as message_ResultId } from "./message/ResultId";
+import type { ResultObservation as message_ResultObservation } from "./message/ResultObservation";
+import type { ResultReport as message_ResultReport } from "./message/ResultReport";
 import type { Route as message_Route } from "./message/Route";
 import type { SendParams as message_SendParams } from "./message/SendParams";
 import type { SetRouteParams as message_SetRouteParams } from "./message/SetRouteParams";
@@ -82,6 +92,7 @@ import type { ImportDiscoverParams as project_ImportDiscoverParams } from "./pro
 import type { ImportDiscovery as project_ImportDiscovery } from "./project/ImportDiscovery";
 import type { ImportResult as project_ImportResult } from "./project/ImportResult";
 import type { Mcp as project_Mcp } from "./project/Mcp";
+import type { Measurements as project_Measurements } from "./project/Measurements";
 import type { ModelList as project_ModelList } from "./project/ModelList";
 import type { OpenParams as project_OpenParams } from "./project/OpenParams";
 import type { PrepareParams as project_PrepareParams } from "./project/PrepareParams";
@@ -132,6 +143,7 @@ import type { RewindPlan as workstream_RewindPlan } from "./workstream/RewindPla
 import type { RewindPlanParams as workstream_RewindPlanParams } from "./workstream/RewindPlanParams";
 
 export type RpcMethods = {
+  "project.measurements": { params: null; result: project_Measurements };
   "deliverable.publish": { params: deliverable_PublishParams; result: deliverable_Deliverable };
   "deliverable.list": { params: deliverable_ListParams; result: deliverable_Deliverable[] };
   "deliverable.get": { params: deliverable_DeliverableId; result: deliverable_Deliverable };
@@ -170,6 +182,7 @@ export type RpcMethods = {
   "todo.list": { params: null; result: todo_Todo[] };
   "todo.update": { params: todo_UpdateParams; result: todo_Todo };
   "todo.complete": { params: todo_TodoId; result: todo_Todo };
+  "todo.reopen": { params: todo_TodoId; result: todo_Todo };
   "todo.setBlockers": { params: todo_SetBlockersParams; result: todo_Todo };
   "todo.assign": { params: todo_AssignParams; result: todo_Todo };
   "todo.move": { params: todo_MoveParams; result: todo_Todo };
@@ -211,6 +224,7 @@ export type RpcMethods = {
   "reaction.run": { params: reaction_RunParams; result: reaction_Reaction };
   "agent.spawnPrompt": { params: agent_NodeId; result: { prompt: string | null } };
   "agent.setOrder": { params: agent_SetOrderParams; result: agent_RailNode | agent_HeldAction };
+  "agent.instructions": { params: agent_NodeId; result: agent_Instructions };
   "agent.channelUp": { params: agent_NodeId; result: null };
   "agent.signal": { params: agent_SignalParams; result: agent_SignalOutcome | null };
   "agent.permission": { params: decision_PermissionParams; result: decision_PermissionOutput };
@@ -239,6 +253,11 @@ export type RpcMethods = {
   "project.open": { params: project_OpenParams; result: null };
   "project.rename": { params: project_RenameParams; result: null };
   "attachment.save": { params: attachment_SaveParams; result: attachment_Saved };
+  "message.progress": { params: message_ProgressParams; result: message_Progress };
+  "message.report": { params: message_ReportParams; result: message_ResultReport };
+  "message.acceptResult": { params: message_AcceptResultParams; result: message_ResultAcceptance };
+  "message.verifyResult": { params: message_ResultId; result: message_ResultObservation };
+  "message.resolveResult": { params: message_ResolveResultParams; result: message_ResultObservation };
   "message.send": { params: message_SendParams; result: message_Message };
   "message.pass": { params: message_MessageId; result: message_Message };
   "message.get": { params: message_MessageId; result: message_Message };

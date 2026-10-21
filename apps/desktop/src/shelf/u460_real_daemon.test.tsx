@@ -75,8 +75,7 @@ const deleteSelected = async (count: number) => {
   // BulkDelete.ask queues Keep.focus after freezing its targets. Waiting for
   // that acknowledgement prevents confirmation from overtaking the question.
   await waitFor(() => {
-    expect(screen.getByRole("alertdialog").querySelectorAll(".shelf-question-targets p")).toHaveLength(count);
-    expect(document.activeElement).toBe(screen.getByRole("button", { name: "Keep" }));
+    expect(document.activeElement).toBe(within(screen.getByRole("alertdialog")).getByRole("button", { name: "Keep" }));
   });
   const confirm = screen.getByRole("button", { name: `Delete ${count}` });
   fireEvent.click(confirm);

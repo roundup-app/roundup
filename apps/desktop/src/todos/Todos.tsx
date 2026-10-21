@@ -1,7 +1,9 @@
 import ChevronUp from "lucide-solid/icons/chevron-up";
 import { IconButton } from "../ui/IconButton";
+import { contextMenu, linkEntries, openOnRelease } from "../ui/contextMenu";
 import { Tip } from "../ui/Tip";
 import { createNear } from "../ink/near";
+import { registerKeys } from "../keys/registry";
 import { activationSource } from "../keys/registry";
 import type { ActivationSource } from "../keys/registry";
 import { copy } from "../copy";
@@ -14,8 +16,8 @@ import { Icon } from "../ink/Icon";
 import { EmptyState } from "../ink/EmptyState";
 import { EntryRow } from "../ink/EntryRow";
 import * as v from "valibot";
-import { untrack } from "solid-js";
-import { TodoDraftRecovery, todoDraftSchema } from "./EditableText";
+import { batch, untrack } from "solid-js";
+import { TodoDraftRecovery, todoDraftSchema, creationSchema } from "./EditableText";
 import type { JSX } from "solid-js";
 import { createEffect, createMemo, createSignal, For, onCleanup, onMount, Show } from "solid-js";
 import type { Todo } from "@contracts/todo/Todo";
@@ -32,6 +34,7 @@ import { Sortable } from "../ui/sortable";
 import { TreeView } from "../ui/TreeView";
 import { shelfScope } from "../shelf/scope";
 import { Groups } from "../shelf/Groups";
+import type { TodosState } from "./state";
 import { useTodoList } from "./todoList";
 import { TodoDrawer } from "./TodoDrawer";
 import { shownTodos } from "./shownTodos";
@@ -71,7 +74,7 @@ export const OpenRow = (props: {
   todo: Todo;
   known: ReadonlyMap<number, Todo>;
   onOpen: (todo: Todo, source: ActivationSource) => void;
-  onComplete: (todo: Todo) => Promise<string | null>;
+  onToggle: (todo: Todo) => Promise<string | null>;
   registerRow?: (id: number, row: HTMLButtonElement | null) => void;
   /** U490a: a row ordered through `ui/Sortable` instead. */
   sorted?: SortedRow;
@@ -97,8 +100,8 @@ export const OpenRow = (props: {
   const [moveFailure, setMoveFailure] = createSignal<string | null>(null);
   const failure = createMemo(() => moveFailure() ?? actionFailure());
 
-  const complete = async () => {
-    const message = await props.onComplete(props.todo);
+  const toggle = async () => {
+    const message = await props.onToggle(props.todo);
 
     setFailure(message);
 
@@ -166,16 +169,15 @@ export const OpenRow = (props: {
               return message;
             }}
           />
-          <button data-button="row-action" type="button" class="word complete" onClick={() => void complete()}>{copy.complete}</button>
         </Show>
       </div>
   );
 
   return (
     <ShelfRow
-      glyph={props.nested ? <KindGlyph kind={kindOf(props.todo)} /> : <>
-        <TickBox todo={props.todo} onComplete={complete} />
-        <Show when={props.todo.blocked && props.place?.parent == null}><KindGlyph kind="blocked" /></Show>
+      glyph={<>
+        <TickBox todo={props.todo} onToggle={toggle} />
+        <Show when={!props.todo.done && props.todo.blocked && props.place?.parent == null}><KindGlyph kind="blocked" /></Show>
       </>}
       data-id={props.nested ? undefined : props.todo.id}
       data-todo={props.todo.id}
@@ -194,7 +196,7 @@ export const OpenRow = (props: {
       }}
     >
       <Show when={props.nested}>{head}</Show>
-      <Show when={props.todo.body.trim() !== ""}>
+      <Show when={!props.todo.done && props.todo.body.trim() !== ""}>
         <p class="item-description" data-todo-description>{props.todo.body.trim()}</p>
       </Show>
       <Show when={failure()}>{(message) => <ErrorLine message={message()} />}</Show>
@@ -216,7 +218,7 @@ export const OpenRow = (props: {
           </Show>
         </p>
       </Show>
-      <Show when={!props.nested && failure() === null && alsoWaiting().length > 0}>
+      <Show when={!props.nested && !props.todo.done && failure() === null && alsoWaiting().length > 0}>
         <p class="shelf-meta" data-todo-meta>
           {/* oxlint-disable-next-line anti-slop/no-tooltip-bypass -- U3708 requires the full ellipsized sentence in title; Tip also owns its rendered tooltip. */}
           <Tip class="todo-tooltip" text={alsoWaitingLine()}>{(trigger) => <span {...trigger()} data-todo-also-waits title={alsoWaitingLine()}><span>{copy.alsoWaitsOn("")}</span><span class="todo-blockers"><For each={alsoWaiting()}>{(blocker, index) => (
@@ -232,13 +234,31 @@ export const OpenRow = (props: {
 };
 
 /** The Shelf's `todos` list: open Todos in id order, done ones folded, and the inline field that makes a new one. */
-export const Todos = () => {
+export const Todos = (props: {
+  /** Open a retained creation form using this Project's already-loaded Todo facts. */
+  recovery?: { project: string; revision: string; list: TodosState };
+}) => {
   const connected = useConnectedProject();
   connected.drafts.validate("todos", todoDraftSchema);
-  const todos = useTodoList();
-  const [typing, setTyping] = createSignal(false);
+
+  if (props.recovery && props.recovery.project !== connected.project.path) return null;
+
+  const todos = props.recovery?.list ?? useTodoList();
+
+  const retained = props.recovery ? connected.drafts.list().find(draft => draft.revision === props.recovery?.revision
+    && draft.destination.surface === "todos" && draft.destination.object === "new") : undefined;
+
+  const form = v.safeParse(creationSchema, retained?.value);
+  const homeExists = (home: string | null) => home === null || connected.rail.nodes.some(node => node.id === home && node.kind === "workstream");
+
+  if (props.recovery && (todos.project !== connected.project.path || !todos.isLoaded() || todos.failure() !== null || !retained || !form.success
+    || retained.destination.recipient !== form.output.home || !homeExists(form.output.home))) return null;
+
+  const [creationRevision, setCreationRevision] = createSignal<string | null>(retained?.revision ?? null);
+  const [typing, setTyping] = createSignal(retained !== undefined);
   const [createFailure, setCreateFailure] = createSignal<string | null>(null);
   const [unfolded, setUnfolded] = createSignal(false);
+  const wasDoneUnfolded = createMemo((mounted) => mounted || unfolded(), false);
   const scope = shelfScope(connected);
   const selectedWorkstream = scope.home;
 
@@ -362,22 +382,26 @@ export const Todos = () => {
   // is held here until this list no longer carries `id`, then it is given to that target, else to the `+` button — but
   // only while focus is still unclaimed (null or the page body), so a request that outlives the user moving focus
   // elsewhere (typing in U16's field, Tab into the pane) never yanks it back.
-  const [awaitingFocus, setAwaitingFocus] = createSignal<{ id: number; target: number | null }[]>([]);
+  const [awaitingFocus, setAwaitingFocus] = createSignal<{ id: number; target: number | null; reopening: boolean }[]>([]);
 
   createEffect(() => {
     const openIds = new Set(open().map((todo) => todo.id));
+    const doneIds = new Set(done().map((todo) => todo.id));
+    const remains = (request: { id: number; reopening: boolean }) => (request.reopening ? doneIds : openIds).has(request.id);
     const waiting = awaitingFocus();
 
-    if (waiting.every((request) => openIds.has(request.id))) return;
+    if (waiting.every(remains)) return;
 
     setAwaitingFocus(
       waiting.filter((request) => {
-        if (openIds.has(request.id)) return true;
+        if (remains(request)) return true;
 
         if (document.activeElement === null || document.activeElement === document.body) {
           const target = request.target !== null ? rows.get(request.target) : undefined;
 
-          (target ?? plusButton)?.focus();
+          if (target && !target.closest("[hidden], [inert]")) target.focus();
+
+          if (document.activeElement === null || document.activeElement === document.body) plusButton?.focus();
         }
 
         return false;
@@ -385,7 +409,7 @@ export const Todos = () => {
     );
   });
 
-  const [creationHome, setCreationHome] = createSignal<string | null>(null);
+  const [creationHome, setCreationHome] = createSignal<string | null>(form.success ? form.output.home : null);
   const creationTarget = () => ({ surface: "todos", object: "new", recipient: creationHome() });
 
   createEffect(() => {
@@ -393,15 +417,38 @@ export const Todos = () => {
   });
 
   const creation = () => connected.drafts.list().findLast(draft => draft.destination.surface === "todos"
-    && draft.destination.object === "new" && draft.destination.recipient === creationHome() && draft.status === "draft");
+    && draft.destination.object === "new" && draft.destination.recipient === creationHome()
+    && (creationRevision() !== null ? draft.revision === creationRevision() : draft.status === "draft"));
+
+  createEffect(() => {
+    const revision = creationRevision();
+
+    if (typing() && revision !== null && !creation()) setTyping(false);
+  });
+
+  let creationRow: HTMLDivElement | undefined;
+
+  registerKeys({ kind: "region", element: () => creationRow }, [{
+    chords: ["Enter"],
+    when: () => creation()?.status === "unknown" || creation()?.status === "pending",
+    run: () => setCreateFailure(copy.draftStatus[creation()?.status ?? "unknown"]),
+  }]);
 
   const retainCreation = (field: HTMLInputElement) => {
     const previous = creation();
     const caret = { start: field.selectionStart ?? 0, end: field.selectionEnd ?? 0, direction: field.selectionDirection ?? "none" };
 
-    if ((!previous && field.value === "") || (previous?.value.title === field.value && JSON.stringify(previous.selection) === JSON.stringify(caret))) return;
+    if (creationRevision() !== null && !previous) return;
 
-    connected.drafts.edit(creationTarget(), { title: field.value, home: creationHome() }, caret, "ordinary");
+    if (previous?.value.title === field.value) {
+      if ((!props.recovery || document.activeElement === field) && JSON.stringify(previous.selection) !== JSON.stringify(caret)) connected.drafts.setSelection(previous.revision, caret);
+
+      return;
+    }
+
+    if (field.value === "" && !previous) return;
+
+    batch(() => setCreationRevision(connected.drafts.edit(creationTarget(), { title: field.value, home: creationHome() }, caret, "ordinary", creationRevision()).draft.revision));
   };
 
   // EntryRow clears after capturing this revision, so another Enter cannot submit it twice.
@@ -410,7 +457,8 @@ export const Todos = () => {
 
     const draft = creation();
 
-    if (!draft || !connected.drafts.submit(draft.revision)) return;
+    if (!homeExists(creationHome()) || !draft || !connected.drafts.submit(draft.revision)) return;
+    setCreationRevision(null);
     const home = creationHome();
 
     try {
@@ -437,17 +485,35 @@ export const Todos = () => {
     connected.drawer.open(content, source);
   };
 
-  const complete = async (todo: Todo) => {
-    const target = rowAfter(todo.id, open().map((candidate) => candidate.id));
-    const message = await failureOf(() => connected.app.rpc("todo.complete", { id: todo.id }));
+  const toggle = async (todo: Todo, ids: readonly number[]) => {
+    const reopening = todo.done;
+    const target = rowAfter(todo.id, ids);
 
-    if (message === null) setAwaitingFocus((waiting) => [...waiting, { id: todo.id, target }]);
+    const message = await failureOf(() => reopening
+      ? connected.app.rpc("todo.reopen", { id: todo.id })
+      : connected.app.rpc("todo.complete", { id: todo.id }));
+
+    if (message === null) setAwaitingFocus((waiting) => [...waiting, { id: todo.id, target, reopening }]);
 
     return message;
   };
 
+  /** U2694b: Complete (disabled for done Todos), Send to Agent ▸, Copy Link, Delete, as the system menu of a row; Delete asks as U461 does. */
+  const todoMenu = (event: MouseEvent) => {
+    const row = event.target instanceof Element ? event.target.closest<HTMLElement>("[data-todo]") : null;
+    const todo = row ? todos.byId().get(Number(row.dataset.todo)) : undefined;
+
+    if (todo === undefined) return;
+
+    openOnRelease(event, (x, y) => void contextMenu(connected.app, [
+      { id: "complete", label: copy.complete, enabled: !todo.done, run: () => void toggle(todo, open().map(candidate => candidate.id)) },
+      ...linkEntries(connected.app, { kind: "todo", id: todo.id }, connected.rail.nodes, (node) => connected.rail.exitOf(node) === null, setCreateFailure),
+      { id: "delete", label: copy.delete, run: () => { selection.replace([todo.id]); bulk.ask(); } },
+    ], x, y));
+  };
+
   return (
-    <section aria-label={copy.todos}>
+    <section aria-label={copy.todos} onContextMenu={todoMenu}>
       <button
         data-button="add"
         type="button"
@@ -463,6 +529,7 @@ export const Todos = () => {
             return;
           }
 
+          setCreationRevision(null);
           setCreationHome(selectedWorkstream());
           const draft = creation();
 
@@ -472,6 +539,7 @@ export const Todos = () => {
             return;
           }
 
+          setCreationRevision(draft?.revision ?? null);
           setTyping(true);
         }}
       >
@@ -484,7 +552,7 @@ export const Todos = () => {
         <EmptyState icon="check" heading={copy.noTodosYet} hint={copy.noTodosHint} />
       </Show>
       <Show when={open().length + done().length > 0}>
-        <Groups items={() => [...open(), ...done()]} home={todo => todo.home} maker={todo => todo.creator}>{items => {
+        <Groups unfold={todos.revealed} isUngrouped={todo => todo.id < 0} items={() => [...open(), ...done()]} home={todo => todo.home} maker={todo => todo.creator}>{items => {
         const tree = createMemo(() => treeRows(items().filter(todo => !todo.done)));
 
         const collection = createMemo(() => treeCollection(tree()));
@@ -521,7 +589,7 @@ export const Todos = () => {
               onSelectionKey={selectionKey}
               known={todos.byId()}
               onOpen={show}
-              onComplete={complete}
+              onToggle={todo => toggle(todo, tree().map(row => row.todo.id))}
               sorted={sorted.row(todo.id, parts, () => tree().map(({ todo }) => todo.id))}
               place={row}
               nest={nestOf(todo, row.parent, tree()[at() - 1]?.todo ?? null, at() === 0)}
@@ -540,37 +608,36 @@ export const Todos = () => {
         </TreeView.Tree>
         </Sortable.Root>
         </TreeView.Root>
-        <Show when={unfolded()}>
+        <Show when={wasDoneUnfolded()}>
+          <div class="todo-done-fold" data-open={unfolded()} data-reduced-motion={connected.reducedMotion()} inert={!unfolded()}>
+            <div class="todo-done-content">
             <For each={items().filter(todo => todo.done)}>
               {(todo) => (
-                <ShelfRow
-                  glyph={<TickBox todo={todo} />}
-                  class="todo-row todo-inset"
-                  data-id={todo.id}
-                  data-todo={todo.id}
-                  data-selected={selection.selected().includes(todo.id) ? "true" : undefined}
-                  head={
-                    <RowButton
-                      hang={false}
-                      label={copy.todoRow(KIND_LABEL[kindOf(todo)], todo.id, todo.title)}
-                      tooltip={todo.title}
-                      pressed={selection.selected().includes(todo.id)}
-                      selectionActive={selection.selected().length > 0}
-                      ref={(row) => selection.register(todo.id, row)}
-                      onKeyDown={(event) => selectionKey(todo, event)}
-                      onClick={(event) => !bulk.pending() && selection.click(todo.id, event, () => show(todo, activationSource(event)))}
-                    >
-                      {(trigger) => <span {...trigger()} class="shelf-title">{todo.title}</span>}
-                    </RowButton>
-                  }
+                <OpenRow
+                  todo={todo}
+                  known={todos.byId()}
+                  onOpen={show}
+                  onToggle={todo => toggle(todo, items().filter(candidate => candidate.done).map(candidate => candidate.id))}
+                  selected={shown()?.id === todo.id}
+                  pressed={selection.selected().includes(todo.id)}
+                  selectionActive={selection.selected().length > 0}
+                  onPick={(picked, event) => !bulk.pending() && selection.click(picked.id, event, () => show(picked, activationSource(event)))}
+                  onSelectionKey={selectionKey}
+                  registerRow={(id, row) => {
+                    selection.register(id, row);
+
+                    if (row) rows.set(id, row); else rows.delete(id);
+                  }}
                 />
               )}
             </For>
+            </div>
+          </div>
         </Show>
         </>; }}</Groups>
       </Show>
       <Show when={typing()}>
-        <div class="shelf-list">
+        <div class="shelf-list" ref={element => { creationRow = element; }}>
           <EntryRow
             glyph={<input type="checkbox" class="todo-tick" disabled tabIndex={-1} aria-hidden="true" />}
             class="todo-inset"

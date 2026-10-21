@@ -989,8 +989,8 @@ def resolve_generated(regenerate=REGENERATE):
 
 
 def restore_merge_loss(main_ref='origin/main', rules=None):
-    """L120: when `rules.sh merge-loss` fails on the checked-out branch, restore main's version of each file it lists
-    (removing one main lacks), commit that, and rerun it. Returns whether it then passes; a rerun that still fails
+    """L120: when `rules.sh merge-loss` fails on the checked-out branch, restore the merge base's version of each file it
+    lists (removing one the base lacks), commit that, and rerun it. Returns whether it then passes; a rerun that still fails
     resets the branch to where it began, so the engine runs as for any fix."""
     rules = rules or ROOT / 'loop/rules.sh'
     check = lambda: subprocess.run(['bash', str(rules), 'merge-loss', main_ref], text=True, capture_output=True, timeout=600)
@@ -1000,11 +1000,12 @@ def restore_merge_loss(main_ref='origin/main', rules=None):
     if not first.returncode or not lost:
         print(f'restore-merge-loss: no file to restore: {first.stderr.strip()}', file=sys.stderr)
         return False
+    base = git('merge-base', main_ref, 'HEAD').stdout.strip()
     for path in lost:
-        if git('cat-file', '-e', f'{main_ref}:{path}').returncode:
+        if git('cat-file', '-e', f'{base}:{path}').returncode:
             git('rm', '-q', '-f', '--', path)
         else:
-            git('checkout', main_ref, '--', path)
+            git('checkout', base, '--', path)
     author = os.environ.get('GITHUB_RUN_ID', '0')
     commit = git('commit', '-q', '-m', f"Restore main's version of {len(lost)} file(s) a merge lost",
                  '-m', f'Author-Agent: builder-{author}')
@@ -1040,7 +1041,8 @@ def fix_task(pr, head, cause, run_id=0, output=None):
             out.write('plumbing=true\n' * plumbing + 'merge_loss=true\n' * merge_loss)
     attempts = orders.marked(pr, '<!-- fix-attempt -->', reopened(pr))
     verdicts = orders.marked(pr, 'VERDICT:')
-    answered = orders.created(attempts[-1]['created_at']) if attempts else 0
+    # A fix run answers only the rejects posted before it began: one posted while it ran is still open.
+    answered = (started(attempts[-1]['body']) or orders.created(attempts[-1]['created_at'])) if attempts else 0
     if cause == 'review' and verdicts and answered > orders.created(verdicts[-1]['created_at']) and \
             time.time() - answered < IDLE:
         # A fix run answered the last reject, and its push or `fixed` starts a new review: that verdict decides, not the old one.
@@ -1062,15 +1064,16 @@ def fix_task(pr, head, cause, run_id=0, output=None):
 
 
 def exhaust(current, attempts, verdicts, cause):
-    """A Builder PR out of fix runs: tell its work Issue what failed, close the PR unmerged, delete its branch and strike
-    the Issue, once per PR. The closed PR keeps its diff at `refs/pull/<pr>/head`. A PR naming no Issue asks the user."""
+    """A Builder PR out of fix runs: tell its work Issue what failed and strike it, once per PR since it was last
+    reopened, then close the PR unmerged and delete its branch. The closed PR keeps its diff at `refs/pull/<pr>/head`. A PR naming no Issue asks the user."""
     pr, branch = current['number'], current['headRefName']
     match = LINKED.search(current['body'] or '')
     if not match:
         flag(pr, f'{fix_attempts()} fix runs did not get this PR to merge, and its body names no Issue to record that on.')
         return
     issue = int(match[1])
-    if orders.marked(issue, f'<!-- fix-exhausted #{pr} -->'):
+    if orders.marked(issue, f'<!-- fix-exhausted #{pr} -->', reopened(pr)):
+        call('pr', 'close', str(pr), '--delete-branch')
         return
     commits = orders.gh('pr', 'view', str(pr), '--json', 'commits')['commits']
 

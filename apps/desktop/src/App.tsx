@@ -24,6 +24,7 @@ import { railStorage } from "./rail/persist/storage";
 import { Rail } from "./rail/Rail";
 import { Help } from "./keys/Help";
 import { Leader } from "./keys/Leader";
+import { Capture } from "./todos/Capture";
 import { Keys } from "./keys/Keys";
 import { createNow } from "./state/clock";
 import type { Clock } from "./state/clock";
@@ -168,7 +169,7 @@ export const App = (props: {
   const clearBrowserSelection = (event: MouseEvent) => {
     document.documentElement.dataset.keyboardFocus = "false";
 
-    if (event.button !== 0) return;
+    if (event.button !== 0 || event.ctrlKey) return;
 
     window.getSelection()?.removeAllRanges();
     const editing = document.activeElement;
@@ -179,12 +180,16 @@ export const App = (props: {
     }
   };
 
+  const suppressBrowserMenu = (event: MouseEvent) => event.preventDefault();
+
   onMount(() => {
+    window.addEventListener("contextmenu", suppressBrowserMenu, true);
     // Start keyboard-visible for native accessibility focus arriving before any page input.
     document.documentElement.dataset.keyboardFocus = "true";
     window.addEventListener("pointerdown", clearBrowserSelection, true);
   });
   onCleanup(() => {
+    window.removeEventListener("contextmenu", suppressBrowserMenu, true);
     window.removeEventListener("pointerdown", clearBrowserSelection, true);
     delete document.documentElement.dataset.keyboardFocus;
   });
@@ -354,6 +359,7 @@ export const App = (props: {
               onRename={renameProject}
               onClose={(path) => void projects.close(path)}
               onChoose={() => void projects.choose()}
+              app={props.app}
             />
           </WindowBar>
         }
@@ -420,6 +426,7 @@ export const App = (props: {
                   <DrawerHost drawer={open.drawer} reducedMotion={open.reducedMotion} />
                   <Help />
                   <Leader />
+                  <Capture onFile={() => { if (!frame.open()) shelfFocus.toggle("key"); frame.setTab("todos"); }} />
                 </>
               )}
             </InProject>

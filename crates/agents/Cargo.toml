@@ -5,6 +5,7 @@ license.workspace = true
 version.workspace = true
 
 [dependencies]
+axum = { version = "0.8.9", default-features = false, features = ["http1", "json", "tokio"] }
 async-trait.workspace = true
 contracts = { path = "../contracts" }
 checkpoints = { path = "../checkpoints" }
@@ -16,7 +17,7 @@ rusqlite.workspace = true
 rusqlite_migration.workspace = true
 regex.workspace = true
 serde.workspace = true
-serde_json.workspace = true
+serde_json = { workspace = true, features = ["raw_value"] }
 flate2 = "1"
 fs-more = "0.8.1"
 sha2 = "0.10"
