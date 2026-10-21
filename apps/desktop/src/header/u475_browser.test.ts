@@ -119,7 +119,7 @@ it("u2773a_header_restores_exact_work_browser", async () => {
   await browser("wait", "--fn", `!!document.querySelector('.tab-rename')`);
   expect(await read<unknown[]>(`(() => { const field = document.querySelector('.tab-rename'); return [field.value, field.selectionStart, field.selectionEnd, field.selectionDirection, document.activeElement === field]; })()`)).toEqual(['  é 🪁 雪  ', 2, 6, 'backward', true]);
   await browser("eval", `(() => { Storage.prototype.setItem = () => { throw new Error('disk full'); }; const field = document.querySelector('.tab-rename'); field.value = '  newer 雪  '; field.dispatchEvent(new Event('input', {bubbles:true})); field.dispatchEvent(new KeyboardEvent('keydown', {key:'Escape', bubbles:true})); })()`);
-  await browser("wait", "--fn", `!!document.querySelector('.draft-identity[role=status]')`);
+  await browser("wait", "--fn", `!!document.querySelector('.draft-recovery[role=status]')`);
   await browser("screenshot", "/tmp/header-retention-failure.png");
   await browser("eval", `document.querySelector('[aria-label^="Recover unfinished work ·"]').click()`);
   await browser("wait", "--fn", `!!document.querySelector('[role="dialog"]')`);

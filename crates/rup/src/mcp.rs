@@ -368,6 +368,10 @@ pub(crate) fn commands(door: bool) -> Vec<Offered> {
         "project.measurements",
         "Read retained Project measurements and collection coverage.",
     ));
+    list.push(offered::<contracts::project::MeasurementSummaryParams>(
+        "project.measurementSummary",
+        "Read a Workstream’s consumed tokens and ranked contributors, twenty per page. Later pages require the first page’s revision; reconcile from offset zero after a revision conflict. Unknown coverage is not zero. This does not report money or time.",
+    ));
     list.extend([
         agent_digest(),
         workstream_handoff(),

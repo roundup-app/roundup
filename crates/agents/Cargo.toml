@@ -5,6 +5,8 @@ license.workspace = true
 version.workspace = true
 
 [dependencies]
+bigdecimal = "0.4.11"
+rangemap = "1.6"
 axum = { version = "0.8.9", default-features = false, features = ["http1", "json", "tokio"] }
 async-trait.workspace = true
 contracts = { path = "../contracts" }

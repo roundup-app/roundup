@@ -75,6 +75,7 @@ fn listed(
 fn note(id: u32, text: &str, one_line: bool) -> Entry {
     Entry {
         id,
+        actor: contracts::Actor::user(),
         kind: contracts::message::MessageKind::Note,
         from: "rupd".into(),
         text: text.into(),
