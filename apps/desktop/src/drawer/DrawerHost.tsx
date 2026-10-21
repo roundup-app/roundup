@@ -67,7 +67,10 @@ export const DrawerHost = (props: { drawer: DrawerState; reducedMotion: Accessor
 
       if (previous === undefined) return;
 
-      lifetime.retarget(isOpen(), !instant());
+      // U3010b: a preference change alone settles; turning reduced motion off replays no slide.
+      const preferenceOnly = previous[0] === props.drawer.content() && previous[1] === props.drawer.source();
+
+      lifetime.retarget(isOpen(), !instant() && !preferenceOnly);
 
       if (!instant()) return;
 
