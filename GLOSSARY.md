@@ -747,7 +747,13 @@ tells subscribers to reconcile that revision. `MeasurementSource` reports last g
 failure cause and uncovered history. Explicit Project/Workstream deletion remains effective.
 
 **Timed activity** (`TimedActivity`):
-A roundup-observed Attempt lifetime, blocking Decision, or blocking coordination operation linked to its original Message. It is distinct from model/tool execution.
+A roundup-observed Attempt lifetime, Startup, Idle phase, blocking Decision, or blocking coordination operation linked to its original Message. It is distinct from model/tool execution.
+
+**Startup** (`TimedActivity::Startup`):
+The positively observed launch phase ending at its first acknowledgement. It is retained only for an acknowledged Attempt; missing historical launch points stay unknown.
+
+**Idle phase** (`TimedActivity::Idle`):
+A continuously observed Adapter idle Status, identified by its opening Status revision and original Agent, Attempt and Home. The next non-idle Status or Attempt end closes it; working and blocked Statuses imply neither idle nor execution. Clock gaps remain uncovered.
 
 **Clock point** (`ClockPoint`):
 An observation of local wall time and a monotonic offset within one clock lifetime. Wall time aligns evidence; monotonic offsets measure durations only within that lifetime.

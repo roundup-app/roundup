@@ -311,6 +311,8 @@ pub struct MeasurementSource {
 #[ts(export, export_to = "project/")]
 pub enum TimedActivity {
     Attempt,
+    Startup,
+    Idle { status_revision: String },
     Decision { decision: String },
     Coordination { message: u32 },
 }
