@@ -289,11 +289,16 @@ it.skipIf(!captureDir("DV6"))("dv6_bound_share_pointer_and_keyboard_keep_identit
     const url = `roundup://deliverable/${record.id}?project=${record.project}`;
     expect(await evaluate("window.__dv6.copied")).toEqual([`${url}\nrup link read ${url}`]);
     await capture("copied");
+    await browser("focus", `${row} button`);
+    await browser("eval", `document.activeElement.dispatchEvent(new KeyboardEvent('keydown', {key:'ContextMenu',bubbles:true,cancelable:true}))`);
+    await browser("wait", "--fn", "window.__dv6.copied.length === 2");
+    expect(await evaluate("window.__dv6.copied")).toEqual([`${url}\nrup link read ${url}`, `${url}\nrup link read ${url}`]);
+    await capture("keyboard-copied");
     await app.rpc("pad.delete", { name: pad.name });
     await browser("focus", `${row} button`);
-    await browser("eval", `document.querySelector(${JSON.stringify(row)} + ' button').dispatchEvent(new MouseEvent('contextmenu', {bubbles:true,cancelable:true}))`);
+    await browser("eval", `document.activeElement.dispatchEvent(new KeyboardEvent('keydown', {key:'F10',shiftKey:true,bubbles:true,cancelable:true}))`);
     await browser("wait", "--fn", "!!document.querySelector('.made [role=alert]')");
-    expect(await evaluate("window.__dv6.copied.length")).toBe(1);
+    expect(await evaluate("window.__dv6.copied.length")).toBe(2);
     expect(await evaluate(`document.activeElement === document.querySelector(${JSON.stringify(row)} + ' button')`)).toBe(true);
     await capture("unavailable");
   } finally {

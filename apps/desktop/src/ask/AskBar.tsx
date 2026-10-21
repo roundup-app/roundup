@@ -411,6 +411,29 @@ const Deliverables = (props: { state: ReturnType<typeof createDeliverables> }) =
     }
   };
 
+  const openMenu = (record: Deliverable, x: number, y: number) => {
+    setSelected(record.id);
+    setFailure(null);
+    void contextMenu(connected.app, linkEntries(connected.app, { kind: "deliverable", project: record.project, id: record.id },
+      connected.rail.nodes, node => connected.rail.exitOf(node) === null, cause => setFailure({ id: record.id, cause })), x, y);
+  };
+
+  let section: HTMLElement | undefined;
+  registerKeys({ kind: "region", element: () => section }, [{
+    chords: ["ContextMenu", "Shift+F10"],
+    when: event => event.target instanceof HTMLElement && event.target.matches(".made-open"),
+    run: event => {
+      if (event.repeat || !(event.target instanceof HTMLElement)) return;
+      const id = event.target.closest<HTMLElement>("[data-deliverable]")?.dataset.deliverable;
+      const record = records().find(record => record.id === id);
+
+      if (record) {
+        const box = event.target.getBoundingClientRect();
+        openMenu(record, box.left, box.bottom);
+      }
+    },
+  }]);
+
   const home = (record: Deliverable) => record.home === null ? copy.overview
     : connected.rail.nodes.find(node => node.id === record.home)?.name ?? record.home;
 
@@ -421,18 +444,13 @@ const Deliverables = (props: { state: ReturnType<typeof createDeliverables> }) =
     : record.target.kind === "pad" ? record.target.name : record.target.path;
 
   return <Show when={records().length > 0 || props.state.failure() !== null}>
-    <section class="made" aria-label={copy.deliverables} aria-busy={pending() !== null || props.state.loading()}>
+    <section ref={section} class="made" aria-label={copy.deliverables} aria-busy={pending() !== null || props.state.loading()}>
       <div class="made-heading"><h2 class="overview-heading">{copy.deliverables}</h2>
         <button type="button" data-button="quiet" onClick={() => { void props.state.refresh(); }}>{copy.refresh}</button>
       </div>
       <Show when={props.state.failure()}>{message => <ErrorLine message={message()} />}</Show>
       <ul class="made-list"><For each={records()}>{record => <li class="made-row" data-deliverable={record.id} data-selected={selected() === record.id}
-        onContextMenu={event => openOnRelease(event, (x, y) => {
-          setSelected(record.id);
-          setFailure(null);
-          void contextMenu(connected.app, linkEntries(connected.app, { kind: "deliverable", project: record.project, id: record.id },
-            connected.rail.nodes, node => connected.rail.exitOf(node) === null, cause => setFailure({ id: record.id, cause })), x, y);
-        })}>
+        onContextMenu={event => openOnRelease(event, (x, y) => openMenu(record, x, y))}>
         <Tip disabled={failure()?.id === record.id} text={record.target.kind === "file" ? `${target(record)} · ${record.target.sha256}` : record.target.kind === "external" ? `${target(record)} · ${copy.deliverableNotChecked}` : target(record)}>{trigger => <button {...trigger()} type="button" data-button="quiet" class="made-open" aria-current={selected() === record.id ? "true" : undefined}
           aria-label={copy.openDeliverable(record.title, record.maker_name, home(record), record.published_at)} aria-disabled={pending() !== null}
           onClick={() => { void open(record); }}>
