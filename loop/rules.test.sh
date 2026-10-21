@@ -199,6 +199,8 @@ merge_repo; git rm -q scenarios/loop.md; commit "remove it" 'Author-Agent: t'
 loss_code 0 "L120 a deletion made in an own commit passes"
 merge_repo; main_commit scenarios/loop.md changed; merge_main; echo a >scenarios/loop.md; finish_merge
 loss_code 1 "L120 a merge that drops a main hunk in an untouched file fails, listing it" "scenarios/loop.md"
+merge_repo; main_commit other.txt x; merge_main; finish_merge; main_commit scenarios/loop.md later
+loss_code 0 "L120 a file main changed after the branch's last merge of main passes"
 
 # L2, L33, L37 read only fake GitHub data, with real commit trees.
 gate_repo() {
