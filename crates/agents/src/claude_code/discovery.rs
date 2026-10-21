@@ -981,52 +981,57 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn u3037b_middle_metadata_is_preserved_or_explicitly_refused() {
+    async fn u3037b_middle_metadata_is_preserved() {
         let root = tempfile::tempdir().unwrap();
         let project = root.path().join("project");
         std::fs::create_dir(&project).unwrap();
         let config = root.path().join("config");
         let diagnostic = format!("{{\"payload\":\"{}\"}}\n", "x".repeat(60_000));
-        let mut failures = Vec::new();
         for title in [false, true] {
-            let header = record(
-                "user",
-                &project,
-                if title {
-                    "2026-10-18T12:00:00Z"
-                } else {
-                    "2026-10-01T00:00:00Z"
-                },
-            ) + "\n";
-            let middle = if title {
-                "{\"type\":\"custom-title\",\"customTitle\":\"User chosen title\"}\n".into()
+            let header = record("user", &project, if title {
+                "2026-10-18T12:00:00Z"
             } else {
-                record("user", &project, "2026-10-18T12:00:00Z") + "\n"
-            };
-            store(
-                &config,
-                "x",
-                SESSION,
-                &(header + &diagnostic.repeat(7) + &middle + &diagnostic.repeat(7)),
-            );
-            let found = launcher(&config)
-                .discover_recent(&project, NOW, 7 * DAY)
-                .await
-                .unwrap();
-            let preserved = found.candidates.first().is_some_and(|candidate| {
-                candidate.last_activity_ms == NOW - DAY
-                    && (!title || candidate.title == "User chosen title")
-            });
-            let refused = found.candidates.is_empty()
-                && found.excluded.iter().any(|source| {
-                    source.source == SESSION
-                        && source.reason.contains("unsupported metadata layout")
-                });
-            if !preserved && !refused {
-                failures.push(format!("title={title}: {found:?}"));
+                "2026-10-01T00:00:00Z"
+            }) + "\n";
+            let mut lengths = Vec::new();
+            for variant in [false, true] {
+                let middle = if title {
+                    format!("{{\"type\":\"custom-title\",\"customTitle\":\"{}\"}}\n", if variant {
+                        "Other chosen name"
+                    } else {
+                        "First chosen name"
+                    })
+                } else {
+                    record("user", &project, if variant {
+                        "2026-10-18T12:00:00Z"
+                    } else {
+                        "2026-10-01T12:00:00Z"
+                    }) + "\n"
+                };
+                let text = header.clone() + &diagnostic.repeat(7) + &middle + &diagnostic.repeat(7);
+                lengths.push(text.len());
+                store(&config, "x", SESSION, &text);
+                let path = config.join("projects").join(encoded(&project)).join(format!("{SESSION}.jsonl"));
+                std::fs::File::options().write(true).open(&path).unwrap()
+                    .set_modified(UNIX_EPOCH + Duration::from_millis(NOW as u64)).unwrap();
+                let launcher = launcher(&config);
+                let found = launcher.discover_recent(&project, NOW, 7 * DAY).await.unwrap();
+                assert!(found.excluded.is_empty(), "{found:?}");
+                if title || variant {
+                    assert_eq!(found.candidates.len(), 1, "{found:?}");
+                    let candidate = &found.candidates[0];
+                    assert_eq!(candidate.last_activity_ms, NOW - DAY);
+                    if title {
+                        assert_eq!(candidate.title, if variant { "Other chosen name" } else { "First chosen name" });
+                    }
+                    let (confirmed, _) = launcher.read_import_snapshot(&project, SESSION, &candidate.revision, NOW).unwrap();
+                    assert_eq!(&confirmed, candidate);
+                } else {
+                    assert!(found.candidates.is_empty());
+                }
             }
+            assert_eq!(lengths[0], lengths[1]);
         }
-        assert!(failures.is_empty(), "middle metadata lost: {failures:#?}");
     }
 
     #[tokio::test]
