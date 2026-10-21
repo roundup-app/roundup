@@ -17,3 +17,5 @@ Source: the user's $anchor rules on attention, navigation and ergonomics (2026-1
 **U110 retired by U467.** The Thread's feed, input and Quote are gone.
 
 Tests are named `u107_`; U108 has a pass condition and no test.
+
+**U3742 an Agent's comment waits in the Inbox as needs-you until the Todo is opened.** Work order: [#3192](https://github.com/saadshahd/roundup/issues/3192). Journey: Review. Given a Todo with an unread Agent comment (T23), when the Inbox opens, then one row names the Agent and the Todo and shows the comment's line in the needs-you amber; activating it opens that Todo's Drawer (U3741), which marks the comment read, and the row leaves the Inbox. The row is driven by `todo.unread` and the `todo.commented`, `todo.commentsRead` and `todo.deleted` events, never by a Message, sets no Rail Kind and makes no Toast. Test: `u3742_an_unread_agent_comment_is_a_needs_you_row_until_opened`. Moves: D2, D5, D6.
