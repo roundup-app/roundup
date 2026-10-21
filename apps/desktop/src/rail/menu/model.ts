@@ -82,8 +82,6 @@ export const createRailMenu = (app: AppSeam, rail: RailState, onFailure: (messag
   };
 
   const resume = async (id: string) => {
-    rail.select(id);
-
     if (resuming.has(id)) return;
 
     resuming.add(id);
@@ -210,7 +208,9 @@ export const createRailMenu = (app: AppSeam, rail: RailState, onFailure: (messag
       { id: "restart", label: copy.restart, enabled: node.yolo, run: () => restart(node, "normal") },
       { id: "yolo", label: copy.startYolo, enabled: !node.yolo, run: () => restart(node, "yolo") },
       { id: "stop", label: copy.stop, enabled: isRunning(node, exit), run: () => requestStop(node, exit) },
-      { id: "resume", label: copy.resume, enabled: isResumable(node, exit), run: () => resume(node.id) },
+      { id: "resume", label: copy.resume, enabled: isResumable(node, exit), run: () => { rail.select(node.id);
+
+ return resume(node.id); } },
     ];
 
     if (node.kind === "workstream") items.push({ id: "clear", label: copy.clearMenu, enabled: isClearable(node), run: () => requestClear(node) });
