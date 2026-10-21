@@ -255,6 +255,9 @@ The panel `?` opens over the centre pane, listing each chord and what it does.
 An item with an optional blocker list of other Todos, with a Home, in one order, the user's.
 _Avoid_: task, ticket
 
+**Reopen** (`todo.reopen`, `todo_reopen`):
+Return a done Todo to open without changing its identity, Home, owner, blockers or place in the Todo order. Its dependents again derive `blocked` from their open blockers.
+
 **Owner** (`owner`):
 Who does a Todo's work: the user (shown as "Me", still refining the Todo's seed), one Agent, or nobody (shown as "Unassigned"). It is never `creator`, who wrote the Todo. `todo.create` may name one; `todo.assign` changes it and is recorded in the Todo's history. An owner Agent that ends keeps its Todos; removing it from the Rail unassigns them (T16, T17).
 _Avoid_: assignee
@@ -646,7 +649,7 @@ A PNG, video or checks JSON under the artifact-relative `artifacts/ux/<id>/` (jo
 
 **Read History** (`todo.readHistory`, `ReadHistoryParams`): log the calling Actor's read Touch with `through`, the last fetched Change's sequence. `unread` names the first Change after the previous read. Equal clock times do not merge reads and Changes.
 
-**Tick box** (`TickBox`): the shared native Todo completion control on its row and before its Drawer title; a done Todo is checked and cannot be completed again.
+**Tick box** (`TickBox`): the shared native Todo completion control on its row and before its Drawer title; a done Todo is checked; unticking it reopens it, and ticking an open Todo completes it. Both keep the accepted value until the Daemon accepts the change.
 
 ### App component layer
 
@@ -725,3 +728,14 @@ The retained target identity of a Deliverable: local bytes with length and SHA-2
 
 **Resolution** (`Resolution`, `UnavailableCause`):
 The exact retained target or an explicit cause preventing its use. Missing or corrupt revisions and revoked access never authorize substitution by a current path, title or same-named Pad.
+
+**Measurement** (`project.measurements`):
+A retained source contribution attributed to its original Project, maker Agent, Home at
+observation and Attempt when known. A source revision replaces the same contribution's
+consumption; the revision journal preserves earlier facts. `Consumed` holds four disjoint
+categories (input, output, cache read and cache write), with missing values unknown.
+`MeasurementValue` is a request or an `Execution` interval (Agent or tool); source wall-clock
+endpoints retain their meaning and never imply monotonic continuity. `Measurements` is a
+coherent read at one retained revision; `MeasurementsChanged` (`project.measurementsChanged`)
+tells subscribers to reconcile that revision. `MeasurementSource` reports last good collection,
+failure cause and uncovered history. Explicit Project/Workstream deletion remains effective.
