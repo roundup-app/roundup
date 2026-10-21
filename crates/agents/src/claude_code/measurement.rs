@@ -492,6 +492,222 @@ mod recovery_tests {
         tokio::task::yield_now().await;
     }
 
+    struct Recovery {
+        agents: Agents,
+        ctx: Ctx,
+        dir: tempfile::TempDir,
+        file: std::fs::File,
+        ticks: tokio::sync::mpsc::Receiver<()>,
+    }
+
+    impl Recovery {
+        fn new() -> Self {
+            let (tick, ticks) = tokio::sync::mpsc::channel(8);
+            let (dir, bus, shared) = crate::tests::shared_over_temp_dir(Arc::new(move || {
+                tick.try_send(()).unwrap();
+                1000
+            }));
+            let launcher = Launcher::new(
+                "false",
+                dir.path().join("config"),
+                dir.path().join("rup"),
+                None,
+            );
+            let source = "11111111-1111-4111-8111-111111111111";
+            let path = launcher.conversation_path(dir.path(), source).unwrap();
+            std::fs::create_dir_all(path.parent().unwrap()).unwrap();
+            let file = std::fs::File::create(path).unwrap();
+            let home = shared
+                .rail()
+                .insert(NodeKind::Workstream, "home", None, None)
+                .unwrap()
+                .id;
+            let id = shared
+                .rail()
+                .insert(NodeKind::Agent, "maker", Some(&home), Some("1"))
+                .unwrap()
+                .id;
+            shared
+                .rail()
+                .save_conversation(&id, source, dir.path().to_str().unwrap())
+                .unwrap();
+            shared
+                .rail()
+                .observe_measurement_owner(&id, source, dir.path().to_str().unwrap(), "1");
+            let agents = Agents {
+                shared,
+                dir: dir.path().into(),
+                launcher,
+            };
+            let ctx = Ctx {
+                actor: Actor::user(),
+                bus,
+                touches: Arc::new(provenance::Touches::in_memory().unwrap()),
+            };
+            Self {
+                agents,
+                ctx,
+                dir,
+                file,
+                ticks,
+            }
+        }
+
+        fn append(&mut self, id: &str) {
+            writeln!(self.file, "{}", json!({"type":"assistant","sessionId":"11111111-1111-4111-8111-111111111111","requestId":id,"message":{"usage":{"input_tokens":7,"output_tokens":3,"cache_read_input_tokens":0,"cache_creation_input_tokens":0}}})).unwrap();
+        }
+
+        fn collect(&self) {
+            self.agents
+                .shared
+                .rail()
+                .collect_measurements(&self.agents.launcher, 1000);
+        }
+
+        async fn read(&self) -> Value {
+            self.agents
+                .call(&self.ctx, "project.measurements", Value::Null)
+                .await
+                .unwrap()
+        }
+
+        fn reopen(&mut self) {
+            let bus = Bus::new();
+            let terms = Arc::new(Terminals::open(self.dir.path(), bus.clone()).unwrap());
+            self.agents = Agents::open_with(
+                self.dir.path(),
+                bus.clone(),
+                terms,
+                self.agents.launcher.clone(),
+                worktree::Git::from_env(),
+            )
+            .unwrap();
+            self.ctx.bus = bus;
+        }
+
+        fn db(&self) -> rusqlite::Connection {
+            rusqlite::Connection::open(self.dir.path().join("agents.db")).unwrap()
+        }
+    }
+
+    fn requests(read: &Value) -> Vec<Value> {
+        read["contributions"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .filter(|fact| fact["value"]["kind"] == "request")
+            .cloned()
+            .collect()
+    }
+
+    fn recovered_requests(good: &Value, recovered: &Value) {
+        let before = requests(good);
+        let after = requests(recovered);
+        assert_eq!(before.len(), 1);
+        assert_eq!(after.len(), 2);
+        assert!(
+            after.contains(&before[0]),
+            "the original request and attribution survive"
+        );
+        assert_ne!(after[0]["identity"], after[1]["identity"]);
+        for fact in &after {
+            for field in ["agent", "home", "maker", "attempt"] {
+                assert_eq!(fact[field], before[0][field]);
+            }
+            assert_eq!(fact["value"], before[0]["value"]);
+        }
+        assert!(
+            recovered["revision"]
+                .as_str()
+                .unwrap()
+                .parse::<u64>()
+                .unwrap()
+                > good["revision"].as_str().unwrap().parse::<u64>().unwrap()
+        );
+    }
+
+    #[tokio::test(start_paused = true)]
+    async fn u3119a_revision_write_recovery_publishes_the_request() {
+        let mut w = Recovery::new();
+        w.append("first");
+        w.collect();
+        let good = w.read().await;
+        w.agents.observe_measurements();
+        tokio::task::yield_now().await;
+        let mut events = w.ctx.bus.subscribe();
+        let db = w.db();
+        db.execute_batch("ALTER TABLE measurement_state RENAME TO held_measurement_state")
+            .unwrap();
+        w.append("second");
+        pass(&w.agents, &mut w.ticks).await;
+        assert!(
+            w.agents
+                .call(&w.ctx, "project.measurements", Value::Null)
+                .await
+                .is_err()
+        );
+        db.execute_batch("ALTER TABLE held_measurement_state RENAME TO measurement_state")
+            .unwrap();
+        let restored = w.read().await;
+        if requests(&restored).len() == 2 {
+            recovered_requests(&good, &restored);
+        }
+        pass(&w.agents, &mut w.ticks).await;
+        let recovered = w.read().await;
+        recovered_requests(&good, &recovered);
+        loop {
+            let event = tokio::time::timeout(Duration::from_secs(2), events.recv())
+                .await
+                .unwrap()
+                .unwrap();
+            if let EventData::MeasurementsChanged { revision } = event.data
+                && revision.parse::<u64>().unwrap()
+                    > good["revision"].as_str().unwrap().parse::<u64>().unwrap()
+            {
+                let read = w.read().await;
+                assert!(
+                    read["revision"].as_str().unwrap().parse::<u64>().unwrap()
+                        >= revision.parse::<u64>().unwrap()
+                );
+                assert_eq!(requests(&read), requests(&recovered));
+                break;
+            }
+        }
+    }
+
+    #[tokio::test]
+    async fn u3119b_revision_write_recovery_survives_reopen() {
+        for (fail, restore) in [
+            (
+                "ALTER TABLE measurement_state RENAME TO held_measurement_state",
+                "ALTER TABLE held_measurement_state RENAME TO measurement_state",
+            ),
+            (
+                "CREATE TRIGGER refuse_request BEFORE INSERT ON measurement_revisions BEGIN SELECT RAISE(ABORT,'retention refused'); END;",
+                "DROP TRIGGER refuse_request",
+            ),
+        ] {
+            let mut w = Recovery::new();
+            w.append("first");
+            w.collect();
+            let good = w.read().await;
+            let db = w.db();
+            db.execute_batch(fail).unwrap();
+            w.append("second");
+            w.collect();
+            db.execute_batch(restore).unwrap();
+            w.reopen();
+            w.collect();
+            let recovered = w.read().await;
+            recovered_requests(&good, &recovered);
+            w.reopen();
+            w.collect();
+            let replayed = w.read().await;
+            assert_eq!(requests(&replayed), requests(&recovered));
+            assert_eq!(replayed["revision"], recovered["revision"]);
+        }
+    }
+
     #[tokio::test(start_paused = true)]
     async fn u3016d_storage_read_failure_retries_the_live_source_without_reclaiming() {
         let (tick, mut ticks) = tokio::sync::mpsc::channel(8);
