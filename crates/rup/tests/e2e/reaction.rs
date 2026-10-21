@@ -999,3 +999,91 @@ async fn nr4_every_participant_rearms_before_a_new_completion() {
     drive(&s.user, &s.b, STOP).await;
     assert_eq!(notes(&s.user, &s.w, "two-agent-rearm", 2).await.len(), 2);
 }
+
+#[tokio::test]
+async fn nr4_all_requires_post_rearm_completions_after_daemon_reopen() {
+    let mut s = scene(&[]).await;
+    s.w = super::start_door(&s.user).await;
+    drive(&s.user, &s.a, STOP).await;
+    drive(&s.user, &s.b, STOP).await;
+    let saved = watching(
+        &s,
+        "all-rearm-reopen",
+        &[&s.a, &s.b],
+        json!({ "rearm": true, "max_firings": 2 }),
+    )
+    .await;
+    notes(&s.user, &s.w, "all-rearm-reopen", 1).await;
+    drive(&s.user, &s.a, WORK).await;
+    drive(&s.user, &s.a, STOP).await;
+    drive(&s.user, &s.b, WORK).await;
+    drive(&s.user, &s.b, STOP).await;
+    still(&s.user, &s.w, "all-rearm-reopen", 1).await;
+    drop(s.user);
+    s.project.restart(&[]);
+    s.user = s.project.client().await;
+    start_again(&s.user, &s.w).await;
+    still(&s.user, &s.w, "all-rearm-reopen", 1).await;
+    start_again(&s.user, &s.a).await;
+    drive(&s.user, &s.a, WORK).await;
+    drive(&s.user, &s.a, STOP).await;
+    let sent = notes(&s.user, &s.w, "all-rearm-reopen", 2).await;
+    let accepted = current(&s, &saved).await;
+    assert_eq!(accepted.remaining, 0);
+    assert_eq!(
+        accepted
+            .firings
+            .iter()
+            .map(|f| f.ordinal)
+            .collect::<Vec<_>>(),
+        [1, 2]
+    );
+    assert_eq!(sent.len(), 2);
+}
+
+#[tokio::test]
+async fn nr4_expired_history_cannot_invent_a_post_rearm_completion() {
+    let mut s = scene(&[]).await;
+    s.w = super::start_door(&s.user).await;
+    drive(&s.user, &s.a, STOP).await;
+    drive(&s.user, &s.b, STOP).await;
+    let saved = watching(
+        &s,
+        "gap-rearm",
+        &[&s.a, &s.b],
+        json!({ "any": true, "rearm": true, "max_firings": 2 }),
+    )
+    .await;
+    notes(&s.user, &s.w, "gap-rearm", 1).await;
+    drive(&s.user, &s.a, WORK).await;
+    drive(&s.user, &s.a, STOP).await;
+    still(&s.user, &s.w, "gap-rearm", 1).await;
+    drop(s.user);
+    s.project.crash();
+    let db = project_db(&s.project);
+    db.execute("DELETE FROM events", []).unwrap();
+    db.execute(
+        "UPDATE reaction_watch SET state = json_set(state, '$.seen', 0)",
+        [],
+    )
+    .unwrap();
+    drop(db);
+    s.project.restart(&[]);
+    s.user = s.project.client().await;
+    start_again(&s.user, &s.w).await;
+    start_again(&s.user, &s.b).await;
+    drive(&s.user, &s.b, WORK).await;
+    still(&s.user, &s.w, "gap-rearm", 1).await;
+    let observed = current(&s, &saved).await;
+    assert_eq!(observed.remaining, 1);
+    assert!(
+        observed
+            .observation
+            .gap
+            .as_deref()
+            .unwrap()
+            .contains("expired")
+    );
+    drive(&s.user, &s.b, STOP).await;
+    assert_eq!(notes(&s.user, &s.w, "gap-rearm", 2).await.len(), 2);
+}
