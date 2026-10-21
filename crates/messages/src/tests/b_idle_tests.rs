@@ -532,6 +532,46 @@ async fn b51_repeat_refusal_compares_both_kinds_before_allocating() {
     }
 }
 
+// B51(g): allocation order must not replace the order Messages became deliverable.
+#[tokio::test]
+async fn b51_repeat_refusal_uses_the_last_released_message() {
+    let (_dir, h, inbox, _) = recovering_note("note", contracts::agent::Inbox::Missing).await;
+    for body in ["recover after hold", "different"] {
+        h.call_as(
+            agent("a"),
+            "message.send",
+            json!({"to":"b", "kind":"note", "body":body}),
+        )
+        .await
+        .unwrap();
+    }
+    *inbox.state.lock().unwrap() = contracts::agent::Inbox::Ok;
+    on_status(&h.messages.inner, "b", "1", "2", Kind::Idle).await;
+    assert_eq!(*inbox.written.lock().unwrap(), [1, 3]);
+    h.messages.confirm_inbox("b", &[1, 3]);
+    h.call("message.deliver", json!({"id":2})).await.unwrap();
+    assert_eq!(*inbox.written.lock().unwrap(), [1, 3, 2]);
+    h.messages.confirm_inbox("b", &[2]);
+    let err = h
+        .call_as(
+            agent("a"),
+            "message.send",
+            json!({"to":"b", "kind":"question", "body":"recover after hold"}),
+        )
+        .await
+        .unwrap_err();
+    assert_eq!(err.code, code::CONFLICT);
+    assert_eq!(
+        h.call("message.list", json!({}))
+            .await
+            .unwrap()
+            .as_array()
+            .unwrap()
+            .len(),
+        3
+    );
+}
+
 // B50(f): rejects bypassing Routes/Terminal holds, or changing transport on explicit delivery.
 #[tokio::test]
 async fn b50_routes_and_explicit_delivery_preserve_transport_for_both_kinds() {
