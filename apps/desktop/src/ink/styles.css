@@ -69,6 +69,19 @@ p.ink[role="alert"] {
   background-color: transparent;
 }
 
+/* The tick's 24 px target includes the 8 px after its drawn box, so every
+   tick/text row shares this column, including entry fields without a head. */
+.shelf-row:has(> .shelf-glyph > .todo-tick) {
+  grid-template-columns: var(--space-5) minmax(0, 1fr);
+  column-gap: 0;
+}
+
+/* An external-blocker mark needs space beside the tick before text begins. */
+.shelf-row:has(> .shelf-glyph > .todo-tick):has(> .shelf-glyph > [data-state]) {
+  grid-template-columns: calc(var(--space-5) + var(--space-4)) minmax(0, 1fr);
+  column-gap: var(--space-2);
+}
+
 .shelf-row[data-selected="true"] {
   background-image: linear-gradient(var(--accent), var(--accent)), linear-gradient(var(--selected), var(--selected));
   background-size: 2px 100%, auto;
@@ -111,7 +124,8 @@ p.ink[role="alert"] {
 }
 
 /* U16, U19, U359: a Shelf row's title line, a Todo's, a Pad's and the entry field's alike, is one 16 px line in a 24 px box, so the Glyph's centre is the first line's centre however far the title wraps. */
-.shelf .shelf-row :is(.todo-row-button, .pad-name, .entry-field) {
+.shelf .shelf-row :is(.todo-row-button, .pad-name),
+.entry-row .entry-field {
   display: block;
   box-sizing: border-box;
   min-height: var(--space-5);

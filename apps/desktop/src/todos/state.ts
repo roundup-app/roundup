@@ -7,6 +7,8 @@ import type { AppSeam } from "../app/seam";
 import { failureOf } from "./failureOf";
 
 export type TodosState = {
+  /** Original Project path whose list supplied these identities. */
+  project: string;
   reload: () => Promise<void>;
   /** The Project's Todos as `todo.list` last answered. */
   all: Accessor<readonly Todo[]>;
@@ -21,7 +23,7 @@ export type TodosState = {
 const REFETCH_ON = new Set(["todo.created", "todo.updated", "todo.unblocked", "todo.deleted"]);
 
 /** Subscribes before its first fetch, so no Event between the two is lost. */
-export const createTodosState = (app: AppSeam, events: Events): TodosState => {
+export const createTodosState = (app: AppSeam, events: Events, project: string): TodosState => {
   // Reconciled by id, so a refetch that changes one Todo leaves every other row untouched.
   const [shelf, setShelf] = createStore<{ todos: Todo[] }>({ todos: [] });
   const [failure, setFailure] = createSignal<string | null>(null);
@@ -68,5 +70,5 @@ export const createTodosState = (app: AppSeam, events: Events): TodosState => {
 
   const byId = createMemo(() => new Map(shelf.todos.map((todo) => [todo.id, todo])));
 
-  return { reload, all: () => shelf.todos, byId, failure, isLoaded };
+  return { project, reload, all: () => shelf.todos, byId, failure, isLoaded };
 };

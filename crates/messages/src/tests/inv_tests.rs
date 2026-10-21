@@ -379,10 +379,9 @@ fn inv_the_transition_names_in_step_and_in_model_bend_are_the_same_set() {
     assert_eq!(in_step, in_model);
 }
 
-/// Hand-checked against `model.bend`, so a Builder that drifts from the model on a guard or an
-/// order fails here and not only in a random schedule.
+/// Literal Rust delivery examples; executable B32 correspondence is checked below.
 #[test]
-fn inv_golden_traces_follow_model_bend() {
+fn inv_delivery_examples_preserve_batching_routes_and_exit() {
     let send = |from_user, route| Event::Send { from_user, route };
     let run = |events: Vec<Event>| {
         events
@@ -428,20 +427,6 @@ fn inv_golden_traces_follow_model_bend() {
         (s.held_takeover, s.typed, typed),
         (vec![], vec![1, 2], vec![Effect::Type(1), Effect::Type(2)]),
         "B32: the user's Message under a Takeover is held like any other"
-    );
-
-    let (s, typed) = run(vec![
-        Event::UserInput,
-        send(true, Delivery::Auto),
-        Event::Idle,
-        Event::TakeoverBegin,
-        Event::UserSubmit,
-        Event::TakeoverEnd,
-    ]);
-    assert_eq!(
-        (s.held_takeover, s.typed, typed),
-        (vec![], vec![1], vec![Effect::Type(1)]),
-        "B32: nothing is typed until both the input and the Takeover have ended"
     );
 
     let (s, _) = run(vec![
@@ -588,6 +573,187 @@ fn a35_retirement_projection_preserves_records_and_never_types() {
             assert_eq!(after.hops, initial.hops);
             assert_eq!(after.bounds, initial.bounds);
             assert!(effects.is_empty());
+        }
+    }
+}
+
+/// B32 fixtures use Bend event literals as the one schedule for both executable steps.
+/// The child process is required: a Rust-only replay cannot observe model drift (V4).
+#[test]
+fn b32_each_prefix_matches_executable_bend() {
+    let root = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../..");
+    let work = tempfile::tempdir().unwrap();
+    std::fs::copy(
+        root.join("proofs/messages/model.bend"),
+        work.path().join("model.bend"),
+    )
+    .unwrap();
+    let mut schedules = vec![];
+    for (first, second) in [
+        ("UserInput{}", "TakeoverBegin{}"),
+        ("TakeoverBegin{}", "UserInput{}"),
+    ] {
+        for input_end in ["UserSubmit{}", "UserClear{}"] {
+            for releases in [[input_end, "TakeoverEnd{}"], ["TakeoverEnd{}", input_end]] {
+                schedules.push(vec![
+                    first,
+                    "Send{True{}, M.Auto{}}",
+                    "Idle{}",
+                    second,
+                    releases[0],
+                    releases[1],
+                    "Idle{}",
+                ]);
+            }
+        }
+        schedules.push(vec![
+            first,
+            "Send{True{}, M.Auto{}}",
+            "Idle{}",
+            second,
+            "UserDeliver{1n}",
+            "UserSubmit{}",
+            "TakeoverEnd{}",
+            "Idle{}",
+        ]);
+    }
+    let mut expected = vec![];
+    let mut bend_prefixes = vec![];
+    for events in &schedules {
+        let mut state = State::default();
+        let mut prefix = vec![];
+        for (index, literal) in events.iter().enumerate() {
+            let event = match *literal {
+                "UserInput{}" => Event::UserInput,
+                "TakeoverBegin{}" => Event::TakeoverBegin,
+                "Send{True{}, M.Auto{}}" => Event::Send {
+                    from_user: true,
+                    route: Delivery::Auto,
+                },
+                "Idle{}" => Event::Idle,
+                "UserSubmit{}" => Event::UserSubmit,
+                "UserClear{}" => Event::UserClear,
+                "TakeoverEnd{}" => Event::TakeoverEnd,
+                "UserDeliver{1n}" => Event::UserDeliver(1),
+                _ => panic!("unknown B32 fixture event {literal}"),
+            };
+            let (after, effects) = step(&state, event);
+            if index == 4 && *literal != "UserDeliver{1n}" {
+                assert_eq!(after.held_takeover, [1], "{events:?}");
+                assert!(effects.is_empty(), "{events:?}");
+                assert!(after.takeover || after.unsent, "{events:?}");
+            }
+            if index == 5 && events[4] != "UserDeliver{1n}" {
+                assert_eq!(effects, [Effect::Type(1)], "{events:?}");
+            }
+            if index >= 4 && events[4] == "UserDeliver{1n}" {
+                assert_eq!(after.typed, [1], "explicit delivery wins: {events:?}");
+                assert_eq!(effects.len(), usize::from(index == 4));
+            }
+            expected.push(vec![
+                after.queue.clone(),
+                after.held_ask_first.clone(),
+                after.held_takeover.clone(),
+                after.typed.clone(),
+                after.dropped.clone(),
+                vec![
+                    after.next,
+                    u32::from(after.idle),
+                    u32::from(after.takeover || after.unsent),
+                ],
+            ]);
+            state = after;
+            prefix.push(format!("M.{literal}"));
+            bend_prefixes.push(format!(
+                "projection(M.run([{}], M.init()))",
+                prefix.join(", ")
+            ));
+        }
+    }
+    let observer = format!(
+        r#"import Base
+import ./model.bend as M
+
+def bit(b: Bool) -> Nat:
+  match b:
+    case True{{}}:
+      1n
+    case False{{}}:
+      0n
+
+def projection(s: M.World) -> +List<+List<Nat>>:
+  match s:
+    case M.W{{+q, +haf, +htk, +t, +d, +u, +tt, +rl, +n, +tk, +us, +i, +g}}:
+      [q, haf, htk, t, d, [n, bit(i), bit(Bool.or(tk, us))]]
+
+def main() -> +List<+List<+List<Nat>>>:
+  [{}]
+"#,
+        bend_prefixes.join(",\n   ")
+    );
+    let file = work.path().join("b32.bend");
+    std::fs::write(&file, observer).unwrap();
+    let execute = || {
+        let output = std::process::Command::new(root.join("proofs/.tools/bend/bin/bend"))
+            .env("BEND_NO_TELEMETRY", "1")
+            .arg(&file)
+            .output()
+            .expect("install the pinned checker with just proofs-setup");
+        assert!(
+            output.status.success(),
+            "{}\n{}",
+            String::from_utf8_lossy(&output.stdout),
+            String::from_utf8_lossy(&output.stderr)
+        );
+        let actual = String::from_utf8(output.stdout).unwrap().replace('n', "");
+        serde_json::from_str::<Vec<Vec<Vec<u32>>>>(&actual).expect("Bend delivery projections")
+    };
+    let compare = |actual: &[Vec<Vec<u32>>]| {
+        assert_eq!(
+            actual.len(),
+            expected.len(),
+            "one projection per fixture prefix"
+        );
+        actual.iter().zip(&expected).position(|(a, b)| a != b)
+    };
+    let actual = execute();
+    assert_eq!(compare(&actual), None, "B32 prefix differs: {actual:?}");
+
+    let model_file = work.path().join("model.bend");
+    let model = std::fs::read_to_string(&model_file).unwrap();
+    for (release, broken) in [
+        (
+            "release(us, W{q, haf, htk, t, d, u, tt, rl, n, False{}, us, i, g})",
+            "release(False{}, W{q, haf, htk, t, d, u, tt, rl, n, False{}, False{}, i, g})",
+        ),
+        (
+            "release(tk, W{q, haf, htk, t, d, u, tt, rl, n, tk, False{}, i, g})",
+            "release(False{}, W{q, haf, htk, t, d, u, tt, rl, n, False{}, False{}, i, g})",
+        ),
+    ] {
+        assert_eq!(
+            model.matches(release).count(),
+            1,
+            "B32 mutation must apply once"
+        );
+        std::fs::write(&model_file, model.replace(release, broken)).unwrap();
+        let mutant = execute();
+        let mismatch =
+            compare(&mutant).expect("clearing the other hold must fail the prefix observer");
+        assert_eq!(
+            mutant[mismatch][3],
+            [1],
+            "mutant types at the first release"
+        );
+        assert!(expected[mismatch][3].is_empty());
+        let mut offset = 0;
+        for events in &schedules {
+            offset += events.len();
+            assert_eq!(
+                mutant[offset - 1][3],
+                expected[offset - 1][3],
+                "equal final typed lists must not hide the prefix divergence"
+            );
         }
     }
 }

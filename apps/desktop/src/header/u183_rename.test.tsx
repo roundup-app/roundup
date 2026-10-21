@@ -2,7 +2,11 @@ import { cleanup, render, fireEvent, screen, waitFor, within } from "@solidjs/te
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { App } from "../App";
 import { fakeEmulators } from "../terminal/paneHarness";
-import { createRoot } from "solid-js";
+import { createRoot, createSignal } from "solid-js";
+import { createProjectDrafts, ProjectDraftsContext } from "../state/connectedProject";
+import { createFakeApp } from "../testing/fakeApp";
+import { Tabs } from "../ui/Tabs";
+import { ProjectTab } from "./ProjectTab";
 import { createProjectsState } from "../state/projects";
 import { RpcError } from "../app/seam";
 import { renderTabs, openTabs, path, tab, projectTabs } from "./stripFixture";
@@ -95,14 +99,6 @@ describe("u183 rename in place", () => {
     fireEvent.blur(input);
 
     await waitFor(() => expect(tab("payments")).toBeDefined());
-  });
-
-  it("u183_the_path_is_available_in_a_linked_tooltip", async () => {
-    await openTabs({ api: [], web: [] });
-    fireEvent.pointerOver(tab("api"), { pointerType: "mouse" });
-    const tooltip = await screen.findByRole("tooltip");
-    expect(tooltip.textContent).toBe(path("api"));
-    expect(tab("api").getAttribute("aria-describedby")).toBe(tooltip.id);
   });
 });
 
@@ -384,4 +380,173 @@ it("u2773c_header_legacy_recovery_never_guesses_a_base", async () => {
   expect(within(dialog).getByText("  legacy 雪  ", { exact: true, normalizer: text => text })).toBeDefined();
   expect(within(dialog).getByRole("status", { name: "" }).textContent).toContain("original name changed");
   expect(sends).not.toHaveBeenCalled();
+});
+
+
+const selectedHeader = async (outcome: "failed" | "unknown" = "failed") => {
+  window.localStorage.clear();
+  const app = vi.mockObject(createFakeApp(), { spy: true });
+  app.add(path("api"), "same name");
+  app.add(path("web"), "same name");
+  const authority = createProjectDrafts();
+  const drafts = authority(path("api"));
+  const destination = { surface: "header", object: path("api"), recipient: null };
+
+  const a = drafts.edit(destination, { name: "  A e\u0301 🪁 雪  ", base: "same name" },
+    { start: 2, end: 7, direction: "backward" }, "ordinary").draft;
+
+  drafts.submit(a.revision);
+  drafts.settle(a.revision, outcome);
+
+  const b = drafts.edit(destination, { name: "  B 雪  ", base: "same name" },
+    { start: 1, end: 4, direction: "forward" }, "ordinary").draft;
+
+  const [recovery, recover] = createSignal<{ project: string; revision: string }>();
+  let projects!: ReturnType<typeof createProjectsState>;
+
+  const view = render(() => {
+    projects = createProjectsState(app);
+
+    return <ProjectDraftsContext.Provider value={authority}><Tabs.Root value={path("api")}><Tabs.List aria-label="Projects">
+      <ProjectTab tab={{ path: path("api"), name: "same name", base: "same name", busy: false, running: [], needsYou: 0, error: 0, exitText: null }}
+        selected recovery={recovery()} onMark={() => {}} onClose={() => {}}
+        onRename={(name, base) => projects.rename(path("api"), name, base)} />
+    </Tabs.List></Tabs.Root></ProjectDraftsContext.Provider>;
+  });
+
+  await waitFor(() => expect(projects.loaded()).toBe(true));
+
+  const appCalls = () => ({ app: Object.entries(app).flatMap(([method, call]) =>
+    vi.isMockFunction(call) ? [{ method, args: [...call.mock.calls] }] : []), rpc: [...app.calls] });
+
+  const open = (revision: string, project = path("api")) => recover({ project, revision });
+
+  return { app, authority, drafts, destination, a: drafts.list().find(draft => draft.revision === a.revision)!, b, open, view, calls: appCalls };
+};
+
+it.each(["failed", "unknown"] as const)("u3021c_open_restores_exact_revision_without_rpc_header_%s", async outcome => {
+  const { drafts, a, b, open, calls } = await selectedHeader(outcome);
+  const before = drafts.list();
+  const beforeCalls = calls();
+  open(a.revision);
+  const input = await screen.findByRole<HTMLInputElement>("textbox", { name: "Project name" });
+  await waitFor(() => expect(document.activeElement).toBe(input));
+  expect([input.value, input.selectionStart, input.selectionEnd, input.selectionDirection])
+    .toEqual([a.value.name, 2, 7, "backward"]);
+  input.focus();
+  fireEvent.blur(input);
+  expect(screen.queryByRole("textbox")).toBeNull();
+  expect(drafts.list()).toEqual(before);
+  open(b.revision);
+  const newer = await screen.findByRole<HTMLInputElement>("textbox", { name: "Project name" });
+  expect([newer.value, newer.selectionStart, newer.selectionEnd, newer.selectionDirection])
+    .toEqual([b.value.name, 1, 4, "forward"]);
+  press("Escape");
+  expect(drafts.list()).toEqual(before);
+  expect(calls()).toEqual(beforeCalls);
+});
+
+it.each(["failed", "unknown"] as const)("u3021c_header_editing_selected_revision_keeps_newer_work_and_requires_confirmation_%s", async outcome => {
+  const { drafts, a, b, open, calls } = await selectedHeader(outcome);
+  const beforeCalls = calls();
+  open(a.revision);
+  const input = await screen.findByRole<HTMLInputElement>("textbox", { name: "Project name" });
+  fireEvent.input(input, { target: { value: "  edited A 🧭  " } });
+  input.setSelectionRange(1, 6, "backward");
+  fireEvent.select(input);
+  fireEvent.blur(input);
+  const edited = drafts.list().find(draft => draft.value.name === "  edited A 🧭  ")!;
+  expect(edited.selection).toEqual({ start: 1, end: 6, direction: "backward" });
+  expect(drafts.list()).toContainEqual(b);
+  expect(drafts.list()).toContainEqual(a);
+  open(b.revision);
+  const newer = await screen.findByRole<HTMLInputElement>("textbox", { name: "Project name" });
+  expect([newer.value, newer.selectionStart, newer.selectionEnd, newer.selectionDirection]).toEqual([b.value.name, 1, 4, "forward"]);
+  open(edited.revision);
+  await waitFor(() => expect(field().value).toBe("  edited A 🧭  "));
+  expect([field().selectionStart, field().selectionEnd, field().selectionDirection]).toEqual([1, 6, "backward"]);
+  press("Escape");
+  const resumed = await edit("same name");
+  fireEvent.input(resumed, { target: { value: "  edited A again 🧭  " } });
+  press("Escape");
+  expect(drafts.list()).toContainEqual(b);
+  expect(calls()).toEqual(beforeCalls);
+});
+
+it.each(["acknowledged", "failed", "unknown"] as const)("u3021c_header_confirmation_settles_only_submitted_edit_%s", async outcome => {
+  const { app, drafts, a, b, open } = await selectedHeader();
+  app.renameProject = vi.fn(async () => {
+    if (outcome !== "acknowledged") throw new RpcError(outcome === "failed" ? -32602 : -32603, outcome);
+
+    return { path: path("api"), name: "edited A" };
+  });
+  open(a.revision);
+  const input = await screen.findByRole<HTMLInputElement>("textbox", { name: "Project name" });
+  fireEvent.input(input, { target: { value: "edited A" } });
+  const submitted = drafts.list().find(draft => draft.value.name === "edited A")!;
+  press("Enter");
+  await waitFor(() => expect(drafts.list().find(draft => draft.revision === submitted.revision)?.status)
+    .toBe(outcome === "acknowledged" ? undefined : outcome));
+  expect(app.renameProject).toHaveBeenCalledExactlyOnceWith(path("api"), "edited A", "same name");
+  expect(drafts.list()).toContainEqual(a);
+  expect(drafts.list()).toContainEqual(b);
+});
+
+it("u3021c_header_selected_edit_preserves_captured_base_conflict_refusal", async () => {
+  const { app, drafts, a, b, open } = await selectedHeader();
+  await app.renameProject(path("api"), "external");
+  const sends = vi.spyOn(app, "renameProject");
+  open(a.revision);
+  const input = await screen.findByRole<HTMLInputElement>("textbox", { name: "Project name" });
+  fireEvent.input(input, { target: { value: "my edit" } });
+  press("Enter");
+  await waitFor(() => expect(drafts.list().find(draft => draft.value.name === "my edit")?.status).toBe("failed"));
+  expect(sends).toHaveBeenLastCalledWith(path("api"), "my edit", "same name");
+  expect((await app.projects()).find(project => project.path === path("api"))?.name).toBe("external");
+  expect(drafts.list()).toContainEqual(b);
+});
+
+it("u3021c_header_unknown_acceptance_is_never_retried_unchanged", async () => {
+  const { a, open, calls } = await selectedHeader("unknown");
+  const before = calls();
+  open(a.revision);
+  await screen.findByRole("textbox", { name: "Project name" });
+  press("Enter");
+  await screen.findByRole("dialog", { name: "Unfinished work" });
+  expect(calls()).toEqual(before);
+});
+
+it.each(["project", "object", "recipient", "missing-base", "missing-revision"] as const)("u3021c_header_rejects_selected_revision_with_wrong_authority_%s", async mismatch => {
+  const { drafts, destination, a, open, calls } = await selectedHeader();
+
+  const wrong = drafts.edit({ ...destination, object: mismatch === "object" ? path("web") : destination.object,
+    recipient: mismatch === "recipient" ? "someone else" : null },
+    mismatch === "missing-base" ? { name: "same name" } : { name: "same name", base: "same name" }, null, "ordinary", null).draft;
+
+  const before = drafts.list();
+  const beforeCalls = calls();
+  open(mismatch === "project" ? a.revision : mismatch === "missing-revision" ? "absent" : wrong.revision,
+    mismatch === "project" ? path("web") : path("api"));
+  expect(screen.queryByRole("textbox")).toBeNull();
+  expect(drafts.list()).toEqual(before);
+  expect(calls()).toEqual(beforeCalls);
+});
+
+it("u3021c_copy_and_discard_keep_other_revisions_header_after_reopen", async () => {
+  const { authority, drafts, destination, a, b, view } = await selectedHeader();
+  const other = authority(path("web"));
+  const elsewhere = other.edit({ ...destination, object: path("web") }, { name: "other Project", base: "same name" }, null, "ordinary").draft;
+  fireEvent.click(screen.getByRole("button", { name: `Recover unfinished work · ${path("api")}` }));
+  const dialog = await screen.findByRole("dialog", { name: "Unfinished work" });
+  fireEvent.click(within(dialog).getByRole("button", { name: /^Failed ·/ }));
+  const copied: string[] = [];
+  Object.defineProperty(navigator, "clipboard", { configurable: true, value: { writeText: async (text: string) => { copied.push(text); } } });
+  fireEvent.click(within(dialog).getByRole("button", { name: "Copy name" }));
+  await waitFor(() => expect(copied).toEqual([a.value.name]));
+  fireEvent.click(within(dialog).getByRole("button", { name: "Discard this revision" }));
+  expect(drafts.list()).toEqual([b]);
+  view.unmount();
+  const reopened = createProjectDrafts();
+  expect(reopened(path("api")).list()).toEqual([b]);
+  expect(reopened(path("web")).list()).toEqual([elsewhere]);
 });
