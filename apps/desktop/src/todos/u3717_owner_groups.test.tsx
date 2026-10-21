@@ -245,6 +245,7 @@ it("u3719_an_agent_leaving_keeps_the_open_field_and_its_create_fails_with_a_caus
   const { app } = await mount();
 
   app.handlers["todo.create"] = () => { throw new RpcError(-32004, "agent gone"); };
+
   await waitFor(() => expect(groups()).toContain("a"));
   fireEvent.click(screen.getByRole("button", { name: "add todo to alpha" }));
   fireEvent.input(await screen.findByRole("textbox", { name: "New Todo title" }), { target: { value: "kept" } });
