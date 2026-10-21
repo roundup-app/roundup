@@ -131,3 +131,11 @@
   font-size: var(--text-title);
   font-weight: 600;
 }
+
+/* Selection is text colour only, as the Shelf's flat tabs. */
+.measurement-contributors .app-tabs-trigger { color: var(--grey); }
+.measurement-contributors .app-tabs-trigger[data-selected] {
+  --button-surface: transparent;
+  --button-hover: transparent;
+  color: var(--text);
+}
