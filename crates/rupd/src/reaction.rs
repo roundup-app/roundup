@@ -129,11 +129,10 @@ struct Watch {
     finished: Vec<String>,
     /// While not armed: the named Agents seen not finished since the last firing.
     unfinished: Vec<String>,
-    /// Latest observed finished states, including completions before the re-arm boundary.
-    /// A current-state refresh cannot turn one of these into a new completion.
-    #[serde(default)]
-    completed: Vec<String>,
     armed: bool,
+    /// Finishes observed before re-arm cannot count again until a non-finished observation.
+    #[serde(default)]
+    before_rearm: Vec<String>,
     /// Automatic firings accepted; the next one's operation is `auto-<round + 1>`, so a retry after a
     /// crash between the acceptance and this save returns the firing already made.
     round: u32,
@@ -150,14 +149,17 @@ impl Watch {
     /// finished before the next finish does, so a still-true condition never re-arms.
     fn observe(&mut self, ids: &[String], id: &str, finished: bool) {
         if finished {
-            if !self.completed.iter().any(|f| f == id) {
-                self.completed.push(id.to_owned());
-                if self.armed && !self.finished.iter().any(|f| f == id) {
-                    self.finished.push(id.to_owned());
+            if !self.armed {
+                if !self.before_rearm.iter().any(|f| f == id) {
+                    self.before_rearm.push(id.to_owned());
                 }
+            } else if !self.before_rearm.iter().any(|f| f == id)
+                && !self.finished.iter().any(|f| f == id)
+            {
+                self.finished.push(id.to_owned());
             }
         } else {
-            self.completed.retain(|f| f != id);
+            self.before_rearm.retain(|f| f != id);
             if !self.armed && !self.unfinished.iter().any(|f| f == id) {
                 self.unfinished.push(id.to_owned());
                 if ids.iter().all(|id| self.unfinished.contains(id)) {
@@ -271,17 +273,17 @@ impl Evaluator {
                     return;
                 }
             };
-        let mut reconcile = live.is_none();
+        let mut reconcile = w.round == 0;
         let mut events = match self.bus.saved_after(w.seen) {
             Ok((events, _)) => events,
             Err(err) if err.code == code::EVENTS_EXPIRED => {
-                reconcile = true;
                 w.gap = Some(format!("the Event history after {} expired", w.seen));
                 w.recovery = Some(
                     "the present state of every named Agent decides; an Agent without one stays unmatched"
                         .into(),
                 );
                 w.seen = head;
+                reconcile = true;
                 Vec::new()
             }
             Err(err) => {
@@ -302,6 +304,19 @@ impl Evaluator {
             })
         {
             events.push(event.clone());
+        }
+        if reconcile {
+            // A snapshot may establish activation or recover a gap, but cannot both re-arm and
+            // supply the next completion set. Replay newer Events only after this older snapshot.
+            for finished in [true, false] {
+                for id in ids {
+                    if kind_of(&world, id)
+                        .is_some_and(|kind| messages::wake::finished(kind) == finished)
+                    {
+                        w.observe(ids, id, finished);
+                    }
+                }
+            }
         }
         for event in &events {
             if let Some(seq) = event.seq {
@@ -339,20 +354,6 @@ impl Evaluator {
                 "stop this reaction and create one naming the Agents that exist",
             );
             return;
-        }
-        // Live completion order comes from Events. Re-reading a snapshot taken before those
-        // Events could erase a completion and then count its unchanged state as a new one.
-        if reconcile {
-            // A recovery snapshot may re-arm, but cannot also supply its new completion set.
-            for finished in [true, false] {
-                for id in ids {
-                    if kind_of(&world, id)
-                        .is_some_and(|kind| messages::wake::finished(kind) == finished)
-                    {
-                        w.observe(ids, id, finished);
-                    }
-                }
-            }
         }
         if w.cause.is_none() {
             w.health = "observing".into();
@@ -409,6 +410,7 @@ impl Evaluator {
                 w.armed = false;
                 w.finished.clear();
                 w.unfinished.clear();
+                w.before_rearm.clear();
             }
             // Stopped, or the bound was spent by an explicit run first: nothing more is accepted.
             Err(err) if err.code == code::CONFLICT => {}
