@@ -61,6 +61,11 @@ pub type Deliver = Arc<
 /// Lookup errors do not call `record`; callback errors propagate unchanged. The callback owns
 /// rollback of partial work. Poisoned lifecycle locks panic, as in Agents.
 pub trait TerminalOwners: Module {
+    /// Passive evidence only; implementations without a running Agent collect none.
+    fn observe_coordination(&self, _agent: &str, _message: u32) -> Option<agents::MeasurementWait> {
+        None
+    }
+
     fn with_terminal_owner(
         &self,
         terminal: &str,
@@ -69,6 +74,10 @@ pub trait TerminalOwners: Module {
 }
 
 impl TerminalOwners for agents::Agents {
+    fn observe_coordination(&self, agent: &str, message: u32) -> Option<agents::MeasurementWait> {
+        agents::Agents::observe_coordination(self, agent, message)
+    }
+
     fn with_terminal_owner(
         &self,
         terminal: &str,
@@ -482,14 +491,34 @@ impl Messages {
         if let Some(escalated_question) = self.answered_escalation(ctx, &message)? {
             ctx.emit(EventData::MessageDelivered(escalated_question.into()));
         }
-        // The Status read before the insert may be stale: an `idle` that landed between that read
-        // and the insert found nothing pending and no other will follow. Read it again now that
-        // the Message is stored; an `idle` after this read finds the Message itself.
-        if message.status == MessageStatus::Pending && receiver_status.is_some() {
-            nudge(&self.inner, &p.to).await;
+        {
+            let routing = async {
+                // The Status read before the insert may be stale: an `idle` that landed between that read
+                // and the insert found nothing pending and no other will follow. Read it again now that
+                // the Message is stored; an `idle` after this read finds the Message itself.
+                if message.status == MessageStatus::Pending && receiver_status.is_some() {
+                    nudge(&self.inner, &p.to).await;
+                }
+                // A hop the Route dropped moves the chain on at once (B16).
+                settle_logged(&self.inner, "settle").await;
+            };
+            // A ready future never blocked its caller. Retain evidence only after the
+            // existing routing operation yields Pending, never pending-Message duration.
+            let mut routing = std::pin::pin!(routing);
+            let mut waiting = None;
+            std::future::poll_fn(|cx| {
+                let poll = routing.as_mut().poll(cx);
+                if poll.is_pending() && waiting.is_none() && ctx.actor.kind == ActorKind::Agent {
+                    waiting = self
+                        .inner
+                        .agents
+                        .observe_coordination(&ctx.actor.id, message.id);
+                }
+                poll
+            })
+            .await;
+            drop(waiting);
         }
-        // A hop the Route dropped moves the chain on at once (B16).
-        settle_logged(&self.inner, "settle").await;
         Ok(message)
     }
 
