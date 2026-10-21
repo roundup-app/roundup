@@ -211,6 +211,18 @@ impl Watcher {
     ) {
         match verdict {
             Verdict::Match => {
+                if let Err(error) = self.agents.guard_reach(&saved.actor, &saved.target, true) {
+                    self.reactions.observe(
+                        &saved.id,
+                        "unavailable",
+                        Some(format!(
+                            "the saved authority was refused: {}",
+                            error.message
+                        )),
+                        Some(State::Invalidated),
+                    );
+                    return;
+                }
                 let evidence = state.as_ref().ok().and_then(|s| s.evidence.as_ref());
                 let facts: Value = json!({
                     "source": "pr-checks",
