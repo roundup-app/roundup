@@ -75,6 +75,7 @@ fn listed(
 fn note(id: u32, text: &str, one_line: bool) -> Entry {
     Entry {
         id,
+        kind: contracts::message::MessageKind::Note,
         from: "rupd".into(),
         text: text.into(),
         one_line,
@@ -208,4 +209,24 @@ fn b50_a_transcript_is_read_from_where_it_was_left() {
     )
     .unwrap();
     assert_eq!(recorded(transcript.path(), offset).0, [2, 3]);
+}
+
+// B50(b,d): rejects losing question/reply identity or applying the digest display cut.
+#[test]
+fn b50_a_question_carries_kind_and_reply_id_in_the_peer_entry() {
+    for version in VERSIONS {
+        let (launcher, dir) = launcher();
+        let listener = session(&launcher, dir.path(), version);
+        let text = format!("[digest] {}", "é".repeat(300));
+        let mut question = note(17, &text, true);
+        question.kind = contracts::message::MessageKind::Question;
+        launcher.inbox_write("a", &[question], false).unwrap();
+        let sent = lines(&listener);
+        let content = sent[1]["message"]["content"].as_str().unwrap();
+        assert!(
+            content.contains(&format!("[question, replyTo: 17] {text}\n")),
+            "{content}"
+        );
+        assert_eq!(sent[1]["msg_id"], "00000000-0000-4000-8000-000000000011");
+    }
 }
