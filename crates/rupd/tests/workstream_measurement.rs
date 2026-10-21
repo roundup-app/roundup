@@ -11,12 +11,30 @@ use std::time::Duration;
 
 const CONVERSATION: &str = "00000000-0000-4000-8000-000000000001";
 const FAKE: &str = r#"#!/usr/bin/env python3
-import json, os, socket, subprocess, sys, tty
+import json, os, socket, subprocess, sys, time, tty
 if sys.argv[1:3] == ['plugin', 'list']: print('[]'); sys.exit(0)
 if sys.argv[1:3] == ['plugin', 'test']: print('Q11 runtime hook closure: 1 pass'); sys.exit(0)
 settings = json.load(open(sys.argv[sys.argv.index('--settings')+1]))
 conversation='00000000-0000-4000-8000-%012d' % int(os.environ['ROUNDUP_AGENT'])
 open(os.path.join(os.getcwd(),'endpoint-'+os.environ['ROUNDUP_AGENT']),'w').write(os.environ.get('OTEL_EXPORTER_OTLP_TRACES_ENDPOINT',''))
+tty.setraw(0)
+print('\033]0;✳ Ready\007', flush=True)
+# The public idle Status bounds the title observation before SessionStart.
+if '--resume' not in sys.argv:
+ with socket.socket(socket.AF_UNIX) as peer:
+  peer.settimeout(5)
+  peer.connect(os.environ['RUPD_SOCKET'])
+  stream=peer.makefile('rwb')
+  def request(method, params):
+   stream.write((json.dumps({'jsonrpc':'2.0','id':0,'method':method,'params':params})+'\n').encode()); stream.flush()
+   reply=json.loads(stream.readline())
+   if 'error' in reply: raise RuntimeError(reply)
+   return reply['result']
+  request('daemon.identify', {'actor':{'kind':'agent','id':os.environ['ROUNDUP_AGENT']}})
+  deadline=time.monotonic()+5
+  while not any(node['id']==os.environ['ROUNDUP_AGENT'] and (node.get('status') or {}).get('kind')=='idle' for node in request('rail.tree', None)):
+   if time.monotonic()>deadline: raise RuntimeError('ready title was not observed')
+   time.sleep(.01)
 for group in settings['hooks']['SessionStart']:
  for hook in group['hooks']:
   subprocess.run(hook['command'], shell=True, input=json.dumps({'hook_event_name':'SessionStart','session_id':conversation,'source':'resume' if '--resume' in sys.argv else 'startup'}), text=True, check=True)
@@ -127,7 +145,23 @@ impl World {
                     .iter()
                     .any(|node| node["id"] == agent && node["status"]["kind"] == "idle")
                 {
-                    break;
+                    let read = self
+                        .client
+                        .request("project.measurements", Value::Null)
+                        .await
+                        .unwrap();
+                    if read["time_evidence"]
+                        .as_array()
+                        .unwrap()
+                        .iter()
+                        .any(|fact| {
+                            fact["agent"] == agent
+                                && fact["value"]["activity"]["kind"] == "startup"
+                                && fact["value"]["state"]["kind"] == "ended"
+                        })
+                    {
+                        break;
+                    }
                 }
                 tokio::time::sleep(Duration::from_millis(20)).await;
             }

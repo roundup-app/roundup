@@ -446,11 +446,11 @@ impl Shared {
                 status_revision: run.status_revision.to_string(),
                 status,
             };
-            if run.session_started && !run.ended {
+            if !run.ended {
                 self.timing
                     .lock()
                     .expect("measurement timing lock")
-                    .observe_status(&event);
+                    .observe_status(&event, run.session_started);
             }
             self.bus
                 .emit(actor.clone(), EventData::AgentStatus(event.into()));

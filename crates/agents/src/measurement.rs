@@ -317,7 +317,21 @@ mod time_tests {
     async fn u3016c_ready_before_acknowledgement_retains_idle_clock_points() {
         for closes_before_ack in [false, true] {
             let w = World::new();
-            let id = crate::tests::running_agent(&w.agents.shared, None);
+            let home = w
+                .agents
+                .call(&w.ctx, "rail.createWorkstream", json!({"name":"original"}))
+                .await
+                .unwrap()["id"]
+                .as_str()
+                .unwrap()
+                .to_owned();
+            let other = w
+                .agents
+                .call(&w.ctx, "rail.createWorkstream", json!({"name":"later"}))
+                .await
+                .unwrap()["id"]
+                .clone();
+            let id = crate::tests::running_agent(&w.agents.shared, Some(&home));
             w.agents
                 .shared
                 .observe(
@@ -335,11 +349,25 @@ mod time_tests {
                 );
             }
             assert!(activity(&w.read().await, "idle").is_empty());
+            w.agents
+                .call(
+                    &w.ctx,
+                    "rail.move",
+                    json!({"id":id,"parent":other,"index":0}),
+                )
+                .await
+                .unwrap();
+            w.agents
+                .call(&w.ctx, "rail.rename", json!({"id":id,"name":"later"}))
+                .await
+                .unwrap();
             w.signal(&id, json!({"hook_event_name":"SessionStart"}));
             w.advance(3).await;
             let read = w.read().await;
             let idle = activity(&read, "idle");
-            assert_eq!(idle.len(), 1);
+            assert_eq!(idle.len(), if closes_before_ack { 2 } else { 1 });
+            assert_eq!(idle[0]["home"], home);
+            assert_eq!(idle[0]["maker"], "a");
             assert_eq!(idle[0]["agent"], id);
             assert_eq!(idle[0]["attempt"], "1");
             assert_eq!(idle[0]["value"]["activity"]["status_revision"], "2");
