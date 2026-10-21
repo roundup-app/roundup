@@ -28,7 +28,7 @@ Observer: real-Daemon integration tests under `crates/rupd/tests`, deterministic
 
 B6 test-cost observer (T2964a): the following tests require the real Daemon and OS PTY child, using deterministic fake Claude rather than a vendor model. These observations cannot be replaced by a recording Module: it cannot detect bytes written after a completion, a child left alive after cleanup, or process-authenticated calls being scheduled out of order.
 
-| Tests in `crates/rupd/tests/b6_prompt_identity.rs` | Required process or clock observation |
+| Tests in `crates/rupd/tests/b6_prompt_identity.rs`, and `cleanup_completion::` in `crates/rupd/tests/b6_cleanup_completion.rs` | Required process or clock observation |
 | --- | --- |
 | `cleanup_completion::b6_resume_completion_waits_for_both_promotion_failure_cleanups` | Failed promotion kills and confirms the actual resumed Terminal before completion; the acknowledgement deadline must not escape cleanup. Exercise both save failures and early/late acknowledgement paths; one path crosses the real `RESUME_ACK_BOUND`, while all paths observe blocked cleanup and confirmed exit. |
 | `cleanup_completion::b6_ack_timeout_waits_for_rollback_cleanup_and_accounts_for_refusal` | The real `RESUME_ACK_BOUND` expires without SessionStart, then rollback's physical cleanup remains blocked and its refusal retains the live Terminal. |
