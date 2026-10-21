@@ -1,6 +1,11 @@
 .todo-blocker-menu {
   width: min(calc(var(--space-5) * 16), 90vw);
   padding: var(--space-1);
+  box-shadow: var(--shadow-drawer);
+}
+
+.todo-blocker-menu .app-combobox-item[data-highlighted] {
+  background: var(--hover);
 }
 
 .todo-blocker-menu .app-combobox-item {

@@ -7,7 +7,7 @@ import { Icon } from "../ink/Icon";
 import { useConnectedProject } from "../state/connectedProject";
 import { failureOf } from "./failureOf";
 
-const ids = (list: number[]) => list.map((id) => `#${id}`).join(", ");
+const ids = (list: number[]) => [...list].sort((a, b) => a - b).map((id) => `#${id}`).join(", ");
 
 /** U3728: one past-tense line per change made, the actor named only when it is not the user. */
 const lines = (change: Change, agentName: (id: string) => string): string[] => {

@@ -39,7 +39,7 @@ it.each([false, true])("u462_live_history_keeps_edit_and_focus_previous_read_%s"
   fireEvent.input(field, { target: { value: "My unfinished edit" } }); field.focus();
   await m.app.rpc("todo.update", { id: 1, body: "Another Actor's change", title: null });
   m.app.emit(todoEvent("todo.updated", m.store.todos[0]!));
-  await within(panel()).findByText("Wrote the body");
+  await within(panel()).findByText(/^Wrote the body( · |$)/);
   expect(field.value).toBe("My unfinished edit");
   expect(document.activeElement).toBe(field);
 });
@@ -56,7 +56,7 @@ it("u462_failed_fetch_does_not_consume_unread_changes", async () => {
   expect(await within(panel()).findByLabelText("Title")).toBeTruthy();
   m.app.handlers["todo.getHistory"] = original;
   fireEvent.click(within(panel()).getByRole("button", { name: "Retry history" }));
-  await within(panel()).findByText("Created todo 1");
+  await within(panel()).findByText(/^Created todo 1( · |$)/);
   await waitFor(() => expect(todoCallsTo(m.app, "todo.readHistory")).toHaveLength(1));
 });
 
@@ -93,7 +93,7 @@ it("u462_live_refresh_does_not_acknowledge_changes_absent_from_opening", async (
   await open(m); await disclose(m);
   await m.app.rpc("todo.update", { id: 1, body: "Arrived after opening", title: null });
   m.app.emit(todoEvent("todo.updated", m.store.todos[0]!));
-  await within(panel()).findByText("Wrote the body");
+  await within(panel()).findByText(/^Wrote the body( · |$)/);
   m.connected.drawer.close();
   await open(m);
 
@@ -145,7 +145,7 @@ it("u3728_entries_read_as_past_tense_lines", async () => {
 it("u3728_opening_marks_read_once", async () => {
   const m = await mountTodos([todo(1)]); await open(m);
   await disclose(m);
-  expect(within(panel()).getByText("Created todo 1")).toBeTruthy();
+  expect(within(panel()).getByText(/^Created todo 1( · |$)/)).toBeTruthy();
   fireEvent.click(within(panel()).getByRole("button", { name: /^Changes/ }));
   fireEvent.click(within(panel()).getByRole("button", { name: /^Changes/ }));
   await waitFor(() => expect(within(panel()).getByRole("button", { name: "Changes · 1" }).querySelector("[data-state]")?.getAttribute("data-state")).toBe("read"));
