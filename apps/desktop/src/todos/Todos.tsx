@@ -1,5 +1,6 @@
 import ChevronUp from "lucide-solid/icons/chevron-up";
 import { IconButton } from "../ui/IconButton";
+import { contextMenu, linkEntries, openOnRelease } from "../ui/contextMenu";
 import { Tip } from "../ui/Tip";
 import { createNear } from "../ink/near";
 import { registerKeys } from "../keys/registry";
@@ -486,8 +487,22 @@ export const Todos = (props: {
     return message;
   };
 
+  /** U2694b: Complete (disabled for done Todos), Send to Agent ▸, Copy Link, Delete, as the system menu of a row; Delete asks as U461 does. */
+  const todoMenu = (event: MouseEvent) => {
+    const row = event.target instanceof Element ? event.target.closest<HTMLElement>("[data-todo]") : null;
+    const todo = row ? todos.byId().get(Number(row.dataset.todo)) : undefined;
+
+    if (todo === undefined) return;
+
+    openOnRelease(event, (x, y) => void contextMenu(connected.app, [
+      { id: "complete", label: copy.complete, enabled: !todo.done, run: () => void complete(todo) },
+      ...linkEntries(connected.app, "todo", todo.id, connected.rail.nodes, (node) => connected.rail.exitOf(node) === null, setCreateFailure),
+      { id: "delete", label: copy.delete, run: () => { selection.replace([todo.id]); bulk.ask(); } },
+    ], x, y));
+  };
+
   return (
-    <section aria-label={copy.todos}>
+    <section aria-label={copy.todos} onContextMenu={todoMenu}>
       <button
         data-button="add"
         type="button"

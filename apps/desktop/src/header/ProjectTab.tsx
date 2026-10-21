@@ -11,6 +11,8 @@ import { IconButton } from "../ui/IconButton";
 import { Tabs } from "../ui/Tabs";
 import { Dialog } from "../ui/Dialog";
 import { Tip } from "../ui/Tip";
+import { contextMenu, openOnRelease } from "../ui/contextMenu";
+import type { App } from "../app/seam";
 import { registerKeys } from "../keys/registry";
 import { MARKS, markOf, nameParts, tipOf } from "./tab";
 import type { StripTab } from "./tab";
@@ -58,6 +60,8 @@ export const ProjectTab = (props: {
   onMark: () => void;
   onRename: (name: string, base?: string) => ReturnType<ProjectsState["rename"]>;
   onClose: () => void;
+  /** U2694a: the seam that shows the tab's system menu; a tab without one has none. */
+  app?: Pick<App, "showContextMenu"> | undefined;
   ref?: (element: HTMLElement) => void;
 }) => {
   const { near, handlers } = createNear();
@@ -147,7 +151,15 @@ export const ProjectTab = (props: {
       style={editing() === null ? undefined : { width: `${editing()?.width}px` }}
       ref={(element) => { wrap = element; props.ref?.(element); }}
       onPointerEnter={handlers.onMouseEnter} onPointerLeave={handlers.onMouseLeave}
-      onFocusIn={handlers.onFocusIn} onFocusOut={handlers.onFocusOut}>
+      onFocusIn={handlers.onFocusIn} onFocusOut={handlers.onFocusOut}
+      onContextMenu={(press: MouseEvent) => {
+        const app = props.app;
+
+        if (app) openOnRelease(press, (x, y) => void contextMenu(app, [
+          { id: "rename", label: copy.rename, shortcut: "F2", run: edit },
+          { id: "close", label: copy.close, run: () => props.onClose() },
+        ], x, y));
+      }}>
       <Show when={editing() === null} fallback={<Show when={editing()} keyed>{_session => <RenameField name={initialName} restored={restored} selection={restoredSelection} onEdit={capture} onDone={(saved, refocus) => {
         setEditing(null);
 
