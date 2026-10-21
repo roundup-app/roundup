@@ -52,6 +52,7 @@ export const DrawerHost = (props: { drawer: DrawerState; reducedMotion: Accessor
   const lifetime = createSlideLifetime();
 
   createEffect(() => setDrawerSliding(lifetime.sliding()));
+  onCleanup(() => setDrawerSliding(false));
   createEffect(on(lifetime.exiting, (exiting, was) => { if (was && !exiting && !isOpen()) setMounted(null); }));
 
   createEffect(
