@@ -56,7 +56,7 @@ impl RetainedCopy {
 }
 
 impl Launcher {
-    fn conversation_path(&self, cwd: &Path, id: &str) -> Result<PathBuf, RpcError> {
+    pub(super) fn conversation_path(&self, cwd: &Path, id: &str) -> Result<PathBuf, RpcError> {
         if !is_uuid(id) {
             return Err(RpcError::internal("invalid saved conversation id"));
         }
