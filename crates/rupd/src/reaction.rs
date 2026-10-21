@@ -134,6 +134,8 @@ struct Watch {
     /// crash between the acceptance and this save returns the firing already made.
     round: u32,
     health: String,
+    #[serde(default)]
+    cause: Option<String>,
     gap: Option<String>,
     recovery: Option<String>,
     evidence: Option<String>,
@@ -169,6 +171,7 @@ impl Watch {
 pub(crate) struct Evaluator {
     pub reactions: Arc<Reactions>,
     pub reader: Reader,
+    pub agents: Arc<agents::Agents>,
     pub messages: Arc<messages::Messages>,
     pub bus: Bus,
 }
@@ -330,7 +333,9 @@ impl Evaluator {
                 w.observe(ids, id, messages::wake::finished(kind));
             }
         }
-        w.health = "observing".into();
+        if w.cause.is_none() {
+            w.health = "observing".into();
+        }
         let facts: Vec<serde_json::Value> = ids
             .iter()
             .filter_map(|id| node_of(&world, id))
@@ -354,6 +359,13 @@ impl Evaluator {
         if !(w.armed && holds) {
             return;
         }
+        if let Err(why) = self.agents.guard_reach(&r.actor, &r.target, true) {
+            w.unavailable(
+                format!("authority refused: {}", why.message),
+                "the user may inspect or stop this reaction; create a new one with an authorized target",
+            );
+            return;
+        }
         let fired = self
             .messages
             .fire_reaction(messages::reaction::Fire {
@@ -367,6 +379,11 @@ impl Evaluator {
             .await;
         match fired {
             Ok(_) => {
+                w.health = "observing".into();
+                w.cause = None;
+                w.recovery = w.gap.as_ref().map(|_| {
+                    "the recorded source gap remains; authoritative current Agent state reconciled observation".into()
+                });
                 w.round += 1;
                 w.armed = false;
                 w.finished.clear();
@@ -374,7 +391,13 @@ impl Evaluator {
             }
             // Stopped, or the bound was spent by an explicit run first: nothing more is accepted.
             Err(err) if err.code == code::CONFLICT => {}
-            Err(err) => eprintln!("reaction {}: not fired: {}", r.id, err.message),
+            Err(err) => {
+                w.health = "acceptance-failed".into();
+                w.cause = Some(err.message);
+                w.recovery = Some(
+                    "remove the acceptance failure; the next Agent observation or Project reopen retries within the remaining bound and expiry".into(),
+                );
+            }
         }
     }
 }
@@ -585,11 +608,23 @@ impl Daemon {
                         .map_err(RpcError::internal)?
                 };
                 let mine = key(actor);
-                let list = rows
+                let mut list = Vec::new();
+                for (_, record) in rows
                     .iter()
                     .filter(|(owner, _)| actor.kind == ActorKind::User || *owner == mine)
-                    .map(|(_, record)| read(record).and_then(|saved| self.with_firings(saved)))
-                    .collect::<Result<Vec<_>, _>>()?;
+                {
+                    let saved = read(record)?;
+                    if actor.kind == ActorKind::Agent {
+                        match self.agents.guard_reach(actor, &saved.target, true) {
+                            Ok(()) => {}
+                            Err(err) if matches!(err.code, code::FORBIDDEN | code::NOT_FOUND) => {
+                                continue;
+                            }
+                            Err(err) => return Err(err),
+                        }
+                    }
+                    list.push(self.with_firings(saved)?);
+                }
                 return rpc::reply(&list);
             }
             "reaction.get" => {
@@ -630,6 +665,7 @@ impl Daemon {
         if let Some(watch) = self.reactions.watch(&saved.id) {
             saved.observation = Observation {
                 health: watch.health,
+                cause: watch.cause,
                 cursor: Some(watch.seen),
                 gap: watch.gap,
                 recovery: watch.recovery,
@@ -714,7 +750,11 @@ impl Daemon {
                     "operation already names another definition",
                 ));
             }
-            return read(&record);
+            let saved = read(&record)?;
+            if actor.kind == ActorKind::Agent {
+                self.agents.guard_reach(actor, &saved.target, true)?;
+            }
+            return Ok(saved);
         }
         let now = OffsetDateTime::now_utc();
         let (max, rearm) = shape(&p, now)?;
@@ -781,7 +821,7 @@ impl Daemon {
         Ok(reaction)
     }
 
-    /// The saved definition `id` when `actor` may inspect it: the user, or the Agent that authorized it.
+    /// The user may inspect any saved definition; its authorizing Agent needs current target Reach.
     fn reaction_own(&self, actor: &Actor, id: &str) -> Result<(String, Reaction), RpcError> {
         let db = self
             .reactions
@@ -800,7 +840,11 @@ impl Daemon {
         if actor.kind != ActorKind::User && owner != key(actor) {
             return Err(RpcError::forbidden("another Agent's reaction"));
         }
-        Ok((owner, read(&record)?))
+        let saved = read(&record)?;
+        if actor.kind == ActorKind::Agent {
+            self.agents.guard_reach(actor, &saved.target, true)?;
+        }
+        Ok((owner, saved))
     }
 
     fn reaction_stop(&self, actor: &Actor, id: &str) -> Result<Reaction, RpcError> {

@@ -5,4 +5,4 @@ import type { MeasurementSource } from "./MeasurementSource";
 /**
  * Retained source contributions; latest revisions replace the same identity, never add to it.
  */
-export type Measurements = { project: string, cause: string | null, revision: string, contributions: Array<Measurement>, sources: Array<MeasurementSource>, };
+export type Measurements = { project: string, cause: string | null, revision: string, contributions: Array<Measurement>, time_evidence: Array<Measurement>, sources: Array<MeasurementSource>, };

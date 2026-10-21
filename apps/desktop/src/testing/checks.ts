@@ -473,7 +473,7 @@ const pressable = (page: Page) => clickTargets(page).filter((el) => el.tagName !
 
 // D6: each click target has a hover and a focus style, a pointer cursor (`grab` on a reorderable row) and a hit area of at least 24 px.
 const d6 = (page: Page): Measure => {
-  const targets = pressable(page);
+  const targets = clickTargets(page).filter(el => el.tagName !== "TEXTAREA");
   let measured = 0;
 
   for (const el of targets) {
@@ -483,6 +483,8 @@ const d6 = (page: Page): Measure => {
     if (height > 0) measured += 1;
 
     if (height > 0 && height < 24) return { ok: false, value: { height }, selector: selectorOf(el) };
+
+    if (el.matches("input[type=text]")) continue;
 
     if (!declares(stateRules(page, el, ":hover"), "background", "background-color", "background-image", "color")) return { ok: false, value: { missing: "hover" }, selector: selectorOf(el) };
 
@@ -542,7 +544,7 @@ const d8 = (page: Page): Measure => {
     };
 
     // U375 requires the Watch overlay to cast the Drawer shadow on its surface.
-    const surfaceShadow = el.matches(".milkdown-slash-menu, .pane-control, .worktree-panel, .app-mentions-panel, .rail-confirm.app-dialog, .import-panel") && shadowParts(shadow) !== "" && shadowParts(shadow) === shadowParts("var(--shadow-drawer)");
+    const surfaceShadow = el.matches(".milkdown-slash-menu, .pane-control, .worktree-panel, .app-mentions-panel, .rail-confirm.app-dialog, .import-panel, .app-select-list[data-scope=select][data-part=content][role=listbox]") && shadowParts(shadow) !== "" && shadowParts(shadow) === shadowParts("var(--shadow-drawer)");
 
     if (shadow && shadow !== "none" && !surfaceShadow && !el.matches("aside, aside *, .bubble") && el.tagName !== "ASIDE") return { boxShadow: shadow };
 
@@ -645,7 +647,8 @@ const widest = (found: { diff: number; row: Element }[]): Measure => {
 };
 
 // D12: U3726's tick-only rows share a title column; rows with the extra Glyph
-// keep their own column. U3708's tree indent shifts both; later lines align with their title.
+// keep their own column. U3727 includes the entry field’s text edge.
+// U3708's tree indent shifts both; later lines align with their title.
 const d12 = (page: Page): Measure => {
   const rows = shelfRows(page);
 
@@ -667,12 +670,28 @@ const d12 = (page: Page): Measure => {
     const tickOnly = (row: Element) => list === "todos" && row.querySelector(".shelf-glyph > .todo-tick") !== null
       && row.querySelector(".shelf-glyph > [data-state]") === null;
 
-    own.forEach(({ row }, index) => {
-      const titles = own.filter((one) => tickOnly(one.row) === tickOnly(row))
-        .map((one) => left(one.row.querySelector(".shelf-title")) - indent(one.row));
+    const textLeft = (row: Element) => {
+      const field = row.querySelector(".entry-field");
 
-      found.push({ diff: Math.max(...glyphs) - Math.min(...glyphs), row: own[index]!.row });
-      found.push({ diff: Math.max(...titles) - Math.min(...titles), row });
+      return (field ? left(field) + (px(page.style(field).paddingLeft) ?? 0) + (px(page.style(field).borderLeftWidth) ?? 0)
+        : left(row.querySelector(".shelf-title"))) - indent(row);
+    };
+
+    for (const tick of [false, true]) {
+      const titles = own.filter((one) => tickOnly(one.row) === tick).map(({ row }) => ({ left: textLeft(row), row }));
+
+      if (titles.length < 2) continue;
+
+      const min = titles.reduce((a, b) => a.left < b.left ? a : b);
+      const max = titles.reduce((a, b) => a.left > b.left ? a : b);
+
+      const row = max === titles[0] ? min.row : max.row;
+
+      found.push({ diff: max.left - min.left, row: row.querySelector(".entry-field") ?? row });
+    }
+
+    own.forEach(({ row }) => {
+      found.push({ diff: Math.max(...glyphs) - Math.min(...glyphs), row });
 
       for (const line of [...(row.querySelector(".shelf-text")?.children ?? [])].slice(1)) found.push({ diff: Math.abs(left(line) - left(row.querySelector(".shelf-title"))), row });
     });

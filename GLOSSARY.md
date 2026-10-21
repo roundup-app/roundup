@@ -376,6 +376,12 @@ The user reading an Agent's Terminal pane without typing into it; no Takeover, s
 **Work order**:
 The ask an Agent works on, optionally its Done condition, and its limits, rules that each read on their own, such as "Change no file in the repo", held on the Agent's Rail node. Not a Work Issue.
 
+**Instruction** (`Instruction`, `InstructionRevision`, `Instructions`, `agent.instructions`, `agent_instructions`):
+Exact Work order values or a Message's identity and body, retained under a never-reused Project revision with its original Agent and Workstream. A replacement is a new revision even with equal bytes; Home follows the user's placement while historical attribution stays fixed.
+
+**Instruction delivery** (`InstructionDelivery`, `InstructionState`):
+An instruction revision's exact words and original Attempt: `prepared` before writer admission, `uncertain` without authoritative receipt, `submitted` after the existing prompt/inbox acknowledgement, or `refused` after an unwritten refusal or Message drop. These are delivery facts, never work completion, acceptance, verification or authority to replay.
+
 **Done condition**:
 The sentence in a Work order that says how the Agent knows it is done (`order.done`).
 
@@ -408,7 +414,7 @@ What `agent.context` returns for one Agent: its own Status, its parent, whom to 
 Whether one Agent's `roundup` MCP server (`rup mcp <id>`) has reported to the Daemon: `pending`, `up` or `missing`. Not the vendor's own channels feature.
 
 **Claude inbox**:
-Claude Code's own messaging socket for a message from another Claude Code instance, which the adapter sends a `note` over instead of typing it (B50). The Rail fact `inbox` is `ok`, `missing` or `mismatch` (B51). Not the user's Inbox.
+Claude Code's own messaging socket for a message from another Claude Code instance, which the Adapter uses for non-user Messages, notes and questions, instead of typing them (B50). The Rail fact `inbox` is `ok`, `missing` or `mismatch` (B51). Not the user's Inbox.
 
 **Mcp**:
 The Project setting `mcp {on}` (`project.setMcp`, M2219): with `on` false, or the Daemon's `ROUNDUP_MCP=off`, an Agent starts with no `roundup` MCP server and its Brief names `rup` commands. Only Agents started afterward change.
@@ -734,8 +740,40 @@ A retained source contribution attributed to its original Project, maker Agent, 
 observation and Attempt when known. A source revision replaces the same contribution's
 consumption; the revision journal preserves earlier facts. `Consumed` holds four disjoint
 categories (input, output, cache read and cache write), with missing values unknown.
-`MeasurementValue` is a request or an `Execution` interval (Agent or tool); source wall-clock
+`MeasurementValue` is a request, an `Execution` interval (Agent or tool), or an observed Timed activity; source wall-clock
 endpoints retain their meaning and never imply monotonic continuity. `Measurements` is a
 coherent read at one retained revision; `MeasurementsChanged` (`project.measurementsChanged`)
 tells subscribers to reconcile that revision. `MeasurementSource` reports last good collection,
 failure cause and uncovered history. Explicit Project/Workstream deletion remains effective.
+
+**Timed activity** (`TimedActivity`):
+A roundup-observed Attempt lifetime, blocking Decision, or blocking coordination operation linked to its original Message. It is distinct from model/tool execution.
+
+**Clock point** (`ClockPoint`):
+An observation of local wall time and a monotonic offset within one clock lifetime. Wall time aligns evidence; monotonic offsets measure durations only within that lifetime.
+
+**Observed segment** (`ObservedSegment`):
+Two comparable Clock points bounding continuously observed activity. A sleep, clock disagreement, outage or missing observation leaves a gap between segments.
+
+**Time state** (`TimeState`):
+An observed activity is active, ended at an observed Clock point, or interrupted with its end unknown.
+
+**Measurement wait** (`MeasurementWait`):
+The observation of one continuously blocking operation. It carries no delivery or control authority.
+
+**Request cost** (`RequestCost`, `CacheWrites`):
+The observed opaque Model and independently observed five-minute/one-hour cache-write
+classes of one retained request. Classes partition its consumed cache writes; a missing
+class is unknown. `unavailable` explains missing evidence. Old retained requests with
+no cost evidence remain unknown until their source is replayed.
+
+**Reference rates** (`ReferenceRates`):
+An Adapter-matched, versioned and dated offline category rate basis, with currency,
+exact decimal rates, token denominator, source link and comparison assumptions. It
+supports a separately labelled reference estimate, never a subscription bill.
+
+**Reported money** (`ReportedMoney`, `MoneyScope`, `MeasurementValue::Money`):
+An exact source amount with its currency when established, source, pricing basis and
+request or inclusive conversation scope. Conversation totals include their constituent
+requests and native children: they never add to request money or reference estimates.
+A currency not established by its source is unknown; no conversion is inferred.
