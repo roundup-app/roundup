@@ -80,6 +80,7 @@ export const createSelection = <Id>(ids: Accessor<readonly Id[]>, context: Acces
   };
 
   return {
+    focused: () => [...rows].find(([, row]) => row === document.activeElement)?.[0],
     selected, clear, click, key, toggle,
     cancel: () => { const row = rows.get(selected()[0]!); clear(); row?.focus(); },
     replace: (values: readonly Id[]) => setSelected([...new Set(values)]),

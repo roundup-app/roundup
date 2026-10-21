@@ -1,7 +1,34 @@
 import { createRoot, onCleanup } from "solid-js";
+import { chordsFor } from "../keys/chords";
 import { registerKeys } from "../keys/registry";
-import type { ActivationSource } from "../keys/registry";
+import type { ActivationSource, KeyScope } from "../keys/registry";
 import type { ShelfFrame } from "./frame";
+
+export const shelfKeyScope: KeyScope = { kind: "region", element: () => document.querySelector<HTMLElement>(".shelf") ?? undefined };
+
+const canShelfKey = (event: KeyboardEvent) => !event.repeat && !event.isComposing && !event.metaKey && !event.ctrlKey && !event.altKey && !event.shiftKey
+  && event.target instanceof Element && !event.target.closest("input, textarea, select, [contenteditable], .drawer, [role=dialog], [role=alertdialog]")
+  && !document.querySelector('.drawer[data-open="true"], [role=dialog], [role=alertdialog], [role=menu]');
+
+/** U3723: both lists bind the same keys without changing their selection or pointer paths. */
+export const shelfRowKeys = <Id,>(props: {
+  focused: () => Id | undefined;
+  remove: (id: Id) => void;
+  exportPad?: (id: Id) => void;
+}) => {
+  registerKeys(shelfKeyScope, [
+    { chords: chordsFor("D"), when: event => canShelfKey(event) && props.focused() !== undefined, run: () => {
+      const id = props.focused();
+
+      if (id !== undefined) props.remove(id);
+    } },
+    { chords: chordsFor("E"), when: event => canShelfKey(event) && props.exportPad !== undefined && props.focused() !== undefined, run: () => {
+      const id = props.focused();
+
+      if (id !== undefined) props.exportPad?.(id);
+    } },
+  ]);
+};
 
 /** U370: leader `S` toggles, `esc` from inside; focus goes to the open tab on opening and back to where it was on closing. */
 export const shelfKeys = (props: { frame: ShelfFrame; shelf: () => HTMLElement | null }) => {
@@ -16,14 +43,16 @@ export const shelfKeys = (props: { frame: ShelfFrame; shelf: () => HTMLElement |
 
     if (opening) {
       returnTo = held instanceof HTMLElement && held !== document.body ? held : null;
-    } else if (held instanceof HTMLElement && (props.shelf()?.contains(held) || held.closest(".shelf-tabs"))) {
+    }
+
+    props.frame.toggle(source);
+
+    if (!opening && held instanceof HTMLElement && (props.shelf()?.contains(held) || held.closest(".shelf-tabs"))) {
       if (returnTo?.isConnected) returnTo.focus({ preventScroll: true });
       else held.blur();
 
       returnTo = null;
     }
-
-    props.frame.toggle(source);
 
     if (opening) queueMicrotask(() => selectedTab()?.focus({ preventScroll: true }));
   };
@@ -58,7 +87,12 @@ export const shelfKeys = (props: { frame: ShelfFrame; shelf: () => HTMLElement |
   };
 
   const stop = createRoot((dispose) => {
-    registerKeys({ kind: "app" }, [{ chords: ["Escape"], when: canEscape, run: () => toggle("key") }]);
+    registerKeys(shelfKeyScope, [{
+      chords: ["Shift+Tab"],
+      when: event => props.frame.open() && event.target === firstControl() && selectedTab() !== undefined,
+      run: () => selectedTab()?.focus({ preventScroll: true }),
+    }, { chords: chordsFor("M"), when: event => canShelfKey(event) && props.frame.open() && props.shelf()?.closest(".window")?.getAttribute("data-shelf-mode") !== "overlay", run: () => props.frame.toggleMaximise("key") }]);
+    registerKeys({ kind: "app" }, [{ chords: chordsFor("Esc"), when: canEscape, run: () => toggle("key") }]);
 
     return dispose;
   });
