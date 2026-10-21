@@ -1120,7 +1120,7 @@ async fn nr5_gap_recovery_cannot_reuse_a_pre_rearm_finish() {
 
 #[tokio::test]
 async fn nr3_watch_write_failure_is_visible_and_keeps_eligible_work() {
-    for reopen in [false, true] {
+    for (reopen, accepted) in [(false, 1), (true, 1), (true, 2)] {
         let mut s = scene(&[]).await;
         // Doors keep their identity and can be explicitly started again after a reopen.
         s.a = s.door.clone();
@@ -1147,6 +1147,14 @@ async fn nr3_watch_write_failure_is_visible_and_keeps_eligible_work() {
                 && failed.observation.recovery.is_some(),
             "a failed durable observation write must be inspectable: {failed:?}"
         );
+        let mut failed = failed;
+        for _ in 1..accepted {
+            drive(&s.user, &s.a, WORK).await;
+            watching(&s, "watch-write", &[&s.a], mode.clone()).await;
+            drive(&s.user, &s.a, STOP).await;
+            failed = watching(&s, "watch-write", &[&s.a], mode.clone()).await;
+        }
+        assert_eq!(failed.firings.len(), accepted);
         project_db(&s.project)
             .execute_batch("DROP TRIGGER fail_watch;")
             .unwrap();
@@ -1158,7 +1166,7 @@ async fn nr3_watch_write_failure_is_visible_and_keeps_eligible_work() {
         }
         let recovered = watching(&s, "watch-write", &[&s.a], mode.clone()).await;
         assert_eq!(recovered.firings, failed.firings);
-        assert_eq!(recovered.remaining, 2);
+        assert_eq!(recovered.remaining, 3 - accepted as u32);
         assert!(recovered.observation.cause.is_none());
         assert!(recovered.observation.recovery.is_none());
         if reopen {
@@ -1169,9 +1177,15 @@ async fn nr3_watch_write_failure_is_visible_and_keeps_eligible_work() {
         watching(&s, "watch-write", &[&s.a], mode.clone()).await;
         drive(&s.user, &s.a, STOP).await;
         let next = watching(&s, "watch-write", &[&s.a], mode).await;
-        assert_eq!((next.firings.len(), next.remaining), (2, 1));
-        assert_eq!(next.firings[0], failed.firings[0]);
-        assert_eq!(messages(&s.user, &s.w, "watch-write").await.len(), 2);
+        assert_eq!(
+            (next.firings.len(), next.remaining),
+            (accepted + 1, 2 - accepted as u32)
+        );
+        assert_eq!(&next.firings[..accepted], failed.firings.as_slice());
+        assert_eq!(
+            messages(&s.user, &s.w, "watch-write").await.len(),
+            accepted + 1
+        );
     }
 }
 
