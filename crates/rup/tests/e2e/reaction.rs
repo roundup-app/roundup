@@ -604,7 +604,9 @@ async fn nr1_agent_access_requires_current_reach_while_user_access_remains() {
         body["condition"]["ids"] = json!([s.b]);
         body["max_firings"] = json!(2);
         body["rearm"] = json!(true);
-        let saved = made(&author, "reaction.create", body).await;
+        let saved = made(&author, "reaction.create", body.clone()).await;
+        let replayed = made(&author, "reaction.create", body.clone()).await;
+        assert_eq!(replayed.id, saved.id);
         let original = json!({"id": saved.id, "operation": "original"});
         let first = made(&author, "reaction.run", original.clone()).await;
         if removed {
@@ -619,6 +621,7 @@ async fn nr1_agent_access_requires_current_reach_while_user_access_remains() {
                 .unwrap();
         }
         for (method, args) in [
+            ("reaction.create", body),
             ("reaction.get", json!({"id": saved.id})),
             ("reaction.stop", json!({"id": saved.id})),
             ("reaction.run", original),
