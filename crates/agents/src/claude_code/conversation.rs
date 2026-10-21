@@ -538,7 +538,10 @@ mod tests {
                 assert!(error.message.contains(&copy.path.display().to_string()));
             }
             if operation == "persist temporary file" {
-                assert!(error.message.contains(".tmp"), "{error:?}");
+                assert!(
+                    error.message.contains(".tmp") && error.message.contains(".jsonl"),
+                    "{error:?}"
+                );
             }
         }
     }
