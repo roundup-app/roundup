@@ -80,43 +80,50 @@ it("u461_pad_drawer_keeps_its_touch_line", async () => {
   expect(await screen.findByText(/You wrote this Pad at/)).toBeTruthy();
 });
 
+const doneSurface = async (surface: "fold" | "drawer" | "agent" | "rail", input: "pointer" | "space") => {
+  const creator = { kind: "agent", id: "a", parent: null } as const;
+  const initial = todo(1, { done: true });
+
+  if (surface === "agent" || surface === "rail") initial.creator = creator;
+
+  const mounted = await mountTodos([initial], true,
+    surface === "agent" || surface === "rail" ? [agent("a", "idle", "ready")] : [], surface === "rail");
+
+  if (surface === "agent") mounted.connected.rail.select("a");
+
+  if (surface === "rail") {
+    fireEvent.click(await screen.findByRole("button", { name: "1 todos" }));
+  } else {
+    fireEvent.click(await screen.findByRole("button", { name: "1 done" }));
+  }
+
+  if (surface === "drawer") fireEvent.click(await screen.findByRole("button", { name: "Done #1 todo 1" }));
+  const area = surface === "drawer" ? panel() : surface === "rail" ? screen.getByRole("tree", { name: "Rail" }) : document.querySelector<HTMLElement>(".shelf")!;
+  const box = await within(area).findByRole<HTMLInputElement>("checkbox", { name: "Reopen todo 1" });
+  box.focus();
+
+  const activate = () => {
+    if (input === "pointer") { fireEvent.click(box);
+
+ return; }
+
+    const allowed = fireEvent.keyDown(box, { key: " ", code: "Space", bubbles: true });
+    fireEvent.keyUp(box, { key: " ", code: "Space", bubbles: true });
+
+    // jsdom omits the native click: dispatch it only if the App allowed Space's default action.
+    if (allowed) fireEvent.click(box);
+  };
+
+  return { mounted, area, box, activate };
+};
+
 for (const surface of ["fold", "drawer", "agent", "rail"] as const) {
-    it(`u461a_each_surface_reopens_by_pointer_and_space ${surface}`, async () => {
-      const creator = { kind: "agent", id: "a", parent: null } as const;
-      const initial = todo(1, { done: true });
-
-      if (surface === "agent" || surface === "rail") initial.creator = creator;
-
-      const mounted = await mountTodos([initial], true,
-        surface === "agent" || surface === "rail" ? [agent("a", "idle", "ready")] : [], surface === "rail");
-
-      if (surface === "agent") mounted.connected.rail.select("a");
-
-      if (surface === "rail") {
-        fireEvent.click(await screen.findByRole("button", { name: "1 todos" }));
-      } else {
-        fireEvent.click(await screen.findByRole("button", { name: "1 done" }));
-      }
-
-      if (surface === "drawer") fireEvent.click(await screen.findByRole("button", { name: "Done #1 todo 1" }));
-      const area = surface === "drawer" ? panel() : surface === "rail" ? screen.getByRole("tree", { name: "Rail" }) : document.querySelector<HTMLElement>(".shelf")!;
-      const box = await within(area).findByRole<HTMLInputElement>("checkbox", { name: "Reopen todo 1" });
-      // Space's native activation is a click; the rendered observer sends a real Space key.
-      box.focus();
+  for (const input of ["pointer", "space"] as const) {
+    it(`u461a_each_surface_reopens_by_pointer_and_space ${surface} ${input}`, async () => {
+      const { mounted, box, activate } = await doneSurface(surface, input);
       const before = mounted.app.calls.length;
-      const reopen = mounted.app.handlers["todo.reopen"]!;
-      let reject!: (error: RpcError) => void;
-      mounted.app.handlers["todo.reopen"] = () => new Promise((_, fail) => { reject = fail; });
-      fireEvent.click(box); fireEvent.click(box);
-      expect(box.checked).toBe(true);
-      await waitFor(() => expect(todoCallsTo(mounted.app, "todo.reopen")).toHaveLength(1));
-      reject(new RpcError(-32003, "Cannot reopen yet"));
-      await within(area).findByText("Cannot reopen yet");
-      expect(box.checked).toBe(true);
-      expect(document.activeElement).toBe(box);
-      mounted.app.handlers["todo.reopen"] = reopen;
-      fireEvent.click(box);
-      await waitFor(() => expect(mounted.app.calls.slice(before).filter(c => ["todo.reopen", "todo.complete", "todo.delete", "todo.move"].includes(c.method))).toEqual([{ method: "todo.reopen", params: { id: 1 } }, { method: "todo.reopen", params: { id: 1 } }]));
+      activate();
+      await waitFor(() => expect(mounted.app.calls.slice(before).filter(c => ["todo.reopen", "todo.complete", "todo.delete", "todo.move"].includes(c.method))).toEqual([{ method: "todo.reopen", params: { id: 1 } }]));
       expect(Boolean(mounted.connected.drawer.content())).toBe(surface === "drawer");
       mounted.app.emit(todoEvent("todo.updated", mounted.store.todos[0]!));
 
@@ -127,6 +134,25 @@ for (const surface of ["fold", "drawer", "agent", "rail"] as const) {
         await waitFor(() => expect(box.isConnected).toBe(false));
       }
     });
+
+    it(`u461a_pending_and_failure_preserve_accepted_value ${surface} ${input}`, async () => {
+      const { mounted, area, box, activate } = await doneSurface(surface, input);
+      const reopen = mounted.app.handlers["todo.reopen"]!;
+      let reject!: (error: RpcError) => void;
+      mounted.app.handlers["todo.reopen"] = () => new Promise((_, fail) => { reject = fail; });
+      activate(); activate();
+      expect(box.checked).toBe(true);
+      await waitFor(() => expect(todoCallsTo(mounted.app, "todo.reopen")).toHaveLength(1));
+      reject(new RpcError(-32003, "Cannot reopen yet"));
+      await within(area).findByText("Cannot reopen yet");
+      expect(box.checked).toBe(true);
+      expect(document.activeElement).toBe(box);
+      mounted.app.handlers["todo.reopen"] = reopen;
+      activate();
+      await waitFor(() => expect(todoCallsTo(mounted.app, "todo.reopen")).toHaveLength(2));
+      await waitFor(() => expect(within(area).queryByText("Cannot reopen yet")).toBeNull());
+    });
+  }
 }
 
 for (const remaining of [[1, 2, 3], [1, 2], [2]]) {
@@ -157,5 +183,6 @@ it("u461a_success_refetches_surfaces_and_keeps_focus_in_the_drawer", async () =>
   const rows = [...document.querySelectorAll<HTMLElement>(".shelf [data-todo]")];
   expect(rows.map(row => Number(row.dataset.todo))).toEqual([1, 2, 3]);
   expect(rows[1]!.getAttribute("aria-level")).toBe("2");
+  expect(within(rows[1]!).getByRole("button", { name: "Blocked #2 todo 2" })).toBeTruthy();
   expect(within(rows[0]!).getByRole<HTMLInputElement>("checkbox").checked).toBe(false);
 });
