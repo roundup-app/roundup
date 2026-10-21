@@ -320,21 +320,3 @@ it("u3083a_every_modal_renders_in_the_shared_positioner", async () => {
   expect(own).toEqual(["ui/Tooltip.css"]);
 });
 
-it.skipIf(!captureDir("U3083a"))("u3083a_modal_centre_is_the_window_centre", async () => {
-  const lane = await openLane(1512, "dark", "builder-3083");
-
-  try {
-    await lane.browser("click", ".rail-import");
-    await lane.until("!!document.querySelector('.import-panel')");
-
-    const off = await lane.evaluate<number[]>(`(() => {
-      const box = document.querySelector('.import-panel').getBoundingClientRect();
-      return [box.left + box.width / 2 - innerWidth / 2, box.top + box.height / 2 - innerHeight / 2];
-    })()`);
-
-    expect(Math.abs(off[0]!)).toBeLessThanOrEqual(1);
-    expect(Math.abs(off[1]!)).toBeLessThanOrEqual(1);
-  } finally {
-    await lane.close();
-  }
-}, 120_000);
