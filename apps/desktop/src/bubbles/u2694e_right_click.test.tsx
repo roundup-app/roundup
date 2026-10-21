@@ -155,7 +155,7 @@ it.each(cases)("u2694g_context_click_requests_only_the_target_rows_menu: $ctrl $
   expect(selected()).toBe(chosen);
   expect(branches()).toEqual(beforeBranches);
   expect(pane()).toEqual(beforePane);
-  expect(app.calls.slice(calls).filter((call) => /^(terminal\.(open|write)|agent\.(spawn|resume))$/.test(call.method))).toEqual([]);
+  expect(app.calls.slice(calls).filter((call) => /^(terminal\.(open|write)|agent\.(spawn|resume)|rail\.move)$/.test(call.method))).toEqual([]);
 });
 
 it("u2694g_dismissal_keeps_the_prior_selection_and_pane", async () => {

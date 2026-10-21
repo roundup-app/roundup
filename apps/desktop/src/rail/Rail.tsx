@@ -539,8 +539,11 @@ export const Rail = () => {
         element.addEventListener("pointerdown", (event) => {
           contextClick = event.button === 0 && event.ctrlKey;
 
-          // macOS Ctrl-click must not focus an Ark row or blur unfinished input.
-          if (contextClick) event.preventDefault();
+          // macOS Ctrl-click must not focus a row, blur unfinished input or arm its sort sensor.
+          if (contextClick) {
+            event.preventDefault();
+            event.stopPropagation();
+          }
         }, true);
         // A native menu may consume the compatibility click; keyboard activation must still work next.
         element.addEventListener("keydown", () => { contextClick = false; }, true);
