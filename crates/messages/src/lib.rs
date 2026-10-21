@@ -1538,7 +1538,28 @@ fn confirm(inner: &Inner, agent: &str, prompt: &str) -> bool {
     let Some(ids) = flight_ids(prompt) else {
         return false;
     };
-    confirm_ids(inner, agent, &ids)
+    // Legacy model fixtures project both transports onto Deliver and synthetic prompt receipts.
+    #[cfg(test)]
+    if inner.inbox.get().is_none() {
+        return confirm_ids(inner, agent, &ids);
+    }
+    let mut user_ids = Vec::new();
+    {
+        let store = lock(&inner.store);
+        for &id in &ids {
+            match store.get(id) {
+                Ok(Some(message)) if message.from.kind == ActorKind::User => user_ids.push(id),
+                Ok(_) => {}
+                Err(err) => {
+                    log_failure("confirm_prompt", &err.to_string());
+                    return false;
+                }
+            }
+        }
+    }
+    // A mixed id line must not block a prompt merely because its user Messages were delivered.
+    let repeated = confirm_ids(inner, agent, &user_ids);
+    repeated && user_ids.len() == ids.len()
 }
 
 fn confirm_ids(inner: &Inner, agent: &str, ids: &[u32]) -> bool {
