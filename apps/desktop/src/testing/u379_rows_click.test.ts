@@ -72,6 +72,8 @@ run("u379 where a Shelf row washes, a click acts", () => {
     await page.scheme(scheme);
     await page.load("/harness.html?seed=tree-40", width, height);
     await page.until(`() => document.querySelector(".shelf .shelf-row") !== null`);
+    await page.call(TAB, "todos");
+    await page.call(`() => document.querySelector('.shelf [data-shelf-group="unassigned"][data-state="closed"] [data-part="branch-control"]')?.click()`);
 
     for (const list of ["todos", "pads"]) {
       const lines = await page.call<Line[]>(LINES, list);
@@ -98,6 +100,7 @@ run("u379 where a Shelf row washes, a click acts", () => {
     await page.load("/harness.html?seed=tree-40", 1280, 820);
     await page.until(`() => document.querySelector(".shelf .shelf-row") !== null`);
     await page.call(TAB, "todos");
+    await page.call(`() => document.querySelector('.shelf [data-shelf-group="unassigned"][data-state="closed"] [data-part="branch-control"]')?.click()`);
 
     // Tab order: the title button takes focus from the keyboard.
     const focused = await page.call<boolean>(`() => { const own = ${ROWS("todos")}[0].querySelector("${TITLE}"); own.focus({ focusVisible: true }); return document.activeElement === own; }`);
