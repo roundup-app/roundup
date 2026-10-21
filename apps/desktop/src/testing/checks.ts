@@ -184,7 +184,7 @@ const offender = (page: Page, test: (el: Element, style: CSSStyleDeclaration) =>
   return { ok: !hit, value: hit ? hit.found : [], selector: hit ? selectorOf(hit.el) : "" };
 };
 
-// D2: type and space steps, with only U2541’s Token-backed KeyChip side padding excepted.
+// D2: type and space steps, including U2541’s KeyChip padding and U3708’s Token-derived tree indent.
 const d2 = (page: Page): Measure =>
   offender(page, (el, style) => {
     if (inTerminal(el)) return null;
@@ -193,6 +193,14 @@ const d2 = (page: Page): Measure =>
 
     if (size !== null && !TYPE_STEPS.has(size)) return { fontSize: style.fontSize };
 
+    const level = Number(el.getAttribute("aria-level"));
+
+    const treePadding = el instanceof HTMLElement && el.matches('.todo-list .todo-row[data-todo][role="treeitem"]') &&
+      Number.isInteger(level) && level > 0 &&
+      el.style.paddingInlineStart === `calc(var(--space-2) + ${level - 1} * var(--space-4))`
+      ? (px(page.token("space-2") ?? "") ?? NaN) + (level - 1) * (px(page.token("space-4") ?? "") ?? NaN) : null;
+
+    const treeSide = style.direction === "rtl" ? "padding-right" : "padding-left";
     const chip = el.matches("kbd.key-chip");
     const chipPadding = px(page.token("key-chip-padding") ?? "");
 
@@ -203,7 +211,9 @@ const d2 = (page: Page): Measure =>
       // the complete chip padding so an on-scale but nonconforming chip also fails.
       const chipSide = chip && (property === "padding-left" || property === "padding-right");
       const chipVertical = chip && (property === "padding-top" || property === "padding-bottom");
-      const conforms = chipSide ? chipPadding === 5 && value === chipPadding : chipVertical ? value === 0 : value === null || SPACE_STEPS.has(value);
+
+      const conforms = chipSide ? chipPadding === 5 && value === chipPadding : chipVertical ? value === 0
+        : value === null || SPACE_STEPS.has(value) || (property === treeSide && treePadding !== null && value === treePadding);
 
       if (!conforms) return { [property]: style.getPropertyValue(property) };
     }
@@ -634,7 +644,8 @@ const widest = (found: { diff: number; row: Element }[]): Measure => {
   return { ok: !worst || worst.diff <= 1, value: worst?.diff ?? 0, selector: worst ? selectorOf(worst.row) : "" };
 };
 
-// D12: Glyphs and titles align after U3708's declared tree indent; later lines start at their own title.
+// D12: U3726's tick-only rows share a title column; rows with the extra Glyph
+// keep their own column. U3708's tree indent shifts both; later lines align with their title.
 const d12 = (page: Page): Measure => {
   const rows = shelfRows(page);
 
@@ -652,9 +663,14 @@ const d12 = (page: Page): Measure => {
       ? (Number(row.getAttribute("aria-level")) - 1) * parseFloat(page.token("space-4") ?? "0") : 0;
 
     const glyphs = own.map(({ row }) => left(row.querySelector(".shelf-glyph")?.firstElementChild ?? null) - indent(row));
-    const titles = own.map(({ row }) => left(row.querySelector(".shelf-title")) - indent(row));
+
+    const tickOnly = (row: Element) => list === "todos" && row.querySelector(".shelf-glyph > .todo-tick") !== null
+      && row.querySelector(".shelf-glyph > [data-state]") === null;
 
     own.forEach(({ row }, index) => {
+      const titles = own.filter((one) => tickOnly(one.row) === tickOnly(row))
+        .map((one) => left(one.row.querySelector(".shelf-title")) - indent(one.row));
+
       found.push({ diff: Math.max(...glyphs) - Math.min(...glyphs), row: own[index]!.row });
       found.push({ diff: Math.max(...titles) - Math.min(...titles), row });
 
