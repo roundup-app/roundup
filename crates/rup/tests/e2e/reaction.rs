@@ -599,7 +599,7 @@ async fn nr1_agent_actions_require_current_reach_but_user_actions_remain_availab
     let author = client_as(&s.project, actor(ActorKind::Agent, &s.door)).await;
     let mut body = definition(&s.a, "user may still run this");
     body["condition"]["ids"] = json!([s.b]);
-    let saved = made(&author, "reaction.create", body).await;
+    let saved = made(&author, "reaction.create", body.clone()).await;
     assert_eq!(listed(&author).await.len(), 1);
     s.user
         .request("rail.move", json!({"id": s.a, "parent": null, "index": 0}))
@@ -619,6 +619,8 @@ async fn nr1_agent_actions_require_current_reach_but_user_actions_remain_availab
             .unwrap_err();
         assert_eq!(err.code, code::FORBIDDEN, "{method}");
     }
+    let retry = author.request("reaction.create", body).await.unwrap_err();
+    assert_eq!(retry.code, code::FORBIDDEN);
     assert!(listed(&author).await.is_empty());
     let seen = current(&s, &saved).await;
     assert!(seen.firings.is_empty());
