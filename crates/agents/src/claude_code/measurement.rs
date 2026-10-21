@@ -571,6 +571,20 @@ mod recovery_tests {
                 .unwrap()
         }
 
+        fn reopen(&mut self) {
+            let bus = Bus::new();
+            let terms = Arc::new(Terminals::open(self.dir.path(), bus.clone()).unwrap());
+            self.agents = Agents::open_with(
+                self.dir.path(),
+                bus.clone(),
+                terms,
+                self.agents.launcher.clone(),
+                worktree::Git::from_env(),
+            )
+            .unwrap();
+            self.ctx.bus = bus;
+        }
+
         fn db(&self) -> rusqlite::Connection {
             rusqlite::Connection::open(self.dir.path().join("agents.db")).unwrap()
         }
@@ -658,6 +672,39 @@ mod recovery_tests {
                 assert_eq!(requests(&read), requests(&recovered));
                 break;
             }
+        }
+    }
+
+    #[tokio::test]
+    async fn u3119b_revision_write_recovery_survives_reopen() {
+        for (fail, restore) in [
+            (
+                "ALTER TABLE measurement_state RENAME TO held_measurement_state",
+                "ALTER TABLE held_measurement_state RENAME TO measurement_state",
+            ),
+            (
+                "CREATE TRIGGER refuse_request BEFORE INSERT ON measurement_revisions BEGIN SELECT RAISE(ABORT,'retention refused'); END;",
+                "DROP TRIGGER refuse_request",
+            ),
+        ] {
+            let mut w = Recovery::new();
+            w.append("first");
+            w.collect();
+            let good = w.read().await;
+            let db = w.db();
+            db.execute_batch(fail).unwrap();
+            w.append("second");
+            w.collect();
+            db.execute_batch(restore).unwrap();
+            w.reopen();
+            w.collect();
+            let recovered = w.read().await;
+            recovered_requests(&good, &recovered);
+            w.reopen();
+            w.collect();
+            let replayed = w.read().await;
+            assert_eq!(requests(&replayed), requests(&recovered));
+            assert_eq!(replayed["revision"], recovered["revision"]);
         }
     }
 
