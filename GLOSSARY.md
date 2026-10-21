@@ -781,11 +781,26 @@ exact declared repository/PR/head. Unsupported sources and uncertain external ef
 remain unknown with a cause and checking action. Agent status and Terminal prose
 supply no verification authority.
 
+**Result resolution** (`ResultResolution`, `ResultOutcome`, `ResolveResultParams`, `message.resolveResult`):
+A Daemon GET of an authoritative receipt source explicitly chosen by the user, never
+by an Agent. The receipt names the exact `ResultTarget`, an opaque source revision,
+Unix observation seconds and a completed, not-performed or inconclusive outcome.
+HTTPS (or literal loopback HTTP), a five-second deadline, no redirects and a 64 KiB
+response bound apply. A receipt older than 60 seconds, more than five seconds ahead,
+without a source revision, for another target/version, unavailable or inconclusive
+records an unknown cause and checking action. A conclusive receipt is retained as a
+resolved `ResultObservation` with source and authorizing Actor. It resolves only that
+unknown-effect report; acceptance and publication integrity cannot resolve it.
+No effect or continuation is issued by resolution. The receipt endpoint is a declared
+read-only source; choosing it grants no Agent permission to choose another source.
+
 **Progress** (`Progress`, `ProgressParams`, `ResultProgress`, `message.progress`):
 Passive inspection of retained instructions, Result reports, acceptance, source
 observations and exact publication availability. Historical evidence stays readable;
-current attribution requires the same Order revision and latest reported version of
-that target. Opening or inspecting Progress starts nothing and sends no Message.
+unresolved external effects stay current across later claims and instruction changes
+until their exact-version Result resolution. They block completion checks and current
+attribution of later claims for that target. Other current attribution requires the
+same Order revision and latest reported version of that target. Opening or inspecting Progress starts nothing and sends no Message.
 
 **Request cost** (`RequestCost`, `CacheWrites`):
 The observed opaque Model and independently observed five-minute/one-hour cache-write

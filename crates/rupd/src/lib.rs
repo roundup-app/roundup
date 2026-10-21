@@ -686,6 +686,7 @@ impl Daemon {
                     | "message.report"
                     | "message.acceptResult"
                     | "message.verifyResult"
+                    | "message.resolveResult"
             )
             || matches!(
                 method,
@@ -896,9 +897,20 @@ impl Daemon {
             .await?;
         if matches!(
             method,
-            "message.progress" | "message.report" | "message.acceptResult" | "message.verifyResult"
+            "message.progress"
+                | "message.report"
+                | "message.acceptResult"
+                | "message.verifyResult"
+                | "message.resolveResult"
         ) {
-            return self.evidence_call(conn, method, params).await;
+            return self
+                .evidence_call(
+                    conn,
+                    method,
+                    params,
+                    time::OffsetDateTime::now_utc().unix_timestamp(),
+                )
+                .await;
         }
         if namespace == "deliverable" {
             return self.deliverable_call(conn, method, params).await;
@@ -1917,6 +1929,7 @@ async fn handle(stream: UnixStream, daemon: Arc<Daemon>) -> io::Result<()> {
                         | "message.report"
                         | "message.acceptResult"
                         | "message.verifyResult"
+                        | "message.resolveResult"
                 )
         }) || matches!(
             method.as_deref(),
