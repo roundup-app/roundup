@@ -51,6 +51,8 @@ for effect in ['deployment','payment','push']:
  with open(sys.argv[2]+'.effects','a') as calls:calls.write(effect+'\n')
  q={**p,'key':effect,'target':{'id':effect,'revision':'v1'},'state':'unknown-effect','check':{'kind':'unsupported','source':effect}}
  effects.append(call('message.report',q))
+ if sys.argv[3]=='effect-claim':
+  call('message.report',{**q,'key':effect+'-claim','state':'reported','check':p['check']})
 if sys.argv[3]=='replace':
  q={**p,'key':'unchanged','target':{'id':'unchanged','revision':'v1'}}
  call('message.report',q)
@@ -488,4 +490,25 @@ async fn u3078c_a_late_report_cannot_borrow_the_current_instruction_revision() {
         e.report["order_revision"],
         e.report["instruction"]["revision"]
     );
+}
+
+#[tokio::test]
+async fn u3078h_later_claims_cannot_supersede_unresolved_effects() {
+    let e = Evidence::with("effect-claim").await;
+    let progress = e.progress().await;
+    for effect in e.effects.as_array().unwrap() {
+        let rows = progress["results"].as_array().unwrap();
+        let original = rows.iter().find(|r| r["report"]["report"] == effect["report"]).unwrap();
+        assert_eq!(original["current"], true);
+        let claim = rows.iter().find(|r| r["report"]["request"]["key"] == format!("{}-claim", effect["request"]["target"]["id"].as_str().unwrap())).unwrap();
+        assert_eq!(claim["current"], false);
+        let mut q = e.query();
+        q["report"] = claim["report"]["report"].clone();
+        q["evidence"] = json!("Looks complete");
+        e.client.request("message.acceptResult", q.clone()).await.unwrap();
+        q.as_object_mut().unwrap().remove("evidence");
+        let observed = e.client.request("message.verifyResult", q).await.unwrap();
+        assert_eq!(observed["verdict"], "unknown");
+        assert!(observed["cause"].as_str().unwrap().contains("external effect"));
+    }
 }
