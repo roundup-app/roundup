@@ -54,7 +54,7 @@ type Ev is Data:
 # typed: `delivered` ids, in the order they were written. dropped: `dropped` ids.
 # users: ids the user sent. takeover and unsent are independent Terminal holds (B6/B32).
 # next: the next id. idle: delivery readiness. gone: the receiver has ended.
-# tk_typed is a proof-only record of the ids typed while a Takeover held; released holds the ids the user delivered
+# tk_typed is a proof-only record of the ids typed while either Terminal hold was active; released holds the ids the user delivered
 # by hand (B6: the user's call wins even during a Takeover). The Rust derives both by replay.
 type World is Data:
   W{queue: +List<Nat>, held_af: +List<Nat>, held_tk: +List<Nat>, typed: +List<Nat>, dropped: +List<Nat>, users: +List<Nat>, tk_typed: +List<Nat>, released: +List<Nat>, next: Nat, takeover: Bool, unsent: Bool, idle: Bool, gone: Bool}
@@ -102,7 +102,7 @@ def flush_go(q: +List<Nat>, s: World) -> World:
     case Con{+x, +rest}:
       match s:
         case W{+q0, +haf, +htk, +t, +d, +u, +tt, +rl, +n, +tk, +us, +i, +g}:
-          flush_go(rest, W{[], haf, htk, snoc(t, x), d, u, record(tk, x, tt), rl, n, tk, us, False{}, g})
+          flush_go(rest, W{[], haf, htk, snoc(t, x), d, u, record(Bool.or(tk, us), x, tt), rl, n, tk, us, False{}, g})
 
 def flush_b(i: Bool, s: World) -> World:
   match i:
