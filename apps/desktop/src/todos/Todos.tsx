@@ -7,6 +7,7 @@ import { registerKeys } from "../keys/registry";
 import { activationSource } from "../keys/registry";
 import type { ActivationSource } from "../keys/registry";
 import { copy } from "../copy";
+import { shelfRowKeys } from "../shelf/keys";
 import { createBulkDelete } from "../shelf/BulkDelete";
 
 import { createSelection } from "../shelf/selection";
@@ -285,6 +286,8 @@ export const Todos = (props: {
     },
     reveal: () => setUnfolded(true),
   });
+
+  shelfRowKeys({ focused: selection.focused, remove: id => bulk.ask(false, id) });
 
   const selectionKey = (todo: Todo, event: KeyboardEvent) => {
     bulk.key(event);

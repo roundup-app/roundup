@@ -30,8 +30,8 @@ const visit = (node: Node, ancestors: readonly Node[], read: (node: Node, ancest
 const STRUCTURE = new Set([
   // U2749b: a development/test invariant, never App copy.
   "Tooltip anchor excludes its opening pointer",
-  // U2239: the leader's key names and the modifier keys it waits through.
-  "J", "⇧J", "K", "M", "W", "S", "T", "KeyJ", "KeyK", "KeyM", "KeyW", "KeyS", "KeyT", "Shift+KeyJ", "Shift", "Control", "Alt", "Meta", "CapsLock",
+  // U2239/U3721–U3724: registry key names and physical codes are executable structure, not prose.
+  "D", "E", "Esc", "Escape", "KeyD", "KeyE", "J", "⇧J", "K", "M", "W", "S", "T", "KeyJ", "KeyK", "KeyM", "KeyW", "KeyS", "KeyT", "Shift+KeyJ", "Shift", "Control", "Alt", "Meta", "CapsLock",
   "index.html has no #root element", "the keystroke run needs a Project open", "RpcError",
   "(prefers-reduced-motion: reduce)", "(prefers-color-scheme: dark)",
   "input, textarea, [contenteditable]", 'input, textarea, [contenteditable="true"]',
