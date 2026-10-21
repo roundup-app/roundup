@@ -681,9 +681,13 @@ impl Store {
     }
 
     /// B51(d), B6, B32: inbox recovery releases in id order only after both Terminal holds end.
-    pub(crate) fn release_inbox_held(&mut self, agent: &str) -> Result<Vec<Message>, RpcError> {
+    pub(crate) fn release_inbox_held(
+        &mut self,
+        agent: &str,
+        at: Binding,
+    ) -> Result<Vec<Message>, RpcError> {
         self.atomically(|store| {
-            if store.holds_terminal(agent) {
+            if store.holds_terminal(agent) || store.require_generation(agent, at).is_err() {
                 return Ok(Vec::new());
             }
             let ids: Vec<u32> = store
@@ -696,6 +700,17 @@ impl Store {
                 .map_err(RpcError::internal)?;
             let mut released = Vec::new();
             for id in ids {
+                let message = store.get(id)?.expect("selected held Message");
+                if store.is_inbox_repeat(
+                    &message.from,
+                    &message.to,
+                    &message.body,
+                    at.0,
+                    Some(id),
+                )? {
+                    continue;
+                }
+                store.bind(id, (at.0, 0))?;
                 if store.release_held(id, MessageStatus::Pending, None)? {
                     released.push(store.get(id)?.expect("just updated"));
                 }
@@ -847,6 +862,15 @@ impl Store {
         let held = self.list_takeover_held_to(agent)?;
         for id in order(&held) {
             let message = held.iter().find(|m| m.id == id).expect("named by `order`");
+            if self.is_inbox_repeat(
+                &message.from,
+                &message.to,
+                &message.body,
+                self.bound(id)?.0,
+                Some(id),
+            )? {
+                continue;
+            }
             let changed = self
                 .db
                 .execute(
@@ -1118,7 +1142,7 @@ impl Store {
         self.db
             .query_row(
                 &format!(
-                    "SELECT COUNT(*) FROM messages WHERE to_id = ?1 AND status IN ('pending', 'held') AND NOT ({DIGEST}) AND NOT (from_actor = ?2 AND substr(body, 1, length(?4)) = ?4)"
+                    "SELECT COUNT(*) FROM messages WHERE to_id = ?1 AND status IN ('pending', 'held') AND NOT ({DIGEST}) AND NOT (kind = 'note' AND from_actor = ?2 AND substr(body, 1, length(?4)) = ?4)"
                 ),
                 params![
                     to,
@@ -1131,21 +1155,42 @@ impl Store {
             .map_err(RpcError::internal)
     }
 
-    /// B51(g): the latest `note` to `to`, at its Attempt `attempt`, that Claude Code has taken up
-    /// or will: `pending` or `delivered`, from anyone but the user.
-    pub(crate) fn last_note(&self, to: &str, attempt: i64) -> Result<Option<Message>, RpcError> {
+    /// B51(g): the latest non-user Message the receiving Attempt has taken up or will take.
+    fn last_inbox_message(
+        &self,
+        to: &str,
+        attempt: i64,
+        except: Option<u32>,
+    ) -> Result<Option<Message>, RpcError> {
         self.db
             .query_row(
                 "SELECT id, from_actor, to_id, kind, body, reply_to, status, reason, at, passed_from
                  FROM messages
-                 WHERE to_id = ?1 AND kind = 'note' AND status IN ('pending', 'delivered')
-                   AND receiver_attempt = ?2 AND from_actor != ?3
+                 WHERE to_id = ?1 AND status IN ('pending', 'delivered')
+                   AND receiver_attempt = ?2 AND from_actor != ?3 AND (?4 IS NULL OR id != ?4)
                  ORDER BY id DESC LIMIT 1",
-                params![to, attempt, actor_json(&Actor::user())],
+                params![to, attempt, actor_json(&Actor::user()), except],
                 row_to_message,
             )
             .optional()
             .map_err(RpcError::internal)
+    }
+
+    /// B51(g): held Messages and generated hops cannot bypass the sender/body repeat refusal.
+    pub(crate) fn is_inbox_repeat(
+        &self,
+        from: &Actor,
+        to: &str,
+        body: &str,
+        attempt: i64,
+        except: Option<u32>,
+    ) -> Result<bool, RpcError> {
+        if from.kind == contracts::ActorKind::User || to == Actor::user().id {
+            return Ok(false);
+        }
+        Ok(self
+            .last_inbox_message(to, attempt, except)?
+            .is_some_and(|last| last.from == *from && last.body == body))
     }
 
     /// B22: the pushed digests to `to` that are `pending` or `held`, oldest first.
@@ -1241,7 +1286,7 @@ impl Store {
 
 /// The SQL that picks a pushed digest (B22) out of `messages`, taking the Daemon as `?2` and the
 /// body prefix as `?3`.
-const DIGEST: &str = "from_actor = ?2 AND substr(body, 1, length(?3)) = ?3";
+const DIGEST: &str = "kind = 'note' AND from_actor = ?2 AND substr(body, 1, length(?3)) = ?3";
 
 fn list_text(list: &[String]) -> String {
     serde_json::to_string(list).unwrap_or_else(|_| "[]".to_owned())

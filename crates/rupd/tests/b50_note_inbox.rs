@@ -35,14 +35,29 @@ server.bind(path)
 server.listen()
 json.dump({'pid': os.getpid(), 'messagingSocketPath': path, 'peerProtocol': int(open(here + '/protocol').read())}, open(sessions + '/%d.json' % os.getpid(), 'w'))
 json.dump({'peerToken': token}, open(sessions + '/%d.abc.key' % os.getpid(), 'w'))
+# A resumed conversation remembers UUID uptake; sender/content refusal resets per Attempt.
+taken_path = here + '/taken.jsonl'
+if '--resume' not in sys.argv:
+    open(taken_path, 'w').close()
+seen_ids = {json.loads(line)['msg_id'] for line in open(taken_path)}
+last_entry, peer_lock = None, threading.Lock()
 def take(conn):
+    global last_entry
     lines = conn.makefile()
     if json.loads(lines.readline()).get('token') != token:
         return
     for line in lines:
-        mode = re.search(r'from-mode="([^"]*)"', json.loads(line)['message']['content']).group(1)
+        entry = json.loads(line)
+        content = entry['message']['content']
+        mode = re.search(r'from-mode="([^"]*)"', content).group(1)
         if mode == flag('--permission-mode'):
-            with open(here + '/received.jsonl', 'a') as out: out.write(line)
+            with peer_lock:
+                with open(here + '/received.jsonl', 'a') as out: out.write(line)
+                if entry['msg_id'] in seen_ids or content == last_entry:
+                    continue
+                seen_ids.add(entry['msg_id'])
+                last_entry = content
+                with open(taken_path, 'a') as out: out.write(line)
 def serve():
     while True:
         conn, _ = server.accept()
@@ -85,6 +100,7 @@ struct Run {
     sender: Client,
     child: String,
     scout: bool,
+    kind: &'static str,
     terminal: Value,
     attempt: Value,
     /// The bytes the Daemon typed itself at the start (its context), before any note.
@@ -177,6 +193,7 @@ impl Run {
             sender,
             child: String::new(),
             scout,
+            kind: "note",
             terminal: Value::Null,
             attempt: Value::Null,
             started_with: AtomicUsize::new(0),
@@ -284,11 +301,18 @@ impl Run {
         }
     }
 
-    /// The Messages' lines the fake session took up over its socket, as `rup-<id>`: only a line
-    /// whose `from-mode` is the mode it was launched in counts, as the rest are held.
+    /// Socket entries in this Attempt, including permitted same-id retries after restart.
+    /// Only authenticated entries in the receiving permission mode count.
     fn entries(&self) -> Vec<String> {
-        let text =
-            std::fs::read_to_string(self.dir.path().join("received.jsonl")).unwrap_or_default();
+        self.entry_ids("received.jsonl")
+    }
+
+    fn taken(&self) -> Vec<String> {
+        self.entry_ids("taken.jsonl")
+    }
+
+    fn entry_ids(&self, file: &str) -> Vec<String> {
+        let text = std::fs::read_to_string(self.dir.path().join(file)).unwrap_or_default();
         text.lines()
             .map(|line| {
                 let msg_id = serde_json::from_str::<Value>(line).unwrap()["msg_id"]
@@ -301,13 +325,25 @@ impl Run {
             .collect()
     }
 
-    /// The Message lines taken up, whole.
+    /// The authenticated socket entries, whole.
     fn received(&self) -> Vec<Value> {
         let text =
             std::fs::read_to_string(self.dir.path().join("received.jsonl")).unwrap_or_default();
         text.lines()
             .map(|line| serde_json::from_str(line).unwrap())
             .collect()
+    }
+
+    async fn identify_sender(&self, kind: &str) {
+        let (kind, id) = match kind {
+            "daemon" => ("ext", "rupd"),
+            "user" => ("user", "you"),
+            kind => (kind, "b50"),
+        };
+        self.sender
+            .request("daemon.identify", json!({"actor":{"kind":kind,"id":id}}))
+            .await
+            .unwrap();
     }
 
     async fn note(&self, body: &str) -> u32 {
@@ -320,7 +356,7 @@ impl Run {
             .sender
             .request(
                 "message.send",
-                json!({"to":self.child,"kind":"note","body":body}),
+                json!({"to":self.child,"kind":self.kind,"body":body}),
             )
             .await?;
         Ok(sent["id"].as_u64().unwrap() as u32)
@@ -447,22 +483,26 @@ async fn b50_a_note_goes_over_the_socket_labelled_with_its_sender_and_not_held()
 
 #[tokio::test]
 async fn b50_a_note_is_delivered_when_the_transcript_records_it() {
-    let mut run = Run::start().await;
-    let id = run.note("look").await;
-    until("taken up", async || {
-        (!run.entries().is_empty()).then_some(())
-    })
-    .await;
-    assert_eq!(run.status(id).await, ("pending".into(), None));
-    run.idle_edge().await;
-    assert_eq!(run.status(id).await.0, "pending", "no idle delivers it");
-    run.record(&[id]).await;
-    until("delivered", async || {
-        (run.status(id).await.0 == "delivered").then_some(())
-    })
-    .await;
-    let (_, delivered) = run.seen().await;
-    assert_eq!(delivered, [id]);
+    // B50(c): rejects socket-success-as-delivery for either kind.
+    for kind in ["note", "question"] {
+        let mut run = Run::start().await;
+        run.kind = kind;
+        let id = run.note("look").await;
+        until("taken up", async || {
+            (!run.entries().is_empty()).then_some(())
+        })
+        .await;
+        assert_eq!(run.status(id).await, ("pending".into(), None));
+        run.idle_edge().await;
+        assert_eq!(run.status(id).await.0, "pending", "no idle delivers it");
+        run.record(&[id]).await;
+        until("delivered", async || {
+            (run.status(id).await.0 == "delivered").then_some(())
+        })
+        .await;
+        let (_, delivered) = run.seen().await;
+        assert_eq!(delivered, [id]);
+    }
 }
 
 #[tokio::test]
@@ -485,165 +525,281 @@ async fn b50_a_long_note_shows_as_one_line() {
 
 #[tokio::test]
 async fn b51_a_session_not_listening_holds_the_note_with_zero_terminal_writes() {
-    let mut run = Run::start().await;
-    run.unlist_session().await;
-    let id = run.note("hello").await;
-    until("held", async || {
-        (run.status(id).await.0 == "held").then_some(())
-    })
-    .await;
-    assert_eq!(run.status(id).await, ("held".into(), Some("inbox".into())));
-    assert_eq!(run.typed().await, 0);
-    assert!(run.entries().is_empty());
-    assert_eq!(run.rail_inbox().await.as_deref(), Some("missing"));
-    assert_eq!(run.seen().await.0, [id]);
+    // B51(a-c,f): rejects prompt fallback or false delivery on Missing for any sender.
+    for (sender, kind) in ["agent", "ext", "daemon"]
+        .into_iter()
+        .flat_map(|sender| ["note", "question"].map(|kind| (sender, kind)))
+    {
+        let mut run = Run::start().await;
+        run.kind = kind;
+        run.identify_sender(sender).await;
+        run.unlist_session().await;
+        let id = run.note("hello").await;
+        until("held", async || {
+            (run.status(id).await.0 == "held").then_some(())
+        })
+        .await;
+        assert_eq!(run.status(id).await, ("held".into(), Some("inbox".into())));
+        assert_eq!(run.typed().await, 0);
+        assert!(run.entries().is_empty());
+        assert_eq!(run.rail_inbox().await.as_deref(), Some("missing"));
+        assert_eq!(run.seen().await.0, [id]);
+    }
 }
 
 #[tokio::test]
 async fn b51_an_unprobed_peer_protocol_is_a_mismatch() {
-    let run = Run::start_on(99).await;
-    let (_, id) = run.refused_note("hello").await;
-    until("held", async || {
-        (run.status(id).await.0 == "held").then_some(())
-    })
-    .await;
-    assert_eq!(run.rail_inbox().await.as_deref(), Some("mismatch"));
-    assert!(run.entries().is_empty());
-    assert_eq!(run.typed().await, 0);
-    // The transition is loud, once: the Rail is read again at each check, the log line is not.
-    let log = std::fs::read_to_string(run.dir.path().join("rupd.err")).unwrap();
-    let lines: Vec<_> = log
-        .lines()
-        .filter(|line| line.contains("messaging protocol this build does not"))
-        .collect();
-    assert_eq!(lines.len(), 1, "{log}");
+    // B51(a-c): rejects question fallback or loss of the visible Mismatch fact.
+    for (sender, kind) in ["agent", "ext", "daemon"]
+        .into_iter()
+        .flat_map(|sender| ["note", "question"].map(|kind| (sender, kind)))
+    {
+        let mut run = Run::start_on(99).await;
+        run.kind = kind;
+        run.identify_sender(sender).await;
+        let (_, id) = run.refused_note("hello").await;
+        until("held", async || {
+            (run.status(id).await.0 == "held").then_some(())
+        })
+        .await;
+        assert_eq!(run.rail_inbox().await.as_deref(), Some("mismatch"));
+        assert!(run.entries().is_empty());
+        assert_eq!(run.typed().await, 0);
+        // The transition is loud, once: the Rail is read again at each check, the log line is not.
+        let log = std::fs::read_to_string(run.dir.path().join("rupd.err")).unwrap();
+        let lines: Vec<_> = log
+            .lines()
+            .filter(|line| line.contains("messaging protocol this build does not"))
+            .collect();
+        assert_eq!(lines.len(), 1, "{log}");
+    }
 }
 
 #[tokio::test]
 async fn b51_a_held_inbox_note_is_released_when_the_session_listens_again() {
-    let mut run = Run::start().await;
-    let listed = run.unlist_session().await;
-    let first = run.note("one").await;
-    let second = run.note("two").await;
-    until("held", async || {
-        (run.status(second).await.0 == "held" && run.status(first).await.0 == "held").then_some(())
-    })
-    .await;
-    assert_eq!(run.rail_inbox().await.as_deref(), Some("missing"));
-    run.relist_session(&listed);
-    run.idle_edge().await;
-    until("taken up", async || {
-        (run.entries() == [format!("rup-{first}"), format!("rup-{second}")]).then_some(())
-    })
-    .await;
-    assert_eq!(run.rail_inbox().await.as_deref(), Some("ok"));
-    assert_eq!(run.typed().await, 0);
-    let _ = run.seen().await;
+    // B51(d): rejects reordered recovery or delivery before the corresponding receipt.
+    for kind in ["note", "question"] {
+        let mut run = Run::start().await;
+        run.kind = kind;
+        let listed = run.unlist_session().await;
+        let first = run.note("one").await;
+        let second = run.note("two").await;
+        until("held", async || {
+            (run.status(second).await.0 == "held" && run.status(first).await.0 == "held")
+                .then_some(())
+        })
+        .await;
+        assert_eq!(run.rail_inbox().await.as_deref(), Some("missing"));
+        run.relist_session(&listed);
+        run.idle_edge().await;
+        until("taken up", async || {
+            (run.entries() == [format!("rup-{first}"), format!("rup-{second}")]).then_some(())
+        })
+        .await;
+        assert_eq!(run.rail_inbox().await.as_deref(), Some("ok"));
+        assert_eq!(run.typed().await, 0);
+        assert_eq!(run.status(first).await.0, "pending");
+        assert_eq!(run.status(second).await.0, "pending");
+        assert!(run.seen().await.1.is_empty());
+        run.record(&[first, second]).await;
+        until("both recovered receipts", async || {
+            (run.status(first).await.0 == "delivered" && run.status(second).await.0 == "delivered")
+                .then_some(())
+        })
+        .await;
+        assert_eq!(run.seen().await.1, [first, second]);
+    }
 }
 
 #[tokio::test]
 async fn b51_deliver_by_hand_sends_nothing_and_errors() {
-    let run = Run::start().await;
-    run.unlist_session().await;
-    let id = run.note("hello").await;
-    until("held", async || {
-        (run.status(id).await.0 == "held").then_some(())
-    })
-    .await;
-    let err = run
-        .user
-        .request("message.deliver", json!({"id":id}))
-        .await
-        .unwrap_err();
-    assert_eq!(err.code, rpc::code::INBOX_UNAVAILABLE);
-    assert_eq!(run.status(id).await.0, "held");
-    assert_eq!(run.typed().await, 0);
+    // B51(e): rejects manual-delivery fallback or success on an unavailable inbox.
+    for (protocol, kind) in [1, 99]
+        .into_iter()
+        .flat_map(|protocol| ["note", "question"].map(|kind| (protocol, kind)))
+    {
+        let mut run = Run::start_on(protocol).await;
+        run.kind = kind;
+        let id = if protocol == 1 {
+            run.unlist_session().await;
+            run.note("hello").await
+        } else {
+            run.refused_note("hello").await.1
+        };
+        until("held", async || {
+            (run.status(id).await.0 == "held").then_some(())
+        })
+        .await;
+        let err = run
+            .user
+            .request("message.deliver", json!({"id":id}))
+            .await
+            .unwrap_err();
+        assert_eq!(err.code, rpc::code::INBOX_UNAVAILABLE);
+        assert_eq!(run.status(id).await.0, "held");
+        assert_eq!(run.typed().await, 0);
+    }
 }
 
 #[tokio::test]
 async fn b51_the_user_message_is_typed_whatever_the_inbox() {
-    let run = Run::start().await;
-    run.unlist_session().await;
-    run.user
-        .request(
-            "message.send",
-            json!({"to":run.child,"kind":"note","body":"from me"}),
-        )
-        .await
-        .unwrap();
-    until("typed", async || (run.typed().await > 0).then_some(())).await;
+    // B51(e): rejects routing user input to an unavailable inbox.
+    for (protocol, kind) in [1, 99]
+        .into_iter()
+        .flat_map(|protocol| ["note", "question"].map(|kind| (protocol, kind)))
+    {
+        let mut run = Run::start_on(protocol).await;
+        run.kind = kind;
+        if protocol == 1 {
+            run.unlist_session().await;
+        }
+        run.user
+            .request(
+                "message.send",
+                json!({"to":run.child,"kind":kind,"body":"from me"}),
+            )
+            .await
+            .unwrap();
+        until("typed", async || (run.typed().await > 0).then_some(())).await;
+    }
 }
 
 #[tokio::test]
 async fn b52_thirty_idle_edges_send_a_note_once_and_type_nothing() {
-    let mut run = Run::start().await;
-    let id = run.note("once").await;
-    until("taken up", async || {
-        (!run.entries().is_empty()).then_some(())
-    })
-    .await;
-    for _ in 0..30 {
-        run.idle_edge().await;
+    // B52(a): rejects clearing in-flight identity on idle and duplicate socket sends.
+    for kind in ["note", "question"] {
+        let mut run = Run::start().await;
+        run.kind = kind;
+        let id = run.note("once").await;
+        until("taken up", async || {
+            (!run.entries().is_empty()).then_some(())
+        })
+        .await;
+        for _ in 0..30 {
+            run.idle_edge().await;
+            assert_eq!(run.typed().await, 0);
+            assert_eq!(
+                run.entries().len(),
+                if run.rail_inbox().await.as_deref() == Some("ok") {
+                    1
+                } else {
+                    0
+                }
+            );
+        }
+        assert_eq!(run.entries(), [format!("rup-{id}")]);
+        assert_eq!(run.typed().await, 0);
+        run.record(&[id]).await;
+        until("delivered", async || {
+            (run.status(id).await.0 == "delivered").then_some(())
+        })
+        .await;
+        assert_eq!(run.seen().await.1, [id]);
     }
-    assert_eq!(run.entries(), [format!("rup-{id}")]);
-    assert_eq!(run.typed().await, 0);
-    run.record(&[id]).await;
-    until("delivered", async || {
-        (run.status(id).await.0 == "delivered").then_some(())
-    })
-    .await;
-    assert_eq!(run.seen().await.1, [id]);
 }
 
 #[tokio::test]
 async fn b52_thirty_idle_edges_with_a_session_not_listening_hold_once_and_type_nothing() {
-    let mut run = Run::start().await;
-    run.unlist_session().await;
-    let id = run.note("once").await;
-    for _ in 0..30 {
-        run.idle_edge().await;
+    // B52(a): rejects repeated hold events or fallback while the inbox is Missing.
+    for kind in ["note", "question"] {
+        let mut run = Run::start().await;
+        run.kind = kind;
+        run.unlist_session().await;
+        let id = run.note("once").await;
+        for _ in 0..30 {
+            run.idle_edge().await;
+            assert_eq!(run.typed().await, 0);
+            assert_eq!(
+                run.entries().len(),
+                if run.rail_inbox().await.as_deref() == Some("ok") {
+                    1
+                } else {
+                    0
+                }
+            );
+        }
+        assert_eq!(run.status(id).await, ("held".into(), Some("inbox".into())));
+        assert_eq!(run.typed().await, 0);
+        assert_eq!(run.seen().await.0, [id]);
     }
-    assert_eq!(run.status(id).await, ("held".into(), Some("inbox".into())));
-    assert_eq!(run.typed().await, 0);
-    assert_eq!(run.seen().await.0, [id]);
 }
 
 #[tokio::test]
 async fn b52_a_restart_with_a_held_inbox_note_keeps_it_held() {
-    let mut run = Run::start_on(99).await;
-    let (_, id) = run.refused_note("keep").await;
-    until("held", async || {
-        (run.status(id).await.0 == "held").then_some(())
-    })
-    .await;
-    run.restart().await;
-    assert_eq!(run.status(id).await, ("held".into(), Some("inbox".into())));
-    assert_eq!(run.typed().await, 0);
+    // B52(b): rejects releasing an unavailable hold or retaining its old Attempt on recovery.
+    for kind in ["note", "question"] {
+        let mut run = Run::start_on(99).await;
+        run.kind = kind;
+        let (_, id) = run.refused_note("keep").await;
+        until("held", async || {
+            (run.status(id).await.0 == "held").then_some(())
+        })
+        .await;
+        run.restart().await;
+        assert_eq!(run.status(id).await, ("held".into(), Some("inbox".into())));
+        assert_eq!(run.typed().await, 0);
+        for file in std::fs::read_dir(run.sessions()).unwrap() {
+            let path = file.unwrap().path();
+            if path
+                .extension()
+                .is_some_and(|extension| extension == "json")
+            {
+                let mut listing: Value =
+                    serde_json::from_slice(&std::fs::read(&path).unwrap()).unwrap();
+                listing["peerProtocol"] = json!(1);
+                std::fs::write(&path, serde_json::to_vec(&listing).unwrap()).unwrap();
+            }
+        }
+        run.idle_edge().await;
+        until(
+            "held Message recovered in the resumed Attempt",
+            async || (run.entries() == [format!("rup-{id}")]).then_some(()),
+        )
+        .await;
+        assert_eq!(run.status(id).await.0, "pending");
+        run.record(&[id]).await;
+        until("recovered receipt", async || {
+            (run.status(id).await.0 == "delivered").then_some(())
+        })
+        .await;
+        assert_eq!(run.seen().await.1, [id]);
+        assert_eq!(run.typed().await, 0);
+    }
 }
 
 #[tokio::test]
 async fn b52_a_restart_with_a_sent_note_delivers_it_once() {
-    let mut run = Run::start().await;
-    let id = run.note("once").await;
-    until("taken up", async || {
-        (!run.entries().is_empty()).then_some(())
-    })
-    .await;
-    run.restart().await;
-    run.idle_edge().await;
-    // The resumed session is a new process with its own socket; it takes the note up once.
-    until("taken up again", async || {
-        (run.entries() == [format!("rup-{id}")]).then_some(())
-    })
-    .await;
-    run.record(&[id]).await;
-    until("delivered", async || {
-        (run.status(id).await.0 == "delivered").then_some(())
-    })
-    .await;
-    assert_eq!(run.entries(), [format!("rup-{id}")]);
-    assert_eq!(run.typed().await, 0);
-    let _ = run.seen().await;
+    // B52(b): rejects losing the unacknowledged id on restart or falsely delivering its write.
+    for kind in ["note", "question"] {
+        let mut run = Run::start().await;
+        run.kind = kind;
+        let id = run.note("once").await;
+        until("taken up", async || {
+            (!run.entries().is_empty()).then_some(())
+        })
+        .await;
+        assert_eq!(run.taken(), [format!("rup-{id}")]);
+        run.restart().await;
+        run.idle_edge().await;
+        // The resumed session is a new process with its own socket; it takes the note up once.
+        until("taken up again", async || {
+            (run.entries() == [format!("rup-{id}")]).then_some(())
+        })
+        .await;
+        run.record(&[id]).await;
+        until("delivered", async || {
+            (run.status(id).await.0 == "delivered").then_some(())
+        })
+        .await;
+        assert_eq!(run.entries(), [format!("rup-{id}")]);
+        assert_eq!(
+            run.taken(),
+            [format!("rup-{id}")],
+            "a retry is not another peer uptake"
+        );
+        assert_eq!(run.typed().await, 0);
+        assert_eq!(run.seen().await.1, [id]);
+    }
 }
 
 impl Run {
@@ -681,48 +837,66 @@ impl Run {
 
 #[tokio::test]
 async fn b51_the_sender_of_a_note_to_a_mismatched_inbox_hears_it_and_the_note_is_held() {
-    let mut run = Run::start_on(99).await;
-    let (err, id) = run.refused_note("hello").await;
-    assert_eq!(err.code, rpc::code::INBOX_UNAVAILABLE);
-    assert_eq!(
-        err.message,
-        "notes held: Claude Code changed its message format"
-    );
-    assert_eq!(run.status(id).await, ("held".into(), Some("inbox".into())));
-    assert_eq!(run.seen().await.1, Vec::<u32>::new());
+    // B51(f): rejects a successful send response on Mismatch or failure to retain the Message.
+    for (sender, kind) in ["agent", "ext", "daemon"]
+        .into_iter()
+        .flat_map(|sender| ["note", "question"].map(|kind| (sender, kind)))
+    {
+        let mut run = Run::start_on(99).await;
+        run.kind = kind;
+        run.identify_sender(sender).await;
+        let (err, id) = run.refused_note("hello").await;
+        assert_eq!(err.code, rpc::code::INBOX_UNAVAILABLE);
+        assert_eq!(
+            err.message,
+            "Messages held: Claude Code changed its message format"
+        );
+        assert_eq!(run.status(id).await, ("held".into(), Some("inbox".into())));
+        assert_eq!(run.seen().await.1, Vec::<u32>::new());
+    }
 }
 
 #[tokio::test]
 async fn b51_a_note_repeating_the_last_one_is_refused_and_made_no_record() {
-    let run = Run::start().await;
-    let first = run.note("same").await;
-    until("taken up", async || {
-        (run.entries() == [format!("rup-{first}")]).then_some(())
-    })
-    .await;
-    let err = run.try_note("same").await.unwrap_err();
-    assert_eq!(err.code, rpc::code::CONFLICT);
-    assert_eq!(
-        err.message,
-        "same text as your last note; Claude Code drops repeats"
-    );
-    let listed = run
-        .user
-        .request("message.list", json!({"to":run.child}))
-        .await
-        .unwrap();
-    assert_eq!(listed.as_array().unwrap().len(), 1, "no second record");
-    // Another text, and the same text once another note came between, are taken up.
-    let other = run.note("other").await;
-    let again = run.note("same").await;
-    until("taken up", async || {
-        (run.entries().len() == 3).then_some(())
-    })
-    .await;
-    assert_eq!(
-        run.entries(),
-        [first, other, again].map(|id| format!("rup-{id}"))
-    );
+    // B51(g): rejects kind-scoped refusal across all authenticated non-user senders.
+    for sender in ["agent", "ext", "daemon"] {
+        for first_kind in ["note", "question"] {
+            for next_kind in ["note", "question"] {
+                let mut run = Run::start().await;
+                run.identify_sender(sender).await;
+                run.kind = first_kind;
+                let first = run.note("same").await;
+                until("taken up", async || {
+                    (run.entries() == [format!("rup-{first}")]).then_some(())
+                })
+                .await;
+                run.kind = next_kind;
+                let err = run.try_note("same").await.unwrap_err();
+                assert_eq!(err.code, rpc::code::CONFLICT);
+                assert_eq!(
+                    err.message,
+                    "same text as your last Message; Claude Code drops repeats"
+                );
+                let listed = run
+                    .user
+                    .request("message.list", json!({"to":run.child}))
+                    .await
+                    .unwrap();
+                assert_eq!(listed.as_array().unwrap().len(), 1, "no second record");
+                // Another text, and the same text once another note came between, are taken up.
+                let other = run.note("other").await;
+                let again = run.note("same").await;
+                until("taken up", async || {
+                    (run.entries().len() == 3).then_some(())
+                })
+                .await;
+                assert_eq!(
+                    run.entries(),
+                    [first, other, again].map(|id| format!("rup-{id}"))
+                );
+            }
+        }
+    }
 }
 
 impl Run {
@@ -1003,4 +1177,192 @@ async fn b2704a_first_prompt_rename_notifies() {
         .unwrap();
     assert!(messages.as_array().unwrap().is_empty(), "{messages}");
     assert!(run.entries().is_empty());
+}
+
+// B50(a,e): the Note-only gate routes the question rows into Agents::prompt/PTY instead.
+// The companion Messages observer counts the prompt callback; this observer uses the real
+// Agents::prompt implementation and counts bytes at its actual receiving Terminal.
+#[tokio::test]
+async fn b50_sender_and_kind_choose_transport_through_delivery() {
+    for sender in ["user", "agent", "ext", "daemon"] {
+        let run = Run::start().await;
+        run.identify_sender(sender).await;
+        for (index, kind) in ["note", "question"].iter().enumerate() {
+            let sent = run
+                .sender
+                .request(
+                    "message.send",
+                    json!({"to":run.child,"kind":kind,"body":format!("route {kind}")}),
+                )
+                .await
+                .unwrap();
+            let id = u32::try_from(sent["id"].as_u64().unwrap()).unwrap();
+            if sender == "user" {
+                until("prompt receipt", async || {
+                    (run.status(id).await.0 == "delivered").then_some(())
+                })
+                .await;
+                assert!(run.entries().is_empty());
+                assert!(run.typed().await > 0);
+            } else {
+                until(
+                    &format!("{sender}/{kind} inbox entry: {sent}"),
+                    async || (run.entries().len() == index + 1).then_some(()),
+                )
+                .await;
+                assert_eq!(run.entries()[index], format!("rup-{id}"));
+                assert_eq!(run.typed().await, 0);
+                assert_eq!(run.status(id).await.0, "pending");
+                run.record(&[id]).await;
+                until("receipt", async || {
+                    (run.status(id).await.0 == "delivered").then_some(())
+                })
+                .await;
+                assert_eq!(run.typed().await, 0);
+                run.idle_edge().await;
+            }
+        }
+    }
+}
+
+// B50(b,d): rejects rewriting durable question identity or cutting its full multibyte body.
+#[tokio::test]
+async fn b50_an_inbox_question_preserves_its_message_and_reply_identity() {
+    let mut run = Run::start().await;
+    run.kind = "question";
+    let body = format!("[digest] {}", "é".repeat(300));
+    let earlier = run
+        .sender
+        .request(
+            "message.send",
+            json!({"to":"you", "kind":"note", "body":"context"}),
+        )
+        .await
+        .unwrap();
+    let _ = run.seen().await;
+    let sent = run
+        .sender
+        .request(
+            "message.send",
+            json!({"to":run.child,"kind":"question","body":body,"replyTo":earlier["id"]}),
+        )
+        .await
+        .unwrap();
+    let id = u32::try_from(sent["id"].as_u64().unwrap()).unwrap();
+    until("question entry", async || {
+        (!run.entries().is_empty()).then_some(())
+    })
+    .await;
+    let before = run.message(id).await;
+    let received = run.received();
+    let content = received[0]["message"]["content"].as_str().unwrap();
+    assert!(
+        content.contains(&format!("[question, replyTo: {id}] {body}\n")),
+        "{content}"
+    );
+    assert!(content.contains("from-name=\"b50\""));
+    assert_eq!(before["kind"], "question");
+    assert_eq!(before["body"], body);
+    assert_eq!(before["replyTo"], earlier["id"]);
+    assert_eq!(before["passedFrom"], Value::Null);
+    assert_eq!(before["status"], "pending");
+    run.record(&[id]).await;
+    until("receipt", async || {
+        (run.status(id).await.0 == "delivered").then_some(())
+    })
+    .await;
+    let mut after = run.message(id).await;
+    after["status"] = json!("pending");
+    assert_eq!(before, after);
+    let answerer = Client::connect(&run.daemon.socket).await.unwrap();
+    answerer
+        .request(
+            "daemon.identify",
+            json!({"actor":{"kind":"agent","id":run.child}}),
+        )
+        .await
+        .unwrap();
+    let answer = answerer
+        .request(
+            "message.send",
+            json!({"to":"you","kind":"note","body":"answer","replyTo":id}),
+        )
+        .await
+        .unwrap();
+    assert_eq!(answer["replyTo"], id);
+    assert_eq!(run.typed().await, 0);
+    assert_eq!(
+        run.seen().await.1,
+        [id, u32::try_from(answer["id"].as_u64().unwrap()).unwrap()]
+    );
+}
+
+// B51(g): rejects global/sender-independent refusal or merging the identities of accepted questions.
+#[tokio::test]
+async fn b51_other_senders_and_a_new_attempt_keep_distinct_messages() {
+    let mut run = Run::start().await;
+    run.kind = "question";
+    let first = run.note("same").await;
+    until("first", async || (run.entries().len() == 1).then_some(())).await;
+    run.identify_sender("daemon").await;
+    let second = run.note("same").await;
+    until("different sender", async || {
+        (run.entries().len() == 2).then_some(())
+    })
+    .await;
+    assert_ne!(first, second);
+    assert_eq!(run.message(first).await["from"]["kind"], "ext");
+    assert_eq!(run.message(second).await["from"]["id"], "rupd");
+    run.record(&[first, second]).await;
+    until("receipts", async || {
+        (run.status(first).await.0 == "delivered" && run.status(second).await.0 == "delivered")
+            .then_some(())
+    })
+    .await;
+    run.restart().await;
+    run.identify_sender("daemon").await;
+    let third = run.note("same").await;
+    until("new Attempt", async || {
+        (run.entries().len() == 1).then_some(())
+    })
+    .await;
+    assert_eq!(run.entries(), [format!("rup-{third}")]);
+    assert!(third > second);
+    assert_eq!(run.message(third).await["kind"], "question");
+    assert_eq!(run.typed().await, 0);
+}
+
+// B52(b), B8/B40: rejects sending an acknowledged id again or reviving a pre-write ending.
+#[tokio::test]
+async fn b52_restart_preserves_prewrite_and_acknowledged_outcomes() {
+    for kind in ["note", "question"] {
+        for acknowledged in [false, true] {
+            let mut run = Run::start().await;
+            run.kind = kind;
+            if !acknowledged {
+                run.signal(json!({"hook_event_name":"PreToolUse","tool_name":"Bash"}))
+                    .await;
+            }
+            let id = run.note("restart state").await;
+            if acknowledged {
+                until("entry", async || (!run.entries().is_empty()).then_some(())).await;
+                run.record(&[id]).await;
+                until("receipt", async || {
+                    (run.status(id).await.0 == "delivered").then_some(())
+                })
+                .await;
+                assert_eq!(run.seen().await.1, [id]);
+            } else {
+                assert!(run.entries().is_empty());
+                assert_eq!(run.status(id).await.0, "pending");
+            }
+            run.restart().await;
+            run.idle_edge().await;
+            let expected = if acknowledged { "delivered" } else { "dropped" };
+            assert_eq!(run.status(id).await.0, expected);
+            assert!(run.entries().is_empty());
+            assert_eq!(run.typed().await, 0);
+            assert!(run.seen().await.1.is_empty());
+        }
+    }
 }

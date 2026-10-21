@@ -498,3 +498,160 @@ async fn b50_sender_and_kind_choose_only_the_authorized_transport() {
         }
     }
 }
+
+// B51(g): rejects a kind-scoped repeat filter and allocation before refusal.
+#[tokio::test]
+async fn b51_repeat_refusal_compares_both_kinds_before_allocating() {
+    for first_kind in ["note", "question"] {
+        for next_kind in ["note", "question"] {
+            let (_dir, h, inbox, _) =
+                recovering_note(first_kind, contracts::agent::Inbox::Missing).await;
+            *inbox.state.lock().unwrap() = contracts::agent::Inbox::Ok;
+            on_status(&h.messages.inner, "b", "1", "2", Kind::Idle).await;
+            h.messages.confirm_inbox("b", &[1]);
+            let err = h
+                .call_as(
+                    agent("a"),
+                    "message.send",
+                    json!({"to":"b", "kind":next_kind, "body":"recover after hold"}),
+                )
+                .await
+                .unwrap_err();
+            assert_eq!(err.code, code::CONFLICT);
+            assert_eq!(
+                h.call("message.list", json!({}))
+                    .await
+                    .unwrap()
+                    .as_array()
+                    .unwrap()
+                    .len(),
+                1
+            );
+            assert_eq!(*inbox.written.lock().unwrap(), [1]);
+        }
+    }
+}
+
+// B50(f): rejects bypassing Routes/Terminal holds, or changing transport on explicit delivery.
+#[tokio::test]
+async fn b50_routes_and_explicit_delivery_preserve_transport_for_both_kinds() {
+    for kind in ["note", "question"] {
+        for hold in ["ask-first", "drop", "takeover", "input"] {
+            let (_dir, h, inbox, prompts) =
+                recovering_note(kind, contracts::agent::Inbox::Missing).await;
+            *inbox.state.lock().unwrap() = contracts::agent::Inbox::Ok;
+            on_status(&h.messages.inner, "b", "1", "2", Kind::Idle).await;
+            h.messages.confirm_inbox("b", &[1]);
+            if matches!(hold, "ask-first" | "drop") {
+                h.call("route.set", json!({"from":"a", "to":"b", "delivery":hold}))
+                    .await
+                    .unwrap();
+            } else {
+                terminal_hold(&h, hold == "takeover", true).await;
+            }
+            let sent = h
+                .call_as(
+                    agent("a"),
+                    "message.send",
+                    json!({"to":"b", "kind":kind, "body":"held question or note"}),
+                )
+                .await
+                .unwrap();
+            assert_eq!(
+                sent["status"],
+                if hold == "drop" { "dropped" } else { "held" }
+            );
+            assert_eq!(*inbox.written.lock().unwrap(), [1]);
+            on_status(&h.messages.inner, "b", "1", "3", Kind::Idle).await;
+            assert_eq!(*inbox.written.lock().unwrap(), [1]);
+            if hold != "drop" {
+                *inbox.state.lock().unwrap() = contracts::agent::Inbox::Missing;
+                let refused = h
+                    .call("message.deliver", json!({"id":2}))
+                    .await
+                    .unwrap_err();
+                assert_eq!(refused.code, code::INBOX_UNAVAILABLE);
+                assert_eq!(*inbox.written.lock().unwrap(), [1]);
+                assert_eq!(
+                    h.messages.get_or_not_found(2).unwrap().status,
+                    MessageStatus::Held
+                );
+                *inbox.state.lock().unwrap() = contracts::agent::Inbox::Ok;
+                h.call("message.deliver", json!({"id":2})).await.unwrap();
+                assert_eq!(*inbox.written.lock().unwrap(), [1, 2]);
+                assert_eq!(
+                    h.messages.get_or_not_found(2).unwrap().status,
+                    MessageStatus::Pending
+                );
+                h.messages.confirm_inbox("b", &[2]);
+                assert_eq!(
+                    h.messages.get_or_not_found(2).unwrap().status,
+                    MessageStatus::Delivered
+                );
+            }
+            assert!(prompts.lock().unwrap().is_empty());
+        }
+    }
+}
+
+// B52(a), B39/B40: rejects clearing in-flight on idle or recording delivery on socket success.
+#[tokio::test]
+async fn b52_every_completed_idle_and_receipt_preserves_one_delivery() {
+    for kind in ["note", "question"] {
+        let (_dir, mut h, inbox, prompts) =
+            recovering_note(kind, contracts::agent::Inbox::Missing).await;
+        for revision in 2..32 {
+            on_status(
+                &h.messages.inner,
+                "b",
+                "1",
+                &revision.to_string(),
+                Kind::Idle,
+            )
+            .await;
+            assert!(inbox.written.lock().unwrap().is_empty());
+            assert_eq!(
+                h.messages.get_or_not_found(1).unwrap().status,
+                MessageStatus::Held
+            );
+        }
+        assert_eq!(
+            h.events().iter().filter(|e| *e == "message.held").count(),
+            1
+        );
+        *inbox.state.lock().unwrap() = contracts::agent::Inbox::Ok;
+        for revision in 32..62 {
+            on_status(
+                &h.messages.inner,
+                "b",
+                "1",
+                &revision.to_string(),
+                Kind::Idle,
+            )
+            .await;
+            assert_eq!(*inbox.written.lock().unwrap(), [1]);
+            assert_eq!(
+                h.messages.get_or_not_found(1).unwrap().status,
+                MessageStatus::Pending
+            );
+            assert!(prompts.lock().unwrap().is_empty());
+        }
+        assert!(!h.events().iter().any(|e| e == "message.delivered"));
+        for _ in 0..2 {
+            h.messages.confirm_inbox("b", &[1]);
+            assert_eq!(
+                h.messages.get_or_not_found(1).unwrap().status,
+                MessageStatus::Delivered
+            );
+        }
+        assert_eq!(
+            h.events()
+                .iter()
+                .filter(|e| *e == "message.delivered")
+                .count(),
+            1
+        );
+        on_status(&h.messages.inner, "b", "1", "62", Kind::Idle).await;
+        assert_eq!(*inbox.written.lock().unwrap(), [1]);
+    }
+}
