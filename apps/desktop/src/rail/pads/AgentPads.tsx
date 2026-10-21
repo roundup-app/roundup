@@ -149,7 +149,7 @@ export const PadRows = (props: { pads: AgentPads; depth: number; trail: readonly
     event.stopPropagation();
     openOnRelease(event, (x, y) => void contextMenu(connected.app, [
       { id: "complete", label: copy.complete, enabled: !todo.done, run: async () => { props.pads.setFailure(await failureOf(() => connected.app.rpc("todo.complete", { id: todo.id }))); } },
-      ...linkEntries(connected.app, "todo", todo.id, connected.rail.nodes, (node) => connected.rail.exitOf(node) === null, props.pads.setFailure),
+      ...linkEntries(connected.app, { kind: "todo", id: todo.id }, connected.rail.nodes, (node) => connected.rail.exitOf(node) === null, props.pads.setFailure),
       { id: "delete", label: copy.delete, run: () => { setSelectedTodos([todo.id]); todoBulk.ask(); } },
     ], x, y));
   };
@@ -162,7 +162,7 @@ export const PadRows = (props: { pads: AgentPads; depth: number; trail: readonly
   const padMenu = (name: string, event: MouseEvent) => {
     event.stopPropagation();
     openOnRelease(event, (x, y) => void contextMenu(connected.app, [
-      ...linkEntries(connected.app, "pad", name, connected.rail.nodes, (node) => connected.rail.exitOf(node) === null, props.pads.setFailure),
+      ...linkEntries(connected.app, { kind: "pad", id: name }, connected.rail.nodes, (node) => connected.rail.exitOf(node) === null, props.pads.setFailure),
       { id: "delete", label: copy.delete, run: () => { setSelected([name]); bulk.ask(); } },
     ], x, y));
   };

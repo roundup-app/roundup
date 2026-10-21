@@ -43,12 +43,21 @@ export const contextMenu = async (app: Pick<App, "showContextMenu">, model: Menu
 };
 
 /** LK1: the kinds a link names. */
-export type LinkKind = "pad" | "todo" | "agent" | "workstream" | "terminal";
+type Link = { kind: "pad" | "todo" | "agent" | "workstream" | "terminal"; id: string | number }
+  | { kind: "deliverable"; id: string; project: string };
 
 /** LK1: `roundup://<kind>/<id>?project=<key>`; the key is the Daemon's, read once per seam. */
 const keys = new WeakMap<AppSeam, Promise<string>>();
 
-const linkOf = async (app: AppSeam, kind: LinkKind, id: string | number): Promise<string> => {
+const linkOf = async (app: AppSeam, target: Link): Promise<{ kind: "available"; url: string } | { kind: "unavailable"; cause: string }> => {
+  if (target.kind === "deliverable") {
+    const resolved = await app.rpc("deliverable.resolve", { project: target.project, id: target.id });
+
+    if (resolved.kind === "unavailable") return { kind: "unavailable", cause: copy.deliverableUnavailable[resolved.cause] };
+
+    return { kind: "available", url: copy.linkUrl(target.kind, encodeURIComponent(target.id), encodeURIComponent(target.project)) };
+  }
+
   let key = keys.get(app);
 
   if (!key) {
@@ -57,21 +66,28 @@ const linkOf = async (app: AppSeam, kind: LinkKind, id: string | number): Promis
     keys.set(app, key);
   }
 
-  return copy.linkUrl(kind, encodeURIComponent(String(id)), encodeURIComponent(await key));
+  return { kind: "available", url: copy.linkUrl(target.kind, encodeURIComponent(String(target.id)), encodeURIComponent(await key)) };
 };
 
 /** U2694c: Copy Link and Send to Agent ▸ for one object; `nodes` are the Project's Rail nodes in order, `fail` shows U80's line. */
 export const linkEntries = (
   app: AppSeam,
-  kind: LinkKind,
-  id: string | number,
+  target: Link,
   nodes: readonly RailNode[],
   running: (node: RailNode) => boolean,
   fail: (message: string) => void,
 ): MenuEntry[] => {
-  const attempt = async (call: () => Promise<void>) => {
+  const attempt = async (call: (link: string) => Promise<void>) => {
     try {
-      await call();
+      const link = await linkOf(app, target);
+
+      if (link.kind === "unavailable") {
+        fail(link.cause);
+
+        return;
+      }
+
+      await call(link.url);
     } catch (error) {
       if (error instanceof Error) fail(error.message);
       else throw error;
@@ -86,15 +102,16 @@ export const linkEntries = (
         id: `send:${agent.id}`,
         label: agent.name,
         enabled: running(agent),
-        run: () => attempt(async () => {
-          const link = await linkOf(app, kind, id);
+        run: () => attempt(async link => {
           const params: RpcMethods["message.send"]["params"] = { to: agent.id, kind: "note", body: copy.linkNote(link), replyTo: null };
 
           await app.rpc("message.send", params);
         }),
       }]),
     },
-    { id: "copy-link", label: copy.copyLink, run: () => attempt(async () => { await navigator.clipboard.writeText(await linkOf(app, kind, id)); }) },
+    { id: "copy-link", label: copy.copyLink, run: () => attempt(async link => {
+      await navigator.clipboard.writeText(target.kind === "deliverable" ? copy.linkNote(link) : link);
+    }) },
   ];
 };
 

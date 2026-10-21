@@ -42,10 +42,8 @@ export const createRailMenu = (app: AppSeam, rail: RailState, onFailure: (messag
     setState(null);
   };
 
-  /** U2694a: the system menu of a row; the row is selected first, as U56 says. */
+  /** U2694g: pointer menus address their row without activating it. */
   const open = (node: RailNode, exit: ExitState | null, x: number, y: number, removed?: () => void) => {
-    rail.select(node.id);
-
     return contextMenu(app, entries(node, exit, removed), x, y);
   };
 
@@ -210,14 +208,16 @@ export const createRailMenu = (app: AppSeam, rail: RailState, onFailure: (messag
       { id: "restart", label: copy.restart, enabled: node.yolo, run: () => restart(node, "normal") },
       { id: "yolo", label: copy.startYolo, enabled: !node.yolo, run: () => restart(node, "yolo") },
       { id: "stop", label: copy.stop, enabled: isRunning(node, exit), run: () => requestStop(node, exit) },
-      { id: "resume", label: copy.resume, enabled: isResumable(node, exit), run: () => resume(node.id) },
+      { id: "resume", label: copy.resume, enabled: isResumable(node, exit), run: () => { rail.select(node.id);
+
+ return resume(node.id); } },
     ];
 
     if (node.kind === "workstream") items.push({ id: "clear", label: copy.clearMenu, enabled: isClearable(node), run: () => requestClear(node) });
 
     return [
       ...items,
-      ...linkEntries(app, node.kind, node.id, agents, (candidate) => isRunning(candidate, rail.exitOf(candidate)), onFailure),
+      ...linkEntries(app, { kind: node.kind, id: node.id }, agents, (candidate) => isRunning(candidate, rail.exitOf(candidate)), onFailure),
       remove,
     ];
   };
