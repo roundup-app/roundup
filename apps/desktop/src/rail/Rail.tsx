@@ -239,6 +239,7 @@ export const Rail = () => {
 
     if (row && node) {
       const box = row.getBoundingClientRect();
+      rail.select(node.id);
       void menu.open(node, rail.exitOf(node), box.left, box.bottom);
     }
   };
@@ -532,7 +533,28 @@ export const Rail = () => {
     <div class="rail-scroll" onScroll={(event) => setScrolled(event.currentTarget.scrollTop > 0)}>
     <TreeView.Root
       class="rail-tree"
-      ref={setContainer}
+      ref={(element) => {
+        setContainer(element);
+        let contextClick = false;
+        element.addEventListener("pointerdown", (event) => {
+          contextClick = event.button === 0 && event.ctrlKey;
+
+          // macOS Ctrl-click must not focus a row, blur unfinished input or arm its sort sensor.
+          if (contextClick) {
+            event.preventDefault();
+            event.stopPropagation();
+          }
+        }, true);
+        // A native menu may consume the compatibility click; keyboard activation must still work next.
+        element.addEventListener("keydown", () => { contextClick = false; }, true);
+        element.addEventListener("click", (event) => {
+          if (!contextClick && !event.ctrlKey) return;
+
+          contextClick = false;
+          event.preventDefault();
+          event.stopPropagation();
+        }, true);
+      }}
       collection={collection()}
       expandedValue={expanded()}
       selectedValue={rail.selected() === null ? [] : [rail.selected()!]}
