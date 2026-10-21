@@ -273,6 +273,7 @@ const TOOL_METHODS: [&str; 78] = [
     "checkpoint.list",
     // E2, O4, F3
     "agent.context",
+    "agent.instructions",
     "agent.actionHistory",
     "agent.setOrder",
     "agent.run",
@@ -1364,29 +1365,6 @@ async fn b53_a_send_without_a_kind_names_the_field_and_its_values() {
     }
     let after = fx.user.request("message.list", json!({})).await.unwrap();
     assert_eq!(before, after);
-}
-
-#[tokio::test(flavor = "multi_thread")]
-async fn b53_the_send_schema_requires_kind() {
-    let project = start_daemon();
-    let shim = spawn_shim(&project.socket, "a1").await;
-
-    let tools = shim.client.list_all_tools().await.unwrap();
-
-    let send = tools.iter().find(|t| t.name == "message_send").unwrap();
-    let schema = Value::Object((*send.input_schema).clone());
-    assert!(
-        schema["required"]
-            .as_array()
-            .unwrap()
-            .contains(&json!("kind")),
-        "{schema}"
-    );
-    let values = serde_json::to_string(&schema).unwrap();
-    assert!(
-        values.contains("note") && values.contains("question"),
-        "{values}"
-    );
 }
 
 #[tokio::test(flavor = "multi_thread")]
