@@ -61,6 +61,10 @@ const TOOLS: &[(&str, &str)] = &[
         "todo_update",
         "change a Todo's title or body as the work becomes clearer",
     ),
+    (
+        "todo_comment",
+        "leave one short plain line on a Todo only when the user must read it, such as a question or a blocker",
+    ),
     ("todo_complete", "mark a Todo done once its outcome is real"),
     ("todo_reopen", "reopen a done Todo when work remains"),
     (
