@@ -113,7 +113,8 @@ export const Layout = (props: {
 
     void slide.finished.then(settled, settled);
   }, { defer: true }));
-  createEffect(() => { if (!placement().open || placement().reducedMotion) { maximiseSlide?.cancel(); setShelfSliding(false); } });
+  createEffect(() => { if (!placement().open || placement().reducedMotion) maximiseSlide?.cancel(); });
+  createEffect(() => { if (placement().reducedMotion) setShelfSliding(false); });
   onCleanup(() => maximiseSlide?.cancel());
   onCleanup(() => setShelfSliding(false));
 
