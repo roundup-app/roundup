@@ -15,9 +15,9 @@ it("u2875d_real_import_reopen_and_resume", async () => {
   await withProjectPair(async (real, other) => {
     try {
       const ID = "22222222-2222-4222-8222-222222222222";
-      const bucket = join(real.dir, "claude-config", "projects", "bucket");
-      await mkdir(bucket, { recursive: true });
       const cwd = await realpath(real.dir);
+      const bucket = join(real.dir, "claude-config", "projects", cwd.replace(/[^a-zA-Z0-9]/g, "-"));
+      await mkdir(bucket, { recursive: true });
       const record = (type: string, extra: { message?: { role: string; content: string }; customTitle?: string }) => JSON.stringify({ type, isSidechain: false, cwd, sessionId: ID, timestamp: new Date().toISOString(), ...extra });
       await writeFile(join(bucket, `${ID}.jsonl`), [
         record("user", { message: { role: "user", content: "never sent" } }),

@@ -76,6 +76,23 @@ if (query.get("daemon") === "1") {
 
   const controls = seedApp(seed, Date.now());
 
+  if (query.get("import") === "dense") {
+    controls.app.handlers["project.importDiscover"] = () => ({
+      candidates: Array.from({ length: 10 }, (_, index) => ({
+        source: `conversation-${index}`, revision: `revision-${index}`,
+        title: `調査と実装 — résumé — ${"Long conversation title ".repeat(8)}${index}`,
+        cwd: `packages/${"deep-folder/".repeat(10)}destination-${index}`,
+        last_activity_ms: 1_792_512_000_000n - BigInt(index * 60_000),
+      })),
+      excluded: [{ source: "unavailable-conversation", reason: "Source unavailable: folder no longer exists." }],
+    });
+    controls.app.handlers["project.importCommit"] = ({ selections }) => ({
+      outcomes: selections.map(({ source }, index) => index === 0
+        ? { source, workstream: "backend", agent: "migrate", error: null }
+        : { source, workstream: null, agent: null, error: "Source changed. Refresh and retry." }),
+    });
+  }
+
   const SELECTED = new Map([["door-stopped", "first-workstream"], ["door-report", "r1"], ["earlier-run", "earlier-agent"], ["decisions", "agent-1"]]);
 
   const selected = SELECTED.get(seed);

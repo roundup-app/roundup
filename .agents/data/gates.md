@@ -27,4 +27,6 @@ Head: <full SHA reviewed>
 Reviewed-by-Agent: <id differing from every Author-Agent>
 ```
 
+A finding rejects only when an ordinary path reproduces it (or it is in `builder.md`'s always-reject list); one needing an injected failure, a held reply, a second writer, a component removed mid-edit, or code an earlier verdict reviewed unchanged is a `FOLLOWUP:` (L24).
+
 Until a script checks them, `tokens` (L41) are checked by hand.
