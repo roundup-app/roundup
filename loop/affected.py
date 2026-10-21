@@ -2,7 +2,7 @@
 """L89: the tests a diff reaches. Usage: loop/affected.py rust|web|boxd [base] | shards <test files|all>
 
 Prints `all` when no base is given or the diff since <base> can move any test; else one line per selection: for `rust`
-the workspace crates to test, for `web` the files that still exist, as absolute paths, to pass `vitest related`.
+the workspace crates to test (`crate=binary`: one test binary of a crate), for `web` the files that still exist, as absolute paths, to pass `vitest related`.
 The `boxd` selector prints `all` only for runner, integration or package-configuration changes. The diff
 runs from where HEAD forked from <base> to the working tree, untracked files included, so a Builder's uncommitted change
 counts. No output: no test reaches the diff. Exit 2: bad usage; a failed git or cargo call exits non-zero."""
@@ -28,6 +28,10 @@ CRATE_READS = {'contracts/': 'contracts', 'spikes/': 'agents', 'apps/desktop/src
 # read from disk reach every test.
 APP = 'apps/desktop/'
 WEB_EVERYTHING = ('contracts/', 'docs/wireframes.md', 'docs/design-system.md', 'scenarios/app.md')
+# Tests that read the App's source files as text (a directory listing plus a file read) are outside vitest's module graph,
+# so a change to any App source file reaches each; the same holds for a Rust test naming the App's `src` folder.
+WEB_SCAN = re.compile(r'\b(readdirSync|globSync)\(')
+RUST_SCAN = '"../../apps/desktop/src"'
 # The module every web test that starts a real `rupd` imports.
 DAEMON = 'apps/desktop/src/testing/realDaemonPlugin.ts'
 # Web tests that read a folder outside the App from disk: a change under the folder reaches each.
@@ -85,6 +89,19 @@ def web(changed):
                   ({DAEMON} if any(path.startswith('crates/') for path in changed) else set()))
 
 
+def app_scans(lane, changed, workspace):
+    """The tests that scan the App's source files as text, when a changed path lies in them: for `web` each test file in
+    `apps/desktop/src/` that lists a directory and reads a file, as repository paths; for `rust` each test binary
+    (`tests/<name>.rs`) of a crate that names the folder, as `crate=binary`."""
+    if not any(path.startswith(APP + 'src/') for path in changed):
+        return []
+    if lane == 'web':
+        return sorted(path.relative_to(ROOT).as_posix() for path in (ROOT / APP / 'src').rglob('*.test.ts*')
+                      if WEB_SCAN.search(text := path.read_text()) and 'readFileSync' in text)
+    return sorted(f'{name}={path.stem}' for name, (folder, _) in workspace.items()
+                  for path in (ROOT / folder / 'tests').glob('*.rs') if RUST_SCAN in path.read_text())
+
+
 def boxd(changed):
     """Select the runner regressions only when their code, callers or execution configuration can change."""
     return 'all' if any(under(path, BOXD_READS) for path in changed) else []
@@ -117,7 +134,12 @@ def main(argv):
     tracked = git('diff', '--name-only', '--no-renames', fork).split()
     untracked = git('ls-files', '--others', '--exclude-standard').split()
     changed = tracked + untracked
-    selected = crates(changed, workspace()) if lane == 'rust' else (web(changed) if lane == 'web' else boxd(changed))
+    crate_folders = workspace() if lane == 'rust' else {}
+    selected = crates(changed, crate_folders) if lane == 'rust' else (web(changed) if lane == 'web' else boxd(changed))
+    if selected != 'all' and lane != 'boxd':
+        reached = set(selected)
+        selected = sorted(reached | {scan for scan in app_scans(lane, changed, crate_folders)
+                                     if scan.split('=')[0] not in reached})
     if selected != 'all' and lane == 'web':
         selected = [str(ROOT / path) for path in selected if (ROOT / path).exists()]
     print(selected if selected == 'all' else '\n'.join(selected))

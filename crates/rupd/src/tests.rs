@@ -1,0 +1,433 @@
+use super::*;
+use crate::connection::handle;
+
+pub(crate) async fn ask(daemon: &Daemon, line: &str) -> Value {
+    let (events, _) = mpsc::unbounded_channel();
+    let mut conn = Conn {
+        actor: Actor::user(),
+        peer: None,
+        events,
+        output: None,
+    };
+    daemon.dispatch(&mut conn, line, None).await.unwrap()
+}
+
+pub(super) fn daemon_in(dir: &Path) -> Daemon {
+    Daemon::open(dir).unwrap()
+}
+
+fn daemon() -> (tempfile::TempDir, Daemon) {
+    let dir = tempfile::tempdir().unwrap();
+    let daemon = daemon_in(dir.path());
+    (dir, daemon)
+}
+
+// No runtime or listener: opening these stores starts no Daemon tasks or children.
+// Exercise the actual subscribe method and its producing Bus without thousands of RPC
+// renames, Touch writes and unrelated background observers.
+#[test]
+fn x14_daemon_observer_capacity_matches_its_receiver() {
+    use contracts::EventData;
+    use tokio::sync::broadcast::error::TryRecvError;
+    let dir = tempfile::tempdir().unwrap();
+    let daemon = test_daemon(dir.path()).unwrap();
+    let (mut receiver, capacity) = daemon.subscribe();
+    assert!(capacity > 0);
+    for index in 0..capacity {
+        daemon.bus.emit(
+            Actor {
+                id: index.to_string(),
+                ..Actor::user()
+            },
+            EventData::RailChanged,
+        );
+    }
+    for index in 0..capacity {
+        let event = receiver.try_recv().unwrap();
+        assert!(matches!(event.data, EventData::RailChanged));
+        assert_eq!(event.actor.id, index.to_string());
+    }
+    assert!(matches!(receiver.try_recv(), Err(TryRecvError::Empty)));
+    for index in 0..=capacity {
+        daemon.bus.emit(
+            Actor {
+                id: index.to_string(),
+                ..Actor::user()
+            },
+            EventData::RailChanged,
+        );
+    }
+    assert!(matches!(receiver.try_recv(), Err(TryRecvError::Lagged(1))));
+    assert_eq!(receiver.try_recv().unwrap().actor.id, "1");
+}
+
+struct RailReply(Value);
+
+#[async_trait::async_trait]
+impl Module for RailReply {
+    fn namespaces(&self) -> &'static [&'static str] {
+        &["rail"]
+    }
+
+    async fn call(&self, _ctx: &Ctx, _method: &str, _params: Value) -> Result<Value, RpcError> {
+        Ok(self.0.clone())
+    }
+}
+
+#[tokio::test]
+async fn r16_rail_reply_preserves_every_field_and_row_order_on_the_socket() {
+    let (_dir, mut daemon) = daemon();
+    // This fixture is the module's already-presented result, not a replacement for
+    // Agents' lifecycle tests: the Daemon must transport every field unchanged.
+    let nodes = json!([
+        {"id":"door", "kind":"workstream", "name":"日本語\n\"Door\" 🦀",
+         "parent":null, "order":0, "status":null, "attempt":null,
+         "status_revision":null, "terminal_id":null, "worktree":null,
+         "can_resume":false, "channel":null, "work":null, "stray":[],
+         "model":null, "effort":null, "iteration":2},
+        {"id":"child", "kind":"agent", "name":"Child", "parent":"door",
+         "order":0, "status":{"kind":"needs-you", "label":"Waiting for approval", "since":123456789},
+         "attempt":"9223372036854775807", "status_revision":"3",
+         "terminal_id":"terminal-1", "worktree":{"path":"/tmp/p", "branch":"b", "base":"main"},
+         "can_resume":false, "channel":"missing", "work":{"kind":"work", "ask":"Continue", "limits":["Preserve files"]},
+         "stray":[{"pid":123,"command":"claude \t--resume"}], "model":"model", "effort":"high"},
+        {"id":"sibling", "kind":"agent", "name":"Exited", "parent":"door",
+         "order":1, "status":null, "attempt":"2", "status_revision":null,
+         "terminal_id":null, "worktree":null, "can_resume":true, "channel":null,
+         "work":null, "stray":[], "model":null, "effort":null}
+    ]);
+    serde_json::from_value::<Vec<contracts::agent::RailNode>>(nodes.clone()).unwrap();
+    daemon.register(Arc::new(RailReply(nodes.clone())));
+    let (client, server) = UnixStream::pair().unwrap();
+    let handler = tokio::spawn(handle(server, Arc::new(daemon)));
+    let (read, mut write) = client.into_split();
+    let mut lines = BufReader::new(read).lines();
+    write
+        .write_all(b"{\"id\":\"request\\n1\",\"method\":\"rail.tree\"}\n")
+        .await
+        .unwrap();
+    let frame: Value = serde_json::from_str(&lines.next_line().await.unwrap().unwrap()).unwrap();
+    assert_eq!(
+        frame,
+        json!({"jsonrpc":"2.0", "id":"request\n1", "result":nodes})
+    );
+    assert_eq!(
+        frame["result"][0]
+            .as_object()
+            .unwrap()
+            .keys()
+            .collect::<Vec<_>>(),
+        nodes[0].as_object().unwrap().keys().collect::<Vec<_>>()
+    );
+    drop(write);
+    drop(lines);
+    handler.await.unwrap().unwrap();
+}
+
+async fn frames(daemon: Daemon, requests: &str, count: usize) -> Vec<Value> {
+    let (client, server) = UnixStream::pair().unwrap();
+    let handler = tokio::spawn(handle(server, Arc::new(daemon)));
+    let (read, mut write) = client.into_split();
+    let mut lines = BufReader::new(read).lines();
+    write.write_all(requests.as_bytes()).await.unwrap();
+    let mut frames = Vec::new();
+    for _ in 0..count {
+        frames.push(serde_json::from_str(&lines.next_line().await.unwrap().unwrap()).unwrap());
+    }
+    drop(write);
+    drop(lines);
+    handler.await.unwrap().unwrap();
+    frames
+}
+
+#[tokio::test]
+async fn r16_frames_preserve_complete_error_envelopes() {
+    for (request, expected) in [
+        (
+            "invalid\n",
+            json!({"jsonrpc":"2.0", "id":null,
+                "error":{"code":-32700, "message":"parse error"}}),
+        ),
+        (
+            "{\"id\":null,\"method\":\"missing.method\"}\n",
+            json!({"jsonrpc":"2.0", "id":null,
+                "error":{"code":-32601, "message":"method not found: missing.method"}}),
+        ),
+    ] {
+        let (_dir, daemon) = daemon();
+        assert_eq!(frames(daemon, request, 1).await, vec![expected]);
+    }
+}
+
+#[tokio::test]
+async fn r16_notifications_do_not_add_frames_between_pipelined_replies() {
+    let (_dir, daemon) = daemon();
+    let mut frames = frames(
+        daemon,
+        concat!(
+            "{\"id\":7,\"method\":\"rail.tree\"}\n",
+            "{\"method\":\"daemon.ping\"}\n",
+            "{\"id\":8,\"method\":\"rail.tree\"}\n"
+        ),
+        2,
+    )
+    .await;
+    frames.sort_by_key(|frame| frame["id"].as_u64());
+    assert_eq!(
+        frames,
+        vec![
+            json!({"jsonrpc":"2.0", "id":7, "result":[]}),
+            json!({"jsonrpc":"2.0", "id":8, "result":[]}),
+        ]
+    );
+}
+
+#[tokio::test]
+async fn ping_answers_pong() {
+    let (_dir, daemon) = daemon();
+    let reply = ask(
+        &daemon,
+        r#"{"jsonrpc":"2.0","id":7,"method":"daemon.ping"}"#,
+    )
+    .await;
+    assert_eq!(reply["id"], 7);
+    assert_eq!(reply["result"]["pong"], true);
+}
+
+#[tokio::test]
+async fn a38_ping_reports_the_generated_contract() {
+    let (_dir, daemon) = daemon();
+    let reply = ask(
+        &daemon,
+        r#"{"jsonrpc":"2.0","id":7,"method":"daemon.ping"}"#,
+    )
+    .await;
+    let generated = std::fs::read_to_string(concat!(
+        env!("CARGO_MANIFEST_DIR"),
+        "/../../contracts/generated/contract.ts"
+    ))
+    .unwrap();
+    let contract = &reply["result"]["contract"];
+    let listed: Vec<(&str, &str)> = generated
+        .lines()
+        .filter_map(|line| line.trim().strip_suffix("\","))
+        .filter_map(|line| line.strip_prefix('"')?.split_once("\": \""))
+        .collect();
+    let names: Vec<&str> = contract["methods"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|n| n.as_str().unwrap())
+        .collect();
+    assert!(!names.is_empty());
+    assert_eq!(
+        listed.iter().map(|(name, _)| *name).collect::<Vec<_>>(),
+        names
+    );
+    assert_eq!(
+        contract["fingerprint"].as_str().unwrap(),
+        contracts::methods::fingerprint_of_hashes(&listed)
+    );
+}
+
+struct Echo;
+
+#[async_trait::async_trait]
+impl Module for Echo {
+    fn namespaces(&self) -> &'static [&'static str] {
+        &["echo"]
+    }
+
+    async fn call(&self, ctx: &Ctx, method: &str, _params: Value) -> Result<Value, RpcError> {
+        Ok(json!({ "method": method, "actor": ctx.actor.id }))
+    }
+}
+
+#[tokio::test]
+async fn module_methods_reach_their_module_with_the_callers_actor() {
+    let (_dir, mut daemon) = daemon();
+    daemon.register(Arc::new(Echo));
+
+    let reply = ask(&daemon, r#"{"jsonrpc":"2.0","id":1,"method":"echo.hello"}"#).await;
+
+    assert_eq!(reply["result"]["method"], "echo.hello");
+    assert_eq!(reply["result"]["actor"], "you");
+}
+
+#[tokio::test]
+async fn subscribers_receive_events_pushed_on_the_same_connection() {
+    let dir = tempfile::tempdir().unwrap();
+    let daemon = Arc::new(Daemon::open(dir.path()).unwrap());
+    let socket = dir.path().join("rupd.sock");
+    tokio::spawn(serve(
+        UnixListener::bind(&socket).unwrap(),
+        Arc::clone(&daemon),
+    ));
+    let mut client = rpc::Client::connect(&socket).await.unwrap();
+    client
+        .request("events.subscribe", Value::Null)
+        .await
+        .unwrap();
+
+    daemon
+        .bus
+        .emit(Actor::daemon(), contracts::EventData::RailChanged);
+
+    let event = client.next_event().await.unwrap();
+    assert_eq!(event.actor, Actor::daemon());
+    assert!(matches!(event.data, contracts::EventData::RailChanged));
+}
+
+/// Lists one running Terminal whose program has already ended, so every kill is `NOT_FOUND`.
+struct SelfEnded;
+
+#[async_trait::async_trait]
+impl Module for SelfEnded {
+    fn namespaces(&self) -> &'static [&'static str] {
+        &["terminal"]
+    }
+
+    async fn call(&self, _ctx: &Ctx, method: &str, _params: Value) -> Result<Value, RpcError> {
+        match method {
+            "terminal.list" => Ok(json!([TerminalInfo {
+                id: "1".into(),
+                incarnation: "self-ended-terminal".into(),
+                cwd: "/".into(),
+                title: None,
+                program: "sh".into(),
+                running: true,
+                exit_code: None,
+                owner: None,
+            }])),
+            _ => Err(RpcError::not_found("running terminal 1")),
+        }
+    }
+}
+
+#[tokio::test]
+async fn d1_stopping_programs_that_ended_by_themselves_is_not_a_failure() {
+    let (_dir, mut daemon) = daemon();
+    daemon.register(Arc::new(SelfEnded));
+
+    daemon.stop_terminals().await.unwrap();
+}
+
+/// The Daemon wires up every module it owns, including `messages` (`scenarios/messages.md`
+/// B5): a real request through `Daemon::open`, not a fake module, must reach it.
+#[tokio::test]
+async fn the_messages_module_is_reachable_through_the_daemon() {
+    let (_dir, daemon) = daemon();
+    let reply = ask(&daemon, r#"{"jsonrpc":"2.0","id":1,"method":"route.list"}"#).await;
+    assert_eq!(reply["result"], json!([]));
+}
+
+/// Answers only once released, and says when its call enters and when it is dropped
+/// unanswered.
+struct Hangs {
+    says: tokio::sync::mpsc::UnboundedSender<&'static str>,
+    release: Arc<tokio::sync::Notify>,
+}
+
+/// Says `dropped` when its call ends without an answer.
+struct Dropped(Option<tokio::sync::mpsc::UnboundedSender<&'static str>>);
+
+impl Drop for Dropped {
+    fn drop(&mut self) {
+        if let Some(says) = self.0.take() {
+            let _ = says.send("dropped");
+        }
+    }
+}
+
+#[async_trait::async_trait]
+impl Module for Hangs {
+    fn namespaces(&self) -> &'static [&'static str] {
+        &["agent", "decision"]
+    }
+
+    async fn call(&self, _ctx: &Ctx, _method: &str, _params: Value) -> Result<Value, RpcError> {
+        let _ = self.says.send("entered");
+        let mut dropped = Dropped(Some(self.says.clone()));
+        self.release.notified().await;
+        dropped.0 = None;
+        Ok(json!("answered"))
+    }
+}
+
+async fn serving_a_module_that_hangs() -> (
+    tempfile::TempDir,
+    tokio::sync::mpsc::UnboundedReceiver<&'static str>,
+    Arc<tokio::sync::Notify>,
+    std::path::PathBuf,
+) {
+    let (dir, mut daemon) = daemon();
+    let (says, said) = mpsc::unbounded_channel();
+    let release = Arc::new(tokio::sync::Notify::new());
+    daemon.register(Arc::new(Hangs {
+        says,
+        release: Arc::clone(&release),
+    }));
+    let socket = dir.path().join("rupd.sock");
+    tokio::spawn(serve(
+        UnixListener::bind(&socket).unwrap(),
+        Arc::new(daemon),
+    ));
+    (dir, said, release, socket)
+}
+
+/// What `Hangs` says first, once its call reaches it.
+async fn first_said(said: &mut tokio::sync::mpsc::UnboundedReceiver<&'static str>) -> &'static str {
+    tokio::time::timeout(std::time::Duration::from_secs(5), said.recv())
+        .await
+        .expect("the call reached the module")
+        .expect("the module still reports its calls")
+}
+
+/// H7(b): the hook's process dying closes its connection, which drops the waiting call.
+#[tokio::test]
+async fn h7_a_hung_up_permission_call_is_dropped() {
+    let (_dir, mut said, _release, socket) = serving_a_module_that_hangs().await;
+    let mut hook = UnixStream::connect(&socket).await.unwrap();
+    hook.write_all(b"{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"agent.permission\"}\n")
+        .await
+        .unwrap();
+    assert_eq!(first_said(&mut said).await, "entered");
+    assert!(
+        said.try_recv().is_err(),
+        "the call waits while the hook is connected"
+    );
+
+    drop(hook);
+
+    let seen = tokio::time::timeout(std::time::Duration::from_secs(5), said.recv()).await;
+    assert_eq!(seen.unwrap(), Some("dropped"));
+}
+
+/// Any other call is not dropped by a half-close: a client may write its request, shut down
+/// its write side and wait for the reply.
+#[tokio::test]
+async fn a_half_closed_call_that_is_not_a_permission_call_still_runs() {
+    let (_dir, mut said, release, socket) = serving_a_module_that_hangs().await;
+    let mut client = UnixStream::connect(&socket).await.unwrap();
+    client
+        .write_all(b"{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"agent.stop\",\"params\":{\"id\":\"fixture\"}}\n")
+        .await
+        .unwrap();
+    client.shutdown().await.unwrap();
+    assert_eq!(first_said(&mut said).await, "entered");
+
+    release.notify_one();
+    let mut reply = String::new();
+    tokio::time::timeout(
+        std::time::Duration::from_secs(5),
+        BufReader::new(&mut client).read_line(&mut reply),
+    )
+    .await
+    .expect("the half-closed client reads the reply")
+    .unwrap();
+    let reply: Value = serde_json::from_str(&reply).unwrap();
+    assert_eq!(reply["id"], 1);
+    assert_eq!(reply["result"], "answered");
+
+    assert!(said.try_recv().is_err());
+}
