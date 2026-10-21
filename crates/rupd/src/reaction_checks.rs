@@ -541,7 +541,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn nr7_checks_read_evidence_from_a_fake_gh_through_the_daemon() {
+    async fn nr7_pending_checks_allow_activation_without_a_firing() {
         use std::os::unix::fs::PermissionsExt;
         let (project, daemon, client, watcher, target) = daemon().await;
         // The Agents' project directory is the Worktree's git root.
@@ -569,34 +569,81 @@ mod tests {
         }
         let head = "1".repeat(40);
         let gh = project.path().join("gh");
-        std::fs::write(
-            &gh,
-            format!("#!/bin/sh\ncase \"$1 $2\" in\n\"pr view\") echo '{{\"number\":23,\"headRefOid\":\"{head}\",\"url\":\"https://github.com/acme/one/pull/23\"}}';;\n\"pr checks\") echo '[{{\"name\":\"check\",\"bucket\":\"pass\"}}]';;\nesac\n"),
-        )
-        .unwrap();
-        std::fs::set_permissions(&gh, std::fs::Permissions::from_mode(0o755)).unwrap();
-        daemon.agents.set_evidence_from_gh(&target, &repo, &gh);
+        let forge = |head: &str, bucket: &str| {
+            std::fs::write(
+                &gh,
+                format!("#!/bin/sh\ncase \"$1 $2\" in\n\"pr view\") echo '{{\"number\":23,\"headRefOid\":\"{head}\",\"url\":\"https://github.com/acme/one/pull/23\"}}';;\n\"pr checks\") echo '[{{\"name\":\"check\",\"bucket\":\"{bucket}\"}}]';;\nesac\n"),
+            ).unwrap();
+            std::fs::set_permissions(&gh, std::fs::Permissions::from_mode(0o755)).unwrap();
+            daemon.agents.set_evidence_from_gh(&target, &repo, &gh);
+        };
+        forge(&head, "pending");
+        let params = json!({
+            "operation": "pending-head", "name": "when checks pass", "target": target,
+            "instruction": "review this PR",
+            "condition": { "kind": "pr-checks", "repository": REPO, "number": 23 },
+            "expires_at": "2099-01-01T00:00:00Z"
+        });
+        let created = client.request("reaction.create", params.clone()).await;
+        assert!(
+            created.is_ok(),
+            "pending checks prevented activation: {created:?}"
+        );
+        let created = created.unwrap();
+        let id = created["id"].as_str().unwrap();
+        assert_eq!(created["observation"]["pinned_head"], head);
+        assert_eq!(created["firings"], json!([]));
         let state = client
-            .request("agent.worktreeState", json!({ "id": target }))
+            .request("agent.worktreeState", json!({"id": target}))
             .await
             .unwrap();
-        assert_eq!(state["evidence"]["state"], "complete");
+        assert_eq!(state["evidence"]["state"], "incomplete");
         assert_eq!(state["evidence"]["repository"], REPO);
-        assert_eq!(state["evidence"]["head"], head.as_str());
-        // The Watcher's own read of that evidence, not a fed one, fires a reaction pinned to its head
-        // once, and never one pinned to another head.
-        let pinned = save(&daemon, &target, REPO, 23, &head).await;
-        let moved = save(&daemon, &target, REPO, 23, &"2".repeat(40)).await;
+        assert_eq!(state["evidence"]["head"], head);
+        assert_eq!(state["evidence"]["checks"], json!([]));
+        watcher.check().await;
+        assert_eq!(get(&client, id).await["firings"], json!([]));
+        forge(&head, "pass");
         watcher.check().await;
         watcher.check().await;
-        assert_eq!(
-            get(&client, &pinned).await["firings"]
-                .as_array()
-                .unwrap()
-                .len(),
-            1
-        );
-        assert_eq!(get(&client, &moved).await["firings"], json!([]));
+        let replay = client.request("reaction.create", params).await.unwrap();
+        assert_eq!(replay["id"], id);
+        let fired = get(&client, id).await;
+        assert_eq!(fired["firings"].as_array().unwrap().len(), 1);
+        let sent = client
+            .request("message.list", json!({"to": target}))
+            .await
+            .unwrap();
+        let messages: Vec<_> = sent
+            .as_array()
+            .unwrap()
+            .iter()
+            .filter(|m| m["body"] == "review this PR")
+            .collect();
+        assert_eq!(messages.len(), 1);
+        assert_eq!(fired["firings"][0]["message"], messages[0]["id"]);
+
+        // A second saved pin must invalidate even before the new head's checks conclude.
+        forge(&head, "pending");
+        let moved = client
+            .request(
+                "reaction.create",
+                json!({
+                    "operation": "moved-head", "name": "when checks pass", "target": target,
+                    "instruction": "do not deliver after a head change",
+                    "condition": { "kind": "pr-checks", "repository": REPO, "number": 23 },
+                    "expires_at": "2099-01-01T00:00:00Z"
+                }),
+            )
+            .await
+            .unwrap();
+        let moved_id = moved["id"].as_str().unwrap();
+        forge(&"2".repeat(40), "pending");
+        watcher.check().await;
+        let ended = get(&client, moved_id).await;
+        assert_eq!(ended["state"], "invalidated");
+        assert_eq!(ended["observation"]["pinned_head"], head);
+        assert_eq!(ended["firings"], json!([]));
     }
 
     #[tokio::test]
