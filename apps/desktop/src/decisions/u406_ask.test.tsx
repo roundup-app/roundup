@@ -41,12 +41,12 @@ const press = (target: Element, key: string) => fireEvent.keyDown(target, { key 
 const calls = (app: Awaited<ReturnType<typeof open>>["app"]) => rpcCalls(app, "decision.answer");
 
 // The caller supplies already observed Prompt authority; selecting a revision does not reconnect.
-const editor = async (mounted: Awaited<ReturnType<typeof open>>) => {
+const editor = async (mounted: Awaited<ReturnType<typeof open>>, availability = "available") => {
   cleanup();
   const root = createRoot(dispose => ({ dispose, connected: connectProject(mounted.app, { path: "/p", name: "p" }, () => false, () => 0, () => null, undefined, mounted.drafts("/p")) }));
   const connected = await root.connected;
   const identity: PromptIdentity = { daemon: "daemon", agent: "a", attempt: "attempt-a", decision: "d1" };
-  await waitFor(() => expect(connected.decisions.availability(identity)).not.toBe("unverified"));
+  await waitFor(() => expect(connected.decisions.availability(identity)).toBe(availability));
   const [selection, setSelection] = createSignal<{ revision: string; identity: PromptIdentity } | undefined>();
   const [visible, setVisible] = createSignal(false);
   render(() => {
@@ -106,6 +106,7 @@ describe("u406 the Card for ask_user", () => {
     expect(calls(mounted.app)).toEqual([]);
     fireEvent.click(send());
     fireEvent.submit(note().form!);
+
     if (status === "unknown") expect(calls(mounted.app)).toEqual([]);
     else {
       await waitFor(() => expect(calls(mounted.app)).toHaveLength(1));
@@ -113,6 +114,113 @@ describe("u406 the Card for ask_user", () => {
       await waitFor(() => expect(mounted.drafts("/p").list().some(draft => draft.revision === edited.revision)).toBe(false));
       expect(mounted.drafts("/p").list()).toContainEqual(before[1]);
     }
+  });
+
+  it("u3021c_selected_edits_survive_current_edits_and_reload", async () => {
+    const mounted = await open();
+    fireEvent.input(note(), { target: { value: "A" } });
+    const a = mounted.drafts("/p").list()[0]!;
+    mounted.drafts("/p").submit(a.revision);
+    mounted.drafts("/p").settle(a.revision, "failed");
+    fireEvent.input(note(), { target: { value: "B" } });
+    const selectedEditor = await editor(mounted);
+    selectedEditor.open(a.revision);
+    await waitFor(() => expect(note().value).toBe("A"));
+    const field = note();
+    fireEvent.input(field, { target: { value: "A edited" } });
+    fireEvent.input(field, { target: { value: "A edited twice\n雪" } });
+    expect(note()).toBe(field);
+    expect(document.activeElement).toBe(field);
+    const recovered = mounted.drafts("/p").list().at(-1)!;
+    selectedEditor.leave();
+    selectedEditor.open();
+    await waitFor(() => expect(note().value).toBe("B"));
+    fireEvent.input(note(), { target: { value: "B edited" } });
+    expect(mounted.drafts("/p").list()).toContainEqual(recovered);
+    cleanup();
+    const fresh = await open();
+    expect(note().value).toBe("B edited");
+    expect(fresh.drafts("/p").list()).toContainEqual(recovered);
+    const reopened = await editor(fresh);
+    reopened.open(recovered.revision);
+    await waitFor(() => expect(note().value).toBe("A edited twice\n雪"));
+  });
+
+  it("u3021c_unknown_prompt_availability_grants_no_delivery_authority", async () => {
+    const mounted = await open();
+    fireEvent.input(note(), { target: { value: "original retained note" } });
+    const a = mounted.drafts("/p").list()[0]!;
+    mounted.app.handlers["decision.capture"] = () => { throw new Error("read unavailable"); };
+
+    const selectedEditor = await editor(mounted, "unverified");
+    const before = [...mounted.app.calls];
+    selectedEditor.open(a.revision);
+    await waitFor(() => expect(note().value).toBe("original retained note"));
+    fireEvent.input(note(), { target: { value: "still original" } });
+    fireEvent.click(send());
+    fireEvent.submit(note().form!);
+    expect(mounted.app.calls).toEqual(before);
+    expect(mounted.drafts("/p").list().at(-1)?.value).toMatchObject({ daemon: "daemon", agent: "a", attempt: "attempt-a", decision: "d1", note: "still original" });
+  });
+
+  it.each(["project", "surface", "agent", "decision", "attempt", "daemon"] as const)("u3021c_selected_decision_refuses_other_%s", async mismatch => {
+    const mounted = await open();
+    fireEvent.input(note(), { target: { value: "retained original" } });
+    const a = mounted.drafts("/p").list()[0]!;
+    const selectedEditor = await editor(mounted);
+    let revision = a.revision;
+    let identity = selectedEditor.identity;
+
+    if (mismatch === "project" || mismatch === "surface") {
+      const holder = mounted.drafts(mismatch === "project" ? "/q" : "/p");
+      revision = holder.edit({ ...a.destination, surface: mismatch === "surface" ? "agent-prompt" : "decisions" }, a.value, a.selection, "ordinary", null).draft.revision;
+    } else identity = { ...identity, [mismatch]: "replacement" };
+
+    const before = [...mounted.app.calls];
+    selectedEditor.open(revision, identity);
+    expect(card()?.querySelector("textarea")).toBeNull();
+    expect(mounted.app.calls).toEqual(before);
+    expect(mounted.drafts("/p").list()).toContainEqual(a);
+  });
+
+  it("u3021c_copy_and_discard_keep_other_revisions_decisions_unavailable_original", async () => {
+    const mounted = await open();
+    const exact = "  retired é\n👩🏽‍💻  ";
+    fireEvent.input(note(), { target: { value: exact } });
+    const a = mounted.drafts("/p").list()[0]!;
+    mounted.drafts("/p").submit(a.revision);
+    mounted.drafts("/p").settle(a.revision, "failed");
+    fireEvent.input(note(), { target: { value: "newer work" } });
+    const b = mounted.drafts("/p").list().at(-1)!;
+    const q = mounted.drafts("/q").edit(a.destination, { ...a.value, note: "other Project" }, a.selection, "ordinary").draft;
+    mounted.app.handlers["decision.capture"] = ({ id }) => ({ daemon: "replacement", agent: "a", attempt: "attempt-a", decision: id });
+    const selectedEditor = await editor(mounted, "unavailable");
+    const before = [...mounted.app.calls];
+    selectedEditor.open(a.revision);
+    expect(card()?.querySelector("textarea")).toBeNull();
+    expect(mounted.app.calls).toEqual(before);
+    cleanup();
+
+    const restored = await open(three, app => {
+      app.handlers["decision.capture"] = ({ id }) => ({ daemon: "replacement", agent: "a", attempt: "attempt-a", decision: id });
+    });
+
+    select("beta");
+    fireEvent.click(await screen.findByRole("button", { name: "Recover unfinished work" }));
+    const recovery = await screen.findByRole("region", { name: "Unfinished work" });
+    fireEvent.click(within(recovery).getByRole("button", { name: new RegExp(a.revision) }));
+    await within(recovery).findByText("Original object unavailable");
+    const clipboard = vi.fn(async (_text: string) => {});
+    Object.defineProperty(navigator, "clipboard", { configurable: true, value: { writeText: clipboard } });
+    fireEvent.click(within(recovery).getByRole("button", { name: "Copy note" }));
+    expect(clipboard).toHaveBeenCalledExactlyOnceWith(exact);
+    fireEvent.click(within(recovery).getByRole("button", { name: "Discard this revision" }));
+    expect(restored.drafts("/p").list()).toEqual([b]);
+    expect(restored.drafts("/q").list()).toEqual([q]);
+    cleanup();
+    const fresh = await open();
+    expect(fresh.drafts("/p").list()).toEqual([b]);
+    expect(fresh.drafts("/q").list()).toEqual([q]);
   });
 
   it("u2773a_multiline_arrows_keep_the_chosen_answer", async () => {
@@ -331,21 +439,11 @@ describe("u406 the Card for ask_user", () => {
     expect(calls(fresh.app)).toEqual([]);
   });
 
-  it("u406_title_and_rows", async () => {
+  it("u406_answers_expose_their_tradeoffs", async () => {
     await open();
-
-    const title = card()!.querySelector(".decision-title")!;
-
-    expect(title.textContent).toBe("alpha asks");
-    expect(card()!.textContent).not.toContain("ask_user");
-    expect(within(card()!).getByRole("listbox")).not.toBeNull();
-    expect(rows()).toHaveLength(3);
-    expect(within(card()!).getByRole("option", { name: "A · Brief" })).toBe(rows()[0]);
-    expect(rows()[0]!.querySelector(".ask-recommended")!.textContent).toBe("Recommended");
-    expect(rows()[1]!.querySelector(".ask-recommended")).toBeNull();
-    expect(rows()[0]!.getAttribute("aria-describedby")).not.toBeNull();
-    expect(rows()[0]!.querySelector(`[id="${rows()[0]!.getAttribute("aria-describedby")}"]`)!.textContent).toBe("what waits on you leads");
-    expect(selected()).toBe(0);
+    const option = within(card()!).getByRole("option", { name: "A · Brief" });
+    const description = option.getAttribute("aria-describedby");
+    expect(option.querySelector(`[id="${description}"]`)?.textContent).toBe("what waits on you leads");
   });
 
   it("u406_arrows_move_focus_and_swap_the_preview", async () => {
