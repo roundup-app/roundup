@@ -1,0 +1,178 @@
+.reactions,
+.reaction-list,
+.reaction-form,
+.reaction-detail,
+.reaction-agents,
+.reaction-when {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  min-width: 0;
+}
+
+.reaction-list,
+.reaction-firings {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.reaction-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+  min-width: 0;
+}
+
+.reaction-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: var(--space-4);
+  min-width: 0;
+}
+
+.reaction-row {
+  justify-content: flex-start;
+  gap: var(--space-2);
+}
+
+.reaction-row .reaction-name {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.reaction-row .reaction-state {
+  flex: none;
+  white-space: nowrap;
+  cursor: default;
+}
+
+.reaction-back {
+  align-self: flex-start;
+}
+
+.reaction-instruction,
+.reaction-facts dd {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.reaction-instruction {
+  white-space: pre-wrap;
+}
+
+.reaction-state,
+.reaction-empty {
+  color: var(--grey);
+}
+
+.reaction-facts {
+  display: grid;
+  grid-template-columns: max-content 1fr;
+  gap: var(--space-1) var(--space-2);
+  margin: 0;
+}
+
+.reaction-facts dt {
+  color: var(--grey);
+}
+
+.reaction-facts dd {
+  margin: 0;
+}
+
+.reaction-field {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.reaction-title {
+  margin: 0;
+  overflow-wrap: anywhere;
+  font: inherit;
+}
+
+.reaction-label {
+  color: var(--grey);
+  font-size: var(--text-caption);
+}
+
+.reaction-field input,
+.reaction-field textarea {
+  box-sizing: border-box;
+  width: 100%;
+  min-height: var(--space-6);
+  padding: var(--space-1) var(--space-2);
+  font: inherit;
+  color: inherit;
+  background: var(--hover);
+  border: 0;
+  border-radius: 0;
+}
+
+.reaction-field textarea {
+  resize: none;
+  field-sizing: content;
+}
+
+.reaction-field input:hover {
+  cursor: text;
+}
+
+.reaction-field input:active {
+  color: var(--text);
+}
+
+.reaction-field input::placeholder,
+.reaction-field textarea::placeholder {
+  color: var(--grey);
+}
+
+.reaction-when,
+.reaction-agents,
+.reaction-preview {
+  gap: var(--space-1);
+}
+
+.reaction-preview {
+  display: flex;
+  flex-direction: column;
+}
+
+.reaction-form .app-checkbox {
+  min-height: var(--space-5);
+  padding-inline: var(--space-2);
+}
+
+.reaction-form .app-select-trigger {
+  border-radius: 0;
+  color: var(--grey);
+}
+
+.reaction-form .app-select-trigger:hover,
+.reaction-form .app-select-trigger[data-state="open"] {
+  color: var(--text);
+  background-color: var(--ground);
+}
+
+.reaction-form .app-select-trigger:active {
+  color: var(--ink-pressed);
+  background-color: var(--ground);
+}
+
+body:has(.reaction-form) .app-select-list {
+  box-shadow: var(--shadow-drawer);
+}
+
+body:has(.reaction-form) .app-select-item {
+  color: var(--grey);
+  border-radius: 0;
+}
+
+body:has(.reaction-form) .app-select-item:is([data-highlighted], [data-state="checked"]) {
+  color: var(--text);
+  background-color: transparent;
+}

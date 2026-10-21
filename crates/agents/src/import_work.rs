@@ -57,7 +57,7 @@ impl Agents {
         out.excluded
             .extend(found.excluded.into_iter().map(|e| ImportExclusion {
                 source: e.source,
-                reason: e.reason.into(),
+                reason: e.reason,
             }));
         Ok(out)
     }

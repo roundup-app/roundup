@@ -924,6 +924,13 @@ class Fix(unittest.TestCase):
             self.assertFalse(github.flagged())
             self.assertIsNone(builder.fix_task(9, HEAD, 'review'))
             self.assertEqual(github.bodies(), first)
+        # Reopened after that close, the PR used three more attempts: it closes again and its Issue hears again.
+        old = note('<!-- fix-exhausted #9 -->\nPR #9 used its fix runs.', ago=500)
+        with GitHub(view=view, notes=[old] + attempts + [note('VERDICT: reject\n\nbad name', ago=0)], labels=READY,
+                    events=[dict(event='reopened', created_at=stamp(450))]) as github:
+            self.assertIsNone(builder.fix_task(9, HEAD, 'review'))
+            self.assertTrue(github.bodies()[0].startswith('<!-- fix-exhausted #9 -->'))
+            self.assertIn(('pr', 'close', '9', '--delete-branch'), github.writes)
         with GitHub(view=pr(body='Scenarios: U1\n', statusCheckRollup=FAILED), notes=attempts) as github:
             self.assertIsNone(builder.fix_task(9, HEAD, 'check'))
         self.assertTrue(github.flagged())
@@ -1397,6 +1404,10 @@ class Critic(unittest.TestCase):
         answered = note('<!-- fix-attempt -->\nFix run r answered `critic`.', ago=10)
         with GitHub(view=pr(), notes=[reject, answered]):
             self.assertIsNone(builder.fix_task(9, HEAD, 'critic'))
+        # A fix run that began before the reject (run 1, 260 s ago) and posted after it never saw it: the reject stays open.
+        racing = note('<!-- fix-attempt -->\nFix run https://github.com/o/r/actions/runs/1 answered `review`.', ago=10)
+        with GitHub(view=pr(), notes=[reject, racing]):
+            self.assertIn(FINDING, builder.fix_task(9, HEAD, 'critic'))
         with GitHub(view=pr(), notes=[]):
             self.assertIsNone(builder.fix_task(9, HEAD, 'critic'))
         # the attempt counts toward the three

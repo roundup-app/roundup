@@ -11,5 +11,5 @@ import { openTodos } from "./todoView";
 export const shownTodos = (connected: ConnectedProject, todos: TodosState): Accessor<Todo[]> => {
   const scope = shelfScope(connected);
 
-  return createMemo(() => openTodos(todos.all()).filter(todo => scope.includes(todo.home, todo.creator)));
+  return createMemo(() => openTodos(todos.all()).filter(todo => todo.id < 0 || scope.includes(todo.home, todo.creator)));
 };

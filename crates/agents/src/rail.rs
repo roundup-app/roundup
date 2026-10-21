@@ -2,6 +2,10 @@
 //! Sibling `order` values are contiguous from 0. Workstreams sit at the root and never nest (A26);
 //! an Agent sits under a Workstream or under the Agent that started it, to any depth.
 
+mod measurement;
+pub use measurement::MeasurementWait;
+pub(crate) use measurement::{Timing, decision_wait};
+
 use std::path::Path;
 use std::sync::{
     Arc,
@@ -19,6 +23,9 @@ const GONE_AGENT: &str = "an Agent that is gone";
 pub struct Rail {
     owner_reads: OwnerReads,
     db: Connection,
+    measurement_observing: Arc<tokio::sync::Semaphore>,
+    measurement_revision: Option<String>,
+    measurement_failure: Option<String>,
 }
 
 pub(super) struct ClosedPreparation {
@@ -150,6 +157,9 @@ impl Rail {
         Ok(Self {
             owner_reads: OwnerReads::open(path),
             db,
+            measurement_observing: Arc::new(tokio::sync::Semaphore::new(1)),
+            measurement_revision: None,
+            measurement_failure: None,
         })
     }
 
@@ -177,8 +187,11 @@ impl Rail {
         // Insert source and nodes in the same transaction: even interruption between writes
         // cannot expose an untracked node or lose a reserved identity.
         tx.execute(
-            "INSERT INTO nodes(kind,name,ord) VALUES('workstream',?,0)",
-            [title],
+            "INSERT INTO nodes(kind,name,ord,work) VALUES('workstream',?,0,?)",
+            params![
+                title,
+                serde_json::to_string(&workstream_order()).map_err(RpcError::internal)?
+            ],
         )
         .map_err(sql)?;
         let workstream = tx.last_insert_rowid();
@@ -551,6 +564,132 @@ impl Rail {
         tx.commit().map_err(sql)?;
         node.work = Some(order.clone());
         Ok(node)
+    }
+
+    pub(super) fn order_revision(&self, id: &str) -> Result<Option<String>, RpcError> {
+        self.db.query_row(
+            "SELECT CAST(max(revision) AS TEXT) FROM instruction_revisions WHERE agent=? AND message IS NULL",
+            [id], |row| row.get(0),
+        ).map_err(sql)
+    }
+
+    pub(super) fn prepare_instruction(
+        &mut self,
+        revision: &str,
+        attempt: &str,
+        text: &str,
+        first: bool,
+    ) -> Result<String, RpcError> {
+        self.db.execute(
+            "INSERT INTO instruction_deliveries(revision,attempt,text,state,first) VALUES(?,?,?,'prepared',?)",
+            params![revision, attempt, text, first],
+        ).map_err(sql)?;
+        Ok(self.db.last_insert_rowid().to_string())
+    }
+
+    pub(super) fn first_instruction(
+        &self,
+        agent: &str,
+        attempt: &str,
+    ) -> Result<Option<String>, RpcError> {
+        self.db.query_row(
+            "SELECT CAST(d.id AS TEXT) FROM instruction_deliveries d JOIN instruction_revisions r ON r.revision=d.revision
+             WHERE r.agent=? AND d.attempt=? AND d.first=1 ORDER BY d.id DESC LIMIT 1",
+            params![agent, attempt], |row| row.get(0),
+        ).optional().map_err(sql)
+    }
+
+    pub(super) fn instruction_state(
+        &mut self,
+        id: &str,
+        state: contracts::agent::InstructionState,
+    ) -> Result<(), RpcError> {
+        let state = serde_json::to_value(state).map_err(RpcError::internal)?;
+        self.db
+            .execute(
+                "UPDATE instruction_deliveries SET state=? WHERE id=?",
+                params![state.as_str(), id],
+            )
+            .map_err(sql)?;
+        Ok(())
+    }
+
+    pub(super) fn instructions(
+        &mut self,
+        id: &str,
+        project: &str,
+    ) -> Result<contracts::agent::Instructions, RpcError> {
+        use contracts::agent::{
+            Instruction, InstructionDelivery, InstructionRevision, Instructions,
+        };
+        let tx = self.db.transaction().map_err(sql)?;
+        let home = tx
+            .query_row(
+                "SELECT home FROM instruction_homes WHERE agent=?",
+                [id],
+                |row| row.get(0),
+            )
+            .optional()
+            .map_err(sql)?
+            .ok_or_else(|| RpcError::not_found(GONE_AGENT))?;
+        let rows = tx.prepare("SELECT revision,workstream,work,message,text FROM instruction_revisions WHERE agent=? ORDER BY revision").map_err(sql)?
+            .query_map([id], |row| Ok((row.get::<_,i64>(0)?,row.get::<_,Option<String>>(1)?,row.get::<_,Option<String>>(2)?,row.get::<_,Option<u32>>(3)?,row.get::<_,Option<String>>(4)?)))
+            .map_err(sql)?.collect::<Result<Vec<_>,_>>().map_err(sql)?;
+        let mut revisions = Vec::new();
+        let mut current = None;
+        for (revision, workstream, work, message, text) in rows {
+            let revision = revision.to_string();
+            let instruction = match (work, message, text) {
+                (Some(work), None, None) => {
+                    current = Some(revision.clone());
+                    Instruction::Order {
+                        order: serde_json::from_str(&work).map_err(RpcError::internal)?,
+                    }
+                }
+                (None, Some(message), Some(text)) => Instruction::Message { message, text },
+                _ => return Err(RpcError::internal("invalid retained instruction")),
+            };
+            revisions.push(InstructionRevision {
+                revision,
+                agent: id.to_owned(),
+                workstream,
+                instruction,
+            });
+        }
+        let rows = tx.prepare("SELECT d.id,d.revision,d.attempt,d.text,d.state FROM instruction_deliveries d JOIN instruction_revisions r ON r.revision=d.revision WHERE r.agent=? ORDER BY d.id").map_err(sql)?
+            .query_map([id], |row| Ok((row.get::<_,i64>(0)?,row.get::<_,i64>(1)?,row.get::<_,String>(2)?,row.get::<_,String>(3)?,row.get::<_,String>(4)?)))
+            .map_err(sql)?.collect::<Result<Vec<_>,_>>().map_err(sql)?;
+        let deliveries = rows
+            .into_iter()
+            .map(|(id, revision, attempt, text, state)| {
+                Ok(InstructionDelivery {
+                    id: id.to_string(),
+                    revision: revision.to_string(),
+                    attempt,
+                    text,
+                    state: serde_json::from_value(serde_json::Value::String(state))
+                        .map_err(RpcError::internal)?,
+                })
+            })
+            .collect::<Result<Vec<_>, RpcError>>()?;
+        let present: bool = tx
+            .query_row(
+                "SELECT EXISTS(SELECT 1 FROM nodes WHERE CAST(id AS TEXT)=?)",
+                [id],
+                |row| row.get(0),
+            )
+            .map_err(sql)?;
+        if !present {
+            current = None;
+        }
+        tx.commit().map_err(sql)?;
+        Ok(Instructions {
+            project: project.to_owned(),
+            home,
+            current,
+            revisions,
+            deliveries,
+        })
     }
 
     pub fn rename(&mut self, id: &str, name: &str) -> Result<RailNode, RpcError> {

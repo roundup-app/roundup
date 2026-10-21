@@ -467,7 +467,10 @@ impl Intake {
                             None,
                             None,
                             true,
-                            Some(Arc::new(move |_| intake.emit(&ask_id).map(|_| ()))),
+                            Some(crate::PromptRecord {
+                                revision: None,
+                                written: Some(Arc::new(move |_| intake.emit(&ask_id).map(|_| ()))),
+                            }),
                         )
                         .await
                         .map_err(PromptError::from)

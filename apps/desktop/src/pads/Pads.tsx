@@ -1,3 +1,4 @@
+import { contextMenu, linkEntries, openOnRelease } from "../ui/contextMenu";
 import * as v from "valibot";
 import { Editable } from "../ui/Editable";
 import { RpcError, INTERNAL_CODE } from "../app/seam";
@@ -241,6 +242,10 @@ const PadRows = (props: {
           <ShelfRow
             data-selected={props.selection.selected().includes(pad.name) ? "true" : undefined}
             data-shelf-row
+            onContextMenu={(event: MouseEvent) => openOnRelease(event, (x, y) => void contextMenu(connected.app, [
+              ...linkEntries(connected.app, { kind: "pad", id: pad.name }, connected.rail.nodes, (node) => connected.rail.exitOf(node) === null, props.onLateFailure),
+              { id: "delete", label: copy.delete, run: () => { props.selection.replace([pad.name]); props.bulk.ask(); } },
+            ], x, y))}
             class="pad-inset"
             glyph={
               <Show

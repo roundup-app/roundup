@@ -14,6 +14,7 @@ serde.workspace = true
 serde_json.workspace = true
 rusqlite.workspace = true
 rusqlite_migration.workspace = true
+time = { version = "0.3.55", features = ["parsing"] }
 tokio.workspace = true
 
 [dev-dependencies]

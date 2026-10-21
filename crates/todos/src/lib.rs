@@ -43,9 +43,10 @@ impl Todos {
         &self,
         db: &rusqlite::Connection,
         id: &str,
+        actor: &contracts::Actor,
         removal: &mut contracts::agent::Removal,
     ) -> Result<Vec<EventData>, RpcError> {
-        self.store()?.remove_workstream(db, id, removal)
+        self.store()?.remove_workstream(db, id, actor, removal)
     }
 
     /// The creator is the calling Actor; a `creator` field sent in the params is ignored.
@@ -139,6 +140,7 @@ impl Todos {
             p.body.as_deref(),
             p.expected_change,
             ctx.touches.sequence().map_err(RpcError::internal)?,
+            &ctx.actor,
         )?;
         ctx.touch(Verb::Wrote, &item(p.id))?;
         ctx.emit(EventData::TodoUpdated(todo.clone().into()));
@@ -148,10 +150,32 @@ impl Todos {
     fn complete(&self, ctx: &Ctx, p: TodoId) -> Result<Value, RpcError> {
         let store = self.store()?;
         let was_blocked = store.blocked_ids()?;
-        let todo = store.complete(p.id, ctx.touches.sequence().map_err(RpcError::internal)?)?;
+        let todo = store.set_done(
+            p.id,
+            true,
+            ctx.touches.sequence().map_err(RpcError::internal)?,
+            &ctx.actor,
+        )?;
         ctx.touch(Verb::Wrote, &item(p.id))?;
         ctx.emit(EventData::TodoUpdated(todo.clone().into()));
         emit_unblocked(ctx, &was_blocked, &store.blocked_ids()?);
+        reply(&todo)
+    }
+
+    fn reopen(&self, ctx: &Ctx, p: TodoId) -> Result<Value, RpcError> {
+        let store = self.store()?;
+        let todo = store.get(p.id)?;
+        if !todo.done {
+            return reply(&todo);
+        }
+        let todo = store.set_done(
+            p.id,
+            false,
+            ctx.touches.sequence().map_err(RpcError::internal)?,
+            &ctx.actor,
+        )?;
+        ctx.touch(Verb::Wrote, &item(p.id))?;
+        ctx.emit(EventData::TodoUpdated(todo.clone().into()));
         reply(&todo)
     }
 
@@ -171,6 +195,7 @@ impl Todos {
             &p.blockers,
             p.expected_change,
             ctx.touches.sequence().map_err(RpcError::internal)?,
+            &ctx.actor,
         )?;
         ctx.touch(Verb::Wrote, &item(p.id))?;
         ctx.emit(EventData::TodoUpdated(todo.clone().into()));
@@ -181,7 +206,11 @@ impl Todos {
     fn delete(&self, ctx: &Ctx, p: TodoId) -> Result<Value, RpcError> {
         let store = self.store()?;
         let mut was_blocked = store.blocked_ids()?;
-        store.delete(p.id, ctx.touches.sequence().map_err(RpcError::internal)?)?;
+        store.delete(
+            p.id,
+            ctx.touches.sequence().map_err(RpcError::internal)?,
+            &ctx.actor,
+        )?;
         ctx.touch(Verb::Wrote, &item(p.id))?;
         was_blocked.remove(&p.id);
         ctx.emit(EventData::TodoDeleted(p));
@@ -215,6 +244,7 @@ impl Todos {
             p.owner.as_ref(),
             p.expected_change,
             ctx.touches.sequence().map_err(RpcError::internal)?,
+            &ctx.actor,
         )?;
         ctx.touch(Verb::Wrote, &item(p.id))?;
         ctx.emit(EventData::TodoUpdated(todo.clone().into()));
@@ -276,6 +306,7 @@ impl Module for Todos {
             "todo.readHistory" => self.read_history(ctx, params(value)?),
             "todo.update" => self.update(ctx, params(value)?),
             "todo.complete" => self.complete(ctx, params(value)?),
+            "todo.reopen" => self.reopen(ctx, params(value)?),
             "todo.setBlockers" => self.set_blockers(ctx, params(value)?),
             "todo.reorder" => self.reorder(ctx, params(value)?),
             "todo.assign" => self.assign(ctx, params(value)?),
@@ -367,6 +398,200 @@ mod tests {
                 .map(|t| (t.verb, t.actor.id))
                 .collect()
         }
+    }
+
+    #[tokio::test]
+    async fn t19_reopen_preserves_identity_fields_and_order() {
+        let dir = tempfile::tempdir().unwrap();
+        let h = Harness::new(dir.path());
+        made(
+            &h,
+            json!({"title":"ship", "body":"details", "owner": owner_of(&agent("a"))}),
+        )
+        .await;
+        made(&h, json!({"title":"other"})).await;
+        h.call("todo.move", json!({"id":1,"home":"r1"}))
+            .await
+            .unwrap();
+        h.call("todo.reorder", json!({"id":1,"before":null}))
+            .await
+            .unwrap();
+        h.call("todo.complete", json!({"id":1})).await.unwrap();
+        let mut expected = h.call("todo.list", json!({})).await.unwrap();
+        expected[1]["done"] = json!(false);
+        let reopened = h.call("todo.reopen", json!({"id":1})).await.unwrap();
+        assert_eq!(reopened, expected[1]);
+        assert_eq!(h.call("todo.get", json!({"id":1})).await.unwrap(), reopened);
+        assert_eq!(h.call("todo.list", json!({})).await.unwrap(), expected);
+    }
+
+    #[tokio::test]
+    async fn t19_reopen_history_and_provenance_name_the_caller() {
+        let dir = tempfile::tempdir().unwrap();
+        let mut h = Harness::new(dir.path());
+        made(&h, json!({"title":"blocker"})).await;
+        made(&h, json!({"title":"dependent", "blockers":[1]})).await;
+        h.call("todo.complete", json!({"id":1})).await.unwrap();
+        let dependent = changes(&h, 2).await;
+        let touches = h.touches(2);
+        h.events();
+        let caller = agent("a");
+        let reopened = h
+            .call_as(
+                caller.clone(),
+                "todo.reopen",
+                json!({"id":1,"actor":Actor::user()}),
+            )
+            .await
+            .unwrap();
+        let event = h.events.try_recv().unwrap();
+        assert_eq!(event.actor, caller);
+        assert!(
+            matches!(event.data, EventData::TodoUpdated(todo) if serde_json::to_value(&todo).unwrap() == reopened)
+        );
+        assert!(h.events().is_empty());
+        let history = changes(&h, 1).await;
+        let entries = history["changes"].as_array().unwrap();
+        assert_eq!(entries.len(), 3);
+        assert_eq!(entries[0]["actor"], json!(Actor::user()));
+        assert_eq!(entries[2]["actor"], json!(caller));
+        assert_eq!(entries[2]["before"]["done"], true);
+        assert_eq!(entries[2]["after"]["done"], false);
+        assert_eq!(
+            h.touches(1),
+            vec![
+                (Verb::Wrote, "you".into()),
+                (Verb::Wrote, "you".into()),
+                (Verb::Wrote, "a".into())
+            ]
+        );
+        assert_eq!(changes(&h, 2).await, dependent);
+        assert_eq!(h.touches(2), touches);
+    }
+
+    #[tokio::test]
+    async fn t19_open_reopen_is_a_noop() {
+        let dir = tempfile::tempdir().unwrap();
+        let mut h = Harness::new(dir.path());
+        let todo = made(&h, json!({"title":"open"})).await;
+        let history = changes(&h, 1).await;
+        let touches = h.touches(1);
+        h.events();
+        assert_eq!(h.call("todo.reopen", json!({"id":1})).await.unwrap(), todo);
+        assert_eq!(changes(&h, 1).await, history);
+        assert_eq!(h.touches(1), touches);
+        assert!(h.events().is_empty());
+    }
+
+    #[tokio::test]
+    async fn t19_unknown_id_leaves_no_trace() {
+        let dir = tempfile::tempdir().unwrap();
+        let mut h = Harness::new(dir.path());
+        made(&h, json!({"title":"kept"})).await;
+        let list = h.call("todo.list", json!({})).await.unwrap();
+        let history = changes(&h, 1).await;
+        h.events();
+        assert_eq!(
+            h.call("todo.reopen", json!({"id":99}))
+                .await
+                .unwrap_err()
+                .code,
+            code::NOT_FOUND
+        );
+        assert_eq!(h.call("todo.list", json!({})).await.unwrap(), list);
+        assert_eq!(changes(&h, 1).await, history);
+        assert!(h.touches(99).is_empty());
+        assert!(h.events().is_empty());
+    }
+
+    #[tokio::test]
+    async fn t19_reopen_reblocks_dependents_and_can_complete_again() {
+        let dir = tempfile::tempdir().unwrap();
+        let mut h = Harness::new(dir.path());
+        made(&h, json!({"title":"own blocker"})).await;
+        made(&h, json!({"title":"reopen", "blockers":[1]})).await;
+        made(&h, json!({"title":"dependent", "blockers":[2]})).await;
+        made(&h, json!({"title":"done dependent", "blockers":[2]})).await;
+        for id in [2, 4] {
+            h.call("todo.complete", json!({"id":id})).await.unwrap();
+        }
+        h.events();
+        let reopened = h.call("todo.reopen", json!({"id":2})).await.unwrap();
+        assert_eq!(reopened["blocked"], true);
+        let list = h.call("todo.list", json!({})).await.unwrap();
+        assert_eq!(list[2]["blocked"], true);
+        assert_eq!(list[2]["done"], false);
+        assert_eq!(list[3]["blocked"], true);
+        assert_eq!(list[3]["done"], true);
+        assert_eq!(h.events(), ["todo.updated 2"]);
+        h.call("todo.complete", json!({"id":2})).await.unwrap();
+        assert_eq!(
+            h.events(),
+            ["todo.updated 2", "todo.unblocked 3", "todo.unblocked 4"]
+        );
+    }
+
+    #[tokio::test]
+    async fn t19_reopen_and_actor_survive_restart() {
+        let dir = tempfile::tempdir().unwrap();
+        let before = {
+            let h = Harness::new(dir.path());
+            made(&h, json!({"title":"ship"})).await;
+            h.call("todo.complete", json!({"id":1})).await.unwrap();
+            h.call_as(agent("a"), "todo.reopen", json!({"id":1}))
+                .await
+                .unwrap();
+            changes(&h, 1).await["changes"].clone()
+        };
+        let h = Harness::new(dir.path());
+        assert_eq!(
+            h.call("todo.list", json!({})).await.unwrap()[0]["done"],
+            false
+        );
+        assert_eq!(changes(&h, 1).await["changes"], before);
+        assert_eq!(before[2]["actor"], json!(agent("a")));
+    }
+
+    #[tokio::test]
+    async fn t19_failed_history_preserves_done_state() {
+        let dir = tempfile::tempdir().unwrap();
+        let mut h = Harness::new(dir.path());
+        made(&h, json!({"title":"done"})).await;
+        h.call("todo.complete", json!({"id":1})).await.unwrap();
+        let before = changes(&h, 1).await;
+        let touches = h.touches(1);
+        h.events();
+        let db = rusqlite::Connection::open(dir.path().join("todos.db")).unwrap();
+        db.execute_batch("CREATE TRIGGER fail_history BEFORE INSERT ON changes BEGIN SELECT RAISE(ABORT, 'history failed'); END;").unwrap();
+        assert!(h.call("todo.reopen", json!({"id":1})).await.is_err());
+        assert_eq!(
+            h.call("todo.list", json!({})).await.unwrap()[0]["done"],
+            true
+        );
+        assert_eq!(changes(&h, 1).await, before);
+        assert_eq!(h.touches(1), touches);
+        assert!(h.events().is_empty());
+    }
+
+    #[tokio::test]
+    async fn t19_legacy_history_keeps_unknown_actor() {
+        let dir = tempfile::tempdir().unwrap();
+        let mut db = rusqlite::Connection::open(dir.path().join("todos.db")).unwrap();
+        rusqlite_migration::Migrations::new(vec![
+            rusqlite_migration::M::up(include_str!("../migrations/001/up.sql")),
+            rusqlite_migration::M::up(include_str!("../migrations/002/up.sql")),
+        ])
+        .to_latest(&mut db)
+        .unwrap();
+        db.execute_batch("INSERT INTO todos (title,body,created_at) VALUES ('old','',0); INSERT INTO changes(todo,after_values,after_touch) VALUES (1,'{\"title\":\"old\",\"body\":\"\",\"done\":false,\"blockers\":[]}',0);").unwrap();
+        drop(db);
+        let h = Harness::new(dir.path());
+        assert_eq!(changes(&h, 1).await["changes"][0]["actor"], Value::Null);
+        h.call("todo.complete", json!({"id":1})).await.unwrap();
+        assert_eq!(
+            changes(&h, 1).await["changes"][1]["actor"],
+            json!(Actor::user())
+        );
     }
 
     #[tokio::test]

@@ -9,6 +9,17 @@ impl Module for Agents {
     async fn call(&self, ctx: &Ctx, method: &str, value: Value) -> Result<Value, RpcError> {
         let shared = &self.shared;
         match method {
+            "project.measurements" => {
+                let mut rail = shared.rail();
+                let mut timing = shared.timing.lock().expect("measurement timing lock");
+                timing.sample();
+                let cause = timing.failure();
+                let mut measurements = rail.measurements(self.project_dir())?;
+                if cause.is_some() {
+                    measurements.cause = cause;
+                }
+                reply(&measurements)
+            }
             "agent.spawn" => reply(&self.spawn(ctx, params(value)?).await?),
             "agent.extras" => reply(&claude_code::extras::available(
                 &self.launcher.extras_sources(self.project_dir()),
@@ -174,6 +185,17 @@ impl Module for Agents {
                 reply(&())
             }
             "rail.tree" => reply(&shared.tree()?),
+            "agent.instructions" => {
+                let NodeId { id } = params(value)?;
+                if ctx.actor.kind != ActorKind::User {
+                    shared.guard_reach(&ctx.actor, &id, true)?;
+                }
+                reply(
+                    &shared
+                        .rail()
+                        .instructions(&id, &shared.project_dir.to_string_lossy())?,
+                )
+            }
             "agent.spawnPrompt" => {
                 let NodeId { id } = params(value)?;
                 shared.guard_reach(&ctx.actor, &id, true)?;
