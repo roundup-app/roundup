@@ -113,7 +113,7 @@ export const EditableText = (props: {
   });
   createEffect(() => props.onFailure?.(failure()));
 
-  let shown: HTMLParagraphElement | undefined;
+  let shown: HTMLElement | undefined;
 
   const startWith = (width = shown?.getBoundingClientRect().width ?? 0) => {
     const saved = props.revision === undefined
@@ -271,19 +271,27 @@ export const EditableText = (props: {
     <Show
       when={editing()}
       fallback={
-        <p
-          ref={(element) => { shown = element; }}
-          tabIndex={0}
-          onDblClick={() => startWith()}
-          onKeyDown={(key) => {
-            if (key.key === "Enter") startWith();
-          }}
-          style={{ "white-space": "pre-wrap", "overflow-wrap": "anywhere", "min-height": "1.4em", "flex-shrink": props.multiline ? "0" : "1" }}
+        <Show
+          when={props.name === "body" && props.todo.body === ""}
+          fallback={
+            <p
+              ref={(element) => { shown = element; }}
+              tabIndex={0}
+              onDblClick={() => startWith()}
+              onKeyDown={(key) => {
+                if (key.key === "Enter") startWith();
+              }}
+              style={{ "white-space": "pre-wrap", "overflow-wrap": "anywhere", "min-height": "1.4em", "flex-shrink": props.multiline ? "0" : "1" }}
+            >
+              <Show when={props.todo[props.name] !== ""} fallback={<span class="light">{copy.noField(props.name)}</span>}>
+                {props.todo[props.name]}
+              </Show>
+            </p>
+          }
         >
-          <Show when={props.todo[props.name] !== ""} fallback={<span class="light">{copy.noField(props.name)}</span>}>
-            {props.todo[props.name]}
-          </Show>
-        </p>
+          {/* U3732: an empty body offers its own edit, where the body will read. */}
+          <button ref={(element) => { shown = element; }} data-button="quiet" type="button" class="word todo-add-notes" onClick={() => startWith(0)}>{copy.addNotes}</button>
+        </Show>
       }
       keyed
     >
