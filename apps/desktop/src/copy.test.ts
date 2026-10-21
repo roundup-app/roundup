@@ -45,6 +45,7 @@ const UI_ATTRIBUTES = /^(aria-label|aria-description|aria-valuetext|title|placeh
 
 // A value only compared (`a === "x"`, a conditional's test) picks what shows; the App never shows the value itself.
 const COMPARISONS = new Set(["===", "!==", "==", "!=", "<", "<=", ">", ">=", "in", "instanceof"]);
+
 const compared = (inner: readonly Node[], node: Node) => [...inner, node].some((each, at, path) =>
   (each.type === "BinaryExpression" && COMPARISONS.has(each.operator)) || (each.type === "ConditionalExpression" && each.test === path[at + 1]));
 
