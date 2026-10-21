@@ -224,6 +224,7 @@ pub struct Measurements {
     pub cause: Option<String>,
     pub revision: String,
     pub contributions: Vec<Measurement>,
+    pub time_evidence: Vec<Measurement>,
     pub sources: Vec<MeasurementSource>,
 }
 
@@ -249,6 +250,14 @@ pub struct Measurement {
 pub enum MeasurementValue {
     Request {
         usage: Consumed,
+    },
+    /// Roundup-owned lifetimes and waits. Never model/tool execution.
+    Observed {
+        activity: TimedActivity,
+        clock_lifetime: String,
+        start: Option<ClockPoint>,
+        segments: Vec<ObservedSegment>,
+        state: TimeState,
     },
     Interval {
         category: Execution,
@@ -289,4 +298,40 @@ pub struct MeasurementSource {
     pub last_good: Option<i64>,
     pub cause: Option<String>,
     pub coverage: Vec<String>,
+}
+
+/// The operation whose blocking/lifetime was observed, with its original identity.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, TS)]
+#[serde(tag = "kind", rename_all = "kebab-case")]
+#[ts(export, export_to = "project/")]
+pub enum TimedActivity {
+    Attempt,
+    Decision { decision: String },
+    Coordination { message: u32 },
+}
+
+/// Local wall time is an alignment observation, never a duration clock.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, TS)]
+#[ts(export, export_to = "project/")]
+pub struct ClockPoint {
+    #[ts(type = "number")]
+    pub unix_ms: i64,
+    pub monotonic_ns: String,
+}
+
+/// Only endpoints in the same lifetime and segment can be subtracted.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, TS)]
+#[ts(export, export_to = "project/")]
+pub struct ObservedSegment {
+    pub start: ClockPoint,
+    pub end: ClockPoint,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, TS)]
+#[serde(tag = "kind", rename_all = "kebab-case")]
+#[ts(export, export_to = "project/")]
+pub enum TimeState {
+    Active,
+    Ended { at: ClockPoint },
+    Interrupted,
 }
