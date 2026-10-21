@@ -470,14 +470,8 @@ it("u2875d_real_import_reopen_and_resume", async () => {
     if (captures) {
       await browser("record", "start", join(captures, "recovery.webm"));
       await browser("set", "media", "dark");
-      await browser("open", `${real.base}/harness.html?seed=tree-40`);
+      await browser("open", `${real.base}/harness.html?seed=import-candidates`);
       await wait("!!window.__fake && !!document.querySelector('.rail-import')");
-      await browser("eval", `(() => {
-        const app = window.__fake.app;
-        window.__importCandidates = Array.from({ length: 10 }, (_, i) => ({ source: 's' + i, title: '調査と実装 — résumé — ' + 'Long conversation title '.repeat(8) + i, cwd: 'packages/deep/' + 'folder/'.repeat(10) + 'destination-' + i, last_activity_ms: BigInt(Date.now() - i * 1000), revision: 'r' + i }));
-        app.handlers['project.importDiscover'] = () => ({ candidates: window.__importCandidates, excluded: [{ source: 'missing', reason: 'Source unavailable: recorded folder no longer exists.' }] });
-        app.handlers['project.importCommit'] = ({ selections }) => ({ outcomes: selections.map(entry => ({ source: entry.source, workstream: null, agent: null, error: 'Copy refused: source changed. Refresh and choose again.' })) });
-      })()`);
       await activate(".rail-import");
       await wait("document.querySelectorAll('.import-check').length === 10");
 
@@ -490,11 +484,23 @@ it("u2875d_real_import_reopen_and_resume", async () => {
       await browser("eval", "document.querySelector('.import-list').scrollTop = 10000");
       await capture("unavailable");
       await browser("eval", "document.querySelector('.import-list').scrollTop = 0");
-      await activate(".import-check");
-      await wait("!document.querySelector('.import-confirm').disabled");
+      await activate(".import-list li:nth-child(1) .import-check");
+      await wait("document.querySelector('.import-confirm')?.textContent.includes('1')");
+      await activate(".import-list li:nth-child(2) .import-check");
+      await wait("document.querySelector('.import-confirm')?.textContent.includes('2')");
       await activate(".import-confirm");
       await wait("document.querySelector('.import-error')?.textContent.includes('Copy refused')");
+      expect((await browser("eval", "window.__fake.app.calls.filter(call => call.method === 'project.importCommit').at(-1).params.selections.length")).result).toBe(2);
+      expect((await browser("eval", "document.querySelectorAll('.import-check[data-state=checked]').length")).result).toBe(1);
       await capture("partial-failure");
+      await browser("eval", "document.querySelector('.import-list').scrollTop = document.querySelector('.import-list').scrollHeight");
+      await wait("document.querySelector('.import-list').scrollTop > 0");
+      await capture("unavailable");
+      await activate(".import-confirm");
+      await wait("!document.querySelector('.import-panel')");
+      expect((await browser("eval", "window.__fake.app.calls.filter(call => call.method === 'project.importCommit').at(-1).params.selections.map(entry => entry.source)")).result).toEqual(["s0"]);
+      await activate(".rail-import");
+      await wait("document.querySelectorAll('.import-check').length > 0");
 
       for (const state of ["failure", "empty", "loading", ...(captureDir("U3037d") ? ["rpc-timeout", "deadline"] : [])]) {
         await browser("eval", `window.__fake.app.handlers['project.importDiscover'] = ${state === "failure" ? "() => { throw new Error('Discovery unavailable: permission denied. Retry with Refresh.'); }" : state === "rpc-timeout" ? "() => { throw new Error('no reply to project.importDiscover within 30s; whether the Daemon accepted the request is unknown. Refresh to try again.\\nSource: /a/very/long/path/without/spaces/that/must/wrap/and/remain/readable/while/the/recovery/actions/stay/available'); }" : state === "empty" ? "() => ({ candidates: [], excluded: [] })" : "() => new Promise(() => {})"}`);

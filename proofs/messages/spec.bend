@@ -84,52 +84,52 @@ def cycle(n: Nat) -> +List<M.Ev>:
 # Field readers, so a law reads the world through one name each.
 def queue(s: M.World) -> +List<Nat>:
   match s:
-    case M.W{+q, +haf, +htk, +t, +d, +u, +tt, +rl, +n, +tk, +i, +g}:
+    case M.W{+q, +haf, +htk, +t, +d, +u, +tt, +rl, +n, +tk, +us, +i, +g}:
       q
 
 def held_af(s: M.World) -> +List<Nat>:
   match s:
-    case M.W{+q, +haf, +htk, +t, +d, +u, +tt, +rl, +n, +tk, +i, +g}:
+    case M.W{+q, +haf, +htk, +t, +d, +u, +tt, +rl, +n, +tk, +us, +i, +g}:
       haf
 
 def held_tk(s: M.World) -> +List<Nat>:
   match s:
-    case M.W{+q, +haf, +htk, +t, +d, +u, +tt, +rl, +n, +tk, +i, +g}:
+    case M.W{+q, +haf, +htk, +t, +d, +u, +tt, +rl, +n, +tk, +us, +i, +g}:
       htk
 
 def typed(s: M.World) -> +List<Nat>:
   match s:
-    case M.W{+q, +haf, +htk, +t, +d, +u, +tt, +rl, +n, +tk, +i, +g}:
+    case M.W{+q, +haf, +htk, +t, +d, +u, +tt, +rl, +n, +tk, +us, +i, +g}:
       t
 
 def dropped(s: M.World) -> +List<Nat>:
   match s:
-    case M.W{+q, +haf, +htk, +t, +d, +u, +tt, +rl, +n, +tk, +i, +g}:
+    case M.W{+q, +haf, +htk, +t, +d, +u, +tt, +rl, +n, +tk, +us, +i, +g}:
       d
 
 def users(s: M.World) -> +List<Nat>:
   match s:
-    case M.W{+q, +haf, +htk, +t, +d, +u, +tt, +rl, +n, +tk, +i, +g}:
+    case M.W{+q, +haf, +htk, +t, +d, +u, +tt, +rl, +n, +tk, +us, +i, +g}:
       u
 
 def tk_typed(s: M.World) -> +List<Nat>:
   match s:
-    case M.W{+q, +haf, +htk, +t, +d, +u, +tt, +rl, +n, +tk, +i, +g}:
+    case M.W{+q, +haf, +htk, +t, +d, +u, +tt, +rl, +n, +tk, +us, +i, +g}:
       tt
 
 def released(s: M.World) -> +List<Nat>:
   match s:
-    case M.W{+q, +haf, +htk, +t, +d, +u, +tt, +rl, +n, +tk, +i, +g}:
+    case M.W{+q, +haf, +htk, +t, +d, +u, +tt, +rl, +n, +tk, +us, +i, +g}:
       rl
 
 def next_id(s: M.World) -> Nat:
   match s:
-    case M.W{+q, +haf, +htk, +t, +d, +u, +tt, +rl, +n, +tk, +i, +g}:
+    case M.W{+q, +haf, +htk, +t, +d, +u, +tt, +rl, +n, +tk, +us, +i, +g}:
       n
 
 def gone(s: M.World) -> Bool:
   match s:
-    case M.W{+q, +haf, +htk, +t, +d, +u, +tt, +rl, +n, +tk, +i, +g}:
+    case M.W{+q, +haf, +htk, +t, +d, +u, +tt, +rl, +n, +tk, +us, +i, +g}:
       g
 
 def world(evs: +List<M.Ev>) -> M.World:
@@ -141,7 +141,7 @@ type Rec is Data:
 
 def records(s: M.World) -> Rec:
   match s:
-    case M.W{+q, +haf, +htk, +t, +d, +u, +tt, +rl, +n, +tk, +i, +g}:
+    case M.W{+q, +haf, +htk, +t, +d, +u, +tt, +rl, +n, +tk, +us, +i, +g}:
       Rec{q, haf, htk, t, d, u, n}
 
 # B8, read from the records alone. Terminal survived: what a Takeover held is `pending` behind what waits, `held` for ask-first stays
