@@ -5023,3 +5023,62 @@ async fn u2773c_terminal_identity_distinguishes_replacement() {
         ""
     );
 }
+
+#[tokio::test]
+async fn t19_daemon_reopen_refreshes_dependents() {
+    let mut project = start(&[]);
+    let client = project.client().await;
+    todo_at(&client, "blocker").await;
+    client
+        .request("todo.create", json!({"title":"waits","blockers":[1]}))
+        .await
+        .unwrap();
+    client
+        .request("todo.complete", json!({"id":1}))
+        .await
+        .unwrap();
+    let mut events = project.subscribed().await;
+    let reopened = client
+        .request("todo.reopen", json!({"id":1}))
+        .await
+        .unwrap();
+    assert_eq!(reopened["done"], false);
+    let updated = next(&mut events, |data| match data {
+        EventData::TodoUpdated(todo) => Some(*todo),
+        _ => None,
+    })
+    .await;
+    assert!(!updated.done);
+    assert_eq!(updated.id, 1);
+    let dependent = client.request("todo.get", json!({"id":2})).await.unwrap();
+    assert_eq!(dependent["blocked"], true);
+    assert_eq!(dependent["blockers"], json!([1]));
+    let history = client
+        .request("todo.getHistory", json!({"id":1}))
+        .await
+        .unwrap();
+    let touches = client
+        .request("provenance.history", json!({"item":"todo:1"}))
+        .await
+        .unwrap();
+    project.restart(&[]);
+    let client = project.client().await;
+    assert_eq!(
+        client.request("todo.list", Value::Null).await.unwrap(),
+        json!([reopened, dependent])
+    );
+    assert_eq!(
+        client
+            .request("todo.getHistory", json!({"id":1}))
+            .await
+            .unwrap(),
+        history
+    );
+    assert_eq!(
+        client
+            .request("provenance.history", json!({"item":"todo:1"}))
+            .await
+            .unwrap(),
+        touches
+    );
+}

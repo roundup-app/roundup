@@ -428,6 +428,7 @@ fn offered_tools() -> Vec<Offered> {
         offered_without_params("todo.list", "List every Todo."),
         offered::<todo::UpdateParams>("todo.update", "Change a Todo's title or body."),
         offered::<todo::TodoId>("todo.complete", "Mark a Todo done."),
+        offered::<todo::TodoId>("todo.reopen", "Reopen a done Todo."),
         offered::<todo::SetBlockersParams>(
             "todo.setBlockers",
             "Replace a Todo's whole blocker list.",

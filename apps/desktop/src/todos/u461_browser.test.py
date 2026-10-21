@@ -9,7 +9,7 @@ import uuid
 mode, origin = sys.argv[1:3]
 session = 'u461-' + uuid.uuid4().hex
 profile = tempfile.TemporaryDirectory(prefix='u461-profile-')
-outputs = dict(zip(['U461', 'U462'], sys.argv[3:5]))
+outputs = dict(zip(['U461', 'U462', 'U461a'], sys.argv[3:6]))
 
 
 def browser(*args):
@@ -33,6 +33,17 @@ def wait(predicate):
         browser('wait', '--fn', predicate)
     except RuntimeError as error:
         raise RuntimeError(str(error) + '\n' + str(evaluate('(async()=>({text:document.body.innerText.slice(0,3000),tree:window.__u462rpc?await window.__u462rpc("rail.tree"):null,messages:window.__u462rpc?await window.__u462rpc("message.list",{to:null,status:null}):null}))()'))) from error
+
+
+def refuse_reopen(message):
+    evaluate("""(() => {
+      const app=window.__fake.app;
+      const reopen=app.handlers['todo.reopen'];
+      app.handlers['todo.reopen']=(params)=>{
+        app.handlers['todo.reopen']=reopen;
+        throw new Error(%s);
+      };
+    })()""" % json.dumps(message))
 
 
 def save(scenario, name, readings):
@@ -76,10 +87,10 @@ reading = r"""(() => {
 
 
 def fake():
-    for scheme in ['light', 'dark']:
+    for scheme in ['dark']:
         browser('set', 'media', scheme)
-        for width in [1280, 1440]:
-            browser('set', 'viewport', str(width), '800')
+        for width in [1512]:
+            browser('set', 'viewport', str(width), '950')
             browser('open', origin + '/harness.html?seed=tree-40')
             wait('Boolean(window.__fake && document.querySelector("[data-id=\\"5\\"] .row-head button"))')
             evaluate(setup)
@@ -119,10 +130,10 @@ def fake():
 
 
 def baseline():
-    for scheme in ['light', 'dark']:
+    for scheme in ['dark']:
         browser('set', 'media', scheme)
-        for width in [1280, 1440]:
-            browser('set', 'viewport', str(width), '800')
+        for width in [1512]:
+            browser('set', 'viewport', str(width), '950')
             browser('open', origin + '/harness.html?seed=tree-40')
             wait('Boolean(window.__fake && document.querySelector("[data-id=\\"5\\"] .row-head button"))')
             evaluate(setup)
@@ -138,16 +149,15 @@ rpc_helper = r"""window.__u462rpc=async(method,params=null)=>{
 
 
 def real():
-    browser('set', 'viewport', '1280', '800')
+    browser('set', 'viewport', '1512', '950')
     browser('open', origin + '/harness.html?daemon=1')
     wait('Boolean(document.querySelector(".rail-actions button"))')
     evaluate(rpc_helper)
     evaluate("[...document.querySelectorAll('button')].find(b=>['New Workstream','Add Workstream'].includes(b.getAttribute('aria-label')??b.textContent.trim())).click()")
-    wait("Boolean(document.querySelector('[data-thread-input]')) || [...document.querySelectorAll('button')].some(b=>/Start supervisor/i.test(b.textContent))")
-    evaluate("[...document.querySelectorAll('button')].find(b=>/Start supervisor/i.test(b.textContent))?.click()")
-    wait('Boolean(document.querySelector("[data-thread-input]"))')
-    evaluate("(async()=>{let nodes;do{nodes=await window.__u462rpc('rail.tree');if(nodes.some(n=>n.status?.label==='starting'))await new Promise(requestAnimationFrame)}while(nodes.some(n=>n.status?.label==='starting'));})()")
+    wait('Boolean(document.querySelector(".pane-screen textarea") && document.querySelector(".rail-row[data-kind=idle]"))')
     send('u462-create-todo')
+    if evaluate('document.querySelector("#shelf-tab-todos").getAttribute("aria-expanded")!=="true"'):
+        browser('click', '#shelf-tab-todos')
     wait('Boolean(document.querySelector("[data-todo=\\"1\\"] button"))')
     evaluate('document.querySelector("[data-todo=\\"1\\"] button").click()')
     wait('Boolean(document.querySelector("[data-change]"))')
@@ -167,31 +177,150 @@ def real():
     save('U462', 'real-daemon-Reopened', result)
 
 
+def reopen_fake():
+    browser('set', 'viewport', '1512', '950')
+    browser('set', 'media', 'dark')
+    browser('open', origin + '/harness.html?seed=tree-40')
+    wait('Boolean(window.__fake && document.querySelector("[data-id=\\"5\\"] .row-head button"))')
+    evaluate(setup)
+    wait('Boolean(document.querySelector("[data-change]"))')
+    baseline_checks = evaluate('window.__checks()')
+    save('U461a', 'open-before-reopen-1512-dark', evaluate(reading))
+    evaluate("window.__fake.app.rpc('todo.complete',{id:5})")
+    wait('document.querySelector(".drawer input").checked')
+    refuse_reopen('Unable to reopen this Todo')
+    evaluate('document.querySelector(".drawer input").focus()')
+    browser('press', 'Space')
+    wait('document.querySelector(".drawer").textContent.includes("Unable to reopen this Todo")')
+    assert evaluate('document.querySelector(".drawer input").checked && document.activeElement===document.querySelector(".drawer input")')
+    result = evaluate(reading)
+    assert not result['overflow'], result
+    for check in ['D2', 'D5', 'D6']:
+        assert result['checks'][check]['status'] == 'pass', result
+    assert result['failure'] and all(row['box']['height'] > 0 for row in result['failure']), result
+    save('U461a', 'drawer-reopen-failed-1512-dark', result)
+    browser('press', 'Space')
+    wait('!document.querySelector(".drawer input").checked')
+    assert evaluate('document.activeElement===document.querySelector(".drawer input")')
+    evaluate('(async()=>{await document.fonts.ready;await Promise.allSettled(document.querySelector(".drawer").getAnimations({subtree:true}).filter(a=>a.effect.getComputedTiming().iterations!==Infinity).map(a=>a.finished));})()')
+    reopened = evaluate(reading)
+    # U461a keeps every passing Check; D5 on this clipped blocker line also fails on main.
+    for check, before in baseline_checks.items():
+        if before['status'] == 'pass':
+            assert reopened['checks'][check]['status'] == 'pass', reopened
+    for check in ['D2', 'D6']:
+        assert reopened['checks'][check]['status'] == 'pass', reopened
+    save('U461a', 'drawer-reopened-1512-dark', reopened)
+    browser('click', '.drawer .close')
+    wait('document.querySelector(".drawer").getAttribute("data-open")==="false"')
+
+
+def reopen_surfaces():
+    browser('set', 'viewport', '1512', '950')
+    browser('set', 'media', 'dark')
+    browser('open', origin + '/harness.html?seed=tree-40')
+    wait('Boolean(window.__fake && document.querySelector("[data-todo-root]"))')
+    if evaluate('document.querySelector("#shelf-tab-todos").getAttribute("aria-expanded")!=="true"'):
+        browser('click', '#shelf-tab-todos')
+    evaluate("(async()=>{window.__blockers=[];for(let n=0;n<10;n++)window.__blockers.push((await window.__fake.app.rpc('todo.create',{title:'Review '+n,body:null,blockers:null})).id);})()")
+    # The Rail Todo root selects Overview. Its done fold and the Agent-filtered Shelf
+    # use the same Todo rows; exercise both native pointer and Space inputs.
+    for filtered in [False, True]:
+        for key in ['pointer', 'Space']:
+            evaluate("(async()=>{const f=window.__fake; const a=(await f.app.rpc('rail.tree',null)).find(n=>n.kind==='agent'&&n.id==='tokens'); f.actAs({kind:'agent',id:a.id,parent:null}); const t=await f.app.rpc('todo.create',{title:'Reopen '+(window.__testId??0)+' '+ 'W'.repeat(290),body:null,blockers:window.__blockers}); window.__testId=t.id; await f.app.rpc('todo.complete',{id:t.id});f.actAs({kind:'user',id:'you',parent:null});})()")
+            if filtered:
+                browser('click', '.rail-row[data-id="tokens"] .name')
+            else:
+                evaluate('document.querySelector("[data-todo-root]").click()')
+            evaluate("[...document.querySelectorAll('[data-part=branch-control]')].filter(b=>b.closest('.shelf-groups')&&b.closest('[role=treeitem]')?.getAttribute('aria-expanded')==='false').forEach(b=>b.click())")
+            wait('Boolean(document.querySelector(".shelf-done-line .todo-row-button"))')
+            evaluate("if(!document.querySelector(`[data-todo=\"${window.__testId}\"] input`)) document.querySelector('.shelf-done-line .todo-row-button').click()")
+            wait('Boolean(document.querySelector(`[data-todo="${window.__testId}"] input`))')
+            evaluate('document.querySelector(`[data-todo="${window.__testId}"] input`).focus()')
+            baseline_checks = evaluate('window.__checks()')
+            before = evaluate('window.__fake.app.calls.filter(c=>c.method==="todo.reopen").length')
+            refuse_reopen('Reopen refused: try again')
+            selector = f'[data-todo="{evaluate("window.__testId")}"] input'
+            if key == 'pointer':
+                browser('click', selector)
+            else:
+                browser('press', 'Space')
+            wait('Boolean(document.querySelector(`[data-todo="${window.__testId}"] [role=alert]`))')
+            assert evaluate('document.activeElement===document.querySelector(`[data-todo="${window.__testId}"] input`) && document.activeElement.checked')
+            assert evaluate('window.__fake.app.calls.filter(c=>c.method==="todo.reopen").length') == before + 1
+            failure_readings = {'checks': evaluate('window.__checks()')}
+            for check, prior in baseline_checks.items():
+                if prior['status'] == 'pass':
+                    assert failure_readings['checks'][check]['status'] == 'pass', failure_readings
+            save('U461a', f'row-{filtered}-{key}-failure-1512-dark', failure_readings)
+            if key == 'pointer':
+                browser('click', selector)
+            else:
+                browser('press', 'Space')
+            wait('Boolean(document.querySelector(`[data-todo="${window.__testId}"] input[aria-label^="Complete"]`))')
+            assert evaluate('window.__fake.app.calls.filter(c=>c.method==="todo.reopen").length') == before + 2
+            assert evaluate('document.querySelector(".drawer").getAttribute("data-open")==="false"')
+            assert evaluate('document.activeElement!==document.body')
+            result = {'checks': evaluate('window.__checks()')}
+            for check in ['D2', 'D5', 'D6']:
+                assert result['checks'][check]['status'] == 'pass', result
+            save('U461a', f'row-{filtered}-{key}-1512-dark', result)
+
+
+def real_reopen():
+    real()
+    evaluate("window.__u462rpc('todo.create',{title:'Dependent',blockers:[1]})")
+    evaluate('document.querySelector(".drawer input").focus()')
+    browser('press', 'Space')
+    wait('!document.querySelector(".drawer input").checked')
+    assert evaluate('document.activeElement===document.querySelector(".drawer input")')
+    user = evaluate("window.__u462rpc('todo.getHistory',{id:1})")['changes'][-1]
+    assert user['before']['done'] and not user['after']['done'] and user['actor']['kind'] == 'user', user
+    assert evaluate("window.__u462rpc('todo.get',{id:3})")['blocked']
+    evaluate("window.__u462rpc('todo.complete',{id:1})")
+    wait('document.querySelector(".drawer input").checked')
+    evaluate("(async()=>{const door=(await window.__u462rpc('rail.tree')).find(n=>n.kind==='workstream');await window.__u462rpc('message.send',{to:door.id,kind:'note',body:'u461a-reopen-todo'});})()")
+    wait('!document.querySelector(".drawer input").checked')
+    history = evaluate("window.__u462rpc('todo.getHistory',{id:1})")['changes']
+    last = history[-1]
+    assert len(history) == 7 and last['before']['done'] and not last['after']['done'], history
+    assert last['actor']['kind'] == 'agent', last
+    writes = [t for t in evaluate("window.__u462rpc('provenance.history',{item:'todo:1'})") if t['verb'] == 'wrote']
+    assert writes[-1]['actor'] == last['actor'] and writes[-3]['actor'] == user['actor'], writes
+    assert evaluate("window.__u462rpc('todo.get',{id:3})")['blocked']
+    wait('document.querySelectorAll("[data-change]").length===7')
+    evaluate('(async()=>{await Promise.allSettled(document.querySelector(".drawer").getAnimations({subtree:true}).filter(a=>a.effect.getComputedTiming().iterations!==Infinity).map(a=>a.finished));})()')
+    save('U461a', 'real-daemon-user-and-agent-reopened', evaluate(reading))
+
+
 def send(text):
-    browser('fill', '[data-thread-input]', text)
-    wait('document.querySelector(".thread-send")?.getAttribute("aria-disabled")!=="true"')
+    browser('click', '.pane-screen')
+    browser('type', '.pane-screen textarea', text)
     browser('press', 'Enter')
-    wait('document.querySelector("[data-thread-input]").value===""')
 
 
 def restarted():
-    browser('set', 'viewport', '1440', '800')
+    browser('set', 'viewport', '1512', '950')
     browser('open', origin + '/harness.html?daemon=1')
     wait('Boolean(document.querySelector(".rail-actions button"))')
     evaluate(rpc_helper)
+    if evaluate('document.querySelector("#shelf-tab-todos").getAttribute("aria-expanded")!=="true"'):
+        browser('click', '#shelf-tab-todos')
     # Stored Todo can be inspected after Reopening the Project even when its Workstream is not selected.
     evaluate("[...document.querySelectorAll('button')].find(b=>b.textContent.trim()==='1 done')?.click()")
     wait('Boolean(document.querySelector("[data-todo=\\"1\\"] button"))')
     evaluate('document.querySelector("[data-todo=\\"1\\"] button").click()')
-    wait('document.querySelectorAll("[data-change]").length===4')
+    wait('document.querySelectorAll("[data-change]").length===7')
     result = evaluate(reading)
-    assert result['history'][-1] == 'Done' and 'Changed body\nSecond line' in result['history'][1], result
-    assert result['unread'] is None, result
-    save('U462', 'real-daemon-restart', result)
+    assert result['history'][-1] == 'Open' and 'Changed body\nSecond line' in result['history'][1], result
+    assert result['unread'] == 'Open', result
+    assert not evaluate("window.__u462rpc('todo.get',{id:1})")['done']
+    assert evaluate("window.__u462rpc('todo.getHistory',{id:1})")['changes'][-1]['actor']['kind'] == 'agent'
+    save('U461a', 'real-daemon-restart', result)
 
 
 try:
-    {'fake': fake, 'real': real, 'restart': restarted, 'baseline': baseline}[mode]()
+    {'fake': fake, 'real': real, 'restart': restarted, 'baseline': baseline, 'reopen-fake': reopen_fake, 'reopen-surfaces': reopen_surfaces, 'reopen-real': real_reopen, 'reopen-restart': restarted}[mode]()
 finally:
     browser('close')
     profile.cleanup()
