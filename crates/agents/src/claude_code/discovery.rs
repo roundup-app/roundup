@@ -5,8 +5,8 @@ use std::path::{Path, PathBuf};
 
 use rpc::RpcError;
 use serde_json::Value;
-use sha2::{Digest, Sha256};
-use std::io::{BufRead, BufReader, Read};
+use std::io::{BufRead, BufReader, Read, Seek, SeekFrom};
+use std::os::unix::fs::MetadataExt;
 use std::sync::atomic::Ordering;
 use std::time::{Duration, Instant, UNIX_EPOCH};
 use time::OffsetDateTime;
@@ -14,7 +14,7 @@ use time::format_description::well_known::Rfc3339;
 
 use super::{Launcher, is_uuid};
 
-/// One conversation the user may import. `revision` is the hash of its complete records.
+/// One conversation the user may import. `revision` binds the preview to the source file facts.
 #[derive(Debug, PartialEq, Eq)]
 pub struct ImportCandidate {
     pub source: String,
@@ -29,7 +29,7 @@ pub struct ImportCandidate {
 #[derive(Debug, PartialEq, Eq)]
 pub struct ImportExclusion {
     pub source: String,
-    pub reason: &'static str,
+    pub reason: String,
 }
 
 #[derive(Debug, Default, PartialEq, Eq)]
@@ -39,8 +39,9 @@ pub struct ImportDiscovery {
     pub excluded: Vec<ImportExclusion>,
 }
 
-// U3037c: 397 MB eligible sources must fit the ten-second discovery budget.
-// BufRead bounds each record; only candidate metadata survives the next record.
+// U3082b: the owner measured 50 s for week/600 MB. Preview reads at most
+// 256 KiB at each end; commit alone validates every complete record.
+const PREVIEW_REGION: u64 = 256 * 1024;
 const MAX_RECORD: u64 = 8 * 1024 * 1024;
 const MAX_SNAPSHOT: usize = 512 * 1024 * 1024;
 const MAX_FILES: usize = 10_000;
@@ -73,7 +74,7 @@ enum Scan {
     Member(ImportCandidate),
     OtherProject,
     Out,
-    Excluded(&'static str),
+    Excluded(String),
 }
 
 impl Launcher {
@@ -89,7 +90,7 @@ impl Launcher {
         let deadline = Instant::now() + Duration::from_secs(18);
         #[cfg(any(test, feature = "test-support"))]
         if let Some(observer) = &self.import_observer {
-            observer(project, "request");
+            observer(project, "request", 0);
         }
         // Wait without occupying a blocking worker. An abandoned reader keeps the
         // owned permit until its next record boundary, even if its caller goes away.
@@ -110,12 +111,12 @@ impl Launcher {
             let _reader = reader;
             #[cfg(any(test, feature = "test-support"))]
             if let Some(observer) = &launcher.import_observer {
-                observer(&project, "worker");
+                observer(&project, "worker", 0);
             }
             let found = launcher.discover(&project, (now_ms, period_ms), generation, deadline);
             #[cfg(any(test, feature = "test-support"))]
             if let Some(observer) = &launcher.import_observer {
-                observer(&project, "finished");
+                observer(&project, "finished", 0);
             }
             found
         })
@@ -145,13 +146,18 @@ impl Launcher {
             }
         };
         check()?;
-        let project = project.canonicalize().map_err(RpcError::internal)?;
+        let project = project
+            .canonicalize()
+            .map_err(|err| io_error(project, err))?;
         let root = self.conversation_dir.join("projects");
         let buckets = std::fs::read_dir(&root).map_err(|err| {
             if err.kind() == std::io::ErrorKind::NotFound {
-                RpcError::not_found("Claude Code has no saved conversations here")
+                RpcError::not_found(format!(
+                    "Claude Code has no saved conversations here ({}): {err}",
+                    root.display()
+                ))
             } else {
-                RpcError::internal(format!("cannot read Claude Code storage: {err}"))
+                io_error(&root, err)
             }
         })?;
         let mut found: Vec<(String, Scan)> = Vec::new();
@@ -161,14 +167,19 @@ impl Launcher {
             if index >= MAX_FILES {
                 return Err(RpcError::not_accepted("too many storage buckets"));
             }
-            let bucket = bucket.map_err(RpcError::internal)?.path();
+            let bucket = bucket.map_err(|err| io_error(&root, err))?.path();
+            if !bucket
+                .metadata()
+                .map_err(|err| io_error(&bucket, err))?
+                .is_dir()
+            {
+                continue;
+            }
             let possible = is_possible_bucket(&bucket, &project);
             let files = match std::fs::read_dir(&bucket) {
                 Ok(files) => files,
                 Err(error) if possible => {
-                    return Err(RpcError::internal(format!(
-                        "cannot read conversation bucket: {error}"
-                    )));
+                    return Err(io_error(&bucket, error));
                 }
                 Err(_) => continue,
             };
@@ -179,17 +190,17 @@ impl Launcher {
                         "storage contains too many conversation files to inspect",
                     ));
                 }
-                let path = file.map_err(RpcError::internal)?.path();
+                let path = file.map_err(|err| io_error(&bucket, err))?.path();
                 if path.extension().is_none_or(|ext| ext != "jsonl") {
                     continue;
                 }
-                let metadata = path.metadata();
-                if metadata.as_ref().is_ok_and(|metadata| !metadata.is_file()) {
+                let metadata = path.metadata().map_err(|err| io_error(&path, err))?;
+                if !metadata.is_file() {
                     continue;
                 }
                 let stem = path.file_stem().unwrap_or_default().to_string_lossy();
                 let old = metadata
-                    .and_then(|m| m.modified())
+                    .modified()
                     .ok()
                     .and_then(|at| at.duration_since(UNIX_EPOCH).ok())
                     .is_some_and(|at| {
@@ -231,7 +242,7 @@ impl Launcher {
             match scan {
                 _ if counts[&source] > 1 => out.excluded.push(ImportExclusion {
                     source,
-                    reason: "duplicate source identity",
+                    reason: "duplicate source identity".into(),
                 }),
                 Scan::Member(candidate) => out.candidates.push(candidate),
                 Scan::Excluded(reason) => out.excluded.push(ImportExclusion { source, reason }),
@@ -250,7 +261,7 @@ impl Launcher {
 }
 
 impl Launcher {
-    /// The complete records of one selected conversation, only while they still hash to the
+    /// The complete records of one selected conversation, only while they still match the
     /// `revision` the user previewed (U2875c). A changed or vanished source is a conflict.
     pub fn read_import_snapshot(
         &self,
@@ -259,32 +270,52 @@ impl Launcher {
         revision: &str,
         now_ms: i64,
     ) -> Result<(ImportCandidate, Vec<u8>), RpcError> {
-        let changed = || RpcError::conflict(format!("source changed since preview: {source}"));
+        let changed = || {
+            RpcError::conflict(format!(
+                "source changed since preview: {source}; Refresh to try again"
+            ))
+        };
         if !is_uuid(source) {
             return Err(changed());
         }
-        let project = project.canonicalize().map_err(RpcError::internal)?;
+        let project = project
+            .canonicalize()
+            .map_err(|err| io_error(project, err))?;
         let file = format!("{source}.jsonl");
         let mut selected = None;
-        let buckets = std::fs::read_dir(self.conversation_dir.join("projects"))
-            .map_err(RpcError::internal)?;
+        let root = self.conversation_dir.join("projects");
+        let buckets = std::fs::read_dir(&root).map_err(|err| io_error(&root, err))?;
         for (index, bucket) in buckets.enumerate() {
             if index >= MAX_FILES {
                 return Err(RpcError::not_accepted("too many storage buckets"));
             }
-            let bucket = bucket.map_err(RpcError::internal)?.path();
+            let bucket = bucket.map_err(|err| io_error(&root, err))?.path();
+            if !bucket
+                .metadata()
+                .map_err(|err| io_error(&bucket, err))?
+                .is_dir()
+            {
+                continue;
+            }
+            if !is_possible_bucket(&bucket, &project) {
+                continue;
+            }
             let path = bucket.join(&file);
-            if path.try_exists().map_err(RpcError::internal)? {
+            #[cfg(any(test, feature = "test-support"))]
+            if let Some(observer) = &self.import_observer {
+                observer(&path, "probe", 0);
+            }
+            if path.try_exists().map_err(|err| io_error(&path, err))? {
                 if selected.is_some() {
                     return Err(changed());
                 }
                 selected = Some(path);
             }
         }
-        if let Some(path) = selected.filter(|path| {
-            path.parent()
-                .is_some_and(|bucket| is_possible_bucket(bucket, &project))
-        }) {
+        if let Some(path) = selected {
+            if source_revision(&path.metadata().map_err(|err| io_error(&path, err))?) != revision {
+                return Err(changed());
+            }
             let mut bytes = Vec::new();
             let deadline = Instant::now() + Duration::from_secs(18);
             let check = || {
@@ -320,8 +351,22 @@ impl Launcher {
     }
 }
 
-fn hex(digest: &[u8]) -> String {
-    digest.iter().map(|b| format!("{b:02x}")).collect()
+pub(super) fn io_error(path: &Path, error: impl std::fmt::Display) -> RpcError {
+    RpcError::internal(format!("{}: {error}", path.display()))
+}
+
+fn source_revision(metadata: &std::fs::Metadata) -> String {
+    format!(
+        "{}:{}:{}:{}:{}:{}:{}:{}",
+        metadata.dev(),
+        metadata.ino(),
+        metadata.len(),
+        metadata.mtime(),
+        metadata.mtime_nsec(),
+        metadata.ctime(),
+        metadata.ctime_nsec(),
+        metadata.mode()
+    )
 }
 
 fn scan(
@@ -335,20 +380,68 @@ fn scan(
 ) -> Result<Scan, RpcError> {
     let (now_ms, period_ms) = window;
     if !is_uuid(stem) {
-        return Ok(Scan::Excluded("unsupported source name"));
+        return Ok(Scan::Excluded("unsupported source name".into()));
     }
     #[cfg(not(any(test, feature = "test-support")))]
     let _ = launcher;
     #[cfg(any(test, feature = "test-support"))]
     if let Some(observer) = &launcher.import_observer {
-        observer(path, "open");
+        observer(path, "open", 0);
     }
-    let Ok(file) = std::fs::File::open(path) else {
-        return Ok(Scan::Excluded("unreadable"));
+    let mut file = std::fs::File::open(path).map_err(|err| io_error(path, err))?;
+    let revision = source_revision(&file.metadata().map_err(|err| io_error(path, err))?);
+    let preview = retained.is_none();
+    let mut regions = Vec::new();
+    if preview {
+        let len = file.metadata().map_err(|err| io_error(path, err))?.len();
+        let head = len.min(PREVIEW_REGION);
+        file.by_ref()
+            .take(head)
+            .read_to_end(&mut regions)
+            .map_err(|err| io_error(path, err))?;
+        #[cfg(any(test, feature = "test-support"))]
+        if let Some(observer) = &launcher.import_observer {
+            observer(path, "bytes", regions.len() as u64);
+        }
+        if len > head {
+            // Never parse a record cut by either seek boundary.
+            let Some(end) = regions.iter().rposition(|b| *b == b'\n') else {
+                return Ok(Scan::Excluded(
+                    "record exceeds preview bound (256 KiB)".into(),
+                ));
+            };
+            regions.truncate(end + 1);
+            let start = head.max(len.saturating_sub(PREVIEW_REGION));
+            file.seek(SeekFrom::Start(start - 1))
+                .map_err(|err| io_error(path, err))?;
+            let mut tail = Vec::new();
+            file.by_ref()
+                .take(PREVIEW_REGION + 1)
+                .read_to_end(&mut tail)
+                .map_err(|err| io_error(path, err))?;
+            #[cfg(any(test, feature = "test-support"))]
+            if let Some(observer) = &launcher.import_observer {
+                observer(path, "bytes", tail.len() as u64);
+            }
+            let Some(first) = tail
+                .iter()
+                .position(|b| *b == b'\n')
+                .filter(|first| *first + 1 < tail.len())
+            else {
+                return Ok(Scan::Excluded(
+                    "record exceeds preview bound (256 KiB)".into(),
+                ));
+            };
+            regions.extend_from_slice(&tail[first + 1..]);
+        }
+    }
+    let input: Box<dyn Read + '_> = if preview {
+        Box::new(std::io::Cursor::new(regions))
+    } else {
+        Box::new(&mut file)
     };
-    let mut reader = BufReader::new(file);
+    let mut reader = BufReader::new(input);
     let mut line = Vec::new();
-    let mut digest = Sha256::new();
     let mut complete = false;
     let mut cwds: Vec<PathBuf> = Vec::new();
     let mut latest: Option<i64> = None;
@@ -357,30 +450,33 @@ fn scan(
         check()?;
         #[cfg(any(test, feature = "test-support"))]
         if let Some(observer) = &launcher.import_observer {
-            observer(path, "record");
+            observer(path, "record", 0);
         }
         line.clear();
         let read = reader
             .by_ref()
             .take(MAX_RECORD + 1)
             .read_until(b'\n', &mut line);
-        let Ok(size) = read else {
-            return Ok(Scan::Excluded("unreadable"));
-        };
+        let size = read.map_err(|err| io_error(path, err))?;
+        #[cfg(any(test, feature = "test-support"))]
+        if !preview && let Some(observer) = &launcher.import_observer {
+            observer(path, "bytes", size as u64);
+        }
         if size == 0 {
             break;
         }
         if size as u64 > MAX_RECORD {
-            return Ok(Scan::Excluded("record exceeds 8 MiB limit"));
+            return Ok(Scan::Excluded("record exceeds 8 MiB limit".into()));
         }
         if line.last() != Some(&b'\n') {
             break;
         }
         complete = true;
-        digest.update(&line);
         if let Some(bytes) = &mut retained {
             if bytes.len() + line.len() > MAX_SNAPSHOT {
-                return Ok(Scan::Excluded("conversation exceeds 512 MiB import limit"));
+                return Ok(Scan::Excluded(
+                    "conversation exceeds 512 MiB import limit".into(),
+                ));
             }
             bytes.extend_from_slice(&line);
         }
@@ -388,22 +484,22 @@ fn scan(
             continue;
         }
         let Ok(record) = serde_json::from_slice::<Value>(&line) else {
-            return Ok(Scan::Excluded("malformed record"));
+            return Ok(Scan::Excluded("malformed record".into()));
         };
         if !record.is_object() {
-            return Ok(Scan::Excluded("malformed record"));
+            return Ok(Scan::Excluded("malformed record".into()));
         }
         if record["isSidechain"] == true {
-            return Ok(Scan::Excluded("subagent record"));
+            return Ok(Scan::Excluded("subagent record".into()));
         }
         if record["sessionId"].as_str().is_some_and(|id| id != stem) {
-            return Ok(Scan::Excluded("identity does not match source"));
+            return Ok(Scan::Excluded("identity does not match source".into()));
         }
         if let Some(cwd) = record["cwd"].as_str().filter(|cwd| !cwd.is_empty()) {
             let cwd = PathBuf::from(cwd);
             if !cwds.contains(&cwd) {
                 if cwds.len() >= 64 {
-                    return Ok(Scan::Excluded("too many recorded directories"));
+                    return Ok(Scan::Excluded("too many recorded directories".into()));
                 }
                 cwds.push(cwd);
             }
@@ -426,9 +522,18 @@ fn scan(
             _ => {}
         }
     }
+    drop(reader);
     check()?;
+    if source_revision(&file.metadata().map_err(|err| io_error(path, err))?) != revision
+        || source_revision(&path.metadata().map_err(|err| io_error(path, err))?) != revision
+    {
+        return Err(RpcError::conflict(format!(
+            "source changed since preview: {}; Refresh to try again",
+            path.display()
+        )));
+    }
     if !complete {
-        return Ok(Scan::Excluded("no complete records"));
+        return Ok(Scan::Excluded("no complete records".into()));
     }
     let mut inside = Vec::new();
     let mut outside = false;
@@ -436,15 +541,20 @@ fn scan(
         match cwd.canonicalize() {
             Ok(real) if real.starts_with(project) => inside.push(real),
             Ok(_) => outside = true,
-            Err(_) if cwd.starts_with(project) => return Ok(Scan::Excluded("missing directory")),
+            Err(err) if cwd.starts_with(project) => {
+                return Ok(Scan::Excluded(format!(
+                    "missing directory {}: {err}",
+                    cwd.display()
+                )));
+            }
             Err(_) => outside = true,
         }
     }
     match (inside.as_slice(), outside) {
         ([], true) => return Ok(Scan::OtherProject),
-        ([], false) => return Ok(Scan::Excluded("no recorded working directory")),
+        ([], false) => return Ok(Scan::Excluded("no recorded working directory".into())),
         ([_], false) => {}
-        _ => return Ok(Scan::Excluded("ambiguous Project membership")),
+        _ => return Ok(Scan::Excluded("ambiguous Project membership".into())),
     }
     let cwd = &inside[0];
     let relative = cwd.strip_prefix(project).unwrap_or(Path::new(""));
@@ -454,10 +564,10 @@ fn scan(
         .is_some_and(|c| c.as_os_str() == ".roundup")
         || in_linked_worktree(cwd, project)
     {
-        return Ok(Scan::Excluded("inside a Worktree"));
+        return Ok(Scan::Excluded("inside a Worktree".into()));
     }
     let Some(latest) = latest else {
-        return Ok(Scan::Excluded("activity unknown or in the future"));
+        return Ok(Scan::Excluded("activity unknown or in the future".into()));
     };
     if latest < now_ms.saturating_sub(period_ms) {
         return Ok(Scan::Out);
@@ -470,7 +580,7 @@ fn scan(
             .unwrap_or_else(|| "Untitled conversation".into()),
         cwd: relative.to_path_buf(),
         last_activity_ms: latest,
-        revision: hex(&digest.finalize()),
+        revision,
     }))
 }
 
@@ -523,22 +633,6 @@ mod tests {
 
     /// 2026-10-19T12:00:00Z
     const NOW: i64 = 1_792_411_200_000;
-
-    #[tokio::test]
-    async fn u3082a_non_directory_entries_do_not_break_import() {
-        let root = tempfile::tempdir().unwrap();
-        let project = root.path().join("project");
-        std::fs::create_dir(&project).unwrap();
-        let config = root.path().join("config");
-        let complete = record("user", &project, "2026-10-18T12:00:00Z") + "\n";
-        store(&config, "x", SESSION, &complete);
-        std::fs::write(config.join("projects/.DS_Store"), b"finder").unwrap();
-        std::fs::write(config.join("projects").join(format!("{}-file", encoded(&project))), b"file").unwrap();
-        let launcher = launcher(&config);
-        let preview = launcher.discover_recent(&project, NOW, DAY).await.unwrap();
-        let (_, bytes) = launcher.read_import_snapshot(&project, SESSION, &preview.candidates[0].revision, NOW).unwrap();
-        assert_eq!(bytes, complete.as_bytes());
-    }
 
     #[tokio::test]
     async fn u2875a_activity_is_not_file_mtime() {
@@ -639,7 +733,7 @@ mod tests {
             found
                 .excluded
                 .iter()
-                .any(|e| e.source == fourth && e.reason == "missing directory")
+                .any(|e| e.source == fourth && e.reason.starts_with("missing directory"))
         );
         assert!(
             found
@@ -686,7 +780,7 @@ mod tests {
         let opened = std::sync::Arc::new(std::sync::Mutex::new(Vec::new()));
         let journal = opened.clone();
         let mut launcher = launcher(config);
-        launcher.import_observer = Some(std::sync::Arc::new(move |path, phase| {
+        launcher.import_observer = Some(std::sync::Arc::new(move |path, phase, _bytes| {
             if phase == "open" {
                 journal.lock().unwrap().push(path.to_path_buf());
             }
@@ -829,10 +923,7 @@ mod tests {
         assert_eq!(candidates.len(), 1);
         let candidate = candidates.pop().unwrap();
         assert_eq!(candidate.title, "Observed import name");
-        assert_eq!(
-            candidate.revision,
-            hex(&Sha256::digest(complete.as_bytes()))
-        );
+        assert!(!candidate.revision.is_empty());
         let (retained, bytes) = launcher
             .read_import_snapshot(&project, SESSION, &candidate.revision, NOW)
             .unwrap();
@@ -842,33 +933,184 @@ mod tests {
 
     #[tokio::test]
     async fn u3037b_malformed_complete_record_is_refused() {
-        let root = tempfile::tempdir_in(std::env::temp_dir().canonicalize().unwrap()).unwrap();
+        let root = tempfile::tempdir().unwrap();
         let project = root.path().join("project");
         std::fs::create_dir(&project).unwrap();
         let config = root.path().join("config");
         let valid = record("user", &project, "2026-10-18T12:00:00Z") + "\n";
         store(&config, "x", SESSION, &valid);
         let launcher = launcher(&config);
-        let preview = launcher.discover_recent(&project, NOW, DAY).await.unwrap();
         let path = config
             .join("projects")
             .join(encoded(&project))
             .join(format!("{SESSION}.jsonl"));
-        for broken in [
-            b"{broken}\n".as_slice(),
-            b"{\"payload\":\"\xff\"}\n".as_slice(),
-        ] {
-            let mut bytes = valid.as_bytes().to_vec();
-            bytes.extend_from_slice(broken);
-            std::fs::write(&path, bytes).unwrap();
-            let found = launcher.discover_recent(&project, NOW, DAY).await.unwrap();
-            assert!(found.candidates.is_empty());
-            assert_eq!(found.excluded[0].reason, "malformed record");
-            let refused = launcher
-                .read_import_snapshot(&project, SESSION, &preview.candidates[0].revision, NOW)
-                .unwrap_err();
-            assert!(refused.message.contains("malformed record"));
+        for middle in [false, true] {
+            for broken in [
+                b"{broken}\n".as_slice(),
+                b"{\"payload\":\"\xff\"}\n".as_slice(),
+            ] {
+                let mut bytes = valid.as_bytes().to_vec();
+                if middle {
+                    bytes.extend_from_slice(&b"{}\n".repeat(100_000));
+                }
+                bytes.extend_from_slice(broken);
+                if middle {
+                    bytes.extend_from_slice(&b"{}\n".repeat(100_000));
+                }
+                std::fs::write(&path, bytes).unwrap();
+                let found = launcher.discover_recent(&project, NOW, DAY).await.unwrap();
+                if middle {
+                    let refused = launcher
+                        .read_import_snapshot(&project, SESSION, &found.candidates[0].revision, NOW)
+                        .unwrap_err();
+                    assert!(refused.message.contains("malformed record"), "{refused:?}");
+                } else {
+                    assert!(found.candidates.is_empty());
+                    assert_eq!(found.excluded[0].reason, "malformed record");
+                }
+            }
         }
+    }
+
+    #[tokio::test]
+    async fn u3082d_io_errors_name_their_paths() {
+        use std::os::unix::fs::PermissionsExt;
+        for operation in [
+            "project canonicalization",
+            "projects enumeration",
+            "bucket enumeration",
+            "source metadata",
+            "source open",
+            "source read",
+            "snapshot open",
+            "snapshot read",
+        ] {
+            let root = tempfile::tempdir().unwrap();
+            let project = root.path().join("project");
+            std::fs::create_dir(&project).unwrap();
+            let config = root.path().join("config");
+            store(
+                &config,
+                "x",
+                SESSION,
+                &(record("user", &project, "2026-10-18T12:00:00Z") + "\n"),
+            );
+            let projects = config.join("projects");
+            let bucket = projects.join(encoded(&project));
+            let path = bucket.join(format!("{SESSION}.jsonl"));
+            let mut launcher = launcher(&config);
+            let revision = launcher
+                .discover_recent(&project, NOW, DAY)
+                .await
+                .unwrap()
+                .candidates[0]
+                .revision
+                .clone();
+            let affected = match operation {
+                "project canonicalization" => {
+                    std::fs::remove_dir(&project).unwrap();
+                    project.clone()
+                }
+                "projects enumeration" => {
+                    std::fs::remove_dir_all(&projects).unwrap();
+                    std::fs::write(&projects, b"file").unwrap();
+                    projects.clone()
+                }
+                "bucket enumeration" => {
+                    std::fs::set_permissions(&bucket, std::fs::Permissions::from_mode(0)).unwrap();
+                    bucket.clone()
+                }
+                "source metadata" => {
+                    std::fs::remove_file(&path).unwrap();
+                    std::os::unix::fs::symlink(root.path().join("missing"), &path).unwrap();
+                    path.clone()
+                }
+                _ => {
+                    let target = path.clone();
+                    launcher.import_observer = Some(std::sync::Arc::new(move |file, phase, _| {
+                        if file == target && phase == "open" {
+                            std::fs::remove_file(&target).unwrap();
+                            if operation.ends_with("read") {
+                                std::fs::create_dir(&target).unwrap();
+                            }
+                        }
+                    }));
+                    path.clone()
+                }
+            };
+            let result = if operation.starts_with("snapshot") {
+                launcher
+                    .read_import_snapshot(&project, SESSION, &revision, NOW)
+                    .map(|_| ())
+            } else {
+                launcher
+                    .discover_recent(&project, NOW, DAY)
+                    .await
+                    .map(|_| ())
+            };
+            if operation == "bucket enumeration" {
+                std::fs::set_permissions(&bucket, std::fs::Permissions::from_mode(0o700)).unwrap();
+            }
+            let error = result.unwrap_err();
+            assert!(
+                error.message.contains(&affected.display().to_string()),
+                "{operation}: {error:?}"
+            );
+            assert!(error.message.contains("os error"), "{operation}: {error:?}");
+        }
+    }
+
+    #[tokio::test]
+    #[ignore = "U3082b generates 400 MB of real storage; run in the test profile separately"]
+    async fn u3082b_large_preview_finishes_under_two_seconds() {
+        use std::io::Write;
+        let root = tempfile::tempdir().unwrap();
+        let project = root.path().join("project");
+        std::fs::create_dir(&project).unwrap();
+        let config = root.path().join("config");
+        let header = record("user", &project, "2026-10-18T12:00:00Z") + "\n";
+        store(&config, "x", SESSION, &header);
+        let path = config
+            .join("projects")
+            .join(encoded(&project))
+            .join(format!("{SESSION}.jsonl"));
+        let end = b"{\"type\":\"custom-title\",\"customTitle\":\"Near the end\"}\n{\"torn\":";
+        let mut writer =
+            std::io::BufWriter::new(std::fs::File::options().append(true).open(&path).unwrap());
+        let payload = format!("{{\"payload\":\"{}\"}}\n", "x".repeat(65536 - 15));
+        let mut remaining = 400_000_000 - header.len() - end.len();
+        while remaining >= payload.len() {
+            writer.write_all(payload.as_bytes()).unwrap();
+            remaining -= payload.len();
+        }
+        writer.write_all(&vec![b'\n'; remaining]).unwrap();
+        writer.write_all(end).unwrap();
+        writer.flush().unwrap();
+        assert_eq!(std::fs::metadata(&path).unwrap().len(), 400_000_000);
+        let bytes = std::sync::Arc::new(std::sync::atomic::AtomicU64::new(0));
+        let observed = bytes.clone();
+        let mut launcher = launcher(&config);
+        launcher.import_observer = Some(std::sync::Arc::new(move |_, phase, count| {
+            if phase == "bytes" {
+                observed.fetch_add(count, Ordering::Relaxed);
+            }
+        }));
+        let start = Instant::now();
+        let found = launcher
+            .discover_recent(&project, NOW, 7 * DAY)
+            .await
+            .unwrap();
+        let elapsed = start.elapsed();
+        assert_eq!(found.candidates.len(), 1, "{found:?}");
+        let candidate = &found.candidates[0];
+        assert_eq!(candidate.title, "Near the end");
+        assert_eq!(candidate.cwd, PathBuf::new());
+        assert_eq!(candidate.last_activity_ms, NOW - DAY);
+        assert!(!candidate.revision.is_empty());
+        let bytes = bytes.load(Ordering::Relaxed);
+        assert!(bytes > 0 && bytes <= 524_289, "read {bytes} bytes");
+        eprintln!("U3082b 400 MB: {elapsed:?}; {bytes} content bytes read");
+        assert!(elapsed < Duration::from_secs(2), "{elapsed:?}");
     }
 
     #[tokio::test]

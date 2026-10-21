@@ -10,7 +10,31 @@ use rpc::RpcError;
 use serde_json::Value;
 use std::sync::LazyLock;
 
+use super::discovery::io_error;
 use super::{Launcher, is_uuid};
+
+// Faults stay thread-local so filesystem observers cannot affect another import.
+#[cfg(test)]
+thread_local! {
+    static IO_FAILURE: std::cell::Cell<Option<&'static str>> = const { std::cell::Cell::new(None) };
+}
+
+fn io<T, E: std::fmt::Display>(
+    path: &Path,
+    operation: &str,
+    call: impl FnOnce() -> Result<T, E>,
+) -> Result<T, RpcError> {
+    #[cfg(not(test))]
+    let _ = operation;
+    #[cfg(test)]
+    if IO_FAILURE.with(|fault| fault.get().is_some_and(|name| name == operation)) {
+        return Err(io_error(
+            path,
+            std::io::Error::other(format!("injected {operation} failure")),
+        ));
+    }
+    call().map_err(|err| io_error(path, err))
+}
 
 #[derive(serde::Serialize, serde::Deserialize)]
 struct RetainedCopy {
@@ -31,7 +55,7 @@ impl RetainedCopy {
                 "retained conversation ownership changed; preserving it",
             )),
             Err(err) if err.kind() == std::io::ErrorKind::NotFound => Ok(None),
-            Err(err) => Err(RpcError::internal(err)),
+            Err(err) => Err(io_error(path, err)),
         }
     }
 
@@ -46,9 +70,9 @@ impl RetainedCopy {
             let Some(path) = dir else {
                 break;
             };
-            std::fs::File::open(path)
-                .and_then(|dir| dir.sync_all())
-                .map_err(RpcError::internal)?;
+            io(path, "sync directory", || {
+                std::fs::File::open(path).and_then(|dir| dir.sync_all())
+            })?;
             dir = path.parent();
         }
         Ok(())
@@ -60,7 +84,7 @@ impl Launcher {
         if !is_uuid(id) {
             return Err(RpcError::internal("invalid saved conversation id"));
         }
-        let cwd = cwd.canonicalize().map_err(RpcError::internal)?;
+        let cwd = cwd.canonicalize().map_err(|err| io_error(cwd, err))?;
         let project = super::discovery::encoded(&cwd);
         Ok(self
             .conversation_dir
@@ -177,8 +201,7 @@ impl Launcher {
     /// A saved id whose file is missing is an error, never an empty conversation.
     pub fn record_conversation(&self, cwd: &Path, id: &str) -> Result<Vec<u8>, RpcError> {
         let path = self.conversation_path(cwd, id)?;
-        let mut bytes = std::fs::read(&path)
-            .map_err(|err| RpcError::internal(format!("cannot read saved conversation: {err}")))?;
+        let mut bytes = std::fs::read(&path).map_err(|err| io_error(&path, err))?;
         // Claude appends records. A concurrent incomplete last record belongs to a later Mark.
         let end = bytes
             .iter()
@@ -208,13 +231,21 @@ impl Launcher {
             .path
             .parent()
             .ok_or_else(|| RpcError::internal("missing conversation directory"))?;
-        std::fs::create_dir_all(dir).map_err(RpcError::internal)?;
-        let mut file = tempfile::NamedTempFile::new_in(dir).map_err(RpcError::internal)?;
-        file.write_all(copy.text.as_bytes())
-            .map_err(RpcError::internal)?;
-        file.as_file().sync_all().map_err(RpcError::internal)?;
-        file.persist_noclobber(&copy.path)
-            .map_err(RpcError::internal)?;
+        io(dir, "create directory", || std::fs::create_dir_all(dir))?;
+        let mut file = io(dir, "create temporary file", || {
+            tempfile::NamedTempFile::new_in(dir)
+        })?;
+        let scratch = file.path().to_path_buf();
+        io(&scratch, "write temporary file", || {
+            file.write_all(copy.text.as_bytes())
+        })?;
+        io(&scratch, "sync temporary file", || {
+            file.as_file().sync_all()
+        })?;
+        io(&copy.path, "persist temporary file", || {
+            file.persist_noclobber(&copy.path)
+        })
+        .map_err(|err| io_error(&scratch, err))?;
         copy.sync()?;
         Ok(id)
     }
@@ -240,7 +271,7 @@ impl Launcher {
             &hex[20..]
         );
         let path = self.conversation_path(cwd, &id)?;
-        if path.try_exists().map_err(RpcError::internal)? {
+        if path.try_exists().map_err(|err| io_error(&path, err))? {
             return Err(RpcError::conflict(
                 "retained conversation destination exists",
             ));
@@ -268,7 +299,7 @@ impl Launcher {
             bytes.push(b'\n');
         }
         let owner = path.with_extension("roundup-owned");
-        if owner.try_exists().map_err(RpcError::internal)? {
+        if owner.try_exists().map_err(|err| io_error(&owner, err))? {
             return Err(RpcError::conflict(
                 "retained conversation ownership destination exists",
             ));
@@ -288,7 +319,7 @@ impl Launcher {
             .path
             .parent()
             .ok_or_else(|| RpcError::internal("missing conversation directory"))?;
-        std::fs::create_dir_all(dir).map_err(RpcError::internal)?;
+        io(dir, "create directory", || std::fs::create_dir_all(dir))?;
         // The recorded scratch identity owns any interrupted write. Only a complete, synced
         // file gets a transcript name; retain its hard link until the Rail publication commits.
         let mut file = std::fs::OpenOptions::new()
@@ -296,11 +327,15 @@ impl Launcher {
             .create_new(true)
             .mode(0o600)
             .open(&copy.owner)
-            .map_err(RpcError::internal)?;
-        file.write_all(copy.text.as_bytes())
-            .map_err(RpcError::internal)?;
-        file.sync_all().map_err(RpcError::internal)?;
-        std::fs::hard_link(&copy.owner, &copy.path).map_err(RpcError::internal)?;
+            .map_err(|err| io_error(&copy.owner, err))?;
+        io(&copy.owner, "write ownership", || {
+            file.write_all(copy.text.as_bytes())
+        })?;
+        io(&copy.owner, "sync ownership", || file.sync_all())?;
+        io(&copy.path, "link ownership", || {
+            std::fs::hard_link(&copy.owner, &copy.path)
+        })
+        .map_err(|err| io_error(&copy.owner, err))?;
         copy.sync()
     }
 
@@ -313,25 +348,30 @@ impl Launcher {
             if !owner
                 .as_ref()
                 .is_some_and(|owner| RetainedCopy::same_file(owner, &actual))
-                || std::fs::read(&copy.path).map_err(RpcError::internal)? != copy.text.as_bytes()
+                || io(&copy.path, "read path", || std::fs::read(&copy.path))?
+                    != copy.text.as_bytes()
             {
                 return Err(RpcError::conflict(
                     "retained conversation ownership or contents changed; preserving it",
                 ));
             }
-            std::fs::remove_file(&copy.path).map_err(RpcError::internal)?;
+            io(&copy.path, "remove path", || {
+                std::fs::remove_file(&copy.path)
+            })?;
             copy.sync()?;
         }
         if owner.is_some() {
             // No transcript existed during an interrupted scratch write. Only its exact
             // reserved prefix is ours; an unrelated scratch replacement stays untouched.
-            let actual = std::fs::read(&copy.owner).map_err(RpcError::internal)?;
+            let actual = io(&copy.owner, "read owner", || std::fs::read(&copy.owner))?;
             if !copy.text.as_bytes().starts_with(&actual) {
                 return Err(RpcError::conflict(
                     "retained conversation ownership changed; preserving it",
                 ));
             }
-            std::fs::remove_file(&copy.owner).map_err(RpcError::internal)?;
+            io(&copy.owner, "remove owner", || {
+                std::fs::remove_file(&copy.owner)
+            })?;
             copy.sync()?;
         }
         Ok(())
@@ -350,12 +390,16 @@ impl Launcher {
                     "retained conversation ownership changed; preserving proof",
                 ));
             }
-        } else if std::fs::read(&copy.owner).map_err(RpcError::internal)? != copy.text.as_bytes() {
+        } else if io(&copy.owner, "read owner", || std::fs::read(&copy.owner))?
+            != copy.text.as_bytes()
+        {
             return Err(RpcError::conflict(
                 "retained conversation proof changed; preserving it",
             ));
         }
-        std::fs::remove_file(&copy.owner).map_err(RpcError::internal)?;
+        io(&copy.owner, "remove owner", || {
+            std::fs::remove_file(&copy.owner)
+        })?;
         copy.sync()
     }
 }
@@ -430,6 +474,74 @@ fn merge_cards(card: &mut ConversationCard, text: &str) {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn u3082d_io_errors_name_their_paths() {
+        for operation in [
+            "create directory",
+            "create temporary file",
+            "write temporary file",
+            "sync temporary file",
+            "persist temporary file",
+            "write ownership",
+            "sync ownership",
+            "link ownership",
+            "read path",
+            "read owner",
+            "remove path",
+            "remove owner",
+            "sync directory",
+        ] {
+            let root = tempfile::tempdir().unwrap();
+            let launcher = Launcher::new(
+                "unused",
+                root.path().join("config.json"),
+                "unused".into(),
+                None,
+            );
+            let (_, ownership) = launcher.prepare_conversation(root.path(), b"{}\n").unwrap();
+            let copy = RetainedCopy::read(&ownership).unwrap();
+            if operation.starts_with("read ") || operation.starts_with("remove ") {
+                launcher.write_conversation(&ownership).unwrap();
+            }
+            if operation == "read owner" {
+                std::fs::remove_file(&copy.path).unwrap();
+            }
+            IO_FAILURE.with(|fault| fault.set(Some(operation)));
+            let result = if operation.contains("temporary") || operation == "create directory" {
+                launcher.copy_conversation(root.path(), b"{}\n").map(|_| ())
+            } else if operation.starts_with("read ") || operation.starts_with("remove ") {
+                launcher.discard_conversation(&ownership)
+            } else {
+                launcher.write_conversation(&ownership)
+            };
+            IO_FAILURE.with(|fault| fault.set(None));
+            let error = result.unwrap_err();
+            assert!(
+                error
+                    .message
+                    .contains(&format!("injected {operation} failure")),
+                "{operation}: {error:?}"
+            );
+            let expected = if operation.ends_with("owner") || operation.contains("ownership") {
+                &copy.owner
+            } else if operation.ends_with("path") {
+                &copy.path
+            } else {
+                copy.path.parent().unwrap()
+            };
+            assert!(
+                error.message.contains(&expected.display().to_string()),
+                "{operation}: {error:?}"
+            );
+            if operation == "link ownership" {
+                assert!(error.message.contains(&copy.path.display().to_string()));
+            }
+            if operation == "persist temporary file" {
+                assert!(error.message.contains(".tmp"), "{error:?}");
+            }
+        }
+    }
 
     #[test]
     fn a35_the_original_conversation_is_untouched() {
