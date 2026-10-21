@@ -31,6 +31,12 @@ pub enum EventData {
     TodoUnblocked(todo::TodoId),
     #[serde(rename = "todo.deleted")]
     TodoDeleted(todo::TodoId),
+    /// T20: a comment was added to the Todo; read `todo.comments`.
+    #[serde(rename = "todo.commented")]
+    TodoCommented(todo::TodoId),
+    /// T23: the Todo's comments were marked read.
+    #[serde(rename = "todo.commentsRead")]
+    TodoCommentsRead(todo::TodoId),
     #[serde(rename = "pad.changed")]
     PadChanged(pad::PadName),
     #[serde(rename = "pad.deleted")]

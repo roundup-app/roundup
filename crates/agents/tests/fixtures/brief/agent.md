@@ -16,6 +16,7 @@ The `roundup` MCP server offers these tools. They are deferred: load a tool befo
 - `todo_get`: read one Todo before changing it.
 - `todo_list`: see all the work already recorded.
 - `todo_update`: change a Todo's title or body as the work becomes clearer.
+- `todo_comment`: leave one short plain line on a Todo only when the user must read it, such as a question or a blocker.
 - `todo_complete`: mark a Todo done once its outcome is real.
 - `todo_reopen`: reopen a done Todo when work remains.
 - `todo_setBlockers`: replace the Todos that must finish before this one.

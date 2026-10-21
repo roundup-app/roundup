@@ -42,7 +42,7 @@ exact answers, resumed execution and cleared needs-you state, consecutive and
 replaced requests, dismissal, subprocess/claimed-user refusal, Door answers,
 Takeover. Captured Prompt identity remains covered by
 `b6_terminal_input_invalidates_identity_before_the_next_signal` in
-`crates/rupd/tests/b6_prompt_identity.rs`. `e2e/u468_claude.py` renders the shim's actual
+`crates/rupd/tests/prompt_identity.rs`. `e2e/u468_claude.py` renders the shim's actual
 MCP form request and returns its actual tool response; it supplies no answer route.
 This is separate from #1497's App selection, focus, attention and Toast observer.
 
