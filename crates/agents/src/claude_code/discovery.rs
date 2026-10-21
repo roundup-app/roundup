@@ -525,6 +525,22 @@ mod tests {
     const NOW: i64 = 1_792_411_200_000;
 
     #[tokio::test]
+    async fn u3082a_non_directory_entries_do_not_break_import() {
+        let root = tempfile::tempdir().unwrap();
+        let project = root.path().join("project");
+        std::fs::create_dir(&project).unwrap();
+        let config = root.path().join("config");
+        let complete = record("user", &project, "2026-10-18T12:00:00Z") + "\n";
+        store(&config, "x", SESSION, &complete);
+        std::fs::write(config.join("projects/.DS_Store"), b"finder").unwrap();
+        std::fs::write(config.join("projects").join(format!("{}-file", encoded(&project))), b"file").unwrap();
+        let launcher = launcher(&config);
+        let preview = launcher.discover_recent(&project, NOW, DAY).await.unwrap();
+        let (_, bytes) = launcher.read_import_snapshot(&project, SESSION, &preview.candidates[0].revision, NOW).unwrap();
+        assert_eq!(bytes, complete.as_bytes());
+    }
+
+    #[tokio::test]
     async fn u2875a_activity_is_not_file_mtime() {
         let root = tempfile::tempdir_in(std::env::temp_dir().canonicalize().unwrap()).unwrap();
         let project = root.path().join("project");
