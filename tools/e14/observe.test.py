@@ -82,14 +82,14 @@ class E14(unittest.TestCase):
             directory = Path(temporary)
             report = directory / "junit.xml"
             report.write_text('<testsuites tests="5">' + ''.join(
-                f'<testcase classname="rup::real_claude" name="case{i}" timestamp="2026-10-18T00:00:00.000+00:00" time="0.001"/>'
+                f'<testcase classname="rup::e12_model_boundary" name="case{i}" timestamp="2026-10-18T00:00:00.000+00:00" time="0.001"/>'
                 for i in range(5)) + '</testsuites>')
             traces = directory / "rust-events"
             traces.mkdir()
             start = 1792281600000
             for i in range(5):
                 (traces / f"{i}.json").write_text(json.dumps(dict(
-                    id=f"rup::real_claude::case{i}", start=start + i * 0.1,
+                    id=f"rup::e12_model_boundary::case{i}", start=start + i * 0.1,
                     end=start + (i + 1) * 0.1, exit_code=0)))
             self.assertEqual(observer.overlap(observer.rust_rows(report)), 1)
             (traces / "4.json").unlink()

@@ -233,7 +233,7 @@ Baseline: `rup::real_claude` on successful [check run 39378452452](https://githu
 
 ## E2962 retention boundaries
 
-The following requirements narrow the existing named clauses for this inventory under E2962. Retained observers in `crates/rup/tests/real_claude.rs` execute the named real boundary; each observes the stated outcome and catches a transport, process or elapsed-deadline failure a process-free test cannot observe. No new product outcome is added. Cut observers map to surviving assertions; LC9’s recurring observer is retired while its one-time measurement policy remains.
+The following requirements narrow the existing named clauses for this inventory under E2962. Retained observers in `crates/rup/tests/` execute the named real boundary; each observes the stated outcome and catches a transport, process or elapsed-deadline failure a process-free test cannot observe. No new product outcome is added. Cut observers map to surviving assertions; LC9’s recurring observer is retired while its one-time measurement policy remains.
 
 | Original test | Action | Observer / existing clause | Required boundary or surviving assertions |
 |---|---|---|---|
