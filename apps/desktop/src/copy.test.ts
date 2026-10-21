@@ -133,6 +133,22 @@ it("u471_every_app_authored_string_comes_from_the_catalogue", () => {
   expect(missing).toEqual([]);
 });
 
+it("u471_catalogue_distinguishes_internal_fallback_props_from_app_copy", () => {
+  expect(candidates(`
+    let restored: "none" | "current" | "selected" = "none";
+    const label = "recover";
+    const failure = new Error("recovery failed");
+    const view = <Show fallback={<RenameField restored={restored} aria-label="rename">
+      Rename project{format(label)}
+    </RenameField>} />;
+  `)).toEqual([
+    { line: 3, text: "recover" },
+    { line: 4, text: "recovery failed" },
+    { line: 5, text: "rename" },
+    { line: 5, text: "Rename project" },
+  ]);
+});
+
 it("u471_action_labels_describe_the_existing_action_retry_supervisor", async () => {
   const { app, connected } = await mountRailAndPane([workstream("w")]);
 
