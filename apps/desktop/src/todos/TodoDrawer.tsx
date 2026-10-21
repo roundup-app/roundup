@@ -49,7 +49,9 @@ export const TodoDrawer = (props: { id: number; todos: TodosState }) => {
 
   const todo = () => props.todos.byId().get(props.id);
 
-  const toggleDone = () => attempt(() => app.rpc(todo()?.done ? "todo.reopen" : "todo.complete", { id: props.id }));
+  const toggleDone = () => attempt(() => todo()?.done
+    ? app.rpc("todo.reopen", { id: props.id })
+    : app.rpc("todo.complete", { id: props.id }));
 
   // Picks run one after another, each from the list the previous one answered: the list state only catches up when the Event arrives.
   const [answered, setAnswered] = createSignal<Todo | null>(null);
