@@ -22,7 +22,7 @@ boundary. The observer records whole-machine `total - available` physical memory
 including every simultaneous test child and runner services, **not** maximum
 per-process RSS or a sum of child high-water marks. `memory.jsonl` retains the
 50 ms samples. The reported peak is the largest observed sample; it is not a
-claim of an unsampled kernel high-water mark. Gaps above one second fail.
+claim of an unsampled kernel high-water mark. Gaps above five seconds fail: a 2-vCPU runner under a full web lane stalls the sampler past one second.
 In CI the memory collector starts before the setup action and runs through test
 completion, so compilation, dependency installation, cache restoration, browser
 warmup and test hooks are covered too. Actions job API timestamps provide full

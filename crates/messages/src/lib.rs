@@ -153,7 +153,7 @@ struct Inner {
     /// while their prompt waits for its Signal, and those whose prompt's Signal did not confirm
     /// them, which this run never types again. A Message in flight at a kill is not in it.
     typing: Mutex<std::collections::HashSet<u32>>,
-    /// B50: where a `note` goes instead of the Terminal; absent in tests that type every Message.
+    /// B50: the non-user transport; model fixtures without it project delivery onto `Deliver`.
     inbox: std::sync::OnceLock<Arc<dyn NoteInbox>>,
     /// Tests: a typed prompt stands for its Signal, as the Agent's would, unless a test turns
     /// this off to play the Signal itself.
@@ -251,7 +251,7 @@ impl Messages {
         confirm(&self.inner, agent, prompt)
     }
 
-    /// B50: send every `note` through `inbox`, never `Deliver`. Set once, before any Message.
+    /// B50: send non-user Messages through `inbox`, never `Deliver`. Set once, before any Message.
     pub fn set_inbox(&self, inbox: Arc<dyn NoteInbox>) {
         let _ = self.inner.inbox.set(inbox);
     }
@@ -291,27 +291,27 @@ impl Messages {
     }
 
     async fn send(&self, ctx: &Ctx, p: SendParams) -> Result<Value, RpcError> {
-        // B51(f), B51(g): the sender of a note to an Agent hears at once when it will not arrive.
-        let note = inbox::is_note_send(ctx, &p);
-        if note {
+        // B51(f): the authenticated sender hears when the inbox format is unavailable.
+        let uses_inbox = inbox::is_inbox_send(ctx, &p);
+        if uses_inbox {
             self.refuse_repeat(ctx, &p).await?;
         }
         let message = self.send_message(ctx, p, false).await?;
-        if note {
+        if uses_inbox {
             inbox::refuse_mismatch(&self.inner, &message).await?;
         }
         reply(&message)
     }
 
-    /// B51(g): Claude Code drops a note whose text and sender equal those of the one it took up
-    /// last, so such a send is refused and no Message is made.
+    /// B51(g): a new send is refused before allocating a Message or question chain.
     async fn refuse_repeat(&self, ctx: &Ctx, p: &SendParams) -> Result<(), RpcError> {
-        // A receiver that cannot be found is the send's own error to give.
         let Ok(Some(receiver)) = self.resolve_receiver(&p.to).await else {
             return Ok(());
         };
-        let last = self.store()?.last_note(&p.to, binding(&receiver).0)?;
-        if last.is_some_and(|last| last.from == ctx.actor && last.body == p.body) {
+        if self
+            .store()?
+            .is_inbox_repeat(&ctx.actor, &p.to, &p.body, binding(&receiver).0, None)?
+        {
             return Err(RpcError::conflict(inbox::REPEAT));
         }
         Ok(())
@@ -372,7 +372,7 @@ impl Messages {
         // The reply-to check, the bound check and the insert run while one lock is held, so a
         // second sender racing for the same receiver's last open slot cannot pass its own check
         // before this one's insert lands (B1).
-        let digest = pushes::is_digest(&ctx.actor, &p.body);
+        let digest = p.kind == MessageKind::Note && pushes::is_digest(&ctx.actor, &p.body);
         let (message, merged) = {
             let mut store = self.store()?;
             // Outside the transaction: a refusal keeps the drops `accept_receiver` reconciled.
@@ -629,7 +629,11 @@ impl Messages {
                 "an escalated Message is answered with a reply, or dropped",
             ));
         }
-        if message.reason == Some(Reason::Inbox) {
+        if message.status == MessageStatus::Held
+            && (message.reason == Some(Reason::Inbox)
+                || (inbox::is_inbox_message(&message)
+                    && (self.inner.inbox.get().is_some() || !cfg!(test))))
+        {
             inbox::require_usable(&self.inner, &message.to).await?;
         }
         let receiver = self.resolve_receiver(&message.to).await?;
@@ -637,6 +641,17 @@ impl Messages {
             let mut store = self.store()?;
             if let Some(node) = &receiver {
                 accept_receiver(&self.inner, &mut store, node)?;
+            }
+            if let Some(node) = &receiver
+                && store.is_inbox_repeat(
+                    &message.from,
+                    &message.to,
+                    &message.body,
+                    binding(node).0,
+                    Some(message.id),
+                )?
+            {
+                return Err(RpcError::conflict(inbox::REPEAT));
             }
             if !user_call_moves(&message, Event::UserDeliver(p.id))
                 || !store.release_held(p.id, MessageStatus::Pending, None)?
@@ -1347,8 +1362,13 @@ async fn on_idle(inner: &Arc<Inner>, agent: &str, mut at: store::Binding, mut pi
     let _delivery = inner.delivery.read().await;
     // B51(d): the check at an `idle` releases what an earlier failed one held.
     let inbox_state = match inner.inbox.get() {
-        Some(inbox) => Some(inbox::check_and_release(inner, inbox.as_ref(), agent).await),
+        Some(inbox) => Some(inbox::check_and_release(inner, inbox.as_ref(), agent, at).await),
+        // The legacy model fixtures use Deliver as an abstract transport with synthetic receipts.
+        // Runtime delivery must hold non-user Messages even before an inbox is installed.
+        #[cfg(test)]
         None => None,
+        #[cfg(not(test))]
+        None => Some(contracts::agent::Inbox::Missing),
     };
     loop {
         let found = {
@@ -1382,11 +1402,11 @@ async fn on_idle(inner: &Arc<Inner>, agent: &str, mut at: store::Binding, mut pi
                 .filter(|m| ids.contains(&m.id))
                 .collect::<Vec<_>>()
         };
-        // B50: a `note` goes to the inbox; the rest is typed below.
+        // B50: non-user Messages use the inbox; user Messages are batched below.
         let found = match inbox_state {
             Some(state) => {
                 let (notes, rest): (Vec<Message>, Vec<Message>) =
-                    found.into_iter().partition(inbox::is_note);
+                    found.into_iter().partition(inbox::is_inbox_message);
                 if !notes.is_empty() && !inbox::send(inner, agent, at, pick, notes, state).await {
                     return;
                 }
@@ -1548,7 +1568,28 @@ fn confirm(inner: &Inner, agent: &str, prompt: &str) -> bool {
     let Some(ids) = flight_ids(prompt) else {
         return false;
     };
-    confirm_ids(inner, agent, &ids)
+    // Legacy model fixtures project both transports onto Deliver and synthetic prompt receipts.
+    #[cfg(test)]
+    if inner.inbox.get().is_none() {
+        return confirm_ids(inner, agent, &ids);
+    }
+    let mut user_ids = Vec::new();
+    {
+        let store = lock(&inner.store);
+        for &id in &ids {
+            match store.get(id) {
+                Ok(Some(message)) if message.from.kind == ActorKind::User => user_ids.push(id),
+                Ok(_) => {}
+                Err(err) => {
+                    log_failure("confirm_prompt", &err.to_string());
+                    return false;
+                }
+            }
+        }
+    }
+    // A mixed id line must not block a prompt merely because its user Messages were delivered.
+    let repeated = confirm_ids(inner, agent, &user_ids);
+    repeated && user_ids.len() == ids.len()
 }
 
 fn confirm_ids(inner: &Inner, agent: &str, ids: &[u32]) -> bool {

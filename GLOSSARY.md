@@ -414,7 +414,7 @@ What `agent.context` returns for one Agent: its own Status, its parent, whom to 
 Whether one Agent's `roundup` MCP server (`rup mcp <id>`) has reported to the Daemon: `pending`, `up` or `missing`. Not the vendor's own channels feature.
 
 **Claude inbox**:
-Claude Code's own messaging socket for a message from another Claude Code instance, which the adapter sends a `note` over instead of typing it (B50). The Rail fact `inbox` is `ok`, `missing` or `mismatch` (B51). Not the user's Inbox.
+Claude Code's own messaging socket for a message from another Claude Code instance, which the Adapter uses for non-user Messages, notes and questions, instead of typing them (B50). The Rail fact `inbox` is `ok`, `missing` or `mismatch` (B51). Not the user's Inbox.
 
 **Mcp**:
 The Project setting `mcp {on}` (`project.setMcp`, M2219): with `on` false, or the Daemon's `ROUNDUP_MCP=off`, an Agent starts with no `roundup` MCP server and its Brief names `rup` commands. Only Agents started afterward change.
@@ -786,3 +786,20 @@ Passive inspection of retained instructions, Result reports, acceptance, source
 observations and exact publication availability. Historical evidence stays readable;
 current attribution requires the same Order revision and latest reported version of
 that target. Opening or inspecting Progress starts nothing and sends no Message.
+
+**Request cost** (`RequestCost`, `CacheWrites`):
+The observed opaque Model and independently observed five-minute/one-hour cache-write
+classes of one retained request. Classes partition its consumed cache writes; a missing
+class is unknown. `unavailable` explains missing evidence. Old retained requests with
+no cost evidence remain unknown until their source is replayed.
+
+**Reference rates** (`ReferenceRates`):
+An Adapter-matched, versioned and dated offline category rate basis, with currency,
+exact decimal rates, token denominator, source link and comparison assumptions. It
+supports a separately labelled reference estimate, never a subscription bill.
+
+**Reported money** (`ReportedMoney`, `MoneyScope`, `MeasurementValue::Money`):
+An exact source amount with its currency when established, source, pricing basis and
+request or inclusive conversation scope. Conversation totals include their constituent
+requests and native children: they never add to request money or reference estimates.
+A currency not established by its source is unknown; no conversion is inferred.
