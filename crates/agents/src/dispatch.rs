@@ -253,7 +253,7 @@ impl Module for Agents {
             }
             "project.importDiscover" => {
                 let params: contracts::project::ImportDiscoverParams = params(value)?;
-                reply(&self.import_discover(ctx, params)?)
+                reply(&self.import_discover(ctx, params).await?)
             }
             "project.importCommit" => {
                 let params: contracts::project::ImportCommitParams = params(value)?;
