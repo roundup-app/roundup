@@ -277,13 +277,44 @@ impl Evaluator {
         let Ok(expires) = instant("expires_at", &r.expires_at) else {
             return;
         };
-        let used = self
-            .messages
-            .firings_of(&r.id)
-            .map_or(u32::MAX, |f| u32::try_from(f.len()).unwrap_or(u32::MAX));
+        let firings = match self.messages.firings_of(&r.id) {
+            Ok(firings) => firings,
+            Err(err) => {
+                w.unavailable(
+                    format!("the accepted firings were not read: {}", err.message),
+                    "observation resumes at the next successful read; nothing matches meanwhile",
+                );
+                return;
+            }
+        };
+        let used = u32::try_from(firings.len()).unwrap_or(u32::MAX);
         if r.state != State::Active || used >= r.max_firings || OffsetDateTime::now_utc() >= expires
         {
             return;
+        }
+        let automatic: Vec<_> = firings.iter().filter(|(f, _)| f.matched).collect();
+        let round = u32::try_from(automatic.len()).unwrap_or(u32::MAX);
+        if let Some((firing, _)) = automatic.last()
+            && round > w.round
+        {
+            // Acceptance can outlive several failed Watch saves. Resume after the latest accepted
+            // match so replay cannot count its completion again or reuse an earlier firing id.
+            let cursor = serde_json::from_str::<Value>(&firing.evidence)
+                .ok()
+                .and_then(|e| e["cursor"].as_u64());
+            let Some(cursor) = cursor else {
+                w.unavailable(
+                    "the accepted Agent firing has no source cursor".into(),
+                    "restore its durable source evidence; nothing matches meanwhile",
+                );
+                return;
+            };
+            w.round = round;
+            w.seen = cursor;
+            w.armed = false;
+            w.finished.clear();
+            w.unfinished.clear();
+            w.before_rearm.clear();
         }
         let world =
             match self.reader.world().await {
