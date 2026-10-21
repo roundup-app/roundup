@@ -47,6 +47,8 @@ export const copy = {
   credentialDraftMemoryOnly: "This form contains credentials. Values are hidden here and will not survive a reload.",
   recoverDrafts: "Recover unfinished work",
   riskCause: { failed: "failed to save", unknown: "may not have saved", draft: "not saved for reload", gone: "original removed" },
+  draftTitle: (place: string, name: string) => `${place} "${name}"`,
+  riskLine: (cause: string, time: string) => `${cause} · ${time}`,
   riskTime: (minutes: number) => minutes < 1 ? "just now" : minutes < 60 ? `${minutes} min ago` : `${Math.floor(minutes / 60)} h ago`,
   openDraft: "Open",
   copyDraft: "Copy",
