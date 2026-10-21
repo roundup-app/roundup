@@ -734,7 +734,11 @@ impl Daemon {
                     "operation already names another definition",
                 ));
             }
-            return read(&record);
+            let saved = read(&record)?;
+            if actor.kind == ActorKind::Agent {
+                self.agents.guard_reach(actor, &saved.target, true)?;
+            }
+            return Ok(saved);
         }
         let now = OffsetDateTime::now_utc();
         let (max, rearm) = shape(&p, now)?;
