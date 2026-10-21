@@ -82,7 +82,7 @@ export const createImport = (app: AppSeam, path: string, onOpened: (workstream: 
     if (result.status === "failed") {
       setRestoreFailure(true);
 
-      return "failed";
+      return false;
     }
 
     const saved = result.status === "restored" ? result.value : null;
@@ -104,7 +104,7 @@ export const createImport = (app: AppSeam, path: string, onOpened: (workstream: 
     baseline = next;
     setRestoreFailure(false);
 
-    return "read";
+    return true;
   };
 
   const persist = (edit = true) => {
@@ -113,7 +113,7 @@ export const createImport = (app: AppSeam, path: string, onOpened: (workstream: 
 
     if (retained) draftRevision = retained.draft.revision;
 
-    if (readable === "failed") return;
+    if (!readable) return;
 
     const problem = retained?.problem ?? drafts?.problem();
 
