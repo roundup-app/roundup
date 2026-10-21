@@ -16,6 +16,7 @@
 .ask-bar[data-mode="home"] {
   position: absolute;
   inset: 0;
+  bottom: calc(var(--hint-row-height) + var(--rail-actions-height));
   overflow-y: auto;
 }
 
