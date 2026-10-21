@@ -5,6 +5,7 @@
 pub mod digest;
 #[doc(hidden)]
 pub mod digest_schema;
+pub mod evidence;
 mod hops;
 mod inbox;
 mod pushes;
@@ -967,9 +968,13 @@ fn item(id: u32) -> String {
     format!("message:{id}")
 }
 
+fn now() -> SystemTime {
+    SystemTime::now()
+}
+
 fn now_ms() -> i64 {
     i64::try_from(
-        SystemTime::now()
+        now()
             .duration_since(UNIX_EPOCH)
             .unwrap_or_default()
             .as_millis(),
