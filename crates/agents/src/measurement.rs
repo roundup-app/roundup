@@ -31,40 +31,43 @@ pub(crate) struct Batch {
 impl Agents {
     /// Start the Daemon's passive observer after configuring the shared Project dependencies.
     pub fn observe_measurements(&self) {
-        let mut seen = {
+        let (permit, mut seen) = {
             let mut rail = self.shared.rail();
-            if !rail.claim_measurement_observer() {
+            let Some(permit) = rail.claim_measurement_observer() else {
                 return;
-            }
-            rail.measurement_revision()
-                .expect("Project measurement storage")
+            };
+            (permit, (rail.measurement_revision().ok(), None))
         };
         let me = Arc::downgrade(&self.shared);
         let launcher = self.launcher.clone();
         tokio::spawn(async move {
+            let _permit = permit;
             loop {
                 tokio::time::sleep(OBSERVATION_PERIOD).await;
                 let Some(shared) = me.upgrade() else { break };
                 let collecting = Arc::clone(&shared);
                 let launcher = launcher.clone();
-                let revision = tokio::task::spawn_blocking(move || {
+                let status = tokio::task::spawn_blocking(move || {
                     let mut rail = collecting.rail();
                     collecting
                         .timing
                         .lock()
                         .expect("measurement timing lock")
                         .sample();
-                    rail.collect_measurements(&launcher, (collecting.clock)());
-                    rail.measurement_revision()
+                    rail.collect_measurements(&launcher, (collecting.clock)())
                 })
                 .await
-                .expect("measurement observer worker")
-                .expect("Project measurement storage");
-                if seen != revision {
-                    seen = revision.clone();
-                    shared
-                        .bus
-                        .emit(Actor::daemon(), EventData::MeasurementsChanged { revision });
+                .expect("measurement observer worker");
+                if seen != status {
+                    seen = status;
+                    if let Some(revision) = &seen.0 {
+                        shared.bus.emit(
+                            Actor::daemon(),
+                            EventData::MeasurementsChanged {
+                                revision: revision.clone(),
+                            },
+                        );
+                    }
                 }
             }
         });
