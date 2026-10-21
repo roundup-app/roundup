@@ -370,6 +370,8 @@ async fn recovery_waits_for_last_hold(takeover: bool) {
                 MessageStatus::Pending
             );
             assert!(!h.events().iter().any(|e| e == "message.delivered"));
+            // B8's cut: a hold beginning after the inbox write cannot revoke its confirmation.
+            terminal_hold(&h, takeover, true).await;
             h.messages.confirm_inbox("b", &[1]);
             h.messages.confirm_inbox("b", &[1]);
             on_status(&h.messages.inner, "b", "1", "5", Kind::Idle).await;
@@ -398,4 +400,33 @@ async fn b6_inbox_recovery_waits_for_takeover_to_end() {
 #[tokio::test]
 async fn b32_inbox_recovery_waits_for_unsent_input_to_end() {
     recovery_waits_for_last_hold(false).await;
+}
+
+#[tokio::test]
+async fn b32_inbox_recovery_checks_holds_after_the_inbox_check_completes() {
+    for takeover in [false, true] {
+        for failure in [
+            contracts::agent::Inbox::Missing,
+            contracts::agent::Inbox::Mismatch,
+        ] {
+            let (_dir, mut h, inbox, typed) = recovering_note(failure).await;
+            inbox.gate.store(true, std::sync::atomic::Ordering::SeqCst);
+            let observation = on_status(&h.messages.inner, "b", "1", "2", Kind::Idle);
+            let hold_before_completion = async {
+                inbox.checking.notified().await;
+                terminal_hold(&h, takeover, true).await;
+                *inbox.state.lock().unwrap() = contracts::agent::Inbox::Ok;
+                inbox.finish.notify_one();
+            };
+            tokio::time::timeout(std::time::Duration::from_secs(2), async {
+                tokio::join!(observation, hold_before_completion);
+            })
+            .await
+            .expect("inbox check and hold completed");
+            assert_recovery_held(&mut h, &inbox, &typed);
+            terminal_hold(&h, takeover, false).await;
+            on_status(&h.messages.inner, "b", "1", "3", Kind::Idle).await;
+            assert_eq!(*inbox.written.lock().unwrap(), [1]);
+        }
+    }
 }
