@@ -19,6 +19,7 @@ mod observers;
 mod open;
 mod output;
 mod owner_told;
+mod queue;
 mod reaction;
 mod reaction_checks;
 mod reaction_time;
@@ -89,6 +90,8 @@ pub struct Daemon {
     /// A35: the Marks a rewind reads, and the rewinds under way.
     checkpoints: Arc<checkpoints::Checkpoints>,
     rewinding: rewind::Rewinding,
+    /// A3196: what the Workstream Queue remembers between passes.
+    queue: Arc<queue::Memory>,
     /// B21: subscribed at `open`, so no change is missed before the pusher runs; taken once, when
     /// a Tokio runtime is there to run it.
     pushes: std::sync::Mutex<Option<tokio::sync::broadcast::Receiver<contracts::Event>>>,

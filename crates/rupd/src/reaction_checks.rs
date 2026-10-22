@@ -389,6 +389,7 @@ mod tests {
             clears: Default::default(),
             checkpoints: Arc::new(checkpoints::Checkpoints::open(&dir).unwrap()),
             rewinding: Default::default(),
+            queue: Default::default(),
         };
         daemon.register(daemon.todos.clone());
         daemon.register(daemon.pads.clone());

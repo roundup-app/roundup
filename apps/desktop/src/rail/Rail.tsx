@@ -15,6 +15,7 @@ import { railCollection } from "./collection";
 import { useConnectedProject } from "../state/connectedProject";
 import { doorStateOf } from "./doorState";
 import { ImportPanel } from "../importer/ImportPanel";
+import { ProjectSettings } from "./ProjectSettings";
 import { RailConfirm } from "./menu/RailConfirm";
 import { createRailMenu } from "./menu/model";
 import { agentKindsBelow, isWorkstream, layoutRail, siblingsOf } from "./layout";
@@ -52,7 +53,7 @@ export const Rail = () => {
 
   const menu = createRailMenu(app, rail, setFailure, connected.events, connected.drafts, (id) => {
     rowElement(id)?.querySelector(".name")?.dispatchEvent(new MouseEvent("dblclick", { bubbles: true }));
-  });
+  }, connected.queue);
 
   const importing = connected.importing;
 
@@ -529,6 +530,7 @@ export const Rail = () => {
     <button type="button" data-button="quiet" class="word rail-import" ref={importOpener} disabled={daemonExit() !== null} onClick={() => importing.show()}>
       {copy.importTitle}
     </button>
+    <ProjectSettings />
     <ImportPanel open={importing.open()} opener={importOpener} onClose={() => importing.cancel()} />
     <div class="rail-scroll" onScroll={(event) => setScrolled(event.currentTarget.scrollTop > 0)}>
     <TreeView.Root

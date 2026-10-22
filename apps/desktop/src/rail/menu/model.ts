@@ -7,6 +7,7 @@ import type { AppSeam } from "../../app/seam";
 import { clearingOf } from "../clear";
 import type { Events } from "../../app/events";
 import type { ExitState, RailState } from "../../state/rail";
+import type { QueueView } from "../../state/queue";
 import { judgeRemoval } from "./removal";
 import type { Removal } from "./removal";
 import { contextMenu, linkEntries } from "../../ui/contextMenu";
@@ -34,7 +35,7 @@ const needsConfirmation = ({ node, exit }: MenuState) =>
   isRunning(node, exit) &&
   (node.status?.kind === "working" || node.status?.kind === "needs-you" || node.status?.kind === "blocked");
 
-export const createRailMenu = (app: AppSeam, rail: RailState, onFailure: (message: string) => void, events: Events, storage: ConnectedProject["drafts"], rename: (id: string) => void) => {
+export const createRailMenu = (app: AppSeam, rail: RailState, onFailure: (message: string) => void, events: Events, storage: ConnectedProject["drafts"], rename: (id: string) => void, queue: QueueView) => {
   const [state, setState] = createSignal<MenuState | null>(null);
   const resuming = new Set<string>();
 
@@ -198,6 +199,31 @@ export const createRailMenu = (app: AppSeam, rail: RailState, onFailure: (messag
       setState({ node, exit, confirming: false, action: "remove", removed });
       chooseRemove();
     } };
+
+    const queued = node.kind === "workstream" ? queue.entryOf(node.id) : null;
+
+    if (queued) {
+      // a queued row offers the Queue's own choices; each is one call, and a failure shows as any row action's.
+      const call = (run: () => Promise<void>) => async () => {
+        try {
+          await run();
+        } catch (error) {
+          if (!(error instanceof Error)) throw error;
+
+          onFailure(error.message);
+        }
+
+        await queue.refresh();
+      };
+
+      return [
+        { id: "start-now", label: copy.startNow, run: call(async () => { await app.rpc("workstream.startNow", { workstream: node.id }); }) },
+        { id: "dequeue", label: copy.takeOutOfQueue, run: call(async () => { await app.rpc("workstream.dequeue", { workstream: node.id }); }) },
+        { id: "move-up", label: copy.moveUp, enabled: queued.place > 1, run: call(async () => { await app.rpc("workstream.queueMove", { workstream: node.id, index: queued.place - 2 }); }) },
+        { id: "move-down", label: copy.moveDown, enabled: queued.place < queued.of, run: call(async () => { await app.rpc("workstream.queueMove", { workstream: node.id, index: queued.place }); }) },
+        remove,
+      ];
+    }
 
     if (node.kind === "workstream" && node.attempt === null) return [remove];
 

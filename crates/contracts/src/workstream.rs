@@ -7,6 +7,75 @@ use ts_rs::TS;
 /// The longest `reason` a clear takes, in characters.
 pub const REASON_MAX: usize = 2000;
 
+/// A3194: when a new Workstream's Door starts (the Start choice).
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, TS, JsonSchema)]
+#[serde(tag = "kind", rename_all = "camelCase")]
+#[ts(export, export_to = "workstream/")]
+pub enum StartChoice {
+    Now,
+    Queued,
+    AfterTodo { todo: u32 },
+}
+
+/// `todo.startWorkstream`: a Workstream that owns the Todo `id`, started as `start` says.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, TS, JsonSchema)]
+#[ts(export, export_to = "workstream/")]
+pub struct StartWorkstreamParams {
+    pub id: u32,
+    pub name: String,
+    pub start: StartChoice,
+}
+
+/// A3195: a Workstream in the Queue, with the failure of its last start when that failed.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, TS)]
+#[ts(export, export_to = "workstream/")]
+pub struct QueueEntry {
+    pub workstream: String,
+    pub start: StartChoice,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[ts(optional)]
+    pub failure: Option<QueueFailure>,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, TS)]
+#[ts(export, export_to = "workstream/")]
+pub struct QueueFailure {
+    pub code: i64,
+    pub message: String,
+}
+
+/// `workstream.queue`: the running count, the Project's cap and the entries in Queue order.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, TS)]
+#[ts(export, export_to = "workstream/")]
+pub struct QueueState {
+    pub running: u32,
+    pub cap: Option<u32>,
+    pub entries: Vec<QueueEntry>,
+}
+
+/// `workstream.dequeue` and `workstream.startNow`.
+#[derive(Clone, Debug, Serialize, Deserialize, TS, JsonSchema)]
+#[ts(export, export_to = "workstream/")]
+pub struct QueuedWorkstream {
+    pub workstream: String,
+}
+
+/// `workstream.queueMove`: place the entry at `index` (from 0), clamped to the Queue's length.
+#[derive(Clone, Debug, Serialize, Deserialize, TS, JsonSchema)]
+#[ts(export, export_to = "workstream/")]
+pub struct QueueMoveParams {
+    pub workstream: String,
+    pub index: u32,
+}
+
+/// `project.setWorkstreamCap`: an integer 1 or more, or `None` for no cap.
+#[derive(Clone, Debug, Serialize, Deserialize, TS, JsonSchema)]
+#[ts(export, export_to = "workstream/")]
+pub struct CapParams {
+    #[ts(type = "number | null")]
+    pub cap: Option<serde_json::Value>,
+}
+
 /// `workstream.clear`. `without_handoff` makes the Daemon write the Handoff itself.
 #[derive(Clone, Debug, Serialize, Deserialize, TS, JsonSchema)]
 #[ts(export, export_to = "workstream/")]

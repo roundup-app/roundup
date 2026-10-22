@@ -43,6 +43,7 @@ mod name;
 mod order;
 mod peer;
 mod prepared;
+mod queue;
 mod rail;
 mod scan;
 pub mod worktree;

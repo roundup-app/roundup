@@ -117,7 +117,14 @@ pub const DOOR_METHODS: [&str; 8] = [
 ];
 
 /// M5: the methods and App commands with no tool; the reasons are in `scenarios/mcp.md`.
-pub const NO_TOOL: [&str; 60] = [
+pub const NO_TOOL: [&str; 66] = [
+    // A3194, A3195, P9: a start spends usage, so only the user's own choice starts a Workstream or sets what may run.
+    "todo.startWorkstream",
+    "workstream.queue",
+    "workstream.dequeue",
+    "workstream.queueMove",
+    "workstream.startNow",
+    "project.setWorkstreamCap",
     // U2539b, U2540a: the App's Worktree comparison; an Agent reads its own diff with git.
     "agent.changedFiles",
     "agent.compareFile",
