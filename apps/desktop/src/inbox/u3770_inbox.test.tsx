@@ -6,7 +6,7 @@ import type { RailNode } from "@contracts/agent/RailNode";
 import { attentionOrder } from "../rail/attention";
 import { asking, decision, opened } from "../decisions/decisionsFixture";
 import { agent, event, NOW } from "../testing/nodes";
-import { mountTodos } from "../todos/testHarness";
+import { mountTodos, todo } from "../todos/testHarness";
 import { Inbox } from "./Inbox";
 
 afterEach(() => { cleanup(); vi.useRealTimers(); });
@@ -95,12 +95,12 @@ it("u3770b_a_row_opens_to_its_state_s_one_action", async () => {
   const m = await mountInbox();
   const head = (name: string) => within(panel()).getByText(name).closest("button")!;
   fireEvent.click(head("gamma"));
-  expect(head("gamma").getAttribute("aria-expanded")).toBe("true");
+  await waitFor(() => expect(head("gamma").getAttribute("aria-expanded")).toBe("true"));
   expect(within(panel()).getByText("crashed")).toBeTruthy();
-  expect(within(panel()).getByRole("button", { name: "Retry" })).toBeTruthy();
+  expect(await within(panel()).findByRole("button", { name: "Retry" })).toBeTruthy();
   fireEvent.click(head("beta"));
-  expect(within(panel()).getByText("editing Thread.tsx")).toBeTruthy();
-  fireEvent.click(within(panel()).getByRole("button", { name: "Open" }));
+  expect(await within(panel()).findByText("editing Thread.tsx")).toBeTruthy();
+  fireEvent.click(await within(panel()).findByRole("button", { name: "Open" }));
   expect(m.connected.rail.selected()).toBe("b");
   expect(m.connected.drawer.content()).toBeNull();
 });
@@ -108,21 +108,23 @@ it("u3770b_a_row_opens_to_its_state_s_one_action", async () => {
 it("u3770b_one_row_is_open_at_a_time", async () => {
   await mountInbox();
   const head = (name: string) => within(panel()).getByText(name).closest("button")!;
+  const expanded = (name: string, value: string) => waitFor(() => expect(head(name).getAttribute("aria-expanded")).toBe(value));
   fireEvent.click(head("alpha"));
+  await expanded("alpha", "true");
   fireEvent.click(head("beta"));
-  expect(head("alpha").getAttribute("aria-expanded")).toBe("false");
-  expect(head("beta").getAttribute("aria-expanded")).toBe("true");
+  await expanded("alpha", "false");
+  await expanded("beta", "true");
   fireEvent.click(head("beta"));
-  expect(head("beta").getAttribute("aria-expanded")).toBe("false");
+  await expanded("beta", "false");
 });
 
 it("u3770b_escape_collapses_and_returns_focus", async () => {
   const m = await mountInbox();
   const head = within(panel()).getByText("gamma").closest("button")!;
   fireEvent.click(head);
-  within(panel()).getByRole("button", { name: "Retry" }).focus();
+  (await within(panel()).findByRole("button", { name: "Retry" })).focus();
   fireEvent.keyDown(document.activeElement!, { key: "Escape" });
-  expect(head.getAttribute("aria-expanded")).toBe("false");
+  await waitFor(() => expect(head.getAttribute("aria-expanded")).toBe("false"));
   expect(document.activeElement).toBe(head);
   expect(m.connected.drawer.content()).not.toBeNull();
 });
@@ -132,10 +134,10 @@ it("u3770c_approve_and_reject_answer_through_decision_answer", async () => {
   await open(m, decision("d1", "a"));
   await open(m, decision("d2", "f"));
   const row = (name: string) => within(panel()).getByText(name).closest("li")!;
-  fireEvent.click(within(row("alpha")).getByRole("button", { name: "Approve" }));
+  fireEvent.click(await within(row("alpha")).findByRole("button", { name: "Approve" }));
   await waitFor(() => expect(calls(m, "decision.answer")).toHaveLength(1));
   expect(calls(m, "decision.answer")[0]).toMatchObject({ id: "d1", answer: "allow", identity: { decision: "d1" } });
-  fireEvent.click(within(row("zeta")).getByRole("button", { name: "Reject" }));
+  fireEvent.click(await within(row("zeta")).findByRole("button", { name: "Reject" }));
   await waitFor(() => expect(calls(m, "decision.answer")).toHaveLength(2));
   expect(calls(m, "decision.answer")[1]).toMatchObject({ id: "d2", answer: "deny" });
 });
@@ -143,7 +145,7 @@ it("u3770c_approve_and_reject_answer_through_decision_answer", async () => {
 it("u3770c_retry_resumes_the_failed_agent", async () => {
   const m = await mountInbox();
   fireEvent.click(within(panel()).getByText("gamma").closest("button")!);
-  fireEvent.click(within(panel()).getByRole("button", { name: "Retry" }));
+  fireEvent.click(await within(panel()).findByRole("button", { name: "Retry" }));
   await waitFor(() => expect(calls(m, "agent.resume")).toEqual([{ id: "c" }]));
   await send(m, status("c", "working"));
   expect(names(groupOf("Running"))).toEqual(["beta", "gamma"]);
@@ -154,7 +156,7 @@ it("u3770c_a_failed_call_keeps_the_row_open_with_the_error", async () => {
   m.app.handlers["agent.resume"] = () => { throw new Error("cannot resume"); };
 
   fireEvent.click(within(panel()).getByText("gamma").closest("button")!);
-  fireEvent.click(within(panel()).getByRole("button", { name: "Retry" }));
+  fireEvent.click(await within(panel()).findByRole("button", { name: "Retry" }));
   await within(panel()).findByRole("alert");
 
   expect(within(panel()).getByRole("button", { name: "Retry" }).hasAttribute("disabled")).toBe(false);
@@ -241,4 +243,16 @@ it("u3770e_reduced_motion_makes_every_change_instant", async () => {
   fireEvent.click(within(panel()).getByRole("button", { name: "Approve" }));
   await waitFor(() => expect(within(panel()).queryByText("alpha")).toBeNull());
   expect(within(panel()).queryByRole("status")).toBeNull();
+});
+
+it("u3770a_unread_comment_rows_keep_u3742_behaviour", async () => {
+  const m = await mountTodos([{ ...todo(1, { title: "Ship" }) }], true, structuredClone(NODES));
+  m.app.handlers["decision.list"] = () => [];
+  m.store.comments!.set(1, [{ id: 1, author: { kind: "agent", id: "a", parent: null }, body: "which branch?", created_at: 1, read: false }]);
+  m.connected.drawer.open(() => <Inbox />);
+  const row = await within(groupOf("Needs you")).findByRole("button", { name: /alpha commented on Ship/ });
+  // The unread comment row follows the Agent rows and makes no Message call.
+  expect(within(row).getByText("which branch?")).toBeTruthy();
+  expect(groupOf("Needs you").lastElementChild!.contains(row)).toBe(true);
+  expect(m.app.calls.some((call) => call.method.startsWith("message."))).toBe(false);
 });
