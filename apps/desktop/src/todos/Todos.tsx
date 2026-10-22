@@ -1,5 +1,6 @@
 import { todoCreationEditor } from "../drawer/editors";
 import ChevronUp from "lucide-solid/icons/chevron-up";
+import ListChecks from "lucide-solid/icons/list-checks";
 import { IconButton } from "../ui/IconButton";
 import { contextMenu, linkEntries, openOnRelease } from "../ui/contextMenu";
 import { Tip } from "../ui/Tip";
@@ -842,7 +843,7 @@ export const Todos = (props: {
           <Icon name="plus" />
           <span>{copy.todo}</span>
         </button>
-        <button data-button="quiet" type="button" class="word shelf-triage" data-triage-toggle aria-pressed={triage.on()} onClick={() => triage.on() ? leaveTriage() : enterTriage()}>{copy.triage}</button>
+        <IconButton class="shelf-triage" data-triage-toggle aria-label={copy.triage} aria-pressed={triage.on()} chord={CHORDS.find(row => row.keys === "T" && row.inShelf)} onClick={() => triage.on() ? leaveTriage() : enterTriage()}><ListChecks class="icon" aria-hidden="true" width={16} height={16} stroke-width={1.75} /></IconButton>
       </ScopeAction>
       <Show when={todos.failure()}>{(message) => <ErrorLine message={message()} />}</Show>
       <Show when={createFailure() !== null && (adding() === null || fieldGroupGone())}>{(_) => <ErrorLine message={createFailure()!} />}</Show>
