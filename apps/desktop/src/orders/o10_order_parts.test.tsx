@@ -34,35 +34,21 @@ const open = async (done: string | undefined, read: () => { prompt: string | nul
   return await screen.findByLabelText("Full order of alpha");
 };
 
-describe("O10: the Drawer shows the order in parts", () => {
-  it("o10_the_prompt_is_closed_by_default", async () => {
-    const drawer = await open("x", () => ({ prompt }));
-    await waitFor(() => expect(drawer.querySelector("details")).not.toBeNull());
-    expect(drawer.querySelector("details")!.open).toBe(false);
-  });
-
-  it("o10_the_open_prompt_is_markdown", async () => {
-    const drawer = await open("x", () => ({ prompt }));
-    await waitFor(() => expect(drawer.querySelector("details")).not.toBeNull());
-    fireEvent.click(drawer.querySelector("summary")!);
-    const body = drawer.querySelector<HTMLElement>(".order-prompt-body")!;
-    expect(body.querySelector("h2")?.textContent).toBe("Details");
-    expect(body.querySelector("strong")?.textContent).toBe("bold");
-  });
-
-  it("o10_no_prompt_no_part", async () => {
-    const drawer = await open(undefined, () => ({ prompt: null }));
-    await new Promise((r) => setTimeout(r, 20));
-    expect(drawer.querySelector("details")).toBeNull();
-    expect(drawer.textContent).not.toContain("Prompt");
-  });
-
-  it("o10_a_failed_read_shows_its_text", async () => {
+describe("O17: the Drawer shows no Prompt", () => {
+  it("o17_a_failed_read_still_shows_its_text", async () => {
     const drawer = await open("x", () => {
       throw new Error("no such Agent");
     });
 
     await waitFor(() => expect(drawer.querySelector(".order-prompt-error")).not.toBeNull());
     expect(drawer.querySelector(".order-prompt-error")!.textContent).toContain("no such Agent");
+  });
+
+  it("o17_no_prompt_is_drawn", async () => {
+    const drawer = await open("x", () => ({ prompt }));
+    await new Promise((r) => setTimeout(r, 20));
+    expect(drawer.querySelector("details, .order-prompt")).toBeNull();
+    expect(drawer.textContent).not.toContain("Prompt");
+    expect(drawer.textContent).not.toContain("Walk through");
   });
 });
