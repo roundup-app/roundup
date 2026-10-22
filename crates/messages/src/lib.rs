@@ -8,6 +8,7 @@ pub mod digest_schema;
 pub mod evidence;
 mod hops;
 mod inbox;
+mod input;
 mod pushes;
 pub mod reaction;
 mod restart;
@@ -34,6 +35,7 @@ use contracts::message::{
 };
 use contracts::{Actor, ActorKind, EventData, Kind, Verb};
 pub use inbox::NoteInbox;
+use input::input_effect;
 use rpc::{Bus, Ctx, Module, OpenError, RpcError, code, params, reply};
 use serde_json::Value;
 use step::{Effect, Event, State, step};
@@ -1863,43 +1865,6 @@ fn hold_for_takeover(pending: &[Message]) -> Vec<u32> {
     step(&view(pending, &[], false), Event::TakeoverBegin)
         .0
         .held_takeover
-}
-
-/// B32: what `bytes` the user wrote do to the count of unsent input: whether one ends it (a `\r`
-/// that submits, Ctrl-U or Ctrl-C) and whether input remains after the last such byte. Escape
-/// sequences (focus and mouse reports, arrow keys) are not text and are not counted.
-fn input_effect(bytes: &[u8]) -> (bool, bool) {
-    let (mut ended, mut tail) = (false, false);
-    let mut i = 0;
-    while i < bytes.len() {
-        match bytes[i] {
-            b'\r' | 0x15 | 0x03 => {
-                ended = true;
-                tail = false;
-            }
-            0x1b => {
-                // CSI: ESC [ params final(0x40..=0x7e); SS3: ESC O final.
-                match bytes.get(i + 1) {
-                    Some(b'[') => {
-                        i += 2;
-                        while i < bytes.len() && !(0x40..=0x7e).contains(&bytes[i]) {
-                            i += 1;
-                        }
-                    }
-                    Some(b'O') => i += 2,
-                    // U399: ESC then a byte is one Alt chord (`\x1b\r` is ⇧⏎'s new line), input and never a submit.
-                    Some(_) => {
-                        i += 1;
-                        tail = true;
-                    }
-                    None => {}
-                }
-            }
-            _ => tail = true,
-        }
-        i += 1;
-    }
-    (ended, tail)
 }
 
 /// B32: the ids `step` holds when the user types into a Terminal over these `pending` Messages.
