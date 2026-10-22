@@ -39,8 +39,10 @@ fn token(config: &Path) -> Option<String> {
         .map(str::to_owned)
 }
 
-#[cfg(target_os = "macos")]
 fn keychain() -> Option<String> {
+    if std::env::consts::OS != "macos" {
+        return None;
+    }
     let out = std::process::Command::new("security")
         .args([
             "find-generic-password",
@@ -53,11 +55,6 @@ fn keychain() -> Option<String> {
     out.status
         .success()
         .then(|| String::from_utf8_lossy(&out.stdout).into_owned())
-}
-
-#[cfg(not(target_os = "macos"))]
-fn keychain() -> Option<String> {
-    None
 }
 
 /// What the vendor answered, as the weekly figure. A shape it does not recognise is unavailable.
