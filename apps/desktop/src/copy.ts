@@ -421,6 +421,8 @@ export const copy = {
   startWhenSlotFrees: "Start when a slot frees",
   startAfterTodo: "Start after another Todo",
   chooseTodo: "Choose a Todo",
+  createNeedsName: "Name the Workstream first",
+  createNeedsTodo: "Choose a Todo to wait for",
   startAfterTodoLabel: "Todo to wait for",
   createWorkstream: "Create",
   queuedBadge: (place: number) => `queued · ${place}`,
