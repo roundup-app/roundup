@@ -12,6 +12,7 @@ import { rowButtonOf, triage } from "./triage";
 const drafts = new Map<number, string>();
 
 type Part = { text: string } | { summary: string; details: string };
+
 const isStatus = (part: Part): part is Extract<Part, { summary: string }> => "summary" in part;
 
 const STATUS = "::status ";
