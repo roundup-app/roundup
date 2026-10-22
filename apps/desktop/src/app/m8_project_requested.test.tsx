@@ -93,8 +93,19 @@ it("u3021a_recovery_lists_only_work_at_risk", async () => {
   const recovery = await screen.findByRole("region", { name: "Unfinished work" });
 
   expect(within(recovery).getAllByRole("listitem")).toHaveLength(1);
-  expect(app.shownMenus.at(-1)!.items.map((item) => item.label)).toEqual(["Recover unfinished work 1"]);
+  expect(app.shownMenus.at(-1)!.items.map((item) => item.label)).toEqual(["Recover unfinished work (1)"]);
   expect(holder.list()).toHaveLength(2);
+});
+
+it("u3289c_overview_menu_opens_from_the_keyboard", async () => {
+  const drafts = createProjectDrafts();
+  failedSave(drafts(FIRST.path), { surface: "todos", object: "9", recipient: null }, { title: "lost when closed" });
+  const app = mount(drafts);
+  const overview = await screen.findByRole("button", { name: /^Overview/ });
+
+  overview.focus();
+  fireEvent.keyDown(overview, { key: "F10", shiftKey: true });
+  await vi.waitFor(() => expect(app.shownMenus.at(-1)?.items.map((item) => item.label)).toEqual(["Recover unfinished work (1)"]));
 });
 
 it("u3289a_left_or_crashed_input_qualifies", async () => {
@@ -277,7 +288,7 @@ it.each(Object.entries(owners))("u3289a_open_editor_stays_off_the_list_until_the
   cleanup();
   mount(createProjectDrafts());
   await screen.findByRole("tab", { name: FIRST.name });
-  await vi.waitFor(async () => expect(await recoveryLabel()).toBe("Recover unfinished work 1"));
+  await vi.waitFor(async () => expect(await recoveryLabel()).toBe("Recover unfinished work (1)"));
 });
 
 it("u3289c_overview_menu_opens_recovery", async () => {
@@ -290,7 +301,7 @@ it("u3289c_overview_menu_opens_recovery", async () => {
   expect(app.shownMenus).toEqual([]);
   failedSave(holder, { surface: "todos", object: "9", recipient: null }, { title: "lost when closed" });
   failedSave(holder, { surface: "todos", object: "10", recipient: null }, { title: "lost too" });
-  expect(await recoveryLabel()).toBe("Recover unfinished work 2");
+  expect(await recoveryLabel()).toBe("Recover unfinished work (2)");
   fireEvent.click(overview);
   expect(screen.queryByRole("region", { name: "Unfinished work" })).toBeNull();
   await openRecovery();

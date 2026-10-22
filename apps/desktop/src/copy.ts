@@ -100,7 +100,7 @@ export const copy = {
   noDraftRecipient: "No recipient",
   credentialDraftMemoryOnly: "This form contains credentials. Values are hidden here and will not survive a reload.",
   recoverDrafts: "Recover unfinished work",
-  recoverDraftsCount: (count: number) => `Recover unfinished work ${count}`,
+  recoverDraftsCount: (count: number) => `Recover unfinished work (${count})`,
   riskCause: { failed: "failed to save", unknown: "may not have saved", draft: "not saved for reload", left: "left unsent", gone: "original removed" },
   draftTitle: (place: string, name: string) => `${place} "${name}"`,
   riskLine: (cause: string, time: string) => `${cause} · ${time}`,

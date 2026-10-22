@@ -663,7 +663,7 @@ describe("u2773 Project draft integration on real Projects", () => {
     mount();
     await screen.findByRole("tab", { name: "first" });
     // B was left unsent and A is in flight: only B lists (U3289a).
-    expect(await recoveryLabel()).toBe("Recover unfinished work 1");
+    expect(await recoveryLabel()).toBe("Recover unfinished work (1)");
     fireEvent.click(screen.getByRole("button", { name: "Open a folder" }));
     await screen.findByRole("tab", { name: "second" });
     holder.settle(a.revision, "failed");
