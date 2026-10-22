@@ -528,12 +528,6 @@ read through `decision.list` with its Reach filtering: requesting Attempt,
 answering Actor, failure time and exact RPC error code and message. It is not a
 successful answer record; replacement, clearing or successful delivery discards it.
 
-**Terminal question** (`AskCall`, `TerminalAnswer`, `answer_terminal_question`):
-An `ask_user` question the user reads and answers in its Agent's primary Terminal.
-The answer belongs to the original Decision and Attempt and retains its authenticated
-answering Actor. `AskCall.terminal` correlates that waiting call with its form and
-grants no answering authority.
-
 **Prompt identity** (`PromptIdentity`, `CaptureParams`, `decision.capture`):
 The original Decision's identity within one Daemon run, Agent and Attempt. A held answer or answer-like Terminal write carries it into the effect; an answered, dismissed, replaced or unavailable original refuses with an error the Daemon can record as dropped. Equal text and a reused Decision id never revive it. It grants no Reach or Proof.
 
@@ -842,6 +836,9 @@ until their exact-version Result resolution. They block completion checks and cu
 attribution of later claims for that target. Other current attribution requires the
 same Order and latest Instruction revision, plus the latest reported version of that
 target. Opening or inspecting Progress starts nothing and sends no Message.
+User-label states, each led by a glyph: "Accepted" (check), "Checked independently"
+(check), "Check pending" (circle), "Older version" (circle), "Unknown outcome" (diamond)
+and "Evidence unavailable" (x).
 
 **Request cost** (`RequestCost`, `CacheWrites`):
 The observed opaque Model and independently observed five-minute/one-hour cache-write

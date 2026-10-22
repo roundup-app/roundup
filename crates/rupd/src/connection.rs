@@ -74,13 +74,7 @@ pub(crate) async fn handle(stream: UnixStream, daemon: Arc<Daemon>) -> io::Resul
         .ok()
         .and_then(|cred| cred.pid())
         .and_then(|pid| u32::try_from(pid).ok());
-    let mut stream = BufReader::new(stream);
-    let first = tokio::time::timeout(std::time::Duration::from_secs(10), stream.fill_buf())
-        .await
-        .map_err(|_| io::Error::new(io::ErrorKind::TimedOut, "connection sent no request"))??;
-    if first.first() == Some(&b'P') {
-        return terminal_question::serve(stream, daemon, stream_pid).await;
-    }
+    let stream = BufReader::new(stream);
     let (read, mut write) = tokio::io::split(stream);
     let (frames, mut outbox) = mpsc::unbounded_channel::<Value>();
     let (port, mut selected_output) = output::Port::new();
