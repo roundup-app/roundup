@@ -73,7 +73,7 @@ describe("u135 schemes", () => {
       .filter((rule) => rule.style.getPropertyValue("backdrop-filter") && rule.style.getPropertyValue("backdrop-filter") !== "none");
 
     expect(filters.map((rule) => [rule.selectorText, rule.style.getPropertyValue("backdrop-filter")])).toEqual([
-      [".bubble-frame:has(.bubble:focus-within)::backdrop", "blur(var(--blur-bubble-backdrop))"],
+      [":root:has(.bubble:focus-within) .centre-stack::before", "blur(var(--blur-bubble-backdrop))"],
     ]);
     defaults.remove();
   });
