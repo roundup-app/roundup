@@ -7,6 +7,7 @@ import { ErrorLine } from "../ink/ErrorLine";
 import { Markdown } from "../plain/Markdown";
 import { useConnectedProject } from "../state/connectedProject";
 import { AskCard, questionOf } from "./AskCard";
+import { plainRefusal } from "./decisions";
 import "./styles.css";
 
 const json = v.pipe(v.string(), v.parseJson());
@@ -98,7 +99,7 @@ export const DecisionCard = (props: { decision: Decision; name: string; focusTer
       <Show when={decisions.answerFailure(id())}>{(message) => <ErrorLine message={message()} />}</Show>
       <Show when={props.decision.answerable ? asked() : null} keyed>
         {(question) => <>
-          <Show when={!props.selected && prompt()?.failure}>{message => <div class="decision-list-failure"><ErrorLine message={message()} /><button type="button" data-button="quiet" onClick={() => void refetch()}>{copy.retry}</button></div>}</Show>
+          <Show when={!props.selected && prompt()?.failure}>{message => <div class="decision-list-failure"><ErrorLine message={plainRefusal(message())} /><button type="button" data-button="quiet" onClick={() => void refetch()}>{copy.retry}</button></div>}</Show>
           <Show when={editor()} keyed>{entry => <AskCard question={question} identity={entry.identity} stuck={stuck} selectedRevision={entry.revision} />}</Show>
         </>}
       </Show>

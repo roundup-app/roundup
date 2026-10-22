@@ -211,7 +211,7 @@ it("p2544e_reopen_saved_agent_work", async () => {
     await openRealPad();
     expect(await evaluate("document.querySelector('.ProseMirror').getAttribute('contenteditable')")).toBe("false");
     // Ownership is the subject here; keyboard activation cannot miss the control while lazy visuals change layout.
-    await browser("focus", ".pad-head button[aria-label='Make yours']");
+    await browser("focus", ".pad-head .pad-make-yours");
     await browser("press", "Enter");
     await browser("wait", ".ProseMirror[contenteditable=true]");
     await browser("focus", ".ProseMirror");

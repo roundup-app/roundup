@@ -94,7 +94,7 @@ describe("u373 the Shelf has two tabs", () => {
 
   it("u373_add_keeps_its_path", async () => {
     await mountApp();
-    fireEvent.click(await within(shelf()).findByRole("button", { name: "Add Todo" }));
+    fireEvent.click(await within(shelf()).findByRole("button", { name: "add todo to Overview" }));
     expect(await screen.findByLabelText("New Todo title")).toBeTruthy();
     fireEvent.click(tabNamed("Pads"));
     fireEvent.click(await within(shelf()).findByRole("button", { name: "Add Pad" }));

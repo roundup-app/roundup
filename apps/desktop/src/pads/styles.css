@@ -21,18 +21,21 @@
   line-height: var(--space-5);
 }
 
-/* Saved is state beside the name; actions trail with twice their inter-action gap. */
+/* U3729: the name and its status share one baseline; the status is quieter and smaller, so it reads as a state. */
 .pad-head-title {
   flex: 1;
   min-width: 0;
   display: flex;
+  align-items: baseline;
   gap: var(--space-2);
   margin-right: var(--space-2);
+  line-height: var(--space-5);
 }
 
-.pad-saved {
+.pad-saved,
+.pad-owner {
   flex-shrink: 0;
-  line-height: var(--space-5);
+  font-size: var(--text-small);
 }
 
 .pad-editor {
