@@ -336,6 +336,7 @@ button.ask-line:is(:active, [data-pressed="true"]) {
 }
 
 .call-line {
+  container-type: inline-size;
   font-size: var(--text-small);
   color: var(--grey);
 }
@@ -375,14 +376,19 @@ button.ask-line:is(:active, [data-pressed="true"]) {
 
 .call-agent,
 .call-tool {
-  flex-shrink: 1;
+  flex-shrink: 0;
   min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
+.call-agent {
+  max-width: 30cqw;
+}
+
 .call-tool {
+  max-width: 40cqw;
   font-family: var(--font-mono);
   color: var(--text);
 }
