@@ -1,13 +1,15 @@
 import * as v from "valibot";
-import { createMemo, createResource, createSignal, onCleanup } from "solid-js";
+import { createEffect, createMemo, createResource, createSignal, onCleanup } from "solid-js";
 import type { Accessor } from "solid-js";
 import type { AnswerParams } from "@contracts/decision/AnswerParams";
+import type { Scope } from "@contracts/decision/Scope";
 import type { PromptIdentity } from "@contracts/decision/PromptIdentity";
 import type { ConnectedProject } from "../state/connectedProject";
 import { RpcError } from "../app/seam";
 import type { Decision } from "@contracts/decision/Decision";
 import type { Events } from "../app/events";
 import { copy } from "../copy";
+import { readPermission } from "./permission";
 import type { AppSeam, DaemonExit } from "../app/seam";
 
 /** U3750: a refusal for a lost prompt identity names the Terminal, never a Decision id or Attempt. */
@@ -22,7 +24,17 @@ const draftSchema = v.object({ daemon: v.string(), agent: v.string(), attempt: v
 /** Stable storage destination: a reused Decision id must not replace an older Prompt's draft. */
 export const promptKey = (prompt: PromptIdentity): string => JSON.stringify([prompt.daemon, prompt.agent, prompt.attempt, prompt.decision]);
 
+/** U3795: the one line an answered permission Card folds to; memory only. */
+export type Folded = { id: string; agent: string; verdict: Scope | "denied"; target: string; removed: boolean };
+
 export type DecisionsState = {
+  /** U3795: the line that replaced `agent`'s answered Card, until its next Decision, a dismissal or its removal. */
+  folded(agent: string | null): Folded | undefined;
+  dismiss(agent: string): void;
+  /** U3795: remove the `project` Grant of a folded line once; false while a call is pending. */
+  revoke(agent: string): Promise<void>;
+  revoking(agent: string): boolean;
+  revokeFailure(agent: string): string | null;
   /** Read-only Prompt authority for this connection; pending or failed reads grant none. */
   availability(prompt: PromptIdentity): "available" | "unavailable" | "unverified";
   /** The Decision the Agent (or a Workstream's Door) waits on; the newest when a replacement is still arriving. */
@@ -35,19 +47,22 @@ export type DecisionsState = {
   answering(id: string): boolean;
   answerFailure(id: string): string | null;
   /** `answer` is a permission word or an `ask_user` label; null with a note is the user's own answer (H14). */
-  answer(id: string, answer: string | null, note?: string, identity?: PromptIdentity): Promise<"acknowledged" | "failed" | "unknown">;
+  answer(id: string, answer: string | null, note?: string, identity?: PromptIdentity, scope?: Scope): Promise<"acknowledged" | "failed" | "unknown">;
 };
 
 /**
  * Subscribes before it lists, and reconciles by id: an id an Event touched while a list was in flight keeps what the
  * Event said, so an old list neither resurrects a cleared Decision nor overwrites its replacement.
  */
-export const createDecisions = (app: AppSeam, events: Events, daemonExit: Accessor<DaemonExit | null>, drafts: Pick<ConnectedProject["drafts"], "list" | "validate" | "registerRecovery">): DecisionsState => {
+export const createDecisions = (app: AppSeam, events: Events, daemonExit: Accessor<DaemonExit | null>, drafts: Pick<ConnectedProject["drafts"], "list" | "validate" | "registerRecovery">, present: Accessor<ReadonlySet<string>> = () => new Set()): DecisionsState => {
   const [decisions, setDecisions] = createSignal<readonly Decision[]>([]);
   const [listFailure, setListFailure] = createSignal<string | null>(null);
   const [pending, setPending] = createSignal<ReadonlySet<string>>(new Set());
   const [failures, setFailures] = createSignal<ReadonlyMap<string, string>>(new Map());
   const [observed, setObserved] = createSignal(false);
+  const [folds, setFolds] = createSignal<ReadonlyMap<string, Folded>>(new Map());
+  const [revokes, setRevokes] = createSignal<ReadonlySet<string>>(new Set());
+  const [revokeFailures, setRevokeFailures] = createSignal<ReadonlyMap<string, string>>(new Map());
   let reading: Set<string> | null = null;
 
   drafts.validate("decisions", draftSchema);
@@ -89,6 +104,18 @@ export const createDecisions = (app: AppSeam, events: Events, daemonExit: Access
     return captures;
   });
 
+  const unfold = (agent: string) => {
+    setFolds((current) => new Map([...current].filter(([key]) => key !== agent)));
+    setRevokeFailures((current) => new Map([...current].filter(([key]) => key !== agent)));
+  };
+
+  // A removed Agent keeps no line; an empty Rail is a Rail still loading.
+  createEffect(() => {
+    const agents = present();
+
+    if (agents.size > 0) for (const agent of folds().keys()) if (!agents.has(agent)) unfold(agent);
+  });
+
   const without = (id: string) => setDecisions((current) => current.filter((each) => each.id !== id));
 
   const forget = (id: string) => {
@@ -99,6 +126,7 @@ export const createDecisions = (app: AppSeam, events: Events, daemonExit: Access
 
   onCleanup(events.subscribe((event) => {
     if (event.name === "decision.opened") {
+      unfold(event.data.agent);
       reading?.add(event.data.id);
       setDecisions((current) => [...current.filter((each) => each.id !== event.data.id), event.data]);
     } else if (event.name === "decision.cleared") {
@@ -130,8 +158,11 @@ export const createDecisions = (app: AppSeam, events: Events, daemonExit: Access
 
   void list();
 
-  const answer = async (id: string, text: string | null, note?: string, identity?: PromptIdentity): Promise<"acknowledged" | "failed" | "unknown"> => {
+  const answer = async (id: string, text: string | null, note?: string, identity?: PromptIdentity, scope?: Scope): Promise<"acknowledged" | "failed" | "unknown"> => {
     if (daemonExit() !== null || pending().has(id)) return outcomes.unknown;
+
+    // Read before the call: the Daemon's cleared Event may remove the Decision before the reply arrives.
+    const asked = decisions().find((each) => each.id === id);
 
     setPending((current) => new Set(current).add(id));
     setFailures((current) => new Map([...current].filter(([key]) => key !== id)));
@@ -144,11 +175,17 @@ export const createDecisions = (app: AppSeam, events: Events, daemonExit: Access
       // A permission answer sends no note (H14).
       const params: AnswerParams = { id, answer: text, proof };
 
+      if (scope && scope !== "once") params.scope = scope;
+
       if (identity) params.identity = identity;
 
       sent = true;
       await app.rpc("decision.answer", note === undefined ? params : { ...params, note });
       forget(id);
+
+      if (asked && asked.answerable && asked.tool !== "ask_user" && (text === "allow" || text === "deny")) {
+        setFolds((current) => new Map(current).set(asked.agent, { id, agent: asked.agent, verdict: text === "deny" ? "denied" : scope ?? "once", target: readPermission(asked).target, removed: false }));
+      }
 
       return outcomes.acknowledged;
     } catch (thrown) {
@@ -162,7 +199,33 @@ export const createDecisions = (app: AppSeam, events: Events, daemonExit: Access
     }
   };
 
+  const revoke = async (agent: string): Promise<void> => {
+    const line = folds().get(agent);
+
+    if (!line || line.verdict !== "project" || line.removed || revokes().has(agent) || daemonExit() !== null) return;
+
+    setRevokes((current) => new Set(current).add(agent));
+    setRevokeFailures((current) => new Map([...current].filter(([key]) => key !== agent)));
+
+    try {
+      await app.rpc("decision.revoke", { id: line.id, proof: await app.daemonProof() });
+      unfold(agent);
+    } catch (thrown) {
+      if (!(thrown instanceof Error)) throw thrown;
+
+      if (thrown instanceof RpcError && thrown.code === -32001) setFolds((current) => new Map(current).set(agent, { ...line, removed: true }));
+      else setRevokeFailures((current) => new Map(current).set(agent, thrown.message));
+    } finally {
+      setRevokes((current) => new Set([...current].filter((key) => key !== agent)));
+    }
+  };
+
   return {
+    folded: (agent) => agent === null ? undefined : folds().get(agent),
+    dismiss: unfold,
+    revoke,
+    revoking: (agent) => revokes().has(agent),
+    revokeFailure: (agent) => revokeFailures().get(agent) ?? null,
     availability: (prompt) => {
       if (daemonExit()) return availability.unavailable;
 

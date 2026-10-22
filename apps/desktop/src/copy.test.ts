@@ -28,6 +28,8 @@ const visit = (node: Node, ancestors: readonly Node[], read: (node: Node, ancest
 
 // These are executable structure or diagnostics never shown by the App, not copy exemptions.
 const STRUCTURE = new Set([
+  // U3794: tool names the Agent runtime sends and a selector for text fields are executable structure, not prose.
+  "Edit", "MultiEdit", "Write", "NotebookEdit", "textarea, select, [contenteditable]:not([contenteditable=false]), input:not([type=radio]):not([type=checkbox]):not([type=button])",
   // U2749b: a development/test invariant, never App copy.
   "Tooltip anchor excludes its opening pointer",
   // U2239/U3721–U3724: registry key names and physical codes are executable structure, not prose.

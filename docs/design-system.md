@@ -35,6 +35,7 @@ Starting values. The thresholds in the checks are fixed; a value that fails a th
 | `--pressed` | `rgba(0,0,0,.10)` | `rgba(255,255,255,.16)` | a button from `pointerdown` |
 | `--text` | `#1d1d1f` | `#f5f5f7` | body text |
 | `--grey` | `#68686d` | `#a1a1a6` | secondary text, Glyph tone of `blocked`, `idle`, `done` |
+| `--cache-write` | `#b4b4b9` | `#636368` | Measurement cache-write segment and swatch |
 | `--disabled` | `#6f6f74` | `#8e8e93` | the label of a button that cannot act (4.5:1 on `--ground` and `--sunken`) |
 | `--accent` | `#0a60d8` | `#4d9bff` | focus ring, Glyph tone of `working`, the primary action |
 | `--amber` | `#975900` | `#f0a030` | `needs-you` |

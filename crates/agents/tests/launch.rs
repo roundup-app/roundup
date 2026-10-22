@@ -2674,6 +2674,94 @@ fn a2681b_explicit_name_then_latest_ai_title() {
     }
 }
 
+fn used_reply(input: u64) -> Value {
+    json!({"type":"assistant", "message":{"usage":{"input_tokens":input}}})
+}
+
+#[test]
+fn a2681d_split_comes_from_the_latest_context_record_and_other_takes_the_rest() {
+    let context: Value =
+        serde_json::from_str(include_str!("fixtures/overview/2.1.296-context.jsonl")).unwrap();
+    let overview = conversation_overview(&[used_reply(20000), context.clone()]);
+    assert_eq!(
+        overview["context_parts"],
+        json!([
+            {"kind":"system","tokens":1867},
+            {"kind":"tools","tokens":11881},
+            {"kind":"files","tokens":3},
+            {"kind":"conversation","tokens":3415},
+            {"kind":"other","tokens":2834},
+        ])
+    );
+    // No remainder: no `other`. A category the record omits is omitted, never zero.
+    let mut exact = context.clone();
+    exact["contextUsage"]["categories"]
+        .as_array_mut()
+        .unwrap()
+        .retain(|c| c["name"] != "Memory files");
+    let overview = conversation_overview(&[used_reply(17163), exact.clone()]);
+    assert_eq!(overview["context_parts"].as_array().unwrap().len(), 3);
+    // The latest record wins.
+    let mut later = exact;
+    later["contextUsage"]["categories"][0]["tokens"] = json!(1);
+    let overview = conversation_overview(&[used_reply(20000), context, later]);
+    assert_eq!(overview["context_parts"][0]["tokens"], 1);
+    // Parts above the used total are unreliable.
+    let big: Value =
+        serde_json::from_str(include_str!("fixtures/overview/2.1.296-context.jsonl")).unwrap();
+    assert!(
+        conversation_overview(&[used_reply(100), big])
+            .get("context_parts")
+            .is_none()
+    );
+}
+
+#[test]
+fn a2681d_no_measured_split_gives_no_parts() {
+    let context: Value =
+        serde_json::from_str(include_str!("fixtures/overview/2.1.296-context.jsonl")).unwrap();
+    let garbled =
+        json!({"type":"system","subtype":"local_command","contextUsage":{"categories":"x"}});
+    for records in [
+        vec![used_reply(20000)],
+        vec![used_reply(20000), garbled],
+        vec![context],
+    ] {
+        let overview = conversation_overview(&records);
+        assert!(overview.get("context_parts").is_none());
+        assert_eq!(
+            overview.get("used").is_some(),
+            records.len() == 2 || records[0]["type"] == "assistant"
+        );
+    }
+}
+
+#[test]
+fn a3373a_a_later_cost_record_keeps_the_context_split() {
+    let context: Value =
+        serde_json::from_str(include_str!("fixtures/overview/2.1.296-context.jsonl")).unwrap();
+    let cost = json!({"type":"system","subtype":"local_command","commandRun":{"command":"cost"}});
+    let overview = conversation_overview(&[used_reply(20000), context, cost]);
+    assert_eq!(overview["context_parts"].as_array().unwrap().len(), 5);
+}
+
+#[test]
+fn a3373a_the_latest_context_record_still_decides() {
+    let context: Value =
+        serde_json::from_str(include_str!("fixtures/overview/2.1.296-context.jsonl")).unwrap();
+    let mut later = context.clone();
+    later["contextUsage"]["categories"][0]["tokens"] = json!(1);
+    let overview = conversation_overview(&[used_reply(20000), context.clone(), later]);
+    assert_eq!(overview["context_parts"][0]["tokens"], 1);
+    let mut garbled = context.clone();
+    garbled["contextUsage"]["categories"] = json!("x");
+    assert!(
+        conversation_overview(&[used_reply(20000), context, garbled])
+            .get("context_parts")
+            .is_none()
+    );
+}
+
 fn assistant_card(text: &str) -> Value {
     json!({"type":"assistant", "message":{"content":[{"type":"text", "text":text}]}})
 }

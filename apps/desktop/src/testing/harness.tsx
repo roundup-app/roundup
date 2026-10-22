@@ -97,7 +97,7 @@ if (query.get("daemon") === "1") {
     });
   }
 
-  const SELECTED = new Map([["door-stopped", "first-workstream"], ["door-report", "r1"], ["earlier-run", "earlier-agent"], ["decisions", "agent-1"]]);
+  const SELECTED = new Map([["door-stopped", "first-workstream"], ["door-report", "r1"], ["earlier-run", "earlier-agent"], ["context-bar", "split-agent"], ["decisions", "agent-1"]]);
 
   const selected = SELECTED.get(seed);
 

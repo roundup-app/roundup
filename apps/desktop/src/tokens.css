@@ -15,6 +15,7 @@
   --scrim: rgba(0, 0, 0, 0.4);
   --text: #1d1d1f;
   --grey: #68686d;
+  --cache-write: #b4b4b9;
   --disabled: #6f6f74;
   --accent: #0a60d8;
   --amber: #975900;
@@ -69,6 +70,7 @@
   --duration-count: 560ms;
   --duration-toast: 150ms;
   --duration-toast-in: 200ms;
+  --duration-fold: 150ms;
   --duration-scrollbar: 200ms;
 
   --font-ui: -apple-system, BlinkMacSystemFont, "SF Pro Text", system-ui, sans-serif;
@@ -108,6 +110,7 @@
     --pressed: rgba(255, 255, 255, 0.16);
     --text: #f5f5f7;
     --grey: #a1a1a6;
+    --cache-write: #636368;
     --disabled: #8e8e93;
     --accent: #4d9bff;
     --amber: #f0a030;
