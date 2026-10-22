@@ -82,8 +82,8 @@ it("u2744a_shelf_scope_overview_groups_every_item_once", async () => {
   expect(ownTodos("a")).toEqual([2, 5]);
   expect(new Set(ids()).size).toBe(ids().length);
   await tab("Pads");
-  await waitFor(() => expect(names()).toEqual(["pad-1", "pad-6", "pad-8", "pad-12", "pad-2", "pad-5", "pad-11", "pad-3", "pad-7", "pad-4", "pad-9", "pad-10"]));
-  await waitFor(() => expect(groupIds()).toEqual(["w", "a", "v", "r", "unassigned"]));
+  await waitFor(() => expect(names()).toEqual(["pad-1", "pad-3", "pad-4", "pad-2", "pad-5", "pad-11", "pad-6", "pad-7", "pad-8", "pad-9", "pad-10", "pad-12"]));
+  await waitFor(() => expect(groupIds()).toEqual(["me", "a", "b", "r", "unassigned"]));
 });
 
 // The Todo folding clause is proved by u3717_unassigned_starts_folded; this keeps the shared disclosure keys.
@@ -219,7 +219,7 @@ it.each([[null, null, null], ["w", "w", null], ["a", "w", null], ["r", null, nul
   fireEvent.keyDown(name, { key: "Enter" });
   await waitFor(() => expect(app.calls.filter(call => call.method === "pad.create")).toHaveLength(1));
   await waitFor(() => expect(app.calls.filter(call => call.method === "pad.move").map(call => call.params)).toEqual(home ? [{ name: "new-pad", home }] : []));
-  expect((await app.rpc("pad.list", null)).find(pad => pad.name === "new-pad")?.owner).toEqual(USER);
+  expect((await app.rpc("pad.list", null)).find(pad => pad.name === "new-pad")?.owner).toEqual(selected === "a" || selected === "r" ? by(selected) : USER);
 });
 
 
