@@ -135,3 +135,8 @@
 button, file-tree-container {
   --ink-pressed: color-mix(in srgb, var(--text) 75%, transparent);
 }
+
+/* U3768: the progress bar's track tints the grey. */
+:root {
+  --progress-track: color-mix(in srgb, var(--grey) 40%, transparent);
+}
