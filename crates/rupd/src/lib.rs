@@ -26,6 +26,7 @@ mod reaction_time;
 mod removal;
 mod resize;
 mod resources;
+mod resume;
 mod rewind;
 mod route;
 mod specialist;
