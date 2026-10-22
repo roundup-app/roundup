@@ -56,7 +56,7 @@ describe("u3771 the motion reads its timings from Tokens", () => {
     ];
 
     const strike = rows.match(/@keyframes todo-strike-grow\s*\{([^@]*?\})\s*\}/)?.[1] ?? "";
-    expect([...strike.matchAll(/([\w-]+)\s*:/g)].flatMap((m) => (m[1] === "text-decoration-color" ? [] : [m[1]]))).toEqual([]);
+    expect([...strike.matchAll(/([\w-]+)\s*:/g)].flatMap((m) => (m[1] === "background-size" ? [] : [m[1]]))).toEqual([]);
 
     for (const [css, effect, token] of effects) {
       expect(css, effect).toMatch(new RegExp(`${effect}[^;]*var\\(${token}\\)|${effect}:\\s*var\\(${token}\\)`));

@@ -64,6 +64,7 @@
   --delay-strike: 220ms;
   --duration-bar: 1100ms;
   --strike-thickness: 1px;
+  --strike-offset: 55%;
   --stroke-tick: 1.5;
   --duration-count: 560ms;
   --duration-toast: 150ms;

@@ -56,6 +56,7 @@ Starting values. The thresholds in the checks are fixed; a value that fails a th
 | `--duration-tick` / `--delay-tick` | `420ms` / `160ms` | same | the tick draw (U3771) |
 | `--duration-ring` | `560ms` | same | the ring pop (U3771) |
 | `--duration-strike` / `--delay-strike` | `620ms` / `220ms` | same | the label strike (U3771) |
+| `--strike-thickness` / `--strike-offset` / `--stroke-tick` | `1px` / `55%` / `1.5` | same | the label strike line's thickness and height in the label, and the tick mark's stroke width (U3769) |
 | `--duration-bar` / `--duration-count` | `1100ms` / `560ms` | same | the progress bar fill / the count roll (U3771) |
 | `--duration-crossfade` | `120ms` | same | a base interval (`docs/motion.md`, 120 ms); the working arc uses eight intervals (U446). U105 periphery dimming is retired |
 
