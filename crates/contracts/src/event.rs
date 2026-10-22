@@ -59,6 +59,8 @@ pub enum EventData {
     AgentChannel(agent::ChannelEvent),
     #[serde(rename = "agent.stray")]
     AgentStray(agent::StrayEvent),
+    #[serde(rename = "agent.toolCall")]
+    AgentToolCall(Box<agent::ToolCallEvent>),
     #[serde(rename = "rail.changed")]
     RailChanged,
     /// A2741a: the exact destination and name committed under the Rail mutation lock.

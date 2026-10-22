@@ -434,6 +434,9 @@ Claude Code's own messaging socket for a message from another Claude Code instan
 **Mcp**:
 The Project setting `mcp {on}` (`project.setMcp`, M2219): with `on` false, or the Daemon's `ROUNDUP_MCP=off`, an Agent starts with no `roundup` MCP server and its Brief names `rup` commands. Only Agents started afterward change.
 
+**Tool call**:
+An Agent's current or last use of a tool, folded by the Adapter from the `PreToolUse`, `PostToolUse` and `PostToolUseFailure` Signals (U3780a): the tool, a one-line summary, the arguments, the result, a state (`running`, `done`, `failed`), the start and the duration, each text cut to a bound. `RailNode.tool_call` carries it and the event `agent.toolCall` announces a change. The Project overview shows it as one line that folds open (U3780b, U3780c). Not a Retry: roundup never re-runs one.
+
 **Stray**:
 A process under a Door's Terminal whose program name is one an Adapter supplies and that the Daemon did not register, found by name (F5). `RailNode.stray` lists them and the event `agent.stray` announces a change; it only detects.
 
