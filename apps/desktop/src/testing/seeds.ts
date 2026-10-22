@@ -469,9 +469,11 @@ const installDaemon = (app: FakeApp, tree: RailNode[], now: number, withShelf: b
 /** Runs `action` once the App has subscribed and its first reads have settled. */
 const afterFirstLoad = (app: FakeApp, action: () => void) => {
   const subscribe = app.subscribe;
-  app.subscribe = async (listener) => {
-    await subscribe(listener);
+  app.subscribe = async (listener, after) => {
+    const head = await subscribe(listener, after);
     setTimeout(action, 0);
+
+    return head;
   };
 };
 

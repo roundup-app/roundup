@@ -150,8 +150,9 @@ async fn subscribe(
     state: State<'_, AppState>,
     path: String,
     channel: Channel<Event>,
-) -> Result<(), RpcError> {
-    state.subscribe(&path, channel).await
+    after: Option<u64>,
+) -> Result<u64, RpcError> {
+    state.subscribe(&path, channel, after).await
 }
 
 /// X14: raw `ArrayBuffer` bodies of one Terminal's bytes, and JSON gaps, on one ordered channel.

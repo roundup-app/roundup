@@ -119,9 +119,7 @@ export const createTauriApp = (): App => {
             : failure;
         }
       },
-      subscribe: async (onEvent) => {
-        await command("subscribe", { path, channel: new Channel<DaemonEvent>(onEvent) });
-      },
+      subscribe: (onEvent, after) => parsedCommand(v.number(), "subscribe", { path, channel: new Channel<DaemonEvent>(onEvent), after: after ?? null }),
       selectOutput: async (id, listener) => {
         const key = JSON.stringify([path, id]);
         const token = {};

@@ -192,14 +192,23 @@ impl AppState {
     }
 
     /// Sends every Event of the Project's Daemon to `channel`, in the Daemon's order, until the Daemon or the webview goes away.
-    pub async fn subscribe(&self, path: &str, channel: Channel<Event>) -> Result<(), RpcError> {
+    /// With `after`, it first replays every saved Event numbered above it (D11). Answers the Daemon's `head`: the highest Event number saved when it accepted.
+    pub async fn subscribe(
+        &self,
+        path: &str,
+        channel: Channel<Event>,
+        after: Option<u64>,
+    ) -> Result<u64, RpcError> {
         let socket = self.open_ref(path, |open| open.socket.path().to_path_buf())?;
         let mut events = Client::connect(&socket).await.map_err(RpcError::internal)?;
-        self.bounded(
-            "events.subscribe",
-            events.request("events.subscribe", Value::Null),
-        )
-        .await?;
+        let params = after.map_or(Value::Null, |after| serde_json::json!({ "after": after }));
+        let answer = self
+            .bounded(
+                "events.subscribe",
+                events.request("events.subscribe", params),
+            )
+            .await?;
+        let head = answer.get("head").and_then(Value::as_u64).unwrap_or(0);
         let pump = tauri::async_runtime::spawn(async move {
             while let Some(event) = events.next_event().await {
                 if channel.send(event).is_err() {
@@ -216,7 +225,7 @@ impl AppState {
                 if let Some(previous) = open.subscription.replace(pump) {
                     previous.abort();
                 }
-                Ok(())
+                Ok(head)
             }
             _ => {
                 pump.abort();
