@@ -81,9 +81,9 @@ const Panel = (props: { id: string; name: string; worktree: Worktree; notes: Not
           <Show when={!diff()} fallback={<DiffReader id={props.id} name={props.name} path={path()!} notes={props.notes} editing={editing()} onEdited={() => setEditing(undefined)} onBack={() => { setEditing(undefined); setDiff(false); }} onClose={close} recover={props.recover} />}>
           <dl class="worktree-facts">
             <dt>{copy.branch}</dt>
-            <dd ref={branchCut.ref} title={branchCut.title()} style={{ width: "fit-content", "max-width": "100%" }}>{props.worktree.branch}</dd>
+            <dd {...branchCut.attrs()} style={{ width: "fit-content", "max-width": "100%" }}>{props.worktree.branch}</dd>
             <dt>{copy.base}</dt>
-            <dd ref={baseCut.ref} title={baseCut.title()} style={{ width: "fit-content", "max-width": "100%" }}>{props.worktree.base}</dd>
+            <dd {...baseCut.attrs()} style={{ width: "fit-content", "max-width": "100%" }}>{props.worktree.base}</dd>
             <Show when={facts()}>
               {(state) => (
                 <>
