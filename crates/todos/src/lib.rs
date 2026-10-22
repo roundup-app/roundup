@@ -2033,9 +2033,11 @@ mod tests {
         let todo = h.call("todo.get", json!({"id": 1})).await.unwrap();
         assert_eq!(todo["refs"], json!([NOTES]));
         h.call("todo.delete", json!({"id": 1})).await.unwrap();
-        made(&h, json!({"title": "again"})).await;
-        let todo = h.call("todo.get", json!({"id": 2})).await.unwrap();
-        assert_eq!(todo["refs"], json!([]));
+        let rows: i64 = rusqlite::Connection::open(dir.path().join("todos.db"))
+            .unwrap()
+            .query_row("SELECT count(*) FROM todo_refs", [], |r| r.get(0))
+            .unwrap();
+        assert_eq!(rows, 0);
     }
 
     #[tokio::test]
