@@ -8,6 +8,7 @@
   gap: var(--space-4);
   padding: var(--space-4);
   overflow-y: auto;
+  overscroll-behavior: contain;
   background: var(--ground);
   color: var(--text);
 }
