@@ -330,6 +330,14 @@ fn offered_tools() -> Vec<Offered> {
             "todo.comment",
             "Leave a comment on a Todo only when the user must read it, such as a question or a blocker. Write one short plain line, at most 280 characters; it shows in the user's Inbox until they open the Todo. Never report progress or results here.",
         ),
+        offered::<todo::RefParams>(
+            "todo.addRef",
+            "Point the user to a Pad or one section of it from a Todo, so they open it from the Todo and read it. Pass the link `roundup://pad/<name>?project=<key>`; a section link ends in `#<heading>`, the heading's text percent-encoded. The Pad and heading must exist. Adding the same link twice keeps one.",
+        ),
+        offered::<todo::RefParams>(
+            "todo.removeRef",
+            "Remove a Pad or Pad-section link from a Todo, by the same link you added; removing one the Todo lacks changes nothing.",
+        ),
         offered::<todo::TodoId>("todo.complete", "Mark a Todo done."),
         offered::<todo::TodoId>("todo.reopen", "Reopen a done Todo."),
         offered::<todo::SetBlockersParams>(

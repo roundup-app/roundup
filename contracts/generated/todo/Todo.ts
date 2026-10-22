@@ -17,4 +17,8 @@ home: string | null,
 /**
  * Who does the work (T16): the user, one Agent, or `None` for Unassigned. Never `creator`.
  */
-owner: Actor | null, };
+owner: Actor | null, 
+/**
+ * Links to Pads and Pad sections (T27), in the order added. A Todo from before refs reads none.
+ */
+refs: Array<string>, };
