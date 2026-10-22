@@ -453,12 +453,7 @@ impl Daemon {
                             .decode(&write.data)
                             .map_err(|err| RpcError::internal(format!("held bytes: {err}")))?;
                         self.agents
-                            .write_terminal(
-                                &ctx.actor,
-                                &write.id,
-                                bytes,
-                                write.identity.clone(),
-                            )
+                            .write_terminal(&ctx.actor, &write.id, bytes, write.identity.clone())
                             .await?;
                     } else {
                         let namespace = method.split('.').next().unwrap_or_default();

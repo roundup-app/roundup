@@ -36,11 +36,15 @@ impl Shim {
             stdin,
             lines,
         };
-        shim.send(json!({"jsonrpc":"2.0","id":0,"method":"initialize","params":{
+        shim.send(
+            json!({"jsonrpc":"2.0","id":0,"method":"initialize","params":{
             "protocolVersion":"2025-06-18","capabilities":{"elicitation":{"form":{}}},
-            "clientInfo":{"name":"t","version":"0"}}}))
-            .await;
-        shim.next(BOUND).await.expect("the shim answered initialize");
+            "clientInfo":{"name":"t","version":"0"}}}),
+        )
+        .await;
+        shim.next(BOUND)
+            .await
+            .expect("the shim answered initialize");
         shim.send(json!({"jsonrpc":"2.0","method":"notifications/initialized"}))
             .await;
         shim
@@ -112,9 +116,14 @@ async fn u468a_an_app_answer_returns_from_ask_user() {
         .as_str()
         .unwrap()
         .to_owned();
-    daemon::h21_user_answers(&client, &id, "dogs").await.unwrap();
+    daemon::h21_user_answers(&client, &id, "dogs")
+        .await
+        .unwrap();
     assert_eq!(shim.returned().await, json!({"answer":"dogs","note":""}));
-    assert_eq!(client.request("decision.list", ()).await.unwrap(), json!([]));
+    assert_eq!(
+        client.request("decision.list", ()).await.unwrap(),
+        json!([])
+    );
 }
 
 /// A process below the Agent's own `claude`, which the Daemon trusts as that Agent: it tries
