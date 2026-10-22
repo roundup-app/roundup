@@ -88,6 +88,8 @@ describe("u1 calls and events", () => {
     mockIPC((command, args) => {
       if (command === "subscribe" && args && "channel" in args && args.channel instanceof Channel) {
         sent = args.channel.onmessage;
+
+        return 0;
       }
 
       return null;
@@ -113,6 +115,20 @@ describe("u1 calls and events", () => {
 
     expect(first).toEqual([created(1), created(2), created(3)]);
     expect(second).toEqual(first);
+  });
+
+  it("u1_a_log_older_than_its_window_replays_from_the_oldest_kept_event", async () => {
+    const app = createFakeApp();
+    const subscribe = app.subscribe;
+    app.subscribe = async (listener, after) => {
+      if (after === 0) throw new RpcError(-32009, "after 0 is older than the log keeps; the oldest kept Event number is 5");
+
+      return subscribe(listener, after);
+    };
+
+    await connectEvents(app);
+
+    expect(app.subscribed).toEqual([{ after: 4 }]);
   });
 
   it("u1_a_subscriber_that_unsubscribed_hears_nothing_more", async () => {

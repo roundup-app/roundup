@@ -166,6 +166,6 @@ export const TimelineView = (props: { home: string; name: string; back: () => vo
         </div>
       </div>
     </Show>
-    <Show when={asking() !== null ? decisions.of(asking()!) : undefined}>{(decision) => <DecisionCard decision={decision()} name={known[asking()!]?.name ?? ""} focusTerminal={toAgent} ref={(element) => { card = element; }} onFocusIn={() => {}} onFocusOut={() => {}} />}</Show>
+    <Show when={asking() !== null ? decisions.of(asking()!) : undefined}>{(decision) => <DecisionCard decision={decision()} name={known[asking()!]?.name ?? ""} focusTerminal={toAgent} ref={(element) => { card = element; }} onEscape={closeCard} onFocusIn={() => {}} onFocusOut={() => {}} />}</Show>
   </section>;
 };
