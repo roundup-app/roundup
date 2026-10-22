@@ -85,7 +85,7 @@ export const TodoComments = (props: { id: number }) => {
       ref={(element) => { field = element; }}
       onInput={(event) => setText(event.currentTarget.value)}
       onKeyDown={(event) => {
-        if (event.key === "Escape" && triage.on()) { event.preventDefault(); drawer.close(); rowButtonOf(props.id)?.focus(); }
+        if (event.key === "Escape" && triage.on()) { event.preventDefault(); drawer.close("key"); rowButtonOf(props.id)?.focus(); }
 
         if (event.key === "Enter" && (event.metaKey || event.ctrlKey) && !event.isComposing) { event.preventDefault(); void send(); }
       }} />
