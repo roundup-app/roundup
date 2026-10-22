@@ -162,3 +162,21 @@ it("u3776_a_new_comment_is_announced_politely_and_the_opening_ones_are_not", asy
   expect(panel().querySelector("[data-comment='2']")!.hasAttribute("data-fresh")).toBe(true);
   expect(panel().querySelector("[data-comment='1']")!.hasAttribute("data-fresh")).toBe(false);
 });
+
+it("u3776_an_arrival_keeps_earlier_rows_and_an_open_status_line", async () => {
+  const m = await mountTodos([todo(1)], true, [agent("a", "idle", "Idle")]);
+  m.store.comments!.set(1, [line(1, AGENT, status)]);
+  await open();
+  const button = await within(panel()).findByRole("button", { name: "Ran tests: 42 passed" });
+  const row = panel().querySelector("[data-comment='1']");
+  fireEvent.click(button);
+  await waitFor(() => expect(button.getAttribute("aria-expanded")).toBe("true"));
+  button.focus();
+  m.store.comments!.set(1, [...m.store.comments!.get(1)!, line(2, AGENT, "new one")]);
+  m.app.emit({ actor: AGENT, name: "todo.commented", data: { id: 1 } });
+  await within(panel()).findByText("new one");
+  expect(panel().querySelector("[data-comment='1']")).toBe(row);
+  expect(button.isConnected).toBe(true);
+  expect(button.getAttribute("aria-expanded")).toBe("true");
+  expect(document.activeElement).toBe(button);
+});
