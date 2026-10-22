@@ -139,5 +139,10 @@ runs:
       shell: bash
       run: |
         npm install -g @openai/codex@0.161.0
-        curl -fsSL https://claude.ai/install.sh | bash -s -- 2.1.296
+        # The installer host answers 429 and 502 at times; retry, then fall back to npm's copy of the same version.
+        for wait in 10 30 60; do
+          curl -fsSL https://claude.ai/install.sh | bash -s -- 2.1.296 && break
+          sleep "$wait"
+        done
+        command -v "$HOME/.local/bin/claude" >/dev/null || npm install -g @anthropic-ai/claude-code@2.1.296
         echo "$HOME/.local/bin" >>"$GITHUB_PATH"
