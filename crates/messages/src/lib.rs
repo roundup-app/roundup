@@ -13,8 +13,8 @@ mod inbox;
 mod input;
 mod pushes;
 pub mod reaction;
-mod removal;
 mod receiver_view;
+mod removal;
 mod restart;
 mod retirement;
 #[doc(hidden)]
