@@ -68,6 +68,9 @@ export const TodoComments = (props: { id: number }) => {
   let alive = true;
   let field: HTMLTextAreaElement | undefined;
 
+  // The rendered text, never the `::status` marker or indent; it stays until the next arrival replaces it.
+  const spoken = (comment: Comment) => partsOf(comment.body, comment.author.kind === "agent").map((part) => "summary" in part ? `${part.summary}\n${part.details}` : part.text).join("\n");
+
   // Only the newest fetch may write or mark, so overlapping answers neither reorder the thread nor mark twice.
   const refresh = async () => {
     const mine = ++latest;
@@ -80,7 +83,7 @@ export const TodoComments = (props: { id: number }) => {
       const arrived = shown === null ? [] : comments.filter((comment) => !shown!.has(comment.id));
       shown = new Set(comments.map((comment) => comment.id));
       setFresh((before) => new Set<number>([...before, ...arrived.map((comment) => comment.id)]));
-      setAnnouncement(arrived.map((comment) => `${author(comment)}: ${comment.body}`).join("\n"));
+      if (arrived.length > 0) setAnnouncement(arrived.map((comment) => `${author(comment)}: ${spoken(comment)}`).join("\n"));
       setThread(comments);
 
       if (comments.some((comment) => !comment.read)) await app.rpc("todo.markCommentsRead", { id });
