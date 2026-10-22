@@ -1451,8 +1451,8 @@ async fn q11_each_launch_loads_all_three_pinned_plugins() {
                 .map(|pair| Path::new(&pair[1]))
                 .collect();
             if role == Role::Door {
-                // LC14: the Door gets `hope` and the question plugin.
-                assert_eq!(paths.len(), 2);
+                // LC14: the Door gets `hope` only.
+                assert_eq!(paths.len(), 1);
                 assert_eq!(
                     read(&paths[0].join(".claude-plugin/plugin.json"))["name"],
                     "hope"
@@ -1460,7 +1460,7 @@ async fn q11_each_launch_loads_all_three_pinned_plugins() {
                 assert!(paths[0].join("skills/intent/SKILL.md").is_file());
                 continue;
             }
-            assert_eq!(paths.len(), 4);
+            assert_eq!(paths.len(), 3);
             for (path, name, version) in paths
                 .iter()
                 .zip([("hope", "13.1.0"), ("hunch", "0.9.4"), ("hold", "0.0.9")])
@@ -2232,7 +2232,7 @@ async fn lc5_a_worker_gets_the_plugins_and_global_instructions() {
         .unwrap();
     assert!(!has(&argv, "--disable-slash-commands"));
     assert!(!has(&argv, "--tools"));
-    assert_eq!(argv.iter().filter(|arg| *arg == "--plugin-dir").count(), 4);
+    assert_eq!(argv.iter().filter(|arg| *arg == "--plugin-dir").count(), 3);
     let text = std::fs::read_to_string(Setup::after(&argv, "--append-system-prompt-file").unwrap())
         .unwrap();
     assert!(text.contains("## The user's global instructions (read-only)\n\nUSER GLOBAL RULE"));
@@ -2255,8 +2255,8 @@ async fn lc5_only_the_door_among_lean_children_gets_hope() {
             })
             .collect();
         let want = match row {
-            Role::Door => json!(["hope", "roundup-question"]),
-            _ => json!(["roundup-question"]),
+            Role::Door => json!(["hope"]),
+            _ => json!([]),
         };
         assert_eq!(json!(names), want, "{row:?}");
         let brief =
@@ -2301,7 +2301,7 @@ async fn lc14_a_door_without_the_intent_skill_starts_and_says_so() {
         .filter(|pair| pair[0] == "--plugin-dir")
         .map(|pair| read(&Path::new(&pair[1]).join(".claude-plugin/plugin.json"))["name"].clone())
         .collect();
-    assert_eq!(json!(names), json!(["roundup-question"]));
+    assert_eq!(json!(names), json!([]));
     let brief =
         std::fs::read_to_string(Setup::after(&argv, "--append-system-prompt-file").unwrap())
             .unwrap();
@@ -2351,7 +2351,7 @@ async fn lc6_a_user_started_agent_keeps_the_users_setup() {
     assert!(has(&argv, "--settings") && has(&argv, "--mcp-config"));
     let settings = read(Path::new(Setup::after(&argv, "--settings").unwrap()));
     assert_eq!(settings["permissions"]["allow"], json!(["mcp__roundup__*"]));
-    assert_eq!(argv.iter().filter(|arg| *arg == "--plugin-dir").count(), 4);
+    assert_eq!(argv.iter().filter(|arg| *arg == "--plugin-dir").count(), 3);
 }
 
 /// A Project skill, a user plugin and a user MCP server, for LC7 and LC8.
