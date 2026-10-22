@@ -1,13 +1,16 @@
 import { copy } from "../copy";
-import { createMemo, createResource, For, on, Show } from "solid-js";
+import { createEffect, createMemo, createResource, createSignal, For, on, onCleanup, Show } from "solid-js";
 import * as v from "valibot";
 import type { PromptIdentity } from "@contracts/decision/PromptIdentity";
 import type { Decision } from "@contracts/decision/Decision";
+import type { Scope } from "@contracts/decision/Scope";
 import { ErrorLine } from "../ink/ErrorLine";
+import { SegmentGroup } from "../ui/SegmentGroup";
 import { Markdown } from "../plain/Markdown";
 import { useConnectedProject } from "../state/connectedProject";
 import { AskCard, questionOf } from "./AskCard";
 import { plainRefusal } from "./decisions";
+import { readPermission, SCOPES } from "./permission";
 import "./styles.css";
 
 const json = v.pipe(v.string(), v.parseJson());
@@ -24,6 +27,11 @@ const readable = (args: string): string => {
 
   return parsed.success ? JSON.stringify(parsed.output, null, 2) : args;
 };
+
+const scopeLabels: Record<Scope, string> = { once: copy.scopeOnce, session: copy.scopeSession, project: copy.scopeProject };
+
+/** A text field keeps its own keys; the scope control's hidden radios do not count as one. */
+const typingIn = (target: EventTarget | null): boolean => target instanceof Element && target.matches("textarea, select, [contenteditable]:not([contenteditable=false]), input:not([type=radio]):not([type=checkbox]):not([type=button])");
 
 /** The Decision an Agent waits on, with the buttons that answer it; `focusTerminal` hands the keyboard to that Agent's Terminal. */
 export const DecisionCard = (props: { decision: Decision; name: string; focusTerminal: () => void; ref: (card: HTMLElement) => void; onFocusIn: () => void; onFocusOut: (leave: FocusEvent) => void;
@@ -66,17 +74,74 @@ export const DecisionCard = (props: { decision: Decision; name: string; focusTer
 
   const stuck = () => daemonExit() !== null || decisions.answering(id());
 
+  // U3794: a permission Decision the Card can answer reads as who asks, what happens and for how long.
+  const permission = () => props.decision.answerable && props.decision.tool !== "ask_user" && !props.selected;
+  const reading = createMemo(() => readPermission(props.decision));
+  const scopes = createMemo(() => SCOPES.filter((each) => (props.decision.scopes ?? ["once"]).includes(each) && !(each === "project" && props.decision.risk === "destructive")));
+  const [picked, setPicked] = createSignal<Scope>("once");
+  const chosen = () => scopes().includes(picked()) ? picked() : "once";
+  const titleId = () => `decision-title-${id()}`;
+  const reasonId = () => `decision-reason-${id()}`;
+  const effects = () => reading().effects.slice(0, 3);
+
+  createEffect(on(id, () => setPicked("once"), { defer: true }));
+
+  const send = (word: "allow" | "deny") => {
+    if (!stuck()) void decisions.answer(id(), word, undefined, undefined, word === "allow" ? chosen() : undefined);
+  };
+
+  // Capture phase: the scope control's own arrow keys wrap, and the Card's do not.
+  const keys = (key: KeyboardEvent) => {
+    if (!permission() || key.defaultPrevented || key.isComposing || key.altKey || key.ctrlKey || key.metaKey || key.shiftKey || typingIn(key.target)) return;
+
+    const at = scopes().indexOf(chosen());
+
+    if (key.key === "ArrowLeft" || key.key === "ArrowRight") {
+      const next = scopes()[at + (key.key === "ArrowLeft" ? -1 : 1)];
+
+      key.preventDefault();
+      key.stopPropagation();
+
+      if (next) setPicked(next);
+    } else if (key.key === "Enter" && !(key.target instanceof Element && key.target.closest("button"))) {
+      key.preventDefault();
+      key.stopPropagation();
+      send("allow");
+    } else if (key.key === "Escape") {
+      key.preventDefault();
+      key.stopPropagation();
+      send("deny");
+    }
+  };
+
   return (
-    <section class="decision-card" aria-label={copy.decisionFor(props.name)} ref={props.ref} onFocusIn={props.onFocusIn} onFocusOut={props.onFocusOut}>
+    <section class="decision-card" aria-label={permission() ? undefined : copy.decisionFor(props.name)} aria-labelledby={permission() ? titleId() : undefined} aria-describedby={permission() && reading().reason ? reasonId() : undefined} ref={(card) => { props.ref(card); card.addEventListener("keydown", keys, true); onCleanup(() => card.removeEventListener("keydown", keys, true)); }} onFocusIn={props.onFocusIn} onFocusOut={props.onFocusOut}>
       <Show
         when={asked()}
         fallback={
+          <Show when={permission()} fallback={
           <>
             <p class="decision-title">
               <span>{props.name}</span> <span class="light">{props.decision.tool}</span>
             </p>
             <pre class="decision-args">{readable(props.decision.args)}</pre>
           </>
+          }>
+            <div class="decision-body">
+              <Show when={props.decision.risk === "destructive"}><span class="decision-tag" data-tone="red">{copy.destructive}</span></Show>
+              <p class="decision-title" id={titleId()}>
+                <span>{props.name}</span>{reading().verb === "run" ? copy.wantsToRun : reading().verb === "edit" ? copy.wantsToEdit : copy.wantsToUse}<code>{reading().target}</code>
+              </p>
+              <Show when={reading().reason}>{(reason) => <p class="decision-reason light" id={reasonId()}>{reason()}</p>}</Show>
+              <Show when={effects().length > 0}>
+                <ul class="decision-effects">
+                  <For each={effects()}>{(effect) => <li><code>{effect.path}</code> <span class="decision-added">+{effect.added}</span> <span class="decision-removed">−{effect.removed}</span></li>}</For>
+                  <Show when={reading().effects.length > 3}><li class="light">{copy.effectsMore(reading().effects.length - 3)}</li></Show>
+                </ul>
+              </Show>
+              <Show when={reading().rest}>{(rest) => <pre class="decision-args">{rest()}</pre>}</Show>
+            </div>
+          </Show>
         }
       >
         {(question) => (
@@ -103,10 +168,13 @@ export const DecisionCard = (props: { decision: Decision; name: string; focusTer
           <Show when={editor()} keyed>{entry => <AskCard question={question} identity={entry.identity} stuck={stuck} selectedRevision={entry.revision} />}</Show>
         </>}
       </Show>
+      <Show when={permission() && scopes().length > 1}>
+        <SegmentGroup label={copy.allowFor} segments={scopes().map((value) => ({ value, label: scopeLabels[value] }))} value={chosen()} onValueChange={setPicked} />
+      </Show>
       <div class="decision-buttons">
         <For each={answers()}>
           {(each) => (
-            <button data-button={each === "allow" ? "primary" : "quiet"} type="button" class="word" aria-disabled={stuck() ? true : undefined} onClick={() => { if (!stuck()) void decisions.answer(id(), each); }}>
+            <button data-button={each === "allow" ? "primary" : "quiet"} type="button" class="word" aria-disabled={stuck() ? true : undefined} onClick={() => send(each === "allow" ? "allow" : "deny")}>
               {each === "allow" ? copy.allow : copy.deny}
             </button>
           )}

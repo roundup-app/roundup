@@ -46,7 +46,7 @@ The databases, launch files and Pad files roundup keeps for a Project, in `<app 
 
 **Agent**:
 One supervised identity, with a Status, on the Rail under its Workstream; each launch of its program is an Attempt, and at most one runs at a time.
-_Avoid_: session, bot, worker
+_Avoid_: bot, worker; and _session_ for an Agent (only a Grant's `session` scope, Claude Code's own word, may carry it).
 
 **Terminal**:
 A shell or program roundup started, with a screen the user can watch; no Status beyond running or exited. Never a Rail row and never stored: it ends with the Daemon, with its owner's removal or when the user closes it. An Agent's own Terminal is its pane; any other is shown as a Bubble. A user-opened Terminal belongs to a Workstream, or to the Project before its first Workstream; a Project-owned Terminal uses the absolute Project folder path as its owner.
