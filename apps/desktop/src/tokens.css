@@ -14,9 +14,9 @@
   --blur-bubble-backdrop: 12px;
   --scrim: rgba(0, 0, 0, 0.4);
   /* U3767: the one order of floating surfaces, lowest first. */
-  --layer-drawer: 1;
-  --layer-dialog: 2;
-  --layer-popover: 3;
+  --layer-popover: 1;
+  --layer-drawer: 2;
+  --layer-dialog: 3;
   --layer-menu: 4;
   --layer-toast: 5;
   --text: #1d1d1f;
