@@ -2,12 +2,47 @@ import { createEffect, createSignal, For, on, onCleanup, Show } from "solid-js";
 import type { Comment } from "@contracts/todo/Comment";
 import { copy } from "../copy";
 import { ErrorLine } from "../ink/ErrorLine";
+import { KindGlyph } from "../ink/KindGlyph";
+import { Collapsible } from "../ui/Collapsible";
 import { useConnectedProject } from "../state/connectedProject";
 import { failureOf } from "./failureOf";
 import { rowButtonOf, triage } from "./triage";
 
 /** Unsent text per Todo, kept when the Drawer closes so Esc loses no draft. */
 const drafts = new Map<number, string>();
+
+type Part = { text: string } | { summary: string; details: string };
+
+const STATUS = "::status ";
+
+/** U3775: an Agent writes `::status <summary>` and indents its detail lines by two spaces; a status line with no details stays plain text. */
+const partsOf = (body: string, marked: boolean): Part[] => {
+  const parts: Part[] = [];
+  const plain: string[] = [];
+
+  const flush = () => { if (plain.length > 0) parts.push({ text: plain.splice(0).join("\n") }); };
+
+  const lines = body.split("\n");
+
+  for (let at = 0; at < lines.length; at++) {
+    const line = lines[at]!;
+
+    if (!marked || !line.startsWith(STATUS)) { plain.push(line); continue; }
+
+    const details: string[] = [];
+
+    while (lines[at + 1]?.startsWith("  ")) details.push(lines[++at]!.slice(2));
+
+    if (details.length === 0) { plain.push(line.slice(STATUS.length)); continue; }
+
+    flush();
+    parts.push({ summary: line.slice(STATUS.length), details: details.join("\n") });
+  }
+
+  flush();
+
+  return parts;
+};
 
 /** The thread, oldest first, with a field to add to it. Opening reads it and marks it read once; a comment that arrives while it is open is read the same way. */
 export const TodoComments = (props: { id: number }) => {
@@ -25,6 +60,10 @@ export const TodoComments = (props: { id: number }) => {
   };
 
   const [sending, setSending] = createSignal(false);
+  // U3776: the comments shown once the Drawer has read them; later arrivals fade in and are announced once.
+  const [fresh, setFresh] = createSignal<ReadonlySet<number>>(new Set<number>());
+  const [announcement, setAnnouncement] = createSignal("");
+  let shown: Set<number> | null = null;
   let latest = 0;
   let alive = true;
   let field: HTMLTextAreaElement | undefined;
@@ -38,6 +77,10 @@ export const TodoComments = (props: { id: number }) => {
       const comments = await app.rpc("todo.comments", { id });
 
       if (!alive || mine !== latest || id !== props.id) return;
+      const arrived = shown === null ? [] : comments.filter((comment) => !shown!.has(comment.id));
+      shown = new Set(comments.map((comment) => comment.id));
+      setFresh((before) => new Set<number>([...before, ...arrived.map((comment) => comment.id)]));
+      setAnnouncement(arrived.map((comment) => `${author(comment)}: ${comment.body}`).join("\n"));
       setThread(comments);
 
       if (comments.some((comment) => !comment.read)) await app.rpc("todo.markCommentsRead", { id });
@@ -46,7 +89,7 @@ export const TodoComments = (props: { id: number }) => {
     if (alive && mine === latest && id === props.id) setFailure(message);
   };
 
-  createEffect(on(() => props.id, () => { setThread([]); setFailure(null); setTextNow(drafts.get(props.id) ?? ""); void refresh(); }));
+  createEffect(on(() => props.id, () => { setThread([]); setFresh(new Set<number>()); setAnnouncement(""); shown = null; setFailure(null); setTextNow(drafts.get(props.id) ?? ""); void refresh(); }));
   onCleanup(events.subscribe((event) => { if (event.name === "todo.commented" && event.data.id === props.id) void refresh(); }));
   onCleanup(() => { alive = false; latest++; });
 
@@ -59,6 +102,7 @@ export const TodoComments = (props: { id: number }) => {
   });
 
   const author = (comment: Comment) => comment.author.kind === "agent" ? rail.nodes.find((node) => node.id === comment.author.id)?.name ?? comment.author.id : copy.me;
+  const glyphOf = (comment: Comment) => comment.author.kind === "agent" ? rail.nodes.find((node) => node.id === comment.author.id) : undefined;
 
   const send = async () => {
     const body = text();
@@ -76,18 +120,24 @@ export const TodoComments = (props: { id: number }) => {
   return <section class="todo-comments" aria-label={copy.commentsHeading(thread().length)}>
     <h3>{copy.commentsHeading(thread().length)}</h3>
     <Show when={failure()}>{(message) => <div><ErrorLine message={message()} /><button data-button="quiet" class="word" type="button" onClick={() => void refresh()}>{copy.commentRetry}</button></div>}</Show>
-    <For each={thread()}>{(comment) => <div class="todo-comment" data-comment={comment.id}>
-      <p class="todo-comment-head"><span class="todo-comment-author">{author(comment)}</span> <time datetime={new Date(comment.created_at).toISOString()}>{copy.commentTime(comment.created_at)}</time>
+    <For each={thread()}>{(comment) => <div class="todo-comment" data-comment={comment.id} data-fresh={fresh().has(comment.id) ? "" : undefined}>
+      <p class="todo-comment-head"><Show when={glyphOf(comment)}>{(node) => <KindGlyph kind={node().status?.kind ?? "idle"} />}</Show><span class="todo-comment-author">{author(comment)}</span> <time datetime={new Date(comment.created_at).toISOString()}>{copy.commentTime(comment.created_at)}</time>
         <Show when={comment.author.kind === "agent"}><button data-button="quiet" class="word" type="button" onClick={() => field?.focus()}>{copy.reply}</button></Show></p>
-      <p class="todo-comment-body">{comment.body}</p>
+      <div class="todo-comment-parts"><For each={partsOf(comment.body, comment.author.kind === "agent")}>{(part) => "summary" in part
+        ? <Collapsible.Root class="todo-status" lazyMount unmountOnExit>
+          <Collapsible.Trigger data-button="quiet" class="word todo-status-summary">{part.summary}</Collapsible.Trigger>
+          <Collapsible.Content class="todo-status-details">{part.details}</Collapsible.Content>
+        </Collapsible.Root>
+        : <p class="todo-comment-body">{part.text}</p>}</For></div>
     </div>}</For>
+    <div class="todo-comments-live" role="status" aria-live="polite" aria-atomic="true">{announcement()}</div>
     <textarea class="todo-comment-field" rows={2} aria-label={copy.commentField} placeholder={copy.commentPlaceholder} value={text()}
       ref={(element) => { field = element; }}
       onInput={(event) => setText(event.currentTarget.value)}
       onKeyDown={(event) => {
         if (event.key === "Escape" && triage.on()) { event.preventDefault(); drawer.close("key"); rowButtonOf(props.id)?.focus(); }
 
-        if (event.key === "Enter" && (event.metaKey || event.ctrlKey) && !event.isComposing) { event.preventDefault(); void send(); }
+        if (event.key === "Enter" && !event.shiftKey && !event.isComposing) { event.preventDefault(); void send(); }
       }} />
     <Show when={sendFailure()}>{(message) => <ErrorLine message={message()} />}</Show>
     <p class="todo-comments-send"><button data-button="quiet" class="word" type="button" aria-disabled={text().trim() === "" || sending() ? true : undefined} onClick={() => void send()}>{copy.comment}</button></p>
