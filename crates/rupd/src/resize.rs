@@ -455,7 +455,6 @@ impl Daemon {
                         self.agents
                             .write_terminal(
                                 &ctx.actor,
-                                &ctx.actor,
                                 &write.id,
                                 bytes,
                                 write.identity.clone(),
