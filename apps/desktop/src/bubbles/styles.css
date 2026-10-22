@@ -26,15 +26,16 @@
   pointer-events: auto;
 }
 
-/* U2892a: a native backdrop covers the whole window, the Hint line and tabs included, without intercepting the outside press (U2307a). */
-.bubble-frame::backdrop {
-  position: fixed;
+/* U3761: the frame sits in the top layer, whose native backdrop always spans the window, so the dim is drawn on the centre's own layer; the frame is portalled out, hence the document-level :has(). Pointer events pass through (U2307a). */
+.bubbles::before {
+  content: "";
+  position: absolute;
   inset: 0;
   pointer-events: none;
   background: none;
 }
 
-.bubble-frame:has(.bubble:focus-within)::backdrop {
+:root:has(.bubble:focus-within) .bubbles::before {
   background: var(--scrim);
   backdrop-filter: blur(var(--blur-bubble-backdrop));
 }
