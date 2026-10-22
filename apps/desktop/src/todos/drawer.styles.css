@@ -38,9 +38,9 @@
 .todo-comments-live { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: pre-wrap; }
 /* U3775: a status line is a quiet button; its details show as plain text beneath it. */
 .todo-status { display: flex; flex-direction: column; gap: var(--space-1); }
-.todo-status-summary { align-self: flex-start; text-align: start; color: var(--text); font: inherit; line-height: inherit; min-height: 0; height: auto; padding-block: 0; }
-.todo-status-summary::after { content: "▸"; margin-inline-start: var(--space-1); }
-.todo-status-summary[aria-expanded="true"]::after { content: "▾"; }
+.todo-status-summary { align-self: flex-start; text-align: start; font: inherit; line-height: inherit; margin-block: calc(var(--space-1) * -1); }
+.todo-status-summary::after { content: "▸" / ""; margin-inline-start: var(--space-1); }
+.todo-status-summary[aria-expanded="true"]::after { content: "▾" / ""; }
 .todo-status-details { white-space: pre-wrap; overflow-wrap: anywhere; color: var(--grey); padding-inline-start: var(--space-3); }
 .todo-comment-field {
   box-sizing: border-box;
