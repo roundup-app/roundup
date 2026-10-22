@@ -9,3 +9,10 @@ Module: `pnpm-lock.yaml`, `apps/desktop/package.json`, `package.json`. Ids: ever
 - *Nothing else moves.* `just check` and `just perf` pass; the PR body lists each alert it closes (policy, `.agents/data/pr.md`).
 - *No advisory gate.* No workflow, recipe or rule fails a PR because an advisory exists (policy: the user decides it).
 - *Out of scope.* Alerts #1 and #2 (`glib`, Rust through Tauri's GTK on Linux) stay open.
+
+**Z2 diffs highlight with Pierre's highlighter.** Given `apps/desktop/package.json` holds `@pierre/diffs` `^1.5.2` and `apps/desktop/src/changes/DiffReader.tsx` registers the `roundup` CSS-variable theme (`registerCustomCSSVariableTheme("roundup", {})`), when `@pierre/diffs` is raised to 1.6.1 and the reader opens a changed file, then:
+- *Pierre's highlighter.* `DiffReader.tsx` passes `preferredHighlighter: 'highlights'` to every `@pierre/diffs` diff it builds (test: `z2_diff_reader_prefers_highlights`, asserting the option on the options the reader hands the library).
+- *Colours kept.* The `roundup` theme still colours tokens through its CSS variables under `highlights`; a highlighted line carries token colours from those variables, not from a fallback theme (test: `z2_highlights_uses_roundup_theme`). If `highlights` cannot use a CSS-variable theme, the PR says so on Issue #3322 and stops: no silent fallback to Shiki.
+- *No Shiki the App no longer needs.* Any Shiki package `@pierre/diffs` makes optional and the App does not import is absent from `apps/desktop/package.json` and `pnpm-lock.yaml` (policy: the lockfile is the observer).
+- *Faster, not heavier.* `just perf` shows no regression (R-ids, `scenarios/perf.md`); the PR records time to first highlighted line on the largest diff fixture, before and after, on Issue #3322 (policy).
+- *Looks the same.* Dark-mode captures of the diff reader, `just capture U3016d` style, show the same token colours as on `main`, judged by the design critic (policy: layout and colour are the critic's, not a test's).
