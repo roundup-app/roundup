@@ -7,6 +7,7 @@ import { App } from "../App";
 import { createFakeApp } from "../testing/fakeApp";
 import type { FakeApp } from "../testing/fakeApp";
 import { RpcError } from "./seam";
+import { openRecovery, recoveryLabel } from "../testing/recovery";
 
 const FIRST = { name: "payments-api", path: "/Users/me/repos/payments-api" };
 
@@ -79,24 +80,59 @@ const failedSave = (holder: ReturnType<ReturnType<typeof createProjectDrafts>>, 
 it("u3021a_recovery_lists_only_work_at_risk", async () => {
   const drafts = createProjectDrafts();
   const holder = drafts(FIRST.path);
-  const destination = { surface: "todos", object: "7", recipient: null };
 
-  holder.edit(destination, { title: "typed and saving" }, null, "ordinary");
-  // Picks and unknown availability never qualify.
-  failedSave(holder, { surface: "todos", object: "8", recipient: "period" }, { period: "day", done: false });
-  mount(drafts);
+  // Blank text, like picks and unknown availability, never qualifies.
+  failedSave(holder, { surface: "todos", object: "8", recipient: null }, { title: "  " });
+  const app = mount(drafts);
   await screen.findByRole("tab", { name: FIRST.name });
-  expect(screen.queryByRole("button", { name: "Recover unfinished work" })).toBeNull();
+  fireEvent.contextMenu(await screen.findByRole("button", { name: /^Overview/ }), { clientX: 10, clientY: 10 });
+  expect(app.shownMenus).toEqual([]);
 
   failedSave(holder, { surface: "todos", object: "9", recipient: null }, { title: "lost when closed" });
-  const entry = await screen.findByRole("button", { name: "Recover unfinished work" });
-
-  expect(entry.textContent).toContain("1");
-  fireEvent.click(entry);
+  await openRecovery();
   const recovery = await screen.findByRole("region", { name: "Unfinished work" });
 
   expect(within(recovery).getAllByRole("listitem")).toHaveLength(1);
-  expect(holder.list()).toHaveLength(3);
+  expect(app.shownMenus.at(-1)!.items.map((item) => item.label)).toEqual(["Recover unfinished work 1"]);
+  expect(holder.list()).toHaveLength(2);
+});
+
+it("u3289a_left_or_crashed_input_qualifies", async () => {
+  const drafts = createProjectDrafts();
+  const holder = drafts(FIRST.path);
+  const destination = { surface: "todos", object: "7", recipient: null };
+  const typing = holder.editor(destination);
+
+  holder.edit(destination, { title: "still typing" }, null, "ordinary");
+  const app = mount(drafts);
+  fireEvent.contextMenu(await screen.findByRole("button", { name: /^Overview/ }), { clientX: 10, clientY: 10 });
+  expect(app.shownMenus).toEqual([]);
+
+  typing();
+  await openRecovery();
+  expect(within(await screen.findByRole("region", { name: "Unfinished work" })).getAllByRole("listitem")).toHaveLength(1);
+});
+
+it("u3289b_recovery_entry_is_never_rendered", async () => {
+  const drafts = createProjectDrafts();
+  const holder = drafts(FIRST.path);
+  mount(drafts);
+  await screen.findByRole("tab", { name: FIRST.name });
+  await screen.findAllByText(/^(new )?Workstream$/);
+  await new Promise((done) => setTimeout(done, 300));
+  const records: MutationRecord[] = [];
+  const observer = new MutationObserver((found) => records.push(...found));
+
+  observer.observe(document.body, { subtree: true, childList: true, characterData: true });
+  holder.edit({ surface: "orders", object: "gone-agent", recipient: "gone-agent" }, { ask: "left behind" }, null, "ordinary");
+  await new Promise((done) => setTimeout(done, 50));
+  records.push(...observer.takeRecords());
+  observer.disconnect();
+  expect(records).toEqual([]);
+  expect(screen.queryByText(/Recover unfinished work/)).toBeNull();
+
+  await openRecovery();
+  await screen.findByRole("region", { name: "Unfinished work" });
 });
 
 it.each(["envelope", "surface"])("u3021b_recovery_actions_and_retry_%s", async (kind) => {
@@ -114,7 +150,7 @@ it.each(["envelope", "surface"])("u3021b_recovery_actions_and_retry_%s", async (
   const saved = failedSave(holder, { surface: "orders", object: "original", recipient: "original" }, { ask: "  memory 🧭\n" });
   const app = mount(drafts);
 
-  fireEvent.click(await screen.findByRole("button", { name: "Recover unfinished work" }));
+  await openRecovery();
   const recovery = await screen.findByRole("region", { name: "Unfinished work" });
   const alert = await within(recovery).findByRole("alert");
 
@@ -139,7 +175,7 @@ it("u3021c_copy_and_discard_keep_other_revisions", async () => {
   const clipboard = vi.fn(async (_text: string) => {});
 
   Object.defineProperty(navigator, "clipboard", { configurable: true, value: { writeText: clipboard } });
-  fireEvent.click(await screen.findByRole("button", { name: "Recover unfinished work" }));
+  await openRecovery();
   const recovery = await screen.findByRole("region", { name: "Unfinished work" });
   const row = within(recovery).getAllByRole("listitem").find((item) => item.dataset.revision === gone)!;
 
@@ -164,7 +200,7 @@ it("u2773h_credential_values_remain_hidden_until_copy", async () => {
   const clipboard = vi.fn(async (_text: string) => {});
 
   Object.defineProperty(navigator, "clipboard", { configurable: true, value: { writeText: clipboard } });
-  fireEvent.click(await screen.findByRole("button", { name: "Recover unfinished work" }));
+  await openRecovery();
   const recovery = await screen.findByRole("region", { name: "Unfinished work" });
 
   expect(document.body.innerHTML).not.toContain(secret);
@@ -179,7 +215,7 @@ it.each(["pads", "todos"])("u3021c_open_restores_exact_revision_without_rpc_%s_c
   const revision = failedSave(holder, surface === "pads" ? { surface, object: "creation", recipient: null } : { surface, object: "new", recipient: null }, surface === "pads" ? { name: exact, home: null } : { title: exact, home: null });
   const app = mount(drafts);
 
-  fireEvent.click((await screen.findAllByRole("button", { name: "Recover unfinished work" }))[0]!);
+  await openRecovery();
   const row = within(await screen.findByRole("region", { name: "Unfinished work" })).getAllByRole("listitem").find((item) => item.dataset.revision === revision)!;
   const before = app.calls.length;
 
@@ -229,4 +265,34 @@ it.each(Object.entries(owners))("u3021d_acknowledged_typing_has_no_outside_mutat
   outside.push(...observer.takeRecords().filter((record) => !field.contains(record.target) && record.target !== field));
   observer.disconnect();
   expect(outside.map((record) => `${record.type}:${record.target.nodeName}:${record.addedNodes.length}:${record.removedNodes.length}`)).toEqual([]);
+});
+
+it.each(Object.entries(owners))("u3289a_open_editor_stays_off_the_list_until_the_app_restarts_%s", async (_owner, openField) => {
+  mount(createProjectDrafts());
+  await screen.findByRole("tab", { name: FIRST.name });
+  await screen.findAllByText(/^(new )?Workstream$/);
+  fireEvent.input(await openField(), { target: { value: "unsent words" } });
+  await new Promise((done) => setTimeout(done, 100));
+  expect(await recoveryLabel()).toBeNull();
+  cleanup();
+  mount(createProjectDrafts());
+  await screen.findByRole("tab", { name: FIRST.name });
+  await vi.waitFor(async () => expect(await recoveryLabel()).toBe("Recover unfinished work 1"));
+});
+
+it("u3289c_overview_menu_opens_recovery", async () => {
+  const drafts = createProjectDrafts();
+  const holder = drafts(FIRST.path);
+  const app = mount(drafts);
+  const overview = await screen.findByRole("button", { name: /^Overview/ });
+
+  expect(await recoveryLabel()).toBeNull();
+  expect(app.shownMenus).toEqual([]);
+  failedSave(holder, { surface: "todos", object: "9", recipient: null }, { title: "lost when closed" });
+  failedSave(holder, { surface: "todos", object: "10", recipient: null }, { title: "lost too" });
+  expect(await recoveryLabel()).toBe("Recover unfinished work 2");
+  fireEvent.click(overview);
+  expect(screen.queryByRole("region", { name: "Unfinished work" })).toBeNull();
+  await openRecovery();
+  expect(within(await screen.findByRole("region", { name: "Unfinished work" })).getAllByRole("listitem")).toHaveLength(2);
 });

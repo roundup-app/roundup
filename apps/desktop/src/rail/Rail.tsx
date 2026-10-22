@@ -31,6 +31,8 @@ import type { SpawnParams } from "@contracts/agent/SpawnParams";
 import { ClearPrompt } from "./ClearPrompt";
 import { INTERNAL_CODE, RpcError } from "../app/seam";
 import { clearingOf } from "./clear";
+import { useRecoveryMenu } from "../drawer/DraftRecovery";
+import { contextMenu, openOnRelease } from "../ui/contextMenu";
 import { draftsOf } from "./persist/storage";
 import "./styles.css";
 
@@ -40,6 +42,7 @@ const toggled = <T,>(set: ReadonlySet<T>, member: T): ReadonlySet<T> =>
 export const Rail = () => {
   const connected = useConnectedProject();
   const { app, project, rail, now, daemonExit } = connected;
+  const recoveryEntries = useRecoveryMenu();
 
   const attention = createMemo(() => attentionCount(rail.nodes));
   const [scrolled, setScrolled] = createSignal(false);
@@ -518,6 +521,11 @@ export const Rail = () => {
       data-scrolled={scrolled()}
       class="todo-project-root"
       onClick={() => rail.select(null)}
+      onContextMenu={(press: MouseEvent) => openOnRelease(press, (x, y) => {
+        const entries = recoveryEntries();
+
+        if (entries.length > 0) void contextMenu(app, entries, x, y);
+      })}
     >
       <span class="overview-tile"><Icon name="layout-dashboard" /></span>
       <span>{copy.overview}</span>

@@ -1,34 +1,36 @@
 import { useConnectedProject } from "../state/connectedProject";
-import { activationSource } from "../keys/registry";
+import type { MenuEntry } from "../ui/contextMenu";
 import { copy } from "../copy";
 import { createSignal, For, Show } from "solid-js";
 import { KindGlyph } from "../ink/KindGlyph";
 import { usePadList } from "../rail/pads/padList";
 import { useTodoList } from "../todos/todoList";
-import { Icon } from "../ink/Icon";
 import { PadDrawer } from "../pads/PadDrawer";
 import { Pads } from "../pads/Pads";
 import { OrderDrawer } from "../orders/OrderDrawer";
 import { todoCreationEditor, todoEditor } from "./editors";
 import { typedText, useUnfinishedWork } from "./unfinishedWork";
 
-/** Recovery lists only work at risk (U3021a) and never sends mutations. */
-export const DraftRecoveryEntry = () => {
+/**
+ * U3289c: the Overview row's menu item. Nothing renders unasked (U3289b); with no work at risk the item is absent.
+ * Opening the panel sends no mutation (U3021c).
+ */
+export const useRecoveryMenu = (): (() => MenuEntry[]) => {
   const connected = useConnectedProject();
   const work = useUnfinishedWork();
 
-  const problem = () => connected.drafts.problem()?.destination?.surface.startsWith("rail-") ? null : connected.drafts.problem();
+  return () => {
+    const count = work.rows().length;
 
-  return <Show when={work.rows().length || problem()}>
-    <Show when={problem()}>{failure => <p class="draft-recovery" role="status">{copy.draftProblem(failure().cause)}</p>}</Show>
-    <button class="draft-entry" data-button="quiet" type="button" aria-label={copy.recoverDrafts} onClick={(event) => connected.drawer.open(() => <DraftRecovery />, activationSource(event))}>
-      <span class="overview-tile"><Icon name="edit" /></span><span>{copy.recoverDrafts}</span>
-      <Show when={work.rows().length}><span data-state="draft">{work.rows().length}</span></Show>
-    </button>
-  </Show>;
+    return count === 0 && !work.problem() ? [] : [{
+      id: "recover",
+      label: count > 0 ? copy.recoverDraftsCount(count) : copy.recoverDrafts,
+      run: () => connected.drawer.open(() => <DraftRecoveryPanel />, "pointer"),
+    }];
+  };
 };
 
-const DraftRecovery = () => {
+const DraftRecoveryPanel = () => {
   const { drafts, project, rail, drawer } = useConnectedProject();
   const pads = usePadList();
   const todos = useTodoList();

@@ -80,6 +80,7 @@ const PadBody = (props: {
   const [shown, setShown] = createSignal(parsed?.success ? parsed.output.source : source);
   const [origin, setOrigin] = createSignal(base);
   const [editing, setEditing] = createSignal(Boolean(recovered));
+  createEffect(() => { if (editing()) onCleanup(connected.drafts.editor(destination)); });
   const [conflictActor, setConflictActor] = createSignal<Actor | "unknown" | null>(recovered && (base !== props.initial.text || sourceRevision !== props.initial.revision) ? "unknown" : null);
 
   const conflictLabel = createMemo(() => {
