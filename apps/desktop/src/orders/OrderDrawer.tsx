@@ -368,7 +368,7 @@ const OrderContent = (props: OrderInput) => {
           }
         </Match>
       </Switch>}>{editor()}</Show>
-      <Show when={(props.inline || order()?.kind === "work") && spawn()?.error}>
+      <Show when={!props.inline && order()?.kind === "work" ? spawn()?.error : undefined}>
         {(text) => <p class="order-prompt-error">{text()}</p>}
       </Show>
     </section>
