@@ -221,7 +221,7 @@
   z-index: 1;
   display: flex;
   flex-wrap: wrap;
-  column-gap: var(--space-3);
+  column-gap: var(--space-4);
   margin: 0;
   padding-block: var(--space-1);
   background: var(--sunken);

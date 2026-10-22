@@ -24,6 +24,8 @@
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+.switcher-action { flex: 1; min-width: 0; }
+.switcher-action .switcher-name { flex: 1; }
 
 .switcher-owner {
   flex: none;
