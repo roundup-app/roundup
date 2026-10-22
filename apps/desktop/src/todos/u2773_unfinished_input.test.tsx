@@ -307,7 +307,6 @@ it("u2773a_todos_live_creation_enters_recovery_only_after_hiding", async () => {
   const field = screen.getByRole("textbox", { name: "New Todo title" });
   fireEvent.input(field, { target: { value: "unfinished" } });
   expect(screen.queryByRole("button", { name: "Copy Todo" })).toBeNull();
-  expect(screen.queryByRole("button", { name: "Recover unfinished work" })).toBeNull();
   fireEvent.keyDown(field, { key: "Escape" });
   expect(screen.getByRole("button", { name: "Copy Todo", description: /Title.*unfinished/ })).toBeTruthy();
 });

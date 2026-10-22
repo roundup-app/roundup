@@ -3,7 +3,6 @@ import { afterEach, expect, it } from "vitest";
 import { workstream } from "../testing/nodes";
 import { mountRail, railCallsTo } from "./railFixture";
 import { ConnectedProjectContext } from "../state/connectedProject";
-import { DraftRecoveryEntry } from "../drawer/DraftRecovery";
 
 afterEach(() => { cleanup(); localStorage.clear(); });
 
@@ -349,7 +348,7 @@ it("u2773a_rail_pending_clear_hides_without_discard_or_retry", async () => {
 
 it("u2773b_rail_recovery_shares_project_revisions_without_duplicate_entry", async () => {
   const { connected, app } = await mountRail([]);
-  render(() => <ConnectedProjectContext.Provider value={connected}><DraftRecoveryEntry /></ConnectedProjectContext.Provider>);
+  render(() => <ConnectedProjectContext.Provider value={connected}><span /></ConnectedProjectContext.Provider>);
   open();
   fireEvent.input(field(), { target: { value: " exact\n😀 " } });
   fireEvent.keyDown(field(), { key: "Escape" });

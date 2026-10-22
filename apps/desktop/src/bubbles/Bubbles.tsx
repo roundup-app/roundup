@@ -901,6 +901,7 @@ export const Bubbles = (props: {
     const name = () => nameFor(terminal());
     const [nameRef, nameCut] = createCut();
     let destination = Object.freeze({ surface: "bubbles", object: terminal().incarnation, recipient: id });
+    createEffect(() => { if (editing()?.id === id) onCleanup(drafts.editor(destination)); });
     const current = () => records().filter(draft => draft.destination.object === terminal().incarnation && draft.destination.recipient === id && draft.status === "draft" && !draft.value.recovery).at(-1);
     let base = "";
     let initial = "";

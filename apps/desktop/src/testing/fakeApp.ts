@@ -2,6 +2,7 @@ import type { Event as DaemonEvent } from "@contracts/Event";
 import type { RpcMethodName, RpcMethods } from "@contracts/methods";
 import { OWN_CONTRACT } from "../app/contractMatch";
 import { RpcError } from "../app/seam";
+import { menuProbe } from "./menuProbe";
 import type { AppSeam, DaemonExit, DaemonExited, FileDrop, MenuItem, OpenTarget, OutputMessage, PastedImage, Project } from "../app/seam";
 
 const CONFLICT = -32003;
@@ -328,10 +329,12 @@ export const createFakeApp = (): FakeApp => {
     },
     showContextMenu: async (items, x, y) => {
       app.shownMenus.push({ items, x, y });
+      menuProbe.shown = items;
+      menuProbe.count += 1;
 
       if (app.menuChoice !== undefined) return app.menuChoice;
 
-      return new Promise<string | null>((resolve) => { app.menuResolve = resolve; });
+      return new Promise<string | null>((resolve) => { app.menuResolve = resolve; menuProbe.answer = resolve; });
     },
     savePastedImage: async (image) => {
       if (app.saveImageFailure) throw app.saveImageFailure;
