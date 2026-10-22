@@ -109,13 +109,14 @@ const ScrollShadow = (props: { children: JSX.Element }) => {
 /** U373/U2744a: the open list follows Rail selection; the tabs live in the window bar. */
 export const Shelf = (props: { open: Accessor<boolean> }) => {
   const [actions, setActions] = createSignal<HTMLDivElement>();
+  const [line, setLine] = createSignal<HTMLElement>();
   const connected = useConnectedProject();
   const scope = shelfScope(connected);
 
   return (
     <>
-      <div class="shelf-bar" data-shelf-scope>{scope.label()}</div>
-      <ShelfActions.Provider value={{ mount: actions, open: props.open }}>
+      <div class="shelf-bar" data-shelf-scope ref={setLine}><span class="shelf-scope-name">{scope.label()}</span></div>
+      <ShelfActions.Provider value={{ mount: actions, open: props.open, scope: line }}>
       <ScrollShadow>
         <For each={SHELF_TABS}>
           {(tab) => (

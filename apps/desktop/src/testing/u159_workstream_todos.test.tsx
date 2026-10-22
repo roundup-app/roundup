@@ -1,4 +1,4 @@
-import { cleanup, fireEvent, render, screen, waitFor } from "@solidjs/testing-library";
+import { cleanup, fireEvent, render, screen, waitFor, within } from "@solidjs/testing-library";
 import { afterEach, expect, it } from "vitest";
 import { createFakeApp } from "../testing/fakeApp";
 import { node, workstream, event, info, USER } from "../testing/nodes";
@@ -60,7 +60,7 @@ it("u2744a_shelf_scope_agent_lists_only_its_own", async () => {
 
 const tab = async (name: "Todos" | "Pads") => {
   fireEvent.click(screen.getByRole("tab", { name: new RegExp(`^${name}`) }));
-  await screen.findByRole("button", { name: `Add ${name === "Todos" ? "Todo" : "Pad"}` });
+  await waitFor(() => expect(document.querySelector(name === "Todos" ? "[data-shelf-scope] [aria-label^=\"add todo to\"]" : "[data-shelf-scope] [aria-label=\"Add Pad\"]")).not.toBeNull());
 };
 
 const names = () => [...document.querySelectorAll('.shelf-panel:not([hidden]) .pad-name')].map(el => el.textContent);
@@ -205,7 +205,7 @@ it.each([[null, null, null], ["w", "w", null], ["a", "w", null], ["r", null, nul
   connected.rail.select(selected);
 
   if (terminal) await chooseTerminal(terminal);
-  fireEvent.click(screen.getByRole("button", { name: /Add Todo/ }));
+  fireEvent.click(within(document.querySelector<HTMLElement>("[data-shelf-scope]")!).getByRole("button", { name: /add todo to/i }));
   const title = await screen.findByRole("textbox", { name: /New Todo title/ });
   fireEvent.input(title, { target: { value: "new scope item" } });
   fireEvent.keyDown(title, { key: "Enter" });

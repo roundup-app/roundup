@@ -20,6 +20,8 @@ export const OwnerGroups = <T,>(props: {
   reveal: Accessor<string | null>;
   /** Each change opens the Unassigned group, so a Todo just captured shows. */
   unfold?: Accessor<number>;
+  /** U3730: the group named like the scope (a selected Agent's own) shows no header, so the scope's name appears once. */
+  bare?: Accessor<string | null>;
   onAdd: (group: OwnerGroup<T>) => void;
   children: (group: Accessor<OwnerGroup<T>>) => JSX.Element;
 }) => {
@@ -58,7 +60,7 @@ export const OwnerGroups = <T,>(props: {
 
         return <TreeView.NodeProvider node={collection().rootNode.children![at()]!} indexPath={[at()]}>
         <TreeView.Branch data-shelf-group={id}>
-          <div class="shelf-group-head">
+          <div class="shelf-group-head" hidden={props.bare?.() === id && !props.dragging()}>
             <TreeView.BranchControl class="shelf-group-control" data-button="quiet">
               <TreeView.BranchIndicator><Icon name={closed().includes(id) ? "right" : "down"} /></TreeView.BranchIndicator>
               <TreeView.BranchText><Tip text={group().name}>{trigger => <span {...trigger()} class="shelf-group-name">{group().name}</span>}</Tip></TreeView.BranchText>
