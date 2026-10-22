@@ -15,8 +15,9 @@ pub mod toolcall;
 pub use placement::Call as PlacementCall;
 pub mod plugins;
 mod skills;
+mod usage;
 
-use contracts::decision::Answer;
+use contracts::decision::{Answer, Risk, Scope};
 use contracts::{Kind, Status};
 use serde_json::Value;
 
@@ -472,6 +473,7 @@ pub const PERMISSION_TIMEOUT_SECS: u64 = 86400;
 const ARGS_LIMIT: usize = 2000;
 
 /// What a `PermissionRequest` payload says the Decision is about (H2, H8).
+#[derive(Default)]
 pub struct PermissionRequest {
     pub tool: String,
     pub args: String,
@@ -480,6 +482,13 @@ pub struct PermissionRequest {
     pub answerable: bool,
     /// B6: an unreadable Signal identifies no original prompt for guarded Terminal bytes.
     pub identity_available: bool,
+    /// H23: the Grants the user may pick, `once` first; empty when not `answerable`.
+    pub scopes: Vec<Scope>,
+    /// H23: a command the Daemon recognises as destructive.
+    pub risk: Option<Risk>,
+    /// H23: Claude Code's own first `addRules` allow suggestion, which a `session` or `project`
+    /// answer echoes.
+    pub rule: Option<Value>,
 }
 
 /// The Decision a `PermissionRequest` payload opens: the tool name, its input as text cut at
@@ -499,15 +508,89 @@ pub fn permission_request(payload: &Value) -> PermissionRequest {
         None if input.is_null() => String::new(),
         None => cut(input.to_string(), ARGS_LIMIT),
     };
+    let answerable = tool.is_some()
+        && tool != Some("AskUserQuestion")
+        && payload["hook_event_name"] == "PermissionRequest";
+    let risk = (tool == Some("Bash"))
+        .then(|| destructive(input["command"].as_str().unwrap_or_default()))
+        .filter(|destructive| *destructive)
+        .map(|_| Risk::Destructive);
+    let rule = if answerable {
+        suggested_rule(payload)
+    } else {
+        None
+    };
+    let mut scopes = Vec::new();
+    if answerable {
+        scopes.push(Scope::Once);
+        if rule.is_some() {
+            scopes.push(Scope::Session);
+            if risk.is_none() {
+                scopes.push(Scope::Project);
+            }
+        }
+    }
     PermissionRequest {
         identity_available: tool.is_some_and(|tool| !tool.is_empty())
             && payload["hook_event_name"] == "PermissionRequest",
-        answerable: tool.is_some()
-            && tool != Some("AskUserQuestion")
-            && payload["hook_event_name"] == "PermissionRequest",
+        answerable,
         tool: tool.unwrap_or_default().to_owned(),
         args,
+        scopes,
+        risk,
+        rule,
     }
+}
+
+/// H23: the first `addRules` entry with `behavior: "allow"` among the payload's
+/// `permission_suggestions`.
+fn suggested_rule(payload: &Value) -> Option<Value> {
+    payload["permission_suggestions"]
+        .as_array()?
+        .iter()
+        .find(|entry| {
+            entry["type"] == "addRules"
+                && entry["behavior"] == "allow"
+                && entry["rules"].as_array().is_some_and(|rules| {
+                    !rules.is_empty() && rules.iter().all(|rule| rule["toolName"].is_string())
+                })
+        })
+        .cloned()
+}
+
+/// H23: whether one part of `command`, split on `;`, `&&`, `||` and `|`, is `rm` with a recursive
+/// flag, `git reset --hard`, or a forced `git push`.
+fn destructive(command: &str) -> bool {
+    let parts = command.split([';', '|', '&']);
+    parts
+        .map(|part| part.split_whitespace().collect::<Vec<_>>())
+        .any(|words| match words.as_slice() {
+            ["rm", flags @ ..] => flags.iter().any(|word| {
+                word.starts_with('-') && !word.starts_with("--") && word.contains(['r', 'R'])
+            }),
+            ["git", "reset", rest @ ..] => rest.contains(&"--hard"),
+            ["git", "push", rest @ ..] => rest.iter().any(|word| {
+                matches!(*word, "--force" | "--force-with-lease" | "-f")
+                    || word.starts_with("--force-with-lease=")
+            }),
+            _ => false,
+        })
+}
+
+/// H23: the `settings.local.json` `permissions.allow` string of a rule entry's rules.
+pub fn rule_strings(entry: &Value) -> Vec<String> {
+    entry["rules"]
+        .as_array()
+        .into_iter()
+        .flatten()
+        .filter_map(|rule| {
+            let tool = rule["toolName"].as_str()?;
+            Some(match rule["ruleContent"].as_str() {
+                Some(content) => format!("{tool}({content})"),
+                None => tool.to_owned(),
+            })
+        })
+        .collect()
 }
 
 /// `text` cut at `limit` characters with a final `…`.
@@ -588,8 +671,25 @@ pub fn ends_decision(payload: &Value) -> bool {
 /// What the hook prints for `answer`, exactly the replies `spikes/hooks-permission/REPORT.md`
 /// findings 12 and 13 record.
 pub fn reply(answer: Answer) -> String {
+    reply_scoped(answer, None)
+}
+
+/// H23: `reply`, whose allow carries `rule` (Claude Code's own suggestion) with `scope`'s
+/// destination.
+pub fn reply_scoped(answer: Answer, grant: Option<(&Value, Scope)>) -> String {
     match answer {
-        Answer::Allow => r#"{"hookSpecificOutput":{"hookEventName":"PermissionRequest","decision":{"behavior":"allow"}}}"#.into(),
+        Answer::Allow => match grant {
+            Some((rule, scope)) => {
+                let mut entry = rule.clone();
+                entry["destination"] = match scope {
+                    Scope::Project => "localSettings",
+                    _ => "session",
+                }
+                .into();
+                serde_json::json!({"hookSpecificOutput": {"hookEventName": "PermissionRequest", "decision": {"behavior": "allow", "updatedPermissions": [entry]}}}).to_string()
+            }
+            None => r#"{"hookSpecificOutput":{"hookEventName":"PermissionRequest","decision":{"behavior":"allow"}}}"#.into(),
+        },
         Answer::Deny => r#"{"hookSpecificOutput":{"hookEventName":"PermissionRequest","decision":{"behavior":"deny","message":"Denied in roundup"}}}"#.into(),
     }
 }

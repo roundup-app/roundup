@@ -1,5 +1,5 @@
 import { copy } from "../copy";
-import { batch, createMemo, createSignal, For, Show } from "solid-js";
+import { batch, createMemo, createSignal, For, onCleanup, Show } from "solid-js";
 import * as v from "valibot";
 import { Markdown } from "../plain/Markdown";
 import type { PromptIdentity } from "@contracts/decision/PromptIdentity";
@@ -36,6 +36,9 @@ export const AskCard = (props: { question: Question; identity: PromptIdentity; s
   const identity = props.identity;
   const destination = { surface: "decisions", object: promptKey(identity), recipient: identity.agent };
   const answers = () => props.question.answers;
+
+  // The form is being filled while its Card shows; leaving it is what makes unsent text unfinished work (U3289a).
+  onCleanup(drafts.editor(destination));
 
   const records = () => drafts.list().filter(draft => draft.destination.surface === destination.surface
     && (draft.destination.object === destination.object || draft.destination.object === identity.decision)

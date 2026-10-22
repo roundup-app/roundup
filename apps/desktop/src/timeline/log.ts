@@ -19,7 +19,7 @@ export type TimelineLog = {
 };
 
 /**
- * U3768a to U3768c: what the App has heard of each Agent's Statuses since the Project connected, kept for the Project's life
+ * U3768a to U3768c: what the App has heard of each Agent's Statuses, the Daemon's saved Events from before it connected included, kept for the Project's life
  * so a timeline opened later still shows what happened before it opened. An Agent that leaves the Rail stays, named as removed.
  * The Rail's current Statuses seed the rest; an Agent's time before both is unknown.
  */
@@ -55,9 +55,10 @@ export const createTimelineLog = (events: Events, rail: RailState): TimelineLog 
     return end;
   });
 
+  // The saved Events replay first (D11), then the live ones; `remember` drops a Status it already holds.
   const unsubscribe = events.subscribe((event) => {
     if (event.name === "agent.status") remember(event.data.id, { at: event.data.status.since, attempt: event.data.attempt, kind: event.data.status.kind });
-  });
+  }, { replay: true });
 
   return { samples, known, version, stop: () => { unsubscribe(); dispose(); } };
 };

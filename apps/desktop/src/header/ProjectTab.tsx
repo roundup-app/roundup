@@ -3,7 +3,7 @@ import { copy } from "../copy";
 import * as v from "valibot";
 import { ProjectDraftsContext } from "../state/connectedProject";
 import { Portal } from "solid-js/web";
-import { createEffect, createMemo, createSignal, on, onMount, Show, For, useContext } from "solid-js";
+import { createEffect, createMemo, createSignal, on, onCleanup, onMount, Show, For, useContext } from "solid-js";
 import { createNear } from "../ink/near";
 import { Icon } from "../ink/Icon";
 import { FlatTab } from "../ui/FlatTab";
@@ -76,6 +76,7 @@ export const ProjectTab = (props: {
   drafts?.validate("header", schema);
   drafts?.registerRecovery("header", draft => draft.destination.object === props.tab.path ? "available" : "unavailable");
   const destination = Object.freeze({ surface: "header", object: props.tab.path, recipient: null });
+  createEffect(() => { if (editing() !== null && drafts) onCleanup(drafts.editor(destination)); });
   const records = createMemo(() => drafts?.list().filter(draft => draft.destination.surface === destination.surface && draft.destination.object === props.tab.path && draft.destination.recipient === null) ?? []);
   const current = createMemo(() => records().filter(draft => draft.status === "draft").at(-1));
   const [recovering, recover] = createSignal(false);

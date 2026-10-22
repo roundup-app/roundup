@@ -168,7 +168,7 @@ describe("u351 the fake claude holds each Agent in a Kind, observed on the real 
     await waitFor(() => expect(selected()).toBe(working));
     await new Promise((done) => setTimeout(done, 1500));
     expect(selected()).toBe(working);
-    expect(screen.queryByRole("region", { name: /Decision for/ })).toBeNull();
+    expect(screen.queryByRole("region", { name: /Decision for| wants to / })).toBeNull();
     expect(await kindOf(working)).toBe("working");
 
     // Jump: `error` before `needs-you`, oldest first, across both Workstreams, then it wraps.
@@ -186,9 +186,9 @@ describe("u351 the fake claude holds each Agent in a Kind, observed on the real 
       visited.push(selected());
 
       if (urgent[press % urgent.length]?.status?.kind === "needs-you") {
-        await waitFor(() => expect(screen.getByRole("region", { name: /Decision for/ })).toBeTruthy());
+        await waitFor(() => expect(screen.getByRole("region", { name: /Decision for| wants to / })).toBeTruthy());
       } else {
-        expect(screen.queryByRole("region", { name: /Decision for/ })).toBeNull();
+        expect(screen.queryByRole("region", { name: /Decision for| wants to / })).toBeNull();
       }
     }
 

@@ -3,6 +3,15 @@ import type { ConsumedCategory } from "@contracts/project/ConsumedCategory";
 
 const subtotal = (known: string) => ({ known, missing: 0 });
 
+const rates = (model: string) => ({ model, version: "fixture", date: "2026-10-21", currency: "USD", source: "https://example.com/rates", basis: "fixture list rates", per_tokens: 1_000_000, input: "1", output: "1", cache_read: "1", cache_write_five_minute: "1", cache_write_one_hour: "1" });
+
+/** Reference estimates of $0.98 for Opus 5.5 and $0.42 for Sonnet 5.5, and a Claude Code reported $1.13. */
+export const pricedCost = () => ({
+  reported: [{ scope: "conversation" as const, amount: "1.13", currency: "USD", source: "fixture", basis: "fixture" }],
+  reference: [{ amount: "0.98", missing: [], rates: rates("claude-opus-5-5") }, { amount: "0.42", missing: [], rates: rates("claude-sonnet-5-5") }],
+  unavailable: [],
+});
+
 export const measurementFixture = (home = "home", category: ConsumedCategory = "total", revision = "1", offset = 0): MeasurementSummary => {
   const a = { input: subtotal("100"), output: subtotal("20"), cache_read: subtotal("400"), cache_write: subtotal("50"), total: subtotal("570") };
   const b = { input: subtotal("200"), output: subtotal("30"), cache_read: subtotal("0"), cache_write: subtotal("0"), total: subtotal("230") };
