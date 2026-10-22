@@ -2,7 +2,7 @@ import { createComputed, createEffect, createSignal, on } from "solid-js";
 import type { Accessor } from "solid-js";
 import type { Todo } from "@contracts/todo/Todo";
 import type { Sortable } from "../ui/sortable";
-import type { SortedRow } from "./Todos";
+import type { SortedRow } from "./OpenRow";
 import type { Actor } from "@contracts/Actor";
 import { sameOwner } from "../shelf/scope";
 import { beforeOf, slideOf } from "./beforeOf";
