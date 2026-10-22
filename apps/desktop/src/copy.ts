@@ -130,6 +130,7 @@ export const copy = {
   context: "Context",
   contextUsed: "Used",
   contextOf: (used: number, limit: number) => `${compactTokens(used)} of ${compactTokens(limit)}`,
+  contextValueText: (used: number, limit: number, percent: number) => `${compactTokens(used)} of ${compactTokens(limit)}, ${percent}%`,
   contextNear: "near the limit",
   contextFull: "full",
   contextPart: { system: "System prompt", tools: "Tools", files: "Files", conversation: "Conversation", other: "Other" },
