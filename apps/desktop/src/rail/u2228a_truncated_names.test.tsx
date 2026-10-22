@@ -3,8 +3,8 @@ import { afterEach, expect, it, vi } from "vitest";
 import { CHORDS } from "../keys/chords";
 import { RowIcons } from "./RowIcons";
 import { copy } from "../copy";
-import { workstream } from "../testing/nodes";
-import { mountRail, rowOf } from "./railFixture";
+import { agent, workstream } from "../testing/nodes";
+import { itemOf, mountRail, rowOf } from "./railFixture";
 
 afterEach(() => {
   cleanup();
@@ -19,21 +19,19 @@ const layout = (width: number) => {
   vi.spyOn(HTMLElement.prototype, "scrollWidth", "get").mockReturnValue(width);
 };
 
-const nameOf = (name: string) => rowOf(name).querySelector<HTMLElement>(".name")!;
-
 /** The row, not its name, carries the Tooltip trigger, so any point of it reaches it. */
 const hoverRow = (name: string) => fireEvent.pointerMove(rowOf(name), { pointerType: "mouse" });
 
-it("u2749b_explicit_row_anchor_keeps_full_text (U2228a)", async () => {
+it("u2228a_a_truncated_workstream_name_has_its_full_text", async () => {
   layout(400);
-  await mountRail([workstream("w", { name: NAME })]);
+  await mountRail([workstream("w", { name: NAME }), agent("a", "idle", "working on it", { parent: "w", name: "agent long name" })]);
 
-  expect(nameOf(NAME).textContent).toBe(NAME);
-  expect(nameOf(NAME).hasAttribute("title")).toBe(false);
-  const anchor = vi.spyOn(rowOf(NAME), "getBoundingClientRect").mockReturnValue(new DOMRect(100, 100, 200, 20));
-  await waitFor(() => fireEvent.pointerMove(rowOf(NAME), { pointerType: "mouse", clientX: 250, clientY: 110 }));
-  expect((await screen.findByRole("tooltip")).textContent).toBe(NAME);
-  expect(anchor).toHaveBeenCalled();
+  const leaf = document.querySelector<HTMLElement>('.rail-row[data-id="a"]')!;
+
+  await waitFor(() => expect(rowOf(NAME).getAttribute("title")).toBe(NAME));
+  expect(leaf.getAttribute("title")).toBe("agent long name");
+  expect(itemOf(NAME).getAttribute("aria-label")).toContain(NAME);
+  expect(leaf.closest("[role=treeitem]")!.getAttribute("aria-label")).toBe("agent long name, working on it");
 });
 
 it("u2228a_a_name_that_fits_has_no_tooltip", async () => {
@@ -42,9 +40,8 @@ it("u2228a_a_name_that_fits_has_no_tooltip", async () => {
 
   await Promise.resolve();
   hoverRow(NAME);
-  await new Promise((done) => setTimeout(done, 600));
   expect(screen.queryByRole("tooltip")).toBeNull();
-  expect(nameOf(NAME).hasAttribute("title")).toBe(false);
+  expect(rowOf(NAME).hasAttribute("title")).toBe(false);
 });
 
 it("u2228a_the_add_agent_tooltip_stays", async () => {
@@ -52,12 +49,23 @@ it("u2228a_the_add_agent_tooltip_stays", async () => {
   await mountRail([workstream("w", { name: NAME })]);
 
   const add = rowOf(NAME).querySelector<HTMLElement>(".rail-add")!;
-  hoverRow(NAME);
-  await screen.findByRole("tooltip");
   fireEvent.pointerOver(add, { pointerType: "mouse" });
   fireEvent.pointerMove(add, { pointerType: "mouse" });
-  await waitFor(() => expect(screen.queryByText(NAME, { selector: "[role=tooltip] *, [role=tooltip]" })).toBeNull());
-  await waitFor(() => expect(screen.getAllByRole("tooltip").map((tip) => tip.textContent)).toContain(`${copy.addAgentLabel}${CHORDS[0]!.keys}`));
+  await waitFor(() => expect(screen.getAllByRole("tooltip").map((tip) => tip.textContent)).toEqual([`${copy.addAgentLabel}${CHORDS[0]!.keys}`]));
+});
+
+it("u2228c_a_row_opens_no_tooltip", async () => {
+  layout(400);
+  await mountRail([workstream("w", { name: NAME }), agent("a", "idle", "working on it", { parent: "w" })]);
+
+  for (const row of [rowOf(NAME), document.querySelector<HTMLElement>('.rail-row[data-id="a"]')!]) {
+    fireEvent.pointerMove(row, { pointerType: "mouse" });
+    fireEvent.click(row);
+    row.focus();
+  }
+
+  await new Promise((done) => setTimeout(done, 600));
+  expect(screen.queryByRole("tooltip")).toBeNull();
 });
 
 it.each(["hover", "focus"])("u2570a_tooltips_follow_their_chord_%s", async (input) => {

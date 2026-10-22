@@ -8,11 +8,10 @@ export type TriggerProps = Omit<JSX.ButtonHTMLAttributes<HTMLElement>, "ref" | "
 
 const focusProps = (trigger: TriggerProps) => splitProps(trigger, ["onFocusIn", "onFocusOut", "aria-describedby"])[0];
 
-/** Put the trigger on the smallest element owning the text. `anchor` names an intentional wider owner (U521); pointer openings assert containment in development and tests. The second children argument carries focus handlers for an enclosing keyboard control. Keyboard focus needs no pointer. */
+/** Put the trigger on the smallest element owning the text. pointer openings assert containment in development and tests. The second children argument carries focus handlers for an enclosing keyboard control. Keyboard focus needs no pointer. */
 export const Tip = (props: {
   text?: string | undefined;
   content?: JSX.Element;
-  anchor?: () => HTMLElement | undefined;
   ids?: { trigger?: string | undefined };
   cut?: () => boolean;
   class?: string;
@@ -20,7 +19,7 @@ export const Tip = (props: {
   disabled?: boolean;
   children: (trigger: (extra?: TriggerProps) => TriggerProps, focus: Pick<TriggerProps, "onFocusIn" | "onFocusOut" | "aria-describedby">) => JSX.Element;
 }) => (
-  <Tooltip.Root ids={props.ids} anchor={props.anchor} disabled={props.disabled || (props.cut ? !props.cut() : false)} closeOnEscape={false} positioning={{ strategy: "fixed" }}>
+  <Tooltip.Root ids={props.ids} disabled={props.disabled || (props.cut ? !props.cut() : false)} closeOnEscape={false} positioning={{ strategy: "fixed" }}>
     <Tooltip.Trigger asChild={(trigger) => props.children(trigger, focusProps(trigger()))} />
     <Portal>
       <Tooltip.Positioner style={{ "pointer-events": "none" }}>
