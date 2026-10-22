@@ -5,11 +5,18 @@ import type { Kind } from "@contracts/Kind";
 import { copy } from "../copy";
 import { createToast } from "../ui/Toast";
 import { KindGlyph } from "../ink/KindGlyph";
+import { ErrorLine } from "../ink/ErrorLine";
 import type { Chime } from "./chime";
 
 const MOST_SHOWN = 3;
 
 const CHIME_GAP_MS = 1000;
+
+/** U3790: a notice leaves after 5 s (the shared Toast's default), a failure after 10 s. */
+const FAILURE_MS = 10000;
+
+/** The failure line's card identity; like the summary, no Candidate owns it. */
+const FAILURE = "failure";
 
 /** The summary card's identity; it is the one Toast no Candidate owns. */
 const MORE = "more";
@@ -32,7 +39,7 @@ export type ToastQueue = {
   toast: ReturnType<typeof createToast>;
   /** How many cards show, so the layer re-measures only when they change. */
   shown: Accessor<number>;
-  /** U80's one failure line: no timer; the next Toast click or push clears it. */
+  /** U80's one failure line: a card of its own that hides after 10 s; the next Toast click or push clears it. */
   failure: Accessor<string | null>;
   push(candidate: Candidate): void;
   /** U516: a Toast for something the user just did; it makes no sound and is never suppressed for the selected Agent. */
@@ -55,6 +62,12 @@ export const createToastQueue = (inFront: () => boolean, chime: Chime, now: () =
     limit: MOST_SHOWN,
     newestFirst: true,
     onDismiss: (id) => {
+      if (id === FAILURE) {
+        setFailure(null);
+
+        return;
+      }
+
       displayed.delete(id);
 
       if (id === MORE) setEntries((all) => all.slice(0, MOST_SHOWN - 1));
@@ -63,16 +76,33 @@ export const createToastQueue = (inFront: () => boolean, chime: Chime, now: () =
       sync();
     },
     onActivate: (id, source) => {
-      if (id === MORE) return;
+      if (id === MORE || id === FAILURE) return;
 
       const entry = known.get(id);
 
       if (!entry) return;
 
-      setFailure(null);
-      void Promise.resolve(entry.open(source)).then(setFailure);
+      clearFailure();
+      void Promise.resolve(entry.open(source)).then(showFailure);
     },
   });
+
+  /** A new line replaces the old one and starts its own time. */
+  function clearFailure() {
+    if (failure() === null) return;
+
+    setFailure(null);
+    toast.store.remove(FAILURE);
+  }
+
+  function showFailure(message: string | null) {
+    clearFailure();
+
+    if (message === null) return;
+
+    setFailure(message);
+    toast.show({ id: FAILURE, name: "", content: "", body: () => <ErrorLine message={message} />, duration: FAILURE_MS, extra: true });
+  }
 
   const shown = createMemo(() => Math.min(entries().length, MOST_SHOWN));
 
@@ -156,11 +186,11 @@ export const createToastQueue = (inFront: () => boolean, chime: Chime, now: () =
     shown,
     failure,
     notify: (candidate) => {
-      setFailure(null);
+      clearFailure();
       show(candidate);
     },
     push: (candidate) => {
-      setFailure(null);
+      clearFailure();
 
       if (inFront()) {
         if (candidate.selected) return;
