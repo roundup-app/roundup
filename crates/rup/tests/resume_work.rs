@@ -308,6 +308,13 @@ async fn u3078h_unknown_external_effects_require_authoritative_resolution_to_con
     assert!(e.log("prompts").starts_with(&prompts));
 }
 
+async fn history_of(e: &Evidence, todo: &Value) -> Value {
+    e.client
+        .request("todo.getHistory", json!({"id": todo}))
+        .await
+        .unwrap()
+}
+
 #[tokio::test]
 async fn u3078j_passive_recovery_and_owned_handoff_do_not_duplicate_usage() {
     let mut e = Evidence::start().await;
@@ -326,31 +333,37 @@ async fn u3078j_passive_recovery_and_owned_handoff_do_not_duplicate_usage() {
             .count()
     };
     // Whatever the existing hand-off did before recovery, passive recovery adds nothing to it.
+    // The existing hand-off lands on its own clock: snapshot once Messages and History stop moving.
+    let (mut settled, mut history) = (e.messages().await, history_of(&e, &todo).await);
+    let mut quiet = 0;
+    for _ in 0..400 {
+        tokio::time::sleep(std::time::Duration::from_millis(50)).await;
+        let (next, next_history) = (e.messages().await, history_of(&e, &todo).await);
+        quiet = if next == settled && next_history == history {
+            quiet + 1
+        } else {
+            0
+        };
+        (settled, history) = (next, next_history);
+        if quiet >= 8 && settled.len() > 1 {
+            break;
+        }
+    }
     let (launches, prompts) = (e.log("launches"), e.log("prompts"));
-    let settled = e.messages().await;
     for _ in 0..2 {
         e.reconcile().await;
         e.progress().await;
     }
-    let history = e
-        .client
-        .request("todo.getHistory", json!({"id": todo}))
-        .await
-        .unwrap();
     assert_eq!(e.messages().await, settled);
     assert_eq!(e.log("launches"), launches);
     assert_eq!(e.log("prompts"), prompts);
-    // Explicit resume adds exactly its own Message and neither selects nor hands another Todo.
+    // The owned hand-off made the old report history, so explicit resume has nothing to continue:
+    // it adds no Message, hands off no other Todo and repeats no accepted hand-off.
     let decision = e.resume("j").await.unwrap();
     let after = e.messages().await;
-    assert_eq!(after.len(), settled.len() + 1);
+    assert!(decision["decision"].is_null(), "{decision}");
+    assert_eq!(after, settled);
     assert_eq!(handoffs(&after), handoffs(&settled));
-    assert!(
-        !successor(&after, &decision)["body"]
-            .as_str()
-            .unwrap()
-            .contains("Next:")
-    );
     assert_eq!(
         e.client
             .request("todo.getHistory", json!({"id": todo}))
