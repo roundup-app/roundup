@@ -37,6 +37,12 @@ pub enum EventData {
     /// T23: the Todo's comments were marked read.
     #[serde(rename = "todo.commentsRead")]
     TodoCommentsRead(todo::TodoId),
+    /// T27: a ref was added to the Todo; read `todo.refs`.
+    #[serde(rename = "todo.refAdded")]
+    TodoRefAdded(todo::TodoId),
+    /// T27: a ref was removed from the Todo.
+    #[serde(rename = "todo.refRemoved")]
+    TodoRefRemoved(todo::TodoId),
     #[serde(rename = "pad.changed")]
     PadChanged(pad::PadName),
     #[serde(rename = "pad.deleted")]

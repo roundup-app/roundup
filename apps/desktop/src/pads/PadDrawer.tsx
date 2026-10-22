@@ -30,6 +30,8 @@ const PadBody = (props: {
   revision?: string;
   list?: PadList;
   pads: Accessor<readonly Pad[]>;
+  /** T27: a Todo's section link opens the Pad scrolled to this heading. */
+  heading?: string | undefined;
   onLateFailure: (message: string) => void;
 }) => {
   const connected = useConnectedProject();
@@ -513,6 +515,7 @@ const PadBody = (props: {
           onSelection={capture}
           onReady={(ready) => {
             editor = ready;
+            queueMicrotask(() => { if (props.heading !== undefined) ready.scrollToHeading(props.heading); });
 
             // The editor loads lazily; text adopted before it was ready must still reach it.
             if (!editing()) ready.setText(origin());
@@ -566,6 +569,7 @@ const PadBody = (props: {
 /** Body of a Pad's Drawer: the Pad is read once, as the user's Touch, after the history that last-touch line shows. */
 export const PadDrawer = (props: {
   name: string;
+  heading?: string | undefined;
   /** Select a retained revision in this Project, using pads' already-loaded identity facts.
    * Missing revisions or originals render no editor; recovery never performs opening reads.
    */
@@ -597,6 +601,7 @@ export const PadDrawer = (props: {
         <PadBody
           initial={pad}
           pads={props.pads}
+          heading={props.heading}
           onLateFailure={props.onLateFailure}
         />
       )}
