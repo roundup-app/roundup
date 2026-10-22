@@ -151,6 +151,8 @@
 }
 
 .decision-tag {
+  display: block;
+  margin-bottom: var(--space-1);
   font-size: var(--text-caption);
   color: var(--red);
 }
@@ -185,7 +187,7 @@
 }
 
 .decision-fold[data-animated="true"] {
-  animation: decision-fold var(--duration-toast) var(--easing-out);
+  animation: decision-fold var(--duration-fold) var(--easing-out);
 }
 
 @keyframes decision-fold {

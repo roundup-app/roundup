@@ -102,7 +102,10 @@ export const DecisionCard = (props: { decision: Decision; name: string; focusTer
       key.preventDefault();
       key.stopPropagation();
 
-      if (next) setPicked(next);
+      if (next) {
+        setPicked(next);
+        key.currentTarget instanceof Element && key.currentTarget.querySelector<HTMLInputElement>(`input[type=radio][value="${next}"]`)?.focus();
+      }
     } else if (key.key === "Enter" && !(key.target instanceof Element && key.target.closest("button"))) {
       key.preventDefault();
       key.stopPropagation();
