@@ -12,8 +12,13 @@ pub fn failure(message: impl Into<String>) -> io::Error {
 
 /// The `PERF <json>` line in what a Terminal printed, if it is complete.
 pub fn perf_line(printed: &str) -> Option<&str> {
-    let start = printed.find("PERF ")?;
-    let line = &printed[start + "PERF ".len()..];
+    marked_line(printed, "PERF ")
+}
+
+/// The line after `marker` (`PERF ` for the keystroke run, `FRAMES ` for the frame run of U3010e) in what a Terminal printed, if it is complete.
+pub fn marked_line<'a>(printed: &'a str, marker: &str) -> Option<&'a str> {
+    let start = printed.find(marker)?;
+    let line = &printed[start + marker.len()..];
 
     line.find('\n').map(|end| &line[..end])
 }
