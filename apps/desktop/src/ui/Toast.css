@@ -10,10 +10,14 @@
 
 .app-toast[data-scope="toast"] {
   right: 0;
-  width: max-content;
-  max-width: calc(var(--shelf-width) - var(--space-6));
+  width: calc(var(--shelf-width) - var(--space-6));
+  max-width: calc(100vw - var(--space-6));
   background-color: var(--ground);
+  box-shadow: var(--shadow-shelf);
   border-radius: var(--radius-control);
+  overflow: hidden;
+  /* Ark measures every card as 0 px tall, so the fanned cards would stay piled; the provider measures them and sets --stack-y. */
+  --offset: var(--stack-y, 0px) !important;
   translate: var(--x) var(--y);
   scale: var(--scale, 1);
   transform-origin: bottom center;
@@ -40,10 +44,9 @@
 
 .app-toast-bar {
   position: absolute;
-  inset: auto var(--radius-control) 0;
+  inset: auto 0 0;
   height: 2px;
-  border-radius: var(--radius-control);
-  background-color: var(--accent);
+  background-color: var(--grey);
   transform-origin: left center;
   animation: app-toast-drain var(--toast-time) linear forwards;
 }
