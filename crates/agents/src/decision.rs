@@ -7,8 +7,8 @@ use std::sync::{Arc, Mutex, MutexGuard};
 use std::time::Duration;
 
 use contracts::decision::{
-    Answer, AnswerParams, AskAnswer, AskOutput, AskParams, ClearedEvent, Decision,
-    Outcome, PermissionOutput, PromptIdentity,
+    Answer, AnswerParams, AskAnswer, AskOutput, AskParams, ClearedEvent, Decision, Outcome,
+    PermissionOutput, PromptIdentity,
 };
 use contracts::{Actor, EventData};
 use rpc::{RpcError, code};
@@ -761,11 +761,7 @@ impl Shared {
         self.deliver_answer(ctx, params_for_delivery(id, answer, &note, identity))
     }
 
-    fn deliver_answer(
-        &self,
-        ctx: &rpc::Ctx,
-        params: AnswerParams,
-    ) -> Result<(), RpcError> {
+    fn deliver_answer(&self, ctx: &rpc::Ctx, params: AnswerParams) -> Result<(), RpcError> {
         let AnswerParams {
             id,
             answer,

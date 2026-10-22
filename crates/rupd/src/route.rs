@@ -392,12 +392,7 @@ impl Daemon {
                     self.note_user_input(&params).await;
                 }
                 self.agents
-                    .write_terminal(
-                        &conn.actor,
-                        &write.id,
-                        bytes,
-                        write.identity,
-                    )
+                    .write_terminal(&conn.actor, &write.id, bytes, write.identity)
                     .await?;
                 // A refused guarded submit wrote no bytes and cannot release Messages
                 // waiting behind the user's input. Ordinary writes retain their queued cut.

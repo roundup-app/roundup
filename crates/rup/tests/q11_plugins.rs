@@ -130,11 +130,7 @@ async fn q11_plugins_survive_real_daemon_launch_resume_and_workstream_clear() {
             .map(|pair| std::path::Path::new(pair[1].as_str().unwrap()))
             .collect();
         // LC14: a Door is lean and gets `hope` only; its children are workers.
-        let bundled = [
-            ("hope", "13.1.0"),
-            ("hunch", "0.9.4"),
-            ("hold", "0.0.9"),
-        ];
+        let bundled = [("hope", "13.1.0"), ("hunch", "0.9.4"), ("hold", "0.0.9")];
         let wanted = if argv.iter().any(|arg| arg == "--tools") {
             &bundled[..1]
         } else {
