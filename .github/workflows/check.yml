@@ -117,8 +117,8 @@ jobs:
       matrix:
         partition: [1, 2, 3, 4, 5]
     runs-on: ubuntu-latest
-    # A cold Rust cache restore under a full runner pool makes setup build `rupd` for up to 12 min (2026-10-22); a hung test still ends here.
-    timeout-minutes: 20
+    # A cold Rust cache restore under a full runner pool makes setup build `rupd` for up to 16 min (2026-10-22); the test step has its own 15 min limit for a hung test.
+    timeout-minutes: 35
     steps:
       - uses: actions/checkout@v5
         with:
@@ -140,6 +140,7 @@ jobs:
       - name: Pinned Bend for model correspondence
         run: just proofs-setup
       - name: test-rust
+        timeout-minutes: 15
         run: |
           python3 -m pip install -r tools/e14/requirements.txt
           python3 tools/e14/observe.py run --lane rust${{ matrix.partition }} --base "$BASE" --memory-log "$RUNNER_TEMP/e14-memory.jsonl" --output "$RUNNER_TEMP/e14/rust${{ matrix.partition }}" --cache-state "setup action; restore outcomes in the run's setup log"
@@ -214,8 +215,8 @@ jobs:
       matrix:
         partition: ${{ fromJSON(needs.plan.outputs.web_shards || '[1]') }}
     runs-on: ubuntu-latest
-    # A cold Rust cache restore under a full runner pool makes setup build `rupd` for up to 12 min (2026-10-22); a hung test still ends here.
-    timeout-minutes: 20
+    # A cold Rust cache restore under a full runner pool makes setup build `rupd` for up to 16 min (2026-10-22); the test step has its own 15 min limit for a hung test.
+    timeout-minutes: 35
     steps:
       - uses: actions/checkout@v4
         with:
@@ -236,6 +237,7 @@ jobs:
       - name: U26 concurrent cold Chromium
         run: python3 loop/app-data.py python3 tools/chromium-faults/observe.py --log "$RUNNER_TEMP/chromium-cold-faults-${{ matrix.partition }}.jsonl" -- node --experimental-strip-types tools/chromium-faults/cold.mts "$RUNNER_TEMP/chromium-cold-${{ matrix.partition }}.jsonl"
       - name: test-web
+        timeout-minutes: 15
         run: |
           python3 -m pip install -r tools/e14/requirements.txt
           python3 tools/e14/observe.py run --lane web${{ matrix.partition }} --shards ${{ strategy.job-total }} --base "$BASE" --memory-log "$RUNNER_TEMP/e14-memory.jsonl" --output "$RUNNER_TEMP/e14/web${{ matrix.partition }}" --cache-state "setup action; restore outcomes in the run's setup log"
