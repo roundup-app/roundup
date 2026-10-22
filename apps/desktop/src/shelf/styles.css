@@ -179,8 +179,9 @@
 .shelf-scope-action[hidden] { display: none; }
 .shelf-bar .shelf-add { flex: none; margin-inline-start: auto; margin-block: 0; padding-block: 0; min-height: var(--space-5); display: inline-flex; flex-wrap: wrap; align-content: center; align-items: baseline; align-self: baseline; padding-inline: var(--space-1); font-size: var(--text-body); line-height: var(--space-4); color: var(--accent); }
 .shelf-bar .shelf-add > svg { align-self: center; }
-/* The scope name, + Todo and the icon buttons share one centre line; Triage spaces like Maximise and Close. */
-.shelf-bar .shelf-triage { align-self: center; margin-inline-start: 0; }
+/* The scope name, + Todo and the icon buttons share one centre line; Triage tops the bar's padded row like Maximise and Close and sits 8 px from them, apart from + Todo. */
+.shelf-bar .shelf-triage { align-self: flex-start; margin-inline-start: var(--space-2); }
+.shelf-bar:has(.shelf-triage) { padding-inline-end: 0; }
 .shelf-groups.app-tree { padding: 0; }
 .shelf-groups [data-part="branch-control"] { padding-inline: 0; color: var(--grey); font-size: var(--text-caption); font-family: var(--font-ui); overflow-wrap: anywhere; }
 .shelf-groups [data-part="branch-control"]:hover { color: var(--text); background: transparent; }
