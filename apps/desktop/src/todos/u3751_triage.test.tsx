@@ -199,5 +199,5 @@ it("u3755_esc_in_the_comment_field_keeps_the_draft", async () => {
 
   press(row(2), "c");
   await waitFor(() => expect(document.activeElement).toBe(screen.getByRole("textbox", { name: "Write a comment" })));
-  expect((document.activeElement as HTMLTextAreaElement).value).toBe("draft");
+  expect(screen.getByRole<HTMLTextAreaElement>("textbox", { name: "Write a comment" }).value).toBe("draft");
 });
