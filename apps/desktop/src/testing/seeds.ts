@@ -484,6 +484,14 @@ export const seedApp = (name: SeedName, now: number): Controls => {
   const controls = installDaemon(app, nodes, now, name === "tree-40" || name === "conflict" || name === "import-candidates", name === "bubbles", name === "import-candidates");
   app.opened.project = name === "first-run" ? null : PROJECT;
 
+  if (name === "tree-40") {
+    // U3744, U3745: a cap of 3 and the first Workstream whose Door never started waiting for a slot.
+    const waiting = nodes.find(node => node.kind === "workstream" && node.attempt === null);
+
+    app.handlers["project.get"] = () => ({ worktrees: { on: false, check: null }, mcp: { on: true }, workstreamCap: 3, models: { roles: [] } });
+    app.handlers["workstream.queue"] = () => ({ running: 3, cap: 3, entries: waiting ? [{ workstream: waiting.id, start: { kind: "queued" } }] : [] });
+  }
+
   if (name === "tabs-8") {
     // U184's observer: eight Projects, a needs-you Agent in the second and an error in the eighth.
     const marked = new Map<number, Kind>([[2, "needs-you"], [8, "error"]]);

@@ -37,6 +37,7 @@ import { TreeView } from "../ui/TreeView";
 import { shelfScope } from "../shelf/scope";
 import { ScopeAction } from "../shelf/ScopeAction";
 import { OwnerGroups } from "../shelf/OwnerGroups";
+import { NewWorkstream } from "./NewWorkstream";
 import { OwnerPicker } from "./OwnerPicker";
 import { ownerGroups, ownersOnRail, sameOwner } from "../shelf/scope";
 import type { Actor } from "@contracts/Actor";
@@ -432,15 +433,20 @@ export const Todos = (props: {
   const rowButtonOf = (id: number) => (rows.get(id)?.isConnected ? rows.get(id) : null) ?? document.querySelector<HTMLElement>(`[data-todo="${id}"] .row-head button`);
 
   /** U3720: the owner list closes with focus back on the row, found again after the refetch. */
+  let namingNext: number | null = null;
+
   const stopPicking = () => {
     const id = picking()?.id;
+    const skipRefocus = namingNext !== null || naming() !== null;
 
     setPicking(null);
 
-    if (id !== undefined) queueMicrotask(() => rowButtonOf(id)?.focus());
+    // U3743: the dialog opens from the select callback, so the picker's close order cannot lose it; the row keeps no focus then.
+    if (!skipRefocus && id !== undefined) queueMicrotask(() => rowButtonOf(id)?.focus());
   };
 
   // U3720: a chosen Todo moves to its new group's row once `todo.updated` has refetched, which replaces the row that held focus.
+  const [naming, setNaming] = createSignal<number | null>(null);
   const [revealed, setRevealed] = createSignal<string | null>(null);
   const [regrouped, setRegrouped] = createSignal<{ id: number; owner: Actor | null } | null>(null);
 
@@ -905,7 +911,16 @@ export const Todos = (props: {
         </>; }}</OwnerGroups>
       </Show>
       <HomePicker target={moving} offers={homeOffers} choose={(id, home) => void moveHome(id, home)} close={stopMoving} />
-      <OwnerPicker label={id => copy.ownersFor(id ?? "")} target={picking} offers={offers} choose={(id, owner) => void assign(id, owner)} close={stopPicking} />
+      <OwnerPicker label={id => copy.ownersFor(id ?? "")} target={picking} offers={offers} choose={(id, owner) => void assign(id, owner)} close={stopPicking} newWorkstream={id => { namingNext = id; setTimeout(() => { namingNext = null; setNaming(id); }, 0); }} />
+      <NewWorkstream target={naming} returnTo={rowButtonOf} done={(id, made) => {
+        setNaming(null);
+
+        // U3743, U138: the Todo is the new Door's, so its row is found again once `todo.updated` has refetched it.
+        if (made) {
+          setRevealed("unassigned");
+          setRegrouped({ id, owner: { kind: "agent", id: made.id, parent: null } });
+        } else queueMicrotask(() => rowButtonOf(id)?.focus());
+      }} />
       <Show when={typing() && (adding() === null || fieldGroupGone())}>
         {field()}
       </Show>

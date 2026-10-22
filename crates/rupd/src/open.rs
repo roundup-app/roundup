@@ -119,6 +119,7 @@ impl Daemon {
             clears: clear::Clears::new(Arc::clone(&agents)),
             checkpoints: Arc::clone(&checkpoints),
             rewinding: Default::default(),
+            queue: Default::default(),
             pushes: std::sync::Mutex::new(Some(bus.subscribe())),
             resources: Default::default(),
             publications: deliverables::Publications::open(dir)?,

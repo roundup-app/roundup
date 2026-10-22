@@ -96,6 +96,18 @@ A bounded copy of a Terminal's screen and output byte offset that restores its p
 The persistent place for one body of work, named for the work, with exactly one Door and its Agents, Terminals, Todos and Sketches. Stopping its Door neither removes the Workstream nor moves its contents. Workstreams are flat: one never sits under another. Its Agents nest under the Door and under each other (Subagent). Cross-Workstream dependencies are open.
 _Avoid_: room, folder
 
+**Start choice**:
+The user's pick of when a new Workstream's Door starts: `now`, `queued` or `afterTodo` (`todo.startWorkstream`, A3194). Only `now` ignores the Workstream cap, because the user chose it now.
+
+**Queue**:
+The Project's ordered list of Workstreams whose Start choice has not yet started their Door (`workstream.queue`). The Daemon starts Doors from its head when a slot frees, and a restart starts none (A3196, A3197).
+
+**Workstream cap**:
+The Project setting `workstreamCap`, the most Workstreams that run at once; `null` is no cap (`project.setWorkstreamCap`, A3195).
+
+**Running**:
+A Workstream is running while any Agent under it, its Door included, has Status `working`; one the Queue just started is running until its Door reports a Status (A3195).
+
 **Clear**:
 The user's act of starting a Workstream's Door over on fresh context (`workstream.clear`): it asks why, the Door writes a Handoff, every Subagent stops and leaves the Rail, and the Door starts again from the Handoff (A32). It never removes the Workstream, its other Terminals or any file; a Subagent's Worktree and branch stay.
 
