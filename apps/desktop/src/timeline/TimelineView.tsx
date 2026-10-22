@@ -142,8 +142,8 @@ export const TimelineView = (props: { home: string; name: string; back: () => vo
       else props.back();
     }}>
     <header class="timeline-header"><h2>{props.name}</h2><button data-button="quiet" type="button" onClick={props.back}>{copy.back}</button></header>
-    <div class="timeline-axis"><span /><span class="timeline-axis-ends"><span>{copy.timelineStart}</span><span>{copy.timelineNow}</span></span></div>
-    <Show when={lanes().length > 0} fallback={<p class="timeline-empty">{copy.timelineEmpty}</p>}>
+    <Show when={lanes().length > 0} fallback={<p class="empty-state timeline-empty">{copy.timelineEmpty}</p>}>
+      <div class="timeline-axis"><span /><span class="timeline-axis-ends"><span>{copy.timelineStart}</span><span>{copy.timelineNow}</span></span></div>
       <div class="timeline-lanes">
         <ol aria-label={copy.timelineLanes}>
           <For each={lanes()}>{(lane) => <li class="timeline-lane" data-agent={lane.id}>
