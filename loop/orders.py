@@ -210,9 +210,36 @@ def check(body):
         raise ValueError(f'invalid work order: {error}') from None
 
 
+def graphql_issue(item):
+    """A `gh issue list` item in the REST Issue shape `classify` reads; an App author `app/x` is REST's `x[bot]`."""
+    login = item['author']['login']
+    return dict(number=item['number'], html_url=item['url'], title=item['title'], body=item['body'],
+                state=item['state'].lower(), state_reason=(item['stateReason'] or '').lower() or None,
+                labels=item['labels'], updated_at=item['updatedAt'],
+                user=dict(login=f'{login[4:]}[bot]' if login.startswith('app/') else login))
+
+
+def list_issues():
+    """Every Issue. The REST list came back empty during a GitHub Issues incident (2026-10-22) while GraphQL still
+    answered, so an empty or failed REST list falls back to `gh issue list`; both failing raises."""
+    try:
+        pages = gh('api', 'repos/{owner}/{repo}/issues?state=all&per_page=100', '--paginate', '--slurp')
+        issues = [issue for page in pages for issue in page if 'pull_request' not in issue]
+        if issues:
+            return issues
+    except subprocess.CalledProcessError as error:
+        print(f'::warning::REST Issue list failed ({error.returncode}); reading Issues through GraphQL', file=sys.stderr)
+    else:
+        print('::warning::REST Issue list came back empty; reading Issues through GraphQL', file=sys.stderr)
+    issues = [graphql_issue(item) for item in gh('issue', 'list', '--state', 'all', '--limit', '100000', '--json',
+                                                   'number,url,title,body,state,stateReason,labels,updatedAt,author')]
+    if not issues:
+        raise SystemExit('::error::both the REST and GraphQL Issue lists came back empty')
+    return issues
+
+
 def read_orders():
-    pages = gh('api', 'repos/{owner}/{repo}/issues?state=all&per_page=100', '--paginate', '--slurp')
-    issues = [issue for page in pages for issue in page if 'pull_request' not in issue]
+    issues = list_issues()
     def dependencies(issue):
         if issue['state'] == 'closed' or issue.get('issue_dependencies_summary', {}).get('total_blocked_by') == 0:
             return issue['number'], []

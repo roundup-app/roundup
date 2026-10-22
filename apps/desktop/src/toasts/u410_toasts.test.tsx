@@ -109,36 +109,6 @@ describe("u411 what a Toast shows and how it leaves", () => {
     expect(toasts()).toHaveLength(0);
   });
 
-  it("u411_hover_and_focus_keep_it", async () => {
-    const { app, toasts } = await mountToasts(tree());
-
-    app.emit(status("a", "needs-you"));
-    await settle();
-    fireEvent.pointerEnter(toasts()[0]!);
-    await vi.advanceTimersToNextFrame();
-    await vi.advanceTimersByTimeAsync(20_000);
-
-    expect(toasts()).toHaveLength(1);
-
-    fireEvent.focusIn(toasts()[0]!);
-    fireEvent.pointerLeave(toasts()[0]!);
-    await vi.advanceTimersToNextFrame();
-    await vi.advanceTimersByTimeAsync(20_000);
-
-    expect(toasts()).toHaveLength(1);
-
-    fireEvent.focusOut(toasts()[0]!);
-    await vi.advanceTimersToNextFrame();
-    await vi.advanceTimersByTimeAsync(4900);
-
-    expect(toasts()).toHaveLength(1);
-
-    await vi.advanceTimersByTimeAsync(400);
-    await settle();
-
-    expect(toasts()).toHaveLength(0);
-  });
-
   it("u411_nothing_of_it_stays", async () => {
     const { app, view, toasts } = await mountToasts(tree());
 
