@@ -117,7 +117,8 @@ jobs:
       matrix:
         partition: [1, 2, 3, 4, 5]
     runs-on: ubuntu-latest
-    timeout-minutes: 12
+    # A cold Rust cache restore under a full runner pool makes setup build `rupd` for up to 12 min (2026-10-22); a hung test still ends here.
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@v5
         with:
@@ -213,7 +214,8 @@ jobs:
       matrix:
         partition: ${{ fromJSON(needs.plan.outputs.web_shards || '[1]') }}
     runs-on: ubuntu-latest
-    timeout-minutes: 12
+    # A cold Rust cache restore under a full runner pool makes setup build `rupd` for up to 12 min (2026-10-22); a hung test still ends here.
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@v4
         with:
