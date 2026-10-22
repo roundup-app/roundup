@@ -147,7 +147,7 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .todo-row .todo-tick::before, .todo-row .todo-tick-mark path, .todo-row .shelf-title::after { animation-name: none; }
+  .todo-row .todo-tick::before, .todo-row .todo-tick-mark path, .todo-row .shelf-title::after { animation-name: none !important; }
 }
 
 .todo-tick:disabled { cursor: default; }
@@ -336,5 +336,5 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .todo-progress-count { animation-name: none; }
+  .todo-progress-count { animation-name: none !important; }
 }
