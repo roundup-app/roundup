@@ -34,6 +34,7 @@ import { createSortedList } from "./sortedList";
 import { Sortable } from "../ui/sortable";
 import { TreeView } from "../ui/TreeView";
 import { shelfScope } from "../shelf/scope";
+import { ScopeAction } from "../shelf/ScopeAction";
 import { OwnerGroups } from "../shelf/OwnerGroups";
 import { OwnerPicker } from "./OwnerPicker";
 import { ownerGroups, ownersOnRail, sameOwner } from "../shelf/scope";
@@ -104,6 +105,9 @@ export const OpenRow = (props: {
     .filter((blocker) => !blocker.done && blocker.id !== props.place?.parent && (props.place?.parent != null || waitingOn().length > 1)));
 
   const alsoWaitingLine = createMemo(() => copy.alsoWaitsOn(alsoWaiting().map((blocker) => blocker.title).join(copy.comma)));
+
+  /** U3731: the body's first non-empty line, the row's one quiet line under the title. */
+  const bodyLine = createMemo(() => props.todo.body.split("\n").find(line => line.trim() !== "")?.trim() ?? "");
 
   const [actionFailure, setFailure] = createSignal<string | null>(null);
   const [moveFailure, setMoveFailure] = createSignal<string | null>(null);
@@ -209,8 +213,9 @@ export const OpenRow = (props: {
       }}
     >
       <Show when={props.nested}>{head}</Show>
-      <Show when={!props.todo.done && props.todo.body.trim() !== ""}>
-        <p class="item-description" data-todo-description>{props.todo.body.trim()}</p>
+      <Show when={bodyLine() !== ""}>
+        {/* oxlint-disable-next-line anti-slop/no-tooltip-bypass -- U3731 requires the whole first line as the one-line body's title attribute. */}
+        <p class="item-description" data-todo-description title={bodyLine()}>{bodyLine()}</p>
       </Show>
       <Show when={failure()}>{(message) => <ErrorLine message={message()} />}</Show>
       <Show when={props.nested}>
@@ -695,24 +700,26 @@ export const Todos = (props: {
 
   return (
     <section aria-label={copy.todos} class="todos-tab" onContextMenu={todoMenu}>
-      <button
-        data-button="add"
-        type="button"
-        aria-label={copy.addTodo}
-        class="shelf-add"
-        ref={(button) => (plusButton = button)}
-        onClick={() => openField(null)}
-      >
-        <Icon name="plus" />
-        <span>{copy.todo}</span>
-      </button>
+      <ScopeAction tab="todos">
+        <button
+          data-button="add"
+          type="button"
+          aria-label={copy.addTodoTo(scope.label())}
+          class="shelf-add"
+          ref={(button) => (plusButton = button)}
+          onClick={() => openField(null)}
+        >
+          <Icon name="plus" />
+          <span>{copy.todo}</span>
+        </button>
+      </ScopeAction>
       <Show when={todos.failure()}>{(message) => <ErrorLine message={message()} />}</Show>
       <Show when={createFailure() !== null && (adding() === null || fieldGroupGone())}>{(_) => <ErrorLine message={createFailure()!} />}</Show>
       <Show when={isEmpty() && !typing()}>
         <EmptyState icon="check" heading={copy.noTodosYet} hint={copy.noTodosHint} />
       </Show>
       <Show when={open().length > 0 || adding() !== null}>
-        <OwnerGroups groups={() => ownerGroups(connected, open(), todo => todo.owner)} dragging={dragging} adding={() => adding()?.group ?? null} reveal={revealed} unfold={todos.revealed} onAdd={group => openField({ group: group.id, owner: group.actor })}>{group => {
+        <OwnerGroups groups={() => ownerGroups(connected, open(), todo => todo.owner)} dragging={dragging} bare={() => connected.rail.nodes.find(node => node.id === connected.rail.selected())?.kind === "agent" ? connected.rail.selected() : null} adding={() => adding()?.group ?? null} reveal={revealed} unfold={todos.revealed} onAdd={group => openField({ group: group.id, owner: group.actor })}>{group => {
         const tree = createMemo(() => treeRows(group().items));
         const collection = createMemo(() => treeCollection(tree()));
         const placeOf = (id: number) => tree().find((row) => row.todo.id === id) ?? { level: 1, parent: null };

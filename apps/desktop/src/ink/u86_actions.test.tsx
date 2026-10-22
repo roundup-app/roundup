@@ -33,7 +33,7 @@ it("u86_rail_add_actions_keep_their_names", async () => {
 
 it("u86_todo_add_and_drawer_close_are_named_vector_actions", async () => {
   await mountTodos([todo(1)]);
-  const add = screen.getByRole("button", { name: "Add Todo" });
+  const add = screen.getByRole("button", { name: "add todo to Overview" });
   vector(add, "plus");
   fireEvent.click(add);
   expect(screen.getByRole("textbox", { name: "New Todo title" })).toBeTruthy();
@@ -52,5 +52,6 @@ it("u86_pad_ownership_and_add_use_vectors_without_duplicate_drawer_names", async
   await openPad("notes");
   const drawer = screen.getByLabelText("Drawer");
   expect(within(drawer).queryByRole("img", { name: "Agent owned" })).toBeNull();
-  vector(drawer, "diamond-plus");
+  // U3729: the Drawer head takes the Pad with a text button, no glyph.
+  expect(within(drawer).getByRole("button", { name: "Make yours" }).querySelector("svg")).toBeNull();
 });
