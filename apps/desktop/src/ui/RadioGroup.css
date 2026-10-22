@@ -63,3 +63,8 @@
 .app-radio:has(input:hover:not(:disabled)) .app-radio-mark {
   border-color: var(--text);
 }
+
+.app-radio > input:hover:not(:disabled),
+.app-radio:has(input:hover:not(:disabled)) .app-radio-label {
+  color: var(--text);
+}
