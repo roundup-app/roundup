@@ -56,6 +56,7 @@
   --duration-crossfade: 120ms;
   --duration-todo: 150ms;
   --duration-toast: 150ms;
+  --duration-toast-in: 200ms;
   --duration-scrollbar: 200ms;
 
   --font-ui: -apple-system, BlinkMacSystemFont, "SF Pro Text", system-ui, sans-serif;
