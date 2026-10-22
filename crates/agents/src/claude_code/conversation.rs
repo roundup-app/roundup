@@ -175,7 +175,8 @@ impl Launcher {
             }
             if record["type"] == "system"
                 && record["subtype"] == "local_command"
-                && record["commandRun"]["command"] == "context"
+                && (record["commandRun"]["command"] == "context"
+                    || record["contextUsage"]["categories"].is_array())
             {
                 measured = Some(measured_parts(&record["contextUsage"]["categories"]));
             }
