@@ -31,6 +31,8 @@ import type { SpawnParams } from "@contracts/agent/SpawnParams";
 import { ClearPrompt } from "./ClearPrompt";
 import { INTERNAL_CODE, RpcError } from "../app/seam";
 import { clearingOf } from "./clear";
+import { useRecoveryMenu } from "../drawer/DraftRecovery";
+import { contextMenu, openOnRelease } from "../ui/contextMenu";
 import { draftsOf } from "./persist/storage";
 import "./styles.css";
 
@@ -40,6 +42,7 @@ const toggled = <T,>(set: ReadonlySet<T>, member: T): ReadonlySet<T> =>
 export const Rail = () => {
   const connected = useConnectedProject();
   const { app, project, rail, now, daemonExit } = connected;
+  const recoveryEntries = useRecoveryMenu();
 
   const attention = createMemo(() => attentionCount(rail.nodes));
   const [scrolled, setScrolled] = createSignal(false);
@@ -243,6 +246,15 @@ export const Rail = () => {
       rail.select(node.id);
       void menu.open(node, rail.exitOf(node), box.left, box.bottom);
     }
+  };
+
+  const openOverviewMenu = (press: KeyboardEvent) => {
+    const entries = recoveryEntries("key");
+
+    if (entries.length === 0 || !(press.target instanceof HTMLElement)) return;
+
+    const box = press.target.getBoundingClientRect();
+    void contextMenu(app, entries, box.left, box.bottom);
   };
 
   /** One indent step (--rail-step) in pixels: how far sideways the pointer goes to change the drop's depth. */
@@ -491,6 +503,7 @@ export const Rail = () => {
     } }) },
     { action: CHORDS.find((row) => row.keys === "⇧⌘N")!, match: "key", capture: () => ({ available: canSpawn, invoke: openCompose }) },
     { chords: ["ContextMenu", "Shift+F10"], when: (press) => focusedRowId(press) !== undefined, run: openMenuAtFocusedRow },
+    { chords: ["ContextMenu", "Shift+F10"], when: (press) => press.target instanceof HTMLElement && press.target.matches("[data-todo-root]"), run: openOverviewMenu },
     { action: CHORDS.find((row) => row.keys === "⌘⌫")!, when: (press) => focusedRowId(press) !== undefined, capture: (focus) => ({ available: () => focus instanceof HTMLElement && focus.isConnected && focus.matches(ROW) && rail.nodes.some((node) => node.id === rail.selected()) && daemonExit() === null, invoke: () => removeSelected(false) }) },
   ]);
 
@@ -523,6 +536,11 @@ export const Rail = () => {
       data-scrolled={scrolled()}
       class="todo-project-root"
       onClick={() => { rail.select(null); connected.settingsView.close(false); }}
+      onContextMenu={(press: MouseEvent) => openOnRelease(press, (x, y) => {
+        const entries = recoveryEntries();
+
+        if (entries.length > 0) void contextMenu(app, entries, x, y);
+      })}
     >
       <span class="overview-tile"><Icon name="layout-dashboard" /></span>
       <span>{copy.overview}</span>
