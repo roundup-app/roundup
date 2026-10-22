@@ -9,15 +9,17 @@ import type { Owner } from "../shelf/scope";
 const NEW_WORKSTREAM = "new-workstream";
 
 /**
- * U3720: the one list of owners a row's `o` key or `Assign` word opens, over the Shelf below the row. The shared Menu owns arrow keys, Escape and outside dismissal.
+ * U3720, U3736: the one list of owners a row's `o` key or `Assign` word opens, over the Shelf below the row. The shared Menu owns arrow keys, Escape and outside dismissal.
  * `target` is the row it is open for; `close` runs after every dismissal so the caller returns focus to that row.
  */
-export const OwnerPicker = (props: {
-  target: Accessor<{ id: number; anchor: HTMLElement } | null>;
+export const OwnerPicker = <Id extends number | string>(props: {
+  target: Accessor<{ id: Id; anchor: HTMLElement } | null>;
   offers: Accessor<readonly Owner[]>;
-  choose: (id: number, owner: Actor | null) => void;
+  /** The list's accessible name for the row it is open for. */
+  label: (id: Id | undefined) => string;
+  choose: (id: Id, owner: Actor | null) => void;
   /** U3743: `New Workstream…` for the target Todo, after the picker has closed. */
-  newWorkstream: (id: number) => void;
+  newWorkstream: (id: Id) => void;
   close: () => void;
 }) => (
   <Menu.Root
@@ -36,7 +38,7 @@ export const OwnerPicker = (props: {
   >
     <Portal>
       <Menu.Positioner>
-        <Menu.Content class="owner-picker" aria-label={copy.ownersFor(props.target()?.id ?? "")}>
+        <Menu.Content class="owner-picker" aria-label={props.label(props.target()?.id)}>
           <For each={props.offers()}>{offer => <>
             <Show when={offer.id === "unassigned"}><Menu.Item value={NEW_WORKSTREAM}>{copy.newWorkstreamOffer}</Menu.Item></Show>
             <Menu.Item value={offer.id}>{offer.name}</Menu.Item>

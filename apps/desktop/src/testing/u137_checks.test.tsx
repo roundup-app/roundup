@@ -53,7 +53,7 @@ describe("u137 one module measures the checks", () => {
     document.body.innerHTML = '<button class="rail-row" style="height:24px;cursor:pointer">x</button>';
     const before = runChecks();
 
-    expect(before.D6).toMatchObject({ status: "fail", value: { missing: "hover" } });
+    expect(before.D6).toMatchObject({ status: "fail", value: { missing: ["hover", "focus"] } });
     expect(before.D7).toMatchObject({ status: "fail", value: { pressed: 0 } });
 
     addSheet(".rail-row:hover { color: red; } .rail-row:focus-visible { outline: 1px solid; } .rail-row:active { color: blue; transition-duration: 0s; }");
