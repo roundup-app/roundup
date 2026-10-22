@@ -16,7 +16,14 @@ export const TodoComments = (props: { id: number }) => {
   const [failure, setFailure] = createSignal<string | null>(null);
   const [sendFailure, setSendFailure] = createSignal<string | null>(null);
   const [text, setTextNow] = createSignal(drafts.get(props.id) ?? "");
-  const setText = (value: string) => { setTextNow(value); if (value === "") drafts.delete(props.id); else drafts.set(props.id, value); };
+
+  const setText = (value: string) => {
+    setTextNow(value);
+
+    if (value === "") drafts.delete(props.id);
+    else drafts.set(props.id, value);
+  };
+
   const [sending, setSending] = createSignal(false);
   let latest = 0;
   let alive = true;
