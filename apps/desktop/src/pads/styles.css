@@ -381,9 +381,9 @@
   gap: var(--space-1);
 }
 
-/* U3736: the Assign word shows on hover and focus, like a Todo row's actions. */
+/* U3736: the Assign word shows on hover and focus, like a Todo row's actions; its width is reserved at rest so the title wraps the same on hover. */
 .pad-row-head { display: flex; align-items: center; min-width: 0; }
 .pad-row-head > .pad-name { flex: 1; }
-.pad-assign { display: none; flex: none; position: relative; z-index: 1; margin-left: var(--space-3); }
-.pad-inset:hover .pad-assign, .pad-inset:focus-within .pad-assign { display: inline-flex; }
-[data-dnd-dragging] .pad-assign { display: none !important; }
+.pad-assign { display: inline-flex; visibility: hidden; flex: none; position: relative; z-index: 1; margin-left: var(--space-3); }
+.pad-inset:hover .pad-assign, .pad-inset:focus-within .pad-assign { visibility: visible; }
+[data-dnd-dragging] .pad-assign { visibility: hidden !important; }
