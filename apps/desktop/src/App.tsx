@@ -24,6 +24,7 @@ import { attentionCounts, nextAttention } from "./rail/attention";
 import { DockBadge } from "./rail/DockBadge";
 import { railStorage } from "./rail/persist/storage";
 import { Rail } from "./rail/Rail";
+import { ProjectSettingsView } from "./rail/ProjectSettings";
 import { Help } from "./keys/Help";
 import { Leader } from "./keys/Leader";
 import { Capture } from "./todos/Capture";
@@ -405,6 +406,7 @@ export const App = (props: {
                     <Show when={screens()}>{(shared) => <Bubbles screens={shared()} />}</Show>
                     <Switcher onFailure={setJumpFailure} onOpen={() => { if (document.querySelector('.window[data-shelf="open"][data-shelf-mode="overlay"]')) shelfFocus.toggle("key"); }} />
                     <ResourceStrip />
+                    <ProjectSettingsView />
                   </div>
                 );
               }}
