@@ -17,7 +17,7 @@ use unicode_normalization::UnicodeNormalization;
 use super::brief::{self, Role};
 use super::extras;
 use super::launch_files::{
-    ConfigLock, landing, replace_file, replace_text, shell_quote, socket_folder,
+    ConfigLock, is_symlink, landing, replace_file, replace_text, shell_quote, socket_folder,
 };
 use super::models::{Lean, Pair};
 use super::plugins;
@@ -924,9 +924,6 @@ fn agents_dir(dir: &Path) -> PathBuf {
     dir.join("agents")
 }
 
-fn is_symlink(path: &Path) -> bool {
-    std::fs::symlink_metadata(path).is_ok_and(|meta| meta.file_type().is_symlink())
-}
 
 fn settings_path(dir: &Path, id: u64) -> PathBuf {
     agents_dir(dir).join(format!("{id}.settings.json"))
