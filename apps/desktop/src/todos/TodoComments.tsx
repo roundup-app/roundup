@@ -8,7 +8,7 @@ import { rowButtonOf, triage } from "./triage";
 
 /** The thread, oldest first, with a field to add to it. Opening reads it and marks it read once; a comment that arrives while it is open is read the same way. */
 export const TodoComments = (props: { id: number }) => {
-  const { app, events, rail, drawer } = useConnectedProject();
+  const { app, events, rail } = useConnectedProject();
   const [thread, setThread] = createSignal<readonly Comment[]>([]);
   const [failure, setFailure] = createSignal<string | null>(null);
   const [sendFailure, setSendFailure] = createSignal<string | null>(null);
@@ -74,7 +74,7 @@ export const TodoComments = (props: { id: number }) => {
       ref={(element) => { field = element; }}
       onInput={(event) => setText(event.currentTarget.value)}
       onKeyDown={(event) => {
-        if (event.key === "Escape" && triage.on()) { event.preventDefault(); drawer.close(); rowButtonOf(props.id)?.focus(); }
+        if (event.key === "Escape" && triage.on()) { event.preventDefault(); event.stopPropagation(); rowButtonOf(props.id)?.focus(); }
 
         if (event.key === "Enter" && (event.metaKey || event.ctrlKey) && !event.isComposing) { event.preventDefault(); void send(); }
       }} />
