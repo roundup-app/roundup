@@ -887,7 +887,7 @@ export const Todos = (props: {
       <Show when={inScope().length > 0}>
         <div class="todo-progress" data-todo-progress>
           <Progress label={copy.todosDoneBar} max={inScope().length} value={done().length} motion={finishing.bar()} onMotionEnd={finishing.barEnded}>
-            <For each={[`${done().length}/${inScope().length}`]}>{(text) => <span class="todo-progress-count" data-todo-count style={{ "min-width": `${String(inScope().length).length * 2 + 1}ch` }}>{text}</span>}</For>
+            <span class="todo-progress-count" data-todo-count style={{ "min-width": `${String(inScope().length).length * 2 + 1}ch` }}>{done().length}/{inScope().length}</span>
           </Progress>
         </div>
       </Show>
