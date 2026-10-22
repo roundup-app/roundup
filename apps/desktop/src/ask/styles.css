@@ -462,6 +462,7 @@ button.ask-line:is(:active, [data-pressed="true"]) {
   max-height: var(--pad-menu-max-height);
   margin: 0;
   overflow: auto;
+  overscroll-behavior: contain;
   font-family: var(--font-mono);
   font-size: var(--text-small);
   white-space: pre-wrap;
