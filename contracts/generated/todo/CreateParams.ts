@@ -5,4 +5,8 @@ export type CreateParams = { title: string, body: string | null, blockers: Array
 /**
  * Omitted or `None` is Unassigned.
  */
-owner?: Actor, };
+owner?: Actor, 
+/**
+ * T29: whole minutes, 1 to 1440; omitted or `None` is no estimate.
+ */
+estimate_minutes?: number, };

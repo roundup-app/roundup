@@ -67,7 +67,7 @@ it("u462_stale_response_cannot_replace_selected_history", async () => {
   fireEvent.click(await screen.findByRole("button", { name: "Idle #1 todo 1" }));
   await waitFor(() => expect(todoCallsTo(m.app, "todo.getHistory")).toHaveLength(1));
   m.connected.drawer.close();
-  answer({ changes: [{ actor: null, changed_at: null, seq: 99, before: null, after: { title: "Stale", body: "", done: false, blockers: [], owner: null } }], unread: 99 });
+  answer({ changes: [{ actor: null, changed_at: null, seq: 99, before: null, after: { title: "Stale", body: "", done: false, blockers: [], owner: null, estimate_minutes: null } }], unread: 99 });
   await Promise.resolve();
   expect(todoCallsTo(m.app, "todo.readHistory")).toHaveLength(0);
   expect(screen.queryByText("Created Stale")).toBeNull();
@@ -81,7 +81,7 @@ it("u462_closed_drawer_response_does_not_acknowledge_before_unmount", async () =
   fireEvent.click(await screen.findByRole("button", { name: "Idle #1 todo 1" }));
   await waitFor(() => expect(todoCallsTo(m.app, "todo.getHistory")).toHaveLength(1));
   m.connected.drawer.close();
-  answer({ changes: [{ actor: null, changed_at: null, seq: 99, before: null, after: { title: "Stale", body: "", done: false, blockers: [], owner: null } }], unread: 99 });
+  answer({ changes: [{ actor: null, changed_at: null, seq: 99, before: null, after: { title: "Stale", body: "", done: false, blockers: [], owner: null, estimate_minutes: null } }], unread: 99 });
   await Promise.resolve();
 
   expect(todoCallsTo(m.app, "todo.readHistory")).toHaveLength(0);
@@ -102,7 +102,7 @@ it("u462_live_refresh_does_not_acknowledge_changes_absent_from_opening", async (
 
 it("t17_history_shows_an_owner_only_change", async () => {
   const m = await mountTodos([todo(1)]);
-  const values = { title: "todo 1", body: "", done: false, blockers: [] };
+  const values = { title: "todo 1", body: "", done: false, blockers: [], estimate_minutes: null };
   const user = { kind: "user" as const, id: "u", parent: null };
   m.app.handlers["todo.getHistory"] = () => ({ unread: null, changes: [
     { actor: null, changed_at: null, seq: 1, before: { ...values, owner: null }, after: { ...values, owner: user } },
@@ -125,7 +125,7 @@ it("u3728_changes_wait_behind_one_line", async () => {
 
 it("u3728_entries_read_as_past_tense_lines", async () => {
   const m = await mountTodos([todo(1)]);
-  const values = { title: "todo 1", body: "", done: false, blockers: Array.of<number>(), owner: null };
+  const values = { title: "todo 1", body: "", done: false, blockers: Array.of<number>(), owner: null, estimate_minutes: null };
   const agent = { kind: "agent" as const, id: "a1", parent: null };
   const stamp = Date.UTC(2026, 5, 3, 14, 5);
   m.app.handlers["todo.getHistory"] = () => ({ unread: null, changes: [
@@ -144,7 +144,7 @@ it("u3728_entries_read_as_past_tense_lines", async () => {
 
 it("u462_a_handoff_renders_as_handed_to_the_agent", async () => {
   const m = await mountTodos([todo(1)]);
-  const values = { title: "todo 1", body: "", done: false, blockers: Array.of<number>(), owner: null };
+  const values = { title: "todo 1", body: "", done: false, blockers: Array.of<number>(), owner: null, estimate_minutes: null };
   const agent = { kind: "agent" as const, id: "a1", parent: null };
   const owned = { ...values, owner: agent };
   m.app.handlers["todo.getHistory"] = () => ({ unread: null, changes: [

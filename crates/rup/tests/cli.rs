@@ -293,10 +293,9 @@ async fn i1_a_commands_flags_are_its_schemas_fields() {
         create.contains("Usage: rup todo create [OPTIONS] <title>"),
         "{create}"
     );
+    let has = |f: &str| create.contains(&format!("--{}", f.replace('_', "-")));
     for field in schema["properties"].as_object().unwrap().keys() {
-        if !required.contains(&field.as_str()) {
-            assert!(create.contains(&format!("--{field}")), "{field}\n{create}");
-        }
+        assert!(required.contains(&field.as_str()) || has(field), "{create}");
     }
     let read = out(&run.rup(&["help", "terminal", "read"]).await);
     assert!(read.contains("<id>") && read.contains("--after"), "{read}");

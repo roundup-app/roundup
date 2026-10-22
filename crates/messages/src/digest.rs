@@ -623,22 +623,12 @@ mod tests {
     }
 
     fn todo(id: u32, creator: &str, done: bool) -> Todo {
-        Todo {
-            id,
-            title: format!("todo {id}"),
-            body: String::new(),
-            done,
-            blockers: vec![],
-            blocked: false,
-            created_at: 0,
-            creator: Actor {
-                kind: ActorKind::Agent,
-                id: creator.into(),
-                parent: None,
-            },
-            home: Some("m".into()),
-            owner: None,
-        }
+        let creator = serde_json::json!({"kind": "agent", "id": creator, "parent": null});
+        serde_json::from_value(serde_json::json!({
+            "id": id, "title": format!("todo {id}"), "body": "", "done": done, "blockers": [],
+            "blocked": false, "created_at": 0, "creator": creator, "home": "m", "owner": null,
+        }))
+        .unwrap()
     }
 
     fn pad(name: &str, owner: &str, at: i64) -> Pad {

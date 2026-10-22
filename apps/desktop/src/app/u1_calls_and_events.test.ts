@@ -21,6 +21,7 @@ const TODO: Todo = {
   creator: { kind: "user", id: "you", parent: null },
   home: null,
   owner: null,
+  estimate_minutes: null,
 };
 
 const NOT_FOUND = -32001;

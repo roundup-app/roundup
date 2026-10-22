@@ -24,6 +24,8 @@ pub struct Todo {
     pub home: Option<String>,
     /// Who does the work (T16): the user, one Agent, or `None` for Unassigned. Never `creator`.
     pub owner: Option<Actor>,
+    /// T29: expected work in minutes (1 to 1440); `None` is no estimate. A Todo from before this field reads as `None`.
+    pub estimate_minutes: Option<u32>,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize, TS, JsonSchema)]
@@ -35,6 +37,9 @@ pub struct CreateParams {
     /// Omitted or `None` is Unassigned.
     #[ts(optional)]
     pub owner: Option<Actor>,
+    /// T29: whole minutes, 1 to 1440; omitted or `None` is no estimate.
+    #[ts(optional)]
+    pub estimate_minutes: Option<u32>,
 }
 
 /// Sets the owner, `None` for Unassigned. `expected_change` is the last captured History Change
@@ -61,7 +66,7 @@ pub struct TodoId {
     pub id: u32,
 }
 
-/// Changes title/body. `expected_change` is the last captured History Change sequence;
+/// Changes title/body/estimate. `estimate_minutes` is whole minutes 1 to 1440 (T29); `null` clears it, omitted leaves it. `expected_change` is the last captured History Change sequence;
 /// mismatch is CONFLICT, a removed Todo is NOT_FOUND, and omission is unconditional.
 #[derive(Clone, Debug, Serialize, Deserialize, TS, JsonSchema)]
 #[ts(export, export_to = "todo/")]
@@ -69,8 +74,16 @@ pub struct UpdateParams {
     pub id: u32,
     pub title: Option<String>,
     pub body: Option<String>,
+    #[serde(default, deserialize_with = "present")]
+    #[ts(optional, type = "number | null")]
+    pub estimate_minutes: Option<Option<u32>>,
     #[ts(optional)]
     pub expected_change: Option<u32>,
+}
+
+/// A field that is present, `null` included, is `Some`; an absent one stays `None` by `default`.
+fn present<'de, D: serde::Deserializer<'de>>(d: D) -> Result<Option<Option<u32>>, D::Error> {
+    Option::<u32>::deserialize(d).map(Some)
 }
 
 /// Replaces the whole blocker list. A list that would make a cycle is an error.
@@ -112,6 +125,9 @@ pub struct Values {
     /// A change recorded before owners existed reads `None`.
     #[serde(default)]
     pub owner: Option<Actor>,
+    /// A change recorded before estimates existed reads `None`.
+    #[serde(default)]
+    pub estimate_minutes: Option<u32>,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, TS)]

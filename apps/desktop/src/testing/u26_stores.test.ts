@@ -17,6 +17,7 @@ const todo = (id: number, over: Partial<Todo> = {}): Todo => ({
   creator: USER,
   home: null,
   owner: null,
+  estimate_minutes: null,
   ...over,
 });
 

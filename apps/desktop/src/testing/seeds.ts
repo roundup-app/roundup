@@ -109,6 +109,7 @@ const todosAt = (now: number): Todo[] =>
     creator: index % 2 === 0 ? RUNNING : USER,
     home: null,
     owner: null,
+    estimate_minutes: null,
   }));
 
 const padsAt = (now: number): Pad[] =>

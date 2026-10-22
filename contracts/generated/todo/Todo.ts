@@ -17,4 +17,8 @@ home: string | null,
 /**
  * Who does the work (T16): the user, one Agent, or `None` for Unassigned. Never `creator`.
  */
-owner: Actor | null, };
+owner: Actor | null, 
+/**
+ * T29: expected work in minutes (1 to 1440); `None` is no estimate. A Todo from before this field reads as `None`.
+ */
+estimate_minutes: number | null, };
