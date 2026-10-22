@@ -159,6 +159,7 @@ it("u3753_c_opens_the_comment_field_and_esc_returns_to_the_row", async () => {
   fireEvent.input(field, { target: { value: "hello" } });
   fireEvent.keyDown(field, { key: "Escape", code: "Escape" });
   await waitFor(() => expect(document.activeElement).toBe(row(2)));
+  expect(document.querySelector(".drawer")?.getAttribute("data-open")).not.toBe("true");
   expect(shelf().getAttribute("data-triage")).toBe("on");
   expect(callsTo(app, "todo.comment")).toEqual([]);
 });
@@ -194,6 +195,7 @@ it("u3755_esc_in_the_comment_field_keeps_the_draft", async () => {
   fireEvent.input(field, { target: { value: "draft" } });
   fireEvent.keyDown(field, { key: "Escape", code: "Escape" });
   await waitFor(() => expect(document.activeElement).toBe(row(2)));
+  expect(document.querySelector(".drawer")?.getAttribute("data-open")).not.toBe("true");
   expect(shelf().getAttribute("data-triage")).toBe("on");
   expect(callsTo(app, "todo.comment")).toEqual([]);
 
