@@ -930,8 +930,8 @@ async fn nr3_legacy_firings_keep_identity_on_upgrade_and_replay() {
             db.execute_batch(
                 "INSERT INTO reaction_firings SELECT * FROM accepted_firings;
                 DROP TABLE accepted_firings;
-                DROP TABLE message_result_facts;
-                DROP TABLE message_results;
+                DROP TABLE continuation_actions; DROP TABLE continuation_decisions;
+                DROP TABLE message_result_facts; DROP TABLE message_results;
                 ALTER TABLE changes DROP COLUMN changed_at;
                 ALTER TABLE changes DROP COLUMN actor;
                 ALTER TABLE changes DROP COLUMN handed; ALTER TABLE todos DROP COLUMN estimate_minutes;

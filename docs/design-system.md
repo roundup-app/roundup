@@ -2,7 +2,7 @@
 
 How the App looks. `docs/wireframes.md` says what each screen holds and where; this file says how it is drawn. Where the two disagree on look, this file wins: it replaces the wireframes' "ink is the only colour" and "no borders" rules (the Glyph set, the visibility rule and the layout stay).
 
-The direction: a Mac app that stays out of the way. System sans for the chrome, mono only where text is code. Soft surfaces, small coloured Glyphs, nothing that moves unless the user did something. Light and dark.
+The direction: a Mac app that stays out of the way. System sans for the chrome, mono only where text is code. Soft surfaces, small coloured Glyphs, nothing that moves unless the user did something, an Agent finished a visible Todo (U3010c), or the Workstream timeline's window slides with time while an Agent it shows runs (U3768e, U3768f); no shimmer or pulse. Light and dark.
 
 Every rule below is a check with an id. A check passes or fails; it has no score. The same checks run twice: as `vitest` tests in `just check` (the gate), and by the Design critic on the real rendering (advisory). One module measures them for both (U137).
 
