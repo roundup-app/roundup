@@ -212,15 +212,17 @@ export const MeasurementDashboard = (props: { home: string; name: string; back: 
   const header = (): JSX.Element => {
     const value = snapshot();
 
-    if (problem()) return <><span class="measurement-state" data-state="stale">{copy.measurementProblem(problem()!)}</span><button data-button="quiet" type="button" aria-disabled={pending()} onClick={() => { if (!pending()) void read(retryMore); }}>{copy.retry}</button></>;
+    if (problem()) return <Tip text={copy.measurementProblem(problem()!)}>{(trigger) => <span {...trigger()} class="measurement-state" data-state="stale">{copy.measurementProblem(problem()!)}</span>}</Tip>;
 
     if (value === null) return <span class="measurement-state">{copy.measurementLoading}</span>;
 
     return <span class="measurement-state" data-live={live()}>{live() ? copy.measurementLive : copy.measurementStopped(value.last_observed === null ? null : clock(value.last_observed))}</span>;
   };
 
+  const retry = () => <Show when={problem()}><button data-button="quiet" type="button" aria-disabled={pending()} onClick={() => { if (!pending()) void read(retryMore); }}>{copy.retry}</button></Show>;
+
   return <section class="measurement-dashboard" ref={region} role="region" aria-label={copy.costAndTime} aria-busy={pending()} data-home={props.home} data-revision={snapshot()?.revision} tabIndex={-1} onKeyDown={(event) => { if (event.key === "Escape" && !event.defaultPrevented) { event.stopPropagation(); props.back(); } }}>
-    <header class="measurement-header"><h2>{props.name}</h2><div class="measurement-status">{header()}<button data-button="quiet" type="button" onClick={props.back}>{copy.back}</button></div></header>
+    <header class="measurement-header"><h2>{props.name}</h2>{header()}<div class="measurement-actions">{retry()}<button data-button="quiet" type="button" onClick={props.back}>{copy.back}</button></div></header>
     <div class="measurement-tiles">
       <div class="measurement-tile" data-tile="time">
         <h3>{copy.measurementTime}</h3>
@@ -250,11 +252,11 @@ export const MeasurementDashboard = (props: { home: string; name: string; back: 
     <div class="measurement-limit" data-near={(used() ?? 0) >= 80}>
       <span class="measurement-label">{copy.measurementLimit}</span>
       <span class="measurement-limit-text">{used() === null ? copy.measurementUnknown : copy.measurementLimitUsed(`${used()}%`, resets() === null ? null : weekdayTime(resets()!), used()! >= 80)}</span>
-      <span class="measurement-meter" role="meter" aria-label={copy.measurementLimit} aria-valuemin={0} aria-valuemax={100} aria-valuenow={used() ?? undefined}><span style={{ width: `${Math.min(100, used() ?? 0)}%` }} /></span>
+      <span class="measurement-meter" data-unknown={used() === null} role="meter" aria-label={copy.measurementLimit} aria-valuemin={0} aria-valuemax={100} aria-valuenow={used() ?? undefined}><span style={{ width: `${Math.min(100, used() ?? 0)}%` }} /></span>
     </div>
     <section class="measurement-section" aria-label={copy.measurementTimeSpent}>
       <h3>{copy.measurementTimeSpent} <span class="measurement-note">{copy.measurementTimeSpentNote}</span></h3>
-      <dl class="measurement-time"><For each={snapshot() ? timeRows(snapshot()!.time) : []}>{([label, value]) => <div><dt>{label}</dt><dd><span class="measurement-bar"><span style={{ width: `${ratio(value, snapshot()!.time.summed_ns)}%` }} /></span>{duration(value)}</dd></div>}</For></dl>
+      <dl class="measurement-time"><For each={snapshot() ? timeRows(snapshot()!.time) : []}>{([label, value]) => <div><dt>{label}</dt><dd><span class="measurement-bar"><span style={{ width: `${ratio(value, snapshot()!.time.summed_ns)}%` }} /></span><span class="measurement-duration">{duration(value)}</span></dd></div>}</For></dl>
     </section>
     <section class="measurement-section measurement-agents" aria-label={copy.measurementAgents(snapshot()?.contributors ?? 0)}>
       <h3>{copy.measurementAgents(snapshot()?.contributors ?? 0)}</h3>

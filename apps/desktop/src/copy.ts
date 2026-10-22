@@ -31,6 +31,7 @@ export const copy = {
   measurementParts: ["input", "output", "cache_read", "cache_write"] as const,
   measurementMark: "*",
   measurementInfo: "ⓘ",
+  measurementTokensOver: ">999T",
   measurementTimeSpentNote: "(summed across Attempts)",
   measurementLive: "Live",
   measurementStopped: (at: string | null) => at === null ? "Stopped" : `Stopped · last updated ${at}`,
