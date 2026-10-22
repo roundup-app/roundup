@@ -69,7 +69,7 @@ export const ProjectSettings = () => {
           <Dialog.Title>{copy.projectSettings}</Dialog.Title>
           <label class="app-dialog-field">
             <span>{copy.runAtMost}</span>
-            <input inputMode="numeric" aria-label={copy.workstreamsAtOnce} value={text()} disabled={saved() === null}
+            <textarea rows={1} inputMode="numeric" aria-label={copy.workstreamsAtOnce} value={text()} disabled={saved() === null}
               onInput={event => setText(event.currentTarget.value)} onBlur={commit}
               onKeyDown={event => { if (event.key === "Enter" && !event.isComposing) { event.preventDefault(); commit(); } }} />
             <span>{copy.workstreamsAtOnce}</span>

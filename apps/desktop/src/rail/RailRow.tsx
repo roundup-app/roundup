@@ -303,6 +303,7 @@ export const RailRowView = (props: {
             </span>
           </span>
         }>{name()}</Show>
+        <Show when={queuedBadge()}>{(badge) => <span class="light queue-badge">{badge()}</span>}</Show>
         <Show when={workstream()}>
           <Show
             when={props.row.collapsed}
@@ -324,7 +325,6 @@ export const RailRowView = (props: {
         </Show>
         <span class="fill" aria-hidden="true" />
         <span class="row-tail">
-          <Show when={queuedBadge()}>{(badge) => <span class="light queue-badge">{badge()}</span>}</Show>
           <RowIcons actions={props.actions}>
             <Show when={showsAction()}>
               <Tip text={props.doorFailure ? copy.retryDoor : copy.startDoor}>

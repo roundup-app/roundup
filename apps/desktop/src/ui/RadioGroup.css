@@ -16,7 +16,7 @@
   flex: none;
   width: var(--space-4);
   height: var(--space-4);
-  border-radius: var(--radius-drawer);
+  border-radius: 50%;
   border: 1px solid var(--grey);
   display: grid;
   place-items: center;
@@ -31,7 +31,7 @@
   content: "";
   width: var(--space-2);
   height: var(--space-2);
-  border-radius: var(--radius-drawer);
+  border-radius: 50%;
   background: var(--text);
 }
 
@@ -42,4 +42,12 @@
 
 .app-radio input {
   font-size: inherit;
+  margin: 0;
+}
+
+/* The hidden input is the press target: it answers at once, and the mark darkens with it. */
+.app-radio input:active,
+.app-radio:active .app-radio-mark {
+  background-color: var(--pressed);
+  transition-duration: 0s;
 }
