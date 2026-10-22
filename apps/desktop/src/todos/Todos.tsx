@@ -13,6 +13,8 @@ import { createBulkDelete } from "../shelf/BulkDelete";
 
 import { createSelection } from "../shelf/selection";
 import { TickBox } from "./TickBox";
+import { Progress } from "../ui/Progress";
+import { createFinishMotion } from "./finishMotion";
 import { Icon } from "../ink/Icon";
 import { EmptyState } from "../ink/EmptyState";
 import { EntryRow } from "../ink/EntryRow";
@@ -98,6 +100,8 @@ export const OpenRow = (props: {
   place?: { level: number; parent: number | null };
   /** U3708: `ui/TreeView`'s `treeitem` props for this row (its role and level). */
   treeItem?: JSX.HTMLAttributes<HTMLElement>;
+  /** U3770: a finish is playing on this row. */
+  motion?: boolean;
   /** U3709: what Tab and ⇧Tab do on this row; `null` where the key is not this row's. */
   nest?: { in: (() => Promise<string | null>) | null; out: (() => Promise<string | null>) | null };
 }) => {
@@ -204,6 +208,7 @@ export const OpenRow = (props: {
       </>}
       data-id={props.nested ? undefined : props.todo.id}
       data-todo={props.todo.id}
+      data-motion={props.motion ? "play" : undefined}
       data-actions-open={near?.near() || listOpen() ? "true" : undefined}
       data-shelf-row={props.nested ? undefined : ""}
       data-selected={props.selected ? "true" : undefined}
@@ -292,6 +297,15 @@ export const Todos = (props: {
 
   const done = createMemo(() => doneTodos(todos.all()).filter((todo) =>
     scope.includes(todo.home, todo.creator, todo.owner)));
+
+  const inScope = createMemo(() => todos.all().filter((todo) => scope.includes(todo.home, todo.creator, todo.owner)));
+
+  const finishing = createFinishMotion({
+    loaded: todos.isLoaded,
+    key: () => connected.rail.selected() ?? "overview",
+    done: createMemo(() => new Set(inScope().filter((todo) => todo.done).map((todo) => todo.id))),
+    reduced: connected.reducedMotion,
+  });
 
   const target = (todo: Todo) => ({ id: todo.id, label: todo.title });
 
@@ -827,7 +841,7 @@ export const Todos = (props: {
   };
 
   return (
-    <section aria-label={copy.todos} class="todos-tab" onContextMenu={todoMenu} ref={section}>
+    <section aria-label={copy.todos} class="todos-tab" onContextMenu={todoMenu} onAnimationEnd={() => { if (!finishing.bar()) finishing.settle(); }} ref={section}>
       <ScopeAction tab="todos">
         <button
           data-button="add"
@@ -846,6 +860,13 @@ export const Todos = (props: {
       <Show when={createFailure() !== null && (adding() === null || fieldGroupGone())}>{(_) => <ErrorLine message={createFailure()!} />}</Show>
       <Show when={isEmpty() && !typing()}>
         <EmptyState icon="check" heading={copy.noTodosYet} hint={copy.noTodosHint} />
+      </Show>
+      <Show when={inScope().length > 0}>
+        <div class="todo-progress" data-todo-progress>
+          <Progress label={copy.todosDoneBar} max={inScope().length} value={done().length} motion={finishing.bar()} onSettled={finishing.settle}>
+            <For each={[`${done().length}/${inScope().length}`]}>{(text) => <span class="todo-progress-count" data-todo-count>{text}</span>}</For>
+          </Progress>
+        </div>
       </Show>
       <Show when={open().length > 0 || adding() !== null}>
         <OwnerGroups groups={() => ownerGroups(connected, open(), todo => todo.owner)} dragging={dragging} bare={() => connected.rail.nodes.find(node => node.id === connected.rail.selected())?.kind === "agent" ? connected.rail.selected() : null} adding={() => adding()?.group ?? null} reveal={revealed} unfold={todos.revealed} onAdd={group => openField({ group: group.id, owner: group.actor })}>{group => {
@@ -874,6 +895,7 @@ export const Todos = (props: {
             <TreeView.NodeProvider node={{ id: String(todo.id) }} indexPath={collection().getIndexPath(String(todo.id)) ?? []}>
             <TreeView.Item asChild={(itemProps) =>
             <OpenRow
+              motion={finishing.row(todo.id)}
               treeItem={itemProps()}
               todo={todo}
               selected={selection.selected().includes(todo.id) || selectedId() === todo.id}
@@ -936,6 +958,7 @@ export const Todos = (props: {
               {(todo) => (
                 <OpenRow
                   todo={todo}
+                  motion={finishing.row(todo.id)}
                   known={todos.byId()}
                   onOpen={show}
                   onToggle={todo => toggle(todo, done().map(candidate => candidate.id))}
