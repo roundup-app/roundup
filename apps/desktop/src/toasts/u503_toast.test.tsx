@@ -23,16 +23,16 @@ it("u503_shared_toast_preserves_lifecycle", async () => {
 
   const card = screen.getByRole("button", { name: "scout: Needs you" });
 
-  // Hover then focus keep it past five seconds; once both end, it restarts its full time.
-  fireEvent.pointerEnter(card);
-  fireEvent.focusIn(card);
+  // Hover and focus hold the time; leaving resumes from what was left, not from five seconds.
+  await vi.advanceTimersByTimeAsync(3000);
+  fireEvent.mouseEnter(screen.getByRole("region"));
+  card.focus();
   await vi.advanceTimersByTimeAsync(8000);
-  fireEvent.pointerLeave(card);
+  fireEvent.mouseLeave(screen.getByRole("region"));
   await vi.advanceTimersByTimeAsync(8000);
   expect(toasts()).toHaveLength(1);
-  fireEvent.focusOut(card);
-  await vi.advanceTimersToNextFrame();
-  await vi.advanceTimersByTimeAsync(4999);
+  card.blur();
+  await vi.advanceTimersByTimeAsync(1900);
   expect(toasts()).toHaveLength(1);
   await vi.advanceTimersByTimeAsync(400);
   await settle();
