@@ -1,0 +1,18 @@
+{
+  "command": "just perf",
+  "exit": 1,
+  "commit": "2e95eaf510d4cc5a78390ebea1e69fd55115b016",
+  "first_attempt": "Terminated by signal 15 during release compilation (exit 143); no measurement produced. Retried with cached compilation.",
+  "platform": "Linux runnervm8k3b6 6.17.0-1022-azure #22-Ubuntu SMP Mon Jul 27 17:24:03 UTC 2026 x86_64 x86_64 x86_64 GNU/Linux",
+  "cpu": "AMD EPYC 9V45 96-Core Processor",
+  "cpus": 4,
+  "rustc": "rustc 1.99.0 (b940084d7 2026-09-28)",
+  "profile": "release",
+  "binary_sha256": {
+    "perf": "9278d4a3ef9595966c6354a7836b715843ec8c3a68a0ba01df6b0a5870eb21aa",
+    "rup": "192bc70e995041d0a4d411180e4aca8f3e6b32ca87d473b79c4a1992e3827c12",
+    "rupd": "dc3d3b3f4fd2f5c2ff6a48d218a3f95fc7c8f1131be2ad9d671b184dd332d43e"
+  },
+  "comparison": "git diff --name-only ae9d127680119ed90a89482b3a8e04373893a7f9 2e95eaf510d4cc5a78390ebea1e69fd55115b016 lists only apps/desktop/package.json, apps/desktop/src/changes/DiffReader.tsx, apps/desktop/src/changes/z3_highlights.test.tsx and pnpm-lock.yaml; all Rust, Cargo and performance inputs are identical.",
+  "status": "Does not satisfy Z3 just perf pass. Existing observer repair #1251 is closed not planned; no blocker added and no baseline changed."
+}
