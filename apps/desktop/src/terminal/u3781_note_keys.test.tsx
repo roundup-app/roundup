@@ -68,6 +68,16 @@ it("u3781_cmd_enter_sends_then_interrupts_and_a_refusal_interrupts_nothing", asy
   expect(calls(app, "agent.interrupt")).toEqual([]);
 });
 
+it("u3781_cmd_enter_on_an_idle_agent_interrupts_nothing", async () => {
+  const { app, field } = await mount();
+
+  app.handlers["message.send"] = (params) => note(1, params.body, { status: "delivered" });
+  fireEvent.input(field, { target: { value: "idle" } });
+  press("Enter", { metaKey: true }, field);
+  await waitFor(() => expect(field.value).toBe(""));
+  expect(calls(app, "message.send", "message.deliver", "agent.interrupt")).toEqual(["message.send"]);
+});
+
 it("u3781_note_keys_are_scoped_to_the_field_and_u531_is_unchanged", async () => {
   const { app, connected, field } = await mount();
   const screenTarget = document.querySelector<HTMLElement>(".pane-screen [tabindex]")!;
