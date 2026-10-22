@@ -2,6 +2,7 @@ import * as v from "valibot";
 import type { SpawnParams } from "@contracts/agent/SpawnParams";
 import type { Event as DaemonEvent } from "@contracts/Event";
 import { INTERNAL_CODE, projectSchema, RpcError } from "../app/seam";
+import { probeMenu } from "./menuProbe";
 import type { AppSeam, DaemonExited, OutputSubscription } from "../app/seam";
 
 const outcomeSchema = v.union([
@@ -205,7 +206,7 @@ export const createServedApp = (base: string, choice?: () => "choose" | "cancel"
     openInEditor: async () => {
       throw new RpcError(-32001, "no code editor found; install VS Code, Cursor or Zed, or set ROUNDUP_EDITOR");
     },
-    showContextMenu: async () => null,
+    showContextMenu: async (items) => probeMenu(items),
     savePastedImage: async () => "/tmp/roundup-pasted/pasted.png",
     rpc,
     selectOutput,
