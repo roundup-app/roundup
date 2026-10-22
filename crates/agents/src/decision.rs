@@ -7,7 +7,7 @@ use std::sync::{Arc, Mutex, MutexGuard};
 use std::time::Duration;
 
 use contracts::decision::{
-    Answer, AnswerParams, AskAnswer, AskCall, AskOutput, AskParams, ClearedEvent, Decision,
+    Answer, AnswerParams, AskAnswer, AskOutput, AskParams, ClearedEvent, Decision,
     Outcome, PermissionOutput, PromptIdentity,
 };
 use contracts::{Actor, EventData};
@@ -36,8 +36,6 @@ struct Open {
     choices: Option<Question>,
     /// Terminal input can settle a native prompt before its next Signal clears the Card.
     identity_available: bool,
-    /// The authenticated writer of input for this original question.
-    terminal_actor: Option<Actor>,
     timing: Option<crate::MeasurementWait>,
 }
 
@@ -48,7 +46,6 @@ enum PromptInput {
 
 struct Question {
     labels: Vec<String>,
-    terminal: Option<String>,
 }
 
 /// H14: the tool name an `ask_user` Decision carries, and the bounds on what the Agent asks.
@@ -207,15 +204,6 @@ impl Decisions {
         Ok(())
     }
 
-    /// U468: a native question ends with its own call, never a late generic
-    /// PostToolUse/Stop Signal from a replaced or concurrent tool.
-    pub(crate) fn waits_in_terminal(&self, agent: &str) -> bool {
-        self.open()
-            .get(agent)
-            .and_then(|entry| entry.choices.as_ref())
-            .is_some_and(|question| question.terminal.is_some())
-    }
-
     /// Clear Agent `agent`'s Decision, if it has one, and say so. The waiting hook gets `reason`.
     pub(crate) fn clear(&self, bus: &rpc::Bus, agent: &str, outcome: Outcome, reason: &str) {
         let Some(open) = self.open().remove(agent) else {
@@ -316,15 +304,12 @@ impl Shared {
     pub(crate) async fn ask(
         self: &Arc<Self>,
         actor: Actor,
-        params: AskCall,
+        params: AskParams,
     ) -> Result<AskOutput, RpcError> {
         if actor.kind != contracts::ActorKind::Agent {
             return Err(RpcError::forbidden("only an Agent asks the user"));
         }
-        let AskCall {
-            question: AskParams { question, answers },
-            terminal,
-        } = params;
+        let AskParams { question, answers } = params;
         if !valid_ask(&question, &answers) {
             return Err(RpcError::new(
                 code::INVALID_PARAMS,
@@ -335,10 +320,7 @@ impl Shared {
         }
         let labels = answers.iter().map(|a| a.label.clone()).collect();
         let id = actor.id.clone();
-        let mut input = serde_json::json!({ "question": question, "answers": answers });
-        if let Some(terminal) = &terminal {
-            input["terminal"] = terminal.clone().into();
-        }
+        let input = serde_json::json!({ "question": question, "answers": answers });
         let request = claude_code::PermissionRequest {
             tool: ASK_TOOL.to_owned(),
             args: input.to_string(),
@@ -351,7 +333,7 @@ impl Shared {
             &id,
             request,
             claude_code::as_permission_signal(signal),
-            Some(Question { labels, terminal }),
+            Some(Question { labels }),
             input.to_string(),
         )?;
         let rx = opened.waiting.expect("an ask_user Decision waits");
@@ -418,7 +400,6 @@ impl Shared {
                     waiter,
                     choices,
                     identity_available: request.identity_available,
-                    terminal_actor: None,
                     timing: crate::rail::decision_wait(
                         &self.timing,
                         id,
@@ -777,14 +758,13 @@ impl Shared {
         } else if self.decisions.proof.is_none() || self.decisions.proof.as_deref() != proof {
             return Err(RpcError::forbidden("decision.answer needs the App's proof"));
         }
-        self.deliver_answer(ctx, params_for_delivery(id, answer, &note, identity), None)
+        self.deliver_answer(ctx, params_for_delivery(id, answer, &note, identity))
     }
 
     fn deliver_answer(
         &self,
         ctx: &rpc::Ctx,
         params: AnswerParams,
-        terminal: Option<(&str, u32)>,
     ) -> Result<(), RpcError> {
         let AnswerParams {
             id,
@@ -795,7 +775,7 @@ impl Shared {
         } = params;
         let id = id.as_str();
         let answer = answer.as_deref();
-        let mut actor = ctx.actor.clone();
+        let actor = ctx.actor.clone();
         let mut history = self
             .decisions
             .history
@@ -826,46 +806,7 @@ impl Shared {
             let Some((agent, entry)) = open.iter_mut().find(|(_, o)| o.decision.id == id) else {
                 return Err(RpcError::not_found(format!("decision {id}")));
             };
-            if let Some((owner, pid)) = terminal {
-                let Some(crate::Slot::Running(run)) = runs.get(owner) else {
-                    return Err(RpcError::conflict("the original question's Attempt ended"));
-                };
-                if agent != owner
-                    || run.ended
-                    || run.closing
-                    || run.attempt != entry.attempt
-                    || self.terminals.program_pid(&run.terminal_id) != Some(pid)
-                    || entry.choices.is_none()
-                {
-                    return Err(RpcError::conflict(
-                        "the original Terminal question is unavailable",
-                    ));
-                }
-                actor = entry.terminal_actor.clone().ok_or_else(|| {
-                    RpcError::forbidden(
-                        "a native question response needs authenticated Terminal input",
-                    )
-                })?;
-                if !matches!(
-                    actor.kind,
-                    contracts::ActorKind::User | contracts::ActorKind::Agent
-                ) {
-                    return Err(RpcError::forbidden(
-                        "only the user or an Agent in Reach may answer",
-                    ));
-                }
-                if actor.kind == contracts::ActorKind::Agent {
-                    if !self.reach(&actor.id)?.contains(owner) {
-                        return Err(RpcError::forbidden(
-                            "the Terminal writer has no Reach over this question",
-                        ));
-                    }
-                    if self.takeover.as_ref().is_some_and(|active| active(owner)) {
-                        return Err(RpcError::conflict("the child is under a Takeover"));
-                    }
-                }
-            }
-            if !entry.decision.answerable && terminal.is_none() {
+            if !entry.decision.answerable {
                 return Err(RpcError::new(
                     code::INVALID_PARAMS,
                     format!("decision {id} can only be answered in the Terminal"),
@@ -1033,62 +974,6 @@ impl Shared {
 }
 
 impl crate::Agents {
-    /// U468: accept a native vendor form response only from that exact running
-    /// program, never its tools or MCP shim. Proof stays on decision.answer's path.
-    pub fn answer_terminal_question(
-        &self,
-        ctx: &rpc::Ctx,
-        pid: u32,
-        response: contracts::decision::TerminalAnswer,
-    ) -> Result<(), RpcError> {
-        let owner = self
-            .running_programs()
-            .into_iter()
-            .find(|(_, program)| *program == pid)
-            .map(|(owner, _)| owner)
-            .ok_or_else(|| {
-                RpcError::forbidden("only the live primary program reports a native answer")
-            })?;
-        let answer = {
-            let open = self.shared.decisions.open();
-            let entry = open
-                .get(&owner)
-                .filter(|entry| entry.decision.id == response.id)
-                .ok_or_else(|| {
-                    RpcError::conflict("the original Terminal question is unavailable")
-                })?;
-            let choices = entry
-                .choices
-                .as_ref()
-                .ok_or_else(|| RpcError::forbidden("this is not a question"))?;
-            if choices.terminal.is_none() {
-                return Err(RpcError::forbidden("this question has no native form"));
-            }
-            choices
-                .labels
-                .contains(&response.text)
-                .then_some(response.text.clone())
-        };
-        let note = if answer.is_some() {
-            response.note
-        } else if response.note.is_empty() {
-            response.text
-        } else {
-            format!("{}\n{}", response.text, response.note)
-        };
-        if note.chars().count() > MAX_NOTE_CHARS || (answer.is_none() && note.trim().is_empty()) {
-            return Err(RpcError::new(
-                code::INVALID_PARAMS,
-                "a question answer needs nonempty text of up to 2000 characters",
-            ));
-        }
-        self.shared.deliver_answer(
-            ctx,
-            params_for_delivery(&response.id, answer.as_deref(), &note, None),
-            Some((&owner, pid)),
-        )
-    }
-
     /// Supply B6's observer immediately before a guarded effect, within its identity
     /// critical section. Configure before the first call. A refusal has no effect;
     /// observers must not reenter Agents.
@@ -1104,12 +989,10 @@ impl crate::Agents {
     /// `decisions` exclude Attempt changes, answers and prompt replacement. User input
     /// invalidates the original identity without removing H7's still-visible Decision.
     /// An identity is no authority: the caller must enforce the existing Terminal Reach.
-    /// `actor` preserves the RPC role's scheduling/guards; `source` is the socket's
-    /// authenticated writer, retained only as native answer provenance.
+    /// `actor` preserves the RPC role's scheduling/guards.
     pub async fn write_terminal(
         &self,
         actor: &Actor,
-        source: &Actor,
         terminal: &str,
         bytes: Vec<u8>,
         identity: Option<PromptIdentity>,
@@ -1150,7 +1033,6 @@ impl crate::Agents {
             };
         };
         let actor = actor.clone();
-        let source = source.clone();
         shared
             .terminals
             .clone()
@@ -1234,9 +1116,6 @@ impl crate::Agents {
                         EventData::DecisionOpened(entry.decision.clone().into()),
                     );
                 }
-                if !bytes.is_empty() {
-                    entry.terminal_actor = None;
-                }
                 writer
                     .write_all(&bytes)
                     .and_then(|()| writer.flush())
@@ -1245,9 +1124,6 @@ impl crate::Agents {
                             "Terminal prompt input may be partial: {error}"
                         ))
                     })?;
-                if !bytes.is_empty() {
-                    entry.terminal_actor = Some(source);
-                }
                 Ok(())
             })
             .await
@@ -1357,7 +1233,7 @@ mod tests {
             ),
         };
         let error = agents
-            .write_terminal(&actor, &actor, &terminal.id, vec![b'x'], Some(identity))
+            .write_terminal(&actor, &terminal.id, vec![b'x'], Some(identity))
             .await
             .unwrap_err();
         assert!(
