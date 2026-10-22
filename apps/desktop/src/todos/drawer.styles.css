@@ -38,7 +38,9 @@
 .todo-comments-live { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: pre-wrap; }
 /* U3775: a status line is a quiet button; its details show as plain text beneath it. */
 .todo-status { display: flex; flex-direction: column; gap: var(--space-1); }
-.todo-status-summary { align-self: flex-start; text-align: start; }
+.todo-status-summary { align-self: flex-start; text-align: start; color: var(--text); font: inherit; line-height: inherit; min-height: 0; height: auto; padding-block: 0; }
+.todo-status-summary::after { content: "▸"; margin-inline-start: var(--space-1); }
+.todo-status-summary[aria-expanded="true"]::after { content: "▾"; }
 .todo-status-details { white-space: pre-wrap; overflow-wrap: anywhere; color: var(--grey); padding-inline-start: var(--space-3); }
 .todo-comment-field {
   box-sizing: border-box;
@@ -55,8 +57,9 @@
 .todo-comment-field:focus { outline-width: 0; background-image: linear-gradient(var(--accent), var(--accent)); background-size: var(--space-1) 100%; background-repeat: no-repeat; }
 .todo-comment-head { display: flex; align-items: center; gap: var(--space-2); min-height: var(--space-5); }
 .todo-comment-author { color: var(--text); }
-.todo-comment-head > time { color: var(--grey); }
-.todo-comment-head > button { margin-inline-start: auto; }
+.todo-comment-head > time { color: var(--grey); white-space: nowrap; flex-shrink: 0; }
+.todo-comment-head > button { margin-inline-start: auto; white-space: nowrap; flex-shrink: 0; }
+.todo-comment-author { min-width: 0; overflow-wrap: anywhere; }
 .todo-comments-send { display: flex; justify-content: flex-end; }
 .todo-delete-confirm.app-dialog {
   display: flex;
