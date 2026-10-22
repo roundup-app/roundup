@@ -846,7 +846,7 @@ export const Todos = (props: {
   };
 
   return (
-    <section aria-label={copy.todos} class="todos-tab" onContextMenu={todoMenu} onAnimationEnd={() => { if (!finishing.bar()) finishing.settle(); }} ref={section}>
+    <section aria-label={copy.todos} class="todos-tab" onContextMenu={todoMenu} ref={section}>
       <ScopeAction tab="todos">
         <button
           data-button="add"
@@ -868,7 +868,7 @@ export const Todos = (props: {
       </Show>
       <Show when={inScope().length > 0}>
         <div class="todo-progress" data-todo-progress>
-          <Progress label={copy.todosDoneBar} max={inScope().length} value={done().length} motion={finishing.bar()} onSettled={finishing.settle}>
+          <Progress label={copy.todosDoneBar} max={inScope().length} value={done().length} motion={finishing.bar()}>
             <For each={[`${done().length}/${inScope().length}`]}>{(text) => <span class="todo-progress-count" data-todo-count>{text}</span>}</For>
           </Progress>
         </div>

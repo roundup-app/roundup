@@ -1,5 +1,8 @@
-import { createEffect, createSignal, on } from "solid-js";
+import { createEffect, createSignal, on, onCleanup } from "solid-js";
 import type { Accessor } from "solid-js";
+
+/** One clock for a whole finish: the longest token duration (`--duration-bar`, 1100 ms) plus a frame of slack, so a missed `transitionend` never strands a row. */
+const FINISH_MS = 1200;
 
 /**
  * U3770: which rows and whether the bar play a finish. `done` is the set of done Todo ids in the shown scope, `key` names that scope and
@@ -11,7 +14,10 @@ export const createFinishMotion = (input: { loaded: Accessor<boolean>; key: Acce
   const [bar, setBar] = createSignal(false);
   let before: { key: string; done: ReadonlySet<number> } | null = null;
 
+  let timer: ReturnType<typeof setTimeout> | undefined;
+
   const settle = () => {
+    clearTimeout(timer);
     setRows(new Set<number>());
     setBar(false);
   };
@@ -31,7 +37,11 @@ export const createFinishMotion = (input: { loaded: Accessor<boolean>; key: Acce
 
     setRows(new Set([...rows(), ...seen]));
     setBar(bar() || done.size !== was.done.size);
+    clearTimeout(timer);
+    timer = setTimeout(settle, FINISH_MS);
   }));
+
+  onCleanup(() => clearTimeout(timer));
 
   return { row: (id: number) => rows().has(id), bar, settle };
 };

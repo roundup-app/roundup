@@ -11,7 +11,6 @@
   min-width: 0;
   height: var(--space-1);
   overflow: hidden;
-  border-radius: var(--space-1);
   background-color: var(--grey);
   opacity: 0.4;
 }
@@ -21,15 +20,16 @@
   background-color: var(--accent);
   transform: scaleX(var(--fill));
   transform-origin: left center;
+  transition-property: transform;
+  transition-duration: 0s;
 }
 
 /* U3770: only a finish moves the fill; a mount, a switch or a refetch that changes nothing sets it at once. */
 .app-progress[data-motion="play"] .app-progress-fill {
-  transition-property: transform;
   transition-duration: var(--duration-bar);
   transition-timing-function: var(--ease-todo);
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .app-progress .app-progress-fill { transition: none; }
+  .app-progress .app-progress-fill { transition-duration: 0s; }
 }
