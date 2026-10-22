@@ -1,7 +1,7 @@
 import { copy } from "../copy";
 
 /** One line of Help (U54): the chord as shown, what it does, and every key press it stands for as `<mods>+<code>`, mods in the order `ctrl+alt+meta+shift`. `inRail` marks a chord only a focused Rail row binds (U358); `onAgent` one that also binds from a watched or taken Agent's pane, and nowhere else outside a Rail row; `inTerminals` marks the scoped Agent/Bubble/tab switch; the rest bind from the pane too. */
-export type Chord = { keys: string; what: string; presses: readonly string[]; inRail?: true; onAgent?: true; inSwitcher?: true; inTerminals?: true; inShelf?: true; hint?: Hint };
+export type Chord = { keys: string; what: string; presses: readonly string[]; inRail?: true; onAgent?: true; inSwitcher?: true; inTerminals?: true; inShelf?: true; /** U3751: a key of Todo triage mode, bound only while the mode is on. */ inTriage?: true; hint?: Hint };
 
 /** Where focus can sit for the hint line (U2230a): a Rail row, watched Agent, Bubble, Pad, Drawer, Switcher or Editor. */
 export type HintPlace = "rail" | "agent" | "bubble" | "pad" | "drawer" | "switcher" | "editor" | "shelf";
@@ -26,6 +26,16 @@ export const CHORDS: readonly Chord[] = [
   { keys: "D", what: copy.deleteFocusedRow, presses: ["KeyD"], inShelf: true, hint: { label: copy.deleteFocusedRow, at: { shelf: 2 } } },
   { keys: "E", what: copy.exportMd, presses: ["KeyE"], inShelf: true, hint: { label: copy.exportMd, at: { shelf: 3 } } },
   { keys: "Esc", what: copy.close, presses: ["Escape"], inShelf: true, hint: { label: copy.close, at: { shelf: 4 } } },
+  // U3751 to U3753: past the four hints a Shelf row shows, so the mode's own line lists them.
+  { keys: "T", what: copy.triageEnter, presses: ["KeyT"], inShelf: true, hint: { label: copy.triageEnter, at: { shelf: 6 } } },
+  { keys: "J K", what: copy.triageMove, presses: ["KeyJ", "KeyK"], inShelf: true, inTriage: true },
+  { keys: "A", what: copy.triageAssign, presses: ["KeyA"], inShelf: true, inTriage: true },
+  { keys: "W", what: copy.triageWorkstream, presses: ["KeyW"], inShelf: true, inTriage: true },
+  { keys: "Tab", what: copy.triageNest, presses: ["Tab"], inShelf: true, inTriage: true },
+  { keys: "⇧Tab", what: copy.triageUnnest, presses: ["shift+Tab"], inShelf: true, inTriage: true },
+  { keys: "X", what: copy.triageDone, presses: ["KeyX"], inShelf: true, inTriage: true },
+  { keys: "C", what: copy.triageComment, presses: ["KeyC"], inShelf: true, inTriage: true },
+  { keys: "Esc", what: copy.triageLeave, presses: ["Escape"], inShelf: true, inTriage: true },
 ];
 
 /** One key `⌘K` takes next (U2239), by key position, read by Help (U54) and the leader panel (U2240). */
@@ -69,13 +79,12 @@ export const pressOf = (press: Pick<KeyboardEvent, "ctrlKey" | "altKey" | "metaK
 const MODIFIERS = Object.entries({ Control: "ctrl", Alt: "alt", Meta: "meta", Shift: "shift" });
 
 /** tinykeys spellings derived from the same presses Help displays. `key` retains the Rail's logical letter matching, including events without a physical code. */
-export const chordsFor = (keys: string, match: "code" | "key" = "code"): readonly string[] => {
-  const chord = CHORDS.find((chord) => chord.keys === keys);
-
-  return (chord?.presses ?? []).map((press) =>
+export const chordsOf = (chord: Chord | undefined, match: "code" | "key" = "code"): readonly string[] =>
+  (chord?.presses ?? []).map((press) =>
     press.split("+").map((part) => MODIFIERS.find(([, name]) => name === part)?.[0] ?? (match === "key" && /^Key[A-Z]$/.test(part) ? part.slice(3).toLowerCase() : part)).join("+"),
   );
-};
+
+export const chordsFor = (keys: string, match: "code" | "key" = "code"): readonly string[] => chordsOf(CHORDS.find((chord) => chord.keys === keys), match);
 
 /** `⌘K` arms the leader (U2239). */
 export const LEADER_ARM = chordsFor("⌘K");

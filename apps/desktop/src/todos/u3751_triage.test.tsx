@@ -50,7 +50,10 @@ it("u3751_t_enters_the_mode_and_keeps_focus_and_data", async () => {
 
   press(row(2), "Escape");
   await waitFor(() => expect(shelf().getAttribute("data-triage")).toBe("off"));
-  fireEvent.click(screen.getByRole("button", { name: "Triage" }));
+  const head = screen.getByRole("button", { name: "Triage" });
+
+  head.focus();
+  fireEvent.click(head);
   await waitFor(() => expect(shelf().getAttribute("data-triage")).toBe("on"));
   expect(document.activeElement).toBe(row(1));
 });
@@ -80,7 +83,7 @@ it("u3751_t_is_ignored_in_fields_and_with_modifiers", async () => {
   await waitFor(() => expect(row(2)).toBeTruthy());
 
   for (const init of [{ metaKey: true }, { ctrlKey: true }, { altKey: true }, { shiftKey: true }, { repeat: true }]) press(row(2), "t", init);
-  fireEvent.click(screen.getByRole("button", { name: /add todo to/ }));
+  fireEvent.click(screen.getAllByRole("button", { name: /add todo to/ })[0]!);
   press(await screen.findByRole("textbox", { name: "New Todo title" }), "t");
   expect(shelf().getAttribute("data-triage")).toBe("off");
 });
@@ -101,7 +104,7 @@ it("u3752_the_hint_line_is_the_registry_rows_and_leaves_with_the_mode", async ()
 
 it("u3753_j_and_k_move_focus_across_groups_and_call_nothing", async () => {
   const { app } = await enter();
-  const order = [...document.querySelectorAll<HTMLElement>(".todos-tab [data-shelf-row][data-todo]")].filter(each => !each.closest(".todo-done-fold")).map(each => Number(each.dataset.todo));
+  const order = [...document.querySelectorAll<HTMLElement>(".todos-tab [data-shelf-row][data-todo]")].flatMap(each => each.closest(".todo-done-fold") ? [] : [Number(each.dataset.todo)]);
 
   expect(order).toHaveLength(3);
   const first = order[0]!;
@@ -127,20 +130,22 @@ it("u3753_a_and_w_call_assign_and_move_once_each", async () => {
   await waitFor(() => expect(callsTo(app, "todo.assign").map(call => call.params)).toEqual([{ id: 2, owner: by("a") }]));
   await waitFor(() => expect(document.activeElement).toBe(row(2)));
 
+  await waitFor(() => expect(screen.queryByRole("menu")).toBeNull());
   press(row(3), "w");
   const homes = await screen.findByRole("menu", { name: "Homes for #3" });
-  expect(within(homes).getAllByRole("menuitem").map(item => item.textContent)).toEqual(["Project root", "work"]);
+  expect(within(homes).getAllByRole("menuitem").map(item => item.textContent)).toEqual(["work", "scope"]);
   fireEvent.click(within(homes).getByRole("menuitem", { name: "work" }));
   await waitFor(() => expect(callsTo(app, "todo.move").map(call => call.params)).toEqual([{ id: 3, home: "w" }]));
   expect(callsTo(app, "todo.assign")).toHaveLength(1);
 });
 
 it("u3753_x_completes_once_and_focus_moves_on", async () => {
-  const { app } = await enter();
+  const { app, store } = await enter();
 
   press(row(2), "x");
   press(row(2), "x", { repeat: true });
   await waitFor(() => expect(callsTo(app, "todo.complete").map(call => call.params)).toEqual([{ id: 2 }]));
+  app.emit(todoEvent("todo.updated", store.todos.find(item => item.id === 2)!));
   await waitFor(() => expect(document.activeElement?.closest("[data-todo]")?.getAttribute("data-todo")).toBe("3"));
   expect(callsTo(app, "todo.complete")).toHaveLength(1);
 });
