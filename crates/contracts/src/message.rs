@@ -28,7 +28,7 @@ pub enum MessageStatus {
 /// `escalated`: on the user's answer to a bubbled-up question, B15; `inbox`: on a Claude inbox
 /// that is missing or mismatched, B51) or `dropped`
 /// (`receiver gone`, B9; `not accepted`, B2; `passed`, a question's hop that was still `pending`
-/// when the next was made, B13; `merged`, a pushed digest folded into a newer one, B22).
+/// when the next was made, B13; `removed`, a `pending` note the user took back, U3782; `merged`, a pushed digest folded into a newer one, B22).
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize, TS, JsonSchema)]
 #[serde(rename_all = "kebab-case")]
 #[ts(export, export_to = "message/")]
@@ -43,6 +43,8 @@ pub enum Reason {
     #[serde(rename = "not accepted")]
     NotAccepted,
     Passed,
+    /// U3782: the user removed a `pending` note before it was typed.
+    Removed,
     /// B22: two pushed digests folded into one Message.
     Merged,
 }

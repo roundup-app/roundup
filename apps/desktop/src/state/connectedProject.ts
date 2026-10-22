@@ -18,6 +18,8 @@ import { createRailState } from "./rail";
 import { createQueue } from "./queue";
 import type { QueueView } from "./queue";
 import { createTakeover } from "./takeover";
+import { createNoteQueue } from "./noteQueue";
+import type { NoteQueue } from "./noteQueue";
 import type { TakeoverState } from "./takeover";
 import type { RailStorage } from "../rail/persist/storage";
 import type { RailState } from "./rail";
@@ -126,6 +128,8 @@ export type ConnectedProject = {
   asks: AsksState;
   /** U187: the Takeover the user holds. */
   takeover: TakeoverState;
+  /** U3780: the notes waiting for each Agent. */
+  notes: NoteQueue;
   reducedMotion: Accessor<boolean>;
   /** Milliseconds since the epoch, refreshed on a coarse tick; for elapsed times. */
   now: Accessor<number>;
@@ -188,7 +192,9 @@ export const connectProject = async (
   importing.reconnect(app, onImported);
   drafts.importing = importing;
 
-  return { project, drafts, app, events, rail, queue, importing, worktrees: createWorktreeState(app, rail, now, daemonExit), drawer: createDrawer(), decisions, asks: createAsks(app, events), takeover: createTakeover(app, events, daemonExit), reducedMotion, now, contractNotice, daemonExit, stopTerminalScheme: () => { stopDecisions(); stopQueue(); stopTerminalScheme(); } };
+  const takeover = createTakeover(app, events, daemonExit);
+
+  return { project, drafts, app, events, rail, queue, importing, worktrees: createWorktreeState(app, rail, now, daemonExit), drawer: createDrawer(), decisions, asks: createAsks(app, events), takeover, notes: createNoteQueue(app, events, reducedMotion, daemonExit), reducedMotion, now, contractNotice, daemonExit, stopTerminalScheme: () => { stopDecisions(); stopQueue(); stopTerminalScheme(); } };
 };
 
 /** App-run authority for owners outside a connection, including Project tabs.

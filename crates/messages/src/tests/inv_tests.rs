@@ -468,7 +468,10 @@ fn inv_delivery_examples_preserve_batching_routes_and_exit() {
 /// would leave the laws proving a model nobody runs.
 #[test]
 fn inv_the_daemons_transitions_run_through_step() {
-    let lib = std::fs::read_to_string(concat!(env!("CARGO_MANIFEST_DIR"), "/src/lib.rs")).unwrap();
+    let read = |file: &str| {
+        std::fs::read_to_string(format!("{}/src/{file}", env!("CARGO_MANIFEST_DIR"))).unwrap()
+    };
+    let lib = read("lib.rs") + &read("removal.rs");
     for event in [
         "Event::Send",
         "Event::Idle",
@@ -479,7 +482,10 @@ fn inv_the_daemons_transitions_run_through_step() {
         "Event::UserDeliver",
         "Event::UserDrop",
     ] {
-        assert!(lib.contains(event), "lib.rs never builds {event}");
+        assert!(
+            lib.contains(event),
+            "lib.rs and removal.rs never build {event}"
+        );
     }
 }
 
