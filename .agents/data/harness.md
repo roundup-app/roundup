@@ -13,6 +13,7 @@ Data for the QA sweep and the Design critic.
 | `pinned-question` | selected Workstream `workstream-1` whose order is a 12-line clarifying question; U354’s pinned question |
 | `decisions` | `agents-10`, `agent-1` selected, with a permission, an `ask_user` and an unanswerable Decision on `agent-1` to `agent-3`; answering clears it |
 | `earlier-run` | selected `done` Agent with no Terminal; U83’s `no output kept from an earlier run` |
+| `context-bar` | four selected-able closed Agents: full split, no split, a 5-part densest split, 96% used (U83b) |
 | `agents-10` | ten Agents, one per Kind in turn |
 | `tree-40` | forty nodes (nested Workstreams, a Door, Terminals), eight Todos, four Pads |
 | `daemon-exits` | `agents-10`, then `daemon-exited` with code 1 |
