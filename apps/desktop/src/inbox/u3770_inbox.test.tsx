@@ -4,7 +4,7 @@ import type { Event as DaemonEvent } from "@contracts/Event";
 import type { Kind } from "@contracts/Kind";
 import type { RailNode } from "@contracts/agent/RailNode";
 import { attentionOrder } from "../rail/attention";
-import { asking, decision, opened } from "../decisions/decisionsFixture";
+import { asking, cleared, decision, opened } from "../decisions/decisionsFixture";
 import { agent, event, NOW } from "../testing/nodes";
 import { mountTodos, todo } from "../todos/testHarness";
 import { Inbox } from "./Inbox";
@@ -181,10 +181,12 @@ it("u3770c_an_answer_confirms_then_folds_and_opens_the_next_decision", async () 
   fireEvent.click(within(row("alpha")).getByRole("button", { name: "Approve" }));
   const confirmation = await within(panel()).findByRole("status");
   expect(confirmation.textContent).toBe("Approved");
+  // The Daemon moves the answered Agent on; until then its row would show again for its Kind.
+  await send(m, status("a", "working"));
   await act(() => vi.advanceTimersByTimeAsync(1000));
   expect(panel().querySelector("li[data-phase='fold']")!.hasAttribute("inert")).toBe(true);
   await act(() => vi.advanceTimersByTimeAsync(500));
-  expect(within(panel()).queryByText("alpha")).toBeNull();
+  expect(names(groupOf("Needs you"))).not.toContain("alpha");
   expect(within(panel()).getByText("zeta").closest("button")!.getAttribute("aria-expanded")).toBe("true");
 });
 
@@ -241,7 +243,8 @@ it("u3770e_reduced_motion_makes_every_change_instant", async () => {
   await send(m, status("b", "needs-you"));
   expect(panel().querySelector("[data-arrived]")).toBeNull();
   fireEvent.click(within(panel()).getByRole("button", { name: "Approve" }));
-  await waitFor(() => expect(within(panel()).queryByText("alpha")).toBeNull());
+  await send(m, status("a", "working"));
+  await waitFor(() => expect(names(groupOf("Needs you"))).not.toContain("alpha"));
   expect(within(panel()).queryByRole("status")).toBeNull();
 });
 
@@ -263,6 +266,16 @@ it("u3770c_answering_the_last_decision_keeps_focus_on_a_row_that_stays_mounted",
   const approve = within(panel()).getByRole("button", { name: "Approve" });
   approve.focus();
   fireEvent.click(approve);
+  await send(m, status("a", "working"));
   await waitFor(() => expect(within(panel()).queryByRole("region", { name: "Needs you" })).toBeNull());
-  expect(document.activeElement).toBe(within(panel()).getByText("beta").closest("button"));
+  expect(document.activeElement).toBe(within(panel()).getByText("alpha").closest("button"));
+});
+
+it("u3770a_an_answered_error_agent_returns_to_needs_you_with_its_count", async () => {
+  const m = await mountInbox();
+  await open(m, decision("d3", "c"));
+  fireEvent.click(within(within(panel()).getByText("gamma").closest("li")!).getByRole("button", { name: "Approve" }));
+  await act(() => m.app.emit(cleared("d3", "answered")));
+  await waitFor(() => expect(names(groupOf("Needs you"))).toContain("gamma"));
+  expect(within(groupOf("Needs you")).getByText("3")).toBeTruthy();
 });

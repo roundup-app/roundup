@@ -70,8 +70,6 @@ export const Inbox = () => {
   onCleanup(events.subscribe((event) => { if (STALE.has(event.name)) void refresh(); }));
   onCleanup(() => { alive = false; latest++; timers.forEach(clearTimeout); });
 
-  const attention = (kind: string | undefined) => kind === "needs-you" || kind === "error";
-
   /** U3770a/d: the sections as the Rail and the Decisions say them now; an answered row stays in Needs you until it folds. */
   const model = createMemo(() => {
     const lent = settled();
@@ -85,7 +83,7 @@ export const Inbox = () => {
 
       const decision = decisions.of(node.id);
       const entry = lent.get(node.id);
-      const own = entry && (!decision || decision.id === entry.decision) ? entry : undefined;
+      const own = entry && (entry.phase === "gone" ? decision?.id === entry.decision : !decision || decision.id === entry.decision) ? entry : undefined;
 
       return { key: `a:${node.id}`, node, decision, settled: own, arrived: live && !reducedMotion() && !before.has(`${group}:${node.id}`) };
     };
@@ -116,9 +114,9 @@ export const Inbox = () => {
   const needsCount = () => model().needs.filter((each) => !each.settled).length + rows().length;
   const total = () => needsCount() + model().running.length + model().done.length;
 
-  // A folded row stays hidden only while its Agent still needs the user with no new Decision.
+  // A folded row stays hidden only while its answered Decision is still open; then the Agent's row shows for its current Kind.
   createEffect(() => {
-    const stale = [...settled()].filter(([id, entry]) => entry.phase === "gone" && !attention(rail.nodes.find((each) => each.id === id)?.status?.kind));
+    const stale = [...settled()].filter(([id, entry]) => entry.phase === "gone" && decisions.of(id)?.id !== entry.decision);
 
     if (stale.length > 0) setSettled((current) => new Map([...current].filter(([id]) => !stale.some(([gone]) => gone === id))));
   });
