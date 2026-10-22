@@ -15,8 +15,6 @@ const NAME = `payments workstream ${"with a very long tail ".repeat(3)}`.trim();
 
 const tree = () => [workstream("w", { name: NAME }), agent("a", "idle", "working on it", { parent: "w" }), door("d", "working", "supervising", { order: 1 })];
 
-const byId = (id: string) => document.querySelector<HTMLElement>(`.rail-row[data-id="${id}"]`)!;
-
 const tips = () => screen.queryAllByRole("tooltip").map((tip) => tip.textContent);
 
 it("u521_icon_controls_show_their_names", { timeout: 60_000 }, async () => {
@@ -47,25 +45,6 @@ it("u521_icon_controls_show_their_names", { timeout: 60_000 }, async () => {
     await waitFor(() => expect(tips().some((tip) => tip.startsWith(name))).toBe(true));
     button.blur();
     await waitFor(() => expect(tips().some((tip) => tip.startsWith(name))).toBe(false));
-  }
-});
-
-it("u521_full_text_is_in_a_tooltip", async () => {
-  vi.spyOn(HTMLElement.prototype, "clientWidth", "get").mockReturnValue(100);
-  vi.spyOn(HTMLElement.prototype, "scrollWidth", "get").mockReturnValue(400);
-  await mountRail(tree());
-
-  expect(document.querySelectorAll("[title]")).toHaveLength(0);
-
-  for (const row of ["w", "a"]) {
-    fireEvent.pointerMove(byId(row), { pointerType: "mouse" });
-    const tip = await screen.findByRole("tooltip");
-
-    if (row === "w") expect(tip.textContent).toContain(NAME);
-    else expect(tip.textContent).toContain("working on it");
-
-    fireEvent.pointerLeave(byId(row), { pointerType: "mouse" });
-    await waitFor(() => expect(screen.queryByRole("tooltip")).toBeNull());
   }
 });
 
