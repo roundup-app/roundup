@@ -34,7 +34,7 @@ const scopeLabels: Record<Scope, string> = { once: copy.scopeOnce, session: copy
 const typingIn = (target: EventTarget | null): boolean => target instanceof Element && target.matches("textarea, select, [contenteditable]:not([contenteditable=false]), input:not([type=radio]):not([type=checkbox]):not([type=button])");
 
 /** The Decision an Agent waits on, with the buttons that answer it; `focusTerminal` hands the keyboard to that Agent's Terminal. */
-export const DecisionCard = (props: { decision: Decision; name: string; focusTerminal: () => void; ref: (card: HTMLElement) => void; onFocusIn: () => void; onFocusOut: (leave: FocusEvent) => void;
+export const DecisionCard = (props: { decision: Decision; name: string; focusTerminal: () => void; ref: (card: HTMLElement) => void; onFocusIn: () => void; onFocusOut: (leave: FocusEvent) => void; onEscape?: () => void;
   /** Already observed original authority and an exact retained revision. Opening performs no capture.
    * Revisions outside this Project/Prompt are refused; unverified authority permits no Send.
    */
@@ -110,7 +110,9 @@ export const DecisionCard = (props: { decision: Decision; name: string; focusTer
     } else if (key.key === "Escape") {
       key.preventDefault();
       key.stopPropagation();
-      send("deny");
+
+      if (props.onEscape) props.onEscape();
+      else send("deny");
     }
   };
 
