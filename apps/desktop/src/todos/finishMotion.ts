@@ -1,45 +1,64 @@
 import { createComputed, createEffect, createSignal, on } from "solid-js";
 import type { Accessor } from "solid-js";
 
-/**
- * U3770: which rows and whether the bar play a finish. `done` is the set of done Todo ids in the shown scope, `key` names that scope.
- * A first load, a scope change and a refetch that changes no `done` state only
- * re-baseline, so nothing moves at rest; a change plays, and a later one joins the same play instead of queueing another.
- * No timer drives it: a row ends on its strike's `animationend` and the bar on its fill's `transitionend`.
- */
-export const createFinishMotion = (input: { loaded: Accessor<boolean>; key: Accessor<string>; done: Accessor<ReadonlySet<number>>; reduced: Accessor<boolean> }) => {
-  const [rows, setRows] = createSignal<ReadonlySet<number>>(new Set());
+/** U3770: diff refetched completion states, retaining each visible finishing row's place until its CSS strike ends. Scope changes and first loads settle without playing. */
+export const createFinishMotion = (input: {
+  loaded: Accessor<boolean>;
+  key: Accessor<string>;
+  done: Accessor<ReadonlySet<number>>;
+  open: Accessor<readonly number[]>;
+  reduced: Accessor<boolean>;
+  shown: (id: number, wasDone: boolean) => boolean;
+}) => {
+  const [rows, setRows] = createSignal<ReadonlyMap<number, number>>(new Map());
+  const [order, setOrder] = createSignal<readonly number[]>([]);
   const [bar, setBar] = createSignal(false);
   let before: { key: string; done: ReadonlySet<number> } | null = null;
 
   const settle = () => {
-    setRows(new Set<number>());
+    setRows(new Map());
+    setOrder([...input.open()]);
     setBar(false);
   };
 
   const rowEnded = (id: number) => {
     if (!rows().has(id)) return;
 
-    setRows(new Set([...rows()].filter((other) => other !== id)));
+    setRows(new Map([...rows()].filter(([other]) => other !== id)));
+
+    if (before?.done.has(id)) setOrder(order().filter(other => other !== id));
   };
 
   createEffect(on(input.reduced, (reduced) => { if (reduced) settle(); }));
 
-  // A computation, not an effect: `bar` flips in the same pass as the fill value, so the fill's transition is in place when its new scale lands.
-  createComputed(on([input.loaded, input.key, input.done], ([loaded, key, done]) => {
+  // A computation installs the fill's transition before the new scale lands; CSS events release the holds without a timer.
+  createComputed(on([input.loaded, input.key, input.done, input.open], ([loaded, key, done, open]) => {
     const was = before;
 
     before = loaded ? { key, done } : null;
 
-    if (was === null || was.key !== key) return settle();
+    if (was === null || was.key !== key || input.reduced()) return settle();
 
-    const seen = [...done].filter((id) => !was.done.has(id)).concat([...was.done].filter((id) => !done.has(id)));
+    const changed = [...done].filter(id => !was.done.has(id)).concat([...was.done].filter(id => !done.has(id)));
+    const shown = changed.filter(id => input.shown(id, was.done.has(id)));
 
-    if (seen.length === 0 || input.reduced()) return;
+    if (changed.length > 0 && shown.length === 0) return settle();
 
-    setRows(new Set([...rows(), ...seen]));
-    setBar(bar() || done.size !== was.done.size);
+    const playing = new Map([...rows()].filter(([id]) => open.includes(id) || done.has(id)));
+
+    for (const id of shown) if (!playing.has(id)) playing.set(id, order().indexOf(id));
+
+    const listed = [...open];
+
+    for (const [id, place] of [...playing].sort((a, b) => a[1] - b[1])) {
+      if (done.has(id)) listed.splice(place < 0 ? listed.length : Math.min(place, listed.length), 0, id);
+    }
+
+    setRows(playing);
+    setOrder(listed);
+
+    if (shown.length > 0) setBar(bar() || done.size !== was.done.size);
   }));
 
-  return { row: (id: number) => rows().has(id), bar, settle, rowEnded, barEnded: () => setBar(false) };
+  return { order, row: (id: number) => rows().has(id), bar, settle, rowEnded, barEnded: () => setBar(false) };
 };
