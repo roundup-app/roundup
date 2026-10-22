@@ -1,6 +1,7 @@
 //! How the store's pending and held Messages map onto `step`, and the id lists `step` answers with.
-use crate::step::{Event, State, step};
-use contracts::message::{Message, MessageKind};
+use crate::step::{Effect, Event, State, step};
+use contracts::ActorKind;
+use contracts::message::{Delivery, Message, MessageStatus, Reason};
 
 /// The `State` of one receiver as the store holds it: `pending` Messages in delivery order, the
 /// `held` ones by Reason. `escalated` holds are not in `step` yet (B13 to B17).
