@@ -11,7 +11,7 @@
   min-width: 0;
   height: var(--space-1);
   overflow: hidden;
-  background-color: color-mix(in srgb, var(--grey) 40%, transparent);
+  background-color: var(--progress-track);
 }
 
 .app-progress-fill {
