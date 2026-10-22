@@ -200,7 +200,8 @@ jobs:
 
   summary:
     needs: [task, critic-run, post]
-    if: always()
+    # L93: an event `task` skips gets no summary, which would hold a runner only to say nothing ran.
+    if: always() && needs.task.result != 'skipped'
     permissions: {}
     uses: ./.github/workflows/summary.yml
     with:
