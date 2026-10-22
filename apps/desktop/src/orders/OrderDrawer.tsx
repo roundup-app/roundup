@@ -4,7 +4,7 @@ import { Tip } from "../ui/Tip";
 import { IconButton } from "../ui/IconButton";
 import { copy } from "../copy";
 import type { Order } from "@contracts/agent/Order";
-import { For, Match, Show, Switch, createEffect, createMemo, createResource, createSignal, on, onCleanup } from "solid-js";
+import { For, Match, Show, Switch, createEffect, createMemo, createResource, createSignal, createUniqueId, on, onCleanup } from "solid-js";
 import { KindGlyph } from "../ink/KindGlyph";
 import { Icon } from "../ink/Icon";
 import { Markdown } from "../plain/Markdown";
@@ -25,6 +25,32 @@ type OrderInput = {
   id: string; inline?: boolean;
   /** Loaded Project and Rail facts authorize recovery without a prompt read. */
   recovery?: { project: string; revision: string };
+};
+
+/** O17: the session id is muted text that copies itself on click and says so for a moment. */
+const SessionId = (props: { id: string }) => {
+  const [note, setNote] = createSignal<string | null>(null);
+  const idText = createUniqueId();
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  onCleanup(() => clearTimeout(timer));
+
+  const copyId = async () => {
+    try {
+      await navigator.clipboard.writeText(props.id);
+      setNote(copy.copied);
+    } catch {
+      setNote(copy.copyFailed);
+    }
+
+    clearTimeout(timer);
+    timer = setTimeout(() => setNote(null), 1500);
+  };
+
+  return <>
+    <button type="button" class="overview-id" aria-label={copy.copySessionId} aria-describedby={idText} onClick={() => void copyId()}>{note() ?? props.id}</button>
+    <span id={idText} class="overview-id-note">{props.id}</span>
+    <span role="status" class="overview-id-note">{note()}</span>
+  </>;
 };
 
 /** O6: the whole order of one Agent or Door. What it shows follows the Rail, so a changed order reaches it. */
@@ -312,7 +338,7 @@ const OrderContent = (props: OrderInput) => {
         {(overview) => <header class="overview-session">
           <p class="light">{overview().program}</p>
           <Show when={overview().name}>{(name) => <h2>{name()}</h2>}</Show>
-          <p class="overview-id">{overview().id}</p>
+          <SessionId id={overview().id} />
           <Show when={overview().used !== undefined && overview().limit !== undefined && overview().limit! > 0}>
             <div class="overview-context">
               <span>{copy.contextUse(overview().used!, overview().limit!)}</span>
@@ -344,24 +370,8 @@ const OrderContent = (props: OrderInput) => {
         </Match>
       </Switch>}>{editor()}</Show>
       <Show when={props.recovery === undefined}><WorkProgress id={props.id} /></Show>
-      <Show when={(props.inline || order()?.kind === "work") && (spawn()?.prompt ?? spawn()?.error)}>
-        {(text) => (
-          <Show when={props.inline} fallback={
-            <details class="order-prompt">
-              <summary>{copy.prompt}</summary>
-              <Show when={spawn()?.error === null} fallback={<p class="order-prompt-error">{text()}</p>}>
-                <Markdown class="order-prompt-body" body={text()} />
-              </Show>
-            </details>
-          }>
-            <section class="order-prompt">
-              <h3>{copy.prompt}</h3>
-              <Show when={spawn()?.error === null} fallback={<p class="order-prompt-error">{text()}</p>}>
-                <Markdown class="order-prompt-body" body={text()} />
-              </Show>
-            </section>
-          </Show>
-        )}
+      <Show when={!props.inline && order()?.kind === "work" ? spawn()?.error : undefined}>
+        {(text) => <p class="order-prompt-error">{text()}</p>}
       </Show>
     </section>
   );
