@@ -1,4 +1,4 @@
-import { Tip } from "../ui/Tip";
+import { createCutTitle } from "../ui/cutTitle";
 import { copy } from "../copy";
 import { createEffect, createSignal, For, on, onCleanup, Show } from "solid-js";
 import type { FileComparison } from "@contracts/agent/FileComparison";
@@ -11,6 +11,12 @@ import type { NoteFormDraft } from "./notes";
 import type { Note, Notes } from "./notes";
 
 const olderComparison = (current: FileComparison | undefined, original: FileComparison) => current && current.newPath === original.newPath && (current.oldPath !== original.oldPath || current.base !== original.base || current.old.revision !== original.old.revision || current.new.revision !== original.new.revision);
+
+const NotePath = (props: { path: string }) => {
+  const cut = createCutTitle(() => props.path);
+
+  return <p {...cut.attrs()} class="note-path" style={{ width: "fit-content", "max-width": "100%" }}>{props.path}</p>;
+};
 
 /** The keyboard-reachable batch remains available from the tree as well as the reader. */
 export const NoteBatch = (props: { id: string; name: string; notes: Notes; comparison?: FileComparison | undefined; edit: (note: Note) => void; recover: () => void }) => {
@@ -32,7 +38,7 @@ export const NoteBatch = (props: { id: string; name: string; notes: Notes; compa
       <Show when={props.notes.problem()}>{message => <><ErrorLine message={message()} /><button type="button" data-button="quiet" onClick={props.recover}>{copy.openNotesRecovery}</button></>}</Show>
       <Show when={props.notes.list(props.id).length}>
         <ul aria-label={copy.notes}><For each={props.notes.list(props.id)}>{(note, index) => <li>
-          <Tip text={note.comparison.newPath}>{(trigger) => <p class="note-path" {...trigger()} style={{ width: "fit-content", "max-width": "100%" }}>{note.comparison.newPath}</p>}</Tip>
+          <NotePath path={note.comparison.newPath} />
           <p>{copy.noteLocation(note.comparison.newPath, note.side, note.start, note.end)}<Show when={older(note)}><span role="status">{copy.originalContext}</span></Show></p>
           <p class="note-text">{note.text}</p>
           <div class="diff-actions">

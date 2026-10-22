@@ -1,11 +1,10 @@
 import { modalOpen, registerKeys } from "../keys/registry";
 import { copy } from "../copy";
 import type { JSX } from "solid-js";
-import { Tip, type TriggerProps } from "../ui/Tip";
 import "./rowButton.styles.css";
 
 /** A clickable row of the Shelf or a Drawer: plain text, no button chrome; a long title wraps under its `#`, not under the glyph; `hang={false}` is the Shelf's (U359), whose Glyph is its own column. */
-export const RowButton = (props: { onClick: (event: MouseEvent) => void; pressed?: boolean | undefined; selectionActive?: boolean | undefined; children: (trigger: (extra?: TriggerProps) => TriggerProps) => JSX.Element; ref?: (row: HTMLButtonElement) => void; reorderable?: boolean; hang?: boolean; label?: string; tooltip?: string | undefined; onKeyDown?: (event: KeyboardEvent) => void; /** U3709: the run for Tab (`false`) or ⇧Tab (`true`), or null where it is not this row's. */ nest?: ((out: boolean) => (() => Promise<string | null>) | null) | undefined; onNest?: ((run: () => Promise<string | null>) => void) | undefined; onPointerDown?: (event: PointerEvent) => void }) => {
+export const RowButton = (props: { onClick: (event: MouseEvent) => void; pressed?: boolean | undefined; selectionActive?: boolean | undefined; children: JSX.Element; ref?: (row: HTMLButtonElement) => void; reorderable?: boolean; hang?: boolean; label?: string; onKeyDown?: (event: KeyboardEvent) => void; /** U3709: the run for Tab (`false`) or ⇧Tab (`true`), or null where it is not this row's. */ nest?: ((out: boolean) => (() => Promise<string | null>) | null) | undefined; onNest?: ((run: () => Promise<string | null>) => void) | undefined; onPointerDown?: (event: PointerEvent) => void }) => {
   let button: HTMLButtonElement | undefined;
 
   // One layer holds both bindings: only the first eligible layer of a press is consulted.
@@ -26,16 +25,11 @@ export const RowButton = (props: { onClick: (event: MouseEvent) => void; pressed
   }]);
 
   return (
-    <Tip text={props.tooltip} class="todo-tooltip" disabled={!props.tooltip}>
-      {(trigger, focus) => {
-
-        return <button {...focus} type="button" class="todo-row-button"
-          onClick={(event) => props.onClick(event)} onPointerDown={(event) => props.onPointerDown?.(event)}
-          data-reorderable={props.reorderable ? "" : undefined}
-          aria-label={props.label} aria-description={props.reorderable ? copy.reorder : undefined} aria-pressed={props.pressed}
-          style={props.hang === false ? { display: "block" } : { display: "block", "white-space": "pre-wrap", "padding-left": "var(--todo-row-indent)", "text-indent": "calc(-1 * var(--todo-row-indent))" }}
-          ref={(element) => { button = element; props.ref?.(element); }}>{props.children(trigger)}</button>;
-      }}
-    </Tip>
+    <button type="button" class="todo-row-button"
+      onClick={(event) => props.onClick(event)} onPointerDown={(event) => props.onPointerDown?.(event)}
+      data-reorderable={props.reorderable ? "" : undefined}
+      aria-label={props.label} aria-description={props.reorderable ? copy.reorder : undefined} aria-pressed={props.pressed}
+      style={props.hang === false ? { display: "block" } : { display: "block", "white-space": "pre-wrap", "padding-left": "var(--todo-row-indent)", "text-indent": "calc(-1 * var(--todo-row-indent))" }}
+      ref={(element) => { button = element; props.ref?.(element); }}>{props.children}</button>
   );
 };
