@@ -1982,33 +1982,5 @@ fn b45_every_command_the_brief_names_is_in_rup_help() {
 #[path = "launch/lean.rs"]
 mod lean;
 
-use agents::claude_code::Pair;
-
-#[test]
-fn b2706_a_normal_start_passes_no_permission_mode() {
-    let s = setup();
-    let launcher = s.launcher();
-    for setting in [Some("acceptEdits"), None] {
-        if let Some(mode) = setting {
-            let body = format!(r#"{{"permissions":{{"defaultMode":"{mode}"}}}}"#);
-            std::fs::write(s.root.path().join("settings.json"), body).unwrap();
-        }
-        for resume in [None, Some("conv-1")] {
-            let argv = launcher
-                .prepare(folders(&s.dir), "7", "1", &s.cwd, resume, Role::Agent)
-                .unwrap();
-            assert!(!argv.iter().any(|a| a == "--permission-mode"), "{argv:?}");
-            assert_eq!(argv.iter().any(|a| a == "--resume"), resume.is_some());
-        }
-    }
-    let yolo = Pair {
-        yolo: true,
-        ..Pair::default()
-    };
-    let argv = launcher
-        .prepare_on(folders(&s.dir), "7", "1", &s.cwd, None, Role::Agent, &yolo)
-        .unwrap();
-    let at = argv.iter().position(|a| a == "--permission-mode").unwrap();
-    assert_eq!(argv[at + 1], "bypassPermissions");
-    assert!(argv.iter().any(|a| a == "--dangerously-skip-permissions"));
-}
+#[path = "launch/choices.rs"]
+mod choices;

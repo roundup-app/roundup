@@ -8,6 +8,20 @@ use ts_rs::TS;
 #[derive(Clone, Debug, Serialize, Deserialize, TS, JsonSchema)]
 #[ts(export, export_to = "agent/")]
 pub struct SpawnParams {
+    /// U3801: only the user selects permissions for this launch; omission keeps vendor defaults.
+    #[serde(
+        default,
+        rename = "permissionMode",
+        skip_serializing_if = "Option::is_none"
+    )]
+    #[ts(optional, rename = "permissionMode")]
+    #[schemars(skip)]
+    pub permission_mode: Option<PermissionMode>,
+    /// U3802: an opaque engine id from `models.list`; omission keeps the current Adapter.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[ts(optional)]
+    pub engine: Option<String>,
+
     pub cwd: String,
     pub prompt: Option<String>,
     pub parent: Option<String>,
@@ -72,6 +86,20 @@ pub struct ExtrasAddParams {
 #[derive(Clone, Debug, Serialize, Deserialize, TS, JsonSchema)]
 #[ts(export, export_to = "agent/")]
 pub struct StartDoorParams {
+    /// U3801: only the user selects permissions for this launch; omission keeps vendor defaults.
+    #[serde(
+        default,
+        rename = "permissionMode",
+        skip_serializing_if = "Option::is_none"
+    )]
+    #[ts(optional, rename = "permissionMode")]
+    #[schemars(skip)]
+    pub permission_mode: Option<PermissionMode>,
+    /// U3802: an opaque engine id from `models.list`; omission keeps the current Adapter.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[ts(optional)]
+    pub engine: Option<String>,
+
     pub id: String,
     #[serde(default)]
     #[ts(optional)]
@@ -79,4 +107,15 @@ pub struct StartDoorParams {
     #[serde(default)]
     #[ts(optional)]
     pub effort: Option<String>,
+}
+
+/// U3801: the user's permission choice for one normal launch. YOLO ignores it.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize, TS, JsonSchema)]
+#[serde(rename_all = "camelCase")]
+#[ts(export, export_to = "agent/")]
+pub enum PermissionMode {
+    Default,
+    AcceptEdits,
+    Plan,
+    Auto,
 }

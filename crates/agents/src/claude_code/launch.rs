@@ -511,8 +511,15 @@ impl Launcher {
         if pair.yolo {
             argv.extend(["--permission-mode", "bypassPermissions"].map(String::from));
         } else {
-            // B2706: Claude Code takes the user's own mode; a note names that same mode.
-            let mode = super::inbox::default_mode(&self.conversation_dir, &cwd);
+            // A note names the same selected or inherited mode as this launch.
+            let mode = match pair.permission_mode {
+                Some(mode) => {
+                    let mode = super::models::permission_mode(mode);
+                    argv.extend(["--permission-mode".into(), mode.into()]);
+                    mode.to_owned()
+                }
+                None => super::inbox::default_mode(&self.conversation_dir, &cwd),
+            };
             self.modes
                 .lock()
                 .unwrap_or_else(std::sync::PoisonError::into_inner)
