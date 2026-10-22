@@ -102,6 +102,39 @@ it("u3768b_a_view_opened_later_shows_the_history_before_it_opened", async () => 
   expect(screen.getByRole("img", { name: "Door started Gone" })).toBeTruthy();
 });
 
+it("u3768g_log_replays_saved_events_on_creation", async () => {
+  const app = createFakeApp();
+  app.handlers["rail.tree"] = () => [door("home", "working", "go", { name: "Door", attempt: "1", status: { kind: "working", label: "go", since: at(15) } })];
+  app.handlers["terminal.list"] = () => [];
+  app.head = 3;
+  const subscribe = app.subscribe;
+  app.subscribe = async (listener, after) => {
+    const head = await subscribe(listener, after);
+
+    const saved: { kind: Kind; minute: number }[] = [{ kind: "working", minute: 0 }, { kind: "needs-you", minute: 12 }, { kind: "working", minute: 15 }];
+
+    saved.forEach(({ kind, minute }, index) => app.emit({ ...status("home", "1", kind, minute), seq: index + 1 }));
+
+    return head;
+
+  };
+  const connected = await connectProject(app, { name: "p", path: "/p" }, () => false, () => NOW, () => null);
+  const heard: string[] = [];
+  connected.events.subscribe((each) => heard.push(each.name));
+
+  await show(connected);
+  expect(app.subscribed).toEqual([{ after: 0 }]);
+  expect(blocks("Door")).toEqual([["Working", at(0), at(12)], ["Needs-you", at(12), at(15)], ["Working", at(15), NOW]]);
+  expect(screen.queryAllByRole("img", { name: "Unknown" })).toHaveLength(0);
+  // The replay reached no other listener; a repeat of a replayed Event adds no block, live or replayed again.
+  expect(heard).toEqual([]);
+  app.emit({ ...status("home", "1", "working", 15), seq: 3 });
+  app.emit({ ...status("home", "1", "working", 15), seq: 4 });
+  await vi.advanceTimersByTimeAsync(0);
+  expect(blocks("Door")).toHaveLength(3);
+  expect(heard).toEqual(["agent.status"]);
+});
+
 it("u3768c_lines_follow_subagent_parentage", async () => {
   await mount([...family(), agent("loose", "idle", "x", { name: "Loose", parent: "home", attempt: "1" })]);
   expect(screen.getAllByRole("img").map((each) => each.getAttribute("aria-label")).filter((name) => / started /.test(name!))).toEqual(["Door started Alpha", "Alpha started Beta", "Door started Loose"]);
