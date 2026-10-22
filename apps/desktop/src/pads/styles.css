@@ -380,3 +380,8 @@
   align-items: flex-end;
   gap: var(--space-1);
 }
+
+/* U3736: the Assign word shows on hover and focus, like a Todo row's actions. */
+.pad-assign { display: none; margin-left: var(--space-3); }
+.pad-inset:hover .pad-assign, .pad-inset:focus-within .pad-assign { display: inline-flex; }
+[data-dnd-dragging] .pad-assign { display: none !important; }

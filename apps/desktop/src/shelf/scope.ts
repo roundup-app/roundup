@@ -25,10 +25,18 @@ export const shelfScope = (connected: ConnectedProject) => {
 
       return scope.kind === "overview" ? null : resolvedWorkstream(connected.rail.nodes, scope.id);
     },
-    includes: (home: string | null, maker: Actor) => {
+    /** U3734: an Agent's view holds what it made and, given `owner`, what it owns. */
+    includes: (home: string | null, maker: Actor, owner?: Actor | null) => {
+      const scope = selected();
+      const is = (actor: Actor | null | undefined) => scope.kind === "agent" && actor?.kind === "agent" && actor.id === scope.id;
+
+      return scope.kind === "overview" || (scope.kind === "workstream" ? home === scope.id : is(maker) || is(owner));
+    },
+    /** U3733, U3735: the Actor of the Agent selected in the Rail, else null. */
+    agent: (): Actor | null => {
       const scope = selected();
 
-      return scope.kind === "overview" || (scope.kind === "workstream" ? home === scope.id : maker.kind === "agent" && maker.id === scope.id);
+      return scope.kind === "agent" ? { kind: "agent", id: scope.id, parent: null } : null;
     },
   };
 };

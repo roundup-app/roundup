@@ -285,7 +285,7 @@ export const Todos = (props: {
   const selection = createSelection(() => [...open(), ...(unfolded() ? done() : [])].map((todo) => todo.id), () => connected.rail.selected() ?? "overview");
 
   const done = createMemo(() => doneTodos(todos.all()).filter((todo) =>
-    scope.includes(todo.home, todo.creator)));
+    scope.includes(todo.home, todo.creator, todo.owner)));
 
   const target = (todo: Todo) => ({ id: todo.id, label: todo.title });
 
@@ -569,7 +569,8 @@ export const Todos = (props: {
   // EntryRow clears after capturing this revision, so another Enter cannot submit it twice.
   const create = async (title: string) => {
     setCreateFailure(null);
-    const owner = adding()?.owner ?? null;
+    // U3733: the top field under a selected Agent makes its Todo; a group's plus keeps its own group's owner.
+    const owner = adding() ? adding()!.owner : scope.agent();
 
     const draft = creation();
 
@@ -781,7 +782,7 @@ export const Todos = (props: {
         </Show>
         </>; }}</OwnerGroups>
       </Show>
-      <OwnerPicker target={picking} offers={offers} choose={(id, owner) => void assign(id, owner)} close={stopPicking} />
+      <OwnerPicker label={id => copy.ownersFor(id ?? "")} target={picking} offers={offers} choose={(id, owner) => void assign(id, owner)} close={stopPicking} />
       <Show when={typing() && (adding() === null || fieldGroupGone())}>
         {field()}
       </Show>
