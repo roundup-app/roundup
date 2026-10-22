@@ -110,6 +110,53 @@ async fn b6_terminal_input_invalidates_identity_before_the_next_signal() {
 }
 
 #[tokio::test]
+async fn u3750_a_card_answer_delivers_once_while_the_terminal_prompt_is_open() {
+    let run = Run::start().await;
+    let (decision, waiting) = run.open("ask_user").await;
+    assert_eq!(decision["answerable"], true);
+    run.user_answer(&decision, "ask_user").await;
+    assert_eq!(waiting.await.unwrap().unwrap()["answer"], "Yes");
+    assert!(
+        run.user
+            .request("decision.list", ())
+            .await
+            .unwrap()
+            .as_array()
+            .unwrap()
+            .is_empty()
+    );
+    assert!(!run.recorded_input().await.contains("BYTE:59"));
+    run.finish().await;
+}
+
+#[tokio::test]
+async fn u3750_typing_in_the_terminal_first_makes_the_card_say_where_to_answer() {
+    let run = Run::start().await;
+    let (decision, waiting) = run.open("ask_user").await;
+    run.user
+        .request(
+            "terminal.write",
+            json!({"id":run.terminal,"data":STANDARD.encode(b"u")}),
+        )
+        .await
+        .unwrap();
+    let listed = run.user.request("decision.list", ()).await.unwrap();
+    assert_eq!(listed[0]["id"], decision["id"]);
+    assert_eq!(listed[0]["answerable"], false);
+    let refused = run
+        .user
+        .request(
+            "decision.answer",
+            json!({"id":decision["id"],"answer":"Yes","proof":"0".repeat(64)}),
+        )
+        .await
+        .unwrap_err();
+    assert!(refused.message.contains("Terminal"));
+    run.clear().await;
+    let _ = waiting.await.unwrap();
+    run.finish().await;
+}
+#[tokio::test]
 async fn b6_an_attempt_change_refuses_the_original_prompt_effect() {
     for kind in ["permission", "ask_user", "native"] {
         let mut run = Run::start().await;
