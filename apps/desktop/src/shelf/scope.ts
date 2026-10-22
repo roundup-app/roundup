@@ -41,60 +41,6 @@ export const shelfScope = (connected: ConnectedProject) => {
   };
 };
 
-export type ShelfGroup<T> = { id: string; name: string; items: T[]; children: ShelfGroup<T>[] };
-
-/** U2744a: Home wins over maker; Rail order is read without its folded presentation. */
-export const shelfGroups = <T,>(connected: ConnectedProject, items: readonly T[], homeOf: (item: T) => string | null, makerOf: (item: T) => Actor): ShelfGroup<T>[] => {
-  const nodes = connected.rail.nodes;
-  const selected = nodes.find(node => node.id === connected.rail.selected());
-
-  if (selected?.kind === "agent") return [{ id: "flat", name: "", items: [...items], children: [] }];
-  const ordered = siblingsOf(nodes, null).flatMap(node => [node, ...descendantsOf(nodes, node.id)]);
-  const groups = new Map<string, ShelfGroup<T>>();
-
-  const make = (id: string, name: string) => {
-    const group: ShelfGroup<T> = { id, name, items: [], children: [] };
-    groups.set(id, group);
-
-    return group;
-  };
-
-  const roots: ShelfGroup<T>[] = [];
-
-  for (const node of ordered) {
-    if (node.kind === "workstream") roots.push(make(node.id, node.name));
-    else {
-      const group = make(node.id, node.name);
-      const home = resolvedWorkstream(nodes, node.id);
-      const parent = home === null ? undefined : groups.get(home);
-
-      if (parent) parent.children.push(group);
-      else roots.push(group);
-    }
-  }
-
-  const unassigned = make("unassigned", copy.unassigned);
-  roots.push(unassigned);
-
-  for (const item of items) {
-    const home = homeOf(item);
-    const maker = makerOf(item);
-    const agent = maker.kind === "agent" ? nodes.find(node => node.id === maker.id) : undefined;
-    let group = home === null ? undefined : groups.get(home);
-
-    if (agent && (home === null || (agent.kind === "agent" && resolvedWorkstream(nodes, agent.id) === home))) group = groups.get(agent.id);
-    (group ?? unassigned).items.push(item);
-  }
-
-  const prune = (group: ShelfGroup<T>): ShelfGroup<T>[] => {
-    group.children = group.children.flatMap(prune);
-
-    return group.items.length || group.children.length ? [group] : [];
-  };
-
-  return (selected?.kind === "workstream" ? roots.filter(group => group.id === selected.id) : roots).flatMap(prune);
-};
-
 /** U3717: who can own a Todo, in the order the Shelf groups them: Me, each Agent on the Rail in Rail order, Unassigned (`actor` null). */
 export type Owner = { id: string; name: string; actor: Actor | null };
 
