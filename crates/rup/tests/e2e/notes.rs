@@ -9,7 +9,8 @@ use serde_json::{Value, json};
 
 use super::daemon::{h21_ask, h21_bash, h21_poll, start};
 use super::wake::{
-    FAIL, STOP, WORK, ask, drive, named, notes, scene, start_again, status_of, still, typed,
+    FAIL, STOP, WORK, ask, drive, messages, named, notes, scene, start_again, status_of, still,
+    typed,
 };
 use super::{actor, client_as};
 
@@ -539,4 +540,198 @@ async fn t18_three_changes_in_a_turn_one_message_with_a_real_agent() {
         );
     }
     still(&s.user, &s.a, "[todos]", 1).await;
+}
+
+fn agent_owner(id: &str) -> Value {
+    json!({ "kind": "agent", "id": id })
+}
+
+async fn todo(user: &rpc::Client, title: &str, owner: Option<Value>) -> u64 {
+    let made = user
+        .request("todo.create", json!({ "title": title, "owner": owner }))
+        .await
+        .unwrap();
+    made["id"].as_u64().unwrap()
+}
+
+async fn handoffs(user: &rpc::Client, to: &str) -> Vec<String> {
+    messages(user, to, "Next:")
+        .await
+        .iter()
+        .map(|m| m["body"].as_str().unwrap().to_owned())
+        .collect()
+}
+
+/// One turn: `a` works and stops, which is one `idle` Event.
+async fn turn(user: &rpc::Client, id: &str) {
+    drive(user, id, WORK).await;
+    drive(user, id, STOP).await;
+}
+
+#[tokio::test]
+async fn t25_an_idle_owner_gets_one_message_for_its_first_open_todo() {
+    let s = scene(&[]).await;
+    let first = todo(&s.user, "Fix login", Some(agent_owner(&s.a))).await;
+    todo(&s.user, "Later", Some(agent_owner(&s.a))).await;
+    drive(&s.user, &s.a, STOP).await;
+    let sent = notes(&s.user, &s.a, "Next:", 1).await;
+    assert_eq!(sent[0]["body"], format!("Next: #{first} Fix login"));
+    assert_eq!(sent[0]["kind"], "note");
+    still(&s.user, &s.a, "Next:", 1).await;
+    // The hand-off shows in the Todo's history.
+    let history = s
+        .user
+        .request("todo.getHistory", json!({ "id": first }))
+        .await
+        .unwrap();
+    let handed: Vec<&Value> = history["changes"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .filter(|c| c["handed"]["id"] == s.a.as_str())
+        .collect();
+    assert_eq!(handed.len(), 1);
+    assert_eq!(handed[0]["before"], handed[0]["after"]);
+}
+
+#[tokio::test]
+async fn t25_a_busy_owner_gets_none_until_idle() {
+    let s = scene(&[]).await;
+    todo(&s.user, "Fix login", Some(agent_owner(&s.a))).await;
+    for event in [WORK, FAIL] {
+        drive(&s.user, &s.a, event).await;
+    }
+    still(&s.user, &s.a, "Next:", 0).await;
+    turn(&s.user, &s.a).await;
+    notes(&s.user, &s.a, "Next:", 1).await;
+}
+
+#[tokio::test]
+async fn t25_a_blocked_todo_is_skipped_until_unblocked() {
+    let s = scene(&[]).await;
+    let blocker = todo(&s.user, "Blocker", Some(agent_owner(&s.b))).await;
+    let blocked = s
+        .user
+        .request(
+            "todo.create",
+            json!({ "title": "Waits", "owner": agent_owner(&s.a), "blockers": [blocker] }),
+        )
+        .await
+        .unwrap()["id"]
+        .as_u64()
+        .unwrap();
+    drive(&s.user, &s.a, STOP).await;
+    still(&s.user, &s.a, "Next:", 0).await;
+    s.user
+        .request("todo.complete", json!({ "id": blocker }))
+        .await
+        .unwrap();
+    turn(&s.user, &s.a).await;
+    let sent = notes(&s.user, &s.a, "Next:", 1).await;
+    assert_eq!(sent[0]["body"], format!("Next: #{blocked} Waits"));
+}
+
+#[tokio::test]
+async fn t25_a_second_idle_without_a_change_sends_nothing() {
+    let s = scene(&[]).await;
+    todo(&s.user, "Fix login", Some(agent_owner(&s.a))).await;
+    drive(&s.user, &s.a, STOP).await;
+    notes(&s.user, &s.a, "Next:", 1).await;
+    turn(&s.user, &s.a).await;
+    turn(&s.user, &s.a).await;
+    still(&s.user, &s.a, "Next:", 1).await;
+}
+
+#[tokio::test]
+async fn t25_a_takeover_or_unsent_input_hands_nothing() {
+    let s = scene(&[]).await;
+    todo(&s.user, "Fix login", Some(agent_owner(&s.a))).await;
+    s.user
+        .request("takeover.begin", json!({ "agent": s.a }))
+        .await
+        .unwrap();
+    drive(&s.user, &s.a, STOP).await;
+    still(&s.user, &s.a, "Next:", 0).await;
+    s.user
+        .request("takeover.end", json!({ "agent": s.a }))
+        .await
+        .unwrap();
+    turn(&s.user, &s.a).await;
+    notes(&s.user, &s.a, "Next:", 1).await;
+}
+
+#[tokio::test]
+async fn t25_me_unassigned_done_and_foreign_todos_are_never_handed() {
+    let s = scene(&[]).await;
+    todo(
+        &s.user,
+        "Mine",
+        Some(json!({ "kind": "user", "id": "you" })),
+    )
+    .await;
+    todo(&s.user, "Nobody", None).await;
+    todo(&s.user, "Theirs", Some(agent_owner(&s.b))).await;
+    let done = todo(&s.user, "Done", Some(agent_owner(&s.a))).await;
+    s.user
+        .request("todo.complete", json!({ "id": done }))
+        .await
+        .unwrap();
+    drive(&s.user, &s.a, STOP).await;
+    still(&s.user, &s.a, "Next:", 0).await;
+}
+
+#[tokio::test]
+async fn t25_reassigning_hands_it_to_the_new_owner_once() {
+    let s = scene(&[]).await;
+    let id = todo(&s.user, "Fix login", Some(agent_owner(&s.a))).await;
+    drive(&s.user, &s.a, STOP).await;
+    notes(&s.user, &s.a, "Next:", 1).await;
+    s.user
+        .request(
+            "todo.assign",
+            json!({ "id": id, "owner": agent_owner(&s.b) }),
+        )
+        .await
+        .unwrap();
+    drive(&s.user, &s.b, STOP).await;
+    notes(&s.user, &s.b, "Next:", 1).await;
+    turn(&s.user, &s.b).await;
+    still(&s.user, &s.b, "Next:", 1).await;
+    s.user
+        .request(
+            "todo.assign",
+            json!({ "id": id, "owner": agent_owner(&s.a) }),
+        )
+        .await
+        .unwrap();
+    turn(&s.user, &s.a).await;
+    notes(&s.user, &s.a, "Next:", 2).await;
+    turn(&s.user, &s.a).await;
+    still(&s.user, &s.a, "Next:", 2).await;
+    assert_eq!(handoffs(&s.user, &s.b).await.len(), 1);
+}
+
+#[tokio::test]
+async fn t25_a_restart_sends_nothing() {
+    let mut s = scene(&[]).await;
+    let id = todo(&s.user, "Fix login", Some(agent_owner(&s.a))).await;
+    todo(&s.user, "Later", Some(agent_owner(&s.b))).await;
+    drive(&s.user, &s.a, STOP).await;
+    notes(&s.user, &s.a, "Next:", 1).await;
+    s.project.restart(&[]);
+    let user = s.project.client().await;
+    still(&user, &s.a, "Next:", 1).await;
+    still(&user, &s.b, "Next:", 0).await;
+    // The record is the Todo's History: one hand-off, kept across the restart.
+    let history = user
+        .request("todo.getHistory", json!({ "id": id }))
+        .await
+        .unwrap();
+    let handed = history["changes"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .filter(|c| c["handed"]["id"] == s.a.as_str())
+        .count();
+    assert_eq!(handed, 1);
 }

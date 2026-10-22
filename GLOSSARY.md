@@ -654,7 +654,9 @@ A PNG, video or checks JSON under the artifact-relative `artifacts/ux/<id>/` (jo
 
 **Captured Change** (`expected_change`): the last History Change sequence captured with a Todo's editable Values in its original Project. `todo.update` and `todo.setBlockers` can require that sequence atomically: a mismatch refuses with conflict; a removed Todo is not found. Omission keeps an unconditional write. Read the base Values and sequence together from the last Change returned by `todo.getHistory`; a separate later History read is not the base of an earlier `todo.get`. Immediate completion needs no captured Change.
 
-**Change** (`Change`): initial Values or the before and after Values of one successful Todo mutation. `seq` orders Changes; `changed_at` is the Unix milliseconds the Daemon recorded it (absent for Changes recorded before it existed). Lists and the Rail do not carry them.
+**Change** (`Change`): initial Values or the before and after Values of one successful Todo mutation, or a Hand-off (`handed` names the Agent, `before` and `after` equal). `seq` orders Changes; `changed_at` is the Unix milliseconds the Daemon recorded it (absent for Changes recorded before it existed). Lists and the Rail do not carry them.
+
+**Hand-off** (`todo.hand`, `HandParams`): the one Message, `Next: #<id> <title>`, that gives an idle Agent its next owned open, unblocked Todo, with a Change of kind `handed` recorded first. A Todo is handed to its current owner exactly when no `handed` Change for that owner follows the last Change of its `owner`. Only the Daemon calls `todo.hand`.
 
 **Read History** (`todo.readHistory`, `ReadHistoryParams`): log the calling Actor's read Touch with `through`, the last fetched Change's sequence. `unread` names the first Change after the previous read. Equal clock times do not merge reads and Changes.
 
