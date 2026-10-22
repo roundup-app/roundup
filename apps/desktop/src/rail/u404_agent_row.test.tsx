@@ -1,7 +1,7 @@
-import { cleanup, fireEvent, screen, waitFor } from "@solidjs/testing-library";
+import { cleanup, fireEvent, screen } from "@solidjs/testing-library";
 import { afterEach, describe, expect, it } from "vitest";
 import { agent, workstream } from "../testing/nodes";
-import { mountRail, rowOf } from "./railFixture";
+import { itemOf, mountRail, rowOf } from "./railFixture";
 
 afterEach(cleanup);
 
@@ -15,14 +15,11 @@ describe("u404 an Agent row is its Glyph and its name", () => {
     expect([...rowOf("gate").querySelector(".line")!.children].map((el) => el.className)).toEqual(expect.arrayContaining([expect.stringContaining("glyph"), "name"]));
   });
 
-  it("u404_the_title_keeps_the_status_label", async () => {
+  it("u404_the_accessible_name_keeps_the_status_label", async () => {
     await mountRail(TREE);
 
-    fireEvent.pointerMove(rowOf("gate"), { pointerType: "mouse" });
-    expect((await screen.findByRole("tooltip")).textContent).toBe("waits on #7");
-    fireEvent.pointerLeave(rowOf("gate"), { pointerType: "mouse" });
-    fireEvent.pointerMove(rowOf("asker"), { pointerType: "mouse" });
-    await waitFor(() => expect(screen.getByRole("tooltip").textContent).toBe("asks: keep v1 routes?"));
+    expect(itemOf("gate").getAttribute("aria-label")).toBe("gate, waits on #7");
+    expect(itemOf("asker").getAttribute("aria-label")).toBe("asker, asks: keep v1 routes?");
   });
 
   it("u404_ink_rows_carry_their_tone", async () => {

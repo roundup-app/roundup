@@ -1630,3 +1630,66 @@ async fn t21_an_agent_comment_names_its_author_over_mcp_and_cli() {
     assert_eq!(thread[0]["author"], json!(agent("a1")));
     assert_eq!(thread[0]["read"], false);
 }
+
+#[tokio::test]
+async fn t28_an_agent_adds_and_removes_a_ref_over_mcp_and_cli() {
+    let project = start_daemon();
+    let user = client_as(&project.socket, Actor::user()).await;
+    let key = user.request("daemon.ping", Value::Null).await.unwrap()["projectKey"]
+        .as_str()
+        .unwrap()
+        .to_owned();
+    user.request("todo.create", json!({"title":"ship"}))
+        .await
+        .unwrap();
+    user.request("pad.create", json!({"name":"notes","text":"## Plan\nx\n"}))
+        .await
+        .unwrap();
+    let url = format!("roundup://pad/notes?project={key}#Plan");
+    let shim = spawn_shim(&project.socket, "a1").await;
+    let result = shim.call("todo_addRef", json!({"id":1,"url":url})).await;
+    assert_ne!(result.is_error, Some(true));
+    let todo = user.request("todo.get", json!({"id":1})).await.unwrap();
+    assert_eq!(todo["refs"], json!([url]));
+    let touches = user
+        .request("provenance.history", json!({"item":"todo:1"}))
+        .await
+        .unwrap();
+    assert!(
+        touches
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|t| t["verb"] == "wrote" && t["actor"] == json!(agent("a1")))
+    );
+    let result = shim.call("todo_removeRef", json!({"id":1,"url":url})).await;
+    assert_ne!(result.is_error, Some(true));
+    // The command is the same call.
+    let rup = |args: Vec<&str>| {
+        tokio::process::Command::new(env!("CARGO_BIN_EXE_rup"))
+            .args(args)
+            .env("RUPD_SOCKET", &project.socket)
+            .env("ROUNDUP_AGENT", "a1")
+            .output()
+    };
+    let added = rup(vec!["todo", "ref", "add", "1", &url]).await.unwrap();
+    assert!(added.status.success(), "{added:?}");
+    let todo = user.request("todo.get", json!({"id":1})).await.unwrap();
+    assert_eq!(todo["refs"], json!([url]));
+    let removed = rup(vec!["todo", "ref", "remove", "1", &url]).await.unwrap();
+    assert!(removed.status.success(), "{removed:?}");
+    let todo = user.request("todo.get", json!({"id":1})).await.unwrap();
+    assert_eq!(todo["refs"], json!([]));
+}
+
+#[tokio::test]
+async fn t28_the_tool_descriptions_name_the_section_form() {
+    let project = start_daemon();
+    let shim = spawn_shim(&project.socket, "a1").await;
+    let tools = shim.client.list_all_tools().await.unwrap();
+    let tool = tools.iter().find(|t| t.name == "todo_addRef").unwrap();
+    let description = tool.description.as_deref().unwrap();
+    for phrase in ["Point the user", "read it", "#<heading>"] {
+        assert!(description.contains(phrase), "{phrase}: {description}");
+    }
+}

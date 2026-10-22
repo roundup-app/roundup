@@ -16,6 +16,8 @@ import type { AsksState } from "./asks";
 import { syncTerminalScheme } from "../terminal/scheme";
 import { createRailState } from "./rail";
 import { createQueue } from "./queue";
+import { createTimelineLog } from "../timeline/log";
+import type { TimelineLog } from "../timeline/log";
 import type { QueueView } from "./queue";
 import { createTakeover } from "./takeover";
 import { createNoteQueue } from "./noteQueue";
@@ -120,6 +122,8 @@ export type ConnectedProject = {
   rail: RailState;
   /** U3744: the Workstreams waiting to start. */
   queue: QueueView;
+  /** U3768: the Agents' Statuses heard since the Project connected, read by the timeline. */
+  timeline: TimelineLog;
   importing: ReturnType<typeof createImport>;
   worktrees: ReturnType<typeof createWorktreeState>;
   drawer: DrawerState;
@@ -182,6 +186,8 @@ export const connectProject = async (
 
   if (ended) stopQueue();
 
+  const timeline = createTimelineLog(events, rail);
+
   const onImported = (id: string, agent: string | null) => {
     void rail.refresh().then(() => rail.select(agent ?? id));
   };
@@ -194,7 +200,7 @@ export const connectProject = async (
 
   const takeover = createTakeover(app, events, daemonExit);
 
-  return { project, drafts, app, events, rail, queue, importing, worktrees: createWorktreeState(app, rail, now, daemonExit), drawer: createDrawer(), decisions, asks: createAsks(app, events), takeover, notes: createNoteQueue(app, events, reducedMotion, daemonExit), reducedMotion, now, contractNotice, daemonExit, stopTerminalScheme: () => { stopDecisions(); stopQueue(); stopTerminalScheme(); } };
+  return { project, drafts, app, events, rail, queue, timeline, importing, worktrees: createWorktreeState(app, rail, now, daemonExit), drawer: createDrawer(), decisions, asks: createAsks(app, events), takeover, notes: createNoteQueue(app, events, reducedMotion, daemonExit), reducedMotion, now, contractNotice, daemonExit, stopTerminalScheme: () => { timeline.stop(); stopDecisions(); stopQueue(); stopTerminalScheme(); } };
 };
 
 /** App-run authority for owners outside a connection, including Project tabs.

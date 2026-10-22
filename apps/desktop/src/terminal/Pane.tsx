@@ -1,4 +1,5 @@
 import { MeasurementDashboard } from "./MeasurementDashboard";
+import { TimelineView } from "../timeline/TimelineView";
 import { Portal } from "solid-js/web";
 import { copy } from "../copy";
 import { shelfSliding } from "../shelf/sliding";
@@ -78,15 +79,19 @@ export const Pane = (props: { notice?: string | null; createEmulator?: EmulatorF
 
   props.screensRef?.(screens);
 
-  const [dashboard, setDashboard] = createSignal(false);
+  const [view, setView] = createSignal<"dashboard" | "timeline" | null>(null);
+  const dashboard = () => view() !== null;
   let dashboardAction: HTMLButtonElement | undefined;
+  let timelineAction: HTMLButtonElement | undefined;
 
-  const backFromDashboard = () => {
-    setDashboard(false);
-    queueMicrotask(() => dashboardAction?.focus());
+  const backFromView = () => {
+    const action = view() === "timeline" ? timelineAction : dashboardAction;
+
+    setView(null);
+    queueMicrotask(() => action?.focus());
   };
 
-  createEffect(on(rail.selected, () => setDashboard(false), { defer: true }));
+  createEffect(on(rail.selected, () => setView(null), { defer: true }));
   const selected = createMemo(() => rail.nodes.find((node) => node.id === rail.selected()) ?? null);
 
   /** Why the selected Workstream's Door is not running, so a stopped, failed or still-starting Door each read differently. */
@@ -386,9 +391,10 @@ export const Pane = (props: { notice?: string | null; createEmulator?: EmulatorF
   return (
     <div class="pane" data-takeover={taken() ? "" : undefined} onFocusOut={leftThePane}>
       <Show when={selected()?.kind === "workstream"}>
-        <div class="measurement-action" classList={{ "pane-origin-hidden": dashboard() }}><button ref={dashboardAction} data-button="quiet" type="button" onClick={() => setDashboard(true)}>{copy.costAndTime}</button></div>
+        <div class="measurement-action" classList={{ "pane-origin-hidden": dashboard() }}><button ref={dashboardAction} data-button="quiet" type="button" onClick={() => setView("dashboard")}>{copy.costAndTime}</button><button ref={timelineAction} data-button="quiet" type="button" onClick={() => setView("timeline")}>{copy.timeline}</button></div>
       </Show>
-      <Show when={dashboard() && selected()?.kind === "workstream" ? selected()!.id : null} keyed>{(home) => <MeasurementDashboard home={home} name={selected()?.name ?? ""} back={backFromDashboard} />}</Show>
+      <Show when={view() === "dashboard" && selected()?.kind === "workstream" ? selected()!.id : null} keyed>{(home) => <MeasurementDashboard home={home} name={selected()?.name ?? ""} back={backFromView} />}</Show>
+      <Show when={view() === "timeline" && selected()?.kind === "workstream" ? selected()!.id : null} keyed>{(home) => <TimelineView home={home} name={selected()?.name ?? ""} back={backFromView} />}</Show>
       <div class="pane-origin" classList={{ "pane-origin-hidden": dashboard() }}>
       <Show when={connected.decisions.listFailure()}>
         {(message) => (
