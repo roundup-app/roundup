@@ -1,0 +1,4 @@
+pre-commit:
+  commands:
+    file-stays-under-a-size-cap:
+      run: .claude/sound/placement/file-stays-under-a-size-cap.gate
