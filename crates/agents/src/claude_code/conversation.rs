@@ -4,7 +4,7 @@ use std::io::Write;
 use std::os::unix::fs::{MetadataExt, OpenOptionsExt};
 use std::path::{Path, PathBuf};
 
-use contracts::agent::{ConversationCard, ConversationOverview};
+use contracts::agent::{ContextPart, ContextPartKind, ConversationCard, ConversationOverview};
 use regex::Regex;
 use rpc::RpcError;
 use serde_json::Value;
@@ -144,6 +144,7 @@ impl Launcher {
         let mut custom_name = None;
         let mut used = None;
         let mut limit = None;
+        let mut measured = None;
         let mut card = ConversationCard::default();
         for line in text.lines() {
             let Ok(record) = serde_json::from_str::<Value>(line) else {
@@ -172,6 +173,9 @@ impl Launcher {
                         .checked_add(usage["cache_creation_input_tokens"].as_u64().unwrap_or(0))
                 });
             }
+            if record["type"] == "system" && record["subtype"] == "local_command" {
+                measured = Some(measured_parts(&record["contextUsage"]["categories"]));
+            }
             if record["type"] == "custom-title"
                 && let Some(title) = record["customTitle"]
                     .as_str()
@@ -194,6 +198,9 @@ impl Launcher {
             name: custom_name.or(name),
             used,
             limit,
+            context_parts: used
+                .zip(measured)
+                .and_then(|(used, parts)| context_parts(used, parts)),
             card: (card != ConversationCard::default()).then_some(card),
         })
     }
@@ -469,6 +476,44 @@ fn merge_cards(card: &mut ConversationCard, text: &str) {
             );
         }
     }
+}
+
+/// A2681d: the parts Claude Code listed in a `/context` record, by the category names observed
+/// in 2.1.296; a category it does not list is omitted, never estimated.
+fn measured_parts(categories: &Value) -> Vec<ContextPart> {
+    [
+        ("System prompt", ContextPartKind::System),
+        ("System tools", ContextPartKind::Tools),
+        ("Memory files", ContextPartKind::Files),
+        ("Messages", ContextPartKind::Conversation),
+    ]
+    .into_iter()
+    .filter_map(|(name, kind)| {
+        let tokens = categories
+            .as_array()?
+            .iter()
+            .find(|c| c["name"] == name && c["kind"] == "used")?["tokens"]
+            .as_u64()?;
+        Some(ContextPart { kind, tokens })
+    })
+    .collect()
+}
+
+/// A2681d: the measured parts plus one `Other` remainder, or none when they exceed `used`.
+fn context_parts(used: u64, mut parts: Vec<ContextPart>) -> Option<Vec<ContextPart>> {
+    let sum = parts
+        .iter()
+        .try_fold(0u64, |sum, part| sum.checked_add(part.tokens))?;
+    if parts.is_empty() || sum > used {
+        return None;
+    }
+    if used > sum {
+        parts.push(ContextPart {
+            kind: ContextPartKind::Other,
+            tokens: used - sum,
+        });
+    }
+    Some(parts)
 }
 
 #[cfg(test)]
