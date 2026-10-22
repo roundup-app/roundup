@@ -55,7 +55,7 @@ it("u3780b_a_running_call_ticks_and_a_finished_one_does_not", async () => {
 
   await send(app, connected, "ann", call({ state: "done", duration_ms: 3200, result: "ok" }));
   vi.advanceTimersByTime(5000);
-  expect(row("ann").textContent).toContain("Finished");
+  expect(row("ann").textContent).toContain("Done");
   expect(row("ann").textContent).toContain("3s");
 });
 
