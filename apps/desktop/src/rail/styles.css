@@ -160,20 +160,19 @@
 
 /* U3744: a queued Workstream's place is state, so it stays visible beside the name and never wraps; the actions keep the trailing edge (U112). */
 .rail-row .line > .queue-badge {
-  flex: 0 1 auto;
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  flex: none;
   white-space: nowrap;
   font-size: var(--text-caption);
   font-variant-numeric: tabular-nums;
 }
 
-/* The name stays whole beside the badge: the spacer gives way first, then the badge truncates after the name. */
+/* The badge stays whole: the spacer gives way first, then the name shrinks to 4ch with an ellipsis. */
 .rail-row .line:has(> .queue-badge) > .name {
-  flex: 0 0 auto;
+  flex: 0 1 auto;
   min-width: 4ch;
-  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .rail-row .line:has(> .queue-badge) > .fill {

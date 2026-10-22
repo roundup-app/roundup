@@ -58,3 +58,8 @@
   background-color: var(--pressed);
   transition-duration: 0s;
 }
+
+/* Hover darkens the mark's ring, as a checkbox's hover darkens its box. */
+.app-radio:has(input:hover:not(:disabled)) .app-radio-mark {
+  border-color: var(--text);
+}
