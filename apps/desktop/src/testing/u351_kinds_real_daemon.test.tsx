@@ -130,15 +130,16 @@ describe("u351 the fake claude holds each Agent in a Kind, observed on the real 
       fireEvent.click(row(id).querySelector(".name")!);
       await waitFor(() => expect(selected()).toBe(id));
 
-      const node = (await tree()).find((each) => each.id === id);
+      // The Status word is read from the tree again on every attempt, so a label that moved while the row drew is waited for, not compared stale.
+      await waitFor(async () => {
+        const node = (await tree()).find((each) => each.id === id);
+        const word = await rowStatusLabel(row(id), 2_000);
 
-      await waitFor(async () => expect(await rowStatusLabel(row(id))).toBe(node?.status?.label));
+        expect(word).toBe(node?.status?.label);
+        expect(word.length).toBeGreaterThan(0);
+      }, { timeout: 60_000, interval: 500 });
 
-      const glyph = row(id).querySelector('.glyph[role="img"]');
-      const word = await rowStatusLabel(row(id));
-      expect(glyph?.getAttribute("aria-label")).toBe(kind[0]!.toUpperCase() + kind.slice(1));
-      expect(word).toBe(node?.status?.label);
-      expect(word.length).toBeGreaterThan(0);
+      await waitFor(() => expect(row(id).querySelector('.glyph[role="img"]')?.getAttribute("aria-label")).toBe(kind[0]!.toUpperCase() + kind.slice(1)));
     }
 
     const kindOf = async (id: string) => (await tree()).find((node) => node.id === id)?.status?.kind;
