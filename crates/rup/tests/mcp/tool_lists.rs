@@ -119,7 +119,7 @@ pub const DOOR_METHODS: [&str; 8] = [
 ];
 
 /// M5: the methods and App commands with no tool; the reasons are in `scenarios/mcp.md`.
-pub const NO_TOOL: [&str; 68] = [
+pub const NO_TOOL: [&str; 69] = [
     // A3194, A3195, P9: a start spends usage, so only the user's own choice starts a Workstream or sets what may run.
     "todo.startWorkstream",
     "workstream.queue",
