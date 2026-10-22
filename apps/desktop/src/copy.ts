@@ -469,6 +469,7 @@ export const copy = {
   afterBadge: (id: number) => `after #${id}`,
   takeOutOfQueue: "Take out of queue",
   projectSettings: "Project settings",
+  workstreams: "Workstreams",
   runAtMost: "Run at most",
   workstreamsAtOnce: "Workstreams at once",
   noLimit: "No limit",
