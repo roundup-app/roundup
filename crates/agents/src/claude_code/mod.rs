@@ -8,6 +8,7 @@ mod discovery;
 pub mod extras;
 pub mod inbox;
 mod launch;
+mod launch_files;
 pub(crate) mod measurement;
 mod models;
 mod placement;
