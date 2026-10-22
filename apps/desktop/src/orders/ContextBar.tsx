@@ -55,7 +55,7 @@ export const ContextBar = (props: { overview: ConversationOverview }) => {
           </Show>
         </p>
         <Show when={limit()}>
-          <div class="context-bar" role="meter" aria-label={copy.context} aria-valuemin={0} aria-valuenow={used()} aria-valuemax={limit()} aria-valuetext={copy.contextOf(used()!, limit()!) + ", " + copy.percent(percent())} onMouseLeave={() => setActive(null)}>
+          <div class="context-bar" role="meter" aria-label={copy.context} aria-valuemin={0} aria-valuenow={used()} aria-valuemax={limit()} aria-valuetext={copy.contextValueText(used()!, limit()!, percent())} onMouseLeave={() => setActive(null)}>
             <For each={parts()}>
               {(part, index) => (
                 <span class="context-part" data-kind={part.kind} data-dim={active() !== null && active() !== index() ? "" : undefined}
