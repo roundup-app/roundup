@@ -121,13 +121,13 @@ it("u3768d_waiting_block_opens_its_decision", async () => {
   app.emit(event({ name: "decision.opened", data: decision("d1", "a") }));
   const block = await screen.findByRole("button", { name: "Decision for Alpha" });
   fireEvent.click(block);
-  const card = await screen.findByRole("region", { name: "Decision for Alpha" });
+  const card = await screen.findByRole("region", { name: /Decision for Alpha|Alpha wants to / });
   await vi.advanceTimersByTimeAsync(0);
   expect(card.contains(document.activeElement)).toBe(true);
   fireEvent.keyDown(card, { key: "Escape" });
   await vi.advanceTimersByTimeAsync(0);
   expect(document.activeElement).toBe(block);
-  expect(screen.queryByRole("region", { name: "Decision for Alpha" })).toBeNull();
+  expect(screen.queryByRole("region", { name: /Decision for Alpha|Alpha wants to / })).toBeNull();
   app.emit(event({ name: "decision.cleared", data: { id: "d1", outcome: "answered" } }));
   await vi.advanceTimersByTimeAsync(0);
   expect(screen.queryByRole("button", { name: "Decision for Alpha" })).toBeNull();

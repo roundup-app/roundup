@@ -314,7 +314,7 @@ it.each(["pad", "decision"])("u2680c_readonly_content_keeps_native_selection_and
     selector = '.pad-readonly .ProseMirror[contenteditable=false] p';
   } else {
     await browser("open", url("/harness.html?seed=decisions&renderer=dom"));
-    selector = "pre.decision-args";
+    selector = ".decision-card .decision-title code";
   }
 
   await wait(`!!document.querySelector(${JSON.stringify(selector)})`);

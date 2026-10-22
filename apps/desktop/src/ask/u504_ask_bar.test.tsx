@@ -1,4 +1,4 @@
-import { cleanup, fireEvent, screen, waitFor } from "@solidjs/testing-library";
+import { cleanup, fireEvent, screen, waitFor, within } from "@solidjs/testing-library";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { event, workstream } from "../testing/nodes";
 import { RpcError } from "../app/seam";
@@ -342,8 +342,9 @@ it("u2773e_recovery_actions_keep_surface_draft", async () => {
     mounted.unmount();
     const reopened = await mountAskBar([], null, undefined, false, path);
     expect(input()!.value).toBe(exact);
+    // Leaving the Ask bar with its text unsent lists it (U3289a).
     reopened.connected.rail.select("ann");
-    expect(screen.queryByRole("button", { name: "Recover unfinished work" })).toBeNull();
+    expect(screen.getByRole("button", { name: "Recover unfinished work" })).toBeTruthy();
     reopened.connected.rail.select(null);
     expect(input()!.value).toBe(exact);
     expect(sent(reopened.app)).toEqual([]);
@@ -507,9 +508,11 @@ it("u3021c_copy_and_discard_keep_other_revisions_ask", async () => {
   try {
     connected.rail.select("ann");
     fireEvent.click(screen.getByRole("button", { name: "Recover unfinished work" }));
-    fireEvent.click(await screen.findByRole("button", { name: "Copy" }));
+    const copy = await screen.findByRole("button", { name: "Copy" });
+
+    fireEvent.click(copy);
     expect(clipboard.mock.calls).toEqual([[exact]]);
-    fireEvent.click(screen.getByRole("button", { name: "Discard" }));
+    fireEvent.click(within(copy.closest("li")!).getByRole("button", { name: "Discard" }));
     expect(connected.drafts.list()).toEqual([b]);
     const path = connected.project.path;
     mounted.unmount();

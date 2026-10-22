@@ -5,7 +5,7 @@
 use std::sync::Arc;
 use std::time::Duration;
 
-use contracts::decision::{ClearedEvent, Decision, Outcome};
+use contracts::decision::{ClearedEvent, Decision, Outcome, Scope};
 use contracts::{Actor, Event, EventData, Kind};
 use rpc::{Ctx, Module, RpcError, code};
 use serde_json::{Value, json};
@@ -1065,4 +1065,274 @@ async fn u3016c_time_categories_use_observed_intervals_sources() {
             .await
             .unwrap();
     }
+}
+
+fn suggesting(command: &str) -> Value {
+    let mut payload = bash(command);
+    payload["permission_suggestions"] = json!([
+        {"type": "setMode", "mode": "acceptEdits", "destination": "session"},
+        {"type": "addRules", "behavior": "allow", "destination": "localSettings",
+         "rules": [{"toolName": "Bash", "ruleContent": command}]}
+    ]);
+    payload
+}
+
+async fn opened_one(f: &Arc<Fixture>, agent: &str, payload: Value) -> (Waiting, Decision) {
+    let hook = permission(f, agent, payload);
+    let decision = until_open(f, 1).await.remove(0);
+    (hook, decision)
+}
+
+async fn answer_scoped(f: &Fixture, id: &str, word: &str, scope: &str) -> Result<Value, RpcError> {
+    f.call(
+        "decision.answer",
+        json!({"id": id, "answer": word, "scope": scope, "proof": PROOF}),
+    )
+    .await
+}
+
+fn echoed(reply: Value) -> Value {
+    let output: Value = serde_json::from_str(reply["output"].as_str().unwrap()).unwrap();
+    output["hookSpecificOutput"]["decision"]["updatedPermissions"].clone()
+}
+
+#[tokio::test]
+async fn h23_scopes_follow_the_payloads_suggestion() {
+    let (f, agent) = running().await;
+    let (_hook, plain) = opened_one(&f, &agent, bash("ls")).await;
+    answer(&f, &plain.id, "allow", Some(PROOF)).await.unwrap();
+    let (_hook, suggested) = opened_one(&f, &agent, suggesting("ls")).await;
+
+    assert_eq!(plain.scopes, [Scope::Once]);
+    assert_eq!(
+        suggested.scopes,
+        [Scope::Once, Scope::Session, Scope::Project]
+    );
+    answer(&f, &suggested.id, "deny", Some(PROOF))
+        .await
+        .unwrap();
+    permission(&f, &agent, ask_question())
+        .await
+        .unwrap()
+        .unwrap();
+    assert!(list(&f).await.remove(0).scopes.is_empty());
+}
+
+#[tokio::test]
+async fn h23_session_reply_echoes_the_suggestion_with_destination_session() {
+    let (f, agent) = running().await;
+    let (hook, decision) = opened_one(&f, &agent, suggesting("ls")).await;
+
+    answer_scoped(&f, &decision.id, "allow", "session")
+        .await
+        .unwrap();
+
+    assert_eq!(
+        echoed(hook.await.unwrap().unwrap()),
+        json!([{"type": "addRules", "behavior": "allow", "destination": "session",
+                "rules": [{"toolName": "Bash", "ruleContent": "ls"}]}])
+    );
+}
+
+#[tokio::test]
+async fn h23_project_reply_uses_local_settings() {
+    let (f, agent) = running().await;
+    let (hook, decision) = opened_one(&f, &agent, suggesting("ls")).await;
+
+    answer_scoped(&f, &decision.id, "allow", "project")
+        .await
+        .unwrap();
+
+    assert_eq!(
+        echoed(hook.await.unwrap().unwrap())[0]["destination"],
+        "localSettings"
+    );
+}
+
+#[tokio::test]
+async fn h23_a_scope_not_listed_is_invalid_params() {
+    let (f, agent) = running().await;
+    let (_hook, decision) = opened_one(&f, &agent, bash("ls")).await;
+
+    let unlisted = answer_scoped(&f, &decision.id, "allow", "session")
+        .await
+        .unwrap_err();
+    let denied = answer_scoped(&f, &decision.id, "deny", "session")
+        .await
+        .unwrap_err();
+
+    assert_eq!(
+        (unlisted.code, denied.code),
+        (code::INVALID_PARAMS, code::INVALID_PARAMS)
+    );
+    assert_eq!(list(&f).await.len(), 1);
+}
+
+#[tokio::test]
+async fn h23_destructive_commands_are_tagged_and_offer_no_project_scope() {
+    for (command, destructive) in [
+        ("rm -rf build", true),
+        ("git push -f", true),
+        ("git push origin main --force-with-lease", true),
+        ("git reset --hard", true),
+        ("ls; rm -r x", true),
+        ("rm file", false),
+        ("git push", false),
+        ("cargo build", false),
+    ] {
+        let (f, agent) = running().await;
+        let (_hook, decision) = opened_one(&f, &agent, suggesting(command)).await;
+
+        assert_eq!(decision.risk.is_some(), destructive, "{command}");
+        assert_eq!(
+            decision.scopes.contains(&Scope::Project),
+            !destructive,
+            "{command}"
+        );
+        assert!(decision.scopes.contains(&Scope::Session), "{command}");
+    }
+}
+
+/// Like `running`, with the Project folder (where `.claude/settings.local.json` lives) the
+/// Fixture's own `dir`.
+async fn projected() -> (Arc<Fixture>, String) {
+    let f = Arc::new(
+        Fixture::in_git_project("sleep 30", agents::worktree::Git::from_env()).with_proof(PROOF),
+    );
+    let node = f.spawn(None, None).await.unwrap();
+    (f, node.id)
+}
+
+fn settings(f: &Fixture) -> std::path::PathBuf {
+    let dir = f.dir.path().join(".claude");
+    std::fs::create_dir_all(&dir).unwrap();
+    dir.join("settings.local.json")
+}
+
+fn as_agent(id: &str) -> Actor {
+    Actor {
+        kind: contracts::ActorKind::Agent,
+        id: id.to_owned(),
+        parent: None,
+    }
+}
+
+async fn revoke(f: &Fixture, id: &str) -> Result<Value, RpcError> {
+    f.call("decision.revoke", json!({"id": id, "proof": PROOF}))
+        .await
+}
+
+#[tokio::test]
+async fn h23_revoke_removes_only_the_echoed_rule() {
+    let (f, agent) = projected().await;
+    let path = settings(&f);
+    std::fs::write(
+        &path,
+        r#"{"theme":"dark","permissions":{"allow":["Bash(ls)","Read"],"deny":["Bash(rm)"]}}"#,
+    )
+    .unwrap();
+    let (_hook, decision) = opened_one(&f, &agent, suggesting("cargo build")).await;
+    answer_scoped(&f, &decision.id, "allow", "project")
+        .await
+        .unwrap();
+    let mut written: Value =
+        serde_json::from_str(&std::fs::read_to_string(&path).unwrap()).unwrap();
+    written["permissions"]["allow"]
+        .as_array_mut()
+        .unwrap()
+        .push("Bash(cargo build)".into());
+    std::fs::write(&path, written.to_string()).unwrap();
+
+    revoke(&f, &decision.id).await.unwrap();
+
+    let left: Value = serde_json::from_str(&std::fs::read_to_string(&path).unwrap()).unwrap();
+    assert_eq!(
+        left,
+        json!({"theme":"dark","permissions":{"allow":["Bash(ls)","Read"],"deny":["Bash(rm)"]}})
+    );
+    assert_eq!(
+        revoke(&f, &decision.id).await.unwrap_err().code,
+        code::NOT_FOUND
+    );
+}
+
+#[tokio::test]
+async fn h23_revoke_of_session_once_or_gone_is_not_found() {
+    let (f, agent) = projected().await;
+    let path = settings(&f);
+    for scope in ["once", "session"] {
+        let (_hook, decision) = opened_one(&f, &agent, suggesting("ls")).await;
+        answer_scoped(&f, &decision.id, "allow", scope)
+            .await
+            .unwrap();
+        assert_eq!(
+            revoke(&f, &decision.id).await.unwrap_err().code,
+            code::NOT_FOUND
+        );
+    }
+    let (_hook, decision) = opened_one(&f, &agent, suggesting("ls")).await;
+    answer_scoped(&f, &decision.id, "allow", "project")
+        .await
+        .unwrap();
+    std::fs::write(&path, r#"{"permissions":{"allow":[]}}"#).unwrap();
+
+    assert_eq!(
+        revoke(&f, &decision.id).await.unwrap_err().code,
+        code::NOT_FOUND
+    );
+    assert_eq!(revoke(&f, "d99").await.unwrap_err().code, code::NOT_FOUND);
+}
+
+#[tokio::test]
+async fn h23_an_agent_cannot_revoke() {
+    let (f, agent) = projected().await;
+    let (_hook, decision) = opened_one(&f, &agent, suggesting("ls")).await;
+    answer_scoped(&f, &decision.id, "allow", "project")
+        .await
+        .unwrap();
+    let ctx = Ctx {
+        actor: as_agent(&agent),
+        ..f.ctx()
+    };
+
+    let err = f
+        .agents
+        .call(
+            &ctx,
+            "decision.revoke",
+            json!({"id": decision.id, "proof": PROOF}),
+        )
+        .await
+        .unwrap_err();
+    let no_proof = f
+        .call("decision.revoke", json!({"id": decision.id}))
+        .await
+        .unwrap_err();
+
+    assert_eq!(
+        (err.code, no_proof.code),
+        (code::FORBIDDEN, code::FORBIDDEN)
+    );
+}
+
+#[tokio::test]
+async fn h23_a_door_answers_once() {
+    let (f, agent) = projected().await;
+    let (_hook, decision) = opened_one(&f, &agent, suggesting("ls")).await;
+    let ctx = Ctx {
+        actor: as_agent("door"),
+        ..f.ctx()
+    };
+
+    let err = f
+        .agents
+        .call(
+            &ctx,
+            "decision.answer",
+            json!({"id": decision.id, "answer": "allow", "scope": "project"}),
+        )
+        .await
+        .unwrap_err();
+
+    assert_eq!(err.code, code::INVALID_PARAMS);
 }
