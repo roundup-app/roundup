@@ -2,10 +2,12 @@
 //! Builder. Stores Messages and Routes, answers the user's and an Actor's calls, and on an `idle`
 //! hands one Message to `Deliver` (slice 3 maps that to H11's `Agents::prompt`).
 
+pub mod continuation;
 pub mod digest;
 #[doc(hidden)]
 pub mod digest_schema;
 pub mod evidence;
+mod flight;
 mod hops;
 mod inbox;
 mod input;
@@ -35,15 +37,16 @@ use contracts::message::{
     SendParams, SetRouteParams, TakeoverChanged, TakeoverParams,
 };
 use contracts::{Actor, ActorKind, EventData, Kind, Verb};
+use flight::{confirm, confirm_ids};
 pub use inbox::NoteInbox;
 use input::input_effect;
 use receiver_view::{
     gone_drops, hold_for_input, hold_for_takeover, idle_batch, release_order, send_status,
-    user_call_moves, view,
+    user_call_moves,
 };
 use rpc::{Bus, Ctx, Module, OpenError, RpcError, code, params, reply};
 use serde_json::Value;
-use step::{Effect, Event, State, step};
+use step::Event;
 use store::Store;
 use tokio::sync::broadcast::error::RecvError;
 
@@ -332,7 +335,8 @@ impl Messages {
         p: SendParams,
         merge: bool,
     ) -> Result<Message, RpcError> {
-        self.send_message_with(ctx, p, merge, None, None).await
+        self.send_message_with(ctx, p, merge, None, None, None)
+            .await
     }
 
     /// `send_message`; with `wake`, the Wake request of that number is fired in the same write (B42);
@@ -344,6 +348,7 @@ impl Messages {
         merge: bool,
         wake: Option<u32>,
         reaction: Option<&reaction::Fire>,
+        continuation: Option<&continuation::Continue>,
     ) -> Result<Message, RpcError> {
         if is_receiver(&ctx.actor, &p.to) {
             return Err(RpcError::new(
@@ -401,9 +406,15 @@ impl Messages {
                 if let Some(fire) = reaction {
                     store.check_firing(fire)?;
                 }
+                if let Some(c) = continuation
+                    && store.accepted(c)?.is_some()
+                {
+                    return Err(RpcError::conflict("an action was already accepted"));
+                }
                 if !digest
                     && wake.is_none()
                     && reaction.is_none()
+                    && continuation.is_none()
                     && store.count_open(&p.to)? >= OPEN_BOUND
                 {
                     return Err(RpcError::conflict(format!(
@@ -468,6 +479,10 @@ impl Messages {
                 if let Some(fire) = reaction {
                     store.accept_firing(fire, message.id)?;
                     (self.inner.fault)("reaction").map_err(RpcError::internal)?;
+                }
+                if let Some(c) = continuation {
+                    store.accept_continuation(c, message.id)?;
+                    (self.inner.fault)("continuation").map_err(RpcError::internal)?;
                 }
                 self.answer(ctx, store, &message)?;
                 if let Some(rest) = &chain_rest {
@@ -1573,67 +1588,6 @@ async fn on_idle(inner: &Arc<Inner>, agent: &str, mut at: store::Binding, mut pi
         }
         return;
     }
-}
-
-fn confirm(inner: &Inner, agent: &str, prompt: &str) -> bool {
-    let Some(ids) = flight_ids(prompt) else {
-        return false;
-    };
-    // Legacy model fixtures project both transports onto Deliver and synthetic prompt receipts.
-    #[cfg(test)]
-    if inner.inbox.get().is_none() {
-        return confirm_ids(inner, agent, &ids);
-    }
-    let mut user_ids = Vec::new();
-    {
-        let store = lock(&inner.store);
-        for &id in &ids {
-            match store.get(id) {
-                Ok(Some(message)) if message.from.kind == ActorKind::User => user_ids.push(id),
-                Ok(_) => {}
-                Err(err) => {
-                    log_failure("confirm_prompt", &err.to_string());
-                    return false;
-                }
-            }
-        }
-    }
-    // A mixed id line must not block a prompt merely because its user Messages were delivered.
-    let repeated = confirm_ids(inner, agent, &user_ids);
-    repeated && user_ids.len() == ids.len()
-}
-
-fn confirm_ids(inner: &Inner, agent: &str, ids: &[u32]) -> bool {
-    let ids = ids.to_vec();
-    let confirmed = lock(&inner.store).confirm_flight(agent, &ids);
-    match confirmed {
-        Ok((mut messages, repeated)) => {
-            messages.sort_by_key(|m| m.id);
-            for message in messages {
-                inner
-                    .bus
-                    .emit(Actor::daemon(), EventData::MessageDelivered(message.into()));
-            }
-            repeated
-        }
-        Err(err) => {
-            log_failure("confirm_prompt", &err.to_string());
-            false
-        }
-    }
-}
-
-/// B39: the ids of a prompt's last line, `[rup messages: <id> <id>]`; `None` when it has none or
-/// the line cannot be read.
-fn flight_ids(prompt: &str) -> Option<Vec<u32>> {
-    let line = prompt.trim_end().lines().last()?;
-    let ids = line
-        .strip_prefix("[rup messages:")?
-        .strip_suffix(']')?
-        .split_whitespace()
-        .map(|word| word.parse().ok())
-        .collect::<Option<Vec<u32>>>()?;
-    (!ids.is_empty()).then_some(ids)
 }
 
 /// Which pending Messages an `idle` may type.

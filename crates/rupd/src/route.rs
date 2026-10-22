@@ -41,6 +41,8 @@ impl Daemon {
                     | "message.acceptResult"
                     | "message.verifyResult"
                     | "message.resolveResult"
+                    | "message.reconcileWork"
+                    | "message.resumeWork"
             )
             || matches!(
                 method,
@@ -270,6 +272,9 @@ impl Daemon {
                     time::OffsetDateTime::now_utc().unix_timestamp(),
                 )
                 .await;
+        }
+        if resume::is_resume_method(method) {
+            return self.resume_call(conn, method, params).await;
         }
         if namespace == "deliverable" {
             return self.deliverable_call(conn, method, params).await;

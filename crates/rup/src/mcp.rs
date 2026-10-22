@@ -27,10 +27,12 @@ pub(crate) const CALL_TIMEOUT: Duration = Duration::from_secs(10);
 
 /// `ttlMs` and `cacheScope` are required by the client's `tools/list` schema (M4). The tool set is fixed for
 /// the life of this process, so the reply is `public` and fresh for an hour.
+#[macro_use]
 mod agent_tools;
 use agent_tools::{
-    agent_context, agent_digest, agent_set_order, agent_wake, checkpoint_write, decision_answer,
-    workstream_handoff, workstream_rewind, workstream_rewind_plan,
+    agent_context, agent_digest, agent_extras, agent_extras_add, agent_set_order, agent_spawn,
+    agent_wake, checkpoint_write, decision_answer, workstream_handoff, workstream_rewind,
+    workstream_rewind_plan,
 };
 
 const TOOLS_TTL_MS: u64 = 3_600_000;
@@ -372,6 +374,14 @@ fn offered_tools() -> Vec<Offered> {
             "message.resolveResult",
             "User only: authorize a read-only authoritative receipt source for an unknown external effect. Exact target/version and fresh source evidence are required; this never repeats the effect.",
         ),
+        offered::<message::ProgressParams>(
+            "message.reconcileWork",
+            "Read which retained work is unfinished, confirmed, pending a check or uncertain, without sending or starting anything.",
+        ),
+        offered::<message::ResumeWorkParams>(
+            "message.resumeWork",
+            "User only: resume an Agent's eligible unfinished work with one successor Message. Retry with the same request id after an unknown reply; it never repeats an uncertain external effect, restarts a stopped Agent or starts a program.",
+        ),
         offered::<message::SendParams>(
             "message.send",
             "Send a note or a question to an Agent or the user. You are the sender.",
@@ -548,36 +558,6 @@ fn offered_tools() -> Vec<Offered> {
         ask_user(),
         agent_spawn(),
     ]
-}
-
-/// F3, A26: the tool every Agent is offered; its child sits under it.
-fn agent_spawn() -> Offered {
-    offered::<agent::SpawnParams>(
-        "agent.spawn",
-        "Start a child Agent in a folder of this Project. Put a `title` of at most six words, the one-sentence ask, the done condition and the limits in `order`, and the working detail in `prompt`; a `prompt` without an `order` is refused. Name the child after its task. The child's Home is you.",
-    )
-}
-
-/// LC7: the names a Door may give a child, by kind.
-fn agent_extras() -> Offered {
-    Offered {
-        door_only: true,
-        ..offered_without_params(
-            "agent.extras",
-            "List the skills, plugins and MCP servers of the user's setup that `agent_spawn`'s `extras` and `agent_extras_add` accept.",
-        )
-    }
-}
-
-/// LC8: add extras to a running child.
-fn agent_extras_add() -> Offered {
-    Offered {
-        door_only: true,
-        ..offered::<agent::ExtrasAddParams>(
-            "agent.extras_add",
-            "Give a running child of yours skills, plugins or MCP servers by name. The child is stopped and relaunched with its conversation; an unknown name fails and the child keeps running.",
-        )
-    }
 }
 
 // Resolve before actions: discard removes the node, so a lookup after success loses its name.

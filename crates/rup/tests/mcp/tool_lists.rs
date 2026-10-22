@@ -1,8 +1,9 @@
 //! M5: which methods have a tool for every Agent, for a Door only, or none, with the reason.
 
+use std::path::Path;
 /// M5: the methods with a tool for every Agent, each named after its method with the dot replaced
 /// by `_`, bar `agent.setOrder` (O4), whose tool is `agent_set_order`.
-pub const TOOL_METHODS: [&str; 86] = [
+pub const TOOL_METHODS: [&str; 88] = [
     "agent.wake",
     "reaction.create",
     "reaction.preview",
@@ -44,6 +45,8 @@ pub const TOOL_METHODS: [&str; 86] = [
     "message.acceptResult",
     "message.verifyResult",
     "message.resolveResult",
+    "message.reconcileWork",
+    "message.resumeWork",
     "message.send",
     "message.get",
     "message.list",
@@ -194,3 +197,58 @@ pub const NO_TOOL: [&str; 60] = [
     "terminal_output",
     "terminal_output_stop",
 ];
+
+pub fn tool_name(method: &str) -> String {
+    match method {
+        "agent.setOrder" => "agent_set_order".into(),
+        other => other.replace('.', "_"),
+    }
+}
+
+/// The names of the strings inside the first `[...]` after `marker` in `file`.
+pub fn quoted_after(file: &str, marker: &str) -> Vec<String> {
+    let root = Path::new(env!("CARGO_MANIFEST_DIR")).join("../..");
+    let text = std::fs::read_to_string(root.join(file)).unwrap();
+    let start = text
+        .find(marker)
+        .unwrap_or_else(|| panic!("{marker} in {file}"));
+    let open = start + text[start..].find(['[', '{']).unwrap();
+    let close = open + text[open..].find([']', '}']).unwrap();
+    text[open + 1..close]
+        .split(|c: char| !(c.is_alphanumeric() || matches!(c, '_' | ':' | '|' | '-')))
+        .filter(|word| !word.is_empty())
+        .map(str::to_owned)
+        .collect()
+}
+
+/// The seam commands of `apps/desktop/src/app/seam.ts`, and whether `crates/desktop` registers the same.
+pub fn seam_commands() -> Vec<String> {
+    let table = quoted_after("apps/desktop/src/app/seam.ts", "SEAM_COMMANDS = [");
+    let mut registered = quoted_after("crates/desktop/src/lib.rs", "generate_handler![");
+    for command in &mut registered {
+        if let Some((_, name)) = command.rsplit_once("::") {
+            *command = name.to_owned();
+        }
+    }
+    registered.extend(
+        quoted_after("crates/desktop/src/window.rs", "generate_handler![")
+            .into_iter()
+            .map(|command| format!("plugin:window-bar|{command}")),
+    );
+    let mut declared = table.clone();
+    registered.sort();
+    declared.sort();
+    assert_eq!(
+        registered, declared,
+        "seam.ts and the Tauri handler list differ"
+    );
+    table
+}
+
+/// M5, M6: the tools a non-Door Agent is offered.
+pub fn expected_tools() -> Vec<String> {
+    let mut expected: Vec<_> = TOOL_METHODS.iter().map(|m| tool_name(m)).collect();
+    // H14: `ask_user` is the one tool that is not a method's name.
+    expected.push("ask_user".into());
+    expected
+}
