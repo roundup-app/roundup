@@ -55,6 +55,7 @@ export const mountBubbles = async (selected: string | null = "a", terminals: Ter
 
     return (
       <ConnectedProjectContext.Provider value={connected}>
+        <div class="rail-row" tabindex="0">row</div>
         <div class="centre-stack">
           <Pane createEmulator={emulators.factory} screensRef={setScreens} />
           <Show when={screens()}>{(shared) => <Bubbles screens={shared()} recovery={recovery()} />}</Show>

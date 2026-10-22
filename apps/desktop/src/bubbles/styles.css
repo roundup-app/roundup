@@ -26,17 +26,24 @@
   pointer-events: auto;
 }
 
-/* U2892a: a native backdrop covers the whole window, the Hint line and tabs included, without intercepting the outside press (U2307a). */
-.bubble-frame::backdrop {
-  position: fixed;
+/* U3761: the frame sits in the top layer, whose native backdrop always spans the window, so the dim is drawn on the centre column itself, from the window bar to the Terminal tabs, above every pane descendant; the frame is portalled out, hence the document-level :has(). Pointer events pass through (U2307a). */
+.centre-stack::before {
+  content: "";
+  position: absolute;
   inset: 0;
+  z-index: 100;
   pointer-events: none;
   background: none;
 }
 
-.bubble-frame:has(.bubble:focus-within)::backdrop {
+:root:has(.bubble:focus-within) .centre-stack::before {
   background: var(--scrim);
   backdrop-filter: blur(var(--blur-bubble-backdrop));
+}
+
+/* The dim ends at the floating Shelf's leading edge. */
+.window[data-shelf="open"][data-shelf-mode="overlay"] .centre-stack::before {
+  right: max(0px, var(--shelf-span));
 }
 
 .bubble[hidden],
