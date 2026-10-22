@@ -74,3 +74,20 @@ it("u3744_a_failure_shows_its_cause_on_the_row", async () => {
 
   expect(await screen.findByText("no terminal to start")).toBeTruthy();
 });
+
+it("u3744_the_row_menu_offers_only_the_moves_that_can_act", async () => {
+  const { app } = await mountRail([]);
+
+  app.handlers["rail.tree"] = () => tree();
+  app.handlers["workstream.queue"] = () => queued({ workstream: "w1", start: { kind: "queued" } }, { workstream: "w2", start: { kind: "queued" } });
+  app.emit(event({ name: "rail.changed" }));
+  await waitFor(() => expect(badge("two")).toBe("queued · 2"));
+
+  openMenu("one");
+  expect(app.menuLabels()).toContain("Move down");
+  expect(app.menuLabels()).not.toContain("Move up");
+
+  openMenu("two");
+  expect(app.menuLabels()).toContain("Move up");
+  expect(app.menuLabels()).not.toContain("Move down");
+});
