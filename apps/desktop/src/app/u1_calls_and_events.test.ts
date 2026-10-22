@@ -87,6 +87,8 @@ describe("u1 calls and events", () => {
     mockIPC((command, args) => {
       if (command === "subscribe" && args && "channel" in args && args.channel instanceof Channel) {
         sent = args.channel.onmessage;
+
+        return 0;
       }
 
       return null;

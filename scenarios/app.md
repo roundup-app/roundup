@@ -15,7 +15,7 @@ The App is the Tauri 2 shell in `crates/desktop` (ADR 0001). It starts a Daemon 
 | `close_project` | `{path}` | `null`; the Project's Daemon ends (S8) |
 | `rename_project` | `{path, name}` | `{name, path}` (S10) |
 | `rpc` | `{path, method, params}` | the method's JSON result, unchanged |
-| `subscribe` | `{path, channel}` (a Tauri `Channel`) | `null`; then every Event of that Project's Daemon is sent on the channel, in the Daemon's order |
+| `subscribe` | `{path, channel, after?}` (a Tauri `Channel`; `after` an Event number) | the Daemon's `head` (D11, I9); then, with `after`, every saved Event numbered above it, then every Event of that Project's Daemon, is sent on the channel, in the Daemon's order |
 | `recent_projects` | none | the absolute paths of recently opened Projects, most recent first (S6) |
 | `claude_binary` | none | `{path, version}` of the `claude` the App would run, or `null` (S6) |
 | `daemon_proof` | `{path}` | the `proof` string the App gave that Project's Daemon, which `decision.answer` needs (H4); it never reaches an Agent |
