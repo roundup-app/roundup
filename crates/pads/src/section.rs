@@ -49,6 +49,29 @@ pub fn wanted(heading: &str) -> String {
     normalize(heading.trim_start_matches('#'))
 }
 
+/// A section as LK4 reads it: the heading as the Pad writes it and the text under it.
+pub struct Found {
+    pub heading: String,
+    pub text: String,
+}
+
+/// The first section whose heading is `wanted`, ending at the next heading of the same or a higher level.
+pub fn find(text: &str, wanted: &str) -> Option<Found> {
+    let all = headings(text);
+    let at = all.iter().position(|h| normalize(&h.title) == wanted)?;
+    let end = all[at + 1..]
+        .iter()
+        .find(|h| h.level <= all[at].level)
+        .map_or(text.len(), |h| h.line);
+    let start = text[all[at].line..end]
+        .find('\n')
+        .map_or(end, |i| all[at].line + i + 1);
+    Some(Found {
+        heading: all[at].title.clone(),
+        text: text[start..end].trim_matches('\n').trim_end().to_owned(),
+    })
+}
+
 /// `text` with `add` on new lines after the last non-blank line of the first section whose heading is `wanted`, or the headings of `text` as `"## Plan"` when none match.
 pub fn insert(text: &str, wanted: &str, add: &str) -> Result<String, Vec<String>> {
     let all = headings(text);

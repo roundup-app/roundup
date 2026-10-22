@@ -65,6 +65,14 @@ const TOOLS: &[(&str, &str)] = &[
         "todo_comment",
         "leave one short plain line on a Todo only when the user must read it, such as a question or a blocker",
     ),
+    (
+        "todo_addRef",
+        "point the user from a Todo to a Pad, or to one section of it with a `#<heading>` link, that they should read",
+    ),
+    (
+        "todo_removeRef",
+        "remove such a link from a Todo when it no longer applies",
+    ),
     ("todo_complete", "mark a Todo done once its outcome is real"),
     ("todo_reopen", "reopen a done Todo when work remains"),
     (
@@ -500,10 +508,14 @@ Write a list as the choices and nothing around them. \
 Leave out an acknowledgment such as \"On it.\", a connective such as \"Separately:\" and a list item that restates its question.
 ";
 
-/// M2219: the `rup` command for tool `name`: `noun_verbName` is `rup noun verb-name`, and `ask_user` is `rup agent ask`.
+/// M2219: the `rup` command for tool `name`: `noun_verbName` is `rup noun verb-name`, and `ask_user` is `rup agent ask`, and the two ref tools are `rup todo ref add|remove`.
 fn command(name: &str) -> String {
-    if name == "ask_user" {
-        return "rup agent ask".into();
+    match name {
+        "ask_user" => return "rup agent ask".into(),
+        // T28: the one pair of commands with a group word between noun and verb.
+        "todo_addRef" => return "rup todo ref add".into(),
+        "todo_removeRef" => return "rup todo ref remove".into(),
+        _ => {}
     }
     let (noun, verb) = name.split_once('_').unwrap_or((name, ""));
     let mut text = format!("rup {noun} ");

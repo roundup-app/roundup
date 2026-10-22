@@ -181,3 +181,15 @@ R2965 observer requirement for A21: `a21_a_failed_save_while_held_fails_the_whol
 - A late Signal for a removed id does not re-create an entry (`a3342a_a_late_signal_after_removal_adds_no_entry`).
 
 Regression checks on main: 1. `crates/agents/tests/scenarios/remove.rs`, `a16_removing_a_door_stops_it_lifts_its_children_then_deletes_it` retains removal order. 2. `crates/agents/tests/scenarios/remove.rs`, `a16_a_failed_stop_returns_the_error_and_deletes_nothing` in `crates/agents/src/removal.rs` retains the atomic failure. Policy: the implementation waits for #3337 on `main`; the Issue is blocked by it once it merges.
+
+**A3360a a tool call's name is cut to a length on the wire.** Found by the review of PR #3358 (Issue #3360): `ToolCall.tool` in `crates/agents/src/claude_code/` carries the `tool_name` of a `PreToolUse` Signal (A9) as sent, so a megabyte-long name travels on every Rail and overview answer. The removal half of the Issue is A3342a's. No contract change: no RPC method, App seam command or token; the field keeps its type. Given a `PreToolUse` Signal whose `tool_name` is longer than 64 characters (policy: a bound no real tool name nears, not copied from a call site), then the Adapter keeps its first 64 characters, cut on a character boundary, and `ToolCall.tool` holds that; a name of 64 characters or fewer is kept whole, and the rest of the `ToolCall` (A9's summary and its own bound) is unchanged. The cut is in the Adapter, never in the Daemon (Principle P4). Tests in `crates/agents/tests/scenarios/`, through the fake `claude`'s hook path:
+- A `tool_name` of 1 000 000 `a` characters: `ToolCall.tool` is 64 characters long (`a3360a_a_megabyte_tool_name_is_cut_to_64_characters`).
+- A name of 63 `a` plus one 4-byte emoji straddling the bound keeps 64 characters and is valid UTF-8; a name of exactly 64 is kept whole (`a3360a_the_cut_falls_on_a_character_boundary`).
+
+Policy: the implementation waits for #3358 on `main`; the Issue is blocked by it once it merges.
+
+**A3373a a later record that is not `/context` leaves the split alone.** Found by the review of PR #3361 (Issue #3373); amends A2681d. No contract change. Given a transcript with a `/context` record followed by a `system`/`local_command` record of another command (a `/cost` run) that carries no `contextUsage`, then the latest `/context` record still decides: only a record whose `commandRun.command` is `context`, or whose `contextUsage.categories` is an array, replaces the split. The Adapter is `crates/agents/src/claude_code/conversation.rs`. Tests beside A2681d's in `crates/agents/tests`, on temporary transcript files:
+- A `/context` record, then a `/cost` record without `contextUsage`: `context_parts` holds the `/context` split (`a3373a_a_later_cost_record_keeps_the_context_split`).
+- A `/context` record, then a later `/context` record: the later split wins; a `/context` record whose categories are not an array gives no `context_parts` as A2681d says (`a3373a_the_latest_context_record_still_decides`).
+
+Policy: the implementation waits for #3361 on `main`; the Issue is blocked by it.

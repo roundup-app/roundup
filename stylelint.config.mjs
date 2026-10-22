@@ -25,10 +25,36 @@ const sharedKeyboardRing = stylelint.createPlugin(focusRingRule, () => (root, re
   });
 });
 
+const scrollRule = 'roundup/scroll-declares-overscroll';
+
+const scrollDeclaresOverscroll = stylelint.createPlugin(scrollRule, () => (root, result) => {
+  root.walkRules((rule) => {
+    let scrolls = null;
+    let contained = false;
+
+    rule.each((node) => {
+      if (node.type !== 'decl') return;
+      const prop = node.prop.toLowerCase();
+
+      if (/^overflow(-x|-y)?$/.test(prop) && /^(auto|scroll)\b/i.test(node.value)) scrolls ??= node;
+
+      if (prop === 'overscroll-behavior') contained = true;
+    });
+
+    if (!scrolls || contained) return;
+
+    stylelint.utils.report({
+      ruleName: scrollRule, result, node: scrolls,
+      message: 'A scroll area declares overscroll-behavior so its scroll stays inside it (U3785)',
+    });
+  });
+});
+
 export default {
-  plugins: ['stylelint-declaration-strict-value', sharedKeyboardRing],
+  plugins: ['stylelint-declaration-strict-value', sharedKeyboardRing, scrollDeclaresOverscroll],
   rules: {
     [focusRingRule]: true,
+    [scrollRule]: true,
     'scale-unlimited/declaration-strict-value': [
       ['padding'],
       {
