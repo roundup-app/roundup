@@ -272,7 +272,7 @@ export const MeasurementDashboard = (props: { home: string; name: string; back: 
           <span class="measurement-bar"><span style={{ width: `${most() > 0 ? (Number(BigInt(row.tokens[category()].known)) / most()) * 100 : 0}%` }} /></span>
           <Collapsible.Root><Collapsible.Trigger data-button="quiet" class="word" aria-label={copy.measurementAgentDetail(row.maker)}>{copy.measurementDetail}</Collapsible.Trigger><Collapsible.Content>
             <p class="measurement-note">{copy.measurementJoin(listPrice(row.cost) ?? copy.measurementUnknown, ...reported(row.cost), copy.measurementAgentTime(duration(row.time.summed_ns), null))}</p>
-            <For each={[...new Set([...row.coverage, ...row.cost.unavailable, ...row.time.coverage])]}>{(cause) => <p class="measurement-note">{cause}</p>}</For>
+            <For each={[...new Set([...row.coverage, ...row.cost.unavailable, ...row.time.coverage])].filter((cause) => !notes().includes(cause))}>{(cause) => <p class="measurement-note">{cause}</p>}</For>
           </Collapsible.Content></Collapsible.Root>
         </th><For each={categories}>{(key) => <td>{exact(row.tokens[key])}<Show when={row.tokens[key].missing > 0}><Partial note={copy.measurementPartialTokens(row.tokens[key].missing)} /></Show></td>}</For></tr>}</For></tbody>
       </table>
