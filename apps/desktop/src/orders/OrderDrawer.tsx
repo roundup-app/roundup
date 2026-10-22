@@ -343,7 +343,7 @@ const OrderContent = (props: OrderInput) => {
           }
         </Match>
       </Switch>}>{editor()}</Show>
-      <Show when={props.recovery === undefined}><WorkProgress id={props.id} /></Show>
+      <Show when={props.recovery === undefined}><Show when={props.id} keyed>{(id) => <WorkProgress id={id} />}</Show></Show>
       <Show when={(props.inline || order()?.kind === "work") && (spawn()?.prompt ?? spawn()?.error)}>
         {(text) => (
           <Show when={props.inline} fallback={
