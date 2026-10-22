@@ -1,4 +1,4 @@
-import { createEffect, createSignal, on } from "solid-js";
+import { createComputed, createEffect, createSignal, on } from "solid-js";
 import type { Accessor } from "solid-js";
 import type { Todo } from "@contracts/todo/Todo";
 import type { Sortable } from "../ui/sortable";
@@ -65,6 +65,8 @@ export const createSortedList = (source: {
     refocus = null;
   };
 
+  // U3010c: any change of the list (an insertion, a completion) first reads where each row shows now, before the DOM follows; a measure taken at the last move would be stale.
+  createComputed(on(() => source.ids().join(), measure, { defer: true }));
   createEffect(on(() => source.ids().join(), settle, { defer: true }));
   // U3010c: reduced motion switched on mid-slide settles every row now, with no replay.
   createEffect(on(source.reducedMotion, (reduced) => { if (reduced) frames.forEach((el) => "getAnimations" in el && el.getAnimations().forEach((animation) => animation.cancel())); }, { defer: true }));
