@@ -59,11 +59,11 @@
   font: inherit;
   resize: none;
   overflow: hidden;
+  white-space: pre;
 }
 
 .app-dialog-form textarea:focus {
   outline-width: 0;
-  border-bottom-color: var(--accent);
 }
 
 .app-dialog-form textarea:hover:not(:disabled) {
