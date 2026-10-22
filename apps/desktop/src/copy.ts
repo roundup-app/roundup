@@ -26,6 +26,15 @@ const reasonIs = (reason: string, fixed: string) => reason === fixed || reason.e
 
 export const copy = {
   costAndTime: "Cost and time",
+  timeline: "Timeline",
+  timelineLanes: "Agents",
+  timelineTrack: (name: string) => `${name} over the last 30 minutes`,
+  timelineStart: "30 minutes ago",
+  timelineNow: "now",
+  timelineUnknown: "Unknown",
+  timelineEmpty: "No Agent activity seen yet",
+  timelineRemoved: (name: string) => `${name} (removed)`,
+  timelineStarted: (parent: string, child: string) => `${parent} started ${child}`,
   measurementJoin: (...parts: string[]) => parts.join(" · "),
   measurementLoading: "Reading measurements…",
   measurementFailed: "Measurements unavailable.",
