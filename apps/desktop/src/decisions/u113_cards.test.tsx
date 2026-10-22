@@ -18,7 +18,7 @@ describe("u113 the Card for the selected Agent or Workstream's Door", () => {
     const text = card()!.textContent ?? "";
 
     expect(text).toContain("alpha");
-    expect(text).toContain("Bash");
+    expect(text).toContain("wants to run");
     expect(text).toContain("rm -rf build");
 
     select("beta");

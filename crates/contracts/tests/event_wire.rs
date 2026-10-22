@@ -47,6 +47,8 @@ fn r16_large_event_payloads_keep_the_exact_wire_envelope() {
         args: "echo hi".into(),
         opened_at: 789,
         answerable: true,
+        scopes: vec![],
+        risk: None,
         failure: None,
     };
     let decision_wire = json!({"id":"d1","agent":"a1","tool":"Bash","args":"echo hi","opened_at":789,"answerable":true});

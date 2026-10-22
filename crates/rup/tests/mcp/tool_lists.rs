@@ -167,6 +167,8 @@ pub const NO_TOOL: [&str; 68] = [
     "decision.capture",
     // U468: the App reads retained answers for display; Agents act on open Decisions.
     "decision.answers",
+    // H23: the user withdraws a Grant they gave; no Agent revokes its own permission.
+    "decision.revoke",
     "agent.ask",
     "agent.skills",
     // O8: the App's Drawer reads the prompt an Agent's spawn gave; the spawning Agent wrote it
