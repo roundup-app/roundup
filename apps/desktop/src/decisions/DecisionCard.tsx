@@ -135,7 +135,7 @@ export const DecisionCard = (props: { decision: Decision; name: string; focusTer
               <Show when={reading().reason}>{(reason) => <p class="decision-reason light" id={reasonId()}>{reason()}</p>}</Show>
               <Show when={effects().length > 0}>
                 <ul class="decision-effects">
-                  <For each={effects()}>{(effect) => <li><code>{effect.path}</code> <span class="decision-added">+{effect.added}</span> <span class="decision-removed">−{effect.removed}</span></li>}</For>
+                  <For each={effects()}>{(effect) => <li><Show when={effect.path !== reading().target}><code>{effect.path}</code> </Show><span class="decision-added">+{effect.added}</span> <span class="decision-removed">−{effect.removed}</span></li>}</For>
                   <Show when={reading().effects.length > 3}><li class="light">{copy.effectsMore(reading().effects.length - 3)}</li></Show>
                 </ul>
               </Show>

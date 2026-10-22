@@ -30,7 +30,7 @@ describe("u3794 a permission Card reads as who asks, why, what will happen and f
 
     expect(card()!.querySelector(".decision-title")!.textContent).toBe("alpha wants to edit /p/src/a.ts");
     expect(card()!.querySelector(".decision-reason")).toBeNull();
-    expect(card()!.querySelector(".decision-effects")!.textContent).toContain("/p/src/a.ts +4 −2");
+    expect(card()!.querySelector(".decision-effects")!.textContent).toContain("+4 −2");
     expect(card()!.hasAttribute("aria-describedby")).toBe(false);
   });
 
