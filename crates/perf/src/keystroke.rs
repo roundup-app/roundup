@@ -10,7 +10,7 @@ use std::time::{Duration, Instant};
 use clap::Parser;
 use perf::gate::{conclude, read_budgets};
 use perf::webview::failure;
-use perf::webview::{checked, perf_line};
+use perf::webview::{checked, marked_line};
 use rpc::Client;
 use serde_json::Value;
 use sysinfo::System;
@@ -32,6 +32,9 @@ struct Args {
     budgets: PathBuf,
     #[arg(long, default_value = "target/perf-keystroke.json")]
     out: PathBuf,
+    /// The App built with `VITE_ROUNDUP_PERF_WORKLOAD`: one frame-interval run (U3010e) whose report is written to `--out` and whose exit code is the report's.
+    #[arg(long)]
+    frames: bool,
 }
 
 /// The run opens a window over the user's screen and types into it; it starts only when this is `1`, set by someone the user asked to run it.
@@ -40,7 +43,10 @@ const ALLOW_WINDOW: &str = "ROUNDUP_ALLOW_WINDOW";
 /// Starts the Terminal's program: a raw tty, a `ready` line, then `cat`, so each typed byte comes back only through the program.
 const SHELL: &str = "#!/bin/sh\nstty raw -echo\necho ready\nexec cat\n";
 
-async fn read_report(socket: &Path) -> io::Result<Value> {
+/// The frame run's program: the Terminal stream of `docs/motion.md`, 64 lines of 128 bytes with CRLF every 125 ms (64 KiB/s), and whatever is written to the tty echoed back for the report.
+const FRAMES_SHELL: &str = "#!/bin/sh\nstty raw -echo\necho ready\ncat <&0 &\npad=$(printf '%0118d' 0)\nn=0\nwhile :; do\n  i=0\n  while [ $i -lt 64 ]; do\n    printf '%08d%s\\r\\n' $n \"$pad\"\n    n=$((n + 1)); i=$((i + 1))\n  done\n  sleep 0.125\ndone\n";
+
+async fn read_report(socket: &Path, marker: &str) -> io::Result<Value> {
     let give_up = Instant::now() + RUN_BOUND;
 
     let client = loop {
@@ -81,9 +87,10 @@ async fn read_report(socket: &Path) -> io::Result<Value> {
             *after = read["next"].as_u64().unwrap_or(*after);
             text.push_str(read["text"].as_str().unwrap_or_default());
 
-            if let Some(line) = perf_line(text) {
-                return serde_json::from_str(line)
-                    .map_err(|err| failure(format!("the PERF line is not JSON: {err}")));
+            if let Some(line) = marked_line(text, marker) {
+                return serde_json::from_str(line).map_err(|err| {
+                    failure(format!("the {} line is not JSON: {err}", marker.trim()))
+                });
             }
         }
 
@@ -92,12 +99,18 @@ async fn read_report(socket: &Path) -> io::Result<Value> {
 }
 
 /// One fresh App, one report. The App is stopped when this returns, which stops its Daemon (D1).
-async fn one_run(app: &Path) -> io::Result<Value> {
-    one_run_with_report(app, read_report).await
+async fn one_run(app: &Path, frames: bool) -> io::Result<Value> {
+    let marker = if frames { "FRAMES " } else { "PERF " };
+
+    one_run_with_report(app, frames, async |socket| {
+        read_report(socket, marker).await
+    })
+    .await
 }
 
 async fn one_run_with_report(
     app: &Path,
+    frames: bool,
     report: impl AsyncFnOnce(&Path) -> io::Result<Value>,
 ) -> io::Result<Value> {
     let dir = tempfile::tempdir()?;
@@ -126,7 +139,7 @@ async fn one_run_with_report(
     )?;
 
     std::fs::create_dir(&project)?;
-    std::fs::write(&shell, SHELL)?;
+    std::fs::write(&shell, if frames { FRAMES_SHELL } else { SHELL })?;
     std::fs::set_permissions(&shell, std::os::unix::fs::PermissionsExt::from_mode(0o755))?;
 
     let mut child = Command::new(app)
@@ -159,6 +172,20 @@ fn quote(path: &Path) -> io::Result<String> {
     Ok(format!("'{}'", text.replace('\'', "'\\''")))
 }
 
+/// One frame run (U3010e): the report is kept whole at `--out`; its `exit` is 1 for a miss on the measured stage and 2 for an invalid run or an unmeasured stage, so the run never ends in a pass the webview cannot show.
+async fn run_frames(args: &Args) -> Result<u8, Box<dyn std::error::Error>> {
+    let report = one_run(&args.app, true).await?;
+
+    std::fs::write(&args.out, serde_json::to_string_pretty(&report)?)?;
+    eprintln!("report: {}", args.out.display());
+
+    match report["exit"].as_u64() {
+        Some(0) => Ok(0),
+        Some(1) => Ok(1),
+        _ => Ok(2),
+    }
+}
+
 async fn run(args: &Args) -> Result<bool, Box<dyn std::error::Error>> {
     let budgets = read_budgets(&args.budgets)?;
     let mut per_run: BTreeMap<String, Vec<f64>> = BTreeMap::new();
@@ -170,7 +197,7 @@ async fn run(args: &Args) -> Result<bool, Box<dyn std::error::Error>> {
         eprintln!("run {turn}/{}: load {load:.1}", args.runs);
         loads.push(load);
 
-        let report = one_run(&args.app).await?;
+        let report = one_run(&args.app, false).await?;
 
         checked(&report)?;
         eprintln!("  {report}");
@@ -203,7 +230,19 @@ async fn main() -> ExitCode {
 
     eprintln!("perf-keystroke: this opens a window over your screen for about 40 s per run");
 
-    match run(&Args::parse()).await {
+    let args = Args::parse();
+
+    if args.frames {
+        return match run_frames(&args).await {
+            Ok(code) => ExitCode::from(code),
+            Err(err) => {
+                eprintln!("perf-keystroke: {err}");
+                ExitCode::from(2)
+            }
+        };
+    }
+
+    match run(&args).await {
         Ok(true) => ExitCode::SUCCESS,
         Ok(false) => ExitCode::FAILURE,
         Err(err) => {
@@ -260,7 +299,7 @@ mod tests {
             let before = n7_fixture::snapshot(&seeded);
             let mut launched = None;
             let mut owned_socket = None;
-            let result = one_run_with_report(&app, async |socket| {
+            let result = one_run_with_report(&app, false, async |socket| {
                 let observed = n7_fixture::launched(fixture.path()).await?;
                 n7_fixture::ready(socket).await?;
                 owned_socket = Some(socket.to_path_buf());

@@ -157,6 +157,18 @@ perf-keystroke *args:
     cargo build --release -p perf
     ./target/release/perf-keystroke {{args}}
 
+# The frame-interval run of one `docs/motion.md` workload (glyphs, layers or todos) in the real App's WKWebView (macOS only; scenarios/ui-motion.md U3010e, runbook docs/motion-native-runbook.md). Builds the App with the recorder into target/perf-app and opens its window, kept above every other window and Space, for about 100 s, and refuses unless ROUNDUP_ALLOW_WINDOW=1.
+perf-frames workload *args:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    [ "${ROUNDUP_ALLOW_WINDOW:-}" = 1 ] || { echo "perf-frames opens a window over your screen for about 100 s and drives it; set ROUNDUP_ALLOW_WINDOW=1 only when the user asked for the run" >&2; exit 2; }
+    dist={{quote(justfile_directory())}}/target/perf-dist
+    VITE_ROUNDUP_PERF=1 VITE_ROUNDUP_PERF_WORKLOAD={{quote(workload)}} pnpm --filter desktop exec vite build --outDir "$dist" --emptyOutDir
+    TAURI_CONFIG=$(jq -nc --arg dist "$dist" '{build: {frontendDist: $dist}, app: {windows: [{title: "roundup", alwaysOnTop: true, visibleOnAllWorkspaces: true}]}}') \
+        cargo build --release -p rupd -p desktop --features desktop/custom-protocol --target-dir target/perf-app
+    cargo build --release -p perf
+    ./target/release/perf-keystroke --frames --out target/perf-frames-{{workload}}.json {{args}}
+
 # V1: installs the Bend that proofs/BEND_VERSION pins into proofs/.tools/ (checksum checked); a no-op once installed.
 proofs-setup:
     proofs/setup.sh
