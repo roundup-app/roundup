@@ -178,7 +178,7 @@ Starting an Agent's next Attempt in its saved conversation; an explicit mode fir
 Permission prompts off for one Attempt. The Rail reports the last acknowledged Attempt's fact, cleared on reopen. Roundup authority is unchanged.
 
 **Conversation overview** (`ConversationOverview`, `RailNode.overview`):
-Available display parts from a closed Agent's saved conversation: coding program, opaque conversation id and optional name, used tokens and model limit. The Adapter reads vendor storage; its path never leaves it. Absent while an Attempt is live.
+Available display parts from a closed Agent's saved conversation: coding program, opaque conversation id and optional name, used tokens, model limit and, only where the program itself wrote one, the split of used (`ContextPart`, `ContextPartKind`: system, tools, files, conversation, other). The Adapter reads vendor storage; its path never leaves it. Absent while an Attempt is live.
 
 **Import** (`project.importDiscover`, `project.importCommit`, `ImportPeriod`, `ImportCandidate`, `ImportSelection`, `ImportResult`):
 The user's act of bringing recent top-level Claude Code conversations of the open Project into the Rail as closed work: one Workstream with one closed child Agent each, holding a retained copy of the conversation and no Attempt, Terminal or live Status. A candidate's `revision` binds the confirmation to the records previewed; a conversation already in the Project, imported earlier or since removed is not selectable again. Agents never import. Files come from the Project's current Base, never a recovered historical filesystem.
@@ -525,12 +525,6 @@ read through `decision.list` with its Reach filtering: requesting Attempt,
 answering Actor, failure time and exact RPC error code and message. It is not a
 successful answer record; replacement, clearing or successful delivery discards it.
 
-**Terminal question** (`AskCall`, `TerminalAnswer`, `answer_terminal_question`):
-An `ask_user` question the user reads and answers in its Agent's primary Terminal.
-The answer belongs to the original Decision and Attempt and retains its authenticated
-answering Actor. `AskCall.terminal` correlates that waiting call with its form and
-grants no answering authority.
-
 **Prompt identity** (`PromptIdentity`, `CaptureParams`, `decision.capture`):
 The original Decision's identity within one Daemon run, Agent and Attempt. A held answer or answer-like Terminal write carries it into the effect; an answered, dismissed, replaced or unavailable original refuses with an error the Daemon can record as dropped. Equal text and a reused Decision id never revive it. It grants no Reach or Proof.
 
@@ -839,6 +833,9 @@ until their exact-version Result resolution. They block completion checks and cu
 attribution of later claims for that target. Other current attribution requires the
 same Order and latest Instruction revision, plus the latest reported version of that
 target. Opening or inspecting Progress starts nothing and sends no Message.
+User-label states, each led by a glyph: "Accepted" (check), "Checked independently"
+(check), "Check pending" (circle), "Older version" (circle), "Unknown outcome" (diamond)
+and "Evidence unavailable" (x).
 
 **Request cost** (`RequestCost`, `CacheWrites`):
 The observed opaque Model and independently observed five-minute/one-hour cache-write

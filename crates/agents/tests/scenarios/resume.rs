@@ -1749,6 +1749,44 @@ async fn a2681a_live_attempt_hides_parts_including_on_resume() {
 }
 
 #[tokio::test]
+async fn a2681d_live_attempt_hides_context_parts() {
+    let f = Fixture::running("sleep 30");
+    let context = include_str!("../fixtures/overview/2.1.296-context.jsonl");
+    overview_transcript(
+        &f,
+        &format!(
+            "{{\"type\":\"assistant\",\"message\":{{\"usage\":{{\"input_tokens\":20000}}}}}}\n{}\n",
+            context.trim()
+        ),
+    );
+    let node = f.spawn(None, None).await.unwrap();
+    f.session_start(&node.id, CONVERSATION, "startup")
+        .await
+        .unwrap();
+    assert!(
+        f.tree()
+            .await
+            .iter()
+            .find(|n| n.id == node.id)
+            .unwrap()
+            .overview
+            .is_none()
+    );
+    f.call("agent.stop", json!({"id":node.id})).await.unwrap();
+    let closed = f
+        .until(|tree| tree.iter().any(|n| n.id == node.id && n.can_resume))
+        .await;
+    let overview = closed
+        .iter()
+        .find(|n| n.id == node.id)
+        .unwrap()
+        .overview
+        .as_ref()
+        .unwrap();
+    assert!(overview.context_parts.is_some());
+}
+
+#[tokio::test]
 async fn a2681a_natural_exit_exposes_parts() {
     let f = Fixture::running("while [ ! -f release ]; do sleep 0.01; done");
     overview_transcript(&f, "{}\n");
