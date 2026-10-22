@@ -81,6 +81,7 @@ mod tests {
             },
             home: None,
             owner: None,
+            refs: vec![],
         }
     }
 

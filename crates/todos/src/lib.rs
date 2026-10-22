@@ -11,7 +11,7 @@ use std::sync::Mutex;
 
 use async_trait::async_trait;
 use contracts::todo::{
-    AssignParams, CommentParams, CreateParams, History, MoveParams, ReadHistoryParams,
+    AssignParams, CommentParams, CreateParams, History, MoveParams, ReadHistoryParams, RefParams,
     ReorderParams, SetBlockersParams, TodoId, UpdateParams,
 };
 use contracts::{EventData, Verb};
@@ -243,6 +243,38 @@ impl Todos {
         reply(comments.last().expect("a comment was just added"))
     }
 
+    /// T27: the links of a Todo as added, for the Daemon to read their state. It logs no Touch.
+    pub fn refs(&self, id: u32) -> Result<Vec<String>, RpcError> {
+        let store = self.store()?;
+        store.get(id)?;
+        store.refs(id)
+    }
+
+    /// T27: a link that is no Pad link is `INVALID_PARAMS` before the Todo is looked up. The Daemon has checked the Pad and heading exist (`pads::Pads::holds`).
+    fn add_ref(&self, ctx: &Ctx, p: RefParams) -> Result<Value, RpcError> {
+        let link = pads::reference::parse(&p.url).map_err(|why| {
+            RpcError::new(rpc::code::INVALID_PARAMS, format!("not a Pad link: {why}"))
+        })?;
+        let store = self.store()?;
+        if store.add_ref(p.id, &link.target(), &p.url)? {
+            ctx.touch(Verb::Wrote, &item(p.id))?;
+            ctx.emit(EventData::TodoRefAdded(TodoId { id: p.id }));
+        }
+        reply(&store.get(p.id)?)
+    }
+
+    fn remove_ref(&self, ctx: &Ctx, p: RefParams) -> Result<Value, RpcError> {
+        let link = pads::reference::parse(&p.url).map_err(|why| {
+            RpcError::new(rpc::code::INVALID_PARAMS, format!("not a Pad link: {why}"))
+        })?;
+        let store = self.store()?;
+        if store.remove_ref(p.id, &link.target())? {
+            ctx.touch(Verb::Wrote, &item(p.id))?;
+            ctx.emit(EventData::TodoRefRemoved(TodoId { id: p.id }));
+        }
+        reply(&store.get(p.id)?)
+    }
+
     fn comments(&self, p: TodoId) -> Result<Value, RpcError> {
         reply(&self.store()?.comments(p.id)?)
     }
@@ -355,6 +387,8 @@ impl Module for Todos {
             "todo.delete" => self.delete(ctx, params(value)?),
             "todo.comment" => self.comment(ctx, params(value)?),
             "todo.comments" => self.comments(params(value)?),
+            "todo.addRef" => self.add_ref(ctx, params(value)?),
+            "todo.removeRef" => self.remove_ref(ctx, params(value)?),
             "todo.unread" => self.unread(),
             "todo.markCommentsRead" => self.mark_comments_read(ctx, params(value)?),
             _ => Err(RpcError::method_not_found(method)),
@@ -1965,6 +1999,81 @@ mod tests {
             h.call("todo.comments", json!({"id": 2})).await.unwrap(),
             json!([])
         );
+    }
+
+    const NOTES: &str = "roundup://pad/notes?project=k";
+
+    #[tokio::test]
+    async fn t27_refs_keep_order_and_one_per_target() {
+        let dir = tempfile::tempdir().unwrap();
+        let mut h = Harness::new(dir.path());
+        made(&h, json!({"title": "t"})).await;
+        h.events();
+        let plan = format!("{NOTES}#Plan");
+        for url in [&plan, &NOTES.to_string(), &format!("{NOTES}#plan")] {
+            h.call_as(agent("a"), "todo.addRef", json!({"id": 1, "url": url}))
+                .await
+                .unwrap();
+        }
+        let todo = h.call("todo.get", json!({"id": 1})).await.unwrap();
+        assert_eq!(todo["refs"], json!([plan, NOTES]));
+        assert_eq!(h.events(), ["todo.refAdded 1", "todo.refAdded 1"]);
+        // A ref is no Change: History keeps its creation entry and the Todo does not update.
+        let history = h.call("todo.getHistory", json!({"id": 1})).await.unwrap();
+        assert_eq!(history["changes"].as_array().unwrap().len(), 1);
+        let by_a = h.touches(1).into_iter().filter(|(_, who)| who == "a");
+        assert_eq!(
+            by_a.collect::<Vec<_>>(),
+            vec![(Verb::Wrote, "a".to_string()); 2]
+        );
+        h.call(
+            "todo.removeRef",
+            json!({"id": 1, "url": format!("{NOTES}#PLAN")}),
+        )
+        .await
+        .unwrap();
+        h.call(
+            "todo.removeRef",
+            json!({"id": 1, "url": format!("{NOTES}#PLAN")}),
+        )
+        .await
+        .unwrap();
+        let todo = h.call("todo.get", json!({"id": 1})).await.unwrap();
+        assert_eq!(todo["refs"], json!([NOTES]));
+        assert_eq!(h.events(), ["todo.refRemoved 1"]);
+    }
+
+    #[tokio::test]
+    async fn t27_refs_persist_old_databases_read_none_and_delete_clears_them() {
+        let dir = tempfile::tempdir().unwrap();
+        let mut db = rusqlite::Connection::open(dir.path().join("todos.db")).unwrap();
+        rusqlite_migration::Migrations::new(vec![
+            rusqlite_migration::M::up(include_str!("../migrations/001/up.sql")),
+            rusqlite_migration::M::up(include_str!("../migrations/002/up.sql")),
+            rusqlite_migration::M::up(include_str!("../migrations/003/up.sql")),
+            rusqlite_migration::M::up(include_str!("../migrations/004/up.sql")),
+            rusqlite_migration::M::up(include_str!("../migrations/005/up.sql")),
+        ])
+        .to_latest(&mut db)
+        .unwrap();
+        db.execute_batch("INSERT INTO todos (title,body,created_at) VALUES ('old','',0);")
+            .unwrap();
+        drop(db);
+        {
+            let h = Harness::new(dir.path());
+            let todo = h.call("todo.get", json!({"id": 1})).await.unwrap();
+            assert_eq!(todo["refs"], json!([]));
+            h.call("todo.addRef", json!({"id": 1, "url": NOTES}))
+                .await
+                .unwrap();
+        }
+        let h = Harness::new(dir.path());
+        let todo = h.call("todo.get", json!({"id": 1})).await.unwrap();
+        assert_eq!(todo["refs"], json!([NOTES]));
+        h.call("todo.delete", json!({"id": 1})).await.unwrap();
+        made(&h, json!({"title": "again"})).await;
+        let todo = h.call("todo.get", json!({"id": 2})).await.unwrap();
+        assert_eq!(todo["refs"], json!([]));
     }
 
     #[tokio::test]

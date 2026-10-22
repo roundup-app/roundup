@@ -57,6 +57,18 @@ struct Spec {
     stream: bool,
 }
 
+impl Spec {
+    /// The last word of the verb: `add` of `ref add`.
+    fn leaf(&self) -> &str {
+        self.verb.rsplit(' ').next().unwrap_or_default()
+    }
+
+    /// The word between noun and verb, when the verb has one.
+    fn group(&self) -> Option<&str> {
+        self.verb.split_once(' ').map(|(group, _)| group)
+    }
+}
+
 fn kebab(name: &str) -> String {
     let mut out = String::new();
     for ch in name.chars() {
@@ -269,9 +281,15 @@ fn specs(door: bool) -> Vec<Spec> {
                 }
                 fields.sort_by_key(|field| !field.positional);
             }
+            // T28: `rup todo ref add|remove <id> <url>`, the one command with a group between noun and verb.
+            let verb = match offer.method {
+                "todo.addRef" => "ref add".to_owned(),
+                "todo.removeRef" => "ref remove".to_owned(),
+                _ => kebab(verb),
+            };
             Spec {
                 noun: noun.to_owned(),
-                verb: kebab(verb),
+                verb,
                 method: offer.method,
                 description: if offer.method == "terminal.write" {
                     "Type text into a Terminal you or your Reach own, then press Enter. `--no-enter` leaves Enter out; `--base64 <data>` sends raw bytes."
@@ -407,7 +425,7 @@ fn verb_command(spec: &Spec) -> Command {
     if spec.door_only {
         description.push_str(" Only a Door has this command.");
     }
-    let mut command = Command::new(spec.verb.clone())
+    let mut command = Command::new(spec.leaf().to_owned())
         .about(first_sentence(&spec.description).to_owned())
         .long_about(description)
         .after_help(format!("Example:\n  {}", example(spec)));
@@ -453,8 +471,29 @@ fn tree(specs: &[Spec]) -> Command {
             .about(format!("Commands on {noun}s"))
             .after_help(NAMES_HELP)
             .subcommand_required(true);
+        let mut inner: Vec<Command> = Vec::new();
         for spec in specs.iter().filter(|spec| spec.noun == noun) {
-            group = group.subcommand(verb_command(spec));
+            match spec.group() {
+                None => group = group.subcommand(verb_command(spec)),
+                Some(name) => {
+                    let at = match inner.iter().position(|c| c.get_name() == name) {
+                        Some(at) => at,
+                        None => {
+                            inner.push(
+                                Command::new(name.to_owned())
+                                    .about(format!("Commands on a {noun}'s {name}s"))
+                                    .subcommand_required(true),
+                            );
+                            inner.len() - 1
+                        }
+                    };
+                    let next = inner.remove(at).subcommand(verb_command(spec));
+                    inner.insert(at, next);
+                }
+            }
+        }
+        for next in inner {
+            group = group.subcommand(next);
         }
         root = root.subcommand(group);
     }
@@ -598,6 +637,10 @@ pub async fn run(args: Vec<String>) -> ExitCode {
     }
     let Some((verb, leaf)) = group.subcommand() else {
         return bad_usage("no command");
+    };
+    let (verb, leaf) = match leaf.subcommand() {
+        Some((inner, leaf)) => (format!("{verb} {inner}"), leaf),
+        None => (verb.to_owned(), leaf),
     };
     let spec = tree_specs
         .iter()
