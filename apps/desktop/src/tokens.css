@@ -58,6 +58,7 @@
   --duration-toast: 150ms;
   --duration-note: 150ms;
   --ease-note: cubic-bezier(0.32, 0.72, 0, 1);
+  --duration-toast-in: 200ms;
   --duration-scrollbar: 200ms;
 
   --font-ui: -apple-system, BlinkMacSystemFont, "SF Pro Text", system-ui, sans-serif;
