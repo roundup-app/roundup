@@ -42,6 +42,7 @@
   flex: 1;
   min-height: 0;
   overflow: auto;
+  overscroll-behavior: contain;
   width: 100%;
   resize: none;
 }
@@ -185,6 +186,7 @@
   margin: 0;
   padding: var(--space-3);
   overflow: auto;
+  overscroll-behavior: contain;
   background: var(--sunken);
   border-radius: var(--radius-control);
   font-family: var(--font-mono);

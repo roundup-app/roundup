@@ -210,6 +210,10 @@ fn listed_commands(help: &str) -> Vec<(String, bool)> {
 }
 
 fn command_key(usage: &str) -> String {
+    // T28: `rup todo ref add` has a group word between noun and verb.
+    let usage = usage.replacen("rup todo ref ", "rup todo ", 1);
+    let usage = usage.replacen("todo add ", "todo addref ", 1);
+    let usage = usage.replacen("todo remove ", "todo removeref ", 1);
     let mut words = usage.split_whitespace().skip(1).take(2);
     squash(&format!(
         "{}{}",
