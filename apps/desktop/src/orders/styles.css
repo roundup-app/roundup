@@ -185,8 +185,8 @@
 .context-part[data-kind="used"], .context-swatch[data-kind="used"] { background: var(--grey); }
 .context-part[data-kind="system"], .context-swatch[data-kind="system"] { background: var(--text); }
 .context-part[data-kind="tools"], .context-swatch[data-kind="tools"] { background: var(--accent); }
-.context-part[data-kind="files"], .context-swatch[data-kind="files"] { background: color-mix(in srgb, var(--accent) 50%, var(--grey)); }
-.context-part[data-kind="conversation"], .context-swatch[data-kind="conversation"] { background: color-mix(in srgb, var(--amber) 60%, var(--grey)); }
+.context-part[data-kind="files"], .context-swatch[data-kind="files"] { background: var(--context-files); }
+.context-part[data-kind="conversation"], .context-swatch[data-kind="conversation"] { background: var(--context-conversation); }
 .context-part[data-kind="other"], .context-swatch[data-kind="other"] { background: var(--scrollbar-thumb); }
 .context-part[data-dim], .context-list li[data-dim] { opacity: 0.4; }
 .context-list { display: flex; flex-wrap: wrap; gap: var(--space-1) var(--space-4); margin: 0; padding: 0; list-style: none; }
