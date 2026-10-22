@@ -11,7 +11,6 @@ import { Reopen } from "./app/Reopen";
 import { createDropTargets } from "./app/dropTargets";
 import type { Requested } from "@contracts/project/Requested";
 import type { App as AppCalls, DaemonExit } from "./app/seam";
-import { DraftRecoveryEntry } from "./drawer/DraftRecovery";
 import { DrawerHost } from "./drawer/DrawerHost";
 import { InboxKey } from "./inbox/Inbox";
 import { WindowBar } from "./header/WindowBar";
@@ -24,6 +23,7 @@ import { attentionCounts, nextAttention } from "./rail/attention";
 import { DockBadge } from "./rail/DockBadge";
 import { railStorage } from "./rail/persist/storage";
 import { Rail } from "./rail/Rail";
+import { ProjectSettingsView } from "./rail/ProjectSettings";
 import { Help } from "./keys/Help";
 import { Leader } from "./keys/Leader";
 import { Capture } from "./todos/Capture";
@@ -383,7 +383,6 @@ export const App = (props: {
                   <>
                     <Keys />
                     <AttentionKey />
-                    <DraftRecoveryEntry />
                     <Rail />
                   </>
                 )}
@@ -405,6 +404,7 @@ export const App = (props: {
                     <Show when={screens()}>{(shared) => <Bubbles screens={shared()} />}</Show>
                     <Switcher onFailure={setJumpFailure} onOpen={() => { if (document.querySelector('.window[data-shelf="open"][data-shelf-mode="overlay"]')) shelfFocus.toggle("key"); }} />
                     <ResourceStrip />
+                    <ProjectSettingsView />
                   </div>
                 );
               }}

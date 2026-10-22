@@ -13,6 +13,7 @@ import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } 
 import { asking, card, gate, mountApp, select } from "../decisions/decisionsFixture";
 import { runChecks } from "../testing/checks";
 import { agent, door } from "../testing/nodes";
+import { openRecovery, recoveryLabel } from "../testing/recovery";
 
 const long = "Change no file in the repo ".repeat(12).trim();
 
@@ -172,7 +173,7 @@ describe("U2773 Order forms on real Projects", () => {
       id: original.id, order: { ...full, ask: "submitted order 👋" }, captured: { order: full },
     }]]);
     expect((await app.rpc("rail.tree", null)).find((node) => node.id === original.id)?.work).toEqual({ ...full, ask: "submitted order 👋" });
-    expect(screen.queryByRole("button", { name: "Recover unfinished work" })).toBeNull();
+    expect(await recoveryLabel()).toBeNull();
     vi.restoreAllMocks();
   }, 60_000);
 
@@ -185,7 +186,7 @@ describe("U2773 Order forms on real Projects", () => {
     fireEvent.input(ask, { target: { value: "  unavailable original 🧭\n" } });
     await app.rpc("agent.stop", { id: original.id });
     await app.rpc("rail.remove", { id: original.id });
-    fireEvent.click(await screen.findByRole("button", { name: "Recover unfinished work" }));
+    await openRecovery();
     const recovery = await screen.findByLabelText("Unfinished work");
     await waitFor(() => expect(within(recovery).queryByRole("button", { name: "Copy" })).not.toBeNull());
     expect(within(recovery).queryByRole("button", { name: "Open" })).toBeNull();
@@ -226,10 +227,11 @@ describe("U2773 Order forms on real Projects", () => {
     await waitFor(() => expect(screen.queryByLabelText("Done when")).toBeNull());
     reply.reject(new RpcError(-32003, "original Project refused"));
     fireEvent.click(screen.getByRole("tab", { name: "first" }));
-    fireEvent.click(await screen.findByRole("button", { name: "Recover unfinished work" }));
+    await openRecovery();
     const recovery = await screen.findByLabelText("Unfinished work");
     await waitFor(() => expect(recovery.textContent).toContain("failed to save"));
-    expect(recovery.querySelectorAll("li[data-revision]")).toHaveLength(1);
+    // B, left by the move to the second Project, lists beside A's failure (U3289a).
+    expect(recovery.querySelectorAll("li[data-revision]")).toHaveLength(2);
     expect(sends).toBe(1);
     expect((await one.rpc("rail.tree", null)).find((node) => node.id === original.id)?.work).toEqual(full);
   }, 60_000);

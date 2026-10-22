@@ -469,9 +469,11 @@ const installDaemon = (app: FakeApp, tree: RailNode[], now: number, withShelf: b
 /** Runs `action` once the App has subscribed and its first reads have settled. */
 const afterFirstLoad = (app: FakeApp, action: () => void) => {
   const subscribe = app.subscribe;
-  app.subscribe = async (listener) => {
-    await subscribe(listener);
+  app.subscribe = async (listener, after) => {
+    const head = await subscribe(listener, after);
     setTimeout(action, 0);
+
+    return head;
   };
 };
 
@@ -543,7 +545,8 @@ export const seedApp = (name: SeedName, now: number): Controls => {
 
   if (name === "decisions") {
     const open = new Map<string, Decision>([
-      ["d-1", { id: "d-1", agent: "agent-1", tool: "Bash", args: JSON.stringify({ command: "rm -rf build && cargo build --release" }), opened_at: now, answerable: true }],
+      ["d-1", { id: "d-1", agent: "agent-1", tool: "Bash", args: JSON.stringify({ command: "rm -rf build && cargo build --release", description: "Remove the build output" }), opened_at: now, answerable: true, scopes: ["once", "session"], risk: "destructive" }],
+      ["d-4", { id: "d-4", agent: "agent-4", tool: "Edit", args: JSON.stringify({ file_path: "/Users/you/project/src/main.rs", old_string: "let a = 1;", new_string: "let a = 2;\nlet b = 3;" }), opened_at: now, answerable: true, scopes: ["once", "session", "project"] }],
       ["d-2", { id: "d-2", agent: "agent-2", tool: "ask_user", args: JSON.stringify({ question: "keep v1 routes?", answers: [{ label: "keep (recommended)", description: "no client breaks; the old routes stay to maintain", preview: "```text\nGET /v1/runs\nGET /v2/runs\n```" }, { label: "drop", description: "one set of routes; v1 clients break" }] }), opened_at: now, answerable: true }],
       ["d-3", { id: "d-3", agent: "agent-3", tool: "AskUserQuestion", args: "Layout\nWhich layout?\n1. Grid\n   Tiles\n   first\n   second\n2. List\n   Rows", opened_at: now, answerable: false }],
     ]);
@@ -563,6 +566,8 @@ export const seedApp = (name: SeedName, now: number): Controls => {
 
       return null;
     };
+
+    app.handlers["decision.revoke"] = () => null;
   }
 
   if (name === "daemon-exits") afterFirstLoad(app, () => app.exitDaemon({ code: 1 }));

@@ -1,6 +1,6 @@
 import * as v from "valibot";
 import { INTERNAL_CODE, RpcError } from "../app/seam";
-import { batch, createEffect, createRenderEffect, createMemo, createSignal, untrack } from "solid-js";
+import { batch, createEffect, createRenderEffect, createMemo, createSignal, onCleanup, untrack } from "solid-js";
 import type { Accessor } from "solid-js";
 import type { Kind } from "@contracts/Kind";
 import { copy } from "../copy";
@@ -157,6 +157,15 @@ export const createSendSelection = (connected: ConnectedProject, screens: Screen
 
   /** A selection exists, even a blank one: the control is offered and says `Nothing selected` when sent. */
   const selected = () => (held()?.text ?? text()) !== "";
+  const shown = () => selected() && !selecting() && !dismissed() && (held()?.anchor ?? anchor()) !== null;
+
+  // The note is being typed while its popover shows; leaving it is what makes unsent text unfinished work (U3289a).
+  const noteObject = createMemo(() => current()?.destination.object);
+  createEffect(() => {
+    const object = noteObject();
+
+    if (object !== undefined && shown()) onCleanup(drafts.editor({ surface: "terminal_selection", object, recipient: current()?.destination.recipient ?? null }));
+  });
 
   const send = async (to: Receiver): Promise<boolean> => {
     const id = terminalId();
@@ -299,7 +308,7 @@ export const createSendSelection = (connected: ConnectedProject, screens: Screen
     anchor: () => held()?.anchor ?? anchor(),
     hold,
     /** The control shows by the selection once the pointer is up and the user has not sent or dismissed it. */
-    open: () => selected() && !selecting() && !dismissed() && (held()?.anchor ?? anchor()) !== null,
+    open: shown,
     pointer: setSelecting,
     /** Escape in the control: it closes until the selection changes. */
     dismiss: () => { if (!current()) retain(); setDismissed(true); },

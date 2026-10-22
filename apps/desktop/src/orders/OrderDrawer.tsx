@@ -97,6 +97,8 @@ const OrderContent = (props: OrderInput) => {
 
   const destination = () => ({ surface: "orders", object: props.id, recipient: props.id });
 
+  createEffect(() => { if (editing()) onCleanup(drafts.editor(destination())); });
+
   const records = () => drafts.list().filter((draft) => draft.destination.surface === "orders"
     && draft.destination.object === props.id && draft.destination.recipient === props.id);
 
