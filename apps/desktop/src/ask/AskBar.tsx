@@ -294,7 +294,7 @@ const ProjectOverview = () => {
   const workstreams = createMemo(() => siblingsOf(rail.nodes, null).flatMap((node) => [node, ...descendantsOf(rail.nodes, node.id)]).filter((node) => node.kind === "workstream"));
   const under = (id: string | null) => attention().filter((node) => resolvedWorkstream(rail.nodes, node.id) === id);
 
-  const called = (id: string) => rail.nodes.filter((node) => node.tool_call !== undefined && resolvedWorkstream(rail.nodes, node.id) === id);
+  const called = (id: string | null) => rail.nodes.filter((node) => node.tool_call !== undefined && resolvedWorkstream(rail.nodes, node.id) === id);
 
   const entry = (node: RailNode, waiting = false) => <OverviewEntry node={node} waiting={waiting} select={() => rail.select(node.id)} />;
 
@@ -317,6 +317,7 @@ const ProjectOverview = () => {
         </ul></Show>
       </li>}</For>
       <For each={under(null)}>{(node) => <li>{entry(node, true)}</li>}</For>
+      <For each={called(null)}>{(agent) => <li><ToolCallLine name={agent.name} call={agent.tool_call!} /></li>}</For>
     </ul>
   </section>;
 };

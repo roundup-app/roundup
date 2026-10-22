@@ -337,6 +337,39 @@ button.ask-line:is(:active, [data-pressed="true"]) {
   color: var(--grey);
 }
 
+.call-trigger {
+  display: flex;
+  flex: 1 1 auto;
+  align-items: center;
+  gap: var(--space-2);
+  min-width: 0;
+  padding: 0;
+  background: none;
+  border: 0;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.call-chevron {
+  flex-shrink: 0;
+  width: 0.4em;
+  height: 0.4em;
+  border-right: 1.5px solid currentColor;
+  border-bottom: 1.5px solid currentColor;
+  transform: rotate(-45deg);
+}
+
+.call-trigger[data-state="open"] .call-chevron {
+  transform: rotate(45deg);
+}
+
+.call-payload-head + .call-text,
+.call-payload + .call-payload {
+  margin-top: var(--space-2);
+}
+
 .call-agent,
 .call-tool {
   flex-shrink: 0;
@@ -387,7 +420,7 @@ button.ask-line:is(:active, [data-pressed="true"]) {
 }
 
 .call[data-reduced-motion="true"] .call-fold {
-  animation: none;
+  animation-name: none;
 }
 
 @keyframes call-fold-open {
@@ -401,7 +434,7 @@ button.ask-line:is(:active, [data-pressed="true"]) {
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .call-fold { animation: none; }
+  .call-fold { animation-name: none; }
 }
 
 .call-payload-head {
