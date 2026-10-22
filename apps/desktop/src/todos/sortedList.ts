@@ -197,6 +197,12 @@ export const createSortedList = (source: {
       },
       fail: (show) => fails.set(id, show),
       step: (by) => step(id, by, ids()),
+      can: (by) => {
+        const list = ids();
+        const to = list.indexOf(id) + by;
+
+        return list.includes(id) && to >= 0 && to < list.length;
+      },
       key: (event) => {
         if (!event.altKey || (event.key !== "ArrowUp" && event.key !== "ArrowDown")) return;
 
