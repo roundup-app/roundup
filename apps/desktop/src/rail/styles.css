@@ -226,6 +226,7 @@
   border: 0;
   resize: none;
   overflow-y: auto;
+  overscroll-behavior: contain;
   line-height: var(--space-4);
   max-height: calc(6lh + 2 * var(--space-1));
 }
@@ -518,6 +519,7 @@
   max-width: min(var(--shelf-width), calc(100vw - 2 * var(--space-4)));
   max-height: calc(100vh - 2 * var(--space-4));
   overflow: auto;
+  overscroll-behavior: contain;
 }
 
 /* The trailing Glyph and controls share a group so their gaps never consume the name's room. */
@@ -681,14 +683,6 @@
   pointer-events: none;
 }
 
-/* U2228a: the full name of a cut row wraps inside the Rail's width on an opaque panel that stands apart from the Rail. */
-.app-tooltip.rail-name-tip {
-  max-width: min(var(--rail-width), calc(100vw - 2 * var(--space-4)));
-  overflow-wrap: anywhere;
-  background-color: var(--ground);
-  border: 1px solid var(--hairline);
-}
-
 /* U350: the clear prompt's fields. */
 .clear-prompt {
   display: grid;
@@ -845,6 +839,7 @@
   padding: var(--space-2);
   max-height: var(--pad-menu-max-height);
   overflow: auto;
+  overscroll-behavior: contain;
 }
 
 .rail-recovery p,

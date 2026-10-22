@@ -277,6 +277,9 @@ _Avoid_: assignee
 **Comment** (`todo.comment`, `todo_comment`):
 A line on a Todo from the user or an Agent, shown oldest first with its author and time. Not a Message and not History: it moves no field of the Todo. An Agent's comment is unread, and waits in the Inbox as needs-you, until the user opens the Todo (T20 to T23).
 
+**Ref** (`todo.addRef`, `todo.removeRef`, `todo.refs`, `refs`):
+A link from a Todo to a Pad or one section of a Pad, `roundup://pad/<name>?project=<key>` with `#<heading>` for a section (LK4). A Todo keeps one Ref per target, in the order added. Not a blocker and not a Message: it moves no field of the Todo and adds no History. Its state is `ok`, or `missing` when the Pad or heading no longer exists, computed at read and never stored (T27, T28).
+
 **Sketch**:
 A Pad holding Mermaid or drawing blocks; the Pad contracts are unchanged. Workstream-scoped storage is still open.
 

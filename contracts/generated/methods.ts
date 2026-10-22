@@ -138,6 +138,8 @@ import type { HandParams as todo_HandParams } from "./todo/HandParams";
 import type { History as todo_History } from "./todo/History";
 import type { MoveParams as todo_MoveParams } from "./todo/MoveParams";
 import type { ReadHistoryParams as todo_ReadHistoryParams } from "./todo/ReadHistoryParams";
+import type { Ref as todo_Ref } from "./todo/Ref";
+import type { RefParams as todo_RefParams } from "./todo/RefParams";
 import type { ReorderParams as todo_ReorderParams } from "./todo/ReorderParams";
 import type { SetBlockersParams as todo_SetBlockersParams } from "./todo/SetBlockersParams";
 import type { Todo as todo_Todo } from "./todo/Todo";
@@ -209,6 +211,9 @@ export type RpcMethods = {
   "todo.comments": { params: todo_TodoId; result: todo_Comment[] };
   "todo.unread": { params: null; result: todo_UnreadComment[] };
   "todo.markCommentsRead": { params: todo_TodoId; result: null };
+  "todo.addRef": { params: todo_RefParams; result: todo_Todo };
+  "todo.removeRef": { params: todo_RefParams; result: todo_Todo };
+  "todo.refs": { params: todo_TodoId; result: todo_Ref[] };
   "pad.create": { params: pad_CreateParams; result: pad_Pad };
   "pad.read": { params: pad_PadName; result: pad_Pad };
   "pad.list": { params: null; result: pad_Pad[] };

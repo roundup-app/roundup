@@ -22,6 +22,7 @@
   flex: 0 1 auto;
   min-height: 0;
   overflow: auto;
+  overscroll-behavior: contain;
 }
 
 .decision-args {
@@ -60,6 +61,7 @@
   flex: 0 1 auto;
   min-height: 0;
   overflow: auto;
+  overscroll-behavior: contain;
   margin: var(--space-2) 0;
 }
 
@@ -71,6 +73,7 @@
   flex: 0 1 auto;
   min-height: 0;
   overflow: auto;
+  overscroll-behavior: contain;
   margin-bottom: var(--space-2);
   padding: var(--space-2);
   background: var(--sunken);
