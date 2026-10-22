@@ -1,4 +1,4 @@
-import { cleanup, screen, waitFor } from "@solidjs/testing-library";
+import { cleanup, fireEvent, screen, waitFor } from "@solidjs/testing-library";
 import { afterEach, describe, expect, it } from "vitest";
 import { agent, event, info, node } from "../testing/nodes";
 import { callsTo, mountPane } from "./paneHarness";
@@ -20,7 +20,7 @@ describe("U83 closed Agent overview", () => {
     connected.rail.select("a");
 
     for (const text of [overview.program, overview.id, overview.name, overview.card.intent, overview.card.shape, overview.card.facts[0]!, overview.card.outcome,
-      "Keep family recipes", "Notebook opens", "Keep it local", "Use a single file"]) {
+      "Keep family recipes", "Notebook opens", "Keep it local"]) {
       expect(await screen.findByText(text)).toBeTruthy();
     }
 
@@ -48,18 +48,16 @@ describe("U83 closed Agent overview", () => {
     app.handlers["agent.spawnPrompt"] = ({ id }) => id === "a" ? { prompt: "First session prompt" } : new Promise(() => {});
 
     connected.rail.select("a");
-    await screen.findByText("First session prompt");
+    await screen.findByText(overview.id);
 
     connected.rail.select("b");
     await screen.findByText("other-session");
     expect(screen.queryByText(overview.id)).toBeNull();
-    expect(screen.queryByText("First session prompt")).toBeNull();
     expect(screen.queryByText(overview.name)).toBeNull();
     expect(screen.queryAllByRole("heading")).toHaveLength(0);
 
     for (const text of Object.values(overview.card).flat()) expect(screen.queryByText(text)).toBeNull();
     expect(screen.queryByRole("meter")).toBeNull();
-    await waitFor(() => expect(document.querySelector(".order-prompt")).toBeNull());
   });
 
   it.each(["t-a", null])("u83_a_running_agent_keeps_its_order_line_and_hides_overview_data (%s)", async (terminalId) => {
@@ -84,5 +82,43 @@ describe("U83 closed Agent overview", () => {
     expect(await screen.findByText("Which recipes?")).toBeTruthy();
     expect(await screen.findByText("Prompt read failed")).toBeTruthy();
     expect(document.querySelector(".order-line")).toBeNull();
+  });
+
+  describe("O17 the session id copies", () => {
+    const setup = async (write: (text: string) => Promise<void>) => {
+      Object.defineProperty(navigator, "clipboard", { value: { writeText: write }, configurable: true });
+      const { connected } = await mountPane([agent("a", "done", "finished", { terminal_id: null, overview })]);
+      connected.rail.select("a");
+
+      return await screen.findByRole("button", { name: "Copy session id" });
+    };
+
+    it("o17_clicking_the_session_id_copies_it", async () => {
+      const written: string[] = [];
+      const button = await setup(async (text) => { written.push(text); });
+      fireEvent.click(button);
+      await waitFor(() => expect(button.textContent).toBe("Copied"));
+      expect(written).toEqual([overview.id]);
+      await waitFor(() => expect(button.textContent).toBe(overview.id), { timeout: 2500 });
+    });
+
+    it("o17_enter_on_the_session_id_copies_it", async () => {
+      const written: string[] = [];
+      const button = await setup(async (text) => { written.push(text); });
+      // A native button turns Enter into a click; jsdom does not, so the test pins the element.
+      button.focus();
+      expect(document.activeElement).toBe(button);
+      expect(button.tagName).toBe("BUTTON");
+      expect(button.getAttribute("type")).toBe("button");
+      fireEvent.click(button);
+      await waitFor(() => expect(written).toEqual([overview.id]));
+    });
+
+    it("o17_a_refused_copy_says_so", async () => {
+      const button = await setup(async () => { throw new Error("denied"); });
+      fireEvent.click(button);
+      await waitFor(() => expect(button.textContent).toBe("Copy failed"));
+      await waitFor(() => expect(button.textContent).toBe(overview.id), { timeout: 2500 });
+    });
   });
 });

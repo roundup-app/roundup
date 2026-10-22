@@ -25,8 +25,6 @@ it("u471_previous_copy_assertions_are_preserved_order_labels_use_sentence_case_a
   expect(drawer.textContent).toContain("keep v1 routes?");
   expect(drawer.querySelector(".order-done")?.textContent).toBe("routes stay");
   expect(screen.getByRole("img", { name: "Not done" })).toBeTruthy();
-  await waitFor(() => expect(drawer.querySelector("summary")?.textContent).toBe("Prompt"));
-  expect(drawer.querySelector(".order-prompt-body")?.textContent).toBe("keep this lower case");
   fireEvent.click(screen.getByRole("button", { name: "Edit order" }));
 
   for (const label of ["Title", "Ask", "Done when"]) expect(screen.getByLabelText(label)).toBeTruthy();
