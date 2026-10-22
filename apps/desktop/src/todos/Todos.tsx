@@ -177,7 +177,7 @@ export const OpenRow = (props: {
             props.sorted?.button(row);
           }}
         >
-          <span {...titleCut.attrs()} class="shelf-title"><span class="todo-strike" onAnimationEnd={() => props.onMotionEnd?.()}>{props.todo.title}</span></span>
+          <span {...titleCut.attrs()} class="shelf-title">{props.todo.title}<span class="todo-strike" aria-hidden="true" data-title={props.todo.title} onAnimationEnd={() => props.onMotionEnd?.()} /></span>
         </RowButton>
         <Show when={!props.nested && props.sorted}>
           <div class="todo-row-actions" role="group" aria-label={copy.rowActionsFor(props.todo.id)}>
@@ -307,28 +307,29 @@ export const Todos = (props: {
 
   const inScope = createMemo(() => todos.all().filter((todo) => scope.includes(todo.home, todo.creator, todo.owner)));
 
+  const rows = new Map<number, HTMLButtonElement>();
+  const [closedGroups, setClosedGroups] = createSignal<readonly string[]>(["unassigned"]);
+
   const finishing = createFinishMotion({
     loaded: todos.isLoaded,
     key: () => connected.rail.selected() ?? "overview",
     done: createMemo(() => new Set(inScope().filter((todo) => todo.done).map((todo) => todo.id))),
     reduced: connected.reducedMotion,
+    open: createMemo(() => open().map(todo => todo.id)),
+    shown: (id, wasDone) => {
+      if (wasDone) return unfolded();
+
+      const todo = inScope().find(todo => todo.id === id);
+      const group = todo && ownerGroups(connected, [todo], item => item.owner).find(group => group.items.length > 0);
+
+      return group !== undefined && !closedGroups().includes(group.id);
+    },
   });
 
   // U3770: a Todo ticked in the open list stays in it, drawn done, until its motion ends, then moves to the done fold.
   const held = (todo: Todo) => todo.done && finishing.row(todo.id);
 
-  // A held row keeps the place it had when it was open, so a tick moves it once, into the fold.
-  const listed = createMemo<Todo[]>((before) => {
-    const list = [...open()];
-
-    for (const todo of done().filter(held)) {
-      const was = before.findIndex((other) => other.id === todo.id);
-
-      list.splice(was < 0 ? list.length : Math.min(was, list.length), 0, todo);
-    }
-
-    return list;
-  }, []);
+  const listed = createMemo(() => finishing.order().flatMap(id => todos.byId().get(id) ?? []));
 
   const target = (todo: Todo) => ({ id: todo.id, label: todo.title });
 
@@ -464,7 +465,6 @@ export const Todos = (props: {
     if (plan.before !== undefined) sorted.show(id, await sorted.reorderTo(id, plan.before));
   };
 
-  const rows = new Map<number, HTMLButtonElement>();
   let plusButton: HTMLButtonElement | undefined;
 
   const rowButtonOf = (id: number) => (rows.get(id)?.isConnected ? rows.get(id) : null) ?? document.querySelector<HTMLElement>(`[data-todo="${id}"] .row-head button`);
@@ -891,8 +891,8 @@ export const Todos = (props: {
           </Progress>
         </div>
       </Show>
-      <Show when={open().length > 0 || adding() !== null}>
-        <OwnerGroups groups={() => ownerGroups(connected, listed(), todo => todo.owner)} dragging={dragging} bare={() => connected.rail.nodes.find(node => node.id === connected.rail.selected())?.kind === "agent" ? connected.rail.selected() : null} adding={() => adding()?.group ?? null} reveal={revealed} unfold={todos.revealed} onAdd={group => openField({ group: group.id, owner: group.actor })}>{group => {
+      <Show when={listed().length > 0 || adding() !== null}>
+        <OwnerGroups onClosedChange={setClosedGroups} groups={() => ownerGroups(connected, listed(), todo => todo.owner)} dragging={dragging} bare={() => connected.rail.nodes.find(node => node.id === connected.rail.selected())?.kind === "agent" ? connected.rail.selected() : null} adding={() => adding()?.group ?? null} reveal={revealed} unfold={todos.revealed} onAdd={group => openField({ group: group.id, owner: group.actor })}>{group => {
         const tree = createMemo(() => treeRows(group().items));
         const collection = createMemo(() => treeCollection(tree()));
         const placeOf = (id: number) => tree().find((row) => row.todo.id === id) ?? { level: 1, parent: null };

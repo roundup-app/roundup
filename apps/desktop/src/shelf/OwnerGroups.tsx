@@ -24,10 +24,14 @@ export const OwnerGroups = <T,>(props: {
   bare?: Accessor<string | null>;
   /** Absent for a list with no per-group field (the Pads tab). */
   onAdd?: (group: OwnerGroup<T>) => void;
+  /** U3770: completion effects only play in expanded groups. */
+  onClosedChange?: (ids: readonly string[]) => void;
   children: (group: Accessor<OwnerGroup<T>>) => JSX.Element;
 }) => {
   // A Todo filed before the first group mounts has already counted: the group starts open then.
   const [closed, setClosed] = createSignal(props.unfold?.() ? [] : ["unassigned"]);
+
+  createEffect(() => props.onClosedChange?.(closed()));
 
   const shown = createMemo<OwnerGroup<T>[]>((previous = []) => {
     const groups = props.groups().filter(group => group.items.length > 0 || props.dragging() || props.adding() === group.id);
