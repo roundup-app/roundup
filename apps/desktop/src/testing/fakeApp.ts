@@ -42,6 +42,9 @@ export type FakeApp = AppSeam & {
   calls: { method: RpcMethodName; params: unknown }[];
   handlers: Handlers;
   emit(event: DaemonEvent): void;
+  /** Every `subscribe` call so far with the `after` it asked to replay from, and the `head` the Daemon answers. */
+  subscribed: { after: number | undefined }[];
+  head: number;
   /** Every `selectOutput` call so far, in call order. */
   outputSubscriptions: FakeOutputSubscription[];
   /** The next byte position of each Terminal's output stream; `selectOutput` starts there. Set it to start a stream mid-way. */
@@ -158,6 +161,8 @@ export const createFakeApp = (): FakeApp => {
       failure: null,
     },
     proof: { value: "fake-proof", failure: null },
+    subscribed: [],
+    head: 0,
     emit: (event) => {
       if (!onEvent) throw new Error("the webview has not subscribed yet");
 
@@ -295,8 +300,11 @@ export const createFakeApp = (): FakeApp => {
 
       return handler(params);
     },
-    subscribe: async (listener) => {
+    subscribe: async (listener, after) => {
       onEvent = listener;
+      app.subscribed.push({ after });
+
+      return app.head;
     },
     selectOutput: async (id, listener) => {
       if (app.outputFailure) throw app.outputFailure;
