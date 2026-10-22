@@ -231,6 +231,8 @@ export const copy = {
   wantsToRun: " wants to run ",
   wantsToEdit: " wants to edit ",
   wantsToUse: " wants to use ",
+  linesAdded: (value1: CopyValue) => `+${value1}`,
+  linesRemoved: (value1: CopyValue) => `−${value1}`,
   effectsMore: (value1: CopyValue) => `${value1} more`,
   allowedOnce: "Allowed once",
   allowedForSession: "Allowed for this session",
