@@ -1,4 +1,4 @@
-import { createEffect, createMemo, createSignal, For, on, type Accessor, type JSX } from "solid-js";
+import { createEffect, createMemo, createSignal, For, on, Show, type Accessor, type JSX } from "solid-js";
 import { createTreeCollection } from "@ark-ui/solid/collection";
 import { TreeView } from "../ui/TreeView";
 import { Icon } from "../ink/Icon";
@@ -22,7 +22,8 @@ export const OwnerGroups = <T,>(props: {
   unfold?: Accessor<number>;
   /** U3730: the group named like the scope (a selected Agent's own) shows no header, so the scope's name appears once. */
   bare?: Accessor<string | null>;
-  onAdd: (group: OwnerGroup<T>) => void;
+  /** Absent for a list with no per-group field (the Pads tab). */
+  onAdd?: (group: OwnerGroup<T>) => void;
   children: (group: Accessor<OwnerGroup<T>>) => JSX.Element;
 }) => {
   // A Todo filed before the first group mounts has already counted: the group starts open then.
@@ -66,7 +67,7 @@ export const OwnerGroups = <T,>(props: {
               <TreeView.BranchText><Tip text={group().name}>{trigger => <span {...trigger()} class="shelf-group-name">{group().name}</span>}</Tip></TreeView.BranchText>
               <span class="shelf-group-count">{group().items.length}</span>
             </TreeView.BranchControl>
-            <IconButton class="shelf-group-add" aria-label={copy.addTodoTo(group().name)} onKeyDown={event => event.stopPropagation()} onClick={() => props.onAdd(group())}><Icon name="plus" /></IconButton>
+            <Show when={props.onAdd}>{add => <IconButton class="shelf-group-add" aria-label={copy.addTodoTo(group().name)} onKeyDown={event => event.stopPropagation()} onClick={() => add()(group())}><Icon name="plus" /></IconButton>}</Show>
           </div>
           <TreeView.BranchContent>{props.children(group)}</TreeView.BranchContent>
         </TreeView.Branch>

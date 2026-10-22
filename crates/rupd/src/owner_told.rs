@@ -50,6 +50,14 @@ pub struct Told {
     pending: HashMap<String, Vec<(u32, Change)>>,
     /// The newest comment of each Todo already read, so a comment is told once.
     comments_seen: HashMap<u32, u32>,
+    /// When the Daemon started, in ms: a Todo's first read tells only the comments made since.
+    started: i64,
+}
+
+fn now_ms() -> i64 {
+    std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map_or(0, |d| d.as_millis() as i64)
 }
 
 /// The Agent an owner names; Me and Unassigned name none.
@@ -66,6 +74,7 @@ impl Told {
             todos: todos.into_iter().map(|todo| (todo.id, todo)).collect(),
             pending: HashMap::new(),
             comments_seen: HashMap::new(),
+            started: now_ms(),
         }
     }
 
@@ -75,7 +84,10 @@ impl Told {
         let seen = self.comments_seen.get(&id).copied();
         let fresh: Vec<&Comment> = match seen {
             Some(seen) => thread.iter().filter(|c| c.id > seen).collect(),
-            None => thread.last().into_iter().collect(),
+            None => thread
+                .iter()
+                .filter(|c| c.created_at >= self.started)
+                .collect(),
         };
         if let Some(newest) = thread.iter().map(|c| c.id).max() {
             self.comments_seen.insert(id, newest.max(seen.unwrap_or(0)));
@@ -554,9 +566,43 @@ mod tests {
             id,
             author: by,
             body: body.into(),
-            created_at: 0,
+            created_at: now_ms(),
             read: false,
         }
+    }
+
+    #[test]
+    fn t24_two_quick_user_comments_after_a_start_are_both_told() {
+        let a = Some(agent_actor("a"));
+        let mut told = told_with(vec![todo(1, "Ship", a, vec![])]);
+        let mut old = comment(1, Actor::user(), "before the start");
+        old.created_at = 0;
+        let thread = vec![
+            old,
+            comment(2, Actor::user(), "first"),
+            comment(3, Actor::user(), "second"),
+        ];
+        told.commented(1, &thread);
+        assert_eq!(
+            told.take("a").unwrap(),
+            "[todos]\n- Ship: new comment from you: first, new comment from you: second (rup todo get 1)"
+        );
+    }
+
+    #[test]
+    fn t24_agent_comments_in_that_window_are_not_told() {
+        let a = Some(agent_actor("a"));
+        let mut told = told_with(vec![todo(1, "Ship", a, vec![])]);
+        let thread = vec![
+            comment(1, agent_actor("a"), "q?"),
+            comment(2, Actor::user(), "answer"),
+            comment(3, agent_actor("b"), "hi"),
+        ];
+        told.commented(1, &thread);
+        assert_eq!(
+            told.take("a").unwrap(),
+            "[todos]\n- Ship: new comment from you: answer (rup todo get 1)"
+        );
     }
 
     #[test]

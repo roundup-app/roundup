@@ -844,5 +844,10 @@
     "cleanup": "In-process test runtime owns these Daemons; no built executable launch.",
     "data": "Unit observers call Daemon::open on explicit TempDir paths; no production fallback resolver.",
     "kind": "in-process"
+  },
+  "apps/desktop/src/pads/u3732_real_daemon_agent_owner.test.tsx": {
+    "cleanup": "Launch owner above supplies cleanup; this caller launches no executable itself.",
+    "data": "Uses audited desktop fixture or a fake/client reference; no separate built-Daemon launch.",
+    "kind": "reference"
   }
 }

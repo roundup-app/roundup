@@ -59,7 +59,7 @@ it("u460_rendered_bulk_actions_name_failures", async () => {
     await settle();
     await evaluate(`(() => { [...document.querySelectorAll('[role="tab"]')].find(tab => tab.textContent.startsWith('Pads')).click(); return true; })()`);
     await settle();
-    await evaluate(`(() => { const rows = document.querySelectorAll('.pad-name'); rows[4].focus(); rows[4].dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', metaKey: true, bubbles: true, cancelable: true })); rows[4].dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowUp', shiftKey: true, bubbles: true, cancelable: true })); return true; })()`);
+    await evaluate(`(() => { const long = [...document.querySelectorAll('.pad-name')].find(row => row.textContent.length === 120); long.focus(); long.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', metaKey: true, bubbles: true, cancelable: true })); long.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowUp', shiftKey: true, bubbles: true, cancelable: true })); return true; })()`);
     await settle();
     expect(await evaluate<string>("document.querySelector('.shelf-bulk').textContent")).toContain('2 selected');
     await evaluate(`(() => { document.querySelector('.shelf-bulk button').click(); return true; })()`);

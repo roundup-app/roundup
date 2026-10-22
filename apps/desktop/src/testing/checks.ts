@@ -483,16 +483,25 @@ const d6 = (page: Page): Measure => {
 
     if (height > 0) measured += 1;
 
-    if (height > 0 && height < 24) return { ok: false, value: { height }, selector: selectorOf(el) };
+    // Every fault of the first failing target is named at once, so one fix answers them all.
+    // U353: a text field answers with a caret, so only its hit area is measured.
+    const text = el.matches("input[type=text]");
 
-    if (el.matches("input[type=text]")) continue;
-
-    if (!declares(stateRules(page, el, ":hover"), "background", "background-color", "background-image", "color")) return { ok: false, value: { missing: "hover" }, selector: selectorOf(el) };
-
-    if (!declares(stateRules(page, el, ":focus-visible"), "outline", "outline-color", "box-shadow")) return { ok: false, value: { missing: "focus" }, selector: selectorOf(el) };
+    const missing = text ? [] : [
+      ...(declares(stateRules(page, el, ":hover"), "background", "background-color", "background-image", "color") ? [] : ["hover"]),
+      ...(declares(stateRules(page, el, ":focus-visible"), "outline", "outline-color", "box-shadow") ? [] : ["focus"]),
+    ];
 
     // U155: a Todo row can be dragged, so its cursor is `grab`.
-    if (style.cursor !== (el.hasAttribute("data-reorderable") ? "grab" : "pointer")) return { ok: false, value: { cursor: style.cursor }, selector: selectorOf(el) };
+    const cursorOk = text || style.cursor === (el.hasAttribute("data-reorderable") ? "grab" : "pointer");
+
+    const faults = Object.fromEntries([
+      ["height", height > 0 && height < 24 ? height : undefined],
+      ["missing", missing.length > 0 ? missing : undefined],
+      ["cursor", cursorOk ? undefined : style.cursor],
+    ].filter(([, value]) => value !== undefined));
+
+    if (Object.keys(faults).length > 0) return { ok: false, value: faults, selector: selectorOf(el) };
   }
 
   return targets.length > 0 && measured === 0 ? { ok: false, value: NOT_MEASURABLE, selector: "" } : { ok: true, value: { targets: targets.length }, selector: "" };

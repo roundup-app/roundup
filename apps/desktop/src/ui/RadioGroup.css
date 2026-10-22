@@ -50,6 +50,7 @@
   inset: 0;
   clip: auto !important;
   opacity: 0;
+  cursor: pointer;
 }
 
 /* The hidden input is the press target: it answers at once, and the mark darkens with it. */
@@ -64,7 +65,6 @@
   border-color: var(--text);
 }
 
-.app-radio > input:hover:not(:disabled),
-.app-radio:has(input:hover:not(:disabled)) .app-radio-label {
+.app-radio > input:hover:not(:disabled) {
   color: var(--text);
 }

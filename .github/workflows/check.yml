@@ -70,6 +70,8 @@ jobs:
       - uses: actions/checkout@v5
         with:
           fetch-depth: 0
+      # N7: every launch reference has an entry; the `mac` lane, which runs the rest of N7, skips App-only PRs.
+      - run: python3 loop/app-data.py python3 loop/launch-sites.test.py LaunchSites.test_n7_launch_sites_use_owned_data
       - id: plan
         env:
           RUSTUP_TOOLCHAIN: stable
