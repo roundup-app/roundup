@@ -84,15 +84,12 @@ impl Daemon {
         self.start_queue();
         // A child may not turn its Terminal keystrokes into a user's answer by
         // claiming `user`; H21's process identity applies to this input path too.
-        let input_actor = if method == "terminal.write" {
+        if method == "terminal.write" {
             let actor = self.terminal_writer(conn);
             if actor.kind == ActorKind::Agent {
-                conn.actor = actor.clone();
+                conn.actor = actor;
             }
-            Some(actor)
-        } else {
-            None
-        };
+        }
         let namespace = method.split('.').next().unwrap_or_default();
         if matches!(method, "daemon.identify" | "events.subscribe") {
             return builtin::call(self, conn, namespace, method, &params)
@@ -395,15 +392,7 @@ impl Daemon {
                     self.note_user_input(&params).await;
                 }
                 self.agents
-                    .write_terminal(
-                        &conn.actor,
-                        input_actor
-                            .as_ref()
-                            .expect("Terminal input has an authenticated source"),
-                        &write.id,
-                        bytes,
-                        write.identity,
-                    )
+                    .write_terminal(&conn.actor, &write.id, bytes, write.identity)
                     .await?;
                 // A refused guarded submit wrote no bytes and cannot release Messages
                 // waiting behind the user's input. Ordinary writes retain their queued cut.

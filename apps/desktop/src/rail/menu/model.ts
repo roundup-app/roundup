@@ -219,8 +219,8 @@ export const createRailMenu = (app: AppSeam, rail: RailState, onFailure: (messag
       return [
         { id: "start-now", label: copy.startNow, run: call(async () => { await app.rpc("workstream.startNow", { workstream: node.id }); }) },
         { id: "dequeue", label: copy.takeOutOfQueue, run: call(async () => { await app.rpc("workstream.dequeue", { workstream: node.id }); }) },
-        { id: "move-up", label: copy.moveUp, enabled: queued.place > 1, run: call(async () => { await app.rpc("workstream.queueMove", { workstream: node.id, index: queued.place - 2 }); }) },
-        { id: "move-down", label: copy.moveDown, enabled: queued.place < queued.of, run: call(async () => { await app.rpc("workstream.queueMove", { workstream: node.id, index: queued.place }); }) },
+        ...(queued.place > 1 ? [{ id: "move-up", label: copy.moveUp, run: call(async () => { await app.rpc("workstream.queueMove", { workstream: node.id, index: queued.place - 2 }); }) }] : []),
+        ...(queued.place < queued.of ? [{ id: "move-down", label: copy.moveDown, run: call(async () => { await app.rpc("workstream.queueMove", { workstream: node.id, index: queued.place }); }) }] : []),
         remove,
       ];
     }
