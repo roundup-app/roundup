@@ -216,6 +216,7 @@
 .triage-hints {
   position: sticky;
   bottom: 0;
+  z-index: 1;
   display: flex;
   flex-wrap: wrap;
   column-gap: var(--space-3);
