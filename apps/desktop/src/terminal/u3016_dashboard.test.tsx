@@ -1,3 +1,4 @@
+import { duration, percent, tokenFigure } from "./measurementFormat";
 import { cleanup, fireEvent, screen, waitFor } from "@solidjs/testing-library";
 import { afterEach, expect, it } from "vitest";
 import { workstream } from "../testing/nodes";
@@ -352,4 +353,22 @@ it("u3016j_one_failed_read_then_success_shows_no_message", async () => {
   expect(screen.queryByText(/Read unavailable/)).toBeNull();
   expect(screen.queryByText(/unavailable\./)).toBeNull();
   expect(screen.queryByRole("button", { name: "Retry" })).toBeNull();
+});
+
+it("u3016g_numbers_use_display_units_and_never_show_unavailable_as_zero", () => {
+  const tokens = (known: string) => tokenFigure({ known, missing: 0 });
+  const seconds = (value: number) => duration(String(value * 1_000_000_000));
+
+  expect(["0", "1", "9999", "10000", "1949999"].map(tokens)).toEqual(["0", "1", "9999", "10K", "1.9M"]);
+  expect([seconds(59), seconds(3599), duration("0"), duration(null)]).toEqual(["59s", "59m 59s", "0s", copy.measurementUnknown]);
+  expect([percent(0.4, 100), percent(1, 0), percent(0, 100)]).toEqual(["<1%", copy.measurementUnknown, "0%"]);
+});
+
+it("u3016g_measurement_notes_are_one_closed_disclosure_and_each_note_appears_once", async () => {
+  await dashboard();
+  const root = screen.getByRole("region", { name: "Cost and time" });
+  const text = root.textContent ?? "";
+
+  for (const sentence of ["Fixture coverage", "Fixture has no price basis"]) expect(text.split(sentence).length - 1).toBe(1);
+  expect(within(root).getByRole("button", { name: /How this is measured · 3 gaps/ }).getAttribute("aria-expanded")).toBe("false");
 });
