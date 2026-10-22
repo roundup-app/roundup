@@ -26,8 +26,8 @@ const CONFIRM_MS = 900;
 /** A safety net for the fold's `transitionend`, which never comes when nothing is painted. */
 const FOLD_MS = 400;
 
-const sectionTitle = (title: string, count: () => number, live = false) => <div class="inbox-group-head">
-  <h3>{title}</h3>
+const sectionTitle = (title: string, count: () => number, live = false, ref?: (element: HTMLHeadingElement) => void) => <div class="inbox-group-head">
+  <h3 ref={ref} tabindex={ref ? -1 : undefined}>{title}</h3>
   <span class="inbox-count" aria-live={live ? "polite" : undefined} aria-atomic={live ? "true" : undefined}>{count()}</span>
 </div>;
 
@@ -51,6 +51,7 @@ export const Inbox = () => {
   let live = false;
   let seen = new Set<string>();
   let root: HTMLElement | undefined;
+  let needsHeading: HTMLElement | undefined;
 
   const refresh = async () => {
     const mine = ++latest;
@@ -163,7 +164,20 @@ export const Inbox = () => {
         if (!active || active === document.body || active.classList.contains("inbox-confirm")) heads.get(next)?.focus();
       });
     }
-    else if (openKey() === after) setOpenKey(null);
+    else {
+      if (openKey() === after) setOpenKey(null);
+
+      // No Decision is left: the answered row folds inert, so focus goes to the row taking its place, else the one before, else the heading.
+      const live = (key: string) => !byKey().get(key)?.settled && heads.has(key);
+      const rest = [...keys.slice(from + 1).filter(live), ...keys.slice(0, Math.max(from, 0)).reverse().filter(live)];
+      const target = rest[0] === undefined ? needsHeading : heads.get(rest[0]);
+
+      queueMicrotask(() => {
+        const active = document.activeElement;
+
+        if (!active || active === document.body || active.classList.contains("inbox-confirm")) target?.focus();
+      });
+    }
   };
 
   const later = (run: () => void, ms: number) => {
@@ -263,7 +277,7 @@ export const Inbox = () => {
     <Show when={total() === 0 && failure() === null}><p class="light">{copy.inboxEmpty}</p></Show>
     <Show when={needsCount() > 0 || needsKeys().length > 0}>
       <section class="inbox-group" aria-label={copy.needsYou}>
-        {sectionTitle(copy.needsYou, needsCount, true)}
+        {sectionTitle(copy.needsYou, needsCount, true, (element) => { needsHeading = element; })}
         <ul class="inbox-list">
           <For each={needsKeys()}>{agentRow}</For>
           <For each={rows()}>{(row) => <li class="inbox-item"><button type="button" data-button="quiet" class="inbox-row inbox-comment" data-comment={row.comment.id}
