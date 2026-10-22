@@ -1,0 +1,175 @@
+import { mkdirSync, writeFileSync } from "node:fs";
+import { join } from "node:path";
+import { afterAll, beforeAll, expect, it } from "vitest";
+import { captureDir } from "../testing/captures";
+import { chromePath, openPage } from "../testing/chromePage";
+import type { ChromePage } from "../testing/chromePage";
+
+/**
+ * U3010c's rendered observer: the Shelf's Unassigned Todos on `tree-40`, dark 1512×950. A pointer reorder (third row above first), two rapid
+ * keyboard swaps and the same swap under reduced motion are sampled each frame; raw row tops go to `captureDir("U3010c")` for the design
+ * critic (docs/motion.md). Quarter speed is `Animation.playbackRate`, so times stay animation milliseconds.
+ */
+const art = captureDir("U3010c");
+
+const found = chromePath();
+
+const rendered = art && found ? it : it.skip;
+
+const rows = '.shelf [data-shelf-group="unassigned"] .todo-list .todo-row-button';
+
+const ALT = 1;
+
+type Frame = { t: number; tops: Record<string, number> };
+
+let page: ChromePage;
+
+beforeAll(async () => {
+  if (art && found) page = await openPage(found);
+}, 90_000);
+
+afterAll(async () => { await page?.close(); });
+
+const setup = async (reduced: boolean) => {
+  await page.scheme("dark", undefined, reduced ? "motion" : undefined);
+  await page.load("/harness.html?seed=tree-40", 1512, 950);
+  await page.until(`() => Boolean(document.querySelector('.shelf-tabs [role=tab]')) && Boolean(document.querySelector('[data-part="branch"][aria-expanded] > .rail-row')) && Boolean(window.__fake)`);
+  await page.call(`() => {
+    const tab = document.querySelector('#shelf-tab-todos');
+    if (tab.getAttribute('aria-expanded') !== 'true') tab.click();
+    document.querySelector('[data-todo-root]').click();
+  }`);
+  await page.call(`() => {
+    document.querySelector('[data-todo-root]').click();
+    document.querySelector('.shelf [data-shelf-group="unassigned"] [data-part="branch-control"]')?.click();
+  }`);
+  await page.until(`() => document.querySelectorAll(".shelf .todo-list .todo-row-button").length > 2`);
+};
+
+const sample = (quarter: boolean) => page.call<void>(`(rows, quarter) => {
+  window.__frames = [];
+  window.__sampling = true;
+  const animate = Element.prototype.animate;
+  Element.prototype.animate = function(...args) {
+    const animation = animate.apply(this, args);
+    if (quarter && this.matches('.todo-row')) animation.playbackRate = 0.25;
+    return animation;
+  };
+  const scale = quarter ? 0.25 : 1;
+  const read = () => {
+    window.__frames.push({t: performance.now() * scale, tops: Object.fromEntries([...document.querySelectorAll(rows)].map(b => [/#(\\d+)/.exec(b.getAttribute('aria-label'))[1], b.closest('.todo-row').getBoundingClientRect().top]))});
+    if (window.__sampling) requestAnimationFrame(read);
+  };
+  read();
+}`, rows, quarter);
+
+const stop = async () => {
+  await new Promise((resolve) => setTimeout(resolve, 900));
+  await page.call(`() => Promise.all([...document.querySelectorAll('.todo-row')].flatMap(row => row.getAnimations()).map(a => a.finished.catch(() => {}))).then(() => new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r))))`);
+
+  return page.call<Frame[]>(`() => { window.__sampling = false; return window.__frames; }`);
+};
+
+const reorders = () => page.call<unknown[]>(`() => window.__fake.app.calls.filter(c => c.method === 'todo.reorder').map(c => c.params)`);
+
+const centre = (n: number) => page.call<{ x: number; y: number }>(`(rows, n) => {
+  const el = document.querySelectorAll(rows)[n]; el.scrollIntoView({block: 'nearest'}); const b = el.getBoundingClientRect();
+  return {x: b.left + b.width / 2, y: b.top + b.height / 2};
+}`, rows, n);
+
+const ids = () => page.call<string[]>(`rows => [...document.querySelectorAll(rows)].map(b => /#(\\d+)/.exec(b.getAttribute('aria-label'))[1])`, rows);
+
+const save = (name: string, data: { before: string[]; mark?: number; frames: Frame[] }) => {
+  mkdirSync(join(art!, "head"), { recursive: true });
+  writeFileSync(join(art!, "head", `${name}.json`), JSON.stringify(data));
+};
+
+/** The moved rows' slide: it starts at the old place, leaves it and ends within 1 px by 200 ms (ease-out is inside 1 px of its end before the full 150); rows that did not change place stay within 1 px. */
+const checkSlide = (run: Frame[], moved: string[]) => {
+  const first = run[0]!.tops;
+  const final = run.at(-1)!.tops;
+
+  for (const id of Object.keys(final).filter((other) => !moved.includes(other))) expect(Math.max(...run.map((frame) => Math.abs(frame.tops[id]! - first[id]!)))).toBeLessThanOrEqual(1);
+
+  for (const id of moved) {
+    const series = run.map((frame) => ({ t: frame.t, top: frame.tops[id]! }));
+    const begin = series.find((point) => Math.abs(point.top - first[id]!) >= 1)!;
+    const end = series.find((point) => point.t >= begin.t && Math.abs(point.top - final[id]!) < 1)!;
+
+    expect(series.filter((point) => point.t >= begin.t && point.t <= end.t && Math.abs(point.top - first[id]!) >= 1 && Math.abs(point.top - final[id]!) >= 1).length).toBeGreaterThanOrEqual(2);
+    expect(end.t - begin.t).toBeGreaterThan(60);
+    expect(end.t - begin.t).toBeLessThanOrEqual(200);
+  }
+};
+
+rendered("u3010c_pointer_reorder_slides_from_the_screen", async () => {
+  await setup(false);
+
+  const before = await ids();
+  const from = await centre(before.length - 1);
+
+  await sample(true);
+  await page.pointer("down", from.x, from.y);
+  await page.pointer("move", from.x, from.y - 6);
+
+  const to = await centre(0);
+
+  for (let step = 1; step <= 8; step++) await page.pointer("move", from.x + ((to.x - from.x) * step) / 8, from.y - 6 + ((to.y - from.y + 6) * step) / 8);
+  await page.pointer("up", to.x, to.y);
+  await page.until(`() => window.__fake.app.calls.some(c => c.method === 'todo.reorder')`);
+
+  const run = await stop();
+
+  expect(await reorders()).toEqual([{ id: Number(before.at(-1)), before: Number(before[0]) }]);
+  save("pointer-reorder", { before, frames: run });
+}, 60_000);
+
+rendered("u3010c_rapid_swaps_retarget_without_a_jump", async () => {
+  await setup(false);
+
+  const before = await ids();
+
+  await page.call(`rows => document.querySelectorAll(rows)[0].focus()`, rows);
+  await sample(true);
+  await page.press("ArrowDown", "ArrowDown", ALT);
+  await page.until(`() => { const f = window.__frames; return Object.keys(f[0].tops).some(k => Math.abs(f.at(-1).tops[k] - f[0].tops[k]) > 5); }`);
+
+  const mark = await page.call<number>(`() => window.__frames.length`);
+
+  await page.press("ArrowDown", "ArrowDown", ALT);
+
+  const run = await stop();
+  const id = before[0]!;
+  const series = run.map((frame) => frame.tops[id]!);
+  const steps = series.slice(1).map((top, at) => Math.abs(top - series[at]!));
+
+  expect(Math.max(...steps.slice(mark - 1, mark + 4))).toBeLessThanOrEqual(Math.max(...steps.slice(0, mark - 1)) + 12);
+  save("rapid-swaps", { before, mark, frames: run });
+}, 60_000);
+
+rendered("u3010c_keyboard_swap_slides_and_reduced_motion_settles_in_one_frame", async () => {
+  await setup(false);
+
+  const before = await ids();
+
+  await page.call(`rows => document.querySelectorAll(rows)[0].focus()`, rows);
+  await sample(true);
+  await page.press("ArrowDown", "ArrowDown", ALT);
+
+  const normal = await stop();
+
+  checkSlide(normal, [before[0]!, before[1]!]);
+  save("keyboard-swap", { before, frames: normal });
+
+  await setup(true);
+  await page.call(`rows => document.querySelectorAll(rows)[0].focus()`, rows);
+  await sample(false);
+  await page.press("ArrowDown", "ArrowDown", ALT);
+
+  const reduced = await stop();
+  const first = reduced[0]!.tops;
+  const changed = reduced.filter((frame) => Object.keys(first).some((id) => Math.abs(frame.tops[id]! - first[id]!) > 1));
+
+  expect(changed[0]!.tops).toEqual(reduced.at(-1)!.tops);
+  save("keyboard-swap-reduced", { before, frames: reduced });
+}, 90_000);

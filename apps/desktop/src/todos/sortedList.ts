@@ -5,7 +5,7 @@ import type { Sortable } from "../ui/sortable";
 import type { SortedRow } from "./Todos";
 import type { Actor } from "@contracts/Actor";
 import { sameOwner } from "../shelf/scope";
-import { beforeOf, REORDER_EASING, REORDER_MS } from "./beforeOf";
+import { beforeOf, slideOf } from "./beforeOf";
 
 type Parts = Parameters<Parameters<typeof Sortable.Item>[0]["children"]>[0];
 
@@ -57,7 +57,7 @@ export const createSortedList = (source: {
       tops.set(id, top);
 
       if (was === undefined || source.reducedMotion() || !("animate" in el) || Math.abs(was - top) < 1) continue;
-      el.animate([{ transform: `translateY(${was - top}px)` }, { transform: "none" }], { duration: REORDER_MS, easing: getComputedStyle(document.documentElement).getPropertyValue(REORDER_EASING).trim() });
+      el.animate([{ transform: `translateY(${was - top}px)` }, { transform: "none" }], slideOf());
     }
 
     if (refocus !== null) buttons.get(refocus)?.focus();
