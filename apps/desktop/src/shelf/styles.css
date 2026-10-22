@@ -54,6 +54,7 @@
   padding-left: var(--space-4);
   overflow-x: clip;
   overflow-y: auto;
+  overscroll-behavior: contain;
 }
 
 /* U371: a scroll shadow on an edge only where content is clipped there. */
@@ -159,6 +160,7 @@
   box-sizing: border-box;
   max-height: calc(100vh - var(--space-6));
   overflow: auto;
+  overscroll-behavior: contain;
   overflow-wrap: anywhere;
 }
 .shelf-question-targets { list-style: none; margin: var(--space-2) 0; padding: 0; }
