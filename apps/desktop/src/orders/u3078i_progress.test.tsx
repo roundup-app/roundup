@@ -96,10 +96,9 @@ it("u3078i_open_inspect_resume_and_reconcile", async () => {
   expect(sent.length).toBe(2);
   expect(sent[1]).toEqual(sent[0]);
   expect(sent[0]).toMatchObject({ project: "/p", id: "a", action: "action-login" });
-  // The accepted action has its decision: the Resume stays, disabled and focused, so no second one is sent.
-  const kept = await view.findByRole("button", { name: "Resume unfinished work" });
-  await waitFor(() => expect(kept.getAttribute("aria-disabled")).toBe("true"));
-  expect(document.activeElement).toBe(kept);
+  // The accepted action has its decision: the Resume leaves and focus moves to the status line.
+  await waitFor(() => expect(view.queryByRole("button", { name: "Resume unfinished work" })).toBeNull());
+  await waitFor(() => expect(document.activeElement).toBe(view.getByRole("status")));
 });
 
 it("u3078i_a_reconciled_acceptance_is_not_resumed_again", async () => {

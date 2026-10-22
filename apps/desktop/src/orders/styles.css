@@ -252,9 +252,14 @@
 }
 
 .progress-status {
-  min-height: 1lh;
+  display: flex;
+  gap: var(--space-2);
+  align-items: center;
   margin: 0;
-  padding-inline-start: calc(16px + var(--space-2));
+}
+
+.progress-status:empty {
+  margin-block-start: calc(-1 * var(--space-2));
 }
 
 .progress-state {
