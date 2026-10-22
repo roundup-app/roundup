@@ -1,6 +1,7 @@
 .sortable-fixture {
   max-height: var(--order-field-max-height);
   overflow: auto;
+  overscroll-behavior: contain;
   padding: var(--space-1);
 }
 

@@ -84,6 +84,7 @@
   resize: none;
   max-height: var(--order-field-max-height);
   overflow-y: auto;
+  overscroll-behavior: contain;
 }
 
 .order-field textarea:focus-visible {
@@ -126,6 +127,7 @@
 .order-prompt-body {
   max-height: 40vh;
   overflow: auto;
+  overscroll-behavior: contain;
   overflow-wrap: anywhere;
   font-family: var(--font-ui);
 }
@@ -141,6 +143,7 @@
   order: -1;
   max-height: 75%;
   overflow: auto;
+  overscroll-behavior: contain;
   padding: var(--space-5);
   box-sizing: border-box;
   font-family: var(--font-ui);

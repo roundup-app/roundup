@@ -11,6 +11,7 @@
   padding-inline: var(--space-2);
   max-height: 6em;
   overflow-y: auto;
+  overscroll-behavior: contain;
 }
 
 /* U349: the notice wraps and is never ellipsised; beats the one-line `p.ink[role="alert"]` of U80. */
@@ -262,4 +263,9 @@
   align-items: center;
   justify-content: space-between;
   gap: var(--space-4);
+}
+
+/* U3785: the emulator's scrollback keeps its scroll to itself. */
+.xterm .xterm-viewport {
+  overscroll-behavior: contain;
 }
