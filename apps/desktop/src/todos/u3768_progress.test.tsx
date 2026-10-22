@@ -1,4 +1,4 @@
-import { cleanup, screen, waitFor } from "@solidjs/testing-library";
+import { cleanup, fireEvent, screen, waitFor } from "@solidjs/testing-library";
 import { afterEach, describe, expect, it } from "vitest";
 import { door } from "../testing/nodes";
 import { mountTodos, todo, todoCallsTo, todoEvent } from "./testHarness";
@@ -76,6 +76,7 @@ describe("u3770 a finishing Todo plays one motion", () => {
     const mounted = await mountTodos([todo(1, { done: true }), todo(2)], false);
 
     await waitFor(() => expect(count()).toBe("1/2"));
+    fireEvent.click(screen.getByRole("button", { name: /1 done/ }));
     finish(mounted, 1, false);
     await waitFor(() => expect(count()).toBe("0/2"));
 
@@ -93,6 +94,30 @@ describe("u3770 a finishing Todo plays one motion", () => {
     expect(playing()).toBeGreaterThan(0);
   });
 
+  it("u3770_a_finish_in_a_folded_group_settles_without_playing", async () => {
+    const mounted = await mountTodos([todo(1), todo(2)], false);
+
+    fireEvent.click(document.querySelector<HTMLElement>('[data-shelf-group="unassigned"] [data-part="branch-control"]')!);
+    finish(mounted, 1);
+    await waitFor(() => expect(count()).toBe("1/2"));
+
+    expect(playing()).toBe(0);
+    fireEvent.click(document.querySelector<HTMLElement>('[data-shelf-group="unassigned"] [data-part="branch-control"]')!);
+    expect(document.querySelector('.shelf-groups [data-todo="1"]')).toBeNull();
+  });
+
+  it("u3770_a_finishing_row_keeps_its_place_until_its_strike_ends", async () => {
+    const mounted = await mountTodos([todo(1), todo(2), todo(3)], false);
+    const order = () => [...document.querySelectorAll('.shelf-groups [data-todo]')].map(row => row.getAttribute("data-todo"));
+
+    finish(mounted, 2);
+    await waitFor(() => expect(count()).toBe("1/3"));
+
+    expect(order()).toEqual(["1", "2", "3"]);
+    fireEvent.animationEnd(document.querySelector('[data-todo="2"] .todo-strike')!);
+    expect(order()).toEqual(["1", "3"]);
+  });
+
   it("u3770_a_finish_out_of_view_moves_nothing", async () => {
     const mounted = await mountTodos([todo(1, { home: "w1" }), todo(2)], false, [door("w1", "idle", "idle", { name: "one" })]);
 
@@ -100,7 +125,7 @@ describe("u3770 a finishing Todo plays one motion", () => {
     await waitFor(() => expect(count()).toBe("0/1"));
     mounted.store.todos = [todo(1, { home: "w1" }), todo(2, { done: true })];
     mounted.app.emit(todoEvent("todo.updated", mounted.store.todos[1]!));
-    await new Promise((resolve) => setTimeout(resolve, 20));
+    await mounted.todos.reload();
 
     expect(count()).toBe("0/1");
     expect(playing()).toBe(0);
@@ -121,7 +146,7 @@ describe("u3770 a finishing Todo plays one motion", () => {
 
     await waitFor(() => expect(count()).toBe("1/2"));
     mounted.app.emit(todoEvent("todo.updated", mounted.store.todos[1]!));
-    await new Promise((resolve) => setTimeout(resolve, 20));
+    await mounted.todos.reload();
 
     expect(playing()).toBe(0);
   });
