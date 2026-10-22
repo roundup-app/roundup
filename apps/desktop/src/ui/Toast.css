@@ -1,38 +1,59 @@
+/* U3792: Notification Stack's folded pile, after AffectUI's MIT CSS (https://www.affectui.com/components/notification-stack). Ark sets --index, --y, --scale and --opacity per card: folded, each card behind is 5% smaller and one gap higher; fanned out, each rests at its own offset. */
 .app-toasts[data-scope="toast"] {
   position: absolute !important;
   inset: auto var(--space-3) calc(var(--space-3) + var(--toast-lift, 0px)) auto !important;
-  gap: var(--space-2);
-  max-width: calc(100% - var(--space-6));
+  width: 0;
+  height: 0;
   z-index: var(--layer-toast) !important;
   pointer-events: none;
 }
 
-.app-toasts[data-newest-first="true"] {
-  flex-direction: column-reverse !important;
-}
-
 .app-toast[data-scope="toast"] {
-  position: relative !important;
-  inset: auto !important;
-  max-width: calc(var(--shelf-width) - var(--space-6));
+  right: 0;
+  width: calc(var(--shelf-width) - var(--space-6));
+  max-width: calc(100vw - var(--space-6));
   background-color: var(--ground);
   border-radius: var(--radius-control);
-  opacity: 1;
-  transform: translateY(0);
-  transition: opacity var(--duration-toast) var(--easing-out), transform var(--duration-toast) var(--easing-out);
+  overflow: hidden;
+  /* Ark measures every card as 0 px tall, so the fanned cards would stay piled; the provider measures them and sets --stack-y. */
+  --offset: var(--stack-y, 0px) !important;
+  translate: var(--x) var(--y);
+  scale: var(--scale, 1);
+  transform-origin: bottom center;
+  opacity: var(--opacity);
+  z-index: var(--z-index);
+  will-change: translate, scale, opacity;
+  transition: translate var(--duration-toast-in) var(--easing-out), scale var(--duration-toast-in) var(--easing-out), opacity var(--duration-toast-in) var(--easing-out);
 }
 
-@starting-style {
-  .app-toast[data-scope="toast"] {
-    opacity: 0;
-    transform: translateY(var(--space-2));
-  }
-}
-
-.app-toast[data-state="closed"] {
-  opacity: 0;
-  transform: translateY(var(--space-2));
+.app-toast[data-overlap][data-sibling] {
   pointer-events: none !important;
+}
+
+/* U3793: a leaving card fades and sinks one gap from where it rests. */
+.app-toast[data-state="closed"] {
+  --y: calc(var(--lift) * var(--offset) + var(--space-2)) !important;
+  transition-duration: var(--duration-toast);
+  pointer-events: none !important;
+}
+
+.app-toast[data-state="closed"][data-overlap] {
+  --y: calc(var(--lift-amount) * var(--index) + var(--space-2)) !important;
+}
+
+.app-toast-bar {
+  position: absolute;
+  inset: auto 0 0;
+  height: 2px;
+  background-color: var(--grey);
+  transform-origin: left center;
+  animation: app-toast-drain var(--toast-time) linear forwards;
+}
+
+@keyframes app-toast-drain {
+  to {
+    transform: scaleX(0);
+  }
 }
 
 .app-toast-action {
@@ -48,6 +69,16 @@
   text-align: left;
   --button-surface: var(--selected-hover);
   border-radius: var(--radius-control);
+  overflow-wrap: anywhere;
+}
+
+/* A card holding its own body (a failure) sits in the notice card's inset and height, with the bar along an empty bottom edge. */
+.app-toast-body {
+  display: flex;
+  align-items: center;
+  min-height: var(--space-5);
+  padding: var(--space-2) var(--space-3);
+  font-size: var(--text-small);
   overflow-wrap: anywhere;
 }
 
@@ -94,9 +125,9 @@
   }
 }
 
+/* U3793: the cards switch at once; the bar keeps draining, the only sight of the time left. */
 @media (prefers-reduced-motion: reduce) {
   .app-toast[data-scope="toast"] {
     transition: none;
-    transform: none;
   }
 }
