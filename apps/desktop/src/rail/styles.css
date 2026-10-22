@@ -159,8 +159,16 @@
 }
 
 /* U3744: a queued Workstream's place sits in the row's tail as light text beside the name; it never wraps or moves the row's edges (U112). */
+.rail-row .row-tail {
+  position: relative;
+}
+
+/* Out of flow over the row-icons slot, which is empty at rest; the actions replace it when they show. */
 .rail-row .row-tail > .queue-badge {
-  flex: none;
+  position: absolute;
+  top: 50%;
+  right: 0;
+  transform: translateY(-50%);
   white-space: nowrap;
   font-size: var(--text-caption);
   font-variant-numeric: tabular-nums;
@@ -939,3 +947,9 @@
 }
 
 .rail-leaf[role="treeitem"] { cursor: pointer; }
+
+.rail-row[data-near="true"] .queue-badge,
+.rail-row:hover .queue-badge,
+.rail-row:focus-within .queue-badge {
+  visibility: hidden;
+}
