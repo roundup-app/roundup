@@ -6,6 +6,7 @@ import { activationSource } from "../keys/registry";
 import { PadDrawer } from "../pads/PadDrawer";
 import { usePadList } from "../rail/pads/padList";
 import { useConnectedProject } from "../state/connectedProject";
+import { createCutTitle } from "../ui/cutTitle";
 import { failureOf } from "./failureOf";
 import { refTarget } from "./refTarget";
 
@@ -78,11 +79,12 @@ export const TodoRefs = (props: { id: number }) => {
       <Show when={failure()}>{(message) => <div><ErrorLine message={message()} /><button data-button="quiet" class="word" type="button" onClick={() => void refresh()}>{copy.padRefRetry}</button></div>}</Show>
         <For each={refs()}>{(ref) => {
           const target = refTarget(ref.url);
+          const linkCut = createCutTitle(() => target.name);
           const label = <>{target.name}{target.heading !== null && <span class="todo-ref-heading light">{copy.padRefHeading(target.heading)}</span>}</>;
 
           return <div class="todo-ref" data-state={ref.state}>
             <Show when={ref.state === "ok"} fallback={<span class="todo-ref-text">{label}<span class="todo-ref-state">{copy.padRefMissingState}</span></span>}>
-              <button data-button="quiet" type="button" role="link" class="word todo-ref-link" onClick={(event) => drawer.open(() => <PadAt name={target.name} heading={target.heading} />, activationSource(event))}>{label}</button>
+              <button {...linkCut.attrs()} data-button="quiet" type="button" role="link" class="word todo-ref-link" onClick={(event) => drawer.open(() => <PadAt name={target.name} heading={target.heading} />, activationSource(event))}>{label}</button>
             </Show>
             <button data-button="quiet" type="button" class="word light" aria-label={copy.removePadRef(target.name)} onClick={(event) => void remove(ref.url, event.currentTarget)}>{copy.remove}</button>
           </div>;

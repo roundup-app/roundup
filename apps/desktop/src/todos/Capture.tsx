@@ -9,6 +9,7 @@ import { resolvedWorkstream } from "../rail/layout";
 import { registerKeys } from "../keys/registry";
 import { useConnectedProject } from "../state/connectedProject";
 import { Dialog } from "../ui/Dialog";
+import { createCutTitle } from "../ui/cutTitle";
 import { USER } from "../pads/owner";
 import { failureOf, outcomeOf } from "./failureOf";
 import { useTodoList } from "./todoList";
@@ -75,6 +76,8 @@ export const Capture = (props: { onFile: (() => void) | undefined }) => {
 
   const ownerLine = () => target().ownerName === null ? copy.unassigned : copy.captureFor(target().ownerName!);
   const homeLine = () => copy.captureIn(target().homeName ?? copy.projectRoot);
+  const ownerCut = createCutTitle(ownerLine);
+  const homeCut = createCutTitle(homeLine);
 
   const show = () => {
     if (open()) return;
@@ -213,8 +216,8 @@ export const Capture = (props: { onFile: (() => void) | undefined }) => {
             }}
           />
           <p class="capture-target">
-            <span>{ownerLine()}</span>
-            <span>{homeLine()}</span>
+            <span {...ownerCut.attrs()}>{ownerLine()}</span>
+            <span {...homeCut.attrs()}>{homeLine()}</span>
           </p>
           <Show when={failure()}>{(message) => <ErrorLine message={message()} />}</Show>
           <For each={recovered()}>{draft => <div class="capture-recovery">
