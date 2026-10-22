@@ -221,7 +221,7 @@
   column-gap: var(--space-3);
   margin: 0;
   padding-block: var(--space-1);
-  background: var(--bg);
+  background: var(--sunken);
   color: var(--grey);
   font-size: var(--text-caption);
   user-select: none;
