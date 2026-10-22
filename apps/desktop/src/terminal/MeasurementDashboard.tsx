@@ -268,7 +268,7 @@ export const MeasurementDashboard = (props: { home: string; name: string; back: 
       <Show when={removed()}>{(name) => <p class="measurement-note">{copy.measurementRemoved(name())}</p>}</Show>
       <Show when={snapshot()?.contributors === 0}><p>{copy.measurementEmpty}</p></Show>
       <table><thead><tr><th>{copy.measurementAgent}</th><For each={categories}>{(key) => <th>{copy.measurementCategory[key]}</th>}</For></tr></thead>
-        <tbody><For each={snapshot()?.rows ?? []}>{(row) => <tr><th scope="row"><button data-button="quiet" type="button" onClick={() => { if (row.removed || !connected.rail.nodes.some((node) => node.id === row.agent)) setRemoved(row.maker); else { connected.rail.select(row.agent); props.back(); } }}>{row.maker}</button>
+        <tbody><For each={snapshot()?.rows ?? []}>{(row) => <tr><th scope="row"><Tip text={row.maker}>{(trigger) => <button {...trigger()} data-button="quiet" type="button" onClick={() => { if (row.removed || !connected.rail.nodes.some((node) => node.id === row.agent)) setRemoved(row.maker); else { connected.rail.select(row.agent); props.back(); } }}>{row.maker}</button>}</Tip>
           <span class="measurement-bar"><span style={{ width: `${most() > 0 ? (Number(BigInt(row.tokens[category()].known)) / most()) * 100 : 0}%` }} /></span>
           <Collapsible.Root><Collapsible.Trigger data-button="quiet" class="word" aria-label={copy.measurementAgentDetail(row.maker)}>{copy.measurementDetail}</Collapsible.Trigger><Collapsible.Content>
             <p class="measurement-note">{copy.measurementJoin(listPrice(row.cost) ?? copy.measurementUnknown, ...reported(row.cost), copy.measurementAgentTime(duration(row.time.summed_ns), null))}</p>
