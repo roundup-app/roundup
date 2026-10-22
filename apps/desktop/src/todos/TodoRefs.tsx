@@ -5,6 +5,7 @@ import { ErrorLine } from "../ink/ErrorLine";
 import { activationSource } from "../keys/registry";
 import { PadDrawer } from "../pads/PadDrawer";
 import { usePadList } from "../rail/pads/padList";
+import { Tip } from "../ui/Tip";
 import { useConnectedProject } from "../state/connectedProject";
 import { failureOf } from "./failureOf";
 import { refTarget } from "./refTarget";
@@ -49,6 +50,7 @@ export const TodoRefs = (props: { id: number }) => {
   const remove = async (url: string, button: HTMLElement) => {
     const section = button.closest<HTMLElement>(".todo-refs");
     const rows = [...(section?.querySelectorAll<HTMLElement>(".todo-ref") ?? [])];
+    // SAFETY: the button sits inside its .todo-ref row.
     const at = rows.indexOf(button.closest(".todo-ref") as HTMLElement);
 
     setFailure(await failureOf(async () => { await app.rpc("todo.removeRef", { id: props.id, url }); }));
@@ -72,7 +74,7 @@ export const TodoRefs = (props: { id: number }) => {
 
           return <div class="todo-ref" data-state={ref.state}>
             <Show when={ref.state === "ok"} fallback={<span class="todo-ref-text">{label}<span class="todo-ref-state">{copy.padRefMissingState}</span></span>}>
-              <button data-button="quiet" type="button" role="link" class="word todo-ref-link" title={target.name} onClick={(event) => drawer.open(() => <PadAt name={target.name} heading={target.heading} />, activationSource(event))}>{label}</button>
+              <Tip text={target.name}>{(trigger) => <button {...trigger()} data-button="quiet" type="button" role="link" class="word todo-ref-link" onClick={(event) => drawer.open(() => <PadAt name={target.name} heading={target.heading} />, activationSource(event))}>{label}</button>}</Tip>
             </Show>
             <button data-button="quiet" type="button" class="word light" aria-label={copy.removePadRef(target.name)} onClick={(event) => void remove(ref.url, event.currentTarget)}>{copy.remove}</button>
           </div>;
