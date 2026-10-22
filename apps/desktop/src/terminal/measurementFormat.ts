@@ -9,6 +9,8 @@ const compact = new Intl.NumberFormat("en", { notation: "compact", maximumFracti
 export const tokenFigure = (value: ConsumedSubtotal) => {
   const known = BigInt(value.known);
 
+  if (known > 999_999_999_999_999n) return copy.measurementTokensOver;
+
   return known > 9_999n ? compact.format(Number(known)) : known.toString();
 };
 

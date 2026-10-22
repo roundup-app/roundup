@@ -39,22 +39,40 @@
   margin: 0;
 }
 
-/* Loading, stale, failed and retry share this one line, so nothing below moves. */
-.measurement-status {
-  display: flex;
-  align-items: center;
+/* State rides with the name; Retry and Back trail. The state reserves two lines, so nothing below moves. */
+.measurement-header h2 {
   flex: none;
-  max-width: 60%;
-  gap: var(--space-3);
-  color: var(--grey);
-  font-size: var(--text-small);
+  max-width: 40%;
 }
 
 .measurement-state {
+  flex: 0 1 auto;
   min-width: 0;
+  margin-inline-end: var(--space-6);
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
   overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  min-height: calc(2 * 1.4em);
+  line-height: 1.4;
+  align-content: center;
+  color: var(--grey);
+  font-size: var(--text-small);
+  overflow-wrap: anywhere;
+}
+
+.measurement-header {
+  justify-content: flex-start;
+  gap: var(--space-2);
+}
+
+.measurement-actions {
+  display: flex;
+  align-items: center;
+  flex: none;
+  margin-inline-start: auto;
+  gap: var(--space-3);
+  font-size: var(--text-small);
 }
 
 .measurement-state[data-live="true"] {
@@ -73,6 +91,11 @@
 .measurement-dashboard p {
   margin: 0 0 var(--space-2);
   overflow-wrap: anywhere;
+}
+
+.measurement-dashboard h3 .measurement-note {
+  text-transform: none;
+  letter-spacing: 0;
 }
 
 .measurement-note {
@@ -117,7 +140,7 @@
 .measurement-meter > span {
   display: block;
   height: 100%;
-  transition: width var(--duration-crossfade) var(--easing-out), opacity var(--duration-crossfade) var(--easing-out);
+  transition: opacity var(--duration-crossfade) var(--easing-out);
 }
 
 .measurement-segment[data-category="input"] { background: var(--text); }
@@ -129,7 +152,8 @@
 
 .measurement-legend {
   display: flex;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
+  white-space: nowrap;
   gap: var(--space-1) var(--space-3);
   margin: 0 0 var(--space-2);
   padding: 0;
@@ -205,6 +229,16 @@
   margin: 0;
 }
 
+.measurement-duration {
+  flex: none;
+  width: 6ch;
+  text-align: right;
+}
+
+.measurement-meter[data-unknown="true"] {
+  visibility: hidden;
+}
+
 .measurement-bar {
   display: inline-block;
   flex: 1;
@@ -245,13 +279,15 @@
 
 .measurement-dashboard th:first-child {
   width: 25%;
+  min-width: 12ch;
   text-align: left;
-  overflow-wrap: anywhere;
 }
 
 .measurement-dashboard th button {
   max-width: 100%;
-  overflow-wrap: anywhere;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .measurement-dashboard tbody:has(tr:hover) tr:not(:hover) .measurement-bar > span,
