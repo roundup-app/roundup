@@ -84,6 +84,7 @@
   resize: none;
   max-height: var(--order-field-max-height);
   overflow-y: auto;
+  overscroll-behavior: contain;
 }
 
 .order-field textarea:focus-visible {
@@ -127,6 +128,7 @@
   order: -1;
   max-height: 75%;
   overflow: auto;
+  overscroll-behavior: contain;
   padding: var(--space-5);
   box-sizing: border-box;
   font-family: var(--font-ui);

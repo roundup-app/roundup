@@ -680,7 +680,7 @@ async fn o14_a_title_over_six_words_is_invalid_params_and_names_it() {
 #[test]
 fn o14_the_brief_and_the_tool_description_name_title() {
     let brief = include_str!("../../src/claude_code/brief.rs");
-    let mcp = include_str!("../../../rup/src/mcp.rs");
+    let mcp = include_str!("../../../rup/src/mcp/agent_tools.rs");
     assert!(brief.contains("`title` of at most six words"));
     assert!(mcp.contains("`title` of at most six words"));
 }
