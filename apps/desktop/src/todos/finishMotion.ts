@@ -1,8 +1,13 @@
-import { createEffect, createSignal, on, onCleanup } from "solid-js";
+import { createComputed, createEffect, createSignal, on, onCleanup } from "solid-js";
 import type { Accessor } from "solid-js";
 
-/** One clock for a whole finish: the longest token duration (`--duration-bar`, 1100 ms) plus a frame of slack, so a missed `transitionend` never strands a row. */
-const FINISH_MS = 1200;
+/** One clock for a whole finish: the longest effect, `--duration-bar`, read from the computed Tokens so no literal repeats it. */
+const finishMs = (): number => {
+  const value = getComputedStyle(document.documentElement).getPropertyValue("--duration-bar").trim();
+  const ms = value.endsWith("ms") ? parseFloat(value) : parseFloat(value) * 1000;
+
+  return Number.isFinite(ms) ? ms : 0;
+};
 
 /**
  * U3770: which rows and whether the bar play a finish. `done` is the set of done Todo ids in the shown scope, `key` names that scope and
@@ -24,7 +29,8 @@ export const createFinishMotion = (input: { loaded: Accessor<boolean>; key: Acce
 
   createEffect(on(input.reduced, (reduced) => { if (reduced) settle(); }));
 
-  createEffect(on([input.loaded, input.key, input.done], ([loaded, key, done]) => {
+  // A computation, not an effect: `bar` flips in the same pass as the fill value, so the fill's transition is in place when its new scale lands.
+  createComputed(on([input.loaded, input.key, input.done], ([loaded, key, done]) => {
     const was = before;
 
     before = loaded ? { key, done } : null;
@@ -38,7 +44,7 @@ export const createFinishMotion = (input: { loaded: Accessor<boolean>; key: Acce
     setRows(new Set([...rows(), ...seen]));
     setBar(bar() || done.size !== was.done.size);
     clearTimeout(timer);
-    timer = setTimeout(settle, FINISH_MS);
+    timer = setTimeout(settle, finishMs());
   }));
 
   onCleanup(() => clearTimeout(timer));
