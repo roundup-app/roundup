@@ -46,7 +46,7 @@
 }
 
 .measurement-state {
-  flex: 0 1 auto;
+  flex: 1 1 auto;
   min-width: 0;
   margin-inline-end: var(--space-6);
   display: -webkit-box;
@@ -70,7 +70,6 @@
   display: flex;
   align-items: center;
   flex: none;
-  margin-inline-start: auto;
   gap: var(--space-3);
   font-size: var(--text-small);
 }
@@ -259,7 +258,7 @@
 
 .measurement-dashboard table {
   width: 100%;
-  table-layout: auto;
+  table-layout: fixed;
   border-collapse: collapse;
   margin-block: var(--space-2);
   font-size: var(--text-caption);
@@ -279,11 +278,11 @@
 
 .measurement-dashboard th:first-child {
   width: 25%;
-  min-width: 12ch;
   text-align: left;
 }
 
 .measurement-dashboard th button {
+  display: block;
   max-width: 100%;
   overflow: hidden;
   text-overflow: ellipsis;
