@@ -153,7 +153,7 @@ perf-keystroke *args:
     dist={{quote(justfile_directory())}}/target/perf-dist
     VITE_ROUNDUP_PERF=1 pnpm --filter desktop exec vite build --outDir "$dist" --emptyOutDir
     TAURI_CONFIG=$(jq -nc --arg dist "$dist" '{build: {frontendDist: $dist}, app: {windows: [{title: "roundup", alwaysOnTop: true, visibleOnAllWorkspaces: true}]}}') \
-        cargo build --release -p rupd -p desktop --features desktop/custom-protocol --target-dir target/perf-app
+        cargo build --release -p rupd -p rup -p desktop --features desktop/custom-protocol --target-dir target/perf-app
     cargo build --release -p perf
     ./target/release/perf-keystroke {{args}}
 
@@ -165,7 +165,7 @@ perf-frames workload *args:
     dist={{quote(justfile_directory())}}/target/perf-dist
     VITE_ROUNDUP_PERF=1 VITE_ROUNDUP_PERF_WORKLOAD={{quote(workload)}} pnpm --filter desktop exec vite build --outDir "$dist" --emptyOutDir
     TAURI_CONFIG=$(jq -nc --arg dist "$dist" '{build: {frontendDist: $dist}, app: {windows: [{title: "roundup", alwaysOnTop: true, visibleOnAllWorkspaces: true}]}}') \
-        cargo build --release -p rupd -p desktop --features desktop/custom-protocol --target-dir target/perf-app
+        cargo build --release -p rupd -p rup -p desktop --features desktop/custom-protocol --target-dir target/perf-app
     cargo build --release -p perf
     ./target/release/perf-keystroke --frames --out target/perf-frames-{{workload}}.json {{args}}
 

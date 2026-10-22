@@ -9,15 +9,16 @@ Base and head are the two commits U3010d compares; build and run each in its own
 ## Before you run
 
 - AC power on, Low Power Mode off, display refresh fixed (System Settings > Displays), no concurrent build, the window uncovered and the Mac awake.
-- No Project is needed: the run makes its own temporary Project with one Workstream and one Terminal under the 64 KiB/s stream, and ignores any Project you have open. It drives none of the `layers`, `todos` or `glyphs` actions yet, so every run reports `actions did not complete` and exits 2; the Drawer/Shelf, Todo and ten-Glyph drivers are a later change, and until it lands no run yields U3010d numbers.
+- No Project is needed: the run makes its own temporary Project with one Workstream and one Terminal under the 64 KiB/s stream, and ignores any Project you have open. Python 3 must be on the `PATH`: the `glyphs` run starts ten stand-in Agents (`fake_claude.py`, no model call) and tells each it works. `layers` and `todos` first make four Todos.
+- The command drives the workload itself, every 2 s: `layers` the Drawer and Shelf open, close and reopen sequence, `todos` one insertion, completion, done-fold toggle or reorder, `glyphs` nothing beyond keeping ten working Glyphs under the stream. Touch nothing in the window. A control the command cannot find leaves the run invalid (exit 2).
 
 ## Run
 
 ```
-ROUNDUP_ALLOW_WINDOW=1 just perf-frames glyphs
+ROUNDUP_ALLOW_WINDOW=1 just perf-frames <layers|todos|glyphs>
 ```
 
-It builds the App with the recorder, opens a window kept above everything for about 100 s (10 s warm-up, 60 s sample, 30 s idle) under the 64 KiB/s Terminal stream, and writes the report to `target/perf-frames-glyphs.json`. Set `ROUNDUP_ALLOW_WINDOW=1` only for this run; no agent or CI job sets it.
+It builds the App with the recorder, opens a window kept above everything for about 100 s (10 s warm-up, 60 s sample, 30 s idle) under the 64 KiB/s Terminal stream, and writes the report to `target/perf-frames-<workload>.json`. Set `ROUNDUP_ALLOW_WINDOW=1` only for this run; no agent or CI job sets it.
 
 ## Exit codes
 

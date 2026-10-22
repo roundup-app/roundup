@@ -17,3 +17,12 @@ The card fixtures follow the pinned moo.md `595eda0e3b477d1af1daad82f395073d4f91
 `hunch/hooks/tend.tsx` CARD_RE, cleanCard and latestCard. A real production-launcher
 Agent-role run with that bundle and `/hope:intent` produced a complete assistant
 card fence; the observation is recorded on [#2681](https://github.com/saadshahd/roundup/issues/2681#issuecomment-6253654054).
+
+`2.1.296-context.jsonl` is the actual `system` record with `subtype: local_command`
+that Claude Code 2.1.296 wrote for `claude -p -c '/context'` on 2026-10-22, run in an
+isolated temporary project and config with a one-line `CLAUDE.md` after an earlier turn.
+Its structured `contextUsage.categories` lists `{name, tokens, kind}`; observed names are
+`System prompt`, `System tools`, `Memory files`, `Messages`, `Skills` (kind `used`),
+`System tools (deferred)` (`deferred`), `Autocompact buffer` (`buffer`) and `Free space`
+(`free`). The `skills` list and the markdown stdout are trimmed. The form is recorded on
+[#3306](https://github.com/saadshahd/roundup/issues/3306).
