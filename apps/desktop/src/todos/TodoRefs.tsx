@@ -50,8 +50,8 @@ export const TodoRefs = (props: { id: number }) => {
   const remove = async (url: string, button: HTMLElement) => {
     const section = button.closest<HTMLElement>(".todo-refs");
     // With no row left, the section unmounts: focus goes to the first control after it.
-    const next = section?.nextElementSibling;
-    const after = next?.querySelector<HTMLElement>("button") ?? (next instanceof HTMLElement ? next : null);
+    const parent = section?.parentElement;
+    const index = section ? [...(parent?.children ?? [])].indexOf(section) : -1;
     const rows = [...(section?.querySelectorAll<HTMLElement>(".todo-ref") ?? [])];
     // SAFETY: the button sits inside its .todo-ref row.
     const at = rows.indexOf(button.closest(".todo-ref") as HTMLElement);
@@ -59,12 +59,17 @@ export const TodoRefs = (props: { id: number }) => {
     setFailure(await failureOf(async () => { await app.rpc("todo.removeRef", { id: props.id, url }); }));
     await refresh();
     // The row is gone; focus its next (else previous) row so the user keeps their place.
-    const left = [...(section?.querySelectorAll<HTMLElement>(".todo-ref") ?? [])];
+    const left = [...(section?.isConnected ? section.querySelectorAll<HTMLElement>(".todo-ref") : [])];
     const row = left[Math.min(at, left.length - 1)];
 
     if (document.activeElement === document.body || !document.activeElement?.isConnected) {
       if (row) (row.querySelector<HTMLElement>(".todo-ref-link") ?? row.querySelector<HTMLElement>("button"))?.focus();
-      else if (after?.isConnected) after.focus();
+      else {
+        // The section unmounted: the first control among what now sits where it was.
+        const following = [...(parent?.children ?? [])].slice(index).filter((next) => next instanceof HTMLElement);
+        const control = following.flatMap((next) => [next, ...next.querySelectorAll<HTMLElement>("button, a[href]")]).find((found) => found.matches("button, a[href]"));
+        control?.focus();
+      }
     }
   };
 
