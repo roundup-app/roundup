@@ -19,6 +19,7 @@
 .app-combobox-list {
   max-height: calc(var(--space-5) * 10);
   overflow: auto;
+  overscroll-behavior: contain;
 }
 
 .app-combobox-item {
