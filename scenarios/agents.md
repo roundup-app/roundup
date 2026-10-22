@@ -187,3 +187,9 @@ Regression checks on main: 1. `crates/agents/tests/scenarios/remove.rs`, `a16_re
 - A name of 63 `a` plus one 4-byte emoji straddling the bound keeps 64 characters and is valid UTF-8; a name of exactly 64 is kept whole (`a3360a_the_cut_falls_on_a_character_boundary`).
 
 Policy: the implementation waits for #3358 on `main`; the Issue is blocked by it once it merges.
+
+**A3373a a later record that is not `/context` leaves the split alone.** Found by the review of PR #3361 (Issue #3373); amends A2681d. No contract change. Given a transcript with a `/context` record followed by a `system`/`local_command` record of another command (a `/cost` run) that carries no `contextUsage`, then the latest `/context` record still decides: only a record whose `commandRun.command` is `context`, or whose `contextUsage.categories` is an array, replaces the split. The Adapter is `crates/agents/src/claude_code/conversation.rs`. Tests beside A2681d's in `crates/agents/tests`, on temporary transcript files:
+- A `/context` record, then a `/cost` record without `contextUsage`: `context_parts` holds the `/context` split (`a3373a_a_later_cost_record_keeps_the_context_split`).
+- A `/context` record, then a later `/context` record: the later split wins; a `/context` record whose categories are not an array gives no `context_parts` as A2681d says (`a3373a_the_latest_context_record_still_decides`).
+
+Policy: the implementation waits for #3361 on `main`; the Issue is blocked by it.
