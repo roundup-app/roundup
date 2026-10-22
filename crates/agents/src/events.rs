@@ -9,6 +9,8 @@ pub(super) struct State {
     pub(super) prompt_observer: std::sync::OnceLock<PromptObserver>,
     /// B50, B51: what the Claude inbox of each Agent is and what its transcript has recorded.
     pub(super) inbox: Arc<InboxState>,
+    /// U3780a: the current or last tool call of each Agent.
+    pub(super) tool_calls: Mutex<HashMap<String, claude_code::toolcall::Tracked>>,
 }
 
 /// B50, B51: told the Message ids an Agent's transcript records as received from another session.
@@ -400,6 +402,29 @@ impl Shared {
         );
         if matches!(observation, Observation::Exit { .. } | Observation::Stopped) {
             run.interrupt = None;
+        }
+        if let Observation::Signal(payload) = &observation {
+            // Announced while `runs` is held, as the Status is, so calls leave in arrival order.
+            let mut calls = self
+                .events
+                .tool_calls
+                .lock()
+                .unwrap_or_else(|e| e.into_inner());
+            let mut current = calls.remove(id);
+            if claude_code::toolcall::fold(&mut current, payload, &run.cwd, store::now_ms())
+                && let Some(tracked) = &current
+            {
+                self.bus.emit(
+                    actor.clone(),
+                    EventData::AgentToolCall(Box::new(contracts::agent::ToolCallEvent {
+                        id: id.to_owned(),
+                        call: tracked.call.clone(),
+                    })),
+                );
+            }
+            if let Some(tracked) = current {
+                calls.insert(id.to_owned(), tracked);
+            }
         }
         let was_kind = run.adapter.status().map(|status| status.kind);
         let signal = matches!(observation, Observation::Signal(_));

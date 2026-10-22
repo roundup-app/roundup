@@ -2048,6 +2048,7 @@ mod tests {
             work: None,
             iteration: None,
             inbox: None,
+            tool_call: None,
             overview: None,
         }
     }

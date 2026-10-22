@@ -319,3 +319,114 @@ button.ask-line:is(:active, [data-pressed="true"]) {
   color: var(--grey);
   font-size: var(--text-small);
 }
+
+/* U3780b, U3780c: the Agent's tool call line, after AffectUI's Tool Call Card (MIT, https://www.affectui.com/components/tool-call-card), under our Tokens. */
+.overview-calls {
+  margin: 0;
+  padding: 0 0 0 var(--space-4);
+  list-style: none;
+  min-width: 0;
+}
+
+.call {
+  min-width: 0;
+}
+
+.call-line {
+  font-size: var(--text-small);
+  color: var(--grey);
+}
+
+.call-agent,
+.call-tool {
+  flex-shrink: 0;
+  max-width: 30%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.call-tool {
+  font-family: var(--font-mono);
+  color: var(--text);
+}
+
+.call-summary {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.call-state,
+.call-time {
+  flex-shrink: 0;
+}
+
+.call-state[data-tone="red"] {
+  color: var(--red);
+}
+
+.call-time {
+  font-variant-numeric: tabular-nums;
+}
+
+.call-fold {
+  overflow: hidden;
+  min-width: 0;
+  padding: 0 var(--space-2);
+}
+
+.call-fold[data-state="open"] {
+  animation: call-fold-open var(--duration-todo) var(--easing-out);
+}
+
+.call-fold[data-state="closed"] {
+  animation: call-fold-close var(--duration-todo) var(--easing-out);
+}
+
+.call[data-reduced-motion="true"] .call-fold {
+  animation: none;
+}
+
+@keyframes call-fold-open {
+  from { height: 0; }
+  to { height: var(--height); }
+}
+
+@keyframes call-fold-close {
+  from { height: var(--height); }
+  to { height: 0; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .call-fold { animation: none; }
+}
+
+.call-payload-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.call-payload-label {
+  margin: 0;
+  font: inherit;
+  color: var(--grey);
+}
+
+.call-text {
+  max-height: var(--pad-menu-max-height);
+  margin: 0;
+  overflow: auto;
+  font-family: var(--font-mono);
+  font-size: var(--text-small);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.call-none {
+  margin: 0;
+  color: var(--grey);
+}
