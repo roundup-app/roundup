@@ -316,12 +316,6 @@ impl Shared {
         observation: Observation,
         first_prompt: Option<Option<String>>,
     ) -> Result<Applied, RpcError> {
-        if let Observation::Signal(payload) = &observation
-            && claude_code::ends_decision(payload)
-            && self.decisions.waits_in_terminal(id)
-        {
-            return Ok((None, run.adapter.tick_at()));
-        }
         let exited = matches!(observation, Observation::Exit { .. });
         if exited {
             self.timing
