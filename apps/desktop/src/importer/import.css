@@ -5,6 +5,7 @@
   box-sizing: border-box;
   width: min(36rem, calc(100vw - var(--space-6) * 2));
   overflow-y: auto;
+  overscroll-behavior: contain;
   max-height: calc(100vh - var(--space-6) * 2);
   box-shadow: var(--shadow-drawer);
   overflow-wrap: anywhere;
@@ -59,6 +60,7 @@
   flex-shrink: 0;
   overflow-x: hidden;
   overflow-y: auto;
+  overscroll-behavior: contain;
   padding-inline-end: var(--space-2);
 }
 
