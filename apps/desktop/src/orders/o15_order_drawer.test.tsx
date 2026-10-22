@@ -503,5 +503,5 @@ it("u3289a_order_form_stays_off_the_list_until_left", async () => {
   expect(await recoveryLabel()).toBeNull();
   fireEvent.keyDown(screen.getByLabelText("Ask"), { key: "Escape" });
   await waitFor(() => expect(document.querySelector(".order-edit")).toBeNull());
-  await vi.waitFor(async () => expect(await recoveryLabel()).toBe("Recover unfinished work 1"));
+  await vi.waitFor(async () => expect(await recoveryLabel()).toBe("Recover unfinished work (1)"));
 });

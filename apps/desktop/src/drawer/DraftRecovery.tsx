@@ -1,3 +1,4 @@
+import type { ActivationSource } from "../keys/registry";
 import { useConnectedProject } from "../state/connectedProject";
 import type { MenuEntry } from "../ui/contextMenu";
 import { copy } from "../copy";
@@ -15,17 +16,17 @@ import { typedText, useUnfinishedWork } from "./unfinishedWork";
  * U3289c: the Overview row's menu item. Nothing renders unasked (U3289b); with no work at risk the item is absent.
  * Opening the panel sends no mutation (U3021c).
  */
-export const useRecoveryMenu = (): (() => MenuEntry[]) => {
+export const useRecoveryMenu = (): ((source?: ActivationSource) => MenuEntry[]) => {
   const connected = useConnectedProject();
   const work = useUnfinishedWork();
 
-  return () => {
+  return (source = "pointer") => {
     const count = work.rows().length;
 
     return count === 0 && !work.problem() ? [] : [{
       id: "recover",
       label: count > 0 ? copy.recoverDraftsCount(count) : copy.recoverDrafts,
-      run: () => connected.drawer.open(() => <DraftRecoveryPanel />, "pointer"),
+      run: () => connected.drawer.open(() => <DraftRecoveryPanel />, source),
     }];
   };
 };

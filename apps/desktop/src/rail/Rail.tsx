@@ -248,6 +248,15 @@ export const Rail = () => {
     }
   };
 
+  const openOverviewMenu = (press: KeyboardEvent) => {
+    const entries = recoveryEntries("key");
+
+    if (entries.length === 0 || !(press.target instanceof HTMLElement)) return;
+
+    const box = press.target.getBoundingClientRect();
+    void contextMenu(app, entries, box.left, box.bottom);
+  };
+
   /** One indent step (--rail-step) in pixels: how far sideways the pointer goes to change the drop's depth. */
   const [railStep, setRailStep] = createSignal(1);
 
@@ -489,6 +498,7 @@ export const Rail = () => {
     } }) },
     { action: CHORDS.find((row) => row.keys === "⇧⌘N")!, match: "key", capture: () => ({ available: canSpawn, invoke: openCompose }) },
     { chords: ["ContextMenu", "Shift+F10"], when: (press) => focusedRowId(press) !== undefined, run: openMenuAtFocusedRow },
+    { chords: ["ContextMenu", "Shift+F10"], when: (press) => press.target instanceof HTMLElement && press.target.matches("[data-todo-root]"), run: openOverviewMenu },
     { action: CHORDS.find((row) => row.keys === "⌘⌫")!, when: (press) => focusedRowId(press) !== undefined, capture: (focus) => ({ available: () => focus instanceof HTMLElement && focus.isConnected && focus.matches(ROW) && rail.nodes.some((node) => node.id === rail.selected()) && daemonExit() === null, invoke: () => removeSelected(false) }) },
   ]);
 
@@ -518,6 +528,7 @@ export const Rail = () => {
       data-todo-root
       aria-pressed={rail.selected() === null}
       aria-label={copy.overviewLabel(attention())}
+      aria-haspopup={recoveryEntries().length > 0 ? "menu" : undefined}
       data-scrolled={scrolled()}
       class="todo-project-root"
       onClick={() => rail.select(null)}
