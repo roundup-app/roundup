@@ -259,7 +259,7 @@
 }
 
 .progress-status:empty {
-  margin-block-start: calc(-1 * var(--space-2));
+  position: absolute;
 }
 
 .progress-state {
