@@ -55,7 +55,7 @@ export const ContextBar = (props: { overview: ConversationOverview }) => {
           </Show>
         </p>
         <Show when={limit()}>
-          <div class="context-bar" role="meter" aria-label={copy.context} aria-valuemin={0} aria-valuenow={used()} aria-valuemax={limit()} onMouseLeave={() => setActive(null)}>
+          <div class="context-bar" role="meter" aria-label={copy.context} aria-valuemin={0} aria-valuenow={used()} aria-valuemax={limit()} aria-valuetext={copy.contextOf(used()!, limit()!) + ", " + copy.percent(percent())} onMouseLeave={() => setActive(null)}>
             <For each={parts()}>
               {(part, index) => (
                 <span class="context-part" data-kind={part.kind} data-dim={active() !== null && active() !== index() ? "" : undefined}
@@ -67,7 +67,7 @@ export const ContextBar = (props: { overview: ConversationOverview }) => {
             <For each={parts()}>
               {(part, index) => (
                 <li data-dim={active() !== null && active() !== index() ? "" : undefined} onMouseEnter={() => setActive(index())} onMouseLeave={() => setActive(null)}>
-                  <button type="button" tabindex={(active() ?? 0) === index() ? 0 : -1} onFocus={() => setActive(index())} onBlur={() => setActive(null)} onKeyDown={(event) => move(event, index())}>
+                  <button type="button" data-button="quiet" tabindex={(active() ?? 0) === index() ? 0 : -1} onFocus={() => setActive(index())} onBlur={() => setActive(null)} onKeyDown={(event) => move(event, index())}>
                     <span class="context-swatch" data-kind={part.kind} aria-hidden="true" />
                     <span>{part.label}</span>
                     <span class="context-tokens">{compact(part.tokens)}</span>
