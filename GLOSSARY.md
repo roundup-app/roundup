@@ -221,6 +221,9 @@ The macOS window; it starts a Daemon for each open Project and hosts the webview
 **App seam**:
 The few Tauri commands and events between the App and its webview (`scenarios/app.md`); not a Daemon contract.
 
+**App Settings**:
+The center view, opened from the app menu's `Settings…` (`⌘,`), holding the settings that apply to the whole App: Agents, Terminal, Shortcuts and Appearance (`scenarios/ui-app-settings.md`).
+
 **File drop**:
 The window's native drop of files, which the Tauri shell takes before the webview sees a DOM `drop`; the App seam reports it as `onFileDrop` and a Terminal pane pastes the dropped paths (U162); while one is dragged the Rail's rows and the Project tabs are its drop targets (U348).
 
