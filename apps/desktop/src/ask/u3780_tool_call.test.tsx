@@ -16,6 +16,8 @@ const tree = (calls: Record<string, ToolCall> = { ann: call() }) => [
 
 const line = (name: string) => screen.getByRole("button", { name: new RegExp(`^${name} `) });
 
+const row = (name: string) => line(name).closest(".call-line")!;
+
 const toggle = async (name: string) => {
   fireEvent.click(line(name));
   await vi.advanceTimersByTimeAsync(50);
@@ -46,25 +48,25 @@ const send = async (app: Awaited<ReturnType<typeof mountAskBar>>["app"], connect
 it("u3780b_a_running_call_ticks_and_a_finished_one_does_not", async () => {
   const { app, connected } = await mountAskBar([], null, tree());
 
-  expect(line("ann").textContent).toContain("Running");
-  expect(line("ann").textContent).toContain("0s");
+  expect(row("ann").textContent).toContain("Running");
+  expect(row("ann").textContent).toContain("0s");
   vi.advanceTimersByTime(3000);
-  expect(line("ann").textContent).toContain("3s");
+  expect(row("ann").textContent).toContain("3s");
 
   await send(app, connected, "ann", call({ state: "done", duration_ms: 3200, result: "ok" }));
   vi.advanceTimersByTime(5000);
-  expect(line("ann").textContent).toContain("Done");
-  expect(line("ann").textContent).toContain("3s");
+  expect(row("ann").textContent).toContain("Done");
+  expect(row("ann").textContent).toContain("3s");
 });
 
 it("u3780b_a_hidden_window_does_not_tick", async () => {
   await mountAskBar([], null, tree());
   setVisibility("hidden");
   vi.advanceTimersByTime(5000);
-  expect(line("ann").textContent).toContain("0s");
+  expect(row("ann").textContent).toContain("0s");
   setVisibility("visible");
   vi.advanceTimersByTime(2000);
-  expect(line("ann").textContent).toContain("7s");
+  expect(row("ann").textContent).toContain("7s");
 });
 
 it("u3780b_a_new_call_replaces_the_line_in_place", async () => {
@@ -74,10 +76,10 @@ it("u3780b_a_new_call_replaces_the_line_in_place", async () => {
   await send(app, connected, "ann", call({ tool: "Read", summary: "src/a.ts", state: "failed", result: "no file", duration_ms: 40 }));
 
   expect(line("ann")).toBe(before);
-  expect(before.textContent).toContain("Read");
-  expect(before.textContent).toContain("src/a.ts");
-  expect(before.textContent).toContain("Failed");
-  expect(before.querySelector("[data-tone=red]")?.textContent).toBe("Failed");
+  expect(row("ann").textContent).toContain("Read");
+  expect(row("ann").textContent).toContain("src/a.ts");
+  expect(row("ann").textContent).toContain("Failed");
+  expect(row("ann").querySelector("[data-tone=red]")?.textContent).toBe("Failed");
 });
 
 it("u3780b_only_the_changed_line_updates", async () => {

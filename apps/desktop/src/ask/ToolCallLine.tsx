@@ -13,6 +13,8 @@ const COPIED_MS = 1500;
 const elapsed = (ms: number): string => {
   const seconds = Math.max(0, Math.floor(ms / 1000));
 
+  if (seconds === 0 && ms > 0) return "<1s";
+
   return seconds < 60 ? `${seconds}s` : `${Math.floor(seconds / 60)}m ${seconds % 60}s`;
 };
 
@@ -72,13 +74,16 @@ export const ToolCallLine = (props: { name: string; call: ToolCall }): JSX.Eleme
 
   return <Collapsible.Root class="call" data-reduced-motion={reducedMotion() ? "true" : undefined}>
     <Tip text={props.call.summary ?? props.call.tool} disabled={!props.call.summary}>{(trigger, focus) =>
-      <Collapsible.Trigger {...focus} class="overview-entry call-line" data-button="quiet" data-feedback="ink" aria-label={[props.name, props.call.tool, props.call.summary, label()].filter(Boolean).join(" ")}>
-        <span class="call-agent">{props.name}</span>
-        <span class="call-tool">{props.call.tool}</span>
-        <span {...trigger()} class="call-summary">{props.call.summary}</span>
+      <div class="overview-entry call-line">
+        <Collapsible.Trigger {...focus} class="call-trigger" data-button="quiet" data-feedback="ink" aria-label={[props.name, props.call.tool, props.call.summary, label()].filter(Boolean).join(" ")}>
+          <span class="call-chevron" aria-hidden="true" />
+          <span class="call-agent">{props.name}</span>
+          <span class="call-tool">{props.call.tool}</span>
+          <span {...trigger()} class="call-summary">{props.call.summary}</span>
+        </Collapsible.Trigger>
         <span class="call-state" data-tone={props.call.state === "failed" ? "red" : undefined}>{label()}</span>
         <span class="call-time">{time()}</span>
-      </Collapsible.Trigger>
+      </div>
     }</Tip>
     <Collapsible.Content class="call-fold">
       <Payload label={copy.toolCallArguments} text={props.call.arguments} />
