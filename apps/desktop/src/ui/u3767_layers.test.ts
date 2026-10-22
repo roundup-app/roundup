@@ -16,9 +16,9 @@ it("u3767_floating_surfaces_take_layers_from_tokens_in_one_order", () => {
   const tokens = readFileSync(join(SRC, "tokens.css"), "utf8");
   const layer = (name: string) => Number(new RegExp(`--layer-${name}:\\s*(\\d+)`).exec(tokens)?.[1]);
 
-  expect([layer("drawer"), layer("dialog"), layer("popover"), layer("menu"), layer("toast")]).toEqual(
-    [layer("drawer"), layer("drawer") + 1, layer("drawer") + 2, layer("drawer") + 3, layer("drawer") + 4]);
-  expect(layer("drawer")).toBeGreaterThan(0);
+  expect([layer("popover"), layer("drawer"), layer("dialog"), layer("menu"), layer("toast")]).toEqual(
+    [layer("popover"), layer("popover") + 1, layer("popover") + 2, layer("popover") + 3, layer("popover") + 4]);
+  expect(layer("popover")).toBeGreaterThan(0);
 
   // A file holding only floating surfaces sets no number; a mixed file names its Token on the floating selector.
   const only = ["ui/Popover.css", "ui/Tooltip.css", "ui/Dialog.css", "ui/Menu.css", "ui/Select.css", "ui/Toast.css", "switcher/styles.css", "toasts/styles.css", "ask/styles.css", "keys/keysFixture.tsx"];
