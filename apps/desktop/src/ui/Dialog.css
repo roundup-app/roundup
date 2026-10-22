@@ -15,7 +15,7 @@
 .app-dialog-positioner {
   position: fixed;
   inset: 0;
-  z-index: 3;
+  z-index: var(--layer-dialog);
   display: grid;
   place-items: center;
   box-sizing: border-box;

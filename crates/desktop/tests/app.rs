@@ -653,10 +653,11 @@ fn s2_events_the_daemon_emits_in_one_burst_arrive_on_the_channel_in_order() {
     let (app, webview) = app(fx.config.clone(), None);
     open(&webview, &fx.project);
     let (channel, received) = event_channel();
-    tauri::async_runtime::block_on(
-        app.state::<AppState>()
-            .subscribe(&fx.project.display().to_string(), channel),
-    )
+    tauri::async_runtime::block_on(app.state::<AppState>().subscribe(
+        &fx.project.display().to_string(),
+        channel,
+        None,
+    ))
     .unwrap();
 
     tauri::async_runtime::block_on(async {
@@ -685,7 +686,7 @@ fn s2_events_the_daemon_emits_in_one_burst_arrive_on_the_channel_in_order() {
 }
 
 #[test]
-fn s2_subscribe_through_ipc_takes_a_channel_argument_and_answers_null() {
+fn s2_subscribe_through_ipc_takes_a_channel_argument_and_answers_the_head() {
     let fx = Fixture::new(SERVE_AND_WAIT);
     fx.serve_real_daemon();
     let (_app, webview) = app(fx.config.clone(), None);
@@ -703,7 +704,7 @@ fn s2_subscribe_through_ipc_takes_a_channel_argument_and_answers_null() {
         json!({ "path": fx.project.display().to_string(), "events": channel }),
     );
 
-    assert_eq!(subscribed, Ok(Value::Null));
+    assert_eq!(subscribed, Ok(json!(0)));
     assert!(misnamed.is_err());
 }
 
@@ -716,10 +717,14 @@ fn s2_a_second_subscribe_replaces_the_first() {
     let (first, first_received) = event_channel();
     let (second, second_received) = event_channel();
     let state = app.state::<AppState>();
-    tauri::async_runtime::block_on(state.subscribe(&fx.project.display().to_string(), first))
+    tauri::async_runtime::block_on(state.subscribe(&fx.project.display().to_string(), first, None))
         .unwrap();
-    tauri::async_runtime::block_on(state.subscribe(&fx.project.display().to_string(), second))
-        .unwrap();
+    tauri::async_runtime::block_on(state.subscribe(
+        &fx.project.display().to_string(),
+        second,
+        None,
+    ))
+    .unwrap();
 
     invoke(
         &webview,
@@ -745,6 +750,7 @@ fn s2_before_a_project_is_open_rpc_and_subscribe_fail_at_once_with_conflict() {
     let subscribe = tauri::async_runtime::block_on(app.state::<AppState>().subscribe(
         &fx.project.display().to_string(),
         Channel::<contracts::Event>::new(|_| Ok(())),
+        None,
     ));
 
     assert_eq!(call.unwrap_err()["code"], code::CONFLICT);
@@ -962,10 +968,11 @@ fn s5_subscribe_after_reopen_receives_the_new_daemons_events() {
     exited.recv_timeout(WAIT).unwrap();
     invoke(&webview, "open_project", path_arg(&fx.project)).unwrap();
     let (channel, received) = event_channel();
-    tauri::async_runtime::block_on(
-        app.state::<AppState>()
-            .subscribe(&fx.project.display().to_string(), channel),
-    )
+    tauri::async_runtime::block_on(app.state::<AppState>().subscribe(
+        &fx.project.display().to_string(),
+        channel,
+        None,
+    ))
     .unwrap();
 
     tauri::async_runtime::block_on(async {
@@ -1367,9 +1374,10 @@ fn s8_events_reach_only_that_projects_channel() {
     let (mine, mine_received) = event_channel();
     let (theirs, theirs_received) = event_channel();
     let state = app.state::<AppState>();
-    tauri::async_runtime::block_on(state.subscribe(&fx.project.display().to_string(), mine))
+    tauri::async_runtime::block_on(state.subscribe(&fx.project.display().to_string(), mine, None))
         .unwrap();
-    tauri::async_runtime::block_on(state.subscribe(&other.display().to_string(), theirs)).unwrap();
+    tauri::async_runtime::block_on(state.subscribe(&other.display().to_string(), theirs, None))
+        .unwrap();
 
     invoke(
         &webview,

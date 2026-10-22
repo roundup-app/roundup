@@ -4,6 +4,7 @@ import { Portal } from "solid-js/web";
 import { copy } from "../copy";
 import { ErrorLine } from "../ink/ErrorLine";
 import { KindGlyph } from "../ink/KindGlyph";
+import { modalOpen } from "../keys/registry";
 import { Menu } from "../ui/Menu";
 import { Popover } from "../ui/Popover";
 import { Tip } from "../ui/Tip";
@@ -45,6 +46,9 @@ export const SendToAgent = (props: { send: ReturnType<typeof createSendSelection
 
     if (caret) input?.setSelectionRange(caret.start, caret.end, caret.direction);
   });
+
+  // U3767: a modal Dialog closes the note; its text stays held and returns when the user reopens it.
+  createEffect(() => { if (modalOpen() && control.open()) control.dismiss(); });
 
   const anchorRect = () => {
     const at = control.anchor();
