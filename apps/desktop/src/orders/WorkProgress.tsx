@@ -1,0 +1,224 @@
+import { For, Show, createMemo, createResource, createSignal, onCleanup } from "solid-js";
+import type { ContinuationAction } from "@contracts/message/ContinuationAction";
+import type { Progress } from "@contracts/message/Progress";
+import type { Reconciliation } from "@contracts/message/Reconciliation";
+import type { ResumeWorkParams } from "@contracts/message/ResumeWorkParams";
+import type { ResultProgress } from "@contracts/message/ResultProgress";
+import { openDeliverable } from "../ask/openDeliverable";
+import { INTERNAL_CODE, RpcError } from "../app/seam";
+import { copy } from "../copy";
+import { KindGlyph } from "../ink/KindGlyph";
+import { useConnectedProject } from "../state/connectedProject";
+import { Disclosure } from "../ui/Disclosure";
+
+type Read = { progress: Progress; plan: Reconciliation } | { failure: string };
+
+type Phase = "idle" | "pending" | "failed" | "unknown" | "resumed" | "nothing";
+
+/** U3078i: the retained progress of one Agent's work and the explicit Resume. Reading sends nothing; only the Resume control calls `message.resumeWork`, always for the Agent and action it read. */
+export const WorkProgress = (props: { id: string }) => {
+  const { app, project, events, daemonExit } = useConnectedProject();
+  const [version, setVersion] = createSignal(0);
+
+  const [read] = createResource(() => [props.id, version()] as const, async ([id]): Promise<Read> => {
+    try {
+      const query = { project: project.path, id };
+      const [progress, plan] = await Promise.all([app.rpc("message.progress", query), app.rpc("message.reconcileWork", query)]);
+
+      return { progress, plan };
+    } catch (error) {
+      if (!(error instanceof Error)) throw error;
+
+      return { failure: error.message };
+    }
+  });
+
+  const refresh = () => { if (daemonExit() === null) setVersion((count) => count + 1); };
+
+  const unsubscribe = events.subscribe((event) => { if (event.name === "rail.changed") refresh(); });
+  onCleanup(unsubscribe);
+
+  const loaded = () => {
+    const each = read.latest;
+
+    return each && "progress" in each ? each : undefined;
+  };
+
+  const [phase, setPhase] = createSignal<Phase>("idle");
+  const [cause, setCause] = createSignal("");
+  const [failure, setFailure] = createSignal<{ report: string; cause: string } | null>(null);
+  const [opening, setOpening] = createSignal<string | null>(null);
+
+  let request: string | null = null;
+  let button: HTMLButtonElement | undefined;
+  let disposed = false;
+  onCleanup(() => { disposed = true; });
+
+  const open = (): ContinuationAction[] => loaded()?.plan.actions.filter((action) => action.decision === null) ?? [];
+
+  const inspect = async (result: ResultProgress) => {
+    const report = result.report.report;
+
+    if (opening() !== null || daemonExit() !== null) return;
+    setOpening(report);
+    setFailure(null);
+
+    try {
+      const unavailable = await openDeliverable(app, result.report.publication.project, result.report.publication.id);
+
+      if (!disposed && unavailable !== null) setFailure({ report, cause: unavailable });
+    } catch (error) {
+      if (!(error instanceof Error)) throw error;
+
+      if (!disposed) setFailure({ report, cause: error.message });
+    } finally {
+      if (!disposed) setOpening(null);
+    }
+  };
+
+  /** The Daemon holds what was accepted, so an unknown reply reads it again by identity before it asks a second time. */
+  const settled = async (agent: string, actions: string[]): Promise<boolean> => {
+    const plan = await app.rpc("message.reconcileWork", { project: project.path, id: agent });
+
+    return actions.every((id) => plan.actions.find((action) => action.id === id)?.decision != null);
+  };
+
+  const resume = async () => {
+    const agent = props.id;
+    const chosen = open();
+
+    if (phase() === "pending" || daemonExit() !== null || chosen.length === 0) return;
+    const identity = chosen.map((action) => action.id);
+    const previous = phase();
+
+    request ??= crypto.randomUUID();
+    setPhase("pending");
+
+    try {
+      if (previous === "unknown" && await settled(agent, identity)) {
+        request = null;
+        setPhase("resumed");
+        refresh();
+
+        return;
+      }
+
+      const params: ResumeWorkParams = { project: project.path, id: agent, request };
+
+      const [only] = identity;
+
+      if (only !== undefined && identity.length === 1) params.action = only;
+
+      const answer = await app.rpc("message.resumeWork", params);
+
+      request = null;
+
+      if (!disposed) setPhase(answer.decision === null ? "nothing" : "resumed");
+    } catch (thrown) {
+      const known = thrown instanceof RpcError && thrown.code !== INTERNAL_CODE;
+
+      if (!disposed) {
+        setCause(thrown instanceof Error ? thrown.message : "");
+        setPhase(known ? "failed" : "unknown");
+      }
+    } finally {
+      if (!disposed) {
+        refresh();
+        queueMicrotask(() => button?.focus());
+      }
+    }
+  };
+
+  const confirmed = (result: ResultProgress) => result.observations.some((each) => each.verdict === "passed");
+
+  const receipt = (result: ResultProgress) => {
+    const each = result.observations.findLast((seen) => seen.verdict === "resolved");
+
+    return each?.verdict === "resolved" ? each.evidence.outcome.kind : null;
+  };
+
+  const noteOf = (result: ResultProgress, plan: Reconciliation): { cause: string; action: string }[] => {
+    const blocked = plan.blocked.filter((each) => each.report === result.report.report);
+
+    if (blocked.length > 0) return blocked;
+    const last = result.observations.findLast((each) => each.verdict === "unknown");
+
+    return last && !confirmed(result) ? [last] : [];
+  };
+
+  const rows = createMemo(() => {
+    const each = loaded();
+
+    return each ? { current: each.progress.results.filter((result) => result.current), earlier: each.progress.results.filter((result) => !result.current) } : null;
+  });
+
+  const row = (result: ResultProgress, plan: Reconciliation) => {
+    const pending = () => plan.pending_checks.some((target) => target.id === result.report.request.target.id
+      && target.revision === result.report.request.target.revision);
+
+    const outcome = () => receipt(result);
+    const next = () => result.report.request.next.trim();
+
+    return (
+      <li class="progress-row" data-report={result.report.report} data-current={String(result.current)}>
+        <p class="progress-result">{result.report.request.result}</p>
+        <p class="progress-states">
+          <Show when={!result.current}><span class="progress-state" data-state="older">{copy.progressOlder}</span></Show>
+          <Show when={result.acceptances.length > 0}><span class="progress-state" data-state="accepted">{copy.progressAccepted}</span></Show>
+          <Show when={confirmed(result)}><span class="progress-state" data-state="checked">{copy.progressChecked}</span></Show>
+          <Show when={outcome()}>{(kind) => <span class="progress-state" data-state={kind() === "completed" ? "checked" : "unknown"}>{kind() === "completed" ? copy.progressReceipt : copy.progressNotPerformed}</span>}</Show>
+          <Show when={result.current && pending() && !confirmed(result)}><span class="progress-state" data-state="pending">{copy.progressChecksPending}</span></Show>
+          <Show when={result.report.request.state === "unknown-effect" && outcome() === null}><span class="progress-state" data-state="unknown">{copy.progressUnknown}</span></Show>
+          <Show when={result.availability.kind === "unavailable"}><span class="progress-state" data-state="unavailable">{copy.progressUnavailable}</span></Show>
+        </p>
+        <Show when={next() !== ""}><p class="progress-next"><span class="progress-label">{copy.progressRemaining}</span> {next()}</p></Show>
+        <For each={noteOf(result, plan)}>{(note) => <p class="progress-note" role="note">{note.cause}. {note.action}</p>}</For>
+        <button class="word progress-evidence" data-button="quiet" type="button" aria-label={copy.openEvidence(result.report.publication.title)}
+          aria-disabled={opening() !== null ? true : undefined} onClick={() => void inspect(result)}>{result.report.publication.title}</button>
+        <Show when={failure()?.report === result.report.report && failure()}>{(shown) => <p class="progress-failure" role="alert"><KindGlyph kind="error" /><span>{shown().cause}</span></p>}</Show>
+      </li>
+    );
+  };
+
+  const unread = () => {
+    const each = read.latest;
+
+    return each && "failure" in each ? each.failure : undefined;
+  };
+
+  return (
+    <>
+      <Show when={unread()}>{(cause) => (
+        <section class="progress-section" aria-label={copy.progress}>
+          <p class="progress-failure" role="alert"><KindGlyph kind="error" /><span>{copy.progressUnreadable(cause())}</span></p>
+          <button class="word" data-button="quiet" type="button" onClick={refresh}>{copy.progressRetry}</button>
+        </section>
+      )}</Show>
+      <Show when={loaded()}>
+        {(data) => (
+          <Show when={data().progress.results.length > 0}>
+            <section class="progress-section" aria-label={copy.progress}>
+              <div class="progress-head">
+                <h3>{copy.progress}</h3>
+                <Show when={open().length > 0}>
+                  <button ref={button} class="word" data-button="primary" type="button" aria-disabled={phase() === "pending" || daemonExit() !== null ? true : undefined}
+                    onClick={() => void resume()}>{phase() === "pending" ? copy.resuming : phase() === "failed" || phase() === "unknown" ? copy.resumeRetry : copy.resumeUnfinished}</button>
+                </Show>
+              </div>
+              <Show when={phase() === "failed"}><p class="progress-failure" role="alert"><KindGlyph kind="error" /><span>{copy.resumeFailed(cause())}</span></p></Show>
+              <Show when={phase() === "unknown"}><p class="progress-failure" role="alert"><KindGlyph kind="error" /><span>{copy.resumeUnknown}</span></p></Show>
+              <Show when={phase() === "resumed"}><p class="progress-status" role="status">{copy.resumed}</p></Show>
+              <Show when={phase() === "nothing"}><p class="progress-status" role="status">{copy.resumeNothing}</p></Show>
+              <ul class="progress-rows"><For each={rows()?.current}>{(result) => row(result, data().plan)}</For></ul>
+              <Show when={(rows()?.earlier.length ?? 0) > 0}>
+                <Disclosure class="progress-earlier" label={copy.progressEarlier(data().progress.results.filter((result) => !result.current).length)}>
+                  <ul class="progress-rows"><For each={rows()?.earlier}>{(result) => row(result, data().plan)}</For></ul>
+                </Disclosure>
+              </Show>
+            </section>
+          </Show>
+        )}
+      </Show>
+    </>
+  );
+};
