@@ -4,31 +4,22 @@ import { createToast, ToastProvider } from "./Toast";
 
 afterEach(() => { cleanup(); vi.useRealTimers(); });
 
-it("u492_hover_focus_restart_full_duration", async () => {
+it("u492_hover_focus_resume_from_time_left", async () => {
   vi.useFakeTimers();
   const toast = createToast({ limit: 3, newestFirst: true });
   render(() => <ToastProvider toast={toast} label="Updates" />);
   toast.show({ id: "agent", name: "Agent", content: "Needs you" });
   await vi.advanceTimersByTimeAsync(2000);
   const card = screen.getByRole("button", { name: "Agent Needs you" });
-  fireEvent.pointerEnter(card);
-  await vi.advanceTimersByTimeAsync(6000);
-  fireEvent.pointerLeave(card);
-  // Ark's public duration update enters visible:updating until its next frame.
-  await vi.advanceTimersToNextFrame();
-  await vi.advanceTimersByTimeAsync(1000);
-  fireEvent.pointerEnter(card);
-  fireEvent.focusIn(card);
-  await vi.advanceTimersByTimeAsync(6000);
-  fireEvent.pointerLeave(card);
-  await vi.advanceTimersByTimeAsync(6000);
+  fireEvent.mouseEnter(screen.getByRole("region"));
+  card.focus();
+  await vi.advanceTimersByTimeAsync(60_000);
   expect(screen.queryByText("Agent")).not.toBeNull();
-  fireEvent.focusOut(card);
-  await vi.advanceTimersToNextFrame();
-  await vi.advanceTimersByTimeAsync(4999);
+  fireEvent.mouseLeave(screen.getByRole("region"));
+  card.blur();
+  await vi.advanceTimersByTimeAsync(2900);
   expect(screen.queryByText("Agent")).not.toBeNull();
-  await vi.advanceTimersToNextFrame();
-  await vi.advanceTimersByTimeAsync(200);
+  await vi.advanceTimersByTimeAsync(100 + 200);
   expect(screen.queryByText("Agent")).toBeNull();
   expect(vi.getTimerCount()).toBe(0);
 });
