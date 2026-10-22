@@ -66,11 +66,11 @@ export const mountRegistryLayers = (reverse: boolean, nested: boolean, editors =
   const Drawer = () => {
     registerKeys({ kind: "layer", element: () => drawer, active: drawerOpen, modal: false }, [{ chords: ["Escape"], when: guarded, run: close }]);
 
-    return <Show when={drawerOpen()}><aside ref={drawer} class="drawer" data-registry-drawer tabIndex={-1} style={{ position: "fixed", top: "calc(var(--space-5) * 2)", right: "0", bottom: "0", width: "var(--shelf-width)", "z-index": "2" }}>
+    return <Show when={drawerOpen()}><aside ref={drawer} class="drawer" data-registry-drawer tabIndex={-1} style={{ position: "fixed", top: "calc(var(--space-5) * 2)", right: "0", bottom: "0", width: "var(--shelf-width)", "z-index": "var(--layer-drawer)" }}>
       <button data-registry-modal-trigger data-button="quiet" onClick={() => setDialogOpen(true)}>Open modal</button>
       <Menu.Root open={menuOpen()} onOpenChange={(details) => setMenuOpen(details.open)}>
         <Menu.Trigger data-registry-menu-trigger data-button="quiet">Project menu</Menu.Trigger>
-        <Portal><Menu.Positioner><Menu.Content ref={menu} style={{ "z-index": "3" }}>
+        <Portal><Menu.Positioner><Menu.Content ref={menu} style={{ "z-index": "var(--layer-menu)" }}>
           <Menu.Item value="project">Project action</Menu.Item>
         </Menu.Content></Menu.Positioner></Portal>
       </Menu.Root>
@@ -87,7 +87,7 @@ export const mountRegistryLayers = (reverse: boolean, nested: boolean, editors =
     registerKeys({ kind: "layer", element: () => menu, active: menuOpen, modal: false }, []);
 
     return <Dialog.Root open={dialogOpen()} onOpenChange={(details) => setDialogOpen(details.open)} restoreFocus>
-      <Portal><Dialog.Backdrop /><Dialog.Positioner><Dialog.Content ref={dialog} style={{ position: "fixed", top: "calc(var(--space-5) * 2)", right: "var(--space-4)", width: "var(--shelf-width)", "z-index": "3" }}>
+      <Portal><Dialog.Backdrop /><Dialog.Positioner><Dialog.Content ref={dialog} style={{ position: "fixed", top: "calc(var(--space-5) * 2)", right: "var(--space-4)", width: "var(--shelf-width)", "z-index": "var(--layer-dialog)" }}>
         <Dialog.Title>Registry modal</Dialog.Title><Dialog.Description>Top layer owns Escape</Dialog.Description>
         <Dialog.CloseTrigger data-button="quiet">Close modal</Dialog.CloseTrigger>
       </Dialog.Content></Dialog.Positioner></Portal>
