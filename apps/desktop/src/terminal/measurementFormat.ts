@@ -1,5 +1,6 @@
 import type { ConsumedSubtotal } from "@contracts/project/ConsumedSubtotal";
 import type { MeasurementCost } from "@contracts/project/MeasurementCost";
+import prettyMilliseconds from "pretty-ms";
 import { copy } from "../copy";
 
 const compact = new Intl.NumberFormat("en", { notation: "compact", maximumFractionDigits: 1 });
@@ -16,23 +17,11 @@ export const exact = (value: ConsumedSubtotal) => BigInt(value.known).toLocaleSt
 /** The top two units of a duration; unavailable is `—`, never zero. */
 export const duration = (ns: string | null) => {
   if (ns === null) return copy.measurementUnknown;
-  const seconds = BigInt(ns) / 1_000_000_000n;
+  const ms = BigInt(ns) / 1_000_000n;
 
-  if (seconds === 0n) return BigInt(ns) > 0n ? "<1s" : "0s";
-  const units = [["d", 86_400n], ["h", 3_600n], ["m", 60n], ["s", 1n]] as const;
-  const parts: string[] = [];
-  let rest = seconds;
+  if (ms < 1000n) return BigInt(ns) > 0n ? "<1s" : "0s";
 
-  for (const [name, size] of units) {
-    const count = rest / size;
-    rest %= size;
-
-    if (count > 0n || parts.length > 0) parts.push(`${count}${name}`);
-
-    if (parts.length === 2) break;
-  }
-
-  return parts.join(" ");
+  return prettyMilliseconds(Number(ms), { unitCount: 2, secondsDecimalDigits: 0 });
 };
 
 /** Whole percent of `part` in `whole`, `<1%` for a positive share under one percent. */
