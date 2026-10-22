@@ -10,7 +10,7 @@ const finishMs = (): number => {
 };
 
 /**
- * U3770: which rows and whether the bar play a finish. `done` is the set of done Todo ids in the shown scope, `key` names that scope and
+ * U3770: which rows and whether the bar play a finish. `done` is the set of done Todo ids in the shown scope, `key` names that scope.
  * A first load, a scope change and a refetch that changes no `done` state only
  * re-baseline, so nothing moves at rest; a change plays, and a later one joins the same play instead of queueing another.
  */
