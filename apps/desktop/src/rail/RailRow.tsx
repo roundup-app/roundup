@@ -7,7 +7,7 @@ import { createEffect, createSignal, For, onCleanup, Show, type JSX } from "soli
 import { IconButton } from "../ui/IconButton";
 import { TreeView } from "../ui/TreeView";
 import { ownKeys } from "./rows";
-import { Tip, type TriggerProps } from "../ui/Tip";
+import { Tip } from "../ui/Tip";
 import type { RailNode } from "@contracts/agent/RailNode";
 import type { Kind } from "@contracts/Kind";
 import { glyphOf, hasInk } from "../ink/glyph";
@@ -108,22 +108,6 @@ const NameField = (props: { node: RailNode; onCommit: (name: string) => Promise<
 };
 
 
-/** U2228a: a hover on a button or input of the row belongs to that control's own tooltip, never the row's. */
-const ignoringControls = <T extends { onPointerMove?: unknown; onPointerLeave?: unknown }>(props: T): T => {
-  // SAFETY: the row's Ark tooltip trigger props carry these as pointer-event handlers when present.
-  const move = props.onPointerMove as ((event: PointerEvent) => void) | undefined;
-  // SAFETY: same trigger props; onPointerLeave is the handler that closes the row's tooltip.
-  const leave = props.onPointerLeave as ((event: PointerEvent) => void) | undefined;
-
-  return {
-    ...props,
-    onPointerMove: (event: PointerEvent) => {
-      if (!(event.target instanceof Element) || !event.target.closest("button, input")) move?.(event);
-      else leave?.(event);
-    },
-  };
-};
-
 export const RailRowView = (props: {
   row: NodeRow;
   exit: ExitState | null;
@@ -174,7 +158,7 @@ export const RailRowView = (props: {
 
   const workstream = () => isWorkstream(props.row.node);
 
-  // U2228a: a name cut to `…` in the layout it has now (hovered, focused or selected included) shows in full in the row's Tooltip.
+  // U2228a: a name cut to `…` in the layout it has now (hovered, focused or selected included) puts its full text in the row's native `title`.
   const [cut, setCut] = createSignal(false);
   let nameBox: HTMLSpanElement | undefined;
   const measure = () => setCut(!!nameBox && nameBox.scrollWidth > nameBox.clientWidth);
@@ -211,22 +195,20 @@ export const RailRowView = (props: {
 
   const needsYouShown = () => workstream() && !props.row.collapsed && props.needsYou > 0;
 
-  /** U521: what the row's own Tooltip says: the name a cut hides, the status label, and the counts at the row's right. The same text the row shows, unchanged. */
-  const lines = (): string[] => [
-    ...(cut() ? [props.row.node.name] : []),
+  /** U2228a: the row's accessible name: the name, its status label and the counts at its right, which no tooltip repeats (U2228c). */
+  const label = () => [
+    props.row.node.name,
     ...(workstream() || !props.row.node.status ? [] : [props.row.node.status.label]),
     ...(needsYouShown() ? [copy.needYou(props.needsYou)] : []),
     ...(workstream() && props.row.collapsed ? [copy.agents(props.row.collapsed.agents.length)] : []),
-  ];
-
-  // The Tooltip anchors to the row itself: the tree item's props replace the id its trigger lookup needs.
-  let rowBox: HTMLElement | undefined;
+  ].join(copy.comma);
 
   const nameId = () => `rail-name-${props.row.node.id}`;
 
   const rowProps = () => ({
     class: "rail-row",
     "data-id": props.row.node.id,
+    title: cut() && !editing() ? props.row.node.name : undefined,
     // The Rail's selected mark and the drop target both read the row itself.
     "data-selected": props.selected ? "true" : undefined,
     tabIndex: props.tabbable ? 0 : -1,
@@ -264,15 +246,18 @@ export const RailRowView = (props: {
     </Show>
   );
 
-  /** The row's own element: Ark's item or branch control, which the Tooltip's trigger props join. */
-  const row = (mine: (extra: RowProps) => RowProps, trigger: (extra?: TriggerProps) => TriggerProps) => (
-    // SAFETY: TreeView and Tip merge the same DOM props; this renderer fixes their currentTarget to this row div.
-    <div {...ignoringControls(trigger(mine(rowProps()) as TriggerProps))} ref={(el: HTMLDivElement) => { rowBox = el; props.sortRef(el); }}>
+  /** An empty `title` ends the row's native title at a control, which keeps its own tooltip only (U2228a). */
+  const untitled = { title: "" };
+
+  /** The row's own element: Ark's item or branch control. */
+  const row = (mine: (extra: RowProps) => RowProps) => (
+    <div {...mine(rowProps())} ref={(el: HTMLDivElement) => props.sortRef(el)}>
       <Trunks depth={props.row.depth} trail={props.row.trail} stem={props.row.children || pads.shown()} />
       <p class="line">
         <Show when={workstream()} fallback={<KindGlyph kind={kind() ?? "idle"} />}>
           <IconButton
             class="rail-chevron"
+            {...untitled}
             aria-label={copy.collapse}
             {...ownKeys}
             onClick={(click) => {
@@ -324,7 +309,7 @@ export const RailRowView = (props: {
           </Show>
         </Show>
         <span class="fill" aria-hidden="true" />
-        <span class="row-tail">
+        <span class="row-tail" {...untitled}>
           <RowIcons actions={props.actions}>
             <Show when={showsAction()}>
               <Tip text={props.doorFailure ? copy.retryDoor : copy.startDoor}>
@@ -359,26 +344,23 @@ export const RailRowView = (props: {
 
   return (
     <>
-      <Tip disabled={lines().length === 0} anchor={() => rowBox} class="rail-name-tip" content={<For each={lines()}>{(line) => <div>{line}</div>}</For>}>
-        {(trigger) => <Show
-          when={props.branch}
-          fallback={
-            <TreeView.Item data-id={props.row.node.id} aria-labelledby={nameId()} asChild={(item) => row((extra) => item(extra), trigger)} />
-          }
-        >
-          <TreeView.Branch
-            data-id={props.row.node.id}
-            aria-labelledby={nameId()}
-            // A click on the treeitem itself, not on a part of it (a script's or a test's `[data-id]` query lands here), is the click of its control.
-            onClick={(click) => {
-              if (click.target === click.currentTarget) click.currentTarget.querySelector<HTMLElement>('[data-part="branch-control"]')?.click();
-            }}
-          >
-            <TreeView.BranchControl asChild={(control) => row((extra) => control(extra), trigger)} />
-          </TreeView.Branch>
-        </Show>
+      <Show
+        when={props.branch}
+        fallback={
+          <TreeView.Item data-id={props.row.node.id} aria-label={label()} asChild={(item) => row((extra) => item(extra))} />
         }
-      </Tip>
+      >
+        <TreeView.Branch
+          data-id={props.row.node.id}
+          aria-label={label()}
+          // A click on the treeitem itself, not on a part of it (a script's or a test's `[data-id]` query lands here), is the click of its control.
+          onClick={(click) => {
+            if (click.target === click.currentTarget) click.currentTarget.querySelector<HTMLElement>('[data-part="branch-control"]')?.click();
+          }}
+        >
+          <TreeView.BranchControl asChild={(control) => row((extra) => control(extra))} />
+        </TreeView.Branch>
+      </Show>
       <PadRows pads={pads} depth={props.row.depth} trail={props.row.trail} children={props.row.children} />
     </>
   );
