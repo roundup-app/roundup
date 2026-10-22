@@ -92,3 +92,91 @@ it("u3741_a_thread_with_nothing_unread_marks_nothing", async () => {
   await within(panel()).findByText("mine", { selector: ".todo-comment-body" });
   expect(todoCallsTo(m.app, "todo.markCommentsRead")).toHaveLength(0);
 });
+
+const status = "checked\n::status Ran tests: 42 passed\n  42 passed\n  0 failed\n::status Edited lib.rs\nlast";
+
+it("u3774_the_thread_shows_each_author_with_me_or_the_agents_glyph", async () => {
+  const m = await mountTodos([todo(1)], true, [agent("a", "idle", "Idle", { name: "builder" })]);
+  m.store.comments!.set(1, [line(1, USER_ACTOR, "mine"), line(2, AGENT, "theirs"), line(3, { kind: "agent", id: "gone", parent: null }, "orphan")]);
+  await open();
+  await within(panel()).findByText("orphan");
+  const blocks = [...panel().querySelectorAll<HTMLElement>(".todo-comment")];
+  expect(blocks.map((block) => block.querySelector(".todo-comment-author")!.textContent)).toEqual(["Me", "builder", "gone"]);
+  expect(blocks.map((block) => block.querySelector("[role=img]") !== null)).toEqual([false, true, false]);
+});
+
+it("u3775_a_status_line_is_a_button_that_folds_its_details", async () => {
+  const m = await mountTodos([todo(1)], true, [agent("a", "idle", "Idle")]);
+  m.store.comments!.set(1, [line(1, AGENT, status)]);
+  await open();
+  const button = await within(panel()).findByRole("button", { name: "Ran tests: 42 passed" });
+  expect(button.getAttribute("aria-expanded")).toBe("false");
+  expect(within(panel()).queryByText(/42 passed\n/)).toBeNull();
+  fireEvent.click(button);
+  await waitFor(() => expect(button.getAttribute("aria-expanded")).toBe("true"));
+  expect((await within(panel()).findByText(/0 failed/)).textContent).toBe("42 passed\n0 failed");
+  fireEvent.click(button);
+  await waitFor(() => expect(button.getAttribute("aria-expanded")).toBe("false"));
+  await waitFor(() => expect(within(panel()).queryByText(/0 failed/)).toBeNull());
+  expect(within(panel()).queryByRole("button", { name: "Edited lib.rs" })).toBeNull();
+  expect(within(panel()).getByText(/Edited lib\.rs/, { selector: "p" })).toBeTruthy();
+  expect(within(panel()).getByText("checked")).toBeTruthy();
+});
+
+it("u3775_only_an_agents_comment_body_makes_status_lines", async () => {
+  const m = await mountTodos([todo(1)]);
+  m.store.comments!.set(1, [line(1, USER_ACTOR, "::status Ran tests\n  42 passed")]);
+  await open();
+  await within(panel()).findByText(/::status Ran tests/);
+  expect(within(panel()).queryByRole("button", { name: /Ran tests/ })).toBeNull();
+});
+
+it("u3776_enter_sends_once_and_shift_enter_adds_a_line", async () => {
+  const m = await mountTodos([todo(1)]);
+  await open();
+  const field = within(panel()).getByRole<HTMLTextAreaElement>("textbox", { name: "Write a comment" });
+  fireEvent.keyDown(field, { key: "Enter" });
+  expect(todoCallsTo(m.app, "todo.comment")).toHaveLength(0);
+  fireEvent.input(field, { target: { value: "hello" } });
+  expect(fireEvent.keyDown(field, { key: "Enter", shiftKey: true })).toBe(true);
+  expect(todoCallsTo(m.app, "todo.comment")).toHaveLength(0);
+  fireEvent.keyDown(field, { key: "Enter", isComposing: true });
+  expect(todoCallsTo(m.app, "todo.comment")).toHaveLength(0);
+  fireEvent.keyDown(field, { key: "Enter" });
+  fireEvent.keyDown(field, { key: "Enter" });
+  await waitFor(() => expect(todoCallsTo(m.app, "todo.comment").map((call) => call.params)).toEqual([{ id: 1, body: "hello" }]));
+});
+
+it("u3776_a_new_comment_is_announced_politely_and_the_opening_ones_are_not", async () => {
+  const m = await mountTodos([todo(1)], true, [agent("a", "idle", "Idle", { name: "builder" })]);
+  m.store.comments!.set(1, [line(1, AGENT, "old")]);
+  await open();
+  await within(panel()).findByText("old");
+  const live = within(panel()).getByRole("status");
+  expect(live.getAttribute("aria-live")).toBe("polite");
+  expect(live.textContent).toBe("");
+  expect(panel().querySelector("[data-comment='1']")!.hasAttribute("data-fresh")).toBe(false);
+  m.store.comments!.set(1, [...m.store.comments!.get(1)!, line(2, AGENT, "new one")]);
+  m.app.emit({ actor: AGENT, name: "todo.commented", data: { id: 1 } });
+  await waitFor(() => expect(live.textContent).toBe("builder: new one"));
+  expect(panel().querySelector("[data-comment='2']")!.hasAttribute("data-fresh")).toBe(true);
+  expect(panel().querySelector("[data-comment='1']")!.hasAttribute("data-fresh")).toBe(false);
+});
+
+it("u3776_an_arrival_keeps_earlier_rows_and_an_open_status_line", async () => {
+  const m = await mountTodos([todo(1)], true, [agent("a", "idle", "Idle")]);
+  m.store.comments!.set(1, [line(1, AGENT, status)]);
+  await open();
+  const button = await within(panel()).findByRole("button", { name: "Ran tests: 42 passed" });
+  const row = panel().querySelector("[data-comment='1']");
+  fireEvent.click(button);
+  await waitFor(() => expect(button.getAttribute("aria-expanded")).toBe("true"));
+  button.focus();
+  m.store.comments!.set(1, [...m.store.comments!.get(1)!, line(2, AGENT, "new one")]);
+  m.app.emit({ actor: AGENT, name: "todo.commented", data: { id: 1 } });
+  await within(panel()).findByText("new one");
+  expect(panel().querySelector("[data-comment='1']")).toBe(row);
+  expect(button.isConnected).toBe(true);
+  expect(button.getAttribute("aria-expanded")).toBe("true");
+  expect(document.activeElement).toBe(button);
+});
