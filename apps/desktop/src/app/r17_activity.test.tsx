@@ -1,27 +1,52 @@
-import { cleanup, render } from "@solidjs/testing-library";
+import { cleanup, fireEvent, render, screen } from "@solidjs/testing-library";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import type { Kind } from "@contracts/Kind";
 import type { RailNode } from "@contracts/agent/RailNode";
 import { App } from "../App";
+import type { FakeApp } from "../testing/fakeApp";
+import { fakeEmulators } from "../terminal/paneHarness";
+import { measurementFixture } from "../testing/measurementFixture";
 import { createFakeApp } from "../testing/fakeApp";
 import { agent, door, event, NOW } from "../testing/nodes";
 
-const intervals = new Set<ReturnType<typeof setInterval>>();
+const intervals = new Set<Parameters<typeof clearInterval>[0]>();
+
 const stopped: (Kind | null)[] = ["idle", "blocked", "needs-you", "error", "done", null];
+
 const visibility = (value: "hidden" | "visible") => {
   Object.defineProperty(document, "visibilityState", { value, configurable: true });
   document.dispatchEvent(new Event("visibilitychange"));
 };
+
+let revision = 1;
+
+const status = (app: FakeApp, id: string, kind: Kind) => app.emit(event({ name: "agent.status", data: { id, attempt: "1", status_revision: String(++revision), status: { kind, label: "stopped", since: Date.now() } } }));
+
 const settle = () => vi.advanceTimersByTimeAsync(0);
-const mount = async (nodes: RailNode[] = [door("a", "working", "building", { worktree: { path: "/p/a", branch: "a", base: "main" } })]) => {
+
+const mount = async (nodes: RailNode[] = [door("a", "working", "building", { worktree: { path: "/p/a", branch: "a", base: "main" } })], setup?: (app: FakeApp) => void) => {
   const app = createFakeApp();
   app.opened.project = { path: "/p", name: "p" };
   app.handlers["rail.tree"] = () => nodes;
   app.handlers["project.resources"] = () => ({ agents: [], total: { memory_bytes: 0, cpu_percent: 0, disk_bytes: null } });
+  app.handlers["agent.changedFiles"] = () => ({ files: [] });
+  app.handlers["project.measurementSummary"] = ({ home, category }) => {
+    const sample = measurementFixture(home, category);
+
+    return { ...sample, rows: [], contributors: 0, next_offset: null };
+  };
+
+  app.handlers["project.weeklyLimit"] = () => ({ used_percent: null, resets_at: null, reason: null });
+  setup?.(app);
   const clock = vi.fn(() => Date.now());
-  const view = render(() => <App app={app} clock={clock} reducedMotion={() => true} />);
+  const view = render(() => <App app={app} clock={clock} reducedMotion={() => true} createEmulator={fakeEmulators().factory} />);
   await settle();
   expect(document.querySelector(".resource-strip")).not.toBeNull();
+  const row = document.querySelector(`[role="treeitem"][data-id="${nodes[0]?.id}"]`);
+
+  if (row) fireEvent.click(row);
+  await settle();
+
   return { app, clock, view };
 };
 
@@ -33,11 +58,13 @@ beforeEach(() => {
   vi.spyOn(globalThis, "setInterval").mockImplementation((...args) => {
     const id = start(...args);
     intervals.add(id);
+
     return id;
   });
   vi.spyOn(globalThis, "clearInterval").mockImplementation((id) => { intervals.delete(id); stop(id); });
 });
-afterEach(() => { cleanup(); vi.useRealTimers(); vi.restoreAllMocks(); visibility("visible"); });
+
+afterEach(() => { cleanup(); vi.restoreAllMocks(); vi.useRealTimers(); visibility("visible"); });
 
 it("r17_hidden_or_stopped_app_has_no_periodic_work", async () => {
   for (const kind of stopped) {
@@ -49,6 +76,10 @@ it("r17_hidden_or_stopped_app_has_no_periodic_work", async () => {
     expect(app.calls).toEqual([]);
     view.unmount();
   }
+
+  const empty = await mount([]);
+  expect(intervals.size).toBe(0);
+  empty.view.unmount();
   visibility("hidden");
   const { app, clock } = await mount();
   const reads = clock.mock.calls.length;
@@ -58,21 +89,126 @@ it("r17_hidden_or_stopped_app_has_no_periodic_work", async () => {
   expect(app.calls).toEqual([]);
 });
 
-it("r19_hidden_or_stopped_app_has_zero_live_intervals", async () => {
+it("r17_any_working_descendant_or_connected_project_keeps_the_clock_live", async () => {
+  const { app, clock } = await mount([door("a", "done", "stopped"), agent("child", "idle", "stopped", { parent: "a" })], (app) => {
+    app.add("/other");
+    app.of("/p");
+    app.of("/other").handlers["rail.tree"] = () => [agent("other", "idle", "stopped")];
+  });
+
+  expect(intervals.size).toBe(0);
+  status(app, "child", "working");
+  await settle();
+  expect(intervals.size).toBe(1);
+  let reads = clock.mock.calls.length;
+  await vi.advanceTimersByTimeAsync(15_000);
+  expect(clock).toHaveBeenCalledTimes(reads + 1);
+  status(app, "child", "done");
+  expect(intervals.size).toBe(0);
+  status(app.of("/other"), "other", "working");
+  expect(intervals.size).toBe(1);
+  app.exitDaemon({ code: 0 }, "/other");
+  expect(intervals.size).toBe(0);
+  reads = clock.mock.calls.length;
+  await vi.advanceTimersByTimeAsync(60_000);
+  expect(clock).toHaveBeenCalledTimes(reads);
+});
+
+it("r17_resume_reads_current_time_without_catch_up", async () => {
   visibility("hidden");
-  const { app, view } = await mount();
+  const { app, clock, view } = await mount();
+  const reads = clock.mock.calls.length;
+  await vi.advanceTimersByTimeAsync(3_600_000);
+  visibility("visible");
+  expect(clock).toHaveBeenCalledTimes(reads + 1);
+  expect(clock.mock.results.at(-1)?.value).toBe(NOW + 3_600_000);
+  visibility("visible");
+  status(app, "a", "working");
+  expect(intervals.size).toBe(2);
+  expect(clock).toHaveBeenCalledTimes(reads + 1);
+  await vi.advanceTimersByTimeAsync(15_000);
+  expect(clock).toHaveBeenCalledTimes(reads + 2);
+  view.unmount();
+  expect(intervals.size).toBe(0);
+  visibility("hidden");
+  visibility("visible");
+  expect(clock).toHaveBeenCalledTimes(reads + 2);
+});
+
+it("r17_blur_is_not_hide", async () => {
+  const { clock } = await mount();
+  const reads = clock.mock.calls.length;
+  window.dispatchEvent(new Event("blur"));
+  await vi.advanceTimersByTimeAsync(15_000);
+  expect(clock).toHaveBeenCalledTimes(reads + 1);
+  expect(intervals.size).toBe(2);
+});
+
+it("r17_events_and_explicit_refresh_work_while_suspended", async () => {
+  const { app } = await mount([door("a", "idle", "stopped", { worktree: { path: "/p/a", branch: "branch-a", base: "main" } })]);
+  const reads = () => app.calls.filter((call) => call.method === "agent.worktreeState").length;
+  expect(reads()).toBe(1);
+  fireEvent.click(screen.getByRole("button", { name: "branch-a" }));
+  await settle();
+  expect(reads()).toBe(2);
+  const decision = { id: "question", agent: "a", tool: "permission", args: "{}", opened_at: NOW, answerable: true };
+  app.emit(event({ name: "decision.opened", data: decision }));
+  await settle();
+  expect(document.querySelector(".decision-card")).not.toBeNull();
+  status(app, "a", "blocked");
+  expect(screen.getAllByRole("img", { name: "Blocked" }).length).toBeGreaterThan(0);
   expect(intervals.size).toBe(0);
   app.calls.length = 0;
   await vi.advanceTimersByTimeAsync(60_000);
   expect(app.calls).toEqual([]);
-  visibility("visible");
-  await settle();
-  expect(intervals.size).toBeGreaterThan(0);
-  visibility("hidden");
-  await settle();
-  expect(intervals.size).toBe(0);
-  view.unmount();
-  visibility("visible");
-  await mount([]);
-  expect(intervals.size).toBe(0);
+});
+
+it.each(["hidden", "stopped", "transition"] as const)("r19_hidden_or_stopped_app_has_zero_live_intervals: %s", async (initial) => {
+  const assertSleeping = async (app: FakeApp) => {
+    expect(intervals.size).toBe(0);
+    app.calls.length = 0;
+    await vi.advanceTimersByTimeAsync(60_000);
+    expect(app.calls).toEqual([]);
+  };
+
+  visibility(initial === "hidden" ? "hidden" : "visible");
+  let active = initial !== "stopped";
+
+  const { app } = await mount([door("a", active ? "working" : "done", "building")], (app) => {
+    app.handlers["project.measurementSummary"] = ({ home, category }) => {
+      const sample = measurementFixture(home, category);
+
+      return { ...sample, rows: [], contributors: 0, next_offset: null, time: { ...sample.time, active } };
+    };
+  });
+
+  if (initial === "transition") {
+    expect(intervals.size).toBeGreaterThan(0);
+    visibility("hidden");
+    await settle();
+  }
+
+  await assertSleeping(app);
+
+  for (const name of ["Timeline", "Cost and time"]) {
+    fireEvent.click([...document.querySelectorAll<HTMLButtonElement>(".measurement-action button")].find((button) => button.textContent === name)!);
+    await settle();
+    await assertSleeping(app);
+
+    if (initial !== "transition" || name !== "Cost and time") {
+      fireEvent.keyDown(document.querySelector(".timeline-view, .measurement-dashboard")!, { key: "Escape" });
+      await settle();
+    }
+  }
+
+  if (initial === "transition") {
+    visibility("visible");
+    await settle();
+    expect(intervals.size).toBe(4);
+    active = false;
+    status(app, "a", "done");
+    app.emit(event({ name: "project.measurementsChanged", data: { revision: "2" } }));
+    await settle();
+    await assertSleeping(app);
+  }
 });
