@@ -228,7 +228,7 @@ fn assert_exit_1_with_one_line_naming(output: &Output, socket: &Path) {
 
 /// M5: the methods with a tool for every Agent, each named after its method with the dot replaced
 /// by `_`, bar `agent.setOrder` (O4), whose tool is `agent_set_order`.
-const TOOL_METHODS: [&str; 86] = [
+const TOOL_METHODS: [&str; 88] = [
     "agent.wake",
     "reaction.create",
     "reaction.preview",
@@ -244,6 +244,8 @@ const TOOL_METHODS: [&str; 86] = [
     "deliverable.remove",
     "todo.create",
     "todo.comment",
+    "todo.addRef",
+    "todo.removeRef",
     "todo.get",
     "todo.list",
     "todo.update",
@@ -340,7 +342,7 @@ const DOOR_METHODS: [&str; 8] = [
 ];
 
 /// M5: the methods and App commands with no tool; the reasons are in `scenarios/mcp.md`.
-const NO_TOOL: [&str; 59] = [
+const NO_TOOL: [&str; 60] = [
     // U2539b, U2540a: the App's Worktree comparison; an Agent reads its own diff with git.
     "agent.changedFiles",
     "agent.compareFile",
@@ -355,6 +357,8 @@ const NO_TOOL: [&str; 59] = [
     "todo.comments",
     "todo.unread",
     "todo.markCommentsRead",
+    // T27: the Daemon computes each ref's state for the Drawer; an Agent reads `refs` on `todo_get`.
+    "todo.refs",
     // T17: an Agent cannot assign in this delivery.
     "todo.assign",
     "message.deliver",
@@ -1875,4 +1879,67 @@ async fn t21_an_agent_comment_names_its_author_over_mcp_and_cli() {
         .unwrap();
     assert_eq!(thread[0]["author"], json!(agent("a1")));
     assert_eq!(thread[0]["read"], false);
+}
+
+#[tokio::test]
+async fn t28_an_agent_adds_and_removes_a_ref_over_mcp_and_cli() {
+    let project = start_daemon();
+    let user = client_as(&project.socket, Actor::user()).await;
+    let key = user.request("daemon.ping", Value::Null).await.unwrap()["projectKey"]
+        .as_str()
+        .unwrap()
+        .to_owned();
+    user.request("todo.create", json!({"title":"ship"}))
+        .await
+        .unwrap();
+    user.request("pad.create", json!({"name":"notes","text":"## Plan\nx\n"}))
+        .await
+        .unwrap();
+    let url = format!("roundup://pad/notes?project={key}#Plan");
+    let shim = spawn_shim(&project.socket, "a1").await;
+    let result = shim.call("todo_addRef", json!({"id":1,"url":url})).await;
+    assert_ne!(result.is_error, Some(true));
+    let todo = user.request("todo.get", json!({"id":1})).await.unwrap();
+    assert_eq!(todo["refs"], json!([url]));
+    let touches = user
+        .request("provenance.history", json!({"item":"todo:1"}))
+        .await
+        .unwrap();
+    assert!(
+        touches
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|t| t["verb"] == "wrote" && t["actor"] == json!(agent("a1")))
+    );
+    let result = shim.call("todo_removeRef", json!({"id":1,"url":url})).await;
+    assert_ne!(result.is_error, Some(true));
+    // The command is the same call.
+    let rup = |args: Vec<&str>| {
+        tokio::process::Command::new(env!("CARGO_BIN_EXE_rup"))
+            .args(args)
+            .env("RUPD_SOCKET", &project.socket)
+            .env("ROUNDUP_AGENT", "a1")
+            .output()
+    };
+    let added = rup(vec!["todo", "ref", "add", "1", &url]).await.unwrap();
+    assert!(added.status.success(), "{added:?}");
+    let todo = user.request("todo.get", json!({"id":1})).await.unwrap();
+    assert_eq!(todo["refs"], json!([url]));
+    let removed = rup(vec!["todo", "ref", "remove", "1", &url]).await.unwrap();
+    assert!(removed.status.success(), "{removed:?}");
+    let todo = user.request("todo.get", json!({"id":1})).await.unwrap();
+    assert_eq!(todo["refs"], json!([]));
+}
+
+#[tokio::test]
+async fn t28_the_tool_descriptions_name_the_section_form() {
+    let project = start_daemon();
+    let shim = spawn_shim(&project.socket, "a1").await;
+    let tools = shim.client.list_all_tools().await.unwrap();
+    let tool = tools.iter().find(|t| t.name == "todo_addRef").unwrap();
+    let description = tool.description.as_deref().unwrap();
+    for phrase in ["Point the user", "read it", "#<heading>"] {
+        assert!(description.contains(phrase), "{phrase}: {description}");
+    }
 }

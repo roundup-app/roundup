@@ -179,6 +179,7 @@ impl Store {
                 .map(|text| parse_creator(&text))
                 .transpose()
                 .map_err(RpcError::internal)?,
+            refs: self.refs(id)?,
         })
     }
 
@@ -369,6 +370,43 @@ impl Store {
             )
             .map_err(RpcError::internal)?;
         Ok(())
+    }
+
+    /// T27: the links in the order added. An unknown Todo has none; callers check it first.
+    pub(crate) fn refs(&self, id: u32) -> Result<Vec<String>, RpcError> {
+        let mut stmt = self
+            .db
+            .prepare("SELECT url FROM todo_refs WHERE todo = ?1 ORDER BY id")
+            .map_err(RpcError::internal)?;
+        stmt.query_map([id], |r| r.get(0))
+            .and_then(|rows| rows.collect())
+            .map_err(RpcError::internal)
+    }
+
+    /// T27: whether `target` was new to the Todo. A ref is no Change: no field of the Todo's history moves.
+    pub(crate) fn add_ref(&self, id: u32, target: &str, url: &str) -> Result<bool, RpcError> {
+        self.get(id)?;
+        let added = self
+            .db
+            .execute(
+                "INSERT OR IGNORE INTO todo_refs (todo, target, url) VALUES (?1, ?2, ?3)",
+                params![id, target, url],
+            )
+            .map_err(RpcError::internal)?;
+        Ok(added > 0)
+    }
+
+    /// T27: whether the Todo held `target`.
+    pub(crate) fn remove_ref(&self, id: u32, target: &str) -> Result<bool, RpcError> {
+        self.get(id)?;
+        let removed = self
+            .db
+            .execute(
+                "DELETE FROM todo_refs WHERE todo = ?1 AND target = ?2",
+                params![id, target],
+            )
+            .map_err(RpcError::internal)?;
+        Ok(removed > 0)
     }
 
     /// Oldest first.
