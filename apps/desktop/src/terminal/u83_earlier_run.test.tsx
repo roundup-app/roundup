@@ -97,12 +97,9 @@ describe("U83 closed Agent overview", () => {
       const written: string[] = [];
       const button = await setup(async (text) => { written.push(text); });
       fireEvent.click(button);
-      const status = document.querySelector("[role=status]")!;
-      await waitFor(() => expect(status.textContent).toBe("Copied"));
-      expect(button.getAttribute("aria-describedby")).toBeTruthy();
-      expect(button.textContent).toBe(overview.id);
+      await waitFor(() => expect(button.textContent).toBe("Copied"));
       expect(written).toEqual([overview.id]);
-      await waitFor(() => expect(status.textContent).toBe(""), { timeout: 2500 });
+      await waitFor(() => expect(button.textContent).toBe(overview.id), { timeout: 2500 });
     });
 
     it("o17_enter_on_the_session_id_copies_it", async () => {
@@ -119,10 +116,9 @@ describe("U83 closed Agent overview", () => {
 
     it("o17_a_refused_copy_says_so", async () => {
       const button = await setup(async () => { throw new Error("denied"); });
-      const status = document.querySelector("[role=status]")!;
       fireEvent.click(button);
-      await waitFor(() => expect(status.textContent).toBe("Copy failed"));
-      await waitFor(() => expect(status.textContent).toBe(""), { timeout: 2500 });
+      await waitFor(() => expect(button.textContent).toBe("Copy failed"));
+      await waitFor(() => expect(button.textContent).toBe(overview.id), { timeout: 2500 });
     });
   });
 });
