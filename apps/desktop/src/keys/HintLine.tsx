@@ -13,7 +13,7 @@ const placeAt = (focus: Element | null, selectedIsAgent: boolean): HintPlace | n
   const inWatchedPane = selectedIsAgent && focus?.closest(".pane")?.querySelector(MANAGED) != null;
 
   return !focus || focus.closest(".help") ? null
-    : focus.closest(".note-queue") ? "note"
+    : focus.closest(".note-queue-field") ? "note"
     : focus.closest(".switcher") ? "switcher"
     : focus.closest(".pad-rich-editor, [contenteditable=true]") ? "editor"
     : focus.closest(".pad-body") ? "pad"

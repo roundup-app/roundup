@@ -25,12 +25,12 @@ it("u3784_a_taken_note_glides_once_and_a_mount_plays_nothing", async () => {
 
   app.emit(sent(note(1, "first", { status: "delivered" })));
   await waitFor(() => expect(stateOf(1)).toBe("taken"));
-  await waitFor(() => expect(document.querySelector('[data-note="2"]')?.hasAttribute("data-closing")).toBe(true));
+  await waitFor(() => expect(document.querySelector(".note-queue-head")?.hasAttribute("data-closing")).toBe(true));
 
   fireEvent.transitionEnd(document.querySelector('[data-note="1"]')!);
   await waitFor(() => expect(rowsOf()).toEqual(["second", "third"]));
   expect(stateOf(2)).toBe("waiting");
-  expect(document.querySelector('[data-note="2"]')?.hasAttribute("data-closing")).toBe(false);
+  expect(document.querySelector(".note-queue-head")?.hasAttribute("data-closing")).toBe(false);
 });
 
 it("u3784_a_batch_glides_together_and_a_removal_does_not", async () => {
