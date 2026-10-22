@@ -1,7 +1,1 @@
-CREATE TABLE IF NOT EXISTS todo_refs (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    todo INTEGER NOT NULL REFERENCES todos(id) ON DELETE CASCADE,
-    target TEXT NOT NULL,
-    url TEXT NOT NULL,
-    UNIQUE (todo, target)
-);
+ALTER TABLE changes ADD COLUMN handed TEXT;

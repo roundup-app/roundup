@@ -4,8 +4,8 @@ use std::collections::{BTreeSet, HashMap};
 use std::path::Path;
 use std::time::{SystemTime, UNIX_EPOCH};
 
-use contracts::Actor;
 use contracts::todo::{Change, Comment, Todo, UnreadComment, Values};
+use contracts::{Actor, ActorKind};
 use rpc::RpcError;
 use rusqlite::{Connection, OptionalExtension, params};
 
@@ -313,6 +313,54 @@ impl Store {
         self.get(id)
     }
 
+    /// T25, T26: records a hand-off Change for the first open, unblocked Todo `agent` owns that no
+    /// hand-off Change for its current owner follows the last owner Change of. `None` when no Todo is due.
+    pub(crate) fn hand(
+        &self,
+        agent: &str,
+        after_touch: i64,
+        actor: &Actor,
+    ) -> Result<Option<Todo>, RpcError> {
+        let tx = self
+            .db
+            .unchecked_transaction()
+            .map_err(RpcError::internal)?;
+        for todo in self.list()? {
+            let owner = match &todo.owner {
+                Some(owner) if owner.kind == ActorKind::Agent && owner.id == agent => owner,
+                _ => continue,
+            };
+            if todo.done || todo.blocked || self.handed_to(todo.id, owner)? {
+                continue;
+            }
+            let at = values(&todo);
+            self.db.execute(
+                "INSERT INTO changes(todo, before_values, after_values, after_touch, actor, changed_at, handed) VALUES (?1, ?2, ?2, ?3, ?4, ?5, ?6)",
+                params![todo.id, serde_json::to_string(&at).map_err(RpcError::internal)?, after_touch, creator_json(actor), now_ms(), creator_json(owner)],
+            ).map_err(RpcError::internal)?;
+            tx.commit().map_err(RpcError::internal)?;
+            return Ok(Some(todo));
+        }
+        Ok(None)
+    }
+
+    /// Whether a hand-off to `owner` follows the last Change of the Todo's owner.
+    fn handed_to(&self, id: u32, owner: &Actor) -> Result<bool, RpcError> {
+        let mut handed = false;
+        for (change, _) in self.history(id)? {
+            match &change.handed {
+                Some(to) => handed = to == owner,
+                None => {
+                    let before = change.before.as_ref().and_then(|v| v.owner.as_ref());
+                    if before != change.after.owner.as_ref() {
+                        handed = false;
+                    }
+                }
+            }
+        }
+        Ok(handed)
+    }
+
     /// Replaces the whole blocker list. The caller has checked ids and cycles.
     pub(crate) fn set_blockers(
         &self,
@@ -505,7 +553,7 @@ impl Store {
 
     pub(crate) fn history(&self, id: u32) -> Result<Vec<(Change, i64)>, RpcError> {
         self.get(id)?;
-        let mut stmt = self.db.prepare("SELECT seq, before_values, after_values, after_touch, actor, changed_at FROM changes WHERE todo = ?1 ORDER BY seq").map_err(RpcError::internal)?;
+        let mut stmt = self.db.prepare("SELECT seq, before_values, after_values, after_touch, actor, changed_at, handed FROM changes WHERE todo = ?1 ORDER BY seq").map_err(RpcError::internal)?;
         let rows = stmt
             .query_map([id], |r| {
                 Ok((
@@ -515,11 +563,13 @@ impl Store {
                     r.get::<_, i64>(3)?,
                     r.get::<_, Option<String>>(4)?,
                     r.get::<_, Option<i64>>(5)?,
+                    r.get::<_, Option<String>>(6)?,
                 ))
             })
             .map_err(RpcError::internal)?;
         rows.map(|row| {
-            let (seq, before, after, touch, actor, changed_at) = row.map_err(RpcError::internal)?;
+            let (seq, before, after, touch, actor, changed_at, handed) =
+                row.map_err(RpcError::internal)?;
             Ok((
                 Change {
                     actor: actor
@@ -528,6 +578,10 @@ impl Store {
                         .map_err(RpcError::internal)?,
                     seq,
                     changed_at,
+                    handed: handed
+                        .map(|text| parse_creator(&text))
+                        .transpose()
+                        .map_err(RpcError::internal)?,
                     before: before
                         .map(|text| serde_json::from_str(&text))
                         .transpose()
