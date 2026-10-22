@@ -11,7 +11,9 @@ const DURATION = 5000;
 const focusInStack = () => document.querySelector(".app-toasts:focus-within") !== null;
 
 const GAP = 8;
+
 const SIBLING = "data-sibling";
+
 const OVERLAP = "data-overlap";
 
 /** Ark reads every card as 0 px tall and so never fans them apart: stack each card above the real height of those in front, one gap between. */
