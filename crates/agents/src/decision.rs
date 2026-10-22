@@ -369,14 +369,27 @@ impl Shared {
     ) -> Result<Opened, RpcError> {
         let name = self.rail().name(id)?;
         let started = (self.clock)();
-        let (rx, attempt, decision) = {
+        // D13: the Status reads `needs-you` before the request is published, so no reader of
+        // `decision.list` or the `DecisionOpened` Event ever sees it beside an idle Agent.
+        let attempt = {
+            let runs = self.runs();
+            let Some(crate::Slot::Running(run)) = runs.get(id) else {
+                return Err(RpcError::not_found(&name));
+            };
+            if run.ended || run.closing {
+                return Err(RpcError::not_found(format!("{name} has ended")));
+            }
+            run.attempt.clone()
+        };
+        self.observe(actor.clone(), id, &attempt, Observation::Signal(signal))?;
+        let (rx, decision) = {
             // `runs` before `decisions`, as every other path: an Agent that ends cannot be left
             // with a Decision opened after its clear.
             let runs = self.runs();
             let Some(crate::Slot::Running(run)) = runs.get(id) else {
                 return Err(RpcError::not_found(&name));
             };
-            if run.ended || run.closing {
+            if run.ended || run.closing || run.attempt != attempt {
                 return Err(RpcError::not_found(format!("{name} has ended")));
             }
             let decision = Decision {
@@ -414,17 +427,10 @@ impl Shared {
                     let _ = waiter.send(Err(RpcError::new(code::CONFLICT, "superseded")));
                 }
             }
-            self.bus.emit(
-                actor.clone(),
-                EventData::DecisionOpened(decision.clone().into()),
-            );
-            (rx, run.attempt.clone(), decision)
+            self.bus
+                .emit(actor, EventData::DecisionOpened(decision.clone().into()));
+            (rx, decision)
         };
-        if let Err(err) = self.observe(actor, id, &attempt, Observation::Signal(signal)) {
-            self.decisions
-                .clear(&self.bus, id, Outcome::AgentGone, "the Agent ended");
-            return Err(err);
-        }
         Ok(Opened {
             waiting: decision.answerable.then_some(rx),
             id: decision.id,
