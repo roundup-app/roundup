@@ -153,7 +153,16 @@ export const Inbox = () => {
     const from = keys.indexOf(after);
     const next = [...keys.slice(from + 1), ...keys.slice(0, Math.max(from, 0))].find((key) => byKey().get(key)?.decision !== undefined && !byKey().get(key)?.settled);
 
-    if (next !== undefined) setOpenKey(next);
+    if (next !== undefined) {
+      setOpenKey(next);
+
+      // The answered button left the page with its row; keep a keyboard user on the list.
+      queueMicrotask(() => {
+        const active = document.activeElement;
+
+        if (!active || active === document.body || active.classList.contains("inbox-confirm")) heads.get(next)?.focus();
+      });
+    }
     else if (openKey() === after) setOpenKey(null);
   };
 

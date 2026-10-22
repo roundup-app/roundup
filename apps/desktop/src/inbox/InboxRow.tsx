@@ -34,7 +34,7 @@ export const InboxRow = (props: { row: AgentRow; open: boolean; toggle(): void; 
   const act = (label: string, click: () => void, primary = false) =>
     <button type="button" data-button={primary ? "primary" : "quiet"} class="word" aria-describedby={name} disabled={props.actions.busy(props.row)} onClick={click}>{label}</button>;
 
-  const actions = (inHead: boolean) => {
+  const actions = () => {
     const decision = props.row.decision;
 
     if (decision) {
@@ -44,8 +44,6 @@ export const InboxRow = (props: { row: AgentRow; open: boolean; toggle(): void; 
         ? act(copy.inboxOpenCard, () => props.actions.open(props.row))
         : <For each={quick}>{(each, at) => act(each.label, () => props.actions.answer(props.row, each), at() === 0)}</For>;
     }
-
-    if (inHead) return null;
 
     return node().status?.kind === "error"
       ? act(copy.retry, () => props.actions.retry(props.row))
@@ -63,17 +61,16 @@ export const InboxRow = (props: { row: AgentRow; open: boolean; toggle(): void; 
             <span id={name} class="inbox-row-name">{node().name}</span>
             <Show when={props.row.decision}>{(decision) => <span class="inbox-row-summary light">{summaryOf(decision())}</span>}</Show>
           </Collapsible.Trigger>
-          <Show when={!props.open}><div class="inbox-actions">{actions(true)}</div></Show>
+          <div class="inbox-actions">{actions()}</div>
         </div>
         <Collapsible.Content>
           <div class="inbox-body">
             <p class="inbox-step"><span class="light">{copy.inboxLastStep}</span> {node().status?.label}</p>
-            <div class="inbox-actions">{actions(false)}</div>
             <Show when={failure()}>{(message) => <ErrorLine message={message()} />}</Show>
           </div>
         </Collapsible.Content>
       </Collapsible.Root>}>
-        {(settled) => <p role="status" class="inbox-confirm">{settled().text}</p>}
+        {(settled) => <p role="status" class="inbox-confirm" tabindex="-1" ref={(element) => queueMicrotask(() => element.focus())}>{settled().text}</p>}
       </Show>
     </div></div>
   </li>;
