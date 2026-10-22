@@ -49,6 +49,9 @@ export const TodoRefs = (props: { id: number }) => {
 
   const remove = async (url: string, button: HTMLElement) => {
     const section = button.closest<HTMLElement>(".todo-refs");
+    // With no row left, the section unmounts: focus goes to the first control after it.
+    const next = section?.nextElementSibling;
+    const after = next?.querySelector<HTMLElement>("button") ?? (next instanceof HTMLElement ? next : null);
     const rows = [...(section?.querySelectorAll<HTMLElement>(".todo-ref") ?? [])];
     // SAFETY: the button sits inside its .todo-ref row.
     const at = rows.indexOf(button.closest(".todo-ref") as HTMLElement);
@@ -60,7 +63,8 @@ export const TodoRefs = (props: { id: number }) => {
     const row = left[Math.min(at, left.length - 1)];
 
     if (document.activeElement === document.body || !document.activeElement?.isConnected) {
-      (row?.querySelector<HTMLElement>(".todo-ref-link") ?? row?.querySelector<HTMLElement>("button"))?.focus();
+      if (row) (row.querySelector<HTMLElement>(".todo-ref-link") ?? row.querySelector<HTMLElement>("button"))?.focus();
+      else if (after?.isConnected) after.focus();
     }
   };
 
