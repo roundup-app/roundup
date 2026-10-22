@@ -13,6 +13,13 @@ import { Disclosure } from "../ui/Disclosure";
 
 type Read = { progress: Progress; plan: Reconciliation } | { failure: string };
 
+/** The Daemon's cause starts in lower case and may end without a stop; a note reads as a sentence. */
+const sentence = (cause: string) => {
+  const text = cause.trim();
+
+  return text === "" ? "" : `${text[0]?.toUpperCase()}${text.slice(1)}${/[.!?]$/.test(text) ? "" : "."}`;
+};
+
 type Phase = "idle" | "pending" | "failed" | "unknown" | "resumed" | "nothing";
 
 /** U3078i: the retained progress of one Agent's work and the explicit Resume. Reading sends nothing; only the Resume control calls `message.resumeWork`, always for the Agent and action it read. */
@@ -168,13 +175,13 @@ export const WorkProgress = (props: { id: string }) => {
           <Show when={confirmed(result)}><span class="progress-state" data-state="checked">{copy.progressChecked}</span></Show>
           <Show when={outcome()}>{(kind) => <span class="progress-state" data-state={kind() === "completed" ? "checked" : "unknown"}>{kind() === "completed" ? copy.progressReceipt : copy.progressNotPerformed}</span>}</Show>
           <Show when={result.current && pending() && !confirmed(result)}><span class="progress-state" data-state="pending">{copy.progressChecksPending}</span></Show>
-          <Show when={result.report.request.state === "unknown-effect" && outcome() === null}><span class="progress-state" data-state="unknown">{copy.progressUnknown}</span></Show>
-          <Show when={result.availability.kind === "unavailable"}><span class="progress-state" data-state="unavailable">{copy.progressUnavailable}</span></Show>
+          <Show when={result.report.request.state === "unknown-effect" && outcome() === null}><span class="progress-state" data-state="unknown"><KindGlyph kind="needs-you" decorative />{copy.progressUnknown}</span></Show>
+          <Show when={result.availability.kind === "unavailable"}><span class="progress-state" data-state="unavailable"><KindGlyph kind="error" decorative />{copy.progressUnavailable}</span></Show>
         </p>
         <Show when={next() !== ""}><p class="progress-next"><span class="progress-label">{copy.progressRemaining}</span> {next()}</p></Show>
-        <For each={noteOf(result, plan)}>{(note) => <p class="progress-note" role="note">{note.cause}. {note.action}</p>}</For>
+        <For each={noteOf(result, plan)}>{(note) => <p class="progress-note" role="note">{sentence(note.cause)} {note.action}</p>}</For>
         <button class="word progress-evidence" data-button="quiet" type="button" aria-label={copy.openEvidence(result.report.publication.title)}
-          aria-disabled={opening() !== null ? true : undefined} onClick={() => void inspect(result)}>{result.report.publication.title}</button>
+          aria-disabled={opening() !== null ? true : undefined} onClick={() => void inspect(result)}><span aria-hidden="true">↗ </span>{result.report.publication.title}</button>
         <Show when={failure()?.report === result.report.report && failure()}>{(shown) => <p class="progress-failure" role="alert"><KindGlyph kind="error" /><span>{shown().cause}</span></p>}</Show>
       </li>
     );
@@ -200,15 +207,14 @@ export const WorkProgress = (props: { id: string }) => {
             <section class="progress-section" aria-label={copy.progress}>
               <div class="progress-head">
                 <h3>{copy.progress}</h3>
-                <Show when={open().length > 0}>
-                  <button ref={button} class="word" data-button="primary" type="button" aria-disabled={phase() === "pending" || daemonExit() !== null ? true : undefined}
+                <Show when={open().length > 0 || phase() === "resumed" || phase() === "nothing"}>
+                  <button ref={button} class="word" data-button="primary" type="button" aria-disabled={phase() === "pending" || daemonExit() !== null || open().length === 0 ? true : undefined}
                     onClick={() => void resume()}>{phase() === "pending" ? copy.resuming : phase() === "failed" || phase() === "unknown" ? copy.resumeRetry : copy.resumeUnfinished}</button>
                 </Show>
               </div>
-              <Show when={phase() === "failed"}><p class="progress-failure" role="alert"><KindGlyph kind="error" /><span>{copy.resumeFailed(cause())}</span></p></Show>
+              <Show when={phase() === "failed"}><p class="progress-failure" role="alert"><KindGlyph kind="error" /><span>{copy.resumeFailed(sentence(cause()))}</span></p></Show>
               <Show when={phase() === "unknown"}><p class="progress-failure" role="alert"><KindGlyph kind="error" /><span>{copy.resumeUnknown}</span></p></Show>
-              <Show when={phase() === "resumed"}><p class="progress-status" role="status">{copy.resumed}</p></Show>
-              <Show when={phase() === "nothing"}><p class="progress-status" role="status">{copy.resumeNothing}</p></Show>
+              <p class="progress-status" role="status">{phase() === "resumed" ? copy.resumed : phase() === "nothing" ? copy.resumeNothing : ""}</p>
               <ul class="progress-rows"><For each={rows()?.current}>{(result) => row(result, data().plan)}</For></ul>
               <Show when={(rows()?.earlier.length ?? 0) > 0}>
                 <Disclosure class="progress-earlier" label={copy.progressEarlier(data().progress.results.filter((result) => !result.current).length)}>
