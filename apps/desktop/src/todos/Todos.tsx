@@ -34,6 +34,7 @@ import { KindGlyph } from "../ink/KindGlyph";
 import { useConnectedProject } from "../state/connectedProject";
 import { failureOf, outcomeOf } from "./failureOf";
 import { RowButton } from "./RowButton";
+import { createCutTitle } from "../ui/cutTitle";
 import { createSortedList } from "./sortedList";
 import { Sortable } from "../ui/sortable";
 import { TreeView } from "../ui/TreeView";
@@ -153,12 +154,13 @@ export const OpenRow = (props: {
   props.sorted?.fail(setMoveFailure);
   props.failWith?.(setFailure);
 
+  const titleCut = createCutTitle(() => props.todo.title);
+
   const head = (
     <div class="row-head">
         <RowButton
           hang={false}
           label={copy.todoRow(KIND_LABEL[kindOf(props.todo)], props.todo.id, props.todo.title)}
-          tooltip={failure() === null ? props.todo.title : undefined}
           pressed={props.pressed}
           selectionActive={props.selectionActive}
           onClick={(event) => props.onPick ? props.onPick(props.todo, event) : props.onOpen(props.todo, activationSource(event))}
@@ -175,7 +177,7 @@ export const OpenRow = (props: {
             props.sorted?.button(row);
           }}
         >
-          {(trigger) => <span {...trigger()} class="shelf-title"><span class="todo-strike" onAnimationEnd={() => props.onMotionEnd?.()}>{props.todo.title}</span></span>}
+          <span {...titleCut.attrs()} class="shelf-title"><span class="todo-strike" onAnimationEnd={() => props.onMotionEnd?.()}>{props.todo.title}</span></span>
         </RowButton>
         <Show when={!props.nested && props.sorted}>
           <div class="todo-row-actions" role="group" aria-label={copy.rowActionsFor(props.todo.id)}>
@@ -1004,7 +1006,7 @@ export const Todos = (props: {
           <ShelfRow glyph={<KindGlyph kind="done" decorative />} class="todo-inset">
             <div class="shelf-done-line">
               <RowButton hang={false} onClick={() => setUnfolded(!unfolded())}>
-                {() => <span class="shelf-title">{done().length}{copy.doneCount}</span>}
+                <span class="shelf-title">{done().length}{copy.doneCount}</span>
               </RowButton>
               <button data-button="quiet" type="button" onClick={() => bulk.ask(true)}>{copy.clearDone}</button>
             </div>
