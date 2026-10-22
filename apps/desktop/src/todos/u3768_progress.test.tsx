@@ -64,7 +64,10 @@ describe("u3770 a finishing Todo plays one motion", () => {
 
     await waitFor(() => expect(count()).toBe("0/2"));
     expect(playing()).toBe(0);
-    finish(mounted, 1);
+    fireEvent.click(screen.getByRole("checkbox", { name: "Complete todo 1" }));
+    await waitFor(() => expect(todoCallsTo(mounted.app, "todo.complete")).toHaveLength(1));
+    expect(count()).toBe("0/2");
+    mounted.app.emit(todoEvent("todo.updated", mounted.store.todos[0]!));
     await waitFor(() => expect(count()).toBe("1/2"));
 
     expect(document.querySelector(".app-progress")?.getAttribute("data-motion")).toBe("play");
