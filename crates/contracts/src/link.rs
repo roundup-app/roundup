@@ -17,6 +17,14 @@ pub struct LinkUrl {
     pub url: String,
 }
 
+/// LK4: a Pad heading as the Pad writes it and the text under it.
+#[derive(Clone, Debug, Serialize, Deserialize, TS)]
+#[ts(export, export_to = "link/")]
+pub struct Section {
+    pub heading: String,
+    pub text: String,
+}
+
 /// LK2: the object's content now, composed from the method that reads that kind. A Door's
 /// `digest` is `null` for an Agent that is no Door. DV6 publication links resolve the recorded
 /// revision or explicit current external target, rather than the mutable authoring source.
@@ -31,6 +39,10 @@ pub enum LinkContent {
     Pad {
         id: String,
         pad: Pad,
+        /// LK4: the section a `#<heading>` link names; absent for a link to the whole Pad.
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        #[ts(optional)]
+        section: Option<Section>,
     },
     Todo {
         id: String,

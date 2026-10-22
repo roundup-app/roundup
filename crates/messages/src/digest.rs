@@ -639,6 +639,7 @@ mod tests {
             },
             home: Some("m".into()),
             owner: None,
+            refs: vec![],
         }
     }
 

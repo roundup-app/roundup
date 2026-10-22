@@ -389,6 +389,7 @@ mod tests {
             creator: Actor::user(),
             home: None,
             owner,
+            refs: vec![],
         }
     }
 
