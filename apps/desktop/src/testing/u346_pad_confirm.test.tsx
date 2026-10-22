@@ -63,10 +63,6 @@ describe("u346 the Pad's confirm delete takes a real click", () => {
     await screen.findByRole("tablist", { name: "Work items" });
     showShelfTab("Pads");
 
-    const unassigned = await within(shelf).findByRole("button", { name: "Unassigned" });
-
-    if (unassigned.closest('[role="treeitem"]')?.getAttribute("aria-expanded") === "false") fireEvent.click(unassigned);
-
     fireEvent.click(await within(shelf).findByRole("button", { name: "plan" }));
 
     const drawer = await screen.findByRole("complementary", { name: "Drawer" });

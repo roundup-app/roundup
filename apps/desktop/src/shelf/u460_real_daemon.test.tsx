@@ -59,7 +59,7 @@ const openShelf = async (tab: "Todos" | "Pads", all = false) => {
   if (all) fireEvent.click(document.querySelector('[data-todo-root]')!);
 
   // U3717: Unassigned starts folded.
-  if (tab === "Todos") {
+  if (tab === "Todos" || tab === "Pads") {
     const unassigned = await waitFor(() => document.querySelector<HTMLElement>('[data-shelf-group="unassigned"][data-state="closed"] [data-part="branch-control"]') ?? Promise.reject(new Error("no group"))).catch(() => null);
 
     if (unassigned) fireEvent.click(unassigned);
