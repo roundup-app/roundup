@@ -9,7 +9,7 @@ Base and head are the two commits U3010d compares; build and run each in its own
 ## Before you run
 
 - AC power on, Low Power Mode off, display refresh fixed (System Settings > Displays), no concurrent build, the window uncovered and the Mac awake.
-- A Project open with the `tree-40` shape of `docs/motion.md` (**Native performance protocol**): ten visible working Glyphs and one selected live Terminal. The recorder drives only the `glyphs` workload; `layers` and `todos` report their actions as not completed (exit 2) until a later change drives them.
+- No Project is needed: the run makes its own temporary Project with one Workstream and one Terminal under the 64 KiB/s stream, and ignores any Project you have open. It drives none of the `layers`, `todos` or `glyphs` actions yet, so every run reports `actions did not complete` and exits 2; the Drawer/Shelf, Todo and ten-Glyph drivers are a later change, and until it lands no run yields U3010d numbers.
 
 ## Run
 

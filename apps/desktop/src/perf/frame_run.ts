@@ -5,9 +5,6 @@ import { recordFrames } from "./frames";
 import type { FrameReport } from "./frames";
 import { READY, SETUP_BOUND_MS, appears, sleep, timerResolutionMs } from "./run";
 
-/** The workloads of `docs/motion.md` whose actions the recorder drives itself. The others are reported invalid, never as a pass. */
-const driven = new Set(["glyphs"]);
-
 /**
  * The frame run of `scenarios/ui-motion.md` U3010e: in a build made with `VITE_ROUNDUP_PERF` and `VITE_ROUNDUP_PERF_WORKLOAD`,
  * `start` opens a Terminal, records the workload's frame intervals and writes one `FRAMES <json>` line through that Terminal.
@@ -55,7 +52,8 @@ export const createFrameRun = (app: AppSeam, workload: string) => {
           timerResolutionMs: timerResolutionMs(),
           userAgent: navigator.userAgent,
         },
-        async () => driven.has(workload),
+        // No workload's actions are driven yet (Layers, Todos, ten working Glyphs), so every run is reported invalid, never as a pass.
+        async () => false,
       ),
     );
   };
