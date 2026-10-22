@@ -19,6 +19,8 @@ import { createQueue } from "./queue";
 import { createTimelineLog } from "../timeline/log";
 import type { TimelineLog } from "../timeline/log";
 import type { QueueView } from "./queue";
+import { createSettingsView } from "./settingsView";
+import type { SettingsViewState } from "./settingsView";
 import { createTakeover } from "./takeover";
 import { createNoteQueue } from "./noteQueue";
 import type { NoteQueue } from "./noteQueue";
@@ -134,6 +136,8 @@ export type ConnectedProject = {
   takeover: TakeoverState;
   /** U3780: the notes waiting for each Agent. */
   notes: NoteQueue;
+  /** U3764: the Project settings view in the centre. */
+  settingsView: SettingsViewState;
   reducedMotion: Accessor<boolean>;
   /** Milliseconds since the epoch, refreshed on a coarse tick; for elapsed times. */
   now: Accessor<number>;
@@ -200,7 +204,7 @@ export const connectProject = async (
 
   const takeover = createTakeover(app, events, daemonExit);
 
-  return { project, drafts, app, events, rail, queue, timeline, importing, worktrees: createWorktreeState(app, rail, now, daemonExit), drawer: createDrawer(), decisions, asks: createAsks(app, events), takeover, notes: createNoteQueue(app, events, reducedMotion, daemonExit), reducedMotion, now, contractNotice, daemonExit, stopTerminalScheme: () => { timeline.stop(); stopDecisions(); stopQueue(); stopTerminalScheme(); } };
+  return { project, drafts, app, events, rail, queue, timeline, importing, worktrees: createWorktreeState(app, rail, now, daemonExit), drawer: createDrawer(), decisions, asks: createAsks(app, events), takeover, settingsView: createSettingsView(), notes: createNoteQueue(app, events, reducedMotion, daemonExit), reducedMotion, now, contractNotice, daemonExit, stopTerminalScheme: () => { timeline.stop(); stopDecisions(); stopQueue(); stopTerminalScheme(); } };
 };
 
 /** App-run authority for owners outside a connection, including Project tabs.
