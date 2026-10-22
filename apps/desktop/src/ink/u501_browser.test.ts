@@ -47,7 +47,10 @@ it("u501_controls_have_names", async () => {
     await wait(`!document.querySelector('.app-tooltip')`);
 
     // Keyboard focus shows it too.
+    // The Tab sets keyboard modality and can land on a control whose name opens; a focus jump straight from it opens no second name (observed), so blur it first.
     await browser("press", "Tab");
+    await read(`document.activeElement.blur()`);
+    await wait(`!document.querySelector('.app-tooltip')`);
     await browser("focus", `button[aria-label="${first}"]`);
     await wait(`document.querySelector('.app-tooltip')?.textContent === ${JSON.stringify(first)}`);
   }
