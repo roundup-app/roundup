@@ -7,7 +7,7 @@ import { ErrorLine } from "../ink/ErrorLine";
 import { registerKeys } from "../keys/registry";
 import { AlertDialog } from "../ui/Dialog";
 
-export const ShelfActions = createContext<{ mount: Accessor<HTMLDivElement | undefined>; open: Accessor<boolean> }>();
+export const ShelfActions = createContext<{ mount: Accessor<HTMLDivElement | undefined>; open: Accessor<boolean>; /** U3730: the scope line, where the tab's one add control sits. */ scope: Accessor<HTMLElement | undefined> }>();
 
 type Target<Id> = { id: Id; label: string; owner?: string | undefined };
 

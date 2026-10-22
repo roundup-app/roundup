@@ -44,7 +44,7 @@ run("u373 the tabs", () => {
     await page.press("Tab", "Tab");
     expect(await page.call<string>(`() => document.activeElement.getAttribute('aria-label')`)).toBe("Close work items");
     await page.press("Tab", "Tab");
-    expect(await page.call<boolean>(`() => document.activeElement.closest('.shelf [role="tabpanel"]') !== null`)).toBe(true);
+    expect(await page.call<boolean>(`() => document.activeElement.closest('.shelf [role="tabpanel"], [data-shelf-scope]') !== null`)).toBe(true);
 
     for (let step = 0; step < 3; step++) await page.press("Tab", "Tab", 8);
     expect(await page.call<string>(`() => document.activeElement.id`)).toBe("shelf-tab-todos");

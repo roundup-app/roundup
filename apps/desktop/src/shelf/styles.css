@@ -170,7 +170,13 @@
 .shelf-tab[data-open="false"] { color: var(--grey); }
 
 /* U2744a: quiet scope and Rail disclosures use the existing type and space scale. */
-.shelf-bar { justify-content: flex-start; color: var(--grey); font-size: var(--text-caption); overflow-wrap: anywhere; height: auto; min-height: var(--header-height); }
+.shelf-bar { justify-content: flex-start; gap: var(--space-2); color: var(--text); font-size: var(--text-body); height: auto; min-height: var(--header-height); align-items: baseline; padding-block: var(--space-1); line-height: var(--space-4); }
+/* U3730: the scope's name and the tab's one add control share a line; the control trails in the accent, so it reads as the action. */
+.shelf-scope-name { flex: 1; min-width: 0; overflow-wrap: anywhere; }
+.shelf-bar > div, .shelf-scope-action:not([hidden]) { display: contents; }
+.shelf-scope-action[hidden] { display: none; }
+.shelf-bar .shelf-add { flex: none; margin-inline-start: auto; margin-block: 0; padding-block: 0; min-height: var(--space-5); display: inline-flex; align-items: baseline; align-self: baseline; padding-inline: var(--space-1); font-size: var(--text-body); line-height: var(--space-4); color: var(--accent); }
+.shelf-bar .shelf-add > svg { align-self: center; }
 .shelf-groups.app-tree { padding: 0; }
 .shelf-groups [data-part="branch-control"] { padding-inline: 0; color: var(--grey); font-size: var(--text-caption); font-family: var(--font-ui); overflow-wrap: anywhere; }
 .shelf-groups [data-part="branch-control"]:hover { color: var(--text); background: transparent; }
@@ -178,6 +184,7 @@
 .shelf-groups [data-part="branch-content"] { padding-inline-start: 0; }
 .shelf-groups [data-part="branch-indicator"] { display: flex; flex: none; }
 .shelf-group-head { display: flex; align-items: center; }
+.shelf-group-head[hidden] { display: none; }
 .shelf-group-head .shelf-group-control { flex: 1; min-width: 0; }
 .shelf-group-add { display: inline-flex; align-items: center; justify-content: center; flex: none; min-width: 24px; min-height: 24px; padding: 0; color: var(--grey); background: transparent; border: 0; cursor: pointer; }
 .shelf-group-add:hover, .shelf-group-add:focus-visible { color: var(--text); }

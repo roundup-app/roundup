@@ -6,6 +6,9 @@ import { createTauriApp } from "./app/tauri";
 import "./tokens.css";
 import "./styles.css";
 import "./scrollbar.css";
+import { trackScrollHover } from "./scrollHover";
+
+trackScrollHover(document);
 
 const root = document.getElementById("root");
 

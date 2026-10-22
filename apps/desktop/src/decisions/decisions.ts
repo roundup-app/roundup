@@ -7,7 +7,11 @@ import type { ConnectedProject } from "../state/connectedProject";
 import { RpcError } from "../app/seam";
 import type { Decision } from "@contracts/decision/Decision";
 import type { Events } from "../app/events";
+import { copy } from "../copy";
 import type { AppSeam, DaemonExit } from "../app/seam";
+
+/** U3750: a refusal for a lost prompt identity names the Terminal, never a Decision id or Attempt. */
+export const plainRefusal = (message: string): string => /original prompt|identity/.test(message) ? copy.answerInTheTerminal : message;
 
 const outcomes = { acknowledged: "acknowledged", failed: "failed", unknown: "unknown" } as const;
 
@@ -150,7 +154,7 @@ export const createDecisions = (app: AppSeam, events: Events, daemonExit: Access
     } catch (thrown) {
       if (!(thrown instanceof Error)) throw thrown;
 
-      setFailures((current) => new Map(current).set(id, thrown.message));
+      setFailures((current) => new Map(current).set(id, plainRefusal(thrown.message)));
 
       return !sent || thrown instanceof RpcError && [-32700, -32601, -32602, -32001, -32002, -32003].includes(thrown.code) ? outcomes.failed : outcomes.unknown;
     } finally {

@@ -218,7 +218,7 @@ it("u2744a_shelf_scope_real_daemon", async () => {
 
     await select(w.id);
     await app.rpc("rail.rename", { id: w.id, name: "Renamed Shelf workstream" });
-    await until("document.querySelector('[data-shelf-scope]')?.textContent === 'Renamed Shelf workstream'");
+    await until("document.querySelector('[data-shelf-scope] .shelf-scope-name')?.textContent === 'Renamed Shelf workstream'");
     const all: Todo[] = await app.rpc("todo.list", null);
     await app.rpc("todo.move", { id: all.find(row => row.creator.id === a.id)!.id, home: other.id });
     const allPads: Pad[] = await app.rpc("pad.list", null);
@@ -363,7 +363,7 @@ it("u2773c_todos_unavailable_original_keeps_project_local_recovery", async () =>
 it("u2773a_todos_creation_restores_original_project_without_delivery", async () => {
   const a = await mount(one);
 
-  fireEvent.click(await screen.findByRole("button", { name: "Add Todo" }));
+  fireEvent.click(await screen.findByRole("button", { name: "add todo to Overview" }));
   const field = screen.getByRole<HTMLInputElement>("textbox", { name: "New Todo title" });
 
   fireEvent.input(field, { target: { value: "  creation e\u0301 🧪  " } });
@@ -372,12 +372,12 @@ it("u2773a_todos_creation_restores_original_project_without_delivery", async () 
   a.unmount();
   const b = await mount(two);
 
-  fireEvent.click(await screen.findByRole("button", { name: "Add Todo" }));
+  fireEvent.click(await screen.findByRole("button", { name: "add todo to Overview" }));
   expect(screen.getByRole("textbox", { name: "New Todo title" })).toHaveProperty("value", "");
   b.unmount();
   const restored = await mount(one);
 
-  fireEvent.click(await screen.findByRole("button", { name: "Add Todo" }));
+  fireEvent.click(await screen.findByRole("button", { name: "add todo to Overview" }));
   const recovered = screen.getByRole<HTMLInputElement>("textbox", { name: "New Todo title" });
 
   expect([recovered.value, recovered.selectionStart, recovered.selectionEnd, recovered.selectionDirection]).toEqual(["  creation e\u0301 🧪  ", 1, 4, "backward"]);
@@ -388,7 +388,7 @@ it("u2773e_todos_failed_retention_survives_real_project_reopen", async () => {
   const owners = createProjectDrafts();
   const a = await mount(one, owners);
 
-  fireEvent.click(await screen.findByRole("button", { name: "Add Todo" }));
+  fireEvent.click(await screen.findByRole("button", { name: "add todo to Overview" }));
   const field = screen.getByRole("textbox", { name: "New Todo title" });
   const writes = vi.spyOn(Storage.prototype, "setItem").mockImplementation(() => { throw new Error("disk full"); });
 
@@ -399,7 +399,7 @@ it("u2773e_todos_failed_retention_survives_real_project_reopen", async () => {
 
   expect(screen.getByRole("alert").textContent).toContain(one.dir);
   fireEvent.click(screen.getByRole("button", { name: "Retry storage only" }));
-  fireEvent.click(screen.getByRole("button", { name: "Add Todo" }));
+  fireEvent.click(screen.getByRole("button", { name: "add todo to Overview" }));
   expect(screen.getByRole("textbox", { name: "New Todo title" })).toHaveProperty("value", "  in memory after close 🧪  ");
   expect(reopened.connected.drafts.problem()).toBeNull();
   expect(reopened.calls.filter(method => method === "todo.create")).toEqual([]);
@@ -415,8 +415,8 @@ it("u2773a_todos_real_browser_reload_restores_without_creation", async () => {
   try {
     await browser("open", `${one.base}/harness.html?daemon=1`);
     await browser("set", "viewport", "1512", "950");
-    await browser("wait", "[aria-label='Add Todo']");
-    await browser("click", "[aria-label='Add Todo']");
+    await browser("wait", "[aria-label^='add todo to']");
+    await browser("click", "[aria-label^='add todo to']");
     await browser("eval", `(() => {
       const field = document.querySelector('[aria-label="New Todo title"]');
       field.value = "  e\u0301 🧪 browser draft  ";
@@ -425,11 +425,11 @@ it("u2773a_todos_real_browser_reload_restores_without_creation", async () => {
       field.dispatchEvent(new Event("select", {bubbles: true}));
     })()`);
     await browser("reload");
-    await browser("wait", "[aria-label='Add Todo']");
+    await browser("wait", "[aria-label^='add todo to']");
     const background = await browser("eval", `JSON.stringify({field: Boolean(document.querySelector('[aria-label="New Todo title"]')), focus: document.activeElement?.getAttribute("aria-label")})`);
 
     expect(JSON.parse(JSON.parse(background.stdout))).toMatchObject({ field: false });
-    await browser("click", "[aria-label='Add Todo']");
+    await browser("click", "[aria-label^='add todo to']");
 
     const recovered = await browser("eval", `JSON.stringify((() => {
       const field = document.querySelector('[aria-label="New Todo title"]');
