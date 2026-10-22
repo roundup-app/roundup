@@ -14,6 +14,7 @@ import { ErrorLine } from "../ink/ErrorLine";
 import { KindGlyph } from "../ink/KindGlyph";
 import { TickBox } from "./TickBox";
 import { TodoComments } from "./TodoComments";
+import { TodoRefs } from "./TodoRefs";
 import { TodoHistory } from "./TodoHistory";
 import "./drawer.styles.css";
 import { useConnectedProject } from "../state/connectedProject";
@@ -317,6 +318,7 @@ export const TodoDrawer = (props: {
                   commit={async (body, expected_change) => { await app.rpc("todo.update", { id: props.id, title: null, body, expected_change }); }}
                 />
                 </div>
+                <Show when={!props.recovery}><TodoRefs id={props.id} /></Show>
                 <Show when={blockersOf(current(), props.todos.byId()).length > 0}>
                   <div class="todo-dependencies" style={{ display: "grid", "grid-template-columns": "1fr auto", "column-gap": "var(--space-2)" }}>
                     <p class="light" style={{ "grid-column": "1 / -1" }}>{copy.waitsOn}</p>
