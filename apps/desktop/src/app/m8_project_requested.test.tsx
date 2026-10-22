@@ -134,7 +134,7 @@ it("u3289b_recovery_entry_is_never_rendered", async () => {
   const records: MutationRecord[] = [];
   const observer = new MutationObserver((found) => records.push(...found));
 
-  observer.observe(document.body, { subtree: true, childList: true, characterData: true });
+  observer.observe(document.body, { subtree: true, childList: true, attributes: true, characterData: true });
   holder.edit({ surface: "orders", object: "gone-agent", recipient: "gone-agent" }, { ask: "left behind" }, null, "ordinary");
   await new Promise((done) => setTimeout(done, 50));
   records.push(...observer.takeRecords());
