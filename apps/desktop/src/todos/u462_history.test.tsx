@@ -149,14 +149,14 @@ it("u462_a_handoff_renders_as_handed_to_the_agent", async () => {
   const owned = { ...values, owner: agent };
   m.app.handlers["todo.getHistory"] = () => ({ unread: null, changes: [
     { actor: null, changed_at: null, seq: 1, before: values, after: owned },
-    { actor: { kind: "ext" as const, id: "rupd", parent: null }, changed_at: null, seq: 2, handed: agent, before: owned, after: owned },
+    { actor: { kind: "ext" as const, id: "daemon-actor", parent: null }, changed_at: null, seq: 2, handed: agent, before: owned, after: owned },
     { actor: null, changed_at: null, seq: 3, before: owned, after: { ...owned, done: true } },
   ] });
   await open(m); await disclose(m);
   const shown = [...panel().querySelectorAll("[data-change]")].map((entry) => entry.textContent);
   expect(shown).toHaveLength(3);
   expect(shown[1]).toMatch(/^Handed to /);
-  expect(shown[1]).not.toMatch(/rupd/);
+  expect(shown[1]).not.toMatch(/daemon-actor/);
   expect(shown[2]).toBe("Marked done");
 });
 
