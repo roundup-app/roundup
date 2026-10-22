@@ -181,7 +181,7 @@ export const WorkProgress = (props: { id: string }) => {
         <Show when={next() !== ""}><p class="progress-next"><span class="progress-label">{copy.progressRemaining}</span> {next()}</p></Show>
         <For each={noteOf(result, plan)}>{(note) => <p class="progress-note" role="note">{sentence(note.cause)} {note.action}</p>}</For>
         <button class="word progress-evidence" data-button="quiet" type="button" aria-label={copy.openEvidence(result.report.publication.title)}
-          aria-disabled={opening() !== null ? true : undefined} onClick={() => void inspect(result)}><span aria-hidden="true">↗ </span>{result.report.publication.title}</button>
+          aria-disabled={opening() !== null ? true : undefined} onClick={() => void inspect(result)}>{result.report.publication.title}</button>
         <Show when={failure()?.report === result.report.report && failure()}>{(shown) => <p class="progress-failure" role="alert"><KindGlyph kind="error" /><span>{shown().cause}</span></p>}</Show>
       </li>
     );
