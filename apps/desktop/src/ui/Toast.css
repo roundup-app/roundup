@@ -72,6 +72,16 @@
   overflow-wrap: anywhere;
 }
 
+/* A card holding its own body (a failure) sits in the notice card's inset and height, with the bar along an empty bottom edge. */
+.app-toast-body {
+  display: flex;
+  align-items: center;
+  min-height: var(--space-5);
+  padding: var(--space-2) var(--space-3);
+  font-size: var(--text-small);
+  overflow-wrap: anywhere;
+}
+
 .app-toast-heading {
   flex: 0 1 auto;
   min-width: 0;
