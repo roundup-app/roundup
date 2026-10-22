@@ -46,8 +46,8 @@ import type { TouchedParams as common_TouchedParams } from "./TouchedParams";
 import type { AnswerParams as decision_AnswerParams } from "./decision/AnswerParams";
 import type { AnsweredDecision as decision_AnsweredDecision } from "./decision/AnsweredDecision";
 import type { AnswersParams as decision_AnswersParams } from "./decision/AnswersParams";
-import type { AskCall as decision_AskCall } from "./decision/AskCall";
 import type { AskOutput as decision_AskOutput } from "./decision/AskOutput";
+import type { AskParams as decision_AskParams } from "./decision/AskParams";
 import type { CaptureParams as decision_CaptureParams } from "./decision/CaptureParams";
 import type { Decision as decision_Decision } from "./decision/Decision";
 import type { PermissionOutput as decision_PermissionOutput } from "./decision/PermissionOutput";
@@ -254,7 +254,7 @@ export type RpcMethods = {
   "agent.channelUp": { params: agent_NodeId; result: null };
   "agent.signal": { params: agent_SignalParams; result: agent_SignalOutcome | null };
   "agent.permission": { params: decision_PermissionParams; result: decision_PermissionOutput };
-  "agent.ask": { params: decision_AskCall; result: decision_AskOutput };
+  "agent.ask": { params: decision_AskParams; result: decision_AskOutput };
   "decision.list": { params: null; result: decision_Decision[] };
   "decision.answers": { params: decision_AnswersParams; result: decision_AnsweredDecision[] };
   "decision.capture": { params: decision_CaptureParams; result: decision_PromptIdentity };

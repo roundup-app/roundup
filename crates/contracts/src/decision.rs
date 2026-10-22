@@ -162,30 +162,6 @@ pub struct AskParams {
     pub answers: Vec<AskAnswer>,
 }
 
-/// U468: the MCP call's question plus its non-secret correlation value. The shim
-/// supplies `terminal`; it is never an answering credential or a Prompt identity.
-#[derive(Clone, Debug, Serialize, Deserialize, TS)]
-#[ts(export, export_to = "decision/")]
-pub struct AskCall {
-    #[serde(flatten)]
-    pub question: AskParams,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    #[ts(optional)]
-    pub terminal: Option<String>,
-}
-
-/// U468: an accepted native form response. Only the exact live vendor program,
-/// authenticated by its Unix socket peer PID, may deliver this to the Daemon.
-/// `id` identifies the original question; replacing it never retargets a response.
-#[derive(Clone, Debug, Serialize, Deserialize, TS)]
-#[ts(export, export_to = "decision/")]
-pub struct TerminalAnswer {
-    pub id: String,
-    pub text: String,
-    #[serde(default)]
-    pub note: String,
-}
-
 /// One answer the Agent offers (H14): the names are those of Claude Code's `AskUserQuestion`
 /// options. A `label` ending ` (recommended)` marks the recommended answer.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, TS, JsonSchema)]

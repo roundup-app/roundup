@@ -177,8 +177,11 @@
 .shelf-scope-name { flex: 1; min-width: 0; overflow-wrap: anywhere; }
 .shelf-bar > div, .shelf-scope-action:not([hidden]) { display: contents; }
 .shelf-scope-action[hidden] { display: none; }
-.shelf-bar .shelf-add { flex: none; margin-inline-start: auto; margin-block: 0; padding-block: 0; min-height: var(--space-5); display: inline-flex; align-items: baseline; align-self: baseline; padding-inline: var(--space-1); font-size: var(--text-body); line-height: var(--space-4); color: var(--accent); }
+.shelf-bar .shelf-add { flex: none; margin-inline-start: auto; margin-block: 0; padding-block: 0; min-height: var(--space-5); display: inline-flex; flex-wrap: wrap; align-content: center; align-items: baseline; align-self: baseline; padding-inline: var(--space-1); font-size: var(--text-body); line-height: var(--space-4); color: var(--accent); }
 .shelf-bar .shelf-add > svg { align-self: center; }
+/* The scope name, + Todo and the icon buttons share one centre line; Triage tops the bar's padded row like Maximise and Close and sits 8 px from them, apart from + Todo. */
+.shelf-bar .shelf-triage { align-self: flex-start; margin-inline-start: var(--space-2); }
+.shelf-bar:has(.shelf-triage) { padding-inline-end: 0; }
 .shelf-groups.app-tree { padding: 0; }
 .shelf-groups [data-part="branch-control"] { padding-inline: 0; color: var(--grey); font-size: var(--text-caption); font-family: var(--font-ui); overflow-wrap: anywhere; }
 .shelf-groups [data-part="branch-control"]:hover { color: var(--text); background: transparent; }
@@ -205,6 +208,7 @@
   z-index: 1;
 }
 .shelf-bar { max-width: calc(100% - var(--space-6) * 2 - var(--space-4)); box-sizing: border-box; }
+.shelf-bar:has(.shelf-triage) { max-width: calc(100% - var(--space-6) * 2 - var(--space-2)); }
 .shelf:has(.shelf-controls button):not(:has(.shelf-bar)) { padding-top: var(--space-6); }
 .window[data-shelf-maximised="true"]:not(:has(.drawer[data-open="true"])) .shelf { width: calc(100% - var(--rail-width)); }
 .window[data-shelf-maximised="true"][data-shelf="open"]:not(:has(.drawer[data-open="true"])) .centre { visibility: hidden; }
