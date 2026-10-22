@@ -24,7 +24,9 @@ export const createFinishMotion = (input: { loaded: Accessor<boolean>; key: Acce
     setRows(new Set<number>());
     setBar(false);
   };
+
   const arm = debounce(end, finishMs());
+
   const settle = () => {
     arm.clear();
     end();
