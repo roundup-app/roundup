@@ -4,7 +4,7 @@ import { Tip } from "../ui/Tip";
 import { IconButton } from "../ui/IconButton";
 import { copy } from "../copy";
 import type { Order } from "@contracts/agent/Order";
-import { For, Match, Show, Switch, createEffect, createMemo, createResource, createSignal, on, onCleanup } from "solid-js";
+import { For, Match, Show, Switch, createEffect, createMemo, createResource, createSignal, createUniqueId, on, onCleanup } from "solid-js";
 import { KindGlyph } from "../ink/KindGlyph";
 import { Icon } from "../ink/Icon";
 import { Markdown } from "../plain/Markdown";
@@ -29,6 +29,7 @@ type OrderInput = {
 /** O17: the session id is muted text that copies itself on click and says so for a moment. */
 const SessionId = (props: { id: string }) => {
   const [note, setNote] = createSignal<string | null>(null);
+  const idText = createUniqueId();
   let timer: ReturnType<typeof setTimeout> | undefined;
   onCleanup(() => clearTimeout(timer));
 
@@ -45,7 +46,8 @@ const SessionId = (props: { id: string }) => {
   };
 
   return <>
-    <button type="button" class="overview-id" aria-label={copy.copySessionId} onClick={() => void copyId()}>{note() ?? props.id}</button>
+    <button type="button" class="overview-id" aria-label={copy.copySessionId} aria-describedby={idText} onClick={() => void copyId()}>{note() ?? props.id}</button>
+    <span id={idText} class="overview-id-note">{props.id}</span>
     <span role="status" class="overview-id-note">{note()}</span>
   </>;
 };
