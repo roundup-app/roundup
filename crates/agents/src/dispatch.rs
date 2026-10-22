@@ -203,6 +203,10 @@ impl Module for Agents {
                     })??;
                 reply(&())
             }
+            "decision.revoke" => {
+                let revoke: contracts::decision::RevokeParams = params(value)?;
+                reply(&shared.revoke(ctx, revoke)?)
+            }
             "rail.tree" => reply(&shared.tree()?),
             "agent.instructions" => {
                 let NodeId { id } = params(value)?;

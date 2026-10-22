@@ -213,7 +213,7 @@ export const createServedApp = (base: string, choice?: () => "choose" | "cancel"
     subscribe: (onEvent) =>
       reach(
         () =>
-          new Promise<void>((ready, fail) => {
+          new Promise<number>((ready, fail) => {
             let suspended = false;
             let controller = new AbortController();
 
@@ -259,7 +259,7 @@ export const createServedApp = (base: string, choice?: () => "choose" | "cancel"
 
                     if ("ready" in frame) {
                       subscribed = true;
-                      ready();
+                      ready(0);
                     } else if ("event" in frame) {
                       // SAFETY: the Daemon's pushed Events are the generated contract type, as the Tauri adapter trusts them.
                       onEvent(frame.event as DaemonEvent);

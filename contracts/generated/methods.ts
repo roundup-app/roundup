@@ -53,6 +53,7 @@ import type { Decision as decision_Decision } from "./decision/Decision";
 import type { PermissionOutput as decision_PermissionOutput } from "./decision/PermissionOutput";
 import type { PermissionParams as decision_PermissionParams } from "./decision/PermissionParams";
 import type { PromptIdentity as decision_PromptIdentity } from "./decision/PromptIdentity";
+import type { RevokeParams as decision_RevokeParams } from "./decision/RevokeParams";
 import type { Deliverable as deliverable_Deliverable } from "./deliverable/Deliverable";
 import type { DeliverableId as deliverable_DeliverableId } from "./deliverable/DeliverableId";
 import type { ListParams as deliverable_ListParams } from "./deliverable/ListParams";
@@ -260,6 +261,7 @@ export type RpcMethods = {
   "decision.answers": { params: decision_AnswersParams; result: decision_AnsweredDecision[] };
   "decision.capture": { params: decision_CaptureParams; result: decision_PromptIdentity };
   "decision.answer": { params: decision_AnswerParams; result: null | agent_HeldAction };
+  "decision.revoke": { params: decision_RevokeParams; result: null };
   "rail.tree": { params: null; result: agent_RailNode[] };
   "rail.createWorkstream": { params: agent_CreateWorkstreamParams; result: agent_RailNode };
   "rail.move": { params: agent_MoveParams; result: null };

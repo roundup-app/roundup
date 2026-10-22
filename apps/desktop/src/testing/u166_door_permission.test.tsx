@@ -68,7 +68,7 @@ const settle = async (answer: "allow" | "deny", prompt: string) => {
 
   const card = await waitFor(
     () => {
-      const found = screen.getByRole("region", { name: /Decision for/ });
+      const found = screen.getByRole("region", { name: /Decision for| wants to / });
 
       expect(found.textContent).toContain(prompt);
 
@@ -93,7 +93,7 @@ const settle = async (answer: "allow" | "deny", prompt: string) => {
 
   fireEvent.click(within(card).getByRole("button", { name: answer === "allow" ? "Allow" : "Deny" }));
 
-  await waitFor(() => expect(screen.queryByRole("region", { name: /Decision for/ })).toBeNull(), { timeout: 30_000 });
+  await waitFor(() => expect(screen.queryByRole("region", { name: /Decision for| wants to / })).toBeNull(), { timeout: 30_000 });
   await waitFor(async () => expect((await workstreams()).find((room) => room.id === first?.id)?.status?.kind).toBe("idle"), { timeout: 30_000 });
   expect(await messages()).toContainEqual([prompt, "delivered"]);
   expect((await workstreams()).find((room) => room.id === second?.id)?.status?.kind).toBe(otherBefore);
@@ -114,7 +114,7 @@ const settle = async (answer: "allow" | "deny", prompt: string) => {
 
     return name!;
   }));
-  expect(screen.queryByRole("region", { name: /Decision for/ })).toBeNull();
+  expect(screen.queryByRole("region", { name: /Decision for| wants to / })).toBeNull();
 
   cleanup();
 
