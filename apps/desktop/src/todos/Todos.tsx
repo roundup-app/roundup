@@ -105,6 +105,8 @@ export const OpenRow = (props: {
   treeItem?: JSX.HTMLAttributes<HTMLElement>;
   /** U3770: a finish is playing on this row. */
   motion?: boolean;
+  /** U3770: this row's own effects ended. */
+  onMotionEnd?: () => void;
   /** U3709: what Tab and ⇧Tab do on this row; `null` where the key is not this row's. */
   nest?: { in: (() => Promise<string | null>) | null; out: (() => Promise<string | null>) | null };
 }) => {
@@ -173,7 +175,7 @@ export const OpenRow = (props: {
             props.sorted?.button(row);
           }}
         >
-          {(trigger) => <span {...trigger()} class="shelf-title">{props.todo.title}</span>}
+          {(trigger) => <span {...trigger()} class="shelf-title"><span class="todo-strike" onAnimationEnd={() => props.onMotionEnd?.()}>{props.todo.title}</span></span>}
         </RowButton>
         <Show when={!props.nested && props.sorted}>
           <div class="todo-row-actions" role="group" aria-label={copy.rowActionsFor(props.todo.id)}>
@@ -313,7 +315,18 @@ export const Todos = (props: {
   // U3770: a Todo ticked in the open list stays in it, drawn done, until its motion ends, then moves to the done fold.
   const held = (todo: Todo) => todo.done && finishing.row(todo.id);
 
-  const listed = createMemo(() => [...open(), ...done().filter(held)]);
+  // A held row keeps the place it had when it was open, so a tick moves it once, into the fold.
+  const listed = createMemo<Todo[]>((before) => {
+    const list = [...open()];
+
+    for (const todo of done().filter(held)) {
+      const was = before.findIndex((other) => other.id === todo.id);
+
+      list.splice(was < 0 ? list.length : Math.min(was, list.length), 0, todo);
+    }
+
+    return list;
+  }, []);
 
   const target = (todo: Todo) => ({ id: todo.id, label: todo.title });
 
@@ -871,8 +884,8 @@ export const Todos = (props: {
       </Show>
       <Show when={inScope().length > 0}>
         <div class="todo-progress" data-todo-progress>
-          <Progress label={copy.todosDoneBar} max={inScope().length} value={done().length} motion={finishing.bar()}>
-            <For each={[`${done().length}/${inScope().length}`]}>{(text) => <span class="todo-progress-count" data-todo-count>{text}</span>}</For>
+          <Progress label={copy.todosDoneBar} max={inScope().length} value={done().length} motion={finishing.bar()} onMotionEnd={finishing.barEnded}>
+            <For each={[`${done().length}/${inScope().length}`]}>{(text) => <span class="todo-progress-count" data-todo-count style={{ "min-width": `${String(inScope().length).length * 2 + 1}ch` }}>{text}</span>}</For>
           </Progress>
         </div>
       </Show>
@@ -904,6 +917,7 @@ export const Todos = (props: {
             <TreeView.Item asChild={(itemProps) =>
             <OpenRow
               motion={finishing.row(todo.id)}
+              onMotionEnd={() => finishing.rowEnded(todo.id)}
               treeItem={itemProps()}
               todo={todo}
               selected={selection.selected().includes(todo.id) || selectedId() === todo.id}
@@ -967,6 +981,7 @@ export const Todos = (props: {
                 <OpenRow
                   todo={todo}
                   motion={finishing.row(todo.id)}
+              onMotionEnd={() => finishing.rowEnded(todo.id)}
                   known={todos.byId()}
                   onOpen={show}
                   onToggle={todo => toggle(todo, done().map(candidate => candidate.id))}
