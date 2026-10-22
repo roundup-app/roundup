@@ -807,7 +807,7 @@ export const Todos = (props: {
       pickFails.get(todo.id)?.(await toggle(todo, openRowButtons().map(idOfRow).filter(each => each !== undefined)));
     }),
     triageKey("C", (todo) => {
-      show(todo, "key");
+      if (selectedId() !== todo.id) show(todo, "key");
       triage.askComment(todo.id);
     }),
   ]);

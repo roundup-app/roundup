@@ -6,13 +6,24 @@ import { useConnectedProject } from "../state/connectedProject";
 import { failureOf } from "./failureOf";
 import { rowButtonOf, triage } from "./triage";
 
+/** Unsent text per Todo, kept when the Drawer closes so Esc loses no draft. */
+const drafts = new Map<number, string>();
+
 /** The thread, oldest first, with a field to add to it. Opening reads it and marks it read once; a comment that arrives while it is open is read the same way. */
 export const TodoComments = (props: { id: number }) => {
   const { app, events, rail, drawer } = useConnectedProject();
   const [thread, setThread] = createSignal<readonly Comment[]>([]);
   const [failure, setFailure] = createSignal<string | null>(null);
   const [sendFailure, setSendFailure] = createSignal<string | null>(null);
-  const [text, setText] = createSignal("");
+  const [text, setTextNow] = createSignal(drafts.get(props.id) ?? "");
+
+  const setText = (value: string) => {
+    setTextNow(value);
+
+    if (value === "") drafts.delete(props.id);
+    else drafts.set(props.id, value);
+  };
+
   const [sending, setSending] = createSignal(false);
   let latest = 0;
   let alive = true;
@@ -35,7 +46,7 @@ export const TodoComments = (props: { id: number }) => {
     if (alive && mine === latest && id === props.id) setFailure(message);
   };
 
-  createEffect(on(() => props.id, () => { setThread([]); setFailure(null); void refresh(); }));
+  createEffect(on(() => props.id, () => { setThread([]); setFailure(null); setTextNow(drafts.get(props.id) ?? ""); void refresh(); }));
   onCleanup(events.subscribe((event) => { if (event.name === "todo.commented" && event.data.id === props.id) void refresh(); }));
   onCleanup(() => { alive = false; latest++; });
 
@@ -74,7 +85,7 @@ export const TodoComments = (props: { id: number }) => {
       ref={(element) => { field = element; }}
       onInput={(event) => setText(event.currentTarget.value)}
       onKeyDown={(event) => {
-        if (event.key === "Escape" && triage.on()) { event.preventDefault(); drawer.close(); rowButtonOf(props.id)?.focus(); }
+        if (event.key === "Escape" && triage.on()) { event.preventDefault(); drawer.close("key"); rowButtonOf(props.id)?.focus(); }
 
         if (event.key === "Enter" && (event.metaKey || event.ctrlKey) && !event.isComposing) { event.preventDefault(); void send(); }
       }} />

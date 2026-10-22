@@ -159,6 +159,7 @@ it("u3753_c_opens_the_comment_field_and_esc_returns_to_the_row", async () => {
   fireEvent.input(field, { target: { value: "hello" } });
   fireEvent.keyDown(field, { key: "Escape", code: "Escape" });
   await waitFor(() => expect(document.activeElement).toBe(row(2)));
+  expect(document.querySelector(".drawer")?.getAttribute("data-open")).not.toBe("true");
   expect(shelf().getAttribute("data-triage")).toBe("on");
   expect(callsTo(app, "todo.comment")).toEqual([]);
 });
@@ -183,4 +184,22 @@ it("u3754_a_refused_key_keeps_mode_focus_and_shows_the_cause", async () => {
   expect(shelf().getAttribute("data-triage")).toBe("on");
   expect(document.activeElement).toBe(row(2));
   expect(document.querySelector('[data-todo="2"] [role="alert"]')?.textContent).toContain("already moved");
+});
+
+it("u3755_esc_in_the_comment_field_keeps_the_draft", async () => {
+  const { app } = await enter();
+
+  press(row(2), "c");
+  const field = await screen.findByRole<HTMLTextAreaElement>("textbox", { name: "Write a comment" });
+  await waitFor(() => expect(document.activeElement).toBe(field));
+  fireEvent.input(field, { target: { value: "draft" } });
+  fireEvent.keyDown(field, { key: "Escape", code: "Escape" });
+  await waitFor(() => expect(document.activeElement).toBe(row(2)));
+  expect(document.querySelector(".drawer")?.getAttribute("data-open")).not.toBe("true");
+  expect(shelf().getAttribute("data-triage")).toBe("on");
+  expect(callsTo(app, "todo.comment")).toEqual([]);
+
+  press(row(2), "c");
+  await waitFor(() => expect(document.activeElement).toBe(screen.getByRole("textbox", { name: "Write a comment" })));
+  expect(screen.getByRole<HTMLTextAreaElement>("textbox", { name: "Write a comment" }).value).toBe("draft");
 });
