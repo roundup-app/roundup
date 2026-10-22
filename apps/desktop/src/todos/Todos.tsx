@@ -307,6 +307,11 @@ export const Todos = (props: {
     reduced: connected.reducedMotion,
   });
 
+  // U3770: a Todo ticked in the open list stays in it, drawn done, until its motion ends, then moves to the done fold.
+  const held = (todo: Todo) => todo.done && finishing.row(todo.id);
+
+  const listed = createMemo(() => [...open(), ...done().filter(held)]);
+
   const target = (todo: Todo) => ({ id: todo.id, label: todo.title });
 
   const bulk = createBulkDelete({
@@ -869,7 +874,7 @@ export const Todos = (props: {
         </div>
       </Show>
       <Show when={open().length > 0 || adding() !== null}>
-        <OwnerGroups groups={() => ownerGroups(connected, open(), todo => todo.owner)} dragging={dragging} bare={() => connected.rail.nodes.find(node => node.id === connected.rail.selected())?.kind === "agent" ? connected.rail.selected() : null} adding={() => adding()?.group ?? null} reveal={revealed} unfold={todos.revealed} onAdd={group => openField({ group: group.id, owner: group.actor })}>{group => {
+        <OwnerGroups groups={() => ownerGroups(connected, listed(), todo => todo.owner)} dragging={dragging} bare={() => connected.rail.nodes.find(node => node.id === connected.rail.selected())?.kind === "agent" ? connected.rail.selected() : null} adding={() => adding()?.group ?? null} reveal={revealed} unfold={todos.revealed} onAdd={group => openField({ group: group.id, owner: group.actor })}>{group => {
         const tree = createMemo(() => treeRows(group().items));
         const collection = createMemo(() => treeCollection(tree()));
         const placeOf = (id: number) => tree().find((row) => row.todo.id === id) ?? { level: 1, parent: null };
@@ -954,7 +959,7 @@ export const Todos = (props: {
         <Show when={wasDoneUnfolded()}>
           <div class="todo-done-fold" data-open={unfolded()} data-reduced-motion={connected.reducedMotion()} inert={!unfolded()}>
             <div class="todo-done-content">
-            <For each={done()}>
+            <For each={done().filter((todo) => !held(todo))}>
               {(todo) => (
                 <OpenRow
                   todo={todo}

@@ -16,6 +16,8 @@ export const createFinishMotion = (input: { loaded: Accessor<boolean>; key: Acce
     setBar(false);
   };
 
+  createEffect(on(input.reduced, (reduced) => { if (reduced) settle(); }));
+
   createEffect(on([input.loaded, input.key, input.done], ([loaded, key, done]) => {
     const was = before;
 
