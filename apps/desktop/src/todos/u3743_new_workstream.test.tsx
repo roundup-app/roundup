@@ -42,7 +42,7 @@ it("u3743_create_calls_start_workstream_once_with_the_chosen_start", async () =>
 
   const dialog = within(await openDialog());
 
-  expect(dialog.getByLabelText<HTMLInputElement>("Workstream name").value).toBe("Ship the login fix");
+  expect(dialog.getByLabelText<HTMLTextAreaElement>("Workstream name").value).toBe("Ship the login fix");
   expect(dialog.getAllByRole("radio").map(radio => radio.closest("label")?.textContent)).toEqual(["Start now", "Start when a slot frees", "Start after another Todo"]);
   expect(dialog.getByRole<HTMLInputElement>("radio", { name: "Start when a slot frees" }).checked).toBe(true);
   await pick(dialog.getByRole("radio", { name: "Start now" }));
@@ -71,11 +71,11 @@ it("u3743_after_todo_needs_a_picked_todo_and_a_name_is_required", async () => {
   await pick(dialog.getByRole("radio", { name: "Start after another Todo" }));
   expect(create().disabled).toBe(true);
 
-  fireEvent.click(await dialog.findByRole("combobox", { name: "Todo to wait for" }));
+  fireEvent.click(await dialog.findByRole("button", { name: "Choose a Todo" }));
   const options = within(await screen.findByRole("listbox")).getAllByRole("option");
 
-  expect(options.map(option => option.textContent)).toEqual(expect.arrayContaining(["#2 Write docs"]));
-  expect(options.map(option => option.textContent).join()).not.toContain("#1 ");
+  expect(options.map(option => option.textContent)).toEqual(expect.arrayContaining(["Write docs#2"]));
+  expect(options.map(option => option.textContent).join()).not.toContain("Ship the login fix");
   expect(options.map(option => option.textContent).join()).not.toContain("Done thing");
   fireEvent.click(options.find(option => option.textContent?.includes("#2"))!);
   await waitFor(() => expect(create().disabled).toBe(false));
@@ -96,7 +96,7 @@ it("u3743_esc_cancels_with_no_call_and_a_refusal_keeps_the_values", async () => 
   fireEvent.click(dialog.getByRole("button", { name: "Create" }));
 
   expect(await dialog.findByText("todo 1 is done")).toBeTruthy();
-  expect(dialog.getByLabelText<HTMLInputElement>("Workstream name").value).toBe("Keep me");
+  expect(dialog.getByLabelText<HTMLTextAreaElement>("Workstream name").value).toBe("Keep me");
   expect(screen.getByRole("dialog", { name: "New Workstream" })).toBeTruthy();
 
   fireEvent.keyDown(dialog.getByLabelText("Workstream name"), { key: "Escape" });

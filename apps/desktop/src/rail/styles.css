@@ -158,6 +158,40 @@
   color: var(--amber);
 }
 
+/* U3744: a queued Workstream's place is state, so it stays visible beside the name and never wraps; the actions keep the trailing edge (U112). */
+.rail-row .line > .queue-badge {
+  flex: none;
+  white-space: nowrap;
+  font-size: var(--text-caption);
+  font-variant-numeric: tabular-nums;
+}
+
+/* U403: the chevron leads the row; its hit box is 16 px wide and 24 px tall, so the mark sits in the Glyph column and the trunk drops from its centre. */
+.rail-row .line > .rail-chevron {
+  width: var(--space-4);
+  min-width: var(--space-4);
+}
+
+/* U3704: a Workstream's Status sits after its chevron in the column its Agents' Status takes, one --rail-step in from the chevron. */
+.rail-row .line > .rail-chevron + .glyph {
+  margin-left: calc(var(--rail-step) - var(--space-4) - var(--rail-gap));
+}
+
+/* U403: the right side never gives way: an Ink count open, up to five Glyphs and the Agent count folded. */
+.rail-row .line > .ink-count,
+.rail-row .line > .folded-agents {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  gap: var(--space-1);
+  font-size: var(--text-caption);
+  font-variant-numeric: tabular-nums;
+}
+
+.rail-row .line > .ink-count {
+  color: var(--amber);
+}
+
 /* U3744: a queued Workstream's place sits in the row's tail as light text beside the name; it never wraps or moves the row's edges (U112). */
 .rail-row .row-tail {
   position: relative;
@@ -947,9 +981,3 @@
 }
 
 .rail-leaf[role="treeitem"] { cursor: pointer; }
-
-.rail-row[data-near="true"] .queue-badge,
-.rail-row:hover .queue-badge,
-.rail-row:focus-within .queue-badge {
-  visibility: hidden;
-}

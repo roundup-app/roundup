@@ -420,6 +420,7 @@ export const copy = {
   startNow: "Start now",
   startWhenSlotFrees: "Start when a slot frees",
   startAfterTodo: "Start after another Todo",
+  chooseTodo: "Choose a Todo",
   startAfterTodoLabel: "Todo to wait for",
   createWorkstream: "Create",
   queuedBadge: (place: number) => `queued · ${place}`,
