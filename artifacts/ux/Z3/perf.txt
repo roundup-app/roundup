@@ -1,4 +1,4 @@
-./target/release/perf 
+./target/release/perf
 run 1/11: load 8.0 on 4 cpus
 run 2/11: load 8.0 on 4 cpus
 run 3/11: load 8.0 on 4 cpus
