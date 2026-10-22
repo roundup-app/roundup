@@ -19,7 +19,7 @@ const CONFLICT = -32003;
 /** Where a handler reports the Event the real Daemon would send after the same write. */
 export type Announce = (data: EventData) => void;
 
-export type TodoStore = { todos: Todo[]; changes?: Map<number, Change[]>; reads?: Map<number, number>; comments?: Map<number, Comment[]> };
+export type TodoStore = { todos: Todo[]; changes?: Map<number, Change[]>; reads?: Map<number, number>; comments?: Map<number, Comment[]>; /** Ref URLs whose Pad or heading the fake Daemon calls gone. */ missing?: Set<string> };
 
 export type PadStore = { pads: Pad[]; history: Touch[] };
 
@@ -101,7 +101,7 @@ const todoMethods = (store: TodoStore, announce: Announce, actor: () => Actor): 
   },
   "todo.create": ({ title, body, blockers, owner }) => {
     const id = Math.max(0, ...store.todos.map((todo) => todo.id)) + 1;
-    const created: Todo = { id, title, body: body ?? "", done: false, blockers: blockers ?? [], blocked: false, created_at: Date.now(), creator: actor(), home: null, owner: owner ?? null };
+    const created: Todo = { id, title, body: body ?? "", done: false, blockers: blockers ?? [], blocked: false, created_at: Date.now(), creator: actor(), home: null, owner: owner ?? null, refs: [] };
     store.todos = withBlocked([...store.todos, created]);
     recordChanges(store, [], actor());
     const stored = find(store.todos, (todo) => todo.id === id, `todo ${id}`);
@@ -173,6 +173,27 @@ const todoMethods = (store: TodoStore, announce: Announce, actor: () => Actor): 
 
     return null;
   },
+  "todo.addRef": ({ id, url }) => {
+    const target = find(store.todos, (todo) => todo.id === id, `todo ${id}`);
+
+    if (target.refs.includes(url)) return { ...target };
+
+    store.todos = store.todos.map((todo) => (todo.id === id ? { ...todo, refs: [...todo.refs, url] } : todo));
+    announce({ name: "todo.refAdded", data: { id } });
+
+    return { ...find(store.todos, (todo) => todo.id === id, `todo ${id}`) };
+  },
+  "todo.removeRef": ({ id, url }) => {
+    const target = find(store.todos, (todo) => todo.id === id, `todo ${id}`);
+
+    if (!target.refs.includes(url)) return { ...target };
+
+    store.todos = store.todos.map((todo) => (todo.id === id ? { ...todo, refs: todo.refs.filter((ref) => ref !== url) } : todo));
+    announce({ name: "todo.refRemoved", data: { id } });
+
+    return { ...find(store.todos, (todo) => todo.id === id, `todo ${id}`) };
+  },
+  "todo.refs": ({ id }) => find(store.todos, (todo) => todo.id === id, `todo ${id}`).refs.map((url) => ({ url, state: store.missing?.has(url) ? "missing" : "ok" })),
   "todo.delete": ({ id }) => {
     find(store.todos, (todo) => todo.id === id, `todo ${id}`);
     store.comments?.delete(id);

@@ -18,6 +18,7 @@
   inset: 0;
   bottom: calc(var(--hint-row-height) + var(--rail-actions-height));
   overflow-y: auto;
+  overscroll-behavior: contain;
 }
 
 .ask-bar[data-mode="over"] {
@@ -29,6 +30,7 @@
   max-height: calc(100% - var(--space-6));
   transform: translateX(-50%);
   overflow-y: auto;
+  overscroll-behavior: contain;
   border-radius: var(--radius-row);
   border: 1px solid var(--hairline);
 }
@@ -163,6 +165,7 @@ button.ask-line:is(:active, [data-pressed="true"]) {
   margin: 0;
   max-height: 160px;
   overflow-y: auto;
+  overscroll-behavior: contain;
 }
 
 .app-mentions .app-listbox-item[data-highlighted] {
@@ -281,7 +284,7 @@ button.ask-line:is(:active, [data-pressed="true"]) {
 }
 
 .made-trigger { display: inline-flex; align-items: center; gap: var(--space-1); }
-.made-panel { box-sizing: border-box; width: min(var(--measure), calc(100vw - var(--space-6))); max-height: calc(100vh - var(--space-6)); overflow-y: auto; }
+.made-panel { box-sizing: border-box; width: min(var(--measure), calc(100vw - var(--space-6))); max-height: calc(100vh - var(--space-6)); overflow-y: auto; overscroll-behavior: contain; }
 .made { padding: var(--space-2); }
 .made-heading { display: flex; align-items: center; justify-content: space-between; }
 .made-heading .overview-heading { padding: 0; }
