@@ -274,7 +274,7 @@ export const MeasurementDashboard = (props: { home: string; name: string; back: 
             <p class="measurement-note">{copy.measurementJoin(listPrice(row.cost) ?? copy.measurementUnknown, ...reported(row.cost), copy.measurementAgentTime(duration(row.time.summed_ns), null))}</p>
             <For each={[...new Set([...row.coverage, ...row.cost.unavailable, ...row.time.coverage])].filter((cause) => !notes().includes(cause))}>{(cause) => <p class="measurement-note">{cause}</p>}</For>
           </Collapsible.Content></Collapsible.Root>
-        </th><For each={categories}>{(key) => <td>{exact(row.tokens[key])}<Show when={row.tokens[key].missing > 0}><Partial note={copy.measurementPartialTokens(row.tokens[key].missing)} /></Show></td>}</For></tr>}</For></tbody>
+        </th><For each={categories}>{(key) => <td><Tip text={exact(row.tokens[key])}>{(trigger) => <span {...trigger()}>{exact(row.tokens[key])}</span>}</Tip><Show when={row.tokens[key].missing > 0}><Partial note={copy.measurementPartialTokens(row.tokens[key].missing)} /></Show></td>}</For></tr>}</For></tbody>
       </table>
       <Show when={snapshot()?.next_offset != null}><button data-button="quiet" type="button" aria-disabled={pending()} onClick={() => { if (!pending()) void read(true); }}>{copy.measurementLoadMore}</button></Show>
     </section>
