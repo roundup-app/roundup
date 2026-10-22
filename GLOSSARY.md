@@ -842,6 +842,9 @@ until their exact-version Result resolution. They block completion checks and cu
 attribution of later claims for that target. Other current attribution requires the
 same Order and latest Instruction revision, plus the latest reported version of that
 target. Opening or inspecting Progress starts nothing and sends no Message.
+User-label states, each led by a glyph: "Accepted" (check), "Checked independently"
+(check), "Check pending" (circle), "Older version" (circle), "Unknown outcome" (diamond)
+and "Evidence unavailable" (x).
 
 **Request cost** (`RequestCost`, `CacheWrites`):
 The observed opaque Model and independently observed five-minute/one-hour cache-write
