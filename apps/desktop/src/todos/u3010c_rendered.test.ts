@@ -221,3 +221,20 @@ rendered("u3010c_refused_move_leaves_the_rows_where_they_were", async () => {
   for (const frame of run) expect(order(frame)).toEqual(before);
   save("refusal", { before, frames: run });
 }, 60_000);
+
+rendered("u3010c_completing_a_row_slides_the_rows_below_it_up", async () => {
+  await setup(false);
+
+  const before = await ids();
+
+  await sample(true);
+  await page.call(`rows => document.querySelectorAll(rows)[1].closest('.todo-row').querySelector('.todo-tick').click()`, rows);
+  await page.until(`() => window.__fake.app.calls.some(c => c.method === 'todo.complete')`);
+
+  const run = await stop();
+  const after = await ids();
+
+  expect(after).toEqual(before.filter((id) => id !== before[1]));
+  save("completion", { before, frames: run });
+  checkSlide(run, after.filter((id) => Math.abs(run.at(-1)!.tops[id]! - run[0]!.tops[id]!) > 1));
+}, 60_000);
