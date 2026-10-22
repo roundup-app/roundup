@@ -203,3 +203,17 @@ def imp_t(b: Bool) -> T(S.implies(b, True{})):
       {==}
     case True{}:
       {==}
+
+def rm_sub_step(b: Bool, +y: Nat, +rest: +List<Nat>, +tail: +List<Nat>, +ht: T(S.all_in(tail, rest))) -> T(S.all_in(M.remove_step(b, y, tail), y <> rest)):
+  match b:
+    case True{}:
+      all_in_cons_r(tail, y, rest, ht)
+    case False{}:
+      and_i(M.mem(y, y <> rest), S.all_in(tail, y <> rest), or_l(Nat.is_eq(y, y), M.mem(y, rest), eq_refl(y)), all_in_cons_r(tail, y, rest, ht))
+
+def rm_sub(+x: Nat, +l: +List<Nat>) -> T(S.all_in(M.remove(x, l), l)):
+  match l:
+    case Nil{}:
+      {==}
+    case Con{+y, +rest}:
+      rm_sub_step(Nat.is_eq(x, y), y, rest, M.remove(x, rest), rm_sub(x, rest))

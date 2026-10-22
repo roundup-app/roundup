@@ -1,0 +1,84 @@
+/* U3780: the queue sits directly above the field; an empty queue draws nothing above it. */
+.note-queue {
+  flex: none;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-4);
+}
+
+.note-queue-head {
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+  color: var(--grey);
+  font-size: var(--text-small);
+}
+
+.note-queue-step {
+  flex: 1;
+  text-align: end;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.note-queue-rows {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.note-queue-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-width: 0;
+}
+
+.note-queue-from {
+  flex: none;
+  color: var(--grey);
+}
+
+.note-queue-text {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* U3784: a taken note moves to the step line and fades, and the rows below close up in the same time; only transform and opacity animate. */
+.note-queue-row[data-state="taken"] {
+  transform: translateY(var(--glide-y, 0));
+  opacity: 0;
+  pointer-events: none;
+  transition: transform var(--duration-note) var(--ease-note), opacity var(--duration-note) var(--ease-note);
+}
+
+.note-queue-row[data-closing] {
+  transform: translateY(calc(-1 * var(--close-up, 0px)));
+  transition: transform var(--duration-note) var(--ease-note);
+}
+
+.note-queue-field {
+  display: flex;
+  align-items: flex-end;
+  gap: var(--space-2);
+}
+
+.note-queue-field .app-textarea-root {
+  flex: 1;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .note-queue-row[data-state="taken"],
+  .note-queue-row[data-closing] {
+    transition: none;
+  }
+}

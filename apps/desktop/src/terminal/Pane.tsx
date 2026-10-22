@@ -8,6 +8,7 @@ import { For, createEffect, createMemo, createSignal, on, onCleanup, Show, untra
 import { DecisionCard } from "../decisions/DecisionCard";
 import { OrderDrawer } from "../orders/OrderDrawer";
 import { OrderLine } from "../orders/OrderLine";
+import { NoteQueue } from "./NoteQueue";
 import { ErrorLine } from "../ink/ErrorLine";
 import { Icon } from "../ink/Icon";
 import { doorStateOf, doorStateText } from "../rail/doorState";
@@ -487,6 +488,7 @@ export const Pane = (props: { notice?: string | null; createEmulator?: EmulatorF
           )}
         </Show>
       </div>
+      <Show when={selected()?.kind === "agent" && terminalId() !== null && !closedAgent() ? selected() : null} keyed>{(node) => <NoteQueue node={node} />}</Show>
       </div>
       <div class="pane-failure">
         <Show when={notice() ?? rail.workstreamFailure()}>{(message) => <ErrorLine message={message()} />}</Show>

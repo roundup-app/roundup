@@ -10,6 +10,7 @@ mod hops;
 mod inbox;
 mod pushes;
 pub mod reaction;
+mod removal;
 mod restart;
 mod retirement;
 #[doc(hidden)]
@@ -666,20 +667,6 @@ impl Messages {
         ctx.touch(Verb::Wrote, &item(p.id))?;
         nudge(&self.inner, &message.to).await;
         reply(&self.get_or_not_found(p.id)?)
-    }
-
-    async fn drop_message(&self, ctx: &Ctx, p: MessageId) -> Result<Value, RpcError> {
-        require_user(ctx, "drop a held Message")?;
-        let message = self.get_or_not_found(p.id)?;
-        if !user_call_moves(&message, Event::UserDrop(p.id)) {
-            return Err(RpcError::conflict(format!("message {} is not held", p.id)));
-        }
-        self.release_held(p.id, MessageStatus::Dropped, None)?;
-        ctx.touch(Verb::Wrote, &item(p.id))?;
-        let dropped = self.get_or_not_found(p.id)?;
-        ctx.emit(EventData::MessageDropped(dropped.clone().into()));
-        settle_logged(&self.inner, "settle").await;
-        reply(&dropped)
     }
 
     async fn set_route(&self, ctx: &Ctx, p: SetRouteParams) -> Result<Value, RpcError> {
@@ -1970,6 +1957,7 @@ mod tests {
     mod b_push_tests;
     mod b_resume_tests;
     mod inv_tests;
+    mod u3782_tests;
 
     /// Stands in for the `agents` module's `rail.tree`: the only Rail fact `message.send` needs,
     /// without a real Agent, Terminal or Launcher.
