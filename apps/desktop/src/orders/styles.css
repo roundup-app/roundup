@@ -182,7 +182,7 @@
 .context-bar-box { display: flex; flex-direction: column; gap: var(--space-2); font-size: var(--text-small); color: var(--grey); }
 .context-bar-box p { margin: 0; }
 .context-line { display: flex; justify-content: space-between; gap: var(--space-2); }
-.context-percent[data-warn] { color: var(--amber); }
+.context-percent[data-warn] { color: var(--text); }
 .context-bar { display: flex; height: var(--space-2); background: var(--hairline); overflow: hidden; }
 .context-part { min-width: 2px; flex: none; transition: width var(--duration-drawer) var(--easing-out), opacity var(--duration-crossfade); }
 .context-part[data-kind="used"], .context-swatch[data-kind="used"] { background: var(--grey); }
