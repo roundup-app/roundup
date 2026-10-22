@@ -14,6 +14,7 @@ mod placement;
 pub use placement::Call as PlacementCall;
 pub mod plugins;
 mod skills;
+mod usage;
 
 use contracts::decision::Answer;
 use contracts::{Kind, Status};

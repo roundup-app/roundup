@@ -32,6 +32,7 @@
   align-items: center;
   justify-content: space-between;
   gap: var(--space-4);
+  min-height: var(--space-6);
 }
 
 .measurement-header h2 {
@@ -41,10 +42,52 @@
   margin: 0;
 }
 
+/* State rides with the name; Retry and Back trail. The state reserves two lines, so nothing below moves. */
+.measurement-header h2 {
+  flex: none;
+  max-width: 40%;
+}
+
+.measurement-state {
+  flex: 1 1 auto;
+  min-width: 0;
+  margin-inline-end: var(--space-6);
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  overflow: hidden;
+  min-height: calc(2 * 1.4em);
+  line-height: 1.4;
+  align-content: center;
+  color: var(--grey);
+  font-size: var(--text-small);
+  overflow-wrap: anywhere;
+}
+
+.measurement-header {
+  justify-content: flex-start;
+  gap: var(--space-2);
+}
+
+.measurement-actions {
+  display: flex;
+  align-items: center;
+  flex: none;
+  gap: var(--space-3);
+  font-size: var(--text-small);
+}
+
+.measurement-state[data-live="true"] {
+  color: var(--text);
+}
+
 .measurement-dashboard h3 {
-  font-size: var(--text-body);
+  font-size: var(--text-small);
   font-weight: 600;
   margin: 0 0 var(--space-2);
+  color: var(--grey);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
 }
 
 .measurement-dashboard p {
@@ -52,40 +95,161 @@
   overflow-wrap: anywhere;
 }
 
+.measurement-dashboard h3 .measurement-note {
+  text-transform: none;
+  letter-spacing: 0;
+}
+
 .measurement-note {
-  display: block;
   color: var(--grey);
   font-size: var(--text-caption);
   overflow-wrap: anywhere;
 }
 
-.measurement-overview {
+.measurement-tiles {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
-  gap: var(--space-4);
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: var(--space-5);
   padding-block: var(--space-4);
 }
 
-.measurement-tokens,
-.measurement-time,
-.measurement-elapsed {
+.measurement-figure {
+  font-size: var(--text-title);
+  font-weight: 600;
+  min-height: var(--space-6);
+}
+
+.measurement-line {
+  color: var(--grey);
+  font-size: var(--text-small);
+  min-height: var(--space-5);
+}
+
+.measurement-mark {
+  margin-inline-start: var(--space-1);
+  font-size: var(--text-small);
+}
+
+.measurement-stack {
+  display: flex;
+  height: var(--space-2);
+  gap: 0;
+  margin-block: var(--space-2);
+}
+
+.measurement-segment,
+.measurement-bar > span,
+.measurement-meter > span {
+  display: block;
+  height: 100%;
+  transition: opacity var(--duration-crossfade) var(--easing-out);
+}
+
+.measurement-segment[data-category="input"] { background: var(--text); }
+.measurement-segment[data-category="output"] { background: var(--grey); }
+.measurement-segment[data-category="cache_read"] { background: var(--accent); }
+.measurement-segment[data-category="cache_write"] { background: var(--cache-write); }
+
+.measurement-stack[data-dim="true"] .measurement-segment:not([data-active="true"]) { opacity: 0.35; }
+
+.measurement-legend {
+  display: flex;
+  flex-wrap: nowrap;
+  white-space: nowrap;
+  gap: var(--space-1) var(--space-3);
+  margin: 0 0 var(--space-2);
+  padding: 0;
+  list-style: none;
+  color: var(--grey);
+  font-size: var(--text-caption);
+}
+
+.measurement-swatch {
+  display: inline-block;
+  width: var(--space-2);
+  height: var(--space-2);
+  margin-inline-end: var(--space-1);
+}
+
+.measurement-legend [data-category="input"] .measurement-swatch { background: var(--text); }
+.measurement-legend [data-category="output"] .measurement-swatch { background: var(--grey); }
+.measurement-legend [data-category="cache_read"] .measurement-swatch { background: var(--accent); }
+.measurement-legend [data-category="cache_write"] .measurement-swatch { background: var(--cache-write); }
+
+.measurement-limit {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding-block: var(--space-3);
+  font-size: var(--text-small);
+}
+
+.measurement-label {
+  color: var(--grey);
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.measurement-meter {
+  flex: 1;
+  height: var(--space-1);
+  background: var(--selected);
+}
+
+.measurement-meter > span { background: var(--text); }
+.measurement-limit[data-near="true"] .measurement-meter > span { background: var(--amber); }
+.measurement-limit[data-near="true"] .measurement-limit-text { color: var(--amber); }
+
+.measurement-section {
+  padding-block: var(--space-3);
+}
+
+.measurement-time {
   margin: 0;
 }
 
-.measurement-tokens > div,
-.measurement-time > div,
-.measurement-elapsed > div {
+.measurement-time > div {
   display: flex;
   justify-content: space-between;
   gap: var(--space-3);
   padding-block: var(--space-1);
 }
 
-.measurement-dashboard dd {
-  margin: 0;
-  text-align: right;
-  overflow-wrap: anywhere;
+.measurement-time dt {
+  flex: none;
+  width: 30%;
 }
+
+.measurement-time dd,
+.measurement-dashboard dd {
+  display: flex;
+  flex: 1;
+  align-items: center;
+  justify-content: flex-end;
+  gap: var(--space-3);
+  margin: 0;
+}
+
+.measurement-duration {
+  flex: none;
+  width: 6ch;
+  text-align: right;
+}
+
+.measurement-meter[data-unknown="true"] {
+  visibility: hidden;
+}
+
+.measurement-bar {
+  display: inline-block;
+  flex: 1;
+  height: var(--space-1);
+  max-width: 50%;
+  background: var(--selected);
+}
+
+.measurement-bar > span { background: var(--text); }
 
 .measurement-detail {
   margin-top: var(--space-3);
@@ -97,7 +261,7 @@
 
 .measurement-dashboard table {
   width: 100%;
-  table-layout: auto;
+  table-layout: fixed;
   border-collapse: collapse;
   margin-block: var(--space-2);
   font-size: var(--text-caption);
@@ -112,32 +276,38 @@
 }
 
 .measurement-dashboard td {
+  overflow: hidden;
+  text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.measurement-dashboard th .measurement-bar {
+  display: block;
+  width: 100%;
+  max-width: none;
 }
 
 .measurement-dashboard th:first-child {
   width: 25%;
   text-align: left;
-  overflow-wrap: anywhere;
 }
 
 .measurement-dashboard th button {
+  display: block;
   max-width: 100%;
-  overflow-wrap: anywhere;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
-.measurement-stale {
-  margin-block: var(--space-3);
-}
-
-.measurement-overview .measurement-cost strong {
-  font-size: var(--text-title);
-  font-weight: 600;
+.measurement-dashboard tbody:has(tr:hover) tr:not(:hover) .measurement-bar > span,
+.measurement-dashboard tbody:has(:focus-visible) tr:not(:focus-within) .measurement-bar > span {
+  opacity: 0.35;
 }
 
 /* Selection is text colour only, as the Shelf's flat tabs. */
-.measurement-contributors .app-tabs-trigger { color: var(--grey); }
-.measurement-contributors .app-tabs-trigger[data-selected] {
+.measurement-agents .app-tabs-trigger { color: var(--grey); }
+.measurement-agents .app-tabs-trigger[data-selected] {
   --button-surface: transparent;
   --button-hover: transparent;
   color: var(--text);
