@@ -12,6 +12,7 @@ import { rowButtonOf, triage } from "./triage";
 const drafts = new Map<number, string>();
 
 type Part = { text: string } | { summary: string; details: string };
+const isStatus = (part: Part): part is Extract<Part, { summary: string }> => "summary" in part;
 
 const STATUS = "::status ";
 
@@ -127,7 +128,7 @@ export const TodoComments = (props: { id: number }) => {
     <For each={thread()}>{(comment) => <div class="todo-comment" data-comment={comment.id} data-fresh={fresh().has(comment.id) ? "" : undefined}>
       <p class="todo-comment-head"><Show when={glyphOf(comment)}>{(node) => <KindGlyph kind={node().status?.kind ?? "idle"} />}</Show><span class="todo-comment-author">{author(comment)}</span> <time datetime={new Date(comment.created_at).toISOString()}>{copy.commentTime(comment.created_at)}</time>
         <Show when={comment.author.kind === "agent"}><button data-button="quiet" class="word" type="button" onClick={() => field?.focus()}>{copy.reply}</button></Show></p>
-      <div class="todo-comment-parts"><For each={partsOf(comment.body, comment.author.kind === "agent")}>{(part) => "summary" in part
+      <div class="todo-comment-parts"><For each={partsOf(comment.body, comment.author.kind === "agent")}>{(part) => isStatus(part)
         ? <Collapsible.Root class="todo-status" lazyMount unmountOnExit>
           <Collapsible.Trigger data-button="quiet" class="word todo-status-summary">{part.summary}</Collapsible.Trigger>
           <Collapsible.Content class="todo-status-details">{part.details}</Collapsible.Content>
