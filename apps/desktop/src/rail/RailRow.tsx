@@ -147,7 +147,16 @@ export const RailRowView = (props: {
   /** U426: the icons of a Workstream or Agent row. */
   actions: RowActions;
 }) => {
-  const { worktrees } = useConnectedProject();
+  const { worktrees, queue } = useConnectedProject();
+
+  /** a queued Workstream's place, or the Todo it waits for; gone once its Door starts or the entry leaves. */
+  const queuedBadge = () => {
+    const queued = workstream() ? queue.entryOf(props.row.node.id) : null;
+
+    if (!queued) return null;
+
+    return queued.entry.start.kind === "afterTodo" ? copy.afterBadge(queued.entry.start.todo) : copy.queuedBadge(queued.place);
+  };
 
   const worktreeFailure = () => worktrees.read(props.row.node.id)?.failure;
 
@@ -294,6 +303,7 @@ export const RailRowView = (props: {
             </span>
           </span>
         }>{name()}</Show>
+        <Show when={queuedBadge()}>{(badge) => <span class="light queue-badge">{badge()}</span>}</Show>
         <Show when={workstream()}>
           <Show
             when={props.row.collapsed}

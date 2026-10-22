@@ -238,3 +238,51 @@ rendered("u3010c_completing_a_row_slides_the_rows_below_it_up", async () => {
   save("completion", { before, frames: run });
   checkSlide(run, after.filter((id) => Math.abs(run.at(-1)!.tops[id]! - run[0]!.tops[id]!) > 1));
 }, 60_000);
+
+rendered("u3010c_inserting_a_row_leaves_the_rows_above_it_in_place", async () => {
+  await setup(false);
+
+  const before = await ids();
+
+  await sample(true);
+  await page.call(`() => window.__fake.app.handlers['todo.create']({title: 'inserted while sampling', body: null, blockers: null, owner: null})`);
+  await page.until(`() => document.querySelectorAll(${JSON.stringify(rows)}).length > ${before.length}`);
+
+  const run = await stop();
+  const after = await ids();
+
+  expect(after.filter((id) => before.includes(id))).toEqual(before);
+  save("insertion", { before, frames: run });
+  // An appended row moves no row above it: each existing row stays within 1 px of where it began.
+
+  for (const id of before) expect(Math.max(...run.map((frame) => Math.abs(frame.tops[id]! - run[0]!.tops[id]!)))).toBeLessThanOrEqual(1);
+}, 60_000);
+
+rendered("u3010c_pointer_move_to_another_owner_group_slides_the_rows_it_leaves", async () => {
+  await setup(false);
+
+  const before = await ids();
+  const from = await centre(0);
+
+  await sample(true);
+  await page.pointer("down", from.x, from.y);
+  await page.pointer("move", from.x, from.y - 6);
+  await page.until(`() => !!document.querySelector('.shelf [data-shelf-group="me"] .shelf-group-head')`);
+
+  const to = await page.call<{ x: number; y: number }>(`() => {
+    const el = document.querySelector('.shelf [data-shelf-group="me"] .shelf-group-head'); el.scrollIntoView({block: 'nearest'}); const b = el.getBoundingClientRect();
+    return {x: b.left + b.width / 2, y: b.top + b.height / 2};
+  }`);
+
+  for (let step = 1; step <= 8; step++) await page.pointer("move", from.x + ((to.x - from.x) * step) / 8, from.y - 6 + ((to.y - from.y + 6) * step) / 8);
+  await page.pointer("up", to.x, to.y);
+  await page.until(`() => window.__fake.app.calls.some(c => c.method === 'todo.assign')`);
+
+  const run = await stop();
+  const assigns = await page.call<unknown[]>(`() => window.__fake.app.calls.filter(c => c.method === 'todo.assign').map(c => c.params)`);
+
+  expect(assigns).toHaveLength(1);
+  expect(await reorders()).toEqual([]);
+  expect(await ids()).not.toContain(before[0]);
+  save("owner-move", { before, frames: run });
+}, 60_000);
