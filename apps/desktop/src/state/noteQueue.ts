@@ -148,6 +148,9 @@ export const createNoteQueue = (app: AppSeam, events: Events, reducedMotion: Acc
 
         const message = queued.value;
 
+        // U3781: an Agent already idle takes the note by B2 at once, so there is no turn to interrupt.
+        if (message.status === "delivered") return;
+
         // B6: a Takeover holds the note, and the user's call wins.
         if (message.status === "held" && message.reason === "takeover" && await call(agent, () => app.rpc("message.deliver", { id: message.id })) === null) return;
 
