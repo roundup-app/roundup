@@ -319,3 +319,84 @@ pub struct Progress {
     pub instructions: crate::agent::Instructions,
     pub results: Vec<ResultProgress>,
 }
+
+/// U3078d: the user's explicit choice to resume one Agent's unfinished work. `request` is the
+/// client's retry key; the same key with other bytes is refused, and a fresh key never accepts an
+/// action a decision already holds. `action` limits the resume to one reconciled action.
+#[derive(Clone, Debug, Serialize, Deserialize, TS, JsonSchema)]
+#[serde(deny_unknown_fields)]
+#[ts(export, export_to = "message/")]
+pub struct ResumeWorkParams {
+    pub project: String,
+    pub id: String,
+    pub request: String,
+    #[serde(default)]
+    #[ts(optional)]
+    pub action: Option<String>,
+}
+
+/// One unfinished action for exact instruction/target/output versions. `id` hashes those
+/// versions and the pending next step, never a report key, so it is stable across retries.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, TS)]
+#[ts(export, export_to = "message/")]
+pub struct ContinuationAction {
+    pub id: String,
+    pub report: String,
+    pub target: ResultTarget,
+    pub output: String,
+    pub instruction: String,
+    pub next: String,
+    /// The accepted decision (or reaction firing) that already holds this action.
+    pub decision: Option<String>,
+}
+
+/// Work that cannot be continued now: an unknown or unavailable fact, with its cause and the
+/// action that checks it.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, TS)]
+#[ts(export, export_to = "message/")]
+pub struct ContinuationBlock {
+    pub report: String,
+    pub target: ResultTarget,
+    pub cause: String,
+    pub action: String,
+}
+
+/// Retained evidence that was confirmed for its exact version. `current` is false for an older
+/// version, which verifies nothing about the version that replaced it.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, TS)]
+#[ts(export, export_to = "message/")]
+pub struct ContinuationContext {
+    pub report: String,
+    pub target: ResultTarget,
+    pub current: bool,
+    pub confirmed: String,
+}
+
+/// The Daemon's read of one Agent's retained evidence, changing nothing.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, TS)]
+#[ts(export, export_to = "message/")]
+pub struct Reconciliation {
+    pub agent: String,
+    pub actions: Vec<ContinuationAction>,
+    pub blocked: Vec<ContinuationBlock>,
+    pub context: Vec<ContinuationContext>,
+    pub pending_checks: Vec<ResultTarget>,
+}
+
+/// An accepted decision and the one successor Message it made.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, TS)]
+#[ts(export, export_to = "message/")]
+pub struct ContinuationDecision {
+    pub id: String,
+    pub request: String,
+    pub actions: Vec<String>,
+    pub message: u32,
+}
+
+/// `decision` is absent when no unfinished work was eligible, and then no Message was made.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, TS)]
+#[ts(export, export_to = "message/")]
+pub struct ResumeWork {
+    pub decision: Option<ContinuationDecision>,
+    pub reconciliation: Reconciliation,
+}

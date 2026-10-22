@@ -303,6 +303,16 @@ pub const METHODS: &[Method] = &[
         "message_ResolveResultParams",
         "message_ResultObservation",
     ),
+    m(
+        "message.reconcileWork",
+        "message_ProgressParams",
+        "message_Reconciliation",
+    ),
+    m(
+        "message.resumeWork",
+        "message_ResumeWorkParams",
+        "message_ResumeWork",
+    ),
     m("message.send", "message_SendParams", "message_Message"),
     m("message.pass", "message_MessageId", "message_Message"),
     m("message.get", "message_MessageId", "message_Message"),
