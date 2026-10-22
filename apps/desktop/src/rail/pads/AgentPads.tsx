@@ -63,6 +63,9 @@ export type AgentPads = ReturnType<typeof createAgentPads>;
 const controlName = (pads: number, todos: number): string =>
   todos === 0 ? copy.padCount(pads) : pads === 0 ? copy.todoCount(todos) : copy.padsAndTodos(pads + todos);
 
+/** An empty `title` ends the row's native name at this control, which keeps its own tooltip (U2228a). */
+const NO_NATIVE_TITLE = { title: "" };
+
 /** `◇<n>` at the right end of an Agent's row; absent at 0. */
 export const PadsControl = (props: { pads: AgentPads }) => {
   const name = () => controlName(props.pads.owned().length, props.pads.ownedTodos().length);
@@ -83,6 +86,7 @@ export const PadsControl = (props: { pads: AgentPads }) => {
             data-button="row-action"
             class="word rail-pads-control"
             data-pads-control
+            {...NO_NATIVE_TITLE}
             aria-label={name()}
             aria-expanded={props.pads.shown()}
           >
