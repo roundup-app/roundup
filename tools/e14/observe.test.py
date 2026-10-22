@@ -5,6 +5,7 @@ import json
 import tempfile
 import subprocess
 import os
+import re
 import time
 import sys
 from pathlib import Path
@@ -163,6 +164,11 @@ class E14(unittest.TestCase):
                 if child.poll() is None:
                     child.terminate()
                     child.wait(timeout=5)
+
+    def test_e14_memory_collector_outlives_the_longest_ci_job(self):
+        workflow = Path(__file__).parents[2].joinpath(".github/workflows/check.yml").read_text()
+        longest = max(int(m) for m in re.findall(r"timeout-minutes: (\d+)", workflow))
+        self.assertGreater(observer.MEMORY_LIMIT_SECONDS, longest * 60)
 
     def test_e14_before_after_report_requires_every_full_lane(self):
         # Synthetic evidence exercises report assembly, not the benchmark itself.

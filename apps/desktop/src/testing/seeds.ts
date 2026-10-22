@@ -4,6 +4,9 @@ import type { EventData } from "@contracts/EventData";
 import type { Decision } from "@contracts/decision/Decision";
 import type { Kind } from "@contracts/Kind";
 import type { Message } from "@contracts/message/Message";
+import type { ContextPart } from "@contracts/agent/ContextPart";
+import type { ContextPartKind } from "@contracts/agent/ContextPartKind";
+import type { ConversationOverview } from "@contracts/agent/ConversationOverview";
 import type { RailNode } from "@contracts/agent/RailNode";
 import type { KeptReason } from "@contracts/agent/KeptReason";
 import type { ImportCandidate } from "@contracts/project/ImportCandidate";
@@ -25,11 +28,32 @@ const NOT_FOUND = -32001;
 
 const KINDS: Kind[] = ["error", "needs-you", "blocked", "working", "idle", "done"];
 
-export const SEEDS = ["first-run", "agents-10", "tree-40", "daemon-exits", "conflict", "empty-project", "door-stopped", "door-report", "decisions", "earlier-run", "tabs-8", "bubbles", "resources", "import-candidates", "note-queue"] as const;
+export const SEEDS = ["first-run", "agents-10", "tree-40", "daemon-exits", "conflict", "empty-project", "door-stopped", "door-report", "decisions", "earlier-run", "context-bar", "tabs-8", "bubbles", "resources", "import-candidates", "note-queue"] as const;
 
 export type SeedName = (typeof SEEDS)[number];
 
 export const isSeedName = (name: string): name is SeedName => SEEDS.some((seed) => seed === name);
+
+type Split = ContextPart[] | undefined;
+
+const contextBarAgents = (now: number): RailNode[] => {
+  const split = (...pairs: [ContextPartKind, number][]): ContextPart[] => pairs.map(([kind, tokens]) => ({ kind, tokens }));
+
+  const rows: [string, string, number, number, Split][] = [
+    ["split-agent", "full split", 84000, 200000, split(["system", 6000], ["tools", 18000], ["files", 12000], ["conversation", 40000], ["other", 8000])],
+    ["bare-agent", "no split", 84000, 200000, undefined],
+    ["dense-agent", "densest split", 500000, 1000000, split(["system", 3], ["tools", 120000], ["files", 90000], ["conversation", 250000], ["other", 39997])],
+    ["full-agent", "96 percent", 192000, 200000, split(["system", 6000], ["tools", 18000], ["conversation", 168000])],
+  ];
+
+  return rows.map(([id, name, used, limit, context_parts], order) => {
+    const overview: ConversationOverview = { program: "Claude Code", id: `${id}-session`, used, limit };
+
+    if (context_parts) overview.context_parts = context_parts;
+
+    return agent(id, "done", "finished", { name, order, terminal_id: null, status: statusAt(now, "done", "finished", 0), overview });
+  });
+};
 
 const PROJECT: Project = { name: "harness", path: "/Users/you/harness" };
 
@@ -459,6 +483,8 @@ export const seedApp = (name: SeedName, now: number): Controls => {
 
   const nodes = name === "first-run" || name === "empty-project"
     ? []
+    : name === "context-bar"
+      ? contextBarAgents(now)
     : name === "earlier-run"
       ? [agent("earlier-agent", "done", "finished", { name: "earlier agent", overview: { program: "Claude Code", id: "earlier-session", name: "Recipe notebook", used: 84000, limit: 200000, card: { intent: "Collect household recipes", facts: ["Recipes stay local"], outcome: "Notebook saved" } }, terminal_id: null, status: statusAt(now, "done", "finished", 0) })]
       : name === "resources"
