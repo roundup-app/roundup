@@ -246,12 +246,16 @@ export const RailRowView = (props: {
     </Show>
   );
 
+  /** An empty `title` ends the row's native title at a control, which keeps its own tooltip only (U2228a). */
+  const untitled = { title: "" };
+
   /** The row's own element: Ark's item or branch control. */
   const row = (mine: (extra: RowProps) => RowProps) => (
     <div {...mine(rowProps())} ref={(el: HTMLDivElement) => props.sortRef(el)}>
       <Trunks depth={props.row.depth} trail={props.row.trail} stem={props.row.children || pads.shown()} />
       <p class="line">
         <Show when={workstream()} fallback={<KindGlyph kind={kind() ?? "idle"} />}>
+          <span style={{ display: "contents" }} {...untitled}>
           <IconButton
             class="rail-chevron"
             aria-label={copy.collapse}
@@ -263,6 +267,7 @@ export const RailRowView = (props: {
           >
             <Icon name={props.row.collapsed ? "right" : "down"} />
           </IconButton>
+          </span>
           <KindGlyph kind={kind() ?? "idle"} />
         </Show>
         <Show when={workstream() || !props.row.node.worktree} fallback={
@@ -305,7 +310,7 @@ export const RailRowView = (props: {
           </Show>
         </Show>
         <span class="fill" aria-hidden="true" />
-        <span class="row-tail">
+        <span class="row-tail" {...untitled}>
           <RowIcons actions={props.actions}>
             <Show when={showsAction()}>
               <Tip text={props.doorFailure ? copy.retryDoor : copy.startDoor}>
@@ -333,7 +338,9 @@ export const RailRowView = (props: {
             </Show>
           </RowIcons>
         </span>
-        <PadsControl pads={pads} />
+        <span style={{ display: "contents" }} {...untitled}>
+          <PadsControl pads={pads} />
+        </span>
       </p>
     </div>
   );

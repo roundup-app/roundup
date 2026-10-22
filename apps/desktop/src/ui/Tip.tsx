@@ -8,7 +8,7 @@ export type TriggerProps = Omit<JSX.ButtonHTMLAttributes<HTMLElement>, "ref" | "
 
 const focusProps = (trigger: TriggerProps) => splitProps(trigger, ["onFocusIn", "onFocusOut", "aria-describedby"])[0];
 
-/** Put the trigger on the smallest element owning the text. pointer openings assert containment in development and tests. The second children argument carries focus handlers for an enclosing keyboard control. Keyboard focus needs no pointer. */
+/** Put the trigger on the smallest element owning the text. Pointer openings assert containment in development and tests. The second children argument carries focus handlers for an enclosing keyboard control. Keyboard focus needs no pointer. */
 export const Tip = (props: {
   text?: string | undefined;
   content?: JSX.Element;

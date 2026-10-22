@@ -49,6 +49,7 @@ it("u2228a_the_add_agent_tooltip_stays", async () => {
   await mountRail([workstream("w", { name: NAME })]);
 
   const add = rowOf(NAME).querySelector<HTMLElement>(".rail-add")!;
+  expect(add.closest("[title]")?.getAttribute("title")).toBe("");
   fireEvent.pointerOver(add, { pointerType: "mouse" });
   fireEvent.pointerMove(add, { pointerType: "mouse" });
   await waitFor(() => expect(screen.getAllByRole("tooltip").map((tip) => tip.textContent)).toEqual([`${copy.addAgentLabel}${CHORDS[0]!.keys}`]));
