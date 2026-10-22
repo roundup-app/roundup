@@ -1,4 +1,4 @@
-//! T27, LK4 (`scenarios/todos.md`, `scenarios/rup-ext.md`): Pad refs of a Todo and section links, on the real `rupd`.
+//! T27, LK4 (`scenarios/todos.md`, `scenarios/rup-ext.md`): Pad refs of a Todo and section links, on the real Daemon.
 #![allow(dead_code)]
 #[path = "e2e/daemon.rs"]
 mod daemon;
