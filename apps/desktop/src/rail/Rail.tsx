@@ -297,7 +297,12 @@ export const Rail = () => {
 
       const id = key.target.closest<HTMLElement>("[data-id]")?.dataset.id;
 
-      if (id !== undefined) rail.select(id);
+      if (id === undefined) return;
+
+      // Enter on the already-selected row brings its Terminal back over the settings view, as a click does.
+      if (id === rail.selected()) connected.settingsView.close(false);
+
+      rail.select(id);
     };
 
     window.addEventListener("pointerdown", press, { capture: true });
