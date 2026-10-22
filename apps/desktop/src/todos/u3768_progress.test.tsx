@@ -68,6 +68,8 @@ describe("u3770 a finishing Todo plays one motion", () => {
     await waitFor(() => expect(count()).toBe("1/2"));
 
     expect(document.querySelector(".app-progress")?.getAttribute("data-motion")).toBe("play");
+    expect(document.querySelector("[data-todo='1']")?.getAttribute("data-motion")).toBe("play");
+    expect(document.querySelector<HTMLInputElement>("[data-todo='1'] input.todo-tick")?.checked).toBe(true);
   });
 
   it("u3770_unticking_plays_the_reverse", async () => {
@@ -145,5 +147,15 @@ describe("u3770 a finishing Todo plays one motion", () => {
     await waitFor(() => expect(count()).toBe("1/2"));
 
     expect(playing()).toBe(0);
+  });
+
+  it("u3770_a_preference_change_mid_motion_settles_it", async () => {
+    const mounted = await mountTodos([todo(1), todo(2)], false);
+
+    await waitFor(() => expect(count()).toBe("0/2"));
+    finish(mounted, 1);
+    await waitFor(() => expect(playing()).toBeGreaterThan(0));
+    mounted.setReduced(true);
+    await waitFor(() => expect(playing()).toBe(0));
   });
 });

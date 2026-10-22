@@ -40,4 +40,21 @@ describe("u3771 the motion reads its timings from Tokens", () => {
       expect(css).not.toMatch(/transition(-property)?:\s*all/);
     }
   });
+
+  it("u3771_the_effects_resolve_the_token_durations", () => {
+    const read = (file: string) => readFileSync(new URL(file, import.meta.url), "utf8");
+    const [tokens, rows, bar] = ["../tokens.css", "rowButton.styles.css", "../ui/Progress.css"].map(read) as [string, string, string];
+    const effects: [string, string, string][] = [
+      [rows, "todo-ring-pop", "--duration-ring"],
+      [rows, "todo-tick-draw", "--duration-tick"],
+      [rows, "todo-strike-grow", "--duration-strike"],
+      [rows, "todo-count-roll", "--duration-count"],
+      [bar, "transition-duration", "--duration-bar"],
+    ];
+
+    for (const [css, effect, token] of effects) {
+      expect(css, effect).toMatch(new RegExp(`${effect}[^;]*var\\(${token}\\)|${effect}:\\s*var\\(${token}\\)`));
+      expect(tokens, token).toMatch(new RegExp(`${token}:\\s*\\d+m?s`));
+    }
+  });
 });
