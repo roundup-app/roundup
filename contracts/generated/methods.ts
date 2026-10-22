@@ -140,13 +140,18 @@ import type { Todo as todo_Todo } from "./todo/Todo";
 import type { TodoId as todo_TodoId } from "./todo/TodoId";
 import type { UnreadComment as todo_UnreadComment } from "./todo/UnreadComment";
 import type { UpdateParams as todo_UpdateParams } from "./todo/UpdateParams";
+import type { CapParams as workstream_CapParams } from "./workstream/CapParams";
 import type { ClearParams as workstream_ClearParams } from "./workstream/ClearParams";
 import type { ClearResult as workstream_ClearResult } from "./workstream/ClearResult";
 import type { HandoffParams as workstream_HandoffParams } from "./workstream/HandoffParams";
+import type { QueueMoveParams as workstream_QueueMoveParams } from "./workstream/QueueMoveParams";
+import type { QueueState as workstream_QueueState } from "./workstream/QueueState";
+import type { QueuedWorkstream as workstream_QueuedWorkstream } from "./workstream/QueuedWorkstream";
 import type { Rewind as workstream_Rewind } from "./workstream/Rewind";
 import type { RewindParams as workstream_RewindParams } from "./workstream/RewindParams";
 import type { RewindPlan as workstream_RewindPlan } from "./workstream/RewindPlan";
 import type { RewindPlanParams as workstream_RewindPlanParams } from "./workstream/RewindPlanParams";
+import type { StartWorkstreamParams as workstream_StartWorkstreamParams } from "./workstream/StartWorkstreamParams";
 
 export type RpcMethods = {
   "project.measurements": { params: null; result: project_Measurements };
@@ -289,6 +294,12 @@ export type RpcMethods = {
   "workstream.rewindPlan": { params: workstream_RewindPlanParams; result: workstream_RewindPlan };
   "workstream.rewind": { params: workstream_RewindParams; result: workstream_Rewind };
   "workstream.handoff": { params: workstream_HandoffParams; result: null };
+  "todo.startWorkstream": { params: workstream_StartWorkstreamParams; result: agent_RailNode };
+  "workstream.queue": { params: null; result: workstream_QueueState };
+  "workstream.dequeue": { params: workstream_QueuedWorkstream; result: null };
+  "workstream.queueMove": { params: workstream_QueueMoveParams; result: null };
+  "workstream.startNow": { params: workstream_QueuedWorkstream; result: agent_RailNode };
+  "project.setWorkstreamCap": { params: workstream_CapParams; result: null };
 };
 
 export type RpcMethodName = keyof RpcMethods;
