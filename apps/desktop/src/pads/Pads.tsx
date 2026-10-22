@@ -2,7 +2,7 @@ import { contextMenu, linkEntries, openOnRelease } from "../ui/contextMenu";
 import * as v from "valibot";
 import { Editable } from "../ui/Editable";
 import { RpcError, INTERNAL_CODE } from "../app/seam";
-import { Tip } from "../ui/Tip";
+import { createCutTitle } from "../ui/cutTitle";
 import { activationSource } from "../keys/registry";
 import { copy } from "../copy";
 import { createSelection } from "../shelf/selection";
@@ -373,6 +373,7 @@ const PadRows = (props: {
 const PadRow = (props: Parameters<typeof PadRows>[0] & { pad: Pad; parts: Parameters<Parameters<typeof Sortable.Item>[0]["children"]>[0] }) => {
   const connected = useConnectedProject();
   const pad = props.pad;
+  const nameCut = createCutTitle(() => pad.name);
   const [failed, setFailed] = createSignal<string | null>(null);
 
   props.failWith(pad.name, setFailed);
@@ -435,7 +436,7 @@ const PadRow = (props: Parameters<typeof PadRows>[0] & { pad: Pad; parts: Parame
                 ), activationSource(event)))
               }
             >
-              <Tip text={pad.name}>{(trigger) => <span {...trigger()} class="shelf-title">{pad.name}</span>}</Tip>
+              <span ref={nameCut.ref} title={nameCut.title()} class="shelf-title">{pad.name}</span>
             </button>
               <button data-button="row-action" type="button" class="word light pad-assign" aria-label={copy.assignPadNamed(pad.name)} onClick={(event) => props.onAssign(pad.name, event.currentTarget)}>{copy.assign}</button>
             </div>
