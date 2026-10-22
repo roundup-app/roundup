@@ -123,7 +123,7 @@ export function ToastProvider(props: { toast: ReturnType<typeof createToast>; la
                 <Toast.Title asChild={(title) => <span {...title()} />}>{card().title}</Toast.Title>
               </span>{" "}
               <Toast.Description asChild={(description) => <span {...description()} />}>{card().description}</Toast.Description>
-            </button>}>{(body) => body()()}</Show>
+            </button>}>{(body) => <div class="app-toast-body">{body()()}</div>}</Show>
             {/* U3790: the time left, draining while the card runs; it holds still with the timer. */}
             <span class="app-toast-bar" aria-hidden="true" style={{ "--toast-time": `${card().meta?.duration}ms`, "animation-play-state": api().paused || !api().visible ? "paused" : "running" }} />
           </>;
