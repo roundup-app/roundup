@@ -174,20 +174,10 @@ pub struct Launcher {
     pub(super) modes: Arc<Mutex<std::collections::HashMap<String, String>>>,
 }
 
-const QUESTION_FILES: [(&str, &str); 3] = [
-    (
-        ".claude-plugin/plugin.json",
-        r#"{"name":"roundup-question","version":"0.0.1"}"#,
-    ),
-    ("hooks/hooks.json", r#"{"modules":["./question.js"]}"#),
-    ("hooks/question.js", include_str!("question.js")),
-];
-
 struct Delivery {
     data: PathBuf,
     plugins: plugins::Plugins,
     runtime: plugins::Runtime,
-    question: tempfile::TempDir,
 }
 
 // Equality describes launch configuration, independent of the cached runtime probe.
@@ -712,18 +702,7 @@ impl Launcher {
                     .runtime(&executable)
                     .await
                     .map_err(RpcError::internal)?;
-                let question = tempfile::Builder::new()
-                    .prefix("q11-plugins-")
-                    .tempdir_in(&data)
-                    .map_err(RpcError::internal)?;
-                for (path, bytes) in QUESTION_FILES {
-                    let path = question.path().join(path);
-                    std::fs::create_dir_all(path.parent().expect("a plugin asset has a parent"))
-                        .map_err(RpcError::internal)?;
-                    std::fs::write(path, bytes).map_err(RpcError::internal)?;
-                }
                 Ok::<_, RpcError>(Delivery {
-                    question,
                     data: data.clone(),
                     plugins,
                     runtime,
@@ -739,15 +718,6 @@ impl Launcher {
             .runtime
             .command(&delivery.plugins)
             .map_err(RpcError::internal)?;
-        for (path, bytes) in QUESTION_FILES {
-            if std::fs::read(delivery.question.path().join(path)).map_err(RpcError::internal)?
-                != bytes.as_bytes()
-            {
-                return Err(RpcError::internal(
-                    "the native question plugin changed; restart the Daemon",
-                ));
-            }
-        }
         let command = command.as_std();
         argv[0] = command.get_program().to_string_lossy().into_owned();
         // LC5, LC14: each role's bundled plugins, by the folder name `Runtime::command` passes.
@@ -758,10 +728,6 @@ impl Launcher {
                 argv.extend(pair.iter().map(|arg| arg.to_string_lossy().into_owned()));
             }
         }
-        argv.extend([
-            "--plugin-dir".to_owned(),
-            delivery.question.path().to_string_lossy().into_owned(),
-        ]);
         for (key, value) in command.get_envs() {
             if let Some(value) = value {
                 env.insert(
