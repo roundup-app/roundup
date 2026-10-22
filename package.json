@@ -12,8 +12,7 @@
     "prepare": "lefthook install --force",
     "test:token-integration": "node --test docs/u478-check-integration.test.mjs",
     "lint:styles": "stylelint \"apps/desktop/src/**/*.css\" --max-warnings 0",
-    "tokens:check": "if [ -f docs/ui-tokens.test.mjs ]; then node --test docs/ui-tokens.test.mjs; fi",
-    "observe:terminal-question": "claude --version && llmock --help > /dev/null && cargo build -p rup -p rupd && cargo test -p rup --test u468 u468_real_claude -- --ignored --nocapture"
+    "tokens:check": "if [ -f docs/ui-tokens.test.mjs ]; then node --test docs/ui-tokens.test.mjs; fi"
   },
   "devDependencies": {
     "@anthropic-ai/claude-code": "2.1.300",

@@ -31,7 +31,7 @@ without `--memory-log` measure the test command interval only. For full-lane
 local measurements, start `observe.py memory --output /tmp/e14-memory.jsonl`
 before setup, then give that path to `run --memory-log`; the supervisor stops
 and joins the collector after the lane command. The collector times out and
-fails after 15 minutes rather than surviving a run indefinitely.
+fails after 40 minutes, past the 35-minute job limit, rather than surviving a run indefinitely.
 
 For a baseline that predates this helper, retain this directory outside both
 checkouts, and invoke its absolute path with each checkout as the working
