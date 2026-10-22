@@ -2,207 +2,7 @@ import Base
 import ./LAWS.bend as Laws
 import ./model.bend as M
 import ./spec.bend as S
-
-# ---- lib
-
-# T(b): the claim that b is True.
-def T(b: Bool) -> Data:
-  {b == True{} : Bool}
-
-def disc(b: Bool) -> Type:
-  match b:
-    case False{}:
-      Unit
-    case True{}:
-      Empty
-
-def ft(e: {False{} == True{} : Bool}) -> Empty:
-  %e : disc(_)
-  Unit{}
-
-def no(-A: Type, h: T(False{})) -> A:
-  Empty.absurd(A, ft(h))
-
-def and_l(a: Bool, b: Bool, +h: T(Bool.and(a, b))) -> T(a):
-  match a:
-    case False{}:
-      no(T(False{}), h)
-    case True{}:
-      {==}
-
-def and_r(a: Bool, b: Bool, +h: T(Bool.and(a, b))) -> T(b):
-  match a:
-    case False{}:
-      no(T(b), h)
-    case True{}:
-      h
-
-def and_i(a: Bool, b: Bool, +ha: T(a), +hb: T(b)) -> T(Bool.and(a, b)):
-  %Equal.sym(Bool, a, True{}, ha) : {Bool.and(_, b) == True{} : Bool}
-  hb
-
-def or_l(a: Bool, b: Bool, +h: T(a)) -> T(Bool.or(a, b)):
-  %Equal.sym(Bool, a, True{}, h) : {Bool.or(_, b) == True{} : Bool}
-  {==}
-
-def or_r(a: Bool, b: Bool, +h: T(b)) -> T(Bool.or(a, b)):
-  match a:
-    case False{}:
-      h
-    case True{}:
-      {==}
-
-def or_mono(e: Bool, m: Bool, m2: Bool, f: T(m) -> T(m2), +h: T(Bool.or(e, m))) -> T(Bool.or(e, m2)):
-  match e:
-    case False{}:
-      f(h)
-    case True{}:
-      {==}
-
-def or_elim(-c: Bool, e: Bool, m: Bool, f1: T(e) -> T(c), f2: T(m) -> T(c), +h: T(Bool.or(e, m))) -> T(c):
-  match e:
-    case False{}:
-      f2(h)
-    case True{}:
-      f1({==})
-
-def eq_refl(+x: Nat) -> T(Nat.is_eq(x, x)):
-  match x:
-    case 0n:
-      {==}
-    case 1n+p:
-      eq_refl(p)
-
-def eq_elim(+x: Nat, +y: Nat, +h: T(Nat.is_eq(x, y))) -> {x == y : Nat}:
-  match x y:
-    case 0n 0n:
-      {==}
-    case 0n 1n+yp:
-      no({0n == 1n+yp : Nat}, h)
-    case 1n+xp 0n:
-      no({1n+xp == 0n : Nat}, h)
-    case 1n+xp 1n+yp:
-      Equal.cong(Nat, Nat, a => 1n+a, xp, yp, eq_elim(xp, yp, h))
-
-def mem_snoc_keep(+x: Nat, +l: +List<Nat>, +y: Nat, +h: T(M.mem(x, l))) -> T(M.mem(x, M.snoc(l, y))):
-  match l:
-    case Nil{}:
-      no(T(M.mem(x, M.snoc([], y))), h)
-    case Con{+z, +rest}:
-      or_mono(Nat.is_eq(x, z), M.mem(x, rest), M.mem(x, M.snoc(rest, y)), hh => mem_snoc_keep(x, rest, y, hh), h)
-
-def mem_snoc_new(+l: +List<Nat>, +y: Nat) -> T(M.mem(y, M.snoc(l, y))):
-  match l:
-    case Nil{}:
-      or_l(Nat.is_eq(y, y), False{}, eq_refl(y))
-    case Con{+z, +rest}:
-      or_r(Nat.is_eq(y, z), M.mem(y, M.snoc(rest, y)), mem_snoc_new(rest, y))
-
-def mem_cons_keep(+x: Nat, +y: Nat, +ys: +List<Nat>, +h: T(M.mem(x, ys))) -> T(M.mem(x, y <> ys)):
-  or_r(Nat.is_eq(x, y), M.mem(x, ys), h)
-
-def mem_app_l(+x: Nat, +a: +List<Nat>, +b: +List<Nat>, +h: T(M.mem(x, a))) -> T(M.mem(x, List.append(&2, Nat, a, b))):
-  match a:
-    case Nil{}:
-      no(T(M.mem(x, List.append(&2, Nat, [], b))), h)
-    case Con{+z, +rest}:
-      or_mono(Nat.is_eq(x, z), M.mem(x, rest), M.mem(x, List.append(&2, Nat, rest, b)), hh => mem_app_l(x, rest, b, hh), h)
-
-def mem_app_r(+x: Nat, +a: +List<Nat>, +b: +List<Nat>, +h: T(M.mem(x, b))) -> T(M.mem(x, List.append(&2, Nat, a, b))):
-  match a:
-    case Nil{}:
-      h
-    case Con{+z, +rest}:
-      or_r(Nat.is_eq(x, z), M.mem(x, List.append(&2, Nat, rest, b)), mem_app_r(x, rest, b, h))
-
-def mem_eq(+x: Nat, +z: Nat, +zs: +List<Nat>, +e: {x == z : Nat}, +h: T(M.mem(z, zs))) -> T(M.mem(x, zs)):
-  %Equal.sym(Nat, x, z, e) : T(M.mem(_, zs))
-  h
-
-def mem_all_in(+x: Nat, +ys: +List<Nat>, +zs: +List<Nat>, +hm: T(M.mem(x, ys)), +ha: T(S.all_in(ys, zs))) -> T(M.mem(x, zs)):
-  match ys:
-    case Nil{}:
-      no(T(M.mem(x, zs)), hm)
-    case Con{+z, +rest}:
-      or_elim(M.mem(x, zs), Nat.is_eq(x, z), M.mem(x, rest), he => mem_eq(x, z, zs, eq_elim(x, z, he), and_l(M.mem(z, zs), S.all_in(rest, zs), ha)), hr => mem_all_in(x, rest, zs, hr, and_r(M.mem(z, zs), S.all_in(rest, zs), ha)), hm)
-
-def all_in_trans(+xs: +List<Nat>, +ys: +List<Nat>, +zs: +List<Nat>, +h1: T(S.all_in(xs, ys)), +h2: T(S.all_in(ys, zs))) -> T(S.all_in(xs, zs)):
-  match xs:
-    case Nil{}:
-      {==}
-    case Con{+z, +rest}:
-      and_i(M.mem(z, zs), S.all_in(rest, zs), mem_all_in(z, ys, zs, and_l(M.mem(z, ys), S.all_in(rest, ys), h1), h2), all_in_trans(rest, ys, zs, and_r(M.mem(z, ys), S.all_in(rest, ys), h1), h2))
-
-def all_in_cons_r(+xs: +List<Nat>, +y: Nat, +ys: +List<Nat>, +h: T(S.all_in(xs, ys))) -> T(S.all_in(xs, y <> ys)):
-  match xs:
-    case Nil{}:
-      {==}
-    case Con{+z, +rest}:
-      and_i(M.mem(z, y <> ys), S.all_in(rest, y <> ys), mem_cons_keep(z, y, ys, and_l(M.mem(z, ys), S.all_in(rest, ys), h)), all_in_cons_r(rest, y, ys, and_r(M.mem(z, ys), S.all_in(rest, ys), h)))
-
-def all_in_snoc_r(+xs: +List<Nat>, +ys: +List<Nat>, +y: Nat, +h: T(S.all_in(xs, ys))) -> T(S.all_in(xs, M.snoc(ys, y))):
-  match xs:
-    case Nil{}:
-      {==}
-    case Con{+z, +rest}:
-      and_i(M.mem(z, M.snoc(ys, y)), S.all_in(rest, M.snoc(ys, y)), mem_snoc_keep(z, ys, y, and_l(M.mem(z, ys), S.all_in(rest, ys), h)), all_in_snoc_r(rest, ys, y, and_r(M.mem(z, ys), S.all_in(rest, ys), h)))
-
-def all_in_app_l(+xs: +List<Nat>, +a: +List<Nat>, +b: +List<Nat>, +h: T(S.all_in(xs, a))) -> T(S.all_in(xs, List.append(&2, Nat, a, b))):
-  match xs:
-    case Nil{}:
-      {==}
-    case Con{+z, +rest}:
-      and_i(M.mem(z, List.append(&2, Nat, a, b)), S.all_in(rest, List.append(&2, Nat, a, b)), mem_app_l(z, a, b, and_l(M.mem(z, a), S.all_in(rest, a), h)), all_in_app_l(rest, a, b, and_r(M.mem(z, a), S.all_in(rest, a), h)))
-
-def all_in_app_r(+xs: +List<Nat>, +a: +List<Nat>, +b: +List<Nat>, +h: T(S.all_in(xs, b))) -> T(S.all_in(xs, List.append(&2, Nat, a, b))):
-  match xs:
-    case Nil{}:
-      {==}
-    case Con{+z, +rest}:
-      and_i(M.mem(z, List.append(&2, Nat, a, b)), S.all_in(rest, List.append(&2, Nat, a, b)), mem_app_r(z, a, b, and_l(M.mem(z, b), S.all_in(rest, b), h)), all_in_app_r(rest, a, b, and_r(M.mem(z, b), S.all_in(rest, b), h)))
-
-def all_in_refl(+l: +List<Nat>) -> T(S.all_in(l, l)):
-  match l:
-    case Nil{}:
-      {==}
-    case Con{+z, +rest}:
-      and_i(M.mem(z, z <> rest), S.all_in(rest, z <> rest), or_l(Nat.is_eq(z, z), M.mem(z, rest), eq_refl(z)), all_in_cons_r(rest, z, rest, all_in_refl(rest)))
-
-def all_in_snoc_i(+xs: +List<Nat>, +ys: +List<Nat>, +x: Nat, +h: T(S.all_in(xs, ys)), +hx: T(M.mem(x, ys))) -> T(S.all_in(M.snoc(xs, x), ys)):
-  match xs:
-    case Nil{}:
-      and_i(M.mem(x, ys), True{}, hx, {==})
-    case Con{+z, +rest}:
-      and_i(M.mem(z, ys), S.all_in(M.snoc(rest, x), ys), and_l(M.mem(z, ys), S.all_in(rest, ys), h), all_in_snoc_i(rest, ys, x, and_r(M.mem(z, ys), S.all_in(rest, ys), h), hx))
-
-def all_in_app_i(+a: +List<Nat>, +b: +List<Nat>, +c: +List<Nat>, +ha: T(S.all_in(a, c)), +hb: T(S.all_in(b, c))) -> T(S.all_in(List.append(&2, Nat, a, b), c)):
-  match a:
-    case Nil{}:
-      hb
-    case Con{+z, +rest}:
-      and_i(M.mem(z, c), S.all_in(List.append(&2, Nat, rest, b), c), and_l(M.mem(z, c), S.all_in(rest, c), ha), all_in_app_i(rest, b, c, and_r(M.mem(z, c), S.all_in(rest, c), ha), hb))
-
-def all_in_snoc_self(+l: +List<Nat>, +x: Nat) -> T(S.all_in(l, M.snoc(l, x))):
-  all_in_snoc_r(l, l, x, all_in_refl(l))
-
-def all_in_app_self_l(+a: +List<Nat>, +b: +List<Nat>) -> T(S.all_in(a, List.append(&2, Nat, a, b))):
-  all_in_app_l(a, a, b, all_in_refl(a))
-
-def all_in_app_self_r(+a: +List<Nat>, +b: +List<Nat>) -> T(S.all_in(b, List.append(&2, Nat, a, b))):
-  all_in_app_r(b, a, b, all_in_refl(b))
-
-def mem_in_hd(+x: Nat, +rest: +List<Nat>, +ys: +List<Nat>, +h: T(S.all_in(x <> rest, ys))) -> T(M.mem(x, ys)):
-  and_l(M.mem(x, ys), S.all_in(rest, ys), h)
-
-def all_in_tl(+x: Nat, +rest: +List<Nat>, +ys: +List<Nat>, +h: T(S.all_in(x <> rest, ys))) -> T(S.all_in(rest, ys)):
-  and_r(M.mem(x, ys), S.all_in(rest, ys), h)
-
-def imp_t(b: Bool) -> T(S.implies(b, True{})):
-  match b:
-    case False{}:
-      {==}
-    case True{}:
-      {==}
+import ./LIB.bend as L
 
 # ---- M3
 def tk_of(+s: M.World) -> Bool:
@@ -210,7 +10,7 @@ def tk_of(+s: M.World) -> Bool:
     case M.W{+q, +haf, +htk, +t, +d, +u, +tt, +rl, +n, +tk, +us, +i, +g}:
       Bool.or(tk, us)
 
-# B32: the user's own Messages have no exemption, so only the Messages the user delivered by hand may be typed while the user holds the Terminal.
+# B32: the user's own Messages have L.no exemption, so only the Messages the user delivered by hand may be typed while the user holds the Terminal.
 def UR(+u: +List<Nat>, +rl: +List<Nat>) -> +List<Nat>:
   rl
 
@@ -220,65 +20,65 @@ def I3(+q: +List<Nat>, +tt: +List<Nat>, +u: +List<Nat>, +rl: +List<Nat>, +tk: Bo
 def inv3(+s: M.World) -> Bool:
   I3(S.queue(s), S.tk_typed(s), S.users(s), S.released(s), tk_of(s))
 
-def imp_nil(b: Bool, +ys: +List<Nat>) -> T(S.implies(b, S.all_in([], ys))):
-  imp_t(b)
+def imp_nil(b: Bool, +ys: +List<Nat>) -> L.T(S.implies(b, S.all_in([], ys))):
+  L.imp_t(b)
 
-def flush_go3(+q: +List<Nat>, +haf: +List<Nat>, +htk: +List<Nat>, +t: +List<Nat>, +d: +List<Nat>, +u: +List<Nat>, +tt: +List<Nat>, +rl: +List<Nat>, +n: Nat, +tk: Bool, +us: Bool, +i: Bool, +g: Bool, +h1: T(S.implies(Bool.or(tk, us), S.all_in(q, UR(u, rl)))), +h: T(S.all_in(tt, UR(u, rl)))) -> T(inv3(M.flush_go(q, M.W{[], haf, htk, t, d, u, tt, rl, n, tk, us, i, g}))):
+def flush_go3(+q: +List<Nat>, +haf: +List<Nat>, +htk: +List<Nat>, +t: +List<Nat>, +d: +List<Nat>, +u: +List<Nat>, +tt: +List<Nat>, +rl: +List<Nat>, +n: Nat, +tk: Bool, +us: Bool, +i: Bool, +g: Bool, +h1: L.T(S.implies(Bool.or(tk, us), S.all_in(q, UR(u, rl)))), +h: L.T(S.all_in(tt, UR(u, rl)))) -> L.T(inv3(M.flush_go(q, M.W{[], haf, htk, t, d, u, tt, rl, n, tk, us, i, g}))):
   match q:
     case Nil{}:
-      and_i(S.all_in(tt, UR(u, rl)), S.implies(Bool.or(tk, us), S.all_in([], UR(u, rl))), h, imp_nil(Bool.or(tk, us), UR(u, rl)))
+      L.and_i(S.all_in(tt, UR(u, rl)), S.implies(Bool.or(tk, us), S.all_in([], UR(u, rl))), h, imp_nil(Bool.or(tk, us), UR(u, rl)))
     case Con{+x, +rest}:
       match tk:
         case True{}:
-          flush_go3(rest, haf, htk, M.snoc(t, x), d, u, M.snoc(tt, x), rl, n, True{}, us, False{}, g, all_in_tl(x, rest, UR(u, rl), h1), all_in_snoc_i(tt, UR(u, rl), x, h, mem_in_hd(x, rest, UR(u, rl), h1)))
+          flush_go3(rest, haf, htk, M.snoc(t, x), d, u, M.snoc(tt, x), rl, n, True{}, us, False{}, g, L.all_in_tl(x, rest, UR(u, rl), h1), L.all_in_snoc_i(tt, UR(u, rl), x, h, L.mem_in_hd(x, rest, UR(u, rl), h1)))
         case False{}:
           match us:
             case True{}:
-              flush_go3(rest, haf, htk, M.snoc(t, x), d, u, M.snoc(tt, x), rl, n, False{}, True{}, False{}, g, all_in_tl(x, rest, UR(u, rl), h1), all_in_snoc_i(tt, UR(u, rl), x, h, mem_in_hd(x, rest, UR(u, rl), h1)))
+              flush_go3(rest, haf, htk, M.snoc(t, x), d, u, M.snoc(tt, x), rl, n, False{}, True{}, False{}, g, L.all_in_tl(x, rest, UR(u, rl), h1), L.all_in_snoc_i(tt, UR(u, rl), x, h, L.mem_in_hd(x, rest, UR(u, rl), h1)))
             case False{}:
               flush_go3(rest, haf, htk, M.snoc(t, x), d, u, tt, rl, n, False{}, False{}, False{}, g, {==}, h)
 
-def flush_b3(i: Bool, +s: M.World, +h: T(inv3(s))) -> T(inv3(M.flush_b(i, s))):
+def flush_b3(i: Bool, +s: M.World, +h: L.T(inv3(s))) -> L.T(inv3(M.flush_b(i, s))):
   match i:
     case False{}:
       h
     case True{}:
       match s:
         case M.W{+q, +haf, +htk, +t, +d, +u, +tt, +rl, +n, +tk, +us, +i, +g}:
-          flush_go3(q, haf, htk, t, d, u, tt, rl, n, tk, us, i, g, and_r(S.all_in(tt, UR(u, rl)), S.implies(Bool.or(tk, us), S.all_in(q, UR(u, rl))), h), and_l(S.all_in(tt, UR(u, rl)), S.implies(Bool.or(tk, us), S.all_in(q, UR(u, rl))), h))
+          flush_go3(q, haf, htk, t, d, u, tt, rl, n, tk, us, i, g, L.and_r(S.all_in(tt, UR(u, rl)), S.implies(Bool.or(tk, us), S.all_in(q, UR(u, rl))), h), L.and_l(S.all_in(tt, UR(u, rl)), S.implies(Bool.or(tk, us), S.all_in(q, UR(u, rl))), h))
 
-def flush3(+s: M.World, +h: T(inv3(s))) -> T(inv3(M.flush(s))):
+def flush3(+s: M.World, +h: L.T(inv3(s))) -> L.T(inv3(M.flush(s))):
   match s:
     case M.W{+q, +haf, +htk, +t, +d, +u, +tt, +rl, +n, +tk, +us, +i, +g}:
       flush_b3(i, M.W{q, haf, htk, t, d, u, tt, rl, n, tk, us, i, g}, h)
 
-def imp_mono(tk: Bool, A: Bool, B: Bool, f: T(A) -> T(B), +h: T(S.implies(tk, A))) -> T(S.implies(tk, B)):
+def imp_mono(tk: Bool, A: Bool, B: Bool, f: L.T(A) -> L.T(B), +h: L.T(S.implies(tk, A))) -> L.T(S.implies(tk, B)):
   match tk:
     case False{}:
       {==}
     case True{}:
       f(h)
 
-def I3_grow(+q: +List<Nat>, +tt: +List<Nat>, +u: +List<Nat>, +rl: +List<Nat>, +u2: +List<Nat>, +rl2: +List<Nat>, +tk: Bool, +h: T(I3(q, tt, u, rl, tk)), +hs: T(S.all_in(UR(u, rl), UR(u2, rl2)))) -> T(I3(q, tt, u2, rl2, tk)):
-  and_i(S.all_in(tt, UR(u2, rl2)), S.implies(tk, S.all_in(q, UR(u2, rl2))), all_in_trans(tt, UR(u, rl), UR(u2, rl2), and_l(S.all_in(tt, UR(u, rl)), S.implies(tk, S.all_in(q, UR(u, rl))), h), hs), imp_mono(tk, S.all_in(q, UR(u, rl)), S.all_in(q, UR(u2, rl2)), hq => all_in_trans(q, UR(u, rl), UR(u2, rl2), hq, hs), and_r(S.all_in(tt, UR(u, rl)), S.implies(tk, S.all_in(q, UR(u, rl))), h)))
+def I3_grow(+q: +List<Nat>, +tt: +List<Nat>, +u: +List<Nat>, +rl: +List<Nat>, +u2: +List<Nat>, +rl2: +List<Nat>, +tk: Bool, +h: L.T(I3(q, tt, u, rl, tk)), +hs: L.T(S.all_in(UR(u, rl), UR(u2, rl2)))) -> L.T(I3(q, tt, u2, rl2, tk)):
+  L.and_i(S.all_in(tt, UR(u2, rl2)), S.implies(tk, S.all_in(q, UR(u2, rl2))), L.all_in_trans(tt, UR(u, rl), UR(u2, rl2), L.and_l(S.all_in(tt, UR(u, rl)), S.implies(tk, S.all_in(q, UR(u, rl))), h), hs), imp_mono(tk, S.all_in(q, UR(u, rl)), S.all_in(q, UR(u2, rl2)), hq => L.all_in_trans(q, UR(u, rl), UR(u2, rl2), hq, hs), L.and_r(S.all_in(tt, UR(u, rl)), S.implies(tk, S.all_in(q, UR(u, rl))), h)))
 
-def I3_snoc(+q: +List<Nat>, +tt: +List<Nat>, +u: +List<Nat>, +rl: +List<Nat>, +u2: +List<Nat>, +rl2: +List<Nat>, +tk: Bool, +n: Nat, +h: T(I3(q, tt, u, rl, tk)), +hs: T(S.all_in(UR(u, rl), UR(u2, rl2))), +hn: T(M.mem(n, UR(u2, rl2)))) -> T(I3(M.snoc(q, n), tt, u2, rl2, tk)):
-  and_i(S.all_in(tt, UR(u2, rl2)), S.implies(tk, S.all_in(M.snoc(q, n), UR(u2, rl2))), and_l(S.all_in(tt, UR(u2, rl2)), S.implies(tk, S.all_in(q, UR(u2, rl2))), I3_grow(q, tt, u, rl, u2, rl2, tk, h, hs)), imp_mono(tk, S.all_in(q, UR(u2, rl2)), S.all_in(M.snoc(q, n), UR(u2, rl2)), hq => all_in_snoc_i(q, UR(u2, rl2), n, hq, hn), and_r(S.all_in(tt, UR(u2, rl2)), S.implies(tk, S.all_in(q, UR(u2, rl2))), I3_grow(q, tt, u, rl, u2, rl2, tk, h, hs))))
+def I3_snoc(+q: +List<Nat>, +tt: +List<Nat>, +u: +List<Nat>, +rl: +List<Nat>, +u2: +List<Nat>, +rl2: +List<Nat>, +tk: Bool, +n: Nat, +h: L.T(I3(q, tt, u, rl, tk)), +hs: L.T(S.all_in(UR(u, rl), UR(u2, rl2))), +hn: L.T(M.mem(n, UR(u2, rl2)))) -> L.T(I3(M.snoc(q, n), tt, u2, rl2, tk)):
+  L.and_i(S.all_in(tt, UR(u2, rl2)), S.implies(tk, S.all_in(M.snoc(q, n), UR(u2, rl2))), L.and_l(S.all_in(tt, UR(u2, rl2)), S.implies(tk, S.all_in(q, UR(u2, rl2))), I3_grow(q, tt, u, rl, u2, rl2, tk, h, hs)), imp_mono(tk, S.all_in(q, UR(u2, rl2)), S.all_in(M.snoc(q, n), UR(u2, rl2)), hq => L.all_in_snoc_i(q, UR(u2, rl2), n, hq, hn), L.and_r(S.all_in(tt, UR(u2, rl2)), S.implies(tk, S.all_in(q, UR(u2, rl2))), I3_grow(q, tt, u, rl, u2, rl2, tk, h, hs))))
 
-def ur_mono_u(+u: +List<Nat>, +rl: +List<Nat>, +n: Nat) -> T(S.all_in(UR(u, rl), UR(M.snoc(u, n), rl))):
-  all_in_refl(rl)
+def ur_mono_u(+u: +List<Nat>, +rl: +List<Nat>, +n: Nat) -> L.T(S.all_in(UR(u, rl), UR(M.snoc(u, n), rl))):
+  L.all_in_refl(rl)
 
-def ur_mono_rl(+u: +List<Nat>, +rl: +List<Nat>, +id: Nat) -> T(S.all_in(UR(u, rl), UR(u, M.snoc(rl, id)))):
-  all_in_snoc_self(rl, id)
+def ur_mono_rl(+u: +List<Nat>, +rl: +List<Nat>, +id: Nat) -> L.T(S.all_in(UR(u, rl), UR(u, M.snoc(rl, id)))):
+  L.all_in_snoc_self(rl, id)
 
-def mem_ur_rl(+u: +List<Nat>, +rl: +List<Nat>, +id: Nat) -> T(M.mem(id, UR(u, M.snoc(rl, id)))):
-  mem_snoc_new(rl, id)
+def mem_ur_rl(+u: +List<Nat>, +rl: +List<Nat>, +id: Nat) -> L.T(M.mem(id, UR(u, M.snoc(rl, id)))):
+  L.mem_snoc_new(rl, id)
 
-def I3_refl_ur(+u: +List<Nat>, +rl: +List<Nat>) -> T(S.all_in(UR(u, rl), UR(u, rl))):
-  all_in_refl(UR(u, rl))
+def I3_refl_ur(+u: +List<Nat>, +rl: +List<Nat>) -> L.T(S.all_in(UR(u, rl), UR(u, rl))):
+  L.all_in_refl(UR(u, rl))
 
 # send_ev: B2, B3, B6, B9
-def send_auto3(fu: Bool, +s: M.World, +h: T(inv3(s))) -> T(inv3(M.send_auto(fu, s))):
+def send_auto3(fu: Bool, +s: M.World, +h: L.T(inv3(s))) -> L.T(inv3(M.send_auto(fu, s))):
   match fu:
     case True{}:
       match s:
@@ -305,7 +105,7 @@ def send_auto3(fu: Bool, +s: M.World, +h: T(inv3(s))) -> T(inv3(M.send_auto(fu, 
                 case False{}:
                   flush3(M.W{M.snoc(q, n), haf, htk, t, d, u, tt, rl, 1n+n, False{}, False{}, i, g}, h)
 
-def send_ask3(fu: Bool, +s: M.World, +h: T(inv3(s))) -> T(inv3(M.send_live(M.AskFirst{}, fu, s))):
+def send_ask3(fu: Bool, +s: M.World, +h: L.T(inv3(s))) -> L.T(inv3(M.send_live(M.AskFirst{}, fu, s))):
   match fu:
     case True{}:
       match s:
@@ -316,7 +116,7 @@ def send_ask3(fu: Bool, +s: M.World, +h: T(inv3(s))) -> T(inv3(M.send_live(M.Ask
         case M.W{+q, +haf, +htk, +t, +d, +u, +tt, +rl, +n, +tk, +us, +i, +g}:
           h
 
-def send_drop3(fu: Bool, +s: M.World, +h: T(inv3(s))) -> T(inv3(M.send_live(M.RouteDrop{}, fu, s))):
+def send_drop3(fu: Bool, +s: M.World, +h: L.T(inv3(s))) -> L.T(inv3(M.send_live(M.RouteDrop{}, fu, s))):
   match fu:
     case True{}:
       match s:
@@ -327,7 +127,7 @@ def send_drop3(fu: Bool, +s: M.World, +h: T(inv3(s))) -> T(inv3(M.send_live(M.Ro
         case M.W{+q, +haf, +htk, +t, +d, +u, +tt, +rl, +n, +tk, +us, +i, +g}:
           h
 
-def send_ev3(fu: Bool, r: M.Route, +s: M.World, +h: T(inv3(s))) -> T(inv3(M.send_ev(fu, r, s))):
+def send_ev3(fu: Bool, r: M.Route, +s: M.World, +h: L.T(inv3(s))) -> L.T(inv3(M.send_ev(fu, r, s))):
   match r:
     case M.Auto{}:
       match s:
@@ -354,7 +154,7 @@ def send_ev3(fu: Bool, r: M.Route, +s: M.World, +h: T(inv3(s))) -> T(inv3(M.send
             case False{}:
               send_drop3(fu, M.W{q, haf, htk, t, d, u, tt, rl, n, tk, us, i, False{}}, h)
 
-def idle_ev3(+s: M.World, +h: T(inv3(s))) -> T(inv3(M.idle_ev(s))):
+def idle_ev3(+s: M.World, +h: L.T(inv3(s))) -> L.T(inv3(M.idle_ev(s))):
   match s:
     case M.W{+q, +haf, +htk, +t, +d, +u, +tt, +rl, +n, +tk, +us, +i, +g}:
       match g:
@@ -363,45 +163,45 @@ def idle_ev3(+s: M.World, +h: T(inv3(s))) -> T(inv3(M.idle_ev(s))):
         case False{}:
           flush3(M.W{q, haf, htk, t, d, u, tt, rl, n, tk, us, True{}, False{}}, h)
 
-def busy_ev3(+s: M.World, +h: T(inv3(s))) -> T(inv3(M.busy_ev(s))):
+def busy_ev3(+s: M.World, +h: L.T(inv3(s))) -> L.T(inv3(M.busy_ev(s))):
   match s:
     case M.W{+q, +haf, +htk, +t, +d, +u, +tt, +rl, +n, +tk, +us, +i, +g}:
       h
 
-def exit3(+s: M.World, +h: T(inv3(s))) -> T(inv3(M.exit_(s))):
+def exit3(+s: M.World, +h: L.T(inv3(s))) -> L.T(inv3(M.exit_(s))):
   match s:
     case M.W{+q, +haf, +htk, +t, +d, +u, +tt, +rl, +n, +tk, +us, +i, +g}:
-      and_i(S.all_in(tt, UR(u, rl)), S.implies(Bool.or(tk, us), S.all_in([], UR(u, rl))), and_l(S.all_in(tt, UR(u, rl)), S.implies(Bool.or(tk, us), S.all_in(q, UR(u, rl))), h), imp_nil(Bool.or(tk, us), UR(u, rl)))
+      L.and_i(S.all_in(tt, UR(u, rl)), S.implies(Bool.or(tk, us), S.all_in([], UR(u, rl))), L.and_l(S.all_in(tt, UR(u, rl)), S.implies(Bool.or(tk, us), S.all_in(q, UR(u, rl))), h), imp_nil(Bool.or(tk, us), UR(u, rl)))
 
-def ks_in(b: Bool, +x: Nat, +tail: +List<Nat>, +u: +List<Nat>, hm: T(b) -> T(M.mem(x, u)), +ht: T(S.all_in(tail, u))) -> T(S.all_in(M.keep_step(b, x, tail), u)):
+def ks_in(b: Bool, +x: Nat, +tail: +List<Nat>, +u: +List<Nat>, hm: L.T(b) -> L.T(M.mem(x, u)), +ht: L.T(S.all_in(tail, u))) -> L.T(S.all_in(M.keep_step(b, x, tail), u)):
   match b:
     case True{}:
-      and_i(M.mem(x, u), S.all_in(tail, u), hm({==}), ht)
+      L.and_i(M.mem(x, u), S.all_in(tail, u), hm({==}), ht)
     case False{}:
       ht
 
-def keep_users_in(+q: +List<Nat>, +u: +List<Nat>) -> T(S.all_in(M.keep_users(q, u), u)):
+def keep_users_in(+q: +List<Nat>, +u: +List<Nat>) -> L.T(S.all_in(M.keep_users(q, u), u)):
   match q:
     case Nil{}:
       {==}
     case Con{+x, +rest}:
       ks_in(M.mem(x, u), x, M.keep_users(rest, u), u, hh => hh, keep_users_in(rest, u))
 
-def takeover_begin3(+s: M.World, +h: T(inv3(s))) -> T(inv3(M.takeover_begin(s))):
+def takeover_begin3(+s: M.World, +h: L.T(inv3(s))) -> L.T(inv3(M.takeover_begin(s))):
   match s:
     case M.W{+q, +haf, +htk, +t, +d, +u, +tt, +rl, +n, +tk, +us, +i, +g}:
-      and_i(S.all_in(tt, UR(u, rl)), S.all_in(M.keep_users(q, []), UR(u, rl)), and_l(S.all_in(tt, UR(u, rl)), S.implies(Bool.or(tk, us), S.all_in(q, UR(u, rl))), h), all_in_trans(M.keep_users(q, []), [], UR(u, rl), keep_users_in(q, []), {==}))
+      L.and_i(S.all_in(tt, UR(u, rl)), S.all_in(M.keep_users(q, []), UR(u, rl)), L.and_l(S.all_in(tt, UR(u, rl)), S.implies(Bool.or(tk, us), S.all_in(q, UR(u, rl))), h), L.all_in_trans(M.keep_users(q, []), [], UR(u, rl), keep_users_in(q, []), {==}))
 
-def user_input3(+s: M.World, +h: T(inv3(s))) -> T(inv3(M.user_input(s))):
+def user_input3(+s: M.World, +h: L.T(inv3(s))) -> L.T(inv3(M.user_input(s))):
   match s:
     case M.W{+q, +haf, +htk, +t, +d, +u, +tt, +rl, +n, +tk, +us, +i, +g}:
       match tk:
         case True{}:
-          and_i(S.all_in(tt, UR(u, rl)), S.all_in(M.keep_users(q, []), UR(u, rl)), and_l(S.all_in(tt, UR(u, rl)), S.all_in(q, UR(u, rl)), h), all_in_trans(M.keep_users(q, []), [], UR(u, rl), keep_users_in(q, []), {==}))
+          L.and_i(S.all_in(tt, UR(u, rl)), S.all_in(M.keep_users(q, []), UR(u, rl)), L.and_l(S.all_in(tt, UR(u, rl)), S.all_in(q, UR(u, rl)), h), L.all_in_trans(M.keep_users(q, []), [], UR(u, rl), keep_users_in(q, []), {==}))
         case False{}:
-          and_i(S.all_in(tt, UR(u, rl)), S.all_in(M.keep_users(q, []), UR(u, rl)), and_l(S.all_in(tt, UR(u, rl)), S.implies(us, S.all_in(q, UR(u, rl))), h), all_in_trans(M.keep_users(q, []), [], UR(u, rl), keep_users_in(q, []), {==}))
+          L.and_i(S.all_in(tt, UR(u, rl)), S.all_in(M.keep_users(q, []), UR(u, rl)), L.and_l(S.all_in(tt, UR(u, rl)), S.implies(us, S.all_in(q, UR(u, rl))), h), L.all_in_trans(M.keep_users(q, []), [], UR(u, rl), keep_users_in(q, []), {==}))
 
-def takeover_end3(+s: M.World, +h: T(inv3(s))) -> T(inv3(M.takeover_end(s))):
+def takeover_end3(+s: M.World, +h: L.T(inv3(s))) -> L.T(inv3(M.takeover_end(s))):
   match s:
     case M.W{+q, +haf, +htk, +t, +d, +u, +tt, +rl, +n, +tk, +us, +i, +g}:
       match tk:
@@ -410,7 +210,7 @@ def takeover_end3(+s: M.World, +h: T(inv3(s))) -> T(inv3(M.takeover_end(s))):
             case True{}:
               h
             case False{}:
-              flush3(M.W{List.append(&2, Nat, q, htk), haf, [], t, d, u, tt, rl, n, False{}, False{}, i, g}, and_i(S.all_in(tt, UR(u, rl)), True{}, and_l(S.all_in(tt, UR(u, rl)), S.all_in(q, UR(u, rl)), h), {==}))
+              flush3(M.W{List.append(&2, Nat, q, htk), haf, [], t, d, u, tt, rl, n, False{}, False{}, i, g}, L.and_i(S.all_in(tt, UR(u, rl)), True{}, L.and_l(S.all_in(tt, UR(u, rl)), S.all_in(q, UR(u, rl)), h), {==}))
         case False{}:
           match us:
             case True{}:
@@ -418,16 +218,16 @@ def takeover_end3(+s: M.World, +h: T(inv3(s))) -> T(inv3(M.takeover_end(s))):
             case False{}:
               flush3(M.W{List.append(&2, Nat, q, htk), haf, [], t, d, u, tt, rl, n, False{}, False{}, i, g}, h)
 
-def user_submit3(+s: M.World, +h: T(inv3(s))) -> T(inv3(M.user_submit(s))):
+def user_submit3(+s: M.World, +h: L.T(inv3(s))) -> L.T(inv3(M.user_submit(s))):
   match s:
     case M.W{+q, +haf, +htk, +t, +d, +u, +tt, +rl, +n, +tk, +us, +i, +g}:
       match tk:
         case True{}:
           h
         case False{}:
-          flush3(M.W{List.append(&2, Nat, q, htk), haf, [], t, d, u, tt, rl, n, False{}, False{}, i, g}, and_i(S.all_in(tt, UR(u, rl)), True{}, and_l(S.all_in(tt, UR(u, rl)), S.implies(Bool.or(tk, us), S.all_in(q, UR(u, rl))), h), {==}))
+          flush3(M.W{List.append(&2, Nat, q, htk), haf, [], t, d, u, tt, rl, n, False{}, False{}, i, g}, L.and_i(S.all_in(tt, UR(u, rl)), True{}, L.and_l(S.all_in(tt, UR(u, rl)), S.implies(Bool.or(tk, us), S.all_in(q, UR(u, rl))), h), {==}))
 
-def deliver_if3(b: Bool, +id: Nat, +s: M.World, +h: T(inv3(s))) -> T(inv3(M.deliver_if(b, id, s))):
+def deliver_if3(b: Bool, +id: Nat, +s: M.World, +h: L.T(inv3(s))) -> L.T(inv3(M.deliver_if(b, id, s))):
   match b:
     case False{}:
       h
@@ -436,7 +236,7 @@ def deliver_if3(b: Bool, +id: Nat, +s: M.World, +h: T(inv3(s))) -> T(inv3(M.deli
         case M.W{+q, +haf, +htk, +t, +d, +u, +tt, +rl, +n, +tk, +us, +i, +g}:
           flush3(M.W{M.snoc(q, id), M.remove(id, haf), htk, t, d, u, tt, M.snoc(rl, id), n, tk, us, i, g}, I3_snoc(q, tt, u, rl, u, M.snoc(rl, id), Bool.or(tk, us), id, h, ur_mono_rl(u, rl, id), mem_ur_rl(u, rl, id)))
 
-def deliver_tk3(b: Bool, +id: Nat, +s: M.World, +h: T(inv3(s))) -> T(inv3(M.deliver_tk(b, id, s))):
+def deliver_tk3(b: Bool, +id: Nat, +s: M.World, +h: L.T(inv3(s))) -> L.T(inv3(M.deliver_tk(b, id, s))):
   match b:
     case False{}:
       h
@@ -445,19 +245,19 @@ def deliver_tk3(b: Bool, +id: Nat, +s: M.World, +h: T(inv3(s))) -> T(inv3(M.deli
         case M.W{+q, +haf, +htk, +t, +d, +u, +tt, +rl, +n, +tk, +us, +i, +g}:
           flush3(M.W{M.snoc(q, id), haf, M.remove(id, htk), t, d, u, tt, M.snoc(rl, id), n, tk, us, i, g}, I3_snoc(q, tt, u, rl, u, M.snoc(rl, id), Bool.or(tk, us), id, h, ur_mono_rl(u, rl, id), mem_ur_rl(u, rl, id)))
 
-def deliver_pick3(a: Bool, b: Bool, +id: Nat, +s: M.World, +h: T(inv3(s))) -> T(inv3(M.deliver_pick(a, b, id, s))):
+def deliver_pick3(a: Bool, b: Bool, +id: Nat, +s: M.World, +h: L.T(inv3(s))) -> L.T(inv3(M.deliver_pick(a, b, id, s))):
   match a:
     case True{}:
       deliver_if3(True{}, id, s, h)
     case False{}:
       deliver_tk3(b, id, s, h)
 
-def user_deliver3(+id: Nat, +s: M.World, +h: T(inv3(s))) -> T(inv3(M.user_deliver(id, s))):
+def user_deliver3(+id: Nat, +s: M.World, +h: L.T(inv3(s))) -> L.T(inv3(M.user_deliver(id, s))):
   match s:
     case M.W{+q, +haf, +htk, +t, +d, +u, +tt, +rl, +n, +tk, +us, +i, +g}:
       deliver_pick3(Bool.and(M.mem(id, haf), Bool.not(g)), Bool.and(M.mem(id, htk), Bool.not(g)), id, M.W{q, haf, htk, t, d, u, tt, rl, n, tk, us, i, g}, h)
 
-def drop_if3(b: Bool, +id: Nat, +s: M.World, +h: T(inv3(s))) -> T(inv3(M.drop_if(b, id, s))):
+def drop_if3(b: Bool, +id: Nat, +s: M.World, +h: L.T(inv3(s))) -> L.T(inv3(M.drop_if(b, id, s))):
   match b:
     case False{}:
       h
@@ -466,7 +266,7 @@ def drop_if3(b: Bool, +id: Nat, +s: M.World, +h: T(inv3(s))) -> T(inv3(M.drop_if
         case M.W{+q, +haf, +htk, +t, +d, +u, +tt, +rl, +n, +tk, +us, +i, +g}:
           h
 
-def drop_tk3(b: Bool, +id: Nat, +s: M.World, +h: T(inv3(s))) -> T(inv3(M.drop_tk(b, id, s))):
+def drop_tk3(b: Bool, +id: Nat, +s: M.World, +h: L.T(inv3(s))) -> L.T(inv3(M.drop_tk(b, id, s))):
   match b:
     case False{}:
       h
@@ -475,30 +275,30 @@ def drop_tk3(b: Bool, +id: Nat, +s: M.World, +h: T(inv3(s))) -> T(inv3(M.drop_tk
         case M.W{+q, +haf, +htk, +t, +d, +u, +tt, +rl, +n, +tk, +us, +i, +g}:
           h
 
-def drop_pick3(a: Bool, b: Bool, +id: Nat, +s: M.World, +h: T(inv3(s))) -> T(inv3(M.drop_pick(a, b, id, s))):
+def drop_pick3(a: Bool, b: Bool, +id: Nat, +s: M.World, +h: L.T(inv3(s))) -> L.T(inv3(M.drop_pick(a, b, id, s))):
   match a:
     case True{}:
       drop_if3(True{}, id, s, h)
     case False{}:
       drop_tk3(b, id, s, h)
 
-def user_drop3(+id: Nat, +s: M.World, +h: T(inv3(s))) -> T(inv3(M.user_drop(id, s))):
+def user_drop3(+id: Nat, +s: M.World, +h: L.T(inv3(s))) -> L.T(inv3(M.user_drop(id, s))):
   match s:
     case M.W{+q, +haf, +htk, +t, +d, +u, +tt, +rl, +n, +tk, +us, +i, +g}:
       drop_pick3(M.mem(id, haf), M.mem(id, htk), id, M.W{q, haf, htk, t, d, u, tt, rl, n, tk, us, i, g}, h)
 
-def restart3(alive: Bool, +s: M.World, +h: T(inv3(s))) -> T(inv3(M.restart(alive, s))):
+def restart3(alive: Bool, +s: M.World, +h: L.T(inv3(s))) -> L.T(inv3(M.restart(alive, s))):
   match alive:
     case True{}:
       match s:
         case M.W{+q, +haf, +htk, +t, +d, +u, +tt, +rl, +n, +tk, +us, +i, +g}:
-          and_i(S.all_in(tt, UR(u, rl)), True{}, and_l(S.all_in(tt, UR(u, rl)), S.implies(Bool.or(tk, us), S.all_in(q, UR(u, rl))), h), {==})
+          L.and_i(S.all_in(tt, UR(u, rl)), True{}, L.and_l(S.all_in(tt, UR(u, rl)), S.implies(Bool.or(tk, us), S.all_in(q, UR(u, rl))), h), {==})
     case False{}:
       match s:
         case M.W{+q, +haf, +htk, +t, +d, +u, +tt, +rl, +n, +tk, +us, +i, +g}:
-          and_i(S.all_in(tt, UR(u, rl)), True{}, and_l(S.all_in(tt, UR(u, rl)), S.implies(Bool.or(tk, us), S.all_in(q, UR(u, rl))), h), {==})
+          L.and_i(S.all_in(tt, UR(u, rl)), True{}, L.and_l(S.all_in(tt, UR(u, rl)), S.implies(Bool.or(tk, us), S.all_in(q, UR(u, rl))), h), {==})
 
-def step3(e: M.Ev, +s: M.World, +h: T(inv3(s))) -> T(inv3(M.step(e, s))):
+def step3(e: M.Ev, +s: M.World, +h: L.T(inv3(s))) -> L.T(inv3(M.step(e, s))):
   match e:
     case M.Send{fu, r}:
       send_ev3(fu, r, s, h)
@@ -539,51 +339,51 @@ def step3(e: M.Ev, +s: M.World, +h: T(inv3(s))) -> T(inv3(M.step(e, s))):
     case M.Reply{}:
       h
 
-def run3(+evs: +List<M.Ev>, +s: M.World, +h: T(inv3(s))) -> T(inv3(M.run(evs, s))):
+def run3(+evs: +List<M.Ev>, +s: M.World, +h: L.T(inv3(s))) -> L.T(inv3(M.run(evs, s))):
   match evs:
     case Nil{}:
       h
     case Con{e, +rest}:
       run3(rest, M.step(e, s), step3(e, s, h))
 
-def m3_main(+evs: +List<M.Ev>) -> T(S.all_in(S.tk_typed(S.world(evs)), S.released(S.world(evs)))):
-  and_l(S.all_in(S.tk_typed(S.world(evs)), UR(S.users(S.world(evs)), S.released(S.world(evs)))), S.implies(tk_of(S.world(evs)), S.all_in(S.queue(S.world(evs)), UR(S.users(S.world(evs)), S.released(S.world(evs))))), run3(evs, M.init(), {==}))
+def m3_main(+evs: +List<M.Ev>) -> L.T(S.all_in(S.tk_typed(S.world(evs)), S.released(S.world(evs)))):
+  L.and_l(S.all_in(S.tk_typed(S.world(evs)), UR(S.users(S.world(evs)), S.released(S.world(evs)))), S.implies(tk_of(S.world(evs)), S.all_in(S.queue(S.world(evs)), UR(S.users(S.world(evs)), S.released(S.world(evs))))), run3(evs, M.init(), {==}))
 
 def Laws.m3_takeover_isolates(evs):
   m3_main(evs)
 
 # ---- M2
-def fl_go2(+q: +List<Nat>, +haf: +List<Nat>, +htk: +List<Nat>, +t: +List<Nat>, +d: +List<Nat>, +u: +List<Nat>, +tt: +List<Nat>, +rl: +List<Nat>, +n: Nat, +us: Bool, +tk: Bool, +i: Bool, +g: Bool, +s0: +List<Nat>) -> T(S.all_in(haf, S.held_af(M.flush_go(q, M.W{s0, haf, htk, t, d, u, tt, rl, n, tk, us, i, g})))):
+def fl_go2(+q: +List<Nat>, +haf: +List<Nat>, +htk: +List<Nat>, +t: +List<Nat>, +d: +List<Nat>, +u: +List<Nat>, +tt: +List<Nat>, +rl: +List<Nat>, +n: Nat, +us: Bool, +tk: Bool, +i: Bool, +g: Bool, +s0: +List<Nat>) -> L.T(S.all_in(haf, S.held_af(M.flush_go(q, M.W{s0, haf, htk, t, d, u, tt, rl, n, tk, us, i, g})))):
   match q:
     case Nil{}:
-      all_in_refl(haf)
+      L.all_in_refl(haf)
     case Con{+x, +rest}:
       fl_go2(rest, haf, htk, M.snoc(t, x), d, u, M.record(Bool.or(tk, us), x, tt), rl, n, us, tk, False{}, g, [])
 
-def fl2(+s: M.World) -> T(S.all_in(S.held_af(s), S.held_af(M.flush(s)))):
+def fl2(+s: M.World) -> L.T(S.all_in(S.held_af(s), S.held_af(M.flush(s)))):
   match s:
     case M.W{+q, +haf, +htk, +t, +d, +u, +tt, +rl, +n, +tk, +us, +i, +g}:
       match i:
         case False{}:
-          all_in_refl(haf)
+          L.all_in_refl(haf)
         case True{}:
           fl_go2(q, haf, htk, t, d, u, tt, rl, n, us, tk, True{}, g, [])
 
 def H2(+s: M.World, +s2: M.World) -> Bool:
   S.all_in(S.held_af(s), S.held_af(s2))
 
-def send_auto2(fu: Bool, +s: M.World) -> T(H2(s, M.send_auto(fu, s))):
+def send_auto2(fu: Bool, +s: M.World) -> L.T(H2(s, M.send_auto(fu, s))):
   match fu:
     case True{}:
       match s:
         case M.W{+q, +haf, +htk, +t, +d, +u, +tt, +rl, +n, +tk, +us, +i, +g}:
           match tk:
             case True{}:
-              all_in_refl(haf)
+              L.all_in_refl(haf)
             case False{}:
               match us:
                 case True{}:
-                  all_in_refl(haf)
+                  L.all_in_refl(haf)
                 case False{}:
                   fl2(M.W{M.snoc(q, n), haf, htk, t, d, M.snoc(u, n), tt, rl, 1n+n, False{}, False{}, i, g})
     case False{}:
@@ -591,22 +391,22 @@ def send_auto2(fu: Bool, +s: M.World) -> T(H2(s, M.send_auto(fu, s))):
         case M.W{+q, +haf, +htk, +t, +d, +u, +tt, +rl, +n, +tk, +us, +i, +g}:
           match tk:
             case True{}:
-              all_in_refl(haf)
+              L.all_in_refl(haf)
             case False{}:
               match us:
                 case True{}:
-                  all_in_refl(haf)
+                  L.all_in_refl(haf)
                 case False{}:
                   fl2(M.W{M.snoc(q, n), haf, htk, t, d, u, tt, rl, 1n+n, False{}, False{}, i, g})
 
-def send_ev2(fu: Bool, r: M.Route, +s: M.World) -> T(H2(s, M.send_ev(fu, r, s))):
+def send_ev2(fu: Bool, r: M.Route, +s: M.World) -> L.T(H2(s, M.send_ev(fu, r, s))):
   match r:
     case M.Auto{}:
       match s:
         case M.W{+q, +haf, +htk, +t, +d, +u, +tt, +rl, +n, +tk, +us, +i, +g}:
           match g:
             case True{}:
-              all_in_refl(haf)
+              L.all_in_refl(haf)
             case False{}:
               send_auto2(fu, M.W{q, haf, htk, t, d, u, tt, rl, n, tk, us, i, False{}})
     case M.AskFirst{}:
@@ -614,19 +414,19 @@ def send_ev2(fu: Bool, r: M.Route, +s: M.World) -> T(H2(s, M.send_ev(fu, r, s)))
         case M.W{+q, +haf, +htk, +t, +d, +u, +tt, +rl, +n, +tk, +us, +i, +g}:
           match g:
             case True{}:
-              all_in_refl(haf)
+              L.all_in_refl(haf)
             case False{}:
-              all_in_snoc_self(haf, n)
+              L.all_in_snoc_self(haf, n)
     case M.RouteDrop{}:
       match s:
         case M.W{+q, +haf, +htk, +t, +d, +u, +tt, +rl, +n, +tk, +us, +i, +g}:
           match g:
             case True{}:
-              all_in_refl(haf)
+              L.all_in_refl(haf)
             case False{}:
-              all_in_refl(haf)
+              L.all_in_refl(haf)
 
-def step2(e: M.Ev, +s: M.World) -> T(S.implies(Bool.not(S.is_user_call(e)), H2(s, M.step(e, s)))):
+def step2(e: M.Ev, +s: M.World) -> L.T(S.implies(Bool.not(S.is_user_call(e)), H2(s, M.step(e, s)))):
   match e:
     case M.Send{fu, r}:
       send_ev2(fu, r, s)
@@ -635,39 +435,39 @@ def step2(e: M.Ev, +s: M.World) -> T(S.implies(Bool.not(S.is_user_call(e)), H2(s
         case M.W{+q, +haf, +htk, +t, +d, +u, +tt, +rl, +n, +tk, +us, +i, +g}:
           match g:
             case True{}:
-              all_in_refl(haf)
+              L.all_in_refl(haf)
             case False{}:
               fl2(M.W{q, haf, htk, t, d, u, tt, rl, n, tk, us, True{}, False{}})
     case M.Busy{}:
       match s:
         case M.W{+q, +haf, +htk, +t, +d, +u, +tt, +rl, +n, +tk, +us, +i, +g}:
-          all_in_refl(haf)
+          L.all_in_refl(haf)
     case M.Exit{}:
       match s:
         case M.W{+q, +haf, +htk, +t, +d, +u, +tt, +rl, +n, +tk, +us, +i, +g}:
-          all_in_refl(haf)
+          L.all_in_refl(haf)
     case M.TakeoverBegin{}:
       match s:
         case M.W{+q, +haf, +htk, +t, +d, +u, +tt, +rl, +n, +tk, +us, +i, +g}:
-          all_in_refl(haf)
+          L.all_in_refl(haf)
     case M.TakeoverEnd{}:
       match s:
         case M.W{+q, +haf, +htk, +t, +d, +u, +tt, +rl, +n, +tk, +us, +i, +g}:
           match us:
             case True{}:
-              all_in_refl(haf)
+              L.all_in_refl(haf)
             case False{}:
               fl2(M.W{List.append(&2, Nat, q, htk), haf, [], t, d, u, tt, rl, n, False{}, False{}, i, g})
     case M.UserInput{}:
       match s:
         case M.W{+q, +haf, +htk, +t, +d, +u, +tt, +rl, +n, +tk, +us, +i, +g}:
-          all_in_refl(haf)
+          L.all_in_refl(haf)
     case M.UserSubmit{}:
       match s:
         case M.W{+q, +haf, +htk, +t, +d, +u, +tt, +rl, +n, +tk, +us, +i, +g}:
           match tk:
             case True{}:
-              all_in_refl(haf)
+              L.all_in_refl(haf)
             case False{}:
               fl2(M.W{List.append(&2, Nat, q, htk), haf, [], t, d, u, tt, rl, n, False{}, False{}, i, g})
     case M.UserClear{}:
@@ -675,7 +475,7 @@ def step2(e: M.Ev, +s: M.World) -> T(S.implies(Bool.not(S.is_user_call(e)), H2(s
         case M.W{+q, +haf, +htk, +t, +d, +u, +tt, +rl, +n, +tk, +us, +i, +g}:
           match tk:
             case True{}:
-              all_in_refl(haf)
+              L.all_in_refl(haf)
             case False{}:
               fl2(M.W{List.append(&2, Nat, q, htk), haf, [], t, d, u, tt, rl, n, False{}, False{}, i, g})
     case M.UserDeliver{id}:
@@ -695,72 +495,72 @@ def step2(e: M.Ev, +s: M.World) -> T(S.implies(Bool.not(S.is_user_call(e)), H2(s
     case M.Ask{o, c}:
       match s:
         case M.W{+q, +haf, +htk, +t, +d, +u, +tt, +rl, +n, +tk, +us, +i, +g}:
-          all_in_refl(haf)
+          L.all_in_refl(haf)
     case M.HopMade{}:
       match s:
         case M.W{+q, +haf, +htk, +t, +d, +u, +tt, +rl, +n, +tk, +us, +i, +g}:
-          all_in_refl(haf)
+          L.all_in_refl(haf)
     case M.HopEnded{}:
       match s:
         case M.W{+q, +haf, +htk, +t, +d, +u, +tt, +rl, +n, +tk, +us, +i, +g}:
-          all_in_refl(haf)
+          L.all_in_refl(haf)
     case M.BoundPassed{}:
       match s:
         case M.W{+q, +haf, +htk, +t, +d, +u, +tt, +rl, +n, +tk, +us, +i, +g}:
-          all_in_refl(haf)
+          L.all_in_refl(haf)
     case M.Answer{}:
       match s:
         case M.W{+q, +haf, +htk, +t, +d, +u, +tt, +rl, +n, +tk, +us, +i, +g}:
-          all_in_refl(haf)
+          L.all_in_refl(haf)
     case M.Escalate{}:
       match s:
         case M.W{+q, +haf, +htk, +t, +d, +u, +tt, +rl, +n, +tk, +us, +i, +g}:
-          all_in_refl(haf)
+          L.all_in_refl(haf)
     case M.Reply{}:
       match s:
         case M.W{+q, +haf, +htk, +t, +d, +u, +tt, +rl, +n, +tk, +us, +i, +g}:
-          all_in_refl(haf)
+          L.all_in_refl(haf)
 
-def m2_main(+evs: +List<M.Ev>, e: M.Ev) -> T(S.implies(Bool.not(S.is_user_call(e)), S.all_in(S.held_af(S.world(evs)), S.held_af(M.step(e, S.world(evs)))))):
+def m2_main(+evs: +List<M.Ev>, e: M.Ev) -> L.T(S.implies(Bool.not(S.is_user_call(e)), S.all_in(S.held_af(S.world(evs)), S.held_af(M.step(e, S.world(evs)))))):
   step2(e, S.world(evs))
 
 def Laws.m2_held_leaves_only_by_its_owner(evs, e):
   m2_main(evs, e)
 
 # ---- M4
-def prefix_refl(+l: +List<Nat>) -> T(S.is_prefix(l, l)):
+def prefix_refl(+l: +List<Nat>) -> L.T(S.is_prefix(l, l)):
   match l:
     case Nil{}:
       {==}
     case Con{+x, +rest}:
-      and_i(Nat.is_eq(x, x), S.is_prefix(rest, rest), eq_refl(x), prefix_refl(rest))
+      L.and_i(Nat.is_eq(x, x), S.is_prefix(rest, rest), L.eq_refl(x), prefix_refl(rest))
 
-def prefix_snoc(+l: +List<Nat>, +y: Nat) -> T(S.is_prefix(l, M.snoc(l, y))):
+def prefix_snoc(+l: +List<Nat>, +y: Nat) -> L.T(S.is_prefix(l, M.snoc(l, y))):
   match l:
     case Nil{}:
       {==}
     case Con{+x, +rest}:
-      and_i(Nat.is_eq(x, x), S.is_prefix(rest, M.snoc(rest, y)), eq_refl(x), prefix_snoc(rest, y))
+      L.and_i(Nat.is_eq(x, x), S.is_prefix(rest, M.snoc(rest, y)), L.eq_refl(x), prefix_snoc(rest, y))
 
-def prefix_drop(+l: +List<Nat>, +y: Nat, +m: +List<Nat>, +h: T(S.is_prefix(M.snoc(l, y), m))) -> T(S.is_prefix(l, m)):
+def prefix_drop(+l: +List<Nat>, +y: Nat, +m: +List<Nat>, +h: L.T(S.is_prefix(M.snoc(l, y), m))) -> L.T(S.is_prefix(l, m)):
   match l:
     case Nil{}:
       {==}
     case Con{+x, +rest}:
       match m:
         case Nil{}:
-          no(T(S.is_prefix(x <> rest, [])), h)
+          L.no(L.T(S.is_prefix(x <> rest, [])), h)
         case Con{+z, +m2}:
-          and_i(Nat.is_eq(x, z), S.is_prefix(rest, m2), and_l(Nat.is_eq(x, z), S.is_prefix(M.snoc(rest, y), m2), h), prefix_drop(rest, y, m2, and_r(Nat.is_eq(x, z), S.is_prefix(M.snoc(rest, y), m2), h)))
+          L.and_i(Nat.is_eq(x, z), S.is_prefix(rest, m2), L.and_l(Nat.is_eq(x, z), S.is_prefix(M.snoc(rest, y), m2), h), prefix_drop(rest, y, m2, L.and_r(Nat.is_eq(x, z), S.is_prefix(M.snoc(rest, y), m2), h)))
 
-def fl_go4(+q: +List<Nat>, +haf: +List<Nat>, +htk: +List<Nat>, +t: +List<Nat>, +d: +List<Nat>, +u: +List<Nat>, +tt: +List<Nat>, +rl: +List<Nat>, +n: Nat, +us: Bool, +tk: Bool, +i: Bool, +g: Bool, +s0: +List<Nat>) -> T(S.is_prefix(t, S.typed(M.flush_go(q, M.W{s0, haf, htk, t, d, u, tt, rl, n, tk, us, i, g})))):
+def fl_go4(+q: +List<Nat>, +haf: +List<Nat>, +htk: +List<Nat>, +t: +List<Nat>, +d: +List<Nat>, +u: +List<Nat>, +tt: +List<Nat>, +rl: +List<Nat>, +n: Nat, +us: Bool, +tk: Bool, +i: Bool, +g: Bool, +s0: +List<Nat>) -> L.T(S.is_prefix(t, S.typed(M.flush_go(q, M.W{s0, haf, htk, t, d, u, tt, rl, n, tk, us, i, g})))):
   match q:
     case Nil{}:
       prefix_refl(t)
     case Con{+x, +rest}:
       prefix_drop(t, x, S.typed(M.flush_go(rest, M.W{[], haf, htk, M.snoc(t, x), d, u, M.record(Bool.or(tk, us), x, tt), rl, n, tk, us, False{}, g})), fl_go4(rest, haf, htk, M.snoc(t, x), d, u, M.record(Bool.or(tk, us), x, tt), rl, n, us, tk, False{}, g, []))
 
-def fl4(+s: M.World) -> T(S.is_prefix(S.typed(s), S.typed(M.flush(s)))):
+def fl4(+s: M.World) -> L.T(S.is_prefix(S.typed(s), S.typed(M.flush(s)))):
   match s:
     case M.W{+q, +haf, +htk, +t, +d, +u, +tt, +rl, +n, +tk, +us, +i, +g}:
       match i:
@@ -769,7 +569,7 @@ def fl4(+s: M.World) -> T(S.is_prefix(S.typed(s), S.typed(M.flush(s)))):
         case True{}:
           fl_go4(q, haf, htk, t, d, u, tt, rl, n, us, tk, True{}, g, [])
 
-def send_auto4(fu: Bool, +s: M.World) -> T(S.is_prefix(S.typed(s), S.typed(M.send_auto(fu, s)))):
+def send_auto4(fu: Bool, +s: M.World) -> L.T(S.is_prefix(S.typed(s), S.typed(M.send_auto(fu, s)))):
   match fu:
     case True{}:
       match s:
@@ -796,7 +596,7 @@ def send_auto4(fu: Bool, +s: M.World) -> T(S.is_prefix(S.typed(s), S.typed(M.sen
                 case False{}:
                   fl4(M.W{M.snoc(q, n), haf, htk, t, d, u, tt, rl, 1n+n, False{}, False{}, i, g})
 
-def send_ev4(fu: Bool, r: M.Route, +s: M.World) -> T(S.is_prefix(S.typed(s), S.typed(M.send_ev(fu, r, s)))):
+def send_ev4(fu: Bool, r: M.Route, +s: M.World) -> L.T(S.is_prefix(S.typed(s), S.typed(M.send_ev(fu, r, s)))):
   match r:
     case M.Auto{}:
       match s:
@@ -823,7 +623,7 @@ def send_ev4(fu: Bool, r: M.Route, +s: M.World) -> T(S.is_prefix(S.typed(s), S.t
             case False{}:
               prefix_refl(t)
 
-def deliver_if4(b: Bool, +id: Nat, +s: M.World) -> T(S.is_prefix(S.typed(s), S.typed(M.deliver_if(b, id, s)))):
+def deliver_if4(b: Bool, +id: Nat, +s: M.World) -> L.T(S.is_prefix(S.typed(s), S.typed(M.deliver_if(b, id, s)))):
   match b:
     case False{}:
       match s:
@@ -834,7 +634,7 @@ def deliver_if4(b: Bool, +id: Nat, +s: M.World) -> T(S.is_prefix(S.typed(s), S.t
         case M.W{+q, +haf, +htk, +t, +d, +u, +tt, +rl, +n, +tk, +us, +i, +g}:
           fl4(M.W{M.snoc(q, id), M.remove(id, haf), htk, t, d, u, tt, M.snoc(rl, id), n, tk, us, i, g})
 
-def deliver_tk4(b: Bool, +id: Nat, +s: M.World) -> T(S.is_prefix(S.typed(s), S.typed(M.deliver_tk(b, id, s)))):
+def deliver_tk4(b: Bool, +id: Nat, +s: M.World) -> L.T(S.is_prefix(S.typed(s), S.typed(M.deliver_tk(b, id, s)))):
   match b:
     case False{}:
       match s:
@@ -845,14 +645,14 @@ def deliver_tk4(b: Bool, +id: Nat, +s: M.World) -> T(S.is_prefix(S.typed(s), S.t
         case M.W{+q, +haf, +htk, +t, +d, +u, +tt, +rl, +n, +tk, +us, +i, +g}:
           fl4(M.W{M.snoc(q, id), haf, M.remove(id, htk), t, d, u, tt, M.snoc(rl, id), n, tk, us, i, g})
 
-def deliver_pick4(a: Bool, b: Bool, +id: Nat, +s: M.World) -> T(S.is_prefix(S.typed(s), S.typed(M.deliver_pick(a, b, id, s)))):
+def deliver_pick4(a: Bool, b: Bool, +id: Nat, +s: M.World) -> L.T(S.is_prefix(S.typed(s), S.typed(M.deliver_pick(a, b, id, s)))):
   match a:
     case True{}:
       deliver_if4(True{}, id, s)
     case False{}:
       deliver_tk4(b, id, s)
 
-def drop_if4(b: Bool, +id: Nat, +s: M.World) -> T(S.is_prefix(S.typed(s), S.typed(M.drop_if(b, id, s)))):
+def drop_if4(b: Bool, +id: Nat, +s: M.World) -> L.T(S.is_prefix(S.typed(s), S.typed(M.drop_if(b, id, s)))):
   match b:
     case False{}:
       match s:
@@ -863,7 +663,7 @@ def drop_if4(b: Bool, +id: Nat, +s: M.World) -> T(S.is_prefix(S.typed(s), S.type
         case M.W{+q, +haf, +htk, +t, +d, +u, +tt, +rl, +n, +tk, +us, +i, +g}:
           prefix_refl(t)
 
-def drop_tk4(b: Bool, +id: Nat, +s: M.World) -> T(S.is_prefix(S.typed(s), S.typed(M.drop_tk(b, id, s)))):
+def drop_tk4(b: Bool, +id: Nat, +s: M.World) -> L.T(S.is_prefix(S.typed(s), S.typed(M.drop_tk(b, id, s)))):
   match b:
     case False{}:
       match s:
@@ -874,14 +674,14 @@ def drop_tk4(b: Bool, +id: Nat, +s: M.World) -> T(S.is_prefix(S.typed(s), S.type
         case M.W{+q, +haf, +htk, +t, +d, +u, +tt, +rl, +n, +tk, +us, +i, +g}:
           prefix_refl(t)
 
-def drop_pick4(a: Bool, b: Bool, +id: Nat, +s: M.World) -> T(S.is_prefix(S.typed(s), S.typed(M.drop_pick(a, b, id, s)))):
+def drop_pick4(a: Bool, b: Bool, +id: Nat, +s: M.World) -> L.T(S.is_prefix(S.typed(s), S.typed(M.drop_pick(a, b, id, s)))):
   match a:
     case True{}:
       drop_if4(True{}, id, s)
     case False{}:
       drop_tk4(b, id, s)
 
-def step4(e: M.Ev, +s: M.World) -> T(S.is_prefix(S.typed(s), S.typed(M.step(e, s)))):
+def step4(e: M.Ev, +s: M.World) -> L.T(S.is_prefix(S.typed(s), S.typed(M.step(e, s)))):
   match e:
     case M.Send{fu, r}:
       send_ev4(fu, r, s)
@@ -980,46 +780,46 @@ def step4(e: M.Ev, +s: M.World) -> T(S.is_prefix(S.typed(s), S.typed(M.step(e, s
         case M.W{+q, +haf, +htk, +t, +d, +u, +tt, +rl, +n, +tk, +us, +i, +g}:
           prefix_refl(t)
 
-def m4_main(+evs: +List<M.Ev>, e: M.Ev) -> T(S.is_prefix(S.typed(S.world(evs)), S.typed(M.step(e, S.world(evs))))):
+def m4_main(+evs: +List<M.Ev>, e: M.Ev) -> L.T(S.is_prefix(S.typed(S.world(evs)), S.typed(M.step(e, S.world(evs))))):
   step4(e, S.world(evs))
 
 def Laws.m4_typed_only_grows_at_the_end(evs, e):
   m4_main(evs, e)
 
 # ---- M7
-def imp_and_l(b: Bool, x: Bool, y: Bool, +h: T(S.implies(b, Bool.and(x, y)))) -> T(S.implies(b, x)):
+def imp_and_l(b: Bool, x: Bool, y: Bool, +h: L.T(S.implies(b, Bool.and(x, y)))) -> L.T(S.implies(b, x)):
   match b:
     case False{}:
       {==}
     case True{}:
-      and_l(x, y, h)
+      L.and_l(x, y, h)
 
-def imp_and_r(b: Bool, x: Bool, y: Bool, +h: T(S.implies(b, Bool.and(x, y)))) -> T(S.implies(b, y)):
+def imp_and_r(b: Bool, x: Bool, y: Bool, +h: L.T(S.implies(b, Bool.and(x, y)))) -> L.T(S.implies(b, y)):
   match b:
     case False{}:
       {==}
     case True{}:
-      and_r(x, y, h)
+      L.and_r(x, y, h)
 
 def G7(+s: M.World) -> Bool:
   S.implies(S.gone(s), Bool.and(S.is_nil(S.queue(s)), S.is_nil(S.held_tk(s))))
 
-def flush_go7(+q: +List<Nat>, +haf: +List<Nat>, +htk: +List<Nat>, +t: +List<Nat>, +d: +List<Nat>, +u: +List<Nat>, +tt: +List<Nat>, +rl: +List<Nat>, +n: Nat, +us: Bool, +tk: Bool, +i: Bool, +g: Bool, +hq: T(S.implies(g, S.is_nil(q))), +hh: T(S.implies(g, S.is_nil(htk)))) -> T(G7(M.flush_go(q, M.W{[], haf, htk, t, d, u, tt, rl, n, tk, us, i, g}))):
+def flush_go7(+q: +List<Nat>, +haf: +List<Nat>, +htk: +List<Nat>, +t: +List<Nat>, +d: +List<Nat>, +u: +List<Nat>, +tt: +List<Nat>, +rl: +List<Nat>, +n: Nat, +us: Bool, +tk: Bool, +i: Bool, +g: Bool, +hq: L.T(S.implies(g, S.is_nil(q))), +hh: L.T(S.implies(g, S.is_nil(htk)))) -> L.T(G7(M.flush_go(q, M.W{[], haf, htk, t, d, u, tt, rl, n, tk, us, i, g}))):
   match q:
     case Nil{}:
       match g:
         case True{}:
-          and_i(True{}, S.is_nil(htk), {==}, hh)
+          L.and_i(True{}, S.is_nil(htk), {==}, hh)
         case False{}:
           {==}
     case Con{+x, +rest}:
       match g:
         case True{}:
-          no(T(G7(M.flush_go(x <> rest, M.W{[], haf, htk, t, d, u, tt, rl, n, tk, us, i, True{}}))), hq)
+          L.no(L.T(G7(M.flush_go(x <> rest, M.W{[], haf, htk, t, d, u, tt, rl, n, tk, us, i, True{}}))), hq)
         case False{}:
           flush_go7(rest, haf, htk, M.snoc(t, x), d, u, M.record(Bool.or(tk, us), x, tt), rl, n, us, tk, False{}, False{}, {==}, {==})
 
-def flush7(+s: M.World, +h: T(G7(s))) -> T(G7(M.flush(s))):
+def flush7(+s: M.World, +h: L.T(G7(s))) -> L.T(G7(M.flush(s))):
   match s:
     case M.W{+q, +haf, +htk, +t, +d, +u, +tt, +rl, +n, +tk, +us, +i, +g}:
       match i:
@@ -1028,7 +828,7 @@ def flush7(+s: M.World, +h: T(G7(s))) -> T(G7(M.flush(s))):
         case True{}:
           flush_go7(q, haf, htk, t, d, u, tt, rl, n, us, tk, True{}, g, imp_and_l(g, S.is_nil(q), S.is_nil(htk), h), imp_and_r(g, S.is_nil(q), S.is_nil(htk), h))
 
-def send_auto7(fu: Bool, +q: +List<Nat>, +haf: +List<Nat>, +htk: +List<Nat>, +t: +List<Nat>, +d: +List<Nat>, +u: +List<Nat>, +tt: +List<Nat>, +rl: +List<Nat>, +n: Nat, +tk: Bool, +us: Bool, +i: Bool) -> T(G7(M.send_auto(fu, M.W{q, haf, htk, t, d, u, tt, rl, n, tk, us, i, False{}}))):
+def send_auto7(fu: Bool, +q: +List<Nat>, +haf: +List<Nat>, +htk: +List<Nat>, +t: +List<Nat>, +d: +List<Nat>, +u: +List<Nat>, +tt: +List<Nat>, +rl: +List<Nat>, +n: Nat, +tk: Bool, +us: Bool, +i: Bool) -> L.T(G7(M.send_auto(fu, M.W{q, haf, htk, t, d, u, tt, rl, n, tk, us, i, False{}}))):
   match fu:
     case True{}:
       match tk:
@@ -1051,7 +851,7 @@ def send_auto7(fu: Bool, +q: +List<Nat>, +haf: +List<Nat>, +htk: +List<Nat>, +t:
             case False{}:
               flush7(M.W{M.snoc(q, n), haf, htk, t, d, u, tt, rl, 1n+n, False{}, False{}, i, False{}}, {==})
 
-def send_ev7(fu: Bool, r: M.Route, +s: M.World, +h: T(G7(s))) -> T(G7(M.send_ev(fu, r, s))):
+def send_ev7(fu: Bool, r: M.Route, +s: M.World, +h: L.T(G7(s))) -> L.T(G7(M.send_ev(fu, r, s))):
   match r:
     case M.Auto{}:
       match s:
@@ -1078,49 +878,49 @@ def send_ev7(fu: Bool, r: M.Route, +s: M.World, +h: T(G7(s))) -> T(G7(M.send_ev(
             case False{}:
               {==}
 
-def takeover_begin7(+s: M.World, +h: T(G7(s))) -> T(G7(M.takeover_begin(s))):
+def takeover_begin7(+s: M.World, +h: L.T(G7(s))) -> L.T(G7(M.takeover_begin(s))):
   match s:
     case M.W{+q, +haf, +htk, +t, +d, +u, +tt, +rl, +n, +tk, +us, +i, +g}:
       match q:
         case Nil{}:
           match htk:
             case Nil{}:
-              imp_t(g)
+              L.imp_t(g)
             case Con{+y, +yr}:
               match g:
                 case True{}:
-                  no(T(G7(M.takeover_begin(M.W{[], haf, y <> yr, t, d, u, tt, rl, n, tk, us, i, True{}}))), h)
+                  L.no(L.T(G7(M.takeover_begin(M.W{[], haf, y <> yr, t, d, u, tt, rl, n, tk, us, i, True{}}))), h)
                 case False{}:
                   {==}
         case Con{+x, +xr}:
           match g:
             case True{}:
-              no(T(G7(M.takeover_begin(M.W{x <> xr, haf, htk, t, d, u, tt, rl, n, tk, us, i, True{}}))), h)
+              L.no(L.T(G7(M.takeover_begin(M.W{x <> xr, haf, htk, t, d, u, tt, rl, n, tk, us, i, True{}}))), h)
             case False{}:
               {==}
 
-def user_input7(+s: M.World, +h: T(G7(s))) -> T(G7(M.user_input(s))):
+def user_input7(+s: M.World, +h: L.T(G7(s))) -> L.T(G7(M.user_input(s))):
   match s:
     case M.W{+q, +haf, +htk, +t, +d, +u, +tt, +rl, +n, +tk, +us, +i, +g}:
       match q:
         case Nil{}:
           match htk:
             case Nil{}:
-              imp_t(g)
+              L.imp_t(g)
             case Con{+y, +yr}:
               match g:
                 case True{}:
-                  no(T(G7(M.user_input(M.W{[], haf, y <> yr, t, d, u, tt, rl, n, tk, us, i, True{}}))), h)
+                  L.no(L.T(G7(M.user_input(M.W{[], haf, y <> yr, t, d, u, tt, rl, n, tk, us, i, True{}}))), h)
                 case False{}:
                   {==}
         case Con{+x, +xr}:
           match g:
             case True{}:
-              no(T(G7(M.user_input(M.W{x <> xr, haf, htk, t, d, u, tt, rl, n, tk, us, i, True{}}))), h)
+              L.no(L.T(G7(M.user_input(M.W{x <> xr, haf, htk, t, d, u, tt, rl, n, tk, us, i, True{}}))), h)
             case False{}:
               {==}
 
-def release7(held: Bool, +s: M.World, +h: T(G7(s))) -> T(G7(M.release(held, s))):
+def release7(held: Bool, +s: M.World, +h: L.T(G7(s))) -> L.T(G7(M.release(held, s))):
   match held:
     case True{}:
       h
@@ -1135,48 +935,48 @@ def release7(held: Bool, +s: M.World, +h: T(G7(s))) -> T(G7(M.release(held, s)))
                 case Con{+y, +yr}:
                   match g:
                     case True{}:
-                      no(T(G7(M.release(False{}, M.W{[], haf, y <> yr, t, d, u, tt, rl, n, tk, us, i, True{}}))), h)
+                      L.no(L.T(G7(M.release(False{}, M.W{[], haf, y <> yr, t, d, u, tt, rl, n, tk, us, i, True{}}))), h)
                     case False{}:
                       flush7(M.W{y <> yr, haf, [], t, d, u, tt, rl, n, tk, us, i, False{}}, {==})
             case Con{+x, +xr}:
               match g:
                 case True{}:
-                  no(T(G7(M.release(False{}, M.W{x <> xr, haf, htk, t, d, u, tt, rl, n, tk, us, i, True{}}))), h)
+                  L.no(L.T(G7(M.release(False{}, M.W{x <> xr, haf, htk, t, d, u, tt, rl, n, tk, us, i, True{}}))), h)
                 case False{}:
                   flush7(M.W{List.append(&2, Nat, x <> xr, htk), haf, [], t, d, u, tt, rl, n, tk, us, i, False{}}, {==})
 
-def takeover_end7(+s: M.World, +h: T(G7(s))) -> T(G7(M.takeover_end(s))):
+def takeover_end7(+s: M.World, +h: L.T(G7(s))) -> L.T(G7(M.takeover_end(s))):
   match s:
     case M.W{+q, +haf, +htk, +t, +d, +u, +tt, +rl, +n, +tk, +us, +i, +g}:
       release7(us, M.W{q, haf, htk, t, d, u, tt, rl, n, False{}, us, i, g}, h)
 
-def user_submit7(+s: M.World, +h: T(G7(s))) -> T(G7(M.user_submit(s))):
+def user_submit7(+s: M.World, +h: L.T(G7(s))) -> L.T(G7(M.user_submit(s))):
   match s:
     case M.W{+q, +haf, +htk, +t, +d, +u, +tt, +rl, +n, +tk, +us, +i, +g}:
       release7(tk, M.W{q, haf, htk, t, d, u, tt, rl, n, tk, False{}, i, g}, h)
 
-def notand(m: Bool) -> T(Bool.not(Bool.and(m, False{}))):
+def notand(m: Bool) -> L.T(Bool.not(Bool.and(m, False{}))):
   match m:
     case False{}:
       {==}
     case True{}:
       {==}
 
-def ab7(m: Bool, g: Bool) -> T(S.implies(g, Bool.not(Bool.and(m, Bool.not(g))))):
+def ab7(m: Bool, g: Bool) -> L.T(S.implies(g, Bool.not(Bool.and(m, Bool.not(g))))):
   match g:
     case True{}:
       notand(m)
     case False{}:
       {==}
 
-def deliver_pick7(a: Bool, b: Bool, +id: Nat, +s: M.World, +h: T(G7(s)), +ha: T(S.implies(S.gone(s), Bool.not(a))), +hb: T(S.implies(S.gone(s), Bool.not(b)))) -> T(G7(M.deliver_pick(a, b, id, s))):
+def deliver_pick7(a: Bool, b: Bool, +id: Nat, +s: M.World, +h: L.T(G7(s)), +ha: L.T(S.implies(S.gone(s), Bool.not(a))), +hb: L.T(S.implies(S.gone(s), Bool.not(b)))) -> L.T(G7(M.deliver_pick(a, b, id, s))):
   match a:
     case True{}:
       match s:
         case M.W{+q, +haf, +htk, +t, +d, +u, +tt, +rl, +n, +tk, +us, +i, +g}:
           match g:
             case True{}:
-              no(T(G7(M.deliver_pick(True{}, b, id, M.W{q, haf, htk, t, d, u, tt, rl, n, tk, us, i, True{}}))), ha)
+              L.no(L.T(G7(M.deliver_pick(True{}, b, id, M.W{q, haf, htk, t, d, u, tt, rl, n, tk, us, i, True{}}))), ha)
             case False{}:
               flush7(M.W{M.snoc(q, id), M.remove(id, haf), htk, t, d, u, tt, M.snoc(rl, id), n, tk, us, i, False{}}, {==})
     case False{}:
@@ -1188,11 +988,11 @@ def deliver_pick7(a: Bool, b: Bool, +id: Nat, +s: M.World, +h: T(G7(s)), +ha: T(
             case M.W{+q, +haf, +htk, +t, +d, +u, +tt, +rl, +n, +tk, +us, +i, +g}:
               match g:
                 case True{}:
-                  no(T(G7(M.deliver_pick(False{}, True{}, id, M.W{q, haf, htk, t, d, u, tt, rl, n, tk, us, i, True{}}))), hb)
+                  L.no(L.T(G7(M.deliver_pick(False{}, True{}, id, M.W{q, haf, htk, t, d, u, tt, rl, n, tk, us, i, True{}}))), hb)
                 case False{}:
                   flush7(M.W{M.snoc(q, id), haf, M.remove(id, htk), t, d, u, tt, M.snoc(rl, id), n, tk, us, i, False{}}, {==})
 
-def drop_pick7(a: Bool, b: Bool, +id: Nat, +s: M.World, +h: T(G7(s))) -> T(G7(M.drop_pick(a, b, id, s))):
+def drop_pick7(a: Bool, b: Bool, +id: Nat, +s: M.World, +h: L.T(G7(s))) -> L.T(G7(M.drop_pick(a, b, id, s))):
   match a:
     case True{}:
       match s:
@@ -1211,11 +1011,11 @@ def drop_pick7(a: Bool, b: Bool, +id: Nat, +s: M.World, +h: T(G7(s))) -> T(G7(M.
                 case Con{+y, +yr}:
                   match g:
                     case True{}:
-                      no(T(G7(M.drop_pick(False{}, True{}, id, M.W{q, haf, y <> yr, t, d, u, tt, rl, n, tk, us, i, True{}}))), and_r(S.is_nil(q), False{}, h))
+                      L.no(L.T(G7(M.drop_pick(False{}, True{}, id, M.W{q, haf, y <> yr, t, d, u, tt, rl, n, tk, us, i, True{}}))), L.and_r(S.is_nil(q), False{}, h))
                     case False{}:
                       {==}
 
-def step7(e: M.Ev, +s: M.World, +h: T(G7(s))) -> T(G7(M.step(e, s))):
+def step7(e: M.Ev, +s: M.World, +h: L.T(G7(s))) -> L.T(G7(M.step(e, s))):
   match e:
     case M.Send{fu, r}:
       send_ev7(fu, r, s, h)
@@ -1278,21 +1078,21 @@ def step7(e: M.Ev, +s: M.World, +h: T(G7(s))) -> T(G7(M.step(e, s))):
     case M.Reply{}:
       h
 
-def run7(+evs: +List<M.Ev>, +s: M.World, +h: T(G7(s))) -> T(G7(M.run(evs, s))):
+def run7(+evs: +List<M.Ev>, +s: M.World, +h: L.T(G7(s))) -> L.T(G7(M.run(evs, s))):
   match evs:
     case Nil{}:
       h
     case Con{e, +rest}:
       run7(rest, M.step(e, s), step7(e, s, h))
 
-def send_gone7(fu: Bool, r: M.Route, +s: M.World) -> T(S.implies(S.gone(s), Nat.is_eq(S.next_id(M.step(M.Send{fu, r}, s)), S.next_id(s)))):
+def send_gone7(fu: Bool, r: M.Route, +s: M.World) -> L.T(S.implies(S.gone(s), Nat.is_eq(S.next_id(M.step(M.Send{fu, r}, s)), S.next_id(s)))):
   match r:
     case M.Auto{}:
       match s:
         case M.W{+q, +haf, +htk, +t, +d, +u, +tt, +rl, +n, +tk, +us, +i, +g}:
           match g:
             case True{}:
-              eq_refl(n)
+              L.eq_refl(n)
             case False{}:
               {==}
     case M.AskFirst{}:
@@ -1300,7 +1100,7 @@ def send_gone7(fu: Bool, r: M.Route, +s: M.World) -> T(S.implies(S.gone(s), Nat.
         case M.W{+q, +haf, +htk, +t, +d, +u, +tt, +rl, +n, +tk, +us, +i, +g}:
           match g:
             case True{}:
-              eq_refl(n)
+              L.eq_refl(n)
             case False{}:
               {==}
     case M.RouteDrop{}:
@@ -1308,39 +1108,39 @@ def send_gone7(fu: Bool, r: M.Route, +s: M.World) -> T(S.implies(S.gone(s), Nat.
         case M.W{+q, +haf, +htk, +t, +d, +u, +tt, +rl, +n, +tk, +us, +i, +g}:
           match g:
             case True{}:
-              eq_refl(n)
+              L.eq_refl(n)
             case False{}:
               {==}
 
-def m7_main(+evs: +List<M.Ev>, +fu: Bool, +r: M.Route) -> T(Bool.and(S.implies(S.gone(S.world(evs)), Bool.and(S.is_nil(S.queue(S.world(evs))), S.is_nil(S.held_tk(S.world(evs))))), S.implies(S.gone(S.world(evs)), Nat.is_eq(S.next_id(M.step(M.Send{fu, r}, S.world(evs))), S.next_id(S.world(evs)))))):
-  and_i(G7(S.world(evs)), S.implies(S.gone(S.world(evs)), Nat.is_eq(S.next_id(M.step(M.Send{fu, r}, S.world(evs))), S.next_id(S.world(evs)))), run7(evs, M.init(), {==}), send_gone7(fu, r, S.world(evs)))
+def m7_main(+evs: +List<M.Ev>, +fu: Bool, +r: M.Route) -> L.T(Bool.and(S.implies(S.gone(S.world(evs)), Bool.and(S.is_nil(S.queue(S.world(evs))), S.is_nil(S.held_tk(S.world(evs))))), S.implies(S.gone(S.world(evs)), Nat.is_eq(S.next_id(M.step(M.Send{fu, r}, S.world(evs))), S.next_id(S.world(evs)))))):
+  L.and_i(G7(S.world(evs)), S.implies(S.gone(S.world(evs)), Nat.is_eq(S.next_id(M.step(M.Send{fu, r}, S.world(evs))), S.next_id(S.world(evs)))), run7(evs, M.init(), {==}), send_gone7(fu, r, S.world(evs)))
 
 def Laws.m7_receiver_gone(evs, fu, r):
   m7_main(evs, fu, r)
 
 # ---- M10
-def le_zero(p: Nat) -> T(Nat.is_le(0n, p)):
+def le_zero(p: Nat) -> L.T(Nat.is_le(0n, p)):
   match p:
     case 0n:
       {==}
     case 1n+pp:
       {==}
 
-def le_refl(n: Nat) -> T(Nat.is_le(n, n)):
+def le_refl(n: Nat) -> L.T(Nat.is_le(n, n)):
   match n:
     case 0n:
       {==}
     case 1n+p:
       le_refl(p)
 
-def le0_nil(+l: +List<Nat>, +h: T(Nat.is_le(S.len(l), 0n))) -> T(S.is_nil(l)):
+def le0_nil(+l: +List<Nat>, +h: L.T(Nat.is_le(S.len(l), 0n))) -> L.T(S.is_nil(l)):
   match l:
     case Nil{}:
       {==}
     case Con{+x, +rest}:
-      no(T(S.is_nil(x <> rest)), h)
+      L.no(L.T(S.is_nil(x <> rest)), h)
 
-def imp10(g: Bool, X: Bool, f: T(Bool.not(g)) -> T(X)) -> T(S.implies(Bool.not(g), X)):
+def imp10(g: Bool, X: Bool, f: L.T(Bool.not(g)) -> L.T(X)) -> L.T(S.implies(Bool.not(g), X)):
   match g:
     case True{}:
       {==}
@@ -1350,62 +1150,62 @@ def imp10(g: Bool, X: Bool, f: T(Bool.not(g)) -> T(X)) -> T(S.implies(Bool.not(g
 def idle2(+s: M.World) -> M.World:
   M.step(M.Idle{}, M.step(M.Busy{}, s))
 
-def fgo_alive10(+q: +List<Nat>, +haf: +List<Nat>, +htk: +List<Nat>, +t: +List<Nat>, +d: +List<Nat>, +u: +List<Nat>, +tt: +List<Nat>, +rl: +List<Nat>, +n: Nat, +us: Bool, +tk: Bool, +i: Bool) -> T(Bool.not(S.gone(M.flush_go(q, M.W{[], haf, htk, t, d, u, tt, rl, n, tk, us, i, False{}})))):
+def fgo_alive10(+q: +List<Nat>, +haf: +List<Nat>, +htk: +List<Nat>, +t: +List<Nat>, +d: +List<Nat>, +u: +List<Nat>, +tt: +List<Nat>, +rl: +List<Nat>, +n: Nat, +us: Bool, +tk: Bool, +i: Bool) -> L.T(Bool.not(S.gone(M.flush_go(q, M.W{[], haf, htk, t, d, u, tt, rl, n, tk, us, i, False{}})))):
   match q:
     case Nil{}:
       {==}
     case Con{+x, +rest}:
       fgo_alive10(rest, haf, htk, M.snoc(t, x), d, u, M.record(Bool.or(tk, us), x, tt), rl, n, us, tk, False{})
 
-def fgo_empty10(p: Nat, +q: +List<Nat>, +haf: +List<Nat>, +htk: +List<Nat>, +t: +List<Nat>, +d: +List<Nat>, +u: +List<Nat>, +tt: +List<Nat>, +rl: +List<Nat>, +n: Nat, +us: Bool, +tk: Bool, +i: Bool, +g: Bool) -> T(Nat.is_le(S.len(S.queue(M.flush_go(q, M.W{[], haf, htk, t, d, u, tt, rl, n, tk, us, i, g}))), p)):
+def fgo_empty10(p: Nat, +q: +List<Nat>, +haf: +List<Nat>, +htk: +List<Nat>, +t: +List<Nat>, +d: +List<Nat>, +u: +List<Nat>, +tt: +List<Nat>, +rl: +List<Nat>, +n: Nat, +us: Bool, +tk: Bool, +i: Bool, +g: Bool) -> L.T(Nat.is_le(S.len(S.queue(M.flush_go(q, M.W{[], haf, htk, t, d, u, tt, rl, n, tk, us, i, g}))), p)):
   match q:
     case Nil{}:
       le_zero(p)
     case Con{+x, +rest}:
       fgo_empty10(p, rest, haf, htk, M.snoc(t, x), d, u, M.record(Bool.or(tk, us), x, tt), rl, n, us, tk, False{}, g)
 
-def g10(+s: M.World, +hg: T(Bool.not(S.gone(s)))) -> T(Bool.not(S.gone(idle2(s)))):
+def g10(+s: M.World, +hg: L.T(Bool.not(S.gone(s)))) -> L.T(Bool.not(S.gone(idle2(s)))):
   match s:
     case M.W{+q, +haf, +htk, +t, +d, +u, +tt, +rl, +n, +tk, +us, +i, +g}:
       match q:
         case Nil{}:
           match g:
             case True{}:
-              no(T(Bool.not(S.gone(idle2(M.W{[], haf, htk, t, d, u, tt, rl, n, tk, us, i, True{}})))), hg)
+              L.no(L.T(Bool.not(S.gone(idle2(M.W{[], haf, htk, t, d, u, tt, rl, n, tk, us, i, True{}})))), hg)
             case False{}:
               {==}
         case Con{+x, +rest}:
           match g:
             case True{}:
-              no(T(Bool.not(S.gone(idle2(M.W{x <> rest, haf, htk, t, d, u, tt, rl, n, tk, us, i, True{}})))), hg)
+              L.no(L.T(Bool.not(S.gone(idle2(M.W{x <> rest, haf, htk, t, d, u, tt, rl, n, tk, us, i, True{}})))), hg)
             case False{}:
               fgo_alive10(rest, haf, htk, M.snoc(t, x), d, u, M.record(Bool.or(tk, us), x, tt), rl, n, us, tk, False{})
 
-def k10(p: Nat, +s: M.World, +hg: T(Bool.not(S.gone(s))), +hk: T(Nat.is_le(S.len(S.queue(s)), 1n+p))) -> T(Nat.is_le(S.len(S.queue(idle2(s))), p)):
+def k10(p: Nat, +s: M.World, +hg: L.T(Bool.not(S.gone(s))), +hk: L.T(Nat.is_le(S.len(S.queue(s)), 1n+p))) -> L.T(Nat.is_le(S.len(S.queue(idle2(s))), p)):
   match s:
     case M.W{+q, +haf, +htk, +t, +d, +u, +tt, +rl, +n, +tk, +us, +i, +g}:
       match q:
         case Nil{}:
           match g:
             case True{}:
-              no(T(Nat.is_le(S.len(S.queue(idle2(M.W{[], haf, htk, t, d, u, tt, rl, n, tk, us, i, True{}}))), p)), hg)
+              L.no(L.T(Nat.is_le(S.len(S.queue(idle2(M.W{[], haf, htk, t, d, u, tt, rl, n, tk, us, i, True{}}))), p)), hg)
             case False{}:
               le_zero(p)
         case Con{+x, +rest}:
           match g:
             case True{}:
-              no(T(Nat.is_le(S.len(S.queue(idle2(M.W{x <> rest, haf, htk, t, d, u, tt, rl, n, tk, us, i, True{}}))), p)), hg)
+              L.no(L.T(Nat.is_le(S.len(S.queue(idle2(M.W{x <> rest, haf, htk, t, d, u, tt, rl, n, tk, us, i, True{}}))), p)), hg)
             case False{}:
               fgo_empty10(p, rest, haf, htk, M.snoc(t, x), d, u, M.record(Bool.or(tk, us), x, tt), rl, n, us, tk, False{}, False{})
 
-def cyc10(+k: Nat, +s: M.World, +hg: T(Bool.not(S.gone(s))), +hk: T(Nat.is_le(S.len(S.queue(s)), k))) -> T(S.is_nil(S.queue(M.run(S.cycle(k), s)))):
+def cyc10(+k: Nat, +s: M.World, +hg: L.T(Bool.not(S.gone(s))), +hk: L.T(Nat.is_le(S.len(S.queue(s)), k))) -> L.T(S.is_nil(S.queue(M.run(S.cycle(k), s)))):
   match k:
     case 0n:
       le0_nil(S.queue(s), hk)
     case 1n++p:
       cyc10(p, idle2(s), g10(s, hg), k10(p, s, hg, hk))
 
-def m10_main(+evs: +List<M.Ev>) -> T(S.implies(Bool.not(S.gone(S.world(evs))), S.is_nil(S.queue(M.run(S.cycle(S.len(S.queue(S.world(evs)))), S.world(evs)))))):
+def m10_main(+evs: +List<M.Ev>) -> L.T(S.implies(Bool.not(S.gone(S.world(evs))), S.is_nil(S.queue(M.run(S.cycle(S.len(S.queue(S.world(evs)))), S.world(evs)))))):
   imp10(S.gone(S.world(evs)), S.is_nil(S.queue(M.run(S.cycle(S.len(S.queue(S.world(evs)))), S.world(evs)))), hg => cyc10(S.len(S.queue(S.world(evs))), S.world(evs), hg, le_refl(S.len(S.queue(S.world(evs))))))
 
 def Laws.m10_pending_to_idle_is_eventually_typed(evs):
@@ -1413,29 +1213,29 @@ def Laws.m10_pending_to_idle_is_eventually_typed(evs):
 
 
 # ---- inv
-def lt_ne(+x: Nat, +n: Nat, +h: T(Nat.is_lt(x, n))) -> T(Bool.not(Nat.is_eq(n, x))):
+def lt_ne(+x: Nat, +n: Nat, +h: L.T(Nat.is_lt(x, n))) -> L.T(Bool.not(Nat.is_eq(n, x))):
   match x n:
     case 0n 0n:
-      no(T(Bool.not(Nat.is_eq(0n, 0n))), h)
+      L.no(L.T(Bool.not(Nat.is_eq(0n, 0n))), h)
     case 0n 1n+np:
       {==}
     case 1n+xp 0n:
-      no(T(Bool.not(Nat.is_eq(0n, 1n+xp))), h)
+      L.no(L.T(Bool.not(Nat.is_eq(0n, 1n+xp))), h)
     case 1n+xp 1n+np:
       lt_ne(xp, np, h)
 
-def lt_succ(+x: Nat, +n: Nat, +h: T(Nat.is_lt(x, n))) -> T(Nat.is_lt(x, 1n+n)):
+def lt_succ(+x: Nat, +n: Nat, +h: L.T(Nat.is_lt(x, n))) -> L.T(Nat.is_lt(x, 1n+n)):
   match x n:
     case 0n 0n:
-      no(T(Nat.is_lt(0n, 1n)), h)
+      L.no(L.T(Nat.is_lt(0n, 1n)), h)
     case 0n 1n+np:
       {==}
     case 1n+xp 0n:
-      no(T(Nat.is_lt(1n+xp, 1n)), h)
+      L.no(L.T(Nat.is_lt(1n+xp, 1n)), h)
     case 1n+xp 1n+np:
       lt_succ(xp, np, h)
 
-def lt_new(+n: Nat) -> T(Nat.is_lt(n, 1n+n)):
+def lt_new(+n: Nat) -> L.T(Nat.is_lt(n, 1n+n)):
   match n:
     case 0n:
       {==}
@@ -1443,52 +1243,52 @@ def lt_new(+n: Nat) -> T(Nat.is_lt(n, 1n+n)):
       lt_new(p)
 
 def NM(+x: Nat, +l: +List<Nat>) -> Data:
-  T(Bool.not(M.mem(x, l)))
+  L.T(Bool.not(M.mem(x, l)))
 
-def nor_l(a: Bool, b: Bool, +h: T(Bool.not(Bool.or(a, b)))) -> T(Bool.not(a)):
+def nor_l(a: Bool, b: Bool, +h: L.T(Bool.not(Bool.or(a, b)))) -> L.T(Bool.not(a)):
   match a:
     case True{}:
-      no(T(Bool.not(True{})), h)
+      L.no(L.T(Bool.not(True{})), h)
     case False{}:
       {==}
 
-def nor_r(a: Bool, b: Bool, +h: T(Bool.not(Bool.or(a, b)))) -> T(Bool.not(b)):
+def nor_r(a: Bool, b: Bool, +h: L.T(Bool.not(Bool.or(a, b)))) -> L.T(Bool.not(b)):
   match a:
     case True{}:
-      no(T(Bool.not(b)), h)
+      L.no(L.T(Bool.not(b)), h)
     case False{}:
       h
 
-def nor_i(a: Bool, b: Bool, +ha: T(Bool.not(a)), +hb: T(Bool.not(b))) -> T(Bool.not(Bool.or(a, b))):
+def nor_i(a: Bool, b: Bool, +ha: L.T(Bool.not(a)), +hb: L.T(Bool.not(b))) -> L.T(Bool.not(Bool.or(a, b))):
   match a:
     case True{}:
-      no(T(Bool.not(Bool.or(True{}, b))), ha)
+      L.no(L.T(Bool.not(Bool.or(True{}, b))), ha)
     case False{}:
       hb
 
-def ncase(m: Bool, +a: T(m), +b: T(Bool.not(m))) -> T(False{}):
+def ncase(m: Bool, +a: L.T(m), +b: L.T(Bool.not(m))) -> L.T(False{}):
   match m:
     case True{}:
       b
     case False{}:
-      no(T(False{}), a)
+      L.no(L.T(False{}), a)
 
-def cp(m1: Bool, m2: Bool, f: T(m1) -> T(m2), +h: T(Bool.not(m2))) -> T(Bool.not(m1)):
+def cp(m1: Bool, m2: Bool, f: L.T(m1) -> L.T(m2), +h: L.T(Bool.not(m2))) -> L.T(Bool.not(m1)):
   match m1:
     case True{}:
-      no(T(Bool.not(True{})), ncase(m2, f({==}), h))
+      L.no(L.T(Bool.not(True{})), ncase(m2, f({==}), h))
     case False{}:
       {==}
 
-def eq_sym_b(+x: Nat, +y: Nat, +h: T(Nat.is_eq(x, y))) -> T(Nat.is_eq(y, x)):
-  %eq_elim(x, y, h) : T(Nat.is_eq(_, x))
-  eq_refl(x)
+def eq_sym_b(+x: Nat, +y: Nat, +h: L.T(Nat.is_eq(x, y))) -> L.T(Nat.is_eq(y, x)):
+  %L.eq_elim(x, y, h) : L.T(Nat.is_eq(_, x))
+  L.eq_refl(x)
 
-def ne_sym(+x: Nat, +y: Nat, +h: T(Bool.not(Nat.is_eq(x, y)))) -> T(Bool.not(Nat.is_eq(y, x))):
+def ne_sym(+x: Nat, +y: Nat, +h: L.T(Bool.not(Nat.is_eq(x, y)))) -> L.T(Bool.not(Nat.is_eq(y, x))):
   cp(Nat.is_eq(y, x), Nat.is_eq(x, y), hh => eq_sym_b(y, x, hh), h)
 
-def nm_sub(+x: Nat, +l: +List<Nat>, +m: +List<Nat>, +hs: T(S.all_in(l, m)), +h: NM(x, m)) -> NM(x, l):
-  cp(M.mem(x, l), M.mem(x, m), hh => mem_all_in(x, l, m, hh, hs), h)
+def nm_sub(+x: Nat, +l: +List<Nat>, +m: +List<Nat>, +hs: L.T(S.all_in(l, m)), +h: NM(x, m)) -> NM(x, l):
+  cp(M.mem(x, l), M.mem(x, m), hh => L.mem_all_in(x, l, m, hh, hs), h)
 
 def nm_app(+x: Nat, +a: +List<Nat>, +b: +List<Nat>, +ha: NM(x, a), +hb: NM(x, b)) -> NM(x, List.append(&2, Nat, a, b)):
   match a:
@@ -1497,41 +1297,41 @@ def nm_app(+x: Nat, +a: +List<Nat>, +b: +List<Nat>, +ha: NM(x, a), +hb: NM(x, b)
     case Con{+z, +rest}:
       nor_i(Nat.is_eq(x, z), M.mem(x, List.append(&2, Nat, rest, b)), nor_l(Nat.is_eq(x, z), M.mem(x, rest), ha), nm_app(x, rest, b, nor_r(Nat.is_eq(x, z), M.mem(x, rest), ha), hb))
 
-def nm_snoc(+x: Nat, +l: +List<Nat>, +y: Nat, +hl: NM(x, l), +hy: T(Bool.not(Nat.is_eq(x, y)))) -> NM(x, M.snoc(l, y)):
+def nm_snoc(+x: Nat, +l: +List<Nat>, +y: Nat, +hl: NM(x, l), +hy: L.T(Bool.not(Nat.is_eq(x, y)))) -> NM(x, M.snoc(l, y)):
   match l:
     case Nil{}:
       nor_i(Nat.is_eq(x, y), False{}, hy, {==})
     case Con{+z, +rest}:
       nor_i(Nat.is_eq(x, z), M.mem(x, M.snoc(rest, y)), nor_l(Nat.is_eq(x, z), M.mem(x, rest), hl), nm_snoc(x, rest, y, nor_r(Nat.is_eq(x, z), M.mem(x, rest), hl), hy))
 
-def nm_cons(+x: Nat, +y: Nat, +l: +List<Nat>, +hy: T(Bool.not(Nat.is_eq(x, y))), +hl: NM(x, l)) -> NM(x, y <> l):
+def nm_cons(+x: Nat, +y: Nat, +l: +List<Nat>, +hy: L.T(Bool.not(Nat.is_eq(x, y))), +hl: NM(x, l)) -> NM(x, y <> l):
   nor_i(Nat.is_eq(x, y), M.mem(x, l), hy, hl)
 
 def DJ(+a: +List<Nat>, +b: +List<Nat>) -> Data:
-  T(S.disjoint(a, b))
+  L.T(S.disjoint(a, b))
 
 def ND(+a: +List<Nat>) -> Data:
-  T(S.nodup(a))
+  L.T(S.nodup(a))
 
 def nm_eq(+x: Nat, +z: Nat, +zs: +List<Nat>, +e: {x == z : Nat}, +h: NM(z, zs)) -> NM(x, zs):
   %Equal.sym(Nat, x, z, e) : NM(_, zs)
   h
 
 def dj_hd(+x: Nat, +rest: +List<Nat>, +ys: +List<Nat>, +h: DJ(x <> rest, ys)) -> NM(x, ys):
-  and_l(Bool.not(M.mem(x, ys)), S.disjoint(rest, ys), h)
+  L.and_l(Bool.not(M.mem(x, ys)), S.disjoint(rest, ys), h)
 
 def dj_tl(+x: Nat, +rest: +List<Nat>, +ys: +List<Nat>, +h: DJ(x <> rest, ys)) -> DJ(rest, ys):
-  and_r(Bool.not(M.mem(x, ys)), S.disjoint(rest, ys), h)
+  L.and_r(Bool.not(M.mem(x, ys)), S.disjoint(rest, ys), h)
 
 def dj_cons_l(+x: Nat, +rest: +List<Nat>, +ys: +List<Nat>, +hx: NM(x, ys), +h: DJ(rest, ys)) -> DJ(x <> rest, ys):
-  and_i(Bool.not(M.mem(x, ys)), S.disjoint(rest, ys), hx, h)
+  L.and_i(Bool.not(M.mem(x, ys)), S.disjoint(rest, ys), hx, h)
 
-def dj_nm(+xs: +List<Nat>, +ys: +List<Nat>, +z: Nat, +hm: T(M.mem(z, xs)), +h: DJ(xs, ys)) -> NM(z, ys):
+def dj_nm(+xs: +List<Nat>, +ys: +List<Nat>, +z: Nat, +hm: L.T(M.mem(z, xs)), +h: DJ(xs, ys)) -> NM(z, ys):
   match xs:
     case Nil{}:
-      no(NM(z, ys), hm)
+      L.no(NM(z, ys), hm)
     case Con{+x, +rest}:
-      or_elim(Bool.not(M.mem(z, ys)), Nat.is_eq(z, x), M.mem(z, rest), he => nm_eq(z, x, ys, eq_elim(z, x, he), dj_hd(x, rest, ys, h)), hr => dj_nm(rest, ys, z, hr, dj_tl(x, rest, ys, h)), hm)
+      L.or_elim(Bool.not(M.mem(z, ys)), Nat.is_eq(z, x), M.mem(z, rest), he => nm_eq(z, x, ys, L.eq_elim(z, x, he), dj_hd(x, rest, ys, h)), hr => dj_nm(rest, ys, z, hr, dj_tl(x, rest, ys, h)), hm)
 
 def dj_nm_r(+xs: +List<Nat>, +y: Nat, +ys: +List<Nat>, +h: DJ(xs, y <> ys)) -> NM(y, xs):
   match xs:
@@ -1596,14 +1396,14 @@ def dj_cons_r(+a: +List<Nat>, +y: Nat, +b: +List<Nat>, +h: DJ(a, b), +hy: NM(y, 
     case Con{+x, +rest}:
       dj_cons_l(x, rest, y <> b, nm_cons(x, y, b, ne_sym(y, x, nor_l(Nat.is_eq(y, x), M.mem(y, rest), hy)), dj_hd(x, rest, b, h)), dj_cons_r(rest, y, b, dj_tl(x, rest, b, h), nor_r(Nat.is_eq(y, x), M.mem(y, rest), hy)))
 
-def dj_sub_l(+a1: +List<Nat>, +a: +List<Nat>, +b: +List<Nat>, +hs: T(S.all_in(a1, a)), +h: DJ(a, b)) -> DJ(a1, b):
+def dj_sub_l(+a1: +List<Nat>, +a: +List<Nat>, +b: +List<Nat>, +hs: L.T(S.all_in(a1, a)), +h: DJ(a, b)) -> DJ(a1, b):
   match a1:
     case Nil{}:
       {==}
     case Con{+x, +rest}:
-      dj_cons_l(x, rest, b, dj_nm(a, b, x, and_l(M.mem(x, a), S.all_in(rest, a), hs), h), dj_sub_l(rest, a, b, and_r(M.mem(x, a), S.all_in(rest, a), hs), h))
+      dj_cons_l(x, rest, b, dj_nm(a, b, x, L.and_l(M.mem(x, a), S.all_in(rest, a), hs), h), dj_sub_l(rest, a, b, L.and_r(M.mem(x, a), S.all_in(rest, a), hs), h))
 
-def dj_sub_r(+a: +List<Nat>, +b1: +List<Nat>, +b: +List<Nat>, +hs: T(S.all_in(b1, b)), +h: DJ(a, b)) -> DJ(a, b1):
+def dj_sub_r(+a: +List<Nat>, +b1: +List<Nat>, +b: +List<Nat>, +hs: L.T(S.all_in(b1, b)), +h: DJ(a, b)) -> DJ(a, b1):
   match a:
     case Nil{}:
       {==}
@@ -1611,13 +1411,13 @@ def dj_sub_r(+a: +List<Nat>, +b1: +List<Nat>, +b: +List<Nat>, +hs: T(S.all_in(b1
       dj_cons_l(x, rest, b1, nm_sub(x, b1, b, hs, dj_hd(x, rest, b, h)), dj_sub_r(rest, b1, b, hs, dj_tl(x, rest, b, h)))
 
 def nd_hd(+x: Nat, +rest: +List<Nat>, +h: ND(x <> rest)) -> NM(x, rest):
-  and_l(Bool.not(M.mem(x, rest)), S.nodup(rest), h)
+  L.and_l(Bool.not(M.mem(x, rest)), S.nodup(rest), h)
 
 def nd_tl(+x: Nat, +rest: +List<Nat>, +h: ND(x <> rest)) -> ND(rest):
-  and_r(Bool.not(M.mem(x, rest)), S.nodup(rest), h)
+  L.and_r(Bool.not(M.mem(x, rest)), S.nodup(rest), h)
 
 def nd_cons(+x: Nat, +rest: +List<Nat>, +hx: NM(x, rest), +h: ND(rest)) -> ND(x <> rest):
-  and_i(Bool.not(M.mem(x, rest)), S.nodup(rest), hx, h)
+  L.and_i(Bool.not(M.mem(x, rest)), S.nodup(rest), hx, h)
 
 def nd_snoc(+l: +List<Nat>, +y: Nat, +h: ND(l), +hy: NM(y, l)) -> ND(M.snoc(l, y)):
   match l:
@@ -1633,49 +1433,49 @@ def nd_app(+a: +List<Nat>, +b: +List<Nat>, +ha: ND(a), +hb: ND(b), +hd: DJ(a, b)
     case Con{+x, +rest}:
       nd_cons(x, List.append(&2, Nat, rest, b), nm_app(x, rest, b, nd_hd(x, rest, ha), dj_hd(x, rest, b, hd)), nd_app(rest, b, nd_tl(x, rest, ha), hb, dj_tl(x, rest, b, hd)))
 
-def rm_sub_step(b: Bool, +y: Nat, +rest: +List<Nat>, +tail: +List<Nat>, +ht: T(S.all_in(tail, rest))) -> T(S.all_in(M.remove_step(b, y, tail), y <> rest)):
+def rm_sub_step(b: Bool, +y: Nat, +rest: +List<Nat>, +tail: +List<Nat>, +ht: L.T(S.all_in(tail, rest))) -> L.T(S.all_in(M.remove_step(b, y, tail), y <> rest)):
   match b:
     case True{}:
-      all_in_cons_r(tail, y, rest, ht)
+      L.all_in_cons_r(tail, y, rest, ht)
     case False{}:
-      and_i(M.mem(y, y <> rest), S.all_in(tail, y <> rest), or_l(Nat.is_eq(y, y), M.mem(y, rest), eq_refl(y)), all_in_cons_r(tail, y, rest, ht))
+      L.and_i(M.mem(y, y <> rest), S.all_in(tail, y <> rest), L.or_l(Nat.is_eq(y, y), M.mem(y, rest), L.eq_refl(y)), L.all_in_cons_r(tail, y, rest, ht))
 
-def rm_sub(+x: Nat, +l: +List<Nat>) -> T(S.all_in(M.remove(x, l), l)):
+def rm_sub(+x: Nat, +l: +List<Nat>) -> L.T(S.all_in(M.remove(x, l), l)):
   match l:
     case Nil{}:
       {==}
     case Con{+y, +rest}:
       rm_sub_step(Nat.is_eq(x, y), y, rest, M.remove(x, rest), rm_sub(x, rest))
 
-def keep_sub_step(b: Bool, +y: Nat, +rest: +List<Nat>, +tail: +List<Nat>, +ht: T(S.all_in(tail, rest))) -> T(S.all_in(M.keep_step(b, y, tail), y <> rest)):
+def keep_sub_step(b: Bool, +y: Nat, +rest: +List<Nat>, +tail: +List<Nat>, +ht: L.T(S.all_in(tail, rest))) -> L.T(S.all_in(M.keep_step(b, y, tail), y <> rest)):
   match b:
     case True{}:
-      and_i(M.mem(y, y <> rest), S.all_in(tail, y <> rest), or_l(Nat.is_eq(y, y), M.mem(y, rest), eq_refl(y)), all_in_cons_r(tail, y, rest, ht))
+      L.and_i(M.mem(y, y <> rest), S.all_in(tail, y <> rest), L.or_l(Nat.is_eq(y, y), M.mem(y, rest), L.eq_refl(y)), L.all_in_cons_r(tail, y, rest, ht))
     case False{}:
-      all_in_cons_r(tail, y, rest, ht)
+      L.all_in_cons_r(tail, y, rest, ht)
 
-def keep_sub(+q: +List<Nat>, +u: +List<Nat>) -> T(S.all_in(M.keep_users(q, u), q)):
+def keep_sub(+q: +List<Nat>, +u: +List<Nat>) -> L.T(S.all_in(M.keep_users(q, u), q)):
   match q:
     case Nil{}:
       {==}
     case Con{+y, +rest}:
       keep_sub_step(M.mem(y, u), y, rest, M.keep_users(rest, u), keep_sub(rest, u))
 
-def drop_sub_step(b: Bool, +y: Nat, +rest: +List<Nat>, +tail: +List<Nat>, +ht: T(S.all_in(tail, rest))) -> T(S.all_in(M.drop_step(b, y, tail), y <> rest)):
+def drop_sub_step(b: Bool, +y: Nat, +rest: +List<Nat>, +tail: +List<Nat>, +ht: L.T(S.all_in(tail, rest))) -> L.T(S.all_in(M.drop_step(b, y, tail), y <> rest)):
   match b:
     case True{}:
-      all_in_cons_r(tail, y, rest, ht)
+      L.all_in_cons_r(tail, y, rest, ht)
     case False{}:
-      and_i(M.mem(y, y <> rest), S.all_in(tail, y <> rest), or_l(Nat.is_eq(y, y), M.mem(y, rest), eq_refl(y)), all_in_cons_r(tail, y, rest, ht))
+      L.and_i(M.mem(y, y <> rest), S.all_in(tail, y <> rest), L.or_l(Nat.is_eq(y, y), M.mem(y, rest), L.eq_refl(y)), L.all_in_cons_r(tail, y, rest, ht))
 
-def drop_sub(+q: +List<Nat>, +u: +List<Nat>) -> T(S.all_in(M.drop_users(q, u), q)):
+def drop_sub(+q: +List<Nat>, +u: +List<Nat>) -> L.T(S.all_in(M.drop_users(q, u), q)):
   match q:
     case Nil{}:
       {==}
     case Con{+y, +rest}:
       drop_sub_step(M.mem(y, u), y, rest, M.drop_users(rest, u), drop_sub(rest, u))
 
-def rs_nm(b: Bool, +x: Nat, +y: Nat, +tail: +List<Nat>, +hn: NM(x, tail), hb: T(Bool.not(b)) -> T(Bool.not(Nat.is_eq(x, y)))) -> NM(x, M.remove_step(b, y, tail)):
+def rs_nm(b: Bool, +x: Nat, +y: Nat, +tail: +List<Nat>, +hn: NM(x, tail), hb: L.T(Bool.not(b)) -> L.T(Bool.not(Nat.is_eq(x, y)))) -> NM(x, M.remove_step(b, y, tail)):
   match b:
     case True{}:
       hn
@@ -1753,20 +1553,20 @@ def bd(+l: +List<Nat>, +n: Nat) -> Bool:
       Bool.and(Nat.is_lt(x, n), bd(rest, n))
 
 def BD(+l: +List<Nat>, +n: Nat) -> Data:
-  T(bd(l, n))
+  L.T(bd(l, n))
 
-def lt_eq(+x: Nat, +y: Nat, +n: Nat, +e: {x == y : Nat}, +h: T(Nat.is_lt(y, n))) -> T(Nat.is_lt(x, n)):
-  %Equal.sym(Nat, x, y, e) : T(Nat.is_lt(_, n))
+def lt_eq(+x: Nat, +y: Nat, +n: Nat, +e: {x == y : Nat}, +h: L.T(Nat.is_lt(y, n))) -> L.T(Nat.is_lt(x, n)):
+  %Equal.sym(Nat, x, y, e) : L.T(Nat.is_lt(_, n))
   h
 
-def bd_hd(+x: Nat, +rest: +List<Nat>, +n: Nat, +h: BD(x <> rest, n)) -> T(Nat.is_lt(x, n)):
-  and_l(Nat.is_lt(x, n), bd(rest, n), h)
+def bd_hd(+x: Nat, +rest: +List<Nat>, +n: Nat, +h: BD(x <> rest, n)) -> L.T(Nat.is_lt(x, n)):
+  L.and_l(Nat.is_lt(x, n), bd(rest, n), h)
 
 def bd_tl(+x: Nat, +rest: +List<Nat>, +n: Nat, +h: BD(x <> rest, n)) -> BD(rest, n):
-  and_r(Nat.is_lt(x, n), bd(rest, n), h)
+  L.and_r(Nat.is_lt(x, n), bd(rest, n), h)
 
-def bd_cons(+x: Nat, +rest: +List<Nat>, +n: Nat, +hx: T(Nat.is_lt(x, n)), +h: BD(rest, n)) -> BD(x <> rest, n):
-  and_i(Nat.is_lt(x, n), bd(rest, n), hx, h)
+def bd_cons(+x: Nat, +rest: +List<Nat>, +n: Nat, +hx: L.T(Nat.is_lt(x, n)), +h: BD(rest, n)) -> BD(x <> rest, n):
+  L.and_i(Nat.is_lt(x, n), bd(rest, n), hx, h)
 
 def bd_succ(+l: +List<Nat>, +n: Nat, +h: BD(l, n)) -> BD(l, 1n+n):
   match l:
@@ -1782,21 +1582,21 @@ def bd_fresh(+l: +List<Nat>, +n: Nat, +h: BD(l, n)) -> NM(n, l):
     case Con{+x, +rest}:
       nor_i(Nat.is_eq(n, x), M.mem(n, rest), lt_ne(x, n, bd_hd(x, rest, n, h)), bd_fresh(rest, n, bd_tl(x, rest, n, h)))
 
-def bd_mem(+m: +List<Nat>, +n: Nat, +x: Nat, +hm: T(M.mem(x, m)), +h: BD(m, n)) -> T(Nat.is_lt(x, n)):
+def bd_mem(+m: +List<Nat>, +n: Nat, +x: Nat, +hm: L.T(M.mem(x, m)), +h: BD(m, n)) -> L.T(Nat.is_lt(x, n)):
   match m:
     case Nil{}:
-      no(T(Nat.is_lt(x, n)), hm)
+      L.no(L.T(Nat.is_lt(x, n)), hm)
     case Con{+y, +rest}:
-      or_elim(Nat.is_lt(x, n), Nat.is_eq(x, y), M.mem(x, rest), he => lt_eq(x, y, n, eq_elim(x, y, he), bd_hd(y, rest, n, h)), hr => bd_mem(rest, n, x, hr, bd_tl(y, rest, n, h)), hm)
+      L.or_elim(Nat.is_lt(x, n), Nat.is_eq(x, y), M.mem(x, rest), he => lt_eq(x, y, n, L.eq_elim(x, y, he), bd_hd(y, rest, n, h)), hr => bd_mem(rest, n, x, hr, bd_tl(y, rest, n, h)), hm)
 
-def bd_sub(+l: +List<Nat>, +m: +List<Nat>, +n: Nat, +hs: T(S.all_in(l, m)), +h: BD(m, n)) -> BD(l, n):
+def bd_sub(+l: +List<Nat>, +m: +List<Nat>, +n: Nat, +hs: L.T(S.all_in(l, m)), +h: BD(m, n)) -> BD(l, n):
   match l:
     case Nil{}:
       {==}
     case Con{+x, +rest}:
-      bd_cons(x, rest, n, bd_mem(m, n, x, and_l(M.mem(x, m), S.all_in(rest, m), hs), h), bd_sub(rest, m, n, and_r(M.mem(x, m), S.all_in(rest, m), hs), h))
+      bd_cons(x, rest, n, bd_mem(m, n, x, L.and_l(M.mem(x, m), S.all_in(rest, m), hs), h), bd_sub(rest, m, n, L.and_r(M.mem(x, m), S.all_in(rest, m), hs), h))
 
-def bd_snoc(+l: +List<Nat>, +y: Nat, +n: Nat, +h: BD(l, n), +hy: T(Nat.is_lt(y, n))) -> BD(M.snoc(l, y), n):
+def bd_snoc(+l: +List<Nat>, +y: Nat, +n: Nat, +h: BD(l, n), +hy: L.T(Nat.is_lt(y, n))) -> BD(M.snoc(l, y), n):
   match l:
     case Nil{}:
       bd_cons(y, [], n, hy, {==})
@@ -1881,9 +1681,9 @@ def SG(+lq: Nat, +la: Nat, +lk: Nat, +lt: Nat, +ld: Nat) -> Nat:
 def SUMB(+q: +List<Nat>, +a: +List<Nat>, +k: +List<Nat>, +t: +List<Nat>, +d: +List<Nat>, +n: Nat) -> Bool:
   Nat.is_eq(SG(S.len(q), S.len(a), S.len(k), S.len(t), S.len(d)), n)
 
-def eq_intro(+x: Nat, +y: Nat, +e: EQ(x, y)) -> T(Nat.is_eq(x, y)):
-  %e : T(Nat.is_eq(x, _))
-  eq_refl(x)
+def eq_intro(+x: Nat, +y: Nat, +e: EQ(x, y)) -> L.T(Nat.is_eq(x, y)):
+  %e : L.T(Nat.is_eq(x, _))
+  L.eq_refl(x)
 
 def cgq(+x: Nat, +y: Nat, +la: Nat, +lk: Nat, +lt: Nat, +ld: Nat, +e: EQ(x, y)) -> EQ(SG(x, la, lk, lt, ld), SG(y, la, lk, lt, ld)):
   Equal.cong(Nat, Nat, v => SG(v, la, lk, lt, ld), x, y, e)
@@ -1929,10 +1729,10 @@ def len_snoc(+l: +List<Nat>, +y: Nat) -> EQ(S.len(M.snoc(l, y)), 1n+S.len(l)):
     case Con{+x, +rest}:
       sc(S.len(M.snoc(rest, y)), 1n+S.len(rest), len_snoc(rest, y))
 
-def ra_step(b: Bool, +y: Nat, +rest: +List<Nat>, +tail: +List<Nat>, +hnb: T(Bool.not(b)), +ht: EQ(S.len(tail), S.len(rest))) -> EQ(S.len(M.remove_step(b, y, tail)), S.len(y <> rest)):
+def ra_step(b: Bool, +y: Nat, +rest: +List<Nat>, +tail: +List<Nat>, +hnb: L.T(Bool.not(b)), +ht: EQ(S.len(tail), S.len(rest))) -> EQ(S.len(M.remove_step(b, y, tail)), S.len(y <> rest)):
   match b:
     case True{}:
-      no(EQ(S.len(M.remove_step(True{}, y, tail)), S.len(y <> rest)), hnb)
+      L.no(EQ(S.len(M.remove_step(True{}, y, tail)), S.len(y <> rest)), hnb)
     case False{}:
       sc(S.len(tail), S.len(rest), ht)
 
@@ -1943,19 +1743,19 @@ def len_rm_absent(+id: Nat, +l: +List<Nat>, +h: NM(id, l)) -> EQ(S.len(M.remove(
     case Con{+y, +rest}:
       ra_step(Nat.is_eq(id, y), y, rest, M.remove(id, rest), nor_l(Nat.is_eq(id, y), M.mem(id, rest), h), len_rm_absent(id, rest, nor_r(Nat.is_eq(id, y), M.mem(id, rest), h)))
 
-def rm_len_step(b: Bool, +y: Nat, +rest: +List<Nat>, +tail: +List<Nat>, m: Bool, +hm: T(Bool.or(b, m)), hT: T(b) -> EQ(S.len(rest), S.len(tail)), hF: T(m) -> EQ(S.len(rest), 1n+S.len(tail))) -> EQ(S.len(y <> rest), 1n+S.len(M.remove_step(b, y, tail))):
+def rm_len_step(b: Bool, +y: Nat, +rest: +List<Nat>, +tail: +List<Nat>, m: Bool, +hm: L.T(Bool.or(b, m)), hT: L.T(b) -> EQ(S.len(rest), S.len(tail)), hF: L.T(m) -> EQ(S.len(rest), 1n+S.len(tail))) -> EQ(S.len(y <> rest), 1n+S.len(M.remove_step(b, y, tail))):
   match b:
     case True{}:
       sc(S.len(rest), S.len(tail), hT({==}))
     case False{}:
       sc(S.len(rest), 1n+S.len(tail), hF(hm))
 
-def len_rm(+id: Nat, +l: +List<Nat>, +hm: T(M.mem(id, l)), +hn: ND(l)) -> EQ(S.len(l), 1n+S.len(M.remove(id, l))):
+def len_rm(+id: Nat, +l: +List<Nat>, +hm: L.T(M.mem(id, l)), +hn: ND(l)) -> EQ(S.len(l), 1n+S.len(M.remove(id, l))):
   match l:
     case Nil{}:
-      no(EQ(S.len([]), 1n+S.len(M.remove(id, []))), hm)
+      L.no(EQ(S.len([]), 1n+S.len(M.remove(id, []))), hm)
     case Con{+y, +rest}:
-      rm_len_step(Nat.is_eq(id, y), y, rest, M.remove(id, rest), M.mem(id, rest), hm, he => sy(S.len(M.remove(id, rest)), S.len(rest), len_rm_absent(id, rest, nm_eq(id, y, rest, eq_elim(id, y, he), nd_hd(y, rest, hn)))), hr => len_rm(id, rest, hr, nd_tl(y, rest, hn)))
+      rm_len_step(Nat.is_eq(id, y), y, rest, M.remove(id, rest), M.mem(id, rest), hm, he => sy(S.len(M.remove(id, rest)), S.len(rest), len_rm_absent(id, rest, nm_eq(id, y, rest, L.eq_elim(id, y, he), nd_hd(y, rest, hn)))), hr => len_rm(id, rest, hr, nd_tl(y, rest, hn)))
 
 def kd_len_step(b: Bool, +y: Nat, +rest: +List<Nat>, +k: +List<Nat>, +d: +List<Nat>, +ih: EQ(S.len(rest), Nat.add(S.len(k), S.len(d)))) -> EQ(S.len(y <> rest), Nat.add(S.len(M.keep_step(b, y, k)), S.len(M.drop_step(b, y, d)))):
   match b:
@@ -1980,41 +1780,41 @@ def shk(+lq: Nat, +la: Nat, +lk: Nat, +lt: Nat, +ld: Nat, +z: Nat) -> EQ(SG(lq, 
 def shd(+lq: Nat, +la: Nat, +lk: Nat, +lt: Nat, +ld: Nat, +z: Nat) -> EQ(SG(lq, la, lk, lt, Nat.add(ld, z)), Nat.add(z, SG(lq, la, lk, lt, ld))):
   tr(SG(lq, la, lk, lt, Nat.add(ld, z)), 1n+Nat.add(z, Nat.add(lq, Nat.add(la, Nat.add(lk, Nat.add(lt, ld))))), Nat.add(z, SG(lq, la, lk, lt, ld)), sc(Nat.add(lq, Nat.add(la, Nat.add(lk, Nat.add(lt, Nat.add(ld, z))))), Nat.add(z, Nat.add(lq, Nat.add(la, Nat.add(lk, Nat.add(lt, ld))))), tr(Nat.add(lq, Nat.add(la, Nat.add(lk, Nat.add(lt, Nat.add(ld, z))))), Nat.add(lq, Nat.add(z, Nat.add(la, Nat.add(lk, Nat.add(lt, ld))))), Nat.add(z, Nat.add(lq, Nat.add(la, Nat.add(lk, Nat.add(lt, ld))))), ar(lq, Nat.add(la, Nat.add(lk, Nat.add(lt, Nat.add(ld, z)))), Nat.add(z, Nat.add(la, Nat.add(lk, Nat.add(lt, ld)))), tr(Nat.add(la, Nat.add(lk, Nat.add(lt, Nat.add(ld, z)))), Nat.add(la, Nat.add(z, Nat.add(lk, Nat.add(lt, ld)))), Nat.add(z, Nat.add(la, Nat.add(lk, Nat.add(lt, ld)))), ar(la, Nat.add(lk, Nat.add(lt, Nat.add(ld, z))), Nat.add(z, Nat.add(lk, Nat.add(lt, ld))), tr(Nat.add(lk, Nat.add(lt, Nat.add(ld, z))), Nat.add(lk, Nat.add(z, Nat.add(lt, ld))), Nat.add(z, Nat.add(lk, Nat.add(lt, ld))), ar(lk, Nat.add(lt, Nat.add(ld, z)), Nat.add(z, Nat.add(lt, ld)), tr(Nat.add(lt, Nat.add(ld, z)), Nat.add(lt, Nat.add(z, ld)), Nat.add(z, Nat.add(lt, ld)), ar(lt, Nat.add(ld, z), Nat.add(z, ld), add_comm(ld, z)), swp(lt, z, ld))), swp(lk, z, Nat.add(lt, ld)))), swp(la, z, Nat.add(lk, Nat.add(lt, ld))))), swp(lq, z, Nat.add(la, Nat.add(lk, Nat.add(lt, ld)))))), sy(Nat.add(z, 1n+Nat.add(lq, Nat.add(la, Nat.add(lk, Nat.add(lt, ld))))), 1n+Nat.add(z, Nat.add(lq, Nat.add(la, Nat.add(lk, Nat.add(lt, ld))))), add_succ_r(z, Nat.add(lq, Nat.add(la, Nat.add(lk, Nat.add(lt, ld)))))))
 
-def sm_sendQ(+q: +List<Nat>, +a: +List<Nat>, +k: +List<Nat>, +t: +List<Nat>, +d: +List<Nat>, +n: Nat, +hs: T(SUMB(q, a, k, t, d, n))) -> T(SUMB(M.snoc(q, n), a, k, t, d, 1n+n)):
-  eq_intro(SG(S.len(M.snoc(q, n)), S.len(a), S.len(k), S.len(t), S.len(d)), 1n+n, tr(SG(S.len(M.snoc(q, n)), S.len(a), S.len(k), S.len(t), S.len(d)), SG(1n+S.len(q), S.len(a), S.len(k), S.len(t), S.len(d)), 1n+n, cgq(S.len(M.snoc(q, n)), 1n+S.len(q), S.len(a), S.len(k), S.len(t), S.len(d), len_snoc(q, n)), tr(SG(1n+S.len(q), S.len(a), S.len(k), S.len(t), S.len(d)), 1n+SG(S.len(q), S.len(a), S.len(k), S.len(t), S.len(d)), 1n+n, bq(S.len(q), S.len(a), S.len(k), S.len(t), S.len(d)), sc(SG(S.len(q), S.len(a), S.len(k), S.len(t), S.len(d)), n, eq_elim(SG(S.len(q), S.len(a), S.len(k), S.len(t), S.len(d)), n, hs)))))
+def sm_sendQ(+q: +List<Nat>, +a: +List<Nat>, +k: +List<Nat>, +t: +List<Nat>, +d: +List<Nat>, +n: Nat, +hs: L.T(SUMB(q, a, k, t, d, n))) -> L.T(SUMB(M.snoc(q, n), a, k, t, d, 1n+n)):
+  eq_intro(SG(S.len(M.snoc(q, n)), S.len(a), S.len(k), S.len(t), S.len(d)), 1n+n, tr(SG(S.len(M.snoc(q, n)), S.len(a), S.len(k), S.len(t), S.len(d)), SG(1n+S.len(q), S.len(a), S.len(k), S.len(t), S.len(d)), 1n+n, cgq(S.len(M.snoc(q, n)), 1n+S.len(q), S.len(a), S.len(k), S.len(t), S.len(d), len_snoc(q, n)), tr(SG(1n+S.len(q), S.len(a), S.len(k), S.len(t), S.len(d)), 1n+SG(S.len(q), S.len(a), S.len(k), S.len(t), S.len(d)), 1n+n, bq(S.len(q), S.len(a), S.len(k), S.len(t), S.len(d)), sc(SG(S.len(q), S.len(a), S.len(k), S.len(t), S.len(d)), n, L.eq_elim(SG(S.len(q), S.len(a), S.len(k), S.len(t), S.len(d)), n, hs)))))
 
-def sm_sendA(+q: +List<Nat>, +a: +List<Nat>, +k: +List<Nat>, +t: +List<Nat>, +d: +List<Nat>, +n: Nat, +hs: T(SUMB(q, a, k, t, d, n))) -> T(SUMB(q, M.snoc(a, n), k, t, d, 1n+n)):
-  eq_intro(SG(S.len(q), S.len(M.snoc(a, n)), S.len(k), S.len(t), S.len(d)), 1n+n, tr(SG(S.len(q), S.len(M.snoc(a, n)), S.len(k), S.len(t), S.len(d)), SG(S.len(q), 1n+S.len(a), S.len(k), S.len(t), S.len(d)), 1n+n, cga(S.len(q), S.len(M.snoc(a, n)), 1n+S.len(a), S.len(k), S.len(t), S.len(d), len_snoc(a, n)), tr(SG(S.len(q), 1n+S.len(a), S.len(k), S.len(t), S.len(d)), 1n+SG(S.len(q), S.len(a), S.len(k), S.len(t), S.len(d)), 1n+n, ba(S.len(q), S.len(a), S.len(k), S.len(t), S.len(d)), sc(SG(S.len(q), S.len(a), S.len(k), S.len(t), S.len(d)), n, eq_elim(SG(S.len(q), S.len(a), S.len(k), S.len(t), S.len(d)), n, hs)))))
+def sm_sendA(+q: +List<Nat>, +a: +List<Nat>, +k: +List<Nat>, +t: +List<Nat>, +d: +List<Nat>, +n: Nat, +hs: L.T(SUMB(q, a, k, t, d, n))) -> L.T(SUMB(q, M.snoc(a, n), k, t, d, 1n+n)):
+  eq_intro(SG(S.len(q), S.len(M.snoc(a, n)), S.len(k), S.len(t), S.len(d)), 1n+n, tr(SG(S.len(q), S.len(M.snoc(a, n)), S.len(k), S.len(t), S.len(d)), SG(S.len(q), 1n+S.len(a), S.len(k), S.len(t), S.len(d)), 1n+n, cga(S.len(q), S.len(M.snoc(a, n)), 1n+S.len(a), S.len(k), S.len(t), S.len(d), len_snoc(a, n)), tr(SG(S.len(q), 1n+S.len(a), S.len(k), S.len(t), S.len(d)), 1n+SG(S.len(q), S.len(a), S.len(k), S.len(t), S.len(d)), 1n+n, ba(S.len(q), S.len(a), S.len(k), S.len(t), S.len(d)), sc(SG(S.len(q), S.len(a), S.len(k), S.len(t), S.len(d)), n, L.eq_elim(SG(S.len(q), S.len(a), S.len(k), S.len(t), S.len(d)), n, hs)))))
 
-def sm_sendK(+q: +List<Nat>, +a: +List<Nat>, +k: +List<Nat>, +t: +List<Nat>, +d: +List<Nat>, +n: Nat, +hs: T(SUMB(q, a, k, t, d, n))) -> T(SUMB(q, a, M.snoc(k, n), t, d, 1n+n)):
-  eq_intro(SG(S.len(q), S.len(a), S.len(M.snoc(k, n)), S.len(t), S.len(d)), 1n+n, tr(SG(S.len(q), S.len(a), S.len(M.snoc(k, n)), S.len(t), S.len(d)), SG(S.len(q), S.len(a), 1n+S.len(k), S.len(t), S.len(d)), 1n+n, cgk(S.len(q), S.len(a), S.len(M.snoc(k, n)), 1n+S.len(k), S.len(t), S.len(d), len_snoc(k, n)), tr(SG(S.len(q), S.len(a), 1n+S.len(k), S.len(t), S.len(d)), 1n+SG(S.len(q), S.len(a), S.len(k), S.len(t), S.len(d)), 1n+n, bk(S.len(q), S.len(a), S.len(k), S.len(t), S.len(d)), sc(SG(S.len(q), S.len(a), S.len(k), S.len(t), S.len(d)), n, eq_elim(SG(S.len(q), S.len(a), S.len(k), S.len(t), S.len(d)), n, hs)))))
+def sm_sendK(+q: +List<Nat>, +a: +List<Nat>, +k: +List<Nat>, +t: +List<Nat>, +d: +List<Nat>, +n: Nat, +hs: L.T(SUMB(q, a, k, t, d, n))) -> L.T(SUMB(q, a, M.snoc(k, n), t, d, 1n+n)):
+  eq_intro(SG(S.len(q), S.len(a), S.len(M.snoc(k, n)), S.len(t), S.len(d)), 1n+n, tr(SG(S.len(q), S.len(a), S.len(M.snoc(k, n)), S.len(t), S.len(d)), SG(S.len(q), S.len(a), 1n+S.len(k), S.len(t), S.len(d)), 1n+n, cgk(S.len(q), S.len(a), S.len(M.snoc(k, n)), 1n+S.len(k), S.len(t), S.len(d), len_snoc(k, n)), tr(SG(S.len(q), S.len(a), 1n+S.len(k), S.len(t), S.len(d)), 1n+SG(S.len(q), S.len(a), S.len(k), S.len(t), S.len(d)), 1n+n, bk(S.len(q), S.len(a), S.len(k), S.len(t), S.len(d)), sc(SG(S.len(q), S.len(a), S.len(k), S.len(t), S.len(d)), n, L.eq_elim(SG(S.len(q), S.len(a), S.len(k), S.len(t), S.len(d)), n, hs)))))
 
-def sm_sendD(+q: +List<Nat>, +a: +List<Nat>, +k: +List<Nat>, +t: +List<Nat>, +d: +List<Nat>, +n: Nat, +hs: T(SUMB(q, a, k, t, d, n))) -> T(SUMB(q, a, k, t, M.snoc(d, n), 1n+n)):
-  eq_intro(SG(S.len(q), S.len(a), S.len(k), S.len(t), S.len(M.snoc(d, n))), 1n+n, tr(SG(S.len(q), S.len(a), S.len(k), S.len(t), S.len(M.snoc(d, n))), SG(S.len(q), S.len(a), S.len(k), S.len(t), 1n+S.len(d)), 1n+n, cgd(S.len(q), S.len(a), S.len(k), S.len(t), S.len(M.snoc(d, n)), 1n+S.len(d), len_snoc(d, n)), tr(SG(S.len(q), S.len(a), S.len(k), S.len(t), 1n+S.len(d)), 1n+SG(S.len(q), S.len(a), S.len(k), S.len(t), S.len(d)), 1n+n, bdd(S.len(q), S.len(a), S.len(k), S.len(t), S.len(d)), sc(SG(S.len(q), S.len(a), S.len(k), S.len(t), S.len(d)), n, eq_elim(SG(S.len(q), S.len(a), S.len(k), S.len(t), S.len(d)), n, hs)))))
+def sm_sendD(+q: +List<Nat>, +a: +List<Nat>, +k: +List<Nat>, +t: +List<Nat>, +d: +List<Nat>, +n: Nat, +hs: L.T(SUMB(q, a, k, t, d, n))) -> L.T(SUMB(q, a, k, t, M.snoc(d, n), 1n+n)):
+  eq_intro(SG(S.len(q), S.len(a), S.len(k), S.len(t), S.len(M.snoc(d, n))), 1n+n, tr(SG(S.len(q), S.len(a), S.len(k), S.len(t), S.len(M.snoc(d, n))), SG(S.len(q), S.len(a), S.len(k), S.len(t), 1n+S.len(d)), 1n+n, cgd(S.len(q), S.len(a), S.len(k), S.len(t), S.len(M.snoc(d, n)), 1n+S.len(d), len_snoc(d, n)), tr(SG(S.len(q), S.len(a), S.len(k), S.len(t), 1n+S.len(d)), 1n+SG(S.len(q), S.len(a), S.len(k), S.len(t), S.len(d)), 1n+n, bdd(S.len(q), S.len(a), S.len(k), S.len(t), S.len(d)), sc(SG(S.len(q), S.len(a), S.len(k), S.len(t), S.len(d)), n, L.eq_elim(SG(S.len(q), S.len(a), S.len(k), S.len(t), S.len(d)), n, hs)))))
 
-def sm_mv(+x: Nat, +r: +List<Nat>, +a: +List<Nat>, +k: +List<Nat>, +t: +List<Nat>, +d: +List<Nat>, +n: Nat, +hs: T(SUMB(x <> r, a, k, t, d, n))) -> T(SUMB(r, a, k, M.snoc(t, x), d, n)):
-  eq_intro(SG(S.len(r), S.len(a), S.len(k), S.len(M.snoc(t, x)), S.len(d)), n, tr(SG(S.len(r), S.len(a), S.len(k), S.len(M.snoc(t, x)), S.len(d)), SG(S.len(r), S.len(a), S.len(k), 1n+S.len(t), S.len(d)), n, cgt(S.len(r), S.len(a), S.len(k), S.len(M.snoc(t, x)), 1n+S.len(t), S.len(d), len_snoc(t, x)), tr(SG(S.len(r), S.len(a), S.len(k), 1n+S.len(t), S.len(d)), 1n+SG(S.len(r), S.len(a), S.len(k), S.len(t), S.len(d)), n, bt(S.len(r), S.len(a), S.len(k), S.len(t), S.len(d)), tr(1n+SG(S.len(r), S.len(a), S.len(k), S.len(t), S.len(d)), SG(1n+S.len(r), S.len(a), S.len(k), S.len(t), S.len(d)), n, sy(SG(1n+S.len(r), S.len(a), S.len(k), S.len(t), S.len(d)), 1n+SG(S.len(r), S.len(a), S.len(k), S.len(t), S.len(d)), bq(S.len(r), S.len(a), S.len(k), S.len(t), S.len(d))), eq_elim(SG(S.len(x <> r), S.len(a), S.len(k), S.len(t), S.len(d)), n, hs)))))
+def sm_mv(+x: Nat, +r: +List<Nat>, +a: +List<Nat>, +k: +List<Nat>, +t: +List<Nat>, +d: +List<Nat>, +n: Nat, +hs: L.T(SUMB(x <> r, a, k, t, d, n))) -> L.T(SUMB(r, a, k, M.snoc(t, x), d, n)):
+  eq_intro(SG(S.len(r), S.len(a), S.len(k), S.len(M.snoc(t, x)), S.len(d)), n, tr(SG(S.len(r), S.len(a), S.len(k), S.len(M.snoc(t, x)), S.len(d)), SG(S.len(r), S.len(a), S.len(k), 1n+S.len(t), S.len(d)), n, cgt(S.len(r), S.len(a), S.len(k), S.len(M.snoc(t, x)), 1n+S.len(t), S.len(d), len_snoc(t, x)), tr(SG(S.len(r), S.len(a), S.len(k), 1n+S.len(t), S.len(d)), 1n+SG(S.len(r), S.len(a), S.len(k), S.len(t), S.len(d)), n, bt(S.len(r), S.len(a), S.len(k), S.len(t), S.len(d)), tr(1n+SG(S.len(r), S.len(a), S.len(k), S.len(t), S.len(d)), SG(1n+S.len(r), S.len(a), S.len(k), S.len(t), S.len(d)), n, sy(SG(1n+S.len(r), S.len(a), S.len(k), S.len(t), S.len(d)), 1n+SG(S.len(r), S.len(a), S.len(k), S.len(t), S.len(d)), bq(S.len(r), S.len(a), S.len(k), S.len(t), S.len(d))), L.eq_elim(SG(S.len(x <> r), S.len(a), S.len(k), S.len(t), S.len(d)), n, hs)))))
 
-def sm_tb(+q: +List<Nat>, +a: +List<Nat>, +k: +List<Nat>, +t: +List<Nat>, +d: +List<Nat>, +n: Nat, +u: +List<Nat>, +hs: T(SUMB(q, a, k, t, d, n))) -> T(SUMB(M.keep_users(q, u), a, List.append(&2, Nat, k, M.drop_users(q, u)), t, d, n)):
-  eq_intro(SG(S.len(M.keep_users(q, u)), S.len(a), S.len(List.append(&2, Nat, k, M.drop_users(q, u))), S.len(t), S.len(d)), n, tr(SG(S.len(M.keep_users(q, u)), S.len(a), S.len(List.append(&2, Nat, k, M.drop_users(q, u))), S.len(t), S.len(d)), Nat.add(S.len(M.drop_users(q, u)), SG(S.len(M.keep_users(q, u)), S.len(a), S.len(k), S.len(t), S.len(d))), n, tr(SG(S.len(M.keep_users(q, u)), S.len(a), S.len(List.append(&2, Nat, k, M.drop_users(q, u))), S.len(t), S.len(d)), SG(S.len(M.keep_users(q, u)), S.len(a), Nat.add(S.len(k), S.len(M.drop_users(q, u))), S.len(t), S.len(d)), Nat.add(S.len(M.drop_users(q, u)), SG(S.len(M.keep_users(q, u)), S.len(a), S.len(k), S.len(t), S.len(d))), cgk(S.len(M.keep_users(q, u)), S.len(a), S.len(List.append(&2, Nat, k, M.drop_users(q, u))), Nat.add(S.len(k), S.len(M.drop_users(q, u))), S.len(t), S.len(d), len_app(k, M.drop_users(q, u))), shk(S.len(M.keep_users(q, u)), S.len(a), S.len(k), S.len(t), S.len(d), S.len(M.drop_users(q, u)))), tr(Nat.add(S.len(M.drop_users(q, u)), SG(S.len(M.keep_users(q, u)), S.len(a), S.len(k), S.len(t), S.len(d))), SG(S.len(q), S.len(a), S.len(k), S.len(t), S.len(d)), n, sy(SG(S.len(q), S.len(a), S.len(k), S.len(t), S.len(d)), Nat.add(S.len(M.drop_users(q, u)), SG(S.len(M.keep_users(q, u)), S.len(a), S.len(k), S.len(t), S.len(d))), tr(SG(S.len(q), S.len(a), S.len(k), S.len(t), S.len(d)), SG(Nat.add(S.len(M.keep_users(q, u)), S.len(M.drop_users(q, u))), S.len(a), S.len(k), S.len(t), S.len(d)), Nat.add(S.len(M.drop_users(q, u)), SG(S.len(M.keep_users(q, u)), S.len(a), S.len(k), S.len(t), S.len(d))), cgq(S.len(q), Nat.add(S.len(M.keep_users(q, u)), S.len(M.drop_users(q, u))), S.len(a), S.len(k), S.len(t), S.len(d), len_kd(q, u)), shq(S.len(M.keep_users(q, u)), S.len(a), S.len(k), S.len(t), S.len(d), S.len(M.drop_users(q, u))))), eq_elim(SG(S.len(q), S.len(a), S.len(k), S.len(t), S.len(d)), n, hs))))
+def sm_tb(+q: +List<Nat>, +a: +List<Nat>, +k: +List<Nat>, +t: +List<Nat>, +d: +List<Nat>, +n: Nat, +u: +List<Nat>, +hs: L.T(SUMB(q, a, k, t, d, n))) -> L.T(SUMB(M.keep_users(q, u), a, List.append(&2, Nat, k, M.drop_users(q, u)), t, d, n)):
+  eq_intro(SG(S.len(M.keep_users(q, u)), S.len(a), S.len(List.append(&2, Nat, k, M.drop_users(q, u))), S.len(t), S.len(d)), n, tr(SG(S.len(M.keep_users(q, u)), S.len(a), S.len(List.append(&2, Nat, k, M.drop_users(q, u))), S.len(t), S.len(d)), Nat.add(S.len(M.drop_users(q, u)), SG(S.len(M.keep_users(q, u)), S.len(a), S.len(k), S.len(t), S.len(d))), n, tr(SG(S.len(M.keep_users(q, u)), S.len(a), S.len(List.append(&2, Nat, k, M.drop_users(q, u))), S.len(t), S.len(d)), SG(S.len(M.keep_users(q, u)), S.len(a), Nat.add(S.len(k), S.len(M.drop_users(q, u))), S.len(t), S.len(d)), Nat.add(S.len(M.drop_users(q, u)), SG(S.len(M.keep_users(q, u)), S.len(a), S.len(k), S.len(t), S.len(d))), cgk(S.len(M.keep_users(q, u)), S.len(a), S.len(List.append(&2, Nat, k, M.drop_users(q, u))), Nat.add(S.len(k), S.len(M.drop_users(q, u))), S.len(t), S.len(d), len_app(k, M.drop_users(q, u))), shk(S.len(M.keep_users(q, u)), S.len(a), S.len(k), S.len(t), S.len(d), S.len(M.drop_users(q, u)))), tr(Nat.add(S.len(M.drop_users(q, u)), SG(S.len(M.keep_users(q, u)), S.len(a), S.len(k), S.len(t), S.len(d))), SG(S.len(q), S.len(a), S.len(k), S.len(t), S.len(d)), n, sy(SG(S.len(q), S.len(a), S.len(k), S.len(t), S.len(d)), Nat.add(S.len(M.drop_users(q, u)), SG(S.len(M.keep_users(q, u)), S.len(a), S.len(k), S.len(t), S.len(d))), tr(SG(S.len(q), S.len(a), S.len(k), S.len(t), S.len(d)), SG(Nat.add(S.len(M.keep_users(q, u)), S.len(M.drop_users(q, u))), S.len(a), S.len(k), S.len(t), S.len(d)), Nat.add(S.len(M.drop_users(q, u)), SG(S.len(M.keep_users(q, u)), S.len(a), S.len(k), S.len(t), S.len(d))), cgq(S.len(q), Nat.add(S.len(M.keep_users(q, u)), S.len(M.drop_users(q, u))), S.len(a), S.len(k), S.len(t), S.len(d), len_kd(q, u)), shq(S.len(M.keep_users(q, u)), S.len(a), S.len(k), S.len(t), S.len(d), S.len(M.drop_users(q, u))))), L.eq_elim(SG(S.len(q), S.len(a), S.len(k), S.len(t), S.len(d)), n, hs))))
 
-def sm_te(+q: +List<Nat>, +a: +List<Nat>, +k: +List<Nat>, +t: +List<Nat>, +d: +List<Nat>, +n: Nat, +hs: T(SUMB(q, a, k, t, d, n))) -> T(SUMB(List.append(&2, Nat, q, k), a, [], t, d, n)):
-  eq_intro(SG(S.len(List.append(&2, Nat, q, k)), S.len(a), S.len([]), S.len(t), S.len(d)), n, tr(SG(S.len(List.append(&2, Nat, q, k)), S.len(a), 0n, S.len(t), S.len(d)), Nat.add(S.len(k), SG(S.len(q), S.len(a), 0n, S.len(t), S.len(d))), n, tr(SG(S.len(List.append(&2, Nat, q, k)), S.len(a), 0n, S.len(t), S.len(d)), SG(Nat.add(S.len(q), S.len(k)), S.len(a), 0n, S.len(t), S.len(d)), Nat.add(S.len(k), SG(S.len(q), S.len(a), 0n, S.len(t), S.len(d))), cgq(S.len(List.append(&2, Nat, q, k)), Nat.add(S.len(q), S.len(k)), S.len(a), 0n, S.len(t), S.len(d), len_app(q, k)), shq(S.len(q), S.len(a), 0n, S.len(t), S.len(d), S.len(k))), tr(Nat.add(S.len(k), SG(S.len(q), S.len(a), 0n, S.len(t), S.len(d))), SG(S.len(q), S.len(a), S.len(k), S.len(t), S.len(d)), n, sy(SG(S.len(q), S.len(a), S.len(k), S.len(t), S.len(d)), Nat.add(S.len(k), SG(S.len(q), S.len(a), 0n, S.len(t), S.len(d))), shk(S.len(q), S.len(a), 0n, S.len(t), S.len(d), S.len(k))), eq_elim(SG(S.len(q), S.len(a), S.len(k), S.len(t), S.len(d)), n, hs))))
+def sm_te(+q: +List<Nat>, +a: +List<Nat>, +k: +List<Nat>, +t: +List<Nat>, +d: +List<Nat>, +n: Nat, +hs: L.T(SUMB(q, a, k, t, d, n))) -> L.T(SUMB(List.append(&2, Nat, q, k), a, [], t, d, n)):
+  eq_intro(SG(S.len(List.append(&2, Nat, q, k)), S.len(a), S.len([]), S.len(t), S.len(d)), n, tr(SG(S.len(List.append(&2, Nat, q, k)), S.len(a), 0n, S.len(t), S.len(d)), Nat.add(S.len(k), SG(S.len(q), S.len(a), 0n, S.len(t), S.len(d))), n, tr(SG(S.len(List.append(&2, Nat, q, k)), S.len(a), 0n, S.len(t), S.len(d)), SG(Nat.add(S.len(q), S.len(k)), S.len(a), 0n, S.len(t), S.len(d)), Nat.add(S.len(k), SG(S.len(q), S.len(a), 0n, S.len(t), S.len(d))), cgq(S.len(List.append(&2, Nat, q, k)), Nat.add(S.len(q), S.len(k)), S.len(a), 0n, S.len(t), S.len(d), len_app(q, k)), shq(S.len(q), S.len(a), 0n, S.len(t), S.len(d), S.len(k))), tr(Nat.add(S.len(k), SG(S.len(q), S.len(a), 0n, S.len(t), S.len(d))), SG(S.len(q), S.len(a), S.len(k), S.len(t), S.len(d)), n, sy(SG(S.len(q), S.len(a), S.len(k), S.len(t), S.len(d)), Nat.add(S.len(k), SG(S.len(q), S.len(a), 0n, S.len(t), S.len(d))), shk(S.len(q), S.len(a), 0n, S.len(t), S.len(d), S.len(k))), L.eq_elim(SG(S.len(q), S.len(a), S.len(k), S.len(t), S.len(d)), n, hs))))
 
-def sm_ex(+q: +List<Nat>, +a: +List<Nat>, +k: +List<Nat>, +t: +List<Nat>, +d: +List<Nat>, +n: Nat, +hs: T(SUMB(q, a, k, t, d, n))) -> T(SUMB([], a, [], t, List.append(&2, Nat, d, List.append(&2, Nat, q, k)), n)):
-  eq_intro(SG(S.len([]), S.len(a), S.len([]), S.len(t), S.len(List.append(&2, Nat, d, List.append(&2, Nat, q, k)))), n, tr(SG(0n, S.len(a), 0n, S.len(t), S.len(List.append(&2, Nat, d, List.append(&2, Nat, q, k)))), Nat.add(Nat.add(S.len(q), S.len(k)), SG(0n, S.len(a), 0n, S.len(t), S.len(d))), n, tr(SG(0n, S.len(a), 0n, S.len(t), S.len(List.append(&2, Nat, d, List.append(&2, Nat, q, k)))), SG(0n, S.len(a), 0n, S.len(t), Nat.add(S.len(d), Nat.add(S.len(q), S.len(k)))), Nat.add(Nat.add(S.len(q), S.len(k)), SG(0n, S.len(a), 0n, S.len(t), S.len(d))), cgd(0n, S.len(a), 0n, S.len(t), S.len(List.append(&2, Nat, d, List.append(&2, Nat, q, k))), Nat.add(S.len(d), Nat.add(S.len(q), S.len(k))), tr(S.len(List.append(&2, Nat, d, List.append(&2, Nat, q, k))), Nat.add(S.len(d), S.len(List.append(&2, Nat, q, k))), Nat.add(S.len(d), Nat.add(S.len(q), S.len(k))), len_app(d, List.append(&2, Nat, q, k)), ar(S.len(d), S.len(List.append(&2, Nat, q, k)), Nat.add(S.len(q), S.len(k)), len_app(q, k)))), shd(0n, S.len(a), 0n, S.len(t), S.len(d), Nat.add(S.len(q), S.len(k)))), tr(Nat.add(Nat.add(S.len(q), S.len(k)), SG(0n, S.len(a), 0n, S.len(t), S.len(d))), SG(S.len(q), S.len(a), S.len(k), S.len(t), S.len(d)), n, tr(Nat.add(Nat.add(S.len(q), S.len(k)), SG(0n, S.len(a), 0n, S.len(t), S.len(d))), Nat.add(S.len(q), Nat.add(S.len(k), SG(0n, S.len(a), 0n, S.len(t), S.len(d)))), SG(S.len(q), S.len(a), S.len(k), S.len(t), S.len(d)), add_assoc(S.len(q), S.len(k), SG(0n, S.len(a), 0n, S.len(t), S.len(d))), sy(SG(S.len(q), S.len(a), S.len(k), S.len(t), S.len(d)), Nat.add(S.len(q), Nat.add(S.len(k), SG(0n, S.len(a), 0n, S.len(t), S.len(d)))), tr(SG(S.len(q), S.len(a), S.len(k), S.len(t), S.len(d)), Nat.add(S.len(q), SG(0n, S.len(a), S.len(k), S.len(t), S.len(d))), Nat.add(S.len(q), Nat.add(S.len(k), SG(0n, S.len(a), 0n, S.len(t), S.len(d)))), shq(0n, S.len(a), S.len(k), S.len(t), S.len(d), S.len(q)), ar(S.len(q), SG(0n, S.len(a), S.len(k), S.len(t), S.len(d)), Nat.add(S.len(k), SG(0n, S.len(a), 0n, S.len(t), S.len(d))), shk(0n, S.len(a), 0n, S.len(t), S.len(d), S.len(k)))))), eq_elim(SG(S.len(q), S.len(a), S.len(k), S.len(t), S.len(d)), n, hs))))
+def sm_ex(+q: +List<Nat>, +a: +List<Nat>, +k: +List<Nat>, +t: +List<Nat>, +d: +List<Nat>, +n: Nat, +hs: L.T(SUMB(q, a, k, t, d, n))) -> L.T(SUMB([], a, [], t, List.append(&2, Nat, d, List.append(&2, Nat, q, k)), n)):
+  eq_intro(SG(S.len([]), S.len(a), S.len([]), S.len(t), S.len(List.append(&2, Nat, d, List.append(&2, Nat, q, k)))), n, tr(SG(0n, S.len(a), 0n, S.len(t), S.len(List.append(&2, Nat, d, List.append(&2, Nat, q, k)))), Nat.add(Nat.add(S.len(q), S.len(k)), SG(0n, S.len(a), 0n, S.len(t), S.len(d))), n, tr(SG(0n, S.len(a), 0n, S.len(t), S.len(List.append(&2, Nat, d, List.append(&2, Nat, q, k)))), SG(0n, S.len(a), 0n, S.len(t), Nat.add(S.len(d), Nat.add(S.len(q), S.len(k)))), Nat.add(Nat.add(S.len(q), S.len(k)), SG(0n, S.len(a), 0n, S.len(t), S.len(d))), cgd(0n, S.len(a), 0n, S.len(t), S.len(List.append(&2, Nat, d, List.append(&2, Nat, q, k))), Nat.add(S.len(d), Nat.add(S.len(q), S.len(k))), tr(S.len(List.append(&2, Nat, d, List.append(&2, Nat, q, k))), Nat.add(S.len(d), S.len(List.append(&2, Nat, q, k))), Nat.add(S.len(d), Nat.add(S.len(q), S.len(k))), len_app(d, List.append(&2, Nat, q, k)), ar(S.len(d), S.len(List.append(&2, Nat, q, k)), Nat.add(S.len(q), S.len(k)), len_app(q, k)))), shd(0n, S.len(a), 0n, S.len(t), S.len(d), Nat.add(S.len(q), S.len(k)))), tr(Nat.add(Nat.add(S.len(q), S.len(k)), SG(0n, S.len(a), 0n, S.len(t), S.len(d))), SG(S.len(q), S.len(a), S.len(k), S.len(t), S.len(d)), n, tr(Nat.add(Nat.add(S.len(q), S.len(k)), SG(0n, S.len(a), 0n, S.len(t), S.len(d))), Nat.add(S.len(q), Nat.add(S.len(k), SG(0n, S.len(a), 0n, S.len(t), S.len(d)))), SG(S.len(q), S.len(a), S.len(k), S.len(t), S.len(d)), add_assoc(S.len(q), S.len(k), SG(0n, S.len(a), 0n, S.len(t), S.len(d))), sy(SG(S.len(q), S.len(a), S.len(k), S.len(t), S.len(d)), Nat.add(S.len(q), Nat.add(S.len(k), SG(0n, S.len(a), 0n, S.len(t), S.len(d)))), tr(SG(S.len(q), S.len(a), S.len(k), S.len(t), S.len(d)), Nat.add(S.len(q), SG(0n, S.len(a), S.len(k), S.len(t), S.len(d))), Nat.add(S.len(q), Nat.add(S.len(k), SG(0n, S.len(a), 0n, S.len(t), S.len(d)))), shq(0n, S.len(a), S.len(k), S.len(t), S.len(d), S.len(q)), ar(S.len(q), SG(0n, S.len(a), S.len(k), S.len(t), S.len(d)), Nat.add(S.len(k), SG(0n, S.len(a), 0n, S.len(t), S.len(d))), shk(0n, S.len(a), 0n, S.len(t), S.len(d), S.len(k)))))), L.eq_elim(SG(S.len(q), S.len(a), S.len(k), S.len(t), S.len(d)), n, hs))))
 
-def sm_di(+q: +List<Nat>, +a: +List<Nat>, +k: +List<Nat>, +t: +List<Nat>, +d: +List<Nat>, +n: Nat, +id: Nat, +hm: T(M.mem(id, a)), +hn: ND(a), +hs: T(SUMB(q, a, k, t, d, n))) -> T(SUMB(M.snoc(q, id), M.remove(id, a), k, t, d, n)):
-  eq_intro(SG(S.len(M.snoc(q, id)), S.len(M.remove(id, a)), S.len(k), S.len(t), S.len(d)), n, tr(SG(S.len(M.snoc(q, id)), S.len(M.remove(id, a)), S.len(k), S.len(t), S.len(d)), 1n+SG(S.len(q), S.len(M.remove(id, a)), S.len(k), S.len(t), S.len(d)), n, tr(SG(S.len(M.snoc(q, id)), S.len(M.remove(id, a)), S.len(k), S.len(t), S.len(d)), SG(1n+S.len(q), S.len(M.remove(id, a)), S.len(k), S.len(t), S.len(d)), 1n+SG(S.len(q), S.len(M.remove(id, a)), S.len(k), S.len(t), S.len(d)), cgq(S.len(M.snoc(q, id)), 1n+S.len(q), S.len(M.remove(id, a)), S.len(k), S.len(t), S.len(d), len_snoc(q, id)), bq(S.len(q), S.len(M.remove(id, a)), S.len(k), S.len(t), S.len(d))), tr(1n+SG(S.len(q), S.len(M.remove(id, a)), S.len(k), S.len(t), S.len(d)), SG(S.len(q), S.len(a), S.len(k), S.len(t), S.len(d)), n, sy(SG(S.len(q), S.len(a), S.len(k), S.len(t), S.len(d)), 1n+SG(S.len(q), S.len(M.remove(id, a)), S.len(k), S.len(t), S.len(d)), tr(SG(S.len(q), S.len(a), S.len(k), S.len(t), S.len(d)), SG(S.len(q), 1n+S.len(M.remove(id, a)), S.len(k), S.len(t), S.len(d)), 1n+SG(S.len(q), S.len(M.remove(id, a)), S.len(k), S.len(t), S.len(d)), cga(S.len(q), S.len(a), 1n+S.len(M.remove(id, a)), S.len(k), S.len(t), S.len(d), len_rm(id, a, hm, hn)), ba(S.len(q), S.len(M.remove(id, a)), S.len(k), S.len(t), S.len(d)))), eq_elim(SG(S.len(q), S.len(a), S.len(k), S.len(t), S.len(d)), n, hs))))
+def sm_di(+q: +List<Nat>, +a: +List<Nat>, +k: +List<Nat>, +t: +List<Nat>, +d: +List<Nat>, +n: Nat, +id: Nat, +hm: L.T(M.mem(id, a)), +hn: ND(a), +hs: L.T(SUMB(q, a, k, t, d, n))) -> L.T(SUMB(M.snoc(q, id), M.remove(id, a), k, t, d, n)):
+  eq_intro(SG(S.len(M.snoc(q, id)), S.len(M.remove(id, a)), S.len(k), S.len(t), S.len(d)), n, tr(SG(S.len(M.snoc(q, id)), S.len(M.remove(id, a)), S.len(k), S.len(t), S.len(d)), 1n+SG(S.len(q), S.len(M.remove(id, a)), S.len(k), S.len(t), S.len(d)), n, tr(SG(S.len(M.snoc(q, id)), S.len(M.remove(id, a)), S.len(k), S.len(t), S.len(d)), SG(1n+S.len(q), S.len(M.remove(id, a)), S.len(k), S.len(t), S.len(d)), 1n+SG(S.len(q), S.len(M.remove(id, a)), S.len(k), S.len(t), S.len(d)), cgq(S.len(M.snoc(q, id)), 1n+S.len(q), S.len(M.remove(id, a)), S.len(k), S.len(t), S.len(d), len_snoc(q, id)), bq(S.len(q), S.len(M.remove(id, a)), S.len(k), S.len(t), S.len(d))), tr(1n+SG(S.len(q), S.len(M.remove(id, a)), S.len(k), S.len(t), S.len(d)), SG(S.len(q), S.len(a), S.len(k), S.len(t), S.len(d)), n, sy(SG(S.len(q), S.len(a), S.len(k), S.len(t), S.len(d)), 1n+SG(S.len(q), S.len(M.remove(id, a)), S.len(k), S.len(t), S.len(d)), tr(SG(S.len(q), S.len(a), S.len(k), S.len(t), S.len(d)), SG(S.len(q), 1n+S.len(M.remove(id, a)), S.len(k), S.len(t), S.len(d)), 1n+SG(S.len(q), S.len(M.remove(id, a)), S.len(k), S.len(t), S.len(d)), cga(S.len(q), S.len(a), 1n+S.len(M.remove(id, a)), S.len(k), S.len(t), S.len(d), len_rm(id, a, hm, hn)), ba(S.len(q), S.len(M.remove(id, a)), S.len(k), S.len(t), S.len(d)))), L.eq_elim(SG(S.len(q), S.len(a), S.len(k), S.len(t), S.len(d)), n, hs))))
 
-def sm_dt(+q: +List<Nat>, +a: +List<Nat>, +k: +List<Nat>, +t: +List<Nat>, +d: +List<Nat>, +n: Nat, +id: Nat, +hm: T(M.mem(id, k)), +hn: ND(k), +hs: T(SUMB(q, a, k, t, d, n))) -> T(SUMB(M.snoc(q, id), a, M.remove(id, k), t, d, n)):
-  eq_intro(SG(S.len(M.snoc(q, id)), S.len(a), S.len(M.remove(id, k)), S.len(t), S.len(d)), n, tr(SG(S.len(M.snoc(q, id)), S.len(a), S.len(M.remove(id, k)), S.len(t), S.len(d)), 1n+SG(S.len(q), S.len(a), S.len(M.remove(id, k)), S.len(t), S.len(d)), n, tr(SG(S.len(M.snoc(q, id)), S.len(a), S.len(M.remove(id, k)), S.len(t), S.len(d)), SG(1n+S.len(q), S.len(a), S.len(M.remove(id, k)), S.len(t), S.len(d)), 1n+SG(S.len(q), S.len(a), S.len(M.remove(id, k)), S.len(t), S.len(d)), cgq(S.len(M.snoc(q, id)), 1n+S.len(q), S.len(a), S.len(M.remove(id, k)), S.len(t), S.len(d), len_snoc(q, id)), bq(S.len(q), S.len(a), S.len(M.remove(id, k)), S.len(t), S.len(d))), tr(1n+SG(S.len(q), S.len(a), S.len(M.remove(id, k)), S.len(t), S.len(d)), SG(S.len(q), S.len(a), S.len(k), S.len(t), S.len(d)), n, sy(SG(S.len(q), S.len(a), S.len(k), S.len(t), S.len(d)), 1n+SG(S.len(q), S.len(a), S.len(M.remove(id, k)), S.len(t), S.len(d)), tr(SG(S.len(q), S.len(a), S.len(k), S.len(t), S.len(d)), SG(S.len(q), S.len(a), 1n+S.len(M.remove(id, k)), S.len(t), S.len(d)), 1n+SG(S.len(q), S.len(a), S.len(M.remove(id, k)), S.len(t), S.len(d)), cgk(S.len(q), S.len(a), S.len(k), 1n+S.len(M.remove(id, k)), S.len(t), S.len(d), len_rm(id, k, hm, hn)), bk(S.len(q), S.len(a), S.len(M.remove(id, k)), S.len(t), S.len(d)))), eq_elim(SG(S.len(q), S.len(a), S.len(k), S.len(t), S.len(d)), n, hs))))
+def sm_dt(+q: +List<Nat>, +a: +List<Nat>, +k: +List<Nat>, +t: +List<Nat>, +d: +List<Nat>, +n: Nat, +id: Nat, +hm: L.T(M.mem(id, k)), +hn: ND(k), +hs: L.T(SUMB(q, a, k, t, d, n))) -> L.T(SUMB(M.snoc(q, id), a, M.remove(id, k), t, d, n)):
+  eq_intro(SG(S.len(M.snoc(q, id)), S.len(a), S.len(M.remove(id, k)), S.len(t), S.len(d)), n, tr(SG(S.len(M.snoc(q, id)), S.len(a), S.len(M.remove(id, k)), S.len(t), S.len(d)), 1n+SG(S.len(q), S.len(a), S.len(M.remove(id, k)), S.len(t), S.len(d)), n, tr(SG(S.len(M.snoc(q, id)), S.len(a), S.len(M.remove(id, k)), S.len(t), S.len(d)), SG(1n+S.len(q), S.len(a), S.len(M.remove(id, k)), S.len(t), S.len(d)), 1n+SG(S.len(q), S.len(a), S.len(M.remove(id, k)), S.len(t), S.len(d)), cgq(S.len(M.snoc(q, id)), 1n+S.len(q), S.len(a), S.len(M.remove(id, k)), S.len(t), S.len(d), len_snoc(q, id)), bq(S.len(q), S.len(a), S.len(M.remove(id, k)), S.len(t), S.len(d))), tr(1n+SG(S.len(q), S.len(a), S.len(M.remove(id, k)), S.len(t), S.len(d)), SG(S.len(q), S.len(a), S.len(k), S.len(t), S.len(d)), n, sy(SG(S.len(q), S.len(a), S.len(k), S.len(t), S.len(d)), 1n+SG(S.len(q), S.len(a), S.len(M.remove(id, k)), S.len(t), S.len(d)), tr(SG(S.len(q), S.len(a), S.len(k), S.len(t), S.len(d)), SG(S.len(q), S.len(a), 1n+S.len(M.remove(id, k)), S.len(t), S.len(d)), 1n+SG(S.len(q), S.len(a), S.len(M.remove(id, k)), S.len(t), S.len(d)), cgk(S.len(q), S.len(a), S.len(k), 1n+S.len(M.remove(id, k)), S.len(t), S.len(d), len_rm(id, k, hm, hn)), bk(S.len(q), S.len(a), S.len(M.remove(id, k)), S.len(t), S.len(d)))), L.eq_elim(SG(S.len(q), S.len(a), S.len(k), S.len(t), S.len(d)), n, hs))))
 
-def sm_ri(+q: +List<Nat>, +a: +List<Nat>, +k: +List<Nat>, +t: +List<Nat>, +d: +List<Nat>, +n: Nat, +id: Nat, +hm: T(M.mem(id, a)), +hn: ND(a), +hs: T(SUMB(q, a, k, t, d, n))) -> T(SUMB(q, M.remove(id, a), k, t, M.snoc(d, id), n)):
-  eq_intro(SG(S.len(q), S.len(M.remove(id, a)), S.len(k), S.len(t), S.len(M.snoc(d, id))), n, tr(SG(S.len(q), S.len(M.remove(id, a)), S.len(k), S.len(t), S.len(M.snoc(d, id))), 1n+SG(S.len(q), S.len(M.remove(id, a)), S.len(k), S.len(t), S.len(d)), n, tr(SG(S.len(q), S.len(M.remove(id, a)), S.len(k), S.len(t), S.len(M.snoc(d, id))), SG(S.len(q), S.len(M.remove(id, a)), S.len(k), S.len(t), 1n+S.len(d)), 1n+SG(S.len(q), S.len(M.remove(id, a)), S.len(k), S.len(t), S.len(d)), cgd(S.len(q), S.len(M.remove(id, a)), S.len(k), S.len(t), S.len(M.snoc(d, id)), 1n+S.len(d), len_snoc(d, id)), bdd(S.len(q), S.len(M.remove(id, a)), S.len(k), S.len(t), S.len(d))), tr(1n+SG(S.len(q), S.len(M.remove(id, a)), S.len(k), S.len(t), S.len(d)), SG(S.len(q), S.len(a), S.len(k), S.len(t), S.len(d)), n, sy(SG(S.len(q), S.len(a), S.len(k), S.len(t), S.len(d)), 1n+SG(S.len(q), S.len(M.remove(id, a)), S.len(k), S.len(t), S.len(d)), tr(SG(S.len(q), S.len(a), S.len(k), S.len(t), S.len(d)), SG(S.len(q), 1n+S.len(M.remove(id, a)), S.len(k), S.len(t), S.len(d)), 1n+SG(S.len(q), S.len(M.remove(id, a)), S.len(k), S.len(t), S.len(d)), cga(S.len(q), S.len(a), 1n+S.len(M.remove(id, a)), S.len(k), S.len(t), S.len(d), len_rm(id, a, hm, hn)), ba(S.len(q), S.len(M.remove(id, a)), S.len(k), S.len(t), S.len(d)))), eq_elim(SG(S.len(q), S.len(a), S.len(k), S.len(t), S.len(d)), n, hs))))
+def sm_ri(+q: +List<Nat>, +a: +List<Nat>, +k: +List<Nat>, +t: +List<Nat>, +d: +List<Nat>, +n: Nat, +id: Nat, +hm: L.T(M.mem(id, a)), +hn: ND(a), +hs: L.T(SUMB(q, a, k, t, d, n))) -> L.T(SUMB(q, M.remove(id, a), k, t, M.snoc(d, id), n)):
+  eq_intro(SG(S.len(q), S.len(M.remove(id, a)), S.len(k), S.len(t), S.len(M.snoc(d, id))), n, tr(SG(S.len(q), S.len(M.remove(id, a)), S.len(k), S.len(t), S.len(M.snoc(d, id))), 1n+SG(S.len(q), S.len(M.remove(id, a)), S.len(k), S.len(t), S.len(d)), n, tr(SG(S.len(q), S.len(M.remove(id, a)), S.len(k), S.len(t), S.len(M.snoc(d, id))), SG(S.len(q), S.len(M.remove(id, a)), S.len(k), S.len(t), 1n+S.len(d)), 1n+SG(S.len(q), S.len(M.remove(id, a)), S.len(k), S.len(t), S.len(d)), cgd(S.len(q), S.len(M.remove(id, a)), S.len(k), S.len(t), S.len(M.snoc(d, id)), 1n+S.len(d), len_snoc(d, id)), bdd(S.len(q), S.len(M.remove(id, a)), S.len(k), S.len(t), S.len(d))), tr(1n+SG(S.len(q), S.len(M.remove(id, a)), S.len(k), S.len(t), S.len(d)), SG(S.len(q), S.len(a), S.len(k), S.len(t), S.len(d)), n, sy(SG(S.len(q), S.len(a), S.len(k), S.len(t), S.len(d)), 1n+SG(S.len(q), S.len(M.remove(id, a)), S.len(k), S.len(t), S.len(d)), tr(SG(S.len(q), S.len(a), S.len(k), S.len(t), S.len(d)), SG(S.len(q), 1n+S.len(M.remove(id, a)), S.len(k), S.len(t), S.len(d)), 1n+SG(S.len(q), S.len(M.remove(id, a)), S.len(k), S.len(t), S.len(d)), cga(S.len(q), S.len(a), 1n+S.len(M.remove(id, a)), S.len(k), S.len(t), S.len(d), len_rm(id, a, hm, hn)), ba(S.len(q), S.len(M.remove(id, a)), S.len(k), S.len(t), S.len(d)))), L.eq_elim(SG(S.len(q), S.len(a), S.len(k), S.len(t), S.len(d)), n, hs))))
 
-def sm_rt(+q: +List<Nat>, +a: +List<Nat>, +k: +List<Nat>, +t: +List<Nat>, +d: +List<Nat>, +n: Nat, +id: Nat, +hm: T(M.mem(id, k)), +hn: ND(k), +hs: T(SUMB(q, a, k, t, d, n))) -> T(SUMB(q, a, M.remove(id, k), t, M.snoc(d, id), n)):
-  eq_intro(SG(S.len(q), S.len(a), S.len(M.remove(id, k)), S.len(t), S.len(M.snoc(d, id))), n, tr(SG(S.len(q), S.len(a), S.len(M.remove(id, k)), S.len(t), S.len(M.snoc(d, id))), 1n+SG(S.len(q), S.len(a), S.len(M.remove(id, k)), S.len(t), S.len(d)), n, tr(SG(S.len(q), S.len(a), S.len(M.remove(id, k)), S.len(t), S.len(M.snoc(d, id))), SG(S.len(q), S.len(a), S.len(M.remove(id, k)), S.len(t), 1n+S.len(d)), 1n+SG(S.len(q), S.len(a), S.len(M.remove(id, k)), S.len(t), S.len(d)), cgd(S.len(q), S.len(a), S.len(M.remove(id, k)), S.len(t), S.len(M.snoc(d, id)), 1n+S.len(d), len_snoc(d, id)), bdd(S.len(q), S.len(a), S.len(M.remove(id, k)), S.len(t), S.len(d))), tr(1n+SG(S.len(q), S.len(a), S.len(M.remove(id, k)), S.len(t), S.len(d)), SG(S.len(q), S.len(a), S.len(k), S.len(t), S.len(d)), n, sy(SG(S.len(q), S.len(a), S.len(k), S.len(t), S.len(d)), 1n+SG(S.len(q), S.len(a), S.len(M.remove(id, k)), S.len(t), S.len(d)), tr(SG(S.len(q), S.len(a), S.len(k), S.len(t), S.len(d)), SG(S.len(q), S.len(a), 1n+S.len(M.remove(id, k)), S.len(t), S.len(d)), 1n+SG(S.len(q), S.len(a), S.len(M.remove(id, k)), S.len(t), S.len(d)), cgk(S.len(q), S.len(a), S.len(k), 1n+S.len(M.remove(id, k)), S.len(t), S.len(d), len_rm(id, k, hm, hn)), bk(S.len(q), S.len(a), S.len(M.remove(id, k)), S.len(t), S.len(d)))), eq_elim(SG(S.len(q), S.len(a), S.len(k), S.len(t), S.len(d)), n, hs))))
+def sm_rt(+q: +List<Nat>, +a: +List<Nat>, +k: +List<Nat>, +t: +List<Nat>, +d: +List<Nat>, +n: Nat, +id: Nat, +hm: L.T(M.mem(id, k)), +hn: ND(k), +hs: L.T(SUMB(q, a, k, t, d, n))) -> L.T(SUMB(q, a, M.remove(id, k), t, M.snoc(d, id), n)):
+  eq_intro(SG(S.len(q), S.len(a), S.len(M.remove(id, k)), S.len(t), S.len(M.snoc(d, id))), n, tr(SG(S.len(q), S.len(a), S.len(M.remove(id, k)), S.len(t), S.len(M.snoc(d, id))), 1n+SG(S.len(q), S.len(a), S.len(M.remove(id, k)), S.len(t), S.len(d)), n, tr(SG(S.len(q), S.len(a), S.len(M.remove(id, k)), S.len(t), S.len(M.snoc(d, id))), SG(S.len(q), S.len(a), S.len(M.remove(id, k)), S.len(t), 1n+S.len(d)), 1n+SG(S.len(q), S.len(a), S.len(M.remove(id, k)), S.len(t), S.len(d)), cgd(S.len(q), S.len(a), S.len(M.remove(id, k)), S.len(t), S.len(M.snoc(d, id)), 1n+S.len(d), len_snoc(d, id)), bdd(S.len(q), S.len(a), S.len(M.remove(id, k)), S.len(t), S.len(d))), tr(1n+SG(S.len(q), S.len(a), S.len(M.remove(id, k)), S.len(t), S.len(d)), SG(S.len(q), S.len(a), S.len(k), S.len(t), S.len(d)), n, sy(SG(S.len(q), S.len(a), S.len(k), S.len(t), S.len(d)), 1n+SG(S.len(q), S.len(a), S.len(M.remove(id, k)), S.len(t), S.len(d)), tr(SG(S.len(q), S.len(a), S.len(k), S.len(t), S.len(d)), SG(S.len(q), S.len(a), 1n+S.len(M.remove(id, k)), S.len(t), S.len(d)), 1n+SG(S.len(q), S.len(a), S.len(M.remove(id, k)), S.len(t), S.len(d)), cgk(S.len(q), S.len(a), S.len(k), 1n+S.len(M.remove(id, k)), S.len(t), S.len(d), len_rm(id, k, hm, hn)), bk(S.len(q), S.len(a), S.len(M.remove(id, k)), S.len(t), S.len(d)))), L.eq_elim(SG(S.len(q), S.len(a), S.len(k), S.len(t), S.len(d)), n, hs))))
 
 def IV20(+q: +List<Nat>, +a: +List<Nat>, +k: +List<Nat>, +t: +List<Nat>, +d: +List<Nat>, +n: Nat) -> Bool:
   SUMB(q, a, k, t, d, n)
@@ -2082,299 +1882,299 @@ def IV0(+q: +List<Nat>, +a: +List<Nat>, +k: +List<Nat>, +t: +List<Nat>, +d: +Lis
 def IV(+q: +List<Nat>, +a: +List<Nat>, +k: +List<Nat>, +t: +List<Nat>, +d: +List<Nat>, +n: Nat) -> Bool:
   IV0(q, a, k, t, d, n)
 
-def r0(+q: +List<Nat>, +a: +List<Nat>, +k: +List<Nat>, +t: +List<Nat>, +d: +List<Nat>, +n: Nat, +h: T(IV0(q, a, k, t, d, n))) -> T(IV1(q, a, k, t, d, n)):
-  and_r(S.nodup(q), IV1(q, a, k, t, d, n), h)
+def r0(+q: +List<Nat>, +a: +List<Nat>, +k: +List<Nat>, +t: +List<Nat>, +d: +List<Nat>, +n: Nat, +h: L.T(IV0(q, a, k, t, d, n))) -> L.T(IV1(q, a, k, t, d, n)):
+  L.and_r(S.nodup(q), IV1(q, a, k, t, d, n), h)
 
-def l0(+q: +List<Nat>, +a: +List<Nat>, +k: +List<Nat>, +t: +List<Nat>, +d: +List<Nat>, +n: Nat, +h: T(IV0(q, a, k, t, d, n))) -> T(S.nodup(q)):
-  and_l(S.nodup(q), IV1(q, a, k, t, d, n), h)
+def l0(+q: +List<Nat>, +a: +List<Nat>, +k: +List<Nat>, +t: +List<Nat>, +d: +List<Nat>, +n: Nat, +h: L.T(IV0(q, a, k, t, d, n))) -> L.T(S.nodup(q)):
+  L.and_l(S.nodup(q), IV1(q, a, k, t, d, n), h)
 
-def m0(+q: +List<Nat>, +a: +List<Nat>, +k: +List<Nat>, +t: +List<Nat>, +d: +List<Nat>, +n: Nat, +x: T(S.nodup(q)), +rest: T(IV1(q, a, k, t, d, n))) -> T(IV0(q, a, k, t, d, n)):
-  and_i(S.nodup(q), IV1(q, a, k, t, d, n), x, rest)
+def m0(+q: +List<Nat>, +a: +List<Nat>, +k: +List<Nat>, +t: +List<Nat>, +d: +List<Nat>, +n: Nat, +x: L.T(S.nodup(q)), +rest: L.T(IV1(q, a, k, t, d, n))) -> L.T(IV0(q, a, k, t, d, n)):
+  L.and_i(S.nodup(q), IV1(q, a, k, t, d, n), x, rest)
 
-def r1(+q: +List<Nat>, +a: +List<Nat>, +k: +List<Nat>, +t: +List<Nat>, +d: +List<Nat>, +n: Nat, +h: T(IV1(q, a, k, t, d, n))) -> T(IV2(q, a, k, t, d, n)):
-  and_r(S.nodup(a), IV2(q, a, k, t, d, n), h)
+def r1(+q: +List<Nat>, +a: +List<Nat>, +k: +List<Nat>, +t: +List<Nat>, +d: +List<Nat>, +n: Nat, +h: L.T(IV1(q, a, k, t, d, n))) -> L.T(IV2(q, a, k, t, d, n)):
+  L.and_r(S.nodup(a), IV2(q, a, k, t, d, n), h)
 
-def l1(+q: +List<Nat>, +a: +List<Nat>, +k: +List<Nat>, +t: +List<Nat>, +d: +List<Nat>, +n: Nat, +h: T(IV1(q, a, k, t, d, n))) -> T(S.nodup(a)):
-  and_l(S.nodup(a), IV2(q, a, k, t, d, n), h)
+def l1(+q: +List<Nat>, +a: +List<Nat>, +k: +List<Nat>, +t: +List<Nat>, +d: +List<Nat>, +n: Nat, +h: L.T(IV1(q, a, k, t, d, n))) -> L.T(S.nodup(a)):
+  L.and_l(S.nodup(a), IV2(q, a, k, t, d, n), h)
 
-def m1(+q: +List<Nat>, +a: +List<Nat>, +k: +List<Nat>, +t: +List<Nat>, +d: +List<Nat>, +n: Nat, +x: T(S.nodup(a)), +rest: T(IV2(q, a, k, t, d, n))) -> T(IV1(q, a, k, t, d, n)):
-  and_i(S.nodup(a), IV2(q, a, k, t, d, n), x, rest)
+def m1(+q: +List<Nat>, +a: +List<Nat>, +k: +List<Nat>, +t: +List<Nat>, +d: +List<Nat>, +n: Nat, +x: L.T(S.nodup(a)), +rest: L.T(IV2(q, a, k, t, d, n))) -> L.T(IV1(q, a, k, t, d, n)):
+  L.and_i(S.nodup(a), IV2(q, a, k, t, d, n), x, rest)
 
-def r2(+q: +List<Nat>, +a: +List<Nat>, +k: +List<Nat>, +t: +List<Nat>, +d: +List<Nat>, +n: Nat, +h: T(IV2(q, a, k, t, d, n))) -> T(IV3(q, a, k, t, d, n)):
-  and_r(S.nodup(k), IV3(q, a, k, t, d, n), h)
+def r2(+q: +List<Nat>, +a: +List<Nat>, +k: +List<Nat>, +t: +List<Nat>, +d: +List<Nat>, +n: Nat, +h: L.T(IV2(q, a, k, t, d, n))) -> L.T(IV3(q, a, k, t, d, n)):
+  L.and_r(S.nodup(k), IV3(q, a, k, t, d, n), h)
 
-def l2(+q: +List<Nat>, +a: +List<Nat>, +k: +List<Nat>, +t: +List<Nat>, +d: +List<Nat>, +n: Nat, +h: T(IV2(q, a, k, t, d, n))) -> T(S.nodup(k)):
-  and_l(S.nodup(k), IV3(q, a, k, t, d, n), h)
+def l2(+q: +List<Nat>, +a: +List<Nat>, +k: +List<Nat>, +t: +List<Nat>, +d: +List<Nat>, +n: Nat, +h: L.T(IV2(q, a, k, t, d, n))) -> L.T(S.nodup(k)):
+  L.and_l(S.nodup(k), IV3(q, a, k, t, d, n), h)
 
-def m2(+q: +List<Nat>, +a: +List<Nat>, +k: +List<Nat>, +t: +List<Nat>, +d: +List<Nat>, +n: Nat, +x: T(S.nodup(k)), +rest: T(IV3(q, a, k, t, d, n))) -> T(IV2(q, a, k, t, d, n)):
-  and_i(S.nodup(k), IV3(q, a, k, t, d, n), x, rest)
+def m2(+q: +List<Nat>, +a: +List<Nat>, +k: +List<Nat>, +t: +List<Nat>, +d: +List<Nat>, +n: Nat, +x: L.T(S.nodup(k)), +rest: L.T(IV3(q, a, k, t, d, n))) -> L.T(IV2(q, a, k, t, d, n)):
+  L.and_i(S.nodup(k), IV3(q, a, k, t, d, n), x, rest)
 
-def r3(+q: +List<Nat>, +a: +List<Nat>, +k: +List<Nat>, +t: +List<Nat>, +d: +List<Nat>, +n: Nat, +h: T(IV3(q, a, k, t, d, n))) -> T(IV4(q, a, k, t, d, n)):
-  and_r(S.nodup(t), IV4(q, a, k, t, d, n), h)
+def r3(+q: +List<Nat>, +a: +List<Nat>, +k: +List<Nat>, +t: +List<Nat>, +d: +List<Nat>, +n: Nat, +h: L.T(IV3(q, a, k, t, d, n))) -> L.T(IV4(q, a, k, t, d, n)):
+  L.and_r(S.nodup(t), IV4(q, a, k, t, d, n), h)
 
-def l3(+q: +List<Nat>, +a: +List<Nat>, +k: +List<Nat>, +t: +List<Nat>, +d: +List<Nat>, +n: Nat, +h: T(IV3(q, a, k, t, d, n))) -> T(S.nodup(t)):
-  and_l(S.nodup(t), IV4(q, a, k, t, d, n), h)
+def l3(+q: +List<Nat>, +a: +List<Nat>, +k: +List<Nat>, +t: +List<Nat>, +d: +List<Nat>, +n: Nat, +h: L.T(IV3(q, a, k, t, d, n))) -> L.T(S.nodup(t)):
+  L.and_l(S.nodup(t), IV4(q, a, k, t, d, n), h)
 
-def m3(+q: +List<Nat>, +a: +List<Nat>, +k: +List<Nat>, +t: +List<Nat>, +d: +List<Nat>, +n: Nat, +x: T(S.nodup(t)), +rest: T(IV4(q, a, k, t, d, n))) -> T(IV3(q, a, k, t, d, n)):
-  and_i(S.nodup(t), IV4(q, a, k, t, d, n), x, rest)
+def m3(+q: +List<Nat>, +a: +List<Nat>, +k: +List<Nat>, +t: +List<Nat>, +d: +List<Nat>, +n: Nat, +x: L.T(S.nodup(t)), +rest: L.T(IV4(q, a, k, t, d, n))) -> L.T(IV3(q, a, k, t, d, n)):
+  L.and_i(S.nodup(t), IV4(q, a, k, t, d, n), x, rest)
 
-def r4(+q: +List<Nat>, +a: +List<Nat>, +k: +List<Nat>, +t: +List<Nat>, +d: +List<Nat>, +n: Nat, +h: T(IV4(q, a, k, t, d, n))) -> T(IV5(q, a, k, t, d, n)):
-  and_r(S.nodup(d), IV5(q, a, k, t, d, n), h)
+def r4(+q: +List<Nat>, +a: +List<Nat>, +k: +List<Nat>, +t: +List<Nat>, +d: +List<Nat>, +n: Nat, +h: L.T(IV4(q, a, k, t, d, n))) -> L.T(IV5(q, a, k, t, d, n)):
+  L.and_r(S.nodup(d), IV5(q, a, k, t, d, n), h)
 
-def l4(+q: +List<Nat>, +a: +List<Nat>, +k: +List<Nat>, +t: +List<Nat>, +d: +List<Nat>, +n: Nat, +h: T(IV4(q, a, k, t, d, n))) -> T(S.nodup(d)):
-  and_l(S.nodup(d), IV5(q, a, k, t, d, n), h)
+def l4(+q: +List<Nat>, +a: +List<Nat>, +k: +List<Nat>, +t: +List<Nat>, +d: +List<Nat>, +n: Nat, +h: L.T(IV4(q, a, k, t, d, n))) -> L.T(S.nodup(d)):
+  L.and_l(S.nodup(d), IV5(q, a, k, t, d, n), h)
 
-def m4(+q: +List<Nat>, +a: +List<Nat>, +k: +List<Nat>, +t: +List<Nat>, +d: +List<Nat>, +n: Nat, +x: T(S.nodup(d)), +rest: T(IV5(q, a, k, t, d, n))) -> T(IV4(q, a, k, t, d, n)):
-  and_i(S.nodup(d), IV5(q, a, k, t, d, n), x, rest)
+def m4(+q: +List<Nat>, +a: +List<Nat>, +k: +List<Nat>, +t: +List<Nat>, +d: +List<Nat>, +n: Nat, +x: L.T(S.nodup(d)), +rest: L.T(IV5(q, a, k, t, d, n))) -> L.T(IV4(q, a, k, t, d, n)):
+  L.and_i(S.nodup(d), IV5(q, a, k, t, d, n), x, rest)
 
-def r5(+q: +List<Nat>, +a: +List<Nat>, +k: +List<Nat>, +t: +List<Nat>, +d: +List<Nat>, +n: Nat, +h: T(IV5(q, a, k, t, d, n))) -> T(IV6(q, a, k, t, d, n)):
-  and_r(S.disjoint(q, a), IV6(q, a, k, t, d, n), h)
+def r5(+q: +List<Nat>, +a: +List<Nat>, +k: +List<Nat>, +t: +List<Nat>, +d: +List<Nat>, +n: Nat, +h: L.T(IV5(q, a, k, t, d, n))) -> L.T(IV6(q, a, k, t, d, n)):
+  L.and_r(S.disjoint(q, a), IV6(q, a, k, t, d, n), h)
 
-def l5(+q: +List<Nat>, +a: +List<Nat>, +k: +List<Nat>, +t: +List<Nat>, +d: +List<Nat>, +n: Nat, +h: T(IV5(q, a, k, t, d, n))) -> T(S.disjoint(q, a)):
-  and_l(S.disjoint(q, a), IV6(q, a, k, t, d, n), h)
+def l5(+q: +List<Nat>, +a: +List<Nat>, +k: +List<Nat>, +t: +List<Nat>, +d: +List<Nat>, +n: Nat, +h: L.T(IV5(q, a, k, t, d, n))) -> L.T(S.disjoint(q, a)):
+  L.and_l(S.disjoint(q, a), IV6(q, a, k, t, d, n), h)
 
-def m5(+q: +List<Nat>, +a: +List<Nat>, +k: +List<Nat>, +t: +List<Nat>, +d: +List<Nat>, +n: Nat, +x: T(S.disjoint(q, a)), +rest: T(IV6(q, a, k, t, d, n))) -> T(IV5(q, a, k, t, d, n)):
-  and_i(S.disjoint(q, a), IV6(q, a, k, t, d, n), x, rest)
+def m5(+q: +List<Nat>, +a: +List<Nat>, +k: +List<Nat>, +t: +List<Nat>, +d: +List<Nat>, +n: Nat, +x: L.T(S.disjoint(q, a)), +rest: L.T(IV6(q, a, k, t, d, n))) -> L.T(IV5(q, a, k, t, d, n)):
+  L.and_i(S.disjoint(q, a), IV6(q, a, k, t, d, n), x, rest)
 
-def r6(+q: +List<Nat>, +a: +List<Nat>, +k: +List<Nat>, +t: +List<Nat>, +d: +List<Nat>, +n: Nat, +h: T(IV6(q, a, k, t, d, n))) -> T(IV7(q, a, k, t, d, n)):
-  and_r(S.disjoint(q, k), IV7(q, a, k, t, d, n), h)
+def r6(+q: +List<Nat>, +a: +List<Nat>, +k: +List<Nat>, +t: +List<Nat>, +d: +List<Nat>, +n: Nat, +h: L.T(IV6(q, a, k, t, d, n))) -> L.T(IV7(q, a, k, t, d, n)):
+  L.and_r(S.disjoint(q, k), IV7(q, a, k, t, d, n), h)
 
-def l6(+q: +List<Nat>, +a: +List<Nat>, +k: +List<Nat>, +t: +List<Nat>, +d: +List<Nat>, +n: Nat, +h: T(IV6(q, a, k, t, d, n))) -> T(S.disjoint(q, k)):
-  and_l(S.disjoint(q, k), IV7(q, a, k, t, d, n), h)
+def l6(+q: +List<Nat>, +a: +List<Nat>, +k: +List<Nat>, +t: +List<Nat>, +d: +List<Nat>, +n: Nat, +h: L.T(IV6(q, a, k, t, d, n))) -> L.T(S.disjoint(q, k)):
+  L.and_l(S.disjoint(q, k), IV7(q, a, k, t, d, n), h)
 
-def m6(+q: +List<Nat>, +a: +List<Nat>, +k: +List<Nat>, +t: +List<Nat>, +d: +List<Nat>, +n: Nat, +x: T(S.disjoint(q, k)), +rest: T(IV7(q, a, k, t, d, n))) -> T(IV6(q, a, k, t, d, n)):
-  and_i(S.disjoint(q, k), IV7(q, a, k, t, d, n), x, rest)
+def m6(+q: +List<Nat>, +a: +List<Nat>, +k: +List<Nat>, +t: +List<Nat>, +d: +List<Nat>, +n: Nat, +x: L.T(S.disjoint(q, k)), +rest: L.T(IV7(q, a, k, t, d, n))) -> L.T(IV6(q, a, k, t, d, n)):
+  L.and_i(S.disjoint(q, k), IV7(q, a, k, t, d, n), x, rest)
 
-def r7(+q: +List<Nat>, +a: +List<Nat>, +k: +List<Nat>, +t: +List<Nat>, +d: +List<Nat>, +n: Nat, +h: T(IV7(q, a, k, t, d, n))) -> T(IV8(q, a, k, t, d, n)):
-  and_r(S.disjoint(q, t), IV8(q, a, k, t, d, n), h)
+def r7(+q: +List<Nat>, +a: +List<Nat>, +k: +List<Nat>, +t: +List<Nat>, +d: +List<Nat>, +n: Nat, +h: L.T(IV7(q, a, k, t, d, n))) -> L.T(IV8(q, a, k, t, d, n)):
+  L.and_r(S.disjoint(q, t), IV8(q, a, k, t, d, n), h)
 
-def l7(+q: +List<Nat>, +a: +List<Nat>, +k: +List<Nat>, +t: +List<Nat>, +d: +List<Nat>, +n: Nat, +h: T(IV7(q, a, k, t, d, n))) -> T(S.disjoint(q, t)):
-  and_l(S.disjoint(q, t), IV8(q, a, k, t, d, n), h)
+def l7(+q: +List<Nat>, +a: +List<Nat>, +k: +List<Nat>, +t: +List<Nat>, +d: +List<Nat>, +n: Nat, +h: L.T(IV7(q, a, k, t, d, n))) -> L.T(S.disjoint(q, t)):
+  L.and_l(S.disjoint(q, t), IV8(q, a, k, t, d, n), h)
 
-def m7(+q: +List<Nat>, +a: +List<Nat>, +k: +List<Nat>, +t: +List<Nat>, +d: +List<Nat>, +n: Nat, +x: T(S.disjoint(q, t)), +rest: T(IV8(q, a, k, t, d, n))) -> T(IV7(q, a, k, t, d, n)):
-  and_i(S.disjoint(q, t), IV8(q, a, k, t, d, n), x, rest)
+def m7(+q: +List<Nat>, +a: +List<Nat>, +k: +List<Nat>, +t: +List<Nat>, +d: +List<Nat>, +n: Nat, +x: L.T(S.disjoint(q, t)), +rest: L.T(IV8(q, a, k, t, d, n))) -> L.T(IV7(q, a, k, t, d, n)):
+  L.and_i(S.disjoint(q, t), IV8(q, a, k, t, d, n), x, rest)
 
-def r8(+q: +List<Nat>, +a: +List<Nat>, +k: +List<Nat>, +t: +List<Nat>, +d: +List<Nat>, +n: Nat, +h: T(IV8(q, a, k, t, d, n))) -> T(IV9(q, a, k, t, d, n)):
-  and_r(S.disjoint(q, d), IV9(q, a, k, t, d, n), h)
+def r8(+q: +List<Nat>, +a: +List<Nat>, +k: +List<Nat>, +t: +List<Nat>, +d: +List<Nat>, +n: Nat, +h: L.T(IV8(q, a, k, t, d, n))) -> L.T(IV9(q, a, k, t, d, n)):
+  L.and_r(S.disjoint(q, d), IV9(q, a, k, t, d, n), h)
 
-def l8(+q: +List<Nat>, +a: +List<Nat>, +k: +List<Nat>, +t: +List<Nat>, +d: +List<Nat>, +n: Nat, +h: T(IV8(q, a, k, t, d, n))) -> T(S.disjoint(q, d)):
-  and_l(S.disjoint(q, d), IV9(q, a, k, t, d, n), h)
+def l8(+q: +List<Nat>, +a: +List<Nat>, +k: +List<Nat>, +t: +List<Nat>, +d: +List<Nat>, +n: Nat, +h: L.T(IV8(q, a, k, t, d, n))) -> L.T(S.disjoint(q, d)):
+  L.and_l(S.disjoint(q, d), IV9(q, a, k, t, d, n), h)
 
-def m8(+q: +List<Nat>, +a: +List<Nat>, +k: +List<Nat>, +t: +List<Nat>, +d: +List<Nat>, +n: Nat, +x: T(S.disjoint(q, d)), +rest: T(IV9(q, a, k, t, d, n))) -> T(IV8(q, a, k, t, d, n)):
-  and_i(S.disjoint(q, d), IV9(q, a, k, t, d, n), x, rest)
+def m8(+q: +List<Nat>, +a: +List<Nat>, +k: +List<Nat>, +t: +List<Nat>, +d: +List<Nat>, +n: Nat, +x: L.T(S.disjoint(q, d)), +rest: L.T(IV9(q, a, k, t, d, n))) -> L.T(IV8(q, a, k, t, d, n)):
+  L.and_i(S.disjoint(q, d), IV9(q, a, k, t, d, n), x, rest)
 
-def r9(+q: +List<Nat>, +a: +List<Nat>, +k: +List<Nat>, +t: +List<Nat>, +d: +List<Nat>, +n: Nat, +h: T(IV9(q, a, k, t, d, n))) -> T(IV10(q, a, k, t, d, n)):
-  and_r(S.disjoint(a, k), IV10(q, a, k, t, d, n), h)
+def r9(+q: +List<Nat>, +a: +List<Nat>, +k: +List<Nat>, +t: +List<Nat>, +d: +List<Nat>, +n: Nat, +h: L.T(IV9(q, a, k, t, d, n))) -> L.T(IV10(q, a, k, t, d, n)):
+  L.and_r(S.disjoint(a, k), IV10(q, a, k, t, d, n), h)
 
-def l9(+q: +List<Nat>, +a: +List<Nat>, +k: +List<Nat>, +t: +List<Nat>, +d: +List<Nat>, +n: Nat, +h: T(IV9(q, a, k, t, d, n))) -> T(S.disjoint(a, k)):
-  and_l(S.disjoint(a, k), IV10(q, a, k, t, d, n), h)
+def l9(+q: +List<Nat>, +a: +List<Nat>, +k: +List<Nat>, +t: +List<Nat>, +d: +List<Nat>, +n: Nat, +h: L.T(IV9(q, a, k, t, d, n))) -> L.T(S.disjoint(a, k)):
+  L.and_l(S.disjoint(a, k), IV10(q, a, k, t, d, n), h)
 
-def m9(+q: +List<Nat>, +a: +List<Nat>, +k: +List<Nat>, +t: +List<Nat>, +d: +List<Nat>, +n: Nat, +x: T(S.disjoint(a, k)), +rest: T(IV10(q, a, k, t, d, n))) -> T(IV9(q, a, k, t, d, n)):
-  and_i(S.disjoint(a, k), IV10(q, a, k, t, d, n), x, rest)
+def m9(+q: +List<Nat>, +a: +List<Nat>, +k: +List<Nat>, +t: +List<Nat>, +d: +List<Nat>, +n: Nat, +x: L.T(S.disjoint(a, k)), +rest: L.T(IV10(q, a, k, t, d, n))) -> L.T(IV9(q, a, k, t, d, n)):
+  L.and_i(S.disjoint(a, k), IV10(q, a, k, t, d, n), x, rest)
 
-def r10(+q: +List<Nat>, +a: +List<Nat>, +k: +List<Nat>, +t: +List<Nat>, +d: +List<Nat>, +n: Nat, +h: T(IV10(q, a, k, t, d, n))) -> T(IV11(q, a, k, t, d, n)):
-  and_r(S.disjoint(a, t), IV11(q, a, k, t, d, n), h)
+def r10(+q: +List<Nat>, +a: +List<Nat>, +k: +List<Nat>, +t: +List<Nat>, +d: +List<Nat>, +n: Nat, +h: L.T(IV10(q, a, k, t, d, n))) -> L.T(IV11(q, a, k, t, d, n)):
+  L.and_r(S.disjoint(a, t), IV11(q, a, k, t, d, n), h)
 
-def l10(+q: +List<Nat>, +a: +List<Nat>, +k: +List<Nat>, +t: +List<Nat>, +d: +List<Nat>, +n: Nat, +h: T(IV10(q, a, k, t, d, n))) -> T(S.disjoint(a, t)):
-  and_l(S.disjoint(a, t), IV11(q, a, k, t, d, n), h)
+def l10(+q: +List<Nat>, +a: +List<Nat>, +k: +List<Nat>, +t: +List<Nat>, +d: +List<Nat>, +n: Nat, +h: L.T(IV10(q, a, k, t, d, n))) -> L.T(S.disjoint(a, t)):
+  L.and_l(S.disjoint(a, t), IV11(q, a, k, t, d, n), h)
 
-def m10(+q: +List<Nat>, +a: +List<Nat>, +k: +List<Nat>, +t: +List<Nat>, +d: +List<Nat>, +n: Nat, +x: T(S.disjoint(a, t)), +rest: T(IV11(q, a, k, t, d, n))) -> T(IV10(q, a, k, t, d, n)):
-  and_i(S.disjoint(a, t), IV11(q, a, k, t, d, n), x, rest)
+def m10(+q: +List<Nat>, +a: +List<Nat>, +k: +List<Nat>, +t: +List<Nat>, +d: +List<Nat>, +n: Nat, +x: L.T(S.disjoint(a, t)), +rest: L.T(IV11(q, a, k, t, d, n))) -> L.T(IV10(q, a, k, t, d, n)):
+  L.and_i(S.disjoint(a, t), IV11(q, a, k, t, d, n), x, rest)
 
-def r11(+q: +List<Nat>, +a: +List<Nat>, +k: +List<Nat>, +t: +List<Nat>, +d: +List<Nat>, +n: Nat, +h: T(IV11(q, a, k, t, d, n))) -> T(IV12(q, a, k, t, d, n)):
-  and_r(S.disjoint(a, d), IV12(q, a, k, t, d, n), h)
+def r11(+q: +List<Nat>, +a: +List<Nat>, +k: +List<Nat>, +t: +List<Nat>, +d: +List<Nat>, +n: Nat, +h: L.T(IV11(q, a, k, t, d, n))) -> L.T(IV12(q, a, k, t, d, n)):
+  L.and_r(S.disjoint(a, d), IV12(q, a, k, t, d, n), h)
 
-def l11(+q: +List<Nat>, +a: +List<Nat>, +k: +List<Nat>, +t: +List<Nat>, +d: +List<Nat>, +n: Nat, +h: T(IV11(q, a, k, t, d, n))) -> T(S.disjoint(a, d)):
-  and_l(S.disjoint(a, d), IV12(q, a, k, t, d, n), h)
+def l11(+q: +List<Nat>, +a: +List<Nat>, +k: +List<Nat>, +t: +List<Nat>, +d: +List<Nat>, +n: Nat, +h: L.T(IV11(q, a, k, t, d, n))) -> L.T(S.disjoint(a, d)):
+  L.and_l(S.disjoint(a, d), IV12(q, a, k, t, d, n), h)
 
-def m11(+q: +List<Nat>, +a: +List<Nat>, +k: +List<Nat>, +t: +List<Nat>, +d: +List<Nat>, +n: Nat, +x: T(S.disjoint(a, d)), +rest: T(IV12(q, a, k, t, d, n))) -> T(IV11(q, a, k, t, d, n)):
-  and_i(S.disjoint(a, d), IV12(q, a, k, t, d, n), x, rest)
+def m11(+q: +List<Nat>, +a: +List<Nat>, +k: +List<Nat>, +t: +List<Nat>, +d: +List<Nat>, +n: Nat, +x: L.T(S.disjoint(a, d)), +rest: L.T(IV12(q, a, k, t, d, n))) -> L.T(IV11(q, a, k, t, d, n)):
+  L.and_i(S.disjoint(a, d), IV12(q, a, k, t, d, n), x, rest)
 
-def r12(+q: +List<Nat>, +a: +List<Nat>, +k: +List<Nat>, +t: +List<Nat>, +d: +List<Nat>, +n: Nat, +h: T(IV12(q, a, k, t, d, n))) -> T(IV13(q, a, k, t, d, n)):
-  and_r(S.disjoint(k, t), IV13(q, a, k, t, d, n), h)
+def r12(+q: +List<Nat>, +a: +List<Nat>, +k: +List<Nat>, +t: +List<Nat>, +d: +List<Nat>, +n: Nat, +h: L.T(IV12(q, a, k, t, d, n))) -> L.T(IV13(q, a, k, t, d, n)):
+  L.and_r(S.disjoint(k, t), IV13(q, a, k, t, d, n), h)
 
-def l12(+q: +List<Nat>, +a: +List<Nat>, +k: +List<Nat>, +t: +List<Nat>, +d: +List<Nat>, +n: Nat, +h: T(IV12(q, a, k, t, d, n))) -> T(S.disjoint(k, t)):
-  and_l(S.disjoint(k, t), IV13(q, a, k, t, d, n), h)
+def l12(+q: +List<Nat>, +a: +List<Nat>, +k: +List<Nat>, +t: +List<Nat>, +d: +List<Nat>, +n: Nat, +h: L.T(IV12(q, a, k, t, d, n))) -> L.T(S.disjoint(k, t)):
+  L.and_l(S.disjoint(k, t), IV13(q, a, k, t, d, n), h)
 
-def m12(+q: +List<Nat>, +a: +List<Nat>, +k: +List<Nat>, +t: +List<Nat>, +d: +List<Nat>, +n: Nat, +x: T(S.disjoint(k, t)), +rest: T(IV13(q, a, k, t, d, n))) -> T(IV12(q, a, k, t, d, n)):
-  and_i(S.disjoint(k, t), IV13(q, a, k, t, d, n), x, rest)
+def m12(+q: +List<Nat>, +a: +List<Nat>, +k: +List<Nat>, +t: +List<Nat>, +d: +List<Nat>, +n: Nat, +x: L.T(S.disjoint(k, t)), +rest: L.T(IV13(q, a, k, t, d, n))) -> L.T(IV12(q, a, k, t, d, n)):
+  L.and_i(S.disjoint(k, t), IV13(q, a, k, t, d, n), x, rest)
 
-def r13(+q: +List<Nat>, +a: +List<Nat>, +k: +List<Nat>, +t: +List<Nat>, +d: +List<Nat>, +n: Nat, +h: T(IV13(q, a, k, t, d, n))) -> T(IV14(q, a, k, t, d, n)):
-  and_r(S.disjoint(k, d), IV14(q, a, k, t, d, n), h)
+def r13(+q: +List<Nat>, +a: +List<Nat>, +k: +List<Nat>, +t: +List<Nat>, +d: +List<Nat>, +n: Nat, +h: L.T(IV13(q, a, k, t, d, n))) -> L.T(IV14(q, a, k, t, d, n)):
+  L.and_r(S.disjoint(k, d), IV14(q, a, k, t, d, n), h)
 
-def l13(+q: +List<Nat>, +a: +List<Nat>, +k: +List<Nat>, +t: +List<Nat>, +d: +List<Nat>, +n: Nat, +h: T(IV13(q, a, k, t, d, n))) -> T(S.disjoint(k, d)):
-  and_l(S.disjoint(k, d), IV14(q, a, k, t, d, n), h)
+def l13(+q: +List<Nat>, +a: +List<Nat>, +k: +List<Nat>, +t: +List<Nat>, +d: +List<Nat>, +n: Nat, +h: L.T(IV13(q, a, k, t, d, n))) -> L.T(S.disjoint(k, d)):
+  L.and_l(S.disjoint(k, d), IV14(q, a, k, t, d, n), h)
 
-def m13(+q: +List<Nat>, +a: +List<Nat>, +k: +List<Nat>, +t: +List<Nat>, +d: +List<Nat>, +n: Nat, +x: T(S.disjoint(k, d)), +rest: T(IV14(q, a, k, t, d, n))) -> T(IV13(q, a, k, t, d, n)):
-  and_i(S.disjoint(k, d), IV14(q, a, k, t, d, n), x, rest)
+def m13(+q: +List<Nat>, +a: +List<Nat>, +k: +List<Nat>, +t: +List<Nat>, +d: +List<Nat>, +n: Nat, +x: L.T(S.disjoint(k, d)), +rest: L.T(IV14(q, a, k, t, d, n))) -> L.T(IV13(q, a, k, t, d, n)):
+  L.and_i(S.disjoint(k, d), IV14(q, a, k, t, d, n), x, rest)
 
-def r14(+q: +List<Nat>, +a: +List<Nat>, +k: +List<Nat>, +t: +List<Nat>, +d: +List<Nat>, +n: Nat, +h: T(IV14(q, a, k, t, d, n))) -> T(IV15(q, a, k, t, d, n)):
-  and_r(S.disjoint(t, d), IV15(q, a, k, t, d, n), h)
+def r14(+q: +List<Nat>, +a: +List<Nat>, +k: +List<Nat>, +t: +List<Nat>, +d: +List<Nat>, +n: Nat, +h: L.T(IV14(q, a, k, t, d, n))) -> L.T(IV15(q, a, k, t, d, n)):
+  L.and_r(S.disjoint(t, d), IV15(q, a, k, t, d, n), h)
 
-def l14(+q: +List<Nat>, +a: +List<Nat>, +k: +List<Nat>, +t: +List<Nat>, +d: +List<Nat>, +n: Nat, +h: T(IV14(q, a, k, t, d, n))) -> T(S.disjoint(t, d)):
-  and_l(S.disjoint(t, d), IV15(q, a, k, t, d, n), h)
+def l14(+q: +List<Nat>, +a: +List<Nat>, +k: +List<Nat>, +t: +List<Nat>, +d: +List<Nat>, +n: Nat, +h: L.T(IV14(q, a, k, t, d, n))) -> L.T(S.disjoint(t, d)):
+  L.and_l(S.disjoint(t, d), IV15(q, a, k, t, d, n), h)
 
-def m14(+q: +List<Nat>, +a: +List<Nat>, +k: +List<Nat>, +t: +List<Nat>, +d: +List<Nat>, +n: Nat, +x: T(S.disjoint(t, d)), +rest: T(IV15(q, a, k, t, d, n))) -> T(IV14(q, a, k, t, d, n)):
-  and_i(S.disjoint(t, d), IV15(q, a, k, t, d, n), x, rest)
+def m14(+q: +List<Nat>, +a: +List<Nat>, +k: +List<Nat>, +t: +List<Nat>, +d: +List<Nat>, +n: Nat, +x: L.T(S.disjoint(t, d)), +rest: L.T(IV15(q, a, k, t, d, n))) -> L.T(IV14(q, a, k, t, d, n)):
+  L.and_i(S.disjoint(t, d), IV15(q, a, k, t, d, n), x, rest)
 
-def r15(+q: +List<Nat>, +a: +List<Nat>, +k: +List<Nat>, +t: +List<Nat>, +d: +List<Nat>, +n: Nat, +h: T(IV15(q, a, k, t, d, n))) -> T(IV16(q, a, k, t, d, n)):
-  and_r(bd(q, n), IV16(q, a, k, t, d, n), h)
+def r15(+q: +List<Nat>, +a: +List<Nat>, +k: +List<Nat>, +t: +List<Nat>, +d: +List<Nat>, +n: Nat, +h: L.T(IV15(q, a, k, t, d, n))) -> L.T(IV16(q, a, k, t, d, n)):
+  L.and_r(bd(q, n), IV16(q, a, k, t, d, n), h)
 
-def l15(+q: +List<Nat>, +a: +List<Nat>, +k: +List<Nat>, +t: +List<Nat>, +d: +List<Nat>, +n: Nat, +h: T(IV15(q, a, k, t, d, n))) -> T(bd(q, n)):
-  and_l(bd(q, n), IV16(q, a, k, t, d, n), h)
+def l15(+q: +List<Nat>, +a: +List<Nat>, +k: +List<Nat>, +t: +List<Nat>, +d: +List<Nat>, +n: Nat, +h: L.T(IV15(q, a, k, t, d, n))) -> L.T(bd(q, n)):
+  L.and_l(bd(q, n), IV16(q, a, k, t, d, n), h)
 
-def m15(+q: +List<Nat>, +a: +List<Nat>, +k: +List<Nat>, +t: +List<Nat>, +d: +List<Nat>, +n: Nat, +x: T(bd(q, n)), +rest: T(IV16(q, a, k, t, d, n))) -> T(IV15(q, a, k, t, d, n)):
-  and_i(bd(q, n), IV16(q, a, k, t, d, n), x, rest)
+def m15(+q: +List<Nat>, +a: +List<Nat>, +k: +List<Nat>, +t: +List<Nat>, +d: +List<Nat>, +n: Nat, +x: L.T(bd(q, n)), +rest: L.T(IV16(q, a, k, t, d, n))) -> L.T(IV15(q, a, k, t, d, n)):
+  L.and_i(bd(q, n), IV16(q, a, k, t, d, n), x, rest)
 
-def r16(+q: +List<Nat>, +a: +List<Nat>, +k: +List<Nat>, +t: +List<Nat>, +d: +List<Nat>, +n: Nat, +h: T(IV16(q, a, k, t, d, n))) -> T(IV17(q, a, k, t, d, n)):
-  and_r(bd(a, n), IV17(q, a, k, t, d, n), h)
+def r16(+q: +List<Nat>, +a: +List<Nat>, +k: +List<Nat>, +t: +List<Nat>, +d: +List<Nat>, +n: Nat, +h: L.T(IV16(q, a, k, t, d, n))) -> L.T(IV17(q, a, k, t, d, n)):
+  L.and_r(bd(a, n), IV17(q, a, k, t, d, n), h)
 
-def l16(+q: +List<Nat>, +a: +List<Nat>, +k: +List<Nat>, +t: +List<Nat>, +d: +List<Nat>, +n: Nat, +h: T(IV16(q, a, k, t, d, n))) -> T(bd(a, n)):
-  and_l(bd(a, n), IV17(q, a, k, t, d, n), h)
+def l16(+q: +List<Nat>, +a: +List<Nat>, +k: +List<Nat>, +t: +List<Nat>, +d: +List<Nat>, +n: Nat, +h: L.T(IV16(q, a, k, t, d, n))) -> L.T(bd(a, n)):
+  L.and_l(bd(a, n), IV17(q, a, k, t, d, n), h)
 
-def m16(+q: +List<Nat>, +a: +List<Nat>, +k: +List<Nat>, +t: +List<Nat>, +d: +List<Nat>, +n: Nat, +x: T(bd(a, n)), +rest: T(IV17(q, a, k, t, d, n))) -> T(IV16(q, a, k, t, d, n)):
-  and_i(bd(a, n), IV17(q, a, k, t, d, n), x, rest)
+def m16(+q: +List<Nat>, +a: +List<Nat>, +k: +List<Nat>, +t: +List<Nat>, +d: +List<Nat>, +n: Nat, +x: L.T(bd(a, n)), +rest: L.T(IV17(q, a, k, t, d, n))) -> L.T(IV16(q, a, k, t, d, n)):
+  L.and_i(bd(a, n), IV17(q, a, k, t, d, n), x, rest)
 
-def r17(+q: +List<Nat>, +a: +List<Nat>, +k: +List<Nat>, +t: +List<Nat>, +d: +List<Nat>, +n: Nat, +h: T(IV17(q, a, k, t, d, n))) -> T(IV18(q, a, k, t, d, n)):
-  and_r(bd(k, n), IV18(q, a, k, t, d, n), h)
+def r17(+q: +List<Nat>, +a: +List<Nat>, +k: +List<Nat>, +t: +List<Nat>, +d: +List<Nat>, +n: Nat, +h: L.T(IV17(q, a, k, t, d, n))) -> L.T(IV18(q, a, k, t, d, n)):
+  L.and_r(bd(k, n), IV18(q, a, k, t, d, n), h)
 
-def l17(+q: +List<Nat>, +a: +List<Nat>, +k: +List<Nat>, +t: +List<Nat>, +d: +List<Nat>, +n: Nat, +h: T(IV17(q, a, k, t, d, n))) -> T(bd(k, n)):
-  and_l(bd(k, n), IV18(q, a, k, t, d, n), h)
+def l17(+q: +List<Nat>, +a: +List<Nat>, +k: +List<Nat>, +t: +List<Nat>, +d: +List<Nat>, +n: Nat, +h: L.T(IV17(q, a, k, t, d, n))) -> L.T(bd(k, n)):
+  L.and_l(bd(k, n), IV18(q, a, k, t, d, n), h)
 
-def m17(+q: +List<Nat>, +a: +List<Nat>, +k: +List<Nat>, +t: +List<Nat>, +d: +List<Nat>, +n: Nat, +x: T(bd(k, n)), +rest: T(IV18(q, a, k, t, d, n))) -> T(IV17(q, a, k, t, d, n)):
-  and_i(bd(k, n), IV18(q, a, k, t, d, n), x, rest)
+def m17(+q: +List<Nat>, +a: +List<Nat>, +k: +List<Nat>, +t: +List<Nat>, +d: +List<Nat>, +n: Nat, +x: L.T(bd(k, n)), +rest: L.T(IV18(q, a, k, t, d, n))) -> L.T(IV17(q, a, k, t, d, n)):
+  L.and_i(bd(k, n), IV18(q, a, k, t, d, n), x, rest)
 
-def r18(+q: +List<Nat>, +a: +List<Nat>, +k: +List<Nat>, +t: +List<Nat>, +d: +List<Nat>, +n: Nat, +h: T(IV18(q, a, k, t, d, n))) -> T(IV19(q, a, k, t, d, n)):
-  and_r(bd(t, n), IV19(q, a, k, t, d, n), h)
+def r18(+q: +List<Nat>, +a: +List<Nat>, +k: +List<Nat>, +t: +List<Nat>, +d: +List<Nat>, +n: Nat, +h: L.T(IV18(q, a, k, t, d, n))) -> L.T(IV19(q, a, k, t, d, n)):
+  L.and_r(bd(t, n), IV19(q, a, k, t, d, n), h)
 
-def l18(+q: +List<Nat>, +a: +List<Nat>, +k: +List<Nat>, +t: +List<Nat>, +d: +List<Nat>, +n: Nat, +h: T(IV18(q, a, k, t, d, n))) -> T(bd(t, n)):
-  and_l(bd(t, n), IV19(q, a, k, t, d, n), h)
+def l18(+q: +List<Nat>, +a: +List<Nat>, +k: +List<Nat>, +t: +List<Nat>, +d: +List<Nat>, +n: Nat, +h: L.T(IV18(q, a, k, t, d, n))) -> L.T(bd(t, n)):
+  L.and_l(bd(t, n), IV19(q, a, k, t, d, n), h)
 
-def m18(+q: +List<Nat>, +a: +List<Nat>, +k: +List<Nat>, +t: +List<Nat>, +d: +List<Nat>, +n: Nat, +x: T(bd(t, n)), +rest: T(IV19(q, a, k, t, d, n))) -> T(IV18(q, a, k, t, d, n)):
-  and_i(bd(t, n), IV19(q, a, k, t, d, n), x, rest)
+def m18(+q: +List<Nat>, +a: +List<Nat>, +k: +List<Nat>, +t: +List<Nat>, +d: +List<Nat>, +n: Nat, +x: L.T(bd(t, n)), +rest: L.T(IV19(q, a, k, t, d, n))) -> L.T(IV18(q, a, k, t, d, n)):
+  L.and_i(bd(t, n), IV19(q, a, k, t, d, n), x, rest)
 
-def r19(+q: +List<Nat>, +a: +List<Nat>, +k: +List<Nat>, +t: +List<Nat>, +d: +List<Nat>, +n: Nat, +h: T(IV19(q, a, k, t, d, n))) -> T(IV20(q, a, k, t, d, n)):
-  and_r(bd(d, n), IV20(q, a, k, t, d, n), h)
+def r19(+q: +List<Nat>, +a: +List<Nat>, +k: +List<Nat>, +t: +List<Nat>, +d: +List<Nat>, +n: Nat, +h: L.T(IV19(q, a, k, t, d, n))) -> L.T(IV20(q, a, k, t, d, n)):
+  L.and_r(bd(d, n), IV20(q, a, k, t, d, n), h)
 
-def l19(+q: +List<Nat>, +a: +List<Nat>, +k: +List<Nat>, +t: +List<Nat>, +d: +List<Nat>, +n: Nat, +h: T(IV19(q, a, k, t, d, n))) -> T(bd(d, n)):
-  and_l(bd(d, n), IV20(q, a, k, t, d, n), h)
+def l19(+q: +List<Nat>, +a: +List<Nat>, +k: +List<Nat>, +t: +List<Nat>, +d: +List<Nat>, +n: Nat, +h: L.T(IV19(q, a, k, t, d, n))) -> L.T(bd(d, n)):
+  L.and_l(bd(d, n), IV20(q, a, k, t, d, n), h)
 
-def m19(+q: +List<Nat>, +a: +List<Nat>, +k: +List<Nat>, +t: +List<Nat>, +d: +List<Nat>, +n: Nat, +x: T(bd(d, n)), +rest: T(IV20(q, a, k, t, d, n))) -> T(IV19(q, a, k, t, d, n)):
-  and_i(bd(d, n), IV20(q, a, k, t, d, n), x, rest)
+def m19(+q: +List<Nat>, +a: +List<Nat>, +k: +List<Nat>, +t: +List<Nat>, +d: +List<Nat>, +n: Nat, +x: L.T(bd(d, n)), +rest: L.T(IV20(q, a, k, t, d, n))) -> L.T(IV19(q, a, k, t, d, n)):
+  L.and_i(bd(d, n), IV20(q, a, k, t, d, n), x, rest)
 
-def p0(+q: +List<Nat>, +a: +List<Nat>, +k: +List<Nat>, +t: +List<Nat>, +d: +List<Nat>, +n: Nat, +h: T(IV(q, a, k, t, d, n))) -> T(S.nodup(q)):
+def p0(+q: +List<Nat>, +a: +List<Nat>, +k: +List<Nat>, +t: +List<Nat>, +d: +List<Nat>, +n: Nat, +h: L.T(IV(q, a, k, t, d, n))) -> L.T(S.nodup(q)):
   l0(q, a, k, t, d, n, h)
 
-def p1(+q: +List<Nat>, +a: +List<Nat>, +k: +List<Nat>, +t: +List<Nat>, +d: +List<Nat>, +n: Nat, +h: T(IV(q, a, k, t, d, n))) -> T(S.nodup(a)):
+def p1(+q: +List<Nat>, +a: +List<Nat>, +k: +List<Nat>, +t: +List<Nat>, +d: +List<Nat>, +n: Nat, +h: L.T(IV(q, a, k, t, d, n))) -> L.T(S.nodup(a)):
   l1(q, a, k, t, d, n, r0(q, a, k, t, d, n, h))
 
-def p2(+q: +List<Nat>, +a: +List<Nat>, +k: +List<Nat>, +t: +List<Nat>, +d: +List<Nat>, +n: Nat, +h: T(IV(q, a, k, t, d, n))) -> T(S.nodup(k)):
+def p2(+q: +List<Nat>, +a: +List<Nat>, +k: +List<Nat>, +t: +List<Nat>, +d: +List<Nat>, +n: Nat, +h: L.T(IV(q, a, k, t, d, n))) -> L.T(S.nodup(k)):
   l2(q, a, k, t, d, n, r1(q, a, k, t, d, n, r0(q, a, k, t, d, n, h)))
 
-def p3(+q: +List<Nat>, +a: +List<Nat>, +k: +List<Nat>, +t: +List<Nat>, +d: +List<Nat>, +n: Nat, +h: T(IV(q, a, k, t, d, n))) -> T(S.nodup(t)):
+def p3(+q: +List<Nat>, +a: +List<Nat>, +k: +List<Nat>, +t: +List<Nat>, +d: +List<Nat>, +n: Nat, +h: L.T(IV(q, a, k, t, d, n))) -> L.T(S.nodup(t)):
   l3(q, a, k, t, d, n, r2(q, a, k, t, d, n, r1(q, a, k, t, d, n, r0(q, a, k, t, d, n, h))))
 
-def p4(+q: +List<Nat>, +a: +List<Nat>, +k: +List<Nat>, +t: +List<Nat>, +d: +List<Nat>, +n: Nat, +h: T(IV(q, a, k, t, d, n))) -> T(S.nodup(d)):
+def p4(+q: +List<Nat>, +a: +List<Nat>, +k: +List<Nat>, +t: +List<Nat>, +d: +List<Nat>, +n: Nat, +h: L.T(IV(q, a, k, t, d, n))) -> L.T(S.nodup(d)):
   l4(q, a, k, t, d, n, r3(q, a, k, t, d, n, r2(q, a, k, t, d, n, r1(q, a, k, t, d, n, r0(q, a, k, t, d, n, h)))))
 
-def p5(+q: +List<Nat>, +a: +List<Nat>, +k: +List<Nat>, +t: +List<Nat>, +d: +List<Nat>, +n: Nat, +h: T(IV(q, a, k, t, d, n))) -> T(S.disjoint(q, a)):
+def p5(+q: +List<Nat>, +a: +List<Nat>, +k: +List<Nat>, +t: +List<Nat>, +d: +List<Nat>, +n: Nat, +h: L.T(IV(q, a, k, t, d, n))) -> L.T(S.disjoint(q, a)):
   l5(q, a, k, t, d, n, r4(q, a, k, t, d, n, r3(q, a, k, t, d, n, r2(q, a, k, t, d, n, r1(q, a, k, t, d, n, r0(q, a, k, t, d, n, h))))))
 
-def p6(+q: +List<Nat>, +a: +List<Nat>, +k: +List<Nat>, +t: +List<Nat>, +d: +List<Nat>, +n: Nat, +h: T(IV(q, a, k, t, d, n))) -> T(S.disjoint(q, k)):
+def p6(+q: +List<Nat>, +a: +List<Nat>, +k: +List<Nat>, +t: +List<Nat>, +d: +List<Nat>, +n: Nat, +h: L.T(IV(q, a, k, t, d, n))) -> L.T(S.disjoint(q, k)):
   l6(q, a, k, t, d, n, r5(q, a, k, t, d, n, r4(q, a, k, t, d, n, r3(q, a, k, t, d, n, r2(q, a, k, t, d, n, r1(q, a, k, t, d, n, r0(q, a, k, t, d, n, h)))))))
 
-def p7(+q: +List<Nat>, +a: +List<Nat>, +k: +List<Nat>, +t: +List<Nat>, +d: +List<Nat>, +n: Nat, +h: T(IV(q, a, k, t, d, n))) -> T(S.disjoint(q, t)):
+def p7(+q: +List<Nat>, +a: +List<Nat>, +k: +List<Nat>, +t: +List<Nat>, +d: +List<Nat>, +n: Nat, +h: L.T(IV(q, a, k, t, d, n))) -> L.T(S.disjoint(q, t)):
   l7(q, a, k, t, d, n, r6(q, a, k, t, d, n, r5(q, a, k, t, d, n, r4(q, a, k, t, d, n, r3(q, a, k, t, d, n, r2(q, a, k, t, d, n, r1(q, a, k, t, d, n, r0(q, a, k, t, d, n, h))))))))
 
-def p8(+q: +List<Nat>, +a: +List<Nat>, +k: +List<Nat>, +t: +List<Nat>, +d: +List<Nat>, +n: Nat, +h: T(IV(q, a, k, t, d, n))) -> T(S.disjoint(q, d)):
+def p8(+q: +List<Nat>, +a: +List<Nat>, +k: +List<Nat>, +t: +List<Nat>, +d: +List<Nat>, +n: Nat, +h: L.T(IV(q, a, k, t, d, n))) -> L.T(S.disjoint(q, d)):
   l8(q, a, k, t, d, n, r7(q, a, k, t, d, n, r6(q, a, k, t, d, n, r5(q, a, k, t, d, n, r4(q, a, k, t, d, n, r3(q, a, k, t, d, n, r2(q, a, k, t, d, n, r1(q, a, k, t, d, n, r0(q, a, k, t, d, n, h)))))))))
 
-def p9(+q: +List<Nat>, +a: +List<Nat>, +k: +List<Nat>, +t: +List<Nat>, +d: +List<Nat>, +n: Nat, +h: T(IV(q, a, k, t, d, n))) -> T(S.disjoint(a, k)):
+def p9(+q: +List<Nat>, +a: +List<Nat>, +k: +List<Nat>, +t: +List<Nat>, +d: +List<Nat>, +n: Nat, +h: L.T(IV(q, a, k, t, d, n))) -> L.T(S.disjoint(a, k)):
   l9(q, a, k, t, d, n, r8(q, a, k, t, d, n, r7(q, a, k, t, d, n, r6(q, a, k, t, d, n, r5(q, a, k, t, d, n, r4(q, a, k, t, d, n, r3(q, a, k, t, d, n, r2(q, a, k, t, d, n, r1(q, a, k, t, d, n, r0(q, a, k, t, d, n, h))))))))))
 
-def p10(+q: +List<Nat>, +a: +List<Nat>, +k: +List<Nat>, +t: +List<Nat>, +d: +List<Nat>, +n: Nat, +h: T(IV(q, a, k, t, d, n))) -> T(S.disjoint(a, t)):
+def p10(+q: +List<Nat>, +a: +List<Nat>, +k: +List<Nat>, +t: +List<Nat>, +d: +List<Nat>, +n: Nat, +h: L.T(IV(q, a, k, t, d, n))) -> L.T(S.disjoint(a, t)):
   l10(q, a, k, t, d, n, r9(q, a, k, t, d, n, r8(q, a, k, t, d, n, r7(q, a, k, t, d, n, r6(q, a, k, t, d, n, r5(q, a, k, t, d, n, r4(q, a, k, t, d, n, r3(q, a, k, t, d, n, r2(q, a, k, t, d, n, r1(q, a, k, t, d, n, r0(q, a, k, t, d, n, h)))))))))))
 
-def p11(+q: +List<Nat>, +a: +List<Nat>, +k: +List<Nat>, +t: +List<Nat>, +d: +List<Nat>, +n: Nat, +h: T(IV(q, a, k, t, d, n))) -> T(S.disjoint(a, d)):
+def p11(+q: +List<Nat>, +a: +List<Nat>, +k: +List<Nat>, +t: +List<Nat>, +d: +List<Nat>, +n: Nat, +h: L.T(IV(q, a, k, t, d, n))) -> L.T(S.disjoint(a, d)):
   l11(q, a, k, t, d, n, r10(q, a, k, t, d, n, r9(q, a, k, t, d, n, r8(q, a, k, t, d, n, r7(q, a, k, t, d, n, r6(q, a, k, t, d, n, r5(q, a, k, t, d, n, r4(q, a, k, t, d, n, r3(q, a, k, t, d, n, r2(q, a, k, t, d, n, r1(q, a, k, t, d, n, r0(q, a, k, t, d, n, h))))))))))))
 
-def p12(+q: +List<Nat>, +a: +List<Nat>, +k: +List<Nat>, +t: +List<Nat>, +d: +List<Nat>, +n: Nat, +h: T(IV(q, a, k, t, d, n))) -> T(S.disjoint(k, t)):
+def p12(+q: +List<Nat>, +a: +List<Nat>, +k: +List<Nat>, +t: +List<Nat>, +d: +List<Nat>, +n: Nat, +h: L.T(IV(q, a, k, t, d, n))) -> L.T(S.disjoint(k, t)):
   l12(q, a, k, t, d, n, r11(q, a, k, t, d, n, r10(q, a, k, t, d, n, r9(q, a, k, t, d, n, r8(q, a, k, t, d, n, r7(q, a, k, t, d, n, r6(q, a, k, t, d, n, r5(q, a, k, t, d, n, r4(q, a, k, t, d, n, r3(q, a, k, t, d, n, r2(q, a, k, t, d, n, r1(q, a, k, t, d, n, r0(q, a, k, t, d, n, h)))))))))))))
 
-def p13(+q: +List<Nat>, +a: +List<Nat>, +k: +List<Nat>, +t: +List<Nat>, +d: +List<Nat>, +n: Nat, +h: T(IV(q, a, k, t, d, n))) -> T(S.disjoint(k, d)):
+def p13(+q: +List<Nat>, +a: +List<Nat>, +k: +List<Nat>, +t: +List<Nat>, +d: +List<Nat>, +n: Nat, +h: L.T(IV(q, a, k, t, d, n))) -> L.T(S.disjoint(k, d)):
   l13(q, a, k, t, d, n, r12(q, a, k, t, d, n, r11(q, a, k, t, d, n, r10(q, a, k, t, d, n, r9(q, a, k, t, d, n, r8(q, a, k, t, d, n, r7(q, a, k, t, d, n, r6(q, a, k, t, d, n, r5(q, a, k, t, d, n, r4(q, a, k, t, d, n, r3(q, a, k, t, d, n, r2(q, a, k, t, d, n, r1(q, a, k, t, d, n, r0(q, a, k, t, d, n, h))))))))))))))
 
-def p14(+q: +List<Nat>, +a: +List<Nat>, +k: +List<Nat>, +t: +List<Nat>, +d: +List<Nat>, +n: Nat, +h: T(IV(q, a, k, t, d, n))) -> T(S.disjoint(t, d)):
+def p14(+q: +List<Nat>, +a: +List<Nat>, +k: +List<Nat>, +t: +List<Nat>, +d: +List<Nat>, +n: Nat, +h: L.T(IV(q, a, k, t, d, n))) -> L.T(S.disjoint(t, d)):
   l14(q, a, k, t, d, n, r13(q, a, k, t, d, n, r12(q, a, k, t, d, n, r11(q, a, k, t, d, n, r10(q, a, k, t, d, n, r9(q, a, k, t, d, n, r8(q, a, k, t, d, n, r7(q, a, k, t, d, n, r6(q, a, k, t, d, n, r5(q, a, k, t, d, n, r4(q, a, k, t, d, n, r3(q, a, k, t, d, n, r2(q, a, k, t, d, n, r1(q, a, k, t, d, n, r0(q, a, k, t, d, n, h)))))))))))))))
 
-def p15(+q: +List<Nat>, +a: +List<Nat>, +k: +List<Nat>, +t: +List<Nat>, +d: +List<Nat>, +n: Nat, +h: T(IV(q, a, k, t, d, n))) -> T(bd(q, n)):
+def p15(+q: +List<Nat>, +a: +List<Nat>, +k: +List<Nat>, +t: +List<Nat>, +d: +List<Nat>, +n: Nat, +h: L.T(IV(q, a, k, t, d, n))) -> L.T(bd(q, n)):
   l15(q, a, k, t, d, n, r14(q, a, k, t, d, n, r13(q, a, k, t, d, n, r12(q, a, k, t, d, n, r11(q, a, k, t, d, n, r10(q, a, k, t, d, n, r9(q, a, k, t, d, n, r8(q, a, k, t, d, n, r7(q, a, k, t, d, n, r6(q, a, k, t, d, n, r5(q, a, k, t, d, n, r4(q, a, k, t, d, n, r3(q, a, k, t, d, n, r2(q, a, k, t, d, n, r1(q, a, k, t, d, n, r0(q, a, k, t, d, n, h))))))))))))))))
 
-def p16(+q: +List<Nat>, +a: +List<Nat>, +k: +List<Nat>, +t: +List<Nat>, +d: +List<Nat>, +n: Nat, +h: T(IV(q, a, k, t, d, n))) -> T(bd(a, n)):
+def p16(+q: +List<Nat>, +a: +List<Nat>, +k: +List<Nat>, +t: +List<Nat>, +d: +List<Nat>, +n: Nat, +h: L.T(IV(q, a, k, t, d, n))) -> L.T(bd(a, n)):
   l16(q, a, k, t, d, n, r15(q, a, k, t, d, n, r14(q, a, k, t, d, n, r13(q, a, k, t, d, n, r12(q, a, k, t, d, n, r11(q, a, k, t, d, n, r10(q, a, k, t, d, n, r9(q, a, k, t, d, n, r8(q, a, k, t, d, n, r7(q, a, k, t, d, n, r6(q, a, k, t, d, n, r5(q, a, k, t, d, n, r4(q, a, k, t, d, n, r3(q, a, k, t, d, n, r2(q, a, k, t, d, n, r1(q, a, k, t, d, n, r0(q, a, k, t, d, n, h)))))))))))))))))
 
-def p17(+q: +List<Nat>, +a: +List<Nat>, +k: +List<Nat>, +t: +List<Nat>, +d: +List<Nat>, +n: Nat, +h: T(IV(q, a, k, t, d, n))) -> T(bd(k, n)):
+def p17(+q: +List<Nat>, +a: +List<Nat>, +k: +List<Nat>, +t: +List<Nat>, +d: +List<Nat>, +n: Nat, +h: L.T(IV(q, a, k, t, d, n))) -> L.T(bd(k, n)):
   l17(q, a, k, t, d, n, r16(q, a, k, t, d, n, r15(q, a, k, t, d, n, r14(q, a, k, t, d, n, r13(q, a, k, t, d, n, r12(q, a, k, t, d, n, r11(q, a, k, t, d, n, r10(q, a, k, t, d, n, r9(q, a, k, t, d, n, r8(q, a, k, t, d, n, r7(q, a, k, t, d, n, r6(q, a, k, t, d, n, r5(q, a, k, t, d, n, r4(q, a, k, t, d, n, r3(q, a, k, t, d, n, r2(q, a, k, t, d, n, r1(q, a, k, t, d, n, r0(q, a, k, t, d, n, h))))))))))))))))))
 
-def p18(+q: +List<Nat>, +a: +List<Nat>, +k: +List<Nat>, +t: +List<Nat>, +d: +List<Nat>, +n: Nat, +h: T(IV(q, a, k, t, d, n))) -> T(bd(t, n)):
+def p18(+q: +List<Nat>, +a: +List<Nat>, +k: +List<Nat>, +t: +List<Nat>, +d: +List<Nat>, +n: Nat, +h: L.T(IV(q, a, k, t, d, n))) -> L.T(bd(t, n)):
   l18(q, a, k, t, d, n, r17(q, a, k, t, d, n, r16(q, a, k, t, d, n, r15(q, a, k, t, d, n, r14(q, a, k, t, d, n, r13(q, a, k, t, d, n, r12(q, a, k, t, d, n, r11(q, a, k, t, d, n, r10(q, a, k, t, d, n, r9(q, a, k, t, d, n, r8(q, a, k, t, d, n, r7(q, a, k, t, d, n, r6(q, a, k, t, d, n, r5(q, a, k, t, d, n, r4(q, a, k, t, d, n, r3(q, a, k, t, d, n, r2(q, a, k, t, d, n, r1(q, a, k, t, d, n, r0(q, a, k, t, d, n, h)))))))))))))))))))
 
-def p19(+q: +List<Nat>, +a: +List<Nat>, +k: +List<Nat>, +t: +List<Nat>, +d: +List<Nat>, +n: Nat, +h: T(IV(q, a, k, t, d, n))) -> T(bd(d, n)):
+def p19(+q: +List<Nat>, +a: +List<Nat>, +k: +List<Nat>, +t: +List<Nat>, +d: +List<Nat>, +n: Nat, +h: L.T(IV(q, a, k, t, d, n))) -> L.T(bd(d, n)):
   l19(q, a, k, t, d, n, r18(q, a, k, t, d, n, r17(q, a, k, t, d, n, r16(q, a, k, t, d, n, r15(q, a, k, t, d, n, r14(q, a, k, t, d, n, r13(q, a, k, t, d, n, r12(q, a, k, t, d, n, r11(q, a, k, t, d, n, r10(q, a, k, t, d, n, r9(q, a, k, t, d, n, r8(q, a, k, t, d, n, r7(q, a, k, t, d, n, r6(q, a, k, t, d, n, r5(q, a, k, t, d, n, r4(q, a, k, t, d, n, r3(q, a, k, t, d, n, r2(q, a, k, t, d, n, r1(q, a, k, t, d, n, r0(q, a, k, t, d, n, h))))))))))))))))))))
 
-def p20(+q: +List<Nat>, +a: +List<Nat>, +k: +List<Nat>, +t: +List<Nat>, +d: +List<Nat>, +n: Nat, +h: T(IV(q, a, k, t, d, n))) -> T(SUMB(q, a, k, t, d, n)):
+def p20(+q: +List<Nat>, +a: +List<Nat>, +k: +List<Nat>, +t: +List<Nat>, +d: +List<Nat>, +n: Nat, +h: L.T(IV(q, a, k, t, d, n))) -> L.T(SUMB(q, a, k, t, d, n)):
   r19(q, a, k, t, d, n, r18(q, a, k, t, d, n, r17(q, a, k, t, d, n, r16(q, a, k, t, d, n, r15(q, a, k, t, d, n, r14(q, a, k, t, d, n, r13(q, a, k, t, d, n, r12(q, a, k, t, d, n, r11(q, a, k, t, d, n, r10(q, a, k, t, d, n, r9(q, a, k, t, d, n, r8(q, a, k, t, d, n, r7(q, a, k, t, d, n, r6(q, a, k, t, d, n, r5(q, a, k, t, d, n, r4(q, a, k, t, d, n, r3(q, a, k, t, d, n, r2(q, a, k, t, d, n, r1(q, a, k, t, d, n, r0(q, a, k, t, d, n, h))))))))))))))))))))
 
-def mk(+q: +List<Nat>, +a: +List<Nat>, +k: +List<Nat>, +t: +List<Nat>, +d: +List<Nat>, +n: Nat, +x0: T(S.nodup(q)), +x1: T(S.nodup(a)), +x2: T(S.nodup(k)), +x3: T(S.nodup(t)), +x4: T(S.nodup(d)), +x5: T(S.disjoint(q, a)), +x6: T(S.disjoint(q, k)), +x7: T(S.disjoint(q, t)), +x8: T(S.disjoint(q, d)), +x9: T(S.disjoint(a, k)), +x10: T(S.disjoint(a, t)), +x11: T(S.disjoint(a, d)), +x12: T(S.disjoint(k, t)), +x13: T(S.disjoint(k, d)), +x14: T(S.disjoint(t, d)), +x15: T(bd(q, n)), +x16: T(bd(a, n)), +x17: T(bd(k, n)), +x18: T(bd(t, n)), +x19: T(bd(d, n)), +x20: T(SUMB(q, a, k, t, d, n))) -> T(IV(q, a, k, t, d, n)):
+def mk(+q: +List<Nat>, +a: +List<Nat>, +k: +List<Nat>, +t: +List<Nat>, +d: +List<Nat>, +n: Nat, +x0: L.T(S.nodup(q)), +x1: L.T(S.nodup(a)), +x2: L.T(S.nodup(k)), +x3: L.T(S.nodup(t)), +x4: L.T(S.nodup(d)), +x5: L.T(S.disjoint(q, a)), +x6: L.T(S.disjoint(q, k)), +x7: L.T(S.disjoint(q, t)), +x8: L.T(S.disjoint(q, d)), +x9: L.T(S.disjoint(a, k)), +x10: L.T(S.disjoint(a, t)), +x11: L.T(S.disjoint(a, d)), +x12: L.T(S.disjoint(k, t)), +x13: L.T(S.disjoint(k, d)), +x14: L.T(S.disjoint(t, d)), +x15: L.T(bd(q, n)), +x16: L.T(bd(a, n)), +x17: L.T(bd(k, n)), +x18: L.T(bd(t, n)), +x19: L.T(bd(d, n)), +x20: L.T(SUMB(q, a, k, t, d, n))) -> L.T(IV(q, a, k, t, d, n)):
   m0(q, a, k, t, d, n, x0, m1(q, a, k, t, d, n, x1, m2(q, a, k, t, d, n, x2, m3(q, a, k, t, d, n, x3, m4(q, a, k, t, d, n, x4, m5(q, a, k, t, d, n, x5, m6(q, a, k, t, d, n, x6, m7(q, a, k, t, d, n, x7, m8(q, a, k, t, d, n, x8, m9(q, a, k, t, d, n, x9, m10(q, a, k, t, d, n, x10, m11(q, a, k, t, d, n, x11, m12(q, a, k, t, d, n, x12, m13(q, a, k, t, d, n, x13, m14(q, a, k, t, d, n, x14, m15(q, a, k, t, d, n, x15, m16(q, a, k, t, d, n, x16, m17(q, a, k, t, d, n, x17, m18(q, a, k, t, d, n, x18, m19(q, a, k, t, d, n, x19, x20))))))))))))))))))))
 
-def inv_sendQ(+q: +List<Nat>, +a: +List<Nat>, +k: +List<Nat>, +t: +List<Nat>, +d: +List<Nat>, +n: Nat, +h: T(IV(q, a, k, t, d, n))) -> T(IV(M.snoc(q, n), a, k, t, d, 1n+n)):
+def inv_sendQ(+q: +List<Nat>, +a: +List<Nat>, +k: +List<Nat>, +t: +List<Nat>, +d: +List<Nat>, +n: Nat, +h: L.T(IV(q, a, k, t, d, n))) -> L.T(IV(M.snoc(q, n), a, k, t, d, 1n+n)):
   mk(M.snoc(q, n), a, k, t, d, 1n+n, nd_snoc(q, n, p0(q, a, k, t, d, n, h), bd_fresh(q, n, p15(q, a, k, t, d, n, h))), p1(q, a, k, t, d, n, h), p2(q, a, k, t, d, n, h), p3(q, a, k, t, d, n, h), p4(q, a, k, t, d, n, h), dj_snoc_l(q, a, n, p5(q, a, k, t, d, n, h), bd_fresh(a, n, p16(q, a, k, t, d, n, h))), dj_snoc_l(q, k, n, p6(q, a, k, t, d, n, h), bd_fresh(k, n, p17(q, a, k, t, d, n, h))), dj_snoc_l(q, t, n, p7(q, a, k, t, d, n, h), bd_fresh(t, n, p18(q, a, k, t, d, n, h))), dj_snoc_l(q, d, n, p8(q, a, k, t, d, n, h), bd_fresh(d, n, p19(q, a, k, t, d, n, h))), p9(q, a, k, t, d, n, h), p10(q, a, k, t, d, n, h), p11(q, a, k, t, d, n, h), p12(q, a, k, t, d, n, h), p13(q, a, k, t, d, n, h), p14(q, a, k, t, d, n, h), bd_snoc_new(q, n, p15(q, a, k, t, d, n, h)), bd_succ(a, n, p16(q, a, k, t, d, n, h)), bd_succ(k, n, p17(q, a, k, t, d, n, h)), bd_succ(t, n, p18(q, a, k, t, d, n, h)), bd_succ(d, n, p19(q, a, k, t, d, n, h)), sm_sendQ(q, a, k, t, d, n, p20(q, a, k, t, d, n, h)))
 
-def inv_sendA(+q: +List<Nat>, +a: +List<Nat>, +k: +List<Nat>, +t: +List<Nat>, +d: +List<Nat>, +n: Nat, +h: T(IV(q, a, k, t, d, n))) -> T(IV(q, M.snoc(a, n), k, t, d, 1n+n)):
+def inv_sendA(+q: +List<Nat>, +a: +List<Nat>, +k: +List<Nat>, +t: +List<Nat>, +d: +List<Nat>, +n: Nat, +h: L.T(IV(q, a, k, t, d, n))) -> L.T(IV(q, M.snoc(a, n), k, t, d, 1n+n)):
   mk(q, M.snoc(a, n), k, t, d, 1n+n, p0(q, a, k, t, d, n, h), nd_snoc(a, n, p1(q, a, k, t, d, n, h), bd_fresh(a, n, p16(q, a, k, t, d, n, h))), p2(q, a, k, t, d, n, h), p3(q, a, k, t, d, n, h), p4(q, a, k, t, d, n, h), dj_snoc_r(q, a, n, p5(q, a, k, t, d, n, h), bd_fresh(q, n, p15(q, a, k, t, d, n, h))), p6(q, a, k, t, d, n, h), p7(q, a, k, t, d, n, h), p8(q, a, k, t, d, n, h), dj_snoc_l(a, k, n, p9(q, a, k, t, d, n, h), bd_fresh(k, n, p17(q, a, k, t, d, n, h))), dj_snoc_l(a, t, n, p10(q, a, k, t, d, n, h), bd_fresh(t, n, p18(q, a, k, t, d, n, h))), dj_snoc_l(a, d, n, p11(q, a, k, t, d, n, h), bd_fresh(d, n, p19(q, a, k, t, d, n, h))), p12(q, a, k, t, d, n, h), p13(q, a, k, t, d, n, h), p14(q, a, k, t, d, n, h), bd_succ(q, n, p15(q, a, k, t, d, n, h)), bd_snoc_new(a, n, p16(q, a, k, t, d, n, h)), bd_succ(k, n, p17(q, a, k, t, d, n, h)), bd_succ(t, n, p18(q, a, k, t, d, n, h)), bd_succ(d, n, p19(q, a, k, t, d, n, h)), sm_sendA(q, a, k, t, d, n, p20(q, a, k, t, d, n, h)))
 
-def inv_sendK(+q: +List<Nat>, +a: +List<Nat>, +k: +List<Nat>, +t: +List<Nat>, +d: +List<Nat>, +n: Nat, +h: T(IV(q, a, k, t, d, n))) -> T(IV(q, a, M.snoc(k, n), t, d, 1n+n)):
+def inv_sendK(+q: +List<Nat>, +a: +List<Nat>, +k: +List<Nat>, +t: +List<Nat>, +d: +List<Nat>, +n: Nat, +h: L.T(IV(q, a, k, t, d, n))) -> L.T(IV(q, a, M.snoc(k, n), t, d, 1n+n)):
   mk(q, a, M.snoc(k, n), t, d, 1n+n, p0(q, a, k, t, d, n, h), p1(q, a, k, t, d, n, h), nd_snoc(k, n, p2(q, a, k, t, d, n, h), bd_fresh(k, n, p17(q, a, k, t, d, n, h))), p3(q, a, k, t, d, n, h), p4(q, a, k, t, d, n, h), p5(q, a, k, t, d, n, h), dj_snoc_r(q, k, n, p6(q, a, k, t, d, n, h), bd_fresh(q, n, p15(q, a, k, t, d, n, h))), p7(q, a, k, t, d, n, h), p8(q, a, k, t, d, n, h), dj_snoc_r(a, k, n, p9(q, a, k, t, d, n, h), bd_fresh(a, n, p16(q, a, k, t, d, n, h))), p10(q, a, k, t, d, n, h), p11(q, a, k, t, d, n, h), dj_snoc_l(k, t, n, p12(q, a, k, t, d, n, h), bd_fresh(t, n, p18(q, a, k, t, d, n, h))), dj_snoc_l(k, d, n, p13(q, a, k, t, d, n, h), bd_fresh(d, n, p19(q, a, k, t, d, n, h))), p14(q, a, k, t, d, n, h), bd_succ(q, n, p15(q, a, k, t, d, n, h)), bd_succ(a, n, p16(q, a, k, t, d, n, h)), bd_snoc_new(k, n, p17(q, a, k, t, d, n, h)), bd_succ(t, n, p18(q, a, k, t, d, n, h)), bd_succ(d, n, p19(q, a, k, t, d, n, h)), sm_sendK(q, a, k, t, d, n, p20(q, a, k, t, d, n, h)))
 
-def inv_sendD(+q: +List<Nat>, +a: +List<Nat>, +k: +List<Nat>, +t: +List<Nat>, +d: +List<Nat>, +n: Nat, +h: T(IV(q, a, k, t, d, n))) -> T(IV(q, a, k, t, M.snoc(d, n), 1n+n)):
+def inv_sendD(+q: +List<Nat>, +a: +List<Nat>, +k: +List<Nat>, +t: +List<Nat>, +d: +List<Nat>, +n: Nat, +h: L.T(IV(q, a, k, t, d, n))) -> L.T(IV(q, a, k, t, M.snoc(d, n), 1n+n)):
   mk(q, a, k, t, M.snoc(d, n), 1n+n, p0(q, a, k, t, d, n, h), p1(q, a, k, t, d, n, h), p2(q, a, k, t, d, n, h), p3(q, a, k, t, d, n, h), nd_snoc(d, n, p4(q, a, k, t, d, n, h), bd_fresh(d, n, p19(q, a, k, t, d, n, h))), p5(q, a, k, t, d, n, h), p6(q, a, k, t, d, n, h), p7(q, a, k, t, d, n, h), dj_snoc_r(q, d, n, p8(q, a, k, t, d, n, h), bd_fresh(q, n, p15(q, a, k, t, d, n, h))), p9(q, a, k, t, d, n, h), p10(q, a, k, t, d, n, h), dj_snoc_r(a, d, n, p11(q, a, k, t, d, n, h), bd_fresh(a, n, p16(q, a, k, t, d, n, h))), p12(q, a, k, t, d, n, h), dj_snoc_r(k, d, n, p13(q, a, k, t, d, n, h), bd_fresh(k, n, p17(q, a, k, t, d, n, h))), dj_snoc_r(t, d, n, p14(q, a, k, t, d, n, h), bd_fresh(t, n, p18(q, a, k, t, d, n, h))), bd_succ(q, n, p15(q, a, k, t, d, n, h)), bd_succ(a, n, p16(q, a, k, t, d, n, h)), bd_succ(k, n, p17(q, a, k, t, d, n, h)), bd_succ(t, n, p18(q, a, k, t, d, n, h)), bd_snoc_new(d, n, p19(q, a, k, t, d, n, h)), sm_sendD(q, a, k, t, d, n, p20(q, a, k, t, d, n, h)))
 
-def inv_mv(+x: Nat, +r: +List<Nat>, +a: +List<Nat>, +k: +List<Nat>, +t: +List<Nat>, +d: +List<Nat>, +n: Nat, +h: T(IV(x <> r, a, k, t, d, n))) -> T(IV(r, a, k, M.snoc(t, x), d, n)):
+def inv_mv(+x: Nat, +r: +List<Nat>, +a: +List<Nat>, +k: +List<Nat>, +t: +List<Nat>, +d: +List<Nat>, +n: Nat, +h: L.T(IV(x <> r, a, k, t, d, n))) -> L.T(IV(r, a, k, M.snoc(t, x), d, n)):
   mk(r, a, k, M.snoc(t, x), d, n, nd_tl(x, r, p0(x <> r, a, k, t, d, n, h)), p1(x <> r, a, k, t, d, n, h), p2(x <> r, a, k, t, d, n, h), nd_snoc(t, x, p3(x <> r, a, k, t, d, n, h), dj_hd(x, r, t, p7(x <> r, a, k, t, d, n, h))), p4(x <> r, a, k, t, d, n, h), dj_tl(x, r, a, p5(x <> r, a, k, t, d, n, h)), dj_tl(x, r, k, p6(x <> r, a, k, t, d, n, h)), dj_snoc_r(r, t, x, dj_tl(x, r, t, p7(x <> r, a, k, t, d, n, h)), nd_hd(x, r, p0(x <> r, a, k, t, d, n, h))), dj_tl(x, r, d, p8(x <> r, a, k, t, d, n, h)), p9(x <> r, a, k, t, d, n, h), dj_snoc_r(a, t, x, p10(x <> r, a, k, t, d, n, h), dj_hd(x, r, a, p5(x <> r, a, k, t, d, n, h))), p11(x <> r, a, k, t, d, n, h), dj_snoc_r(k, t, x, p12(x <> r, a, k, t, d, n, h), dj_hd(x, r, k, p6(x <> r, a, k, t, d, n, h))), p13(x <> r, a, k, t, d, n, h), dj_snoc_l(t, d, x, p14(x <> r, a, k, t, d, n, h), dj_hd(x, r, d, p8(x <> r, a, k, t, d, n, h))), bd_tl(x, r, n, p15(x <> r, a, k, t, d, n, h)), p16(x <> r, a, k, t, d, n, h), p17(x <> r, a, k, t, d, n, h), bd_snoc(t, x, n, p18(x <> r, a, k, t, d, n, h), bd_hd(x, r, n, p15(x <> r, a, k, t, d, n, h))), p19(x <> r, a, k, t, d, n, h), sm_mv(x, r, a, k, t, d, n, p20(x <> r, a, k, t, d, n, h)))
 
-def inv_tb(+q: +List<Nat>, +a: +List<Nat>, +k: +List<Nat>, +t: +List<Nat>, +d: +List<Nat>, +n: Nat, +u: +List<Nat>, +h: T(IV(q, a, k, t, d, n))) -> T(IV(M.keep_users(q, u), a, List.append(&2, Nat, k, M.drop_users(q, u)), t, d, n)):
+def inv_tb(+q: +List<Nat>, +a: +List<Nat>, +k: +List<Nat>, +t: +List<Nat>, +d: +List<Nat>, +n: Nat, +u: +List<Nat>, +h: L.T(IV(q, a, k, t, d, n))) -> L.T(IV(M.keep_users(q, u), a, List.append(&2, Nat, k, M.drop_users(q, u)), t, d, n)):
   mk(M.keep_users(q, u), a, List.append(&2, Nat, k, M.drop_users(q, u)), t, d, n, nd_keep(q, u, p0(q, a, k, t, d, n, h)), p1(q, a, k, t, d, n, h), nd_app(k, M.drop_users(q, u), p2(q, a, k, t, d, n, h), nd_drop(q, u, p0(q, a, k, t, d, n, h)), dj_sub_r(k, M.drop_users(q, u), q, drop_sub(q, u), dj_sym(q, k, p6(q, a, k, t, d, n, h)))), p3(q, a, k, t, d, n, h), p4(q, a, k, t, d, n, h), dj_sub_l(M.keep_users(q, u), q, a, keep_sub(q, u), p5(q, a, k, t, d, n, h)), dj_app_r(M.keep_users(q, u), k, M.drop_users(q, u), dj_sub_l(M.keep_users(q, u), q, k, keep_sub(q, u), p6(q, a, k, t, d, n, h)), kd_dj(q, u, p0(q, a, k, t, d, n, h))), dj_sub_l(M.keep_users(q, u), q, t, keep_sub(q, u), p7(q, a, k, t, d, n, h)), dj_sub_l(M.keep_users(q, u), q, d, keep_sub(q, u), p8(q, a, k, t, d, n, h)), dj_app_r(a, k, M.drop_users(q, u), p9(q, a, k, t, d, n, h), dj_sub_r(a, M.drop_users(q, u), q, drop_sub(q, u), dj_sym(q, a, p5(q, a, k, t, d, n, h)))), p10(q, a, k, t, d, n, h), p11(q, a, k, t, d, n, h), dj_app_l(k, M.drop_users(q, u), t, p12(q, a, k, t, d, n, h), dj_sub_l(M.drop_users(q, u), q, t, drop_sub(q, u), p7(q, a, k, t, d, n, h))), dj_app_l(k, M.drop_users(q, u), d, p13(q, a, k, t, d, n, h), dj_sub_l(M.drop_users(q, u), q, d, drop_sub(q, u), p8(q, a, k, t, d, n, h))), p14(q, a, k, t, d, n, h), bd_sub(M.keep_users(q, u), q, n, keep_sub(q, u), p15(q, a, k, t, d, n, h)), p16(q, a, k, t, d, n, h), bd_app(k, M.drop_users(q, u), n, p17(q, a, k, t, d, n, h), bd_sub(M.drop_users(q, u), q, n, drop_sub(q, u), p15(q, a, k, t, d, n, h))), p18(q, a, k, t, d, n, h), p19(q, a, k, t, d, n, h), sm_tb(q, a, k, t, d, n, u, p20(q, a, k, t, d, n, h)))
 
-def inv_te(+q: +List<Nat>, +a: +List<Nat>, +k: +List<Nat>, +t: +List<Nat>, +d: +List<Nat>, +n: Nat, +h: T(IV(q, a, k, t, d, n))) -> T(IV(List.append(&2, Nat, q, k), a, [], t, d, n)):
+def inv_te(+q: +List<Nat>, +a: +List<Nat>, +k: +List<Nat>, +t: +List<Nat>, +d: +List<Nat>, +n: Nat, +h: L.T(IV(q, a, k, t, d, n))) -> L.T(IV(List.append(&2, Nat, q, k), a, [], t, d, n)):
   mk(List.append(&2, Nat, q, k), a, [], t, d, n, nd_app(q, k, p0(q, a, k, t, d, n, h), p2(q, a, k, t, d, n, h), p6(q, a, k, t, d, n, h)), p1(q, a, k, t, d, n, h), {==}, p3(q, a, k, t, d, n, h), p4(q, a, k, t, d, n, h), dj_app_l(q, k, a, p5(q, a, k, t, d, n, h), dj_sym(a, k, p9(q, a, k, t, d, n, h))), dj_nil_r(List.append(&2, Nat, q, k)), dj_app_l(q, k, t, p7(q, a, k, t, d, n, h), p12(q, a, k, t, d, n, h)), dj_app_l(q, k, d, p8(q, a, k, t, d, n, h), p13(q, a, k, t, d, n, h)), dj_nil_r(a), p10(q, a, k, t, d, n, h), p11(q, a, k, t, d, n, h), {==}, {==}, p14(q, a, k, t, d, n, h), bd_app(q, k, n, p15(q, a, k, t, d, n, h), p17(q, a, k, t, d, n, h)), p16(q, a, k, t, d, n, h), {==}, p18(q, a, k, t, d, n, h), p19(q, a, k, t, d, n, h), sm_te(q, a, k, t, d, n, p20(q, a, k, t, d, n, h)))
 
-def inv_ex(+q: +List<Nat>, +a: +List<Nat>, +k: +List<Nat>, +t: +List<Nat>, +d: +List<Nat>, +n: Nat, +h: T(IV(q, a, k, t, d, n))) -> T(IV([], a, [], t, List.append(&2, Nat, d, List.append(&2, Nat, q, k)), n)):
+def inv_ex(+q: +List<Nat>, +a: +List<Nat>, +k: +List<Nat>, +t: +List<Nat>, +d: +List<Nat>, +n: Nat, +h: L.T(IV(q, a, k, t, d, n))) -> L.T(IV([], a, [], t, List.append(&2, Nat, d, List.append(&2, Nat, q, k)), n)):
   mk([], a, [], t, List.append(&2, Nat, d, List.append(&2, Nat, q, k)), n, {==}, p1(q, a, k, t, d, n, h), {==}, p3(q, a, k, t, d, n, h), nd_app(d, List.append(&2, Nat, q, k), p4(q, a, k, t, d, n, h), nd_app(q, k, p0(q, a, k, t, d, n, h), p2(q, a, k, t, d, n, h), p6(q, a, k, t, d, n, h)), dj_app_r(d, q, k, dj_sym(q, d, p8(q, a, k, t, d, n, h)), dj_sym(k, d, p13(q, a, k, t, d, n, h)))), {==}, {==}, {==}, {==}, dj_nil_r(a), p10(q, a, k, t, d, n, h), dj_app_r(a, d, List.append(&2, Nat, q, k), p11(q, a, k, t, d, n, h), dj_app_r(a, q, k, dj_sym(q, a, p5(q, a, k, t, d, n, h)), p9(q, a, k, t, d, n, h))), {==}, {==}, dj_app_r(t, d, List.append(&2, Nat, q, k), p14(q, a, k, t, d, n, h), dj_app_r(t, q, k, dj_sym(q, t, p7(q, a, k, t, d, n, h)), dj_sym(k, t, p12(q, a, k, t, d, n, h)))), {==}, p16(q, a, k, t, d, n, h), {==}, p18(q, a, k, t, d, n, h), bd_app(d, List.append(&2, Nat, q, k), n, p19(q, a, k, t, d, n, h), bd_app(q, k, n, p15(q, a, k, t, d, n, h), p17(q, a, k, t, d, n, h))), sm_ex(q, a, k, t, d, n, p20(q, a, k, t, d, n, h)))
 
-def inv_di(+q: +List<Nat>, +a: +List<Nat>, +k: +List<Nat>, +t: +List<Nat>, +d: +List<Nat>, +n: Nat, +id: Nat, +hm: T(M.mem(id, a)), +h: T(IV(q, a, k, t, d, n))) -> T(IV(M.snoc(q, id), M.remove(id, a), k, t, d, n)):
+def inv_di(+q: +List<Nat>, +a: +List<Nat>, +k: +List<Nat>, +t: +List<Nat>, +d: +List<Nat>, +n: Nat, +id: Nat, +hm: L.T(M.mem(id, a)), +h: L.T(IV(q, a, k, t, d, n))) -> L.T(IV(M.snoc(q, id), M.remove(id, a), k, t, d, n)):
   mk(M.snoc(q, id), M.remove(id, a), k, t, d, n, nd_snoc(q, id, p0(q, a, k, t, d, n, h), dj_nm(a, q, id, hm, dj_sym(q, a, p5(q, a, k, t, d, n, h)))), nd_remove(id, a, p1(q, a, k, t, d, n, h)), p2(q, a, k, t, d, n, h), p3(q, a, k, t, d, n, h), p4(q, a, k, t, d, n, h), dj_snoc_l(q, M.remove(id, a), id, dj_sub_r(q, M.remove(id, a), a, rm_sub(id, a), p5(q, a, k, t, d, n, h)), nm_removed(id, a)), dj_snoc_l(q, k, id, p6(q, a, k, t, d, n, h), dj_nm(a, k, id, hm, p9(q, a, k, t, d, n, h))), dj_snoc_l(q, t, id, p7(q, a, k, t, d, n, h), dj_nm(a, t, id, hm, p10(q, a, k, t, d, n, h))), dj_snoc_l(q, d, id, p8(q, a, k, t, d, n, h), dj_nm(a, d, id, hm, p11(q, a, k, t, d, n, h))), dj_sub_l(M.remove(id, a), a, k, rm_sub(id, a), p9(q, a, k, t, d, n, h)), dj_sub_l(M.remove(id, a), a, t, rm_sub(id, a), p10(q, a, k, t, d, n, h)), dj_sub_l(M.remove(id, a), a, d, rm_sub(id, a), p11(q, a, k, t, d, n, h)), p12(q, a, k, t, d, n, h), p13(q, a, k, t, d, n, h), p14(q, a, k, t, d, n, h), bd_snoc(q, id, n, p15(q, a, k, t, d, n, h), bd_mem(a, n, id, hm, p16(q, a, k, t, d, n, h))), bd_sub(M.remove(id, a), a, n, rm_sub(id, a), p16(q, a, k, t, d, n, h)), p17(q, a, k, t, d, n, h), p18(q, a, k, t, d, n, h), p19(q, a, k, t, d, n, h), sm_di(q, a, k, t, d, n, id, hm, p1(q, a, k, t, d, n, h), p20(q, a, k, t, d, n, h)))
 
-def inv_dt(+q: +List<Nat>, +a: +List<Nat>, +k: +List<Nat>, +t: +List<Nat>, +d: +List<Nat>, +n: Nat, +id: Nat, +hm: T(M.mem(id, k)), +h: T(IV(q, a, k, t, d, n))) -> T(IV(M.snoc(q, id), a, M.remove(id, k), t, d, n)):
+def inv_dt(+q: +List<Nat>, +a: +List<Nat>, +k: +List<Nat>, +t: +List<Nat>, +d: +List<Nat>, +n: Nat, +id: Nat, +hm: L.T(M.mem(id, k)), +h: L.T(IV(q, a, k, t, d, n))) -> L.T(IV(M.snoc(q, id), a, M.remove(id, k), t, d, n)):
   mk(M.snoc(q, id), a, M.remove(id, k), t, d, n, nd_snoc(q, id, p0(q, a, k, t, d, n, h), dj_nm(k, q, id, hm, dj_sym(q, k, p6(q, a, k, t, d, n, h)))), p1(q, a, k, t, d, n, h), nd_remove(id, k, p2(q, a, k, t, d, n, h)), p3(q, a, k, t, d, n, h), p4(q, a, k, t, d, n, h), dj_snoc_l(q, a, id, p5(q, a, k, t, d, n, h), dj_nm(k, a, id, hm, dj_sym(a, k, p9(q, a, k, t, d, n, h)))), dj_snoc_l(q, M.remove(id, k), id, dj_sub_r(q, M.remove(id, k), k, rm_sub(id, k), p6(q, a, k, t, d, n, h)), nm_removed(id, k)), dj_snoc_l(q, t, id, p7(q, a, k, t, d, n, h), dj_nm(k, t, id, hm, p12(q, a, k, t, d, n, h))), dj_snoc_l(q, d, id, p8(q, a, k, t, d, n, h), dj_nm(k, d, id, hm, p13(q, a, k, t, d, n, h))), dj_sub_r(a, M.remove(id, k), k, rm_sub(id, k), p9(q, a, k, t, d, n, h)), p10(q, a, k, t, d, n, h), p11(q, a, k, t, d, n, h), dj_sub_l(M.remove(id, k), k, t, rm_sub(id, k), p12(q, a, k, t, d, n, h)), dj_sub_l(M.remove(id, k), k, d, rm_sub(id, k), p13(q, a, k, t, d, n, h)), p14(q, a, k, t, d, n, h), bd_snoc(q, id, n, p15(q, a, k, t, d, n, h), bd_mem(k, n, id, hm, p17(q, a, k, t, d, n, h))), p16(q, a, k, t, d, n, h), bd_sub(M.remove(id, k), k, n, rm_sub(id, k), p17(q, a, k, t, d, n, h)), p18(q, a, k, t, d, n, h), p19(q, a, k, t, d, n, h), sm_dt(q, a, k, t, d, n, id, hm, p2(q, a, k, t, d, n, h), p20(q, a, k, t, d, n, h)))
 
-def inv_ri(+q: +List<Nat>, +a: +List<Nat>, +k: +List<Nat>, +t: +List<Nat>, +d: +List<Nat>, +n: Nat, +id: Nat, +hm: T(M.mem(id, a)), +h: T(IV(q, a, k, t, d, n))) -> T(IV(q, M.remove(id, a), k, t, M.snoc(d, id), n)):
+def inv_ri(+q: +List<Nat>, +a: +List<Nat>, +k: +List<Nat>, +t: +List<Nat>, +d: +List<Nat>, +n: Nat, +id: Nat, +hm: L.T(M.mem(id, a)), +h: L.T(IV(q, a, k, t, d, n))) -> L.T(IV(q, M.remove(id, a), k, t, M.snoc(d, id), n)):
   mk(q, M.remove(id, a), k, t, M.snoc(d, id), n, p0(q, a, k, t, d, n, h), nd_remove(id, a, p1(q, a, k, t, d, n, h)), p2(q, a, k, t, d, n, h), p3(q, a, k, t, d, n, h), nd_snoc(d, id, p4(q, a, k, t, d, n, h), dj_nm(a, d, id, hm, p11(q, a, k, t, d, n, h))), dj_sub_r(q, M.remove(id, a), a, rm_sub(id, a), p5(q, a, k, t, d, n, h)), p6(q, a, k, t, d, n, h), p7(q, a, k, t, d, n, h), dj_snoc_r(q, d, id, p8(q, a, k, t, d, n, h), dj_nm(a, q, id, hm, dj_sym(q, a, p5(q, a, k, t, d, n, h)))), dj_sub_l(M.remove(id, a), a, k, rm_sub(id, a), p9(q, a, k, t, d, n, h)), dj_sub_l(M.remove(id, a), a, t, rm_sub(id, a), p10(q, a, k, t, d, n, h)), dj_snoc_r(M.remove(id, a), d, id, dj_sub_l(M.remove(id, a), a, d, rm_sub(id, a), p11(q, a, k, t, d, n, h)), nm_removed(id, a)), p12(q, a, k, t, d, n, h), dj_snoc_r(k, d, id, p13(q, a, k, t, d, n, h), dj_nm(a, k, id, hm, p9(q, a, k, t, d, n, h))), dj_snoc_r(t, d, id, p14(q, a, k, t, d, n, h), dj_nm(a, t, id, hm, p10(q, a, k, t, d, n, h))), p15(q, a, k, t, d, n, h), bd_sub(M.remove(id, a), a, n, rm_sub(id, a), p16(q, a, k, t, d, n, h)), p17(q, a, k, t, d, n, h), p18(q, a, k, t, d, n, h), bd_snoc(d, id, n, p19(q, a, k, t, d, n, h), bd_mem(a, n, id, hm, p16(q, a, k, t, d, n, h))), sm_ri(q, a, k, t, d, n, id, hm, p1(q, a, k, t, d, n, h), p20(q, a, k, t, d, n, h)))
 
-def inv_rt(+q: +List<Nat>, +a: +List<Nat>, +k: +List<Nat>, +t: +List<Nat>, +d: +List<Nat>, +n: Nat, +id: Nat, +hm: T(M.mem(id, k)), +h: T(IV(q, a, k, t, d, n))) -> T(IV(q, a, M.remove(id, k), t, M.snoc(d, id), n)):
+def inv_rt(+q: +List<Nat>, +a: +List<Nat>, +k: +List<Nat>, +t: +List<Nat>, +d: +List<Nat>, +n: Nat, +id: Nat, +hm: L.T(M.mem(id, k)), +h: L.T(IV(q, a, k, t, d, n))) -> L.T(IV(q, a, M.remove(id, k), t, M.snoc(d, id), n)):
   mk(q, a, M.remove(id, k), t, M.snoc(d, id), n, p0(q, a, k, t, d, n, h), p1(q, a, k, t, d, n, h), nd_remove(id, k, p2(q, a, k, t, d, n, h)), p3(q, a, k, t, d, n, h), nd_snoc(d, id, p4(q, a, k, t, d, n, h), dj_nm(k, d, id, hm, p13(q, a, k, t, d, n, h))), p5(q, a, k, t, d, n, h), dj_sub_r(q, M.remove(id, k), k, rm_sub(id, k), p6(q, a, k, t, d, n, h)), p7(q, a, k, t, d, n, h), dj_snoc_r(q, d, id, p8(q, a, k, t, d, n, h), dj_nm(k, q, id, hm, dj_sym(q, k, p6(q, a, k, t, d, n, h)))), dj_sub_r(a, M.remove(id, k), k, rm_sub(id, k), p9(q, a, k, t, d, n, h)), p10(q, a, k, t, d, n, h), dj_snoc_r(a, d, id, p11(q, a, k, t, d, n, h), dj_nm(k, a, id, hm, dj_sym(a, k, p9(q, a, k, t, d, n, h)))), dj_sub_l(M.remove(id, k), k, t, rm_sub(id, k), p12(q, a, k, t, d, n, h)), dj_snoc_r(M.remove(id, k), d, id, dj_sub_l(M.remove(id, k), k, d, rm_sub(id, k), p13(q, a, k, t, d, n, h)), nm_removed(id, k)), dj_snoc_r(t, d, id, p14(q, a, k, t, d, n, h), dj_nm(k, t, id, hm, p12(q, a, k, t, d, n, h))), p15(q, a, k, t, d, n, h), p16(q, a, k, t, d, n, h), bd_sub(M.remove(id, k), k, n, rm_sub(id, k), p17(q, a, k, t, d, n, h)), p18(q, a, k, t, d, n, h), bd_snoc(d, id, n, p19(q, a, k, t, d, n, h), bd_mem(k, n, id, hm, p17(q, a, k, t, d, n, h))), sm_rt(q, a, k, t, d, n, id, hm, p2(q, a, k, t, d, n, h), p20(q, a, k, t, d, n, h)))
 
 def invw(+s: M.World) -> Bool:
   IV(S.queue(s), S.held_af(s), S.held_tk(s), S.typed(s), S.dropped(s), S.next_id(s))
 
-def fgo(+q: +List<Nat>, +haf: +List<Nat>, +htk: +List<Nat>, +t: +List<Nat>, +d: +List<Nat>, +u: +List<Nat>, +tt: +List<Nat>, +rl: +List<Nat>, +n: Nat, +us: Bool, +tk: Bool, +i: Bool, +g: Bool, +h: T(IV(q, haf, htk, t, d, n))) -> T(invw(M.flush_go(q, M.W{[], haf, htk, t, d, u, tt, rl, n, tk, us, i, g}))):
+def fgo(+q: +List<Nat>, +haf: +List<Nat>, +htk: +List<Nat>, +t: +List<Nat>, +d: +List<Nat>, +u: +List<Nat>, +tt: +List<Nat>, +rl: +List<Nat>, +n: Nat, +us: Bool, +tk: Bool, +i: Bool, +g: Bool, +h: L.T(IV(q, haf, htk, t, d, n))) -> L.T(invw(M.flush_go(q, M.W{[], haf, htk, t, d, u, tt, rl, n, tk, us, i, g}))):
   match q:
     case Nil{}:
       h
     case Con{+x, +rest}:
       fgo(rest, haf, htk, M.snoc(t, x), d, u, M.record(Bool.or(tk, us), x, tt), rl, n, us, tk, False{}, g, inv_mv(x, rest, haf, htk, t, d, n, h))
 
-def fb(i: Bool, +s: M.World, +h: T(invw(s))) -> T(invw(M.flush_b(i, s))):
+def fb(i: Bool, +s: M.World, +h: L.T(invw(s))) -> L.T(invw(M.flush_b(i, s))):
   match i:
     case False{}:
       h
@@ -2383,12 +2183,12 @@ def fb(i: Bool, +s: M.World, +h: T(invw(s))) -> T(invw(M.flush_b(i, s))):
         case M.W{+q, +haf, +htk, +t, +d, +u, +tt, +rl, +n, +tk, +us, +i, +g}:
           fgo(q, haf, htk, t, d, u, tt, rl, n, us, tk, i, g, h)
 
-def fl(+s: M.World, +h: T(invw(s))) -> T(invw(M.flush(s))):
+def fl(+s: M.World, +h: L.T(invw(s))) -> L.T(invw(M.flush(s))):
   match s:
     case M.W{+q, +haf, +htk, +t, +d, +u, +tt, +rl, +n, +tk, +us, +i, +g}:
       fb(i, M.W{q, haf, htk, t, d, u, tt, rl, n, tk, us, i, g}, h)
 
-def send_auto_inv(fu: Bool, +s: M.World, +h: T(invw(s))) -> T(invw(M.send_auto(fu, s))):
+def send_auto_inv(fu: Bool, +s: M.World, +h: L.T(invw(s))) -> L.T(invw(M.send_auto(fu, s))):
   match fu:
     case True{}:
       match s:
@@ -2415,7 +2215,7 @@ def send_auto_inv(fu: Bool, +s: M.World, +h: T(invw(s))) -> T(invw(M.send_auto(f
                 case False{}:
                   fl(M.W{M.snoc(q, n), haf, htk, t, d, u, tt, rl, 1n+n, False{}, False{}, i, g}, inv_sendQ(q, haf, htk, t, d, n, h))
 
-def send_live_inv(r: M.Route, fu: Bool, +s: M.World, +h: T(invw(s))) -> T(invw(M.send_live(r, fu, s))):
+def send_live_inv(r: M.Route, fu: Bool, +s: M.World, +h: L.T(invw(s))) -> L.T(invw(M.send_live(r, fu, s))):
   match r:
     case M.Auto{}:
       send_auto_inv(fu, s, h)
@@ -2428,19 +2228,19 @@ def send_live_inv(r: M.Route, fu: Bool, +s: M.World, +h: T(invw(s))) -> T(invw(M
         case M.W{+q, +haf, +htk, +t, +d, +u, +tt, +rl, +n, +tk, +us, +i, +g}:
           inv_sendD(q, haf, htk, t, d, n, h)
 
-def send_inv(r: M.Route, fu: Bool, g: Bool, +s: M.World, +h: T(invw(s))) -> T(invw(M.send(r, fu, g, s))):
+def send_inv(r: M.Route, fu: Bool, g: Bool, +s: M.World, +h: L.T(invw(s))) -> L.T(invw(M.send(r, fu, g, s))):
   match g:
     case True{}:
       h
     case False{}:
       send_live_inv(r, fu, s, h)
 
-def send_ev_inv(fu: Bool, r: M.Route, +s: M.World, +h: T(invw(s))) -> T(invw(M.send_ev(fu, r, s))):
+def send_ev_inv(fu: Bool, r: M.Route, +s: M.World, +h: L.T(invw(s))) -> L.T(invw(M.send_ev(fu, r, s))):
   match s:
     case M.W{+q, +haf, +htk, +t, +d, +u, +tt, +rl, +n, +tk, +us, +i, +g}:
       send_inv(r, fu, g, M.W{q, haf, htk, t, d, u, tt, rl, n, tk, us, i, g}, h)
 
-def idle_inv(+s: M.World, +h: T(invw(s))) -> T(invw(M.idle_ev(s))):
+def idle_inv(+s: M.World, +h: L.T(invw(s))) -> L.T(invw(M.idle_ev(s))):
   match s:
     case M.W{+q, +haf, +htk, +t, +d, +u, +tt, +rl, +n, +tk, +us, +i, +g}:
       match g:
@@ -2449,27 +2249,27 @@ def idle_inv(+s: M.World, +h: T(invw(s))) -> T(invw(M.idle_ev(s))):
         case False{}:
           fl(M.W{q, haf, htk, t, d, u, tt, rl, n, tk, us, True{}, False{}}, h)
 
-def busy_inv(+s: M.World, +h: T(invw(s))) -> T(invw(M.busy_ev(s))):
+def busy_inv(+s: M.World, +h: L.T(invw(s))) -> L.T(invw(M.busy_ev(s))):
   match s:
     case M.W{+q, +haf, +htk, +t, +d, +u, +tt, +rl, +n, +tk, +us, +i, +g}:
       h
 
-def exit_inv(+s: M.World, +h: T(invw(s))) -> T(invw(M.exit_(s))):
+def exit_inv(+s: M.World, +h: L.T(invw(s))) -> L.T(invw(M.exit_(s))):
   match s:
     case M.W{+q, +haf, +htk, +t, +d, +u, +tt, +rl, +n, +tk, +us, +i, +g}:
       inv_ex(q, haf, htk, t, d, n, h)
 
-def tb_inv(+s: M.World, +h: T(invw(s))) -> T(invw(M.takeover_begin(s))):
+def tb_inv(+s: M.World, +h: L.T(invw(s))) -> L.T(invw(M.takeover_begin(s))):
   match s:
     case M.W{+q, +haf, +htk, +t, +d, +u, +tt, +rl, +n, +tk, +us, +i, +g}:
       inv_tb(q, haf, htk, t, d, n, [], h)
 
-def ui_inv(+s: M.World, +h: T(invw(s))) -> T(invw(M.user_input(s))):
+def ui_inv(+s: M.World, +h: L.T(invw(s))) -> L.T(invw(M.user_input(s))):
   match s:
     case M.W{+q, +haf, +htk, +t, +d, +u, +tt, +rl, +n, +tk, +us, +i, +g}:
       inv_tb(q, haf, htk, t, d, n, [], h)
 
-def te_inv(+s: M.World, +h: T(invw(s))) -> T(invw(M.takeover_end(s))):
+def te_inv(+s: M.World, +h: L.T(invw(s))) -> L.T(invw(M.takeover_end(s))):
   match s:
     case M.W{+q, +haf, +htk, +t, +d, +u, +tt, +rl, +n, +tk, +us, +i, +g}:
       match us:
@@ -2478,7 +2278,7 @@ def te_inv(+s: M.World, +h: T(invw(s))) -> T(invw(M.takeover_end(s))):
         case False{}:
           fl(M.W{List.append(&2, Nat, q, htk), haf, [], t, d, u, tt, rl, n, False{}, False{}, i, g}, inv_te(q, haf, htk, t, d, n, h))
 
-def us_inv(+s: M.World, +h: T(invw(s))) -> T(invw(M.user_submit(s))):
+def us_inv(+s: M.World, +h: L.T(invw(s))) -> L.T(invw(M.user_submit(s))):
   match s:
     case M.W{+q, +haf, +htk, +t, +d, +u, +tt, +rl, +n, +tk, +us, +i, +g}:
       match tk:
@@ -2487,7 +2287,7 @@ def us_inv(+s: M.World, +h: T(invw(s))) -> T(invw(M.user_submit(s))):
         case False{}:
           fl(M.W{List.append(&2, Nat, q, htk), haf, [], t, d, u, tt, rl, n, False{}, False{}, i, g}, inv_te(q, haf, htk, t, d, n, h))
 
-def deliver_if_inv(b: Bool, +id: Nat, +s: M.World, +h: T(invw(s)), hm: T(b) -> T(M.mem(id, S.held_af(s)))) -> T(invw(M.deliver_if(b, id, s))):
+def deliver_if_inv(b: Bool, +id: Nat, +s: M.World, +h: L.T(invw(s)), hm: L.T(b) -> L.T(M.mem(id, S.held_af(s)))) -> L.T(invw(M.deliver_if(b, id, s))):
   match b:
     case False{}:
       h
@@ -2496,7 +2296,7 @@ def deliver_if_inv(b: Bool, +id: Nat, +s: M.World, +h: T(invw(s)), hm: T(b) -> T
         case M.W{+q, +haf, +htk, +t, +d, +u, +tt, +rl, +n, +tk, +us, +i, +g}:
           fl(M.W{M.snoc(q, id), M.remove(id, haf), htk, t, d, u, tt, M.snoc(rl, id), n, tk, us, i, g}, inv_di(q, haf, htk, t, d, n, id, hm({==}), h))
 
-def deliver_tk_inv(b: Bool, +id: Nat, +s: M.World, +h: T(invw(s)), hm: T(b) -> T(M.mem(id, S.held_tk(s)))) -> T(invw(M.deliver_tk(b, id, s))):
+def deliver_tk_inv(b: Bool, +id: Nat, +s: M.World, +h: L.T(invw(s)), hm: L.T(b) -> L.T(M.mem(id, S.held_tk(s)))) -> L.T(invw(M.deliver_tk(b, id, s))):
   match b:
     case False{}:
       h
@@ -2505,19 +2305,19 @@ def deliver_tk_inv(b: Bool, +id: Nat, +s: M.World, +h: T(invw(s)), hm: T(b) -> T
         case M.W{+q, +haf, +htk, +t, +d, +u, +tt, +rl, +n, +tk, +us, +i, +g}:
           fl(M.W{M.snoc(q, id), haf, M.remove(id, htk), t, d, u, tt, M.snoc(rl, id), n, tk, us, i, g}, inv_dt(q, haf, htk, t, d, n, id, hm({==}), h))
 
-def deliver_pick_inv(a: Bool, b: Bool, +id: Nat, +s: M.World, +h: T(invw(s)), ha: T(a) -> T(M.mem(id, S.held_af(s))), hb: T(b) -> T(M.mem(id, S.held_tk(s)))) -> T(invw(M.deliver_pick(a, b, id, s))):
+def deliver_pick_inv(a: Bool, b: Bool, +id: Nat, +s: M.World, +h: L.T(invw(s)), ha: L.T(a) -> L.T(M.mem(id, S.held_af(s))), hb: L.T(b) -> L.T(M.mem(id, S.held_tk(s)))) -> L.T(invw(M.deliver_pick(a, b, id, s))):
   match a:
     case True{}:
       deliver_if_inv(True{}, id, s, h, ha)
     case False{}:
       deliver_tk_inv(b, id, s, h, hb)
 
-def user_deliver_inv(+id: Nat, +s: M.World, +h: T(invw(s))) -> T(invw(M.user_deliver(id, s))):
+def user_deliver_inv(+id: Nat, +s: M.World, +h: L.T(invw(s))) -> L.T(invw(M.user_deliver(id, s))):
   match s:
     case M.W{+q, +haf, +htk, +t, +d, +u, +tt, +rl, +n, +tk, +us, +i, +g}:
-      deliver_pick_inv(Bool.and(M.mem(id, haf), Bool.not(g)), Bool.and(M.mem(id, htk), Bool.not(g)), id, M.W{q, haf, htk, t, d, u, tt, rl, n, tk, us, i, g}, h, hh => and_l(M.mem(id, haf), Bool.not(g), hh), hh => and_l(M.mem(id, htk), Bool.not(g), hh))
+      deliver_pick_inv(Bool.and(M.mem(id, haf), Bool.not(g)), Bool.and(M.mem(id, htk), Bool.not(g)), id, M.W{q, haf, htk, t, d, u, tt, rl, n, tk, us, i, g}, h, hh => L.and_l(M.mem(id, haf), Bool.not(g), hh), hh => L.and_l(M.mem(id, htk), Bool.not(g), hh))
 
-def drop_if_inv(b: Bool, +id: Nat, +s: M.World, +h: T(invw(s)), hm: T(b) -> T(M.mem(id, S.held_af(s)))) -> T(invw(M.drop_if(b, id, s))):
+def drop_if_inv(b: Bool, +id: Nat, +s: M.World, +h: L.T(invw(s)), hm: L.T(b) -> L.T(M.mem(id, S.held_af(s)))) -> L.T(invw(M.drop_if(b, id, s))):
   match b:
     case False{}:
       h
@@ -2526,7 +2326,7 @@ def drop_if_inv(b: Bool, +id: Nat, +s: M.World, +h: T(invw(s)), hm: T(b) -> T(M.
         case M.W{+q, +haf, +htk, +t, +d, +u, +tt, +rl, +n, +tk, +us, +i, +g}:
           inv_ri(q, haf, htk, t, d, n, id, hm({==}), h)
 
-def drop_tk_inv(b: Bool, +id: Nat, +s: M.World, +h: T(invw(s)), hm: T(b) -> T(M.mem(id, S.held_tk(s)))) -> T(invw(M.drop_tk(b, id, s))):
+def drop_tk_inv(b: Bool, +id: Nat, +s: M.World, +h: L.T(invw(s)), hm: L.T(b) -> L.T(M.mem(id, S.held_tk(s)))) -> L.T(invw(M.drop_tk(b, id, s))):
   match b:
     case False{}:
       h
@@ -2535,19 +2335,19 @@ def drop_tk_inv(b: Bool, +id: Nat, +s: M.World, +h: T(invw(s)), hm: T(b) -> T(M.
         case M.W{+q, +haf, +htk, +t, +d, +u, +tt, +rl, +n, +tk, +us, +i, +g}:
           inv_rt(q, haf, htk, t, d, n, id, hm({==}), h)
 
-def drop_pick_inv(a: Bool, b: Bool, +id: Nat, +s: M.World, +h: T(invw(s)), ha: T(a) -> T(M.mem(id, S.held_af(s))), hb: T(b) -> T(M.mem(id, S.held_tk(s)))) -> T(invw(M.drop_pick(a, b, id, s))):
+def drop_pick_inv(a: Bool, b: Bool, +id: Nat, +s: M.World, +h: L.T(invw(s)), ha: L.T(a) -> L.T(M.mem(id, S.held_af(s))), hb: L.T(b) -> L.T(M.mem(id, S.held_tk(s)))) -> L.T(invw(M.drop_pick(a, b, id, s))):
   match a:
     case True{}:
       drop_if_inv(True{}, id, s, h, ha)
     case False{}:
       drop_tk_inv(b, id, s, h, hb)
 
-def user_drop_inv(+id: Nat, +s: M.World, +h: T(invw(s))) -> T(invw(M.user_drop(id, s))):
+def user_drop_inv(+id: Nat, +s: M.World, +h: L.T(invw(s))) -> L.T(invw(M.user_drop(id, s))):
   match s:
     case M.W{+q, +haf, +htk, +t, +d, +u, +tt, +rl, +n, +tk, +us, +i, +g}:
       drop_pick_inv(M.mem(id, haf), M.mem(id, htk), id, M.W{q, haf, htk, t, d, u, tt, rl, n, tk, us, i, g}, h, hh => hh, hh => hh)
 
-def restart_inv(alive: Bool, +s: M.World, +h: T(invw(s))) -> T(invw(M.restart(alive, s))):
+def restart_inv(alive: Bool, +s: M.World, +h: L.T(invw(s))) -> L.T(invw(M.restart(alive, s))):
   match alive:
     case True{}:
       match s:
@@ -2558,7 +2358,7 @@ def restart_inv(alive: Bool, +s: M.World, +h: T(invw(s))) -> T(invw(M.restart(al
         case M.W{+q, +haf, +htk, +t, +d, +u, +tt, +rl, +n, +tk, +us, +i, +g}:
           inv_ex(q, haf, htk, t, d, n, h)
 
-def step_inv(e: M.Ev, +s: M.World, +h: T(invw(s))) -> T(invw(M.step(e, s))):
+def step_inv(e: M.Ev, +s: M.World, +h: L.T(invw(s))) -> L.T(invw(M.step(e, s))):
   match e:
     case M.Send{fu, r}:
       send_ev_inv(fu, r, s, h)
@@ -2599,36 +2399,36 @@ def step_inv(e: M.Ev, +s: M.World, +h: T(invw(s))) -> T(invw(M.step(e, s))):
     case M.Reply{}:
       h
 
-def run_inv(+evs: +List<M.Ev>, +s: M.World, +h: T(invw(s))) -> T(invw(M.run(evs, s))):
+def run_inv(+evs: +List<M.Ev>, +s: M.World, +h: L.T(invw(s))) -> L.T(invw(M.run(evs, s))):
   match evs:
     case Nil{}:
       h
     case Con{e, +rest}:
       run_inv(rest, M.step(e, s), step_inv(e, s, h))
 
-def inv_init() -> T(invw(M.init())):
+def inv_init() -> L.T(invw(M.init())):
   mk([], [], [], [], [], 1n, {==}, {==}, {==}, {==}, {==}, {==}, {==}, {==}, {==}, {==}, {==}, {==}, {==}, {==}, {==}, {==}, {==}, {==}, {==}, {==}, {==})
 
-def inv_world(+evs: +List<M.Ev>) -> T(invw(S.world(evs))):
+def inv_world(+evs: +List<M.Ev>) -> L.T(invw(S.world(evs))):
   run_inv(evs, M.init(), inv_init())
 
 # ---- M1
-def m1_main(+evs: +List<M.Ev>) -> T(S.nodup(S.typed(S.world(evs)))):
+def m1_main(+evs: +List<M.Ev>) -> L.T(S.nodup(S.typed(S.world(evs)))):
   p3(S.queue(S.world(evs)), S.held_af(S.world(evs)), S.held_tk(S.world(evs)), S.typed(S.world(evs)), S.dropped(S.world(evs)), S.next_id(S.world(evs)), inv_world(evs))
 
 def Laws.m1_final_and_at_most_once(evs):
   m1_main(evs)
 
 # ---- M5
-def m5_main(+evs: +List<M.Ev>) -> T(Bool.and(S.disjoint(S.typed(S.world(evs)), S.dropped(S.world(evs))), Bool.and(S.disjoint(S.typed(S.world(evs)), S.queue(S.world(evs))), Bool.and(S.disjoint(S.typed(S.world(evs)), S.held_af(S.world(evs))), S.disjoint(S.typed(S.world(evs)), S.held_tk(S.world(evs))))))):
-  and_i(S.disjoint(S.typed(S.world(evs)), S.dropped(S.world(evs))), Bool.and(S.disjoint(S.typed(S.world(evs)), S.queue(S.world(evs))), Bool.and(S.disjoint(S.typed(S.world(evs)), S.held_af(S.world(evs))), S.disjoint(S.typed(S.world(evs)), S.held_tk(S.world(evs))))), p14(S.queue(S.world(evs)), S.held_af(S.world(evs)), S.held_tk(S.world(evs)), S.typed(S.world(evs)), S.dropped(S.world(evs)), S.next_id(S.world(evs)), inv_world(evs)), and_i(S.disjoint(S.typed(S.world(evs)), S.queue(S.world(evs))), Bool.and(S.disjoint(S.typed(S.world(evs)), S.held_af(S.world(evs))), S.disjoint(S.typed(S.world(evs)), S.held_tk(S.world(evs)))), dj_sym(S.queue(S.world(evs)), S.typed(S.world(evs)), p7(S.queue(S.world(evs)), S.held_af(S.world(evs)), S.held_tk(S.world(evs)), S.typed(S.world(evs)), S.dropped(S.world(evs)), S.next_id(S.world(evs)), inv_world(evs))), and_i(S.disjoint(S.typed(S.world(evs)), S.held_af(S.world(evs))), S.disjoint(S.typed(S.world(evs)), S.held_tk(S.world(evs))), dj_sym(S.held_af(S.world(evs)), S.typed(S.world(evs)), p10(S.queue(S.world(evs)), S.held_af(S.world(evs)), S.held_tk(S.world(evs)), S.typed(S.world(evs)), S.dropped(S.world(evs)), S.next_id(S.world(evs)), inv_world(evs))), dj_sym(S.held_tk(S.world(evs)), S.typed(S.world(evs)), p12(S.queue(S.world(evs)), S.held_af(S.world(evs)), S.held_tk(S.world(evs)), S.typed(S.world(evs)), S.dropped(S.world(evs)), S.next_id(S.world(evs)), inv_world(evs))))))
+def m5_main(+evs: +List<M.Ev>) -> L.T(Bool.and(S.disjoint(S.typed(S.world(evs)), S.dropped(S.world(evs))), Bool.and(S.disjoint(S.typed(S.world(evs)), S.queue(S.world(evs))), Bool.and(S.disjoint(S.typed(S.world(evs)), S.held_af(S.world(evs))), S.disjoint(S.typed(S.world(evs)), S.held_tk(S.world(evs))))))):
+  L.and_i(S.disjoint(S.typed(S.world(evs)), S.dropped(S.world(evs))), Bool.and(S.disjoint(S.typed(S.world(evs)), S.queue(S.world(evs))), Bool.and(S.disjoint(S.typed(S.world(evs)), S.held_af(S.world(evs))), S.disjoint(S.typed(S.world(evs)), S.held_tk(S.world(evs))))), p14(S.queue(S.world(evs)), S.held_af(S.world(evs)), S.held_tk(S.world(evs)), S.typed(S.world(evs)), S.dropped(S.world(evs)), S.next_id(S.world(evs)), inv_world(evs)), L.and_i(S.disjoint(S.typed(S.world(evs)), S.queue(S.world(evs))), Bool.and(S.disjoint(S.typed(S.world(evs)), S.held_af(S.world(evs))), S.disjoint(S.typed(S.world(evs)), S.held_tk(S.world(evs)))), dj_sym(S.queue(S.world(evs)), S.typed(S.world(evs)), p7(S.queue(S.world(evs)), S.held_af(S.world(evs)), S.held_tk(S.world(evs)), S.typed(S.world(evs)), S.dropped(S.world(evs)), S.next_id(S.world(evs)), inv_world(evs))), L.and_i(S.disjoint(S.typed(S.world(evs)), S.held_af(S.world(evs))), S.disjoint(S.typed(S.world(evs)), S.held_tk(S.world(evs))), dj_sym(S.held_af(S.world(evs)), S.typed(S.world(evs)), p10(S.queue(S.world(evs)), S.held_af(S.world(evs)), S.held_tk(S.world(evs)), S.typed(S.world(evs)), S.dropped(S.world(evs)), S.next_id(S.world(evs)), inv_world(evs))), dj_sym(S.held_tk(S.world(evs)), S.typed(S.world(evs)), p12(S.queue(S.world(evs)), S.held_af(S.world(evs)), S.held_tk(S.world(evs)), S.typed(S.world(evs)), S.dropped(S.world(evs)), S.next_id(S.world(evs)), inv_world(evs))))))
 
 def Laws.m5_terminal_states_are_absorbing(evs):
   m5_main(evs)
 
 # ---- M6
 def m6_main(+evs: +List<M.Ev>) -> EQ(SG(S.len(S.queue(S.world(evs))), S.len(S.held_af(S.world(evs))), S.len(S.held_tk(S.world(evs))), S.len(S.typed(S.world(evs))), S.len(S.dropped(S.world(evs)))), S.next_id(S.world(evs))):
-  eq_elim(SG(S.len(S.queue(S.world(evs))), S.len(S.held_af(S.world(evs))), S.len(S.held_tk(S.world(evs))), S.len(S.typed(S.world(evs))), S.len(S.dropped(S.world(evs)))), S.next_id(S.world(evs)), p20(S.queue(S.world(evs)), S.held_af(S.world(evs)), S.held_tk(S.world(evs)), S.typed(S.world(evs)), S.dropped(S.world(evs)), S.next_id(S.world(evs)), inv_world(evs)))
+  L.eq_elim(SG(S.len(S.queue(S.world(evs))), S.len(S.held_af(S.world(evs))), S.len(S.held_tk(S.world(evs))), S.len(S.typed(S.world(evs))), S.len(S.dropped(S.world(evs)))), S.next_id(S.world(evs)), p20(S.queue(S.world(evs)), S.held_af(S.world(evs)), S.held_tk(S.world(evs)), S.typed(S.world(evs)), S.dropped(S.world(evs)), S.next_id(S.world(evs)), inv_world(evs)))
 
 def Laws.m6_no_silent_loss(evs):
   m6_main(evs)
@@ -2656,41 +2456,41 @@ def sht(+lq: Nat, +la: Nat, +lk: Nat, +lt: Nat, +ld: Nat, +z: Nat) -> EQ(SG(lq, 
   tr(SG(lq, la, lk, Nat.add(lt, z), ld), 1n+Nat.add(z, Nat.add(lq, Nat.add(la, Nat.add(lk, Nat.add(lt, ld))))), Nat.add(z, SG(lq, la, lk, lt, ld)), sc(Nat.add(lq, Nat.add(la, Nat.add(lk, Nat.add(Nat.add(lt, z), ld)))), Nat.add(z, Nat.add(lq, Nat.add(la, Nat.add(lk, Nat.add(lt, ld))))), tr(Nat.add(lq, Nat.add(la, Nat.add(lk, Nat.add(Nat.add(lt, z), ld)))), Nat.add(lq, Nat.add(z, Nat.add(la, Nat.add(lk, Nat.add(lt, ld))))), Nat.add(z, Nat.add(lq, Nat.add(la, Nat.add(lk, Nat.add(lt, ld))))), ar(lq, Nat.add(la, Nat.add(lk, Nat.add(Nat.add(lt, z), ld))), Nat.add(z, Nat.add(la, Nat.add(lk, Nat.add(lt, ld)))), tr(Nat.add(la, Nat.add(lk, Nat.add(Nat.add(lt, z), ld))), Nat.add(la, Nat.add(z, Nat.add(lk, Nat.add(lt, ld)))), Nat.add(z, Nat.add(la, Nat.add(lk, Nat.add(lt, ld)))), ar(la, Nat.add(lk, Nat.add(Nat.add(lt, z), ld)), Nat.add(z, Nat.add(lk, Nat.add(lt, ld))), tr(Nat.add(lk, Nat.add(Nat.add(lt, z), ld)), Nat.add(lk, Nat.add(z, Nat.add(lt, ld))), Nat.add(z, Nat.add(lk, Nat.add(lt, ld))), ar(lk, Nat.add(Nat.add(lt, z), ld), Nat.add(z, Nat.add(lt, ld)), tr(Nat.add(Nat.add(lt, z), ld), Nat.add(lt, Nat.add(z, ld)), Nat.add(z, Nat.add(lt, ld)), add_assoc(lt, z, ld), swp(lt, z, ld))), swp(lk, z, Nat.add(lt, ld)))), swp(la, z, Nat.add(lk, Nat.add(lt, ld))))), swp(lq, z, Nat.add(la, Nat.add(lk, Nat.add(lt, ld)))))), sy(Nat.add(z, 1n+Nat.add(lq, Nat.add(la, Nat.add(lk, Nat.add(lt, ld))))), 1n+Nat.add(z, Nat.add(lq, Nat.add(la, Nat.add(lk, Nat.add(lt, ld))))), add_succ_r(z, Nat.add(lq, Nat.add(la, Nat.add(lk, Nat.add(lt, ld)))))))
 
 # Typing: the queue becomes the batch in flight (none was in flight).
-def sm_ty(+q: +List<Nat>, +a: +List<Nat>, +t: +List<Nat>, +d: +List<Nat>, +n: Nat, +hs: T(SUMB(q, a, [], t, d, n))) -> T(SUMB([], a, q, t, d, n)):
-  eq_intro(SG(0n, S.len(a), S.len(q), S.len(t), S.len(d)), n, tr(SG(0n, S.len(a), S.len(q), S.len(t), S.len(d)), SG(S.len(q), S.len(a), 0n, S.len(t), S.len(d)), n, tr(SG(0n, S.len(a), S.len(q), S.len(t), S.len(d)), Nat.add(S.len(q), SG(0n, S.len(a), 0n, S.len(t), S.len(d))), SG(S.len(q), S.len(a), 0n, S.len(t), S.len(d)), shk(0n, S.len(a), 0n, S.len(t), S.len(d), S.len(q)), sy(SG(S.len(q), S.len(a), 0n, S.len(t), S.len(d)), Nat.add(S.len(q), SG(0n, S.len(a), 0n, S.len(t), S.len(d))), shq(0n, S.len(a), 0n, S.len(t), S.len(d), S.len(q)))), eq_elim(SG(S.len(q), S.len(a), 0n, S.len(t), S.len(d)), n, hs)))
+def sm_ty(+q: +List<Nat>, +a: +List<Nat>, +t: +List<Nat>, +d: +List<Nat>, +n: Nat, +hs: L.T(SUMB(q, a, [], t, d, n))) -> L.T(SUMB([], a, q, t, d, n)):
+  eq_intro(SG(0n, S.len(a), S.len(q), S.len(t), S.len(d)), n, tr(SG(0n, S.len(a), S.len(q), S.len(t), S.len(d)), SG(S.len(q), S.len(a), 0n, S.len(t), S.len(d)), n, tr(SG(0n, S.len(a), S.len(q), S.len(t), S.len(d)), Nat.add(S.len(q), SG(0n, S.len(a), 0n, S.len(t), S.len(d))), SG(S.len(q), S.len(a), 0n, S.len(t), S.len(d)), shk(0n, S.len(a), 0n, S.len(t), S.len(d), S.len(q)), sy(SG(S.len(q), S.len(a), 0n, S.len(t), S.len(d)), Nat.add(S.len(q), SG(0n, S.len(a), 0n, S.len(t), S.len(d))), shq(0n, S.len(a), 0n, S.len(t), S.len(d), S.len(q)))), L.eq_elim(SG(S.len(q), S.len(a), 0n, S.len(t), S.len(d)), n, hs)))
 
 # The Signal: the batch in flight is delivered.
-def sm_cf(+q: +List<Nat>, +a: +List<Nat>, +k: +List<Nat>, +t: +List<Nat>, +d: +List<Nat>, +n: Nat, +hs: T(SUMB(q, a, k, t, d, n))) -> T(SUMB(q, a, [], List.append(&2, Nat, t, k), d, n)):
-  eq_intro(SG(S.len(q), S.len(a), 0n, S.len(List.append(&2, Nat, t, k)), S.len(d)), n, tr(SG(S.len(q), S.len(a), 0n, S.len(List.append(&2, Nat, t, k)), S.len(d)), Nat.add(S.len(k), SG(S.len(q), S.len(a), 0n, S.len(t), S.len(d))), n, tr(SG(S.len(q), S.len(a), 0n, S.len(List.append(&2, Nat, t, k)), S.len(d)), SG(S.len(q), S.len(a), 0n, Nat.add(S.len(t), S.len(k)), S.len(d)), Nat.add(S.len(k), SG(S.len(q), S.len(a), 0n, S.len(t), S.len(d))), cgt(S.len(q), S.len(a), 0n, S.len(List.append(&2, Nat, t, k)), Nat.add(S.len(t), S.len(k)), S.len(d), len_app(t, k)), sht(S.len(q), S.len(a), 0n, S.len(t), S.len(d), S.len(k))), tr(Nat.add(S.len(k), SG(S.len(q), S.len(a), 0n, S.len(t), S.len(d))), SG(S.len(q), S.len(a), S.len(k), S.len(t), S.len(d)), n, sy(SG(S.len(q), S.len(a), S.len(k), S.len(t), S.len(d)), Nat.add(S.len(k), SG(S.len(q), S.len(a), 0n, S.len(t), S.len(d))), shk(S.len(q), S.len(a), 0n, S.len(t), S.len(d), S.len(k))), eq_elim(SG(S.len(q), S.len(a), S.len(k), S.len(t), S.len(d)), n, hs))))
+def sm_cf(+q: +List<Nat>, +a: +List<Nat>, +k: +List<Nat>, +t: +List<Nat>, +d: +List<Nat>, +n: Nat, +hs: L.T(SUMB(q, a, k, t, d, n))) -> L.T(SUMB(q, a, [], List.append(&2, Nat, t, k), d, n)):
+  eq_intro(SG(S.len(q), S.len(a), 0n, S.len(List.append(&2, Nat, t, k)), S.len(d)), n, tr(SG(S.len(q), S.len(a), 0n, S.len(List.append(&2, Nat, t, k)), S.len(d)), Nat.add(S.len(k), SG(S.len(q), S.len(a), 0n, S.len(t), S.len(d))), n, tr(SG(S.len(q), S.len(a), 0n, S.len(List.append(&2, Nat, t, k)), S.len(d)), SG(S.len(q), S.len(a), 0n, Nat.add(S.len(t), S.len(k)), S.len(d)), Nat.add(S.len(k), SG(S.len(q), S.len(a), 0n, S.len(t), S.len(d))), cgt(S.len(q), S.len(a), 0n, S.len(List.append(&2, Nat, t, k)), Nat.add(S.len(t), S.len(k)), S.len(d), len_app(t, k)), sht(S.len(q), S.len(a), 0n, S.len(t), S.len(d), S.len(k))), tr(Nat.add(S.len(k), SG(S.len(q), S.len(a), 0n, S.len(t), S.len(d))), SG(S.len(q), S.len(a), S.len(k), S.len(t), S.len(d)), n, sy(SG(S.len(q), S.len(a), S.len(k), S.len(t), S.len(d)), Nat.add(S.len(k), SG(S.len(q), S.len(a), 0n, S.len(t), S.len(d))), shk(S.len(q), S.len(a), 0n, S.len(t), S.len(d), S.len(k))), L.eq_elim(SG(S.len(q), S.len(a), S.len(k), S.len(t), S.len(d)), n, hs))))
 
 def len_app_comm(+a: +List<Nat>, +b: +List<Nat>) -> EQ(S.len(List.append(&2, Nat, a, b)), S.len(List.append(&2, Nat, b, a))):
   tr(S.len(List.append(&2, Nat, a, b)), Nat.add(S.len(a), S.len(b)), S.len(List.append(&2, Nat, b, a)), len_app(a, b), tr(Nat.add(S.len(a), S.len(b)), Nat.add(S.len(b), S.len(a)), S.len(List.append(&2, Nat, b, a)), add_comm(S.len(a), S.len(b)), sy(S.len(List.append(&2, Nat, b, a)), Nat.add(S.len(b), S.len(a)), len_app(b, a))))
 
 # The kill: the batch in flight is pending again, ahead of the queue.
-def sm_kill(+q: +List<Nat>, +a: +List<Nat>, +k: +List<Nat>, +t: +List<Nat>, +d: +List<Nat>, +n: Nat, +hs: T(SUMB(q, a, k, t, d, n))) -> T(SUMB(List.append(&2, Nat, k, q), a, [], t, d, n)):
-  eq_intro(SG(S.len(List.append(&2, Nat, k, q)), S.len(a), 0n, S.len(t), S.len(d)), n, tr(SG(S.len(List.append(&2, Nat, k, q)), S.len(a), 0n, S.len(t), S.len(d)), SG(S.len(List.append(&2, Nat, q, k)), S.len(a), 0n, S.len(t), S.len(d)), n, cgq(S.len(List.append(&2, Nat, k, q)), S.len(List.append(&2, Nat, q, k)), S.len(a), 0n, S.len(t), S.len(d), len_app_comm(k, q)), eq_elim(SG(S.len(List.append(&2, Nat, q, k)), S.len(a), 0n, S.len(t), S.len(d)), n, sm_te(q, a, k, t, d, n, hs))))
+def sm_kill(+q: +List<Nat>, +a: +List<Nat>, +k: +List<Nat>, +t: +List<Nat>, +d: +List<Nat>, +n: Nat, +hs: L.T(SUMB(q, a, k, t, d, n))) -> L.T(SUMB(List.append(&2, Nat, k, q), a, [], t, d, n)):
+  eq_intro(SG(S.len(List.append(&2, Nat, k, q)), S.len(a), 0n, S.len(t), S.len(d)), n, tr(SG(S.len(List.append(&2, Nat, k, q)), S.len(a), 0n, S.len(t), S.len(d)), SG(S.len(List.append(&2, Nat, q, k)), S.len(a), 0n, S.len(t), S.len(d)), n, cgq(S.len(List.append(&2, Nat, k, q)), S.len(List.append(&2, Nat, q, k)), S.len(a), 0n, S.len(t), S.len(d), len_app_comm(k, q)), L.eq_elim(SG(S.len(List.append(&2, Nat, q, k)), S.len(a), 0n, S.len(t), S.len(d)), n, sm_te(q, a, k, t, d, n, hs))))
 
-def inv_ty(+q: +List<Nat>, +a: +List<Nat>, +t: +List<Nat>, +d: +List<Nat>, +n: Nat, +h: T(IV(q, a, [], t, d, n))) -> T(IV([], a, q, t, d, n)):
+def inv_ty(+q: +List<Nat>, +a: +List<Nat>, +t: +List<Nat>, +d: +List<Nat>, +n: Nat, +h: L.T(IV(q, a, [], t, d, n))) -> L.T(IV([], a, q, t, d, n)):
   mk([], a, q, t, d, n, {==}, p1(q, a, [], t, d, n, h), p0(q, a, [], t, d, n, h), p3(q, a, [], t, d, n, h), p4(q, a, [], t, d, n, h), {==}, {==}, {==}, {==}, dj_sym(q, a, p5(q, a, [], t, d, n, h)), p10(q, a, [], t, d, n, h), p11(q, a, [], t, d, n, h), p7(q, a, [], t, d, n, h), p8(q, a, [], t, d, n, h), p14(q, a, [], t, d, n, h), {==}, p16(q, a, [], t, d, n, h), p15(q, a, [], t, d, n, h), p18(q, a, [], t, d, n, h), p19(q, a, [], t, d, n, h), sm_ty(q, a, t, d, n, p20(q, a, [], t, d, n, h)))
 
-def inv_cf(+q: +List<Nat>, +a: +List<Nat>, +k: +List<Nat>, +t: +List<Nat>, +d: +List<Nat>, +n: Nat, +h: T(IV(q, a, k, t, d, n))) -> T(IV(q, a, [], List.append(&2, Nat, t, k), d, n)):
+def inv_cf(+q: +List<Nat>, +a: +List<Nat>, +k: +List<Nat>, +t: +List<Nat>, +d: +List<Nat>, +n: Nat, +h: L.T(IV(q, a, k, t, d, n))) -> L.T(IV(q, a, [], List.append(&2, Nat, t, k), d, n)):
   mk(q, a, [], List.append(&2, Nat, t, k), d, n, p0(q, a, k, t, d, n, h), p1(q, a, k, t, d, n, h), {==}, nd_app(t, k, p3(q, a, k, t, d, n, h), p2(q, a, k, t, d, n, h), dj_sym(k, t, p12(q, a, k, t, d, n, h))), p4(q, a, k, t, d, n, h), p5(q, a, k, t, d, n, h), dj_nil_r(q), dj_app_r(q, t, k, p7(q, a, k, t, d, n, h), p6(q, a, k, t, d, n, h)), p8(q, a, k, t, d, n, h), dj_nil_r(a), dj_app_r(a, t, k, p10(q, a, k, t, d, n, h), p9(q, a, k, t, d, n, h)), p11(q, a, k, t, d, n, h), {==}, {==}, dj_app_l(t, k, d, p14(q, a, k, t, d, n, h), p13(q, a, k, t, d, n, h)), p15(q, a, k, t, d, n, h), p16(q, a, k, t, d, n, h), {==}, bd_app(t, k, n, p18(q, a, k, t, d, n, h), p17(q, a, k, t, d, n, h)), p19(q, a, k, t, d, n, h), sm_cf(q, a, k, t, d, n, p20(q, a, k, t, d, n, h)))
 
-def inv_kill(+q: +List<Nat>, +a: +List<Nat>, +k: +List<Nat>, +t: +List<Nat>, +d: +List<Nat>, +n: Nat, +h: T(IV(q, a, k, t, d, n))) -> T(IV(List.append(&2, Nat, k, q), a, [], t, d, n)):
+def inv_kill(+q: +List<Nat>, +a: +List<Nat>, +k: +List<Nat>, +t: +List<Nat>, +d: +List<Nat>, +n: Nat, +h: L.T(IV(q, a, k, t, d, n))) -> L.T(IV(List.append(&2, Nat, k, q), a, [], t, d, n)):
   mk(List.append(&2, Nat, k, q), a, [], t, d, n, nd_app(k, q, p2(q, a, k, t, d, n, h), p0(q, a, k, t, d, n, h), dj_sym(q, k, p6(q, a, k, t, d, n, h))), p1(q, a, k, t, d, n, h), {==}, p3(q, a, k, t, d, n, h), p4(q, a, k, t, d, n, h), dj_app_l(k, q, a, dj_sym(a, k, p9(q, a, k, t, d, n, h)), p5(q, a, k, t, d, n, h)), dj_nil_r(List.append(&2, Nat, k, q)), dj_app_l(k, q, t, p12(q, a, k, t, d, n, h), p7(q, a, k, t, d, n, h)), dj_app_l(k, q, d, p13(q, a, k, t, d, n, h), p8(q, a, k, t, d, n, h)), dj_nil_r(a), p10(q, a, k, t, d, n, h), p11(q, a, k, t, d, n, h), {==}, {==}, p14(q, a, k, t, d, n, h), bd_app(k, q, n, p17(q, a, k, t, d, n, h), p15(q, a, k, t, d, n, h)), p16(q, a, k, t, d, n, h), {==}, p18(q, a, k, t, d, n, h), p19(q, a, k, t, d, n, h), sm_kill(q, a, k, t, d, n, p20(q, a, k, t, d, n, h)))
 
 # The invariant of the in-flight model: the shared partition invariant with the unused list empty.
 def invf(+s: M.Fl) -> Bool:
   IV(S.f_queue(s), [], S.f_inflight(s), S.f_delivered(s), S.f_dropped(s), S.f_next(s))
 
-def fidle_go_inv(+inf: +List<Nat>, +q: +List<Nat>, +t: +List<Nat>, +d: +List<Nat>, +n: Nat, hold: Bool, g: Bool, +h: T(IV(q, [], inf, t, d, n))) -> T(invf(M.fidle_go(inf, q, t, d, n, hold, g))):
+def fidle_go_inv(+inf: +List<Nat>, +q: +List<Nat>, +t: +List<Nat>, +d: +List<Nat>, +n: Nat, hold: Bool, g: Bool, +h: L.T(IV(q, [], inf, t, d, n))) -> L.T(invf(M.fidle_go(inf, q, t, d, n, hold, g))):
   match inf:
     case Nil{}:
       inv_ty(q, [], t, d, n, h)
     case Con{+x, +rest}:
       h
 
-def fidle_live_inv(hold: Bool, +s: M.Fl, +h: T(invf(s))) -> T(invf(M.fidle_live(hold, s))):
+def fidle_live_inv(hold: Bool, +s: M.Fl, +h: L.T(invf(s))) -> L.T(invf(M.fidle_live(hold, s))):
   match hold:
     case True{}:
       h
@@ -2699,7 +2499,7 @@ def fidle_live_inv(hold: Bool, +s: M.Fl, +h: T(invf(s))) -> T(invf(M.fidle_live(
         case M.F{+q, +inf, +t, +d, +n, +hold2, +g}:
           fidle_go_inv(inf, q, t, d, n, hold2, g, h)
 
-def fidle_inv(+s: M.Fl, +h: T(invf(s))) -> T(invf(M.fidle(s))):
+def fidle_inv(+s: M.Fl, +h: L.T(invf(s))) -> L.T(invf(M.fidle(s))):
   match s:
     case M.F{+q, +inf, +t, +d, +n, +hold, +g}:
       match g:
@@ -2708,7 +2508,7 @@ def fidle_inv(+s: M.Fl, +h: T(invf(s))) -> T(invf(M.fidle(s))):
         case False{}:
           fidle_live_inv(hold, M.F{q, inf, t, d, n, hold, False{}}, h)
 
-def fsend_inv(+s: M.Fl, +h: T(invf(s))) -> T(invf(M.fsend(s))):
+def fsend_inv(+s: M.Fl, +h: L.T(invf(s))) -> L.T(invf(M.fsend(s))):
   match s:
     case M.F{+q, +inf, +t, +d, +n, +hold, +g}:
       match g:
@@ -2717,27 +2517,27 @@ def fsend_inv(+s: M.Fl, +h: T(invf(s))) -> T(invf(M.fsend(s))):
         case False{}:
           inv_sendQ(q, [], inf, t, d, n, h)
 
-def fconfirm_inv(+s: M.Fl, +h: T(invf(s))) -> T(invf(M.fconfirm(s))):
+def fconfirm_inv(+s: M.Fl, +h: L.T(invf(s))) -> L.T(invf(M.fconfirm(s))):
   match s:
     case M.F{+q, +inf, +t, +d, +n, +hold, +g}:
       inv_cf(q, [], inf, t, d, n, h)
 
-def fkill_inv(+s: M.Fl, +h: T(invf(s))) -> T(invf(M.fkill(s))):
+def fkill_inv(+s: M.Fl, +h: L.T(invf(s))) -> L.T(invf(M.fkill(s))):
   match s:
     case M.F{+q, +inf, +t, +d, +n, +hold, +g}:
       inv_kill(q, [], inf, t, d, n, h)
 
-def fhold_inv(b: Bool, +s: M.Fl, +h: T(invf(s))) -> T(invf(M.fhold(b, s))):
+def fhold_inv(b: Bool, +s: M.Fl, +h: L.T(invf(s))) -> L.T(invf(M.fhold(b, s))):
   match s:
     case M.F{+q, +inf, +t, +d, +n, +hold, +g}:
       h
 
-def fexit_inv(+s: M.Fl, +h: T(invf(s))) -> T(invf(M.fexit(s))):
+def fexit_inv(+s: M.Fl, +h: L.T(invf(s))) -> L.T(invf(M.fexit(s))):
   match s:
     case M.F{+q, +inf, +t, +d, +n, +hold, +g}:
       inv_ex(q, [], inf, t, d, n, h)
 
-def fstep_inv(e: M.FEv, +s: M.Fl, +h: T(invf(s))) -> T(invf(M.fstep(e, s))):
+def fstep_inv(e: M.FEv, +s: M.Fl, +h: L.T(invf(s))) -> L.T(invf(M.fstep(e, s))):
   match e:
     case M.FSend{}:
       fsend_inv(s, h)
@@ -2754,49 +2554,49 @@ def fstep_inv(e: M.FEv, +s: M.Fl, +h: T(invf(s))) -> T(invf(M.fstep(e, s))):
     case M.FExit{}:
       fexit_inv(s, h)
 
-def frun_inv(+evs: +List<M.FEv>, +s: M.Fl, +h: T(invf(s))) -> T(invf(M.frun(evs, s))):
+def frun_inv(+evs: +List<M.FEv>, +s: M.Fl, +h: L.T(invf(s))) -> L.T(invf(M.frun(evs, s))):
   match evs:
     case Nil{}:
       h
     case Con{e, +rest}:
       frun_inv(rest, M.fstep(e, s), fstep_inv(e, s, h))
 
-def finv_world(+evs: +List<M.FEv>) -> T(invf(S.fworld(evs))):
+def finv_world(+evs: +List<M.FEv>) -> L.T(invf(S.fworld(evs))):
   frun_inv(evs, M.finit(), mk([], [], [], [], [], 1n, {==}, {==}, {==}, {==}, {==}, {==}, {==}, {==}, {==}, {==}, {==}, {==}, {==}, {==}, {==}, {==}, {==}, {==}, {==}, {==}, {==}))
 
-def b39_delivered_main(+evs: +List<M.FEv>) -> T(S.nodup(S.f_delivered(S.fworld(evs)))):
+def b39_delivered_main(+evs: +List<M.FEv>) -> L.T(S.nodup(S.f_delivered(S.fworld(evs)))):
   p3(S.f_queue(S.fworld(evs)), [], S.f_inflight(S.fworld(evs)), S.f_delivered(S.fworld(evs)), S.f_dropped(S.fworld(evs)), S.f_next(S.fworld(evs)), finv_world(evs))
 
 def Laws.b39_delivered_at_most_once(evs):
   b39_delivered_main(evs)
 
-def b40_main(+evs: +List<M.FEv>) -> T(Bool.and(S.disjoint(S.f_delivered(S.fworld(evs)), S.f_queue(S.fworld(evs))), S.disjoint(S.f_delivered(S.fworld(evs)), S.f_inflight(S.fworld(evs))))):
-  and_i(S.disjoint(S.f_delivered(S.fworld(evs)), S.f_queue(S.fworld(evs))), S.disjoint(S.f_delivered(S.fworld(evs)), S.f_inflight(S.fworld(evs))), dj_sym(S.f_queue(S.fworld(evs)), S.f_delivered(S.fworld(evs)), p7(S.f_queue(S.fworld(evs)), [], S.f_inflight(S.fworld(evs)), S.f_delivered(S.fworld(evs)), S.f_dropped(S.fworld(evs)), S.f_next(S.fworld(evs)), finv_world(evs))), dj_sym(S.f_inflight(S.fworld(evs)), S.f_delivered(S.fworld(evs)), p12(S.f_queue(S.fworld(evs)), [], S.f_inflight(S.fworld(evs)), S.f_delivered(S.fworld(evs)), S.f_dropped(S.fworld(evs)), S.f_next(S.fworld(evs)), finv_world(evs))))
+def b40_main(+evs: +List<M.FEv>) -> L.T(Bool.and(S.disjoint(S.f_delivered(S.fworld(evs)), S.f_queue(S.fworld(evs))), S.disjoint(S.f_delivered(S.fworld(evs)), S.f_inflight(S.fworld(evs))))):
+  L.and_i(S.disjoint(S.f_delivered(S.fworld(evs)), S.f_queue(S.fworld(evs))), S.disjoint(S.f_delivered(S.fworld(evs)), S.f_inflight(S.fworld(evs))), dj_sym(S.f_queue(S.fworld(evs)), S.f_delivered(S.fworld(evs)), p7(S.f_queue(S.fworld(evs)), [], S.f_inflight(S.fworld(evs)), S.f_delivered(S.fworld(evs)), S.f_dropped(S.fworld(evs)), S.f_next(S.fworld(evs)), finv_world(evs))), dj_sym(S.f_inflight(S.fworld(evs)), S.f_delivered(S.fworld(evs)), p12(S.f_queue(S.fworld(evs)), [], S.f_inflight(S.fworld(evs)), S.f_delivered(S.fworld(evs)), S.f_dropped(S.fworld(evs)), S.f_next(S.fworld(evs)), finv_world(evs))))
 
 def Laws.b39_a_retry_never_retypes_a_delivered_message(evs):
   b40_main(evs)
 
 def b39_sum_main(+evs: +List<M.FEv>) -> EQ(SG(S.len(S.f_queue(S.fworld(evs))), 0n, S.len(S.f_inflight(S.fworld(evs))), S.len(S.f_delivered(S.fworld(evs))), S.len(S.f_dropped(S.fworld(evs)))), S.f_next(S.fworld(evs))):
-  eq_elim(SG(S.len(S.f_queue(S.fworld(evs))), 0n, S.len(S.f_inflight(S.fworld(evs))), S.len(S.f_delivered(S.fworld(evs))), S.len(S.f_dropped(S.fworld(evs)))), S.f_next(S.fworld(evs)), p20(S.f_queue(S.fworld(evs)), [], S.f_inflight(S.fworld(evs)), S.f_delivered(S.fworld(evs)), S.f_dropped(S.fworld(evs)), S.f_next(S.fworld(evs)), finv_world(evs)))
+  L.eq_elim(SG(S.len(S.f_queue(S.fworld(evs))), 0n, S.len(S.f_inflight(S.fworld(evs))), S.len(S.f_delivered(S.fworld(evs))), S.len(S.f_dropped(S.fworld(evs)))), S.f_next(S.fworld(evs)), p20(S.f_queue(S.fworld(evs)), [], S.f_inflight(S.fworld(evs)), S.f_delivered(S.fworld(evs)), S.f_dropped(S.fworld(evs)), S.f_next(S.fworld(evs)), finv_world(evs)))
 
 def Laws.b39_no_silent_loss_in_flight(evs):
   b39_sum_main(evs)
 
-def hold_refl(hd: Bool, +inf: +List<Nat>) -> T(S.implies(hd, S.all_in(inf, inf))):
+def hold_refl(hd: Bool, +inf: +List<Nat>) -> L.T(S.implies(hd, S.all_in(inf, inf))):
   match hd:
     case True{}:
-      all_in_refl(inf)
+      L.all_in_refl(inf)
     case False{}:
       {==}
 
-def hold_live(hd: Bool, +q: +List<Nat>, +inf: +List<Nat>, +t: +List<Nat>, +d: +List<Nat>, n: Nat, g: Bool) -> T(S.implies(hd, S.all_in(S.f_inflight(M.fidle_live(hd, M.F{q, inf, t, d, n, hd, g})), inf))):
+def hold_live(hd: Bool, +q: +List<Nat>, +inf: +List<Nat>, +t: +List<Nat>, +d: +List<Nat>, n: Nat, g: Bool) -> L.T(S.implies(hd, S.all_in(S.f_inflight(M.fidle_live(hd, M.F{q, inf, t, d, n, hd, g})), inf))):
   match hd:
     case True{}:
-      all_in_refl(inf)
+      L.all_in_refl(inf)
     case False{}:
       {==}
 
-def fhold_types_nothing(+s: M.Fl) -> T(S.implies(S.f_hold(s), S.all_in(S.f_inflight(M.fstep(M.FIdle{}, s)), S.f_inflight(s)))):
+def fhold_types_nothing(+s: M.Fl) -> L.T(S.implies(S.f_hold(s), S.all_in(S.f_inflight(M.fstep(M.FIdle{}, s)), S.f_inflight(s)))):
   match s:
     case M.F{+q, +inf, +t, +d, +n, +hd, +g}:
       match g:
@@ -2809,37 +2609,37 @@ def Laws.b39_a_hold_types_no_batch(evs):
   fhold_types_nothing(S.fworld(evs))
 
 # ---- M8
-def not_or_l(a: Bool, b: Bool, +h: T(Bool.not(Bool.or(a, b)))) -> T(Bool.not(a)):
+def not_or_l(a: Bool, b: Bool, +h: L.T(Bool.not(Bool.or(a, b)))) -> L.T(Bool.not(a)):
   match a:
     case False{}:
       {==}
     case True{}:
-      no(T(Bool.not(True{})), h)
+      L.no(L.T(Bool.not(True{})), h)
 
-def not_or_r(a: Bool, b: Bool, +h: T(Bool.not(Bool.or(a, b)))) -> T(Bool.not(b)):
+def not_or_r(a: Bool, b: Bool, +h: L.T(Bool.not(Bool.or(a, b)))) -> L.T(Bool.not(b)):
   match a:
     case False{}:
       h
     case True{}:
-      no(T(Bool.not(b)), h)
+      L.no(L.T(Bool.not(b)), h)
 
-def not_or_i(a: Bool, b: Bool, +ha: T(Bool.not(a)), +hb: T(Bool.not(b))) -> T(Bool.not(Bool.or(a, b))):
+def not_or_i(a: Bool, b: Bool, +ha: L.T(Bool.not(a)), +hb: L.T(Bool.not(b))) -> L.T(Bool.not(Bool.or(a, b))):
   match a:
     case False{}:
       hb
     case True{}:
-      no(T(Bool.not(Bool.or(True{}, b))), ha)
+      L.no(L.T(Bool.not(Bool.or(True{}, b))), ha)
 
-def contra(a: Bool, b: Bool, f: T(a) -> T(b), +hn: T(Bool.not(b))) -> T(Bool.not(a)):
+def contra(a: Bool, b: Bool, f: L.T(a) -> L.T(b), +hn: L.T(Bool.not(b))) -> L.T(Bool.not(a)):
   match a:
     case False{}:
       {==}
     case True{}:
       match b:
         case True{}:
-          no(T(Bool.not(True{})), hn)
+          L.no(L.T(Bool.not(True{})), hn)
         case False{}:
-          no(T(Bool.not(True{})), f({==}))
+          L.no(L.T(Bool.not(True{})), f({==}))
 
 def eq_comm(+x: Nat, +y: Nat) -> {Nat.is_eq(x, y) == Nat.is_eq(y, x) : Bool}:
   match x y:
@@ -2852,30 +2652,30 @@ def eq_comm(+x: Nat, +y: Nat) -> {Nat.is_eq(x, y) == Nat.is_eq(y, x) : Bool}:
     case 1n+xp 1n+yp:
       eq_comm(xp, yp)
 
-def neq_sym(+x: Nat, +y: Nat, +h: T(Bool.not(Nat.is_eq(x, y)))) -> T(Bool.not(Nat.is_eq(y, x))):
-  %eq_comm(x, y) : T(Bool.not(_))
+def neq_sym(+x: Nat, +y: Nat, +h: L.T(Bool.not(Nat.is_eq(x, y)))) -> L.T(Bool.not(Nat.is_eq(y, x))):
+  %eq_comm(x, y) : L.T(Bool.not(_))
   h
 
-# clean (B13): what it keeps is in its input, never holds the sender, and has no repeat.
-def cA_go(p: Bool, m: Bool, +y: Nat, +x: Nat, +rest: +List<Nat>, +o: Nat, f: T(M.mem(y, M.clean(o, rest))) -> T(M.mem(y, rest)), +h: T(M.mem(y, M.clean_step(Bool.or(p, m), x, M.clean(o, rest))))) -> T(M.mem(y, x <> rest)):
+# clean (B13): what it keeps is in its input, never holds the sender, and has L.no repeat.
+def cA_go(p: Bool, m: Bool, +y: Nat, +x: Nat, +rest: +List<Nat>, +o: Nat, f: L.T(M.mem(y, M.clean(o, rest))) -> L.T(M.mem(y, rest)), +h: L.T(M.mem(y, M.clean_step(Bool.or(p, m), x, M.clean(o, rest))))) -> L.T(M.mem(y, x <> rest)):
   match p:
     case True{}:
-      mem_cons_keep(y, x, rest, f(h))
+      L.mem_cons_keep(y, x, rest, f(h))
     case False{}:
       match m:
         case True{}:
-          mem_cons_keep(y, x, rest, f(h))
+          L.mem_cons_keep(y, x, rest, f(h))
         case False{}:
-          or_elim(M.mem(y, x <> rest), Nat.is_eq(y, x), M.mem(y, M.clean(o, rest)), he => or_l(Nat.is_eq(y, x), M.mem(y, rest), he), hm => mem_cons_keep(y, x, rest, f(hm)), h)
+          L.or_elim(M.mem(y, x <> rest), Nat.is_eq(y, x), M.mem(y, M.clean(o, rest)), he => L.or_l(Nat.is_eq(y, x), M.mem(y, rest), he), hm => L.mem_cons_keep(y, x, rest, f(hm)), h)
 
-def cA(+y: Nat, +o: Nat, +xs: +List<Nat>, +h: T(M.mem(y, M.clean(o, xs)))) -> T(M.mem(y, xs)):
+def cA(+y: Nat, +o: Nat, +xs: +List<Nat>, +h: L.T(M.mem(y, M.clean(o, xs)))) -> L.T(M.mem(y, xs)):
   match xs:
     case Nil{}:
       h
     case Con{+x, +rest}:
       cA_go(Nat.is_eq(x, o), M.mem(x, rest), y, x, rest, o, hh => cA(y, o, rest, hh), h)
 
-def cB_go(p: Bool, m: Bool, +x: Nat, +rest: +List<Nat>, +o: Nat, hp: T(Bool.not(p)) -> T(Bool.not(Nat.is_eq(o, x))), +ih: T(Bool.not(M.mem(o, M.clean(o, rest))))) -> T(Bool.not(M.mem(o, M.clean_step(Bool.or(p, m), x, M.clean(o, rest))))):
+def cB_go(p: Bool, m: Bool, +x: Nat, +rest: +List<Nat>, +o: Nat, hp: L.T(Bool.not(p)) -> L.T(Bool.not(Nat.is_eq(o, x))), +ih: L.T(Bool.not(M.mem(o, M.clean(o, rest))))) -> L.T(Bool.not(M.mem(o, M.clean_step(Bool.or(p, m), x, M.clean(o, rest))))):
   match p:
     case True{}:
       ih
@@ -2886,14 +2686,14 @@ def cB_go(p: Bool, m: Bool, +x: Nat, +rest: +List<Nat>, +o: Nat, hp: T(Bool.not(
         case False{}:
           not_or_i(Nat.is_eq(o, x), M.mem(o, M.clean(o, rest)), hp({==}), ih)
 
-def cB(+o: Nat, +xs: +List<Nat>) -> T(Bool.not(M.mem(o, M.clean(o, xs)))):
+def cB(+o: Nat, +xs: +List<Nat>) -> L.T(Bool.not(M.mem(o, M.clean(o, xs)))):
   match xs:
     case Nil{}:
       {==}
     case Con{+x, +rest}:
       cB_go(Nat.is_eq(x, o), M.mem(x, rest), x, rest, o, hh => neq_sym(x, o, hh), cB(o, rest))
 
-def cN_go(p: Bool, m: Bool, +x: Nat, +rest: +List<Nat>, +o: Nat, hm: T(Bool.not(m)) -> T(Bool.not(M.mem(x, M.clean(o, rest)))), +ih: T(S.nodup(M.clean(o, rest)))) -> T(S.nodup(M.clean_step(Bool.or(p, m), x, M.clean(o, rest)))):
+def cN_go(p: Bool, m: Bool, +x: Nat, +rest: +List<Nat>, +o: Nat, hm: L.T(Bool.not(m)) -> L.T(Bool.not(M.mem(x, M.clean(o, rest)))), +ih: L.T(S.nodup(M.clean(o, rest)))) -> L.T(S.nodup(M.clean_step(Bool.or(p, m), x, M.clean(o, rest)))):
   match p:
     case True{}:
       ih
@@ -2902,60 +2702,60 @@ def cN_go(p: Bool, m: Bool, +x: Nat, +rest: +List<Nat>, +o: Nat, hm: T(Bool.not(
         case True{}:
           ih
         case False{}:
-          and_i(Bool.not(M.mem(x, M.clean(o, rest))), S.nodup(M.clean(o, rest)), hm({==}), ih)
+          L.and_i(Bool.not(M.mem(x, M.clean(o, rest))), S.nodup(M.clean(o, rest)), hm({==}), ih)
 
-def cN(+o: Nat, +xs: +List<Nat>) -> T(S.nodup(M.clean(o, xs))):
+def cN(+o: Nat, +xs: +List<Nat>) -> L.T(S.nodup(M.clean(o, xs))):
   match xs:
     case Nil{}:
       {==}
     case Con{+x, +rest}:
       cN_go(Nat.is_eq(x, o), M.mem(x, rest), x, rest, o, hh => contra(M.mem(x, M.clean(o, rest)), M.mem(x, rest), hq => cA(x, o, rest, hq), hh), cN(o, rest))
 
-def d0(+xs: +List<Nat>) -> T(S.disjoint(xs, [])):
+def d0(+xs: +List<Nat>) -> L.T(S.disjoint(xs, [])):
   match xs:
     case Nil{}:
       {==}
     case Con{+x, +rest}:
       d0(rest)
 
-def dj_cons(+x: Nat, +r: +List<Nat>, +hops: +List<Nat>, +hx: T(Bool.not(M.mem(x, r))), +hd: T(S.disjoint(r, hops))) -> T(S.disjoint(r, x <> hops)):
+def dj_cons(+x: Nat, +r: +List<Nat>, +hops: +List<Nat>, +hx: L.T(Bool.not(M.mem(x, r))), +hd: L.T(S.disjoint(r, hops))) -> L.T(S.disjoint(r, x <> hops)):
   match r:
     case Nil{}:
       {==}
     case Con{+y, +r2}:
-      and_i(Bool.not(M.mem(y, x <> hops)), S.disjoint(r2, x <> hops), not_or_i(Nat.is_eq(y, x), M.mem(y, hops), neq_sym(x, y, not_or_l(Nat.is_eq(x, y), M.mem(x, r2), hx)), and_l(Bool.not(M.mem(y, hops)), S.disjoint(r2, hops), hd)), dj_cons(x, r2, hops, not_or_r(Nat.is_eq(x, y), M.mem(x, r2), hx), and_r(Bool.not(M.mem(y, hops)), S.disjoint(r2, hops), hd)))
+      L.and_i(Bool.not(M.mem(y, x <> hops)), S.disjoint(r2, x <> hops), not_or_i(Nat.is_eq(y, x), M.mem(y, hops), neq_sym(x, y, not_or_l(Nat.is_eq(x, y), M.mem(x, r2), hx)), L.and_l(Bool.not(M.mem(y, hops)), S.disjoint(r2, hops), hd)), dj_cons(x, r2, hops, not_or_r(Nat.is_eq(x, y), M.mem(x, r2), hx), L.and_r(Bool.not(M.mem(y, hops)), S.disjoint(r2, hops), hd)))
 
 # J: the chain's own invariant. The hops made and the hops left are each without repeat, share none, and neither holds the sender.
 def J(+q: M.Q) -> Bool:
   Bool.and(S.nodup(S.q_hops(q)), Bool.and(S.nodup(S.q_rest(q)), Bool.and(S.disjoint(S.q_rest(q), S.q_hops(q)), Bool.and(Bool.not(M.mem(S.q_origin(q), S.q_hops(q))), Bool.not(M.mem(S.q_origin(q), S.q_rest(q)))))))
 
-def jmk(+hops: +List<Nat>, +rest: +List<Nat>, +o: Nat, +a: T(S.nodup(hops)), +b: T(S.nodup(rest)), +c: T(S.disjoint(rest, hops)), +d: T(Bool.not(M.mem(o, hops))), +e: T(Bool.not(M.mem(o, rest)))) -> T(Bool.and(S.nodup(hops), Bool.and(S.nodup(rest), Bool.and(S.disjoint(rest, hops), Bool.and(Bool.not(M.mem(o, hops)), Bool.not(M.mem(o, rest))))))):
-  and_i(S.nodup(hops), Bool.and(S.nodup(rest), Bool.and(S.disjoint(rest, hops), Bool.and(Bool.not(M.mem(o, hops)), Bool.not(M.mem(o, rest))))), a, and_i(S.nodup(rest), Bool.and(S.disjoint(rest, hops), Bool.and(Bool.not(M.mem(o, hops)), Bool.not(M.mem(o, rest)))), b, and_i(S.disjoint(rest, hops), Bool.and(Bool.not(M.mem(o, hops)), Bool.not(M.mem(o, rest))), c, and_i(Bool.not(M.mem(o, hops)), Bool.not(M.mem(o, rest)), d, e))))
+def jmk(+hops: +List<Nat>, +rest: +List<Nat>, +o: Nat, +a: L.T(S.nodup(hops)), +b: L.T(S.nodup(rest)), +c: L.T(S.disjoint(rest, hops)), +d: L.T(Bool.not(M.mem(o, hops))), +e: L.T(Bool.not(M.mem(o, rest)))) -> L.T(Bool.and(S.nodup(hops), Bool.and(S.nodup(rest), Bool.and(S.disjoint(rest, hops), Bool.and(Bool.not(M.mem(o, hops)), Bool.not(M.mem(o, rest))))))):
+  L.and_i(S.nodup(hops), Bool.and(S.nodup(rest), Bool.and(S.disjoint(rest, hops), Bool.and(Bool.not(M.mem(o, hops)), Bool.not(M.mem(o, rest))))), a, L.and_i(S.nodup(rest), Bool.and(S.disjoint(rest, hops), Bool.and(Bool.not(M.mem(o, hops)), Bool.not(M.mem(o, rest)))), b, L.and_i(S.disjoint(rest, hops), Bool.and(Bool.not(M.mem(o, hops)), Bool.not(M.mem(o, rest))), c, L.and_i(Bool.not(M.mem(o, hops)), Bool.not(M.mem(o, rest)), d, e))))
 
-def ja(+hops: +List<Nat>, +rest: +List<Nat>, +o: Nat, +h: T(Bool.and(S.nodup(hops), Bool.and(S.nodup(rest), Bool.and(S.disjoint(rest, hops), Bool.and(Bool.not(M.mem(o, hops)), Bool.not(M.mem(o, rest)))))))) -> T(S.nodup(hops)):
-  and_l(S.nodup(hops), Bool.and(S.nodup(rest), Bool.and(S.disjoint(rest, hops), Bool.and(Bool.not(M.mem(o, hops)), Bool.not(M.mem(o, rest))))), h)
+def ja(+hops: +List<Nat>, +rest: +List<Nat>, +o: Nat, +h: L.T(Bool.and(S.nodup(hops), Bool.and(S.nodup(rest), Bool.and(S.disjoint(rest, hops), Bool.and(Bool.not(M.mem(o, hops)), Bool.not(M.mem(o, rest)))))))) -> L.T(S.nodup(hops)):
+  L.and_l(S.nodup(hops), Bool.and(S.nodup(rest), Bool.and(S.disjoint(rest, hops), Bool.and(Bool.not(M.mem(o, hops)), Bool.not(M.mem(o, rest))))), h)
 
-def jr1(+hops: +List<Nat>, +rest: +List<Nat>, +o: Nat, +h: T(Bool.and(S.nodup(hops), Bool.and(S.nodup(rest), Bool.and(S.disjoint(rest, hops), Bool.and(Bool.not(M.mem(o, hops)), Bool.not(M.mem(o, rest)))))))) -> T(Bool.and(S.nodup(rest), Bool.and(S.disjoint(rest, hops), Bool.and(Bool.not(M.mem(o, hops)), Bool.not(M.mem(o, rest)))))):
-  and_r(S.nodup(hops), Bool.and(S.nodup(rest), Bool.and(S.disjoint(rest, hops), Bool.and(Bool.not(M.mem(o, hops)), Bool.not(M.mem(o, rest))))), h)
+def jr1(+hops: +List<Nat>, +rest: +List<Nat>, +o: Nat, +h: L.T(Bool.and(S.nodup(hops), Bool.and(S.nodup(rest), Bool.and(S.disjoint(rest, hops), Bool.and(Bool.not(M.mem(o, hops)), Bool.not(M.mem(o, rest)))))))) -> L.T(Bool.and(S.nodup(rest), Bool.and(S.disjoint(rest, hops), Bool.and(Bool.not(M.mem(o, hops)), Bool.not(M.mem(o, rest)))))):
+  L.and_r(S.nodup(hops), Bool.and(S.nodup(rest), Bool.and(S.disjoint(rest, hops), Bool.and(Bool.not(M.mem(o, hops)), Bool.not(M.mem(o, rest))))), h)
 
-def jb(+hops: +List<Nat>, +rest: +List<Nat>, +o: Nat, +h: T(Bool.and(S.nodup(hops), Bool.and(S.nodup(rest), Bool.and(S.disjoint(rest, hops), Bool.and(Bool.not(M.mem(o, hops)), Bool.not(M.mem(o, rest)))))))) -> T(S.nodup(rest)):
-  and_l(S.nodup(rest), Bool.and(S.disjoint(rest, hops), Bool.and(Bool.not(M.mem(o, hops)), Bool.not(M.mem(o, rest)))), jr1(hops, rest, o, h))
+def jb(+hops: +List<Nat>, +rest: +List<Nat>, +o: Nat, +h: L.T(Bool.and(S.nodup(hops), Bool.and(S.nodup(rest), Bool.and(S.disjoint(rest, hops), Bool.and(Bool.not(M.mem(o, hops)), Bool.not(M.mem(o, rest)))))))) -> L.T(S.nodup(rest)):
+  L.and_l(S.nodup(rest), Bool.and(S.disjoint(rest, hops), Bool.and(Bool.not(M.mem(o, hops)), Bool.not(M.mem(o, rest)))), jr1(hops, rest, o, h))
 
-def jr2(+hops: +List<Nat>, +rest: +List<Nat>, +o: Nat, +h: T(Bool.and(S.nodup(hops), Bool.and(S.nodup(rest), Bool.and(S.disjoint(rest, hops), Bool.and(Bool.not(M.mem(o, hops)), Bool.not(M.mem(o, rest)))))))) -> T(Bool.and(S.disjoint(rest, hops), Bool.and(Bool.not(M.mem(o, hops)), Bool.not(M.mem(o, rest))))):
-  and_r(S.nodup(rest), Bool.and(S.disjoint(rest, hops), Bool.and(Bool.not(M.mem(o, hops)), Bool.not(M.mem(o, rest)))), jr1(hops, rest, o, h))
+def jr2(+hops: +List<Nat>, +rest: +List<Nat>, +o: Nat, +h: L.T(Bool.and(S.nodup(hops), Bool.and(S.nodup(rest), Bool.and(S.disjoint(rest, hops), Bool.and(Bool.not(M.mem(o, hops)), Bool.not(M.mem(o, rest)))))))) -> L.T(Bool.and(S.disjoint(rest, hops), Bool.and(Bool.not(M.mem(o, hops)), Bool.not(M.mem(o, rest))))):
+  L.and_r(S.nodup(rest), Bool.and(S.disjoint(rest, hops), Bool.and(Bool.not(M.mem(o, hops)), Bool.not(M.mem(o, rest)))), jr1(hops, rest, o, h))
 
-def jc(+hops: +List<Nat>, +rest: +List<Nat>, +o: Nat, +h: T(Bool.and(S.nodup(hops), Bool.and(S.nodup(rest), Bool.and(S.disjoint(rest, hops), Bool.and(Bool.not(M.mem(o, hops)), Bool.not(M.mem(o, rest)))))))) -> T(S.disjoint(rest, hops)):
-  and_l(S.disjoint(rest, hops), Bool.and(Bool.not(M.mem(o, hops)), Bool.not(M.mem(o, rest))), jr2(hops, rest, o, h))
+def jc(+hops: +List<Nat>, +rest: +List<Nat>, +o: Nat, +h: L.T(Bool.and(S.nodup(hops), Bool.and(S.nodup(rest), Bool.and(S.disjoint(rest, hops), Bool.and(Bool.not(M.mem(o, hops)), Bool.not(M.mem(o, rest)))))))) -> L.T(S.disjoint(rest, hops)):
+  L.and_l(S.disjoint(rest, hops), Bool.and(Bool.not(M.mem(o, hops)), Bool.not(M.mem(o, rest))), jr2(hops, rest, o, h))
 
-def jr3(+hops: +List<Nat>, +rest: +List<Nat>, +o: Nat, +h: T(Bool.and(S.nodup(hops), Bool.and(S.nodup(rest), Bool.and(S.disjoint(rest, hops), Bool.and(Bool.not(M.mem(o, hops)), Bool.not(M.mem(o, rest)))))))) -> T(Bool.and(Bool.not(M.mem(o, hops)), Bool.not(M.mem(o, rest)))):
-  and_r(S.disjoint(rest, hops), Bool.and(Bool.not(M.mem(o, hops)), Bool.not(M.mem(o, rest))), jr2(hops, rest, o, h))
+def jr3(+hops: +List<Nat>, +rest: +List<Nat>, +o: Nat, +h: L.T(Bool.and(S.nodup(hops), Bool.and(S.nodup(rest), Bool.and(S.disjoint(rest, hops), Bool.and(Bool.not(M.mem(o, hops)), Bool.not(M.mem(o, rest)))))))) -> L.T(Bool.and(Bool.not(M.mem(o, hops)), Bool.not(M.mem(o, rest)))):
+  L.and_r(S.disjoint(rest, hops), Bool.and(Bool.not(M.mem(o, hops)), Bool.not(M.mem(o, rest))), jr2(hops, rest, o, h))
 
-def jd(+hops: +List<Nat>, +rest: +List<Nat>, +o: Nat, +h: T(Bool.and(S.nodup(hops), Bool.and(S.nodup(rest), Bool.and(S.disjoint(rest, hops), Bool.and(Bool.not(M.mem(o, hops)), Bool.not(M.mem(o, rest)))))))) -> T(Bool.not(M.mem(o, hops))):
-  and_l(Bool.not(M.mem(o, hops)), Bool.not(M.mem(o, rest)), jr3(hops, rest, o, h))
+def jd(+hops: +List<Nat>, +rest: +List<Nat>, +o: Nat, +h: L.T(Bool.and(S.nodup(hops), Bool.and(S.nodup(rest), Bool.and(S.disjoint(rest, hops), Bool.and(Bool.not(M.mem(o, hops)), Bool.not(M.mem(o, rest)))))))) -> L.T(Bool.not(M.mem(o, hops))):
+  L.and_l(Bool.not(M.mem(o, hops)), Bool.not(M.mem(o, rest)), jr3(hops, rest, o, h))
 
-def je(+hops: +List<Nat>, +rest: +List<Nat>, +o: Nat, +h: T(Bool.and(S.nodup(hops), Bool.and(S.nodup(rest), Bool.and(S.disjoint(rest, hops), Bool.and(Bool.not(M.mem(o, hops)), Bool.not(M.mem(o, rest)))))))) -> T(Bool.not(M.mem(o, rest))):
-  and_r(Bool.not(M.mem(o, hops)), Bool.not(M.mem(o, rest)), jr3(hops, rest, o, h))
-def j_ended(+q: M.Q, +h: T(J(q))) -> T(J(M.hop_ended(q))):
+def je(+hops: +List<Nat>, +rest: +List<Nat>, +o: Nat, +h: L.T(Bool.and(S.nodup(hops), Bool.and(S.nodup(rest), Bool.and(S.disjoint(rest, hops), Bool.and(Bool.not(M.mem(o, hops)), Bool.not(M.mem(o, rest)))))))) -> L.T(Bool.not(M.mem(o, rest))):
+  L.and_r(Bool.not(M.mem(o, hops)), Bool.not(M.mem(o, rest)), jr3(hops, rest, o, h))
+def j_ended(+q: M.Q, +h: L.T(J(q))) -> L.T(J(M.hop_ended(q))):
   match q:
     case M.Qn{ph, o, +rest, +hops, b}:
       match ph:
@@ -2972,7 +2772,7 @@ def j_ended(+q: M.Q, +h: T(J(q))) -> T(J(M.hop_ended(q))):
         case M.Escalated{}:
           h
 
-def j_bound(+q: M.Q, +h: T(J(q))) -> T(J(M.bound_passed(q))):
+def j_bound(+q: M.Q, +h: L.T(J(q))) -> L.T(J(M.bound_passed(q))):
   match q:
     case M.Qn{ph, o, +rest, +hops, b}:
       match ph:
@@ -2989,7 +2789,7 @@ def j_bound(+q: M.Q, +h: T(J(q))) -> T(J(M.bound_passed(q))):
         case M.Escalated{}:
           h
 
-def j_answer(+q: M.Q, +h: T(J(q))) -> T(J(M.answer(q))):
+def j_answer(+q: M.Q, +h: L.T(J(q))) -> L.T(J(M.answer(q))):
   match q:
     case M.Qn{ph, o, +rest, +hops, b}:
       match ph:
@@ -3006,7 +2806,7 @@ def j_answer(+q: M.Q, +h: T(J(q))) -> T(J(M.answer(q))):
         case M.Escalated{}:
           h
 
-def j_reply(+q: M.Q, +h: T(J(q))) -> T(J(M.reply(q))):
+def j_reply(+q: M.Q, +h: L.T(J(q))) -> L.T(J(M.reply(q))):
   match q:
     case M.Qn{ph, o, +rest, +hops, b}:
       match ph:
@@ -3023,32 +2823,7 @@ def j_reply(+q: M.Q, +h: T(J(q))) -> T(J(M.reply(q))):
         case M.Escalated{}:
           h
 
-def j_escalate(+q: M.Q, +h: T(J(q))) -> T(J(M.escalate(q))):
-  match q:
-    case M.Qn{ph, o, +rest, +hops, b}:
-      match ph:
-        case M.NoQ{}:
-          h
-        case M.Chained{}:
-          match rest:
-            case Nil{}:
-              h
-            case Con{+x, +r}:
-              h
-        case M.OnHop{}:
-          h
-        case M.Ended{}:
-          match rest:
-            case Nil{}:
-              h
-            case Con{+x, +r}:
-              h
-        case M.Answered{}:
-          h
-        case M.Escalated{}:
-          h
-
-def j_hop_made(+q: M.Q, +h: T(J(q))) -> T(J(M.hop_made(q))):
+def j_escalate(+q: M.Q, +h: L.T(J(q))) -> L.T(J(M.escalate(q))):
   match q:
     case M.Qn{ph, o, +rest, +hops, b}:
       match ph:
@@ -3059,7 +2834,7 @@ def j_hop_made(+q: M.Q, +h: T(J(q))) -> T(J(M.hop_made(q))):
             case Nil{}:
               h
             case Con{+x, +r}:
-              jmk(x <> hops, r, o, and_i(Bool.not(M.mem(x, hops)), S.nodup(hops), and_l(Bool.not(M.mem(x, hops)), S.disjoint(r, hops), jc(hops, x <> r, o, h)), ja(hops, x <> r, o, h)), and_r(Bool.not(M.mem(x, r)), S.nodup(r), jb(hops, x <> r, o, h)), dj_cons(x, r, hops, and_l(Bool.not(M.mem(x, r)), S.nodup(r), jb(hops, x <> r, o, h)), and_r(Bool.not(M.mem(x, hops)), S.disjoint(r, hops), jc(hops, x <> r, o, h))), not_or_i(Nat.is_eq(o, x), M.mem(o, hops), not_or_l(Nat.is_eq(o, x), M.mem(o, r), je(hops, x <> r, o, h)), jd(hops, x <> r, o, h)), not_or_r(Nat.is_eq(o, x), M.mem(o, r), je(hops, x <> r, o, h)))
+              h
         case M.OnHop{}:
           h
         case M.Ended{}:
@@ -3067,13 +2842,38 @@ def j_hop_made(+q: M.Q, +h: T(J(q))) -> T(J(M.hop_made(q))):
             case Nil{}:
               h
             case Con{+x, +r}:
-              jmk(x <> hops, r, o, and_i(Bool.not(M.mem(x, hops)), S.nodup(hops), and_l(Bool.not(M.mem(x, hops)), S.disjoint(r, hops), jc(hops, x <> r, o, h)), ja(hops, x <> r, o, h)), and_r(Bool.not(M.mem(x, r)), S.nodup(r), jb(hops, x <> r, o, h)), dj_cons(x, r, hops, and_l(Bool.not(M.mem(x, r)), S.nodup(r), jb(hops, x <> r, o, h)), and_r(Bool.not(M.mem(x, hops)), S.disjoint(r, hops), jc(hops, x <> r, o, h))), not_or_i(Nat.is_eq(o, x), M.mem(o, hops), not_or_l(Nat.is_eq(o, x), M.mem(o, r), je(hops, x <> r, o, h)), jd(hops, x <> r, o, h)), not_or_r(Nat.is_eq(o, x), M.mem(o, r), je(hops, x <> r, o, h)))
+              h
         case M.Answered{}:
           h
         case M.Escalated{}:
           h
 
-def j_ask(+o: Nat, +chain: +List<Nat>, +q: M.Q, +h: T(J(q))) -> T(J(M.ask(o, chain, q))):
+def j_hop_made(+q: M.Q, +h: L.T(J(q))) -> L.T(J(M.hop_made(q))):
+  match q:
+    case M.Qn{ph, o, +rest, +hops, b}:
+      match ph:
+        case M.NoQ{}:
+          h
+        case M.Chained{}:
+          match rest:
+            case Nil{}:
+              h
+            case Con{+x, +r}:
+              jmk(x <> hops, r, o, L.and_i(Bool.not(M.mem(x, hops)), S.nodup(hops), L.and_l(Bool.not(M.mem(x, hops)), S.disjoint(r, hops), jc(hops, x <> r, o, h)), ja(hops, x <> r, o, h)), L.and_r(Bool.not(M.mem(x, r)), S.nodup(r), jb(hops, x <> r, o, h)), dj_cons(x, r, hops, L.and_l(Bool.not(M.mem(x, r)), S.nodup(r), jb(hops, x <> r, o, h)), L.and_r(Bool.not(M.mem(x, hops)), S.disjoint(r, hops), jc(hops, x <> r, o, h))), not_or_i(Nat.is_eq(o, x), M.mem(o, hops), not_or_l(Nat.is_eq(o, x), M.mem(o, r), je(hops, x <> r, o, h)), jd(hops, x <> r, o, h)), not_or_r(Nat.is_eq(o, x), M.mem(o, r), je(hops, x <> r, o, h)))
+        case M.OnHop{}:
+          h
+        case M.Ended{}:
+          match rest:
+            case Nil{}:
+              h
+            case Con{+x, +r}:
+              jmk(x <> hops, r, o, L.and_i(Bool.not(M.mem(x, hops)), S.nodup(hops), L.and_l(Bool.not(M.mem(x, hops)), S.disjoint(r, hops), jc(hops, x <> r, o, h)), ja(hops, x <> r, o, h)), L.and_r(Bool.not(M.mem(x, r)), S.nodup(r), jb(hops, x <> r, o, h)), dj_cons(x, r, hops, L.and_l(Bool.not(M.mem(x, r)), S.nodup(r), jb(hops, x <> r, o, h)), L.and_r(Bool.not(M.mem(x, hops)), S.disjoint(r, hops), jc(hops, x <> r, o, h))), not_or_i(Nat.is_eq(o, x), M.mem(o, hops), not_or_l(Nat.is_eq(o, x), M.mem(o, r), je(hops, x <> r, o, h)), jd(hops, x <> r, o, h)), not_or_r(Nat.is_eq(o, x), M.mem(o, r), je(hops, x <> r, o, h)))
+        case M.Answered{}:
+          h
+        case M.Escalated{}:
+          h
+
+def j_ask(+o: Nat, +chain: +List<Nat>, +q: M.Q, +h: L.T(J(q))) -> L.T(J(M.ask(o, chain, q))):
   match q:
     case M.Qn{ph, o0, +rest, +hops, b}:
       match ph:
@@ -3090,7 +2890,7 @@ def j_ask(+o: Nat, +chain: +List<Nat>, +q: M.Q, +h: T(J(q))) -> T(J(M.ask(o, cha
         case M.Escalated{}:
           h
 
-def jq(e: M.Ev, +q: M.Q, +h: T(J(q))) -> T(J(M.qstep(e, q))):
+def jq(e: M.Ev, +q: M.Q, +h: L.T(J(q))) -> L.T(J(M.qstep(e, q))):
   match e:
     case M.Send{fu, r}:
       h
@@ -3131,7 +2931,7 @@ def jq(e: M.Ev, +q: M.Q, +h: T(J(q))) -> T(J(M.qstep(e, q))):
     case M.Reply{}:
       j_reply(q, h)
 
-def jrun(+evs: +List<M.Ev>, +q: M.Q, +h: T(J(q))) -> T(J(M.qrun(evs, q))):
+def jrun(+evs: +List<M.Ev>, +q: M.Q, +h: L.T(J(q))) -> L.T(J(M.qrun(evs, q))):
   match evs:
     case Nil{}:
       h
@@ -3141,25 +2941,25 @@ def jrun(+evs: +List<M.Ev>, +q: M.Q, +h: T(J(q))) -> T(J(M.qrun(evs, q))):
 def rd(+q: M.Q) -> M.Q:
   M.qstep(M.Escalate{}, M.qstep(M.BoundPassed{}, M.qstep(M.HopMade{}, q)))
 
-def rd_settled(+q: M.Q, +h: T(S.settled(q))) -> T(S.settled(rd(q))):
+def rd_settled(+q: M.Q, +h: L.T(S.settled(q))) -> L.T(S.settled(rd(q))):
   match q:
     case M.Qn{ph, o, +rest, +hops, b}:
       match ph:
         case M.NoQ{}:
-          no(T(S.settled(rd(M.Qn{M.NoQ{}, o, rest, hops, b}))), h)
+          L.no(L.T(S.settled(rd(M.Qn{M.NoQ{}, o, rest, hops, b}))), h)
         case M.Chained{}:
-          no(T(S.settled(rd(M.Qn{M.Chained{}, o, rest, hops, b}))), h)
+          L.no(L.T(S.settled(rd(M.Qn{M.Chained{}, o, rest, hops, b}))), h)
         case M.OnHop{}:
-          no(T(S.settled(rd(M.Qn{M.OnHop{}, o, rest, hops, b}))), h)
+          L.no(L.T(S.settled(rd(M.Qn{M.OnHop{}, o, rest, hops, b}))), h)
         case M.Ended{}:
-          no(T(S.settled(rd(M.Qn{M.Ended{}, o, rest, hops, b}))), h)
+          L.no(L.T(S.settled(rd(M.Qn{M.Ended{}, o, rest, hops, b}))), h)
         case M.Answered{}:
           {==}
         case M.Escalated{}:
           {==}
 
 # A settled question stays settled under any number of rounds.
-def ab(+n: Nat, +q: M.Q, +h: T(S.settled(q))) -> T(S.settled(M.qrun(S.qcycle(n), q))):
+def ab(+n: Nat, +q: M.Q, +h: L.T(S.settled(q))) -> L.T(S.settled(M.qrun(S.qcycle(n), q))):
   match n:
     case 0n:
       h
@@ -3167,21 +2967,21 @@ def ab(+n: Nat, +q: M.Q, +h: T(S.settled(q))) -> T(S.settled(M.qrun(S.qcycle(n),
       ab(p, rd(q), rd_settled(q, h))
 
 # A hop is live with r still to make: one round ends it, then as many rounds as hops are left.
-def E_e(+r: +List<Nat>, +x: Nat, +o: Nat, +hops: +List<Nat>, +b: Nat) -> T(S.settled(M.qrun(S.qcycle(Nat.add(1n, S.len(r))), M.Qn{M.Ended{}, o, x <> r, hops, b}))):
+def E_e(+r: +List<Nat>, +x: Nat, +o: Nat, +hops: +List<Nat>, +b: Nat) -> L.T(S.settled(M.qrun(S.qcycle(Nat.add(1n, S.len(r))), M.Qn{M.Ended{}, o, x <> r, hops, b}))):
   match r:
     case Nil{}:
       {==}
     case Con{+y, +r2}:
       E_e(r2, y, o, x <> hops, 1n+b)
 
-def O(+r: +List<Nat>, +o: Nat, +hops: +List<Nat>, +b: Nat) -> T(S.settled(M.qrun(S.qcycle(Nat.add(1n, S.len(r))), M.Qn{M.OnHop{}, o, r, hops, b}))):
+def O(+r: +List<Nat>, +o: Nat, +hops: +List<Nat>, +b: Nat) -> L.T(S.settled(M.qrun(S.qcycle(Nat.add(1n, S.len(r))), M.Qn{M.OnHop{}, o, r, hops, b}))):
   match r:
     case Nil{}:
       {==}
     case Con{+x, +r2}:
       E_e(r2, x, o, hops, 1n+b)
 
-def G_e(+r: +List<Nat>, +o: Nat, +hops: +List<Nat>, +b: Nat) -> T(S.settled(M.qrun(S.qcycle(Nat.add(1n, S.len(r))), M.Qn{M.Ended{}, o, r, hops, b}))):
+def G_e(+r: +List<Nat>, +o: Nat, +hops: +List<Nat>, +b: Nat) -> L.T(S.settled(M.qrun(S.qcycle(Nat.add(1n, S.len(r))), M.Qn{M.Ended{}, o, r, hops, b}))):
   match r:
     case Nil{}:
       {==}
@@ -3192,7 +2992,7 @@ def G_e(+r: +List<Nat>, +o: Nat, +hops: +List<Nat>, +b: Nat) -> T(S.settled(M.qr
         case Con{+y, +r3}:
           G_e(y <> r3, o, x <> hops, 1n+b)
 
-def G_c(+r: +List<Nat>, +o: Nat, +hops: +List<Nat>, +b: Nat) -> T(S.settled(M.qrun(S.qcycle(Nat.add(1n, S.len(r))), M.Qn{M.Chained{}, o, r, hops, b}))):
+def G_c(+r: +List<Nat>, +o: Nat, +hops: +List<Nat>, +b: Nat) -> L.T(S.settled(M.qrun(S.qcycle(Nat.add(1n, S.len(r))), M.Qn{M.Chained{}, o, r, hops, b}))):
   match r:
     case Nil{}:
       {==}
@@ -3203,7 +3003,7 @@ def G_c(+r: +List<Nat>, +o: Nat, +hops: +List<Nat>, +b: Nat) -> T(S.settled(M.qr
         case Con{+y, +r3}:
           G_e(y <> r3, o, x <> hops, 1n+b)
 
-def live(+q: M.Q) -> T(S.implies(Bool.not(S.is_noq(q)), S.settled(M.qrun(S.qcycle(Nat.add(1n, S.len(S.q_rest(q)))), q)))):
+def live(+q: M.Q) -> L.T(S.implies(Bool.not(S.is_noq(q)), S.settled(M.qrun(S.qcycle(Nat.add(1n, S.len(S.q_rest(q)))), q)))):
   match q:
     case M.Qn{ph, o, +rest, +hops, b}:
       match ph:
@@ -3220,12 +3020,12 @@ def live(+q: M.Q) -> T(S.implies(Bool.not(S.is_noq(q)), S.settled(M.qrun(S.qcycl
         case M.Escalated{}:
           ab(Nat.add(1n, S.len(rest)), M.Qn{M.Escalated{}, o, rest, hops, b}, {==})
 
-def m8_q(+q: M.Q, +hj: T(J(q))) -> T(Bool.and(S.nodup(S.q_hops(q)), Bool.and(Bool.not(M.mem(S.q_origin(q), S.q_hops(q))), S.implies(Bool.not(S.is_noq(q)), S.settled(M.qrun(S.qcycle(Nat.add(1n, S.len(S.q_rest(q)))), q)))))):
+def m8_q(+q: M.Q, +hj: L.T(J(q))) -> L.T(Bool.and(S.nodup(S.q_hops(q)), Bool.and(Bool.not(M.mem(S.q_origin(q), S.q_hops(q))), S.implies(Bool.not(S.is_noq(q)), S.settled(M.qrun(S.qcycle(Nat.add(1n, S.len(S.q_rest(q)))), q)))))):
   match q:
     case M.Qn{ph, o, +rest, +hops, b}:
-      and_i(S.nodup(hops), Bool.and(Bool.not(M.mem(o, hops)), S.implies(Bool.not(S.is_noq(M.Qn{ph, o, rest, hops, b})), S.settled(M.qrun(S.qcycle(Nat.add(1n, S.len(rest))), M.Qn{ph, o, rest, hops, b})))), ja(hops, rest, o, hj), and_i(Bool.not(M.mem(o, hops)), S.implies(Bool.not(S.is_noq(M.Qn{ph, o, rest, hops, b})), S.settled(M.qrun(S.qcycle(Nat.add(1n, S.len(rest))), M.Qn{ph, o, rest, hops, b}))), jd(hops, rest, o, hj), live(M.Qn{ph, o, rest, hops, b})))
+      L.and_i(S.nodup(hops), Bool.and(Bool.not(M.mem(o, hops)), S.implies(Bool.not(S.is_noq(M.Qn{ph, o, rest, hops, b})), S.settled(M.qrun(S.qcycle(Nat.add(1n, S.len(rest))), M.Qn{ph, o, rest, hops, b})))), ja(hops, rest, o, hj), L.and_i(Bool.not(M.mem(o, hops)), S.implies(Bool.not(S.is_noq(M.Qn{ph, o, rest, hops, b})), S.settled(M.qrun(S.qcycle(Nat.add(1n, S.len(rest))), M.Qn{ph, o, rest, hops, b}))), jd(hops, rest, o, hj), live(M.Qn{ph, o, rest, hops, b})))
 
-def m8_main(+evs: +List<M.Ev>) -> T(Bool.and(S.nodup(S.q_hops(S.qworld(evs))), Bool.and(Bool.not(M.mem(S.q_origin(S.qworld(evs)), S.q_hops(S.qworld(evs)))), S.implies(Bool.not(S.is_noq(S.qworld(evs))), S.settled(M.qrun(S.qcycle(Nat.add(1n, S.len(S.q_rest(S.qworld(evs))))), S.qworld(evs))))))):
+def m8_main(+evs: +List<M.Ev>) -> L.T(Bool.and(S.nodup(S.q_hops(S.qworld(evs))), Bool.and(Bool.not(M.mem(S.q_origin(S.qworld(evs)), S.q_hops(S.qworld(evs)))), S.implies(Bool.not(S.is_noq(S.qworld(evs))), S.settled(M.qrun(S.qcycle(Nat.add(1n, S.len(S.q_rest(S.qworld(evs))))), S.qworld(evs))))))):
   m8_q(S.qworld(evs), jrun(evs, M.qinit(), {==}))
 
 def Laws.m8_escalation_terminates(evs):
@@ -3235,10 +3035,10 @@ def Laws.m8_escalation_terminates(evs):
 # These quantify every before/during/after schedule, not a fixed example. Liveness requires
 # coordinator release before the existing fair idle cycle; an indefinitely failed restart
 # deliberately keeps pending work. No law or predicate above is weakened.
-def a35_m1(+before: +List<M.Ev>, during: +List<M.Ev>, after: +List<M.Ev>) -> T(S.nodup(S.typed(S.world(M.restart_window(before, during, after))))):
+def a35_m1(+before: +List<M.Ev>, during: +List<M.Ev>, after: +List<M.Ev>) -> L.T(S.nodup(S.typed(S.world(M.restart_window(before, during, after))))):
   m1_main(M.restart_window(before, during, after))
 
-def a35_m3(+before: +List<M.Ev>, +during: +List<M.Ev>, +after: +List<M.Ev>) -> T(S.all_in(S.tk_typed(S.world(M.restart_window(before, during, after))), S.released(S.world(M.restart_window(before, during, after))))):
+def a35_m3(+before: +List<M.Ev>, +during: +List<M.Ev>, +after: +List<M.Ev>) -> L.T(S.all_in(S.tk_typed(S.world(M.restart_window(before, during, after))), S.released(S.world(M.restart_window(before, during, after))))):
   m3_main(M.restart_window(before, during, after))
 
 def a35_reserved_stop(s: M.World) -> {S.records(M.step(M.restart_event(True{}, M.Exit{}), s)) == S.records(s) : S.Rec}:
@@ -3262,19 +3062,19 @@ def a35_prompt_record_is_idempotent(+j: M.PromptJournal) -> {M.record_prompt(M.r
             case M.W{+q, +haf, +htk, +t, +d, +u, +tt, +rl, +n, +tk, +us, +i, +g}:
               {==}
 
-def a35_m4(+before: +List<M.Ev>, +during: +List<M.Ev>, +after: +List<M.Ev>, e: M.Ev) -> T(S.is_prefix(S.typed(S.world(M.restart_window(before, during, after))), S.typed(M.step(e, S.world(M.restart_window(before, during, after)))))):
+def a35_m4(+before: +List<M.Ev>, +during: +List<M.Ev>, +after: +List<M.Ev>, e: M.Ev) -> L.T(S.is_prefix(S.typed(S.world(M.restart_window(before, during, after))), S.typed(M.step(e, S.world(M.restart_window(before, during, after)))))):
   m4_main(M.restart_window(before, during, after), e)
 
-def a35_m5(+before: +List<M.Ev>, +during: +List<M.Ev>, +after: +List<M.Ev>) -> T(Bool.and(S.disjoint(S.typed(S.world(M.restart_window(before, during, after))), S.dropped(S.world(M.restart_window(before, during, after)))), Bool.and(S.disjoint(S.typed(S.world(M.restart_window(before, during, after))), S.queue(S.world(M.restart_window(before, during, after)))), Bool.and(S.disjoint(S.typed(S.world(M.restart_window(before, during, after))), S.held_af(S.world(M.restart_window(before, during, after)))), S.disjoint(S.typed(S.world(M.restart_window(before, during, after))), S.held_tk(S.world(M.restart_window(before, during, after)))))))):
+def a35_m5(+before: +List<M.Ev>, +during: +List<M.Ev>, +after: +List<M.Ev>) -> L.T(Bool.and(S.disjoint(S.typed(S.world(M.restart_window(before, during, after))), S.dropped(S.world(M.restart_window(before, during, after)))), Bool.and(S.disjoint(S.typed(S.world(M.restart_window(before, during, after))), S.queue(S.world(M.restart_window(before, during, after)))), Bool.and(S.disjoint(S.typed(S.world(M.restart_window(before, during, after))), S.held_af(S.world(M.restart_window(before, during, after)))), S.disjoint(S.typed(S.world(M.restart_window(before, during, after))), S.held_tk(S.world(M.restart_window(before, during, after)))))))):
   m5_main(M.restart_window(before, during, after))
 
 def a35_m6(+before: +List<M.Ev>, +during: +List<M.Ev>, +after: +List<M.Ev>) -> EQ(SG(S.len(S.queue(S.world(M.restart_window(before, during, after)))), S.len(S.held_af(S.world(M.restart_window(before, during, after)))), S.len(S.held_tk(S.world(M.restart_window(before, during, after)))), S.len(S.typed(S.world(M.restart_window(before, during, after)))), S.len(S.dropped(S.world(M.restart_window(before, during, after))))), S.next_id(S.world(M.restart_window(before, during, after)))):
   m6_main(M.restart_window(before, during, after))
 
-def a35_m7(+before: +List<M.Ev>, +during: +List<M.Ev>, +after: +List<M.Ev>, +fu: Bool, +r: M.Route) -> T(Bool.and(S.implies(S.gone(S.world(M.restart_window(before, during, after))), Bool.and(S.is_nil(S.queue(S.world(M.restart_window(before, during, after)))), S.is_nil(S.held_tk(S.world(M.restart_window(before, during, after)))))), S.implies(S.gone(S.world(M.restart_window(before, during, after))), Nat.is_eq(S.next_id(M.step(M.Send{fu, r}, S.world(M.restart_window(before, during, after)))), S.next_id(S.world(M.restart_window(before, during, after))))))):
+def a35_m7(+before: +List<M.Ev>, +during: +List<M.Ev>, +after: +List<M.Ev>, +fu: Bool, +r: M.Route) -> L.T(Bool.and(S.implies(S.gone(S.world(M.restart_window(before, during, after))), Bool.and(S.is_nil(S.queue(S.world(M.restart_window(before, during, after)))), S.is_nil(S.held_tk(S.world(M.restart_window(before, during, after)))))), S.implies(S.gone(S.world(M.restart_window(before, during, after))), Nat.is_eq(S.next_id(M.step(M.Send{fu, r}, S.world(M.restart_window(before, during, after)))), S.next_id(S.world(M.restart_window(before, during, after))))))):
   m7_main(M.restart_window(before, during, after), fu, r)
 
-def a35_m10(+before: +List<M.Ev>, +during: +List<M.Ev>, +after: +List<M.Ev>) -> T(S.implies(Bool.not(S.gone(S.world(M.restart_window(before, during, after)))), S.is_nil(S.queue(M.run(S.cycle(S.len(S.queue(S.world(M.restart_window(before, during, after))))), S.world(M.restart_window(before, during, after))))))):
+def a35_m10(+before: +List<M.Ev>, +during: +List<M.Ev>, +after: +List<M.Ev>) -> L.T(S.implies(Bool.not(S.gone(S.world(M.restart_window(before, during, after)))), S.is_nil(S.queue(M.run(S.cycle(S.len(S.queue(S.world(M.restart_window(before, during, after))))), S.world(M.restart_window(before, during, after))))))):
   m10_main(M.restart_window(before, during, after))
 
 def a35_reserved_idle(s: M.World) -> {S.records(M.step(M.restart_event(True{}, M.Idle{}), s)) == S.records(s) : S.Rec}:
@@ -3285,19 +3085,19 @@ def a35_reserved_idle(s: M.World) -> {S.records(M.step(M.restart_event(True{}, M
 def a35_m9(+before: +List<M.Ev>, +during: +List<M.Ev>, +after: +List<M.Ev>, +alive: Bool) -> {S.records(M.step(M.Restart{alive}, S.world(M.restart_window(before, during, after)))) == S.replay(S.records(S.world(M.restart_window(before, during, after))), alive) : S.Rec}:
   restart_replay(alive, S.world(M.restart_window(before, during, after)))
 
-def a35_m8(+before: +List<M.Ev>, +during: +List<M.Ev>, +after: +List<M.Ev>) -> T(Bool.and(S.nodup(S.q_hops(S.qworld(M.restart_window(before, during, after)))), Bool.and(Bool.not(M.mem(S.q_origin(S.qworld(M.restart_window(before, during, after))), S.q_hops(S.qworld(M.restart_window(before, during, after))))), S.implies(Bool.not(S.is_noq(S.qworld(M.restart_window(before, during, after)))), S.settled(M.qrun(S.qcycle(Nat.add(1n, S.len(S.q_rest(S.qworld(M.restart_window(before, during, after)))))), S.qworld(M.restart_window(before, during, after)))))))):
+def a35_m8(+before: +List<M.Ev>, +during: +List<M.Ev>, +after: +List<M.Ev>) -> L.T(Bool.and(S.nodup(S.q_hops(S.qworld(M.restart_window(before, during, after)))), Bool.and(Bool.not(M.mem(S.q_origin(S.qworld(M.restart_window(before, during, after))), S.q_hops(S.qworld(M.restart_window(before, during, after))))), S.implies(Bool.not(S.is_noq(S.qworld(M.restart_window(before, during, after)))), S.settled(M.qrun(S.qcycle(Nat.add(1n, S.len(S.q_rest(S.qworld(M.restart_window(before, during, after)))))), S.qworld(M.restart_window(before, during, after)))))))):
   m8_main(M.restart_window(before, during, after))
 
 # Shared-id conservation for acknowledgement: one new delivered record and one new id.
-def a35_sum_record(+q: +List<Nat>, +a: +List<Nat>, +k: +List<Nat>, +t: +List<Nat>, +d: +List<Nat>, +n: Nat, +hs: T(SUMB(q, a, k, t, d, n))) -> T(SUMB(q, a, k, M.snoc(t, n), d, 1n+n)):
-  eq_intro(SG(S.len(q), S.len(a), S.len(k), S.len(M.snoc(t, n)), S.len(d)), 1n+n, tr(SG(S.len(q), S.len(a), S.len(k), S.len(M.snoc(t, n)), S.len(d)), SG(S.len(q), S.len(a), S.len(k), 1n+S.len(t), S.len(d)), 1n+n, cgt(S.len(q), S.len(a), S.len(k), S.len(M.snoc(t, n)), 1n+S.len(t), S.len(d), len_snoc(t, n)), tr(SG(S.len(q), S.len(a), S.len(k), 1n+S.len(t), S.len(d)), 1n+SG(S.len(q), S.len(a), S.len(k), S.len(t), S.len(d)), 1n+n, bt(S.len(q), S.len(a), S.len(k), S.len(t), S.len(d)), sc(SG(S.len(q), S.len(a), S.len(k), S.len(t), S.len(d)), n, eq_elim(SG(S.len(q), S.len(a), S.len(k), S.len(t), S.len(d)), n, hs)))))
+def a35_sum_record(+q: +List<Nat>, +a: +List<Nat>, +k: +List<Nat>, +t: +List<Nat>, +d: +List<Nat>, +n: Nat, +hs: L.T(SUMB(q, a, k, t, d, n))) -> L.T(SUMB(q, a, k, M.snoc(t, n), d, 1n+n)):
+  eq_intro(SG(S.len(q), S.len(a), S.len(k), S.len(M.snoc(t, n)), S.len(d)), 1n+n, tr(SG(S.len(q), S.len(a), S.len(k), S.len(M.snoc(t, n)), S.len(d)), SG(S.len(q), S.len(a), S.len(k), 1n+S.len(t), S.len(d)), 1n+n, cgt(S.len(q), S.len(a), S.len(k), S.len(M.snoc(t, n)), 1n+S.len(t), S.len(d), len_snoc(t, n)), tr(SG(S.len(q), S.len(a), S.len(k), 1n+S.len(t), S.len(d)), 1n+SG(S.len(q), S.len(a), S.len(k), S.len(t), S.len(d)), 1n+n, bt(S.len(q), S.len(a), S.len(k), S.len(t), S.len(d)), sc(SG(S.len(q), S.len(a), S.len(k), S.len(t), S.len(d)), n, L.eq_elim(SG(S.len(q), S.len(a), S.len(k), S.len(t), S.len(d)), n, hs)))))
 
 def a35_prompt_count(+j: M.PromptJournal) -> Bool:
   match j:
     case M.Journal{+record, +world}:
       SUMB(S.queue(world), S.held_af(world), S.held_tk(world), S.typed(world), S.dropped(world), S.next_id(world))
 
-def a35_prompt_m6(+j: M.PromptJournal, +h: T(a35_prompt_count(j))) -> T(a35_prompt_count(M.record_prompt(j))):
+def a35_prompt_m6(+j: M.PromptJournal, +h: L.T(a35_prompt_count(j))) -> L.T(a35_prompt_count(M.record_prompt(j))):
   match j:
     case M.Journal{+record, +world}:
       match record:
@@ -3308,7 +3108,7 @@ def a35_prompt_m6(+j: M.PromptJournal, +h: T(a35_prompt_count(j))) -> T(a35_prom
             case M.W{+q, +haf, +htk, +t, +d, +u, +tt, +rl, +n, +tk, +us, +i, +g}:
               a35_sum_record(q, haf, htk, t, d, n, h)
 
-def a35_prompt_m1(+j: M.PromptJournal, +h: T(invw(M.journal_world(j)))) -> T(S.nodup(S.typed(M.journal_world(M.record_prompt(j))))):
+def a35_prompt_m1(+j: M.PromptJournal, +h: L.T(invw(M.journal_world(j)))) -> L.T(S.nodup(S.typed(M.journal_world(M.record_prompt(j))))):
   match j:
     case M.Journal{record, world}:
       match record:
@@ -3321,7 +3121,7 @@ def a35_prompt_m1(+j: M.PromptJournal, +h: T(invw(M.journal_world(j)))) -> T(S.n
             case M.W{+q, +haf, +htk, +t, +d, +u, +tt, +rl, +n, +tk, +us, +i, +g}:
               nd_snoc(t, n, p3(q, haf, htk, t, d, n, h), bd_fresh(t, n, p18(q, haf, htk, t, d, n, h)))
 
-def a35_prompt_m4(+j: M.PromptJournal) -> T(S.is_prefix(S.typed(M.journal_world(j)), S.typed(M.journal_world(M.record_prompt(j))))):
+def a35_prompt_m4(+j: M.PromptJournal) -> L.T(S.is_prefix(S.typed(M.journal_world(j)), S.typed(M.journal_world(M.record_prompt(j))))):
   match j:
     case M.Journal{+record, +world}:
       match record:
@@ -3332,7 +3132,7 @@ def a35_prompt_m4(+j: M.PromptJournal) -> T(S.is_prefix(S.typed(M.journal_world(
             case M.W{+q, +haf, +htk, +t, +d, +u, +tt, +rl, +n, +tk, +us, +i, +g}:
               prefix_snoc(t, n)
 
-def a35_prompt_disjoint_dropped(+j: M.PromptJournal, +h: T(invw(M.journal_world(j)))) -> T(S.disjoint(S.typed(M.journal_world(M.record_prompt(j))), S.dropped(M.journal_world(M.record_prompt(j))))):
+def a35_prompt_disjoint_dropped(+j: M.PromptJournal, +h: L.T(invw(M.journal_world(j)))) -> L.T(S.disjoint(S.typed(M.journal_world(M.record_prompt(j))), S.dropped(M.journal_world(M.record_prompt(j))))):
   match j:
     case M.Journal{record, world}:
       match record:
@@ -3345,7 +3145,7 @@ def a35_prompt_disjoint_dropped(+j: M.PromptJournal, +h: T(invw(M.journal_world(
             case M.W{+q, +haf, +htk, +t, +d, +u, +tt, +rl, +n, +tk, +us, +i, +g}:
               dj_snoc_l(t, d, n, p14(q, haf, htk, t, d, n, h), bd_fresh(d, n, p19(q, haf, htk, t, d, n, h)))
 
-def a35_prompt_disjoint_queue(+j: M.PromptJournal, +h: T(invw(M.journal_world(j)))) -> T(S.disjoint(S.typed(M.journal_world(M.record_prompt(j))), S.queue(M.journal_world(M.record_prompt(j))))):
+def a35_prompt_disjoint_queue(+j: M.PromptJournal, +h: L.T(invw(M.journal_world(j)))) -> L.T(S.disjoint(S.typed(M.journal_world(M.record_prompt(j))), S.queue(M.journal_world(M.record_prompt(j))))):
   match j:
     case M.Journal{record, world}:
       match record:
@@ -3358,7 +3158,7 @@ def a35_prompt_disjoint_queue(+j: M.PromptJournal, +h: T(invw(M.journal_world(j)
             case M.W{+q, +haf, +htk, +t, +d, +u, +tt, +rl, +n, +tk, +us, +i, +g}:
               dj_snoc_l(t, q, n, dj_sym(q, t, p7(q, haf, htk, t, d, n, h)), bd_fresh(q, n, p15(q, haf, htk, t, d, n, h)))
 
-def a35_prompt_disjoint_ask_first(+j: M.PromptJournal, +h: T(invw(M.journal_world(j)))) -> T(S.disjoint(S.typed(M.journal_world(M.record_prompt(j))), S.held_af(M.journal_world(M.record_prompt(j))))):
+def a35_prompt_disjoint_ask_first(+j: M.PromptJournal, +h: L.T(invw(M.journal_world(j)))) -> L.T(S.disjoint(S.typed(M.journal_world(M.record_prompt(j))), S.held_af(M.journal_world(M.record_prompt(j))))):
   match j:
     case M.Journal{record, world}:
       match record:
@@ -3371,7 +3171,7 @@ def a35_prompt_disjoint_ask_first(+j: M.PromptJournal, +h: T(invw(M.journal_worl
             case M.W{+q, +haf, +htk, +t, +d, +u, +tt, +rl, +n, +tk, +us, +i, +g}:
               dj_snoc_l(t, haf, n, dj_sym(haf, t, p10(q, haf, htk, t, d, n, h)), bd_fresh(haf, n, p16(q, haf, htk, t, d, n, h)))
 
-def a35_prompt_disjoint_takeover(+j: M.PromptJournal, +h: T(invw(M.journal_world(j)))) -> T(S.disjoint(S.typed(M.journal_world(M.record_prompt(j))), S.held_tk(M.journal_world(M.record_prompt(j))))):
+def a35_prompt_disjoint_takeover(+j: M.PromptJournal, +h: L.T(invw(M.journal_world(j)))) -> L.T(S.disjoint(S.typed(M.journal_world(M.record_prompt(j))), S.held_tk(M.journal_world(M.record_prompt(j))))):
   match j:
     case M.Journal{record, world}:
       match record:
