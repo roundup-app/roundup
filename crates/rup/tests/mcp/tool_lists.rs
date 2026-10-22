@@ -117,7 +117,7 @@ pub const DOOR_METHODS: [&str; 8] = [
 ];
 
 /// M5: the methods and App commands with no tool; the reasons are in `scenarios/mcp.md`.
-pub const NO_TOOL: [&str; 66] = [
+pub const NO_TOOL: [&str; 67] = [
     // A3194, A3195, P9: a start spends usage, so only the user's own choice starts a Workstream or sets what may run.
     "todo.startWorkstream",
     "workstream.queue",
@@ -163,6 +163,8 @@ pub const NO_TOOL: [&str; 66] = [
     "decision.capture",
     // U468: the App reads retained answers for display; Agents act on open Decisions.
     "decision.answers",
+    // H23: the user withdraws a Grant they gave; no Agent revokes its own permission.
+    "decision.revoke",
     "agent.ask",
     "agent.skills",
     // O8: the App's Drawer reads the prompt an Agent's spawn gave; the spawning Agent wrote it
