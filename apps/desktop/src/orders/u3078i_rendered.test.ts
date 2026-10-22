@@ -9,7 +9,7 @@ import { shelfBrowser } from "../shelf/u371Browser";
 /**
  * U3078i's rendered observer for the design critic: the Order of one of ten Agents with long names, open → inspect → resume
  * at 1512×950 in dark mode on `agents-10`, in one isolated headless session. `U3078I_SIDE=base` runs the same steps on a
- * checkout without the Progress section. Readings, screenshots and a video go to `artifacts/ux/U3078i/<side>/`.
+ * checkout without the Progress section. Readings, screenshots and a video go to the capture directory of `captureDir`.
  */
 const art = captureDir("U3078i");
 

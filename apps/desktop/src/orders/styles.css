@@ -273,3 +273,7 @@
   text-align: left;
   overflow-wrap: anywhere;
 }
+
+.progress-evidence::before {
+  content: "\2197\00a0";
+}
