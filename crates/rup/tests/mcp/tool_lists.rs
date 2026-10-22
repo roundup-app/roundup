@@ -3,7 +3,7 @@
 use std::path::Path;
 /// M5: the methods with a tool for every Agent, each named after its method with the dot replaced
 /// by `_`, bar `agent.setOrder` (O4), whose tool is `agent_set_order`.
-pub const TOOL_METHODS: [&str; 88] = [
+pub const TOOL_METHODS: [&str; 90] = [
     "agent.wake",
     "reaction.create",
     "reaction.preview",
@@ -19,6 +19,8 @@ pub const TOOL_METHODS: [&str; 88] = [
     "deliverable.remove",
     "todo.create",
     "todo.comment",
+    "todo.addRef",
+    "todo.removeRef",
     "todo.get",
     "todo.list",
     "todo.update",
@@ -138,6 +140,8 @@ pub const NO_TOOL: [&str; 67] = [
     "todo.comments",
     "todo.unread",
     "todo.markCommentsRead",
+    // T27: the Daemon computes each ref's state for the Drawer; an Agent reads `refs` on `todo_get`.
+    "todo.refs",
     // T17, T25: an Agent cannot assign, and only the Daemon hands a Todo.
     "todo.assign",
     "todo.hand",
