@@ -289,6 +289,12 @@ impl Daemon {
         if method == "link.read" {
             return self.link_read(conn, params).await;
         }
+        if method == "todo.refs" {
+            return self.todo_refs(params);
+        }
+        if method == "todo.addRef" {
+            self.require_ref_target(&params)?;
+        }
         if method == "project.resources" {
             return self.project_resources().await;
         }

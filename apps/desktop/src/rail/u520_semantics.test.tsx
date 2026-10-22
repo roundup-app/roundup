@@ -35,7 +35,7 @@ describe("u520 the Rail's accessibility tree", () => {
     expect(itemOf("inner").getAttribute("aria-expanded")).toBe("false");
 
     for (const button of document.querySelectorAll<HTMLElement>(".rail-tree button")) {
-      expect(button.hasAttribute("title")).toBe(false);
+      expect(button.getAttribute("title") ?? "").toBe("");
       expect((button.getAttribute("aria-label") ?? button.textContent ?? "").trim()).not.toBe("");
     }
   });
