@@ -52,26 +52,37 @@ export const NoteQueue = (props: { node: RailNode }) => {
     { chords: ["Meta+Enter"], when: inField, run: () => void notes.send(agent(), true) },
   ]);
 
-  // The rows that leave glide to the step line, and the rows below them close up by their height, both by transform alone.
+  // The queue sits on the field, so a removal drops the header and the rows above it by the height that leaves. They glide down by
+  // that height first, so the drop at removal lands where they already are; the leaving rows glide to the step line's final place.
   createEffect(() => {
     rows();
     queueMicrotask(() => {
-      let closed = 0;
-      let leavingAbove = false;
-      const target = stepLine?.getBoundingClientRect().top ?? 0;
+      const items = [...(root?.querySelectorAll<HTMLElement>("[data-note]") ?? [])];
+      const gap = Number.parseFloat(getComputedStyle(items[0]?.parentElement ?? document.body).rowGap) || 0;
+      const taken = items.filter((element) => element.dataset["state"] === "taken");
+      const total = taken.reduce((sum, element) => sum + element.offsetHeight + gap, 0) - (taken.length === items.length ? gap : 0);
+      const target = (stepLine?.getBoundingClientRect().top ?? 0) + total;
+      let below = 0;
+      let anyBelow = false;
 
-      for (const element of root?.querySelectorAll<HTMLElement>("[data-note]") ?? []) {
+      const close = (element: HTMLElement, by: number, shifts: boolean): void => {
+        if (shifts) {
+          element.dataset["closing"] = "";
+          element.style.setProperty("--close-up", `${by}px`);
+        } else delete element.dataset["closing"];
+      };
+
+      for (const element of items.reverse()) {
         if (element.dataset["state"] === "taken") {
           element.style.setProperty("--glide-y", `${target - element.getBoundingClientRect().top}px`);
-          closed += element.offsetHeight;
-          leavingAbove = true;
-        } else if (leavingAbove) {
-          element.dataset["closing"] = "";
-          element.style.setProperty("--close-up", `${closed}px`);
-        } else {
-          delete element.dataset["closing"];
-        }
+          below += element.offsetHeight + gap;
+          anyBelow = true;
+        } else close(element, below, anyBelow);
       }
+
+      const head = root?.querySelector<HTMLElement>(".note-queue-head");
+
+      if (head) close(head, total, taken.length > 0);
     });
   });
 
@@ -109,10 +120,10 @@ export const NoteQueue = (props: { node: RailNode }) => {
         <header class="note-queue-head">
           <Show when={rows().length > 1}><span class="note-queue-count">{copy.notesWaiting(rows().length)}</span></Show>
           <Show when={paused()}><span class="note-queue-paused" role="status">{copy.paused}</span></Show>
+          <span class="note-queue-step" ref={(element) => { stepLine = element; }}>{step() === null ? "" : copy.nowStep(step()!)}</span>
           <Show when={live()}>
             <Toggle class="note-queue-pause" pressed={paused()} onPressedChange={() => void pause()}>{paused() ? copy.resumeAgent : copy.pauseAgent}</Toggle>
           </Show>
-          <span class="note-queue-step" ref={(element) => { stepLine = element; }}>{step() === null ? "" : copy.nowStep(step()!)}</span>
         </header>
       </Show>
       <ul class="note-queue-rows">
