@@ -9,7 +9,6 @@ import { resolvedWorkstream } from "../rail/layout";
 import { registerKeys } from "../keys/registry";
 import { useConnectedProject } from "../state/connectedProject";
 import { Dialog } from "../ui/Dialog";
-import { Tip } from "../ui/Tip";
 import { USER } from "../pads/owner";
 import { failureOf, outcomeOf } from "./failureOf";
 import { useTodoList } from "./todoList";
@@ -214,8 +213,8 @@ export const Capture = (props: { onFile: (() => void) | undefined }) => {
             }}
           />
           <p class="capture-target">
-            <Tip text={ownerLine()}>{(trigger) => <span {...trigger()}>{ownerLine()}</span>}</Tip>
-            <Tip text={homeLine()}>{(trigger) => <span {...trigger()}>{homeLine()}</span>}</Tip>
+            <span>{ownerLine()}</span>
+            <span>{homeLine()}</span>
           </p>
           <Show when={failure()}>{(message) => <ErrorLine message={message()} />}</Show>
           <For each={recovered()}>{draft => <div class="capture-recovery">

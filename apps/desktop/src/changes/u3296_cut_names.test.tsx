@@ -1,6 +1,7 @@
 import { cleanup, fireEvent, screen, waitFor } from "@solidjs/testing-library";
 import { afterEach, expect, it, vi } from "vitest";
 import { mountControl } from "./harness";
+import { openDiff, saveNote } from "./noteHarness";
 
 afterEach(() => {
   cleanup();
@@ -52,6 +53,43 @@ it("u3296a_repeating_text_opens_no_tooltip", async () => {
     dd.focus();
   }
 
+  await new Promise((done) => setTimeout(done, 600));
+  expect(screen.queryByRole("tooltip")).toBeNull();
+});
+
+const notePath = async () => {
+  await openDiff();
+  await saveNote("a note");
+
+  return await waitFor(() => {
+    const path = document.querySelector<HTMLElement>(".note-path");
+
+    if (!path) throw new Error("note not listed");
+
+    return path;
+  });
+};
+
+it("u3296b_a_cut_note_path_has_its_full_text_as_title", async () => {
+  layout(400);
+  const path = await notePath();
+
+  await waitFor(() => expect(path.getAttribute("title")).toBe("src/a.ts"));
+});
+
+it("u3296b_a_note_path_that_fits_has_no_title", async () => {
+  layout(50);
+  const path = await notePath();
+
+  await Promise.resolve();
+  expect(path.hasAttribute("title")).toBe(false);
+});
+
+it("u3296a_a_note_path_opens_no_tooltip", async () => {
+  layout(400);
+  const path = await notePath();
+
+  fireEvent.pointerMove(path, { pointerType: "mouse" });
   await new Promise((done) => setTimeout(done, 600));
   expect(screen.queryByRole("tooltip")).toBeNull();
 });
