@@ -51,6 +51,7 @@
   z-index: var(--layer-menu);
   max-height: calc(var(--space-5) * 8);
   overflow-y: auto;
+  overscroll-behavior: contain;
   overflow-x: hidden;
   padding: var(--space-1);
   color: var(--text);
