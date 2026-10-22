@@ -51,8 +51,8 @@ it("u465_heads_keep_tab_focus_and_visible_failure", async () => {
   await page.press("Home", "Home");
   await settle();
   expect(await evaluate<string>("document.activeElement.id")).toBe("shelf-tab-todos");
-  await wait(`!!document.querySelector('button[aria-label="Add Todo"]')`);
-  const add = await evaluate<{ x: number; y: number }>(`(() => { const button = document.querySelector('button[aria-label="Add Todo"]'); button.scrollIntoView({ block: 'nearest' }); const box = button.getBoundingClientRect(); return { x: box.left + box.width / 2, y: box.top + box.height / 2 }; })()`);
+  await wait(`!!document.querySelector('button[aria-label^="add todo to"]')`);
+  const add = await evaluate<{ x: number; y: number }>(`(() => { const button = document.querySelector('button[aria-label^="add todo to"]'); button.scrollIntoView({ block: 'nearest' }); const box = button.getBoundingClientRect(); return { x: box.left + box.width / 2, y: box.top + box.height / 2 }; })()`);
   await page.click(add.x, add.y);
   await wait(`!!document.querySelector('[aria-label="New Todo title"]')`);
   await evaluate(`(() => { window.__fake.failNext(-32003, 'U465 Todo add failed'); const input = document.querySelector('[aria-label="New Todo title"]'); input.value = 'U465 rejected Todo'; input.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true })); return true; })()`);

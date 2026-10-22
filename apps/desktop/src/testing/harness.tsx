@@ -17,6 +17,7 @@ import type { AppSeam } from "../app/seam";
 import "../tokens.css";
 import "../styles.css";
 import "../scrollbar.css";
+import { trackScrollHover } from "../scrollHover";
 import "./todoWorstCase.styles.css";
 
 declare global {
@@ -29,6 +30,8 @@ declare global {
     __axe: () => Promise<AxeResult>;
   }
 }
+
+trackScrollHover(document);
 
 const root = document.getElementById("root");
 

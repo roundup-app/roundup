@@ -197,7 +197,7 @@ const owners = {
     return screen.findByLabelText<HTMLInputElement>("Pad name");
   },
   todo: async () => {
-    fireEvent.click(await screen.findByRole("button", { name: "Add Todo" }));
+    fireEvent.click(await screen.findByRole("button", { name: "add todo to Overview" }));
 
     return screen.findByRole<HTMLInputElement>("textbox", { name: "New Todo title" });
   },
