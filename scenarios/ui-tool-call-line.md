@@ -1,0 +1,43 @@
+# UI: each Agent's current tool call on the Project overview (U3780)
+
+Module: tool-call observations in `crates/agents` (`claude_code/`), their Daemon delivery in `crates/rupd`, the Rust-owned contract in `crates/contracts`, and the overview in `apps/desktop/src/ask`. Ids: U3780a, U3780b, U3780c, U3780d. Terms: Project root, Workstream, Agent, Signal, Rail, Status, Token (`GLOSSARY.md`). Work Issue: #3310. Journey stage: Understand (`.agents/data/journey.md`).
+
+Source: the owner's request of 2026-10-22 (#3310), "this UX and UI good really fit and inspire our overview view" (https://www.affectui.com/components/tool-call-card), and the owner's pick: the line sits on the Project overview, one for each Agent, not in an Agent's own overview. Extends U2567a (`scenarios/ui-project-root-overview.md`); reads the same Signals as U454 (`scenarios/ui-agent-step.md`) and ADR 0006 (`docs/adr/0006-claude-code-hooks-for-state.md`). This is acceptance for implementation, not evidence that it exists.
+
+Contract policy (AGENTS.md rule 4): carry the call through `rail.tree` and its events, or a typed Agent method, regenerate `contracts/generated/` from Rust and change every caller and fixture in the same implementing PR. The implementing PR adds the term for the call to `GLOSSARY.md`. Vendor payload names (`tool_name`, `tool_input`, `tool_response`, `tool_use_id`, `duration_ms`) stay inside the Adapter. No Retry exists: roundup never re-runs an Agent's tool call. No new App seam command.
+
+**U3780a the Daemon reports each Agent's current or last tool call.** Given an Agent running through the real Daemon with a fake `claude` that emits `PreToolUse`, `PostToolUse` and `PostToolUseFailure` Signals (shapes in `spikes/hooks-state/REPORT.md`), then, for that Agent:
+
+- **Start.** `PreToolUse` sets the call: its tool name, a one-line summary, its arguments, state `running` and its start time. The summary is the command for `Bash`, the file path for `Read`, `Edit` and `Write`, the pattern or query for `Grep`, `Glob`, `WebSearch` and `WebFetch`; a tool with none of these shows its name alone, with nothing invented. A path under the Project's root is sent relative to it. Test: `u3780a_pre_tool_use_starts_the_call_with_tool_summary_and_arguments`.
+- **Finish.** The `PostToolUse` with the same `tool_use_id` sets the state `done`, the result and the duration (its `duration_ms`, else the time between the two Signals); `PostToolUseFailure` sets `failed` with the error text as the result. A Signal for another `tool_use_id` never finishes the call. A later `PreToolUse` replaces the call whole; the call stays after the turn ends, with its final state and duration. Test: `u3780a_post_tool_use_finishes_only_its_own_call`.
+- **Bounded.** The arguments and the result are each cut to 4096 bytes at a character boundary, and a cut one ends with the mark `… (cut, N bytes more)`; the one-line summary is cut to 200 characters. A payload of 5 MB reaches the wire as at most 4096 bytes of each. Terminal escape sequences are removed from every field. Test: `u3780a_long_arguments_and_results_are_cut_with_a_mark`.
+- **Attribution.** A call belongs to the Agent whose Signal carried it; a Door's and a child's calls never cross (as U454 says). Test: `u3780a_calls_stay_with_their_agent`.
+
+Observer: Rust Adapter tests and a real-Daemon integration test that probe the wire response after each Signal; contract serialization is checked by the generated-contract check.
+
+**U3780b each Agent line under a Workstream shows the call in one line.** Given U2567a's overview and a Workstream with Agents that have a call, then each Agent's line, beneath its Workstream's entry and in Rail order, shows on one line the call in the manner of AffectUI's Tool Call Card: the tool name, the summary (cut with an ellipsis and readable in full in `title`), the state word (`Running`, `Done`, `Failed`) and the time. An Agent with no call yet shows its name alone, as today. The text holds no raw id or internal term, and shows paths relative to the Project (the intent of #3299, which this scenario states itself until that Issue's scenarios land). Then:
+
+- **Time.** A running call shows its elapsed time, ticking once a second only while the call is `running` and the window is visible (the intent of #3298, stated here until its scenarios land); a finished call shows its final duration and stops. Tests: `u3780b_a_running_call_ticks_and_a_finished_one_does_not`, `u3780b_a_hidden_window_does_not_tick` (fake clock, as the repo's other tick tests).
+- **In place.** A new call replaces the line's content in place; the line keeps its one-line height, so nothing around it moves (the intent of #3294). Test: `u3780b_a_new_call_replaces_the_line_in_place` (same element, new text). Height is the design critic's.
+- **Kind lines keep their place.** U2567a's who-needs-you lines and counts are unchanged: an Agent with Kind `error` or `needs-you` keeps its Glyph and its place in that order, and the call line adds to it, never replaces it. Tests: U2567a's, unchanged.
+- **Cost.** One call arriving re-renders its own line only; ten working Agents add no timer while none is `running` (U457's measures). Test: `u3780b_only_the_changed_line_updates`.
+
+**U3780c a line folds open to the arguments and the result.** Given U3780b, then:
+
+- **Fold.** The line is a native button (`aria-expanded`), reached by Tab in list order; Enter or Space, or a click, opens a region below it with the call's arguments and its result, each under its own label with a `Copy` button. Folding is only the user's act: a new call never opens or closes it, and an open fold shows the new call's content, in place. Tests: `u3780c_enter_opens_and_closes_the_fold`, `u3780c_a_new_call_keeps_the_fold_state`.
+- **Copy.** `Copy` writes the shown text to the clipboard through the shared clipboard helper, and says so by a toast or the button's own label for a moment (the existing pattern, no new one). A cut payload copies what is shown, including the mark. A call with no result yet shows `No result yet` and no `Copy` for it. Tests: `u3780c_copy_writes_the_shown_text`, `u3780c_a_running_call_has_no_result_to_copy`.
+- **Not the select action.** Opening the fold selects nothing, starts nothing and calls no RPC method of its own: U2567c's "selection starts nothing" and "nothing is taken over" hold, and activating the Agent's name still selects it as U2567c says. The fold reads only data the tree already carries. Test: `u3780c_the_fold_calls_nothing_and_selects_nothing`.
+- **Reduced motion.** With `prefers-reduced-motion: reduce` the fold opens and closes at once; otherwise it uses the existing motion Tokens and presets of `docs/motion.md`. Test: `u3780c_reduced_motion_folds_at_once` (media query stubbed; assert no transition is set).
+- **Text.** The arguments and result are plain text, never run as markup; a long one scrolls inside the region, which is capped in height, and the page does not widen. Test: `u3780c_payload_text_is_inert`.
+
+**U3780d states and worst case.** Then:
+
+- **States.** A `failed` call shows its state word with the Kind-error Ink, as well as the word, never by colour alone. Before the first `rail.tree`, and while `rail.failure()` is set, U2567d governs; the lines keep the last tree's calls.
+- **Worst case (design-critic policy).** A 200-character tool name, a 5 MB command, a non-Latin summary, twelve Agents each with a running call and an open fold neither widen the page sideways nor hide the Ask input; failure text stays visible on the densest seed. The design critic judges this on the rendered U26 harness (`?seed=agents-10` and a worst-case seed); UI tests assert behaviour, not layout (rule 10).
+- **Credit.** The Tool Call Card's CSS may be copied into Solid under our Tokens; the implementing PR credits AffectUI (MIT) and carries a `Reuse:` section (rule 9) naming Ark UI's collapsible (installed, wrapped in `apps/desktop/src/ui/`) and the Kobalte one, with the reason for the choice.
+
+Observer: Vitest with the fake App for U3780b and U3780c; isolated headless Chromium on the U26 harness at 1512 by 950 for D2, D5 and D6 in dark with the fold closed and open and the worst-case seed, judged by the design critic; a real-Daemon/fake-Claude run on `just harness-real` (U144) shows a running then done `Bash` call under the right Workstream. These observers make no native Mac claim, and the user reports what they meet in the App.
+
+Bounds, for the review run: no Retry or re-run control, no transcript renderer, no Terminal output read, no new RPC method beyond what the Contract policy allows, and no Token.
+
+Moves: D2, D4, D5, D6 (`docs/design-system.md`); existing Tokens only.

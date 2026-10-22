@@ -17,6 +17,10 @@ use tokio::net::UnixListener;
 use tokio::process::Child;
 use tokio::sync::mpsc;
 
+#[path = "mcp/tool_lists.rs"]
+mod tool_lists;
+use tool_lists::{DOOR_METHODS, NO_TOOL, TOOL_METHODS, expected_tools, seam_commands};
+
 const BOUND: Duration = Duration::from_secs(20);
 
 struct Shim {
@@ -224,263 +228,6 @@ fn assert_exit_1_with_one_line_naming(output: &Output, socket: &Path) {
     let stderr = String::from_utf8_lossy(&output.stderr);
     assert_eq!(stderr.lines().count(), 1, "{stderr}");
     assert!(stderr.contains(socket.to_str().unwrap()), "{stderr}");
-}
-
-/// M5: the methods with a tool for every Agent, each named after its method with the dot replaced
-/// by `_`, bar `agent.setOrder` (O4), whose tool is `agent_set_order`.
-const TOOL_METHODS: [&str; 86] = [
-    "agent.wake",
-    "reaction.create",
-    "reaction.preview",
-    "reaction.list",
-    "reaction.get",
-    "reaction.stop",
-    "reaction.run",
-    "deliverable.publish",
-    "deliverable.list",
-    "deliverable.get",
-    "deliverable.resolve",
-    "deliverable.move",
-    "deliverable.remove",
-    "todo.create",
-    "todo.comment",
-    "todo.get",
-    "todo.list",
-    "todo.update",
-    "todo.complete",
-    "todo.reopen",
-    "todo.setBlockers",
-    "todo.move",
-    "todo.reorder",
-    "todo.delete",
-    "pad.create",
-    "pad.read",
-    "link.read",
-    "pad.list",
-    "pad.write",
-    "pad.append",
-    "pad.appendSection",
-    "pad.setOwner",
-    "pad.delete",
-    "pad.export",
-    "pad.setStorage",
-    // B12
-    "message.progress",
-    "message.report",
-    "message.acceptResult",
-    "message.verifyResult",
-    "message.resolveResult",
-    "message.send",
-    "message.get",
-    "message.list",
-    "message.pass",
-    "route.list",
-    // M10
-    "checkpoint.list",
-    // E2, O4, F3
-    "agent.context",
-    "agent.instructions",
-    "agent.actionHistory",
-    "agent.setOrder",
-    "agent.run",
-    "agent.spawn",
-    // H21
-    "decision.list",
-    "decision.answer",
-    // M6, M7
-    "rail.tree",
-    "rail.createWorkstream",
-    "rail.startDoor",
-    "rail.rename",
-    "rail.move",
-    "rail.remove",
-    "agent.stop",
-    "agent.interrupt",
-    "agent.prompt",
-    "agent.resume",
-    "agent.discard",
-    "agent.land",
-    "agent.worktreeState",
-    "project.get",
-    "project.measurements",
-    "project.measurementSummary",
-    "project.setWorktrees",
-    "provenance.history",
-    "provenance.touched",
-    // M8: the App commands `open_project` and `rename_project`
-    "project.open",
-    "project.rename",
-    // M13: reading a Terminal
-    "terminal.screen",
-    "terminal.read",
-    "terminal.search",
-    // M14: Routes and running Terminals
-    "route.set",
-    "terminal.spawn",
-    "terminal.open",
-    "terminal.close",
-    "terminal.write",
-    "terminal.resize",
-    "terminal.resizeHistory",
-    "terminal.kill",
-];
-
-/// M5: offered to a Door only (B20, M10).
-const DOOR_METHODS: [&str; 8] = [
-    "agent.digest",
-    // LC7, LC8
-    "agent.extras",
-    "agent.extras_add",
-    // B53
-    "terminal.show",
-    "checkpoint.write",
-    "workstream.handoff",
-    "workstream.rewindPlan",
-    "workstream.rewind",
-];
-
-/// M5: the methods and App commands with no tool; the reasons are in `scenarios/mcp.md`.
-const NO_TOOL: [&str; 66] = [
-    // A3194, A3195, P9: a start spends usage, so only the user's own choice starts a Workstream or sets what may run.
-    "todo.startWorkstream",
-    "workstream.queue",
-    "workstream.dequeue",
-    "workstream.queueMove",
-    "workstream.startNow",
-    "project.setWorkstreamCap",
-    // U2539b, U2540a: the App's Worktree comparison; an Agent reads its own diff with git.
-    "agent.changedFiles",
-    "agent.compareFile",
-    // A40, P9: each carries a Steer from the user.
-    "ask.send",
-    "ask.list",
-    "ask.pick",
-    // U462, T21, T23: the open Drawer fetches and acknowledges History; an Agent only leaves a comment.
-    "todo.getHistory",
-    "todo.readHistory",
-    "todo.comments",
-    "todo.unread",
-    "todo.markCommentsRead",
-    // T17, T25: an Agent cannot assign, and only the Daemon hands a Todo.
-    "todo.assign",
-    "todo.hand",
-    "message.deliver",
-    "message.drop",
-    "takeover.begin",
-    "takeover.end",
-    "terminal.list",
-    "terminal.snapshot",
-    // X14: the App's per-Terminal byte stream; an Agent reads text with `terminal_read`.
-    "terminal.output",
-    "terminal.outputStop",
-    // X17: the App tells the Daemon its colour scheme; no Agent sets it.
-    "terminal.scheme",
-    "daemon.ping",
-    "daemon.identify",
-    "events.subscribe",
-    "agent.brief",
-    "agent.channelUp",
-    "agent.signal",
-    "agent.permission",
-    // B6: the Daemon captures an original prompt when it holds an action.
-    "decision.capture",
-    // U468: the App reads retained answers for display; Agents act on open Decisions.
-    "decision.answers",
-    "agent.ask",
-    "agent.skills",
-    // O8: the App's Drawer reads the prompt an Agent's spawn gave; the spawning Agent wrote it
-    "agent.spawnPrompt",
-    "pad.move",
-    // U419: the bytes of an image the user pasted
-    "attachment.save",
-    // A36, A37: the user's own settings, which spend the user's usage (P8)
-    "models.list",
-    "project.setModels",
-    // M2219: the user's setting for whether Agents get these tools at all
-    "project.setMcp",
-    // G2542: enrolling a directory and running its commands is the user's explicit consent
-    "project.setPrepared",
-    "project.getPrepared",
-    "project.prepareDirectory",
-    // U2875: only the user imports recent Claude Code conversations
-    "project.importDiscover",
-    "project.importCommit",
-    "agent.setModel",
-    // D8: the App's Resource strip
-    "project.resources",
-    // A32: the user's act of clearing; a Door answers it with `workstream_handoff`
-    "workstream.clear",
-    "close_project",
-    "projects",
-    "daemon_proof",
-    "open_target",
-    "open_in_editor",
-    "save_pasted_image",
-    // U2694a: the native menu of the user's right-click
-    "show_context_menu",
-    // U449–U451: the user's native window, which an Agent cannot move or rename.
-    "plugin:window-bar|set_window_title",
-    "plugin:window-bar|drag_window",
-    "plugin:window-bar|zoom_window",
-    "rpc",
-    "subscribe",
-    "terminal_output",
-    "terminal_output_stop",
-];
-
-fn tool_name(method: &str) -> String {
-    match method {
-        "agent.setOrder" => "agent_set_order".into(),
-        other => other.replace('.', "_"),
-    }
-}
-
-/// The names of the strings inside the first `[...]` after `marker` in `file`.
-fn quoted_after(file: &str, marker: &str) -> Vec<String> {
-    let root = Path::new(env!("CARGO_MANIFEST_DIR")).join("../..");
-    let text = std::fs::read_to_string(root.join(file)).unwrap();
-    let start = text
-        .find(marker)
-        .unwrap_or_else(|| panic!("{marker} in {file}"));
-    let open = start + text[start..].find(['[', '{']).unwrap();
-    let close = open + text[open..].find([']', '}']).unwrap();
-    text[open + 1..close]
-        .split(|c: char| !(c.is_alphanumeric() || matches!(c, '_' | ':' | '|' | '-')))
-        .filter(|word| !word.is_empty())
-        .map(str::to_owned)
-        .collect()
-}
-
-/// The seam commands of `apps/desktop/src/app/seam.ts`, and whether `crates/desktop` registers the same.
-fn seam_commands() -> Vec<String> {
-    let table = quoted_after("apps/desktop/src/app/seam.ts", "SEAM_COMMANDS = [");
-    let mut registered = quoted_after("crates/desktop/src/lib.rs", "generate_handler![");
-    for command in &mut registered {
-        if let Some((_, name)) = command.rsplit_once("::") {
-            *command = name.to_owned();
-        }
-    }
-    registered.extend(
-        quoted_after("crates/desktop/src/window.rs", "generate_handler![")
-            .into_iter()
-            .map(|command| format!("plugin:window-bar|{command}")),
-    );
-    let mut declared = table.clone();
-    registered.sort();
-    declared.sort();
-    assert_eq!(
-        registered, declared,
-        "seam.ts and the Tauri handler list differ"
-    );
-    table
-}
-
-/// M5, M6: the tools a non-Door Agent is offered.
-fn expected_tools() -> Vec<String> {
-    let mut expected: Vec<_> = TOOL_METHODS.iter().map(|m| tool_name(m)).collect();
-    // H14: `ask_user` is the one tool that is not a method's name.
-    expected.push("ask_user".into());
-    expected
 }
 
 #[test]
@@ -1882,4 +1629,67 @@ async fn t21_an_agent_comment_names_its_author_over_mcp_and_cli() {
         .unwrap();
     assert_eq!(thread[0]["author"], json!(agent("a1")));
     assert_eq!(thread[0]["read"], false);
+}
+
+#[tokio::test]
+async fn t28_an_agent_adds_and_removes_a_ref_over_mcp_and_cli() {
+    let project = start_daemon();
+    let user = client_as(&project.socket, Actor::user()).await;
+    let key = user.request("daemon.ping", Value::Null).await.unwrap()["projectKey"]
+        .as_str()
+        .unwrap()
+        .to_owned();
+    user.request("todo.create", json!({"title":"ship"}))
+        .await
+        .unwrap();
+    user.request("pad.create", json!({"name":"notes","text":"## Plan\nx\n"}))
+        .await
+        .unwrap();
+    let url = format!("roundup://pad/notes?project={key}#Plan");
+    let shim = spawn_shim(&project.socket, "a1").await;
+    let result = shim.call("todo_addRef", json!({"id":1,"url":url})).await;
+    assert_ne!(result.is_error, Some(true));
+    let todo = user.request("todo.get", json!({"id":1})).await.unwrap();
+    assert_eq!(todo["refs"], json!([url]));
+    let touches = user
+        .request("provenance.history", json!({"item":"todo:1"}))
+        .await
+        .unwrap();
+    assert!(
+        touches
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|t| t["verb"] == "wrote" && t["actor"] == json!(agent("a1")))
+    );
+    let result = shim.call("todo_removeRef", json!({"id":1,"url":url})).await;
+    assert_ne!(result.is_error, Some(true));
+    // The command is the same call.
+    let rup = |args: Vec<&str>| {
+        tokio::process::Command::new(env!("CARGO_BIN_EXE_rup"))
+            .args(args)
+            .env("RUPD_SOCKET", &project.socket)
+            .env("ROUNDUP_AGENT", "a1")
+            .output()
+    };
+    let added = rup(vec!["todo", "ref", "add", "1", &url]).await.unwrap();
+    assert!(added.status.success(), "{added:?}");
+    let todo = user.request("todo.get", json!({"id":1})).await.unwrap();
+    assert_eq!(todo["refs"], json!([url]));
+    let removed = rup(vec!["todo", "ref", "remove", "1", &url]).await.unwrap();
+    assert!(removed.status.success(), "{removed:?}");
+    let todo = user.request("todo.get", json!({"id":1})).await.unwrap();
+    assert_eq!(todo["refs"], json!([]));
+}
+
+#[tokio::test]
+async fn t28_the_tool_descriptions_name_the_section_form() {
+    let project = start_daemon();
+    let shim = spawn_shim(&project.socket, "a1").await;
+    let tools = shim.client.list_all_tools().await.unwrap();
+    let tool = tools.iter().find(|t| t.name == "todo_addRef").unwrap();
+    let description = tool.description.as_deref().unwrap();
+    for phrase in ["Point the user", "read it", "#<heading>"] {
+        assert!(description.contains(phrase), "{phrase}: {description}");
+    }
 }
