@@ -134,7 +134,7 @@ def memory(args):
     done = args.output.with_suffix(".done")
     if args.output.exists() or stop.exists() or done.exists():
         raise ValueError("memory observer requires fresh files")
-    deadline = time.monotonic() + 1260
+    deadline = time.monotonic() + 2160
     with args.output.open("x") as stream:
         while time.monotonic() < deadline:
             vm = psutil.virtual_memory()
@@ -144,7 +144,7 @@ def memory(args):
                 done.touch()
                 return 0
             time.sleep(0.05)
-    raise ValueError("memory observer exceeded 21 minutes without lane completion")
+    raise ValueError("memory observer exceeded 36 minutes without lane completion")
 
 
 def report_flaky(lane, output):
