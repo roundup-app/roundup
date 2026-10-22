@@ -37,20 +37,19 @@ type Blocked = { label: string; live: number };
 
 const AGENTS = `[...document.querySelectorAll('[data-part="item"][data-id][aria-level="2"]')]`;
 
-/** U404: the Rail draws no Live line, so each `blocked` row's whole label is the Status line of its Tooltip (U521), */
-const MEASURE = `() => ${AGENTS}.filter((row) => row.getAttribute("data-kind") === "blocked").map((row) => { const box = row.getBoundingClientRect(); return { id: row.dataset.id, live: row.querySelectorAll(".live, .live-label, .live-age").length, x: box.left + box.width / 2, y: box.top + box.height / 2 }; })`;
+/** U404: the Rail draws no Live line, so each `blocked` row's whole label is the Status label of its accessible name (U2228a). */
+const MEASURE = `() => ${AGENTS}.filter((row) => row.getAttribute("data-kind") === "blocked").map((row) => ({ id: row.dataset.id, live: row.querySelectorAll(".live, .live-label, .live-age").length }))`;
 
-const TIP = `(id) => { const row = document.querySelector('.rail-row[data-id="' + id + '"]'); const lines = [...(document.getElementById(row.getAttribute("aria-describedby") ?? "")?.children ?? [])].map((line) => line.textContent); return lines.find((line) => line !== row.querySelector(".name").textContent) ?? ""; }`;
+const LABEL = `(id) => (document.querySelector('.rail-row[data-id="' + id + '"]').getAttribute("aria-label") ?? "").split(", ")[1] ?? ""`;
 
-/** Each blocked row measured, then hovered as a user does so its Tooltip names the whole label (after the name, when the layout cuts it). */
+/** Each blocked row measured, with its Status label read from the row's accessible name (U2228a: the name, then the label). */
 const READ = async (): Promise<Blocked[]> => {
-  const rows = await page.call<(Omit<Blocked, "label"> & { id: string; x: number; y: number })[]>(MEASURE);
+  const rows = await page.call<(Omit<Blocked, "label"> & { id: string })[]>(MEASURE);
   const read: Blocked[] = [];
 
-  for (const { id, x, y, ...measured } of rows) {
-    await page.hover(x, y);
-    await page.until(`() => (${TIP})(${JSON.stringify(id)}) !== ""`);
-    read.push({ ...measured, label: await page.call<string>(TIP, id) });
+  for (const { id, ...measured } of rows) {
+    await page.until(`() => (${LABEL})(${JSON.stringify(id)}) !== ""`);
+    read.push({ ...measured, label: await page.call<string>(LABEL, id) });
   }
 
   return read;
