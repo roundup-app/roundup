@@ -105,20 +105,26 @@
 
 .todo-tick:checked + .todo-tick-mark path { stroke-dashoffset: 0; }
 
-/* U3769: a done label is struck; the strike is a background that the finish animation grows (U3770). */
-.todo-row .shelf-title {
-  background-image: linear-gradient(currentColor, currentColor);
-  background-repeat: no-repeat;
-  background-position: 0 55%;
-  background-size: 0 1px;
+/* U3769: a done label is struck; the strike is a line scaled from its left edge, which the finish animation grows (U3770). */
+.todo-row .shelf-title { position: relative; }
+
+.todo-row .shelf-title::after {
+  content: "";
+  position: absolute;
+  inset: 55% 0 auto 0;
+  height: 1px;
+  background-color: currentColor;
+  transform: scaleX(0);
+  transform-origin: left center;
+  pointer-events: none;
 }
 
-.todo-row:has(.todo-tick:checked) .shelf-title { background-size: 100% 1px; }
+.todo-row:has(.todo-tick:checked) .shelf-title::after { transform: scaleX(1); }
 
 /* U3770: a finish plays the tick, ring and strike once; nothing carries `data-motion` at rest. Unchecking runs them backwards. */
 @keyframes todo-tick-draw { from { stroke-dashoffset: 1; } to { stroke-dashoffset: 0; } }
 @keyframes todo-ring-pop { 0% { transform: scale(0.9); } 55% { transform: scale(1.06); } 100% { transform: scale(1); } }
-@keyframes todo-strike-grow { from { background-size: 0 1px; } to { background-size: 100% 1px; } }
+@keyframes todo-strike-grow { from { transform: scaleX(0); } to { transform: scaleX(1); } }
 
 .todo-row[data-motion="play"] .todo-tick::before {
   animation: todo-ring-pop var(--duration-ring) var(--ease-pop) both;
@@ -132,16 +138,16 @@
   animation: todo-tick-draw var(--duration-tick) var(--ease-todo) both reverse;
 }
 
-.todo-row[data-motion="play"]:has(.todo-tick:checked) .shelf-title {
+.todo-row[data-motion="play"]:has(.todo-tick:checked) .shelf-title::after {
   animation: todo-strike-grow var(--duration-strike) var(--ease-todo) var(--delay-strike) both;
 }
 
-.todo-row[data-motion="play"]:not(:has(.todo-tick:checked)) .shelf-title {
+.todo-row[data-motion="play"]:not(:has(.todo-tick:checked)) .shelf-title::after {
   animation: todo-strike-grow var(--duration-strike) var(--ease-todo) both reverse;
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .todo-row .todo-tick::before, .todo-row .todo-tick-mark path, .todo-row .shelf-title { animation: none !important; }
+  .todo-row .todo-tick::before, .todo-row .todo-tick-mark path, .todo-row .shelf-title::after { animation-name: none; }
 }
 
 .todo-tick:disabled { cursor: default; }
@@ -330,5 +336,5 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .todo-progress-count { animation: none !important; }
+  .todo-progress-count { animation-name: none; }
 }
