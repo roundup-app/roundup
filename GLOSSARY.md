@@ -848,6 +848,11 @@ One Workstream's retained consumed tokens and ranked contributors at one Measure
 revision. Later pages name that revision; a changed revision requires reconciliation.
 It carries collection coverage and failure independently of known consumption.
 
+**Weekly limit** (`WeeklyLimit`, `project.weeklyLimit`):
+The account's weekly use and reset time, as the Claude Code Adapter reads it from the vendor's
+account usage, which spends no Model tokens. It is the account's figure, never a Workstream's
+share; unavailable carries a one-sentence reason and no number.
+
 **Consumed category** (`ConsumedCategory`):
 Input, output, cache read, cache write or their total, chosen to rank contributors.
 

@@ -148,6 +148,9 @@ pub struct Launcher {
     /// Claude Code's own config file, where it remembers which folders are trusted.
     claude_json: PathBuf,
     pub(super) conversation_dir: PathBuf,
+    /// U3016h: the vendor's account usage endpoint when not its own, and the last answer.
+    usage_url: Option<String>,
+    usage: super::usage::Cache,
     /// Filesystem observer for isolated import tests; absent from production builds.
     #[cfg(any(test, feature = "test-support"))]
     pub import_observer: Option<ImportObserver>,
@@ -292,6 +295,8 @@ impl Launcher {
         };
         Self {
             conversation_dir,
+            usage_url: None,
+            usage: super::usage::Cache::default(),
             #[cfg(any(test, feature = "test-support"))]
             import_observer: None,
             discovery: (
@@ -349,6 +354,8 @@ impl Launcher {
             launcher.conversation_dir = dir;
         }
         launcher.user_tool_search = var("ENABLE_TOOL_SEARCH").is_some();
+        launcher.usage_url =
+            var("ROUNDUP_CLAUDE_USAGE_URL").map(|url| url.to_string_lossy().into_owned());
         Ok(launcher)
     }
 
@@ -396,6 +403,16 @@ impl Launcher {
             claude_json: &self.claude_json,
             project,
         }
+    }
+
+    /// U3016h: the account's weekly use, read at most once a minute; spends no Model tokens.
+    pub async fn weekly_limit(&self) -> contracts::project::WeeklyLimit {
+        super::usage::weekly_limit(
+            &self.usage,
+            &self.conversation_dir,
+            self.usage_url.as_deref(),
+        )
+        .await
     }
 
     /// Write Agent `id`'s settings, MCP config and Brief (E1, for its `role`) under `dir` (the Project's data folder, N1), trust
