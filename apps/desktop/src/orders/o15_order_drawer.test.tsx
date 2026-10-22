@@ -49,7 +49,7 @@ const full: Order = {
   limits,
 };
 
-describe("O15: the Drawer shows a title, the done line and the folded prompt", () => {
+describe("O15: the Drawer shows a title, the done line and no prompt", () => {
   it("o15_the_title_leads_and_the_ask_follows", async () => {
     const drawer = await openDrawer(full);
     const title = drawer.querySelector(".order-title")!;
@@ -90,8 +90,7 @@ describe("O15: the Drawer shows a title, the done line and the folded prompt", (
 
   it("o15_no_list_is_drawn", async () => {
     const drawer = await openDrawer(full);
-    await waitFor(() => expect(drawer.querySelector("summary")).not.toBeNull());
-    expect(drawer.querySelector(":not(.order-prompt-body) > ul, h3")).toBeNull();
+    expect(drawer.querySelector("ul, h3")).toBeNull();
   });
 });
 

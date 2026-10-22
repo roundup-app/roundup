@@ -1,4 +1,4 @@
-import { Tip } from "../ui/Tip";
+import { createCutTitle } from "../ui/cutTitle";
 import { createEffect, createMemo, createSignal, on, onCleanup, Show } from "solid-js";
 import type { Accessor } from "solid-js";
 import type { ChangedFiles } from "@contracts/agent/ChangedFiles";
@@ -58,6 +58,9 @@ const Panel = (props: { id: string; name: string; worktree: Worktree; notes: Not
 
   const hide = () => { setOpen(false); setDiff(false); setEditing(undefined); };
 
+  const branchCut = createCutTitle(() => props.worktree.branch);
+  const baseCut = createCutTitle(() => props.worktree.base);
+
   const close = () => { hide(); control()?.focus(); };
 
   const openPanel = () => { props.onOpen(); setOpen(true); };
@@ -78,9 +81,9 @@ const Panel = (props: { id: string; name: string; worktree: Worktree; notes: Not
           <Show when={!diff()} fallback={<DiffReader id={props.id} name={props.name} path={path()!} notes={props.notes} editing={editing()} onEdited={() => setEditing(undefined)} onBack={() => { setEditing(undefined); setDiff(false); }} onClose={close} recover={props.recover} />}>
           <dl class="worktree-facts">
             <dt>{copy.branch}</dt>
-            <Tip text={props.worktree.branch}>{(trigger) => <dd {...trigger()} style={{ width: "fit-content", "max-width": "100%" }}>{props.worktree.branch}</dd>}</Tip>
+            <dd {...branchCut.attrs()} style={{ width: "fit-content", "max-width": "100%" }}>{props.worktree.branch}</dd>
             <dt>{copy.base}</dt>
-            <Tip text={props.worktree.base}>{(trigger) => <dd {...trigger()} style={{ width: "fit-content", "max-width": "100%" }}>{props.worktree.base}</dd>}</Tip>
+            <dd {...baseCut.attrs()} style={{ width: "fit-content", "max-width": "100%" }}>{props.worktree.base}</dd>
             <Show when={facts()}>
               {(state) => (
                 <>
