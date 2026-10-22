@@ -48,7 +48,8 @@ it("u3766_close_returns_the_center_to_what_it_showed", async () => {
   fireEvent.click(opener);
   const view = await screen.findByRole("region", { name: "Project settings" });
 
-  fireEvent.keyDown(view, { key: "Escape" });
+  expect(document.activeElement).toBe(view);
+  fireEvent.keyDown(document.activeElement!, { key: "Escape" });
 
   expect(screen.queryByRole("region", { name: "Project settings" })).toBeNull();
   expect(document.activeElement).toBe(opener);
