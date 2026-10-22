@@ -34,6 +34,9 @@ const kindReady = async (statusOf: () => Promise<Status | null | undefined>, exp
 
 let real: StartedDaemon;
 
+// The model requests that name `seed` as the Rail name. Journal entries stay across a retry, so callers compare counts.
+const turnsOf = async (seed: string) => (await real.model!.journal()).filter((entry) => JSON.stringify(entry.body.messages ?? []).includes(`Your Rail name is ${seed}.`)).length;
+
 // Two Workstreams of five Agents each; each Agent plays its named entry (U351).
 const FIRST = ["working", "idle", "needs-you", "working", "idle"];
 
@@ -110,10 +113,16 @@ describe("u351 the fake claude holds each Agent in a Kind, observed on the real 
       await doorReady(async () => (await tree()).find((node) => node.id === workstream)?.status, () => row(workstream));
 
       for (const [at, kind] of kinds.entries()) {
-        await spawnPrompted(app, real.dir, workstream, `seed-${agents.length}`);
+        const seed = `seed-${agents.length}`;
+        const turnsBefore = await turnsOf(seed);
+
+        await spawnPrompted(app, real.dir, workstream, seed);
         await waitFor(async () => expect(await agentsOf(workstream)).toHaveLength(at + 1), { timeout: 30_000, interval: 1000 });
 
         const born = (await agentsOf(workstream)).find((node) => !agents.some((each) => each.id === node.id))!;
+
+        // A started Claude reads Idle before its turn, and its turn waits on the runner's load: wait for the model to serve the turn (a working entry never completes), then for the Kind it reads.
+        if (kind !== "working") await waitFor(async () => expect(await turnsOf(seed)).toBeGreaterThan(turnsBefore), { timeout: 120_000, interval: 500 });
 
         // The Adapter starts at Working/starting; wait for the Kind its Claude reaches before launching the next one.
         await kindReady(async () => (await tree()).find((node) => node.id === born.id)?.status, kind);
