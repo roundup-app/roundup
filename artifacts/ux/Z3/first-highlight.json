@@ -1,0 +1,44 @@
+{
+  "date": "2026-10-22",
+  "before": {
+    "commit": "ae9d127680119ed90a89482b3a8e04373893a7f9",
+    "diffs": "1.5.2",
+    "engine": "default (Shiki JS)"
+  },
+  "after": {
+    "commit": "2bfa351f2ca0d8bd28d0cf0846afddc836f7a047",
+    "diffs": "1.6.1",
+    "engine": "highlights"
+  },
+  "fixture": "apps/desktop/src/changes/u2540.html?dense (10000 lines per side, complete rewrite, 100 notes)",
+  "viewport": "1512x950",
+  "scheme": "dark",
+  "browser": "headless Chrome 156.0.8078.47, agent-browser 0.27.0, dedicated fresh profile",
+  "platform": "Linux x86_64, 4 CPUs",
+  "units": "ms",
+  "method": "Alternate before then after six times in one dedicated session; navigate to a fresh document each time. Start performance.now immediately before clicking View diff. Poll requestAnimationFrame for [data-line] span[style*=token-keyword] in diffs-container shadowRoot; stop at the next animation frame. First pair is warm-up and excluded from medians. Local Vite servers and module loads are included after click; navigation and file selection are excluded. Concurrent release build and Rust lint produced load and jitter; these are browser observations, not a native Mac bound.",
+  "raw_samples": {
+    "before": [
+      3150.1999999999534,
+      2298.899999999907,
+      4357.699999999953,
+      3701,
+      6084.59999999986,
+      3074.600000000093
+    ],
+    "after": [
+      835.9000000001397,
+      479,
+      1505.0999999998603,
+      931.3999999999068,
+      1065,
+      1178.8000000000466
+    ]
+  },
+  "median_after_warmup": {
+    "before": 3701,
+    "after": 1065
+  },
+  "scope": "Comparison of the listed main revisions, not an isolated engine microbenchmark.",
+  "speedup": 3.48
+}
