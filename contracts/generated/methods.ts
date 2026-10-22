@@ -130,6 +130,7 @@ import type { AssignParams as todo_AssignParams } from "./todo/AssignParams";
 import type { Comment as todo_Comment } from "./todo/Comment";
 import type { CommentParams as todo_CommentParams } from "./todo/CommentParams";
 import type { CreateParams as todo_CreateParams } from "./todo/CreateParams";
+import type { HandParams as todo_HandParams } from "./todo/HandParams";
 import type { History as todo_History } from "./todo/History";
 import type { MoveParams as todo_MoveParams } from "./todo/MoveParams";
 import type { ReadHistoryParams as todo_ReadHistoryParams } from "./todo/ReadHistoryParams";
@@ -191,6 +192,7 @@ export type RpcMethods = {
   "todo.reopen": { params: todo_TodoId; result: todo_Todo };
   "todo.setBlockers": { params: todo_SetBlockersParams; result: todo_Todo };
   "todo.assign": { params: todo_AssignParams; result: todo_Todo };
+  "todo.hand": { params: todo_HandParams; result: todo_Todo | null };
   "todo.move": { params: todo_MoveParams; result: todo_Todo };
   "todo.reorder": { params: todo_ReorderParams; result: todo_Todo };
   "todo.delete": { params: todo_TodoId; result: null };
