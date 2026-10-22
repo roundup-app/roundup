@@ -974,7 +974,7 @@ async fn call(spec: &Spec, leaf: &ArgMatches, matches: &ArgMatches) -> ExitCode 
                 .filter(|id| !id.is_empty())
         });
     let actor = match (spec.method, agent) {
-        ("message.resolveResult", _) => Actor::user(),
+        ("message.resolveResult" | "message.resumeWork", _) => Actor::user(),
         (_, Some(id)) => Actor {
             kind: ActorKind::Agent,
             id,
