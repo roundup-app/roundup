@@ -10,6 +10,7 @@ import { Icon } from "../ink/Icon";
 import { Markdown } from "../plain/Markdown";
 import "./styles.css";
 import { useConnectedProject } from "../state/connectedProject";
+import { WorkProgress } from "./WorkProgress";
 
 type SpawnRead = { id: string; prompt: string | null; error: string | null };
 
@@ -368,6 +369,7 @@ const OrderContent = (props: OrderInput) => {
           }
         </Match>
       </Switch>}>{editor()}</Show>
+      <Show when={props.recovery === undefined}><WorkProgress id={props.id} /></Show>
       <Show when={!props.inline && order()?.kind === "work" ? spawn()?.error : undefined}>
         {(text) => <p class="order-prompt-error">{text()}</p>}
       </Show>
