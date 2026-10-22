@@ -543,7 +543,7 @@ export const copy = {
   takeOver: "Take control",
   projectOverview: "Project overview",
   toolCallRunning: "Running",
-  toolCallDone: "Done",
+  toolCallDone: "Finished",
   toolCallFailed: "Failed",
   toolCallArguments: "Arguments",
   toolCallResult: "Result",
