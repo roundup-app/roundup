@@ -24,6 +24,9 @@ pub struct Todo {
     pub home: Option<String>,
     /// Who does the work (T16): the user, one Agent, or `None` for Unassigned. Never `creator`.
     pub owner: Option<Actor>,
+    /// Links to Pads and Pad sections (T27), in the order added. A Todo from before refs reads none.
+    #[serde(default)]
+    pub refs: Vec<String>,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize, TS, JsonSchema)]
@@ -170,6 +173,31 @@ pub struct Comment {
 pub struct CommentParams {
     pub id: u32,
     pub body: String,
+}
+
+/// Adds or removes a link to a Pad or Pad section on a Todo (T27): `roundup://pad/<name>?project=<key>`, ending in `#<heading>` for a section.
+#[derive(Clone, Debug, Serialize, Deserialize, TS, JsonSchema)]
+#[ts(export, export_to = "todo/")]
+pub struct RefParams {
+    pub id: u32,
+    pub url: String,
+}
+
+/// Whether the Pad or heading a ref names exists now; computed at read, never stored.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize, TS)]
+#[serde(rename_all = "lowercase")]
+#[ts(export, export_to = "todo/")]
+pub enum RefState {
+    Ok,
+    Missing,
+}
+
+/// One ref of a Todo with its state (T27).
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, TS)]
+#[ts(export, export_to = "todo/")]
+pub struct Ref {
+    pub url: String,
+    pub state: RefState,
 }
 
 /// An unread Agent comment with the Todo it sits on (T23).
