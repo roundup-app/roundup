@@ -128,6 +128,7 @@ export const CONTRACT = {
     "todo.delete": "1ae6fee311eb5ed5",
     "todo.get": "efafb5f8dcb163ea",
     "todo.getHistory": "e0116b9c69507908",
+    "todo.hand": "ba495830d41cd014",
     "todo.list": "e65f2d968ce36845",
     "todo.markCommentsRead": "35bafabaf21370cd",
     "todo.move": "bf4d113add2591c9",
