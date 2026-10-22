@@ -15,7 +15,7 @@ const OPEN_AND_FOLDED = [
   agent("s1", "idle", "i", { parent: "shut", name: "idle-1" }),
 ];
 
-const line = (name: string) => [...rowOf(name).querySelector(".line")!.children].flatMap((child) => (child.getAttribute("title") === "" ? [...child.children] : [child])).filter((child) => !child.classList.contains("glyph"));
+const line = (name: string) => [...rowOf(name).querySelector(".line")!.children].filter((child) => !child.classList.contains("glyph"));
 
 describe("u403 a Workstream row leads with its chevron", () => {
   it("u403_the_row_leads_with_the_chevron", async () => {
