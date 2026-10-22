@@ -22,8 +22,8 @@ fn invalid(part: impl std::fmt::Display) -> RpcError {
     RpcError::new(code::INVALID_PARAMS, format!("not a link: {part}"))
 }
 
-/// The object a link names and the Project key it carries.
-fn parse(url: &str) -> Result<(Target, String), RpcError> {
+/// The object a link names, the Project key it carries and, for a Pad, the heading it ends in (LK4).
+fn parse(url: &str) -> Result<(Target, String, Option<String>), RpcError> {
     let url =
         url::Url::parse(url).map_err(|err| invalid(format!("the URL does not parse ({err})")))?;
     if url.scheme() != "roundup" {
@@ -65,6 +65,20 @@ fn parse(url: &str) -> Result<(Target, String), RpcError> {
     let key = key
         .filter(|key| !key.is_empty())
         .ok_or_else(|| invalid("the `project` parameter is missing"))?;
+    let heading = url
+        .fragment()
+        .map(|fragment| {
+            percent_encoding::percent_decode_str(fragment)
+                .decode_utf8()
+                .map(std::borrow::Cow::into_owned)
+                .map_err(|_| invalid("the fragment is not UTF-8"))
+        })
+        .transpose()?;
+    if let Some(fragment) = heading.as_deref().filter(|_| kind != "pad") {
+        return Err(invalid(format!(
+            "the fragment `#{fragment}` is only for a pad link"
+        )));
+    }
     let target = match kind.as_str() {
         "deliverable" => Target::Deliverable(id),
         "pad" => Target::Pad(id),
@@ -76,13 +90,13 @@ fn parse(url: &str) -> Result<(Target, String), RpcError> {
         "workstream" => Target::Workstream(id),
         _ => Target::Terminal(id),
     };
-    Ok((target, key))
+    Ok((target, key, heading))
 }
 
 impl Daemon {
     pub(crate) async fn link_read(&self, conn: &mut Conn, args: Value) -> Result<Value, RpcError> {
         let LinkUrl { url } = params(args)?;
-        let (target, key) = parse(&url)?;
+        let (target, key, heading) = parse(&url)?;
         // Publications carry their stored Project identity; their reader checks it rather than
         // the current-content link key, so neither identity can substitute for the other.
         if !matches!(&target, Target::Deliverable(_)) && key != self.project_key {
@@ -106,7 +120,22 @@ impl Daemon {
                 let pad: pad::Pad = self
                     .read_as(conn, "pad", &id, "pad.read", json!({ "name": id }))
                     .await?;
-                LinkContent::Pad { id, pad }
+                let section = heading
+                    .map(|heading| {
+                        pads::section::find(&pad.text, &pads::section::wanted(&heading))
+                            .map(|found| contracts::link::Section {
+                                heading: found.heading,
+                                text: found.text,
+                            })
+                            .ok_or_else(|| {
+                                RpcError::new(
+                                    code::NOT_FOUND,
+                                    format!("not found: pad {id} has no heading \"{heading}\""),
+                                )
+                            })
+                    })
+                    .transpose()?;
+                LinkContent::Pad { id, pad, section }
             }
             Target::Todo(number) => {
                 let id = number.to_string();
