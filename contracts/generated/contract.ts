@@ -40,6 +40,7 @@ export const CONTRACT = {
     "decision.answers": "62fa35a8b218f55c",
     "decision.capture": "daa8a9b947ed0149",
     "decision.list": "584a15f937c38aff",
+    "decision.revoke": "383bbee53e94ab35",
     "deliverable.get": "61cfff90cfe5766f",
     "deliverable.list": "e90e2a3db3efeb1d",
     "deliverable.move": "c0bc47257c05f0db",

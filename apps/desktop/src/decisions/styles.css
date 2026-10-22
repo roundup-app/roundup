@@ -17,6 +17,7 @@
 
 /* The arguments scroll inside the Card (U113); `allow` and `deny` sit below this region, never in it (U194). */
 .decision-card > .decision-args,
+.decision-card > .decision-body,
 .decision-card > .decision-question {
   flex: 0 1 auto;
   min-height: 0;
@@ -124,4 +125,89 @@
 .decision-list-failure > [role="alert"] {
   white-space: normal;
   overflow-wrap: anywhere;
+}
+
+/* U3794: who asks, why and what will happen scroll inside the Card; the scope control and the buttons stay below. */
+.decision-body {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--space-1);
+  overflow-wrap: anywhere;
+}
+
+.decision-title,
+.decision-reason {
+  margin: 0;
+}
+
+.decision-title code,
+.decision-effects code {
+  font-family: var(--font-mono);
+  white-space: pre-wrap;
+}
+
+.decision-tag {
+  font-size: var(--text-caption);
+  color: var(--red);
+  background: var(--selected);
+  border-radius: var(--radius-chip);
+  padding: 0 var(--space-1);
+}
+
+.decision-effects {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  font-size: var(--text-small);
+}
+
+.decision-added {
+  color: var(--text);
+}
+
+.decision-removed {
+  color: var(--red);
+}
+
+.decision-card > .app-segments {
+  margin-top: var(--space-2);
+}
+
+/* U3795: the line an answered Card folds to. */
+.decision-fold {
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-height: var(--space-5);
+  padding: var(--space-1) var(--space-2);
+  background: var(--sunken);
+  font-size: var(--text-small);
+  overflow: hidden;
+}
+
+.decision-fold[data-animated="true"] {
+  animation: decision-fold var(--duration-toast) var(--easing-out);
+}
+
+@keyframes decision-fold {
+  from {
+    opacity: 0;
+    height: 0;
+  }
+
+  to {
+    opacity: 1;
+    height: calc(var(--space-5) + var(--space-2));
+  }
+}
+
+.decision-fold-target {
+  flex: 1 1 0;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-family: var(--font-mono);
 }

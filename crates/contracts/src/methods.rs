@@ -237,6 +237,7 @@ pub const METHODS: &[Method] = &[
         "decision_AnswerParams",
         "null | agent_HeldAction",
     ),
+    m("decision.revoke", "decision_RevokeParams", "null"),
     m("rail.tree", "null", "agent_RailNode[]"),
     m(
         "rail.createWorkstream",
