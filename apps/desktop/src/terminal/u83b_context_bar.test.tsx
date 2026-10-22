@@ -15,7 +15,7 @@ const open = async (overview: ConversationOverview) => {
   const { connected, app } = await mountPane([agent("a", "done", "finished", { terminal_id: null, overview })]);
   app.handlers["agent.spawnPrompt"] = () => ({ prompt: "p" });
   connected.rail.select("a");
-  await screen.findByText("opaque");
+  await screen.findByRole("button", { name: "Copy session id" });
 };
 
 describe("U83b context bar", () => {
@@ -32,12 +32,12 @@ describe("U83b context bar", () => {
     await open({ ...base, used: 84000, context_parts: split });
     const buttons = screen.getAllByRole("button", { name: /Tools|System prompt/ });
     buttons[0]!.focus();
-    expect(screen.getByRole("status").textContent).toBe("System prompt: 6,000 tokens, 3% of the limit");
+    expect(document.querySelector(".context-live")!.textContent).toBe("System prompt: 6,000 tokens, 3% of the limit");
     fireEvent.keyDown(buttons[0]!, { key: "ArrowRight" });
     expect(document.activeElement).toBe(buttons[1]);
-    expect(screen.getByRole("status").textContent).toContain("Tools: 18,000 tokens, 9%");
+    expect(document.querySelector(".context-live")!.textContent).toContain("Tools: 18,000 tokens, 9%");
     fireEvent.mouseEnter(screen.getByText("Files").closest("li")!);
-    expect(screen.getByRole("status").textContent).toContain("Files: 12,000 tokens");
+    expect(document.querySelector(".context-live")!.textContent).toContain("Files: 12,000 tokens");
     expect(screen.getByText("Tools").closest("li")!.hasAttribute("data-dim")).toBe(true);
     expect(screen.getByText("Files").closest("li")!.hasAttribute("data-dim")).toBe(false);
   });
@@ -52,7 +52,7 @@ describe("U83b context bar", () => {
     cleanup();
     const { connected } = await mountPane([agent("a", "done", "finished", { terminal_id: null, overview: { ...base, id: "no-used" } })]);
     connected.rail.select("a");
-    await screen.findByText("no-used");
+    await screen.findByRole("button", { name: "Copy session id" });
     expect(screen.queryByRole("meter")).toBeNull();
     expect(screen.queryByText("Context")).toBeNull();
   });
