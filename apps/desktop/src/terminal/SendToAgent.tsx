@@ -5,6 +5,7 @@ import { copy } from "../copy";
 import { ErrorLine } from "../ink/ErrorLine";
 import { KindGlyph } from "../ink/KindGlyph";
 import { Menu } from "../ui/Menu";
+import { modalOpen } from "../ui/modalOpen";
 import { Popover } from "../ui/Popover";
 import { Tip } from "../ui/Tip";
 import { NOTE_MAX } from "./excerpt";
@@ -45,6 +46,9 @@ export const SendToAgent = (props: { send: ReturnType<typeof createSendSelection
 
     if (caret) input?.setSelectionRange(caret.start, caret.end, caret.direction);
   });
+
+  // U3767: a modal Dialog closes the note; its text stays held and returns when the user reopens it.
+  createEffect(() => { if (modalOpen() && control.open()) control.dismiss(); });
 
   const anchorRect = () => {
     const at = control.anchor();

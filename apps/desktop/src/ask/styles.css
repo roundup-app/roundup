@@ -24,7 +24,7 @@
   position: absolute;
   top: var(--space-5);
   left: 50%;
-  z-index: 3;
+  z-index: var(--layer-popover);
   width: min(640px, calc(100% - var(--space-5)));
   max-height: calc(100% - var(--space-6));
   transform: translateX(-50%);

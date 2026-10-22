@@ -7,8 +7,8 @@
   padding: var(--space-4);
 }
 
-/* Ark copies the content stack level to its portalled positioner; the Drawer layer is 2. */
+/* Ark copies the content stack level to its portalled positioner; the Tooltip layer sits below the Drawer (U3767). */
 .app-tooltip {
-  z-index: 3;
+  z-index: var(--layer-popover);
   padding: var(--space-2);
 }
