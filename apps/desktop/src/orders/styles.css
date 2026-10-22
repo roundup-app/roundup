@@ -171,3 +171,105 @@
 
 .order-edit-retention p { margin: 0; }
 .overview-id-note { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+
+.progress-section {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  margin-top: var(--space-3);
+}
+
+.progress-head {
+  display: flex;
+  gap: var(--space-3);
+  align-items: baseline;
+  justify-content: space-between;
+}
+
+.progress-head h3 {
+  margin: 0;
+}
+
+.progress-rows {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.progress-row {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--space-1);
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.progress-row[data-current="false"] {
+  color: var(--grey);
+}
+
+.progress-row p {
+  margin: 0;
+}
+
+.progress-states {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  font-size: var(--text-small);
+  color: var(--grey);
+}
+
+.progress-state[data-state="unknown"],
+.progress-state[data-state="unavailable"] {
+  color: var(--text);
+}
+
+.progress-label {
+  color: var(--grey);
+}
+
+.progress-note,
+.progress-status {
+  font-size: var(--text-small);
+  color: var(--grey);
+}
+
+.progress-status {
+  display: flex;
+  gap: var(--space-2);
+  align-items: center;
+  margin: 0;
+}
+
+.progress-status:empty {
+  position: absolute;
+}
+
+.progress-state {
+  display: inline-flex;
+  gap: var(--space-1);
+  align-items: center;
+}
+
+.progress-failure {
+  display: flex;
+  gap: var(--space-2);
+  align-items: flex-start;
+  margin: 0;
+  font-size: var(--text-small);
+}
+
+.progress-evidence {
+  max-width: 100%;
+  text-align: left;
+  overflow-wrap: anywhere;
+}
+
+.progress-evidence::before {
+  content: "\2197\00a0";
+}
