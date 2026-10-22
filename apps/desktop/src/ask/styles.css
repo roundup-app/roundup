@@ -372,8 +372,8 @@ button.ask-line:is(:active, [data-pressed="true"]) {
 
 .call-agent,
 .call-tool {
-  flex-shrink: 0;
-  max-width: 30%;
+  flex-shrink: 1;
+  min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -385,7 +385,7 @@ button.ask-line:is(:active, [data-pressed="true"]) {
 }
 
 .call-summary {
-  flex: 1 1 auto;
+  flex: 1 100 auto;
   min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
