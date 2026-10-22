@@ -105,6 +105,7 @@ impl Store {
     }
 
     /// Every id in `blockers` must exist, or the call is `NOT_FOUND`.
+    #[allow(clippy::too_many_arguments)]
     pub(crate) fn insert(
         &self,
         title: &str,
@@ -198,6 +199,7 @@ impl Store {
         ids.into_iter().map(|id| self.get(id)).collect()
     }
 
+    #[allow(clippy::too_many_arguments)]
     pub(crate) fn update(
         &self,
         id: u32,
