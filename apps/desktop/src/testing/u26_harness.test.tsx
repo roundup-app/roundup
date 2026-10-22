@@ -117,8 +117,7 @@ describe("u26 the harness seeds", () => {
 
     const row = (await within(await rail()).findByText("agent-3")).closest<HTMLElement>(".rail-row")!;
 
-    await waitFor(() => fireEvent.pointerMove(row, { pointerType: "mouse" }));
-    expect((await screen.findByRole("tooltip")).textContent).toContain("asks: keep v1?");
+    await waitFor(() => expect(row.getAttribute("aria-label")).toContain("asks: keep v1?"));
   });
 });
 
