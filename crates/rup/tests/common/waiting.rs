@@ -44,21 +44,27 @@ pub async fn until_async<T>(what: &str, mut probe: impl AsyncFnMut() -> Option<T
     .unwrap_or_else(|_| panic!("never: {what}"))
 }
 
-/// The model's journal holds a user message with `needle`: the prompt reached real Claude.
+/// The model's journal holds a user message with `needle`: the prompt reached real Claude. aimock
+/// truncates a body over 64 KB, as a long resumed conversation is; the fixture it then matched on the
+/// user message names the prompt instead.
 pub async fn received(model: &aimock::Model, needle: &str) {
     until(&format!("the model received {needle:?}"), || {
         model
             .journal()
             .iter()
             .any(|entry| {
-                entry["body"]["messages"]
-                    .as_array()
-                    .is_some_and(|messages| {
-                        messages.iter().any(|m| {
-                            m["role"] == "user"
-                                && m["content"].as_str().is_some_and(|t| t.contains(needle))
+                entry["body"]["__aimock_truncated"] == true
+                    && entry["response"]["fixture"]["match"]["userMessage"]
+                        .as_str()
+                        .is_some_and(|t| t.contains(needle))
+                    || entry["body"]["messages"]
+                        .as_array()
+                        .is_some_and(|messages| {
+                            messages.iter().any(|m| {
+                                m["role"] == "user"
+                                    && m["content"].as_str().is_some_and(|t| t.contains(needle))
+                            })
                         })
-                    })
             })
             .then_some(())
     })

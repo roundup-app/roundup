@@ -515,3 +515,35 @@ continuation eligibility remains outside this holder.
 
 M1–M10, Message/Route/Held/Takeover transitions and `proofs/messages` stay unchanged:
 resolution reads and appends evidence; it neither creates nor delivers a Message.
+
+
+## Resuming unfinished work (U3078d-h)
+
+`message.reconcileWork` reads and `message.resumeWork` (user only, `rup message resume-work`)
+accepts. Both read the retained Result reports; neither starts a program, restarts an Agent
+or calls a Model.
+
+An action is a current report whose `next` is not empty, or a resolved not-performed
+external effect. Its id hashes the Agent, instruction and order revisions, target and
+version, output and next step, so a retry, a fresh client request id, a restart and a
+concurrent observer name the same action. A report on an older instruction or version is
+history: its acceptance appears as context marked older and verifies nothing about the
+replacement. An unresolved unknown-effect report is never an action; the successor lists it
+under "never issue again, check the receipt first". Only a user-authorized receipt showing
+the exact target and version was not performed makes it an action, and its text tells the
+Agent to read the receipt again before issuing the effect.
+
+One decision accepts all its actions at most once ever. `continuation_decisions` and
+`continuation_actions` are written in the same transaction as the successor Message
+(`Messages::continue_work`, through `send_message_with`), so a fault before the commit
+leaves neither and a fault after it leaves both. A retry of the request returns the
+original; the same request id with another payload is refused. A reaction run whose
+operation is `continue:<action id>` records its firing against the decision's Message, and
+an existing firing with that operation is the Message a resume returns.
+
+The successor is an ordinary Note from the Daemon: Takeover, unsent input, busy receiver,
+Held/pending/drop, batching and the ended-Agent refusal apply unchanged, so a stopped Agent
+refuses with the cause and only the separate `agent.resume` can start it. A successor
+delivered as an instruction revision continues the instruction: reports before it stay
+current. This guarantees one decision-to-Message identity, never exactly-once external
+effects. M1-M10, Routes, Held and Takeover are unchanged; `proofs/messages` needs no change.
