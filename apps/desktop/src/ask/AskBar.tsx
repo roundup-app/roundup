@@ -2,6 +2,7 @@ import { batch, untrack, createResource, createEffect, createMemo, createSignal,
 import * as v from "valibot";
 import type { AskSubmission } from "../state/asks";
 import { copy } from "../copy";
+import { openDeliverable } from "./openDeliverable";
 import { Icon } from "../ink/Icon";
 import { ErrorLine } from "../ink/ErrorLine";
 import { ASK_CLOSE, CHORDS, chordsFor } from "../keys/chords";
@@ -396,19 +397,9 @@ const Deliverables = (props: { state: ReturnType<typeof createDeliverables> }) =
     setFailure(null);
 
     try {
-      const resolved = await connected.app.rpc("deliverable.resolve", { project: record.project, id: record.id });
+      const cause = await openDeliverable(connected.app, record.project, record.id);
 
-      if (disposed) return;
-
-      if (resolved.kind === "unavailable") {
-        setFailure({ id: record.id, cause: copy.deliverableUnavailable[resolved.cause] });
-      } else if (resolved.kind === "external" && !/^https?:\/\//i.test(resolved.url)) {
-        setFailure({ id: record.id, cause: copy.deliverableUnsafe });
-      } else {
-        await connected.app.openTarget(resolved.kind === "external"
-          ? { kind: "url", url: resolved.url }
-          : { kind: "path", path: resolved.path, line: null });
-      }
+      if (!disposed && cause !== null) setFailure({ id: record.id, cause });
     } catch (error) {
       if (!(error instanceof Error)) throw error;
 

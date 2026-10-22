@@ -29,6 +29,23 @@ describe("u155 reorder a Todo row", () => {
     expect(document.activeElement).toBe(buttonOf(1));
   });
 
+  it("u155_a_row_offers_only_the_moves_that_have_a_sibling", async () => {
+    await three();
+    await screen.findByText(/todo 3/);
+
+    const arrows = (id: number) => ["Move up", "Move down"].filter((name) => {
+      const arrow = document.querySelector<HTMLElement>(`[data-id="${id}"] [aria-label="${name}"]`);
+
+      return arrow !== null && getComputedStyle(arrow).visibility !== "hidden";
+    });
+
+    expect([1, 2, 3].map(arrows)).toEqual([["Move down"], ["Move up", "Move down"], ["Move up"]]);
+    cleanup();
+    await mountTodos([todo(1)]);
+    await screen.findByText(/todo 1/);
+    expect(arrows(1)).toEqual([]);
+  });
+
   it("u155_alt_down_on_the_last_row_and_alt_up_on_the_first_call_nothing", async () => {
     const mounted = await three();
 
