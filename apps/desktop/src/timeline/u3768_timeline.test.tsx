@@ -116,8 +116,8 @@ it("u3768g_log_replays_saved_events_on_creation", async () => {
     saved.forEach(({ kind, minute }, index) => app.emit({ ...status("home", "1", kind, minute), seq: index + 1 }));
 
     return head;
-
   };
+
   const connected = await connectProject(app, { name: "p", path: "/p" }, () => false, () => NOW, () => null);
   const heard: string[] = [];
   connected.events.subscribe((each) => heard.push(each.name));
