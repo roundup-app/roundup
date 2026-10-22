@@ -431,9 +431,35 @@ pub struct ConversationOverview {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     #[ts(optional, type = "number")]
     pub limit: Option<u64>,
+    /// A2681d: what Claude Code itself measured fills `used`, in display order; absent when it
+    /// wrote no usable split.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[ts(optional)]
+    pub context_parts: Option<Vec<ContextPart>>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     #[ts(optional)]
     pub card: Option<ConversationCard>,
+}
+
+/// A2681d: one measured part of the context.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, TS)]
+#[ts(export, export_to = "agent/")]
+pub struct ContextPart {
+    pub kind: ContextPartKind,
+    #[ts(type = "number")]
+    pub tokens: u64,
+}
+
+/// A2681d: `Other` is the remainder of `used` no measured part accounts for.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize, TS)]
+#[serde(rename_all = "kebab-case")]
+#[ts(export, export_to = "agent/")]
+pub enum ContextPartKind {
+    System,
+    Tools,
+    Files,
+    Conversation,
+    Other,
 }
 
 /// A2681c: the available parts of the conversation's latest card.
@@ -969,6 +995,7 @@ mod overview_tests {
             name: None,
             used: None,
             limit: None,
+            context_parts: None,
             card: Some(ConversationCard {
                 intent: Some("Keep intent".into()),
                 ..Default::default()
@@ -979,6 +1006,36 @@ mod overview_tests {
             json!({
                 "program":"Claude Code", "id":"opaque", "card":{"intent":"Keep intent"}
             })
+        );
+    }
+
+    #[test]
+    fn a2681d_contract_omits_absent_parts() {
+        let overview = ConversationOverview {
+            program: "Claude Code".into(),
+            id: "opaque".into(),
+            name: None,
+            used: Some(10),
+            limit: None,
+            context_parts: Some(vec![ContextPart {
+                kind: ContextPartKind::Files,
+                tokens: 4,
+            }]),
+            card: None,
+        };
+        assert_eq!(
+            serde_json::to_value(&overview).unwrap()["context_parts"],
+            json!([{"kind":"files","tokens":4}])
+        );
+        let bare = ConversationOverview {
+            context_parts: None,
+            ..overview
+        };
+        assert!(
+            serde_json::to_value(bare)
+                .unwrap()
+                .get("context_parts")
+                .is_none()
         );
     }
 }
