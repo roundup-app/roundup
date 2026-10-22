@@ -67,7 +67,7 @@ export const TodoRefs = (props: { id: number }) => {
       else {
         // The section unmounted: the first control among what now sits where it was.
         const following = [...(parent?.children ?? [])].slice(index).filter((next) => next instanceof HTMLElement);
-        const control = following.flatMap((next) => [next, ...next.querySelectorAll<HTMLElement>("button, a[href]")]).find((found) => found.matches("button, a[href]"));
+        const control = following.flatMap((next) => [next, ...next.querySelectorAll<HTMLElement>("button,a[href]")]).find((found) => found.matches("button,a[href]"));
         control?.focus();
       }
     }
