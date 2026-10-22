@@ -8,6 +8,7 @@ import { IconButton } from "../ui/IconButton";
 import { TreeView } from "../ui/TreeView";
 import { ownKeys } from "./rows";
 import { Tip } from "../ui/Tip";
+import { createCutTitle } from "../ui/cutTitle";
 import type { RailNode } from "@contracts/agent/RailNode";
 import type { Kind } from "@contracts/Kind";
 import { glyphOf, hasInk } from "../ink/glyph";
@@ -158,28 +159,9 @@ export const RailRowView = (props: {
 
   const workstream = () => isWorkstream(props.row.node);
 
-  // U2228a: a name cut to `…` in the layout it has now (hovered, focused or selected included) puts its full text in the row's native `title`.
-  const [cut, setCut] = createSignal(false);
-  let nameBox: HTMLSpanElement | undefined;
-  const measure = () => setCut(!!nameBox && nameBox.scrollWidth > nameBox.clientWidth);
-
-  createEffect(() => {
-    props.row.node.name;
-    near();
-    props.selected;
-    editing();
-    queueMicrotask(measure);
-  });
-
-  createEffect(() => {
-    const row = nameBox?.closest(".rail-row");
-
-    if (!nameBox || !row || typeof ResizeObserver === "undefined") return;
-
-    const observer = new ResizeObserver(measure);
-    observer.observe(row);
-    observer.observe(nameBox);
-    onCleanup(() => observer.disconnect());
+  const cutName = createCutTitle(() => props.row.node.name, {
+    track: () => { near(); props.selected; editing(); },
+    watch: (box) => box.closest(".rail-row"),
   });
 
   const kind = (): Kind | null => props.row.node.status?.kind ?? null;
@@ -208,7 +190,7 @@ export const RailRowView = (props: {
   const rowProps = () => ({
     class: "rail-row",
     "data-id": props.row.node.id,
-    title: cut() && !editing() ? props.row.node.name : undefined,
+    title: !editing() ? cutName.title() : undefined,
     // The Rail's selected mark and the drop target both read the row itself.
     "data-selected": props.selected ? "true" : undefined,
     tabIndex: props.tabbable ? 0 : -1,
@@ -228,7 +210,7 @@ export const RailRowView = (props: {
         <span
           id={nameId()}
           class="name"
-          ref={nameBox}
+          ref={cutName.ref}
           classList={{ ink: inkTone() !== undefined }}
           data-tone={inkTone()}
           onDblClick={() => setEditing(true)}
