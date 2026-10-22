@@ -2,13 +2,10 @@ import { createEffect, createSignal, onCleanup, Show, type JSX } from "solid-js"
 import type { ToolCall } from "@contracts/agent/ToolCall";
 import { copy } from "../copy";
 import { Collapsible } from "../ui/Collapsible";
-import { KindGlyph } from "../ink/KindGlyph";
 import { Tip } from "../ui/Tip";
 import { useConnectedProject } from "../state/connectedProject";
 
 const STATES = { running: copy.toolCallRunning, done: copy.toolCallDone, failed: copy.toolCallFailed } as const;
-
-const KINDS = { running: "working", done: "done", failed: "error" } as const;
 
 const COPIED_MS = 1500;
 
@@ -84,7 +81,7 @@ export const ToolCallLine = (props: { name: string; call: ToolCall }): JSX.Eleme
           <span class="call-tool">{props.call.tool}</span>
           <span {...trigger()} class="call-summary">{props.call.summary}</span>
         </Collapsible.Trigger>
-        <span class="call-state" data-tone={props.call.state === "failed" ? "red" : undefined}><KindGlyph kind={KINDS[props.call.state]} decorative />{label()}</span>
+        <span class="call-state" data-tone={props.call.state === "failed" ? "red" : undefined}>{label()}</span>
         <span class="call-time">{time()}</span>
       </div>
     }</Tip>

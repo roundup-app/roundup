@@ -336,6 +336,7 @@ button.ask-line:is(:active, [data-pressed="true"]) {
 }
 
 .call-line {
+  box-sizing: border-box;
   container-type: inline-size;
   font-size: var(--text-small);
   color: var(--grey);
