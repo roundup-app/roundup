@@ -43,7 +43,10 @@ describe("u3771 the motion reads its timings from Tokens", () => {
 
   it("u3771_the_effects_resolve_the_token_durations", () => {
     const read = (file: string) => readFileSync(new URL(file, import.meta.url), "utf8");
-    const [tokens, rows, bar] = ["../tokens.css", "rowButton.styles.css", "../ui/Progress.css"].map(read) as [string, string, string];
+    const tokens = read("../tokens.css");
+    const rows = read("rowButton.styles.css");
+    const bar = read("../ui/Progress.css");
+
     const effects: [string, string, string][] = [
       [rows, "todo-ring-pop", "--duration-ring"],
       [rows, "todo-tick-draw", "--duration-tick"],
