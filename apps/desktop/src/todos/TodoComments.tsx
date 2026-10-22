@@ -9,6 +9,9 @@ import { useConnectedProject } from "../state/connectedProject";
 import { failureOf } from "./failureOf";
 import { rowButtonOf, triage } from "./triage";
 
+// Rows are keyed by id so fold state, focus and fade survive an arrival.
+const byId = { key: "id" };
+
 /** Unsent text per Todo, kept when the Drawer closes so Esc loses no draft. */
 const drafts = new Map<number, string>();
 
@@ -89,7 +92,7 @@ export const TodoComments = (props: { id: number }) => {
       setFresh((before) => new Set<number>([...before, ...arrived.map((comment) => comment.id)]));
 
       if (arrived.length > 0) setAnnouncement(arrived.map((comment) => `${author(comment)}: ${spoken(comment)}`).join("\n"));
-      setThread(reconcile(comments, { key: "id" }));
+      setThread(reconcile(comments, byId));
 
       if (comments.some((comment) => !comment.read)) await app.rpc("todo.markCommentsRead", { id });
     });
@@ -97,7 +100,7 @@ export const TodoComments = (props: { id: number }) => {
     if (alive && mine === latest && id === props.id) setFailure(message);
   };
 
-  createEffect(on(() => props.id, () => { setThread(reconcile([], { key: "id" })); setFresh(new Set<number>()); setAnnouncement(""); shown = null; setFailure(null); setTextNow(drafts.get(props.id) ?? ""); void refresh(); }));
+  createEffect(on(() => props.id, () => { setThread(reconcile([], byId)); setFresh(new Set<number>()); setAnnouncement(""); shown = null; setFailure(null); setTextNow(drafts.get(props.id) ?? ""); void refresh(); }));
   onCleanup(events.subscribe((event) => { if (event.name === "todo.commented" && event.data.id === props.id) void refresh(); }));
   onCleanup(() => { alive = false; latest++; });
 
