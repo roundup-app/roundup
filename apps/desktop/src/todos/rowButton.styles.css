@@ -77,17 +77,71 @@
   background-color: var(--accent);
 }
 
-.todo-tick:checked::after {
-  content: "✓";
+/* U3769: the tick is an SVG stroke over the checked box; unchecked, its dash offset hides it. */
+.todo-tick-box {
+  position: relative;
+  display: inline-flex;
+  flex: none;
+}
+
+.todo-tick-mark {
   position: absolute;
   top: var(--space-1);
-  bottom: var(--space-1);
   left: 0;
-  right: var(--space-2);
-  font-size: var(--text-caption);
-  line-height: var(--space-4);
-  text-align: center;
-  color: var(--sunken);
+  width: var(--space-4);
+  height: var(--space-4);
+  pointer-events: none;
+  fill: none;
+  stroke: var(--sunken);
+  stroke-width: 1.5;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.todo-tick-mark path {
+  stroke-dasharray: 1;
+  stroke-dashoffset: 1;
+}
+
+.todo-tick:checked + .todo-tick-mark path { stroke-dashoffset: 0; }
+
+/* U3769: a done label is struck; the strike is a background that the finish animation grows (U3770). */
+.todo-row .shelf-title {
+  background-image: linear-gradient(currentColor, currentColor);
+  background-repeat: no-repeat;
+  background-position: 0 55%;
+  background-size: 0 1px;
+}
+
+.todo-row:has(.todo-tick:checked) .shelf-title { background-size: 100% 1px; }
+
+/* U3770: a finish plays the tick, ring and strike once; nothing carries `data-motion` at rest. Unchecking runs them backwards. */
+@keyframes todo-tick-draw { from { stroke-dashoffset: 1; } to { stroke-dashoffset: 0; } }
+@keyframes todo-ring-pop { 0% { transform: scale(0.9); } 55% { transform: scale(1.06); } 100% { transform: scale(1); } }
+@keyframes todo-strike-grow { from { background-size: 0 1px; } to { background-size: 100% 1px; } }
+
+.todo-row[data-motion="play"] .todo-tick::before {
+  animation: todo-ring-pop var(--duration-ring) var(--ease-pop) both;
+}
+
+.todo-row[data-motion="play"] .todo-tick:checked + .todo-tick-mark path {
+  animation: todo-tick-draw var(--duration-tick) var(--ease-todo) var(--delay-tick) both;
+}
+
+.todo-row[data-motion="play"] .todo-tick:not(:checked) + .todo-tick-mark path {
+  animation: todo-tick-draw var(--duration-tick) var(--ease-todo) both reverse;
+}
+
+.todo-row[data-motion="play"]:has(.todo-tick:checked) .shelf-title {
+  animation: todo-strike-grow var(--duration-strike) var(--ease-todo) var(--delay-strike) both;
+}
+
+.todo-row[data-motion="play"]:not(:has(.todo-tick:checked)) .shelf-title {
+  animation: todo-strike-grow var(--duration-strike) var(--ease-todo) both reverse;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .todo-row .todo-tick::before, .todo-row .todo-tick-mark path, .todo-row .shelf-title { animation: none !important; }
 }
 
 .todo-tick:disabled { cursor: default; }
@@ -252,4 +306,29 @@
 
 @media (prefers-reduced-motion: reduce) {
   .todo-done-fold { transition: none; }
+}
+
+/* U3768: the bar and `<done>/<total>` sit above the first group in the quiet secondary type, taking no focus. */
+.todo-progress {
+  padding-inline: var(--space-2);
+  padding-block: var(--space-1);
+  font-size: var(--text-caption);
+  color: var(--grey);
+}
+
+.todo-progress-count {
+  flex: none;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+
+/* U3770: the count rolls in when a finish replaces it; a mounted count carries no animation. */
+@keyframes todo-count-roll { from { opacity: 0; transform: translateY(var(--space-1)); } to { opacity: 1; transform: none; } }
+
+.app-progress[data-motion="play"] .todo-progress-count {
+  animation: todo-count-roll var(--duration-count) var(--ease-todo) both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .todo-progress-count { animation: none !important; }
 }
