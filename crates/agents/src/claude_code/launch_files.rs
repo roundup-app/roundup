@@ -2,6 +2,7 @@
 
 use serde_json::Value;
 use std::io::{ErrorKind, Write};
+use std::os::unix::fs::PermissionsExt;
 use std::path::{Path, PathBuf};
 use std::time::{Duration, Instant};
 
@@ -120,4 +121,11 @@ pub(super) fn landing(path: &Path) -> std::io::Result<PathBuf> {
         },
         found => found,
     }
+}
+
+/// Claude Code refuses a messaging socket in a folder anyone else can reach.
+pub(super) fn socket_folder() -> std::io::Result<tempfile::TempDir> {
+    let folder = tempfile::Builder::new().prefix("rup-").tempdir()?;
+    std::fs::set_permissions(folder.path(), std::fs::Permissions::from_mode(0o700))?;
+    Ok(folder)
 }

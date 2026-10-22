@@ -16,7 +16,9 @@ use unicode_normalization::UnicodeNormalization;
 
 use super::brief::{self, Role};
 use super::extras;
-use super::launch_files::{ConfigLock, landing, replace_file, replace_text, shell_quote};
+use super::launch_files::{
+    ConfigLock, landing, replace_file, replace_text, shell_quote, socket_folder,
+};
 use super::models::{Lean, Pair};
 use super::plugins;
 use super::profiles::profile;
@@ -910,13 +912,6 @@ impl Launcher {
             .get_or_init(|| socket_folder().expect("a private folder for messaging sockets"))
             .path()
     }
-}
-
-/// Claude Code refuses a messaging socket in a folder anyone else can reach.
-fn socket_folder() -> std::io::Result<tempfile::TempDir> {
-    let folder = tempfile::Builder::new().prefix("rup-").tempdir()?;
-    std::fs::set_permissions(folder.path(), std::fs::Permissions::from_mode(0o700))?;
-    Ok(folder)
 }
 
 fn parse_id(id: &str) -> Option<u64> {
