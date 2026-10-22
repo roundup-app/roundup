@@ -2232,7 +2232,7 @@ async fn lc5_a_worker_gets_the_plugins_and_global_instructions() {
         .unwrap();
     assert!(!has(&argv, "--disable-slash-commands"));
     assert!(!has(&argv, "--tools"));
-    assert_eq!(argv.iter().filter(|arg| *arg == "--plugin-dir").count(), 4);
+    assert_eq!(argv.iter().filter(|arg| *arg == "--plugin-dir").count(), 3);
     let text = std::fs::read_to_string(Setup::after(&argv, "--append-system-prompt-file").unwrap())
         .unwrap();
     assert!(text.contains("## The user's global instructions (read-only)\n\nUSER GLOBAL RULE"));
@@ -2351,7 +2351,7 @@ async fn lc6_a_user_started_agent_keeps_the_users_setup() {
     assert!(has(&argv, "--settings") && has(&argv, "--mcp-config"));
     let settings = read(Path::new(Setup::after(&argv, "--settings").unwrap()));
     assert_eq!(settings["permissions"]["allow"], json!(["mcp__roundup__*"]));
-    assert_eq!(argv.iter().filter(|arg| *arg == "--plugin-dir").count(), 4);
+    assert_eq!(argv.iter().filter(|arg| *arg == "--plugin-dir").count(), 3);
 }
 
 /// A Project skill, a user plugin and a user MCP server, for LC7 and LC8.
