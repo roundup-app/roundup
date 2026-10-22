@@ -16,6 +16,7 @@
 }
 
 .note-queue-step {
+  flex: 1;
   text-align: start;
   min-width: 0;
   overflow: hidden;
@@ -61,10 +62,6 @@
 }
 
 .note-queue-row[data-closing],
-.note-queue-pause {
-  margin-inline-start: auto;
-}
-
 .note-queue-head[data-closing] {
   transform: translateY(var(--close-up, 0px));
   transition: transform var(--duration-note) var(--ease-note);
