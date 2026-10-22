@@ -160,6 +160,8 @@ pub(crate) async fn handle(stream: UnixStream, daemon: Arc<Daemon>) -> io::Resul
                         | "message.acceptResult"
                         | "message.verifyResult"
                         | "message.resolveResult"
+                        | "message.reconcileWork"
+                        | "message.resumeWork"
                 )
         }) || matches!(
             method.as_deref(),

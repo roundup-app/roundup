@@ -132,6 +132,9 @@ impl Messages {
         if let Some(firing) = earlier {
             return self.firing_message(firing);
         }
+        if let Some(reconciled) = self.firing_of_continuation(&fire)? {
+            return Ok(reconciled);
+        }
         let ctx = Ctx {
             actor: Actor::daemon(),
             bus: self.inner.bus.clone(),
@@ -144,7 +147,7 @@ impl Messages {
             reply_to: None,
         };
         let message = self
-            .send_message_with(&ctx, params, false, None, Some(&fire))
+            .send_message_with(&ctx, params, false, None, Some(&fire), None)
             .await?;
         let firing = self
             .store()?
