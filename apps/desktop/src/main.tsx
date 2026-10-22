@@ -30,7 +30,7 @@ const keystrokes = import.meta.env.VITE_ROUNDUP_PERF
       if (workload) {
         const { createFrameRun } = await import("./perf/frame_run");
 
-        return createFrameRun(app.forProject(measured.path), workload);
+        return createFrameRun(app.forProject(measured.path), workload, measured.path);
       }
 
       return createKeystrokeRun(app.forProject(measured.path));
