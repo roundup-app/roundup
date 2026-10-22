@@ -1,4 +1,5 @@
-import { createComputed, createEffect, createSignal, on, onCleanup } from "solid-js";
+import { debounce } from "@solid-primitives/scheduled";
+import { createComputed, createEffect, createSignal, on } from "solid-js";
 import type { Accessor } from "solid-js";
 
 /** One clock for a whole finish: the longest effect, `--duration-bar`, read from the computed Tokens so no literal repeats it. */
@@ -19,12 +20,14 @@ export const createFinishMotion = (input: { loaded: Accessor<boolean>; key: Acce
   const [bar, setBar] = createSignal(false);
   let before: { key: string; done: ReadonlySet<number> } | null = null;
 
-  let timer: ReturnType<typeof setTimeout> | undefined;
-
-  const settle = () => {
-    clearTimeout(timer);
+  const end = () => {
     setRows(new Set<number>());
     setBar(false);
+  };
+  const arm = debounce(end, finishMs());
+  const settle = () => {
+    arm.clear();
+    end();
   };
 
   createEffect(on(input.reduced, (reduced) => { if (reduced) settle(); }));
@@ -43,11 +46,8 @@ export const createFinishMotion = (input: { loaded: Accessor<boolean>; key: Acce
 
     setRows(new Set([...rows(), ...seen]));
     setBar(bar() || done.size !== was.done.size);
-    clearTimeout(timer);
-    timer = setTimeout(settle, finishMs());
+    arm();
   }));
-
-  onCleanup(() => clearTimeout(timer));
 
   return { row: (id: number) => rows().has(id), bar, settle };
 };
