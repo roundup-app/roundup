@@ -29,7 +29,7 @@ it("u3760_a_ref_row_opens_its_pad_at_the_section", async () => {
   const m = await open([whole, section]);
   const rows = within(panel()).getAllByRole("link");
   // The Pad's name, and the heading beside it for a section link, in the order added.
-  expect(rows.map((row) => row.textContent)).toEqual(["notes", "notes日本語"]);
+  expect(rows.map((row) => row.textContent)).toEqual(["notes", "notes · 日本語"]);
   fireEvent.click(rows[1]!);
   await waitFor(() => expect(todoCallsTo(m.app, "todo.refs")).not.toHaveLength(0));
   await waitFor(() => expect(m.app.calls.filter((call) => call.method === "pad.read").map((call) => call.params)).toEqual([{ name: "notes" }]));
@@ -64,5 +64,5 @@ it("u3760_remove_calls_once_and_events_update_the_list", async () => {
   m.store.todos = m.store.todos.map((item) => ({ ...item, refs: [added] }));
   m.app.emit({ actor: { kind: "agent", id: "a", parent: null }, name: "todo.refAdded", data: { id: 1 } });
   await within(panel()).findByRole("region", { name: "Pads · 1" });
-  expect(within(panel()).getAllByRole("link").map((row) => row.textContent)).toEqual(["notesPlan"]);
+  expect(within(panel()).getAllByRole("link").map((row) => row.textContent)).toEqual(["notes · Plan"]);
 });
