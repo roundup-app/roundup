@@ -1,4 +1,5 @@
 import { createEffect, createSignal, For, on, onCleanup, Show } from "solid-js";
+import { createStore, reconcile } from "solid-js/store";
 import type { Comment } from "@contracts/todo/Comment";
 import { copy } from "../copy";
 import { ErrorLine } from "../ink/ErrorLine";
@@ -49,7 +50,8 @@ const partsOf = (body: string, marked: boolean): Part[] => {
 /** The thread, oldest first, with a field to add to it. Opening reads it and marks it read once; a comment that arrives while it is open is read the same way. */
 export const TodoComments = (props: { id: number }) => {
   const { app, events, rail, drawer } = useConnectedProject();
-  const [thread, setThread] = createSignal<readonly Comment[]>([]);
+  // Keyed by id so a refresh keeps each comment's row, fold state and focus (U3776).
+  const [thread, setThread] = createStore<Comment[]>([]);
   const [failure, setFailure] = createSignal<string | null>(null);
   const [sendFailure, setSendFailure] = createSignal<string | null>(null);
   const [text, setTextNow] = createSignal(drafts.get(props.id) ?? "");
@@ -87,7 +89,7 @@ export const TodoComments = (props: { id: number }) => {
       setFresh((before) => new Set<number>([...before, ...arrived.map((comment) => comment.id)]));
 
       if (arrived.length > 0) setAnnouncement(arrived.map((comment) => `${author(comment)}: ${spoken(comment)}`).join("\n"));
-      setThread(comments);
+      setThread(reconcile(comments, { key: "id" }));
 
       if (comments.some((comment) => !comment.read)) await app.rpc("todo.markCommentsRead", { id });
     });
@@ -95,7 +97,7 @@ export const TodoComments = (props: { id: number }) => {
     if (alive && mine === latest && id === props.id) setFailure(message);
   };
 
-  createEffect(on(() => props.id, () => { setThread([]); setFresh(new Set<number>()); setAnnouncement(""); shown = null; setFailure(null); setTextNow(drafts.get(props.id) ?? ""); void refresh(); }));
+  createEffect(on(() => props.id, () => { setThread(reconcile([], { key: "id" })); setFresh(new Set<number>()); setAnnouncement(""); shown = null; setFailure(null); setTextNow(drafts.get(props.id) ?? ""); void refresh(); }));
   onCleanup(events.subscribe((event) => { if (event.name === "todo.commented" && event.data.id === props.id) void refresh(); }));
   onCleanup(() => { alive = false; latest++; });
 
@@ -123,11 +125,11 @@ export const TodoComments = (props: { id: number }) => {
     if (message === null) { setText(""); await refresh(); }
   };
 
-  return <section class="todo-comments" aria-label={copy.commentsHeading(thread().length)}>
-    <h3>{copy.commentsHeading(thread().length)}</h3>
+  return <section class="todo-comments" aria-label={copy.commentsHeading(thread.length)}>
+    <h3>{copy.commentsHeading(thread.length)}</h3>
     <Show when={failure()}>{(message) => <div><ErrorLine message={message()} /><button data-button="quiet" class="word" type="button" onClick={() => void refresh()}>{copy.commentRetry}</button></div>}</Show>
-    <For each={thread()}>{(comment) => <div class="todo-comment" data-comment={comment.id} data-fresh={fresh().has(comment.id) ? "" : undefined}>
-      <p class="todo-comment-head"><Show when={glyphOf(comment)}>{(node) => <KindGlyph kind={node().status?.kind ?? "idle"} />}</Show><span class="todo-comment-author">{author(comment)}</span> <time datetime={new Date(comment.created_at).toISOString()}>{copy.commentTime(comment.created_at)}</time>
+    <For each={thread}>{(comment) => <div class="todo-comment" data-comment={comment.id} data-fresh={fresh().has(comment.id) ? "" : undefined}>
+      <p class="todo-comment-head"><Show when={glyphOf(comment)} fallback={<Show when={comment.author.kind === "agent"}><span class="todo-comment-glyph-gap" aria-hidden="true" /></Show>}>{(node) => <KindGlyph kind={node().status?.kind ?? "idle"} />}</Show><span class="todo-comment-author">{author(comment)}</span> <time datetime={new Date(comment.created_at).toISOString()}>{copy.commentTime(comment.created_at)}</time>
         <Show when={comment.author.kind === "agent"}><button data-button="quiet" class="word" type="button" onClick={() => field?.focus()}>{copy.reply}</button></Show></p>
       <div class="todo-comment-parts"><For each={partsOf(comment.body, comment.author.kind === "agent")}>{(part) => isStatus(part)
         ? <Collapsible.Root class="todo-status" lazyMount unmountOnExit>
