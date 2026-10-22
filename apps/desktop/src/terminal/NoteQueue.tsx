@@ -69,7 +69,10 @@ export const NoteQueue = (props: { node: RailNode }) => {
         if (shifts) {
           element.dataset["closing"] = "";
           element.style.setProperty("--close-up", `${by}px`);
-        } else delete element.dataset["closing"];
+        } else {
+          delete element.dataset["closing"];
+          element.style.removeProperty("--close-up");
+        }
       };
 
       for (const element of items.reverse()) {
@@ -118,11 +121,11 @@ export const NoteQueue = (props: { node: RailNode }) => {
     <section ref={(element) => { root = element; }} class="note-queue" aria-label={copy.noteTo(props.node.name)}>
       <Show when={rows().length > 0 || paused()}>
         <header class="note-queue-head">
-          <Show when={rows().length > 1}><span class="note-queue-count">{copy.notesWaiting(rows().length)}</span></Show>
+          <Show when={rows().length > 1}><span class="note-queue-count" data-state="">{copy.notesWaiting(rows().length)}</span></Show>
           <Show when={paused()}><span class="note-queue-paused" role="status">{copy.paused}</span></Show>
           <span class="note-queue-step" ref={(element) => { stepLine = element; }}>{step() === null ? "" : copy.nowStep(step()!)}</span>
           <Show when={live()}>
-            <Toggle class="note-queue-pause" pressed={paused()} onPressedChange={() => void pause()}>{paused() ? copy.resumeAgent : copy.pauseAgent}</Toggle>
+            <Toggle class="note-queue-pause" pressed={paused()} onPressedChange={() => void pause()}>{paused() ? copy.resume : copy.pauseAgent}</Toggle>
           </Show>
         </header>
       </Show>
@@ -144,7 +147,7 @@ export const NoteQueue = (props: { node: RailNode }) => {
                 <Show when={senderOf(each().message)}>{(name) => <span class="note-queue-from">{name()}</span>}</Show>
                 <span class="note-queue-text">{firstLine(each().message.body)}</span>
                 <Show when={each().message.status === "held" && each().message.from.kind !== "user"}>
-                  <button data-button="quiet" type="button" class="word" disabled={daemonExit() !== null} onClick={() => void notes.allow(each().message)}>{copy.allowNote}</button>
+                  <button data-button="quiet" type="button" class="word" disabled={daemonExit() !== null} onClick={() => void notes.allow(each().message)}>{copy.allow}</button>
                 </Show>
                 <IconButton data-remove aria-label={copy.removeQueuedNote(firstLine(each().message.body))} disabled={each().leaving || daemonExit() !== null} onClick={() => remove(each().message)}>{copy.removeGlyph}</IconButton>
               </li>

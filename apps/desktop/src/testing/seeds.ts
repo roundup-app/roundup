@@ -3,6 +3,7 @@ import type { Event as DaemonEvent } from "@contracts/Event";
 import type { EventData } from "@contracts/EventData";
 import type { Decision } from "@contracts/decision/Decision";
 import type { Kind } from "@contracts/Kind";
+import type { Message } from "@contracts/message/Message";
 import type { RailNode } from "@contracts/agent/RailNode";
 import type { KeptReason } from "@contracts/agent/KeptReason";
 import type { ImportCandidate } from "@contracts/project/ImportCandidate";
@@ -510,12 +511,24 @@ export const seedApp = (name: SeedName, now: number): Controls => {
     const from = { kind: "user", id: "user", parent: null } as const;
     const base = { to: "agent-4", kind: "note", replyTo: null, passedFrom: null, reason: null, status: "pending" } as const;
 
-    app.handlers["message.list"] = () => [
+    const queued: Message[] = [
       { ...base, id: 1, from, body: `${"A very long first line that cannot fit one row of the narrowest pane ".repeat(4)}\nand a second line`, at: now },
       { ...base, id: 2, from, body: "x".repeat(120), at: now },
       { ...base, id: 3, from, body: "メモ: 次のステップで確認してください", at: now },
       { ...base, id: 4, from: { kind: "agent", id: "agent-2", parent: null }, status: "held", reason: "ask-first", body: "Shall I rebase onto main first?", at: now },
     ];
+
+    let next = 5;
+
+    app.handlers["message.list"] = () => queued;
+    app.handlers["message.send"] = ({ to, kind, body, replyTo }) => {
+      const sent = { ...base, to, kind, body, replyTo, id: next++, from, at: now };
+
+      queued.push(sent);
+      controls.emit({ actor: USER, name: "message.sent", data: sent });
+
+      return sent;
+    };
   }
 
   if (name === "resources") {
