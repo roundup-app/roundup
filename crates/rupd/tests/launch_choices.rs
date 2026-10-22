@@ -238,3 +238,40 @@ async fn u3801_an_agent_cannot_select_launch_permissions() {
     }
     assert_eq!(run.launches(1).await.len(), 1);
 }
+
+#[tokio::test]
+async fn u3801_an_agent_restart_keeps_the_users_permission_choice() {
+    let run = Run::start().await;
+    let door = run
+        .user
+        .request("rail.createWorkstream", json!({"name":"work"}))
+        .await
+        .unwrap();
+    run.user
+        .request("rail.startDoor", json!({"id":door["id"]}))
+        .await
+        .unwrap();
+    run.node(&door["id"], None).await;
+    let agent = Client::connect(&run._daemon.socket).await.unwrap();
+    agent
+        .request(
+            "daemon.identify",
+            json!({"actor":{"kind":"agent","id":door["id"]}}),
+        )
+        .await
+        .unwrap();
+    let child = agent.request("agent.spawn", json!({"cwd":run.dir.path(), "order":{"kind":"work","title":"Read repository","ask":"Read repository","done":"Report findings","limits":["Read only"]}})).await.unwrap();
+    run.node(&child["id"], None).await;
+    run.user
+        .request(
+            "agent.resume",
+            json!({"id":child["id"], "mode":"normal", "permissionMode":"plan"}),
+        )
+        .await
+        .unwrap();
+    agent
+        .request("agent.extras_add", json!({"id":child["id"], "extras":{}}))
+        .await
+        .unwrap();
+    assert_eq!(mode(&run.launches(4).await[3]), Some("plan"));
+}
