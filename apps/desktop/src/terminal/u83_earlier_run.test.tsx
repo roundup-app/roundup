@@ -21,7 +21,7 @@ describe("U83 closed Agent overview", () => {
 
     for (const text of [overview.program, overview.id, overview.name, overview.card.intent, overview.card.shape, overview.card.facts[0]!, overview.card.outcome,
       "Keep family recipes", "Notebook opens", "Keep it local"]) {
-      expect(await screen.findByText(text)).toBeTruthy();
+      expect((await screen.findAllByText(text)).length).toBeGreaterThan(0);
     }
 
     expect(screen.getByRole("meter").getAttribute("aria-valuenow")).toBe("84000");
@@ -29,7 +29,7 @@ describe("U83 closed Agent overview", () => {
     expect(screen.getByRole("meter").getAttribute("aria-valuemax")).toBe("200000");
 
     const range = document.createRange();
-    range.selectNodeContents(screen.getByText(overview.id));
+    range.selectNodeContents(screen.getByRole("button", { name: "Copy session id" }));
     window.getSelection()?.addRange(range);
     expect(window.getSelection()?.toString()).toBe(overview.id);
     expect(container.querySelector(".order-line")).toBeNull();
@@ -48,11 +48,11 @@ describe("U83 closed Agent overview", () => {
     app.handlers["agent.spawnPrompt"] = ({ id }) => id === "a" ? { prompt: "First session prompt" } : new Promise(() => {});
 
     connected.rail.select("a");
-    await screen.findByText(overview.id);
+    await screen.findByRole("button", { name: "Copy session id" });
 
     connected.rail.select("b");
-    await screen.findByText("other-session");
-    expect(screen.queryByText(overview.id)).toBeNull();
+    await waitFor(() => expect(screen.getByRole("button", { name: "Copy session id" }).textContent).toBe("other-session"));
+    expect(screen.queryAllByText(overview.id)).toHaveLength(0);
     expect(screen.queryByText(overview.name)).toBeNull();
     expect(screen.queryAllByRole("heading")).toHaveLength(0);
 
