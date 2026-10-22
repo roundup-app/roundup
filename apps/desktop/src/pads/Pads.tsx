@@ -436,7 +436,7 @@ const PadRow = (props: Parameters<typeof PadRows>[0] & { pad: Pad; parts: Parame
                 ), activationSource(event)))
               }
             >
-              <span ref={nameCut.ref} title={nameCut.title()} class="shelf-title">{pad.name}</span>
+              <span {...nameCut.attrs()} class="shelf-title">{pad.name}</span>
             </button>
               <button data-button="row-action" type="button" class="word light pad-assign" aria-label={copy.assignPadNamed(pad.name)} onClick={(event) => props.onAssign(pad.name, event.currentTarget)}>{copy.assign}</button>
             </div>

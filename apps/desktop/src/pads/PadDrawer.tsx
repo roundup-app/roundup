@@ -445,7 +445,7 @@ const PadBody = (props: {
     <div class="pad-body">
       <div class="pad-head">
         <span class="pad-head-title">
-          <span ref={nameCut.ref} title={nameCut.title()} class="pad-head-name" style={cutName}>{name}</span>
+          <span {...nameCut.attrs()} class="pad-head-name" style={cutName}>{name}</span>
           <Show when={saved() && !deleted() && !conflictActor()}>
             <span role="status" aria-live="off" data-state="saved" class="pad-saved light">{copy.padSaved}</span>
           </Show>

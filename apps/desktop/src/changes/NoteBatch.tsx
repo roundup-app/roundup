@@ -15,7 +15,7 @@ const olderComparison = (current: FileComparison | undefined, original: FileComp
 const NotePath = (props: { path: string }) => {
   const cut = createCutTitle(() => props.path);
 
-  return <p ref={cut.ref} title={cut.title()} class="note-path" style={{ width: "fit-content", "max-width": "100%" }}>{props.path}</p>;
+  return <p {...cut.attrs()} class="note-path" style={{ width: "fit-content", "max-width": "100%" }}>{props.path}</p>;
 };
 
 /** The keyboard-reachable batch remains available from the tree as well as the reader. */

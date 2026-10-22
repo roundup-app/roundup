@@ -4,6 +4,7 @@ import { createEffect, createSignal, onCleanup } from "solid-js";
 export const createCutTitle = (text: () => string, options: { track?: () => void; watch?: (box: HTMLElement) => Element | null } = {}) => {
   const [box, setBox] = createSignal<HTMLElement>();
   const [cut, setCut] = createSignal(false);
+
   const measure = () => {
     const el = box();
 
@@ -30,5 +31,8 @@ export const createCutTitle = (text: () => string, options: { track?: () => void
     onCleanup(() => observer.disconnect());
   });
 
-  return { ref: setBox, title: () => (cut() ? text() : undefined) };
+  const title = () => (cut() ? text() : undefined);
+
+  /** Spread on the cut element: its `ref` and, only while cut, its `title`. */
+  return { ref: setBox, title, attrs: () => ({ ref: setBox, title: title() }) };
 };
