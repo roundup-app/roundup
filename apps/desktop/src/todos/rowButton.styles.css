@@ -93,7 +93,7 @@
   pointer-events: none;
   fill: none;
   stroke: var(--sunken);
-  stroke-width: 1.5;
+  stroke-width: var(--stroke-tick);
   stroke-linecap: round;
   stroke-linejoin: round;
 }
@@ -105,19 +105,18 @@
 
 .todo-tick:checked + .todo-tick-mark path { stroke-dashoffset: 0; }
 
-/* U3769: a done label is struck on every line box by a 1px gradient line; the finish animation grows its background size across the label (U3770). */
+/* U3769: a done label is struck on every line box by a Token-thick line-through; the finish animation fades its colour in (U3770). */
 .todo-row .shelf-title {
-  background: linear-gradient(currentColor, currentColor) no-repeat left 55% / 0 1px;
-  box-decoration-break: clone;
-  -webkit-box-decoration-break: clone;
+  text-decoration: line-through var(--strike-thickness) transparent;
+  text-decoration-skip-ink: none;
 }
 
-.todo-row:has(.todo-tick:checked) .shelf-title { background-size: 100% 1px; }
+.todo-row:has(.todo-tick:checked) .shelf-title { text-decoration-color: currentColor; }
 
 /* U3770: a finish plays the tick, ring and strike once; nothing carries `data-motion` at rest. Unchecking runs them backwards. */
 @keyframes todo-tick-draw { from { stroke-dashoffset: 1; } to { stroke-dashoffset: 0; } }
 @keyframes todo-ring-pop { 0% { transform: scale(0.9); } 55% { transform: scale(1.06); } 100% { transform: scale(1); } }
-@keyframes todo-strike-grow { from { background-size: 0 1px; } to { background-size: 100% 1px; } }
+@keyframes todo-strike-grow { from { text-decoration-color: transparent; } to { text-decoration-color: currentColor; } }
 
 .todo-row[data-motion="play"] .todo-tick::before {
   animation: todo-ring-pop var(--duration-ring) var(--ease-pop) both;
