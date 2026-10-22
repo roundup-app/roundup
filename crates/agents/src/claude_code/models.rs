@@ -97,6 +97,23 @@ pub(super) fn permission_mode(mode: contracts::agent::PermissionMode) -> &'stati
     }
 }
 
+/// The selected launch choice is retained only for internal restarts of this Agent.
+pub(super) struct LaunchMode {
+    pub effective: String,
+    pub selected: Option<contracts::agent::PermissionMode>,
+}
+
+impl super::Launcher {
+    /// Internal restarts preserve an explicit user choice; public launch calls use their own.
+    pub fn selected_permission_mode(&self, id: &str) -> Option<contracts::agent::PermissionMode> {
+        self.modes
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner)
+            .get(id)
+            .and_then(|mode| mode.selected)
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

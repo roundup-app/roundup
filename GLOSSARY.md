@@ -51,7 +51,7 @@ implemented. `agent.spawn` and `rail.startDoor` accept an offered id; omission s
 existing Adapter. Model and Effort ids remain opaque outside their Adapter.
 
 **Permission mode** (`PermissionMode`, `permissionMode` on launch calls):
-The user's choice for one normal Attempt: `default`, `acceptEdits`, `plan` or `auto`.
+The user's choice for one normal Attempt (`LaunchMode` retains it for internal restarts): `default`, `acceptEdits`, `plan` or `auto`.
 Omission passes no permission flag, preserving the vendor's own default. `agent.spawn`,
 `rail.startDoor` and `agent.resume` apply it to their launch; `workstream.clear` applies it
 only to the next fresh Door launch. YOLO ignores it. An Agent cannot choose it, and it

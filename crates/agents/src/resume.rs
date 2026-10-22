@@ -71,7 +71,13 @@ impl Agents {
         }
         Launcher::save_lean(&self.dir, &id, &lean)?;
         if live {
-            self.resume_saved(ctx, &id, RESUME_ACK_BOUND, None).await?;
+            self.resume_saved(
+                ctx,
+                &id,
+                RESUME_ACK_BOUND,
+                self.launcher.selected_permission_mode(&id),
+            )
+            .await?;
         }
         ctx.emit(EventData::RailChanged);
         self.shared.node(&id)

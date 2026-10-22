@@ -106,7 +106,7 @@ pub struct Launcher {
     /// launch; gone with the Launcher.
     sockets: Arc<std::sync::OnceLock<tempfile::TempDir>>,
     /// B2706: the permission mode each Agent's latest normal Attempt runs in, for its notes.
-    pub(super) modes: Arc<Mutex<std::collections::HashMap<String, String>>>,
+    pub(super) modes: Arc<Mutex<std::collections::HashMap<String, super::models::LaunchMode>>>,
 }
 
 struct Delivery {
@@ -511,6 +511,10 @@ impl Launcher {
         argv.push("--messaging-socket-path".into());
         argv.push(socket.to_string_lossy().into_owned());
         if pair.yolo {
+            self.modes
+                .lock()
+                .unwrap_or_else(PoisonError::into_inner)
+                .remove(&id.to_string());
             argv.extend(["--permission-mode", "bypassPermissions"].map(String::from));
         } else {
             // A note names the same selected or inherited mode as this launch.
@@ -525,7 +529,13 @@ impl Launcher {
             self.modes
                 .lock()
                 .unwrap_or_else(std::sync::PoisonError::into_inner)
-                .insert(id.to_string(), mode);
+                .insert(
+                    id.to_string(),
+                    super::models::LaunchMode {
+                        effective: mode,
+                        selected: pair.permission_mode,
+                    },
+                );
         }
         if pair.yolo {
             argv.push("--dangerously-skip-permissions".into());
@@ -923,7 +933,6 @@ fn parse_id(id: &str) -> Option<u64> {
 fn agents_dir(dir: &Path) -> PathBuf {
     dir.join("agents")
 }
-
 
 fn settings_path(dir: &Path, id: u64) -> PathBuf {
     agents_dir(dir).join(format!("{id}.settings.json"))
