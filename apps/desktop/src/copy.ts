@@ -686,6 +686,7 @@ export const copy = {
   changeStoppedWaitingOn: (value1: CopyValue) => `No longer waits on ${value1}`,
   changeAssigned: (value1: CopyValue) => `Assigned to ${value1}`,
   changeUnassigned: "Unassigned",
+  changeHandedTo: (value1: CopyValue) => `Handed to ${value1}`,
   changeByActor: (value1: CopyValue, value2: CopyValue) => `${value1} · ${value2}`,
   changeAt: (line: CopyValue, at: number) => `${line} · ${new Date(at).toLocaleString(undefined, { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })}`,
   blockerPlaceholder: "Todo title or #id",

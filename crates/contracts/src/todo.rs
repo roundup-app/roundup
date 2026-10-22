@@ -48,6 +48,13 @@ pub struct AssignParams {
     pub expected_change: Option<u32>,
 }
 
+/// T25: the Daemon hands `agent` its first open, unblocked Todo not yet handed to it (T26).
+#[derive(Clone, Debug, Serialize, Deserialize, TS, JsonSchema)]
+#[ts(export, export_to = "todo/")]
+pub struct HandParams {
+    pub agent: String,
+}
+
 #[derive(Clone, Debug, Serialize, Deserialize, TS, JsonSchema)]
 #[ts(export, export_to = "todo/")]
 pub struct TodoId {
@@ -118,6 +125,10 @@ pub struct Change {
     #[serde(default)]
     #[ts(type = "number | null")]
     pub changed_at: Option<i64>,
+    /// T26: the Agent this Change handed the Todo to (`before` and `after` are equal); absent on every other Change.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[ts(optional)]
+    pub handed: Option<Actor>,
     /// None denotes creation or an old Todo's current baseline.
     pub before: Option<Values>,
     pub after: Values,

@@ -12,6 +12,10 @@ actor: Actor | null,
  */
 changed_at: number | null, 
 /**
+ * T26: the Agent this Change handed the Todo to (`before` and `after` are equal); absent on every other Change.
+ */
+handed?: Actor, 
+/**
  * None denotes creation or an old Todo's current baseline.
  */
 before: Values | null, after: Values, };
