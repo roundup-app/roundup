@@ -9,6 +9,7 @@ import { useConnectedProject } from "../state/connectedProject";
 import { Dialog } from "../ui/Dialog";
 import { RadioGroup } from "../ui/RadioGroup";
 import { Combobox } from "../ui/Combobox";
+import { Tip } from "../ui/Tip";
 import { Popover } from "../ui/Popover";
 import { Icon } from "../ink/Icon";
 import { failureOf } from "./failureOf";
@@ -65,6 +66,8 @@ export const NewWorkstream = (props: { target: Accessor<number | null>; done: (i
     const chosen = () => start() === "afterTodo" ? (others().find(todo => String(todo.id) === after())?.id ?? null) : null;
     const ready = () => name().trim() !== "" && (start() !== "afterTodo" || chosen() !== null) && !pending();
 
+    const createBlocked = () => name().trim() === "" ? copy.createNeedsName : start() === "afterTodo" && chosen() === null ? copy.createNeedsTodo : undefined;
+
     const create = async () => {
       if (!ready()) return;
 
@@ -102,7 +105,9 @@ export const NewWorkstream = (props: { target: Accessor<number | null>; done: (i
             <Show when={failure()}>{message => <ErrorLine message={message()} />}</Show>
             <div class="app-dialog-actions">
               <Dialog.CloseTrigger data-button="quiet">{copy.cancel}</Dialog.CloseTrigger>
-              <button type="submit" data-button="primary" disabled={!ready()}>{copy.createWorkstream}</button>
+              <Tip disabled={ready()} text={createBlocked()}>{trigger =>
+                <button {...trigger()} type="submit" data-button="primary" aria-disabled={!ready()}>{copy.createWorkstream}</button>
+              }</Tip>
             </div>
           </form>
         </Dialog.Content>

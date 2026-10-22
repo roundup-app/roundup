@@ -65,11 +65,11 @@ it("u3743_after_todo_needs_a_picked_todo_and_a_name_is_required", async () => {
   const create = () => dialog.getByRole<HTMLButtonElement>("button", { name: "Create" });
 
   fireEvent.input(dialog.getByLabelText("Workstream name"), { target: { value: "  " } });
-  expect(create().disabled).toBe(true);
+  expect(create().getAttribute("aria-disabled")).toBe("true");
   fireEvent.input(dialog.getByLabelText("Workstream name"), { target: { value: "Docs" } });
-  expect(create().disabled).toBe(false);
+  expect(create().getAttribute("aria-disabled")).toBe("false");
   await pick(dialog.getByRole("radio", { name: "Start after another Todo" }));
-  expect(create().disabled).toBe(true);
+  expect(create().getAttribute("aria-disabled")).toBe("true");
 
   fireEvent.click(await dialog.findByRole("button", { name: "Choose a Todo" }));
   const options = within(await screen.findByRole("listbox")).getAllByRole("option");
@@ -78,7 +78,7 @@ it("u3743_after_todo_needs_a_picked_todo_and_a_name_is_required", async () => {
   expect(options.map(option => option.textContent).join()).not.toContain("Ship the login fix");
   expect(options.map(option => option.textContent).join()).not.toContain("Done thing");
   fireEvent.click(options.find(option => option.textContent?.includes("#2"))!);
-  await waitFor(() => expect(create().disabled).toBe(false));
+  await waitFor(() => expect(create().getAttribute("aria-disabled")).toBe("false"));
   fireEvent.click(create());
 
   await waitFor(() => expect(callsTo(app, "todo.startWorkstream")).toHaveLength(1));

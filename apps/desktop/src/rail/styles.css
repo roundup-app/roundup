@@ -81,6 +81,12 @@
   pointer-events: auto;
 }
 
+/* U3744: a queued Workstream's badge is its state, so at rest the actions leave the flow and the name keeps their room; near the row they return. */
+[data-part="branch-control"].rail-row:has(.queue-badge):not([data-near="true"], :hover, :focus-within) .row-icons {
+  position: absolute;
+  transform: translateY(-50%);
+}
+
 /* U3704: a Workstream row carries states after its name, so its actions keep their room at rest, hidden and out of the Tab order: a name is cut in the same place and a state keeps its x. */
 [data-part="branch-control"].rail-row .row-icons {
   position: static;
