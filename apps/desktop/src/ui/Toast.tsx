@@ -11,6 +11,8 @@ const DURATION = 5000;
 const focusInStack = () => document.querySelector(".app-toasts:focus-within") !== null;
 
 const GAP = 8;
+const SIBLING = "data-sibling";
+const OVERLAP = "data-overlap";
 
 /** Ark reads every card as 0 px tall and so never fans them apart: stack each card above the real height of those in front, one gap between. */
 function layoutStack(group: Element) {
@@ -109,7 +111,7 @@ export function ToastProvider(props: { toast: ReturnType<typeof createToast>; la
         <Toast.Context>{(api) => {
           const attr = (name: string) => Object.entries(api().getRootProps()).find(([key]) => key === name)?.[1];
           // U3792: a card behind the newest, while the stack is folded, takes no focus.
-          const folded = () => attr("data-sibling") !== undefined && attr("data-overlap") !== undefined;
+          const folded = () => attr(SIBLING) !== undefined && attr(OVERLAP) !== undefined;
 
           return <>
             <Show when={card().meta?.body} fallback={<button type="button" data-button="quiet" class="app-toast-action" aria-label={card().meta?.label} tabIndex={folded() ? -1 : undefined}
