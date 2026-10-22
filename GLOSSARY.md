@@ -178,7 +178,7 @@ Starting an Agent's next Attempt in its saved conversation; an explicit mode fir
 Permission prompts off for one Attempt. The Rail reports the last acknowledged Attempt's fact, cleared on reopen. Roundup authority is unchanged.
 
 **Conversation overview** (`ConversationOverview`, `RailNode.overview`):
-Available display parts from a closed Agent's saved conversation: coding program, opaque conversation id and optional name, used tokens and model limit. The Adapter reads vendor storage; its path never leaves it. Absent while an Attempt is live.
+Available display parts from a closed Agent's saved conversation: coding program, opaque conversation id and optional name, used tokens, model limit and, only where the program itself wrote one, the split of used (`ContextPart`, `ContextPartKind`: system, tools, files, conversation, other). The Adapter reads vendor storage; its path never leaves it. Absent while an Attempt is live.
 
 **Import** (`project.importDiscover`, `project.importCommit`, `ImportPeriod`, `ImportCandidate`, `ImportSelection`, `ImportResult`):
 The user's act of bringing recent top-level Claude Code conversations of the open Project into the Rail as closed work: one Workstream with one closed child Agent each, holding a retained copy of the conversation and no Attempt, Terminal or live Status. A candidate's `revision` binds the confirmation to the records previewed; a conversation already in the Project, imported earlier or since removed is not selectable again. Agents never import. Files come from the Project's current Base, never a recovered historical filesystem.
@@ -220,6 +220,9 @@ The macOS window; it starts a Daemon for each open Project and hosts the webview
 
 **App seam**:
 The few Tauri commands and events between the App and its webview (`scenarios/app.md`); not a Daemon contract.
+
+**App Settings**:
+The center view, opened from the app menu's `Settings…` (`⌘,`), holding the settings that apply to the whole App: Agents, Terminal, Shortcuts and Appearance (`scenarios/ui-app-settings.md`).
 
 **File drop**:
 The window's native drop of files, which the Tauri shell takes before the webview sees a DOM `drop`; the App seam reports it as `onFileDrop` and a Terminal pane pastes the dropped paths (U162); while one is dragged the Rail's rows and the Project tabs are its drop targets (U348).
@@ -858,6 +861,11 @@ A currency not established by its source is unknown; no conversion is inferred.
 One Workstream's retained consumed tokens and ranked contributors at one Measurement
 revision. Later pages name that revision; a changed revision requires reconciliation.
 It carries collection coverage and failure independently of known consumption.
+
+**Weekly limit** (`WeeklyLimit`, `project.weeklyLimit`):
+The account's weekly use and reset time, as the Claude Code Adapter reads it from the vendor's
+account usage, which spends no Model tokens. It is the account's figure, never a Workstream's
+share; unavailable carries a one-sentence reason and no number.
 
 **Consumed category** (`ConsumedCategory`):
 Input, output, cache read, cache write or their total, chosen to rank contributors.

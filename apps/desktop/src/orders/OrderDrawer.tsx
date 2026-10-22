@@ -7,6 +7,7 @@ import type { Order } from "@contracts/agent/Order";
 import { For, Match, Show, Switch, createEffect, createMemo, createResource, createSignal, createUniqueId, on, onCleanup } from "solid-js";
 import { KindGlyph } from "../ink/KindGlyph";
 import { Icon } from "../ink/Icon";
+import { ContextBar } from "./ContextBar";
 import { Markdown } from "../plain/Markdown";
 import "./styles.css";
 import { useConnectedProject } from "../state/connectedProject";
@@ -341,13 +342,7 @@ const OrderContent = (props: OrderInput) => {
           <p class="light">{overview().program}</p>
           <Show when={overview().name}>{(name) => <h2>{name()}</h2>}</Show>
           <SessionId id={overview().id} />
-          <Show when={overview().used !== undefined && overview().limit !== undefined && overview().limit! > 0}>
-            <div class="overview-context">
-              <span>{copy.contextUse(overview().used!, overview().limit!)}</span>
-              <meter aria-label={copy.context} aria-valuenow={overview().used} aria-valuemax={overview().limit} min={0} max={overview().limit} value={overview().used} />
-              <span>{copy.percent(Math.round(overview().used! / overview().limit! * 100))}</span>
-            </div>
-          </Show>
+          <ContextBar overview={overview()} />
           <div class="overview-card">
             <Show when={overview().card?.intent}>{(text) => <section><h3>{copy.cardIntent}</h3><Markdown body={text()} /></section>}</Show>
             <Show when={overview().card?.shape}>{(text) => <section><h3>{copy.cardShape}</h3><Markdown body={text()} /></section>}</Show>

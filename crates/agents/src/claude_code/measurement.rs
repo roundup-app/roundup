@@ -235,6 +235,7 @@ fn reference(model: Option<&str>) -> Option<ReferenceRates> {
         _ => return None,
     };
     Some(ReferenceRates {
+        model: model?.into(),
         version: "reference-2026-10-21.1".into(),
         date: "2026-10-21".into(),
         currency: "USD".into(),
