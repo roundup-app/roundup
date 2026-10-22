@@ -12,6 +12,8 @@ body,
 #root {
   height: 100%;
   margin: 0;
+  overflow: hidden;
+  overscroll-behavior: none;
 }
 
 p {
@@ -103,6 +105,7 @@ p {
   padding-right: var(--space-4);
   padding-left: var(--space-4);
   overflow: auto;
+  overscroll-behavior: contain;
 }
 
 /* U2340a, U2340d: the centre has no inner padding; the Terminal's own text area keeps the --space-2 inset (.pane-screen), and the tab bar runs edge to edge. */
@@ -133,6 +136,7 @@ p {
   flex: 1;
   min-height: 0;
   overflow: auto;
+  overscroll-behavior: contain;
 }
 
 /* U389, U390: the Resize edge. Its hit area is 8 px centred on the hairline and takes pointer, not layout; hover or focus shows one accent bar over the line. */
@@ -297,6 +301,7 @@ p {
   padding-left: var(--space-4);
   box-sizing: border-box;
   overflow: auto;
+  overscroll-behavior: contain;
   background-color: var(--ground);
   border-left-width: 1px;
   border-left-style: solid;
@@ -413,6 +418,7 @@ p {
   inset: var(--space-4) var(--space-4) var(--space-4) calc(var(--rail-width) + var(--space-4));
   padding: var(--space-4);
   overflow: auto;
+  overscroll-behavior: contain;
   background-color: var(--ground);
   border: 1px solid var(--hairline);
 }
@@ -488,6 +494,7 @@ code {
 .draft-recovery {
   min-height: 0;
   overflow: auto;
+  overscroll-behavior: contain;
   padding: var(--space-4);
 }
 
