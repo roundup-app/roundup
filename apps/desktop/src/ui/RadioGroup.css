@@ -16,7 +16,7 @@
   flex: none;
   width: var(--space-4);
   height: var(--space-4);
-  border-radius: 50%;
+  border-radius: var(--radius-round);
   border: 1px solid var(--grey);
   display: grid;
   place-items: center;
@@ -31,7 +31,7 @@
   content: "";
   width: var(--space-2);
   height: var(--space-2);
-  border-radius: 50%;
+  border-radius: var(--radius-round);
   background: var(--text);
 }
 
