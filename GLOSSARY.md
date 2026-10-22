@@ -804,6 +804,14 @@ exact declared repository/PR/head. Unsupported sources and uncertain external ef
 remain unknown with a cause and checking action. Agent status and Terminal prose
 supply no verification authority.
 
+**Continuation** (`ContinuationAction`, `ContinuationDecision`, `Reconciliation`, `ResumeWorkParams`, `message.reconcileWork`, `message.resumeWork`):
+The user's explicit choice to resume one Agent's unfinished work. Reconciliation reads
+retained Result reports, acceptance and observations and changes nothing; an action is a
+current report's pending next step, identified by its Agent, instruction, target, output
+and next step, never by a report key or client request id. A decision accepts its actions
+once and makes one successor Message in the same write; a stopped Agent, a removed target,
+an unknown external effect or a completed result never yields one.
+
 **Result resolution** (`ResultResolution`, `ResultOutcome`, `ResolveResultParams`, `message.resolveResult`):
 A Daemon GET of an authoritative receipt source explicitly chosen by the user, never
 by an Agent. The receipt names the exact `ResultTarget`, an opaque source revision,
