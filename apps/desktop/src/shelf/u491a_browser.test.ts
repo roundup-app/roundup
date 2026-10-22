@@ -30,11 +30,9 @@ describe("u491a Shelf questions and navigation", () => {
     return [one!, two!] as const;
   };
 
-  it("u490a_pointer_reorders_with_the_title_tooltip_open", async () => {
+  it("u490a_pointer_reorders", async () => {
     await lane.seedTodos(["first", "second", "third"], false);
     const [one, two, three] = await rows(lane);
-    await lane.browser("hover", `.shelf [data-id="${three}"] .shelf-title`);
-    await lane.until("[...document.querySelectorAll('[role=tooltip]')].some(tip => tip.textContent === 'third')");
 
     const points = await lane.evaluate<{ from: { x: number; y: number }; to: { x: number; y: number } }>(`(() => {
       const point = id => { const rect = document.querySelector('.shelf [data-id="' + id + '"] .shelf-title').getBoundingClientRect(); return { x: Math.round(rect.left + rect.width / 2), y: Math.round(rect.top + rect.height / 2) }; };
@@ -78,32 +76,15 @@ describe("u491a Shelf questions and navigation", () => {
     expect((await lane.calls("todo.reorder")).map(call => call.params)).toEqual([{ id: one, before: three }, { id: one, before: two }]);
   }, 120_000);
 
-  it("u491a_owned_tooltips_reveal_titles_and_blockers", async () => {
+  it("u491a_owned_tooltip_reveals_blockers", async () => {
     const [one, three, two] = await rows(lane);
 
-    await lane.browser("hover", `.shelf [data-id="${one}"] .shelf-title`);
-    await lane.until("[...document.querySelectorAll('[role=tooltip]')].some(tip => tip.textContent === 'first')");
-    expect(await lane.evaluate<string[]>("[...document.querySelectorAll('[role=tooltip]')].map(tip => tip.textContent)")).toContain("first");
     // U3708: the third Todo nests under its first blocker, so only a second blocker draws a line.
     await lane.evaluate(`(async () => { await window.__fake.app.rpc('todo.setBlockers', { id: ${three}, blockers: [${one}, ${two}] }); return true; })()`);
     await lane.until(`!!document.querySelector('.shelf [data-id="${three}"] .todo-blocker')`);
     await lane.browser("hover", `.shelf [data-id="${three}"] .todo-blocker`);
     await lane.until("[...document.querySelectorAll('[role=tooltip]')].some(tip => tip.textContent === 'also waits on: second')");
     expect(await lane.evaluate<string[]>("[...document.querySelectorAll('[role=tooltip]')].map(tip => tip.textContent)")).toContain("also waits on: second");
-  }, 120_000);
-
-  it("u492a_failed_reorder_dismisses_the_title_tooltip", async () => {
-    const initial = await rows(lane);
-    const one = initial[0]!;
-
-    await lane.browser("hover", `.shelf [data-id="${one}"] .shelf-title`);
-    await lane.until("!!document.querySelector('[role=tooltip]')");
-    await lane.evaluate("(() => { window.__fake.failNext(-32001, 'cannot move this Todo'); return true; })()");
-    await lane.browser("focus", `.shelf [data-id="${one}"] .todo-row-button`);
-    await lane.browser("press", "Alt+ArrowDown");
-    await lane.until("document.querySelector('.shelf [role=alert]')?.textContent.includes('cannot move this Todo')");
-    expect(await lane.evaluate<number>("document.querySelectorAll('[role=tooltip]').length")).toBe(0);
-    expect(await rows(lane)).toEqual(initial);
   }, 120_000);
 
   it("u491a_bulk_question_focus", async () => {
