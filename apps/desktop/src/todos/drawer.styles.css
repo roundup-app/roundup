@@ -30,7 +30,8 @@
 .todo-ref { display: flex; align-items: baseline; justify-content: space-between; gap: var(--space-3); min-width: 0; }
 .todo-ref-link, .todo-ref-text { min-width: 0; overflow-wrap: anywhere; text-align: start; }
 .todo-ref > button:last-child { flex: none; }
-.todo-ref-heading::before { content: " · "; }
+.todo-ref-link { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden; }
+.todo-ref-text { opacity: 0.7; }
 .todo-comments { display: flex; flex-direction: column; gap: var(--space-3); }
 .todo-comments h3 { font: inherit; font-weight: 600; margin: 0; }
 .todo-comment { display: flex; flex-direction: column; gap: var(--space-1); }

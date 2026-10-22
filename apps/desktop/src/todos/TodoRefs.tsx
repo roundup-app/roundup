@@ -46,8 +46,20 @@ export const TodoRefs = (props: { id: number }) => {
   }));
   onCleanup(() => { alive = false; latest++; });
 
-  const remove = async (url: string) => {
+  const remove = async (url: string, button: HTMLElement) => {
+    const section = button.closest<HTMLElement>(".todo-refs");
+    const rows = [...(section?.querySelectorAll<HTMLElement>(".todo-ref") ?? [])];
+    const at = rows.indexOf(button.closest(".todo-ref") as HTMLElement);
+
     setFailure(await failureOf(async () => { await app.rpc("todo.removeRef", { id: props.id, url }); }));
+    await refresh();
+    // The row is gone; focus its next (else previous) row so the user keeps their place.
+    const left = [...(section?.querySelectorAll<HTMLElement>(".todo-ref") ?? [])];
+    const row = left[Math.min(at, left.length - 1)];
+
+    if (document.activeElement === document.body || !document.activeElement?.isConnected) {
+      (row?.querySelector<HTMLElement>(".todo-ref-link") ?? row?.querySelector<HTMLElement>("button"))?.focus();
+    }
   };
 
   return <Show when={refs().length > 0 || failure() !== null}>
@@ -56,13 +68,13 @@ export const TodoRefs = (props: { id: number }) => {
       <Show when={failure()}>{(message) => <div><ErrorLine message={message()} /><button data-button="quiet" class="word" type="button" onClick={() => void refresh()}>{copy.padRefRetry}</button></div>}</Show>
         <For each={refs()}>{(ref) => {
           const target = refTarget(ref.url);
-          const label = <>{target.name}{target.heading !== null && <span class="todo-ref-heading light">{target.heading}</span>}</>;
+          const label = <>{target.name}{target.heading !== null && <span class="todo-ref-heading light">{copy.padRefHeading(target.heading)}</span>}</>;
 
           return <div class="todo-ref" data-state={ref.state}>
-            <Show when={ref.state === "ok"} fallback={<span class="todo-ref-text">{label} <span class="light">{copy.padRefMissing}</span></span>}>
-              <button data-button="quiet" type="button" role="link" class="word todo-ref-link" onClick={(event) => drawer.open(() => <PadAt name={target.name} heading={target.heading} />, activationSource(event))}>{label}</button>
+            <Show when={ref.state === "ok"} fallback={<span class="todo-ref-text">{label}<span class="todo-ref-state">{copy.padRefMissingState}</span></span>}>
+              <button data-button="quiet" type="button" role="link" class="word todo-ref-link" title={target.name} onClick={(event) => drawer.open(() => <PadAt name={target.name} heading={target.heading} />, activationSource(event))}>{label}</button>
             </Show>
-            <button data-button="quiet" type="button" class="word light" aria-label={copy.removePadRef(target.name)} onClick={() => void remove(ref.url)}>{copy.remove}</button>
+            <button data-button="quiet" type="button" class="word light" aria-label={copy.removePadRef(target.name)} onClick={(event) => void remove(ref.url, event.currentTarget)}>{copy.remove}</button>
           </div>;
         }}</For>
     </section>
