@@ -158,6 +158,14 @@ const TOOLS: &[(&str, &str)] = &[
         "message_resolveResult",
         "only the user may authorize a read-only authoritative receipt source for an unknown external effect; never repeat that effect to check it",
     ),
+    (
+        "message_reconcileWork",
+        "read which retained work is unfinished, confirmed, pending a check or uncertain; reading sends and starts nothing",
+    ),
+    (
+        "message_resumeWork",
+        "only the user may resume unfinished work; one decision makes one successor Message and never repeats an uncertain external effect",
+    ),
     ("message_get", "read one Message you sent or received"),
     ("message_list", "see the Messages you sent or received"),
     (

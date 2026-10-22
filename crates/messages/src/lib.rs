@@ -2,14 +2,18 @@
 //! Builder. Stores Messages and Routes, answers the user's and an Actor's calls, and on an `idle`
 //! hands one Message to `Deliver` (slice 3 maps that to H11's `Agents::prompt`).
 
+pub mod continuation;
 pub mod digest;
 #[doc(hidden)]
 pub mod digest_schema;
 pub mod evidence;
+mod flight;
 mod hops;
 mod inbox;
+mod input;
 mod pushes;
 pub mod reaction;
+mod receiver_view;
 mod restart;
 mod retirement;
 #[doc(hidden)]
@@ -33,10 +37,16 @@ use contracts::message::{
     SendParams, SetRouteParams, TakeoverChanged, TakeoverParams,
 };
 use contracts::{Actor, ActorKind, EventData, Kind, Verb};
+use flight::{confirm, confirm_ids};
 pub use inbox::NoteInbox;
+use input::input_effect;
+use receiver_view::{
+    gone_drops, hold_for_input, hold_for_takeover, idle_batch, release_order, send_status,
+    user_call_moves,
+};
 use rpc::{Bus, Ctx, Module, OpenError, RpcError, code, params, reply};
 use serde_json::Value;
-use step::{Effect, Event, State, step};
+use step::Event;
 use store::Store;
 use tokio::sync::broadcast::error::RecvError;
 
@@ -325,7 +335,8 @@ impl Messages {
         p: SendParams,
         merge: bool,
     ) -> Result<Message, RpcError> {
-        self.send_message_with(ctx, p, merge, None, None).await
+        self.send_message_with(ctx, p, merge, None, None, None)
+            .await
     }
 
     /// `send_message`; with `wake`, the Wake request of that number is fired in the same write (B42);
@@ -337,6 +348,7 @@ impl Messages {
         merge: bool,
         wake: Option<u32>,
         reaction: Option<&reaction::Fire>,
+        continuation: Option<&continuation::Continue>,
     ) -> Result<Message, RpcError> {
         if is_receiver(&ctx.actor, &p.to) {
             return Err(RpcError::new(
@@ -394,9 +406,15 @@ impl Messages {
                 if let Some(fire) = reaction {
                     store.check_firing(fire)?;
                 }
+                if let Some(c) = continuation
+                    && store.accepted(c)?.is_some()
+                {
+                    return Err(RpcError::conflict("an action was already accepted"));
+                }
                 if !digest
                     && wake.is_none()
                     && reaction.is_none()
+                    && continuation.is_none()
                     && store.count_open(&p.to)? >= OPEN_BOUND
                 {
                     return Err(RpcError::conflict(format!(
@@ -461,6 +479,10 @@ impl Messages {
                 if let Some(fire) = reaction {
                     store.accept_firing(fire, message.id)?;
                     (self.inner.fault)("reaction").map_err(RpcError::internal)?;
+                }
+                if let Some(c) = continuation {
+                    store.accept_continuation(c, message.id)?;
+                    (self.inner.fault)("continuation").map_err(RpcError::internal)?;
                 }
                 self.answer(ctx, store, &message)?;
                 if let Some(rest) = &chain_rest {
@@ -1568,67 +1590,6 @@ async fn on_idle(inner: &Arc<Inner>, agent: &str, mut at: store::Binding, mut pi
     }
 }
 
-fn confirm(inner: &Inner, agent: &str, prompt: &str) -> bool {
-    let Some(ids) = flight_ids(prompt) else {
-        return false;
-    };
-    // Legacy model fixtures project both transports onto Deliver and synthetic prompt receipts.
-    #[cfg(test)]
-    if inner.inbox.get().is_none() {
-        return confirm_ids(inner, agent, &ids);
-    }
-    let mut user_ids = Vec::new();
-    {
-        let store = lock(&inner.store);
-        for &id in &ids {
-            match store.get(id) {
-                Ok(Some(message)) if message.from.kind == ActorKind::User => user_ids.push(id),
-                Ok(_) => {}
-                Err(err) => {
-                    log_failure("confirm_prompt", &err.to_string());
-                    return false;
-                }
-            }
-        }
-    }
-    // A mixed id line must not block a prompt merely because its user Messages were delivered.
-    let repeated = confirm_ids(inner, agent, &user_ids);
-    repeated && user_ids.len() == ids.len()
-}
-
-fn confirm_ids(inner: &Inner, agent: &str, ids: &[u32]) -> bool {
-    let ids = ids.to_vec();
-    let confirmed = lock(&inner.store).confirm_flight(agent, &ids);
-    match confirmed {
-        Ok((mut messages, repeated)) => {
-            messages.sort_by_key(|m| m.id);
-            for message in messages {
-                inner
-                    .bus
-                    .emit(Actor::daemon(), EventData::MessageDelivered(message.into()));
-            }
-            repeated
-        }
-        Err(err) => {
-            log_failure("confirm_prompt", &err.to_string());
-            false
-        }
-    }
-}
-
-/// B39: the ids of a prompt's last line, `[rup messages: <id> <id>]`; `None` when it has none or
-/// the line cannot be read.
-fn flight_ids(prompt: &str) -> Option<Vec<u32>> {
-    let line = prompt.trim_end().lines().last()?;
-    let ids = line
-        .strip_prefix("[rup messages:")?
-        .strip_suffix(']')?
-        .split_whitespace()
-        .map(|word| word.parse().ok())
-        .collect::<Option<Vec<u32>>>()?;
-    (!ids.is_empty()).then_some(ids)
-}
-
 /// Which pending Messages an `idle` may type.
 #[derive(Clone, Copy, PartialEq, Eq)]
 enum Pick {
@@ -1808,137 +1769,6 @@ fn reconcile_into(
     }
     state.closed |= retiring || (permanent && !reserved);
     store.set_generation(agent, state)
-}
-
-/// The `State` of one receiver as the store holds it: `pending` Messages in delivery order, the
-/// `held` ones by Reason. `escalated` holds are not in `step` yet (B13 to B17).
-fn view(pending: &[Message], held: &[Message], takeover: bool) -> State {
-    let ids = |messages: &[Message], reason: Option<Reason>| -> Vec<u32> {
-        messages
-            .iter()
-            .filter(|m| reason.is_none() || m.reason == reason)
-            .map(|m| m.id)
-            .collect()
-    };
-    State {
-        queue: ids(pending, None),
-        held_ask_first: ids(held, Some(Reason::AskFirst)),
-        held_takeover: ids(held, Some(Reason::Takeover)),
-        users: pending
-            .iter()
-            .chain(held)
-            .filter(|m| m.from.kind == ActorKind::User)
-            .map(|m| m.id)
-            .collect(),
-        takeover,
-        ..State::default()
-    }
-}
-
-/// B2, B3, B4, B6: where `step` puts a new Message from `from_user` over `route`, with a Takeover
-/// active or not.
-fn send_status(
-    from_user: bool,
-    route: Delivery,
-    takeover: bool,
-) -> (MessageStatus, Option<Reason>) {
-    let state = State {
-        takeover,
-        ..State::default()
-    };
-    let (after, _) = step(&state, Event::Send { from_user, route });
-    if after.dropped.contains(&1) {
-        (MessageStatus::Dropped, None)
-    } else if after.held_takeover.contains(&1) {
-        (MessageStatus::Held, Some(Reason::Takeover))
-    } else if after.held_ask_first.contains(&1) {
-        (MessageStatus::Held, Some(Reason::AskFirst))
-    } else {
-        (MessageStatus::Pending, None)
-    }
-}
-
-/// B6: the ids `step` holds when a Takeover begins over these `pending` Messages.
-fn hold_for_takeover(pending: &[Message]) -> Vec<u32> {
-    step(&view(pending, &[], false), Event::TakeoverBegin)
-        .0
-        .held_takeover
-}
-
-/// B32: what `bytes` the user wrote do to the count of unsent input: whether one ends it (a `\r`
-/// that submits, Ctrl-U or Ctrl-C) and whether input remains after the last such byte. Escape
-/// sequences (focus and mouse reports, arrow keys) are not text and are not counted.
-fn input_effect(bytes: &[u8]) -> (bool, bool) {
-    let (mut ended, mut tail) = (false, false);
-    let mut i = 0;
-    while i < bytes.len() {
-        match bytes[i] {
-            b'\r' | 0x15 | 0x03 => {
-                ended = true;
-                tail = false;
-            }
-            0x1b => {
-                // CSI: ESC [ params final(0x40..=0x7e); SS3: ESC O final.
-                match bytes.get(i + 1) {
-                    Some(b'[') => {
-                        i += 2;
-                        while i < bytes.len() && !(0x40..=0x7e).contains(&bytes[i]) {
-                            i += 1;
-                        }
-                    }
-                    Some(b'O') => i += 2,
-                    // U399: ESC then a byte is one Alt chord (`\x1b\r` is ⇧⏎'s new line), input and never a submit.
-                    Some(_) => {
-                        i += 1;
-                        tail = true;
-                    }
-                    None => {}
-                }
-            }
-            _ => tail = true,
-        }
-        i += 1;
-    }
-    (ended, tail)
-}
-
-/// B32: the ids `step` holds when the user types into a Terminal over these `pending` Messages.
-fn hold_for_input(pending: &[Message]) -> Vec<u32> {
-    step(&view(pending, &[], false), Event::UserInput)
-        .0
-        .held_takeover
-}
-
-/// B6: the ids `step` makes `pending` when a Takeover ends, in the order they wait.
-fn release_order(held: &[Message]) -> Vec<u32> {
-    step(&view(&[], held, true), Event::TakeoverEnd).0.queue
-}
-
-/// B9: the ids `step` drops when the receiver is gone.
-fn gone_drops(open: &[Message]) -> Vec<u32> {
-    let (pending, held): (Vec<Message>, Vec<Message>) = open
-        .iter()
-        .cloned()
-        .partition(|m| m.status == MessageStatus::Pending);
-    step(&view(&pending, &held, false), Event::Exit).0.dropped
-}
-
-/// B30, B7: the ids `step` types at an `idle`, in order, from these `pending` Messages.
-fn idle_batch(pending: &[Message]) -> Vec<u32> {
-    let (_, effects) = step(&view(pending, &[], false), Event::Idle);
-    effects.iter().map(|Effect::Type(id)| *id).collect()
-}
-
-/// B3, B6: whether the user's `deliver` or `drop` of the `held` `message` takes effect. A Message
-/// held for a reason `step` does not know yet is left to the store's own check.
-fn user_call_moves(message: &Message, call: Event) -> bool {
-    if !matches!(message.reason, Some(Reason::AskFirst | Reason::Takeover)) {
-        return true;
-    }
-    let before = view(&[], std::slice::from_ref(message), false);
-    let (after, _) = step(&before, call);
-    after.held_ask_first.len() + after.held_takeover.len()
-        < before.held_ask_first.len() + before.held_takeover.len()
 }
 
 /// B2's `<kind>`: `note` or `question` as on the wire, never Rust's `Debug` spelling.
