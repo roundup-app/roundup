@@ -1,0 +1,70 @@
+.app-radio-group {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.app-radio {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-height: var(--space-5);
+  cursor: pointer;
+  position: relative;
+}
+
+.app-radio-mark {
+  flex: none;
+  width: var(--space-4);
+  height: var(--space-4);
+  border-radius: var(--radius-round);
+  border: 1px solid var(--grey);
+  display: grid;
+  place-items: center;
+  box-sizing: border-box;
+}
+
+.app-radio-mark[data-state="checked"] {
+  border-color: var(--text);
+}
+
+.app-radio-mark[data-state="checked"]::after {
+  content: "";
+  width: var(--space-2);
+  height: var(--space-2);
+  border-radius: var(--radius-round);
+  background: var(--text);
+}
+
+/* The library's input is visually hidden, so the shared keyboard ring draws around the row. */
+.app-radio:has(input:focus-visible) {
+  outline: var(--keyboard-ring);
+}
+
+.app-radio input {
+  font-size: inherit;
+  /* Ark's inline visually-hidden style sets margin: -1px and a 1 px box; the press target is the whole row. */
+  margin: 0 !important;
+  width: 100% !important;
+  height: 100% !important;
+  inset: 0;
+  clip: auto !important;
+  opacity: 0;
+  cursor: pointer;
+}
+
+/* The hidden input is the press target: it answers at once, and the mark darkens with it. */
+.app-radio input:active,
+.app-radio:active .app-radio-mark {
+  background-color: var(--pressed);
+  transition-duration: 0s;
+}
+
+/* Hover darkens the mark's ring, as a checkbox's hover darkens its box. */
+.app-radio:has(input:hover:not(:disabled)) .app-radio-mark {
+  border-color: var(--text);
+}
+
+.app-radio > input:hover:not(:disabled) {
+  color: var(--text);
+}

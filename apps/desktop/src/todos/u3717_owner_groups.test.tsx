@@ -99,7 +99,7 @@ it("u3720_o_opens_the_owner_list_without_the_current_owner", async () => {
   fireEvent.keyDown(row, { key: "o", code: "KeyO" });
   const list = await screen.findByRole("menu", { name: "Owners for #3" });
 
-  expect(within(list).getAllByRole("menuitem").map((item) => item.textContent)).toEqual(["Me", "beta", "Unassigned"]);
+  expect(within(list).getAllByRole("menuitem").map((item) => item.textContent)).toEqual(["Me", "beta", "New Workstream…", "Unassigned"]);
 });
 
 it("u3720_o_is_inert_in_text_fields_with_modifiers_and_on_done_rows", async () => {

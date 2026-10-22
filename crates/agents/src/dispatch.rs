@@ -316,6 +316,7 @@ impl Module for Agents {
                     worktrees,
                     models,
                     mcp,
+                    workstream_cap: shared.rail().get_workstream_cap()?,
                 })
             }
             "project.open" => {

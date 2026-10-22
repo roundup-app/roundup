@@ -49,6 +49,7 @@
   --radius-control: 6px;
   --radius-drawer: 12px;
   --radius-scrollbar: 3px;
+  --radius-round: 50%;
 
   --easing-out: cubic-bezier(0.32, 0.72, 0, 1);
   --duration-drawer: 180ms;

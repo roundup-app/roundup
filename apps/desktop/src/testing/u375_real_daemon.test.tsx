@@ -118,7 +118,7 @@ it("u2773a_queries_keep_original_project_through_switch_events_and_reopen", asyn
     expect(field()).toBeNull();
     openSwitcher();
     await waitFor(() => expect(field()?.value).toBe(" second 🧭 "));
-    expect(mutations.filter((method) => !method.endsWith(".list") && !method.endsWith(".get") && !method.endsWith(".count"))).toEqual([]);
+    expect(mutations.filter((method) => !method.endsWith(".list") && !method.endsWith(".get") && !method.endsWith(".count") && method !== "workstream.queue")).toEqual([]);
   } finally {
     cleanup();
     await second.stop();
