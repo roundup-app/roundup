@@ -33,10 +33,6 @@ const lines = (change: Change, agentName: (id: string) => string): string[] => {
     text.push(after.owner ? copy.changeAssigned(after.owner.kind === "agent" ? agentName(after.owner.id) : copy.me) : copy.changeUnassigned);
   }
 
-  if ((before?.estimate_minutes ?? null) !== after.estimate_minutes) {
-    text.push(after.estimate_minutes === null ? copy.changeEstimateCleared : copy.changeEstimateSet(after.estimate_minutes));
-  }
-
   // T26: a hand-off is the Daemon's, so its line names the Agent handed to, not the writer.
   if (change.handed) text.push(copy.changeHandedTo(agentName(change.handed.id)));
 

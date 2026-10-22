@@ -113,18 +113,6 @@ it("t17_history_shows_an_owner_only_change", async () => {
   expect([...history.querySelectorAll("[data-change]")].map((entry) => entry.textContent)).toEqual(["Assigned to Me", "Unassigned"]);
 });
 
-it("t29_history_shows_an_estimate_only_change", async () => {
-  const m = await mountTodos([todo(1)]);
-  const values = { title: "todo 1", body: "", done: false, blockers: [], owner: null };
-  m.app.handlers["todo.getHistory"] = () => ({ unread: null, changes: [
-    { actor: null, changed_at: null, seq: 1, before: { ...values, estimate_minutes: null }, after: { ...values, estimate_minutes: 45 } },
-    { actor: null, changed_at: null, seq: 2, before: { ...values, estimate_minutes: 45 }, after: { ...values, estimate_minutes: null } },
-  ] });
-  await open(m); await disclose(m);
-  const history = within(panel()).getByRole("region", { name: "Todo history" });
-  expect([...history.querySelectorAll("[data-change]")].map((entry) => entry.textContent)).toEqual(["Set the estimate to 45 min", "Cleared the estimate"]);
-});
-
 it("u3728_changes_wait_behind_one_line", async () => {
   const m = await mountTodos([todo(1)]); await open(m);
   const line = within(panel()).getByRole("button", { name: "Changes · 1" });
