@@ -28,7 +28,7 @@ const FOLD_MS = 400;
 
 const sectionTitle = (title: string, count: () => number, live = false, ref?: (element: HTMLHeadingElement) => void) => <div class="inbox-group-head">
   <h3 ref={ref} tabindex={ref ? -1 : undefined}>{title}</h3>
-  <span class="inbox-count" aria-live={live ? "polite" : undefined} aria-atomic={live ? "true" : undefined}>{count()}</span>
+  <span class="inbox-count" data-state="" aria-live={live ? "polite" : undefined} aria-atomic={live ? "true" : undefined}>{count()}</span>
 </div>;
 
 /**
