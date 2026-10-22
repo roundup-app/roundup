@@ -1,5 +1,6 @@
 import { todoCreationEditor } from "../drawer/editors";
 import ChevronUp from "lucide-solid/icons/chevron-up";
+import ListChecks from "lucide-solid/icons/list-checks";
 import { IconButton } from "../ui/IconButton";
 import { contextMenu, linkEntries, openOnRelease } from "../ui/contextMenu";
 import { Tip } from "../ui/Tip";
@@ -72,6 +73,8 @@ export type SortedRow = {
   /** `⌥↑` and `⌥↓`. */
   key: (event: KeyboardEvent) => void;
   step: (by: -1 | 1) => void;
+  /** Whether a sibling sits in that direction; the arrow for a direction with none is hidden. */
+  can: (by: -1 | 1) => boolean;
 };
 
 /** One open Todo as U15 draws it, with U35's `complete` and `waits on`; `nested` is the Rail's copy (U60), which leaves `data-id` to the Agent rows. */
@@ -174,8 +177,8 @@ export const OpenRow = (props: {
               <Show when={props.onAssign}>
                 <button data-button="row-action" type="button" class="word light todo-assign" aria-label={copy.assignTodoNumber(props.todo.id)} onClick={(event) => props.onAssign?.(props.todo, event.currentTarget)}>{copy.assign}</button>
               </Show>
-              <IconButton aria-label={copy.moveUp} onClick={() => props.sorted?.step(-1)}><ChevronUp class="icon" aria-hidden="true" width={16} height={16} stroke-width={1.75} /></IconButton>
-              <IconButton aria-label={copy.moveDown} onClick={() => props.sorted?.step(1)}><Icon name="down" /></IconButton>
+              <IconButton aria-label={copy.moveUp} style={props.sorted?.can(-1) ? undefined : { visibility: "hidden" }} onClick={() => props.sorted?.step(-1)}><ChevronUp class="icon" aria-hidden="true" width={16} height={16} stroke-width={1.75} /></IconButton>
+              <IconButton aria-label={copy.moveDown} style={props.sorted?.can(1) ? undefined : { visibility: "hidden" }} onClick={() => props.sorted?.step(1)}><Icon name="down" /></IconButton>
             </Show>
           </div>
         </Show>
@@ -840,7 +843,7 @@ export const Todos = (props: {
           <Icon name="plus" />
           <span>{copy.todo}</span>
         </button>
-        <button data-button="quiet" type="button" class="word shelf-triage" data-triage-toggle aria-pressed={triage.on()} onClick={() => triage.on() ? leaveTriage() : enterTriage()}>{copy.triage}</button>
+        <IconButton class="shelf-triage" data-triage-toggle aria-label={copy.triage} aria-pressed={triage.on()} chord={CHORDS.find(row => row.keys === "T" && row.inShelf)} onClick={() => triage.on() ? leaveTriage() : enterTriage()}><ListChecks class="icon" aria-hidden="true" width={16} height={16} stroke-width={1.75} /></IconButton>
       </ScopeAction>
       <Show when={todos.failure()}>{(message) => <ErrorLine message={message()} />}</Show>
       <Show when={createFailure() !== null && (adding() === null || fieldGroupGone())}>{(_) => <ErrorLine message={createFailure()!} />}</Show>

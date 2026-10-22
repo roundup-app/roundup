@@ -2,7 +2,7 @@
 export const CONTRACT = {
   methods: {
     "agent.actionHistory": "84ba706abda432d4",
-    "agent.ask": "d719318c25643424",
+    "agent.ask": "bd2a78ef02b459ca",
     "agent.brief": "578d4809b6cafc1b",
     "agent.changedFiles": "f80e4251cb77f2cd",
     "agent.channelUp": "f25fe63dfa04b01a",

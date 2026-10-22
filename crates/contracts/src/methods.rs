@@ -223,7 +223,7 @@ pub const METHODS: &[Method] = &[
         "decision_PermissionParams",
         "decision_PermissionOutput",
     ),
-    m("agent.ask", "decision_AskCall", "decision_AskOutput"),
+    m("agent.ask", "decision_AskParams", "decision_AskOutput"),
     m("decision.list", "null", "decision_Decision[]"),
     m(
         "decision.answers",
