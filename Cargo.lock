@@ -25,6 +25,7 @@ dependencies = [
  "provenance",
  "rangemap",
  "regex",
+ "reqwest",
  "rpc",
  "rusqlite",
  "rusqlite_migration",

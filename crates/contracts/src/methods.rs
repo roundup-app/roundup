@@ -23,6 +23,7 @@ pub const METHODS: &[Method] = &[
         "project_MeasurementSummaryParams",
         "project_MeasurementSummary",
     ),
+    m("project.weeklyLimit", "null", "project_WeeklyLimit"),
     m(
         "deliverable.publish",
         "deliverable_PublishParams",

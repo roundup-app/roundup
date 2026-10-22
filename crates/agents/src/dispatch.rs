@@ -26,11 +26,19 @@ impl Module for Agents {
                     measurements.cause = cause;
                 }
                 if let Some(params) = summary {
-                    reply(&measurement::summarize(measurements, rail.tree()?, params)?)
+                    // U3016i: the live Status says whether an Agent still runs.
+                    let runs = shared.runs();
+                    let tree = rail
+                        .tree()?
+                        .into_iter()
+                        .map(|node| shared.present(node, &runs, &rail))
+                        .collect::<Result<Vec<_>, _>>()?;
+                    reply(&measurement::summarize(measurements, tree, params)?)
                 } else {
                     reply(&measurements)
                 }
             }
+            "project.weeklyLimit" => reply(&self.launcher.weekly_limit().await),
             "agent.spawn" => reply(&self.spawn(ctx, params(value)?).await?),
             "agent.extras" => reply(&claude_code::extras::available(
                 &self.launcher.extras_sources(self.project_dir()),

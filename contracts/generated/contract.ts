@@ -86,6 +86,7 @@ export const CONTRACT = {
     "project.setPrepared": "bb3878797e8ab3cb",
     "project.setWorkstreamCap": "d7f79377655cd3d6",
     "project.setWorktrees": "6c93fbee222debed",
+    "project.weeklyLimit": "653c2e6ce9ec8ca9",
     "provenance.history": "c20c66fb119e79a3",
     "provenance.touched": "90d4eb550afcfb2b",
     "rail.createWorkstream": "caadcbf2e211b123",
