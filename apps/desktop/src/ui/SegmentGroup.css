@@ -50,6 +50,11 @@
 
 .app-segment input {
   font-size: inherit;
+  margin: 0 !important;
+  width: 100% !important;
+  height: 100% !important;
+  inset: 0;
+  clip: auto !important;
   opacity: 0;
   cursor: pointer;
 }
