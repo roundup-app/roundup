@@ -51,7 +51,18 @@ fn listed(
     pid: u32,
     edit: impl FnOnce(String) -> String,
 ) -> UnixListener {
-    let socket = launcher.socket_path("a");
+    listed_for("a", launcher, config, version, pid, edit)
+}
+
+fn listed_for(
+    agent: &str,
+    launcher: &Launcher,
+    config: &Path,
+    version: &str,
+    pid: u32,
+    edit: impl FnOnce(String) -> String,
+) -> UnixListener {
+    let socket = launcher.socket_path(agent);
     let listener = UnixListener::bind(&socket).unwrap();
     let sessions = config.join("sessions");
     std::fs::create_dir_all(&sessions).unwrap();
@@ -229,5 +240,88 @@ fn b50_a_question_carries_kind_and_reply_id_in_the_peer_entry() {
             "{content}"
         );
         assert_eq!(sent[1]["msg_id"], "00000000-0000-4000-8000-000000000011");
+    }
+}
+
+#[tokio::test]
+async fn b2706_note_mode_is_the_users_default_mode() {
+    let user = |mode: &str| format!(r#"{{"permissions":{{"defaultMode":"{mode}"}}}}"#);
+    // (user layer, project layer, local layer, the mode a note names)
+    type Row = (Option<String>, Option<String>, Option<String>, &'static str);
+    let table: [Row; 8] = [
+        (Some(user("acceptEdits")), None, None, "acceptEdits"),
+        (Some(user("plan")), None, None, "plan"),
+        (Some(user("auto")), None, None, "auto"),
+        (Some(user("default")), None, None, "default"),
+        (Some(user("bypassPermissions")), None, None, "default"),
+        (None, None, None, "default"),
+        (
+            Some(user("plan")),
+            Some(user("acceptEdits")),
+            None,
+            "acceptEdits",
+        ),
+        (
+            Some(user("plan")),
+            Some(user("acceptEdits")),
+            Some(user("auto")),
+            "auto",
+        ),
+    ];
+    for (user_layer, project_layer, local_layer, want) in table {
+        let (_, dir) = launcher();
+        let launcher = Launcher::new(
+            "claude",
+            dir.path().join("claude.json"),
+            dir.path().join("rup"),
+            None,
+        );
+        std::fs::write(dir.path().join("rup"), "").unwrap();
+        let project = dir.path().join("proj");
+        let data = project.join(".roundup");
+        std::fs::create_dir_all(project.join(".claude")).unwrap();
+        std::fs::create_dir_all(&data).unwrap();
+        for (file, body) in [
+            (dir.path().join("settings.json"), user_layer),
+            (project.join(".claude/settings.json"), project_layer),
+            (project.join(".claude/settings.local.json"), local_layer),
+        ] {
+            if let Some(body) = body {
+                std::fs::write(file, body).unwrap();
+            }
+        }
+        let folders = agents::claude_code::Folders {
+            project: &project,
+            data: &data,
+        };
+        launcher
+            .prepare(
+                folders,
+                "7",
+                "1",
+                &project,
+                None,
+                agents::claude_code::Role::Agent,
+            )
+            .unwrap();
+        let listener = listed_for(
+            "7",
+            &launcher,
+            dir.path(),
+            "2.1.302",
+            std::process::id(),
+            |j| j,
+        );
+        launcher
+            .inbox_write("7", &[note(7, "look", false)], false)
+            .unwrap();
+        let content = lines(&listener)[1]["message"]["content"].clone();
+        assert!(
+            content
+                .as_str()
+                .unwrap()
+                .contains(&format!("from-mode=\"{want}\">")),
+            "{want}: {content}"
+        );
     }
 }

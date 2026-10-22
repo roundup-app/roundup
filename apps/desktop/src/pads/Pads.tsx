@@ -24,6 +24,7 @@ import { PadDrawer } from "./PadDrawer";
 import { USER } from "./owner";
 import { shownPads } from "./shownPads";
 import { shelfScope } from "../shelf/scope";
+import { ScopeAction } from "../shelf/ScopeAction";
 import { Groups } from "../shelf/Groups";
 import { usePadList } from "../rail/pads/padList";
 import type { PadList } from "../rail/pads/padList";
@@ -145,22 +146,24 @@ export const Pads = (props: {
 
   return (
     <section aria-label={copy.pads}>
-      <button
-        data-button="add"
-        type="button"
-        aria-label={copy.addPad}
-        class="shelf-add"
-        ref={(button) => (plusButton = button)}
-        onClick={() => {
-          failure.clear();
+      <ScopeAction tab="pads">
+        <button
+          data-button="add"
+          type="button"
+          aria-label={copy.addPad}
+          class="shelf-add"
+          ref={(button) => (plusButton = button)}
+          onClick={() => {
+            failure.clear();
 
-          if (!revision) home = scope.home();
-          setNaming(true);
-        }}
-      >
-        <Icon name="plus" />
-        <span>{copy.pad}</span>
-      </button>
+            if (!revision) home = scope.home();
+            setNaming(true);
+          }}
+        >
+          <Icon name="plus" />
+          <span>{copy.pad}</span>
+        </button>
+      </ScopeAction>
       <Show when={failure.message()}>
         {(message) => <ErrorLine message={message()} />}
       </Show>

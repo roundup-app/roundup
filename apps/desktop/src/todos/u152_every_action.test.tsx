@@ -39,7 +39,7 @@ for (const by of ["pointer", "keyboard"] as const) {
         return mounted.store.todos[1]!;
       };
 
-      press(await screen.findByRole("button", { name: "Add Todo" }), by);
+      press(await screen.findByRole("button", { name: "add todo to Overview" }), by);
 
       const field = screen.getByRole("textbox", { name: "New Todo title" });
 

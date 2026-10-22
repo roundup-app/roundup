@@ -6,7 +6,6 @@ import type { ActivationSource } from "../keys/registry";
 import { debounce } from "@solid-primitives/scheduled";
 import { copy } from "../copy";
 import { Icon } from "../ink/Icon";
-import { OwnerMark } from "../ink/OwnerMark";
 import { createEffect, createMemo, createSignal, lazy, on, onCleanup, Show, Suspense } from "solid-js";
 import type { Accessor } from "solid-js";
 import type { Actor } from "@contracts/Actor";
@@ -440,22 +439,18 @@ const PadBody = (props: {
   return (
     <div class="pad-body">
       <div class="pad-head">
-        <Show
-          when={ownedByUser()}
-          fallback={
-            <button data-button="icon" type="button" class="word" style={wholeWord} aria-label={copy.makeYours} onClick={() => void takeIt()}>
-              <OwnerMark owner={pad().owner} decorative />
-            </button>
-          }
-        >
-          <span style={wholeWord}><OwnerMark owner={pad().owner} decorative /></span>
-        </Show>
         <span class="pad-head-title">
           <Tip text={name}>{(trigger) => <span {...trigger()} class="pad-head-name" style={cutName}>{name}</span>}</Tip>
           <Show when={saved() && !deleted() && !conflictActor()}>
             <span role="status" aria-live="off" data-state="saved" class="pad-saved light">{copy.padSaved}</span>
           </Show>
+          <Show when={!ownedByUser()}>
+            <span class="pad-owner light" style={wholeWord}>{copy.ownedBy}{connected.rail.nameOf(pad().owner)}</span>
+          </Show>
         </span>
+        <Show when={!ownedByUser()}>
+          <button data-button="quiet" type="button" class="word pad-make-yours" style={wholeWord} onClick={() => void takeIt()}>{copy.makeYours}</button>
+        </Show>
         <Show when={owner()}>
           <Tip text={copy.ownerName(connected.rail.nameOf(pad().owner))}>{(trigger) => <button {...trigger()}
             data-button="icon"
