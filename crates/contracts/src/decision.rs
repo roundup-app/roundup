@@ -19,12 +19,49 @@ pub struct Decision {
     /// `false` when the Daemon opened it without a live hook to reply to (H2's `AskUserQuestion`,
     /// H7(c), H8's unreadable payload): `decision.answer` is then `INVALID_PARAMS`.
     pub answerable: bool,
+    /// H23: how long an allow may last, `once` first; empty when the Decision is not an answerable
+    /// permission request.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    #[ts(optional, as = "Option<Vec<Scope>>")]
+    pub scopes: Vec<Scope>,
+    /// H23: `destructive` for a command the Daemon recognises; absent otherwise.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[ts(optional)]
+    pub risk: Option<Risk>,
     /// U468: the latest refused Agent answer to this live request. Read through
     /// decision.list with its usual Reach filtering; no history entry is created.
     /// Replacement, clearing and successful delivery discard this observation.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     #[ts(optional)]
     pub failure: Option<FailedAnswer>,
+}
+
+/// H23: how long an allow lasts. `session` ends with the Agent; `project` is kept in the Project's
+/// local Claude Code settings until `decision.revoke`.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize, TS, JsonSchema)]
+#[serde(rename_all = "kebab-case")]
+#[ts(export, export_to = "decision/")]
+pub enum Scope {
+    Once,
+    Session,
+    Project,
+}
+
+/// H23: the only risk level; a command that deletes or overwrites work beyond undo.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize, TS)]
+#[serde(rename_all = "kebab-case")]
+#[ts(export, export_to = "decision/")]
+pub enum Risk {
+    Destructive,
+}
+
+/// H23: remove the rule a `project` Grant added. The user's `proof` is required (H4).
+#[derive(Clone, Debug, Serialize, Deserialize, TS)]
+#[ts(export, export_to = "decision/")]
+pub struct RevokeParams {
+    pub id: String,
+    #[ts(optional)]
+    pub proof: Option<String>,
 }
 
 /// A refused answer, never an accepted AnsweredDecision. Only the latest failure
@@ -189,6 +226,11 @@ pub struct AnswerParams {
     #[serde(default)]
     #[ts(optional, as = "Option<String>")]
     pub note: String,
+    /// H23: how long an allow lasts; absent is `once`. Only an `allow` of a Decision that lists
+    /// the scope takes one.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[ts(optional)]
+    pub scope: Option<Scope>,
     #[ts(optional)]
     pub proof: Option<String>,
 }
@@ -225,6 +267,8 @@ mod tests {
             args: "touch spike_out.txt".into(),
             opened_at: 1_700_000_000_000,
             answerable: true,
+            scopes: vec![],
+            risk: None,
             failure: None,
         }
     }
@@ -293,6 +337,7 @@ mod tests {
             id: "d1".into(),
             answer: Some("deny".into()),
             note: String::new(),
+            scope: None,
             proof: Some("secret".into()),
         };
 

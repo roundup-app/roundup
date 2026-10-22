@@ -171,7 +171,7 @@ export const connectProject = async (
   const decisions = createRoot((dispose) => {
     stopDecisions = dispose;
 
-    return createDecisions(app, events, daemonExit, drafts);
+    return createDecisions(app, events, daemonExit, drafts, () => new Set(rail.nodes.map((node) => node.id)));
   });
 
   if (ended) stopDecisions();
