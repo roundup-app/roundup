@@ -7,6 +7,7 @@ class IdleObserver { observe() {} unobserve() {} disconnect() {} takeRecords() {
 
 
 beforeEach(() => { vi.stubGlobal("IntersectionObserver", IdleObserver); });
+
 afterEach(() => { cleanup(); vi.unstubAllGlobals(); });
 
 it("z3_diff_reader_prefers_highlights", async () => {
