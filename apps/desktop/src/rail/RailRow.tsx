@@ -255,9 +255,9 @@ export const RailRowView = (props: {
       <Trunks depth={props.row.depth} trail={props.row.trail} stem={props.row.children || pads.shown()} />
       <p class="line">
         <Show when={workstream()} fallback={<KindGlyph kind={kind() ?? "idle"} />}>
-          <span style={{ display: "contents" }} {...untitled}>
           <IconButton
             class="rail-chevron"
+            {...untitled}
             aria-label={copy.collapse}
             {...ownKeys}
             onClick={(click) => {
@@ -267,7 +267,6 @@ export const RailRowView = (props: {
           >
             <Icon name={props.row.collapsed ? "right" : "down"} />
           </IconButton>
-          </span>
           <KindGlyph kind={kind() ?? "idle"} />
         </Show>
         <Show when={workstream() || !props.row.node.worktree} fallback={
@@ -338,9 +337,7 @@ export const RailRowView = (props: {
             </Show>
           </RowIcons>
         </span>
-        <span style={{ display: "contents" }} {...untitled}>
-          <PadsControl pads={pads} />
-        </span>
+        <PadsControl pads={pads} />
       </p>
     </div>
   );

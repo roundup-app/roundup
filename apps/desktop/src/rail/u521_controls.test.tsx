@@ -32,7 +32,7 @@ it("u521_icon_controls_show_their_names", { timeout: 60_000 }, async () => {
     const name = button.getAttribute("aria-label") ?? "";
 
     expect(name).not.toBe("");
-    expect(button.hasAttribute("title")).toBe(false);
+    expect(button.getAttribute("title") ?? "").toBe("");
 
     // Hover and keyboard focus each open the name, independently of the other.
     fireEvent.pointerMove(button, { pointerType: "mouse" });
