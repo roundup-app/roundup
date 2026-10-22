@@ -80,7 +80,8 @@ describe("U83 closed Agent overview", () => {
     app.emit(event({ name: "terminal.exited", data: { id: "t-a", code: 0 } }));
 
     expect(await screen.findByText("Which recipes?")).toBeTruthy();
-    expect(await screen.findByText("Prompt read failed")).toBeTruthy();
+    await waitFor(() => expect(app.calls.some((call) => call.method === "agent.spawnPrompt")).toBe(true));
+    expect(screen.queryByText("Prompt read failed")).toBeNull();
     expect(document.querySelector(".order-line")).toBeNull();
   });
 
