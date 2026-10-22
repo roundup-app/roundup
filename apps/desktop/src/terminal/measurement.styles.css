@@ -89,7 +89,7 @@
 }
 
 .measurement-figure {
-  font-size: var(--text-pad-subheading);
+  font-size: var(--text-title);
   font-weight: 600;
   min-height: var(--space-6);
 }
