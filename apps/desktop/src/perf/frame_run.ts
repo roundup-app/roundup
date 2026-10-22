@@ -131,8 +131,9 @@ const domLayers: Layers = {
   openDrawer: () => clickAt(SHELF_ROW),
   closeDrawer: () => clickAt(".drawer .close"),
   escapeDrawer: () => {
-    const close = document.querySelector(".drawer .close");
+    const close = document.querySelector<HTMLElement>(".drawer .close");
 
+    close?.focus();
     close?.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", code: "Escape", bubbles: true }));
 
     return close !== null;

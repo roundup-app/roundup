@@ -18,7 +18,7 @@ Base and head are the two commits U3010d compares; build and run each in its own
 ROUNDUP_ALLOW_WINDOW=1 just perf-frames <layers|todos|glyphs>
 ```
 
-It builds the App with the recorder, opens a window kept above everything for about 100 s (10 s warm-up, 60 s sample, 30 s idle) under the 64 KiB/s Terminal stream, and writes the report to `target/perf-frames-glyphs.json`. Set `ROUNDUP_ALLOW_WINDOW=1` only for this run; no agent or CI job sets it.
+It builds the App with the recorder, opens a window kept above everything for about 100 s (10 s warm-up, 60 s sample, 30 s idle) under the 64 KiB/s Terminal stream, and writes the report to `target/perf-frames-<workload>.json`. Set `ROUNDUP_ALLOW_WINDOW=1` only for this run; no agent or CI job sets it.
 
 ## Exit codes
 
