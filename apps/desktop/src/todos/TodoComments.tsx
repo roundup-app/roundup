@@ -4,10 +4,11 @@ import { copy } from "../copy";
 import { ErrorLine } from "../ink/ErrorLine";
 import { useConnectedProject } from "../state/connectedProject";
 import { failureOf } from "./failureOf";
+import { rowButtonOf, triage } from "./triage";
 
 /** The thread, oldest first, with a field to add to it. Opening reads it and marks it read once; a comment that arrives while it is open is read the same way. */
 export const TodoComments = (props: { id: number }) => {
-  const { app, events, rail } = useConnectedProject();
+  const { app, events, rail, drawer } = useConnectedProject();
   const [thread, setThread] = createSignal<readonly Comment[]>([]);
   const [failure, setFailure] = createSignal<string | null>(null);
   const [sendFailure, setSendFailure] = createSignal<string | null>(null);
@@ -38,6 +39,14 @@ export const TodoComments = (props: { id: number }) => {
   onCleanup(events.subscribe((event) => { if (event.name === "todo.commented" && event.data.id === props.id) void refresh(); }));
   onCleanup(() => { alive = false; latest++; });
 
+  // U3753: `c` on a triage row asks for this Todo's field.
+  createEffect(() => {
+    if (triage.commentFor() === props.id && field) {
+      field.focus();
+      triage.askComment(null);
+    }
+  });
+
   const author = (comment: Comment) => comment.author.kind === "agent" ? rail.nodes.find((node) => node.id === comment.author.id)?.name ?? comment.author.id : copy.me;
 
   const send = async () => {
@@ -64,7 +73,11 @@ export const TodoComments = (props: { id: number }) => {
     <textarea class="todo-comment-field" rows={2} aria-label={copy.commentField} placeholder={copy.commentPlaceholder} value={text()}
       ref={(element) => { field = element; }}
       onInput={(event) => setText(event.currentTarget.value)}
-      onKeyDown={(event) => { if (event.key === "Enter" && (event.metaKey || event.ctrlKey) && !event.isComposing) { event.preventDefault(); void send(); } }} />
+      onKeyDown={(event) => {
+        if (event.key === "Escape" && triage.on()) { event.preventDefault(); drawer.close(); rowButtonOf(props.id)?.focus(); }
+
+        if (event.key === "Enter" && (event.metaKey || event.ctrlKey) && !event.isComposing) { event.preventDefault(); void send(); }
+      }} />
     <Show when={sendFailure()}>{(message) => <ErrorLine message={message()} />}</Show>
     <p class="todo-comments-send"><button data-button="quiet" class="word" type="button" aria-disabled={text().trim() === "" || sending() ? true : undefined} onClick={() => void send()}>{copy.comment}</button></p>
   </section>;
