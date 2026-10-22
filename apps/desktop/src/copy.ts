@@ -161,7 +161,7 @@ export const copy = {
   resuming: "Resuming…",
   resumed: "Resumed: the Agent has the unfinished work.",
   resumeNothing: "No unfinished work to resume.",
-  resumeFailed: (value1: CopyValue) => `Resume failed. ${value1} Nothing was claimed.`,
+  resumeFailed: (value1: CopyValue) => `${value1} The work is still unfinished.`,
   resumeUnknown: "Resume may have reached the Daemon. It checks before it tries again.",
   comparisonRenderFailed: "Unable to render the file comparison",
   diff: "Diff",

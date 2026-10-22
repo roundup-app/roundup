@@ -125,7 +125,7 @@ it("u3078i_real_daemon_failed_resume_stays_actionable", async () => {
     fireEvent.click(view.getByRole("button", { name: "Resume unfinished work" }));
     const alert = await view.findByRole("alert", {}, { timeout: 30_000 });
 
-    expect(alert.textContent).toContain("Nothing was claimed");
+    expect(alert.textContent).toContain("The work is still unfinished");
     expect(view.getByRole("button", { name: "Try resuming again" })).toBeTruthy();
     expect(document.activeElement).toBe(view.getByRole("button", { name: "Try resuming again" }));
     // A stopped Agent stays stopped: nothing was sent and no program started.

@@ -1,4 +1,4 @@
-import { For, Show, createMemo, createResource, createSignal, onCleanup } from "solid-js";
+import { For, Show, createEffect, createMemo, createResource, createSignal, onCleanup } from "solid-js";
 import type { ContinuationAction } from "@contracts/message/ContinuationAction";
 import type { Progress } from "@contracts/message/Progress";
 import type { Reconciliation } from "@contracts/message/Reconciliation";
@@ -7,6 +7,7 @@ import type { ResultProgress } from "@contracts/message/ResultProgress";
 import { openDeliverable } from "../ask/openDeliverable";
 import { INTERNAL_CODE, RpcError } from "../app/seam";
 import { copy } from "../copy";
+import { Icon } from "../ink/Icon";
 import { KindGlyph } from "../ink/KindGlyph";
 import { useConnectedProject } from "../state/connectedProject";
 import { Disclosure } from "../ui/Disclosure";
@@ -58,10 +59,16 @@ export const WorkProgress = (props: { id: string }) => {
 
   let request: string | null = null;
   let button: HTMLButtonElement | undefined;
+  let status: HTMLParagraphElement | undefined;
   let disposed = false;
   onCleanup(() => { disposed = true; });
 
   const open = (): ContinuationAction[] => loaded()?.plan.actions.filter((action) => action.decision === null) ?? [];
+
+  /** The control leaves once nothing is left to resume; focus moves to the status line it reported in. */
+  createEffect(() => {
+    if (open().length === 0 && (phase() === "resumed" || phase() === "nothing")) queueMicrotask(() => { if (!disposed && document.activeElement === document.body) status?.focus(); });
+  });
 
   const inspect = async (result: ResultProgress) => {
     const report = result.report.report;
@@ -170,16 +177,16 @@ export const WorkProgress = (props: { id: string }) => {
       <li class="progress-row" data-report={result.report.report} data-current={String(result.current)}>
         <p class="progress-result">{result.report.request.result}</p>
         <p class="progress-states">
-          <Show when={!result.current}><span class="progress-state" data-state="older">{copy.progressOlder}</span></Show>
-          <Show when={result.acceptances.length > 0}><span class="progress-state" data-state="accepted">{copy.progressAccepted}</span></Show>
-          <Show when={confirmed(result)}><span class="progress-state" data-state="checked">{copy.progressChecked}</span></Show>
-          <Show when={outcome()}>{(kind) => <span class="progress-state" data-state={kind() === "completed" ? "checked" : "unknown"}>{kind() === "completed" ? copy.progressReceipt : copy.progressNotPerformed}</span>}</Show>
-          <Show when={result.current && pending() && !confirmed(result)}><span class="progress-state" data-state="pending">{copy.progressChecksPending}</span></Show>
-          <Show when={result.report.request.state === "unknown-effect" && outcome() === null}><span class="progress-state" data-state="unknown"><KindGlyph kind="needs-you" decorative />{copy.progressUnknown}</span></Show>
-          <Show when={result.availability.kind === "unavailable"}><span class="progress-state" data-state="unavailable"><KindGlyph kind="error" decorative />{copy.progressUnavailable}</span></Show>
+          <Show when={!result.current}><span class="progress-state" data-state="older"><Icon name="circle" />{copy.progressOlder}</span></Show>
+          <Show when={result.acceptances.length > 0}><span class="progress-state" data-state="accepted"><Icon name="check" />{copy.progressAccepted}</span></Show>
+          <Show when={confirmed(result)}><span class="progress-state" data-state="checked"><Icon name="check" />{copy.progressChecked}</span></Show>
+          <Show when={outcome()}>{(kind) => <span class="progress-state" data-state={kind() === "completed" ? "checked" : "unknown"}><Icon name={kind() === "completed" ? "check" : "x"} />{kind() === "completed" ? copy.progressReceipt : copy.progressNotPerformed}</span>}</Show>
+          <Show when={result.current && pending() && !confirmed(result)}><span class="progress-state" data-state="pending"><Icon name="circle" />{copy.progressChecksPending}</span></Show>
+          <Show when={result.report.request.state === "unknown-effect" && outcome() === null}><span class="progress-state" data-state="unknown"><Icon name="diamond" />{copy.progressUnknown}</span></Show>
+          <Show when={result.availability.kind === "unavailable"}><span class="progress-state" data-state="unavailable"><Icon name="x" />{copy.progressUnavailable}</span></Show>
         </p>
         <Show when={next() !== ""}><p class="progress-next"><span class="progress-label">{copy.progressRemaining}</span> {next()}</p></Show>
-        <For each={noteOf(result, plan)}>{(note) => <p class="progress-note" role="note">{sentence(note.cause)} {note.action}</p>}</For>
+        <For each={noteOf(result, plan)}>{(note) => <p class="progress-note" role="note">{sentence(note.cause)} {sentence(note.action)}</p>}</For>
         <button class="word progress-evidence" data-button="quiet" type="button" aria-label={copy.openEvidence(result.report.publication.title)}
           aria-disabled={opening() !== null ? true : undefined} onClick={() => void inspect(result)}>{result.report.publication.title}</button>
         <Show when={failure()?.report === result.report.report && failure()}>{(shown) => <p class="progress-failure" role="alert"><KindGlyph kind="error" /><span>{shown().cause}</span></p>}</Show>
@@ -207,14 +214,16 @@ export const WorkProgress = (props: { id: string }) => {
             <section class="progress-section" aria-label={copy.progress}>
               <div class="progress-head">
                 <h3>{copy.progress}</h3>
-                <Show when={open().length > 0 || phase() === "resumed" || phase() === "nothing"}>
-                  <button ref={button} class="word" data-button="primary" type="button" aria-disabled={phase() === "pending" || daemonExit() !== null || open().length === 0 ? true : undefined}
+                <Show when={open().length > 0}>
+                  <button ref={button} class="word" data-button="primary" type="button" aria-disabled={phase() === "pending" || daemonExit() !== null ? true : undefined}
                     onClick={() => void resume()}>{phase() === "pending" ? copy.resuming : phase() === "failed" || phase() === "unknown" ? copy.resumeRetry : copy.resumeUnfinished}</button>
                 </Show>
               </div>
               <Show when={phase() === "failed"}><p class="progress-failure" role="alert"><KindGlyph kind="error" /><span>{copy.resumeFailed(sentence(cause()))}</span></p></Show>
               <Show when={phase() === "unknown"}><p class="progress-failure" role="alert"><KindGlyph kind="error" /><span>{copy.resumeUnknown}</span></p></Show>
-              <p class="progress-status" role="status">{phase() === "resumed" ? copy.resumed : phase() === "nothing" ? copy.resumeNothing : ""}</p>
+              <p ref={status} class="progress-status" role="status" tabindex="-1">
+                <Show when={phase() === "resumed" || phase() === "nothing"}><Icon name="check" />{phase() === "resumed" ? copy.resumed : copy.resumeNothing}</Show>
+              </p>
               <ul class="progress-rows"><For each={rows()?.current}>{(result) => row(result, data().plan)}</For></ul>
               <Show when={(rows()?.earlier.length ?? 0) > 0}>
                 <Disclosure class="progress-earlier" label={copy.progressEarlier(data().progress.results.filter((result) => !result.current).length)}>
