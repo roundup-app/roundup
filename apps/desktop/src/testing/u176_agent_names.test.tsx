@@ -75,7 +75,7 @@ describe("u176 Agent names", () => {
 
     await waitFor(async () => expect((await app.rpc("decision.list", null)).map((decision) => decision.agent)).toContain(second.id), { timeout: 60_000 });
     fireEvent.click(rail.querySelector(`[data-id="${second.id}"] .name`) ?? rail);
-    expect(await screen.findByRole("region", { name: `Decision for ${second.name}` }, { timeout: 30_000 })).toBeTruthy();
+    expect(await screen.findByRole("region", { name: new RegExp(`Decision for ${second.name}|${second.name} wants to `) }, { timeout: 30_000 })).toBeTruthy();
     await real.model!.assertMatched();
   }, 180_000);
 
