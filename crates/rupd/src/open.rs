@@ -248,7 +248,11 @@ impl Daemon {
             .unwrap_or_else(|p| p.into_inner())
             .take()
         {
-            tokio::spawn(owner_told::tell_owners(self.reader(), owner_events));
+            tokio::spawn(owner_told::tell_owners(
+                self.reader(),
+                owner_events,
+                self.sender.clone(),
+            ));
         }
         let wake_events = self
             .wake_events

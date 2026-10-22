@@ -33,7 +33,10 @@ const lines = (change: Change, agentName: (id: string) => string): string[] => {
     text.push(after.owner ? copy.changeAssigned(after.owner.kind === "agent" ? agentName(after.owner.id) : copy.me) : copy.changeUnassigned);
   }
 
-  const actor = change.actor && change.actor.kind !== "user" ? agentName(change.actor.id) : null;
+  // T26: a hand-off is the Daemon's, so its line names the Agent handed to, not the writer.
+  if (change.handed) text.push(copy.changeHandedTo(agentName(change.handed.id)));
+
+  const actor = change.actor && change.actor.kind !== "user" && !change.handed ? agentName(change.actor.id) : null;
 
   const named = actor ? text.map((line) => copy.changeByActor(line, actor)) : text;
 
