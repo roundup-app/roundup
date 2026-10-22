@@ -1,6 +1,6 @@
-# UI: the visual system (U130 to U137, U161, U476, U3764)
+# UI: the visual system (U130 to U137, U161, U476, U3767)
 
-Module: `apps/desktop` (the webview). Ids: U130–U137, U161, U476, U3764.
+Module: `apps/desktop` (the webview). Ids: U130–U137, U161, U476, U3767.
 
 Webview only. No App command, no Daemon method and nothing under `contracts/` changes. `docs/design-system.md` holds the Tokens, the six rules and the checks D1 to D10; each scenario below is the test that proves some of them, and its test name starts with its id. For rendered captures, every Check runs on every visible element in dark and fails when it cannot measure; non-capture behavioral and Token tests retain their supported schemes (U3725). `docs/motion.md` is unchanged.
 
@@ -48,4 +48,4 @@ The implementation updates `docs/design-system.md`'s UI stack and U59's wording 
 
 - **A modal Dialog hides what floats under it.** Given the Terminal note popover (`terminal/SendToAgent.tsx`) open with unsent text, when a modal Dialog opens (for example Import Claude Code work), then the popover closes and is not drawn over the Dialog (`u3767_opening_a_dialog_closes_the_note_popover`); when the Dialog closes and the user reopens the note on the same Agent, then the unsent text is in the field (U2773a; `u3767_the_note_text_survives_the_dialog`).
 
-Tests are named `u3767_…` under `apps/desktop/src/ui/` and `apps/desktop/src/terminal/`. Design critic judges D2, D5, D6 on `agents-10` in dark with the Import dialog over the open note popover; before and after captures go to `artifacts/ux/U3764/` (policy).
+Tests are named `u3767_…` under `apps/desktop/src/ui/` and `apps/desktop/src/terminal/`. Design critic judges D2, D5, D6 on `agents-10` in dark with the Import dialog over the open note popover; before and after captures go to `artifacts/ux/U3767/` (policy).
