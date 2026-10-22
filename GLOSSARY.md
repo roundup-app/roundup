@@ -277,6 +277,9 @@ _Avoid_: assignee
 **Comment** (`todo.comment`, `todo_comment`):
 A line on a Todo from the user or an Agent, shown oldest first with its author and time. Not a Message and not History: it moves no field of the Todo. An Agent's comment is unread, and waits in the Inbox as needs-you, until the user opens the Todo (T20 to T23).
 
+**Ref** (`todo.addRef`, `todo.removeRef`, `todo.refs`, `refs`):
+A link from a Todo to a Pad or one section of a Pad, `roundup://pad/<name>?project=<key>` with `#<heading>` for a section (LK4). A Todo keeps one Ref per target, in the order added. Not a blocker and not a Message: it moves no field of the Todo and adds no History. Its state is `ok`, or `missing` when the Pad or heading no longer exists, computed at read and never stored (T27, T28).
+
 **Sketch**:
 A Pad holding Mermaid or drawing blocks; the Pad contracts are unchanged. Workstream-scoped storage is still open.
 
@@ -506,6 +509,9 @@ The text format an Agent writes; `renderMarkdown` draws it as elements on every 
 
 **Decision**:
 The kind of Card that blocks an Agent on a live hook or tool call; the user answers any of them, and an Agent answers only those of Agents in its Reach, never its own (`scenarios/decisions.md` H21). An Agent's `ask_user` call is one, answered with one of its listed answers (outcome `answered`).
+
+**Grant** (`Decision.scopes`, `Decision.risk`, `decision.answer.scope`, `decision.revoke`):
+How long a user's allow lasts: `once`, `session` or `project`, each a permission rule Claude Code itself suggested and the hook reply echoes (`scenarios/decisions.md` H23). Only a `project` Grant can be revoked. `Decision.risk` is `destructive` for a command H23 names; such a Decision offers no `project` Grant.
 
 **Answered Decision** (`AnsweredDecision`, `AnswersParams`, `decision.answers`):
 The Project's durable record of one accepted Decision answer: the full original Decision,
@@ -803,6 +809,14 @@ only retained-byte integrity; PR checks use fresh, complete forge evidence for t
 exact declared repository/PR/head. Unsupported sources and uncertain external effects
 remain unknown with a cause and checking action. Agent status and Terminal prose
 supply no verification authority.
+
+**Continuation** (`ContinuationAction`, `ContinuationDecision`, `Reconciliation`, `ResumeWorkParams`, `message.reconcileWork`, `message.resumeWork`):
+The user's explicit choice to resume one Agent's unfinished work. Reconciliation reads
+retained Result reports, acceptance and observations and changes nothing; an action is a
+current report's pending next step, identified by its Agent, instruction, target, output
+and next step, never by a report key or client request id. A decision accepts its actions
+once and makes one successor Message in the same write; a stopped Agent, a removed target,
+an unknown external effect or a completed result never yields one.
 
 **Result resolution** (`ResultResolution`, `ResultOutcome`, `ResolveResultParams`, `message.resolveResult`):
 A Daemon GET of an authoritative receipt source explicitly chosen by the user, never

@@ -2,9 +2,10 @@
 
 mod files;
 mod name;
+pub mod reference;
 #[doc(hidden)]
 pub mod schema;
-mod section;
+pub mod section;
 mod store;
 
 use std::path::{Path, PathBuf};
@@ -117,6 +118,20 @@ impl Pads {
         })?;
         wrote(ctx, &pad.name)?;
         reply(&pad)
+    }
+
+    /// T27: whether the Pad `link` names, and its section, exist now. It logs no Touch.
+    pub fn holds(&self, link: &reference::PadRef) -> Result<bool, RpcError> {
+        let store = self.store()?;
+        let pad = match get(&store, &link.name) {
+            Ok(pad) => pad,
+            Err(err) if err.code == rpc::code::NOT_FOUND => return Ok(false),
+            Err(err) => return Err(err),
+        };
+        Ok(link
+            .heading
+            .as_deref()
+            .is_none_or(|heading| section::find(&pad.text, &section::wanted(heading)).is_some()))
     }
 
     fn read(&self, ctx: &Ctx, p: PadName) -> Result<Value, RpcError> {

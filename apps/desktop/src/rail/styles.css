@@ -226,6 +226,7 @@
   border: 0;
   resize: none;
   overflow-y: auto;
+  overscroll-behavior: contain;
   line-height: var(--space-4);
   max-height: calc(6lh + 2 * var(--space-1));
 }
@@ -518,6 +519,7 @@
   max-width: min(var(--shelf-width), calc(100vw - 2 * var(--space-4)));
   max-height: calc(100vh - 2 * var(--space-4));
   overflow: auto;
+  overscroll-behavior: contain;
 }
 
 /* The trailing Glyph and controls share a group so their gaps never consume the name's room. */
@@ -845,6 +847,7 @@
   padding: var(--space-2);
   max-height: var(--pad-menu-max-height);
   overflow: auto;
+  overscroll-behavior: contain;
 }
 
 .rail-recovery p,
