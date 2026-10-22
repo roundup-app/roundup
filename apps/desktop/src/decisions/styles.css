@@ -150,9 +150,6 @@
 .decision-tag {
   font-size: var(--text-caption);
   color: var(--red);
-  background: var(--selected);
-  border-radius: var(--radius-chip);
-  padding: 0 var(--space-1);
 }
 
 .decision-effects {
@@ -162,12 +159,9 @@
   font-size: var(--text-small);
 }
 
-.decision-added {
-  color: var(--text);
-}
-
+.decision-added,
 .decision-removed {
-  color: var(--red);
+  color: var(--grey);
 }
 
 .decision-card > .app-segments {
@@ -194,12 +188,10 @@
 @keyframes decision-fold {
   from {
     opacity: 0;
-    height: 0;
   }
 
   to {
     opacity: 1;
-    height: calc(var(--space-5) + var(--space-2));
   }
 }
 
