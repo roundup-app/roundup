@@ -20,6 +20,7 @@
   flex: 1;
   min-height: 0;
   overflow-y: auto;
+  scrollbar-gutter: stable;
   overscroll-behavior: contain;
   padding: var(--space-4);
   color: var(--text);
@@ -148,7 +149,7 @@
 .measurement-segment[data-category="input"] { background: var(--text); }
 .measurement-segment[data-category="output"] { background: var(--grey); }
 .measurement-segment[data-category="cache_read"] { background: var(--accent); }
-.measurement-segment[data-category="cache_write"] { background: var(--selected-hover); }
+.measurement-segment[data-category="cache_write"] { background: var(--gray-8); }
 
 .measurement-stack[data-dim="true"] .measurement-segment:not([data-active="true"]) { opacity: 0.35; }
 
@@ -174,7 +175,7 @@
 .measurement-legend [data-category="input"] .measurement-swatch { background: var(--text); }
 .measurement-legend [data-category="output"] .measurement-swatch { background: var(--grey); }
 .measurement-legend [data-category="cache_read"] .measurement-swatch { background: var(--accent); }
-.measurement-legend [data-category="cache_write"] .measurement-swatch { background: var(--selected-hover); }
+.measurement-legend [data-category="cache_write"] .measurement-swatch { background: var(--gray-8); }
 
 .measurement-limit {
   display: flex;

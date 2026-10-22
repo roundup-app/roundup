@@ -73,7 +73,7 @@ export const copy = {
   measurementOther: "Other",
   measurementUnmeasured: "Unmeasured",
   measurementCategory: { total: "Total", input: "Input", output: "Output", cache_read: "Cache read", cache_write: "Cache write" },
-  measurementAgents: (count: number) => `Agents · ${count.toLocaleString()}`,
+  measurementAgents: (count: number | null) => (count === null ? "Agents" : `Agents · ${count.toLocaleString()}`),
   measurementEmpty: "No work measured yet",
   measurementRank: "Rank Agents by",
   measurementAgent: "Agent",

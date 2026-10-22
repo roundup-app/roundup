@@ -258,8 +258,8 @@ export const MeasurementDashboard = (props: { home: string; name: string; back: 
       <h3>{copy.measurementTimeSpent} <span class="measurement-note">{copy.measurementTimeSpentNote}</span></h3>
       <dl class="measurement-time"><For each={snapshot() ? timeRows(snapshot()!.time) : []}>{([label, value]) => <div><dt>{label}</dt><dd><span class="measurement-bar"><span style={{ width: `${ratio(value, snapshot()!.time.summed_ns)}%` }} /></span><span class="measurement-duration">{duration(value)}</span></dd></div>}</For></dl>
     </section>
-    <section class="measurement-section measurement-agents" aria-label={copy.measurementAgents(snapshot()?.contributors ?? 0)}>
-      <h3>{copy.measurementAgents(snapshot()?.contributors ?? 0)}</h3>
+    <section class="measurement-section measurement-agents" aria-label={copy.measurementAgents(snapshot()?.contributors ?? null)}>
+      <h3>{copy.measurementAgents(snapshot()?.contributors ?? null)}</h3>
       <Tabs.Root value={category()} onValueChange={({ value }) => { const chosen = categories.find((key) => key === value);
 
         if (chosen) setCategory(chosen); }}>
