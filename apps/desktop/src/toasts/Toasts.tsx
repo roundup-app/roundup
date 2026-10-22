@@ -1,6 +1,5 @@
 import { copy } from "../copy";
-import { createEffect, createSignal, Show } from "solid-js";
-import { ErrorLine } from "../ink/ErrorLine";
+import { createEffect, createSignal } from "solid-js";
 import { ToastProvider } from "../ui/Toast";
 import type { ToastQueue } from "./queue";
 import "./styles.css";
@@ -24,13 +23,10 @@ export const Toasts = (props: { queue: ToastQueue }) => {
     const room = top === undefined ? 0 : overlay.getBoundingClientRect().bottom - top;
 
     element.style.setProperty("--toast-lift", room > 0 ? `${Math.ceil(room)}px` : "0px");
-    // The failure line rests above whatever cards still show.
-    element.style.setProperty("--toast-stack", `${Math.ceil(overlay.querySelector(".app-toasts")?.getBoundingClientRect().height ?? 0)}px`);
   });
 
   return (
     <div class="toasts" role="status" aria-live="polite" ref={setLayer}>
-      <Show when={props.queue.failure()}>{(message) => <ErrorLine message={message()} />}</Show>
       <ToastProvider toast={props.queue.toast} label={copy.toastsRegion} />
     </div>
   );
