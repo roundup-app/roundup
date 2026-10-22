@@ -27,7 +27,7 @@
   left: 50%;
   z-index: 3;
   width: min(640px, calc(100% - var(--space-5)));
-  max-height: calc(100% - var(--space-6));
+  max-height: calc(100% - var(--space-6) - var(--hint-row-height) - var(--rail-actions-height));
   transform: translateX(-50%);
   overflow-y: auto;
   overscroll-behavior: contain;
