@@ -33,6 +33,8 @@ export type PadEditorHandle = {
   /** Endpoints are ProseMirror document positions; restoration changes no focus. */
   selection(): { start: number; end: number; direction: "forward" | "backward" | "none" };
   restoreSelection(selection: { start: number; end: number; direction: "forward" | "backward" | "none" }): void;
+  /** T27: brings the first heading whose text is `heading` (case, whitespace runs and leading `#` ignored, as P15 reads it) to the top of the view. */
+  scrollToHeading(heading: string): void;
   /** The document equals the one last loaded, whatever Markdown it would serialize to. */
   unchanged(): boolean;
 };
@@ -50,6 +52,8 @@ const topBarNames = new Map([
   ["quote", copy.quote],
   ["hr", copy.horizontalRule],
 ]);
+
+const normalHeading = (text: string) => text.replace(/^#+/, "").split(/\s+/).filter(Boolean).join(" ").toLowerCase();
 
 /** U147: the Pad's one surface. `readonly` is ownership (P2), never a mode; `onChange` fires on every document change the user makes, `onText` follows with the settled Markdown. */
 export default function PadRichEditor(props: {
@@ -311,6 +315,32 @@ export default function PadRichEditor(props: {
         }),
         focus: () => field.focus(),
         unchanged: () => document().eq(originalDocument),
+        scrollToHeading: (heading) => {
+          const wanted = normalHeading(heading);
+
+          const scroll = () => crepe?.editor.action(ctx => {
+            const view = ctx.get(editorViewCtx);
+
+            view.state.doc.descendants((node, pos) => {
+              if (node.type.name !== "heading" || normalHeading(node.textContent) !== wanted) return true;
+
+              const element = view.nodeDOM(pos);
+
+              if (element instanceof HTMLElement) {
+                // The sticky formatting toolbar covers the top of the scroll port; the heading stops below it.
+                const bar = element.closest(".milkdown")?.querySelector<HTMLElement>(".milkdown-top-bar");
+
+                element.style.scrollMarginTop = `${bar?.offsetHeight ?? 0}px`;
+                element.scrollIntoView({ block: "start" });
+              }
+
+              return false;
+            });
+          });
+
+          // One frame after the loaded text is in, the layout holds: aim once.
+          requestAnimationFrame(() => { if (!closed) scroll(); });
+        },
       });
     }).catch((error) => {
       if (!closed) setFailure(error instanceof Error ? error.message : String(error));
