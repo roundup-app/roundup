@@ -8,7 +8,7 @@ use ts_rs::TS;
 use crate::common::Status;
 
 mod launch;
-pub use launch::{Extras, ExtrasAddParams, SpawnParams, StartDoorParams};
+pub use launch::{Extras, ExtrasAddParams, PermissionMode, SpawnParams, StartDoorParams};
 
 /// Parse the wire ordinal without accepting aliases such as leading zeroes or signs.
 pub fn parse_positive_ordinal(value: &str) -> Option<i64> {
@@ -765,6 +765,16 @@ pub struct Instructions {
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, TS, JsonSchema)]
 #[ts(export, export_to = "agent/")]
 pub struct ResumeParams {
+    /// U3801: only the user selects permissions for this launch; omission keeps vendor defaults.
+    #[serde(
+        default,
+        rename = "permissionMode",
+        skip_serializing_if = "Option::is_none"
+    )]
+    #[ts(optional, rename = "permissionMode")]
+    #[schemars(skip)]
+    pub permission_mode: Option<PermissionMode>,
+
     pub id: String,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     #[ts(optional)]

@@ -75,7 +75,7 @@ impl Agents {
                 NodeKind::Workstream => START_DOOR_ACK_BOUND,
                 _ => RESUME_ACK_BOUND,
             };
-            self.resume_saved(ctx, id, bound).await?;
+            self.resume_saved(ctx, id, bound, None).await?;
         }
         ctx.emit(EventData::RailChanged);
         self.shared.node(id)

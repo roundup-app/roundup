@@ -529,6 +529,7 @@ impl Agents {
                         prompt,
                         publication,
                         None,
+                        None,
                     )
                     .await
             });
@@ -543,6 +544,7 @@ impl Agents {
                 Some((copy, &mark.cwd)),
                 resume.prompt.clone(),
                 publication,
+                None,
                 None,
             )
             .await?;

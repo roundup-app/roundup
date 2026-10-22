@@ -2,6 +2,10 @@
 //! module an id is opaque (P4); only the tables below know what it means. Read on
 //! `claude --version` 2.1.296 from `claude --help` and https://code.claude.com/docs/en/model-config.
 
+use contracts::agent::Extras;
+use serde::{Deserialize, Serialize};
+use std::collections::BTreeMap;
+
 /// `(id, label)`: an alias Claude Code resolves to the latest Model of its family.
 const MODELS: [(&str, &str); 4] = [
     ("fable", "Fable"),
@@ -34,34 +38,11 @@ pub fn efforts() -> &'static [(&'static str, &'static str)] {
 pub const MODEL_VARIABLE: &str = "ANTHROPIC_MODEL";
 pub const EFFORT_VARIABLE: &str = "CLAUDE_CODE_EFFORT_LEVEL";
 
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn ids_are_unique_and_never_empty() {
-        for table in [models(), efforts()] {
-            let mut ids: Vec<_> = table.iter().map(|(id, _)| *id).collect();
-            ids.sort_unstable();
-            ids.dedup();
-            assert_eq!(ids.len(), table.len());
-            assert!(
-                table
-                    .iter()
-                    .all(|(id, label)| !id.is_empty() && !label.is_empty())
-            );
-        }
-    }
-}
-
-use contracts::agent::Extras;
-use serde::{Deserialize, Serialize};
-use std::collections::BTreeMap;
-
 /// A36: the Model and Effort an Agent is started on; `None` is passed to nothing, so the user's
 /// own Claude Code default applies.
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub struct Pair {
+    pub permission_mode: Option<contracts::agent::PermissionMode>,
     pub yolo: bool,
     pub model: Option<String>,
     pub effort: Option<String>,
@@ -98,5 +79,40 @@ impl Pair {
         .into_iter()
         .filter_map(|(name, value)| Some((name.to_owned(), value.clone()?)))
         .collect()
+    }
+}
+
+/// U3802: the implemented engine's opaque identity and display label.
+pub fn engines() -> &'static [(&'static str, &'static str)] {
+    &[("claude-code", "Claude Code")]
+}
+
+pub(super) fn permission_mode(mode: contracts::agent::PermissionMode) -> &'static str {
+    use contracts::agent::PermissionMode;
+    match mode {
+        PermissionMode::Default => "default",
+        PermissionMode::AcceptEdits => "acceptEdits",
+        PermissionMode::Plan => "plan",
+        PermissionMode::Auto => "auto",
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn ids_are_unique_and_never_empty() {
+        for table in [models(), efforts()] {
+            let mut ids: Vec<_> = table.iter().map(|(id, _)| *id).collect();
+            ids.sort_unstable();
+            ids.dedup();
+            assert_eq!(ids.len(), table.len());
+            assert!(
+                table
+                    .iter()
+                    .all(|(id, label)| !id.is_empty() && !label.is_empty())
+            );
+        }
     }
 }

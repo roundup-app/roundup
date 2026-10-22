@@ -26,7 +26,7 @@ use crate::{AgentAdapter, Observation};
 
 pub use brief::Role;
 pub use launch::{Folders, INTENT_MISSING, Launcher, STATE_EVENTS, settings_marker};
-pub use models::{Lean, Pair, efforts, models};
+pub use models::{Lean, Pair, efforts, engines, models};
 pub use profiles::{
     DOOR_TOOLS, DOOR_TOOLS_NO_MCP, PROFILES, Profile, SCOUT_TOOLS, SCOUT_TOOLS_NO_MCP, profile,
 };

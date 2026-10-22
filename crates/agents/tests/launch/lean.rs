@@ -1,7 +1,7 @@
 //! LC1–LC14: lean launch profiles and extras.
 use super::*;
 
-use agents::claude_code::{Lean, PROFILES, Pair, profile};
+use agents::claude_code::{Lean, Pair};
 use contracts::agent::Extras;
 
 fn lean_pair(scout: bool, extras: Extras) -> Pair {
@@ -67,16 +67,17 @@ fn lc1_each_role_launches_as_its_row() {
                 ..pair.clone()
             };
             let argv = s.prepare_lean("7", role, &pair, None).unwrap();
-            let want = profile(row);
-            assert_eq!(
-                Setup::after(&argv, "--tools"),
-                want.tools
-                    .map(|(with, without)| if mcp { with } else { without }),
-                "{row:?} mcp={mcp}"
-            );
+            let tools = match (row, mcp) {
+                (Role::Door, true) => Some("Read,Grep,Glob,ToolSearch,Skill"),
+                (Role::Door, false) => Some("Read,Grep,Glob,Skill"),
+                (Role::Scout, true) => Some("Read,Grep,Glob,Bash,ToolSearch"),
+                (Role::Scout, false) => Some("Read,Grep,Glob,Bash"),
+                _ => None,
+            };
+            assert_eq!(Setup::after(&argv, "--tools"), tools, "{row:?} mcp={mcp}");
             assert_eq!(
                 has(&argv, "--disable-slash-commands"),
-                !want.skills,
+                row == Role::Scout,
                 "{row:?}"
             );
             let brief = std::fs::read_to_string(
@@ -90,15 +91,6 @@ fn lc1_each_role_launches_as_its_row() {
             );
         }
     }
-    assert_eq!(PROFILES.len(), 3);
-    assert_eq!(
-        profile(Role::Door).tools,
-        Some(("Read,Grep,Glob,ToolSearch,Skill", "Read,Grep,Glob,Skill"))
-    );
-    assert_eq!(
-        profile(Role::Scout).tools.unwrap().0,
-        "Read,Grep,Glob,Bash,ToolSearch"
-    );
 }
 
 #[test]

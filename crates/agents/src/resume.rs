@@ -13,7 +13,9 @@ impl Agents {
         ctx: &Ctx,
         id: &str,
         mode: Option<contracts::agent::ResumeMode>,
+        permission_mode: Option<contracts::agent::PermissionMode>,
     ) -> Result<RailNode, RpcError> {
+        models::check_permissions(&ctx.actor, permission_mode)?;
         {
             let rail = self.shared.rail();
             let node = rail.node(id)?;
@@ -31,6 +33,7 @@ impl Agents {
             None,
             RailPublication::Immediate,
             mode,
+            permission_mode,
         )
         .await
     }
@@ -68,7 +71,7 @@ impl Agents {
         }
         Launcher::save_lean(&self.dir, &id, &lean)?;
         if live {
-            self.resume_saved(ctx, &id, RESUME_ACK_BOUND).await?;
+            self.resume_saved(ctx, &id, RESUME_ACK_BOUND, None).await?;
         }
         ctx.emit(EventData::RailChanged);
         self.shared.node(&id)
@@ -83,6 +86,7 @@ impl Agents {
         ctx: &Ctx,
         id: &str,
         ack_bound: Duration,
+        permission_mode: Option<contracts::agent::PermissionMode>,
     ) -> Result<RailNode, RpcError> {
         self.resume_conversation(
             ctx,
@@ -92,6 +96,7 @@ impl Agents {
             None,
             RailPublication::Immediate,
             None,
+            permission_mode,
         )
         .await
     }
@@ -106,6 +111,7 @@ impl Agents {
         prompt: Option<String>,
         publication: RailPublication,
         mode: Option<contracts::agent::ResumeMode>,
+        permission_mode: Option<contracts::agent::PermissionMode>,
     ) -> Result<RailNode, RpcError> {
         let (attempt, conversation_id, worktree, saved_cwd, done_rx) = {
             let mut rail = self.shared.rail();
@@ -234,6 +240,7 @@ impl Agents {
                 Some(&conversation_id),
                 false,
                 mode == Some(contracts::agent::ResumeMode::Yolo),
+                permission_mode,
             )
             .await
         {
@@ -492,7 +499,12 @@ mod tests {
                 Ok(())
             });
         let error = agents
-            .resume(&ctx(bus), &id, Some(contracts::agent::ResumeMode::Yolo))
+            .resume(
+                &ctx(bus),
+                &id,
+                Some(contracts::agent::ResumeMode::Yolo),
+                None,
+            )
             .await
             .unwrap_err();
         assert!(error.message.contains("kill failed"), "{error}");
@@ -542,7 +554,12 @@ mod tests {
                 result = &mut ending => panic!("ending completed before release: {result:?}"),
             }
             let error = agents
-                .resume(&ctx(bus), &id, Some(contracts::agent::ResumeMode::Yolo))
+                .resume(
+                    &ctx(bus),
+                    &id,
+                    Some(contracts::agent::ResumeMode::Yolo),
+                    None,
+                )
                 .await
                 .unwrap_err();
             assert_eq!(error.code, code::CONFLICT);
