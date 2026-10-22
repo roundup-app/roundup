@@ -13,7 +13,6 @@
   width: calc(var(--shelf-width) - var(--space-6));
   max-width: calc(100vw - var(--space-6));
   background-color: var(--ground);
-  box-shadow: var(--shadow-shelf);
   border-radius: var(--radius-control);
   overflow: hidden;
   /* Ark measures every card as 0 px tall, so the fanned cards would stay piled; the provider measures them and sets --stack-y. */
