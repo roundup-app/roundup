@@ -72,6 +72,8 @@ export type SortedRow = {
   /** `⌥↑` and `⌥↓`. */
   key: (event: KeyboardEvent) => void;
   step: (by: -1 | 1) => void;
+  /** Whether a sibling sits in that direction; the arrow for a direction with none is hidden. */
+  can: (by: -1 | 1) => boolean;
 };
 
 /** One open Todo as U15 draws it, with U35's `complete` and `waits on`; `nested` is the Rail's copy (U60), which leaves `data-id` to the Agent rows. */
@@ -174,8 +176,8 @@ export const OpenRow = (props: {
               <Show when={props.onAssign}>
                 <button data-button="row-action" type="button" class="word light todo-assign" aria-label={copy.assignTodoNumber(props.todo.id)} onClick={(event) => props.onAssign?.(props.todo, event.currentTarget)}>{copy.assign}</button>
               </Show>
-              <IconButton aria-label={copy.moveUp} onClick={() => props.sorted?.step(-1)}><ChevronUp class="icon" aria-hidden="true" width={16} height={16} stroke-width={1.75} /></IconButton>
-              <IconButton aria-label={copy.moveDown} onClick={() => props.sorted?.step(1)}><Icon name="down" /></IconButton>
+              <IconButton aria-label={copy.moveUp} style={props.sorted?.can(-1) ? undefined : { visibility: "hidden" }} onClick={() => props.sorted?.step(-1)}><ChevronUp class="icon" aria-hidden="true" width={16} height={16} stroke-width={1.75} /></IconButton>
+              <IconButton aria-label={copy.moveDown} style={props.sorted?.can(1) ? undefined : { visibility: "hidden" }} onClick={() => props.sorted?.step(1)}><Icon name="down" /></IconButton>
             </Show>
           </div>
         </Show>
