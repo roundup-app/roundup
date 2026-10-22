@@ -41,6 +41,8 @@ impl Daemon {
                     | "message.acceptResult"
                     | "message.verifyResult"
                     | "message.resolveResult"
+                    | "message.reconcileWork"
+                    | "message.resumeWork"
             )
             || matches!(
                 method,
@@ -272,6 +274,9 @@ impl Daemon {
                 )
                 .await;
         }
+        if resume::is_resume_method(method) {
+            return self.resume_call(conn, method, params).await;
+        }
         if namespace == "deliverable" {
             return self.deliverable_call(conn, method, params).await;
         }
@@ -283,6 +288,12 @@ impl Daemon {
         }
         if method == "link.read" {
             return self.link_read(conn, params).await;
+        }
+        if method == "todo.refs" {
+            return self.todo_refs(params);
+        }
+        if method == "todo.addRef" {
+            self.require_ref_target(&params)?;
         }
         if method == "project.resources" {
             return self.project_resources().await;
