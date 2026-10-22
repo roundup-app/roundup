@@ -4,7 +4,7 @@ import { Tip } from "../ui/Tip";
 import { IconButton } from "../ui/IconButton";
 import { copy } from "../copy";
 import type { Order } from "@contracts/agent/Order";
-import { For, Match, Show, Switch, createEffect, createMemo, createResource, createSignal, on, onCleanup } from "solid-js";
+import { For, Match, Show, Switch, createEffect, createMemo, createResource, createSignal, createUniqueId, on, onCleanup } from "solid-js";
 import { KindGlyph } from "../ink/KindGlyph";
 import { Icon } from "../ink/Icon";
 import { Markdown } from "../plain/Markdown";
@@ -44,7 +44,12 @@ const SessionId = (props: { id: string }) => {
     timer = setTimeout(() => setNote(null), 1500);
   };
 
-  return <button type="button" class="overview-id" aria-label={copy.copySessionId} onClick={() => void copyId()}>{note() ?? props.id}</button>;
+  const idText = createUniqueId();
+
+  return <div class="overview-id">
+    <button type="button" aria-label={copy.copySessionId} aria-describedby={idText} onClick={() => void copyId()}><span id={idText}>{props.id}</span></button>
+    <span role="status" aria-live="polite" class="overview-id-note">{note()}</span>
+  </div>;
 };
 
 /** O6: the whole order of one Agent or Door. What it shows follows the Rail, so a changed order reaches it. */
