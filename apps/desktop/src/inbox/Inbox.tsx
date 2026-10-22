@@ -167,10 +167,13 @@ export const Inbox = () => {
     else {
       if (openKey() === after) setOpenKey(null);
 
-      // No Decision is left: the answered row folds inert, so focus goes to the row taking its place, else the one before, else the heading.
+      // No Decision is left: the answered row folds inert, so focus goes to the row taking its place, else the one before, else the next section's row or the Drawer.
       const live = (key: string) => !byKey().get(key)?.settled && heads.has(key);
       const rest = [...keys.slice(from + 1).filter(live), ...keys.slice(0, Math.max(from, 0)).reverse().filter(live)];
-      const target = rest[0] === undefined ? needsHeading : heads.get(rest[0]);
+      const elsewhere = [...runningKeys(), ...doneKeys()].find((key) => heads.has(key));
+      // The Needs you section unmounts once nothing is left in it, so its heading is no home; the next section's first row or the Drawer itself is.
+      const fallback = rows().length > 0 ? needsHeading : elsewhere === undefined ? root : heads.get(elsewhere);
+      const target = rest[0] === undefined ? fallback : heads.get(rest[0]);
 
       queueMicrotask(() => {
         const active = document.activeElement;
@@ -271,7 +274,7 @@ export const Inbox = () => {
   const agentRow = (key: string) => <Show when={byKey().get(key)}>{(row) =>
     <InboxRow row={row()} open={openKey() === key} toggle={() => toggle(key)} actions={actions} head={(element) => { heads.set(key, element); onCleanup(() => heads.delete(key)); }} />}</Show>;
 
-  return <section class="inbox" aria-label={copy.inbox} ref={root}>
+  return <section class="inbox" aria-label={copy.inbox} ref={root} tabindex={-1}>
     <h2>{copy.inbox}</h2>
     <Show when={failure()}>{(message) => <div><ErrorLine message={message()} /><button data-button="quiet" class="word" type="button" onClick={() => void refresh()}>{copy.inboxRetry}</button></div>}</Show>
     <Show when={total() === 0 && failure() === null}><p class="light">{copy.inboxEmpty}</p></Show>

@@ -256,3 +256,13 @@ it("u3770a_unread_comment_rows_keep_u3742_behaviour", async () => {
   expect(groupOf("Needs you").lastElementChild!.contains(row)).toBe(true);
   expect(m.app.calls.some((call) => call.method.startsWith("message."))).toBe(false);
 });
+
+it("u3770c_answering_the_last_decision_keeps_focus_on_a_row_that_stays_mounted", async () => {
+  const m = await mountInbox([agent("a", "needs-you", "asks", { name: "alpha", order: 0 }), agent("b", "working", "editing", { name: "beta", order: 1 })]);
+  await open(m, decision("d1", "a"));
+  const approve = within(panel()).getByRole("button", { name: "Approve" });
+  approve.focus();
+  fireEvent.click(approve);
+  await waitFor(() => expect(within(panel()).queryByRole("region", { name: "Needs you" })).toBeNull());
+  expect(document.activeElement).toBe(within(panel()).getByText("beta").closest("button"));
+});
