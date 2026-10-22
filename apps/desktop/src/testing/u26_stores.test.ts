@@ -18,6 +18,7 @@ const todo = (id: number, over: Partial<Todo> = {}): Todo => ({
   home: null,
   owner: null,
   refs: [],
+  estimate_minutes: null,
   ...over,
 });
 
