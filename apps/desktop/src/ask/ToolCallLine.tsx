@@ -16,9 +16,9 @@ const COPIED_MS = 1500;
 const elapsed = (ms: number): string => {
   const seconds = Math.max(0, Math.floor(ms / 1000));
 
-  if (seconds === 0 && ms > 0) return "<1s";
+  if (seconds === 0 && ms > 0) return copy.toolCallUnderSecond;
 
-  return seconds < 60 ? `${seconds}s` : `${Math.floor(seconds / 60)}m ${seconds % 60}s`;
+  return seconds < 60 ? copy.toolCallSeconds(seconds) : copy.toolCallMinutes(Math.floor(seconds / 60), seconds % 60);
 };
 
 /** U3780c: the plain text a fold shows, with its own `Copy`. */
