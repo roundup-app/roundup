@@ -31,6 +31,6 @@
 .inbox-row-line { grid-column: 2; color: var(--amber); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 @keyframes inbox-arrive { from { opacity: 0; } }
 @media (prefers-reduced-motion: reduce) {
-  .inbox-item[data-arrived] { animation: none; }
-  .inbox-fold { transition: none; }
+  .inbox-item[data-arrived] { animation-name: none; animation-duration: 0s; }
+  .inbox-fold { transition-property: none; transition-duration: 0s; }
 }

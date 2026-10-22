@@ -100,7 +100,7 @@ it("u3770b_a_row_opens_to_its_state_s_one_action", async () => {
   expect(await within(panel()).findByRole("button", { name: "Retry" })).toBeTruthy();
   fireEvent.click(head("beta"));
   expect(await within(panel()).findByText("editing Thread.tsx")).toBeTruthy();
-  fireEvent.click(await within(panel()).findByRole("button", { name: "Open" }));
+  fireEvent.click(within(head("beta").closest("li")!).getByRole("button", { name: "Open" }));
   expect(m.connected.rail.selected()).toBe("b");
   expect(m.connected.drawer.content()).toBeNull();
 });
