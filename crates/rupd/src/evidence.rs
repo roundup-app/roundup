@@ -119,6 +119,15 @@ impl Daemon {
             }
         }
         if method == "message.progress" {
+            // A successor made by an accepted resume continues the instruction; it does not replace it.
+            let continued = messages.continuation_messages(&p.id)?;
+            let substantive = instructions
+                .revisions
+                .iter()
+                .rposition(|r| {
+                    !matches!(&r.instruction, contracts::agent::Instruction::Message { message, .. } if continued.contains(message))
+                })
+                .unwrap_or(0);
             let present = self.rail().await?.iter().any(|n| n.id == p.id);
             let mut results = Vec::new();
             for (index, report) in reports.iter().enumerate() {
@@ -132,8 +141,9 @@ impl Daemon {
                         && instructions.current == report.order_revision
                         && instructions
                             .revisions
-                            .last()
-                            .is_some_and(|r| r.revision == report.instruction.revision)
+                            .iter()
+                            .position(|r| r.revision == report.instruction.revision)
+                            .is_some_and(|at| at >= substantive)
                         && !reports[index + 1..]
                             .iter()
                             .any(|later| later.request.target.id == report.request.target.id));
