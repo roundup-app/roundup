@@ -7,8 +7,8 @@
   padding: var(--space-4);
 }
 
-/* Ark copies the content stack level to its portalled positioner; the Tooltip layer sits below the Drawer (U3767). */
+/* Ark copies the content stack level to its portalled positioner; the Tooltip layer sits above the Dialog, so a label on a Drawer or Dialog control shows (U3767). */
 .app-tooltip {
-  z-index: var(--layer-popover);
+  z-index: var(--layer-tooltip);
   padding: var(--space-2);
 }
