@@ -42,7 +42,13 @@
 
 .app-radio input {
   font-size: inherit;
-  margin: 0;
+  /* Ark's inline visually-hidden style sets margin: -1px and a 1 px box; the press target is the whole row. */
+  margin: 0 !important;
+  width: 100% !important;
+  height: 100% !important;
+  inset: 0;
+  clip: auto !important;
+  opacity: 0;
 }
 
 /* The hidden input is the press target: it answers at once, and the mark darkens with it. */

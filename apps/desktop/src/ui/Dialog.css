@@ -53,12 +53,17 @@
   margin: 0;
   padding: var(--space-1);
   border: 0;
-  border-bottom: 1px solid var(--grey);
+  border-bottom: 1px solid var(--hairline);
   background: transparent;
   color: var(--text);
   font: inherit;
   resize: none;
   overflow: hidden;
+}
+
+.app-dialog-form textarea:focus {
+  outline-width: 0;
+  border-bottom-color: var(--accent);
 }
 
 .app-dialog-form textarea:hover:not(:disabled) {
