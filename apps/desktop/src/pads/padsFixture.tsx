@@ -104,7 +104,7 @@ export const openShelf = async (pads: Pad[], onRail = false, keepDrafts = false,
 
   render(() => (
     <ConnectedProjectContext.Provider value={connected}>
-      <Pads />
+      <div class="shelf"><Pads /></div>
       <DrawerHost drawer={connected.drawer} reducedMotion={() => true} />
     </ConnectedProjectContext.Provider>
   ));
@@ -114,7 +114,7 @@ export const openShelf = async (pads: Pad[], onRail = false, keepDrafts = false,
 
   if (disclosure) {
     fireEvent.click(disclosure);
-    await waitFor(() => expect(disclosure.nextElementSibling?.hasAttribute("hidden")).toBe(false));
+    await waitFor(() => expect(disclosure.closest("[data-shelf-group]")?.querySelector("[data-part=branch-content]")?.hasAttribute("hidden")).toBe(false));
   }
 
   return {

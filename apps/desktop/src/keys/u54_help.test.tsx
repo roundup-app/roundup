@@ -128,7 +128,7 @@ describe("u54 keyboard help", () => {
       "⌘N  New Agent", "⇧⌘N  New Agent with a prompt", "⌘T  New Terminal", "⌘K  Wait for one more key",
       "⌘K J  Jump to what needs you", "⌘K ⇧J  Jump to what needs you in another Project", "⌘K K  Switch to a row by name",
       "⌘K M  Minimise or restore the Bubble", "⌘K W  Close the Bubble", "⌘K S  Show or hide the work items", "⌘K T  Capture a Todo", "⌘K I  Open the Inbox", "⇧⌘T  Capture a Todo",
-      "⌘B  Switch Agent / Terminal", "⇧⏎  Take control, in the switcher", "⌘⌫  Remove", "⌘⏎  Take control", "⌘/  Ask bar", "O  Assign a Todo to an owner",
+      "⌘B  Switch Agent / Terminal", "⇧⏎  Take control, in the switcher", "⌘⌫  Remove", "⌘⏎  Take control", "⌘/  Ask bar", "O  Assign a Todo or Pad to an owner",
       "M  Maximise", "D  Delete row", "E  Export .md", "Esc  Close",
     ]);
   });
