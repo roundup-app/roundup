@@ -28,6 +28,15 @@ const compactTokens = (value: number) => new Intl.NumberFormat("en", { notation:
 
 export const copy = {
   costAndTime: "Cost and time",
+  timeline: "Timeline",
+  timelineLanes: "Agents",
+  timelineTrack: (name: string) => `${name} over the last 30 minutes`,
+  timelineStart: "30 minutes ago",
+  timelineNow: "now",
+  timelineUnknown: "Unknown",
+  timelineEmpty: "No Agent activity seen yet",
+  timelineRemoved: (name: string) => `${name} (removed)`,
+  timelineStarted: (parent: string, child: string) => `${parent} started ${child}`,
   measurementJoin: (...parts: string[]) => parts.join(" · "),
   measurementLoading: "Reading measurements…",
   measurementFailed: "Measurements unavailable.",
