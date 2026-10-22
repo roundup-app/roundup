@@ -19,7 +19,7 @@ export const OwnerPicker = <Id extends number | string>(props: {
   label: (id: Id | undefined) => string;
   choose: (id: Id, owner: Actor | null) => void;
   /** U3743: `New Workstream…` for the target Todo, after the picker has closed. */
-  newWorkstream: (id: Id) => void;
+  newWorkstream?: (id: Id) => void;
   close: () => void;
 }) => (
   <Menu.Root
@@ -32,7 +32,7 @@ export const OwnerPicker = <Id extends number | string>(props: {
       const target = props.target();
       const offer = props.offers().find(each => each.id === value);
 
-      if (target && value === NEW_WORKSTREAM) props.newWorkstream(target.id);
+      if (target && value === NEW_WORKSTREAM) props.newWorkstream?.(target.id);
       else if (target && offer) props.choose(target.id, offer.actor);
     }}
   >
@@ -40,10 +40,10 @@ export const OwnerPicker = <Id extends number | string>(props: {
       <Menu.Positioner>
         <Menu.Content class="owner-picker" aria-label={props.label(props.target()?.id)}>
           <For each={props.offers()}>{offer => <>
-            <Show when={offer.id === "unassigned"}><Menu.Item value={NEW_WORKSTREAM}>{copy.newWorkstreamOffer}</Menu.Item></Show>
+            <Show when={props.newWorkstream && offer.id === "unassigned"}><Menu.Item value={NEW_WORKSTREAM}>{copy.newWorkstreamOffer}</Menu.Item></Show>
             <Menu.Item value={offer.id}>{offer.name}</Menu.Item>
           </>}</For>
-          <Show when={!props.offers().some(offer => offer.id === "unassigned")}><Menu.Item value={NEW_WORKSTREAM}>{copy.newWorkstreamOffer}</Menu.Item></Show>
+          <Show when={props.newWorkstream && !props.offers().some(offer => offer.id === "unassigned")}><Menu.Item value={NEW_WORKSTREAM}>{copy.newWorkstreamOffer}</Menu.Item></Show>
         </Menu.Content>
       </Menu.Positioner>
     </Portal>
