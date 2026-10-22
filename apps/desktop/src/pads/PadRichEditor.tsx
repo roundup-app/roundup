@@ -326,24 +326,20 @@ export default function PadRichEditor(props: {
 
               const element = view.nodeDOM(pos);
 
-              if (element instanceof Element) element.scrollIntoView({ block: "start" });
+              if (element instanceof HTMLElement) {
+                // The sticky formatting toolbar covers the top of the scroll port; the heading stops below it.
+                const bar = element.closest(".milkdown")?.querySelector<HTMLElement>(".milkdown-top-bar");
+
+                element.style.scrollMarginTop = `${bar?.offsetHeight ?? 0}px`;
+                element.scrollIntoView({ block: "start" });
+              }
 
               return false;
             });
           });
 
-          let frames = 0;
-
-          // The loaded text and the Drawer settle over a few frames; each one re-aims until the layout holds.
-          const again = () => {
-            if (closed) return;
-
-            scroll();
-
-            if (++frames < 12) requestAnimationFrame(again);
-          };
-
-          requestAnimationFrame(again);
+          // One frame after the loaded text is in, the layout holds: aim once.
+          requestAnimationFrame(() => { if (!closed) scroll(); });
         },
       });
     }).catch((error) => {
