@@ -39,3 +39,7 @@
 .app-radio:has(input:focus-visible) {
   outline: var(--keyboard-ring);
 }
+
+.app-radio input {
+  font-size: inherit;
+}

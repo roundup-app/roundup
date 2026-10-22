@@ -47,7 +47,7 @@
 }
 
 /* Every text field in a dialog shares the Todo title field's look: the text's own, no UA box, a 24 px hit area. */
-.app-dialog-form input:not([type="checkbox"], [type="radio"]) {
+.app-dialog-form input:not([type="checkbox"]):not([type="radio"]) {
   box-sizing: border-box;
   min-height: var(--space-5);
   margin: 0;
@@ -58,11 +58,11 @@
   font-size: var(--text-body);
 }
 
-.app-dialog-form input:not([type="checkbox"], [type="radio"]):hover:not(:disabled) {
+.app-dialog-form input:not([type="checkbox"]):not([type="radio"]):hover:not(:disabled) {
   background-color: var(--hover);
 }
 
-.app-dialog-form input:not([type="checkbox"], [type="radio"]):active:not(:disabled) {
+.app-dialog-form input:not([type="checkbox"]):not([type="radio"]):active:not(:disabled) {
   background-color: var(--pressed);
   transition-duration: 0s;
 }
