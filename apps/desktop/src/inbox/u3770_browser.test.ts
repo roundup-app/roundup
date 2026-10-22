@@ -22,11 +22,13 @@ it("u3770e_the_drawer_renders_its_sections_with_a_failed_retry_visible", async (
   await browser("press", "i");
   await wait(`!!document.querySelector('[aria-label="Needs you"]')`);
   await capture("sections");
+
   const retry = await read<boolean>(`(() => {
     const row = [...document.querySelectorAll('.inbox-row')].find(each => each.closest('li')?.querySelector('[data-kind="error"], [aria-label="Error"]'));
     row?.click();
     return !!row;
   })()`);
+
   expect(retry).toBe(true);
   await wait(`[...document.querySelectorAll('button')].some(each => each.textContent === 'Retry' && each.checkVisibility())`);
   await read(`[...document.querySelectorAll('button')].find(each => each.textContent === 'Retry' && each.checkVisibility()).click()`);
