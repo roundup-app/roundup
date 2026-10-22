@@ -1,0 +1,3 @@
+.disclosure-trigger { display: inline-flex; gap: var(--space-1); align-items: center; }
+
+.disclosure-trigger[data-state="open"] > .icon { transform: rotate(90deg); }
