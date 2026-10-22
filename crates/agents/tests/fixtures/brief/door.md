@@ -49,6 +49,8 @@ The `roundup` MCP server offers these tools. They are deferred: load a tool befo
 - `message_acceptResult`: record user acceptance of an exact report; only the user may call this.
 - `message_verifyResult`: observe one report's declared authoritative condition without a Model call; unsupported, stale or unavailable evidence stays unknown and a publication digest proves only its bytes.
 - `message_resolveResult`: only the user may authorize a read-only authoritative receipt source for an unknown external effect; never repeat that effect to check it.
+- `message_reconcileWork`: read which retained work is unfinished, confirmed, pending a check or uncertain; reading sends and starts nothing.
+- `message_resumeWork`: only the user may resume unfinished work; one decision makes one successor Message and never repeats an uncertain external effect.
 - `message_get`: read one Message you sent or received.
 - `message_list`: see the Messages you sent or received.
 - `message_pass`: hand a question you received on to the next Agent above, when it is not yours to answer.
