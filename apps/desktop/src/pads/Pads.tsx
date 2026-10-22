@@ -231,7 +231,7 @@ export const Pads = (props: {
     return ownersOnRail(connected).filter(owner => owner.actor !== null && (!current || owner.id !== groupOf(current)));
   };
 
-  const owner = {
+  const dropOwner = {
     target: (name: string, x: number, y: number) => {
       const own = padOf(name);
 
@@ -295,7 +295,7 @@ export const Pads = (props: {
         rowButtons={rowButtons}
         external={{
           attribute: "data-pad-drop",
-          target: owner.target,
+          target: dropOwner.target,
           onDropOutside: (name, target) => void assign(name, target.owner, true),
         }}
         onDrag={setDragging}
@@ -408,6 +408,7 @@ const PadRow = (props: Parameters<typeof PadRows>[0] & { pad: Pad; parts: Parame
               </Show>
             }
           >
+            <div class="pad-row-head">
             <button
               type="button"
               class="pad-name"
@@ -436,8 +437,9 @@ const PadRow = (props: Parameters<typeof PadRows>[0] & { pad: Pad; parts: Parame
             >
               <Tip text={pad.name}>{(trigger) => <span {...trigger()} class="shelf-title">{pad.name}</span>}</Tip>
             </button>
+              <button data-button="row-action" type="button" class="word light pad-assign" aria-label={copy.assignPadNamed(pad.name)} onClick={(event) => props.onAssign(pad.name, event.currentTarget)}>{copy.assign}</button>
+            </div>
             <p class="shelf-meta">{copy.ownedBy}{connected.rail.nameOf(pad.owner)}</p>
-            <button data-button="row-action" type="button" class="word light pad-assign" aria-label={copy.assignPadNamed(pad.name)} onClick={(event) => props.onAssign(pad.name, event.currentTarget)}>{copy.assign}</button>
             <Show when={failed()}>{(message) => <ErrorLine message={message()} />}</Show>
           </ShelfRow>
   );
