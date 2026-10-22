@@ -173,3 +173,51 @@ rendered("u3010c_keyboard_swap_slides_and_reduced_motion_settles_in_one_frame", 
   expect(changed[0]!.tops).toEqual(reduced.at(-1)!.tops);
   save("keyboard-swap-reduced", { before, frames: reduced });
 }, 90_000);
+
+rendered("u3010c_reduced_motion_toggled_mid_slide_settles_by_the_next_frame", async () => {
+  await setup(false);
+
+  const before = await ids();
+
+  await page.call(`rows => document.querySelectorAll(rows)[0].focus()`, rows);
+  await sample(true);
+  await page.press("ArrowDown", "ArrowDown", ALT);
+  await page.until(`() => { const f = window.__frames; return Object.keys(f[0].tops).some(k => Math.abs(f.at(-1).tops[k] - f[0].tops[k]) > 5); }`);
+
+  const mark = await page.call<number>(`() => window.__frames.length`);
+
+  await page.scheme("dark", undefined, "motion");
+
+  const run = await stop();
+  const final = run.at(-1)!.tops;
+  const settled = run.findIndex((frame, at) => at >= mark && Object.keys(final).every((id) => Math.abs(frame.tops[id]! - final[id]!) < 1));
+
+  // Quarter speed would take ~600 ms of wall time to finish; settling within three frames of the toggle is the switch, not the slide.
+  expect(settled).toBeGreaterThan(-1);
+  expect(settled - mark).toBeLessThanOrEqual(3);
+  save("reduced-toggled-mid-slide", { before, mark, frames: run });
+}, 90_000);
+
+rendered("u3010c_refused_move_leaves_the_rows_where_they_were", async () => {
+  await setup(false);
+
+  const before = await ids();
+
+  await page.call(`rows => document.querySelectorAll(rows)[0].focus()`, rows);
+  await page.call(`() => { window.__fake.failNext(-32003, 'todo would wait on itself'); return true; }`);
+  await sample(true);
+  await page.press("ArrowDown", "ArrowDown", ALT);
+  await page.until(`() => document.querySelector('[role=alert]') !== null`);
+
+  const run = await stop();
+  const first = run[0]!.tops;
+
+  expect(await page.call<string>(`() => document.querySelector('[role=alert]').textContent`)).toBe("todo would wait on itself");
+  expect(await ids()).toEqual(before);
+  expect(await reorders()).toEqual([]);
+  // The failure text opens a line under its row, so rows below it move down; no row changes place or slides.
+  const order = (frame: Frame) => Object.keys(frame.tops).sort((x, y) => frame.tops[x]! - frame.tops[y]!);
+
+  for (const frame of run) expect(order(frame)).toEqual(before);
+  save("refusal", { before, frames: run });
+}, 60_000);

@@ -66,6 +66,8 @@ export const createSortedList = (source: {
   };
 
   createEffect(on(() => source.ids().join(), settle, { defer: true }));
+  // U3010c: reduced motion switched on mid-slide settles every row now, with no replay.
+  createEffect(on(source.reducedMotion, (reduced) => { if (reduced) frames.forEach((el) => "getAnimations" in el && el.getAnimations().forEach((animation) => animation.cancel())); }, { defer: true }));
   // Reconcile keeps the array and unchanged rows: observe field changes as well as membership.
   createEffect(on(() => JSON.stringify(source.all()), () => fails.forEach((show) => show(null)), { defer: true }));
   createEffect(() => {
