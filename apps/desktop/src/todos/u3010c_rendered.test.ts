@@ -221,3 +221,39 @@ rendered("u3010c_refused_move_leaves_the_rows_where_they_were", async () => {
   for (const frame of run) expect(order(frame)).toEqual(before);
   save("refusal", { before, frames: run });
 }, 60_000);
+
+rendered("u3010c_completing_a_row_slides_the_rows_below_it_up", async () => {
+  await setup(false);
+
+  const before = await ids();
+
+  await sample(true);
+  await page.call(`rows => document.querySelectorAll(rows)[1].closest('.todo-row').querySelector('.todo-tick').click()`, rows);
+  await page.until(`() => window.__fake.app.calls.some(c => c.method === 'todo.complete')`);
+
+  const run = await stop();
+  const after = await ids();
+
+  expect(after).toEqual(before.filter((id) => id !== before[1]));
+  save("completion", { before, frames: run });
+  checkSlide(run, after.filter((id) => Math.abs(run.at(-1)!.tops[id]! - run[0]!.tops[id]!) > 1));
+}, 60_000);
+
+rendered("u3010c_inserting_a_row_leaves_the_rows_above_it_in_place", async () => {
+  await setup(false);
+
+  const before = await ids();
+
+  await sample(true);
+  await page.call(`() => window.__fake.app.handlers['todo.create']({title: 'inserted while sampling', body: null, blockers: null, owner: null})`);
+  await page.until(`() => document.querySelectorAll(${JSON.stringify(rows)}).length > ${before.length}`);
+
+  const run = await stop();
+  const after = await ids();
+
+  expect(after.filter((id) => before.includes(id))).toEqual(before);
+  save("insertion", { before, frames: run });
+  // An appended row moves no row above it: each existing row stays within 1 px of where it began.
+
+  for (const id of before) expect(Math.max(...run.map((frame) => Math.abs(frame.tops[id]! - run[0]!.tops[id]!)))).toBeLessThanOrEqual(1);
+}, 60_000);

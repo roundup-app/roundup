@@ -78,6 +78,9 @@ pub enum EventData {
     WorkstreamCleared(workstream::WorkstreamClearedEvent),
     #[serde(rename = "workstream.clearFailed")]
     WorkstreamClearFailed(workstream::WorkstreamClearFailedEvent),
+    /// A3195: the Queue or the Project's cap changed; read `workstream.queue`.
+    #[serde(rename = "workstream.queueChanged")]
+    WorkstreamQueueChanged,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize, TS)]

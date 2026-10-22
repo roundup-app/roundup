@@ -130,6 +130,7 @@ describe("u54 keyboard help", () => {
       "⌘K M  Minimise or restore the Bubble", "⌘K W  Close the Bubble", "⌘K S  Show or hide the work items", "⌘K T  Capture a Todo", "⌘K I  Open the Inbox", "⇧⌘T  Capture a Todo",
       "⌘B  Switch Agent / Terminal", "⇧⏎  Take control, in the switcher", "⌘⌫  Remove", "⌘⏎  Take control", "⌘/  Ask bar", "O  Assign a Todo or Pad to an owner",
       "M  Maximise", "D  Delete row", "E  Export .md", "Esc  Close",
+      "T  Triage Todos", "J K  Move", "A  Assign", "W  Workstream", "Tab  Nest", "⇧Tab  Un-nest", "X  Done", "C  Comment", "Esc  Leave",
     ]);
   });
   it("u54_question_mark_in_the_rail_opens_help_listing_each_chord_and_esc_returns_focus", async () => {

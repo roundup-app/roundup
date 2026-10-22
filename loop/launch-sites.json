@@ -854,5 +854,11 @@
     "cleanup": "Launch owner above supplies cleanup; this caller launches no executable itself.",
     "data": "Uses audited desktop fixture or a fake/client reference; no separate built-Daemon launch.",
     "kind": "reference"
+  },
+  "crates/rupd/src/queue.rs": {
+    "cleanup": "In-process test runtime owns these Daemons; no built executable launch.",
+    "data": "Unit observers open Daemon stores on the explicit project's .roundup directory; no production fallback resolver.",
+    "kind": "in-process",
+    "sha256": "42c071ff14001c2633d5bbca5c3c3ff3fa832538a3d26c6151c41132abe2af6b"
   }
 }

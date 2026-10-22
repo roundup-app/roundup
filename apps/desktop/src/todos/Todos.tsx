@@ -20,11 +20,12 @@ import * as v from "valibot";
 import { batch, untrack } from "solid-js";
 import { TodoDraftRecovery, todoDraftSchema, creationSchema } from "./EditableText";
 import type { JSX } from "solid-js";
-import { createEffect, createMemo, createSignal, For, onCleanup, onMount, Show } from "solid-js";
+import { createEffect, createMemo, createSignal, For, on, onCleanup, onMount, Show, useContext } from "solid-js";
+import { useTabsContext } from "@ark-ui/solid/tabs";
 import type { Todo } from "@contracts/todo/Todo";
 import { ErrorLine } from "../ink/ErrorLine";
 import { HomeMove } from "./HomeMove";
-import { homeNameOf } from "./homes";
+import { homeNameOf, homesToOffer } from "./homes";
 import { ShelfRow } from "../ink/ShelfRow";
 import { KindGlyph } from "../ink/KindGlyph";
 import { useConnectedProject } from "../state/connectedProject";
@@ -36,10 +37,15 @@ import { TreeView } from "../ui/TreeView";
 import { shelfScope } from "../shelf/scope";
 import { ScopeAction } from "../shelf/ScopeAction";
 import { OwnerGroups } from "../shelf/OwnerGroups";
+import { NewWorkstream } from "./NewWorkstream";
 import { OwnerPicker } from "./OwnerPicker";
 import { ownerGroups, ownersOnRail, sameOwner } from "../shelf/scope";
 import type { Actor } from "@contracts/Actor";
-import { CHORDS, TEXT_FIELDS } from "../keys/chords";
+import { CHORDS, TEXT_FIELDS, chordsFor, chordsOf } from "../keys/chords";
+import { KeyChip } from "../keys/KeyChip";
+import { ShelfActions } from "../shelf/BulkDelete";
+import { HomePicker } from "./HomePicker";
+import { idOfRow, openRowButtons, rowButtonOf as triageRowOf, triage } from "./triage";
 import type { TodosState } from "./state";
 import { useTodoList } from "./todoList";
 import { TodoDrawer } from "./TodoDrawer";
@@ -427,15 +433,20 @@ export const Todos = (props: {
   const rowButtonOf = (id: number) => (rows.get(id)?.isConnected ? rows.get(id) : null) ?? document.querySelector<HTMLElement>(`[data-todo="${id}"] .row-head button`);
 
   /** U3720: the owner list closes with focus back on the row, found again after the refetch. */
+  let namingNext: number | null = null;
+
   const stopPicking = () => {
     const id = picking()?.id;
+    const skipRefocus = namingNext !== null || naming() !== null;
 
     setPicking(null);
 
-    if (id !== undefined) queueMicrotask(() => rowButtonOf(id)?.focus());
+    // U3743: the dialog opens from the select callback, so the picker's close order cannot lose it; the row keeps no focus then.
+    if (!skipRefocus && id !== undefined) queueMicrotask(() => rowButtonOf(id)?.focus());
   };
 
   // U3720: a chosen Todo moves to its new group's row once `todo.updated` has refetched, which replaces the row that held focus.
+  const [naming, setNaming] = createSignal<number | null>(null);
   const [revealed, setRevealed] = createSignal<string | null>(null);
   const [regrouped, setRegrouped] = createSignal<{ id: number; owner: Actor | null } | null>(null);
 
@@ -685,6 +696,122 @@ export const Todos = (props: {
     return message;
   };
 
+  // U3751 to U3754: Todo triage mode. One flag; every key runs today's action on the focused row.
+  const tabs = useContext(ShelfActions) ? useTabsContext() : null;
+  let section: HTMLElement | undefined;
+  let entry: { id: number | undefined; order: (number | undefined)[] } | null = null;
+  const [moving, setMoving] = createSignal<{ id: number; anchor: HTMLElement } | null>(null);
+
+  const homeOffers = () => homesToOffer(connected.rail.nodes, todos.byId().get(moving()?.id ?? -1)?.home ?? null);
+
+  const stopMoving = () => {
+    const id = moving()?.id;
+
+    setMoving(null);
+
+    if (id !== undefined) queueMicrotask(() => triageRowOf(id)?.focus());
+  };
+
+  const enterTriage = () => {
+    const buttons = openRowButtons();
+    const held = idOfRow(document.activeElement);
+    const start = held !== undefined && todos.byId().get(held)?.done === false ? triageRowOf(held) : buttons[0] ?? null;
+
+    entry = { id: idOfRow(start), order: buttons.map(idOfRow) };
+    triage.set(true);
+    start?.focus();
+  };
+
+  /** U3751: the row that held focus at entry, else the nearest open one in the order the list had then. */
+  const leaveTriage = () => {
+    const kept = entry;
+
+    entry = null;
+    triage.set(false);
+
+    if (!kept) return;
+
+    const at = kept.order.indexOf(kept.id);
+    const near = kept.order.flatMap((_, step) => [kept.order[at + step], kept.order[at - step]]);
+
+    for (const id of near) {
+      const button = id === undefined ? null : triageRowOf(id);
+
+      if (button && todos.byId().get(id!)?.done === false) return button.focus();
+    }
+  };
+
+  createEffect(() => section?.closest(".shelf")?.setAttribute("data-triage", triage.on() ? "on" : "off"));
+  createEffect(on(() => connected.rail.selected(), () => { entry = null; triage.set(false); }, { defer: true }));
+  createEffect(on(() => tabs?.().value, () => { entry = null; triage.set(false); }, { defer: true }));
+  onCleanup(() => { triage.set(false); section?.closest(".shelf")?.setAttribute("data-triage", "off"); });
+
+  const clearFailures = () => pickFails.forEach(show => show(null));
+
+  const triageTarget = (event: KeyboardEvent) => {
+    const id = idOfRow(event.target instanceof Element ? event.target : null);
+
+    return id === undefined ? undefined : todos.byId().get(id);
+  };
+
+  const canTriage = (event: KeyboardEvent) => !event.repeat && !event.isComposing && !event.metaKey && !event.ctrlKey && !event.altKey && !event.shiftKey
+    && event.target instanceof Element && !event.target.closest("input, textarea, select, [contenteditable]")
+    && !document.querySelector("[role=dialog], [role=alertdialog], [role=menu][data-state=open]");
+
+  const triageKey = (keys: string, run: (todo: Todo, button: HTMLButtonElement, event: KeyboardEvent) => void) => ({
+    chords: chordsOf(CHORDS.find(row => row.inTriage && row.keys === keys)),
+    when: (event: KeyboardEvent) => triage.on() && canTriage(event) && triageTarget(event)?.done === false,
+    run: (event: KeyboardEvent) => {
+      const found = triageTarget(event);
+
+      if (found && event.target instanceof HTMLButtonElement) run(found, event.target, event);
+    },
+  });
+
+  const moveHome = async (id: number, home: string | null) => {
+    clearFailures();
+    const message = await failureOf(() => connected.app.rpc("todo.move", { id, home }));
+
+    pickFails.get(id)?.(message);
+
+    if (message === null) setAwaitingFocus(waiting => [...waiting, { id, target: rowAfter(id, openRowButtons().map(idOfRow).filter(each => each !== undefined)), reopening: false }]);
+  };
+
+  registerKeys(shelfKeyScope, [
+    {
+      chords: chordsFor("T"),
+      when: event => !triage.on() && canTriage(event) && event.target instanceof Element && (idOfRow(event.target) !== undefined || event.target.closest("[data-triage-toggle]") !== null),
+      run: enterTriage,
+    },
+    {
+      chords: chordsOf(CHORDS.find(row => row.inTriage && row.keys === "Esc")),
+      when: event => triage.on() && canTriage(event) && event.target instanceof Element && (idOfRow(event.target) !== undefined || event.target.closest("[data-triage-toggle]") !== null),
+      run: leaveTriage,
+    },
+    triageKey("J K", (_todo, button, event) => {
+      const buttons = openRowButtons();
+      const at = buttons.indexOf(button);
+
+      if (at !== -1) buttons[Math.min(buttons.length - 1, Math.max(0, at + (event.code === "KeyJ" ? 1 : -1)))]?.focus();
+    }),
+    triageKey("A", (todo, button) => {
+      clearFailures();
+      setPicking({ id: todo.id, anchor: button });
+    }),
+    triageKey("W", (todo, button) => {
+      clearFailures();
+      setMoving({ id: todo.id, anchor: button });
+    }),
+    triageKey("X", async (todo) => {
+      clearFailures();
+      pickFails.get(todo.id)?.(await toggle(todo, openRowButtons().map(idOfRow).filter(each => each !== undefined)));
+    }),
+    triageKey("C", (todo) => {
+      show(todo, "key");
+      triage.askComment(todo.id);
+    }),
+  ]);
+
   /** U2694b: Complete (disabled for done Todos), Send to Agent ▸, Copy Link, Delete, as the system menu of a row; Delete asks as U461 does. */
   const todoMenu = (event: MouseEvent) => {
     const row = event.target instanceof Element ? event.target.closest<HTMLElement>("[data-todo]") : null;
@@ -700,7 +827,7 @@ export const Todos = (props: {
   };
 
   return (
-    <section aria-label={copy.todos} class="todos-tab" onContextMenu={todoMenu}>
+    <section aria-label={copy.todos} class="todos-tab" onContextMenu={todoMenu} ref={section}>
       <ScopeAction tab="todos">
         <button
           data-button="add"
@@ -713,6 +840,7 @@ export const Todos = (props: {
           <Icon name="plus" />
           <span>{copy.todo}</span>
         </button>
+        <button data-button="quiet" type="button" class="word shelf-triage" data-triage-toggle aria-pressed={triage.on()} onClick={() => triage.on() ? leaveTriage() : enterTriage()}>{copy.triage}</button>
       </ScopeAction>
       <Show when={todos.failure()}>{(message) => <ErrorLine message={message()} />}</Show>
       <Show when={createFailure() !== null && (adding() === null || fieldGroupGone())}>{(_) => <ErrorLine message={createFailure()!} />}</Show>
@@ -782,7 +910,17 @@ export const Todos = (props: {
         </Show>
         </>; }}</OwnerGroups>
       </Show>
-      <OwnerPicker label={id => copy.ownersFor(id ?? "")} target={picking} offers={offers} choose={(id, owner) => void assign(id, owner)} close={stopPicking} />
+      <HomePicker target={moving} offers={homeOffers} choose={(id, home) => void moveHome(id, home)} close={stopMoving} />
+      <OwnerPicker label={id => copy.ownersFor(id ?? "")} target={picking} offers={offers} choose={(id, owner) => void assign(id, owner)} close={stopPicking} newWorkstream={id => { namingNext = id; setTimeout(() => { namingNext = null; setNaming(id); }, 0); }} />
+      <NewWorkstream target={naming} returnTo={rowButtonOf} done={(id, made) => {
+        setNaming(null);
+
+        // U3743, U138: the Todo is the new Door's, so its row is found again once `todo.updated` has refetched it.
+        if (made) {
+          setRevealed("unassigned");
+          setRegrouped({ id, owner: { kind: "agent", id: made.id, parent: null } });
+        } else queueMicrotask(() => rowButtonOf(id)?.focus());
+      }} />
       <Show when={typing() && (adding() === null || fieldGroupGone())}>
         {field()}
       </Show>
@@ -834,6 +972,11 @@ export const Todos = (props: {
           <ErrorLine message={copy.draftIdentity(copy.originalUnavailable, object)} />
           <TodoDraftRecovery object={object} />
         </div>}</For>
+      </Show>
+      <Show when={triage.on()}>
+        <p class="triage-hints" aria-label={copy.triageKeys}>
+          <For each={CHORDS.filter(row => row.inTriage)}>{row => <span class="hint"><KeyChip keys={row.keys} /> {row.what}</span>}</For>
+        </p>
       </Show>
       <bulk.Bar />
     </section>
