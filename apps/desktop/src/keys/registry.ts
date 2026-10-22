@@ -81,7 +81,11 @@ export const armLeader = (event: KeyboardEvent): void => {
 export const endLeader = (): void => void setArmed(false);
 
 /** Whether a modal layer is open (U479); the leader's wait ends when one opens. */
-export const modalOpen = (): boolean => layers() >= 0 && [...registrations].some(({ scope }) => scope.kind === "layer" && scope.modal && scope.active());
+export const modalOpen = (): boolean => {
+  layers();
+
+  return [...registrations].some(({ scope }) => scope.kind === "layer" && scope.modal && scope.active());
+};
 
 /** The wait's one key: a registered leader key runs, any other key ends the wait and runs nothing. Either way the webview handles it, so no Terminal, field or Rail sees it. A lone modifier changes nothing. */
 const takeLeaderKey = (event: KeyboardEvent): void => {

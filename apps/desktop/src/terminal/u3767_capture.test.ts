@@ -41,7 +41,7 @@ it("u3767_import_dialog_on_agents_10", async () => {
   const dir = captureDir("U3767");
 
   if (!dir) return;
-  await browser("set", "viewport", "1280", "800");
+  await browser("set", "viewport", "1512", "950");
   await browser("set", "media", "dark");
   await wait(`!!window.__fake && !!document.querySelector('.rail-row')`);
   await read(`document.querySelector('.rail-import').click()`);
