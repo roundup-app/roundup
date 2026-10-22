@@ -7,16 +7,16 @@ import type { Summary } from "./keystrokes";
 const KEYS = 1000;
 
 /** The Terminal's program prints this once its tty is raw (`crates/perf`), so no key is typed into a line-edited tty. */
-const READY = "ready";
+export const READY = "ready";
 
-const SETUP_BOUND_MS = 10_000;
+export const SETUP_BOUND_MS = 10_000;
 
 const FRAMES = 60;
 
-const sleep = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms));
+export const sleep = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms));
 
 /** Resolves with what `find` returns as soon as the DOM holds it; fails at the bound. */
-const appears = <T>(find: () => T | null, what: string): Promise<T> =>
+export const appears = <T>(find: () => T | null, what: string): Promise<T> =>
   new Promise((resolve, reject) => {
     const found = find();
 
@@ -58,7 +58,7 @@ const frameMs = (): Promise<number> =>
   });
 
 /** The smallest step `performance.now()` takes, which is 1 ms in WKWebView. */
-const timerResolutionMs = (): number => {
+export const timerResolutionMs = (): number => {
   let smallest = Infinity;
 
   for (let read = 0, last = performance.now(); read < 100_000; read += 1) {

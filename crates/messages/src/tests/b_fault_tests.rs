@@ -609,3 +609,125 @@ async fn nr4_expiry_refuses_new_work_but_retains_accepted_retry_identity() {
         );
     }
 }
+
+fn resume(request: &str, actions: &[&str]) -> continuation::Continue {
+    continuation::Continue {
+        agent: "a".into(),
+        request: request.into(),
+        payload: format!("payload-{request}"),
+        actions: actions.iter().map(|a| a.to_string()).collect(),
+        body: format!("resume {}", actions.join(",")),
+        evidence: "reconciled".into(),
+    }
+}
+
+async fn listed(h: &Faulty) -> usize {
+    h.call("message.list", json!({}))
+        .await
+        .unwrap()
+        .as_array()
+        .unwrap()
+        .len()
+}
+
+#[tokio::test]
+async fn u3078f_decision_and_successor_are_one_commit() {
+    let dir = tempfile::tempdir().unwrap();
+    let h = Faulty::new(dir.path());
+
+    // Before the commit: neither a decision nor a Message; a retry accepts both once.
+    h.arm("continuation", Fail::Err);
+    h.messages
+        .continue_work(resume("r1", &["x"]))
+        .await
+        .unwrap_err();
+    assert!(h.messages.continuation_of("x").unwrap().is_none());
+    assert_eq!(listed(&h).await, 0);
+
+    // After the commit: the reply is lost, both exist, and a retry returns the originals.
+    h.arm("continuation_reply", Fail::Err);
+    h.messages
+        .continue_work(resume("r1", &["x"]))
+        .await
+        .unwrap_err();
+    let (kept, message) = h.messages.decision_of("x").unwrap().expect("committed");
+    assert_eq!(kept.message, message.id);
+    let (again, same) = h
+        .messages
+        .continue_work(resume("r1", &["x"]))
+        .await
+        .unwrap();
+    assert_eq!((again, same.id), (kept, message.id));
+    assert_eq!(listed(&h).await, 1);
+}
+
+#[tokio::test]
+async fn u3078e_resume_replay_and_reactions_share_one_successor() {
+    let dir = tempfile::tempdir().unwrap();
+    let h = Faulty::new(dir.path());
+    save_reaction(&h, "active", 3, "2099-01-01T00:00:00Z");
+
+    let (first, message) = h
+        .messages
+        .continue_work(resume("r1", &["x"]))
+        .await
+        .unwrap();
+    assert_eq!(message.body, "resume x");
+    // Same request, a fresh client request, and a concurrent observer all find the first decision.
+    let (same, _) = h
+        .messages
+        .continue_work(resume("r1", &["x"]))
+        .await
+        .unwrap();
+    let (fresh, fresh_message) = h
+        .messages
+        .continue_work(resume("r2", &["x"]))
+        .await
+        .unwrap();
+    assert_eq!(
+        (same.id.as_str(), fresh.id.as_str()),
+        (first.id.as_str(), first.id.as_str())
+    );
+    assert_eq!(fresh_message.id, message.id);
+    let (a, b) = tokio::join!(
+        h.messages.continue_work(resume("r3", &["x"])),
+        h.messages.continue_work(resume("r4", &["x"]))
+    );
+    assert_eq!(
+        (a.unwrap().0.id, b.unwrap().0.id),
+        (first.id.clone(), first.id.clone())
+    );
+    // The same request id with other bytes is refused and changes nothing.
+    let mut other = resume("r1", &["x"]);
+    other.payload = "other".into();
+    h.messages.continue_work(other).await.unwrap_err();
+    assert_eq!(listed(&h).await, 1);
+    // A later genuine action keeps its own identity.
+    let (later, later_message) = h
+        .messages
+        .continue_work(resume("r5", &["y"]))
+        .await
+        .unwrap();
+    assert_ne!((later.id, later_message.id), (first.id.clone(), message.id));
+
+    // A reaction run for an accepted action records its firing against that Message.
+    let (firing, via) = h
+        .messages
+        .fire_reaction(fire(&continuation::operation("x")))
+        .await
+        .unwrap();
+    assert_eq!((firing.message, via.id), (message.id, message.id));
+    // A firing first, then a resume: the decision binds to the firing's Message.
+    let (firing, sent) = h
+        .messages
+        .fire_reaction(fire(&continuation::operation("z")))
+        .await
+        .unwrap();
+    let (decision, bound) = h
+        .messages
+        .continue_work(resume("r6", &["z"]))
+        .await
+        .unwrap();
+    assert_eq!((decision.message, bound.id), (firing.message, sent.id));
+    assert_eq!(listed(&h).await, 3);
+}

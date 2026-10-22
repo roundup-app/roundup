@@ -6,10 +6,15 @@ import type { Resolution } from "../deliverable/Resolution";
 import type { Pad } from "../pad/Pad";
 import type { Screen } from "../terminal/Screen";
 import type { Todo } from "../todo/Todo";
+import type { Section } from "./Section";
 
 /**
  * LK2: the object's content now, composed from the method that reads that kind. A Door's
  * `digest` is `null` for an Agent that is no Door. DV6 publication links resolve the recorded
  * revision or explicit current external target, rather than the mutable authoring source.
  */
-export type LinkContent = { "kind": "deliverable", record: Deliverable, resolution: Resolution, } | { "kind": "pad", id: string, pad: Pad, } | { "kind": "todo", id: string, todo: Todo, } | { "kind": "agent", id: string, node: RailNode, digest: Digest | null, } | { "kind": "workstream", id: string, node: RailNode, children: Array<string>, } | { "kind": "terminal", id: string, screen: Screen, };
+export type LinkContent = { "kind": "deliverable", record: Deliverable, resolution: Resolution, } | { "kind": "pad", id: string, pad: Pad, 
+/**
+ * LK4: the section a `#<heading>` link names; absent for a link to the whole Pad.
+ */
+section?: Section, } | { "kind": "todo", id: string, todo: Todo, } | { "kind": "agent", id: string, node: RailNode, digest: Digest | null, } | { "kind": "workstream", id: string, node: RailNode, children: Array<string>, } | { "kind": "terminal", id: string, screen: Screen, };
