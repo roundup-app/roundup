@@ -5,6 +5,7 @@ import { copy } from "../copy";
 import { questionOf } from "../decisions/AskCard";
 import { ErrorLine } from "../ink/ErrorLine";
 import { KindGlyph } from "../ink/KindGlyph";
+import { Collapsible } from "../ui/Collapsible";
 import { quickAnswers } from "./rows";
 import type { Quick } from "./rows";
 
@@ -26,7 +27,6 @@ const summaryOf = (decision: Decision): string => decision.tool === "ask_user" ?
 
 /** U3770b: one Agent's row. A Decision shows its quick answers in the row; any row opens in place to the Agent's last step and the one action that fits its state. */
 export const InboxRow = (props: { row: AgentRow; open: boolean; toggle(): void; actions: RowActions; head(element: HTMLElement): void }) => {
-  const body = createUniqueId();
   const name = createUniqueId();
   const node = () => props.row.node;
   const failure = () => props.actions.failure(props.row);
@@ -56,23 +56,23 @@ export const InboxRow = (props: { row: AgentRow; open: boolean; toggle(): void; 
     ref={(element: HTMLElement) => createEffect(() => element.toggleAttribute("inert", props.row.settled?.phase === "fold"))}
     onTransitionEnd={(event) => { if (event.target === event.currentTarget && props.row.settled?.phase === "fold") props.actions.folded(props.row); }}>
     <div class="inbox-fold"><div class="inbox-fold-inner">
-      <Show when={props.row.settled} fallback={<>
+      <Show when={props.row.settled} fallback={<Collapsible.Root open={props.open} onOpenChange={props.toggle} lazyMount unmountOnExit>
         <div class="inbox-head">
-          <button type="button" data-button="quiet" class="inbox-row" aria-expanded={props.open} aria-controls={body} ref={props.head} onClick={props.toggle}>
+          <Collapsible.Trigger data-button="quiet" class="inbox-row" ref={props.head}>
             <KindGlyph kind={node().status?.kind ?? "idle"} />
             <span id={name} class="inbox-row-name">{node().name}</span>
             <Show when={props.row.decision}>{(decision) => <span class="inbox-row-summary light">{summaryOf(decision())}</span>}</Show>
-          </button>
+          </Collapsible.Trigger>
           <Show when={!props.open}><div class="inbox-actions">{actions(true)}</div></Show>
         </div>
-        <Show when={props.open}>
-          <div id={body} class="inbox-body">
+        <Collapsible.Content>
+          <div class="inbox-body">
             <p class="inbox-step"><span class="light">{copy.inboxLastStep}</span> {node().status?.label}</p>
             <div class="inbox-actions">{actions(false)}</div>
             <Show when={failure()}>{(message) => <ErrorLine message={message()} />}</Show>
           </div>
-        </Show>
-      </>}>
+        </Collapsible.Content>
+      </Collapsible.Root>}>
         {(settled) => <p role="status" class="inbox-confirm">{settled().text}</p>}
       </Show>
     </div></div>
