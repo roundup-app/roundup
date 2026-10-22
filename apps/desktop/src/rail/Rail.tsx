@@ -517,7 +517,7 @@ export const Rail = () => {
       aria-label={copy.overviewLabel(attention())}
       data-scrolled={scrolled()}
       class="todo-project-root"
-      onClick={() => rail.select(null)}
+      onClick={() => { rail.select(null); connected.settingsView.close(false); }}
     >
       <span class="overview-tile"><Icon name="layout-dashboard" /></span>
       <span>{copy.overview}</span>
@@ -550,6 +550,9 @@ export const Rail = () => {
         // A native menu may consume the compatibility click; keyboard activation must still work next.
         element.addEventListener("keydown", () => { contextClick = false; }, true);
         element.addEventListener("click", (event) => {
+          // Pressing the row the Rail already marks selected brings its Terminal back over the settings view.
+          if (event.target instanceof Element && event.target.closest<HTMLElement>("[data-id]")?.dataset.id === rail.selected()) connected.settingsView.close(false);
+
           if (!contextClick && !event.ctrlKey) return;
 
           contextClick = false;
