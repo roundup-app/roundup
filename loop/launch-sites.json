@@ -479,6 +479,11 @@
     "kind": "in-process",
     "sha256": "725e4546a6720826c6dabbb0537b1ecf64639c603a8e758454942569d3fb0883"
   },
+  "crates/rup/tests/resume_work.rs": {
+    "cleanup": "No separate built-Daemon launch site.",
+    "data": "Production implementation, test caller, client or name reference; launches delegate to the owners above.",
+    "kind": "reference"
+  },
   "crates/rup/tests/d9.rs": {
     "cleanup": "No separate built-Daemon launch site.",
     "data": "Production implementation, test caller, client or name reference; launches delegate to the owners above.",
