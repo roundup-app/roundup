@@ -37,7 +37,7 @@ export const createFinishMotion = (input: {
 
     before = loaded ? { key, done } : null;
 
-    if (was === null || was.key !== key || input.reduced()) return settle();
+    if (!loaded || was === null || was.key !== key || input.reduced()) return settle();
 
     const changed = [...done].filter(id => !was.done.has(id)).concat([...was.done].filter(id => !done.has(id)));
     const shown = changed.filter(id => input.shown(id, was.done.has(id)));

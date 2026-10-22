@@ -64,6 +64,9 @@ export const Todos = (props: {
   recovery?: { project: string; revision: string; list: TodosState };
 }) => {
   const connected = useConnectedProject();
+  const shelf = useContext(ShelfActions);
+  const tabs = shelf ? useTabsContext() : null;
+
   connected.drafts.validate("todos", todoDraftSchema);
 
   if (props.recovery && props.recovery.project !== connected.project.path) return null;
@@ -100,7 +103,7 @@ export const Todos = (props: {
   const [closedGroups, setClosedGroups] = createSignal<readonly string[]>(["unassigned"]);
 
   const finishing = createFinishMotion({
-    loaded: todos.isLoaded,
+    loaded: () => todos.isLoaded() && (!shelf || shelf.open()) && (tabs === null || tabs().value === "todos"),
     key: () => connected.rail.selected() ?? "overview",
     done: createMemo(() => new Set(inScope().filter((todo) => todo.done).map((todo) => todo.id))),
     reduced: connected.reducedMotion,
@@ -523,7 +526,6 @@ export const Todos = (props: {
   };
 
   // U3751 to U3754: Todo triage mode. One flag; every key runs today's action on the focused row.
-  const tabs = useContext(ShelfActions) ? useTabsContext() : null;
   let section: HTMLElement | undefined;
   let entry: { id: number | undefined; order: (number | undefined)[] } | null = null;
   const [moving, setMoving] = createSignal<{ id: number; anchor: HTMLElement } | null>(null);
