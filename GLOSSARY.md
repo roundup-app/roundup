@@ -66,6 +66,9 @@ _Avoid_: shell integration (as a name; it is the means)
 **Turn** (user label: command):
 One command of a shell Terminal, from its prompt through its output, between the Shell marks `A` and `D`; its rows, exit code and directory, kept by xterm markers (U514).
 
+**ReservedLine** (user label: none; the place a failure, status or count shows):
+The one component through which the webview shows a temporal message (U3807). In its *line* form it is always mounted with the height of one line; in its *overlay* form it is out of the flow. A message appearing or going moves no other element.
+
 **Excerpt**:
 The text of a Terminal's selection that "Send to agent" carries to an Agent, cut to 6 000 bytes with its end kept (U515, U516). Sent as a Message `note` fenced with the Turn's facts when known.
 
