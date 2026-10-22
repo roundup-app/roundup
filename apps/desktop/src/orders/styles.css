@@ -117,9 +117,7 @@
 }
 
 .order-prompt-error {
-  margin: var(--space-3) 0 0;
-  font-size: var(--text-small);
-  color: var(--grey);
+  margin: 0;
   overflow-wrap: anywhere;
 }
 
@@ -138,12 +136,10 @@
 .order-overview h2 { font-size: var(--text-title); margin: var(--space-1) 0; }
 .order-overview h3 { font-size: var(--text-small); color: var(--grey); font-weight: 400; margin: var(--space-3) 0 var(--space-1); }
 .overview-session > p { margin: 0 0 var(--space-2); }
-.overview-id { display: flex; align-items: baseline; gap: var(--space-2); margin: 0 0 var(--space-2); font-size: var(--text-small); color: var(--grey); }
-.overview-id > button {
-  padding: 0; border: 0; background: none; cursor: pointer; min-width: 0; overflow-wrap: anywhere;
-  font: inherit; font-family: var(--font-mono); color: inherit; text-align: left; user-select: text;
+.overview-id {
+  display: block; padding: 0; margin: 0 0 var(--space-2); border: 0; background: none; cursor: pointer;
+  font: inherit; font-family: var(--font-mono); color: var(--grey); text-align: left; user-select: text;
 }
-.overview-id > button:hover { color: var(--text); }
 .overview-context { display: flex; align-items: center; gap: var(--space-2); font-size: var(--text-small); color: var(--grey); }
 .overview-context meter { accent-color: var(--grey); min-width: 0; }
 .overview-card p { margin: 0; }
@@ -172,3 +168,4 @@
 }
 
 .order-edit-retention p { margin: 0; }
+.overview-id-note { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
