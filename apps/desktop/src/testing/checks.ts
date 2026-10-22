@@ -677,7 +677,7 @@ const d12 = (page: Page): Measure => {
 
     const glyphs = own.map(({ row }) => left(row.querySelector(".shelf-glyph")?.firstElementChild ?? null) - indent(row));
 
-    const tickOnly = (row: Element) => list === "todos" && row.querySelector(".shelf-glyph > .todo-tick") !== null
+    const tickOnly = (row: Element) => list === "todos" && row.querySelector(".shelf-glyph .todo-tick") !== null
       && row.querySelector(".shelf-glyph > [data-state]") === null;
 
     const textLeft = (row: Element) => {
