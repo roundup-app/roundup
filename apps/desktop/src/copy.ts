@@ -24,6 +24,8 @@ const importExcludedReasons: [string[], string][] = [
 const reasonIs = (reason: string, fixed: string) => reason === fixed || reason.endsWith(`: ${fixed}`);
 
 
+const compactTokens = (value: number) => new Intl.NumberFormat("en", { notation: "compact" }).format(value);
+
 export const copy = {
   costAndTime: "Cost and time",
   timeline: "Timeline",
@@ -135,7 +137,13 @@ export const copy = {
   copyDraftFailure: (reason: string) => `Copy failed: ${reason}. Select the text to copy it.`,
 
   context: "Context",
-  contextUse: (used: number, limit: number) => `Context ${new Intl.NumberFormat("en", { notation: "compact" }).format(used)} / ${new Intl.NumberFormat("en", { notation: "compact" }).format(limit)}`,
+  contextUsed: "Used",
+  contextOf: (used: number, limit: number) => `${compactTokens(used)} of ${compactTokens(limit)}`,
+  contextValueText: (used: number, limit: number, percent: number) => `${compactTokens(used)} of ${compactTokens(limit)}, ${percent}%`,
+  contextNear: "near the limit",
+  contextFull: "full",
+  contextPart: { system: "System prompt", tools: "Tools", files: "Files", conversation: "Conversation", other: "Other" },
+  contextExact: (label: string, tokens: number, share: number) => `${label}: ${new Intl.NumberFormat("en").format(tokens)} tokens, ${share}% of the limit`,
   cardIntent: "Intent",
   // oxlint-disable-next-line anti-slop/no-shape-in-symbol-names -- ConversationCard.shape is a domain term in GLOSSARY.md (A2681c).
   cardShape: "Shape",
@@ -461,6 +469,7 @@ export const copy = {
   afterBadge: (id: number) => `after #${id}`,
   takeOutOfQueue: "Take out of queue",
   projectSettings: "Project settings",
+  workstreams: "Workstreams",
   runAtMost: "Run at most",
   workstreamsAtOnce: "Workstreams at once",
   noLimit: "No limit",
