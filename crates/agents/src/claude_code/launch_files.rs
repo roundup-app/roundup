@@ -129,3 +129,7 @@ pub(super) fn socket_folder() -> std::io::Result<tempfile::TempDir> {
     std::fs::set_permissions(folder.path(), std::fs::Permissions::from_mode(0o700))?;
     Ok(folder)
 }
+
+pub(super) fn is_symlink(path: &Path) -> bool {
+    std::fs::symlink_metadata(path).is_ok_and(|meta| meta.file_type().is_symlink())
+}
