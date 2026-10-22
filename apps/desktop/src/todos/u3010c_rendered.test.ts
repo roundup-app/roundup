@@ -254,5 +254,6 @@ rendered("u3010c_inserting_a_row_leaves_the_rows_above_it_in_place", async () =>
   expect(after.filter((id) => before.includes(id))).toEqual(before);
   save("insertion", { before, frames: run });
   // An appended row moves no row above it: each existing row stays within 1 px of where it began.
+
   for (const id of before) expect(Math.max(...run.map((frame) => Math.abs(frame.tops[id]! - run[0]!.tops[id]!)))).toBeLessThanOrEqual(1);
 }, 60_000);
