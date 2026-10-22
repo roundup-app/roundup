@@ -14,6 +14,7 @@ import { Pane } from "../terminal/Pane";
 import type { EmulatorFactory } from "../terminal/emulator";
 import { AttentionKey } from "./AttentionKey";
 import { DockBadge } from "./DockBadge";
+import { ProjectSettingsView } from "./ProjectSettings";
 import { Rail } from "./Rail";
 
 // Drafts survive unmount; unrelated layout fixtures retain their existing lifecycle.
@@ -25,7 +26,7 @@ export const exitedTerminal = (id: string, exit_code: number | null): TerminalIn
   info(`t-${id}`, { running: false, exit_code });
 
 /** What else to mount alongside the Rail: a Pane (an `EmulatorFactory` gives it a focusable screen) or the DrawerHost. */
-type RailNeighbors = { pane?: true | EmulatorFactory; drawer?: boolean };
+type RailNeighbors = { pane?: true | EmulatorFactory; drawer?: boolean; settings?: boolean };
 
 /** The Rail on a fake Daemon whose tree is `tree` and whose clock is a signal the test can advance. */
 export const mountRail = async (
@@ -54,6 +55,9 @@ export const mountRail = async (
         <Rail />
         <Show when={neighbors.pane}>
           <Pane createEmulator={neighbors.pane === true ? undefined : neighbors.pane} />
+        </Show>
+        <Show when={neighbors.settings}>
+          <ProjectSettingsView />
         </Show>
         <Show when={neighbors.drawer}>
           <DrawerHost drawer={connected.drawer} reducedMotion={reducedMotion} />
