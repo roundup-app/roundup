@@ -16,6 +16,10 @@ from pathlib import Path
 
 RUST_SUITES = json.loads(Path(__file__).with_name("rust-suites.json").read_text())
 
+# The collector starts before CI setup, which can run 28 minutes on a cold cache, so it must outlive the longest job
+# (`timeout-minutes` in check.yml) or it dies before the lane ends and the lane fails with its tests green.
+MEMORY_LIMIT_SECONDS = 40 * 60
+
 LANES = [f"rust{i}" for i in range(1, 6)] + [f"web{i}" for i in range(1, 8)]
 
 
@@ -134,7 +138,7 @@ def memory(args):
     done = args.output.with_suffix(".done")
     if args.output.exists() or stop.exists() or done.exists():
         raise ValueError("memory observer requires fresh files")
-    deadline = time.monotonic() + 2160
+    deadline = time.monotonic() + MEMORY_LIMIT_SECONDS
     with args.output.open("x") as stream:
         while time.monotonic() < deadline:
             vm = psutil.virtual_memory()
@@ -144,7 +148,7 @@ def memory(args):
                 done.touch()
                 return 0
             time.sleep(0.05)
-    raise ValueError("memory observer exceeded 36 minutes without lane completion")
+    raise ValueError(f"memory observer exceeded {MEMORY_LIMIT_SECONDS // 60} minutes without lane completion")
 
 
 def report_flaky(lane, output):
@@ -221,12 +225,14 @@ def run(args):
         (output / "lane.json").write_text(json.dumps(metadata, indent=2) + "\n")
     if args.memory_log:
         args.memory_log.with_suffix(".stop").touch()
-        for _ in range(40):
+        for _ in range(200):
             if args.memory_log.with_suffix(".done").exists():
                 break
             time.sleep(0.05)
         else:
-            raise ValueError("whole-lane memory observer did not finish")
+            log = args.memory_log.with_suffix(".log")
+            cause = log.read_text().strip() if log.exists() else ""
+            raise ValueError(f"whole-lane memory observer did not finish: {cause or 'no collector message'}")
         (output / "memory.jsonl").write_bytes(args.memory_log.read_bytes())
         metadata["memory"]["coverage"] = "from before CI setup through test command completion"
         (output / "lane.json").write_text(json.dumps(metadata, indent=2) + "\n")
