@@ -170,15 +170,15 @@
 .context-bar-box { display: flex; flex-direction: column; gap: var(--space-2); font-size: var(--text-small); color: var(--grey); }
 .context-bar-box p { margin: 0; }
 .context-line { display: flex; justify-content: space-between; gap: var(--space-2); }
-.context-percent[data-warn] { color: var(--amber); }
+.context-percent { color: var(--text); }
 .context-bar { display: flex; height: var(--space-2); background: var(--hairline); overflow: hidden; }
 .context-part { min-width: 2px; flex: none; transition: width var(--duration-drawer) var(--easing-out), opacity var(--duration-crossfade); }
 .context-part[data-kind="used"], .context-swatch[data-kind="used"] { background: var(--grey); }
 .context-part[data-kind="system"], .context-swatch[data-kind="system"] { background: var(--text); }
 .context-part[data-kind="tools"], .context-swatch[data-kind="tools"] { background: var(--accent); }
-.context-part[data-kind="files"], .context-swatch[data-kind="files"] { background: var(--context-files); }
-.context-part[data-kind="conversation"], .context-swatch[data-kind="conversation"] { background: var(--context-conversation); }
-.context-part[data-kind="other"], .context-swatch[data-kind="other"] { background: var(--context-other); }
+.context-part[data-kind="files"], .context-swatch[data-kind="files"] { background: color-mix(in srgb, var(--accent) 50%, var(--grey)); }
+.context-part[data-kind="conversation"], .context-swatch[data-kind="conversation"] { background: color-mix(in srgb, var(--text) 60%, var(--grey)); }
+.context-part[data-kind="other"], .context-swatch[data-kind="other"] { background: color-mix(in srgb, var(--text) 25%, var(--hairline)); }
 .context-part[data-dim], .context-list li[data-dim] { opacity: 0.4; }
 .order-overview .context-list { display: flex; flex-wrap: wrap; gap: var(--space-1) var(--space-4); margin: 0; padding: 0; list-style: none; }
 .context-list li { transition: opacity var(--duration-crossfade); }

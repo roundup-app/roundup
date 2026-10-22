@@ -173,7 +173,10 @@ impl Launcher {
                         .checked_add(usage["cache_creation_input_tokens"].as_u64().unwrap_or(0))
                 });
             }
-            if record["type"] == "system" && record["subtype"] == "local_command" {
+            if record["type"] == "system"
+                && record["subtype"] == "local_command"
+                && record["commandRun"]["command"] == "context"
+            {
                 measured = Some(measured_parts(&record["contextUsage"]["categories"]));
             }
             if record["type"] == "custom-title"
