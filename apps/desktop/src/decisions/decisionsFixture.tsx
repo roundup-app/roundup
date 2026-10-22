@@ -67,9 +67,6 @@ export const mountApp = async (listed: Decision[] | Promise<Decision[]> = [], pr
   app.handlers["terminal.snapshot"] = () => ({ cols: 100, rows: 30, after: 0, data: "" });
   app.handlers["decision.list"] = () => listed;
   app.handlers["decision.answer"] = () => null;
-  // U3078i: an Order reads its Agent's retained progress, which these Agents have none of.
-  app.handlers["message.progress"] = () => ({ instructions: { project: "/p", home: null, current: null, revisions: [], deliveries: [] }, results: [] });
-  app.handlers["message.reconcileWork"] = ({ id }) => ({ agent: id, actions: [], blocked: [], context: [], pending_checks: [] });
   app.handlers["decision.capture"] = ({ id }) => ({ daemon: "daemon", agent: "a", attempt: "attempt-a", decision: id });
   prepare(app);
 

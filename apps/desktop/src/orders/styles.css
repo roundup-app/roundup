@@ -248,6 +248,18 @@
   color: var(--grey);
 }
 
+.progress-status {
+  min-height: 1lh;
+  margin: 0;
+  padding-inline-start: calc(16px + var(--space-2));
+}
+
+.progress-state {
+  display: inline-flex;
+  gap: var(--space-1);
+  align-items: center;
+}
+
 .progress-failure {
   display: flex;
   gap: var(--space-2);
