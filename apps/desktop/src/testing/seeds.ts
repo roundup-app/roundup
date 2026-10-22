@@ -110,6 +110,7 @@ const todosAt = (now: number): Todo[] =>
     home: null,
     owner: null,
     refs: [],
+    estimate_minutes: null,
   }));
 
 const padsAt = (now: number): Pad[] =>
