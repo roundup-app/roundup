@@ -83,6 +83,7 @@ export const TodoComments = (props: { id: number }) => {
       const arrived = shown === null ? [] : comments.filter((comment) => !shown!.has(comment.id));
       shown = new Set(comments.map((comment) => comment.id));
       setFresh((before) => new Set<number>([...before, ...arrived.map((comment) => comment.id)]));
+
       if (arrived.length > 0) setAnnouncement(arrived.map((comment) => `${author(comment)}: ${spoken(comment)}`).join("\n"));
       setThread(comments);
 
