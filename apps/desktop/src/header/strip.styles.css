@@ -22,6 +22,7 @@
   align-items: center;
   min-width: 0;
   overflow-x: auto;
+  overscroll-behavior: contain;
   scrollbar-width: none;
   /* A tab the list cuts at an end fades out across the piece that shows, so the strip leaves a cue that it goes on and no half box stands at its end; the open tab is never cut (Strip.tsx). */
   --cut-start: 0px;
@@ -213,6 +214,7 @@
   flex-direction: column;
   gap: var(--space-2);
   overflow: auto;
+  overscroll-behavior: contain;
   height: fit-content;
   white-space: normal;
 }
