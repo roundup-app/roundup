@@ -19,19 +19,29 @@ const at = (minute: number) => NOW - (30 - minute) * MIN;
 const status = (id: string, attempt: string, kind: Kind, minute: number, revision = `${minute}`) =>
   event({ name: "agent.status", data: { id, attempt, status_revision: revision, status: { kind, label: kind, since: at(minute) } } });
 
-const mount = async (tree: RailNode[], options: { reduced?: boolean; back?: () => void } = {}) => {
+const connect = async (tree: RailNode[], reduced: () => boolean) => {
   const app = createFakeApp();
-  const [reduced, setReduced] = createSignal(options.reduced ?? false);
 
   app.handlers["rail.tree"] = () => tree;
   app.handlers["terminal.list"] = () => [];
   app.handlers["terminal.snapshot"] = () => ({ cols: 100, rows: 30, after: 0, data: "" });
   const connected = await connectProject(app, { name: "p", path: "/p" }, reduced, () => NOW, () => null);
-  const back = options.back ?? (() => {});
 
+  return { app, connected };
+};
+
+const show = async (connected: Awaited<ReturnType<typeof connect>>["connected"], back: () => void = () => {}) => {
   const view = render(() => <ConnectedProjectContext.Provider value={connected}><TimelineView home="home" name="home" back={back} clock={() => Date.now()} /></ConnectedProjectContext.Provider>);
 
   await screen.findByRole("region", { name: "Timeline" });
+
+  return view;
+};
+
+const mount = async (tree: RailNode[], options: { reduced?: boolean; back?: () => void } = {}) => {
+  const [reduced, setReduced] = createSignal(options.reduced ?? false);
+  const { app, connected } = await connect(tree, reduced);
+  const view = await show(connected, options.back);
 
   return { app, connected, view, setReduced };
 };
@@ -76,6 +86,20 @@ it("u3768b_a_log_shorter_than_the_window_leaves_an_unknown_span", async () => {
   await mount([door("home", "working", "go", { name: "Door", attempt: "1", status: { kind: "working", label: "go", since: at(10) } })]);
   expect(screen.getByRole("img", { name: "Unknown" })).toBeTruthy();
   expect(blocks("Door")).toEqual([["Working", at(10), NOW]]);
+});
+
+it("u3768b_a_view_opened_later_shows_the_history_before_it_opened", async () => {
+  const [reduced] = createSignal(false);
+  const { app, connected } = await connect([door("home", "working", "go", { name: "Door", attempt: "1", status: { kind: "working", label: "go", since: at(15) } }), agent("gone", "working", "go", { name: "Gone", parent: "home", attempt: "1", status: { kind: "working", label: "go", since: at(3) } })], reduced);
+  app.emit(status("home", "1", "working", 0));
+  app.emit(status("home", "1", "needs-you", 12));
+  app.emit(status("home", "1", "working", 15));
+  app.handlers["rail.tree"] = () => [door("home", "working", "go", { name: "Door", attempt: "1", status: { kind: "working", label: "go", since: at(15) } })];
+  await connected.rail.refresh();
+  await show(connected);
+  expect(blocks("Door")).toEqual([["Working", at(0), at(12)], ["Needs-you", at(12), at(15)], ["Working", at(15), NOW]]);
+  expect(lanes()).toEqual(["Door", "Gone (removed)"]);
+  expect(screen.getByRole("img", { name: "Door started Gone" })).toBeTruthy();
 });
 
 it("u3768c_lines_follow_subagent_parentage", async () => {

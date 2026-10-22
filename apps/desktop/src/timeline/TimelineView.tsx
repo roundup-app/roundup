@@ -5,13 +5,10 @@ import { copy } from "../copy";
 import { DecisionCard } from "../decisions/DecisionCard";
 import { glyphOf } from "../ink/glyph";
 import { LABELS } from "../ink/KindGlyph";
-import { descendantsOf } from "../rail/layout";
 import { useConnectedProject } from "../state/connectedProject";
-import { blocksOf, WINDOW_MS, withSample } from "./model";
-import type { Block, Sample } from "./model";
+import { blocksOf, WINDOW_MS } from "./model";
+import type { Block } from "./model";
 import "./styles.css";
-
-type Known = { name: string; parent: string | null; order: number; removed: boolean };
 
 /** Reduced motion keeps the window still and leaves this much room past its last redraw for the open block to grow into. */
 const HEADROOM_MS = 5 * 60_000;
@@ -22,18 +19,16 @@ const FIRST_CONTROL = ["textarea", "input", "button"].join(",");
 
 /**
  * U3768a to U3768f: one lane per Agent of the Workstream `home` over the last 30 minutes.
- * It records the `agent.status` Events it hears and the Rail's current Statuses; an Agent's time before both is unknown.
- * One Event subscription and at most one display clock live here, and both end with the view.
+ * It reads the Project's timeline log, which holds the `agent.status` Events heard since connecting and the Rail's current Statuses; an Agent's time before both is unknown.
+ * At most one display clock lives here, and it ends with the view.
  */
 export const TimelineView = (props: { home: string; name: string; back: () => void; clock?: () => number }) => {
   const connected = useConnectedProject();
-  const { rail, decisions, events } = connected;
+  const { rail, decisions } = connected;
   const clock = props.clock ?? Date.now;
   const [now, setNow] = createSignal(clock());
   const [anchor, setAnchor] = createSignal(clock());
   const [visible, setVisible] = createSignal(document.visibilityState !== "hidden");
-  const [samples, setSamples] = createStore<Record<string, readonly Sample[]>>({});
-  const [known, setKnown] = createStore<Record<string, Known>>({});
   const [asking, setAsking] = createSignal<string | null>(null);
   let card: HTMLElement | undefined;
   const blockOf = new Map<string, HTMLButtonElement>();
@@ -45,40 +40,10 @@ export const TimelineView = (props: { home: string; name: string; back: () => vo
     setAnchor(at);
   };
 
-  const remember = (id: string, sample: Sample) => {
-    setSamples(id, (before) => withSample(before ?? [], sample));
-  };
+  const { samples, known } = connected.timeline;
 
-  // The Workstream's Agents on the Rail, Door included; one that leaves the Rail stays, named as removed.
-  createEffect(() => {
-    const below = descendantsOf(rail.nodes, props.home).filter((node) => node.kind === "agent");
-    const door = rail.nodes.find((node) => node.id === props.home);
-    const present = [...(door ? [door] : []), ...below];
-    let changed = false;
-
-    for (const node of present) {
-      const before = known[node.id];
-
-      if (!before || before.name !== node.name || before.parent !== node.parent || before.removed) setKnown(node.id, { name: node.name, parent: node.id === props.home ? null : node.parent, order: node.order, removed: false });
-
-      if (node.status && node.attempt !== null && node.terminal_id !== null) {
-        const sample = { at: node.status.since, attempt: node.attempt, kind: node.status.kind };
-
-        if (!samples[node.id]?.some((each) => each.at === sample.at && each.attempt === sample.attempt && each.kind === sample.kind)) changed = true;
-        remember(node.id, sample);
-      }
-    }
-
-    for (const id of Object.keys(known)) if (!known[id]!.removed && !present.some((node) => node.id === id)) setKnown(id, "removed", true);
-
-    if (changed) redraw();
-  });
-
-  const stop = events.subscribe((event) => {
-    if (event.name !== "agent.status" || !known[event.data.id]) return;
-    remember(event.data.id, { at: event.data.status.since, attempt: event.data.attempt, kind: event.data.status.kind });
-    redraw();
-  });
+  // A change the log heard redraws; the first run is the view opening.
+  createEffect(on(connected.timeline.version, () => redraw(), { defer: true }));
 
   const onVisibility = () => {
     const shown = document.visibilityState !== "hidden";
@@ -105,7 +70,7 @@ export const TimelineView = (props: { home: string; name: string; back: () => vo
     return ids.flatMap((id) => {
       const blocks = blocksOf(samples[id] ?? [], 0).map((block) => ({ ...block, id: `${block.attempt}:${block.start}` }));
 
-      return blocks.length === 0 ? [] : [{ id, name: known[id]!.name, removed: known[id]!.removed, parent: known[id]!.parent, blocks }];
+      return blocks.length === 0 ? [] : [{ id, name: known[id]!.name, removed: known[id]!.removed, parent: id === props.home ? null : known[id]!.parent, blocks }];
     });
   });
 
@@ -153,7 +118,6 @@ export const TimelineView = (props: { home: string; name: string; back: () => vo
   });
 
   onCleanup(() => {
-    stop();
     document.removeEventListener("visibilitychange", onVisibility);
   });
 
