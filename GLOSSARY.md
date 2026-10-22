@@ -510,6 +510,9 @@ The text format an Agent writes; `renderMarkdown` draws it as elements on every 
 **Decision**:
 The kind of Card that blocks an Agent on a live hook or tool call; the user answers any of them, and an Agent answers only those of Agents in its Reach, never its own (`scenarios/decisions.md` H21). An Agent's `ask_user` call is one, answered with one of its listed answers (outcome `answered`).
 
+**Grant** (`Decision.scopes`, `Decision.risk`, `decision.answer.scope`, `decision.revoke`):
+How long a user's allow lasts: `once`, `session` or `project`, each a permission rule Claude Code itself suggested and the hook reply echoes (`scenarios/decisions.md` H23). Only a `project` Grant can be revoked. `Decision.risk` is `destructive` for a command H23 names; such a Decision offers no `project` Grant.
+
 **Answered Decision** (`AnsweredDecision`, `AnswersParams`, `decision.answers`):
 The Project's durable record of one accepted Decision answer: the full original Decision,
 complete prompt, request kind (`RequestKind`: question or permission), requesting Attempt, exact answer and note, authenticated answering Actor and answer time.
