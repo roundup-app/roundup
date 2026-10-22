@@ -31,7 +31,7 @@ const STRUCTURE = new Set([
   // U2749b: a development/test invariant, never App copy.
   "Tooltip anchor excludes its opening pointer",
   // U2239/U3721–U3724: registry key names and physical codes are executable structure, not prose.
-  "D", "E", "O", "Esc", "Escape", "KeyD", "KeyE", "KeyO", "J", "⇧J", "K", "M", "W", "S", "T", "I", "KeyI", "KeyJ", "KeyK", "KeyM", "KeyW", "KeyS", "KeyT", "Shift+KeyJ", "Shift", "Control", "Alt", "Meta", "CapsLock",
+  "D", "E", "O", "A", "X", "C", "Tab", "J K", "KeyA", "KeyX", "KeyC", "shift+Tab", "Esc", "Escape", "KeyD", "KeyE", "KeyO", "J", "⇧J", "K", "M", "W", "S", "T", "I", "KeyI", "KeyJ", "KeyK", "KeyM", "KeyW", "KeyS", "KeyT", "Shift+KeyJ", "Shift", "Control", "Alt", "Meta", "CapsLock",
   "index.html has no #root element", "the keystroke run needs a Project open", "RpcError",
   "(prefers-reduced-motion: reduce)", "(prefers-color-scheme: dark)",
   "input, textarea, [contenteditable]", 'input, textarea, [contenteditable="true"]',

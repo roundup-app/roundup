@@ -342,7 +342,7 @@ const DOOR_METHODS: [&str; 8] = [
 ];
 
 /// M5: the methods and App commands with no tool; the reasons are in `scenarios/mcp.md`.
-const NO_TOOL: [&str; 60] = [
+const NO_TOOL: [&str; 61] = [
     // U2539b, U2540a: the App's Worktree comparison; an Agent reads its own diff with git.
     "agent.changedFiles",
     "agent.compareFile",
@@ -350,17 +350,17 @@ const NO_TOOL: [&str; 60] = [
     "ask.send",
     "ask.list",
     "ask.pick",
-    // U462: only the open Drawer fetches and acknowledges the user's Todo history.
+    // U462, T21, T23: the open Drawer fetches and acknowledges History; an Agent only leaves a comment.
     "todo.getHistory",
     "todo.readHistory",
-    // T21, T23: an Agent only leaves a comment; the thread and its unread state are the user's to read.
     "todo.comments",
     "todo.unread",
     "todo.markCommentsRead",
     // T27: the Daemon computes each ref's state for the Drawer; an Agent reads `refs` on `todo_get`.
     "todo.refs",
-    // T17: an Agent cannot assign in this delivery.
+    // T17, T25: an Agent cannot assign, and only the Daemon hands a Todo.
     "todo.assign",
+    "todo.hand",
     "message.deliver",
     "message.drop",
     "takeover.begin",

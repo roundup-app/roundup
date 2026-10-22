@@ -1,6 +1,8 @@
 //! Todos: items with blockers, in SQLite. Owner: todos Builder.
 
+mod comments;
 mod cycle;
+mod handoff;
 #[doc(hidden)]
 pub mod schema;
 mod store;
@@ -11,16 +13,13 @@ use std::sync::Mutex;
 
 use async_trait::async_trait;
 use contracts::todo::{
-    AssignParams, CommentParams, CreateParams, History, MoveParams, ReadHistoryParams, RefParams,
-    ReorderParams, SetBlockersParams, TodoId, UpdateParams,
+    AssignParams, CreateParams, History, MoveParams, ReadHistoryParams, RefParams, ReorderParams,
+    SetBlockersParams, TodoId, UpdateParams,
 };
 use contracts::{EventData, Verb};
 use rpc::{Bus, Ctx, Module, OpenError, RpcError, params, reply};
 use serde_json::Value;
 use store::Store;
-
-/// T21: the longest comment an Agent may leave.
-const MAX_AGENT_COMMENT: usize = 280;
 
 pub struct Todos {
     store: Mutex<Store>,
@@ -221,28 +220,6 @@ impl Todos {
         Ok(Value::Null)
     }
 
-    /// T20, T21: the author is the calling Actor. An Agent's comment is one short line.
-    fn comment(&self, ctx: &Ctx, p: CommentParams) -> Result<Value, RpcError> {
-        let body = p.body.trim();
-        let invalid = |why: &str| RpcError::new(rpc::code::INVALID_PARAMS, why);
-        if body.is_empty() {
-            return Err(invalid("a comment needs a body"));
-        }
-        if ctx.actor.kind == contracts::ActorKind::Agent
-            && (body.chars().count() > MAX_AGENT_COMMENT || body.contains('\n'))
-        {
-            return Err(invalid(
-                "an Agent comment is one line of at most 280 characters",
-            ));
-        }
-        let store = self.store()?;
-        store.add_comment(p.id, &ctx.actor, body)?;
-        ctx.touch(Verb::Wrote, &item(p.id))?;
-        ctx.emit(EventData::TodoCommented(TodoId { id: p.id }));
-        let comments = store.comments(p.id)?;
-        reply(comments.last().expect("a comment was just added"))
-    }
-
     /// T27: the links of a Todo as added, for the Daemon to read their state. It logs no Touch.
     pub fn refs(&self, id: u32) -> Result<Vec<String>, RpcError> {
         let store = self.store()?;
@@ -273,22 +250,6 @@ impl Todos {
             ctx.emit(EventData::TodoRefRemoved(TodoId { id: p.id }));
         }
         reply(&store.get(p.id)?)
-    }
-
-    fn comments(&self, p: TodoId) -> Result<Value, RpcError> {
-        reply(&self.store()?.comments(p.id)?)
-    }
-
-    fn unread(&self) -> Result<Value, RpcError> {
-        reply(&self.store()?.unread()?)
-    }
-
-    /// T23: marks read, logs no Touch, and emits only when something changed.
-    fn mark_comments_read(&self, ctx: &Ctx, p: TodoId) -> Result<Value, RpcError> {
-        if self.store()?.mark_comments_read(p.id)? {
-            ctx.emit(EventData::TodoCommentsRead(p));
-        }
-        Ok(Value::Null)
     }
 
     /// The Daemon has checked `home` against the Rail (T13). A move to the Home it has changes nothing.
@@ -383,6 +344,7 @@ impl Module for Todos {
             "todo.setBlockers" => self.set_blockers(ctx, params(value)?),
             "todo.reorder" => self.reorder(ctx, params(value)?),
             "todo.assign" => self.assign(ctx, params(value)?),
+            "todo.hand" => self.hand(ctx, params(value)?),
             "todo.move" => self.move_to(ctx, params(value)?),
             "todo.delete" => self.delete(ctx, params(value)?),
             "todo.comment" => self.comment(ctx, params(value)?),

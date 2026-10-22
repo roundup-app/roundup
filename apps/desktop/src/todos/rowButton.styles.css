@@ -222,12 +222,12 @@
 }
 
 /* U53: retain the done rows through a reversible 150 ms fold. The existing
-   150 ms Token matches REORDER_MS; hidden controls stop accepting input at once. */
+   Todo duration Token also times the row slide; hidden controls stop accepting input at once. */
 .todo-done-fold {
   display: grid;
   grid-template-rows: 0fr;
   transition-property: grid-template-rows;
-  transition-duration: var(--duration-toast);
+  transition-duration: var(--duration-todo);
   transition-timing-function: var(--easing-out);
 }
 

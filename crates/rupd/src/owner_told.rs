@@ -3,6 +3,7 @@
 //! while the Agent has any other Kind, and go out through `message.send` like any note.
 
 use std::collections::HashMap;
+use std::sync::{Arc, OnceLock};
 use std::time::Duration;
 
 use contracts::agent::{NodeKind, RailNode};
@@ -52,6 +53,8 @@ pub struct Told {
     comments_seen: HashMap<u32, u32>,
     /// When the Daemon started, in ms: a Todo's first read tells only the comments made since.
     started: i64,
+    /// T25: the Agents whose Status became `idle` since the last hand-off round.
+    idled: Vec<String>,
 }
 
 fn now_ms() -> i64 {
@@ -75,6 +78,7 @@ impl Told {
             pending: HashMap::new(),
             comments_seen: HashMap::new(),
             started: now_ms(),
+            idled: Vec::new(),
         }
     }
 
@@ -152,6 +156,11 @@ impl Told {
                 let owner = self.todos.get(&id.id).and_then(|todo| agent(&todo.owner));
                 if let Some(owner) = owner.map(str::to_owned) {
                     self.tell(&owner, &event.actor, id.id, Change::Unblocked);
+                }
+            }
+            EventData::AgentStatus(status) if status.status.kind == Kind::Idle => {
+                if !self.idled.contains(&status.id) {
+                    self.idled.push(status.id.clone());
                 }
             }
             EventData::TodoDeleted(id) => {
@@ -255,6 +264,53 @@ async fn flush(told: &mut Told, reader: &Reader) {
     }
 }
 
+/// T25: each Agent whose Status became `idle` and still is gets one Message for its next owned
+/// Todo, unless a Takeover or unsent input holds its Terminal (B6, B32). `todo.hand` writes the hand-off Change first; without it nothing is sent.
+async fn hand_off(told: &mut Told, reader: &Reader, held: &(dyn Fn(&str) -> bool + Sync)) {
+    let idled = std::mem::take(&mut told.idled);
+    if idled.is_empty() {
+        return;
+    }
+    let Ok(world) = reader.world().await else {
+        return;
+    };
+    for id in idled {
+        let ready = world.nodes().iter().any(|n| {
+            n.id == id
+                && is_agent(n)
+                && n.terminal_id.is_some()
+                && n.status.as_ref().is_some_and(|s| s.kind == Kind::Idle)
+        });
+        if !ready || held(&id) {
+            continue;
+        }
+        let handed = reader
+            .call::<Option<Todo>>("todo", "todo.hand", json!({"agent": id}), Actor::daemon())
+            .await;
+        let todo = match handed {
+            Ok(Some(todo)) => todo,
+            Ok(None) => continue,
+            Err(err) => {
+                eprintln!("owner told: hand-off to {id} not recorded: {err}");
+                continue;
+            }
+        };
+        let title: String = todo.title.chars().take(MAX_TITLE).collect();
+        let body = format!("Next: #{} {title}", todo.id);
+        let sent = reader
+            .call::<contracts::message::Message>(
+                "message",
+                "message.send",
+                json!({"to": id, "kind": "note", "body": body}),
+                Actor::daemon(),
+            )
+            .await;
+        if let Err(err) = sent {
+            eprintln!("owner told: hand-off to {id} not sent: {err}");
+        }
+    }
+}
+
 /// `record`, but a comment's text is read from the thread, since its event carries only the Todo.
 async fn read(told: &mut Told, reader: &Reader, event: &Event) {
     let EventData::TodoCommented(todo) = &event.data else {
@@ -275,7 +331,11 @@ async fn read(told: &mut Told, reader: &Reader, event: &Event) {
 }
 
 /// Runs until the Bus closes.
-pub async fn tell_owners(reader: Reader, mut events: rpc::Subscription) {
+pub async fn tell_owners(
+    reader: Reader,
+    mut events: rpc::Subscription,
+    sender: Arc<OnceLock<Arc<messages::Messages>>>,
+) {
     let todos = reader
         .world()
         .await
@@ -289,6 +349,8 @@ pub async fn tell_owners(reader: Reader, mut events: rpc::Subscription) {
             read(&mut told, &reader, &more).await;
         }
         flush(&mut told, &reader).await;
+        let held = |agent: &str| sender.get().is_some_and(|m| m.holds_terminal(agent));
+        hand_off(&mut told, &reader, &held).await;
     }
 }
 
