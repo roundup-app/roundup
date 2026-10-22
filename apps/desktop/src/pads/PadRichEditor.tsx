@@ -317,11 +317,13 @@ export default function PadRichEditor(props: {
         unchanged: () => document().eq(originalDocument),
         scrollToHeading: (heading) => {
           const wanted = normalHeading(heading);
+
           const scroll = () => crepe?.editor.action(ctx => {
             const view = ctx.get(editorViewCtx);
 
             view.state.doc.descendants((node, pos) => {
               if (node.type.name !== "heading" || normalHeading(node.textContent) !== wanted) return true;
+
               const element = view.nodeDOM(pos);
 
               if (element instanceof Element) element.scrollIntoView({ block: "start" });
@@ -329,11 +331,15 @@ export default function PadRichEditor(props: {
               return false;
             });
           });
+
           let frames = 0;
+
           // The loaded text and the Drawer settle over a few frames; each one re-aims until the layout holds.
           const again = () => {
             if (closed) return;
+
             scroll();
+
             if (++frames < 12) requestAnimationFrame(again);
           };
 
