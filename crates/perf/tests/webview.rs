@@ -44,3 +44,15 @@ fn r11_the_frame_time_limit_is_25_ms_inclusive() {
     assert!(checked(&report(25.0, 0.0)).is_ok());
     assert!(checked(&report(25.1, 0.0)).is_err());
 }
+
+#[test]
+fn u3010e_the_frames_line_is_found_by_its_own_marker() {
+    assert_eq!(
+        perf::webview::marked_line("x\nFRAMES {\"exit\":2}\nrest", "FRAMES "),
+        Some("{\"exit\":2}")
+    );
+    assert_eq!(
+        perf::webview::marked_line("PERF {\"p95\":9}\n", "FRAMES "),
+        None
+    );
+}
