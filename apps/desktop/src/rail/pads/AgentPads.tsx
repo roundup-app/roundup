@@ -120,6 +120,7 @@ export const PadRows = (props: { pads: AgentPads; depth: number; trail: readonly
   const clear = () => setSelected([]);
 
   const bulk = createBulkDelete({
+    app: connected.app,
     selected,
     targets: () => props.pads.owned().map((pad) => ({ id: pad.name, label: pad.name, owner: connected.rail.nameOf(pad.owner) })),
     context: () => connected.rail.selected() ?? "overview",
@@ -136,6 +137,7 @@ export const PadRows = (props: { pads: AgentPads; depth: number; trail: readonly
   const clearTodos = () => setSelectedTodos([]);
 
   const todoBulk = createBulkDelete({
+    app: connected.app,
     selected: selectedTodos,
     targets: () => props.pads.ownedTodos().map((todo) => ({ id: todo.id, label: todo.title })),
     context: () => connected.rail.selected() ?? "overview",

@@ -107,7 +107,7 @@ export const ImportPanel = (props: { open: boolean; opener: HTMLElement | undefi
             <button data-button="quiet" type="button" class="word" onClick={() => void discover()}>{copy.importRefresh}</button>
             <span class="import-actions">
               <button data-button="quiet" type="button" class="word" onClick={dismiss}>{copy.cancel}</button>
-              <button data-button="quiet" type="button" class="word import-confirm" disabled={daemonExit() !== null || pending() || !state.verified() || wanted().size === 0} onClick={() => void confirm()}>
+              <button data-button="primary" type="button" class="word import-confirm" disabled={daemonExit() !== null || pending() || !state.verified() || wanted().size === 0} onClick={() => void confirm()}>
                 {copy.importConfirm(wanted().size)}
               </button>
             </span>
