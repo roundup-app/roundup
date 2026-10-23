@@ -1,3 +1,5 @@
+import { questionDialog, answerQuestion } from "../shelf/bulkQuestionHarness";
+import { questionProbe } from "../testing/menuProbe";
 import { cleanup, fireEvent, screen, waitFor, within } from "@solidjs/testing-library";
 import { afterEach, describe, expect, it } from "vitest";
 import { agent } from "../testing/nodes";
@@ -17,9 +19,10 @@ describe("u428 an Agent row's icons", () => {
 
     fireEvent.click(icon("a", "Stop")!);
 
-    expect(await screen.findByText("Stop a?")).toBeTruthy();
+    expect((await questionDialog()).title).toBe("Stop a?");
     expect(railCallsTo(app, "agent.stop")).toEqual([]);
-    fireEvent.click(within(await screen.findByRole("alertdialog")).getByRole("button", { name: "Stop" }));
+    await questionDialog();
+    await answerQuestion(true);
     await waitFor(() => expect(railCallsTo(app, "agent.stop")).toEqual([{ id: "a" }]));
   });
 
@@ -30,7 +33,7 @@ describe("u428 an Agent row's icons", () => {
     fireEvent.click(icon("a", "Stop")!);
 
     await waitFor(() => expect(railCallsTo(app, "agent.stop")).toEqual([{ id: "a" }]));
-    expect(screen.queryByRole("alertdialog")).toBeNull();
+    expect(questionProbe.shown).toBeNull();
   });
 
   it("u428_the_icon_and_the_menu_share_one_stop_path", async () => {

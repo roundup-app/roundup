@@ -81,11 +81,6 @@
   text-align: start;
 }
 
-button.ask-line:is(:active, [data-pressed="true"]) {
-  --button-surface: var(--pressed);
-  transition-duration: 0s;
-}
-
 .ask-text,
 .ask-name {
   width: fit-content;
@@ -157,8 +152,6 @@ button.ask-line:is(:active, [data-pressed="true"]) {
   width: max-content;
   max-width: min(320px, var(--available-width));
   padding: var(--space-1);
-  background-color: var(--ground);
-  box-shadow: var(--shadow-drawer);
 }
 
 .app-mentions {
@@ -276,7 +269,6 @@ button.ask-line:is(:active, [data-pressed="true"]) {
 .overview-empty .overview-heading {
   padding: 0;
 }
-
 
 .made-context {
   flex: 0 0 auto;

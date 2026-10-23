@@ -1,3 +1,6 @@
+import { textTarget } from "./ui/contextMenu";
+import { AppSettings } from "./settings/AppSettings";
+import { applyAppAppearance } from "./settings/preferences";
 import { registerKeys } from "./keys/registry";
 import { LEADER } from "./keys/chords";
 import { copy } from "./copy";
@@ -170,7 +173,6 @@ export const App = (props: {
   drafts?: ReturnType<typeof createProjectDrafts>;
 }) => {
   const clearBrowserSelection = (event: MouseEvent) => {
-    document.documentElement.dataset.keyboardFocus = "false";
 
     if (event.button !== 0 || event.ctrlKey) return;
 
@@ -183,21 +185,22 @@ export const App = (props: {
     }
   };
 
-  const suppressBrowserMenu = (event: MouseEvent) => event.preventDefault();
+  const suppressBrowserMenu = (event: MouseEvent) => {
+    if (!textTarget(event.target)) event.preventDefault();
+  };
 
   onMount(() => {
-    window.addEventListener("contextmenu", suppressBrowserMenu, true);
-    // Start keyboard-visible for native accessibility focus arriving before any page input.
-    document.documentElement.dataset.keyboardFocus = "true";
+    window.addEventListener("contextmenu", suppressBrowserMenu);
     window.addEventListener("pointerdown", clearBrowserSelection, true);
   });
   onCleanup(() => {
-    window.removeEventListener("contextmenu", suppressBrowserMenu, true);
+    window.removeEventListener("contextmenu", suppressBrowserMenu);
     window.removeEventListener("pointerdown", clearBrowserSelection, true);
-    delete document.documentElement.dataset.keyboardFocus;
   });
 
+  applyAppAppearance();
   const projects = createProjectsState(props.app);
+  const [settingsOpen, setSettingsOpen] = createSignal(false);
   const drafts = props.drafts ?? createProjectDrafts();
   const tabsId = createUniqueId();
   const [connections, setConnections] = createSignal<Connections>(new Map());
@@ -374,7 +377,7 @@ export const App = (props: {
               onSelect={projects.select}
               onMark={jumpTo}
               onRename={renameProject}
-              onClose={(path) => void projects.close(path)}
+              onClose={(path) => projects.close(path)}
               onChoose={() => void projects.choose()}
               app={props.app}
             />
@@ -399,6 +402,8 @@ export const App = (props: {
           </>
         }
         centre={
+          <div class="settings-center">
+          <div class="settings-center-content" inert={settingsOpen()} style={{ visibility: settingsOpen() ? "hidden" : "visible" }}>
           <Show when={projects.tabs().length > 0} fallback={<ChooseProject failure={projects.failure()} onChoose={() => void projects.choose()} />}>
             <InProject open={activeConnection()} failed={failureLine}>
               {(open) => {
@@ -407,7 +412,7 @@ export const App = (props: {
 
                 return (
                   <div class="centre-stack">
-                    <Pane notice={open.rail.failure() ?? jumpFailure() ?? open.contractNotice} createEmulator={tracked} screensRef={setScreens} toasts={toasts} />
+                    <Pane notice={open.rail.failure() ?? jumpFailure() ?? open.contractNotice} createEmulator={tracked} screensRef={setScreens} />
                     <AskBar />
                     <Show when={screens()}>{(shared) => <Bubbles screens={shared()} />}</Show>
                     <Switcher onFailure={setJumpFailure} onOpen={() => { if (document.querySelector('.window[data-shelf="open"][data-shelf-mode="overlay"]')) shelfFocus.toggle("key"); }} />
@@ -418,6 +423,9 @@ export const App = (props: {
               }}
             </InProject>
           </Show>
+          </div>
+          <AppSettings app={props.app} project={() => projects.active()} onOpenChange={setSettingsOpen} />
+          </div>
         }
         shelf={
           <Tabs.RootProvider value={shelfTabs} id="shelf-panels" lazyMount unmountOnExit style={{ display: "contents" }} onKeyDown={shelfFocus.moveFocus}>

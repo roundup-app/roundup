@@ -36,11 +36,6 @@
   background: var(--text);
 }
 
-/* The library's input is visually hidden, so the shared keyboard ring draws around the row. */
-.app-radio:has(input:focus-visible) {
-  outline: var(--keyboard-ring);
-}
-
 .app-radio input {
   font-size: inherit;
   /* Ark's inline visually-hidden style sets margin: -1px and a 1 px box; the press target is the whole row. */
@@ -51,13 +46,6 @@
   clip: auto !important;
   opacity: 0;
   cursor: pointer;
-}
-
-/* The hidden input is the press target: it answers at once, and the mark darkens with it. */
-.app-radio input:active,
-.app-radio:active .app-radio-mark {
-  background-color: var(--pressed);
-  transition-duration: 0s;
 }
 
 /* Hover darkens the mark's ring, as a checkbox's hover darkens its box. */

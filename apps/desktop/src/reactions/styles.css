@@ -158,13 +158,7 @@
   background-color: var(--ground);
 }
 
-.reaction-form .app-select-trigger:active {
-  color: var(--ink-pressed);
-  background-color: var(--ground);
-}
-
 body:has(.reaction-form) .app-select-list {
-  box-shadow: var(--shadow-drawer);
 }
 
 body:has(.reaction-form) .app-select-item {

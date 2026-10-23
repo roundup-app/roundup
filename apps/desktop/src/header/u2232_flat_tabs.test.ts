@@ -29,27 +29,6 @@ const runs = async (scheme: "light" | "dark", contrast?: "more", agent: "runner"
   await page.until(`() => document.querySelector('.terminal-tab-pair[data-selected=true]')`);
 };
 
-// U2770's real-input observer owns pointer rings and tab-name/Open-folder keyboard rings.
-it("u2233_close_and_add_keep_the_keyboard_ring", async () => {
-  for (const surface of ["strip", "runs"] as const) {
-    if (surface === "strip") await strip("light");
-    else await runs("light");
-
-    // The tab reveals its sibling close control while focus is within the pair.
-    await page.call(`(control) => document.querySelector(control).focus()`, surface === "strip" ? ".project-tab .tab-name-button" : ".terminal-tab");
-    await page.press("Tab", "Tab");
-
-    const controls = surface === "strip"
-      ? [".project-tab .tab-close"]
-      : [".terminal-tab-pair > button:last-of-type", ".terminal-new"];
-
-    for (const control of controls) {
-      await page.call(`(control) => document.querySelector(control).focus()`, control);
-      expect(await page.call<string>(`() => getComputedStyle(document.activeElement).outlineStyle`), `${surface} ${control}`).toBe("solid");
-    }
-  }
-}, 120_000);
-
 it("u2234_a_rename_field_opens_without_selecting_the_tab", async () => {
   const surfaces = [
     { surface: "strip", tab: ".project-tab", name: ".tab-name", field: ".tab-rename" },

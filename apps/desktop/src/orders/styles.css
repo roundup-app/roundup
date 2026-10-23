@@ -87,13 +87,6 @@
   overscroll-behavior: contain;
 }
 
-.order-field textarea:focus-visible {
-  background-image: linear-gradient(var(--accent), var(--accent));
-  background-repeat: no-repeat;
-  background-position: bottom;
-  background-size: 100% calc(var(--space-1) / 2);
-}
-
 .order-edit-error {
   display: flex;
   align-items: baseline;

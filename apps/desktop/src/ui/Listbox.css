@@ -53,11 +53,6 @@
   overflow-wrap: anywhere;
 }
 
-.app-listbox-item:not([data-disabled]):active {
-  background-color: var(--selected-hover);
-  transition-duration: 0s;
-}
-
 /* U406 keeps the chosen answer legible on --selected while pending. */
 .app-listbox-item[data-selected][data-disabled] {
   color: var(--text);

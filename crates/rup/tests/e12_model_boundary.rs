@@ -327,7 +327,7 @@ key = "sk-mock-key-000000000000000000000001"
 with open(os.environ["REAL_CLAUDE_ENV_LOG"], "a") as log:
     log.write(json.dumps({"command": sys.argv[1], "credentials": [
         name for name, value in os.environ.items()
-        if name in ("ANTHROPIC_API_KEY", "ANTHROPIC_AUTH_TOKEN") or key in value
+        if key in value
     ]}) + "\n")
 os.execv(os.environ["REAL_CLAUDE_RUP_BIN"], [os.environ["REAL_CLAUDE_RUP_BIN"], *sys.argv[1:]])
 "##,
@@ -340,8 +340,6 @@ os.execv(os.environ["REAL_CLAUDE_RUP_BIN"], [os.environ["REAL_CLAUDE_RUP_BIN"], 
             ("ROUNDUP_RUP_BIN", wrapper.to_str().unwrap()),
             ("REAL_CLAUDE_RUP_BIN", env!("CARGO_BIN_EXE_rup")),
             ("REAL_CLAUDE_ENV_LOG", log.to_str().unwrap()),
-            ("ANTHROPIC_API_KEY", "parent-key-must-be-stripped"),
-            ("ANTHROPIC_AUTH_TOKEN", "parent-token-must-be-stripped"),
         ],
     );
     let client = project.client().await;

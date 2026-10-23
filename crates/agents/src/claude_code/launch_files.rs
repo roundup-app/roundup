@@ -133,3 +133,49 @@ pub(super) fn socket_folder() -> std::io::Result<tempfile::TempDir> {
 pub(super) fn is_symlink(path: &Path) -> bool {
     std::fs::symlink_metadata(path).is_ok_and(|meta| meta.file_type().is_symlink())
 }
+
+/// Vendor settings precedence: objects extend, lists concatenate once, scalars override.
+/// Unlike JSON Merge Patch, null is a value and arrays are not replaced.
+pub(super) fn merge_settings(base: &mut Value, next: Value) {
+    match (base, next) {
+        (Value::Object(base), Value::Object(next)) => {
+            for (key, value) in next {
+                merge_settings(base.entry(key).or_insert(Value::Null), value);
+            }
+        }
+        (Value::Array(base), Value::Array(next)) => {
+            for value in next {
+                if !base.contains(&value) {
+                    base.push(value);
+                }
+            }
+        }
+        (base, next) => *base = next,
+    }
+}
+
+/// A3507b/c: carry all settings, including unknown keys, from the user's config and Project.
+pub(super) fn user_settings(config: &Path, project: &Path) -> std::io::Result<Value> {
+    let mut settings = serde_json::json!({});
+    for file in [
+        config.join("settings.json"),
+        project.join(".claude/settings.json"),
+        project.join(".claude/settings.local.json"),
+    ] {
+        let bytes = match std::fs::read(&file) {
+            Ok(bytes) => bytes,
+            Err(err) if err.kind() == ErrorKind::NotFound => continue,
+            Err(err) => return Err(err),
+        };
+        let next: Value = serde_json::from_slice(&bytes)
+            .map_err(|err| std::io::Error::other(format!("{}: {err}", file.display())))?;
+        if !next.is_object() {
+            return Err(std::io::Error::other(format!(
+                "{}: settings must be an object",
+                file.display()
+            )));
+        }
+        merge_settings(&mut settings, next);
+    }
+    Ok(settings)
+}
