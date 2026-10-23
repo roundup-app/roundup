@@ -10,12 +10,12 @@ BEND=${BEND:-$here/.tools/bend/bin/bend}
 export BEND_NO_TELEMETRY=1
 fail() { echo "proofs: $*" >&2; exit 1; }
 
-for f in LAWS.bend model.bend PROOF.bend; do [ -f "$dir/$f" ] || fail "missing $dir/$f"; done
+for f in LAWS.bend LIB.bend M2.bend model.bend PROOF.bend; do [ -f "$dir/$f" ] || fail "missing $dir/$f"; done
 [ -x "$BEND" ] || fail "bend is not installed at $BEND; run just proofs-setup"
 
-grep -nE '@unsafe|\?TODO' "$dir/PROOF.bend" && fail "PROOF.bend holds @unsafe or ?TODO"
+grep -nE '@unsafe|\?TODO' "$dir/PROOF.bend" "$dir/LIB.bend" "$dir/M2.bend" && fail "a proof file holds @unsafe or ?TODO"
 for law in $(sed -nE 's/^law ([A-Za-z0-9_]+):.*/\1/p' "$dir/LAWS.bend"); do
-  grep -qE "^def Laws\.$law\(" "$dir/PROOF.bend" || fail "law $law has no def Laws.$law in PROOF.bend"
+  grep -qE "^def Laws\.$law\(" "$dir/PROOF.bend" "$dir/M2.bend" || fail "law $law has no def Laws.$law in PROOF.bend or M2.bend"
 done
 
 out=$("$BEND" "$dir/PROOF.bend" 2>&1) || { printf '%s\n' "$out" >&2; fail "bend exited non-zero"; }
