@@ -6,7 +6,7 @@ import { cleanup, fireEvent, screen, waitFor } from "@solidjs/testing-library";
 import { afterEach, describe, expect, it } from "vitest";
 import { RpcError } from "../../app/seam";
 import { CHORDS, LEADER, RAIL_KEYS } from "../../keys/chords";
-import { agent, door, workstream } from "../../testing/nodes";
+import { agent, door, terminal, workstream } from "../../testing/nodes";
 import { exitedTerminal, mountRail, railCallsTo, rowOf, settled } from "../railFixture";
 
 afterEach(cleanup);
@@ -90,6 +90,26 @@ describe("u2694 the Rail's menu actions", () => {
     open("x");
     await app.pickMenu("Resume");
     await waitFor(() => expect(railCallsTo(app, "agent.resume")).toEqual([{ id: "x" }]));
+  });
+
+  it.each([
+    [agent("chosen", "idle", "idle"), []],
+    [agent("chosen", "done", "done"), [exitedTerminal("chosen", 0)]],
+    [terminal("chosen"), []],
+  ])("u3512a_every_rail_removal_waits_for_native_consent_%j", async (node, terminals) => {
+    const { app } = await mountRail([node], terminals);
+    app.handlers["rail.remove"] = () => null;
+    open("chosen");
+    await app.pickMenu("Remove");
+    expect(app.questions).toHaveLength(1);
+    expect(app.questions[0]!.title).toContain("chosen");
+    expect(removals(app)).toEqual([]);
+    await answerQuestion(false);
+    expect(removals(app)).toEqual([]);
+    open("chosen");
+    await app.pickMenu("Remove");
+    await answerQuestion(true);
+    await waitFor(() => expect(railCallsTo(app, "rail.remove")).toEqual([{ id: "chosen" }]));
   });
 
   it.each(["working", "needs-you", "blocked"] as const)("u2694b_stop_confirms_before_stopping_a_%s_agent", async (kind) => {
