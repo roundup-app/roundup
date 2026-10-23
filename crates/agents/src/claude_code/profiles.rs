@@ -15,7 +15,7 @@ pub const SCOUT_TOOLS: &str = "Read,Grep,Glob,Bash,ToolSearch";
 /// M2219 for a scout.
 pub const SCOUT_TOOLS_NO_MCP: &str = "Read,Grep,Glob,Bash";
 
-/// LC1: what a Role's child starts with, beyond LC2's settings, which every row shares.
+/// LC1: what a Role's child starts with, on top of the user's setup (LC2).
 pub struct Profile {
     /// `--tools` with roundup's MCP server and without it; `None` is every tool.
     pub tools: Option<(&'static str, &'static str)>,
@@ -35,17 +35,17 @@ pub const PROFILES: [(Role, Profile); 3] = [
             tools: Some((DOOR_TOOLS, DOOR_TOOLS_NO_MCP)),
             // A41: a `/command` sent to a Door runs there.
             skills: true,
-            bundled_plugins: &["hope"],
-            global_instructions: false,
+            bundled_plugins: &["hope", "hunch", "hold"],
+            global_instructions: true,
         },
     ),
     (
         Role::Scout,
         Profile {
             tools: Some((SCOUT_TOOLS, SCOUT_TOOLS_NO_MCP)),
-            skills: false,
-            bundled_plugins: &[],
-            global_instructions: false,
+            skills: true,
+            bundled_plugins: &["hope", "hunch", "hold"],
+            global_instructions: true,
         },
     ),
     (
