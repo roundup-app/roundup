@@ -859,6 +859,41 @@ mod time_tests {
         json!({"kind":"observed","activity":{"kind":"attempt"},"clock_lifetime":"test","start":point(start),"segments":[{"start":point(start),"end":point(end)}],"state":if active {json!({"kind":"active"})} else {json!({"kind":"ended","at":point(end)})}})
     }
 
+    #[tokio::test(start_paused = true)]
+    async fn u3016c_idle_and_stopped_time_are_not_agent_time() {
+        let w = World::new();
+        let home = w.home();
+        let id = w.agent(Some(&home));
+        w.signal(
+            &id,
+            json!({"hook_event_name":"UserPromptSubmit","prompt":"work"}),
+        );
+        w.advance(2).await;
+        w.signal(&id, json!({"hook_event_name":"Stop"}));
+        w.advance(5).await;
+        w.signal(
+            &id,
+            json!({"hook_event_name":"UserPromptSubmit","prompt":"tools"}),
+        );
+        w.advance(3).await;
+        w.stop(&id);
+        for (category, start, end) in [("agent", 0, 2), ("tool", 7, 10)] {
+            w.fact(&home, &id, category, &json!({"kind":"interval","category":category,"clock":"source-wall","start_unix_ns":((start+1)*1_000_000_000_u64).to_string(),"end_unix_ns":((end+1)*1_000_000_000_u64).to_string()}).to_string());
+        }
+        for _ in 0..2 {
+            let read = w.summary(&home, "total").await;
+            assert_eq!(read["time"]["elapsed_ns"], "10000000000");
+            assert_eq!(read["time"]["summed_ns"], "5000000000");
+            assert_eq!(read["time"]["execution_ns"], "2000000000");
+            assert_eq!(read["time"]["tools_ns"], "3000000000");
+            for category in ["human_ns", "coordination_ns", "other_ns", "unmeasured_ns"] {
+                assert_eq!(read["time"][category], "0", "{category}");
+            }
+            assert_eq!(read["time"]["active"], false);
+            w.advance(10).await;
+        }
+    }
+
     mod summary_tests;
 
     mod evidence_tests;

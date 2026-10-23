@@ -364,11 +364,31 @@ it("u3016g_numbers_use_display_units_and_never_show_unavailable_as_zero", () => 
   expect([percent(0.4, 100), percent(1, 0), percent(0, 100)]).toEqual(["<1%", copy.measurementUnknown, "0%"]);
 });
 
-it("u3016g_measurement_notes_are_one_closed_disclosure_and_each_note_appears_once", async () => {
-  await dashboard();
-  const root = screen.getByRole("region", { name: "Cost and time" });
-  const text = root.textContent ?? "";
+it("u3016k_unknown_zero_and_inert_marks_are_absent", async () => {
+  const { app } = await dashboard();
+  let revision = 1;
 
-  for (const sentence of ["Fixture coverage", "Fixture has no price basis"]) expect(text.split(sentence).length - 1).toBe(1);
-  expect(within(root).getByRole("button", { name: /How this is measured · 3 gaps/ }).getAttribute("aria-expanded")).toBe("false");
+  for (const [known, missing] of [["0", 1], ["0", 0], ["20", 1]] as const) {
+    const value = summary();
+    value.revision = String(++revision);
+    value.contributors = 1;
+    value.rows = value.rows.slice(0, 1);
+    value.next_offset = null;
+    for (const key of ["total", ...copy.measurementParts] as const) {
+      value.tokens[key] = { known, missing };
+      value.rows[0]!.tokens[key] = { known, missing };
+    }
+    value.time = { ...value.time, summed_ns: "0", execution_ns: "0", tools_ns: "0", human_ns: "0", coordination_ns: "0", other_ns: "0", unmeasured_ns: "0" };
+    app.handlers["project.measurementSummary"] = () => value;
+    app.emit(event({ name: "project.measurementsChanged", data: { revision: value.revision } }));
+    await waitFor(() => expect(document.querySelector(".measurement-dashboard")?.getAttribute("data-revision")).toBe(value.revision));
+    expect(screen.queryByRole("button", { name: /How this is measured/ })).toBeNull();
+    expect(screen.queryAllByRole("tab")).toHaveLength(0);
+    expect(document.querySelectorAll(".measurement-legend li")).toHaveLength(known === "0" ? 0 : 4);
+    expect(within(screen.getByRole("region", { name: copy.measurementTimeSpent })).queryAllByRole("term")).toHaveLength(0);
+    const tile = document.querySelector('[data-tile="tokens"]')!;
+    expect(tile.querySelector(".measurement-figure")?.textContent).toBe((known === "0" && missing > 0 ? "—" : known) + (missing > 0 ? "*" : ""));
+    expect(within(tile as HTMLElement).queryByRole("group")).toBe(known === "0" ? null : within(tile as HTMLElement).getByRole("group"));
+    expect(within(tile as HTMLElement).queryByRole("button", { name: copy.measurementPartial }) !== null).toBe(missing > 0);
+  }
 });
