@@ -1,5 +1,6 @@
 import type { RpcMethods } from "@contracts/methods";
 import type { RailNode } from "@contracts/agent/RailNode";
+import { railOrder } from "../rail/layout";
 import { copy } from "../copy";
 import type { App, AppSeam, MenuItem } from "../app/seam";
 
@@ -94,8 +95,11 @@ export const linkEntries = (
     }
   };
 
-  const children = nodes.flatMap((agent): MenuEntry[] =>
-    (agent.kind !== "agent" && agent.attempt === null) || !running(agent) ? [] : [{
+  const source = target.kind === "agent" || target.kind === "workstream" ? target.id
+    : target.kind === "terminal" ? nodes.find(node => node.terminal_id === target.id && (node.kind === "agent" || node.attempt !== null))?.id : undefined;
+
+  const children = railOrder(nodes).flatMap((agent): MenuEntry[] =>
+    agent.id === source || (agent.kind !== "agent" && agent.attempt === null) || !running(agent) ? [] : [{
       id: `send:${agent.id}`,
       label: agent.name,
       run: () => attempt(async link => {
@@ -106,7 +110,7 @@ export const linkEntries = (
     }]);
 
   return [
-    ...(children.length ? [{ id: "send", label: copy.sendToAgentMenu, children }] : []),
+    children.length ? { id: "send", label: copy.sendToAgentMenu, children } : { id: "send", label: copy.sendToAgentMenu, enabled: false },
     { id: "copy-link", label: copy.copyLink, run: () => attempt(async link => {
       await navigator.clipboard.writeText(target.kind === "deliverable" ? copy.linkNote(link) : link);
     }) },

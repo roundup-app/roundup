@@ -21,6 +21,7 @@ const emptyReads: Handlers = {
   "rail.tree": () => [],
   "agent.worktreeState": () => ({ ahead: 0, behind: 0, dirty: false }),
   "terminal.list": () => [],
+  "models.list": () => ({ engines: [{ id: "test-engine", label: "Claude Code" }], models: [{ id: "test-model", label: "Offered model" }], efforts: [] }),
   "terminal.scheme": () => null,
   "todo.list": () => [],
   "todo.listHanded": () => [],
@@ -356,6 +357,11 @@ export const createFakeApp = (): FakeApp => {
       dropListeners.add(listener);
 
       return () => dropListeners.delete(listener);
+    },
+    onAppSettings: async (listener) => {
+      window.addEventListener("open-app-settings", listener);
+
+      return () => window.removeEventListener("open-app-settings", listener);
     },
     onDaemonExited: async (listener) => {
       exitListeners.add(listener);
