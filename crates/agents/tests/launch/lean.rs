@@ -62,6 +62,11 @@ fn lc1_each_role_launches_as_its_row() {
     for (row, role, pair) in lean_children() {
         for mcp in [true, false] {
             let s = setup();
+            std::fs::write(
+                s.dir.parent().unwrap().join("CLAUDE.md"),
+                "PROJECT_INSTRUCTION_MARKER",
+            )
+            .unwrap();
             let pair = Pair {
                 mcp_off: !mcp,
                 ..pair.clone()
@@ -84,6 +89,7 @@ fn lc1_each_role_launches_as_its_row() {
                 Setup::after(&argv, "--append-system-prompt-file").unwrap(),
             )
             .unwrap();
+            assert!(brief.contains("PROJECT_INSTRUCTION_MARKER"), "{row:?}");
             assert_eq!(
                 brief.contains(&asset("hold-plain.md")),
                 row == Role::Agent,
@@ -104,6 +110,8 @@ fn lc2_a_child_starts_from_its_own_settings() {
                 "apiKeyHelper": "printf key",
                 "env": {"ANTHROPIC_BASE_URL": "http://proxy.test", "CLAUDE_CODE_DISABLE_AUTO_MEMORY": "0"},
                 "outputStyle": "Explanatory",
+                "autoMemoryEnabled": true,
+                "autoMemoryDirectory": "/user-memory",
                 "enabledPlugins": {"x@y": true},
                 "mcpServers": {"theirs": {"command": "x"}},
                 "hooks": {"Stop": []}
@@ -113,7 +121,7 @@ fn lc2_a_child_starts_from_its_own_settings() {
         let argv = s.prepare_lean("7", role, &pair, None).unwrap();
         assert_eq!(
             Setup::after(&argv, "--setting-sources"),
-            Some("project"),
+            Some(""),
             "{row:?}"
         );
         assert!(has(&argv, "--strict-mcp-config") && has(&argv, "--mcp-config"));
@@ -128,17 +136,21 @@ fn lc2_a_child_starts_from_its_own_settings() {
         } else {
             assert_eq!(
                 settings["permissions"]["allow"],
-                json!(["mcp__roundup__*", "Bash(git status)"]),
-                "roundup's first, a rule once"
+                json!(["Bash(git status)", "mcp__roundup__*"]),
+                "a rule once"
             );
         }
         assert_eq!(settings["permissions"]["deny"], json!(["Read(.env)"]));
-        // LC2: login carries over; the user's `env` and `defaultMode` do not.
-        assert_eq!(settings["apiKeyHelper"], "printf key");
-        assert!(settings["env"].get("ANTHROPIC_BASE_URL").is_none());
-        assert!(settings["permissions"].get("defaultMode").is_none());
+        // A3507b: every unnamed key carries over, including env and permission mode.
+        assert_eq!(settings["permissions"]["defaultMode"], "plan");
         assert_eq!(settings["env"]["CLAUDE_CODE_DISABLE_AUTO_MEMORY"], "1");
-        for dropped in ["outputStyle", "enabledPlugins", "mcpServers"] {
+        for dropped in [
+            "outputStyle",
+            "enabledPlugins",
+            "mcpServers",
+            "autoMemoryEnabled",
+            "autoMemoryDirectory",
+        ] {
             assert!(settings.get(dropped).is_none(), "{dropped}");
         }
         assert!(
@@ -176,7 +188,7 @@ async fn lc2_the_users_output_style_never_shapes_a_child() {
     assert_eq!(settings.get("outputStyle"), None);
     assert_eq!(
         settings["permissions"]["allow"],
-        json!(["mcp__roundup__*", "Read(x)"])
+        json!(["Read(x)", "mcp__roundup__*"])
     );
     let config = read(Path::new(Setup::after(&argv, "--mcp-config").unwrap()));
     assert_eq!(config["mcpServers"].as_object().unwrap().len(), 1);
@@ -192,7 +204,7 @@ fn lc3_the_door_launches_lean_and_its_brief_omits_the_plain_body() {
         Some("Read,Grep,Glob,ToolSearch,Skill")
     );
     assert!(!has(&argv, "--disable-slash-commands"));
-    assert_eq!(Setup::after(&argv, "--setting-sources"), Some("project"));
+    assert_eq!(Setup::after(&argv, "--setting-sources"), Some(""));
     assert!(!has(&argv, "--plugin-dir"));
     let text = std::fs::read_to_string(Setup::after(&argv, "--append-system-prompt-file").unwrap())
         .unwrap();
@@ -364,7 +376,10 @@ async fn lc6_a_user_started_agent_keeps_the_users_setup() {
     assert!(!env.contains_key("CLAUDE_CODE_DISABLE_AUTO_MEMORY"));
     assert!(has(&argv, "--settings") && has(&argv, "--mcp-config"));
     let settings = read(Path::new(Setup::after(&argv, "--settings").unwrap()));
-    assert_eq!(settings["permissions"]["allow"], json!(["mcp__roundup__*"]));
+    assert_eq!(
+        settings["permissions"]["allow"],
+        json!(["Read(x)", "mcp__roundup__*"])
+    );
     assert_eq!(argv.iter().filter(|arg| *arg == "--plugin-dir").count(), 3);
 }
 
@@ -510,9 +525,11 @@ fn lc10_no_launch_uses_bare_safe_mode_or_agent() {
 
 #[test]
 fn lc11_the_doors_start_allows_no_shell_or_terminal_start() {
-    for mcp in [true, false] {
+    for (mcp, carry_user_rules) in [(true, false), (true, true), (false, false), (false, true)] {
         let s = setup();
-        s.user_file("settings.json", &json!({"permissions":{"allow":["Bash(*)","PowerShell","mcp__roundup__terminal_spawn","mcp__roundup__terminal_open","mcp__roundup__terminal_write","mcp__roundup__agent_run","mcp__roundup__*","Read(*)"]}}).to_string());
+        if carry_user_rules {
+            s.user_file("settings.json", &json!({"permissions":{"allow":["Bash(*)","PowerShell","mcp__roundup__terminal_spawn","mcp__roundup__terminal_open","mcp__roundup__terminal_write","mcp__roundup__agent_run","mcp__roundup__*","Read(*)"]}}).to_string());
+        }
         let argv = s
             .prepare_lean(
                 "7",
@@ -525,7 +542,10 @@ fn lc11_the_doors_start_allows_no_shell_or_terminal_start() {
             )
             .unwrap();
         let settings = read(Path::new(Setup::after(&argv, "--settings").unwrap()));
-        let allowed = settings["permissions"]["allow"].as_array().unwrap();
+        let allowed = settings["permissions"]["allow"]
+            .as_array()
+            .cloned()
+            .unwrap_or_default();
         for forbidden in [
             "Bash",
             "PowerShell",
@@ -534,15 +554,19 @@ fn lc11_the_doors_start_allows_no_shell_or_terminal_start() {
             "terminal_write",
         ] {
             assert!(!Setup::after(&argv, "--tools").unwrap().contains(forbidden));
-            assert!(
-                !allowed
+            assert_eq!(
+                allowed
                     .iter()
                     .any(|rule| rule.as_str().unwrap().contains(forbidden)),
-                "{allowed:?}"
+                carry_user_rules,
+                "only user rules may name {forbidden}"
             );
         }
-        assert!(!allowed.contains(&json!("mcp__roundup__*")));
-        assert!(allowed.contains(&json!("Read(*)")));
+        assert_eq!(
+            allowed.contains(&json!("mcp__roundup__*")),
+            carry_user_rules
+        );
+        assert_eq!(allowed.contains(&json!("Read(*)")), carry_user_rules);
     }
 }
 
@@ -578,5 +602,117 @@ fn a2703a_brief_teaches_rail_names() {
         );
         assert!(text.contains("Refer to yourself and other Agents by Rail name, never by id"));
         assert!(!text.contains("7013") && !text.contains("the id never changes"));
+    }
+}
+
+#[test]
+fn a3507b_settings_extend_the_user_setup() {
+    let s = setup();
+    let config = s.root.path().join("custom-config");
+    std::fs::create_dir_all(&config).unwrap();
+    let user = config.join("settings.json");
+    let project = folders(&s.dir).project.join(".claude");
+    std::fs::create_dir_all(&project).unwrap();
+    let hook = json!({"matcher":"", "hooks":[{"type":"command", "command":"user-hook"}]});
+    let files = [
+        (
+            user,
+            json!({
+                "unknownFuture": {"nested": {"user": true}},
+                "model":"user-model", "apiKeyHelper":"user-helper",
+                "env":{"ENABLE_TOOL_SEARCH":"user-choice", "USER_ONLY":"yes", "CLAUDE_CODE_ENABLE_FUNCTION_HOOKS":"user-hooks", "CLAUDE_CODE_PLUGIN_DIR_WATCH":"user-watch"},
+                "permissions":{"allow":["Read(user)", "mcp__roundup__*"], "ask":["Bash(*)"], "deny":["Read(secret)"], "defaultMode":"plan", "future":{"kept":true}},
+                "hooks":{"Stop":[hook], "FutureEvent":[{"hooks":[{"type":"command", "command":"future-hook"}]}]}
+            }),
+        ),
+        (
+            project.join("settings.json"),
+            json!({"env":{"LAYER":"project"}, "unknownFuture":{"nested":{"project":true}}, "model":"project-model"}),
+        ),
+        (
+            project.join("settings.local.json"),
+            json!({"env":{"LAYER":"local"}, "unknownFuture":{"nested":{"local":true}}, "model":"local-model"}),
+        ),
+    ];
+    for (path, value) in &files {
+        std::fs::write(path, value.to_string()).unwrap();
+    }
+    let before: Vec<_> = files
+        .iter()
+        .map(|(path, _)| std::fs::read(path).unwrap())
+        .collect();
+    for shell_default in [None, Some("shell-choice")] {
+        let launcher = Launcher::from_vars(
+            |name| match name {
+                "CLAUDE_CONFIG_DIR" => Some(config.as_os_str().to_owned()),
+                "ROUNDUP_RUP_BIN" => Some(s.rup.as_os_str().to_owned()),
+                "ENABLE_TOOL_SEARCH" => shell_default.map(OsString::from),
+                _ => None,
+            },
+            &s.rup,
+        )
+        .unwrap();
+        for (_, role, pair) in
+            lean_children()
+                .into_iter()
+                .chain([(Role::Agent, Role::Agent, Pair::default())])
+        {
+            for resume in [None, Some("saved")] {
+                let command = launcher
+                    .command_on(folders(&s.dir), "7", "1", &s.cwd, resume, role, &pair)
+                    .unwrap();
+                let argv: Vec<_> = std::iter::once(command.get_program())
+                    .chain(command.get_args())
+                    .map(|arg| arg.to_str().unwrap().to_owned())
+                    .collect();
+                let env: std::collections::BTreeMap<_, _> = command.get_envs().collect();
+                assert_eq!(
+                    env.get(std::ffi::OsStr::new("CLAUDE_CODE_ENABLE_FUNCTION_HOOKS")),
+                    Some(&Some(std::ffi::OsStr::new("user-hooks")))
+                );
+                assert_eq!(
+                    env.get(std::ffi::OsStr::new("CLAUDE_CODE_PLUGIN_DIR_WATCH")),
+                    Some(&Some(std::ffi::OsStr::new("user-watch")))
+                );
+                let settings = read(Path::new(Setup::after(&argv, "--settings").unwrap()));
+                assert_eq!(
+                    settings["unknownFuture"],
+                    json!({"nested":{"user":true,"project":true,"local":true}})
+                );
+                assert_eq!(settings["model"], "local-model");
+                assert_eq!(settings["env"]["LAYER"], "local");
+                assert_eq!(settings["env"]["USER_ONLY"], "yes");
+                assert_eq!(settings["env"]["ENABLE_TOOL_SEARCH"], "user-choice");
+                assert_eq!(settings["permissions"]["ask"], json!(["Bash(*)"]));
+                assert_eq!(settings["permissions"]["deny"], json!(["Read(secret)"]));
+                assert_eq!(settings["permissions"]["defaultMode"], "plan");
+                assert_eq!(settings["permissions"]["future"], json!({"kept":true}));
+                let allow = settings["permissions"]["allow"].as_array().unwrap();
+                assert!(allow.contains(&json!("Read(user)")));
+                assert_eq!(
+                    allow
+                        .iter()
+                        .filter(|v| **v == json!("mcp__roundup__*"))
+                        .count(),
+                    1
+                );
+                let stop = settings["hooks"]["Stop"].as_array().unwrap();
+                assert!(stop.contains(&hook));
+                assert_eq!(stop.len(), 2);
+                assert!(stop.iter().any(|group| {
+                    group["hooks"][0]["command"]
+                        .as_str()
+                        .unwrap()
+                        .contains("signal")
+                }));
+                assert_eq!(
+                    settings["hooks"]["FutureEvent"][0]["hooks"][0]["command"],
+                    "future-hook"
+                );
+            }
+        }
+    }
+    for ((path, _), original) in files.iter().zip(before) {
+        assert_eq!(std::fs::read(path).unwrap(), original);
     }
 }
