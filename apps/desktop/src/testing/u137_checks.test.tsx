@@ -48,6 +48,20 @@ describe("u137 one module measures the checks", () => {
     expect(runChecks().D9).toEqual({ status: "pass", value: [], selector: "" });
   });
 
+  it("u3771_d9_limits_documented_completion_timings_to_todos", () => {
+    document.body.innerHTML = '<div class="todo-progress"><span>1/8</span></div>';
+    addSheet("span { transition-duration: 1.1s; }");
+
+    expect(runChecks().D9.status).toBe("pass");
+
+    document.querySelector("div")!.className = "rail-row";
+    expect(runChecks().D9).toMatchObject({ status: "fail", value: { duration: 1.1 } });
+
+    document.querySelector("div")!.className = "todo-progress";
+    addSheet("span { transition-duration: 9s; }");
+    expect(runChecks().D9).toMatchObject({ status: "fail", value: { duration: 9 } });
+  });
+
   it("u137_a_later_check_call_observes_new_interaction_rules", () => {
     document.head.querySelectorAll("style").forEach((sheet) => sheet.remove());
     document.body.innerHTML = '<button class="rail-row" style="height:24px;cursor:pointer">x</button>';

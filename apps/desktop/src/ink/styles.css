@@ -71,13 +71,13 @@ p.ink[role="alert"] {
 
 /* The tick's 24 px target includes the 8 px after its drawn box, so every
    tick/text row shares this column, including entry fields without a head. */
-.shelf-row:has(> .shelf-glyph > .todo-tick) {
+.shelf-row:has(> .shelf-glyph .todo-tick) {
   grid-template-columns: var(--space-5) minmax(0, 1fr);
   column-gap: 0;
 }
 
 /* An external-blocker mark needs space beside the tick before text begins. */
-.shelf-row:has(> .shelf-glyph > .todo-tick):has(> .shelf-glyph > [data-state]) {
+.shelf-row:has(> .shelf-glyph .todo-tick):has(> .shelf-glyph > [data-state]) {
   grid-template-columns: calc(var(--space-5) + var(--space-4)) minmax(0, 1fr);
   column-gap: var(--space-2);
 }
