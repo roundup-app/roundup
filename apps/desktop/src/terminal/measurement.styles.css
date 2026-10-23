@@ -303,7 +303,7 @@
 }
 
 .measurement-dashboard tbody:has(tr:hover) tr:not(:hover) .measurement-bar > span,
-.measurement-dashboard tbody:has(:focus-visible) tr:not(:focus-within) .measurement-bar > span {
+.measurement-dashboard tbody:focus-within tr:not(:focus-within) .measurement-bar > span {
   opacity: 0.35;
 }
 

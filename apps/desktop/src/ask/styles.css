@@ -81,11 +81,6 @@
   text-align: start;
 }
 
-button.ask-line:is(:active, [data-pressed="true"]) {
-  --button-surface: var(--pressed);
-  transition-duration: 0s;
-}
-
 .ask-text,
 .ask-name {
   width: fit-content;
@@ -276,7 +271,6 @@ button.ask-line:is(:active, [data-pressed="true"]) {
 .overview-empty .overview-heading {
   padding: 0;
 }
-
 
 .made-context {
   flex: 0 0 auto;

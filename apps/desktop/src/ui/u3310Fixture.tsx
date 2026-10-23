@@ -16,19 +16,10 @@ const u3310Fixture = () => {
     Object.assign(window, { __checks: runChecks });
     // A frame after each browser input acknowledges Ark's handlers and Solid's render.
     const acknowledge = () => requestAnimationFrame(() => setCommit(value => value + 1));
-    const keyboard = () => { document.documentElement.dataset.keyboardFocus = "true"; };
-
-    const pointer = () => { document.documentElement.dataset.keyboardFocus = "false"; };
-
-    document.addEventListener("keydown", keyboard);
-    document.addEventListener("pointerdown", pointer);
 
     for (const name of ["click", "keyup", "focusin"]) document.addEventListener(name, acknowledge);
     acknowledge();
     onCleanup(() => {
-      document.removeEventListener("keydown", keyboard);
-      document.removeEventListener("pointerdown", pointer);
-
       for (const name of ["click", "keyup", "focusin"]) document.removeEventListener(name, acknowledge);
     });
   });

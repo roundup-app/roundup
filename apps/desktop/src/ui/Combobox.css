@@ -1,4 +1,4 @@
-/* U529: the field has no outline of its own (U133's single ring is the surface's), a row has no hover box, and the highlighted row is a filled --sunken row (D6, D7). */
+/* U529: the field has no outline of its own (U3528 keeps only its caret), a row has no hover box, and the highlighted row is a filled --sunken row (D6, D7). */
 .app-combobox-label {
   position: absolute;
   width: 1px;
