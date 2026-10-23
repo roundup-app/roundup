@@ -13,6 +13,7 @@ The `roundup` MCP server offers these tools. They are deferred: load a tool befo
 - `deliverable_move`: place a publication you made unless the user has placed it; the user move wins.
 - `deliverable_remove`: request publication removal; only the user is authorized, and the id and key cannot be reused.
 - `todo_create`: record a piece of work that is not done yet.
+- `todo_assign`: assign a Todo to an owner, or leave it unassigned.
 - `todo_get`: read one Todo before changing it.
 - `todo_list`: see all the work already recorded.
 - `todo_update`: change a Todo's title or body as the work becomes clearer.
