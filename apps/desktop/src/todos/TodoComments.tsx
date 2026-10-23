@@ -6,7 +6,7 @@ import { ReservedLine } from "../ink/ReservedLine";
 import { KindGlyph } from "../ink/KindGlyph";
 import { Collapsible } from "../ui/Collapsible";
 import { useConnectedProject } from "../state/connectedProject";
-import { failureOf } from "./failureOf";
+import { doesClearTodoFailure, failureOf } from "./failureOf";
 import { rowButtonOf, triage } from "./triage";
 
 // Rows are keyed by id so fold state, focus and fade survive an arrival.
@@ -51,12 +51,13 @@ const partsOf = (body: string, marked: boolean): Part[] => {
 };
 
 /** The thread, oldest first, with a field to add to it. Opening reads it and marks it read once; a comment that arrives while it is open is read the same way. */
-export const TodoComments = (props: { id: number; onSent?: (() => void) | undefined }) => {
+export const TodoComments = (props: { id: number; onSent?: (() => void) | undefined; saved?: () => number }) => {
   const { app, events, rail, drawer } = useConnectedProject();
   // Keyed by id so a refresh keeps each comment's row, fold state and focus (U3776).
   const [thread, setThread] = createStore<Comment[]>([]);
   const [failure, setFailure] = createSignal<string | null>(null);
   const [sendFailure, setSendFailure] = createSignal<string | null>(null);
+  createEffect(on(props.saved ?? (() => 0), () => setSendFailure(null), { defer: true }));
   const [text, setTextNow] = createSignal(drafts.get(props.id) ?? "");
 
   const setText = (value: string) => {
@@ -100,8 +101,11 @@ export const TodoComments = (props: { id: number; onSent?: (() => void) | undefi
     if (alive && mine === latest && id === props.id) setFailure(message);
   };
 
-  createEffect(on(() => props.id, () => { setThread(reconcile([], byId)); setFresh(new Set<number>()); setAnnouncement(""); shown = null; setFailure(null); setTextNow(drafts.get(props.id) ?? ""); void refresh(); }));
-  onCleanup(events.subscribe((event) => { if (event.name === "todo.commented" && event.data.id === props.id) void refresh(); }));
+  createEffect(on(() => props.id, () => { setThread(reconcile([], byId)); setFresh(new Set<number>()); setAnnouncement(""); shown = null; setFailure(null); setSendFailure(null); setTextNow(drafts.get(props.id) ?? ""); void refresh(); }));
+  onCleanup(events.subscribe((event) => {
+    if (doesClearTodoFailure(event, props.id)) setSendFailure(null);
+
+    if (event.name === "todo.commented" && event.data.id === props.id) void refresh(); }));
   onCleanup(() => { alive = false; latest++; });
 
   // U3753: `c` on a triage row asks for this Todo's field.
@@ -119,18 +123,21 @@ export const TodoComments = (props: { id: number; onSent?: (() => void) | undefi
     const body = text();
 
     if (body.trim() === "" || sending()) return;
+    const id = props.id;
     setSending(true);
-    const message = await failureOf(async () => { await app.rpc("todo.comment", { id: props.id, body }); });
+    const message = await failureOf(async () => { await app.rpc("todo.comment", { id, body }); });
     setSending(false);
+
+    if (!alive || id !== props.id) return;
     setSendFailure(message);
 
     // A rejected call keeps the typed text; the thread catches up through `todo.commented`.
-    if (message === null) { setText(""); await refresh(); props.onSent?.(); }
+    if (message === null) { if (text() === body) setText(""); props.onSent?.(); await refresh(); }
   };
 
   return <section class="todo-comments" aria-label={copy.commentsHeading(thread.length)}>
     <h3>{copy.commentsHeading(thread.length)}</h3>
-    <ReservedLine message={failure()}><button data-button="quiet" class="word" type="button" onClick={() => void refresh()}>{copy.commentRetry}</button></ReservedLine>
+    <ReservedLine message={failure()}><button data-button="quiet" class="word" type="button" onClick={() => void refresh()}>{copy.commentRetry}</button><button data-dismiss-failure onMouseDown={event => event.preventDefault()} data-button="quiet" class="word" type="button" onClick={() => setFailure(null)}>Dismiss failure</button></ReservedLine>
     <For each={thread}>{(comment) => <div class="todo-comment" data-comment={comment.id} data-fresh={fresh().has(comment.id) ? "" : undefined}>
       <p class="todo-comment-head"><Show when={glyphOf(comment)} fallback={<Show when={comment.author.kind === "agent"}><span class="todo-comment-glyph-gap" aria-hidden="true" /></Show>}>{(node) => <KindGlyph kind={node().status?.kind ?? "idle"} />}</Show><span class="todo-comment-author">{author(comment)}</span> <time datetime={new Date(comment.created_at).toISOString()}>{copy.commentTime(comment.created_at)}</time>
         <Show when={comment.author.kind === "agent"}><button data-button="quiet" class="word" type="button" onClick={() => field?.focus()}>{copy.reply}</button></Show></p>
@@ -150,7 +157,7 @@ export const TodoComments = (props: { id: number; onSent?: (() => void) | undefi
 
         if (event.key === "Enter" && !event.shiftKey && !event.isComposing) { event.preventDefault(); void send(); }
       }} />
-    <ReservedLine message={sendFailure()} />
+    <ReservedLine message={sendFailure()}><button data-dismiss-failure onMouseDown={event => event.preventDefault()} data-button="quiet" class="word" type="button" onClick={() => setSendFailure(null)}>Dismiss failure</button></ReservedLine>
     <p class="todo-comments-send"><button data-button="quiet" class="word" type="button" aria-disabled={text().trim() === "" || sending() ? true : undefined} onClick={() => void send()}>{copy.comment}</button></p>
   </section>;
 };

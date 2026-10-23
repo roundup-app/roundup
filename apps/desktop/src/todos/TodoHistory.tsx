@@ -5,7 +5,7 @@ import type { History } from "@contracts/todo/History";
 import type { Change } from "@contracts/todo/Change";
 import { Icon } from "../ink/Icon";
 import { useConnectedProject } from "../state/connectedProject";
-import { failureOf } from "./failureOf";
+import { doesClearTodoFailure, failureOf } from "./failureOf";
 
 const ids = (list: number[]) => [...list].sort((a, b) => a - b).map((id) => `#${id}`).join(", ");
 
@@ -52,12 +52,13 @@ const lines = (change: Change, agentName: (id: string) => string): string[] => {
 type Loaded = { history: History; unread: boolean };
 
 /** History loads with the Drawer, but entries render and the read is sent only once the user opens the line. */
-export const TodoHistory = (props: { id: number; onCapture?: (change: Change | undefined) => void }) => {
+export const TodoHistory = (props: { id: number; saved?: () => number; onCapture?: (change: Change | undefined) => void }) => {
   const { app, events, drawer, rail } = useConnectedProject();
   const content = drawer.content();
   const [loaded, setLoaded] = createSignal<Loaded | null>(null);
   const [failure, setFailure] = createSignal<string | null>(null);
   const [copyFailure, failCopy] = createSignal<string | null>(null);
+  createEffect(on(props.saved ?? (() => 0), () => failCopy(null), { defer: true }));
   const [opened, setOpened] = createSignal(false);
   let latest = 0;
   let alive = true;
@@ -118,10 +119,12 @@ export const TodoHistory = (props: { id: number; onCapture?: (change: Change | u
 
   createEffect(on(() => props.id, () => {
     boundary = undefined; baseline = 0; through = 0; acknowledged = false; reading = null;
-    setLoaded(null); setFailure(null); setOpened(false);
+    setLoaded(null); setFailure(null); failCopy(null); setOpened(false);
     void refresh();
   }));
   onCleanup(events.subscribe((event) => {
+    if (doesClearTodoFailure(event, props.id)) failCopy(null);
+
     if ((event.name === "todo.updated" || event.name === "todo.unblocked") && event.data.id === props.id) void refresh();
 
     // Deleting a blocker changes surviving Todos' history without changing their own fields in this Event.
@@ -144,7 +147,7 @@ export const TodoHistory = (props: { id: number; onCapture?: (change: Change | u
 
   return <>
     <ReservedLine message={copyFailure() ?? failure()} content={failure() && count() === 0 && !opened() ? <button data-button="quiet" class="word" type="button" aria-expanded={false} onClick={toggle}>{copy.changes}</button> : undefined}>
-      <button data-button="quiet" class="word" type="button" onClick={() => void refresh()}>{copy.retryHistory}</button>
+      <button data-button="quiet" class="word" type="button" onClick={() => void refresh()}>{copy.retryHistory}</button><button data-dismiss-failure onMouseDown={event => event.preventDefault()} data-button="quiet" class="word" type="button" onClick={() => { failCopy(null); setFailure(null); }}>Dismiss failure</button>
     </ReservedLine>
     <Show when={count() > 0}>
     <section class="todo-history" aria-label={copy.todoHistory}>

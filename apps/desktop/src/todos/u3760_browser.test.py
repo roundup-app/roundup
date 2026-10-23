@@ -7,6 +7,7 @@ import tempfile
 import uuid
 
 origin, target = sys.argv[1:3]
+lifetime = len(sys.argv) > 3 and sys.argv[3] == "P3557c"
 session = 'u3760-' + uuid.uuid4().hex
 profile = tempfile.TemporaryDirectory(prefix='u3760-profile-')
 
@@ -54,15 +55,49 @@ try:
     browser('set', 'media', 'dark')
     browser('wait', '--fn', 'Boolean(window.__fake && document.querySelector("[data-id=\\"5\\"] .row-head button"))')
     assert evaluate("({w:innerWidth,h:innerHeight,d:matchMedia('(prefers-color-scheme: dark)').matches})") == {'w': 1512, 'h': 950, 'd': True}
-    evaluate(setup)
-    browser('wait', '--fn', 'document.querySelectorAll(".todo-ref").length===10')
-    evaluate('(async()=>{await document.fonts.ready;await Promise.all(document.querySelector(".drawer").getAnimations().map(a=>a.finished));document.querySelector(".todo-refs").scrollIntoView({block:"start"})})()')
-    result = evaluate(reading)
-    assert result['count'] == 10 and result['heading'] == 'Pads · 10' and result['links'] == 9 and result['missing'] == 1 and not result['overflow'] and not result['rowsOverflow'], result
-    directory = Path(target)
-    directory.mkdir(parents=True, exist_ok=True)
-    browser('screenshot', str(directory / 'drawer-1512-dark.png'))
-    (directory / 'drawer-1512-dark.checks.json').write_text(json.dumps(result['checks'], ensure_ascii=False) + '\n')
+    if lifetime:
+        directory = Path(target)
+        directory.mkdir(parents=True, exist_ok=True)
+        evaluate('document.querySelector(\'[data-id="5"] .row-head button\').click()')
+        browser('wait', '--fn', 'Boolean(document.querySelector(".todo-comment-field"))')
+        evaluate('(async()=>{await document.fonts.ready;await Promise.all(document.querySelector(".drawer").getAnimations().map(a=>a.finished))})()')
+
+        def capture(name):
+            result = evaluate('window.__checks()')
+            browser('screenshot', str(directory / (name + '.png')))
+            (directory / (name + '.checks.json')).write_text(json.dumps(result, ensure_ascii=False) + '\n')
+            return result
+
+        capture('drawer-before')
+        evaluate(r"""(() => {
+          const field=document.querySelector('.todo-comment-field');
+          field.value='  e\u0301 🧪\n次の行  '; field.dispatchEvent(new Event('input',{bubbles:true}));
+          window.__fake.failNext(-32003,'Comment could not be sent; retry or dismiss the failure.');
+          document.querySelector('.todo-comments-send button').click();
+        })()""")
+        browser('wait', '--fn', 'Boolean(document.querySelector(".todo-comments [role=alert]"))')
+        capture('comment-failure')
+        evaluate("[...document.querySelectorAll('.todo-comments button')].find(b=>b.textContent==='Dismiss failure').click()")
+        browser('wait', '--fn', '!document.querySelector(".todo-comments [role=alert]")')
+        assert evaluate("document.querySelector('.todo-comment-field').value") == '  e\u0301 🧪\n次の行  '
+        capture('comment-dismissed')
+        evaluate("window.__fake.failNext(-32003,'Todo could not be saved; retry or dismiss the failure.'); document.querySelector('.todo-detail-title input[type=checkbox]').click()")
+        browser('wait', '--fn', 'Boolean(document.querySelector(".todo-detail > .reserved-line [role=alert]"))')
+        capture('drawer-failure')
+        evaluate("document.querySelector('.todo-detail-title input[type=checkbox]').click()")
+        browser('wait', '--fn', '!document.querySelector(".todo-detail > .reserved-line [role=alert]")')
+        assert evaluate("document.querySelector('.todo-comment-field').value") == '  e\u0301 🧪\n次の行  '
+        capture('drawer-saved')
+    else:
+        evaluate(setup)
+        browser('wait', '--fn', 'document.querySelectorAll(".todo-ref").length===10')
+        evaluate('(async()=>{await document.fonts.ready;await Promise.all(document.querySelector(".drawer").getAnimations().map(a=>a.finished));document.querySelector(".todo-refs").scrollIntoView({block:"start"})})()')
+        result = evaluate(reading)
+        assert result['count'] == 10 and result['heading'] == 'Pads · 10' and result['links'] == 9 and result['missing'] == 1 and not result['overflow'] and not result['rowsOverflow'], result
+        directory = Path(target)
+        directory.mkdir(parents=True, exist_ok=True)
+        browser('screenshot', str(directory / 'drawer-1512-dark.png'))
+        (directory / 'drawer-1512-dark.checks.json').write_text(json.dumps(result['checks'], ensure_ascii=False) + '\n')
     print('ok')
 finally:
     browser('close')
