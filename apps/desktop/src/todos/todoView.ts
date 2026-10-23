@@ -143,3 +143,11 @@ export const nowTodos = (list: readonly Todo[], handed: readonly Handed[], agent
 
     return new Set([...latest.values()].map(fact => fact.id));
 };
+
+/** U138: the row to focus once a completed Todo leaves the open list — the next one, else the previous, else none (the `+` button). */
+export const rowAfter = (id: number, openIds: readonly number[]): number | null => {
+  const at = openIds.indexOf(id);
+
+  return openIds[at + 1] ?? openIds[at - 1] ?? null;
+};
+
