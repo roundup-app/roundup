@@ -1,5 +1,6 @@
 import { batch, createSignal } from "solid-js";
 import type { Accessor } from "solid-js";
+import type { Kind } from "@contracts/Kind";
 import type { Message } from "@contracts/message/Message";
 import type { Events } from "../app/events";
 import type { AppSeam, DaemonExit } from "../app/seam";
@@ -19,8 +20,8 @@ export type NoteQueue = {
   failure(agent: string): string | null;
   /** The queue of `agent` is on screen until the returned call, so a taken note may glide. */
   watch(agent: string): () => void;
-  /** Enter queues the draft for the Agent's next step; `now` also interrupts it (U3781). */
-  send(agent: string, now: boolean): Promise<void>;
+  /** Enter queues the draft for the Agent's next step; `now` also interrupts it unless `kind` is idle at the send (U3781). */
+  send(agent: string, now: boolean, kind: Kind | undefined): Promise<void>;
   remove(message: Message): Promise<void>;
   allow(message: Message): Promise<void>;
   /** The row of `id` finished leaving. */
@@ -128,7 +129,7 @@ export const createNoteQueue = (app: AppSeam, events: Events, reducedMotion: Acc
 
       return () => watching.set(agent, (watching.get(agent) ?? 1) - 1);
     },
-    send: async (agent, now) => {
+    send: async (agent, now, kind) => {
       const body = drafts().get(agent) ?? "";
 
       if (body.trim() === "" || sending.has(agent)) return;
@@ -148,13 +149,11 @@ export const createNoteQueue = (app: AppSeam, events: Events, reducedMotion: Acc
 
         const message = queued.value;
 
-        // U3781: an Agent already idle takes the note by B2 at once, so there is no turn to interrupt.
-        if (message.status === "delivered") return;
-
         // B6: a Takeover holds the note, and the user's call wins.
         if (message.status === "held" && message.reason === "takeover" && await call(agent, () => app.rpc("message.deliver", { id: message.id })) === null) return;
 
-        await call(agent, () => app.rpc("agent.interrupt", { id: agent }));
+        // U3781: B2 takes the note at idle; interrupting would stop the turn it just started.
+        if (kind !== "idle") await call(agent, () => app.rpc("agent.interrupt", { id: agent }));
       } finally {
         sending.delete(agent);
       }

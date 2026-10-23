@@ -48,8 +48,8 @@ export const NoteQueue = (props: { node: RailNode }) => {
   const inField = (press: KeyboardEvent): boolean => press.target === field && !press.isComposing && daemonExit() === null;
 
   registerKeys({ kind: "region", element: () => root }, [
-    { chords: ["Enter"], when: inField, run: () => void notes.send(agent(), false) },
-    { chords: ["Meta+Enter"], when: inField, run: () => void notes.send(agent(), true) },
+    { chords: ["Enter"], when: inField, run: () => void notes.send(agent(), false, props.node.status?.kind) },
+    { chords: ["Meta+Enter"], when: inField, run: () => void notes.send(agent(), true, props.node.status?.kind) },
   ]);
 
   // The queue sits on the field, so a removal drops the header and the rows above it by the height that leaves. They glide down by
