@@ -83,13 +83,15 @@ it("u475_close_dialog_cancels", async () => {
   }
 }, 90_000);
 
-it("u475_close_dialog_stops_once", async () => {
+it("u475_close_failure_is_visible", async () => {
   await load("light");
   const path = await read<string>(`document.querySelector('.project-tab').dataset.path`);
   await open();
   await stop();
   await failure();
   expect(await read<string[]>("window.__u475Calls")).toEqual([path]);
+  expect(await read<string>(`document.querySelector('.project-tab').dataset.path`)).toBe(path);
+  expect(await read<boolean>(`[...document.querySelectorAll('*')].some(el => el.textContent === 'could not stop rupd' && el.getClientRects().length > 0 && getComputedStyle(el).visibility !== 'hidden')`)).toBe(true);
 }, 60_000);
 
 it("u2773a_header_restores_exact_work_browser", async () => {
@@ -109,10 +111,11 @@ it("u2773a_header_restores_exact_work_browser", async () => {
   await browser("wait", "--fn", `!!document.querySelector('.tab-rename')`);
   expect(await read<unknown[]>(`(() => { const field = document.querySelector('.tab-rename'); return [field.value, field.selectionStart, field.selectionEnd, field.selectionDirection, document.activeElement === field]; })()`)).toEqual(['  é 🪁 雪  ', 2, 6, 'backward', true]);
   await browser("eval", `(() => { Storage.prototype.setItem = () => { throw new Error('disk full'); }; const field = document.querySelector('.tab-rename'); field.value = '  newer 雪  '; field.dispatchEvent(new Event('input', {bubbles:true})); field.dispatchEvent(new KeyboardEvent('keydown', {key:'Escape', bubbles:true})); })()`);
-  await browser("wait", "--fn", `!!document.querySelector('[aria-label^="Recover unfinished work ·"]')`);
-  await browser("screenshot", "/tmp/header-retention-failure.png");
+  await browser("wait", "--fn", `!document.querySelector('.tab-rename') && !!document.querySelector('[aria-label^="Recover unfinished work ·"]')`);
   await browser("eval", `document.querySelector('[aria-label^="Recover unfinished work ·"]').click()`);
   await browser("wait", "--fn", `!!document.querySelector('[role="dialog"]')`);
+  expect(await read<boolean>(`!!document.querySelector('[role="dialog"] [role="alert"]')`)).toBe(true);
+  await browser("screenshot", "/tmp/header-retention-failure.png");
   expect(await read<string>(`document.querySelector('[role="dialog"] .draft-value').textContent`)).toBe('  newer 雪  ');
   await browser("screenshot", "/tmp/header-recovery.png");
   await browser("eval", `window.__u2773Checks = window.__checks()`);
