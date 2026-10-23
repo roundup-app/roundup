@@ -219,7 +219,7 @@ export const Capture = (props: { onFile: (() => void) | undefined }) => {
             <span {...ownerCut.attrs()}>{ownerLine()}</span>
             <span {...homeCut.attrs()}>{homeLine()}</span>
           </p>
-          <ReservedLine message={failure() ?? (drafts.problem() ? copy.draftRetention(connected.project.path, copy.leaderShortCapture, drafts.problem()!.cause) : null)}>
+          <ReservedLine message={failure() ?? (drafts.problem() ? copy.draftRetention(connected.project.name, copy.leaderShortCapture, drafts.problem()!.cause) : null)}>
             <Show when={drafts.problem()}><button data-button="quiet" type="button" onClick={() => drafts.retry()}>{copy.storageRetry}</button></Show>
           </ReservedLine>
           <For each={recovered()}>{draft => <div class="capture-recovery">

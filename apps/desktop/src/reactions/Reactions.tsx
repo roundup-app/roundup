@@ -32,13 +32,28 @@ const blank = (operation: string): Form => ({
 type View = { kind: "list" } | { kind: "create" } | { kind: "detail"; id: string };
 
 const useNames = () => {
-  const { rail } = useConnectedProject();
+  const { rail, project } = useConnectedProject();
 
   return (id: string) => {
     const node = rail.nodes.find((node) => node.id === id);
 
-    return node ? `${node.name} (${id})` : copy.reactionGone(id);
+    if (!node) return copy.reactionGone();
+
+    return rail.nodes.some(other => other.name === node.name && other.parent !== node.parent)
+      ? copy.draftIdentity(node.name, node.parent === null ? project.name : rail.nodes.find(home => home.id === node.parent)?.name ?? copy.unavailableHome)
+      : node.name;
   };
+};
+
+const evidenceText = (evidence: string): string | null => {
+  let value: unknown;
+
+  try { value = JSON.parse(evidence); }
+  catch { return copy.reactionUnknownEvidence; }
+
+  const parsed = v.safeParse(v.object({ source: v.picklist(["agents", "pr-checks", "instant"]) }), value);
+
+  return parsed.success ? null : copy.reactionUnknownEvidence;
 };
 
 const conditionText = (condition: Condition, nameOf: (id: string) => string): string =>
@@ -187,7 +202,7 @@ export const Reactions = (props: { state: ReturnType<typeof createReactions> }) 
             return <li>
             <button type="button" data-button="quiet" class="reaction-row overview-entry" data-reaction-opener={id} onClick={() => open({ kind: "detail", id })}>
               <span class="reaction-name">{reaction().name}</span>
-              <span class="reaction-state" data-state={reaction().state}>{copy.reactionState(reaction().state, reaction().observation.health)}</span>
+              <span class="reaction-state" data-state={reaction().state}>{reaction().state === "active" && reaction().observation.evidence && evidenceText(reaction().observation.evidence!) ? copy.reactionUnknownState : copy.reactionState(reaction().state, reaction().observation.health)}</span>
             </button>
           </li>;
           }}</For>
@@ -199,7 +214,8 @@ export const Reactions = (props: { state: ReturnType<typeof createReactions> }) 
 
 const Facts = (props: { reaction: Reaction }) => {
   const nameOf = useNames();
-  const { app } = useConnectedProject();
+  const { app, rail } = useConnectedProject();
+  const [copyFailure, failCopy] = createSignal<string | null>(null);
   const r = () => props.reaction;
   const [messageId, setMessageId] = createSignal<number | null>(null);
 
@@ -222,22 +238,31 @@ const Facts = (props: { reaction: Reaction }) => {
 
   const home = () => r().home;
 
+  const observation = () => r().state !== "active" ? copy.reactionState(r().state, r().observation.health)
+    : (r().observation.evidence && evidenceText(r().observation.evidence!)) || copy.reactionHealth(r().observation.health);
+
+  const authority = () => copy.reactionActor(r().actor.kind, rail.nodes.some(node => node.id === r().actor.id) ? nameOf(r().actor.id) : null);
+
   return <Show when={messageId() !== null} fallback={<dl class="reaction-facts">
-    <dt>{copy.reactionAuthority}</dt><dd>{copy.reactionActor(r().actor.kind, r().actor.id)}</dd>
+    <dt>{copy.reactionAuthority}</dt><dd>{authority()}</dd>
     <dt>{copy.reactionHome}</dt><dd>{home() ? nameOf(home()!) : copy.reactionNoHome}</dd>
     <dt>{copy.reactionTarget}</dt><dd>{nameOf(r().target)}</dd>
     <dt>{copy.reactionInstruction}</dt><dd class="reaction-instruction">{r().instruction}</dd>
     <dt>{copy.reactionCondition}</dt><dd>{conditionText(r().condition, nameOf)}</dd>
     <dt>{copy.reactionBound}</dt><dd>{copy.reactionRemaining(r().remaining, r().max_firings, r().rearm)}</dd>
     <dt>{copy.reactionExpires}</dt><dd><time datetime={r().expires_at}>{copy.reactionWhen(r().expires_at)}</time></dd>
-    <dt>{copy.reactionCursor}</dt><dd>{r().observation.cursor ?? copy.reactionNoEvidence}</dd>
-    <Show when={r().observation.pinned_head}>{head => <><dt>{copy.reactionHead}</dt><dd>{head()}</dd></>}</Show>
     <dt>{copy.reactionObservation}</dt>
     <dd>
-      <span>{r().observation.health}</span>
-      <ReservedLine message={(r().observation.cause ? ((r().observation.cause)!) : null) || (r().observation.gap ? (copy.reactionGap((r().observation.gap)!)) : null) || null} status={r().observation.recovery ? copy.reactionRecovery(r().observation.recovery!) : r().observation.evidence} />
-
+      <span>{observation()}</span>
+      <ReservedLine message={r().observation.cause ? copy.reactionCause(r().observation.cause!) : r().observation.gap ? copy.reactionGap(r().observation.gap!) : null} status={!r().observation.cause?.includes("unsupported") && r().observation.recovery ? copy.reactionRecovery(r().observation.recovery!) : null} />
     </dd>
+    <dt>{copy.reactionDetails}</dt><dd><button type="button" data-button="quiet" onClick={() => {
+      void navigator.clipboard.writeText(JSON.stringify({
+        name: r().name, authority: authority(),
+        target: nameOf(r().target), home: home() ? nameOf(home()!) : copy.reactionNoHome,
+        condition: conditionText(r().condition, nameOf), observation: observation(), reaction: r(),
+      }, null, 2)).then(() => failCopy(null), error => failCopy(copy.copyDraftFailure(error instanceof Error ? error.message : String(error))));
+    }}>{copy.copy}</button><Show when={copyFailure()}>{failure => <ErrorLine message={failure()} />}</Show></dd>
     <dt>{copy.reactionFirings}</dt>
     <dd><Show when={r().firings.length > 0} fallback={copy.reactionNoFirings}>
       <ol class="reaction-firings"><For each={r().firings}>{(firing) => <li data-outcome={firing.outcome}><button type="button" data-button="quiet" data-firing-message={firing.message} onClick={() => { returnId = firing.message; setMessageId(firing.message); }}>{copy.reactionFiring(firing.ordinal, firing.message, firing.outcome, firing.matched)}</button></li>}</For></ol>
@@ -249,7 +274,11 @@ const Facts = (props: { reaction: Reaction }) => {
       <Show when={!message.loading && message()?.value}>{value => <dl class="reaction-facts">
         <dt>{copy.reactionTarget}</dt><dd>{nameOf(value().to)}</dd>
         <dt>{copy.reactionMessage(messageId()!)}</dt><dd class="reaction-instruction">{value().body}</dd>
-        <dt>{copy.reactionMessageState}</dt><dd data-state={value().status}>{value().status}{value().reason ? ` · ${value().reason}` : ""}</dd>
+        <dt>{copy.reactionMessageState}</dt><dd data-state={value().status}>{copy.reactionDelivery(value().status)}{value().reason ? ` · ${copy.reactionCause(value().reason!)}` : ""}</dd>
+        <dt>{copy.reactionDetails}</dt><dd><button type="button" data-button="quiet" onClick={() => {
+          void navigator.clipboard.writeText(JSON.stringify({ target: nameOf(value().to), message: value() }, null, 2))
+            .then(() => failCopy(null), error => failCopy(copy.copyDraftFailure(error instanceof Error ? error.message : String(error))));
+        }}>{copy.copy}</button><Show when={copyFailure()}>{failure => <ErrorLine message={failure()} />}</Show></dd>
       </dl>}</Show>
     </section>
   </Show>;
@@ -458,7 +487,7 @@ const ReactionForm = (props: { onDone: (made: Reaction, reveal: boolean) => void
         <dt>{copy.reactionExpires}</dt><dd>{resolvedAt(expiry) ?? copy.reactionIncomplete}</dd>
       </dl>
     </section>
-    <ReservedLine message={drafts.problem() ? copy.draftRetention(project.path, copy.draftSurface("reactions"), drafts.problem()!.cause) : unresolved()?.status === "unknown" ? failure() ?? copy.reactionCreationUnknown("") : failure()}>
+    <ReservedLine message={drafts.problem() ? copy.draftRetention(project.name, copy.draftSurface("reactions"), drafts.problem()!.cause) : unresolved()?.status === "unknown" ? failure() ?? copy.reactionCreationUnknown("") : failure()}>
       <Show when={drafts.problem()}><button type="button" data-button="quiet" onClick={() => drafts.retry()}>{copy.storageRetry}</button></Show>
       <Show when={unresolved()?.status === "unknown"}><button type="button" data-button="quiet" disabled={busy()} onClick={() => void reconcile()}>{copy.reactionCheckCreation}</button></Show>
     </ReservedLine>

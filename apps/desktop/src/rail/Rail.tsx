@@ -600,7 +600,7 @@ export const Rail = () => {
     >
       <SectionHead icon="messages" label={copy.workstreamsHead} />
       <Show when={composing()}>
-        <ReservedLine status={task() && taskParent() !== parent() ? (copy.railDraftTaskTarget(rail.nodes.find((node) => node.id === taskParent())?.name ?? project.name, taskParent() ?? project.path)) : null} />
+        <ReservedLine status={task() && taskParent() !== parent() ? (copy.railDraftTaskTarget(taskParent() === null ? project.name : destinationName(taskParent()!))) : null} />
         <SpawnPromptField
           ref={setField}
           value={draft()}
