@@ -161,6 +161,16 @@ pub(crate) fn summarize(
             "Measurements changed; read again from offset zero",
         ));
     }
+    // An Agent counts as running until its Status settles as done or error; a removed one is stopped.
+    let running = |agent: &str| {
+        tree.iter().any(|node| {
+            node.id == agent
+                && node
+                    .status
+                    .as_ref()
+                    .is_some_and(|s| !matches!(s.kind, Kind::Done | Kind::Error))
+        })
+    };
     let mut contributors =
         std::collections::BTreeMap::<String, (String, TokenSum, Vec<String>)>::new();
     // A source can fail before retaining any fact. Keep that contributor and its failure visible.
@@ -296,6 +306,7 @@ pub(crate) fn summarize(
                         .copied()
                         .filter(|fact| fact.agent == agent)
                         .collect::<Vec<_>>(),
+                    &running,
                 )?,
                 coverage,
             })
@@ -310,7 +321,7 @@ pub(crate) fn summarize(
         last_observed,
         tokens: total.finish()?,
         cost: cost_totals(&facts),
-        time: time_totals(&facts)?,
+        time: time_totals(&facts, &running)?,
         coverage,
         contributors: count,
         rows,
@@ -341,7 +352,11 @@ fn cost_totals(facts: &[&contracts::project::Measurement]) -> contracts::project
                     result.reported.push(reported.clone());
                 }
                 let estimate = || -> Option<ReferenceEstimate> {
-                    let rates = cost.reference.as_ref()?;
+                    let mut rates = cost.reference.clone()?;
+                    if rates.model.is_empty() {
+                        rates.model = cost.model.clone().unwrap_or_default();
+                    }
+                    let rates = &rates;
                     if rates.per_tokens == 0 {
                         return None;
                     }
@@ -453,6 +468,7 @@ fn cost_totals(facts: &[&contracts::project::Measurement]) -> contracts::project
 
 fn time_totals(
     facts: &[&contracts::project::Measurement],
+    running: &dyn Fn(&str) -> bool,
 ) -> Result<contracts::project::MeasurementTime, RpcError> {
     use contracts::project::{Execution, MeasurementValue, TimeState, TimedActivity};
     let ns = |s: &str| s.parse::<u128>().map_err(RpcError::internal);
@@ -474,7 +490,13 @@ fn time_totals(
         else {
             continue;
         };
-        active |= *state == TimeState::Active;
+        if *state == TimeState::Active {
+            if running(&attempt.agent) {
+                active = true;
+            } else {
+                coverage.push("Attempt end unknown after its Agent stopped".into());
+            }
+        }
         unknown_start |= start.is_none();
         let Some(begin) = start
             .as_ref()
@@ -882,14 +904,32 @@ mod time_tests {
     async fn u3016c_elapsed_and_parallel_time_are_distinct() {
         let w = World::new();
         let home = w.home();
+        let live = w.agent(Some(&home));
         w.fact(&home, "a", "first", &attempt(0, 10, false).to_string());
         w.fact(&home, "b", "parallel", &attempt(0, 10, false).to_string());
-        w.fact(&home, "a", "resumed", &attempt(15, 20, true).to_string());
+        w.fact(&home, &live, "resumed", &attempt(15, 20, true).to_string());
         let read = w.summary(&home, "total").await;
         assert_eq!(read["time"]["elapsed_ns"], "20000000000");
         assert_eq!(read["time"]["summed_ns"], "25000000000");
         assert_eq!(read["time"]["active"], true);
         assert_eq!(read["time"]["unmeasured_ns"], "25000000000");
+    }
+
+    #[tokio::test]
+    async fn u3016i_unknown_attempt_end_stops_the_clock_once_its_agent_stops() {
+        let w = World::new();
+        let home = w.home();
+        let live = w.agent(Some(&home));
+        w.fact(&home, &live, "open", &attempt(0, 10, true).to_string());
+        let read = w.summary(&home, "total").await;
+        assert_eq!(read["time"]["active"], true);
+        w.signal(
+            &live,
+            json!({"hook_event_name":"SessionEnd","reason":"done"}),
+        );
+        let read = w.summary(&home, "total").await;
+        assert_eq!(read["time"]["active"], false);
+        assert!(read["time"]["coverage"].to_string().contains("end unknown"));
     }
 
     #[tokio::test]

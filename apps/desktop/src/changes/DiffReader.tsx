@@ -88,7 +88,7 @@ export const DiffReader = (props: { id: string; name: string; path: string; note
         renderAnnotation: ({ metadata }) => { const element = document.createElement("p"); element.className = "diff-note"; element.textContent = `${copy.selectedLines(metadata.side, metadata.start, metadata.end)}: ${metadata.text}`;
 
         return element; },
-        theme: "roundup", diffStyle: "unified", diffIndicators: "classic", disableFileHeader: true,  unsafeCSS: diffStyles }, virtualizer, { lineHeight: parseFloat(getComputedStyle(mount).getPropertyValue("--space-5")) || 24 });
+        theme: "roundup", preferredHighlighter: "highlights", diffStyle: "unified", diffIndicators: "classic", disableFileHeader: true,  unsafeCSS: diffStyles }, virtualizer, { lineHeight: parseFloat(getComputedStyle(mount).getPropertyValue("--space-5")) || 24 });
 
       const oldFile = { name: value.oldPath, contents: value.old.kind === "text" ? value.old.text : "" };
       const newFile = { name: value.newPath, contents: value.new.kind === "text" ? value.new.text : "" };

@@ -1,7 +1,8 @@
-import { cleanup, fireEvent, screen, waitFor } from "@solidjs/testing-library";
+import { cleanup, fireEvent, screen, waitFor, within } from "@solidjs/testing-library";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { event, workstream } from "../testing/nodes";
 import { RpcError } from "../app/seam";
+import type { Deliverable } from "@contracts/deliverable/Deliverable";
 import type { Ask } from "@contracts/ask/Ask";
 import { ask, input, mountAskBar, press, rowTexts } from "./askFixture";
 
@@ -328,7 +329,6 @@ it("u2773e_recovery_actions_keep_surface_draft", async () => {
   try {
     type(exact);
     expect(input()!.value).toBe(exact);
-    expect(screen.getByRole("alert").textContent).toContain(mounted.connected.project.path);
     expect(screen.getByRole("alert").textContent).toContain("Ask");
     fireEvent.click(screen.getByRole("button", { name: "Recover unfinished work" }));
     expect(await screen.findByRole("button", { name: "Open" })).toBeTruthy();
@@ -342,8 +342,9 @@ it("u2773e_recovery_actions_keep_surface_draft", async () => {
     mounted.unmount();
     const reopened = await mountAskBar([], null, undefined, false, path);
     expect(input()!.value).toBe(exact);
+    // Leaving the Ask bar with its text unsent lists it (U3289a).
     reopened.connected.rail.select("ann");
-    expect(screen.queryByRole("button", { name: "Recover unfinished work" })).toBeNull();
+    expect(screen.getByRole("button", { name: "Recover unfinished work" })).toBeTruthy();
     reopened.connected.rail.select(null);
     expect(input()!.value).toBe(exact);
     expect(sent(reopened.app)).toEqual([]);
@@ -507,9 +508,11 @@ it("u3021c_copy_and_discard_keep_other_revisions_ask", async () => {
   try {
     connected.rail.select("ann");
     fireEvent.click(screen.getByRole("button", { name: "Recover unfinished work" }));
-    fireEvent.click(await screen.findByRole("button", { name: "Copy" }));
+    const copy = await screen.findByRole("button", { name: "Copy" });
+
+    fireEvent.click(copy);
     expect(clipboard.mock.calls).toEqual([[exact]]);
-    fireEvent.click(screen.getByRole("button", { name: "Discard" }));
+    fireEvent.click(within(copy.closest("li")!).getByRole("button", { name: "Discard" }));
     expect(connected.drafts.list()).toEqual([b]);
     const path = connected.project.path;
     mounted.unmount();
@@ -565,4 +568,46 @@ it.each(["failed", "unknown"] as const)("u3021c_ask_opening_current_work_keeps_i
   type("edited current A");
   press("Escape", {}, input()!);
   expect(input()!.value).toBe("edited current A");
+});
+
+const published = (revision: number): Deliverable => ({
+  id: `publication-${revision}`, project: "project-original", maker: { kind: "agent", id: "gone", parent: null }, maker_name: "Review", home: null,
+  title: "Same title", published_at: 1792713600000,
+  target: { kind: "pad", name: "original-pad", incarnation: "original-incarnation", revision, sha256: `hash-${revision}`, length: 10 },
+});
+
+it("u3299d_copy_uses_selected_item_publication", async () => {
+  const { app } = await mountAskBar();
+  const records = [published(7), published(9)];
+  app.handlers["deliverable.list"] = () => records;
+  app.handlers["deliverable.resolve"] = () => ({ kind: "retained", path: "/retained/exact", sha256: "hash-9" });
+  window.dispatchEvent(new Event("focus"));
+  const made = await screen.findByRole("region", { name: "Made" });
+  const rows = await within(made).findAllByRole("listitem");
+  const copied: string[] = [];
+  Object.defineProperty(navigator, "clipboard", { configurable: true, value: { writeText: async (text: string) => { copied.push(text); } } });
+  fireEvent.contextMenu(rows[1]!);
+  await app.pickMenu("Copy");
+  expect(JSON.parse(copied[0]!.split("\n").slice(2).join("\n")).record).toEqual(records[1]);
+  expect(app.calls.filter(call => call.method === "deliverable.resolve").map(call => call.params)).toEqual([{ project: "project-original", id: "publication-9" }]);
+  expect(app.openedTargets).toEqual([]);
+});
+
+it("u3299d_named_rows_keep_recorded_targets_publication", async () => {
+  const { app } = await mountAskBar();
+  app.handlers["deliverable.list"] = () => [published(7), published(9)];
+  app.handlers["deliverable.resolve"] = ({ id }) => ({ kind: "retained", path: `/retained/${id}`, sha256: "exact-hash" });
+  window.dispatchEvent(new Event("focus"));
+  const made = await screen.findByRole("region", { name: "Made" });
+  const rows = await within(made).findAllByRole("listitem");
+
+  for (const row of rows) {
+    fireEvent.click(within(row).getByRole("button"));
+    await waitFor(() => expect(made.getAttribute("aria-busy")).toBe("false"));
+  }
+
+  expect(app.calls.filter(call => call.method === "deliverable.resolve").map(call => call.params)).toEqual([
+    { project: "project-original", id: "publication-7" }, { project: "project-original", id: "publication-9" },
+  ]);
+  expect(app.openedTargets).toEqual([{ kind: "path", path: "/retained/publication-7", line: null }, { kind: "path", path: "/retained/publication-9", line: null }]);
 });

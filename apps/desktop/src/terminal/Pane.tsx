@@ -7,8 +7,10 @@ import { drawerSliding } from "../drawer/sliding";
 import { resizeDragging } from "../resize/dragging";
 import { For, createEffect, createMemo, createSignal, on, onCleanup, Show, untrack } from "solid-js";
 import { DecisionCard } from "../decisions/DecisionCard";
+import { FoldedLine } from "../decisions/FoldedLine";
 import { OrderDrawer } from "../orders/OrderDrawer";
 import { OrderLine } from "../orders/OrderLine";
+import { NoteQueue } from "./NoteQueue";
 import { ErrorLine } from "../ink/ErrorLine";
 import { Icon } from "../ink/Icon";
 import { doorStateOf, doorStateText } from "../rail/doorState";
@@ -418,6 +420,7 @@ export const Pane = (props: { notice?: string | null; createEmulator?: EmulatorF
             />
         )}
       </Show>
+      <Show when={!decision() ? connected.decisions.folded(selected()?.id ?? null) : undefined}>{(line) => <FoldedLine line={line()} />}</Show>
       <Show when={selected()?.kind !== "workstream" && !closedAgent() ? selected() : null}>{(node) => <OrderLine node={node()} />}</Show>
       <div
         class="pane-body"
@@ -493,6 +496,7 @@ export const Pane = (props: { notice?: string | null; createEmulator?: EmulatorF
           )}
         </Show>
       </div>
+      <Show when={selected()?.kind === "agent" && terminalId() !== null && !closedAgent() ? selected() : null} keyed>{(node) => <NoteQueue node={node} />}</Show>
       </div>
       <div class="pane-failure">
         <Show when={notice() ?? rail.workstreamFailure()}>{(message) => <ErrorLine message={message()} />}</Show>

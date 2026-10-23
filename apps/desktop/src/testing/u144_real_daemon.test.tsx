@@ -25,6 +25,10 @@ import type { RailNode } from "@contracts/agent/RailNode";
 import { WorktreeControl } from "../changes/WorktreeControl";
 import { openFile, saveNote } from "../changes/noteHarness";
 import type { StartedDaemon } from "./realDaemonFixture";
+import { openRecovery as openMenu, recoveryLabel } from "./recovery";
+
+/** A row opens as left-unsent work and turns to Copy once its original is known gone, which waits on the Daemon's reads. */
+const copyOf = (row: () => HTMLElement) => waitFor(() => within(row()).getByRole("button", { name: "Copy" }), { timeout: 15_000 });
 
 describe("u144 the harness serves the App on a real Daemon", () => {
   let daemon: ChildProcess;
@@ -362,7 +366,7 @@ describe("u2773 Project draft integration on real Projects", () => {
   const target = () => ({ surface: "orders", object: original.id, recipient: original.id });
 
   const openRecovery = async () => {
-    fireEvent.click(await screen.findByRole("button", { name: "Recover unfinished work" }));
+    await openMenu();
 
     return screen.findByRole("region", { name: "Unfinished work" });
   };
@@ -517,8 +521,9 @@ describe("u2773 Project draft integration on real Projects", () => {
     writes.mockRestore();
     fireEvent.click(screen.getByRole("button", { name: "Try again" }));
     expect(holder.list().find((draft) => draft.revision === newer.revision)).toEqual(newer);
-    await waitFor(() => expect([...document.querySelectorAll<HTMLElement>(".draft-revisions > li")].map((row) => row.dataset.revision)).toEqual([older.revision]));
-    fireEvent.click(within(document.querySelector<HTMLElement>(".draft-revisions > li")!).getByRole("button", { name: "Discard" }));
+    // Stored again, newer is no longer at risk but stays listed as left unsent.
+    await waitFor(() => expect(screen.queryByRole("alert")).toBeNull());
+    fireEvent.click(within(document.querySelector<HTMLElement>(`.draft-revisions > li[data-revision="${older.revision}"]`)!).getByRole("button", { name: "Discard" }));
     expect(createProjectDrafts()(first.dir).list()).toEqual([newer]);
     expect(createProjectDrafts()(second.dir).list()).toEqual([separate]);
     expect(calls.flatMap((spy) => spy.mock.calls).filter(([method]) => !["pad.list", "todo.list"].includes(method))).toEqual([]);
@@ -542,10 +547,9 @@ describe("u2773 Project draft integration on real Projects", () => {
     document.body.append(outside);
     outside.focus();
     mount();
-    const entry = await screen.findByRole("button", { name: "Recover unfinished work" });
+    await vi.waitFor(async () => expect(await recoveryLabel()).not.toBeNull());
     expect(document.activeElement).toBe(outside);
     outside.remove();
-    entry.focus();
     const focus = document.activeElement;
     holder.retry();
     expect(document.activeElement).toBe(focus);
@@ -658,7 +662,8 @@ describe("u2773 Project draft integration on real Projects", () => {
     const b = holder.edit(target(), { ask: exact }, null, "ordinary").draft;
     mount();
     await screen.findByRole("tab", { name: "first" });
-    expect(screen.queryByRole("button", { name: "Recover unfinished work" })).toBeNull();
+    // B was left unsent and A is in flight: only B lists (U3289a).
+    expect(await recoveryLabel()).toBe("Recover unfinished work (1)");
     fireEvent.click(screen.getByRole("button", { name: "Open a folder" }));
     await screen.findByRole("tab", { name: "second" });
     holder.settle(a.revision, "failed");
@@ -713,7 +718,7 @@ describe("u2773 Project draft integration on real Projects", () => {
     expect(holder.list()).toEqual([expect.objectContaining({ ...a, status: "failed" }), b]);
     const clipboard = vi.fn(async (_text: string) => {});
     Object.defineProperty(navigator, "clipboard", { configurable: true, value: { writeText: clipboard } });
-    fireEvent.click(within(rowOf(b.revision)).getByRole("button", { name: "Copy" }));
+    fireEvent.click(await copyOf(() => rowOf(b.revision)));
     expect(clipboard).toHaveBeenCalledWith(exact);
     writes.mockRestore();
     fireEvent.click(within(rowOf(a.revision)).getByRole("button", { name: "Discard" }));
@@ -825,7 +830,8 @@ describe("u2773 Project draft integration on real Projects", () => {
     fireEvent.click(screen.getByRole("button", { name: "Open a folder" }));
     await screen.findByRole("tab", { name: "second" });
     const otherRecovery = await openRecovery();
-    const otherCopy = within(otherRecovery.querySelector<HTMLElement>(`[data-revision="${separate.revision}"]`)!).getByRole("button", { name: "Copy" });
+    // The row opens as unfinished work and turns to Copy once the original is known gone.
+    const otherCopy = await copyOf(() => otherRecovery.querySelector<HTMLElement>(`[data-revision="${separate.revision}"]`)!);
     otherCopy.focus();
     release();
     await completed;
@@ -849,14 +855,14 @@ describe("u2773 Project draft integration on real Projects", () => {
     holder.settle(a.revision, "failed");
     const b = holder.edit(target(), { ask: exact }, null, "ordinary").draft;
     mount();
-    await screen.findByRole("button", { name: "Recover unfinished work" });
+    await vi.waitFor(async () => expect(await recoveryLabel()).not.toBeNull());
     await app.forProject(first.dir).rpc("rail.remove", { id: original.id });
     const recovery = await openRecovery();
     const rowOf = (revision: string) => recovery.querySelector<HTMLElement>(`[data-revision="${revision}"]`)!;
     await waitFor(() => expect(rowOf(b.revision)).toBeTruthy());
     const clipboard = vi.fn(async (_text: string) => {});
     Object.defineProperty(navigator, "clipboard", { configurable: true, value: { writeText: clipboard } });
-    fireEvent.click(within(rowOf(b.revision)).getByRole("button", { name: "Copy" }));
+    fireEvent.click(await copyOf(() => rowOf(b.revision)));
     await waitFor(() => expect(clipboard).toHaveBeenCalledWith(exact));
     fireEvent.click(within(rowOf(a.revision)).getByRole("button", { name: "Discard" }));
     expect(holder.list().find((draft) => draft.revision === b.revision)).toEqual(b);
@@ -986,7 +992,7 @@ describe("u2773 Project draft integration on real Projects", () => {
     fireEvent.click(screen.getByRole("tab", { name: /^first(?: |$)/ }));
     await waitFor(() => expect(screen.getByRole<HTMLInputElement>("textbox", { name: "Add a note (optional)" }).value).toBe("  newer B 🧭  "));
 
-    if (outcome === "acknowledged") expect(screen.queryByRole("button", { name: "Recover unfinished work" })).toBeNull();
+    if (outcome === "acknowledged") expect(await recoveryLabel()).toBeNull();
     else {
       const row = (await openRecovery()).querySelector<HTMLElement>(`[data-revision="${a.revision}"]`)!;
 
@@ -1219,7 +1225,7 @@ describe("u2773 Project draft integration on real Projects", () => {
     outside.focus();
     calls.forEach((spy) => spy.mockClear());
     mount(emulators);
-    await screen.findByRole("button", { name: "Recover unfinished work" });
+    await vi.waitFor(async () => expect(await recoveryLabel()).not.toBeNull());
     expect(document.activeElement).toBe(outside);
     const recovery = await openRecovery();
     expect(recovery.querySelector(`[data-revision="${saved.revision}"]`)).toBeTruthy();
@@ -1275,7 +1281,7 @@ describe("u2773 unfinished Decision forms on real Projects", () => {
   };
 
   const openRecovery = async () => {
-    fireEvent.click(await screen.findByRole("button", { name: "Recover unfinished work" }));
+    await openMenu();
 
     return screen.findByRole("region", { name: "Unfinished work" });
   };
@@ -1436,7 +1442,7 @@ describe("u2773 unfinished Decision forms on real Projects", () => {
     expect(answerCalls.mock.calls.filter(([method]) => method === "decision.answer")).toHaveLength(1);
     fireEvent.click(screen.getByRole("tab", { name: /^first\b/ }));
 
-    if (outcome === "acknowledged") expect(screen.queryByRole("button", { name: "Recover unfinished work" })).toBeNull();
+    if (outcome === "acknowledged") expect(await recoveryLabel()).toBeNull();
     else {
       const recovery = await openRecovery();
 
@@ -1492,7 +1498,7 @@ describe("u2773 unfinished Decision forms on real Projects", () => {
     expect(within(recovery).queryByRole("button", { name: "Send" })).toBeNull();
     const clipboard = vi.fn(async (_text: string) => {});
     Object.defineProperty(navigator, "clipboard", { configurable: true, value: { writeText: clipboard } });
-    fireEvent.click(within(recovery).getByRole("button", { name: "Copy" }));
+    fireEvent.click(await copyOf(() => recovery));
     expect(clipboard).toHaveBeenCalledWith(exact);
     const target = (await current.rpc("rail.tree", null)).find(node => node.id === agents[0]!.id);
     const live = (await current.rpc("terminal.list", null)).find(terminal => terminal.id === target?.terminal_id && terminal.running);

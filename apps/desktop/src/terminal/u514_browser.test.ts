@@ -93,7 +93,8 @@ it.each(chromeSurfaces.flatMap(surface => ["drag", "double-click"].map(gesture =
     if (surface === ".pane-empty-keys") {
       await browser("open", url("/harness.html?seed=empty-project&renderer=dom"));
     } else if (surface === ".pane-control-state" || surface === ".resource-num") {
-      await browser("click", surface === ".pane-control-state" ? '[data-id="agent-4"] .name' : '[data-id="migrate"] .name');
+      // U408: the strip shows values only for a working Agent, so `.resource-num` needs one selected.
+      await browser("click", surface === ".pane-control-state" ? '[data-id="agent-4"] .name' : '[data-id="tokens"] .name');
     } else if (surface === ".terminal-tab") {
       await browser("click", ".terminal-new");
       await browser("click", ".window-title");
@@ -314,7 +315,7 @@ it.each(["pad", "decision"])("u2680c_readonly_content_keeps_native_selection_and
     selector = '.pad-readonly .ProseMirror[contenteditable=false] p';
   } else {
     await browser("open", url("/harness.html?seed=decisions&renderer=dom"));
-    selector = "pre.decision-args";
+    selector = ".decision-card .decision-title code";
   }
 
   await wait(`!!document.querySelector(${JSON.stringify(selector)})`);

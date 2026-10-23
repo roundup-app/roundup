@@ -4,4 +4,4 @@ import type { Choice } from "./Choice";
 /**
  * A36: `models.list`, the Models and Efforts the Adapter offers.
  */
-export type ModelList = { models: Array<Choice>, efforts: Array<Choice>, };
+export type ModelList = { engines: Array<Choice>, models: Array<Choice>, efforts: Array<Choice>, };

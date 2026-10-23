@@ -901,6 +901,7 @@ export const Bubbles = (props: {
     const name = () => nameFor(terminal());
     const [nameRef, nameCut] = createCut();
     let destination = Object.freeze({ surface: "bubbles", object: terminal().incarnation, recipient: id });
+    createEffect(() => { if (editing()?.id === id) onCleanup(drafts.editor(destination)); });
     const current = () => records().filter(draft => draft.destination.object === terminal().incarnation && draft.destination.recipient === id && draft.status === "draft" && !draft.value.recovery).at(-1);
     let base = "";
     let initial = "";
@@ -1054,8 +1055,8 @@ export const Bubbles = (props: {
       <Dialog.Root open={recovering()} onOpenChange={details => recover(details.open)}>
         <Portal><Dialog.Positioner asChild={positioner => <aside {...positioner({})} />}><Dialog.Content class="draft-recovery bubble-recovery" ref={element => { recoveryPanel = element; }}>
           <Dialog.Title asChild={title => <h2 {...title({})}>{copy.unfinishedWork}</h2>} />
-          <Dialog.Description class="draft-identity">{copy.draftIdentity(path, copy.terminalName)}</Dialog.Description>
-          <Show when={problem()}>{failure => <p role="alert">{copy.draftRetention(path, copy.terminalName, failure().cause)}</p>}</Show>
+          <Dialog.Description class="draft-identity">{copy.draftIdentity(connected.project.name, copy.terminalName)}</Dialog.Description>
+          <Show when={problem()}>{failure => <p role="alert">{copy.draftRetention(connected.project.name, copy.terminalName, failure().cause)}</p>}</Show>
           <Show when={copyFailure()}>{failure => <p role="alert">{failure()}</p>}</Show>
           <Show when={records().length > 1}><For each={[...records()].reverse().sort((a, b) => Number(b.status === "draft") - Number(a.status === "draft"))}>{(draft, index) => <button type="button" data-button="quiet" aria-pressed={shownDraft()?.revision === draft.revision} onClick={() => inspect(draft.revision)}>{copy.draftIdentity(copy.inspectDraft, draft.status === "draft" ? copy.currentDraft : copy.draftStatus[draft.status], String(draft.value.base ?? ""), String(index() + 1))}</button>}</For></Show>
           <Show when={shownDraft()}>{draft => <>
