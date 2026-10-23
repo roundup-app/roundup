@@ -220,6 +220,9 @@ it("u3807_each_site_shows_its_message_in_the_reserved_line: Order spawn failure"
   const view = render(() => <ConnectedProjectContext.Provider value={mounted.connected}><OrderDrawer id="a" inline={inline()} /></ConnectedProjectContext.Provider>);
   await waitFor(() => expect(mounted.app.calls.some(call => call.method === "agent.spawnPrompt")).toBe(true));
   await cycle(view.container, () => setInline(false), () => setInline(true));
+  setInline(false);
+  fireEvent.click(within(view.container).getByRole("button", { name: "Edit order" }));
+  expect(within(view.container.querySelector<HTMLElement>(".order-edit")!).getByRole("alert").textContent).toContain(FAILURE);
 });
 
 it("u3807_each_site_shows_its_message_in_the_reserved_line: Order editor", async () => {

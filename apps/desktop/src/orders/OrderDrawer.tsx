@@ -286,7 +286,7 @@ const OrderContent = (props: OrderInput) => {
           }} />
         </label>
       }</For>
-      <ReservedLine message={failure() ?? (!formValue().success ? copy.orderRestoreFailed : conflict() ? copy.orderChanged : drafts.problem() ? copy.draftRetention(project.name, copy.draftSurface(destination().surface), drafts.problem()!.cause) : null)} status={selectedDraft() && selectedDraft()!.status !== "draft" ? copy.draftStatus[selectedDraft()!.status] : null}>
+      <ReservedLine message={failure() ?? (!formValue().success ? copy.orderRestoreFailed : conflict() ? copy.orderChanged : drafts.problem() ? copy.draftRetention(project.name, copy.draftSurface(destination().surface), drafts.problem()!.cause) : null) ?? (!props.inline && order()?.kind === "work" ? spawn()?.error : null)} status={selectedDraft() && selectedDraft()!.status !== "draft" ? copy.draftStatus[selectedDraft()!.status] : null}>
         <Show when={drafts.problem()}><button data-button="quiet" type="button" onClick={() => drafts.retry()}>{copy.storageRetry}</button></Show>
         <Show when={recovery()}>
           <For each={["title", "ask", "done"]}>{(name) => <button data-button="quiet" type="button" onClick={() => void navigator.clipboard.writeText(String(selectedDraft()?.value[name] ?? "")).catch((error) => setFailure(copy.copyDraftFailure(error instanceof Error ? error.message : String(error))))}>{copy.copyField(name)}</button>}</For>
