@@ -1,3 +1,5 @@
+import { questionProbe } from "../testing/menuProbe";
+import { questionDialog, answerQuestion } from "../shelf/bulkQuestionHarness";
 import { stubDialogLayout } from "../shelf/bulkQuestionHarness";
 import { cleanup, fireEvent, screen, waitFor, within } from "@solidjs/testing-library";
 import { afterEach, describe, expect, it } from "vitest";
@@ -21,8 +23,7 @@ const open = async () => {
 
 const ask = async () => {
   fireEvent.click(within(drawer()).getByRole("button", { name: "Delete Todo" }));
-  await screen.findByRole("alertdialog");
-  await waitFor(() => expect(document.activeElement).toBe(screen.getByRole("button", { name: "Keep" })));
+  await questionDialog();
 };
 
 describe("u150 delete asks first (Todo)", () => {
@@ -31,7 +32,7 @@ describe("u150 delete asks first (Todo)", () => {
 
     await ask();
 
-    expect([document.body.textContent?.includes("Delete Todo?"), screen.queryByText("Complete"), callsTo(app, "todo.delete")]).toEqual([true, null, []]);
+    expect([questionProbe.shown?.title === "Delete Todo?", screen.queryByText("Complete"), callsTo(app, "todo.delete")]).toEqual([true, null, []]);
   });
 
   it("u150_confirming_calls_todo_delete_once_and_closes_with_no_deleted_line", async () => {
@@ -39,7 +40,7 @@ describe("u150 delete asks first (Todo)", () => {
     app.handlers["todo.delete"] = () => null;
     await ask();
 
-    fireEvent.click(screen.getByText("Delete"));
+    await answerQuestion(true);
     app.emit({ actor: USER, name: "todo.deleted", data: { id: 5 } });
 
     await waitFor(() => expect(connected.drawer.content()).toBeNull());
@@ -57,7 +58,7 @@ describe("u150 delete asks first (Todo)", () => {
     fireEvent.click(await screen.findByRole("button", { name: /#5/ }));
     await within(drawer()).findByText("Blocker");
     await ask();
-    fireEvent.click(screen.getByText("Delete"));
+    await answerQuestion(true);
     app.emit({ actor: USER, name: "todo.deleted", data: { id: 5 } });
 
     await waitFor(() => expect(screen.queryByRole("button", { name: /#5/ })).toBeNull());
@@ -67,11 +68,8 @@ describe("u150 delete asks first (Todo)", () => {
   it("u150_keep_calls_nothing_and_returns_focus_to_delete", async () => {
     const { app } = await open();
     await ask();
-    const keep = screen.getByText("Keep");
-    await waitFor(() => expect(document.activeElement).toBe(keep));
-
-    fireEvent.click(keep);
-    await waitFor(() => expect(screen.queryByRole("alertdialog")).toBeNull());
+    await answerQuestion(false);
+    await waitFor(() => expect(questionProbe.shown).toBeNull());
 
     await waitFor(() => expect(document.activeElement).toBe(within(drawer()).getByRole("button", { name: "Delete Todo" })));
     expect([callsTo(app, "todo.delete"), screen.queryByText("Keep")]).toEqual([[], null]);
@@ -81,8 +79,8 @@ describe("u150 delete asks first (Todo)", () => {
     const { app, connected } = await open();
     await ask();
 
-    fireEvent.keyDown(screen.getByRole("button", { name: "Keep" }), { key: "Escape" });
-    await waitFor(() => expect(screen.queryByRole("alertdialog")).toBeNull());
+    await answerQuestion(false);
+    await waitFor(() => expect(questionProbe.shown).toBeNull());
 
     expect([connected.drawer.content() === null, callsTo(app, "todo.delete")]).toEqual([false, []]);
     expect(screen.queryByText("Keep")).toBeNull();
@@ -93,11 +91,10 @@ describe("u150 delete asks first (Todo)", () => {
     app.handlers["todo.delete"] = () => Promise.reject(new RpcError(-32001, "not found"));
     await ask();
 
-    fireEvent.click(screen.getByText("Delete"));
+    await answerQuestion(true);
 
     expect([(await screen.findByText(/not found/)).textContent, connected.drawer.content() === null]).toEqual(["not found", false]);
-    fireEvent.click(screen.getByRole("button", { name: "Keep" }));
-    await waitFor(() => expect(screen.queryByRole("alertdialog")).toBeNull());
+    await waitFor(() => expect(questionProbe.shown).toBeNull());
     expect(screen.getAllByRole("button", { name: /#5/ }).length).toBeGreaterThan(0);
   });
 });

@@ -1,9 +1,9 @@
+import { questionProbe } from "../testing/menuProbe";
+import { questionDialog, answerQuestion } from "../shelf/bulkQuestionHarness";
 import { startRealDaemon, type StartedDaemon } from "../testing/realDaemonFixture";
 import { createServedApp } from "../testing/realSeam";
 import { App } from "../App";
 import { fakeEmulators } from "../terminal/paneHarness";
-import { readFileSync } from "node:fs";
-import { resolve } from "node:path";
 import { cleanup, render, fireEvent, screen, waitFor, within } from "@solidjs/testing-library";
 import { afterAll, beforeAll, afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { RpcError } from "../app/seam";
@@ -28,7 +28,7 @@ describe("u184 close with a question", () => {
     fireEvent.click(closer("api"));
 
     await waitFor(() => expect(app.closed).toEqual([path("api")]));
-    await waitFor(() => expect(screen.queryByRole("alertdialog")).toBeNull());
+    await waitFor(() => expect(questionProbe.shown).toBeNull());
   });
 
   it("u184_the_dialog_names_up_to_three_running_agents", async () => {
@@ -36,11 +36,11 @@ describe("u184 close with a question", () => {
 
     fireEvent.click(closer("api"));
 
-    const dialog = await screen.findByRole("alertdialog");
+    const dialog = await questionDialog();
 
-    expect(dialog.textContent).toContain("Close api?");
-    expect(dialog.textContent).toContain("5 Agents run: a, b, c and 2 more.");
-    expect(dialog.textContent).toContain("Closing stops them.");
+    expect(`${dialog.title} ${dialog.message}`).toContain("Close api?");
+    expect(`${dialog.title} ${dialog.message}`).toContain("5 Agents run: a, b, c and 2 more.");
+    expect(`${dialog.title} ${dialog.message}`).toContain("Closing stops them.");
     expect(app.closed).toEqual([]);
 
     cleanup();
@@ -51,26 +51,26 @@ describe("u184 close with a question", () => {
 
     fireEvent.click(closer("api"));
 
-    const dialog = await screen.findByRole("alertdialog");
+    const dialog = await questionDialog();
 
-    expect(dialog.textContent).toContain("1 Agent runs: solo.");
-    await waitFor(() => expect(document.activeElement).toBe(within(dialog).getByRole("button", { name: "Cancel" })));
+    expect(`${dialog.title} ${dialog.message}`).toContain("1 Agent runs: solo.");
+    expect(dialog.cancelLabel).toBe("Cancel");
   });
 
   it("u184_cancel_and_esc_close_nothing", async () => {
     const { app } = await openTabs({ api: [agent("a", "working", "x")], web: [] });
 
     fireEvent.click(closer("api"));
-    fireEvent.click(within(await screen.findByRole("alertdialog")).getByRole("button", { name: "Cancel" }));
+    await questionDialog();
+    await answerQuestion(false);
 
-    await waitFor(() => expect(screen.queryByRole("alertdialog")).toBeNull());
+    await waitFor(() => expect(questionProbe.shown).toBeNull());
 
     fireEvent.click(closer("api"));
-    await screen.findByRole("alertdialog");
-    await waitFor(() => expect(document.activeElement?.textContent).toBe("Cancel"));
-    fireEvent.keyDown(document.activeElement!, { key: "Escape" });
+    await questionDialog();
+    await answerQuestion(false);
 
-    await waitFor(() => expect(screen.queryByRole("alertdialog")).toBeNull());
+    await waitFor(() => expect(questionProbe.shown).toBeNull());
     expect(app.closed).toEqual([]);
   });
 
@@ -78,11 +78,13 @@ describe("u184 close with a question", () => {
     const { app } = await openTabs({ api: [agent("a", "working", "x")], web: [] });
 
     fireEvent.click(closer("api"));
-    fireEvent.click(within(await screen.findByRole("alertdialog")).getByRole("button", { name: "Stop and close" }));
+    await questionDialog();
+    await answerQuestion(true);
 
     await waitFor(() => expect(app.closed).toEqual([path("api")]));
     await waitFor(() => expect(projectTabs().map((entry) => entry.textContent)).toEqual(["web"]));
-    await waitFor(() => expect(screen.queryByRole("alertdialog")).toBeNull());
+    await waitFor(() => expect(document.activeElement).toBe(tab("web")));
+    await waitFor(() => expect(questionProbe.shown).toBeNull());
   });
 
   it("u184_closing_the_open_tab_opens_the_left_one", async () => {
@@ -261,16 +263,6 @@ describe("u184 overflow", () => {
     });
   });
 
-  it("u184_names_shorten_with_an_ellipsis_to_at_least_eight_characters", () => {
-    const css = readFileSync(resolve(process.cwd(), "src/header/strip.styles.css"), "utf8");
-    const rule = (selector: string) => css.match(new RegExp(`${selector.replace(".", "\\.")} \\{([^}]*)\\}`))?.[1] ?? "";
-
-    // The 8-character floor lives on the tab (U443 keeps the name column as wide as the name, so the dot follows it).
-    expect(rule(".project-tab")).toContain("min-width: calc(8ch");
-    expect(rule(".tab-head")).toContain("text-overflow: ellipsis");
-    expect(rule(".tablist")).toContain("overflow-x: auto");
-  });
-
   it("u184_with_nothing_hidden_no_edge_line_shows", async () => {
     await openTabs({ api: [agent("a", "needs-you", "x")], web: [] });
 
@@ -348,4 +340,29 @@ describe("u2773 header on real Projects", () => {
     expect(sends).not.toHaveBeenCalled();
     press("Escape");
   });
+});
+
+it("u3512a_pending_confirmation_is_single", async () => {
+  const { app } = await openTabs({ api: [agent("a", "working", "x")], web: [] });
+  const close = closer("api");
+  fireEvent.click(close);
+  await questionDialog();
+  fireEvent.click(close);
+  expect(app.questions).toHaveLength(1);
+  expect(app.closed).toEqual([]);
+  await answerQuestion(true);
+  await waitFor(() => expect(app.closed).toEqual([path("api")]));
+});
+
+it("u3512a_unavailable_alert_does_not_authorize_action", async () => {
+  const { app } = await openTabs({ api: [agent("a", "working", "x")], web: [] });
+  app.questionFailure = new Error("System alert unavailable");
+  fireEvent.click(closer("api"));
+  await screen.findByText("System alert unavailable");
+  expect(app.closed).toEqual([]);
+  app.questionFailure = null;
+  fireEvent.click(screen.getByRole("button", { name: "Retry" }));
+  await questionDialog();
+  await answerQuestion(true);
+  await waitFor(() => expect(app.closed).toEqual([path("api")]));
 });

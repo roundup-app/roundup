@@ -23,9 +23,6 @@ const focusableEmulator = (): EmulatorFactory => () => {
     selection: () => "",
     turns: () => [],
     selectTurn: () => {},
-    onSelection: () => {},
-    selectionEnd: () => null,
-    selectionFacts: () => null,
     onLink: () => {},
     paste: () => {},
     onInput: () => {},
@@ -101,6 +98,11 @@ const boundPresses = async (from: Element, modSets: readonly KeyboardEventInit[]
       if (!help()) {
         // `⌘/` opens the Ask bar, which would swallow every later probe.
         document.querySelector(".ask-input")?.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true, cancelable: true }));
+
+        // Ark acknowledges the controlled opening before the sweep can dismiss its field.
+        if (press.defaultPrevented && code === "KeyT" && mods.metaKey && mods.shiftKey) {
+          await waitFor(() => expect(document.querySelector(".capture-field")).not.toBeNull());
+        }
 
         // `⇧⌘T` opens the capture field, a modal layer that would take every later probe.
         document.querySelector(".capture-field")?.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true, cancelable: true }));

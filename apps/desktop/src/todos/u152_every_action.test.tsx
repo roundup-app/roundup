@@ -1,3 +1,4 @@
+import { questionDialog, answerQuestion } from "../shelf/bulkQuestionHarness";
 import { cleanup, fireEvent, screen, waitFor, within } from "@solidjs/testing-library";
 import { afterEach, describe, expect, it } from "vitest";
 import { RpcError } from "../app/seam";
@@ -144,7 +145,8 @@ for (const by of ["pointer", "keyboard"] as const) {
 
       await openDrawerOf(2);
       press(await within(drawer()).findByRole("button", { name: "Delete Todo" }), by);
-      press(await screen.findByRole("button", { name: "Delete" }), by);
+      await questionDialog();
+      await answerQuestion(true);
       await waitFor(() => expect(callsTo(mounted.app, "todo.delete")).toEqual([{ method: "todo.delete", params: { id: 2 } }]));
       mounted.app.emit(todoEvent("todo.updated", { ...mounted.store.todos[0]! }));
 

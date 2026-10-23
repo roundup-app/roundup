@@ -20,6 +20,8 @@ Every rule below is a check with an id. A check passes or fails; it has no score
 
 ## Tokens
 
+`--text-selection: Highlight` is the platform selected-text background (CSS UI system colour, macOS NSColor.selectedTextBackgroundColor). Browser/editor selections and xterm's active/inactive selections resolve this one Token in both schemes and increased contrast. Selected text uses `--text-selection-ink: HighlightText`, the matching platform foreground, for legibility, including ANSI-coloured output and links; row/tab selection retains `--selected`. Source: https://www.w3.org/TR/css-color-4/#css-system-colors and https://developer.apple.com/documentation/appkit/nscolor/selectedtextbackgroundcolor.
+
 All Tokens live in one file, `apps/desktop/src/tokens.css`. No other stylesheet, and no inline style, holds a colour, font size, radius, shadow, duration or easing literal; it reads `var(--…)`. Spacing uses the space Tokens, and `0`.
 
 Starting values. The thresholds in the checks are fixed; a value that fails a threshold is changed, never the threshold.
@@ -41,7 +43,7 @@ Starting values. The thresholds in the checks are fixed; a value that fails a th
 | `--red` | `#c4262e` | `#ff6b6b` | `error` |
 | `--hairline` | `rgba(0,0,0,.10)` | `rgba(255,255,255,.12)` | the one permitted border |
 | `--scrollbar-thumb` | `rgba(0,0,0,.30)` | `rgba(255,255,255,.30)` | the thumb of every scrollbar, shown only while the pointer is over its scrolling element (U3747) |
-| `--shadow-drawer` | `0 8px 32px rgba(0,0,0,.14)` | `0 8px 32px rgba(0,0,0,.5)` | the Drawer, floating menus and the Terminal bubble (U523) |
+| `--shadow-drawer` | `0 2px 8px rgba(0,0,0,.14)` | `0 2px 8px rgba(0,0,0,.24)` | the Drawer, floating menus and the Terminal bubble (U523) |
 | `--shadow-shelf` | `0 0 24px rgba(0,0,0,.10)` | `0 0 24px rgba(0,0,0,.45)` | the open Shelf's leading edge (U371) |
 | `--shadow-scroll` | `inset 0 8px 8px -8px rgba(0,0,0,.18)` | `inset 0 8px 8px -8px rgba(0,0,0,.6)` | a Shelf list's clipped edge (U371) and the Rail tree's top edge beneath the pinned Overview band (U2716a) |
 | `--centre-min-width` | `388px` | same | the centre floor and Shelf reservation threshold (U371, U389) |
@@ -134,7 +136,7 @@ An icon toggle with `aria-pressed="true"` uses `--text` on `--selected`, `--sele
 
 The Rail and the Shelf sit on `--sunken`; the pane and the Drawer on `--ground`. Regions are told apart by that change of ground and by space, and by one hairline on the Rail's trailing edge and one on the Shelf's leading edge, each a Resize edge the user drags or keys to change the width (U389, U390). The only borders allowed are `1px solid var(--hairline)`, on the Rail's trailing edge and the Shelf's leading edge, and the Drawer's leading edge (U134), plus the 1 px `--hairline` U172 draws between the Rail's blocks (a line above each Workstream row but the first) and as the rule of a group head. Only the Drawer, a Terminal bubble, floating menus and the open Shelf cast a shadow (`--shadow-drawer`, `--shadow-shelf`), and clipped Shelf lists (U371) and the Rail tree beneath its pinned Overview band (U2716a) show `--shadow-scroll`. The Shelf spans the window's trailing edge from top to bottom, below the Drawer (U369 to U371). It reserves its width when the window less the Rail and Shelf leaves at least `--centre-min-width` (388 CSS px); below that floor it overlays the unchanged centre with a `--scrim` scrim. The Drawer owns the centre reservation while open. The Shelf has one `--hairline` on its leading edge instead of a top edge; its two tabs are quiet buttons (U373), and its shared scope toggle is an icon button beside the hide arrow (U470). The open and close slide and overlay scrim opacity use the Drawer's duration and ease-out curve (`docs/motion.md`); the scrim stays mounted through closing and reverses from its current opacity. A translucent surface (`backdrop-filter`) is never placed over another (apple-design: never stack light materials), and the terminal never sits under one (U5), except the background Agent pane beneath an activated, focused Terminal Bubble (U2742a); a bubble is opaque `--ground` with `--radius-drawer`, `--shadow-drawer` and `--space-3` padding (U523); its bar is a macOS panel bar 28 px high, with a close dot and a minimise dot at the left, the name centred at 13 px, no box on any of them and no status (U2307c, U3704); the open bubble sits in the browser top layer, above every `z-index` (U2307b).
 
-Floating layers (U3767): one order in `tokens.css`, lowest first: `--layer-drawer`, `--layer-popover` (Popover, the ask surface; above the Drawer it opens from), `--layer-dialog` (Dialog, the switcher), `--layer-menu` (a Menu or Select, also when opened from inside a Dialog), `--layer-tooltip` (a label on any control, Drawer and Dialog ones included), `--layer-toast`. A floating surface takes its `z-index` from one of them and sets no number. A modal Dialog closes the Terminal note popover; the note keeps its unsent text.
+Floating layers (U3295a): one order in `tokens.css`, lowest first: `--layer-drawer`, `--layer-popover` (Popover, the ask surface; above the Drawer it opens from), `--layer-dialog` (Dialog, the switcher), `--layer-menu` (a Menu or Select, also when opened from inside a Dialog), `--layer-tooltip` (a label on any control, Drawer and Dialog ones included), `--layer-toast`. A floating surface takes its `z-index` from one of them and sets no number.
 
 Three user settings change the look. Each has a rule in `tokens.css`:
 
@@ -241,6 +243,19 @@ Scoped to Terminal Bubbles (U2742a–d, `scenarios/ui-bubble-panel.md`); other A
 | Temporary view, continuing work | Preserve Terminal identity, command, screen/scroll, draft input and saved rectangle; switching opens/closes nothing and writes no chord. Close stays destructive and separate. U2742c/d call and emulator assertions decide. |
 
 Use the current Ark Panel and manual popover top layer. `.bubble-frame::backdrop` uses the existing pane origin and extent with `pointer-events: none`, so outside dismissal still reaches its target once (U2307a). Derive activation from shown/focus state; no persisted mode. Filters never nest. Reduced transparency clears filters on both elements and backdrops, retaining dimming. Only the background Agent terminal receives this blur exception; the Bubble keeps its opaque ground, radius, shadow, bar and internal inset (U523/U2307c). U2742's rendered observer checks layer bounds and foreground clarity; its recorded Mac observation checks actual chord delivery, direct focus return and WebKit rendering.
+
+### U3512 shared floating surface
+
+Native confirmations use the system's appearance. Every remaining web modal, anchored panel/menu and Terminal Bubble shares the recipe in `tokens.css`: opaque surface, 12 px radius, one hairline, one `--shadow-drawer`. Screen CSS owns content layout only. D8 allows this depth on `.app-dialog`, `.app-menu`, `.app-popover` and `.app-select-list` as well as its existing floating surfaces. Every `box-shadow` application, including scroll cues and resets, lives in `tokens.css`; Stylelint rejects the property elsewhere.
+
+| Token | Light | Dark | Role |
+| --- | --- | --- | --- |
+| `--surface` | `#f5f5f7` | `#242426` | Opaque floating surface |
+| `--button-neutral` | `#ededf0` | `#343438` | Secondary/action button fill |
+| `--button-accent-ink` | `#ffffff` | `#101014` | Label on accent fill |
+| `--radius-pill` | `999px` | same | Floating-surface action buttons |
+
+The existing primary kind uses `--accent` and `--button-accent-ink`; the existing quiet kind uses `--button-neutral` and `--text`. Both use `--radius-pill`, 24 px minimum targets and space Tokens. Hover changes ink only. Menu items retain their menu semantics. This scoped exception supersedes the ink-only/no-control-radius rule within these floating surfaces; other controls keep it. The shared backdrop uses the existing `--scrim` in both schemes and never blurs. The Terminal Bubble retains its existing background-Agent treatment.
 
 
 ### Terminal Tokens (U3517)

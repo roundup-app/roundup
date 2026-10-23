@@ -4,9 +4,6 @@ import type { IDisposable, IMarker, Terminal } from "@xterm/xterm";
 /** U514: one command of a shell Terminal, as buffer rows from its prompt to its last line of output. */
 export type TurnRows = { first: number; last: number; exit: number | null; cwd: string | null; command: string | null };
 
-/** U516: what a Turn tells the Agent that receives it; `exit` is `"running"` while the command has not ended. */
-export type TurnFacts = { command: string | null; cwd: string | null; exit: number | "running" | null };
-
 type Turn = {
   start: IMarker;
   /** The row after the output, or null while the command still runs. */
@@ -215,12 +212,6 @@ export const attachTurns = (terminal: Terminal, select: (first: number, last: nu
 
   return {
     turns: (): TurnRows[] => turns.map(rows),
-    /** The facts of the Turn holding buffer row `row`, or null for a row outside every Turn. */
-    factsAt: (row: number): TurnFacts | null => {
-      const turn = turns.find((each) => row >= each.start.line && row <= lastRow(each));
-
-      return turn ? { command: turn.command, cwd: turn.cwd, exit: turn.end === null ? "running" : turn.exit } : null;
-    },
     /** Selects Turn `index`; with `extend`, from the Turn last selected on its own through it, in order. */
     selectTurn: (index: number, extend: boolean) => {
       const turn = turns[index];
