@@ -9,7 +9,7 @@ const mount = async (reduced = false, messages = [note(1, "first"), note(2, "sec
   const mounted = await mountNotes([agent("a", "working", "Reading Thread.tsx", { name: "Ann" })], [info("t-a")], messages, reduced);
 
   mounted.connected.rail.select("a");
-  await screen.findByRole("textbox", { name: "Note to Ann" });
+  await screen.findByText("t-a");
   await waitFor(() => expect(rowsOf()).toHaveLength(messages.length));
 
   return mounted;

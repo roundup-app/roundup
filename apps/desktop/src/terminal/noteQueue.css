@@ -1,4 +1,4 @@
-/* U3780: the queue sits directly above the field; an empty queue draws nothing above it. */
+/* U3780: the queue is absent when no Messages, Pause or failure need to show. */
 .note-queue {
   flex: none;
   display: flex;
@@ -65,20 +65,6 @@
 .note-queue-head[data-closing] {
   transform: translateY(var(--close-up, 0px));
   transition: transform var(--duration-note) var(--ease-note);
-}
-
-.note-queue-field {
-  display: flex;
-  align-items: flex-end;
-  gap: var(--space-2);
-}
-
-.note-queue-field .app-textarea-root {
-  flex: 1;
-}
-
-.note-queue-field .app-textarea {
-  padding-inline: 0;
 }
 
 @media (prefers-reduced-motion: reduce) {
