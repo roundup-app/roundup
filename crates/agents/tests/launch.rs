@@ -216,169 +216,6 @@ fn h9_the_permission_request_hook_runs_rup_permission_with_a_day_long_timeout() 
     );
 }
 
-#[test]
-fn a4_a_rup_that_is_not_there_fails_loudly() {
-    let s = setup();
-    std::fs::remove_file(&s.rup).unwrap();
-    let err = s.prepare("7").unwrap_err();
-    assert_eq!(err.code, code::INTERNAL);
-    assert!(err.message.contains("rup"), "{}", err.message);
-}
-
-fn vars<'a>(pairs: &'a [(&'a str, &'a str)]) -> impl Fn(&str) -> Option<OsString> + 'a {
-    move |name| {
-        pairs
-            .iter()
-            .find(|(key, _)| *key == name)
-            .map(|(_, value)| OsString::from(value))
-    }
-}
-
-#[test]
-fn a4_the_binary_and_config_location_come_from_the_environment() {
-    let exe = Path::new("/e/rupd");
-    let launcher = Launcher::from_vars(
-        vars(&[("ROUNDUP_CLAUDE_BIN", "/x/fake"), ("HOME", "/h")]),
-        exe,
-    )
-    .unwrap();
-    assert_eq!(
-        launcher,
-        Launcher::new(
-            "/x/fake",
-            "/h/.claude.json".into(),
-            "/e/rup".into(),
-            Some("/h".into())
-        )
-    );
-
-    let launcher =
-        Launcher::from_vars(vars(&[("CLAUDE_CONFIG_DIR", "/c"), ("HOME", "/h")]), exe).unwrap();
-    assert_eq!(
-        launcher,
-        Launcher::new(
-            "claude",
-            "/c/.claude.json".into(),
-            "/e/rup".into(),
-            Some("/h".into())
-        )
-    );
-
-    assert!(Launcher::from_vars(vars(&[]), exe).is_err());
-}
-
-#[test]
-fn a4_rup_is_the_one_beside_the_running_daemon_unless_the_environment_says_otherwise() {
-    let exe = Path::new("/e/rupd");
-    let beside = Launcher::from_vars(vars(&[("HOME", "/h")]), exe).unwrap();
-    let named =
-        Launcher::from_vars(vars(&[("HOME", "/h"), ("ROUNDUP_RUP_BIN", "/r/rup")]), exe).unwrap();
-    assert_eq!(
-        beside,
-        Launcher::new(
-            "claude",
-            "/h/.claude.json".into(),
-            "/e/rup".into(),
-            Some("/h".into())
-        )
-    );
-    assert_eq!(
-        named,
-        Launcher::new(
-            "claude",
-            "/h/.claude.json".into(),
-            "/r/rup".into(),
-            Some("/h".into())
-        )
-    );
-}
-
-#[test]
-fn a4_an_empty_variable_counts_as_unset() {
-    let exe = Path::new("/e/rupd");
-    let launcher = Launcher::from_vars(
-        vars(&[
-            ("CLAUDE_CONFIG_DIR", ""),
-            ("HOME", "/h"),
-            ("ROUNDUP_RUP_BIN", ""),
-        ]),
-        exe,
-    )
-    .unwrap();
-    assert_eq!(
-        launcher,
-        Launcher::new(
-            "claude",
-            "/h/.claude.json".into(),
-            "/e/rup".into(),
-            Some("/h".into())
-        )
-    );
-    assert!(Launcher::from_vars(vars(&[("HOME", "")]), exe).is_err());
-}
-
-#[test]
-fn a4_a_cwd_that_is_not_in_nfc_is_trusted_under_its_nfc_name() {
-    let s = setup();
-    let decomposed = s.cwd.parent().unwrap().join("cafe\u{301}");
-    std::fs::create_dir(&decomposed).unwrap();
-
-    s.launcher()
-        .prepare(folders(&s.dir), "1", "1", &decomposed, None, Role::Agent)
-        .unwrap();
-
-    let config = read(&s.claude_json);
-    let keys: Vec<_> = config["projects"].as_object().unwrap().keys().collect();
-    assert_eq!(keys.len(), 1);
-    assert!(keys[0].ends_with("caf\u{e9}"), "{}", keys[0]);
-}
-
-#[test]
-fn a4_the_home_folder_is_refused_and_never_trusted() {
-    let s = setup();
-    let project = s.dir.parent().unwrap();
-    let launcher = Launcher::new(
-        "fake-claude",
-        s.claude_json.clone(),
-        s.rup.clone(),
-        Some(project.to_owned()),
-    );
-
-    let err = launcher
-        .prepare(folders(&s.dir), "1", "1", project, None, Role::Agent)
-        .unwrap_err();
-
-    assert_eq!(err.code, code::INVALID_PARAMS);
-    assert!(!s.claude_json.exists());
-    assert!(!s.dir.join("agents").exists());
-    launcher
-        .prepare(folders(&s.dir), "1", "1", &s.cwd, None, Role::Agent)
-        .unwrap();
-}
-
-#[test]
-fn a4_a_symlink_planted_where_a_file_goes_is_replaced_not_written_through() {
-    let s = setup();
-    let agents = s.dir.join("agents");
-    std::fs::create_dir(&agents).unwrap();
-    for name in ["1.settings.json", "1.mcp.json"] {
-        let victim = s.root.path().join(format!("victim-{name}"));
-        std::fs::write(&victim, "export KEEP=1\n").unwrap();
-        std::os::unix::fs::symlink(&victim, agents.join(name)).unwrap();
-    }
-
-    s.prepare("1").unwrap();
-
-    for name in ["1.settings.json", "1.mcp.json"] {
-        let victim = s.root.path().join(format!("victim-{name}"));
-        let planted = agents.join(name);
-        assert_eq!(std::fs::read_to_string(&victim).unwrap(), "export KEEP=1\n");
-        assert!(!planted.symlink_metadata().unwrap().file_type().is_symlink());
-    }
-    assert!(read(&agents.join("1.settings.json"))["hooks"]["Stop"].is_array());
-    assert!(read(&agents.join("1.mcp.json"))["mcpServers"]["roundup"].is_object());
-}
-
 fn brief(s: &Setup, id: &str, role: Role) -> String {
     let argv = s.prepare_as(id, role).unwrap();
     assert_eq!(argv[5], "--append-system-prompt-file");
@@ -389,7 +226,167 @@ fn brief(s: &Setup, id: &str, role: Role) -> String {
     std::fs::read_to_string(&argv[6]).unwrap()
 }
 
+#[test]
+fn e3_the_signal_stays_first_and_the_context_command_follows_with_five_seconds() {
+    let s = setup();
+    let settings = read(Path::new(&s.prepare("7").unwrap()[2]));
+    let at_start = settings["hooks"]["SessionStart"][0]["hooks"]
+        .as_array()
+        .unwrap();
+    assert_eq!(at_start.len(), 2);
+    assert!(
+        at_start[0]["command"]
+            .as_str()
+            .unwrap()
+            .contains(" signal '7'")
+    );
+    assert_eq!(at_start[1]["timeout"], 5);
+    assert!(
+        at_start[1]["command"]
+            .as_str()
+            .unwrap()
+            .ends_with(" context '7'")
+    );
+}
+
 /// A fake `claude` prints `9.9.9`; `dir` holds it.
+fn fake_claude_dir(root: &Path) -> PathBuf {
+    use std::os::unix::fs::PermissionsExt;
+    let dir = root.join("real-bin");
+    std::fs::create_dir_all(&dir).unwrap();
+    let claude = dir.join("claude");
+    std::fs::write(&claude, "#!/bin/sh\necho 9.9.9\n").unwrap();
+    std::fs::set_permissions(&claude, std::fs::Permissions::from_mode(0o755)).unwrap();
+    dir
+}
+
+fn run_sh(path: &std::ffi::OsStr, command: &str) -> std::process::Output {
+    std::process::Command::new("sh")
+        .args(["-c", command])
+        .env("PATH", path)
+        .output()
+        .unwrap()
+}
+
+#[test]
+fn f2_a_door_starts_with_the_tool_allowlist_once_and_an_agent_without_it() {
+    let s = setup();
+
+    let door = s.prepare_as("7", Role::Door).unwrap();
+    let agent = s.prepare("8").unwrap();
+
+    let at = door.iter().position(|arg| arg == "--tools").unwrap();
+    assert_eq!(door[at + 1], "Read,Grep,Glob,ToolSearch,Skill");
+    assert_eq!(door.iter().filter(|arg| *arg == "--tools").count(), 1);
+    assert_eq!(agent.len(), 9);
+    assert!(!agent.iter().any(|arg| arg == "--tools"));
+    assert_eq!(
+        agents::claude_code::DOOR_TOOLS,
+        "Read,Grep,Glob,ToolSearch,Skill"
+    );
+}
+
+#[test]
+fn f2_no_shim_directory_exists_for_an_agent() {
+    let s = setup();
+
+    s.prepare("8").unwrap();
+
+    assert!(!s.dir.join("agents/8.bin").exists());
+}
+
+#[test]
+fn f4_a_doors_settings_put_its_shim_directory_before_the_daemons_path() {
+    let s = setup();
+
+    let argv = s.prepare_as("7", Role::Door).unwrap();
+
+    let path = read(Path::new(&argv[2]))["env"]["PATH"]
+        .as_str()
+        .unwrap()
+        .to_owned();
+    let shims = s.real(&s.dir.join("agents/7.bin"));
+    let inherited = std::env::var("PATH").unwrap();
+    assert_eq!(
+        path,
+        format!("{}:{shims}:{inherited}", s.rup.parent().unwrap().display())
+    );
+}
+
+#[test]
+fn f4_the_shim_for_claude_prints_the_message_and_exits_1_where_the_real_one_would_run() {
+    let s = setup();
+    let real = fake_claude_dir(s.root.path());
+    s.prepare_as("7", Role::Door).unwrap();
+    let shims = s.real(&s.dir.join("agents/7.bin"));
+    let path = std::env::join_paths([
+        PathBuf::from(&shims),
+        real,
+        PathBuf::from("/bin"),
+        PathBuf::from("/usr/bin"),
+    ])
+    .unwrap();
+
+    let direct = run_sh(&path, "claude --version");
+    let nested = run_sh(&path, "sh -c 'claude --version'");
+
+    for out in [direct, nested] {
+        assert_eq!(out.status.code(), Some(1));
+        assert_eq!(
+            String::from_utf8_lossy(&out.stderr),
+            "roundup: start an agent with agent_spawn (a Door) or ask the user\n"
+        );
+        assert!(out.stdout.is_empty());
+    }
+}
+
+#[test]
+fn f4_the_shim_leaves_other_programs_alone() {
+    let s = setup();
+    s.prepare_as("7", Role::Door).unwrap();
+    let shims = s.real(&s.dir.join("agents/7.bin"));
+    let path =
+        std::env::join_paths([PathBuf::from(&shims), "/bin".into(), "/usr/bin".into()]).unwrap();
+
+    let echo = std::process::Command::new("/bin/echo")
+        .arg("hi")
+        .output()
+        .unwrap();
+    let git = run_sh(&path, "git --version");
+
+    assert_eq!(String::from_utf8_lossy(&echo.stdout), "hi\n");
+    assert!(git.status.success(), "{git:?}");
+    let names: Vec<_> = std::fs::read_dir(&shims)
+        .unwrap()
+        .map(|e| e.unwrap().file_name().to_string_lossy().into_owned())
+        .collect();
+    assert_eq!(names, ["claude"]);
+}
+
+#[test]
+fn f4_discarding_a_door_deletes_its_shim_directory() {
+    let s = setup();
+    s.prepare_as("7", Role::Door).unwrap();
+
+    Launcher::discard(&s.dir, "7").unwrap();
+
+    assert!(!s.dir.join("agents/7.bin").exists());
+}
+
+#[test]
+fn f4_a_symlinked_shim_directory_is_refused() {
+    let s = setup();
+    let elsewhere = s.root.path().join("elsewhere");
+    std::fs::create_dir(&elsewhere).unwrap();
+    std::fs::create_dir_all(s.dir.join("agents")).unwrap();
+    std::os::unix::fs::symlink(&elsewhere, s.dir.join("agents/7.bin")).unwrap();
+
+    let err = s.prepare_as("7", Role::Door).unwrap_err();
+
+    assert_eq!(err.code, code::INVALID_PARAMS);
+    assert_eq!(std::fs::read_dir(&elsewhere).unwrap().count(), 0);
+}
+
 #[test]
 fn f3_every_agents_mcp_server_is_started_the_same_way() {
     let s = setup();
@@ -419,6 +416,47 @@ fn f3_every_brief_names_agent_spawn_and_only_a_doors_says_it_has_no_shell() {
     assert!(door.contains("You cannot execute commands or open or write to a Terminal"));
     assert!(agent.contains("- `agent_spawn`:"));
     assert!(!agent.contains("You cannot execute commands or open or write to a Terminal"));
+}
+
+#[test]
+fn m10_a_doors_brief_names_checkpoint_write_and_no_other_does() {
+    let s = setup();
+
+    let door = brief(&s, "7", Role::Door);
+    let agent = brief(&s, "8", Role::Agent);
+
+    assert!(door.contains("- `checkpoint_write`:"));
+    assert!(door.contains("`reduce`") && door.contains("`show-me`"));
+    assert!(door.contains("facts needed to understand that point in the work"));
+    assert!(!agent.contains("checkpoint_write"));
+    assert!(agent.contains("- `checkpoint_list`:"));
+}
+
+#[test]
+fn q1_pin() {
+    use sha2::{Digest, Sha256};
+    let bytes =
+        std::fs::read(Path::new(env!("CARGO_MANIFEST_DIR")).join("assets/hold-plain.md")).unwrap();
+    let hex: String = Sha256::digest(bytes)
+        .iter()
+        .map(|b| format!("{b:02x}"))
+        .collect();
+    assert_eq!(
+        hex,
+        "0f2c26f0cea8ba39af771d2fdb09db6ae4a7a90c64c272a0a0e967f420e9af1e"
+    );
+}
+
+#[test]
+fn q1_brief() {
+    let s = setup();
+    let body =
+        std::fs::read_to_string(Path::new(env!("CARGO_MANIFEST_DIR")).join("assets/hold-plain.md"))
+            .unwrap();
+    let text = brief(&s, "7", Role::Agent);
+    assert!(text.contains(&body));
+    assert!(text.contains("Digest and Pad reply"));
+    assert!(text.contains("Write each limit of a Work order as a rule that reads on its own"));
 }
 
 #[test]
@@ -519,71 +557,6 @@ fn sha256_hex(bytes: &[u8]) -> String {
         .iter()
         .map(|b| format!("{b:02x}"))
         .collect()
-}
-
-fn fixture(name: &str) -> String {
-    std::fs::read_to_string(
-        Path::new(env!("CARGO_MANIFEST_DIR"))
-            .join("tests/fixtures/reduce")
-            .join(name),
-    )
-    .unwrap()
-}
-
-fn lines(name: &str) -> Vec<String> {
-    fixture(name).lines().map(str::to_owned).collect()
-}
-
-/// Q8 (b): the facts missing from `text`.
-fn missing_facts(text: &str) -> Vec<String> {
-    lines("door-question.facts")
-        .into_iter()
-        .filter(|fact| !text.contains(fact.as_str()))
-        .collect()
-}
-
-#[test]
-fn h14b_the_brief_carries_the_ask_user_rules() {
-    let s = setup();
-    for role in [Role::Agent, Role::Door] {
-        let text = brief(&s, "7", role);
-        for rule in [
-            "The question is one line: the decision.",
-            "The context is at most 3 lines, only what the pick turns on, and you run `reduce` on it.",
-            "The answers are 2 to 4, the recommended one first and its label ending ` (recommended)`.",
-            "A label is at most 5 words.",
-            "A description is the tradeoff: what the pick gains and what it costs.",
-            "A preview is the smallest `show-me` sketch of what the pick builds, and is required when the user has not met its terms.",
-            "An open question the user answers in their own words takes no answers.",
-            "Never ask what you can answer by looking, and never ask `you` in a Message what `ask_user` asks.",
-        ] {
-            assert!(text.contains(rule), "{rule}");
-        }
-    }
-}
-
-#[test]
-fn m9_a_doors_brief_names_the_workstream_and_project_tools() {
-    let s = setup();
-    let door = brief(&s, "7", Role::Door);
-    let agent = brief(&s, "8", Role::Agent);
-
-    for needle in [
-        "`rail_createWorkstream`",
-        "`rail_startDoor`",
-        "`project_open`",
-        "`agent_stop`",
-        "`agent_prompt`",
-        "`decision_list`",
-        "`decision_answer`",
-        "`[decision <id>]`",
-        "Reach",
-    ] {
-        assert!(door.contains(needle), "{needle}");
-    }
-    assert!(door.contains("never nested"));
-    assert!(agent.contains("`rail_createWorkstream`"));
-    assert!(!agent.contains("coordinating Door"));
 }
 
 #[tokio::test]
@@ -789,6 +762,52 @@ fn m2219_on_brief_is_unchanged() {
     assert_eq!(brief(&s, "7", Role::Door), golden("door"));
 }
 
+#[test]
+fn b53_the_door_brief_says_to_show_not_read() {
+    let s = setup();
+    let text = brief(&s, "7", Role::Door);
+    assert!(
+        text.contains("- `terminal_show`:"),
+        "the Door is offered terminal_show"
+    );
+    let rule = text
+        .lines()
+        .flat_map(|line| line.split(". "))
+        .find(|sentence| sentence.contains("asks to see a child's output"))
+        .expect("the Door brief says what to do when asked to see output");
+    for word in ["`terminal_show`", "read nothing"] {
+        assert!(rule.contains(word), "{rule}");
+    }
+    // E9: a role's bytes do not depend on the id.
+    assert_eq!(text, brief(&s, "8", Role::Door));
+    assert!(!brief(&s, "7", Role::Agent).contains("terminal_show"));
+    assert!(off_brief(&s, "7", Role::Door).contains("`rup terminal show`"));
+}
+
+#[test]
+fn b45_the_brief_says_to_wake_not_poll() {
+    let s = setup();
+    for role in [Role::Agent, Role::Door] {
+        for (text, ask) in [
+            (brief(&s, "7", role), "`agent_wake`"),
+            (off_brief(&s, "7", role), "`rup agent wake`"),
+        ] {
+            let line = text
+                .lines()
+                .find(|line| line.starts_with(&format!("- {ask}")))
+                .unwrap_or_else(|| panic!("{role:?} brief names no {ask}"));
+            assert!(
+                line.contains("end your turn instead of polling `terminal_read` or `rail_tree`")
+                    || line.contains(
+                        "end your turn instead of polling `rup terminal read` or `rup rail tree`"
+                    ),
+                "{line}"
+            );
+            assert!(line.contains("tells you without asking"), "{line}");
+        }
+    }
+}
+
 /// `rup help`, from the `rup` that `cargo build -p rup` left beside the test binaries.
 fn rup_help() -> String {
     let rup = std::env::current_exe()
@@ -806,6 +825,28 @@ fn rup_help() -> String {
     String::from_utf8(out.stdout).unwrap()
 }
 
+#[test]
+fn b45_every_command_the_brief_names_is_in_rup_help() {
+    let s = setup();
+    let help = rup_help();
+    for role in [Role::Agent, Role::Door] {
+        let text = off_brief(&s, "7", role);
+        let named: Vec<&str> = text
+            .lines()
+            .filter(|line| line.starts_with("- `rup "))
+            .filter_map(|line| line.strip_prefix("- `")?.split('`').next())
+            .collect();
+        assert!(named.contains(&"rup agent wake"), "{named:?}");
+        for command in named {
+            assert!(
+                help.contains(&format!("    {command} "))
+                    || help.contains(&format!("    {command}\n")),
+                "{command} is in no line of `rup help`"
+            );
+        }
+    }
+}
+
 // LC1–LC10: the lean child start.
 
 #[path = "launch/lean.rs"]
@@ -818,23 +859,27 @@ mod choices;
 mod plugins;
 use plugins::plugin_launcher;
 
-#[path = "launch/shims.rs"]
-mod shims;
+#[path = "launch/trust.rs"]
+mod trust;
 
 #[path = "launch/briefs.rs"]
 mod briefs;
-#[path = "launch/trust.rs"]
-mod trust;
+
+#[path = "launch/guidance.rs"]
+mod guidance;
+
+use trust::vars;
 
 #[test]
 fn a3507a_every_launch_keeps_the_users_gateway() {
     use agents::claude_code::{Lean, PROFILES, Pair};
-    use contracts::terminal::SpawnParams;
     let s = setup();
-    let headers = "x-wise-llm-gateway-team: fixture\nx-wise-llm-gateway-use-case: fixture";
-    let gateway = "https://gateway.invalid";
-    s.user_file("settings.json", &json!({"env": {"ANTHROPIC_CUSTOM_HEADERS": headers, "ANTHROPIC_BASE_URL": gateway}, "apiKeyHelper": "fixture-helper"}).to_string());
-    let inherited: std::collections::BTreeMap<String, String> = [
+    let headers = "x-wise-llm-gateway-team: fixture\nx-wise-llm-gateway-use-case: test";
+    std::fs::write(s.root.path().join("settings.json"), json!({
+        "env": {"ANTHROPIC_CUSTOM_HEADERS": headers, "ANTHROPIC_BASE_URL": "https://gateway.invalid"},
+        "apiKeyHelper": "fixture-helper"
+    }).to_string()).unwrap();
+    let inherited = [
         "ANTHROPIC_API_KEY",
         "ANTHROPIC_AUTH_TOKEN",
         "CLAUDE_CODE_USE_BEDROCK",
@@ -845,79 +890,76 @@ fn a3507a_every_launch_keeps_the_users_gateway() {
         "ANTHROPIC_ORGANIZATION_ID",
         "ANTHROPIC_BASE_URL",
     ]
-    .into_iter()
-    .map(|key| (key.to_owned(), format!("fixture-{key}")))
-    .collect();
-    let terminals =
-        terminal::Terminals::open_with(&s.dir, rpc::Bus::new(), &agents::claude_code::MARKERS)
-            .unwrap();
+    .map(|name| (name.to_owned(), "fixture-shell-value".to_owned()));
+    let inspect = |command: &std::process::Command| {
+        let argv: Vec<_> = command
+            .get_args()
+            .map(|arg| arg.to_str().unwrap())
+            .collect();
+        let selected = argv
+            .windows(2)
+            .find(|pair| pair[0] == "--settings")
+            .unwrap()[1];
+        let settings: Value = if selected.starts_with('{') {
+            serde_json::from_str(selected).unwrap()
+        } else {
+            read(Path::new(selected))
+        };
+        assert_eq!(settings["apiKeyHelper"], "fixture-helper", "{argv:?}");
+        assert_eq!(
+            settings["env"]["ANTHROPIC_BASE_URL"],
+            "https://gateway.invalid"
+        );
+        assert_eq!(settings["env"]["ANTHROPIC_CUSTOM_HEADERS"], headers);
+        // Apply the actual command's additions/removals to the inherited shell fixture.
+        let mut effective: std::collections::BTreeMap<_, _> =
+            inherited.clone().into_iter().collect();
+        for (key, value) in command.get_envs() {
+            let key = key.to_str().unwrap();
+            match value {
+                Some(value) => {
+                    effective.insert(key.into(), value.to_str().unwrap().into());
+                }
+                None => {
+                    effective.remove(key);
+                }
+            }
+        }
+        for (key, value) in &inherited {
+            assert_eq!(effective.get(key), Some(value), "{key}: {argv:?}");
+        }
+    };
     let launcher = s.launcher();
-    for (role, pair) in
+    let rows =
         std::iter::once((Role::Agent, Pair::default())).chain(PROFILES.iter().map(|(role, _)| {
             (
                 *role,
                 Pair {
                     lean: Some(Lean {
                         scout: *role == Role::Scout,
-                        ..Lean::default()
+                        ..Default::default()
                     }),
-                    ..Pair::default()
+                    ..Default::default()
                 },
             )
-        }))
-    {
+        }));
+    for (role, pair) in rows {
         for resume in [None, Some("saved")] {
-            let argv = launcher
-                .prepare_on(folders(&s.dir), "7", "1", &s.cwd, resume, role, &pair)
-                .unwrap();
-            let command = terminals.command(&SpawnParams {
-                cwd: s.cwd.to_string_lossy().into_owned(),
-                command: Some(argv),
-                env: inherited.clone(),
-                cols: 80,
-                rows: 24,
-            });
-            let argv: Vec<_> = command
-                .get_argv()
-                .iter()
-                .map(|v| v.to_string_lossy().into_owned())
-                .collect();
-            let settings = read(Path::new(Setup::after(&argv, "--settings").unwrap()));
-            assert_eq!(
-                settings["env"]["ANTHROPIC_CUSTOM_HEADERS"], headers,
-                "{role:?}"
+            inspect(
+                &launcher
+                    .command_on(folders(&s.dir), "7", "1", &s.cwd, resume, role, &pair)
+                    .unwrap(),
             );
-            assert_eq!(settings["env"]["ANTHROPIC_BASE_URL"], gateway, "{role:?}");
-            assert_eq!(settings["apiKeyHelper"], "fixture-helper", "{role:?}");
-            for (key, value) in &inherited {
-                assert_eq!(
-                    command.get_env(key),
-                    Some(std::ffi::OsStr::new(value)),
-                    "{role:?}: {key}"
-                );
-            }
         }
     }
-    let placement = launcher.placement(s.dir.parent().unwrap());
-    let command = placement.command(&s.cwd).unwrap();
-    let command = command.as_std();
-    let argv: Vec<_> = command
-        .get_args()
-        .map(|v| v.to_string_lossy().into_owned())
-        .collect();
-    let settings: Value = serde_json::from_str(Setup::after(&argv, "--settings").unwrap()).unwrap();
-    assert_eq!(settings["env"]["ANTHROPIC_CUSTOM_HEADERS"], headers);
-    assert_eq!(settings["env"]["ANTHROPIC_BASE_URL"], gateway);
-    assert_eq!(settings["apiKeyHelper"], "fixture-helper");
-    let overrides: std::collections::BTreeMap<_, _> = command.get_envs().collect();
-    for (key, value) in &inherited {
-        assert_eq!(
-            overrides
-                .get(std::ffi::OsStr::new(key))
-                .copied()
-                .unwrap_or(Some(std::ffi::OsStr::new(value))),
-            Some(std::ffi::OsStr::new(value)),
-            "Placement: {key}"
-        );
-    }
+    let empty = tempfile::tempdir().unwrap();
+    inspect(
+        launcher
+            .placement()
+            .in_project(folders(&s.dir).project)
+            .command(empty.path())
+            .unwrap()
+            .0
+            .as_std(),
+    );
 }
