@@ -425,6 +425,15 @@ impl Launcher {
             for (key, value) in pair.env() {
                 own["env"][key] = json!(value);
             }
+            if lean.is_none() {
+                let command = own["hooks"]["SessionStart"][0]["hooks"][1]["command"]
+                    .as_str()
+                    .expect("context command");
+                own["hooks"]["SessionStart"][0]["hooks"][1]["command"] = json!(format!(
+                    "ROUNDUP_BRIEF_FILE={} {command}",
+                    shell_quote(&brief_path(&dir, id).to_string_lossy())
+                ));
+            }
             merge_settings(&mut carried, own);
             let mut settings = carried;
             if pair.yolo {
@@ -484,9 +493,9 @@ impl Launcher {
             argv.push("--mcp-config".into());
             argv.push(mcp_config.to_string_lossy().into_owned());
         }
-        argv.push("--append-system-prompt-file".into());
-        argv.push(brief_file.to_string_lossy().into_owned());
         if let Some(lean) = &lean {
+            argv.push("--append-system-prompt-file".into());
+            argv.push(brief_file.to_string_lossy().into_owned());
             // LC2: use the merged copy so original sources cannot restore the named exclusions.
             argv.extend(["--strict-mcp-config", "--setting-sources", ""].map(String::from));
             let row = profile(role);
