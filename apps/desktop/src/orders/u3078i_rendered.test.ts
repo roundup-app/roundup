@@ -124,6 +124,8 @@ it.skipIf(!lifetimeArt)("p3557c_rendered_order_and_progress_failure_lifetime", {
     const { app } = window.__fake;
     window.__fake.failNext(-32003, 'Order could not be saved; try saving again');
     const refusal = await app.rpc('message.progress', null).catch(e => e);
+    window.__fake.failNext(-32003, 'Evidence could not be opened; try opening it again');
+    const evidenceRefusal = await app.rpc('message.progress', null).catch(e => e);
     const tree = app.handlers['rail.tree'];
     const nodes = await tree({});
     const chosen = nodes.find(n => n.kind === 'agent');
@@ -133,7 +135,7 @@ it.skipIf(!lifetimeArt)("p3557c_rendered_order_and_progress_failure_lifetime", {
     app.handlers['message.progress'] = () => seed.progress;
     app.handlers['message.reconcileWork'] = () => ({...seed.plan, actions: []});
     app.handlers['agent.setOrder'] = () => { throw refusal; };
-    app.handlers['deliverable.resolve'] = () => { throw refusal; };
+    app.handlers['deliverable.resolve'] = () => { throw evidenceRefusal; };
     window.__fake.emit({actor: {kind:'user',id:'you',parent:null}, name:'rail.changed'});
     return true;
   })()`);
