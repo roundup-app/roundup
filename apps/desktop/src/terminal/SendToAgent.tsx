@@ -48,7 +48,7 @@ export const SendToAgent = (props: { send: ReturnType<typeof createSendSelection
   });
 
   // U3767: a modal Dialog closes the note; its text stays held and returns when the user reopens it.
-  createEffect(() => { if (modalOpen() && control.open()) control.dismiss(); });
+  createEffect(() => { if (modalOpen() && control.open()) { control.dismiss(); setChoosing(false); } });
 
   const anchorRect = () => {
     const at = control.anchor();

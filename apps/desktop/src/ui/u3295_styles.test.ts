@@ -11,5 +11,6 @@ it.each([
   const result = await stylelint.lint({ code: `.fixture { z-index: ${value}; }`, codeFilename: "apps/desktop/src/layer-fixture.css", configFile });
 
   expect(result.errored).toBe(rejected);
-  if (rejected) expect(result.results[0]?.warnings).toEqual([expect.objectContaining({ rule: "roundup/layer-token", line: 1, column: 12 })]);
+
+  if (rejected) expect(result.results[0]?.warnings).toEqual([expect.objectContaining({ rule: "declaration-property-value-allowed-list", line: 1, column: 21 })]);
 });
