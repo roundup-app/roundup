@@ -53,7 +53,8 @@ export const TodoAuto = (props: { home: Accessor<string | null> }) => {
   }));
 
   return <Show when={current()}>{node => <div class="todo-auto">
-    <Switch checked={node().auto ?? false} disabled={pending()} onCheckedChange={async auto => {
+    <Switch checked={node().auto ?? false} onCheckedChange={async auto => {
+      if (pending()) return;
       setPending(true);
       setFailure(await failureOf(() => connected.app.rpc("workstream.setAuto", { id: node().id, auto })));
       setPending(false);

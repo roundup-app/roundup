@@ -129,6 +129,7 @@ it("u3311_real_daemon_delegate_board", async () => {
     await lane.browser("mouse", "move", String(to.x), String(to.y));
     await lane.browser("mouse", "up");
     await observe(moved.id, agents[0]!.id);
+    expect(await lane.evaluate<number>(`window.__glides.filter(item=>item.id===${moved.id}).length`)).toBe(1);
     await focus(made[5]!.id);
     await key("3", "Digit3");
     await observe(made[5]!.id, agents[2]!.id);
@@ -148,13 +149,17 @@ it("u3311_real_daemon_delegate_board", async () => {
     expect(prompts).toContain(`Todo #${made[7]!.id}`);
     await lane.capture("delegate-board", "auto-hand-off");
 
+    const beforeBurst = await lane.evaluate<number>(`window.__glides.filter(item=>item.id===${moved.id}).length`);
+
     await lane.evaluate("window.__glideRate = 0.1");
     await app.rpc("todo.assign", { id: moved.id, owner: actor(agents[1]!.id) });
-    await lane.until(`window.__glides.filter(item=>item.id===${moved.id}).length===2`);
+    await lane.until(`window.__glides.filter(item=>item.id===${moved.id}).length===${beforeBurst + 1}`);
     await app.rpc("todo.assign", { id: moved.id, owner: actor(agents[2]!.id) });
     await observe(moved.id, agents[2]!.id);
-    await lane.until(`window.__glides.filter(item=>item.id===${moved.id}).length===3 && window.__glides.filter(item=>item.id===${moved.id})[1].canceled`);
+    await lane.until(`window.__glides.filter(item=>item.id===${moved.id}).length===${beforeBurst + 2} && window.__glides.filter(item=>item.id===${moved.id})[${beforeBurst}].canceled`);
     expect(await lane.evaluate<boolean>("window.__glides.every(item=>item.frames.every(frame=>frame.active<=1))")).toBe(true);
+    // Motion frames above record the retarget; the layout Checks read its settled destination.
+    await lane.evaluate("Promise.all([...document.querySelectorAll('.todo-row')].flatMap(row=>row.getAnimations()).map(animation=>animation.finished.catch(()=>{}))).then(()=>true)");
     await lane.capture("delegate-board", "burst-hand-off");
     await lane.browser("set", "media", "dark", "reduced-motion");
     const beforeReduced = await lane.evaluate<number>(`window.__glides.filter(item=>item.id===${moved.id}).length`);

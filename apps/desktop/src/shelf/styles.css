@@ -279,3 +279,10 @@
   font-family: var(--font-mono);
   margin-inline: var(--space-1);
 }
+
+/* U3309: the row's failure uses its reserved line even when body prose wraps. */
+.todo-row-notice .reserved-content > .ink {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
