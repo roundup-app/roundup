@@ -1,0 +1,321 @@
+{
+  "source_revision": "aca0105b9f1aacda7c8b1c26eb92e0849d20f00e",
+  "baseline_revision": "de6f27bebc623834db5045893a4b0406ab7b28ff",
+  "viewport": "1512x950",
+  "scheme": "dark",
+  "seed": "tree-40",
+  "narrow_shelf_px": 240,
+  "observer": "Isolated headless U481 agent-browser harness; normal and prefers-contrast: more, with forced colors disabled.",
+  "policy": "Background continuity and --space-2 top gaps are rendered acceptance for the independent design critic.",
+  "baseline_note": "Pad D1, D2 and D12 values match main exactly. D10 repeats D1/D2 where the Editor is loaded.",
+  "lines": [
+    {
+      "context": "agent",
+      "contrast": "more",
+      "image": "agent-line-contrast.png",
+      "passed": "D1,D10,D11,D12,D13,D14,D16,D2,D3,D4,D5,D6,D7,D8,D9",
+      "existing_failures": {},
+      "matches_baseline": {}
+    },
+    {
+      "context": "agent",
+      "contrast": "no-preference",
+      "image": "agent-line.png",
+      "passed": "D1,D10,D11,D12,D13,D14,D16,D2,D3,D4,D5,D6,D7,D8,D9",
+      "existing_failures": {},
+      "matches_baseline": {}
+    },
+    {
+      "context": "bubble",
+      "contrast": "more",
+      "image": "bubble-line-contrast.png",
+      "passed": "D1,D10,D11,D12,D13,D14,D16,D2,D3,D4,D5,D6,D7,D8,D9",
+      "existing_failures": {},
+      "matches_baseline": {}
+    },
+    {
+      "context": "bubble",
+      "contrast": "no-preference",
+      "image": "bubble-line.png",
+      "passed": "D1,D10,D11,D12,D13,D14,D16,D2,D3,D4,D5,D6,D7,D8,D9",
+      "existing_failures": {},
+      "matches_baseline": {}
+    },
+    {
+      "context": "drawer",
+      "contrast": "more",
+      "image": "drawer-line-contrast.png",
+      "passed": "D1,D10,D11,D12,D13,D14,D16,D2,D3,D4,D5,D6,D7,D8,D9",
+      "existing_failures": {},
+      "matches_baseline": {}
+    },
+    {
+      "context": "drawer",
+      "contrast": "no-preference",
+      "image": "drawer-line.png",
+      "passed": "D1,D10,D11,D12,D13,D14,D16,D2,D3,D4,D5,D6,D7,D8,D9",
+      "existing_failures": {},
+      "matches_baseline": {}
+    },
+    {
+      "context": "empty",
+      "contrast": "more",
+      "image": "empty-line-contrast.png",
+      "passed": "D1,D10,D11,D12,D13,D14,D16,D2,D3,D4,D5,D6,D7,D8,D9",
+      "existing_failures": {},
+      "matches_baseline": {}
+    },
+    {
+      "context": "empty",
+      "contrast": "no-preference",
+      "image": "empty-line.png",
+      "passed": "D1,D10,D11,D12,D13,D14,D16,D2,D3,D4,D5,D6,D7,D8,D9",
+      "existing_failures": {},
+      "matches_baseline": {}
+    },
+    {
+      "context": "maximised-shelf",
+      "contrast": "more",
+      "image": "maximised-shelf-line-contrast.png",
+      "passed": "D1,D10,D11,D12,D13,D14,D16,D2,D3,D4,D5,D6,D7,D8,D9",
+      "existing_failures": {},
+      "matches_baseline": {}
+    },
+    {
+      "context": "maximised-shelf",
+      "contrast": "no-preference",
+      "image": "maximised-shelf-line.png",
+      "passed": "D1,D10,D11,D12,D13,D14,D16,D2,D3,D4,D5,D6,D7,D8,D9",
+      "existing_failures": {},
+      "matches_baseline": {}
+    },
+    {
+      "context": "narrow-shelf",
+      "contrast": "more",
+      "image": "narrow-shelf-line-contrast.png",
+      "passed": "D1,D10,D11,D12,D13,D14,D16,D2,D3,D4,D5,D6,D7,D8,D9",
+      "existing_failures": {},
+      "matches_baseline": {}
+    },
+    {
+      "context": "narrow-shelf",
+      "contrast": "no-preference",
+      "image": "narrow-shelf-line.png",
+      "passed": "D1,D10,D11,D12,D13,D14,D16,D2,D3,D4,D5,D6,D7,D8,D9",
+      "existing_failures": {},
+      "matches_baseline": {}
+    },
+    {
+      "context": "overlay-shelf",
+      "contrast": "more",
+      "image": "overlay-shelf-line-contrast.png",
+      "passed": "D1,D10,D11,D12,D13,D14,D16,D2,D3,D4,D5,D6,D7,D8,D9",
+      "existing_failures": {},
+      "matches_baseline": {}
+    },
+    {
+      "context": "overlay-shelf",
+      "contrast": "no-preference",
+      "image": "overlay-shelf-line.png",
+      "passed": "D1,D10,D11,D12,D13,D14,D16,D2,D3,D4,D5,D6,D7,D8,D9",
+      "existing_failures": {},
+      "matches_baseline": {}
+    },
+    {
+      "context": "pad",
+      "contrast": "more",
+      "image": "pad-line-contrast.png",
+      "passed": "D11,D13,D14,D16,D3,D4,D5,D6,D7,D8,D9",
+      "existing_failures": {
+        "D1": {
+          "selector": ".ProseMirror-selectednode",
+          "value": "identical library stylesheet literals; see base/pad.checks.json"
+        },
+        "D12": {
+          "selector": "div.shelf-row",
+          "value": 32
+        },
+        "D2": {
+          "selector": "h1#hello",
+          "value": {
+            "fontSize": "24px"
+          }
+        }
+      },
+      "matches_baseline": {
+        "D1": true,
+        "D12": true,
+        "D2": true
+      }
+    },
+    {
+      "context": "pad",
+      "contrast": "no-preference",
+      "image": "pad-line.png",
+      "passed": "D11,D13,D14,D16,D3,D4,D5,D6,D7,D8,D9",
+      "existing_failures": {
+        "D1": {
+          "selector": ".ProseMirror-selectednode",
+          "value": "identical library stylesheet literals; see base/pad.checks.json"
+        },
+        "D12": {
+          "selector": "div.shelf-row",
+          "value": 32
+        },
+        "D2": {
+          "selector": "h1#hello",
+          "value": {
+            "fontSize": "24px"
+          }
+        }
+      },
+      "matches_baseline": {
+        "D1": true,
+        "D12": true,
+        "D2": true
+      }
+    },
+    {
+      "context": "pads",
+      "contrast": "more",
+      "image": "pads-line-contrast.png",
+      "passed": "D1,D10,D11,D13,D14,D16,D2,D3,D4,D5,D6,D7,D8,D9",
+      "existing_failures": {
+        "D12": {
+          "selector": "div.shelf-row",
+          "value": 32
+        }
+      },
+      "matches_baseline": {
+        "D12": true
+      }
+    },
+    {
+      "context": "pads",
+      "contrast": "no-preference",
+      "image": "pads-line.png",
+      "passed": "D1,D10,D11,D13,D14,D16,D2,D3,D4,D5,D6,D7,D8,D9",
+      "existing_failures": {
+        "D12": {
+          "selector": "div.shelf-row",
+          "value": 32
+        }
+      },
+      "matches_baseline": {
+        "D12": true
+      }
+    },
+    {
+      "context": "rail",
+      "contrast": "more",
+      "image": "rail-line-contrast.png",
+      "passed": "D1,D10,D11,D12,D13,D14,D16,D2,D3,D4,D5,D6,D7,D8,D9",
+      "existing_failures": {},
+      "matches_baseline": {}
+    },
+    {
+      "context": "rail",
+      "contrast": "no-preference",
+      "image": "rail-line.png",
+      "passed": "D1,D10,D11,D12,D13,D14,D16,D2,D3,D4,D5,D6,D7,D8,D9",
+      "existing_failures": {},
+      "matches_baseline": {}
+    },
+    {
+      "context": "shelf",
+      "contrast": "more",
+      "image": "shelf-line-contrast.png",
+      "passed": "D1,D10,D11,D12,D13,D14,D16,D2,D3,D4,D5,D6,D7,D8,D9",
+      "existing_failures": {},
+      "matches_baseline": {}
+    },
+    {
+      "context": "shelf",
+      "contrast": "no-preference",
+      "image": "shelf-line.png",
+      "passed": "D1,D10,D11,D12,D13,D14,D16,D2,D3,D4,D5,D6,D7,D8,D9",
+      "existing_failures": {},
+      "matches_baseline": {}
+    },
+    {
+      "context": "switcher",
+      "contrast": "more",
+      "image": "switcher-line-contrast.png",
+      "passed": "D1,D10,D11,D12,D13,D14,D16,D2,D3,D4,D5,D6,D7,D8,D9",
+      "existing_failures": {},
+      "matches_baseline": {}
+    },
+    {
+      "context": "switcher",
+      "contrast": "no-preference",
+      "image": "switcher-line.png",
+      "passed": "D1,D10,D11,D12,D13,D14,D16,D2,D3,D4,D5,D6,D7,D8,D9",
+      "existing_failures": {},
+      "matches_baseline": {}
+    },
+    {
+      "context": "taken-agent",
+      "contrast": "more",
+      "image": "taken-agent-line-contrast.png",
+      "passed": "D1,D10,D11,D12,D13,D14,D16,D2,D3,D4,D5,D6,D7,D8,D9",
+      "existing_failures": {},
+      "matches_baseline": {}
+    },
+    {
+      "context": "taken-agent",
+      "contrast": "no-preference",
+      "image": "taken-agent-line.png",
+      "passed": "D1,D10,D11,D12,D13,D14,D16,D2,D3,D4,D5,D6,D7,D8,D9",
+      "existing_failures": {},
+      "matches_baseline": {}
+    },
+    {
+      "context": "terminal-tab",
+      "contrast": "more",
+      "image": "terminal-tab-line-contrast.png",
+      "passed": "D1,D10,D11,D12,D13,D14,D16,D2,D3,D4,D5,D6,D7,D8,D9",
+      "existing_failures": {},
+      "matches_baseline": {}
+    },
+    {
+      "context": "terminal-tab",
+      "contrast": "no-preference",
+      "image": "terminal-tab-line.png",
+      "passed": "D1,D10,D11,D12,D13,D14,D16,D2,D3,D4,D5,D6,D7,D8,D9",
+      "existing_failures": {},
+      "matches_baseline": {}
+    },
+    {
+      "context": "todos",
+      "contrast": "more",
+      "image": "todos-line-contrast.png",
+      "passed": "D1,D10,D11,D12,D13,D14,D16,D2,D3,D4,D5,D6,D7,D8,D9",
+      "existing_failures": {},
+      "matches_baseline": {}
+    },
+    {
+      "context": "todos",
+      "contrast": "no-preference",
+      "image": "todos-line.png",
+      "passed": "D1,D10,D11,D12,D13,D14,D16,D2,D3,D4,D5,D6,D7,D8,D9",
+      "existing_failures": {},
+      "matches_baseline": {}
+    },
+    {
+      "context": "triage",
+      "contrast": "more",
+      "image": "triage-line-contrast.png",
+      "passed": "D1,D10,D11,D12,D13,D14,D16,D2,D3,D4,D5,D6,D7,D8,D9",
+      "existing_failures": {},
+      "matches_baseline": {}
+    },
+    {
+      "context": "triage",
+      "contrast": "no-preference",
+      "image": "triage-line.png",
+      "passed": "D1,D10,D11,D12,D13,D14,D16,D2,D3,D4,D5,D6,D7,D8,D9",
+      "existing_failures": {},
+      "matches_baseline": {}
+    }
+  ]
+}
