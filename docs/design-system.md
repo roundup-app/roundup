@@ -42,7 +42,7 @@ Starting values. The thresholds in the checks are fixed; a value that fails a th
 | `--red` | `#c4262e` | `#ff6b6b` | `error` |
 | `--hairline` | `rgba(0,0,0,.10)` | `rgba(255,255,255,.12)` | the one permitted border |
 | `--scrollbar-thumb` | `rgba(0,0,0,.30)` | `rgba(255,255,255,.30)` | the thumb of every scrollbar, shown only while the pointer is over its scrolling element (U3747) |
-| `--shadow-drawer` | `0 8px 32px rgba(0,0,0,.14)` | `0 8px 32px rgba(0,0,0,.5)` | the Drawer, floating menus and the Terminal bubble (U523) |
+| `--shadow-drawer` | `0 2px 8px rgba(0,0,0,.14)` | `0 2px 8px rgba(0,0,0,.24)` | the Drawer, floating menus and the Terminal bubble (U523) |
 | `--shadow-shelf` | `0 0 24px rgba(0,0,0,.10)` | `0 0 24px rgba(0,0,0,.45)` | the open Shelf's leading edge (U371) |
 | `--shadow-scroll` | `inset 0 8px 8px -8px rgba(0,0,0,.18)` | `inset 0 8px 8px -8px rgba(0,0,0,.6)` | a Shelf list's clipped edge (U371) and the Rail tree's top edge beneath the pinned Overview band (U2716a) |
 | `--centre-min-width` | `388px` | same | the centre floor and Shelf reservation threshold (U371, U389) |
@@ -242,3 +242,16 @@ Scoped to Terminal Bubbles (U2742a–d, `scenarios/ui-bubble-panel.md`); other A
 | Temporary view, continuing work | Preserve Terminal identity, command, screen/scroll, draft input and saved rectangle; switching opens/closes nothing and writes no chord. Close stays destructive and separate. U2742c/d call and emulator assertions decide. |
 
 Use the current Ark Panel and manual popover top layer. `.bubble-frame::backdrop` uses the existing pane origin and extent with `pointer-events: none`, so outside dismissal still reaches its target once (U2307a). Derive activation from shown/focus state; no persisted mode. Filters never nest. Reduced transparency clears filters on both elements and backdrops, retaining dimming. Only the background Agent terminal receives this blur exception; the Bubble keeps its opaque ground, radius, shadow, bar and internal inset (U523/U2307c). U2742's rendered observer checks layer bounds and foreground clarity; its recorded Mac observation checks actual chord delivery, direct focus return and WebKit rendering.
+
+### U3512 shared floating surface
+
+Native confirmations use the system's appearance. Every remaining web modal, anchored panel/menu and Terminal Bubble shares the recipe in `tokens.css`: opaque surface, 12 px radius, one hairline, one `--shadow-drawer`. Screen CSS owns content layout only. D8 allows this depth on `.app-dialog`, `.app-menu`, `.app-popover` and `.app-select-list` as well as its existing floating surfaces. Every `box-shadow` application, including scroll cues and resets, lives in `tokens.css`; Stylelint rejects the property elsewhere.
+
+| Token | Light | Dark | Role |
+| --- | --- | --- | --- |
+| `--surface` | `#f5f5f7` | `#242426` | Opaque floating surface |
+| `--button-neutral` | `#ededf0` | `#343438` | Secondary/action button fill |
+| `--button-accent-ink` | `#ffffff` | `#101014` | Label on accent fill |
+| `--radius-pill` | `999px` | same | Floating-surface action buttons |
+
+The existing primary kind uses `--accent` and `--button-accent-ink`; the existing quiet kind uses `--button-neutral` and `--text`. Both use `--radius-pill`, 24 px minimum targets and space Tokens. Hover changes ink only. Menu items retain their menu semantics. This scoped exception supersedes the ink-only/no-control-radius rule within these floating surfaces; other controls keep it. The shared backdrop uses the existing `--scrim` in both schemes and never blurs. The Terminal Bubble retains its existing background-Agent treatment.

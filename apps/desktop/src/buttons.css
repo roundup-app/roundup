@@ -217,3 +217,26 @@ button[aria-disabled="true"] {
 .switcher-recovery-actions [data-button="quiet"] {
   --button-inline: var(--space-1);
 }
+
+/* U3512c: the existing kinds gain filled variants only on floating surfaces. */
+:is(.app-dialog, .app-popover, .app-menu, .bubble, .pane-control) button[data-button] {
+  --button-radius: var(--radius-pill);
+  --button-inline: var(--space-3);
+  --button-surface: var(--button-neutral);
+  color: var(--text);
+  background-color: var(--button-surface);
+}
+
+:is(.app-dialog, .app-popover, .app-menu, .bubble, .pane-control) button[data-button="primary"] {
+  --button-surface: var(--accent);
+  color: var(--button-accent-ink);
+}
+
+:is(.app-dialog, .app-popover, .app-menu, .bubble, .pane-control) button[data-button]:hover:not(:disabled, [aria-disabled="true"]) {
+  color: var(--grey);
+  background-color: var(--button-surface);
+}
+
+:is(.app-dialog, .app-popover, .app-menu, .bubble, .pane-control) button[data-button="primary"]:hover:not(:disabled, [aria-disabled="true"]) {
+  color: var(--button-accent-ink);
+}

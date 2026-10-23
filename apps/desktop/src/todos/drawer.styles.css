@@ -78,17 +78,6 @@
 .todo-comment-head > button { margin-inline-start: auto; white-space: nowrap; flex-shrink: 0; }
 .todo-comment-author { min-width: 0; overflow-wrap: anywhere; }
 .todo-comments-send { display: flex; justify-content: flex-end; }
-.todo-delete-confirm.app-dialog {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: var(--space-3);
-  padding: var(--space-4);
-  background: var(--sunken);
-  border-radius: var(--radius-drawer);
-  box-shadow: var(--shadow-drawer);
-  font-family: var(--font-ui);
-}
 
 .todo-dependencies { display: flex; flex-direction: column; gap: var(--space-2); }
 

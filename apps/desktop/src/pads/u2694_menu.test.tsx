@@ -1,3 +1,5 @@
+import { questionDialog, answerQuestion } from "../shelf/bulkQuestionHarness";
+import { questionProbe } from "../testing/menuProbe";
 import { cleanup, fireEvent, screen, waitFor } from "@solidjs/testing-library";
 import { afterEach, expect, it } from "vitest";
 import { openShelf, padOf } from "./padsFixture";
@@ -13,6 +15,6 @@ it("u2694a_each_object_builds_its_items_pad", async () => {
 
   expect(app.menuLabels()).toEqual(["Copy Link", "Delete"]);
   await app.pickMenu("Delete");
-  await waitFor(() => expect(screen.getByRole("alertdialog").textContent).toContain("notes"));
+  expect((await questionDialog()).message).toContain("notes");
   expect(app.calls.filter((call) => call.method === "pad.delete")).toEqual([]);
 });

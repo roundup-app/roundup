@@ -73,23 +73,6 @@ it("u2770_pointer_and_keyboard_focus", async () => {
       await lane.until(`!(${focused(".ask-input")})`);
       expect(await ring()).toBe("solid");
 
-      // A real AlertDialog's first control is focused by its click opener.
-      await lane.browser("hover", ".project-tab");
-      await lane.until("!!document.querySelector('.project-tab .tab-close')");
-      await lane.browser("click", ".project-tab .tab-close");
-      const cancel = '[role="alertdialog"] button';
-
-      await lane.until(focused(cancel));
-      expect(await ring()).toBe("none");
-      await lane.browser("press", "Tab");
-      await lane.until(`!(${focused(cancel)})`);
-      expect(await ring()).toBe("solid");
-      await lane.browser("press", "Shift+Tab");
-      await lane.until(focused(cancel));
-      expect(await ring()).toBe("solid");
-      await lane.browser("press", "Escape");
-      await lane.until("!document.querySelector('[role=alertdialog]')");
-
       for (const opener of ['[aria-label="Add Workstream"]', '.terminal-new']) {
         await lane.browser("click", opener);
         await lane.until("document.activeElement?.matches('.xterm-helper-textarea')");

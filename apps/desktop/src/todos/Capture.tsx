@@ -171,20 +171,12 @@ export const Capture = (props: { onFile: (() => void) | undefined }) => {
   registerKeys({ kind: "layer", element: () => panel, active: open, modal: true }, [{ chords: ["Escape"], run: discard }]);
 
   return (
-    <Show when={open()}>
-      <Dialog.Root open onOpenChange={({ open }) => { if (!open) close(); }}
+      <Dialog.Root open={open()} onOpenChange={({ open }) => { if (!open) close(); }}
         initialFocusEl={() => input ?? null}
         finalFocusEl={() => returnTo instanceof HTMLElement && returnTo.isConnected ? returnTo : null}
         onEscapeKeyDown={(event) => { event.stopImmediatePropagation(); discard(); }}>
-        <Dialog.Content class="capture" aria-label={copy.captureLabel} ref={(element) => {
+        <Dialog.Positioner><Dialog.Content class="capture" aria-label={copy.captureLabel} ref={(element) => {
           panel = element;
-          const centre = document.querySelector(".centre")?.getBoundingClientRect();
-
-          if (centre) {
-            element.style.setProperty("--capture-left", `${centre.left + centre.width / 2}px`);
-            element.style.setProperty("--capture-top", `${centre.top}px`);
-            element.style.setProperty("--capture-width", `${centre.width}px`);
-          }
         }}>
           <textarea
             class="capture-field"
@@ -231,8 +223,8 @@ export const Capture = (props: { onFile: (() => void) | undefined }) => {
             </div>
           </div>}</For>
 
-        </Dialog.Content>
+          <div class="capture-actions"><Dialog.CloseTrigger data-button="quiet">{copy.cancel}</Dialog.CloseTrigger><button type="button" data-button="primary" disabled={text().trim() === ""} onClick={() => file(false)}>{copy.captureATodo}</button></div>
+        </Dialog.Content></Dialog.Positioner>
       </Dialog.Root>
-    </Show>
   );
 };

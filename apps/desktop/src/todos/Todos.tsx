@@ -182,6 +182,7 @@ export const Todos = (props: {
   const target = (todo: Todo) => ({ id: todo.id, label: todo.title });
 
   const bulk = createBulkDelete({
+    app: connected.app,
     selected: selection.selected,
     afterRemoval: selection.afterRemoval,
     targets: () => [...open(), ...(unfolded() ? done() : [])].map(target),

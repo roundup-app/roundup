@@ -312,34 +312,8 @@
 }
 
 /* U2694: the dialog replaces the floating menu; its opaque surface keeps the standard panel shadow. */
-.rail-confirm.app-dialog {
-  box-sizing: border-box;
-  width: min(360px, calc(100vw - var(--space-6)));
-}
-
-.rail-confirm [data-part="description"] {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-1);
-}
-
-.rail-confirm-line {
-  padding: 0 var(--space-2);
-  overflow: hidden;
-  color: var(--grey);
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.rail-confirm-name {
-  padding-left: var(--space-4);
-}
 
 /* U367: kept Agents' reasons remain readable when the confirm is narrow. */
-.rail-confirm-stay {
-  overflow-wrap: anywhere;
-  white-space: normal;
-}
 
 /* U402: the dashed trunk of a nested row, a background and never a border (D8), out of layout and clear of every label. `.rail-pass` is a parent's trunk running on past a deeper row; `.rail-stem` drops from a row's own mark to its first child; `.rail-branch` is the trunk into this row's Glyph: down from the parent's mark to the row's middle (or past it when a sibling follows) and an elbow right into the Glyph. A trunk drops from the centre of a 16 px mark. */
 .rail-pass,
@@ -678,7 +652,6 @@
   left: 0;
   right: 0;
   height: var(--space-2);
-  box-shadow: var(--shadow-scroll);
   z-index: 1;
   pointer-events: none;
 }

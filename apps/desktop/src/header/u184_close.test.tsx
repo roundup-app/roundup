@@ -1,3 +1,4 @@
+import { questionDialog, answerQuestion, questionClosed } from "../shelf/bulkQuestionHarness";
 import { startRealDaemon, type StartedDaemon } from "../testing/realDaemonFixture";
 import { createServedApp } from "../testing/realSeam";
 import { App } from "../App";
@@ -36,11 +37,11 @@ describe("u184 close with a question", () => {
 
     fireEvent.click(closer("api"));
 
-    const dialog = await screen.findByRole("alertdialog");
+    const dialog = await questionDialog();
 
-    expect(dialog.textContent).toContain("Close api?");
-    expect(dialog.textContent).toContain("5 Agents run: a, b, c and 2 more.");
-    expect(dialog.textContent).toContain("Closing stops them.");
+    expect(`${dialog.title} ${dialog.message}`).toContain("Close api?");
+    expect(`${dialog.title} ${dialog.message}`).toContain("5 Agents run: a, b, c and 2 more.");
+    expect(`${dialog.title} ${dialog.message}`).toContain("Closing stops them.");
     expect(app.closed).toEqual([]);
 
     cleanup();
@@ -51,24 +52,24 @@ describe("u184 close with a question", () => {
 
     fireEvent.click(closer("api"));
 
-    const dialog = await screen.findByRole("alertdialog");
+    const dialog = await questionDialog();
 
-    expect(dialog.textContent).toContain("1 Agent runs: solo.");
-    await waitFor(() => expect(document.activeElement).toBe(within(dialog).getByRole("button", { name: "Cancel" })));
+    expect(`${dialog.title} ${dialog.message}`).toContain("1 Agent runs: solo.");
+    expect(dialog.cancelLabel).toBe("Cancel");
   });
 
   it("u184_cancel_and_esc_close_nothing", async () => {
     const { app } = await openTabs({ api: [agent("a", "working", "x")], web: [] });
 
     fireEvent.click(closer("api"));
-    fireEvent.click(within(await screen.findByRole("alertdialog")).getByRole("button", { name: "Cancel" }));
+    await questionDialog();
+    await answerQuestion(false);
 
     await waitFor(() => expect(screen.queryByRole("alertdialog")).toBeNull());
 
     fireEvent.click(closer("api"));
-    await screen.findByRole("alertdialog");
-    await waitFor(() => expect(document.activeElement?.textContent).toBe("Cancel"));
-    fireEvent.keyDown(document.activeElement!, { key: "Escape" });
+    await questionDialog();
+    await answerQuestion(false);
 
     await waitFor(() => expect(screen.queryByRole("alertdialog")).toBeNull());
     expect(app.closed).toEqual([]);
@@ -78,7 +79,8 @@ describe("u184 close with a question", () => {
     const { app } = await openTabs({ api: [agent("a", "working", "x")], web: [] });
 
     fireEvent.click(closer("api"));
-    fireEvent.click(within(await screen.findByRole("alertdialog")).getByRole("button", { name: "Stop and close" }));
+    await questionDialog();
+    await answerQuestion(true);
 
     await waitFor(() => expect(app.closed).toEqual([path("api")]));
     await waitFor(() => expect(projectTabs().map((entry) => entry.textContent)).toEqual(["web"]));
@@ -348,4 +350,29 @@ describe("u2773 header on real Projects", () => {
     expect(sends).not.toHaveBeenCalled();
     press("Escape");
   });
+});
+
+it("u3512a_pending_confirmation_is_single", async () => {
+  const { app } = await openTabs({ api: [agent("a", "working", "x")], web: [] });
+  const close = closer("api");
+  fireEvent.click(close);
+  await questionDialog();
+  fireEvent.click(close);
+  expect(app.questions).toHaveLength(1);
+  expect(app.closed).toEqual([]);
+  await answerQuestion(true);
+  await waitFor(() => expect(app.closed).toEqual([path("api")]));
+});
+
+it("u3512a_unavailable_alert_does_not_authorize_action", async () => {
+  const { app } = await openTabs({ api: [agent("a", "working", "x")], web: [] });
+  app.questionFailure = new Error("System alert unavailable");
+  fireEvent.click(closer("api"));
+  await screen.findByText("System alert unavailable");
+  expect(app.closed).toEqual([]);
+  app.questionFailure = null;
+  fireEvent.click(screen.getByRole("button", { name: "Retry" }));
+  await questionDialog();
+  await answerQuestion(true);
+  await waitFor(() => expect(app.closed).toEqual([path("api")]));
 });

@@ -1,9 +1,6 @@
-import { Portal } from "solid-js/web";
 import { todoEditor } from "../drawer/editors";
 import * as v from "valibot";
-import { AlertDialog } from "../ui/Dialog";
-import { activationSource } from "../keys/registry";
-import { registerKeys } from "../keys/registry";
+import { NativeAlert } from "../ui/NativeAlert";
 import { IconButton } from "../ui/IconButton";
 import { copy } from "../copy";
 import { Icon } from "../ink/Icon";
@@ -242,50 +239,24 @@ export const TodoDrawer = (props: {
     changeBlockers("remove", blocker);
   };
 
-  const keep = () => {
-    setAsking(false);
-  };
-
-  // The confirmation is a layer nested in the Drawer's panel, so Escape reaches it first.
-  let confirmation: HTMLDivElement | undefined;
-  let keepButton: HTMLButtonElement | undefined;
-
-  registerKeys({ kind: "layer", element: () => confirmation, active: () => asking() && !!todo(), modal: true }, []);
-
   return (
     <>
       <div class="todo-detail">
-        <AlertDialog.Root open={asking() && !!todo()} initialFocusEl={() => keepButton ?? null} finalFocusEl={() => deleteButton ?? null} onOpenChange={({ open }) => { if (!open && !deleting()) keep(); }}>
-          <Portal><AlertDialog.Positioner>
-          <AlertDialog.Content class="todo-delete-confirm" ref={(element) => { confirmation = element; }}>
-            <AlertDialog.Title>{copy.deleteTodoQuestion}</AlertDialog.Title>
-            <ReservedLine message={failure()} />
-            <button data-button="quiet"
-              type="button"
-              class="word light"
-              disabled={deleting()}
-              onClick={(event) => {
-                const source = activationSource(event);
+        <NativeAlert app={app} open={asking() && !!todo()}
+          question={{ title: copy.deleteTodoQuestion, message: todo() ? `#${props.id} ${todo()!.title}` : "", okLabel: copy.delete, cancelLabel: copy.keep }}
+          onCancel={() => setAsking(false)} finalFocus={() => deleteButton ?? null}
+          onConfirm={() => {
+            setAsking(false);
 
-                if (deleting()) return;
-                setDeleting(true);
-                void attempt(async () => {
-                  await app.rpc("todo.delete", { id: props.id });
-                  setRemovedByMe(true);
-                  drawer.close(source);
-                }).then(() => setDeleting(false));
-              }}
-            >{copy.delete}</button>{" "}
-            <button data-button="quiet"
-              type="button"
-              class="word light"
-              ref={(button) => { keepButton = button; }}
-              onClick={keep}
-            >{copy.keep}</button>
-          </AlertDialog.Content>
-          </AlertDialog.Positioner></Portal>
-        </AlertDialog.Root>
-        <ReservedLine message={!asking() && failure()} />
+            if (deleting()) return;
+            setDeleting(true);
+            void attempt(async () => {
+              await app.rpc("todo.delete", { id: props.id });
+              setRemovedByMe(true);
+              drawer.close("key");
+            }).then(() => setDeleting(false));
+          }} />
+        <ReservedLine message={failure()} />
           <Show
             when={todo()}
             fallback={
@@ -356,7 +327,7 @@ export const TodoDrawer = (props: {
       <Show when={todo()}>
         <IconButton class="todo-delete" aria-label={copy.deleteTodo}
           ref={(button) => { deleteButton = button; }}
-          onClick={() => { setFailure(null); setAsking(true); }}>
+          onClick={() => { if (!deleting()) { setFailure(null); setAsking(true); } }}>
           <Icon name="trash" />
         </IconButton>
       </Show>

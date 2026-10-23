@@ -929,3 +929,6 @@ Incomparable clock lifetimes never authorize continuous execution through a gap.
 
 **Collapsible**:
 An expandable App region with a named trigger; closing it retains its content.
+
+**Native question** (`NativeQuestion`, `App.ask`, `NativeAlert`):
+A user-requested system confirmation containing its title, complete consequences and two named buttons. Only an affirmative answer authorizes the captured action; cancellation or a failed request authorizes nothing. NativeAlert owns pending-request suppression, retry and focus return, while the originating surface owns targets and mutations.

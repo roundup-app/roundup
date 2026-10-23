@@ -396,3 +396,15 @@ describe("u1 calls and events", () => {
     expect(importers).toEqual([]);
   });
 });
+
+it.each(["Remove", "Keep"])("u3512a_native_adapter_preserves_the_question_and_result_%s", async answer => {
+  mockIPC((command, args) => {
+    calls.push({ command, args });
+
+    return answer;
+  });
+  const result = await createTauriApp().ask({ title: "Remove 雪?", message: "Goes: 2 Todos\nAgent α stays", okLabel: "Remove", cancelLabel: "Keep" });
+  expect({ result, calls }).toEqual({ result: answer === "Remove", calls: [{ command: "plugin:dialog|message", args: {
+    title: "Remove 雪?", message: "Goes: 2 Todos\nAgent α stays", kind: "warning", buttons: { OkCancelCustom: ["Remove", "Keep"] },
+  } }] });
+});

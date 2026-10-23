@@ -157,8 +157,6 @@ button.ask-line:is(:active, [data-pressed="true"]) {
   width: max-content;
   max-width: min(320px, var(--available-width));
   padding: var(--space-1);
-  background-color: var(--ground);
-  box-shadow: var(--shadow-drawer);
 }
 
 .app-mentions {

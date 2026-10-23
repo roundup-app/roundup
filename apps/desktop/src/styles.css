@@ -250,7 +250,6 @@ p {
   position: absolute;
   inset: 0;
   z-index: -1;
-  box-shadow: var(--shadow-shelf);
   opacity: 0;
   pointer-events: none;
 }
@@ -364,7 +363,6 @@ p {
 }
 
 .drawer[data-open="true"] {
-  box-shadow: var(--shadow-drawer);
 }
 
 /* U409: the Shelf lies wholly under an open Drawer, so once the slide ends it leaves the tab order; closing shows it at once. */

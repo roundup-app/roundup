@@ -7,7 +7,6 @@
   overflow-y: auto;
   overscroll-behavior: contain;
   max-height: calc(100vh - var(--space-6) * 2);
-  box-shadow: var(--shadow-drawer);
   overflow-wrap: anywhere;
 }
 
