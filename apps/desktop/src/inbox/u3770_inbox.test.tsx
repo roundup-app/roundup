@@ -279,3 +279,62 @@ it("u3770a_an_answered_error_agent_returns_to_needs_you_with_its_count", async (
   await waitFor(() => expect(names(groupOf("Needs you"))).toContain("gamma"));
   expect(within(groupOf("Needs you")).getByText("3")).toBeTruthy();
 });
+
+it.each(["dismiss", "retry", "answer", "remove", "replace"] as const)("p3557c_failure_lifetime_inbox_row_%s", async (transition) => {
+  const nodes = [agent("a", "error", "crashed", { name: "alpha" }), agent("b", "error", "crashed", { name: "beta" })];
+  const m = await mountInbox(nodes);
+  const row = (name: string) => within(panel()).getByText(name).closest("li")!;
+  const head = (name: string) => within(row(name)).getByText(name).closest("button")!;
+  m.app.handlers["agent.resume"] = ({ id }) => { throw new Error(`resume ${id} refused`); };
+  for (const name of ["beta", "alpha"]) {
+    fireEvent.click(within(row(name)).getByRole("button", { name: "Retry" }));
+    await within(row(name)).findByRole("alert");
+  }
+  if (transition === "dismiss") fireEvent.click(within(row("alpha")).getByRole("button", { name: "Dismiss" }));
+  if (transition === "retry") {
+    m.app.handlers["agent.resume"] = () => nodes[0]!;
+    fireEvent.click(within(row("alpha")).getByRole("button", { name: "Retry" }));
+    await waitFor(() => expect(within(row("alpha")).queryByRole("alert")).toBeNull());
+  }
+  if (transition === "answer" || transition === "replace") {
+    await open(m, decision("d1", "a"));
+    m.app.handlers["decision.capture"] = () => { throw new Error("capture refused"); };
+    fireEvent.click(within(row("alpha")).getByRole("button", { name: "Approve" }));
+    await within(row("alpha")).findByText("capture refused");
+    if (transition === "replace") await open(m, { ...decision("d2", "a"), opened_at: 2 });
+    else {
+      m.app.handlers["decision.capture"] = ({ id }) => ({ daemon: "d", agent: "a", attempt: "1", decision: id });
+      fireEvent.click(within(row("alpha")).getByRole("button", { name: "Approve" }));
+      await waitFor(() => expect(calls(m, "decision.answer")).toHaveLength(1));
+      await act(() => m.app.emit(cleared("d1", "answered")));
+    }
+  }
+  if (transition === "remove") {
+    m.app.handlers["rail.tree"] = () => [nodes[1]!];
+    await send(m, event({ name: "rail.changed" }));
+    expect(within(panel()).queryByText("alpha")).toBeNull();
+    m.app.handlers["rail.tree"] = () => nodes;
+    await send(m, event({ name: "rail.changed" }));
+  }
+  if (head("alpha").getAttribute("aria-expanded") !== "true") fireEvent.click(head("alpha"));
+  await waitFor(() => expect(within(row("alpha")).queryByRole("alert")).toBeNull());
+  fireEvent.click(head("beta"));
+  expect((await within(row("beta")).findByRole("alert")).textContent).toBe("resume b refused");
+  expect(calls(m, "agent.resume").filter((params) => (params as { id: string }).id === "b")).toHaveLength(1);
+});
+
+it.each(["recover", "unrelated"] as const)("p3557c_failure_lifetime_inbox_list_%s", async (transition) => {
+  const m = await mountInbox();
+  m.app.handlers["todo.unread"] = () => { throw new Error("cannot load comments"); };
+  await act(() => m.app.emit(event({ name: "todo.deleted", data: { id: 9 } })));
+  await within(panel()).findByText("cannot load comments");
+  if (transition === "recover") {
+    m.app.handlers["todo.unread"] = () => [];
+    fireEvent.click(within(panel()).getByRole("button", { name: "Retry Inbox" }));
+    await waitFor(() => expect(within(panel()).queryByText("cannot load comments")).toBeNull());
+  } else {
+    m.app.handlers["rail.tree"] = () => NODES.filter((node) => node.id !== "c");
+    await send(m, event({ name: "rail.changed" }));
+    expect(within(panel()).getByText("cannot load comments").closest('[role="alert"]')).not.toBeNull();
+  }
+});
