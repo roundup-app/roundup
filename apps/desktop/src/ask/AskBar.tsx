@@ -6,7 +6,7 @@ import { openDeliverable } from "./openDeliverable";
 import { Icon } from "../ink/Icon";
 import { ReservedLine } from "../ink/ReservedLine";
 import { ASK_CLOSE, CHORDS, chordsFor } from "../keys/chords";
-import { registerKeys, type KeyScope } from "../keys/registry";
+import { modalOpen, modalOutside, registerKeys, type KeyScope } from "../keys/registry";
 import { useConnectedProject } from "../state/connectedProject";
 import { Mentions } from "../ui/Mentions";
 import { KindGlyph, LABELS } from "../ink/KindGlyph";
@@ -166,7 +166,10 @@ export const AskBar = (props: {
     if (restore && returnTo instanceof HTMLElement && returnTo.isConnected) returnTo.focus();
   };
 
+  createEffect(() => { if (over() && modalOutside(panel)) close(false); });
+
   const open = (): void => {
+    if (modalOpen()) return;
     returnTo = document.activeElement;
     setOver(true);
     queueMicrotask(() => {
@@ -253,7 +256,7 @@ export const AskBar = (props: {
     <Show when={shown()}>
       <section class="ask-bar" data-mode={over() ? "over" : "home"} aria-label={copy.askBarLabel} ref={(element) => { panel = element; }}>
         <div class="ask-compose">
-        <Mentions.Root items={matching()} highlightedValue={highlighted()} onHighlightChange={setHighlighted} onSelect={complete}>
+        <Mentions.Root onDismiss={() => setDismissed(true)} items={matching()} highlightedValue={highlighted()} onHighlightChange={setHighlighted} onSelect={complete}>
           <Mentions.Field class="ask-input" ref={restoreSelection}
             rows={1} aria-label={copy.askBarLabel} placeholder={copy.askBarPlaceholder} value={text()} open={matching().length > 0}
             onInput={(event) => { setDismissed(false); setText(event.currentTarget.value); }} onSelect={retainSelection} onKeyUp={retainSelection} onClick={retainSelection} onKey={onKey} />
