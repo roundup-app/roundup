@@ -102,7 +102,7 @@ export const ImportPanel = (props: { open: boolean; opener: HTMLElement | undefi
               </Show>
             </>}
           </Show>
-          <Show when={copyFailure()}>{failure => <p role="alert">{failure()}</p>}</Show>
+          <ReservedLine message={copyFailure()} />
           <p class="import-words">
             <button data-button="quiet" type="button" class="word" onClick={() => void discover()}>{copy.importRefresh}</button>
             <span class="import-actions">
