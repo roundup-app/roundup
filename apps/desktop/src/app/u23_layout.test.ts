@@ -189,8 +189,8 @@ it("u495_composed_header_preserves_project_actions", async () => {
   // Close a visible sibling through the real confirmation and App close call.
   await evaluate(`document.querySelector('[data-path="/Users/you/project-number-4"] [role=tab]').focus()`);
   await browser("click", '[data-path="/Users/you/project-number-4"] .tab-close');
-  await browser("wait", "[role=alertdialog]");
-  await browser("find", "role", "button", "click", "--name", "Stop and close", "--exact");
+  await browser("wait", "--fn", "!!window.__question.shown");
+  await browser("eval", "window.__question.answer(true)");
   await browser("wait", "--fn", "document.querySelectorAll('.header .project-tab [role=tab]').length === 7");
   expect(await evaluate("window.__fake.app.closed")).toEqual(["/Users/you/project-number-4"]);
   expect(await evaluate("document.querySelector('.header button button')")).toBeNull();

@@ -1,3 +1,4 @@
+import { questionDialog, answerQuestion, questionClosed } from "./bulkQuestionHarness";
 // @vitest-environment jsdom
 import { connect } from "node:net";
 import * as v from "valibot";
@@ -74,17 +75,9 @@ const selectRow = async (name: string | RegExp) => {
 
 const deleteSelected = async (count: number) => {
   fireEvent.click(screen.getByRole("button", { name: `Delete ${count}` }));
-  // BulkDelete.ask queues Keep.focus after freezing its targets. Waiting for
-  // that acknowledgement prevents confirmation from overtaking the question.
-  await waitFor(() => {
-    expect(document.activeElement).toBe(within(screen.getByRole("alertdialog")).getByRole("button", { name: "Keep" }));
-  });
-  const confirm = screen.getByRole("button", { name: `Delete ${count}` });
-  fireEvent.click(confirm);
-  expect(confirm.hasAttribute("disabled")).toBe(true);
-  // BulkDelete dismisses the question only after all targets and its readback
-  // finish; backend observations must not race that in-flight operation.
-  await waitFor(() => expect(screen.queryByRole("button", { name: "Keep" })).toBeNull());
+  await questionDialog();
+  await answerQuestion(true);
+  await questionClosed();
 };
 
 beforeAll(async () => {

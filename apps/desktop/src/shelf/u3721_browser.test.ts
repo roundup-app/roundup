@@ -135,7 +135,7 @@ it("u3723_rendered_focused_row_keys_keep_failure_visible", async () => {
 
   await evaluate(`document.querySelector('.shelf .pad-name').focus()`);
   await browser("press", "d");
-  await browser("wait", '[role="alertdialog"]');
+  await browser("wait", "--fn", "!!window.__question.shown");
   expect(await evaluate("window.__fake.app.calls.filter(call => call.method === 'pad.delete').length")).toBe(0);
 
   if (dir) await browser("screenshot", join(dir, "delete-question.png"));
