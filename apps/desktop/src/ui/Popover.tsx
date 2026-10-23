@@ -5,7 +5,7 @@ import "./Popover.css";
 
 const Owner = createContext<(element: HTMLElement) => void>();
 
-/** A popover that never takes the keyboard on opening and closes on outside interaction or a modal opening (U515's control by a selection). */
+/** A popover that never takes the keyboard on opening and closes on outside interaction or a modal opening. */
 export const Popover = {
   ...ArkPopover,
   Root: (props: ArkPopover.RootProps) => {
