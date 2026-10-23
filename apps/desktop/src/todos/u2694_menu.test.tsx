@@ -46,7 +46,7 @@ it.each([["pads", true], ["pads", false], ["todos", true], ["todos", false]] as 
 
   fireEvent.contextMenu(row, { clientX: 10, clientY: 10 });
 
-  expect(app.menuLabels()).toEqual(["Send to Agent", "Copy Link", "Delete"]);
+  expect(app.menuLabels()).toEqual([...(running ? ["Send to Agent"] : []), "Copy Link", "Delete"]);
   expect(callsTo(app, "todo.complete")).toEqual([]);
 });
 
