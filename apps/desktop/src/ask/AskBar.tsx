@@ -278,7 +278,7 @@ export const AskBar = (props: {
           </div>;
         }}</For>
         <Show when={problem()}>{problem => <div class="ask-send-status">
-          <ErrorLine message={copy.draftRetention(connected.project.path, copy.draftSurface("ask"), problem().cause)} />
+          <ErrorLine message={copy.draftRetention(connected.project.name, copy.draftSurface("ask"), problem().cause)} />
           <button type="button" data-button="quiet" onClick={() => drafts.retry()}>{copy.storageRetry}</button>
         </div>}</Show>
         <Show when={!over()}><ProjectOverview /><Reactions state={reactions} /><Deliverables state={deliverables} /></Show>
@@ -406,7 +406,25 @@ const Deliverables = (props: { state: ReturnType<typeof createDeliverables> }) =
     setSelected(record.id);
     setFailure(null);
     void contextMenu(connected.app, linkEntries(connected.app, { kind: "deliverable", project: record.project, id: record.id },
-      connected.rail.nodes, node => connected.rail.exitOf(node) === null, cause => setFailure({ id: record.id, cause })), x, y);
+      connected.rail.nodes, node => connected.rail.exitOf(node) === null, cause => setFailure({ id: record.id, cause })).map(entry => entry.id !== "copy-link" ? entry : {
+        ...entry, label: copy.copy, run: async () => {
+          try {
+            const resolved = await connected.app.rpc("deliverable.resolve", { project: record.project, id: record.id });
+
+            if (resolved.kind === "unavailable") {
+              setFailure({ id: record.id, cause: copy.deliverableUnavailable[resolved.cause] });
+
+              return;
+            }
+
+            const url = copy.linkUrl("deliverable", encodeURIComponent(record.id), encodeURIComponent(record.project));
+            await navigator.clipboard.writeText(`${copy.linkNote(url)}\n${JSON.stringify(record, null, 2)}`);
+          } catch (error) {
+            if (!(error instanceof Error)) throw error;
+            setFailure({ id: record.id, cause: copy.copyDraftFailure(error.message) });
+          }
+        },
+      }), x, y);
   };
 
   let section: HTMLElement | undefined;
@@ -426,13 +444,10 @@ const Deliverables = (props: { state: ReturnType<typeof createDeliverables> }) =
   }]);
 
   const home = (record: Deliverable) => record.home === null ? copy.overview
-    : connected.rail.nodes.find(node => node.id === record.home)?.name ?? record.home;
+    : connected.rail.nodes.find(node => node.id === record.home)?.name ?? copy.unavailableHome;
 
   const status = (record: Deliverable) => record.target.kind === "external" ? copy.deliverableCurrent
-    : record.target.kind === "pad" ? copy.deliverableRevision(record.target.revision) : copy.deliverableRetained;
-
-  const target = (record: Deliverable) => record.target.kind === "external" ? record.target.url
-    : record.target.kind === "pad" ? record.target.name : record.target.path;
+    : record.target.kind === "pad" ? copy.deliverableRevision() : copy.deliverableRetained;
 
   return <Show when={records().length > 0 || props.state.failure() !== null}>
     <section ref={section} class="made" aria-label={copy.deliverables} aria-busy={pending() !== null || props.state.loading()}>
@@ -442,14 +457,14 @@ const Deliverables = (props: { state: ReturnType<typeof createDeliverables> }) =
       <Show when={props.state.failure()}>{message => <ErrorLine message={message()} />}</Show>
       <ul class="made-list"><For each={records()}>{record => <li class="made-row" data-deliverable={record.id} data-selected={selected() === record.id}
         onContextMenu={event => openOnRelease(event, (x, y) => openMenu(record, x, y))}>
-        <Tip disabled={failure()?.id === record.id} text={record.target.kind === "file" ? `${target(record)} · ${record.target.sha256}` : record.target.kind === "external" ? `${target(record)} · ${copy.deliverableNotChecked}` : target(record)}>{trigger => <button {...trigger()} type="button" data-button="quiet" class="made-open" aria-current={selected() === record.id ? "true" : undefined}
+        <Tip disabled={failure()?.id === record.id} text={copy.openDeliverable(record.title, record.maker_name, home(record), record.published_at)}>{trigger => <button {...trigger()} type="button" data-button="quiet" class="made-open" aria-current={selected() === record.id ? "true" : undefined}
           aria-label={copy.openDeliverable(record.title, record.maker_name, home(record), record.published_at)} aria-disabled={pending() !== null}
           onClick={() => { void open(record); }}>
           <span class="made-content">
             <span class="made-title">{record.title}</span>
             <span class="made-status" data-state={record.target.kind}>{status(record)}</span>
             <span class="made-details">{copy.deliverableAttribution(record.maker_name, home(record))}</span>
-            <span class="made-details made-target">{target(record)}</span>
+            <time class="made-details" datetime={new Date(record.published_at).toISOString()}>{copy.reactionWhen(new Date(record.published_at).toISOString())}</time>
           </span>
           <Icon name="right" />
         </button>}</Tip>

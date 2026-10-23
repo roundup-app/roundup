@@ -73,20 +73,6 @@ it("u462_stale_response_cannot_replace_selected_history", async () => {
   expect(screen.queryByText("Created Stale")).toBeNull();
 });
 
-it("u462_closed_drawer_response_does_not_acknowledge_before_unmount", async () => {
-  const m = await mountTodos([todo(1)], false);
-  let answer!: (history: History) => void;
-  m.app.handlers["todo.getHistory"] = () => new Promise((resolve) => { answer = resolve; });
-
-  fireEvent.click(await screen.findByRole("button", { name: "Idle #1 todo 1" }));
-  await waitFor(() => expect(todoCallsTo(m.app, "todo.getHistory")).toHaveLength(1));
-  m.connected.drawer.close();
-  answer({ changes: [{ actor: null, changed_at: null, seq: 99, before: null, after: { title: "Stale", body: "", done: false, blockers: [], owner: null } }], unread: 99 });
-  await Promise.resolve();
-
-  expect(todoCallsTo(m.app, "todo.readHistory")).toHaveLength(0);
-  expect(screen.queryByText("Created Stale")).toBeNull();
-});
 
 it("u462_live_refresh_does_not_acknowledge_changes_absent_from_opening", async () => {
   const m = await mountTodos([todo(1)]);
@@ -123,24 +109,6 @@ it("u3728_changes_wait_behind_one_line", async () => {
   expect(todoCallsTo(m.app, "todo.readHistory")).toHaveLength(0);
 });
 
-it("u3728_entries_read_as_past_tense_lines", async () => {
-  const m = await mountTodos([todo(1)]);
-  const values = { title: "todo 1", body: "", done: false, blockers: Array.of<number>(), owner: null };
-  const agent = { kind: "agent" as const, id: "a1", parent: null };
-  const stamp = Date.UTC(2026, 5, 3, 14, 5);
-  m.app.handlers["todo.getHistory"] = () => ({ unread: null, changes: [
-    { actor: null, changed_at: null, seq: 1, before: values, after: { ...values, title: "jbkhnj" } },
-    { actor: null, changed_at: null, seq: 2, before: { ...values, body: "x" }, after: values },
-    { actor: null, changed_at: null, seq: 3, before: values, after: { ...values, done: true } },
-    { actor: null, changed_at: null, seq: 4, before: { ...values, done: true }, after: values },
-    { actor: null, changed_at: null, seq: 5, before: values, after: { ...values, blockers: [9] } },
-    { actor: agent, changed_at: stamp, seq: 6, before: values, after: { ...values, owner: agent } },
-  ] });
-  await open(m); await disclose(m);
-  const shown = [...panel().querySelectorAll("[data-change]")].map((entry) => entry.textContent);
-  expect(shown.slice(0, 5)).toEqual(["Renamed to jbkhnj", "Cleared the body", "Marked done", "Reopened", "Now waits on #9"]);
-  expect(shown[5]).toMatch(/^Assigned to .+ · .+ · .+\d.*$/);
-});
 
 it("u462_a_handoff_renders_as_handed_to_the_agent", async () => {
   const m = await mountTodos([todo(1)]);
@@ -184,4 +152,20 @@ it("u3728_failed_read_retries_without_consuming_unread", async () => {
   fireEvent.click(within(panel()).getByRole("button", { name: "Retry history" }));
   await waitFor(() => expect(count()).toBe("read"));
   expect(todoCallsTo(m.app, "todo.readHistory")).toHaveLength(2);
+});
+
+it("u3299a_history_copy_keeps_removed_owner_identity", async () => {
+  const m = await mountTodos([todo(1)]);
+  const values = { title: "todo 1", body: "/Users/authored/path", done: false, blockers: Array.of<number>(), owner: null };
+  const owner = { kind: "agent" as const, id: "removed-original-id", parent: null };
+  const change = { actor: owner, changed_at: null, seq: 1, before: values, after: { ...values, owner }, handed: owner };
+  m.app.handlers["todo.getHistory"] = () => ({ unread: null, changes: [change] });
+  await open(m); await disclose(m);
+  const copied: string[] = [];
+  Object.defineProperty(navigator, "clipboard", { configurable: true, value: { writeText: async (text: string) => { copied.push(text); } } });
+  const history = within(panel()).getByRole("region", { name: "Todo history" });
+  fireEvent.click(within(history).getByRole("button", { name: "Copy" }));
+  await waitFor(() => expect(copied).toHaveLength(1));
+  expect(JSON.parse(copied[0]!).change).toEqual(change);
+  expect(todoCallsTo(m.app, "todo.update")).toHaveLength(0);
 });

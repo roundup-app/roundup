@@ -144,9 +144,13 @@ export const TodoHistory = (props: { id: number; onCapture?: (change: Change | u
       </button>
       <Show when={opened()}>
         <Show when={failure()}>{(message) => <div><ErrorLine message={message()} /><button data-button="quiet" class="word" type="button" onClick={() => void refresh()}>{copy.retryHistory}</button></div>}</Show>
-        <For each={loaded()?.history.changes ?? []}>{(change) => <>
-          <For each={lines(change, (id) => rail.nodes.find((node) => node.id === id)?.name ?? id)}>{(line) => <p class="todo-change" data-change={change.seq}>{line}</p>}</For>
-        </>}</For>
+        <For each={loaded()?.history.changes ?? []}>{(change) => <div class="todo-history-change"><div>
+          <For each={lines(change, (id) => rail.nodes.find((node) => node.id === id)?.name ?? copy.reactionGone())}>{(line) => <p class="todo-change" data-change={change.seq}>{line}</p>}</For>
+          </div><button type="button" data-button="quiet" onClick={() => {
+            void navigator.clipboard.writeText(JSON.stringify({ lines: lines(change, id => rail.nodes.find(node => node.id === id)?.name ?? copy.reactionGone()), change }, null, 2))
+              .then(() => setFailure(null), error => setFailure(copy.copyDraftFailure(error instanceof Error ? error.message : String(error))));
+          }}>{copy.copy}</button>
+        </div>}</For>
       </Show>
     </section>
   </Show>;

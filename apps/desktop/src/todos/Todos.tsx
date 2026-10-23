@@ -639,7 +639,7 @@ export const Todos = (props: {
     const draft = creation();
 
     if (draft && !v.safeParse(v.string(), draft.value.title).success) {
-      setCreateFailure(copy.draftRetention(connected.project.path, copy.draftSurface("todos"), "invalid"));
+      setCreateFailure(copy.draftRetention(connected.project.name, copy.draftSurface("todos"), "invalid"));
 
       return;
     }

@@ -1,5 +1,5 @@
-import { cleanup, fireEvent, render, screen } from "@solidjs/testing-library";
-import { afterEach, expect, it } from "vitest";
+import { cleanup, fireEvent, render, screen, waitFor } from "@solidjs/testing-library";
+import { afterEach, expect, it, vi } from "vitest";
 import { workstream } from "../testing/nodes";
 import { mountRail, railCallsTo } from "./railFixture";
 import { ConnectedProjectContext } from "../state/connectedProject";
@@ -47,7 +47,6 @@ it("u2773e_recovery_actions_keep_surface_draft", async () => {
   const writes = vi.spyOn(Storage.prototype, "setItem").mockImplementation(() => { throw new Error("full"); });
   open();
   fireEvent.input(field(), { target: { value: " memory\n😀 " } });
-  expect(screen.getByRole("alert").textContent).toContain("in p:");
   expect(field().value).toBe(" memory\n😀 ");
   expect(screen.queryByText("Unfinished rail work")).toBeNull();
   fireEvent.keyDown(field(), { key: "Escape" });
@@ -368,4 +367,40 @@ it("u2773b_rail_recovery_shares_project_revisions_without_duplicate_entry", asyn
   await mountRail([]);
   open();
   expect(field().value).toBe("");
+});
+
+it.each([null, "a"])("u3299c_retention_preserves_original_work_rail_%s", async parent => {
+  const { openTabs, tab, path } = await import("../header/stripFixture");
+  const { agent, door } = await import("../testing/nodes");
+  const { message } = await import("../testing/centreFixture");
+  const { app } = await openTabs({ Orchard: [door("a", "idle", "ready", { name: "Review" })], Other: [] });
+  fireEvent.click(tab("Orchard"));
+  await waitFor(() => expect(document.querySelector('.rail [data-id="a"] [data-part="branch-control"]')).toBeTruthy());
+
+  if (parent) fireEvent.click(document.querySelector<HTMLElement>('.rail [data-id="a"] [data-part="branch-control"]')!);
+  const original = app.of(path("Orchard"));
+  original.handlers["message.send"] = () => message(1);
+  original.handlers["agent.spawn"] = () => agent("new", "working", "starting");
+  const writes = vi.spyOn(Storage.prototype, "setItem").mockImplementation(() => { throw new Error("full"); });
+
+  try {
+    open();
+    fireEvent.input(field(), { target: { value: "exact draft e\u0301\n🧭" } });
+    fireEvent.keyDown(field(), { key: "Escape" });
+    fireEvent.click(tab("Other"));
+    await waitFor(() => expect(tab("Other").getAttribute("aria-selected")).toBe("true"));
+    fireEvent.click(tab("Orchard"));
+    const copied: string[] = [];
+    Object.defineProperty(navigator, "clipboard", { configurable: true, value: { writeText: async (text: string) => { copied.push(text); } } });
+    fireEvent.click(await screen.findByRole("button", { name: "Copy draft", hidden: true }));
+    await waitFor(() => expect(copied).toEqual(["exact draft e\u0301\n🧭"]));
+    expect(original.calls.filter(call => call.method === "agent.spawn" || call.method === "message.send")).toEqual([]);
+    writes.mockRestore();
+    open();
+    fireEvent.keyDown(field(), { key: "Enter" });
+    await waitFor(() => expect(original.calls.filter(call => call.method === (parent ? "message.send" : "agent.spawn"))).toHaveLength(1));
+    const call = original.calls.find(call => call.method === (parent ? "message.send" : "agent.spawn"))!;
+    expect(call.params).toMatchObject(parent ? { to: "a", body: "exact draft e\u0301\n🧭" } : { cwd: path("Orchard"), parent: null, prompt: "exact draft e\u0301\n🧭" });
+    expect(app.of(path("Other")).calls.filter(call => call.method === "agent.spawn" || call.method === "message.send")).toEqual([]);
+  } finally { writes.mockRestore(); }
 });
