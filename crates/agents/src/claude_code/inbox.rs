@@ -161,7 +161,7 @@ impl Launcher {
                 .lock()
                 .unwrap_or_else(std::sync::PoisonError::into_inner)
                 .get(agent)
-                .cloned()
+                .map(|mode| mode.effective.clone())
                 .unwrap_or_else(|| "default".into())
         };
         let socket = self.socket_path(agent);
