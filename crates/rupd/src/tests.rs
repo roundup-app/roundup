@@ -515,6 +515,11 @@ async fn u3808_the_list_reads_recorded_handoffs_without_history_or_touches() {
             {"todo": 2, "seq": 6, "owner": owner}, {"todo": 1, "seq": 7, "owner": owner}
         ])
     );
+    // Todo order and Hand-off sequence order must be independently observable.
+    todos
+        .call(&ctx, "todo.reorder", json!({"id": 2, "before": null}))
+        .await
+        .unwrap();
     // An away/back assignment invalidates only that Todo's old Hand-off.
     for owner in [&other, &owner] {
         todos
@@ -548,7 +553,7 @@ async fn u3808_the_list_reads_recorded_handoffs_without_history_or_touches() {
             .iter()
             .map(|t| t["id"].clone())
             .collect::<Vec<_>>(),
-        vec![json!(2), json!(1), json!(3), json!(4)]
+        vec![json!(1), json!(3), json!(4), json!(2)]
     );
     let touches = daemon.touches.sequence().unwrap();
     let messages = daemon
