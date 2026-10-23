@@ -187,6 +187,12 @@ it("u3016f_real_collection_to_dashboard_survives_reopen", async () => {
       owner.cost = pricedCost();
       owner.time = { ...owner.time, elapsed_ns: "624000000000", summed_ns: "556000000000", execution_ns: "1000000000", tools_ns: "0", human_ns: "1000000000", coordination_ns: "0", other_ns: "554000000000", unmeasured_ns: "0" };
       await show(owner, "owner-other-9m14s");
+      await browser("press", "Tab");
+      await browser("focus", '.measurement-dashboard [aria-label="How the list price is made"]');
+      await until("!!document.querySelector('[role=tooltip]')?.offsetHeight");
+      await capture("list-price-information", "U3016g");
+      await browser("focus", ".measurement-dashboard");
+      await until("!document.querySelector('[role=tooltip]')");
       owner.time.other_ns = "624000000000"; owner.time.summed_ns = "626000000000";
       await show(owner, "duration-10m24s");
 
@@ -197,6 +203,12 @@ it("u3016f_real_collection_to_dashboard_survives_reopen", async () => {
       owner.cost = {reported:[],reference:[],unavailable:[]};
       owner.time = { ...owner.time, summed_ns: "0", execution_ns: "0", tools_ns: "0", human_ns: "0", coordination_ns: "0", other_ns: "0", unmeasured_ns: "0" };
       await show(owner, "unknown-tokens-zero-time-one-agent");
+      await browser("press", "Tab");
+      await browser("focus", '[data-tile="tokens"] .measurement-mark');
+      await until("!!document.querySelector('[role=tooltip]')?.offsetHeight");
+      await capture("partial-token-note", "U3016g");
+      await browser("focus", ".measurement-dashboard");
+      await until("!document.querySelector('[role=tooltip]')");
       owner.rows = []; owner.contributors = 0; owner.time.elapsed_ns = "0";
 
       for (const key of ["total", "input", "output", "cache_read", "cache_write"] as const) owner.tokens[key] = {known:"0",missing:0};

@@ -448,12 +448,21 @@ it("u3016k_controls_require_a_visible_effect", async () => {
   await publish(app, value);
   expect(screen.queryAllByRole("tab")).toHaveLength(0);
   expect(screen.queryByRole("button", { name: copy.measurementLoadMore })).toBeNull();
+  value.rows.forEach((row, index) => {
+    for (const key of ["total", ...copy.measurementParts] as const) row.tokens[key] = { known: key === "total" ? String((index + 1) * 20) : key === "input" || key === "output" ? String((index + 1) * 10) : "0", missing: 0 };
+  });
+  await publish(app, value);
+  expect(screen.queryAllByRole("tab")).toHaveLength(0);
   value.rows = value.rows.slice(0, 1);
-  value.tokens = { ...value.tokens, input: { known: "800", missing: 0 }, output: { known: "0", missing: 0 }, cache_read: { known: "0", missing: 0 }, cache_write: { known: "0", missing: 0 } };
+  value.tokens = { ...value.tokens, total: { known: "800", missing: 0 }, input: { known: "800", missing: 0 }, output: { known: "0", missing: 0 }, cache_read: { known: "0", missing: 0 }, cache_write: { known: "0", missing: 0 } };
+  await publish(app, value);
+  expect(screen.getByRole("group", { name: copy.measurementShares }).hasAttribute("tabindex")).toBe(false);
+  expect(document.querySelector('[aria-live="polite"]')).toBeNull();
+  value.tokens.total.known = "80000"; value.tokens.input.known = "80000";
   await publish(app, value);
   const group = screen.getByRole("group", { name: copy.measurementShares });
   fireEvent.focus(group);
-  expect(document.querySelector('[aria-live="polite"]')?.textContent).toBe("Input 800 · 100%");
+  expect(document.querySelector('[aria-live="polite"]')?.textContent).toBe("Input 80,000 · 100%");
   fireEvent.keyDown(group, { key: "ArrowRight" });
   expect(document.querySelector('[aria-live="polite"]')?.textContent).not.toContain("Output");
 });
@@ -480,11 +489,13 @@ it("u3016k_empty_sections_have_one_message_and_no_placeholder_rows", async () =>
     expect(document.querySelectorAll(".measurement-bar, .measurement-stack, .measurement-legend")).toHaveLength(0);
   }
 
-  value.time.active = true;
+  value.time = { ...value.time, elapsed_ns: "1000000000", summed_ns: "1000000", unmeasured_ns: "1000000", active: true };
   app.handlers["project.weeklyLimit"] = limit(0);
   await publish(app, value);
   await waitFor(() => expect(document.querySelector(".measurement-limit-text")?.textContent).toContain("0% used"));
   expect(screen.queryByRole("meter")).toBeNull();
+  expect(document.querySelector('[data-tile="time"] .measurement-line')?.textContent).toContain("<1s");
+  expect(document.querySelector('[data-tile="time"] .measurement-line')?.textContent).not.toContain("0.0×");
 });
 
 it("u3016k_equal_measurements_keep_visible_content", async () => {
