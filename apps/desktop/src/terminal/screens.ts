@@ -573,7 +573,16 @@ export const createScreens = (connected: ConnectedProject, createEmulator: Emula
     };
 
     const onKey = (event: KeyboardEvent) => {
-      if (editor(event.target) || !event.metaKey || event.ctrlKey || event.altKey || event.shiftKey || event.key.toLowerCase() !== "c") return;
+      if (editor(event.target) || !event.metaKey) return;
+
+      if (event.key.toLowerCase() === "v" && (event.ctrlKey || event.altKey || event.shiftKey)) {
+        event.preventDefault();
+        event.stopImmediatePropagation();
+
+        return;
+      }
+
+      if (event.ctrlKey || event.altKey || event.shiftKey || event.key.toLowerCase() !== "c") return;
       event.preventDefault();
       event.stopImmediatePropagation();
       void copy(id);
