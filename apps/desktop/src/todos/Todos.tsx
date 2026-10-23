@@ -666,7 +666,7 @@ export const Todos = (props: {
 
     openOnRelease(event, (x, y) => void contextMenu(connected.app, [
       ...(!todo.done ? [{ id: "complete", label: copy.complete, run: () => void toggle(todo, open().map(candidate => candidate.id)) }] : []),
-      ...linkEntries(connected.app, { kind: "todo", id: todo.id }, connected.rail.nodes.filter((node) => connected.rail.exitOf(node) === null), (node) => connected.rail.exitOf(node) === null, setCreateFailure),
+      ...linkEntries(connected.app, { kind: "todo", id: todo.id }, connected.rail.nodes, (node) => connected.rail.exitOf(node) === null, setCreateFailure),
       { id: "delete", label: copy.delete, run: () => { selection.replace([todo.id]); bulk.ask(); } },
     ], x, y));
   };
