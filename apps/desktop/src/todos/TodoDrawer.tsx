@@ -67,6 +67,7 @@ export const TodoDrawer = (props: {
   const [captured, setCaptured] = createSignal<Change>();
   const [failure, setFailure] = createSignal<string | null>(null);
   const [offering, setOffering] = createSignal(false);
+  const [noticeDismissed, setNoticeDismissed] = createSignal(false);
   const [removedByMe, setRemovedByMe] = createSignal(false);
   const [asking, setAsking] = createSignal(false);
   const [deleting, setDeleting] = createSignal(false);
@@ -75,7 +76,7 @@ export const TodoDrawer = (props: {
   const [saved, setSaved] = createSignal(0);
   const clearFailure = () => { setFailure(null); setTitleFailure(null); setSaved(value => value + 1); };
 
-  createEffect(on(() => props.id, clearFailure, { defer: true }));
+  createEffect(on(() => props.id, () => { clearFailure(); setNoticeDismissed(false); }, { defer: true }));
   onCleanup(events.subscribe(event => {
     if (doesClearTodoFailure(event, props.id)) clearFailure();
   }));
@@ -270,7 +271,7 @@ export const TodoDrawer = (props: {
           <Show
             when={todo()}
             fallback={
-              <ReservedLine message={!removedByMe() && !deleting() ? copy.todoDeleted(props.id) : null} />
+              <ReservedLine message={!removedByMe() && !deleting() && !noticeDismissed() ? copy.todoDeleted(props.id) : null}><button data-dismiss-failure onMouseDown={event => event.preventDefault()} data-button="quiet" class="word" type="button" onClick={() => setNoticeDismissed(true)}>Dismiss failure</button></ReservedLine>
             }
           >
             {(current) => (
@@ -331,7 +332,7 @@ export const TodoDrawer = (props: {
                   onPick={(id) => { blockerButton?.focus(); addBlocker(id); }}
                 />
                 <Show when={blockerForm()}><p><button data-button="quiet" class="word" type="button" onClick={() => void saveBlockers()}>{copy.save}</button></p></Show>
-                <Show when={!props.recovery}><TodoComments id={props.id} saved={saved} onSent={() => { clearFailure(); props.onComment?.(); }} /></Show>
+                <Show when={!props.recovery}><TodoComments id={props.id} saved={saved} onSaved={clearFailure} onSent={props.onComment} /></Show>
                 <Show when={!props.recovery}><TodoHistory id={props.id} saved={saved} onCapture={setCaptured} /></Show>
               </>
             )}
