@@ -7,6 +7,14 @@ use ts_rs::TS;
 /// The longest `reason` a clear takes, in characters.
 pub const REASON_MAX: usize = 2000;
 
+/// A3308: the user's Auto choice for one Workstream.
+#[derive(Clone, Debug, Serialize, Deserialize, TS, JsonSchema)]
+#[ts(export, export_to = "workstream/")]
+pub struct AutoParams {
+    pub id: String,
+    pub auto: bool,
+}
+
 /// A3194: when a new Workstream's Door starts (the Start choice).
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, TS, JsonSchema)]
 #[serde(tag = "kind", rename_all = "camelCase")]
