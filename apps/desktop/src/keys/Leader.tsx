@@ -1,4 +1,4 @@
-import { KeyChip } from "./KeyChip";
+import { KeyHint } from "./KeyHint";
 import { createEffect, For, onCleanup, Show } from "solid-js";
 import { useConnectedProject } from "../state/connectedProject";
 import { copy } from "../copy";
@@ -38,10 +38,7 @@ export const Leader = () => {
       <aside class="leader" role="status" aria-label={copy.leaderPanel} ref={place}>
         <For each={LEADER}>
           {(key) => (
-            <span class="leader-line">
-              <KeyChip keys={key.keys} />
-              {`  ${key.short}`}
-            </span>
+            <KeyHint class="leader-line" keys={key.keys}>{key.short}</KeyHint>
           )}
         </For>
       </aside>
