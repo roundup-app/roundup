@@ -149,6 +149,13 @@
   text-overflow: clip;
 }
 
+/* Bulk failure actions share ReservedLine's fixed edge; U80 keeps the full cause in its title. */
+.shelf-bulk .reserved-line p[role="alert"] {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
 /* Ark owns selection and panel focus; keep the Shelf's flat, inset-free bar. */
 .shelf-tabs.app-tabs-list { gap: var(--space-2); }
 .shelf-tab.app-tabs-trigger { --button-inline: 0; }

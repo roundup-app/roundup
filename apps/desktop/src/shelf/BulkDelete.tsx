@@ -196,7 +196,7 @@ export const createBulkDelete = <Id,>(props: {
           <For each={failures()}>{failure => {
             const label = `${failure.target.label}${props.noun === "Todos" ? ` #${String(failure.target.id)}` : ""}`;
 
-            return <ReservedLine message={`${copy.couldNotDelete} ${label}${copy.colon}${failure.message}`} content={<>{copy.couldNotDelete} <span>{label}{copy.colon}{failure.message}</span></>}>
+            return <ReservedLine message={`${copy.couldNotDelete} ${label}${copy.colon}${failure.message}`} content={<span>{label}{copy.colon}{failure.message}</span>}>
               <IconButton aria-label={`${copy.clear} ${label}`} onClick={() => setFailures(held => held.filter(other => other.target.id !== failure.target.id))}><Icon name="x" /></IconButton>
             </ReservedLine>;
           }}</For>
