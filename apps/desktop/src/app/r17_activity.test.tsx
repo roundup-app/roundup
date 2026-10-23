@@ -28,6 +28,8 @@ const status = (app: FakeApp, id: string, kind: Kind) => app.emit(event({ name: 
 const settle = () => vi.advanceTimersByTimeAsync(0);
 
 const mount = async (nodes: RailNode[] = [door("a", "working", "building", { worktree: { path: "/p/a", branch: "a", base: "main" } })], setup?: (app: FakeApp) => void, createEmulator?: EmulatorFactory) => {
+  // R17 observes absent display demand; the visible Board now subscribes even with idle Agents.
+  localStorage.setItem("roundup:shelf:/p", JSON.stringify({ open: false }));
   const app = createFakeApp();
   app.opened.project = { path: "/p", name: "p" };
   app.handlers["rail.tree"] = () => nodes;
@@ -67,7 +69,7 @@ beforeEach(() => {
   vi.spyOn(globalThis, "clearInterval").mockImplementation((id) => { intervals.delete(id); stop(id); });
 });
 
-afterEach(() => { cleanup(); vi.restoreAllMocks(); vi.useRealTimers(); visibility("visible"); });
+afterEach(() => { cleanup(); localStorage.clear(); vi.restoreAllMocks(); vi.useRealTimers(); visibility("visible"); });
 
 it("r17_hidden_or_stopped_app_has_no_periodic_work", async () => {
   for (const kind of stopped) {
@@ -94,6 +96,7 @@ it("r17_hidden_or_stopped_app_has_no_periodic_work", async () => {
 
 it("r17_any_working_descendant_or_connected_project_keeps_the_clock_live", async () => {
   const { app, clock } = await mount([door("a", "done", "stopped"), agent("child", "idle", "stopped", { parent: "a" })], (app) => {
+    localStorage.setItem("roundup:shelf:/other", JSON.stringify({ open: false }));
     app.add("/other");
     app.of("/p");
     app.of("/other").handlers["rail.tree"] = () => [agent("other", "idle", "stopped")];
