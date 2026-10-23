@@ -515,6 +515,7 @@ export const copy = {
   workstreamsHead: "WORKSTREAMS",
   rail: "Rail",
   doneCount: " done",
+  todosDoneBar: "Todos done",
   askingTheDoor: "Asking the supervisor…",
   clearName: (value1: CopyValue) => `Clear ${value1}`,
   addWorkstream: "Add Workstream",
