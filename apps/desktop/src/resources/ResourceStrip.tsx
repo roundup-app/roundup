@@ -1,6 +1,6 @@
 import { ReservedLine } from "../ink/ReservedLine";
 import { copy } from "../copy";
-import { createEffect, createMemo, createSignal, onCleanup, Show, untrack } from "solid-js";
+import { createEffect, createMemo, createSignal, on, onCleanup, Show, untrack } from "solid-js";
 import type { RailNode } from "@contracts/agent/RailNode";
 import type { Resources } from "@contracts/project/Resources";
 import { useConnectedProject } from "../state/connectedProject";
@@ -14,7 +14,7 @@ import "./styles.css";
 /** U408: how often `project.resources` is called while the strip is shown. */
 const POLL_MS = 2000;
 
-const isRunning = (node: RailNode): boolean => node.status !== null && node.status.kind !== "done";
+const isRunning = (node: RailNode): boolean => node.status?.kind === "working";
 
 /** U444: one value as an icon and its number, named for a screen reader and on hover; a missing value hides with its icon. */
 const Value = (props: { icon: "memory" | "cpu" | "disk"; name: string; text: string }) => (
@@ -49,10 +49,10 @@ export const ResourceStrip = () => {
   const own = createMemo(() => {
     const node = rail.nodes.find((candidate) => candidate.id === rail.selected());
 
-    return node && isRunning(node) ? node.id : null;
+    return node?.id ?? null;
   });
 
-  const live = () => own() !== null && visible() && daemonExit() === null;
+  const live = () => visible() && daemonExit() === null && rail.nodes.some((node) => node.id === own() && isRunning(node));
 
   const onVisibility = () => setVisible(document.visibilityState !== "hidden");
 
@@ -62,11 +62,13 @@ export const ResourceStrip = () => {
   // No call is pending twice at once, and none is made while the strip is not shown.
   let pending = false;
 
-  createEffect(() => {
-    const selected = own();
-
+  createEffect(on(own, () => {
     setResult(null);
     setFailed(false);
+  }));
+
+  createEffect(() => {
+    const selected = own();
 
     if (!live()) return;
 

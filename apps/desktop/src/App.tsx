@@ -107,7 +107,7 @@ const Connection = (props: {
   createEffect(on(props.now, () => {
     const open = connected();
 
-    if (open && !(open instanceof Error) && open.decisions.open().length > 0) open.decisions.retryList();
+    if (open && !(open instanceof Error) && !props.tab()?.exit && open.decisions.open().length > 0) open.decisions.retryList();
   }, { defer: true }));
 
   // M8: the Daemon cannot reach the App, so an Agent's open or rename of a Project arrives as an Event.
@@ -200,11 +200,23 @@ export const App = (props: {
   const projects = createProjectsState(props.app);
   const drafts = props.drafts ?? createProjectDrafts();
   const tabsId = createUniqueId();
-  const now = createNow(props.clock);
+  const [connections, setConnections] = createSignal<Connections>(new Map());
+  const [visible, setVisible] = createSignal(document.visibilityState !== "hidden");
+  const onVisibility = () => setVisible(document.visibilityState !== "hidden");
+  document.addEventListener("visibilitychange", onVisibility);
+  onCleanup(() => document.removeEventListener("visibilitychange", onVisibility));
+
+  const isWorking = () => projects.tabs().some((tab) => {
+    const connection = connections().get(tab.project.path);
+
+    return !tab.exit && connection && !(connection instanceof Error)
+      && connection.rail.nodes.some((node) => node.status?.kind === "working");
+  });
+
+  const now = createNow(props.clock, () => visible() && isWorking());
   // U413: roundup is in front while its window has focus and is visible.
   const inFront = () => document.hasFocus() && document.visibilityState === "visible";
   const toasts = createToastQueue(inFront, props.chime ?? webChime());
-  const [connections, setConnections] = createSignal<Connections>(new Map());
   const [jumpFailure, setJumpFailure] = createSignal<string | null>(null);
   const [windowFailure, setWindowFailure] = createSignal<string | null>(null);
   const [badgeFailure, setBadgeFailure] = createSignal<string | null>(null);

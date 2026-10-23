@@ -500,7 +500,7 @@ const PadBody = (props: {
           >{copy.keep}</button>
         </p>
       </Show>
-      <ReservedLine data-state={saved() && !deleted() && !conflictActor() ? "saved" : undefined} message={actionFailure.message() ?? (deleted() && !removedByMe() ? `Pad ${name} was deleted` : retentionProblem() ? copy.draftRetention(connected.project.path, copy.pad, retentionProblem()!.cause) : conflictActor() ? conflictLabel() : paused() ? statusLabel() : null)}
+      <ReservedLine data-state={saved() && !deleted() && !conflictActor() ? "saved" : undefined} message={actionFailure.message() ?? (deleted() && !removedByMe() ? `Pad ${name} was deleted` : retentionProblem() ? copy.draftRetention(connected.project.name, copy.pad, retentionProblem()!.cause) : conflictActor() ? conflictLabel() : paused() ? statusLabel() : null)}
         status={saved() && !deleted() && !conflictActor() ? copy.padSaved : null}>
         <Show when={retentionProblem()}>
           <button data-button="primary" type="button" onClick={() => connected.drafts.retry()}>{copy.storageRetry}</button>
@@ -530,7 +530,7 @@ const PadBody = (props: {
 
             if (parsed?.success && parsed.output.document !== undefined && !ready.restoreDocument(parsed.output.document, parsed.output.editorCaret ?? false)) {
               setInvalid(true);
-              actionFailure.show(copy.draftRetention(connected.project.path, copy.pad, "invalid"));
+              actionFailure.show(copy.draftRetention(connected.project.name, copy.pad, "invalid"));
             }
 
             if (recovered?.selection) ready.restoreSelection(recovered.selection);

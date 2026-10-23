@@ -7,16 +7,16 @@ import { openTabs, path, tab } from "./stripFixture";
 afterEach(cleanup);
 
 describe("u185 a Daemon gone, in a tab", () => {
-  it("u185_a_code_exit_marks_the_tab_red_with_the_code_in_the_tooltip", async () => {
+  it("u185_a_code_exit_marks_the_tab_error_with_the_code_in_the_tooltip", async () => {
     const { app } = await openTabs({ api: [agent("a", "idle", "x")], web: [] });
 
     app.exitDaemon({ code: 3 }, path("api"));
 
-    await waitFor(() => expect(tab("api").querySelector(".tab-mark")?.getAttribute("data-tone")).toBe("red"));
+    await waitFor(() => expect(tab("api").querySelector(".tab-mark")?.getAttribute("data-kind")).toBe("error"));
 
     fireEvent.pointerOver(tab("api"), { pointerType: "mouse" });
 
-    expect((await screen.findByRole("tooltip")).textContent).toBe("/Users/me/apiDaemon exited 3");
+    expect((await screen.findByRole("tooltip")).textContent).toBe("apiDaemon exited 3");
   });
 
   it("u185_a_signal_exit_reads_by_signal", async () => {
@@ -25,7 +25,7 @@ describe("u185 a Daemon gone, in a tab", () => {
     app.exitDaemon({ code: null }, path("api"));
     fireEvent.pointerOver(tab("api"), { pointerType: "mouse" });
 
-    expect((await screen.findByRole("tooltip")).textContent).toBe("/Users/me/apiDaemon exited by signal");
+    expect((await screen.findByRole("tooltip")).textContent).toBe("apiDaemon exited by signal");
   });
 
   it("u185_the_header_text_shows_for_the_open_project_only", async () => {
@@ -48,7 +48,7 @@ describe("u185 a Daemon gone, in a tab", () => {
     app.exitDaemon({ code: 1 }, path("api"));
 
     await waitFor(() => expect(tab("api").querySelector(".tab-mark")).not.toBeNull());
-    expect(tab("web").querySelector(".tab-mark")?.getAttribute("data-tone")).toBe("amber");
+    expect(tab("web").querySelector(".tab-mark")?.getAttribute("data-kind")).toBe("needs-you");
     expect(within(screen.getByRole("region", { name: "Rail" })).queryByRole("button", { name: "Reopen" })).toBeNull();
   });
 

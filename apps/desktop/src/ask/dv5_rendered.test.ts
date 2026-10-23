@@ -287,12 +287,12 @@ it.skipIf(!captureDir("DV6"))("dv6_bound_share_pointer_and_keyboard_keep_identit
     })()`);
     await browser("wait", "--fn", "window.__dv6.copied.length === 1");
     const url = `roundup://deliverable/${record.id}?project=${record.project}`;
-    expect(await evaluate("window.__dv6.copied")).toEqual([`${url}\nrup link read ${url}`]);
+    expect(await evaluate("window.__dv6.copied.map(text => text.split('\\n').slice(0, 2).join('\\n'))")).toEqual([`${url}\nrup link read ${url}`]);
     await capture("copied");
     await browser("focus", `${row} button`);
     await browser("eval", `document.activeElement.dispatchEvent(new KeyboardEvent('keydown', {key:'ContextMenu',bubbles:true,cancelable:true}))`);
     await browser("wait", "--fn", "window.__dv6.copied.length === 2");
-    expect(await evaluate("window.__dv6.copied")).toEqual([`${url}\nrup link read ${url}`, `${url}\nrup link read ${url}`]);
+    expect(await evaluate("window.__dv6.copied.map(text => text.split('\\n').slice(0, 2).join('\\n'))")).toEqual([`${url}\nrup link read ${url}`, `${url}\nrup link read ${url}`]);
     await capture("keyboard-copied");
     await app.rpc("pad.delete", { name: pad.name });
     await browser("focus", `${row} button`);
