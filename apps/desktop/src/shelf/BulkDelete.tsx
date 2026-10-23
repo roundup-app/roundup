@@ -175,6 +175,8 @@ export const createBulkDelete = <Id,>(props: {
     return [...new Set(targets.flatMap((target) => target.owner ? [target.owner] : []))];
   });
 
+  const labelOf = (target: Target<Id>) => `${target.label}${props.noun === "Todos" ? ` #${String(target.id)}` : ""}`;
+
   const bar = () => (
     <Show when={props.selected().length > 0 || failures().length > 0 || question()?.kind === "pending" || readFailure() !== null}>
       <div class="shelf-bulk" role="group" aria-label={copy.shelfDeletion}>
@@ -188,19 +190,12 @@ export const createBulkDelete = <Id,>(props: {
         <Show when={owners().length > 0}>
           <p>{copy.ownedBy}{owners().join(copy.comma)}{copy.agentsMayStillBeWritingDeletingDoesNot}</p>
         </Show>
-        <Show when={question()?.kind !== "pending" && !readFailure() && failures().length > 0} fallback={
-          <ReservedLine data-deletion-pending={question()?.kind === "pending"} aria-busy={question()?.kind === "pending"} status={question()?.kind === "pending" ? copy.draftStatus.pending : null} message={readFailure()}>
-            <Show when={readFailure()}><button data-button="quiet" type="button" onClick={() => void readback?.()}>{copy.refresh}</button></Show>
-          </ReservedLine>
-        }>
-          <For each={failures()}>{failure => {
-            const label = `${failure.target.label}${props.noun === "Todos" ? ` #${String(failure.target.id)}` : ""}`;
-
-            return <ReservedLine message={`${copy.couldNotDelete} ${label}${copy.colon}${failure.message}`} content={<span>{label}{copy.colon}{failure.message}</span>}>
-              <IconButton aria-label={`${copy.clear} ${label}`} onClick={() => setFailures(held => held.filter(other => other.target.id !== failure.target.id))}><Icon name="x" /></IconButton>
-            </ReservedLine>;
-          }}</For>
-        </Show>
+        <ReservedLine data-deletion-pending={question()?.kind === "pending"} aria-busy={question()?.kind === "pending"} status={question()?.kind === "pending" ? copy.draftStatus.pending : null} message={readFailure() ?? (failures().length > 0 ? `${copy.couldNotDelete}\n${failures().map(failure => `${labelOf(failure.target)}${copy.colon}${failure.message}`).join("\n")}` : null)}
+          content={failures().length > 0 && !readFailure() ? <For each={failures()}>{failure => <span>{labelOf(failure.target)}{copy.colon}{failure.message}</span>}</For> : undefined}>
+          <Show when={readFailure()} fallback={<For each={failures()}>{failure => <IconButton aria-label={`${copy.clear} ${labelOf(failure.target)}`} onClick={() => setFailures(held => held.filter(other => other.target.id !== failure.target.id))}><Icon name="x" /></IconButton>}</For>}>
+            <button data-button="quiet" type="button" onClick={() => void readback?.()}>{copy.refresh}</button>
+          </Show>
+        </ReservedLine>
       </div>
     </Show>
   );
