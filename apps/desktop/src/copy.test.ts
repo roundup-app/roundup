@@ -32,6 +32,8 @@ const STRUCTURE = new Set([
   "Edit", "MultiEdit", "Write", "NotebookEdit", "textarea, select, [contenteditable]:not([contenteditable=false]), input:not([type=radio]):not([type=checkbox]):not([type=button])",
   // U2749b: a development/test invariant, never App copy.
   "Tooltip anchor excludes its opening pointer",
+  // U3309: physical key codes (including the generated Digit template) never render as copy.
+  "ArrowUp", "ArrowDown", "Digit ",
   // U2239/U3721–U3724: registry key names and physical codes are executable structure, not prose.
   "D", "E", "O", "A", "X", "C", "Tab", "J K", "KeyA", "KeyX", "KeyC", "shift+Tab", "Esc", "Escape", "Enter", "KeyD", "KeyE", "KeyO", "J", "⇧J", "K", "M", "W", "S", "T", "I", "KeyI", "KeyJ", "KeyK", "KeyM", "KeyW", "KeyS", "KeyT", "Shift+KeyJ", "Shift", "Control", "Alt", "Meta", "CapsLock",
   "index.html has no #root element", "the keystroke run needs a Project open", "RpcError",
