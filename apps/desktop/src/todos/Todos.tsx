@@ -290,6 +290,7 @@ export const Todos = (props: {
     const id = picking()?.id;
     const skipRefocus = namingNext !== null || naming() !== null;
 
+    pickAdvance = undefined;
     setPicking(null);
 
     // U3743: the dialog opens from the select callback, so the picker's close order cannot lose it; the row keeps no focus then.
@@ -597,6 +598,7 @@ export const Todos = (props: {
   const stopMoving = () => {
     const id = moving()?.id;
 
+    moveAdvance = undefined;
     setMoving(null);
 
     if (id !== undefined) queueMicrotask(() => triageRowOf(id)?.focus());
