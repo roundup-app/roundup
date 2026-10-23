@@ -126,7 +126,7 @@ export const HintLine = () => {
       if (records.some(record => record.target instanceof Element && record.target.matches('.window, .switcher, [data-triage-toggle]'))) setRevision(now => now + 1);
     });
 
-    observer.observe(document.querySelector('.window')!, { subtree: true, attributes: true, attributeFilter: ['aria-pressed', 'data-shelf-mode', 'data-shelf-maximised', 'data-can-take', 'data-has-result'] });
+    observer.observe(document.body, { subtree: true, attributes: true, attributeFilter: ['aria-pressed', 'data-shelf-mode', 'data-shelf-maximised', 'data-can-take', 'data-has-result'] });
     createEffect(() => {
       place();
       queueMicrotask(() => {
