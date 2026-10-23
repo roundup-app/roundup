@@ -76,7 +76,7 @@ describe("u3713 the leader opens the capture field", () => {
   it("u3713_help_and_panel_list_the_key_from_the_table", async () => {
     await mount();
     armLeader(new KeyboardEvent("keydown", { code: "KeyK", metaKey: true }));
-    expect(screen.getByRole("status").textContent).toContain("T  Capture");
+    expect(screen.getByRole("status").textContent).toContain("T Capture");
     await openField();
     fireEvent.keyDown(field()!, { key: "Escape", code: "Escape" });
     await waitFor(() => expect(field()).toBeNull());
@@ -85,7 +85,7 @@ describe("u3713 the leader opens the capture field", () => {
     rail.setAttribute("role", "tree");
     fireEvent.keyDown(rail, { key: "?", code: "Slash", shiftKey: true });
     await waitFor(() => expect(document.querySelector(".help")).not.toBeNull());
-    expect(document.querySelector(".help")!.textContent).toContain("⌘K T  Capture a Todo");
+    expect(document.querySelector(".help")!.textContent).toContain("⌘K T Capture a Todo");
     rail.remove();
   });
 

@@ -52,7 +52,7 @@ it("u2228a_the_add_agent_tooltip_stays", async () => {
   expect(add.closest("[title]")?.getAttribute("title")).toBe("");
   fireEvent.pointerOver(add, { pointerType: "mouse" });
   fireEvent.pointerMove(add, { pointerType: "mouse" });
-  await waitFor(() => expect(screen.getAllByRole("tooltip").map((tip) => tip.textContent)).toEqual([`${copy.addAgentLabel}${CHORDS[0]!.keys}`]));
+  await waitFor(() => expect(screen.getAllByRole("tooltip").map((tip) => tip.textContent)).toEqual([`${copy.addAgentLabel} ${CHORDS[0]!.keys}`]));
 });
 
 it("u2228c_a_row_opens_no_tooltip", async () => {
