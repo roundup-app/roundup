@@ -168,12 +168,19 @@ impl Shared {
                 });
                 match result {
                     Ok(out) => {
+                        let mut calls = shared
+                            .events
+                            .tool_calls
+                            .lock()
+                            .unwrap_or_else(|e| e.into_inner());
                         for item in &removal.removed {
                             if item.kind == RemovalKind::Agent {
                                 runs.remove(&item.id);
+                                calls.remove(&item.id);
                             }
                         }
                         runs.remove(&id_owned);
+                        calls.remove(&id_owned);
                         Ok((removal, out))
                     }
                     Err(err) => {
@@ -333,6 +340,77 @@ mod tests {
         let silent = running_agent(&shared, None);
         shared.remove(Actor::user(), &silent).await.unwrap();
         assert_eq!(*shared.events.tool_calls.lock().unwrap(), expected);
+    }
+
+    #[tokio::test]
+    async fn a3342a_workstream_removal_prunes_only_its_agents() {
+        let (_dir, _, shared) = shared_over_temp_dir(Arc::new(|| 0));
+        let ws = shared
+            .rail()
+            .insert(NodeKind::Workstream, "w", None, None)
+            .unwrap()
+            .id;
+        shared.rail().allocate_attempt(&ws).unwrap();
+        shared.runs().insert(
+            ws.clone(),
+            Slot::Running(Run {
+                yolo: false,
+                startup_context: true,
+                attempt: "1".into(),
+                status_revision: 1,
+                closing: false,
+                ended: false,
+                adapter: ClaudeCode::starting(|| 0),
+                prompt: None,
+                first_pending: false,
+                first_completion: None,
+                first_prompt: None,
+                steer: None,
+                session_started: false,
+                starred: false,
+                interrupt: None,
+                named: true,
+                terminal_id: "1".into(),
+                cwd: "/".into(),
+            }),
+        );
+        let finished = running_agent(&shared, Some(&ws));
+        let living = running_agent(&shared, Some(&ws));
+        let sibling = shared
+            .rail()
+            .insert(NodeKind::Workstream, "sibling", None, None)
+            .unwrap()
+            .id;
+        let survivor = running_agent(&shared, Some(&sibling));
+        for id in [&ws, &finished, &living, &survivor] {
+            record_call(&shared, id);
+        }
+        shared
+            .observe(
+                Actor::daemon(),
+                &finished,
+                "1",
+                Observation::Signal(serde_json::json!({"hook_event_name": "SessionEnd"})),
+            )
+            .unwrap();
+        let before = shared.events.tool_calls.lock().unwrap().clone();
+
+        let removal = shared.remove_workstream(Actor::user(), &ws).await.unwrap();
+
+        assert!(removal.removed.iter().any(|item| item.id == finished));
+        assert!(removal.kept.iter().any(|item| item.id == living));
+        assert_eq!(shared.node(&living).unwrap().parent, None);
+        assert_eq!(
+            shared.node(&survivor).unwrap().parent.as_deref(),
+            Some(sibling.as_str())
+        );
+        let calls = shared.events.tool_calls.lock().unwrap();
+        assert!(!calls.contains_key(&ws));
+        assert!(!calls.contains_key(&finished));
+        assert_eq!(calls.len(), 2);
+        for id in [&living, &survivor] {
+            assert_eq!(calls.get(id), before.get(id));
+        }
     }
 
     #[tokio::test]
