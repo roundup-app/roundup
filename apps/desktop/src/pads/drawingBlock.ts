@@ -1,3 +1,4 @@
+import { appDark, followAppAppearance } from "../settings/preferences";
 import { copy } from "../copy";
 import { createElement } from "react";
 import type { ComponentType } from "react";
@@ -44,6 +45,7 @@ const signature = (elements: readonly CanvasElement[]) => elements.map((element)
 /** U149: an Excalidraw scene on a canvas, editable unless the Pad is read-only. */
 export const mountDrawing = (canvas: CanvasApi): VisualMount => (host, { text, readonly, replace }) => {
   let root: ReturnType<typeof createRoot> | undefined;
+  let stopAppearance: (() => void) | undefined;
   // Loading may touch versions; only the user's own gesture counts as an edit.
   let touched = false;
 
@@ -60,12 +62,15 @@ export const mountDrawing = (canvas: CanvasApi): VisualMount => (host, { text, r
     const elements = isStored(skeleton) ? canvas.restoreElements(skeleton) : canvas.convertToExcalidrawElements(skeleton, { regenerateIds: false });
     let last = signature(elements);
 
+    const initialData = { elements, scrollToContent: true };
+
     root = createRoot(host);
-    root.render(
+
+    const render = () => root?.render(
       createElement(canvas.Excalidraw, {
-        initialData: { elements, scrollToContent: true },
+        initialData,
         viewModeEnabled: readonly,
-        theme: matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light",
+        theme: appDark() ? "dark" : "light",
         UIOptions: { canvasActions: { loadScene: false, saveToActiveFile: false, export: false, saveAsImage: false } },
         onChange: (current) => {
           if (readonly) return;
@@ -84,6 +89,9 @@ export const mountDrawing = (canvas: CanvasApi): VisualMount => (host, { text, r
         },
       }),
     );
+
+    render();
+    stopAppearance = followAppAppearance(render);
   } catch (error) {
     const source = document.createElement("pre");
     const line = document.createElement("p");
@@ -96,6 +104,7 @@ export const mountDrawing = (canvas: CanvasApi): VisualMount => (host, { text, r
   }
 
   return () => {
+    stopAppearance?.();
     // Unmounting during React's own render pass throws; defer it.
     queueMicrotask(() => root?.unmount());
   };

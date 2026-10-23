@@ -5,9 +5,50 @@ use std::time::Duration;
 
 use rpc::{RpcError, code};
 use serde::Deserialize;
+use tauri::Emitter;
 use tauri::menu::{Menu, MenuEvent, MenuItem, MenuItemKind, Submenu};
 use tauri::{AppHandle, LogicalPosition, Manager, Runtime, State, WebviewWindow};
 use tokio::sync::oneshot;
+
+/// U3799: extend Tauri's standard application menu without replacing its native actions.
+pub(crate) fn app_menu<R: Runtime>(app: &AppHandle<R>) -> tauri::Result<Menu<R>> {
+    let menu = Menu::default(app)?;
+    #[cfg(target_vendor = "apple")]
+    let application = menu
+        .items()?
+        .into_iter()
+        .next()
+        .and_then(|item| {
+            if let MenuItemKind::Submenu(submenu) = item {
+                Some(submenu)
+            } else {
+                None
+            }
+        })
+        .expect("Tauri's macOS default starts with the application submenu");
+    #[cfg(not(target_vendor = "apple"))]
+    let application = {
+        let submenu = Submenu::new(app, app.package_info().name.clone(), true)?;
+        submenu.append(&tauri::menu::PredefinedMenuItem::about(app, None, None)?)?;
+        menu.prepend(&submenu)?;
+        submenu
+    };
+    application.insert(
+        &MenuItem::with_id(app, "app-settings", "Settings…", true, Some("CmdOrCtrl+,"))?,
+        1,
+    )?;
+    Ok(menu)
+}
+
+pub(crate) fn app_chosen<R: Runtime>(app: &AppHandle<R>, event: &MenuEvent) {
+    if event.id().0 == "app-settings" {
+        if let Err(error) = app.emit("open-app-settings", ()) {
+            eprintln!("desktop: could not open Settings: {error}");
+        }
+    } else {
+        app.state::<Choice>().chosen(event);
+    }
+}
 
 /// One item of the webview's menu model. `shortcut` is text appended to the label, never an accelerator.
 #[derive(Deserialize)]

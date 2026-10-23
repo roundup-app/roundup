@@ -1,3 +1,4 @@
+import { questionDialog, answerQuestion } from "../shelf/bulkQuestionHarness";
 // @vitest-environment jsdom
 import * as v from "valibot";
 import type { ChildProcess } from "node:child_process";
@@ -1391,8 +1392,7 @@ describe("u2773 unfinished Decision forms on real Projects", () => {
     expect(drafts(second.dir).list()).toEqual([other]);
     fireEvent.pointerEnter(screen.getByRole("tab", { name: /^first\b/ }).closest(".project-tab")!);
     fireEvent.click(screen.getByRole("button", { name: "Close first" }));
-    fireEvent.click(await screen.findByRole("button", { name: "Stop and close" }));
-    await waitFor(() => expect(screen.queryByRole("alertdialog")).toBeNull());
+    await questionDialog().then(() => answerQuestion(true));
     await waitFor(() => expect(screen.queryByRole("tab", { name: /^first\b/, hidden: true })).toBeNull());
     app.chooseProjectPath = async () => first.dir;
     fireEvent.click(screen.getByRole("button", { name: "Open a folder" }));

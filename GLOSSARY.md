@@ -934,3 +934,9 @@ Incomparable clock lifetimes never authorize continuous execution through a gap.
 
 **Collapsible**:
 An expandable App region with a named trigger; closing it retains its content.
+
+**Native question** (`NativeQuestion`, `App.ask`, `NativeAlert`):
+A user-requested system confirmation containing its title, complete consequences and two named buttons. Only an affirmative answer authorizes the captured action; cancellation or a failed request authorizes nothing. NativeAlert owns pending-request suppression, retry and focus return, while the originating surface owns targets and mutations.
+
+**Shared floating surface** (`Dialog`, `--surface`, `--button-neutral`, `--button-accent-ink`, `--radius-pill`):
+The Token-owned opaque panel, hairline, radius and tight depth used by web forms, anchored panels/menus and Terminal Bubbles. Within it the existing primary and quiet button kinds have filled pill variants. `Dialog.Root.instant` suppresses fades for recovery; keyboard actions and reduced motion are always instant. Native questions retain system appearance.
