@@ -20,10 +20,6 @@
   white-space: pre;
 }
 
-.capture-field:focus {
-  outline-width: 0;
-}
-
 .capture-field::placeholder {
   color: var(--grey);
   opacity: 1;

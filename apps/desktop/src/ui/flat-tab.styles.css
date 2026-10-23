@@ -84,7 +84,6 @@
 [data-flat-add] {
   --button-surface: transparent;
   --button-radius: 0;
-  --pressed: transparent;
 }
 
 /* A library trigger inside a tab (the Project tab name) never paints its own selected or hover ground; only the tab ground marks selection. */
