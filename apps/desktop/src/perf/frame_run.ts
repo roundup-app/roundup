@@ -1,3 +1,4 @@
+// fallow-ignore-file duplicate-export -- Clock is the frame driver’s sleep seam; state/clock owns the App polling clock.
 import type { AppSeam } from "../app/seam";
 import { toBase64 } from "../terminal/base64";
 import { createXtermEmulators } from "../terminal/emulator";

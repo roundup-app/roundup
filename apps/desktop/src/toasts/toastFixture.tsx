@@ -1,3 +1,4 @@
+// fallow-ignore-file duplicate-export -- todo builds a toast event fixture; todos/testHarness builds editable Todo fixtures.
 import { fireEvent, render } from "@solidjs/testing-library";
 import { createSignal } from "solid-js";
 import type { Actor } from "@contracts/Actor";
