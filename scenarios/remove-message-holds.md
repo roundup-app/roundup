@@ -37,14 +37,19 @@ Retirement notes (policy; these are the only permitted product references to the
 - Retire U107's control-mode clauses (`scenarios/ui-attention.md`) and U375's control-mode clauses (`scenarios/ui-first-journey.md`), U530–U532's Takeover/watch clauses (`scenarios/ui-quick-jump.md`), U3782's Pause/Resume clauses, U3783's Held/Allow rows and U3784's step-target glide (`scenarios/ui-note-queue.md`). Amend U3780/U3787 to retain the list and sole native input under B3563a–b. Retire A35's Held execution/Takeover consent clauses and corresponding process-cost rows (`scenarios/workstream-rewind.md`); preserve its other execution rules. Amend draft/reaction/recovery and other dependent scenarios wherever their only dependency is the retired hold.
 - Laws M1–M10 are reviewed: M1 at-most-once, M4 ordering, M5 finality/ids, M6 no silent loss, M7 receiver eligibility, M9 replay and M10 eligible-delivery liveness retain their obligations under inbox transport. M2's Held-owner release and M3's Takeover isolation are explicitly retired by this work order, overriding V3/V7's prohibition on deleting those obsolete obligations; replace isolation with zero Message writes to Terminal input. M8 retains bounded routing/no loops without a Held terminal state until #3564 retires escalation. Update `scenarios/proofs.md`, `proofs/messages`, Rust replay tests and `docs/messages.md` together; do not make an obsolete law trivially true or weaken any retained obligation. `just proofs` must still print `ALL PROOFS CHECK`, and mutants must reject breaks of retained obligations.
 
-Policy: a checked-in lint/test run by existing CI fails on case-insensitive literal `takeover` or `held` anywhere in `apps/desktop/src`, `crates/*/src` or `crates/contracts`, including comments and tests. The guard's diagnostic names each offending file and exits nonzero; a clean tree exits zero. Its regression inserts each spelling/case in temporary scanned trees and observes the exit code, plus a clean-tree case. Integrate through an existing unfrozen check surface; this Issue does not authorize edits to frozen loop machinery. Source inventories and product docs outside the scan must also lose obsolete references; retirement notes in scenarios are the sole exception. Frozen agent/loop instructions remain outside this implementation's edit authority.
+Policy: a checked-in lint/test run by existing CI fails on case-insensitive literal `takeover` or `held` anywhere in `apps/desktop/src`, `crates/*/src` or `crates/contracts`, including comments and tests. The guard's diagnostic names each offending file and exits 1; a clean tree exits 0. Its regression inserts each spelling/case in temporary scanned trees and observes the exit code, plus a clean-tree case. Integrate through an existing unfrozen check surface; this Issue does not authorize edits to frozen loop machinery. Source inventories and product docs outside the scan must also lose obsolete references; retirement notes in scenarios are the sole exception. Frozen agent/loop instructions remain outside this implementation's edit authority.
 
 Guard acceptance script (policy):
 
 | Fixture / command | Result | Exit |
 | --- | --- | --- |
 | CI guard on clean production roots | no retired word | 0 |
-| CI guard with either retired word, lower/upper/mixed case, in each scanned root | each offending file named | nonzero |
+| CI guard with `takeover`, lower/upper/mixed case, in `apps/desktop/src` | offending file named | 1 |
+| CI guard with `takeover`, lower/upper/mixed case, in `crates/*/src` | offending file named | 1 |
+| CI guard with `takeover`, lower/upper/mixed case, in `crates/contracts` | offending file named | 1 |
+| CI guard with `held`, lower/upper/mixed case, in `apps/desktop/src` | offending file named | 1 |
+| CI guard with `held`, lower/upper/mixed case, in `crates/*/src` | offending file named | 1 |
+| CI guard with `held`, lower/upper/mixed case, in `crates/contracts` | offending file named | 1 |
 | `loop/rules.sh vocab` | no forbidden public vocabulary | 0 |
 | `just contracts-fresh` after generation | generated contracts match Rust | 0 |
 | `just proofs` | `ALL PROOFS CHECK` | 0 |
