@@ -4,6 +4,8 @@
 /* The Token file (docs/design-system.md, "Tokens"): the light values, then the dark column and the contrast setting. */
 
 :root {
+  --text-selection: Highlight;
+  --text-selection-ink: HighlightText;
   color-scheme: light dark;
   --ground: #ffffff;
   --sunken: #f5f5f7;
@@ -12,7 +14,7 @@
   --selected-hover: rgba(0, 0, 0, 0.07);
   --blur-bubble-backdrop: 12px;
   --scrim: rgba(0, 0, 0, 0.4);
-  /* U3767: the one order of floating surfaces, lowest first. */
+  /* U3295a: the one order of floating surfaces, lowest first. */
   --layer-drawer: 2;
   --layer-popover: 3;
   --layer-dialog: 4;
