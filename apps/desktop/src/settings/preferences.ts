@@ -1,4 +1,4 @@
-import { createEffect, createSignal, onCleanup, untrack } from "solid-js";
+import { createEffect, createRoot, createSignal, on, onCleanup, untrack } from "solid-js";
 import * as v from "valibot";
 import { storedValue } from "../state/storage";
 import { DEFAULT_FONT_SIZE, MIN_FONT_SIZE, MAX_FONT_SIZE } from "../terminal/fontSize";
@@ -82,3 +82,29 @@ export const withAppSettings = (app: AppSeam, resumesDoor: (id: string | number)
     return app.rpc(method, params);
   },
 });
+
+const DARK_SCHEME = "(prefers-color-scheme: dark)";
+
+/** An explicit App choice overrides macOS; System reads the native media query each time. */
+export const appDark = (): boolean => {
+  const mode = appSettings().mode;
+
+  return mode === "system" ? (window.matchMedia?.(DARK_SCHEME).matches ?? false) : mode === "dark";
+};
+
+/** Follow App and macOS choices; consumers apply their initial theme and release this watch when unmounted. */
+export const followAppAppearance = (changed: () => void): (() => void) => {
+  const query = window.matchMedia?.(DARK_SCHEME);
+
+  const dispose = createRoot(dispose => {
+    createEffect(on(() => appSettings().mode, changed, { defer: true }));
+
+    return dispose;
+  });
+
+  const follow = () => { if (appSettings().mode === "system") changed(); };
+
+  query?.addEventListener("change", follow);
+
+  return () => { dispose(); query?.removeEventListener("change", follow); };
+};

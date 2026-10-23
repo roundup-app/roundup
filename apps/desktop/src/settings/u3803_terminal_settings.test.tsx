@@ -5,8 +5,7 @@ import * as xtermModule from "@xterm/xterm";
 import { info, terminal } from "../testing/nodes";
 import { mountPane } from "../terminal/paneHarness";
 import { createXtermEmulators } from "../terminal/emulator";
-import { followTerminalTheme, appDark } from "../terminal/theme";
-import { applyAppAppearance, saveAppSettings } from "./preferences";
+import { applyAppAppearance, saveAppSettings, followAppAppearance, appDark } from "./preferences";
 
 afterEach(() => { cleanup(); vi.restoreAllMocks(); vi.unstubAllGlobals(); localStorage.clear(); });
 
@@ -80,7 +79,7 @@ it("u3805_system_follows_a_change_of_the_media_query", () => {
   vi.stubGlobal("matchMedia", () => query);
   saveAppSettings({ mode: "system" });
   const observed: boolean[] = [];
-  const stop = followTerminalTheme(() => observed.push(appDark()));
+  const stop = followAppAppearance(() => observed.push(appDark()));
   Object.assign(query, { matches: true });
   query.dispatchEvent(new Event("change"));
   Object.assign(query, { matches: false });

@@ -1,10 +1,10 @@
 import tokens from "../tokens.css?inline";
 import { createRoot, createEffect, on } from "solid-js";
-import { appSettings } from "../settings/preferences";
+import { appSettings, appDark, followAppAppearance } from "../settings/preferences";
 import { DEFAULT_FONT_SIZE } from "./fontSize";
 import { createLinkProvider } from "./linkProvider";
 import type { Printed } from "./links";
-import { appDark, followTerminalTheme, terminalThemeFor } from "./theme";
+import { terminalThemeFor } from "./theme";
 import { attachTurns } from "./turns";
 import type { TurnFacts, TurnRows } from "./turns";
 import { FitAddon } from "@xterm/addon-fit";
@@ -236,7 +236,7 @@ export const createXtermEmulators = (
       terminal.options.theme = terminalThemeFor(appDark());
     };
 
-    const stopScheme = followTerminalTheme(followScheme);
+    const stopScheme = followAppAppearance(followScheme);
 
     const restoreFontViewport = () => {
       fontFrame = null;
