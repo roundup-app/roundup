@@ -19,7 +19,11 @@ import { createQueue } from "./queue";
 import { createTimelineLog } from "../timeline/log";
 import type { TimelineLog } from "../timeline/log";
 import type { QueueView } from "./queue";
+import { createSettingsView } from "./settingsView";
+import type { SettingsViewState } from "./settingsView";
 import { createTakeover } from "./takeover";
+import { createNoteQueue } from "./noteQueue";
+import type { NoteQueue } from "./noteQueue";
 import type { TakeoverState } from "./takeover";
 import type { RailStorage } from "../rail/persist/storage";
 import type { RailState } from "./rail";
@@ -130,6 +134,10 @@ export type ConnectedProject = {
   asks: AsksState;
   /** U187: the Takeover the user holds. */
   takeover: TakeoverState;
+  /** U3780: the notes waiting for each Agent. */
+  notes: NoteQueue;
+  /** U3764: the Project settings view in the centre. */
+  settingsView: SettingsViewState;
   reducedMotion: Accessor<boolean>;
   /** Milliseconds since the epoch, refreshed on a coarse tick; for elapsed times. */
   now: Accessor<number>;
@@ -167,7 +175,7 @@ export const connectProject = async (
   const decisions = createRoot((dispose) => {
     stopDecisions = dispose;
 
-    return createDecisions(app, events, daemonExit, drafts);
+    return createDecisions(app, events, daemonExit, drafts, () => new Set(rail.nodes.map((node) => node.id)));
   });
 
   if (ended) stopDecisions();
@@ -194,7 +202,9 @@ export const connectProject = async (
   importing.reconnect(app, onImported);
   drafts.importing = importing;
 
-  return { project, drafts, app, events, rail, queue, timeline, importing, worktrees: createWorktreeState(app, rail, now, daemonExit), drawer: createDrawer(), decisions, asks: createAsks(app, events), takeover: createTakeover(app, events, daemonExit), reducedMotion, now, contractNotice, daemonExit, stopTerminalScheme: () => { timeline.stop(); stopDecisions(); stopQueue(); stopTerminalScheme(); } };
+  const takeover = createTakeover(app, events, daemonExit);
+
+  return { project, drafts, app, events, rail, queue, timeline, importing, worktrees: createWorktreeState(app, rail, now, daemonExit), drawer: createDrawer(), decisions, asks: createAsks(app, events), takeover, settingsView: createSettingsView(), notes: createNoteQueue(app, events, reducedMotion, daemonExit), reducedMotion, now, contractNotice, daemonExit, stopTerminalScheme: () => { timeline.stop(); stopDecisions(); stopQueue(); stopTerminalScheme(); } };
 };
 
 /** App-run authority for owners outside a connection, including Project tabs.

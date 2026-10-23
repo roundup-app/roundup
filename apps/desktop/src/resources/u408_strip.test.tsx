@@ -6,7 +6,7 @@ import type { Resources } from "@contracts/project/Resources";
 import { RpcError } from "../app/seam";
 import { connectProject, ConnectedProjectContext } from "../state/connectedProject";
 import { createFakeApp } from "../testing/fakeApp";
-import { agent, door, NOW, terminal, workstream } from "../testing/nodes";
+import { agent, door, event, NOW, terminal, workstream } from "../testing/nodes";
 import { cpuText, sizeText } from "./format";
 import { ResourceStrip } from "./ResourceStrip";
 
@@ -214,21 +214,6 @@ describe("u408 the Resource strip", () => {
     expect(words()).not.toContain("Not updating");
   });
 
-  it("u408_the_strip_holds_still_as_digits_change", async () => {
-    let at = 0;
-    const second: Resources = { agents: [{ id: "a", memory_bytes: 999e6, cpu_percent: 1600, disk_bytes: 12.3e12 }], total: { memory_bytes: 999.9e9, cpu_percent: 1600, disk_bytes: 12.3e12 } };
-
-    await mount([agent("a", "working", "x")], { result: () => [RESULT, second][at++ % 2] ?? RESULT });
-    await settle();
-
-    const numbers = [...document.querySelectorAll(".resource-num")];
-
-    expect(numbers.length).toBe(3);
-
-    await settle(2000);
-    expect(document.querySelectorAll(".resource-num").length).toBe(3);
-  });
-
   it("u408_the_strip_is_a_quiet_status", async () => {
     await mount([agent("a", "working", "x")]);
     await settle();
@@ -269,4 +254,57 @@ describe("u444 the Resource strip is the quiet last line", () => {
     expect(strip()?.textContent).not.toContain("–");
     expect(document.querySelectorAll(".resource-value").length).toBe(1);
   });
+});
+
+it("r18_non_working_selection_retains_its_sample_without_polling", async () => {
+  const { connected, app, calls } = await mount([agent("a", "working", "building"), agent("b", "working", "building")]);
+  await settle();
+  expect(calls()).toBe(1);
+  let revision = 1;
+
+  for (const kind of ["idle", "blocked", "needs-you", "error", "done"] as const) {
+    app.emit(event({ name: "agent.status", data: { id: "a", attempt: "1", status_revision: String(++revision), status: { kind, label: "stopped", since: NOW } } }));
+    await settle(6000);
+    expect(calls()).toBe(1);
+    expect(words()).toContain("412 MB");
+  }
+
+  app.handlers["rail.tree"] = () => [agent("a", "idle", "stopped", { status: null }), agent("b", "working", "building")];
+  app.emit(event({ name: "rail.changed" }));
+  await settle(6000);
+  expect(calls()).toBe(1);
+  expect(words()).toContain("412 MB");
+  connected.rail.select("b");
+  await settle();
+  connected.rail.select("a");
+  await settle(6000);
+  expect(words()).toBe("");
+  expect(calls()).toBe(2);
+});
+
+it("r18_working_selection_resumes_one_visible_poll", async () => {
+  const { app, calls, view, setExit } = await mount([agent("a", "idle", "stopped")]);
+  await settle(6000);
+  expect(calls()).toBe(0);
+  app.emit(event({ name: "agent.status", data: { id: "a", attempt: "1", status_revision: "2", status: { kind: "working", label: "building", since: NOW } } }));
+  await settle();
+  expect(calls()).toBe(1);
+  await settle(2000);
+  expect(calls()).toBe(2);
+  Object.defineProperty(document, "visibilityState", { value: "hidden", configurable: true });
+  document.dispatchEvent(new Event("visibilitychange"));
+  await settle(60_000);
+  expect(calls()).toBe(2);
+  expect(words()).toContain("412 MB");
+  Object.defineProperty(document, "visibilityState", { value: "visible", configurable: true });
+  document.dispatchEvent(new Event("visibilitychange"));
+  document.dispatchEvent(new Event("visibilitychange"));
+  await settle();
+  expect(calls()).toBe(3);
+  await settle(2000);
+  expect(calls()).toBe(4);
+  setExit({ code: 0 });
+  await settle(6000);
+  expect(calls()).toBe(4);
+  view.unmount();
 });

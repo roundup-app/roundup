@@ -3,4 +3,8 @@
 /**
  * Exact decimal currency units per `per_tokens`; an offline comparison, not observed money.
  */
-export type ReferenceRates = { version: string, date: string, currency: string, source: string, basis: string, per_tokens: number, input: string, output: string, cache_read: string, cache_write_five_minute: string, cache_write_one_hour: string, };
+export type ReferenceRates = { 
+/**
+ * The response Model id these rates price; empty when the record names none.
+ */
+model: string, version: string, date: string, currency: string, source: string, basis: string, per_tokens: number, input: string, output: string, cache_read: string, cache_write_five_minute: string, cache_write_one_hour: string, };

@@ -3,7 +3,7 @@
   position: absolute;
   top: var(--space-5);
   left: 50%;
-  z-index: 3;
+  z-index: var(--layer-dialog);
   width: min(480px, calc(100% - var(--space-5)));
   transform: translateX(-50%);
   padding: var(--space-2);

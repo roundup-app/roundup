@@ -83,6 +83,7 @@ const PadBody = (props: {
   const [shown, setShown] = createSignal(parsed?.success ? parsed.output.source : source);
   const [origin, setOrigin] = createSignal(base);
   const [editing, setEditing] = createSignal(Boolean(recovered));
+  createEffect(() => { if (editing()) onCleanup(connected.drafts.editor(destination)); });
   const [conflictActor, setConflictActor] = createSignal<Actor | "unknown" | null>(recovered && (base !== props.initial.text || sourceRevision !== props.initial.revision) ? "unknown" : null);
 
   const conflictLabel = createMemo(() => {
@@ -525,7 +526,7 @@ const PadBody = (props: {
 
             if (parsed?.success && parsed.output.document !== undefined && !ready.restoreDocument(parsed.output.document, parsed.output.editorCaret ?? false)) {
               setInvalid(true);
-              actionFailure.show(copy.draftRetention(connected.project.path, copy.pad, "invalid"));
+              actionFailure.show(copy.draftRetention(connected.project.name, copy.pad, "invalid"));
             }
 
             if (recovered?.selection) ready.restoreSelection(recovered.selection);
@@ -541,7 +542,7 @@ const PadBody = (props: {
         <div class="pad-retained-status"><span class="light">{statusLabel()}</span><button data-button="primary" type="button" disabled={deleted() || invalid()} onClick={() => void resume()}>{copy.resume}</button></div>
       </Show>
       <Show when={retentionProblem()}>{(problem) => <div role="alert" class="pad-retention">
-        <p>{copy.draftRetention(connected.project.path, copy.pad, problem().cause)}</p>
+        <p>{copy.draftRetention(connected.project.name, copy.pad, problem().cause)}</p>
         <div class="diff-actions">
         <button data-button="primary" type="button" onClick={() => connected.drafts.retry()}>{copy.storageRetry}</button>
         <button data-button="quiet" type="button" onClick={() => void navigator.clipboard.writeText(invalid() ? JSON.stringify(retained?.value) : currentDraft() ?? shown()).catch(error => actionFailure.show(copy.copyDraftFailure(String(error))))}>{sourceLabel}</button>

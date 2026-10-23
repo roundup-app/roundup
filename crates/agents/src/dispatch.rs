@@ -26,11 +26,19 @@ impl Module for Agents {
                     measurements.cause = cause;
                 }
                 if let Some(params) = summary {
-                    reply(&measurement::summarize(measurements, rail.tree()?, params)?)
+                    // U3016i: the live Status says whether an Agent still runs.
+                    let runs = shared.runs();
+                    let tree = rail
+                        .tree()?
+                        .into_iter()
+                        .map(|node| shared.present(node, &runs, &rail))
+                        .collect::<Result<Vec<_>, _>>()?;
+                    reply(&measurement::summarize(measurements, tree, params)?)
                 } else {
                     reply(&measurements)
                 }
             }
+            "project.weeklyLimit" => reply(&self.launcher.weekly_limit().await),
             "agent.spawn" => reply(&self.spawn(ctx, params(value)?).await?),
             "agent.extras" => reply(&claude_code::extras::available(
                 &self.launcher.extras_sources(self.project_dir()),
@@ -106,9 +114,13 @@ impl Module for Agents {
                 reply(&door)
             }
             "agent.resume" => {
-                let contracts::agent::ResumeParams { id, mode } = params(value)?;
+                let contracts::agent::ResumeParams {
+                    id,
+                    mode,
+                    permission_mode,
+                } = params(value)?;
                 shared.guard_reach(&ctx.actor, &id, false)?;
-                let node = self.resume(ctx, &id, mode).await?;
+                let node = self.resume(ctx, &id, mode, permission_mode).await?;
                 Self::touch_rail(ctx, &id)?;
                 reply(&node)
             }
@@ -194,6 +206,10 @@ impl Module for Agents {
                         RpcError::unknown_outcome(format!("prompt effect worker ended: {err}"))
                     })??;
                 reply(&())
+            }
+            "decision.revoke" => {
+                let revoke: contracts::decision::RevokeParams = params(value)?;
+                reply(&shared.revoke(ctx, revoke)?)
             }
             "rail.tree" => reply(&shared.tree()?),
             "agent.instructions" => {

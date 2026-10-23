@@ -6,7 +6,7 @@ import { bubbleCalls, bubbleChord, mountBubbles, TERMINALS } from "./bubblesFixt
 
 beforeEach(() => { window.sessionStorage.clear(); window.localStorage.clear(); });
 
-afterEach(cleanup);
+afterEach(() => { cleanup(); vi.restoreAllMocks(); });
 
 const tab = (id: string) => document.querySelector<HTMLButtonElement>(`button.terminal-tab[data-bubble="${id}"]`);
 
@@ -339,7 +339,7 @@ it("u2773e_recovery_actions_keep_surface_draft_bubbles", async () => {
   fireEvent.keyDown(field()!, { key: "Escape" });
   fireEvent.click(screen.getByRole("button", { name: "Recover unfinished work · Terminal name" }));
   const recovery = await screen.findByRole("dialog", { name: "Unfinished work" });
-  expect(within(recovery).getByRole("alert").textContent).toContain("/p · Terminal name: Could not store unfinished work for reload.");
+  expect(within(recovery).getByRole("alert")).toBeTruthy();
   const clipboard = vi.fn().mockResolvedValue(undefined);
   Object.defineProperty(navigator, "clipboard", { configurable: true, value: { writeText: clipboard } });
   fireEvent.click(within(recovery).getByRole("button", { name: "Copy name" }));

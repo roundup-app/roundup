@@ -1,0 +1,201 @@
+{
+  "base": "a6d84964ead7bd30b5a6936ddb5ffb1b9d86b3a0",
+  "head": "8911c5b01edc9d521fcdb7506bdb08954d317729",
+  "viewport": [
+    1512,
+    950
+  ],
+  "scheme": "dark",
+  "clock_ms": 1792713600000,
+  "seeds": [
+    "tree-40",
+    "tabs-8"
+  ],
+  "pairs": [
+    {
+      "scenario": "U3299a",
+      "step": "history",
+      "supplemental": false,
+      "base_failures": [
+        "D1",
+        "D10"
+      ],
+      "head_failures": [
+        "D1",
+        "D10"
+      ]
+    },
+    {
+      "scenario": "U3299a",
+      "step": "overview",
+      "supplemental": false,
+      "base_failures": [],
+      "head_failures": []
+    },
+    {
+      "scenario": "U3299b",
+      "step": "message",
+      "supplemental": false,
+      "base_failures": [],
+      "head_failures": []
+    },
+    {
+      "scenario": "U3299b",
+      "step": "reaction-0",
+      "supplemental": false,
+      "base_failures": [],
+      "head_failures": []
+    },
+    {
+      "scenario": "U3299b",
+      "step": "reaction-1",
+      "supplemental": false,
+      "base_failures": [],
+      "head_failures": []
+    },
+    {
+      "scenario": "U3299b",
+      "step": "reaction-2",
+      "supplemental": false,
+      "base_failures": [],
+      "head_failures": []
+    },
+    {
+      "scenario": "U3299b",
+      "step": "reaction-3",
+      "supplemental": false,
+      "base_failures": [],
+      "head_failures": []
+    },
+    {
+      "scenario": "U3299b",
+      "step": "reaction-4",
+      "supplemental": false,
+      "base_failures": [],
+      "head_failures": []
+    },
+    {
+      "scenario": "U3299b",
+      "step": "reaction-5",
+      "supplemental": false,
+      "base_failures": [],
+      "head_failures": []
+    },
+    {
+      "scenario": "U3299b",
+      "step": "reaction-6",
+      "supplemental": false,
+      "base_failures": [],
+      "head_failures": []
+    },
+    {
+      "scenario": "U3299c",
+      "step": "project-recovery",
+      "supplemental": false,
+      "base_failures": [],
+      "head_failures": []
+    },
+    {
+      "scenario": "U3299c",
+      "step": "retained-ask",
+      "supplemental": false,
+      "base_failures": [],
+      "head_failures": []
+    },
+    {
+      "scenario": "U3299c",
+      "step": "retained-order",
+      "supplemental": false,
+      "base_failures": [
+        "D1",
+        "D10"
+      ],
+      "head_failures": [
+        "D1",
+        "D10"
+      ]
+    },
+    {
+      "scenario": "U3299c",
+      "step": "retained-pad-body",
+      "supplemental": false,
+      "base_failures": [
+        "D1",
+        "D10"
+      ],
+      "head_failures": [
+        "D1",
+        "D10"
+      ]
+    },
+    {
+      "scenario": "U3299c",
+      "step": "retained-pad-heading",
+      "supplemental": true,
+      "base_failures": [
+        "D1",
+        "D10",
+        "D2"
+      ],
+      "head_failures": [
+        "D1",
+        "D10",
+        "D2"
+      ]
+    },
+    {
+      "scenario": "U3299c",
+      "step": "retained-pad-name",
+      "supplemental": false,
+      "base_failures": [],
+      "head_failures": []
+    },
+    {
+      "scenario": "U3299c",
+      "step": "retained-task",
+      "supplemental": false,
+      "base_failures": [],
+      "head_failures": []
+    },
+    {
+      "scenario": "U3299c",
+      "step": "retained-todo",
+      "supplemental": false,
+      "base_failures": [],
+      "head_failures": []
+    },
+    {
+      "scenario": "U3299d",
+      "step": "import-conflict",
+      "supplemental": false,
+      "base_failures": [],
+      "head_failures": []
+    },
+    {
+      "scenario": "U3299d",
+      "step": "imports",
+      "supplemental": false,
+      "base_failures": [],
+      "head_failures": []
+    },
+    {
+      "scenario": "U3299d",
+      "step": "project-tooltip",
+      "supplemental": false,
+      "base_failures": [],
+      "head_failures": []
+    },
+    {
+      "scenario": "U3299d",
+      "step": "publications",
+      "supplemental": false,
+      "base_failures": [],
+      "head_failures": []
+    }
+  ],
+  "regressions": [],
+  "baseline_notes": [
+    "D1 and D10 report existing Crepe vendor CSS literals once the rich editor loads.",
+    "The supplemental authored-heading observation also retains the existing 24px h1 D2 failure; UI source is unchanged from its observed 31c5f38e5c1426d5c2cbde8980d2e655021796d1. Acceptance retention captures use a plain authored note."
+  ]
+}

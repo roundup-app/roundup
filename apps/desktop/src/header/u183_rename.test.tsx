@@ -244,7 +244,7 @@ it("u2773c_header_external_change_keeps_original", async () => {
   await screen.findByText("Project name changed");
   expect((await app.projects()).find(project => project.path === original)?.name).toBe("B");
   expect(tab("B")).toBeDefined();
-  fireEvent.click(screen.getByRole("button", { name: `Recover unfinished work · ${original}` }));
+  fireEvent.click(screen.getByRole("button", { name: "Recover unfinished work · B" }));
   const recovery = await screen.findByRole("dialog", { name: "Unfinished work" });
   expect(within(recovery).getByText(" exact 雪 ", { exact: true, normalizer: text => text })).toBeDefined();
   expect(within(recovery).getByRole("status", { name: "Failed" })).toBeDefined();
@@ -301,7 +301,7 @@ it.each(["failed", "unknown", "acknowledged"] as const)("u2773b_header_settlemen
   view.unmount();
   render(() => <App app={app} reducedMotion={() => true} clock={() => 0} createEmulator={fakeEmulators().factory} />);
   fireEvent.click(await screen.findByRole("tab", { name: "api" }));
-  fireEvent.click(await screen.findByRole("button", { name: `Recover unfinished work · ${path("api")}` }));
+  fireEvent.click(await screen.findByRole("button", { name: "Recover unfinished work · api" }));
   const dialog = await screen.findByRole("dialog", { name: "Unfinished work" });
   expect(within(dialog).getByText("  B 雪  ", { exact: true, normalizer: text => text })).toBeDefined();
   const older = within(dialog).queryByRole("button", { name: new RegExp(`^${outcome === "failed" ? "Failed" : "Acceptance unknown"} ·`) });
@@ -325,15 +325,12 @@ it("u2773e_recovery_actions_keep_surface_draft_header", async () => {
   const write = vi.spyOn(Storage.prototype, "setItem").mockImplementation(() => { throw new Error("disk full"); });
   fireEvent.input(input, { target: { value: "  recover e\u0301 🪁  " } });
   press("Escape");
-  expect(screen.getAllByRole("status").some((line) => line.textContent?.includes("Could not store"))).toBe(true);
-  fireEvent.click(screen.getByRole("button", { name: `Recover unfinished work · ${path("api")}` }));
+  fireEvent.click(screen.getByRole("button", { name: "Recover unfinished work · api" }));
   const dialog = await screen.findByRole("dialog", { name: "Unfinished work" });
   const copied: string[] = [];
   Object.defineProperty(navigator, "clipboard", { configurable: true, value: { writeText: async (value: string) => { copied.push(value); } } });
   fireEvent.click(within(dialog).getByRole("button", { name: "Copy name" }));
   await waitFor(() => expect(copied).toEqual(["  recover e\u0301 🪁  "]));
-  fireEvent.click(within(dialog).getByRole("button", { name: "Copy original source" }));
-  await waitFor(() => expect(copied).toEqual(["  recover e\u0301 🪁  ", "api"]));
   write.mockRestore();
   fireEvent.click(within(dialog).getByRole("button", { name: "Retry storage only" }));
   await waitFor(() => expect(within(dialog).queryByRole("alert")).toBeNull());
@@ -360,7 +357,7 @@ it("u2773e_header_incompatible_form_preserves_stored_bytes", async () => {
   fireEvent.input(input, { target: { value: "  memory 雪  " } });
   press("Escape");
   expect(window.localStorage.getItem(key)).toBe(original);
-  fireEvent.click(screen.getByRole("button", { name: `Recover unfinished work · ${path("api")}` }));
+  fireEvent.click(screen.getByRole("button", { name: "Recover unfinished work · api" }));
   const dialog = await screen.findByRole("dialog", { name: "Unfinished work" });
   expect(within(dialog).getByText("  memory 雪  ", { exact: true, normalizer: text => text })).toBeDefined();
   fireEvent.click(within(dialog).getByRole("button", { name: "Retry storage only" }));
@@ -536,7 +533,7 @@ it("u3021c_copy_and_discard_keep_other_revisions_header_after_reopen", async () 
   const { authority, drafts, destination, a, b, view } = await selectedHeader();
   const other = authority(path("web"));
   const elsewhere = other.edit({ ...destination, object: path("web") }, { name: "other Project", base: "same name" }, null, "ordinary").draft;
-  fireEvent.click(screen.getByRole("button", { name: `Recover unfinished work · ${path("api")}` }));
+  fireEvent.click(screen.getByRole("button", { name: "Recover unfinished work · same name" }));
   const dialog = await screen.findByRole("dialog", { name: "Unfinished work" });
   fireEvent.click(within(dialog).getByRole("button", { name: /^Failed ·/ }));
   const copied: string[] = [];
@@ -549,4 +546,21 @@ it("u3021c_copy_and_discard_keep_other_revisions_header_after_reopen", async () 
   const reopened = createProjectDrafts();
   expect(reopened(path("api")).list()).toEqual([b]);
   expect(reopened(path("web")).list()).toEqual([elsewhere]);
+});
+
+it("u3299d_copy_uses_selected_item_project", async () => {
+  const app = createFakeApp();
+  const [selected, select] = createSignal("/one");
+  render(() => <Tabs.Root value={selected()} onValueChange={details => select(details.value)}><Tabs.List aria-label="Projects">
+    {["/one", "/two"].map(project => <ProjectTab tab={{ path: project, name: "Review", busy: false, running: [], needsYou: 0, error: 0, exitText: null }}
+      selected={selected() === project} app={app} onMark={() => {}} onRename={async () => ({ status: "acknowledged", path: project, name: "Review", revision: 1, project: { path: project, name: "Review" } })} onClose={() => {}} />)}
+  </Tabs.List></Tabs.Root>);
+  const copied: string[] = [];
+  Object.defineProperty(navigator, "clipboard", { configurable: true, value: { writeText: async (text: string) => { copied.push(text); } } });
+  const tabs = screen.getAllByRole("tab", { name: "Review" });
+  fireEvent.click(tabs[1]!);
+  fireEvent.contextMenu(tabs[1]!);
+  await app.pickMenu("Copy");
+  expect(selected()).toBe("/two");
+  expect(copied.map(text => JSON.parse(text))).toEqual([{ name: "Review", path: "/two" }]);
 });

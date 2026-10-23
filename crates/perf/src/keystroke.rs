@@ -43,6 +43,12 @@ const ALLOW_WINDOW: &str = "ROUNDUP_ALLOW_WINDOW";
 /// Starts the Terminal's program: a raw tty, a `ready` line, then `cat`, so each typed byte comes back only through the program.
 const SHELL: &str = "#!/bin/sh\nstty raw -echo\necho ready\nexec cat\n";
 
+/// The Agents of the `glyphs` workload run this instead of `claude` (`crates/rup/tests/e2e/fake_claude.py`): the Daemon starts them and counts them working, with no model call.
+const FAKE_CLAUDE: &str = concat!(
+    env!("CARGO_MANIFEST_DIR"),
+    "/../rup/tests/e2e/fake_claude.py"
+);
+
 /// The frame run's program: the Terminal stream of `docs/motion.md`, 64 lines of 128 bytes with CRLF every 125 ms (64 KiB/s), and whatever is written to the tty echoed back for the report.
 const FRAMES_SHELL: &str = "#!/bin/sh\nstty raw -echo\necho ready\ncat <&0 &\npad=$(printf '%0118d' 0)\nn=0\nwhile :; do\n  i=0\n  while [ $i -lt 64 ]; do\n    printf '%08d%s\\r\\n' $n \"$pad\"\n    n=$((n + 1)); i=$((i + 1))\n  done\n  sleep 0.125\ndone\n";
 
@@ -138,6 +144,16 @@ async fn one_run_with_report(
         std::os::unix::fs::PermissionsExt::from_mode(0o755),
     )?;
 
+    let claude = dir.path().join("claude");
+    std::fs::write(
+        &claude,
+        format!(
+            "#!/bin/sh\nexec python3 {} \"$@\"\n",
+            quote(Path::new(FAKE_CLAUDE))?
+        ),
+    )?;
+    std::fs::set_permissions(&claude, std::os::unix::fs::PermissionsExt::from_mode(0o755))?;
+
     std::fs::create_dir(&project)?;
     std::fs::write(&shell, if frames { FRAMES_SHELL } else { SHELL })?;
     std::fs::set_permissions(&shell, std::os::unix::fs::PermissionsExt::from_mode(0o755))?;
@@ -150,6 +166,9 @@ async fn one_run_with_report(
         .env("HOME", &home)
         .env("XDG_DATA_HOME", &xdg)
         .env("ROUNDUP_RUPD_BIN", std::path::absolute(&wrapper)?)
+        .env("ROUNDUP_RUP_BIN", daemon.with_file_name("rup"))
+        .env("ROUNDUP_CLAUDE_BIN", &claude)
+        .env("CLAUDE_CONFIG_DIR", home.join(".claude"))
         .env("ROUNDUP_DATA_DIR", &data)
         .stdout(Stdio::null())
         .stderr(Stdio::null())

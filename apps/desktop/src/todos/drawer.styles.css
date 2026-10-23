@@ -24,6 +24,7 @@
 .todo-history-count { font-weight: 600; }
 .todo-history-count[data-state="unread"] { color: var(--text); text-decoration: underline; }
 .todo-history-count[data-state="read"] { color: var(--grey); }
+.todo-history-head { display: flex; align-items: baseline; justify-content: space-between; gap: var(--space-3); }
 .todo-change { white-space: pre-wrap; overflow-wrap: anywhere; }
 .todo-refs { display: flex; flex-direction: column; gap: var(--space-2); }
 .todo-refs h3 { font: inherit; font-weight: 600; margin: 0; }
@@ -98,12 +99,6 @@
   overflow-wrap: anywhere;
 }
 .todo-draft-recovery:empty { display: none; }
-.todo-draft-recovery > .draft-entry {
-  display: flex;
-  align-items: center;
-  gap: var(--space-2);
-  text-align: left;
-}
 .todo-draft-revision {
   display: flex;
   font-size: var(--text-small);
