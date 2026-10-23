@@ -317,7 +317,7 @@ impl Shared {
         first_prompt: Option<Option<String>>,
     ) -> Result<Applied, RpcError> {
         let exited = matches!(observation, Observation::Exit { .. });
-        if exited {
+        if matches!(observation, Observation::Exit { .. } | Observation::Stopped) {
             self.timing
                 .lock()
                 .expect("measurement timing lock")

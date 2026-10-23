@@ -528,6 +528,7 @@ fn time_totals(
         // The residual is explicitly unmeasured, including discontinuities between samples.
         partition.insert(bounds.clone(), 5_usize);
         let mut evidence = Vec::new();
+        let mut idle = Vec::new();
         for fact in facts
             .iter()
             .filter(|f| f.agent == attempt.agent && f.attempt == attempt.attempt)
@@ -542,7 +543,16 @@ fn time_totals(
                     let category = match activity {
                         TimedActivity::Decision { .. } => 0,
                         TimedActivity::Coordination { .. } => 2,
-                        TimedActivity::Startup | TimedActivity::Idle { .. } => 4,
+                        TimedActivity::Startup => 4,
+                        TimedActivity::Idle { .. } => {
+                            for segment in segments {
+                                idle.push(
+                                    ns(&segment.start.monotonic_ns)?
+                                        ..ns(&segment.end.monotonic_ns)?,
+                                );
+                            }
+                            continue;
+                        }
                         TimedActivity::Attempt => continue,
                     };
                     for segment in segments {
@@ -595,6 +605,12 @@ fn time_totals(
             let range = range.start.max(bounds.start)..range.end.min(bounds.end);
             if range.start < range.end {
                 partition.insert(range, category);
+            }
+        }
+        // Idle is excluded even when late source evidence overlaps it; it is not a category.
+        for range in idle {
+            if range.start < range.end {
+                partition.remove(range);
             }
         }
         for (range, category) in partition.iter() {
@@ -876,7 +892,10 @@ mod time_tests {
             json!({"hook_event_name":"UserPromptSubmit","prompt":"tools"}),
         );
         w.advance(3).await;
-        w.stop(&id);
+        w.agents
+            .shared
+            .observe(Actor::daemon(), &id, "1", Observation::Stopped)
+            .unwrap();
         for (category, start, end) in [("agent", 0, 2), ("tool", 7, 10)] {
             w.fact(&home, &id, category, &json!({"kind":"interval","category":category,"clock":"source-wall","start_unix_ns":((start+1)*1_000_000_000_u64).to_string(),"end_unix_ns":((end+1)*1_000_000_000_u64).to_string()}).to_string());
         }
