@@ -101,9 +101,9 @@ export const HintLine = () => {
       : (at === "rail" || at === "agent") && hint.label === copy.hintTakeControl && takeover.taken() === rail.selected() ? copy.hintGiveControl : hint.label })), { keys: "?", label: copy.hintMore }];
   });
 
-  let line: HTMLParagraphElement | undefined;
-
   const fit = () => {
+    const line = document.querySelector<HTMLParagraphElement>('.hint-line');
+
     if (!line) return;
     const children = [...line.children].filter((child): child is HTMLElement => child instanceof HTMLElement);
 
@@ -131,6 +131,7 @@ export const HintLine = () => {
       place();
       queueMicrotask(() => {
         resize.disconnect();
+        const line = document.querySelector('.hint-line');
 
         if (line) resize.observe(line);
       });
@@ -138,7 +139,7 @@ export const HintLine = () => {
     onCleanup(() => { resize.disconnect(); observer.disconnect(); document.removeEventListener("focusin", sync); document.removeEventListener("focusout", sync); });
   });
 
-  const content = () => <p class="hint-line" ref={line} data-place={place() ?? undefined}>
+  const content = () => <p class="hint-line" data-place={place() ?? undefined}>
     <For each={hints()}>{hint => <span class="hint"><kbd>{hint.keys}</kbd> <span>{hint.label}</span></span>}</For>
   </p>;
 
