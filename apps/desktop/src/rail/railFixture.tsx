@@ -36,6 +36,7 @@ export const mountRail = async (
   reducedMotion: () => boolean = () => false,
   neighbors: RailNeighbors = {},
   pads: Pad[] = [],
+  project = { name: "p", path: "/p" },
 ) => {
   const app = createFakeApp();
   app.handlers["rail.tree"] = () => tree;
@@ -43,7 +44,7 @@ export const mountRail = async (
   app.handlers["pad.list"] = () => pads;
 
   const [now, setNow] = createSignal(NOW);
-  const connected = await connectProject(app, { name: "p", path: "/p" }, reducedMotion, now, daemonExit);
+  const connected = await connectProject(app, project, reducedMotion, now, daemonExit);
 
   render(() => {
     connected.worktrees.watch(() => true);

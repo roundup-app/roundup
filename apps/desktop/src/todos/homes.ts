@@ -1,6 +1,6 @@
 import { copy } from "../copy";
 import type { RailNode } from "@contracts/agent/RailNode";
-import { descendantsOf, isWorkstream, siblingsOf } from "../rail/layout";
+import { isWorkstream, railOrder } from "../rail/layout";
 
 export type Home = { home: string | null; name: string };
 
@@ -12,7 +12,7 @@ export const homeNameOf = (nodes: readonly RailNode[], home: string | null): str
 
 /** U157: the Project root, then each Workstream in Rail order, the current Home left out. */
 export const homesToOffer = (nodes: readonly RailNode[], current: string | null): Home[] => {
-  const workstreams = siblingsOf(nodes, null).flatMap((top) => [top, ...descendantsOf(nodes, top.id)]).filter(isWorkstream);
+  const workstreams = railOrder(nodes).filter(isWorkstream);
   const offers: Home[] = [{ home: null, name: PROJECT_ROOT }, ...workstreams.map((workstream) => ({ home: workstream.id, name: workstream.name }))];
   const present = nodes.some((node) => node.id === current && isWorkstream(node)) ? current : null;
 
