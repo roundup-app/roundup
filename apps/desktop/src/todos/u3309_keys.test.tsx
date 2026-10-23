@@ -66,7 +66,7 @@ it("u3309_the_keys_are_inert_in_fields_with_modifiers_and_on_done_rows", async (
   expect(todoCallsTo(app, "todo.assign")).toEqual([]);
 });
 
-it("u3309_the_digits_are_registered_shelf_bindings_listed_in_help", async () => {
+it("u3309_a_digit_assigns_to_that_agent_once", async () => {
   const { app } = await mountTodos([todo(1)], true, agents);
   (await screen.findByRole<HTMLElement>("button", { name: "Idle #1 todo 1" })).focus();
   key("1", "Digit1");

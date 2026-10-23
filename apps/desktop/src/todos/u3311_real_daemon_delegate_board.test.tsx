@@ -1,8 +1,10 @@
 import { execFile } from "node:child_process";
 import { mkdir, mkdtemp, rm, writeFile, readFile } from "node:fs/promises";
+import { createRequire } from "node:module";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { promisify } from "node:util";
+import { waitFor } from "@solidjs/testing-library";
 import { expect, it } from "vitest";
 import type { Todo } from "@contracts/todo/Todo";
 import type { Actor } from "@contracts/Actor";
@@ -14,15 +16,16 @@ import { createServedApp } from "../testing/realSeam";
 const execute = promisify(execFile);
 
 // U3311 requires real pointer and keyboard input; jsdom cannot observe group drop targets.
-it("u3311_real_daemon_delegate_board", async () => {
+it("u3311_real_daemon_manual_hand_offs_and_auto_notice", async () => {
   const executable = chromePath();
 
   if (!executable) throw new Error("U3311 needs a Chrome binary");
   const fixture = await mkdtemp(join(tmpdir(), "u3311-door-"));
   const script = join(fixture, "assign.py");
   const target = join(fixture, "target.json");
-  // A deterministic fake Door reads its actual delivered Auto Message, then uses the public CLI.
-  // It never selects work before that Message exists; no App-side assignment simulates Auto.
+  // A deterministic fake Door reads its actual delivered Auto Message through the public CLI.
+  // #3505 owns the absent todo_assign tool and its end-to-end assignment observer.
+  // This observer proves manual hand-offs and the real notice, without simulating an Auto assignment.
   await writeFile(script, `import json, os, subprocess, time
 from pathlib import Path
 config = Path(${JSON.stringify(target)})
@@ -35,8 +38,7 @@ while time.monotonic() < end:
             messages = json.loads(result.stdout)
             notice = next((m for m in messages if "Auto acceptance" in m["body"] and m["status"] == "delivered"), None)
             if notice:
-                result = subprocess.run(["rup", "--json", "todo", "assign", str(chosen["todo"]), "--owner", json.dumps(chosen["owner"])], capture_output=True, text=True)
-                config.with_suffix(".result").write_text(json.dumps({"message":notice,"code":result.returncode,"stdout":result.stdout,"stderr":result.stderr}))
+                config.with_suffix(".result").write_text(json.dumps({"message":notice}))
                 break
     time.sleep(0.05)
 `);
@@ -47,8 +49,10 @@ while time.monotonic() < end:
   const session = `u3311-${process.pid}`;
   const env = Object.fromEntries(Object.entries(process.env).filter(([key]) => !key.startsWith("AGENT_BROWSER_")));
 
+  const cli = join(createRequire(import.meta.url).resolve("agent-browser/package.json"), "..", "bin", `agent-browser-${process.platform}-${process.arch}`);
+
   const browser = async (...args: string[]) => {
-    const { stdout } = await execute("agent-browser", ["--executable-path", executable, "--args", "--no-sandbox", "--config", config, "--session", session, "--profile", profile, "--json", ...args], { env, timeout: 60_000, maxBuffer: 4 * 1024 * 1024 });
+    const { stdout } = await execute(cli, ["--executable-path", executable, "--args", "--no-sandbox", "--config", config, "--session", session, "--profile", profile, "--json", ...args], { env, timeout: 60_000, maxBuffer: 4 * 1024 * 1024 });
     const reply = JSON.parse(stdout);
     expect(reply.success, stdout).toBe(true);
 
@@ -56,7 +60,7 @@ while time.monotonic() < end:
   };
 
   const evaluate = async (source: string) => (await browser("eval", source)).result;
-  const until = (source: string) => browser("wait", "--fn", source);
+  const until = (source: string) => browser("wait", "--fn", source, "--timeout", "15000");
   const group = (id: string) => `.shelf [data-shelf-group="${id}"]`;
   const row = (id: number) => `.shelf [data-todo="${id}"] .shelf-title`;
   const point = (selector: string) => evaluate(`(() => { const el = document.querySelector(${JSON.stringify(selector)}); el.scrollIntoView({block:'center'}); const b = el.getBoundingClientRect(); return {x: Math.round(b.left + b.width/2), y: Math.round(b.top + b.height/2)}; })()`);
@@ -125,6 +129,22 @@ while time.monotonic() < end:
     await evaluate(`(() => { const g = document.querySelector('${group("unassigned")}'); if (g.dataset.state === 'closed') g.querySelector('[data-part="branch-control"]').click(); return true; })()`);
     await until(`!!document.querySelector('${row(made[3]!.id)}')`);
     await capture("dark-before");
+    await evaluate(`(() => {
+      window.__boardFrames = [];
+      window.__boardGlides = [];
+      const animate = Element.prototype.animate;
+      Element.prototype.animate = function(...args) {
+        if (this.matches('.todo-row')) window.__boardGlides.push({id:this.dataset.todo, keyframes:args[0], options:args[1]});
+        return animate.apply(this, args);
+      };
+      window.__boardSampling = true;
+      const read = () => {
+        window.__boardFrames.push({t: performance.now(), rows: [...document.querySelectorAll('.shelf .todo-row')].map(row => ({id: row.dataset.todo, top: row.getBoundingClientRect().top, animations: row.getAnimations().map(a => ({state:a.playState, time:a.currentTime, frames:a.effect.getKeyframes()}))}))});
+        if (window.__boardSampling && window.__boardFrames.length < 2000) requestAnimationFrame(read);
+      };
+      read();
+      return true;
+    })()`);
 
     await browser("focus", `.shelf [data-todo="${made[3]!.id}"] .todo-row-button`);
     await lift(made[3]!.id);
@@ -151,17 +171,40 @@ while time.monotonic() < end:
     await press("Enter");
     await observe(made[1]!.id, actor(agents[1]!.id), agents[1]!.id);
     await capture("dark-key-hand-off");
+    expect(await evaluate(`window.__boardGlides.filter(run => run.id === '${made[3]!.id}').length`)).toBeGreaterThan(0);
+    await browser("focus", "#shelf-tab-todos");
+    await Promise.all([
+      app.rpc("todo.assign", { id: made[1]!.id, owner: actor(agents[0]!.id) }),
+      app.rpc("todo.assign", { id: made[1]!.id, owner: actor(agents[1]!.id) }),
+    ]);
+    await until(`document.querySelector('.shelf [data-todo="${made[1]!.id}"]')?.closest('[data-shelf-group]')?.dataset.shelfGroup === '${agents[1]!.id}'`);
+    expect(await evaluate("document.activeElement.id")).toBe("shelf-tab-todos");
+    expect(await evaluate("window.__boardFrames.every(frame => frame.rows.every(row => row.animations.filter(a => a.state === 'running').length <= 1))")).toBe(true);
+    await capture("dark-burst-hand-off");
+
+    await browser("set", "media", "dark", "reduced-motion");
+    const played = await evaluate("window.__boardGlides.length");
+    await app.rpc("todo.assign", { id: made[1]!.id, owner: actor(agents[0]!.id) });
+    await observe(made[1]!.id, actor(agents[0]!.id), agents[0]!.id);
+    expect(await evaluate("window.__boardGlides.length")).toBe(played);
+    expect(await evaluate("document.activeElement.id")).toBe("shelf-tab-todos");
+    await capture("dark-reduced-motion");
+    await browser("set", "media", "dark");
 
     const time = await evaluate(`document.querySelector('${group(agents[1]!.id)} .shelf-owner-time').textContent`);
     expect(time).toContain("busy until");
     await browser("focus", '[role="switch"]');
     await browser("press", "Space");
     await until(`document.querySelector('[role="switch"]').getAttribute('aria-checked') === 'true'`);
-    await observe(auto.id, actor(agents[1]!.id), agents[1]!.id);
+    await until(`document.querySelector('[data-shelf-group="unassigned"]').textContent.includes('the Door is handing these out')`);
+    await waitFor(async () => expect(JSON.parse(await readFile(join(fixture, "target.result"), "utf8")).message.status).toBe("delivered"));
     const response = JSON.parse(await readFile(join(fixture, "target.result"), "utf8"));
-    expect(response.code).toBe(0);
     expect(response.message.body).toContain(`#${auto.id}`);
     await capture("dark-auto-on");
+
+    if (captureDir("delegate-board")) {
+      await writeFile(join(captureDir("delegate-board")!, "hand-off-frames.json"), JSON.stringify(await evaluate("(() => { window.__boardSampling = false; return window.__boardFrames; })()")) + "\n");
+    }
 
     await browser("reload");
     await browser("wait", "#shelf-tab-todos");
@@ -170,6 +213,30 @@ while time.monotonic() < end:
     for (const [id, target] of expected) await observe(id, target.owner, target.group);
     expect((await app.rpc("todo.list", null)).find(todo => todo.id === made[2]!.id)?.owner).toEqual(actor(agents[1]!.id));
     expect(await evaluate(`document.querySelector('[role="switch"]').getAttribute('aria-checked')`)).toBe("true");
+
+    if (captureDir("delegate-board")) {
+      await browser("open", `${real.base}/harness.html?seed=tree-40`);
+      await browser("wait", "#shelf-tab-todos");
+      await evaluate(`(() => {
+        document.querySelector('[data-todo-root]').click();
+        const tab = document.querySelector('#shelf-tab-todos');
+        if (tab.getAttribute('aria-expanded') !== 'true') tab.click();
+        return true;
+      })()`);
+      await until("!!document.querySelector('.shelf [data-shelf-group=unassigned] [data-part=branch-control]')");
+      await evaluate(`(() => {
+        const group = document.querySelector('.shelf [data-shelf-group=unassigned]');
+        if (group.dataset.state === 'closed') group.querySelector('[data-part=branch-control]').click();
+        return true;
+      })()`);
+      await until("!!document.querySelector('.shelf .todo-row-button')");
+      await evaluate("(() => { document.querySelector('.shelf .todo-row-button').focus(); return true; })()");
+      await press("o", "KeyO");
+      await browser("wait", "[role=menu]");
+      await evaluate("(() => { window.__fake.failNext(-32004, 'Owner unavailable; choose another Agent'); document.querySelector('[role=menuitem]').click(); return true; })()");
+      await until("[...document.querySelectorAll('.shelf [role=alert]')].some(el => el.textContent.includes('Owner unavailable'))");
+      await capture("dark-densest-refusal");
+    }
   } catch (error) {
     console.error(await evaluate("document.body.innerText").catch(() => "browser unavailable"));
     throw error;
