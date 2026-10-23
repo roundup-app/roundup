@@ -66,10 +66,6 @@ impl Todos {
         reply(&todo)
     }
 
-    fn list(&self) -> Result<Value, RpcError> {
-        reply(&self.store()?.list()?)
-    }
-
     fn get(&self, ctx: &Ctx, p: TodoId) -> Result<Value, RpcError> {
         let store = self.store()?;
         let todo = store.get(p.id)?;
@@ -334,7 +330,8 @@ impl Module for Todos {
     async fn call(&self, ctx: &Ctx, method: &str, value: Value) -> Result<Value, RpcError> {
         match method {
             "todo.create" => self.create(ctx, params(value)?),
-            "todo.list" => self.list(),
+            "todo.list" => reply(&self.store()?.list()?),
+            "todo.listHanded" => reply(&self.store()?.list_handed()?),
             "todo.get" => self.get(ctx, params(value)?),
             "todo.getHistory" => self.get_history(ctx, params(value)?),
             "todo.readHistory" => self.read_history(ctx, params(value)?),
