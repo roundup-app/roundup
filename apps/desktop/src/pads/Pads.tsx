@@ -1,3 +1,4 @@
+import { writeText } from "../app/clipboard";
 import { contextMenu, linkEntries, openOnRelease } from "../ui/contextMenu";
 import * as v from "valibot";
 import { Editable } from "../ui/Editable";
@@ -278,7 +279,7 @@ export const Pads = (props: {
       <ReservedLine message={failure.message() ?? list.failure() ?? (retentionProblem() ? copy.draftRetention(connected.project.name, copy.pad, retentionProblem()!.cause) : null)}>
         <Show when={retentionProblem()}>
         <button data-button="primary" type="button" onClick={() => connected.drafts.retry()}>{copy.storageRetry}</button>
-        <button data-button="quiet" type="button" onClick={() => void navigator.clipboard.writeText(name()).catch(error => failure.show(copy.copyDraftFailure(String(error))))}>{nameLabel}</button>
+        <button data-button="quiet" type="button" onClick={() => void writeText(connected.app, name()).catch(error => failure.show(copy.copyDraftFailure(String(error))))}>{nameLabel}</button>
         <button data-button="quiet" type="button" onClick={() => { if (revision) connected.drafts.discard(revision); revision = undefined; captured = null; setName(""); setInvalid(false); }}>{copy.discardRevision}</button>
 
       </Show></ReservedLine>

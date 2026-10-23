@@ -1,3 +1,4 @@
+import { writeText } from "../app/clipboard";
 import { ReservedLine } from "../ink/ReservedLine";
 import type { ProjectsState } from "../state/projects";
 import { copy } from "../copy";
@@ -62,7 +63,7 @@ export const ProjectTab = (props: {
   onRename: (name: string, base?: string) => ReturnType<ProjectsState["rename"]>;
   onClose: () => void;
   /** U2694a: the seam that shows the tab's system menu; a tab without one has none. */
-  app?: Pick<App, "showContextMenu"> | undefined;
+  app?: Pick<App, "showContextMenu" | "writeClipboardText"> | undefined;
   ref?: (element: HTMLElement) => void;
 }) => {
   const { near, handlers } = createNear();
@@ -102,7 +103,7 @@ export const ProjectTab = (props: {
 
     if (!parsed.success) return;
 
-    try { await navigator.clipboard.writeText(parsed.output.name); failCopy(null); }
+    try { await writeText(props.app!, parsed.output.name); failCopy(null); }
     catch (error) { failCopy(copy.copyDraftFailure(error instanceof Error ? error.message : String(error))); }
   };
 
@@ -159,7 +160,7 @@ export const ProjectTab = (props: {
           { id: "copy", label: copy.copy, run: async () => {
             const details = records().length ? { name: props.tab.name, path: props.tab.path, drafts: records() } : { name: props.tab.name, path: props.tab.path };
 
-            try { await navigator.clipboard.writeText(JSON.stringify(details, null, 2)); failCopy(null); }
+            try { await writeText(props.app!, JSON.stringify(details, null, 2)); failCopy(null); }
             catch (error) { failCopy(copy.copyDraftFailure(error instanceof Error ? error.message : String(error))); recover(true); }
           } },
           { id: "rename", label: copy.rename, shortcut: "F2", run: edit },

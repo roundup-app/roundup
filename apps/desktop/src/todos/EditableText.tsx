@@ -1,3 +1,4 @@
+import { writeText } from "../app/clipboard";
 import { copy } from "../copy";
 import * as v from "valibot";
 import type { Todo } from "@contracts/todo/Todo";
@@ -26,7 +27,7 @@ type Editing = { form: v.InferOutput<typeof formSchema>; text: string; width: nu
 
 /** Surface actions share the Project authority; selecting/copying an older revision never changes the editor. */
 export const TodoDraftRecovery = (props: { object: string; active?: boolean; inDrawer?: boolean; onDiscard?: (revision: string) => void }) => {
-  const { drafts, project, drawer } = useConnectedProject();
+  const { app, drafts, project, drawer } = useConnectedProject();
   const [failure, setFailure] = createSignal<string | null>(null);
   const surface = copy.draftSurface("todos");
   const records = () => drafts.recoverable().filter(draft => draft.destination.surface === "todos" && draft.destination.object === props.object);
@@ -45,7 +46,7 @@ export const TodoDraftRecovery = (props: { object: string; active?: boolean; inD
   );
 
   const copyDraft = async (text: string) => {
-    try { await navigator.clipboard.writeText(text); setFailure(null); }
+    try { await writeText(app, text); setFailure(null); }
     catch (error) { if (!(error instanceof Error)) throw error; setFailure(copy.copyDraftFailure(error.message)); }
   };
 

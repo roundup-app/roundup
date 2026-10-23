@@ -327,10 +327,10 @@ it("nr9_creation_acknowledgement_refreshes_the_remounted_project", async () => {
 it("u3299b_copy_keeps_original_facts", async () => {
   const record = saved({ observation: { health: "observing", cursor: 918, pinned_head: "commit-original", gap: "gap /Users/test/private agent-id", recovery: "recovery-original", evidence: '{"source":"unknown","id":"original"}' } });
   const write = vi.fn().mockResolvedValue(undefined);
-  vi.stubGlobal("navigator", { ...navigator, clipboard: { writeText: write } });
 
   try {
     const { app } = await mount(() => [record]);
+    vi.spyOn(app, "writeClipboardText").mockImplementation(write);
     fireEvent.click(await screen.findByRole("button", { name: /Ship it/ }));
     const detail = await screen.findByRole("region", { name: copy.reactionDetail("Ship it") });
     fireEvent.click(within(detail).getByRole("button", { name: copy.refresh }));

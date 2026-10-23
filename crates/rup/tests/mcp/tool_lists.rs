@@ -120,7 +120,7 @@ pub const DOOR_METHODS: [&str; 8] = [
 ];
 
 /// M5: the methods and App commands with no tool; the reasons are in `scenarios/mcp.md`.
-pub const NO_TOOL: [&str; 71] = [
+pub const NO_TOOL: [&str; 72] = [
     // A3308: Auto is the user's choice; Agents read its value through the existing rail_tree tool.
     "workstream.setAuto",
     "rail.list",
@@ -206,6 +206,8 @@ pub const NO_TOOL: [&str; 71] = [
     "open_target",
     "open_in_editor",
     "save_pasted_image",
+    // U3560a: only the user writes the native pasteboard.
+    "plugin:clipboard-manager|write_text",
     // U2694a: the native menu of the user's right-click
     "show_context_menu",
     // U449–U451: the user's native window, which an Agent cannot move or rename.
@@ -255,6 +257,8 @@ pub fn seam_commands() -> Vec<String> {
             .into_iter()
             .map(|command| format!("plugin:window-bar|{command}")),
     );
+    // The maintained clipboard plugin registers its own commands. The web adapter observer probes this command.
+    registered.push("plugin:clipboard-manager|write_text".into());
     let mut declared = table.clone();
     registered.sort();
     declared.sort();

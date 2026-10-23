@@ -169,12 +169,12 @@ it.each(["write", "read", "invalid"])("u2773e_recovery_actions_keep_surface_draf
   const key = "roundup:drafts:/p";
   const exact = "  e\u0301 🧭 東京  ";
   const writeText = vi.fn(async (_text: string) => {});
-  Object.defineProperty(navigator, "clipboard", { configurable: true, value: { writeText } });
 
   if (failure === "invalid") localStorage.setItem(key, "{broken");
 
   const read = failure === "read" ? vi.spyOn(Storage.prototype, "getItem").mockImplementation(() => { throw new Error("denied"); }) : null;
   const { app } = await mountSwitcher();
+  vi.spyOn(app, "writeClipboardText").mockImplementation(writeText);
   const write = failure === "write" ? vi.spyOn(Storage.prototype, "setItem").mockImplementation(() => { throw new Error("full"); }) : null;
   const calls = app.calls.length;
   openSwitcher();

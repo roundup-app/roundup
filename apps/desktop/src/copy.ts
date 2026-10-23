@@ -782,8 +782,6 @@ export const copy = {
   latest: "↓ Latest",
   pasteFailedTheClipboardHoldsAnImageWhich: "Paste failed: The clipboard holds an image, which a Terminal cannot take as text. Save it as a file and drop the file on the pane.",
   failed: (value1: CopyValue, value2: CopyValue) => `${value1} failed: ${value2}`,
-  pasteFailedTheSystemClipboardRefusedItPress: "Paste failed: The system clipboard refused it. Press ⌘V again, or drop a file on the pane.",
-  copyFailedTheSystemClipboardRefusedItPress: "Copy failed: The system clipboard refused it. Press ⌘C again.",
   doesNotExist: (value1: CopyValue) => `${value1} does not exist`,
   whyClear: "Why clear?",
   theDoorIsWritingTheHandoff: "The supervisor is writing the summary",
@@ -890,6 +888,8 @@ export const copy = {
   you: "You",
   claudeCode: "Claude Code",
   paste: "Paste",
+  clipboardDataUnavailable: "Clipboard data is unavailable.",
+  clipboardRetry: "Try again, or copy the content in its source app again.",
   copy: "Copy",
   comma: ", ",
 

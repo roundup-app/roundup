@@ -185,7 +185,7 @@ it("u3021c_copy_and_discard_keep_other_revisions", async () => {
   const app = mount(drafts);
   const clipboard = vi.fn(async (_text: string) => {});
 
-  Object.defineProperty(navigator, "clipboard", { configurable: true, value: { writeText: clipboard } });
+  vi.spyOn(app, "writeClipboardText").mockImplementation(clipboard);
   await openRecovery();
   const recovery = await screen.findByRole("region", { name: "Unfinished work" });
   const row = within(recovery).getAllByRole("listitem").find((item) => item.dataset.revision === gone)!;
@@ -207,10 +207,10 @@ it("u2773h_credential_values_remain_hidden_until_copy", async () => {
 
   holder.submit(revision);
   holder.settle(revision, "failed");
-  mount(drafts);
+  const app = mount(drafts);
   const clipboard = vi.fn(async (_text: string) => {});
 
-  Object.defineProperty(navigator, "clipboard", { configurable: true, value: { writeText: clipboard } });
+  vi.spyOn(app, "writeClipboardText").mockImplementation(clipboard);
   await openRecovery();
   const recovery = await screen.findByRole("region", { name: "Unfinished work" });
 

@@ -585,7 +585,7 @@ it("u3299d_copy_uses_selected_item_publication", async () => {
   const made = await screen.findByRole("region", { name: "Made" });
   const rows = await within(made).findAllByRole("listitem");
   const copied: string[] = [];
-  Object.defineProperty(navigator, "clipboard", { configurable: true, value: { writeText: async (text: string) => { copied.push(text); } } });
+  vi.spyOn(app, "writeClipboardText").mockImplementation(async (text: string) => { copied.push(text); });
   fireEvent.contextMenu(rows[1]!);
   await app.pickMenu("Copy");
   expect(JSON.parse(copied[0]!.split("\n").slice(2).join("\n")).record).toEqual(records[1]);

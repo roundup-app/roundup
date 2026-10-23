@@ -217,8 +217,6 @@ export const Pane = (props: { notice?: string | null; createEmulator?: EmulatorF
     { chords: ["Meta+[Shift]+=", "Meta+[Shift]++"], ...onScreen(resize("grow"), true) },
     { chords: ["Meta+-"], ...onScreen(resize("shrink"), true) },
     { chords: ["Meta+0"], ...onScreen(resize("reset"), true) },
-    { chords: ["Meta+C"], ...onScreen((id) => void screens.copy(id, navigator.clipboard)) },
-    { chords: ["Meta+V"], ...onScreen((id) => void screens.paste(id, navigator.clipboard)) },
   ]);
 
   const leftThePane = (leave: FocusEvent): void => {
@@ -438,8 +436,7 @@ export const Pane = (props: { notice?: string | null; createEmulator?: EmulatorF
 
           if (id === null) return;
 
-          if (chosen.value === "copy") void screens.copy(id, navigator.clipboard);
-          else if (chosen.value === "paste") void screens.paste(id, navigator.clipboard);
+          if (chosen.value === "copy") void screens.copy(id);
           else sending.openNote();
         }}>
           <Menu.ContextTrigger asChild={(trigger) => <div {...trigger({ class: "pane-screen", ref: setScreen, onMouseDown: () => sending.pointer(true) })} />} />
@@ -447,7 +444,6 @@ export const Pane = (props: { notice?: string | null; createEmulator?: EmulatorF
             <Menu.Positioner>
               <Menu.Content aria-label={copy.terminalMenu}>
                 <Show when={sending.selected()}><Menu.Item value="copy">{copy.copy}</Menu.Item></Show>
-                <Menu.Item value="paste">{copy.paste}</Menu.Item>
                 <Show when={sending.selected()}><Menu.Item value="send">{copy.sendToAgent}</Menu.Item></Show>
               </Menu.Content>
             </Menu.Positioner>

@@ -341,7 +341,7 @@ it("u2773e_recovery_actions_keep_surface_draft_bubbles", async () => {
   const recovery = await screen.findByRole("dialog", { name: "Unfinished work" });
   expect(within(recovery).getByRole("alert")).toBeTruthy();
   const clipboard = vi.fn().mockResolvedValue(undefined);
-  Object.defineProperty(navigator, "clipboard", { configurable: true, value: { writeText: clipboard } });
+  vi.spyOn(mounted.app, "writeClipboardText").mockImplementation(clipboard);
   fireEvent.click(within(recovery).getByRole("button", { name: "Copy name" }));
   await waitFor(() => expect(clipboard).toHaveBeenCalledExactlyOnceWith(text));
   blocked.mockRestore();
@@ -548,7 +548,7 @@ it("u3021c_copy_and_discard_keep_other_revisions_bubbles_after_reopen", async ()
   expect(within(dialog).getByText("Original object unavailable")).toBeDefined();
   const clipboard = vi.fn().mockResolvedValue(undefined);
 
-  Object.defineProperty(navigator, "clipboard", { configurable: true, value: { writeText: clipboard } });
+  vi.spyOn(app, "writeClipboardText").mockImplementation(clipboard);
   fireEvent.click(within(dialog).getByRole("button", { name: "Copy name" }));
   await waitFor(() => expect(clipboard).toHaveBeenCalledExactlyOnceWith("  A e\u0301 🫧 雪  "));
   fireEvent.click(within(dialog).getByRole("button", { name: "Discard this revision" }));

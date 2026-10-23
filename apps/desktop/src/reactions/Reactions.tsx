@@ -1,3 +1,4 @@
+import { writeText } from "../app/clipboard";
 import { createEffect, createMemo, createResource, createSignal, For, onCleanup, Show, type Accessor } from "solid-js";
 import * as v from "valibot";
 import type { Message } from "@contracts/message/Message";
@@ -257,7 +258,7 @@ const Facts = (props: { reaction: Reaction }) => {
       <ReservedLine message={r().observation.cause ? copy.reactionCause(r().observation.cause!) : r().observation.gap ? copy.reactionGap(r().observation.gap!) : null} status={!r().observation.cause?.includes("unsupported") && r().observation.recovery ? copy.reactionRecovery(r().observation.recovery!) : null} />
     </dd>
     <dt>{copy.reactionDetails}</dt><dd><button type="button" data-button="quiet" onClick={() => {
-      void navigator.clipboard.writeText(JSON.stringify({
+      void writeText(app, JSON.stringify({
         name: r().name, authority: authority(),
         target: nameOf(r().target), home: home() ? nameOf(home()!) : copy.reactionNoHome,
         condition: conditionText(r().condition, nameOf), observation: observation(), reaction: r(),
@@ -276,7 +277,7 @@ const Facts = (props: { reaction: Reaction }) => {
         <dt>{copy.reactionMessage(messageId()!)}</dt><dd class="reaction-instruction">{value().body}</dd>
         <dt>{copy.reactionMessageState}</dt><dd data-state={value().status}>{copy.reactionDelivery(value().status)}{value().reason ? ` · ${copy.reactionCause(value().reason!)}` : ""}</dd>
         <dt>{copy.reactionDetails}</dt><dd><button type="button" data-button="quiet" onClick={() => {
-          void navigator.clipboard.writeText(JSON.stringify({ target: nameOf(value().to), message: value() }, null, 2))
+          void writeText(app, JSON.stringify({ target: nameOf(value().to), message: value() }, null, 2))
             .then(() => failCopy(null), error => failCopy(copy.copyDraftFailure(error instanceof Error ? error.message : String(error))));
         }}>{copy.copy}</button><ReservedLine message={copyFailure()} /></dd>
       </dl>}</Show>

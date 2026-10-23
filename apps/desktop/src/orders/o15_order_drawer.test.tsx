@@ -23,7 +23,7 @@ const KINDS: Kind[] = ["error", "needs-you", "blocked", "working", "idle", "done
 
 export const openDrawer = async (
   order: Order,
-  options: { kind?: Kind; handlers?: Record<string, (params: never) => object | null> } = {},
+  options: { app?: (app: ReturnType<typeof createFakeApp>) => void; kind?: Kind; handlers?: Record<string, (params: never) => object | null> } = {},
 ) => {
   await mountApp([], (app) => {
     app.handlers["rail.tree"] = () => [
@@ -33,6 +33,7 @@ export const openDrawer = async (
     ];
     app.handlers["agent.spawnPrompt"] = () => ({ prompt });
     Object.assign(app.handlers, options.handlers ?? {});
+    options.app?.(app);
   });
   select("alpha");
   await waitFor(() => expect(document.querySelector(".order-line")).not.toBeNull());
@@ -272,7 +273,8 @@ it("u2773b_orders_out_of_order_acknowledgement_keeps_late_failure", async () => 
 
 it("u2773e_recovery_actions_keep_surface_draft_orders", async () => {
   const sends: object[] = [];
-  await openDrawer(full, { handlers: { "agent.setOrder": (params) => { sends.push(params);
+  const clipboard = vi.fn(async (_text: string) => {});
+  await openDrawer(full, { app: value => { value.writeClipboardText = clipboard; }, handlers: { "agent.setOrder": (params) => { sends.push(params);
 
  return {}; } } });
   fireEvent.click(screen.getByRole("button", { name: "Edit order" }));
@@ -281,8 +283,6 @@ it("u2773e_recovery_actions_keep_surface_draft_orders", async () => {
   fireEvent.input(screen.getByLabelText("Ask"), { target: { value: "  unsaved ask\n" } });
   fireEvent.input(screen.getByLabelText("Done when"), { target: { value: "  unsaved done é  " } });
   expect(screen.getByRole("alert").textContent).toContain("reload");
-  const clipboard = vi.fn(async (_text: string) => {});
-  Object.defineProperty(navigator, "clipboard", { configurable: true, value: { writeText: clipboard } });
 
   for (const name of ["Copy title", "Copy ask", "Copy done"]) fireEvent.click(screen.getByRole("button", { name }));
   await waitFor(() => expect(clipboard.mock.calls).toEqual([["  unsaved title 👋  "], ["  unsaved ask\n"], ["  unsaved done é  "]]));
