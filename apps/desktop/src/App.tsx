@@ -16,7 +16,8 @@ import { InboxKey } from "./inbox/Inbox";
 import { WindowBar } from "./header/WindowBar";
 import { Strip } from "./header/Strip";
 import type { StripTab } from "./header/tab";
-import { ErrorLine, failureLine } from "./ink/ErrorLine";
+import { ReservedLine } from "./ink/ReservedLine";
+import { failureLine } from "./ink/ReservedLine";
 import { exitText } from "./ink/exitText";
 import { AttentionKey } from "./rail/AttentionKey";
 import { attentionCounts, nextAttention } from "./rail/attention";
@@ -379,16 +380,9 @@ export const App = (props: {
         }
         rail={
           <>
-            <Show when={windowFailure()}>{(message) => <ErrorLine message={message()} />}</Show>
-            <Show when={activeTab()?.exit}>
-              {(exit) => (
-                <>
-                  <ErrorLine message={activeTab()?.reopenFailure ?? daemonExitText(exit())} />
-                  <Reopen onReopen={() => void projects.reopen(activeTab()!.project.path)} busy={projects.reopening()} />
-                </>
-              )}
-            </Show>
-            <Show when={projects.tabs().length > 0 ? (projects.failure() ?? badgeFailure()) : badgeFailure()}>{(message) => <ErrorLine message={message()} />}</Show>
+            <ReservedLine overlay message={windowFailure() ?? (activeTab()?.exit ? activeTab()?.reopenFailure ?? daemonExitText(activeTab()!.exit!) : null) ?? (projects.tabs().length > 0 ? projects.failure() ?? badgeFailure() : badgeFailure())}>
+              <Show when={activeTab()?.exit}><Reopen onReopen={() => void projects.reopen(activeTab()!.project.path)} busy={projects.reopening()} /></Show>
+            </ReservedLine>
             <Show when={projects.tabs().length > 0} fallback={<EmptyRail />}>
               <InProject open={activeConnection()}>
                 {() => (

@@ -4,7 +4,7 @@ import * as v from "valibot";
 import type { PromptIdentity } from "@contracts/decision/PromptIdentity";
 import type { Decision } from "@contracts/decision/Decision";
 import type { Scope } from "@contracts/decision/Scope";
-import { ErrorLine } from "../ink/ErrorLine";
+import { ReservedLine } from "../ink/ReservedLine";
 import { SegmentGroup } from "../ui/SegmentGroup";
 import { Markdown } from "../plain/Markdown";
 import { useConnectedProject } from "../state/connectedProject";
@@ -157,19 +157,12 @@ export const DecisionCard = (props: { decision: Decision; name: string; focusTer
           </>
         )}
       </Show>
-      <Show when={unreadable()}>
-        <ErrorLine message="Unreadable question: Answer in the Terminal" />
-      </Show>
-      <Show when={!props.decision.answerable && !unreadable()}>
-        <p class="light">{copy.answerInTheTerminal}</p>
-      </Show>
-      <Show when={props.decision.failure}>
-        {(failure) => <ErrorLine message={copy.answerRefused(rail.nodes.find((node) => node.id === failure().answered_by.id)?.name ?? failure().answered_by.id, failure().message)} />}
-      </Show>
-      <Show when={decisions.answerFailure(id())}>{(message) => <ErrorLine message={message()} />}</Show>
+      <ReservedLine message={unreadable() ? "Unreadable question: Answer in the Terminal" : decisions.answerFailure(id()) ?? (props.decision.failure ? copy.answerRefused(rail.nodes.find(node => node.id === props.decision.failure!.answered_by.id)?.name ?? props.decision.failure.answered_by.id, props.decision.failure.message) : !props.selected && prompt()?.failure ? plainRefusal(prompt()!.failure!) : null)}
+        status={!props.decision.answerable && !unreadable() ? copy.answerInTheTerminal : null}>
+        <Show when={!props.selected && prompt()?.failure}><button type="button" data-button="quiet" onClick={() => void refetch()}>{copy.retry}</button></Show>
+      </ReservedLine>
       <Show when={props.decision.answerable ? asked() : null} keyed>
         {(question) => <>
-          <Show when={!props.selected && prompt()?.failure}>{message => <div class="decision-list-failure"><ErrorLine message={plainRefusal(message())} /><button type="button" data-button="quiet" onClick={() => void refetch()}>{copy.retry}</button></div>}</Show>
           <Show when={editor()} keyed>{entry => <AskCard question={question} identity={entry.identity} stuck={stuck} selectedRevision={entry.revision} />}</Show>
         </>}
       </Show>

@@ -117,10 +117,7 @@
   font-family: var(--font-ui);
 }
 
-.order-prompt-error {
-  margin: 0;
-  overflow-wrap: anywhere;
-}
+.order-spawn-error[hidden] { display: none; }
 
 /* Closed Agents read as a document; their retained Terminal remains below it (U82). */
 .order-overview {

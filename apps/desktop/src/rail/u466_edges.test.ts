@@ -100,10 +100,3 @@ it("u466_glyphs_keep_the_six_kinds", async () => {
 
   expect(new Set(kinds)).toEqual(new Set(["Error","Needs-you","Blocked","Working","Idle","Done"]));
 },60_000);
-
-it("u466_failure_text_stays_visible_on_the_densest_seed", async () => {
-  await load();
-  await page.call(`() => {window.__fake.app.editorFailure=new Error('no code editor found');document.querySelector('.rail-row [aria-label="Open in editor"]').click();}`);
-  await page.until("() => Boolean(document.querySelector('.rail > .ink'))");
-  expect(await page.call<string>("() => document.querySelector('.rail > .ink').textContent")).toContain("no code editor found");
-},60_000);

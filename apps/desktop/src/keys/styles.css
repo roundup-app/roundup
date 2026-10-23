@@ -41,3 +41,10 @@
   background: var(--key-chip-fill);
 }
 .help-line, .help-shelf, .leader-line { color: var(--grey); }
+
+.leader .reserved-status {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: var(--space-4);
+}

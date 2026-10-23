@@ -10,8 +10,8 @@ import { DecisionCard } from "../decisions/DecisionCard";
 import { FoldedLine } from "../decisions/FoldedLine";
 import { OrderDrawer } from "../orders/OrderDrawer";
 import { OrderLine } from "../orders/OrderLine";
+import { ReservedLine } from "../ink/ReservedLine";
 import { NoteQueue } from "./NoteQueue";
-import { ErrorLine } from "../ink/ErrorLine";
 import { Icon } from "../ink/Icon";
 import { doorStateOf, doorStateText } from "../rail/doorState";
 import { useConnectedProject } from "../state/connectedProject";
@@ -397,14 +397,7 @@ export const Pane = (props: { notice?: string | null; createEmulator?: EmulatorF
       <Show when={view() === "dashboard" && selected()?.kind === "workstream" ? selected()!.id : null} keyed>{(home) => <MeasurementDashboard home={home} name={selected()?.name ?? ""} back={backFromView} />}</Show>
       <Show when={view() === "timeline" && selected()?.kind === "workstream" ? selected()!.id : null} keyed>{(home) => <TimelineView home={home} name={selected()?.name ?? ""} back={backFromView} />}</Show>
       <div class="pane-origin" classList={{ "pane-origin-hidden": dashboard() }}>
-      <Show when={connected.decisions.listFailure()}>
-        {(message) => (
-          <div class="decision-list-failure">
-            <ErrorLine message={message()} />
-            <button data-button="quiet" type="button" class="word" onClick={() => connected.decisions.retryList()}>{copy.retry}</button>
-          </div>
-        )}
-      </Show>
+
       <Show when={decision()}>
         {(open) => (
           <DecisionCard
@@ -432,7 +425,9 @@ export const Pane = (props: { notice?: string | null; createEmulator?: EmulatorF
       >
         <Show when={taken() || (inWatch() && terminalId() !== null && !screens.exited(terminalId()!))}>
           <div class="pane-control" data-state={taken() ? "controlled" : "managed"}>
-            <span class="pane-control-state" role="status">{taken() ? copy.youControl : refused() ? copy.managedTypingNotSent : copy.managed}</span>
+            <div class="pane-control-state" data-label={taken() ? copy.youControl : copy.managed}>
+              <ReservedLine status={taken() ? copy.youControl : refused() ? copy.managedTypingNotSent : copy.managed} />
+            </div>
             <Show when={selected()?.kind === "agent"}>
               <button data-button="quiet" type="button" class="word" aria-label={taken() ? copy.endTheTakeover : copy.takeOver} aria-keyshortcuts="Meta+Enter" aria-disabled={connected.daemonExit() !== null ? true : undefined} ref={toggleControl} onClick={() => { if (connected.daemonExit() === null) void toggle(); }}>{taken() ? copy.endTheTakeover : copy.takeOver}<span class="light" aria-hidden="true">{" "}{TAKE_CONTROL_KEYS}</span></button>
             </Show>
@@ -499,7 +494,9 @@ export const Pane = (props: { notice?: string | null; createEmulator?: EmulatorF
       <Show when={selected()?.kind === "agent" && terminalId() !== null && !closedAgent() ? selected() : null} keyed>{(node) => <NoteQueue node={node} />}</Show>
       </div>
       <div class="pane-failure">
-        <Show when={notice() ?? rail.workstreamFailure()}>{(message) => <ErrorLine message={message()} />}</Show>
+        <ReservedLine class={connected.decisions.listFailure() ? "decision-list-failure" : undefined} message={notice() ?? rail.workstreamFailure() ?? connected.decisions.listFailure()}>
+          <Show when={connected.decisions.listFailure()}><button data-button="quiet" type="button" class="word" onClick={() => connected.decisions.retryList()}>{copy.retry}</button></Show>
+        </ReservedLine>
       </div>
     </div>
   );
