@@ -101,7 +101,7 @@ export const Help = () => {
       initialFocusEl={() => panel ?? null}
       finalFocusEl={() => returnTo instanceof HTMLElement && returnTo.isConnected ? returnTo : null}
       onEscapeKeyDown={(event) => event.stopImmediatePropagation()}>
-      <Dialog.Positioner class="help-positioner" popover={typeof HTMLElement.prototype.showPopover === "function" ? "manual" : undefined} ref={element => queueMicrotask(() => { if (element.isConnected && element.showPopover) element.showPopover(); })}>
+      <Dialog.Positioner class="help-positioner" popover={"showPopover" in HTMLElement.prototype ? "manual" : undefined} ref={element => queueMicrotask(() => { if (element.isConnected && element.showPopover) element.showPopover(); })}>
       <Dialog.Content class="help" data-origin={origin()} aria-label={copy.help} ref={(element) => { panel = element; queueMicrotask(() => element.isConnected && element.focus({ preventScroll: true })); }}>
         <section class="help-origin" data-origin={origin()}>
           <h2>{originSection().title}</h2>
