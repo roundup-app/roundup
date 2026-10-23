@@ -65,7 +65,6 @@ export function assignShards(files: readonly string[], measured: Seconds, count:
 
 /** Vitest's `--shard` hook: balances shards by the durations measured on `main` (`just web-durations`), not by path hash. */
 export default class TimedSequencer extends BaseSequencer {
-  // fallow-ignore-next-line unused-class-member -- vitest calls it for `--shard`
   override async shard(specs: TestSpecification[]): Promise<TestSpecification[]> {
     const { root, shard } = this.ctx.config;
 
@@ -78,7 +77,6 @@ export default class TimedSequencer extends BaseSequencer {
 
   // Vitest sorts after it shards, by file size when it has no earlier run to read: a browser test is a small file that
   // runs for minutes, so left to that order it starts last and the shard waits on its tail. Start the longest first.
-  // fallow-ignore-next-line unused-class-member -- vitest calls it before every run
   override async sort(specs: TestSpecification[]): Promise<TestSpecification[]> {
     const { root } = this.ctx.config;
     const byFile = new Map(specs.map((spec) => [relative(root, spec.moduleId), spec]));
