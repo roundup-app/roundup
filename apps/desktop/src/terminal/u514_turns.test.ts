@@ -92,15 +92,3 @@ it("u514_shift_click_extends_over_the_turns_between", async () => {
   expect(emulator.selection()).toBe("$ one\n1\n$ two\n2");
   emulator.dispose();
 });
-
-
-it("u516_a_selected_turn_gives_its_command_directory_and_exit", async () => {
-  const { emulator, write } = open();
-
-  await write(turn("ls", ["a"]) + turn("false", ["no"], 1, "/other") + OSC("133;A") + "$ " + OSC("133;B") + "sleep 9\r\n" + OSC("133;C"));
-  emulator.selectTurn(1, false);
-  expect(emulator.selectionFacts()).toEqual({ command: "false", cwd: "/other", exit: 1 });
-  emulator.selectTurn(2, false);
-  expect(emulator.selectionFacts()).toEqual({ command: "sleep 9", cwd: "/other", exit: "running" });
-  emulator.dispose();
-});

@@ -39,7 +39,6 @@ import { NewWorkstream } from "../todos/NewWorkstream";
 import { Capture } from "../todos/Capture";
 import { TodoDraftRecovery } from "../todos/EditableText";
 import { TodoDrawer } from "../todos/TodoDrawer";
-import { mountSend } from "../terminal/sendHarness";
 import { openShelf, openPad, padOf } from "../pads/padsFixture";
 import { Switcher } from "../switcher/Switcher";
 import { Keys } from "../keys/Keys";
@@ -273,22 +272,6 @@ it("u3807_each_site_shows_its_message_in_the_reserved_line: worktree panel", asy
     async () => { app.handlers["agent.worktreeState"] = original; await connected.worktrees.refresh("a"); });
 });
 
-it("u3807_each_site_shows_its_message_in_the_reserved_line: Send to agent", async () => {
-  const mounted = await mountSend([agent("a", "working", "building")]);
-  mounted.emulator.select("excerpt");
-  const field = await within(document.body).findByRole("textbox", { name: "Add a note (optional)" });
-  const surface = field.closest<HTMLElement>(".send-to-agent")!;
-  fireEvent.input(field, { target: { value: "held note" } });
-  const places = placesOf(surface);
-  const storage = vi.spyOn(Storage.prototype, "setItem").mockImplementation(() => { throw new Error(FAILURE); });
-  fireEvent.input(field, { target: { value: "retained note" } });
-  const place = (await within(surface).findByRole("alert")).closest<HTMLElement>(".reserved-line")!;
-  unchanged(places, place);
-  storage.mockRestore();
-  mounted.connected.drafts.retry();
-  await waitFor(() => expect(within(surface).queryByRole("alert")).toBeNull());
-  unchanged(places, place);
-});
 
 it("u3807_each_site_shows_its_message_in_the_reserved_line: importer Looking and failure", async () => {
   const mounted = await mountTodos([]);

@@ -6,7 +6,7 @@ import { createLinkProvider } from "./linkProvider";
 import type { Printed } from "./links";
 import { terminalThemeFor } from "./theme";
 import { attachTurns } from "./turns";
-import type { TurnFacts, TurnRows } from "./turns";
+import type { TurnRows } from "./turns";
 import { FitAddon } from "@xterm/addon-fit";
 import { Unicode11Addon } from "@xterm/addon-unicode11";
 import { WebglAddon } from "@xterm/addon-webgl";
@@ -29,12 +29,6 @@ export type Emulator = {
   /** U365: a Cmd+click on a web link or path printed in the Terminal; one call per click. */
   onLink(listener: (printed: Printed) => void): void;
   selection(): string;
-  /** U515: fires whenever the selection changes. */
-  onSelection(listener: () => void): void;
-  /** U515: the viewport point just after the selection's last cell, or null with no selection or an unopened screen. */
-  selectionEnd(): { x: number; y: number } | null;
-  /** U516: the facts of the Turn holding the selection's first row, or null outside every Turn. */
-  selectionFacts(): TurnFacts | null;
   /** U514: the Turns the shell's marks drew, oldest first; none for a Terminal that prints no mark. */
   turns(): TurnRows[];
   /** U514: selects Turn `index`'s rows; with `extend`, from the Turn last selected through it. */
@@ -112,6 +106,10 @@ export const SCROLLBACK_LINES = 10_000;
 
 export const xtermOptions: ITerminalOptions = {
   allowProposedApi: true,
+  // Portal refs can still belong to an inert template; mouse listeners need the live window's document.
+  get documentOverride() {
+    return document;
+  },
   // xterm needs a family string, not a CSS var; resolve its unchanged Token from the owning stylesheet.
   fontFamily: /--font-mono:\s*([^;]+);/.exec(tokens)![1]!.trim(),
   fontSize: DEFAULT_FONT_SIZE,
@@ -204,25 +202,10 @@ export const createXtermEmulators = (
       if (event.button !== 0) return;
 
       window.getSelection()?.removeAllRanges();
-      const target = event.target;
-
-      // Selection controls consume their Excerpt before the click clears the highlight.
-      if (target instanceof Element && target.closest(".send-to-agent, [role=menu]")) return;
-
       terminal.clearSelection();
     };
 
-    let clearAfterAction: ReturnType<typeof setTimeout> | undefined;
-
-    const selectionAction = (event: MouseEvent) => {
-      if (event.button !== 0 || !(event.target instanceof Element) || !event.target.closest(".send-to-agent, [role=menu]")) return;
-
-      clearTimeout(clearAfterAction);
-      clearAfterAction = setTimeout(() => terminal.clearSelection(), 0);
-    };
-
     window.addEventListener("pointerdown", clearOldSelection, true);
-    window.addEventListener("click", selectionAction, true);
     window.addEventListener("keydown", trackCmd);
     window.addEventListener("keyup", trackCmd);
     window.addEventListener("blur", dropCmd);
@@ -235,6 +218,11 @@ export const createXtermEmulators = (
     const followScheme = () => {
       terminal.options.theme = terminalThemeFor(appDark());
     };
+
+    const contrast = window.matchMedia?.("(prefers-contrast: more)");
+    const forced = window.matchMedia?.("(forced-colors: active)");
+
+    for (const query of [contrast, forced]) query?.addEventListener("change", followScheme);
 
     const stopScheme = followAppAppearance(followScheme);
 
@@ -336,25 +324,6 @@ export const createXtermEmulators = (
         linkListener = listener;
       },
       selection: () => terminal.getSelection(),
-      onSelection: (listener) => {
-        terminal.onSelectionChange(listener);
-      },
-      selectionEnd: () => {
-        const end = terminal.getSelectionPosition()?.end;
-        const screen = terminal.element?.querySelector<HTMLElement>(".xterm-screen");
-
-        if (!end || !screen || terminal.rows === 0 || terminal.cols === 0) return null;
-
-        const box = screen.getBoundingClientRect();
-        const row = Math.min(Math.max(end.y - terminal.buffer.active.viewportY, 0), terminal.rows - 1);
-
-        return { x: box.left + (end.x * box.width) / terminal.cols, y: box.top + ((row + 1) * box.height) / terminal.rows };
-      },
-      selectionFacts: () => {
-        const start = terminal.getSelectionPosition()?.start;
-
-        return start ? shellTurns.factsAt(start.y) : null;
-      },
       turns: shellTurns.turns,
       selectTurn: shellTurns.selectTurn,
       paste: (text) => terminal.paste(text),
@@ -391,11 +360,11 @@ export const createXtermEmulators = (
       dispose: () => {
         if (fontFrame !== null) cancelAnimationFrame(fontFrame);
 
+        for (const query of [contrast, forced]) query?.removeEventListener("change", followScheme);
+
         stopScheme();
         stopFont();
         window.removeEventListener("pointerdown", clearOldSelection, true);
-        window.removeEventListener("click", selectionAction, true);
-        clearTimeout(clearAfterAction);
         window.removeEventListener("keydown", trackCmd);
         window.removeEventListener("keyup", trackCmd);
         window.removeEventListener("blur", dropCmd);
