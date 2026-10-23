@@ -227,23 +227,27 @@ export const createRailMenu = (app: AppSeam, rail: RailState, onFailure: (messag
 
     if (node.kind === "workstream" && node.attempt === null) return [remove];
 
-    const agents = rail.nodes;
-
     const items: MenuEntry[] = [
       { id: "rename", label: copy.rename, shortcut: copy.renameChord, run: () => rename(node.id) },
-      { id: "restart", label: copy.restart, enabled: node.yolo, run: () => restart(node, "normal") },
-      { id: "yolo", label: copy.startYolo, enabled: !node.yolo, run: () => restart(node, "yolo") },
-      { id: "stop", label: copy.stop, enabled: isRunning(node, exit), run: () => requestStop(node, exit) },
-      { id: "resume", label: copy.resume, enabled: isResumable(node, exit), run: () => { rail.select(node.id);
-
- return resume(node.id); } },
     ];
 
-    if (node.kind === "workstream") items.push({ id: "clear", label: copy.clearMenu, enabled: isClearable(node), run: () => requestClear(node) });
+    if (node.yolo && isRunning(node, exit)) items.push({ id: "restart", label: copy.restart, run: () => restart(node, "normal") });
+
+    if (!node.yolo) items.push({ id: "yolo", label: copy.startYolo, run: () => restart(node, "yolo") });
+
+    if (isRunning(node, exit)) items.push({ id: "stop", label: copy.stop, run: () => requestStop(node, exit) });
+
+    if (isResumable(node, exit)) items.push({ id: "resume", label: copy.resume, run: () => {
+      rail.select(node.id);
+
+      return resume(node.id);
+    } });
+
+    if (isClearable(node)) items.push({ id: "clear", label: copy.clearMenu, run: () => requestClear(node) });
 
     return [
       ...items,
-      ...linkEntries(app, { kind: node.kind, id: node.id }, agents, (candidate) => isRunning(candidate, rail.exitOf(candidate)), onFailure),
+      ...linkEntries(app, { kind: node.kind, id: node.id }, rail.nodes, (candidate) => isRunning(candidate, rail.exitOf(candidate)), onFailure),
       remove,
     ];
   };

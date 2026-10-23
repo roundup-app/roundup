@@ -1,0 +1,253 @@
+{
+  "scenario": "U3812",
+  "viewport": [
+    1512,
+    950
+  ],
+  "scheme": "dark",
+  "observer": "isolated headless agent-browser; native menu models only",
+  "base": {
+    "base-dense.checks.json": {
+      "D1": "pass",
+      "D2": "pass",
+      "D3": "pass",
+      "D4": "pass",
+      "D5": "pass",
+      "D6": "pass",
+      "D7": "pass",
+      "D8": "pass",
+      "D9": "pass",
+      "D10": "pass",
+      "D11": "pass",
+      "D12": "pass",
+      "D13": "pass",
+      "D14": "pass",
+      "D16": "pass"
+    },
+    "base-failure.checks.json": {
+      "D1": "pass",
+      "D2": "pass",
+      "D3": "pass",
+      "D4": "pass",
+      "D5": "pass",
+      "D6": "pass",
+      "D7": "pass",
+      "D8": "pass",
+      "D9": "pass",
+      "D10": "pass",
+      "D11": "pass",
+      "D12": "pass",
+      "D13": "pass",
+      "D14": "pass",
+      "D16": "pass"
+    },
+    "base-pad-todo.checks.json": {
+      "D1": "pass",
+      "D2": "pass",
+      "D3": "pass",
+      "D4": "pass",
+      "D5": "pass",
+      "D6": "pass",
+      "D7": "pass",
+      "D8": "pass",
+      "D9": "pass",
+      "D10": "pass",
+      "D11": "pass",
+      "D12": "pass",
+      "D13": "pass",
+      "D14": "pass",
+      "D16": "pass"
+    },
+    "base-tab-todo.checks.json": {
+      "D1": "pass",
+      "D2": "pass",
+      "D3": "pass",
+      "D4": "pass",
+      "D5": "pass",
+      "D6": "pass",
+      "D7": "pass",
+      "D8": "pass",
+      "D9": "pass",
+      "D10": "pass",
+      "D11": "pass",
+      "D12": "pass",
+      "D13": "pass",
+      "D14": "pass",
+      "D16": "pass"
+    },
+    "base-pad-todo-menu.json": {
+      "items": [
+        "complete",
+        "send",
+        "copy-link",
+        "delete"
+      ],
+      "disabled": [
+        "complete",
+        "send:logins",
+        "send:docs",
+        "send:agent-1",
+        "send:agent-6",
+        "send:agent-7",
+        "send:agent-12",
+        "send:agent-13",
+        "send:agent-18",
+        "send:agent-19",
+        "send:agent-24",
+        "send:agent-25",
+        "send:agent-30",
+        "send:agent-31"
+      ]
+    },
+    "base-row-menu.json": {
+      "items": [
+        "rename",
+        "restart",
+        "yolo",
+        "stop",
+        "resume",
+        "send",
+        "copy-link",
+        "remove"
+      ],
+      "disabled": [
+        "restart",
+        "resume",
+        "send:logins",
+        "send:docs",
+        "send:agent-1",
+        "send:agent-6",
+        "send:agent-7",
+        "send:agent-12",
+        "send:agent-13",
+        "send:agent-18",
+        "send:agent-19",
+        "send:agent-24",
+        "send:agent-25",
+        "send:agent-30",
+        "send:agent-31"
+      ]
+    },
+    "base-tab-todo-menu.json": {
+      "items": [
+        "complete",
+        "send",
+        "copy-link",
+        "delete"
+      ],
+      "disabled": [
+        "complete",
+        "send:logins",
+        "send:docs",
+        "send:agent-1",
+        "send:agent-6",
+        "send:agent-7",
+        "send:agent-12",
+        "send:agent-13",
+        "send:agent-18",
+        "send:agent-19",
+        "send:agent-24",
+        "send:agent-25",
+        "send:agent-30",
+        "send:agent-31"
+      ]
+    }
+  },
+  "head": {
+    "head-dense.checks.json": {
+      "D1": "pass",
+      "D2": "pass",
+      "D3": "pass",
+      "D4": "pass",
+      "D5": "pass",
+      "D6": "pass",
+      "D7": "pass",
+      "D8": "pass",
+      "D9": "pass",
+      "D10": "pass",
+      "D11": "pass",
+      "D12": "pass",
+      "D13": "pass",
+      "D14": "pass",
+      "D16": "pass"
+    },
+    "head-failure.checks.json": {
+      "D1": "pass",
+      "D2": "pass",
+      "D3": "pass",
+      "D4": "pass",
+      "D5": "pass",
+      "D6": "pass",
+      "D7": "pass",
+      "D8": "pass",
+      "D9": "pass",
+      "D10": "pass",
+      "D11": "pass",
+      "D12": "pass",
+      "D13": "pass",
+      "D14": "pass",
+      "D16": "pass"
+    },
+    "head-pad-todo.checks.json": {
+      "D1": "pass",
+      "D2": "pass",
+      "D3": "pass",
+      "D4": "pass",
+      "D5": "pass",
+      "D6": "pass",
+      "D7": "pass",
+      "D8": "pass",
+      "D9": "pass",
+      "D10": "pass",
+      "D11": "pass",
+      "D12": "pass",
+      "D13": "pass",
+      "D14": "pass",
+      "D16": "pass"
+    },
+    "head-tab-todo.checks.json": {
+      "D1": "pass",
+      "D2": "pass",
+      "D3": "pass",
+      "D4": "pass",
+      "D5": "pass",
+      "D6": "pass",
+      "D7": "pass",
+      "D8": "pass",
+      "D9": "pass",
+      "D10": "pass",
+      "D11": "pass",
+      "D12": "pass",
+      "D13": "pass",
+      "D14": "pass",
+      "D16": "pass"
+    },
+    "head-pad-todo-menu.json": {
+      "items": [
+        "send",
+        "copy-link",
+        "delete"
+      ],
+      "disabled": []
+    },
+    "head-row-menu.json": {
+      "items": [
+        "rename",
+        "yolo",
+        "stop",
+        "send",
+        "copy-link",
+        "remove"
+      ],
+      "disabled": []
+    },
+    "head-tab-todo-menu.json": {
+      "items": [
+        "send",
+        "copy-link",
+        "delete"
+      ],
+      "disabled": []
+    }
+  }
+}

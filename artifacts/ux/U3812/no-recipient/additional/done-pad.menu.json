@@ -1,0 +1,16 @@
+{
+  "items": [
+    {
+      "id": "copy-link",
+      "label": "Copy Link",
+      "enabled": true
+    },
+    {
+      "id": "delete",
+      "label": "Delete",
+      "enabled": true
+    }
+  ],
+  "x": 180,
+  "y": 250
+}
