@@ -31,7 +31,7 @@ const select = async (label: string, value: string) => {
 };
 
 const pick = async (label: string, value: string) => {
-  fireEvent.click(screen.getByRole("button", { name: label }));
+  fireEvent.click(screen.getByRole("button", { name: new RegExp(`^${label} `) }));
   fireEvent.click(await screen.findByRole("option", { name: value }));
 };
 
@@ -65,8 +65,8 @@ it("u3802_a_failed_list_shows_the_message_and_keeps_the_choice", async () => {
   await mount(true);
   expect(await screen.findByText(/Model list unavailable; reopen Settings to retry/)).toBeTruthy();
   expect(appSettings()).toMatchObject({ engine: "engine-one", model: "model-one" });
-  expect(screen.getByRole("button", { name: "Engine" }).textContent).toBe("Engine One");
-  expect(screen.getByRole("button", { name: "Model" }).textContent).toBe("Model One");
+  expect(screen.getByRole("button", { name: "Engine Engine One" })).toBeTruthy();
+  expect(screen.getByRole("button", { name: "Model Model One" })).toBeTruthy();
 });
 
 it.each(["300", "2", "not a number"])("u3803_a_bad_size_is_refused_and_changes_nothing_%s", async invalid => {
@@ -86,7 +86,7 @@ it("u3806_a_change_survives_a_reload", async () => {
   commit("Font family", "Menlo");
   commit("Font size", "16");
   await select("Mode", "Dark");
-  fireEvent.click(screen.getByRole("button", { name: "Quick add a Todo" }));
+  fireEvent.click(screen.getByRole("button", { name: /^Quick add a Todo / }));
   fireEvent.keyDown(window, { key: "y", code: "KeyY", ctrlKey: true, shiftKey: true });
   expect(JSON.parse(localStorage.getItem("roundup:app-settings")!)).toMatchObject({ permissionMode: "plan", engine: "engine-one", model: "model-one", fontFamily: "Menlo", fontSize: 16, mode: "dark", quickAdd: "ctrl+shift+KeyY" });
   cleanup();
@@ -109,7 +109,7 @@ it("u3806_an_invalid_field_falls_back_alone", async () => {
 
 it("u3804_a_clashing_chord_is_refused_naming_the_holder", async () => {
   await mount();
-  fireEvent.click(screen.getByRole("button", { name: "Quick add a Todo" }));
+  fireEvent.click(screen.getByRole("button", { name: /^Quick add a Todo / }));
   fireEvent.keyDown(window, { key: "n", code: "KeyN", metaKey: true });
   expect(await screen.findByText(/⌘N is already New Agent/)).toBeTruthy();
   fireEvent.keyDown(window, { key: "q", code: "KeyQ", metaKey: true });

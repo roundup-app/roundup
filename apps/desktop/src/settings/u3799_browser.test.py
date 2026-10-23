@@ -34,6 +34,7 @@ def capture(id, step):
     directory = root / id
     directory.mkdir(parents=True, exist_ok=True)
     checks = evaluate('window.__checks()')
+    assert all(check['status'] == 'pass' for check in checks.values()), checks
     browser('screenshot', str(directory / (step + '.png')))
     (directory / (step + '.checks.json')).write_text(json.dumps(checks, ensure_ascii=False) + '\n')
 

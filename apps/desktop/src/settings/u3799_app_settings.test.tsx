@@ -13,6 +13,8 @@ it("u3799_the_event_and_cmd_comma_open_app_settings_in_the_center_with_four_grou
   expect(within(screen.getByRole("region", { name: "Centre" })).getByRole("region", { name: "Settings" })).toBe(view);
   expect(within(view).getAllByRole("region").map(item => item.getAttribute("aria-label"))).toEqual(["Agents", "Terminal", "Shortcuts", "Appearance"]);
   expect(screen.queryByRole("dialog")).toBeNull();
+  expect(screen.queryByRole("button", { name: /^Engine / })).toBeNull();
+  expect(screen.queryByRole("button", { name: /^Model / })).toBeNull();
   fireEvent.keyDown(window, { key: ",", code: "Comma", metaKey: true });
   expect(screen.getAllByRole("region", { name: "Settings" })).toHaveLength(1);
 });
@@ -41,7 +43,8 @@ it.each([["KeyY", "y", "⌃⇧Y"], ["Numpad1", "1", "⌃⇧1"], ["F13", "F13", "
   render(() => <App app={controls.app} reducedMotion={() => true} clock={Date.now} />);
   await screen.findAllByRole("treeitem");
   window.dispatchEvent(new Event("open-app-settings"));
-  fireEvent.click(await screen.findByRole("button", { name: "Quick add a Todo" }));
+  fireEvent.click(await screen.findByRole("button", { name: "Quick add a Todo ⇧⌘T" }));
+  expect(screen.getByRole("button", { name: "Quick add a Todo Press a shortcut" })).toBeTruthy();
   fireEvent.keyDown(window, { key, code, ctrlKey: true, shiftKey: true });
   fireEvent.click(within(screen.getByRole("region", { name: "Settings" })).getByRole("button", { name: "Close" }));
   fireEvent.keyDown(window, { key: "T", code: "KeyT", metaKey: true, shiftKey: true });
