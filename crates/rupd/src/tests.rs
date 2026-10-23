@@ -16,6 +16,27 @@ pub(super) fn daemon_in(dir: &Path) -> Daemon {
     Daemon::open(dir).unwrap()
 }
 
+pub(super) fn daemon_with_launcher(
+    project: &Path,
+    data: &Path,
+    launcher: agents::claude_code::Launcher,
+) -> Daemon {
+    Daemon::open_stores(project, data, None, |_| {
+        let bus = Bus::new();
+        let terminals = Arc::new(terminal::Terminals::open(data, bus.clone()).unwrap());
+        agents::Agents::open_in(
+            project,
+            data,
+            bus,
+            terminals,
+            launcher,
+            agents::worktree::Git::from_env(),
+        )
+        .unwrap()
+    })
+    .unwrap()
+}
+
 fn daemon() -> (tempfile::TempDir, Daemon) {
     let dir = tempfile::tempdir().unwrap();
     let daemon = daemon_in(dir.path());
