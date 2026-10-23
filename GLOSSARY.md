@@ -82,9 +82,6 @@ One command of a shell Terminal, from its prompt through its output, between the
 **ReservedLine** (user label: none; the place a failure, status or count shows):
 The one component through which the webview shows a temporal message (U3807). In its *line* form it is always mounted with the height of one line; in its *overlay* form it is out of the flow. A message appearing or going moves no other element.
 
-**Excerpt**:
-The text of a Terminal's selection that "Send to agent" carries to an Agent, cut to 6 000 bytes with its end kept (U515, U516). Sent as a Message `note` fenced with the Turn's facts when known.
-
 **Terminal owner** (`TerminalOwner`, `TerminalOwners`, `with_terminal_owner`, internal `terminal_owner`):
 The Agent or Door attached to a Terminal as its Message receiver, with its Attempt, Status revision and receiver ending facts. A Run or the user's shell has no Message receiver, even when an Agent or Workstream owns its Terminal.
 

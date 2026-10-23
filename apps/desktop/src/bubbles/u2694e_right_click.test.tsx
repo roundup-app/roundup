@@ -6,12 +6,19 @@ import { node, workstream, info } from "../testing/nodes";
 import { fakeEmulators } from "../terminal/paneHarness";
 
 import { cleanup, fireEvent, render, screen, waitFor } from "@solidjs/testing-library";
-import { afterEach, beforeEach, expect, it } from "vitest";
+import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { mountBubbles } from "./bubblesFixture";
 
 beforeEach(() => { window.localStorage.clear(); window.sessionStorage.clear(); });
 
-afterEach(cleanup);
+const clipboardBefore = Object.getOwnPropertyDescriptor(navigator, "clipboard");
+
+afterEach(() => {
+  cleanup();
+
+  if (clipboardBefore) Object.defineProperty(navigator, "clipboard", clipboardBefore);
+  else Reflect.deleteProperty(navigator, "clipboard");
+});
 
 const fire = (type: string, target: Element | Window, x: number, y: number, buttons: number) => {
   const event = new MouseEvent(type, { clientX: x, clientY: y, button: 2, buttons, bubbles: true, cancelable: true });
@@ -76,21 +83,31 @@ const mountApp = async (seed: SeedName = "tree-40", rail = false) => {
 };
 
 it.each(["agent", "door", "bubble"] as const)("u3529a_terminal_selection_and_right_click_stay_in_the_terminal: %s", async (placement) => {
-  const { app, emulators } = await mountApp("bubbles");
+  const clipboard = { readText: vi.fn(async () => "clipboard text"), writeText: vi.fn(async (_text: string) => {}) };
+  Object.defineProperty(navigator, "clipboard", { configurable: true, value: clipboard });
+  const { app, emulators } = await mountApp(placement === "door" ? "door-report" : "bubbles");
+
   if (placement === "bubble") fireEvent.click(document.querySelector(".terminal-new")!);
-  else fireEvent.click(row(placement === "door" ? "first-workstream" : "runner"));
-  await waitFor(() => expect([...emulators.made.values()].some(each => each.host?.isConnected)).toBe(true));
-  const emulator = [...emulators.made.values()].find(each => each.host?.isConnected)!;
-  const target = emulator.host!.firstElementChild!;
+  else fireEvent.click(row(placement === "door" ? "r1" : "runner"));
+  const selector = placement === "bubble" ? '.bubble:not([hidden]) [data-terminal]' : '.pane-screen [data-terminal]';
+  await waitFor(() => expect(document.querySelector(selector)).not.toBeNull());
+  const target = document.querySelector<HTMLElement>(selector)!;
+  const emulator = emulators.made.get(target.dataset.terminal!)!;
   const controls = () => [...document.querySelectorAll('[role="dialog"], input, textarea, button, [role="menu"]')];
   const before = controls();
   const calls = app.calls.length;
   const menus = app.shownMenus.length;
   const delivered: string[] = [];
+
   for (const type of ["mousedown", "mouseup"]) target.addEventListener(type, () => delivered.push(type));
-  fireEvent.mouseDown(target, { button: 0 });
+
+  fireEvent.pointerDown(target, { button: 0, buttons: 1 });
+  fireEvent.mouseDown(target, { button: 0, buttons: 1 });
+  fireEvent.pointerMove(target, { buttons: 1 });
+  fireEvent.mouseMove(target, { buttons: 1 });
   emulator.select("exact é 🪁 output");
-  fireEvent.mouseUp(target, { button: 0 });
+  fireEvent.pointerUp(target, { button: 0, buttons: 0 });
+  fireEvent.mouseUp(target, { button: 0, buttons: 0 });
   expect(controls().filter(each => !before.includes(each))).toEqual([]);
   delivered.length = 0;
   fire("pointerdown", target, 10, 10, 2);
@@ -102,6 +119,8 @@ it.each(["agent", "door", "bubble"] as const)("u3529a_terminal_selection_and_rig
   expect(delivered).toEqual(["mousedown", "mouseup"]);
   expect(controls().filter(each => !before.includes(each))).toEqual([]);
   expect(app.shownMenus).toHaveLength(menus);
+  expect(clipboard.readText).not.toHaveBeenCalled();
+  expect(clipboard.writeText).not.toHaveBeenCalled();
   expect(app.calls.slice(calls).filter(call => ["message.send", "terminal.open", "terminal.write"].includes(call.method))).toEqual([]);
 });
 

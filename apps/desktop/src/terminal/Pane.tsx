@@ -1,6 +1,5 @@
 import { MeasurementDashboard } from "./MeasurementDashboard";
 import { TimelineView } from "../timeline/TimelineView";
-import { Portal } from "solid-js/web";
 import { copy } from "../copy";
 import { shelfSliding } from "../shelf/sliding";
 import { drawerSliding } from "../drawer/sliding";
@@ -18,10 +17,6 @@ import { useConnectedProject } from "../state/connectedProject";
 import { registerKeys } from "../keys/registry";
 import { CHORDS, TAKE_CONTROL_KEYS } from "../keys/chords";
 import { KeyHint } from "../keys/KeyHint";
-import { Menu } from "../ui/Menu";
-import type { ToastQueue } from "../toasts/queue";
-import { createSendSelection } from "./sendSelection";
-import { SendToAgent } from "./SendToAgent";
 import { createXtermEmulators } from "./emulator";
 import type { EmulatorFactory } from "./emulator";
 import { DEFAULT_FONT_SIZE, MIN_FONT_SIZE, MAX_FONT_SIZE, fontSizeStorage } from "./fontSize";
@@ -34,7 +29,7 @@ import "./styles.css";
  * screen never moves after it was fitted: `notice` (the Daemon or Rail failure) wins over the pane's own failure.
  * `createEmulator` is the edge tests replace; the App passes none, except the keystroke run (`scenarios/perf.md` K3).
  */
-export const Pane = (props: { notice?: string | null; createEmulator?: EmulatorFactory | undefined; screensRef?: (screens: Screens) => void; toasts?: ToastQueue }) => {
+export const Pane = (props: { notice?: string | null; createEmulator?: EmulatorFactory | undefined; screensRef?: (screens: Screens) => void }) => {
   const connected = useConnectedProject();
   const { rail } = connected;
   const storage = fontSizeStorage(connected.project.path);
@@ -110,9 +105,6 @@ export const Pane = (props: { notice?: string | null; createEmulator?: EmulatorF
   });
 
   const terminalId = createMemo(() => selected()?.terminal_id ?? null);
-  /** U515, U516: the selection of this Terminal, sent to a running Agent. */
-  const [contextOpen, setContextOpen] = createSignal(false);
-  const sending = createSendSelection(connected, screens, terminalId, props.toasts);
   /** U38: a failure that fills this region shows in its place, never beside its empty line. */
   const notice = createMemo(() => props.notice ?? storageFailure() ?? takeFailure() ?? rail.doorFailure(selected()?.id ?? "") ?? screens.failure(terminalId()));
   const [screen, setScreen] = createSignal<HTMLDivElement>();
@@ -188,7 +180,7 @@ export const Pane = (props: { notice?: string | null; createEmulator?: EmulatorF
   /** U532: a key landed on the watched pane, so the band says why nothing was sent. */
   const [refused, setRefused] = createSignal(false);
 
-  /** U106, U515: the Terminal screen's own chords, run by the registry before xterm.js sees them. */
+  /** U106: the Terminal screen's own chords, run by the registry before xterm.js sees them. */
   const inScreen = (press: KeyboardEvent): boolean => {
     const target = press.target;
 
@@ -213,7 +205,6 @@ export const Pane = (props: { notice?: string | null; createEmulator?: EmulatorF
   });
 
   registerKeys({ kind: "region", element: screen }, [
-    { chords: ["Meta+Shift+A"], ...onScreen(() => sending.openNote()) },
     { chords: ["Meta+[Shift]+=", "Meta+[Shift]++"], ...onScreen(resize("grow"), true) },
     { chords: ["Meta+-"], ...onScreen(resize("shrink"), true) },
     { chords: ["Meta+0"], ...onScreen(resize("reset"), true) },
@@ -376,13 +367,9 @@ export const Pane = (props: { notice?: string | null; createEmulator?: EmulatorF
     onCleanup(() => watched?.disconnect());
   };
 
-  const pointerUp = () => sending.pointer(false);
-
   window.addEventListener("resize", onWindowResize);
-  window.addEventListener("mouseup", pointerUp);
   onCleanup(() => {
     window.removeEventListener("resize", onWindowResize);
-    window.removeEventListener("mouseup", pointerUp);
 
     if (pendingFrame !== null) cancelAnimationFrame(pendingFrame);
 
@@ -433,27 +420,7 @@ export const Pane = (props: { notice?: string | null; createEmulator?: EmulatorF
             </Show>
           </div>
         </Show>
-        <Menu.Root onOpenChange={(change) => setContextOpen(change.open)} onSelect={(chosen) => {
-          const id = terminalId();
-
-          if (id === null) return;
-
-          if (chosen.value === "copy") void screens.copy(id, navigator.clipboard);
-          else if (chosen.value === "paste") void screens.paste(id, navigator.clipboard);
-          else sending.openNote();
-        }}>
-          <Menu.ContextTrigger asChild={(trigger) => <div {...trigger({ class: "pane-screen", ref: setScreen, onMouseDown: () => sending.pointer(true) })} />} />
-          <Show when={contextOpen()}><Portal>
-            <Menu.Positioner>
-              <Menu.Content aria-label={copy.terminalMenu}>
-                <Show when={sending.selected()}><Menu.Item value="copy">{copy.copy}</Menu.Item></Show>
-                <Menu.Item value="paste">{copy.paste}</Menu.Item>
-                <Show when={sending.selected()}><Menu.Item value="send">{copy.sendToAgent}</Menu.Item></Show>
-              </Menu.Content>
-            </Menu.Positioner>
-          </Portal></Show>
-        </Menu.Root>
-        <SendToAgent send={sending} focusTerminal={focusTerminal} />
+        <div class="pane-screen" ref={setScreen} />
         <Show when={selected() === null && notice() === null}>
           <Show when={rail.nodes.length === 0} fallback={<p class="pane-empty">{copy.selectAnAgentOrATerminal}</p>}>
             <div class="pane-empty pane-door">

@@ -87,6 +87,8 @@ export const createProjectDrafts = () => {
       availability: (draft, facts) => {
         revision();
 
+        if (draft.destination.surface === "terminal_selection") return "unavailable";
+
         return recovery.get(draft.destination.surface)?.(draft, facts) ?? "unverified";
       },
       list: () => {

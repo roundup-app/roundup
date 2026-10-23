@@ -1,3 +1,4 @@
+import type { Checks } from "../testing/checks";
 import { expect, it } from "vitest";
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
@@ -40,10 +41,10 @@ it.each([false, true])("u2680b_a_click_clears_browser_and_terminal_selections_st
   expect(await read<{ terminal: string; browser: boolean }>("({ terminal: window.__emu.selection(), browser: getSelection().isCollapsed })")).toEqual({ terminal: "", browser: true });
 }, 90_000);
 
-const app = async () => {
+const app = async (base = false) => {
   await browser("set", "viewport", "1512", "950");
   await browser("eval", "localStorage.clear()");
-  await browser("open", url("/harness.html?seed=tree-40&renderer=dom"));
+  await browser("open", url("/harness.html?seed=tree-40&renderer=dom", base));
   await wait("!!document.querySelector('.shelf-tabs')");
 };
 
@@ -207,18 +208,42 @@ it.each(clickCases)("u2680b_a_click_clears_browser_and_terminal_selections_$wher
 
 const editorKinds = ["pad", "input", "todo", "rename"] as const;
 
-const editor = async (kind: typeof editorKinds[number]) => {
-  await app();
+const editor = async (kind: typeof editorKinds[number] | "pad-source" | "diff" | "overview", base = false) => {
+  await app(base);
   let selector: string;
 
-  if (kind === "pad") {
-    await browser("eval", "window.__fake.app.rpc('pad.write', { name: 'pad-3', text: 'alpha bravo charlie delta echo foxtrot' })");
+  if (kind === "overview") {
+    await browser("open", url("/harness.html?seed=earlier-run&renderer=dom"));
+    await wait("!!document.querySelector('[data-id=earlier-agent]')");
+    await browser("click", '[data-id="earlier-agent"] .name');
+    await wait("!!document.querySelector('.overview-card p')");
+    selector = ".overview-card p";
+  } else if (kind === "diff") {
+    await browser("open", url("/src/changes/u2540.html"));
+    await wait("!!document.querySelector('.worktree-control')");
+    await browser("find", "role", "button", "click", "--name", "roundup/agent-1", "--exact");
+    await wait("!!document.querySelector('file-tree-container')?.shadowRoot?.querySelector('[data-item-type=file]')");
+    await browser("eval", "document.querySelector('file-tree-container').shadowRoot.querySelector('[data-item-type=file]').click()");
+    await browser("find", "role", "button", "click", "--name", "View diff", "--exact");
+    await wait("!!document.querySelector('diffs-container')?.shadowRoot?.querySelector('[data-line]')");
+    selector = ".diff-content";
+  } else if (kind === "pad" || kind === "pad-source") {
+    const source = kind === "pad-source" ? "```mermaid\ngraph LR\nA-->B\n```" : "alpha [bravo](https://example.com) charlie delta echo foxtrot";
+
+    await browser("eval", `window.__fake.app.rpc('pad.write', { name: 'pad-3', text: ${JSON.stringify(source)} })`);
     await browser("click", '[data-id="payments"] .name');
     await browser("click", "#shelf-tab-pads");
     await wait("[...document.querySelectorAll('[data-shelf-row] .pad-name')].some(row => row.textContent === 'pad-3')");
     await browser("eval", "[...document.querySelectorAll('[data-shelf-row] .pad-name')].find(row => row.textContent === 'pad-3').click()");
     await wait("!!document.querySelector('.ProseMirror[contenteditable=true]')");
     selector = ".ProseMirror";
+
+    if (kind === "pad-source") {
+      await wait("!!document.querySelector('.visual-block')");
+      await browser("click", ".visual-block");
+      await wait("!!document.querySelector('.visual-source.is-open')");
+      selector = ".visual-source.is-open";
+    }
   } else if (kind === "todo") {
     // U3717: the seeded Todos are unowned and Unassigned starts folded, so the polled predicate unfolds it.
     await wait("(() => { document.querySelector('.shelf [data-shelf-group=\"unassigned\"][data-state=\"closed\"] [data-part=\"branch-control\"]')?.click(); return !!document.querySelector('.shelf .todo-row-button'); })()");
@@ -336,3 +361,229 @@ it.each(["pad", "decision"])("u2680c_readonly_content_keeps_native_selection_and
   await browser("press", "Control+V");
   expect(await read<string>("document.querySelector('#copy-result').value")).toBe(text);
 }, 120_000);
+
+const journal = async (screen: string, reporting: boolean, program = false) => {
+    await browser("eval", `(() => {
+      const journal = [];
+      window.__journal = journal;
+      window.__emu.onInput(bytes => journal.push([...bytes]));
+      if (${program}) return;
+      window.__parsed = false;
+      window.__emu.write(new TextEncoder().encode(${JSON.stringify("\x1b[2J\x1b[Halpha bravo charlie\r\n" + (reporting ? "\x1b[?1000h\x1b[?1006h" : "\x1b[?1000l\x1b[?1006l"))}), () => { window.__parsed = true; });
+    })()`);
+
+    if (!program) await wait("window.__parsed");
+
+    return read<{ bytes: number[][]; selections: string[] }>(`(() => {
+      const target = document.querySelector(${JSON.stringify(screen)});
+      const box = target.getBoundingClientRect();
+      const size = window.__emu.fit();
+      const selections = [];
+      const emit = (type, button, buttons, offset, ctrlKey = false, detail = 1) => {
+        const event = new MouseEvent(type, { bubbles: true, cancelable: true, clientX: box.left + (offset / 10 + 0.5) * box.width / size.cols, clientY: box.top + 0.5 * box.height / size.rows, button, buttons, ctrlKey, detail });
+        Object.defineProperty(event, 'pointerType', { value: 'mouse' });
+        target.dispatchEvent(event);
+      };
+      const click = (button, ctrl = false, distance = 0, detail = 1) => {
+        emit('pointerdown', button, (button === 2 ? 2 : 1), 20, ctrl, detail);
+        emit('mousedown', button, (button === 2 ? 2 : 1), 20, ctrl, detail);
+        emit('pointermove', button, (button === 2 ? 2 : 1), 20 + distance, ctrl, detail);
+        emit('mousemove', button, (button === 2 ? 2 : 1), 20 + distance, ctrl, detail);
+        if(button === 2 || ctrl) emit('contextmenu', button, (button === 2 ? 2 : 1), 20, ctrl);
+        emit('pointerup', button, 0, 20 + distance, ctrl, detail);
+        emit('mouseup', button, 0, 20 + distance, ctrl, detail);
+        selections.push(window.__emu.selection());
+      };
+      click(0, false, 80);
+      click(0, false, 0, 2);
+      emit('dblclick', 0, 0, 20, false, 2);
+      selections.push(window.__emu.selection());
+      click(2);
+      click(0, true);
+      click(2, false, 30);
+      return { bytes: window.__journal, selections };
+    })()`);
+  };
+
+it.each(["agent", "door", "bubble"] as const)("u3529b_terminal_gestures_match_plain_xterm_%s", async where => {
+  const selector = await placement(where);
+
+
+  if (where === "agent" && await read<boolean>("!!document.querySelector('.pane-control[data-state=managed]')")) {
+    await browser("find", "role", "button", "click", "--name", "Take control", "--exact");
+    await wait("!!document.querySelector('.pane-control[data-state=controlled]')");
+  }
+
+  const before = await read<string>("JSON.stringify([...document.querySelectorAll('.bubble')].map(b => [b.dataset.bubble,b.hidden,b.getAttribute('style')]))");
+  const calls = await read<number>("window.__fake.app.calls.length");
+  const appOff = await journal(selector, false);
+  const appOn = await journal(selector, true);
+  const count = appOn.bytes.flat().length;
+
+  await wait(`window.__fake.app.calls.slice(${calls}).filter(c => c.method === 'terminal.write').reduce((n,c) => n + atob(c.params.data).length, 0) === ${count}`);
+  expect(await read<number[]>(`window.__fake.app.calls.slice(${calls}).filter(c => c.method === 'terminal.write').flatMap(c => [...atob(c.params.data)].map(ch => ch.charCodeAt(0)))`)).toEqual(appOn.bytes.flat());
+  expect(appOn.bytes.length).toBeGreaterThan(0);
+  expect(await read<string>("JSON.stringify([...document.querySelectorAll('.bubble')].map(b => [b.dataset.bubble,b.hidden,b.getAttribute('style')]))")).toBe(before);
+  expect(await read<number>(`window.__fake.app.calls.slice(${calls}).filter(c => c.method === 'terminal.open').length`)).toBe(0);
+  await load("?plain=1");
+  expect(await journal("#host .xterm-screen", false)).toEqual(appOff);
+  expect(await journal("#host .xterm-screen", true)).toEqual(appOn);
+}, 120_000);
+
+it.each([...editorKinds, "pad-source", "diff", "overview"] as const)("u3529a_text_keeps_its_webview_menu_%s", async kind => {
+  const selector = await editor(kind);
+  const field = kind === "diff" ? "document.querySelector('diffs-container').shadowRoot.querySelector('[data-line]')" : `document.querySelector(${JSON.stringify(selector)})`;
+
+  await browser("eval", `(() => {
+    const field = ${field};
+    (field.closest('[contenteditable=true]') ?? field).focus();
+    window.__textBefore = [...document.querySelectorAll('[role=dialog], [role=menu], .milkdown-toolbar, .milkdown-link-preview[data-show=true], .app-popover')];
+    window.__textCalls = window.__fake.app.calls.length;
+    if(field instanceof HTMLInputElement || field instanceof HTMLTextAreaElement) field.select();
+    else { const range = document.createRange(); range.selectNodeContents(field); getSelection().removeAllRanges(); getSelection().addRange(range); }
+    const link = field.querySelector('a');
+    if (link) { const box = link.getBoundingClientRect(); link.dispatchEvent(new MouseEvent('mousemove', {bubbles:true,buttons:1,clientX:box.left + 2,clientY:box.top + 2})); }
+  })()`);
+  expect(await read<boolean>(`(() => {
+    const field = ${field};
+    const event = new MouseEvent('contextmenu', { bubbles: true, composed: true, cancelable: true, button: 2 });
+    field.dispatchEvent(event);
+    return !event.defaultPrevented;
+  })()`)).toBe(true);
+  expect(await read<number>("[...document.querySelectorAll('[role=dialog], [role=menu], .milkdown-toolbar, .milkdown-link-preview[data-show=true], .app-popover')].filter(e => !window.__textBefore.includes(e)).length")).toBe(0);
+  expect(await read<number>("window.__fake.app.calls.slice(window.__textCalls).filter(c => c.method === 'message.send').length")).toBe(0);
+}, 90_000);
+
+it.skipIf(!process.env.ROUNDUP_CAPTURES?.includes("U3529"))("u3529c_rendered_selection_and_terminal_menu_removal", async () => {
+  const { mkdirSync, writeFileSync } = await import("node:fs");
+  const { join } = await import("node:path");
+  const { captureDir } = await import("../testing/captures");
+  const phase = process.env.ROUNDUP_CAPTURE_PHASE ?? "head";
+  const base = phase === "base";
+  const revision = (await promisify(execFile)("git", ["-C", base ? process.env.U500_BASE_ROOT! : process.cwd(), "rev-parse", "HEAD"])).stdout.trim();
+
+  await browser("set", "viewport", "1512", "950");
+  await browser("set", "media", "dark");
+
+  const snap = async (step: string) => {
+    for (const id of ["U3529a", "U3529b", "U3529c", "U3529d"]) {
+      const directory = join(captureDir(id)!, phase);
+
+      mkdirSync(directory, { recursive: true });
+      await browser("screenshot", join(directory, `${step}.png`));
+      writeFileSync(join(directory, `${step}.checks.json`), JSON.stringify({ revision, ...await read<Checks>("window.__checks()") }, null, 2));
+    }
+  };
+
+  for (const seed of ["agents-10", "bubbles", "tree-40"]) {
+    const videoDirectory = join(captureDir("U3529a")!, phase);
+
+    mkdirSync(videoDirectory, { recursive: true });
+    await browser("record", "start", join(videoDirectory, `${seed}-interaction.webm`), url(`/harness.html?seed=${seed}&renderer=dom`, base));
+    await browser("set", "viewport", "1512", "950");
+    await browser("set", "media", "dark");
+    await wait("!!window.__fake && !!document.querySelector('.rail-row')");
+
+    if (seed === "bubbles") await browser("click", ".terminal-new");
+    else await browser("click", seed === "tree-40" ? '[data-id="migrate"] .name' : '[data-id=agent-4] .name');
+    await wait("window.__terminals.size > 0 && !!document.querySelector('.xterm-screen')");
+    const output = "\x1b]133;A\x07$ \x1b]133;B\x07printf example\r\n\x1b]133;C\x07alpha bravo charlie\r\n\x1b]133;D;0\x07";
+
+    await browser("eval", `(() => {
+      const emulator = [...window.__terminals.values()].at(-1);
+      window.__selected = false;
+      emulator.write(new TextEncoder().encode(${JSON.stringify(output)}), () => { emulator.selectTurn(0, false); window.__selected = true; });
+    })()`);
+    await wait("window.__selected");
+    await snap(`${seed}-selected`);
+    await browser("eval", "document.querySelector('.pane-screen .xterm-helper-textarea, .bubble:not([hidden]) .xterm-helper-textarea')?.blur()");
+    await snap(`${seed}-inactive`);
+    await browser("eval", "document.querySelector('.pane-screen .xterm-screen, .bubble:not([hidden]) .xterm-screen').dispatchEvent(new MouseEvent('contextmenu', {bubbles:true,cancelable:true,button:2,clientX:800,clientY:350}))");
+    await snap(`${seed}-right-click`);
+    await browser("record", "stop");
+
+    if (seed === "tree-40") {
+      await browser("press", "Escape");
+      await browser("press", "Escape");
+      await browser("focus", '[data-id="migrate"]');
+      await browser("press", "F2");
+      await wait("!!document.querySelector('[data-id=migrate] input')");
+      await browser("eval", `(() => {
+        window.__fake.failNext(-32003, 'Name changed. Retry.');
+        const input = document.querySelector('[data-id=migrate] input');
+        input.value = 'Renamed';
+        input.dispatchEvent(new InputEvent('input', {bubbles:true}));
+        input.dispatchEvent(new KeyboardEvent('keydown', {key:'Enter',bubbles:true,cancelable:true}));
+      })()`);
+      await wait("document.body.textContent.includes('Name changed. Retry.')");
+
+      if (!await read<boolean>("!!document.querySelector('[data-id=migrate] input')")) {
+        await browser("focus", '[data-id="migrate"]');
+        await browser("press", "F2");
+      }
+
+      await wait("!!document.querySelector('[data-id=migrate] input')");
+      await browser("eval", "document.querySelector('[data-id=migrate] input').select()");
+      await snap('dense-editor-failure');
+    }
+  }
+
+  await editor("pad", base);
+  await browser("dblclick", ".ProseMirror a");
+  await snap("pad-selected");
+  await browser("set", "media", "light");
+  await browser("dblclick", ".ProseMirror p");
+  await read("window.__checks()");
+  await browser("set", "media", "dark");
+  const saved = { version: 1, drafts: [{ revision: "retired-selection-note", destination: { surface: "terminal_selection", object: "retired", recipient: "migrate" }, value: { note: "Retained note é 🪁", excerpt: "Original output\nexact Unicode 👩🏽‍💻", source: "retired", terminal: "retired", attempt: null, command: null, cwd: null, exit: null, x: 800, y: 300 }, selection: null, status: "draft", policy: "ordinary" }] };
+
+  await read(`localStorage.setItem('roundup:drafts:/Users/you/harness', ${JSON.stringify(JSON.stringify(saved))})`);
+  await browser("open", url("/harness.html?seed=tree-40&renderer=dom", base));
+  await wait("!!window.__fake && !!document.querySelector('.rail-row')");
+  await read("[...document.querySelectorAll('button')].find(b => b.getAttribute('aria-label')?.startsWith('Overview')).dispatchEvent(new MouseEvent('contextmenu', {bubbles:true,cancelable:true,button:2}))");
+  await read("window.__fake.app.pickMenu(window.__fake.app.menuLabels().find(label => label.startsWith('Recover unfinished work')))");
+  await wait("!!document.querySelector('.draft-recovery')");
+  await snap("retired-note-recovery");
+}, 300_000);
+
+it("u3529b_live_shell_acknowledges_the_plain_xterm_mouse_bytes_once", async () => {
+  const { startRealDaemon } = await import("../testing/realDaemonFixture");
+  const real = await startRealDaemon({ SHELL: "/bin/bash" }, true);
+
+  try {
+    await load("?plain=1");
+    const expected = await journal("#host .xterm-screen", true);
+    const bytes = expected.bytes.flat();
+    expect(bytes.length).toBeGreaterThan(0);
+    await browser("open", `${real.base}/harness.html?daemon=1`);
+    await wait("!!document.querySelector('.terminal-new')");
+    await browser("click", ".terminal-new");
+    await wait("!!document.querySelector('.bubble:not([hidden]) .xterm-screen') && window.__terminals.size > 0");
+    await browser("eval", `(() => {
+      window.__emu = [...window.__terminals.values()].at(-1);
+      const write = window.__emu.write;
+      let output = '';
+      window.__emu.write = (bytes, parsed) => write(bytes, () => { output += new TextDecoder().decode(bytes); window.__mouseReady = output.includes('MOUSE_READY'); parsed?.(); });
+    })()`);
+    const program = `import os,tty,termios\nold=termios.tcgetattr(0)\ntty.setraw(0)\nos.write(1,b'\\x1b[?1000h\\x1b[?1006h\\r\\nMOUSE_' + b'READY\\r\\n')\ndata=b''\nwhile len(data)<${bytes.length}: data+=os.read(0,${bytes.length}-len(data))\ntermios.tcsetattr(0,termios.TCSANOW,old)\nos.write(1,('\\x1b[?1000l\\x1b[?1006l\\r\\nMOUSE_ACK:'+data.hex()+'\\r\\n').encode())`;
+    const command = "python3 -c '" + program.replaceAll("'", "'\\''") + "'\n";
+    await read(`(async () => {
+      window.__terminalId = document.querySelector('.bubble:not([hidden])').dataset.bubble;
+      window.__rpc = async (method, params) => {
+        const response = await fetch('/__daemon/rpc', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({method,params}) });
+        const reply = await response.json();
+        if(reply.error) throw new Error(reply.error.message);
+        return reply.result;
+      };
+      await window.__rpc('terminal.write', {id:window.__terminalId,data:btoa(${JSON.stringify(command)})});
+    })()`);
+    await wait("(async () => atob((await window.__rpc('terminal.snapshot',{id:window.__terminalId})).data).includes('MOUSE_READY'))()");
+    await wait("window.__mouseReady");
+    const actual = await journal(".bubble:not([hidden]) .xterm-screen", true, true);
+    expect(actual.bytes).toEqual(expected.bytes);
+    const hex = Buffer.from(bytes).toString("hex");
+    await wait(`(async () => atob((await window.__rpc('terminal.snapshot',{id:window.__terminalId})).data).includes('MOUSE_ACK:${hex}'))()`);
+  } finally {
+    await real.stop();
+  }
+}, 300_000);

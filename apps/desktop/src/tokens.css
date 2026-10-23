@@ -4,6 +4,7 @@
 /* The Token file (docs/design-system.md, "Tokens"): the light values, then the dark column and the contrast setting. */
 
 :root {
+  --text-selection: Highlight;
   color-scheme: light dark;
   --ground: #ffffff;
   --sunken: #f5f5f7;

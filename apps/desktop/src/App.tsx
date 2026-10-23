@@ -1,3 +1,4 @@
+import { textTarget } from "./ui/contextMenu";
 import { registerKeys } from "./keys/registry";
 import { LEADER } from "./keys/chords";
 import { copy } from "./copy";
@@ -183,16 +184,18 @@ export const App = (props: {
     }
   };
 
-  const suppressBrowserMenu = (event: MouseEvent) => event.preventDefault();
+  const suppressBrowserMenu = (event: MouseEvent) => {
+    if (!textTarget(event.target)) event.preventDefault();
+  };
 
   onMount(() => {
-    window.addEventListener("contextmenu", suppressBrowserMenu, true);
+    window.addEventListener("contextmenu", suppressBrowserMenu);
     // Start keyboard-visible for native accessibility focus arriving before any page input.
     document.documentElement.dataset.keyboardFocus = "true";
     window.addEventListener("pointerdown", clearBrowserSelection, true);
   });
   onCleanup(() => {
-    window.removeEventListener("contextmenu", suppressBrowserMenu, true);
+    window.removeEventListener("contextmenu", suppressBrowserMenu);
     window.removeEventListener("pointerdown", clearBrowserSelection, true);
     delete document.documentElement.dataset.keyboardFocus;
   });
@@ -407,7 +410,7 @@ export const App = (props: {
 
                 return (
                   <div class="centre-stack">
-                    <Pane notice={open.rail.failure() ?? jumpFailure() ?? open.contractNotice} createEmulator={tracked} screensRef={setScreens} toasts={toasts} />
+                    <Pane notice={open.rail.failure() ?? jumpFailure() ?? open.contractNotice} createEmulator={tracked} screensRef={setScreens} />
                     <AskBar />
                     <Show when={screens()}>{(shared) => <Bubbles screens={shared()} />}</Show>
                     <Switcher onFailure={setJumpFailure} onOpen={() => { if (document.querySelector('.window[data-shelf="open"][data-shelf-mode="overlay"]')) shelfFocus.toggle("key"); }} />
