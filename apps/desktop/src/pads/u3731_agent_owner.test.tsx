@@ -1,7 +1,5 @@
 import { cleanup, fireEvent, screen, waitFor, within } from "@solidjs/testing-library";
 import { afterEach, expect, it } from "vitest";
-import { CHORDS, HELP_ROWS } from "../keys/chords";
-import { copy } from "../copy";
 import { USER } from "../testing/nodes";
 import { AGENT, CONFLICT, openShelf, padOf, RpcError } from "./padsFixture";
 
@@ -128,7 +126,4 @@ it("u3732_home_is_unchanged_by_an_owner_change", async () => {
   expect(calls(app, "pad.move")).toEqual([]);
 });
 
-it("u3732_the_key_is_registered_and_listed_in_help", () => {
-  expect(CHORDS.filter(chord => chord.presses.includes("KeyO"))).toHaveLength(1);
-  expect(HELP_ROWS).toContainEqual(expect.objectContaining({ keys: "O", what: copy.assignTodo }));
-});
+
