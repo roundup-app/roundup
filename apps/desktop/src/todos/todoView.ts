@@ -89,6 +89,8 @@ export const planDrop = (rows: readonly NestedRow[], flat: readonly Todo[], all:
 
   for (const row of rows) if (row.parent !== null && moving.has(row.parent)) moving.add(row.todo.id);
 
+  if (parent !== null && (moving.has(parent) || !offeredAsBlockers({ ...own.todo, blockers: [] }, all).some(todo => todo.id === parent) && parent !== own.parent)) return {};
+
   const remaining = rows.filter((row) => !moving.has(row.todo.id));
   const level = parent === null ? 1 : (remaining.find((row) => row.todo.id === parent)?.level ?? 0) + 1;
   const plan: DropPlan = {};

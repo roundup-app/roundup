@@ -26,7 +26,7 @@ export const HomeMove = (props: {
 
  if (offer) void props.choose(offer.home); }}
     >
-      <Menu.Trigger data-button="row-action" class="word light todo-move" aria-label={copy.moveTodo(props.id)}>{copy.move}</Menu.Trigger>
+      <Menu.Trigger disabled={offers().length === 0} data-button="row-action" class="word light todo-move" aria-label={copy.moveTodo(props.id)}>{copy.move}</Menu.Trigger>
       <Portal>
         <Menu.Positioner>
           <Menu.Content aria-label={copy.homesFor(props.id)}>

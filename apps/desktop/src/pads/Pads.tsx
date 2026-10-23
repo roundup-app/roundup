@@ -18,7 +18,7 @@ import type { Accessor, Setter } from "solid-js";
 import type { Pad } from "@contracts/pad/Pad";
 import { ReservedLine } from "../ink/ReservedLine";
 import { ShelfRow } from "../ink/ShelfRow";
-import { useConnectedProject } from "../state/connectedProject";
+import { type ConnectedProject, useConnectedProject } from "../state/connectedProject";
 import { createFailure } from "./failure";
 import { PadDrawer } from "./PadDrawer";
 import { USER } from "./owner";
@@ -175,7 +175,6 @@ export const Pads = (props: {
   const pickFails = new Map<string, (message: string | null) => void>();
   const rowButtons = new Map<string, HTMLButtonElement>();
   const padOf = (name: string) => pads().find(pad => pad.name === name);
-  const groupOf = (pad: Pad) => ownerGroups(connected, [pad], item => item.owner).find(group => group.items.length > 0)!.id;
 
   const rowButtonOf = (name: string) => document.querySelector<HTMLButtonElement>(`.pads-tab [data-pad="${CSS.escape(name)}"] .pad-name`);
 
@@ -223,14 +222,14 @@ export const Pads = (props: {
       const name = row?.dataset.pad;
       const anchor = focus instanceof HTMLElement && !focus.matches(TEXT_FIELDS) ? focus : null;
 
-      return { available: () => name !== undefined && padOf(name) !== undefined && anchor !== null, invoke: () => { if (anchor && name !== undefined) setPicking({ id: name, anchor }); } };
+      return { available: () => name !== undefined && padOf(name) !== undefined && ownersToOffer(connected, padOf(name)!.owner).length > 0 && anchor !== null, invoke: () => { if (anchor && name !== undefined) setPicking({ id: name, anchor }); } };
     },
   }]);
 
   const offers = () => {
     const current = padOf(picking()?.id ?? "");
 
-    return ownersOnRail(connected).filter(owner => owner.actor !== null && (!current || owner.id !== groupOf(current)));
+    return current ? ownersToOffer(connected, current.owner) : [];
   };
 
   const dropOwner = {
@@ -245,7 +244,7 @@ export const Pads = (props: {
         const found = ownersOnRail(connected).find(each => each.id === group);
 
         // Unassigned is no owner a Pad can take, the own group is no change, and a group that left the Rail takes nothing.
-        if (!found || found.actor === null || !own || group === groupOf(own)) return null;
+        if (!found || found.actor === null || !own || sameOwner(found.actor, own.owner)) return null;
 
         return { element, attribute: "data-drop-target", owner: found.actor };
       }
@@ -366,6 +365,8 @@ const PadRows = (props: {
     </Sortable.Root>
 );
 
+const ownersToOffer = (connected: ConnectedProject, current: Actor) => ownersOnRail(connected).filter(owner => owner.actor !== null && !sameOwner(owner.actor, current));
+
 const PadRow = (props: Parameters<typeof PadRows>[0] & { pad: Pad; parts: Parameters<Parameters<typeof Sortable.Item>[0]["children"]>[0] }) => {
   const connected = useConnectedProject();
   const pad = props.pad;
@@ -434,7 +435,7 @@ const PadRow = (props: Parameters<typeof PadRows>[0] & { pad: Pad; parts: Parame
             >
               <span {...nameCut.attrs()} class="shelf-title">{pad.name}</span>
             </button>
-              <button data-button="row-action" type="button" class="word light pad-assign" aria-label={copy.assignPadNamed(pad.name)} onClick={(event) => props.onAssign(pad.name, event.currentTarget)}>{copy.assign}</button>
+              <button data-button="row-action" type="button" class="word light pad-assign" aria-label={copy.assignPadNamed(pad.name)} disabled={ownersToOffer(connected, pad.owner).length === 0} onClick={(event) => props.onAssign(pad.name, event.currentTarget)}>{copy.assign}</button>
             </div>
             <p class="shelf-meta">{copy.ownedBy}{connected.rail.nameOf(pad.owner)}</p>
             <ReservedLine overlay message={failed()} />
