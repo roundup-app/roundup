@@ -130,9 +130,13 @@
 }
 
 @media (prefers-color-scheme: dark) {
-  .app-toast-action {
+  :root:not([data-mode="light"]) .app-toast-action {
     --button-surface: var(--selected);
   }
+}
+
+:root[data-mode="dark"] .app-toast-action {
+  --button-surface: var(--selected);
 }
 
 /* U3793: the cards switch at once; the bar keeps draining, the only sight of the time left. */

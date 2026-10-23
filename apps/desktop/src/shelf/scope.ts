@@ -1,7 +1,7 @@
 import { createMemo } from "solid-js";
 import type { Actor } from "@contracts/Actor";
 import type { ConnectedProject } from "../state/connectedProject";
-import { descendantsOf, siblingsOf, resolvedWorkstream } from "../rail/layout";
+import { railOrder, resolvedWorkstream } from "../rail/layout";
 import { copy } from "../copy";
 
 type Scope = { kind: "overview" } | { kind: "workstream" | "agent"; id: string; name: string };
@@ -48,7 +48,7 @@ const USER_OWNER: Actor = { kind: "user", id: "you", parent: null };
 
 export const ownersOnRail = (connected: ConnectedProject): Owner[] => {
   const nodes = connected.rail.nodes;
-  const agents = siblingsOf(nodes, null).flatMap(node => [node, ...descendantsOf(nodes, node.id)]).filter(node => node.kind === "agent");
+  const agents = railOrder(nodes).filter(node => node.kind === "agent");
 
   return [
     { id: "me", name: copy.me, actor: USER_OWNER },

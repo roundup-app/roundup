@@ -52,7 +52,5 @@ export const darkTerminalTheme: TerminalTheme = {
   brightWhite: "#ffffff",
 };
 
-export const DARK_SCHEME = "(prefers-color-scheme: dark)";
-
 /** The theme for the window's colour scheme. */
 export const terminalThemeFor = (dark: boolean): TerminalTheme => (dark ? darkTerminalTheme : lightTerminalTheme);

@@ -1,6 +1,6 @@
 import { cleanup, fireEvent, screen, waitFor, within } from "@solidjs/testing-library";
 import { afterEach, describe, expect, it } from "vitest";
-import { SCOPE_ROW } from "../testing/nodes";
+import { SCOPE_ROW, USER } from "../testing/nodes";
 import { RpcError } from "../app/seam";
 import { mountTodos, todo, todoCallsTo as callsTo, todoEvent, todoRowOf as rowOf } from "./testHarness";
 
@@ -129,17 +129,12 @@ describe("u3711 a move that would make a cycle is refused and says why", () => {
     expect(within(rowOf(2)).queryByRole("alert")).toBeNull();
   });
 
-  it("u3711_the_webview_never_checks_for_a_cycle", async () => {
-    const { app } = await mountTodos([todo(1, { blocked: true, blockers: [2] }), todo(2, { blocked: true, blockers: [1] })]);
-
-    app.handlers["todo.setBlockers"] = () => { throw new RpcError(-32003, "todo 2 would wait on itself through todo 1"); };
-
+  it("u3515c_nesting_excludes_transitive_cycles_before_mutation", async () => {
+    const { app } = await mountTodos([todo(1, { blockers: [3] }), todo(2), todo(3, { owner: USER, blockers: [2] })]);
     await screen.findAllByRole("treeitem");
     buttonOf(2).focus();
     fireEvent.keyDown(buttonOf(2), { key: "Tab" });
-
-    await waitFor(() => expect(within(rowOf(2)).getByRole("alert").textContent).toMatch(/would wait on itself/));
-    expect(callsTo(app, "todo.setBlockers")).toHaveLength(1);
+    expect(callsTo(app, "todo.setBlockers")).toEqual([]);
   });
 });
 
