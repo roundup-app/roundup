@@ -8,4 +8,8 @@ export type Values = { title: string, body: string, done: boolean, blockers: Arr
 /**
  * A change recorded before owners existed reads `None`.
  */
-owner: Actor | null, };
+owner: Actor | null, 
+/**
+ * A change recorded before estimates existed reads `None`.
+ */
+estimate_minutes: number | null, };
