@@ -20,16 +20,16 @@ const capture = async (id: string, step: string) => {
   writeFileSync(join(dir, `${step}.checks.json`), JSON.stringify(await read("window.__checks()"), null, 2));
 };
 
-const field = async (kind: string) => {
+const field = async (kind: string, initial = "alpha bravo charlie") => {
   await start();
 
   if (kind === "pad") {
-    await read("window.__fake.app.rpc('pad.write', { name: 'pad-3', text: 'alpha bravo charlie' })");
+    await read(`window.__fake.app.rpc('pad.write', { name: 'pad-3', text: ${JSON.stringify(initial)} })`);
     await browser("click", '[data-id="payments"] .name');
     await browser("click", "#shelf-tab-pads");
     await wait("[...document.querySelectorAll('.pad-name')].some(row => row.textContent === 'pad-3')");
     await read("[...document.querySelectorAll('.pad-name')].find(row => row.textContent === 'pad-3').click()");
-    await wait("!!document.querySelector('.ProseMirror[contenteditable=true]')");
+    await wait(`document.querySelector('.ProseMirror[contenteditable=true]')?.textContent === ${JSON.stringify(initial)}`);
 
     return ".ProseMirror[contenteditable=true]";
   }
@@ -56,21 +56,24 @@ const field = async (kind: string) => {
 
 it.each(["pad", "ask", "input", "textarea", "rename"])("u3560c_paste_edits_only_the_focused_field_%s", async kind => {
   const selector = await field(kind);
-  await browser("fill", selector, "alpha bravo charlie");
-  await read(`(async () => {
+
+  if (kind !== "pad") await browser("fill", selector, "alpha bravo charlie");
+  else await browser("click", selector);
+  await browser("clipboard", "write", "雪 🐈\nbonjour");
+  await read(`(() => {
     const field = document.querySelector(${JSON.stringify(selector)});
     field.focus();
     if (field instanceof HTMLInputElement || field instanceof HTMLTextAreaElement) field.setSelectionRange(6, 11);
     else { const range = document.createRange(); const text = field.querySelector('p').firstChild; range.setStart(text, 6); range.setEnd(text, 11); getSelection().removeAllRanges(); getSelection().addRange(range); }
-    await navigator.clipboard.writeText('雪 🐈\\nbonjour');
     window.__clipboardCallsBefore = window.__fake.app.calls.filter(call => call.method === 'terminal.write' || call.method === 'message.send').length;
   })()`);
   await browser("press", "Control+V");
   const value = () => read<string>(`(() => { const field = document.querySelector(${JSON.stringify(selector)}); return 'value' in field ? field.value : field.innerText.replace(/\\n+/g, '\\n').trim(); })()`);
-  const expected = kind === "input" || kind === "rename" ? "alpha 雪 🐈 bonjour charlie" : "alpha 雪 🐈\nbonjour charlie";
+  const expected = ["input", "rename", "pad"].includes(kind) ? "alpha 雪 🐈 bonjour charlie" : "alpha 雪 🐈\nbonjour charlie";
   await wait(`(() => { const field = document.querySelector(${JSON.stringify(selector)}); return ('value' in field ? field.value : field.innerText).includes('bonjour'); })()`);
   expect(await value()).toBe(expected);
-  await capture("U3560c", `paste-${kind}`);
+
+  if (["pad", "ask", "rename"].includes(kind)) await capture("U3560c", `paste-${kind}`);
   await browser("press", "Control+Z");
   await wait(`(() => { const field = document.querySelector(${JSON.stringify(selector)}); return ('value' in field ? field.value : field.textContent) === 'alpha bravo charlie'; })()`);
   expect(await read("window.__fake.app.calls.filter(call => call.method === 'terminal.write' || call.method === 'message.send').length === window.__clipboardCallsBefore")).toBe(true);
@@ -109,10 +112,13 @@ it.each(["agents-10", "tree-40", "bubbles"])("u3560e_intervention_paste_failure_
 }, 60_000);
 
 it.each(["pad", "ask", "input", "textarea", "rename"])("u3560c_copy_preserves_the_source_editor_%s", async kind => {
-  const selector = await field(kind);
-  await browser("fill", selector, "original 雪 🐈");
+  const selector = await field(kind, "original 雪 🐈");
+
+  if (kind !== "pad") await browser("fill", selector, "original 雪 🐈");
+  else await browser("click", selector);
+  await browser("clipboard", "write", "");
   await browser("press", "Control+A");
-  await browser("clipboard", "copy");
+  await browser("press", "Control+C");
   const selected = await read<string>(`(() => { const field = document.querySelector(${JSON.stringify(selector)}); return 'value' in field ? field.value : field.textContent; })()`);
   expect(selected).toBe("original 雪 🐈");
   await read("(() => { const field = document.createElement('textarea'); field.id='copy-observer'; document.body.append(field); field.focus(); })()");

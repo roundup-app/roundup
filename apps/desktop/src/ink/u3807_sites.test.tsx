@@ -446,7 +446,7 @@ it("u3807_each_site_shows_its_message_in_the_reserved_line: ProjectTab", async (
   fireEvent.click(await within(document.body).findByRole("button", { name: /Recover unfinished work/ }));
   const surface = await within(document.body).findByRole("dialog", { name: "Unfinished work" });
   let rejected = true;
-  vi.spyOn(mounted.app, "writeClipboardText").mockImplementation(async () => { if (rejected) throw new Error(FAILURE); });
+  vi.spyOn(mounted.app, "clipboardWrite").mockImplementation(async () => { if (rejected) throw new Error(FAILURE); });
   await cycle(surface, () => fireEvent.click(within(surface).getByRole("button", { name: "Copy name" })),
     () => { rejected = false; fireEvent.click(within(surface).getByRole("button", { name: "Copy name" })); });
 });

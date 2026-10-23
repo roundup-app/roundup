@@ -170,7 +170,7 @@ it("u2773e_recovery_actions_keep_surface_draft", async () => {
   await waitFor(() => expect(screen.queryByRole("dialog", { name: "Worktree" })).toBeNull());
   const recovery = await screen.findByRole("dialog", { name: "Recover Changes drafts" });
   const copyText = vi.fn<(text: string) => Promise<void>>().mockResolvedValue();
-  vi.spyOn(app, "writeClipboardText").mockImplementation(copyText);
+  vi.spyOn(app, "clipboardWrite").mockImplementation(copyText);
   fireEvent.click(within(recovery).getAllByRole("button", { name: "Copy" })[0]!);
   await waitFor(() => expect(copyText).toHaveBeenCalledOnce());
   expect(copyText.mock.calls[0]?.[0]).toContain("memory 🐝");
@@ -355,7 +355,7 @@ it("u2773c_changes_unavailable_original_keeps_recovery", async () => {
   expect(within(recovery).getByRole("status")).toBeTruthy();
   expect(within(recovery).queryByRole("button", { name: "Resume note" })).toBeNull();
   const copied = vi.fn<(text: string) => Promise<void>>().mockResolvedValue();
-  vi.spyOn(app, "writeClipboardText").mockImplementation(copied);
+  vi.spyOn(app, "clipboardWrite").mockImplementation(copied);
   fireEvent.click(within(recovery).getAllByRole("button", { name: "Copy" })[1]!);
   await waitFor(() => expect(copied).toHaveBeenCalledOnce());
   expect(JSON.parse(copied.mock.calls[0]?.[0] ?? "null")).toMatchObject({ recipient: "a", form: { text: "  unavailable exact 🐝  ", comparison: COMPARISON } });

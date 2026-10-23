@@ -24,7 +24,7 @@ const openModal = async () => {
   const readText = vi.fn(async () => "clipboard");
   const writeText = vi.fn(async (_text: string) => {});
 
-  vi.spyOn(view.app, "writeClipboardText").mockImplementation(writeText);
+  vi.spyOn(view.app, "clipboardWrite").mockImplementation(writeText);
   view.emulator.select(selected);
   await screen.findByRole("textbox", { name: "Add a note (optional)" });
   const menu = await openContext(view.container);

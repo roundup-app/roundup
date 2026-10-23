@@ -348,7 +348,7 @@ The copy of a pasted image the Daemon keeps under its data folder (`attachment.s
 _Avoid_: upload, temp image
 
 **Clipboard write** (`writeClipboardText`):
-The App seam operation that writes exact text to the native pasteboard. The shared clipboard module owns App writes; native editor copy stays with the editor.
+The App's act of placing the user's selected or action-defined text on the system clipboard. It grants no Agent access to the clipboard.
 
 **Pasted image**:
 An image `⌘V` read from the clipboard into a Terminal: the App seam command `save_pasted_image` saves its bytes as a file in the OS cache folder, and the Terminal pastes that file's path as a File drop does (U418). Not an **Attachment**, which is a Message's draft.

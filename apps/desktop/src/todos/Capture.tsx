@@ -219,7 +219,7 @@ export const Capture = (props: { onFile: (() => void) | undefined }) => {
             <span class="ink" data-state={draft.status}>{copy.draftStatus[draft.status]}</span>
             <textarea class="capture-field" aria-label={copy.recoveredCaptureDraft} rows={1} readOnly value={String(draft.value.text)} />
             <div class="capture-actions">
-            <button data-button="quiet" type="button" onClick={() => { void failureOf(() => writeText(connected.app, String(draft.value.text))).then(cause => { if (cause) setFailure(copy.copyDraftFailure(cause)); }); }}>{copy.copy}</button>
+            <button data-button="quiet" type="button" onClick={() => { void failureOf(() => writeText(connected.app, String(draft.value.text))).then(cause => { setFailure(cause ? copy.copyDraftFailure(cause) : null); }); }}>{copy.copy}</button>
             <button data-button="quiet" type="button" onClick={() => drafts.discard(draft.revision)}>{copy.discardRevision}</button>
             </div>
           </div>}</For>

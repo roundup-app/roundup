@@ -174,7 +174,7 @@ it.each(["write", "read", "invalid"])("u2773e_recovery_actions_keep_surface_draf
 
   const read = failure === "read" ? vi.spyOn(Storage.prototype, "getItem").mockImplementation(() => { throw new Error("denied"); }) : null;
   const { app } = await mountSwitcher();
-  vi.spyOn(app, "writeClipboardText").mockImplementation(writeText);
+  vi.spyOn(app, "clipboardWrite").mockImplementation(writeText);
   const write = failure === "write" ? vi.spyOn(Storage.prototype, "setItem").mockImplementation(() => { throw new Error("full"); }) : null;
   const calls = app.calls.length;
   openSwitcher();

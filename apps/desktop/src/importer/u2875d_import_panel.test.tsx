@@ -293,7 +293,7 @@ it("u3299d_copy_uses_selected_item_import", async () => {
   const duplicate = candidates.map((candidate, index) => ({ ...candidate, title: "Review", cwd: `/Users/test/projects/${index}/source` }));
   app.handlers["project.importDiscover"] = () => ({ candidates: duplicate, excluded: [] });
   const write = vi.fn().mockResolvedValue(undefined);
-  vi.spyOn(app, "writeClipboardText").mockImplementation(write);
+  vi.spyOn(app, "clipboardWrite").mockImplementation(write);
   fireEvent.click(screen.getByRole("button", { name: "Import Claude Code work" }));
   const choices = await screen.findAllByRole("checkbox", { name: /Review/ });
   const rows = choices.map(choice => choice.closest("li")!);

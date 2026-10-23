@@ -35,7 +35,7 @@ const needsConfirmation = ({ node, exit }: MenuState) =>
   isRunning(node, exit) &&
   (node.status?.kind === "working" || node.status?.kind === "needs-you" || node.status?.kind === "blocked");
 
-export const createRailMenu = (app: AppSeam, rail: RailState, onFailure: (message: string) => void, events: Events, storage: ConnectedProject["drafts"], rename: (id: string) => void, queue: QueueView) => {
+export const createRailMenu = (app: AppSeam, rail: RailState, onFailure: (message: string | null) => void, events: Events, storage: ConnectedProject["drafts"], rename: (id: string) => void, queue: QueueView) => {
   const [state, setState] = createSignal<MenuState | null>(null);
   const resuming = new Set<string>();
 

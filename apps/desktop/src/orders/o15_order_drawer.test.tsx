@@ -274,7 +274,7 @@ it("u2773b_orders_out_of_order_acknowledgement_keeps_late_failure", async () => 
 it("u2773e_recovery_actions_keep_surface_draft_orders", async () => {
   const sends: object[] = [];
   const clipboard = vi.fn(async (_text: string) => {});
-  await openDrawer(full, { app: value => { value.writeClipboardText = clipboard; }, handlers: { "agent.setOrder": (params) => { sends.push(params);
+  await openDrawer(full, { app: value => { value.clipboardWrite = clipboard; }, handlers: { "agent.setOrder": (params) => { sends.push(params);
 
  return {}; } } });
   fireEvent.click(screen.getByRole("button", { name: "Edit order" }));

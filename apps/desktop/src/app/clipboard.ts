@@ -6,26 +6,26 @@ import type { App, PastedImage } from "./seam";
 export const writeText = (app: Pick<App, "writeClipboardText">, text: string): Promise<void> => app.writeClipboardText(text);
 
 /** Read the event while its data is available. Encoded event images go unchanged to U418's save seam. */
-export const readPaste = async (event: Pick<ClipboardEvent, "clipboardData">): Promise<{ text: string; image: PastedImage | null }> => {
+export const readPaste = async (event: Pick<ClipboardEvent, "clipboardData">): Promise<{ kind: "text"; text: string } | { kind: "image"; image: PastedImage } | { kind: "empty" }> => {
   const data = event.clipboardData;
 
   if (!data) throw new Error(copy.clipboardDataUnavailable);
 
   const text = data.getData("text/plain");
 
-  if (text) return { text, image: null };
+  if (text) return { kind: "text", text };
 
   const images = [...data.files].filter(file => file.type.startsWith("image/"));
 
   for (const file of images) {
     const type = PASTED_IMAGE_TYPES.find(type => type === file.type);
 
-    if (type) return { text: "", image: { type, bytes: new Uint8Array(await file.arrayBuffer()) } };
+    if (type) return { kind: "image", image: { type, bytes: new Uint8Array(await file.arrayBuffer()) } };
   }
 
   if (images.length) throw new Error(copy.pasteFailedTheClipboardHoldsAnImageWhich);
 
-  return { text: "", image: null };
+  return { kind: "empty" };
 };
 
 /** Keep real platform causes and an available recovery action; permission-refusal advice has no producer. */

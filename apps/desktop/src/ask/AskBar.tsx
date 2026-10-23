@@ -418,7 +418,7 @@ const Deliverables = (props: { state: ReturnType<typeof createDeliverables> }) =
     setSelected(record.id);
     setFailure(null);
     void contextMenu(connected.app, linkEntries(connected.app, { kind: "deliverable", project: record.project, id: record.id },
-      connected.rail.nodes, node => connected.rail.exitOf(node) === null, cause => setFailure({ id: record.id, cause })).map(entry => entry.id !== "copy-link" ? entry : {
+      connected.rail.nodes, node => connected.rail.exitOf(node) === null, cause => setFailure(cause === null ? null : { id: record.id, cause })).map(entry => entry.id !== "copy-link" ? entry : {
         ...entry, label: copy.copy, run: async () => {
           try {
             const resolved = await connected.app.rpc("deliverable.resolve", { project: record.project, id: record.id });

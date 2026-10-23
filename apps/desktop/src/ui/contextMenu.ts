@@ -77,9 +77,9 @@ export const linkEntries = (
   target: Link,
   nodes: readonly RailNode[],
   running: (node: RailNode) => boolean,
-  fail: (message: string) => void,
+  fail: (message: string | null) => void,
 ): MenuEntry[] => {
-  const attempt = async (call: (link: string) => Promise<void>) => {
+  const attempt = async (call: (link: string) => Promise<void>, verb: "copy" | "send" = "send") => {
     try {
       const link = await linkOf(app, target);
 
@@ -90,8 +90,10 @@ export const linkEntries = (
       }
 
       await call(link.url);
+
+      if (verb === "copy") fail(null);
     } catch (error) {
-      if (error instanceof Error) fail(error.message);
+      if (error instanceof Error) fail(verb === "copy" ? copy.copyDraftFailure(error.message) : error.message);
       else throw error;
     }
   };
@@ -114,7 +116,7 @@ export const linkEntries = (
     children.length ? { id: "send", label: copy.sendToAgentMenu, children } : { id: "send", label: copy.sendToAgentMenu, enabled: false },
     { id: "copy-link", label: copy.copyLink, run: () => attempt(async link => {
       await writeText(app, target.kind === "deliverable" ? copy.linkNote(link) : link);
-    }) },
+    }, "copy") },
   ];
 };
 

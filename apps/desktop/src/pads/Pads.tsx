@@ -280,7 +280,7 @@ export const Pads = (props: {
       <ReservedLine message={failure.message() ?? list.failure() ?? (retentionProblem() ? copy.draftRetention(connected.project.name, copy.pad, retentionProblem()!.cause) : null)}>
         <Show when={retentionProblem()}>
         <button data-button="primary" type="button" onClick={() => connected.drafts.retry()}>{copy.storageRetry}</button>
-        <button data-button="quiet" type="button" onClick={() => void writeText(connected.app, name()).catch(error => failure.show(copy.copyDraftFailure(String(error))))}>{nameLabel}</button>
+        <button data-button="quiet" type="button" onClick={() => void writeText(connected.app, name()).then(() => failure.clear()).catch(error => failure.show(copy.copyDraftFailure(String(error))))}>{nameLabel}</button>
         <button data-button="quiet" type="button" onClick={() => { if (revision) connected.drafts.discard(revision); revision = undefined; captured = null; setName(""); setInvalid(false); }}>{copy.discardRevision}</button>
 
       </Show></ReservedLine>
@@ -293,7 +293,7 @@ export const Pads = (props: {
         pads={pads}
         shown={() => group().items}
         onMakeYours={(name) => void makeYours(name)}
-        onLateFailure={failure.show}
+        onLateFailure={message => message === null ? failure.clear() : failure.show(message)}
         onAssign={(name, anchor) => setPicking({ id: name, anchor })}
         failWith={(name, show) => pickFails.set(name, show)}
         rowButtons={rowButtons}
@@ -351,7 +351,7 @@ const PadRows = (props: {
   pads: Accessor<readonly Pad[]>;
   shown: Accessor<readonly Pad[]>;
   onMakeYours: (name: string) => void;
-  onLateFailure: (message: string) => void;
+  onLateFailure: (message: string | null) => void;
   onAssign: (name: string, anchor: HTMLElement) => void;
   failWith: (name: string, show: (message: string | null) => void) => void;
   rowButtons: Map<string, HTMLButtonElement>;

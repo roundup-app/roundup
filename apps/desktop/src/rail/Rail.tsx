@@ -730,7 +730,7 @@ export const Rail = () => {
                   <ReservedLine status={entry().destination.surface === "rail-name" && rail.nodes.some((node) => node.id === entry().destination.object && node.name !== entry().value.base) ? copy.railDraftConflict : null} />
                   <Show when={base()}>{(base) => <p>{copy.railDraftBase(base())}</p>}</Show>
                   <div class="rail-recovery-actions">
-                  <button data-button="quiet" onClick={() => { void attempt(() => writeText(connected.app, text())); }}>{copy.railDraftCopy}</button>
+                  <button data-button="quiet" onClick={() => { void writeText(connected.app, text()).then(() => setFailure(null), error => setFailure(copy.copyDraftFailure(error instanceof Error ? error.message : String(error)))); }}>{copy.railDraftCopy}</button>
                   <button data-button="quiet" onClick={() => {
                     const current = task()?.revision === entry().revision;
                     retained.discard(entry().revision);
