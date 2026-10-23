@@ -85,6 +85,8 @@ export const Pane = (props: { notice?: string | null; createEmulator?: EmulatorF
     if (!zoomed) { fontSize = size; screens.setFontSize(size); refitNextFrame(); }
   });
 
+  createEffect(on(() => appSettings().fontFamily, () => refitNextFrame(), { defer: true }));
+
   props.screensRef?.(screens);
 
   const [view, setView] = createSignal<"dashboard" | "timeline" | null>(null);

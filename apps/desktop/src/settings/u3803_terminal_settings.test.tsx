@@ -1,6 +1,7 @@
 import { cleanup, fireEvent, waitFor } from "@solidjs/testing-library";
 import { afterEach, expect, it, vi } from "vitest";
 import { createRoot } from "solid-js";
+import { FitAddon } from "@xterm/addon-fit";
 import * as xtermModule from "@xterm/xterm";
 import { info, terminal } from "../testing/nodes";
 import { mountPane } from "../terminal/paneHarness";
@@ -43,9 +44,12 @@ it("u3803_font_family_changes_keep_the_same_xterm_and_scrollback", async () => {
   const factory = createXtermEmulators(undefined, () => ({ activate() {}, dispose() {}, onContextLoss() { return { dispose() {} }; } }));
   const first = factory("first");
   const instance = spy.mock.instances[0]!;
-  await new Promise<void>(resolve => first.write(new TextEncoder().encode("kept output\r\n"), resolve));
+  await new Promise<void>(resolve => first.write(new TextEncoder().encode(`kept output\r\n${"c".repeat(70)}`), resolve));
   saveAppSettings({ fontFamily: "Menlo" });
   await waitFor(() => expect(instance.options.fontFamily).toBe("Menlo"));
+  vi.spyOn(FitAddon.prototype, "fit").mockImplementation(() => instance.resize(60, 24));
+  first.fit();
+  expect((instance.buffer.active.getLine(1)?.translateToString(true) ?? "") + (instance.buffer.active.getLine(2)?.translateToString(true) ?? "")).toBe("c".repeat(70));
   const second = factory("second");
   await waitFor(() => expect(spy.mock.instances[1]!.options.fontFamily).toBe("Menlo"));
   expect(instance.buffer.active.getLine(0)?.translateToString(true)).toBe("kept output");
