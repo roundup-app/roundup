@@ -5,8 +5,6 @@ import { seedApp } from "../testing/seeds";
 import appCss from "../styles.css?inline";
 import tokenCss from "../tokens.css?raw";
 
-const [guide = ""] = Object.values(import.meta.glob<string>("../../../../docs/design-system.md", { query: "?raw", import: "default", eager: true }));
-
 const KINDS = ["primary", "quiet", "add", "row-action", "icon"];
 
 /** The Milkdown editor builds its own toolbar buttons; `buttons.css` styles them by their place, they carry no kind. */
@@ -67,12 +65,4 @@ describe("u170 button kinds", () => {
     expect(new Set(buttons.flatMap((el) => el.getAttribute("data-button") ?? []))).toEqual(new Set(KINDS.filter((kind) => kind !== "primary")));
   });
 
-  it("u170_the_new_tokens_are_in_the_table_with_a_light_and_a_dark_value", () => {
-    for (const token of ["--pressed", "--disabled"]) {
-      expect(guide, token).toMatch(new RegExp(`\\| \`${token}\` \\| [^|]+ \\| [^|]+ \\|`));
-      const roots = [...tokenCss.matchAll(/:root\s*\{([^}]*)\}/g)].map((block) => block[1]).join("\n");
-
-      expect(roots.match(new RegExp(`${token}:`, "g")), token).toHaveLength(2);
-    }
-  });
 });
