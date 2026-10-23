@@ -1,5 +1,6 @@
 import { cleanup, fireEvent, screen, waitFor, within } from "@solidjs/testing-library";
 import { afterEach, describe, expect, it } from "vitest";
+import { SCOPE_ROW } from "../testing/nodes";
 import { RpcError } from "../app/seam";
 import { mountTodos, todo, todoCallsTo as callsTo, todoEvent, todoRowOf as rowOf } from "./testHarness";
 
@@ -223,6 +224,33 @@ describe("u3811 completion advances the visible dependency groups", () => {
     expect(await screen.findByRole("checkbox", { name: "Reopen todo 2" })).toBeTruthy();
   });
 
+  it("u3811_mount_navigation_and_folded_updates_settle_without_replay (leave mid-finish and return)", async () => {
+    const mounted = await setup(false);
+    fireEvent.click(disclosure(3));
+    await waitFor(() => expect(disclosure(3).getAttribute("aria-expanded")).toBe("false"));
+    await accept(mounted);
+    mounted.connected.rail.select(SCOPE_ROW);
+    await waitFor(() => expect(screen.queryByRole("progressbar", { name: "Todos done" })).toBeNull());
+    mounted.connected.rail.select(null);
+    await screen.findByRole("progressbar", { name: "Todos done" });
+    const owner = document.querySelector<HTMLElement>('[data-shelf-group="unassigned"] [data-part="branch-control"]')!;
+
+    if (owner.closest('[aria-expanded]')?.getAttribute("aria-expanded") === "false") fireEvent.click(owner);
+    await screen.findByRole("button", { name: "Toggle todo 1 group" });
+    expect(disclosure(1).getAttribute("aria-expanded")).toBe("false");
+    expect(disclosure(3).getAttribute("aria-expanded")).toBe("false");
+    expect(document.querySelector('[data-motion="play"]')).toBeNull();
+  });
+
+  it("u3811_an_agent_finish_keeps_focus_outside_the_closing_group", async () => {
+    const mounted = await setup();
+    const add = screen.getByRole("button", { name: "add todo to Overview" });
+    add.focus();
+    await accept(mounted);
+    expect(disclosure(1).getAttribute("aria-expanded")).toBe("false");
+    expect(document.activeElement).toBe(add);
+  });
+
   it("u3811_reduced_motion_settles_groups_without_waiting_for_motion", async () => {
     const mounted = await setup(false);
     await accept(mounted);
@@ -282,4 +310,28 @@ it("u3811_bursts_and_reopening_settle_on_the_latest_facts", async () => {
   expect(next.getAttribute("aria-expanded")).toBe("false");
   expect(within(rowOf(2)).getByRole<HTMLInputElement>("checkbox").checked).toBe(false);
   expect(document.querySelector('[data-motion="play"]')).toBeNull();
+});
+
+it("u3811_bursts_and_reopening_settle_on_the_latest_facts (a hidden completed group precedes the successor)", async () => {
+  const mounted = await mountTodos([
+    todo(1, { done: true }), todo(2, { blockers: [1] }),
+    todo(3, { done: true }), todo(4, { blockers: [3, 2], blocked: true }),
+    todo(5, { done: true }), todo(6, { blockers: [5] }),
+    todo(7, { done: true }), todo(8, { blockers: [7, 6], blocked: true }),
+  ]);
+
+  const disclosure = (id: number) => screen.getByRole("button", { name: `Toggle todo ${id} group` });
+
+  await screen.findByRole("button", { name: "Toggle todo 3 group" });
+
+  for (const id of [3, 5, 7]) {
+    fireEvent.click(disclosure(id));
+    await waitFor(() => expect(disclosure(id).getAttribute("aria-expanded")).toBe("false"));
+  }
+
+  mounted.store.todos = mounted.store.todos.map(item => ({ ...item, done: item.done || item.id === 2 || item.id === 6, blocked: false }));
+  await mounted.todos.reload();
+  expect(disclosure(3).getAttribute("aria-expanded")).toBe("false");
+  expect(disclosure(5).getAttribute("aria-expanded")).toBe("false");
+  expect(disclosure(7).getAttribute("aria-expanded")).toBe("true");
 });
