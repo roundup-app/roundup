@@ -16,12 +16,14 @@ export const OwnerGroups = <T,>(props: {
   dragging: Accessor<boolean>;
   /** A list may retain finishing rows while its count already reflects the refetched state. */
   detail?: (group: OwnerGroup<T>) => JSX.Element;
+  showEmpty?: (group: OwnerGroup<T>) => boolean;
+  target?: Accessor<string | null>;
   mark?: (group: OwnerGroup<T>) => JSX.Element;
   count?: (group: OwnerGroup<T>) => number;
   /** U3719: the group whose new-Todo field is open; it shows and unfolds. */
   adding: Accessor<string | null>;
   /** U3720: the group a reassigned Todo arrived in; it unfolds so the row can take focus. */
-  reveal: Accessor<string | null>;
+  reveal: Accessor<readonly string[]>;
   /** Each change opens the Unassigned group, so a Todo just captured shows. */
   unfold?: Accessor<number>;
   /** U3730: the group named like the scope (a selected Agent's own) shows no header, so the scope's name appears once. */
@@ -38,7 +40,7 @@ export const OwnerGroups = <T,>(props: {
   createEffect(() => props.onClosedChange?.(closed()));
 
   const shown = createMemo<OwnerGroup<T>[]>((previous = []) => {
-    const groups = props.groups().filter(group => group.items.length > 0 || props.dragging() || props.adding() === group.id);
+    const groups = props.groups().filter(group => group.items.length > 0 || props.showEmpty?.(group) || props.dragging() || props.adding() === group.id);
 
     if (!props.dragging()) return groups;
 
@@ -53,7 +55,7 @@ export const OwnerGroups = <T,>(props: {
     nodeToValue: node => node.id, nodeToString: node => node.name, isNodeDisabled: node => node.id.endsWith(":items"),
   }));
 
-  createEffect(on([props.adding, props.reveal], ([adding, reveal]) => setClosed(held => held.filter(each => each !== adding && each !== reveal))));
+  createEffect(on([props.adding, props.reveal], ([adding, reveal]) => setClosed(held => held.filter(each => each !== adding && !reveal.includes(each)))));
 
   createEffect(on(() => props.unfold?.(), () => setClosed(held => held.filter(each => each !== "unassigned")), { defer: true }));
 
@@ -68,7 +70,7 @@ export const OwnerGroups = <T,>(props: {
         const group = () => shown().find(each => each.id === id)!;
 
         return <TreeView.NodeProvider node={collection().rootNode.children![at()]!} indexPath={[at()]}>
-        <TreeView.Branch data-shelf-group={id}>
+        <TreeView.Branch data-shelf-group={id} data-drop-target={props.target?.() === id ? "" : undefined}>
           <div class="shelf-group-head" hidden={props.bare?.() === id && !props.dragging()}>
             <TreeView.BranchControl class="shelf-group-control" data-button="quiet">
               <TreeView.BranchIndicator><Icon name={closed().includes(id) ? "right" : "down"} /></TreeView.BranchIndicator>
