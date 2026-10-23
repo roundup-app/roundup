@@ -65,7 +65,7 @@ Nothing moves unless the user acted or an Agent took a note the user can see: a 
 
 Type: `--font-ui` is `-apple-system, BlinkMacSystemFont, "SF Pro Text", system-ui, sans-serif`; `--font-mono` is `ui-monospace, "SF Mono", Menlo, monospace`. The steps are `--text-caption` 11, `--text-small` 12, `--text-body` 13, `--text-row` 14 (every Rail row's name), `--text-title` 15, `--text-pad-subheading` 20 and `--text-pad-heading` 24 px. Weight is 400, 500 or 600. Tracking is `0` at body and below, `-0.01em` at title (apple-design: tracking follows size).
 
-The App inherits `--font-ui`; code, paths, diffs, ids, token counts and Terminal output select `--font-mono`. `--mono` aliases `--font-mono` in the Token file. Static interface typography uses the listed type steps. U102’s user-adjustable Terminal font starts at `--text-body` and changes in 1 px increments within `--text-terminal-min` and `--text-terminal-max`; this scale applies only to the Terminal, not the Rail or other interface text.
+The App inherits `--font-ui`; code, paths, diffs, ids and token counts select `--font-mono`; Terminal output selects `--font-terminal`. `--mono` aliases `--font-mono` in the Token file. Static interface typography uses the listed type steps. U102’s user-adjustable Terminal font starts at `--text-terminal` and changes in 1 px increments within `--text-terminal-min` and `--text-terminal-max`; this scale applies only to the Terminal, not the Rail or other interface text.
 
 Pad prose uses `--text-title` (15 px). Its `--text-pad-subheading` (20 px) and `--text-pad-heading` (24 px) steps apply only to rendered and formatted Pad headings, in both colour schemes; source and code stay mono at `--text-body`. A Pad's reading and editing views use the same steps.
 
@@ -241,3 +241,27 @@ Scoped to Terminal Bubbles (U2742a–d, `scenarios/ui-bubble-panel.md`); other A
 | Temporary view, continuing work | Preserve Terminal identity, command, screen/scroll, draft input and saved rectangle; switching opens/closes nothing and writes no chord. Close stays destructive and separate. U2742c/d call and emulator assertions decide. |
 
 Use the current Ark Panel and manual popover top layer. `.bubble-frame::backdrop` uses the existing pane origin and extent with `pointer-events: none`, so outside dismissal still reaches its target once (U2307a). Derive activation from shown/focus state; no persisted mode. Filters never nest. Reduced transparency clears filters on both elements and backdrops, retaining dimming. Only the background Agent terminal receives this blur exception; the Bubble keeps its opaque ground, radius, shadow, bar and internal inset (U523/U2307c). U2742's rendered observer checks layer bounds and foreground clarity; its recorded Mac observation checks actual chord delivery, direct focus return and WebKit rendering.
+
+
+### Terminal Tokens (U3517)
+
+Terminal defaults use bundled JetBrains Mono 2.304 (regular, bold, italic and bold
+italic, OFL in `apps/desktop/public/fonts/jetbrains-mono/`). `--font-terminal` is
+`"JetBrains Mono", ui-monospace, "SF Mono", Menlo, monospace`. Only Terminal content
+uses it; the rest of the App retains its existing type.
+
+The emulator, App Settings and Project zoom reset share `--text-terminal` (14 CSS
+px). `--line-terminal` is xterm's unitless line-height multiplier (1.06) and
+`--letter-terminal` is extra cell tracking (0 CSS px). These are initial calibrated
+web values, starting from Ghostty's documented macOS 13 pt default, not a conversion
+of native points to CSS pixels. Rendered cell measurements and remaining native
+comparison are recorded in `docs/terminal-type.md`.
+
+`--terminal-background`, `--terminal-foreground`, `--terminal-cursor`,
+`--terminal-cursor-text`, `--terminal-selection`, `--terminal-selection-text`, and
+`--terminal-{black,red,green,yellow,blue,magenta,cyan,white}` with their
+`bright-` variants hold every emulator colour. CSS viewport/inset and X17 colour
+replies consume the same columns. Dark uses Ghostty's pinned unconfigured palette;
+Light uses its shipped Tomorrow companion (sources in `scenarios/ui-terminal-type.md`).
+Default text and App controls retain D5; reference ANSI cells and program-authored
+colours have U3517c's explicit exception. No colour is brightened to meet a Check.
