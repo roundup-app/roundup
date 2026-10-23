@@ -954,3 +954,14 @@
 }
 
 .rail-leaf[role="treeitem"] { cursor: pointer; }
+
+.rail,
+.rail-row {
+  position: relative;
+}
+
+.rail > .reserved-line[data-overlay="true"] {
+  padding-inline: var(--space-4);
+  background: var(--sunken);
+  bottom: var(--rail-actions-height);
+}

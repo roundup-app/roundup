@@ -254,3 +254,7 @@
 @media (prefers-reduced-motion: reduce) {
   .todo-done-fold { transition: none; }
 }
+
+.todo-row-notice {
+  position: relative;
+}

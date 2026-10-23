@@ -233,3 +233,8 @@
   font-size: var(--text-caption);
   user-select: none;
 }
+
+.todos-tab,
+.pads-tab {
+  position: relative;
+}

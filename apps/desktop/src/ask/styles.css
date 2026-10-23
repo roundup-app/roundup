@@ -308,3 +308,14 @@ button.ask-line:is(:active, [data-pressed="true"]) {
   color: var(--grey);
   font-size: var(--text-small);
 }
+
+.made-row,
+.project-overview,
+.ask-compose {
+  position: relative;
+}
+
+.ask-compose > .reserved-line[data-overlay="true"] {
+  top: 100%;
+  bottom: auto;
+}
