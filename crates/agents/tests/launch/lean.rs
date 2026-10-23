@@ -322,54 +322,68 @@ async fn lc5_every_child_gets_the_plugins_and_global_instructions() {
 
 #[tokio::test]
 async fn lc5_a_users_installed_plugin_replaces_its_bundled_copy() {
-    for name in ["hope", "hunch", "hold"] {
-        for enabled in [true, false] {
-            for (row, role, pair) in lean_children() {
-                let s = setup();
-                let install = s.root.path().join("user-plugin");
-                std::fs::create_dir_all(install.join("skills/intent")).unwrap();
-                std::fs::write(install.join("skills/intent/SKILL.md"), "USER INTENT").unwrap();
-                let key = format!("{name}@personal");
-                s.user_file(
-                    "settings.json",
-                    &json!({"enabledPlugins":{&key:enabled}}).to_string(),
+    for (enabled, want) in [
+        (
+            json!({"hope@personal":true,"hunch@personal":true,"hold@personal":true}),
+            json!([]),
+        ),
+        (
+            json!({"hope@personal":false,"hunch@personal":false,"hold@personal":false}),
+            json!(["hope", "hunch", "hold"]),
+        ),
+        (
+            json!({"hope@personal":true,"hunch@personal":false,"hold@personal":true}),
+            json!(["hunch"]),
+        ),
+    ] {
+        for (row, role, pair) in lean_children() {
+            let s = setup();
+            let install = s.root.path().join("user-plugin");
+            std::fs::create_dir_all(install.join("skills/intent")).unwrap();
+            std::fs::write(install.join("skills/intent/SKILL.md"), "USER INTENT").unwrap();
+            s.user_file(
+                "settings.json",
+                &json!({"enabledPlugins":enabled}).to_string(),
+            );
+            s.user_file(
+                "plugins/installed_plugins.json",
+                &json!({"version":2,"plugins":{
+                    "hope@personal":[{"installPath":install}],
+                    "hunch@personal":[{"installPath":install}],
+                    "hold@personal":[{"installPath":install}]
+                }})
+                .to_string(),
+            );
+            let launcher = plugin_launcher(&s);
+            let launcher = if row == Role::Door && enabled["hope@personal"] == true {
+                launcher.without_intent_skill()
+            } else {
+                launcher
+            };
+            let (argv, _) = launcher
+                .launch_on(folders(&s.dir), "7", "1", &s.cwd, None, role, &pair)
+                .await
+                .unwrap();
+            let names: Vec<_> = argv
+                .windows(2)
+                .filter(|pair| pair[0] == "--plugin-dir")
+                .map(|pair| {
+                    read(&Path::new(&pair[1]).join(".claude-plugin/plugin.json"))["name"].clone()
+                })
+                .collect();
+            assert_eq!(json!(names), want, "{row:?}: {enabled}");
+            let settings = read(Path::new(Setup::after(&argv, "--settings").unwrap()));
+            assert_eq!(settings["enabledPlugins"], enabled);
+            if row == Role::Door && enabled["hope@personal"] == true {
+                let brief = std::fs::read_to_string(
+                    Setup::after(&argv, "--append-system-prompt-file").unwrap(),
+                )
+                .unwrap();
+                assert!(
+                    brief.contains("hope:intent"),
+                    "the user's intent replaces the missing bundle"
                 );
-                s.user_file(
-                    "plugins/installed_plugins.json",
-                    &json!({"version":2,"plugins":{&key:[{"installPath":install}]}}).to_string(),
-                );
-                let launcher = plugin_launcher(&s);
-                let launcher = if row == Role::Door && name == "hope" && enabled {
-                    launcher.without_intent_skill()
-                } else {
-                    launcher
-                };
-                let (argv, _) = launcher
-                    .launch_on(folders(&s.dir), "7", "1", &s.cwd, None, role, &pair)
-                    .await
-                    .unwrap();
-                let names: Vec<_> = argv
-                    .windows(2)
-                    .filter(|pair| pair[0] == "--plugin-dir")
-                    .map(|pair| {
-                        read(&Path::new(&pair[1]).join(".claude-plugin/plugin.json"))["name"]
-                            .clone()
-                    })
-                    .collect();
-                assert_eq!(names.contains(&json!(name)), !enabled);
-                let settings = read(Path::new(Setup::after(&argv, "--settings").unwrap()));
-                assert_eq!(settings["enabledPlugins"][&key], enabled);
-                if row == Role::Door && name == "hope" && enabled {
-                    let brief = std::fs::read_to_string(
-                        Setup::after(&argv, "--append-system-prompt-file").unwrap(),
-                    )
-                    .unwrap();
-                    assert!(
-                        brief.contains("hope:intent"),
-                        "the user's intent replaces the missing bundle"
-                    );
-                    assert!(settings.get("statusLine").is_none());
-                }
+                assert!(settings.get("statusLine").is_none());
             }
         }
     }
