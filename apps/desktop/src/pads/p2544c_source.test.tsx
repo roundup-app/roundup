@@ -1,7 +1,8 @@
 import { cleanup, render, waitFor } from "@solidjs/testing-library";
 import { afterEach, expect, it, vi } from "vitest";
-import { Editor, editorViewCtx, parserCtx } from "@milkdown/kit/core";
+import { Editor, editorViewCtx, parserCtx, serializerCtx } from "@milkdown/kit/core";
 import type { EditorView } from "@milkdown/kit/prose/view";
+import { TextSelection } from "@milkdown/kit/prose/state";
 import { undo, redo } from "@milkdown/kit/prose/history";
 import PadRichEditor from "./PadRichEditor";
 import type { PadEditorHandle } from "./PadRichEditor";
@@ -40,7 +41,7 @@ const open = async (source: string) => {
     surface.dispatch(surface.state.tr.replaceWith(0, surface.state.doc.content.size, doc.content));
   };
 
-  return { handle, view: surface, replace };
+  return { handle, view: surface, replace, editor };
 };
 
 const table = "| A    | B    |\n| ---- | ---- |\n| one  | two  |";
@@ -115,4 +116,65 @@ it("p2544c_new_lists_use_dash_existing_markers_survive", async () => {
 
   replace("- new\n\nfirst\n\n* authored");
   expect(handle.getText()).toBe("- new\n\nfirst\n\n* authored");
+});
+
+const ordinary = [
+  { name: "start", source: "alpha", at: 0, keys: ["Enter"], expected: "\n\nalpha", empty: 1 },
+  { name: "middle", source: "alpha", at: 2, keys: ["Enter"], expected: "al\n\npha", empty: 0 },
+  { name: "end", source: "alpha", at: 5, keys: ["Enter"], expected: "alpha\n\n", empty: 1 },
+  { name: "twice", source: "alpha", at: 2, keys: ["Enter", "Enter"], expected: "al\n\n\n\npha", empty: 1 },
+  { name: "hard break", source: "alpha", at: 2, keys: ["Shift-Enter"], expected: "al  \npha", empty: 0 },
+  ...["* alpha", "1. alpha", "- [ ] alpha", "- [x] alpha", "> alpha", "# alpha"].map(source => ({
+    name: source, source, at: 2, keys: ["Enter"],
+    expected: source.replace("alpha", "al") + (source.startsWith("#") ? "\n\npha" : "\n" + source.replace("alpha", "pha")), empty: 0,
+  })),
+  { name: "join", source: "al\n\npha", at: 0, paragraph: 1, keys: ["Backspace"], expected: "alpha", empty: 0 },
+];
+
+const fixtures = [
+  { name: "paragraphs", tail: "first\n\nlast" },
+  { name: "mixed", tail: `* keep this marker\n\n${table}` },
+  { name: "CRLF", tail: "* 日本語\r\n\r\ncafé", newline: "\r\n" },
+];
+
+it.each(ordinary.flatMap(action => fixtures.map(fixture => ({ action, fixture, name: `${action.name} / ${fixture.name}` }))))("p3557a_ordinary_edits_preserve_source: $name", async ({ action, fixture }) => {
+  const newline = fixture.newline ?? "\n";
+  const source = action.source.replace(/\n/g, newline) + newline + newline + fixture.tail;
+  const { handle, view, editor } = await open(source);
+  const positions: number[] = [];
+  view.state.doc.descendants((node, pos) => { if (node.isTextblock) positions.push(pos + 1); });
+  const position = positions["paragraph" in action ? action.paragraph! : 0]! + action.at;
+  view.dispatch(view.state.tr.setSelection(TextSelection.create(view.state.doc, position)));
+  const press = (key: string) => {
+    const shifted = key.startsWith("Shift-");
+    const name = shifted ? key.slice(6) : key;
+    const event = new KeyboardEvent("keydown", { key: name, keyCode: name === "Enter" ? 13 : 8, shiftKey: shifted, bubbles: true, cancelable: true });
+    expect(view.someProp("handleKeyDown", fn => fn(view, event)), key).toBeTruthy();
+  };
+  const check = () => {
+    const text = handle.getText();
+    expect(text).not.toBeNull();
+    expect(text).toContain(fixture.tail);
+    return text!;
+  };
+  for (const key of action.keys) { press(key); check(); }
+  const expected = action.expected + "\n\n" + fixture.tail.replace(/\r\n/g, "\n");
+  const serialized = editor.action(ctx => ctx.get(serializerCtx)(ctx.get(parserCtx)(expected)!));
+  expect(handle.snapshot().text).toBe(serialized);
+  let empties = 0;
+  view.state.doc.forEach(node => { if (node.type.name === "paragraph" && node.content.size === 0) empties++; });
+  expect(empties).toBe(action.empty);
+  expect(undo(view.state, view.dispatch)).toBe(true);
+  check();
+  expect(redo(view.state, view.dispatch)).toBe(true);
+  check();
+  const saved = check();
+  handle.setText(saved);
+  view.dispatch(view.state.tr.insertText("!"));
+  const next = check();
+  cleanup();
+  vi.restoreAllMocks();
+  const reopened = await open(next);
+  reopened.view.dispatch(reopened.view.state.tr.insertText("again", 1));
+  expect(reopened.handle.getText()).toContain(fixture.tail);
 });
