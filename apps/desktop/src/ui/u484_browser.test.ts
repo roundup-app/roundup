@@ -221,16 +221,20 @@ it("u484_scroll_and_stop", async () => {
 it("u3800a_native_candidate_probe", async () => {
   await browser("open", new URL(`${new URL("./u484Fixture.tsx", import.meta.url).pathname.replace("Fixture.tsx", ".html")}?native-probe`, origin).href);
   await browser("wait", "--fn", "document.querySelector('[aria-label=\"Native drag probe\"]') !== null");
-  const point = (id: string, bottom = false) => read<{x:number; y:number}>(`(() => { const b = document.querySelector('[data-probe-id="${id}"]').getBoundingClientRect(); return {x:b.left + b.width / 2, y:${bottom ? "b.bottom - 2" : "b.top + b.height / 2"}}; })()`);
+
+  const point = (id: string, bottom = false, handle = false) => read<{x:number; y:number}>(`(() => { const b = document.querySelector('[data-probe-id="${id}"]${handle ? " button" : ""}').getBoundingClientRect(); return {x:b.left + b.width / 2, y:${bottom ? "b.bottom - 2" : "b.top + b.height / 2"}}; })()`);
+
   const begin = async (id: string, target: string, bottom = false) => {
-    const from = await point(id);
+    const from = await point(id, false, true);
     const to = await point(target, bottom);
-    await browser("mouse", "move", String(from.x), String(from.y));
+
+    await browser("mouse", "move", String(Math.round(from.x)), String(Math.round(from.y)));
     await browser("mouse", "down");
-    await browser("mouse", "move", String(from.x + 16), String(from.y));
-    await browser("mouse", "move", String(to.x), String(to.y));
-    await browser("wait", "--fn", "document.querySelector('[data-probe-dragging]') !== null");
+    await browser("mouse", "move", String(Math.round(from.x + 16)), String(Math.round(from.y)));
+    await browser("mouse", "move", String(Math.round(to.x)), String(Math.round(to.y)));
+    await browser("wait", "--fn", `document.querySelector('[data-probe-dragging]') !== null && document.querySelector('[data-probe-target]')?.dataset.probeId === '${target}'`);
   };
+
   const moves = () => read<unknown[]>("JSON.parse(document.querySelector('[aria-label=\"Native moves\"]').textContent)");
 
   await begin("A", "B", true);
@@ -243,18 +247,13 @@ it("u3800a_native_candidate_probe", async () => {
   await browser("wait", "--fn", "JSON.parse(document.querySelector('[aria-label=\"Native moves\"]').textContent).length === 2");
   expect(await moves()).toEqual([{id:"A", parent:null, index:1}, {id:"A", parent:"C", index:0}]);
 
-  await begin("B", "C");
-  await browser("press", "Escape");
-  await browser("mouse", "up");
-  await browser("wait", "--fn", "document.querySelector('[data-probe-dragging]') === null");
-  expect(await moves()).toHaveLength(2);
-  expect(await read<string>("document.querySelector('[aria-label=\"Native cancellations\"]').textContent")).toBe("1");
-
-  const at = await point("B");
-  await browser("mouse", "move", String(at.x), String(at.y));
+  // Native Escape requires the WKWebView observer; an injected Chromium key does not establish native cancellation.
+  const at = await point("B", false, true);
+  await browser("mouse", "move", String(Math.round(at.x)), String(Math.round(at.y)));
   await browser("mouse", "down");
-  await browser("mouse", "move", String(at.x + 2), String(at.y));
+  await browser("mouse", "move", String(Math.round(at.x + 2)), String(Math.round(at.y)));
   await browser("mouse", "up");
   await browser("wait", "--fn", "document.querySelector('[aria-label=\"Native clicks\"]').textContent === '1'");
   expect(await moves()).toHaveLength(2);
+  expect(await read<string>("document.querySelector('[aria-label=\"Native starts\"]').textContent")).toBe("2");
 }, 90_000);
