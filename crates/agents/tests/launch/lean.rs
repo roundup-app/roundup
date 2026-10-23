@@ -580,3 +580,74 @@ fn a2703a_brief_teaches_rail_names() {
         assert!(!text.contains("7013") && !text.contains("the id never changes"));
     }
 }
+
+#[test]
+fn a3507b_settings_extend_the_user_setup() {
+    for (_, role, pair) in
+        lean_children()
+            .into_iter()
+            .chain([(Role::Agent, Role::Agent, Pair::default())])
+    {
+        let s = setup();
+        s.user_file("settings.json", &json!({
+            "future": {"user": true, "winner": "user"},
+            "env": {"ENABLE_TOOL_SEARCH": "user-choice", "USER_ONLY": "kept"},
+            "permissions": {"allow": ["Read(x)"], "ask": ["Bash(*)"], "deny": ["Read(secret)"], "defaultMode": "plan"},
+            "hooks": {"Stop": [{"hooks": [{"type": "command", "command": "user-hook"}]}]}
+        }).to_string());
+        let project = s.dir.parent().unwrap().join(".claude");
+        std::fs::create_dir_all(&project).unwrap();
+        std::fs::write(project.join("settings.json"), json!({"future": {"project": true, "winner": "project"}, "permissions": {"allow": ["Read(x)", "Read(y)"]}}).to_string()).unwrap();
+        std::fs::write(
+            project.join("settings.local.json"),
+            json!({"future": {"local": true, "winner": "local"}, "env": {"LOCAL_ONLY": "kept"}})
+                .to_string(),
+        )
+        .unwrap();
+        let files = [
+            s.root.path().join("settings.json"),
+            project.join("settings.json"),
+            project.join("settings.local.json"),
+        ];
+        let before: Vec<_> = files.iter().map(|p| std::fs::read(p).unwrap()).collect();
+        for resume in [None, Some("saved")] {
+            let argv = s.prepare_lean("7", role, &pair, resume).unwrap();
+            let settings = read(Path::new(Setup::after(&argv, "--settings").unwrap()));
+            assert_eq!(
+                settings["future"],
+                json!({"user": true, "project": true, "local": true, "winner": "local"})
+            );
+            assert_eq!(settings["env"]["ENABLE_TOOL_SEARCH"], "user-choice");
+            assert_eq!(settings["env"]["USER_ONLY"], "kept");
+            assert_eq!(settings["env"]["LOCAL_ONLY"], "kept");
+            assert_eq!(settings["permissions"]["ask"], json!(["Bash(*)"]));
+            assert_eq!(settings["permissions"]["deny"], json!(["Read(secret)"]));
+            assert_eq!(settings["permissions"]["defaultMode"], "plan");
+            let allowed = settings["permissions"]["allow"].as_array().unwrap();
+            assert_eq!(
+                allowed.iter().filter(|v| **v == json!("Read(x)")).count(),
+                1
+            );
+            assert!(allowed.contains(&json!("Read(y)")));
+            let hooks = settings["hooks"]["Stop"].as_array().unwrap();
+            assert!(
+                hooks
+                    .iter()
+                    .any(|v| v["hooks"][0]["command"] == "user-hook")
+            );
+            assert!(hooks.iter().any(|v| {
+                v["hooks"][0]["command"]
+                    .as_str()
+                    .unwrap()
+                    .contains("signal")
+            }));
+            assert_eq!(
+                files
+                    .iter()
+                    .map(|p| std::fs::read(p).unwrap())
+                    .collect::<Vec<_>>(),
+                before
+            );
+        }
+    }
+}
