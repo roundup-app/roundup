@@ -50,12 +50,13 @@ it.each([["pads", true], ["pads", false], ["todos", true], ["todos", false]] as 
   expect(callsTo(app, "todo.complete")).toEqual([]);
 });
 
-it.each(["pads", "todos"] as const)("u3812_no_item_of_the_todo_menu_is_built_disabled_%s", async (surface) => {
-  const { app, connected } = await mountTodos([todo(5, { title: "session store", creator: { kind: "agent", id: "a", parent: null } })], true, [agent("a", "idle", "ready"), agent("x", "done", "stopped")], true);
+it.each([["pads", false], ["pads", true], ["todos", false], ["todos", true]] as const)("u3812_multiple_eligible_recipients_lists_only_them_in_rail_order_%s_done_%s", async (surface, done) => {
+  const { app, connected } = await mountTodos([todo(5, { title: "session store", done, creator: { kind: "agent", id: "a", parent: null } })], true, [agent("a", "idle", "ready"), agent("x", "done", "stopped"), agent("b", "working", "busy")], true);
   app.handlers["terminal.list"] = () => [info("t-x", { running: false, exit_code: 0 })];
   await connected.rail.refresh({ terminals: true });
 
   if (surface === "pads") fireEvent.click(await screen.findByRole("button", { name: "1 todos" }));
+  else if (done) fireEvent.click(screen.getByRole("button", { name: /1 done/ }));
   const owner = surface === "pads" ? screen.getByRole("tree", { name: "Rail" }) : screen.getByRole("region", { name: "Todos" });
   const row = (await within(owner).findByText(/session store/)).closest<HTMLElement>("[data-todo]")!;
   fireEvent.contextMenu(row, { clientX: 10, clientY: 10 });
@@ -63,7 +64,7 @@ it.each(["pads", "todos"] as const)("u3812_no_item_of_the_todo_menu_is_built_dis
   const items = app.shownMenus.at(-1)!.items;
   const disabled = (items: MenuItem[]): string[] => items.flatMap(item => [...(item.enabled ? [] : [item.id]), ...disabled(item.children ?? [])]);
   expect(disabled(items)).toEqual([]);
-  expect(items.find(item => item.id === "send")?.children?.map(item => item.label)).toEqual(["a"]);
+  expect(items.find(item => item.id === "send")?.children?.map(item => item.label)).toEqual(["a", "b"]);
 });
 
 it("u2694b_deleting_a_completed_todo_keeps_other_completed_todos", async () => {
