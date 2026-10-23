@@ -298,20 +298,6 @@ button.ask-line:is(:active, [data-pressed="true"]) {
 .made-target { display: none; }
 .made-open { width: 100%; display: flex; align-items: start; gap: var(--space-3); }
 
-.ask-send-status {
-  display: flex;
-  align-items: baseline;
-  gap: var(--space-4);
-  padding-block: var(--space-1);
-}
-
-.ask-send-status > .ink {
-  flex: 1;
-  min-width: 0;
-  margin: 0;
-}
-
-.ask-send-status > button { flex: 0 0 auto; }
 .ask-unknown-content { flex: 1; min-width: 0; }
 .ask-unknown-text { white-space: pre-wrap; overflow-wrap: anywhere; }
 .ask-unknown-state {
@@ -321,6 +307,16 @@ button.ask-line:is(:active, [data-pressed="true"]) {
   margin-inline-start: var(--space-2);
   color: var(--grey);
   font-size: var(--text-small);
+}
+
+.made-row,
+.project-overview,
+.ask-compose {
+  position: relative;
+}
+
+.ask-compose {
+  padding-bottom: var(--line);
 }
 
 /* U3780b, U3780c: the Agent's tool call line, after AffectUI's Tool Call Card (MIT, https://www.affectui.com/components/tool-call-card), under our Tokens. */

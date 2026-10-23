@@ -95,7 +95,7 @@
   min-height: 100%;
 }
 
-.shelf-panel > section > * + * {
+.shelf-panel > section > :not(.reserved-line[data-overlay="true"]) ~ :not(.reserved-line[data-overlay="true"]) {
   margin-top: var(--space-2);
 }
 
@@ -232,4 +232,10 @@
   color: var(--grey);
   font-size: var(--text-caption);
   user-select: none;
+}
+
+.todo-create,
+.todos-tab,
+.pads-tab {
+  position: relative;
 }

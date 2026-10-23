@@ -1,8 +1,8 @@
+import { ReservedLine } from "../ink/ReservedLine";
 import { copy } from "../copy";
 import { createEffect, createSignal, For, on, onCleanup, Show } from "solid-js";
 import type { History } from "@contracts/todo/History";
 import type { Change } from "@contracts/todo/Change";
-import { ErrorLine } from "../ink/ErrorLine";
 import { Icon } from "../ink/Icon";
 import { useConnectedProject } from "../state/connectedProject";
 import { failureOf } from "./failureOf";
@@ -142,7 +142,11 @@ export const TodoHistory = (props: { id: number; onCapture?: (change: Change | u
 
   const count = () => loaded()?.history.changes.length ?? 0;
 
-  return <Show when={count() > 0 || failure() !== null}>
+  return <>
+    <ReservedLine message={copyFailure() ?? failure()} content={failure() && count() === 0 && !opened() ? <button data-button="quiet" class="word" type="button" aria-expanded={false} onClick={toggle}>{copy.changes}</button> : undefined}>
+      <button data-button="quiet" class="word" type="button" onClick={() => void refresh()}>{copy.retryHistory}</button>
+    </ReservedLine>
+    <Show when={count() > 0}>
     <section class="todo-history" aria-label={copy.todoHistory}>
       <div class="todo-history-head"><button type="button" class="todo-history-line" data-button="quiet" aria-expanded={opened()} onClick={toggle}>
         <Icon name={opened() ? "down" : "right"} />
@@ -155,12 +159,11 @@ export const TodoHistory = (props: { id: number; onCapture?: (change: Change | u
         }, null, 2)).then(() => failCopy(null), error => failCopy(copy.copyDraftFailure(error instanceof Error ? error.message : String(error))));
       }}>{copy.copy}</button>}</Show></div>
       <Show when={opened()}>
-        <Show when={copyFailure()}>{message => <ErrorLine message={message()} />}</Show>
-        <Show when={failure()}>{(message) => <div><ErrorLine message={message()} /><button data-button="quiet" class="word" type="button" onClick={() => void refresh()}>{copy.retryHistory}</button></div>}</Show>
+
         <For each={loaded()?.history.changes ?? []}>{(change) => <>
           <For each={lines(change, (id) => rail.nodes.find((node) => node.id === id)?.name ?? copy.missingAgent)}>{(line) => <p class="todo-change" data-change={change.seq}>{line}</p>}</For>
         </>}</For>
       </Show>
     </section>
-  </Show>;
+  </Show></>;
 };

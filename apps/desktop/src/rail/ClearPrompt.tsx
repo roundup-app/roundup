@@ -1,7 +1,7 @@
+import { ReservedLine } from "../ink/ReservedLine";
 import { copy } from "../copy";
 import { onMount, Show } from "solid-js";
 import type { RailNode } from "@contracts/agent/RailNode";
-import { Icon } from "../ink/Icon";
 import { useConnectedProject } from "../state/connectedProject";
 import { registerKeys } from "../keys/registry";
 import { clearingOf } from "./clear";
@@ -88,14 +88,7 @@ export const ClearPrompt = (props: { node: RailNode; onHide: () => void }) => {
             ? copy.theDoorIsWritingTheHandoff
             : copy.theDoorWritesAHandoffKeepsWhatYou(subagents())}
         </p>
-        <Show when={clearing.failure()}>
-          {(failed) => (
-            <p class="ink clear-failure" data-tone="red" role="alert">
-              <Icon name="x" />
-              {failed().message}
-            </p>
-          )}
-        </Show>
+        <ReservedLine message={clearing.failure()?.message} />
         <p class="clear-words">
           <button type="submit" class="word" data-button="quiet" disabled={!clearing.canSubmit()}>{copy.clearWithHandoff}</button>{" "}
           <Show when={clearing.offersWithoutHandoff()}>

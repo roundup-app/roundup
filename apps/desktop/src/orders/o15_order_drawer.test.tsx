@@ -146,7 +146,6 @@ describe("O16: the user edits the order in the Drawer", () => {
     fireEvent.click(screen.getByRole("button", { name: "Save" }));
     await waitFor(() => expect(screen.getByRole("alert").textContent).toContain("order title is over 6 words"));
     expect(field("title").value).toBe("one two three four five six seven");
-    expect(screen.getByRole("img", { name: "Error" })).toBeTruthy();
   });
 
   it("o16_a_clarification_order_has_no_edit_button", async () => {
