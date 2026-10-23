@@ -77,8 +77,11 @@ it("u3722_each_head_button_shows_its_name_and_chip", async () => {
         await browser("press", name === "Close" ? "Tab" : "Shift+Tab");
       }
 
-      await browser("wait", "--fn", `document.querySelector('[role=tooltip]')?.textContent === '${name} ${chip}'`);
-      expect(await evaluate("document.querySelector('[role=tooltip]').textContent")).toBe(`${name} ${chip}`);
+      const tooltip = `document.getElementById(document.querySelector('.shelf-controls button[aria-label="${name === "Close" ? "Close work items" : name}"]').getAttribute('aria-describedby'))`;
+
+      await browser("wait", "--fn", `${tooltip}?.getAttribute('role') === 'tooltip'`);
+      expect(await evaluate(`${tooltip}.querySelector('.key-hint-label').textContent`)).toBe(name);
+      expect(await evaluate(`${tooltip}.querySelector('kbd').textContent`)).toBe(chip);
       const dir = captureDir("U3722");
 
       if (dir) {

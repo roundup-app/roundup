@@ -1,8 +1,5 @@
 import type { JSX } from "solid-js";
 
-/** A flex line, so an owner mark and a long name cannot land on separate lines. */
-export const markedLine: JSX.CSSProperties = { display: "flex", gap: "var(--space-2)" };
-
 /** The name gives way first: one line, cut with `…`; its full text goes in the `title`. */
 export const cutName: JSX.CSSProperties = { "min-width": "0", overflow: "hidden", "text-overflow": "ellipsis", "white-space": "nowrap" };
 

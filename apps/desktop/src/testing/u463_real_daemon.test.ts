@@ -266,17 +266,17 @@ it("u2773g_journey_retains_unfinished_work", async () => {
     // Retry is a user action, with the captured original Workstream despite its rename.
     await failNext("ask.send", true);
     await browser("press", "Enter");
-    await wait("!!document.querySelector('.ask-unknown-state')");
+    await wait("!!document.querySelector('.ask-send-status [data-state=unknown]')");
     const accepted = await app.rpc("ask.list", null);
     expect(accepted).toHaveLength(1);
     expect(accepted[0]).toMatchObject({ text: ask, parts: [{ placement: { kind: "routed", workstream: door.id } }] });
     await browser("reload");
     await wait("!!document.querySelector('.rail-row')");
     await openAsk();
-    await wait("!!document.querySelector('.ask-unknown-state')");
+    await wait("!!document.querySelector('.ask-send-status [data-state=unknown]')");
     expect(await app.rpc("ask.list", null)).toHaveLength(1);
     await browser("click", ".ask-send-status button");
-    await wait("!document.querySelector('.ask-unknown-state')");
+    await wait("!document.querySelector('.ask-send-status [data-state=unknown]')");
     expect(await app.rpc("ask.list", null)).toHaveLength(1);
     await browser("press", "Escape");
     await wait("!!document.querySelector('.ask-note textarea') && !document.querySelector('.ask-input')");

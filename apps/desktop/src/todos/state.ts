@@ -63,9 +63,12 @@ export const createTodosState = (app: AppSeam, events: Events, project: string):
     }
 
     batch(() => {
-      if (message === null) setShelf("todos", reconcile(list, { key: "id" }));
+      if (message === null) {
+        setShelf("todos", reconcile(list, { key: "id" }));
+        setIsLoaded(true);
+      }
+
       setFailure(message);
-      setIsLoaded(true);
     });
 
     // Unknown Hand-offs never hold the ordinary list behind an additional read.

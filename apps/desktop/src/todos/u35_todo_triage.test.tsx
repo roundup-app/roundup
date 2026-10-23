@@ -113,16 +113,24 @@ describe("u35 Todo triage without the Drawer", () => {
     expect(screen.getByRole("button", { name: "Open blocker migrate" }).closest("button")).not.toBeNull();
   });
 
-  it("u35_a_failed_complete_shows_its_message_in_place_of_the_second_line", async () => {
+  it("u3807_each_site_shows_its_message_in_the_reserved_line: Todo row", async () => {
     const { app } = await mountTodos(shelf());
-    await screen.findByText(/^also waits on/);
+    const description = await screen.findByText(/^also waits on/);
+    const place = rowOf(5).querySelector(".reserved-line")!;
+    const siblings = [...place.parentElement!.children];
     app.handlers["todo.complete"] = () => Promise.reject(new RpcError(-32000, "cannot complete"));
 
     fireEvent.mouseEnter(rowOf(5));
     fireEvent.click(within(rowOf(5)).getByRole("checkbox"));
 
     expect((await screen.findByText(/cannot complete/)).textContent).toBe("cannot complete");
-    expect(screen.queryByText(/^also waits on/)).toBeNull();
+    expect(description.isConnected).toBe(true);
+    expect([...place.parentElement!.children]).toEqual(siblings);
+    app.handlers["todo.complete"] = () => new Promise(() => {});
+    fireEvent.click(within(rowOf(5)).getByRole("checkbox"));
+    expect(screen.queryByText(/cannot complete/)).toBeNull();
+    expect(rowOf(5).querySelector(".reserved-line")).toBe(place);
+    expect([...place.parentElement!.children]).toEqual(siblings);
   });
 
   it("u35_a_failed_complete_still_calls_todo_complete_with_the_rows_id", async () => {
@@ -135,20 +143,6 @@ describe("u35 Todo triage without the Drawer", () => {
     await screen.findByText(/cannot complete/);
 
     expect(callsTo(app, "todo.complete")).toEqual([{ method: "todo.complete", params: { id: 5 } }]);
-  });
-
-  it("u35_a_failed_completes_message_clears_on_the_next_click", async () => {
-    const { app } = await mountTodos(shelf());
-    await screen.findByText(/^also waits on/);
-    app.handlers["todo.complete"] = () => Promise.reject(new RpcError(-32000, "cannot complete"));
-    fireEvent.mouseEnter(rowOf(5));
-    fireEvent.click(within(rowOf(5)).getByRole("checkbox"));
-    await screen.findByText(/cannot complete/);
-    app.handlers["todo.complete"] = () => new Promise(() => {});
-
-    fireEvent.click(within(rowOf(5)).getByRole("checkbox"));
-
-    expect(screen.queryByText(/cannot complete/)).toBeNull();
   });
 
   it("u35_an_open_rows_text_at_rest_never_includes_complete", async () => {
