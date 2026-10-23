@@ -2,14 +2,14 @@ import { cleanup, fireEvent, screen, waitFor } from "@solidjs/testing-library";
 import { afterEach, expect, it } from "vitest";
 import { RpcError } from "../app/seam";
 import { CHORDS } from "../keys/chords";
-import { node, info, workstream } from "../testing/nodes";
+import { agent, node, info, workstream } from "../testing/nodes";
 import { press } from "../switcher/switcherFixture";
 import { mountNotes, note, noteField, rowsOf, sent } from "./noteQueueHarness";
 
 afterEach(cleanup);
 
-const mount = async () => {
-  const mounted = await mountNotes([workstream("w"), node("a", { name: "Ann", parent: "w" })], [info("t-a")]);
+const mount = async (idle = false) => {
+  const mounted = await mountNotes([workstream("w"), idle ? agent("a", "idle", "waiting", { name: "Ann", parent: "w" }) : node("a", { name: "Ann", parent: "w" })], [info("t-a")]);
 
   mounted.connected.rail.select("a");
 
@@ -69,9 +69,9 @@ it("u3781_cmd_enter_sends_then_interrupts_and_a_refusal_interrupts_nothing", asy
 });
 
 it("u3781_cmd_enter_on_an_idle_agent_interrupts_nothing", async () => {
-  const { app, field } = await mount();
+  const { app, field } = await mount(true);
 
-  app.handlers["message.send"] = (params) => note(1, params.body, { status: "delivered" });
+  queueing(app);
   fireEvent.input(field, { target: { value: "idle" } });
   press("Enter", { metaKey: true }, field);
   await waitFor(() => expect(field.value).toBe(""));
