@@ -99,7 +99,7 @@ it("u3768b_a_view_opened_later_shows_the_history_before_it_opened", async () => 
   await connected.rail.refresh();
   await show(connected);
   expect(blocks("Door")).toEqual([["Working", at(0), at(12)], ["Needs-you", at(12), at(15)], ["Working", at(15), NOW]]);
-  expect(lanes()).toEqual(["Door over the last 30 minutes", "Gone over the last 30 minutes"]);
+  expect(lanes()).toEqual(["Door over the last 30 minutes", "Gone (removed) over the last 30 minutes"]);
   expect(screen.getByRole("img", { name: "Door started Gone" })).toBeTruthy();
 });
 
@@ -150,7 +150,7 @@ it("u3768c_a_removed_subagent_keeps_its_lane_and_line", async () => {
   const { app, connected } = await mount(family());
   app.handlers["rail.tree"] = () => family().filter((node) => node.id !== "b");
   await connected.rail.refresh();
-  await screen.findByText("Beta (removed)");
+  await screen.findByRole("group", { name: "Beta (removed) over the last 30 minutes" });
   expect(screen.getByRole("img", { name: "Alpha started Beta" })).toBeTruthy();
 });
 
