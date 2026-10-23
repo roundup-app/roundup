@@ -158,7 +158,7 @@ export const TimelineView = (props: { home: string; name: string; back: () => vo
         <ol aria-label={copy.timelineLanes}>
           <For each={lanes()}>{(lane) => <li class="timeline-lane" data-agent={lane.id}>
             <span class="timeline-name"><Show when={lane.id !== props.home && lane.name !== props.name}>{lane.removed ? copy.timelineRemoved(lane.name) : lane.name}</Show></span>
-            <div class="timeline-track" role="group" aria-label={copy.timelineTrack(lane.name)}>
+            <div class="timeline-track" role="group" aria-label={copy.timelineTrack(lane.removed ? copy.timelineRemoved(lane.name) : lane.name)}>
               <Show when={(samples[lane.id]?.[0]?.at ?? Infinity) > axisStart()}><span class="timeline-unknown" role="img" aria-label={copy.timelineUnknown} /></Show>
               <For each={lane.blocks}>{(block) => {
                 const style = () => ({ left: percent(block.start), width: `calc(${percent(endOf(block))} - ${percent(block.start)})` });
