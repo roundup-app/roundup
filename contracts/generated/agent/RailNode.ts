@@ -9,7 +9,11 @@ import type { Stray } from "./Stray";
 import type { ToolCall } from "./ToolCall";
 import type { Worktree } from "./Worktree";
 
-export type RailNode = { id: string, kind: NodeKind, name: string, parent: string | null, 
+export type RailNode = { 
+/**
+ * A3308: the Workstream's Auto choice; absent on an Agent.
+ */
+auto?: boolean, id: string, kind: NodeKind, name: string, parent: string | null, 
 /**
  * Position among siblings; lower first.
  */

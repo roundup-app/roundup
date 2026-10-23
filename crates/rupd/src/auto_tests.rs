@@ -473,9 +473,13 @@ async fn a3308_an_agent_cannot_enable_auto_by_claiming_user() {
     let dir = tempfile::tempdir().unwrap();
     let daemon = running_daemon(dir.path());
     let home = door(&daemon).await;
-    let rail = call(&daemon, "rail.list", Value::Null).await;
-    let terminal = rail[0]["terminal_id"].as_str().unwrap();
-    let peer = daemon.terminals.program_pid(terminal).unwrap();
+    let peer = daemon
+        .agents
+        .running_programs()
+        .into_iter()
+        .find(|(id, _)| id == &home)
+        .unwrap()
+        .1;
     let (events, _) = mpsc::unbounded_channel();
     let mut conn = Conn {
         actor: Actor::user(),

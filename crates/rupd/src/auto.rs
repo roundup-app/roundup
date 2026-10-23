@@ -63,7 +63,9 @@ impl Daemon {
                 method,
                 "rail.startDoor" | "rail.remove" | "agent.resume" | "agent.spawn"
             );
-        let _guard = if observes {
+        let serializes = (method.starts_with("todo.") && method != "todo.startWorkstream")
+            || method == "workstream.setAuto";
+        let _guard = if serializes {
             Some(self.auto.gate.lock().await)
         } else {
             None
@@ -77,6 +79,13 @@ impl Daemon {
         };
         let result = self.route_inner(conn, method, params).await;
         if observes && result.is_ok() {
+            // Terminal starts and stops may await an external program. They must leave
+            // unrelated Todo edits free; only their subsequent notice pass needs this lock.
+            let _notice = if _guard.is_none() {
+                Some(self.auto.gate.lock().await)
+            } else {
+                None
+            };
             tell(&self.reader()).await?;
         }
         result
