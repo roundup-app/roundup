@@ -262,7 +262,7 @@ const Facts = (props: { reaction: Reaction }) => {
         target: nameOf(r().target), home: home() ? nameOf(home()!) : copy.reactionNoHome,
         condition: conditionText(r().condition, nameOf), observation: observation(), reaction: r(),
       }, null, 2)).then(() => failCopy(null), error => failCopy(copy.copyDraftFailure(error instanceof Error ? error.message : String(error))));
-    }}>{copy.copy}</button><Show when={copyFailure()}>{failure => <ErrorLine message={failure()} />}</Show></dd>
+    }}>{copy.copy}</button><ReservedLine message={copyFailure()} /></dd>
     <dt>{copy.reactionFirings}</dt>
     <dd><Show when={r().firings.length > 0} fallback={copy.reactionNoFirings}>
       <ol class="reaction-firings"><For each={r().firings}>{(firing) => <li data-outcome={firing.outcome}><button type="button" data-button="quiet" data-firing-message={firing.message} onClick={() => { returnId = firing.message; setMessageId(firing.message); }}>{copy.reactionFiring(firing.ordinal, firing.message, firing.outcome, firing.matched)}</button></li>}</For></ol>
@@ -278,7 +278,7 @@ const Facts = (props: { reaction: Reaction }) => {
         <dt>{copy.reactionDetails}</dt><dd><button type="button" data-button="quiet" onClick={() => {
           void navigator.clipboard.writeText(JSON.stringify({ target: nameOf(value().to), message: value() }, null, 2))
             .then(() => failCopy(null), error => failCopy(copy.copyDraftFailure(error instanceof Error ? error.message : String(error))));
-        }}>{copy.copy}</button><Show when={copyFailure()}>{failure => <ErrorLine message={failure()} />}</Show></dd>
+        }}>{copy.copy}</button><ReservedLine message={copyFailure()} /></dd>
       </dl>}</Show>
     </section>
   </Show>;

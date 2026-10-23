@@ -27,7 +27,7 @@ export const Toasts = (props: { queue: ToastQueue }) => {
   });
 
   return (
-    <ReservedLine overlay class="toasts" status={copy.toastsRegion} aria-live="polite" ref={setLayer}
+    <ReservedLine overlay class="toasts" aria-label={copy.toastsRegion} aria-live="polite" ref={setLayer}
       content={<ToastProvider toast={props.queue.toast} label={copy.toastsRegion} />} />
   );
 };

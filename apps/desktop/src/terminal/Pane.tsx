@@ -424,7 +424,9 @@ export const Pane = (props: { notice?: string | null; createEmulator?: EmulatorF
       >
         <Show when={taken() || (inWatch() && terminalId() !== null && !screens.exited(terminalId()!))}>
           <div class="pane-control" data-state={taken() ? "controlled" : "managed"}>
-            <ReservedLine class="pane-control-state" status={taken() ? copy.youControl : refused() ? copy.managedTypingNotSent : copy.managed} />
+            <div class="pane-control-state" data-label={taken() ? copy.youControl : copy.managed}>
+              <ReservedLine status={taken() ? copy.youControl : refused() ? copy.managedTypingNotSent : copy.managed} />
+            </div>
             <Show when={selected()?.kind === "agent"}>
               <button data-button="quiet" type="button" class="word" aria-label={taken() ? copy.endTheTakeover : copy.takeOver} aria-keyshortcuts="Meta+Enter" aria-disabled={connected.daemonExit() !== null ? true : undefined} ref={toggleControl} onClick={() => { if (connected.daemonExit() === null) void toggle(); }}>{taken() ? copy.endTheTakeover : copy.takeOver}<span class="light" aria-hidden="true">{" "}{TAKE_CONTROL_KEYS}</span></button>
             </Show>

@@ -123,7 +123,7 @@ export const ResourceStrip = () => {
           <Values memory={sizeText(mine()?.memory_bytes)} cpu={cpuText(mine()?.cpu_percent)} disk={sizeText(mine()?.disk_bytes)} />
         </Show>
       </span>
-      <ReservedLine overlay class="resource-stale" aria-live="off" status={own() !== null && failed() ? copy.notUpdating : null} />
+      <ReservedLine class="resource-stale" aria-live="off" status={own() !== null && failed() ? copy.notUpdating : null} />
     </div>
   );
 };

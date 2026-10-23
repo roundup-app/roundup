@@ -76,6 +76,7 @@
 }
 
 .resource-stale {
+  inline-size: 12ch;
   grid-column: 3;
   grid-row: 2;
 }
