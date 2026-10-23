@@ -244,6 +244,8 @@ pub const METHODS: &[Method] = &[
     ),
     m("decision.revoke", "decision_RevokeParams", "null"),
     m("rail.tree", "null", "agent_RailNode[]"),
+    m("rail.list", "null", "agent_RailNode[]"),
+    m("workstream.setAuto", "workstream_AutoParams", "null"),
     m(
         "rail.createWorkstream",
         "agent_CreateWorkstreamParams",

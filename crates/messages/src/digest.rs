@@ -585,7 +585,6 @@ pub(crate) fn fit(mut entry: DigestEntry, max: usize) -> DigestEntry {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use contracts::agent::Worktree;
     use contracts::message::{MessageKind, MessageStatus};
     use contracts::{Kind, Status};
 
@@ -599,27 +598,11 @@ mod tests {
 
     fn node(id: &str, kind: NodeKind, parent: Option<&str>, label: &str) -> RailNode {
         RailNode {
-            id: id.into(),
-            kind,
             name: format!("{id}-name"),
             parent: parent.map(Into::into),
-            order: 0,
             status: Some(status(Kind::Working, label)),
-            attempt: Some("1".into()),
             status_revision: None,
-            terminal_id: None,
-            worktree: None::<Worktree>,
-            can_resume: false,
-            yolo: false,
-            channel: None,
-            work: None,
-            stray: Vec::new(),
-            model: None,
-            effort: None,
-            iteration: None,
-            inbox: None,
-            tool_call: None,
-            overview: None,
+            ..crate::tests::node(id, kind, false, None)
         }
     }
 

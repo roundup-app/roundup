@@ -3,7 +3,14 @@ use super::*;
 #[async_trait]
 impl Module for Agents {
     fn namespaces(&self) -> &'static [&'static str] {
-        &["agent", "rail", "project", "decision", "models"]
+        &[
+            "agent",
+            "rail",
+            "project",
+            "decision",
+            "models",
+            "workstream",
+        ]
     }
 
     async fn call(&self, ctx: &Ctx, method: &str, value: Value) -> Result<Value, RpcError> {
@@ -211,7 +218,12 @@ impl Module for Agents {
                 let revoke: contracts::decision::RevokeParams = params(value)?;
                 reply(&shared.revoke(ctx, revoke)?)
             }
-            "rail.tree" => reply(&shared.tree()?),
+            "rail.tree" | "rail.list" => reply(&shared.tree()?),
+            "workstream.setAuto" => {
+                let choice = params(value)?;
+                self.set_auto(ctx, choice)?;
+                reply(&())
+            }
             "agent.instructions" => {
                 let NodeId { id } = params(value)?;
                 if ctx.actor.kind != ActorKind::User {

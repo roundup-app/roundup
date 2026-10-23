@@ -148,6 +148,7 @@ import type { Todo as todo_Todo } from "./todo/Todo";
 import type { TodoId as todo_TodoId } from "./todo/TodoId";
 import type { UnreadComment as todo_UnreadComment } from "./todo/UnreadComment";
 import type { UpdateParams as todo_UpdateParams } from "./todo/UpdateParams";
+import type { AutoParams as workstream_AutoParams } from "./workstream/AutoParams";
 import type { CapParams as workstream_CapParams } from "./workstream/CapParams";
 import type { ClearParams as workstream_ClearParams } from "./workstream/ClearParams";
 import type { ClearResult as workstream_ClearResult } from "./workstream/ClearResult";
@@ -265,6 +266,8 @@ export type RpcMethods = {
   "decision.answer": { params: decision_AnswerParams; result: null | agent_HeldAction };
   "decision.revoke": { params: decision_RevokeParams; result: null };
   "rail.tree": { params: null; result: agent_RailNode[] };
+  "rail.list": { params: null; result: agent_RailNode[] };
+  "workstream.setAuto": { params: workstream_AutoParams; result: null };
   "rail.createWorkstream": { params: agent_CreateWorkstreamParams; result: agent_RailNode };
   "rail.move": { params: agent_MoveParams; result: null };
   "rail.rename": { params: agent_RenameParams; result: agent_RailNode | agent_HeldAction };

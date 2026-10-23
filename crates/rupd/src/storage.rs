@@ -83,6 +83,31 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn a3308_an_old_workstream_defaults_to_auto_off() {
+        let dir = tempfile::tempdir().unwrap();
+        let mut db = Connection::open(dir.path().join("project.db")).unwrap();
+        let before_auto = 10
+            + added::ADDED
+                .iter()
+                .position(|sql| {
+                    *sql == include_str!("../migrations/project/0022-workstream-auto.sql")
+                })
+                .unwrap();
+        Migrations::new(migrations())
+            .to_version(&mut db, before_auto)
+            .unwrap();
+        db.execute(
+            "INSERT INTO nodes(kind,name,ord) VALUES('workstream','Before Auto',0)",
+            [],
+        )
+        .unwrap();
+        drop(db);
+        let upgraded = crate::tests::daemon_in(dir.path());
+        let reply = crate::tests::ask(&upgraded, r#"{"id":1,"method":"rail.list"}"#).await;
+        assert_eq!(reply["result"][0]["auto"], false);
+    }
+
+    #[tokio::test]
     async fn t19_main_project_upgrades_without_losing_todo_history() {
         use contracts::Actor;
         use rpc::Ctx;
