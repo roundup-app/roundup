@@ -3,7 +3,7 @@ import { questionProbe } from "../testing/menuProbe";
 import { cleanup, fireEvent, screen, waitFor, within } from "@solidjs/testing-library";
 import { afterEach, expect, it } from "vitest";
 import { mountTodos, todo, todoCallsTo } from "../todos/testHarness";
-import { deferred } from "../pads/padsFixture";
+import { deferred, openShelf, padOf } from "../pads/padsFixture";
 import { RpcError } from "../app/seam";
 import { USER } from "../testing/nodes";
 import { stubDialogLayout, askToDelete, confirmDeletion, questionClosed, questionDialog } from "./bulkQuestionHarness";
@@ -205,3 +205,56 @@ it.each([false, true])("u3474e_mutation_keeps_the_next_key_live: nested=%s", asy
   expect(question.message).not.toContain("todo 1");
   expect(todoCallsTo(app, "todo.delete").map(call => call.params)).toEqual([{ id }]);
 });
+
+// BulkDelete owns deletion only; save acknowledgements belong to the item editors.
+for (const owner of ["todos", "pads"] as const) {
+  it.each(["deleted", "removed-event", "refused", "cancelled", "dismissed"] as const)(`p3557c_failure_lifetime_shelf_${owner}_%s`, async action => {
+    const fixture = owner === "todos"
+      ? await mountTodos([todo(1, { title: "same" }), todo(2, { title: "same" }), todo(3)])
+      : await openShelf([padOf("first", USER), padOf("second", USER), padOf("other", USER)]);
+    const { app, connected } = fixture;
+    const first = owner === "todos" ? 1 : "first";
+    const row = (which: "first" | "second" | "other") => screen.getByRole("button", { name: owner === "todos" ? new RegExp(`#${{ first: 1, second: 2, other: 3 }[which]} `) : which });
+    const message = (which: "first" | "second") => owner === "todos" ? `same #${which === "first" ? 1 : 2}: denied` : `${which}: denied`;
+    const remove = owner === "todos" ? "todo.delete" : "pad.delete";
+    const original = app.handlers[remove]!;
+    app.handlers[remove] = () => { throw new RpcError(-32001, "denied"); };
+    const draft = connected.drafts.edit({ surface: "todos", object: "3", recipient: null }, { text: "  unfinished é 🧭\n\nlast  " }, { anchor: 2, head: 9 }, "ordinary").draft;
+    const retained = connected.drafts.list();
+    fireEvent.click(row("first"), { metaKey: true });
+    fireEvent.click(row("second"), { metaKey: true });
+    await askToDelete(2);
+    await confirmDeletion();
+    await screen.findByText(message("first"));
+    await screen.findByText(message("second"));
+    const calls = app.calls.filter(call => call.method === remove).length;
+
+    if (action === "dismissed") {
+      fireEvent.click(screen.getByRole("button", { name: owner === "todos" ? "Clear same #1" : "Clear first" }));
+    } else if (action === "removed-event") {
+      if ("store" in fixture) {
+        fixture.store.todos = fixture.store.todos.filter(item => item.id !== first);
+        app.emit({ actor: USER, name: "todo.deleted", data: { id: 1 } });
+      } else {
+        fixture.state.pads = fixture.state.pads.filter(item => item.name !== first);
+        app.emit({ actor: USER, name: "pad.deleted", data: { name: "first" } });
+      }
+      await waitFor(() => expect(screen.queryByRole("button", { name: owner === "todos" ? /#1 / : "first" })).toBeNull());
+    } else {
+      row("first").focus();
+      fireEvent.keyDown(row("first"), { key: "d", code: "KeyD" });
+      await questionDialog();
+      if (action === "deleted") app.handlers[remove] = original;
+      await answerQuestion(action !== "cancelled");
+      await questionClosed();
+    }
+
+    await waitFor(() => expect(screen.queryByText(message("first")) !== null).toBe(action === "refused" || action === "cancelled"));
+    expect(screen.getByText(message("second"))).toBeTruthy();
+    expect(row("second")).toBeTruthy();
+    expect(row("other")).toBeTruthy();
+    expect(app.calls.filter(call => call.method === remove).slice(calls).map(call => call.params)).toEqual(action === "deleted" || action === "refused" ? [owner === "todos" ? { id: 1 } : { name: "first" }] : []);
+    expect(connected.drafts.list()).toEqual(retained);
+    expect(connected.drafts.list().find(item => item.revision === draft.revision)?.value).toEqual({ text: "  unfinished é 🧭\n\nlast  " });
+  });
+}
