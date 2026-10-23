@@ -51,7 +51,12 @@ export default defineConfig({
               if (!rule.source?.input.file?.includes("/node_modules/")) return;
 
               const paints = rule.nodes.some(node => node.type === "decl" && /^(?:background(?:-.+)?|box-shadow|outline(?:-.+)?|--.*(?:background|bg|pressed))$/.test(node.prop));
-              const selectors = rule.selectors.filter(selector => !/:focus(?:-visible|-within)?\b|\[data-focus/.test(selector) && !(paints && /:active\b/.test(selector)));
+
+              const selectors = rule.selectors.filter(selector => {
+                const focus = /:focus-visible\b|\[data-focus/.test(selector) || (paints && /(?<!:not\():focus(?:-within)?\b/.test(selector));
+
+                return !focus && !(paints && /:active\b/.test(selector));
+              });
 
               if (selectors.length === 0) rule.remove();
               else rule.selectors = selectors;
