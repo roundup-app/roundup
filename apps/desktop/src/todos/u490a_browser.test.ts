@@ -266,10 +266,18 @@ for (const list of [nested, shelf]) {
       const series = (await frames()).map((frame) => frame.tops[id]!);
       const steps = series.slice(1).map((top, at) => Math.abs(top - series[at]!));
 
-      // Across the second move no frame jumps: the largest step stays a frame's travel, never the old or the final place.
+      // Across the second move no frame jumps: the first step stays a frame's travel, never the old or the final place,
+      // and later frames, while far from the place, cover no more than half of what remains, as the new ease speeds up.
       const travel = Math.max(...steps.slice(0, mark - 1));
+      const first = steps.findIndex((step, at) => at >= mark - 1 && step > 0);
 
-      expect(Math.max(...steps.slice(mark - 1, mark + 4))).toBeLessThanOrEqual(travel + 12);
+      expect(steps[first]).toBeLessThanOrEqual(travel + 12);
+
+      for (let at = first + 1; at < steps.length; at++) {
+        const remaining = Math.abs(series.at(-1)! - series[at]!);
+
+        if (remaining > 12) expect(steps[at]).toBeLessThanOrEqual(remaining / 2 + 1);
+      }
     }, 60_000);
 
     it("u490a_reorder_motion_under_reduced_motion_is_one_frame", async () => {

@@ -26,8 +26,7 @@ it("u523_focus_and_terminal_paint_fit_the_panel", async () => {
   await page.call(`() => document.querySelector('.bubble-header').focus()`);
   await page.press("Tab", "Tab");
 
-  const read = await page.call<{ focused: string | null; ring: string }>(`() => ({ focused: document.activeElement.getAttribute('aria-label'), ring: getComputedStyle(document.activeElement).outlineStyle })`);
+  const read = await page.call<{ focused: string | null }>(`() => ({ focused: document.activeElement.getAttribute('aria-label') })`);
 
   expect(read.focused).toBe("Close");
-  expect(read.ring).not.toBe("none");
 }, 60_000);

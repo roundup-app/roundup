@@ -42,9 +42,9 @@
   --diffs-addition-color-override: var(--accent);
   --diffs-modified-color-override: var(--amber);
   --diffs-bg-deletion-override: var(--selected);
-  --diffs-bg-deletion-emphasis-override: var(--pressed);
+  --diffs-bg-deletion-emphasis-override: var(--selected);
   --diffs-bg-addition-override: var(--ground);
-  --diffs-bg-addition-emphasis-override: var(--pressed);
+  --diffs-bg-addition-emphasis-override: var(--selected);
   --diffs-fg-number-deletion-override: var(--grey);
   --diffs-fg-number-addition-override: var(--grey);
   --diffs-bg-deletion-number-override: var(--sunken);
@@ -57,5 +57,6 @@
 .diff-note { margin: 0; padding: var(--space-2); color: var(--text); background: var(--sunken); font: var(--text-small) var(--font-ui); white-space: pre-wrap; overflow-wrap: anywhere; }
 button { color: var(--grey); background: var(--sunken); font: inherit; border: 0; }
 button:hover { color: var(--text); }
-button:focus { outline: var(--keyboard-ring); }
+
 button:active { color: var(--ink-pressed); }
+:focus { outline: none; }

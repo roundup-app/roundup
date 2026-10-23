@@ -25,10 +25,6 @@
   box-sizing: border-box;
 }
 
-.todo-blocker-menu .app-combobox-input:focus {
-  outline-width: 0;
-}
-
 .todo-blocker-trigger {
   align-self: flex-start;
 }
