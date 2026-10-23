@@ -11,7 +11,7 @@ import { Icon } from "../../ink/Icon";
 import { PadDrawer } from "../../pads/PadDrawer";
 import { cutName } from "../../pads/nameLine";
 import { useConnectedProject } from "../../state/connectedProject";
-import { OpenRow } from "../../todos/Todos";
+import { OpenRow } from "../../todos/OpenRow";
 import { failureOf } from "../../todos/failureOf";
 import { TodoDrawer } from "../../todos/TodoDrawer";
 import { createSortedList } from "../../todos/sortedList";

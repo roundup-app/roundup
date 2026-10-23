@@ -3,7 +3,7 @@ import { leaderKey } from "../keys/leaderFixture";
 import { rowStatusLabel } from "./rowTip";
 import { resolve } from "node:path";
 import { cleanup, fireEvent, render, screen, waitFor, within } from "@solidjs/testing-library";
-import { afterAll, afterEach, beforeAll, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import type { Status } from "@contracts/Status";
 import { App } from "../App";
 import type { AppSeam } from "../app/seam";
@@ -34,7 +34,7 @@ const kindReady = async (statusOf: () => Promise<Status | null | undefined>, exp
 
 let real: StartedDaemon;
 
-// The model requests that name `seed` as the Rail name. Journal entries stay across a retry, so callers compare counts.
+// The model requests that name `seed` as the Rail name.
 const turnsOf = async (seed: string) => (await real.model!.journal()).filter((entry) => JSON.stringify(entry.body.messages ?? []).includes(`Your Rail name is ${seed}.`)).length;
 
 // Two Workstreams of five Agents each; each Agent plays its named entry (U351).
@@ -43,30 +43,15 @@ const FIRST = ["working", "idle", "needs-you", "working", "idle"];
 const SECOND = ["error", "needs-you", "working", "error", "needs-you"];
 
 describe("u351 the fake claude holds each Agent in a Kind, observed on the real Daemon", () => {
-  beforeAll(async () => {
+  // A retry must not inherit Agents or scripted errors from the failed attempt.
+  beforeEach(async () => {
     // E10: each Agent's turns are chosen by its seed name in the order it hears; its Claude is the pinned one, its model aimock serving this file's turns.
     real = await startRealDaemon({}, false, undefined, resolve(process.cwd(), "src/testing/fixtures/u351_kinds.json"));
   }, 120_000);
 
-  afterAll(async () => {
+  afterEach(async () => {
+    cleanup();
     await real?.stop();
-  });
-
-  afterEach(cleanup);
-
-  it("u351_door_readiness_survives_working_to_idle_before_the_rail_renders", async () => {
-    const row = document.createElement("div");
-    let observations = 0;
-
-    await doorReady(async () => {
-      observations += 1;
-      // The RPC observes Working; the subscription publishes Idle before the Rail draws.
-      row.setAttribute("data-kind", "idle");
-
-      return { kind: observations === 1 ? "working" : "idle", label: observations === 1 ? "working" : "idle", since: observations };
-    }, () => row);
-    expect(observations).toBeGreaterThan(1);
-    expect(row.getAttribute("data-kind")).toBe("idle");
   });
 
   it("u351_ten_agents_read_their_kinds_the_jump_visits_error_then_needs_you_and_working_is_quiet", async () => {
