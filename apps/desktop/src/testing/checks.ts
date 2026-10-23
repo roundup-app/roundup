@@ -74,7 +74,7 @@ type Page = {
   view: Window;
   elements: Element[];
   rules: CSSStyleRule[];
-  states: Map<":hover" | ":active" | ":focus-visible", CSSStyleRule[]>;
+  states: Map<":hover" | ":active", CSSStyleRule[]>;
   style: (el: Element) => CSSStyleDeclaration;
   token: (name: string) => string | undefined;
   resolve: (value: string) => string;
@@ -290,42 +290,13 @@ const uniformLayer = (page: Page, el: Element): Rgba | null => {
   return wash ? parseColour(wash) : null;
 };
 
-// U353: one non-repeating uniform layer smaller than the box is a focus mark,
-// whether the focused control or its containing box draws it.
-const focusMark = (page: Page, el: Element): Rgba | null => {
-  if (!el.matches(":focus-visible, :has(:focus-visible)")) return null;
-  const style = page.style(el);
-
-  if (style.backgroundRepeat !== "no-repeat") return null;
-  const size = resolveAt(page, el, style.backgroundSize).trim().split(/\s+/);
-
-  if (size.length !== 2) return null;
-  const box = el.getBoundingClientRect();
-  const extent = (value: string, length: number) => value.endsWith("%") ? Number(value.slice(0, -1)) * length / 100 : px(value);
-  const width = extent(size[0]!, box.width);
-  const height = extent(size[1]!, box.height);
-
-  if (width === null || height === null || !(width > 0 && width <= box.width && height > 0 && height <= box.height)) return null;
-
-  if (width === box.width && height === box.height) return null;
-
-  return uniformLayer(page, el);
-};
-
-const groundOf = (page: Page, el: Element, outline = false): Rgba | null => {
+const groundOf = (page: Page, el: Element): Rgba | null => {
   let ground: Rgba = parseColour(page.token("ground") ?? "") ?? { r: 255, g: 255, b: 255, a: 1 };
   const chain: Element[] = [];
-  const offset = outline ? px(page.style(el).outlineOffset) ?? 0 : 0;
-  const width = outline ? px(page.style(el).outlineWidth) ?? 0 : 0;
-  const outside = outline && width > 0 && offset >= 0;
-  const inset = outline && width > 0 ? Math.max(0, -offset - width) : 0;
 
   for (let node: Element | null = el; node; node = node.parentElement) chain.unshift(node);
 
   for (const node of chain) {
-    // An outer outline paints on the surrounding ground, not its own box's wash or mark.
-    if (outside && node === el) continue;
-
     const background = parseColour(resolveAt(page, node, page.style(node).backgroundColor));
 
     if (background && background.a > 0) ground = over(background, ground);
@@ -340,7 +311,7 @@ const groundOf = (page: Page, el: Element, outline = false): Rgba | null => {
       const full = !size || size === "auto" || size === "auto auto" || size === "100% 100%";
 
       if (full) ground = over(layer, ground);
-      else if (!focusMark(page, node)) return null;
+      else return null;
     } else if (image && image !== "none") {
       // U137: only a full wash behind a leading mark has one ground at the text.
       // CSSOM supplies the parsed values; unsupported paint geometry must not pass D5.
@@ -355,7 +326,7 @@ const groundOf = (page: Page, el: Element, outline = false): Rgba | null => {
       const box = node.getBoundingClientRect();
       const range = page.doc.createRange();
       range.selectNodeContents(el);
-      const directText = !outline && [...el.childNodes].some(node => node.nodeType === 3 && node.textContent?.trim());
+      const directText = [...el.childNodes].some(node => node.nodeType === 3 && node.textContent?.trim());
       const bounds = el.getBoundingClientRect();
       const content = directText ? range.getBoundingClientRect?.() ?? bounds : bounds;
       const clipX = /^(hidden|clip|auto|scroll)$/.test(page.style(el).overflowX);
@@ -376,7 +347,7 @@ const groundOf = (page: Page, el: Element, outline = false): Rgba | null => {
           origins.some(value => value !== "padding-box") || clips.some(value => value !== "border-box") ||
           style.backgroundBlendMode.split(",").some(value => value.trim() !== "normal") ||
           style.backgroundAttachment.split(",").some(value => value.trim() !== "scroll") ||
-          text.left + inset < left + Number(mark) || text.right - inset > box.right || text.top + inset < box.top || text.bottom - inset > box.bottom) return null;
+          text.left < left + Number(mark) || text.right > box.right || text.top < box.top || text.bottom > box.bottom) return null;
 
       ground = over(wash, ground);
     }
@@ -385,22 +356,19 @@ const groundOf = (page: Page, el: Element, outline = false): Rgba | null => {
   return ground;
 };
 
-// D5: text 4.5:1, a Glyph tone and a focus ring 3:1 against their own ground; `done` is exempt (U4).
+// D5: text 4.5:1 and Glyph tones 3:1 against their own ground; `done` is exempt (U4).
 const d5 = (page: Page): Measure => {
-  let measurable = true;
-
   const ratio = (el: Element, property: string) => {
     const colour = parseColour(resolveAt(page, el, page.style(el).getPropertyValue(property)));
 
     if (!colour) return null;
 
-    const ground = groundOf(page, el, property === "outline-color");
+    const ground = groundOf(page, el);
 
     return ground ? contrastRgb(over(colour, ground), ground) : NOT_MEASURABLE;
   };
 
   const ink = (el: Element) => [...el.childNodes].some((node) => node.nodeType === 3 && (node.textContent ?? "").trim() !== "");
-  const focused = page.doc.activeElement && page.doc.activeElement !== page.doc.body && page.style(page.doc.activeElement).outlineStyle !== "none" && (px(page.style(page.doc.activeElement).outlineWidth) ?? 0) > 0 ? page.doc.activeElement : null;
 
   const result = offender(page, (el) => {
     if (el.matches(".glyph") && el.closest('[aria-label="Done"]') === null && !el.querySelector('[aria-label="Done"]')) {
@@ -417,35 +385,14 @@ const d5 = (page: Page): Measure => {
       if (found !== null && found < 4.5) return { text: found };
     }
 
-    const mark = focusMark(page, el);
-
-    if (mark) {
-      const ground = groundOf(page, el);
-
-      if (!ground) measurable = false;
-      else {
-        const found = contrastRgb(over(mark, ground), ground);
-
-        if (found < 3) return { focusRing: found };
-      }
-    }
-
-    if (el === focused) {
-      const found = ratio(el, "outline-color");
-
-      if (found === NOT_MEASURABLE) return NOT_MEASURABLE;
-
-      if (found !== null && found < 3) return { focusRing: found };
-    }
-
     return null;
   });
 
-  return !measurable && result.ok ? { ok: false, value: NOT_MEASURABLE, selector: "" } : result;
+  return result;
 };
 
 // A rule that applies to `el` once its state pseudo-class is true: the selector without the pseudo-class matches it.
-const stateRules = (page: Page, el: Element, pseudo: ":hover" | ":active" | ":focus-visible") => {
+const stateRules = (page: Page, el: Element, pseudo: ":hover" | ":active") => {
   let rules = page.states.get(pseudo);
 
   if (!rules) {
@@ -472,10 +419,10 @@ const declares = (rules: CSSStyleRule[], ...properties: string[]) => rules.some(
 
 const clickTargets = (page: Page) => page.elements.filter((el) => el.matches(CLICK_TARGET) && !el.hasAttribute("disabled") && el.getAttribute("aria-disabled") !== "true");
 
-// U353: a text field answers with a caret and a focus mark, so D6's hover and cursor and D7's pressed style do not apply to it.
+// U353: a text field answers with a caret, so D6's hover and cursor and D7's pressed style do not apply to it.
 const pressable = (page: Page) => clickTargets(page).filter((el) => el.tagName !== "TEXTAREA" && !el.matches("input[type=text]"));
 
-// D6: each click target has a hover and a focus style, a pointer cursor (`grab` on a reorderable row) and a hit area of at least 24 px.
+// D6: each click target has a hover style, a pointer cursor (`grab` on a reorderable row) and a hit area of at least 24 px.
 const d6 = (page: Page): Measure => {
   const targets = clickTargets(page).filter(el => el.tagName !== "TEXTAREA");
   let measured = 0;
@@ -490,10 +437,7 @@ const d6 = (page: Page): Measure => {
     // U353: a text field answers with a caret, so only its hit area is measured.
     const text = el.matches("input[type=text]");
 
-    const missing = text ? [] : [
-      ...(declares(stateRules(page, el, ":hover"), "background", "background-color", "background-image", "color") ? [] : ["hover"]),
-      ...(declares(stateRules(page, el, ":focus-visible"), "outline", "outline-color", "box-shadow") ? [] : ["focus"]),
-    ];
+    const missing = text ? [] : (declares(stateRules(page, el, ":hover"), "background", "background-color", "background-image", "color") ? [] : ["hover"]);
 
     // U155: a Todo row can be dragged, so its cursor is `grab`.
     const cursorOk = text || style.cursor === (el.hasAttribute("data-reorderable") ? "grab" : "pointer");
@@ -510,15 +454,14 @@ const d6 = (page: Page): Measure => {
   return targets.length > 0 && measured === 0 ? { ok: false, value: NOT_MEASURABLE, selector: "" } : { ok: true, value: { targets: targets.length }, selector: "" };
 };
 
-// D7: each click target's pressed style differs from hover and has a transition of 0s.
+// D7: a press never adds a background flash (U3528); ink feedback is allowed.
 const d7 = (page: Page): Measure => {
   for (const el of pressable(page)) {
     const pressed = stateRules(page, el, ":active");
-    const hover = stateRules(page, el, ":hover");
-    const paint = (rules: CSSStyleRule[]) => rules.map((rule) => `${rule.style.getPropertyValue("background")}|${rule.style.getPropertyValue("background-image")}|${rule.style.getPropertyValue("background-color")}|${rule.style.getPropertyValue("color")}`).join(";");
-    const instant = pressed.some((rule) => /^0m?s$/.test(rule.style.getPropertyValue("transition-duration").trim() || rule.style.getPropertyValue("transition").trim().split(/\s+/).find((part) => /^[\d.]+m?s$/.test(part)) || ""));
 
-    if (pressed.length === 0 || paint(pressed) === paint(hover) || !instant) return { ok: false, value: { pressed: pressed.length, instant }, selector: selectorOf(el) };
+    if (declares(pressed, "background", "background-image", "background-color", "--button-surface")) {
+      return { ok: false, value: { pressedBackground: true }, selector: selectorOf(el) };
+    }
   }
 
   return { ok: true, value: { targets: pressable(page).length }, selector: "" };

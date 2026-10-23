@@ -77,11 +77,6 @@
   flex: 1;
 }
 
-/* U353: like the Thread composer, the field's focus is the caret alone. */
-.note-queue-field .app-textarea:focus-visible {
-  outline-width: 0;
-}
-
 .note-queue-field .app-textarea {
   padding-inline: 0;
 }

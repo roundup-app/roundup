@@ -318,7 +318,6 @@ export const EditableText = (props: {
             "min-height": "1.4em",
             resize: "none",
             overflow: "hidden",
-            outline: "none",
             background: "var(--hover)",
             "caret-color": "var(--accent)",
           }}

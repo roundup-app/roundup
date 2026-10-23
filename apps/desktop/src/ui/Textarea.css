@@ -21,8 +21,3 @@
 .app-textarea::placeholder {
   color: var(--grey);
 }
-
-.app-textarea:focus-visible {
-  outline: var(--keyboard-ring);
-  outline-offset: 0;
-}
