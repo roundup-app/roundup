@@ -811,3 +811,61 @@ fn a3507a_every_launch_keeps_the_users_gateway() {
     );
 }
 
+#[test]
+fn a3516c_all_profiles_keep_the_renderer_choice() {
+    let s = setup();
+    let config = s.root.path().join("chosen-config");
+    std::fs::create_dir_all(&config).unwrap();
+    let config_text = config.to_str().unwrap();
+    let launcher = Launcher::from_vars(
+        vars(&[
+            ("CLAUDE_CONFIG_DIR", config_text),
+            ("ROUNDUP_RUP_BIN", s.rup.to_str().unwrap()),
+            ("HOME", s.root.path().to_str().unwrap()),
+        ]),
+        &s.rup.with_file_name("rupd"),
+    )
+    .unwrap();
+    for tui in [Some("fullscreen"), Some("default"), None] {
+        for overrides in [false, true] {
+            let mut source = json!({});
+            if let Some(tui) = tui {
+                source["tui"] = json!(tui);
+            }
+            if overrides {
+                source["env"] = json!({
+                    "CLAUDE_CODE_NO_FLICKER": "0",
+                    "CLAUDE_CODE_DISABLE_ALTERNATE_SCREEN": "1"
+                });
+            }
+            std::fs::write(config.join("settings.json"), source.to_string()).unwrap();
+            for (_, role, pair) in
+                std::iter::once((Role::Agent, Role::Agent, Pair::default())).chain(lean_children())
+            {
+                for resume in [None, Some("saved-conversation")] {
+                    let command = launcher
+                        .command_on(folders(&s.dir), "7", "1", &s.cwd, resume, role, &pair)
+                        .unwrap();
+                    let argv: Vec<String> = std::iter::once(command.get_program())
+                        .chain(command.get_args())
+                        .map(|arg| arg.to_str().unwrap().to_owned())
+                        .collect();
+                    let settings = read(Path::new(Setup::after(&argv, "--settings").unwrap()));
+                    assert_eq!(settings.get("tui"), source.get("tui"));
+                    for name in [
+                        "CLAUDE_CODE_NO_FLICKER",
+                        "CLAUDE_CODE_DISABLE_ALTERNATE_SCREEN",
+                    ] {
+                        assert_eq!(settings["env"].get(name), source["env"].get(name));
+                        // Neither a shell override nor its inherited configuration directory is removed or overwritten.
+                        assert!(
+                            !command
+                                .get_envs()
+                                .any(|(key, _)| key == name || key == "CLAUDE_CONFIG_DIR")
+                        );
+                    }
+                }
+            }
+        }
+    }
+}

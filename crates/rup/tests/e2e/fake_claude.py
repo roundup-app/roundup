@@ -5,8 +5,8 @@ It does only what Claude Code does that roundup can see: it runs the hook comman
 `--settings` file, and talks MCP to the `roundup` server from the `--mcp-config`
 file. What it does comes from the environment, so one script serves every scenario:
 
-  FAKE_CLAUDE_BRIEF_REPORT a file path: written with JSON {"brief": the text of the file named by
-                           `--append-system-prompt-file`, "tools": the names the server lists}, as
+  FAKE_CLAUDE_BRIEF_REPORT a file path: written with JSON {"brief": the delivered Brief,
+                           "tools": the names the server lists}, as
                            the Brief and the real MCP list stand together
   FAKE_CLAUDE_PROMPT_LOG   a file path (A32): each typed prompt is appended as
                            one JSON line {"resume": whether this run has `--resume`, "prompt": the text}
@@ -264,7 +264,7 @@ def watch_inbox(server, turn):
         threading.Thread(target=serve, args=(conn,), daemon=True).start()
 
 
-def brief_report(report):
+def brief_report(report, source="startup", exercise=False):
     """Talk MCP to the `roundup` server and write what it lists with the Brief the Terminal was given."""
     config = json.load(open(flag("--mcp-config")))["mcpServers"]["roundup"]
     server = subprocess.Popen(
@@ -291,21 +291,36 @@ def brief_report(report):
     })
     send({"method": "notifications/initialized"})
     names = [t["name"] for t in request(2, "tools/list", {})["tools"]]
-    brief = open(flag("--append-system-prompt-file")).read()
-    seen = {"brief": brief, "tools": names}
-    if "FAKE_CLAUDE_NAME_REPORT" in os.environ:
+    startup = []
+    if "--append-system-prompt-file" not in sys.argv or "FAKE_CLAUDE_NAME_REPORT" in os.environ or exercise:
         settings = json.load(open(flag("--settings")))
-        startup = []
         for group in settings["hooks"]["SessionStart"]:
             for item in group["hooks"]:
-                ran = run_hook(item["command"], json.dumps({"hook_event_name": "SessionStart", "session_id": "00000000-0000-4000-8000-000000002704", "source": "startup"}), stdout=subprocess.PIPE)
+                ran = run_hook(item["command"], json.dumps({"hook_event_name": "SessionStart", "session_id": "00000000-0000-4000-8000-000000002704", "source": source}), stdout=subprocess.PIPE)
                 if ran.stdout.strip():
                     startup.append(json.loads(ran.stdout))
+    if "--append-system-prompt-file" in sys.argv:
+        brief = open(flag("--append-system-prompt-file")).read()
+    else:
+        additional = next(output["hookSpecificOutput"]["additionalContext"] for output in startup)
+        brief = additional.rsplit("\nYour Rail name is ", 1)[0]
+    seen = {"brief": brief, "tools": names, "startup": startup}
+    if "FAKE_CLAUDE_NAME_REPORT" in os.environ or exercise:
         result = request(3, "tools/call", {"name": "agent_context", "arguments": {}})
         context = json.loads(result["content"][0]["text"])
-        seen.update({"startup": startup, "context": context, "reply": "I am " + context["self"]["name"] + "."})
-    with open(report, "w") as out:
-        json.dump(seen, out)
+        seen.update({"context": context, "reply": "I am " + context["self"]["name"] + "."})
+    if exercise:
+        seen["statuses"] = []
+        for index, event in enumerate(("UserPromptSubmit", "Stop")):
+            hook(event, {"prompt": "check identity", "last_assistant_message": "checked"})
+            result = request(4 + index, "tools/call", {"name": "agent_context", "arguments": {}})
+            seen["statuses"].append(json.loads(result["content"][0]["text"])["self"])
+    server.stdin.close()
+    server.wait(timeout=5)
+    if report:
+        with open(report, "w") as out:
+            json.dump(seen, out)
+    return seen
 
 
 def log_launch():
@@ -340,6 +355,10 @@ if process:
     stray.append(subprocess.Popen(json.loads(process), env={**os.environ, **settings_env}))
 if "FAKE_CLAUDE_MCP_STRAY" in os.environ:
     stray.append(play_mcp_stray(os.environ["FAKE_CLAUDE_MCP_STRAY"]))
+if "FAKE_CLAUDE_RELAUNCH_REPORT" in os.environ:
+    rounds = [brief_report(None, source, exercise=True) for source in ("startup", "resume")]
+    with open(os.environ["FAKE_CLAUDE_RELAUNCH_REPORT"], "w") as out:
+        json.dump(rounds, out)
 if "FAKE_CLAUDE_BRIEF_REPORT" in os.environ:
     brief_report(os.environ["FAKE_CLAUDE_BRIEF_REPORT"])
 if "FAKE_CLAUDE_PROMPT_LOG" in os.environ:
