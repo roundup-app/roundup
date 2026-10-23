@@ -1,4 +1,4 @@
-import { KeyChip } from "./KeyChip";
+import { KeyHint } from "./KeyHint";
 import { createEffect, createMemo, createSignal, For, onCleanup, onMount } from "solid-js";
 import { hintsFor } from "./chords";
 import type { HintPlace } from "./chords";
@@ -13,6 +13,7 @@ const placeAt = (focus: Element | null, selectedIsAgent: boolean): HintPlace | n
   const inWatchedPane = selectedIsAgent && focus?.closest(".pane")?.querySelector(MANAGED) != null;
 
   return !focus || focus.closest(".help") ? null
+    : focus.closest(".note-queue-field") ? "note"
     : focus.closest(".switcher") ? "switcher"
     : focus.closest(".pad-rich-editor, [contenteditable=true]") ? "editor"
     : focus.closest(".pad-body") ? "pad"
@@ -109,7 +110,7 @@ export const HintLine = () => {
 
   return (
     <p class="hint-line" ref={line} data-place={place() ?? undefined}>
-      <For each={hints()}>{(hint) => <span class="hint"><KeyChip keys={hint.keys} /> {hint.label}</span>}</For>
+      <For each={hints()}>{(hint) => <KeyHint keys={hint.keys}>{hint.label}</KeyHint>}</For>
     </p>
   );
 };

@@ -77,8 +77,8 @@ it("u3722_each_head_button_shows_its_name_and_chip", async () => {
         await browser("press", name === "Close" ? "Tab" : "Shift+Tab");
       }
 
-      await browser("wait", "--fn", `document.querySelector('[role=tooltip]')?.textContent === '${name}${chip}'`);
-      expect(await evaluate("document.querySelector('[role=tooltip]').textContent")).toBe(`${name}${chip}`);
+      await browser("wait", "--fn", `document.querySelector('[role=tooltip]')?.textContent === '${name} ${chip}'`);
+      expect(await evaluate("document.querySelector('[role=tooltip]').textContent")).toBe(`${name} ${chip}`);
       const dir = captureDir("U3722");
 
       if (dir) {

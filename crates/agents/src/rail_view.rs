@@ -134,6 +134,13 @@ impl Shared {
         let channels = self.channels.lock().expect("channels lock");
         node.channel = channel_in(&channels, &node.id, runs.get(&node.id));
         node.inbox = self.events.inbox.fact(&node.id);
+        node.tool_call = self
+            .events
+            .tool_calls
+            .lock()
+            .unwrap_or_else(|e| e.into_inner())
+            .get(&node.id)
+            .map(|tracked| tracked.call.clone());
         node.stray = self
             .strays
             .lock()

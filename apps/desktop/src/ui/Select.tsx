@@ -1,4 +1,5 @@
 import "./Select.css";
+import { floatingControl } from "./Dialog";
 import { Select as ArkSelect, createListCollection } from "@ark-ui/solid/select";
 import { createMemo, createSignal, For, onCleanup, type JSX } from "solid-js";
 import ChevronDown from "lucide-solid/icons/chevron-down";
@@ -16,14 +17,14 @@ export const Select = (props: {
   const collection = createMemo(() => createListCollection({ items: props.choices, itemToValue: (choice) => choice.value, itemToString: (choice) => choice.label }));
   const [root, setRoot] = createSignal<HTMLDivElement>();
   const [list, setList] = createSignal<HTMLDivElement>();
-  let open = false;
+  const control = floatingControl({}, root);
   const closing = new WeakSet<Event>();
 
   // Ark closes the list before an Escape reaches the form, so mark the Escape that found it open first.
   const mark = (event: KeyboardEvent) => {
     const target = event.target;
 
-    if (event.key === "Escape" && open && target instanceof Node && (root()?.contains(target) || list()?.contains(target))) closing.add(event);
+    if (event.key === "Escape" && control.open() && target instanceof Node && (root()?.contains(target) || list()?.contains(target))) closing.add(event);
   };
 
   document.addEventListener("keydown", mark, true);
@@ -34,7 +35,8 @@ export const Select = (props: {
       collection={collection()}
       value={[props.value]}
       onValueChange={(details) => props.onValueChange(details.value[0] ?? props.value)}
-      onOpenChange={(details) => { open = details.open; }}
+      open={control.open()}
+      onOpenChange={control.change}
       positioning={{ strategy: "fixed", sameWidth: true }}
       lazyMount
       unmountOnExit

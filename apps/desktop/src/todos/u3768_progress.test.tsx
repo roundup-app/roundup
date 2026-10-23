@@ -1,4 +1,4 @@
-import { cleanup, fireEvent, screen, waitFor } from "@solidjs/testing-library";
+import { cleanup, fireEvent, screen, waitFor, within } from "@solidjs/testing-library";
 import { afterEach, describe, expect, it } from "vitest";
 import { door } from "../testing/nodes";
 import { mountTodos, todo, todoCallsTo, todoEvent } from "./testHarness";
@@ -86,7 +86,7 @@ describe("u3770 a finishing Todo plays one motion", () => {
     expect(document.querySelector("[data-todo='1']")?.getAttribute("data-motion")).toBe("play");
   });
 
-  it("u3770_an_agent_finishing_a_shown_todo_plays_the_motion", async () => {
+  it("u3770_an_agent_finishing_a_shown_todo_plays_the_motion (u3770f_a_finish_in_an_unfolded_group_still_plays)", async () => {
     const mounted = await mountTodos([todo(1), todo(2)], false);
 
     await waitFor(() => expect(count()).toBe("0/2"));
@@ -96,14 +96,26 @@ describe("u3770 a finishing Todo plays one motion", () => {
     expect(playing()).toBeGreaterThan(0);
   });
 
-  it("u3770_a_finish_in_a_folded_group_settles_without_playing", async () => {
+  it.each(["agent", "user"] as const)("u3770f_a_finish_inside_a_folded_group_plays_no_motion (%s)", async (actor) => {
     const mounted = await mountTodos([todo(1), todo(2)], false);
 
+    if (actor === "user") {
+      fireEvent.click(await screen.findByRole("button", { name: "Idle #1 todo 1" }));
+      await within(screen.getByRole("complementary", { name: "Drawer" })).findByRole("checkbox", { name: "Complete todo 1" });
+    }
+
     fireEvent.click(document.querySelector<HTMLElement>('[data-shelf-group="unassigned"] [data-part="branch-control"]')!);
-    finish(mounted, 1);
+
+    if (actor === "user") {
+      fireEvent.click(within(screen.getByRole("complementary", { name: "Drawer" })).getByRole("checkbox", { name: "Complete todo 1" }));
+      await waitFor(() => expect(todoCallsTo(mounted.app, "todo.complete")).toHaveLength(1));
+      mounted.app.emit(todoEvent("todo.updated", mounted.store.todos[0]!));
+    } else finish(mounted, 1);
+
     await waitFor(() => expect(count()).toBe("1/2"));
 
     expect(playing()).toBe(0);
+    expect(bar()?.getAttribute("aria-valuenow")).toBe("1");
     fireEvent.click(document.querySelector<HTMLElement>('[data-shelf-group="unassigned"] [data-part="branch-control"]')!);
     expect(document.querySelector('.shelf-groups [data-todo="1"]')).toBeNull();
   });
