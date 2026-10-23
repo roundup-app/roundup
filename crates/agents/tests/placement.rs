@@ -411,11 +411,12 @@ fn a3507c_placement_extends_settings_without_tools() {
         r#"{"env":{"LAYER":"local"},"unknown":{"local":true}}"#,
     )
     .unwrap();
-    let launcher = Launcher::from_vars(
-        |name| (name == "CLAUDE_CONFIG_DIR").then(|| config.as_os_str().to_owned()),
-        &dir.path().join("rupd"),
-    )
-    .unwrap();
+    let launcher = Launcher::new(
+        "claude",
+        config.join(".claude.json"),
+        dir.path().join("rup"),
+        None,
+    );
     let (command, settings_file) = launcher
         .placement()
         .in_project(&project)
