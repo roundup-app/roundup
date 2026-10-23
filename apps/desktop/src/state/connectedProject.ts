@@ -1,3 +1,4 @@
+import { withAppSettings } from "../settings/preferences";
 import { createContext, createRoot, createSignal, getOwner, onCleanup, useContext } from "solid-js";
 import type { Accessor } from "solid-js";
 import { createImport } from "../rail/importState";
@@ -154,6 +155,7 @@ export const connectProject = async (
   storage?: RailStorage,
   drafts = createProjectDrafts()(project.path),
 ): Promise<ConnectedProject> => {
+  app = withAppSettings(app);
   let ended = false;
   let stopDecisions = () => {};
 

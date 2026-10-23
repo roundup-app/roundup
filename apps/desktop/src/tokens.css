@@ -95,7 +95,7 @@
 }
 
 @media (prefers-color-scheme: dark) {
-  :root {
+  :root:not([data-mode="light"]) {
     --ground: #1c1c1e;
     --key-chip-fill: rgba(255, 255, 255, 0.08);
     --sunken: #141416;
@@ -127,7 +127,7 @@
 }
 
 @media (prefers-contrast: more) and (prefers-color-scheme: dark) {
-  :root {
+  :root:not([data-mode="light"]) {
     --hairline: rgba(255, 255, 255, 0.4);
     --scrollbar-thumb: rgba(255, 255, 255, 0.6);
   }
@@ -136,4 +136,35 @@
 /* U510: ghost buttons and shadow-root tree rows dim their pressed ink. */
 button, file-tree-container {
   --ink-pressed: color-mix(in srgb, var(--text) 75%, transparent);
+}
+
+/* U3805: Dark chooses the same dark column even on a light host; Light excludes the native dark column above. */
+:root[data-mode="dark"] {
+    --ground: #1c1c1e;
+    --key-chip-fill: rgba(255, 255, 255, 0.08);
+    --sunken: #141416;
+    --hover: rgba(255, 255, 255, 0.06);
+    --selected: rgba(255, 255, 255, 0.1);
+    --selected-hover: rgba(255, 255, 255, 0.13);
+    --pressed: rgba(255, 255, 255, 0.16);
+    --text: #f5f5f7;
+    --grey: #a1a1a6;
+    --cache-write: #636368;
+    --disabled: #8e8e93;
+    --accent: #4d9bff;
+    --amber: #f0a030;
+    --red: #ff6b6b;
+    --hairline: rgba(255, 255, 255, 0.12);
+    --scrollbar-thumb: rgba(255, 255, 255, 0.3);
+    --shadow-drawer: 0 8px 32px rgba(0, 0, 0, 0.5);
+    --shadow-shelf: 0 0 24px rgba(0, 0, 0, 0.45);
+    --shadow-scroll: inset 0 8px 8px -8px rgba(0, 0, 0, 0.6);
+}
+
+@media (prefers-contrast: more) {
+  :root[data-mode="dark"] {
+    --grey: var(--text);
+    --hairline: rgba(255, 255, 255, 0.4);
+    --scrollbar-thumb: rgba(255, 255, 255, 0.6);
+  }
 }

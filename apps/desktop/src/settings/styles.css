@@ -39,3 +39,38 @@
   font-size: var(--text-small);
   font-weight: 600;
 }
+
+.settings-field {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  min-width: 0;
+}
+
+.settings-field > span {
+  font-size: var(--text-caption);
+  color: var(--grey);
+}
+
+.settings-field input {
+  min-width: 0;
+  width: 100%;
+  min-height: var(--space-5);
+  border: 0;
+  padding: var(--space-1) 0;
+  background: transparent;
+  color: var(--text);
+  font: inherit;
+}
+
+.settings-shortcut {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-3);
+}
+
+.settings-center,
+.settings-center-content {
+  position: relative;
+  height: 100%;
+}
