@@ -31,7 +31,7 @@ pub fn fold(current: &mut Option<Tracked>, payload: &Value, root: &str, now: i64
             *current = Some(Tracked {
                 id: id.to_owned(),
                 call: ToolCall {
-                    tool: clean(tool),
+                    tool: clean(tool).chars().take(64).collect(),
                     summary: summary(tool, input, root),
                     arguments: cut(&clean(&text_of(input)), PAYLOAD_MAX),
                     result: None,
