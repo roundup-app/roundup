@@ -1,4 +1,5 @@
-import { questionDialog, answerQuestion, questionClosed } from "../shelf/bulkQuestionHarness";
+import { questionProbe } from "../testing/menuProbe";
+import { questionDialog, answerQuestion } from "../shelf/bulkQuestionHarness";
 import { startRealDaemon, type StartedDaemon } from "../testing/realDaemonFixture";
 import { createServedApp } from "../testing/realSeam";
 import { App } from "../App";
@@ -29,7 +30,7 @@ describe("u184 close with a question", () => {
     fireEvent.click(closer("api"));
 
     await waitFor(() => expect(app.closed).toEqual([path("api")]));
-    await waitFor(() => expect(screen.queryByRole("alertdialog")).toBeNull());
+    await waitFor(() => expect(questionProbe.shown).toBeNull());
   });
 
   it("u184_the_dialog_names_up_to_three_running_agents", async () => {
@@ -65,13 +66,13 @@ describe("u184 close with a question", () => {
     await questionDialog();
     await answerQuestion(false);
 
-    await waitFor(() => expect(screen.queryByRole("alertdialog")).toBeNull());
+    await waitFor(() => expect(questionProbe.shown).toBeNull());
 
     fireEvent.click(closer("api"));
     await questionDialog();
     await answerQuestion(false);
 
-    await waitFor(() => expect(screen.queryByRole("alertdialog")).toBeNull());
+    await waitFor(() => expect(questionProbe.shown).toBeNull());
     expect(app.closed).toEqual([]);
   });
 
@@ -84,7 +85,8 @@ describe("u184 close with a question", () => {
 
     await waitFor(() => expect(app.closed).toEqual([path("api")]));
     await waitFor(() => expect(projectTabs().map((entry) => entry.textContent)).toEqual(["web"]));
-    await waitFor(() => expect(screen.queryByRole("alertdialog")).toBeNull());
+    await waitFor(() => expect(document.activeElement).toBe(tab("web")));
+    await waitFor(() => expect(questionProbe.shown).toBeNull());
   });
 
   it("u184_closing_the_open_tab_opens_the_left_one", async () => {

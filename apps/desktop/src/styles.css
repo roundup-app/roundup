@@ -412,14 +412,12 @@ p {
 }
 
 .help {
-  position: absolute;
-  inset: var(--space-4) var(--space-4) var(--space-4) calc(var(--rail-width) + var(--space-4));
-  padding: var(--space-4);
+  width: min(calc(var(--space-6) * 28), calc(100vw - var(--space-6) * 2));
   overflow: auto;
   overscroll-behavior: contain;
-  background-color: var(--ground);
-  border: 1px solid var(--hairline);
 }
+
+.help > .app-dialog-actions { grid-column: 1 / -1; }
 
 .help-line,
 .help-shelf > p {

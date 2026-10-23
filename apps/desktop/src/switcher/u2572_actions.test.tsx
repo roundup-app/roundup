@@ -1,5 +1,4 @@
 import { questionDialog, answerQuestion } from "../shelf/bulkQuestionHarness";
-import { questionProbe } from "../testing/menuProbe";
 import { cleanup, fireEvent, waitFor, within } from "@solidjs/testing-library";
 import { afterEach, expect, it } from "vitest";
 import { createSignal } from "solid-js";

@@ -1,5 +1,4 @@
-import { questionDialog, answerQuestion } from "../shelf/bulkQuestionHarness";
-import { questionProbe } from "../testing/menuProbe";
+import { questionDialog } from "../shelf/bulkQuestionHarness";
 import { createFakeApp } from "../testing/fakeApp";
 import { cleanup, fireEvent, render, screen } from "@solidjs/testing-library";
 import { afterEach, expect, it } from "vitest";

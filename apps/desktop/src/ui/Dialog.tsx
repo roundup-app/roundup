@@ -47,7 +47,16 @@ export const Dialog = {
     const requested = () => props.open ?? local();
     const lifetime = createSlideLifetime();
     const reduced = window.matchMedia ? createReducedMotion(query => window.matchMedia(query)) : () => true;
+    let wasOpen = false;
+
     createEffect(on(() => [requested(), reduced()] as const, ([open, reduce]) => {
+      if (!open && !wasOpen) {
+        lifetime.settle();
+
+        return;
+      }
+
+      wasOpen = open;
       lifetime.retarget(open, !props.instant && !reduce && document.documentElement.dataset.keyboardFocus === "false");
     }));
     const animated = lifetime.sliding;

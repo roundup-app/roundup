@@ -8,7 +8,7 @@ export const NativeAlert = (props: {
   app: Pick<App, "ask">;
   open: boolean;
   question: NativeQuestion;
-  onConfirm: () => void;
+  onConfirm: () => void | Promise<void>;
   onCancel: () => void;
   finalFocus: () => HTMLElement | null;
 }) => {
@@ -22,14 +22,25 @@ export const NativeAlert = (props: {
     if (pending || !props.open) return;
     pending = true;
     const mine = generation;
+    let repeat = false;
     setFailure(null);
 
     try {
-      const accepted = await props.app.ask({ ...props.question });
+      const question = { ...props.question };
+      const accepted = await props.app.ask(question);
 
       if (mine !== generation || !props.open) return;
 
-      if (accepted) props.onConfirm();
+      // A changed ownership/consequence warning needs its own affirmative answer.
+      const latest = props.question;
+
+      if (accepted && (question.title !== latest.title || question.message !== latest.message || question.okLabel !== latest.okLabel || question.cancelLabel !== latest.cancelLabel)) {
+        repeat = true;
+
+        return;
+      }
+
+      if (accepted) await props.onConfirm();
       else props.onCancel();
       queueMicrotask(() => props.finalFocus()?.focus({ preventScroll: true }));
     } catch (error) {
@@ -41,6 +52,8 @@ export const NativeAlert = (props: {
       }
     } finally {
       pending = false;
+
+      if (repeat) void request();
     }
   };
 

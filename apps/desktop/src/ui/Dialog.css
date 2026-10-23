@@ -1,4 +1,7 @@
 .app-dialog {
+  box-sizing: border-box;
+  max-width: calc(100vw - var(--space-6) * 2);
+  max-height: calc(100vh - var(--space-6) * 2);
   color: var(--text);
   padding: var(--space-4);
 }

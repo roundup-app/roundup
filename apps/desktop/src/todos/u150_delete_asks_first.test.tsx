@@ -69,7 +69,7 @@ describe("u150 delete asks first (Todo)", () => {
     const { app } = await open();
     await ask();
     await answerQuestion(false);
-    await waitFor(() => expect(screen.queryByRole("alertdialog")).toBeNull());
+    await waitFor(() => expect(questionProbe.shown).toBeNull());
 
     await waitFor(() => expect(document.activeElement).toBe(within(drawer()).getByRole("button", { name: "Delete Todo" })));
     expect([callsTo(app, "todo.delete"), screen.queryByText("Keep")]).toEqual([[], null]);
@@ -80,7 +80,7 @@ describe("u150 delete asks first (Todo)", () => {
     await ask();
 
     await answerQuestion(false);
-    await waitFor(() => expect(screen.queryByRole("alertdialog")).toBeNull());
+    await waitFor(() => expect(questionProbe.shown).toBeNull());
 
     expect([connected.drawer.content() === null, callsTo(app, "todo.delete")]).toEqual([false, []]);
     expect(screen.queryByText("Keep")).toBeNull();
@@ -94,7 +94,7 @@ describe("u150 delete asks first (Todo)", () => {
     await answerQuestion(true);
 
     expect([(await screen.findByText(/not found/)).textContent, connected.drawer.content() === null]).toEqual(["not found", false]);
-    await waitFor(() => expect(screen.queryByRole("alertdialog")).toBeNull());
+    await waitFor(() => expect(questionProbe.shown).toBeNull());
     expect(screen.getAllByRole("button", { name: /#5/ }).length).toBeGreaterThan(0);
   });
 });

@@ -37,7 +37,7 @@ export const Strip = (props: {
   /** A click on a Tab mark, and leader `⇧J`: that Project opens and its most urgent Agent is selected (U181). */
   onMark: (path: string) => void;
   onRename: (path: string, name: string, base?: string) => ReturnType<ProjectsState["rename"]>;
-  onClose: (path: string) => void;
+  onClose: (path: string) => void | Promise<void>;
   onChoose: () => void;
   /** U2694a: the seam that shows a tab's system menu. */
   app: Pick<AppCalls, "showContextMenu" | "ask">;
@@ -270,7 +270,8 @@ export const Strip = (props: {
 
         if (!path) return;
         setAsking(null);
-        props.onClose(path);
+
+        return props.onClose(path);
       }} />
     </div>
   );

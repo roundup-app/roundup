@@ -64,15 +64,3 @@ it("u471_previous_copy_assertions_are_preserved_todo_empty_hint_keeps_the_glossa
 
   expect(await screen.findByText("No Todos yet")).toBeTruthy();
 });
-
-it("u471_previous_copy_assertions_are_preserved_todo_delete_confirmation_uses_sentence_case", async () => {
-  await mountTodos([todo(5)]);
-  fireEvent.click(await screen.findByRole("button", { name: /#5/ }));
-  const drawer = within(screen.getByRole("complementary", { name: "Drawer" }));
-
-  fireEvent.click(await drawer.findByRole("button", { name: "Delete Todo" }));
-
-  expect(await screen.findByText("Delete Todo?", { exact: false })).toBeTruthy();
-  expect(screen.getByRole("button", { name: "Delete" })).toBeTruthy();
-  expect(screen.getByRole("button", { name: "Keep" })).toBeTruthy();
-});

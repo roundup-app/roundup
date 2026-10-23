@@ -238,5 +238,13 @@ button[aria-disabled="true"] {
 }
 
 :is(.app-dialog, .app-popover, .app-menu, .bubble, .pane-control) button[data-button="primary"]:hover:not(:disabled, [aria-disabled="true"]) {
-  color: var(--button-accent-ink);
+  color: var(--surface);
+}
+
+:is(.app-dialog, .app-popover, .app-menu, .bubble, .pane-control) button[data-button="icon"] {
+  --button-inline: 0;
+}
+
+:is(.app-dialog, .app-popover, .app-menu, .bubble, .pane-control) button[data-button][data-feedback="ink"]:is(:hover, :active) {
+  background-color: var(--button-surface);
 }

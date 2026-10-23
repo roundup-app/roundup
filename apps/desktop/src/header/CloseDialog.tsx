@@ -12,8 +12,8 @@ const runningText = (names: readonly string[]): string => {
 };
 
 /** One system question before a Project with running Agents closes. */
-export const CloseDialog = (props: { app: Pick<App, "ask">; tab: StripTab | undefined; opener: HTMLElement | undefined; onCancel: () => void; onStop: () => void }) => (
+export const CloseDialog = (props: { app: Pick<App, "ask">; tab: StripTab | undefined; opener: HTMLElement | undefined; onCancel: () => void; onStop: () => void | Promise<void> }) => (
   <NativeAlert app={props.app} open={!!props.tab}
     question={{ title: props.tab ? copy.closeQuestion(props.tab.name) : "", message: props.tab ? `${runningText(props.tab.running)}\n${copy.closingStopsThem}` : "", okLabel: copy.stopAndClose, cancelLabel: copy.cancel }}
-    onConfirm={props.onStop} onCancel={props.onCancel} finalFocus={() => props.opener?.isConnected ? props.opener : null} />
+    onConfirm={props.onStop} onCancel={props.onCancel} finalFocus={() => props.opener?.isConnected && props.opener !== document.body ? props.opener : document.querySelector<HTMLElement>('.strip [role="tab"][aria-selected="true"]') ?? document.querySelector<HTMLElement>(".strip-add")} />
 );

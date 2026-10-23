@@ -20,6 +20,8 @@ const centred = async (selector: string) => {
 
   expect(Math.abs(x!)).toBeLessThanOrEqual(1);
   expect(Math.abs(y!)).toBeLessThanOrEqual(1);
+  await lane.capture("U3512b", selector.replace(/[^a-z0-9]/gi, ""));
+  await lane.capture("U3512c", selector.replace(/[^a-z0-9]/gi, ""));
 };
 
 const reload = async (seed: string) => {

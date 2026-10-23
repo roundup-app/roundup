@@ -1,8 +1,5 @@
-import { questionDialog, answerQuestion } from "../shelf/bulkQuestionHarness";
-import { questionProbe } from "../testing/menuProbe";
-import { cleanup, fireEvent, screen } from "@solidjs/testing-library";
+import { cleanup, fireEvent } from "@solidjs/testing-library";
 import { afterEach, expect, it } from "vitest";
-import { agent } from "../testing/nodes";
 import { openTabs, tab } from "./stripFixture";
 
 afterEach(cleanup);

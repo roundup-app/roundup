@@ -39,7 +39,7 @@ it("u3512b_shared_dialog_keeps_focus_and_drafts", async () => {
   await lane.until("document.querySelector('.new-workstream').contains(document.activeElement)");
   expect(await lane.evaluate<string>(`document.querySelector('${field}').value`)).toBe("  exact 雪 é  ");
   await record("new-workstream");
-  await lane.evaluate("window.__fake.failNext(-32003, 'The name was refused. Try another name.')");
+  await lane.evaluate("window.__fake.app.handlers['todo.startWorkstream'] = () => { throw new Error('The name was refused. Try another name.'); }");
   await lane.browser("find", "role", "button", "click", "--name", "Create", "--exact");
   await lane.until("!!document.querySelector('.new-workstream [role=alert]')");
   await record("new-workstream-failure");
@@ -72,6 +72,13 @@ it("u3512c_form_buttons_keep_submit_and_cancel", async () => {
   await lane.seedTodos(["First", "Second"], false);
   await key("Meta+Shift+t");
   await lane.until("!!document.querySelector('.capture-field')");
+  await lane.browser("fill", ".capture-field", "Cancelled draft");
+  await lane.browser("find", "role", "button", "click", "--name", "Cancel", "--exact");
+  await lane.until("!document.querySelector('.capture')");
+  expect(await lane.calls("todo.create")).toEqual([]);
+  await key("Meta+Shift+t");
+  await lane.until("!!document.querySelector('.capture-field')");
+  expect(await lane.evaluate<string>("document.querySelector('.capture-field').value")).toBe("");
   await lane.browser("fill", ".capture-field", "Created from Capture 雪");
   await record("capture");
   await key("Enter");
@@ -88,17 +95,26 @@ it("u3512c_form_buttons_keep_submit_and_cancel", async () => {
 });
 
 it("u3512d_instant_paths_release_focus_next_frame", async () => {
-  await lane.seedTodos(["First"], false);
-  await key("Meta+Shift+t");
-  await lane.until("!!document.querySelector('.capture-field')");
+  await lane.seedTodos(["First", "Second"], false);
+  await openForm();
+  await lane.evaluate(`(async () => {
+    window.__u3512Origin = document.activeElement;
+    const cancel = document.querySelector('.new-workstream [data-part=close-trigger]');
+    cancel.dispatchEvent(new PointerEvent('pointerdown', {bubbles: true}));
+    cancel.click();
+    await new Promise(resolve => requestAnimationFrame(resolve));
+    // Quarter speed keeps the actual fade in flight while Chromium changes its media preference.
+    for (const animation of document.querySelector('.new-workstream').getAnimations()) animation.playbackRate = 0.25;
+    return true;
+  })()`);
+  await lane.browser("set", "media", "dark", "reduced-motion");
 
-  const released = await lane.evaluate<boolean>(`new Promise(resolve => {
-    const original = document.activeElement;
-    original.dispatchEvent(new KeyboardEvent('keydown', {key: 'Escape', bubbles: true}));
-    requestAnimationFrame(() => resolve(!document.querySelector('.capture') && document.activeElement !== original));
-  })`);
+  const released = await lane.evaluate<boolean>(`new Promise(resolve => requestAnimationFrame(() =>
+    resolve(!document.querySelector('.new-workstream') && document.activeElement !== window.__u3512Origin)))`);
 
   expect(released).toBe(true);
+  await lane.browser("set", "media", "dark");
+  await lane.until("!matchMedia('(prefers-reduced-motion: reduce)').matches");
 });
 
 it("u3512d_reopen_owns_exit_completion", async () => {

@@ -96,7 +96,8 @@ export const createBulkDelete = <Id,>(props: {
 
     if (held?.kind !== "question") return;
     const mine = revision;
-    const targets = held.targets;
+    const eligible = held.done ? props.done?.() ?? [] : props.targets();
+    const targets = held.targets.map(target => ({ ...target, owner: eligible.find(row => row.id === target.id)?.owner ?? target.owner }));
     setQuestion({ ...held, kind: "pending", targets });
     setFailures([]);
     const failed: { target: Target<Id>; message: string }[] = [];
@@ -169,7 +170,7 @@ export const createBulkDelete = <Id,>(props: {
   });
 
   const bar = () => (
-    <Show when={props.selected().length > 0 || failures().length > 0}>
+    <Show when={props.selected().length > 0 || failures().length > 0 || question()?.kind === "pending" || readFailure() !== null}>
       <div class="shelf-bulk" role="group" aria-label={copy.shelfDeletion}>
         <Show when={props.selected().length > 0}>
           <div class="shelf-bulk-line" hidden={question()?.kind === "question"}>
@@ -178,25 +179,24 @@ export const createBulkDelete = <Id,>(props: {
             <button data-button="quiet" type="button" disabled={question()?.kind === "pending"} onClick={() => { props.cancelSelection(); setFailures([]); }}>{copy.cancel}</button>
           </div>
         </Show>
-        <Show when={owners().length > 0 && question() === null}>
+        <Show when={owners().length > 0}>
           <p>{copy.ownedBy}{owners().join(copy.comma)}{copy.agentsMayStillBeWritingDeletingDoesNot}</p>
         </Show>
-        <ReservedLine message={failures().length > 0 ? `${copy.couldNotDelete}\n${failures().map(failure => `${failure.target.label}${props.noun === "Todos" ? ` #${String(failure.target.id)}` : ""}${copy.colon}${failure.message}`).join("\n")}` : null}
-          content={<>{copy.couldNotDelete} <For each={failures()}>{failure => <span>{failure.target.label}{props.noun === "Todos" ? ` #${String(failure.target.id)}` : ""}{copy.colon}{failure.message}</span>}</For></>} />
+        <ReservedLine data-deletion-pending={question()?.kind === "pending"} aria-busy={question()?.kind === "pending"} status={question()?.kind === "pending" ? copy.draftStatus.pending : null} message={readFailure() ?? (failures().length > 0 ? `${copy.couldNotDelete}\n${failures().map(failure => `${failure.target.label}${props.noun === "Todos" ? ` #${String(failure.target.id)}` : ""}${copy.colon}${failure.message}`).join("\n")}` : null)}
+          content={failures().length > 0 && !readFailure() ? <>{copy.couldNotDelete} <For each={failures()}>{failure => <span>{failure.target.label}{props.noun === "Todos" ? ` #${String(failure.target.id)}` : ""}{copy.colon}{failure.message}</span>}</For></> : undefined}><Show when={readFailure()}><button data-button="quiet" type="button" onClick={() => void readback?.()}>{copy.refresh}</button></Show></ReservedLine>
       </div>
     </Show>
   );
 
   /** Native confirmation names the frozen set; readback failures remain in the Shelf. */
-  const dialog = () => <>
+  const dialog = () => (
     <NativeAlert app={props.app} open={question()?.kind === "question"}
       question={{
         title: question() ? `${copy.deleteWord}${question()!.targets.length}${question()!.done ? copy.doneCount : ""} ${question()!.targets.length === 1 ? (props.noun === "Todos" ? copy.todo : copy.pad) : props.noun}${copy.questionMark}` : "",
         message: [...(question()?.targets ?? []).map(target => `${props.noun === "Todos" ? `#${String(target.id)} ` : ""}${target.label}`), ...(owners().length > 0 ? [`${copy.ownedBy}${owners().join(copy.comma)}${copy.agentsMayStillBeWritingDeletingDoesNot}`] : [])].join("\n"),
         okLabel: copy.delete, cancelLabel: copy.keep,
       }} onConfirm={() => void confirm()} onCancel={cancel} finalFocus={focusAfter} />
-    <ReservedLine data-deletion-pending={question()?.kind === "pending"} aria-busy={question()?.kind === "pending"} status={question()?.kind === "pending" ? copy.draftStatus.pending : null} message={readFailure()}><Show when={readFailure()}><button data-button="quiet" type="button" onClick={() => void readback?.()}>{copy.refresh}</button></Show></ReservedLine>
-  </>;
+  );
 
   const content = () => <>{bar()}{dialog()}</>;
 

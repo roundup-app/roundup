@@ -557,7 +557,7 @@ const d8 = (page: Page): Measure => {
     };
 
     // U375 requires the Watch overlay to cast the Drawer shadow on its surface.
-    const surfaceShadow = el.matches(".app-dialog, .app-menu, .app-popover, .app-select-list, .milkdown-slash-menu, .pane-control, .worktree-panel, .app-mentions-panel, .owner-picker, .rail-confirm.app-dialog, .todo-delete-confirm.app-dialog, .import-panel, .capture.app-dialog, .new-workstream.app-dialog, .project-settings.app-dialog, .app-select-list[data-scope=select][data-part=content][role=listbox]") && shadowParts(shadow) !== "" && shadowParts(shadow) === shadowParts("var(--shadow-drawer)");
+    const surfaceShadow = el.matches(".app-dialog[data-scope=dialog][data-part=content][role=dialog], .app-dialog[data-scope=dialog][data-part=content][role=alertdialog], .app-menu[data-scope=menu][data-part=content][role=menu], .app-popover[data-scope=popover][data-part=content], .milkdown-slash-menu, .pane-control, .worktree-panel, .app-mentions-panel, .owner-picker, .rail-confirm.app-dialog, .todo-delete-confirm.app-dialog, .import-panel, .capture.app-dialog, .new-workstream.app-dialog, .project-settings.app-dialog, .app-select-list[data-scope=select][data-part=content][role=listbox]") && shadowParts(shadow) !== "" && shadowParts(shadow) === shadowParts("var(--shadow-drawer)");
 
     if (shadow && shadow !== "none" && !surfaceShadow && !el.matches("aside, aside *, .bubble") && el.tagName !== "ASIDE") return { boxShadow: shadow };
 

@@ -81,9 +81,10 @@ export const SEAM_COMMANDS = [
   "plugin:window-bar|zoom_window",
 ] as const;
 
-/** The Tauri commands of `scenarios/app.md` and `scenarios/project-tabs.md`, plus the macOS choosers and the Dock badge; the only door from the webview to Tauri. */
+/** A captured system question with complete consequences and named affirmative/cancel buttons. */
 export type NativeQuestion = { title: string; message: string; okLabel: string; cancelLabel: string };
 
+/** The Tauri commands of `scenarios/app.md` and `scenarios/project-tabs.md`, plus the macOS choosers and the Dock badge; the only door from the webview to Tauri. */
 export type App = {
   /** A system alert; false (including Escape) authorizes nothing. Plugin failure rejects as RpcError. */
   ask(question: NativeQuestion): Promise<boolean>;
