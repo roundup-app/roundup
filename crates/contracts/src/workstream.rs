@@ -80,6 +80,16 @@ pub struct CapParams {
 #[derive(Clone, Debug, Serialize, Deserialize, TS, JsonSchema)]
 #[ts(export, export_to = "workstream/")]
 pub struct ClearParams {
+    /// U3801: only the user selects permissions for this launch; omission keeps vendor defaults.
+    #[serde(
+        default,
+        rename = "permissionMode",
+        skip_serializing_if = "Option::is_none"
+    )]
+    #[ts(optional, rename = "permissionMode")]
+    #[schemars(skip)]
+    pub permission_mode: Option<crate::agent::PermissionMode>,
+
     pub id: String,
     pub reason: String,
     #[serde(default, skip_serializing_if = "Option::is_none")]
