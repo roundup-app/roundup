@@ -32,9 +32,6 @@ const focusableEmulator = (): EmulatorFactory => () => {
     onInput: () => {},
     turns: () => [],
     selectTurn: () => {},
-    onSelection: () => {},
-    selectionEnd: () => null,
-    selectionFacts: () => null,
     show: (host) => {
       host.replaceChildren(field);
 

@@ -7,12 +7,19 @@ import { node, workstream, info } from "../testing/nodes";
 import { fakeEmulators } from "../terminal/paneHarness";
 
 import { cleanup, fireEvent, render, screen, waitFor } from "@solidjs/testing-library";
-import { afterEach, beforeEach, expect, it } from "vitest";
+import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { mountBubbles } from "./bubblesFixture";
 
 beforeEach(() => { window.localStorage.clear(); window.sessionStorage.clear(); });
 
-afterEach(cleanup);
+const clipboardBefore = Object.getOwnPropertyDescriptor(navigator, "clipboard");
+
+afterEach(() => {
+  cleanup();
+
+  if (clipboardBefore) Object.defineProperty(navigator, "clipboard", clipboardBefore);
+  else Reflect.deleteProperty(navigator, "clipboard");
+});
 
 const fire = (type: string, target: Element | Window, x: number, y: number, buttons: number) => {
   const event = new MouseEvent(type, { clientX: x, clientY: y, button: 2, buttons, bubbles: true, cancelable: true });
@@ -76,25 +83,46 @@ const mountApp = async (seed: SeedName = "tree-40", rail = false) => {
   return { ...controls, ...view, emulators };
 };
 
-it.each(["first-run", "empty-project", "tree-40", "bubbles"] as const)("u2694f_contextmenu_is_cancelled_across_the_mounted_app: %s", async (seed) => {
-  const { container } = await mountApp(seed);
+it.each(["agent", "door", "bubble"] as const)("u3529a_terminal_selection_and_right_click_stay_in_the_terminal: %s", async (placement) => {
+  const clipboard = { readText: vi.fn(async () => "clipboard text"), writeText: vi.fn(async (_text: string) => {}) };
+  Object.defineProperty(navigator, "clipboard", { configurable: true, value: clipboard });
+  const { app, emulators } = await mountApp(placement === "door" ? "door-report" : "bubbles");
 
-  if (seed === "tree-40") {
-    fireEvent.click(await screen.findByText("todo 1"));
-    await screen.findByLabelText("Drawer");
-    row("backend").focus();
-    fireEvent.keyDown(row("backend"), { key: "F2" });
-    await screen.findByRole("textbox", { name: "Name" });
-  }
+  if (placement === "bubble") fireEvent.click(document.querySelector(".terminal-new")!);
+  else fireEvent.click(row(placement === "door" ? "r1" : "runner"));
+  const selector = placement === "bubble" ? '.bubble:not([hidden]) [data-terminal]' : '.pane-screen [data-terminal]';
+  await waitFor(() => expect(document.querySelector(selector)).not.toBeNull());
+  const target = document.querySelector<HTMLElement>(selector)!;
+  const emulator = emulators.made.get(target.dataset.terminal!)!;
+  const controls = () => [...document.querySelectorAll('[role="dialog"], input, textarea, button, [role="menu"]')];
+  const before = controls();
+  const calls = app.calls.length;
+  const menus = app.shownMenus.length;
+  const delivered: string[] = [];
 
-  const targets = container.querySelectorAll(".rail, .rail-row, .trunks, .window-bar, .strip, .centre, .shelf, [aria-label=Drawer], input, textarea, .pane-screen");
-  expect(targets.length).toBeGreaterThan(0);
+  for (const type of ["mousedown", "mouseup"]) target.addEventListener(type, () => delivered.push(type));
 
-  for (const target of targets) {
-    const event = new MouseEvent("contextmenu", { bubbles: true, cancelable: true });
-    target.dispatchEvent(event);
-    expect(event.defaultPrevented, `${seed}: ${target.className}`).toBe(true);
-  }
+  fireEvent.pointerDown(target, { button: 0, buttons: 1 });
+  fireEvent.mouseDown(target, { button: 0, buttons: 1 });
+  fireEvent.pointerMove(target, { buttons: 1 });
+  fireEvent.mouseMove(target, { buttons: 1 });
+  emulator.select("exact é 🪁 output");
+  fireEvent.pointerUp(target, { button: 0, buttons: 0 });
+  fireEvent.mouseUp(target, { button: 0, buttons: 0 });
+  expect(controls().filter(each => !before.includes(each))).toEqual([]);
+  delivered.length = 0;
+  fire("pointerdown", target, 10, 10, 2);
+  fire("mousedown", target, 10, 10, 2);
+  expect(delivered).toEqual(["mousedown"]);
+  expect(fire("contextmenu", target, 10, 10, 2).defaultPrevented).toBe(false);
+  fire("pointerup", target, 10, 10, 0);
+  fire("mouseup", target, 10, 10, 0);
+  expect(delivered).toEqual(["mousedown", "mouseup"]);
+  expect(controls().filter(each => !before.includes(each))).toEqual([]);
+  expect(app.shownMenus).toHaveLength(menus);
+  expect(clipboard.readText).not.toHaveBeenCalled();
+  expect(clipboard.writeText).not.toHaveBeenCalled();
+  expect(app.calls.slice(calls).filter(call => ["message.send", "terminal.open", "terminal.write"].includes(call.method))).toEqual([]);
 });
 
 const row = (id: string) => document.querySelector<HTMLElement>(`.rail-row[data-id="${id}"]`)!;
