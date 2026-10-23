@@ -51,7 +51,7 @@ const partsOf = (body: string, marked: boolean): Part[] => {
 };
 
 /** The thread, oldest first, with a field to add to it. Opening reads it and marks it read once; a comment that arrives while it is open is read the same way. */
-export const TodoComments = (props: { id: number; onSent?: (() => void) | undefined; saved?: () => number }) => {
+export const TodoComments = (props: { id: number; onSent?: (() => void) | undefined; saved?: () => number; onSaved?: () => void }) => {
   const { app, events, rail, drawer } = useConnectedProject();
   // Keyed by id so a refresh keeps each comment's row, fold state and focus (U3776).
   const [thread, setThread] = createStore<Comment[]>([]);
@@ -132,7 +132,7 @@ export const TodoComments = (props: { id: number; onSent?: (() => void) | undefi
     setSendFailure(message);
 
     // A rejected call keeps the typed text; the thread catches up through `todo.commented`.
-    if (message === null) { if (text() === body) setText(""); props.onSent?.(); await refresh(); }
+    if (message === null) { if (text() === body) setText(""); props.onSaved?.(); await refresh(); props.onSent?.(); }
   };
 
   return <section class="todo-comments" aria-label={copy.commentsHeading(thread.length)}>
