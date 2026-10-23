@@ -174,8 +174,12 @@ export const createXtermEmulators = (
       fontsReady = true;
 
       if (element.parentElement && !disposed) {
-        open();
         prepareFontChange();
+        const family = terminal.options.fontFamily!;
+
+        // xterm caches cell metrics at open. Changing its public font option remeasures the loaded face.
+        terminal.options.fontFamily = /--font-mono:\s*([^;]+);/.exec(tokens)![1]!.trim();
+        terminal.options.fontFamily = family;
         size();
       }
     }) : undefined;
@@ -378,7 +382,7 @@ export const createXtermEmulators = (
 
         focusOnShow = focus;
 
-        if (fontsReady) open();
+        open();
 
         return size();
       },

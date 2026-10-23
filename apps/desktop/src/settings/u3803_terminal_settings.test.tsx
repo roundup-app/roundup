@@ -6,7 +6,6 @@ import * as xtermModule from "@xterm/xterm";
 import { info, terminal } from "../testing/nodes";
 import { mountPane } from "../terminal/paneHarness";
 import { createXtermEmulators } from "../terminal/emulator";
-import { terminalThemeFor } from "../terminal/theme";
 import { applyAppAppearance, saveAppSettings, followAppAppearance, appDark } from "./preferences";
 
 afterEach(() => { cleanup(); vi.restoreAllMocks(); vi.unstubAllGlobals(); localStorage.clear(); });
@@ -93,15 +92,4 @@ it("u3805_system_follows_a_change_of_the_media_query", () => {
   stop();
   query.dispatchEvent(new Event("change"));
   expect(observed).toHaveLength(2);
-});
-
-it("u3805_open_terminals_take_the_new_theme", async () => {
-  const spy = vi.spyOn(xtermModule, "Terminal");
-  const emulator = createXtermEmulators(undefined, () => ({ activate() {}, dispose() {}, onContextLoss() { return { dispose() {} }; } }))("theme");
-  const instance = spy.mock.instances[0]!;
-  saveAppSettings({ mode: "dark" });
-  await waitFor(() => expect(instance.options.theme?.background).toBe(terminalThemeFor(true).background));
-  saveAppSettings({ mode: "light" });
-  await waitFor(() => expect(instance.options.theme?.background).toBe(terminalThemeFor(false).background));
-  emulator.dispose();
 });

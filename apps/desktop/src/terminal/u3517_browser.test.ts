@@ -21,6 +21,26 @@ const select = async (row: string, id: string) => {
   await read(`window.__terminals.get('${id}').ready`);
 };
 
+it("u3517a_font_loading_keeps_live_terminal_input_available", async () => {
+  await load("agents-10");
+  await read(`(() => {
+    const load = document.fonts.load.bind(document.fonts);
+    let release;
+    const held = new Promise(resolve => { release = resolve; });
+    document.fonts.load = async (...args) => { await held; return load(...args); };
+    window.__releaseFonts = () => { document.fonts.load = load; release(); };
+    window.__fake.app.calls.length = 0;
+    document.querySelector('.rail-row[data-id="agent-4"]').click();
+  })()`);
+  await wait("window.__terminals.has('t-agent-4') && !!document.querySelector('.pane .xterm-helper-textarea')");
+  await browser("press", "x");
+  await wait("window.__fake.app.calls.some(call => call.method === 'terminal.write' && call.params.id === 't-agent-4')");
+  expect(await read("window.__fake.app.calls.filter(call => call.method === 'terminal.resize' && call.params.id === 't-agent-4')")).toEqual([]);
+  await read("window.__releaseFonts()");
+  await wait("window.__fake.app.calls.some(call => call.method === 'terminal.resize' && call.params.id === 't-agent-4')");
+  expect(await read("window.__fake.app.calls.filter(call => call.method === 'terminal.write' && call.params.id === 't-agent-4').map(call => atob(call.params.data))")).toEqual(["x"]);
+}, 90_000);
+
 it("u3517b_loaded_metrics_drive_terminal_resize", async () => {
   await load("agents-10");
   await select("agent-3", "t-agent-3");
