@@ -240,6 +240,8 @@ const resolveAt = (page: Page, el: Element, value: string, depth = 0): string =>
     return page.token(name) ? resolveAt(page, page.doc.documentElement, page.token(name)!, depth + 1) : whole;
   });
 
+  if (!resolved.includes("light-dark(")) return resolved;
+
   const scheme = page.style(el).colorScheme || page.style(page.doc.documentElement).colorScheme;
   const dark = scheme === "dark" || (scheme !== "light" && page.doc.defaultView?.matchMedia?.("(prefers-color-scheme: dark)").matches);
 
