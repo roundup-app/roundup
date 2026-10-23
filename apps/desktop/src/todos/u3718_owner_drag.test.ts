@@ -141,3 +141,46 @@ describe("u3718 a Todo dragged to another owner's group", () => {
     await lane.browser("press", "Escape");
   }, 120_000);
 });
+
+it("u3515c_todo_nesting_excludes_self_descendants_and_unchanged_placement", async () => {
+  const lane = await openLane(1512, "dark", "u3515-nesting");
+
+  try {
+    await lane.seedTodos(["parent", "child", "grandchild", "sibling"], false);
+    const [parent, child, grandchild, sibling] = await lane.order();
+    await lane.evaluate(`(async () => {
+      await window.__fake.app.rpc('todo.setBlockers', { id: ${child}, blockers: [${parent}] });
+      await window.__fake.app.rpc('todo.setBlockers', { id: ${grandchild}, blockers: [${child}] });
+      return true;
+    })()`);
+    await lane.until(`document.querySelector('.shelf [data-id="${grandchild}"]').closest('[role=treeitem]').getAttribute('aria-level') === '3'`);
+    await lane.resetCalls();
+
+    for (const target of [parent!, child!, grandchild!]) {
+      const from = await centre(lane, ROW(parent!));
+      const to = await centre(lane, ROW(target));
+      const right = await lane.evaluate<number>("document.querySelector('.shelf .todo-list').getBoundingClientRect().right - 24");
+      await move(lane, from.x, from.y);
+      await lane.browser("mouse", "down");
+      await move(lane, from.x + 6, from.y);
+      await lane.until("!!document.querySelector('[data-dnd-placeholder]')");
+      await move(lane, Math.min(from.x + 100, right), to.y);
+      await lane.browser("mouse", "up");
+      await lane.until("!document.querySelector('[data-dnd-placeholder]')");
+      expect((await lane.calls()).filter(call => ["todo.setBlockers", "todo.reorder", "todo.assign"].includes(call.method))).toEqual([]);
+    }
+
+    const from = await centre(lane, ROW(sibling!));
+    const to = await centre(lane, ROW(parent!));
+    await move(lane, from.x, from.y);
+    await lane.browser("mouse", "down");
+    await move(lane, from.x, from.y - 6);
+    await lane.until("!!document.querySelector('[data-dnd-placeholder]')");
+    await move(lane, from.x, to.y - 4);
+    await lane.browser("mouse", "up");
+    await lane.until("!document.querySelector('[data-dnd-placeholder]')");
+    expect((await lane.calls()).filter(call => ["todo.setBlockers", "todo.reorder", "todo.assign"].includes(call.method))).toEqual([
+      { method: "todo.reorder", params: { id: sibling, before: parent } },
+    ]);
+  } finally { await lane.close(); }
+}, 90_000);
