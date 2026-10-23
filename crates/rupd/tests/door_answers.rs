@@ -324,6 +324,33 @@ async fn u468_a_child_permission_is_answered_in_its_terminal() {
     run.finish().await;
 }
 
+// D13: the Status reads `needs-you` before the request is published, so a reader that sees the
+// Decision in `decision.list` and reads `rail.tree` once never meets an idle Agent.
+#[tokio::test]
+async fn d13_a_decision_in_the_list_means_the_agent_reads_needs_you() {
+    let run = Run::start().await;
+    for round in 0..30 {
+        let kind = if round % 2 == 0 {
+            "native"
+        } else {
+            "permission"
+        };
+        let (decision, waiting) = run.open(kind).await;
+        let tree = run.user.request("rail.tree", ()).await.unwrap();
+        let kinds: Vec<_> = tree
+            .as_array()
+            .unwrap()
+            .iter()
+            .filter(|node| node["id"] == run.child)
+            .map(|node| node["status"]["kind"].clone())
+            .collect();
+        assert_eq!(kinds, [json!("needs-you")], "round {round} ({kind})");
+        run.user_answer(&decision, kind).await;
+        waiting.await.unwrap().unwrap();
+    }
+    run.finish().await;
+}
+
 async fn answer_child() -> (Run, String, Value) {
     let mut run = Run::start().await;
     let door = run
