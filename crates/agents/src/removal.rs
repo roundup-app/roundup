@@ -168,12 +168,19 @@ impl Shared {
                 });
                 match result {
                     Ok(out) => {
-                        for item in &removal.removed {
+                        let mut calls = shared
+                            .events
+                            .tool_calls
+                            .lock()
+                            .unwrap_or_else(|e| e.into_inner());
+                        for item in &rail_removal.removed {
                             if item.kind == RemovalKind::Agent {
                                 runs.remove(&item.id);
+                                calls.remove(&item.id);
                             }
                         }
                         runs.remove(&id_owned);
+                        calls.remove(&id_owned);
                         Ok((removal, out))
                     }
                     Err(err) => {
@@ -338,6 +345,136 @@ mod tests {
         let calls = shared.events.tool_calls.lock().unwrap();
         assert_eq!(calls.len(), 1);
         assert_eq!(calls.get(&survivor), Some(&call));
+    }
+
+    #[tokio::test]
+    async fn a3342a_workstream_removal_prunes_only_its_agents() {
+        let (_dir, _, shared) = shared_over_temp_dir(Arc::new(|| 0));
+        let door = shared
+            .rail()
+            .insert(NodeKind::Workstream, "w", None, None)
+            .unwrap()
+            .id;
+        shared.rail().allocate_attempt(&door).unwrap();
+        let seed = running_agent(&shared, None);
+        let slot = shared.runs().remove(&seed).unwrap();
+        shared.rail().remove(&seed).unwrap();
+        shared.runs().insert(door.clone(), slot);
+        let removed = running_agent(&shared, Some(&door));
+        let kept = running_agent(&shared, Some(&door));
+        let sibling = shared
+            .rail()
+            .insert(NodeKind::Workstream, "other", None, None)
+            .unwrap()
+            .id;
+        let other = running_agent(&shared, Some(&sibling));
+        record_call(&shared, &door);
+        record_call(&shared, &removed);
+        let kept_call = record_call(&shared, &kept);
+        let other_call = record_call(&shared, &other);
+        shared
+            .observe(
+                Actor::daemon(),
+                &removed,
+                "1",
+                Observation::Signal(serde_json::json!({"hook_event_name": "SessionEnd"})),
+            )
+            .unwrap();
+
+        let removal = shared
+            .remove_workstream(Actor::user(), &door)
+            .await
+            .unwrap();
+
+        assert!(removal.removed.iter().any(|item| item.id == removed));
+        assert!(removal.kept.iter().any(|item| item.id == kept));
+        assert!(shared.node(&door).is_err());
+        assert!(shared.node(&removed).is_err());
+        assert_eq!(shared.node(&kept).unwrap().parent, None);
+        assert_eq!(
+            shared.node(&other).unwrap().parent.as_deref(),
+            Some(sibling.as_str())
+        );
+        let calls = shared.events.tool_calls.lock().unwrap();
+        assert!(!calls.contains_key(&door));
+        assert!(!calls.contains_key(&removed));
+        assert_eq!(calls.get(&kept), Some(&kept_call));
+        assert_eq!(calls.get(&other), Some(&other_call));
+    }
+
+    #[tokio::test]
+    async fn a3342a_a_failed_removal_keeps_the_entries() {
+        for failed_stop in [true, false] {
+            let (dir, shared) = if failed_stop {
+                shared_with_a_flaky_kill()
+            } else {
+                let (dir, _, shared) = shared_over_temp_dir(Arc::new(|| 0));
+                (dir, shared)
+            };
+            let id = running_agent(&shared, None);
+            let call = record_call(&shared, &id);
+            let db = rusqlite::Connection::open(dir.path().join("agents.db")).unwrap();
+            if !failed_stop {
+                db.execute_batch("CREATE TRIGGER fail_delete BEFORE DELETE ON nodes BEGIN SELECT RAISE(ABORT,'delete refused'); END;").unwrap();
+            }
+
+            let error = shared.remove(Actor::user(), &id).await.unwrap_err();
+
+            assert_eq!(error.code, rpc::code::INTERNAL);
+            assert!(shared.node(&id).is_ok());
+            assert_eq!(
+                shared.events.tool_calls.lock().unwrap().get(&id),
+                Some(&call)
+            );
+            if !failed_stop {
+                db.execute_batch("DROP TRIGGER fail_delete").unwrap();
+            }
+            shared.remove(Actor::user(), &id).await.unwrap();
+            assert!(shared.node(&id).is_err());
+            assert!(!shared.events.tool_calls.lock().unwrap().contains_key(&id));
+        }
+    }
+
+    #[tokio::test]
+    async fn a3342a_a_late_signal_after_removal_adds_no_entry() {
+        let (_dir, _, shared) = shared_over_temp_dir(Arc::new(|| 0));
+        let id = running_agent(&shared, None);
+        record_call(&shared, &id);
+        shared.remove(Actor::user(), &id).await.unwrap();
+        assert!(!shared.events.tool_calls.lock().unwrap().contains_key(&id));
+
+        let error = shared
+            .observe(
+                Actor::daemon(),
+                &id,
+                "1",
+                Observation::Signal(serde_json::json!({
+                    "hook_event_name": "PreToolUse",
+                    "tool_use_id": "late-call",
+                    "tool_name": "Read",
+                    "tool_input": {"file_path": "/late.rs"}
+                })),
+            )
+            .unwrap_err();
+
+        assert_eq!(error.code, rpc::code::NOT_FOUND);
+        assert!(!shared.events.tool_calls.lock().unwrap().contains_key(&id));
+        assert!(shared.node(&id).is_err());
+    }
+
+    #[tokio::test]
+    async fn a3342a_stopping_without_removal_keeps_the_last_call() {
+        let (_dir, _, shared) = shared_over_temp_dir(Arc::new(|| 0));
+        let id = running_agent(&shared, None);
+        let call = record_call(&shared, &id);
+
+        shared.stop(Actor::user(), &id).await.unwrap();
+
+        assert_eq!(shared.node(&id).unwrap().status.unwrap().kind, Kind::Done);
+        assert_eq!(
+            shared.events.tool_calls.lock().unwrap().get(&id),
+            Some(&call)
+        );
     }
 
     #[tokio::test]
