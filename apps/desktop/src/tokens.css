@@ -63,7 +63,21 @@
   --duration-drawer: 180ms;
   --duration-crossfade: 120ms;
   --duration-todo: 150ms;
+  --ease-todo: cubic-bezier(0.22, 1, 0.36, 1);
+  --ease-pop: cubic-bezier(0.34, 1.56, 0.64, 1);
+  --duration-tick: 420ms;
+  --delay-tick: 160ms;
+  --duration-ring: 560ms;
+  --duration-strike: 620ms;
+  --delay-strike: 220ms;
+  --duration-bar: 1100ms;
+  --strike-thickness: 1px;
+  --strike-offset: 55%;
+  --stroke-tick: 1.5;
+  --duration-count: 560ms;
   --duration-toast: 150ms;
+  --duration-note: 150ms;
+  --ease-note: cubic-bezier(0.32, 0.72, 0, 1);
   --duration-toast-in: 200ms;
   --duration-fold: 150ms;
   --duration-scrollbar: 200ms;
@@ -80,6 +94,7 @@
   --text-title: 15px;
   --text-pad-subheading: 20px;
   --text-pad-heading: 24px;
+  --line: 24px;
   --line-menu: 1.4;
   --pad-menu-max-height: 320px;
   --pad-menu-min-width: 192px;
@@ -195,4 +210,9 @@ button, file-tree-container {
     --hairline: rgba(255, 255, 255, 0.4);
     --scrollbar-thumb: rgba(255, 255, 255, 0.6);
   }
+}
+
+/* U3768: the progress bar's track tints the grey. */
+:root {
+  --progress-track: color-mix(in srgb, var(--grey) 40%, transparent);
 }

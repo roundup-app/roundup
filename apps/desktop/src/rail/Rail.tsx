@@ -3,7 +3,7 @@ import { attentionCount } from "./attention";
 import { copy } from "../copy";
 import { createEffect, createMemo, createSignal, For, on, onCleanup, onMount, Show } from "solid-js";
 import { Portal } from "solid-js/web";
-import { ErrorLine } from "../ink/ErrorLine";
+import { ReservedLine } from "../ink/ReservedLine";
 import { SectionHead } from "../ink/SectionHead";
 import { KindGlyph } from "../ink/KindGlyph";
 import { Icon } from "../ink/Icon";
@@ -407,6 +407,7 @@ export const Rail = () => {
         kind: "workstream",
         add: {
           disabled: !canSpawn(),
+          shortcut: parent() === node.id && !composing(),
           run: () => {
             if (!canSpawn()) return;
 
@@ -600,9 +601,7 @@ export const Rail = () => {
     >
       <SectionHead icon="messages" label={copy.workstreamsHead} />
       <Show when={composing()}>
-        <Show when={task() && taskParent() !== parent()}>
-          <p class="rail-task-target" role="status">{copy.railDraftTaskTarget(rail.nodes.find((node) => node.id === taskParent())?.name ?? project.name, taskParent() ?? project.path)}</p>
-        </Show>
+        <ReservedLine status={task() && taskParent() !== parent() ? (copy.railDraftTaskTarget(taskParent() === null ? project.name : destinationName(taskParent()!))) : null} />
         <SpawnPromptField
           ref={setField}
           value={draft()}
@@ -701,13 +700,7 @@ export const Rail = () => {
       </Sortable.Root>
     </TreeView.Root>
     </div>
-      <Show when={retained.records().some((entry) => entry.destination.surface.startsWith("rail-") && entry.status === "unknown")}>
-        <p class="rail-task-target" role="status">{copy.railDraftUnknown(project.name)}</p>
-      </Show>
-      <Show when={retained.problem()?.destination?.surface.startsWith("rail-") ? retained.problem() : null}>{(problem) => <div class="rail-retention">
-        <ErrorLine message={copy.railDraftRetention(project.name, problem().destination?.surface ?? "rail", problem().operation)} />
-        <button data-button="quiet" onClick={() => retained.retry()}>{copy.railDraftRetry}</button>
-      </div>}</Show>
+
       <Show when={recovery().length > 0}>
         <details class="rail-recovery">
           <summary><Icon name="right" />{copy.railDrafts}</summary>
@@ -728,14 +721,12 @@ export const Rail = () => {
               return (
                 <details>
                   <summary><Icon name="right" /><span>{copy.railDraftRecovery(entry().destination.surface, destinationName(entry().destination.object), entry().status)}</span></summary>
-                  <Show when={entry().destination.object !== "" && entry().destination.object !== project.path && !rail.nodes.some((node) => node.id === entry().destination.object)}>
-                    <p role="status">{copy.railDraftUnavailable}</p>
-                  </Show>
+                  <ReservedLine status={entry().destination.object !== "" && entry().destination.object !== project.path && !rail.nodes.some((node) => node.id === entry().destination.object) ? copy.railDraftUnavailable : null} />
                   <textarea aria-label={copy.railDraftRecovered} readOnly value={text()} />
                   <p>{copy.railDraftDestination(project.name, destinationName(entry().destination.recipient ?? entry().destination.object))}</p>
                   <Show when={entry().destination.surface === "rail-task"}><p>{copy.railDraftTaskAction(entry().value.action === "note" || (entry().value.action === undefined && entry().destination.recipient !== null))}</p></Show>
                   <Show when={entry().destination.surface === "rail-clear"}><p>{entry().value.withoutHandoff === true ? copy.clearWithoutHandoff : copy.clearWithHandoff}</p></Show>
-                  <Show when={entry().destination.surface === "rail-name" && rail.nodes.some((node) => node.id === entry().destination.object && node.name !== entry().value.base)}><p role="status">{copy.railDraftConflict}</p></Show>
+                  <ReservedLine status={entry().destination.surface === "rail-name" && rail.nodes.some((node) => node.id === entry().destination.object && node.name !== entry().value.base) ? copy.railDraftConflict : null} />
                   <Show when={base()}>{(base) => <p>{copy.railDraftBase(base())}</p>}</Show>
                   <div class="rail-recovery-actions">
                   <button data-button="quiet" onClick={() => { void attempt(() => navigator.clipboard.writeText(text())); }}>{copy.railDraftCopy}</button>
@@ -751,9 +742,6 @@ export const Rail = () => {
             }}</Show>
           )}</For>
         </details>
-      </Show>
-      <Show when={asking()}>
-        <p class="light">{copy.askingTheDoor}</p>
       </Show>
       <RailConfirm menu={menu} rowElement={rowElement} />
       <Show when={clearPrompt() !== null}>
@@ -777,7 +765,10 @@ export const Rail = () => {
           </Show>
         </Portal>
       </Show>
-      <Show when={failure() ?? rail.workstreamFailure() ?? rail.doorFailure(rail.selected() ?? "") ?? rail.storageFailure()}>{(message) => <ErrorLine message={message()} />}</Show>
+      <ReservedLine overlay message={failure() ?? rail.workstreamFailure() ?? rail.doorFailure(rail.selected() ?? "") ?? rail.storageFailure() ?? (retained.problem()?.destination?.surface.startsWith("rail-") ? copy.railDraftRetention(project.name, retained.problem()!.destination?.surface ?? "rail", retained.problem()!.operation) : null)}
+        status={asking() ? copy.askingTheDoor : retained.records().some(entry => entry.destination.surface.startsWith("rail-") && entry.status === "unknown") ? copy.railDraftUnknown(project.name) : null}>
+        <Show when={retained.problem()?.destination?.surface.startsWith("rail-")}><button data-button="quiet" onClick={() => retained.retry()}>{copy.railDraftRetry}</button></Show>
+      </ReservedLine>
       <div class="rail-actions">
         <button data-button="add"
           aria-label={copy.addWorkstream}

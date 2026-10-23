@@ -42,7 +42,7 @@ type SortableTree = {
   onPreview: (drop: SortableDrop | null) => void;
 };
 
-type RootProps<T extends ExternalTarget> = JSX.HTMLAttributes<HTMLDivElement> & {
+type RootProps<T extends ExternalTarget> = Omit<JSX.HTMLAttributes<HTMLDivElement>, "onDrag"> & {
   ids: readonly string[];
   /** The flat order after a drop; not called when `tree` is given. */
   onOrderChange?: ((ids: string[]) => void) | undefined;

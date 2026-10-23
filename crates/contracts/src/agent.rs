@@ -367,6 +367,10 @@ pub const TITLE_CAP: usize = 6;
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, TS)]
 #[ts(export, export_to = "agent/")]
 pub struct RailNode {
+    /// A3308: the Workstream's Auto choice; absent on an Agent.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[ts(optional)]
+    pub auto: Option<bool>,
     pub id: String,
     pub kind: NodeKind,
     pub name: String,
@@ -411,6 +415,10 @@ pub struct RailNode {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     #[ts(optional)]
     pub inbox: Option<Inbox>,
+    /// U3780a: the Agent's current or last tool call; absent until its first.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[ts(optional)]
+    pub tool_call: Option<ToolCall>,
     /// A2681a: available conversation parts, only after the Agent's program exits.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     #[ts(optional)]
@@ -907,72 +915,47 @@ pub enum HeldCall {
 }
 
 #[cfg(test)]
-mod overview_tests {
-    use super::*;
-    use serde_json::json;
+mod tests;
 
-    #[test]
-    fn a2681a_contract_omits_unavailable_parts() {
-        let node: RailNode = serde_json::from_value(json!({
-            "id":"1", "kind":"agent", "name":"Rail name", "parent":null, "order":0,
-            "status":null, "attempt":null, "status_revision":null, "terminal_id":null,
-            "worktree":null, "can_resume":false, "channel":null, "work":null,
-            "stray":[], "model":null, "effort":null
-        }))
-        .unwrap();
-        assert!(
-            serde_json::to_value(&node)
-                .unwrap()
-                .get("overview")
-                .is_none()
-        );
-        let overview = ConversationOverview {
-            program: "Claude Code".into(),
-            id: "opaque".into(),
-            name: None,
-            used: None,
-            limit: None,
-            context_parts: None,
-            card: Some(ConversationCard {
-                intent: Some("Keep intent".into()),
-                ..Default::default()
-            }),
-        };
-        assert_eq!(
-            serde_json::to_value(overview).unwrap(),
-            json!({
-                "program":"Claude Code", "id":"opaque", "card":{"intent":"Keep intent"}
-            })
-        );
-    }
+/// U3780a: where a tool call stands.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize, TS)]
+#[serde(rename_all = "kebab-case")]
+#[ts(export, export_to = "agent/")]
+pub enum ToolCallState {
+    Running,
+    Done,
+    Failed,
+}
 
-    #[test]
-    fn a2681d_contract_omits_absent_parts() {
-        let overview = ConversationOverview {
-            program: "Claude Code".into(),
-            id: "opaque".into(),
-            name: None,
-            used: Some(10),
-            limit: None,
-            context_parts: Some(vec![ContextPart {
-                kind: ContextPartKind::Files,
-                tokens: 4,
-            }]),
-            card: None,
-        };
-        assert_eq!(
-            serde_json::to_value(&overview).unwrap()["context_parts"],
-            json!([{"kind":"files","tokens":4}])
-        );
-        let bare = ConversationOverview {
-            context_parts: None,
-            ..overview
-        };
-        assert!(
-            serde_json::to_value(bare)
-                .unwrap()
-                .get("context_parts")
-                .is_none()
-        );
-    }
+/// U3780a: an Agent's current or last tool call, bounded and free of terminal escapes. `summary`,
+/// `arguments` and `result` are plain text; a cut one ends with a mark.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, TS)]
+#[ts(export, export_to = "agent/")]
+pub struct ToolCall {
+    pub tool: String,
+    /// One line: the command, file, pattern or query; absent for a tool with none.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[ts(optional)]
+    pub summary: Option<String>,
+    pub arguments: String,
+    /// Absent while the call runs.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[ts(optional)]
+    pub result: Option<String>,
+    pub state: ToolCallState,
+    /// When the call started, in milliseconds since the epoch.
+    #[ts(type = "number")]
+    pub started: i64,
+    /// The final duration in milliseconds; absent while the call runs.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[ts(optional, type = "number")]
+    pub duration_ms: Option<u64>,
+}
+
+/// The `agent.toolCall` event: Agent `id` now holds `call`.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, TS)]
+#[ts(export, export_to = "agent/")]
+pub struct ToolCallEvent {
+    pub id: String,
+    pub call: ToolCall,
 }

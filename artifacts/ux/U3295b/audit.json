@@ -1,0 +1,122 @@
+{
+  "base": "ef5c46468f94e642bbafda2a09039b493e86d70b",
+  "head": "4622ad3bf81f0985d75833e69bf8baa8e4e9292a",
+  "observer": "Isolated headless Chromium; dedicated session and fresh profile; dark; 1512x950; tree-40 and agents-10",
+  "captures": [
+    {
+      "step": "agents-before",
+      "revision": "4622ad3bf81f0985d75833e69bf8baa8e4e9292a",
+      "moved": {
+        "D2": "pass",
+        "D5": "pass",
+        "D6": "pass"
+      },
+      "regressions": [],
+      "existingFailures": []
+    },
+    {
+      "step": "agents-import",
+      "revision": "4622ad3bf81f0985d75833e69bf8baa8e4e9292a",
+      "moved": {
+        "D2": "pass",
+        "D5": "pass",
+        "D6": "pass"
+      },
+      "regressions": [],
+      "existingFailures": []
+    },
+    {
+      "step": "ask-and-mentions",
+      "revision": "4622ad3bf81f0985d75833e69bf8baa8e4e9292a",
+      "moved": {
+        "D2": "pass",
+        "D5": "pass",
+        "D6": "pass"
+      },
+      "regressions": [],
+      "existingFailures": []
+    },
+    {
+      "step": "ask-reopened",
+      "revision": "4622ad3bf81f0985d75833e69bf8baa8e4e9292a",
+      "moved": {
+        "D2": "pass",
+        "D5": "pass",
+        "D6": "pass"
+      },
+      "regressions": [],
+      "existingFailures": []
+    },
+    {
+      "step": "dense-failure",
+      "revision": "4622ad3bf81f0985d75833e69bf8baa8e4e9292a",
+      "moved": {
+        "D2": "pass",
+        "D5": "pass",
+        "D6": "pass"
+      },
+      "regressions": [],
+      "existingFailures": []
+    },
+    {
+      "step": "dialog-owned-todo-picker",
+      "revision": "4622ad3bf81f0985d75833e69bf8baa8e4e9292a",
+      "moved": {
+        "D2": "pass",
+        "D5": "pass",
+        "D6": "pass"
+      },
+      "regressions": [],
+      "existingFailures": [
+        "D10",
+        "D8"
+      ]
+    },
+    {
+      "step": "import-over-ask",
+      "revision": "4622ad3bf81f0985d75833e69bf8baa8e4e9292a",
+      "moved": {
+        "D2": "pass",
+        "D5": "pass",
+        "D6": "pass"
+      },
+      "regressions": [],
+      "existingFailures": []
+    },
+    {
+      "step": "toast-stack",
+      "revision": "4622ad3bf81f0985d75833e69bf8baa8e4e9292a",
+      "moved": {
+        "D2": "pass",
+        "D5": "pass",
+        "D6": "pass"
+      },
+      "regressions": [],
+      "existingFailures": []
+    },
+    {
+      "step": "tree-before",
+      "revision": "4622ad3bf81f0985d75833e69bf8baa8e4e9292a",
+      "moved": {
+        "D2": "pass",
+        "D5": "pass",
+        "D6": "pass"
+      },
+      "regressions": [],
+      "existingFailures": []
+    }
+  ],
+  "layerAudit": {
+    "sharedPrimitives": "Popover, Menu, Select, Tooltip, Combobox and Mentions reuse the shared wrappers. Ownership survives Portals and the newest mounted active modal determines which controls remain usable.",
+    "remainingSites": "Rail and Todo menus, Ask, Switcher, Toast group, Terminal controls and Drawer use layer Tokens. Terminal dim uses the Popover Token; settings cover uses local 1. Toast cards use local 0/1 inside the group; folded siblings hide their contents and retain opaque card edges.",
+    "terminalColumn": "The existing stacking context is unchanged.",
+    "drafts": "Exact drafts retained in Ask, Switcher, Worktree note, recovered note and Terminal selection; Unicode probes cover Ask, Switcher and change notes. No submit or choice on dismissal/restoration.",
+    "ownership": "Menu triggers and Popover triggers/anchors supply refs, including asChild fields; no trigger-id lookup. Mention fields, Terminal notes, recovered notes, Worktree controls and Todo pickers explicitly retain outside-click opt-outs while modal dismissal still applies."
+  },
+  "existingWarning": "D8 flags the existing shadow on the Dialog-owned Todo picker on both base and head; D10 repeats that warning. D2, D5 and D6 pass at every step.",
+  "validation": {
+    "focused": "50 behavioral/layer/guard tests plus the headless capture observer pass; 9 dark screens on both base and head. Clicking the Ask field retains its open suggestions.",
+    "lints": "just lint-web, just lint-rust (ALL PROOFS CHECK), loop/rules.sh merge-loss: exit 0",
+    "fullCapture": "just capture U3295a,U3295b started the full web suite; interrupted with exit 130 after additional keyboard, tooltip and header observers passed. Focused captures and tests completed separately; CI judges the full suite."
+  }
+}

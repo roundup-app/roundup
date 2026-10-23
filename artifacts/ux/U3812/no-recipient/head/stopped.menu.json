@@ -1,0 +1,28 @@
+{
+  "items": [
+    {
+      "id": "rename",
+      "label": "Rename",
+      "enabled": true,
+      "shortcut": "F2"
+    },
+    {
+      "id": "yolo",
+      "label": "Start YOLO",
+      "enabled": true
+    },
+    {
+      "id": "copy-link",
+      "label": "Copy Link",
+      "enabled": true
+    },
+    {
+      "id": "remove",
+      "label": "Remove",
+      "enabled": true,
+      "shortcut": "\u2318\u232b"
+    }
+  ],
+  "x": 120,
+  "y": 150
+}

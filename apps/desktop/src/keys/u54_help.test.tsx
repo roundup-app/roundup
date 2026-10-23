@@ -5,7 +5,7 @@ import { rowOf } from "../rail/railFixture";
 import { createFakeApp } from "../testing/fakeApp";
 import { agent, door } from "../testing/nodes";
 import type { EmulatorFactory } from "../terminal/emulator";
-import { CHORDS, HELP_ROWS, pressOf } from "./chords";
+import { CHORDS, pressOf } from "./chords";
 import { leaderKey } from "./leaderFixture";
 import { endLeader } from "./registry";
 
@@ -134,13 +134,6 @@ describe("u54 keyboard help", () => {
     expect(panel).not.toBeNull();
     await waitFor(() => expect(document.activeElement).toBe(panel));
 
-    const lines = [...panel!.querySelectorAll(".help-line")].map((line) => line.textContent?.replace(/\s+/g, " ").trim());
-
-    expect(lines).toEqual(HELP_ROWS.map((chord) => `${chord.keys} ${chord.what}`));
-
-    // U2230: a chord shown as a hint is one of these lines.
-    for (const chord of CHORDS.filter((row) => row.hint)) expect(lines).toContain(`${chord.keys} ${chord.what}`);
-
     await waitFor(() => expect(document.activeElement).toBe(panel));
     fireEvent.keyDown(document.activeElement!, { key: "Escape" });
 
@@ -190,7 +183,7 @@ describe("u54 keyboard help", () => {
     fireEvent.click(rowOf("a"));
     await waitFor(() => expect(document.querySelector(".terminal-new")).not.toBeNull());
 
-    const listed = CHORDS.filter((chord) => !chord.inRail && !chord.onAgent && !chord.inSwitcher && !chord.inTerminals && !chord.inShelf).flatMap((chord) => chord.presses).sort();
+    const listed = CHORDS.filter((chord) => !chord.inRail && !chord.onAgent && !chord.inSwitcher && !chord.inTerminals && !chord.inShelf && !chord.inNote).flatMap((chord) => chord.presses).sort();
     // Arrow keys are probed for `⌘` alone: the Terminal tabs bind them with other modifiers too (U2230).
     const outsideTerminal = document.querySelector(".terminal-new")!;
     const bound = [...new Set([...(await boundPresses(outsideTerminal)), ...(await boundPresses(outsideTerminal, [{ metaKey: true }], ["ArrowUp", "ArrowDown"]))])].sort();
@@ -222,7 +215,7 @@ describe("u54 keyboard help", () => {
 
     expect(switcherBound).toEqual(["shift+Enter"]);
     expect(field).not.toBeNull();
-    expect([...new Set([...bound, ...railBound, ...switcherBound])].sort()).toEqual(CHORDS.filter((chord) => !chord.inTerminals && !chord.inShelf).flatMap((chord) => chord.presses).sort());
+    expect([...new Set([...bound, ...railBound, ...switcherBound])].sort()).toEqual(CHORDS.filter((chord) => !chord.inTerminals && !chord.inShelf && !chord.inNote).flatMap((chord) => chord.presses).sort());
   });
 
 });

@@ -178,7 +178,7 @@ for (const { remaining, reopened, target } of [
 
 it("u461a_success_refetches_surfaces_and_keeps_focus_in_the_drawer", async () => {
   const mounted = await mountTodos([todo(1, { done: true }), todo(2, { blockers: [1] }), todo(3)]);
-  fireEvent.click(await screen.findByRole("button", { name: "1 done" }));
+  fireEvent.click(await screen.findByText("Unassigned"));
   fireEvent.click(await screen.findByRole("button", { name: "Done #1 todo 1" }));
   const box = await within(panel()).findByRole<HTMLInputElement>("checkbox", { name: "Reopen todo 1" });
   box.focus(); fireEvent.click(box);

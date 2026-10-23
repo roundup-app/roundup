@@ -1,13 +1,14 @@
-import { createEffect, createMemo, createSignal, onCleanup, Show } from "solid-js";
+import { ReservedLine } from "../ink/ReservedLine";
+import { createEffect, createMemo, createSignal, on, onCleanup, Show } from "solid-js";
 import { debounce } from "@solid-primitives/scheduled";
 import * as v from "valibot";
 import { copy } from "../copy";
 import { KindGlyph } from "../ink/KindGlyph";
 import { Combobox } from "../ui/Combobox";
 import { useConnectedProject } from "../state/connectedProject";
-import { captureActions, registerKeys } from "../keys/registry";
+import { captureActions, modalOutside, modalOpen, registerKeys } from "../keys/registry";
 import { leaderChord, SWITCHER_CLOSE, SWITCHER_TAKE } from "../keys/chords";
-import { KeyChip } from "../keys/KeyChip";
+import { KeyHint } from "../keys/KeyHint";
 import { REVEAL_BUBBLE } from "../bubbles/places";
 import { entriesOf, matching } from "./entries";
 import type { Entry } from "./entries";
@@ -102,6 +103,10 @@ export const Switcher = (props: { onFailure: (message: string | null) => void; o
     });
   };
 
+  createEffect(on(retentionProblem, (problem, previous) => {
+    if (!problem && previous) { setCopyFailure(null); restoreQueryFocus(); }
+  }, { defer: true }));
+
   const close = (restore: boolean): void => {
     retain();
     setOpen(false);
@@ -155,7 +160,10 @@ export const Switcher = (props: { onFailure: (message: string | null) => void; o
 
   const chooseHighlighted = (take: boolean): void => chooseValue(highlighted(), take);
 
+  createEffect(() => { if (open() && modalOutside(panel)) close(false); });
+
   const show = (): void => {
+    if (modalOpen()) return;
     returnTo = document.activeElement;
     setOpening({ selected: rail.selected(), actions: captureActions(returnTo) });
     props.onOpen();
@@ -207,7 +215,7 @@ export const Switcher = (props: { onFailure: (message: string | null) => void; o
             const action = actions().find((candidate) => candidate.value === item.value);
             const entry = entries().find((candidate) => candidate.value === item.value);
 
-            if (action) return <><span class="switcher-name">{action.label}</span><KeyChip keys={action.keys} /></>;
+            if (action) return <KeyHint class="switcher-action" labelClass="switcher-name" chipAfter keys={action.keys}>{action.label}</KeyHint>;
 
             if (!entry) return null;
 
@@ -217,9 +225,8 @@ export const Switcher = (props: { onFailure: (message: string | null) => void; o
               <Show when={entry.owner}><span class="switcher-owner">{entry.owner}</span></Show>
             </>;
           }} />
-        <Show when={retentionProblem()}>{(problem) => <div class="switcher-recovery" role="alert" ref={restoreFocusOnRemoval}>
-          <p>{copy.switcherRetentionFailure(problem().operation, project.name)}</p>
-          <div class="switcher-recovery-actions">
+        <ReservedLine message={copyFailure() ?? (retentionProblem() ? copy.switcherRetentionFailure(retentionProblem()!.operation, project.name) : null)}>
+
           <Show when={text() !== ""}>
           <button data-button="quiet" ref={restoreFocusOnRemoval} onClick={() => { void navigator.clipboard.writeText(text()).then(() => {
             setCopyFailure(null);
@@ -236,9 +243,7 @@ export const Switcher = (props: { onFailure: (message: string | null) => void; o
             setText("");
           }}>{copy.discardQuery}</button>
           </Show>
-          </div>
-          <Show when={copyFailure()}><p>{copyFailure()}</p></Show>
-        </div>}</Show>
+      </ReservedLine>
       </section>
     </Show>
   );

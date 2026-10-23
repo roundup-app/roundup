@@ -1,3 +1,5 @@
+import type { Handed } from "@contracts/todo/Handed";
+import { sameOwner } from "../shelf/scope";
 import type { Todo } from "@contracts/todo/Todo";
 import { createTreeCollection } from "@ark-ui/solid/tree-view";
 import { beforeOf } from "./beforeOf";
@@ -42,7 +44,7 @@ export const offeredAsBlockers = (todo: Todo, all: readonly Todo[]): Todo[] => {
 /** U3708: a row of the Todos tree: its depth and the Todo it nests under, both read from `blockers` alone. */
 export type NestedRow = { todo: Todo; level: number; parent: number | null };
 
-/** U3708: the open Todos of one list in tree order. A Todo nests under its first open blocker in the list, directly below it among that blocker's children in the Todo order (T10); one with none is at level 1. */
+/** U3708: the Todos of one owner list in tree order, including retained done members (U3809). A Todo nests under its first blocker in the list, directly below it among that blocker's children in the Todo order (T10); one with none is at level 1. */
 export const treeRows = (list: readonly Todo[]): NestedRow[] => {
   const inList = new Map(list.map((todo) => [todo.id, todo]));
   const parentOf = (todo: Todo): number | null => todo.blockers.find((id) => inList.get(id) !== undefined && id !== todo.id) ?? null;
@@ -123,3 +125,29 @@ export const treeCollection = (rows: readonly NestedRow[]) => {
     rootNode: { id: "root", children: children(null) },
   });
 };
+
+/** U3808: the latest eligible Handed Todo of each live Agent. */
+export const nowTodos = (list: readonly Todo[], handed: readonly Handed[], agents: ReadonlySet<string>): Set<number> => {
+    const latest = new Map<string, { id: number; seq: number }>();
+
+    for (const fact of handed) {
+      const todo = list.find(todo => todo.id === fact.todo);
+
+      if (!todo || todo.done || todo.blocked || todo.owner?.kind !== "agent" || !sameOwner(todo.owner, fact.owner)) continue;
+
+      if (!agents.has(todo.owner.id)) continue;
+      const previous = latest.get(todo.owner.id);
+
+      if (!previous || fact.seq > previous.seq) latest.set(todo.owner.id, { id: todo.id, seq: fact.seq });
+    }
+
+    return new Set([...latest.values()].map(fact => fact.id));
+};
+
+/** U138: the row to focus once a completed Todo leaves the open list — the next one, else the previous, else none (the `+` button). */
+export const rowAfter = (id: number, openIds: readonly number[]): number | null => {
+  const at = openIds.indexOf(id);
+
+  return openIds[at + 1] ?? openIds[at - 1] ?? null;
+};
+

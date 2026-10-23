@@ -1,3 +1,4 @@
+import { ReservedLine } from "../ink/ReservedLine";
 import { CHORDS, LEADER } from "../keys/chords";
 import { registerKeys } from "../keys/registry";
 import * as v from "valibot";
@@ -11,7 +12,6 @@ import { copy } from "../copy";
 import { createEffect, createMemo, createSignal, For, on, onCleanup, onMount, Show, untrack } from "solid-js";
 import { Portal } from "solid-js/web";
 import type { TerminalInfo } from "@contracts/terminal/TerminalInfo";
-import { ErrorLine } from "../ink/ErrorLine";
 import { Icon } from "../ink/Icon";
 import { createCut } from "../ink/Tip";
 import { Tip } from "../ui/Tip";
@@ -1040,6 +1040,8 @@ export const Bubbles = (props: {
     </>;
   };
 
+  const recoveryNotice = createMemo(() => shownDraft() ? !original(shownDraft()!) || readOnly() ? copy.originalUnavailable : shownDraft()!.value.base !== nameFor(original(shownDraft()!)!) ? copy.railDraftConflict : null : null);
+
   return (
     <div class="bubbles" ref={setLayer}>
       <For each={shownIds()}>{(id) => <Bubble id={id} />}</For>
@@ -1055,14 +1057,12 @@ export const Bubbles = (props: {
       <Dialog.Root open={recovering()} onOpenChange={details => recover(details.open)}>
         <Portal><Dialog.Positioner asChild={positioner => <aside {...positioner({})} />}><Dialog.Content class="draft-recovery bubble-recovery" ref={element => { recoveryPanel = element; }}>
           <Dialog.Title asChild={title => <h2 {...title({})}>{copy.unfinishedWork}</h2>} />
-          <Dialog.Description class="draft-identity">{copy.draftIdentity(path, copy.terminalName)}</Dialog.Description>
-          <Show when={problem()}>{failure => <p role="alert">{copy.draftRetention(path, copy.terminalName, failure().cause)}</p>}</Show>
-          <Show when={copyFailure()}>{failure => <p role="alert">{failure()}</p>}</Show>
+          <Dialog.Description class="draft-identity">{copy.draftIdentity(connected.project.name, copy.terminalName)}</Dialog.Description>
+          <ReservedLine message={(copyFailure()) || (problem() ? (copy.draftRetention(connected.project.name, copy.terminalName, problem()!.cause)) : null) || null} />
           <Show when={records().length > 1}><For each={[...records()].reverse().sort((a, b) => Number(b.status === "draft") - Number(a.status === "draft"))}>{(draft, index) => <button type="button" data-button="quiet" aria-pressed={shownDraft()?.revision === draft.revision} onClick={() => inspect(draft.revision)}>{copy.draftIdentity(copy.inspectDraft, draft.status === "draft" ? copy.currentDraft : copy.draftStatus[draft.status], String(draft.value.base ?? ""), String(index() + 1))}</button>}</For></Show>
           <Show when={shownDraft()}>{draft => <>
             <p class="draft-identity">{copy.draftIdentity(String(draft().value.base ?? ""), draft().destination.recipient ?? copy.noDraftRecipient)}</p>
-            <span role="status" data-state={draft().status}>{copy.draftStatus[draft().status]}</span>
-            <Show when={!original(draft()) || readOnly()} fallback={<Show when={original(draft()) && draft().value.base !== nameFor(original(draft())!)}><p role="status">{copy.railDraftConflict}</p></Show>}><p role="status">{copy.originalUnavailable}</p></Show>
+            <ReservedLine status={recoveryNotice() ?? copy.draftStatus[draft().status]} data-state={draft().status} />
             <pre class="draft-value">{String(draft().value.name ?? "")}</pre>
           </>}</Show>
           <div class="draft-actions">
@@ -1073,7 +1073,7 @@ export const Bubbles = (props: {
           </div>
         </Dialog.Content></Dialog.Positioner></Portal>
       </Dialog.Root>
-      <Show when={failure()}>{(message) => <div class="bubble-failure"><ErrorLine message={message()} /></div>}</Show>
+      <ReservedLine overlay class={failure() ? "bubble-failure" : undefined} message={failure()} />
     </div>
   );
 };

@@ -1,7 +1,7 @@
 import { createResource, createSignal, ErrorBoundary, onCleanup, Show } from "solid-js";
 import type { JSX } from "solid-js";
 import type { Event } from "@contracts/Event";
-import { failureLine } from "../ink/ErrorLine";
+import { failureLine } from "../ink/ReservedLine";
 import { useConnectedProject } from "../state/connectedProject";
 import { lastTouchLine, padTouchSentence } from "./touchLine";
 

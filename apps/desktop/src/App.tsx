@@ -18,7 +18,8 @@ import { InboxKey } from "./inbox/Inbox";
 import { WindowBar } from "./header/WindowBar";
 import { Strip } from "./header/Strip";
 import type { StripTab } from "./header/tab";
-import { ErrorLine, failureLine } from "./ink/ErrorLine";
+import { ReservedLine } from "./ink/ReservedLine";
+import { failureLine } from "./ink/ReservedLine";
 import { exitText } from "./ink/exitText";
 import { AttentionKey } from "./rail/AttentionKey";
 import { attentionCounts, nextAttention } from "./rail/attention";
@@ -30,7 +31,7 @@ import { Help } from "./keys/Help";
 import { Leader } from "./keys/Leader";
 import { Capture } from "./todos/Capture";
 import { Keys } from "./keys/Keys";
-import { createNow } from "./state/clock";
+import { createNow, DisplayClockContext } from "./state/clock";
 import type { Clock } from "./state/clock";
 import { createProjectsState } from "./state/projects";
 import type { OpenTab } from "./state/projects";
@@ -108,7 +109,7 @@ const Connection = (props: {
   createEffect(on(props.now, () => {
     const open = connected();
 
-    if (open && !(open instanceof Error) && open.decisions.open().length > 0) open.decisions.retryList();
+    if (open && !(open instanceof Error) && !props.tab()?.exit && open.decisions.open().length > 0) open.decisions.retryList();
   }, { defer: true }));
 
   // M8: the Daemon cannot reach the App, so an Agent's open or rename of a Project arrives as an Event.
@@ -203,11 +204,25 @@ export const App = (props: {
   const [settingsOpen, setSettingsOpen] = createSignal(false);
   const drafts = props.drafts ?? createProjectDrafts();
   const tabsId = createUniqueId();
-  const now = createNow(props.clock);
+  const [connections, setConnections] = createSignal<Connections>(new Map());
+  const [visible, setVisible] = createSignal(document.visibilityState !== "hidden");
+  const onVisibility = () => setVisible(document.visibilityState !== "hidden");
+  document.addEventListener("visibilitychange", onVisibility);
+  onCleanup(() => document.removeEventListener("visibilitychange", onVisibility));
+
+  const isWorking = () => projects.tabs().some((tab) => {
+    const connection = connections().get(tab.project.path);
+
+    return !tab.exit && connection && !(connection instanceof Error)
+      && connection.rail.nodes.some((node) => node.status?.kind === "working");
+  });
+
+  const now = createNow(props.clock, isWorking, visible);
+  // Display demand must not enable the Worktree and Decision RPC cadence.
+  const pollingNow = createMemo<number>((previous) => visible() && isWorking() ? now() : previous ?? untrack(now));
   // U413: roundup is in front while its window has focus and is visible.
   const inFront = () => document.hasFocus() && document.visibilityState === "visible";
   const toasts = createToastQueue(inFront, props.chime ?? webChime());
-  const [connections, setConnections] = createSignal<Connections>(new Map());
   const [jumpFailure, setJumpFailure] = createSignal<string | null>(null);
   const [windowFailure, setWindowFailure] = createSignal<string | null>(null);
   const [badgeFailure, setBadgeFailure] = createSignal<string | null>(null);
@@ -326,9 +341,9 @@ export const App = (props: {
   const emulators = () => props.createEmulator ?? createXtermEmulators();
 
   return (
-    <ProjectDraftsContext.Provider value={drafts}><Show when={projects.loaded()}>
+    <DisplayClockContext.Provider value={now.subscribe}><ProjectDraftsContext.Provider value={drafts}><Show when={projects.loaded()}>
       <For each={keys()}>
-        {(key) => <Connection drafts={drafts} app={dropTargets.app} tab={tabOf(key.split("\n")[0]!)} reducedMotion={props.reducedMotion} now={now} onConnected={connect} onRequested={answer} toasts={toasts} active={() => projects.active() === key.split("\n")[0]} show={() => projects.select(key.split("\n")[0]!)} />}
+        {(key) => <Connection drafts={drafts} app={dropTargets.app} tab={tabOf(key.split("\n")[0]!)} reducedMotion={props.reducedMotion} now={pollingNow} onConnected={connect} onRequested={answer} toasts={toasts} active={() => projects.active() === key.split("\n")[0]} show={() => projects.select(key.split("\n")[0]!)} />}
       </For>
       <DockBadge app={props.app} rails={() => [...connections().values()].flatMap((connection) => (connection instanceof Error ? [] : [connection.rail.nodes]))} onFailure={setBadgeFailure} />
       <Tabs.Root id={tabsId} value={projects.active()} onValueChange={({ value }) => projects.select(value)} activationMode="manual" style={{ display: "contents" }}
@@ -371,16 +386,9 @@ export const App = (props: {
         }
         rail={
           <>
-            <Show when={windowFailure()}>{(message) => <ErrorLine message={message()} />}</Show>
-            <Show when={activeTab()?.exit}>
-              {(exit) => (
-                <>
-                  <ErrorLine message={activeTab()?.reopenFailure ?? daemonExitText(exit())} />
-                  <Reopen onReopen={() => void projects.reopen(activeTab()!.project.path)} busy={projects.reopening()} />
-                </>
-              )}
-            </Show>
-            <Show when={projects.tabs().length > 0 ? (projects.failure() ?? badgeFailure()) : badgeFailure()}>{(message) => <ErrorLine message={message()} />}</Show>
+            <ReservedLine overlay message={windowFailure() ?? (activeTab()?.exit ? activeTab()?.reopenFailure ?? daemonExitText(activeTab()!.exit!) : null) ?? (projects.tabs().length > 0 ? projects.failure() ?? badgeFailure() : badgeFailure())}>
+              <Show when={activeTab()?.exit}><Reopen onReopen={() => void projects.reopen(activeTab()!.project.path)} busy={projects.reopening()} /></Show>
+            </ReservedLine>
             <Show when={projects.tabs().length > 0} fallback={<EmptyRail />}>
               <InProject open={activeConnection()}>
                 {() => (
@@ -447,6 +455,6 @@ export const App = (props: {
         }
       />}</Tabs.Context>
       </Tabs.Root>
-    </Show></ProjectDraftsContext.Provider>
+    </Show></ProjectDraftsContext.Provider></DisplayClockContext.Provider>
   );
 };

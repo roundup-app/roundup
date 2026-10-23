@@ -129,6 +129,7 @@ pub const METHODS: &[Method] = &[
     ),
     m("todo.create", "todo_CreateParams", "todo_Todo"),
     m("todo.get", "todo_TodoId", "todo_Todo"),
+    m("todo.listHanded", "null", "todo_Handed[]"),
     m("todo.getHistory", "todo_TodoId", "todo_History"),
     m("todo.readHistory", "todo_ReadHistoryParams", "null"),
     m("todo.list", "null", "todo_Todo[]"),
@@ -243,6 +244,8 @@ pub const METHODS: &[Method] = &[
     ),
     m("decision.revoke", "decision_RevokeParams", "null"),
     m("rail.tree", "null", "agent_RailNode[]"),
+    m("rail.list", "null", "agent_RailNode[]"),
+    m("workstream.setAuto", "workstream_AutoParams", "null"),
     m(
         "rail.createWorkstream",
         "agent_CreateWorkstreamParams",

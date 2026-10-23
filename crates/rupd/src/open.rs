@@ -120,6 +120,7 @@ impl Daemon {
             checkpoints: Arc::clone(&checkpoints),
             rewinding: Default::default(),
             queue: Default::default(),
+            auto: auto::Auto::new(&bus),
             pushes: std::sync::Mutex::new(Some(bus.subscribe())),
             resources: Default::default(),
             publications: deliverables::Publications::open(dir)?,

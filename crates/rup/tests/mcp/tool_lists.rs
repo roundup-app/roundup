@@ -3,7 +3,7 @@
 use std::path::Path;
 /// M5: the methods with a tool for every Agent, each named after its method with the dot replaced
 /// by `_`, bar `agent.setOrder` (O4), whose tool is `agent_set_order`.
-pub const TOOL_METHODS: [&str; 90] = [
+pub const TOOL_METHODS: [&str; 91] = [
     "agent.wake",
     "reaction.create",
     "reaction.preview",
@@ -18,6 +18,7 @@ pub const TOOL_METHODS: [&str; 90] = [
     "deliverable.move",
     "deliverable.remove",
     "todo.create",
+    "todo.assign",
     "todo.comment",
     "todo.addRef",
     "todo.removeRef",
@@ -119,7 +120,10 @@ pub const DOOR_METHODS: [&str; 8] = [
 ];
 
 /// M5: the methods and App commands with no tool; the reasons are in `scenarios/mcp.md`.
-pub const NO_TOOL: [&str; 69] = [
+pub const NO_TOOL: [&str; 71] = [
+    // A3308: Auto is the user's choice; Agents read its value through the existing rail_tree tool.
+    "workstream.setAuto",
+    "rail.list",
     // A3194, A3195, P9: a start spends usage, so only the user's own choice starts a Workstream or sets what may run.
     "todo.startWorkstream",
     "workstream.queue",
@@ -140,10 +144,11 @@ pub const NO_TOOL: [&str; 69] = [
     "todo.comments",
     "todo.unread",
     "todo.markCommentsRead",
+    // U3808: the App reads recorded Hand-offs for the plan marker; only the Daemon hands a Todo (T25).
+    "todo.listHanded",
     // T27: the Daemon computes each ref's state for the Drawer; an Agent reads `refs` on `todo_get`.
     "todo.refs",
-    // T17, T25: an Agent cannot assign, and only the Daemon hands a Todo.
-    "todo.assign",
+    // T25: only the Daemon hands a Todo.
     "todo.hand",
     "message.deliver",
     "message.drop",

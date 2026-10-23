@@ -2,7 +2,7 @@ import { copy } from "../copy";
 import { createEffect, createMemo, createSignal, onCleanup, Show } from "solid-js";
 import type { FileComparison } from "@contracts/agent/FileComparison";
 import { useConnectedProject } from "../state/connectedProject";
-import { ErrorLine } from "../ink/ErrorLine";
+import { ReservedLine } from "../ink/ReservedLine";
 import { failureOf } from "../todos/failureOf";
 import { reply } from "./notes";
 import type { Note, Notes } from "./notes";
@@ -27,13 +27,27 @@ export const DiffReader = (props: { id: string; name: string; path: string; note
     if (note) setForm({ comparison: note.comparison, selection: note, editing: note });
   });
 
-  const closeForm = () => { setForm(undefined); props.onEdited(); };
+  let addButton: HTMLButtonElement | undefined;
+  let backButton: HTMLButtonElement | undefined;
+  const closeForm = () => { setForm(undefined); props.onEdited(); (addButton ?? backButton)?.focus(); };
 
   const [read, setRead] = createSignal<FileComparison>();
   const [failure, setFailure] = createSignal<string | null>(null);
   const [version, setVersion] = createSignal(0);
   const [coarse, setCoarse] = createSignal(false);
   const [host, setHost] = createSignal<HTMLDivElement>();
+
+  const notice = createMemo(() => {
+    const value = read();
+
+    if (!value) return failure() ? null : copy.loadingDiff;
+
+    if (value.status === null) return copy.noDifference;
+
+    if (value.old.kind === "binary" || value.new.kind === "binary") return copy.binaryDiff;
+
+    return coarse() ? copy.replacementDiff : copy.selectedLines(selection().side, selection().start, selection().end);
+  });
 
   createEffect(() => {
     version();
@@ -136,27 +150,25 @@ export const DiffReader = (props: { id: string; name: string; path: string; note
     <header class="diff-header">
       <div class="diff-identity">
         <p class="diff-path"><Show when={read()} fallback={props.path}>{value => value().oldPath === value().newPath ? value().newPath : `${value().oldPath} → ${value().newPath}`}</Show></p>
-        <Show when={read()?.status && read()?.old.kind !== "binary" && read()?.new.kind !== "binary"}><p class="diff-selection" role="status">{copy.selectedLines(selection().side, selection().start, selection().end)}</p></Show>
       </div>
       <div class="diff-actions">
         <Show when={read()}>{value => <>
-          <Show when={value().status !== null && value().old.kind !== "binary" && value().new.kind !== "binary"}><button type="button" data-button="quiet" onClick={() => setForm({ comparison: value(), selection: selection() })}>{copy.addNote}</button></Show>
+          <Show when={value().status !== null && value().old.kind !== "binary" && value().new.kind !== "binary"}><button type="button" data-button="quiet" ref={element => { addButton = element; }} onClick={() => setForm({ comparison: value(), selection: selection() })}>{copy.addNote}</button></Show>
           <button type="button" data-button="quiet" onClick={() => setVersion(v => v + 1)}>{copy.refresh}</button>
         </>}</Show>
-        <button type="button" data-button="quiet" onClick={props.onBack}>{copy.back}</button>
+        <button type="button" data-button="quiet" ref={element => { backButton = element; }} onClick={props.onBack}>{copy.back}</button>
         <button type="button" data-button="quiet" onClick={props.onClose}>{copy.close}</button>
       </div>
     </header>
-    <Show when={failure()}>{message => <><ErrorLine message={message()} /><button type="button" data-button="quiet" onClick={() => setVersion(v => v + 1)}>{copy.retry}</button></>}</Show>
-    <Show when={read()} fallback={<Show when={!failure()}><p role="status">{copy.loadingDiff}</p></Show>}>{value => <>
-      <Show when={value().status !== null} fallback={<p role="status">{copy.noDifference}</p>}>
-        <Show when={value().old.kind !== "binary" && value().new.kind !== "binary"} fallback={<p role="status">{copy.binaryDiff}</p>}>
-          <Show when={coarse()}><p role="status">{copy.replacementDiff}</p></Show>
+    <ReservedLine message={failure()} status={notice()}><Show when={failure()}><button type="button" data-button="quiet" onClick={() => setVersion(v => v + 1)}>{copy.retry}</button></Show></ReservedLine>
+    <Show when={read()}>{value => <>
+      <Show when={value().status !== null}>
+        <Show when={value().old.kind !== "binary" && value().new.kind !== "binary"}>
           <div class="diff-content" ref={setHost} />
         </Show>
       </Show>
     </>}</Show>
     <Show when={form()} keyed>{draft => <NoteForm id={props.id} comparison={draft.comparison} notes={props.notes} selection={draft.selection} editing={draft.editing} close={closeForm} />}</Show>
-    <NoteBatch recover={props.recover} id={props.id} name={props.name} notes={props.notes} comparison={read()} edit={note => setForm({ comparison: note.comparison, selection: note, editing: note })} />
+    <NoteBatch fallback={() => backButton?.focus()} recover={props.recover} id={props.id} name={props.name} notes={props.notes} comparison={read()} edit={note => setForm({ comparison: note.comparison, selection: note, editing: note })} />
   </section>;
 };

@@ -3,7 +3,7 @@ import { afterEach, describe, expect, it } from "vitest";
 import { RpcError } from "../app/seam";
 import { event } from "../testing/nodes";
 import { mountTodos, todo, todoCallsTo, todoEvent } from "./testHarness";
-import { rowAfter } from "./Todos";
+import { rowAfter } from "./todoView";
 
 afterEach(cleanup);
 

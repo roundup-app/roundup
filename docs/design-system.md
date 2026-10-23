@@ -2,7 +2,7 @@
 
 How the App looks. `docs/wireframes.md` says what each screen holds and where; this file says how it is drawn. Where the two disagree on look, this file wins: it replaces the wireframes' "ink is the only colour" and "no borders" rules (the Glyph set, the visibility rule and the layout stay).
 
-The direction: a Mac app that stays out of the way. System sans for the chrome, mono only where text is code. Soft surfaces, small coloured Glyphs, nothing that moves unless the user did something, an Agent finished a visible Todo (U3010c), or the Workstream timeline's window slides with time while an Agent it shows runs (U3768e, U3768f); no shimmer or pulse. Light and dark.
+The direction: a Mac app that stays out of the way. System sans for the chrome, mono only where text is code. Soft surfaces, small coloured Glyphs, nothing moves unless the user acted or an Agent finished a Todo the user can see (U3010c, U3770), or the Workstream timeline's window slides with time while an Agent it shows runs (U3768e, U3768f); no shimmer or pulse. Light and dark.
 
 Every rule below is a check with an id. A check passes or fails; it has no score. The same checks run twice: as `vitest` tests in `just check` (the gate), and by the Design critic on the real rendering (advisory). One module measures them for both (U137).
 
@@ -52,14 +52,25 @@ Starting values. The thresholds in the checks are fixed; a value that fails a th
 | `--easing-out` | `cubic-bezier(0.32, 0.72, 0, 1)` | same | every eased motion (`docs/motion.md`, U2579a) |
 | `--duration-drawer` | `180ms` | same | the Drawer's slide in and out (`docs/motion.md`, ~180 ms) |
 | `--duration-toast` | `150ms` | same | a Toast's enter and exit (`docs/motion.md`, ~150 ms, U414) |
+| `--duration-note` / `--ease-note` | `150ms` / `cubic-bezier(0.32, 0.72, 0, 1)` | same | a queued note's glide into the Agent's step (`docs/motion.md`, U3784) |
 | `--duration-todo` | `150ms` | same | the Todo fold and row slide (`docs/motion.md`, ~150 ms, U3010c) |
+| `--ease-todo` / `--ease-pop` | `cubic-bezier(0.22, 1, 0.36, 1)` / `cubic-bezier(0.34, 1.56, 0.64, 1)` | same | a finishing Todo's tick, strike, bar and count / the ring's overshoot (`docs/motion.md`, U3771) |
+| `--duration-tick` / `--delay-tick` | `420ms` / `160ms` | same | the tick draw (U3771) |
+| `--duration-ring` | `560ms` | same | the ring pop (U3771) |
+| `--duration-strike` / `--delay-strike` | `620ms` / `220ms` | same | the label strike (U3771) |
+| `--strike-thickness` / `--strike-offset` / `--stroke-tick` | `1px` / `55%` / `1.5` | same | the label strike line's thickness and height in the label, and the tick mark's stroke width (U3769) |
+| `--duration-bar` / `--duration-count` | `1100ms` / `560ms` | same | the progress bar fill / the count roll (U3771) |
 | `--duration-crossfade` | `120ms` | same | a base interval (`docs/motion.md`, 120 ms); the working arc uses eight intervals (U446). U105 periphery dimming is retired |
+
+Nothing moves unless the user acted or an Agent took a note the user can see: a note glides into the step line only on `⌘⏎`, `×`, `Resume` or when the Agent takes it, never on mount, on selecting another Agent, on reopening the pane or while the queue is off screen (U3784).
 
 Type: `--font-ui` is `-apple-system, BlinkMacSystemFont, "SF Pro Text", system-ui, sans-serif`; `--font-mono` is `ui-monospace, "SF Mono", Menlo, monospace`. The steps are `--text-caption` 11, `--text-small` 12, `--text-body` 13, `--text-row` 14 (every Rail row's name), `--text-title` 15, `--text-pad-subheading` 20 and `--text-pad-heading` 24 px. Weight is 400, 500 or 600. Tracking is `0` at body and below, `-0.01em` at title (apple-design: tracking follows size).
 
 The App inherits `--font-ui`; code, paths, diffs, ids, token counts and Terminal output select `--font-mono`. `--mono` aliases `--font-mono` in the Token file. Static interface typography uses the listed type steps. U102’s user-adjustable Terminal font starts at `--text-body` and changes in 1 px increments within `--text-terminal-min` and `--text-terminal-max`; this scale applies only to the Terminal, not the Rail or other interface text.
 
 Pad prose uses `--text-title` (15 px). Its `--text-pad-subheading` (20 px) and `--text-pad-heading` (24 px) steps apply only to rendered and formatted Pad headings, in both colour schemes; source and code stay mono at `--text-body`. A Pad's reading and editing views use the same steps.
+
+The reserved message line (`--line`) is 24 px in both schemes, including its actions. It stays mounted when empty; compact surfaces reserve an overlaid edge instead.
 
 Space: `--space-1` to `--space-6` are 4, 8, 12, 16, 24, 32 px. A Rail row is 28 px high. U2716a specifies a future pinned 40 px Overview band above the scrolling Rail tree, with `--space-3` inline inset, a 24 px icon tile and `--text-row` at weight 400; its count rides beside the name. `--measure` is `56rem`, the Thread's column width (D11).
 
@@ -99,6 +110,12 @@ A `textarea` is a text field, not a pressed surface: D6 and D7 skip it, because 
 A disabled button stays focusable and keeps `aria-disabled="true"`, never the `disabled` attribute, so its reason can be read as its `title`; its handler does nothing while it is set.
 
 A word such as `stop`, `close` or `promote` is a button, not text: it has ink feedback and a 24 px hit height even though it rests as plain `--grey`.
+
+### Todo plans and dependency groups (U3808–U3811)
+
+An Agent's latest eligible recorded Hand-off reads `now` beside its title and marks its treeitem as the current step. Unknown Hand-offs show no marker; no Kind or list position guesses it. Done remains the native tick's accepted value.
+
+The first blocker in an owner group defines nesting even when done. A parent keeps its descendants, their own progress bar and a separate disclosure; its title strikes only when every descendant is done. Locked rows name all open blockers. Neither disclosure nor progress changes Todo facts. A visible final-child completion finishes its tick/strike and bar before folding; only the first newly unblocked successor per owner unfolds. Mount, scope changes and hidden completions settle without replay; reduced motion settles immediately.
 
 ### Button kinds
 

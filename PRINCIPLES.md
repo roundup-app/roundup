@@ -27,10 +27,10 @@ Agents run in the background until they cannot continue; the only interruption i
 
 ## P4 Black-box harness
 
-A vendor tool is an opaque PTY process, run on the user's subscription, never an API key. An Adapter has three seams: spawn in a worktree and PTY; fold Observations into a Kind; inject input and reap the exit.
+A vendor tool is an opaque PTY process, run with the login and gateway the user configured. roundup never supplies, removes or hides the user's credentials. It extends the user's settings and environment with its own hooks, tools and rules; A15's nested-run markers and LC2's named lean-profile exclusions are the only implicit exclusions. An Adapter has three seams: spawn in a worktree and PTY; fold Observations into a Kind; inject input and reap the exit.
 
-- Gate: does code outside `crates/agents/<vendor>/` read a vendor string, environment variable or API, or does `AgentAdapter` gain a fourth seam?
-- Observer: the trait diff; a `loop/rules.sh` check beside `vocab`.
+- Gate: does code outside `crates/agents/<vendor>/` read a vendor string, environment variable or API; does a launch replace the user's setup, discard an unnamed setting or environment variable, or change credentials; or does `AgentAdapter` gain a fourth seam?
+- Observer: the trait diff; a `loop/rules.sh` check beside `vocab`; A3507a's launch-fixture guard and A3507e's gateway observation (`scenarios/agents.md`).
 
 ## P5 Explicit landing
 
@@ -62,7 +62,7 @@ Every Agent roundup starts runs on the Model and Effort the user chose. For each
 
 ## P9 roundup spends the user's usage only when asked
 
-An Agent's turns spend the user's plan limits (P4), and its prompt cache saves most of what each turn costs. roundup starts an Agent only on the user's action or an Agent's tool call. It types a prompt into an Agent only to carry one of four things: the Agent's first prompt (H12); a Steer from the user or from the Agent that started it (H11); a Message (B2); or a Work order the user or that Agent set (O4). During one session it never changes what the vendor program caches: the Model, the Effort, the Brief's file, the settings file or the tool list `rup mcp` returns. The one exception is a change the user confirmed under P8, which resumes the Agent. It never types a vendor command into an Agent (for Claude Code: `/model`, `/effort`, `/compact`, `/clear`); `/model` would also overwrite the user's own default. Data that changes during a session, such as the Models a Door may pick (P8), reaches the Agent only in a tool result.
+An Agent's turns use the user's configured login and gateway (P4), and its prompt cache saves most of what each turn costs. roundup starts an Agent only on the user's action or an Agent's tool call. It types a prompt into an Agent only to carry one of four things: the Agent's first prompt (H12); a Steer from the user or from the Agent that started it (H11); a Message (B2); or a Work order the user or that Agent set (O4). During one session it never changes what the vendor program caches: the Model, the Effort, the Brief's file, the settings file or the tool list `rup mcp` returns. The one exception is a change the user confirmed under P8, which resumes the Agent. It never types a vendor command into an Agent (for Claude Code: `/model`, `/effort`, `/compact`, `/clear`); `/model` would also overwrite the user's own default. Data that changes during a session, such as the Models a Door may pick (P8), reaches the Agent only in a tool result.
 
 - Gate: does a path start an Agent without the user's action or an Agent's tool call; type a prompt that carries none of the four; change an Agent's Model, Effort, Brief's file, settings file or tool list during its session, other than a confirmed P8 change; type a vendor command into an Agent; or put data that changes during a session into the Brief's file or a tool's description?
 - Observer: `Agents::prompt` (H11) is the one function that types a prompt, and each of its callers passes one of the four; the Brief's file, the settings file and the `tools/list` reply of one session are the same bytes at its start and its end; `Agents::open` starts no program (A8).

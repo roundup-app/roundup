@@ -1,8 +1,8 @@
-import { createComputed, createEffect, createSignal, on } from "solid-js";
+import { createComputed, createEffect, createSignal, on, onCleanup } from "solid-js";
 import type { Accessor } from "solid-js";
 import type { Todo } from "@contracts/todo/Todo";
 import type { Sortable } from "../ui/sortable";
-import type { SortedRow } from "./Todos";
+import type { SortedRow } from "./OpenRow";
 import type { Actor } from "@contracts/Actor";
 import { sameOwner } from "../shelf/scope";
 import { beforeOf, slideOf } from "./beforeOf";
@@ -37,37 +37,92 @@ export const createSortedList = (source: {
   const frames = new Map<number, HTMLElement>();
   const buttons = new Map<number, HTMLButtonElement>();
   const fails = new Map<number, (message: string | null) => void>();
-  const tops = new Map<number, number>();
+  const positions = new Map<number, { top: number; left: number }>();
+  const animations = new Map<number, Animation>();
+  let heldFocus: number | undefined;
+  let scroll: { element: HTMLElement; top: number; left: number } | null = null;
+  onCleanup(() => animations.forEach(animation => animation.cancel()));
   let refocus: number | null = null;
   const [movedFocus, setMovedFocus] = createSignal<{ id: number; arrived: (todo: Todo) => boolean; element: HTMLElement } | null>(null);
 
   /** A row's top on screen, any slide or drag offset in effect included: the offset parent of a nested row is its own Leaf, so `offsetTop` cannot tell where it is. */
-  const topOf = (el: HTMLElement) => el.getBoundingClientRect().top;
+  const positionOf = (el: HTMLElement) => {
+    const row = el.getBoundingClientRect();
+    const box = row.width > 0 && row.height > 0 ? row : el.closest("[data-shelf-group]")?.querySelector(".shelf-group-head")?.getBoundingClientRect();
 
-  const measure = () => frames.forEach((el, id) => tops.set(id, topOf(el)));
+    return box && box.width > 0 && box.height > 0 ? { top: box.top, left: box.left } : undefined;
+  };
+
+  const measure = () => {
+    heldFocus = [...buttons].find(([, button]) => button === document.activeElement)?.[0];
+    const area = frames.values().next().value?.closest<HTMLElement>(".shelf-area");
+
+    scroll = area ? { element: area, top: area.scrollTop, left: area.scrollLeft } : null;
+    frames.forEach((el, id) => {
+      const position = positionOf(el);
+
+      if (position) positions.set(id, position);
+      // A replacement frame may be registered before insertion; its outgoing position still belongs to this row.
+    });
+  };
 
   /** U156: slides each row from where it showed (mid-slide included) to where the refetched list puts it. */
   const settle = () => {
-    for (const [id, el] of frames) {
-      if ("getAnimations" in el) el.getAnimations().forEach((animation) => animation.cancel());
-
-      const top = topOf(el);
-      const was = tops.get(id);
-
-      tops.set(id, top);
-
-      if (was === undefined || source.reducedMotion() || !("animate" in el) || Math.abs(was - top) < 1) continue;
-      el.animate([{ transform: `translateY(${was - top}px)` }, { transform: "none" }], slideOf());
+    if (scroll) {
+      scroll.element.scrollTop = scroll.top;
+      scroll.element.scrollLeft = scroll.left;
+      scroll = null;
     }
 
-    if (refocus !== null) buttons.get(refocus)?.focus();
+    for (const [id, el] of frames) {
+      animations.get(id)?.cancel();
+      animations.delete(id);
+
+      if ("getAnimations" in el) el.getAnimations().forEach((animation) => animation.cancel());
+
+      const position = positionOf(el);
+      const was = positions.get(id);
+
+      if (!position) {
+        positions.delete(id);
+        continue;
+      }
+
+      positions.set(id, position);
+
+      if (was === undefined || source.reducedMotion() || !("animate" in el)) continue;
+      const x = was.left - position.left;
+      const y = was.top - position.top;
+
+      if (Math.abs(x) < 1 && Math.abs(y) < 1) continue;
+      const animation = el.animate([{ transform: `translate(${x}px, ${y}px)`, opacity: 0.8 }, { transform: "none", opacity: 1 }], slideOf());
+
+      animations.set(id, animation);
+      animation.onfinish = () => { if (animations.get(id) === animation) animations.delete(id); };
+    }
+
+    for (const id of positions.keys()) if (!source.ids().includes(id)) {
+      positions.delete(id);
+      animations.get(id)?.cancel();
+      animations.delete(id);
+    }
+
+    if (refocus !== null) buttons.get(refocus)?.focus({ preventScroll: true });
+    else if (heldFocus !== undefined && (document.activeElement === document.body || document.activeElement === null)) buttons.get(heldFocus)?.focus({ preventScroll: true });
+    heldFocus = undefined;
 
     refocus = null;
   };
 
   // U3010c: any change of the list (an insertion, a completion) first reads where each row shows now, before the DOM follows; a measure taken at the last move would be stale.
-  createComputed(on(() => source.ids().join(), measure, { defer: true }));
-  createEffect(on(() => source.ids().join(), settle, { defer: true }));
+  const placement = () => source.ids().map(id => {
+    const todo = source.all().find(todo => todo.id === id);
+
+    return `${id}:${todo?.owner?.kind ?? ""}:${todo?.owner?.id ?? ""}`;
+  }).join();
+
+  createComputed(on(placement, measure, { defer: true }));
+  createEffect(on(placement, () => queueMicrotask(settle), { defer: true }));
   // U3010c: reduced motion switched on mid-slide settles every row now, with no replay.
   createEffect(on(source.reducedMotion, (reduced) => { if (reduced) frames.forEach((el) => "getAnimations" in el && el.getAnimations().forEach((animation) => animation.cancel())); }, { defer: true }));
   // Reconcile keeps the array and unchanged rows: observe field changes as well as membership.
@@ -176,19 +231,33 @@ export const createSortedList = (source: {
         });
       },
     } : undefined,
-    row: (id: number, parts: Parts, ids: Accessor<readonly number[]> = source.ids): SortedRow => ({
+    row: (id: number, parts: Parts, ids: Accessor<readonly number[]> = source.ids): SortedRow => {
+      let frame: HTMLElement | null = null;
+      let button: HTMLButtonElement | null = null;
+
+      return {
       frame: (el) => {
         if (el) {
+          const outgoing = frames.get(id);
+          const position = outgoing && positionOf(outgoing);
+
+          if (position) positions.set(id, position);
+          frame = el;
           frames.set(id, el);
           parts.ref(el);
-        } else {
+        } else if (frames.get(id) === frame) {
+          // An owner change replaces the row before measure; retain its mid-glide position for the new frame.
+          const position = frame && positionOf(frame);
+
+          if (position) positions.set(id, position);
           frames.delete(id);
-          tops.delete(id);
         }
       },
       button: (el) => {
-        if (el) buttons.set(id, el);
-        else {
+        if (el) {
+          button = el;
+          buttons.set(id, el);
+        } else if (buttons.get(id) === button) {
           buttons.delete(id);
           fails.delete(id);
         }
@@ -209,6 +278,7 @@ export const createSortedList = (source: {
         event.preventDefault();
         step(id, event.key === "ArrowUp" ? -1 : 1, ids());
       },
-    }),
+      };
+    },
   };
 };

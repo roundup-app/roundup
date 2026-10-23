@@ -6,3 +6,8 @@
   border: 1px solid var(--hairline);
   z-index: var(--layer-popover);
 }
+
+/* A portalled picker keeps the Dialog that owns its trigger above the modal surface. */
+.app-popover[data-dialog-owned] {
+  z-index: var(--layer-menu);
+}

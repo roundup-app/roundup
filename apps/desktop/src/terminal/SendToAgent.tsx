@@ -2,7 +2,7 @@ import { createEffect, createSignal, For, on, Show } from "solid-js";
 import type { JSX } from "solid-js";
 import { Portal } from "solid-js/web";
 import { copy } from "../copy";
-import { ErrorLine } from "../ink/ErrorLine";
+import { ReservedLine } from "../ink/ReservedLine";
 import { KindGlyph } from "../ink/KindGlyph";
 import { modalOpen } from "../keys/registry";
 import { Menu } from "../ui/Menu";
@@ -48,7 +48,7 @@ export const SendToAgent = (props: { send: ReturnType<typeof createSendSelection
   });
 
   // U3767: a modal Dialog closes the note; its text stays held and returns when the user reopens it.
-  createEffect(() => { if (modalOpen() && control.open()) control.dismiss(); });
+  createEffect(() => { if (modalOpen() && control.open()) { control.dismiss(); setChoosing(false); } });
 
   const anchorRect = () => {
     const at = control.anchor();
@@ -83,7 +83,7 @@ export const SendToAgent = (props: { send: ReturnType<typeof createSendSelection
   );
 
   return (
-    <Popover.Root open={control.open()} closeOnEscape onOpenChange={(change) => { if (!change.open && control.open()) close(); }} positioning={{ placement: "bottom-start", strategy: "fixed", getAnchorRect: anchorRect }}>
+    <Popover.Root closeOnInteractOutside={false} open={control.open()} closeOnEscape onOpenChange={(change) => { if (!change.open && control.open()) close(); }} positioning={{ placement: "bottom-start", strategy: "fixed", getAnchorRect: anchorRect }}>
       <Show when={control.open()}><Portal>
         <Popover.Positioner>
           <Popover.Content ref={panel} class="send-to-agent" aria-label={copy.sendToAgent} onPointerDown={() => control.hold()}>
@@ -131,16 +131,16 @@ export const SendToAgent = (props: { send: ReturnType<typeof createSendSelection
                 </Portal></Show>
               </Menu.Root>
             </Show>
-            <Show when={control.problem()}>{(message) => <>
-              <ErrorLine message={message()} />
+            <ReservedLine message={control.error() ?? control.problem()}>
+              <Show when={control.problem()}>
               <div class="send-to-agent-recovery">
               <button data-button="quiet" type="button" onClick={() => void control.copy("note")}>{copyNote}</button>
               <button data-button="quiet" type="button" onClick={() => void control.copy("excerpt")}>{copyExcerpt}</button>
               <button data-button="quiet" type="button" onClick={() => control.retry()}>{copy.storageRetry}</button>
               </div>
-            </>}</Show>
+              </Show>
+            </ReservedLine>
             <Show when={control.hasDraft()}><button data-button="quiet" type="button" onClick={() => control.discard()}>{copy.discardNote}</button></Show>
-            <Show when={control.error()}>{(message) => <ErrorLine message={message()} />}</Show>
           </Popover.Content>
         </Popover.Positioner>
       </Portal></Show>

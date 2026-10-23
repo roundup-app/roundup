@@ -175,6 +175,7 @@ mod tests {
     fn node(id: &str, kind: NodeKind, name: &str, parent: Option<&str>, door: bool) -> RailNode {
         RailNode {
             id: id.into(),
+            auto: (kind == NodeKind::Workstream).then_some(false),
             kind,
             name: name.into(),
             parent: parent.map(str::to_owned),
@@ -192,6 +193,7 @@ mod tests {
             effort: None,
             iteration: None,
             inbox: None,
+            tool_call: None,
             overview: None,
             work: Some(contracts::agent::Order::clarification("?")),
         }
@@ -214,6 +216,7 @@ mod tests {
             home: None,
             owner: None,
             refs: vec![],
+            estimate_minutes: None,
         }
     }
 

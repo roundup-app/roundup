@@ -21,13 +21,23 @@
   scale: var(--scale, 1);
   transform-origin: bottom center;
   opacity: var(--opacity);
-  z-index: var(--z-index);
+  z-index: 0;
   will-change: translate, scale, opacity;
   transition: translate var(--duration-toast-in) var(--easing-out), scale var(--duration-toast-in) var(--easing-out), opacity var(--duration-toast-in) var(--easing-out);
 }
 
+/* Ark marks the front card; its siblings sit below it within the group's Toast layer. Expanded cards do not overlap. */
+.app-toast:not([data-sibling]) {
+  z-index: 1;
+}
+
 .app-toast[data-overlap][data-sibling] {
   pointer-events: none !important;
+}
+
+/* Folded cards show only their opaque edges, so deeper content cannot paint over a nearer edge. */
+.app-toast[data-overlap][data-sibling] > * {
+  visibility: hidden;
 }
 
 /* U3793: a leaving card fades and sinks one gap from where it rests. */

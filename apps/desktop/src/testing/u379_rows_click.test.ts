@@ -118,4 +118,22 @@ run("u379 where a Shelf row washes, a click acts", () => {
 
     expect(moved[1]).toBe(first[0]);
   });
+
+  it("u379_the_claim_glyph_of_a_pad_row_claims_and_opens_nothing", async () => {
+    await page.scheme("light");
+    await page.load("/harness.html?seed=tree-40", 1280, 800);
+    await page.until(`() => document.querySelector(".shelf .shelf-row") !== null`);
+    await page.call(TAB, "pads");
+    await page.call(`() => { for (const control of document.querySelectorAll('.shelf [data-shelf-group][data-state="closed"] [data-part="branch-control"]')) control.click(); }`);
+
+    const claim = `() => document.querySelector('.shelf button[aria-label="Make pad-0 yours"]')`;
+
+    await page.until(`() => ${claim.slice(6)} !== null`);
+
+    const box = await page.call<{ x: number; y: number }>(`() => { const box = (${claim})().getBoundingClientRect(); return { x: box.left + box.width / 2, y: box.top + box.height / 2 }; }`);
+    const shown = await opened(box.x, box.y);
+
+    expect(await page.call<boolean>(`() => window.__fake.app.calls.some((call) => call.method === "pad.setOwner" && call.params.name === "pad-0")`)).toBe(true);
+    expect(shown.open).toBe(false);
+  });
 });
