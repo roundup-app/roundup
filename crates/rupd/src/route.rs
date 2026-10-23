@@ -47,6 +47,8 @@ impl Daemon {
             || matches!(
                 method,
                 "rail.rename"
+                    | "workstream.setAuto"
+                    | "agent.spawn"
                     | "agent.stop"
                     | "agent.interrupt"
                     | "agent.prompt"
