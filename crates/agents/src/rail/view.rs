@@ -9,7 +9,7 @@ pub(super) fn load_nodes(
         .prepare(
             "SELECT id, kind, name, parent, ord, attempt, terminal_id,
                 worktree_path, worktree_branch, worktree_base, work, model, effort, iteration,
-                conversation_id IS NOT NULL AND conversation_cwd IS NOT NULL FROM nodes
+                conversation_id IS NOT NULL AND conversation_cwd IS NOT NULL, auto FROM nodes
                 WHERE ? OR NOT EXISTS (SELECT 1 FROM closed_sources WHERE published=0
                     AND (workstream=nodes.id OR agent=nodes.id))",
         )
@@ -36,6 +36,9 @@ pub(super) fn load_nodes(
                 NodeKind::Agent => stored,
             };
             Ok(RailNode {
+                auto: (kind == NodeKind::Workstream)
+                    .then(|| row.get(15))
+                    .transpose()?,
                 id: row.get::<_, i64>(0)?.to_string(),
                 kind,
                 name: row.get(2)?,
@@ -68,4 +71,16 @@ pub(super) fn load_nodes(
         })
         .map_err(sql)?;
     rows.collect::<Result<_, _>>().map_err(sql)
+}
+
+impl Rail {
+    pub(crate) fn set_auto(&mut self, id: &str, auto: bool) -> Result<bool, RpcError> {
+        self.db
+            .execute(
+                "UPDATE nodes SET auto=?1 WHERE CAST(id AS TEXT)=?2 AND auto!=?1",
+                params![auto, id],
+            )
+            .map(|changed| changed != 0)
+            .map_err(sql)
+    }
 }

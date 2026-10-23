@@ -112,6 +112,12 @@ A bounded copy of a Terminal's screen and output byte offset that restores its p
 The persistent place for one body of work, named for the work, with exactly one Door and its Agents, Terminals, Todos and Sketches. Stopping its Door neither removes the Workstream nor moves its contents. Workstreams are flat: one never sits under another. Its Agents nest under the Door and under each other (Subagent). Cross-Workstream dependencies are open.
 _Avoid_: room, folder
 
+**Auto** (`auto`, `AutoParams`, `workstream.setAuto`):
+The user's persisted Workstream choice, off by default, asking its Door to assign each open,
+unassigned Todo once per unassignment. Auto sends an ordinary Message naming the Todo and
+its estimate; the Door chooses an owner through `todo.assign` or starts a Subagent under
+the Workstream cap. It never moves a Todo already owned by Me or an Agent.
+
 **Start choice**:
 The user's pick of when a new Workstream's Door starts: `now`, `queued` or `afterTodo` (`todo.startWorkstream`, A3194). Only `now` ignores the Workstream cap, because the user chose it now.
 

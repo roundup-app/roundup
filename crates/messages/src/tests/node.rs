@@ -4,6 +4,7 @@ use super::*;
 pub(super) fn node(id: &str, kind: NodeKind, _door: bool, status: Option<Status>) -> RailNode {
     RailNode {
         id: id.into(),
+        auto: (kind == NodeKind::Workstream).then_some(false),
         kind,
         name: id.into(),
         parent: None,

@@ -367,6 +367,10 @@ pub const TITLE_CAP: usize = 6;
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, TS)]
 #[ts(export, export_to = "agent/")]
 pub struct RailNode {
+    /// A3308: the Workstream's Auto choice; absent on an Agent.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[ts(optional)]
+    pub auto: Option<bool>,
     pub id: String,
     pub kind: NodeKind,
     pub name: String,
