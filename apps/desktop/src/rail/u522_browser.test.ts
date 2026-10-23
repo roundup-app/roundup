@@ -156,6 +156,20 @@ it("u3515_rendered_target_pickers", async () => {
   const { openLane } = await import("../todos/laneBrowser");
   const lane = await openLane(1512, "dark", "u3515");
 
+  const { captureDir } = await import("../testing/captures");
+  const { writeFileSync } = await import("node:fs");
+  const disabledReadings: Record<string, { ariaDisabled: string | null; nativeDisabled: boolean; title: string; tabIndex: number; focused: boolean; color: string; cursor: string; opacity: string }> = {};
+
+  const recordDisabled = async (step: string, selector: string) => {
+    disabledReadings[step] = await lane.evaluate<(typeof disabledReadings)[string]>(`(() => {
+      const button = document.querySelector(${JSON.stringify(selector)});
+      const style = getComputedStyle(button);
+      return { ariaDisabled: button.getAttribute('aria-disabled'), nativeDisabled: button.disabled,
+        title: button.title, tabIndex: button.tabIndex, focused: document.activeElement === button,
+        color: style.color, cursor: style.cursor, opacity: style.opacity };
+    })()`);
+  };
+
   try {
     await lane.evaluate("(() => { const tab = document.querySelector('#shelf-tab-todos'); if (tab.getAttribute('aria-expanded') !== 'true') tab.click(); return true; })()");
     await lane.until("document.querySelector('#shelf-tab-todos').getAttribute('aria-expanded') === 'true'");
@@ -194,7 +208,7 @@ it("u3515_rendered_target_pickers", async () => {
     await lane.evaluate(`(async () => {
       const app = window.__fake.app;
       const nodes = await app.rpc('rail.tree', null);
-      const only = nodes.find(node => node.kind === 'agent');
+      const only = nodes.find(node => node.id === 'tokens');
       app.handlers['rail.tree'] = () => [{ ...only, parent: null, order: 0, name: 'Only Agent with a long descriptive name for the target picker audit' }];
       app.emit({ actor: { kind: 'user', id: 'you', parent: null }, name: 'rail.changed' });
       return true;
@@ -209,15 +223,36 @@ it("u3515_rendered_target_pickers", async () => {
       return true;
     })()`);
     await lane.until("document.querySelectorAll('.shelf .todo-row-button').length === 1");
+    await lane.evaluate("(() => { [...document.querySelectorAll('.rail button')].find(button => button.getAttribute('aria-label') === '1 todos').click(); return true; })()");
+    await lane.until("document.querySelector('.rail .todo-move')?.getAttribute('aria-disabled') === 'true'");
+    await lane.browser("focus", ".rail .todo-row-button");
+    await lane.until("document.querySelector('.rail .todo-row')?.dataset.actionsOpen === 'true'");
+    await lane.browser("hover", ".rail .todo-move");
+    await recordDisabled("move-hover", ".rail .todo-move");
+    await lane.capture("U3515d", "disabled-move-hover");
+    await lane.browser("focus", ".rail .todo-move");
+    await recordDisabled("move-before-keys", ".rail .todo-move");
+
+    for (const key of ["Enter", "Space", "ArrowDown"]) {
+      await lane.evaluate(`(() => { for (const type of ['keydown', 'keyup']) document.activeElement.dispatchEvent(new KeyboardEvent(type, { key: ${JSON.stringify(key === "Space" ? " " : key)}, bubbles: true, cancelable: true })); return true; })()`);
+      await recordDisabled(`move-${key}`, ".rail .todo-move");
+      expect(await lane.evaluate("({ focused: document.activeElement.matches('.todo-move'), menu: !!document.querySelector('[role=menu][data-state=open]') })")).toMatchObject({ focused: true, menu: false });
+    }
+
+    await recordDisabled("move-focus", ".rail .todo-move");
+    await lane.capture("U3515d", "disabled-move-focus");
     await lane.browser("click", ".shelf .todo-row-button");
     await lane.until("document.querySelector('.todo-blocker-trigger')?.getAttribute('aria-disabled') === 'true'");
+    await recordDisabled("blocker-rest", ".todo-blocker-trigger");
     await lane.capture("U3515b", "disabled-blocker");
     await lane.browser("hover", ".todo-blocker-trigger");
+    await recordDisabled("blocker-hover", ".todo-blocker-trigger");
     await lane.capture("U3515b", "disabled-blocker-hover");
     await lane.browser("focus", ".todo-blocker-trigger");
     await lane.browser("press", "Enter");
     await lane.browser("press", "Space");
     expect(await lane.evaluate<boolean>("document.activeElement.matches('.todo-blocker-trigger') && !document.activeElement.disabled && !!document.activeElement.title && !document.querySelector('.todo-blocker-menu [role=combobox]')")).toBe(true);
+    await recordDisabled("blocker-focus", ".todo-blocker-trigger");
     await lane.capture("U3515b", "disabled-blocker-focus");
     await lane.browser("press", "Escape");
     await lane.evaluate(`(async () => {
@@ -232,13 +267,19 @@ it("u3515_rendered_target_pickers", async () => {
     await lane.browser("click", "#shelf-tab-pads");
     await lane.until("document.querySelector('.pad-assign')?.getAttribute('aria-disabled') === 'true'");
     await lane.browser("hover", ".shelf .pad-inset");
+    await recordDisabled("assign-rest", ".pad-assign");
     await lane.capture("U3515d", "disabled-assignment");
     await lane.browser("hover", ".pad-assign");
+    await recordDisabled("assign-hover", ".pad-assign");
     await lane.capture("U3515d", "disabled-assignment-hover");
     await lane.browser("focus", ".pad-assign");
     await lane.browser("press", "Enter");
     await lane.browser("press", "Space");
     expect(await lane.evaluate<boolean>("document.activeElement.matches('.pad-assign') && !document.activeElement.disabled && !!document.activeElement.title && !document.querySelector('[role=menu][data-state=open]')")).toBe(true);
+    await recordDisabled("assign-focus", ".pad-assign");
     await lane.capture("U3515d", "disabled-assignment-focus");
+    const dir = captureDir("U3515d");
+
+    if (dir) writeFileSync(`${dir}/disabled-states.json`, JSON.stringify(disabledReadings, null, 2) + "\n");
   } finally { await lane.close(); }
 }, 90_000);

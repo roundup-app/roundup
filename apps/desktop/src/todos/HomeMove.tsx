@@ -28,13 +28,16 @@ export const HomeMove = (props: {
         setOpen(open);
         props.onOpenChange?.(open);
       }}
-      onSelect={({ value }) => { const offer = offers()[Number(value)];
+      onSelect={({ value }) => {
+        const offer = offers()[Number(value)];
 
- if (offer) void props.choose(offer.home); }}
+        if (offer) void props.choose(offer.home);
+      }}
     >
+      {/* oxlint-disable-next-line anti-slop/no-tooltip-bypass -- U171 requires a focusable disabled button to expose its reason as title. */}
       <Menu.Trigger aria-disabled={offers().length === 0 || undefined} title={offers().length === 0 ? copy.noOtherHomes : undefined}
-        onClick={(event) => { if (offers().length === 0) event.preventDefault(); }}
-        onKeyDown={(event) => { if (offers().length === 0) event.preventDefault(); }} data-button="row-action" class="word light todo-move" aria-label={copy.moveTodo(props.id)}>{copy.move}</Menu.Trigger>
+        onClick={(event) => { if (offers().length === 0) { event.preventDefault(); event.stopPropagation(); } }}
+        on:keydown={(event) => { if (offers().length === 0 && ["Enter", " ", "ArrowDown", "ArrowUp"].includes(event.key)) { event.preventDefault(); event.stopPropagation(); } }} data-button="row-action" class="word light todo-move" aria-label={copy.moveTodo(props.id)}>{copy.move}</Menu.Trigger>
       <Portal>
         <Menu.Positioner>
           <Menu.Content aria-label={copy.homesFor(props.id)}>

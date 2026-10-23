@@ -435,6 +435,7 @@ const PadRow = (props: Parameters<typeof PadRows>[0] & { pad: Pad; parts: Parame
             >
               <span {...nameCut.attrs()} class="shelf-title">{pad.name}</span>
             </button>
+              {/* oxlint-disable-next-line anti-slop/no-tooltip-bypass -- U171 requires a focusable disabled button to expose its reason as title. */}
               <button data-button="row-action" type="button" class="word light pad-assign" aria-label={copy.assignPadNamed(pad.name)} aria-disabled={ownersToOffer(connected, pad.owner).length === 0 || undefined} title={ownersToOffer(connected, pad.owner).length === 0 ? copy.noOtherOwners : undefined} onClick={(event) => { if (ownersToOffer(connected, pad.owner).length > 0) props.onAssign(pad.name, event.currentTarget); }}>{copy.assign}</button>
             </div>
             <p class="shelf-meta">{copy.ownedBy}{connected.rail.nameOf(pad.owner)}</p>

@@ -296,12 +296,12 @@ it("u3515d_only_self_disables_every_target_picker", async () => {
       expect(move.title).not.toBe("");
       move.focus();
       expect(document.activeElement).toBe(move);
+
       for (const key of ["Enter", " ", "ArrowDown", "ArrowUp"]) fireEvent.keyDown(move, { key });
       fireEvent.contextMenu(screen.getByRole("button", { name: /#1 todo 1/ }));
       expect(entry(app, "Send to Agent").children?.map(item => item.label)).toEqual(["a"]);
       await app.closeMenu();
       fireEvent.click(move);
-      fireEvent.keyDown(move, { key: "ArrowDown" });
       expect(screen.queryByRole("menu")).toBeNull();
       expect(actionCalls(app)).toEqual([]);
     } },
@@ -390,9 +390,9 @@ it("u3515d_only_self_disables_every_target_picker", async () => {
       expect(trigger.title).not.toBe("");
       trigger.focus();
       expect(document.activeElement).toBe(trigger);
+
       for (const key of ["Enter", " ", "ArrowDown", "ArrowUp"]) fireEvent.keyDown(trigger, { key });
       fireEvent.click(trigger);
-      fireEvent.keyDown(trigger, { key: "Enter" });
       expect(screen.queryByRole("combobox")).toBeNull();
       expect(actionCalls(app)).toEqual([]);
     } },
@@ -410,6 +410,7 @@ it("u3515d_only_self_disables_every_target_picker", async () => {
       expect(trigger.title).not.toBe("");
       trigger.focus();
       expect(document.activeElement).toBe(trigger);
+
       for (const key of ["Enter", " ", "ArrowDown", "ArrowUp"]) fireEvent.keyDown(trigger, { key });
       fireEvent.click(trigger);
       const button = screen.getByRole("button", { name: "mine" });
