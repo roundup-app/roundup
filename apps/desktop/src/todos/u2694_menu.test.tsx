@@ -16,7 +16,7 @@ it("u2694a_each_object_builds_its_items_todo", async () => {
 
   fireEvent.contextMenu(await rowOf("session store"), { clientX: 10, clientY: 10 });
 
-  expect(app.menuLabels()).toEqual(["Complete", "Copy Link", "Delete"]);
+  expect(app.menuLabels()).toEqual(["Complete", "Send to Agent", "Copy Link", "Delete"]);
   await app.pickMenu("Delete");
   await waitFor(() => expect(screen.getByRole("alertdialog")).toBeTruthy());
   expect(callsTo(app, "todo.delete")).toEqual([]);
@@ -46,7 +46,8 @@ it.each([["pads", true, true], ["pads", true, false], ["pads", false, false], ["
 
   fireEvent.contextMenu(row, { clientX: 10, clientY: 10 });
 
-  expect(app.menuLabels()).toEqual([...(done ? [] : ["Complete"]), ...(running ? ["Send to Agent"] : []), "Copy Link", "Delete"]);
+  expect(app.menuLabels()).toEqual([...(done ? [] : ["Complete"]), "Send to Agent", "Copy Link", "Delete"]);
+  expect(app.shownMenus.at(-1)!.items.find(item => item.id === "send")?.enabled).toBe(running);
   expect(callsTo(app, "todo.complete")).toEqual([]);
 });
 

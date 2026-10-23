@@ -1,5 +1,5 @@
 import { copy } from "../copy";
-import { For } from "solid-js";
+import { createSignal, For } from "solid-js";
 import { Portal } from "solid-js/web";
 import { Menu } from "../ui/Menu";
 import { useConnectedProject } from "../state/connectedProject";
@@ -17,16 +17,27 @@ export const HomeMove = (props: {
   choose: (home: string | null) => Promise<string | null>;
 }) => {
   const { rail } = useConnectedProject();
+  const [open, setOpen] = createSignal(false);
   const offers = () => homesToOffer(rail.nodes, props.home);
 
   return (
     <Menu.Root
-      onOpenChange={({ open }) => props.onOpenChange?.(open)}
-      onSelect={({ value }) => { const offer = offers()[Number(value)];
+      open={open() && offers().length > 0}
+      onOpenChange={({ open }) => {
+        if (open && offers().length === 0) return;
+        setOpen(open);
+        props.onOpenChange?.(open);
+      }}
+      onSelect={({ value }) => {
+        const offer = offers()[Number(value)];
 
- if (offer) void props.choose(offer.home); }}
+        if (offer) void props.choose(offer.home);
+      }}
     >
-      <Menu.Trigger data-button="row-action" class="word light todo-move" aria-label={copy.moveTodo(props.id)}>{copy.move}</Menu.Trigger>
+      {/* oxlint-disable-next-line anti-slop/no-tooltip-bypass -- U171 requires a focusable disabled button to expose its reason as title. */}
+      <Menu.Trigger aria-disabled={offers().length === 0 || undefined} title={offers().length === 0 ? copy.noOtherHomes : undefined}
+        onClick={(event) => { if (offers().length === 0) { event.preventDefault(); event.stopPropagation(); } }}
+        on:keydown={(event) => { if (offers().length === 0 && ["Enter", " ", "ArrowDown", "ArrowUp"].includes(event.key)) { event.preventDefault(); event.stopPropagation(); } }} data-button="row-action" class="word light todo-move" aria-label={copy.moveTodo(props.id)}>{copy.move}</Menu.Trigger>
       <Portal>
         <Menu.Positioner>
           <Menu.Content aria-label={copy.homesFor(props.id)}>
