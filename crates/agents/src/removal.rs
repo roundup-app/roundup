@@ -298,6 +298,43 @@ mod tests {
     use crate::{KillsTerminals, Observation, Run, Slot};
 
     use crate::tests::*;
+    fn record_call(shared: &crate::Shared, id: &str) {
+        shared
+            .observe(
+                Actor::daemon(),
+                id,
+                "1",
+                Observation::Signal(serde_json::json!({
+                    "hook_event_name": "PreToolUse", "tool_use_id": "call",
+                    "tool_name": "Bash", "tool_input": {"command": "pwd"}
+                })),
+            )
+            .unwrap();
+        assert!(shared.events.tool_calls.lock().unwrap().contains_key(id));
+    }
+
+    #[tokio::test]
+    async fn a3342a_removing_agents_leaves_no_tool_call_entries() {
+        let (_dir, _, shared) = shared_over_temp_dir(Arc::new(|| 0));
+        let survivor = running_agent(&shared, None);
+        record_call(&shared, &survivor);
+        let expected = shared.events.tool_calls.lock().unwrap().clone();
+        for finished in [false, true, false, true] {
+            let id = running_agent(&shared, None);
+            record_call(&shared, &id);
+            if finished {
+                shared.observe(Actor::daemon(), &id, "1", Observation::Signal(
+                    serde_json::json!({"hook_event_name": "PostToolUse", "tool_use_id": "call", "tool_response": "ok"})
+                )).unwrap();
+            }
+            shared.remove(Actor::user(), &id).await.unwrap();
+            assert_eq!(*shared.events.tool_calls.lock().unwrap(), expected);
+        }
+        let silent = running_agent(&shared, None);
+        shared.remove(Actor::user(), &silent).await.unwrap();
+        assert_eq!(*shared.events.tool_calls.lock().unwrap(), expected);
+    }
+
     #[tokio::test]
     async fn a16_a_failed_stop_returns_the_error_and_deletes_nothing() {
         let shared = shared_with_a_failing_kill();
