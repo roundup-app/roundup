@@ -10,7 +10,7 @@ import { chromePath } from "../testing/chromePage";
 import { captureDir } from "../testing/captures";
 import { appServer } from "../testing/appServer";
 import type { RpcMethods } from "@contracts/methods";
-import { measurementFixture } from "../testing/measurementFixture";
+import { measurementFixture, pricedCost } from "../testing/measurementFixture";
 
 const exec = promisify(execFile);
 
@@ -33,8 +33,8 @@ it("u3016f_real_collection_to_dashboard_survives_reopen", async () => {
   const evaluate = async <T,>(source: string): Promise<T> => JSON.parse(await browser("eval", source)) as T;
   const until = (source: string) => browser("wait", "--fn", source);
 
-  const capture = async (step: string) => {
-    const dir = captureDir("U3016f");
+  const capture = async (step: string, id = "U3016f") => {
+    const dir = captureDir(id);
 
     if (!dir) return;
     mkdirSync(dir, { recursive: true });
@@ -72,8 +72,12 @@ it("u3016f_real_collection_to_dashboard_survives_reopen", async () => {
     expect(read.tokens.total.known).toBe("570");
     expect(read.cost.reference.length).toBe(1);
     await capture("overview");
-    await browser("click", '.measurement-how [data-part="trigger"]');
-    await until("document.querySelector('.measurement-how [data-part=\"content\"]')?.offsetHeight > 0");
+    const nodes = await app.rpc("rail.tree", null);
+    const terminal = nodes.find((node) => node.id === home.id)!.terminal_id!;
+    // U3016c excludes idle even when source spans overlap it. The fixture's Ctrl-B
+    // sends its real UserPromptSubmit hook before recording working intervals.
+    await app.rpc("terminal.write", { id: terminal, data: "Ag==" });
+    await until(`document.querySelector('.rail-row[data-id="${home.id}"]')?.dataset.kind === 'working'`);
     // Feed completed evidence through the Attempt's actual capability-bearing trace collector.
     const endpoint = readFileSync(join(real.dir, `endpoint-${home.id}`), "utf8");
     const now = BigInt(Date.now()) * 1_000_000n;
@@ -83,8 +87,6 @@ it("u3016f_real_collection_to_dashboard_survives_reopen", async () => {
     await until("document.querySelector('.measurement-dashboard')?.getAttribute('aria-busy') === 'false'");
     await until("!!document.querySelector('.measurement-dashboard table') && document.querySelector('.measurement-dashboard table').offsetHeight > 0");
     await capture("details");
-    const nodes = await app.rpc("rail.tree", null);
-    const terminal = nodes.find((node) => node.id === home.id)!.terminal_id!;
 
     const trigger = async <M extends "agent.ask" | "message.send">(method: M, params: RpcMethods[M]["params"]) => {
       writeFileSync(join(real.dir, `call-${home.id}.json`), JSON.stringify({method,params}));
@@ -168,6 +170,50 @@ it("u3016f_real_collection_to_dashboard_survives_reopen", async () => {
     await until("document.querySelector('.measurement-dashboard')?.getAttribute('aria-busy') === 'false'");
     await until("document.querySelector('.measurement-dashboard table')?.offsetHeight > 0");
     await capture("dense-1005");
+    await capture("dense-1005", "U3016g");
+
+    if (captureDir("U3016g")) {
+      const show = async (value: typeof dense, step: string) => {
+        value.revision = String(BigInt(value.revision) + 1n);
+        await evaluate(`window.__fake.app.handlers['project.measurementSummary'] = () => (${JSON.stringify(value)}); window.__fake.emit({actor:{kind:'user',id:'you',parent:null},name:'project.measurementsChanged',data:{revision:'${value.revision}'}}); true`);
+        await until(`document.querySelector('.measurement-dashboard')?.dataset.revision === '${value.revision}' && document.querySelector('.measurement-dashboard')?.getAttribute('aria-busy') === 'false'`);
+        await capture(step, "U3016g");
+      };
+
+      const owner = measurementFixture("backend");
+      owner.revision = dense.revision;
+      owner.rows = owner.rows.slice(0, 1); owner.rows[0]!.maker = "Review changes";
+      owner.contributors = 1; owner.next_offset = null;
+      owner.cost = pricedCost();
+      owner.time = { ...owner.time, elapsed_ns: "624000000000", summed_ns: "556000000000", execution_ns: "1000000000", tools_ns: "0", human_ns: "1000000000", coordination_ns: "0", other_ns: "554000000000", unmeasured_ns: "0" };
+      await show(owner, "owner-other-9m14s");
+      await browser("press", "Tab");
+      await browser("focus", '.measurement-dashboard [aria-label="How the list price is made"]');
+      await until("!!document.querySelector('[role=tooltip]')?.offsetHeight");
+      await capture("list-price-information", "U3016g");
+      await browser("focus", ".measurement-dashboard");
+      await until("!document.querySelector('[role=tooltip]')");
+      owner.time.other_ns = "624000000000"; owner.time.summed_ns = "626000000000";
+      await show(owner, "duration-10m24s");
+
+      for (const key of ["total", "input", "output", "cache_read", "cache_write"] as const) {
+        owner.tokens[key] = {known:"0",missing:1}; owner.rows[0]!.tokens[key] = {known:"0",missing:1};
+      }
+
+      owner.cost = {reported:[],reference:[],unavailable:[]};
+      owner.time = { ...owner.time, summed_ns: "0", execution_ns: "0", tools_ns: "0", human_ns: "0", coordination_ns: "0", other_ns: "0", unmeasured_ns: "0" };
+      await show(owner, "unknown-tokens-zero-time-one-agent");
+      await browser("press", "Tab");
+      await browser("focus", '[data-tile="tokens"] .measurement-mark');
+      await until("!!document.querySelector('[role=tooltip]')?.offsetHeight");
+      await capture("partial-token-note", "U3016g");
+      await browser("focus", ".measurement-dashboard");
+      await until("!document.querySelector('[role=tooltip]')");
+      owner.rows = []; owner.contributors = 0; owner.time.elapsed_ns = "0";
+
+      for (const key of ["total", "input", "output", "cache_read", "cache_write"] as const) owner.tokens[key] = {known:"0",missing:0};
+      await show(owner, "no-work");
+    }
   } finally {
     await browser("close").catch(() => undefined);
     await real.stop();

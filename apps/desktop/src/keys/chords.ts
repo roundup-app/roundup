@@ -2,10 +2,10 @@ import { appSettings } from "../settings/preferences";
 import { copy } from "../copy";
 
 /** One line of Help (U54): the chord as shown, what it does, and every key press it stands for as `<mods>+<code>`, mods in the order `ctrl+alt+meta+shift`. `inRail` marks a chord only a focused Rail row binds (U358); `onAgent` one that also binds from a watched or taken Agent's pane, and nowhere else outside a Rail row; `inTerminals` marks the scoped Agent/Bubble/tab switch; the rest bind from the pane too. */
-export type Chord = { keys: string; what: string; presses: readonly string[]; inRail?: true; onAgent?: true; inSwitcher?: true; inTerminals?: true; inShelf?: true; /** U3781: bound only while focus is in an Agent's note field. */ inNote?: true; /** U3751: a key of Todo triage mode, bound only while the mode is on. */ inTriage?: true; hint?: Hint };
+export type Chord = { keys: string; what: string; presses: readonly string[]; inRail?: true; onAgent?: true; inSwitcher?: true; inTerminals?: true; inShelf?: true; /** U3751: a key of Todo triage mode, bound only while the mode is on. */ inTriage?: true; hint?: Hint };
 
 /** Where focus can sit for the hint line (U2230a): a Rail row, watched Agent, Bubble, Pad, Drawer, Switcher or Editor. */
-export type HintPlace = "rail" | "agent" | "bubble" | "pad" | "drawer" | "switcher" | "editor" | "shelf" | "note";
+export type HintPlace = "rail" | "agent" | "bubble" | "pad" | "drawer" | "switcher" | "editor" | "shelf";
 
 /** A chord shown under focus: its short `label` and its position `at` in each place's line (U2230). */
 export type Hint = { label: string; at: Partial<Record<HintPlace, number>>; watching?: true };
@@ -32,8 +32,6 @@ export const CHORDS: readonly Chord[] = [
   { keys: "⌘⌫", what: copy.remove, presses: ["meta+Backspace"], inRail: true, hint: { label: copy.remove, at: { rail: 2 } } },
   { keys: "⌘⏎", what: copy.takeControlChord, presses: ["meta+Enter"], onAgent: true, hint: { label: copy.takeControlChord, at: { rail: 1, agent: 1 }, watching: true } },
   { keys: "⌘/", what: copy.askBarShortcut, presses: ["meta+Slash"], hint: { label: copy.askBarShortcut, at: { rail: 4, agent: 3, bubble: 2, pad: 2, drawer: 2, shelf: 5 } } },
-  { keys: "⏎", what: copy.queueNote, presses: ["Enter"], inNote: true, hint: { label: copy.queueNote, at: { note: 0 } } },
-  { keys: "⌘⏎", what: copy.sendNoteNow, presses: ["meta+Enter"], inNote: true, hint: { label: copy.sendNoteNow, at: { note: 1 } } },
   { keys: "1–9", what: copy.todoAssignDigit, presses: Array.from({ length: 9 }, (_, at) => `Digit${at + 1}`), inShelf: true, hint: { label: copy.todoAssignDigit, at: { shelf: 7 } } },
   { keys: "⏎", what: copy.todoLift, presses: ["Enter"], inShelf: true },
   { keys: "↑ ↓", what: copy.todoLiftTarget, presses: ["ArrowUp", "ArrowDown"], inShelf: true },
