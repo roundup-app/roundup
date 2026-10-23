@@ -98,7 +98,8 @@
   min-width: 0;
   overflow-wrap: anywhere;
 }
-.todo-draft-recovery:empty { display: none; }
+.todo-draft-recovery:empty,
+.todo-draft-recovery:has(> .reserved-line[data-empty="true"]) { display: none; }
 .todo-draft-revision {
   display: flex;
   font-size: var(--text-small);

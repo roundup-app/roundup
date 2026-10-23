@@ -315,7 +315,6 @@ button.ask-line:is(:active, [data-pressed="true"]) {
   position: relative;
 }
 
-.ask-compose > .reserved-line[data-overlay="true"] {
-  top: 100%;
-  bottom: auto;
+.ask-compose:has(> .reserved-line:not([data-empty="true"])) {
+  padding-bottom: var(--line);
 }

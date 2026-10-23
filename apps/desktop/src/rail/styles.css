@@ -965,3 +965,8 @@
   background: var(--sunken);
   bottom: var(--rail-actions-height);
 }
+
+.rail:has(> .reserved-line:not([data-empty="true"])) > .rail-scroll {
+  padding-bottom: var(--line);
+  scroll-padding-bottom: var(--line);
+}
