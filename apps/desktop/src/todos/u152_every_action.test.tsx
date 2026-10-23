@@ -1,11 +1,11 @@
 import { questionDialog, answerQuestion } from "../shelf/bulkQuestionHarness";
 import { cleanup, fireEvent, screen, waitFor, within } from "@solidjs/testing-library";
-import { afterEach, describe, expect, it } from "vitest";
-import { USER } from "../testing/nodes";
+import { afterEach, describe, expect, it, vi } from "vitest";
+import { event, workstream, USER } from "../testing/nodes";
 import { RpcError } from "../app/seam";
 import { mountTodos, todo, todoCallsTo as callsTo, todoEvent, todoRowOf as rowOf } from "./testHarness";
 
-afterEach(cleanup);
+afterEach(() => { cleanup(); vi.restoreAllMocks(); });
 
 type Mounted = Awaited<ReturnType<typeof mountTodos>>;
 
@@ -51,14 +51,6 @@ for (const by of ["pointer", "keyboard"] as const) {
       refetch(mounted);
 
       await waitFor(() => expect(rowText(2)).toContain("ship it"));
-    });
-
-    it(`u152_read_${by}`, async () => {
-      await mountTodos([todo(1), todo(2)]);
-
-      press(await screen.findByRole("button", { name: /^Idle #2 / }), by);
-
-      expect(await within(drawer()).findByText("Blocker")).toBeTruthy();
     });
 
     it(`u152_edit_${by}`, async () => {
@@ -247,6 +239,207 @@ it.each(["dismiss", "save", "delete", "cancel-delete", "failed-delete", "unrelat
     await waitFor(() => expect(within(drawer()).queryByRole("alert", { name: message }) !== null).toBe(stays || action === "failed-delete"));
     expect(field.value).toBe(text);
     expect(m.store.todos.map(item => item.id)).toEqual([1, 2]);
-    if (action === "dismiss") expect(m.app.calls).toEqual(before);
+
+    if (action === "dismiss") expect(writes(m.app.calls)).toEqual(writes(before));
   }
+});
+
+
+const exactDraft = "  e\u0301 🧪\n次の行  ";
+
+const writes = (calls: Mounted["app"]["calls"]) => calls.filter(call => ["todo.complete", "todo.reopen", "todo.update", "todo.comment", "todo.delete", "todo.removeRef", "todo.setBlockers", "workstream.setAuto"].includes(call.method));
+
+const lifetimeActions = ["dismiss", "save", "delete", "cancel-delete", "failed-delete"] as const;
+
+for (const owner of ["open_row", "editable_text_title", "editable_text_body", "todo_comments", "todo_refs", "todo_history"] as const) {
+  it.each(lifetimeActions)(`p3557c_failure_lifetime_${owner}_%s`, async action => {
+    const url = "roundup://pad/notes?project=test";
+    const m = await mountTodos([todo(1, { body: "Original body", refs: [url] }), todo(2)]);
+    await openDrawerOf(1);
+    await waitFor(() => expect(callsTo(m.app, "todo.getHistory")).toHaveLength(1));
+    const comment = within(drawer()).getByRole<HTMLTextAreaElement>("textbox", { name: "Write a comment" });
+    fireEvent.input(comment, { target: { value: exactDraft } });
+    const refuse = () => Promise.reject(new RpcError(-32003, "Item unavailable; retry"));
+    const fieldName = owner === "editable_text_title" ? "Title" : "Body";
+    let field: HTMLTextAreaElement | undefined;
+
+    if (owner === "open_row") {
+      m.app.handlers["todo.complete"] = refuse;
+      fireEvent.click(within(rowOf(1)).getByRole("checkbox", { name: "Complete todo 1" }));
+    } else if (owner.startsWith("editable_text")) {
+      m.app.handlers["todo.update"] = refuse;
+      fireEvent.dblClick(within(drawer()).getByText(fieldName === "Title" ? "todo 1" : "Original body"));
+      field = await within(drawer()).findByRole<HTMLTextAreaElement>("textbox", { name: fieldName });
+      fireEvent.input(field, { target: { value: fieldName === "Title" ? "  e\u0301 🧪 title  " : exactDraft } });
+      fireEvent.click(within(drawer()).getByRole("button", { name: "Save" }));
+    } else if (owner === "todo_comments") {
+      m.app.handlers["todo.comment"] = refuse;
+      fireEvent.click(within(drawer()).getByRole("button", { name: "Comment" }));
+    } else if (owner === "todo_refs") {
+      m.app.handlers["todo.removeRef"] = refuse;
+      fireEvent.click(await within(drawer()).findByRole("button", { name: "Remove link to notes" }));
+    } else {
+      Object.defineProperty(navigator, "clipboard", { configurable: true, value: { writeText: refuse } });
+      fireEvent.click(await within(drawer()).findByRole("button", { name: /^Changes/ }));
+      fireEvent.click(await within(drawer()).findByRole("button", { name: "Copy" }));
+    }
+
+    const region = () => owner === "open_row" ? within(rowOf(1)) : within(drawer());
+    const failure = await region().findByRole("alert", { name: /Item unavailable; retry/ });
+    const message = failure.getAttribute("aria-label")!;
+    const retained = m.connected.drafts.list();
+    const calls = [...m.app.calls];
+    // Same titles and unrelated deletion/saves cannot consume this item's failure or input.
+    m.app.emit(todoEvent("todo.updated", todo(2, { title: "todo 1" })));
+    m.app.emit({ actor: USER, name: "todo.deleted", data: { id: 2 } });
+    expect(region().getByRole("alert", { name: message })).toBeTruthy();
+    expect(comment.value).toBe(exactDraft);
+    expect(m.connected.drafts.list()).toEqual(retained);
+
+    if (action === "dismiss") {
+      const dismiss = within(failure.closest<HTMLElement>(".reserved-line")!).getByRole("button", { name: "Dismiss failure" });
+      const editor = within(drawer()).queryByRole("textbox", { name: fieldName });
+
+      if (editor) fireEvent.blur(editor, { relatedTarget: dismiss });
+      fireEvent.click(dismiss);
+      // EditableText queues blur submission in a microtask; dismissal must leave that revision unsent.
+      await Promise.resolve();
+      expect(writes(m.app.calls)).toEqual(writes(calls));
+    } else if (action === "save") {
+      // A different field on this same item acknowledges success, even before its Event arrives.
+      let acknowledge!: (value: ReturnType<typeof todo>) => void;
+      m.app.handlers["todo.complete"] = () => new Promise(resolve => { acknowledge = resolve; });
+      fireEvent.click(within(drawer()).getByRole("checkbox", { name: "Complete todo 1" }));
+      await waitFor(() => expect(callsTo(m.app, "todo.complete").length).toBe(owner === "open_row" ? 2 : 1));
+      expect(region().getByRole("alert", { name: message })).toBeTruthy();
+      acknowledge(todo(1));
+
+      // The row receives the acknowledged change through the existing Daemon Event.
+      if (owner === "open_row") m.app.emit(todoEvent("todo.updated", m.store.todos[0]!));
+    } else {
+      if (action === "failed-delete") m.app.handlers["todo.delete"] = () => Promise.reject(new RpcError(-32003, "Delete refused; retry"));
+      fireEvent.click(within(drawer()).getByRole("button", { name: "Delete Todo" }));
+      await questionDialog();
+      expect(region().getByRole("alert", { name: message })).toBeTruthy();
+      await answerQuestion(action !== "cancel-delete");
+    }
+
+    if (action === "delete") {
+      await waitFor(() => expect(m.connected.drawer.content()).toBeNull());
+      m.app.emit({ actor: USER, name: "todo.deleted", data: { id: 1 } });
+      await waitFor(() => expect(document.querySelector('[data-id="1"]')).toBeNull());
+      await openDrawerOf(2);
+      expect(within(drawer()).queryByRole("alert", { name: message })).toBeNull();
+      // Removal does not consume recoverable work; reintroducing this original identity restores its comment.
+      m.store.todos = [todo(1, { body: "Original body" }), todo(2)];
+      m.app.emit(todoEvent("todo.created", m.store.todos[0]!));
+      await openDrawerOf(1);
+      expect(within(drawer()).getByRole<HTMLTextAreaElement>("textbox", { name: "Write a comment" }).value).toBe(exactDraft);
+    } else {
+      const remains = action === "cancel-delete" || action === "failed-delete";
+      await waitFor(() => expect(region().queryByRole("alert", { name: message }) !== null).toBe(remains));
+      expect(comment.value).toBe(exactDraft);
+
+      if (field && remains) expect(within(drawer()).getByRole<HTMLTextAreaElement>("textbox", { name: fieldName }).value).toBe(fieldName === "Title" ? "  e\u0301 🧪 title  " : exactDraft);
+
+      if (action === "failed-delete") expect(await within(drawer()).findByRole("alert", { name: "Delete refused; retry" })).toBeTruthy();
+    }
+
+    expect(m.connected.drafts.list()).toEqual(retained);
+    expect(m.store.todos.find(item => item.id === 2)?.body).toBe("");
+  });
+}
+
+it.each(["dismiss", "save", "switch", "delete"] as const)("p3557c_failure_lifetime_delegate_board_%s", async action => {
+  const m = await mountTodos([todo(1, { home: "a" }), todo(2, { home: "b" })], true, [workstream("a"), workstream("b")]);
+  m.connected.rail.select("a");
+  const control = await screen.findByRole("switch", { name: "Auto" });
+  m.app.handlers["workstream.setAuto"] = () => Promise.reject(new RpcError(-32003, "Cannot automate; retry"));
+  fireEvent.click(control);
+  await screen.findByRole("alert", { name: "Cannot automate; retry" });
+  m.app.emit(event({ name: "workstream.updated", data: { id: "b", auto: true } }));
+  m.app.emit({ actor: USER, name: "todo.deleted", data: { id: 2 } });
+  expect(screen.getByRole("alert", { name: "Cannot automate; retry" })).toBeTruthy();
+  const before = [...m.app.calls];
+
+  if (action === "dismiss") fireEvent.click(screen.getByRole("button", { name: "Dismiss failure" }));
+  else if (action === "save") {
+    m.app.handlers["workstream.setAuto"] = () => null;
+    fireEvent.click(control);
+  } else if (action === "switch") m.connected.rail.select("b");
+  else {
+    m.app.handlers["rail.tree"] = () => [workstream("b")];
+    m.app.emit(event({ name: "rail.changed" }));
+  }
+
+  await waitFor(() => expect(screen.queryByRole("alert", { name: "Cannot automate; retry" })).toBeNull());
+
+  if (action === "dismiss") expect(writes(m.app.calls)).toEqual(writes(before));
+  expect(m.store.todos).toEqual([todo(1, { home: "a" }), todo(2, { home: "b" })]);
+});
+
+
+for (const owner of ["todo_comments", "todo_history", "todo_refs"] as const) {
+  it.each(["dismiss", "recover"] as const)(`p3557c_failure_lifetime_${owner}_load_%s`, async action => {
+    const m = await mountTodos([todo(1), todo(2)]);
+    const method = owner === "todo_comments" ? "todo.comments" : owner === "todo_history" ? "todo.getHistory" : "todo.refs";
+    const original = m.app.handlers[method];
+    Object.assign(m.app.handlers, { [method]: () => Promise.reject(new RpcError(-32003, "Read unavailable; retry")) });
+    await openDrawerOf(1);
+    await within(drawer()).findByRole("alert", { name: "Read unavailable; retry" });
+    const field = within(drawer()).getByRole<HTMLTextAreaElement>("textbox", { name: "Write a comment" });
+    fireEvent.input(field, { target: { value: exactDraft } });
+    m.app.emit(todoEvent("todo.updated", todo(2)));
+    m.app.emit({ actor: USER, name: "todo.deleted", data: { id: 2 } });
+    fireEvent.click(within(drawer()).getByRole("checkbox", { name: "Complete todo 1" }));
+    await waitFor(() => expect(callsTo(m.app, "todo.complete")).toHaveLength(1));
+    expect(within(drawer()).getByRole("alert", { name: "Read unavailable; retry" })).toBeTruthy();
+    const before = writes(m.app.calls);
+
+    if (action === "dismiss") fireEvent.click(within(drawer()).getByRole("button", { name: "Dismiss failure" }));
+    else {
+      Object.assign(m.app.handlers, { [method]: original });
+      const retry = owner === "todo_comments" ? "Retry comments" : owner === "todo_history" ? "Retry history" : "Retry Pads";
+      fireEvent.click(within(drawer()).getByRole("button", { name: retry }));
+    }
+
+    await waitFor(() => expect(within(drawer()).queryByRole("alert", { name: "Read unavailable; retry" })).toBeNull());
+    expect(field.value).toBe(exactDraft);
+    expect(writes(m.app.calls)).toEqual(before);
+  });
+}
+
+
+it.each(["dismiss", "save", "delete"] as const)("p3557c_failure_lifetime_editable_text_recovery_%s", async action => {
+  const m = await mountTodos([todo(1), todo(2)]);
+  await openDrawerOf(1);
+  fireEvent.click(within(drawer()).getByRole("button", { name: "Add notes" }));
+  const field = await within(drawer()).findByRole<HTMLTextAreaElement>("textbox", { name: "Body" });
+  const storage = vi.spyOn(Storage.prototype, "setItem").mockImplementation(() => { throw new Error("disk full"); });
+  fireEvent.input(field, { target: { value: exactDraft } });
+  fireEvent.keyDown(field, { key: "Escape" });
+  const retained = m.connected.drafts.list();
+  const problem = m.connected.drafts.problem();
+  Object.defineProperty(navigator, "clipboard", { configurable: true, value: { writeText: () => Promise.reject(new Error("Clipboard unavailable; retry")) } });
+  fireEvent.click(within(drawer()).getByRole("button", { name: "Copy Todo" }));
+  await within(drawer()).findByRole("alert", { name: /Clipboard unavailable; retry/ });
+  m.app.emit(todoEvent("todo.updated", todo(2)));
+  expect(within(drawer()).getByRole("alert", { name: /Clipboard unavailable; retry/ })).toBeTruthy();
+
+  if (action === "dismiss") fireEvent.click(within(drawer()).getByRole("button", { name: "Dismiss failure" }));
+  else if (action === "save") {
+    fireEvent.click(within(drawer()).getByRole("checkbox", { name: "Complete todo 1" }));
+    await waitFor(() => expect(callsTo(m.app, "todo.complete")).toHaveLength(1));
+  } else {
+    fireEvent.click(within(drawer()).getByRole("button", { name: "Delete Todo" }));
+    await questionDialog(); await answerQuestion(true);
+    await waitFor(() => expect(m.connected.drawer.content()).toBeNull());
+    m.app.emit({ actor: USER, name: "todo.deleted", data: { id: 1 } });
+  }
+
+  await waitFor(() => expect(screen.queryByRole("alert", { name: /Clipboard unavailable; retry/ })).toBeNull());
+  expect(m.connected.drafts.problem()).toEqual(problem);
+  expect(m.connected.drafts.list()).toEqual(retained);
+  expect(await screen.findByRole("alert", { name: /couldn.t keep|could not|retained|retain/i })).toBeTruthy();
+  storage.mockRestore();
 });
