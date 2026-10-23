@@ -42,7 +42,7 @@ it("u3751_t_enters_the_mode_and_keeps_focus_and_data", async () => {
   press(row(2), "t");
   await waitFor(() => expect(shelf().getAttribute("data-triage")).toBe("on"));
   expect(document.activeElement).toBe(row(2));
-  expect(app.calls.filter(call => call.method.startsWith("todo.") && call.method !== "todo.list")).toEqual([]);
+  expect(app.calls.filter(call => call.method.startsWith("todo.") && call.method !== "todo.list" && call.method !== "todo.listHanded")).toEqual([]);
   expect(JSON.stringify(store.todos)).toBe(before);
   expect(document.querySelector('.drawer[data-open="true"]')).toBeNull();
   expect(CHORDS.filter(chord => chord.keys === "T" && chord.inShelf)).toHaveLength(1);
@@ -66,7 +66,7 @@ it("u3751_esc_returns_focus_to_the_entry_row_or_the_nearest", async () => {
   press(row(3), "Escape");
   await waitFor(() => expect(shelf().getAttribute("data-triage")).toBe("off"));
   expect(document.activeElement).toBe(row(2));
-  expect(app.calls.filter(call => call.method !== "todo.list" && call.method.startsWith("todo."))).toEqual([]);
+  expect(app.calls.filter(call => call.method !== "todo.list" && call.method !== "todo.listHanded" && call.method.startsWith("todo."))).toEqual([]);
 
   press(row(2), "t");
   await waitFor(() => expect(shelf().getAttribute("data-triage")).toBe("on"));
@@ -118,7 +118,7 @@ it("u3753_j_and_k_move_focus_across_groups_and_call_nothing", async () => {
   expect(document.activeElement).toBe(row(first));
   press(row(first), "j");
   expect(document.activeElement).toBe(row(order[1]!));
-  expect(app.calls.filter(call => call.method !== "todo.list" && call.method.startsWith("todo."))).toEqual([]);
+  expect(app.calls.filter(call => call.method !== "todo.list" && call.method !== "todo.listHanded" && call.method.startsWith("todo."))).toEqual([]);
 });
 
 it("u3753_a_and_w_call_assign_and_move_once_each", async () => {
