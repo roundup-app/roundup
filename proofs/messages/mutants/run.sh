@@ -2,7 +2,8 @@
 # V5: each law needs a clean baseline and a proof rejection from its intentional mutation.
 # B39 (the in-flight step) shares inv with M1/M5/M6; its mutant keeps a confirmed batch in flight.
 # M1/M5/M6 share inv. M8's trailing A35 refinements use helpers from every section,
-# so M8 checks the complete proof; the other laws keep lib and their own section.
+# so M8 checks the complete proof; the other laws keep LIB.bend and their own section.
+# M2's proof is its own file, M2.bend: M2 imports it alone and the other laws leave the import out.
 # M1/M5/M6 reject in the shared uniqueness/partition invariant. M3 checks Takeover
 # isolation, M4 the typed prefix, M8 the clean chain, and M10 the recursive flush
 # invariant used by its fair-cycle liveness proof (retaining typed ids leaves a queue).
@@ -23,8 +24,9 @@ section() {
     cat "$dir/PROOF.bend"
   else
     awk -v want="$(echo "$1" | tr '[:lower:]' '[:upper:]')" '
+      /^import .\/M2\.bend/ && want != "M2" { next }
       /^# ---- / { tag = toupper($3) }
-      tag == "" || tag == "LIB" || tag == want || (tag == "INV" && want ~ /^(M(1|5|6)|B39)$/) { print }' "$dir/PROOF.bend"
+      tag == "" || tag == want || (tag == "INV" && want ~ /^(M(1|5|6)|B39)$/) { print }' "$dir/PROOF.bend"
   fi
 }
 
@@ -45,7 +47,7 @@ for id in "${laws[@]}"; do
   esac
   w=$work/$id
   mkdir "$w" || exit 1
-  if ! cp "$dir/LAWS.bend" "$dir/spec.bend" "$dir/model.bend" "$w/" || ! section "$id" > "$w/PROOF.bend"; then
+  if ! cp "$dir/LAWS.bend" "$dir/spec.bend" "$dir/model.bend" "$dir/LIB.bend" "$dir/M2.bend" "$w/" || ! section "$id" > "$w/PROOF.bend"; then
     echo "FAIL $id: cannot prepare baseline"; status=1; continue
   fi
   # Bend generates TODOs for declared laws without proofs. Isolated layouts declare
