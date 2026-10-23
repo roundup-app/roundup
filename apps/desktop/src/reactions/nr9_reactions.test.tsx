@@ -330,7 +330,7 @@ it("u3299b_copy_keeps_original_facts", async () => {
 
   try {
     const { app } = await mount(() => [record]);
-    vi.spyOn(app, "writeClipboardText").mockImplementation(write);
+    vi.spyOn(app, "clipboardWrite").mockImplementation(write);
     fireEvent.click(await screen.findByRole("button", { name: /Ship it/ }));
     const detail = await screen.findByRole("region", { name: copy.reactionDetail("Ship it") });
     fireEvent.click(within(detail).getByRole("button", { name: copy.refresh }));

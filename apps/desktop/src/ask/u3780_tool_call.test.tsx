@@ -134,7 +134,7 @@ it("u3780c_copy_writes_the_shown_text", async () => {
   };
 
   const { app } = await mountAskBar([], null, tree({ ann: call({ state: "done", result: "out… (cut, 5 bytes more)", duration_ms: 1 }) }));
-  vi.spyOn(app, "writeClipboardText").mockImplementation(writeText);
+  vi.spyOn(app, "clipboardWrite").mockImplementation(writeText);
   await toggle("ann");
 
   const copies = screen.getAllByRole("button", { name: "Copy" });

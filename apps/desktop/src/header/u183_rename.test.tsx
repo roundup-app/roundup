@@ -328,7 +328,7 @@ it("u2773e_recovery_actions_keep_surface_draft_header", async () => {
   fireEvent.click(screen.getByRole("button", { name: "Recover unfinished work · api" }));
   const dialog = await screen.findByRole("dialog", { name: "Unfinished work" });
   const copied: string[] = [];
-  vi.spyOn(app, "writeClipboardText").mockImplementation(async (value: string) => { copied.push(value); });
+  vi.spyOn(app, "clipboardWrite").mockImplementation(async (value: string) => { copied.push(value); });
   fireEvent.click(within(dialog).getByRole("button", { name: "Copy name" }));
   await waitFor(() => expect(copied).toEqual(["  recover e\u0301 🪁  "]));
   write.mockRestore();
@@ -537,7 +537,7 @@ it("u3021c_copy_and_discard_keep_other_revisions_header_after_reopen", async () 
   const dialog = await screen.findByRole("dialog", { name: "Unfinished work" });
   fireEvent.click(within(dialog).getByRole("button", { name: /^Failed ·/ }));
   const copied: string[] = [];
-  vi.spyOn(app, "writeClipboardText").mockImplementation(async (text: string) => { copied.push(text); });
+  vi.spyOn(app, "clipboardWrite").mockImplementation(async (text: string) => { copied.push(text); });
   fireEvent.click(within(dialog).getByRole("button", { name: "Copy name" }));
   await waitFor(() => expect(copied).toEqual([a.value.name]));
   fireEvent.click(within(dialog).getByRole("button", { name: "Discard this revision" }));
@@ -556,7 +556,7 @@ it("u3299d_copy_uses_selected_item_project", async () => {
       selected={selected() === project} app={app} onMark={() => {}} onRename={async () => ({ status: "acknowledged", path: project, name: "Review", revision: 1, project: { path: project, name: "Review" } })} onClose={() => {}} />)}
   </Tabs.List></Tabs.Root>);
   const copied: string[] = [];
-  vi.spyOn(app, "writeClipboardText").mockImplementation(async (text: string) => { copied.push(text); });
+  vi.spyOn(app, "clipboardWrite").mockImplementation(async (text: string) => { copied.push(text); });
   const tabs = screen.getAllByRole("tab", { name: "Review" });
   fireEvent.click(tabs[1]!);
   fireEvent.contextMenu(tabs[1]!);

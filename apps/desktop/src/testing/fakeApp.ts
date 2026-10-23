@@ -89,6 +89,8 @@ export type FakeApp = AppSeam & {
   /** Every image `save_pasted_image` was called with, in order; `saveImageFailure` is what it rejects with and `savedImagePath` what it resolves. */
   savedImages: PastedImage[];
   clipboardWrites: string[];
+  /** Native write edge, kept live through App decorators; tests can replace it after mounting. */
+  clipboardWrite(text: string): Promise<void>;
   clipboardFailure: Error | null;
   saveImageFailure: RpcError | null;
   savedImagePath: string;
@@ -137,7 +139,8 @@ export const createFakeApp = (): FakeApp => {
     editorFailure: null,
     clipboardWrites: [],
     clipboardFailure: null,
-    writeClipboardText: async (text) => {
+    writeClipboardText: (text) => app.clipboardWrite(text),
+    clipboardWrite: async (text) => {
       if (app.clipboardFailure) throw app.clipboardFailure;
       app.clipboardWrites.push(text);
     },

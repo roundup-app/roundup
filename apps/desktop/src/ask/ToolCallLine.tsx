@@ -52,7 +52,7 @@ const Payload = (props: { label: string; text: string | undefined }): JSX.Elemen
         <button type="button" data-button="quiet" class="call-copy" onClick={() => void write(props.text!)}>{state() === "copied" ? copy.toolCallCopied : state() === "failed" ? copy.toolCallCopyFailed : copy.toolCallCopy}</button>
       </Show>
     </header>
-    <ReservedLine overlay message={failure()} />
+    <ReservedLine message={failure()} />
     <Show when={props.text !== undefined} fallback={<p class="call-none">{copy.toolCallNoResult}</p>}><pre class="call-text">{props.text}</pre></Show>
   </section>;
 };

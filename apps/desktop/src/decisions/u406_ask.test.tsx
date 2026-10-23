@@ -213,7 +213,7 @@ describe("u406 the Card for ask_user", () => {
     await openRecovery();
     const recovery = await screen.findByRole("region", { name: "Unfinished work" });
     const clipboard = vi.fn(async (_text: string) => {});
-    vi.spyOn(restored.app, "writeClipboardText").mockImplementation(clipboard);
+    vi.spyOn(restored.app, "clipboardWrite").mockImplementation(clipboard);
     await waitFor(() => expect(within(recovery).getAllByRole("listitem")).toHaveLength(2));
     const row = within(within(recovery).getAllByRole("listitem").find((item) => item.dataset.revision === a.revision)!);
 

@@ -434,7 +434,7 @@ describe("u2773 Project draft integration on real Projects", () => {
     app = {
       ...served,
       projects: async () => opened.map((path) => ({ name: path === first.dir ? "first" : "second", path, running: true })),
-      forProject: (path) => live.get(path)!,
+      forProject: (path) => Object.assign(live.get(path)!, { writeClipboardText: (text: string) => app.writeClipboardText(text) }),
       chooseProjectPath: async () => opened.includes(second.dir) ? first.dir : second.dir,
       openProject: async (path) => {
         const root = roots.find((each) => each.dir === path)!;
@@ -1327,7 +1327,7 @@ describe("u2773 unfinished Decision forms on real Projects", () => {
     app = {
       ...connections[0]!,
       projects: async () => opened.map(path => ({ path, name: path === first.dir ? "first" : "second", running: true })),
-      forProject: path => connections[path === first.dir ? 0 : 1]!,
+      forProject: path => Object.assign(connections[path === first.dir ? 0 : 1]!, { writeClipboardText: (text: string) => app.writeClipboardText(text) }),
       chooseProjectPath: async () => second.dir,
       closeProject: async path => {
         roots.find(root => root.dir === path)!.daemon.kill();

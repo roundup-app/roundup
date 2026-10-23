@@ -88,7 +88,7 @@ describe("U83 closed Agent overview", () => {
   describe("O17 the session id copies", () => {
     const setup = async (write: (text: string) => Promise<void>) => {
       const { connected, app } = await mountPane([agent("a", "done", "finished", { terminal_id: null, overview })]);
-      app.writeClipboardText = write;
+      app.clipboardWrite = write;
       connected.rail.select("a");
 
       return await screen.findByRole("button", { name: "Copy session id" });
@@ -104,10 +104,15 @@ describe("U83 closed Agent overview", () => {
     });
 
     it("o17_a_failed_copy_names_the_cause_and_recovery", async () => {
-      const button = await setup(async () => { throw new Error("denied"); });
+      let failing = true;
+      const button = await setup(async () => { if (failing) throw new Error("denied"); });
       fireEvent.click(button);
-      await waitFor(() => expect(button.textContent).toContain("Copy failed: denied. Select the text to copy it."));
-      await waitFor(() => expect(button.textContent).toBe(overview.id), { timeout: 2500 });
+      expect((await screen.findByRole("alert")).textContent).toContain("Copy failed: denied. Select the text to copy it.");
+      expect(button.textContent).toBe(overview.id);
+      failing = false;
+      fireEvent.click(button);
+      await waitFor(() => expect(screen.queryByRole("alert")).toBeNull());
+      expect(button.textContent).toBe("Copied");
     });
   });
 });

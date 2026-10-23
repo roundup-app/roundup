@@ -1,7 +1,7 @@
 //! S1 and U3560a: the webview receives only its named native capabilities.
 
-use std::{collections::BTreeSet, path::Path};
 use serde_json::Value;
+use std::{collections::BTreeSet, path::Path};
 
 #[test]
 fn s1_the_webview_is_granted_dialogs_the_dock_badge_and_hearing_events_and_nothing_else() {
@@ -21,6 +21,9 @@ fn s1_the_webview_is_granted_dialogs_the_dock_badge_and_hearing_events_and_nothi
         .collect();
 
     let expected = [
+        // U3560a grants native writes only; U3512a grants system questions.
+        "clipboard-manager:allow-write-text",
+        "dialog:allow-message",
         "dialog:allow-open",
         "dialog:allow-save",
         "core:window:allow-set-badge-count",
@@ -34,4 +37,3 @@ fn s1_the_webview_is_granted_dialogs_the_dock_badge_and_hearing_events_and_nothi
     .into();
     assert_eq!(granted, expected);
 }
-

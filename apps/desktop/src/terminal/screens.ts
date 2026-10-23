@@ -536,13 +536,13 @@ export const createScreens = (connected: ConnectedProject, createEmulator: Emula
     }
 
     try {
-      const { text, image } = await readPaste(event);
+      const pasted = await readPaste(event);
 
-      if (image) {
-        const path = await app.savePastedImage(image);
+      if (pasted.kind === "image") {
+        const path = await app.savePastedImage(pasted.image);
 
         if (!watching(id)) pastePaths(id, [path]);
-      } else if (text && !exited(id) && daemonExit() === null && !watching(id)) emulatorFor(id).paste(text);
+      } else if (pasted.kind === "text" && !exited(id) && daemonExit() === null && !watching(id)) emulatorFor(id).paste(pasted.text);
 
       setFailure(id, "clipboard", null);
     } catch (thrown) {
