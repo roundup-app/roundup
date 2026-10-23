@@ -91,15 +91,8 @@
 .todo-detail > p { margin-left: var(--space-5); }
 
 .todo-draft-recovery {
-  position: relative;
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-3);
-  min-width: 0;
-  overflow-wrap: anywhere;
+  display: contents;
 }
-.todo-draft-recovery:empty,
-.todo-draft-recovery:has(> .reserved-line[data-empty="true"]) { display: none; }
 .todo-draft-revision {
   display: flex;
   font-size: var(--text-small);
