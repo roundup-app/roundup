@@ -139,7 +139,7 @@ console.log(JSON.stringify({ status: 'warmed-after-release' }));
             artifact = root / "slow.jsonl"
             child = subprocess.Popen(["node", "--experimental-strip-types", str(HERE / "cold.mts"), str(artifact)], cwd=ROOT, env=env, stdout=subprocess.DEVNULL, stderr=subprocess.PIPE)
             try:
-                deadline = time.monotonic() + 15
+                deadline = time.monotonic() + 60  # setup wait on a loaded runner; the scenario window is the 21 s below
                 while not (root / "pids").exists() or len((root / "pids").read_text().splitlines()) < 2:
                     self.assertLess(time.monotonic(), deadline, "both browsers must reach the owned startup hold")
                     time.sleep(.05)
