@@ -76,9 +76,9 @@ export const OwnerGroups = <T,>(props: {
             <TreeView.BranchControl class="shelf-group-control" data-button="quiet">
               <TreeView.BranchIndicator><Icon name={closed().includes(id) ? "right" : "down"} /></TreeView.BranchIndicator>
               <TreeView.BranchText><Tip text={group().name}>{trigger => <span {...trigger()} class="shelf-group-name">{group().name}</span>}</Tip></TreeView.BranchText>
-              {props.mark?.(group())}
-              <span class="shelf-group-count">{props.count ? props.count(group()) : group().items.length}</span>
+              <span class="shelf-group-count" data-state="">{props.count ? props.count(group()) : group().items.length}</span>
             </TreeView.BranchControl>
+            {props.mark?.(group())}
             <Show when={props.onAdd}>{add => <IconButton class="shelf-group-add" aria-label={copy.addTodoTo(group().name)} onKeyDown={event => event.stopPropagation()} onClick={() => add()(group())}><Icon name="plus" /></IconButton>}</Show>
           </div>
           {props.detail?.(group())}
