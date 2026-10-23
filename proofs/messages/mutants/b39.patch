@@ -1,5 +1,5 @@
 --- model.bend
 +++ model.bend
-@@ -727,1 +727,1 @@
+@@ -742,1 +742,1 @@
 -      F{q, [], List.append(&2, Nat, t, inf), d, n, hold, g}
 +      F{q, inf, List.append(&2, Nat, t, inf), d, n, hold, g}
