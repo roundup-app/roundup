@@ -307,6 +307,7 @@ export const TodoDrawer = (props: {
                     multiline={false}
                     commit={async (title, expected_change) => { await app.rpc("todo.update", { id: props.id, title, body: null, expected_change }); }}
                   />
+                  <span class="todo-estimate" data-state="estimate">{copy.todoEstimate(current().estimate_minutes)}</span>
                 </div>
                 <Show when={titleFailure()}>{message => <ErrorLine message={message()} />}</Show>
                 <div class="todo-detail-body">

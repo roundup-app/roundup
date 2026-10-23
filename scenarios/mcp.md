@@ -27,6 +27,7 @@ An Agent does through its server everything the user does in the App, one tool p
 | `daemon.ping`, `daemon.identify`, `events.subscribe` | transport, not an action |
 | `decision.capture` | B6's Daemon capture for held prompt effects; a Door sends its ordinary answer or Terminal call, and the Daemon captures the original when holding it. No new tool is needed. |
 | `decision.answers` | the App's retained request, answer and answering identity display (U468); Agents act on open requests through `decision_list` and `decision_answer` |
+| `todo.listHanded` | the App reads recorded Hand-offs for the plan marker (U3808); only the Daemon hands a Todo (T25), so this read grants no handing authority |
 | `todo.getHistory`, `todo.readHistory` | the open Todo Drawer's changes and read boundary (U462); Agents read the current Todo through `todo_get` |
 | `agent.brief`, `agent.channelUp`, `agent.signal`, `agent.permission`, `agent.ask`, `agent.skills` | the Claude Code hooks' own calls (A11, H18); `agent.ask` is the tool `ask_user` (H14), the Brief (E1) is in the Agent's argv and the skills list is the App's own palette |
 | `pad.move`, `pad.ask` | the user's pad gestures (a drag in the Pads region, a question put to the user by the App); an Agent writes and reads Pads through `pad_*` |

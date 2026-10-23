@@ -13,7 +13,15 @@
   font-weight: 600;
   min-width: 0;
 }
-.todo-detail-title > .todo-editable { flex: 1; min-width: 0; }
+.todo-detail-title > .todo-editable { flex: 0 1 auto; min-width: 0; }
+.todo-estimate {
+  flex: none;
+  margin-inline-start: var(--space-2);
+  color: var(--grey);
+  font-size: var(--text-body);
+  font-weight: 400;
+  font-variant-numeric: tabular-nums;
+}
 .todo-delete {
   position: absolute;
   top: var(--space-2);
