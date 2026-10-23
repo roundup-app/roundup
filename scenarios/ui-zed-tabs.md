@@ -13,7 +13,7 @@ Policy: this scenario supersedes the bordered box and the grey selected ground o
 
 **U2233 hover, the plus and focus.** Given the same states, then:
 
-- **Focus.** A tab, the `+` and the close control reached by keyboard show a `--accent` focus ring; a pointer click shows none (`:focus-visible` only). Asserted by `u2233_keyboard_focus_draws_a_ring_and_a_click_does_not`.
+- **Focus.** A tab, the `+` and the close control draw no focus ring after keyboard or pointer input (U3528). Asserted by `u3528_keys_and_pointer_never_draw_rings_or_pressed_backgrounds`; `u2233_keyboard_focus_draws_a_ring_and_a_click_does_not` is retired (policy).
 - **Checks.** D1 to D8, D10 hold for these controls with rest, hover, focus and pressed states (D6, D7); the only border is 1 px `--hairline` (D8). The design critic judges these Checks over the strip and the Terminal region (AGENTS.md rule 10).
 
 **U2234 rename stays inside the tab.** Given a Project tab (U183) or a Terminal tab (U511a) in rename, then opening the field does not select the tab, in the selected and an inactive tab. Asserted by `u2234_a_rename_field_opens_without_selecting_the_tab` for both surfaces.
@@ -22,6 +22,6 @@ Policy: this scenario supersedes the bordered box and the grey selected ground o
 
 **Retirements and updates (policy).** The implementation run changes the checks that pinned the box or the pill, each naming the test that still proves its then-clause:
 - `u440_a_tab_is_one_bordered_box` is retired; `u440_boxed_tabs_keep_passing_checks` is retired; the design critic judges the Checks (AGENTS.md rule 10).
-- `u441_hover_colours_the_whole_box`, `u441_dark_selection_is_no_brighter_than_the_rail` and `u441_painted_names_keep_both_insets` are retired with the box and the grey selected ground; the scoped header Tokens they pinned are gone, so `u441_token_surfaces_keep_contrast`, `u441_selected_press_keeps_baseline_checks`, `u441_token_scope_keeps_other_surfaces` and `u441_token_observers_resolve_the_surface` are retired, rendered contrast of every label judged by the design critic (AGENTS.md rule 10) and the focus ring by `u2233_keyboard_focus_draws_a_ring_and_a_click_does_not`.
+- `u441_hover_colours_the_whole_box`, `u441_dark_selection_is_no_brighter_than_the_rail` and `u441_painted_names_keep_both_insets` are retired with the box and the grey selected ground; the scoped header Tokens they pinned are gone, so `u441_token_surfaces_keep_contrast`, `u441_selected_press_keeps_baseline_checks`, `u441_token_scope_keeps_other_surfaces` and `u441_token_observers_resolve_the_surface` are retired, rendered contrast of every label judged by the design critic (AGENTS.md rule 10) and ring absence by `u3528_keys_and_pointer_never_draw_rings_or_pressed_backgrounds` (U3528).
 - `u442_a_hairline_runs_under_the_header` and `u442_the_rule_shows_with_no_project` are retired.
 - `u440_a_tab_has_no_project_icon` and the `u469_` and `u534_` tests keep passing and are edited only where they assert a border, radius or ground of the old look.
