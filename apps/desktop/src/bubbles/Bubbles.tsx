@@ -296,7 +296,7 @@ export const Bubbles = (props: {
 
   const readOnly = () => connected.daemonExit() !== null;
 
-  const { close, closing } = createTerminalClose(connected, shown, nameFor, setFailure);
+  const { close, closing, Failure: CloseFailure } = createTerminalClose(connected, shown, nameFor, setFailure);
 
   const bubbleElement = (id: string): HTMLElement | null => document.querySelector<HTMLElement>(`[data-bubble="${id}"]`);
 
@@ -1027,7 +1027,7 @@ export const Bubbles = (props: {
           </div>
         </Dialog.Content></Dialog.Positioner></Portal>
       </Dialog.Root>
-      <ReservedLine overlay class={failure() ? "bubble-failure" : undefined} message={failure()} />
+      <CloseFailure message={failure()} />
     </div>
   );
 };

@@ -114,6 +114,7 @@ const takeLeaderKey = (event: KeyboardEvent): void => {
 const dispatch = (event: KeyboardEvent): void => {
   // Modifier chords are keyboard actions too; the focus-visible library excludes them by default.
   setInteractionModality("keyboard");
+
   if (!(event instanceof KeyboardEvent)) return;
 
   if (event.repeat && event.code === held) {
