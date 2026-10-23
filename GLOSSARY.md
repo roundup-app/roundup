@@ -931,3 +931,12 @@ Incomparable clock lifetimes never authorize continuous execution through a gap.
 
 **Collapsible**:
 An expandable App region with a named trigger; closing it retains its content.
+
+**Agent time rule** (`Kind::counts_time`, generated `countsTime`):
+An ended Attempt contributes no Agent time, regardless of Kind. An idle or done Status
+contributes none while the Attempt remains alive. Timeline samples retain the `ended`
+fact from Status Events or the Rail and use the Status `since` as the observed boundary.
+Measurement collection uses the same rule to retain excluded intervals without deleting evidence.
+
+**Exit button** (`ExitButton`):
+The shared App return icon, labelled Close with an Ark tooltip; callers retain their return action and focus owner.

@@ -251,6 +251,7 @@ impl Shared {
                             self.bus.emit(
                                 actor.clone(),
                                 EventData::AgentStatus(Box::new(StatusEvent {
+                                    ended: false,
                                     id: id.to_owned(),
                                     attempt: run.attempt.clone(),
                                     status_revision: run.status_revision.to_string(),
@@ -422,7 +423,14 @@ impl Shared {
         }
         let was_kind = run.adapter.status().map(|status| status.kind);
         let signal = matches!(observation, Observation::Signal(_));
-        let changed = run.adapter.observe(observation);
+        let changed = run.adapter.observe(observation).or_else(|| {
+            if !exited || run.ended {
+                return None;
+            }
+            let mut status = run.adapter.status()?.clone();
+            status.since = store::now_ms();
+            Some(status)
+        });
         if signal
             && (session_start
                 || changed
@@ -460,6 +468,7 @@ impl Shared {
                 .checked_add(1)
                 .expect("Status revision exhausted");
             let event = StatusEvent {
+                ended: run.ended,
                 id: id.to_owned(),
                 attempt: run.attempt.clone(),
                 status_revision: run.status_revision.to_string(),

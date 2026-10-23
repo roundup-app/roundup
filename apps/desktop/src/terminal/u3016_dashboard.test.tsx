@@ -13,7 +13,12 @@ it("u3016f_dashboard_navigation_preserves_work_and_focus", async () => {
   open.focus();
   fireEvent.click(open);
   const dashboard = await screen.findByRole("region", { name: "Cost and time" });
-  fireEvent.keyDown(dashboard, { key: "Escape" });
+  const exit = within(dashboard).getByRole("button", { name: "Close" });
+  expect(exit.textContent).toBe("");
+  fireEvent.click(exit);
+  await waitFor(() => expect(document.activeElement).toBe(open));
+  fireEvent.click(open);
+  fireEvent.keyDown(await screen.findByRole("region", { name: "Cost and time" }), { key: "Escape" });
   await waitFor(() => expect(document.activeElement).toBe(open));
   expect(app.calls.filter((call) => /spawn|startDoor|prompt/.test(call.method))).toEqual([]);
 });

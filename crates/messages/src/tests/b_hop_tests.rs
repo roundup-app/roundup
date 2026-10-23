@@ -167,6 +167,7 @@ impl Hops {
         self.bus.emit(
             Actor::daemon(),
             EventData::AgentStatus(Box::new(StatusEvent {
+                ended: false,
                 id: id.into(),
                 attempt: "1".into(),
                 status_revision: revision.to_string(),
