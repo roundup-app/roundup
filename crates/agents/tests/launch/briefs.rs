@@ -222,3 +222,171 @@ fn q11_a_worker_gets_plain_for_every_reply() {
     assert!(text.contains("Write every reply, including direct Terminal prose, in hold:Plain regardless of recipient or tool."));
     assert!(text.contains(&asset("hold-plain.md")));
 }
+
+#[test]
+fn b24_only_a_door_brief_carries_the_role_guidance() {
+    let s = setup();
+    let door = brief(&s, "7", Role::Door);
+    let agent = brief(&s, "8", Role::Agent);
+    assert!(door.contains("coordinating Door"));
+    assert!(door.contains("ask directly in your Terminal"));
+    assert!(
+        !door
+            .split("## Your role")
+            .nth(1)
+            .unwrap()
+            .contains("ask_user")
+    );
+    assert!(door.contains("Report the outcome directly in your Terminal"));
+    // M9: the tool list names `rail_startDoor`; no other line of an Agent's Brief speaks of a Door.
+    assert!(
+        agent
+            .lines()
+            .filter(|line| !line.starts_with("- `"))
+            .all(|line| !line.contains("Door"))
+    );
+    assert!(!agent.contains("Your role"));
+}
+
+#[test]
+fn f8_the_door_brief_delegates_and_uses_its_terminal() {
+    let s = setup();
+    let text = brief(&s, "7", Role::Door);
+    let role = text.split("## Your role").nth(1).unwrap();
+    for instruction in [
+        "The user types to you in your own Terminal",
+        "Delegate implementation to children with `agent_spawn`",
+        "You cannot execute commands or open or write to a Terminal",
+        "Report the outcome directly in your Terminal",
+        "ask directly in your Terminal",
+        "`checkpoint_write`",
+        "`order`",
+        "`prompt`",
+        "You write orders only for the Agents you spawn",
+    ] {
+        assert!(role.contains(instruction), "missing {instruction}: {role}");
+    }
+    assert!(!text.contains("Thread"));
+    assert!(!text.contains("`message_send` to `you`"));
+    assert!(!role.contains("only through `terminal_spawn`"));
+    let messaging = text
+        .lines()
+        .find(|line| line.starts_with("- `message_send`:"))
+        .unwrap();
+    assert!(!messaging.contains("another Agent or the user"));
+    assert!(messaging.contains("speak to the user directly in your own Terminal"));
+}
+
+#[test]
+fn f8_each_brief_terminal_description_states_the_bubble_rule() {
+    let s = setup();
+    let door = brief(&s, "7", Role::Door);
+    for tool in ["agent_run", "terminal_spawn", "terminal_open"] {
+        assert!(
+            !door.contains(&format!("- `{tool}`:")),
+            "M16: the Door has {tool}"
+        );
+    }
+    for role in [Role::Agent] {
+        let text = brief(&s, "7", role);
+        for tool in ["agent_run", "terminal_spawn", "terminal_open"] {
+            let prefix = format!("- `{tool}`:");
+            let entry = text.lines().find(|line| line.starts_with(&prefix)).unwrap();
+            for rule in [
+                "use your own tools for commands",
+                "open a Bubble only when the user needs to see its output or will interactively type into it",
+                "Routine builds, tests and inspection use your own tools",
+            ] {
+                assert!(entry.contains(rule), "{tool} missing {rule}: {entry}");
+            }
+        }
+    }
+}
+
+#[test]
+fn a28_a_doors_brief_says_to_name_each_child() {
+    let s = setup();
+    assert!(brief(&s, "7", Role::Door).contains("Give each child a `name` after its task."));
+}
+
+#[test]
+fn m10_a_doors_brief_names_checkpoint_write_and_no_other_does() {
+    let s = setup();
+
+    let door = brief(&s, "7", Role::Door);
+    let agent = brief(&s, "8", Role::Agent);
+
+    assert!(door.contains("- `checkpoint_write`:"));
+    assert!(door.contains("`reduce`") && door.contains("`show-me`"));
+    assert!(door.contains("facts needed to understand that point in the work"));
+    assert!(!agent.contains("checkpoint_write"));
+    assert!(agent.contains("- `checkpoint_list`:"));
+}
+
+#[test]
+fn b53_the_door_brief_says_to_show_not_read() {
+    let s = setup();
+    let text = brief(&s, "7", Role::Door);
+    assert!(
+        text.contains("- `terminal_show`:"),
+        "the Door is offered terminal_show"
+    );
+    let rule = text
+        .lines()
+        .flat_map(|line| line.split(". "))
+        .find(|sentence| sentence.contains("asks to see a child's output"))
+        .expect("the Door brief says what to do when asked to see output");
+    for word in ["`terminal_show`", "read nothing"] {
+        assert!(rule.contains(word), "{rule}");
+    }
+    // E9: a role's bytes do not depend on the id.
+    assert_eq!(text, brief(&s, "8", Role::Door));
+    assert!(!brief(&s, "7", Role::Agent).contains("terminal_show"));
+    assert!(off_brief(&s, "7", Role::Door).contains("`rup terminal show`"));
+}
+
+#[test]
+fn b45_the_brief_says_to_wake_not_poll() {
+    let s = setup();
+    for role in [Role::Agent, Role::Door] {
+        for (text, ask) in [
+            (brief(&s, "7", role), "`agent_wake`"),
+            (off_brief(&s, "7", role), "`rup agent wake`"),
+        ] {
+            let line = text
+                .lines()
+                .find(|line| line.starts_with(&format!("- {ask}")))
+                .unwrap_or_else(|| panic!("{role:?} brief names no {ask}"));
+            assert!(
+                line.contains("end your turn instead of polling `terminal_read` or `rail_tree`")
+                    || line.contains(
+                        "end your turn instead of polling `rup terminal read` or `rup rail tree`"
+                    ),
+                "{line}"
+            );
+            assert!(line.contains("tells you without asking"), "{line}");
+        }
+    }
+}
+
+#[test]
+fn b45_every_command_the_brief_names_is_in_rup_help() {
+    let s = setup();
+    let help = rup_help();
+    for role in [Role::Agent, Role::Door] {
+        let text = off_brief(&s, "7", role);
+        let named: Vec<&str> = text
+            .lines()
+            .filter(|line| line.starts_with("- `rup "))
+            .filter_map(|line| line.strip_prefix("- `")?.split('`').next())
+            .collect();
+        assert!(named.contains(&"rup agent wake"), "{named:?}");
+        for command in named {
+            assert!(
+                help.contains(&format!("    {command} "))
+                    || help.contains(&format!("    {command}\n")),
+                "{command} is in no line of `rup help`"
+            );
+        }
+    }
+}
