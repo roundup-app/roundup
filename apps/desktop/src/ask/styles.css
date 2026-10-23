@@ -318,3 +318,161 @@ button.ask-line:is(:active, [data-pressed="true"]) {
 .ask-compose {
   padding-bottom: var(--line);
 }
+
+/* U3780b, U3780c: the Agent's tool call line, after AffectUI's Tool Call Card (MIT, https://www.affectui.com/components/tool-call-card), under our Tokens. */
+.overview-calls {
+  margin: 0;
+  padding: 0 0 0 var(--space-4);
+  list-style: none;
+  min-width: 0;
+}
+
+.call {
+  min-width: 0;
+}
+
+.call-line {
+  box-sizing: border-box;
+  container-type: inline-size;
+  font-size: var(--text-small);
+  color: var(--grey);
+}
+
+.call-trigger {
+  display: flex;
+  flex: 0 1 auto;
+  align-items: center;
+  gap: var(--space-2);
+  min-width: 0;
+  padding: 0;
+  background: none;
+  border: 0;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.call-chevron {
+  flex-shrink: 0;
+  width: 0.4em;
+  height: 0.4em;
+  border-right: 1.5px solid currentColor;
+  border-bottom: 1.5px solid currentColor;
+  transform: rotate(-45deg);
+}
+
+.call-trigger[data-state="open"] .call-chevron {
+  transform: rotate(45deg);
+}
+
+.call-payload-head + .call-text,
+.call-payload + .call-payload {
+  margin-top: var(--space-2);
+}
+
+.call-agent,
+.call-tool {
+  flex-shrink: 0;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.call-agent {
+  max-width: 30cqw;
+}
+
+.call-tool {
+  max-width: 40cqw;
+  font-family: var(--font-mono);
+  color: var(--text);
+}
+
+.call-summary {
+  flex: 1 100 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.call-state,
+.call-time {
+  flex-shrink: 0;
+}
+
+.call-state {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.call-state[data-tone="red"] {
+  color: var(--red);
+}
+
+.call-time {
+  font-variant-numeric: tabular-nums;
+}
+
+.call-fold {
+  overflow: hidden;
+  min-width: 0;
+  padding: 0 var(--space-2);
+}
+
+.call-fold[data-state="open"] {
+  animation: call-fold-open var(--duration-todo) var(--easing-out);
+}
+
+.call-fold[data-state="closed"] {
+  animation: call-fold-close var(--duration-todo) var(--easing-out);
+}
+
+.call[data-reduced-motion="true"] .call-fold {
+  animation-name: none;
+}
+
+@keyframes call-fold-open {
+  from { height: 0; }
+  to { height: var(--height); }
+}
+
+@keyframes call-fold-close {
+  from { height: var(--height); }
+  to { height: 0; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .call-fold { animation-name: none; }
+}
+
+.call-payload-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.call-payload-label {
+  margin: 0;
+  font: inherit;
+  color: var(--grey);
+}
+
+.call-text {
+  max-height: var(--pad-menu-max-height);
+  margin: 0;
+  overflow: auto;
+  overscroll-behavior: contain;
+  font-family: var(--font-mono);
+  font-size: var(--text-small);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.call-none {
+  margin: 0;
+  color: var(--grey);
+}
