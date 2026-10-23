@@ -11,3 +11,8 @@ export const probeMenu = (items: MenuItem[]): Promise<string | null> => new Prom
   menuProbe.count += 1;
   menuProbe.answer = resolve;
 });
+
+/** Deliver the native host's captured Project command through the fake App seam. */
+export const openProjectPage = (command: "import-work" | "project-settings", path = document.querySelector<HTMLElement>('.project-tab[data-selected="true"]')?.dataset.path ?? "/p") => {
+  window.dispatchEvent(new CustomEvent("open-project-page", { detail: { path, command } }));
+};

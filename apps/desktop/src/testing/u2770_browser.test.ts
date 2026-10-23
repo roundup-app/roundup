@@ -201,7 +201,7 @@ it("u3528_keys_and_pointer_never_draw_rings_or_pressed_backgrounds", async () =>
       await lane.until(focused(".strip-add"));
       await ring();
       await lane.browser("reload");
-      await lane.until("!!document.querySelector('.rail-import')");
+      await lane.until("!!document.querySelector('.todo-project-root')");
 
       if (!(await lane.evaluate<boolean>("document.querySelector('#shelf-tab-todos')?.getAttribute('aria-expanded') === 'true'"))) await lane.browser("click", "#shelf-tab-todos");
 
@@ -260,8 +260,8 @@ it("u3528_keys_and_pointer_never_draw_rings_or_pressed_backgrounds", async () =>
         await capture("dense-failure");
       }
 
-      await lane.browser("click", ".rail-import");
-      await lane.until("!!document.activeElement.closest('.import-panel')");
+      await lane.evaluate("window.dispatchEvent(new CustomEvent('open-project-page', { detail: { path: document.querySelector('.project-tab[data-selected=true]').dataset.path, command: 'import-work' } }))");
+      await lane.until("!!document.activeElement.closest('.settings-view')");
       await ring();
       await capture("import-dialog");
       await lane.browser("press", "Escape");

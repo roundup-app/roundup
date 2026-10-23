@@ -14,8 +14,6 @@ import { TreeView } from "../ui/TreeView";
 import { railCollection } from "./collection";
 import { useConnectedProject } from "../state/connectedProject";
 import { doorStateOf } from "./doorState";
-import { ImportPanel } from "../importer/ImportPanel";
-import { ProjectSettings } from "./ProjectSettings";
 import { RailConfirm } from "./menu/RailConfirm";
 import { createRailMenu } from "./menu/model";
 import { agentKindsBelow, isWorkstream, layoutRail, siblingsOf } from "./layout";
@@ -46,7 +44,6 @@ export const Rail = () => {
 
   const attention = createMemo(() => attentionCount(rail.nodes));
   const [scrolled, setScrolled] = createSignal(false);
-  let importOpener: HTMLButtonElement | undefined;
   const collapsed = rail.collapsed;
   const [unfolded, setUnfolded] = createSignal<ReadonlySet<string | null>>(new Set());
   const [failure, setFailure] = createSignal<string | null>(null);
@@ -58,7 +55,6 @@ export const Rail = () => {
     rowElement(id)?.querySelector(".name")?.dispatchEvent(new MouseEvent("dblclick", { bubbles: true }));
   }, connected.queue);
 
-  const importing = connected.importing;
 
   const clearPrompt = createMemo(() => {
     const node = menu.clearTarget();
@@ -311,9 +307,6 @@ export const Rail = () => {
 
       if (id === undefined) return;
 
-      // Enter on the already-selected row brings its Terminal back over the settings view, as a click does.
-      if (id === rail.selected()) connected.settingsView.close(false);
-
       rail.select(id);
     };
 
@@ -536,7 +529,7 @@ export const Rail = () => {
       aria-label={copy.overviewLabel(attention())}
       data-scrolled={scrolled()}
       class="todo-project-root"
-      onClick={() => { rail.select(null); connected.settingsView.close(false); }}
+      onClick={() => rail.select(null)}
       onContextMenu={(press: MouseEvent) => openOnRelease(press, (x, y) => {
         const entries = recoveryEntries();
 
@@ -551,11 +544,6 @@ export const Rail = () => {
         </span>
       </Show>
     </button>
-    <button type="button" data-button="quiet" class="word rail-import" ref={importOpener} disabled={daemonExit() !== null} onClick={() => importing.show()}>
-      {copy.importTitle}
-    </button>
-    <ProjectSettings />
-    <ImportPanel open={importing.open()} opener={importOpener} onClose={() => importing.cancel()} />
     <div class="rail-scroll" onScroll={(event) => setScrolled(event.currentTarget.scrollTop > 0)}>
     <TreeView.Root
       class="rail-tree"
@@ -574,9 +562,6 @@ export const Rail = () => {
         // A native menu may consume the compatibility click; keyboard activation must still work next.
         element.addEventListener("keydown", () => { contextClick = false; }, true);
         element.addEventListener("click", (event) => {
-          // Pressing the row the Rail already marks selected brings its Terminal back over the settings view.
-          if (event.target instanceof Element && event.target.closest<HTMLElement>("[data-id]")?.dataset.id === rail.selected()) connected.settingsView.close(false);
-
           if (!contextClick && !event.ctrlKey) return;
 
           contextClick = false;
