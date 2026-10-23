@@ -5,7 +5,7 @@ import type { Accessor } from "solid-js";
 import type { Kind } from "@contracts/Kind";
 import { copy } from "../copy";
 import { doorStateOf } from "../rail/doorState";
-import { railOrder } from "../switcher/entries";
+import { railOrder } from "../rail/layout";
 import type { ConnectedProject } from "../state/connectedProject";
 import type { ToastQueue } from "../toasts/queue";
 import { bodyOf, NOTE_MAX } from "./excerpt";
