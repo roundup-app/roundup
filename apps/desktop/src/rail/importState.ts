@@ -37,14 +37,14 @@ export const createImport = (app: AppSeam, path: string, onOpened: (workstream: 
   const usable = record !== null && (!drafts || !record.revision || drafts.problem() !== null || versions().some(entry => entry.revision === record.revision));
 
   const saved = usable ? record : parsed.success ? {
-    open: false, period: parsed.output.period, selected: parsed.output.sources.map((source, at) => ({ source, revision: parsed.output.revisions[at] ?? "", title: parsed.output.titles?.[at] ?? source })),
+    open: false, period: parsed.output.period, selected: parsed.output.sources.map((source, at) => ({ source, revision: parsed.output.revisions[at] ?? "", title: parsed.output.titles?.[at] ?? copy.importUnnamed })),
   } : null;
 
   let draftRevision = record && usable ? versions().find(entry => {
     const parsed = v.safeParse(form, entry.value);
 
     return record.revision ? entry.revision === record.revision : parsed.success && parsed.output.period === record.period
-      && JSON.stringify(parsed.output.sources.map((source, at) => ({ source, revision: parsed.output.revisions[at] ?? "", title: parsed.output.titles?.[at] ?? source }))) === JSON.stringify(record.selected);
+      && JSON.stringify(parsed.output.sources.map((source, at) => ({ source, revision: parsed.output.revisions[at] ?? "", title: parsed.output.titles?.[at] ?? copy.importUnnamed }))) === JSON.stringify(record.selected);
   })?.revision : retained?.revision;
 
   let baseline = JSON.stringify(record);
@@ -230,7 +230,7 @@ export const createImport = (app: AppSeam, path: string, onOpened: (workstream: 
 
         if (parsed.success && retained?.status !== "draft") {
           setPeriodSignal(parsed.output.period);
-          setSelected(new Map(parsed.output.sources.map((source, at) => [source, { revision: parsed.output.revisions[at] ?? "", title: parsed.output.titles?.[at] ?? source }])));
+          setSelected(new Map(parsed.output.sources.map((source, at) => [source, { revision: parsed.output.revisions[at] ?? "", title: parsed.output.titles?.[at] ?? copy.importUnnamed }])));
         }
       }
 
