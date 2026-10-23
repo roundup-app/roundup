@@ -52,10 +52,9 @@ export const createTodosState = (app: AppSeam, events: Events, project: string):
     let facts: Handed[] = [];
     setHanded(null);
 
-    const [message, factMessage] = await Promise.all([
-      failureOf(async () => { list = await app.rpc("todo.list", null); }),
-      failureOf(async () => { facts = await app.rpc("todo.listHanded", null); }),
-    ]);
+    const listRead = failureOf(async () => { list = await app.rpc("todo.list", null); });
+    const factRead = failureOf(async () => { facts = await app.rpc("todo.listHanded", null); });
+    const message = await listRead;
 
     if (mine !== newest) {
       await latest;
@@ -65,10 +64,22 @@ export const createTodosState = (app: AppSeam, events: Events, project: string):
 
     batch(() => {
       if (message === null) setShelf("todos", reconcile(list, { key: "id" }));
-      setHanded(message === null && factMessage === null ? facts : null);
-      setHandedFailure(factMessage);
       setFailure(message);
       setIsLoaded(true);
+    });
+
+    // Unknown Hand-offs never hold the ordinary list behind an additional read.
+    const factMessage = await factRead;
+
+    if (mine !== newest) {
+      await latest;
+
+      return;
+    }
+
+    batch(() => {
+      setHanded(message === null && factMessage === null ? facts : null);
+      setHandedFailure(factMessage);
     });
   };
 
