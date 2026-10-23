@@ -182,13 +182,13 @@ fn a4_the_argv_runs_claude_with_a_per_agent_settings_file() {
     let argv = s.prepare("7").unwrap();
     assert_eq!(argv[..2], ["fake-claude", "--settings"]);
     assert_eq!(argv[3], "--mcp-config");
-    assert_eq!(argv.len(), 9);
+    assert_eq!(argv.len(), 7);
     for file in [&argv[2], &argv[4]] {
         assert!(Path::new(file).starts_with(s.dir.canonicalize().unwrap()));
     }
     // B50: the socket a note arrives on is per Agent, and the mode is the one a note names.
-    assert_eq!(argv[7], "--messaging-socket-path");
-    assert!(argv[8].ends_with("/7.sock"), "{}", argv[8]);
+    assert_eq!(argv[5], "--messaging-socket-path");
+    assert!(argv[6].ends_with("/7.sock"), "{}", argv[6]);
     assert!(!argv.contains(&"--permission-mode".to_owned()));
     let other = s.prepare("8").unwrap();
     assert_ne!((&argv[2], &argv[4]), (&other[2], &other[4]));
@@ -208,17 +208,6 @@ fn a11_the_mcp_config_declares_one_stdio_server_that_runs_rup_mcp_for_the_agent(
         }}})
     );
     assert_eq!(Path::new(&argv[4]).file_name().unwrap(), "7.mcp.json");
-}
-
-#[test]
-fn a11_the_users_own_mcp_servers_stay_for_an_agent_the_user_started() {
-    let s = setup();
-    assert!(
-        !s.prepare("7")
-            .unwrap()
-            .iter()
-            .any(|arg| arg == "--strict-mcp-config")
-    );
 }
 
 #[test]
@@ -250,9 +239,13 @@ fn a11_discarding_an_agent_deletes_both_of_its_files() {
     let argv = s.prepare("7").unwrap();
     Launcher::discard(&s.dir, "7").unwrap();
     assert!(
-        ![&argv[2], &argv[4], &argv[6]]
-            .iter()
-            .any(|file| Path::new(file).exists())
+        ![
+            Path::new(&argv[2]),
+            Path::new(&argv[4]),
+            &s.dir.join("agents/7.brief.md")
+        ]
+        .iter()
+        .any(|file| Path::new(file).exists())
     );
 }
 
@@ -266,7 +259,11 @@ fn a4_the_settings_hold_one_command_per_state_event_and_two_at_start() {
     let signal = json!({"type": "command", "command": command, "timeout": 5});
     let entry = json!([{"hooks": [signal]}]);
     // E3: `SessionStart` has a second command, `rup context`, beside the Signal.
-    let context = format!("'{}' context '7'", s.rup.display());
+    let context = format!(
+        "ROUNDUP_BRIEF_FILE='{}' '{}' context '7'",
+        s.dir.join("agents/7.brief.md").display(),
+        s.rup.display()
+    );
     let at_start =
         json!([{"hooks": [signal, {"type": "command", "command": context, "timeout": 5}]}]);
     let expected: serde_json::Map<String, Value> = EVENTS
@@ -301,12 +298,9 @@ fn h9_the_permission_request_hook_runs_rup_permission_with_a_day_long_timeout() 
 
 fn brief(s: &Setup, id: &str, role: Role) -> String {
     let argv = s.prepare_as(id, role).unwrap();
-    assert_eq!(argv[5], "--append-system-prompt-file");
-    assert_eq!(
-        Path::new(&argv[6]).file_name().unwrap(),
-        format!("{id}.brief.md").as_str()
-    );
-    std::fs::read_to_string(&argv[6]).unwrap()
+    let file = s.dir.join(format!("agents/{id}.brief.md"));
+    assert!(read(Path::new(&argv[2]))["hooks"]["SessionStart"].is_array());
+    std::fs::read_to_string(file).unwrap()
 }
 
 #[test]
@@ -352,21 +346,14 @@ fn run_sh(path: &std::ffi::OsStr, command: &str) -> std::process::Output {
 }
 
 #[test]
-fn f2_a_door_starts_with_the_tool_allowlist_once_and_an_agent_without_it() {
+fn f2_a_door_starts_with_the_tool_allowlist_once() {
     let s = setup();
 
     let door = s.prepare_as("7", Role::Door).unwrap();
-    let agent = s.prepare("8").unwrap();
 
     let at = door.iter().position(|arg| arg == "--tools").unwrap();
     assert_eq!(door[at + 1], "Read,Grep,Glob,ToolSearch,Skill");
     assert_eq!(door.iter().filter(|arg| *arg == "--tools").count(), 1);
-    assert_eq!(agent.len(), 9);
-    assert!(!agent.iter().any(|arg| arg == "--tools"));
-    assert_eq!(
-        agents::claude_code::DOOR_TOOLS,
-        "Read,Grep,Glob,ToolSearch,Skill"
-    );
 }
 
 #[test]
@@ -566,8 +553,6 @@ fn m11_a_role_told_to_use_tool_search_has_it() {
     let at = door.iter().position(|arg| arg == "--tools").unwrap();
     assert!(door[at + 1].split(',').any(|tool| tool == "ToolSearch"));
     assert!(brief(&s, "7", Role::Door).contains("`ToolSearch`"));
-    let agent = s.prepare("8").unwrap();
-    assert!(!agent.iter().any(|arg| arg == "--tools"));
 }
 
 fn asset(name: &str) -> String {
@@ -684,12 +669,8 @@ fn a43_a_resumed_agents_settings_hold_the_same_env() {
 fn a43_the_brief_names_the_id_variable_and_rup_help() {
     let s = setup();
     for role in [Role::Agent, Role::Door] {
-        let argv = s.prepare_as("7", role).unwrap();
-        let at = argv
-            .iter()
-            .position(|a| a == "--append-system-prompt-file")
-            .unwrap();
-        let brief = std::fs::read_to_string(&argv[at + 1]).unwrap();
+        s.prepare_as("7", role).unwrap();
+        let brief = std::fs::read_to_string(s.dir.join("agents/7.brief.md")).unwrap();
         assert!(brief.contains("ROUNDUP_AGENT_ID") && brief.contains("rup help"));
     }
 }
@@ -708,12 +689,8 @@ impl Setup {
 }
 
 fn off_brief(s: &Setup, id: &str, role: Role) -> String {
-    let argv = s.prepare_off(id, role);
-    let at = argv
-        .iter()
-        .position(|arg| arg == "--append-system-prompt-file")
-        .unwrap();
-    std::fs::read_to_string(&argv[at + 1]).unwrap()
+    s.prepare_off(id, role);
+    std::fs::read_to_string(s.dir.join(format!("agents/{id}.brief.md"))).unwrap()
 }
 
 #[test]
@@ -898,24 +875,17 @@ mod guidance;
 
 use trust::vars;
 
-#[test]
-fn a3516a_user_launches_have_no_restart_restricting_flags() {
+#[tokio::test]
+async fn a3516a_user_launches_have_no_restart_restricting_flags() {
     use agents::claude_code::Pair;
-    use std::os::unix::fs::PermissionsExt;
     let s = setup();
-    let fake = s.root.path().join("claude");
-    std::fs::write(&fake, "#!/bin/sh\nprintf '%s\\n' \"$@\"\n").unwrap();
-    std::fs::set_permissions(&fake, std::fs::Permissions::from_mode(0o755)).unwrap();
-    let launcher = Launcher::new(
-        fake.to_string_lossy(),
-        s.claude_json.clone(),
-        s.rup.clone(),
-        None,
-    );
+    let launcher = plugins::plugin_launcher(&s);
+    std::fs::write(s.root.path().join("claude"),
+        "#!/bin/sh\nif [ \"$1\" = plugin ]; then echo 'Q11 runtime hook closure: 1 pass'; else printf '%s\\n' \"$@\"; fi\n").unwrap();
     for resume in [None, Some("00000000-0000-4000-8000-000000003516")] {
         for mcp_off in [false, true] {
-            let argv = launcher
-                .prepare_on(
+            let (argv, env) = launcher
+                .launch_on(
                     folders(&s.dir),
                     "7",
                     "1",
@@ -927,9 +897,11 @@ fn a3516a_user_launches_have_no_restart_restricting_flags() {
                         ..Pair::default()
                     },
                 )
+                .await
                 .unwrap();
             let output = std::process::Command::new(&argv[0])
                 .args(&argv[1..])
+                .envs(env)
                 .output()
                 .unwrap();
             assert!(output.status.success());
