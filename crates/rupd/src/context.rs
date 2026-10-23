@@ -192,6 +192,7 @@ mod tests {
             effort: None,
             iteration: None,
             inbox: None,
+            tool_call: None,
             overview: None,
             work: Some(contracts::agent::Order::clarification("?")),
         }
