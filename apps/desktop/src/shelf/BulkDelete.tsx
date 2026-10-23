@@ -23,6 +23,7 @@ export const createBulkDelete = <Id,>(props: {
   replace: (ids: readonly Id[]) => void;
   clear: () => void;
   cancelSelection: () => void;
+  afterRemoval?: () => () => HTMLElement | null;
   remove: (id: Id) => Promise<string | null>;
   reload: () => Promise<string | null>;
   reveal?: () => void;
@@ -37,6 +38,7 @@ export const createBulkDelete = <Id,>(props: {
   let keep: HTMLButtonElement | undefined;
   let returnTo: HTMLElement | null = null;
   let panel: HTMLDivElement | undefined;
+  let nextFocus: () => HTMLElement | null = () => null;
   registerKeys({ kind: "layer", element: () => panel, active: () => question() !== null, modal: true }, []);
 
   const reset = () => {
@@ -65,11 +67,16 @@ export const createBulkDelete = <Id,>(props: {
     if (targets.length === 0) return;
     const unique = [...new Map(targets.map((target) => [target.id, { ...target }])).values()];
     returnTo = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    nextFocus = props.afterRemoval?.() ?? (() => null);
     setQuestion({ kind: "question", targets: unique, done });
   };
 
   /** The opener while it lives, else a Shelf control that does: a deleted row's button is gone. */
   const focusAfter = (): HTMLElement | null => {
+    const next = nextFocus();
+
+    if (next) return next;
+
     if (returnTo?.isConnected) return returnTo;
 
     if (deleteButton?.isConnected) return deleteButton;
@@ -183,7 +190,7 @@ export const createBulkDelete = <Id,>(props: {
 
   /** The one question: a modal over the Shelf that names every frozen target and starts on `Keep`. */
   const dialog = () => (
-    <AlertDialog.Root open={question() !== null} initialFocusEl={() => keep ?? null} finalFocusEl={focusAfter}
+    <AlertDialog.Root open={question() !== null} initialFocusEl={() => keep ?? null} finalFocusEl={focusAfter} onExitComplete={() => focusAfter()?.focus()}
       onOpenChange={(details) => { if (!details.open) cancel(); }}>
       <Portal>
         <AlertDialog.Positioner asChild={(positioner) => <aside {...positioner({})} />}>
