@@ -1,12 +1,42 @@
 .inbox { display: flex; flex-direction: column; gap: var(--space-3); font-family: var(--font-ui); overflow-wrap: anywhere; }
 .inbox h2 { font: inherit; font-weight: 600; margin: 0; }
+.inbox-group { display: flex; flex-direction: column; gap: var(--space-1); }
+.inbox-group-head { display: flex; align-items: baseline; gap: var(--space-2); }
+.inbox-group-head h3 { font: inherit; font-size: var(--text-small); font-weight: 600; margin: 0; color: var(--grey); }
+.inbox-count { font-size: var(--text-small); color: var(--grey); font-variant-numeric: tabular-nums; }
+.inbox-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; }
+.inbox-item { display: block; }
+.inbox-item[data-arrived] { animation: inbox-arrive var(--duration-todo) var(--easing-out); }
+.inbox-fold { display: grid; grid-template-rows: 1fr; transition: grid-template-rows var(--duration-todo) var(--easing-out), opacity var(--duration-todo) var(--easing-out); }
+.inbox-fold-inner { min-height: 0; overflow: clip; overflow-clip-margin: var(--space-1); }
+.inbox-item[data-phase="fold"] .inbox-fold { grid-template-rows: 0fr; opacity: 0; }
+.inbox-head { display: flex; align-items: center; gap: var(--space-2); }
 .inbox-row {
   --button-inline: 0;
-  display: grid;
-  grid-template-columns: auto 1fr;
-  column-gap: var(--space-2);
-  align-items: start;
+  display: flex;
+  flex: 1;
+  min-width: 0;
+  align-items: center;
+  gap: var(--space-2);
   text-align: start;
 }
-.inbox-row > .glyph { grid-row: span 2; }
+.inbox-row-name { font-weight: 500; flex-shrink: 0; max-width: 50%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.inbox-item [data-part="content"] { overflow: hidden; }
+.inbox-item [data-part="content"][data-state="open"] { animation: inbox-expand var(--duration-todo) var(--easing-out); }
+.inbox-item [data-part="content"][data-state="closed"] { animation: inbox-collapse var(--duration-todo) var(--easing-out); }
+.inbox-row-summary { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.inbox-actions { display: flex; gap: var(--space-2); flex-shrink: 0; }
+.inbox-body { display: flex; flex-direction: column; gap: var(--space-2); padding: var(--space-1) 0 var(--space-2) var(--space-5); }
+.inbox-step { margin: 0; }
+.inbox-confirm { margin: 0; padding: var(--space-1) 0 var(--space-1) var(--space-5); }
+.inbox-comment { display: grid; grid-template-columns: auto 1fr; column-gap: var(--space-2); align-items: start; }
+.inbox-comment > .glyph { grid-row: span 2; }
 .inbox-row-line { grid-column: 2; color: var(--amber); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+@keyframes inbox-arrive { from { opacity: 0; } }
+@keyframes inbox-expand { from { height: 0; } to { height: var(--height); } }
+@keyframes inbox-collapse { from { height: var(--height); } to { height: 0; } }
+@media (prefers-reduced-motion: reduce) {
+  .inbox-item[data-arrived] { animation-name: none; animation-duration: 0s; }
+  .inbox-item [data-part="content"] { animation-name: none; animation-duration: 0s; }
+  .inbox-fold { transition-property: none; transition-duration: 0s; }
+}
