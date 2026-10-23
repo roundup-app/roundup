@@ -25,6 +25,9 @@ type Registration = { scope: KeyScope; actions: ActionBinding[]; bindings: { mat
 
 const registrations = new Set<Registration>();
 
+/** Bumped as layers register and leave, so `modalOpen` read in an effect reruns. */
+const [layers, setLayers] = createSignal(0);
+
 const rootOf = (scope: KeyScope) => scope.kind === "app" || scope.kind === "leader" ? undefined : scope.element();
 
 const depth = (scope: KeyScope): number => {
@@ -78,7 +81,11 @@ export const armLeader = (event: KeyboardEvent): void => {
 export const endLeader = (): void => void setArmed(false);
 
 /** Whether a modal layer is open (U479); the leader's wait ends when one opens. */
-export const modalOpen = (): boolean => [...registrations].some(({ scope }) => scope.kind === "layer" && scope.modal && scope.active());
+export const modalOpen = (): boolean => {
+  layers();
+
+  return [...registrations].some(({ scope }) => scope.kind === "layer" && scope.modal && scope.active());
+};
 
 /** The wait's one key: a registered leader key runs, any other key ends the wait and runs nothing. Either way the webview handles it, so no Terminal, field or Rail sees it. A lone modifier changes nothing. */
 const takeLeaderKey = (event: KeyboardEvent): void => {
@@ -202,8 +209,10 @@ export const registerKeys = (scope: KeyScope, bindings: readonly (Binding | Acti
 
   if (registrations.size === 0) window.addEventListener("keydown", dispatch, true);
   registrations.add(registration);
+  setLayers((now) => now + 1);
   onCleanup(() => {
     registrations.delete(registration);
+    setLayers((now) => now + 1);
 
     if (registrations.size === 0) window.removeEventListener("keydown", dispatch, true);
   });

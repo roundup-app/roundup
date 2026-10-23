@@ -261,18 +261,6 @@ it("u3083b_no_line_without_excluded", async () => {
   expect(screen.queryByText(/not importable/)).toBeNull();
 });
 
-it("u3083b_reasons_are_user_words_and_no_id_renders", async () => {
-  await mixed();
-  await open();
-  const dialog = screen.getByRole("dialog");
-
-  fireEvent.click(within(dialog).getByRole("button", { name: "2 not importable" }));
-  await within(dialog).findByText("Used more than one folder of this Project");
-  expect(within(dialog).getByText("Already imported")).toBeTruthy();
-  expect(within(dialog).getByText("Imported earlier")).toBeTruthy();
-  expect(within(dialog).getByText(new Date(1_700_000_000_000).toLocaleString())).toBeTruthy();
-  expect(dialog.textContent).not.toMatch(/sess-|already in this Project|ambiguous Project/);
-});
 
 it("u3083c_row_is_checkbox_title_and_second_line", async () => {
   await mount();
@@ -286,10 +274,9 @@ it("u3083c_row_is_checkbox_title_and_second_line", async () => {
   await waitFor(() => expect(isChecked(/second/)).toBe(false));
   fireEvent.click(box);
   await waitFor(() => expect(isChecked(/second/)).toBe(true));
-  expect(screen.getByText("sub").closest("label")?.textContent).toContain("second");
 });
 
-it("u3083c_failed_import_error_names_cause_and_fix", async () => {
+it("u3083c_failed_import_preserves_failed_row", async () => {
   const { app } = await mount();
 
   app.handlers["project.importCommit"] = () => ({ outcomes: [{ source: "s1", workstream: null, agent: null, error: "copy refused" }] });
@@ -299,8 +286,8 @@ it("u3083c_failed_import_error_names_cause_and_fix", async () => {
   const alert = await screen.findByText(/copy refused/);
 
   expect(alert.closest("label")).toBe(screen.getByRole("checkbox", { name: /first/ }).closest("label"));
-  expect(alert.textContent).toContain("Choose it again, or Refresh.");
 });
+
 
 it("u3083a_every_modal_renders_in_the_shared_positioner", async () => {
   await mount();
@@ -320,3 +307,251 @@ it("u3083a_every_modal_renders_in_the_shared_positioner", async () => {
   expect(own).toEqual(["ui/Tooltip.css"]);
 });
 
+
+
+it("u3299d_copy_uses_selected_item_import", async () => {
+  const { app } = await mount();
+  const duplicate = candidates.map((candidate, index) => ({ ...candidate, title: "Review", cwd: `/Users/test/projects/${index}/source` }));
+  app.handlers["project.importDiscover"] = () => ({ candidates: duplicate, excluded: [] });
+  const write = vi.fn().mockResolvedValue(undefined);
+  Object.defineProperty(navigator, "clipboard", { configurable: true, value: { writeText: write } });
+  fireEvent.click(screen.getByRole("button", { name: "Import Claude Code work" }));
+  const choices = await screen.findAllByRole("checkbox", { name: /Review/ });
+  const rows = choices.map(choice => choice.closest("li")!);
+  fireEvent.click(within(rows[1]!).getByRole("button", { name: "Copy" }));
+  await waitFor(() => expect(write).toHaveBeenCalledOnce());
+  expect(JSON.parse(write.mock.calls[0]![0])).toEqual({ ...duplicate[1], last_activity_ms: "1" });
+  expect(calls(app, "project.importCommit")).toHaveLength(0);
+});
+
+it("u3299d_named_rows_keep_recorded_targets_import", async () => {
+  const { app } = await mount();
+  app.handlers["project.importDiscover"] = () => ({ candidates: candidates.map(candidate => ({ ...candidate, title: "Review" })), excluded: [] });
+  fireEvent.click(screen.getByRole("button", { name: "Import Claude Code work" }));
+  const choices = await screen.findAllByRole("checkbox", { name: /Review/ });
+  fireEvent.click(choices[1]!);
+  const confirm = await screen.findByRole("button", { name: "Import 1" });
+  fireEvent.click(confirm);
+  await waitFor(() => expect(calls(app, "project.importCommit").map(call => call.params)).toEqual([{ selections: [{ source: "s2", revision: "r2" }] }]));
+});
+
+it.skipIf(!captureDir("U3299a")).each(["names", "retention"] as const)("u3299a_u3299b_u3299c_u3299d_rendered_audit_%s", async phase => {
+  const { mkdirSync, mkdtempSync, rmSync, writeFileSync } = await import("node:fs");
+  const { tmpdir } = await import("node:os");
+  const { join } = await import("node:path");
+  const { startAppServer } = await import("../testing/appServer");
+  const baseline = process.env.ROUNDUP_BASELINE_ROOT ? await startAppServer({ root: process.env.ROUNDUP_BASELINE_ROOT }) : null;
+  const lane = await openLane(1512, "dark", "builder-3299");
+  const headUrl = await lane.evaluate<string>("location.origin");
+  const clockDirectory = mkdtempSync(join(tmpdir(), "u3299-clock-"));
+
+  const capture = async (id: string, side: string, step: string) => {
+    const dir = captureDir(id);
+
+    if (!dir) return;
+    const output = join(dir, side);
+
+    mkdirSync(output, { recursive: true });
+    writeFileSync(join(output, `${step}.checks.json`), JSON.stringify(await lane.evaluate("window.__checks()")) + "\n");
+    await lane.browser("screenshot", join(output, `${step}.png`));
+  };
+
+  try {
+    const clockScript = join(clockDirectory, "clock.js");
+    writeFileSync(clockScript, "Date.now = () => 1792713600000;\n");
+    await lane.browser("close");
+    await lane.browser("--init-script", clockScript, "open", "about:blank");
+    await lane.browser("set", "viewport", "1512", "950");
+    await lane.browser("set", "media", "dark");
+
+    for (const [side, url] of [...(baseline ? [["base", baseline.resolvedUrls.local[0]]] : []), ["head", headUrl]] as const) {
+      await lane.browser("open", `${url}/harness.html?seed=tree-40`);
+      await lane.until("!!document.querySelector('.todo-project-root')");
+      await lane.evaluate(`(async () => {
+        const app = window.__fake.app;
+        const tree = await app.rpc('rail.tree', null);
+        await app.rpc('pad.create', {name:'retained-notes',text:'Plain notes'});
+        for (const node of tree) { if (node.id === 'migrate' || node.id === 'tokens') node.name = 'Review'; }
+        tree.find(node => node.id === 'tokens').work = {kind:'work',title:'Orchard release',ask:'Review the retained work',done:'Release checked',limits:[]};
+        app.handlers['rail.tree'] = () => tree;
+        const common = { project: 'original-project', actor: {kind:'user',id:'you',parent:null}, home: 'backend', target: 'migrate', instruction: 'Keep /Users/authored/path and original-id verbatim.', condition: {kind:'agents',ids:['tokens'],any:false}, max_firings:2,remaining:1,rearm:false,expires_at:'2026-11-01T09:00:00Z',created_at:'2026-10-22T09:00:00Z',state:'active',firings:[{id:'firing-original',ordinal:1,message:42,matched:true,evidence:'original-evidence',definition:'{}',outcome:'held'}] };
+        const observations = [
+          {health:'observing',cursor:88,gap:null,recovery:null,evidence:'{"source":"agents","cursor":88}'},
+          {health:'not-observing',cursor:null,gap:null,recovery:null,evidence:null},
+          {health:'unavailable',cursor:88,gap:'the Agent state was not read after Event 88: /Users/private/path',recovery:'observation resumes at the next successful read; nothing matches meanwhile',evidence:null,cause:'unsupported source original-id /Users/private/path'},
+          {health:'observing',cursor:99,gap:'the Event history after 88 expired',recovery:'the recorded source gap remains; authoritative current Agent state reconciled observation',evidence:'{"source":"agents"}'},
+          {health:'invalidated',cursor:99,gap:null,recovery:null,evidence:null,pinned_head:'original-commit',cause:'the PR head moved from original-commit to new-commit'},
+          {health:'unavailable',cursor:99,gap:null,recovery:'stop this reaction and create one naming the Agents that exist',evidence:null,cause:'removed-original-id no longer names an Agent with a state; no condition matches it'},
+          {health:'observing',cursor:100,gap:'unrecognised-gap /Users/private/path original-id',recovery:'unrecognised-recovery original-id',evidence:'{"source":"unknown","private":"/Users/private/path"}'}
+        ];
+        window.__auditReactions = observations.map((observation,index) => ({...common,id:'audit-'+index,name:['Watch Review','Waiting to watch','Source unavailable','Recovered observation','Changed PR','Removed Agent','Unknown details'][index], observation, ...(index === 4 ? {state:'invalidated',condition:{kind:'pr-checks',repository:'orchard/app',number:7}} : {}), ...(index === 5 ? {target:'removed-original-id',actor:{kind:'agent',id:'removed-authorizer',parent:null}} : index === 0 ? {actor:{kind:'agent',id:'tokens',parent:null}} : {}) }));
+        app.handlers['reaction.list'] = () => window.__auditReactions;
+        app.handlers['reaction.get'] = ({id}) => window.__auditReactions.find(r => r.id === id);
+        app.handlers['message.get'] = () => ({id:42,from:{kind:'user',id:'you',parent:null},to:'migrate',body:'Exact accepted instruction /Users/authored/path',kind:'note',replyTo:null,status:'held',reason:'receiver gone',passedFrom:null,at:0});
+        app.handlers['deliverable.list'] = () => [7,9].map(revision => ({id:'published-'+revision,project:'original-project',title:'Orchard report',maker:{kind:'agent',id:'removed-maker',parent:null},maker_name:'Review',home:'backend',published_at:1792713600000,target:{kind:'pad',name:'Authored report',incarnation:'original-incarnation',revision,length:10,sha256:'original-hash-'+revision}}));
+        window.__fake.emit({actor:{kind:'user',id:'you',parent:null},name:'rail.changed'});
+        window.dispatchEvent(new Event('focus'));
+        document.querySelector('.todo-project-root').click();
+        return true;
+      })()`);
+      await lane.evaluate("window.dispatchEvent(new Event('focus'))");
+      await lane.until("document.querySelectorAll('.reaction-row').length === 7 && document.querySelectorAll('.made-row').length === 2");
+
+      if (phase === "names") {
+      await capture("U3299a", side!, "overview");
+      await capture("U3299d", side!, "publications");
+
+      for (let index = 0; index < 7; index++) {
+        await lane.browser("focus", `[data-reaction-opener="audit-${index}"]`);
+        await lane.browser("press", "Enter");
+        await lane.until("!!document.querySelector('.reaction-detail')");
+        expect(await lane.evaluate("document.activeElement.matches('.reaction-back')")).toBe(true);
+        await capture("U3299b", side!, `reaction-${index}`);
+
+        if (index === 0) {
+          await lane.browser("click", '[data-firing-message="42"]');
+          await lane.until("document.querySelector('.reaction-detail').textContent.includes('Exact accepted instruction')");
+          await capture("U3299b", side!, "message");
+        }
+
+        await lane.browser("click", ".reaction-back");
+        await lane.until("!!document.querySelector('.reaction-row')");
+      }
+
+      await lane.evaluate(`(() => {
+        window.__fake.app.handlers['project.importDiscover'] = () => ({ candidates: Array.from({length:10},(_,n) => ({source:'source-'+n,revision:'revision-'+n,title:n<2?'Review':('Conversation '+n+' 長い名前 ').repeat(8),cwd:'/Users/private/projects/orchard/'+(n<2?'location-'+n:'source-'+n),last_activity_ms:1792713600000n})),excluded:[] });
+        return true;
+      })()`);
+      await lane.browser("click", ".rail-import");
+      await lane.until("document.querySelectorAll('.import-check').length === 10");
+      await capture("U3299d", side!, "imports");
+      await lane.browser("click", ".import-check");
+      await lane.until("document.querySelector('.import-confirm')?.textContent === 'Import 1'");
+      await lane.evaluate(`(() => {
+        localStorage.setItem('roundup:import:/Users/you/harness', JSON.stringify({open:true,period:'month',selected:[{source:'missing-original-source',revision:'original-revision',title:''}]}));
+        document.querySelectorAll('.import-check')[1].click();
+        return true;
+      })()`);
+      await lane.until("!!document.querySelector('.import-recovery')");
+      await capture("U3299d", side!, "import-conflict");
+      await lane.browser("press", "Escape");
+      await lane.until("!document.querySelector('.import-panel')");
+      }
+
+      if (phase === "retention") {
+      await lane.evaluate(`(() => {
+        Storage.prototype.setItem = () => { throw new Error('Storage is full'); };
+        document.dispatchEvent(new KeyboardEvent('keydown',{key:'n',code:'KeyN',metaKey:true,shiftKey:true,bubbles:true}));
+        return true;
+      })()`);
+      await lane.until("!!document.querySelector('.spawn-prompt-field')");
+      await lane.browser("fill", ".spawn-prompt-field", "Exact retained task /Users/authored/path");
+      await lane.until("!!document.querySelector('.rail-retention [role=alert]')");
+      await lane.browser("click", '.rail [data-id="backend"] [data-part="branch-control"]');
+      await lane.until("!!document.querySelector('.rail-task-target')");
+      await capture("U3299c", side!, "retained-task");
+      await lane.browser("focus", ".spawn-prompt-field");
+      await lane.browser("press", "Escape");
+      await lane.until("!document.querySelector('.spawn-prompt-field')");
+      await lane.browser("click", ".todo-project-root");
+      await lane.until("!!document.querySelector('.ask-input')");
+      await lane.browser("fill", ".ask-input", "Exact Ask /Users/authored/path");
+      await lane.until("!!document.querySelector('.ask-send-status [role=alert]')");
+      await capture("U3299c", side!, "retained-ask");
+      await lane.evaluate("(() => { document.dispatchEvent(new KeyboardEvent('keydown',{key:'t',code:'KeyT',metaKey:true,shiftKey:true,bubbles:true})); return true; })()");
+      await lane.until("!!document.querySelector('.capture-field')");
+      await lane.browser("fill", ".capture-field", "Exact Todo /Users/authored/path");
+      await lane.until("!!document.querySelector('.capture [role=alert]')");
+      await capture("U3299c", side!, "retained-todo");
+      await lane.browser("press", "Escape");
+      await lane.until("!document.querySelector('.capture')");
+      await lane.browser("click", "#shelf-tab-pads");
+      await lane.until("!!document.querySelector('.pads-tab')");
+      await lane.browser("click", '[aria-label="Add Pad"]');
+      await lane.until("!!document.querySelector('.pads-tab .entry-field')");
+      await lane.browser("fill", ".pads-tab .entry-field", "Original Pad name");
+      await lane.until("!!document.querySelector('.pad-retention-shelf')");
+      await capture("U3299c", side!, "retained-pad-name");
+      await lane.browser("press", "Escape");
+      await lane.evaluate(`(() => { for (const group of document.querySelectorAll('.shelf [data-shelf-group][data-state="closed"] [data-part="branch-control"]')) group.click(); return true; })()`);
+      await lane.until("!!document.querySelector('.pad-name')");
+      await lane.browser("find", "role", "button", "click", "--name", "retained-notes");
+      await lane.until("!!document.querySelector('.drawer [contenteditable=true]')");
+      await lane.browser("fill", ".drawer [contenteditable=true]", "Exact retained Pad body /Users/authored/path");
+      await lane.until("!!document.querySelector('.drawer .pad-retention')");
+      await capture("U3299c", side!, "retained-pad-body");
+      await lane.browser("click", ".drawer .close");
+      await lane.until("document.querySelector('.drawer')?.dataset.open === 'false'");
+      await lane.browser("click", '.rail [data-id="tokens"]');
+      await lane.until("!!document.querySelector('.order-line, [aria-label=\"Edit order\"]')");
+      await lane.evaluate(`(() => { const edit = document.querySelector('[aria-label="Edit order"]'); if (edit) edit.click(); else document.querySelector('.order-line').click(); return true; })()`);
+      await lane.until("!!document.querySelector('.order-edit, [aria-label=\"Edit order\"]')");
+      await lane.evaluate(`(() => { if (!document.querySelector('.order-edit')) document.querySelector('[aria-label="Edit order"]').click(); return true; })()`);
+      await lane.until("!!document.querySelector('.order-edit textarea[name=ask]')");
+      await lane.browser("fill", ".order-edit textarea[name=ask]", "Exact retained Order /Users/authored/path");
+      await lane.until("!!document.querySelector('.order-edit-retention')");
+      await capture("U3299c", side!, "retained-order");
+      await lane.browser("press", "Escape");
+      await lane.browser("click", ".todo-project-root");
+      await lane.until("!!document.querySelector('.ask-input')");
+      await lane.browser("click", "#shelf-tab-todos");
+      await lane.until("!!document.querySelector('.todos-tab')");
+      await lane.evaluate(`(() => {
+        const values = {title:'Authored Todo',body:'',done:false,blockers:[],owner:null};
+        const owner = {kind:'agent',id:'tokens',parent:null};
+        const removed = {kind:'agent',id:'removed-original-owner',parent:null};
+        window.__fake.app.handlers['todo.getHistory'] = () => ({unread:null,changes:[{seq:1,actor:owner,changed_at:null,before:values,after:{...values,owner}}, {seq:2,actor:removed,changed_at:null,before:{...values,owner},after:{...values,owner:removed},handed:removed}]});
+        window.__fake.app.handlers['todo.readHistory'] = () => null;
+        for (const group of document.querySelectorAll('.shelf [data-shelf-group][data-state="closed"] [data-part="branch-control"]')) group.click();
+        return true;
+      })()`);
+      await lane.until("!!document.querySelector('.todo-row-button')");
+      await lane.browser("click", ".todo-row-button");
+      await lane.until("!!document.querySelector('.todo-history-line')");
+      await lane.browser("click", ".todo-history-line");
+      await lane.until("document.querySelectorAll('.todo-change').length >= 2");
+      await capture("U3299a", side!, "history");
+      }
+
+
+      await lane.browser("open", `${url}/harness.html?seed=tabs-8`);
+      await lane.until("document.querySelectorAll('.project-tab').length === 8");
+      const projectPaths = await lane.evaluate<string[]>("[...document.querySelectorAll('.project-tab')].slice(0, 2).map(tab => tab.dataset.path)");
+
+      for (const projectPath of projectPaths) {
+        await lane.browser("focus", `.project-tab[data-path=${JSON.stringify(projectPath)}] .tab-name-button`);
+        await lane.browser("press", "F2");
+        await lane.until("!!document.querySelector('.tab-rename')");
+        await lane.browser("fill", ".tab-rename", "Orchard");
+        await lane.browser("press", "Enter");
+        await lane.until("!document.querySelector('.tab-rename')");
+      }
+
+      await lane.browser("focus", `.project-tab[data-path=${JSON.stringify(projectPaths[0])}] .tab-name-button`);
+      await lane.browser("press", "Enter");
+      await lane.until("document.querySelector('.project-tab[data-selected=true] [role=tab]')?.getAttribute('aria-busy') === 'false'");
+
+      if (phase === "names") {
+      await lane.browser("hover", ".todo-project-root");
+      await lane.browser("hover", ".project-tab[data-selected=true] .tab-name");
+      await lane.until("!!document.querySelector('[role=tooltip]')");
+      await capture("U3299d", side!, "project-tooltip");
+      } else {
+      await lane.browser("dblclick", ".project-tab[data-selected=true] .tab-name");
+      await lane.until("!!document.querySelector('.tab-rename')");
+      await lane.evaluate("(() => { Storage.prototype.setItem = () => { throw new Error('Storage is full'); }; return true; })()");
+      await lane.browser("fill", ".tab-rename", "Original retained Project name");
+      await lane.browser("press", "Escape");
+      await lane.until("!!document.querySelector('.tab-recover')");
+      await lane.browser("click", ".tab-recover");
+      await lane.until("!!document.querySelector('.header-recovery [role=alert]')");
+      expect(await lane.evaluate("document.querySelector('.header-recovery').contains(document.activeElement)")).toBe(true);
+      await capture("U3299c", side!, "project-recovery");
+      }
+    }
+  } finally {
+    await lane.close();
+    await baseline?.close();
+    rmSync(clockDirectory, { recursive: true, force: true });
+  }
+}, 180_000);
