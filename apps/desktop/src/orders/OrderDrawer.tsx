@@ -43,7 +43,7 @@ const SessionId = (props: { id: string }) => {
       setNote(copy.copied);
     } catch {
       setNote(null);
-      setFailure(copy.copyFailed);
+      setFailure("The clipboard refused the copy. Try copying the session id again.");
     }
 
     clearTimeout(timer);
