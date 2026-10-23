@@ -8,6 +8,7 @@ import { Pads } from "../pads/Pads";
 import { Rail } from "../rail/Rail";
 import { createReactions, Reactions } from "../reactions/Reactions";
 import { Inbox } from "../inbox/Inbox";
+import { WorkProgress } from "../orders/WorkProgress";
 import { ConnectedProjectContext } from "../state/connectedProject";
 import { event } from "../testing/nodes";
 import { TodoComments } from "../todos/TodoComments";
@@ -34,13 +35,14 @@ const ReactionSite = () => {
   return <section aria-busy={state.read.loading}><Reactions state={state} /></section>;
 };
 
-const readers: { site: string; method: "todo.unread" | "todo.comments" | "todo.getHistory" | "todo.refs" | "pad.list" | "reaction.list"; render: () => JSX.Element; refresh: (mounted: Mounted) => void; role?: "status" }[] = [
+const readers: { site: string; method: "todo.unread" | "todo.comments" | "todo.getHistory" | "todo.refs" | "pad.list" | "reaction.list" | "message.progress"; render: () => JSX.Element; refresh: (mounted: Mounted) => void; role?: "status" }[] = [
   { site: "Inbox", method: "todo.unread", render: () => <Inbox />, refresh: m => m.app.emit(event({ name: "todo.commented", data: { id: 1 } })) },
   { site: "Todo comments", method: "todo.comments", render: () => <TodoComments id={1} />, refresh: m => m.app.emit(event({ name: "todo.commented", data: { id: 1 } })) },
   { site: "Todo history", method: "todo.getHistory", render: () => <TodoHistory id={1} />, refresh: m => m.app.emit(event({ name: "todo.deleted", data: { id: 2 } })) },
   { site: "Todo Pad references", method: "todo.refs", render: () => <TodoRefs id={1} />, refresh: m => m.app.emit(event({ name: "pad.changed", data: { name: "Plan" } })) },
   { site: "Pads", method: "pad.list", render: () => <Pads />, refresh: m => m.app.emit(event({ name: "pad.changed", data: { name: "Plan" } })) },
   { site: "Reactions", method: "reaction.list", render: () => <ReactionSite />, refresh: () => window.dispatchEvent(new Event("focus")), role: "status" },
+  { site: "Work progress", method: "message.progress", render: () => <WorkProgress id="a" />, refresh: m => m.app.emit(event({ name: "rail.changed" })) },
 ];
 
 it.each(readers)("u3807_each_site_shows_its_message_in_the_reserved_line: $site", async (site) => {
