@@ -211,7 +211,7 @@ export const OpenRow = (props: {
         <p class="item-description" data-todo-description title={bodyLine()}>{bodyLine()}</p>
       </Show>
       {props.groupProgress}
-      <div class="todo-row-notice"><ReservedLine overlay message={failure()} /></div>
+      <div class="todo-row-notice"><ReservedLine overlay={props.nested === true} message={failure()} /></div>
       <Show when={props.nested}>
         <p class="shelf-meta" data-todo-meta>
           <Show when={props.nested}><span data-mono>{copy.todoNumberMark}{props.todo.id}</span>{" "}</Show>
