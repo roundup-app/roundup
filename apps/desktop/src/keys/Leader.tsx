@@ -1,5 +1,6 @@
+import { ReservedLine } from "../ink/ReservedLine";
 import { KeyChip } from "./KeyChip";
-import { createEffect, For, onCleanup, Show } from "solid-js";
+import { createEffect, For, onCleanup } from "solid-js";
 import { useConnectedProject } from "../state/connectedProject";
 import { copy } from "../copy";
 import { LEADER, LEADER_ARM } from "./chords";
@@ -33,18 +34,12 @@ export const Leader = () => {
     panel.style.setProperty("--leader-width", `${centre.width}px`);
   };
 
-  return (
-    <Show when={leaderArmed()}>
-      <aside class="leader" role="status" aria-label={copy.leaderPanel} ref={place}>
-        <For each={LEADER}>
-          {(key) => (
-            <span class="leader-line">
-              <KeyChip keys={key.keys} />
-              {`  ${key.short}`}
-            </span>
-          )}
-        </For>
-      </aside>
-    </Show>
-  );
+  let panel: HTMLDivElement | undefined;
+
+  createEffect(() => { if (leaderArmed() && panel) place(panel); });
+
+  return <ReservedLine overlay class={leaderArmed() ? "leader" : undefined} aria-label={copy.leaderPanel} ref={panel}
+    style={{ position: "fixed", bottom: "auto", "inset-inline-start": "var(--leader-left, 0px)", "inset-inline-end": "auto", "inline-size": "var(--leader-width, 100%)", "min-height": "var(--line)", visibility: leaderArmed() ? "visible" : "hidden" }}
+    status={leaderArmed() ? LEADER.map(key => `${key.keys}  ${key.short}`).join("  ") : null}
+    content={<For each={LEADER}>{key => <span class="leader-line"><KeyChip keys={key.keys} />{`  ${key.short}`}</span>}</For>} />;
 };

@@ -1,3 +1,4 @@
+import { ReservedLine } from "../ink/ReservedLine";
 import { For, Show, createMemo, createSignal } from "solid-js";
 import type { ConversationOverview } from "@contracts/agent/ConversationOverview";
 import type { ContextPartKind } from "@contracts/agent/ContextPartKind";
@@ -76,7 +77,7 @@ export const ContextBar = (props: { overview: ConversationOverview }) => {
               )}
             </For>
           </ul>
-          <p class="context-live" role="status" aria-live="polite">{spoken()}</p>
+          <ReservedLine class="context-live" status={spoken()} aria-live="polite" />
         </Show>
       </div>
     </Show>

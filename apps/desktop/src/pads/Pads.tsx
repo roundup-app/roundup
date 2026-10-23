@@ -16,7 +16,7 @@ import { EmptyState } from "../ink/EmptyState";
 import { createEffect, createMemo, createSignal, For, onCleanup, Show } from "solid-js";
 import type { Accessor, Setter } from "solid-js";
 import type { Pad } from "@contracts/pad/Pad";
-import { ErrorLine } from "../ink/ErrorLine";
+import { ReservedLine } from "../ink/ReservedLine";
 import { ShelfRow } from "../ink/ShelfRow";
 import { useConnectedProject } from "../state/connectedProject";
 import { createFailure } from "./failure";
@@ -253,7 +253,7 @@ export const Pads = (props: {
     },
   };
 
-  const isEmpty = createMemo(() => list.loaded() && pads().length === 0 && list.failure() === null);
+  const isEmpty = createMemo(() => list.loaded() && pads().length === 0);
 
   return (
     <section aria-label={copy.pads} class="pads-tab">
@@ -275,12 +275,13 @@ export const Pads = (props: {
           <span>{copy.pad}</span>
         </button>
       </ScopeAction>
-      <Show when={failure.message()}>
-        {(message) => <ErrorLine message={message()} />}
-      </Show>
-      <Show when={list.failure()}>
-        {(message) => <ErrorLine message={message()} />}
-      </Show>
+      <ReservedLine message={failure.message() ?? list.failure() ?? (retentionProblem() ? copy.draftRetention(connected.project.path, copy.pad, retentionProblem()!.cause) : null)}>
+        <Show when={retentionProblem()}>
+        <button data-button="primary" type="button" onClick={() => connected.drafts.retry()}>{copy.storageRetry}</button>
+        <button data-button="quiet" type="button" onClick={() => void navigator.clipboard.writeText(name()).catch(error => failure.show(copy.copyDraftFailure(String(error))))}>{nameLabel}</button>
+        <button data-button="quiet" type="button" onClick={() => { if (revision) connected.drafts.discard(revision); revision = undefined; captured = null; setName(""); setInvalid(false); }}>{copy.discardRevision}</button>
+
+      </Show></ReservedLine>
       <Show when={isEmpty() && !naming()}>
         <EmptyState icon="order" heading={copy.noPadsYet} hint={copy.noPadsHint} />
       </Show>
@@ -336,14 +337,7 @@ export const Pads = (props: {
           </ShelfRow>
         </div>
       </Show>
-      <Show when={retentionProblem()}>{(problem) => <div role="alert" class="pad-retention pad-retention-shelf">
-        <p>{copy.draftRetention(connected.project.path, copy.pad, problem().cause)}</p>
-        <div class="diff-actions">
-        <button data-button="primary" type="button" onClick={() => connected.drafts.retry()}>{copy.storageRetry}</button>
-        <button data-button="quiet" type="button" onClick={() => void navigator.clipboard.writeText(name()).catch(error => failure.show(copy.copyDraftFailure(String(error))))}>{nameLabel}</button>
-        <button data-button="quiet" type="button" onClick={() => { if (revision) connected.drafts.discard(revision); revision = undefined; captured = null; setName(""); setInvalid(false); }}>{copy.discardRevision}</button>
-        </div>
-      </div>}</Show>
+
       <bulk.Bar />
     </section>
   );
@@ -442,7 +436,7 @@ const PadRow = (props: Parameters<typeof PadRows>[0] & { pad: Pad; parts: Parame
               <button data-button="row-action" type="button" class="word light pad-assign" aria-label={copy.assignPadNamed(pad.name)} onClick={(event) => props.onAssign(pad.name, event.currentTarget)}>{copy.assign}</button>
             </div>
             <p class="shelf-meta">{copy.ownedBy}{connected.rail.nameOf(pad.owner)}</p>
-            <Show when={failed()}>{(message) => <ErrorLine message={message()} />}</Show>
+            <ReservedLine overlay message={failed()} />
           </ShelfRow>
   );
 };

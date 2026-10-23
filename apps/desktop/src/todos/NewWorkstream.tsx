@@ -4,7 +4,7 @@ import type { Accessor } from "solid-js";
 import type { RailNode } from "@contracts/agent/RailNode";
 import type { StartChoice } from "@contracts/workstream/StartChoice";
 import { copy } from "../copy";
-import { ErrorLine } from "../ink/ErrorLine";
+import { ReservedLine } from "../ink/ReservedLine";
 import { useConnectedProject } from "../state/connectedProject";
 import { Dialog } from "../ui/Dialog";
 import { RadioGroup } from "../ui/RadioGroup";
@@ -102,7 +102,7 @@ export const NewWorkstream = (props: { target: Accessor<number | null>; done: (i
                 <WaitFor todos={others()} value={after()} onPick={setAfter} />
               </div>
             </Show>
-            <Show when={failure()}>{message => <ErrorLine message={message()} />}</Show>
+            <ReservedLine message={failure()} />
             <div class="app-dialog-actions">
               <Dialog.CloseTrigger data-button="quiet">{copy.cancel}</Dialog.CloseTrigger>
               <Tip disabled={ready()} text={createBlocked()}>{trigger =>

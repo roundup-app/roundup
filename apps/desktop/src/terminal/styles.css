@@ -9,17 +9,6 @@
 .pane-failure {
   flex: none;
   padding-inline: var(--space-2);
-  max-height: 6em;
-  overflow-y: auto;
-  overscroll-behavior: contain;
-}
-
-/* U349: the notice wraps and is never ellipsised; beats the one-line `p.ink[role="alert"]` of U80. */
-.pane-failure p.ink[role="alert"] {
-  overflow: visible;
-  text-overflow: clip;
-  white-space: pre-wrap;
-  overflow-wrap: anywhere;
 }
 
 .pane-body {
@@ -118,6 +107,7 @@
 
 /* U375, U187: the one state of the Terminal, Managed or You control, and the way to the other, float over its top-right corner, left of the work-items control, where lines end blank; the bottom is the Agent's input. */
 .pane-control {
+  inline-size: min(calc(var(--space-6) * 14), calc(100% - var(--space-6) * 2));
   position: absolute;
   top: var(--space-2);
   right: calc(var(--space-6) + var(--space-2));

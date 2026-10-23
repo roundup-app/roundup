@@ -1,3 +1,4 @@
+import { ReservedLine } from "../ink/ReservedLine";
 import * as v from "valibot";
 import { RpcError, INTERNAL_CODE } from "../app/seam";
 import { Tip } from "../ui/Tip";
@@ -5,7 +6,6 @@ import { IconButton } from "../ui/IconButton";
 import { copy } from "../copy";
 import type { Order } from "@contracts/agent/Order";
 import { For, Match, Show, Switch, createEffect, createMemo, createResource, createSignal, createUniqueId, on, onCleanup } from "solid-js";
-import { KindGlyph } from "../ink/KindGlyph";
 import { Icon } from "../ink/Icon";
 import { ContextBar } from "./ContextBar";
 import { Markdown } from "../plain/Markdown";
@@ -50,7 +50,7 @@ const SessionId = (props: { id: string }) => {
   return <>
     <button type="button" class="overview-id" aria-label={copy.copySessionId} aria-describedby={idText} onClick={() => void copyId()}>{note() ?? props.id}</button>
     <span id={idText} class="overview-id-note">{props.id}</span>
-    <span role="status" class="overview-id-note">{note()}</span>
+    <ReservedLine status={note()} class="overview-id-note" />
   </>;
 };
 
@@ -285,11 +285,9 @@ const OrderContent = (props: OrderInput) => {
           }} />
         </label>
       }</For>
-      <Show when={selectedDraft()}>{(draft) => <Show when={draft().status !== "draft"}><p data-state={draft().status}>{copy.draftStatus[draft().status]}</p></Show>}</Show>
-      <Show when={failure()}>{(text) => <p class="order-edit-error" role="alert"><KindGlyph kind="error" /><span>{text()}</span></p>}</Show>
-      <Show when={!formValue().success}><p class="order-edit-error" role="alert">{copy.orderRestoreFailed}</p></Show>
-      <Show when={conflict()}><p class="order-edit-conflict" role="alert">{copy.orderChanged}</p></Show>
-      <Show when={drafts.problem()}>{(problem) => <div class="order-edit-retention" role="alert"><p>{copy.draftRetention(project.name, copy.draftSurface(destination().surface), problem().cause)}</p><button data-button="quiet" type="button" onClick={() => drafts.retry()}>{copy.storageRetry}</button></div>}</Show>
+      <ReservedLine message={failure() ?? (!formValue().success ? copy.orderRestoreFailed : conflict() ? copy.orderChanged : drafts.problem() ? copy.draftRetention(project.name, copy.draftSurface(destination().surface), drafts.problem()!.cause) : null)} status={selectedDraft() && selectedDraft()!.status !== "draft" ? copy.draftStatus[selectedDraft()!.status] : null}>
+        <Show when={drafts.problem()}><button data-button="quiet" type="button" onClick={() => drafts.retry()}>{copy.storageRetry}</button></Show>
+      </ReservedLine>
       <Show when={recovery()}><div class="order-edit-actions">
         <For each={["title", "ask", "done"]}>{(name) => <button data-button="quiet" type="button" onClick={() => void navigator.clipboard.writeText(String(selectedDraft()?.value[name] ?? "")).catch((error) => setFailure(copy.copyDraftFailure(error instanceof Error ? error.message : String(error))))}>{copy.copyField(name)}</button>}</For>
         <button data-button="quiet" type="button" onClick={() => {

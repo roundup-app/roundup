@@ -47,7 +47,7 @@
   resize: none;
 }
 
-.pad-rich-editor > div,
+.pad-rich-editor > div:not(.reserved-line),
 .pad-rich-editor .milkdown {
   min-height: 100%;
 }

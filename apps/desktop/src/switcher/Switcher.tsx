@@ -1,4 +1,5 @@
-import { createEffect, createMemo, createSignal, onCleanup, Show } from "solid-js";
+import { ReservedLine } from "../ink/ReservedLine";
+import { createEffect, createMemo, createSignal, on, onCleanup, Show } from "solid-js";
 import { debounce } from "@solid-primitives/scheduled";
 import * as v from "valibot";
 import { copy } from "../copy";
@@ -101,6 +102,10 @@ export const Switcher = (props: { onFailure: (message: string | null) => void; o
       if (element.contains(document.activeElement)) restoreQueryFocus();
     });
   };
+
+  createEffect(on(retentionProblem, (problem, previous) => {
+    if (!problem && previous) { setCopyFailure(null); restoreQueryFocus(); }
+  }, { defer: true }));
 
   const close = (restore: boolean): void => {
     retain();
@@ -217,9 +222,8 @@ export const Switcher = (props: { onFailure: (message: string | null) => void; o
               <Show when={entry.owner}><span class="switcher-owner">{entry.owner}</span></Show>
             </>;
           }} />
-        <Show when={retentionProblem()}>{(problem) => <div class="switcher-recovery" role="alert" ref={restoreFocusOnRemoval}>
-          <p>{copy.switcherRetentionFailure(problem().operation, project.name)}</p>
-          <div class="switcher-recovery-actions">
+        <ReservedLine message={copyFailure() ?? (retentionProblem() ? copy.switcherRetentionFailure(retentionProblem()!.operation, project.name) : null)}>
+
           <Show when={text() !== ""}>
           <button data-button="quiet" ref={restoreFocusOnRemoval} onClick={() => { void navigator.clipboard.writeText(text()).then(() => {
             setCopyFailure(null);
@@ -236,9 +240,7 @@ export const Switcher = (props: { onFailure: (message: string | null) => void; o
             setText("");
           }}>{copy.discardQuery}</button>
           </Show>
-          </div>
-          <Show when={copyFailure()}><p>{copyFailure()}</p></Show>
-        </div>}</Show>
+      </ReservedLine>
       </section>
     </Show>
   );

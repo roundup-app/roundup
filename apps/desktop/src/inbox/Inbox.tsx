@@ -1,7 +1,7 @@
+import { ReservedLine } from "../ink/ReservedLine";
 import { createSignal, For, onCleanup, Show } from "solid-js";
 import type { UnreadComment } from "@contracts/todo/UnreadComment";
 import { copy } from "../copy";
-import { ErrorLine } from "../ink/ErrorLine";
 import { KindGlyph } from "../ink/KindGlyph";
 import { leaderChord } from "../keys/chords";
 import { activationSource, registerKeys } from "../keys/registry";
@@ -42,8 +42,7 @@ export const Inbox = () => {
 
   return <section class="inbox" aria-label={copy.inbox}>
     <h2>{copy.inbox}</h2>
-    <Show when={failure()}>{(message) => <div><ErrorLine message={message()} /><button data-button="quiet" class="word" type="button" onClick={() => void refresh()}>{copy.inboxRetry}</button></div>}</Show>
-    <Show when={rows().length === 0 && failure() === null}><p class="light">{copy.inboxEmpty}</p></Show>
+    <ReservedLine message={failure()} status={rows().length === 0 ? copy.inboxEmpty : null}><Show when={failure()}><button data-button="quiet" class="word" type="button" onClick={() => void refresh()}>{copy.inboxRetry}</button></Show></ReservedLine>
     <For each={rows()}>{(row) => <button type="button" data-button="quiet" class="inbox-row" data-comment={row.comment.id}
       onClick={(event) => drawer.open(() => <TodoHost id={row.todo} />, activationSource(event))}>
       <KindGlyph kind="needs-you" />

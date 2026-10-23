@@ -1,3 +1,4 @@
+import { ReservedLine } from "../ink/ReservedLine";
 import { For, Show, createEffect, createMemo, createResource, createSignal, onCleanup } from "solid-js";
 import type { ContinuationAction } from "@contracts/message/ContinuationAction";
 import type { Progress } from "@contracts/message/Progress";
@@ -8,7 +9,6 @@ import { openDeliverable } from "../ask/openDeliverable";
 import { INTERNAL_CODE, RpcError } from "../app/seam";
 import { copy } from "../copy";
 import { Icon } from "../ink/Icon";
-import { KindGlyph } from "../ink/KindGlyph";
 import { useConnectedProject } from "../state/connectedProject";
 import { Disclosure } from "../ui/Disclosure";
 
@@ -189,7 +189,7 @@ export const WorkProgress = (props: { id: string }) => {
         <For each={noteOf(result, plan)}>{(note) => <p class="progress-note" role="note">{sentence(note.cause)} {sentence(note.action)}</p>}</For>
         <button class="word progress-evidence" data-button="quiet" type="button" aria-label={copy.openEvidence(result.report.publication.title)}
           aria-disabled={opening() !== null ? true : undefined} onClick={() => void inspect(result)}>{result.report.publication.title}</button>
-        <Show when={failure()?.report === result.report.report && failure()}>{(shown) => <p class="progress-failure" role="alert"><KindGlyph kind="error" /><span>{shown().cause}</span></p>}</Show>
+        <ReservedLine message={failure()?.report === result.report.report ? failure()!.cause : null} />
       </li>
     );
   };
@@ -204,7 +204,7 @@ export const WorkProgress = (props: { id: string }) => {
     <>
       <Show when={unread()}>{(cause) => (
         <section class="progress-section" aria-label={copy.progress}>
-          <p class="progress-failure" role="alert"><KindGlyph kind="error" /><span>{copy.progressUnreadable(cause())}</span></p>
+          <ReservedLine message={copy.progressUnreadable(cause())} />
           <button class="word" data-button="quiet" type="button" onClick={refresh}>{copy.progressRetry}</button>
         </section>
       )}</Show>
@@ -219,11 +219,8 @@ export const WorkProgress = (props: { id: string }) => {
                     onClick={() => void resume()}>{phase() === "pending" ? copy.resuming : phase() === "failed" || phase() === "unknown" ? copy.resumeRetry : copy.resumeUnfinished}</button>
                 </Show>
               </div>
-              <Show when={phase() === "failed"}><p class="progress-failure" role="alert"><KindGlyph kind="error" /><span>{copy.resumeFailed(sentence(cause()))}</span></p></Show>
-              <Show when={phase() === "unknown"}><p class="progress-failure" role="alert"><KindGlyph kind="error" /><span>{copy.resumeUnknown}</span></p></Show>
-              <p ref={status} class="progress-status" role="status" tabindex="-1">
-                <Show when={phase() === "resumed" || phase() === "nothing"}><Icon name="check" />{phase() === "resumed" ? copy.resumed : copy.resumeNothing}</Show>
-              </p>
+              <ReservedLine ref={status} class="progress-status" tabindex="-1" message={phase() === "unknown" ? copy.resumeUnknown : phase() === "failed" ? copy.resumeFailed(sentence(cause())) : null}
+                status={phase() === "resumed" ? copy.resumed : phase() === "nothing" ? copy.resumeNothing : null} />
               <ul class="progress-rows"><For each={rows()?.current}>{(result) => row(result, data().plan)}</For></ul>
               <Show when={(rows()?.earlier.length ?? 0) > 0}>
                 <Disclosure class="progress-earlier" label={copy.progressEarlier(data().progress.results.filter((result) => !result.current).length)}>

@@ -1,3 +1,4 @@
+import { ReservedLine } from "../ink/ReservedLine";
 import { openOnRelease } from "../ui/contextMenu";
 import * as v from "valibot";
 import { useConnectedProject } from "../state/connectedProject";
@@ -100,11 +101,7 @@ const NameField = (props: { node: RailNode; onCommit: (name: string) => Promise<
       }}
       onBlur={props.onCancel}
     />
-    <Show when={conflict()}>
-      <Tip text={copy.railDraftConflict}>
-        {(trigger) => <span {...trigger()} class="ink rail-name-error" data-tone="red" data-kind="error" role="alert" tabIndex={-1} aria-label={copy.railDraftConflict}><Icon name="x" /></span>}
-      </Tip>
-    </Show>
+    <ReservedLine overlay message={conflict() ? copy.railDraftConflict : null} />
   </>;
 };
 
