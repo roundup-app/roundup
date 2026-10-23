@@ -73,3 +73,18 @@ describe("U2539d", () => {
     expect(screen.getByRole("dialog", { name: "Worktree" })).toBeTruthy();
   });
 });
+
+it.each(["unrelated retry", "same retry", "dismiss"])("p3557c_failure_lifetime_changed_tree: %s", async action => {
+  const { app } = await open();
+  app.editorFailure = new RpcError(-32001, "editor refused; retry opening this file");
+  fireEvent.dblClick(row("src/a.ts")!, { composed: true });
+  await screen.findByRole("alert");
+  app.editorFailure = null;
+  if (action === "dismiss") fireEvent.click(screen.getByRole("button", { name: "Dismiss" }));
+  else {
+    fireEvent.dblClick(row(action === "same retry" ? "src/a.ts" : "src/deep/b.ts")!, { composed: true });
+    await waitFor(() => expect(app.editorCalls).toHaveLength(2));
+  }
+  await waitFor(() => expect(screen.queryByRole("alert") !== null).toBe(action === "unrelated retry"));
+  expect(app.editorCalls.map(call => call.path)).toEqual(action === "dismiss" ? ["/p/.roundup/a/src/a.ts"] : ["/p/.roundup/a/src/a.ts", `/p/.roundup/a/${action === "same retry" ? "src/a.ts" : "src/deep/b.ts"}`]);
+});
