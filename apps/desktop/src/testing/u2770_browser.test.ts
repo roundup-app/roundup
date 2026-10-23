@@ -32,11 +32,11 @@ it("u3528_keys_and_pointer_never_draw_rings_or_pressed_backgrounds", async () =>
           const active = document.activeElement;
           const sites = active === document.body ? [active] : [active, ...active.querySelectorAll('*')];
           if (active.closest('.app-checkbox')) sites.push(active.closest('.app-checkbox'), ...active.closest('.app-checkbox').querySelectorAll('*'));
-          const panel = active.closest('.app-menu, .app-dialog, .import-panel, .bubble');
+          const panel = active.closest('.app-menu, .app-dialog, .import-panel, .bubble-frame, .bubble, .decision-card');
           if (panel) sites.push(panel);
           return sites.flatMap(el => [null, '::before', '::after'].flatMap(pseudo => {
             const style = getComputedStyle(el, pseudo);
-            return [(style.outlineStyle === 'none' || parseFloat(style.outlineWidth) === 0) && (style.boxShadow === 'none' || (!pseudo && el.matches('.app-menu, .app-dialog, .import-panel, .bubble') && style.boxShadow === depth)) ? 'none' : el.className + ':' + style.outline + ':' + style.boxShadow];
+            return [(style.outlineStyle === 'none' || parseFloat(style.outlineWidth) === 0) && (style.boxShadow === 'none' || (!pseudo && el.matches('.owner-picker, .app-dialog, .import-panel, .bubble-frame') && style.boxShadow === depth)) ? 'none' : el.className + ':' + style.outline + ':' + style.boxShadow];
           }));
         })()`);
 
@@ -96,7 +96,18 @@ it("u3528_keys_and_pointer_never_draw_rings_or_pressed_backgrounds", async () =>
         await lane.browser("press", step === "rail-row" ? "ArrowUp" : "Shift+Tab");
         await lane.until(`!(${focused(selector!)})`);
 
-        if (step === "rail-row") await lane.browser("press", "ArrowDown");
+        await ring();
+
+        if (step === "rail-row") {
+          await lane.until(focused('.rail [data-id="auth"].rail-row'));
+          await lane.browser("press", "ArrowDown");
+          await lane.until(focused(selector!));
+          await ring();
+          await lane.browser("press", "Tab");
+          await lane.until(focused('.rail [data-id="tokens"] [aria-label="Stop"]'));
+          await ring();
+          await lane.browser("press", "Shift+Tab");
+        }
         else {
           // Focusing a Project tab reveals its close control, which becomes an intervening Tab stop.
           for (let stop = 0; stop < 8 && !(await lane.evaluate<boolean>(focused(selector!))); stop++) {
