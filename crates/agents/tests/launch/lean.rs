@@ -163,35 +163,68 @@ fn lc2_a_child_starts_from_its_own_settings() {
 }
 
 #[tokio::test]
-async fn lc2_the_users_output_style_never_shapes_a_child() {
-    let s = setup();
-    s.user_file(
-        "settings.json",
-        r#"{"outputStyle":"Learning","enabledPlugins":{"p@m":true},"mcpServers":{"a":{"command":"a"}},"permissions":{"allow":["Read(x)"]}}"#,
-    );
-    let launcher = plugin_launcher(&s);
-    let (argv, env) = launcher
-        .launch_on(
-            folders(&s.dir),
-            "7",
-            "1",
-            &s.cwd,
-            None,
-            Role::Agent,
-            &lean_pair(false, Extras::default()),
-        )
-        .await
-        .unwrap();
-    assert_eq!(env["CLAUDE_CODE_DISABLE_AUTO_MEMORY"], "1");
-    assert!(has(&argv, "--strict-mcp-config"));
-    let settings = read(Path::new(Setup::after(&argv, "--settings").unwrap()));
-    assert_eq!(settings.get("outputStyle"), None);
-    assert_eq!(
-        settings["permissions"]["allow"],
-        json!(["Read(x)", "mcp__roundup__*"])
-    );
-    let config = read(Path::new(Setup::after(&argv, "--mcp-config").unwrap()));
-    assert_eq!(config["mcpServers"].as_object().unwrap().len(), 1);
+async fn lc2_the_users_output_style_shapes_a_child() {
+    for output_style in [Some("Learning"), None] {
+        for (row, role, pair) in
+            lean_children()
+                .into_iter()
+                .chain([(Role::Agent, Role::Agent, Pair::default())])
+        {
+            let s = setup();
+            s.user_file("CLAUDE.md", "USER GLOBAL RULE");
+            let mut user = json!({"enabledPlugins":{"p@m":true},"mcpServers":{"a":{"command":"a"}},"autoMemoryEnabled":true,"autoMemoryDirectory":"/user-memory"});
+            if let Some(style) = output_style {
+                user["outputStyle"] = json!(style);
+            }
+            s.user_file("settings.json", &user.to_string());
+            let (argv, env) = plugin_launcher(&s)
+                .launch_on(folders(&s.dir), "7", "1", &s.cwd, None, role, &pair)
+                .await
+                .unwrap();
+            for flag in [
+                "--strict-mcp-config",
+                "--setting-sources",
+                "--disable-slash-commands",
+            ] {
+                assert!(!has(&argv, flag), "{row:?}: {flag}");
+            }
+            assert!(!env.contains_key("CLAUDE_CODE_DISABLE_AUTO_MEMORY"));
+            assert_eq!(argv.iter().filter(|arg| *arg == "--plugin-dir").count(), 3);
+            let tools = match row {
+                Role::Door => Some("Read,Grep,Glob,ToolSearch,Skill"),
+                Role::Scout => Some("Read,Grep,Glob,Bash,ToolSearch"),
+                Role::Agent => None,
+            };
+            assert_eq!(Setup::after(&argv, "--tools"), tools);
+            let settings = read(Path::new(Setup::after(&argv, "--settings").unwrap()));
+            for (key, value) in user.as_object().unwrap() {
+                assert_eq!(&settings[key], value, "{row:?}: {key}");
+            }
+            assert!(
+                !settings["env"]
+                    .as_object()
+                    .unwrap()
+                    .contains_key("CLAUDE_CODE_DISABLE_AUTO_MEMORY")
+            );
+            let brief = std::fs::read_to_string(
+                Setup::after(&argv, "--append-system-prompt-file").unwrap(),
+            )
+            .unwrap();
+            assert!(brief.contains("USER GLOBAL RULE"));
+            assert_eq!(
+                brief.contains("hold:Plain"),
+                output_style.is_none(),
+                "{row:?}"
+            );
+            assert_eq!(
+                brief.contains(&asset("hold-plain.md")),
+                output_style.is_none() && row == Role::Agent
+            );
+            if output_style.is_none() {
+                assert!(settings.get("outputStyle").is_none());
+            }
+        }
+    }
 }
 
 #[test]
