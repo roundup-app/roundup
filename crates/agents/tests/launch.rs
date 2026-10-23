@@ -825,3 +825,99 @@ mod shims;
 mod briefs;
 #[path = "launch/trust.rs"]
 mod trust;
+
+#[test]
+fn a3507a_every_launch_keeps_the_users_gateway() {
+    use agents::claude_code::{Lean, PROFILES, Pair};
+    use contracts::terminal::SpawnParams;
+    let s = setup();
+    let headers = "x-wise-llm-gateway-team: fixture\nx-wise-llm-gateway-use-case: fixture";
+    let gateway = "https://gateway.invalid";
+    s.user_file("settings.json", &json!({"env": {"ANTHROPIC_CUSTOM_HEADERS": headers, "ANTHROPIC_BASE_URL": gateway}, "apiKeyHelper": "fixture-helper"}).to_string());
+    let inherited: std::collections::BTreeMap<String, String> = [
+        "ANTHROPIC_API_KEY",
+        "ANTHROPIC_AUTH_TOKEN",
+        "CLAUDE_CODE_USE_BEDROCK",
+        "CLAUDE_CODE_USE_VERTEX",
+        "CLAUDE_CODE_USE_FOUNDRY",
+        "ANTHROPIC_PROFILE",
+        "ANTHROPIC_FEDERATION_RULE_ID",
+        "ANTHROPIC_ORGANIZATION_ID",
+        "ANTHROPIC_BASE_URL",
+    ]
+    .into_iter()
+    .map(|key| (key.to_owned(), format!("fixture-{key}")))
+    .collect();
+    let terminals =
+        terminal::Terminals::open_with(&s.dir, rpc::Bus::new(), &agents::claude_code::MARKERS)
+            .unwrap();
+    let launcher = s.launcher();
+    for (role, pair) in
+        std::iter::once((Role::Agent, Pair::default())).chain(PROFILES.iter().map(|(role, _)| {
+            (
+                *role,
+                Pair {
+                    lean: Some(Lean {
+                        scout: *role == Role::Scout,
+                        ..Lean::default()
+                    }),
+                    ..Pair::default()
+                },
+            )
+        }))
+    {
+        for resume in [None, Some("saved")] {
+            let argv = launcher
+                .prepare_on(folders(&s.dir), "7", "1", &s.cwd, resume, role, &pair)
+                .unwrap();
+            let command = terminals.command(&SpawnParams {
+                cwd: s.cwd.to_string_lossy().into_owned(),
+                command: Some(argv),
+                env: inherited.clone(),
+                cols: 80,
+                rows: 24,
+            });
+            let argv: Vec<_> = command
+                .get_argv()
+                .iter()
+                .map(|v| v.to_string_lossy().into_owned())
+                .collect();
+            let settings = read(Path::new(Setup::after(&argv, "--settings").unwrap()));
+            assert_eq!(
+                settings["env"]["ANTHROPIC_CUSTOM_HEADERS"], headers,
+                "{role:?}"
+            );
+            assert_eq!(settings["env"]["ANTHROPIC_BASE_URL"], gateway, "{role:?}");
+            assert_eq!(settings["apiKeyHelper"], "fixture-helper", "{role:?}");
+            for (key, value) in &inherited {
+                assert_eq!(
+                    command.get_env(key),
+                    Some(std::ffi::OsStr::new(value)),
+                    "{role:?}: {key}"
+                );
+            }
+        }
+    }
+    let placement = launcher.placement(s.dir.parent().unwrap());
+    let command = placement.command(&s.cwd).unwrap();
+    let command = command.as_std();
+    let argv: Vec<_> = command
+        .get_args()
+        .map(|v| v.to_string_lossy().into_owned())
+        .collect();
+    let settings: Value = serde_json::from_str(Setup::after(&argv, "--settings").unwrap()).unwrap();
+    assert_eq!(settings["env"]["ANTHROPIC_CUSTOM_HEADERS"], headers);
+    assert_eq!(settings["env"]["ANTHROPIC_BASE_URL"], gateway);
+    assert_eq!(settings["apiKeyHelper"], "fixture-helper");
+    let overrides: std::collections::BTreeMap<_, _> = command.get_envs().collect();
+    for (key, value) in &inherited {
+        assert_eq!(
+            overrides
+                .get(std::ffi::OsStr::new(key))
+                .copied()
+                .unwrap_or(Some(std::ffi::OsStr::new(value))),
+            Some(std::ffi::OsStr::new(value)),
+            "Placement: {key}"
+        );
+    }
+}

@@ -281,4 +281,3 @@ fn user_files(root: &Path) -> std::collections::BTreeMap<PathBuf, Vec<u8>> {
     visit(root, root, &mut files);
     files
 }
-

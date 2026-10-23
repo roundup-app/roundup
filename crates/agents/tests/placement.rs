@@ -150,7 +150,7 @@ async fn a39_a_failed_or_slow_call_is_unclear_and_logged_once() {
             dir.path().join("rup"),
             None,
         )
-        .placement();
+        .placement(dir.path());
         let logs = Arc::new(Mutex::new(vec![]));
         let sink = logs.clone();
         let task = tokio::spawn(async move {
@@ -377,4 +377,72 @@ fn a39_unplaceable_repeated_spans_return_unclear_promptly() {
     assert!(
         matches!(&result[0].destination, Destination::Unclear { candidates, .. } if candidates.is_empty())
     );
+}
+
+#[test]
+fn a3507c_placement_extends_settings_without_tools() {
+    use agents::claude_code::Launcher;
+    use serde_json::{Value, json};
+    let dir = tempfile::tempdir().unwrap();
+    let config = dir.path().join("custom-config");
+    let project = dir.path().join("project");
+    let cwd = dir.path().join("empty");
+    std::fs::create_dir_all(&config).unwrap();
+    std::fs::create_dir_all(project.join(".claude")).unwrap();
+    std::fs::create_dir(&cwd).unwrap();
+    std::fs::write(config.join("settings.json"), json!({"future": {"user": true}, "hooks": {"Stop": [{"hooks": [{"type": "command", "command": "user-hook"}]}]}}).to_string()).unwrap();
+    std::fs::write(
+        project.join(".claude/settings.json"),
+        json!({"future": {"project": true, "winner": "project"}}).to_string(),
+    )
+    .unwrap();
+    std::fs::write(
+        project.join(".claude/settings.local.json"),
+        json!({"future": {"winner": "local"}}).to_string(),
+    )
+    .unwrap();
+    let launcher = Launcher::from_vars(
+        |key| match key {
+            "CLAUDE_CONFIG_DIR" => Some(config.clone().into_os_string()),
+            _ => None,
+        },
+        &dir.path().join("rupd"),
+    )
+    .unwrap();
+    let call = launcher.placement(&project);
+    let command = call.command(&cwd).unwrap();
+    let command = command.as_std();
+    let argv: Vec<_> = command.get_args().map(|s| s.to_str().unwrap()).collect();
+    let after = |flag| argv[argv.iter().position(|arg| *arg == flag).unwrap() + 1];
+    let settings: Value = serde_json::from_str(after("--settings")).unwrap();
+    assert_eq!(
+        settings["future"],
+        json!({"user": true, "project": true, "winner": "local"})
+    );
+    assert_eq!(
+        settings["hooks"]["Stop"][0]["hooks"][0]["command"],
+        "user-hook"
+    );
+    assert_eq!(after("--model"), "haiku");
+    assert_eq!(after("--effort"), "low");
+    assert_eq!(after("--tools"), "");
+    for flag in [
+        "--strict-mcp-config",
+        "--disable-slash-commands",
+        "--no-session-persistence",
+        "--json-schema",
+    ] {
+        assert!(argv.contains(&flag));
+    }
+    assert!(!argv.contains(&"--setting-sources"));
+    assert!(!argv.contains(&"--mcp-config"));
+    assert_eq!(command.get_current_dir(), Some(cwd.as_path()));
+    let removals: Vec<_> = command
+        .get_envs()
+        .filter_map(|(key, value)| value.is_none().then_some(key.to_str().unwrap()))
+        .collect();
+    assert_eq!(removals.len(), agents::claude_code::MARKERS.len());
+    for marker in agents::claude_code::MARKERS {
+        assert!(removals.contains(&marker));
+    }
 }

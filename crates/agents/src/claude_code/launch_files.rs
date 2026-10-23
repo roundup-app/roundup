@@ -133,3 +133,44 @@ pub(super) fn socket_folder() -> std::io::Result<tempfile::TempDir> {
 pub(super) fn is_symlink(path: &Path) -> bool {
     std::fs::symlink_metadata(path).is_ok_and(|meta| meta.file_type().is_symlink())
 }
+
+/// A3507b: vendor source precedence, preserving unknown keys and combining list entries once.
+pub(super) fn user_settings(config: &Path, project: &Path) -> std::io::Result<Value> {
+    let mut settings = serde_json::json!({});
+    for file in [
+        config.join("settings.json"),
+        project.join(".claude/settings.json"),
+        project.join(".claude/settings.local.json"),
+    ] {
+        let bytes = match std::fs::read(&file) {
+            Ok(bytes) => bytes,
+            Err(err) if err.kind() == ErrorKind::NotFound => continue,
+            Err(err) => return Err(err),
+        };
+        let value: serde_json::Map<String, Value> =
+            serde_json::from_slice(&bytes).map_err(|err| {
+                std::io::Error::new(ErrorKind::InvalidData, format!("{}: {err}", file.display()))
+            })?;
+        extend_settings(&mut settings, Value::Object(value));
+    }
+    Ok(settings)
+}
+
+/// Claude combines nested objects and unions arrays; scalar values follow source precedence.
+pub(super) fn extend_settings(base: &mut Value, more: Value) {
+    match (base, more) {
+        (Value::Object(base), Value::Object(more)) => {
+            for (key, value) in more {
+                extend_settings(base.entry(key).or_insert(Value::Null), value);
+            }
+        }
+        (Value::Array(base), Value::Array(more)) => {
+            for value in more {
+                if !base.contains(&value) {
+                    base.push(value);
+                }
+            }
+        }
+        (base, more) => *base = more,
+    }
+}
