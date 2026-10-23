@@ -278,6 +278,70 @@ mod n7_fixture;
 mod tests {
     use super::*;
 
+    /// Real Daemon/Terminal PTY, with no App or native window.
+    async fn transport(script: &str, body: Value) -> io::Result<Value> {
+        use base64::Engine;
+        let dir = tempfile::tempdir()?;
+        let project = dir.path().join("project");
+        std::fs::create_dir(&project)?;
+        let daemon = std::sync::Arc::new(
+            rupd::Daemon::open_project(&project, &dir.path().join("data"), None)
+                .map_err(io::Error::other)?,
+        );
+        let socket = dir.path().join("daemon.sock");
+        let listener = tokio::net::UnixListener::bind(&socket)?;
+        let server = tokio::spawn(rupd::serve(listener, std::sync::Arc::clone(&daemon)));
+        let result = tokio::time::timeout(Duration::from_secs(4), async {
+            let client = Client::connect(&socket).await?;
+            let terminal = client
+                .request(
+                    "terminal.spawn",
+                    serde_json::json!({
+                        "cwd": project, "command": ["/bin/sh", "-c", script],
+                        "env": {}, "cols": 80, "rows": 24,
+                    }),
+                )
+                .await
+                .map_err(io::Error::other)?;
+            let id = terminal["id"].as_str().unwrap();
+            // `ready` follows stty, so input cannot be swallowed by the tty's canonical mode.
+            loop {
+                let read = client
+                    .request("terminal.read", serde_json::json!({"id":id,"after":0}))
+                    .await
+                    .map_err(io::Error::other)?;
+                if read["text"].as_str().unwrap().contains("ready\n") {
+                    break;
+                }
+                tokio::time::sleep(Duration::from_millis(5)).await;
+            }
+            let line = format!("FRAMES {body}\n");
+            client
+                .request(
+                    "terminal.write",
+                    serde_json::json!({
+                        "id":id, "data":base64::engine::general_purpose::STANDARD.encode(line),
+                    }),
+                )
+                .await
+                .map_err(io::Error::other)?;
+            read_report(&socket, "FRAMES ").await
+        })
+        .await
+        .map_err(io::Error::other)
+        .and_then(|r| r);
+        let cleanup = daemon.stop_terminals().await.map_err(io::Error::other);
+        server.abort();
+        cleanup?;
+        result
+    }
+
+    #[tokio::test]
+    async fn u3010g_the_streaming_pty_echoes_the_report() {
+        let body = serde_json::json!({"exit":2,"error":"unmeasured presentation"});
+        assert_eq!(transport(FRAMES_SHELL, body.clone()).await.unwrap(), body);
+    }
+
     #[tokio::test]
     async fn n7_launch_sites_clean_on_success_and_failure() {
         // Set inherited App data only on an isolated test executable, never the test runner.
