@@ -67,7 +67,7 @@ it("u462_stale_response_cannot_replace_selected_history", async () => {
   fireEvent.click(await screen.findByRole("button", { name: "Idle #1 todo 1" }));
   await waitFor(() => expect(todoCallsTo(m.app, "todo.getHistory")).toHaveLength(1));
   m.connected.drawer.close();
-  answer({ changes: [{ actor: null, changed_at: null, seq: 99, before: null, after: { title: "Stale", body: "", done: false, blockers: [], owner: null } }], unread: 99 });
+  answer({ changes: [{ actor: null, changed_at: null, seq: 99, before: null, after: { title: "Stale", body: "", done: false, blockers: [], owner: null, estimate_minutes: null } }], unread: 99 });
   await Promise.resolve();
   expect(todoCallsTo(m.app, "todo.readHistory")).toHaveLength(0);
   expect(screen.queryByText("Created Stale")).toBeNull();
@@ -82,7 +82,7 @@ it("u462_closed_drawer_response_does_not_acknowledge_before_unmount", async () =
   fireEvent.click(await screen.findByRole("button", { name: "Idle #1 todo 1" }));
   await waitFor(() => expect(todoCallsTo(m.app, "todo.getHistory")).toHaveLength(1));
   m.connected.drawer.close();
-  answer({ changes: [{ actor: null, changed_at: null, seq: 99, before: null, after: { title: "Stale", body: "", done: false, blockers: [], owner: null } }], unread: 99 });
+  answer({ changes: [{ actor: null, changed_at: null, seq: 99, before: null, after: { title: "Stale", body: "", done: false, blockers: [], owner: null, estimate_minutes: null } }], unread: 99 });
   await Promise.resolve();
 
   expect(todoCallsTo(m.app, "todo.readHistory")).toHaveLength(0);
@@ -140,9 +140,43 @@ it("u3728_failed_read_retries_without_consuming_unread", async () => {
   expect(todoCallsTo(m.app, "todo.readHistory")).toHaveLength(2);
 });
 
+
+it.each([
+  { before: null, after: 45 },
+  { before: 45, after: 60 },
+  { before: 45, after: null },
+])("u3365_an_estimate_only_change_renders_one_line_%j", async ({ before, after }) => {
+  const m = await mountTodos([todo(1, { estimate_minutes: after })]);
+  const values = { title: "todo 1", body: "", done: false, blockers: [], owner: null };
+  m.app.handlers["todo.getHistory"] = () => ({ unread: 1, changes: [
+    { actor: { kind: "agent", id: "estimator", parent: null }, changed_at: null, seq: 1,
+      before: { ...values, estimate_minutes: before }, after: { ...values, estimate_minutes: after } },
+  ] });
+  await open(m); await disclose(m);
+  const entries = panel().querySelectorAll("[data-change]");
+  expect(entries).toHaveLength(1);
+
+  if (after !== null) expect(entries[0]?.textContent).toContain(String(after));
+});
+
+
+it("u3365_an_estimate_change_keeps_the_other_fields_lines", async () => {
+  const m = await mountTodos([todo(1)]);
+  const values = { title: "todo 1", body: "", done: false, blockers: [], owner: null, estimate_minutes: null };
+  m.app.handlers["todo.getHistory"] = () => ({ unread: 1, changes: [
+    { actor: null, changed_at: null, seq: 1, before: values,
+      after: { ...values, title: "Plan the release", estimate_minutes: 45 } },
+  ] });
+  await open(m); await disclose(m);
+  const entries = [...panel().querySelectorAll("[data-change]")];
+  expect(entries).toHaveLength(2);
+  expect(entries.some(entry => entry.textContent?.includes("Plan the release"))).toBe(true);
+  expect(entries.some(entry => entry.textContent?.includes("45"))).toBe(true);
+});
+
 it("u3299a_history_copy_keeps_removed_owner_identity", async () => {
   const m = await mountTodos([todo(1)]);
-  const values = { title: "todo 1", body: "/Users/authored/path", done: false, blockers: Array.of<number>(), owner: null };
+  const values = { title: "todo 1", body: "/Users/authored/path", done: false, blockers: Array.of<number>(), owner: null, estimate_minutes: null };
   const owner = { kind: "agent" as const, id: "removed-original-id", parent: null };
   const change = { actor: owner, changed_at: null, seq: 1, before: values, after: { ...values, owner }, handed: owner };
   m.app.handlers["todo.getHistory"] = () => ({ unread: null, changes: [change] });

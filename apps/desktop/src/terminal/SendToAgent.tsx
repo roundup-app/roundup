@@ -48,7 +48,7 @@ export const SendToAgent = (props: { send: ReturnType<typeof createSendSelection
   });
 
   // U3767: a modal Dialog closes the note; its text stays held and returns when the user reopens it.
-  createEffect(() => { if (modalOpen() && control.open()) control.dismiss(); });
+  createEffect(() => { if (modalOpen() && control.open()) { control.dismiss(); setChoosing(false); } });
 
   const anchorRect = () => {
     const at = control.anchor();
@@ -83,7 +83,7 @@ export const SendToAgent = (props: { send: ReturnType<typeof createSendSelection
   );
 
   return (
-    <Popover.Root open={control.open()} closeOnEscape onOpenChange={(change) => { if (!change.open && control.open()) close(); }} positioning={{ placement: "bottom-start", strategy: "fixed", getAnchorRect: anchorRect }}>
+    <Popover.Root closeOnInteractOutside={false} open={control.open()} closeOnEscape onOpenChange={(change) => { if (!change.open && control.open()) close(); }} positioning={{ placement: "bottom-start", strategy: "fixed", getAnchorRect: anchorRect }}>
       <Show when={control.open()}><Portal>
         <Popover.Positioner>
           <Popover.Content ref={panel} class="send-to-agent" aria-label={copy.sendToAgent} onPointerDown={() => control.hold()}>
