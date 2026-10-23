@@ -51,3 +51,64 @@ async fn u3780a_calls_stay_with_their_agent() {
     assert_eq!(of(&a.id).unwrap().state, ToolCallState::Done);
     assert_eq!(of(&b.id), None);
 }
+
+#[tokio::test]
+async fn a3360a_a_megabyte_tool_name_is_cut_to_64_characters() {
+    let mut f = Fixture::running("sleep 30");
+    let node = f.spawn(None, None).await.unwrap();
+    calls(&mut f);
+    signal(
+        &f,
+        &node.id,
+        json!({"hook_event_name": "PreToolUse", "tool_use_id": "long", "tool_name": "a".repeat(1_000_000), "tool_input": {"command": "unchanged"}}),
+    )
+    .await;
+
+    let announced = calls(&mut f);
+    assert_eq!(announced.len(), 1);
+    assert_eq!(announced[0].call.tool.chars().count(), 64);
+    assert_eq!(announced[0].call.tool, "a".repeat(64));
+    let tree = f.tree().await;
+    let call = tree
+        .iter()
+        .find(|n| n.id == node.id)
+        .unwrap()
+        .tool_call
+        .as_ref()
+        .unwrap();
+    assert_eq!(call, &announced[0].call);
+    assert_eq!(call.summary, None);
+    assert!(call.arguments.contains("unchanged"));
+}
+
+#[tokio::test]
+async fn a3360a_the_cut_falls_on_a_character_boundary() {
+    let f = Fixture::running("sleep 30");
+    let node = f.spawn(None, None).await.unwrap();
+    let boundary = "a".repeat(63) + "🦀";
+    for (name, expected) in [
+        (boundary.clone() + "discarded", boundary.clone()),
+        (boundary.clone(), boundary),
+        ("a".repeat(64), "a".repeat(64)),
+        ("Bash".to_owned(), "Bash".to_owned()),
+    ] {
+        signal(
+            &f,
+            &node.id,
+            json!({"hook_event_name": "PreToolUse", "tool_use_id": "boundary", "tool_name": name, "tool_input": {"command": "echo unchanged"}}),
+        )
+        .await;
+        let tree = f.tree().await;
+        let call = tree
+            .iter()
+            .find(|n| n.id == node.id)
+            .unwrap()
+            .tool_call
+            .as_ref()
+            .unwrap();
+        assert_eq!(call.tool, expected);
+        if name == "Bash" {
+            assert_eq!(call.summary.as_deref(), Some("echo unchanged"));
+        }
+    }
+}
