@@ -38,7 +38,7 @@ afterAll(async () => {
 /** Whether the element at the centre of the surface is inside it, so nothing draws over it. */
 const onTop = (surface: string) => read<boolean>(`(() => { const s = document.querySelector('${surface}'); const r = s.getBoundingClientRect(); const hit = document.elementFromPoint(r.x + r.width / 2, r.y + r.height / 2); return !!hit && s.contains(hit); })()`);
 
-it("u3767_a_menu_or_select_in_a_dialog_shows_above_it", async () => {
+it("u3295a_a_menu_or_select_in_a_dialog_shows_above_it", async () => {
   await read(`document.querySelector('[data-scope="menu"][data-part="trigger"]').click()`);
   await browser("wait", "--fn", `!!document.querySelector('.app-menu')`);
   expect(await onTop(".app-menu")).toBe(true);

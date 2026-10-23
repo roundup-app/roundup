@@ -294,7 +294,7 @@ p.ink[role="alert"] {
   display: none;
 }
 
-.reserved-actions :is(.todo-draft-revision, .todo-draft-actions, .send-to-agent-recovery) {
+.reserved-actions :is(.todo-draft-revision, .todo-draft-actions) {
   display: flex;
   align-items: center;
   gap: var(--space-2);
