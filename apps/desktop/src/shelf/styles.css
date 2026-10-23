@@ -239,3 +239,103 @@
 .pads-tab {
   position: relative;
 }
+
+.todo-busy {
+  margin: 0;
+  padding-inline: var(--space-4);
+  padding-block-end: var(--space-2);
+  color: var(--grey);
+  font-size: var(--text-small);
+}
+
+.todo-owner-digit,
+.todo-row-estimate {
+  color: var(--grey);
+  font-size: var(--text-small);
+  flex-shrink: 0;
+}
+
+.todo-auto {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--space-1);
+  padding: var(--space-2);
+}
+
+.todo-auto-hint {
+  color: var(--grey);
+  font-size: var(--text-small);
+}
+
+.shelf .todos-tab .shelf-row .todo-row-button {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-2);
+}
+
+.todo-owner-digit {
+  color: var(--grey);
+  font-family: var(--font-mono);
+  margin-inline-start: var(--space-4);
+  margin-inline-end: var(--space-2);
+}
+
+/* U3309: the row's failure uses its reserved line even when body prose wraps. */
+.todo-row-notice .reserved-content > .ink {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.todo-row-estimate {
+  margin-inline-start: var(--space-3);
+  font-weight: 400;
+}
+
+.todo-row[data-lifted="true"] .shelf-title,
+.shelf-groups [data-shelf-group][data-drop-target] > .shelf-group-head .shelf-group-control,
+.shelf-groups [data-shelf-group][data-drop-target] > .todo-busy {
+  color: var(--accent);
+}
+
+.todo-drag-preview {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  block-size: 0;
+  pointer-events: none;
+}
+
+.todo-drag-preview-content {
+  position: absolute;
+  inset-inline: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  padding: var(--space-2);
+  background: var(--sunken);
+  color: var(--accent);
+  font-size: var(--text-small);
+  pointer-events: none;
+}
+
+.shelf .todos-tab .todo-row-notice:has(.reserved-line:not([data-empty="true"])) {
+  z-index: 1;
+  pointer-events: auto;
+}
+
+/* U3309: reserve the second line even for a Todo without body prose. */
+.shelf .todos-tab .todo-inset > .shelf-text {
+  position: relative;
+  min-block-size: var(--line);
+}
+
+.shelf .todos-tab .todo-inset > .shelf-text > .todo-row-notice {
+  position: absolute;
+  top: 0;
+  inset-inline: 0;
+  block-size: var(--line);
+  pointer-events: none;
+}

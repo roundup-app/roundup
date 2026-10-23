@@ -163,13 +163,12 @@ it("u2744a_shelf_scope_moved_item_follows_its_home", async () => {
   await waitFor(() => expect(ids()).toEqual([2, 5]));
 });
 
-// The Todo empty-group clause: u3717_group_order_is_me_agents_unassigned shows only groups holding a Todo.
-it("u2744a_shelf_scope_empty_groups_are_omitted", async () => {
+// U3308 narrows Todo groups: u3308_idle_groups_follow_the_workstream_and_lift_reveals_every_owner proves idle Agents remain.
+it("u2744a_shelf_scope_empty_pad_groups_are_omitted", async () => {
   const { connected, app } = await mount();
   connected.rail.select("v");
   await app.rpc("todo.delete", { id: 3 });
   await app.rpc("pad.delete", { name: "pad-3" });
-  await waitFor(() => expect(groupIds()).toEqual([]));
   await tab("Pads");
   await waitFor(() => expect(groupIds()).toEqual([]));
   expect(screen.getByRole("button", { name: /Add Pad/ })).toBeTruthy();

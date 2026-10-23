@@ -167,13 +167,14 @@ for (const list of [nested, shelf]) {
       expect(await state(rows)).toMatchObject({ drawer: true, reorders: [] });
     }, 60_000);
 
-    it("u490a_Enter_on_a_row_button_opens_it_without_drag_semantics", async () => {
+    it(`u490a_${list === shelf ? "Space" : "Enter"}_on_a_row_button_opens_it_without_drag_semantics`, async () => {
       await page.scheme("light");
       await list.setup();
       await page.call(`rows => document.querySelectorAll(rows)[0].focus()`, rows);
       // The shared Tooltip may describe the row; Sortable adds no drag role or disabled state.
       expect(await page.call<string[]>(`rows => [...document.querySelectorAll(rows)[0].attributes].map(a => a.name + "=" + a.value).filter(a => /^aria-(roledescription|grabbed|disabled)=/.test(a))`, rows)).toEqual([]);
-      await page.press("Enter", "Enter");
+      // U3309 reserves Shelf Enter for lifting; Space still opens the Todo.
+      await page.press(list === shelf ? " " : "Enter", list === shelf ? "Space" : "Enter");
       await page.until(`() => document.querySelector('[aria-label=Drawer]')?.getAttribute('data-open') === 'true'`);
       expect(await state(rows)).toMatchObject({ drawer: true, reorders: [] });
     }, 60_000);
