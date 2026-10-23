@@ -394,6 +394,12 @@ An extra label after a name; it never changes the Glyph.
 **Live line**:
 The Status label, in a Rail row's `title` and the Agent's pane; the Rail draws none.
 
+**Unseen** (`unseen`, user label: Unread result):
+An Agent's turn finish the user has not yet viewed. It is separate from Kind, a Decision, result acceptance and unseen output in a plain Terminal.
+
+**Finish count** (`finished`):
+The number of an Agent's observed Kind transitions directly from `working` to `idle` or `done`, across its Attempts. It identifies newer finishes without claiming that their results were accepted or checked.
+
 ### Agents at work
 
 **Adapter**:
