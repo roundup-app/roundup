@@ -3,13 +3,12 @@ import type { ITheme } from "@xterm/xterm";
 /** An emulator theme that always names the two colours the Daemon reports to a program (X17). */
 export type TerminalTheme = ITheme & { background: string; foreground: string };
 
-/** The emulator's colours per scheme, as the values of `tokens.css`'s `--ground`, `--text` and `--selected` in that scheme; `u59_terminal_theme.test.ts` fails when they drift apart. Each ANSI colour is 4.5:1 or better on its scheme's `--ground` as text (U4). */
+/** The emulator's colours per scheme, as the values of `tokens.css`'s `--ground` and `--text` in that scheme. Each ANSI colour is 4.5:1 or better on its scheme's `--ground` as text (U4). */
 export const lightTerminalTheme: TerminalTheme = {
   background: "#ffffff",
   foreground: "#1d1d1f",
   cursor: "#1d1d1f",
   cursorAccent: "#ffffff",
-  selectionBackground: "rgba(0, 0, 0, 0.05)",
   black: "#1d1d1f",
   red: "#c4262e",
   green: "#1a7f37",
@@ -33,7 +32,6 @@ export const darkTerminalTheme: TerminalTheme = {
   foreground: "#f5f5f7",
   cursor: "#f5f5f7",
   cursorAccent: "#1c1c1e",
-  selectionBackground: "rgba(255, 255, 255, 0.1)",
   black: "#8e8e93",
   red: "#ff6b6b",
   green: "#5fd37a",
@@ -53,4 +51,18 @@ export const darkTerminalTheme: TerminalTheme = {
 };
 
 /** The theme for the window's colour scheme. */
-export const terminalThemeFor = (dark: boolean): TerminalTheme => (dark ? darkTerminalTheme : lightTerminalTheme);
+export const terminalThemeFor = (dark: boolean): TerminalTheme => {
+  // xterm accepts concrete colours, so resolve the same platform Token that browser selections paint.
+  const probe = document.createElement("span");
+  probe.style.backgroundColor = "var(--text-selection)";
+  probe.style.color = "var(--text-selection-ink)";
+  document.documentElement.append(probe);
+  const resolved = getComputedStyle(probe);
+  const selection = resolved.backgroundColor;
+  const ink = resolved.color;
+  probe.remove();
+
+  const theme = dark ? darkTerminalTheme : lightTerminalTheme;
+
+  return { ...theme, selectionBackground: selection, selectionInactiveBackground: selection, selectionForeground: ink };
+};

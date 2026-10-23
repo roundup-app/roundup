@@ -1,3 +1,4 @@
+import { textTarget } from "./ui/contextMenu";
 import { AppSettings } from "./settings/AppSettings";
 import { applyAppAppearance } from "./settings/preferences";
 import { registerKeys } from "./keys/registry";
@@ -184,14 +185,16 @@ export const App = (props: {
     }
   };
 
-  const suppressBrowserMenu = (event: MouseEvent) => event.preventDefault();
+  const suppressBrowserMenu = (event: MouseEvent) => {
+    if (!textTarget(event.target)) event.preventDefault();
+  };
 
   onMount(() => {
-    window.addEventListener("contextmenu", suppressBrowserMenu, true);
+    window.addEventListener("contextmenu", suppressBrowserMenu);
     window.addEventListener("pointerdown", clearBrowserSelection, true);
   });
   onCleanup(() => {
-    window.removeEventListener("contextmenu", suppressBrowserMenu, true);
+    window.removeEventListener("contextmenu", suppressBrowserMenu);
     window.removeEventListener("pointerdown", clearBrowserSelection, true);
   });
 
@@ -413,7 +416,7 @@ export const App = (props: {
                   <div class="centre-stack">
                     <div class="project-center-area">
                     <div class="project-center-content" inert={open.settingsView.open()} style={{ visibility: open.settingsView.open() ? "hidden" : "visible" }}>
-                    <Pane notice={open.rail.failure() ?? jumpFailure() ?? open.contractNotice} createEmulator={tracked} screensRef={setScreens} toasts={toasts} />
+                    <Pane notice={open.rail.failure() ?? jumpFailure() ?? open.contractNotice} createEmulator={tracked} screensRef={setScreens} />
                     <AskBar />
                     <Switcher onFailure={setJumpFailure} onOpen={() => { if (document.querySelector('.window[data-shelf="open"][data-shelf-mode="overlay"]')) shelfFocus.toggle("key"); }} />
                     </div>
