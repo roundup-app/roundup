@@ -470,3 +470,66 @@ it("u3474e_sending_the_batch_returns_to_a_live_control", async () => {
   fireEvent.click(document.activeElement!);
   expect(await screen.findByRole("button", { name: "View diff" })).toBeTruthy();
 });
+
+it.each(["dismiss", "copy same", "copy other", "discard", "failed discard"])("p3557c_failure_lifetime_note_recovery: %s", async action => {
+  const { app, connected } = await openDiff();
+  await saveNote("  copied note e\u0301\n🐝  ");
+  await saveNote("  other note 🐝  ");
+  fireEvent.click(screen.getByRole("button", { name: "Add note" }));
+  fireEvent.input(screen.getByRole("textbox", { name: "Note" }), { target: { value: "  unfinished e\u0301\n🐝  " } });
+  app.handlers["rail.tree"] = () => [agent("plain", "working", "building")];
+  app.emit(event({ name: "rail.changed" }));
+  await waitFor(() => expect(connected.rail.nodes.some(node => node.id === "a")).toBe(false));
+  fireEvent.click(screen.getByRole("button", { name: "Recover Changes drafts" }));
+  const recovery = await screen.findByRole("dialog", { name: "Recover Changes drafts" });
+  const first = within(recovery).getByText("  copied note e\u0301\n🐝  ", { normalizer: value => value }).parentElement!;
+  const other = within(recovery).getByText("  other note 🐝  ", { normalizer: value => value }).parentElement!;
+  const copied = vi.fn<(text: string) => Promise<void>>().mockRejectedValue(new Error("clipboard refused"));
+  Object.defineProperty(navigator, "clipboard", { configurable: true, value: { writeText: copied } });
+  fireEvent.click(within(first).getByRole("button", { name: "Copy" }));
+  await within(recovery).findByRole("alert");
+  copied.mockResolvedValue();
+  let blocked: ReturnType<typeof vi.spyOn> | undefined;
+
+  if (action === "dismiss") fireEvent.click(within(recovery).getByRole("button", { name: "Dismiss" }));
+  else if (action.includes("discard")) {
+    if (action === "failed discard") blocked = vi.spyOn(Storage.prototype, "setItem").mockImplementation(() => { throw new Error("disk refused"); });
+    fireEvent.click(within(first).getByRole("button", { name: "Discard this draft" }));
+  } else {
+    fireEvent.click(within(action === "copy same" ? first : other).getByRole("button", { name: "Copy" }));
+    await waitFor(() => expect(copied).toHaveBeenCalledTimes(2));
+  }
+
+  await waitFor(() => expect(within(recovery).queryAllByRole("alert").length > 0).toBe(action === "copy other" || action === "failed discard"));
+  expect(recovery.textContent).toContain("  other note 🐝  ");
+  expect(recovery.textContent).toContain("  unfinished e\u0301\n🐝  ");
+  expect(JSON.parse(copied.mock.calls[0]![0])).toMatchObject({ project: "/p", recipient: "a", note: { text: "  copied note e\u0301\n🐝  " } });
+  expect(app.calls.filter(call => call.method === "message.send")).toHaveLength(0);
+  blocked?.mockRestore();
+});
+
+it.each(["save", "cancel"])("p3557c_failure_lifetime_note_recovery_form: %s", async action => {
+  const { app } = await openDiff();
+  await saveNote("unrelated saved note");
+  app.handlers["message.send"] = () => { throw new Error("reply lost"); };
+
+  fireEvent.click(screen.getByRole("button", { name: /Send notes to/ }));
+  await screen.findByRole("button", { name: "Check Message history" });
+  fireEvent.click(screen.getByRole("button", { name: "Add note" }));
+  fireEvent.input(screen.getByRole("textbox", { name: "Note" }), { target: { value: "  exact form e\u0301\n🐝  " } });
+  fireEvent.click(screen.getByRole("button", { name: "Close" }));
+  await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+  fireEvent.click(screen.getByRole("button", { name: "Recover Changes drafts" }));
+  const recovery = await screen.findByRole("dialog", { name: "Recover Changes drafts" });
+  const form = within(recovery).getByText("  exact form e\u0301\n🐝  ", { normalizer: value => value }).parentElement!;
+  Object.defineProperty(navigator, "clipboard", { configurable: true, value: { writeText: vi.fn().mockRejectedValue(new Error("refused")) } });
+  fireEvent.click(within(form).getByRole("button", { name: "Copy" }));
+  await within(recovery).findByRole("alert");
+  fireEvent.click(within(form).getByRole("button", { name: "Resume note" }));
+  expect(screen.getByRole("textbox", { name: "Note" })).toHaveProperty("value", "  exact form e\u0301\n🐝  ");
+  fireEvent.click(within(recovery).getByRole("button", { name: action === "save" ? "Save" : "Cancel" }));
+  await waitFor(() => expect(within(recovery).queryByRole("alert") !== null).toBe(action === "cancel"));
+  expect(recovery.textContent).toContain("  exact form e\u0301\n🐝  ");
+  expect(recovery.textContent).toContain("unrelated saved note");
+  expect(app.calls.filter(call => call.method === "message.send")).toHaveLength(1);
+});

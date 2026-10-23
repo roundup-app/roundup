@@ -31,17 +31,35 @@ const Panel = (props: { id: string; name: string; worktree: Worktree; notes: Not
 
   const [open, setOpen] = createSignal(false);
   const [read, setRead] = createSignal<Read>(null);
+  const [version, setVersion] = createSignal(0);
+  const [dismissedState, setDismissedState] = createSignal<ReturnType<typeof state>>();
+  const [dismissedRead, setDismissedRead] = createSignal<Read>();
+
+  const failure = () => {
+    const shared = state();
+    const local = read();
+
+    return (shared !== dismissedState() ? shared?.failure : null) ?? (local !== dismissedRead() ? local?.failure : null);
+  };
+
+  const dismiss = () => {
+    const shared = state();
+
+    if (shared?.failure && shared !== dismissedState()) setDismissedState(shared);
+    else setDismissedRead(read());
+  };
+
   const [path, setPath] = createSignal<string>();
   const [editing, setEditing] = createSignal<Note>();
   const [diff, setDiff] = createSignal(false);
   const [control, setControl] = createSignal<HTMLButtonElement>();
 
-  createEffect(on(open, (now) => {
+  createEffect(on(() => [open(), version()] as const, ([now]) => {
     if (!now) return;
 
     let current = true;
 
-    setRead(null);
+    setRead(previous => previous?.failure ? previous : null);
 
     let loaded: Read = null;
 
@@ -98,10 +116,9 @@ const Panel = (props: { id: string; name: string; worktree: Worktree; notes: Not
               )}
             </Show>
           </dl>
-          <ReservedLine message={state()?.failure ?? read()?.failure} />
-          <Show when={read()}>
-            {(done) => {
-              const value = done();
+          <ReservedLine message={failure()}><button type="button" data-button="quiet" onClick={() => setVersion(value => value + 1)}>{copy.retry}</button><button type="button" data-button="quiet" onClick={dismiss}>Dismiss</button></ReservedLine>
+          <Show when={read()} keyed>
+            {(value) => {
 
               if (value.failure !== null) return null;
 

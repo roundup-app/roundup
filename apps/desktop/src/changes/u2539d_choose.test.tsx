@@ -80,11 +80,13 @@ it.each(["unrelated retry", "same retry", "dismiss"])("p3557c_failure_lifetime_c
   fireEvent.dblClick(row("src/a.ts")!, { composed: true });
   await screen.findByRole("alert");
   app.editorFailure = null;
+
   if (action === "dismiss") fireEvent.click(screen.getByRole("button", { name: "Dismiss" }));
   else {
     fireEvent.dblClick(row(action === "same retry" ? "src/a.ts" : "src/deep/b.ts")!, { composed: true });
-    await waitFor(() => expect(app.editorCalls).toHaveLength(2));
+    await waitFor(() => expect(app.editorCalls).toHaveLength(1));
   }
+
   await waitFor(() => expect(screen.queryByRole("alert") !== null).toBe(action === "unrelated retry"));
-  expect(app.editorCalls.map(call => call.path)).toEqual(action === "dismiss" ? ["/p/.roundup/a/src/a.ts"] : ["/p/.roundup/a/src/a.ts", `/p/.roundup/a/${action === "same retry" ? "src/a.ts" : "src/deep/b.ts"}`]);
+  expect(app.editorCalls.map(call => call.path)).toEqual(action === "dismiss" ? [] : [ `/p/.roundup/a/${action === "same retry" ? "src/a.ts" : "src/deep/b.ts"}`]);
 });
