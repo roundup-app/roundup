@@ -6,6 +6,7 @@ import type { StartChoice } from "@contracts/workstream/StartChoice";
 import { copy } from "../copy";
 import { ReservedLine } from "../ink/ReservedLine";
 import { useConnectedProject } from "../state/connectedProject";
+import { registerKeys } from "../keys/registry";
 import { Dialog } from "../ui/Dialog";
 import { RadioGroup } from "../ui/RadioGroup";
 import { Combobox } from "../ui/Combobox";
@@ -36,13 +37,19 @@ const WaitFor = (props: { todos: readonly { id: number; title: string }[]; value
 
   const highlighted = () => shown().some(item => item.value === highlight()) ? highlight() : shown()[0]?.value ?? null;
   const chosen = () => props.todos.find(todo => String(todo.id) === props.value);
+  let button: HTMLButtonElement | undefined;
+  let panel: HTMLDivElement | undefined;
   const close = () => { setOpen(false); setQuery(""); setHighlight(null); };
 
-  return <Popover.Root open={open()} onOpenChange={({ open }) => { if (!open) close(); }} positioning={{ placement: "bottom-start", strategy: "fixed" }}>
-    <Popover.Trigger asChild={attributes => <button {...attributes()} type="button" data-button="quiet" class="app-dialog-pick" onClick={() => { if (open()) close(); else setOpen(true); }}>
+  registerKeys({ kind: "layer", element: () => panel, active: open, modal: false }, [{
+    chords: ["Escape"], run: () => { close(); button?.focus(); },
+  }]);
+
+  return <Popover.Root closeOnInteractOutside={false} open={open()} onOpenChange={({ open }) => { if (!open) close(); }} positioning={{ placement: "bottom-start", strategy: "fixed" }}>
+    <Popover.Trigger asChild={attributes => <button {...attributes()} ref={element => { button = element; }} type="button" data-button="quiet" class="app-dialog-pick" onClick={() => { if (open()) close(); else setOpen(true); }}>
       <span>{chosen() ? `#${chosen()!.id} ${chosen()!.title}` : copy.chooseTodo}</span><Icon name="down" />
     </button>} />
-    <Popover.Positioner><Popover.Content class="todo-blocker-menu" onKeyDown={event => { if (event.key === "Escape") { event.stopPropagation(); close(); } }}>
+    <Popover.Positioner><Popover.Content ref={element => { panel = element; }} class="todo-blocker-menu" onKeyDown={event => { if (event.key === "Escape") { event.stopPropagation(); close(); } }}>
       <Combobox.Root items={shown()} inputValue={query()} onInput={setQuery} highlightedValue={highlighted()} onHighlightChange={setHighlight}
         onSelect={value => { props.onPick(value); close(); }}
         label={copy.startAfterTodoLabel} placeholder={copy.blockerPlaceholder} empty={copy.noMatch}

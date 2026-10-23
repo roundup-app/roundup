@@ -1,5 +1,6 @@
 import { Tooltip as ArkTooltip, useTooltipContext } from "@ark-ui/solid/tooltip";
-import { createContext, Show, splitProps, useContext } from "solid-js";
+import { floatingControl } from "./Dialog";
+import { createContext, createSignal, Show, splitProps, useContext } from "solid-js";
 import type { Chord } from "../keys/chords";
 import { KeyHint } from "../keys/KeyHint";
 import "./Tooltip.css";
@@ -9,25 +10,27 @@ type Anchor = () => HTMLElement | undefined;
 const Ownership = createContext<{ pointer: (event: PointerEvent) => void; focus: (event: FocusEvent, id: string | undefined) => void }>();
 
 const Root = (props: ArkTooltip.RootProps & { anchor?: Anchor | undefined }) => {
-  let owner: HTMLElement | undefined;
+  const [owner, setOwner] = createSignal<HTMLElement>();
+  const control = floatingControl(props, () => props.anchor?.() ?? owner());
   let pointer: { x: number; y: number } | undefined;
-  const rect = () => (props.anchor ? props.anchor() : owner)?.getBoundingClientRect() ?? null;
+  const rect = () => (props.anchor ? props.anchor() : owner())?.getBoundingClientRect() ?? null;
 
   const ownership = {
     pointer: (event: PointerEvent) => {
       if (event.pointerType === "touch") return;
-      owner = event.currentTarget instanceof HTMLElement ? event.currentTarget : undefined;
+      setOwner(event.currentTarget instanceof HTMLElement ? event.currentTarget : undefined);
       pointer = { x: event.clientX, y: event.clientY };
     },
     focus: (event: FocusEvent, id: string | undefined) => {
       const current = event.currentTarget;
 
-      owner = current instanceof HTMLElement ? (id ? current.ownerDocument.getElementById(id) : null) ?? current : undefined;
+      setOwner(current instanceof HTMLElement ? (id ? current.ownerDocument.getElementById(id) : null) ?? current : undefined);
       pointer = undefined;
     },
   };
 
   return <Ownership.Provider value={ownership}><ArkTooltip.Root lazyMount unmountOnExit {...props}
+    open={control.open()} disabled={props.disabled || control.blocked()}
     positioning={{ strategy: "fixed", ...props.positioning, getAnchorRect: rect }}
     onOpenChange={(details) => {
       if (details.open && pointer && (import.meta.env.DEV || import.meta.env.VITEST === "true")) {
@@ -38,7 +41,7 @@ const Root = (props: ArkTooltip.RootProps & { anchor?: Anchor | undefined }) => 
         }
       }
 
-      props.onOpenChange?.(details);
+      control.change(details);
     }} /></Ownership.Provider>;
 };
 

@@ -168,12 +168,19 @@ impl Shared {
                 });
                 match result {
                     Ok(out) => {
+                        let mut calls = shared
+                            .events
+                            .tool_calls
+                            .lock()
+                            .unwrap_or_else(|e| e.into_inner());
                         for item in &removal.removed {
                             if item.kind == RemovalKind::Agent {
                                 runs.remove(&item.id);
+                                calls.remove(&item.id);
                             }
                         }
                         runs.remove(&id_owned);
+                        calls.remove(&id_owned);
                         Ok((removal, out))
                     }
                     Err(err) => {
@@ -298,16 +305,158 @@ mod tests {
     use crate::{KillsTerminals, Observation, Run, Slot};
 
     use crate::tests::*;
-    #[tokio::test]
-    async fn a16_a_failed_stop_returns_the_error_and_deletes_nothing() {
-        let shared = shared_with_a_failing_kill();
-        let id = running_agent(&shared, None);
-
-        let err = shared.remove(Actor::daemon(), &id).await.unwrap_err();
-
-        assert_eq!(err.code, rpc::code::INTERNAL);
-        assert_eq!(shared.rail().tree().unwrap().len(), 1);
+    fn record_call(shared: &crate::Shared, id: &str) {
+        shared
+            .observe(
+                Actor::daemon(),
+                id,
+                "1",
+                Observation::Signal(serde_json::json!({
+                    "hook_event_name": "PreToolUse", "tool_use_id": "call",
+                    "tool_name": "Bash", "tool_input": {"command": "pwd"}
+                })),
+            )
+            .unwrap();
+        assert!(shared.events.tool_calls.lock().unwrap().contains_key(id));
     }
+
+    #[tokio::test]
+    async fn a3342a_removing_agents_leaves_no_tool_call_entries() {
+        let (_dir, _, shared) = shared_over_temp_dir(Arc::new(|| 0));
+        let survivor = running_agent(&shared, None);
+        record_call(&shared, &survivor);
+        let expected = shared.events.tool_calls.lock().unwrap().clone();
+        for finished in [false, true, false, true] {
+            let id = running_agent(&shared, None);
+            record_call(&shared, &id);
+            if finished {
+                shared.observe(Actor::daemon(), &id, "1", Observation::Signal(
+                    serde_json::json!({"hook_event_name": "PostToolUse", "tool_use_id": "call", "tool_response": "ok"})
+                )).unwrap();
+            }
+            shared.remove(Actor::user(), &id).await.unwrap();
+            assert_eq!(*shared.events.tool_calls.lock().unwrap(), expected);
+        }
+        let silent = running_agent(&shared, None);
+        shared.remove(Actor::user(), &silent).await.unwrap();
+        assert_eq!(*shared.events.tool_calls.lock().unwrap(), expected);
+    }
+
+    #[tokio::test]
+    async fn a3342a_a_late_signal_after_removal_adds_no_entry() {
+        let (_dir, _, shared) = shared_over_temp_dir(Arc::new(|| 0));
+        let id = running_agent(&shared, None);
+        record_call(&shared, &id);
+        shared.remove(Actor::user(), &id).await.unwrap();
+        assert!(shared.events.tool_calls.lock().unwrap().is_empty());
+
+        let error = shared
+            .observe(
+                Actor::daemon(),
+                &id,
+                "1",
+                Observation::Signal(
+                    serde_json::json!({"hook_event_name": "PreToolUse", "tool_use_id": "late",
+                "tool_name": "Read", "tool_input": {"file_path": "/late"}}),
+                ),
+            )
+            .unwrap_err();
+
+        assert_eq!(error.code, rpc::code::NOT_FOUND);
+        assert!(shared.events.tool_calls.lock().unwrap().is_empty());
+        assert!(shared.tree().unwrap().is_empty());
+    }
+
+    #[tokio::test]
+    async fn a3342a_stopping_without_removal_keeps_the_last_call() {
+        let (_dir, _, shared) = shared_over_temp_dir(Arc::new(|| 0));
+        let id = running_agent(&shared, None);
+        record_call(&shared, &id);
+        shared.observe(Actor::daemon(), &id, "1", Observation::Signal(
+            serde_json::json!({"hook_event_name": "PostToolUse", "tool_use_id": "call", "tool_response": "ok"})
+        )).unwrap();
+        let before = shared.events.tool_calls.lock().unwrap().clone();
+
+        shared.stop(Actor::user(), &id).await.unwrap();
+
+        assert_eq!(*shared.events.tool_calls.lock().unwrap(), before);
+        assert_eq!(
+            shared.node(&id).unwrap().tool_call.as_ref(),
+            Some(&before[&id].call)
+        );
+    }
+
+    #[tokio::test]
+    async fn a3342a_workstream_removal_prunes_only_its_agents() {
+        let (_dir, _, shared) = shared_over_temp_dir(Arc::new(|| 0));
+        let ws = shared
+            .rail()
+            .insert(NodeKind::Workstream, "w", None, None)
+            .unwrap()
+            .id;
+        shared.rail().allocate_attempt(&ws).unwrap();
+        shared.runs().insert(
+            ws.clone(),
+            Slot::Running(Run {
+                yolo: false,
+                startup_context: true,
+                attempt: "1".into(),
+                status_revision: 1,
+                closing: false,
+                ended: false,
+                adapter: ClaudeCode::starting(|| 0),
+                prompt: None,
+                first_pending: false,
+                first_completion: None,
+                first_prompt: None,
+                steer: None,
+                session_started: false,
+                starred: false,
+                interrupt: None,
+                named: true,
+                terminal_id: "1".into(),
+                cwd: "/".into(),
+            }),
+        );
+        let finished = running_agent(&shared, Some(&ws));
+        let living = running_agent(&shared, Some(&ws));
+        let sibling = shared
+            .rail()
+            .insert(NodeKind::Workstream, "sibling", None, None)
+            .unwrap()
+            .id;
+        let survivor = running_agent(&shared, Some(&sibling));
+        for id in [&ws, &finished, &living, &survivor] {
+            record_call(&shared, id);
+        }
+        shared
+            .observe(
+                Actor::daemon(),
+                &finished,
+                "1",
+                Observation::Signal(serde_json::json!({"hook_event_name": "SessionEnd"})),
+            )
+            .unwrap();
+        let before = shared.events.tool_calls.lock().unwrap().clone();
+
+        let removal = shared.remove_workstream(Actor::user(), &ws).await.unwrap();
+
+        assert!(removal.removed.iter().any(|item| item.id == finished));
+        assert!(removal.kept.iter().any(|item| item.id == living));
+        assert_eq!(shared.node(&living).unwrap().parent, None);
+        assert_eq!(
+            shared.node(&survivor).unwrap().parent.as_deref(),
+            Some(sibling.as_str())
+        );
+        let calls = shared.events.tool_calls.lock().unwrap();
+        assert!(!calls.contains_key(&ws));
+        assert!(!calls.contains_key(&finished));
+        assert_eq!(calls.len(), 2);
+        for id in [&living, &survivor] {
+            assert_eq!(calls.get(id), before.get(id));
+        }
+    }
+
     /// A Door whose kill fails must not have its children lifted either: `stop` returning
     /// early before it calls `lift_children` is what this proves.
     #[tokio::test]
@@ -508,19 +657,23 @@ mod tests {
     /// before the kill that then fails) is exactly what lets a second `rail.remove` retry and
     /// succeed.
     #[tokio::test]
-    async fn a16_a_failed_stops_done_status_lets_a_second_remove_retry_and_succeed() {
+    async fn a3342a_a_failed_removal_keeps_the_entries() {
         let (_dir, shared) = shared_with_a_flaky_kill();
         let id = running_agent(&shared, None);
+        record_call(&shared, &id);
+        let before = shared.events.tool_calls.lock().unwrap().clone();
 
         let err = shared.remove(Actor::daemon(), &id).await.unwrap_err();
 
         assert_eq!(err.code, rpc::code::INTERNAL);
         let node = shared.node(&id).unwrap();
         assert_eq!(node.status.unwrap().kind, Kind::Done);
+        assert_eq!(*shared.events.tool_calls.lock().unwrap(), before);
 
         shared.remove(Actor::daemon(), &id).await.unwrap();
 
         assert!(shared.rail().tree().unwrap().is_empty());
+        assert!(shared.events.tool_calls.lock().unwrap().is_empty());
     }
     /// `remove`'s eviction of `id` from `runs` can race a Terminal exit already in flight: the
     /// watcher must end quietly, not panic through `REGISTERED`'s `.expect`.
@@ -541,20 +694,52 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn a16_a_delete_failure_after_a_successful_stop_leaves_the_node_with_its_exited_agent() {
-        let (dir, _, shared) = shared_over_temp_dir(Arc::new(|| 0));
-        let id = running_agent(&shared, None);
-        let db = rusqlite::Connection::open(dir.path().join("agents.db")).unwrap();
-        db.execute_batch("CREATE TRIGGER fail_delete BEFORE DELETE ON nodes BEGIN SELECT RAISE(ABORT,'delete refused'); END;").unwrap();
-        let error = shared.remove(Actor::user(), &id).await.unwrap_err();
-        assert_eq!(error.code, rpc::code::INTERNAL);
-        let tree = shared.tree().unwrap();
-        assert_eq!(tree.len(), 1);
-        assert_eq!(tree[0].id, id);
-        assert_eq!(tree[0].status.as_ref().unwrap().kind, Kind::Done);
-        db.execute_batch("DROP TRIGGER fail_delete").unwrap();
-        shared.remove(Actor::user(), &id).await.unwrap();
-        assert!(shared.tree().unwrap().is_empty());
+    async fn a3342a_a_failed_deletion_keeps_the_entries() {
+        for workstream in [false, true] {
+            let (dir, _, shared) = shared_over_temp_dir(Arc::new(|| 0));
+            let ws = workstream.then(|| {
+                shared
+                    .rail()
+                    .insert(NodeKind::Workstream, "w", None, None)
+                    .unwrap()
+                    .id
+            });
+            let id = running_agent(&shared, ws.as_deref());
+            record_call(&shared, &id);
+            if workstream {
+                shared
+                    .observe(
+                        Actor::daemon(),
+                        &id,
+                        "1",
+                        Observation::Signal(serde_json::json!({"hook_event_name": "SessionEnd"})),
+                    )
+                    .unwrap();
+            }
+            let before = shared.events.tool_calls.lock().unwrap().clone();
+            let db = rusqlite::Connection::open(dir.path().join("agents.db")).unwrap();
+            db.execute_batch("CREATE TRIGGER fail_delete BEFORE DELETE ON nodes BEGIN SELECT RAISE(ABORT,'delete refused'); END;").unwrap();
+            let error = if let Some(ws) = &ws {
+                shared
+                    .remove_workstream(Actor::user(), ws)
+                    .await
+                    .unwrap_err()
+            } else {
+                shared.remove(Actor::user(), &id).await.unwrap_err()
+            };
+            assert_eq!(error.code, rpc::code::INTERNAL);
+            assert_eq!(shared.tree().unwrap().len(), if workstream { 2 } else { 1 });
+            assert_eq!(shared.node(&id).unwrap().status.unwrap().kind, Kind::Done);
+            assert_eq!(*shared.events.tool_calls.lock().unwrap(), before);
+            db.execute_batch("DROP TRIGGER fail_delete").unwrap();
+            if let Some(ws) = &ws {
+                shared.remove_workstream(Actor::user(), ws).await.unwrap();
+            } else {
+                shared.remove(Actor::user(), &id).await.unwrap();
+            }
+            assert!(shared.tree().unwrap().is_empty());
+            assert!(shared.events.tool_calls.lock().unwrap().is_empty());
+        }
     }
 
     #[tokio::test]
