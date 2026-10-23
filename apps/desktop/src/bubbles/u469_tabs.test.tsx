@@ -1,6 +1,6 @@
 import { questionDialog, answerQuestion } from "../shelf/bulkQuestionHarness";
 import { leaderKey } from "../keys/leaderFixture";
-import { cleanup, fireEvent, waitFor } from "@solidjs/testing-library";
+import { cleanup, fireEvent, screen, waitFor } from "@solidjs/testing-library";
 import { afterEach, beforeEach, expect, it } from "vitest";
 import { info } from "../testing/nodes";
 import { bubbleCalls, mountBubbles } from "./bubblesFixture";
@@ -317,7 +317,7 @@ it("u3512a_terminal_alert_failure_keeps_the_terminal_for_retry", async () => {
   expect(bubbleCalls(app, "terminal.close")).toEqual([]);
   expect(close.isConnected).toBe(true);
   app.questionFailure = null;
-  fireEvent.click(close);
+  fireEvent.click(screen.getByRole("button", { name: "Retry" }));
   await answerQuestion(true);
   await waitFor(() => expect(bubbleCalls(app, "terminal.close")).toEqual([{ id: "1" }]));
 });

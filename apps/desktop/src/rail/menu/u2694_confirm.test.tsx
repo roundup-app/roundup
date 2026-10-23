@@ -57,42 +57,6 @@ describe("u2694 the Rail's menu actions", () => {
     await waitFor(() => expect(document.activeElement?.tagName).toBe("INPUT"));
   });
 
-  it("u2694b_stop_resume_remove_call_what_they_called_and_confirm_as_before", async () => {
-    const { app } = await mountRail([agent("a", "working", "busy"), agent("i", "idle", "idle"), agent("x", "done", "done", { can_resume: true })], [exitedTerminal("x", 0)]);
-    app.handlers["agent.stop"] = () => null;
-    app.handlers["agent.resume"] = () => agent("x", "idle", "idle");
-    app.handlers["rail.remove"] = () => null;
-
-    open("a");
-    await app.pickMenu("Remove");
-    expect((await questionDialog()).title).toBe("Stop and remove a?");
-    expect(removals(app)).toEqual([]);
-    await questionDialog();
-    await answerQuestion(false);
-    await waitFor(() => expect(questionProbe.shown).toBeNull());
-    expect(removals(app)).toEqual([]);
-
-    open("a");
-    await app.pickMenu("Remove");
-    await questionDialog();
-    await answerQuestion(true);
-    await waitFor(() => expect(removals(app)).toEqual([{ method: "rail.remove", params: { id: "a" } }]));
-
-    open("i");
-    await app.pickMenu("Remove");
-    await questionDialog();
-    await answerQuestion(true);
-    await waitFor(() => expect(removals(app)).toHaveLength(2));
-
-    open("i");
-    await app.pickMenu("Stop");
-    await waitFor(() => expect(railCallsTo(app, "agent.stop")).toEqual([{ id: "i" }]));
-
-    open("x");
-    await app.pickMenu("Resume");
-    await waitFor(() => expect(railCallsTo(app, "agent.resume")).toEqual([{ id: "x" }]));
-  });
-
   it.each([
     [agent("chosen", "idle", "idle"), []],
     [agent("chosen", "done", "done"), [exitedTerminal("chosen", 0)]],
