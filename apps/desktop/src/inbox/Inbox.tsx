@@ -12,7 +12,7 @@ import { failureOf } from "../todos/failureOf";
 import { TodoDrawer } from "../todos/TodoDrawer";
 import { useTodoList } from "../todos/todoList";
 import { InboxRow } from "./InboxRow";
-import type { AgentRow, RowActions, Settled } from "./InboxRow";
+import type { AgentRow, InboxActions as RowActions, Settled } from "./InboxRow";
 import { sectionsOf } from "./rows";
 import "./inbox.styles.css";
 

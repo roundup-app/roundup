@@ -12,4 +12,4 @@ export const statusText: Record<ChangedStatus, string> = {
 };
 
 /** The absolute path of a changed file in the Worktree at `root`. */
-export const absolutePath = (root: string, file: ChangedFile): string => `${root.replace(/\/+$/, "")}/${file.path}`;
+export const changedPath = (root: string, file: ChangedFile): string => `${root.replace(/\/+$/, "")}/${file.path}`;

@@ -2,7 +2,7 @@ import { cleanup, fireEvent, screen } from "@solidjs/testing-library";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import css from "../ui/Toast.css?raw";
 import { agent, USER } from "../testing/nodes";
-import { AGENT, by, mountToasts, status, todo } from "./toastFixture";
+import { TOAST_AGENT as AGENT, by, mountToasts, status, toastTodo as todo } from "./toastFixture";
 
 const tree = () => [agent("a", "working", "x", { name: "scout" }), agent("b", "working", "x", { name: "mason" }), agent("c", "working", "x", { name: "tiler" })];
 

@@ -6,7 +6,7 @@ import { CHORDS, LEADER } from "../keys/chords";
 import { leaderKey } from "../keys/leaderFixture";
 import { openTabs, tab } from "../header/stripFixture";
 import { agent, event, info, workstream } from "../testing/nodes";
-import { field, mountSwitcher, openSwitcher, press } from "./switcherFixture";
+import { field, mountSwitcher, openSwitcher, switcherKey as press } from "./switcherFixture";
 
 afterEach(() => { cleanup(); localStorage.clear(); });
 

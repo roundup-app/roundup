@@ -86,7 +86,7 @@ export const rowOf = (name: string): HTMLElement => {
   return item.matches('[data-part="branch"]') ? item.querySelector<HTMLElement>('[data-part="branch-control"]')! : item;
 };
 
-export const glyphOf = (name: string): HTMLElement => {
+export const rowGlyph = (name: string): HTMLElement => {
   const glyph = rowOf(name).querySelector<HTMLElement>(".glyph");
 
   if (!glyph) throw new Error(`no glyph on ${name}`);
