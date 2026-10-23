@@ -185,3 +185,22 @@ it("u3728_failed_read_retries_without_consuming_unread", async () => {
   await waitFor(() => expect(count()).toBe("read"));
   expect(todoCallsTo(m.app, "todo.readHistory")).toHaveLength(2);
 });
+
+
+it.each([
+  { before: null, after: 45 },
+  { before: 45, after: 60 },
+  { before: 45, after: null },
+])("t29_estimate_only_history_is_readable_%j", async ({ before, after }) => {
+  const m = await mountTodos([todo(1, { estimate_minutes: after })]);
+  const values = { title: "todo 1", body: "", done: false, blockers: [], owner: null };
+  m.app.handlers["todo.getHistory"] = () => ({ unread: 1, changes: [
+    { actor: { kind: "agent", id: "estimator", parent: null }, changed_at: null, seq: 1,
+      before: { ...values, estimate_minutes: before }, after: { ...values, estimate_minutes: after } },
+  ] });
+  await open(m); await disclose(m);
+  const entries = panel().querySelectorAll("[data-change]");
+  expect(entries).toHaveLength(1);
+  expect(entries[0]?.textContent).toContain("estimator");
+  if (after !== null) expect(entries[0]?.textContent).toContain(String(after));
+});
