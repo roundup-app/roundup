@@ -151,3 +151,29 @@ describe("u3712 the Waits on line is gone", () => {
     expect(within(rowOf(3)).getByRole("img", { name: "Blocked" })).toBeTruthy();
   });
 });
+
+
+describe("u3809 dependency groups retain their members", () => {
+  it("u3809_group_and_scope_progress_have_distinct_membership", async () => {
+    await mountTodos([todo(1), todo(2, { done: true, blockers: [1] }), todo(3, { blockers: [1] }), todo(4, { blockers: [2] })]);
+    const group = await screen.findByRole("progressbar", { name: "Todos done in todo 1" });
+    expect(group.getAttribute("aria-valuenow")).toBe("1");
+    expect(group.getAttribute("aria-valuemax")).toBe("3");
+    expect(screen.getByRole("progressbar", { name: "Todos done in todo 2" }).getAttribute("aria-valuemax")).toBe("1");
+    expect(screen.getByRole("progressbar", { name: "Todos done" }).getAttribute("aria-valuemax")).toBe("4");
+    expect(document.querySelectorAll('[data-todo="2"]')).toHaveLength(1);
+  });
+
+  it("u3809_disclosure_toggles_only_its_inert_contents", async () => {
+    const mounted = await mountTodos([todo(1), todo(2, { blockers: [1] })]);
+    const disclosure = await screen.findByRole("button", { name: "Toggle todo 1 group" });
+    within(rowOf(2)).getByRole("checkbox").focus();
+    fireEvent.click(disclosure);
+    expect(disclosure.getAttribute("aria-expanded")).toBe("false");
+    expect(document.activeElement).toBe(disclosure);
+    expect(screen.queryByRole("checkbox", { name: "Complete todo 2" })).toBeNull();
+    expect(callsTo(mounted.app, "todo.complete")).toHaveLength(0);
+    fireEvent.click(disclosure);
+    expect(screen.getByRole("checkbox", { name: "Complete todo 2" })).toBeTruthy();
+  });
+});
