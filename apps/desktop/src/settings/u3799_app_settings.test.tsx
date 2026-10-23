@@ -53,3 +53,20 @@ it.each([["KeyY", "y", "⌃⇧Y"], ["Numpad1", "1", "⌃⇧1"], ["F13", "F13", "
   expect(await screen.findByRole("dialog")).toBeTruthy();
   expect(HELP_ROWS.findLast(row => row.what === copy.captureATodo)?.keys).toBe(label);
 });
+
+
+it("u3813_overview_has_no_sublinks_and_project_commands_open_selected_pages", async () => {
+  const { seedApp } = await import("../testing/seeds");
+  const controls = seedApp("tree-40", Date.now());
+  render(() => <App app={controls.app} reducedMotion={() => true} clock={Date.now} />);
+  await screen.findAllByRole("treeitem");
+  expect(screen.queryByRole("button", { name: "Import Claude Code work" })).toBeNull();
+  expect(screen.queryByRole("button", { name: "Project settings" })).toBeNull();
+  for (const [command, heading] of [["import-work", "Import Claude Code work"], ["project-settings", "Project settings"]]) {
+    window.dispatchEvent(new CustomEvent("open-project-page", { detail: { path: "/Users/you/harness", command } }));
+    const page = await screen.findByRole("region", { name: heading });
+    expect(within(screen.getByRole("region", { name: "Centre" })).getByRole("region", { name: heading })).toBe(page);
+    expect(screen.queryByRole("dialog")).toBeNull();
+    fireEvent.click(within(page).getByRole("button", { name: "Close" }));
+  }
+});
