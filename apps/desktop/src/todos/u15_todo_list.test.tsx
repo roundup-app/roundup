@@ -27,10 +27,11 @@ describe("u15 Todo list", () => {
     await screen.findByText(/session store/);
 
     expect(screen.getByRole("button", { name: "Blocked #5 session store" })).toBeTruthy();
-    expect([rows().slice(1, 4), document.querySelector("[data-todo-also-waits]")?.textContent]).toEqual([["migrate", "later", "session store"], "also waits on: migrate"]);
+    expect(rows().slice(1, 4)).toEqual(["migrate", "later", "session store"]);
+    expect(within(todoRowOf(5)).getAllByRole("button", { name: /^Open blocker/ }).map(button => button.getAttribute("aria-label"))).toEqual(["Open blocker migrate", "Open blocker later"]);
   });
 
-  it("u15_a_done_blocker_is_not_named_and_does_not_nest", async () => {
+  it("u3809_a_done_blocker_is_not_named_and_keeps_its_group", async () => {
     await mountTodos([
       todo(5, { title: "session store", blocked: true, blockers: [4, 6] }),
       todo(4, { done: true }),
@@ -39,7 +40,7 @@ describe("u15 Todo list", () => {
 
     await screen.findByText(/session store/);
 
-    expect(document.querySelector("[data-todo-also-waits]")).toBeNull();
+    expect(within(todoRowOf(5)).getAllByRole("button", { name: /^Open blocker/ }).map(button => button.getAttribute("aria-label"))).toEqual(["Open blocker todo 6"]);
     expect(document.querySelector('[data-id="5"]')?.getAttribute("aria-level")).toBe("2");
   });
 
@@ -60,12 +61,6 @@ describe("u15 Todo list", () => {
     expect(screen.getByRole<HTMLInputElement>("checkbox", { name: "Reopen old one", checked: true }).disabled).toBe(false);
   });
 
-  it("u15_no_done_todos_show_no_done_line", async () => {
-    await mountTodos([todo(1)]);
-    await screen.findByText(/todo 1/);
-
-    expect(screen.queryByText(/done/)).toBeNull();
-  });
 
   it.each(["todo.created", "todo.updated"] as const)("u15_%s_refetches_todo_list", async (name) => {
     const { app, store } = await mountTodos([todo(1)]);

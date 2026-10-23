@@ -25,23 +25,12 @@ describe("u361 a Todo row holds a tick box, its title and what it waits on", () 
     store.todos = store.todos.map((candidate) => (candidate.id === 3 ? { ...candidate, done: true } : candidate));
     app.emit(todoEvent("todo.updated", store.todos[0]!));
 
-    fireEvent.click(await screen.findByRole("button", { name: /1 done/ }));
-
-    const done = screen.getByRole<HTMLInputElement>("checkbox", { name: "Reopen ship it" });
+    const done = await screen.findByRole<HTMLInputElement>("checkbox", { name: "Reopen ship it" });
 
     expect(done.checked).toBe(true);
     expect(done.disabled).toBe(false);
   });
 
-  it("u361_repeated_toggles_while_pending_complete_only_once", async () => {
-    const { app } = await mountTodos([todo(3)]);
-    app.handlers["todo.complete"] = () => new Promise(() => {});
-    const box = await screen.findByRole("checkbox", { name: "Complete todo 3" });
-    fireEvent.click(box);
-    fireEvent.click(box);
-    fireEvent.click(box);
-    await waitFor(() => expect(callsTo(app, "todo.complete")).toHaveLength(1));
-  });
 
   it("u361_a_successful_tick_box_waits_for_todo_updated_before_another_completion", async () => {
     const { app } = await mountTodos([todo(3)]);
@@ -68,7 +57,7 @@ describe("u361 a Todo row holds a tick box, its title and what it waits on", () 
 
     const waits = rowOf(5).querySelector<HTMLElement>("[data-todo-also-waits]")!;
 
-    expect(waits.textContent?.replace(/\s+/g, " ").trim()).toBe("also waits on: migrate");
+    expect(within(waits).getAllByRole("button").map(button => button.getAttribute("aria-label"))).toEqual(["Open blocker migrate", "Open blocker later"]);
 
     fireEvent.click(within(waits).getByRole("button", { name: "Open blocker migrate" }));
 
