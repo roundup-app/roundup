@@ -1,3 +1,4 @@
+import { projectMenu } from "./menuProbe";
 import type { Event as DaemonEvent } from "@contracts/Event";
 import type { RpcMethodName, RpcMethods } from "@contracts/methods";
 import { OWN_CONTRACT } from "../app/contractMatch";
@@ -374,7 +375,7 @@ export const createFakeApp = (): FakeApp => {
 
       return () => dropListeners.delete(listener);
     },
-    selectProjectMenu: async (_path) => {},
+    selectProjectMenu: async (path) => { projectMenu.path = path; },
     onProjectPage: async (listener) => {
       const receive = (event: Event) => { if (event instanceof CustomEvent) listener(event.detail); };
 

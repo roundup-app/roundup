@@ -1,10 +1,13 @@
+import { showEverythingInApp } from "../testing/showEverything";
+import { mkdirSync, writeFileSync } from "node:fs";
+import { fakeEmulators } from "../terminal/paneHarness";
 import { join } from "node:path";
 import { captureDir } from "../testing/captures";
 import { openLane } from "../todos/laneBrowser";
 import { openProjectPage } from "../testing/menuProbe";
 import { openTabs, tab, path } from "../header/stripFixture";
 import { rowOf } from "../rail/railFixture";
-import { workstream, agent } from "../testing/nodes";
+import { workstream } from "../testing/nodes";
 import { cleanup, fireEvent, render, screen, waitFor, within } from "@solidjs/testing-library";
 import { afterEach, expect, it } from "vitest";
 import { App } from "../App";
@@ -91,8 +94,11 @@ it("u3813_overview_has_no_sublinks_and_project_commands_open_selected_pages", as
 
 
 it.each(["import-work", "project-settings"] as const)("u3814_project_pages_survive_work_elsewhere_%s", async command => {
-  const { app } = await openTabs({ api: [workstream("w"), agent("a", "idle", "ready", { parent: "w" })] });
-  app.of(path("api")).handlers["project.get"] = () => ({ worktrees: { on: false, check: null }, mcp: { on: true }, workstreamCap: 2, models: { roles: [] } });
+  const { seedApp } = await import("../testing/seeds");
+  const { app } = seedApp("tree-40", Date.now());
+  render(() => <App app={app} reducedMotion={() => true} clock={Date.now} createEmulator={fakeEmulators().factory} />);
+  await screen.findAllByRole("treeitem");
+  app.handlers["project.get"] = () => ({ worktrees: { on: false, check: null }, mcp: { on: true }, workstreamCap: 2, models: { roles: [] } });
   const overview = screen.getByRole("button", { name: /^Overview, Project root/ });
   overview.focus();
   openProjectPage(command);
@@ -100,19 +106,39 @@ it.each(["import-work", "project-settings"] as const)("u3814_project_pages_survi
   const page = await screen.findByRole("region", { name: heading });
 
   if (command === "import-work") fireEvent.click(within(page).getByRole("button", { name: "Last month" }));
-  else { const field = await within(page).findByRole("textbox"); fireEvent.input(field, { target: { value: "unfinished" } }); }
+  else {
+    const field = await within(page).findByRole("textbox");
+    await waitFor(() => expect(field).toHaveProperty("disabled", false));
+    fireEvent.input(field, { target: { value: "unfinished" } });
+  }
 
   openProjectPage(command);
   expect(screen.getByRole("region", { name: heading })).toBe(page);
-  fireEvent.click(rowOf("a"));
+  fireEvent.click(rowOf("agent-1"));
   expect(screen.getByRole("region", { name: heading })).toBe(page);
   fireEvent.click(overview);
   expect(screen.getByRole("region", { name: heading })).toBe(page);
+  await showEverythingInApp();
+  await waitFor(() => expect(document.querySelector(".shelf .todo-row-button")).not.toBeNull());
+  fireEvent.click(document.querySelector(".shelf .todo-row-button")!);
+  await waitFor(() => expect(document.querySelector('.drawer[data-open="true"]')).not.toBeNull());
+  expect(screen.getByRole("region", { name: heading })).toBe(page);
+  fireEvent.click(document.querySelector(".drawer .close")!);
+  fireEvent.click(screen.getByRole("button", { name: "New Terminal" }));
+  await waitFor(() => expect(document.querySelector('.bubble:not([hidden])')).not.toBeNull());
+  expect(screen.getByRole("region", { name: heading })).toBe(page);
+  fireEvent.click(document.querySelector('.bubble [aria-label="Minimise"]')!);
 
   if (command === "import-work") expect(within(page).getByRole("button", { name: "Last month" }).getAttribute("aria-pressed")).toBe("true");
   else expect(within(page).getByRole("textbox")).toHaveProperty("value", "unfinished");
+  const destination = rowOf("agent-1");
+  destination.focus();
+  fireEvent.keyDown(destination, { key: "Enter", code: "Enter" });
+  await waitFor(() => expect(overview.getAttribute("aria-pressed")).toBe("false"));
+  page.focus();
   fireEvent.keyDown(page, { key: "Escape" });
   await waitFor(() => expect(document.activeElement).toBe(overview));
+  expect(overview.getAttribute("aria-pressed")).toBe("true");
 });
 
 it.each(["import-work", "project-settings"] as const)("u3814_project_switch_keeps_each_page_with_its_project_%s", async command => {
@@ -223,9 +249,14 @@ it.skipIf(!captureDir("U3813"))("u3813_u3814_u3815_rendered_project_pages", asyn
     await lane.until("!!document.querySelector('.bubble:not([hidden])')");
     expect(await lane.evaluate("!!document.querySelector('.settings-view textarea')")).toBe(true);
     await lane.capture("U3814", "terminal-bubble-and-settings");
+    await lane.browser("click", ".bubble [aria-label=Minimise]");
+    await lane.browser("click", ".settings-head button");
+    await lane.until("!document.querySelector('.settings-view')");
+    mkdirSync(join(captureDir("U3814")!, "base"), { recursive: true });
+    writeFileSync(join(captureDir("U3814")!, "base", "pads.checks.json"), JSON.stringify(await lane.evaluate("window.__checks()")) + "\n");
     const origin = await lane.evaluate<string>("location.origin");
 
-    for (const seed of ["agents-10", "tabs-8", "first-run"]) {
+    for (const seed of ["agents-10", "tree-40", "first-run"]) {
       await lane.evaluate("localStorage.clear()");
       await lane.browser("open", `${origin}/harness.html?seed=${seed}`);
       await lane.until("!!document.querySelector('.window')");
@@ -237,12 +268,17 @@ it.skipIf(!captureDir("U3813"))("u3813_u3814_u3815_rendered_project_pages", asyn
         await lane.until("!!document.querySelector('.import-panel')");
         await lane.capture("U3814", `${seed}-import`);
 
-        if (seed === "tabs-8") {
-          await lane.browser("click", ".project-tab:nth-child(2) .tab-name-button");
+        if (seed === "tree-40") {
+          await lane.evaluate("(() => { window.__fake.app.chooser.path = '/Users/you/second-project'; return true; })()");
+          await lane.browser("click", ".strip-add");
+          await lane.until("document.querySelector('.project-tab[data-selected=true]')?.dataset.path === '/Users/you/second-project'");
           await lane.until("!document.querySelector('.import-panel')");
-          await lane.evaluate("window.dispatchEvent(new CustomEvent('open-project-page', { detail: { path: document.querySelector('.project-tab[data-selected=true]').dataset.path, command: 'project-settings' } }))");
+          await lane.evaluate("window.dispatchEvent(new CustomEvent('open-project-page', { detail: { path: '/Users/you/second-project', command: 'project-settings' } }))");
           await lane.until("!!document.querySelector('.settings-view textarea')");
           await lane.capture("U3814", "second-project-settings");
+          await lane.browser("click", '.project-tab[data-path="/Users/you/harness"] .tab-name');
+          await lane.until("!!document.querySelector('.import-panel')");
+          await lane.capture("U3814", "original-project-import");
         }
       } else {
         await lane.until("!!document.querySelector('.empty') || !!document.querySelector('.choose-project') || document.body.textContent.includes('Choose')");

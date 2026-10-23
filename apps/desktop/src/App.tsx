@@ -411,14 +411,16 @@ export const App = (props: {
 
                 return (
                   <div class="centre-stack">
+                    <div class="project-center-area">
                     <div class="project-center-content" inert={open.settingsView.open()} style={{ visibility: open.settingsView.open() ? "hidden" : "visible" }}>
                     <Pane notice={open.rail.failure() ?? jumpFailure() ?? open.contractNotice} createEmulator={tracked} screensRef={setScreens} toasts={toasts} />
                     <AskBar />
                     <Switcher onFailure={setJumpFailure} onOpen={() => { if (document.querySelector('.window[data-shelf="open"][data-shelf-mode="overlay"]')) shelfFocus.toggle("key"); }} />
-                    <ResourceStrip />
                     </div>
-                    <Show when={screens()}>{(shared) => <Bubbles screens={shared()} />}</Show>
                     <ProjectSettingsView />
+                    </div>
+                    <ResourceStrip />
+                    <Show when={screens()}>{(shared) => <Bubbles screens={shared()} />}</Show>
                   </div>
                 );
               }}

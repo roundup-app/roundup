@@ -29,7 +29,7 @@ it("u2875d_real_import_reopen_and_resume", async () => {
       const emulators = fakeEmulators();
       render(() => <App app={app} reducedMotion={() => true} clock={Date.now} createEmulator={emulators.factory} />);
 
-      await screen.findByRole("button", { name: /Overview/ });
+      await screen.findByRole("button", { name: /^Overview, Project root/ });
       openProjectPage("import-work", cwd);
       fireEvent.click(await screen.findByText("Imported 東京 work"));
       fireEvent.click(await screen.findByRole("button", { name: "Import 1" }));

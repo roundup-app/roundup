@@ -26,7 +26,7 @@ export const exitedTerminal = (id: string, exit_code: number | null): TerminalIn
   info(`t-${id}`, { running: false, exit_code });
 
 /** What else to mount alongside the Rail: a Pane (an `EmulatorFactory` gives it a focusable screen) or the DrawerHost. */
-type RailNeighbors = { pane?: true | EmulatorFactory; drawer?: boolean; settings?: boolean };
+type RailNeighbors = { pane?: true | EmulatorFactory; drawer?: boolean };
 
 /** The Rail on a fake Daemon whose tree is `tree` and whose clock is a signal the test can advance. */
 export const mountRail = async (
