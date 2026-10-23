@@ -8,11 +8,10 @@ import type { ActivationSource } from "../keys/registry";
 import { copy } from "../copy";
 import { shelfKeyScope, shelfRowKeys } from "../shelf/keys";
 import { createBulkDelete } from "../shelf/BulkDelete";
-
 import { createSelection } from "../shelf/selection";
 import { Progress } from "../ui/Progress";
 import { createDependencyGroups } from "./dependencyGroups";
-import { createFinishMotion } from "./finishMotion";
+import { createCountMotion, createFinishMotion } from "./finishMotion";
 import { Icon } from "../ink/Icon";
 import { EmptyState } from "../ink/EmptyState";
 import { EntryRow } from "../ink/EntryRow";
@@ -172,22 +171,7 @@ export const Todos = (props: {
     return dependency.visible(todo.id) && group !== undefined && !closedGroups().includes(group.id);
   }), ...(unfolded() ? foldedDone() : [])].map(todo => todo.id), () => connected.rail.selected() ?? "overview", id => rowButtonOf(id));
 
-  let progressCount: HTMLSpanElement | undefined;
-
-  createEffect(on(() => `${done().length}/${inScope().length}`, () => {
-    if (!finishing.bar() || !progressCount) return;
-
-    // Keep a burst's newest text moving from the visible pose, rather than replaying the roll's hidden start.
-    const style = getComputedStyle(progressCount);
-    const pose = { opacity: style.opacity, transform: style.transform };
-
-    for (const animation of progressCount.getAnimations?.() ?? []) {
-      if (animation.playState !== "running" || !(animation.effect instanceof KeyframeEffect)) continue;
-
-      animation.effect.setKeyframes([{ ...pose, easing: animation.effect.getKeyframes()[0]!.easing }, { opacity: "1", transform: "none" }]);
-      animation.currentTime = 0;
-    }
-  }, { defer: true }));
+  const progressCount = createCountMotion(() => `${done().length}/${inScope().length}`, finishing.bar);
 
   const target = (todo: Todo) => ({ id: todo.id, label: todo.title });
 
