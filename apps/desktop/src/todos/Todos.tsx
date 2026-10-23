@@ -772,6 +772,8 @@ export const Todos = (props: {
     ], x, y));
   };
 
+  const groupAttributes = (id: number, level: number): JSX.HTMLAttributes<HTMLElement> => ({ role: "treeitem", "aria-level": level, "aria-expanded": dependency.expanded(id), "aria-controls": `todo-group-${id}`, "aria-owns": `todo-group-${id}` });
+
   return (
     <section aria-label={copy.todos} class="todos-tab" onContextMenu={todoMenu} ref={section}>
       <ScopeAction tab="todos">
@@ -867,7 +869,7 @@ export const Todos = (props: {
                 };
 
                 return <div {...attrs()} class="todo-dependency" role="presentation" data-structural-motion={dependency.moving()} data-complete={dependency.complete(todo.id)}>
-                {draw(() => ({ role: "treeitem", "aria-level": row.level, "aria-expanded": dependency.expanded(todo.id), "aria-controls": `todo-group-${todo.id}`, "aria-owns": `todo-group-${todo.id}` }))}
+                {draw(() => groupAttributes(todo.id, row.level))}
                 <TreeView.BranchContent id={`todo-group-${todo.id}`} inert={!dependency.expanded(todo.id)} aria-hidden={!dependency.expanded(todo.id)}><div class="todo-group-content">{renderChildren(todo.id)}</div></TreeView.BranchContent>
                 </div>;
               }} />
