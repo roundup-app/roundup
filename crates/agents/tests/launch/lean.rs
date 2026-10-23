@@ -823,7 +823,7 @@ fn a3516c_all_profiles_keep_the_renderer_choice() {
             ("ROUNDUP_RUP_BIN", s.rup.to_str().unwrap()),
             ("HOME", s.root.path().to_str().unwrap()),
         ]),
-        &s.rup.with_file_name("rupd"),
+        &s.rup.with_file_name("fake-daemon"),
     )
     .unwrap();
     for tui in [Some("fullscreen"), Some("default"), None] {
