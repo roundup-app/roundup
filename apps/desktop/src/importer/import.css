@@ -71,7 +71,7 @@
 }
 
 .import-list .app-checkbox {
-  align-items: flex-start;
+  align-items: first baseline;
   min-height: var(--space-6);
   padding-block: var(--space-1);
 }
@@ -111,7 +111,7 @@
 }
 
 .import-cwd {
-  flex: 1 1 0;
+  flex: 0 1 auto;
   min-width: 8ch;
   direction: rtl;
   text-align: left;
@@ -165,4 +165,24 @@
   margin: 0;
   overflow-wrap: anywhere;
   white-space: pre-wrap;
+}
+
+.import-list .import-candidate {
+  flex-direction: row;
+  align-items: first baseline;
+  gap: var(--space-3);
+}
+
+.import-candidate .import-check {
+  flex: 1;
+  min-width: 0;
+}
+
+.import-candidate > button {
+  opacity: 0;
+}
+
+.import-candidate:hover > button,
+.import-candidate:focus-within > button {
+  opacity: 1;
 }
