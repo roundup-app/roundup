@@ -80,7 +80,7 @@ it("u3722_each_head_button_shows_its_name_and_chip", async () => {
         await browser("press", name === "Close" ? "Tab" : "Shift+Tab");
       }
 
-      await browser("wait", "--fn", `document.querySelector('[role=tooltip] .key-chips')?.textContent === '${chip}'`);
+      await browser("wait", "--fn", `document.querySelector('[role=tooltip]')?.textContent === '${name} ${chip}'`);
       await evaluate(`document.querySelector('.shelf-controls button[aria-label="${name === "Close" ? "Close work items" : name}"]').focus()`);
       await browser("press", name === "Close" ? "Escape" : "m");
 

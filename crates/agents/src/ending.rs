@@ -297,6 +297,13 @@ impl Shared {
             };
             if remove {
                 runs.remove(id);
+                if result.is_ok() {
+                    self.events
+                        .tool_calls
+                        .lock()
+                        .unwrap_or_else(|e| e.into_inner())
+                        .remove(id);
+                }
             } else if let Some(Slot::Running(run)) = runs.get_mut(id) {
                 run.closing = false;
                 run.ended = true;

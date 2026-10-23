@@ -54,6 +54,9 @@ export default {
   plugins: ['stylelint-declaration-strict-value', sharedKeyboardRing, scrollDeclaresOverscroll],
   rules: {
     [focusRingRule]: true,
+    'declaration-property-value-allowed-list': {
+      '/^z-index$/i': ['-1', '0', '1', /^var\(--layer-(?:drawer|popover|dialog|menu|tooltip|toast)\)$/],
+    },
     [scrollRule]: true,
     'scale-unlimited/declaration-strict-value': [
       ['padding'],
