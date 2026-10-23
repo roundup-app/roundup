@@ -870,3 +870,28 @@ mod briefs;
 mod guidance;
 
 use trust::vars;
+
+#[test]
+fn a3507a_every_launch_keeps_the_users_gateway() {
+    use agents::claude_code::{Lean, PROFILES, Pair};
+    let s = setup();
+    std::fs::write(s.root.path().join("settings.json"), json!({
+        "env": {
+            "ANTHROPIC_CUSTOM_HEADERS": "x-wise-llm-gateway-team: fixture\nx-wise-llm-gateway-use-case: test",
+            "ANTHROPIC_BASE_URL": "https://gateway.invalid"
+        },
+        "apiKeyHelper": "fixture-helper"
+    }).to_string()).unwrap();
+    let rows = std::iter::once((Role::Agent, Pair::default())).chain(PROFILES.iter().map(|(role, _)| {
+        (*role, Pair { lean: Some(Lean { scout: *role == Role::Scout, ..Default::default() }), ..Default::default() })
+    }));
+    for (role, pair) in rows {
+        for resume in [None, Some("saved")] {
+            let argv = s.launcher().prepare_on(folders(&s.dir), "7", "1", &s.cwd, resume, role, &pair).unwrap();
+            let settings = read(Path::new(&argv[2]));
+            assert_eq!(settings["apiKeyHelper"], "fixture-helper", "{role:?} {resume:?}");
+            assert_eq!(settings["env"]["ANTHROPIC_BASE_URL"], "https://gateway.invalid");
+            assert_eq!(settings["env"]["ANTHROPIC_CUSTOM_HEADERS"], "x-wise-llm-gateway-team: fixture\nx-wise-llm-gateway-use-case: test");
+        }
+    }
+}
