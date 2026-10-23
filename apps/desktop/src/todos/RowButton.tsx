@@ -29,7 +29,7 @@ export const RowButton = (props: { onClick: (event: MouseEvent) => void; pressed
       onClick={(event) => props.onClick(event)} onPointerDown={(event) => props.onPointerDown?.(event)}
       data-reorderable={props.reorderable ? "" : undefined}
       aria-label={props.label} aria-description={props.reorderable ? copy.reorder : undefined} aria-pressed={props.pressed}
-      style={props.hang === false ? { display: "block" } : { display: "block", "white-space": "pre-wrap", "padding-left": "var(--todo-row-indent)", "text-indent": "calc(-1 * var(--todo-row-indent))" }}
+      style={props.hang === false ? undefined : { display: "block", "white-space": "pre-wrap", "padding-left": "var(--todo-row-indent)", "text-indent": "calc(-1 * var(--todo-row-indent))" }}
       ref={(element) => { button = element; props.ref?.(element); }}>{props.children}</button>
   );
 };
