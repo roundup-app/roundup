@@ -12,7 +12,6 @@ import { Rail } from "../rail/Rail";
 import { Pane } from "./Pane";
 import type { Emulator, EmulatorFactory, Size } from "./emulator";
 import type { Printed } from "./links";
-import type { TurnFacts } from "./turns";
 
 type FakeEmulator = Emulator & {
   written: Uint8Array[];
@@ -24,11 +23,7 @@ type FakeEmulator = Emulator & {
   disposed: boolean;
   type(bytes: Uint8Array): void;
   selectedText: string;
-  /** Where `selectionEnd()` points while `selectedText` is not empty, and the Turn facts `selectionFacts` answers. */
-  selectionAt: { x: number; y: number };
-  facts: TurnFacts | null;
-  /** Simulates the user changing the selection to `text`. */
-  select(text: string, facts?: TurnFacts | null): void;
+  select(text: string): void;
   /** Simulates a Cmd+click on a link or path the Terminal printed. */
   clickLink(printed: Printed): void;
   pasted: string[];
@@ -47,8 +42,6 @@ export const fakeEmulators = () => {
 
     let scrollListener: () => void = () => {};
 
-    let selectionListener: () => void = () => {};
-
     let bottom = true;
 
     let screenEl: HTMLElement | null = null;
@@ -62,13 +55,7 @@ export const fakeEmulators = () => {
       setFontSize: (size: number) => { emulator.fontSize = size; },
       disposed: false,
       selectedText: "",
-      selectionAt: { x: 120, y: 80 },
-      facts: null,
-      select: (text, facts = null) => {
-        emulator.selectedText = text;
-        emulator.facts = facts;
-        selectionListener();
-      },
+      select: (text) => { emulator.selectedText = text; },
       clickLink: (printed) => linkListener(printed),
       pasted: [],
       scrollsToBottom: 0,
@@ -85,11 +72,6 @@ export const fakeEmulators = () => {
         linkListener = next;
       },
       selection: () => emulator.selectedText,
-      onSelection: (next) => {
-        selectionListener = next;
-      },
-      selectionEnd: () => (emulator.selectedText ? emulator.selectionAt : null),
-      selectionFacts: () => emulator.facts,
       turns: () => [],
       selectTurn: () => {},
       paste: (text) => {

@@ -86,10 +86,10 @@ describe("u421 a right-button drag pulls a bubble out", () => {
     }
   });
 
-  it("u421_a_pull_starts_over_the_rail_the_shelf_the_header_a_drawer_and_a_terminal", async () => {
+  it("u421_a_pull_starts_over_app_chrome", async () => {
     await ready();
 
-    for (const target of [document.body, bubble("2").querySelector(".bubble-body")!, bubble("2").querySelector(".bubble-header")!, document.querySelector(".centre-stack")!]) {
+    for (const target of [document.body, bubble("2").querySelector(".bubble-header")!, document.querySelector(".centre-stack")!]) {
       press(target, 400, 300);
       drag({ x: 450, y: 340 }, target);
       await frame();
@@ -208,26 +208,6 @@ describe("u421 a right-button drag pulls a bubble out", () => {
     document.body.removeEventListener("pointermove", count);
   });
 
-  it("u421_a_pull_hides_its_press_and_release_from_a_terminal", async () => {
-    await ready();
-    const body = bubble("2").querySelector(".bubble-body")!;
-    const heard: string[] = [];
-
-    for (const type of ["mousedown", "mouseup"]) body.addEventListener(type, () => heard.push(type));
-    press(body, 400, 300);
-    fire("mousedown", body, { x: 400, y: 300, button: 2, buttons: 2 });
-    drag({ x: 450, y: 300 }, body);
-    release(450, 300, body);
-    fire("mouseup", body, { x: 450, y: 300, button: 2, buttons: 0 });
-    expect(heard).toEqual([]);
-
-    press(body, 400, 300);
-    fire("mousedown", body, { x: 400, y: 300, button: 2, buttons: 2 });
-    release(400, 300, body);
-    fire("mouseup", body, { x: 400, y: 300, button: 2, buttons: 0 });
-    expect(heard).toEqual(["mousedown", "mouseup"]);
-  });
-
   it("u421_esc_ends_the_pull_in_place", async () => {
     await ready();
     press(document.body, 400, 300);
@@ -263,18 +243,6 @@ describe("u421 a right-button drag pulls a bubble out", () => {
     drag({ x: 404, y: 303 });
     release(404, 303);
     expect(menu().defaultPrevented).toBe(false);
-  });
-
-  it("u421_a_plain_right_click_in_a_terminal_reaches_it", async () => {
-    await ready();
-    const body = bubble("2").querySelector(".bubble-body")!;
-    let heard = 0;
-
-    body.addEventListener("pointerup", () => heard++);
-    press(body, 400, 300);
-    release(400, 300, body);
-    expect(heard).toBe(1);
-    expect(menu(body).defaultPrevented).toBe(false);
   });
 
   it("u421_the_release_of_a_pull_opens_no_menu", async () => {

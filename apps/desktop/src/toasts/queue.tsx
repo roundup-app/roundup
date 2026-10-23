@@ -42,7 +42,7 @@ export type ToastQueue = {
   /** U80's one failure line: a card of its own that hides after 10 s; the next Toast click or push clears it. */
   failure: Accessor<string | null>;
   push(candidate: Candidate): void;
-  /** U516: a Toast for something the user just did; it makes no sound and is never suppressed for the selected Agent. */
+  /** A Toast for something the user just did; it makes no sound and is never suppressed for the selected Agent. */
   notify(candidate: Candidate): void;
 };
 

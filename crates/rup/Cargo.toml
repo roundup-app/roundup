@@ -5,6 +5,7 @@ license.workspace = true
 version.workspace = true
 
 [dependencies]
+agents = { path = "../agents" }
 base64.workspace = true
 clap = { version = "4", default-features = false, features = ["std", "help", "usage", "error-context", "suggestions", "string"] }
 contracts = { path = "../contracts" }
@@ -16,7 +17,6 @@ tokio.workspace = true
 
 [dev-dependencies]
 pads = { path = "../pads" }
-agents = { path = "../agents" }
 checkpoints = { path = "../checkpoints" }
 rmcp = { version = "3.5.1", default-features = false, features = ["client"] }
 rupd = { path = "../rupd" }
