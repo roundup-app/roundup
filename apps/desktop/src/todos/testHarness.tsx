@@ -1,3 +1,4 @@
+import { createSignal } from "solid-js";
 import { expect } from "vitest";
 import { within, render, fireEvent, waitFor } from "@solidjs/testing-library";
 import type { Event as DaemonEvent } from "@contracts/Event";
@@ -40,7 +41,8 @@ export const mountTodos = async (initial: Todo[], reducedMotion = true, rail: Ra
   const store: TodoStore = { todos: initial };
   Object.assign(app.handlers, todoHandlers(store, () => {}));
 
-  const connected = await connectProject(app, { name: "p", path }, () => reducedMotion, () => 0);
+  const [reduced, setReduced] = createSignal(reducedMotion);
+  const connected = await connectProject(app, { name: "p", path }, reduced, () => 0);
 
   await showEverything(connected);
 
@@ -60,7 +62,7 @@ export const mountTodos = async (initial: Todo[], reducedMotion = true, rail: Ra
         rail={renderRail ? <Rail /> : null}
         centre={null}
         shelf={<Shelf />}
-        overlay={<DrawerHost drawer={connected.drawer} reducedMotion={() => reducedMotion} />}
+        overlay={<DrawerHost drawer={connected.drawer} reducedMotion={reduced} />}
       />
     </ConnectedProjectContext.Provider>
   ));
@@ -70,7 +72,7 @@ export const mountTodos = async (initial: Todo[], reducedMotion = true, rail: Ra
 
   if (disclosure) fireEvent.click(disclosure);
 
-  return { app, store, connected, todos, unmount };
+  return { app, store, connected, todos, unmount, setReduced };
 };
 
 export const todoCallsTo = (app: ReturnType<typeof createFakeApp>, method: string) =>
