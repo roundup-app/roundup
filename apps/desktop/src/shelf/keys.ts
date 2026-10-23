@@ -61,6 +61,9 @@ export const shelfKeys = (props: { frame: ShelfFrame; shelf: () => HTMLElement |
     if (press.defaultPrevented || press.key !== "Escape" || !props.frame.open() || !(press.target instanceof Element)) return false;
 
     const shelf = props.shelf();
+
+    if (shelf?.getAttribute("data-triage") === "on") return false;
+
     // A naming field can remove itself while handling Escape; its original path
     // still belongs to the Shelf, so that same key must not close the fallback.
     const inside = (shelf !== null && press.composedPath().includes(shelf)) || press.target.closest(".shelf-tabs") !== null;
