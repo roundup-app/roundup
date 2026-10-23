@@ -185,3 +185,18 @@ it("u460_plain_click_after_failure_clears_the_bar_before_opening_the_drawer", as
   expect(screen.queryByRole("group", { name: "Work items deletion" })).toBeNull();
   expect(screen.getByRole("complementary", { name: "Drawer" })).toBeTruthy();
 });
+
+it("u3474e_mutation_keeps_the_next_key_live", async () => {
+  const { app } = await mountTodos([todo(1), todo(2), todo(3)]);
+  const row = screen.getByRole("button", { name: /#2 / });
+  row.focus();
+  fireEvent.keyDown(row, { key: "d", code: "KeyD" });
+  await confirmDeletion();
+  await questionClosed();
+  await waitFor(() => expect(document.activeElement).toBe(screen.getByRole("button", { name: /#3 / })));
+  fireEvent.keyDown(document.activeElement!, { key: "d", code: "KeyD" });
+  const question = await questionDialog();
+  expect(question.textContent).toContain("todo 3");
+  expect(question.textContent).not.toContain("todo 1");
+  expect(todoCallsTo(app, "todo.delete").map(call => call.params)).toEqual([{ id: 2 }]);
+});

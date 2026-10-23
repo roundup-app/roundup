@@ -428,3 +428,31 @@ it("u2773e_changes_connection_replacement_keeps_memory", async () => {
   expect(next.app.calls.find(call => call.method === "message.send")?.params).toMatchObject({ to: "a" });
   expect(first.app.calls.filter(call => call.method === "message.send")).toHaveLength(0);
 });
+
+it("u3474e_mutation_keeps_the_next_key_live", async () => {
+  await openDiff();
+  await saveNote("first");
+  await saveNote("second");
+  const remove = screen.getByRole("button", { name: "Remove note 1" });
+  remove.focus();
+  fireEvent.click(remove);
+  const next = screen.getByRole("button", { name: "Remove note 1" });
+  await waitFor(() => expect(document.activeElement).toBe(next));
+  fireEvent.click(document.activeElement!);
+  await waitFor(() => expect(screen.queryByRole("list", { name: "Notes" })).toBeNull());
+  expect(document.activeElement).toBe(screen.getByRole("button", { name: "Back" }));
+});
+
+it("u3474e_saving_a_note_returns_to_a_live_control", async () => {
+  await openDiff();
+  fireEvent.click(screen.getByRole("button", { name: "Add note" }));
+  const field = screen.getByRole("textbox", { name: "Note" });
+  await waitFor(() => expect(document.activeElement).toBe(field));
+  fireEvent.input(field, { target: { value: "keep this" } });
+  const save = screen.getByRole("button", { name: "Save" });
+  save.focus();
+  fireEvent.click(save);
+  await waitFor(() => expect(document.activeElement).toBe(screen.getByRole("button", { name: "Add note" })));
+  fireEvent.click(document.activeElement!);
+  await waitFor(() => expect(document.activeElement).toBe(screen.getByRole("textbox", { name: "Note" })));
+});
