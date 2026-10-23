@@ -8,6 +8,9 @@
     "tools/oxlint/anti-slop/**",
     "spikes/**"
   ],
+  "rules": {
+    "duplicate-exports": "off"
+  },
   "ignoreDependencies": [
     "@oxlint/plugins"
   ]
