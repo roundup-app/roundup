@@ -58,13 +58,6 @@ export const LEADER: readonly LeaderKey[] = [
   { keys: "I", what: copy.openTheInbox, short: copy.leaderShortInbox, press: "KeyI" },
 ];
 
-/** Help's rows: the chords, with the leader's keys after `⌘K` (U2241). */
-export const HELP_ROWS: readonly { keys: string; what: string }[] = [
-  ...CHORDS.slice(0, 4),
-  ...LEADER.map((key) => ({ keys: `${copy.leaderChord} ${key.keys}`, what: key.what })),
-  ...CHORDS.slice(4),
-];
-
 /** The leader key that shows as `keys`. */
 export const leaderChord = (keys: string): readonly string[] => [LEADER.find((key) => key.keys === keys)!.press];
 
