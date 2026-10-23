@@ -322,6 +322,10 @@ fn offered_tools() -> Vec<Offered> {
             "Spend one remaining firing of a reaction you authorized now, with an `operation` retry key. Refused while the reaction is stopped.",
         ),
         offered::<todo::CreateParams>("todo.create", "Create a Todo."),
+        offered::<todo::AssignParams>(
+            "todo.assign",
+            "Assign a Todo to an owner, or leave it unassigned.",
+        ),
         offered::<todo::TodoId>("todo.get", "Read one Todo."),
         offered_without_params("todo.list", "List every Todo."),
         offered::<todo::UpdateParams>("todo.update", "Change a Todo's title, body or estimate."),
