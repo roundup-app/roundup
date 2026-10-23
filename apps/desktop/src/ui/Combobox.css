@@ -52,7 +52,7 @@
   font-size: var(--text-caption);
 }
 
-.choice-picker {
+.app-popover.choice-picker {
   z-index: var(--layer-menu);
   min-width: var(--pad-menu-min-width);
   padding: var(--space-1);
@@ -60,4 +60,8 @@
   color: var(--text);
   box-shadow: var(--shadow-drawer);
   border-radius: var(--radius-drawer);
+}
+
+.choice-picker .app-combobox-input {
+  box-sizing: border-box;
 }
