@@ -525,7 +525,11 @@ it.skipIf(!captureDir("U3299a")).each(["names", "retention"] as const)("u3299a_u
         await lane.until("!document.querySelector('.tab-rename')");
       }
 
+      await lane.browser("click", `.project-tab[data-path=${JSON.stringify(projectPaths[0])}] .tab-name-button`);
+      await lane.until("document.querySelector('.project-tab[data-selected=true] [role=tab]')?.getAttribute('aria-busy') === 'false'");
+
       if (phase === "names") {
+      await lane.browser("hover", ".todo-project-root");
       await lane.browser("hover", ".project-tab[data-selected=true] .tab-name");
       await lane.until("!!document.querySelector('[role=tooltip]')");
       await capture("U3299d", side!, "project-tooltip");
