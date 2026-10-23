@@ -2,7 +2,7 @@ import { contextMenu, linkEntries, openOnRelease } from "../ui/contextMenu";
 import * as v from "valibot";
 import { Editable } from "../ui/Editable";
 import { RpcError, INTERNAL_CODE } from "../app/seam";
-import { Tip } from "../ui/Tip";
+import { createCutTitle } from "../ui/cutTitle";
 import { activationSource } from "../keys/registry";
 import { copy } from "../copy";
 import { createSelection } from "../shelf/selection";
@@ -13,7 +13,7 @@ import { OwnerMark } from "../ink/OwnerMark";
 import { Icon } from "../ink/Icon";
 import { EmptyState } from "../ink/EmptyState";
 
-import { createEffect, createMemo, createSignal, For, Show } from "solid-js";
+import { createEffect, createMemo, createSignal, For, onCleanup, Show } from "solid-js";
 import type { Accessor, Setter } from "solid-js";
 import type { Pad } from "@contracts/pad/Pad";
 import { ErrorLine } from "../ink/ErrorLine";
@@ -59,6 +59,7 @@ export const Pads = (props: {
   const nameLabel = copy.copyField(copy.draftField("name").toLowerCase());
   const restored = connected.drafts.list().filter(draft => draft.destination.surface === "pads" && draft.destination.object === "creation" && draft.destination.recipient === null && (props.recovery?.revision === undefined || draft.revision === props.recovery?.revision)).at(-1);
   const [naming, setNaming] = createSignal(props.recovery?.revision !== undefined && restored !== undefined);
+  createEffect(() => { if (naming()) onCleanup(connected.drafts.editor(creation)); });
   const parsed = restored ? v.safeParse(v.object({ name: v.string(), home: v.nullable(v.string()) }), restored.value) : null;
   const [invalid, setInvalid] = createSignal(Boolean(parsed && !parsed.success));
   const [name, setName] = createSignal(parsed?.success ? parsed.output.name : "");
@@ -373,6 +374,7 @@ const PadRows = (props: {
 const PadRow = (props: Parameters<typeof PadRows>[0] & { pad: Pad; parts: Parameters<Parameters<typeof Sortable.Item>[0]["children"]>[0] }) => {
   const connected = useConnectedProject();
   const pad = props.pad;
+  const nameCut = createCutTitle(() => pad.name);
   const [failed, setFailed] = createSignal<string | null>(null);
 
   props.failWith(pad.name, setFailed);
@@ -435,7 +437,7 @@ const PadRow = (props: Parameters<typeof PadRows>[0] & { pad: Pad; parts: Parame
                 ), activationSource(event)))
               }
             >
-              <Tip text={pad.name}>{(trigger) => <span {...trigger()} class="shelf-title">{pad.name}</span>}</Tip>
+              <span {...nameCut.attrs()} class="shelf-title">{pad.name}</span>
             </button>
               <button data-button="row-action" type="button" class="word light pad-assign" aria-label={copy.assignPadNamed(pad.name)} onClick={(event) => props.onAssign(pad.name, event.currentTarget)}>{copy.assign}</button>
             </div>

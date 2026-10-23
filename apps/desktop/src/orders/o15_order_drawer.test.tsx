@@ -1,4 +1,4 @@
-import { cleanup, fireEvent, render, screen, waitFor } from "@solidjs/testing-library";
+import { cleanup, fireEvent, render, screen, waitFor, within } from "@solidjs/testing-library";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { gate, mountApp, select } from "../decisions/decisionsFixture";
 import { RpcError } from "../app/seam";
@@ -9,6 +9,7 @@ import { createFakeApp } from "../testing/fakeApp";
 import { DrawerHost } from "../drawer/DrawerHost";
 import { OrderDrawer } from "./OrderDrawer";
 import { agent, clarifying, door } from "../testing/nodes";
+import { openRecovery, recoveryLabel } from "../testing/recovery";
 
 beforeEach(() => window.localStorage.clear());
 
@@ -48,7 +49,7 @@ const full: Order = {
   limits,
 };
 
-describe("O15: the Drawer shows a title, the done line and the folded prompt", () => {
+describe("O15: the Drawer shows a title, the done line and no prompt", () => {
   it("o15_the_title_leads_and_the_ask_follows", async () => {
     const drawer = await openDrawer(full);
     const title = drawer.querySelector(".order-title")!;
@@ -89,8 +90,7 @@ describe("O15: the Drawer shows a title, the done line and the folded prompt", (
 
   it("o15_no_list_is_drawn", async () => {
     const drawer = await openDrawer(full);
-    await waitFor(() => expect(drawer.querySelector("summary")).not.toBeNull());
-    expect(drawer.querySelector(":not(.order-prompt-body) > ul, h3")).toBeNull();
+    expect(drawer.querySelector("ul, h3")).toBeNull();
   });
 });
 
@@ -159,7 +159,7 @@ it("u2773a_orders_untouched_cancel_leaves_nothing_to_recover", async () => {
   await openDrawer(full);
   fireEvent.click(screen.getByRole("button", { name: "Edit order" }));
   fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
-  expect(screen.queryByRole("button", { name: "Recover unfinished work" })).toBeNull();
+  expect(await recoveryLabel()).toBeNull();
 });
 
 it("u2773a_orders_restores_exact_work_after_escape", async () => {
@@ -233,15 +233,18 @@ for (const outcome of ["acknowledged", "failed", "unknown"] as const) {
     fireEvent.click(screen.getByRole("button", { name: "Edit order" }));
     expect(screen.getByLabelText<HTMLTextAreaElement>("Ask").value).toBe("  newer B é\n");
 
-    if (outcome === "acknowledged") expect(screen.queryByRole("button", { name: "Recover unfinished work" })).toBeNull();
+    if (outcome === "acknowledged") expect(await recoveryLabel()).toBeNull();
     else {
-      fireEvent.click(screen.getByRole("button", { name: "Recover unfinished work" }));
+      await openRecovery();
       const recovery = await screen.findByLabelText("Unfinished work");
 
-      expect(recovery.querySelectorAll("li[data-revision]")).toHaveLength(1);
+      // Opening the panel closes the editor, so B is left unsent beside A's risk (U3289a).
+      expect(recovery.querySelectorAll("li[data-revision]")).toHaveLength(2);
       expect(recovery.textContent).toContain(outcome === "failed" ? "failed to save" : "may not have saved");
-      fireEvent.click(screen.getByRole("button", { name: "Discard" }));
-      expect(recovery.querySelectorAll("li[data-revision]")).toHaveLength(0);
+      const risk = within(recovery).getAllByRole("listitem").find((item) => item.textContent?.includes(outcome === "failed" ? "failed to save" : "may not have saved"))!;
+
+      fireEvent.click(within(risk).getByRole("button", { name: "Discard" }));
+      expect(recovery.querySelectorAll("li[data-revision]")).toHaveLength(1);
     }
 
     expect(sent).toHaveLength(1);
@@ -261,7 +264,7 @@ it("u2773b_orders_out_of_order_acknowledgement_keeps_late_failure", async () => 
   newer.resolve({});
   await waitFor(() => expect(document.querySelector(".order-edit")).toBeNull());
   older.reject(new RpcError(-32003, "older refused"));
-  fireEvent.click(await screen.findByRole("button", { name: "Recover unfinished work" }));
+  await openRecovery();
   const recovery = await screen.findByLabelText("Unfinished work");
   await waitFor(() => expect(recovery.textContent).toContain("failed to save"));
   expect(recovery.querySelectorAll("li[data-revision]")).toHaveLength(1);
@@ -296,7 +299,7 @@ it("u2773e_recovery_actions_keep_surface_draft_orders", async () => {
   vi.restoreAllMocks();
   fireEvent.click(screen.getByRole("button", { name: "Discard this revision" }));
   expect(document.querySelector(".order-edit")).toBeNull();
-  expect(screen.queryByRole("button", { name: "Recover unfinished work" })).toBeNull();
+  expect(await recoveryLabel()).toBeNull();
   expect(sends).toEqual([]);
 });
 
@@ -322,7 +325,7 @@ it("u2773c_orders_untouched_editor_follows_external_change", async () => {
     .toEqual(["Updated title", "Updated done"]);
   expect(screen.queryByRole("alert")).toBeNull();
   expect(screen.queryByRole("button", { name: "Copy ask" })).toBeNull();
-  expect(screen.queryByRole("button", { name: "Recover unfinished work" })).toBeNull();
+  expect(await recoveryLabel()).toBeNull();
   fireEvent.input(screen.getByLabelText("Ask"), { target: { value: "My edit after update" } });
   fireEvent.click(screen.getByRole("button", { name: "Save" }));
   await waitFor(() => expect(app.calls.filter((call) => call.method === "agent.setOrder").map((call) => call.params))
@@ -490,4 +493,14 @@ it("u3021c_orders_selected_save_keeps_captured_base_conflict_guard", async () =>
   fireEvent.submit(ask.closest("form")!);
   expect(connected.drafts.list()).toEqual(before);
   expect(app.calls).toEqual(calls);
+});
+
+it("u3289a_order_form_stays_off_the_list_until_left", async () => {
+  await openDrawer(full);
+  fireEvent.click(screen.getByRole("button", { name: "Edit order" }));
+  fireEvent.input(screen.getByLabelText("Ask"), { target: { value: "  still typing\n" } });
+  expect(await recoveryLabel()).toBeNull();
+  fireEvent.keyDown(screen.getByLabelText("Ask"), { key: "Escape" });
+  await waitFor(() => expect(document.querySelector(".order-edit")).toBeNull());
+  await vi.waitFor(async () => expect(await recoveryLabel()).toBe("Recover unfinished work (1)"));
 });

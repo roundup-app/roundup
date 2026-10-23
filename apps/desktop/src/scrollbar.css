@@ -33,3 +33,8 @@
     transition: none !important;
   }
 }
+
+/* U3016g: the Agents table keeps its columns where they are when its bar appears. */
+.measurement-dashboard {
+  scrollbar-gutter: stable;
+}

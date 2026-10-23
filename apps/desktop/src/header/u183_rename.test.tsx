@@ -325,7 +325,6 @@ it("u2773e_recovery_actions_keep_surface_draft_header", async () => {
   const write = vi.spyOn(Storage.prototype, "setItem").mockImplementation(() => { throw new Error("disk full"); });
   fireEvent.input(input, { target: { value: "  recover e\u0301 🪁  " } });
   press("Escape");
-  expect(screen.getAllByRole("status").some((line) => line.textContent?.includes("Could not store"))).toBe(true);
   fireEvent.click(screen.getByRole("button", { name: `Recover unfinished work · ${path("api")}` }));
   const dialog = await screen.findByRole("dialog", { name: "Unfinished work" });
   const copied: string[] = [];

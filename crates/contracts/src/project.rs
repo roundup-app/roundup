@@ -67,6 +67,7 @@ pub struct Choice {
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, TS)]
 #[ts(export, export_to = "project/")]
 pub struct ModelList {
+    pub engines: Vec<Choice>,
     pub models: Vec<Choice>,
     pub efforts: Vec<Choice>,
 }
@@ -376,6 +377,9 @@ pub struct CacheWrites {
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, TS)]
 #[ts(export, export_to = "project/")]
 pub struct ReferenceRates {
+    /// The response Model id these rates price; empty when the record names none.
+    #[serde(default)]
+    pub model: String,
     pub version: String,
     pub date: String,
     pub currency: String,
@@ -432,6 +436,19 @@ pub struct MeasurementSummaryParams {
     #[serde(default)]
     pub offset: u32,
     pub revision: Option<String>,
+}
+
+/// The account's weekly use, as the vendor's account usage read answers it. Never a Workstream
+/// share: every session on the account draws the same pool. `used_percent` and `resets_at` are
+/// absent together with a one-sentence `reason` when the read is unavailable.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, TS)]
+#[ts(export, export_to = "project/")]
+pub struct WeeklyLimit {
+    pub used_percent: Option<u32>,
+    /// Milliseconds since the Unix epoch.
+    #[ts(type = "number | null")]
+    pub resets_at: Option<i64>,
+    pub reason: Option<String>,
 }
 
 /// Exact known subtotal and number of contributions lacking this category.

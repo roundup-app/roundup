@@ -32,11 +32,23 @@
 .todo-ref > button:last-child { flex: none; }
 .todo-ref-link { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden; }
 .todo-ref-text { opacity: 0.7; }
-.todo-comments { display: flex; flex-direction: column; gap: var(--space-3); }
+.todo-comments { position: relative; display: flex; flex-direction: column; gap: var(--space-3); }
 .todo-comments h3 { font: inherit; font-weight: 600; margin: 0; }
 .todo-comment { display: flex; flex-direction: column; gap: var(--space-1); }
 .todo-comment p { margin: 0; }
+.todo-comment-parts { display: flex; flex-direction: column; gap: var(--space-1); }
 .todo-comment-body { white-space: pre-wrap; overflow-wrap: anywhere; }
+/* U3776: a comment that arrives while the Drawer is open fades in once; the reduced-motion rule in styles.css makes it instant. */
+.todo-comment[data-fresh] { animation: todo-comment-in var(--duration-todo) var(--easing-out) both; }
+@keyframes todo-comment-in { from { opacity: 0; } }
+/* Visually hidden, still announced. */
+.todo-comments-live { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: pre-wrap; }
+/* U3775: a status line is a quiet button; its details show as plain text beneath it. */
+.todo-status { display: flex; flex-direction: column; gap: var(--space-1); }
+.todo-status-summary { align-self: flex-start; text-align: start; font: inherit; line-height: inherit; color: var(--text); margin-block: calc(var(--space-1) * -1); }
+.todo-status-summary::after { content: "▸" / ""; margin-inline-start: var(--space-1); }
+.todo-status-summary[aria-expanded="true"]::after { content: "▾" / ""; }
+.todo-status-details { white-space: pre-wrap; overflow-wrap: anywhere; color: var(--grey); padding-inline-start: var(--space-3); }
 .todo-comment-field {
   box-sizing: border-box;
   width: 100%;
@@ -50,10 +62,12 @@
 }
 /* U353: a text field, so focus is the accent bar on its leading edge, no ring. */
 .todo-comment-field:focus { outline-width: 0; background-image: linear-gradient(var(--accent), var(--accent)); background-size: var(--space-1) 100%; background-repeat: no-repeat; }
-.todo-comment-head { display: flex; align-items: center; gap: var(--space-3); min-height: var(--space-5); }
+.todo-comment-head { display: flex; align-items: center; gap: var(--space-2); min-height: var(--space-5); }
 .todo-comment-author { color: var(--text); }
-.todo-comment-head > time { color: var(--grey); }
-.todo-comment-head > button { margin-inline-start: auto; }
+.todo-comment-glyph-gap { width: 16px; flex-shrink: 0; }
+.todo-comment-head > time { color: var(--grey); white-space: nowrap; flex-shrink: 0; }
+.todo-comment-head > button { margin-inline-start: auto; white-space: nowrap; flex-shrink: 0; }
+.todo-comment-author { min-width: 0; overflow-wrap: anywhere; }
 .todo-comments-send { display: flex; justify-content: flex-end; }
 .todo-delete-confirm.app-dialog {
   display: flex;
@@ -84,12 +98,6 @@
   overflow-wrap: anywhere;
 }
 .todo-draft-recovery:empty { display: none; }
-.todo-draft-recovery > .draft-entry {
-  display: flex;
-  align-items: center;
-  gap: var(--space-2);
-  text-align: left;
-}
 .todo-draft-revision {
   display: flex;
   font-size: var(--text-small);

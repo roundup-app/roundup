@@ -1,5 +1,6 @@
 import * as v from "valibot";
 import { Tip } from "../ui/Tip";
+import { createCutTitle } from "../ui/cutTitle";
 import { IconButton } from "../ui/IconButton";
 import { activationSource } from "../keys/registry";
 import type { ActivationSource } from "../keys/registry";
@@ -82,6 +83,7 @@ const PadBody = (props: {
   const [shown, setShown] = createSignal(parsed?.success ? parsed.output.source : source);
   const [origin, setOrigin] = createSignal(base);
   const [editing, setEditing] = createSignal(Boolean(recovered));
+  createEffect(() => { if (editing()) onCleanup(connected.drafts.editor(destination)); });
   const [conflictActor, setConflictActor] = createSignal<Actor | "unknown" | null>(recovered && (base !== props.initial.text || sourceRevision !== props.initial.revision) ? "unknown" : null);
 
   const conflictLabel = createMemo(() => {
@@ -438,11 +440,13 @@ const PadBody = (props: {
     settle(pad());
   };
 
+  const nameCut = createCutTitle(() => name);
+
   return (
     <div class="pad-body">
       <div class="pad-head">
         <span class="pad-head-title">
-          <Tip text={name}>{(trigger) => <span {...trigger()} class="pad-head-name" style={cutName}>{name}</span>}</Tip>
+          <span {...nameCut.attrs()} class="pad-head-name" style={cutName}>{name}</span>
           <Show when={saved() && !deleted() && !conflictActor()}>
             <span role="status" aria-live="off" data-state="saved" class="pad-saved light">{copy.padSaved}</span>
           </Show>
