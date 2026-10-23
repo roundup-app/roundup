@@ -58,6 +58,7 @@ describe("u2694 the Rail's menu actions", () => {
   });
 
   it.each([
+    [agent("chosen", "working", "busy"), []],
     [agent("chosen", "idle", "idle"), []],
     [agent("chosen", "done", "done"), [exitedTerminal("chosen", 0)]],
     [terminal("chosen"), []],
