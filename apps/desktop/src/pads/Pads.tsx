@@ -144,10 +144,11 @@ export const Pads = (props: {
 
   const shown = shownPads(connected, list);
 
-  const selection = createSelection(() => shown().map((pad) => pad.name), () => connected.rail.selected() ?? "overview");
+  const selection = createSelection(() => shown().map((pad) => pad.name), () => connected.rail.selected() ?? "overview", name => rowButtonOf(name));
 
   const bulk = createBulkDelete({
     selected: selection.selected,
+    afterRemoval: selection.afterRemoval,
     targets: () => shown().map((pad) => ({ id: pad.name, label: pad.name, owner: pad.owner.kind === "agent" ? connected.rail.nameOf(pad.owner) : undefined })),
     context: () => connected.rail.selected() ?? "overview",
     noun: copy.pads, replace: selection.replace, clear: selection.clear, cancelSelection: selection.cancel,
@@ -176,7 +177,7 @@ export const Pads = (props: {
   const padOf = (name: string) => pads().find(pad => pad.name === name);
   const groupOf = (pad: Pad) => ownerGroups(connected, [pad], item => item.owner).find(group => group.items.length > 0)!.id;
 
-  const rowButtonOf = (name: string) => (rowButtons.get(name)?.isConnected ? rowButtons.get(name) : null) ?? document.querySelector<HTMLElement>(`[data-pad="${CSS.escape(name)}"] .pad-name`);
+  const rowButtonOf = (name: string) => document.querySelector<HTMLButtonElement>(`.pads-tab [data-pad="${CSS.escape(name)}"] .pad-name`);
 
   /** U3736: the owner list closes with focus back on the row, found again after the refetch. */
   const stopPicking = () => {

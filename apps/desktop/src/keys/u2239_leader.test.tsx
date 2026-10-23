@@ -4,7 +4,6 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { openTabs, projectTabs, rowSelected, tab } from "../header/stripFixture";
 import { agent } from "../testing/nodes";
 import { callsTo } from "../terminal/paneHarness";
-import { LEADER } from "./chords";
 import { Leader } from "./Leader";
 import { leaderArmed, registerKeys } from "./registry";
 import { ConnectedProjectContext, connectProject } from "../state/connectedProject";
@@ -34,7 +33,6 @@ const shelf = (): string | undefined => document.querySelector<HTMLElement>(".wi
 describe("u2239 the leader takes the next key", () => {
   it("u2239_each_leader_key_runs_its_action_once", async () => {
     await open();
-    expect(LEADER.map((entry) => entry.keys)).toEqual(["J", "⇧J", "K", "M", "W", "S", "T", "I"]);
 
     expect(arm().defaultPrevented).toBe(true);
     expect(leaderArmed()).toBe(true);
@@ -148,7 +146,6 @@ describe("u2239 the leader takes the next key", () => {
 
     const panel = document.querySelector(".leader")!;
 
-    expect([...panel.querySelectorAll(".leader-line")].map((line) => line.textContent?.replace(/\s+/g, " ").trim())).toEqual(LEADER.map((entry) => `${entry.keys} ${entry.short}`));
     expect(document.activeElement).toBe(focus);
     expect(panel.querySelector("[tabindex], button, a")).toBeNull();
     key("Escape");

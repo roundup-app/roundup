@@ -1,0 +1,92 @@
+{
+  "D1": {
+    "selector": "",
+    "status": "pass",
+    "value": []
+  },
+  "D10": {
+    "selector": "",
+    "status": "fail",
+    "value": {
+      "contrast": "no-preference",
+      "failing": [
+        "D8"
+      ],
+      "scheme": "dark",
+      "viewport": "1512x950"
+    }
+  },
+  "D11": {
+    "selector": "",
+    "status": "pass",
+    "value": "no Thread"
+  },
+  "D12": {
+    "selector": "",
+    "status": "pass",
+    "value": "no Shelf row"
+  },
+  "D13": {
+    "selector": "",
+    "status": "pass",
+    "value": 0
+  },
+  "D14": {
+    "selector": "",
+    "status": "pass",
+    "value": "no Shelf row"
+  },
+  "D16": {
+    "selector": "",
+    "status": "pass",
+    "value": "no Thread"
+  },
+  "D2": {
+    "selector": "",
+    "status": "pass",
+    "value": []
+  },
+  "D3": {
+    "selector": "",
+    "status": "pass",
+    "value": []
+  },
+  "D4": {
+    "selector": "",
+    "status": "pass",
+    "value": {
+      "rows": 35
+    }
+  },
+  "D5": {
+    "selector": "",
+    "status": "pass",
+    "value": []
+  },
+  "D6": {
+    "selector": "",
+    "status": "pass",
+    "value": {
+      "targets": 0
+    }
+  },
+  "D7": {
+    "selector": "",
+    "status": "pass",
+    "value": {
+      "targets": 0
+    }
+  },
+  "D8": {
+    "selector": "div#dialog:cl-279:content.app-dialog",
+    "status": "fail",
+    "value": {
+      "boxShadow": "rgba(0, 0, 0, 0.5) 0px 8px 32px 0px"
+    }
+  },
+  "D9": {
+    "selector": "",
+    "status": "pass",
+    "value": []
+  }
+}

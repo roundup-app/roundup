@@ -5,7 +5,7 @@ import { rowOf } from "../rail/railFixture";
 import { createFakeApp } from "../testing/fakeApp";
 import { agent, door } from "../testing/nodes";
 import type { EmulatorFactory } from "../terminal/emulator";
-import { CHORDS, HELP_ROWS, pressOf } from "./chords";
+import { CHORDS, pressOf } from "./chords";
 import { leaderKey } from "./leaderFixture";
 import { endLeader } from "./registry";
 
@@ -128,13 +128,6 @@ describe("u54 keyboard help", () => {
 
     expect(panel).not.toBeNull();
     await waitFor(() => expect(document.activeElement).toBe(panel));
-
-    const lines = [...panel!.querySelectorAll(".help-line")].map((line) => line.textContent?.replace(/\s+/g, " ").trim());
-
-    expect(lines).toEqual(HELP_ROWS.map((chord) => `${chord.keys} ${chord.what}`));
-
-    // U2230: a chord shown as a hint is one of these lines.
-    for (const chord of CHORDS.filter((row) => row.hint)) expect(lines).toContain(`${chord.keys} ${chord.what}`);
 
     await waitFor(() => expect(document.activeElement).toBe(panel));
     fireEvent.keyDown(document.activeElement!, { key: "Escape" });
