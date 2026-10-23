@@ -203,3 +203,16 @@ it("u3755_esc_in_the_comment_field_keeps_the_draft", async () => {
   await waitFor(() => expect(document.activeElement).toBe(screen.getByRole("textbox", { name: "Write a comment" })));
   expect(screen.getByRole<HTMLTextAreaElement>("textbox", { name: "Write a comment" }).value).toBe("draft");
 });
+
+
+it.each(["body", "toggle", "control"])("u3474a_enters_and_leaves_from_each_todos_target: %s", async (target) => {
+  await mount();
+  const toggle = screen.getByRole("button", { name: "Triage" });
+  const start = target === "body" ? document.body : target === "toggle" ? toggle : screen.getAllByRole("button", { name: /add todo to/ })[0]!;
+  start.focus();
+  fireEvent.keyDown(document.activeElement!, { key: "t", code: "KeyT" });
+  await waitFor(() => expect(toggle.getAttribute("aria-pressed")).toBe("true"));
+  expect(document.activeElement).toBe(row(1));
+  fireEvent.keyDown(document.activeElement!, { key: "Escape", code: "Escape" });
+  expect(toggle.getAttribute("aria-pressed")).toBe("false");
+});
