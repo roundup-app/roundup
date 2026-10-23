@@ -1,3 +1,4 @@
+import { questionDialog, answerQuestion } from "../shelf/bulkQuestionHarness";
 import { leaderKey } from "../keys/leaderFixture";
 import { cleanup, fireEvent, waitFor } from "@solidjs/testing-library";
 import { afterEach, beforeEach, expect, it } from "vitest";
@@ -281,4 +282,20 @@ it("u469_daemon_exit_keeps_one_read_only_bubble_and_clears_saved_places", async 
   mounted.setExit({code:1});
   expect(document.querySelectorAll('.bubble:not([hidden])')).toHaveLength(1);
   expect(window.sessionStorage.getItem('roundup:bubble-places:/p')).toBeNull();
+});
+
+it("u3512a_terminal_close_waits_for_one_native_answer_and_cancel_keeps_it", async () => {
+  const { app } = await mountBubbles();
+  const close = document.querySelector<HTMLButtonElement>('[aria-label="Close cargo test"]')!;
+  fireEvent.click(close);
+  fireEvent.click(close);
+  expect(app.questions).toHaveLength(1);
+  expect((await questionDialog()).title).toBe("Close cargo test?");
+  expect(bubbleCalls(app, "terminal.close")).toEqual([]);
+  await answerQuestion(false);
+  expect(bubbleCalls(app, "terminal.close")).toEqual([]);
+  expect(close.isConnected).toBe(true);
+  fireEvent.click(close);
+  await answerQuestion(true);
+  await waitFor(() => expect(bubbleCalls(app, "terminal.close")).toEqual([{ id: "1" }]));
 });
