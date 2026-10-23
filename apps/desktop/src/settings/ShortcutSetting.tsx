@@ -1,6 +1,6 @@
 import { createSignal, createUniqueId, Show } from "solid-js";
 import { copy } from "../copy";
-import { ErrorLine } from "../ink/ErrorLine";
+import { ReservedLine } from "../ink/ReservedLine";
 import { CHORDS, LEADER, pressOf, shortcutLabel } from "../keys/chords";
 import { registerKeys } from "../keys/registry";
 import { appSettings, saveAppSettings } from "./preferences";
@@ -44,6 +44,6 @@ export const ShortcutSetting = (props: { onFailure: (message: string | null) => 
       <Show when={appSettings().quickAdd !== "meta+shift+KeyT"}><button data-button="quiet" type="button" onClick={() => save("meta+shift+KeyT")}>{copy.reset}</button></Show>
       </div>
     </div>
-    <Show when={failure()}>{message => <ErrorLine message={message()} />}</Show>
+    <ReservedLine message={failure()} />
   </>;
 };
