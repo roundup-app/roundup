@@ -132,7 +132,7 @@
   white-space: nowrap;
 }
 
-/* The state label sizes the slot; a typing notice is cut inside it without widening the floating panel. */
+/* Keep the resting label's width while allowing the refused-typing explanation to read in full. */
 .pane-control-state::after {
   content: attr(data-label);
   visibility: hidden;
@@ -143,7 +143,7 @@
 .pane-control-state > .reserved-line {
   grid-column: 2;
   grid-row: 1;
-  inline-size: 0;
+  inline-size: max-content;
   min-inline-size: 100%;
 }
 
