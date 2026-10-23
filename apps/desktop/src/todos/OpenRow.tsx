@@ -64,6 +64,12 @@ export const OpenRow = (props: {
   treeItem?: JSX.HTMLAttributes<HTMLElement>;
   /** U3770: a finish is playing on this row. */
   motion?: boolean;
+  /** U3808: latest eligible recorded Hand-off for this Agent. */
+  current?: boolean;
+  disclosure?: JSX.Element;
+  groupProgress?: JSX.Element;
+  groupComplete?: boolean | undefined;
+  aggregateMotion?: boolean;
   /** U3770: this row's own effects ended. */
   onMotionEnd?: () => void;
   /** U3709: what Tab and ⇧Tab do on this row; `null` where the key is not this row's. */
@@ -74,11 +80,8 @@ export const OpenRow = (props: {
   const [listOpen, setListOpen] = createSignal(false);
   const waitingOn = createMemo(() => openBlockersOf(props.todo, props.known));
 
-  // U3708: the other open blockers, in `blockers` order, after the one the row nests under.
-  const alsoWaiting = createMemo(() => props.todo.blockers.flatMap((id) => props.known.get(id) ?? [])
-    .filter((blocker) => !blocker.done && blocker.id !== props.place?.parent && (props.place?.parent != null || waitingOn().length > 1)));
-
-  const alsoWaitingLine = createMemo(() => copy.alsoWaitsOn(alsoWaiting().map((blocker) => blocker.title).join(copy.comma)));
+  // U3810: every open blocker, including the nesting parent, in id order.
+  const waitingLine = createMemo(() => copy.waitsOnTitles(waitingOn().map((blocker) => blocker.title).join(copy.comma)));
 
   /** U3731: the body's first non-empty line, the row's one quiet line under the title. */
   const bodyLine = createMemo(() => props.todo.body.split("\n").find(line => line.trim() !== "")?.trim() ?? "");
@@ -136,7 +139,9 @@ export const OpenRow = (props: {
           }}
         >
           <span {...titleCut.attrs()} class="shelf-title">{props.todo.title}<span class="todo-strike" aria-hidden="true" data-title={props.todo.title} onAnimationEnd={() => props.onMotionEnd?.()} /></span>
+          <Show when={props.current}><span class="todo-now" data-state="">{copy.todoNow}</span></Show>
         </RowButton>
+        {props.disclosure}
         <Show when={!props.nested && props.sorted}>
           <div class="todo-row-actions" role="group" aria-label={copy.rowActionsFor(props.todo.id)}>
             <Show when={props.sorted}>
@@ -169,16 +174,25 @@ export const OpenRow = (props: {
     <ShelfRow
       glyph={<>
         <TickBox todo={props.todo} onToggle={toggle} />
-        <Show when={!props.todo.done && props.todo.blocked && props.place?.parent == null}><KindGlyph kind="blocked" /></Show>
+        <Show when={!props.todo.done && props.todo.blocked}><KindGlyph kind="blocked" /></Show>
       </>}
       data-id={props.nested ? undefined : props.todo.id}
       data-todo={props.todo.id}
+      onAnimationEnd={event => {
+        if (props.groupComplete !== undefined && event.target instanceof Element && event.target.matches(".todo-tick-mark path")) props.onMotionEnd?.();
+      }}
+      data-aggregate-motion={props.aggregateMotion ? "play" : undefined}
+      data-group-complete={props.groupComplete === undefined ? undefined : String(props.groupComplete)}
       data-motion={props.motion ? "play" : undefined}
       data-actions-open={near?.near() || listOpen() ? "true" : undefined}
       data-shelf-row={props.nested ? undefined : ""}
       data-selected={props.selected ? "true" : undefined}
       role={props.treeItem?.role}
       aria-level={props.treeItem?.["aria-level"]}
+      aria-expanded={props.treeItem?.["aria-expanded"]}
+      aria-controls={props.treeItem?.["aria-controls"]}
+      aria-owns={props.treeItem?.["aria-owns"]}
+      aria-current={props.current && props.treeItem?.role === "treeitem" ? "step" : undefined}
       data-level={props.place?.level}
       style={props.place ? { "padding-inline-start": `calc(var(--space-2) + ${props.place.level - 1} * var(--space-4))` } : undefined}
       class={props.nested ? "todo-row" : "todo-row todo-inset"}
@@ -189,6 +203,7 @@ export const OpenRow = (props: {
       }}
     >
       <Show when={props.nested}>{head}</Show>
+      {props.groupProgress}
       <Show when={bodyLine() !== ""}>
         {/* oxlint-disable-next-line anti-slop/no-tooltip-bypass -- U3731 requires the whole first line as the one-line body's title attribute. */}
         <p class="item-description" data-todo-description title={bodyLine()}>{bodyLine()}</p>
@@ -212,10 +227,10 @@ export const OpenRow = (props: {
           </Show>
         </p>
       </Show>
-      <Show when={!props.nested && !props.todo.done && failure() === null && alsoWaiting().length > 0}>
+      <Show when={!props.nested && !props.todo.done && failure() === null && waitingOn().length > 0}>
         <p class="shelf-meta" data-todo-meta>
           {/* oxlint-disable-next-line anti-slop/no-tooltip-bypass -- U3708 requires the full ellipsized sentence in title; Tip also owns its rendered tooltip. */}
-          <Tip class="todo-tooltip" text={alsoWaitingLine()}>{(trigger) => <span {...trigger()} data-todo-also-waits title={alsoWaitingLine()}><span>{copy.alsoWaitsOn("")}</span><span class="todo-blockers"><For each={alsoWaiting()}>{(blocker, index) => (
+          <Tip class="todo-tooltip" text={waitingLine()}>{(trigger) => <span {...trigger()} data-todo-also-waits title={waitingLine()}><span>{copy.waitsOnWord}</span><span class="todo-blockers"><For each={waitingOn()}>{(blocker, index) => (
             <>
               <Show when={index() > 0}><span>{copy.comma}</span></Show>
               <button data-button="quiet" type="button" class="word todo-blocker" aria-label={copy.openBlocker(blocker.title)} onClick={(event) => props.onOpen(blocker, activationSource(event))}>{blocker.title}</button>

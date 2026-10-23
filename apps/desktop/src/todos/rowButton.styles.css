@@ -119,7 +119,8 @@
   -webkit-box-decoration-break: clone;
 }
 
-.todo-row:has(.todo-tick:checked) .todo-strike::after { background-size: 100% var(--strike-thickness); }
+.todo-row[data-group-complete="true"] .todo-strike::after,
+.todo-row:not([data-group-complete]):has(.todo-tick:checked) .todo-strike::after { background-size: 100% var(--strike-thickness); }
 
 /* U3770: a finish plays the tick, ring and strike once; nothing carries `data-motion` at rest. Unchecking runs forward keyframes from drawn to hidden, with the same ease-out. */
 @keyframes todo-tick-draw { from { stroke-dashoffset: 1; } to { stroke-dashoffset: 0; } }
@@ -144,11 +145,11 @@
   animation: todo-tick-erase var(--duration-tick) var(--ease-todo) both;
 }
 
-.todo-row[data-motion="play"]:has(.todo-tick:checked) .todo-strike::after {
+.todo-row[data-motion="play"]:not([data-group-complete]):has(.todo-tick:checked) .todo-strike::after {
   animation: todo-strike-grow var(--duration-strike) var(--ease-todo) var(--delay-strike) both;
 }
 
-.todo-row[data-motion="play"]:not(:has(.todo-tick:checked)) .todo-strike::after {
+.todo-row[data-motion="play"]:not([data-group-complete]):not(:has(.todo-tick:checked)) .todo-strike::after {
   animation: todo-strike-clear var(--duration-strike) var(--ease-todo) both;
 }
 
@@ -314,7 +315,9 @@
 }
 
 .todo-done-fold[data-reduced-motion="true"] {
-  transition: none;
+  transition-property: grid-template-rows;
+  transition-duration: 0s;
+  transition-timing-function: var(--ease-out);
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -345,4 +348,40 @@
 
 @media (prefers-reduced-motion: reduce) {
   .todo-progress-count { animation-name: none !important; }
+}
+
+
+/* U3809: Ark owns branch disclosure; each row already carries its absolute tree indent. */
+.todo-list .todo-dependency { cursor: auto; margin-block: 0; }
+.todo-list .todo-dependency > [data-part="branch-content"] { padding-inline-start: 0; }
+.todo-list .todo-dependency > [data-part="branch-content"] {
+  display: grid;
+  grid-template-rows: 1fr;
+  transition-property: grid-template-rows;
+  transition-duration: 0s;
+  transition-timing-function: var(--ease-out);
+}
+.todo-list .todo-dependency[data-structural-motion="true"] > [data-part="branch-content"] {
+  transition: grid-template-rows var(--duration-todo) var(--ease-out);
+}
+.todo-list .todo-dependency > [data-part="branch-content"][inert] { grid-template-rows: 0fr; }
+.todo-group-content { min-height: 0; overflow: hidden; }
+@media (prefers-reduced-motion: reduce) {
+  .todo-list .todo-dependency > [data-part="branch-content"] { transition-duration: 0s !important; }
+}
+.todo-row .row-head > [data-group-toggle] { flex-shrink: 0; margin-inline-start: var(--space-3); }
+.todo-row .app-progress { margin-block: var(--space-1); }
+.todo-now { color: var(--accent); font-size: var(--text-small); }
+
+.todo-list [role="tree"] > .todo-dependency:not(:first-child) { margin-top: 0; }
+
+.todo-row .todo-row-button:has(.todo-now) { display: flex; align-items: baseline; gap: var(--space-2); }
+.todo-row-button .todo-now { flex: none; }
+.todo-row-button:has(.todo-now) .shelf-title { min-width: 0; }
+
+.todo-row[data-aggregate-motion="play"][data-group-complete="true"] .todo-strike::after {
+  animation: todo-strike-grow var(--duration-strike) var(--ease-todo) var(--delay-strike) both;
+}
+.todo-row[data-aggregate-motion="play"][data-group-complete="false"] .todo-strike::after {
+  animation: todo-strike-clear var(--duration-strike) var(--ease-todo) both;
 }
