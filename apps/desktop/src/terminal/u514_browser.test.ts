@@ -478,7 +478,9 @@ it.skipIf(!process.env.ROUNDUP_CAPTURES?.includes("U3529"))("u3529c_rendered_sel
       const directory = join(captureDir(id)!, phase);
 
       mkdirSync(directory, { recursive: true });
+
       if (id !== "U3529a") copyFileSync(shot, join(directory, `${step}.png`));
+
       writeFileSync(join(directory, `${step}.checks.json`), checks);
     }
   };
