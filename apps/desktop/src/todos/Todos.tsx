@@ -24,7 +24,7 @@ import type { JSX } from "solid-js";
 import { createEffect, createMemo, createSignal, For, on, onCleanup, onMount, Show, useContext } from "solid-js";
 import { useTabsContext } from "@ark-ui/solid/tabs";
 import type { Todo } from "@contracts/todo/Todo";
-import { ErrorLine } from "../ink/ErrorLine";
+import { ReservedLine } from "../ink/ReservedLine";
 import { HomeMove } from "./HomeMove";
 import { homeNameOf, homesToOffer } from "./homes";
 import { ShelfRow } from "../ink/ShelfRow";
@@ -228,11 +228,11 @@ export const OpenRow = (props: {
         {/* oxlint-disable-next-line anti-slop/no-tooltip-bypass -- U3731 requires the whole first line as the one-line body's title attribute. */}
         <p class="item-description" data-todo-description title={bodyLine()}>{bodyLine()}</p>
       </Show>
-      <Show when={failure()}>{(message) => <ErrorLine message={message()} />}</Show>
+      <ReservedLine overlay message={failure()} />
       <Show when={props.nested}>
         <p class="shelf-meta" data-todo-meta>
           <Show when={props.nested}><span data-mono>{copy.todoNumberMark}{props.todo.id}</span>{" "}</Show>
-          <Show when={props.nested && failure() === null && waitingOn().length > 0}>
+          <Show when={props.nested && waitingOn().length > 0}>
             <span data-todo-waits>
               <Tip class="todo-tooltip" text={copy.waitsOnTitles(waitingOn().map((blocker) => blocker.title).join(copy.comma))}>{(trigger) => <span {...trigger()}>{copy.waitsOnWord}</span>}</Tip><span class="todo-blockers"><For each={waitingOn()}>{(blocker, index) => (
                 <>
@@ -247,7 +247,7 @@ export const OpenRow = (props: {
           </Show>
         </p>
       </Show>
-      <Show when={!props.nested && !props.todo.done && failure() === null && alsoWaiting().length > 0}>
+      <Show when={!props.nested && !props.todo.done && alsoWaiting().length > 0}>
         <p class="shelf-meta" data-todo-meta>
           {/* oxlint-disable-next-line anti-slop/no-tooltip-bypass -- U3708 requires the full ellipsized sentence in title; Tip also owns its rendered tooltip. */}
           <Tip class="todo-tooltip" text={alsoWaitingLine()}>{(trigger) => <span {...trigger()} data-todo-also-waits title={alsoWaitingLine()}><span>{copy.alsoWaitsOn("")}</span><span class="todo-blockers"><For each={alsoWaiting()}>{(blocker, index) => (
@@ -324,7 +324,7 @@ export const Todos = (props: {
     if (!bulk.pending()) selection.key(todo.id, event);
   };
 
-  const isEmpty = createMemo(() => todos.isLoaded() && todos.all().length === 0 && todos.failure() === null);
+  const isEmpty = createMemo(() => todos.isLoaded() && todos.all().length === 0);
 
   /** The id of the group a Todo reads in: its owner, or Unassigned once that Agent left the Rail. */
   const groupOf = (todo: Todo) => ownerGroups(connected, [todo], item => item.owner).find(group => group.items.length > 0)!.id;
@@ -847,8 +847,7 @@ export const Todos = (props: {
         </button>
         <IconButton class="shelf-triage" data-triage-toggle aria-label={copy.triage} aria-pressed={triage.on()} chord={CHORDS.find(row => row.keys === "T" && row.inShelf)} onClick={() => triage.on() ? leaveTriage() : enterTriage()}><ListChecks class="icon" aria-hidden="true" width={16} height={16} stroke-width={1.75} /></IconButton>
       </ScopeAction>
-      <Show when={todos.failure()}>{(message) => <ErrorLine message={message()} />}</Show>
-      <Show when={createFailure() !== null && (adding() === null || fieldGroupGone())}>{(_) => <ErrorLine message={createFailure()!} />}</Show>
+      <ReservedLine message={(createFailure() !== null && (adding() === null || fieldGroupGone()) ? createFailure()! : null) || (todos.failure()) || null} />
       <Show when={isEmpty() && !typing()}>
         <EmptyState icon="check" heading={copy.noTodosYet} hint={copy.noTodosHint} />
       </Show>
@@ -910,7 +909,7 @@ export const Todos = (props: {
         </Sortable.Root>
         </TreeView.Root>
         <Show when={typing() && !fieldGroupGone() && adding()?.group === group().id}>
-          <Show when={createFailure()}>{(message) => <ErrorLine message={message()} />}</Show>
+          <ReservedLine message={createFailure()} />
           {field()}
         </Show>
         </>; }}</OwnerGroups>
@@ -974,7 +973,7 @@ export const Todos = (props: {
       <Show when={todos.isLoaded()}>
         <For each={[...new Set(connected.drafts.list().filter(draft => draft.destination.surface === "todos"
           && draft.destination.object !== "new" && !todos.byId().has(Number(draft.destination.object))).map(draft => draft.destination.object))]}>{object => <div>
-          <ErrorLine message={copy.draftIdentity(copy.originalUnavailable, object)} />
+          <ReservedLine message={copy.draftIdentity(copy.originalUnavailable, object)} />
           <TodoDraftRecovery object={object} />
         </div>}</For>
       </Show>

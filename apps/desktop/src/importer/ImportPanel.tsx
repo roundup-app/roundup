@@ -1,3 +1,4 @@
+import { ReservedLine } from "../ink/ReservedLine";
 import "./import.css";
 import { For, onCleanup, Show } from "solid-js";
 import { Portal } from "solid-js/web";
@@ -44,10 +45,12 @@ export const ImportPanel = (props: { open: boolean; opener: HTMLElement | undefi
               </button>
             )}</For>
           </div>
-          <Show when={!state.verified() && wanted().size > 0}><p role="status">{copy.importRestored(wanted().size)}</p></Show>
+          <ReservedLine message={failure() ?? (state.restoreFailure() || state.retentionFailure() ? `${state.restoreFailure() ? copy.importRestoreFailure : copy.importRetentionFailure} ${copy.importRetentionRecovery}` : null)}
+            aria-live="polite" aria-label={state.hasConflict() ? copy.importConflict : undefined} status={state.hasConflict() ? copy.importConflictExplanation : !state.verified() && wanted().size > 0 ? copy.importRestored(wanted().size) : state.loading() ? copy.importLooking : found()?.candidates.length === 0 ? copy.importNone : null}>
+            <Show when={state.restoreFailure() || state.retentionFailure()}><button type="button" data-button="quiet" onClick={state.retryStorage}>{copy.retryStorage}</button></Show>
+          </ReservedLine>
           <Show when={state.hasConflict()}>
             <section class="import-recovery" aria-label={copy.importChoices}>
-              <p role="status" aria-label={copy.importConflict}>{copy.importConflictExplanation}</p>
               <For each={state.choices()}>{(choice, at) => (
                 <section aria-label={copy.importChoice(at() + 1)}>
                   <p>{copy.importPeriodName(choice.period)}</p>
@@ -60,15 +63,8 @@ export const ImportPanel = (props: { open: boolean; opener: HTMLElement | undefi
               )}</For>
             </section>
           </Show>
-          <Show when={state.restoreFailure() || state.retentionFailure()}>
-            <p role="alert" data-kind="error" class="import-failure">{state.restoreFailure() ? copy.importRestoreFailure : copy.importRetentionFailure}</p>
-            <p>{copy.importRetentionRecovery}</p>
-            <button type="button" data-button="quiet" onClick={state.retryStorage}>{copy.retryStorage}</button>
-          </Show>
-          <Show when={failure()}>{(message) => <p role="alert" data-kind="error" class="import-failure">{message()}</p>}</Show>
-          <Show when={found()} fallback={<Show when={state.loading()}><p role="status">{copy.importLooking}</p></Show>}>
+          <Show when={found()}>
             {(result) => <>
-              <Show when={result().candidates.length === 0}><p role="status">{copy.importNone}</p></Show>
               <ul class="import-list" aria-label={copy.importResults}>
                 <For each={result().candidates}>{(candidate) => (
                   <li>
@@ -77,12 +73,12 @@ export const ImportPanel = (props: { open: boolean; opener: HTMLElement | undefi
                       <span class="import-meta">
                         <span class="import-cwd"><bdi>{candidate.cwd === "" ? copy.importProjectFolder : candidate.cwd}</bdi></span>
                         <time dateTime={new Date(Number(candidate.last_activity_ms)).toISOString()}>{copy.importAge(Math.max(0, Math.floor((now() - Number(candidate.last_activity_ms)) / 60000)))}</time>
-                        <Show when={refused().get(candidate.source)}>{(reason) => <span role="alert" data-kind="error" class="import-failure">{copy.importRowRefusal(reason())}</span>}</Show>
+                        <ReservedLine message={refused().get(candidate.source) ? (copy.importRowRefusal((refused().get(candidate.source))!)) : null} />
                       </span>
                     </Checkbox>
                   </li>
                 )}</For>
-                <For each={[...refused()].filter(([source]) => !result().candidates.some((candidate) => candidate.source === source))}>{([source, reason]) => <li><div class="import-text import-unavailable"><span class="import-title">{wanted().get(source)?.title ?? copy.importUnnamed}</span><p role="alert" data-kind="error" class="import-failure">{reason}</p></div></li>}</For>
+                <For each={[...refused()].filter(([source]) => !result().candidates.some((candidate) => candidate.source === source))}>{([source, reason]) => <li><div class="import-text import-unavailable"><span class="import-title">{wanted().get(source)?.title ?? copy.importUnnamed}</span><ReservedLine message={reason} /></div></li>}</For>
               </ul>
               <Show when={result().excluded.length > 0}>
                 <Disclosure class="import-excluded" label={copy.importNotImportable(result().excluded.length)}>

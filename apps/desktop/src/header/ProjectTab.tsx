@@ -1,3 +1,4 @@
+import { ReservedLine } from "../ink/ReservedLine";
 import type { ProjectsState } from "../state/projects";
 import { copy } from "../copy";
 import * as v from "valibot";
@@ -213,11 +214,10 @@ export const ProjectTab = (props: {
       <Portal><Dialog.Positioner asChild={positioner => <aside {...positioner({})} />}><Dialog.Content class="draft-recovery header-recovery" ref={element => { panel = element; }}>
         <Dialog.Title asChild={title => <h2 {...title({})}>{copy.unfinishedWork}</h2>} />
         <Dialog.Description class="draft-identity">{problem() ? copy.projectName : props.tab.path}</Dialog.Description>
-        <Show when={problem()}>{failure => <p role="alert">{copy.draftRetention(props.tab.path, copy.projectName, failure().cause)}</p>}</Show>
-        <Show when={copyFailure()}>{failure => <p role="alert">{failure()}</p>}</Show>
-        <For each={[...records()].reverse().sort((a, b) => Number(b.revision === current()?.revision) - Number(a.revision === current()?.revision))}>{(draft, index) => <Show when={records().length > 1} fallback={<span class="draft-status" role="status" aria-label={copy.draftStatus[draft.status]} data-state={draft.status}>{draft.revision === current()?.revision ? copy.currentDraft : copy.draftStatus[draft.status]}</span>}><button type="button" data-button="quiet" aria-pressed={shown()?.revision === draft.revision} onClick={() => inspect(draft.revision)}>{copy.draftIdentity(draft.revision === current()?.revision ? copy.currentDraft : copy.draftStatus[draft.status], String(index() + 1))}</button></Show>}</For>
+        <ReservedLine message={(copyFailure()) || (problem() ? (copy.draftRetention(props.tab.path, copy.projectName, problem()!.cause)) : null) || null} />
+        <For each={[...records()].reverse().sort((a, b) => Number(b.revision === current()?.revision) - Number(a.revision === current()?.revision))}>{(draft, index) => <Show when={records().length > 1} fallback={<ReservedLine aria-label={copy.draftStatus[draft.status]} status={draft.revision === current()?.revision ? copy.currentDraft : copy.draftStatus[draft.status]} data-state={draft.status} />}><button type="button" data-button="quiet" aria-pressed={shown()?.revision === draft.revision} onClick={() => inspect(draft.revision)}>{copy.draftIdentity(draft.revision === current()?.revision ? copy.currentDraft : copy.draftStatus[draft.status], String(index() + 1))}</button></Show>}</For>
         <Show when={shown()}>{draft => <>
-          <Show when={draft().value.base !== props.tab.base}><p role="status">{copy.railDraftConflict}</p></Show>
+          <ReservedLine status={draft().value.base !== props.tab.base ? copy.railDraftConflict : null} />
           <pre class="draft-value">{String(draft().value.name ?? "")}</pre>
         </>}</Show>
         <div class="draft-actions">

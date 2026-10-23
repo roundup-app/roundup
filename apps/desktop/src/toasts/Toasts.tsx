@@ -1,3 +1,4 @@
+import { ReservedLine } from "../ink/ReservedLine";
 import { copy } from "../copy";
 import { createEffect, createSignal } from "solid-js";
 import { ToastProvider } from "../ui/Toast";
@@ -26,8 +27,7 @@ export const Toasts = (props: { queue: ToastQueue }) => {
   });
 
   return (
-    <div class="toasts" role="status" aria-live="polite" ref={setLayer}>
-      <ToastProvider toast={props.queue.toast} label={copy.toastsRegion} />
-    </div>
+    <ReservedLine overlay class="toasts" status={copy.toastsRegion} aria-live="polite" ref={setLayer}
+      content={<ToastProvider toast={props.queue.toast} label={copy.toastsRegion} />} />
   );
 };
