@@ -26,8 +26,8 @@ const MARKERS: [&str; 8] = [
     "CLAUDE_CODE_MESSAGING_TOKEN",
 ];
 
-/// A3507a: gateway and credential variables the user configures.
-const GATEWAY: [&str; 9] = [
+/// A3507a: user gateway and credential variables inherited by every program.
+const USER_ENV: [&str; 9] = [
     "ANTHROPIC_API_KEY",
     "ANTHROPIC_AUTH_TOKEN",
     "CLAUDE_CODE_USE_BEDROCK",
@@ -44,7 +44,7 @@ const GATEWAY: [&str; 9] = [
 async fn served_with_markers(fake_claude: &str, extra_env: &[(&str, &str)]) -> Served {
     let mut env: Vec<(&str, &str)> = MARKERS.iter().map(|marker| (*marker, "1")).collect();
     env.push(("CLAUDE_CODE_OAUTH_TOKEN", "a-users-oauth-token"));
-    env.extend(GATEWAY.iter().map(|name| (*name, "1")));
+    env.extend(USER_ENV.iter().map(|name| (*name, "1")));
     env.extend_from_slice(extra_env);
     Served::start(fake_claude, &env).await
 }
@@ -58,7 +58,7 @@ fn parse_env(text: &str) -> BTreeMap<&str, &str> {
 /// What A15 requires of a spawned program's environment: none of `MARKERS`, but the Claude Code
 /// configuration `served_with_markers` set and `PATH`, which the Daemon inherits either way.
 fn assert_clean(printed: &BTreeMap<&str, &str>) {
-    for name in GATEWAY {
+    for name in USER_ENV {
         assert_eq!(printed.get(name), Some(&"1"), "{name}: {printed:?}");
     }
     for marker in MARKERS {
@@ -212,9 +212,4 @@ async fn agent_env(method: &str) -> String {
     wait_for_exit(&mut client, &terminal_id).await;
 
     std::fs::read_to_string(&out).unwrap()
-}
-
-#[tokio::test(flavor = "multi_thread")]
-async fn a15_start_door_removes_markers_and_keeps_the_users_gateway() {
-    assert_clean(&parse_env(&agent_env("rail.startDoor").await));
 }

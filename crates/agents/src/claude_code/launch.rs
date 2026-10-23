@@ -2,7 +2,7 @@
 //! `rup signal <agent-id>`, a per-Agent MCP config that runs `rup mcp <agent-id>`, and a pre-trusted
 //! working directory (no hook fires for the trust dialog).
 
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 use std::ffi::{OsStr, OsString};
 use std::io::ErrorKind;
 use std::os::unix::fs::PermissionsExt;
@@ -17,7 +17,8 @@ use unicode_normalization::UnicodeNormalization;
 use super::brief::{self, Role};
 use super::extras;
 use super::launch_files::{
-    ConfigLock, is_symlink, landing, replace_file, replace_text, shell_quote, socket_folder,
+    ConfigLock, is_symlink, landing, merge_settings, replace_file, replace_text, shell_quote,
+    socket_folder, user_settings,
 };
 use super::models::{Lean, Pair};
 use super::plugins;
@@ -81,8 +82,8 @@ pub struct Launcher {
     /// The user's home folder, never trusted: Claude never saves trust for it, and a saved one
     /// would trust every non-git folder below it.
     home: Option<PathBuf>,
-    /// M11: the Daemon's environment already holds `ENABLE_TOOL_SEARCH`, which is the user's and left alone.
-    user_tool_search: bool,
+    /// User shell values take precedence over roundup defaults.
+    user_defaults: BTreeSet<&'static str>,
     /// LC14: true only for a Launcher made `without_intent_skill`; the bundle is read at a Door's start.
     lacks_intent: bool,
     plugins: Arc<OnceCell<Delivery>>,
@@ -108,14 +109,14 @@ impl PartialEq for Launcher {
             &self.conversation_dir,
             &self.rup,
             &self.home,
-            self.user_tool_search,
+            &self.user_defaults,
         ) == (
             &other.bin,
             &other.claude_json,
             &other.conversation_dir,
             &other.rup,
             &other.home,
-            other.user_tool_search,
+            &other.user_defaults,
         )
     }
 }
@@ -140,12 +141,15 @@ pub struct Folders<'a> {
 
 impl Launcher {
     /// A39 uses the same binary as every launch, through its own Placement seam.
-    pub fn placement(&self, project: &Path) -> super::PlacementCall {
+    pub fn placement(&self) -> super::PlacementCall {
         super::PlacementCall {
-            bin: self.bin.clone(),
-            config: self.conversation_dir.clone(),
-            project: project.to_owned(),
+            launcher: self.clone(),
+            project: None,
         }
+    }
+
+    pub(super) fn placement_settings(&self, project: &Path) -> Result<Value, String> {
+        user_settings(&self.conversation_dir, project).map_err(|err| err.to_string())
     }
 
     pub fn new(
@@ -172,7 +176,7 @@ impl Launcher {
             claude_json,
             rup,
             home,
-            user_tool_search: false,
+            user_defaults: BTreeSet::new(),
             lacks_intent: false,
             plugins: Arc::new(OnceCell::new()),
             sockets: Arc::new(std::sync::OnceLock::new()),
@@ -218,7 +222,14 @@ impl Launcher {
         if let Some(dir) = config_dir {
             launcher.conversation_dir = dir;
         }
-        launcher.user_tool_search = var("ENABLE_TOOL_SEARCH").is_some();
+        launcher.user_defaults = [
+            "ENABLE_TOOL_SEARCH",
+            "CLAUDE_CODE_ENABLE_FUNCTION_HOOKS",
+            "CLAUDE_CODE_PLUGIN_DIR_WATCH",
+        ]
+        .into_iter()
+        .filter(|name| var(name).is_some())
+        .collect();
         launcher.usage_url =
             var("ROUNDUP_CLAUDE_USAGE_URL").map(|url| url.to_string_lossy().into_owned());
         Ok(launcher)
@@ -381,8 +392,8 @@ impl Launcher {
                 }
             }
         }
-        let mut carried = super::launch_files::user_settings(&self.conversation_dir, &project)
-            .map_err(RpcError::internal)?;
+        let mut carried =
+            user_settings(&self.conversation_dir, &project).map_err(RpcError::internal)?;
         if lean.is_some() {
             for key in [
                 "outputStyle",
@@ -399,25 +410,23 @@ impl Launcher {
         }
         let missing_intent = self.door_lacks_intent(role);
         replace_file(&settings, &{
-            let mut settings =
-                self.settings_json(id, attempt, &path, mcp, &carried, missing_intent);
-            if lean.is_some() {
-                settings["env"]["CLAUDE_CODE_DISABLE_AUTO_MEMORY"] = json!("1");
-            }
+            let mut own = self.settings_json(id, attempt, &path, mcp, missing_intent, &carried);
             if role == Role::Door && mcp {
-                let mut allowed: Vec<Value> = brief::door_tools()
-                    .filter(|name| *name != "terminal_write")
-                    .map(|name| json!(format!("mcp__roundup__{name}")))
-                    .collect();
-                if let Some(rules) = carried["permissions"]["allow"].as_array() {
-                    for rule in rules {
-                        if !allowed.contains(rule) {
-                            allowed.push(rule.clone());
-                        }
-                    }
-                }
-                settings["permissions"]["allow"] = json!(allowed);
+                own["permissions"]["allow"] = json!(
+                    brief::door_tools()
+                        .filter(|name| *name != "terminal_write")
+                        .map(|name| format!("mcp__roundup__{name}"))
+                        .collect::<Vec<_>>()
+                );
             }
+            if lean.is_some() {
+                own["env"]["CLAUDE_CODE_DISABLE_AUTO_MEMORY"] = json!("1");
+            }
+            for (key, value) in pair.env() {
+                own["env"][key] = json!(value);
+            }
+            merge_settings(&mut carried, own);
+            let mut settings = carried;
             if pair.yolo {
                 settings["skipDangerousModePermissionPrompt"] = json!(true);
                 // Roundup has already checked its Route, Takeover and actor authority. Claude's
@@ -456,10 +465,11 @@ impl Launcher {
             self.append_global_instructions(&mut brief);
         }
         if lean.is_some() {
-            for file in [project.join("CLAUDE.md"), project.join(".claude/CLAUDE.md")] {
-                if let Ok(text) = std::fs::read_to_string(&file) {
-                    brief.push_str("\n## Project instructions\n\n");
+            for folder in std::iter::once(&project).chain((cwd != project).then_some(&cwd)) {
+                if let Ok(text) = std::fs::read_to_string(folder.join("CLAUDE.md")) {
+                    brief.push_str("\n## The Project's instructions (read-only)\n\n");
                     brief.push_str(&text);
+                    brief.push('\n');
                 }
             }
         }
@@ -477,6 +487,7 @@ impl Launcher {
         argv.push("--append-system-prompt-file".into());
         argv.push(brief_file.to_string_lossy().into_owned());
         if let Some(lean) = &lean {
+            // LC2: use the merged copy so original sources cannot restore the named exclusions.
             argv.extend(["--strict-mcp-config", "--setting-sources", ""].map(String::from));
             let row = profile(role);
             if let Some((with, without)) = row.tools {
@@ -484,15 +495,19 @@ impl Launcher {
                 argv.push(if mcp { with } else { without }.into());
             }
             let skills = !delivery.skills.is_empty();
-            if !row.skills && !skills {
-                argv.push("--disable-slash-commands".into());
-            }
             let commands = row
                 .skills
                 .then(|| project.join(".claude/commands"))
                 .filter(|path| path.is_dir());
+            if !row.skills && !skills {
+                argv.push("--disable-slash-commands".into());
+            }
             if skills || commands.is_some() {
-                let folder = self.extras_plugin(&dir, id, &delivery.skills, commands.as_deref())?;
+                let folder = extras::skill_plugin(
+                    &extras_dir(&dir, id),
+                    &delivery.skills,
+                    commands.as_deref(),
+                )?;
                 argv.extend(["--plugin-dir".into(), folder.to_string_lossy().into_owned()]);
             }
             for plugin in &delivery.plugins {
@@ -555,6 +570,51 @@ impl Launcher {
         Ok(argv)
     }
 
+    /// A3507a: process-free Agent launch construction, shared by starts and resumes.
+    #[allow(clippy::too_many_arguments)]
+    pub fn command_on(
+        &self,
+        folders: Folders<'_>,
+        id: &str,
+        attempt: &str,
+        cwd: &Path,
+        resume: Option<&str>,
+        role: Role,
+        pair: &Pair,
+    ) -> Result<std::process::Command, RpcError> {
+        let argv = self.prepare_on(folders, id, attempt, cwd, resume, role, pair)?;
+        let mut command = std::process::Command::new(&argv[0]);
+        command.args(&argv[1..]).current_dir(cwd).envs(pair.env());
+        let settings: Value =
+            serde_json::from_slice(&std::fs::read(&argv[2]).map_err(RpcError::internal)?)
+                .map_err(RpcError::internal)?;
+        for key in [
+            "CLAUDE_CODE_ENABLE_FUNCTION_HOOKS",
+            "CLAUDE_CODE_PLUGIN_DIR_WATCH",
+        ] {
+            if !self.user_defaults.contains(key)
+                && let Some(value) = settings["env"][key].as_str()
+            {
+                command.env(key, value);
+            }
+        }
+        for marker in super::MARKERS {
+            command.env_remove(marker);
+        }
+        if lean_of(role, pair).is_some() {
+            command.env("CLAUDE_CODE_DISABLE_AUTO_MEMORY", "1");
+        }
+        command.env("ROUNDUP_AGENT", id);
+        if let Some(dir) = self.rup.parent().filter(|dir| dir.is_absolute()) {
+            let inherited = std::env::var_os("PATH").unwrap_or_default();
+            let paths = std::iter::once(dir.to_path_buf()).chain(std::env::split_paths(&inherited));
+            if let Ok(path) = std::env::join_paths(paths) {
+                command.env("PATH", path);
+            }
+        }
+        Ok(command)
+    }
+
     /// Q11: the production launch seam. Keep this Launcher alive while its Agents run:
     /// it owns their complete bundle. Initial launch, resume and clear use this same seam.
     /// Probe the selected executable once; validate the pinned files before every launch.
@@ -579,32 +639,16 @@ impl Launcher {
             resume.map(str::to_owned),
             pair.clone(),
         );
-        // Trust/config locks and disk delivery cannot hold the async runtime thread.
-        let mut env = pair.env();
         let lean = lean_of(role, &pair);
         let (resume_given, id_text) = (resume.is_some(), id.clone());
-        // LC2: no memory of the user's other work.
-        if lean.is_some() {
-            env.insert("CLAUDE_CODE_DISABLE_AUTO_MEMORY".to_owned(), "1".to_owned());
-        }
         let missing = self.door_lacks_intent(role);
         let bundled = match &lean {
             _ if missing => &[][..],
-            // LC6: an Agent the user started keeps every bundled plugin.
             None => profile(Role::Agent).bundled_plugins,
             Some(lean) => profile(if lean.scout { Role::Scout } else { role }).bundled_plugins,
         };
-        // I5: every shell the Agent's `claude` runs inherits who it is, and finds `rup` on its PATH.
-        env.insert("ROUNDUP_AGENT".to_owned(), id.to_owned());
-        if let Some(dir) = self.rup.parent().filter(|dir| dir.is_absolute()) {
-            let inherited = std::env::var_os("PATH").unwrap_or_default();
-            let paths = std::iter::once(dir.to_path_buf()).chain(std::env::split_paths(&inherited));
-            if let Ok(path) = std::env::join_paths(paths) {
-                env.insert("PATH".to_owned(), path.to_string_lossy().into_owned());
-            }
-        }
-        let mut argv = tokio::task::spawn_blocking(move || {
-            launcher.prepare_on(
+        let command = tokio::task::spawn_blocking(move || {
+            launcher.command_on(
                 Folders {
                     project: &project,
                     data: &data,
@@ -619,6 +663,19 @@ impl Launcher {
         })
         .await
         .map_err(RpcError::internal)??;
+        let mut argv = std::iter::once(command.get_program())
+            .chain(command.get_args())
+            .map(|arg| arg.to_string_lossy().into_owned())
+            .collect::<Vec<_>>();
+        let mut env: BTreeMap<String, String> = command
+            .get_envs()
+            .filter_map(|(key, value)| {
+                Some((
+                    key.to_string_lossy().into_owned(),
+                    value?.to_string_lossy().into_owned(),
+                ))
+            })
+            .collect();
         let data = folders.data.canonicalize().map_err(RpcError::internal)?;
         let delivery = self
             .plugins
@@ -660,11 +717,12 @@ impl Launcher {
             }
         }
         for (key, value) in command.get_envs() {
-            if let Some(value) = value {
-                env.insert(
-                    key.to_string_lossy().into_owned(),
-                    value.to_string_lossy().into_owned(),
-                );
+            let key = key.to_string_lossy();
+            if !self.user_defaults.contains(key.as_ref())
+                && let Some(value) = value
+            {
+                env.entry(key.into_owned())
+                    .or_insert_with(|| value.to_string_lossy().into_owned());
             }
         }
         // LC8: the changed Brief has applied once.
@@ -733,8 +791,8 @@ impl Launcher {
         attempt: &str,
         path: &OsStr,
         mcp: bool,
-        carried: &Value,
         missing_intent: bool,
+        carried: &Value,
     ) -> Value {
         let agent_id = id.to_string();
         let rup = shell_quote(&self.rup.to_string_lossy());
@@ -778,27 +836,16 @@ impl Launcher {
                 "command": format!("printf %s {}", shell_quote(INTENT_MISSING)),
             });
         }
-        let mut combined = carried.clone();
-        super::launch_files::extend_settings(&mut combined, settings);
-        let mut settings = combined;
-        if mcp {
-            let mut allow = vec![json!("mcp__roundup__*")];
-            if let Some(rules) = carried["permissions"]["allow"].as_array() {
-                for rule in rules {
-                    if !allow.contains(rule) {
-                        allow.push(rule.clone());
-                    }
-                }
+        // User env wins over defaults; identity, PATH and the named lean exclusion are explicit.
+        let mut env = Map::new();
+        for (key, default) in [
+            ("CLAUDE_CODE_ENABLE_FUNCTION_HOOKS", "1"),
+            ("CLAUDE_CODE_PLUGIN_DIR_WATCH", "0"),
+            ("ENABLE_TOOL_SEARCH", "true"),
+        ] {
+            if carried["env"].get(key).is_none() && !self.user_defaults.contains(key) {
+                env.insert(key.into(), default.into());
             }
-            settings["permissions"]["allow"] = json!(allow);
-        }
-        // M11: ask for tool search, so the roundup tools' schemas load on demand; the user's own value wins.
-        let mut env = settings["env"].as_object().cloned().unwrap_or_default();
-        env.entry("CLAUDE_CODE_ENABLE_FUNCTION_HOOKS")
-            .or_insert_with(|| "1".into());
-        if !self.user_tool_search {
-            env.entry("ENABLE_TOOL_SEARCH")
-                .or_insert_with(|| "true".into());
         }
         env.insert("ROUNDUP_AGENT_ID".into(), agent_id.into());
         env.insert("PATH".into(), path.to_string_lossy().into());
@@ -844,42 +891,6 @@ impl Launcher {
             brief.push_str(text.trim_end());
             brief.push('\n');
         }
-    }
-
-    /// LC7: a plugin folder of its own whose skills are the extras' skill folders.
-    fn extras_plugin(
-        &self,
-        dir: &Path,
-        id: u64,
-        skills: &[(String, PathBuf)],
-        commands: Option<&Path>,
-    ) -> Result<PathBuf, RpcError> {
-        let folder = extras_dir(dir, id);
-        if is_symlink(&folder) {
-            return Err(RpcError::internal(format!(
-                "{} is a symlink",
-                folder.display()
-            )));
-        }
-        match std::fs::remove_dir_all(&folder) {
-            Err(err) if err.kind() != ErrorKind::NotFound => return Err(RpcError::internal(err)),
-            _ => {}
-        }
-        replace_text(
-            &folder.join(".claude-plugin/plugin.json"),
-            r#"{"name":"roundup-extras","version":"0.0.1"}"#,
-        )
-        .map_err(RpcError::internal)?;
-        std::fs::create_dir_all(folder.join("skills")).map_err(RpcError::internal)?;
-        for (name, source) in skills {
-            std::os::unix::fs::symlink(source, folder.join("skills").join(name))
-                .map_err(RpcError::internal)?;
-        }
-        if let Some(commands) = commands {
-            std::os::unix::fs::symlink(commands, folder.join("commands"))
-                .map_err(RpcError::internal)?;
-        }
-        Ok(folder)
     }
 
     fn unreadable(&self, err: impl std::fmt::Display) -> RpcError {

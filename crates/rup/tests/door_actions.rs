@@ -318,7 +318,7 @@ async fn b37_real_claude_receives_d1_after_a_scripted_server_error() {
 
 #[tokio::test]
 async fn a39_the_placement_call_is_one_slim_request() {
-    // Inject nested-run markers without mutating the runner's shared environment.
+    // A15: inject nested-run markers without mutating the shared runner environment.
     if std::env::var_os("ROUNDUP_A39_OBSERVER_CHILD").is_none() {
         let mut command = std::process::Command::new(std::env::current_exe().unwrap());
         command
@@ -399,12 +399,9 @@ os.execv({binary:?}, [{binary:?}, *sys.argv[1:]])
         earlier,
         vec![rail],
     );
-    let parts = place(
-        &launcher.placement(dir.path()),
-        "ask-a39",
-        &request,
-        |id, cause| panic!("{id}: {cause}"),
-    )
+    let parts = place(&launcher.placement(), "ask-a39", &request, |id, cause| {
+        panic!("{id}: {cause}")
+    })
     .await;
     assert_eq!(
         parts,
@@ -714,6 +711,11 @@ async fn a26_a_subagent_started_by_a_subagent_sits_three_deep_under_the_door_thr
 #[tokio::test]
 async fn a41_a_leading_slash_runs_the_skill() {
     let project = daemon::start_real("a41_skill", &[]);
+    std::fs::write(
+        project.dir.path().join("CLAUDE.md"),
+        "A41_PROJECT_INSTRUCTIONS",
+    )
+    .unwrap();
     let skill = project.dir.path().join(".claude/skills/a41-proof");
     std::fs::create_dir_all(&skill).unwrap();
     std::fs::write(skill.join("SKILL.md"), "---\nname: a41-proof\ndescription: Prove Ask delivery preserves skill invocation.\n---\nA41_SKILL_MARKER. Reply with Skill received.\n").unwrap();
@@ -751,6 +753,12 @@ async fn a41_a_leading_slash_runs_the_skill() {
     })
     .await
     .unwrap_or_else(|_| panic!("skill request missing from model journal: {journal:#?}"));
+    assert!(
+        journal.iter().any(|entry| entry["body"]
+            .to_string()
+            .contains("A41_PROJECT_INSTRUCTIONS")),
+        "Project instructions remain available"
+    );
     assert!(
         journal.iter().all(|entry| entry["response"]["status"]
             .as_i64()

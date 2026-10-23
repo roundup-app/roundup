@@ -455,23 +455,6 @@ impl Terminals {
         }
     }
 
-    /// Build the same inherited environment used by `spawn`, without opening a PTY.
-    pub fn command(&self, params: &SpawnParams) -> CommandBuilder {
-        let mut command = match &params.command {
-            Some(argv) => CommandBuilder::from_argv(argv.iter().map(Into::into).collect()),
-            None => CommandBuilder::new_default_prog(),
-        };
-        command.cwd(&params.cwd);
-        for (name, value) in &params.env {
-            command.env(name, value);
-        }
-        // Last, so none of them survive even if a caller passed one in `params.env`.
-        for marker in &self.shared.clean_env {
-            command.env_remove(marker);
-        }
-        command
-    }
-
     async fn start(&self, params: SpawnParams, owner: Option<String>) -> Result<Spawned, RpcError> {
         check_program(&params)?;
         // portable-pty silently falls back to $HOME when the cwd is unusable; refuse instead.
@@ -485,7 +468,18 @@ impl Terminals {
         let pair = native_pty_system()
             .openpty(window(params.cols, params.rows)?)
             .map_err(RpcError::internal)?;
-        let command = self.command(&params);
+        let mut command = match &params.command {
+            Some(argv) => CommandBuilder::from_argv(argv.iter().map(Into::into).collect()),
+            None => CommandBuilder::new_default_prog(),
+        };
+        command.cwd(&params.cwd);
+        for (name, value) in &params.env {
+            command.env(name, value);
+        }
+        // Last, so none of them survive even if a caller passed one in `params.env`.
+        for marker in &self.shared.clean_env {
+            command.env_remove(marker);
+        }
         // The reader and input threads start before the program (the reader receives the child over a
         // channel), so no later failure can leave a program that nobody waits for.
         let reader = pair.master.try_clone_reader().map_err(RpcError::internal)?;

@@ -28,12 +28,12 @@ impl Setup {
     }
 
     /// The word after `flag`, or `None` when it is absent.
-    pub(super) fn after<'a>(argv: &'a [String], flag: &str) -> Option<&'a str> {
+    fn after<'a>(argv: &'a [String], flag: &str) -> Option<&'a str> {
         let at = argv.iter().position(|arg| arg == flag)?;
         argv.get(at + 1).map(String::as_str)
     }
 
-    pub(super) fn user_file(&self, name: &str, text: &str) {
+    fn user_file(&self, name: &str, text: &str) {
         let path = self.root.path().join(name);
         std::fs::create_dir_all(path.parent().unwrap()).unwrap();
         std::fs::write(path, text).unwrap();
@@ -111,7 +111,7 @@ fn lc2_a_child_starts_from_its_own_settings() {
                 "env": {"ANTHROPIC_BASE_URL": "http://proxy.test", "CLAUDE_CODE_DISABLE_AUTO_MEMORY": "0"},
                 "outputStyle": "Explanatory",
                 "autoMemoryEnabled": true,
-                "autoMemoryDirectory": "/fixture/memory",
+                "autoMemoryDirectory": "/user-memory",
                 "enabledPlugins": {"x@y": true},
                 "mcpServers": {"theirs": {"command": "x"}},
                 "hooks": {"Stop": []}
@@ -136,14 +136,12 @@ fn lc2_a_child_starts_from_its_own_settings() {
         } else {
             assert_eq!(
                 settings["permissions"]["allow"],
-                json!(["mcp__roundup__*", "Bash(git status)"]),
-                "roundup's first, a rule once"
+                json!(["Bash(git status)", "mcp__roundup__*"]),
+                "a rule once"
             );
         }
         assert_eq!(settings["permissions"]["deny"], json!(["Read(.env)"]));
-        // A3507b: only the named lean exclusions are removed.
-        assert_eq!(settings["apiKeyHelper"], "printf key");
-        assert_eq!(settings["env"]["ANTHROPIC_BASE_URL"], "http://proxy.test");
+        // A3507b: every unnamed key carries over, including env and permission mode.
         assert_eq!(settings["permissions"]["defaultMode"], "plan");
         assert_eq!(settings["env"]["CLAUDE_CODE_DISABLE_AUTO_MEMORY"], "1");
         for dropped in [
@@ -171,18 +169,6 @@ async fn lc2_the_users_output_style_never_shapes_a_child() {
         "settings.json",
         r#"{"outputStyle":"Learning","enabledPlugins":{"p@m":true},"mcpServers":{"a":{"command":"a"}},"permissions":{"allow":["Read(x)"]}}"#,
     );
-    let project_config = s.dir.parent().unwrap().join(".claude");
-    std::fs::create_dir_all(&project_config).unwrap();
-    std::fs::write(
-        project_config.join("settings.json"),
-        r#"{"outputStyle":"Learning","enabledPlugins":{"project@market":true}}"#,
-    )
-    .unwrap();
-    std::fs::write(
-        project_config.join("settings.local.json"),
-        r#"{"autoMemoryEnabled":true,"autoMemoryDirectory":"/fixture"}"#,
-    )
-    .unwrap();
     let launcher = plugin_launcher(&s);
     let (argv, env) = launcher
         .launch_on(
@@ -202,7 +188,7 @@ async fn lc2_the_users_output_style_never_shapes_a_child() {
     assert_eq!(settings.get("outputStyle"), None);
     assert_eq!(
         settings["permissions"]["allow"],
-        json!(["mcp__roundup__*", "Read(x)"])
+        json!(["Read(x)", "mcp__roundup__*"])
     );
     let config = read(Path::new(Setup::after(&argv, "--mcp-config").unwrap()));
     assert_eq!(config["mcpServers"].as_object().unwrap().len(), 1);
@@ -392,7 +378,7 @@ async fn lc6_a_user_started_agent_keeps_the_users_setup() {
     let settings = read(Path::new(Setup::after(&argv, "--settings").unwrap()));
     assert_eq!(
         settings["permissions"]["allow"],
-        json!(["mcp__roundup__*", "Read(x)"])
+        json!(["Read(x)", "mcp__roundup__*"])
     );
     assert_eq!(argv.iter().filter(|arg| *arg == "--plugin-dir").count(), 3);
 }
@@ -539,9 +525,11 @@ fn lc10_no_launch_uses_bare_safe_mode_or_agent() {
 
 #[test]
 fn lc11_the_doors_start_allows_no_shell_or_terminal_start() {
-    for mcp in [true, false] {
+    for (mcp, carry_user_rules) in [(true, false), (true, true), (false, false), (false, true)] {
         let s = setup();
-        s.user_file("settings.json", &json!({"permissions":{"allow":["Bash(*)","PowerShell","mcp__roundup__terminal_spawn","mcp__roundup__terminal_open","mcp__roundup__terminal_write","mcp__roundup__agent_run","mcp__roundup__*","Read(*)"]}}).to_string());
+        if carry_user_rules {
+            s.user_file("settings.json", &json!({"permissions":{"allow":["Bash(*)","PowerShell","mcp__roundup__terminal_spawn","mcp__roundup__terminal_open","mcp__roundup__terminal_write","mcp__roundup__agent_run","mcp__roundup__*","Read(*)"]}}).to_string());
+        }
         let argv = s
             .prepare_lean(
                 "7",
@@ -554,7 +542,10 @@ fn lc11_the_doors_start_allows_no_shell_or_terminal_start() {
             )
             .unwrap();
         let settings = read(Path::new(Setup::after(&argv, "--settings").unwrap()));
-        let allowed = settings["permissions"]["allow"].as_array().unwrap();
+        let allowed = settings["permissions"]["allow"]
+            .as_array()
+            .cloned()
+            .unwrap_or_default();
         for forbidden in [
             "Bash",
             "PowerShell",
@@ -563,15 +554,19 @@ fn lc11_the_doors_start_allows_no_shell_or_terminal_start() {
             "terminal_write",
         ] {
             assert!(!Setup::after(&argv, "--tools").unwrap().contains(forbidden));
-            // User grants carry through; capabilities still come from the tool table.
-            assert!(
+            assert_eq!(
                 allowed
                     .iter()
-                    .any(|rule| rule.as_str().unwrap().contains(forbidden))
+                    .any(|rule| rule.as_str().unwrap().contains(forbidden)),
+                carry_user_rules,
+                "only user rules may name {forbidden}"
             );
         }
-        assert!(allowed.contains(&json!("mcp__roundup__*")));
-        assert!(allowed.contains(&json!("Read(*)")));
+        assert_eq!(
+            allowed.contains(&json!("mcp__roundup__*")),
+            carry_user_rules
+        );
+        assert_eq!(allowed.contains(&json!("Read(*)")), carry_user_rules);
     }
 }
 
@@ -612,82 +607,112 @@ fn a2703a_brief_teaches_rail_names() {
 
 #[test]
 fn a3507b_settings_extend_the_user_setup() {
-    for (_, role, pair) in
-        lean_children()
-            .into_iter()
-            .chain([(Role::Agent, Role::Agent, Pair::default())])
-    {
-        let s = setup();
-        s.user_file("settings.json", &json!({
-            "future": {"user": true, "winner": "user"},
-            "env": {"ENABLE_TOOL_SEARCH": "user-choice", "USER_ONLY": "kept"},
-            "permissions": {"allow": ["Read(x)"], "ask": ["Bash(*)"], "deny": ["Read(secret)"], "defaultMode": "plan"},
-            "hooks": {"Stop": [{"hooks": [{"type": "command", "command": "user-hook"}]}]}
-        }).to_string());
-        let project = s.dir.parent().unwrap().join(".claude");
-        std::fs::create_dir_all(&project).unwrap();
-        std::fs::write(project.join("settings.json"), json!({"future": {"project": true, "winner": "project"}, "permissions": {"allow": ["Read(x)", "Read(y)"]}}).to_string()).unwrap();
-        std::fs::write(
-            project.join("settings.local.json"),
-            json!({"future": {"local": true, "winner": "local"}, "env": {"LOCAL_ONLY": "kept"}})
-                .to_string(),
-        )
-        .unwrap();
-        let files = [
-            s.root.path().join("settings.json"),
+    let s = setup();
+    let config = s.root.path().join("custom-config");
+    std::fs::create_dir_all(&config).unwrap();
+    let user = config.join("settings.json");
+    let project = folders(&s.dir).project.join(".claude");
+    std::fs::create_dir_all(&project).unwrap();
+    let hook = json!({"matcher":"", "hooks":[{"type":"command", "command":"user-hook"}]});
+    let files = [
+        (
+            user,
+            json!({
+                "unknownFuture": {"nested": {"user": true}},
+                "model":"user-model", "apiKeyHelper":"user-helper",
+                "env":{"ENABLE_TOOL_SEARCH":"user-choice", "USER_ONLY":"yes", "CLAUDE_CODE_ENABLE_FUNCTION_HOOKS":"user-hooks", "CLAUDE_CODE_PLUGIN_DIR_WATCH":"user-watch"},
+                "permissions":{"allow":["Read(user)", "mcp__roundup__*"], "ask":["Bash(*)"], "deny":["Read(secret)"], "defaultMode":"plan", "future":{"kept":true}},
+                "hooks":{"Stop":[hook], "FutureEvent":[{"hooks":[{"type":"command", "command":"future-hook"}]}]}
+            }),
+        ),
+        (
             project.join("settings.json"),
+            json!({"env":{"LAYER":"project"}, "unknownFuture":{"nested":{"project":true}}, "model":"project-model"}),
+        ),
+        (
             project.join("settings.local.json"),
-        ];
-        let before: Vec<_> = files.iter().map(|p| std::fs::read(p).unwrap()).collect();
+            json!({"env":{"LAYER":"local"}, "unknownFuture":{"nested":{"local":true}}, "model":"local-model"}),
+        ),
+    ];
+    for (path, value) in &files {
+        std::fs::write(path, value.to_string()).unwrap();
+    }
+    let before: Vec<_> = files
+        .iter()
+        .map(|(path, _)| std::fs::read(path).unwrap())
+        .collect();
+    for shell_default in [None, Some("shell-choice")] {
         let launcher = Launcher::from_vars(
-            |key| match key {
-                "CLAUDE_CONFIG_DIR" => Some(s.root.path().as_os_str().to_owned()),
+            |name| match name {
+                "CLAUDE_CONFIG_DIR" => Some(config.as_os_str().to_owned()),
                 "ROUNDUP_RUP_BIN" => Some(s.rup.as_os_str().to_owned()),
+                "ENABLE_TOOL_SEARCH" => shell_default.map(OsString::from),
                 _ => None,
             },
             &s.rup,
         )
         .unwrap();
-        for resume in [None, Some("saved")] {
-            let argv = launcher
-                .prepare_on(folders(&s.dir), "7", "1", &s.cwd, resume, role, &pair)
-                .unwrap();
-            let settings = read(Path::new(Setup::after(&argv, "--settings").unwrap()));
-            assert_eq!(
-                settings["future"],
-                json!({"user": true, "project": true, "local": true, "winner": "local"})
-            );
-            assert_eq!(settings["env"]["ENABLE_TOOL_SEARCH"], "user-choice");
-            assert_eq!(settings["env"]["USER_ONLY"], "kept");
-            assert_eq!(settings["env"]["LOCAL_ONLY"], "kept");
-            assert_eq!(settings["permissions"]["ask"], json!(["Bash(*)"]));
-            assert_eq!(settings["permissions"]["deny"], json!(["Read(secret)"]));
-            assert_eq!(settings["permissions"]["defaultMode"], "plan");
-            let allowed = settings["permissions"]["allow"].as_array().unwrap();
-            assert_eq!(
-                allowed.iter().filter(|v| **v == json!("Read(x)")).count(),
-                1
-            );
-            assert!(allowed.contains(&json!("Read(y)")));
-            let hooks = settings["hooks"]["Stop"].as_array().unwrap();
-            assert!(
-                hooks
-                    .iter()
-                    .any(|v| v["hooks"][0]["command"] == "user-hook")
-            );
-            assert!(hooks.iter().any(|v| {
-                v["hooks"][0]["command"]
-                    .as_str()
-                    .unwrap()
-                    .contains("signal")
-            }));
-            assert_eq!(
-                files
-                    .iter()
-                    .map(|p| std::fs::read(p).unwrap())
-                    .collect::<Vec<_>>(),
-                before
-            );
+        for (_, role, pair) in
+            lean_children()
+                .into_iter()
+                .chain([(Role::Agent, Role::Agent, Pair::default())])
+        {
+            for resume in [None, Some("saved")] {
+                let command = launcher
+                    .command_on(folders(&s.dir), "7", "1", &s.cwd, resume, role, &pair)
+                    .unwrap();
+                let argv: Vec<_> = std::iter::once(command.get_program())
+                    .chain(command.get_args())
+                    .map(|arg| arg.to_str().unwrap().to_owned())
+                    .collect();
+                let env: std::collections::BTreeMap<_, _> = command.get_envs().collect();
+                assert_eq!(
+                    env.get(std::ffi::OsStr::new("CLAUDE_CODE_ENABLE_FUNCTION_HOOKS")),
+                    Some(&Some(std::ffi::OsStr::new("user-hooks")))
+                );
+                assert_eq!(
+                    env.get(std::ffi::OsStr::new("CLAUDE_CODE_PLUGIN_DIR_WATCH")),
+                    Some(&Some(std::ffi::OsStr::new("user-watch")))
+                );
+                let settings = read(Path::new(Setup::after(&argv, "--settings").unwrap()));
+                assert_eq!(
+                    settings["unknownFuture"],
+                    json!({"nested":{"user":true,"project":true,"local":true}})
+                );
+                assert_eq!(settings["model"], "local-model");
+                assert_eq!(settings["env"]["LAYER"], "local");
+                assert_eq!(settings["env"]["USER_ONLY"], "yes");
+                assert_eq!(settings["env"]["ENABLE_TOOL_SEARCH"], "user-choice");
+                assert_eq!(settings["permissions"]["ask"], json!(["Bash(*)"]));
+                assert_eq!(settings["permissions"]["deny"], json!(["Read(secret)"]));
+                assert_eq!(settings["permissions"]["defaultMode"], "plan");
+                assert_eq!(settings["permissions"]["future"], json!({"kept":true}));
+                let allow = settings["permissions"]["allow"].as_array().unwrap();
+                assert!(allow.contains(&json!("Read(user)")));
+                assert_eq!(
+                    allow
+                        .iter()
+                        .filter(|v| **v == json!("mcp__roundup__*"))
+                        .count(),
+                    1
+                );
+                let stop = settings["hooks"]["Stop"].as_array().unwrap();
+                assert!(stop.contains(&hook));
+                assert_eq!(stop.len(), 2);
+                assert!(stop.iter().any(|group| {
+                    group["hooks"][0]["command"]
+                        .as_str()
+                        .unwrap()
+                        .contains("signal")
+                }));
+                assert_eq!(
+                    settings["hooks"]["FutureEvent"][0]["hooks"][0]["command"],
+                    "future-hook"
+                );
+            }
         }
+    }
+    for ((path, _), original) in files.iter().zip(before) {
+        assert_eq!(std::fs::read(path).unwrap(), original);
     }
 }
