@@ -1,4 +1,4 @@
-import { createRoot } from "solid-js";
+import { createRoot, createSignal } from "solid-js";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { createNow, NOW_TICK_MS } from "./clock";
 
@@ -51,5 +51,42 @@ describe("u4 the reactive clock", () => {
     counts.push(vi.getTimerCount());
 
     expect(counts).toEqual([1, 0]);
+  });
+});
+
+it("u3308_idle_display_demand_shares_the_clock_and_sleeps_without_catch_up", () => {
+  createRoot((dispose) => {
+    const [visible, show] = createSignal(true);
+    const [active, activate] = createSignal(false);
+    const clock = vi.fn(() => Date.now());
+    const now = createNow(clock, () => false, visible);
+    const board = now.subscribe(active);
+    const [second, demand] = createSignal(false);
+    now.subscribe(second);
+    vi.advanceTimersByTime(120_000);
+    activate(true);
+    expect(board()).toBe(Date.now());
+    const reads = clock.mock.calls.length;
+    activate(true);
+    demand(true);
+    expect(vi.getTimerCount()).toBe(1);
+    expect(clock).toHaveBeenCalledTimes(reads);
+    vi.advanceTimersByTime(60_000);
+    expect(board()).toBe(Date.now());
+    activate(false);
+    expect(vi.getTimerCount()).toBe(1);
+    demand(false);
+    expect(vi.getTimerCount()).toBe(0);
+    activate(true);
+    show(false);
+    const asleep = clock.mock.calls.length;
+    vi.advanceTimersByTime(3_600_000);
+    expect(clock).toHaveBeenCalledTimes(asleep);
+    show(true);
+    expect(clock).toHaveBeenCalledTimes(asleep + 1);
+    expect(board()).toBe(Date.now());
+    expect(vi.getTimerCount()).toBe(1);
+    dispose();
+    expect(vi.getTimerCount()).toBe(0);
   });
 });
