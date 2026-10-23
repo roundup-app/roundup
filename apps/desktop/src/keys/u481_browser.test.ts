@@ -333,6 +333,25 @@ it("u3513c_editable_and_modal_owners_keep_question_mark", async () => {
   await browser("press", "Shift+?");
   expect(await read("!!document.querySelector('.help')")).toBe(false);
   await capture("U3513c", "terminal-input");
+
+  await focusContext("taken-agent");
+  await browser("focus", ".pane-screen textarea");
+  await browser("press", "Shift+?");
+  expect(await read("!!document.querySelector('.help')")).toBe(false);
+  await capture("U3513c", "taken-agent-input");
+
+  await focusContext("bubble");
+  await browser("focus", ".bubble textarea");
+  await browser("press", "Shift+?");
+  expect(await read("!!document.querySelector('.help')")).toBe(false);
+  await capture("U3513c", "terminal-bubble-input");
+  await browser("dblclick", ".terminal-tab-name");
+  await wait("!!document.querySelector('.terminal-tab-editor input')");
+  await browser("fill", ".terminal-tab-editor input", "draft");
+  await browser("press", "Shift+?");
+  expect(await read("document.querySelector('.terminal-tab-editor input').value")).toBe("draft?");
+  expect(await read("!!document.querySelector('.help')")).toBe(false);
+  await capture("U3513c", "terminal-rename-input");
 }, 60_000);
 
 it("u3513a_rejected_todo_mutation_keeps_its_cause_actionable", async () => {
