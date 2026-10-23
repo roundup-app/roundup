@@ -2,7 +2,7 @@ import * as v from "valibot";
 import type { SpawnParams } from "@contracts/agent/SpawnParams";
 import type { Event as DaemonEvent } from "@contracts/Event";
 import { INTERNAL_CODE, projectSchema, RpcError } from "../app/seam";
-import { probeMenu } from "./menuProbe";
+import { probeMenu, probeQuestion } from "./menuProbe";
 import type { AppSeam, DaemonExited, OutputSubscription } from "../app/seam";
 
 const outcomeSchema = v.union([
@@ -197,6 +197,7 @@ export const createServedApp = (base: string, choice?: () => "choose" | "cancel"
       }),
     chooseProjectPath: () => reach(async () => choice?.() === "choose" ? (await open).project.path : null),
     chooseSavePath: async () => null,
+    ask: probeQuestion,
     setDockBadge: async () => {},
     // The isolated browser has no native window; these calls never move or rename a host window.
     setWindowTitle: async () => {},

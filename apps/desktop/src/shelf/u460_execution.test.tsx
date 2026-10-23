@@ -1,3 +1,5 @@
+import { answerQuestion } from "./bulkQuestionHarness";
+import { questionProbe } from "../testing/menuProbe";
 import { cleanup, fireEvent, screen, waitFor, within } from "@solidjs/testing-library";
 import { afterEach, expect, it } from "vitest";
 import { mountTodos, todo, todoCallsTo } from "../todos/testHarness";
@@ -28,7 +30,7 @@ it("u460_each_confirmed_target_is_called_once", async () => {
   await pickTwo();
   await askToDelete(2);
   await confirmDeletion();
-  await confirmDeletion();
+  await answerQuestion(true);
   expect(todoCallsTo(app, "todo.delete")).toHaveLength(1);
   held.resolve(null);
   await questionClosed();
@@ -73,8 +75,7 @@ it("u460_cancel_keeps_selection_and_restores_focus", async () => {
   const button = screen.getByRole("button", { name: "Delete 2" });
   button.focus();
   await askToDelete(2);
-  await waitFor(() => expect(document.activeElement).toBe(screen.getByRole("button", { name: "Keep" })));
-  fireEvent.click(screen.getByRole("button", { name: "Keep" }));
+  await answerQuestion(false);
   await waitFor(() => expect(document.activeElement).toBe(screen.getByRole("button", { name: "Delete 2" })));
   expect(screen.getByText("2 selected")).toBeTruthy();
 });
@@ -86,8 +87,9 @@ it("u460_confirmation_never_expands_or_outlives_its_scope", async () => {
   store.todos.push(todo(3));
   app.emit({ actor: USER, name: "todo.created", data: todo(3) });
   await screen.findByRole("button", { name: /#3 / });
-  expect(screen.getByText("Delete 2 Todos?")).toBeTruthy();
+  expect((await questionDialog()).title).toBe("Delete 2 Todos?");
   connected.rail.select("scope-row");
+  await answerQuestion(true);
   await questionClosed();
   expect(todoCallsTo(app, "todo.delete")).toEqual([]);
 });
@@ -102,7 +104,7 @@ it("u460_backspace_is_local_and_repeat_safe", async () => {
   fireEvent.keyDown(screen.getByRole("checkbox", { name: "Complete todo 1" }), { key: "Backspace" });
   expect(screen.queryByRole("button", { name: "Keep" })).toBeNull();
   fireEvent.keyDown(row, { key: "Backspace" });
-  expect(await screen.findByText("Delete 2 Todos?")).toBeTruthy();
+  expect((await questionDialog()).title).toBe("Delete 2 Todos?");
   expect(todoCallsTo(app, "todo.delete")).toEqual([]);
 });
 
@@ -142,7 +144,7 @@ it("u460_failed_readback_blocks_retry_until_a_fresh_list_answers", async () => {
   await askToDelete(2);
   await confirmDeletion();
   await screen.findByRole("button", { name: "Refresh" });
-  expect(within(await questionDialog()).getByRole("button", { name: "Keep" }).hasAttribute("disabled")).toBe(true);
+  expect(screen.getByRole("button", { name: "Delete 2" }).hasAttribute("disabled")).toBe(true);
   lost = false;
   fireEvent.click(screen.getByRole("button", { name: "Refresh" }));
   await screen.findByText("2 selected");
@@ -166,7 +168,7 @@ it("u460_readback_waits_for_a_newer_event_refetch_before_retry", async () => {
   old.resolve([todo(1), todo(2)]);
   // Observe that no retry is offered while the newer list response is withheld.
   await new Promise((resolve) => setTimeout(resolve, 40));
-  expect(within(await questionDialog()).getByRole("button", { name: "Keep" }).hasAttribute("disabled")).toBe(true);
+  expect(screen.getByRole("button", { name: "Delete 2" }).hasAttribute("disabled")).toBe(true);
   fresh.resolve([todo(2)]);
   await screen.findByText("1 selected");
   await questionClosed();
@@ -199,7 +201,7 @@ it.each([false, true])("u3474e_mutation_keeps_the_next_key_live: nested=%s", asy
   await waitFor(() => expect(document.activeElement).toBe(screen.getByRole("button", { name: new RegExp(`#${next} `) })));
   fireEvent.keyDown(document.activeElement!, { key: "d", code: "KeyD" });
   const question = await questionDialog();
-  expect(question.textContent).toContain(`todo ${next}`);
-  expect(question.textContent).not.toContain("todo 1");
+  expect(question.message).toContain(`todo ${next}`);
+  expect(question.message).not.toContain("todo 1");
   expect(todoCallsTo(app, "todo.delete").map(call => call.params)).toEqual([{ id }]);
 });

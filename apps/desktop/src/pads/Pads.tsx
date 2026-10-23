@@ -165,6 +165,7 @@ export const Pads = (props: {
   const selection = createSelection(() => shown().map((pad) => pad.name), () => connected.rail.selected() ?? "overview", name => rowButtonOf(name));
 
   const bulk = createBulkDelete({
+    app: connected.app,
     selected: selection.selected,
     afterRemoval: selection.afterRemoval,
     targets: () => shown().map((pad) => ({ id: pad.name, label: pad.name, owner: pad.owner.kind === "agent" ? connected.rail.nameOf(pad.owner) : undefined })),

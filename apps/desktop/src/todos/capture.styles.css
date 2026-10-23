@@ -1,15 +1,7 @@
 /* U3713: an opaque panel over the centre pane, clear of the title bar, with the Switcher's surface and hairline and the drawer shadow. */
 .capture.app-dialog {
-  position: fixed;
-  top: calc(var(--capture-top, var(--space-6)) + var(--space-5));
-  left: var(--capture-left, 50%);
-  transform: translateX(-50%);
-  width: min(480px, calc(var(--capture-width, 100vw) - var(--space-5)));
-  padding: var(--space-2);
-  background-color: var(--ground);
-  border-radius: var(--radius-row);
-  border: 1px solid var(--hairline);
-  box-shadow: var(--shadow-drawer);
+  width: min(480px, calc(100vw - var(--space-6) * 2));
+  padding: var(--space-3);
 }
 
 /* A one-row textarea: a text field, so D6 and D7 skip it (U353); focus is the caret alone. */

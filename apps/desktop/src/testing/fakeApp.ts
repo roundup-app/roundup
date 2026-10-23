@@ -2,8 +2,8 @@ import type { Event as DaemonEvent } from "@contracts/Event";
 import type { RpcMethodName, RpcMethods } from "@contracts/methods";
 import { OWN_CONTRACT } from "../app/contractMatch";
 import { RpcError } from "../app/seam";
-import { menuProbe } from "./menuProbe";
-import type { AppSeam, DaemonExit, DaemonExited, FileDrop, MenuItem, OpenTarget, OutputMessage, PastedImage, Project } from "../app/seam";
+import { menuProbe, probeQuestion, questionProbe } from "./menuProbe";
+import type { AppSeam, NativeQuestion, DaemonExit, DaemonExited, FileDrop, MenuItem, OpenTarget, OutputMessage, PastedImage, Project } from "../app/seam";
 
 const CONFLICT = -32003;
 
@@ -40,6 +40,9 @@ const emptyReads: Handlers = {
 export type FakeOutputSubscription = { id: string; offset: number; listener: (message: OutputMessage) => void; released: boolean };
 
 export type FakeApp = AppSeam & {
+  questions: NativeQuestion[];
+  answerQuestion: ((answer: boolean) => void) | undefined;
+  questionFailure: Error | null;
   /** Every `rpc` call so far, in call order. */
   calls: { method: RpcMethodName; params: unknown }[];
   handlers: Handlers;
@@ -254,6 +257,7 @@ export const createFakeApp = (): FakeApp => {
         imageUrl: app.imageUrl,
         chooseProjectPath: app.chooseProjectPath,
         chooseSavePath: app.chooseSavePath,
+        ask: app.ask,
         setDockBadge: app.setDockBadge,
         setWindowTitle: app.setWindowTitle,
         dragWindow: app.dragWindow,
@@ -277,6 +281,18 @@ export const createFakeApp = (): FakeApp => {
       if (app.proof.failure) throw app.proof.failure;
 
       return app.proof.value;
+    },
+    questions: [],
+    answerQuestion: undefined,
+    questionFailure: null,
+    ask: async (question) => {
+      app.questions.push(question);
+
+      if (app.questionFailure) throw app.questionFailure;
+      const answer = probeQuestion(question);
+      app.answerQuestion = accepted => questionProbe.answer?.(accepted);
+
+      return answer;
     },
     chooseProjectPath: async () => app.chooser.path,
     chooseSavePath: async (suggestedName) => {

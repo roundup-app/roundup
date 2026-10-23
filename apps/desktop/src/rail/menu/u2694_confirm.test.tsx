@@ -1,3 +1,5 @@
+import { questionDialog, answerQuestion } from "../../shelf/bulkQuestionHarness";
+import { questionProbe } from "../../testing/menuProbe";
 import { mountCentre } from "../../testing/centreFixture";
 import { stubDialogLayout } from "../../shelf/bulkQuestionHarness";
 import { cleanup, fireEvent, screen, waitFor } from "@solidjs/testing-library";
@@ -63,21 +65,23 @@ describe("u2694 the Rail's menu actions", () => {
 
     open("a");
     await app.pickMenu("Remove");
-    expect(await screen.findByText("Stop and remove a?")).toBeTruthy();
+    expect((await questionDialog()).title).toBe("Stop and remove a?");
     expect(removals(app)).toEqual([]);
-    fireEvent.click(button("Keep"));
-    await waitFor(() => expect(screen.queryByRole("alertdialog")).toBeNull());
+    await questionDialog();
+    await answerQuestion(false);
+    await waitFor(() => expect(questionProbe.shown).toBeNull());
     expect(removals(app)).toEqual([]);
 
     open("a");
     await app.pickMenu("Remove");
-    fireEvent.click(await screen.findByRole("button", { name: "Remove" }));
+    await questionDialog();
+    await answerQuestion(true);
     await waitFor(() => expect(removals(app)).toEqual([{ method: "rail.remove", params: { id: "a" } }]));
 
     open("i");
     await app.pickMenu("Remove");
     await waitFor(() => expect(removals(app)).toHaveLength(2));
-    expect(screen.queryByRole("alertdialog")).toBeNull();
+    expect(questionProbe.shown).toBeNull();
 
     open("i");
     await app.pickMenu("Stop");
@@ -94,15 +98,17 @@ describe("u2694 the Rail's menu actions", () => {
 
     open("a");
     await app.pickMenu("Stop");
-    await screen.findByRole("alertdialog");
+    await questionDialog();
     expect(railCallsTo(app, "agent.stop")).toEqual([]);
-    fireEvent.click(button("Keep"));
-    await waitFor(() => expect(screen.queryByRole("alertdialog")).toBeNull());
+    await questionDialog();
+    await answerQuestion(false);
+    await waitFor(() => expect(questionProbe.shown).toBeNull());
     expect(railCallsTo(app, "agent.stop")).toEqual([]);
 
     open("a");
     await app.pickMenu("Stop");
-    fireEvent.click(await screen.findByRole("button", { name: "Stop" }));
+    await questionDialog();
+    await answerQuestion(true);
     await waitFor(() => expect(railCallsTo(app, "agent.stop")).toEqual([{ id: "a" }]));
   });
 
@@ -112,15 +118,16 @@ describe("u2694 the Rail's menu actions", () => {
 
     open("g");
     await app.pickMenu("Remove");
-    await screen.findByText("Goes: Nothing");
-    await waitFor(() => expect(document.activeElement).toBe(button("Keep")));
-    fireEvent.keyDown(screen.getByRole("alertdialog"), { key: "Escape" });
-    await waitFor(() => expect(screen.queryByRole("alertdialog")).toBeNull());
+    expect((await questionDialog()).message).toContain("Goes: Nothing");
+    await questionDialog();
+    await answerQuestion(false);
+    await waitFor(() => expect(questionProbe.shown).toBeNull());
     expect(railCallsTo(app, "rail.remove")).toEqual([]);
 
     open("g");
     await app.pickMenu("Remove");
-    fireEvent.click(await screen.findByRole("button", { name: "Remove" }));
+    await questionDialog();
+    await answerQuestion(true);
 
     await waitFor(() => expect(railCallsTo(app, "rail.remove")).toEqual([{ id: "g" }]));
   });
@@ -130,9 +137,9 @@ describe("u2694 the Rail's menu actions", () => {
     rowOf("a").focus();
     fireEvent.keyDown(rowOf("a"), { key: "ContextMenu" });
     await app.pickMenu("Remove");
-    await waitFor(() => expect(document.activeElement).toBe(button("Keep")));
+    await questionDialog();
 
-    fireEvent.keyDown(document.activeElement!, { key: "Escape" });
+    await answerQuestion(false);
     await waitFor(() => expect(document.activeElement).toBe(rowOf("a")));
     fireEvent.keyDown(document.activeElement!, { key: "ArrowDown" });
     await settled();
