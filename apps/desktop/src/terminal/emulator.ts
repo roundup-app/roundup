@@ -157,7 +157,7 @@ export const createXtermEmulators = (
     const fitter = new FitAddon();
     const element = document.createElement("div");
     let opened = false;
-    let fontSizeChanged = false;
+    let fontChanged = false;
     let fontViewport: IMarker | null = null;
     let fontFrame: number | null = null;
     let loadedWebgl: RendererAddon | null = null;
@@ -241,7 +241,7 @@ export const createXtermEmulators = (
     const restoreFontViewport = () => {
       fontFrame = null;
 
-      if (fontViewport === null || fontSizeChanged) return;
+      if (fontViewport === null || fontChanged) return;
 
       if (!fontViewport.isDisposed) {
         // xterm's pixel offset can disagree with viewportY after a font change; reset that origin first.
@@ -257,7 +257,7 @@ export const createXtermEmulators = (
       const reflowCursorLine = terminal.options.reflowCursorLine ?? false;
 
       // Font resizing must retain unfinished output; ordinary shell resizing keeps xterm's policy.
-      if (fontSizeChanged) terminal.options.reflowCursorLine = true;
+      if (fontChanged) terminal.options.reflowCursorLine = true;
 
       try {
         fitter.fit();
@@ -269,7 +269,7 @@ export const createXtermEmulators = (
         if (settled && (settled.cols !== terminal.cols || settled.rows !== terminal.rows)) fitter.fit();
       } finally {
         terminal.options.reflowCursorLine = reflowCursorLine;
-        fontSizeChanged = false;
+        fontChanged = false;
       }
 
       if (fontViewport !== null) {
@@ -281,9 +281,25 @@ export const createXtermEmulators = (
       return { cols: terminal.cols, rows: terminal.rows };
     };
 
+    const prepareFontChange = () => {
+      // Markers follow xterm's rewrap; a saved physical row would jump to different content.
+      if (terminal.buffer.active.viewportY !== terminal.buffer.active.baseY) {
+        const buffer = terminal.buffer.active;
+
+        fontViewport ??= terminal.registerMarker(buffer.viewportY - buffer.baseY - buffer.cursorY) ?? null;
+      }
+
+      fontChanged = true;
+    };
+
     const stopFont = createRoot(dispose => {
       createEffect(on(() => appSettings().fontFamily, family => {
-        terminal.options.fontFamily = family || /--font-mono:\s*([^;]+);/.exec(tokens)![1]!.trim();
+        const next = family || /--font-mono:\s*([^;]+);/.exec(tokens)![1]!.trim();
+
+        if (terminal.options.fontFamily === next) return;
+
+        prepareFontChange();
+        terminal.options.fontFamily = next;
 
         if (opened) size();
       }));
@@ -307,15 +323,9 @@ export const createXtermEmulators = (
       setFontSize: (size) => {
         if (terminal.options.fontSize === size) return;
 
-        // Markers follow xterm's rewrap; a saved physical row would jump to different content.
-        if (terminal.buffer.active.viewportY !== terminal.buffer.active.baseY) {
-          const buffer = terminal.buffer.active;
-
-          fontViewport ??= terminal.registerMarker(buffer.viewportY - buffer.baseY - buffer.cursorY) ?? null;
-        }
+        prepareFontChange();
 
         terminal.options.fontSize = size;
-        fontSizeChanged = true;
       },
       reset: () => terminal.write("\x1bc"),
       onInput: (listener) => {
