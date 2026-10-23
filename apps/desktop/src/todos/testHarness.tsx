@@ -1,4 +1,4 @@
-import { createSignal } from "solid-js";
+import { createSignal, type Accessor } from "solid-js";
 import { expect } from "vitest";
 import { within, render, fireEvent, waitFor } from "@solidjs/testing-library";
 import type { Event as DaemonEvent } from "@contracts/Event";
@@ -36,14 +36,14 @@ export const todo = (id: number, over: Partial<Todo> = {}): Todo => ({
 export const todoEvent = (name: "todo.created" | "todo.updated", data: Todo): DaemonEvent => event({ name, data });
 
 /** The Shelf's Todos and the Drawer host over a fake Daemon whose `todo.list` answers `store.todos`. */
-export const mountTodos = async (initial: Todo[], reducedMotion = true, rail: RailNode[] = [], renderRail = false, path = `/test-todos/${crypto.randomUUID()}`) => {
+export const mountTodos = async (initial: Todo[], reducedMotion = true, rail: RailNode[] = [], renderRail = false, path = `/test-todos/${crypto.randomUUID()}`, clock: Accessor<number> = () => 0) => {
   const app = createFakeApp();
   app.handlers["rail.tree"] = () => withScopeRow(rail);
   const store: TodoStore = { todos: initial };
   Object.assign(app.handlers, todoHandlers(store, () => {}));
 
   const [reduced, setReduced] = createSignal(reducedMotion);
-  const connected = await connectProject(app, { name: "p", path }, reduced, () => 0);
+  const connected = await connectProject(app, { name: "p", path }, reduced, clock);
 
   await showEverything(connected);
 

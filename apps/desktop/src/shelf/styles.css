@@ -239,3 +239,10 @@
 .pads-tab {
   position: relative;
 }
+
+/* U3308: owner queues share the Shelf's flat hierarchy. */
+.shelf-owner-time { margin: 0; padding-inline-start: var(--space-5); color: var(--grey); font-size: var(--text-caption); cursor: default; }
+.shelf-owner-digit, .todo-estimate { color: var(--grey); font-size: var(--text-caption); font-family: var(--font-mono); flex: none; }
+.todo-estimate { margin-inline-start: var(--space-2); }
+.todo-auto { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-2); margin-block: var(--space-2); }
+.todo-auto .shelf-meta { margin: 0; }

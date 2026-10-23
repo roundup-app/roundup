@@ -140,6 +140,7 @@ export const OpenRow = (props: {
           }}
         >
           <span {...titleCut.attrs()} class="shelf-title">{props.todo.title}<span class="todo-strike" aria-hidden="true" data-title={props.todo.title} onAnimationEnd={() => props.onMotionEnd?.()} /></span>
+          <Show when={!props.nested && props.todo.estimate_minutes !== null}><span class="todo-estimate" data-state="">{copy.estimateMinutes(props.todo.estimate_minutes!)}</span></Show>
           <Show when={props.current}><span class="todo-now" data-state="">{copy.todoNow}</span></Show>
         </RowButton>
         <Show when={!props.nested && props.sorted}>
