@@ -132,10 +132,23 @@ export const Inbox = () => {
     return next;
   });
 
-  const fail = (key: string, message: string | null) => setFailures((current) => {
+  const failureKey = (row: AgentRow) => row.decision ? `${row.key}:d:${row.decision.id}` : row.key;
+
+  createEffect(() => {
+    const keys = new Set(rail.nodes.map((node) => {
+      const decision = decisions.of(node.id);
+
+      return decision ? `a:${node.id}:d:${decision.id}` : `a:${node.id}`;
+    }));
+
+    setFailures((current) => [...current.keys()].some((key) => !keys.has(key))
+      ? new Map([...current].filter(([key]) => keys.has(key))) : current);
+  });
+
+  const fail = (row: AgentRow, message: string | null) => setFailures((current) => {
     const next = new Map(current);
 
-    if (message === null) next.delete(key); else next.set(key, message);
+    if (message === null) next.delete(failureKey(row)); else next.set(failureKey(row), message);
 
     return next;
   });
@@ -214,7 +227,6 @@ export const Inbox = () => {
       if (!decision || busy().has(row.key) || decisions.answering(decision.id)) return;
 
       flag(row.key, true);
-      fail(row.key, null);
 
       let outcome: "acknowledged" | "failed" | "unknown" = "failed";
 
@@ -223,10 +235,11 @@ export const Inbox = () => {
         const identity = await app.rpc("decision.capture", { id: decision.id });
 
         outcome = await decisions.answer(decision.id, quick.word, undefined, identity);
+        fail(row, outcome === "acknowledged" ? null : decisions.answerFailure(decision.id));
       } catch (thrown) {
         if (!(thrown instanceof Error)) throw thrown;
 
-        fail(row.key, plainRefusal(thrown.message));
+        fail(row, plainRefusal(thrown.message));
       }
 
       if (!alive) return;
@@ -240,20 +253,20 @@ export const Inbox = () => {
       if (busy().has(row.key)) return;
 
       flag(row.key, true);
-      fail(row.key, null);
 
       const message = await failureOf(() => app.rpc("agent.resume", { id: row.node.id }));
 
       if (!alive) return;
 
       flag(row.key, false);
-      fail(row.key, message);
+      fail(row, message);
 
       if (message !== null) setOpenKey(row.key);
     })(),
     open: (row) => { rail.select(row.node.id); drawer.close(); },
     busy: (row) => busy().has(row.key) || (row.decision !== undefined && decisions.answering(row.decision.id)),
-    failure: (row) => failures().get(row.key) ?? (row.decision ? decisions.answerFailure(row.decision.id) : null),
+    failure: (row) => failures().get(failureKey(row)) ?? null,
+    dismiss: (row) => { fail(row, null); heads.get(row.key)?.focus(); },
     folded: (row) => phaseOf(row, "gone"),
   };
 
