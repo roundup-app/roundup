@@ -12,15 +12,13 @@ export type Rect = { x: number; y: number; w: number; h: number };
 /** One space step (`--space-4`) is what an arrow key moves or resizes a bubble by. */
 export const STEP = 16;
 
-/** A bubble's padding (`--space-3`), its header row and gap (`--space-5`, `--space-2`) and the emulator's scrollbar, in px. */
+/** A bubble's padding (`--space-3`), and its header row and gap (`--space-5`, `--space-2`), in px. */
 const PADDING = 12;
 
 const HEADER = 24 + 8;
 
-const SCROLLBAR = 14;
-
 /** A bubble keeps extent for 24 columns by 6 rows of the default text, its chrome included. */
-export const MIN_WIDTH = 24 * 8 + 2 * PADDING + SCROLLBAR;
+export const MIN_WIDTH = 24 * 8 + 2 * PADDING;
 
 export const MIN_HEIGHT = 6 * 17 + 2 * PADDING + HEADER;
 
