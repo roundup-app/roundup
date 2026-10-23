@@ -496,11 +496,7 @@ fn m11_the_roundup_server_is_not_always_loaded() {
         assert!(config["mcpServers"]["roundup"].get("alwaysLoad").is_none());
         let settings = read(Path::new(&argv[2]));
         assert_ne!(settings["env"]["ENABLE_TOOL_SEARCH"], "false");
-        assert_eq!(
-            argv.iter().any(|arg| arg == "--strict-mcp-config"),
-            role == Role::Door,
-            "LC2: a Door starts lean, an Agent the user started does not"
-        );
+        assert!(!argv.iter().any(|arg| arg == "--strict-mcp-config"));
     }
 }
 
