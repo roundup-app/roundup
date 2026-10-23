@@ -1,4 +1,4 @@
-import { KeyChip } from "./KeyChip";
+import { KeyHint } from "./KeyHint";
 import { createEffect, createMemo, createSignal, For, onCleanup, onMount } from "solid-js";
 import { hintsFor } from "./chords";
 import type { HintPlace } from "./chords";
@@ -110,7 +110,7 @@ export const HintLine = () => {
 
   return (
     <p class="hint-line" ref={line} data-place={place() ?? undefined}>
-      <For each={hints()}>{(hint) => <span class="hint"><KeyChip keys={hint.keys} /> {hint.label}</span>}</For>
+      <For each={hints()}>{(hint) => <KeyHint keys={hint.keys}>{hint.label}</KeyHint>}</For>
     </p>
   );
 };

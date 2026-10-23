@@ -1,9 +1,9 @@
 import "./styles.css";
 import { For } from "solid-js";
 
-/** U2541: native keyboard semantics shared by every shortcut surface. */
+/** U2541d: one `<kbd>` per press (a chord's modifiers stay inside it); alternatives and sequences share one pair element. */
 export const KeyChip = (props: { keys: string }) => (
-  <span class="key-chips"><For each={props.keys.match(/[A-Za-z]+|\s+\/\s+|\s+|./gu) ?? []}>{(symbol) =>
-    /^\s+$/.test(symbol) ? <span class="key-sequence-gap">{symbol}</span> : /^\s/.test(symbol) ? symbol : <kbd class="key-chip">{symbol}</kbd>
+  <span class="key-chips"><For each={props.keys.split(/\s+/u).filter((press) => press !== "" && press !== "/")}>{(press, index) =>
+    <>{index() > 0 ? " " : ""}<kbd class="key-chip">{press}</kbd></>
   }</For></span>
 );
