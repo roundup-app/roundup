@@ -15,6 +15,8 @@ export const OwnerGroups = <T,>(props: {
   /** U3718: while a drag is live every owner shows, empty ones included. */
   dragging: Accessor<boolean>;
   /** A list may retain finishing rows while its count already reflects the refetched state. */
+  detail?: (group: OwnerGroup<T>) => JSX.Element;
+  mark?: (group: OwnerGroup<T>) => JSX.Element;
   count?: (group: OwnerGroup<T>) => number;
   /** U3719: the group whose new-Todo field is open; it shows and unfolds. */
   adding: Accessor<string | null>;
@@ -71,10 +73,12 @@ export const OwnerGroups = <T,>(props: {
             <TreeView.BranchControl class="shelf-group-control" data-button="quiet">
               <TreeView.BranchIndicator><Icon name={closed().includes(id) ? "right" : "down"} /></TreeView.BranchIndicator>
               <TreeView.BranchText><Tip text={group().name}>{trigger => <span {...trigger()} class="shelf-group-name">{group().name}</span>}</Tip></TreeView.BranchText>
+              {props.mark?.(group())}
               <span class="shelf-group-count">{props.count ? props.count(group()) : group().items.length}</span>
             </TreeView.BranchControl>
             <Show when={props.onAdd}>{add => <IconButton class="shelf-group-add" aria-label={copy.addTodoTo(group().name)} onKeyDown={event => event.stopPropagation()} onClick={() => add()(group())}><Icon name="plus" /></IconButton>}</Show>
           </div>
+          {props.detail?.(group())}
           <TreeView.BranchContent>{props.children(group)}</TreeView.BranchContent>
         </TreeView.Branch>
       </TreeView.NodeProvider>; }}</For>

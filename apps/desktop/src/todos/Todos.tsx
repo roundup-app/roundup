@@ -1,4 +1,5 @@
-import { createOwnerAssignment } from "./ownerAssignment";
+import { createDelegateBoard, TodoAuto } from "./DelegateBoard";
+import { createOwnerAssignment, createOwnerKeys } from "./ownerAssignment";
 import { todoCreationEditor } from "../drawer/editors";
 import ListChecks from "lucide-solid/icons/list-checks";
 import { IconButton } from "../ui/IconButton";
@@ -83,6 +84,8 @@ export const Todos = (props: {
   const wasDoneUnfolded = createMemo((mounted) => mounted || unfolded(), false);
   const scope = shelfScope(connected);
   const selectedWorkstream = scope.home;
+
+  const board = createDelegateBoard(() => (!shelf || shelf.open()) && (!tabs || tabs().value === "todos"), todos.all);
 
   const open = shownTodos(connected, todos);
 
@@ -223,6 +226,7 @@ export const Todos = (props: {
     reducedMotion: connected.reducedMotion,
     home: {
       target: (id, x, y) => {
+        board.preview(null);
         const current = todos.byId().get(id)?.home;
         const rail = document.querySelector(".rail");
         const clip = rail?.getBoundingClientRect();
@@ -257,6 +261,8 @@ export const Todos = (props: {
 
           // A drop on the own group reorders (U155), and a group that left the Rail takes nothing.
           if (!owner || !own || group === groupOf(own)) return null;
+
+          board.preview({ id, group });
 
           return { element, attribute: "data-drop-target", owner: owner.actor };
         }
@@ -337,6 +343,7 @@ export const Todos = (props: {
 
   // U3720: a chosen Todo moves to its new group's row once `todo.updated` has refetched, which replaces the row that held focus.
   const [naming, setNaming] = createSignal<number | null>(null);
+
   const { revealed, setRevealed, setRegrouped, assign } = createOwnerAssignment({
     connected, todos, advance: () => pickAdvance, fail: (id, message) => pickFails.get(id)?.(message),
   });
@@ -353,6 +360,8 @@ export const Todos = (props: {
       return { available: () => !!found && !found.done && anchor !== null, invoke: () => { if (anchor) { pickAdvance = captureAdvance(id); setPicking({ id, anchor }); } } };
     },
   }]);
+
+  const ownerKeys = createOwnerKeys({ connected, todos, active: () => (!shelf || shelf.open()) && (!tabs || tabs().value === "todos"), assign });
 
   const offers = () => {
     const current = todos.byId().get(picking()?.id ?? -1);
@@ -743,6 +752,8 @@ export const Todos = (props: {
 
   return (
     <section aria-label={copy.todos} class="todos-tab" onContextMenu={todoMenu} ref={section}>
+      <ReservedLine overlay status={ownerKeys.announcement()} />
+      <TodoAuto home={selectedWorkstream} />
       <ScopeAction tab="todos">
         <button
           data-button="add"
@@ -769,7 +780,7 @@ export const Todos = (props: {
         </div>
       </Show>
       <Show when={listed().length > 0 || adding() !== null}>
-        <OwnerGroups count={group => group.items.filter(todo => !todo.done).length} onClosedChange={setClosedGroups} groups={() => ownerGroups(connected, listed(), todo => todo.owner)} dragging={dragging} bare={() => connected.rail.nodes.find(node => node.id === connected.rail.selected())?.kind === "agent" ? connected.rail.selected() : null} adding={() => adding()?.group ?? null} reveal={revealed} unfold={todos.revealed} onAdd={group => openField({ group: group.id, owner: group.actor })}>{group => {
+        <OwnerGroups mark={group => <Show when={board.digit(group)}>{digit => <kbd class="todo-owner-digit">{digit()}</kbd>}</Show>} detail={group => <Show when={board.line(group) ?? (group.id === "unassigned" && connected.rail.nodes.find(node => node.id === selectedWorkstream())?.auto ? copy.todoAutoHandling : null)}>{line => <p class="todo-busy" data-state="busy">{line()}</p>}</Show>} count={group => group.items.filter(todo => !todo.done).length} onClosedChange={setClosedGroups} groups={() => ownerGroups(connected, listed(), todo => todo.owner)} dragging={dragging} bare={() => connected.rail.nodes.find(node => node.id === connected.rail.selected())?.kind === "agent" ? connected.rail.selected() : null} adding={() => adding()?.group ?? null} reveal={revealed} unfold={todos.revealed} onAdd={group => openField({ group: group.id, owner: group.actor })}>{group => {
         const tree = createMemo(() => treeRows(group().items));
         const collection = createMemo(() => treeCollection(tree()));
         const placeOf = (id: number) => tree().find((row) => row.todo.id === id) ?? { level: 1, parent: null };
@@ -794,6 +805,7 @@ export const Todos = (props: {
               aggregateMotion={dependency.strike(todo.id)}
               groupComplete={members().length ? dependency.complete(todo.id) : undefined}
               groupProgress={<Show when={members().length > 0}><Progress label={copy.todosDoneIn(todo.title)} max={members().length} value={members().filter(row => row.todo.done).length} motion={dependency.bar(todo.id)} onMotionEnd={() => dependency.barEnded(todo.id)}><span class="todo-progress-count" data-state="">{members().filter(row => row.todo.done).length}/{members().length}</span></Progress></Show>}
+              lifted={ownerKeys.lifted()?.id === todo.id}
               current={now().has(todo.id)}
               motion={finishing.row(todo.id)}
               onMotionEnd={() => finishing.rowEnded(todo.id)}
@@ -850,7 +862,9 @@ export const Todos = (props: {
         <TreeView.Root collection={collection()} expandedValue={collection().getBranchValues().filter(id => dependency.expanded(Number(id)))} onExpandedChange={details => {
           for (const id of collection().getBranchValues()) dependency.setExpanded(Number(id), details.expandedValue.includes(id));
         }}>
-        <Sortable.Root class="todo-list shelf-list" plain ids={tree().map((row) => String(row.todo.id))} external={sorted.external} onDrag={setDragging} tree={{
+        <Sortable.Root class="todo-list shelf-list" plain ids={tree().map((row) => String(row.todo.id))} external={sorted.external} onDrag={(active: boolean) => { setDragging(active);
+
+ if (!active) board.preview(null); }} tree={{
           holdPlace: true,
           rows: tree().map((row) => ({ id: String(row.todo.id), parent: row.parent === null ? null : String(row.parent) })),
           get indent() { return parseFloat(getComputedStyle(document.documentElement).getPropertyValue("--space-4")) || 16; },

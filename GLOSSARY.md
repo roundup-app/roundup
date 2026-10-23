@@ -303,6 +303,12 @@ _Avoid_: assignee
 **Estimate** (`estimate_minutes`):
 A Todo's expected work in minutes, a whole number from 1 to 1440, or none. The user or an Agent sets it with `todo.create` or `todo.update` (`null` clears it); a change is recorded in the Todo's history and no other Todo method touches it (T29).
 
+**Delegate Board**:
+The Todos tab's groups by owner, with Agent availability from open estimates and direct hand-offs by drag or key.
+
+**Busy until** (user labels: "free now", "busy until <HH:MM>"):
+An Agent's displayed availability: the current local time plus the estimates of its open Todos. Missing estimates add nothing and are disclosed as "no estimates" or "+ n without estimate".
+
 **Comment** (`todo.comment`, `todo_comment`):
 A line on a Todo from the user or an Agent, shown oldest first with its author and time. Not a Message and not History: it moves no field of the Todo. An Agent's comment is unread, and waits in the Inbox as needs-you, until the user opens the Todo (T20 to T23).
 

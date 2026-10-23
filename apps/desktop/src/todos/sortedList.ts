@@ -1,4 +1,4 @@
-import { createComputed, createEffect, createSignal, on } from "solid-js";
+import { createComputed, createEffect, createSignal, on, onCleanup } from "solid-js";
 import type { Accessor } from "solid-js";
 import type { Todo } from "@contracts/todo/Todo";
 import type { Sortable } from "../ui/sortable";
@@ -37,37 +37,81 @@ export const createSortedList = (source: {
   const frames = new Map<number, HTMLElement>();
   const buttons = new Map<number, HTMLButtonElement>();
   const fails = new Map<number, (message: string | null) => void>();
-  const tops = new Map<number, number>();
+  const positions = new Map<number, { top: number; left: number }>();
+  const animations = new Map<number, Animation>();
+  let heldFocus: number | undefined;
+  let scroll: { element: HTMLElement; top: number; left: number } | null = null;
+  onCleanup(() => animations.forEach(animation => animation.cancel()));
   let refocus: number | null = null;
   const [movedFocus, setMovedFocus] = createSignal<{ id: number; arrived: (todo: Todo) => boolean; element: HTMLElement } | null>(null);
 
   /** A row's top on screen, any slide or drag offset in effect included: the offset parent of a nested row is its own Leaf, so `offsetTop` cannot tell where it is. */
-  const topOf = (el: HTMLElement) => el.getBoundingClientRect().top;
+  const positionOf = (el: HTMLElement) => {
+    const { top, left } = el.getBoundingClientRect();
 
-  const measure = () => frames.forEach((el, id) => tops.set(id, topOf(el)));
+    return { top, left };
+  };
+
+  const measure = () => {
+    heldFocus = [...buttons].find(([, button]) => button === document.activeElement)?.[0];
+    const area = frames.values().next().value?.closest<HTMLElement>(".shelf-area");
+
+    scroll = area ? { element: area, top: area.scrollTop, left: area.scrollLeft } : null;
+    frames.forEach((el, id) => positions.set(id, positionOf(el)));
+  };
 
   /** U156: slides each row from where it showed (mid-slide included) to where the refetched list puts it. */
   const settle = () => {
-    for (const [id, el] of frames) {
-      if ("getAnimations" in el) el.getAnimations().forEach((animation) => animation.cancel());
-
-      const top = topOf(el);
-      const was = tops.get(id);
-
-      tops.set(id, top);
-
-      if (was === undefined || source.reducedMotion() || !("animate" in el) || Math.abs(was - top) < 1) continue;
-      el.animate([{ transform: `translateY(${was - top}px)` }, { transform: "none" }], slideOf());
+    if (scroll) {
+      scroll.element.scrollTop = scroll.top;
+      scroll.element.scrollLeft = scroll.left;
+      scroll = null;
     }
 
-    if (refocus !== null) buttons.get(refocus)?.focus();
+    for (const [id, el] of frames) {
+      animations.get(id)?.cancel();
+      animations.delete(id);
+
+      if ("getAnimations" in el) el.getAnimations().forEach((animation) => animation.cancel());
+
+      const position = positionOf(el);
+      const was = positions.get(id);
+
+      positions.set(id, position);
+
+      if (was === undefined || source.reducedMotion() || !("animate" in el)) continue;
+      const x = was.left - position.left;
+      const y = was.top - position.top;
+
+      if (Math.abs(x) < 1 && Math.abs(y) < 1) continue;
+      const animation = el.animate([{ transform: `translate(${x}px, ${y}px)` }, { transform: "none" }], slideOf());
+
+      animations.set(id, animation);
+      animation.onfinish = () => { if (animations.get(id) === animation) animations.delete(id); };
+    }
+
+    for (const id of positions.keys()) if (!frames.has(id)) {
+      positions.delete(id);
+      animations.get(id)?.cancel();
+      animations.delete(id);
+    }
+
+    if (refocus !== null) buttons.get(refocus)?.focus({ preventScroll: true });
+    else if (heldFocus !== undefined && (document.activeElement === document.body || document.activeElement === null)) buttons.get(heldFocus)?.focus({ preventScroll: true });
+    heldFocus = undefined;
 
     refocus = null;
   };
 
   // U3010c: any change of the list (an insertion, a completion) first reads where each row shows now, before the DOM follows; a measure taken at the last move would be stale.
-  createComputed(on(() => source.ids().join(), measure, { defer: true }));
-  createEffect(on(() => source.ids().join(), settle, { defer: true }));
+  const placement = () => source.ids().map(id => {
+    const todo = source.all().find(todo => todo.id === id);
+
+    return `${id}:${todo?.owner?.kind ?? ""}:${todo?.owner?.id ?? ""}`;
+  }).join();
+
+  createComputed(on(placement, measure, { defer: true }));
+  createEffect(on(placement, () => queueMicrotask(settle), { defer: true }));
   // U3010c: reduced motion switched on mid-slide settles every row now, with no replay.
   createEffect(on(source.reducedMotion, (reduced) => { if (reduced) frames.forEach((el) => "getAnimations" in el && el.getAnimations().forEach((animation) => animation.cancel())); }, { defer: true }));
   // Reconcile keeps the array and unchanged rows: observe field changes as well as membership.
@@ -188,7 +232,7 @@ export const createSortedList = (source: {
           parts.ref(el);
         } else if (frames.get(id) === frame) {
           frames.delete(id);
-          tops.delete(id);
+
         }
       },
       button: (el) => {
