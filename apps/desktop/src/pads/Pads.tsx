@@ -322,7 +322,7 @@ export const Pads = (props: {
         </button>
       </ScopeAction>
       <ReservedLine message={itemFailure()?.message ?? failure.message() ?? list.failure() ?? (retentionProblem() ? copy.draftRetention(connected.project.name, copy.pad, retentionProblem()!.cause) : null)}>
-        <Show when={itemFailure()}><button aria-label="Dismiss failure" data-button="quiet" type="button" onClick={() => setItemFailure(null)}>{copy.close}</button></Show>
+        <Show when={itemFailure()}><button aria-label={copy.dismissFailure} data-button="quiet" type="button" onClick={() => setItemFailure(null)}>{copy.close}</button></Show>
         <Show when={retentionProblem()}>
         <button data-button="primary" type="button" onClick={() => connected.drafts.retry()}>{copy.storageRetry}</button>
         <button data-button="quiet" type="button" onClick={() => void navigator.clipboard.writeText(name()).catch(error => failure.show(copy.copyDraftFailure(String(error))))}>{nameLabel}</button>
@@ -494,7 +494,7 @@ const PadRow = (props: Parameters<typeof PadRows>[0] & { pad: Pad; parts: Parame
               <button data-button="row-action" type="button" class="word light pad-assign" aria-label={copy.assignPadNamed(pad.name)} aria-disabled={ownersToOffer(connected, pad.owner).length === 0 || undefined} title={ownersToOffer(connected, pad.owner).length === 0 ? copy.noOtherOwners : undefined} onClick={(event) => { if (ownersToOffer(connected, pad.owner).length > 0) props.onAssign(pad.name, event.currentTarget); }}>{copy.assign}</button>
             </div>
             <p class="shelf-meta">{copy.ownedBy}{connected.rail.nameOf(pad.owner)}</p>
-            <ReservedLine overlay message={failed()}><button aria-label="Dismiss assignment failure" data-button="quiet" type="button" onClick={() => props.clearFailure(pad.incarnation)}>{copy.close}</button></ReservedLine>
+            <ReservedLine overlay message={failed()}><button aria-label={copy.dismissAssignmentFailure} data-button="quiet" type="button" onClick={() => props.clearFailure(pad.incarnation)}>{copy.close}</button></ReservedLine>
           </ShelfRow>
   );
 };

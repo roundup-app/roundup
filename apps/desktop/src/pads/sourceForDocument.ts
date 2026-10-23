@@ -205,6 +205,9 @@ export const sourceForDocument = (
 
   if (!reparsed) return null;
   const reconciled = children(reparsed, caretNodes).filter(node => !emptyParagraph(node));
+  const exact = after.filter(node => !emptyParagraph(node));
+
+  if (reconciled.length === exact.length && reconciled.every((node, i) => equal(node, exact[i]!))) return result;
   const supported = ctx.get(parserCtx)(serialize(after));
 
   if (!supported) return null;

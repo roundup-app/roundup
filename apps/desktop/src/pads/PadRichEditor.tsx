@@ -377,7 +377,7 @@ export default function PadRichEditor(props: {
         class="pad-editor pad-rich-editor"
         classList={{ "pad-readonly": props.readonly }}
         onFocusOut={(event) => props.onBlur(event.relatedTarget)}>
-        <ReservedLine message={failure()}><button aria-label="Dismiss editor failure" data-button="quiet" type="button" onClick={() => setFailure(null)}>{copy.close}</button></ReservedLine>
+        <ReservedLine message={failure()}><button aria-label={copy.dismissEditorFailure} data-button="quiet" type="button" onClick={() => setFailure(null)}>{copy.close}</button></ReservedLine>
         <div ref={(element) => (host = element)} />
       </div>
     </>
