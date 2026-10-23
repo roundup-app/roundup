@@ -7,7 +7,7 @@ import { Editable } from "../ui/Editable";
 import { FlatAdd, FlatTab } from "../ui/FlatTab";
 import { IconButton } from "../ui/IconButton";
 import { contextMenu, linkEntries, openOnRelease, textTarget, PULL_DISTANCE } from "../ui/contextMenu";
-import { Panel } from "../ui/Panel";
+import { Bubble } from "./Bubble";
 import { copy } from "../copy";
 import { createEffect, createMemo, createSignal, For, on, onCleanup, onMount, Show, untrack } from "solid-js";
 import { Portal } from "solid-js/web";
@@ -19,27 +19,10 @@ import { isWorkstream, resolvedWorkstream, siblingsOf } from "../rail/layout";
 import { useConnectedProject } from "../state/connectedProject";
 import type { Screens } from "../terminal/screens";
 import {
-  clamped, defaultPlace, placesStorage, resizedAbout, REVEAL_BUBBLE, shownFor, shownName, STEP, toggledFill, ZONES,
+  clamped, defaultPlace, placesStorage, REVEAL_BUBBLE, shownFor, shownName,
 } from "./places";
-import type { Place, Extent, Zone } from "./places";
+import type { Place, Extent } from "./places";
 import "./styles.css";
-
-/** U2236 call 2: `--space-2` strips centred on the edges, `--space-4` squares over the corners. */
-const EDGE = 8;
-
-const CORNER = 16;
-
-const zoneBox = (place: Place, zone: Zone) => {
-  const thick = zone.sx !== 0 && zone.sy !== 0 ? CORNER : EDGE;
-
-  const along = (low: number, size: number, sign: number, span: number): [number, number] =>
-    sign < 0 ? [low - span / 2, span] : sign > 0 ? [low + size - span / 2, span] : [low + CORNER / 2, size - CORNER];
-
-  const [left, width] = along(place.x, place.w, zone.sx, thick);
-  const [top, height] = along(place.y, place.h, zone.sy, thick);
-
-  return { left: `${left}px`, top: `${top}px`, width: `${width}px`, height: `${height}px` };
-};
 
 /** U421 engineering call 1: past the 3 to 4 px a hand wobbles while it clicks. */
 
@@ -54,10 +37,6 @@ const focusPane = (): void => {
 };
 
 const ESCAPE = "Escape".split(" ");
-
-const SHIFT = "Shift+".split(" ")[0]!;
-
-const ARROWS = new Map<string, [number, number]>(Object.entries({ ArrowLeft: [-1, 0], ArrowRight: [1, 0], ArrowUp: [0, -1], ArrowDown: [0, 1] }));
 
 /** U469: the selected Terminals, their Bubble geometry, bottom tabs and opening/cycling chords. */
 export const Bubbles = (props: {
@@ -689,190 +668,6 @@ export const Bubbles = (props: {
   // Bubbles are keyed by id: a refreshed `terminal.list` brings new objects for the same Terminals, and a remount would drop the emulator's focus.
   const shownIds = createMemo(() => shown().map((terminal) => terminal.id), [], { equals: (a, b) => a.length === b.length && a.every((id, at) => id === b[at]) });
 
-  const Bubble = (bubble: { id: string }) => {
-    const id = bubble.id;
-    const terminal = createMemo(() => shown().find((candidate) => candidate.id === id) ?? rail.terminals().find((candidate) => candidate.id === id));
-    let body: HTMLDivElement | undefined;
-    let frame: number | null = null;
-
-    const place = () => placeOf(id);
-
-    const refit = () => {
-      frame = null;
-
-      if (body && !place().min && !readOnly()) props.screens.resize(id, props.screens.emulatorFor(id).fit(), true);
-    };
-
-    const refitNextFrame = () => {
-      frame ??= requestAnimationFrame(refit);
-    };
-
-    onCleanup(() => {
-      if (frame !== null) cancelAnimationFrame(frame);
-
-      props.screens.viewing(id, false);
-      props.screens.hide(id);
-    });
-
-    // A Terminal is viewed while its Bubble is open; a folded or closed one gathers unseen output.
-    createEffect(() => props.screens.viewing(id, !place().min));
-
-    const mount = (host: HTMLDivElement) => {
-      body = host;
-
-      props.screens.resize(id, props.screens.show(id, host, false));
-
-      if (typeof ResizeObserver !== "undefined") {
-        const watched = new ResizeObserver(refitNextFrame);
-
-        watched.observe(host);
-        onCleanup(() => watched.disconnect());
-      }
-    };
-
-    // A bubble that was folded is fitted again when it comes back.
-    createEffect(on(() => place().min, (folded) => { if (!folded) refitNextFrame(); }, { defer: true }));
-
-    const drag = (start: PointerEvent, change: (from: Place, dx: number, dy: number) => Place) => {
-      if (start.button !== 0) return;
-
-      start.preventDefault();
-
-      const from = place();
-      const move = (event: PointerEvent) => setPlace(id, clamped(change(from, event.clientX - start.clientX, event.clientY - start.clientY), extent()));
-
-      const stop = () => {
-        window.removeEventListener("pointermove", move);
-        window.removeEventListener("pointerup", stop);
-      };
-
-      window.addEventListener("pointermove", move);
-      window.addEventListener("pointerup", stop);
-    };
-
-    // The restore of the zone resize in flight, if any; Escape runs it through the registry.
-    let restoreResize: (() => void) | undefined;
-
-    registerKeys({ kind: "app" }, [{ chords: ESCAPE, when: () => restoreResize !== undefined, run: () => restoreResize?.() }]);
-
-    /** U2236: a press on a zone resizes about the centre, one style write per frame; Escape puts the place back. */
-    const resize = (start: PointerEvent, zone: Zone) => {
-      if (start.button !== 0) return;
-
-      start.preventDefault();
-      start.stopPropagation();
-
-      const from = place();
-      let pointer = { x: start.clientX, y: start.clientY };
-      let pending: number | null = null;
-
-      const apply = () => {
-        pending = null;
-        setPlace(id, resizedAbout(from, zone, pointer.x - start.clientX, pointer.y - start.clientY, extent()));
-      };
-
-      const move = (event: PointerEvent) => {
-        pointer = { x: event.clientX, y: event.clientY };
-        pending ??= requestAnimationFrame(apply);
-      };
-
-      const finish = (restore: boolean) => {
-        window.removeEventListener("pointermove", move);
-        window.removeEventListener("pointerup", up);
-        window.removeEventListener("pointercancel", cancel);
-        restoreResize = undefined;
-
-        if (pending !== null) cancelAnimationFrame(pending);
-
-        if (restore) setPlace(id, from);
-        else if (pending !== null) apply();
-
-        pending = null;
-      };
-
-      const up = () => finish(false);
-      const cancel = () => finish(true);
-
-      try {
-        if (start.target instanceof Element) start.target.setPointerCapture?.(start.pointerId);
-      } catch {
-        // The window listeners still follow the pointer.
-      }
-
-      window.addEventListener("pointermove", move);
-      window.addEventListener("pointerup", up);
-      window.addEventListener("pointercancel", cancel);
-      restoreResize = cancel;
-    };
-
-    let header: HTMLElement | undefined;
-
-    // Arrows on the focused header move the bubble, Shift arrows resize it; the registry matches the exact modifiers.
-    registerKeys({ kind: "region", element: () => header }, [{
-      chords: [...ARROWS.keys(), ...[...ARROWS.keys()].map((key) => `${SHIFT}${key}`)],
-      when: (press) => press.target === header,
-      run: (press) => {
-        const arrow = ARROWS.get(press.key)!;
-        const from = place();
-
-        setPlace(id, clamped(press.shiftKey ? { ...from, w: from.w + arrow[0] * STEP, h: from.h + arrow[1] * STEP } : { ...from, x: from.x + arrow[0] * STEP, y: from.y + arrow[1] * STEP }, extent()));
-      },
-    }]);
-
-    let panel: HTMLElement | undefined;
-
-    // The browser top layer orders by the last `showPopover`, so a restored bubble is the topmost layer and no z-index ranks it (U2307b).
-    createEffect(() => {
-      const open = !place().min;
-
-      if (!panel?.showPopover) return;
-
-      if (open && !panel.matches(":popover-open")) panel.showPopover();
-      else if (!open && panel.matches(":popover-open")) panel.hidePopover();
-    });
-
-    /** U2307a: a primary press outside the bubble minimises it; its own tab or chip toggles it, and the press still reaches its target. */
-    const dismissed = (event: { detail: { originalEvent: Event } }): void => {
-      const press = event.detail.originalEvent;
-      const target = press.target;
-
-      if (!(press instanceof PointerEvent) || press.button !== 0 || (target instanceof Element && target.closest(".terminal-tab-pair, .terminal-recover"))) return;
-
-      if (!place().min) setPlace(id, { ...place(), min: true });
-    };
-
-    return (
-      <Panel.Root open={!place().min} onPointerDownOutside={dismissed}>
-        <Portal>
-          <Panel.Content ref={(element: HTMLElement) => (panel = element)} class="bubble-frame" role="presentation" popover="manual"
-            style={{ left: `${origin().left}px`, top: `${origin().top}px` }}>
-            <section class="bubble" data-bubble={id} role="group" aria-label={nameFor(terminal()!)} hidden={place().min}
-              style={{ left: `${place().x}px`, top: `${place().y}px`, width: `${place().w}px`, height: `${place().h}px` }}>
-              <header class="bubble-header" tabindex="0" ref={header} onPointerDown={(event) => {
-                  // SAFETY: a pointer event on the header always targets an Element.
-                  if (!(event.target as Element).closest("button")) drag(event, (from, dx, dy) => ({ ...from, x: from.x + dx, y: from.y + dy }));
-                }} onDblClick={(event) => {
-                  // SAFETY: a mouse event on the header always targets an Element.
-                  if (!(event.target as Element).closest("button")) setPlace(id, toggledFill(place(), extent()));
-                }}>
-                <span class="bubble-controls">
-                  <IconButton data-feedback="ink" aria-label={copy.close} onClick={() => void close(id)}><span class="bubble-dot"><Icon name="x" /></span></IconButton>
-                  <IconButton data-feedback="ink" aria-label={copy.minimise} onClick={() => toggleMinimised(id)}><span class="bubble-dot"><Icon name="minus" /></span></IconButton>
-                </span>
-                <span class="bubble-name">{nameFor(terminal()!)}</span>
-              </header>
-              <div class="bubble-body" ref={mount} />
-            </section>
-            <For each={ZONES}>{(zone) => (
-              <span class="bubble-zone" data-zone={zone.name} data-zone-of={id} aria-hidden="true" hidden={place().min}
-                style={{ cursor: zone.cursor, ...zoneBox(place(), zone) }} onPointerDown={(event) => resize(event, zone)} />
-            )}</For>
-          </Panel.Content>
-        </Portal>
-      </Panel.Root>
-    );
-  };
-
   const Tab = (tabProps: { id: string }) => {
     const id = tabProps.id;
     const terminal = () => shown().find((candidate) => candidate.id === id)!;
@@ -1023,7 +818,7 @@ export const Bubbles = (props: {
 
   return (
     <div class="bubbles" ref={setLayer}>
-      <For each={shownIds()}>{(id) => <Bubble id={id} />}</For>
+      <For each={shownIds()}>{(id) => <Bubble id={id} screens={props.screens} name={nameFor(shown().find(terminal => terminal.id === id)!)} place={placeOf(id)} origin={origin()} extent={extent} setPlace={setPlace} readOnly={readOnly} close={close} toggleMinimised={toggleMinimised} />}</For>
       <Show when={bar()}>{(host) => <Portal mount={host()} ref={(element) => { element.classList.add("terminal-tabs-host"); }}>
         <div class="terminal-tabs" role="group" aria-label={copy.terminals} onFocusIn={(event) => {
           if (event.target instanceof HTMLElement) event.target.scrollIntoView({ block: "nearest", inline: "nearest" });
