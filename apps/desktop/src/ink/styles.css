@@ -294,8 +294,7 @@ p.ink[role="alert"] {
   white-space: nowrap;
 }
 
-.reserved-actions:empty,
-.reserved-actions[hidden] {
+.reserved-actions:empty {
   display: none;
 }
 
