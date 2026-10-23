@@ -173,6 +173,4 @@ describe("u2694 the Rail's menu actions", () => {
 
     expect(await screen.findByText("inbox closed")).toBeTruthy();
   });
-
-
 });
