@@ -42,6 +42,7 @@ const SessionId = (props: { id: string }) => {
       setFailure(null);
       setNote(copy.copied);
     } catch {
+      setNote(null);
       setFailure(copy.copyFailed);
     }
 
