@@ -1,4 +1,4 @@
-import { createSignal, Show } from "solid-js";
+import { createSignal, createUniqueId, Show } from "solid-js";
 import { copy } from "../copy";
 import { ErrorLine } from "../ink/ErrorLine";
 import { CHORDS, LEADER, pressOf, shortcutLabel } from "../keys/chords";
@@ -9,6 +9,8 @@ import { appSettings, saveAppSettings } from "./preferences";
 export const ShortcutSetting = (props: { onFailure: (message: string | null) => void }) => {
   const [recording, setRecording] = createSignal(false);
   const [failure, setFailure] = createSignal<string | null>(null);
+  const caption = createUniqueId();
+  const value = createUniqueId();
   let button: HTMLButtonElement | undefined;
   const save = (press: string, key = "") => { setFailure(null); props.onFailure(saveAppSettings({ quickAdd: press, quickAddKey: key })); setRecording(false); };
 
@@ -33,11 +35,14 @@ export const ShortcutSetting = (props: { onFailure: (message: string | null) => 
   ]);
 
   return <>
-    <div class="settings-shortcut">
-      <button ref={button} data-button="quiet" type="button" aria-label={copy.quickAddTodo} onClick={() => { setRecording(true); setFailure(null); }}>
-        {recording() ? copy.recordShortcut : `${copy.quickAddTodo} ${shortcutLabel(appSettings().quickAdd, appSettings().quickAddKey)}`}
+    <div class="settings-field">
+      <span id={caption}>{copy.quickAddTodo}</span>
+      <div class="settings-shortcut">
+      <button ref={button} data-button="quiet" type="button" aria-labelledby={`${caption} ${value}`} onClick={() => { setRecording(true); setFailure(null); }}>
+        <span id={value}>{recording() ? copy.recordShortcut : shortcutLabel(appSettings().quickAdd, appSettings().quickAddKey)}</span>
       </button>
       <Show when={appSettings().quickAdd !== "meta+shift+KeyT"}><button data-button="quiet" type="button" onClick={() => save("meta+shift+KeyT")}>{copy.reset}</button></Show>
+      </div>
     </div>
     <Show when={failure()}>{message => <ErrorLine message={message()} />}</Show>
   </>;

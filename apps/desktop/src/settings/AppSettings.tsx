@@ -17,6 +17,8 @@ import { ShortcutSetting } from "./ShortcutSetting";
 export const AppSettings = (props: { app: App; project: () => string | null; onOpenChange?: (open: boolean) => void }) => {
   const view = createSettingsView();
   const [failure, setFailure] = createSignal<string | null>(null);
+  const [sizeFailure, setSizeFailure] = createSignal<string | null>(null);
+  const defaultFont = getComputedStyle(document.documentElement).getPropertyValue("--font-mono").trim();
   const drafts = draftStorage("app-settings");
   drafts.validate("settings", v.object({ text: v.string() }));
   const destination = (field: string) => ({ surface: "settings", object: field, recipient: null });
@@ -58,8 +60,9 @@ export const AppSettings = (props: { app: App; project: () => string | null; onO
   const commitSize = () => {
     const size = Number(field("fontSize"));
 
-    if (field("fontSize").trim() === "" || !Number.isFinite(size) || size < MIN_FONT_SIZE || size > MAX_FONT_SIZE) return setFailure(copy.fontSizeRefusal(MIN_FONT_SIZE, MAX_FONT_SIZE));
+    if (field("fontSize").trim() === "" || !Number.isFinite(size) || size < MIN_FONT_SIZE || size > MAX_FONT_SIZE) return setSizeFailure(copy.fontSizeRefusal(MIN_FONT_SIZE, MAX_FONT_SIZE));
 
+    setSizeFailure(null);
     commit("fontSize", size);
   };
 
@@ -85,21 +88,25 @@ export const AppSettings = (props: { app: App; project: () => string | null; onO
           { value: "", label: copy.permissionDefault }, { value: "default", label: copy.permissionNormal },
           { value: "acceptEdits", label: copy.permissionEdits }, { value: "plan", label: copy.permissionPlan }, { value: "auto", label: copy.permissionAuto },
         ]} onValueChange={permissionMode => { if (permissionMode === "" || permissionMode === "default" || permissionMode === "acceptEdits" || permissionMode === "plan" || permissionMode === "auto") save({ permissionMode }); }} />
-        <label class="settings-field"><span>{copy.engine}</span><Combobox.Picker label={copy.engine} value={appSettings().engine} savedLabel={appSettings().engineLabel || copy.engine}
-          items={[...defaults, ...(offered()?.list?.engines ?? []).map(item => ({ value: item.id, label: item.label }))]}
-          onSelect={chooseEngine} /></label>
-        <label class="settings-field"><span>{copy.model}</span><Combobox.Picker label={copy.model} value={appSettings().model} savedLabel={appSettings().modelLabel || copy.model}
-          items={[...defaults, ...(offered()?.list?.models ?? []).map(item => ({ value: item.id, label: item.label }))]}
-          onSelect={model => save({ model, modelLabel: offered()?.list?.models.find(item => item.id === model)?.label ?? "" })} /></label>
+        <Show when={props.project()}>
+          <label class="settings-field"><span>{copy.engine}</span><Combobox.Picker label={copy.engine} value={appSettings().engine} savedLabel={appSettings().engineLabel || copy.engine}
+            items={[...defaults, ...(offered()?.list?.engines ?? []).map(item => ({ value: item.id, label: item.label }))]}
+            onSelect={chooseEngine} /></label>
+          <label class="settings-field"><span>{copy.model}</span><Combobox.Picker label={copy.model} value={appSettings().model} savedLabel={appSettings().modelLabel || copy.model}
+            items={[...defaults, ...(offered()?.list?.models ?? []).map(item => ({ value: item.id, label: item.label }))]}
+            onSelect={model => save({ model, modelLabel: offered()?.list?.models.find(item => item.id === model)?.label ?? "" })} /></label>
+        </Show>
         <Show when={offered()?.failure}>{message => <ErrorLine message={message()} />}</Show>
       </SettingsGroup>
       <SettingsGroup name={copy.settingsTerminal}>
-        <label class="settings-field"><span>{copy.fontFamily}</span><input type="text" aria-label={copy.fontFamily} value={field("fontFamily")}
+        <label class="settings-field"><span>{copy.fontFamily}</span><input type="text" aria-label={copy.fontFamily} placeholder={defaultFont} value={field("fontFamily")}
           onInput={event => edit("fontFamily", event.currentTarget)} onBlur={() => { commit("fontFamily", field("fontFamily")); }}
           onKeyDown={event => { if (event.key === "Enter" && !event.isComposing) { event.preventDefault(); commit("fontFamily", field("fontFamily")); } }} /></label>
-        <label class="settings-field"><span>{copy.fontSize}</span><input type="text" aria-label={copy.fontSize} inputMode="decimal" value={field("fontSize")}
+        <div class="settings-field"><label><span>{copy.fontSize}</span><input type="text" aria-label={copy.fontSize} inputMode="decimal" value={field("fontSize")}
           onInput={event => edit("fontSize", event.currentTarget)} onBlur={commitSize}
           onKeyDown={event => { if (event.key === "Enter" && !event.isComposing) { event.preventDefault(); commitSize(); } }} /></label>
+          <Show when={sizeFailure()}>{message => <ErrorLine message={message()} />}</Show>
+        </div>
       </SettingsGroup>
       <SettingsGroup name={copy.settingsShortcuts}><ShortcutSetting onFailure={setFailure} /></SettingsGroup>
       <SettingsGroup name={copy.settingsAppearance}>

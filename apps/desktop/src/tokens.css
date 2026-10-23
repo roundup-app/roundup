@@ -1,16 +1,16 @@
 @import "@radix-ui/colors/gray.css";
 @import "@radix-ui/colors/gray-dark.css";
 
-/* The Token file (docs/design-system.md, "Tokens"): the light values, then the dark column and the contrast setting. */
+/* The Token file (docs/design-system.md, "Tokens"): one light/dark pair per colour, selected by color-scheme, then the contrast setting. */
 
 :root {
   color-scheme: light dark;
-  --ground: #ffffff;
-  --sunken: #f5f5f7;
-  --hover: rgba(0, 0, 0, 0.04);
-  --selected: rgba(0, 0, 0, 0.05);
-  --selected-hover: rgba(0, 0, 0, 0.07);
-  --pressed: rgba(0, 0, 0, 0.1);
+  --ground: light-dark(#ffffff, #1c1c1e);
+  --sunken: light-dark(#f5f5f7, #141416);
+  --hover: light-dark(rgba(0, 0, 0, 0.04), rgba(255, 255, 255, 0.06));
+  --selected: light-dark(rgba(0, 0, 0, 0.05), rgba(255, 255, 255, 0.1));
+  --selected-hover: light-dark(rgba(0, 0, 0, 0.07), rgba(255, 255, 255, 0.13));
+  --pressed: light-dark(rgba(0, 0, 0, 0.1), rgba(255, 255, 255, 0.16));
   --blur-bubble-backdrop: 12px;
   --scrim: rgba(0, 0, 0, 0.4);
   /* U3767: the one order of floating surfaces, lowest first. */
@@ -20,15 +20,15 @@
   --layer-menu: 5;
   --layer-tooltip: 6;
   --layer-toast: 7;
-  --text: #1d1d1f;
-  --grey: #68686d;
-  --cache-write: #b4b4b9;
-  --disabled: #6f6f74;
-  --accent: #0a60d8;
-  --amber: #975900;
-  --red: #c4262e;
-  --hairline: rgba(0, 0, 0, 0.1);
-  --scrollbar-thumb: rgba(0, 0, 0, 0.3);
+  --text: light-dark(#1d1d1f, #f5f5f7);
+  --grey: light-dark(#68686d, #a1a1a6);
+  --cache-write: light-dark(#b4b4b9, #636368);
+  --disabled: light-dark(#6f6f74, #8e8e93);
+  --accent: light-dark(#0a60d8, #4d9bff);
+  --amber: light-dark(#975900, #f0a030);
+  --red: light-dark(#c4262e, #ff6b6b);
+  --hairline: light-dark(rgba(0, 0, 0, 0.1), rgba(255, 255, 255, 0.12));
+  --scrollbar-thumb: light-dark(rgba(0, 0, 0, 0.3), rgba(255, 255, 255, 0.3));
   --root-ground: var(--ground);
   --root-sunken: var(--sunken);
   --root-hover: var(--hover);
@@ -43,16 +43,16 @@
   --root-amber: var(--amber);
   --root-red: var(--red);
   --root-hairline: var(--hairline);
-  --shadow-drawer: 0 8px 32px rgba(0, 0, 0, 0.14);
-  --shadow-shelf: 0 0 24px rgba(0, 0, 0, 0.1);
-  --shadow-scroll: inset 0 8px 8px -8px rgba(0, 0, 0, 0.18);
+  --shadow-drawer: 0 8px 32px light-dark(rgba(0, 0, 0, 0.14), rgba(0, 0, 0, 0.5));
+  --shadow-shelf: 0 0 24px light-dark(rgba(0, 0, 0, 0.1), rgba(0, 0, 0, 0.45));
+  --shadow-scroll: inset 0 8px 8px -8px light-dark(rgba(0, 0, 0, 0.18), rgba(0, 0, 0, 0.6));
   --rail-width: 288px;
   --shelf-width: 320px;
   --centre-min-width: 388px;
 
   --radius-chip: 4px;
   --key-chip-padding: 5px;
-  --key-chip-fill: rgba(0, 0, 0, 0.06);
+  --key-chip-fill: light-dark(rgba(0, 0, 0, 0.06), rgba(255, 255, 255, 0.08));
   --radius-row: 6px;
   --radius-control: 6px;
   --radius-drawer: 12px;
@@ -109,107 +109,21 @@
   --order-field-max-height: 160px;
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --ground: #1c1c1e;
-    --key-chip-fill: rgba(255, 255, 255, 0.08);
-    --sunken: #141416;
-    --hover: rgba(255, 255, 255, 0.06);
-    --selected: rgba(255, 255, 255, 0.1);
-    --selected-hover: rgba(255, 255, 255, 0.13);
-    --pressed: rgba(255, 255, 255, 0.16);
-    --text: #f5f5f7;
-    --grey: #a1a1a6;
-    --cache-write: #636368;
-    --disabled: #8e8e93;
-    --accent: #4d9bff;
-    --amber: #f0a030;
-    --red: #ff6b6b;
-    --hairline: rgba(255, 255, 255, 0.12);
-    --scrollbar-thumb: rgba(255, 255, 255, 0.3);
-    --shadow-drawer: 0 8px 32px rgba(0, 0, 0, 0.5);
-    --shadow-shelf: 0 0 24px rgba(0, 0, 0, 0.45);
-    --shadow-scroll: inset 0 8px 8px -8px rgba(0, 0, 0, 0.6);
-  }
-}
+
 
 @media (prefers-contrast: more) {
   :root {
     --grey: var(--text);
-    --hairline: rgba(0, 0, 0, 0.4);
-    --scrollbar-thumb: rgba(0, 0, 0, 0.6);
+    --hairline: light-dark(rgba(0, 0, 0, 0.4), rgba(255, 255, 255, 0.4));
+    --scrollbar-thumb: light-dark(rgba(0, 0, 0, 0.6), rgba(255, 255, 255, 0.6));
   }
 }
 
-@media (prefers-contrast: more) and (prefers-color-scheme: dark) {
-  :root {
-    --hairline: rgba(255, 255, 255, 0.4);
-    --scrollbar-thumb: rgba(255, 255, 255, 0.6);
-  }
-}
+
 
 /* U510: ghost buttons and shadow-root tree rows dim their pressed ink. */
 button, file-tree-container {
   --ink-pressed: color-mix(in srgb, var(--text) 75%, transparent);
-}
-
-/* U3805: Explicit choices use the same Token columns regardless of the host scheme. */
-:root[data-mode="light"] {
-  --ground: #ffffff;
-  --key-chip-fill: rgba(0, 0, 0, 0.06);
-  --sunken: #f5f5f7;
-  --hover: rgba(0, 0, 0, 0.04);
-  --selected: rgba(0, 0, 0, 0.05);
-  --selected-hover: rgba(0, 0, 0, 0.07);
-  --pressed: rgba(0, 0, 0, 0.1);
-  --text: #1d1d1f;
-  --grey: #68686d;
-  --cache-write: #b4b4b9;
-  --disabled: #6f6f74;
-  --accent: #0a60d8;
-  --amber: #975900;
-  --red: #c4262e;
-  --hairline: rgba(0, 0, 0, 0.1);
-  --scrollbar-thumb: rgba(0, 0, 0, 0.3);
-  --shadow-drawer: 0 8px 32px rgba(0, 0, 0, 0.14);
-  --shadow-shelf: 0 0 24px rgba(0, 0, 0, 0.1);
-  --shadow-scroll: inset 0 8px 8px -8px rgba(0, 0, 0, 0.18);
-}
-
-:root[data-mode="dark"] {
-    --ground: #1c1c1e;
-    --key-chip-fill: rgba(255, 255, 255, 0.08);
-    --sunken: #141416;
-    --hover: rgba(255, 255, 255, 0.06);
-    --selected: rgba(255, 255, 255, 0.1);
-    --selected-hover: rgba(255, 255, 255, 0.13);
-    --pressed: rgba(255, 255, 255, 0.16);
-    --text: #f5f5f7;
-    --grey: #a1a1a6;
-    --cache-write: #636368;
-    --disabled: #8e8e93;
-    --accent: #4d9bff;
-    --amber: #f0a030;
-    --red: #ff6b6b;
-    --hairline: rgba(255, 255, 255, 0.12);
-    --scrollbar-thumb: rgba(255, 255, 255, 0.3);
-    --shadow-drawer: 0 8px 32px rgba(0, 0, 0, 0.5);
-    --shadow-shelf: 0 0 24px rgba(0, 0, 0, 0.45);
-    --shadow-scroll: inset 0 8px 8px -8px rgba(0, 0, 0, 0.6);
-}
-
-@media (prefers-contrast: more) {
-  :root[data-mode="light"] {
-    --grey: var(--text);
-    --hairline: rgba(0, 0, 0, 0.4);
-    --scrollbar-thumb: rgba(0, 0, 0, 0.6);
-  }
-
-  :root[data-mode="dark"] {
-    --grey: var(--text);
-    --hairline: rgba(255, 255, 255, 0.4);
-    --scrollbar-thumb: rgba(255, 255, 255, 0.6);
-  }
 }
 
 /* U3768: the progress bar's track tints the grey. */

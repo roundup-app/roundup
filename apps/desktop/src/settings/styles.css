@@ -47,7 +47,8 @@
   min-width: 0;
 }
 
-.settings-field > span {
+.settings-field > span,
+.settings-field > label > span {
   font-size: var(--text-caption);
   color: var(--grey);
 }
@@ -73,4 +74,25 @@
 .settings-center-content {
   position: relative;
   height: 100%;
+}
+
+/* Keep each value and its disclosure in one readable field column. */
+.settings-group > .app-select,
+.settings-group > .settings-field {
+  width: min(100%, var(--shelf-width));
+}
+
+.settings-field > label {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.settings-shortcut > button {
+  color: var(--text);
+}
+
+.settings-field input::placeholder {
+  color: var(--grey);
+  opacity: 1;
 }
