@@ -411,6 +411,10 @@ pub struct RailNode {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     #[ts(optional)]
     pub inbox: Option<Inbox>,
+    /// U3780a: the Agent's current or last tool call; absent until its first.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[ts(optional)]
+    pub tool_call: Option<ToolCall>,
     /// A2681a: available conversation parts, only after the Agent's program exits.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     #[ts(optional)]
@@ -975,4 +979,47 @@ mod overview_tests {
                 .is_none()
         );
     }
+}
+
+/// U3780a: where a tool call stands.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize, TS)]
+#[serde(rename_all = "kebab-case")]
+#[ts(export, export_to = "agent/")]
+pub enum ToolCallState {
+    Running,
+    Done,
+    Failed,
+}
+
+/// U3780a: an Agent's current or last tool call, bounded and free of terminal escapes. `summary`,
+/// `arguments` and `result` are plain text; a cut one ends with a mark.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, TS)]
+#[ts(export, export_to = "agent/")]
+pub struct ToolCall {
+    pub tool: String,
+    /// One line: the command, file, pattern or query; absent for a tool with none.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[ts(optional)]
+    pub summary: Option<String>,
+    pub arguments: String,
+    /// Absent while the call runs.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[ts(optional)]
+    pub result: Option<String>,
+    pub state: ToolCallState,
+    /// When the call started, in milliseconds since the epoch.
+    #[ts(type = "number")]
+    pub started: i64,
+    /// The final duration in milliseconds; absent while the call runs.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[ts(optional, type = "number")]
+    pub duration_ms: Option<u64>,
+}
+
+/// The `agent.toolCall` event: Agent `id` now holds `call`.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, TS)]
+#[ts(export, export_to = "agent/")]
+pub struct ToolCallEvent {
+    pub id: String,
+    pub call: ToolCall,
 }

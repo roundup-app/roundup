@@ -6,6 +6,7 @@ import type { Inbox } from "./Inbox";
 import type { NodeKind } from "./NodeKind";
 import type { Order } from "./Order";
 import type { Stray } from "./Stray";
+import type { ToolCall } from "./ToolCall";
 import type { Worktree } from "./Worktree";
 
 export type RailNode = { id: string, kind: NodeKind, name: string, parent: string | null, 
@@ -74,6 +75,10 @@ iteration?: number,
  * check; absent before the first check and on a Terminal.
  */
 inbox?: Inbox, 
+/**
+ * U3780a: the Agent's current or last tool call; absent until its first.
+ */
+tool_call?: ToolCall, 
 /**
  * A2681a: available conversation parts, only after the Agent's program exits.
  */

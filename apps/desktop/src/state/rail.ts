@@ -188,6 +188,8 @@ export const createRailState = (app: AppSeam, events: Events, storage?: RailStor
         fetching(fetchTree);
       } else if (event.name === "agent.status") {
         setModel("tree", (node) => node.id === event.data.id && node.attempt === event.data.attempt && node.status_revision !== null && BigInt(event.data.status_revision) > BigInt(node.status_revision), { status: event.data.status, status_revision: event.data.status_revision });
+      } else if (event.name === "agent.toolCall") {
+        setModel("tree", (node) => node.id === event.data.id, "tool_call", reconcile(event.data.call));
       } else if (event.name === "terminal.changed") {
         fetching(fetchTerminals);
       } else if (event.name === "terminal.shown") {
