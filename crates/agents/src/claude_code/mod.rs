@@ -307,6 +307,26 @@ pub fn session_start_context(text: &str) -> String {
     .to_string()
 }
 
+/// A3516b: read the immutable Brief named by the normal Agent's start hook and add it to
+/// E3's reply. The path belongs to the hook command, so vendor relaunches keep the delivery.
+pub fn read_start_context(stdout: &str) -> Result<String, String> {
+    let Some(path) = std::env::var_os("ROUNDUP_BRIEF_FILE") else {
+        return Ok(stdout.to_owned());
+    };
+    let brief = std::fs::read_to_string(&path).map_err(|err| {
+        format!(
+            "cannot read Brief {}: {err}",
+            std::path::Path::new(&path).display()
+        )
+    })?;
+    let reply: Value =
+        serde_json::from_str(stdout).map_err(|err| format!("cannot read start Context: {err}"))?;
+    let context = reply["hookSpecificOutput"]["additionalContext"]
+        .as_str()
+        .ok_or("start Context has no additionalContext")?;
+    Ok(session_start_context(&format!("{brief}\n{context}")))
+}
+
 /// H20: typed outside the paste markers, so the model's first user message holds typed text that
 /// asks it to act on the pasted block instead of treating the block as bare quoted paste.
 pub const LEAD_IN: &str = "Follow this instruction: ";
