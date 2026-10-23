@@ -2,7 +2,7 @@
 
 Acceptance for #3512. Module: `apps/desktop`, plus the existing native dialog capability in `crates/desktop`. Ids: U3512a–U3512f. These are implementation obligations, not evidence that the current App passes.
 
-Journey: Enter (Capture and New Workstream), Intervene (stop/remove/close) and Review (deletion and unfinished-work recovery). Use the existing App seam and U26 harness; no new RPC is required. A native-dialog App seam addition, Token change or capability change follows the Contract recipe, with every caller changed in the same implementation PR. The native plugin is already installed and registered; its message permission must be checked rather than assuming file-chooser permission authorizes alerts.
+Journey: Enter (Capture and New Workstream), Intervene (stop/remove/close) and Review (deletion and unfinished-work recovery). Use the existing App seam and U26 harness; no new RPC is required. A native-dialog App seam addition, Token change or capability change follows the Contract recipe, with every caller changed in the same implementation PR. Policy: the implementation PR’s `Reuse:` evidence weighs the installed `@tauri-apps/plugin-dialog` first, verifies its [native dialog API](https://v2.tauri.app/reference/javascript/dialog/) and maintenance, and compares at least one other maintained candidate under rule 9; use the existing Ark wrappers for web surfaces. The native plugin is already installed and registered; its message permission must be checked rather than assuming file-chooser permission authorizes alerts.
 
 ## Precedence and scope
 
@@ -36,14 +36,14 @@ A key-open/key-close, restore or `prefers-reduced-motion: reduce` is instant, in
 
 **U3512e elevation is centralized and a cheap lint enforces it.** Given all CSS under `apps/desktop/src`, when audited, then every shadow and backdrop is classified as modal, anchored panel/menu, Terminal Bubble, Drawer/Shelf, scroll cue or non-elevation reset; actual elevation values live only in `tokens.css` (policy: implementation PR's audit). Preserve non-modal roles and their existing behavior while removing per-screen elevation recipes. The existing Stylelint invocation in `just lint-web` and therefore `just check` rejects every CSS `box-shadow` declaration outside `apps/desktop/src/tokens.css`, including values `var(...)`, `none`, nested rules and declarations inside media queries. Token custom-property definitions are allowed; merely referencing a Token is not an exemption for the `box-shadow` property. Shared application selectors may live in `tokens.css`; no screen may use inline styles, `filter: drop-shadow`, a pseudo-element or an arbitrary CSS property to bypass the guard (policy/source review). Extend the existing Stylelint configuration; no workflow or loop change is needed.
 
-Test the real lint with small input fixtures, not by rereading its config. Each failure reports file/property and returns a nonzero exit; the normal App CSS passes. Test: `u3512e_shadow_lint_rejects_outside_tokens`, using the existing lint engine without a browser or Daemon. Fixture/exit contract:
+Test the real lint with small input fixtures, not by rereading its config. Each failure reports file/property and returns Stylelint’s lint-problem exit 2; the normal App CSS passes. Test: `u3512e_shadow_lint_rejects_outside_tokens`, using the existing lint engine without a browser or Daemon. Fixture/exit contract:
 
 | Input | Exit |
 | --- | --- |
-| `box-shadow: 0 2px 8px #0003` in a component stylesheet | 1 |
-| `box-shadow: var(--shadow-drawer)` outside Tokens | 1 |
-| `box-shadow: none` outside Tokens | 1 |
-| nested/media-query `box-shadow` outside Tokens | 1 |
+| `box-shadow: 0 2px 8px #0003` in a component stylesheet | 2 |
+| `box-shadow: var(--shadow-drawer)` outside Tokens | 2 |
+| `box-shadow: none` outside Tokens | 2 |
+| nested/media-query `box-shadow` outside Tokens | 2 |
 | `box-shadow` declaration in `tokens.css` | 0 |
 | Token definition, unrelated property or comment mentioning `box-shadow` | 0 |
 
