@@ -106,7 +106,7 @@ export const linkEntries = (
     }]);
 
   return [
-    ...(children.length ? [{ id: "send", label: copy.sendToAgentMenu, children }] : []),
+    { id: "send", label: copy.sendToAgentMenu, children },
     { id: "copy-link", label: copy.copyLink, run: () => attempt(async link => {
       await navigator.clipboard.writeText(target.kind === "deliverable" ? copy.linkNote(link) : link);
     }) },
