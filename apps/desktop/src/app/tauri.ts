@@ -105,6 +105,7 @@ export const createTauriApp = (): App => {
     // The bytes are the request body and the type a header, so a screenshot is not sent as a JSON list.
     savePastedImage: ({ type, bytes }) => parsedCommand(v.string(), "save_pasted_image", bytes, { headers: { type } }),
     onFileDrop: tauriFileDrop(getCurrentWebview, () => dropScale(navigator.platform, window.devicePixelRatio)),
+    onAppSettings: (listener) => guarded(() => listen("open-app-settings", listener)),
     onDaemonExited: (listener) =>
       guarded(() => listen("daemon-exited", (event) => listener(v.parse(daemonExitedSchema, event.payload)))),
     forProject: (path) => ({
