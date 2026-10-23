@@ -155,7 +155,7 @@ export const connectProject = async (
   storage?: RailStorage,
   drafts = createProjectDrafts()(project.path),
 ): Promise<ConnectedProject> => {
-  app = withAppSettings(app);
+  app = withAppSettings(app, id => rail.nodes.find(node => node.id === id)?.can_resume ?? false);
   let ended = false;
   let stopDecisions = () => {};
 

@@ -63,6 +63,19 @@ export const AppSettings = (props: { app: App; project: () => string | null; onO
     commit("fontSize", size);
   };
 
+  const chooseEngine = (engine: string) => {
+    const list = offered()?.list;
+    const only = list?.engines.length === 1 ? list.engines[0]?.id : undefined;
+    const previous = appSettings().engine;
+    const same = previous === engine || (previous || only) === (engine || only);
+
+    const patch: Parameters<typeof saveAppSettings>[0] = { engine, engineLabel: list?.engines.find(item => item.id === engine)?.label ?? "" };
+
+    if (!same) { patch.model = ""; patch.modelLabel = ""; }
+
+    save(patch);
+  };
+
   const defaults = [{ value: "", label: copy.modelDefault }];
 
   return <Show when={view.open()}>
@@ -74,7 +87,7 @@ export const AppSettings = (props: { app: App; project: () => string | null; onO
         ]} onValueChange={permissionMode => { if (permissionMode === "" || permissionMode === "default" || permissionMode === "acceptEdits" || permissionMode === "plan" || permissionMode === "auto") save({ permissionMode }); }} />
         <label class="settings-field"><span>{copy.engine}</span><Combobox.Picker label={copy.engine} value={appSettings().engine} savedLabel={appSettings().engineLabel || copy.engine}
           items={[...defaults, ...(offered()?.list?.engines ?? []).map(item => ({ value: item.id, label: item.label }))]}
-          onSelect={engine => save({ engine, engineLabel: offered()?.list?.engines.find(item => item.id === engine)?.label ?? "", model: "", modelLabel: "" })} /></label>
+          onSelect={chooseEngine} /></label>
         <label class="settings-field"><span>{copy.model}</span><Combobox.Picker label={copy.model} value={appSettings().model} savedLabel={appSettings().modelLabel || copy.model}
           items={[...defaults, ...(offered()?.list?.models ?? []).map(item => ({ value: item.id, label: item.label }))]}
           onSelect={model => save({ model, modelLabel: offered()?.list?.models.find(item => item.id === model)?.label ?? "" })} /></label>

@@ -33,6 +33,10 @@ it("u3803_a_per_terminal_zoom_still_wins", async () => {
   expect(emulators.get("t-a")!.fontSize).toBe(16);
   saveAppSettings({ fontSize: 18 });
   await waitFor(() => expect(emulators.get("t-a")!.fontSize).toBe(18));
+  cleanup();
+  const reopened = await mountPane([terminal("a")], [info("t-a")]);
+  reopened.connected.rail.select("a");
+  await waitFor(() => expect(reopened.emulators.get("t-a")?.fontSize).toBe(18));
 });
 
 it("u3803_font_family_changes_keep_the_same_xterm_and_scrollback", async () => {
