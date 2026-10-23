@@ -82,23 +82,23 @@ export const HintLine = () => {
 
       if ([copy.hintSwitchTerminal, copy.hintTakeControl, copy.newAgent.toLowerCase(), copy.newTerminal.toLowerCase()].includes(hint.label)) return available(hint.keys);
 
-      if (hint.keys === "M") return held?.closest('.window')?.getAttribute('data-shelf-mode') !== "overlay";
+      if (hint.label === copy.maximise.toLowerCase()) return held?.closest('.window')?.getAttribute('data-shelf-mode') !== "overlay";
 
-      if (hint.keys === "O") return !held?.closest('.todo-done-fold');
+      if (hint.label === copy.assign.toLowerCase()) return !held?.closest('.todo-done-fold');
 
-      if (hint.keys === "Esc" && at === "pad") return !!held?.closest('.drawer');
+      if (hint.label === copy.close.toLowerCase() && at === "pad") return !!held?.closest('.drawer');
 
       if (at === "triage") return !!held?.closest('.todo-row-button') && !held.closest('.todo-done-fold');
 
-      return daemonExit() === null || hint.keys === "Esc";
+      return daemonExit() === null || hint.label === copy.close.toLowerCase();
     });
 
     if (at === "switcher" && held?.closest('.switcher')?.getAttribute('data-has-result') === "true") {
-      shown = [{ keys: CHORDS.find(row => row.inShelf && row.keys === "⏎")!.keys, label: copy.hintOpen }, ...shown];
+      shown = [{ keys: CHORDS.find(row => row.what === copy.todoLift)!.keys, label: copy.hintOpen }, ...shown];
     }
 
-    return [...shown.slice(0, 3).map(hint => ({ ...hint, label: hint.keys === "M" && held?.closest('.window')?.getAttribute('data-shelf-maximised') === "true" ? copy.restore.toLowerCase()
-      : hint.keys === "⌘⏎" && takeover.taken() === rail.selected() ? copy.hintGiveControl : hint.label })), { keys: "?", label: copy.hintMore }];
+    return [...shown.slice(0, 3).map(hint => ({ ...hint, label: hint.label === copy.maximise.toLowerCase() && held?.closest('.window')?.getAttribute('data-shelf-maximised') === "true" ? copy.restore.toLowerCase()
+      : (at === "rail" || at === "agent") && hint.label === copy.hintTakeControl && takeover.taken() === rail.selected() ? copy.hintGiveControl : hint.label })), { keys: "?", label: copy.hintMore }];
   });
 
   let line: HTMLParagraphElement | undefined;
