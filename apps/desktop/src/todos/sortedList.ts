@@ -37,47 +37,68 @@ export const createSortedList = (source: {
   const frames = new Map<number, HTMLElement>();
   const buttons = new Map<number, HTMLButtonElement>();
   const fails = new Map<number, (message: string | null) => void>();
-  const tops = new Map<number, number>();
-  const slides = new Map<number, Animation>();
-  let focusedBefore: number | null = null;
+  const positions = new Map<number, { top: number; left: number }>();
+  const animations = new Map<number, Animation>();
+  let heldFocus: number | undefined;
+  let scroll: { element: HTMLElement; top: number; left: number } | null = null;
+  onCleanup(() => animations.forEach(animation => animation.cancel()));
   let refocus: number | null = null;
   const [movedFocus, setMovedFocus] = createSignal<{ id: number; arrived: (todo: Todo) => boolean; element: HTMLElement } | null>(null);
 
-  onCleanup(() => slides.forEach(animation => animation.cancel()));
-
   /** A row's top on screen, any slide or drag offset in effect included: the offset parent of a nested row is its own Leaf, so `offsetTop` cannot tell where it is. */
-  const topOf = (el: HTMLElement) => el.getBoundingClientRect().top;
+  const positionOf = (el: HTMLElement) => {
+    const { top, left } = el.getBoundingClientRect();
+
+    return { top, left };
+  };
 
   const measure = () => {
-    focusedBefore = [...buttons].find(([, button]) => button === document.activeElement)?.[0] ?? null;
-    frames.forEach((el, id) => tops.set(id, topOf(el)));
+    heldFocus = [...buttons].find(([, button]) => button === document.activeElement)?.[0];
+    const area = frames.values().next().value?.closest<HTMLElement>(".shelf-area");
+
+    scroll = area ? { element: area, top: area.scrollTop, left: area.scrollLeft } : null;
+    frames.forEach((el, id) => positions.set(id, positionOf(el)));
   };
 
   /** U156: slides each row from where it showed (mid-slide included) to where the refetched list puts it. */
   const settle = () => {
+    if (scroll) {
+      scroll.element.scrollTop = scroll.top;
+      scroll.element.scrollLeft = scroll.left;
+      scroll = null;
+    }
+
     for (const [id, el] of frames) {
-      slides.get(id)?.cancel();
-      slides.delete(id);
+      animations.get(id)?.cancel();
+      animations.delete(id);
 
-      const top = topOf(el);
-      const was = tops.get(id);
+      if ("getAnimations" in el) el.getAnimations().forEach((animation) => animation.cancel());
 
-      tops.set(id, top);
+      const position = positionOf(el);
+      const was = positions.get(id);
 
-      if (was === undefined || source.reducedMotion() || !("animate" in el) || Math.abs(was - top) < 1) continue;
-      slides.set(id, el.animate([{ transform: `translateY(${was - top}px)`, opacity: 0.7 }, { transform: "none", opacity: 1 }], slideOf()));
+      positions.set(id, position);
+
+      if (was === undefined || source.reducedMotion() || !("animate" in el)) continue;
+      const x = was.left - position.left;
+      const y = was.top - position.top;
+
+      if (Math.abs(x) < 1 && Math.abs(y) < 1) continue;
+      const animation = el.animate([{ transform: `translate(${x}px, ${y}px)` }, { transform: "none" }], slideOf());
+
+      animations.set(id, animation);
+      animation.onfinish = () => { if (animations.get(id) === animation) animations.delete(id); };
     }
 
-    const focus = refocus ?? focusedBefore;
-
-    for (const id of tops.keys()) if (!frames.has(id)) {
-      tops.delete(id);
-      slides.get(id)?.cancel();
-      slides.delete(id);
+    for (const id of positions.keys()) if (!frames.has(id)) {
+      positions.delete(id);
+      animations.get(id)?.cancel();
+      animations.delete(id);
     }
 
-    if (focus !== null && (refocus !== null || document.activeElement === document.body)) buttons.get(focus)?.focus({ preventScroll: true });
-    focusedBefore = null;
+    if (refocus !== null) buttons.get(refocus)?.focus({ preventScroll: true });
+    else if (heldFocus !== undefined && (document.activeElement === document.body || document.activeElement === null)) buttons.get(heldFocus)?.focus({ preventScroll: true });
+    heldFocus = undefined;
 
     refocus = null;
   };
@@ -92,7 +113,7 @@ export const createSortedList = (source: {
   createComputed(on(placement, measure, { defer: true }));
   createEffect(on(placement, () => queueMicrotask(settle), { defer: true }));
   // U3010c: reduced motion switched on mid-slide settles every row now, with no replay.
-  createEffect(on(source.reducedMotion, (reduced) => { if (reduced) { slides.forEach(animation => animation.cancel()); slides.clear(); } }, { defer: true }));
+  createEffect(on(source.reducedMotion, (reduced) => { if (reduced) frames.forEach((el) => "getAnimations" in el && el.getAnimations().forEach((animation) => animation.cancel())); }, { defer: true }));
   // Reconcile keeps the array and unchanged rows: observe field changes as well as membership.
   createEffect(on(() => JSON.stringify(source.all()), () => fails.forEach((show) => show(null)), { defer: true }));
   createEffect(() => {
@@ -211,7 +232,7 @@ export const createSortedList = (source: {
           parts.ref(el);
         } else if (frames.get(id) === frame) {
           frames.delete(id);
-          // Keep the measured position across an owner group remount (U3311).
+
         }
       },
       button: (el) => {

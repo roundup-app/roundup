@@ -48,7 +48,7 @@ const USER_OWNER: Actor = { kind: "user", id: "you", parent: null };
 
 export const ownersOnRail = (connected: ConnectedProject): Owner[] => {
   const nodes = connected.rail.nodes;
-  const agents = siblingsOf(nodes, null).flatMap(node => [node, ...descendantsOf(nodes, node.id)]).filter(node => node.kind === "agent" || (node.kind === "workstream" && node.attempt !== null));
+  const agents = siblingsOf(nodes, null).flatMap(node => [node, ...descendantsOf(nodes, node.id)]).filter(node => node.kind === "agent");
 
   return [
     { id: "me", name: copy.me, actor: USER_OWNER },

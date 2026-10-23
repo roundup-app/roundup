@@ -41,6 +41,7 @@ export type SortedRow = {
 /** One open Todo as U15 draws it, with U35's `complete` and `waits on`; `nested` is the Rail's copy (U60), which leaves `data-id` to the Agent rows. */
 export const OpenRow = (props: {
   nested?: boolean;
+  lifted?: boolean;
   pressed?: boolean;
   selectionActive?: boolean;
   onPick?: (todo: Todo, event: MouseEvent) => void;
@@ -122,6 +123,7 @@ export const OpenRow = (props: {
         {props.disclosure}
         <RowButton
           hang={false}
+          keysSuspended={props.lifted === true}
           label={copy.todoRow(KIND_LABEL[kindOf(props.todo)], props.todo.id, props.todo.title)}
           pressed={props.pressed}
           selectionActive={props.selectionActive}
@@ -140,7 +142,7 @@ export const OpenRow = (props: {
           }}
         >
           <span {...titleCut.attrs()} class="shelf-title">{props.todo.title}<span class="todo-strike" aria-hidden="true" data-title={props.todo.title} onAnimationEnd={() => props.onMotionEnd?.()} /></span>
-          <Show when={!props.nested && props.todo.estimate_minutes !== null}><span class="todo-estimate" data-state="">{copy.estimateMinutes(props.todo.estimate_minutes!)}</span></Show>
+          <Show when={!props.nested && props.todo.estimate_minutes !== null}><span class="todo-row-estimate" data-state="estimate">{copy.todoEstimate(props.todo.estimate_minutes)}</span></Show>
           <Show when={props.current}><span class="todo-now" data-state="">{copy.todoNow}</span></Show>
         </RowButton>
         <Show when={!props.nested && props.sorted}>
