@@ -1,3 +1,4 @@
+import { questionDialog, answerQuestion } from "../shelf/bulkQuestionHarness";
 import { cleanup, fireEvent, waitFor, within } from "@solidjs/testing-library";
 import { afterEach, expect, it } from "vitest";
 import { createSignal } from "solid-js";
@@ -148,9 +149,8 @@ it.each([false, true])("u2572b_actions_share_key_behavior_in_the_opening_view: R
 
   if (byAction) { await show(); await chooseAction("Remove", "enter"); }
   else press("Backspace", { metaKey: true }, row);
-  await waitFor(() => expect(document.querySelector('[role="alertdialog"]')).not.toBeNull());
-  fireEvent.click(within(document.querySelector<HTMLElement>('[role="alertdialog"]')!).getByRole("button", { name: "Keep" }));
-  await waitFor(() => expect(document.querySelector('[role="alertdialog"]')).toBeNull());
+  await questionDialog();
+  await answerQuestion(false);
   expect(app.calls.filter((call) => call.method === "rail.remove")).toEqual([]);
   expect(connected.rail.selected()).toBe("ann");
 });

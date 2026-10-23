@@ -1,3 +1,4 @@
+import { questionDialog, answerQuestion } from "../shelf/bulkQuestionHarness";
 import { connectProject, ConnectedProjectContext } from "../state/connectedProject";
 import { OrderDrawer } from "./OrderDrawer";
 import { App } from "../App";
@@ -311,7 +312,8 @@ describe("U2773 Order forms on real Projects", () => {
     await screen.findByRole("alert");
     fireEvent.pointerEnter(screen.getByRole("tab", { name: "first" }).closest(".project-tab")!);
     fireEvent.click(screen.getByRole("button", { name: "Close first" }));
-    fireEvent.click(await screen.findByRole("button", { name: "Stop and close" }));
+    await questionDialog();
+    await answerQuestion(true);
     await waitFor(() => expect(screen.queryByRole("tab", { name: "first" })).toBeNull());
     fireEvent.click(screen.getByRole("button", { name: "Open a folder" }));
     await screen.findByRole("tab", { name: "first" });

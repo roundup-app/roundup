@@ -1,4 +1,5 @@
 import { writeText } from "../app/clipboard";
+import { NativeAlert } from "../ui/NativeAlert";
 import * as v from "valibot";
 import { Tip } from "../ui/Tip";
 import { createCutTitle } from "../ui/cutTitle";
@@ -470,7 +471,7 @@ const PadBody = (props: {
         <IconButton style={wholeWord} aria-label={copy.exportMd} onClick={() => void exportToFile()}>
           <Icon name="export" />
         </IconButton>
-        <Show when={!asking()}>
+        <Show when={!deleted()}>
           <IconButton
             style={wholeWord}
             aria-label={copy.delete}
@@ -484,23 +485,10 @@ const PadBody = (props: {
           </IconButton>
         </Show>
       </div>
-      <Show when={asking()}>
-        <p class="light">
-          {copy.deletePad(name)}
-          <Show when={pad().owner.kind !== "user"}>{copy.ownsItYouMayDeleteAnyPad(connected.rail.nameOf(pad().owner))}</Show>
-          <Show when={currentDraft() !== origin()}>{copy.unsavedChangesAreLost}</Show>
-          <button data-button="quiet" type="button" class="word light" onClick={(event) => void remove(activationSource(event))}>{copy.delete}</button>{" "}
-          <button data-button="quiet"
-            type="button"
-            class="word light"
-            ref={(button) => queueMicrotask(() => button.focus())}
-            onClick={() => {
-              setAsking(false);
-              queueMicrotask(() => deleteButton?.focus());
-            }}
-          >{copy.keep}</button>
-        </p>
-      </Show>
+      <NativeAlert app={connected.app} open={asking()}
+        question={{ title: copy.deletePad(name), message: [pad().owner.kind !== "user" ? copy.ownsItYouMayDeleteAnyPad(connected.rail.nameOf(pad().owner)) : "", currentDraft() !== origin() ? copy.unsavedChangesAreLost : ""].filter(Boolean).join("\n"), okLabel: copy.delete, cancelLabel: copy.keep }}
+        onCancel={() => setAsking(false)} finalFocus={() => deleteButton ?? null}
+        onConfirm={() => { setAsking(false); void remove("key"); }} />
       <ReservedLine data-state={saved() && !deleted() && !conflictActor() ? "saved" : undefined} message={actionFailure.message() ?? (deleted() && !removedByMe() ? `Pad ${name} was deleted` : retentionProblem() ? copy.draftRetention(connected.project.name, copy.pad, retentionProblem()!.cause) : conflictActor() ? conflictLabel() : paused() ? statusLabel() : null)}
         status={saved() && !deleted() && !conflictActor() ? copy.padSaved : null}>
         <Show when={retentionProblem()}>

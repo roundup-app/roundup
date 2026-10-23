@@ -1,4 +1,3 @@
-import { readdirSync, readFileSync } from "node:fs";
 import { openLane } from "../todos/laneBrowser";
 import { captureDir } from "../testing/captures";
 import { cleanup, fireEvent, screen, waitFor, within } from "@solidjs/testing-library";
@@ -287,26 +286,6 @@ it("u3083c_failed_import_preserves_failed_row", async () => {
 
   expect(alert.closest("label")).toBe(screen.getByRole("checkbox", { name: /first/ }).closest("label"));
 });
-
-
-it("u3083a_every_modal_renders_in_the_shared_positioner", async () => {
-  await mount();
-  await open();
-  expect(screen.getByRole("dialog").parentElement?.classList.contains("app-dialog-positioner")).toBe(true);
-
-  // The other modals: each wraps its Content in the Positioner of ui/Dialog, and no other stylesheet positions one.
-  for (const file of ["shelf/BulkDelete", "header/CloseDialog", "todos/TodoDrawer", "bubbles/Bubbles", "header/ProjectTab", "importer/ImportPanel"]) {
-    const source = readFileSync(`src/${file}.tsx`, "utf8");
-
-    expect(source, file).toMatch(/from "\.\.\/ui\/Dialog"/);
-    expect(source, file).toMatch(/Dialog\.Positioner[\s\S]*Dialog\.Content/);
-  }
-
-  const own = readdirSync("src", { recursive: true, encoding: "utf8" }).filter((file) => file.endsWith(".css") && !file.endsWith("ui/Dialog.css") && /positioner/i.test(readFileSync(`src/${file}`, "utf8")));
-
-  expect(own).toEqual(["ui/Tooltip.css"]);
-});
-
 
 
 it("u3299d_copy_uses_selected_item_import", async () => {

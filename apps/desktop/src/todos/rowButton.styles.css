@@ -267,8 +267,6 @@
 
 /* U3720: the owner list floats over the Shelf: opaque, lifted, and as tall as the window leaves room for. */
 .owner-picker {
-  background-color: var(--ground);
-  box-shadow: var(--shadow-drawer);
   box-sizing: border-box;
   max-height: min(var(--available-height, 100vh), calc(var(--space-6) * 8));
   overflow-y: auto;

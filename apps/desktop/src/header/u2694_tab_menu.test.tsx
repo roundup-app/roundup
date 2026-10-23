@@ -1,3 +1,5 @@
+import { questionDialog, answerQuestion } from "../shelf/bulkQuestionHarness";
+import { questionProbe } from "../testing/menuProbe";
 import { cleanup, fireEvent, screen, waitFor } from "@solidjs/testing-library";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { agent } from "../testing/nodes";
@@ -39,10 +41,10 @@ describe("u2694 the Project tab's system menu", () => {
     open("api");
     await app.pickMenu("Close");
 
-    expect((await screen.findByRole("alertdialog")).textContent).toContain("Close api?");
+    expect((await questionDialog()).title).toContain("Close api?");
     expect(app.closed).toEqual([]);
-    fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
-    await waitFor(() => expect(screen.queryByRole("alertdialog")).toBeNull());
+    await answerQuestion(false);
+    await waitFor(() => expect(questionProbe.shown).toBeNull());
     expect(app.closed).toEqual([]);
 
     open("web");

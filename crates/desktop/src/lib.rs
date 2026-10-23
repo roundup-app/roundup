@@ -37,7 +37,8 @@ pub fn build<R: Runtime>(
         .plugin(window::plugin())
         .manage(AppState::new(config))
         .manage(menu::Choice::default())
-        .on_menu_event(|app, event| app.state::<menu::Choice>().chosen(&event))
+        .menu(menu::app_menu)
+        .on_menu_event(|app, event| handle_menu_event(app, &event))
         .invoke_handler(tauri::generate_handler![
             projects,
             open_project,
@@ -82,6 +83,11 @@ pub fn build<R: Runtime>(
 /// in one test binary is a duplicate-symbol linker warning.
 pub fn context<R: Runtime>() -> tauri::Context<R> {
     tauri::generate_context!()
+}
+
+/// Dispatch the native menu event through the same path used by the App builder.
+pub fn handle_menu_event<R: Runtime>(app: &AppHandle<R>, event: &tauri::menu::MenuEvent) {
+    menu::app_chosen(app, event);
 }
 
 pub fn handle_run_event<R: Runtime>(app: &AppHandle<R>, event: &RunEvent) {

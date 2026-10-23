@@ -1,3 +1,5 @@
+import { questionDialog, answerQuestion } from "./bulkQuestionHarness";
+import { questionProbe } from "../testing/menuProbe";
 import { cleanup, fireEvent, render, screen, waitFor, within } from "@solidjs/testing-library";
 import { afterEach, expect, it } from "vitest";
 import { App } from "../App";
@@ -40,9 +42,9 @@ it.each([false, true])("u3723_d_asks_once_to_delete_the_focused_row_and_calls_no
   const { app, rows } = await open(pads);
   fireEvent.click(rows[1]!, { metaKey: true });
   press(rows[0]!, "d");
-  const dialog = await screen.findByRole("alertdialog");
-  expect(dialog.textContent).toContain(rows[0]!.textContent!.trim());
-  expect(dialog.textContent).not.toContain(rows[1]!.textContent!.trim());
+  const dialog = await questionDialog();
+  expect(dialog.message).toContain(rows[0]!.textContent!.trim());
+  expect(dialog.message).not.toContain(rows[1]!.textContent!.trim());
   expect(app.calls.filter(call => call.method.endsWith(".delete"))).toEqual([]);
   await confirmDeletion();
   await waitFor(() => expect(app.calls.filter(call => call.method === (pads ? "pad.delete" : "todo.delete"))).toHaveLength(1));
@@ -73,19 +75,20 @@ it("u3723_keys_are_inert_in_text_fields_dialogs_modifiers_and_repeats", async ()
 
   for (const init of [{ metaKey: true }, { ctrlKey: true }, { altKey: true }, { shiftKey: true }, { repeat: true }]) {
     expect(press(rows[0]!, "d", init)).toBe(true);
-    expect(screen.queryByRole("alertdialog")).toBeNull();
+    expect(questionProbe.shown).toBeNull();
   }
 
   fireEvent.click(screen.getByRole("button", { name: "add todo to Overview" }));
   const field = screen.getByLabelText("New Todo title");
 
   for (const key of ["d", "e", "m"]) expect(press(field, key)).toBe(true);
-  expect(screen.queryByRole("alertdialog")).toBeNull();
+  expect(questionProbe.shown).toBeNull();
   expect(app.chooser.suggestedNames).toEqual([]);
   press(rows[0]!, "d");
-  const dialog = await screen.findByRole("alertdialog");
+  const dialog = await questionDialog();
 
-  for (const key of ["d", "e", "m"]) press(within(dialog).getByRole("button", { name: "Keep" }), key);
+  expect(dialog.cancelLabel).toBe("Keep");
+  await answerQuestion(false);
   expect(app.calls.filter(call => call.method.endsWith(".delete"))).toEqual([]);
 });
 
@@ -95,7 +98,7 @@ it("u3723_keys_are_shelf_scoped_and_leave_the_terminal_alone", async () => {
   terminal.className = "xterm-helper-textarea";
 
   for (const key of ["m", "d", "e"]) expect(press(terminal, key)).toBe(true);
-  expect(screen.queryByRole("alertdialog")).toBeNull();
+  expect(questionProbe.shown).toBeNull();
   expect(screen.queryByRole("button", { name: "Restore" })).toBeNull();
   terminal.remove();
 });
@@ -157,5 +160,5 @@ it.each(["naming", "drawer"])("u3723_keys_are_inert_in_the_%s_field", async plac
 
   for (const key of ["d", "e", "m"]) expect(press(field, key)).toBe(true);
   expect(app.calls.filter(call => call.method.endsWith(".delete") || call.method === "pad.export")).toEqual([]);
-  expect(screen.queryByRole("alertdialog")).toBeNull();
+  expect(questionProbe.shown).toBeNull();
 });

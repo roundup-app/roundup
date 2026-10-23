@@ -134,7 +134,7 @@ def fake():
         # Native keyboard delete: one confirmation; Escape restores the icon.
         evaluate('document.querySelector(".drawer [aria-label=\\"Delete Todo\\"]").focus()')
         browser('press', 'Enter')
-        wait('document.activeElement?.textContent.trim()==="Keep"')
+        wait('!!window.__question.shown')
         if scheme == 'dark':
             save('U461', f'delete-confirm-1512-{scheme}', evaluate(reading))
         browser('press', 'Escape')
