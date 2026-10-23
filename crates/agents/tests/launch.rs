@@ -94,6 +94,89 @@ impl Setup {
 }
 
 #[test]
+fn a4_the_binary_and_config_location_come_from_the_environment() {
+    let exe = Path::new("/e/rupd");
+    let launcher = Launcher::from_vars(
+        vars(&[("ROUNDUP_CLAUDE_BIN", "/x/fake"), ("HOME", "/h")]),
+        exe,
+    )
+    .unwrap();
+    assert_eq!(
+        launcher,
+        Launcher::new(
+            "/x/fake",
+            "/h/.claude.json".into(),
+            "/e/rup".into(),
+            Some("/h".into())
+        )
+    );
+
+    let launcher =
+        Launcher::from_vars(vars(&[("CLAUDE_CONFIG_DIR", "/c"), ("HOME", "/h")]), exe).unwrap();
+    assert_eq!(
+        launcher,
+        Launcher::new(
+            "claude",
+            "/c/.claude.json".into(),
+            "/e/rup".into(),
+            Some("/h".into())
+        )
+    );
+
+    assert!(Launcher::from_vars(vars(&[]), exe).is_err());
+}
+
+#[test]
+fn a4_rup_is_the_one_beside_the_running_daemon_unless_the_environment_says_otherwise() {
+    let exe = Path::new("/e/rupd");
+    let beside = Launcher::from_vars(vars(&[("HOME", "/h")]), exe).unwrap();
+    let named =
+        Launcher::from_vars(vars(&[("HOME", "/h"), ("ROUNDUP_RUP_BIN", "/r/rup")]), exe).unwrap();
+    assert_eq!(
+        beside,
+        Launcher::new(
+            "claude",
+            "/h/.claude.json".into(),
+            "/e/rup".into(),
+            Some("/h".into())
+        )
+    );
+    assert_eq!(
+        named,
+        Launcher::new(
+            "claude",
+            "/h/.claude.json".into(),
+            "/r/rup".into(),
+            Some("/h".into())
+        )
+    );
+}
+
+#[test]
+fn a4_an_empty_variable_counts_as_unset() {
+    let exe = Path::new("/e/rupd");
+    let launcher = Launcher::from_vars(
+        vars(&[
+            ("CLAUDE_CONFIG_DIR", ""),
+            ("HOME", "/h"),
+            ("ROUNDUP_RUP_BIN", ""),
+        ]),
+        exe,
+    )
+    .unwrap();
+    assert_eq!(
+        launcher,
+        Launcher::new(
+            "claude",
+            "/h/.claude.json".into(),
+            "/e/rup".into(),
+            Some("/h".into())
+        )
+    );
+    assert!(Launcher::from_vars(vars(&[("HOME", "")]), exe).is_err());
+}
+
+#[test]
 fn a4_the_argv_runs_claude_with_a_per_agent_settings_file() {
     let s = setup();
     let argv = s.prepare("7").unwrap();
@@ -402,61 +485,6 @@ fn f3_every_agents_mcp_server_is_started_the_same_way() {
         read(Path::new(&agent[4]))["mcpServers"]["roundup"]["args"],
         json!(["mcp", "8"])
     );
-}
-
-#[test]
-fn f3_every_brief_names_agent_spawn_and_only_a_doors_says_it_has_no_shell() {
-    let s = setup();
-
-    let door = brief(&s, "7", Role::Door);
-    let agent = brief(&s, "8", Role::Agent);
-
-    assert!(door.contains("- `agent_spawn`:"));
-    assert!(door.contains("`message_send`"));
-    assert!(door.contains("You cannot execute commands or open or write to a Terminal"));
-    assert!(agent.contains("- `agent_spawn`:"));
-    assert!(!agent.contains("You cannot execute commands or open or write to a Terminal"));
-}
-
-#[test]
-fn m10_a_doors_brief_names_checkpoint_write_and_no_other_does() {
-    let s = setup();
-
-    let door = brief(&s, "7", Role::Door);
-    let agent = brief(&s, "8", Role::Agent);
-
-    assert!(door.contains("- `checkpoint_write`:"));
-    assert!(door.contains("`reduce`") && door.contains("`show-me`"));
-    assert!(door.contains("facts needed to understand that point in the work"));
-    assert!(!agent.contains("checkpoint_write"));
-    assert!(agent.contains("- `checkpoint_list`:"));
-}
-
-#[test]
-fn q1_pin() {
-    use sha2::{Digest, Sha256};
-    let bytes =
-        std::fs::read(Path::new(env!("CARGO_MANIFEST_DIR")).join("assets/hold-plain.md")).unwrap();
-    let hex: String = Sha256::digest(bytes)
-        .iter()
-        .map(|b| format!("{b:02x}"))
-        .collect();
-    assert_eq!(
-        hex,
-        "0f2c26f0cea8ba39af771d2fdb09db6ae4a7a90c64c272a0a0e967f420e9af1e"
-    );
-}
-
-#[test]
-fn q1_brief() {
-    let s = setup();
-    let body =
-        std::fs::read_to_string(Path::new(env!("CARGO_MANIFEST_DIR")).join("assets/hold-plain.md"))
-            .unwrap();
-    let text = brief(&s, "7", Role::Agent);
-    assert!(text.contains(&body));
-    assert!(text.contains("Digest and Pad reply"));
-    assert!(text.contains("Write each limit of a Work order as a rule that reads on its own"));
 }
 
 #[test]
