@@ -3,7 +3,6 @@ import * as v from "valibot";
 import { Tip } from "../ui/Tip";
 import { createCutTitle } from "../ui/cutTitle";
 import { IconButton } from "../ui/IconButton";
-import { activationSource } from "../keys/registry";
 import type { ActivationSource } from "../keys/registry";
 import { debounce } from "@solid-primitives/scheduled";
 import { copy } from "../copy";
