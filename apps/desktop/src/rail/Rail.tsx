@@ -601,7 +601,7 @@ export const Rail = () => {
       <SectionHead icon="messages" label={copy.workstreamsHead} />
       <Show when={composing()}>
         <Show when={task() && taskParent() !== parent()}>
-          <p class="rail-task-target" role="status">{copy.railDraftTaskTarget(rail.nodes.find((node) => node.id === taskParent())?.name ?? project.name, taskParent() ?? project.path)}</p>
+          <p class="rail-task-target" role="status">{copy.railDraftTaskTarget(taskParent() === null ? project.name : destinationName(taskParent()!))}</p>
         </Show>
         <SpawnPromptField
           ref={setField}
