@@ -170,4 +170,3 @@ fn q11_a_worker_gets_plain_for_every_reply() {
     assert!(text.contains("Write every reply, including direct Terminal prose, in hold:Plain regardless of recipient or tool."));
     assert!(text.contains(&asset("hold-plain.md")));
 }
-
