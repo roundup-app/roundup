@@ -3,7 +3,7 @@ import { copy } from "../copy";
 import { createContext, createEffect, createMemo, createSignal, For, on, onCleanup, Show, useContext } from "solid-js";
 import type { Accessor, JSX } from "solid-js";
 import { Portal } from "solid-js/web";
-import { ErrorLine } from "../ink/ErrorLine";
+import { ReservedLine } from "../ink/ReservedLine";
 import { registerKeys } from "../keys/registry";
 import { AlertDialog } from "../ui/Dialog";
 
@@ -182,10 +182,8 @@ export const createBulkDelete = <Id,>(props: {
         <Show when={owners().length > 0 && question() === null}>
           <p>{copy.ownedBy}{owners().join(copy.comma)}{copy.agentsMayStillBeWritingDeletingDoesNot}</p>
         </Show>
-        <Show when={failures().length > 0}>
-          <ErrorLine message={copy.couldNotDelete} />
-          <For each={failures()}>{(failure) => <p>{failure.target.label}{props.noun === "Todos" ? ` #${String(failure.target.id)}` : ""}{copy.colon}{failure.message}</p>}</For>
-        </Show>
+        <ReservedLine message={failures().length > 0 ? `${copy.couldNotDelete}\n${failures().map(failure => `${failure.target.label}${props.noun === "Todos" ? ` #${String(failure.target.id)}` : ""}${copy.colon}${failure.message}`).join("\n")}` : null}
+          content={<>{copy.couldNotDelete} <For each={failures()}>{failure => <span>{failure.target.label}{props.noun === "Todos" ? ` #${String(failure.target.id)}` : ""}{copy.colon}{failure.message}</span>}</For></>} />
       </div>
     </Show>
   );
@@ -207,7 +205,7 @@ export const createBulkDelete = <Id,>(props: {
                   <p>{copy.ownedBy}{owners().join(copy.comma)}{copy.agentsMayStillBeWritingDeletingDoesNot}</p>
                 </Show>
               </AlertDialog.Description>
-              <Show when={readFailure()}>{(message) => <ErrorLine message={message()} />}</Show>
+              <ReservedLine message={readFailure()} />
               <p class="shelf-question-words">
                 <button data-button="quiet" type="button" class="word" disabled={held().kind === "pending"} ref={(button) => { keep = button; }} onClick={cancel}>{copy.keep}</button>
                 <Show when={readFailure()} fallback={

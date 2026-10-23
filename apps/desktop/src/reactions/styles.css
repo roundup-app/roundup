@@ -176,3 +176,7 @@ body:has(.reaction-form) .app-select-item:is([data-highlighted], [data-state="ch
   color: var(--text);
   background-color: transparent;
 }
+
+.reactions {
+  position: relative;
+}

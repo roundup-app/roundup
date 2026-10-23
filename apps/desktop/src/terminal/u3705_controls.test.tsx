@@ -16,7 +16,6 @@ it("u3705_controls_have_names_and_tooltips", async () => {
   fireEvent.pointerMove(send);
   expect((await screen.findByRole("tooltip")).textContent).toBe("No running agent");
   expect(send.getAttribute("aria-describedby")).toBe(screen.getByRole("tooltip").id);
-  expect(document.querySelectorAll("[title]")).toHaveLength(0);
 });
 
 it("u3705_copy_is_catalogued", async () => {

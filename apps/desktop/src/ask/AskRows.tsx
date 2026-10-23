@@ -3,7 +3,7 @@ import { Dynamic } from "solid-js/web";
 import type { AskPart } from "@contracts/ask/AskPart";
 import type { Target } from "@contracts/ask/Target";
 import { copy } from "../copy";
-import { ErrorLine } from "../ink/ErrorLine";
+import { ReservedLine } from "../ink/ReservedLine";
 import { KindGlyph, LABELS } from "../ink/KindGlyph";
 import { useConnectedProject } from "../state/connectedProject";
 import type { AskEntry } from "../state/asks";
@@ -149,7 +149,7 @@ const AskRow = (props: { keys: KeyScope; entry: AskEntry; part: AskPart; index: 
             <button type="button" data-button="quiet" disabled={busy()} onClick={() => pick({ kind: "new" })}>{copy.askNewWorkstream}</button>
             <button type="button" data-button="quiet" disabled={busy()} onClick={() => pick({ kind: "drop" })}>{copy.askDrop}</button>
           </div>
-          <Show when={failure()}>{(message) => <ErrorLine message={message()} />}</Show>
+          <ReservedLine message={failure()} />
         </div>
       </Show>
     </li>

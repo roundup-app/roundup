@@ -7,7 +7,6 @@ import type { JSX } from "solid-js";
 import type { Accessor } from "solid-js";
 import type { Todo } from "@contracts/todo/Todo";
 import type { RailNode } from "@contracts/agent/RailNode";
-import { ErrorLine } from "../../ink/ErrorLine";
 import { Icon } from "../../ink/Icon";
 import { PadDrawer } from "../../pads/PadDrawer";
 import { cutName } from "../../pads/nameLine";
@@ -235,7 +234,6 @@ export const PadRows = (props: { pads: AgentPads; depth: number; trail: readonly
       </Show>
       <bulk.Bar />
       <todoBulk.Bar />
-      <Show when={props.pads.failure()}>{(message) => <ErrorLine message={message()} />}</Show>
     </>
   );
 };

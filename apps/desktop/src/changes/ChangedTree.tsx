@@ -1,7 +1,7 @@
 import { createSignal, onCleanup, onMount, Show } from "solid-js";
 import type { ChangedFile } from "@contracts/agent/ChangedFile";
 import { copy } from "../copy";
-import { ErrorLine } from "../ink/ErrorLine";
+import { ReservedLine } from "../ink/ReservedLine";
 import { failureOf } from "../todos/failureOf";
 import { useConnectedProject } from "../state/connectedProject";
 import { absolutePath, statusText } from "./paths";
@@ -160,7 +160,7 @@ export const ChangedTree = (props: { root: string; files: readonly ChangedFile[]
   return (
     <>
       <div ref={setHost} class="worktree-tree" />
-      <Show when={failure()}>{(message) => <ErrorLine message={message()} />}</Show>
+      <ReservedLine message={failure()} />
     </>
   );
 };
