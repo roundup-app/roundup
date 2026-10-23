@@ -109,6 +109,12 @@ A disabled button stays focusable and keeps `aria-disabled="true"`, never the `d
 
 A word such as `stop`, `close` or `promote` is a button, not text: it has ink feedback and a 24 px hit height even though it rests as plain `--grey`.
 
+### Todo plans and dependency groups (U3808–U3811)
+
+An Agent's latest eligible recorded Hand-off reads `now` beside its title and marks its treeitem as the current step. Unknown Hand-offs show no marker; no Kind or list position guesses it. Done remains the native tick's accepted value.
+
+The first blocker in an owner group defines nesting even when done. A parent keeps its descendants, their own progress bar and a separate disclosure; its title strikes only when every descendant is done. Locked rows name all open blockers. Neither disclosure nor progress changes Todo facts. A visible final-child completion finishes its tick/strike and bar before folding; only the first newly unblocked successor per owner unfolds. Mount, scope changes and hidden completions settle without replay; reduced motion settles immediately.
+
 ### Button kinds
 
 Every button of the Rail, Shelf, Drawer, Thread and centre is one of five kinds and carries `data-button` naming it. `apps/desktop/src/buttons.css` is the one stylesheet that draws a button: one rule per kind, from Tokens, and no other stylesheet sets a `background`, `color`, `border-radius` or `padding` on a `button` (a component sets layout, and the hooks `--button-surface`, `--button-inline`, `--button-lead` and `--button-radius`). `data-feedback="ink"` swaps hover and press surfaces for ink only (U523). A button inside a row keeps its kind. A row is not a button: a `treeitem` row of the Rail, a Shelf row and a Todo's title take no `data-button` and are drawn by U172.

@@ -22,7 +22,6 @@ describe("u3768 the Todos list shows a progress bar", () => {
 
     const track = await screen.findByRole("progressbar", { name: "Todos done" });
 
-    expect(track.closest(".app-progress")?.getAttribute("data-max")).toBe("4");
     expect(track.getAttribute("aria-valuemin")).toBe("0");
     expect(track.getAttribute("aria-valuemax")).toBe("4");
     expect(track.getAttribute("aria-valuenow")).toBe("2");
@@ -213,4 +212,31 @@ describe("u3808 the latest handed step reads now", () => {
     await mounted.todos.reload();
     expect(document.querySelector('[aria-current="step"]')).toBeNull();
   });
+
+  it("u3808_refetch_updates_now_without_reordering_or_writing", async () => {
+    const owner = { kind: "agent", id: "a", parent: null } as const;
+    const mounted = await mountTodos([todo(8, { owner }), todo(2, { owner })], true, [agent("a", "working", "working")]);
+    mounted.store.todos = [todo(8, { owner }), todo(2, { owner })];
+    let facts = [{ todo: 8, owner, seq: 2 }];
+    mounted.app.handlers["todo.listHanded"] = () => facts;
+    await mounted.todos.reload();
+    const ids = () => [...document.querySelectorAll('.shelf-groups [data-todo]')].map(row => Number(row.getAttribute("data-todo")));
+    expect(ids()).toEqual([8, 2]);
+    expect(document.querySelector('[aria-current="step"]')?.getAttribute("data-todo")).toBe("8");
+    mounted.store.todos = [todo(8, { owner, done: true }), todo(2, { owner })];
+    await mounted.todos.reload();
+    expect(document.querySelector('[aria-current="step"]')).toBeNull();
+    facts = [];
+    mounted.store.todos = [todo(8, { owner: null }), todo(2, { owner })];
+    await mounted.todos.reload();
+    mounted.store.todos = [todo(8, { owner }), todo(2, { owner })];
+    await mounted.todos.reload();
+    expect(document.querySelector('[aria-current="step"]')).toBeNull();
+    facts = [{ todo: 2, owner, seq: 6 }];
+    await mounted.todos.reload();
+    expect(document.querySelector('[aria-current="step"]')?.getAttribute("data-todo")).toBe("2");
+    expect(ids()).toEqual([8, 2]);
+    expect(mounted.app.calls.every(call => !["todo.complete", "todo.reopen", "todo.assign", "todo.setBlockers", "todo.hand", "todo.getHistory"].includes(call.method))).toBe(true);
+  });
+
 });

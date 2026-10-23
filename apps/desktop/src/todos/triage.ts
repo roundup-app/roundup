@@ -15,7 +15,7 @@ export const rowButtonOf = (id: number): HTMLButtonElement | null =>
 /** Open rows in list order across owner groups, folded and done rows left out. */
 export const openRowButtons = (): HTMLButtonElement[] =>
   [...document.querySelectorAll<HTMLButtonElement>(".todos-tab [data-shelf-row][data-todo] .row-head .todo-row-button")]
-    .filter((button) => !button.closest(".todo-done-fold, [hidden], [inert]"));
+    .filter((button) => !button.closest(".todo-done-fold, [hidden], [inert]") && !button.closest("[data-todo]")?.querySelector<HTMLInputElement>(".todo-tick")?.checked);
 
 /** The id of the Todo whose row button is `element`, else undefined. */
 export const idOfRow = (element: Element | null): number | undefined => {

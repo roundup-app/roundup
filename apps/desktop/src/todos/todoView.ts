@@ -42,7 +42,7 @@ export const offeredAsBlockers = (todo: Todo, all: readonly Todo[]): Todo[] => {
 /** U3708: a row of the Todos tree: its depth and the Todo it nests under, both read from `blockers` alone. */
 export type NestedRow = { todo: Todo; level: number; parent: number | null };
 
-/** U3708: the open Todos of one list in tree order. A Todo nests under its first open blocker in the list, directly below it among that blocker's children in the Todo order (T10); one with none is at level 1. */
+/** U3708: the Todos of one owner list in tree order, including retained done members (U3809). A Todo nests under its first blocker in the list, directly below it among that blocker's children in the Todo order (T10); one with none is at level 1. */
 export const treeRows = (list: readonly Todo[]): NestedRow[] => {
   const inList = new Map(list.map((todo) => [todo.id, todo]));
   const parentOf = (todo: Todo): number | null => todo.blockers.find((id) => inList.get(id) !== undefined && id !== todo.id) ?? null;
