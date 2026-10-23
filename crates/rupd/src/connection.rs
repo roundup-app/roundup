@@ -161,6 +161,8 @@ pub(crate) async fn handle(stream: UnixStream, daemon: Arc<Daemon>) -> io::Resul
             method.as_deref(),
             Some(
                 "rail.rename"
+                    | "workstream.setAuto"
+                    | "agent.spawn"
                     | "agent.stop"
                     | "agent.interrupt"
                     | "agent.prompt"

@@ -467,3 +467,35 @@ async fn a3308_an_idle_auto_workstream_cannot_start_over_the_cap() {
 async fn subagent(daemon: &Daemon, home: &str, cwd: &std::path::Path) -> Value {
     as_door(daemon, home, "agent.spawn", json!({"cwd":cwd,"order":{"kind":"work","ask":"Implement the Todo","done":"The Todo is implemented","limits":[]}})).await
 }
+
+#[tokio::test]
+async fn a3308_an_agent_cannot_enable_auto_by_claiming_user() {
+    let dir = tempfile::tempdir().unwrap();
+    let daemon = running_daemon(dir.path());
+    let home = door(&daemon).await;
+    let rail = call(&daemon, "rail.list", Value::Null).await;
+    let terminal = rail[0]["terminal_id"].as_str().unwrap();
+    let peer = daemon.terminals.program_pid(terminal).unwrap();
+    let (events, _) = mpsc::unbounded_channel();
+    let mut conn = Conn {
+        actor: Actor::user(),
+        peer: Some(peer),
+        events,
+        output: None,
+    };
+    let response = daemon
+        .dispatch(
+            &mut conn,
+            &json!({"id":1,"method":"workstream.setAuto","params":{"id":home,"auto":true}})
+                .to_string(),
+            None,
+        )
+        .await
+        .unwrap();
+    assert_eq!(response["error"]["code"], code::FORBIDDEN);
+    assert_eq!(
+        call(&daemon, "rail.list", Value::Null).await[0]["auto"],
+        false
+    );
+    daemon.stop_terminals().await.unwrap();
+}
