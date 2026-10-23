@@ -157,6 +157,8 @@ it.each(["dismiss", "same report recovery", "unrelated report recovery", "report
     fake.handlers["deliverable.resolve"] = ({ id }) => {
       if (unavailable && id === "output-r-login") throw new RpcError(-32003, "Cannot open login; retry");
 
+      if (unavailable && id === "output-r-deploy") throw new RpcError(-32003, "Cannot open deployment; retry");
+
       return { kind: "retained", path: "/p/output.txt", sha256: "0" };
     };
   });
@@ -168,9 +170,11 @@ it.each(["dismiss", "same report recovery", "unrelated report recovery", "report
   const view = within(section);
   fireEvent.click(view.getByRole("button", { name: "Open login v2" }));
   await view.findByText("Cannot open login; retry");
+  fireEvent.click(view.getByRole("button", { name: "Open deployment v1" }));
+  await view.findByText("Cannot open deployment; retry");
   const other = section.querySelector('[data-report="r-deploy"]')!;
 
-  if (transition === "dismiss") fireEvent.click(view.getByRole("button", { name: "Dismiss failure" }));
+  if (transition === "dismiss") fireEvent.click(within(section.querySelector<HTMLElement>('[data-report="r-login"]')!).getByRole("button", { name: "Dismiss failure" }));
 
   if (transition.includes("recovery")) {
     unavailable = false;
@@ -189,6 +193,7 @@ it.each(["dismiss", "same report recovery", "unrelated report recovery", "report
 
   expect(view.queryByText("Cannot open login; retry") !== null).toBe(transition === "unrelated report recovery" || transition === "read failure");
   expect(section.querySelector('[data-report="r-deploy"]')).toBe(other);
+  expect(view.queryByText("Cannot open deployment; retry") !== null).toBe(transition !== "unrelated report recovery");
   expect(drafts("/p").list()).toEqual(before);
   expect(screen.getByLabelText<HTMLTextAreaElement>("Ask").value).toBe(exact);
 });
