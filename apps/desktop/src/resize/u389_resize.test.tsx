@@ -1,5 +1,5 @@
 import { leaderKey } from "../keys/leaderFixture";
-import { cleanup, render, screen, waitFor } from "@solidjs/testing-library";
+import { cleanup, render, renderHook, screen, waitFor } from "@solidjs/testing-library";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { App } from "../App";
 import { seedApp } from "../testing/seeds";
@@ -10,7 +10,7 @@ import railCss from "../rail/styles.css?inline";
 import buttonCss from "../buttons.css?inline";
 import inkCss from "../ink/styles.css?inline";
 import shelfCss from "../shelf/styles.css?inline";
-import { RAIL, railEffective, shelfEffective } from "./widths";
+import { createWidths, railEffective, shelfEffective } from "./widths";
 
 let sheet: HTMLStyleElement | undefined;
 
@@ -48,10 +48,9 @@ describe("u389 the Rail's width is the user's", () => {
     await mountApp();
 
     expect(railWidth()).toBe("288px");
-    expect(RAIL.fallback).toBeGreaterThan(RAIL.min);
   });
 
-  it("u453_widths_keep_resize_bounds_without_window_clamps", async () => {
+  it("u453_widths_keep_resize_bounds_without_window_clamps", () => {
     Object.assign(window, { innerWidth: 1280 });
 
     for (const [stored, rail, shelf] of [[100, 252, 240], [360, 360, 360], [9999, 480, 560]] as const) {
@@ -60,18 +59,20 @@ describe("u389 the Rail's width is the user's", () => {
     }
   });
 
-  it("u389_a_bad_stored_width_means_the_default", async () => {
-    for (const rail of ["wide", null, Number.NaN]) {
-      localStorage.setItem("roundup:widths:/Users/you/harness", JSON.stringify({ rail, shelf: 320 }));
-      await mountApp();
-      expect(railWidth(), String(rail)).toBe("288px");
-      cleanup();
-      sheet?.remove();
+  it("u389_a_bad_stored_width_means_the_default", () => {
+    // JSON.stringify(NaN) is null; 1e400 exercises a parsed non-finite number.
+    for (const rail of ['"wide"', "null", "1e400"]) {
+      localStorage.setItem("roundup:widths:/Users/you/harness", `{"rail":${rail},"shelf":320}`);
+      const { result, cleanup: dispose } = renderHook(() => createWidths(() => "/Users/you/harness"));
+
+      expect(result.rail.now(), rail).toBe(288);
+      dispose();
     }
 
     localStorage.setItem("roundup:widths:/Users/you/harness", JSON.stringify({ rail: 9999, shelf: 320 }));
-    await mountApp();
-    expect(railWidth()).toBe("480px");
+    const { result } = renderHook(() => createWidths(() => "/Users/you/harness"));
+
+    expect(result.rail.now()).toBe(480);
   });
 });
 

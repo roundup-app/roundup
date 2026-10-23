@@ -31,7 +31,7 @@
   content: "";
   position: absolute;
   inset: 0 0 calc(var(--hint-row-height) + var(--rail-actions-height));
-  z-index: 100;
+  z-index: var(--layer-popover);
   pointer-events: none;
   background: none;
 }

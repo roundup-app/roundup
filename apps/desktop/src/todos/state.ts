@@ -1,6 +1,7 @@
-import { createMemo, createSignal, onCleanup } from "solid-js";
+import { batch, createMemo, createSignal, onCleanup } from "solid-js";
 import type { Accessor } from "solid-js";
 import { createStore, reconcile } from "solid-js/store";
+import type { Handed } from "@contracts/todo/Handed";
 import type { Todo } from "@contracts/todo/Todo";
 import type { Events } from "../app/events";
 import type { AppSeam } from "../app/seam";
@@ -14,6 +15,10 @@ export type TodosState = {
   all: Accessor<readonly Todo[]>;
   /** Every Todo by id, rebuilt once per change of the list, so a row finds its blockers without scanning. */
   byId: Accessor<ReadonlyMap<number, Todo>>;
+  /** Accepted Project Hand-offs in Change.seq order; null means pending/failed, [] means none. */
+  handed: Accessor<readonly Handed[] | null>;
+  /** Cause of the unavailable Hand-off read, cleared by its next successful refresh. */
+  handedFailure: Accessor<string | null>;
   /** The message of the last failed `todo.list`, until a later one succeeds. */
   failure: Accessor<string | null>;
   /** Shows `todo` as a row until the returned call removes it: a create's optimistic row (U3714), which the Daemon's reply confirms or U3715 removes. */
@@ -31,6 +36,8 @@ export const createTodosState = (app: AppSeam, events: Events, project: string):
   // Reconciled by id, so a refetch that changes one Todo leaves every other row untouched.
   const [shelf, setShelf] = createStore<{ todos: Todo[] }>({ todos: [] });
   const [failure, setFailure] = createSignal<string | null>(null);
+  const [handed, setHanded] = createSignal<readonly Handed[] | null>(null);
+  const [handedFailure, setHandedFailure] = createSignal<string | null>(null);
   const [isLoaded, setIsLoaded] = createSignal(false);
 
   // Overlapping fetches can answer out of order; only the newest one may write.
@@ -42,10 +49,12 @@ export const createTodosState = (app: AppSeam, events: Events, project: string):
 
     const mine = newest;
     let list: Todo[] = [];
+    let facts: Handed[] = [];
+    setHanded(null);
 
-    const message = await failureOf(async () => {
-      list = await app.rpc("todo.list", null);
-    });
+    const listRead = failureOf(async () => { list = await app.rpc("todo.list", null); });
+    const factRead = failureOf(async () => { facts = await app.rpc("todo.listHanded", null); });
+    const message = await listRead;
 
     if (mine !== newest) {
       await latest;
@@ -53,10 +62,25 @@ export const createTodosState = (app: AppSeam, events: Events, project: string):
       return;
     }
 
-    if (message === null) setShelf("todos", reconcile(list, { key: "id" }));
+    batch(() => {
+      if (message === null) setShelf("todos", reconcile(list, { key: "id" }));
+      setFailure(message);
+      setIsLoaded(true);
+    });
 
-    setFailure(message);
-    setIsLoaded(true);
+    // Unknown Hand-offs never hold the ordinary list behind an additional read.
+    const factMessage = await factRead;
+
+    if (mine !== newest) {
+      await latest;
+
+      return;
+    }
+
+    batch(() => {
+      setHanded(message === null && factMessage === null ? facts : null);
+      setHandedFailure(factMessage);
+    });
   };
 
   const reload = () => {
@@ -86,5 +110,5 @@ export const createTodosState = (app: AppSeam, events: Events, project: string):
   const all = () => pending().length === 0 ? shelf.todos : [...shelf.todos, ...pending()];
   const byId = createMemo(() => new Map(all().map((todo) => [todo.id, todo])));
 
-  return { project, reload, all, show, revealed, byId, failure, isLoaded };
+  return { project, reload, all, show, revealed, byId, handed, handedFailure, failure, isLoaded };
 };

@@ -15,6 +15,7 @@ pub fn open(db: &mut Connection, path: &Path) -> rusqlite::Result<()> {
         M::up(include_str!("../migrations/005/up.sql")),
         M::up(include_str!("../migrations/006/up.sql")),
         M::up(include_str!("../migrations/007/up.sql")),
+        M::up(include_str!("../migrations/008/up.sql")),
     ];
     let count = migrations.len();
     Migrations::new(migrations).to_latest(db).map_err(|error| {
