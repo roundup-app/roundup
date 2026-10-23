@@ -123,6 +123,23 @@ export const Todos = (props: {
 
   const listed = createMemo(() => finishing.order().flatMap(id => todos.byId().get(id) ?? []));
 
+  let progressCount: HTMLSpanElement | undefined;
+
+  createEffect(on(() => `${done().length}/${inScope().length}`, () => {
+    if (!finishing.bar() || !progressCount) return;
+
+    // Keep a burst's newest text moving from the visible pose, rather than replaying the roll's hidden start.
+    const style = getComputedStyle(progressCount);
+    const pose = { opacity: style.opacity, transform: style.transform };
+
+    for (const animation of progressCount.getAnimations?.() ?? []) {
+      if (animation.playState !== "running" || !(animation.effect instanceof KeyframeEffect)) continue;
+
+      animation.effect.setKeyframes([{ ...pose, easing: animation.effect.getKeyframes()[0]!.easing }, { opacity: "1", transform: "none" }]);
+      animation.currentTime = 0;
+    }
+  }, { defer: true }));
+
   const target = (todo: Todo) => ({ id: todo.id, label: todo.title });
 
   const bulk = createBulkDelete({
@@ -678,12 +695,12 @@ export const Todos = (props: {
       <Show when={inScope().length > 0}>
         <div class="todo-progress" data-todo-progress>
           <Progress label={copy.todosDoneBar} max={inScope().length} value={done().length} motion={finishing.bar()} onMotionEnd={finishing.barEnded}>
-            <span class="todo-progress-count" data-todo-count style={{ "min-width": `${String(inScope().length).length * 2 + 1}ch` }}>{done().length}/{inScope().length}</span>
+            <span ref={progressCount} class="todo-progress-count" data-state="" data-todo-count>{done().length}/{inScope().length}</span>
           </Progress>
         </div>
       </Show>
       <Show when={listed().length > 0 || adding() !== null}>
-        <OwnerGroups onClosedChange={setClosedGroups} groups={() => ownerGroups(connected, listed(), todo => todo.owner)} dragging={dragging} bare={() => connected.rail.nodes.find(node => node.id === connected.rail.selected())?.kind === "agent" ? connected.rail.selected() : null} adding={() => adding()?.group ?? null} reveal={revealed} unfold={todos.revealed} onAdd={group => openField({ group: group.id, owner: group.actor })}>{group => {
+        <OwnerGroups count={group => group.items.filter(todo => !todo.done).length} onClosedChange={setClosedGroups} groups={() => ownerGroups(connected, listed(), todo => todo.owner)} dragging={dragging} bare={() => connected.rail.nodes.find(node => node.id === connected.rail.selected())?.kind === "agent" ? connected.rail.selected() : null} adding={() => adding()?.group ?? null} reveal={revealed} unfold={todos.revealed} onAdd={group => openField({ group: group.id, owner: group.actor })}>{group => {
         const tree = createMemo(() => treeRows(group().items));
         const collection = createMemo(() => treeCollection(tree()));
         const placeOf = (id: number) => tree().find((row) => row.todo.id === id) ?? { level: 1, parent: null };
@@ -774,7 +791,7 @@ export const Todos = (props: {
                 <OpenRow
                   todo={todo}
                   motion={finishing.row(todo.id)}
-              onMotionEnd={() => finishing.rowEnded(todo.id)}
+                  onMotionEnd={() => finishing.rowEnded(todo.id)}
                   known={todos.byId()}
                   onOpen={show}
                   onToggle={todo => toggle(todo, done().map(candidate => candidate.id))}
