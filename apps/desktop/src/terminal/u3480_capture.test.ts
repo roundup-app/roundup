@@ -14,7 +14,7 @@ it.skipIf(!captureDir("U3480"))("u3480_rendered_context_menu_under_dialog", asyn
 
   for (const base of process.env.U500_BASE_ROOT ? [true, false] : [false]) {
     const dir = join(root, base ? "base" : "head");
-    const sha = execFileSync("git", ["rev-parse", base ? "origin/main" : "HEAD"], { encoding: "utf8" }).trim();
+    const sha = execFileSync("git", ["rev-parse", "HEAD"], { encoding: "utf8", cwd: base ? process.env.U500_BASE_ROOT : process.cwd() }).trim();
 
     const capture = async (step: string) => {
       mkdirSync(dir, { recursive: true });
