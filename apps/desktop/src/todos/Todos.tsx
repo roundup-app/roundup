@@ -50,7 +50,7 @@ import type { TodosState } from "./state";
 import { useTodoList } from "./todoList";
 import { TodoDrawer } from "./TodoDrawer";
 import { shownTodos } from "./shownTodos";
-import { doneTodos, planDrop, treeCollection, treeRows, type NestedRow } from "./todoView";
+import { doneTodos, nowTodos, planDrop, treeCollection, treeRows, type NestedRow } from "./todoView";
 
 /** U138: the row to focus once a completed Todo leaves the open list — the next one, else the previous, else none (the `+` button). */
 export const rowAfter = (id: number, openIds: readonly number[]): number | null => {
@@ -99,22 +99,7 @@ export const Todos = (props: {
 
   const inScope = createMemo(() => todos.all().filter((todo) => scope.includes(todo.home, todo.creator, todo.owner)));
 
-  const now = createMemo(() => {
-    const latest = new Map<string, { id: number; seq: number }>();
-
-    for (const fact of todos.handed() ?? []) {
-      const todo = inScope().find(todo => todo.id === fact.todo);
-
-      if (!todo || todo.done || todo.blocked || todo.owner?.kind !== "agent" || !sameOwner(todo.owner, fact.owner)) continue;
-
-      if (!connected.rail.nodes.some(node => node.kind === "agent" && node.id === todo.owner?.id)) continue;
-      const previous = latest.get(todo.owner.id);
-
-      if (!previous || fact.seq > previous.seq) latest.set(todo.owner.id, { id: todo.id, seq: fact.seq });
-    }
-
-    return new Set([...latest.values()].map(fact => fact.id));
-  });
+  const now = createMemo(() => nowTodos(inScope(), todos.handed() ?? [], new Set(connected.rail.nodes.filter(node => node.kind === "agent").map(node => node.id))));
 
   const dependencyRows = createMemo(() => ownerGroups(connected, inScope(), todo => todo.owner).flatMap(group => treeRows(group.items)));
   const memberIds = createMemo(() => new Set(dependencyRows().flatMap(row => row.parent === null ? [] : [row.todo.id, row.parent])));
