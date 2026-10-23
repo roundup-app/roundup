@@ -1,11 +1,11 @@
 {
   "base": "a6d84964ead7bd30b5a6936ddb5ffb1b9d86b3a0",
-  "head": "af8d4c3bc2a161b433a86953ba053110226ed6aa",
+  "head": "7d9703abd2d6c71dabf4f36e3b3c6dc2de2061e3",
   "observer": "Isolated headless Chromium; dedicated session and fresh profile; dark; 1512x950; tree-40 and agents-10",
   "captures": [
     {
       "step": "agents-before",
-      "revision": "af8d4c3bc2a161b433a86953ba053110226ed6aa",
+      "revision": "7d9703abd2d6c71dabf4f36e3b3c6dc2de2061e3",
       "moved": {
         "D2": "pass",
         "D5": "pass",
@@ -16,7 +16,7 @@
     },
     {
       "step": "agents-import",
-      "revision": "af8d4c3bc2a161b433a86953ba053110226ed6aa",
+      "revision": "7d9703abd2d6c71dabf4f36e3b3c6dc2de2061e3",
       "moved": {
         "D2": "pass",
         "D5": "pass",
@@ -27,7 +27,7 @@
     },
     {
       "step": "ask-and-mentions",
-      "revision": "af8d4c3bc2a161b433a86953ba053110226ed6aa",
+      "revision": "7d9703abd2d6c71dabf4f36e3b3c6dc2de2061e3",
       "moved": {
         "D2": "pass",
         "D5": "pass",
@@ -38,7 +38,7 @@
     },
     {
       "step": "ask-reopened",
-      "revision": "af8d4c3bc2a161b433a86953ba053110226ed6aa",
+      "revision": "7d9703abd2d6c71dabf4f36e3b3c6dc2de2061e3",
       "moved": {
         "D2": "pass",
         "D5": "pass",
@@ -49,7 +49,7 @@
     },
     {
       "step": "dense-failure",
-      "revision": "af8d4c3bc2a161b433a86953ba053110226ed6aa",
+      "revision": "7d9703abd2d6c71dabf4f36e3b3c6dc2de2061e3",
       "moved": {
         "D2": "pass",
         "D5": "pass",
@@ -60,7 +60,7 @@
     },
     {
       "step": "dialog-owned-todo-picker",
-      "revision": "af8d4c3bc2a161b433a86953ba053110226ed6aa",
+      "revision": "7d9703abd2d6c71dabf4f36e3b3c6dc2de2061e3",
       "moved": {
         "D2": "pass",
         "D5": "pass",
@@ -74,7 +74,7 @@
     },
     {
       "step": "import-over-ask",
-      "revision": "af8d4c3bc2a161b433a86953ba053110226ed6aa",
+      "revision": "7d9703abd2d6c71dabf4f36e3b3c6dc2de2061e3",
       "moved": {
         "D2": "pass",
         "D5": "pass",
@@ -85,7 +85,7 @@
     },
     {
       "step": "toast-stack",
-      "revision": "af8d4c3bc2a161b433a86953ba053110226ed6aa",
+      "revision": "7d9703abd2d6c71dabf4f36e3b3c6dc2de2061e3",
       "moved": {
         "D2": "pass",
         "D5": "pass",
@@ -96,7 +96,7 @@
     },
     {
       "step": "tree-before",
-      "revision": "af8d4c3bc2a161b433a86953ba053110226ed6aa",
+      "revision": "7d9703abd2d6c71dabf4f36e3b3c6dc2de2061e3",
       "moved": {
         "D2": "pass",
         "D5": "pass",
@@ -107,7 +107,7 @@
     }
   ],
   "layerAudit": {
-    "sharedPrimitives": "Popover, Menu, Select, Tooltip, Combobox and Mentions reuse the shared wrappers; Dialog ownership survives Portals.",
+    "sharedPrimitives": "Popover, Menu, Select, Tooltip, Combobox and Mentions reuse the shared wrappers. Ownership survives Portals and the newest mounted active modal determines which controls remain usable.",
     "remainingSites": "Rail and Todo menus, Ask, Switcher, Toast group, Terminal controls and Drawer use layer Tokens. Terminal dim now uses the Popover Token; settings cover uses local 1. Toast cards use local 0/1 inside the group.",
     "terminalColumn": "The existing stacking context is unchanged.",
     "drafts": "Exact drafts retained in Ask, Switcher, Worktree note, recovered note and Terminal selection; Unicode probes cover Ask, Switcher and change notes. No submit or choice on dismissal/restoration."
