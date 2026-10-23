@@ -87,6 +87,14 @@ export const modalOpen = (): boolean => {
   return [...registrations].some(({ scope }) => scope.kind === "layer" && scope.modal && scope.active());
 };
 
+/** Whether an active modal excludes this control's owner, including an owner carried through a Portal. */
+export const modalOutside = (owner: HTMLElement | undefined): boolean => {
+  layers();
+
+  return [...registrations].some(({ scope }) => scope.kind === "layer" && scope.modal && scope.active()
+    && (!owner || !scope.element()?.contains(owner)));
+};
+
 /** The wait's one key: a registered leader key runs, any other key ends the wait and runs nothing. Either way the webview handles it, so no Terminal, field or Rail sees it. A lone modifier changes nothing. */
 const takeLeaderKey = (event: KeyboardEvent): void => {
   if (MODIFIER_KEYS.has(event.key)) return;

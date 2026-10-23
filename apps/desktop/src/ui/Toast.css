@@ -2,6 +2,7 @@
 .app-toasts[data-scope="toast"] {
   position: absolute !important;
   inset: auto var(--space-3) calc(var(--space-3) + var(--toast-lift, 0px)) auto !important;
+  display: flex;
   width: 0;
   height: 0;
   z-index: var(--layer-toast) !important;
@@ -21,7 +22,9 @@
   scale: var(--scale, 1);
   transform-origin: bottom center;
   opacity: var(--opacity);
-  z-index: var(--z-index);
+  /* Flex painting follows order even for absolute children: newest paints last inside the Toast layer. */
+  order: calc(0 - var(--index));
+  z-index: 0;
   will-change: translate, scale, opacity;
   transition: translate var(--duration-toast-in) var(--easing-out), scale var(--duration-toast-in) var(--easing-out), opacity var(--duration-toast-in) var(--easing-out);
 }

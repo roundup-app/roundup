@@ -34,23 +34,30 @@ const mount = (kind: Surface) => {
   const [highlight, setHighlight] = createSignal<string | null>("alpha");
   const items = [{ value: "alpha", label: "Alpha" }];
   const results = () => text() ? items.filter(item => item.label.toLowerCase().includes(text().slice(1).toLowerCase())) : [];
+
   const ui = () => {
     if (kind === "menu") return <Menu.Root onSelect={picked}><Menu.Trigger>Open</Menu.Trigger><Portal><Menu.Positioner><Menu.Content><Menu.Item value="alpha">Alpha</Menu.Item></Menu.Content></Menu.Positioner></Portal></Menu.Root>;
+
     if (kind === "select") return <Select label="Open" choices={items} value="" onValueChange={picked} />;
+
     if (kind === "tooltip") return <Tooltip.Root openDelay={0} closeDelay={0}><Tooltip.Trigger>Open</Tooltip.Trigger><Portal><Tooltip.Positioner><Tooltip.Content>Alpha</Tooltip.Content></Tooltip.Positioner></Portal></Tooltip.Root>;
+
     if (kind === "mentions") return <Mentions.Root items={results()} highlightedValue={highlight()} onHighlightChange={setHighlight} onSelect={picked}><Mentions.Field aria-label="Mention" value={text()} onInput={event => setText(event.currentTarget.value)} open onKey={() => {}} /><Mentions.List label="Suggestions" items={results()} /></Mentions.Root>;
+
     if (kind === "blocker") return <BlockerMenu open={open()} onOpenChange={setOpen} others={[todo(1, { title: "Alpha" })]} buttonRef={() => {}} onPick={picked} />;
 
     return <Popover.Root open={kind === "controlled" ? open() : undefined} onOpenChange={({ open }) => setOpen(open)} closeOnInteractOutside={kind === "outside opt-out" ? false : undefined}>
       <Popover.Trigger>Open</Popover.Trigger><Portal><Popover.Positioner><Popover.Content><button onClick={() => picked("alpha")}>Alpha</button></Popover.Content></Popover.Positioner></Portal>
     </Popover.Root>;
   };
+
   const show = async () => {
     const trigger = kind === "mentions" ? screen.getByRole("textbox", { name: "Mention" }) : screen.getByRole(kind === "select" ? "combobox" : "button", { name: kind === "blocker" ? /Blocker/ : "Open" });
 
     if (kind === "tooltip") { fireEvent.pointerOver(trigger, { pointerType: "mouse" }); fireEvent.focus(trigger); }
     else if (kind === "mentions") { trigger.focus(); fireEvent.input(trigger, { target: { value: "@al" } }); }
     else fireEvent.click(trigger);
+
     if (kind === "select") await screen.findByRole("listbox");
     else await screen.findByText("Alpha");
   };
@@ -72,6 +79,7 @@ it.each(surfaces)("u3295b_a_dialog_closes_outside_floating_controls: %s", async 
   await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
   expect(kind === "select" ? screen.queryByRole("listbox") : screen.queryByText("Alpha")).toBeNull();
   expect(control.picked).not.toHaveBeenCalled();
+
   if (kind === "mentions") expect(screen.getByRole<HTMLTextAreaElement>("textbox").value).toBe("@al");
 });
 
@@ -82,6 +90,7 @@ it.each(["menu", "select", "tooltip", "mentions", "blocker"] as const)("u3295b_d
   setOpen(true);
   await screen.findByRole("dialog");
   await control.show();
+
   if (kind !== "tooltip") {
     const choice = kind === "select" ? within(screen.getByRole("listbox")).getByRole("option", { name: "Alpha" }) : screen.getByText("Alpha");
     fireEvent.pointerDown(choice, { pointerType: "mouse", button: 0 });
@@ -89,6 +98,7 @@ it.each(["menu", "select", "tooltip", "mentions", "blocker"] as const)("u3295b_d
     fireEvent.click(choice);
     await waitFor(() => expect(control.picked).toHaveBeenCalledTimes(1));
   }
+
   expect(screen.getByRole("dialog", { name: "Import" })).toBeTruthy();
 });
 

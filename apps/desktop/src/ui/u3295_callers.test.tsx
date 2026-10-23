@@ -30,11 +30,14 @@ const modal = () => {
 
 it.each(["ask", "switcher"] as const)("u3295b_modal_dismissal_keeps_unsubmitted_work: %s", async kind => {
   const { app, connected } = await mountSwitcher("dee");
+
   const show = async () => {
     if (kind === "switcher") openSwitcher();
     else press("/", { metaKey: true, code: "Slash" });
+
     return kind === "switcher" ? await screen.findByRole<HTMLInputElement>("combobox") : await screen.findByRole<HTMLTextAreaElement>("textbox", { name: "Ask" });
   };
+
   const input = await show();
   const text = "  ops exact e\u0301 🐝  ";
 
@@ -83,6 +86,7 @@ it.each(["worktree", "recovered notes"] as const)("u3295b_modal_dismissal_keeps_
     });
     fireEvent.click(await screen.findByRole("button", { name: "Resume note" }));
   }
+
   fireEvent.input(await screen.findByRole("textbox", { name: "Note" }), { target: { value: text } });
   const original = structuredClone(notes.entries());
   const change = modal();
@@ -91,6 +95,7 @@ it.each(["worktree", "recovered notes"] as const)("u3295b_modal_dismissal_keeps_
   await waitFor(() => expect(screen.queryByRole("textbox", { name: "Note" })).toBeNull());
   await change(false);
   expect(screen.queryByRole("textbox", { name: "Note" })).toBeNull();
+
   if (kind === "worktree") {
     fireEvent.click(screen.getByRole("button", { name: "roundup/a" }));
     await openFile();
@@ -99,6 +104,7 @@ it.each(["worktree", "recovered notes"] as const)("u3295b_modal_dismissal_keeps_
     fireEvent.click(screen.getByRole("button", { name: "Recover" }));
     fireEvent.click(await screen.findByRole("button", { name: "Resume note" }));
   }
+
   expect((await screen.findByRole<HTMLTextAreaElement>("textbox", { name: "Note" })).value).toBe(text);
   expect(notes.entries()).toEqual(original);
   expect(app.calls.filter(call => call.method === "message.send")).toEqual([]);
