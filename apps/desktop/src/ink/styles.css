@@ -287,10 +287,6 @@ p.ink[role="alert"] {
   align-items: center;
   gap: var(--space-2);
   flex: none;
-  max-inline-size: 75%;
-  overflow-x: auto;
-  scrollbar-width: none;
-  overscroll-behavior: contain;
   white-space: nowrap;
 }
 
@@ -316,19 +312,6 @@ p.ink[role="alert"] {
 
 .reserved-line[data-overlay="true"][data-empty="true"] {
   visibility: hidden;
-}
-
-.todo-editable,
-.made-row,
-.rail-row {
-  position: relative;
-}
-
-.leader .reserved-status {
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  gap: var(--space-4);
 }
 
 .reserved-line .ink > .glyph {

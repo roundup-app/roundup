@@ -368,9 +368,6 @@ export const App = (props: {
         }
         rail={
           <>
-            <ReservedLine message={windowFailure() ?? (activeTab()?.exit ? activeTab()?.reopenFailure ?? daemonExitText(activeTab()!.exit!) : null) ?? (projects.tabs().length > 0 ? projects.failure() ?? badgeFailure() : badgeFailure())}>
-              <Show when={activeTab()?.exit}><Reopen onReopen={() => void projects.reopen(activeTab()!.project.path)} busy={projects.reopening()} /></Show>
-            </ReservedLine>
             <Show when={projects.tabs().length > 0} fallback={<EmptyRail />}>
               <InProject open={activeConnection()}>
                 {() => (
@@ -382,6 +379,9 @@ export const App = (props: {
                 )}
               </InProject>
             </Show>
+            <ReservedLine overlay message={windowFailure() ?? (activeTab()?.exit ? activeTab()?.reopenFailure ?? daemonExitText(activeTab()!.exit!) : null) ?? (projects.tabs().length > 0 ? projects.failure() ?? badgeFailure() : badgeFailure())}>
+              <Show when={activeTab()?.exit}><Reopen onReopen={() => void projects.reopen(activeTab()!.project.path)} busy={projects.reopening()} /></Show>
+            </ReservedLine>
           </>
         }
         centre={

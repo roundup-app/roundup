@@ -318,6 +318,7 @@ export const RailRowView = (props: {
         </span>
         <PadsControl pads={pads} />
       </p>
+      <ReservedLine overlay message={pads.failure()} />
     </div>
   );
 

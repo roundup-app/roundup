@@ -178,7 +178,7 @@ export const Reactions = (props: { state: ReturnType<typeof createReactions> }) 
         <h2 class="overview-heading">{copy.reactions}</h2>
         <button type="button" data-button="quiet" data-reaction-opener="create" onClick={() => open({ kind: "create" })}>{copy.reactionCreate}</button>
       </div>
-      <ReservedLine status={read().failure} />
+      <ReservedLine overlay status={read().failure} />
       <Show when={read().list.length > 0} fallback={<p class="reaction-empty">{copy.reactionsEmpty}</p>}>
         <ul class="reaction-list">
           <For each={read().list.map(reaction => reaction.id)}>{(id) => {

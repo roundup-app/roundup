@@ -251,13 +251,14 @@ export const AskBar = (props: {
     </Popover.Root></div></Show>
     <Show when={shown()}>
       <section class="ask-bar" data-mode={over() ? "over" : "home"} aria-label={copy.askBarLabel} ref={(element) => { panel = element; }}>
+        <div class="ask-compose">
         <Mentions.Root items={matching()} highlightedValue={highlighted()} onHighlightChange={setHighlighted} onSelect={complete}>
           <Mentions.Field class="ask-input" ref={restoreSelection}
             rows={1} aria-label={copy.askBarLabel} placeholder={copy.askBarPlaceholder} value={text()} open={matching().length > 0}
             onInput={(event) => { setDismissed(false); setText(event.currentTarget.value); }} onSelect={retainSelection} onKeyUp={retainSelection} onClick={retainSelection} onKey={onKey} />
           <Show when={matching().length > 0}><Mentions.List label={copy.askMentions} items={matching()} /></Show>
         </Mentions.Root>
-        <ReservedLine class="ask-send-status" message={problem() ? copy.draftRetention(connected.project.path, copy.draftSurface("ask"), problem()!.cause) : failure()?.message ?? (records().some(draft => draft.status === "unknown") ? null : asks.failure())}
+        <ReservedLine overlay class="ask-send-status" message={problem() ? copy.draftRetention(connected.project.path, copy.draftSurface("ask"), problem()!.cause) : failure()?.message ?? (records().some(draft => draft.status === "unknown") ? null : asks.failure())}
           status={records().some(draft => draft.status === "unknown") ? copy.askUnknownState : null}>
         <For each={records().filter(draft => draft.status === "unknown").map(draft => draft.revision)}>{revision => {
           const [cause, setCause] = createSignal<string | null>(null);
@@ -280,6 +281,7 @@ export const AskBar = (props: {
         }}</For>
         <Show when={problem()}><button type="button" data-button="quiet" onClick={() => drafts.retry()}>{copy.storageRetry}</button></Show>
         </ReservedLine>
+        </div>
         <Show when={!over()}><ProjectOverview /><Reactions state={reactions} /><Deliverables state={deliverables} /></Show>
         <AskRows keys={scope} onOpened={() => close(false)} />
       </section>
@@ -296,7 +298,7 @@ const ProjectOverview = () => {
   const entry = (node: RailNode, waiting = false) => <OverviewEntry node={node} waiting={waiting} select={() => rail.select(node.id)} />;
 
   return <section class="project-overview" aria-label={copy.projectOverview}>
-    <ReservedLine message={rail.failure()} />
+    <ReservedLine overlay message={rail.failure()} />
     <Show when={attention().length > 0} fallback={<div class="empty-state overview-empty">
       <Icon name="check" />
       <h2 class="overview-heading" data-state="attention">{copy.projectAttention(0)}</h2>
