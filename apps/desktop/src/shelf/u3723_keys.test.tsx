@@ -13,6 +13,9 @@ stubDialogLayout();
 
 const open = async (pads = false) => {
   const { app } = seedApp("tree-40", 0);
+  // These shortcuts need row identities and a selectable Rail, not the 40-node stress fixture.
+  const tree = await app.handlers["rail.tree"]!(null);
+  app.handlers["rail.tree"] = () => tree.filter(node => node.id === "backend");
   render(() => <App app={app} reducedMotion={() => true} clock={() => 0} createEmulator={fakeEmulators().factory} />);
   await showEverythingInApp();
 
