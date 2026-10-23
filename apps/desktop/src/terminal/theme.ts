@@ -1,5 +1,3 @@
-import { createRoot, createEffect, on } from "solid-js";
-import { appSettings } from "../settings/preferences";
 import type { ITheme } from "@xterm/xterm";
 
 /** An emulator theme that always names the two colours the Daemon reports to a program (X17). */
@@ -54,31 +52,5 @@ export const darkTerminalTheme: TerminalTheme = {
   brightWhite: "#ffffff",
 };
 
-const DARK_SCHEME = "(prefers-color-scheme: dark)";
-
 /** The theme for the window's colour scheme. */
 export const terminalThemeFor = (dark: boolean): TerminalTheme => (dark ? darkTerminalTheme : lightTerminalTheme);
-
-/** An explicit App choice overrides macOS; System reads the native media query each time. */
-export const appDark = (): boolean => {
-  const mode = appSettings().mode;
-
-  return mode === "system" ? (window.matchMedia?.(DARK_SCHEME).matches ?? false) : mode === "dark";
-};
-
-/** Follow both a saved App choice and a native System change; the caller applies the initial theme. */
-export const followTerminalTheme = (changed: () => void): (() => void) => {
-  const query = window.matchMedia?.(DARK_SCHEME);
-
-  const dispose = createRoot(dispose => {
-    createEffect(on(() => appSettings().mode, changed, { defer: true }));
-
-    return dispose;
-  });
-
-  const follow = () => { if (appSettings().mode === "system") changed(); };
-
-  query?.addEventListener("change", follow);
-
-  return () => { dispose(); query?.removeEventListener("change", follow); };
-};
