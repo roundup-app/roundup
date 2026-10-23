@@ -1,5 +1,5 @@
 import type { Todo } from "@contracts/todo/Todo";
-import { createEffect, createSignal, on, type Accessor } from "solid-js";
+import { createComputed, createEffect, createSignal, on, type Accessor } from "solid-js";
 import type { Actor } from "@contracts/Actor";
 import type { ConnectedProject } from "../state/connectedProject";
 import { ownersOnRail, sameOwner } from "../shelf/scope";
@@ -19,6 +19,7 @@ export const createOwnerAssignment = (source: {
   fail: (id: number, message: string | null) => void;
 }) => {
   const [revealed, setRevealed] = createSignal<string | null>(null);
+  const [arriving, setArriving] = createSignal<readonly string[]>([]);
   const [regrouped, setRegrouped] = createSignal<{ id: number; owner: Actor | null } | null>(null);
 
   createEffect(() => {
@@ -44,6 +45,21 @@ export const createOwnerAssignment = (source: {
     });
   });
 
+  createComputed(on(() => source.todos.all().map(todo => ({ id: todo.id, owner: todo.owner ? { ...todo.owner } : null })), (next, previous) => {
+    if (!previous) return;
+
+    const groups = next.filter(todo => {
+      const was = previous.find(each => each.id === todo.id);
+
+      return was && !sameOwner(was.owner, todo.owner);
+    }).map(todo => ownersOnRail(source.connected).find(owner => sameOwner(owner.actor, todo.owner))?.id ?? "unassigned");
+
+    if (groups.length) {
+      setArriving(groups);
+      queueMicrotask(() => setArriving([]));
+    }
+  }));
+
   const assign = async (id: number, owner: Actor | null) => {
     const advance = source.advance();
     const message = await failureOf(() => source.connected.app.rpc("todo.assign", { id, owner }));
@@ -58,7 +74,7 @@ export const createOwnerAssignment = (source: {
     }
   };
 
-  return { revealed, setRevealed, setRegrouped, assign };
+  return { revealed: () => [...arriving(), ...(revealed() === null ? [] : [revealed()!])], setRevealed, setRegrouped, assign };
 };
 
 /** U3309: all keys share the Shelf registry; a lift chooses a destination without changing the Todo. */

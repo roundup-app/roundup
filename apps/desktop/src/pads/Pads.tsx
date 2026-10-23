@@ -286,7 +286,7 @@ export const Pads = (props: {
       <Show when={isEmpty() && !naming()}>
         <EmptyState icon="order" heading={copy.noPadsYet} hint={copy.noPadsHint} />
       </Show>
-      <OwnerGroups groups={() => ownerGroups(connected, shown(), pad => pad.owner)} dragging={dragging} bare={() => connected.rail.nodes.find(node => node.id === connected.rail.selected())?.kind === "agent" ? connected.rail.selected() : null} adding={() => null} reveal={() => null}>{group => <PadRows
+      <OwnerGroups groups={() => ownerGroups(connected, shown(), pad => pad.owner)} dragging={dragging} bare={() => connected.rail.nodes.find(node => node.id === connected.rail.selected())?.kind === "agent" ? connected.rail.selected() : null} adding={() => null} reveal={() => []}>{group => <PadRows
         selection={selection}
         bulk={bulk}
         pads={pads}

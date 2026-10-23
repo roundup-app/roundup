@@ -84,7 +84,7 @@ export const createSortedList = (source: {
       const y = was.top - position.top;
 
       if (Math.abs(x) < 1 && Math.abs(y) < 1) continue;
-      const animation = el.animate([{ transform: `translate(${x}px, ${y}px)` }, { transform: "none" }], slideOf());
+      const animation = el.animate([{ transform: `translate(${x}px, ${y}px)`, opacity: 0.8 }, { transform: "none", opacity: 1 }], slideOf());
 
       animations.set(id, animation);
       animation.onfinish = () => { if (animations.get(id) === animation) animations.delete(id); };

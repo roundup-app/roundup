@@ -1,7 +1,7 @@
 import { cleanup, fireEvent, screen, waitFor } from "@solidjs/testing-library";
 import { afterEach, expect, it, vi } from "vitest";
 import { RpcError } from "../app/seam";
-import { CHORDS, HELP_ROWS, hintsFor } from "../keys/chords";
+import { HELP_ROWS, hintsFor } from "../keys/chords";
 import { agent, event, workstream } from "../testing/nodes";
 import { mountTodos, todo, todoEvent, todoCallsTo } from "./testHarness";
 
@@ -135,11 +135,46 @@ it("u3309_a_refused_digit_assignment_shows_its_cause_and_keeps_the_owner", async
   expect(row.closest<HTMLElement>("[data-shelf-group]")?.dataset.shelfGroup).toBe("unassigned");
 });
 
-it("u3309_the_digits_are_registered_shelf_bindings_listed_in_help", () => {
-  const chord = CHORDS.find(chord => chord.keys === "1–9");
+it("u3309_the_digits_are_registered_shelf_bindings_listed_in_help", async () => {
+  const agents = Array.from({ length: 9 }, (_, at) => agent(`a${at + 1}`, "idle", "", { name: `Writer ${at + 1}`, order: at }));
+  const m = await mountTodos([todo(1)], true, agents);
+  const row = await screen.findByRole("button", { name: "Idle #1 todo 1" });
 
-  expect(chord?.inShelf).toBe(true);
-  expect(chord?.presses).toEqual(["Digit1", "Digit2", "Digit3", "Digit4", "Digit5", "Digit6", "Digit7", "Digit8", "Digit9"]);
+  for (let digit = 1; digit <= 9; digit++) {
+    row.focus();
+    fireEvent.keyDown(row, { key: String(digit), code: `Digit${digit}` });
+    await waitFor(() => expect(todoCallsTo(m.app, "todo.assign")).toHaveLength(digit));
+  }
+
+  expect(todoCallsTo(m.app, "todo.assign").map(call => call.params)).toEqual(agents.map(agent => ({ id: 1, owner: { kind: "agent", id: agent.id, parent: null } })));
   expect(HELP_ROWS).toContainEqual(expect.objectContaining({ keys: "1–9" }));
   expect(hintsFor("shelf")).toContainEqual(expect.objectContaining({ keys: "1–9" }));
+});
+
+it("u3308_an_agent_with_no_todos_still_shows_free_now", async () => {
+  await mountTodos([todo(1)], true, [agent("a", "idle", "", { name: "Writer" })]);
+  const group = document.querySelector('[data-shelf-group="a"]');
+
+  expect(group?.textContent).toContain("Writer");
+  expect(group?.textContent).toContain("free now");
+});
+
+it("u3311_a_door_hand_off_reveals_folded_destinations_without_stealing_focus", async () => {
+  const other = { kind: "agent" as const, id: "b", parent: null };
+  const m = await mountTodos([todo(1, { owner }), todo(2, { owner: other }), todo(3), todo(4)], true, [agent("a", "idle", "", { name: "Writer" }), agent("b", "idle", "", { name: "Reviewer", order: 1 })]);
+
+  for (const id of ["a", "b"]) fireEvent.click(document.querySelector(`[data-shelf-group="${id}"] [data-part="branch-control"]`)!);
+  fireEvent.click(screen.getByRole("button", { name: "add todo to Overview" }));
+  const input = await screen.findByRole<HTMLInputElement>("textbox", { name: "New Todo title" });
+
+  fireEvent.input(input, { target: { value: "keep writing" } });
+  input.focus();
+  m.store.todos = m.store.todos.map(todo => todo.id === 3 ? { ...todo, owner } : todo.id === 4 ? { ...todo, owner: other } : todo);
+  m.app.emit({ ...todoEvent("todo.updated", m.store.todos[2]!), actor: owner });
+  await waitFor(() => expect(document.querySelector('[data-shelf-group="a"] [data-todo="3"]')).toBeTruthy());
+  await waitFor(() => expect(document.querySelector('[data-shelf-group="b"] [data-todo="4"]')).toBeTruthy());
+  expect(document.querySelector('[data-shelf-group="a"] [data-part="branch-content"]')?.hasAttribute("hidden")).toBe(false);
+  expect(document.querySelector('[data-shelf-group="b"] [data-part="branch-content"]')?.hasAttribute("hidden")).toBe(false);
+  expect(document.activeElement).toBe(input);
+  expect(input.value).toBe("keep writing");
 });
