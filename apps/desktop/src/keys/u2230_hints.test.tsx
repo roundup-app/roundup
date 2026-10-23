@@ -257,3 +257,17 @@ it.each(["terminal", "pads", "contenteditable", "dialog", "menu"])("u3474a_keeps
   expect(event.defaultPrevented).toBe(false);
   expect(document.querySelector("[data-triage-toggle]")?.getAttribute("aria-pressed")).toBe("false");
 });
+
+
+it("u3513a_every_hint_line_ends_in_contextual_help: rail", async () => {
+  const app = await open();
+  rowOf("b").focus();
+  await waitFor(() => expect(document.querySelector('.hint-line[data-place="rail"]')).not.toBeNull());
+  const entries = [...document.querySelectorAll('.hint-line .hint:not([hidden])')];
+  expect(entries.length).toBeLessThanOrEqual(4);
+  expect(entries.at(-1)?.querySelector("kbd")?.textContent).toBe("?");
+  fireEvent.keyDown(document.activeElement!, { key: "?", shiftKey: true });
+  const help = await screen.findByRole("dialog", { name: copy.help });
+  expect(help.textContent).toContain(copy.remove);
+  expect(app.calls.filter(call => call.method === "agent.start")).toEqual([]);
+});
