@@ -431,3 +431,183 @@ async fn a_half_closed_call_that_is_not_a_permission_call_still_runs() {
 
     assert!(said.try_recv().is_err());
 }
+
+// U3808 names the real Daemon and restart: no vendor program or socket is needed.
+#[tokio::test]
+async fn u3808_the_list_reads_recorded_handoffs_without_history_or_touches() {
+    let dir = tempfile::tempdir().unwrap();
+    let daemon = test_daemon(dir.path()).unwrap();
+    let user = Actor::user();
+    let owner = Actor {
+        kind: ActorKind::Agent,
+        id: "owner".into(),
+        parent: None,
+    };
+    let other = Actor {
+        id: "other".into(),
+        ..owner.clone()
+    };
+    let read = |_daemon: &Daemon| {
+        let (events, _) = mpsc::unbounded_channel();
+        Conn {
+            actor: user.clone(),
+            peer: None,
+            events,
+            output: None,
+        }
+    };
+    let mut conn = read(&daemon);
+    // Seeding through the Todo module avoids starting an Agent just to own test work.
+    let todos = daemon.modules.get("todo").unwrap();
+    let ctx = daemon.ctx(user.clone());
+    for title in ["first", "second", "blocked", "legacy"] {
+        todos
+            .call(&ctx, "todo.create", json!({"title": title, "owner": owner}))
+            .await
+            .unwrap();
+    }
+    todos
+        .call(&ctx, "todo.setBlockers", json!({"id": 3, "blockers": [1]}))
+        .await
+        .unwrap();
+    todos
+        .call(&ctx, "todo.reorder", json!({"id": 2, "before": 1}))
+        .await
+        .unwrap();
+    let initial = daemon
+        .route(&mut conn, "todo.list", Value::Null)
+        .await
+        .unwrap();
+    assert_eq!(
+        initial
+            .as_array()
+            .unwrap()
+            .iter()
+            .map(|t| (t["id"].clone(), t["handoff"].clone()))
+            .collect::<Vec<_>>(),
+        vec![
+            (json!(2), Value::Null),
+            (json!(1), Value::Null),
+            (json!(3), Value::Null),
+            (json!(4), Value::Null)
+        ]
+    );
+    assert!(initial[0].get("handoff").is_some());
+    let (mut events, _) = daemon.subscribe();
+    let daemon_ctx = daemon.ctx(Actor::daemon());
+    let mut sequences = Vec::new();
+    for id in [2, 1] {
+        let before = daemon
+            .route(&mut conn, "todo.list", Value::Null)
+            .await
+            .unwrap();
+        let handed = todos
+            .call(&daemon_ctx, "todo.hand", json!({"agent": "owner"}))
+            .await
+            .unwrap();
+        assert_eq!(handed["id"], id);
+        let event = events.recv().await.unwrap();
+        assert!(matches!(event.data, contracts::EventData::TodoUpdated(ref t) if t.id == id));
+        let after = daemon
+            .route(&mut conn, "todo.list", Value::Null)
+            .await
+            .unwrap();
+        let old = before
+            .as_array()
+            .unwrap()
+            .iter()
+            .find(|t| t["id"] == id)
+            .unwrap();
+        let new = after
+            .as_array()
+            .unwrap()
+            .iter()
+            .find(|t| t["id"] == id)
+            .unwrap();
+        for field in ["title", "body", "owner", "done", "blockers"] {
+            assert_eq!(old[field], new[field]);
+        }
+        // Each exact sequence names the corresponding recorded Hand-off, not a timestamp or Todo id.
+        let history = todos
+            .call(&ctx, "todo.getHistory", json!({"id": id}))
+            .await
+            .unwrap();
+        let change = history["changes"].as_array().unwrap().last().unwrap();
+        assert_eq!(change["handed"], json!(owner));
+        assert_eq!(new["handoff"], change["seq"]);
+        sequences.push(new["handoff"].as_u64().unwrap());
+    }
+    assert!(sequences[1] > sequences[0]);
+    // Owner changes invalidate the old fact even if the final owner is identical.
+    for owner in [&other, &owner] {
+        todos
+            .call(&ctx, "todo.assign", json!({"id": 1, "owner": owner}))
+            .await
+            .unwrap();
+    }
+    let list = daemon
+        .route(&mut conn, "todo.list", Value::Null)
+        .await
+        .unwrap();
+    assert_eq!(list[1]["handoff"], Value::Null);
+    todos
+        .call(&daemon_ctx, "todo.hand", json!({"agent": "owner"}))
+        .await
+        .unwrap();
+    let list = daemon
+        .route(&mut conn, "todo.list", Value::Null)
+        .await
+        .unwrap();
+    assert!(list[1]["handoff"].as_u64().unwrap() > sequences[1]);
+    todos
+        .call(&ctx, "todo.complete", json!({"id": 1}))
+        .await
+        .unwrap();
+    let completed = daemon
+        .route(&mut conn, "todo.list", Value::Null)
+        .await
+        .unwrap();
+    assert_eq!(completed[1]["done"], true);
+    assert_eq!(completed[1]["handoff"], list[1]["handoff"]);
+    let touches = daemon.touches.sequence().unwrap();
+    let messages = daemon
+        .route(&mut conn, "message.list", Value::Null)
+        .await
+        .unwrap();
+    for _ in 0..2 {
+        assert_eq!(
+            daemon
+                .route(&mut conn, "todo.list", Value::Null)
+                .await
+                .unwrap(),
+            completed
+        );
+    }
+    assert_eq!(daemon.touches.sequence().unwrap(), touches);
+    assert_eq!(
+        daemon
+            .route(&mut conn, "message.list", Value::Null)
+            .await
+            .unwrap(),
+        messages
+    );
+    assert!(
+        daemon
+            .route(&mut conn, "rail.tree", Value::Null)
+            .await
+            .unwrap()
+            .as_array()
+            .unwrap()
+            .is_empty()
+    );
+    drop(daemon);
+    let restarted = test_daemon(dir.path()).unwrap();
+    let mut conn = read(&restarted);
+    assert_eq!(
+        restarted
+            .route(&mut conn, "todo.list", Value::Null)
+            .await
+            .unwrap(),
+        completed
+    );
+}
