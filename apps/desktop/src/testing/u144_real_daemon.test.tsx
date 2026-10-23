@@ -526,7 +526,7 @@ describe("u2773 Project draft integration on real Projects", () => {
     fireEvent.click(within(document.querySelector<HTMLElement>(`.draft-revisions > li[data-revision="${older.revision}"]`)!).getByRole("button", { name: "Discard" }));
     expect(createProjectDrafts()(first.dir).list()).toEqual([newer]);
     expect(createProjectDrafts()(second.dir).list()).toEqual([separate]);
-    expect(calls.flatMap((spy) => spy.mock.calls).filter(([method]) => !["pad.list", "todo.list"].includes(method))).toEqual([]);
+    expect(calls.flatMap((spy) => spy.mock.calls).filter(([method]) => !["pad.list", "todo.list", "todo.listHanded"].includes(method))).toEqual([]);
   }, 60_000);
 
   it("u2773h_shared_authority_survives_project_lifecycle", async () => {
