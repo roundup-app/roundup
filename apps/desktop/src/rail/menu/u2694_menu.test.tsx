@@ -17,11 +17,11 @@ describe("u2694 the Rail's system menu", () => {
     const { app } = await mountRail([door("w", "idle", "idle"), agent("a", "working", "busy")]);
 
     open("w");
-    expect(app.menuLabels()).toEqual(["Rename", "Restart", "Start YOLO", "Stop", "Resume", "Clear…", "Send to Agent", "Copy Link", "Remove"]);
+    expect(app.menuLabels()).toEqual(["Rename", "Start YOLO", "Stop", "Clear…", "Send to Agent", "Copy Link", "Remove"]);
     expect(entry(app, "Rename")).toMatchObject({ shortcut: "F2" });
     expect(entry(app, "Remove")).toMatchObject({ shortcut: "⌘⌫" });
     open("a");
-    expect(app.menuLabels()).toEqual(["Rename", "Restart", "Start YOLO", "Stop", "Resume", "Send to Agent", "Copy Link", "Remove"]);
+    expect(app.menuLabels()).toEqual(["Rename", "Start YOLO", "Stop", "Send to Agent", "Copy Link", "Remove"]);
   });
 
   it("u2694b_stopping_a_door_calls_agent_stop", async () => {
@@ -103,17 +103,22 @@ describe("u2694 the Rail's system menu", () => {
     await app.pickMenu(action);
     open("a");
 
-    expect(entry(app, action).enabled).toBe(false);
+    expect(app.menuLabels()).not.toContain(action);
     expect(railCallsTo(app, "agent.resume")).toEqual([{ id: "a", mode }]);
   });
 
-  it("u2694d_the_item_of_the_current_mode_is_disabled", async () => {
-    const { app } = await mountRail([agent("a", "working", "busy")]);
+  it.each([
+    ["stopped", false, false, false, ["Start YOLO"]],
+    ["running", true, false, true, ["Start YOLO", "Stop"]],
+    ["yolo", true, true, false, ["Restart", "Stop"]],
+    ["stopped-yolo", false, true, false, []],
+    ["resumable", false, false, true, ["Start YOLO", "Resume"]],
+  ] as const)("u3799_a_row_menu_lists_only_the_actions_its_state_allows_%s", async (_state, running, yolo, can_resume, actions) => {
+    const { app } = await mountRail([door("w", running ? "idle" : "done", "ready", { yolo, can_resume })], running ? [] : [exitedTerminal("w", 0)]);
 
-    open("a");
+    open("w");
 
-    expect(entry(app, "Restart").enabled).toBe(false);
-    expect(entry(app, "Start YOLO").enabled).toBe(true);
+    expect(app.menuLabels()).toEqual(["Rename", ...actions, "Clear…", "Send to Agent", "Copy Link", "Remove"]);
   });
 
   it("u2694d_a_failed_resume_shows_the_failure_line", async () => {
@@ -134,7 +139,7 @@ describe("u2694 the Rail's system menu", () => {
 
     open("a");
     expect((app.shownMenus.at(-1)!.items.find((item) => item.label === "Send to Agent")!.children ?? []).map((child) => [child.label, child.enabled]))
-      .toEqual([["a", true], ["b", true], ["x", false]]);
+      .toEqual([["a", true], ["b", true]]);
     await app.pickMenu("b");
 
     await waitFor(() => expect(railCallsTo(app, "message.send")).toEqual([
@@ -153,7 +158,7 @@ describe("u2694 the Rail's system menu", () => {
     open("w");
 
     expect(entry(app, "Send to Agent").children?.map((child) => [child.label, child.enabled]))
-      .toEqual([["w", true], ["a", true], ["exited", false]]);
+      .toEqual([["w", true], ["a", true]]);
   });
 
   it("u2694c_copy_link_writes_the_link", async () => {
