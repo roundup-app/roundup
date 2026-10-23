@@ -17,7 +17,7 @@ export const createOwnerAssignment = (source: {
   advance: () => (() => Promise<void>) | undefined;
   fail: (id: number, message: string | null) => void;
 }) => {
-  const [revealed, setRevealed] = createSignal<string | null>(null);
+  const [revealed, setRevealed] = createSignal<string | readonly string[] | null>(null);
   const [regrouped, setRegrouped] = createSignal<{ id: number; owner: Actor | null } | null>(null);
 
   createEffect(() => {
@@ -43,14 +43,18 @@ export const createOwnerAssignment = (source: {
     });
   });
 
-  createComputed(on(() => source.todos.all().map(todo => ({ id: todo.id, owner: todo.owner })), (next, previous) => {
+  createComputed(on(() => source.todos.all().map(todo => ({ id: todo.id, owner: todo.owner ? { ...todo.owner } : null })), (next, previous) => {
     if (!previous) return;
+
+    const destinations: string[] = [];
 
     for (const todo of next) {
       const was = previous.find(each => each.id === todo.id);
 
-      if (was && !sameOwner(was.owner, todo.owner)) setRevealed(ownersOnRail(source.connected).find(each => sameOwner(each.actor, todo.owner))?.id ?? "unassigned");
+      if (was && !sameOwner(was.owner, todo.owner)) destinations.push(ownersOnRail(source.connected).find(each => sameOwner(each.actor, todo.owner))?.id ?? "unassigned");
     }
+
+    if (destinations.length) setRevealed(destinations);
   }));
 
   const assign = async (id: number, owner: Actor | null) => {

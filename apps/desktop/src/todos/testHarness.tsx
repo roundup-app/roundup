@@ -71,7 +71,9 @@ export const mountTodos = async (initial: Todo[], reducedMotion = true, rail: Ra
   if (initial.length > 0) await waitFor(() => expect(document.querySelector(".shelf-groups [data-part=branch-control], .shelf-done-line")).not.toBeNull());
   const disclosure = document.querySelector<HTMLElement>('[data-shelf-group="unassigned"] [data-part="branch-control"]');
 
-  if (disclosure) fireEvent.click(disclosure);
+  const unassigned = initial.some(todo => !todo.done && (todo.owner === null || (todo.owner.kind === "agent" && !rail.some(node => node.id === todo.owner?.id))));
+
+  if (disclosure && unassigned) fireEvent.click(disclosure);
 
   return { app, store, connected, todos, unmount, setReduced };
 };

@@ -19,7 +19,7 @@ export const OwnerGroups = <T,>(props: {
   /** U3719: the group whose new-Todo field is open; it shows and unfolds. */
   adding: Accessor<string | null>;
   /** U3720: the group a reassigned Todo arrived in; it unfolds so the row can take focus. */
-  reveal: Accessor<string | null>;
+  reveal: Accessor<string | readonly string[] | null>;
   /** Each change opens the Unassigned group, so a Todo just captured shows. */
   unfold?: Accessor<number>;
   /** U3730: the group named like the scope (a selected Agent's own) shows no header, so the scope's name appears once. */
@@ -27,6 +27,7 @@ export const OwnerGroups = <T,>(props: {
   detail?: (group: OwnerGroup<T>) => string;
   digit?: (group: OwnerGroup<T>) => number | undefined;
   keepEmpty?: boolean;
+  target?: Accessor<string | null>;
   /** Absent for a list with no per-group field (the Pads tab). */
   onAdd?: (group: OwnerGroup<T>) => void;
   /** U3770: completion effects only play in expanded groups. */
@@ -54,7 +55,7 @@ export const OwnerGroups = <T,>(props: {
     nodeToValue: node => node.id, nodeToString: node => node.name, isNodeDisabled: node => node.id.endsWith(":items"),
   }));
 
-  createEffect(on([props.adding, props.reveal], ([adding, reveal]) => setClosed(held => held.filter(each => each !== adding && each !== reveal))));
+  createEffect(on([props.adding, props.reveal], ([adding, reveal]) => setClosed(held => held.filter(each => each !== adding && !(typeof reveal === "string" ? [reveal] : reveal ?? []).includes(each)))));
 
   createEffect(on(() => props.unfold?.(), () => setClosed(held => held.filter(each => each !== "unassigned")), { defer: true }));
 
@@ -69,7 +70,7 @@ export const OwnerGroups = <T,>(props: {
         const group = () => shown().find(each => each.id === id)!;
 
         return <TreeView.NodeProvider node={collection().rootNode.children![at()]!} indexPath={[at()]}>
-        <TreeView.Branch data-shelf-group={id}>
+        <TreeView.Branch data-shelf-group={id} data-drop-target={props.target?.() === id ? "" : undefined}>
           <div class="shelf-group-head" hidden={props.bare?.() === id && !props.dragging()}>
             <TreeView.BranchControl class="shelf-group-control" data-button="quiet">
               <TreeView.BranchIndicator><Icon name={closed().includes(id) ? "right" : "down"} /></TreeView.BranchIndicator>

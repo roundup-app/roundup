@@ -786,7 +786,7 @@ export const Todos = (props: {
         </div>
       </Show>
       <Show when={listed().length > 0 || adding() !== null}>
-        <OwnerGroups count={group => group.items.filter(todo => !todo.done).length} onClosedChange={setClosedGroups} groups={() => ownerGroups(connected, listed(), todo => todo.owner)} dragging={() => dragging() || lifted() !== null} keepEmpty detail={group => group.id === "unassigned" && connected.rail.nodes.find(node => node.id === selectedWorkstream())?.auto ? copy.autoHandling : board.line(group)} digit={group => digit(group.id)} adding={() => adding()?.group ?? null} reveal={revealed} unfold={todos.revealed} onAdd={group => openField({ group: group.id, owner: group.actor })}>{group => {
+        <OwnerGroups count={group => group.items.filter(todo => !todo.done).length} onClosedChange={setClosedGroups} groups={() => ownerGroups(connected, listed(), todo => todo.owner)} dragging={() => dragging() || lifted() !== null} keepEmpty target={() => lifted()?.group ?? null} detail={group => group.id === "unassigned" && connected.rail.nodes.find(node => node.id === selectedWorkstream())?.auto ? copy.autoHandling : board.line(group)} digit={group => digit(group.id)} adding={() => adding()?.group ?? null} reveal={revealed} unfold={todos.revealed} onAdd={group => openField({ group: group.id, owner: group.actor })}>{group => {
         const tree = createMemo(() => treeRows(group().items));
         const collection = createMemo(() => treeCollection(tree()));
         const placeOf = (id: number) => tree().find((row) => row.todo.id === id) ?? { level: 1, parent: null };

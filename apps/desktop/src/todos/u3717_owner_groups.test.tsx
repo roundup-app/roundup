@@ -148,7 +148,8 @@ it("u3717_group_order_is_me_agents_unassigned", async () => {
 
 it("u3717_unassigned_starts_folded", async () => {
   const { app, store } = await mountTodos([todo(1, { owner: ME })]);
-  await waitFor(() => expect(groups()).toEqual(["me"]));
+  // U3308 keeps empty owner headers visible; this scenario still proves the initial fold.
+  await waitFor(() => expect(groups()).toEqual(["me", "unassigned"]));
 
   store.todos = [...store.todos, todo(4)];
   app.emit(todoEvent("todo.created", store.todos[1]!));
