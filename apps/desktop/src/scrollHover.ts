@@ -20,7 +20,7 @@ export const showScrollbars = (element: HTMLElement): void => {
 
 /** U3530: retain each native viewport and its handlers, including textareas and shadow-root scrollers. */
 export const trackScrollbars = (doc: Document): void => {
-  const entries = new Map<HTMLElement, { bars: Scrollbars; slot: HTMLElement; left: number; top: number }>();
+  const entries = new Map<HTMLElement, { bars: Scrollbars; slot: HTMLElement; left: number; top: number; width: number; height: number }>();
   const roots = new Map<Document | ShadowRoot, MutationObserver>();
   const pending = new Set<ParentNode>();
   let frame = 0;
@@ -82,7 +82,11 @@ export const trackScrollbars = (doc: Document): void => {
       if (!(target instanceof HTMLElement)) continue;
       const entry = entries.get(target);
 
-      if (entry) place(target, entry.slot);
+      if (entry) {
+        entry.width = target.scrollWidth;
+        entry.height = target.scrollHeight;
+        place(target, entry.slot);
+      }
     }
   });
 
@@ -125,7 +129,7 @@ export const trackScrollbars = (doc: Document): void => {
         scrollbars: { theme: "app-scrollbar", autoHide: "never", autoHideSuspend: false, dragScroll: true, clickScroll: false },
       });
 
-      entries.set(element, { bars, slot, left: element.scrollLeft, top: element.scrollTop });
+      entries.set(element, { bars, slot, left: element.scrollLeft, top: element.scrollTop, width: element.scrollWidth, height: element.scrollHeight });
       resize.observe(element);
       place(element, slot);
     }
@@ -185,8 +189,16 @@ export const trackScrollbars = (doc: Document): void => {
     const updateField = (event: Event) => {
       const target = event.composedPath()[0];
 
-      // Textarea values are properties, so the library's DOM observer cannot see typing.
-      if (target instanceof HTMLTextAreaElement) entries.get(target)?.bars.update(true);
+      // Textarea values bypass DOM observers. Forcing unchanged geometry would
+      // mutate the sibling thumbs during every keystroke of a fitting draft.
+      if (!(target instanceof HTMLTextAreaElement)) return;
+      const entry = entries.get(target);
+
+      if (entry && (entry.width !== target.scrollWidth || entry.height !== target.scrollHeight)) {
+        entry.width = target.scrollWidth;
+        entry.height = target.scrollHeight;
+        entry.bars.update(true);
+      }
     };
 
     root.addEventListener("input", updateField, true);
