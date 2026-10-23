@@ -45,7 +45,7 @@ const WaitFor = (props: { todos: readonly { id: number; title: string }[]; value
     chords: ["Escape"], run: () => { close(); button?.focus(); },
   }]);
 
-  return <Popover.Root open={open()} onOpenChange={({ open }) => { if (!open) close(); }} positioning={{ placement: "bottom-start", strategy: "fixed" }}>
+  return <Popover.Root closeOnInteractOutside={false} open={open()} onOpenChange={({ open }) => { if (!open) close(); }} positioning={{ placement: "bottom-start", strategy: "fixed" }}>
     <Popover.Trigger asChild={attributes => <button {...attributes()} ref={element => { button = element; }} type="button" data-button="quiet" class="app-dialog-pick" onClick={() => { if (open()) close(); else setOpen(true); }}>
       <span>{chosen() ? `#${chosen()!.id} ${chosen()!.title}` : copy.chooseTodo}</span><Icon name="down" />
     </button>} />

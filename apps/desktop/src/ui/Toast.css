@@ -35,6 +35,11 @@
   pointer-events: none !important;
 }
 
+/* Folded cards show only their opaque edges, so deeper content cannot paint over a nearer edge. */
+.app-toast[data-overlap][data-sibling] > * {
+  visibility: hidden;
+}
+
 /* U3793: a leaving card fades and sinks one gap from where it rests. */
 .app-toast[data-state="closed"] {
   --y: calc(var(--lift) * var(--offset) + var(--space-2)) !important;

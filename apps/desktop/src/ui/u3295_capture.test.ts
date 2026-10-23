@@ -50,6 +50,8 @@ it.skipIf(!captureDir("U3295b"))("u3295b_rendered_modal_dismissal_and_dialog_pic
     await wait("!!document.querySelector('.ask-bar[data-mode=over] textarea')");
     await read("(() => { const field = document.querySelector('.ask-bar textarea'); field.value = '@'; field.dispatchEvent(new InputEvent('input', { bubbles: true })); })()");
     await wait("!!document.querySelector('.app-mentions')");
+    await browser("click", ".ask-bar textarea");
+    expect(await read<boolean>("!!document.querySelector('.app-mentions')")).toBe(true);
     await snap("ask-and-mentions");
     await read("document.querySelector('.rail-import').click()");
     await wait("!!document.querySelector('.import-panel')");

@@ -20,7 +20,7 @@ const Root = (props: {
 
   createEffect(on(() => props.items, () => setDismissed(false)));
 
-  return <Popover.Root open={props.items.length > 0 && !dismissed()} onOpenChange={({ open }) => { if (!open) { setDismissed(true); props.onDismiss?.(); } }} closeOnEscape positioning={{ placement: "bottom-start", gutter: 4, strategy: "fixed" }}>
+  return <Popover.Root closeOnInteractOutside={false} open={props.items.length > 0 && !dismissed()} onOpenChange={({ open }) => { if (!open) { setDismissed(true); props.onDismiss?.(); } }} closeOnEscape positioning={{ placement: "bottom-start", gutter: 4, strategy: "fixed" }}>
     <ArkListbox.Root collection={collection()} value={[]} highlightedValue={props.highlightedValue ?? undefined} typeahead={false}
       onHighlightChange={(details) => props.onHighlightChange(details.highlightedValue)}
       onValueChange={(details) => {
