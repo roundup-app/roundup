@@ -63,6 +63,18 @@
   --duration-drawer: 180ms;
   --duration-crossfade: 120ms;
   --duration-todo: 150ms;
+  --ease-todo: cubic-bezier(0.22, 1, 0.36, 1);
+  --ease-pop: cubic-bezier(0.34, 1.56, 0.64, 1);
+  --duration-tick: 420ms;
+  --delay-tick: 160ms;
+  --duration-ring: 560ms;
+  --duration-strike: 620ms;
+  --delay-strike: 220ms;
+  --duration-bar: 1100ms;
+  --strike-thickness: 1px;
+  --strike-offset: 55%;
+  --stroke-tick: 1.5;
+  --duration-count: 560ms;
   --duration-toast: 150ms;
   --duration-toast-in: 200ms;
   --duration-fold: 150ms;
@@ -137,4 +149,9 @@
 /* U510: ghost buttons and shadow-root tree rows dim their pressed ink. */
 button, file-tree-container {
   --ink-pressed: color-mix(in srgb, var(--text) 75%, transparent);
+}
+
+/* U3768: the progress bar's track tints the grey. */
+:root {
+  --progress-track: color-mix(in srgb, var(--grey) 40%, transparent);
 }
