@@ -291,18 +291,33 @@ def drop_tk(b: Bool, +id: Nat, s: World) -> World:
         case W{+q, +haf, +htk, +t, +d, +u, +tt, +rl, +n, +tk, +us, +i, +g}:
           W{q, haf, remove(id, htk), t, snoc(d, id), u, tt, rl, n, tk, us, i, g}
 
-def drop_pick(a: Bool, b: Bool, +id: Nat, s: World) -> World:
+# U3782: a `pending` Message the user sent, with no in-flight record (the model types atomically), is dropped (reason `removed`): it leaves the queue, nothing is typed.
+def drop_q(b: Bool, +id: Nat, s: World) -> World:
+  match b:
+    case False{}:
+      s
+    case True{}:
+      match s:
+        case W{+q, +haf, +htk, +t, +d, +u, +tt, +rl, +n, +tk, +us, +i, +g}:
+          W{remove(id, q), haf, htk, t, snoc(d, id), u, tt, rl, n, tk, us, i, g}
+
+def drop_pick(a: Bool, b: Bool, c: Bool, +id: Nat, s: World) -> World:
   match a:
     case True{}:
       drop_if(True{}, id, s)
     case False{}:
-      drop_tk(b, id, s)
+      match b:
+        case True{}:
+          drop_tk(True{}, id, s)
+        case False{}:
+          drop_q(c, id, s)
 
 # B3, B6 as amended in #222 (a dependency: merge #222 first): the user can drop a Message held for ask-first or for a Takeover; the Takeover goes on.
+# U3782, B39: the user can also drop a `pending` Message the user sent that has no in-flight record.
 def user_drop(+id: Nat, s: World) -> World:
   match s:
     case W{+q, +haf, +htk, +t, +d, +u, +tt, +rl, +n, +tk, +us, +i, +g}:
-      drop_pick(mem(id, haf), mem(id, htk), id, W{q, haf, htk, t, d, u, tt, rl, n, tk, us, i, g})
+      drop_pick(mem(id, haf), mem(id, htk), Bool.and(mem(id, q), mem(id, u)), id, W{q, haf, htk, t, d, u, tt, rl, n, tk, us, i, g})
 
 def set_idle(b: Bool, s: World) -> World:
   match s:

@@ -25,14 +25,15 @@ runs:
       run: python3 /opt/roundup-ci/image.py verify "${{ github.action_path }}/action.yml"
     # The browser downloads and its system packages install in about 30 s of waiting on the network: where no Tauri
     # install holds apt's lock, they run in the background while the toolchain, caches and Node install, and `Wait for
-    # browser` joins them. The package goes to its own prefix: this runs before `setup-node`, on the runner's own Node.
+    # browser` joins them. Chrome's system libraries are preinstalled on the runner image: `--with-deps` (apt-get update plus
+    # installs from a mirror that once served 51 kB/s for 22 min) runs only when `ldd` finds one missing. The package goes to its own prefix: this runs before `setup-node`, on the runner's own Node.
     - if: runner.environment != 'self-hosted' && inputs.browser == 'true' && inputs.rust != 'true'
       name: Start browser install
       shell: bash
       run: |
         prefix="$HOME/.agent-browser-npm"
         echo "$prefix/bin" >>"$GITHUB_PATH"
-        setsid bash -c 'npm install -g --prefix "$1" agent-browser@0.27.0 && PATH="$1/bin:$PATH" agent-browser install ${{ runner.os == 'Linux' && '--with-deps' || '' }}; echo $? >"$2"' _ "$prefix" "$RUNNER_TEMP/browser.status" >"$RUNNER_TEMP/browser.log" 2>&1 </dev/null &
+        setsid bash -c 'npm install -g --prefix "$1" agent-browser@0.27.0 && PATH="$1/bin:$PATH" && agent-browser install && { [ "$(uname)" != Linux ] || ! ldd "$HOME"/.agent-browser/browsers/chrome-*/chrome | grep -q "not found" || agent-browser install --with-deps; }; echo $? >"$2"' _ "$prefix" "$RUNNER_TEMP/browser.status" >"$RUNNER_TEMP/browser.log" 2>&1 </dev/null &
     # The 184 packages download and unpack for about 35 s with nothing else to wait on: they install in the background
     # while the toolchain, caches and Node install, and `Wait for Tauri packages` joins them before anything else takes apt's lock or builds.
     # The 61 MB of packages come from a slow mirror (25 s): a cache of the downloaded archives leaves only the
@@ -113,7 +114,10 @@ runs:
       shell: bash
       run: |
         npm install -g agent-browser@0.27.0
-        agent-browser install ${{ runner.os == 'Linux' && '--with-deps' || '' }}
+        agent-browser install
+        if [ "$(uname)" = Linux ] && ldd "$HOME"/.agent-browser/browsers/chrome-*/chrome | grep -q "not found"; then
+          agent-browser install --with-deps
+        fi
     - if: runner.environment != 'self-hosted' && inputs.browser == 'true' && inputs.rust != 'true'
       name: Wait for browser
       shell: bash
