@@ -343,6 +343,50 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn a3342a_a_late_signal_after_removal_adds_no_entry() {
+        let (_dir, _, shared) = shared_over_temp_dir(Arc::new(|| 0));
+        let id = running_agent(&shared, None);
+        record_call(&shared, &id);
+        shared.remove(Actor::user(), &id).await.unwrap();
+        assert!(shared.events.tool_calls.lock().unwrap().is_empty());
+
+        let error = shared
+            .observe(
+                Actor::daemon(),
+                &id,
+                "1",
+                Observation::Signal(
+                    serde_json::json!({"hook_event_name": "PreToolUse", "tool_use_id": "late",
+                "tool_name": "Read", "tool_input": {"file_path": "/late"}}),
+                ),
+            )
+            .unwrap_err();
+
+        assert_eq!(error.code, rpc::code::NOT_FOUND);
+        assert!(shared.events.tool_calls.lock().unwrap().is_empty());
+        assert!(shared.tree().unwrap().is_empty());
+    }
+
+    #[tokio::test]
+    async fn a3342a_stopping_without_removal_keeps_the_last_call() {
+        let (_dir, _, shared) = shared_over_temp_dir(Arc::new(|| 0));
+        let id = running_agent(&shared, None);
+        record_call(&shared, &id);
+        shared.observe(Actor::daemon(), &id, "1", Observation::Signal(
+            serde_json::json!({"hook_event_name": "PostToolUse", "tool_use_id": "call", "tool_response": "ok"})
+        )).unwrap();
+        let before = shared.events.tool_calls.lock().unwrap().clone();
+
+        shared.stop(Actor::user(), &id).await.unwrap();
+
+        assert_eq!(*shared.events.tool_calls.lock().unwrap(), before);
+        assert_eq!(
+            shared.node(&id).unwrap().tool_call.as_ref(),
+            Some(&before[&id].call)
+        );
+    }
+
+    #[tokio::test]
     async fn a3342a_workstream_removal_prunes_only_its_agents() {
         let (_dir, _, shared) = shared_over_temp_dir(Arc::new(|| 0));
         let ws = shared
@@ -413,16 +457,6 @@ mod tests {
         }
     }
 
-    #[tokio::test]
-    async fn a16_a_failed_stop_returns_the_error_and_deletes_nothing() {
-        let shared = shared_with_a_failing_kill();
-        let id = running_agent(&shared, None);
-
-        let err = shared.remove(Actor::daemon(), &id).await.unwrap_err();
-
-        assert_eq!(err.code, rpc::code::INTERNAL);
-        assert_eq!(shared.rail().tree().unwrap().len(), 1);
-    }
     /// A Door whose kill fails must not have its children lifted either: `stop` returning
     /// early before it calls `lift_children` is what this proves.
     #[tokio::test]
@@ -623,19 +657,23 @@ mod tests {
     /// before the kill that then fails) is exactly what lets a second `rail.remove` retry and
     /// succeed.
     #[tokio::test]
-    async fn a16_a_failed_stops_done_status_lets_a_second_remove_retry_and_succeed() {
+    async fn a3342a_a_failed_removal_keeps_the_entries() {
         let (_dir, shared) = shared_with_a_flaky_kill();
         let id = running_agent(&shared, None);
+        record_call(&shared, &id);
+        let before = shared.events.tool_calls.lock().unwrap().clone();
 
         let err = shared.remove(Actor::daemon(), &id).await.unwrap_err();
 
         assert_eq!(err.code, rpc::code::INTERNAL);
         let node = shared.node(&id).unwrap();
         assert_eq!(node.status.unwrap().kind, Kind::Done);
+        assert_eq!(*shared.events.tool_calls.lock().unwrap(), before);
 
         shared.remove(Actor::daemon(), &id).await.unwrap();
 
         assert!(shared.rail().tree().unwrap().is_empty());
+        assert!(shared.events.tool_calls.lock().unwrap().is_empty());
     }
     /// `remove`'s eviction of `id` from `runs` can race a Terminal exit already in flight: the
     /// watcher must end quietly, not panic through `REGISTERED`'s `.expect`.
@@ -656,20 +694,52 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn a16_a_delete_failure_after_a_successful_stop_leaves_the_node_with_its_exited_agent() {
-        let (dir, _, shared) = shared_over_temp_dir(Arc::new(|| 0));
-        let id = running_agent(&shared, None);
-        let db = rusqlite::Connection::open(dir.path().join("agents.db")).unwrap();
-        db.execute_batch("CREATE TRIGGER fail_delete BEFORE DELETE ON nodes BEGIN SELECT RAISE(ABORT,'delete refused'); END;").unwrap();
-        let error = shared.remove(Actor::user(), &id).await.unwrap_err();
-        assert_eq!(error.code, rpc::code::INTERNAL);
-        let tree = shared.tree().unwrap();
-        assert_eq!(tree.len(), 1);
-        assert_eq!(tree[0].id, id);
-        assert_eq!(tree[0].status.as_ref().unwrap().kind, Kind::Done);
-        db.execute_batch("DROP TRIGGER fail_delete").unwrap();
-        shared.remove(Actor::user(), &id).await.unwrap();
-        assert!(shared.tree().unwrap().is_empty());
+    async fn a3342a_a_failed_deletion_keeps_the_entries() {
+        for workstream in [false, true] {
+            let (dir, _, shared) = shared_over_temp_dir(Arc::new(|| 0));
+            let ws = workstream.then(|| {
+                shared
+                    .rail()
+                    .insert(NodeKind::Workstream, "w", None, None)
+                    .unwrap()
+                    .id
+            });
+            let id = running_agent(&shared, ws.as_deref());
+            record_call(&shared, &id);
+            if workstream {
+                shared
+                    .observe(
+                        Actor::daemon(),
+                        &id,
+                        "1",
+                        Observation::Signal(serde_json::json!({"hook_event_name": "SessionEnd"})),
+                    )
+                    .unwrap();
+            }
+            let before = shared.events.tool_calls.lock().unwrap().clone();
+            let db = rusqlite::Connection::open(dir.path().join("agents.db")).unwrap();
+            db.execute_batch("CREATE TRIGGER fail_delete BEFORE DELETE ON nodes BEGIN SELECT RAISE(ABORT,'delete refused'); END;").unwrap();
+            let error = if let Some(ws) = &ws {
+                shared
+                    .remove_workstream(Actor::user(), ws)
+                    .await
+                    .unwrap_err()
+            } else {
+                shared.remove(Actor::user(), &id).await.unwrap_err()
+            };
+            assert_eq!(error.code, rpc::code::INTERNAL);
+            assert_eq!(shared.tree().unwrap().len(), if workstream { 2 } else { 1 });
+            assert_eq!(shared.node(&id).unwrap().status.unwrap().kind, Kind::Done);
+            assert_eq!(*shared.events.tool_calls.lock().unwrap(), before);
+            db.execute_batch("DROP TRIGGER fail_delete").unwrap();
+            if let Some(ws) = &ws {
+                shared.remove_workstream(Actor::user(), ws).await.unwrap();
+            } else {
+                shared.remove(Actor::user(), &id).await.unwrap();
+            }
+            assert!(shared.tree().unwrap().is_empty());
+            assert!(shared.events.tool_calls.lock().unwrap().is_empty());
+        }
     }
 
     #[tokio::test]
