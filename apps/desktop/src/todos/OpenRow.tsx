@@ -193,7 +193,7 @@ export const OpenRow = (props: {
         {/* oxlint-disable-next-line anti-slop/no-tooltip-bypass -- U3731 requires the whole first line as the one-line body's title attribute. */}
         <p class="item-description" data-todo-description title={bodyLine()}>{bodyLine()}</p>
       </Show>
-      <Show when={failure()}>{(message) => <ErrorLine message={message()} />}</Show>
+      <div class="todo-row-notice"><ReservedLine overlay message={failure()} /></div>
       <Show when={props.nested}>
         <p class="shelf-meta" data-todo-meta>
           <Show when={props.nested}><span data-mono>{copy.todoNumberMark}{props.todo.id}</span>{" "}</Show>
