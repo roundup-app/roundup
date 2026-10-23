@@ -155,6 +155,9 @@ export const TimelineView = (props: { home: string; name: string; back: () => vo
     <Show when={lanes().length > 0} fallback={<p class="empty-state timeline-empty">{copy.timelineEmpty}</p>}>
       <div class="timeline-axis"><span /><div class="timeline-axis-ticks"><For each={[30, 20, 10, 0]}>{(minutes) => <span style={{ left: `${(30 - minutes) / 30 * 100}%` }}>{minutes === 0 ? copy.timelineNow : copy.timelineAgo(minutes)}</span>}</For></div></div>
       <div class="timeline-lanes">
+        <div class="timeline-lines">
+          <For each={lines()}>{(line) => <span class="timeline-line" role="img" aria-label={line.label} style={{ left: percent(line.at), top: `calc(var(--lane-height) * ${line.from + 0.5})`, height: `calc(var(--lane-height) * ${line.to - line.from})` }} />}</For>
+        </div>
         <ol aria-label={copy.timelineLanes}>
           <For each={lanes()}>{(lane) => <li class="timeline-lane" data-agent={lane.id}>
             <span class="timeline-name"><Show when={lane.id !== props.home && lane.name !== props.name}>{lane.removed ? copy.timelineRemoved(lane.name) : lane.name}</Show></span>
@@ -171,9 +174,6 @@ export const TimelineView = (props: { home: string; name: string; back: () => vo
             </div>
           </li>}</For>
         </ol>
-        <div class="timeline-lines">
-          <For each={lines()}>{(line) => <span class="timeline-line" role="img" aria-label={line.label} style={{ left: percent(line.at), top: `calc(var(--lane-height) * ${line.from + 0.5})`, height: `calc(var(--lane-height) * ${line.to - line.from})` }} />}</For>
-        </div>
       </div>
     </Show>
     <Show when={asking() !== null ? decisions.of(asking()!) : undefined}>{(decision) => <DecisionCard decision={decision()} name={known[asking()!]?.name ?? ""} focusTerminal={toAgent} ref={(element) => { card = element; }} onEscape={closeCard} onFocusIn={() => {}} onFocusOut={() => {}} />}</Show>

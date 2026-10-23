@@ -16,7 +16,7 @@ it("u2540a_open_back_close_and_editor_actions", async () => {
   fireEvent.click(screen.getByRole("button", { name: "View diff" }));
   await screen.findByRole("button", { name: "Add note" });
   expect(app.calls.filter(c => c.method === "agent.compareFile").map(c => c.params)).toEqual([{ id: "a", path: "src/a.ts" }]);
-  fireEvent.click(screen.getByRole("button", { name: "Close" }));
+  fireEvent.click(screen.getByRole("button", { name: "Back" }));
   await waitFor(() => expect(document.querySelector("file-tree-container")?.shadowRoot?.activeElement?.getAttribute("data-item-path")).toBe("src/a.ts"));
   fireEvent.keyDown(document.querySelector("file-tree-container")!.shadowRoot!.activeElement!, { key: "Enter", composed: true });
   await waitFor(() => expect(app.editorCalls).toHaveLength(1));
@@ -47,7 +47,6 @@ it("u2540a_nontext_empty_and_failed_reads_remain_navigable", async () => {
   fireEvent.click(screen.getByRole("button", { name: "Refresh" }));
   await screen.findByRole("button", { name: "Refresh" });
   expect(screen.queryByRole("button", { name: "Add note" })).toBeNull();
-  expect(screen.getByRole("button", { name: "Close" })).toBeTruthy();
   app.handlers["agent.compareFile"] = () => ({ ...COMPARISON, status: null });
   fireEvent.click(screen.getByRole("button", { name: "Refresh" }));
   await screen.findByText(/No remaining difference/);

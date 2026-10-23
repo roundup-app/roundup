@@ -118,7 +118,7 @@ it("u2540d_review_stage_rendered_observer", async () => {
     const after = await capture(`${theme}-diff`);
 
     for (const id of CHECK_IDS) if (baseline[id].status === "pass") expect(after[id].status, id).toBe("pass");
-    await click("Close");
+    await click("Back");
     await wait("!!document.querySelector('file-tree-container')");
     await click("Close");
     await open("/src/changes/u2540.html?dense");
@@ -135,7 +135,7 @@ it("u2540d_review_stage_rendered_observer", async () => {
     const failure = await capture(`${theme}-failure`);
 
     for (const id of CHECK_IDS) if (baseline[id].status === "pass") expect(failure[id].status, id).toBe("pass");
-    await click("Close");
+    await click("Back");
     await click("Close");
   }
 }, 180_000);
