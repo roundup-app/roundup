@@ -14,6 +14,7 @@ import { progressSeed } from "../testing/progressSeed";
 import { TodoComments } from "../todos/TodoComments";
 import { TodoHistory } from "../todos/TodoHistory";
 import { TodoRefs } from "../todos/TodoRefs";
+import { mountAskBar, input, press } from "../ask/askFixture";
 import { mountTodos, todo } from "../todos/testHarness";
 
 afterEach(cleanup);
@@ -129,4 +130,39 @@ it("u3807_each_site_shows_its_message_in_the_reserved_line: Terminal name recove
   expect(recovery.isConnected).toBe(true);
   await within(recovery).findByText("Original object unavailable");
   unchanged(places, notice);
+});
+
+
+it("u3807_each_site_shows_its_message_in_the_reserved_line: Ask send", async () => {
+  const { app } = await mountAskBar();
+  const surface = document.querySelector<HTMLElement>(".ask-bar")!;
+  const places = placesOf(surface);
+  app.handlers["ask.send"] = () => { throw new RpcError(-32003, FAILURE); };
+  fireEvent.input(input()!, { target: { value: "keep this request" } });
+  press("Enter", {}, input()!);
+  const alert = await within(surface).findByRole("alert");
+  const place = alert.closest(".reserved-line")!;
+  expect(alert.textContent).toContain(FAILURE);
+  unchanged(places, place);
+  app.handlers["ask.send"] = () => ({ id: "accepted", text: "retry", at: 0n, parts: [] });
+  fireEvent.input(input()!, { target: { value: "retry" } });
+  press("Enter", {}, input()!);
+  await waitFor(() => expect(within(surface).queryByRole("alert")).toBeNull());
+  unchanged(places, place);
+});
+
+it("u3807_each_site_shows_its_message_in_the_reserved_line: Todo row", async () => {
+  const { app } = await mountTodos([todo(1)]);
+  const row = document.querySelector<HTMLElement>('[data-todo="1"]')!;
+  const places = placesOf(row);
+  const siblings = [...row.children];
+  app.handlers["todo.complete"] = () => { throw new RpcError(-32003, FAILURE); };
+  fireEvent.click(await within(row).findByRole("checkbox"));
+  const place = (await within(row).findByRole("alert")).closest(".reserved-line")!;
+  unchanged(places, place);
+  expect([...row.children]).toEqual(siblings);
+  fireEvent.click(document.body);
+  await waitFor(() => expect(within(row).queryByRole("alert")).toBeNull());
+  unchanged(places, place);
+  expect([...row.children]).toEqual(siblings);
 });
