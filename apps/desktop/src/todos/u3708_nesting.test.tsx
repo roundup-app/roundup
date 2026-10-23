@@ -5,7 +5,7 @@ import { mountTodos, todo, todoCallsTo as callsTo, todoEvent, todoRowOf as rowOf
 
 afterEach(cleanup);
 
-const levelOf = (id: number) => Number(rowOf(id).getAttribute("aria-level"));
+const levelOf = (id: number) => Number(rowOf(id).closest("[role=treeitem]")?.getAttribute("aria-level"));
 
 const ids = () => [...document.querySelectorAll<HTMLElement>("[data-level]")].map((row) => Number(row.dataset.id));
 
@@ -21,19 +21,21 @@ describe("u3708 the Todos list is a tree drawn from blockers", () => {
 
     expect(ids()).toEqual([1, 2, 3, 4]);
     expect([1, 2, 3, 4].map(levelOf)).toEqual([1, 2, 3, 1]);
-    expect(within(rowOf(2)).queryByRole("img", { name: "Blocked" })).toBeNull();
+    expect(within(rowOf(2)).getByRole("img", { name: "Blocked" })).toBeTruthy();
   });
 
-  it("u3708_the_other_blockers_show_as_one_quiet_line", async () => {
-    await mountTodos([todo(1, { title: "a" }), todo(2, { title: "b" }), todo(3, { blocked: true, blockers: [1, 2] }), todo(4, { blocked: true, blockers: [1] })]);
+  it("u3810_locked_rows_name_only_open_blockers_and_open_their_drawers (u3708_the_other_blockers_show_as_one_quiet_line)", async () => {
+    const { app } = await mountTodos([todo(1, { title: "a" }), todo(2, { title: "b" }), todo(3, { blocked: true, blockers: [1, 2] }), todo(4, { blocked: true, blockers: [1] })]);
     await screen.findByRole("tree");
     const line = rowOf(3).querySelector<HTMLElement>("[data-todo-also-waits]")!;
 
-    expect(line.textContent).toBe("also waits on: b");
+    expect(within(line).getAllByRole("button").map(button => button.getAttribute("aria-label"))).toEqual(["Open blocker a", "Open blocker b"]);
     expect(levelOf(3)).toBe(2);
-    expect(rowOf(4).querySelector("[data-todo-also-waits]")).toBeNull();
-    expect(rowOf(3).textContent).not.toContain("Waits on");
-    expect(within(rowOf(3)).getByRole("button", { name: "Open blocker b" })).toBeTruthy();
+    expect(within(rowOf(4)).getByRole("button", { name: "Open blocker a" })).toBeTruthy();
+    expect(within(rowOf(3)).getByRole("img", { name: "Blocked" })).toBeTruthy();
+    fireEvent.click(within(rowOf(3)).getByRole("button", { name: "Open blocker b" }));
+    await screen.findByRole("complementary", { name: "Drawer" });
+    await waitFor(() => expect(callsTo(app, "todo.getHistory").at(-1)?.params).toEqual({ id: 2 }));
   });
 
   it("u3708_the_list_is_a_tree_of_treeitems_with_levels", async () => {
@@ -46,12 +48,12 @@ describe("u3708 the Todos list is a tree drawn from blockers", () => {
     expect(tree.getAttribute("data-scope")).toBe("tree-view");
     expect(items.every((item) => item.closest("[role=tree]") === tree)).toBe(true);
 
-    expect(items.map((item) => item.getAttribute("role"))).toEqual(["treeitem", "treeitem"]);
-    expect(items.map((item) => item.getAttribute("aria-level"))).toEqual(["1", "2"]);
-    expect(items.every((item) => !item.hasAttribute("aria-expanded"))).toBe(true);
+    expect(within(tree).getAllByRole("treeitem")).toHaveLength(2);
+    expect(items.map((item) => item.closest("[role=treeitem]")?.getAttribute("aria-level"))).toEqual(["1", "2"]);
+    expect(screen.getByRole("button", { name: "Toggle todo 1 group" }).getAttribute("aria-expanded")).toBe("true");
   });
 
-  it("u3708_ticking_a_parent_unnests_its_children", async () => {
+  it("u3809_ticking_a_parent_keeps_its_dependency_group", async () => {
     const { app, store } = await mountTodos([todo(1), todo(2, { blocked: true, blockers: [1] })]);
 
     await screen.findByRole("tree");
@@ -61,7 +63,7 @@ describe("u3708 the Todos list is a tree drawn from blockers", () => {
     app.emit(todoEvent("todo.updated", store.todos[0]!));
     app.emit(todoEvent("todo.updated", store.todos[1]!));
 
-    await waitFor(() => expect(levelOf(2)).toBe(1));
+    await waitFor(() => expect(levelOf(2)).toBe(2));
     await waitFor(() => expect(document.activeElement).toBe(buttonOf(2)));
   });
 });
@@ -140,14 +142,144 @@ describe("u3711 a move that would make a cycle is refused and says why", () => {
   });
 });
 
-describe("u3712 the Waits on line is gone", () => {
-  it("u3712_a_blocked_row_has_no_waits_on_line_and_a_centred_marker", async () => {
-    await mountTodos([todo(1), todo(2, { blocked: true, blockers: [1] }), todo(3, { blocked: true, blockers: [99] })]);
-    await screen.findByRole("tree");
-
-    expect(document.querySelector("[data-todo-waits]")).toBeNull();
-    expect(rowOf(2).textContent).not.toMatch(/waits on/i);
-    expect(within(rowOf(2)).queryByRole("img", { name: "Blocked" })).toBeNull();
-    expect(within(rowOf(3)).getByRole("img", { name: "Blocked" })).toBeTruthy();
+describe("u3809 dependency groups retain their members", () => {
+  it("u3809_group_and_scope_progress_have_distinct_membership", async () => {
+    await mountTodos([todo(1), todo(2, { done: true, blockers: [1] }), todo(3, { blockers: [1] }), todo(4, { blockers: [2] })]);
+    const group = await screen.findByRole("progressbar", { name: "Todos done in todo 1" });
+    expect(group.getAttribute("aria-valuenow")).toBe("1");
+    expect(group.getAttribute("aria-valuemax")).toBe("3");
+    expect(screen.getByRole("progressbar", { name: "Todos done in todo 2" }).getAttribute("aria-valuemax")).toBe("1");
+    expect(screen.getByRole("progressbar", { name: "Todos done" }).getAttribute("aria-valuemax")).toBe("4");
+    expect(document.querySelectorAll('[data-todo="2"]')).toHaveLength(1);
   });
+
+  it("u3809_disclosure_toggles_only_its_inert_contents (u3809_closed_groups_preserve_focus_and_done_rows_are_not_duplicated)", async () => {
+    const mounted = await mountTodos([todo(1), todo(2, { blockers: [1] }), todo(3, { done: true, blockers: [1] })]);
+    const disclosure = await screen.findByRole("button", { name: "Toggle todo 1 group" });
+    within(rowOf(2)).getByRole("checkbox").focus();
+    fireEvent.click(disclosure);
+    await waitFor(() => expect(disclosure.getAttribute("aria-expanded")).toBe("false"));
+    expect(document.activeElement).toBe(disclosure);
+    expect(screen.queryByRole("checkbox", { name: "Complete todo 2" })).toBeNull();
+    expect(callsTo(mounted.app, "todo.complete")).toHaveLength(0);
+    fireEvent.click(disclosure);
+    expect(await screen.findByRole("checkbox", { name: "Complete todo 2" })).toBeTruthy();
+    expect(document.querySelectorAll('[data-todo="3"]')).toHaveLength(1);
+  });
+});
+
+
+describe("u3811 completion advances the visible dependency groups", () => {
+  const setup = async (reduced = true, candidates = 2) => mountTodos([
+    todo(1, { done: true }), todo(2, { blockers: [1] }),
+    todo(3, { done: true }), todo(4, { blockers: [3, 2, ...(candidates === 0 ? [7] : [])], blocked: true }),
+    todo(5, { done: true }), todo(6, { blockers: [5, 2, ...(candidates < 2 ? [7] : [])], blocked: true }), todo(7),
+  ], reduced);
+
+  const disclosure = (id: number) => screen.getByRole("button", { name: `Toggle todo ${id} group` });
+
+  const accept = async (mounted: Awaited<ReturnType<typeof setup>>) => {
+    mounted.store.todos = mounted.store.todos.map(item => item.id === 2 ? { ...item, done: true } : item);
+    mounted.store.todos = mounted.store.todos.map(item => ({ ...item, blocked: item.blockers.some(id => mounted.store.todos.some(blocker => blocker.id === id && !blocker.done)) }));
+    mounted.app.emit(todoEvent("todo.updated", mounted.store.todos[1]!));
+    await mounted.todos.reload();
+  };
+
+  it.each([0, 1, 2])("u3811_final_child_folds_and_opens_only_the_first_newly_unblocked_group (%s candidates)", async candidates => {
+    const mounted = await setup(true, candidates);
+    fireEvent.click(disclosure(3));
+    fireEvent.click(disclosure(5));
+    await waitFor(() => expect(disclosure(5).getAttribute("aria-expanded")).toBe("false"));
+    await accept(mounted);
+    expect(disclosure(1).getAttribute("aria-expanded")).toBe("false");
+    expect(disclosure(3).getAttribute("aria-expanded")).toBe(candidates > 0 ? "true" : "false");
+    expect(disclosure(5).getAttribute("aria-expanded")).toBe("false");
+    expect(callsTo(mounted.app, "todo.complete")).toHaveLength(0);
+  });
+
+  it("u3811_final_child_keeps_its_finish_and_repairs_only_hidden_focus", async () => {
+    const mounted = await setup(false);
+    buttonOf(2).focus();
+    await accept(mounted);
+    expect(disclosure(1).getAttribute("aria-expanded")).toBe("true");
+    fireEvent.animationEnd(rowOf(2).querySelector('.todo-strike')!);
+    expect(disclosure(1).getAttribute("aria-expanded")).toBe("true");
+
+    for (const fill of document.querySelectorAll(".app-progress-fill")) fireEvent.transitionEnd(fill, { propertyName: "transform" });
+    await waitFor(() => expect(disclosure(1).getAttribute("aria-expanded")).toBe("false"));
+    expect(document.activeElement).toBe(buttonOf(4));
+  });
+
+  it("u3811_mount_navigation_and_folded_updates_settle_without_replay", async () => {
+    const mounted = await setup(false);
+    fireEvent.click(disclosure(1));
+    fireEvent.click(disclosure(3));
+    await waitFor(() => expect(disclosure(1).getAttribute("aria-expanded")).toBe("false"));
+    await accept(mounted);
+    expect(document.querySelector('[data-motion="play"]')).toBeNull();
+    expect(disclosure(3).getAttribute("aria-expanded")).toBe("false");
+    fireEvent.click(disclosure(1));
+    expect(document.querySelector('[data-motion="play"]')).toBeNull();
+    expect(await screen.findByRole("checkbox", { name: "Reopen todo 2" })).toBeTruthy();
+  });
+
+  it("u3811_reduced_motion_settles_groups_without_waiting_for_motion", async () => {
+    const mounted = await setup(false);
+    await accept(mounted);
+    mounted.setReduced(true);
+    expect(disclosure(1).getAttribute("aria-expanded")).toBe("false");
+    expect(document.querySelector('[data-motion="play"]')).toBeNull();
+  });
+});
+
+
+it("u3810_locked_ticks_keep_the_same_calls_refetch_and_failure", async () => {
+  const mounted = await mountTodos([todo(1), todo(2, { blockers: [1], blocked: true })]);
+  const tick = await screen.findByRole<HTMLInputElement>("checkbox", { name: "Complete todo 2" });
+  tick.focus();
+  mounted.app.handlers["todo.complete"] = () => { throw new RpcError(-32003, "completion refused; retry"); };
+
+  fireEvent.click(tick);
+  await within(rowOf(2)).findByRole("alert");
+  expect(tick.checked).toBe(false);
+  expect(document.activeElement).toBe(tick);
+  expect(callsTo(mounted.app, "todo.complete")).toEqual([{ method: "todo.complete", params: { id: 2 } }]);
+  expect(callsTo(mounted.app, "todo.setBlockers")).toHaveLength(0);
+});
+
+it("u3809_membership_counts_each_descendant_once_across_completion", async () => {
+  const mounted = await mountTodos([todo(1), todo(2, { blockers: [1] }), todo(3, { blockers: [2, 1] }), todo(4)]);
+  await screen.findByRole("progressbar", { name: "Todos done in todo 1" });
+  const progress = () => screen.getByRole("progressbar", { name: "Todos done in todo 1" });
+  expect(progress().getAttribute("aria-valuemax")).toBe("2");
+  mounted.store.todos = [todo(1, { done: true }), todo(2, { blockers: [1], done: true }), todo(3, { blockers: [2, 1] }), todo(4)];
+  await mounted.todos.reload();
+  expect(progress().getAttribute("aria-valuenow")).toBe("1");
+  expect(document.querySelectorAll('[data-todo="2"]')).toHaveLength(1);
+  mounted.store.todos = [todo(1, { done: true }), todo(3, { blockers: [1] }), todo(4)];
+  await mounted.todos.reload();
+  expect(progress().getAttribute("aria-valuemax")).toBe("1");
+  mounted.store.todos = [todo(1, { done: true }), todo(3), todo(4)];
+  await mounted.todos.reload();
+  expect(screen.queryByRole("progressbar", { name: "Todos done in todo 1" })).toBeNull();
+});
+
+
+it("u3811_bursts_and_reopening_settle_on_the_latest_facts", async () => {
+  const mounted = await mountTodos([todo(1, { done: true }), todo(2, { blockers: [1] }), todo(3, { done: true }), todo(4, { blockers: [3, 2], blocked: true })], false);
+  const first = await screen.findByRole("button", { name: "Toggle todo 1 group" });
+  const next = screen.getByRole("button", { name: "Toggle todo 3 group" });
+  fireEvent.click(next);
+  await waitFor(() => expect(next.getAttribute("aria-expanded")).toBe("false"));
+  mounted.store.todos = [todo(1, { done: true }), todo(2, { blockers: [1], done: true }), todo(3, { done: true }), todo(4, { blockers: [3, 2] })];
+  await mounted.todos.reload();
+  mounted.store.todos = [todo(1, { done: true }), todo(2, { blockers: [1] }), todo(3, { done: true }), todo(4, { blockers: [3, 2], blocked: true })];
+  await mounted.todos.reload();
+  fireEvent.animationEnd(rowOf(2).querySelector('.todo-strike')!);
+
+  for (const fill of document.querySelectorAll(".app-progress-fill")) fireEvent.transitionEnd(fill, { propertyName: "transform" });
+  expect(first.getAttribute("aria-expanded")).toBe("true");
+  expect(next.getAttribute("aria-expanded")).toBe("false");
+  expect(within(rowOf(2)).getByRole<HTMLInputElement>("checkbox").checked).toBe(false);
+  expect(document.querySelector('[data-motion="play"]')).toBeNull();
 });
