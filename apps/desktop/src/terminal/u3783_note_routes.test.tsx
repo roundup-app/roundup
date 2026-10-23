@@ -14,7 +14,7 @@ const mount = async (messages = [note(1, "ask me", { from: DOOR, status: "held",
   const mounted = await mountNotes([node("a", { name: "Ann" }), node("d", { name: "Door" })], [info("t-a")], messages);
 
   mounted.connected.rail.select("a");
-  await screen.findByRole("textbox", { name: "Note to Ann" });
+  await screen.findByText("t-a");
 
   return mounted;
 };
@@ -60,4 +60,15 @@ it("u3783_allow_delivers_one_and_resume_leaves_ask_first_rows", async () => {
   expect(await screen.findByText("the inbox is unusable")).toBeTruthy();
   expect(rowsOf()).toEqual(["ask me"]);
   expect(app.calls.filter((call) => call.method === "message.deliver").map((call) => call.params)).toEqual([{ id: 1 }]);
+});
+
+it("u3783_takeover_held_agent_messages_stay_in_the_queue", async () => {
+  const message = note(1, "wait for control", { from: DOOR, status: "held", reason: "takeover" });
+  const { app } = await mount([message]);
+
+  await waitFor(() => expect(rowsOf()).toEqual([message.body]));
+  app.emit(sent({ ...message, status: "delivered", reason: null }));
+  await waitFor(() => expect(document.querySelector('[data-note="1"]')?.getAttribute("data-state")).toBe("taken"));
+  fireEvent.transitionEnd(document.querySelector('[data-note="1"]')!);
+  await waitFor(() => expect(rowsOf()).toEqual([]));
 });
