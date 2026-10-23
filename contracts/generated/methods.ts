@@ -136,6 +136,7 @@ import type { Comment as todo_Comment } from "./todo/Comment";
 import type { CommentParams as todo_CommentParams } from "./todo/CommentParams";
 import type { CreateParams as todo_CreateParams } from "./todo/CreateParams";
 import type { HandParams as todo_HandParams } from "./todo/HandParams";
+import type { Handed as todo_Handed } from "./todo/Handed";
 import type { History as todo_History } from "./todo/History";
 import type { MoveParams as todo_MoveParams } from "./todo/MoveParams";
 import type { ReadHistoryParams as todo_ReadHistoryParams } from "./todo/ReadHistoryParams";
@@ -197,6 +198,7 @@ export type RpcMethods = {
   "terminal.search": { params: terminal_SearchParams; result: terminal_Search };
   "todo.create": { params: todo_CreateParams; result: todo_Todo };
   "todo.get": { params: todo_TodoId; result: todo_Todo };
+  "todo.listHanded": { params: null; result: todo_Handed[] };
   "todo.getHistory": { params: todo_TodoId; result: todo_History };
   "todo.readHistory": { params: todo_ReadHistoryParams; result: null };
   "todo.list": { params: null; result: todo_Todo[] };
