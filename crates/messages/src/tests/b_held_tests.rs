@@ -185,6 +185,7 @@ impl Held2 {
             node.status_revision = Some(revision.clone());
         }
         let data = EventData::AgentStatus(Box::new(StatusEvent {
+            ended: false,
             id: id.into(),
             attempt: "1".into(),
             status_revision: revision,
@@ -849,21 +850,7 @@ async fn b9_a_done_lost_to_lag_still_drops_pending() {
     let (_dir, h) = project();
     h.send_as(agent("a"), "b", "one").await;
     h.becomes("b", Kind::Done);
-    for _ in 0..2000 {
-        h.bus.emit(
-            Actor::daemon(),
-            EventData::AgentStatus(Box::new(StatusEvent {
-                id: "z".into(),
-                attempt: "1".into(),
-                status_revision: "1".into(),
-                status: Status {
-                    kind: Kind::Working,
-                    label: "x".into(),
-                    since: 0,
-                },
-            })),
-        );
-    }
+    status_flood(&h);
 
     h.until(1, "dropped").await;
 
@@ -963,21 +950,7 @@ async fn b6_a_busy_refusal_during_a_takeover_holds_the_message_for_it() {
 async fn b9_a_lag_drops_nothing_for_a_live_agent() {
     let (_dir, h) = project();
     h.send_as(agent("a"), "b", "one").await;
-    for _ in 0..2000 {
-        h.bus.emit(
-            Actor::daemon(),
-            EventData::AgentStatus(Box::new(StatusEvent {
-                id: "z".into(),
-                attempt: "1".into(),
-                status_revision: "1".into(),
-                status: Status {
-                    kind: Kind::Working,
-                    label: "x".into(),
-                    since: 0,
-                },
-            })),
-        );
-    }
+    status_flood(&h);
     h.settle().await;
 
     assert_eq!(h.states().await[&1], pending());
@@ -1126,6 +1099,7 @@ fn status_flood(h: &Held2) {
         h.bus.emit(
             Actor::daemon(),
             EventData::AgentStatus(Box::new(StatusEvent {
+                ended: false,
                 id: "z".into(),
                 attempt: "1".into(),
                 status_revision: "1".into(),
@@ -1943,6 +1917,7 @@ async fn b40_a_message_in_flight_to_a_gone_terminal_waits_for_the_resumed_agent(
     h.bus.emit(
         Actor::daemon(),
         EventData::AgentStatus(Box::new(StatusEvent {
+            ended: false,
             id: "b".into(),
             attempt: "2".into(),
             status_revision: "2".into(),

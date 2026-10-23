@@ -145,6 +145,7 @@ impl RestartHarness {
         self.ctx.bus.emit(
             Actor::daemon(),
             EventData::AgentStatus(Box::new(contracts::agent::StatusEvent {
+                ended: false,
                 id: "door".into(),
                 attempt: attempt.into(),
                 status_revision: revision.into(),
@@ -653,6 +654,7 @@ async fn reservation_waits_for_prompt(retiring: bool) {
     bus.emit(
         Actor::daemon(),
         EventData::AgentStatus(Box::new(contracts::agent::StatusEvent {
+            ended: false,
             id: "door".into(),
             attempt: "1".into(),
             status_revision: "2".into(),
