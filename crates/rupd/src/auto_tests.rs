@@ -1,5 +1,5 @@
 use super::*;
-use crate::tests::ask;
+use crate::tests::{ask, daemon_in, daemon_with_launcher};
 
 async fn call(daemon: &Daemon, method: &str, params: Value) -> Value {
     let response = ask(
@@ -14,7 +14,7 @@ async fn call(daemon: &Daemon, method: &str, params: Value) -> Value {
 #[tokio::test]
 async fn a3308_set_auto_persists_and_emits_once() {
     let dir = tempfile::tempdir().unwrap();
-    let daemon = Daemon::open(dir.path()).unwrap();
+    let daemon = daemon_in(dir.path());
     let node = call(&daemon, "rail.createWorkstream", json!({"name":"Ship"})).await;
     let mut events = daemon.bus.subscribe();
     call(
@@ -31,7 +31,7 @@ async fn a3308_set_auto_persists_and_emits_once() {
     }
     assert_eq!(updates, 1);
     drop(daemon);
-    let reopened = Daemon::open(dir.path()).unwrap();
+    let reopened = daemon_in(dir.path());
     let rail = call(&reopened, "rail.list", Value::Null).await;
     assert_eq!(rail[0]["auto"], true);
 }
@@ -44,25 +44,16 @@ fn running_daemon(project: &std::path::Path) -> Daemon {
     std::fs::set_permissions(&fake, std::fs::Permissions::from_mode(0o755)).unwrap();
     let rup = project.join("rup");
     std::fs::write(&rup, "").unwrap();
-    Daemon::open_stores(project, &data, None, |_| {
-        let bus = Bus::new();
-        let terminals = Arc::new(terminal::Terminals::open(&data, bus.clone()).unwrap());
-        agents::Agents::open_in(
-            project,
-            &data,
-            bus,
-            terminals,
-            agents::claude_code::Launcher::new(
-                fake.to_str().unwrap(),
-                project.join("claude.json"),
-                rup,
-                None,
-            ),
-            agents::worktree::Git::from_env(),
-        )
-        .unwrap()
-    })
-    .unwrap()
+    daemon_with_launcher(
+        project,
+        &data,
+        agents::claude_code::Launcher::new(
+            fake.to_str().unwrap(),
+            project.join("claude.json"),
+            rup,
+            None,
+        ),
+    )
 }
 
 async fn door(daemon: &Daemon) -> String {
@@ -143,7 +134,7 @@ async fn a3308_auto_on_sends_each_unassigned_todo_to_the_door_once() {
 #[tokio::test]
 async fn a3308_setting_the_same_value_emits_nothing() {
     let dir = tempfile::tempdir().unwrap();
-    let daemon = Daemon::open(dir.path()).unwrap();
+    let daemon = daemon_in(dir.path());
     let node = call(&daemon, "rail.createWorkstream", json!({"name":"Ship"})).await;
     let mut events = daemon.bus.subscribe();
     call(
@@ -162,7 +153,7 @@ async fn a3308_setting_the_same_value_emits_nothing() {
 #[tokio::test]
 async fn a3308_an_unknown_workstream_is_not_found() {
     let dir = tempfile::tempdir().unwrap();
-    let daemon = Daemon::open(dir.path()).unwrap();
+    let daemon = daemon_in(dir.path());
     let result = ask(
         &daemon,
         r#"{"id":1,"method":"workstream.setAuto","params":{"id":"404","auto":true}}"#,
@@ -390,7 +381,7 @@ async fn a3308_a_subagent_start_obeys_the_cap() {
 #[tokio::test]
 async fn a3308_an_agent_cannot_authorize_auto() {
     let dir = tempfile::tempdir().unwrap();
-    let daemon = Daemon::open(dir.path()).unwrap();
+    let daemon = daemon_in(dir.path());
     let node = call(&daemon, "rail.createWorkstream", json!({"name":"Ship"})).await;
     let (events, _) = mpsc::unbounded_channel();
     let mut conn = Conn {

@@ -102,7 +102,7 @@ mod tests {
         )
         .unwrap();
         drop(db);
-        let upgraded = crate::Daemon::open(dir.path()).unwrap();
+        let upgraded = crate::tests::daemon_in(dir.path());
         let reply = crate::tests::ask(&upgraded, r#"{"id":1,"method":"rail.list"}"#).await;
         assert_eq!(reply["result"][0]["auto"], false);
     }
