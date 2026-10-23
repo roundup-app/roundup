@@ -4,6 +4,8 @@
 /* The Token file (docs/design-system.md, "Tokens"): the light values, then the dark column and the contrast setting. */
 
 :root {
+  --text-selection: Highlight;
+  --text-selection-ink: HighlightText;
   color-scheme: light dark;
   --ground: #ffffff;
   --sunken: #f5f5f7;
@@ -12,7 +14,7 @@
   --selected-hover: rgba(0, 0, 0, 0.07);
   --blur-bubble-backdrop: 12px;
   --scrim: rgba(0, 0, 0, 0.4);
-  /* U3767: the one order of floating surfaces, lowest first. */
+  /* U3295a: the one order of floating surfaces, lowest first. */
   --layer-drawer: 2;
   --layer-popover: 3;
   --layer-dialog: 4;
@@ -41,7 +43,7 @@
   --root-amber: var(--amber);
   --root-red: var(--red);
   --root-hairline: var(--hairline);
-  --shadow-drawer: 0 8px 32px rgba(0, 0, 0, 0.14);
+  --shadow-drawer: 0 2px 8px rgba(0, 0, 0, 0.14);
   --shadow-shelf: 0 0 24px rgba(0, 0, 0, 0.1);
   --shadow-scroll: inset 0 8px 8px -8px rgba(0, 0, 0, 0.18);
   --rail-width: 288px;
@@ -56,6 +58,10 @@
   --radius-drawer: 12px;
   --radius-scrollbar: 3px;
   --radius-round: 50%;
+  --radius-pill: 999px;
+  --surface: #f5f5f7;
+  --button-neutral: #ededf0;
+  --button-accent-ink: #ffffff;
 
   --easing-out: cubic-bezier(0.32, 0.72, 0, 1);
   --duration-drawer: 180ms;
@@ -110,6 +116,9 @@
 @media (prefers-color-scheme: dark) {
   :root {
     --ground: #1c1c1e;
+    --surface: #242426;
+    --button-neutral: #343438;
+    --button-accent-ink: #101014;
     --key-chip-fill: rgba(255, 255, 255, 0.08);
     --sunken: #141416;
     --hover: rgba(255, 255, 255, 0.06);
@@ -124,7 +133,7 @@
     --red: #ff6b6b;
     --hairline: rgba(255, 255, 255, 0.12);
     --scrollbar-thumb: rgba(255, 255, 255, 0.3);
-    --shadow-drawer: 0 8px 32px rgba(0, 0, 0, 0.5);
+    --shadow-drawer: 0 2px 8px rgba(0, 0, 0, 0.24);
     --shadow-shelf: 0 0 24px rgba(0, 0, 0, 0.45);
     --shadow-scroll: inset 0 8px 8px -8px rgba(0, 0, 0, 0.6);
   }
@@ -212,4 +221,38 @@ button, file-tree-container {
 /* U3768: the progress bar's track tints the grey. */
 :root {
   --progress-track: color-mix(in srgb, var(--grey) 40%, transparent);
+}
+
+/* U3512e: Drawer/Shelf depth, scroll cues and non-elevation resets retain their roles. */
+.worktree-tree::before,
+.worktree-tree::after {
+  box-shadow: var(--shadow-scroll)
+}
+.todo-project-root[data-scrolled="true"]::after {
+  box-shadow: var(--shadow-scroll)
+}
+.shelf-scroll::before,
+.shelf-scroll::after {
+  box-shadow: var(--shadow-scroll)
+}
+.shelf::before {
+  box-shadow: var(--shadow-shelf)
+}
+.drawer[data-open="true"] {
+  box-shadow: var(--shadow-drawer)
+}
+.pane .xterm .xterm-helper-textarea:focus-visible {
+  box-shadow: none
+}
+[data-flat-tab] {
+  box-shadow: none
+}
+
+/* U3512b: one recipe for web modals, anchored panels and the movable Terminal Bubble. */
+:is(.app-dialog, .app-menu, .app-popover, .app-select-list, .bubble, .milkdown-slash-menu, .pane-control) {
+  color: var(--text);
+  background-color: var(--surface);
+  border: 1px solid var(--hairline);
+  border-radius: var(--radius-drawer);
+  box-shadow: var(--shadow-drawer);
 }
