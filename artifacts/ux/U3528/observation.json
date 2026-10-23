@@ -1,0 +1,79 @@
+{
+  "scenario": "U3528",
+  "base": "98f3c05fd51910df64ee0ca7f598cc447dc55981",
+  "head": "9c61894998d6e7fdd15c97a99423a31f792074c7",
+  "observer": "apps/desktop/src/testing/u2770_browser.test.ts at 9c61894998d6e7fdd15c97a99423a31f792074c7",
+  "baseObserver": "Same interaction/capture sequence with no-ring and equal-press-background assertions disabled only for baseline observation. All focus destinations and Auto state/call assertions retained.",
+  "environment": "Isolated headless agent-browser; fresh profiles; Linux/Chromium",
+  "viewport": {
+    "width": 1512,
+    "height": 950
+  },
+  "scheme": "dark",
+  "seeds": [
+    "tree-40",
+    "decisions"
+  ],
+  "checks": [
+    "D2",
+    "D5",
+    "D6",
+    "D7"
+  ],
+  "mainClaims": "No native macOS claim; user reports what they meet on the Mac.",
+  "pairedScreens": 15,
+  "checksResult": "D2/D5/D6/D7 pass on all 15 main/head pairs; delta exits 0, with no passing Check regressed.",
+  "preexistingFailures": [
+    {
+      "screen": "1512x950-dark-shelf-click.checks.json",
+      "check": "D12",
+      "selector": "div.shelf-row",
+      "status": "fail",
+      "value": 32
+    },
+    {
+      "screen": "1512x950-dark-project-tab.checks.json",
+      "check": "D12",
+      "selector": "div.shelf-row",
+      "status": "fail",
+      "value": 32
+    },
+    {
+      "screen": "1512x950-dark-ask-click.checks.json",
+      "check": "D12",
+      "selector": "div.shelf-row",
+      "status": "fail",
+      "value": 32
+    },
+    {
+      "screen": "1512x950-dark-ask-typing.checks.json",
+      "check": "D12",
+      "selector": "div.shelf-row",
+      "status": "fail",
+      "value": 32
+    },
+    {
+      "screen": "1512x950-dark-keyboard-dialog.checks.json",
+      "check": "D10",
+      "selector": "",
+      "status": "fail",
+      "value": {
+        "contrast": "no-preference",
+        "failing": [
+          "D8"
+        ],
+        "scheme": "dark",
+        "viewport": "1512x950"
+      }
+    },
+    {
+      "screen": "1512x950-dark-keyboard-dialog.checks.json",
+      "check": "D8",
+      "selector": "div#dialog:cl-7:content.app-dialog",
+      "status": "fail",
+      "value": {
+        "boxShadow": "rgba(0, 0, 0, 0.5) 0px 8px 32px 0px"
+      }
+    }
+  ]
+}
