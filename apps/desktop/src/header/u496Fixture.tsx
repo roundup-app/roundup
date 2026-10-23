@@ -13,7 +13,7 @@ const app = createFakeApp();
 
 app.handlers['project.get'] = () => ({ worktrees: { on: false, check: null }, mcp: { on: true }, workstreamCap: null, models: { roles: [{ role: 'door', model: null, effort: null }] } });
 
-app.handlers['models.list'] = () => ({ models: [{ id: 'opus', label: 'Authored 雪 Model' }], efforts: [{ id: 'high', label: 'High' }] });
+app.handlers['models.list'] = () => ({ engines: [], models: [{ id: 'opus', label: 'Authored 雪 Model' }], efforts: [{ id: 'high', label: 'High' }] });
 
 const connected = await connectProject(app, { path: '/fixture', name: 'Fixture' }, () => true, () => 0);
 
