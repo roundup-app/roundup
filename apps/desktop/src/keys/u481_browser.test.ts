@@ -273,6 +273,7 @@ it.each(hintContexts)("u3513b_help_returns_to_its_origin_without_an_underlying_a
       window.__query = document.querySelector('.switcher input')?.value;
       window.__drafts = [...document.querySelectorAll('.drawer input,.drawer textarea,.switcher input')].map(field => [field, field.value]);
       window.__triage = document.querySelector('[data-triage-toggle]')?.getAttribute('aria-pressed');
+      window.__panels = [...document.querySelectorAll('.bubble')].map(panel => [panel.dataset.bubble, panel.hidden]);
       window.__calls = window.__fake.app.calls.length;
     })()`);
 
@@ -292,7 +293,8 @@ it.each(hintContexts)("u3513b_help_returns_to_its_origin_without_an_underlying_a
         query:document.querySelector('.switcher input')?.value === window.__query,
         drafts:window.__drafts.every(([field,value]) => field.isConnected && field.value === value),
         triage:document.querySelector('[data-triage-toggle]')?.getAttribute('aria-pressed') === window.__triage,
-        mutations:window.__fake.app.calls.slice(window.__calls).filter(c => !['project.resources','rail.tree','terminal.list','terminal.resize','terminal.snapshot'].includes(c.method))})`)).toEqual({selection:true,query:true,drafts:true,triage:true,mutations:[]});
+        panels:JSON.stringify([...document.querySelectorAll('.bubble')].map(panel => [panel.dataset.bubble,panel.hidden])) === JSON.stringify(window.__panels),
+        mutations:window.__fake.app.calls.slice(window.__calls).filter(c => !['project.resources','rail.tree','terminal.list','terminal.resize','terminal.snapshot'].includes(c.method))})`)).toEqual({selection:true,query:true,drafts:true,triage:true,panels:true,mutations:[]});
     }
 
     await capture("U3513b", `${name}-after`);
