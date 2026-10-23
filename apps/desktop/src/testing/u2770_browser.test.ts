@@ -142,32 +142,21 @@ it("u3528_keys_and_pointer_never_draw_rings_or_pressed_backgrounds", async () =>
       await lane.until(`!(${focused(".ask-input")})`);
       await ring();
 
-      // A real AlertDialog's first control is focused by its click opener.
-      await lane.browser("hover", ".project-tab");
-      await lane.until("!!document.querySelector('.project-tab .tab-close')");
-      await lane.browser("click", ".project-tab .tab-close");
-      const cancel = '[role="alertdialog"] button';
+      // Confirmations are native (U3512a); Capture retains the shared web dialog's focus path.
+      await lane.browser("press", "Meta+Shift+t");
+      const field = '.capture .capture-field';
 
-      await lane.until(focused(cancel));
+      await lane.until(focused(field));
       await ring();
       await lane.browser("press", "Tab");
-      await lane.until(`!(${focused(cancel)})`);
+      await lane.until(`!(${focused(field)})`);
       await ring();
       await lane.browser("press", "Shift+Tab");
-      await lane.until(focused(cancel));
-      await ring();
-      await lane.browser("press", "Escape");
-      await lane.until("!document.querySelector('[role=alertdialog]')");
-
-      await lane.browser("focus", ".project-tab .tab-close");
-      await lane.until(focused(".project-tab .tab-close"));
-      await ring();
-      await lane.browser("press", "Enter");
-      await lane.until(focused(cancel));
+      await lane.until(focused(field));
       await ring();
       await capture("keyboard-dialog");
       await lane.browser("press", "Escape");
-      await lane.until("!document.querySelector('[role=alertdialog]')");
+      await lane.until("!document.querySelector('.capture')");
 
       for (const opener of ['[aria-label="Add Workstream"]', '.terminal-new']) {
         await lane.browser("click", opener);

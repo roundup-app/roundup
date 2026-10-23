@@ -48,7 +48,6 @@
   border-style: none;
   border-radius: var(--flat-radius);
   background-color: transparent;
-  box-shadow: none;
   color: var(--grey);
 }
 

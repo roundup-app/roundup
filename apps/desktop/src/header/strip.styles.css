@@ -159,23 +159,6 @@
   margin: 0 var(--space-1);
 }
 
-.close-dialog {
-  color: var(--text);
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-2);
-  padding: var(--space-4);
-  white-space: normal;
-  background-color: var(--sunken);
-  border-radius: var(--radius-drawer);
-}
-
-.close-words {
-  display: flex;
-  gap: var(--space-4);
-  justify-content: flex-end;
-}
-
 /* U449: symmetric title allocation keeps its midpoint on the whole window. */
 .window-bar {
   /* D8: the one border width, named once for the tab boxes and the edges; the bar's own rule sits at its bottom edge (flat-tab.styles.css). */
@@ -240,4 +223,13 @@
 .project-tab[data-unfinished="true"][data-selected="true"] {
   /* Keep the 8ch name and its mark clear of both action targets and their gap. */
   min-width: calc(8ch + 3 * var(--space-5) + 5 * var(--space-1) + var(--space-3) + 2 * var(--rule));
+}
+
+/* The native request's failure replaces the originating strip until retry or cancel. */
+.strip { position: relative; }
+.strip > .native-alert-failure {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  background-color: var(--sunken);
 }
