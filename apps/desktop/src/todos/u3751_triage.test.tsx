@@ -308,3 +308,15 @@ it("u3474b_the_last_completed_row_returns_to_the_toggle_before_its_exit_finishes
   nextKey("Escape");
   expect(toggle.getAttribute("aria-pressed")).toBe("false");
 });
+
+it("u3474b_done_keeps_the_regrouped_nested_row_ready", async () => {
+  const { store } = await mountTodos([todo(1), todo(2), todo(3), todo(4, { blockers: [3, 5], blocked: true }), todo(5)], false);
+  row(1).focus();
+  nextKey("t");
+
+  for (const [id, next] of [[1, 2], [2, 3], [3, 4], [4, 5]]) {
+    nextKey("x");
+    await waitFor(() => expect(store.todos.find(todo => todo.id === id)?.done).toBe(true));
+    await waitFor(() => expect(document.activeElement).toBe(row(next!)));
+  }
+});
