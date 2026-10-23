@@ -50,7 +50,7 @@ export default defineConfig({
             root.walkRules((rule) => {
               if (!rule.source?.input.file?.includes("/node_modules/")) return;
 
-              const paints = rule.nodes.some(node => node.type === "decl" && /^(?:background(?:-.+)?|box-shadow|outline(?:-.+)?|--.*(?:background|bg|pressed))$/.test(node.prop));
+              const paints = rule.nodes.some(node => node.type === "decl" && /^(?:background(?:-.+)?|border(?:-.+)?|box-shadow|outline(?:-.+)?|--.*(?:background|bg|pressed))$/.test(node.prop));
 
               const selectors = rule.selectors.filter(selector => {
                 const focus = /:focus-visible\b|\[data-focus/.test(selector) || (paints && /(?<!:not\():focus(?:-within)?\b/.test(selector));

@@ -1,4 +1,4 @@
-import { mkdirSync } from "node:fs";
+import { mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { captureDir } from "./captures";
 import { expect, it } from "vitest";
@@ -36,7 +36,7 @@ it("u3528_keys_and_pointer_never_draw_rings_or_pressed_backgrounds", async () =>
           if (panel) sites.push(panel);
           return sites.flatMap(el => [null, '::before', '::after'].flatMap(pseudo => {
             const style = getComputedStyle(el, pseudo);
-            return [(style.outlineStyle === 'none' || parseFloat(style.outlineWidth) === 0) && (style.boxShadow === 'none' || (!pseudo && el.matches('.owner-picker, .app-dialog, .import-panel, .bubble-frame') && style.boxShadow === depth)) ? 'none' : el.className + ':' + style.outline + ':' + style.boxShadow];
+            return [(style.outlineStyle === 'none' || parseFloat(style.outlineWidth) === 0) && (style.boxShadow === 'none' || (!pseudo && el.matches('.owner-picker, .app-dialog, .import-panel, .bubble') && style.boxShadow === depth)) ? 'none' : el.className + ':' + style.outline + ':' + style.boxShadow];
           }));
         })()`);
 
@@ -68,6 +68,8 @@ it("u3528_keys_and_pointer_never_draw_rings_or_pressed_backgrounds", async () =>
       }
 
       expect(await lane.evaluate('window.__modifierPaint')).toEqual(['Control', 'Meta', 'Alt', 'Shift'].map(key => ({ key, outline: true, shadow: 'none' })));
+
+      if (dir) writeFileSync(join(dir, "modifiers.json"), JSON.stringify(await lane.evaluate("window.__modifierPaint")) + "\n");
 
       await lane.browser("press", "ArrowLeft");
       await lane.until(focused("#shelf-tab-todos"));
@@ -203,8 +205,12 @@ it("u3528_keys_and_pointer_never_draw_rings_or_pressed_backgrounds", async () =>
 
       if (!(await lane.evaluate<boolean>("document.querySelector('#shelf-tab-todos')?.getAttribute('aria-expanded') === 'true'"))) await lane.browser("click", "#shelf-tab-todos");
 
-      await lane.seedTodos(["Focus observation"], false);
-      await lane.browser("focus", ".shelf .todo-row-button");
+      await lane.browser("click", ".todo-project-root");
+      const closed = '.shelf [data-shelf-group="unassigned"][data-state="closed"] [data-part="branch-control"]';
+
+      if (await lane.evaluate<boolean>(`!!document.querySelector(${JSON.stringify(closed)})`)) await lane.browser("click", closed);
+      await lane.until("!!document.querySelector('.shelf [data-todo=\"5\"] .todo-row-button')");
+      await lane.browser("focus", '.shelf [data-todo="5"] .todo-row-button');
       await lane.browser("press", "t");
       await lane.until("document.querySelector('.shelf')?.getAttribute('data-triage') === 'on'");
       await lane.browser("press", "w");
