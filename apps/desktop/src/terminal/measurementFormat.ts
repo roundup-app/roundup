@@ -9,12 +9,14 @@ const compact = new Intl.NumberFormat("en", { notation: "compact", maximumFracti
 export const tokenFigure = (value: ConsumedSubtotal) => {
   const known = BigInt(value.known);
 
+  if (known === 0n && value.missing > 0) return copy.measurementUnknown;
+
   if (known > 999_999_999_999_999n) return copy.measurementTokensOver;
 
   return known > 9_999n ? compact.format(Number(known)) : known.toString();
 };
 
-export const exact = (value: ConsumedSubtotal) => BigInt(value.known).toLocaleString();
+export const exact = (value: ConsumedSubtotal) => value.known === "0" && value.missing > 0 ? copy.measurementUnknown : BigInt(value.known).toLocaleString();
 
 /** The top two units of a duration; unavailable is `—`, never zero. */
 export const duration = (ns: string | null) => {
@@ -31,7 +33,7 @@ export const percent = (part: number, whole: number) => {
   if (!(whole > 0) || part < 0) return copy.measurementUnknown;
   const value = (part / whole) * 100;
 
-  return value > 0 && value < 1 ? "<1%" : `${Math.round(value)}%`;
+  return value > 0 && value < 1 ? "<1%" : `${value < 100 ? Math.min(99, Math.round(value)) : Math.round(value)}%`;
 };
 
 export const modelLabel = (id: string) => {
@@ -75,5 +77,3 @@ export const weekdayTime = (ms: number) => {
 
   return `${parts.weekday} ${parts.day} ${parts.month} ${parts.hour}:${parts.minute}`;
 };
-
-export const clock = (ms: number) => new Date(ms).toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit", hourCycle: "h23" });

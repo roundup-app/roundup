@@ -186,11 +186,10 @@ it("u3016g_dashboard_reads_in_the_ordered_layout", async () => {
   await screen.findByText("9h 49m elapsed");
   const root = screen.getByRole("region", { name: "Cost and time" });
   const order = ["tile=time", "tile=tokens", "tile=price"].map((tile) => root.querySelector(`[data-${tile.replace("=", '="')}"]`)!);
-  const after = [".measurement-limit", '[aria-label="Where Agent time went"]', ".measurement-agents", ".measurement-how"].map((selector) => root.querySelector(selector)!);
+  const after = [".measurement-limit", '[aria-label="Where Agent time went"]', ".measurement-agents"].map((selector) => root.querySelector(selector)!);
   const sequence = [root.querySelector("header")!, ...order, ...after];
   sequence.forEach((node, i) => { if (i > 0) expect(sequence[i - 1]!.compareDocumentPosition(node) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy(); });
   expect(root.querySelector(".measurement-agents")?.getAttribute("aria-label")).toBe("Agents · 1,005");
-  expect(screen.getByRole("button", { name: /How this is measured/ }).getAttribute("aria-expanded")).toBe("false");
   expect(screen.getByRole("tab", { name: "Total" }).getAttribute("aria-selected")).toBe("true");
 });
 
@@ -231,16 +230,33 @@ it("u3016g_list_price_sums_estimates_and_keeps_reported_cost_apart", async () =>
   expect(tip).not.toContain("2.53");
   app.handlers["project.measurementSummary"] = (params) => ({ ...priced(params), cost: { reported: [], reference: [], unavailable: [] } });
   app.emit(event({ name: "project.measurementsChanged", data: { revision: "3" } }));
-  await waitFor(() => expect(document.querySelector('[data-tile="price"] .measurement-figure')?.textContent?.startsWith("—")).toBe(true));
+  await waitFor(() => expect(document.querySelector('[data-tile="price"] .measurement-figure')?.textContent).toBe("—"));
+  expect(screen.queryByText("not your bill")).toBeNull();
+  expect(screen.queryByRole("button", { name: copy.measurementPriceDetail })).toBeNull();
+  const reportedOnly = priced({ home: "home", category: "total" });
+  reportedOnly.cost.reference = [];
+  await publish(app, reportedOnly);
+  expect(screen.queryByText("not your bill")).toBeNull();
+  screen.getByRole("button", { name: copy.measurementPriceDetail }).focus();
+  const reportedTip = await screen.findByRole("tooltip");
+  expect(reportedTip.textContent).toContain("reported figure $1.13");
+  expect(reportedTip.textContent).not.toContain("≈");
 });
 
 it("u3016g_time_categories_are_not_parts_of_elapsed", async () => {
-  await dashboard();
+  const { app } = await dashboard();
   const section = screen.getByRole("region", { name: "Where Agent time went" });
-  expect(section.textContent).toContain("summed across Attempts");
-  expect(within(section).getByText("Agent work")).toBeTruthy();
-  expect(within(section).getByText("Waiting on you")).toBeTruthy();
-  expect(section.textContent).not.toMatch(/%/);
+  const entries = () => within(section).queryAllByRole("term").map((node) => node.textContent);
+  expect(entries()).toEqual(["Agent work 65%", "Tools 20%", "Waiting on you 10%", "Coordination 5%"]);
+  expect(within(section).getAllByRole("definition").map((node) => node.textContent)).toEqual(["13s", "4s", "2s", "1s"]);
+  const value = summary();
+  value.time = { ...value.time, summed_ns: "556000000000", execution_ns: "1000000000", tools_ns: "0", human_ns: "1000000000", coordination_ns: "0", other_ns: "554000000000" };
+  await publish(app, value);
+  expect(entries()).toEqual(["Other 99%", "Agent work <1%", "Waiting on you <1%"]);
+  value.time = { ...value.time, summed_ns: "0", execution_ns: "0", human_ns: "0", other_ns: "0" };
+  await publish(app, value);
+  expect(entries()).toEqual([]);
+  expect(section.querySelectorAll("p")).toHaveLength(1);
 });
 
 it("u3016g_agents_are_open_and_ranked_by_exact_values", async () => {
@@ -294,25 +310,22 @@ it("u3016i_view_is_live_only_while_work_runs", async () => {
   const { app } = await dashboard();
   vi.useFakeTimers();
   const reads = () => calls(app, "project.measurementSummary");
-  const state = () => document.querySelector(".measurement-state")?.textContent;
   app.handlers["project.measurementSummary"] = (params) => priced(params, true);
   app.emit(event({ name: "project.measurementsChanged", data: { revision: "2" } }));
   await vi.advanceTimersByTimeAsync(0);
-  expect(state()).toBe("Live");
   const before = reads();
   await vi.advanceTimersByTimeAsync(3000);
   expect(reads()).toBe(before + 3);
   app.handlers["project.measurementSummary"] = (params) => ({ ...priced(params, false), revision: "3", last_observed: new Date(2026, 9, 22, 9, 1, 36).getTime() });
   await vi.advanceTimersByTimeAsync(1000);
-  expect(state()).toBe("Stopped · last updated 09:01");
   const stopped = reads();
   await vi.advanceTimersByTimeAsync(10_000);
   expect(reads()).toBe(stopped);
   expect(vi.getTimerCount()).toBe(0);
+  expect(document.querySelector(".measurement-state")?.textContent).toBe("");
   app.handlers["project.measurementSummary"] = (params) => ({ ...priced(params, true), revision: "4" });
   app.emit(event({ name: "project.measurementsChanged", data: { revision: "4" } }));
   await vi.advanceTimersByTimeAsync(0);
-  expect(state()).toBe("Live");
   expect(vi.getTimerCount()).toBeLessThanOrEqual(2);
   const restarted = reads();
   await vi.advanceTimersByTimeAsync(1000);
@@ -374,10 +387,12 @@ it("u3016k_unknown_zero_and_inert_marks_are_absent", async () => {
     value.contributors = 1;
     value.rows = value.rows.slice(0, 1);
     value.next_offset = null;
+
     for (const key of ["total", ...copy.measurementParts] as const) {
       value.tokens[key] = { known, missing };
       value.rows[0]!.tokens[key] = { known, missing };
     }
+
     value.time = { ...value.time, summed_ns: "0", execution_ns: "0", tools_ns: "0", human_ns: "0", coordination_ns: "0", other_ns: "0", unmeasured_ns: "0" };
     app.handlers["project.measurementSummary"] = () => value;
     app.emit(event({ name: "project.measurementsChanged", data: { revision: value.revision } }));
@@ -386,9 +401,125 @@ it("u3016k_unknown_zero_and_inert_marks_are_absent", async () => {
     expect(screen.queryAllByRole("tab")).toHaveLength(0);
     expect(document.querySelectorAll(".measurement-legend li")).toHaveLength(known === "0" ? 0 : 4);
     expect(within(screen.getByRole("region", { name: copy.measurementTimeSpent })).queryAllByRole("term")).toHaveLength(0);
-    const tile = document.querySelector('[data-tile="tokens"]')!;
+    const tile = document.querySelector<HTMLElement>('[data-tile="tokens"]')!;
     expect(tile.querySelector(".measurement-figure")?.textContent).toBe((known === "0" && missing > 0 ? "—" : known) + (missing > 0 ? "*" : ""));
-    expect(within(tile as HTMLElement).queryByRole("group")).toBe(known === "0" ? null : within(tile as HTMLElement).getByRole("group"));
-    expect(within(tile as HTMLElement).queryByRole("button", { name: copy.measurementPartial }) !== null).toBe(missing > 0);
+    expect(within(tile).queryAllByRole("group")).toHaveLength(known === "0" ? 0 : 1);
+    expect(within(tile).queryByRole("button", { name: copy.measurementPartial }) !== null).toBe(missing > 0);
   }
+});
+
+const publish = async (app: Awaited<ReturnType<typeof dashboard>>["app"], value: MeasurementSummary) => {
+  value.revision = String(BigInt(document.querySelector(".measurement-dashboard")!.getAttribute("data-revision")!) + 1n);
+  app.handlers["project.measurementSummary"] = () => structuredClone(value);
+  app.emit(event({ name: "project.measurementsChanged", data: { revision: value.revision } }));
+  await waitFor(() => expect(document.querySelector(".measurement-dashboard")?.getAttribute("data-revision")).toBe(value.revision));
+};
+
+it("u3016k_token_columns_require_known_nonzero_contributions", async () => {
+  const { app } = await dashboard();
+  const value = summary();
+  value.rows = value.rows.slice(0, 1);
+  value.next_offset = null;
+  const unknown = { known: "0", missing: 1 };
+
+  for (const key of ["total", ...copy.measurementParts] as const) value.rows[0]!.tokens[key] = { ...unknown };
+  await publish(app, value);
+  expect(screen.getAllByRole("columnheader").map((node) => node.textContent)).toEqual(["Agent"]);
+  expect(screen.queryAllByRole("cell")).toHaveLength(0);
+  value.rows[0]!.tokens.input = { known: "10", missing: 0 };
+  const zero = structuredClone(value.rows[0]!);
+  zero.agent = "zero"; zero.maker = "zero"; zero.tokens.input = { known: "0", missing: 0 };
+  const missing = structuredClone(zero);
+  missing.agent = "unknown"; missing.maker = "unknown"; missing.tokens.input = unknown;
+  value.rows.push(zero, missing);
+  await publish(app, value);
+  expect(screen.getAllByRole("columnheader").map((node) => node.textContent)).toEqual(["Agent", "Input"]);
+  expect(screen.getAllByRole("cell").map((node) => node.textContent)).toEqual(["10", "0", "—*"]);
+  expect(screen.queryByRole("button", { name: /Measurement details/ })).toBeNull();
+  expect(screen.queryByRole("button", { name: "Details" })).toBeNull();
+});
+
+it("u3016k_controls_require_a_visible_effect", async () => {
+  const { app } = await dashboard();
+  const value = summary();
+  value.rows = value.rows.slice(0, 2);
+  value.rows[1]!.tokens = structuredClone(value.rows[0]!.tokens);
+  value.next_offset = null;
+  await publish(app, value);
+  expect(screen.queryAllByRole("tab")).toHaveLength(0);
+  expect(screen.queryByRole("button", { name: copy.measurementLoadMore })).toBeNull();
+  value.rows = value.rows.slice(0, 1);
+  value.tokens = { ...value.tokens, input: { known: "800", missing: 0 }, output: { known: "0", missing: 0 }, cache_read: { known: "0", missing: 0 }, cache_write: { known: "0", missing: 0 } };
+  await publish(app, value);
+  const group = screen.getByRole("group", { name: copy.measurementShares });
+  fireEvent.focus(group);
+  expect(document.querySelector('[aria-live="polite"]')?.textContent).toBe("Input 800 · 100%");
+  fireEvent.keyDown(group, { key: "ArrowRight" });
+  expect(document.querySelector('[aria-live="polite"]')?.textContent).not.toContain("Output");
+});
+
+it("u3016k_empty_sections_have_one_message_and_no_placeholder_rows", async () => {
+  const { app } = await dashboard();
+  const value = summary();
+  value.rows = []; value.contributors = 0; value.next_offset = null;
+  value.cost = { reported: [], reference: [], unavailable: [] };
+
+  for (const key of ["total", ...copy.measurementParts] as const) value.tokens[key] = { known: "0", missing: 0 };
+  value.time = { ...value.time, elapsed_ns: "0", summed_ns: "0", execution_ns: "0", tools_ns: "0", human_ns: "0", coordination_ns: "0", other_ns: "0", unmeasured_ns: "0" };
+
+  for (const missing of [0, 1]) {
+    value.tokens.total.missing = missing;
+    await publish(app, value);
+    const time = screen.getByRole("region", { name: copy.measurementTimeSpent });
+    const agents = screen.getByRole("region", { name: copy.measurementAgents(0) });
+    expect(time.querySelectorAll("p")).toHaveLength(1);
+    expect(agents.querySelectorAll("p")).toHaveLength(1);
+    expect(screen.queryByRole("table")).toBeNull();
+    expect(screen.queryByRole("meter")).toBeNull();
+    expect(document.querySelector('[data-tile="time"] .measurement-line')).toBeNull();
+    expect(document.querySelectorAll(".measurement-bar, .measurement-stack, .measurement-legend")).toHaveLength(0);
+  }
+
+  value.time.active = true;
+  app.handlers["project.weeklyLimit"] = limit(0);
+  await publish(app, value);
+  await waitFor(() => expect(document.querySelector(".measurement-limit-text")?.textContent).toContain("0% used"));
+  expect(screen.queryByRole("meter")).toBeNull();
+});
+
+it("u3016k_equal_measurements_keep_visible_content", async () => {
+  const { app } = await dashboard();
+  const root = screen.getByRole("region", { name: copy.costAndTime });
+  const before = root.textContent;
+  const value = summary(); value.last_observed = 999999999;
+  await publish(app, value);
+  expect(root.textContent).toBe(before);
+});
+
+it("u3016k_partial_figures_keep_their_own_notes_and_price_basis", async () => {
+  const { app } = await dashboard();
+  const value = priced({ home: "home", category: "total" });
+  value.tokens.total.missing = 2;
+  value.coverage = ["Two contributors lack output counts"];
+  value.time.coverage = ["Attempt end unknown"];
+  await publish(app, value);
+  const tokens = document.querySelector<HTMLElement>('[data-tile="tokens"]')!;
+  within(tokens).getByRole("button", { name: copy.measurementPartial }).focus();
+  expect((await screen.findByRole("tooltip")).textContent).toContain("Two contributors lack output counts");
+
+  if (document.activeElement instanceof HTMLElement) document.activeElement.blur();
+  await waitFor(() => expect(screen.queryByRole("tooltip")).toBeNull());
+  fireEvent.keyDown(document, { key: "Tab" });
+  const time = document.querySelector<HTMLElement>('[data-tile="time"]')!;
+  within(time).getByRole("button", { name: copy.measurementPartial }).focus();
+  await waitFor(() => expect(screen.getByRole("tooltip").textContent).toContain("Attempt end unknown"));
+
+  if (document.activeElement instanceof HTMLElement) document.activeElement.blur();
+  await waitFor(() => expect(screen.queryByRole("tooltip")).toBeNull());
+  fireEvent.keyDown(document, { key: "Tab" });
+  screen.getByRole("button", { name: copy.measurementPriceDetail }).focus();
+  await waitFor(() => expect(screen.getByRole("tooltip").textContent).toContain("list rates fixture"));
+  expect(screen.getByRole("tooltip").textContent).toContain("https://example.com/rates");
+  expect(screen.getByRole("tooltip").textContent).toContain("reported figure $1.13");
+  expect(screen.getByRole("tooltip").textContent).toContain("Opus 5.5 $0.98");
 });
