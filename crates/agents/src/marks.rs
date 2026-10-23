@@ -529,6 +529,7 @@ impl Agents {
                         prompt,
                         publication,
                         None,
+                        agents.launcher.selected_permission_mode(&id),
                     )
                     .await
             });
@@ -544,6 +545,7 @@ impl Agents {
                 resume.prompt.clone(),
                 publication,
                 None,
+                self.launcher.selected_permission_mode(&mark.agent),
             )
             .await?;
         resume.progress = ResumeProgress::Acknowledged(Box::new(node.clone()));

@@ -6,7 +6,7 @@
 }
 
 .app-menu {
-  z-index: 4;
+  z-index: var(--layer-menu);
 }
 
 .app-menu [data-part="item"] {
