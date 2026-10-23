@@ -2,7 +2,7 @@ import { cleanup, fireEvent, screen, waitFor, within } from "@solidjs/testing-li
 import { afterEach, expect, it, vi } from "vitest";
 import type { Reaction } from "@contracts/reaction/Reaction";
 import { RpcError } from "../app/seam";
-import { agent, door } from "../testing/nodes";
+import { agent, door, workstream } from "../testing/nodes";
 import { mountAskBar } from "../ask/askFixture";
 import { copy } from "../copy";
 import { openTabs, path, tab } from "../header/stripFixture";
@@ -91,8 +91,9 @@ it("nr9_failed_creation_preserves_original_draft", async () => {
 
 it("u3299a_named_targets_keep_identity", async () => {
   const { app, connected } = await mountAskBar([], null, [
-    agent("a", "idle", "ready", { name: "Builder" }),
-    agent("b", "idle", "ready", { name: "Builder" }),
+    workstream("build", { name: "Build" }), workstream("check", { name: "Check" }),
+    agent("a", "idle", "ready", { name: "Builder", parent: "build" }),
+    agent("b", "idle", "ready", { name: "Builder", parent: "check" }),
   ]);
 
   app.handlers["reaction.list"] = () => [];
@@ -105,12 +106,12 @@ it("u3299a_named_targets_keep_identity", async () => {
   }, null, "ordinary");
   fireEvent.click(await screen.findByRole("button", { name: copy.reactionCreate }));
   fireEvent.click(screen.getByRole("combobox", { name: copy.reactionTarget }));
-  fireEvent.click(await screen.findAllByRole("option", { name: "Builder" }).then(options => options[1]!));
+  fireEvent.click(await screen.findByRole("option", { name: "Builder · Check" }));
   const preview = screen.getByRole("region", { name: copy.reactionPreview });
 
-  await within(preview).findByText("Builder");
-  fireEvent.click(screen.getAllByRole("checkbox", { name: "Builder" })[0]!);
-  await within(preview).findByText(/All of Builder finish/);
+  await within(preview).findByText("Builder · Check");
+  fireEvent.click(screen.getByRole("checkbox", { name: "Builder · Build" }));
+  await within(preview).findByText(/All of Builder · Build finish/);
   const save = screen.getByRole("button", { name: copy.reactionSave });
 
   await waitFor(() => expect(save).toHaveProperty("disabled", false));
@@ -118,8 +119,8 @@ it("u3299a_named_targets_keep_identity", async () => {
   const detail = await screen.findByRole("region", { name: copy.reactionDetail("Ship it") });
 
   expect(app.calls.find((call) => call.method === "reaction.create")?.params).toMatchObject({ target: "b", condition: { ids: ["a"] } });
-  expect(within(detail).getByText("Builder")).toBeTruthy();
-  expect(within(detail).getByText(/All of Builder finish/)).toBeTruthy();
+  expect(within(detail).getByText("Builder · Check")).toBeTruthy();
+  expect(within(detail).getByText(/All of Builder · Build finish/)).toBeTruthy();
 });
 
 it("nr9_firing_opens_only_its_recorded_message_and_returns_focus", async () => {

@@ -418,7 +418,7 @@ const Deliverables = (props: { state: ReturnType<typeof createDeliverables> }) =
             }
 
             const url = copy.linkUrl("deliverable", encodeURIComponent(record.id), encodeURIComponent(record.project));
-            await navigator.clipboard.writeText(`${copy.linkNote(url)}\n${JSON.stringify(record, null, 2)}`);
+            await navigator.clipboard.writeText(`${copy.linkNote(url)}\n${JSON.stringify({ home: home(record), publication: status(record), record }, null, 2)}`);
           } catch (error) {
             if (!(error instanceof Error)) throw error;
             setFailure({ id: record.id, cause: copy.copyDraftFailure(error.message) });
