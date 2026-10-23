@@ -55,9 +55,15 @@ export const Layout = (props: {
   const binding = (part: "root" | "rail" | "centre" | "shelf") =>
     splitProps(props.splitter?.[part] ?? {}, ["style", "ref", "class", "classList", "children"])[1];
 
-  const [shelfFocus, setShelfFocus] = createSignal(false);
+  const [shelfFocus, setShelfFocus] = createSignal<Element | null>(null);
+
   onMount(() => {
-    const sync = () => setShelfFocus(document.activeElement?.closest('.shelf') !== null && !document.activeElement?.closest('input, textarea, select, [contenteditable], [role=dialog], [role=menu]'));
+    const sync = () => {
+      const focus = document.activeElement;
+
+      setShelfFocus(focus?.closest(".shelf") && !focus.closest("input, textarea, select, [contenteditable], [role=dialog], [role=menu]") ? focus : null);
+    };
+
     document.addEventListener("focusin", sync);
     document.addEventListener("focusout", sync);
     onCleanup(() => {
@@ -167,7 +173,7 @@ export const Layout = (props: {
           </IconButton>
         </Show>
         <Show when={placement().onClose}>
-          <IconButton aria-label={copy.closeShelf} tooltip={copy.close} chord={shelfFocus() && !triage.on() ? CHORDS.find(row => row.keys === "Esc") : undefined} onClick={event => placement().onClose?.(activationSource(event))}><X class="icon" aria-hidden="true" /></IconButton>
+          <IconButton aria-label={copy.closeShelf} tooltip={copy.close} chord={shelfFocus()?.closest(".shelf-controls") && !triage.on() ? CHORDS.find(row => row.keys === "Esc") : undefined} onClick={event => placement().onClose?.(activationSource(event))}><X class="icon" aria-hidden="true" /></IconButton>
         </Show>
       </div>
       {props.shelf}

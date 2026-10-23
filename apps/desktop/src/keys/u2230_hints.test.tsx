@@ -7,6 +7,7 @@ import { rowOf } from "../rail/railFixture";
 import { createFakeApp } from "../testing/fakeApp";
 import { agent, door, event, info } from "../testing/nodes";
 import type { EmulatorFactory } from "../terminal/emulator";
+import { copy } from "../copy";
 import { KeyHint } from "./KeyHint";
 import { endLeader } from "./registry";
 import { CHORDS, hintsFor, pressOf } from "./chords";

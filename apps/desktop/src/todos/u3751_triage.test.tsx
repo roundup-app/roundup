@@ -315,9 +315,15 @@ it("u3474b_done_keeps_the_regrouped_nested_row_ready", async () => {
   row(1).focus();
   nextKey("t");
 
-  for (const [id, next] of [[1, 2], [2, 3], [3, 4], [4, 5]]) {
+  for (const [id, next] of [[1, 2], [2, 3], [3, 4], [4, 5]] as const) {
     nextKey("x");
     await waitFor(() => expect(store.todos.find(todo => todo.id === id)?.done).toBe(true));
-    await waitFor(() => expect(document.activeElement).toBe(row(next!)));
+    await waitFor(() => expect(document.activeElement).toBe(row(next)));
+    // OpenRow releases the finishing row on the strike's animationend; jsdom has no CSS clock.
+    const strike = document.querySelector(`[data-todo="${id}"] .todo-strike`);
+
+    if (strike) fireEvent.animationEnd(strike);
+
+    await waitFor(() => expect(document.activeElement).toBe(row(next)));
   }
 });
