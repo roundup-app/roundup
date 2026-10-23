@@ -73,10 +73,12 @@ while True:
         if not chunk:
             break
         pending += chunk
-        while b"\n" in pending:
-            line, pending = pending.split(b"\n", 1)
+        if b"\n" in pending:
+            line, _ = pending.split(b"\n", 1)
             out.write(line + b"\n")
             out.flush()
+            # One report ends the workload; stop load so collection cannot evict it from the log.
+            break
 '
 "#;
 
@@ -149,14 +151,16 @@ async fn collect_report(
         }
     })
     .await;
-    let result = collected.unwrap_or_else(|_| {
-        Err(failure(format!(
-            "the webview wrote no complete {} line in time ({}; socket {})",
-            marker.trim(),
-            phase.get(),
-            socket.display(),
-        )))
-    });
+    let result = collected
+        .unwrap_or_else(|_| {
+            Err(failure(format!(
+                "the webview wrote no complete {} line in time ({}; socket {})",
+                marker.trim(),
+                phase.get(),
+                socket.display(),
+            )))
+        })
+        .map_err(|err| failure(format!("{} collection: {err}", marker.trim())));
     if let Some(dir) = evidence {
         std::fs::write(
             dir.join("collection.json"),
@@ -452,7 +456,7 @@ mod tests {
         let listener = tokio::net::UnixListener::bind(&socket)?;
         let server = tokio::spawn(rupd::serve(listener, std::sync::Arc::clone(&daemon)));
         let result =
-            tokio::time::timeout(Duration::from_secs(10), async {
+            tokio::time::timeout(RUN_BOUND, async {
                 let client = Client::connect(&socket).await?;
                 let terminal = client
                     .request(
@@ -505,7 +509,7 @@ mod tests {
                         }
                     }
                 }
-                collect_report(&socket, "FRAMES ", Duration::from_secs(4), Some(dir.path())).await
+                read_report(&socket, "FRAMES ", Some(dir.path())).await
             })
             .await
             .map_err(io::Error::other)
