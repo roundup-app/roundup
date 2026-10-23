@@ -62,7 +62,7 @@ export const createSortedList = (source: {
       const position = positionOf(el);
 
       if (position) positions.set(id, position);
-      else positions.delete(id);
+      // A replacement frame may be registered before insertion; its outgoing position still belongs to this row.
     });
   };
 
@@ -101,7 +101,7 @@ export const createSortedList = (source: {
       animation.onfinish = () => { if (animations.get(id) === animation) animations.delete(id); };
     }
 
-    for (const id of positions.keys()) if (!frames.has(id)) {
+    for (const id of positions.keys()) if (!source.ids().includes(id)) {
       positions.delete(id);
       animations.get(id)?.cancel();
       animations.delete(id);
@@ -238,12 +238,19 @@ export const createSortedList = (source: {
       return {
       frame: (el) => {
         if (el) {
+          const outgoing = frames.get(id);
+          const position = outgoing && positionOf(outgoing);
+
+          if (position) positions.set(id, position);
           frame = el;
           frames.set(id, el);
           parts.ref(el);
         } else if (frames.get(id) === frame) {
-          frames.delete(id);
+          // An owner change replaces the row before measure; retain its mid-glide position for the new frame.
+          const position = frame && positionOf(frame);
 
+          if (position) positions.set(id, position);
+          frames.delete(id);
         }
       },
       button: (el) => {

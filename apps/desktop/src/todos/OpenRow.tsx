@@ -1,6 +1,6 @@
 import ChevronUp from "lucide-solid/icons/chevron-up";
 import type { JSX } from "solid-js";
-import { createMemo, createSignal, For, onCleanup, onMount, Show } from "solid-js";
+import { createMemo, createSignal, For, onCleanup, onMount, Show, untrack } from "solid-js";
 import type { Todo } from "@contracts/todo/Todo";
 import { IconButton } from "../ui/IconButton";
 import { Tip } from "../ui/Tip";
@@ -77,6 +77,8 @@ export const OpenRow = (props: {
   nest?: { in: (() => Promise<string | null>) | null; out: (() => Promise<string | null>) | null };
 }) => {
   const connected = useConnectedProject();
+  // The frame and button must unregister through the same closures that registered them.
+  const sorted = untrack(() => props.sorted);
   const near = props.nested ? createNear() : null;
   const [listOpen, setListOpen] = createSignal(false);
   const waitingOn = createMemo(() => openBlockersOf(props.todo, props.known));
@@ -109,11 +111,11 @@ export const OpenRow = (props: {
 
   onCleanup(() => {
     props.registerRow?.(props.todo.id, null);
-    props.sorted?.frame(null);
-    props.sorted?.button(null);
+    sorted?.frame(null);
+    sorted?.button(null);
   });
 
-  props.sorted?.fail(setMoveFailure);
+  sorted?.fail(setMoveFailure);
   props.failWith?.(setFailure);
 
   const titleCut = createCutTitle(() => props.todo.title);
@@ -128,31 +130,31 @@ export const OpenRow = (props: {
           pressed={props.pressed}
           selectionActive={props.selectionActive}
           onClick={(event) => props.onPick ? props.onPick(props.todo, event) : props.onOpen(props.todo, activationSource(event))}
-          reorderable={props.sorted !== undefined}
+          reorderable={sorted !== undefined}
           nest={props.nest ? (out) => (out ? props.nest?.out : props.nest?.in) ?? null : undefined}
           onNest={async (run) => setMoveFailure(await run())}
           onKeyDown={(event) => {
             props.onSelectionKey?.(props.todo, event);
 
-            props.sorted?.key(event);
+            sorted?.key(event);
           }}
           ref={(row) => {
             props.registerRow?.(props.todo.id, row);
-            props.sorted?.button(row);
+            sorted?.button(row);
           }}
         >
           <span {...titleCut.attrs()} class="shelf-title">{props.todo.title}<span class="todo-strike" aria-hidden="true" data-title={props.todo.title} onAnimationEnd={() => props.onMotionEnd?.()} /></span>
           <Show when={!props.nested && props.todo.estimate_minutes !== null}><span class="todo-row-estimate" data-state="estimate">{copy.todoEstimate(props.todo.estimate_minutes)}</span></Show>
           <Show when={props.current}><span class="todo-now" data-state="">{copy.todoNow}</span></Show>
         </RowButton>
-        <Show when={!props.nested && props.sorted}>
+        <Show when={!props.nested && sorted}>
           <div class="todo-row-actions" role="group" aria-label={copy.rowActionsFor(props.todo.id)}>
-            <Show when={props.sorted}>
+            <Show when={sorted}>
               <Show when={props.onAssign}>
                 <button data-button="row-action" type="button" class="word light todo-assign" aria-label={copy.assignTodoNumber(props.todo.id)} onClick={(event) => props.onAssign?.(props.todo, event.currentTarget)}>{copy.assign}</button>
               </Show>
-              <IconButton aria-label={copy.moveUp} style={props.sorted?.can(-1) ? undefined : { visibility: "hidden" }} onClick={() => props.sorted?.step(-1)}><ChevronUp class="icon" aria-hidden="true" width={16} height={16} stroke-width={1.75} /></IconButton>
-              <IconButton aria-label={copy.moveDown} style={props.sorted?.can(1) ? undefined : { visibility: "hidden" }} onClick={() => props.sorted?.step(1)}><Icon name="down" /></IconButton>
+              <IconButton aria-label={copy.moveUp} style={sorted?.can(-1) ? undefined : { visibility: "hidden" }} onClick={() => sorted?.step(-1)}><ChevronUp class="icon" aria-hidden="true" width={16} height={16} stroke-width={1.75} /></IconButton>
+              <IconButton aria-label={copy.moveDown} style={sorted?.can(1) ? undefined : { visibility: "hidden" }} onClick={() => sorted?.step(1)}><Icon name="down" /></IconButton>
             </Show>
           </div>
         </Show>
@@ -203,7 +205,7 @@ export const OpenRow = (props: {
       head={props.nested ? undefined : head}
       {...near?.handlers}
       ref={(frame) => {
-        props.sorted?.frame(frame);
+        sorted?.frame(frame);
       }}
     >
       <Show when={props.nested}>{head}</Show>
