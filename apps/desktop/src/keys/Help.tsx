@@ -1,4 +1,4 @@
-import { KeyChip } from "./KeyChip";
+import { KeyHint } from "./KeyHint";
 import { copy } from "../copy";
 import { createSignal, For, Show } from "solid-js";
 import { HELP_KEYS, HELP_ROWS } from "./chords";
@@ -49,17 +49,14 @@ export const Help = () => {
         <p>{copy.helpShortcutScopes}</p>
         <For each={HELP_ROWS}>
           {(chord) => (
-            <p class="help-line">
-              <KeyChip keys={chord.keys} />
-              {`  ${chord.what}`}
-            </p>
+            <p class="help-line"><KeyHint keys={chord.keys}>{chord.what}</KeyHint></p>
           )}
         </For>
         <section class="help-shelf" aria-label={copy.shelfKeys}>
-        <p><KeyChip keys={copy.previousNextKeys} />{" "}{copy.focusThePreviousNextShelfRow}</p>
-        <p><KeyChip keys={copy.enter} />{" "}{copy.toggleTheFocusedShelfRowSelection}</p>
-        <p><KeyChip keys={copy.rangeKeys} />{" "}{copy.selectARangeOfShelfRows}</p>
-        <p><KeyChip keys={copy.esc} />{" "}{copy.deleteSelectedShelfRowsCancelSelection}</p>
+        <p><KeyHint keys={copy.previousNextKeys}>{copy.focusThePreviousNextShelfRow}</KeyHint></p>
+        <p><KeyHint keys={copy.enter}>{copy.toggleTheFocusedShelfRowSelection}</KeyHint></p>
+        <p><KeyHint keys={copy.rangeKeys}>{copy.selectARangeOfShelfRows}</KeyHint></p>
+        <p><KeyHint keys={copy.esc}>{copy.deleteSelectedShelfRowsCancelSelection}</KeyHint></p>
         </section>
       </Dialog.Content>
     </Dialog.Root>

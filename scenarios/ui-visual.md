@@ -1,6 +1,6 @@
-# UI: the visual system (U130 to U137, U161, U476, U3767, U3807, U3299a–d, U3295a–c)
+# UI: the visual system (U130 to U137, U161, U476, U3767, U3807, U3299a–d, U3295a–c, U3480)
 
-Module: `apps/desktop` (the webview). Ids: U130–U137, U161, U476, U3767, U3807, U3299a–d, U3295a–c.
+Module: `apps/desktop` (the webview). Ids: U130–U137, U161, U476, U3767, U3807, U3299a–d, U3295a–c, U3480.
 
 Webview only. No App command, no Daemon method and nothing under `contracts/` changes. `docs/design-system.md` holds the Tokens, the six rules and the checks D1 to D10; each scenario below is the test that proves some of them, and its test name starts with its id. For rendered captures, every Check runs on every visible element in dark and fails when it cannot measure; non-capture behavioral and Token tests retain their supported schemes (U3725). `docs/motion.md` is unchanged.
 
@@ -128,3 +128,14 @@ Given the real Stylelint configuration and each fixture below, when linted, then
 | `calc(var(--layer-dialog) + 1)` | 2 |
 
 Given the complete authored stylesheet set after the audit, when `pnpm lint:styles` runs, then it exits 0 with this rule enabled (implementation gate, not another test). Existing U3767 and U346 regressions remain covered by their observers; no extra runtime layer registry or repeated browser suite is required (policy).
+
+
+**U3480 a modal closes the Terminal pane context Menu.** Extends U3295b's background Menu case to `Menu.ContextTrigger` in `terminal/Pane.tsx`. Policy: `ui/Menu.tsx` registers the context trigger with the same owner-ref mechanism as its ordinary trigger, preserving the caller's ref and Ark UI props, including `asChild`. Reuse the shared modal dismissal mechanism; add no pane-specific dismissal listener, state machine, App command or contract. Implementation stays within the shared Menu wrapper and its Terminal-pane regression tests.
+
+Given a selected live Terminal with a text selection and its pane context Menu open, when a modal Dialog opens through the existing App seam without clicking outside the Menu, then the context Menu closes, is absent from accessible open controls, cannot receive focus or activate a choice, and focus belongs to the Dialog. No Copy, Paste or Send to Agent action occurs. Observer: planned `u3480_a_modal_closes_the_pane_context_menu` in `apps/desktop/src/terminal/u3480_context_under_dialog.test.tsx`, rendering the real Pane and shared Menu/Dialog with a normally answering fake App and injected emulator. Assert Menu closure, Dialog focus and unchanged clipboard, Terminal-input and Message call counts; never assert the wrapper's source text.
+
+Given that sequence completed, when the user closes the Dialog, then the context Menu stays closed and no choice activates. Observer: planned `u3480_closing_the_dialog_keeps_the_context_menu_closed` in the same file. When the user explicitly opens the pane context Menu again and chooses Copy, then the selected Terminal text is copied exactly once. Observer: planned `u3480_the_pane_context_menu_works_after_modal_dismissal` in the same file. This exercises the real `asChild` trigger and pane ref; reuse existing clipboard/selection fixtures. Wait on the Dialog and Menu's published open/closed state between inputs, never a fixed delay (policy).
+
+Regression (policy): retain U3295b's ordinary-trigger and Dialog-owned Menu behavior and U515's context-menu Send to Agent behavior. The existing `u3767_opening_a_dialog_closes_the_note_popover` and `u3767_the_note_text_survives_the_dialog` in `apps/desktop/src/terminal/u3767_note_under_dialog.test.tsx` continue to prove note dismissal and preservation. P11's Gate applies: dismissal must not consume the Terminal selection or unfinished note; its Observer remains those note tests plus the selected-text Copy readback above. No wider journey completion is claimed; this supports Understand and Intervene by leaving the modal usable.
+
+Rendered observer (policy, implementation acceptance): isolated headless Chromium, dedicated session and fresh profile, 1512×950 in dark. On `tree-40`, select a live Terminal, select text, open its context Menu, open a modal through the existing App seam, close it and explicitly reopen the Menu. Include the densest seed with failure text visible. The design critic judges D2, D5 and D6 (`docs/design-system.md`, heading “The checks”), Menu occlusion and Dialog focus; no Check passing on main regresses, and only existing Tokens are used. Run `just capture U3480`; leave before/after PNGs and Check readings under `artifacts/ux/U3480/` with base/head SHAs per `.agents/data/harness.md`, heading “Captures”. Commit no images or videos. This specification-only PR requires no UI capture and makes no native Mac claim.
