@@ -195,3 +195,27 @@ describe("u2694 the Rail's system menu", () => {
     await waitFor(() => expect(railCallsTo(app, "agent.stop")).toEqual([{ id: "a" }]));
   });
 });
+
+it("u3515a_send_offers_other_project_receivers_in_rail_order", async () => {
+  const { app } = await mountRail([
+    door("w1", "idle", "ready"),
+    agent("a", "idle", "ready", { parent: "w1" }),
+    agent("b", "idle", "ready", { parent: "w1", order: 1 }),
+    door("w2", "idle", "ready", { order: 1 }),
+    agent("c", "idle", "ready", { parent: "w2" }),
+    agent("root", "idle", "ready", { order: 2 }),
+  ]);
+
+  open("a");
+  expect(entry(app, "Send to Agent").children?.map(child => child.label)).toEqual(["w1", "b", "w2", "c", "root"]);
+});
+
+it("u3515b_exhausted_target_actions_do_nothing", async () => {
+  const { app } = await mountRail([agent("a", "idle", "ready")]);
+
+  open("a");
+  expect(entry(app, "Send to Agent")).toMatchObject({ enabled: false });
+  expect(entry(app, "Send to Agent").children).toBeUndefined();
+  await app.pickMenu("Send to Agent");
+  expect(app.calls.filter(call => ["message.send", "terminal.write", "agent.spawn"].includes(call.method))).toEqual([]);
+});
