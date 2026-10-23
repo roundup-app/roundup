@@ -870,5 +870,10 @@
     "cleanup": "Launch owner above supplies cleanup; this caller launches no executable itself.",
     "data": "Uses audited desktop fixture or a fake/client reference; no separate built-Daemon launch.",
     "kind": "reference"
+  },
+  "crates/rupd/tests/launch_choices.rs": {
+    "cleanup": "The shared rupd_harness kills and reaps its Daemon before deleting its owned data TempDir; Run drops the Daemon before its Project TempDir.",
+    "data": "Calls the audited support/rupd_harness.rs; it supplies a canonical absolute ROUNDUP_DATA_DIR in a fresh owned TempDir and removes inherited App data redirection.",
+    "kind": "reference"
   }
 }
