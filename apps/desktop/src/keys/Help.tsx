@@ -46,6 +46,7 @@ export const Help = () => {
       finalFocusEl={() => returnTo instanceof HTMLElement && returnTo.isConnected ? returnTo : null}
       onEscapeKeyDown={(event) => event.stopImmediatePropagation()}>
       <Dialog.Content class="help" aria-label={copy.help} ref={(element) => { panel = element; queueMicrotask(() => element.isConnected && element.focus({ preventScroll: true })); }}>
+        <p>{copy.helpShortcutScopes}</p>
         <For each={HELP_ROWS}>
           {(chord) => (
             <p class="help-line">

@@ -92,7 +92,7 @@ export const Todos = (props: {
 
   const open = shownTodos(connected, todos);
 
-  const selection = createSelection(() => [...open(), ...(unfolded() ? done() : [])].map((todo) => todo.id), () => connected.rail.selected() ?? "overview");
+  const selection = createSelection(() => [...open(), ...(unfolded() ? done() : [])].map((todo) => todo.id), () => connected.rail.selected() ?? "overview", id => rowButtonOf(id));
 
   const done = createMemo(() => doneTodos(todos.all()).filter((todo) =>
     scope.includes(todo.home, todo.creator, todo.owner)));
@@ -144,6 +144,7 @@ export const Todos = (props: {
 
   const bulk = createBulkDelete({
     selected: selection.selected,
+    afterRemoval: selection.afterRemoval,
     targets: () => [...open(), ...(unfolded() ? done() : [])].map(target),
     done: () => done().map(target),
     context: () => connected.rail.selected() ?? "overview",
@@ -173,6 +174,8 @@ export const Todos = (props: {
   const [dragging, setDragging] = createSignal(false);
   const [adding, setAdding] = createSignal<{ group: string; owner: Actor | null } | null>(null);
   const [picking, setPicking] = createSignal<{ id: number; anchor: HTMLElement } | null>(null);
+  let pickAdvance: (() => Promise<void>) | undefined;
+  let commentAdvance: (() => Promise<void>) | undefined;
   const pickFails = new Map<number, (message: string | null) => void>();
 
   const sorted = createSortedList({
@@ -245,11 +248,13 @@ export const Todos = (props: {
   /** U3709, U3711: Tab nests a row under the one above it and ⇧Tab un-nests it, each one `todo.setBlockers`; the Daemon refuses a cycle (T4). */
   const nestOf = (todo: Todo, parent: number | null, above: Todo | null, first: boolean) => {
     const call = (blockers: number[]) => async () => {
-      nestFocus = todo.id;
+      const advance = captureAdvance(todo.id);
+      nestFocus = advance ? null : todo.id;
 
       const message = await failureOf(() => connected.app.rpc("todo.setBlockers", { id: todo.id, blockers }));
 
       if (message !== null) nestFocus = null;
+      else await advance?.();
 
       return message;
     };
@@ -276,7 +281,7 @@ export const Todos = (props: {
 
   let plusButton: HTMLButtonElement | undefined;
 
-  const rowButtonOf = (id: number) => (rows.get(id)?.isConnected ? rows.get(id) : null) ?? document.querySelector<HTMLElement>(`[data-todo="${id}"] .row-head button`);
+  const rowButtonOf = triageRowOf;
 
   /** U3720: the owner list closes with focus back on the row, found again after the refetch. */
   let namingNext: number | null = null;
@@ -320,11 +325,13 @@ export const Todos = (props: {
   });
 
   const assign = async (id: number, owner: Actor | null) => {
+    const advance = pickAdvance;
     const message = await failureOf(() => connected.app.rpc("todo.assign", { id, owner }));
 
     pickFails.get(id)?.(message);
 
-    if (message === null) {
+    if (message === null && advance) await advance();
+    else if (message === null) {
       // U3720, U138: the destination unfolds before its row exists, so focus has a button to land on.
       setRevealed(ownersOnRail(connected).find(each => sameOwner(each.actor, owner))?.id ?? "unassigned");
       setRegrouped({ id, owner });
@@ -333,13 +340,14 @@ export const Todos = (props: {
 
   registerKeys(shelfKeyScope, [{
     action: CHORDS.find(row => row.keys === "O")!,
+    when: event => !triage.on() || triageTarget(event)?.done === false,
     capture: (focus) => {
       const row = focus instanceof HTMLElement && focus.closest(".row-head") && !focus.closest(".todo-row-actions") ? focus.closest<HTMLElement>("[data-shelf-row]") : null;
       const id = Number(row?.dataset.todo);
       const found = row && todos.byId().get(id);
       const anchor = focus instanceof HTMLElement && !focus.matches(TEXT_FIELDS) ? focus : null;
 
-      return { available: () => !!found && !found.done && anchor !== null, invoke: () => { if (anchor) setPicking({ id, anchor }); } };
+      return { available: () => !!found && !found.done && anchor !== null, invoke: () => { if (anchor) { pickAdvance = captureAdvance(id); setPicking({ id, anchor }); } } };
     },
   }]);
 
@@ -523,7 +531,13 @@ export const Todos = (props: {
   const selectedId = () => (shown() !== null && connected.drawer.content() === shown()?.content ? shown()?.id : undefined);
 
   const show = (todo: Todo, source: ActivationSource) => {
-    const content = () => <TodoDrawer id={todo.id} todos={todos} />;
+    commentAdvance = captureAdvance(todo.id);
+
+    const content = () => <TodoDrawer id={todo.id} todos={todos} onComment={() => {
+      if (!triage.on() || !commentAdvance) return;
+      connected.drawer.close("key");
+      void commentAdvance();
+    }} />;
 
     setShown({ id: todo.id, content });
     connected.drawer.open(content, source);
@@ -531,19 +545,47 @@ export const Todos = (props: {
 
   const toggle = async (todo: Todo, ids: readonly number[]) => {
     const reopening = todo.done;
+    const advance = !reopening ? captureAdvance(todo.id) : undefined;
     const target = rowAfter(todo.id, ids);
 
     const message = await failureOf(() => reopening
       ? connected.app.rpc("todo.reopen", { id: todo.id })
       : connected.app.rpc("todo.complete", { id: todo.id }));
 
-    if (message === null) setAwaitingFocus((waiting) => [...waiting, { id: todo.id, target, reopening }]);
+    if (message === null && advance) await advance();
+    else if (message === null) setAwaitingFocus((waiting) => [...waiting, { id: todo.id, target, reopening }]);
 
     return message;
   };
 
   // U3751 to U3754: Todo triage mode. One flag; every key runs today's action on the focused row.
   let section: HTMLElement | undefined;
+  const triageButton = () => section?.closest(".shelf")?.querySelector<HTMLButtonElement>("[data-triage-toggle]") ?? section?.querySelector<HTMLButtonElement>("[data-triage-toggle]");
+
+  const triageButtons = () => openRowButtons().filter(button => todos.byId().get(idOfRow(button) ?? -1)?.done === false);
+
+  // U3474b: retain rendered order before a picker, editor or mutation can move the row.
+  const captureAdvance = (id: number) => {
+    if (!triage.on()) return undefined;
+    const order = triageButtons().map(idOfRow);
+    const at = order.indexOf(id);
+    const candidates = [...order.slice(at + 1), ...order.slice(0, at).reverse(), id];
+
+    return async () => {
+      await todos.reload();
+      // Ark reconciles regrouped trees and dismisses the picker before the next paint.
+      requestAnimationFrame(() => {
+        if (!triage.on() || !section?.isConnected || todos.failure() !== null) return;
+        const held = document.activeElement;
+
+        if (held instanceof Element && held !== document.body && !held.closest(".todos-tab, .owner-picker, .todo-comment-field, .todo-comments-send")) return;
+        const visible = triageButtons();
+        const next = candidates.map(candidate => visible.find(button => idOfRow(button) === candidate)).find(button => button !== undefined);
+        (next ?? triageButton())?.focus();
+      });
+    };
+  };
+
   let entry: { id: number | undefined; order: (number | undefined)[] } | null = null;
   const [moving, setMoving] = createSignal<{ id: number; anchor: HTMLElement } | null>(null);
 
@@ -558,13 +600,13 @@ export const Todos = (props: {
   };
 
   const enterTriage = () => {
-    const buttons = openRowButtons();
+    const buttons = triageButtons();
     const held = idOfRow(document.activeElement);
     const start = held !== undefined && todos.byId().get(held)?.done === false ? triageRowOf(held) : buttons[0] ?? null;
 
     entry = { id: idOfRow(start), order: buttons.map(idOfRow) };
     triage.set(true);
-    start?.focus();
+    (start ?? triageButton())?.focus();
   };
 
   /** U3751: the row that held focus at entry, else the nearest open one in the order the list had then. */
@@ -582,8 +624,10 @@ export const Todos = (props: {
     for (const id of near) {
       const button = id === undefined ? null : triageRowOf(id);
 
-      if (button && todos.byId().get(id!)?.done === false) return button.focus();
+      if (button && !button.closest("[hidden], [inert]") && todos.byId().get(id!)?.done === false) return button.focus();
     }
+
+    triageButton()?.focus();
   };
 
   createEffect(() => section?.closest(".shelf")?.setAttribute("data-triage", triage.on() ? "on" : "off"));
@@ -599,7 +643,10 @@ export const Todos = (props: {
     return id === undefined ? undefined : todos.byId().get(id);
   };
 
-  const canTriage = (event: KeyboardEvent) => !event.repeat && !event.isComposing && !event.metaKey && !event.ctrlKey && !event.altKey && !event.shiftKey
+  const inTodos = (event: KeyboardEvent) => section?.isConnected === true && !section.closest("[hidden], [inert]") && (!tabs || tabs().value === "todos")
+    && event.target instanceof Element && (event.target === document.body || event.target.closest(".shelf, .shelf-tabs") !== null);
+
+  const canTriage = (event: KeyboardEvent, nesting = false) => inTodos(event) && !event.repeat && !event.isComposing && !event.metaKey && !event.ctrlKey && !event.altKey && (!event.shiftKey || nesting && event.code === "Tab")
     && event.target instanceof Element && !event.target.closest("input, textarea, select, [contenteditable]")
     && !document.querySelector("[role=dialog], [role=alertdialog], [role=menu][data-state=open]");
 
@@ -614,44 +661,57 @@ export const Todos = (props: {
   });
 
   const moveHome = async (id: number, home: string | null) => {
+    const advance = moveAdvance;
     clearFailures();
     const message = await failureOf(() => connected.app.rpc("todo.move", { id, home }));
 
     pickFails.get(id)?.(message);
 
-    if (message === null) setAwaitingFocus(waiting => [...waiting, { id, target: rowAfter(id, openRowButtons().map(idOfRow).filter(each => each !== undefined)), reopening: false }]);
+    if (message === null && advance) await advance();
+    else if (message === null) setAwaitingFocus(waiting => [...waiting, { id, target: rowAfter(id, triageButtons().map(idOfRow).filter(each => each !== undefined)), reopening: false }]);
   };
 
-  registerKeys(shelfKeyScope, [
+  let moveAdvance: (() => Promise<void>) | undefined;
+
+  registerKeys({ kind: "app" }, [
+    {
+      chords: [...CHORDS.filter(row => row.inTriage && row.keys !== "Esc").flatMap(row => chordsOf(row)), ...chordsFor("O")],
+      when: event => triage.on() && canTriage(event, true) && triageTarget(event)?.done !== false && (!event.shiftKey || event.code === "Tab"),
+      run: () => (triageButtons()[0] ?? triageButton())?.focus(),
+    },
     {
       chords: chordsFor("T"),
-      when: event => !triage.on() && canTriage(event) && event.target instanceof Element && (idOfRow(event.target) !== undefined || event.target.closest("[data-triage-toggle]") !== null),
+      when: event => !triage.on() && canTriage(event),
       run: enterTriage,
     },
     {
       chords: chordsOf(CHORDS.find(row => row.inTriage && row.keys === "Esc")),
-      when: event => triage.on() && canTriage(event) && event.target instanceof Element && (idOfRow(event.target) !== undefined || event.target.closest("[data-triage-toggle]") !== null),
+      when: event => triage.on() && canTriage(event),
       run: leaveTriage,
     },
     triageKey("J K", (_todo, button, event) => {
-      const buttons = openRowButtons();
+      const buttons = triageButtons();
       const at = buttons.indexOf(button);
 
       if (at !== -1) buttons[Math.min(buttons.length - 1, Math.max(0, at + (event.code === "KeyJ" ? 1 : -1)))]?.focus();
     }),
     triageKey("A", (todo, button) => {
       clearFailures();
+      pickAdvance = captureAdvance(todo.id);
       setPicking({ id: todo.id, anchor: button });
     }),
     triageKey("W", (todo, button) => {
       clearFailures();
+      moveAdvance = captureAdvance(todo.id);
       setMoving({ id: todo.id, anchor: button });
     }),
     triageKey("X", async (todo) => {
       clearFailures();
-      pickFails.get(todo.id)?.(await toggle(todo, openRowButtons().map(idOfRow).filter(each => each !== undefined)));
+      pickFails.get(todo.id)?.(await toggle(todo, triageButtons().map(idOfRow).filter(each => each !== undefined)));
     }),
     triageKey("C", (todo) => {
+      commentAdvance = captureAdvance(todo.id);
+
       if (selectedId() !== todo.id) show(todo, "key");
       triage.askComment(todo.id);
     }),
@@ -738,7 +798,7 @@ export const Todos = (props: {
               known={todos.byId()}
               onOpen={show}
               onToggle={todo => toggle(todo, tree().map(row => row.todo.id))}
-              onAssign={(item, anchor) => setPicking({ id: item.id, anchor })}
+              onAssign={(item, anchor) => { pickAdvance = captureAdvance(item.id); setPicking({ id: item.id, anchor }); }}
               failWith={(show) => pickFails.set(todo.id, show)}
               sorted={sorted.row(todo.id, parts, () => tree().map(({ todo }) => todo.id))}
               place={row}
@@ -770,7 +830,8 @@ export const Todos = (props: {
         setNaming(null);
 
         // U3743, U138: the Todo is the new Door's, so its row is found again once `todo.updated` has refetched it.
-        if (made) {
+        if (made && pickAdvance) void pickAdvance();
+        else if (made) {
           setRevealed("unassigned");
           setRegrouped({ id, owner: { kind: "agent", id: made.id, parent: null } });
         } else queueMicrotask(() => rowButtonOf(id)?.focus());

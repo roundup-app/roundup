@@ -456,3 +456,17 @@ it("u3474e_saving_a_note_returns_to_a_live_control", async () => {
   fireEvent.click(document.activeElement!);
   await waitFor(() => expect(document.activeElement).toBe(screen.getByRole("textbox", { name: "Note" })));
 });
+
+
+it("u3474e_sending_the_batch_returns_to_a_live_control", async () => {
+  const { app } = await openDiff();
+  await saveNote("reviewed");
+  app.handlers["message.send"] = params => message(1, { to: params.to, body: params.body });
+  const send = screen.getByRole("button", { name: /Send notes to/ });
+  send.focus();
+  fireEvent.click(send);
+  await waitFor(() => expect(document.activeElement).toBe(screen.getByRole("button", { name: "Back" })));
+  expect(app.calls.filter(call => call.method === "message.send")).toHaveLength(1);
+  fireEvent.click(document.activeElement!);
+  expect(await screen.findByRole("button", { name: "View diff" })).toBeTruthy();
+});

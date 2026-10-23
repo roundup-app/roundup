@@ -19,7 +19,7 @@ const NotePath = (props: { path: string }) => {
 };
 
 /** The keyboard-reachable batch remains available from the tree as well as the reader. */
-export const NoteBatch = (props: { id: string; name: string; notes: Notes; comparison?: FileComparison | undefined; edit: (note: Note) => void; recover: () => void }) => {
+export const NoteBatch = (props: { id: string; name: string; fallback?: () => void; notes: Notes; comparison?: FileComparison | undefined; edit: (note: Note) => void; recover: () => void }) => {
   const state = () => props.notes.state(props.id);
 
   const status = () => {
@@ -43,11 +43,29 @@ export const NoteBatch = (props: { id: string; name: string; notes: Notes; compa
           <p class="note-text">{note.text}</p>
           <div class="diff-actions">
             <button type="button" data-button="quiet" aria-label={copy.editNote(index() + 1)} onClick={() => props.edit(note)}>{copy.editNoteAction}</button>
-            <button type="button" data-button="quiet" aria-label={copy.removeNote(index() + 1)} onClick={() => props.notes.remove(props.id, note.id)}>{copy.remove}</button>
+            <button type="button" data-button="quiet" aria-label={copy.removeNote(index() + 1)} onClick={event => {
+              const focused = event.currentTarget === document.activeElement;
+              const buttons = [...event.currentTarget.closest("ul")!.querySelectorAll<HTMLButtonElement>(".diff-actions button:last-child")];
+              const at = buttons.indexOf(event.currentTarget);
+              props.notes.remove(props.id, note.id);
+
+              if (focused) {
+                const next = buttons[at + 1] ?? buttons[at - 1];
+
+                if (next?.isConnected) next.focus();
+                else props.fallback?.();
+              }
+            }}>{copy.remove}</button>
           </div>
         </li>}</For></ul>
       </Show>
-      <button type="button" data-button="quiet" disabled={busy() || props.notes.list(props.id).length === 0} onClick={() => void props.notes.send(props.id)}>{copy.sendNotesTo(props.name)}</button>
+      <button type="button" data-button="quiet" disabled={busy() || props.notes.list(props.id).length === 0} onClick={async event => {
+        const button = event.currentTarget;
+        const focused = document.activeElement === button;
+        await props.notes.send(props.id);
+
+        if (focused && (document.activeElement === button || document.activeElement === document.body) && props.notes.list(props.id).length === 0) props.fallback?.();
+      }}>{copy.sendNotesTo(props.name)}</button>
       <Show when={state().kind === "failed"} fallback={<p role="status">{status()}</p>}><ErrorLine message={status()} /></Show>
       <Show when={uncertain()}><button type="button" data-button="quiet" onClick={() => void props.notes.reconcile(props.id)}>{copy.checkMessageHistory}</button></Show>
     </section>

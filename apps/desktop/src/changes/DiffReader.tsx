@@ -27,7 +27,9 @@ export const DiffReader = (props: { id: string; name: string; path: string; note
     if (note) setForm({ comparison: note.comparison, selection: note, editing: note });
   });
 
-  const closeForm = () => { setForm(undefined); props.onEdited(); };
+  let addButton: HTMLButtonElement | undefined;
+  let backButton: HTMLButtonElement | undefined;
+  const closeForm = () => { setForm(undefined); props.onEdited(); (addButton ?? backButton)?.focus(); };
 
   const [read, setRead] = createSignal<FileComparison>();
   const [failure, setFailure] = createSignal<string | null>(null);
@@ -140,10 +142,10 @@ export const DiffReader = (props: { id: string; name: string; path: string; note
       </div>
       <div class="diff-actions">
         <Show when={read()}>{value => <>
-          <Show when={value().status !== null && value().old.kind !== "binary" && value().new.kind !== "binary"}><button type="button" data-button="quiet" onClick={() => setForm({ comparison: value(), selection: selection() })}>{copy.addNote}</button></Show>
+          <Show when={value().status !== null && value().old.kind !== "binary" && value().new.kind !== "binary"}><button type="button" data-button="quiet" ref={element => { addButton = element; }} onClick={() => setForm({ comparison: value(), selection: selection() })}>{copy.addNote}</button></Show>
           <button type="button" data-button="quiet" onClick={() => setVersion(v => v + 1)}>{copy.refresh}</button>
         </>}</Show>
-        <button type="button" data-button="quiet" onClick={props.onBack}>{copy.back}</button>
+        <button type="button" data-button="quiet" ref={element => { backButton = element; }} onClick={props.onBack}>{copy.back}</button>
         <button type="button" data-button="quiet" onClick={props.onClose}>{copy.close}</button>
       </div>
     </header>
@@ -157,6 +159,6 @@ export const DiffReader = (props: { id: string; name: string; path: string; note
       </Show>
     </>}</Show>
     <Show when={form()} keyed>{draft => <NoteForm id={props.id} comparison={draft.comparison} notes={props.notes} selection={draft.selection} editing={draft.editing} close={closeForm} />}</Show>
-    <NoteBatch recover={props.recover} id={props.id} name={props.name} notes={props.notes} comparison={read()} edit={note => setForm({ comparison: note.comparison, selection: note, editing: note })} />
+    <NoteBatch fallback={() => backButton?.focus()} recover={props.recover} id={props.id} name={props.name} notes={props.notes} comparison={read()} edit={note => setForm({ comparison: note.comparison, selection: note, editing: note })} />
   </section>;
 };

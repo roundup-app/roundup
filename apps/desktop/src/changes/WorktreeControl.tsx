@@ -63,6 +63,7 @@ const Panel = (props: { id: string; name: string; worktree: Worktree; notes: Not
 
   const close = () => { hide(); control()?.focus(); };
 
+  let viewButton: HTMLButtonElement | undefined;
   const openPanel = () => { props.onOpen(); setOpen(true); };
 
   createEffect(() => { if (props.recoveryOpen) hide(); });
@@ -106,10 +107,10 @@ const Panel = (props: { id: string; name: string; worktree: Worktree; notes: Not
 
               if (value.changed.files.length === 0) return <p class="worktree-none">{copy.noChanges}</p>;
 
-              return <><ChangedTree root={props.worktree.path} files={value.changed.files} selected={path()} onSelect={setPath} /><button type="button" data-button="quiet" disabled={!path()} onClick={() => setDiff(true)}>{copy.viewDiff}</button></>;
+              return <><ChangedTree root={props.worktree.path} files={value.changed.files} selected={path()} onSelect={setPath} /><button type="button" data-button="quiet" ref={element => { viewButton = element; }} disabled={!path()} onClick={() => setDiff(true)}>{copy.viewDiff}</button></>;
             }}
           </Show>
-        <NoteBatch recover={props.recover} id={props.id} name={props.name} notes={props.notes} edit={note => { setPath(note.comparison.newPath); setEditing(note); setDiff(true); }} />
+        <NoteBatch fallback={() => viewButton?.focus()} recover={props.recover} id={props.id} name={props.name} notes={props.notes} edit={note => { setPath(note.comparison.newPath); setEditing(note); setDiff(true); }} />
           </Show>
         </Popover.Content>
       </Popover.Positioner>
