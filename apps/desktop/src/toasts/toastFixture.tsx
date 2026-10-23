@@ -1,3 +1,4 @@
+// fallow-ignore-file duplicate-export -- Toast and Pad fixtures use different Agent identities and are imported directly. Toast Todos choose a creator/title; todos/testHarness applies field overrides. No shared export barrel.
 import { fireEvent, render } from "@solidjs/testing-library";
 import { createSignal } from "solid-js";
 import type { Actor } from "@contracts/Actor";

@@ -1,3 +1,4 @@
+// fallow-ignore-file duplicate-export -- ChangedFile resolution differs from terminal/links printed-path normalization; imports name the module.
 import type { ChangedFile } from "@contracts/agent/ChangedFile";
 import type { ChangedStatus } from "@contracts/agent/ChangedStatus";
 import { copy } from "../copy";

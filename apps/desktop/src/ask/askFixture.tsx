@@ -1,3 +1,4 @@
+// fallow-ignore-file duplicate-export -- Ask and Switcher fixtures are separate test entry points, with no shared export barrel.
 import { createSignal, Show } from "solid-js";
 import { render } from "@solidjs/testing-library";
 import type { Ask } from "@contracts/ask/Ask";
