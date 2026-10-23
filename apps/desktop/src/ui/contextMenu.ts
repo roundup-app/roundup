@@ -94,21 +94,19 @@ export const linkEntries = (
     }
   };
 
-  return [
-    {
-      id: "send",
-      label: copy.sendToAgentMenu,
-      children: nodes.flatMap((agent): MenuEntry[] => agent.kind !== "agent" && agent.attempt === null ? [] : [{
-        id: `send:${agent.id}`,
-        label: agent.name,
-        enabled: running(agent),
-        run: () => attempt(async link => {
-          const params: RpcMethods["message.send"]["params"] = { to: agent.id, kind: "note", body: copy.linkNote(link), replyTo: null };
+  const children = nodes.flatMap((agent): MenuEntry[] =>
+    (agent.kind !== "agent" && agent.attempt === null) || !running(agent) ? [] : [{
+      id: `send:${agent.id}`,
+      label: agent.name,
+      run: () => attempt(async link => {
+        const params: RpcMethods["message.send"]["params"] = { to: agent.id, kind: "note", body: copy.linkNote(link), replyTo: null };
 
-          await app.rpc("message.send", params);
-        }),
-      }]),
-    },
+        await app.rpc("message.send", params);
+      }),
+    }]);
+
+  return [
+    ...(children.length ? [{ id: "send", label: copy.sendToAgentMenu, children }] : []),
     { id: "copy-link", label: copy.copyLink, run: () => attempt(async link => {
       await navigator.clipboard.writeText(target.kind === "deliverable" ? copy.linkNote(link) : link);
     }) },
