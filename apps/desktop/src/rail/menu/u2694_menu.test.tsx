@@ -118,11 +118,11 @@ describe("u2694 the Rail's system menu", () => {
 
     open("w");
 
-    expect(app.menuLabels()).toEqual(["Rename", ...actions, "Clear…", ...(running ? ["Send to Agent"] : []), "Copy Link", "Remove"]);
+    expect(app.menuLabels()).toEqual(["Rename", ...actions, "Clear…", "Send to Agent", "Copy Link", "Remove"]);
   });
 
   it("u3812_no_item_of_the_row_menu_is_built_disabled", async () => {
-    const { app } = await mountRail([door("w", "done", "stopped", { yolo: true }), agent("a", "idle", "ready")], [exitedTerminal("w", 0)]);
+    const { app } = await mountRail([door("w", "done", "stopped", { yolo: true })], [exitedTerminal("w", 0)]);
 
     open("w");
 
