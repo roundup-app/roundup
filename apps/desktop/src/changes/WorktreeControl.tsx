@@ -4,7 +4,7 @@ import type { Accessor } from "solid-js";
 import type { ChangedFiles } from "@contracts/agent/ChangedFiles";
 import type { Worktree } from "@contracts/agent/Worktree";
 import { copy } from "../copy";
-import { ErrorLine } from "../ink/ErrorLine";
+import { ReservedLine } from "../ink/ReservedLine";
 import { Icon } from "../ink/Icon";
 import { failureOf } from "../todos/failureOf";
 import { useConnectedProject } from "../state/connectedProject";
@@ -68,7 +68,7 @@ const Panel = (props: { id: string; name: string; worktree: Worktree; notes: Not
   createEffect(() => { if (props.recoveryOpen) hide(); });
 
   return (
-    <Popover.Root open={open()} closeOnEscape onOpenChange={({ open: next }) => { if (next) openPanel(); else close(); }} positioning={{ placement: "top-end", strategy: "fixed" }}>
+    <Popover.Root closeOnInteractOutside={false} open={open()} closeOnEscape onOpenChange={({ open: next }) => { if (next) openPanel(); else close(); }} positioning={{ placement: "top-end", strategy: "fixed" }}>
       <Popover.Trigger asChild={(trigger) => (
         <button {...trigger()} ref={setControl} type="button" data-button="quiet" class="worktree-control" aria-label={props.worktree.branch} onClick={() => (open() ? close() : openPanel())}>
           <Icon name="branch" />
@@ -97,7 +97,7 @@ const Panel = (props: { id: string; name: string; worktree: Worktree; notes: Not
               )}
             </Show>
           </dl>
-          <Show when={state()?.failure ?? read()?.failure}>{(failure) => <ErrorLine message={failure()} />}</Show>
+          <ReservedLine message={state()?.failure ?? read()?.failure} />
           <Show when={read()}>
             {(done) => {
               const value = done();

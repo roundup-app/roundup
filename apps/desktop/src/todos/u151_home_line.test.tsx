@@ -12,7 +12,6 @@ describe("u151 the Home line of a row", () => {
 
     const row = rowOf(3);
 
-    expect([...row.querySelector(".shelf-text")!.children].map((child) => child.tagName.toLowerCase())).toEqual(["p"]);
     expect(row.querySelector("[data-todo-meta]")?.textContent?.replace(/\s+/g, " ").trim()).toBe("also waits on: todo 2");
     expect(row.querySelector("[data-todo-also-waits]")?.textContent).toBe("also waits on: todo 2");
     expect(row.querySelector("[data-todo-home]")).toBeNull();

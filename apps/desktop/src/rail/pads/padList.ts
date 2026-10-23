@@ -45,6 +45,7 @@ const open = (connected: ConnectedProject): Shared => {
 
         setPads(listed);
         setFailure(null);
+        setLoaded(true);
       } catch (thrown) {
         if (!(thrown instanceof Error)) throw thrown;
 
@@ -57,7 +58,6 @@ const open = (connected: ConnectedProject): Shared => {
         setFailure(thrown.message);
       }
 
-      setLoaded(true);
     };
 
     const reload = () => {

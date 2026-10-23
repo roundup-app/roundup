@@ -2,7 +2,7 @@ import { For, Show, createEffect, createMemo, createSignal, onCleanup } from "so
 import type { RailNode } from "@contracts/agent/RailNode";
 import type { Message } from "@contracts/message/Message";
 import { copy } from "../copy";
-import { ErrorLine } from "../ink/ErrorLine";
+import { ReservedLine } from "../ink/ReservedLine";
 import { registerKeys } from "../keys/registry";
 import { useConnectedProject } from "../state/connectedProject";
 import { IconButton } from "../ui/IconButton";
@@ -122,7 +122,6 @@ export const NoteQueue = (props: { node: RailNode }) => {
       <Show when={rows().length > 0 || paused()}>
         <header class="note-queue-head">
           <Show when={rows().length > 1}><span class="note-queue-count" data-state="">{copy.notesWaiting(rows().length)}</span></Show>
-          <Show when={paused()}><span class="note-queue-paused" role="status">{copy.paused}</span></Show>
           <span class="note-queue-step" ref={(element) => { stepLine = element; }}>{step() === null ? "" : copy.nowStep(step()!)}</span>
           <Show when={live()}>
             <Toggle class="note-queue-pause" pressed={paused()} onPressedChange={() => void pause()}>{paused() ? copy.resume : copy.pauseAgent}</Toggle>
@@ -165,7 +164,7 @@ export const NoteQueue = (props: { node: RailNode }) => {
           onInput={(typed) => notes.setDraft(agent(), typed.currentTarget.value)}
         />
       </div>
-      <Show when={notes.failure(agent()) ?? (takeFailure()?.agent === agent() ? takeFailure()!.cause : null)}>{(cause) => <ErrorLine message={cause()} />}</Show>
+      <ReservedLine message={notes.failure(agent()) ?? (takeFailure()?.agent === agent() ? takeFailure()!.cause : null)} status={paused() ? copy.paused : null} />
     </section>
   );
 };

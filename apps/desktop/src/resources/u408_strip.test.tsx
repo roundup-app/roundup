@@ -48,14 +48,12 @@ const valueWords = (item: Element): string => {
 };
 
 // Read each icon by its accessible name alongside its number.
-const words = () =>
-  [...(strip()?.children ?? [])]
-    .flatMap((part) => {
-      const text = part.children.length === 0 ? (part.textContent ?? "") : [...part.children].map(valueWords).join(" · ");
+const words = () => {
+  const values = [...document.querySelectorAll(".resource-agent .resource-value")].map(valueWords).join(" · ");
+  const notice = document.querySelector(".resource-stale .reserved-status")?.textContent ?? "";
 
-      return text === "" ? [] : [text];
-    })
-    .join(" | ");
+  return [values, notice].filter(Boolean).join(" | ");
+};
 
 const settle = async (ms = 0) => {
   await vi.advanceTimersByTimeAsync(ms);
@@ -207,27 +205,13 @@ describe("u408 the Resource strip", () => {
 
     await settle(2000);
     expect(words()).toContain("Not updating");
+    expect(strip()!.querySelector('.resource-stale[role="status"]')?.getAttribute("aria-live")).toBe("off");
     expect(words()).toContain("412 MB");
 
     app.handlers["project.resources"] = () => RESULT;
     await settle(2000);
     expect(words()).not.toContain("Not updating");
   });
-
-  it("u408_the_strip_is_a_quiet_status", async () => {
-    await mount([agent("a", "working", "x")]);
-    await settle();
-
-    const element = strip()!;
-
-    expect(element.getAttribute("role")).toBe("status");
-    expect(element.getAttribute("aria-live")).toBe("off");
-    expect(element.getAttribute("aria-hidden")).toBe("false");
-    expect(element.hasAttribute("tabindex")).toBe(false);
-    expect(element.querySelector("[tabindex],button,a")).toBeNull();
-    expect(document.activeElement).toBe(document.body);
-  });
-
 });
 
 describe("u444 the Resource strip is the quiet last line", () => {

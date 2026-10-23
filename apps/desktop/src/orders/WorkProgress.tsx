@@ -1,3 +1,4 @@
+import { ReservedLine } from "../ink/ReservedLine";
 import { For, Show, createEffect, createMemo, createResource, createSignal, onCleanup } from "solid-js";
 import type { ContinuationAction } from "@contracts/message/ContinuationAction";
 import type { Progress } from "@contracts/message/Progress";
@@ -8,11 +9,10 @@ import { openDeliverable } from "../ask/openDeliverable";
 import { INTERNAL_CODE, RpcError } from "../app/seam";
 import { copy } from "../copy";
 import { Icon } from "../ink/Icon";
-import { KindGlyph } from "../ink/KindGlyph";
 import { useConnectedProject } from "../state/connectedProject";
 import { Disclosure } from "../ui/Disclosure";
 
-type Read = { progress: Progress; plan: Reconciliation } | { failure: string };
+type Read = { id: string; progress: Progress; plan: Reconciliation } | { failure: string };
 
 /** The Daemon's cause starts in lower case and may end without a stop; a note reads as a sentence. */
 const sentence = (cause: string) => {
@@ -33,7 +33,7 @@ export const WorkProgress = (props: { id: string }) => {
       const query = { project: project.path, id };
       const [progress, plan] = await Promise.all([app.rpc("message.progress", query), app.rpc("message.reconcileWork", query)]);
 
-      return { progress, plan };
+      return { id, progress, plan };
     } catch (error) {
       if (!(error instanceof Error)) throw error;
 
@@ -46,11 +46,13 @@ export const WorkProgress = (props: { id: string }) => {
   const unsubscribe = events.subscribe((event) => { if (event.name === "rail.changed") refresh(); });
   onCleanup(unsubscribe);
 
-  const loaded = () => {
+  const loaded = createMemo((previous: Extract<Read, { progress: Progress }> | undefined) => {
     const each = read.latest;
 
-    return each && "progress" in each ? each : undefined;
-  };
+    if (each && "progress" in each && each.id === props.id) return each;
+
+    return previous?.id === props.id ? previous : undefined;
+  });
 
   const [phase, setPhase] = createSignal<Phase>("idle");
   const [cause, setCause] = createSignal("");
@@ -193,7 +195,7 @@ export const WorkProgress = (props: { id: string }) => {
         <For each={noteOf(result, plan)}>{(note) => <p class="progress-note" role="note">{sentence(note.cause)} {sentence(note.action)}</p>}</For>
         <button class="word progress-evidence" data-button="quiet" type="button" aria-label={copy.openEvidence(result.report.publication.title)}
           aria-disabled={opening() !== null ? true : undefined} onClick={() => void inspect(result)}>{result.report.publication.title}</button>
-        <Show when={failure()?.report === result.report.report && failure()}>{(shown) => <p class="progress-failure" role="alert"><KindGlyph kind="error" /><span>{shown().cause}</span></p>}</Show>
+        <ReservedLine message={failure()?.report === result.report.report ? failure()!.cause : null} />
       </li>
     );
   };
@@ -206,12 +208,9 @@ export const WorkProgress = (props: { id: string }) => {
 
   return (
     <>
-      <Show when={unread()}>{(cause) => (
-        <section class="progress-section" aria-label={copy.progress}>
-          <p class="progress-failure" role="alert"><KindGlyph kind="error" /><span>{copy.progressUnreadable(cause())}</span></p>
-          <button class="word" data-button="quiet" type="button" onClick={refresh}>{copy.progressRetry}</button>
-        </section>
-      )}</Show>
+      <ReservedLine message={unread() ? copy.progressUnreadable(unread()!) : null}>
+        <button class="word" data-button="quiet" type="button" onClick={refresh}>{copy.progressRetry}</button>
+      </ReservedLine>
       <Show when={loaded()}>
         {(data) => (
           <Show when={data().progress.results.length > 0}>
@@ -223,11 +222,8 @@ export const WorkProgress = (props: { id: string }) => {
                     onClick={() => void resume()}>{phase() === "pending" ? copy.resuming : phase() === "failed" || phase() === "unknown" ? copy.resumeRetry : copy.resumeUnfinished}</button>
                 </Show>
               </div>
-              <Show when={phase() === "failed"}><p class="progress-failure" role="alert"><KindGlyph kind="error" /><span>{copy.resumeFailed(sentence(cause()))}</span></p></Show>
-              <Show when={phase() === "unknown"}><p class="progress-failure" role="alert"><KindGlyph kind="error" /><span>{copy.resumeUnknown}</span></p></Show>
-              <p ref={status} class="progress-status" role="status" tabindex="-1">
-                <Show when={phase() === "resumed" || phase() === "nothing"}><Icon name="check" />{phase() === "resumed" ? copy.resumed : copy.resumeNothing}</Show>
-              </p>
+              <ReservedLine ref={status} class="progress-status" tabindex="-1" message={phase() === "unknown" ? copy.resumeUnknown : phase() === "failed" ? copy.resumeFailed(sentence(cause())) : null}
+                status={phase() === "resumed" ? copy.resumed : phase() === "nothing" ? copy.resumeNothing : null} />
               <ul class="progress-rows"><For each={rows()?.current}>{(result) => row(result, data().plan)}</For></ul>
               <Show when={(rows()?.earlier.length ?? 0) > 0}>
                 <Disclosure class="progress-earlier" label={copy.progressEarlier(data().progress.results.filter((result) => !result.current).length)}>

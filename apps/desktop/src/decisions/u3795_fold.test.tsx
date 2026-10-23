@@ -91,17 +91,6 @@ describe("u3795 an answered permission folds to one line", () => {
     expect(within(line()!).queryByRole("button", { name: "Revoke" })).toBeNull();
   });
 
-  it("u3795_reduced_motion_folds_at_once", async () => {
-    await answer("Once");
-
-    expect(line()!.getAttribute("data-animated")).toBe("true");
-
-    document.body.replaceChildren();
-    await answer("Once", true);
-
-    expect(line()!.getAttribute("data-animated")).toBe("false");
-  });
-
   it("u3795_the_line_stays_until_next_decision_esc_or_agent_gone", async () => {
     const { app } = await answer("Once");
 

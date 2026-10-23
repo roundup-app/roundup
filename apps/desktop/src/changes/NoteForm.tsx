@@ -1,3 +1,4 @@
+import { ReservedLine } from "../ink/ReservedLine";
 import { copy } from "../copy";
 import { Tabs } from "../ui/Tabs";
 import { createSignal, Show, untrack } from "solid-js";
@@ -56,8 +57,7 @@ export const NoteForm = (props: { id: string; comparison: FileComparison; notes:
         if (selection) element.setSelectionRange(selection.start, selection.end, selection.direction);
       });
     }} /></label>
-    <p role="status">{props.notes.list(props.id).length >= 200 ? copy.notesFull : copy.chooseLines}</p>
-    <Show when={comparison.oldPath !== props.comparison.oldPath || comparison.newPath !== props.comparison.newPath || comparison.base !== props.comparison.base || comparison.old.revision !== props.comparison.old.revision || comparison.new.revision !== props.comparison.new.revision}><p role="status">{copy.originalContextStatus}</p></Show>
+    <ReservedLine status={(comparison.oldPath !== props.comparison.oldPath || comparison.newPath !== props.comparison.newPath || comparison.base !== props.comparison.base || comparison.old.revision !== props.comparison.old.revision || comparison.new.revision !== props.comparison.new.revision ? copy.originalContextStatus : null) || (props.notes.list(props.id).length >= 200 ? copy.notesFull : copy.chooseLines) || null} />
     <div class="diff-actions"><button type="button" data-button="quiet" onClick={props.close}>{copy.cancel}</button><button type="submit" data-button="quiet" disabled={!valid()}>{copy.save}</button></div>
   </form>;
 };

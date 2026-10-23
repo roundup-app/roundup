@@ -1,4 +1,6 @@
 /* U414: the layer holds no box of its own; --toast-lift lifts the shared Toast's stack above the resource strip. */
-.toasts {
+.toasts,
+.toasts > .reserved-content,
+.toasts .reserved-status {
   display: contents;
 }

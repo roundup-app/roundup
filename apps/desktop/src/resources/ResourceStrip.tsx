@@ -1,3 +1,4 @@
+import { ReservedLine } from "../ink/ReservedLine";
 import { copy } from "../copy";
 import { createEffect, createMemo, createSignal, on, onCleanup, Show, untrack } from "solid-js";
 import type { RailNode } from "@contracts/agent/RailNode";
@@ -113,7 +114,7 @@ export const ResourceStrip = () => {
   };
 
   return (
-    <div class="resource-strip" data-flat-bar="" role="status" aria-live="off" aria-hidden="false">
+    <div class="resource-strip" data-flat-bar="" aria-live="off" aria-hidden="false">
       <HintLine />
       {/* Keep this child mounted so resource updates preserve the Terminal tabs portalled into this bar. */}
       <span class="resource-agent">
@@ -122,9 +123,7 @@ export const ResourceStrip = () => {
           <Values memory={sizeText(mine()?.memory_bytes)} cpu={cpuText(mine()?.cpu_percent)} disk={sizeText(mine()?.disk_bytes)} />
         </Show>
       </span>
-      <Show when={own() !== null && failed()}>
-        <span class="resource-stale">{copy.notUpdating}</span>
-      </Show>
+      <ReservedLine class="resource-stale" aria-live="off" status={own() !== null && failed() ? copy.notUpdating : null} />
     </div>
   );
 };

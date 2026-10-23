@@ -9,17 +9,6 @@
 .pane-failure {
   flex: none;
   padding-inline: var(--space-2);
-  max-height: 6em;
-  overflow-y: auto;
-  overscroll-behavior: contain;
-}
-
-/* U349: the notice wraps and is never ellipsised; beats the one-line `p.ink[role="alert"]` of U80. */
-.pane-failure p.ink[role="alert"] {
-  overflow: visible;
-  text-overflow: clip;
-  white-space: pre-wrap;
-  overflow-wrap: anywhere;
 }
 
 .pane-body {
@@ -118,6 +107,8 @@
 
 /* U375, U187: the one state of the Terminal, Managed or You control, and the way to the other, float over its top-right corner, left of the work-items control, where lines end blank; the bottom is the Agent's input. */
 .pane-control {
+  inline-size: max-content;
+  max-inline-size: calc(100% - var(--space-6) * 2);
   position: absolute;
   top: var(--space-2);
   right: calc(var(--space-6) + var(--space-2));
@@ -134,10 +125,26 @@
 }
 
 .pane-control-state {
-  display: inline-flex;
+  display: inline-grid;
+  grid-template-columns: auto auto;
   align-items: center;
   gap: var(--space-2);
   white-space: nowrap;
+}
+
+/* Keep the resting label's width while allowing the refused-typing explanation to read in full. */
+.pane-control-state::after {
+  content: attr(data-label);
+  visibility: hidden;
+  grid-column: 2;
+  grid-row: 1;
+}
+
+.pane-control-state > .reserved-line {
+  grid-column: 2;
+  grid-row: 1;
+  inline-size: max-content;
+  min-inline-size: 100%;
 }
 
 .pane-control-state::before {

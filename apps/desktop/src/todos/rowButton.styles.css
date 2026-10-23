@@ -321,6 +321,10 @@
   .todo-done-fold { transition: none; }
 }
 
+.todo-row-notice {
+  position: relative;
+}
+
 /* U3768: the bar and `<done>/<total>` sit above the first group in the quiet secondary type, taking no focus. */
 .todo-progress {
   padding-inline: var(--space-2);

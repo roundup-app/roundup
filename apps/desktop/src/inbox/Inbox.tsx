@@ -3,7 +3,7 @@ import type { RailNode } from "@contracts/agent/RailNode";
 import type { UnreadComment } from "@contracts/todo/UnreadComment";
 import { copy } from "../copy";
 import { plainRefusal } from "../decisions/decisions";
-import { ErrorLine } from "../ink/ErrorLine";
+import { ReservedLine } from "../ink/ReservedLine";
 import { KindGlyph } from "../ink/KindGlyph";
 import { leaderChord } from "../keys/chords";
 import { activationSource, registerKeys } from "../keys/registry";
@@ -274,8 +274,7 @@ export const Inbox = () => {
 
   return <section class="inbox" aria-label={copy.inbox} ref={root} tabindex={-1}>
     <h2>{copy.inbox}</h2>
-    <Show when={failure()}>{(message) => <div><ErrorLine message={message()} /><button data-button="quiet" class="word" type="button" onClick={() => void refresh()}>{copy.inboxRetry}</button></div>}</Show>
-    <Show when={total() === 0 && failure() === null}><p class="light">{copy.inboxEmpty}</p></Show>
+    <ReservedLine message={failure()} status={total() === 0 ? copy.inboxEmpty : null}><Show when={failure()}><button data-button="quiet" class="word" type="button" onClick={() => void refresh()}>{copy.inboxRetry}</button></Show></ReservedLine>
     <Show when={needsCount() > 0 || needsKeys().length > 0}>
       <section class="inbox-group" aria-label={copy.needsYou}>
         {sectionTitle(copy.needsYou, needsCount, true, (element) => { needsHeading = element; })}

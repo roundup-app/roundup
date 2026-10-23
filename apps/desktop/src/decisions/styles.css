@@ -186,20 +186,6 @@
   overflow: hidden;
 }
 
-.decision-fold[data-animated="true"] {
-  animation: decision-fold var(--duration-fold) var(--easing-out);
-}
-
-@keyframes decision-fold {
-  from {
-    opacity: 0;
-  }
-
-  to {
-    opacity: 1;
-  }
-}
-
 .decision-fold-target {
   flex: 1 1 0;
   min-width: 0;

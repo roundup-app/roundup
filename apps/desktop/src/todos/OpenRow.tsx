@@ -12,7 +12,7 @@ import { copy } from "../copy";
 import { Icon } from "../ink/Icon";
 import { ShelfRow } from "../ink/ShelfRow";
 import { KindGlyph } from "../ink/KindGlyph";
-import { ErrorLine } from "../ink/ErrorLine";
+import { ReservedLine } from "../ink/ReservedLine";
 import { useConnectedProject } from "../state/connectedProject";
 import { HomeMove } from "./HomeMove";
 import { TickBox } from "./TickBox";
@@ -193,11 +193,11 @@ export const OpenRow = (props: {
         {/* oxlint-disable-next-line anti-slop/no-tooltip-bypass -- U3731 requires the whole first line as the one-line body's title attribute. */}
         <p class="item-description" data-todo-description title={bodyLine()}>{bodyLine()}</p>
       </Show>
-      <Show when={failure()}>{(message) => <ErrorLine message={message()} />}</Show>
+      <div class="todo-row-notice"><ReservedLine overlay message={failure()} /></div>
       <Show when={props.nested}>
         <p class="shelf-meta" data-todo-meta>
           <Show when={props.nested}><span data-mono>{copy.todoNumberMark}{props.todo.id}</span>{" "}</Show>
-          <Show when={props.nested && failure() === null && waitingOn().length > 0}>
+          <Show when={props.nested && waitingOn().length > 0}>
             <span data-todo-waits>
               <Tip class="todo-tooltip" text={copy.waitsOnTitles(waitingOn().map((blocker) => blocker.title).join(copy.comma))}>{(trigger) => <span {...trigger()}>{copy.waitsOnWord}</span>}</Tip><span class="todo-blockers"><For each={waitingOn()}>{(blocker, index) => (
                 <>
@@ -212,7 +212,7 @@ export const OpenRow = (props: {
           </Show>
         </p>
       </Show>
-      <Show when={!props.nested && !props.todo.done && failure() === null && alsoWaiting().length > 0}>
+      <Show when={!props.nested && !props.todo.done && alsoWaiting().length > 0}>
         <p class="shelf-meta" data-todo-meta>
           {/* oxlint-disable-next-line anti-slop/no-tooltip-bypass -- U3708 requires the full ellipsized sentence in title; Tip also owns its rendered tooltip. */}
           <Tip class="todo-tooltip" text={alsoWaitingLine()}>{(trigger) => <span {...trigger()} data-todo-also-waits title={alsoWaitingLine()}><span>{copy.alsoWaitsOn("")}</span><span class="todo-blockers"><For each={alsoWaiting()}>{(blocker, index) => (
