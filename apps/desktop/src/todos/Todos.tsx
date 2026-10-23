@@ -573,6 +573,8 @@ export const Todos = (props: {
 
     return async () => {
       await todos.reload();
+
+      if (triage.on()) finishing.settle();
       // Ark reconciles regrouped trees and dismisses the picker before the next paint.
       requestAnimationFrame(() => {
         if (!triage.on() || !section?.isConnected || todos.failure() !== null) return;
@@ -632,7 +634,8 @@ export const Todos = (props: {
 
   createEffect(() => section?.closest(".shelf")?.setAttribute("data-triage", triage.on() ? "on" : "off"));
   createEffect(on(() => connected.rail.selected(), () => { entry = null; triage.set(false); }, { defer: true }));
-  createEffect(on(() => tabs?.().value, () => { entry = null; triage.set(false); }, { defer: true }));
+  const activeTab = createMemo(() => tabs?.().value);
+  createEffect(on(activeTab, () => { entry = null; triage.set(false); }, { defer: true }));
   onCleanup(() => { triage.set(false); section?.closest(".shelf")?.setAttribute("data-triage", "off"); });
 
   const clearFailures = () => pickFails.forEach(show => show(null));

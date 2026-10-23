@@ -10,7 +10,7 @@ export type RowActions = {
   folder: () => void;
   editor: () => void;
 } & (
-  | { kind: "workstream"; add: { disabled: boolean; run: () => void }; clear?: () => void }
+  | { kind: "workstream"; add: { disabled: boolean; shortcut?: boolean; run: () => void }; clear?: () => void }
   | { kind: "agent"; stop?: () => void; resume?: () => void }
 );
 
@@ -38,8 +38,7 @@ export const RowIcons = (props: { actions: RowActions; children?: JSX.Element })
           class="rail-add"
           aria-label={copy.addAgentLabel}
           aria-disabled={add().disabled || undefined}
-          tooltip={copy.selectedWorkstreamShortcut}
-          chord={add().disabled ? undefined : CHORDS[0]}
+          chord={add().disabled || add().shortcut === false ? undefined : CHORDS[0]}
           onClick={(click) => {
             click.stopPropagation();
             add().run();

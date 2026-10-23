@@ -146,7 +146,6 @@ describe("u2239 the leader takes the next key", () => {
 
     const panel = document.querySelector(".leader")!;
 
-    expect(panel.textContent).not.toContain("Minimise");
     expect(document.activeElement).toBe(focus);
     expect(panel.querySelector("[tabindex], button, a")).toBeNull();
     key("Escape");

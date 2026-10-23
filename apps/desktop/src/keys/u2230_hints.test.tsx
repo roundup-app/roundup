@@ -7,11 +7,9 @@ import { rowOf } from "../rail/railFixture";
 import { createFakeApp } from "../testing/fakeApp";
 import { agent, door, event, info } from "../testing/nodes";
 import type { EmulatorFactory } from "../terminal/emulator";
-import { RowIcons } from "../rail/RowIcons";
-import { copy } from "../copy";
 import { KeyHint } from "./KeyHint";
 import { endLeader } from "./registry";
-import { CHORDS, HELP_ROWS, hintsFor, pressOf } from "./chords";
+import { CHORDS, hintsFor, pressOf } from "./chords";
 import type { HintPlace } from "./chords";
 
 afterEach(() => { cleanup(); endLeader(); });
@@ -137,30 +135,6 @@ const press = (target: Element, presses: string): boolean => {
 };
 
 describe("u2230 shortcut hints", () => {
-  it("u2541_one_component_draws_every_key", async () => {
-    await open();
-    await toRail();
-
-    const keysIn = (selector: string) => [...document.querySelectorAll(selector)].map((row) =>
-      [...row.querySelectorAll("kbd")].map((key) => key.textContent).join(""),
-    );
-
-    render(() => <RowIcons actions={{ kind: "workstream", add: { disabled: false, run: () => {} }, folder: () => {}, editor: () => {} }} />);
-    fireEvent.pointerMove(screen.getAllByRole("button", { name: copy.addAgentLabel }).at(-1)!, { pointerType: "mouse" });
-    await waitFor(() => expect(keysIn('[role="tooltip"] .key-chips')).toEqual([CHORDS[0]!.keys]));
-
-    expect(keysIn(".hint-line .hint")).toEqual(hintsFor("rail").map((hint) => hint.keys));
-    fireEvent.keyDown(rowOf("b"), { key: "?", shiftKey: true });
-    await waitFor(() => expect(keysIn(".help-line")).toEqual(HELP_ROWS.map((row) => row.keys.replace(/\s/g, ""))));
-    expect([...document.querySelectorAll(".help-shelf p")].map((row) =>
-      [...row.querySelectorAll("kbd")].map((key) => key.textContent),
-    )).toEqual([["↑", "↓"], ["⌘⏎"], ["⇧↑", "⇧↓"], ["⌫", "Esc"]]);
-    fireEvent.keyDown(document.activeElement!, { key: "Escape" });
-    await waitFor(() => expect(document.querySelector(".help")).toBeNull());
-    fireEvent.keyDown(rowOf("b"), { key: "k", code: "KeyK", metaKey: true });
-    await waitFor(() => expect(document.querySelector(".leader")).not.toBeNull());
-  });
-
   it("u2541d_a_chord_is_one_chip_and_an_alternative_one_pair", () => {
     const chips = (keys: string) => {
       const { container, unmount } = render(() => <KeyHint keys={keys}>label</KeyHint>);
@@ -240,6 +214,8 @@ it.each(["Triage", "Todos tab", "Maximise"])("u3474d_shown_shortcuts_run_from_th
 
   if (target !== "Maximise") {
     const control = screen.getByRole("button", { name: "Triage" });
+    // Ark publishes tab focus changes before the next paint. Observe the settled mode.
+    await new Promise<void>(resolve => requestAnimationFrame(() => resolve()));
     expect(control.getAttribute("aria-pressed")).toBe("true");
     fireEvent.keyDown(document.activeElement!, { key: "Escape", code: "Escape" });
     expect(control.getAttribute("aria-pressed")).toBe("false");

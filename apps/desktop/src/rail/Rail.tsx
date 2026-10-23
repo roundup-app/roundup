@@ -407,6 +407,7 @@ export const Rail = () => {
         kind: "workstream",
         add: {
           disabled: !canSpawn(),
+          shortcut: parent() === node.id && !composing(),
           run: () => {
             if (!canSpawn()) return;
 
