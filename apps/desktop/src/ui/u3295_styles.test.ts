@@ -1,8 +1,8 @@
-import { fileURLToPath } from "node:url";
+import { resolve } from "node:path";
 import stylelint from "stylelint";
 import { expect, it } from "vitest";
 
-const configFile = fileURLToPath(new URL("../../../../stylelint.config.mjs", import.meta.url));
+const configFile = resolve(import.meta.dirname, "../../../../stylelint.config.mjs");
 
 it.each([
   ...["-1", "0", "1", "drawer", "popover", "dialog", "menu", "tooltip", "toast"].map(value => [value.length > 2 ? `var(--layer-${value})` : value, false] as const),

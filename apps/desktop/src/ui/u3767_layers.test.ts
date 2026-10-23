@@ -23,7 +23,7 @@ it("u3767_floating_surfaces_take_layers_from_tokens_in_one_order", () => {
 
   // A file holding only floating surfaces sets no number; a mixed file names its Token on the floating selector.
   const only = ["ui/Popover.css", "ui/Tooltip.css", "ui/Dialog.css", "ui/Menu.css", "ui/Select.css", "ui/Toast.css", "switcher/styles.css", "toasts/styles.css", "ask/styles.css", "keys/keysFixture.tsx"];
-  const mixed = ["rail/styles.css", "styles.css", "terminal/styles.css", "todos/rowButton.styles.css"];
+  const mixed = ["rail/styles.css", "bubbles/styles.css", "styles.css", "terminal/styles.css", "todos/rowButton.styles.css"];
   const read = (name: string) => readFileSync(sources.find((path) => path.endsWith(`/${name}`))!, "utf8");
 
   for (const name of only) expect(read(name), `${name} sets its own z-index`).not.toMatch(/z-index"?:\s*"?\d/);
