@@ -42,7 +42,8 @@ export const withSample = (samples: readonly Sample[], sample: Sample): readonly
 
   // A Rail read cannot move a boundary already recorded by the Event log.
   if (!sample.recorded && samples.some(each => sameAttempt(each) && each.recorded && each.at >= sample.at)) return samples;
-  const source = sample.recorded ? samples.filter(each => each.recorded || !sameAttempt(each) || (each.at !== sample.at && (!each.ended || each.at > sample.at))) : samples;
+  const retained = sample.recorded ? samples.filter(each => each.recorded || !sameAttempt(each) || (each.at !== sample.at && (!each.ended || each.at > sample.at))) : samples;
+  const source = retained.length === samples.length ? samples : retained;
   const existing = source.find(each => each.at === sample.at && sameAttempt(each) && each.kind === sample.kind);
 
   if (!existing) return [...source, sample];

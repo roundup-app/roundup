@@ -1,3 +1,4 @@
+import { Tip } from "../ui/Tip";
 import { createCutTitle } from "../ui/cutTitle";
 import { ExitButton } from "../ui/IconButton";
 import { createEffect, createMemo, createSignal, For, on, onCleanup, Show } from "solid-js";
@@ -164,7 +165,7 @@ export const TimelineView = (props: { home: string; name: string; back: () => vo
                 const label = () => LABELS[block.kind];
 
                 return <Show when={waiting(lane.id, block)} fallback={<span class="timeline-block" role="img" aria-label={label()} data-kind={block.kind} data-tone={glyphOf(block.kind).tone} data-attempt={block.attempt} data-open={block.open ? "" : undefined} data-start={block.start} data-end={Math.round(endOf(block))} hidden={endOf(block) <= axisStart()} style={style()}><SpanLabel kind={block.kind} /></span>}>
-                  <button class="timeline-block" type="button" ref={(element) => blockOf.set(lane.id, element)} aria-label={copy.decisionFor(lane.name)} aria-expanded={asking() === lane.id} data-kind={block.kind} data-tone={glyphOf(block.kind).tone} data-open="" data-start={block.start} data-end={Math.round(endOf(block))} hidden={endOf(block) <= axisStart()} style={style()} onClick={() => openCard(lane.id)}><SpanLabel kind={block.kind} /></button>
+                  <Tip text={copy.decisionFor(lane.name)}>{(trigger) => <button {...trigger()} class="timeline-block" type="button" ref={(element) => blockOf.set(lane.id, element)} aria-label={copy.decisionFor(lane.name)} aria-expanded={asking() === lane.id} data-kind={block.kind} data-tone={glyphOf(block.kind).tone} data-open="" data-start={block.start} data-end={Math.round(endOf(block))} hidden={endOf(block) <= axisStart()} style={style()} onClick={() => openCard(lane.id)}><SpanLabel kind={block.kind} /></button>}</Tip>
                 </Show>;
               }}</For>
             </div>

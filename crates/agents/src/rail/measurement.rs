@@ -704,7 +704,7 @@ impl Timing {
             })
             .map(|(identity, _)| identity.clone())
             .collect();
-        if !event.status.kind.counts_time(event.ended) {
+        if event.status.kind == contracts::Kind::Idle {
             if idle.is_empty() {
                 let activity = TimedActivity::Idle {
                     status_revision: event.status_revision.clone(),
