@@ -577,10 +577,12 @@ it.each([
 ] as const)("p3557c_failure_lifetime_header_%s", async (action, clears) => {
   const { app } = renderTabs({ api: [], web: [] });
   const key = (project: string) => `roundup:drafts:${path(project)}`;
+
   const retained = (project: string, revision: string, name: string, status = "draft") => ({
     revision, destination: { surface: "header", object: path(project), recipient: null },
     value: { name, base: project }, selection: { start: 2, end: 5, direction: "backward" }, status, policy: "ordinary",
   });
+
   const a = retained("api", "copied", "  A e\u0301 🪁 雪  ", "failed");
   const b = retained("api", "newer", "  B 雪  ");
   const elsewhere = retained("web", "elsewhere", "  other 🧭  ");
@@ -603,20 +605,83 @@ it.each([
     if (action === "discard other revision") fireEvent.click(within(dialog).getByRole("button", { name: /^Current work ·/ }));
     fireEvent.click(within(dialog).getByRole("button", { name: "Discard this revision" }));
   } else {
-    fireEvent.click(within(dialog).getByRole("button", { name: "Close", exact: true }));
+    fireEvent.click(within(dialog).getByRole("button", { name: /^Close$/ }));
     await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
     const project = action === "other Project save" ? "web" : "api";
     fireEvent.click(tab(project));
+
     if (action === "failed save" || action === "unknown save") app.renameProject = vi.fn(async () => { throw new RpcError(action === "failed save" ? -32602 : -32603, action); });
     await edit(project);
     press("Enter");
     await waitFor(() => expect(records(project).some((draft: { status: string }) => draft.status === "pending")).toBe(false));
     fireEvent.click(document.querySelector(`[data-path="${path("api")}"] [role="tab"]`)!);
-    fireEvent.click(await screen.findByRole("button", { name: /^Recover unfinished work · (api|  B)/ }));
+    fireEvent.click(await within(document.querySelector(`[data-path="${path("api")}"]`)!).findByRole("button", { name: /^Recover unfinished work ·/ }));
     dialog = await screen.findByRole("dialog", { name: "Unfinished work" });
   }
+
   await waitFor(() => expect(within(dialog).queryByRole("alert", { name: /clipboard blocked/ }) === null).toBe(clears));
   expect(records("api")).toEqual(action === "discard copied revision" ? [b] : action === "discard other revision" ? [a]
     : action === "acknowledged save" ? [a] : action === "failed save" || action === "unknown save" ? [a, { ...b, status: action === "failed save" ? "failed" : "unknown" }] : [a, b]);
   expect(records("web")).toEqual(action === "other Project save" ? [] : [elsewhere]);
+});
+
+it.each(["dismiss", "discard"] as const)("p3557c_failure_lifetime_header_retention_%s", async action => {
+  await openTabs({ api: [], web: [] });
+  fireEvent.click(tab("web"));
+  const other = await edit("web");
+  fireEvent.input(other, { target: { value: "  other Project 雪  " } });
+  press("Escape");
+  const untouched = window.localStorage.getItem(`roundup:drafts:${path("web")}`);
+  fireEvent.click(tab("api"));
+  const input = await edit();
+  vi.spyOn(Storage.prototype, "setItem").mockImplementation(() => { throw new Error("disk full"); });
+  fireEvent.input(input, { target: { value: "  memory e\u0301 🧭  " } });
+  press("Escape");
+  fireEvent.click(await screen.findByRole("button", { name: "Recover unfinished work · api" }));
+  const dialog = await screen.findByRole("dialog", { name: "Unfinished work" });
+  Object.defineProperty(navigator, "clipboard", { configurable: true, value: { writeText: async () => { throw new Error("clipboard blocked"); } } });
+  fireEvent.click(within(dialog).getByRole("button", { name: "Copy name" }));
+  await within(dialog).findByRole("alert", { name: /clipboard blocked/ });
+  expect(within(dialog).getByRole("alert", { name: /Could not store unfinished work/ })).toBeDefined();
+  fireEvent.click(within(dialog).getByRole("button", { name: action === "dismiss" ? "Close · Copy name" : "Discard this revision" }));
+  await waitFor(() => expect(within(dialog).queryByRole("alert", { name: /clipboard blocked/ })).toBeNull());
+  expect(within(dialog).getByRole("alert", { name: /Could not store unfinished work/ })).toBeDefined();
+  expect(within(dialog).getByRole("button", { name: "Retry storage only" })).toBeDefined();
+
+  if (action === "dismiss") expect(within(dialog).getByText("  memory e\u0301 🧭  ", { exact: true, normalizer: text => text })).toBeDefined();
+  expect(window.localStorage.getItem(`roundup:drafts:${path("web")}`)).toBe(untouched);
+});
+
+it.each(["dismiss", "close Project"] as const)("p3557c_failure_lifetime_header_menu_%s", async action => {
+  const { app } = await openTabs({ api: [], web: [] });
+  fireEvent.click(tab("web"));
+  const input = await edit("web");
+  fireEvent.input(input, { target: { value: "  untouched 雪  " } });
+  press("Escape");
+  const untouched = window.localStorage.getItem(`roundup:drafts:${path("web")}`);
+  fireEvent.click(tab("api"));
+  Object.defineProperty(navigator, "clipboard", { configurable: true, value: { writeText: async () => { throw new Error("clipboard blocked"); } } });
+  fireEvent.contextMenu(tab("api"));
+  await app.pickMenu("Copy");
+  const dialog = await screen.findByRole("dialog", { name: "Unfinished work" });
+  expect(within(dialog).getByRole("alert", { name: /clipboard blocked/ })).toBeDefined();
+  fireEvent.click(within(dialog).getByRole("button", { name: /^Close$/ }));
+  await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+
+  if (action === "dismiss") {
+    fireEvent.click(await screen.findByRole("button", { name: "Recover unfinished work · api" }));
+    const reopened = await screen.findByRole("dialog", { name: "Unfinished work" });
+    fireEvent.click(within(reopened).getByRole("button", { name: "Close · Copy name" }));
+    expect(within(reopened).queryByRole("alert")).toBeNull();
+  } else {
+    fireEvent.contextMenu(tab("api"));
+    await app.pickMenu("Close");
+    await waitFor(() => expect(projectTabs()).toHaveLength(1));
+    fireEvent.click(screen.getByRole("button", { name: "Recover unfinished work · web" }));
+    const reopened = await screen.findByRole("dialog", { name: "Unfinished work" });
+    expect(within(reopened).queryByRole("alert")).toBeNull();
+    expect(within(reopened).getByText("  untouched 雪  ", { exact: true, normalizer: text => text })).toBeDefined();
+  }
+
+  expect(window.localStorage.getItem(`roundup:drafts:${path("web")}`)).toBe(untouched);
 });
