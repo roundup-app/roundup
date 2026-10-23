@@ -110,7 +110,7 @@
     "sharedPrimitives": "Popover, Menu, Select, Tooltip, Combobox and Mentions reuse the shared wrappers; Dialog ownership survives Portals.",
     "remainingSites": "Rail and Todo menus, Ask, Switcher, Toast group, Terminal controls and Drawer use layer Tokens. Terminal dim now uses the Popover Token; settings cover uses local 1. Toast cards use local 0/1 inside the group.",
     "terminalColumn": "The existing stacking context is unchanged.",
-    "drafts": "Exact Unicode drafts retained in Ask, Switcher, Worktree note, recovered note and Terminal selection; no submit or choice on dismissal/restoration."
+    "drafts": "Exact drafts retained in Ask, Switcher, Worktree note, recovered note and Terminal selection; Unicode probes cover Ask, Switcher and change notes. No submit or choice on dismissal/restoration."
   },
   "existingWarning": "D8 flags the existing shadow on the Dialog-owned Todo picker on both base and head; D10 repeats that warning. D2, D5 and D6 pass at every step."
 }
