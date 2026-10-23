@@ -20,7 +20,7 @@
     "value": "no Thread"
   },
   "D12": {
-    "selector": "div.shelf-row",
+    "selector": "div.shelf-row[data-id=\"8\"]",
     "status": "pass",
     "value": 0
   },
@@ -33,7 +33,7 @@
     "selector": "",
     "status": "pass",
     "value": {
-      "rows": 1
+      "rows": 8
     }
   },
   "D16": {
@@ -67,14 +67,14 @@
     "selector": "",
     "status": "pass",
     "value": {
-      "targets": 184
+      "targets": 201
     }
   },
   "D7": {
     "selector": "",
     "status": "pass",
     "value": {
-      "targets": 184
+      "targets": 201
     }
   },
   "D8": {
