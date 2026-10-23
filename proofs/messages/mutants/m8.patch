@@ -1,6 +1,6 @@
 --- model.bend
 +++ model.bend
-@@ -372,7 +372,7 @@
+@@ -387,7 +387,7 @@
      case Nil{}:
        []
      case Con{+x, +rest}:

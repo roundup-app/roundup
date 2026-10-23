@@ -76,6 +76,8 @@
   --stroke-tick: 1.5;
   --duration-count: 560ms;
   --duration-toast: 150ms;
+  --duration-note: 150ms;
+  --ease-note: cubic-bezier(0.32, 0.72, 0, 1);
   --duration-toast-in: 200ms;
   --duration-fold: 150ms;
   --duration-scrollbar: 200ms;
