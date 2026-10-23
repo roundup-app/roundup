@@ -649,7 +649,8 @@ export const Todos = (props: {
   };
 
   const field = () => (
-    <div class="shelf-list" ref={element => { creationRow = element; }}>
+    <div class="shelf-list todo-create" ref={element => { creationRow = element; }}>
+      <ReservedLine overlay message={adding() !== null && !fieldGroupGone() ? createFailure() : null} />
       <EntryRow
         glyph={<input type="checkbox" class="todo-tick" disabled tabIndex={-1} aria-hidden="true" />}
         class="todo-inset"
@@ -909,7 +910,6 @@ export const Todos = (props: {
         </Sortable.Root>
         </TreeView.Root>
         <Show when={typing() && !fieldGroupGone() && adding()?.group === group().id}>
-          <ReservedLine message={createFailure()} />
           {field()}
         </Show>
         </>; }}</OwnerGroups>
