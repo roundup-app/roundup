@@ -30,7 +30,7 @@ Tests: `u2307b_` as named. Moves: D2, D8.
 
 **U2307c the bar is a macOS panel bar.** Amends U164's header (its text `Minimise` and `Close`, and its state words `Running` and `Exit <code>`, which U3704 later removes) and U523's header controls. The state words become a dot (later removed). Given a shown bubble, then:
 
-- **Dots.** At the left, in this order, a close dot then a minimise dot: small circles of ink only, no box, no outline, no hover or press fill (U510: hover moves the ink, press dims it). Close calls `terminal.close` once (U164); minimise folds the bubble (U164). Each is a native button with an accessible name (`Close`, `Minimise` from `copy.ts`), Tab reaches it and it shows the shared focus ring (U31, U133).
+- **Dots.** At the left, in this order, a close dot then a minimise dot: small circles of ink only, no box, no outline, no hover or press fill (U510: hover moves the ink, press dims it). Close calls `terminal.close` once (U164); minimise folds the bubble (U164). Each is a native button with an accessible name (`Close`, `Minimise` from `copy.ts`), Tab reaches it and it draws no focus ring (U31, U133, U3528; policy).
 - **Title.** The Terminal's name (U164, renamed in place as U511a says) sits on the bar. No status follows it (U3704: a plain Terminal shows no state).
 - **Unchanged.** The header is still the drag handle, a double-click on its empty space still fills and restores (U2237), and the arrow keys on the focused header still move and resize it (U164). Test: `u2307c_the_bar_keeps_drag_fill_and_keyboard_moves`.
 
