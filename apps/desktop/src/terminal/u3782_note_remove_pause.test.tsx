@@ -10,7 +10,7 @@ const mount = async (nodes = [node("a", { name: "Ann" })], messages = [note(1, "
   const mounted = await mountNotes(nodes, [info("t-a")], messages);
 
   mounted.connected.rail.select("a");
-  await screen.findByRole("textbox", { name: "Note to Ann" });
+  await screen.findByText("t-a");
 
   return mounted;
 };
@@ -40,13 +40,13 @@ it("u3782_remove_drops_one_message_and_keeps_the_rest", async () => {
   await waitFor(() => expect(rowsOf()).toEqual(["second"]));
 });
 
-it("u3782_removing_the_last_row_moves_focus_to_the_field", async () => {
+it("u3782_removing_the_last_row_moves_focus_to_the_terminal", async () => {
   const { app } = await mount(undefined, [note(1, "only")]);
 
   app.handlers["message.drop"] = () => note(1, "only", { status: "dropped", reason: "removed" });
   fireEvent.click(await screen.findByRole("button", { name: "Remove note: only" }));
   app.emit(sent(note(1, "only", { status: "dropped", reason: "removed" })));
-  await waitFor(() => expect(document.activeElement).toBe(screen.getByRole("textbox", { name: "Note to Ann" })));
+  await waitFor(() => expect(document.activeElement).toBe(screen.getByText("t-a")));
 });
 
 it("u3782_pause_and_resume_are_takeover_and_show_its_state", async () => {
@@ -80,4 +80,13 @@ it("u3782_pause_stops_no_turn_and_is_absent_for_a_finished_agent", async () => {
 
   await mount([agent("a", "done", "finished", { name: "Ann" })]);
   expect(screen.queryByRole("button", { name: /^(Pause|Resume)$/ })).toBeNull();
+});
+
+it("u3782_resume_remains_reachable_without_rows", async () => {
+  const { connected, container } = await mount(undefined, []);
+
+  await connected.takeover.begin("a");
+  fireEvent.click(await screen.findByRole("button", { name: "Resume" }));
+  await waitFor(() => expect(connected.takeover.taken()).toBeNull());
+  expect(container.querySelector(".note-queue")).toBeNull();
 });

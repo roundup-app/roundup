@@ -866,11 +866,6 @@
     "data": "Uses audited desktop fixture or a fake/client reference; no separate built-Daemon launch.",
     "kind": "reference"
   },
-  "apps/desktop/src/testing/u3781_real_daemon.test.tsx": {
-    "cleanup": "Launch owner above supplies cleanup; this caller launches no executable itself.",
-    "data": "Uses audited desktop fixture or a fake/client reference; no separate built-Daemon launch.",
-    "kind": "reference"
-  },
   "apps/desktop/src/testing/u3783_real_daemon.test.tsx": {
     "cleanup": "Launch owner above supplies cleanup; this caller launches no executable itself.",
     "data": "Uses audited desktop fixture or a fake/client reference; no separate built-Daemon launch.",

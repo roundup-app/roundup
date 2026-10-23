@@ -11,15 +11,14 @@
   --trees-border-radius-override: 0;
   --trees-font-family-override: var(--font-ui);
   --trees-font-size-override: var(--text-small);
-  --trees-focus-ring-color-override: var(--keyboard-ring-color);
-  --trees-focus-ring-width-override: var(--keyboard-ring-width);
-  --trees-focus-ring-offset-override: 1px;
+  --trees-focus-ring-color-override: transparent;
+  --trees-focus-ring-width-override: 0px;
   --trees-search-fg-override: var(--text);
   --trees-search-bg-override: var(--sunken);
   --trees-scrollbar-thumb-override: var(--scrollbar-thumb);
   --trees-selected-fg-override: var(--text);
   --trees-selected-bg-override: var(--selected);
-  --trees-selected-focused-border-color-override: var(--keyboard-ring-color);
+  --trees-selected-focused-border-color-override: transparent;
   --trees-file-icon-color: var(--grey);
   --trees-icon-gray: var(--grey);
   --trees-icon-red: var(--grey);
@@ -70,12 +69,8 @@
 
 [data-item-type="folder"] [data-item-section="git"] { visibility: hidden; }
 
-/* Keep the keyboard ring inside the clipped viewport; pointer selection uses the wash. */
+/* Pierre draws focus on a pseudo-element; selection alone marks the row (U3528). */
 [data-type="item"]::before { display: none; }
-[data-type="item"]:focus::before {
-  display: block;
-  outline-offset: var(--keyboard-ring-tree-offset);
-}
 :host {
   --trees-padding-inline-override: 0;
   --trees-item-padding-x-override: var(--space-1);
@@ -100,3 +95,5 @@
 [data-item-section="spacing-item"] + [data-item-section="spacing-item"] { margin-left: var(--space-1); }
 [data-truncate-container], [data-truncate-grid] { margin-block: 0; }
 [data-item-flattened-subitems] { gap: var(--space-1); }
+
+:focus { outline: none; }

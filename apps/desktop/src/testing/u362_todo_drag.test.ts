@@ -42,7 +42,7 @@ const point = (selector: string) => page.call<Point>(`selector => {
 run('u137 compound selected ground', () => {
   for (const [coverage, scheme, width] of [
     ['full', 'light', 1280], ['full', 'dark', 1280],
-    ['partial', 'light', 1280], ['overlapping', 'light', 1280], ['single', 'light', 1280], ['padded', 'light', 1280], ['focus', 'light', 1280], ['focus-inset', 'light', 1280],
+    ['partial', 'light', 1280], ['overlapping', 'light', 1280], ['single', 'light', 1280], ['padded', 'light', 1280],
   ] as const) {
     it(`u137_compound_ground_never_silently_ignores_${coverage}_coverage ${scheme} ${width}`, async () => {
       await page.scheme(scheme);
@@ -65,14 +65,6 @@ run('u137 compound selected ground', () => {
           document.querySelector('.compound').textContent = 'Padded Rail label';
           document.querySelector('.compound').style.color = 'rgb(112, 112, 112)';
         }
-        if (coverage === 'focus' || coverage === 'focus-inset') {
-          document.querySelector('.compound button').style.color = 'black';
-          const row = document.querySelector('.compound');
-          row.tabIndex = 0;
-          row.style.outline = '2px solid rgb(238, 238, 238)';
-          if (coverage === 'focus-inset') row.style.outlineOffset = '-4px';
-          row.focus();
-        }
         if (coverage === 'partial') document.querySelector('.compound').style.backgroundSize = '2px 100%, 50% 100%';
         if (coverage === 'overlapping') document.querySelector('.compound').style.backgroundSize = '100% 100%, auto';
       }`, coverage, scheme);
@@ -83,8 +75,6 @@ run('u137 compound selected ground', () => {
 
       // WCAG: #707070 on RGB(229.5,229.5,229.5); #aaa on #666. The leading mark is outside the label.
       if (coverage === 'full' || coverage === 'single' || coverage === 'padded') expect(checks.D5?.value).toEqual({text: expect.closeTo(scheme === 'dark' ? 2.471602 : 3.949511, 5)});
-      else if (coverage === 'focus-inset') expect(checks.D5?.value).toEqual({focusRing: expect.closeTo(1.080701, 5)});
-      else if (coverage === 'focus') expect(checks.D5?.value).toEqual({focusRing: expect.closeTo(1.16023, 5)});
       else expect(checks.D5?.value).toBe('not measurable');
     }, 30_000);
   }

@@ -73,7 +73,9 @@ describe("u3783 a Door's note meets its Route on the real Daemon", () => {
 
     await select(workstream.id);
     await select(agent.id);
-    const queue = await screen.findByRole("region", { name: "Note to Ann" });
+    const selected = (await app.rpc("rail.tree", null)).find(node => node.id === agent.id)!;
+
+    await waitFor(() => expect(document.querySelector(".pane-screen [data-terminal]")?.getAttribute("data-terminal")).toBe(selected.terminal_id));
 
     const send = async (round: number, body: string) => {
       await writeFile(join(folder!, `body${round}`), body);
@@ -85,6 +87,8 @@ describe("u3783 a Door's note meets its Route on the real Daemon", () => {
     // ask-first: held, drawn with the Door's Rail name, Allow and ×; nothing is typed until Allow.
     await app.rpc("route.set", { from: workstream.id, to: agent.id, delivery: "ask-first" });
     await send(1, "ask first note");
+
+    const queue = await screen.findByRole("region", { name: "Note to Ann" });
 
     const row = await waitFor(() => {
       const found = queue.querySelector<HTMLElement>("[data-note]");
