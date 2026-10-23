@@ -99,7 +99,7 @@ export const AppSettings = (props: { app: App; project: () => string | null; onO
         <Show when={offered()?.failure}>{message => <ErrorLine message={message()} />}</Show>
       </SettingsGroup>
       <SettingsGroup name={copy.settingsTerminal}>
-        <label class="settings-field"><span>{copy.fontFamily}</span><input type="text" aria-label={copy.fontFamily} placeholder={defaultFont} value={field("fontFamily")}
+        <label class="settings-field settings-font"><span>{copy.fontFamily}</span><input type="text" aria-label={copy.fontFamily} placeholder={defaultFont} value={field("fontFamily")}
           onInput={event => edit("fontFamily", event.currentTarget)} onBlur={() => { commit("fontFamily", field("fontFamily")); }}
           onKeyDown={event => { if (event.key === "Enter" && !event.isComposing) { event.preventDefault(); commit("fontFamily", field("fontFamily")); } }} /></label>
         <div class="settings-field"><label><span>{copy.fontSize}</span><input type="text" aria-label={copy.fontSize} inputMode="decimal" value={field("fontSize")}
