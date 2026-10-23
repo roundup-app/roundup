@@ -67,13 +67,13 @@ it("u3016f_real_collection_to_dashboard_survives_reopen", async () => {
     await capture("empty");
     const record = { type: "assistant", sessionId: source, requestId: "request-fixture", message: { model: "claude-sonnet-5-5", usage: { input_tokens: 100, output_tokens: 20, cache_read_input_tokens: 400, cache_creation_input_tokens: 50, cache_creation: { ephemeral_5m_input_tokens: 30, ephemeral_1h_input_tokens: 20 } } } };
     appendFileSync(file, JSON.stringify(record) + "\n");
-    await until("document.querySelector('.measurement-tokens')?.textContent?.includes('570')");
+    await until("document.querySelector('.measurement-dashboard table')?.textContent?.includes('570')");
     const read = await app.rpc("project.measurementSummary", { home: home.id, category: "total", offset: 0, revision: null });
     expect(read.tokens.total.known).toBe("570");
     expect(read.cost.reference.length).toBe(1);
     await capture("overview");
-    await browser("click", '.measurement-time-detail [data-part="trigger"]');
-    await until("document.querySelector('.measurement-time')?.offsetHeight > 0");
+    await browser("click", '.measurement-how [data-part="trigger"]');
+    await until("document.querySelector('.measurement-how [data-part=\"content\"]')?.offsetHeight > 0");
     // Feed completed evidence through the Attempt's actual capability-bearing trace collector.
     const endpoint = readFileSync(join(real.dir, `endpoint-${home.id}`), "utf8");
     const now = BigInt(Date.now()) * 1_000_000n;
@@ -81,7 +81,6 @@ it("u3016f_real_collection_to_dashboard_survives_reopen", async () => {
     const response = await fetch(endpoint, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ resourceSpans: [{ scopeSpans: [{ spans: [span("claude_code.llm_request", "model-fixture",20_000_000n), span("claude_code.tool.execution", "tool-fixture",0n)] }] }] }) });
     expect(response.status).toBe(200);
     await until("document.querySelector('.measurement-dashboard')?.getAttribute('aria-busy') === 'false'");
-    await browser("click", '.measurement-contributors [data-part="trigger"]');
     await until("!!document.querySelector('.measurement-dashboard table') && document.querySelector('.measurement-dashboard table').offsetHeight > 0");
     await capture("details");
     const nodes = await app.rpc("rail.tree", null);
@@ -124,11 +123,11 @@ it("u3016f_real_collection_to_dashboard_survives_reopen", async () => {
     await capture("measured-waits");
     // A real source failure keeps the displayed successful subtotal and offers retry.
     renameSync(file, `${file}.held`);
-    await until("!!document.querySelector('.measurement-stale')");
-    expect(await evaluate("document.querySelector('.measurement-tokens').textContent.includes('570')")).toBe(true);
+    await until("document.querySelector('.measurement-state')?.dataset.state === 'stale'");
+    expect(await evaluate("document.querySelector('.measurement-dashboard table').textContent.includes('570')")).toBe(true);
     await capture("stale");
     renameSync(`${file}.held`, file);
-    await until("!document.querySelector('.measurement-stale')");
+    await until("document.querySelector('.measurement-state')?.dataset.state !== 'stale'");
     await capture("retry");
     await app.rpc("agent.stop", { id: home.id });
     await real.restart();
@@ -137,7 +136,7 @@ it("u3016f_real_collection_to_dashboard_survives_reopen", async () => {
     await browser("click", `.rail [data-id="${home.id}"] [data-part="branch-control"]`);
     await until("!!document.querySelector('.measurement-action button')");
     await browser("click", ".measurement-action button");
-    await until("document.querySelector('.measurement-tokens')?.textContent?.includes('570')");
+    await until("document.querySelector('.measurement-dashboard table')?.textContent?.includes('570')");
     expect((await app.rpc("project.measurementSummary", { home: other.id, category: "total", offset: 0, revision: null })).contributors).toBe(0);
     await capture("reopened");
     await browser("press", "Escape");
@@ -167,7 +166,6 @@ it("u3016f_real_collection_to_dashboard_survives_reopen", async () => {
     await until("!!document.querySelector('.measurement-action button')");
     await browser("click", ".measurement-action button");
     await until("document.querySelector('.measurement-dashboard')?.getAttribute('aria-busy') === 'false'");
-    await browser("click", '.measurement-contributors [data-part="trigger"]');
     await until("document.querySelector('.measurement-dashboard table')?.offsetHeight > 0");
     await capture("dense-1005");
   } finally {

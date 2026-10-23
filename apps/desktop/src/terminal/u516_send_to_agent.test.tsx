@@ -1,4 +1,6 @@
-import { cleanup } from "@solidjs/testing-library";
+import { cleanup, render } from "@solidjs/testing-library";
+import { ConnectedProjectContext } from "../state/connectedProject";
+import { useRecoveryMenu } from "../drawer/DraftRecovery";
 import { afterEach, expect, it } from "vitest";
 import { agent } from "../testing/nodes";
 import { fireEvent, mountSend, screen, waitFor } from "./sendHarness";
@@ -66,4 +68,25 @@ it("u516_a_rejected_send_says_why_and_keeps_the_selection", async () => {
   await send();
   await waitFor(() => expect(view.calls()).toHaveLength(2));
   expect(view.calls()[1]!.body).toBe("keep me\n\n```\nls\n```");
+});
+
+it("u3289a_terminal_note_stays_off_the_list_until_left", async () => {
+  const view = await mountSend([agent("a", "idle", "waiting", { name: "Alpha" })]);
+  let entries: () => unknown[] = () => [];
+
+  const Probe = () => {
+    entries = useRecoveryMenu();
+
+    return null;
+  };
+
+  render(() => <ConnectedProjectContext.Provider value={view.connected}><Probe /></ConnectedProjectContext.Provider>);
+
+  view.emulator.select("ls");
+  const note = await screen.findByRole("textbox", { name: "Add a note (optional)" });
+
+  fireEvent.input(note, { target: { value: "unsent" } });
+  expect(entries()).toHaveLength(0);
+  view.connected.rail.select(null);
+  await waitFor(() => expect(entries()).toHaveLength(1));
 });

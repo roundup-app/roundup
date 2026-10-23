@@ -11,9 +11,11 @@ describe("u113 listing and events reconcile by id", () => {
       const subscribe = app.subscribe;
       const list = app.handlers["decision.list"]!;
 
-      app.subscribe = async (listener) => {
-        await subscribe(listener);
+      app.subscribe = async (listener, after) => {
+        const head = await subscribe(listener, after);
         order.push("subscribed");
+
+        return head;
       };
 
       app.handlers["decision.list"] = (params) => {

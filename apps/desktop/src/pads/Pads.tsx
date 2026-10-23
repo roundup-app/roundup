@@ -13,7 +13,7 @@ import { OwnerMark } from "../ink/OwnerMark";
 import { Icon } from "../ink/Icon";
 import { EmptyState } from "../ink/EmptyState";
 
-import { createEffect, createMemo, createSignal, For, Show } from "solid-js";
+import { createEffect, createMemo, createSignal, For, onCleanup, Show } from "solid-js";
 import type { Accessor, Setter } from "solid-js";
 import type { Pad } from "@contracts/pad/Pad";
 import { ErrorLine } from "../ink/ErrorLine";
@@ -59,6 +59,7 @@ export const Pads = (props: {
   const nameLabel = copy.copyField(copy.draftField("name").toLowerCase());
   const restored = connected.drafts.list().filter(draft => draft.destination.surface === "pads" && draft.destination.object === "creation" && draft.destination.recipient === null && (props.recovery?.revision === undefined || draft.revision === props.recovery?.revision)).at(-1);
   const [naming, setNaming] = createSignal(props.recovery?.revision !== undefined && restored !== undefined);
+  createEffect(() => { if (naming()) onCleanup(connected.drafts.editor(creation)); });
   const parsed = restored ? v.safeParse(v.object({ name: v.string(), home: v.nullable(v.string()) }), restored.value) : null;
   const [invalid, setInvalid] = createSignal(Boolean(parsed && !parsed.success));
   const [name, setName] = createSignal(parsed?.success ? parsed.output.name : "");

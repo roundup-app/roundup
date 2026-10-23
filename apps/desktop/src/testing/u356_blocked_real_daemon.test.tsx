@@ -138,7 +138,7 @@ describe("u356 the fake claude holds an Agent blocked in every Workstream, obser
     // an early synthetic acknowledgement must not become a late prompt failure.
     await new Promise((done) => setTimeout(done, 11_000));
     expect(selected()).toBe(working);
-    expect(screen.queryByRole("region", { name: /Decision for/ })).toBeNull();
+    expect(screen.queryByRole("region", { name: /Decision for| wants to / })).toBeNull();
     expect(await kindOf(working)).toBe("working");
 
     // Jump: `error` before `needs-you`, oldest first, across both Workstreams, then it wraps.
@@ -156,9 +156,9 @@ describe("u356 the fake claude holds an Agent blocked in every Workstream, obser
       visited.push(selected());
 
       if (urgent[press % urgent.length]?.status?.kind === "needs-you") {
-        await waitFor(() => expect(screen.getByRole("region", { name: /Decision for/ })).toBeTruthy());
+        await waitFor(() => expect(screen.getByRole("region", { name: /Decision for| wants to / })).toBeTruthy());
       } else {
-        expect(screen.queryByRole("region", { name: /Decision for/ })).toBeNull();
+        expect(screen.queryByRole("region", { name: /Decision for| wants to / })).toBeNull();
       }
     }
 
