@@ -200,3 +200,17 @@ it.each(ordinaryCases)("p3557a_ordinary_edits_preserve_source: $name", async ({ 
   expect(reopened.editor.action(ctx => ctx.get(serializerCtx)(ctx.get(parserCtx)(reloaded!)!)))
     .toBe(reopened.editor.action(ctx => ctx.get(serializerCtx)(ctx.get(parserCtx)(reopened.handle.snapshot().text)!)));
 });
+
+it("p3557a_ordinary_edits_preserve_source_after_whitespace_acknowledgement", async () => {
+  const { handle, view } = await open("");
+
+  for (const text of [" ", " ", "x"]) {
+    view.dispatch(view.state.tr.insertText(text));
+    const source = handle.getText();
+    expect(source).not.toBeNull();
+    handle.setText(source!);
+  }
+
+  expect(view.state.doc.textContent).toBe("  x");
+  expect(handle.getText()).toContain("x");
+});

@@ -71,8 +71,12 @@ export const sourceForDocument = (
   const before = children(originalDocument, caretNodes);
   const after = children(currentDocument, caretNodes);
 
-  if (!originalSource.trim() && blocks.length === 0 && before.length === 1 && before[0]!.content.size === 0) {
-    blocks.push({ node: before[0]!, from: 0, to: originalSource.length });
+  if (!originalSource.trim() && blocks.length === 0 && before.length === 1) {
+    const supported = ctx.get(parserCtx)(serialize(before));
+
+    if (supported?.childCount === 1 && emptyParagraph(supported.child(0))) {
+      blocks.push({ node: before[0]!, from: 0, to: originalSource.length });
+    }
   }
 
   // Empty editor paragraphs have no remark node, including after an acknowledged save.
@@ -84,12 +88,12 @@ export const sourceForDocument = (
     const block = blocks[sourceIndex];
 
     // An acknowledged editor baseline can retain spaces that Markdown normalizes on load.
-    const normalized = block && !equal(block.node, node) ? ctx.get(parserCtx)(serialize([node])) : null;
+    const normalized = !block || !equal(block.node, node) ? ctx.get(parserCtx)(serialize([node])) : null;
 
     if (block && (equal(block.node, node) || (normalized?.childCount === 1 && equal(block.node, normalized.child(0))))) {
       aligned.push(block);
       sourceIndex++;
-    } else if (emptyParagraph(node) && blocks.length > 0) {
+    } else if ((emptyParagraph(node) || (normalized?.childCount === 1 && emptyParagraph(normalized.child(0)))) && (blocks.length > 0 || !originalSource.trim())) {
       const position = block?.from ?? previousEnd;
       aligned.push({ node, from: position, to: position });
     } else return null;
