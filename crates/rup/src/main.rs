@@ -213,12 +213,18 @@ async fn signal(agent_id: &str) -> Result<bool, String> {
 }
 
 /// E3: Claude Code runs this as the Agent's second `SessionStart` hook. It prints what the Daemon's
-/// `agent.brief` returns and nothing else. Whatever goes wrong is one line on stderr and exit 0,
-/// so the Agent still starts, without its Context.
+/// `agent.brief` returns, extended with the launch Brief when the Adapter requests it.
+/// Failures report on stderr and exit 0, so the Agent still starts.
 async fn context(agent_id: &str) -> ExitCode {
     let told = tokio::time::timeout(CONTEXT_DEADLINE, brief(agent_id)).await;
     match told {
-        Ok(Ok(brief)) => print!("{}", brief.stdout),
+        Ok(Ok(brief)) => match agents::claude_code::read_start_context(&brief.stdout) {
+            Ok(stdout) => print!("{stdout}"),
+            Err(why) => {
+                eprintln!("rup: no Brief: {why}");
+                print!("{}", brief.stdout);
+            }
+        },
         Ok(Err(why)) => eprintln!("rup: no Context from the Daemon at {}: {why}", socket()),
         Err(_) => eprintln!(
             "rup: the Daemon at {} did not answer within {} s; no Context",
