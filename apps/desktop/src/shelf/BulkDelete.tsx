@@ -3,7 +3,7 @@ import { copy } from "../copy";
 import { createContext, createEffect, createMemo, createSignal, For, on, onCleanup, Show, useContext } from "solid-js";
 import type { Accessor, JSX } from "solid-js";
 import { Portal } from "solid-js/web";
-import { ErrorLine } from "../ink/ErrorLine";
+import { ReservedLine } from "../ink/ReservedLine";
 import { registerKeys } from "../keys/registry";
 import { AlertDialog } from "../ui/Dialog";
 
@@ -23,6 +23,7 @@ export const createBulkDelete = <Id,>(props: {
   replace: (ids: readonly Id[]) => void;
   clear: () => void;
   cancelSelection: () => void;
+  afterRemoval?: () => () => HTMLElement | null;
   remove: (id: Id) => Promise<string | null>;
   reload: () => Promise<string | null>;
   reveal?: () => void;
@@ -37,6 +38,7 @@ export const createBulkDelete = <Id,>(props: {
   let keep: HTMLButtonElement | undefined;
   let returnTo: HTMLElement | null = null;
   let panel: HTMLDivElement | undefined;
+  let nextFocus: () => HTMLElement | null = () => null;
   registerKeys({ kind: "layer", element: () => panel, active: () => question() !== null, modal: true }, []);
 
   const reset = () => {
@@ -65,11 +67,16 @@ export const createBulkDelete = <Id,>(props: {
     if (targets.length === 0) return;
     const unique = [...new Map(targets.map((target) => [target.id, { ...target }])).values()];
     returnTo = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    nextFocus = props.afterRemoval?.() ?? (() => null);
     setQuestion({ kind: "question", targets: unique, done });
   };
 
   /** The opener while it lives, else a Shelf control that does: a deleted row's button is gone. */
   const focusAfter = (): HTMLElement | null => {
+    const next = nextFocus();
+
+    if (next) return next;
+
     if (returnTo?.isConnected) return returnTo;
 
     if (deleteButton?.isConnected) return deleteButton;
@@ -175,17 +182,15 @@ export const createBulkDelete = <Id,>(props: {
         <Show when={owners().length > 0 && question() === null}>
           <p>{copy.ownedBy}{owners().join(copy.comma)}{copy.agentsMayStillBeWritingDeletingDoesNot}</p>
         </Show>
-        <Show when={failures().length > 0}>
-          <ErrorLine message={copy.couldNotDelete} />
-          <For each={failures()}>{(failure) => <p>{failure.target.label}{props.noun === "Todos" ? ` #${String(failure.target.id)}` : ""}{copy.colon}{failure.message}</p>}</For>
-        </Show>
+        <ReservedLine message={failures().length > 0 ? `${copy.couldNotDelete}\n${failures().map(failure => `${failure.target.label}${props.noun === "Todos" ? ` #${String(failure.target.id)}` : ""}${copy.colon}${failure.message}`).join("\n")}` : null}
+          content={<>{copy.couldNotDelete} <For each={failures()}>{failure => <span>{failure.target.label}{props.noun === "Todos" ? ` #${String(failure.target.id)}` : ""}{copy.colon}{failure.message}</span>}</For></>} />
       </div>
     </Show>
   );
 
   /** The one question: a modal over the Shelf that names every frozen target and starts on `Keep`. */
   const dialog = () => (
-    <AlertDialog.Root open={question() !== null} initialFocusEl={() => keep ?? null} finalFocusEl={focusAfter}
+    <AlertDialog.Root open={question() !== null} initialFocusEl={() => keep ?? null} finalFocusEl={focusAfter} onExitComplete={() => focusAfter()?.focus()}
       onOpenChange={(details) => { if (!details.open) cancel(); }}>
       <Portal>
         <AlertDialog.Positioner asChild={(positioner) => <aside {...positioner({})} />}>
@@ -200,7 +205,7 @@ export const createBulkDelete = <Id,>(props: {
                   <p>{copy.ownedBy}{owners().join(copy.comma)}{copy.agentsMayStillBeWritingDeletingDoesNot}</p>
                 </Show>
               </AlertDialog.Description>
-              <Show when={readFailure()}>{(message) => <ErrorLine message={message()} />}</Show>
+              <ReservedLine message={readFailure()} />
               <p class="shelf-question-words">
                 <button data-button="quiet" type="button" class="word" disabled={held().kind === "pending"} ref={(button) => { keep = button; }} onClick={cancel}>{copy.keep}</button>
                 <Show when={readFailure()} fallback={

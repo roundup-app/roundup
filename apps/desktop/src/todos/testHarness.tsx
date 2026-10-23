@@ -1,3 +1,5 @@
+import { createNow, DisplayClockContext } from "../state/clock";
+import { createSignal } from "solid-js";
 import { expect } from "vitest";
 import { within, render, fireEvent, waitFor } from "@solidjs/testing-library";
 import type { Event as DaemonEvent } from "@contracts/Event";
@@ -28,19 +30,21 @@ export const todo = (id: number, over: Partial<Todo> = {}): Todo => ({
   home: null,
   owner: null,
   refs: [],
+  estimate_minutes: null,
   ...over,
 });
 
 export const todoEvent = (name: "todo.created" | "todo.updated", data: Todo): DaemonEvent => event({ name, data });
 
 /** The Shelf's Todos and the Drawer host over a fake Daemon whose `todo.list` answers `store.todos`. */
-export const mountTodos = async (initial: Todo[], reducedMotion = true, rail: RailNode[] = [], renderRail = false, path = `/test-todos/${crypto.randomUUID()}`) => {
+export const mountTodos = async (initial: Todo[], reducedMotion = true, rail: RailNode[] = [], renderRail = false, path = `/test-todos/${crypto.randomUUID()}`, clock: () => number = () => 0) => {
   const app = createFakeApp();
   app.handlers["rail.tree"] = () => withScopeRow(rail);
   const store: TodoStore = { todos: initial };
   Object.assign(app.handlers, todoHandlers(store, () => {}));
 
-  const connected = await connectProject(app, { name: "p", path }, () => reducedMotion, () => 0);
+  const [reduced, setReduced] = createSignal(reducedMotion);
+  const connected = await connectProject(app, { name: "p", path }, reduced, () => 0);
 
   await showEverything(connected);
 
@@ -53,24 +57,28 @@ export const mountTodos = async (initial: Todo[], reducedMotion = true, rail: Ra
     return <Todos />;
   };
 
-  const { unmount } = render(() => (
+  const { unmount } = render(() => {
+    const now = createNow(clock, () => false);
+
+    return <DisplayClockContext.Provider value={now.subscribe}>
     <ConnectedProjectContext.Provider value={connected}>
       <Layout
         header="roundup"
         rail={renderRail ? <Rail /> : null}
         centre={null}
         shelf={<Shelf />}
-        overlay={<DrawerHost drawer={connected.drawer} reducedMotion={() => reducedMotion} />}
+        overlay={<DrawerHost drawer={connected.drawer} reducedMotion={reduced} />}
       />
     </ConnectedProjectContext.Provider>
-  ));
+  </DisplayClockContext.Provider>;
+  });
 
   if (initial.length > 0) await waitFor(() => expect(document.querySelector(".shelf-groups [data-part=branch-control], .shelf-done-line")).not.toBeNull());
   const disclosure = document.querySelector<HTMLElement>('[data-shelf-group="unassigned"] [data-part="branch-control"]');
 
   if (disclosure) fireEvent.click(disclosure);
 
-  return { app, store, connected, todos, unmount };
+  return { app, store, connected, todos, unmount, setReduced };
 };
 
 export const todoCallsTo = (app: ReturnType<typeof createFakeApp>, method: string) =>

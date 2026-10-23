@@ -12,14 +12,14 @@ import type { Accessor } from "solid-js";
 import type { Actor } from "@contracts/Actor";
 import type { Pad } from "@contracts/pad/Pad";
 import { ItemDrawer } from "../drawer/ItemDrawer";
-import { ErrorLine } from "../ink/ErrorLine";
+import { ReservedLine } from "../ink/ReservedLine";
 import { useConnectedProject } from "../state/connectedProject";
 import { createFailure } from "./failure";
 import { RpcError, INTERNAL_CODE } from "../app/seam";
 import { usePadList } from "../rail/pads/padList";
 import type { PadList } from "../rail/pads/padList";
 import { USER } from "./owner";
-import { cutName, markedLine, wholeWord } from "./nameLine";
+import { cutName, wholeWord } from "./nameLine";
 
 import type { PadEditorHandle } from "./PadRichEditor";
 import "./styles.css";
@@ -447,9 +447,6 @@ const PadBody = (props: {
       <div class="pad-head">
         <span class="pad-head-title">
           <span {...nameCut.attrs()} class="pad-head-name" style={cutName}>{name}</span>
-          <Show when={saved() && !deleted() && !conflictActor()}>
-            <span role="status" aria-live="off" data-state="saved" class="pad-saved light">{copy.padSaved}</span>
-          </Show>
           <Show when={!ownedByUser()}>
             <span class="pad-owner light" style={wholeWord}>{copy.ownedBy}{connected.rail.nameOf(pad().owner)}</span>
           </Show>
@@ -503,12 +500,19 @@ const PadBody = (props: {
           >{copy.keep}</button>
         </p>
       </Show>
-      <Show when={actionFailure.message()}>
-        {(message) => <ErrorLine message={message()} />}
-      </Show>
-      <Show when={deleted() && !removedByMe()}>
-        <ErrorLine message={`Pad ${name} was deleted`} />
-      </Show>
+      <ReservedLine data-state={saved() && !deleted() && !conflictActor() ? "saved" : undefined} message={actionFailure.message() ?? (deleted() && !removedByMe() ? `Pad ${name} was deleted` : retentionProblem() ? copy.draftRetention(connected.project.name, copy.pad, retentionProblem()!.cause) : conflictActor() ? conflictLabel() : paused() ? statusLabel() : null)}
+        status={saved() && !deleted() && !conflictActor() ? copy.padSaved : null}>
+        <Show when={retentionProblem()}>
+          <button data-button="primary" type="button" onClick={() => connected.drafts.retry()}>{copy.storageRetry}</button>
+          <button data-button="quiet" type="button" onClick={() => void navigator.clipboard.writeText(invalid() ? JSON.stringify(retained?.value) : currentDraft() ?? shown()).catch(error => actionFailure.show(copy.copyDraftFailure(String(error))))}>{sourceLabel}</button>
+          <button data-button="quiet" type="button" onClick={useTheirs}>{copy.discardRevision}</button>
+        </Show>
+        <Show when={paused() && !retentionProblem()}><button data-button="primary" type="button" disabled={deleted() || invalid()} onClick={() => void resume()}>{copy.resume}</button></Show>
+        <Show when={conflictActor()}>
+          <button data-button="quiet" type="button" class="word" onClick={() => void keepMine()}>{copy.keepMine}</button>
+          <button data-button="quiet" type="button" class="word" onClick={useTheirs}>{copy.useTheirs}</button>
+        </Show>
+      </ReservedLine>
       <Suspense>
         <PadRichEditor
           text={source}
@@ -526,7 +530,7 @@ const PadBody = (props: {
 
             if (parsed?.success && parsed.output.document !== undefined && !ready.restoreDocument(parsed.output.document, parsed.output.editorCaret ?? false)) {
               setInvalid(true);
-              actionFailure.show(copy.draftRetention(connected.project.path, copy.pad, "invalid"));
+              actionFailure.show(copy.draftRetention(connected.project.name, copy.pad, "invalid"));
             }
 
             if (recovered?.selection) ready.restoreSelection(recovered.selection);
@@ -538,34 +542,7 @@ const PadBody = (props: {
           }}
         />
       </Suspense>
-      <Show when={paused()}>
-        <div class="pad-retained-status"><span class="light">{statusLabel()}</span><button data-button="primary" type="button" disabled={deleted() || invalid()} onClick={() => void resume()}>{copy.resume}</button></div>
-      </Show>
-      <Show when={retentionProblem()}>{(problem) => <div role="alert" class="pad-retention">
-        <p>{copy.draftRetention(connected.project.path, copy.pad, problem().cause)}</p>
-        <div class="diff-actions">
-        <button data-button="primary" type="button" onClick={() => connected.drafts.retry()}>{copy.storageRetry}</button>
-        <button data-button="quiet" type="button" onClick={() => void navigator.clipboard.writeText(invalid() ? JSON.stringify(retained?.value) : currentDraft() ?? shown()).catch(error => actionFailure.show(copy.copyDraftFailure(String(error))))}>{sourceLabel}</button>
-        <button data-button="quiet" type="button" onClick={useTheirs}>{copy.discardRevision}</button>
-        </div>
-      </div>}</Show>
-      <Show when={conflictActor()}>
-        <p style={{ ...markedLine, "align-items": "baseline" }}>
-          <span class="light" style={wholeWord}>{conflictLabel()}</span>
-          <button data-button="quiet"
-            type="button"
-            class="word"
-            style={wholeWord}
-            onClick={() => void keepMine()}
-          >{copy.keepMine}</button>
-          <button data-button="quiet"
-            type="button"
-            class="word"
-            style={wholeWord}
-            onClick={useTheirs}
-          >{copy.useTheirs}</button>
-        </p>
-      </Show>
+
     </div>
   );
 };

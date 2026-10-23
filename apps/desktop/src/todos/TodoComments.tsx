@@ -2,7 +2,7 @@ import { createEffect, createSignal, For, on, onCleanup, Show } from "solid-js";
 import { createStore, reconcile } from "solid-js/store";
 import type { Comment } from "@contracts/todo/Comment";
 import { copy } from "../copy";
-import { ErrorLine } from "../ink/ErrorLine";
+import { ReservedLine } from "../ink/ReservedLine";
 import { KindGlyph } from "../ink/KindGlyph";
 import { Collapsible } from "../ui/Collapsible";
 import { useConnectedProject } from "../state/connectedProject";
@@ -51,7 +51,7 @@ const partsOf = (body: string, marked: boolean): Part[] => {
 };
 
 /** The thread, oldest first, with a field to add to it. Opening reads it and marks it read once; a comment that arrives while it is open is read the same way. */
-export const TodoComments = (props: { id: number }) => {
+export const TodoComments = (props: { id: number; onSent?: (() => void) | undefined }) => {
   const { app, events, rail, drawer } = useConnectedProject();
   // Keyed by id so a refresh keeps each comment's row, fold state and focus (U3776).
   const [thread, setThread] = createStore<Comment[]>([]);
@@ -125,12 +125,12 @@ export const TodoComments = (props: { id: number }) => {
     setSendFailure(message);
 
     // A rejected call keeps the typed text; the thread catches up through `todo.commented`.
-    if (message === null) { setText(""); await refresh(); }
+    if (message === null) { setText(""); await refresh(); props.onSent?.(); }
   };
 
   return <section class="todo-comments" aria-label={copy.commentsHeading(thread.length)}>
     <h3>{copy.commentsHeading(thread.length)}</h3>
-    <Show when={failure()}>{(message) => <div><ErrorLine message={message()} /><button data-button="quiet" class="word" type="button" onClick={() => void refresh()}>{copy.commentRetry}</button></div>}</Show>
+    <ReservedLine message={failure()}><button data-button="quiet" class="word" type="button" onClick={() => void refresh()}>{copy.commentRetry}</button></ReservedLine>
     <For each={thread}>{(comment) => <div class="todo-comment" data-comment={comment.id} data-fresh={fresh().has(comment.id) ? "" : undefined}>
       <p class="todo-comment-head"><Show when={glyphOf(comment)} fallback={<Show when={comment.author.kind === "agent"}><span class="todo-comment-glyph-gap" aria-hidden="true" /></Show>}>{(node) => <KindGlyph kind={node().status?.kind ?? "idle"} />}</Show><span class="todo-comment-author">{author(comment)}</span> <time datetime={new Date(comment.created_at).toISOString()}>{copy.commentTime(comment.created_at)}</time>
         <Show when={comment.author.kind === "agent"}><button data-button="quiet" class="word" type="button" onClick={() => field?.focus()}>{copy.reply}</button></Show></p>
@@ -141,7 +141,7 @@ export const TodoComments = (props: { id: number }) => {
         </Collapsible.Root>
         : <p class="todo-comment-body">{part.text}</p>}</For></div>
     </div>}</For>
-    <div class="todo-comments-live" role="status" aria-live="polite" aria-atomic="true">{announcement()}</div>
+    <ReservedLine class="todo-comments-live" status={announcement()} aria-live="polite" aria-atomic="true" />
     <textarea class="todo-comment-field" rows={2} aria-label={copy.commentField} placeholder={copy.commentPlaceholder} value={text()}
       ref={(element) => { field = element; }}
       onInput={(event) => setText(event.currentTarget.value)}
@@ -150,7 +150,7 @@ export const TodoComments = (props: { id: number }) => {
 
         if (event.key === "Enter" && !event.shiftKey && !event.isComposing) { event.preventDefault(); void send(); }
       }} />
-    <Show when={sendFailure()}>{(message) => <ErrorLine message={message()} />}</Show>
+    <ReservedLine message={sendFailure()} />
     <p class="todo-comments-send"><button data-button="quiet" class="word" type="button" aria-disabled={text().trim() === "" || sending() ? true : undefined} onClick={() => void send()}>{copy.comment}</button></p>
   </section>;
 };

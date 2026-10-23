@@ -7,12 +7,11 @@ import type { JSX } from "solid-js";
 import type { Accessor } from "solid-js";
 import type { Todo } from "@contracts/todo/Todo";
 import type { RailNode } from "@contracts/agent/RailNode";
-import { ErrorLine } from "../../ink/ErrorLine";
 import { Icon } from "../../ink/Icon";
 import { PadDrawer } from "../../pads/PadDrawer";
 import { cutName } from "../../pads/nameLine";
 import { useConnectedProject } from "../../state/connectedProject";
-import { OpenRow } from "../../todos/Todos";
+import { OpenRow } from "../../todos/OpenRow";
 import { failureOf } from "../../todos/failureOf";
 import { TodoDrawer } from "../../todos/TodoDrawer";
 import { createSortedList } from "../../todos/sortedList";
@@ -152,7 +151,7 @@ export const PadRows = (props: { pads: AgentPads; depth: number; trail: readonly
   const todoMenu = (todo: Todo, event: MouseEvent) => {
     event.stopPropagation();
     openOnRelease(event, (x, y) => void contextMenu(connected.app, [
-      { id: "complete", label: copy.complete, enabled: !todo.done, run: async () => { props.pads.setFailure(await failureOf(() => connected.app.rpc("todo.complete", { id: todo.id }))); } },
+      ...(!todo.done ? [{ id: "complete", label: copy.complete, run: async () => { props.pads.setFailure(await failureOf(() => connected.app.rpc("todo.complete", { id: todo.id }))); } }] : []),
       ...linkEntries(connected.app, { kind: "todo", id: todo.id }, connected.rail.nodes, (node) => connected.rail.exitOf(node) === null, props.pads.setFailure),
       { id: "delete", label: copy.delete, run: () => { setSelectedTodos([todo.id]); todoBulk.ask(); } },
     ], x, y));
@@ -235,7 +234,6 @@ export const PadRows = (props: { pads: AgentPads; depth: number; trail: readonly
       </Show>
       <bulk.Bar />
       <todoBulk.Bar />
-      <Show when={props.pads.failure()}>{(message) => <ErrorLine message={message()} />}</Show>
     </>
   );
 };

@@ -585,7 +585,6 @@ pub(crate) fn fit(mut entry: DigestEntry, max: usize) -> DigestEntry {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use contracts::agent::Worktree;
     use contracts::message::{MessageKind, MessageStatus};
     use contracts::{Kind, Status};
 
@@ -599,47 +598,21 @@ mod tests {
 
     fn node(id: &str, kind: NodeKind, parent: Option<&str>, label: &str) -> RailNode {
         RailNode {
-            id: id.into(),
-            kind,
             name: format!("{id}-name"),
             parent: parent.map(Into::into),
-            order: 0,
             status: Some(status(Kind::Working, label)),
-            attempt: Some("1".into()),
             status_revision: None,
-            terminal_id: None,
-            worktree: None::<Worktree>,
-            can_resume: false,
-            yolo: false,
-            channel: None,
-            work: None,
-            stray: Vec::new(),
-            model: None,
-            effort: None,
-            iteration: None,
-            inbox: None,
-            overview: None,
+            ..crate::tests::node(id, kind, false, None)
         }
     }
 
     fn todo(id: u32, creator: &str, done: bool) -> Todo {
-        Todo {
-            id,
-            title: format!("todo {id}"),
-            body: String::new(),
-            done,
-            blockers: vec![],
-            blocked: false,
-            created_at: 0,
-            creator: Actor {
-                kind: ActorKind::Agent,
-                id: creator.into(),
-                parent: None,
-            },
-            home: Some("m".into()),
-            owner: None,
-            refs: vec![],
-        }
+        let creator = serde_json::json!({"kind": "agent", "id": creator, "parent": null});
+        serde_json::from_value(serde_json::json!({
+            "id": id, "title": format!("todo {id}"), "body": "", "done": done, "blockers": [],
+            "blocked": false, "created_at": 0, "creator": creator, "home": "m", "owner": null,
+        }))
+        .unwrap()
     }
 
     fn pad(name: &str, owner: &str, at: i64) -> Pad {

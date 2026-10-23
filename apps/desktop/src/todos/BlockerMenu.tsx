@@ -40,7 +40,7 @@ export const BlockerMenu = (props: {
     run: () => { close(); button?.focus(); },
   }]);
 
-  return <Popover.Root open={props.open} onOpenChange={({ open }) => { if (!open) close(); }} positioning={{ placement: "bottom-start", strategy: "fixed" }}>
+  return <Popover.Root closeOnInteractOutside={false} open={props.open} onOpenChange={({ open }) => { if (!open) close(); }} positioning={{ placement: "bottom-start", strategy: "fixed" }}>
     <Popover.Trigger asChild={(attributes) => <button {...attributes()} data-button="add" type="button" class="word todo-blocker-trigger"
       ref={(element) => { button = element; props.buttonRef(element); }}
       onClick={() => { if (props.open) close(); else props.onOpenChange(true); }}>

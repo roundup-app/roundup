@@ -1,6 +1,6 @@
 import { createEffect, createSignal, on, onMount, Show } from "solid-js";
 import { copy } from "../copy";
-import { ErrorLine } from "../ink/ErrorLine";
+import { ReservedLine } from "../ink/ReservedLine";
 import { SettingsGroup, SettingsShell } from "../settings/SettingsShell";
 import { useConnectedProject } from "../state/connectedProject";
 import { failureOf } from "../todos/failureOf";
@@ -82,7 +82,7 @@ const ProjectSettingsBody = () => {
         <span>{copy.workstreamsAtOnce}</span>
       </label>
       <Checkbox class="app-dialog-checkbox" checked={saved() === null} onCheckedChange={checked => void save(checked ? null : (capOf(text()) ?? 1))}>{copy.noLimit}</Checkbox>
-      <Show when={failure()}>{message => <ErrorLine message={message()} />}</Show>
+      <ReservedLine message={failure()} />
     </div></SettingsGroup>
   </SettingsShell>;
 };

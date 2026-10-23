@@ -112,6 +112,12 @@ A bounded copy of a Terminal's screen and output byte offset that restores its p
 The persistent place for one body of work, named for the work, with exactly one Door and its Agents, Terminals, Todos and Sketches. Stopping its Door neither removes the Workstream nor moves its contents. Workstreams are flat: one never sits under another. Its Agents nest under the Door and under each other (Subagent). Cross-Workstream dependencies are open.
 _Avoid_: room, folder
 
+**Auto** (`auto`, `AutoParams`, `workstream.setAuto`):
+The user's persisted Workstream choice, off by default, asking its Door to assign each open,
+unassigned Todo once per unassignment. Auto sends an ordinary Message naming the Todo and
+its estimate; the Door chooses an owner through `todo.assign` or starts a Subagent under
+the Workstream cap. It never moves a Todo already owned by Me or an Agent.
+
 **Start choice**:
 The user's pick of when a new Workstream's Door starts: `now`, `queued` or `afterTodo` (`todo.startWorkstream`, A3194). Only `now` ignores the Workstream cap, because the user chose it now.
 
@@ -255,8 +261,9 @@ One entry of the header strip for an open Project: its name (the folder's until 
 **Tab mark**:
 The small dot just after a Project tab's name: red if an Agent has Kind `error`, else amber if one has `needs-you`, else none (`scenarios/ui-project-tab-box.md`).
 
-**Rail** (`Rail::name`, `Agents::rail_name`):
-The tree of Workstreams and Agents. Rail names identify its nodes in prose.
+**Rail** (`Rail::name`, `Agents::rail_name`, `rail.tree`, `rail.list`):
+The tree of Workstreams and Agents. Both reads return the same tree, including each
+Workstream’s Auto choice. Rail names identify its nodes in prose.
 
 **Hint line**:
 The first line of the bottom bar, naming the two to four chords that act where keyboard focus is; each is a `CHORDS` row of `keys/chords.ts` (`scenarios/ui-shortcut-hints.md`).
@@ -292,6 +299,15 @@ Return a done Todo to open without changing its identity, Home, owner, blockers 
 **Owner** (`owner`):
 Who does a Todo's work: the user (shown as "Me", still refining the Todo's seed), one Agent, or nobody (shown as "Unassigned"). It is never `creator`, who wrote the Todo. `todo.create` may name one; `todo.assign` changes it and is recorded in the Todo's history. An owner Agent that ends keeps its Todos; removing it from the Rail unassigns them (T16, T17).
 _Avoid_: assignee
+
+**Estimate** (`estimate_minutes`):
+A Todo's expected work in minutes, a whole number from 1 to 1440, or none. The user or an Agent sets it with `todo.create` or `todo.update` (`null` clears it); a change is recorded in the Todo's history and no other Todo method touches it (T29).
+
+**Delegate Board**:
+The Todos tab's groups by owner, with Agent availability from open estimates and direct hand-offs by drag or key.
+
+**Busy until** (user labels: "free now", "busy until <HH:MM>"):
+An Agent's displayed availability: the current local time plus the estimates of its open Todos. Missing estimates add nothing and are disclosed as "no estimates" or "+ n without estimate".
 
 **Comment** (`todo.comment`, `todo_comment`):
 A line on a Todo from the user or an Agent, shown oldest first with its author and time. Not a Message and not History: it moves no field of the Todo. An Agent's comment is unread, and waits in the Inbox as needs-you, until the user opens the Todo (T20 to T23).
@@ -455,6 +471,9 @@ Claude Code's own messaging socket for a message from another Claude Code instan
 
 **Mcp**:
 The Project setting `mcp {on}` (`project.setMcp`, M2219): with `on` false, or the Daemon's `ROUNDUP_MCP=off`, an Agent starts with no `roundup` MCP server and its Brief names `rup` commands. Only Agents started afterward change.
+
+**Tool call**:
+An Agent's current or last use of a tool, folded by the Adapter from the `PreToolUse`, `PostToolUse` and `PostToolUseFailure` Signals (U3780a): the tool, a one-line summary, the arguments, the result, a state (`running`, `done`, `failed`), the start and the duration, each text cut to a bound. `RailNode.tool_call` carries it and the event `agent.toolCall` announces a change. The Project overview shows it as one line that folds open (U3780b, U3780c). Not a Retry: roundup never re-runs one.
 
 **Stray**:
 A process under a Door's Terminal whose program name is one an Adapter supplies and that the Daemon did not register, found by name (F5). `RailNode.stray` lists them and the event `agent.stray` announces a change; it only detects.
@@ -686,6 +705,8 @@ A PNG, video or checks JSON under the artifact-relative `artifacts/ux/<id>/` (jo
 **Captured Change** (`expected_change`): the last History Change sequence captured with a Todo's editable Values in its original Project. `todo.update` and `todo.setBlockers` can require that sequence atomically: a mismatch refuses with conflict; a removed Todo is not found. Omission keeps an unconditional write. Read the base Values and sequence together from the last Change returned by `todo.getHistory`; a separate later History read is not the base of an earlier `todo.get`. Immediate completion needs no captured Change.
 
 **Change** (`Change`): initial Values or the before and after Values of one successful Todo mutation, or a Hand-off (`handed` names the Agent, `before` and `after` equal). `seq` orders Changes; `changed_at` is the Unix milliseconds the Daemon recorded it (absent for Changes recorded before it existed). Lists and the Rail do not carry them.
+
+**Handed** (`Handed`, `todo.listHanded`, `TodosState.handed`): a Project-scoped read of the latest qualifying Hand-off for each current Agent-owned Todo, as Todo id, owner and `Change.seq`, in sequence order. Qualification requires the Hand-off to follow the last owner-changing Change. At most one fact per Todo; done/blocked stay independent Todo facts. No History Values or Touch. An empty reply means none; the App's null means pending/failed and unknown, including stale replies after a failed refresh. The Shelf labels the latest eligible Hand-off for each Agent `now`: its latest handed work, without claiming what the vendor program is executing.
 
 **Hand-off** (`todo.hand`, `HandParams`): the one Message, `Next: #<id> <title>`, that gives an idle Agent its next owned open, unblocked Todo, with a Change of kind `handed` recorded first. A Todo is handed to its current owner exactly when no `handed` Change for that owner follows the last Change of its `owner`. Only the Daemon calls `todo.hand`.
 

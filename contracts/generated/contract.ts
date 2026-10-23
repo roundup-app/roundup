@@ -93,6 +93,7 @@ export const CONTRACT = {
     "provenance.history": "c20c66fb119e79a3",
     "provenance.touched": "90d4eb550afcfb2b",
     "rail.createWorkstream": "caadcbf2e211b123",
+    "rail.list": "eb63541f80cef748",
     "rail.move": "f2b63e102cb0cc02",
     "rail.remove": "2d9c2c3d953d834d",
     "rail.rename": "60345eef7aaf7f0e",
@@ -135,6 +136,7 @@ export const CONTRACT = {
     "todo.getHistory": "e0116b9c69507908",
     "todo.hand": "ba495830d41cd014",
     "todo.list": "e65f2d968ce36845",
+    "todo.listHanded": "f24cddf576971209",
     "todo.markCommentsRead": "35bafabaf21370cd",
     "todo.move": "bf4d113add2591c9",
     "todo.readHistory": "508a84bd3c2373ff",
@@ -153,6 +155,7 @@ export const CONTRACT = {
     "workstream.queueMove": "f59cd303687c2da5",
     "workstream.rewind": "39dff0d8d5cfe481",
     "workstream.rewindPlan": "52de6ad949ee8ee8",
+    "workstream.setAuto": "5e70af924e06d425",
     "workstream.startNow": "64351dad58a36786",
   },
 } as const;

@@ -22,15 +22,15 @@ type Starting<'a> = Pin<Box<dyn Future<Output = Result<(), RpcError>> + Send + '
 /// reported a Status, and the running set the last count was taken from.
 #[derive(Default)]
 pub(crate) struct Memory {
-    launching: Mutex<HashSet<String>>,
+    pub(super) launching: Mutex<HashSet<String>>,
     running: Mutex<HashSet<String>>,
     watching: std::sync::atomic::AtomicBool,
-    pass: tokio::sync::Mutex<()>,
+    pub(super) pass: tokio::sync::Mutex<()>,
 }
 
 /// A3196: the Workstreams running now. A Workstream runs while its Door or any Agent under it is
 /// `working`; one the Queue just started runs until its Door reports a Status.
-fn running(nodes: &[RailNode], launching: &HashSet<String>) -> HashSet<String> {
+pub(super) fn running(nodes: &[RailNode], launching: &HashSet<String>) -> HashSet<String> {
     let by_id: HashMap<&str, &RailNode> = nodes.iter().map(|n| (n.id.as_str(), n)).collect();
     let mut out: HashSet<String> = launching
         .iter()

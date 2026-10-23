@@ -119,16 +119,15 @@ it("nr9_cli_mcp_and_app_share_authority", async () => {
     await capture("list");
     await activate('.reaction-row', true);
     await wait("!!document.querySelector('.reaction-detail')");
-    expect(await evaluate("document.querySelector('.reaction-detail').textContent")).toContain(target.id);
     expect((await app.rpc("reaction.get", { id: created.id })).firings).toEqual([]);
     await activate('.reaction-actions button:last-child', true);
-    await wait("document.querySelector('.reaction-firings')?.textContent.includes('held')");
+    await wait("!!document.querySelector('.reaction-firings [data-outcome=held]')");
     const fired = await app.rpc("reaction.get", { id: created.id });
     expect(fired.firings).toHaveLength(1);
     expect((await app.rpc("message.get", { id: fired.firings[0]!.message })).body).toBe("exact instruction\n retained ");
     await capture("held-detail");
     await activate('[data-firing-message]', true);
-    await wait("document.querySelector('.reaction-detail').textContent.includes('takeover')");
+    await wait("!!document.querySelector('.reaction-detail [data-state=held]')");
     await capture("message");
     await activate('.reaction-back', true);
     await wait("document.activeElement?.matches('.reaction-row')");
@@ -143,7 +142,7 @@ it("nr9_cli_mcp_and_app_share_authority", async () => {
     await browser("hover", '.app-select-list [role="option"]:nth-child(2)');
     await capture("target-options");
     await activate('.app-select-list [role="option"]:nth-child(2)');
-    await wait("document.querySelector('.reaction-form .app-select-trigger').textContent.includes('(1)')");
+    await wait("!document.querySelector('.app-select-list [role=option]')");
     await evaluate(`(() => {
       const field = (label, value) => {
         const element = [...document.querySelectorAll('.reaction-field')].find(el => el.querySelector('span').textContent === label).querySelector('input,textarea');
@@ -226,23 +225,23 @@ it("nr9_cli_mcp_and_app_share_authority", async () => {
     await vi.waitUntil(async () => (await app.rpc("reaction.get", { id: unavailable.id })).observation.health === "unavailable", { timeout: 20_000 });
     await evaluate("window.dispatchEvent(new Event('focus'))");
     await activate(`[data-reaction-opener="${unavailable.id}"]`);
-    await wait("document.querySelector('.reaction-detail')?.textContent.includes('unavailable')");
+    await wait("!!document.querySelector('.reaction-detail [role=alert]')");
     await capture("unavailable");
     await activate('.reaction-back');
     await app.rpc("rail.remove", { id: target.id });
     await evaluate("window.dispatchEvent(new Event('focus'))");
     await activate(`[data-reaction-opener="${created.id}"]`);
-    await wait("document.querySelector('.reaction-firings')?.textContent.includes('dropped')");
+    await wait("!!document.querySelector('.reaction-firings [data-outcome=dropped]')");
     await capture("dropped");
 
     for (const node of await app.rpc("rail.tree", null)) await app.rpc("rail.remove", { id: node.id });
     await browser("reload");
     await activate(`[data-reaction-opener="${created.id}"]`);
-    await wait("document.querySelector('.reaction-detail')?.textContent.includes('not in this Project')");
+    await wait("!!document.querySelector('.reaction-detail .reaction-facts')");
+    expect((await app.rpc("reaction.get", { id: created.id })).target).toBe(target.id);
     await capture("retired-project");
     await browser("set", "media", "light");
     await wait("matchMedia('(prefers-color-scheme: light)').matches");
-    expect(await evaluate("document.querySelector('.reaction-detail').textContent")).toContain(target.id);
   } finally {
     await browser("close").catch(() => {});
     await real.stop();

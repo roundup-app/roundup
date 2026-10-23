@@ -13,7 +13,15 @@
   font-weight: 600;
   min-width: 0;
 }
-.todo-detail-title > .todo-editable { flex: 1; min-width: 0; }
+.todo-detail-title > .todo-editable { flex: 0 1 auto; min-width: 0; }
+.todo-estimate {
+  flex: none;
+  margin-inline-start: var(--space-2);
+  color: var(--grey);
+  font-size: var(--text-body);
+  font-weight: 400;
+  font-variant-numeric: tabular-nums;
+}
 .todo-delete {
   position: absolute;
   top: var(--space-2);
@@ -24,6 +32,7 @@
 .todo-history-count { font-weight: 600; }
 .todo-history-count[data-state="unread"] { color: var(--text); text-decoration: underline; }
 .todo-history-count[data-state="read"] { color: var(--grey); }
+.todo-history-head { display: flex; align-items: baseline; justify-content: space-between; gap: var(--space-3); }
 .todo-change { white-space: pre-wrap; overflow-wrap: anywhere; }
 .todo-refs { display: flex; flex-direction: column; gap: var(--space-2); }
 .todo-refs h3 { font: inherit; font-weight: 600; margin: 0; }
@@ -91,13 +100,8 @@
 .todo-detail > p { margin-left: var(--space-5); }
 
 .todo-draft-recovery {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-3);
-  min-width: 0;
-  overflow-wrap: anywhere;
+  display: contents;
 }
-.todo-draft-recovery:empty { display: none; }
 .todo-draft-revision {
   display: flex;
   font-size: var(--text-small);
@@ -116,6 +120,7 @@
 }
 
 .todo-editable {
+  position: relative;
   display: flex;
   flex-direction: column;
   align-items: stretch;

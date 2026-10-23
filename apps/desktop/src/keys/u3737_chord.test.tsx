@@ -132,8 +132,8 @@ it("u3739_help_and_hints_list_the_chord_from_the_table", async () => {
   await waitFor(() => expect(document.querySelector(".help")).not.toBeNull());
   const help = document.querySelector(".help")!.textContent!;
 
-  expect(help).toContain("⇧⌘T  Capture a Todo");
-  expect(help).toContain("⌘K T  Capture a Todo");
+  expect(help).toContain("⇧⌘T Capture a Todo");
+  expect(help).toContain("⌘K T Capture a Todo");
 });
 
 describe("u3740 the field shows the Owner and Home", () => {

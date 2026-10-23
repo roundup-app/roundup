@@ -47,6 +47,8 @@ impl Daemon {
             || matches!(
                 method,
                 "rail.rename"
+                    | "workstream.setAuto"
+                    | "agent.spawn"
                     | "agent.stop"
                     | "agent.interrupt"
                     | "agent.prompt"
@@ -74,7 +76,7 @@ impl Daemon {
         })
     }
 
-    pub(crate) async fn route(
+    pub(crate) async fn route_inner(
         &self,
         conn: &mut Conn,
         method: &str,

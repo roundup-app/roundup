@@ -861,9 +861,29 @@
     "kind": "in-process",
     "sha256": "42c071ff14001c2633d5bbca5c3c3ff3fa832538a3d26c6151c41132abe2af6b"
   },
+  "apps/desktop/src/terminal/u3783_note_routes.test.tsx": {
+    "cleanup": "Launch owner above supplies cleanup; this caller launches no executable itself.",
+    "data": "Uses audited desktop fixture or a fake/client reference; no separate built-Daemon launch.",
+    "kind": "reference"
+  },
+  "apps/desktop/src/testing/u3781_real_daemon.test.tsx": {
+    "cleanup": "Launch owner above supplies cleanup; this caller launches no executable itself.",
+    "data": "Uses audited desktop fixture or a fake/client reference; no separate built-Daemon launch.",
+    "kind": "reference"
+  },
+  "apps/desktop/src/testing/u3783_real_daemon.test.tsx": {
+    "cleanup": "Launch owner above supplies cleanup; this caller launches no executable itself.",
+    "data": "Uses audited desktop fixture or a fake/client reference; no separate built-Daemon launch.",
+    "kind": "reference"
+  },
   "apps/desktop/src/testing/u3078i_real_daemon.test.tsx": {
     "cleanup": "Launch owner above supplies cleanup; this caller launches no executable itself.",
     "data": "Uses audited desktop fixture or a fake/client reference; no separate built-Daemon launch.",
+    "kind": "reference"
+  },
+  "crates/rupd/tests/launch_choices.rs": {
+    "cleanup": "The shared rupd_harness kills and reaps its Daemon before deleting its owned data TempDir; Run drops the Daemon before its Project TempDir.",
+    "data": "Calls the audited support/rupd_harness.rs; it supplies a canonical absolute ROUNDUP_DATA_DIR in a fresh owned TempDir and removes inherited App data redirection.",
     "kind": "reference"
   }
 }

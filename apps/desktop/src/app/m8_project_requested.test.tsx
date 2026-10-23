@@ -167,7 +167,7 @@ it.each(["envelope", "surface"])("u3021b_recovery_actions_and_retry_%s", async (
 
   expect(alert.textContent).not.toContain(FIRST.path);
   expect(within(recovery).queryByRole("button", { name: /Inspect|Copy .+/ })).toBeNull();
-  fireEvent.click(within(alert).getByRole("button", { name: "Try again" }));
+  fireEvent.click(within(recovery).getByRole("button", { name: "Try again" }));
   expect(holder.list().map((draft) => draft.revision)).toEqual([saved]);
   expect(window.localStorage.getItem(`roundup:drafts:${FIRST.path}`)).toBe(bytes);
   fireEvent.click(within(recovery).getByRole("button", { name: "Discard" }));

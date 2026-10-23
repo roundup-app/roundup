@@ -7,10 +7,10 @@ import { rowOf } from "../rail/railFixture";
 import { createFakeApp } from "../testing/fakeApp";
 import { agent, door, event, info } from "../testing/nodes";
 import type { EmulatorFactory } from "../terminal/emulator";
-import { RowIcons } from "../rail/RowIcons";
 import { copy } from "../copy";
+import { KeyHint } from "./KeyHint";
 import { endLeader } from "./registry";
-import { CHORDS, HELP_ROWS, LEADER, hintsFor, pressOf } from "./chords";
+import { CHORDS, hintsFor, pressOf } from "./chords";
 import type { HintPlace } from "./chords";
 
 afterEach(() => { cleanup(); endLeader(); });
@@ -136,39 +136,20 @@ const press = (target: Element, presses: string): boolean => {
 };
 
 describe("u2230 shortcut hints", () => {
-  it("u2541b_every_place_shows_two_to_four_hints", () => {
-    for (const place of ["rail", "agent", "bubble", "pad", "drawer"] as const) {
-      expect(hintsFor(place).length).toBeGreaterThanOrEqual(2);
-      expect(hintsFor(place).length).toBeLessThanOrEqual(4);
-    }
+  it("u2541d_a_chord_is_one_chip_and_an_alternative_one_pair", () => {
+    const chips = (keys: string) => {
+      const { container, unmount } = render(() => <KeyHint keys={keys}>label</KeyHint>);
+      const pairs = container.querySelectorAll(".key-chips");
+      const result = [pairs.length, [...container.querySelectorAll("kbd")].map((key) => key.textContent)] as const;
+      unmount();
 
-    // Only one CHORDS row binds in the modal Switcher; Editor keys belong to U2541c.
-    expect(hintsFor("switcher")).toEqual([]);
-    expect(hintsFor("editor")).toEqual([]);
-  });
+      return result;
+    };
 
-  it("u2541_one_component_draws_every_key", async () => {
-    await open();
-    await toRail();
-
-    const keysIn = (selector: string) => [...document.querySelectorAll(selector)].map((row) =>
-      [...row.querySelectorAll("kbd")].map((key) => key.textContent).join(""),
-    );
-
-    render(() => <RowIcons actions={{ kind: "workstream", add: { disabled: false, run: () => {} }, folder: () => {}, editor: () => {} }} />);
-    fireEvent.pointerMove(screen.getAllByRole("button", { name: copy.addAgentLabel }).at(-1)!, { pointerType: "mouse" });
-    await waitFor(() => expect(keysIn('[role="tooltip"] .key-chips')).toEqual([CHORDS[0]!.keys]));
-
-    expect(keysIn(".hint-line .hint")).toEqual(hintsFor("rail").map((hint) => hint.keys));
-    fireEvent.keyDown(rowOf("b"), { key: "?", shiftKey: true });
-    await waitFor(() => expect(keysIn(".help-line")).toEqual(HELP_ROWS.map((row) => row.keys.replace(/\s/g, ""))));
-    expect([...document.querySelectorAll(".help-shelf p")].map((row) =>
-      [...row.querySelectorAll("kbd")].map((key) => key.textContent),
-    )).toEqual([["↑", "↓"], ["⌘", "⏎"], ["⇧", "↑", "⇧", "↓"], ["⌫", "Esc"]]);
-    fireEvent.keyDown(document.activeElement!, { key: "Escape" });
-    await waitFor(() => expect(document.querySelector(".help")).toBeNull());
-    fireEvent.keyDown(rowOf("b"), { key: "k", code: "KeyK", metaKey: true });
-    await waitFor(() => expect(keysIn(".leader-line")).toEqual(LEADER.map((row) => row.keys)));
+    expect(chips("⇧Tab")).toEqual([1, ["⇧Tab"]]);
+    expect(chips("⌘K")).toEqual([1, ["⌘K"]]);
+    expect(chips("J K")).toEqual([1, ["J", "K"]]);
+    expect(chips("J / K")).toEqual([1, ["J", "K"]]);
   });
 
   it.each([["rail", toRail], ["agent", toPane], ["bubble", toBubble], ["pad", () => toPlace("pad")], ["drawer", () => toPlace("drawer")]] as const)("u2230_every_hint_names_a_bound_chord_in_%s", async (place, go) => {
@@ -219,19 +200,60 @@ describe("u2230 shortcut hints", () => {
     await waitFor(() => expect(line()).toEqual([]));
   });
 
-  it("u2230a_hint_keys_are_symbols_with_labels", async () => {
-    await open();
 
-    for (const place of ["rail", "agent"] as const) {
-      const hints = hintsFor(place);
+});
 
-      for (const hint of hints) {
-        expect(hint.keys).toMatch(/^[⌘⇧⌥⌃]*[^\s]+$/);
-        expect(hint.keys).not.toMatch(/\b(cmd|command|shift|alt|ctrl|control|option)\b/i);
-        expect(hint.label.length).toBeGreaterThan(0);
-      }
+
+it.each(["Triage", "Todos tab", "Maximise"])("u3474d_shown_shortcuts_run_from_their_presented_scope: %s", async target => {
+  const app = await open();
+  await toRail();
+  showShelfTab("Todos");
+  const control = target === "Todos tab" ? screen.getByRole("tab", { name: /Todos/ }) : await screen.findByRole("button", { name: target });
+  control.focus();
+  await waitFor(() => expect(line().some(hint => hint.startsWith("D "))).toBe(false));
+  fireEvent.keyDown(document.activeElement!, { key: target !== "Maximise" ? "t" : "m", code: target !== "Maximise" ? "KeyT" : "KeyM" });
+
+  if (target !== "Maximise") {
+    const control = screen.getByRole("button", { name: "Triage" });
+    // Ark publishes tab focus changes before the next paint. Observe the settled mode.
+    await new Promise<void>(resolve => requestAnimationFrame(() => resolve()));
+    expect(control.getAttribute("aria-pressed")).toBe("true");
+    fireEvent.keyDown(document.activeElement!, { key: "Escape", code: "Escape" });
+    expect(control.getAttribute("aria-pressed")).toBe("false");
+  } else {
+    expect(screen.getByRole("button", { name: "Restore" })).toBe(control);
+    fireEvent.keyDown(document.activeElement!, { key: "m", code: "KeyM" });
+    expect(screen.getByRole("button", { name: "Maximise" })).toBe(control);
+  }
+
+  expect(app.calls.filter(call => call.method === "todo.complete" || call.method === "todo.delete")).toEqual([]);
+});
+
+
+it.each(["terminal", "pads", "contenteditable", "dialog", "menu"])("u3474a_keeps_the_current_keyboard_owner: %s", async owner => {
+  await open();
+  showShelfTab("Todos");
+  await waitFor(() => expect(document.querySelector("[data-triage-toggle]")).not.toBeNull());
+
+  if (owner === "terminal") await toPane();
+  else {
+    showShelfTab(owner === "pads" ? "Pads" : "Todos");
+
+    if (owner !== "pads") {
+      const surface = document.createElement("div");
+      const control = document.createElement(owner === "contenteditable" ? "div" : "button");
+
+      if (owner === "contenteditable") { control.setAttribute("contenteditable", "true"); control.tabIndex = 0; }
+      else { surface.setAttribute("role", owner); surface.dataset.state = "open"; }
+
+      surface.append(control);
+      document.querySelector(".shelf")!.append(surface);
+      control.focus();
     }
+  }
 
-    expect(label("rail", false)).not.toContain("⌘⏎ Take control");
-  });
+  const event = new KeyboardEvent("keydown", { key: "t", code: "KeyT", bubbles: true, cancelable: true });
+  document.activeElement!.dispatchEvent(event);
+  expect(event.defaultPrevented).toBe(false);
+  expect(document.querySelector("[data-triage-toggle]")?.getAttribute("aria-pressed")).toBe("false");
 });

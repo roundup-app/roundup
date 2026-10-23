@@ -100,14 +100,13 @@ it("u2580a_key_layers_open_and_focus_in_the_next_frame", async () => {
   for (const reduced of [false, true]) {
     await load(reduced);
 
-    for (const key of ["Enter", "Space"] as const) {
-      const opened = await activate('.shelf [data-todo] .todo-row-button', key);
-      expect(opened).toMatchObject({ open: true, content: true, focus: true });
-      await browser("wait", "--fn", "!!document.querySelector('.todo-detail')");
-      const closed = await activate('.drawer .close', key);
-      expect(closed).toMatchObject({ open: false, content: false, returned: true });
-      await settle();
-    }
+    // U3309 reserves Enter for lifting; its Board test proves that path. Space opens the detail.
+    const opened = await activate('.shelf [data-todo] .todo-row-button', "Space");
+    expect(opened).toMatchObject({ open: true, content: true, focus: true });
+    await browser("wait", "--fn", "!!document.querySelector('.todo-detail')");
+    const closed = await activate('.drawer .close', "Space");
+    expect(closed).toMatchObject({ open: false, content: false, returned: true });
+    await settle();
 
     for (const key of ["Enter", "Space"] as const) {
       expect(await activate('#shelf-tab-todos', key, "document.querySelector('.shelf').hidden")).toBe(true);
@@ -204,7 +203,7 @@ it("u2580a_key_close_and_interrupted_slide_leave_no_stale_content", async () => 
     }
 
     await settle();
-    expect(await activate('.shelf [data-todo] .todo-row-button', "Enter")).toMatchObject({ open: true, focus: true });
+    expect(await activate('.shelf [data-todo] .todo-row-button', "Space")).toMatchObject({ open: true, focus: true });
     await browser("wait", ".todo-detail");
     await evaluate(`(() => { document.querySelector('.drawer').dispatchEvent(new TransitionEvent('transitionend', {propertyName: 'transform'})); return true; })()`);
     expect(await evaluate("!!document.querySelector('.todo-detail')")).toBe(true);
@@ -214,7 +213,7 @@ it("u2580a_key_close_and_interrupted_slide_leave_no_stale_content", async () => 
       return await new Promise(resolve => requestAnimationFrame(() => resolve(!!document.querySelector('.todo-detail'))));
     })()`)).toBe(!reduced);
     // The returned trigger can reopen while the pointer exit is still in flight.
-    expect(await activate('.shelf [data-todo] .todo-row-button', "Enter")).toMatchObject({ open: true, content: true, focus: true });
+    expect(await activate('.shelf [data-todo] .todo-row-button', "Space")).toMatchObject({ open: true, content: true, focus: true });
     await browser("wait", ".todo-detail");
     await evaluate(`(() => { document.querySelector('.drawer').dispatchEvent(new TransitionEvent('transitionend', {propertyName: 'transform'})); return true; })()`);
     await settle();

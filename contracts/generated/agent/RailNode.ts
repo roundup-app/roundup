@@ -6,9 +6,14 @@ import type { Inbox } from "./Inbox";
 import type { NodeKind } from "./NodeKind";
 import type { Order } from "./Order";
 import type { Stray } from "./Stray";
+import type { ToolCall } from "./ToolCall";
 import type { Worktree } from "./Worktree";
 
-export type RailNode = { id: string, kind: NodeKind, name: string, parent: string | null, 
+export type RailNode = { 
+/**
+ * A3308: the Workstream's Auto choice; absent on an Agent.
+ */
+auto?: boolean, id: string, kind: NodeKind, name: string, parent: string | null, 
 /**
  * Position among siblings; lower first.
  */
@@ -74,6 +79,10 @@ iteration?: number,
  * check; absent before the first check and on a Terminal.
  */
 inbox?: Inbox, 
+/**
+ * U3780a: the Agent's current or last tool call; absent until its first.
+ */
+tool_call?: ToolCall, 
 /**
  * A2681a: available conversation parts, only after the Agent's program exits.
  */

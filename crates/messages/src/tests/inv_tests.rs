@@ -471,7 +471,7 @@ fn inv_the_daemons_transitions_run_through_step() {
     let src = |file| {
         std::fs::read_to_string(format!("{}/src/{file}", env!("CARGO_MANIFEST_DIR"))).unwrap()
     };
-    let lib = src("lib.rs") + &src("receiver_view.rs");
+    let lib = src("lib.rs") + &src("receiver_view.rs") + &src("removal.rs");
     for event in [
         "Event::Send",
         "Event::Idle",
@@ -482,7 +482,10 @@ fn inv_the_daemons_transitions_run_through_step() {
         "Event::UserDeliver",
         "Event::UserDrop",
     ] {
-        assert!(lib.contains(event), "lib.rs never builds {event}");
+        assert!(
+            lib.contains(event),
+            "lib.rs and removal.rs never build {event}"
+        );
     }
 }
 

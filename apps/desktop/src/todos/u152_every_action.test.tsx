@@ -104,7 +104,8 @@ for (const by of ["pointer", "keyboard"] as const) {
       press(within(drawer()).getByRole("button", { name: "Remove blocker #1" }), by);
       await waitFor(() => expect(callsTo(mounted.app, "todo.setBlockers")).toEqual([{ method: "todo.setBlockers", params: { id: 2, blockers: [3], expected_change: 2 } }]));
       refetch(mounted);
-      await waitFor(() => expect(rowOf(2).querySelector("[data-todo-also-waits]")).toBeNull());
+      await waitFor(() => expect(within(rowOf(2)).queryByRole("button", { name: /todo 1$/ })).toBeNull());
+      expect(within(rowOf(2)).getByRole("button", { name: /todo 3$/ })).toBeTruthy();
       expect(rowOf(2).getAttribute("aria-level")).toBe("2");
 
       press(within(drawer()).getByRole("button", { name: "Remove blocker #3" }), by);
@@ -172,8 +173,9 @@ describe("u152 focus stays in the Drawer", () => {
     mounted.store.todos = mounted.store.todos.map((t) => (t.id === 2 ? { ...t, blockers: [3] } : t));
     refetch(mounted);
 
-    await waitFor(() => expect(rowOf(2).querySelector("[data-todo-also-waits]")).toBeNull());
-      expect(rowOf(2).getAttribute("aria-level")).toBe("2");
+    await waitFor(() => expect(within(rowOf(2)).queryByRole("button", { name: /todo 1$/ })).toBeNull());
+    expect(within(rowOf(2)).getByRole("button", { name: /todo 3$/ })).toBeTruthy();
+    expect(rowOf(2).getAttribute("aria-level")).toBe("2");
     expect(document.activeElement).not.toBe(document.body);
     expect(drawer().contains(document.activeElement)).toBe(true);
   });

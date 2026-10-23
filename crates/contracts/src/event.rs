@@ -9,6 +9,8 @@ use crate::{agent, checkpoint, decision, message, pad, project, terminal, todo, 
 #[serde(tag = "name", content = "data")]
 #[ts(export)]
 pub enum EventData {
+    #[serde(rename = "workstream.updated")]
+    WorkstreamUpdated(workstream::AutoParams),
     #[serde(rename = "project.measurementsChanged")]
     MeasurementsChanged { revision: String },
     #[serde(rename = "ask.changed")]
@@ -65,6 +67,8 @@ pub enum EventData {
     AgentChannel(agent::ChannelEvent),
     #[serde(rename = "agent.stray")]
     AgentStray(agent::StrayEvent),
+    #[serde(rename = "agent.toolCall")]
+    AgentToolCall(Box<agent::ToolCallEvent>),
     #[serde(rename = "rail.changed")]
     RailChanged,
     /// A2741a: the exact destination and name committed under the Rail mutation lock.

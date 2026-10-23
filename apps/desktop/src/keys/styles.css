@@ -5,15 +5,21 @@
   gap: var(--space-1);
   vertical-align: top;
 }
-.key-sequence-gap {
-  flex: none;
-  width: var(--space-2);
+/* U2541d, U2541e: a key and its label are one unbreakable unit; hints are spaced by their container. */
+.key-hint {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  white-space: nowrap;
 }
+.key-hint-label { min-width: 0; }
 .help-line, .help-shelf > p {
   padding-bottom: var(--space-1);
 }
-.help .key-chips {
-  width: calc(var(--space-6) * 4);
+.help .key-hint {
+  display: grid;
+  grid-template-columns: calc(var(--space-6) * 4) 1fr;
+  gap: var(--space-1);
 }
 .key-chip {
   display: inline-flex;
@@ -35,3 +41,24 @@
   background: var(--key-chip-fill);
 }
 .help-line, .help-shelf, .leader-line { color: var(--grey); }
+
+.help h2 {
+  margin: 0 0 var(--space-1);
+  font-size: var(--text-small);
+  font-weight: 500;
+  color: var(--text);
+}
+.help {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  align-content: start;
+  gap: var(--space-3) var(--space-6);
+}
+.help-section, .help-shelf { min-width: 0; }
+.leader-line { flex: 0 0 auto; }
+.leader .reserved-status {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: var(--space-4);
+}

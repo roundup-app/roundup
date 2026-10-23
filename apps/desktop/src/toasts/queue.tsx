@@ -1,3 +1,4 @@
+import { ReservedLine } from "../ink/ReservedLine";
 import type { ActivationSource } from "../keys/registry";
 import { createMemo, createSignal, onCleanup } from "solid-js";
 import type { Accessor } from "solid-js";
@@ -5,7 +6,6 @@ import type { Kind } from "@contracts/Kind";
 import { copy } from "../copy";
 import { createToast } from "../ui/Toast";
 import { KindGlyph } from "../ink/KindGlyph";
-import { ErrorLine } from "../ink/ErrorLine";
 import type { Chime } from "./chime";
 
 const MOST_SHOWN = 3;
@@ -101,7 +101,7 @@ export const createToastQueue = (inFront: () => boolean, chime: Chime, now: () =
     if (message === null) return;
 
     setFailure(message);
-    toast.show({ id: FAILURE, name: "", content: "", body: () => <ErrorLine message={message} />, duration: FAILURE_MS, extra: true });
+    toast.show({ id: FAILURE, name: "", content: "", body: () => <ReservedLine message={message} />, duration: FAILURE_MS, extra: true });
   }
 
   const shown = createMemo(() => Math.min(entries().length, MOST_SHOWN));
