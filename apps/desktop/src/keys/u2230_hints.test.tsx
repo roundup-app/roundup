@@ -229,16 +229,17 @@ describe("u2230 shortcut hints", () => {
 });
 
 
-it.each(["Triage", "Maximise"])("u3474d_shown_shortcuts_run_from_their_presented_scope: %s", async target => {
+it.each(["Triage", "Todos tab", "Maximise"])("u3474d_shown_shortcuts_run_from_their_presented_scope: %s", async target => {
   const app = await open();
   await toRail();
   showShelfTab("Todos");
-  const control = await screen.findByRole("button", { name: target });
+  const control = target === "Todos tab" ? screen.getByRole("tab", { name: /Todos/ }) : await screen.findByRole("button", { name: target });
   control.focus();
   await waitFor(() => expect(line().some(hint => hint.startsWith("D "))).toBe(false));
-  fireEvent.keyDown(document.activeElement!, { key: target === "Triage" ? "t" : "m", code: target === "Triage" ? "KeyT" : "KeyM" });
+  fireEvent.keyDown(document.activeElement!, { key: target !== "Maximise" ? "t" : "m", code: target !== "Maximise" ? "KeyT" : "KeyM" });
 
-  if (target === "Triage") {
+  if (target !== "Maximise") {
+    const control = screen.getByRole("button", { name: "Triage" });
     expect(control.getAttribute("aria-pressed")).toBe("true");
     fireEvent.keyDown(document.activeElement!, { key: "Escape", code: "Escape" });
     expect(control.getAttribute("aria-pressed")).toBe("false");
