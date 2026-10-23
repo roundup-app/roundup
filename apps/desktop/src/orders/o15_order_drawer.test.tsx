@@ -563,9 +563,10 @@ it.each(["dismiss", "save", "item removal", "unrelated removal"] as const)("p355
   expect(screen.queryByText("Prompt unavailable; reopen to retry") !== null).toBe(transition === "unrelated removal");
 });
 
-it.each(["dismiss", "save"] as const)("p3557c_failure_lifetime_order_drawer_retention: %s", async transition => {
+it.each(["dismiss", "save", "unrelated removal"] as const)("p3557c_failure_lifetime_order_drawer_retention: %s", async transition => {
   const app = createFakeApp();
-  app.handlers["rail.tree"] = () => [agent("a", "working", "editing", { name: "alpha", work: full })];
+  let nodes = [agent("a", "working", "editing", { name: "alpha", work: full }), agent("b", "working", "editing", { name: "beta", work: full })];
+  app.handlers["rail.tree"] = () => nodes;
   app.handlers["agent.spawnPrompt"] = () => ({ prompt: "p" });
   app.handlers["agent.setOrder"] = () => { throw new RpcError(-32003, "Save refused; try again"); };
 
@@ -578,16 +579,21 @@ it.each(["dismiss", "save"] as const)("p3557c_failure_lifetime_order_drawer_rete
   fireEvent.click(screen.getByRole("button", { name: "Save" }));
   await screen.findByText("Save refused; try again");
 
-  if (transition === "dismiss") fireEvent.click(screen.getByRole("button", { name: "Dismiss failure" }));
+  if (transition !== "save") fireEvent.click(screen.getByRole("button", { name: "Dismiss failure" }));
   else {
     app.handlers["agent.setOrder"] = () => agent("a", "working", "editing", { name: "alpha", work: full });
     fireEvent.click(screen.getByRole("button", { name: "Save" }));
     await waitFor(() => expect(document.querySelector(".order-edit")).toBeNull());
   }
 
+  if (transition === "unrelated removal") {
+    nodes = nodes.filter(node => node.id !== "b");
+    await connected.rail.refresh();
+  }
+
   expect(screen.getByRole("alert").textContent).toContain("Could not store unfinished work");
 
-  if (transition === "dismiss") expect(screen.getByLabelText<HTMLTextAreaElement>("Ask").value).toBe(exact);
+  if (transition !== "save") expect(screen.getByLabelText<HTMLTextAreaElement>("Ask").value).toBe(exact);
   expect(connected.drafts.problem()?.cause).toBe("write");
 });
 
