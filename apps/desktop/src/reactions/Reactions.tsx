@@ -32,12 +32,16 @@ const blank = (operation: string): Form => ({
 type View = { kind: "list" } | { kind: "create" } | { kind: "detail"; id: string };
 
 const useNames = () => {
-  const { rail } = useConnectedProject();
+  const { rail, project } = useConnectedProject();
 
   return (id: string) => {
     const node = rail.nodes.find((node) => node.id === id);
 
-    return node ? node.name : copy.reactionGone();
+    if (!node) return copy.reactionGone();
+
+    return rail.nodes.some(other => other.name === node.name && other.parent !== node.parent)
+      ? copy.draftIdentity(node.name, node.parent === null ? project.name : rail.nodes.find(home => home.id === node.parent)?.name ?? copy.unavailableHome)
+      : node.name;
   };
 };
 
@@ -199,7 +203,7 @@ export const Reactions = (props: { state: ReturnType<typeof createReactions> }) 
             return <li>
             <button type="button" data-button="quiet" class="reaction-row overview-entry" data-reaction-opener={id} onClick={() => open({ kind: "detail", id })}>
               <span class="reaction-name">{reaction().name}</span>
-              <span class="reaction-state" data-state={reaction().state}>{copy.reactionState(reaction().state, reaction().observation.health)}</span>
+              <span class="reaction-state" data-state={reaction().state}>{reaction().state === "active" && reaction().observation.evidence && evidenceText(reaction().observation.evidence!) ? copy.reactionUnknownState : copy.reactionState(reaction().state, reaction().observation.health)}</span>
             </button>
           </li>;
           }}</For>
@@ -245,17 +249,16 @@ const Facts = (props: { reaction: Reaction }) => {
     <dt>{copy.reactionExpires}</dt><dd><time datetime={r().expires_at}>{copy.reactionWhen(r().expires_at)}</time></dd>
     <dt>{copy.reactionObservation}</dt>
     <dd>
-      <span>{copy.reactionHealth(r().observation.health)}</span>
+      <span>{(r().observation.evidence && evidenceText(r().observation.evidence!)) || copy.reactionHealth(r().observation.health)}</span>
       <Show when={r().observation.gap}>{gap => <p role="alert">{copy.reactionGap(gap())}</p>}</Show>
       <Show when={r().observation.cause}>{cause => <p role="alert">{copy.reactionCause(cause())}</p>}</Show>
       <Show when={r().observation.recovery}>{recovery => <p>{copy.reactionRecovery(recovery())}</p>}</Show>
-      <Show when={r().observation.evidence && evidenceText(r().observation.evidence!)}>{text => <p role="alert">{text()}</p>}</Show>
     </dd>
     <dt>{copy.reactionDetails}</dt><dd><button type="button" data-button="quiet" onClick={() => {
       void navigator.clipboard.writeText(JSON.stringify({
         name: r().name, authority: copy.reactionActor(r().actor.kind, nameOf(r().actor.id)),
         target: nameOf(r().target), home: home() ? nameOf(home()!) : copy.reactionNoHome,
-        condition: conditionText(r().condition, nameOf), observation: copy.reactionHealth(r().observation.health), reaction: r(),
+        condition: conditionText(r().condition, nameOf), observation: (r().observation.evidence && evidenceText(r().observation.evidence!)) || copy.reactionHealth(r().observation.health), reaction: r(),
       }, null, 2)).then(() => failCopy(null), error => failCopy(copy.copyDraftFailure(error instanceof Error ? error.message : String(error))));
     }}>{copy.copy}</button><Show when={copyFailure()}>{failure => <ErrorLine message={failure()} />}</Show></dd>
     <dt>{copy.reactionFirings}</dt>

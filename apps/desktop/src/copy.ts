@@ -675,6 +675,13 @@ export const copy = {
     : cause === "a required check did not pass on the pinned head" ? "A required check did not pass on the selected version. Check the PR before trying again."
     : cause === "a required check is pending, or none is required" || cause === "no required check concluded" ? "Waiting for required checks to finish on the selected version."
     : cause === "no usable gh, login, GitHub remote or answer in time" ? "PR checks are unavailable. Check your GitHub login and connection, then refresh."
+    : cause.startsWith("the Worktree read failed:") ? "Could not read the Agent's work. Refresh before checking again."
+    : cause.startsWith("the Worktree holds no PR ") ? "The Agent's work has no matching PR. Check its PR or choose another Agent in a new reaction."
+    : cause === "no required-check evidence" ? "No required-check results are available. Refresh to check again."
+    : cause === "the evidence is stale; the last refresh failed or is old" ? "Check results are out of date. Refresh to read the current results."
+    : cause === "the forge read failed without a reason" ? "Could not read GitHub. Check your connection, then refresh."
+    : cause === "the evidence names no current head" ? "The PR's current version is unavailable. Refresh to check again."
+    : cause.startsWith("the PR is in ") ? "The Agent's PR belongs to another repository. Create a reaction for the correct PR."
     : cause === "receiver gone" ? "The original Agent is no longer available. Choose an available Agent for new work."
     : cause === "ask-first" ? "Waiting for your permission to send."
     : cause === "takeover" ? "Waiting until you leave the Agent's Terminal."
@@ -685,13 +692,14 @@ export const copy = {
     : cause === "merged" ? "Included in a newer summary."
     : cause.includes("unsupported") ? "This source cannot be watched. Stop this reaction and choose a supported condition."
     : "Observation details could not be explained. Refresh to check again; Copy includes the original cause.",
+  reactionUnknownState: "Observation unclear",
   reactionUnknownEvidence: "Observation details could not be explained. Copy includes the original details.",
   reactionDetails: "Details",
   reactionCursor: "Last observed event",
   reactionNoEvidence: "No event recorded",
   reactionHead: "Pinned commit",
   reactionObservation: "Observation",
-  reactionGap: (gap: string) => gap.startsWith("the Event history after ") ? "Earlier activity could not be read. This gap remains in the history." : gap.startsWith("the Agent state was not read after Event ") ? "Agent activity could not be read. Nothing matched during that gap." : "Earlier observation details could not be explained. Copy includes the original details.",
+  reactionGap: (gap: string) => gap.startsWith("the Event history after ") ? "Earlier activity could not be read. This gap remains in the history." : (gap.startsWith("the Agent state was not read after Event ") || gap.startsWith("the Events after ")) ? "Agent activity could not be read. Nothing matched during that gap." : "Earlier observation details could not be explained. Copy includes the original details.",
   reactionRecovery: (recovery: string) => recovery === "the recorded source gap remains; authoritative current Agent state reconciled observation" ? "Current Agent activity is available again; the earlier gap remains." : recovery === "stop this reaction and create one naming the Agents that exist" ? "Stop this reaction and create one with an available Agent." : "Refresh to check current observation. Copy includes the original recovery details.",
   reactionMessage: (_id: number) => "Message",
   reactionMessageState: "Delivery",

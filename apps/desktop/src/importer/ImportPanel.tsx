@@ -58,7 +58,7 @@ export const ImportPanel = (props: { open: boolean; opener: HTMLElement | undefi
               <For each={state.choices()}>{(choice, at) => (
                 <section aria-label={copy.importChoice(at() + 1)}>
                   <p>{copy.importPeriodName(choice.period)}</p>
-                  <ul><For each={choice.sources}>{(source, index) => <li>{choice.titles?.[index()] || copy.importUnnamed}</li>}</For></ul>
+                  <ul><For each={choice.sources}>{(_source, index) => <li>{choice.titles?.[index()] || copy.importUnnamed}</li>}</For></ul>
                   <div class="import-actions">
                     <button type="button" data-button="quiet" onClick={() => copyItem(JSON.stringify(choice, null, 2))}>{copy.copy}</button>
                     <button type="button" data-button="quiet" disabled={pending()} onClick={() => state.restoreChoice(choice.revision)}>{copy.importOpenChoice(at() + 1)}</button>
@@ -96,9 +96,9 @@ export const ImportPanel = (props: { open: boolean; opener: HTMLElement | undefi
               <Show when={result().excluded.length > 0}>
                 <Disclosure class="import-excluded" label={copy.importNotImportable(result().excluded.length)}>
                   <ul class="import-list">
-                    <For each={result().excluded}>{(excluded) => <li>
-                      <span class="import-title">{excluded.title ?? (excluded.last_activity_ms === null ? copy.importUnnamed : new Date(Number(excluded.last_activity_ms)).toLocaleString())}</span>
-                      <span class="import-meta">{copy.importExcludedReason(excluded.reason)}</span>
+                    <For each={result().excluded}>{(excluded) => <li class="import-candidate">
+                      <div class="import-text"><span class="import-title">{excluded.title ?? (excluded.last_activity_ms === null ? copy.importUnnamed : new Date(Number(excluded.last_activity_ms)).toLocaleString())}</span>
+                      <span class="import-meta">{copy.importExcludedReason(excluded.reason)}</span></div>
                       <button type="button" data-button="quiet" onClick={() => copyItem(JSON.stringify({ ...excluded, last_activity_ms: excluded.last_activity_ms?.toString() ?? null }, null, 2))}>{copy.copy}</button>
                     </li>}</For>
                   </ul>

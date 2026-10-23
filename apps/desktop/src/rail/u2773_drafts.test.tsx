@@ -375,9 +375,14 @@ it.each([null, "a"])("u3299c_retention_preserves_original_work_rail_%s", async p
   const { message } = await import("../testing/centreFixture");
   const { app } = await openTabs({ Orchard: [door("a", "idle", "ready", { name: "Review" })], Other: [] });
   fireEvent.click(tab("Orchard"));
-  await waitFor(() => expect(document.querySelector('.rail [data-id="a"] [data-part="branch-control"]')).toBeTruthy());
+  const { rowOf } = await import("./railFixture");
+  await waitFor(() => expect(rowOf("Review")).toBeTruthy());
 
-  if (parent) fireEvent.click(document.querySelector<HTMLElement>('.rail [data-id="a"] [data-part="branch-control"]')!);
+  if (parent) {
+    fireEvent.click(rowOf("Review"));
+    await waitFor(() => expect(rowOf("Review").dataset.selected).toBe("true"));
+  }
+
   const original = app.of(path("Orchard"));
   original.handlers["message.send"] = () => message(1);
   original.handlers["agent.spawn"] = () => agent("new", "working", "starting");

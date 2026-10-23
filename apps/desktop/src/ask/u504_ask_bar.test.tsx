@@ -588,7 +588,7 @@ it("u3299d_copy_uses_selected_item_publication", async () => {
   Object.defineProperty(navigator, "clipboard", { configurable: true, value: { writeText: async (text: string) => { copied.push(text); } } });
   fireEvent.contextMenu(rows[1]!);
   await app.pickMenu("Copy");
-  expect(JSON.parse(copied[0]!.split("\n").slice(2).join("\n"))).toEqual(records[1]);
+  expect(JSON.parse(copied[0]!.split("\n").slice(2).join("\n")).record).toEqual(records[1]);
   expect(app.calls.filter(call => call.method === "deliverable.resolve").map(call => call.params)).toEqual([{ project: "project-original", id: "publication-9" }]);
   expect(app.openedTargets).toEqual([]);
 });
