@@ -370,6 +370,7 @@ it.skipIf(!captureDir("U3299a")).each(["names", "retention"] as const)("u3299a_u
       await lane.evaluate(`(async () => {
         const app = window.__fake.app;
         const tree = await app.rpc('rail.tree', null);
+        await app.rpc('pad.create', {name:'retained-notes',text:'Plain notes'});
         for (const node of tree) { if (node.id === 'migrate' || node.id === 'tokens') node.name = 'Review'; }
         tree.find(node => node.id === 'tokens').work = {kind:'work',title:'Orchard release',ask:'Review the retained work',done:'Release checked',limits:[]};
         app.handlers['rail.tree'] = () => tree;
@@ -474,7 +475,7 @@ it.skipIf(!captureDir("U3299a")).each(["names", "retention"] as const)("u3299a_u
       await lane.browser("press", "Escape");
       await lane.evaluate(`(() => { for (const group of document.querySelectorAll('.shelf [data-shelf-group][data-state="closed"] [data-part="branch-control"]')) group.click(); return true; })()`);
       await lane.until("!!document.querySelector('.pad-name')");
-      await lane.browser("click", ".pad-name");
+      await lane.browser("find", "role", "button", "click", "--name", "retained-notes");
       await lane.until("!!document.querySelector('.drawer [contenteditable=true]')");
       await lane.browser("fill", ".drawer [contenteditable=true]", "Exact retained Pad body /Users/authored/path");
       await lane.until("!!document.querySelector('.drawer .pad-retention')");
@@ -518,14 +519,16 @@ it.skipIf(!captureDir("U3299a")).each(["names", "retention"] as const)("u3299a_u
       const projectPaths = await lane.evaluate<string[]>("[...document.querySelectorAll('.project-tab')].slice(0, 2).map(tab => tab.dataset.path)");
 
       for (const projectPath of projectPaths) {
-        await lane.browser("dblclick", `.project-tab[data-path=${JSON.stringify(projectPath)}] .tab-name`);
+        await lane.browser("focus", `.project-tab[data-path=${JSON.stringify(projectPath)}] .tab-name-button`);
+        await lane.browser("press", "F2");
         await lane.until("!!document.querySelector('.tab-rename')");
         await lane.browser("fill", ".tab-rename", "Orchard");
         await lane.browser("press", "Enter");
         await lane.until("!document.querySelector('.tab-rename')");
       }
 
-      await lane.browser("click", `.project-tab[data-path=${JSON.stringify(projectPaths[0])}] .tab-name-button`);
+      await lane.browser("focus", `.project-tab[data-path=${JSON.stringify(projectPaths[0])}] .tab-name-button`);
+      await lane.browser("press", "Enter");
       await lane.until("document.querySelector('.project-tab[data-selected=true] [role=tab]')?.getAttribute('aria-busy') === 'false'");
 
       if (phase === "names") {
