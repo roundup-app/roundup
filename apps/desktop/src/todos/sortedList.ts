@@ -176,19 +176,26 @@ export const createSortedList = (source: {
         });
       },
     } : undefined,
-    row: (id: number, parts: Parts, ids: Accessor<readonly number[]> = source.ids): SortedRow => ({
+    row: (id: number, parts: Parts, ids: Accessor<readonly number[]> = source.ids): SortedRow => {
+      let frame: HTMLElement | null = null;
+      let button: HTMLButtonElement | null = null;
+
+      return {
       frame: (el) => {
         if (el) {
+          frame = el;
           frames.set(id, el);
           parts.ref(el);
-        } else {
+        } else if (frames.get(id) === frame) {
           frames.delete(id);
           tops.delete(id);
         }
       },
       button: (el) => {
-        if (el) buttons.set(id, el);
-        else {
+        if (el) {
+          button = el;
+          buttons.set(id, el);
+        } else if (buttons.get(id) === button) {
           buttons.delete(id);
           fails.delete(id);
         }
@@ -209,6 +216,7 @@ export const createSortedList = (source: {
         event.preventDefault();
         step(id, event.key === "ArrowUp" ? -1 : 1, ids());
       },
-    }),
+      };
+    },
   };
 };
