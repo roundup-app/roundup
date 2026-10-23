@@ -67,6 +67,7 @@ pub struct Choice {
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, TS)]
 #[ts(export, export_to = "project/")]
 pub struct ModelList {
+    pub engines: Vec<Choice>,
     pub models: Vec<Choice>,
     pub efforts: Vec<Choice>,
 }
