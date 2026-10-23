@@ -229,7 +229,7 @@ export const Capture = (props: { onFile: (() => void) | undefined }) => {
             </div>
           </div>}</For>
           <Show when={drafts.problem()}>{problem => <>
-            <ErrorLine message={copy.draftRetention(connected.project.path, copy.leaderShortCapture, problem().cause)} />
+            <ErrorLine message={copy.draftRetention(connected.project.name, copy.leaderShortCapture, problem().cause)} />
             <button data-button="quiet" type="button" onClick={() => drafts.retry()}>{copy.storageRetry}</button>
           </>}</Show>
         </Dialog.Content>

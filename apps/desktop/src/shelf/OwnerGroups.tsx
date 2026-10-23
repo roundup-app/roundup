@@ -14,6 +14,8 @@ export const OwnerGroups = <T,>(props: {
   groups: Accessor<readonly OwnerGroup<T>[]>;
   /** U3718: while a drag is live every owner shows, empty ones included. */
   dragging: Accessor<boolean>;
+  /** A list may retain finishing rows while its count already reflects the refetched state. */
+  count?: (group: OwnerGroup<T>) => number;
   /** U3719: the group whose new-Todo field is open; it shows and unfolds. */
   adding: Accessor<string | null>;
   /** U3720: the group a reassigned Todo arrived in; it unfolds so the row can take focus. */
@@ -24,10 +26,14 @@ export const OwnerGroups = <T,>(props: {
   bare?: Accessor<string | null>;
   /** Absent for a list with no per-group field (the Pads tab). */
   onAdd?: (group: OwnerGroup<T>) => void;
+  /** U3770: completion effects only play in expanded groups. */
+  onClosedChange?: (ids: readonly string[]) => void;
   children: (group: Accessor<OwnerGroup<T>>) => JSX.Element;
 }) => {
   // A Todo filed before the first group mounts has already counted: the group starts open then.
   const [closed, setClosed] = createSignal(props.unfold?.() ? [] : ["unassigned"]);
+
+  createEffect(() => props.onClosedChange?.(closed()));
 
   const shown = createMemo<OwnerGroup<T>[]>((previous = []) => {
     const groups = props.groups().filter(group => group.items.length > 0 || props.dragging() || props.adding() === group.id);
@@ -65,7 +71,7 @@ export const OwnerGroups = <T,>(props: {
             <TreeView.BranchControl class="shelf-group-control" data-button="quiet">
               <TreeView.BranchIndicator><Icon name={closed().includes(id) ? "right" : "down"} /></TreeView.BranchIndicator>
               <TreeView.BranchText><Tip text={group().name}>{trigger => <span {...trigger()} class="shelf-group-name">{group().name}</span>}</Tip></TreeView.BranchText>
-              <span class="shelf-group-count">{group().items.length}</span>
+              <span class="shelf-group-count">{props.count ? props.count(group()) : group().items.length}</span>
             </TreeView.BranchControl>
             <Show when={props.onAdd}>{add => <IconButton class="shelf-group-add" aria-label={copy.addTodoTo(group().name)} onKeyDown={event => event.stopPropagation()} onClick={() => add()(group())}><Icon name="plus" /></IconButton>}</Show>
           </div>

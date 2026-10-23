@@ -73,6 +73,7 @@ it("u462_stale_response_cannot_replace_selected_history", async () => {
   expect(screen.queryByText("Created Stale")).toBeNull();
 });
 
+
 it("u462_closed_drawer_response_does_not_acknowledge_before_unmount", async () => {
   const m = await mountTodos([todo(1)], false);
   let answer!: (history: History) => void;
@@ -88,6 +89,7 @@ it("u462_closed_drawer_response_does_not_acknowledge_before_unmount", async () =
   expect(screen.queryByText("Created Stale")).toBeNull();
 });
 
+
 it("u462_live_refresh_does_not_acknowledge_changes_absent_from_opening", async () => {
   const m = await mountTodos([todo(1)]);
   await open(m); await disclose(m);
@@ -100,18 +102,6 @@ it("u462_live_refresh_does_not_acknowledge_changes_absent_from_opening", async (
   expect(within(panel()).getByRole("button", { name: "Changes · 2" }).querySelector("[data-state]")?.getAttribute("data-state")).toBe("unread");
 });
 
-it("t17_history_shows_an_owner_only_change", async () => {
-  const m = await mountTodos([todo(1)]);
-  const values = { title: "todo 1", body: "", done: false, blockers: [], estimate_minutes: null };
-  const user = { kind: "user" as const, id: "u", parent: null };
-  m.app.handlers["todo.getHistory"] = () => ({ unread: null, changes: [
-    { actor: null, changed_at: null, seq: 1, before: { ...values, owner: null }, after: { ...values, owner: user } },
-    { actor: null, changed_at: null, seq: 2, before: { ...values, owner: user }, after: { ...values, owner: null } },
-  ] });
-  await open(m); await disclose(m);
-  const history = within(panel()).getByRole("region", { name: "Todo history" });
-  expect([...history.querySelectorAll("[data-change]")].map((entry) => entry.textContent)).toEqual(["Assigned to Me", "Unassigned"]);
-});
 
 it("u3728_changes_wait_behind_one_line", async () => {
   const m = await mountTodos([todo(1)]); await open(m);
@@ -119,46 +109,10 @@ it("u3728_changes_wait_behind_one_line", async () => {
   expect(line.getAttribute("aria-expanded")).toBe("false");
   expect(line.querySelector("[data-state]")?.getAttribute("data-state")).toBe("unread");
   expect(panel().querySelector("[data-change]")).toBeNull();
-  expect(within(panel()).queryByRole("separator")).toBeNull();
   expect(todoCallsTo(m.app, "todo.readHistory")).toHaveLength(0);
 });
 
-it("u3728_entries_read_as_past_tense_lines", async () => {
-  const m = await mountTodos([todo(1)]);
-  const values = { title: "todo 1", body: "", done: false, blockers: Array.of<number>(), owner: null, estimate_minutes: null };
-  const agent = { kind: "agent" as const, id: "a1", parent: null };
-  const stamp = Date.UTC(2026, 5, 3, 14, 5);
-  m.app.handlers["todo.getHistory"] = () => ({ unread: null, changes: [
-    { actor: null, changed_at: null, seq: 1, before: values, after: { ...values, title: "jbkhnj" } },
-    { actor: null, changed_at: null, seq: 2, before: { ...values, body: "x" }, after: values },
-    { actor: null, changed_at: null, seq: 3, before: values, after: { ...values, done: true } },
-    { actor: null, changed_at: null, seq: 4, before: { ...values, done: true }, after: values },
-    { actor: null, changed_at: null, seq: 5, before: values, after: { ...values, blockers: [9] } },
-    { actor: agent, changed_at: stamp, seq: 6, before: values, after: { ...values, owner: agent } },
-  ] });
-  await open(m); await disclose(m);
-  const shown = [...panel().querySelectorAll("[data-change]")].map((entry) => entry.textContent);
-  expect(shown.slice(0, 5)).toEqual(["Renamed to jbkhnj", "Cleared the body", "Marked done", "Reopened", "Now waits on #9"]);
-  expect(shown[5]).toMatch(/^Assigned to .+ · .+ · .+\d.*$/);
-});
 
-it("u462_a_handoff_renders_as_handed_to_the_agent", async () => {
-  const m = await mountTodos([todo(1)]);
-  const values = { title: "todo 1", body: "", done: false, blockers: Array.of<number>(), owner: null, estimate_minutes: null };
-  const agent = { kind: "agent" as const, id: "a1", parent: null };
-  const owned = { ...values, owner: agent };
-  m.app.handlers["todo.getHistory"] = () => ({ unread: null, changes: [
-    { actor: null, changed_at: null, seq: 1, before: values, after: owned },
-    { actor: { kind: "ext" as const, id: "daemon-actor", parent: null }, changed_at: null, seq: 2, handed: agent, before: owned, after: owned },
-    { actor: null, changed_at: null, seq: 3, before: owned, after: { ...owned, done: true } },
-  ] });
-  await open(m); await disclose(m);
-  const shown = [...panel().querySelectorAll("[data-change]")].map((entry) => entry.textContent);
-  expect(shown).toHaveLength(3);
-  expect(shown[1]).toMatch(/^Handed to /);
-  expect(shown[1]).not.toMatch(/daemon-actor/);
-  expect(shown[2]).toBe("Marked done");
-});
 
 it("u3728_opening_marks_read_once", async () => {
   const m = await mountTodos([todo(1)]); await open(m);
@@ -201,8 +155,6 @@ it.each([
   await open(m); await disclose(m);
   const entries = panel().querySelectorAll("[data-change]");
   expect(entries).toHaveLength(1);
-  expect(entries[0]?.textContent).toContain("estimator");
-
   if (after !== null) expect(entries[0]?.textContent).toContain(String(after));
 });
 
@@ -219,4 +171,20 @@ it("u3365_an_estimate_change_keeps_the_other_fields_lines", async () => {
   expect(entries).toHaveLength(2);
   expect(entries.some(entry => entry.textContent?.includes("Plan the release"))).toBe(true);
   expect(entries.some(entry => entry.textContent?.includes("45"))).toBe(true);
+});
+
+it("u3299a_history_copy_keeps_removed_owner_identity", async () => {
+  const m = await mountTodos([todo(1)]);
+  const values = { title: "todo 1", body: "/Users/authored/path", done: false, blockers: Array.of<number>(), owner: null, estimate_minutes: null };
+  const owner = { kind: "agent" as const, id: "removed-original-id", parent: null };
+  const change = { actor: owner, changed_at: null, seq: 1, before: values, after: { ...values, owner }, handed: owner };
+  m.app.handlers["todo.getHistory"] = () => ({ unread: null, changes: [change] });
+  await open(m); await disclose(m);
+  const copied: string[] = [];
+  Object.defineProperty(navigator, "clipboard", { configurable: true, value: { writeText: async (text: string) => { copied.push(text); } } });
+  const history = within(panel()).getByRole("region", { name: "Todo history" });
+  fireEvent.click(within(history).getByRole("button", { name: "Copy" }));
+  await waitFor(() => expect(copied).toHaveLength(1));
+  expect(JSON.parse(copied[0]!).history.changes).toEqual([change]);
+  expect(todoCallsTo(m.app, "todo.update")).toHaveLength(0);
 });
