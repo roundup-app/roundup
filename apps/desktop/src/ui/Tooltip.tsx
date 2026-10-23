@@ -1,7 +1,7 @@
 import { Tooltip as ArkTooltip, useTooltipContext } from "@ark-ui/solid/tooltip";
 import { createContext, Show, splitProps, useContext } from "solid-js";
 import type { Chord } from "../keys/chords";
-import { KeyChip } from "../keys/KeyChip";
+import { KeyHint } from "../keys/KeyHint";
 import "./Tooltip.css";
 
 type Anchor = () => HTMLElement | undefined;
@@ -56,7 +56,7 @@ export const Tooltip = {
     const [local, rest] = splitProps(props, ["chord", "children", "class"]);
 
     return <ArkTooltip.Content {...rest} class={`app-tooltip ${local.class ?? ""}`}>
-      {local.children}<Show when={local.chord}>{(chord) => <span style={{ "margin-left": "var(--space-2)" }}><KeyChip keys={chord().keys} /></span>}</Show>
+      <Show when={local.chord} fallback={local.children}>{(chord) => <KeyHint chipAfter keys={chord().keys}>{local.children}</KeyHint>}</Show>
     </ArkTooltip.Content>;
   },
 };
