@@ -20,9 +20,9 @@ export const ReservedLine = (props: Props) => {
 
   // U3807 explicitly requires the whole message as a title on its reserved place.
   // oxlint-disable-next-line anti-slop/no-tooltip-bypass
-  return <div title={local.message || local.status || undefined} role={!local.message && (local.status || props["aria-live"] !== undefined) ? "status" : undefined} {...rest} class={`reserved-line${local.class ? ` ${local.class}` : ""}`} data-overlay={local.overlay ? "true" : undefined} data-empty={local.message || local.status || local.content ? undefined : "true"}>
+  return <div title={local.message || local.status || undefined} role={!local.message && (local.status || props["aria-live"] !== undefined) ? "status" : undefined} {...rest} class={`reserved-line${local.class ? ` ${local.class}` : ""}`} data-overlay={local.overlay ? "true" : undefined} data-empty={local.message || local.status || (props["aria-live"] !== undefined && local.content) ? undefined : "true"}>
     <div class="reserved-content">
-      <Show when={local.message} fallback={<span class="reserved-status">{local.content ?? (local.status || null)}</span>}>
+      <Show when={local.message} fallback={<span class="reserved-status">{local.status || props["aria-live"] !== undefined ? local.content ?? (local.status || null) : null}</span>}>
         {message => <ErrorLine message={message()} content={local.content} />}
       </Show>
       <Show when={local.message || local.status}><div class="reserved-actions">{local.children}</div></Show>
