@@ -13,6 +13,7 @@ pub(crate) mod measurement;
 mod models;
 mod placement;
 mod profiles;
+pub mod toolcall;
 pub use placement::Call as PlacementCall;
 pub mod plugins;
 mod skills;
