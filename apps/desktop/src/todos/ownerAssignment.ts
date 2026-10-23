@@ -84,7 +84,7 @@ export const createOwnerKeys = (source: {
   active: Accessor<boolean>;
   assign: (id: number, owner: Actor | null) => Promise<void>;
 }) => {
-  const [lifted, setLifted] = createSignal<{ id: number; group: string } | null>(null);
+  const [lifted, setLifted] = createSignal<{ id: number; group: string | null } | null>(null);
   const owners = () => ownersOnRail(source.connected);
 
   const focused = (event: KeyboardEvent) => {
@@ -122,15 +122,24 @@ export const createOwnerKeys = (source: {
       const target = owners().find(owner => owner.id === held?.group);
 
       if (held?.id === todo.id && target) drop(todo, target.actor);
-      else setLifted({ id: todo.id, group: owners().find(owner => sameOwner(owner.actor, todo.owner))?.id ?? "unassigned" });
+      else if (owners().some(owner => !sameOwner(owner.actor, todo.owner))) setLifted({ id: todo.id, group: null });
     },
   }, {
     chords: chordsFor("↑ ↓"), when: event => can(event) && lifted()?.id === focused(event)?.id,
     run: event => {
       const held = lifted()!;
+      const current = focused(event)!.owner;
       const all = owners();
-      const at = all.findIndex(owner => owner.id === held.group);
-      const target = all[Math.min(all.length - 1, Math.max(0, at + (event.key === "ArrowUp" ? -1 : 1)))];
+      const offered = all.filter(owner => !sameOwner(owner.actor, current));
+      const at = offered.findIndex(owner => owner.id === held.group);
+      const origin = all.findIndex(owner => sameOwner(owner.actor, current));
+      const from = origin < 0 ? all.length - 1 : origin;
+
+      const target = held.group === null
+        ? event.key === "ArrowUp"
+          ? all.slice(0, from).findLast(owner => offered.includes(owner)) ?? offered[0]
+          : all.slice(from + 1).find(owner => offered.includes(owner)) ?? offered.at(-1)
+        : offered[Math.min(offered.length - 1, Math.max(0, at + (event.key === "ArrowUp" ? -1 : 1)))];
 
       if (target) setLifted({ id: held.id, group: target.id });
     },

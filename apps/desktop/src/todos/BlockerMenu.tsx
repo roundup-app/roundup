@@ -40,10 +40,11 @@ export const BlockerMenu = (props: {
     run: () => { close(); button?.focus(); },
   }]);
 
-  return <Popover.Root closeOnInteractOutside={false} open={props.open} onOpenChange={({ open }) => { if (!open) close(); }} positioning={{ placement: "bottom-start", strategy: "fixed" }}>
-    <Popover.Trigger asChild={(attributes) => <button {...attributes()} data-button="add" type="button" class="word todo-blocker-trigger"
+  return <Popover.Root closeOnInteractOutside={false} open={props.open && props.others.length > 0} onOpenChange={({ open }) => { if (!open) close(); }} positioning={{ placement: "bottom-start", strategy: "fixed" }}>
+    {/* oxlint-disable-next-line anti-slop/no-tooltip-bypass -- U171 requires a focusable disabled button to expose its reason as title. */}
+    <Popover.Trigger asChild={(attributes) => <button {...attributes()} data-button="add" type="button" aria-disabled={props.others.length === 0 || undefined} title={props.others.length === 0 ? copy.noOtherBlockers : undefined} class="word todo-blocker-trigger"
       ref={(element) => { button = element; props.buttonRef(element); }}
-      onClick={() => { if (props.open) close(); else props.onOpenChange(true); }}>
+      onClick={() => { if (props.open) close(); else if (props.others.length > 0) props.onOpenChange(true); }}>
       <Icon name="plus" />{copy.blockerWord}</button>} />
     <Portal><Popover.Positioner><Popover.Content class="todo-blocker-menu">
       <div ref={(element) => { menu = element; }}>
