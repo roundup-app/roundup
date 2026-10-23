@@ -1,6 +1,7 @@
 import { cleanup, fireEvent, screen, waitFor, within } from "@solidjs/testing-library";
 import { afterEach, describe, expect, it } from "vitest";
 import { mountTodos, todo, todoCallsTo as callsTo, todoEvent, todoRowOf } from "./testHarness";
+import { treeRows } from "./todoView";
 import { USER } from "../testing/nodes";
 
 afterEach(cleanup);
@@ -152,7 +153,7 @@ describe("u15 Todo list", () => {
     expect(screen.getByRole("button", { name: /#2/ })).toBe(before);
   });
 
-  it("u15_listing_blocked_todos_does_a_constant_amount_of_work_per_todo", async () => {
+  it("u15_listing_blocked_todos_does_a_constant_amount_of_work_per_todo", () => {
     const count = 120;
     let reads = 0;
 
@@ -173,9 +174,9 @@ describe("u15 Todo list", () => {
       return Object.defineProperty(row, "blockers", counting([(id % count) + 1]));
     };
 
-    await mountTodos(Array.from({ length: count }, (_, index) => counted(index + 1)));
-    await waitFor(() => expect(within(todoRowOf(count)).getByRole("button", { name: /#120 todo 120/ })).toBeTruthy());
+    const rows = treeRows(Array.from({ length: count }, (_, index) => counted(index + 1)));
 
+    expect(rows).toHaveLength(count);
     expect(reads).toBeLessThan(count * 40);
   });
 

@@ -23,7 +23,7 @@ export const createDependencyGroups = (input: {
   const [strikes, setStrikes] = createSignal<ReadonlySet<number>>(new Set());
   const [bars, setBars] = createSignal<ReadonlySet<number>>(new Set());
   const [moving, setMoving] = createSignal(false);
-  const [pending, setPending] = createSignal<{ close: number[]; open: number[] }>({ close: [], open: [] });
+  const [pending, setPending] = createSignal<{ close: number[]; open: number[]; blocked: ReadonlyMap<number, boolean> }>({ close: [], open: [], blocked: new Map<number, boolean>() });
 
   createComputed(() => {
     if (!input.loaded()) return;
@@ -109,7 +109,7 @@ export const createDependencyGroups = (input: {
       setStrikes(new Set<number>());
       setBars(new Set<number>());
       setMoving(false);
-      setPending({ close: [], open: [] });
+      setPending({ close: [], open: [], blocked: new Map<number, boolean>() });
       setListedGroups(groups());
 
       return;
@@ -139,7 +139,7 @@ export const createDependencyGroups = (input: {
     const shown = closed.filter(([id]) => input.shown(id) && untrack(() => expanded(id) && visible(id)));
 
     if (!closed.length) {
-      setPending(request => ({ close: request.close.filter(id => groups().has(id)), open: request.open.filter(id => groups().has(id)) }));
+      setPending(request => ({ close: request.close.filter(id => groups().has(id)), open: request.open.filter(id => groups().has(id)), blocked: request.blocked }));
       setListedGroups(groups());
 
       return;
@@ -150,24 +150,30 @@ export const createDependencyGroups = (input: {
 
     for (const [id] of closed.filter(([id]) => !shown.some(([other]) => other === id))) setExpanded(id, false);
 
+    const history = pending();
+    const baseline = history.close.length > 0 ? history.blocked : was.blocked;
+    const retained = history.close.filter(id => groups().has(id));
+    const visibleOwners = new Set([...retained, ...shown.map(([id]) => id)].map(input.group));
     const lastByOwner = new Map<string, number>();
 
-    for (const [id] of shown) {
+    for (const id of new Set([...retained, ...closed.map(([id]) => id)])) {
+      const owner = input.group(id);
       const at = rows.findIndex(row => row.todo.id === id);
-      lastByOwner.set(input.group(id), at);
+
+      if (visibleOwners.has(owner)) lastByOwner.set(owner, Math.max(lastByOwner.get(owner) ?? -1, at));
     }
 
     const successors = [...lastByOwner.values()].flatMap(last => {
       const candidate = rows.slice(last + 1).find(row => {
         const first = groups().get(row.todo.id)?.find(member => !member.todo.done);
 
-        return input.group(row.todo.id) === input.group(rows[last]!.todo.id) && first && was.blocked.get(first.todo.id) === true && !first.todo.blocked && !complete(row.todo.id);
+        return input.group(row.todo.id) === input.group(rows[last]!.todo.id) && first && baseline.get(first.todo.id) === true && !first.todo.blocked && !complete(row.todo.id);
       });
 
       return candidate ? [candidate.todo.id] : [];
     });
 
-    setPending({ close: [...new Set([...pending().close.filter(id => groups().has(id)), ...shown.map(([id]) => id)])], open: successors });
+    setPending({ close: [...new Set([...pending().close.filter(id => groups().has(id)), ...shown.map(([id]) => id)])], open: successors, blocked: baseline });
     setListedGroups(groups());
   }));
 
@@ -190,7 +196,7 @@ export const createDependencyGroups = (input: {
       if (first && !first.todo.blocked) setExpanded(id, true);
     }
 
-    setPending({ close: [], open: [] });
+    setPending({ close: [], open: [], blocked: new Map<number, boolean>() });
   });
 
   return { groups: listedGroups, complete, expanded, visible, setExpanded, moving,
