@@ -217,10 +217,16 @@ for (const owner of ["todos", "pads"] as const) {
     const row = (which: "first" | "second" | "other") => screen.getByRole("button", { name: owner === "todos" ? new RegExp(`#${{ first: 1, second: 2, other: 3 }[which]} `) : which });
     const message = (which: "first" | "second") => owner === "todos" ? `same #${which === "first" ? 1 : 2}: denied` : `${which}: denied`;
     const remove = owner === "todos" ? "todo.delete" : "pad.delete";
-    const original = app.handlers[remove]!;
+    const deleteTodo = app.handlers["todo.delete"];
+    const deletePad = app.handlers["pad.delete"];
+    const restore = () => {
+      app.handlers["todo.delete"] = deleteTodo;
+      app.handlers["pad.delete"] = deletePad;
+    };
     app.handlers[remove] = () => { throw new RpcError(-32001, "denied"); };
-    const draft = connected.drafts.edit({ surface: "todos", object: "3", recipient: null }, { text: "  unfinished é 🧭\n\nlast  " }, { anchor: 2, head: 9 }, "ordinary").draft;
+    const draft = connected.drafts.edit({ surface: "todos", object: "3", recipient: "body" }, { text: "  unfinished é 🧭\n\nlast  ", base: "", expected_change: null, title: "todo 3", body: "", done: false, blockers: [] }, { start: 2, end: 9, direction: "forward" }, "ordinary").draft;
     const retained = connected.drafts.list();
+    await screen.findByRole("button", { name: owner === "todos" ? /#1 / : "first" });
     fireEvent.click(row("first"), { metaKey: true });
     fireEvent.click(row("second"), { metaKey: true });
     await askToDelete(2);
@@ -244,7 +250,7 @@ for (const owner of ["todos", "pads"] as const) {
       row("first").focus();
       fireEvent.keyDown(row("first"), { key: "d", code: "KeyD" });
       await questionDialog();
-      if (action === "deleted") app.handlers[remove] = original;
+      if (action === "deleted") restore();
       await answerQuestion(action !== "cancelled");
       await questionClosed();
     }
@@ -255,6 +261,6 @@ for (const owner of ["todos", "pads"] as const) {
     expect(row("other")).toBeTruthy();
     expect(app.calls.filter(call => call.method === remove).slice(calls).map(call => call.params)).toEqual(action === "deleted" || action === "refused" ? [owner === "todos" ? { id: 1 } : { name: "first" }] : []);
     expect(connected.drafts.list()).toEqual(retained);
-    expect(connected.drafts.list().find(item => item.revision === draft.revision)?.value).toEqual({ text: "  unfinished é 🧭\n\nlast  " });
+    expect(connected.drafts.list().find(item => item.revision === draft.revision)?.value.text).toBe("  unfinished é 🧭\n\nlast  ");
   });
 }
