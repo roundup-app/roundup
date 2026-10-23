@@ -6,6 +6,7 @@ import { join } from "node:path";
 import { expect, it } from "vitest";
 import { appServer } from "../testing/appServer";
 import { captureDir } from "../testing/captures";
+import type { Checks } from "../testing/checks";
 
 const exec = promisify(execFile);
 
@@ -35,7 +36,7 @@ it.skipIf(!captureDir("U3295b"))("u3295b_rendered_modal_dismissal_and_dialog_pic
 
       mkdirSync(dir, { recursive: true });
       await browser("screenshot", join(dir, `${step}.png`));
-      writeFileSync(join(dir, `${step}.checks.json`), JSON.stringify({ revision, ...await read<Record<string, unknown>>("window.__checks()") }, null, 2));
+      writeFileSync(join(dir, `${step}.checks.json`), JSON.stringify({ revision, ...await read<Checks>("window.__checks()") }, null, 2));
     }
   };
 
