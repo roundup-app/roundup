@@ -1,3 +1,5 @@
+import type { Handed } from "@contracts/todo/Handed";
+import { sameOwner } from "../shelf/scope";
 import type { Todo } from "@contracts/todo/Todo";
 import { createTreeCollection } from "@ark-ui/solid/tree-view";
 import { beforeOf } from "./beforeOf";
@@ -122,4 +124,22 @@ export const treeCollection = (rows: readonly NestedRow[]) => {
     nodeToString: (node) => node.id,
     rootNode: { id: "root", children: children(null) },
   });
+};
+
+/** U3808: the latest eligible Handed Todo of each live Agent. */
+export const nowTodos = (list: readonly Todo[], handed: readonly Handed[], agents: ReadonlySet<string>): Set<number> => {
+    const latest = new Map<string, { id: number; seq: number }>();
+
+    for (const fact of handed) {
+      const todo = list.find(todo => todo.id === fact.todo);
+
+      if (!todo || todo.done || todo.blocked || todo.owner?.kind !== "agent" || !sameOwner(todo.owner, fact.owner)) continue;
+
+      if (!agents.has(todo.owner.id)) continue;
+      const previous = latest.get(todo.owner.id);
+
+      if (!previous || fact.seq > previous.seq) latest.set(todo.owner.id, { id: todo.id, seq: fact.seq });
+    }
+
+    return new Set([...latest.values()].map(fact => fact.id));
 };
