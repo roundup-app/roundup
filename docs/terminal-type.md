@@ -71,3 +71,64 @@ must differ by at most one; the critic judges glyphs, spacing, colours, cursor,
 selection and ANSI samples. Inspect Tomorrow in Light without committing images.
 No native timing or Soloterm effective configuration is inferred from Linux or
 terminfo. #3517 stays open until these observations and the required gates hold.
+
+
+## Validation and blockers
+
+`pnpm install`, production web build, focused emulator/settings/zoom/scheme
+observers and Rust lints/proofs pass on the implementation. Final merged-head
+web and rendered checks are recorded on #3517. Main's unrelated Combobox
+Stylelint failure is owned by open #3601; this change does not weaken that gate.
+The broad capture/related attempts were superseded by merging main and repairing
+input readiness; they are not reported as passing full-suite runs. CI remains
+the judge of every test on the pushed head.
+
+`just perf` exits 1 twice. The retained `artifacts/ux/U3517e/` reports include every
+sample, load, host, Rust source tree and binary hashes. The first run has five
+explicit timing skips under load, plus Rail-10 absolute and RSS misses. The
+lower-load run makes all comparisons and fails these existing ceilings:
+
+| Command | Exit | Failure | Median | Ceiling |
+| --- | --- | --- | --- | --- |
+| `just perf` (busy) | 1 | Rail-10 absolute p95, ms | 3.257 | 2 |
+| `just perf` (busy) | 1 | extra RSS, MB | 2.109 | 1.810 |
+| `just perf` (busy) | 1 | cold plugin comparison missing | skipped for load | required |
+| `just perf` (busy) | 1 | ping comparison missing | skipped for load | required |
+| `just perf` (busy) | 1 | Rail-40 comparison missing | skipped for load | required |
+| `just perf` (busy) | 1 | Terminal write comparison missing | skipped for load | required |
+| `just perf` (busy) | 1 | write-to-output comparison missing | skipped for load | required |
+| `just perf` (lower load) | 1 | cold plugin materialization, ms | 31.869 | 13.136 |
+| `just perf` (lower load) | 1 | ping p95, ms | 0.384 | 0.029 |
+| `just perf` (lower load) | 1 | Rail-40 p95, ms | 3.862 | 0.293 |
+| `just perf` (lower load) | 1 | extra RSS, MB | 2.172 | 1.810 |
+| `just perf` (lower load) | 1 | Terminal write p95, ms | 2.644 | 0.062 |
+| `just perf` (lower load) | 1 | write-to-output p95, ms | 2.992 | 0.074 |
+
+Cold start, hook-loop cost and the lower-load Rail-10 absolute limit pass. No
+baseline, budget, workload or probe is changed by this PR. No Daemon source
+changes appear against main; these reports do not measure the bundled font or
+establish native keystroke latency.
+
+The existing Linux gate repair #1990 and machine-class observer #1251 were
+closed by the owner as not planned. The Builder rule forbids silently restoring
+cancelled prerequisites. #3517 therefore needs the user's decision to restore
+#1990's scoped existing-gate repair, or explicitly revise that acceptance. The
+recommendation is to preserve acceptance and reopen #1990; no cancelled Issue is
+added as a blocker. Native U3517e/f observations remain separately required.
+
+
+The final merged-source focused run passes 56 tests. Four isolated rendered/
+behavior observers pass without retry: loaded-face resize, rendering-change
+scrollback/input retention, the six-state main/head capture, and the existing
+hint-line guard that exposed the input-readiness regression. All six captures
+have no failing Check; their 19 px head pitch replaces main's 15 px. A separate
+held-font live-input guard verifies one intended keystroke is delivered while
+font readiness is held, and no second write occurs on release.
+
+
+The duplicate `u3805_open_terminals_take_the_new_theme` test is cut:
+`u3517c_scheme_changes_reach_open_new_and_unattached_terminals` retains its open-
+emulator proof and adds future emulators and the unattached Daemon scheme seam.
+The other five settings tests remain. Light was inspected in an isolated fresh
+browser profile: the viewport is white and foreground, cursor, selection and all
+ANSI slots resolve the pinned Tomorrow values. No Light image is retained.
