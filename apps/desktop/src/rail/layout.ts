@@ -46,6 +46,10 @@ export const ancestorsOf = (nodes: readonly RailNode[], id: string): string[] =>
 export const descendantsOf = (nodes: readonly RailNode[], id: string): RailNode[] =>
   siblingsOf(nodes, id).flatMap((child) => [child, ...descendantsOf(nodes, child.id)]);
 
+/** Every Project node in Rail order, including children of collapsed Workstreams. */
+export const railOrder = (nodes: readonly RailNode[]): RailNode[] =>
+  siblingsOf(nodes, null).flatMap((node) => [node, ...descendantsOf(nodes, node.id)]);
+
 /** U403: the Kinds of the Agents below `id`, most urgent first. */
 export const agentKindsBelow = (nodes: readonly RailNode[], id: string): Kind[] =>
   byUrgency(descendantsOf(nodes, id).flatMap((node) => (node.kind === "agent" && node.status ? [node.status.kind] : [])));
