@@ -132,12 +132,12 @@ it("u3807_each_site_shows_its_message_in_the_reserved_line: Terminal name recove
   unchanged(places, notice);
 });
 
-
 it("u3807_each_site_shows_its_message_in_the_reserved_line: Ask send", async () => {
   const { app } = await mountAskBar();
   const surface = document.querySelector<HTMLElement>(".ask-bar")!;
   const places = placesOf(surface);
   app.handlers["ask.send"] = () => { throw new RpcError(-32003, FAILURE); };
+
   fireEvent.input(input()!, { target: { value: "keep this request" } });
   press("Enter", {}, input()!);
   const alert = await within(surface).findByRole("alert");
@@ -157,6 +157,7 @@ it("u3807_each_site_shows_its_message_in_the_reserved_line: Todo row", async () 
   const places = placesOf(row);
   const siblings = [...row.children];
   app.handlers["todo.complete"] = () => { throw new RpcError(-32003, FAILURE); };
+
   fireEvent.click(await within(row).findByRole("checkbox"));
   const place = (await within(row).findByRole("alert")).closest(".reserved-line")!;
   unchanged(places, place);
