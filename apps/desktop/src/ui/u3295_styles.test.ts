@@ -14,3 +14,10 @@ it.each([
 
   if (rejected) expect(result.results[0]?.warnings).toEqual([expect.objectContaining({ rule: "declaration-property-value-allowed-list", line: 1, column: 21 })]);
 });
+
+it("u3295c_stylelint_checks_case_insensitive_css_properties", async () => {
+  const result = await stylelint.lint({ code: ".fixture { Z-INDEX: 20; }", codeFilename: "apps/desktop/src/layer-fixture.css", configFile });
+
+  expect(result.errored).toBe(true);
+  expect(result.results[0]?.warnings).toEqual([expect.objectContaining({ rule: "declaration-property-value-allowed-list", line: 1, column: 21 })]);
+});
