@@ -1,5 +1,5 @@
+import { ReservedLine } from "../ink/ReservedLine";
 import { copy } from "../copy";
-import { KindGlyph } from "../ink/KindGlyph";
 import { createEffect, createSignal, createUniqueId, onCleanup, onMount, Show } from "solid-js";
 import { Portal } from "solid-js/web";
 import { CrepeBuilder } from "@milkdown/crepe/builder";
@@ -376,9 +376,7 @@ export default function PadRichEditor(props: {
         class="pad-editor pad-rich-editor"
         classList={{ "pad-readonly": props.readonly }}
         onFocusOut={(event) => props.onBlur(event.relatedTarget)}>
-        <Show when={failure()}>
-          {(message) => <p role="alert" class="pad-editor-failure"><KindGlyph kind="error" decorative /> {message()}</p>}
-        </Show>
+        <ReservedLine message={failure()} />
         <div ref={(element) => (host = element)} />
       </div>
     </>

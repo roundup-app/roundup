@@ -65,8 +65,8 @@ it("u429_the_rail_shows_a_missing_editor_in_one_failure_line", async () => {
     window.__fake.app.editorFailure = new Error('no code editor found; install VS Code or Cursor, or set ROUNDUP_EDITOR');
     document.querySelector('.rail-row [aria-label="Open in editor"]').click();
   }`);
-  await page.until(`() => document.querySelector('.rail > .ink')?.textContent.includes('no code editor found')`);
-  expect(await page.call(`() => document.querySelectorAll('.rail > .ink').length`)).toBe(1);
+  await page.until(`() => document.querySelector('.rail > .reserved-line [role="alert"]')?.textContent.includes('no code editor found')`);
+  expect(await page.call(`() => document.querySelectorAll('.rail > .reserved-line [role="alert"]').length`)).toBe(1);
 }, 60_000);
 
 it("u426_only_workstream_and_agent_rows_carry_icons", async () => {

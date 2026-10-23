@@ -1,7 +1,7 @@
+import { ReservedLine } from "../ink/ReservedLine";
 import { createEffect, createSignal, For, on, onCleanup, Show } from "solid-js";
 import type { Ref } from "@contracts/todo/Ref";
 import { copy } from "../copy";
-import { ErrorLine } from "../ink/ErrorLine";
 import { activationSource } from "../keys/registry";
 import { PadDrawer } from "../pads/PadDrawer";
 import { usePadList } from "../rail/pads/padList";
@@ -73,10 +73,12 @@ export const TodoRefs = (props: { id: number }) => {
     }
   };
 
-  return <Show when={refs().length > 0 || failure() !== null}>
+  return <>
+    <ReservedLine message={failure()}><button data-button="quiet" class="word" type="button" onClick={() => void refresh()}>{copy.padRefRetry}</button></ReservedLine>
+    <Show when={refs().length > 0}>
     <section class="todo-refs" aria-label={copy.padRefsHeading(refs().length)}>
       <h3>{copy.padRefsHeading(refs().length)}</h3>
-      <Show when={failure()}>{(message) => <div><ErrorLine message={message()} /><button data-button="quiet" class="word" type="button" onClick={() => void refresh()}>{copy.padRefRetry}</button></div>}</Show>
+
         <For each={refs()}>{(ref) => {
           const target = refTarget(ref.url);
           const linkCut = createCutTitle(() => target.name);
@@ -90,5 +92,5 @@ export const TodoRefs = (props: { id: number }) => {
           </div>;
         }}</For>
     </section>
-  </Show>;
+  </Show></>;
 };

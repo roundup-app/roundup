@@ -4,7 +4,7 @@ import type { Todo } from "@contracts/todo/Todo";
 import type { Change } from "@contracts/todo/Change";
 import { useConnectedProject } from "../state/connectedProject";
 import { outcomeOf } from "./failureOf";
-import { ErrorLine } from "../ink/ErrorLine";
+import { ReservedLine } from "../ink/ReservedLine";
 import { batch, createEffect, createSignal, For, onCleanup, Show } from "solid-js";
 
 export const formSchema = v.strictObject({ text: v.string(), base: v.string(), home: v.optional(v.nullable(v.string()), null), expected_change: v.nullable(v.number()), title: v.string(), body: v.string(), blockers: v.array(v.string()), done: v.boolean() });
@@ -52,14 +52,13 @@ export const TodoDraftRecovery = (props: { object: string; active?: boolean; inD
   return <Show when={!drawer.content() || props.inDrawer}><section class="todo-draft-recovery" aria-label={copy.draftIdentity(surface, props.object)} onMouseDown={event => {
     if (event.target instanceof Element && event.target.closest("button")) event.preventDefault();
   }}>
-    <Show when={problem()}>{problem => <ErrorLine message={copy.draftRetention(project.name, copy.draftSurface(surface), problem().cause)} />}</Show>
-    <Show when={failure()}>{message => <ErrorLine message={message()} />}</Show>
+    <ReservedLine overlay message={failure() ?? (problem() ? copy.draftRetention(project.name, copy.draftSurface(surface), problem()!.cause) : null)} status={records().length > 0 ? label(records()[records().length - 1]!) : null}>
     <Show when={problem()}><button data-button="quiet" class="word" type="button" onClick={() => drafts.retry()}>{copy.storageRetry}</button></Show>
     <For each={records().map(draft => draft.revision)}>{revision => {
       const draft = () => records().find(record => record.revision === revision);
 
       return <Show when={draft()}>{record => <div class="todo-draft-revision">
-        <span id={`todo-context-${revision}`} class="todo-draft-label">{label(record())}</span>
+        <span id={`todo-context-${revision}`} class="todo-draft-label" hidden>{label(record())}</span>
         <span id={`todo-revision-${revision}`} data-state={record().status}>{copy.draftStatus[record().status]}</span>
         <div class="todo-draft-actions">
         <button data-button="quiet" class="word" type="button" aria-describedby={`todo-revision-${revision} todo-context-${revision}`} onClick={() => {
@@ -70,6 +69,7 @@ export const TodoDraftRecovery = (props: { object: string; active?: boolean; inD
         </div>
       </div>}</Show>;
     }}</For>
+    </ReservedLine>
   </section></Show>;
 };
 
@@ -265,7 +265,7 @@ export const EditableText = (props: {
 
   return (
     <div class="todo-editable">
-    <Show when={!props.onFailure && failure()}>{message => <ErrorLine message={message()} />}</Show>
+    <ReservedLine overlay message={!props.onFailure && failure()} />
     <Show
       when={editing()}
       fallback={
@@ -294,7 +294,7 @@ export const EditableText = (props: {
       keyed
     >
       {(started) => (<>
-        <Show when={(props.captured() && props.captured()?.seq !== started.form.expected_change) || (props.revision !== undefined && props.todo[props.name] !== started.form.base)}><ErrorLine message={copy.changedTodo(props.todo.title)} /></Show>
+        <ReservedLine message={(props.captured() && props.captured()?.seq !== started.form.expected_change) || (props.revision !== undefined && props.todo[props.name] !== started.form.base) ? copy.changedTodo(props.todo.title) : null} />
         <textarea
           ref={field(started)}
           aria-label={props.name === "title" ? copy.title : copy.body}

@@ -2,7 +2,7 @@ import * as v from "valibot";
 import { createEffect, createSignal, For, onCleanup, Show } from "solid-js";
 import type { Todo } from "@contracts/todo/Todo";
 import { copy } from "../copy";
-import { ErrorLine } from "../ink/ErrorLine";
+import { ReservedLine } from "../ink/ReservedLine";
 import type { Actor } from "@contracts/Actor";
 import { chordsFor, leaderChord } from "../keys/chords";
 import { resolvedWorkstream } from "../rail/layout";
@@ -219,7 +219,9 @@ export const Capture = (props: { onFile: (() => void) | undefined }) => {
             <span {...ownerCut.attrs()}>{ownerLine()}</span>
             <span {...homeCut.attrs()}>{homeLine()}</span>
           </p>
-          <Show when={failure()}>{(message) => <ErrorLine message={message()} />}</Show>
+          <ReservedLine message={failure() ?? (drafts.problem() ? copy.draftRetention(connected.project.name, copy.leaderShortCapture, drafts.problem()!.cause) : null)}>
+            <Show when={drafts.problem()}><button data-button="quiet" type="button" onClick={() => drafts.retry()}>{copy.storageRetry}</button></Show>
+          </ReservedLine>
           <For each={recovered()}>{draft => <div class="capture-recovery">
             <span class="ink" data-state={draft.status}>{copy.draftStatus[draft.status]}</span>
             <textarea class="capture-field" aria-label={copy.recoveredCaptureDraft} rows={1} readOnly value={String(draft.value.text)} />
@@ -228,10 +230,7 @@ export const Capture = (props: { onFile: (() => void) | undefined }) => {
             <button data-button="quiet" type="button" onClick={() => drafts.discard(draft.revision)}>{copy.discardRevision}</button>
             </div>
           </div>}</For>
-          <Show when={drafts.problem()}>{problem => <>
-            <ErrorLine message={copy.draftRetention(connected.project.name, copy.leaderShortCapture, problem().cause)} />
-            <button data-button="quiet" type="button" onClick={() => drafts.retry()}>{copy.storageRetry}</button>
-          </>}</Show>
+
         </Dialog.Content>
       </Dialog.Root>
     </Show>
