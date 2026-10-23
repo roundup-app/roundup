@@ -113,7 +113,7 @@ describe("u2694 the Rail's system menu", () => {
     ["yolo", true, true, false, ["Restart", "Stop"]],
     ["stopped-yolo", false, true, false, []],
     ["resumable", false, false, true, ["Start YOLO", "Resume"]],
-  ] as const)("u3799_a_row_menu_lists_only_the_actions_its_state_allows_%s", async (_state, running, yolo, can_resume, actions) => {
+  ] as const)("u3812_a_row_menu_lists_only_the_actions_its_state_allows_%s", async (_state, running, yolo, can_resume, actions) => {
     const { app } = await mountRail([door("w", running ? "idle" : "done", "ready", { yolo, can_resume })], running ? [] : [exitedTerminal("w", 0)]);
 
     open("w");
@@ -121,7 +121,7 @@ describe("u2694 the Rail's system menu", () => {
     expect(app.menuLabels()).toEqual(["Rename", ...actions, "Clear…", "Send to Agent", "Copy Link", "Remove"]);
   });
 
-  it("u3799_no_item_of_the_row_menu_is_built_disabled", async () => {
+  it("u3812_no_item_of_the_row_menu_is_built_disabled", async () => {
     const { app } = await mountRail([door("w", "done", "stopped", { yolo: true }), agent("a", "idle", "ready")], [exitedTerminal("w", 0)]);
 
     open("w");
