@@ -26,7 +26,7 @@ struct Intake {
 impl Agents {
     /// A39: use the same Adapter program as Door launches.
     pub fn placement_call(&self) -> impl Placement + use<> {
-        self.launcher.placement()
+        self.launcher.placement(&self.shared.project_dir)
     }
 }
 

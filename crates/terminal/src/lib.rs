@@ -330,16 +330,7 @@ impl Terminals {
     /// A missing cwd, an empty command, or a program that cannot be found or run is the caller's error;
     /// any other failure to start is the Daemon's.
     pub async fn spawn(&self, params: SpawnParams) -> Result<Spawned, RpcError> {
-        self.start(params, None, &[]).await
-    }
-
-    /// As [`Terminals::spawn`], and the program also lacks the env vars in `removed` (A30).
-    pub async fn spawn_without(
-        &self,
-        params: SpawnParams,
-        removed: &[&str],
-    ) -> Result<Spawned, RpcError> {
-        self.start(params, None, removed).await
+        self.start(params, None).await
     }
 
     /// As [`Terminals::spawn`], for a Terminal that `owner` shows as a bubble (X11, X12). A ninth
@@ -347,7 +338,7 @@ impl Terminals {
     /// `terminal.changed`.
     pub async fn spawn_owned(&self, params: SpawnParams, owner: &str) -> Result<Spawned, RpcError> {
         let forgot = self.make_room(owner)?;
-        let spawned = self.start(params, Some(owner.to_owned()), &[]).await;
+        let spawned = self.start(params, Some(owner.to_owned())).await;
         if forgot || spawned.is_ok() {
             self.shared
                 .bus
@@ -464,24 +455,8 @@ impl Terminals {
         }
     }
 
-    async fn start(
-        &self,
-        params: SpawnParams,
-        owner: Option<String>,
-        removed: &[&str],
-    ) -> Result<Spawned, RpcError> {
-        check_program(&params)?;
-        // portable-pty silently falls back to $HOME when the cwd is unusable; refuse instead.
-        if !Path::new(&params.cwd).is_dir() {
-            return Err(invalid(format!("cwd is not a directory: {}", params.cwd)));
-        }
-        // Generate independently of authentication and vendor content; failure starts no program.
-        let mut nonce = [0u8; 32];
-        getrandom::fill(&mut nonce).map_err(RpcError::internal)?;
-        let incarnation = nonce.iter().map(|byte| format!("{byte:02x}")).collect();
-        let pair = native_pty_system()
-            .openpty(window(params.cols, params.rows)?)
-            .map_err(RpcError::internal)?;
+    /// Build the same inherited environment used by `spawn`, without opening a PTY.
+    pub fn command(&self, params: &SpawnParams) -> CommandBuilder {
         let mut command = match &params.command {
             Some(argv) => CommandBuilder::from_argv(argv.iter().map(Into::into).collect()),
             None => CommandBuilder::new_default_prog(),
@@ -494,9 +469,23 @@ impl Terminals {
         for marker in &self.shared.clean_env {
             command.env_remove(marker);
         }
-        for name in removed {
-            command.env_remove(name);
+        command
+    }
+
+    async fn start(&self, params: SpawnParams, owner: Option<String>) -> Result<Spawned, RpcError> {
+        check_program(&params)?;
+        // portable-pty silently falls back to $HOME when the cwd is unusable; refuse instead.
+        if !Path::new(&params.cwd).is_dir() {
+            return Err(invalid(format!("cwd is not a directory: {}", params.cwd)));
         }
+        // Generate independently of authentication and vendor content; failure starts no program.
+        let mut nonce = [0u8; 32];
+        getrandom::fill(&mut nonce).map_err(RpcError::internal)?;
+        let incarnation = nonce.iter().map(|byte| format!("{byte:02x}")).collect();
+        let pair = native_pty_system()
+            .openpty(window(params.cols, params.rows)?)
+            .map_err(RpcError::internal)?;
+        let command = self.command(&params);
         // The reader and input threads start before the program (the reader receives the child over a
         // channel), so no later failure can leave a program that nobody waits for.
         let reader = pair.master.try_clone_reader().map_err(RpcError::internal)?;

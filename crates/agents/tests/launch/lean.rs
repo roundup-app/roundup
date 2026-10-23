@@ -28,12 +28,12 @@ impl Setup {
     }
 
     /// The word after `flag`, or `None` when it is absent.
-    fn after<'a>(argv: &'a [String], flag: &str) -> Option<&'a str> {
+    pub(super) fn after<'a>(argv: &'a [String], flag: &str) -> Option<&'a str> {
         let at = argv.iter().position(|arg| arg == flag)?;
         argv.get(at + 1).map(String::as_str)
     }
 
-    fn user_file(&self, name: &str, text: &str) {
+    pub(super) fn user_file(&self, name: &str, text: &str) {
         let path = self.root.path().join(name);
         std::fs::create_dir_all(path.parent().unwrap()).unwrap();
         std::fs::write(path, text).unwrap();
@@ -62,6 +62,11 @@ fn lc1_each_role_launches_as_its_row() {
     for (row, role, pair) in lean_children() {
         for mcp in [true, false] {
             let s = setup();
+            std::fs::write(
+                s.dir.parent().unwrap().join("CLAUDE.md"),
+                "PROJECT_INSTRUCTION_MARKER",
+            )
+            .unwrap();
             let pair = Pair {
                 mcp_off: !mcp,
                 ..pair.clone()
@@ -84,6 +89,7 @@ fn lc1_each_role_launches_as_its_row() {
                 Setup::after(&argv, "--append-system-prompt-file").unwrap(),
             )
             .unwrap();
+            assert!(brief.contains("PROJECT_INSTRUCTION_MARKER"), "{row:?}");
             assert_eq!(
                 brief.contains(&asset("hold-plain.md")),
                 row == Role::Agent,
@@ -104,6 +110,8 @@ fn lc2_a_child_starts_from_its_own_settings() {
                 "apiKeyHelper": "printf key",
                 "env": {"ANTHROPIC_BASE_URL": "http://proxy.test", "CLAUDE_CODE_DISABLE_AUTO_MEMORY": "0"},
                 "outputStyle": "Explanatory",
+                "autoMemoryEnabled": true,
+                "autoMemoryDirectory": "/fixture/memory",
                 "enabledPlugins": {"x@y": true},
                 "mcpServers": {"theirs": {"command": "x"}},
                 "hooks": {"Stop": []}
@@ -113,7 +121,7 @@ fn lc2_a_child_starts_from_its_own_settings() {
         let argv = s.prepare_lean("7", role, &pair, None).unwrap();
         assert_eq!(
             Setup::after(&argv, "--setting-sources"),
-            Some("project"),
+            Some(""),
             "{row:?}"
         );
         assert!(has(&argv, "--strict-mcp-config") && has(&argv, "--mcp-config"));
@@ -133,12 +141,18 @@ fn lc2_a_child_starts_from_its_own_settings() {
             );
         }
         assert_eq!(settings["permissions"]["deny"], json!(["Read(.env)"]));
-        // LC2: login carries over; the user's `env` and `defaultMode` do not.
+        // A3507b: only the named lean exclusions are removed.
         assert_eq!(settings["apiKeyHelper"], "printf key");
-        assert!(settings["env"].get("ANTHROPIC_BASE_URL").is_none());
-        assert!(settings["permissions"].get("defaultMode").is_none());
+        assert_eq!(settings["env"]["ANTHROPIC_BASE_URL"], "http://proxy.test");
+        assert_eq!(settings["permissions"]["defaultMode"], "plan");
         assert_eq!(settings["env"]["CLAUDE_CODE_DISABLE_AUTO_MEMORY"], "1");
-        for dropped in ["outputStyle", "enabledPlugins", "mcpServers"] {
+        for dropped in [
+            "outputStyle",
+            "enabledPlugins",
+            "mcpServers",
+            "autoMemoryEnabled",
+            "autoMemoryDirectory",
+        ] {
             assert!(settings.get(dropped).is_none(), "{dropped}");
         }
         assert!(
@@ -157,6 +171,18 @@ async fn lc2_the_users_output_style_never_shapes_a_child() {
         "settings.json",
         r#"{"outputStyle":"Learning","enabledPlugins":{"p@m":true},"mcpServers":{"a":{"command":"a"}},"permissions":{"allow":["Read(x)"]}}"#,
     );
+    let project_config = s.dir.parent().unwrap().join(".claude");
+    std::fs::create_dir_all(&project_config).unwrap();
+    std::fs::write(
+        project_config.join("settings.json"),
+        r#"{"outputStyle":"Learning","enabledPlugins":{"project@market":true}}"#,
+    )
+    .unwrap();
+    std::fs::write(
+        project_config.join("settings.local.json"),
+        r#"{"autoMemoryEnabled":true,"autoMemoryDirectory":"/fixture"}"#,
+    )
+    .unwrap();
     let launcher = plugin_launcher(&s);
     let (argv, env) = launcher
         .launch_on(
@@ -192,7 +218,7 @@ fn lc3_the_door_launches_lean_and_its_brief_omits_the_plain_body() {
         Some("Read,Grep,Glob,ToolSearch,Skill")
     );
     assert!(!has(&argv, "--disable-slash-commands"));
-    assert_eq!(Setup::after(&argv, "--setting-sources"), Some("project"));
+    assert_eq!(Setup::after(&argv, "--setting-sources"), Some(""));
     assert!(!has(&argv, "--plugin-dir"));
     let text = std::fs::read_to_string(Setup::after(&argv, "--append-system-prompt-file").unwrap())
         .unwrap();
@@ -364,7 +390,10 @@ async fn lc6_a_user_started_agent_keeps_the_users_setup() {
     assert!(!env.contains_key("CLAUDE_CODE_DISABLE_AUTO_MEMORY"));
     assert!(has(&argv, "--settings") && has(&argv, "--mcp-config"));
     let settings = read(Path::new(Setup::after(&argv, "--settings").unwrap()));
-    assert_eq!(settings["permissions"]["allow"], json!(["mcp__roundup__*"]));
+    assert_eq!(
+        settings["permissions"]["allow"],
+        json!(["mcp__roundup__*", "Read(x)"])
+    );
     assert_eq!(argv.iter().filter(|arg| *arg == "--plugin-dir").count(), 3);
 }
 
@@ -534,14 +563,14 @@ fn lc11_the_doors_start_allows_no_shell_or_terminal_start() {
             "terminal_write",
         ] {
             assert!(!Setup::after(&argv, "--tools").unwrap().contains(forbidden));
+            // User grants carry through; capabilities still come from the tool table.
             assert!(
-                !allowed
+                allowed
                     .iter()
-                    .any(|rule| rule.as_str().unwrap().contains(forbidden)),
-                "{allowed:?}"
+                    .any(|rule| rule.as_str().unwrap().contains(forbidden))
             );
         }
-        assert!(!allowed.contains(&json!("mcp__roundup__*")));
+        assert!(allowed.contains(&json!("mcp__roundup__*")));
         assert!(allowed.contains(&json!("Read(*)")));
     }
 }
@@ -610,8 +639,19 @@ fn a3507b_settings_extend_the_user_setup() {
             project.join("settings.local.json"),
         ];
         let before: Vec<_> = files.iter().map(|p| std::fs::read(p).unwrap()).collect();
+        let launcher = Launcher::from_vars(
+            |key| match key {
+                "CLAUDE_CONFIG_DIR" => Some(s.root.path().as_os_str().to_owned()),
+                "ROUNDUP_RUP_BIN" => Some(s.rup.as_os_str().to_owned()),
+                _ => None,
+            },
+            &s.rup,
+        )
+        .unwrap();
         for resume in [None, Some("saved")] {
-            let argv = s.prepare_lean("7", role, &pair, resume).unwrap();
+            let argv = launcher
+                .prepare_on(folders(&s.dir), "7", "1", &s.cwd, resume, role, &pair)
+                .unwrap();
             let settings = read(Path::new(Setup::after(&argv, "--settings").unwrap()));
             assert_eq!(
                 settings["future"],

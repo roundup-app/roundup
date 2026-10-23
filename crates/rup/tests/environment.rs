@@ -26,8 +26,8 @@ const MARKERS: [&str; 8] = [
     "CLAUDE_CODE_MESSAGING_TOKEN",
 ];
 
-/// A30: the variables that bill Claude Code per token or leave the user's plan.
-const OFF_PLAN: [&str; 9] = [
+/// A3507a: gateway and credential variables the user configures.
+const GATEWAY: [&str; 9] = [
     "ANTHROPIC_API_KEY",
     "ANTHROPIC_AUTH_TOKEN",
     "CLAUDE_CODE_USE_BEDROCK",
@@ -44,7 +44,7 @@ const OFF_PLAN: [&str; 9] = [
 async fn served_with_markers(fake_claude: &str, extra_env: &[(&str, &str)]) -> Served {
     let mut env: Vec<(&str, &str)> = MARKERS.iter().map(|marker| (*marker, "1")).collect();
     env.push(("CLAUDE_CODE_OAUTH_TOKEN", "a-users-oauth-token"));
-    env.extend(OFF_PLAN.iter().map(|name| (*name, "1")));
+    env.extend(GATEWAY.iter().map(|name| (*name, "1")));
     env.extend_from_slice(extra_env);
     Served::start(fake_claude, &env).await
 }
@@ -57,10 +57,9 @@ fn parse_env(text: &str) -> BTreeMap<&str, &str> {
 
 /// What A15 requires of a spawned program's environment: none of `MARKERS`, but the Claude Code
 /// configuration `served_with_markers` set and `PATH`, which the Daemon inherits either way.
-/// `off_plan` is whether A30's variables are kept (a shell) or removed (an Agent).
-fn assert_clean(printed: &BTreeMap<&str, &str>, off_plan: bool) {
-    for name in OFF_PLAN {
-        assert_eq!(printed.contains_key(name), off_plan, "{name}: {printed:?}");
+fn assert_clean(printed: &BTreeMap<&str, &str>) {
+    for name in GATEWAY {
+        assert_eq!(printed.get(name), Some(&"1"), "{name}: {printed:?}");
     }
     for marker in MARKERS {
         assert!(
@@ -125,7 +124,7 @@ async fn terminal_env(served: &Served, env: BTreeMap<String, String>) -> String 
 async fn a15_terminal_spawn_gives_the_program_a_clean_environment() {
     let served = served_with_markers("#!/bin/sh\nsleep 30\n", &[]).await;
     let printed = terminal_env(&served, BTreeMap::new()).await;
-    assert_clean(&parse_env(&printed), true);
+    assert_clean(&parse_env(&printed));
 }
 
 /// A15 requires a marker stripped whether it sat in the Daemon's own environment or arrived some
@@ -152,7 +151,7 @@ async fn a15_terminal_spawn_removes_a_marker_passed_in_its_own_env_param() {
 
 #[tokio::test(flavor = "multi_thread")]
 async fn a15_agent_spawn_gives_the_program_a_clean_environment() {
-    assert_clean(&parse_env(&agent_env("agent.spawn").await), false);
+    assert_clean(&parse_env(&agent_env("agent.spawn").await));
 }
 
 /// The environment a fake `claude` saw when `method` launched it.
@@ -216,25 +215,6 @@ async fn agent_env(method: &str) -> String {
 }
 
 #[tokio::test(flavor = "multi_thread")]
-async fn a30_an_api_key_in_the_daemons_environment_is_not_in_the_agents() {
-    let printed = agent_env("agent.spawn").await;
-    let printed = parse_env(&printed);
-    assert_clean(&printed, false);
-    assert_eq!(
-        printed.get("CLAUDE_CODE_OAUTH_TOKEN"),
-        Some(&"a-users-oauth-token")
-    );
-}
-
-#[tokio::test(flavor = "multi_thread")]
-async fn a30_resume_and_start_door_remove_them_too() {
-    let printed = agent_env("rail.startDoor").await;
-    assert_clean(&parse_env(&printed), false);
-}
-
-#[tokio::test(flavor = "multi_thread")]
-async fn a30_a_terminal_spawn_keeps_them() {
-    let served = served_with_markers("#!/bin/sh\nsleep 30\n", &[]).await;
-    let printed = terminal_env(&served, BTreeMap::new()).await;
-    assert_clean(&parse_env(&printed), true);
+async fn a15_start_door_removes_markers_and_keeps_the_users_gateway() {
+    assert_clean(&parse_env(&agent_env("rail.startDoor").await));
 }

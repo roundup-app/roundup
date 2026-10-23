@@ -137,4 +137,3 @@ fn f4_a_symlinked_shim_directory_is_refused() {
     assert_eq!(err.code, code::INVALID_PARAMS);
     assert_eq!(std::fs::read_dir(&elsewhere).unwrap().count(), 0);
 }
-

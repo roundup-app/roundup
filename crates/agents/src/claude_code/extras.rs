@@ -40,6 +40,10 @@ fn skill_folders(root: &Path) -> Vec<(String, PathBuf)> {
         .collect()
 }
 
+pub(super) fn project_skills(project: &Path) -> Vec<(String, PathBuf)> {
+    skill_folders(&project.join(".claude/skills"))
+}
+
 fn skills(src: &Sources<'_>) -> Vec<(String, PathBuf)> {
     // The Project's skill shadows the user's of the same name.
     let mut found = skill_folders(&src.project.join(".claude/skills"));

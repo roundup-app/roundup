@@ -23,22 +23,6 @@ use super::models::{Lean, Pair};
 use super::plugins;
 use super::profiles::profile;
 
-/// LC2: the settings keys that sign a child in.
-const LOGIN_KEYS: [&str; 5] = [
-    "apiKeyHelper",
-    "awsAuthRefresh",
-    "awsCredentialExport",
-    "forceLoginMethod",
-    "forceLoginOrgUUID",
-];
-
-/// LC2: the user's settings a lean child keeps.
-struct Carried {
-    allow: Vec<Value>,
-    deny: Vec<Value>,
-    login: Map<String, Value>,
-}
-
 /// LC14: the one line a Door shows when its bundle lacks the `intent` skill.
 pub const INTENT_MISSING: &str =
     "roundup: hope's intent skill is missing; this Door runs without it.";
@@ -156,9 +140,11 @@ pub struct Folders<'a> {
 
 impl Launcher {
     /// A39 uses the same binary as every launch, through its own Placement seam.
-    pub fn placement(&self) -> super::PlacementCall {
+    pub fn placement(&self, project: &Path) -> super::PlacementCall {
         super::PlacementCall {
             bin: self.bin.clone(),
+            config: self.conversation_dir.clone(),
+            project: project.to_owned(),
         }
     }
 
@@ -384,36 +370,47 @@ impl Launcher {
             (Some(lean), Role::Agent) if lean.scout => Role::Scout,
             _ => role,
         };
-        let delivery = match &lean {
+        let mut delivery = match &lean {
             Some(lean) => extras::resolve(&self.extras_sources(&project), &lean.extras)?,
             None => extras::Delivery::default(),
         };
-        let carried = lean.as_ref().map(|_| self.user_carried());
-        let missing_intent = self.door_lacks_intent(role);
-        let mut carried = carried;
-        if role == Role::Door
-            && let Some(carried) = &mut carried
-        {
-            carried.allow.retain(|rule| {
-                rule.as_str().is_some_and(|rule| {
-                    let tool = rule.split('(').next().unwrap_or(rule);
-                    matches!(tool, "Read" | "Grep" | "Glob" | "Skill" | "ToolSearch")
-                        || brief::door_tools()
-                            .filter(|name| *name != "terminal_write")
-                            .any(|name| tool == format!("mcp__roundup__{name}"))
-                })
-            });
+        if lean.is_some() && profile(role).skills {
+            for skill in extras::project_skills(&project) {
+                if !delivery.skills.iter().any(|(name, _)| *name == skill.0) {
+                    delivery.skills.push(skill);
+                }
+            }
         }
+        let mut carried = super::launch_files::user_settings(&self.conversation_dir, &project)
+            .map_err(RpcError::internal)?;
+        if lean.is_some() {
+            for key in [
+                "outputStyle",
+                "enabledPlugins",
+                "mcpServers",
+                "autoMemoryEnabled",
+                "autoMemoryDirectory",
+            ] {
+                carried
+                    .as_object_mut()
+                    .expect("settings object")
+                    .remove(key);
+            }
+        }
+        let missing_intent = self.door_lacks_intent(role);
         replace_file(&settings, &{
             let mut settings =
-                self.settings_json(id, attempt, &path, mcp, carried.as_ref(), missing_intent);
+                self.settings_json(id, attempt, &path, mcp, &carried, missing_intent);
+            if lean.is_some() {
+                settings["env"]["CLAUDE_CODE_DISABLE_AUTO_MEMORY"] = json!("1");
+            }
             if role == Role::Door && mcp {
                 let mut allowed: Vec<Value> = brief::door_tools()
                     .filter(|name| *name != "terminal_write")
                     .map(|name| json!(format!("mcp__roundup__{name}")))
                     .collect();
-                if let Some(carried) = &carried {
-                    for rule in &carried.allow {
+                if let Some(rules) = carried["permissions"]["allow"].as_array() {
+                    for rule in rules {
                         if !allowed.contains(rule) {
                             allowed.push(rule.clone());
                         }
@@ -458,6 +455,14 @@ impl Launcher {
         if lean.is_some() && profile(role).global_instructions {
             self.append_global_instructions(&mut brief);
         }
+        if lean.is_some() {
+            for file in [project.join("CLAUDE.md"), project.join(".claude/CLAUDE.md")] {
+                if let Ok(text) = std::fs::read_to_string(&file) {
+                    brief.push_str("\n## Project instructions\n\n");
+                    brief.push_str(&text);
+                }
+            }
+        }
         replace_text(&brief_file, &brief).map_err(RpcError::internal)?;
         self.trust(&cwd)?;
         let mut argv = vec![
@@ -472,8 +477,7 @@ impl Launcher {
         argv.push("--append-system-prompt-file".into());
         argv.push(brief_file.to_string_lossy().into_owned());
         if let Some(lean) = &lean {
-            // LC2: nothing of the user's settings, plugins or servers but what `--settings` copies.
-            argv.extend(["--strict-mcp-config", "--setting-sources", "project"].map(String::from));
+            argv.extend(["--strict-mcp-config", "--setting-sources", ""].map(String::from));
             let row = profile(role);
             if let Some((with, without)) = row.tools {
                 argv.push("--tools".into());
@@ -483,8 +487,12 @@ impl Launcher {
             if !row.skills && !skills {
                 argv.push("--disable-slash-commands".into());
             }
-            if skills {
-                let folder = self.extras_plugin(&dir, id, &delivery.skills)?;
+            let commands = row
+                .skills
+                .then(|| project.join(".claude/commands"))
+                .filter(|path| path.is_dir());
+            if skills || commands.is_some() {
+                let folder = self.extras_plugin(&dir, id, &delivery.skills, commands.as_deref())?;
                 argv.extend(["--plugin-dir".into(), folder.to_string_lossy().into_owned()]);
             }
             for plugin in &delivery.plugins {
@@ -524,7 +532,7 @@ impl Launcher {
                     argv.extend(["--permission-mode".into(), mode.into()]);
                     mode.to_owned()
                 }
-                None => super::inbox::default_mode(&self.conversation_dir, &cwd),
+                None => super::inbox::default_mode(&self.conversation_dir, &project),
             };
             self.modes
                 .lock()
@@ -725,7 +733,7 @@ impl Launcher {
         attempt: &str,
         path: &OsStr,
         mcp: bool,
-        carried: Option<&Carried>,
+        carried: &Value,
         missing_intent: bool,
     ) -> Value {
         let agent_id = id.to_string();
@@ -770,40 +778,27 @@ impl Launcher {
                 "command": format!("printf %s {}", shell_quote(INTENT_MISSING)),
             });
         }
-        // LC2: the user's permission rules follow roundup's, a rule once.
-        if let Some(Carried { allow, deny, login }) = carried {
-            for (key, value) in login {
-                settings[key] = value.clone();
-            }
-            let merge = |mut rules: Vec<Value>, more: &[Value]| {
-                for rule in more {
-                    if !rules.contains(rule) {
-                        rules.push(rule.clone());
+        let mut combined = carried.clone();
+        super::launch_files::extend_settings(&mut combined, settings);
+        let mut settings = combined;
+        if mcp {
+            let mut allow = vec![json!("mcp__roundup__*")];
+            if let Some(rules) = carried["permissions"]["allow"].as_array() {
+                for rule in rules {
+                    if !allow.contains(rule) {
+                        allow.push(rule.clone());
                     }
                 }
-                rules
-            };
-            let own: Vec<Value> = settings["permissions"]["allow"]
-                .as_array()
-                .cloned()
-                .unwrap_or_default();
-            let allow = merge(own, allow);
-            if !allow.is_empty() {
-                settings["permissions"]["allow"] = Value::Array(allow);
             }
-            let deny = merge(Vec::new(), deny);
-            if !deny.is_empty() {
-                settings["permissions"]["deny"] = Value::Array(deny);
-            }
+            settings["permissions"]["allow"] = json!(allow);
         }
         // M11: ask for tool search, so the roundup tools' schemas load on demand; the user's own value wins.
-        let mut env = Map::new();
-        if carried.is_some() {
-            env.insert("CLAUDE_CODE_DISABLE_AUTO_MEMORY".into(), "1".into());
-        }
-        env.insert("CLAUDE_CODE_ENABLE_FUNCTION_HOOKS".into(), "1".into());
+        let mut env = settings["env"].as_object().cloned().unwrap_or_default();
+        env.entry("CLAUDE_CODE_ENABLE_FUNCTION_HOOKS")
+            .or_insert_with(|| "1".into());
         if !self.user_tool_search {
-            env.insert("ENABLE_TOOL_SEARCH".into(), "true".into());
+            env.entry("ENABLE_TOOL_SEARCH")
+                .or_insert_with(|| "true".into());
         }
         env.insert("ROUNDUP_AGENT_ID".into(), agent_id.into());
         env.insert("PATH".into(), path.to_string_lossy().into());
@@ -840,28 +835,6 @@ impl Launcher {
         servers
     }
 
-    /// LC2: what a lean child takes from the user's settings file; nothing else of it.
-    fn user_carried(&self) -> Carried {
-        let settings = std::fs::read(self.conversation_dir.join("settings.json"))
-            .ok()
-            .and_then(|bytes| serde_json::from_slice::<Value>(&bytes).ok())
-            .unwrap_or(Value::Null);
-        let rules = |key: &str| {
-            settings["permissions"][key]
-                .as_array()
-                .cloned()
-                .unwrap_or_default()
-        };
-        Carried {
-            allow: rules("allow"),
-            deny: rules("deny"),
-            login: LOGIN_KEYS
-                .iter()
-                .filter_map(|key| Some(((*key).to_owned(), settings.get(key)?.clone())))
-                .collect(),
-        }
-    }
-
     /// LC5: the user's global `CLAUDE.md`, as read-only text under a heading.
     fn append_global_instructions(&self, brief: &mut String) {
         if let Ok(text) = std::fs::read_to_string(self.conversation_dir.join("CLAUDE.md"))
@@ -879,6 +852,7 @@ impl Launcher {
         dir: &Path,
         id: u64,
         skills: &[(String, PathBuf)],
+        commands: Option<&Path>,
     ) -> Result<PathBuf, RpcError> {
         let folder = extras_dir(dir, id);
         if is_symlink(&folder) {
@@ -899,6 +873,10 @@ impl Launcher {
         std::fs::create_dir_all(folder.join("skills")).map_err(RpcError::internal)?;
         for (name, source) in skills {
             std::os::unix::fs::symlink(source, folder.join("skills").join(name))
+                .map_err(RpcError::internal)?;
+        }
+        if let Some(commands) = commands {
+            std::os::unix::fs::symlink(commands, folder.join("commands"))
                 .map_err(RpcError::internal)?;
         }
         Ok(folder)
