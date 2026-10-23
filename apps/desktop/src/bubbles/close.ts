@@ -1,10 +1,11 @@
+import { copy } from "../copy";
 import { createSignal } from "solid-js";
 import type { Accessor, Setter } from "solid-js";
 import type { TerminalInfo } from "@contracts/terminal/TerminalInfo";
 import type { ConnectedProject } from "../state/connectedProject";
 
 /** Terminal closure preserves the surviving tab focus and leaves failures on the originating surface. */
-export const createTerminalClose = (connected: ConnectedProject, shown: Accessor<readonly TerminalInfo[]>, setFailure: Setter<string | null>) => {
+export const createTerminalClose = (connected: ConnectedProject, shown: Accessor<readonly TerminalInfo[]>, nameFor: (terminal: TerminalInfo) => string, setFailure: Setter<string | null>) => {
   const { app, rail } = connected;
   const [closing, setClosing] = createSignal<ReadonlySet<string>>(new Set());
 
@@ -16,6 +17,17 @@ export const createTerminalClose = (connected: ConnectedProject, shown: Accessor
     setClosing((ids) => new Set([...ids, id]));
 
     try {
+      const terminal = shown().find(terminal => terminal.id === id);
+
+      if (!terminal) return;
+      const accepted = await app.ask({ title: copy.closeQuestion(nameFor(terminal)), message: terminal.running ? copy.closeTerminalWarning : copy.closeTerminalOutputWarning, okLabel: copy.close, cancelLabel: copy.keep });
+
+      if (!accepted) {
+        if (active instanceof HTMLElement && active.isConnected) active.focus({ preventScroll: true });
+
+        return;
+      }
+
       await app.rpc("terminal.close", { id });
       await rail.refresh({ terminals: true });
       setFailure(null);

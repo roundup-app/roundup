@@ -44,7 +44,8 @@ it("u469_tab_close_calls_once_without_toggling_or_restoring", async () => {
   const close = document.querySelector<HTMLButtonElement>('[aria-label="Close cargo test"]')!;
   fireEvent.click(close);
   fireEvent.click(close);
-  expect(bubbleCalls(mounted.app, "terminal.close")).toEqual([{id: "1"}]);
+  await answerQuestion(true);
+  await waitFor(() => expect(bubbleCalls(mounted.app, "terminal.close")).toEqual([{id: "1"}]));
   expect(document.querySelector<HTMLButtonElement>('.terminal-tab[data-bubble="1"]')!.getAttribute("aria-pressed")).toBe("false");
   finish();
   await waitFor(() => expect(document.querySelector('[role="alert"]')).toBeNull());
@@ -57,6 +58,7 @@ it("u469_failed_close_keeps_the_tab_bubble_and_visible_failure", async () => {
   const close = document.querySelector<HTMLButtonElement>('[aria-label="Close zsh"]')!;
   close.focus();
   fireEvent.click(close);
+  await answerQuestion(true);
   await waitFor(() => expect(document.querySelector('[role="alert"]')?.textContent).toContain("cannot close"));
   expect(document.querySelector('.terminal-tab[data-bubble="2"]')?.getAttribute("aria-pressed")).toBe("true");
   expect(document.activeElement).toBe(close);
@@ -67,8 +69,9 @@ it("u469_close_returns_focus_to_a_remaining_control", async () => {
   const close = document.querySelector<HTMLButtonElement>('[aria-label="Close cargo test"]')!;
   close.focus();
   fireEvent.click(close);
+  await answerQuestion(true);
   await waitFor(() => expect(document.activeElement).toBe(document.querySelector('.terminal-tab[data-bubble="2"]')));
-  expect(bubbleCalls(mounted.app, "terminal.close")).toEqual([{id: "1"}]);
+  await waitFor(() => expect(bubbleCalls(mounted.app, "terminal.close")).toEqual([{id: "1"}]));
 });
 
 it.each(["plus", "chord"])("u524_plus_and_cmd_t_from_the_project_root_open_in_the_first_workstream_%s", async (activation) => {
@@ -97,6 +100,7 @@ it("u524_a_project_terminal_is_available_after_reload", async () => {
   await waitFor(() => expect(document.querySelector('.terminal-tab[data-bubble="9"]')).not.toBeNull());
   expect(bubbleCalls(mounted.app, "terminal.open")).toEqual([]);
   fireEvent.click(document.querySelector('[aria-label="Close login"]')!);
+  await answerQuestion(true);
   await waitFor(() => expect(document.querySelector('.terminal-tab[data-bubble="9"]')).toBeNull());
   expect(bubbleCalls(mounted.app, "terminal.close")).toEqual([{ id: "9" }]);
 });
@@ -170,6 +174,7 @@ it("u469_duplicate_names_close_only_the_matching_terminal", async () => {
   const mounted = await mountBubbles("w", [info("1",{owner:"w",title:"zsh"}),info("2",{owner:"w",title:"zsh"})]);
 
   fireEvent.click(document.querySelector('.terminal-tab-pair[data-bubble="2"] button:last-child')!);
+  await answerQuestion(true);
   await waitFor(() => expect(document.querySelectorAll('.terminal-tab')).toHaveLength(1));
   expect(bubbleCalls(mounted.app,"terminal.close")).toEqual([{id:"2"}]);
   expect(document.querySelector('.terminal-tab')?.getAttribute("data-bubble")).toBe("1");
@@ -226,6 +231,7 @@ it.each(["previous", "plus"])("u469_close_returns_focus_to_a_remaining_control_%
 
   close.focus();
   fireEvent.click(close);
+  await answerQuestion(true);
   await waitFor(() => expect(document.activeElement).toBe(document.querySelector(target === "plus" ? '.terminal-new' : '.terminal-tab[data-bubble="1"]')));
   expect(document.querySelectorAll('.bubble:not([hidden])')).toHaveLength(0);
 });
@@ -236,6 +242,7 @@ it("u469_close_returns_focus_to_a_remaining_control_from_the_bubble", async () =
 
   close.focus();
   fireEvent.click(close);
+  await answerQuestion(true);
   await waitFor(() => expect(document.activeElement).toBe(document.querySelector('.terminal-tab[data-bubble="1"]')));
 });
 
@@ -253,6 +260,7 @@ it("u469_close_returns_focus_to_a_run_added_while_close_is_pending", async () =>
 
   control.focus();
   fireEvent.click(control);
+  await answerQuestion(true);
   mounted.setListed([...TERMINALS, added]);
   mounted.app.emit(event({name:"terminal.changed"}));
   await waitFor(() => expect(document.querySelectorAll('.terminal-tab')).toHaveLength(3));
@@ -290,11 +298,25 @@ it("u3512a_terminal_close_waits_for_one_native_answer_and_cancel_keeps_it", asyn
   fireEvent.click(close);
   fireEvent.click(close);
   expect(app.questions).toHaveLength(1);
-  expect((await questionDialog()).title).toBe("Close cargo test?");
+  expect(await questionDialog()).toEqual({ title: "Close cargo test?", message: "The Terminal and its output will be removed. Its running program will stop.", okLabel: "Close", cancelLabel: "Keep" });
   expect(bubbleCalls(app, "terminal.close")).toEqual([]);
   await answerQuestion(false);
   expect(bubbleCalls(app, "terminal.close")).toEqual([]);
   expect(close.isConnected).toBe(true);
+  fireEvent.click(close);
+  await answerQuestion(true);
+  await waitFor(() => expect(bubbleCalls(app, "terminal.close")).toEqual([{ id: "1" }]));
+});
+
+it("u3512a_terminal_alert_failure_keeps_the_terminal_for_retry", async () => {
+  const { app } = await mountBubbles();
+  app.questionFailure = new Error("Native alert unavailable; try closing again");
+  const close = document.querySelector<HTMLButtonElement>('[aria-label="Close cargo test"]')!;
+  fireEvent.click(close);
+  await waitFor(() => expect(document.querySelector('[role="alert"]')?.textContent).toContain("Native alert unavailable"));
+  expect(bubbleCalls(app, "terminal.close")).toEqual([]);
+  expect(close.isConnected).toBe(true);
+  app.questionFailure = null;
   fireEvent.click(close);
   await answerQuestion(true);
   await waitFor(() => expect(bubbleCalls(app, "terminal.close")).toEqual([{ id: "1" }]));

@@ -296,7 +296,7 @@ export const Bubbles = (props: {
 
   const readOnly = () => connected.daemonExit() !== null;
 
-  const { close, closing } = createTerminalClose(connected, shown, setFailure);
+  const { close, closing } = createTerminalClose(connected, shown, nameFor, setFailure);
 
   const bubbleElement = (id: string): HTMLElement | null => document.querySelector<HTMLElement>(`[data-bubble="${id}"]`);
 
@@ -328,7 +328,7 @@ export const Bubbles = (props: {
     const fromTab = focus?.closest(".terminal-tabs") !== null;
 
     void close(id).then(() => {
-      if (failure() !== null || fromTab) return;
+      if (failure() !== null || fromTab || shown().some(terminal => terminal.id === id)) return;
 
       if (back instanceof HTMLElement && back.isConnected) back.focus();
       else focusPane();
