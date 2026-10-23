@@ -62,3 +62,25 @@ export const createFinishMotion = (input: {
 
   return { order, row: (id: number) => rows().has(id), bar, settle, rowEnded, barEnded: () => setBar(false) };
 };
+
+/** U3811: retarget a changing count from its visible pose during a completion burst. */
+export const createCountMotion = (value: Accessor<string>, playing: Accessor<boolean>) => {
+  let count: HTMLElement | undefined;
+
+  createEffect(on(value, () => {
+    if (!playing() || !count) return;
+
+    // Keep a burst's newest text moving from the visible pose, rather than replaying the roll's hidden start.
+    const style = getComputedStyle(count);
+    const pose = { opacity: style.opacity, transform: style.transform };
+
+    for (const animation of count.getAnimations?.() ?? []) {
+      if (animation.playState !== "running" || !(animation.effect instanceof KeyframeEffect)) continue;
+
+      animation.effect.setKeyframes([{ ...pose, easing: animation.effect.getKeyframes()[0]!.easing }, { opacity: "1", transform: "none" }]);
+      animation.currentTime = 0;
+    }
+  }, { defer: true }));
+
+  return (element: HTMLElement) => { count = element; };
+};
