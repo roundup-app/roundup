@@ -215,7 +215,7 @@ export const Reactions = (props: { state: ReturnType<typeof createReactions> }) 
 
 const Facts = (props: { reaction: Reaction }) => {
   const nameOf = useNames();
-  const { app } = useConnectedProject();
+  const { app, rail } = useConnectedProject();
   const [copyFailure, failCopy] = createSignal<string | null>(null);
   const r = () => props.reaction;
   const [messageId, setMessageId] = createSignal<number | null>(null);
@@ -238,9 +238,10 @@ const Facts = (props: { reaction: Reaction }) => {
   };
 
   const home = () => r().home;
+  const authority = () => copy.reactionActor(r().actor.kind, rail.nodes.some(node => node.id === r().actor.id) ? nameOf(r().actor.id) : null);
 
   return <Show when={messageId() !== null} fallback={<dl class="reaction-facts">
-    <dt>{copy.reactionAuthority}</dt><dd>{copy.reactionActor(r().actor.kind, nameOf(r().actor.id))}</dd>
+    <dt>{copy.reactionAuthority}</dt><dd>{authority()}</dd>
     <dt>{copy.reactionHome}</dt><dd>{home() ? nameOf(home()!) : copy.reactionNoHome}</dd>
     <dt>{copy.reactionTarget}</dt><dd>{nameOf(r().target)}</dd>
     <dt>{copy.reactionInstruction}</dt><dd class="reaction-instruction">{r().instruction}</dd>
@@ -256,7 +257,7 @@ const Facts = (props: { reaction: Reaction }) => {
     </dd>
     <dt>{copy.reactionDetails}</dt><dd><button type="button" data-button="quiet" onClick={() => {
       void navigator.clipboard.writeText(JSON.stringify({
-        name: r().name, authority: copy.reactionActor(r().actor.kind, nameOf(r().actor.id)),
+        name: r().name, authority: authority(),
         target: nameOf(r().target), home: home() ? nameOf(home()!) : copy.reactionNoHome,
         condition: conditionText(r().condition, nameOf), observation: (r().observation.evidence && evidenceText(r().observation.evidence!)) || copy.reactionHealth(r().observation.health), reaction: r(),
       }, null, 2)).then(() => failCopy(null), error => failCopy(copy.copyDraftFailure(error instanceof Error ? error.message : String(error))));

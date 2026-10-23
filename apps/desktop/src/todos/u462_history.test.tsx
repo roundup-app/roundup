@@ -166,6 +166,6 @@ it("u3299a_history_copy_keeps_removed_owner_identity", async () => {
   const history = within(panel()).getByRole("region", { name: "Todo history" });
   fireEvent.click(within(history).getByRole("button", { name: "Copy" }));
   await waitFor(() => expect(copied).toHaveLength(1));
-  expect(JSON.parse(copied[0]!).change).toEqual(change);
+  expect(JSON.parse(copied[0]!).history.changes).toEqual([change]);
   expect(todoCallsTo(m.app, "todo.update")).toHaveLength(0);
 });
