@@ -346,7 +346,13 @@ it.each(cancelledPickers.flatMap(cancelled => ["owner", "Home"].map(choice => ({
 
 it.each(cancelledPickers)("u3487b_naming_after_cancel_never_uses_the_cancelled_rows_order: $entry $dismissal", async ({ entry, dismissal }) => {
   const { app, store } = await cancelPicker(entry, dismissal);
-  app.handlers["todo.startWorkstream"] = () => workstream("w9", { name: "Ship it" });
+  app.handlers["todo.startWorkstream"] = () => {
+    const updated = todo(3, { owner: by("w9") });
+    store.todos = store.todos.map(todo => todo.id === 3 ? updated : todo);
+    app.emit(todoEvent("todo.updated", updated));
+
+    return workstream("w9", { name: "Ship it" });
+  };
   nextKey("j");
   nextKey("j");
   nextKey("o");
@@ -361,7 +367,7 @@ it.each(cancelledPickers)("u3487b_naming_after_cancel_never_uses_the_cancelled_r
   expect(callsTo(app, "todo.startWorkstream").map(call => call.params)).toEqual([{ id: 3, name: "Ship it", start: { kind: "queued" } }]);
   expect(callsTo(app, "todo.assign")).toEqual([]);
   expect(callsTo(app, "todo.move")).toEqual([]);
-  expect(store.todos).toEqual([todo(0, { owner: by("a") }), todo(1), todo(2), todo(3), todo(4)]);
+  expect(store.todos).toEqual([todo(0, { owner: by("a") }), todo(1), todo(2), todo(3, { owner: by("w9") }), todo(4)]);
   nextKey("x");
   await waitFor(() => expect(store.todos.find(todo => todo.id === 3)?.done).toBe(true));
   expect(callsTo(app, "todo.complete").map(call => call.params)).toEqual([{ id: 3 }]);
