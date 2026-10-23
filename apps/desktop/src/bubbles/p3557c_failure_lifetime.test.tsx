@@ -34,6 +34,7 @@ it.each(["close", "rename", "context"].flatMap(source => transitions.map(transit
   "p3557c_failure_lifetime_bubbles: $source $transition", async ({ source, transition }) => {
     const mounted = await mountBubbles();
     const { app, connected, setListed } = mounted;
+    fireEvent.click(document.querySelector(".bubble:not([hidden]) [aria-label=Minimise]")!);
     const text = "  unfinished e\u0301 🫧 雪  ";
     const retained = connected.drafts.edit({ surface: "bubbles", object: TERMINALS[2]!.incarnation, recipient: "3" }, { name: text, base: "other run" }, null, "ordinary").draft;
     const remove = app.handlers["terminal.close"]!;
@@ -60,6 +61,7 @@ it.each(["close", "rename", "context"].flatMap(source => transitions.map(transit
       storage.mockRestore();
       fireEvent.click(within(dialog).getByRole("button", { name: "Close" }));
       await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+      await waitFor(() => expect(document.activeElement).toBe(tab("2")));
     } else {
       app.handlers["daemon.ping"] = () => { throw new Error("Close refused\nTry again"); };
 
@@ -104,6 +106,7 @@ it.each(["close", "rename", "context"].flatMap(source => transitions.map(transit
       if (transition !== "cancel-edit") fireEvent.input(field(), { target: { value: "saved name" } });
       fireEvent.keyDown(field(), { key: transition === "cancel-edit" ? "Escape" : "Enter" });
       await waitFor(() => expect(field()).toBeNull());
+      await waitFor(() => expect(document.activeElement).toBe(tab(transition === "other-save" ? "1" : "2")));
     } else {
       app.handlers["terminal.close"] = () => { throw new Error("Still refused"); };
 
@@ -139,6 +142,7 @@ it.each(["delete", "save", "dismiss", "recover"])("p3557c_failure_lifetime_bubbl
     fireEvent.input(field(), { target: { value: "renamed" } });
     fireEvent.keyDown(field(), { key: "Enter" });
     await waitFor(() => expect(field()).toBeNull());
+    await waitFor(() => expect(document.activeElement).toBe(tab("2")));
   } else if (transition === "recover") {
     app.handlers["terminal.open"] = open;
     fireEvent.click(screen.getByRole("button", { name: "New Terminal" }));
