@@ -6,6 +6,12 @@ const draftProblem = (cause: string) => `${cause === "write" ? "Could not store 
 
 const draftSurfaceLabels = new Map(Object.entries({ rail: "Project item", agent: "Agent", workstream: "Workstream", terminal: "Terminal", orders: "Order", pads: "Pad", todos: "Todo", decisions: "Decision", thread: "Thread", brief: "Brief", notes: "Notes", steer: "Steer", ask: "Ask", header: "Project name", bubbles: "Terminal name", changes: "Agent notes", terminal_selection: "Terminal selection", queries: "Search", reactions: "Reaction" }));
 
+const reactionStates = new Map([["stopped", "Stopped"], ["invalidated", "PR changed"]]);
+
+const reactionHealth = new Map([["fired", "Sent at the scheduled time"], ["fired late", "Sent after the scheduled time"], ["expired: no firing at or after expires_at", "Expired before sending"], ["skipped: the instant was missed and the late policy is skip", "Scheduled time missed; skipped as requested"], ["observing", "Watching for changes"], ["not-observing", "Waiting to start watching"], ["unavailable", "Observation unavailable"], ["waiting", "Waiting for checks"], ["matched", "Condition met"], ["invalidated", "PR changed"], ["acceptance-failed", "Could not accept the firing; check again"], ["write-failed", "Could not save the firing; check again"], ["observation-save-failed", "Could not save observation; retry storage"]]);
+
+const reactionDelivery = new Map([["pending", "Waiting to send"], ["held", "Waiting to send"], ["delivered", "Delivered"], ["dropped", "Not delivered"], ["sending", "Sending"], ["passed", "Passed on"]]);
+
 const railDraftStatuses = new Map([["draft", "Draft"], ["pending", "Submitting…"], ["unknown", "Completion unconfirmed"], ["failed", "Not submitted"]]);
 
 const railDraftLabels = new Map([["rail-task", "Task"], ["rail-name", "Name"], ["rail-clear", "Clear reason"]]);
@@ -90,10 +96,10 @@ export const copy = {
   deliverables: "Made",
   deliverableCurrent: "Link · current",
   deliverableNotChecked: "Availability not checked",
-  deliverableRetained: "File · published revision",
-  deliverableRevision: (revision: number) => `Pad · revision ${revision}`,
+  deliverableRetained: "File · published copy",
+  deliverableRevision: () => "Pad · published copy",
   deliverableAttribution: (maker: string, home: string) => `${maker} · ${home}`,
-  openDeliverable: (title: string, maker: string, home: string, published: number) => `Open ${title} · ${maker} · ${home} · ${new Date(published).toLocaleString(undefined, { year: "numeric", month: "short", day: "numeric", hour: "numeric", minute: "2-digit", second: "2-digit", fractionalSecondDigits: 3 })}`,
+  openDeliverable: (title: string, maker: string, home: string, published: number) => `Open ${title} · ${maker} · ${home} · ${new Date(published).toLocaleString(undefined, { year: "numeric", month: "short", day: "numeric", hour: "numeric", minute: "2-digit", second: "2-digit" })}`,
   deliverableUnsafe: "Unavailable: only HTTP and HTTPS targets can open.",
   deliverableUnavailable: {
     "missing-revision": "Unavailable: retained revision is missing.",
@@ -403,7 +409,7 @@ export const copy = {
   copySessionId: "Copy session id",
   copied: "Copied",
   copyFailed: "Copy failed",
-  railDraftTaskTarget: (name: string, id: string) => `Task for ${name} (${id})`,
+  railDraftTaskTarget: (name: string) => `Work for ${name}`,
   railDraftTaskAction: (send: boolean) => send ? "Send to supervisor" : "Start Agent",
   railDraftUnknown: (project: string) => `A submission in ${project} may have completed. Its draft is kept; reopening does not retry it. Review the target before creating another request.`,
   railDraftBase: (name: string) => `Original name: ${name}`,
@@ -540,7 +546,10 @@ export const copy = {
   importAge: (minutes: number) => minutes < 1440 ? copy.riskTime(minutes) : `${Math.floor(minutes / 1440)} d ago`,
   importRowFix: "Choose it again, or Refresh.",
   importRowRefusal: (reason: string) => /retry|refresh|choose/i.test(reason) ? reason : `${reason} ${copy.importRowFix}`,
-  importUnnamed: "Conversation",
+  importUnnamed: "Unavailable conversation title",
+  importLocation: (cwd: string, project: string) => cwd === "" ? project : cwd.split(/[\\/]/).filter(Boolean).at(-1) ?? project,
+  unavailableHome: "Unavailable Workstream",
+  missingAgent: "an unavailable Agent",
   name: "Name",
   collapse: "Collapse",
   retryDoor: "Retry supervisor",
@@ -630,7 +639,7 @@ export const copy = {
   reactionCheckCreation: "Check creation",
   reactionCreationUnknown: (cause: string) => `Creation acceptance unknown. Check creation before saving another reaction. ${cause}`,
   reactionNotCreated: (cause: string) => `Reaction not created: ${cause}`,
-  reactionState: (state: string, health: string) => `${state}, ${health}`,
+  reactionState: (state: string, health: string) => state === "active" ? reactionHealth.get(health) ?? "Observation unavailable" : reactionStates.get(state) ?? "Unavailable",
   reactionName: "Name",
   reactionTarget: "Target Agent",
   reactionPickTarget: "Pick an Agent",
@@ -654,24 +663,52 @@ export const copy = {
   reactionPreview: "Preview",
   reactionIncomplete: "Not complete yet",
   reactionAuthority: "Authority",
-  reactionActor: (kind: string, id: string) => `Authorized by ${kind} ${id}`,
+  reactionActor: (kind: string, name: string | null) => kind === "user" ? "Authorized by you" : name === null ? "The authorizing Agent is unavailable" : `Authorized by ${name}`,
   reactionHome: "Home",
   reactionNoHome: "Project root",
-  reactionGone: (id: string) => `${id} (not in this Project)`,
+  reactionGone: () => "Unavailable Agent",
   reactionBound: "Bound",
   reactionRemaining: (remaining: number, max: number, rearm: boolean) => `${remaining} of ${max} firings left${rearm ? ", re-arms" : ""}`,
+  reactionHealth: (health: string) => reactionHealth.get(health) ?? "Observation details could not be explained.",
+  reactionDelivery: (status: string) => reactionDelivery.get(status) ?? "Delivery unknown",
+  reactionCause: (cause: string) => cause.startsWith("the PR head moved") ? "The PR has new commits. Create a new reaction for the current version."
+    : cause.includes("no longer names an Agent with a state") ? "An Agent is no longer available. Stop this reaction and choose an available Agent in a new one."
+    : cause.startsWith("authority refused:") ? "Permission to reach the Agent was refused. You can inspect or stop this reaction."
+    : cause === "a required check did not pass on the pinned head" ? "A required check did not pass on the selected version. Check the PR before trying again."
+    : cause === "a required check is pending, or none is required" || cause === "no required check concluded" ? "Waiting for required checks to finish on the selected version."
+    : cause === "no usable gh, login, GitHub remote or answer in time" ? "PR checks are unavailable. Check your GitHub login and connection, then refresh."
+    : cause.startsWith("the Worktree read failed:") ? "Could not read the Agent's work. Refresh before checking again."
+    : cause.startsWith("the Worktree holds no PR ") ? "The Agent's work has no matching PR. Check its PR or choose another Agent in a new reaction."
+    : cause === "no required-check evidence" ? "No required-check results are available. Refresh to check again."
+    : cause === "the evidence is stale; the last refresh failed or is old" ? "Check results are out of date. Refresh to read the current results."
+    : cause === "the forge read failed without a reason" ? "Could not read GitHub. Check your connection, then refresh."
+    : cause === "the evidence names no current head" ? "The PR's current version is unavailable. Refresh to check again."
+    : cause.startsWith("the PR is in ") ? "The Agent's PR belongs to another repository. Create a reaction for the correct PR."
+    : cause === "receiver gone" ? "The original Agent is no longer available. Choose an available Agent for new work."
+    : cause === "ask-first" ? "Waiting for your permission to send."
+    : cause === "takeover" ? "Waiting until you leave the Agent's Terminal."
+    : cause === "escalated" ? "Waiting for your answer."
+    : cause === "inbox" ? "The Agent's inbox is unavailable. Check the Agent before retrying."
+    : cause === "not accepted" ? "The Agent did not accept this Message. Check the Agent before retrying."
+    : cause === "passed" ? "This question was passed on."
+    : cause === "merged" ? "Included in a newer summary."
+    : cause.includes("unsupported") ? "This source cannot be watched. Stop this reaction and choose a supported condition."
+    : "Observation details could not be explained. Refresh to check again.",
+  reactionUnknownState: "Observation unclear",
+  reactionUnknownEvidence: "Observation details could not be explained. Copy includes the original details.",
+  reactionDetails: "Details",
   reactionCursor: "Last observed event",
   reactionNoEvidence: "No event recorded",
   reactionHead: "Pinned commit",
   reactionObservation: "Observation",
-  reactionGap: (gap: string) => `Not observed: ${gap}`,
-  reactionRecovery: (recovery: string) => `Restores with: ${recovery}`,
-  reactionMessage: (id: number) => `Message #${id}`,
+  reactionGap: (gap: string) => gap.startsWith("the Event history after ") ? "Earlier activity could not be read. This gap remains in the history." : (gap.startsWith("the Agent state was not read after Event ") || gap.startsWith("the Events after ")) ? "Agent activity could not be read. Nothing matched during that gap." : "Earlier observation details could not be explained.",
+  reactionRecovery: (recovery: string) => recovery === "the recorded source gap remains; authoritative current Agent state reconciled observation" ? "Current Agent activity is available again; the earlier gap remains." : recovery === "stop this reaction and create one naming the Agents that exist" ? "Stop this reaction and create one with an available Agent." : "Refresh to check current observation.",
+  reactionMessage: (_id: number) => "Message",
   reactionMessageState: "Delivery",
   reactionBackToFiring: "Back to firing",
   reactionFirings: "Firings",
   reactionNoFirings: "None yet",
-  reactionFiring: (ordinal: number, message: number, outcome: string, matched: boolean) => `#${ordinal}, Message #${message}, ${outcome}${matched ? "" : ", run by hand"}`,
+  reactionFiring: (ordinal: number, _message: number, outcome: string, matched: boolean) => `Firing ${ordinal} · ${reactionDelivery.get(outcome) ?? "Delivery unknown"}${matched ? "" : " · run by you"}`,
   reactionAgents: (names: string[], any: boolean) => `${any ? "Any of" : "All of"} ${names.join(", ")} finish`,
   reactionPrChecks: (repository: string, number: number) => `Checks pass on ${repository}#${number}`,
   reactionInstant: (at: string, late: string) => `At ${at}; ${late === "skip" ? "skip if missed" : "run once before expiry if missed"}`,

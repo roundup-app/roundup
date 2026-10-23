@@ -337,7 +337,7 @@ export const Pads = (props: {
         </div>
       </Show>
       <Show when={retentionProblem()}>{(problem) => <div role="alert" class="pad-retention pad-retention-shelf">
-        <p>{copy.draftRetention(connected.project.path, copy.pad, problem().cause)}</p>
+        <p>{copy.draftRetention(connected.project.name, copy.pad, problem().cause)}</p>
         <div class="diff-actions">
         <button data-button="primary" type="button" onClick={() => connected.drafts.retry()}>{copy.storageRetry}</button>
         <button data-button="quiet" type="button" onClick={() => void navigator.clipboard.writeText(name()).catch(error => failure.show(copy.copyDraftFailure(String(error))))}>{nameLabel}</button>
