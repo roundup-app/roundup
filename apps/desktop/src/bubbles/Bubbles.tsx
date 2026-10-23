@@ -60,7 +60,13 @@ export const Bubbles = (props: {
   const records = createMemo(() => drafts.list().filter(draft => draft.destination.surface === "bubbles"));
   const [recovering, recover] = createSignal(false);
   const [inspected, inspect] = createSignal<string>();
-  const [copyFailure, failCopy] = createSignal<string | null>(null);
+  const [copyFailure, failCopy] = createSignal<{ revision: string; message: string } | null>(null);
+  createEffect(() => {
+    const listed = records();
+    const held = untrack(copyFailure);
+
+    if (held && !listed.some(draft => draft.revision === held.revision)) failCopy(null);
+  });
   const shownDraft = () => records().find(draft => draft.revision === inspected()) ?? records().filter(draft => draft.status === "draft" && !draft.value.recovery).at(-1) ?? records().at(-1);
 
   const problem = () => {
@@ -77,8 +83,12 @@ export const Bubbles = (props: {
 
     if (!parsed?.success) return;
 
-    try { await navigator.clipboard.writeText(parsed.output.name); failCopy(null); }
-    catch (error) { failCopy(copy.copyDraftFailure(error instanceof Error ? error.message : String(error))); }
+    try {
+      await navigator.clipboard.writeText(parsed.output.name);
+      failCopy(held => held?.revision === draft!.revision ? null : held);
+    } catch (error) {
+      failCopy({ revision: draft!.revision, message: copy.copyDraftFailure(error instanceof Error ? error.message : String(error)) });
+    }
   };
 
   let recoveryPanel: HTMLDivElement | undefined;
@@ -96,7 +106,20 @@ export const Bubbles = (props: {
   };
 
   const [places, setPlaces] = createSignal<Record<string, Place>>(store.read());
-  const [failure, setFailure] = createSignal<string | null>(null);
+  const [failure, setFailure] = createSignal<{ message: string; terminal: { id: string; incarnation: string } | null } | null>(null);
+
+  const clearItemFailure = (terminal: { id: string; incarnation: string }) => {
+    setFailure(held => held?.terminal?.id === terminal.id && held.terminal.incarnation === terminal.incarnation ? null : held);
+  };
+
+  createEffect(() => {
+    const terminals = rail.terminals();
+
+    if (connected.daemonExit() !== null) return;
+    const held = untrack(failure);
+
+    if (held?.terminal && !terminals.some(terminal => terminal.id === held.terminal!.id && terminal.incarnation === held.terminal!.incarnation)) setFailure(null);
+  });
   const [opening, setOpening] = createSignal(false);
   const [wanted, setWanted] = createSignal<string | null>(null);
   const [layer, setLayer] = createSignal<HTMLElement>();
@@ -278,6 +301,10 @@ export const Bubbles = (props: {
   const close = async (id: string): Promise<void> => {
     if (closing().has(id)) return;
 
+    const terminal = rail.terminals().find(terminal => terminal.id === id);
+
+    if (!terminal) return;
+
     const active = document.activeElement;
     const controlHeldFocus = active instanceof Element && active.closest("[data-bubble]")?.getAttribute("data-bubble") === id;
     setClosing((ids) => new Set([...ids, id]));
@@ -285,7 +312,7 @@ export const Bubbles = (props: {
     try {
       await app.rpc("terminal.close", { id });
       await rail.refresh({ terminals: true });
-      setFailure(null);
+      clearItemFailure(terminal);
 
       if (controlHeldFocus) queueMicrotask(() => {
         const remaining = shown();
@@ -296,7 +323,7 @@ export const Bubbles = (props: {
     } catch (thrown) {
       if (!(thrown instanceof Error)) throw thrown;
 
-      setFailure(thrown.message);
+      setFailure({ message: thrown.message, terminal });
     } finally {
       setClosing((ids) => new Set([...ids].filter((held) => held !== id)));
     }
@@ -355,7 +382,7 @@ export const Bubbles = (props: {
 
       setFromRoot(rail.selected() === null ? opened.terminal_id : null);
       setWanted(opened.terminal_id);
-      setFailure(null);
+      setFailure(held => held?.terminal === null ? null : held);
       await rail.refresh({ terminals: true });
       show(opened.terminal_id);
 
@@ -363,7 +390,7 @@ export const Bubbles = (props: {
     } catch (thrown) {
       if (!(thrown instanceof Error)) throw thrown;
 
-      setFailure(thrown.message);
+      setFailure({ message: thrown.message, terminal: null });
 
       return null;
     } finally {
@@ -740,10 +767,11 @@ export const Bubbles = (props: {
     /** U2694b: Rename, Send to Agent ▸, Copy Link and Close, as the system menu of the tab. */
     const tabMenu = (x: number, y: number) => {
       const agents = rail.nodes;
+      const target = terminal();
 
       return contextMenu(app, [
         { id: "rename", label: copy.rename, run: start },
-        ...linkEntries(app, { kind: "terminal", id: id }, agents, (node) => rail.exitOf(node) === null, setFailure),
+        ...linkEntries(app, { kind: "terminal", id: id }, agents, (node) => rail.exitOf(node) === null, message => setFailure({ message, terminal: target })),
         { id: "close", label: copy.close, shortcut: lastTarget() === id ? copy.closeChord : undefined, run: () => close(id) },
       ], x, y);
     };
@@ -784,7 +812,9 @@ export const Bubbles = (props: {
                 const failure = rename(live, value);
 
                 if (submitted) drafts.settle(submitted, failure === null ? "acknowledged" : "failed");
-                setFailure(failure);
+
+                if (failure === null) clearItemFailure(live);
+                else setFailure({ message: failure, terminal: live });
 
                 if (failure !== null) openRecovery();
               }}
@@ -832,7 +862,7 @@ export const Bubbles = (props: {
         <Portal><Dialog.Positioner asChild={positioner => <aside {...positioner({})} />}><Dialog.Content class="draft-recovery bubble-recovery" ref={element => { recoveryPanel = element; }}>
           <Dialog.Title asChild={title => <h2 {...title({})}>{copy.unfinishedWork}</h2>} />
           <Dialog.Description class="draft-identity">{copy.draftIdentity(connected.project.name, copy.terminalName)}</Dialog.Description>
-          <ReservedLine message={(copyFailure()) || (problem() ? (copy.draftRetention(connected.project.name, copy.terminalName, problem()!.cause)) : null) || null} />
+          <ReservedLine message={(copyFailure()?.message) || (problem() ? (copy.draftRetention(connected.project.name, copy.terminalName, problem()!.cause)) : null) || null}><Show when={copyFailure()}><IconButton aria-label="Dismiss" onClick={() => failCopy(null)}><Icon name="x" /></IconButton></Show></ReservedLine>
           <Show when={records().length > 1}><For each={[...records()].reverse().sort((a, b) => Number(b.status === "draft") - Number(a.status === "draft"))}>{(draft, index) => <button type="button" data-button="quiet" aria-pressed={shownDraft()?.revision === draft.revision} onClick={() => inspect(draft.revision)}>{copy.draftIdentity(copy.inspectDraft, draft.status === "draft" ? copy.currentDraft : copy.draftStatus[draft.status], String(draft.value.base ?? ""), String(index() + 1))}</button>}</For></Show>
           <Show when={shownDraft()}>{draft => <>
             <p class="draft-identity">{copy.draftIdentity(String(draft().value.base ?? ""), draft().destination.recipient ?? copy.noDraftRecipient)}</p>
@@ -847,7 +877,7 @@ export const Bubbles = (props: {
           </div>
         </Dialog.Content></Dialog.Positioner></Portal>
       </Dialog.Root>
-      <ReservedLine overlay class={failure() ? "bubble-failure" : undefined} message={failure()} />
+      <ReservedLine overlay class={failure() ? "bubble-failure" : undefined} message={failure()?.message}><IconButton aria-label="Dismiss" onClick={() => setFailure(null)}><Icon name="x" /></IconButton></ReservedLine>
     </div>
   );
 };
