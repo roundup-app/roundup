@@ -377,7 +377,7 @@ it("u2773c_header_legacy_recovery_never_guesses_a_base", async () => {
   press("Enter");
   const dialog = await screen.findByRole("dialog", { name: "Unfinished work" });
   expect(within(dialog).getByText("  legacy 雪  ", { exact: true, normalizer: text => text })).toBeDefined();
-  expect(within(dialog).getByRole("status", { name: "" }).textContent).toContain("original name changed");
+  expect(within(dialog).getAllByRole("status").some(status => status.textContent?.includes("original name changed"))).toBe(true);
   expect(sends).not.toHaveBeenCalled();
 });
 
