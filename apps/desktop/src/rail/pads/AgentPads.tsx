@@ -152,8 +152,8 @@ export const PadRows = (props: { pads: AgentPads; depth: number; trail: readonly
   const todoMenu = (todo: Todo, event: MouseEvent) => {
     event.stopPropagation();
     openOnRelease(event, (x, y) => void contextMenu(connected.app, [
-      { id: "complete", label: copy.complete, enabled: !todo.done, run: async () => { props.pads.setFailure(await failureOf(() => connected.app.rpc("todo.complete", { id: todo.id }))); } },
-      ...linkEntries(connected.app, { kind: "todo", id: todo.id }, connected.rail.nodes, (node) => connected.rail.exitOf(node) === null, props.pads.setFailure),
+      ...(!todo.done ? [{ id: "complete", label: copy.complete, run: async () => { props.pads.setFailure(await failureOf(() => connected.app.rpc("todo.complete", { id: todo.id }))); } }] : []),
+      ...linkEntries(connected.app, { kind: "todo", id: todo.id }, connected.rail.nodes.filter((node) => connected.rail.exitOf(node) === null), (node) => connected.rail.exitOf(node) === null, props.pads.setFailure),
       { id: "delete", label: copy.delete, run: () => { setSelectedTodos([todo.id]); todoBulk.ask(); } },
     ], x, y));
   };
