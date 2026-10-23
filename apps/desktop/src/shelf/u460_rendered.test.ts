@@ -56,7 +56,7 @@ it("u460_rendered_bulk_actions_name_failures", async () => {
     await evaluate(`(() => { document.querySelector('.shelf-bulk button').click(); return true; })()`);
     await settle();
     await evaluate(`(() => { window.__fake.failNext(-32001, 'Injected deletion failure'); window.__question.answer(true); return true; })()`);
-    await browser("wait", "--text", "Could not delete");
+    await browser("wait", ".shelf-bulk [role=alert]");
     await settle();
 
     expect(await evaluate<string>("document.querySelector('.shelf-bulk').textContent")).toContain("Injected deletion failure");
