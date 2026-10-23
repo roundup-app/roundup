@@ -77,17 +77,83 @@
   background-color: var(--accent);
 }
 
-.todo-tick:checked::after {
-  content: "✓";
+/* U3769: the tick is an SVG stroke over the checked box; unchecked, its dash offset hides it. */
+.todo-tick-box {
+  position: relative;
+  display: inline-flex;
+  flex: none;
+}
+
+.todo-tick-mark {
   position: absolute;
   top: var(--space-1);
-  bottom: var(--space-1);
   left: 0;
-  right: var(--space-2);
-  font-size: var(--text-caption);
-  line-height: var(--space-4);
-  text-align: center;
-  color: var(--sunken);
+  width: var(--space-4);
+  height: var(--space-4);
+  pointer-events: none;
+  fill: none;
+  stroke: var(--sunken);
+  stroke-width: var(--stroke-tick);
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.todo-tick-mark path {
+  stroke-dasharray: 1;
+  stroke-dashoffset: 1;
+}
+
+.todo-tick:checked + .todo-tick-mark path { stroke-dashoffset: 0; }
+
+/* U3769: a separate decorative layer strikes each wrapped line without painting behind the readable title (D5). */
+.todo-row .shelf-title { position: relative; }
+.todo-row .todo-strike { position: absolute; inset: 0; pointer-events: none; }
+.todo-row .todo-strike::after {
+  content: attr(data-title);
+  color: transparent;
+  background-image: linear-gradient(var(--grey), var(--grey));
+  background-repeat: no-repeat;
+  background-position: left var(--strike-offset);
+  background-size: 0 var(--strike-thickness);
+  box-decoration-break: clone;
+  -webkit-box-decoration-break: clone;
+}
+
+.todo-row:has(.todo-tick:checked) .todo-strike::after { background-size: 100% var(--strike-thickness); }
+
+/* U3770: a finish plays the tick, ring and strike once; nothing carries `data-motion` at rest. Unchecking runs forward keyframes from drawn to hidden, with the same ease-out. */
+@keyframes todo-tick-draw { from { stroke-dashoffset: 1; } to { stroke-dashoffset: 0; } }
+@keyframes todo-tick-erase { from { stroke-dashoffset: 0; } to { stroke-dashoffset: 1; } }
+@keyframes todo-ring-pop { 0% { transform: scale(0.9); } 55% { transform: scale(1.06); } 100% { transform: scale(1); } }
+@keyframes todo-strike-grow { from { background-size: 0 var(--strike-thickness); } to { background-size: 100% var(--strike-thickness); } }
+@keyframes todo-strike-clear { from { background-size: 100% var(--strike-thickness); } to { background-size: 0 var(--strike-thickness); } }
+
+.todo-row[data-motion="play"] .todo-tick::before {
+  animation: todo-ring-pop var(--duration-ring) var(--ease-pop) both;
+}
+
+.todo-row[data-motion="play"] .todo-tick:checked + .todo-tick-mark path {
+  animation: todo-tick-draw var(--duration-tick) var(--ease-todo) var(--delay-tick) both;
+}
+
+.todo-row[data-motion="play"] .todo-tick:not(:checked) + .todo-tick-mark {
+  stroke: var(--text);
+}
+
+.todo-row[data-motion="play"] .todo-tick:not(:checked) + .todo-tick-mark path {
+  animation: todo-tick-erase var(--duration-tick) var(--ease-todo) both;
+}
+
+.todo-row[data-motion="play"]:has(.todo-tick:checked) .todo-strike::after {
+  animation: todo-strike-grow var(--duration-strike) var(--ease-todo) var(--delay-strike) both;
+}
+
+.todo-row[data-motion="play"]:not(:has(.todo-tick:checked)) .todo-strike::after {
+  animation: todo-strike-clear var(--duration-strike) var(--ease-todo) both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .todo-row .todo-tick::before, .todo-row .todo-tick-mark path, .todo-row .todo-strike::after { animation-name: none !important; }
 }
 
 .todo-tick:disabled { cursor: default; }
@@ -253,4 +319,30 @@
 
 @media (prefers-reduced-motion: reduce) {
   .todo-done-fold { transition: none; }
+}
+
+/* U3768: the bar and `<done>/<total>` sit above the first group in the quiet secondary type, taking no focus. */
+.todo-progress {
+  padding-inline: var(--space-2);
+  padding-block: var(--space-1);
+  font-size: var(--text-caption);
+  color: var(--grey);
+}
+
+.todo-progress-count {
+  flex: none;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+  text-align: end;
+}
+
+/* U3770: the count rolls in when a finish replaces it; a mounted count carries no animation. */
+@keyframes todo-count-roll { from { opacity: 0; transform: translateY(var(--space-1)); } to { opacity: 1; transform: none; } }
+
+.app-progress[data-motion="play"] .todo-progress-count {
+  animation: todo-count-roll var(--duration-count) var(--ease-todo) both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .todo-progress-count { animation-name: none !important; }
 }
