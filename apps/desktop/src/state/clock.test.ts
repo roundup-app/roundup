@@ -39,25 +39,13 @@ describe("u4 the reactive clock", () => {
       dispose();
     });
   });
-
-  it("u4_one_timer_serves_the_app_and_unmounting_clears_it", () => {
-    const counts: number[] = [];
-
-    createRoot((dispose) => {
-      createNow(() => 0);
-      counts.push(vi.getTimerCount());
-      dispose();
-    });
-    counts.push(vi.getTimerCount());
-
-    expect(counts).toEqual([1, 0]);
-  });
 });
 
 it("u3308_idle_display_demand_shares_the_clock_and_sleeps_without_catch_up", () => {
+  vi.setSystemTime(0);
   createRoot((dispose) => {
     const [visible, show] = createSignal(true);
-    const [active, activate] = createSignal(false);
+    const [active, activate] = createSignal(false, { equals: false });
     const clock = vi.fn(() => Date.now());
     const now = createNow(clock, () => false, visible);
     const board = now.subscribe(active);
@@ -65,14 +53,14 @@ it("u3308_idle_display_demand_shares_the_clock_and_sleeps_without_catch_up", () 
     now.subscribe(second);
     vi.advanceTimersByTime(120_000);
     activate(true);
-    expect(board()).toBe(Date.now());
+    expect(board()).toBe(120_000);
     const reads = clock.mock.calls.length;
     activate(true);
     demand(true);
     expect(vi.getTimerCount()).toBe(1);
     expect(clock).toHaveBeenCalledTimes(reads);
     vi.advanceTimersByTime(60_000);
-    expect(board()).toBe(Date.now());
+    expect(board()).toBe(180_000);
     activate(false);
     expect(vi.getTimerCount()).toBe(1);
     demand(false);
@@ -84,7 +72,7 @@ it("u3308_idle_display_demand_shares_the_clock_and_sleeps_without_catch_up", () 
     expect(clock).toHaveBeenCalledTimes(asleep);
     show(true);
     expect(clock).toHaveBeenCalledTimes(asleep + 1);
-    expect(board()).toBe(Date.now());
+    expect(board()).toBe(3_780_000);
     expect(vi.getTimerCount()).toBe(1);
     dispose();
     expect(vi.getTimerCount()).toBe(0);
