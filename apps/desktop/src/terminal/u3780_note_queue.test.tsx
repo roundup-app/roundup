@@ -99,3 +99,23 @@ it("u3780_two_agents_never_share_a_queue_or_a_draft", async () => {
   expect(within(document.body).queryByText("for Bo")).toBeNull();
   vi.restoreAllMocks();
 });
+
+
+it("u3787_the_agent_pane_has_no_textarea_outside_the_terminal", async () => {
+  for (const messages of [[], [note(1, "for Ann"), note(2, "for Bo", { to: "b" })]]) {
+    const { app, connected, container } = await mountNotes(AGENTS, TERMINALS, messages);
+
+    for (const id of ["a", "b", "a"]) {
+      connected.rail.select(id);
+      await waitFor(() => expect(container.querySelector(`.pane-screen [data-terminal="t-${id}"]`)).toBeTruthy());
+      await waitFor(() => expect(app.calls.some(call => call.method === "message.list" && call.params.to === id)).toBe(true));
+      await waitFor(() => expect(rowsOf()).toEqual(messages.filter(message => message.to === id).map(message => message.body)));
+
+      const pane = container.querySelector(".pane")!;
+
+      expect([...pane.querySelectorAll("textarea")].filter(field => !field.closest(".pane-screen"))).toEqual([]);
+    }
+
+    cleanup();
+  }
+});
