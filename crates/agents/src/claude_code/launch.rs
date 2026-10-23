@@ -4,88 +4,24 @@
 
 use std::collections::BTreeMap;
 use std::ffi::{OsStr, OsString};
-use std::io::{ErrorKind, Write};
+use std::io::ErrorKind;
 use std::os::unix::fs::PermissionsExt;
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex, PoisonError};
-use std::time::{Duration, Instant};
 
-use contracts::agent::Extras;
 use rpc::{OpenError, RpcError, code};
-use serde::{Deserialize, Serialize};
 use serde_json::{Map, Value, json};
 use tokio::sync::OnceCell;
 use unicode_normalization::UnicodeNormalization;
 
 use super::brief::{self, Role};
 use super::extras;
+use super::launch_files::{
+    ConfigLock, is_symlink, landing, replace_file, replace_text, shell_quote, socket_folder,
+};
+use super::models::{Lean, Pair};
 use super::plugins;
-
-/// F2, M11: the only tools a Door is started with; `ToolSearch` is there because its Brief tells it to load the deferred roundup tools with it, and `Skill` because its Brief tells it to run `hope:intent` on each ask (LC14). Every other tool Claude Code has, `Bash`, `Edit`,
-/// `Write` and `Agent` among them, is absent; the MCP servers' tools stay (F1).
-pub const DOOR_TOOLS: &str = "Read,Grep,Glob,ToolSearch,Skill";
-
-/// M2219: a Door's tools with no roundup server; its Brief no longer tells it to load tools, so `ToolSearch` goes.
-pub const DOOR_TOOLS_NO_MCP: &str = "Read,Grep,Glob,Skill";
-
-/// LC1: a scout's tools; it reads and searches, and `Bash` is how it searches a repository.
-pub const SCOUT_TOOLS: &str = "Read,Grep,Glob,Bash,ToolSearch";
-
-/// M2219 for a scout.
-pub const SCOUT_TOOLS_NO_MCP: &str = "Read,Grep,Glob,Bash";
-
-/// LC1: what a Role's child starts with, beyond LC2's settings, which every row shares.
-pub struct Profile {
-    /// `--tools` with roundup's MCP server and without it; `None` is every tool.
-    pub tools: Option<(&'static str, &'static str)>,
-    /// Skills are on: no `--disable-slash-commands`, and the Project's skills are listed.
-    pub skills: bool,
-    /// The bundled plugins passed with `--plugin-dir`, by name (LC5, LC14).
-    pub bundled_plugins: &'static [&'static str],
-    /// The user's global `CLAUDE.md` is appended to the Brief file (LC5).
-    pub global_instructions: bool,
-}
-
-/// LC1: the one table of launch profiles, a row for each lean Role.
-pub const PROFILES: [(Role, Profile); 3] = [
-    (
-        Role::Door,
-        Profile {
-            tools: Some((DOOR_TOOLS, DOOR_TOOLS_NO_MCP)),
-            // A41: a `/command` sent to a Door runs there.
-            skills: true,
-            bundled_plugins: &["hope"],
-            global_instructions: false,
-        },
-    ),
-    (
-        Role::Scout,
-        Profile {
-            tools: Some((SCOUT_TOOLS, SCOUT_TOOLS_NO_MCP)),
-            skills: false,
-            bundled_plugins: &[],
-            global_instructions: false,
-        },
-    ),
-    (
-        Role::Agent,
-        Profile {
-            tools: None,
-            skills: true,
-            bundled_plugins: &["hope", "hunch", "hold"],
-            global_instructions: true,
-        },
-    ),
-];
-
-/// LC1: `role`'s row.
-pub fn profile(role: Role) -> &'static Profile {
-    &PROFILES
-        .iter()
-        .find(|(row, _)| *row == role)
-        .expect("PROFILES has a row for every Role")
-        .1
-}
+use super::profiles::profile;
 
 /// LC2: the settings keys that sign a child in.
 const LOGIN_KEYS: [&str; 5] = [
@@ -131,10 +67,6 @@ pub const STATE_EVENTS: [&str; 9] = [
     "SessionEnd",
 ];
 
-/// A config lock this old was left by a holder that died: Claude Code keeps `proper-lockfile`'s
-/// 10 s default, and a live holder refreshes the lock's mtime every 5 s.
-const STALE: Duration = Duration::from_secs(10);
-
 /// One thread at a time takes Claude's config lock: two that both found it stale would each
 /// break it, and the second break would remove the lock the first had just taken.
 static TRUSTING: Mutex<()> = Mutex::new(());
@@ -174,7 +106,7 @@ pub struct Launcher {
     /// launch; gone with the Launcher.
     sockets: Arc<std::sync::OnceLock<tempfile::TempDir>>,
     /// B2706: the permission mode each Agent's latest normal Attempt runs in, for its notes.
-    pub(super) modes: Arc<Mutex<std::collections::HashMap<String, String>>>,
+    pub(super) modes: Arc<Mutex<std::collections::HashMap<String, super::models::LaunchMode>>>,
 }
 
 struct Delivery {
@@ -211,49 +143,6 @@ impl std::fmt::Debug for Launcher {
             .field("claude_json", &self.claude_json)
             .field("rup", &self.rup)
             .finish_non_exhaustive()
-    }
-}
-
-/// A36: the Model and Effort an Agent is started on; `None` is passed to nothing, so the user's
-/// own Claude Code default applies.
-#[derive(Clone, Debug, Default, PartialEq, Eq)]
-pub struct Pair {
-    pub yolo: bool,
-    pub model: Option<String>,
-    pub effort: Option<String>,
-    /// M2219: launch with no roundup MCP server; false (the default) keeps it.
-    pub mcp_off: bool,
-    /// LC2, LC4, LC7: a child a Door or an Agent started launches lean; `None` is an Agent the
-    /// user started, which keeps the user's full setup (LC6). A Door is always lean.
-    pub lean: Option<Lean>,
-}
-
-/// What distinguishes a lean child within its Role, kept in the Project's data folder beside its
-/// settings so that every resume launches the same.
-#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
-pub struct Lean {
-    /// LC4: a scout, not a worker.
-    #[serde(default)]
-    pub scout: bool,
-    /// LC7, LC8: the extras its Door named.
-    #[serde(default)]
-    pub extras: Extras,
-    /// LC8: the next launch applies a changed Brief, so it passes `--system-prompt-snapshot off`.
-    #[serde(default)]
-    pub fresh_brief: bool,
-}
-
-impl Pair {
-    /// A36: the variables that pin a set value above whatever the Daemon's environment holds,
-    /// since Claude Code reads them before the flag and before the settings `model`.
-    pub fn env(&self) -> BTreeMap<String, String> {
-        [
-            (super::models::MODEL_VARIABLE, &self.model),
-            (super::models::EFFORT_VARIABLE, &self.effort),
-        ]
-        .into_iter()
-        .filter_map(|(name, value)| Some((name.to_owned(), value.clone()?)))
-        .collect()
     }
 }
 
@@ -622,14 +511,31 @@ impl Launcher {
         argv.push("--messaging-socket-path".into());
         argv.push(socket.to_string_lossy().into_owned());
         if pair.yolo {
+            self.modes
+                .lock()
+                .unwrap_or_else(PoisonError::into_inner)
+                .remove(&id.to_string());
             argv.extend(["--permission-mode", "bypassPermissions"].map(String::from));
         } else {
-            // B2706: Claude Code takes the user's own mode; a note names that same mode.
-            let mode = super::inbox::default_mode(&self.conversation_dir, &cwd);
+            // A note names the same selected or inherited mode as this launch.
+            let mode = match pair.permission_mode {
+                Some(mode) => {
+                    let mode = super::models::permission_mode(mode);
+                    argv.extend(["--permission-mode".into(), mode.into()]);
+                    mode.to_owned()
+                }
+                None => super::inbox::default_mode(&self.conversation_dir, &cwd),
+            };
             self.modes
                 .lock()
                 .unwrap_or_else(std::sync::PoisonError::into_inner)
-                .insert(id.to_string(), mode);
+                .insert(
+                    id.to_string(),
+                    super::models::LaunchMode {
+                        effective: mode,
+                        selected: pair.permission_mode,
+                    },
+                );
         }
         if pair.yolo {
             argv.push("--dangerously-skip-permissions".into());
@@ -1018,138 +924,14 @@ impl Launcher {
     }
 }
 
-/// Claude Code refuses a messaging socket in a folder anyone else can reach.
-fn socket_folder() -> std::io::Result<tempfile::TempDir> {
-    let folder = tempfile::Builder::new().prefix("rup-").tempdir()?;
-    std::fs::set_permissions(folder.path(), std::fs::Permissions::from_mode(0o700))?;
-    Ok(folder)
-}
-
 fn parse_id(id: &str) -> Option<u64> {
     id.parse()
         .ok()
         .filter(|number: &u64| number.to_string() == id)
 }
 
-/// The directory lock Claude Code 2.1.286 holds while it saves its config (`<config>.lock`, as
-/// npm's `proper-lockfile` makes it); Claude re-reads the config under it. Released on drop.
-struct ConfigLock {
-    path: PathBuf,
-}
-
-impl ConfigLock {
-    /// Wait for the lock, breaking it once stale. An error once it has been held past `STALE`
-    /// and then some, which no live holder does.
-    fn take(config: &Path) -> std::io::Result<Self> {
-        let mut path = config.as_os_str().to_owned();
-        path.push(".lock");
-        let path = PathBuf::from(path);
-        let located = |err: std::io::Error| {
-            std::io::Error::new(err.kind(), format!("{}: {err}", path.display()))
-        };
-        if let Some(folder) = path.parent() {
-            std::fs::create_dir_all(folder).map_err(located)?;
-        }
-        let deadline = Instant::now() + STALE + Duration::from_secs(1);
-        let mut pause = Duration::from_millis(5);
-        loop {
-            match std::fs::create_dir(&path) {
-                Ok(()) => return Ok(Self { path }),
-                Err(err) if err.kind() != ErrorKind::AlreadyExists => return Err(located(err)),
-                Err(_) if is_stale(&path) => match std::fs::remove_dir(&path) {
-                    Err(err) if err.kind() != ErrorKind::NotFound => return Err(located(err)),
-                    _ => continue,
-                },
-                Err(_) if Instant::now() >= deadline => {
-                    return Err(std::io::Error::other(format!(
-                        "{} is still held after {} s",
-                        path.display(),
-                        STALE.as_secs() + 1
-                    )));
-                }
-                Err(_) => {}
-            }
-            std::thread::sleep(pause);
-            pause = (pause * 2).min(Duration::from_millis(200));
-        }
-    }
-}
-
-impl Drop for ConfigLock {
-    fn drop(&mut self) {
-        if let Err(err) = std::fs::remove_dir(&self.path) {
-            eprintln!(
-                "agents: could not release {}: {err}; it goes stale in {} s",
-                self.path.display(),
-                STALE.as_secs()
-            );
-        }
-    }
-}
-
-/// A lock whose mtime is in the future (as `proper-lockfile` sets it) is not stale.
-fn is_stale(lock: &Path) -> bool {
-    std::fs::metadata(lock)
-        .and_then(|meta| meta.modified())
-        .is_ok_and(|modified| modified.elapsed().is_ok_and(|age| age > STALE))
-}
-
-/// One word for a shell, whatever the path holds.
-fn shell_quote(word: &str) -> String {
-    format!("'{}'", word.replace('\'', r"'\''"))
-}
-
-/// Write to a fresh file beside `path`, then rename it over `path` itself, so a reader never sees
-/// half a file and two writers never share a temp file. A symlink at `path` is replaced, never
-/// written through: the files in the Project are not ours to trust. The old permissions are kept
-/// (the config holds credentials).
-fn replace_file(path: &Path, value: &Value) -> std::io::Result<()> {
-    replace_bytes(path, &serde_json::to_vec_pretty(value)?)
-}
-
-/// [`replace_file`] for text.
-fn replace_text(path: &Path, text: &str) -> std::io::Result<()> {
-    replace_bytes(path, text.as_bytes())
-}
-
-fn replace_bytes(path: &Path, bytes: &[u8]) -> std::io::Result<()> {
-    let parent = path.parent().unwrap_or(Path::new("."));
-    std::fs::create_dir_all(parent)?;
-    let mut staged = tempfile::NamedTempFile::new_in(parent)?;
-    staged.write_all(bytes)?;
-    staged.as_file().sync_all()?;
-    if let Ok(existing) = std::fs::symlink_metadata(path)
-        && existing.is_file()
-    {
-        staged.as_file().set_permissions(existing.permissions())?;
-    }
-    staged.persist(path).map_err(|err| err.error)?;
-    Ok(())
-}
-
-/// The file Claude's config at `path` really is: through any symlinks (a dotfiles manager's), to
-/// a target that may not exist yet, so a dangling link stays a link.
-fn landing(path: &Path) -> std::io::Result<PathBuf> {
-    match path.canonicalize() {
-        Err(err) if err.kind() == ErrorKind::NotFound => match std::fs::read_link(path) {
-            // A relative target is relative to the link's own folder.
-            Ok(next) => landing(&path.parent().unwrap_or(Path::new("")).join(next)),
-            // Not a link, or nothing there at all: the write creates `path` itself.
-            Err(err) if matches!(err.kind(), ErrorKind::NotFound | ErrorKind::InvalidInput) => {
-                Ok(path.to_owned())
-            }
-            Err(err) => Err(err),
-        },
-        found => found,
-    }
-}
-
 fn agents_dir(dir: &Path) -> PathBuf {
     dir.join("agents")
-}
-
-fn is_symlink(path: &Path) -> bool {
-    std::fs::symlink_metadata(path).is_ok_and(|meta| meta.file_type().is_symlink())
 }
 
 fn settings_path(dir: &Path, id: u64) -> PathBuf {

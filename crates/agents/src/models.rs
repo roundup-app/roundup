@@ -19,6 +19,7 @@ fn choices(table: &[(&str, &str)]) -> Vec<Choice> {
 /// `models.list`: what the Adapter offers.
 pub fn list() -> ModelList {
     ModelList {
+        engines: choices(claude_code::engines()),
         models: choices(claude_code::models()),
         efforts: choices(claude_code::efforts()),
     }
@@ -30,7 +31,9 @@ fn invalid(message: String) -> RpcError {
 
 /// An id the Adapter does not list is `INVALID_PARAMS` naming it.
 pub fn check_listed(model: Option<&str>, effort: Option<&str>) -> Result<(), RpcError> {
-    let ModelList { models, efforts } = list();
+    let ModelList {
+        models, efforts, ..
+    } = list();
     for (what, id, listed) in [("model", model, models), ("effort", effort, efforts)] {
         if let Some(id) = id
             && !listed.iter().any(|choice| choice.id == id)
@@ -84,11 +87,37 @@ pub fn resolve(
     let own = project.roles.iter().find(|entry| entry.role == role.id());
     Pair {
         yolo: false,
+        permission_mode: None,
         model: model.or_else(|| own.and_then(|entry| entry.model.clone())),
         effort: effort.or_else(|| own.and_then(|entry| entry.effort.clone())),
         mcp_off: false,
         lean: None,
     }
+}
+
+/// U3802: refuse unsupported launch engines before allocating an Agent or starting a program.
+pub fn check_engine(engine: Option<&str>) -> Result<(), RpcError> {
+    if let Some(id) = engine
+        && !list().engines.iter().any(|choice| choice.id == id)
+    {
+        return Err(invalid(format!(
+            "engine {id:?} is not one the Adapter lists"
+        )));
+    }
+    Ok(())
+}
+
+/// U3801: an Agent cannot select broader launch permissions on the user's behalf.
+pub fn check_permissions(
+    actor: &contracts::Actor,
+    mode: Option<contracts::agent::PermissionMode>,
+) -> Result<(), RpcError> {
+    if mode.is_some() && actor.kind != contracts::ActorKind::User {
+        return Err(RpcError::forbidden(
+            "only the user selects a permission mode",
+        ));
+    }
+    Ok(())
 }
 
 #[cfg(test)]
