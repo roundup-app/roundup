@@ -324,7 +324,7 @@ fn offered_tools() -> Vec<Offered> {
         offered::<todo::CreateParams>("todo.create", "Create a Todo."),
         offered::<todo::TodoId>("todo.get", "Read one Todo."),
         offered_without_params("todo.list", "List every Todo."),
-        offered::<todo::UpdateParams>("todo.update", "Change a Todo's title or body."),
+        offered::<todo::UpdateParams>("todo.update", "Change a Todo's title, body or estimate."),
         offered::<todo::CommentParams>(
             "todo.comment",
             "Leave a comment on a Todo only when the user must read it, such as a question or a blocker. Write one short plain line, at most 280 characters; it shows in the user's Inbox until they open the Todo. Never report progress or results here.",

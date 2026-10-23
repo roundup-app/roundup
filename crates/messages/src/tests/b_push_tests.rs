@@ -650,6 +650,7 @@ async fn b21_two_stopped_changes_release_one_newest_entry_of_weight_two() {
             home: Some("top".into()),
             owner: None,
             refs: vec![],
+            estimate_minutes: None,
         });
         let changes = seen.changed(&digest::Sources {
             nodes: &nodes,

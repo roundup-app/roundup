@@ -22,6 +22,7 @@ const TODO: Todo = {
   home: null,
   owner: null,
   refs: [],
+  estimate_minutes: null,
 };
 
 const NOT_FOUND = -32001;
