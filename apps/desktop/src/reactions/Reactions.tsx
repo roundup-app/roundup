@@ -238,6 +238,10 @@ const Facts = (props: { reaction: Reaction }) => {
   };
 
   const home = () => r().home;
+
+  const observation = () => r().state !== "active" ? copy.reactionState(r().state, r().observation.health)
+    : (r().observation.evidence && evidenceText(r().observation.evidence!)) || copy.reactionHealth(r().observation.health);
+
   const authority = () => copy.reactionActor(r().actor.kind, rail.nodes.some(node => node.id === r().actor.id) ? nameOf(r().actor.id) : null);
 
   return <Show when={messageId() !== null} fallback={<dl class="reaction-facts">
@@ -250,16 +254,16 @@ const Facts = (props: { reaction: Reaction }) => {
     <dt>{copy.reactionExpires}</dt><dd><time datetime={r().expires_at}>{copy.reactionWhen(r().expires_at)}</time></dd>
     <dt>{copy.reactionObservation}</dt>
     <dd>
-      <span>{(r().observation.evidence && evidenceText(r().observation.evidence!)) || copy.reactionHealth(r().observation.health)}</span>
+      <span>{observation()}</span>
       <Show when={r().observation.gap}>{gap => <p role="alert">{copy.reactionGap(gap())}</p>}</Show>
       <Show when={r().observation.cause}>{cause => <p role="alert">{copy.reactionCause(cause())}</p>}</Show>
-      <Show when={r().observation.recovery}>{recovery => <p>{copy.reactionRecovery(recovery())}</p>}</Show>
+      <Show when={!r().observation.cause?.includes("unsupported") && r().observation.recovery}>{recovery => <p>{copy.reactionRecovery(recovery())}</p>}</Show>
     </dd>
     <dt>{copy.reactionDetails}</dt><dd><button type="button" data-button="quiet" onClick={() => {
       void navigator.clipboard.writeText(JSON.stringify({
         name: r().name, authority: authority(),
         target: nameOf(r().target), home: home() ? nameOf(home()!) : copy.reactionNoHome,
-        condition: conditionText(r().condition, nameOf), observation: (r().observation.evidence && evidenceText(r().observation.evidence!)) || copy.reactionHealth(r().observation.health), reaction: r(),
+        condition: conditionText(r().condition, nameOf), observation: observation(), reaction: r(),
       }, null, 2)).then(() => failCopy(null), error => failCopy(copy.copyDraftFailure(error instanceof Error ? error.message : String(error))));
     }}>{copy.copy}</button><Show when={copyFailure()}>{failure => <ErrorLine message={failure()} />}</Show></dd>
     <dt>{copy.reactionFirings}</dt>
@@ -274,12 +278,11 @@ const Facts = (props: { reaction: Reaction }) => {
         <dt>{copy.reactionTarget}</dt><dd>{nameOf(value().to)}</dd>
         <dt>{copy.reactionMessage(messageId()!)}</dt><dd class="reaction-instruction">{value().body}</dd>
         <dt>{copy.reactionMessageState}</dt><dd data-state={value().status}>{copy.reactionDelivery(value().status)}{value().reason ? ` · ${copy.reactionCause(value().reason!)}` : ""}</dd>
+        <dt>{copy.reactionDetails}</dt><dd><button type="button" data-button="quiet" onClick={() => {
+          void navigator.clipboard.writeText(JSON.stringify({ target: nameOf(value().to), message: value() }, null, 2))
+            .then(() => failCopy(null), error => failCopy(copy.copyDraftFailure(error instanceof Error ? error.message : String(error))));
+        }}>{copy.copy}</button><Show when={copyFailure()}>{failure => <ErrorLine message={failure()} />}</Show></dd>
       </dl>}</Show>
-      <Show when={message()?.value}>{value => <button type="button" data-button="quiet" onClick={() => {
-        void navigator.clipboard.writeText(JSON.stringify({ target: nameOf(value().to), message: value() }, null, 2))
-          .then(() => failCopy(null), error => failCopy(copy.copyDraftFailure(error instanceof Error ? error.message : String(error))));
-      }}>{copy.copy}</button>}</Show>
-      <Show when={copyFailure()}>{failure => <ErrorLine message={failure()} />}</Show>
     </section>
   </Show>;
 };
