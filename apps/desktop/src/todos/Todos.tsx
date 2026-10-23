@@ -1,3 +1,4 @@
+import { createOwnerAssignment } from "./ownerAssignment";
 import { todoCreationEditor } from "../drawer/editors";
 import ListChecks from "lucide-solid/icons/list-checks";
 import { IconButton } from "../ui/IconButton";
@@ -38,7 +39,7 @@ import { ScopeAction } from "../shelf/ScopeAction";
 import { OwnerGroups } from "../shelf/OwnerGroups";
 import { NewWorkstream } from "./NewWorkstream";
 import { OwnerPicker } from "./OwnerPicker";
-import { ownerGroups, ownersOnRail, sameOwner } from "../shelf/scope";
+import { ownerGroups, ownersOnRail } from "../shelf/scope";
 import type { Actor } from "@contracts/Actor";
 import { CHORDS, TEXT_FIELDS, chordsFor, chordsOf } from "../keys/chords";
 import { KeyHint } from "../keys/KeyHint";
@@ -336,45 +337,9 @@ export const Todos = (props: {
 
   // U3720: a chosen Todo moves to its new group's row once `todo.updated` has refetched, which replaces the row that held focus.
   const [naming, setNaming] = createSignal<number | null>(null);
-  const [revealed, setRevealed] = createSignal<string | null>(null);
-  const [regrouped, setRegrouped] = createSignal<{ id: number; owner: Actor | null } | null>(null);
-
-  createEffect(() => {
-    const request = regrouped();
-    const arrived = request && todos.byId().get(request.id);
-
-    if (!request || !arrived || !sameOwner(arrived.owner, request.owner)) return;
-
-    const id = request.id;
-
-    queueMicrotask(() => {
-      const held = document.activeElement;
-
-      if (held && held !== document.body && held.isConnected && !held.closest("[role=menu]")) return (setRegrouped(null), setRevealed(null));
-
-      const button = rowButtonOf(id);
-
-      if (button) {
-        button.focus();
-        setRegrouped(null);
-        setRevealed(null);
-      }
-    });
+  const { revealed, setRevealed, setRegrouped, assign } = createOwnerAssignment({
+    connected, todos, advance: () => pickAdvance, fail: (id, message) => pickFails.get(id)?.(message),
   });
-
-  const assign = async (id: number, owner: Actor | null) => {
-    const advance = pickAdvance;
-    const message = await failureOf(() => connected.app.rpc("todo.assign", { id, owner }));
-
-    pickFails.get(id)?.(message);
-
-    if (message === null && advance) await advance();
-    else if (message === null) {
-      // U3720, U138: the destination unfolds before its row exists, so focus has a button to land on.
-      setRevealed(ownersOnRail(connected).find(each => sameOwner(each.actor, owner))?.id ?? "unassigned");
-      setRegrouped({ id, owner });
-    }
-  };
 
   registerKeys(shelfKeyScope, [{
     action: CHORDS.find(row => row.keys === "O")!,
