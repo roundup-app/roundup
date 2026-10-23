@@ -81,6 +81,20 @@ export const Pads = (props: {
 
   let plusButton: HTMLButtonElement | undefined;
   const failure = createFailure();
+  const [itemFailure, setItemFailure] = createSignal<{ incarnation: string; message: string } | null>(null);
+
+  const reportItemFailure = (pad: Pad, message: string | null) => {
+    if (message !== null) {
+      // A late reply for a deleted source must not resurrect its error on the list.
+      if (pads().some(current => current.incarnation === pad.incarnation)) setItemFailure({ incarnation: pad.incarnation, message });
+    } else if (itemFailure()?.incarnation === pad.incarnation) setItemFailure(null);
+  };
+
+  createEffect(() => {
+    const failed = itemFailure();
+
+    if (failed && !pads().some(pad => pad.incarnation === failed.incarnation)) setItemFailure(null);
+  });
   const scope = shelfScope(connected);
 
   const create = () =>
@@ -136,11 +150,15 @@ export const Pads = (props: {
       }
     });
 
-  const makeYours = (name: string) =>
-    failure.run(async () => {
+  const makeYours = async (name: string) => {
+    const pad = pads().find(pad => pad.name === name);
+
+    if (!pad) return;
+    reportItemFailure(pad, await failureOf(async () => {
       await connected.app.rpc("pad.setOwner", { name, owner: USER });
       await list.reload();
-    });
+    }));
+  };
 
   const shown = shownPads(connected, list);
 
@@ -162,11 +180,19 @@ export const Pads = (props: {
 
   shelfRowKeys({
     focused: selection.focused,
-    exportPad: name => void failure.run(async () => {
-      const path = await connected.app.chooseSavePath([name, ".md"].join(""));
+    exportPad: async name => {
+      const pad = pads().find(pad => pad.name === name);
 
-      if (path !== null) await connected.app.rpc("pad.export", { name, path });
-    }),
+      if (!pad) return;
+
+      const message = await failureOf(async () => {
+        const path = await connected.app.chooseSavePath([name, ".md"].join(""));
+
+        if (path !== null) await connected.app.rpc("pad.export", { name, path });
+      });
+
+      if (message !== null) reportItemFailure(pad, message);
+    },
     remove: name => bulk.ask(false, name),
   });
 
@@ -275,7 +301,8 @@ export const Pads = (props: {
           <span>{copy.pad}</span>
         </button>
       </ScopeAction>
-      <ReservedLine message={failure.message() ?? list.failure() ?? (retentionProblem() ? copy.draftRetention(connected.project.name, copy.pad, retentionProblem()!.cause) : null)}>
+      <ReservedLine message={itemFailure()?.message ?? failure.message() ?? list.failure() ?? (retentionProblem() ? copy.draftRetention(connected.project.name, copy.pad, retentionProblem()!.cause) : null)}>
+        <Show when={itemFailure()}><button aria-label="Dismiss failure" data-button="quiet" type="button" onClick={() => setItemFailure(null)}>{copy.close}</button></Show>
         <Show when={retentionProblem()}>
         <button data-button="primary" type="button" onClick={() => connected.drafts.retry()}>{copy.storageRetry}</button>
         <button data-button="quiet" type="button" onClick={() => void navigator.clipboard.writeText(name()).catch(error => failure.show(copy.copyDraftFailure(String(error))))}>{nameLabel}</button>
@@ -291,7 +318,7 @@ export const Pads = (props: {
         pads={pads}
         shown={() => group().items}
         onMakeYours={(name) => void makeYours(name)}
-        onLateFailure={failure.show}
+        onItemFailure={reportItemFailure}
         onAssign={(name, anchor) => setPicking({ id: name, anchor })}
         failWith={(name, show) => pickFails.set(name, show)}
         rowButtons={rowButtons}
@@ -349,7 +376,7 @@ const PadRows = (props: {
   pads: Accessor<readonly Pad[]>;
   shown: Accessor<readonly Pad[]>;
   onMakeYours: (name: string) => void;
-  onLateFailure: (message: string) => void;
+  onItemFailure: (pad: Pad, message: string | null) => void;
   onAssign: (name: string, anchor: HTMLElement) => void;
   failWith: (name: string, show: (message: string | null) => void) => void;
   rowButtons: Map<string, HTMLButtonElement>;
@@ -382,7 +409,7 @@ const PadRow = (props: Parameters<typeof PadRows>[0] & { pad: Pad; parts: Parame
             data-selected={props.selection.selected().includes(pad.name) ? "true" : undefined}
             data-shelf-row
             onContextMenu={(event: MouseEvent) => openOnRelease(event, (x, y) => void contextMenu(connected.app, [
-              ...linkEntries(connected.app, { kind: "pad", id: pad.name }, connected.rail.nodes, (node) => connected.rail.exitOf(node) === null, props.onLateFailure),
+              ...linkEntries(connected.app, { kind: "pad", id: pad.name }, connected.rail.nodes, (node) => connected.rail.exitOf(node) === null, message => props.onItemFailure(pad, message)),
               { id: "delete", label: copy.delete, run: () => { props.selection.replace([pad.name]); props.bulk.ask(); } },
             ], x, y))}
             class="pad-inset"
@@ -428,7 +455,8 @@ const PadRow = (props: Parameters<typeof PadRows>[0] & { pad: Pad; parts: Parame
                   <PadDrawer
                     name={pad.name}
                     pads={props.pads}
-                    onLateFailure={props.onLateFailure}
+                    onLateFailure={message => props.onItemFailure(pad, message)}
+                    onFailureCleared={() => props.onItemFailure(pad, null)}
                   />
                 ), activationSource(event)))
               }
@@ -439,7 +467,7 @@ const PadRow = (props: Parameters<typeof PadRows>[0] & { pad: Pad; parts: Parame
               <button data-button="row-action" type="button" class="word light pad-assign" aria-label={copy.assignPadNamed(pad.name)} aria-disabled={ownersToOffer(connected, pad.owner).length === 0 || undefined} title={ownersToOffer(connected, pad.owner).length === 0 ? copy.noOtherOwners : undefined} onClick={(event) => { if (ownersToOffer(connected, pad.owner).length > 0) props.onAssign(pad.name, event.currentTarget); }}>{copy.assign}</button>
             </div>
             <p class="shelf-meta">{copy.ownedBy}{connected.rail.nameOf(pad.owner)}</p>
-            <ReservedLine overlay message={failed()} />
+            <ReservedLine overlay message={failed()}><button aria-label="Dismiss assignment failure" data-button="quiet" type="button" onClick={() => setFailed(null)}>{copy.close}</button></ReservedLine>
           </ShelfRow>
   );
 };
