@@ -4,10 +4,20 @@
 import "../tokens.css";
 import "../styles.css";
 import "./styles.css";
+import { Terminal } from "@xterm/xterm";
+import { xtermOptions } from "./emulator";
 import { createXtermEmulators } from "./emulator";
 const OSC = (body) => `\x1b]${body}\x07`;
 const turn = (command, output, exit = 0) => OSC("7;file://host/work") + OSC("133;A") + "$ " + OSC("133;B") + command + "\r\n" + OSC("133;C") + output.map((line) => `${line}\r\n`).join("") + OSC(`133;D;${exit}`);
-const emulator = createXtermEmulators()("t");
+const plain = new URLSearchParams(location.search).has("plain");
+const terminal = plain ? new Terminal(xtermOptions) : null;
+const emulator = terminal ? {
+  show: host => terminal.open(host),
+  fit: () => ({ cols: terminal.cols, rows: terminal.rows }),
+  write: (bytes, parsed) => terminal.write(bytes, parsed),
+  onInput: listener => terminal.onData(text => listener(new TextEncoder().encode(text))),
+  selection: () => terminal.getSelection(),
+} : createXtermEmulators()("t");
 const host = document.getElementById("host");
 const marked = new URLSearchParams(location.search).get("marks") !== "none";
 emulator.show(host, false);

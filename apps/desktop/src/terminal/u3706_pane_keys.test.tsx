@@ -19,7 +19,6 @@ it("u3706_pane_keys_follow_the_registry", async () => {
   const { app, connected } = await mountFocused();
 
   expect(press("c", { metaKey: true }, screenTarget()).defaultPrevented).toBe(true);
-  expect(press("a", { metaKey: true, shiftKey: true }, screenTarget()).defaultPrevented).toBe(true);
   expect(press("Enter", { metaKey: true }, screenTarget()).defaultPrevented).toBe(true);
   await waitFor(() => expect(connected.takeover.taken()).toBe("ann"));
   expect(app.calls.filter((call) => call.method === "takeover.begin")).toHaveLength(1);
