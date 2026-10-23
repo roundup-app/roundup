@@ -132,14 +132,10 @@ export const Inbox = () => {
     return next;
   });
 
-  const failureKey = (row: AgentRow) => row.decision ? `${row.key}:d:${row.decision.id}` : row.key;
+  const failureKey = (row: Pick<AgentRow, "key" | "decision">) => row.decision ? `${row.key}:d:${row.decision.id}` : row.key;
 
   createEffect(() => {
-    const keys = new Set(rail.nodes.map((node) => {
-      const decision = decisions.of(node.id);
-
-      return decision ? `a:${node.id}:d:${decision.id}` : `a:${node.id}`;
-    }));
+    const keys = new Set(rail.nodes.map((node) => failureKey({ key: `a:${node.id}`, decision: decisions.of(node.id) })));
 
     setFailures((current) => [...current.keys()].some((key) => !keys.has(key))
       ? new Map([...current].filter(([key]) => keys.has(key))) : current);
