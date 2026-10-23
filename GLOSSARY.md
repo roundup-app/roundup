@@ -690,6 +690,8 @@ A PNG, video or checks JSON under the artifact-relative `artifacts/ux/<id>/` (jo
 
 **Change** (`Change`): initial Values or the before and after Values of one successful Todo mutation, or a Hand-off (`handed` names the Agent, `before` and `after` equal). `seq` orders Changes; `changed_at` is the Unix milliseconds the Daemon recorded it (absent for Changes recorded before it existed). Lists and the Rail do not carry them.
 
+**Handed** (`Handed`, `todo.listHanded`, `TodosState.handed`): a Project-scoped read of the latest qualifying Hand-off for each current Agent-owned Todo, as Todo id, owner and `Change.seq`, in sequence order. Qualification requires the Hand-off to follow the last owner-changing Change. At most one fact per Todo; done/blocked stay independent Todo facts. No History Values or Touch. An empty reply means none; the App's null means pending/failed and unknown, including stale replies after a failed refresh.
+
 **Hand-off** (`todo.hand`, `HandParams`): the one Message, `Next: #<id> <title>`, that gives an idle Agent its next owned open, unblocked Todo, with a Change of kind `handed` recorded first. A Todo is handed to its current owner exactly when no `handed` Change for that owner follows the last Change of its `owner`. Only the Daemon calls `todo.hand`.
 
 **Read History** (`todo.readHistory`, `ReadHistoryParams`): log the calling Actor's read Touch with `through`, the last fetched Change's sequence. `unread` names the first Change after the previous read. Equal clock times do not merge reads and Changes.

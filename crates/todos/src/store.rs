@@ -4,7 +4,7 @@ use std::collections::{BTreeSet, HashMap};
 use std::path::Path;
 use std::time::{SystemTime, UNIX_EPOCH};
 
-use contracts::todo::{Change, Comment, Todo, UnreadComment, Values};
+use contracts::todo::{Change, Comment, Handed, Todo, UnreadComment, Values};
 use contracts::{Actor, ActorKind};
 use rpc::RpcError;
 use rusqlite::{Connection, OptionalExtension, params};
@@ -181,6 +181,42 @@ impl Store {
                 .map_err(RpcError::internal)?,
             refs: self.refs(id)?,
         })
+    }
+
+    /// Bounded to one fact per current Todo. Values stay in SQLite, never in History replies.
+    pub(crate) fn list_handed(&self) -> Result<Vec<Handed>, RpcError> {
+        let mut stmt = self
+            .db
+            .prepare(
+                "SELECT c.todo, c.seq, c.handed, t.owner
+             FROM todos t JOIN changes c ON c.seq = (
+                SELECT last.seq FROM changes last WHERE last.todo = t.id AND (
+                    last.handed IS NOT NULL OR json_extract(last.before_values, '$.owner')
+                        IS NOT json_extract(last.after_values, '$.owner'))
+                ORDER BY last.seq DESC LIMIT 1
+             ) WHERE c.handed IS NOT NULL AND t.owner IS NOT NULL ORDER BY c.seq",
+            )
+            .map_err(RpcError::internal)?;
+        let rows = stmt
+            .query_map([], |r| {
+                Ok((
+                    r.get::<_, u32>(0)?,
+                    r.get::<_, u32>(1)?,
+                    r.get::<_, String>(2)?,
+                    r.get::<_, String>(3)?,
+                ))
+            })
+            .map_err(RpcError::internal)?;
+        let mut handed = Vec::new();
+        for row in rows {
+            let (todo, seq, to, owner) = row.map_err(RpcError::internal)?;
+            let to = parse_creator(&to).map_err(RpcError::internal)?;
+            let owner = parse_creator(&owner).map_err(RpcError::internal)?;
+            if owner.kind == ActorKind::Agent && to == owner {
+                handed.push(Handed { todo, seq, owner });
+            }
+        }
+        Ok(handed)
     }
 
     pub(crate) fn list(&self) -> Result<Vec<Todo>, RpcError> {
