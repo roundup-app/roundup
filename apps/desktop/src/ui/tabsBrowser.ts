@@ -5,7 +5,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { createServer, type ViteDevServer } from "vite";
 import { afterAll, beforeAll, expect } from "vitest";
-import { appServer, type AppServer } from "../testing/appServer";
+import { appServer, warmApp, type AppServer } from "../testing/appServer";
 
 const exec = promisify(execFile);
 
@@ -47,6 +47,7 @@ beforeAll(async () => {
   if (baseRoot) {
     baselineServer = await createServer({ root: baseRoot, configFile: join(baseRoot, "vite.config.ts"), cacheDir: join(profile, "base-vite"), server: { port: 0, hmr: false }, logLevel: "silent" });
     await baselineServer.listen();
+    await warmApp(baselineServer);
     baselineOrigin = baselineServer.resolvedUrls!.local[0]!;
   }
 

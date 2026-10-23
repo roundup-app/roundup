@@ -7,19 +7,12 @@
   overflow-y: auto;
   overscroll-behavior: contain;
   max-height: calc(100vh - var(--space-6) * 2);
-  box-shadow: var(--shadow-drawer);
   overflow-wrap: anywhere;
 }
 
 .import-panel [data-part="title"] {
   font-weight: 600;
   margin-block-end: var(--space-2);
-}
-
-.import-period button:focus-visible {
-  outline: none;
-  text-decoration: underline;
-  text-underline-offset: var(--space-1);
 }
 
 .import-period,

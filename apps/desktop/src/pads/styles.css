@@ -258,8 +258,6 @@
 }
 
 .pad-rich-editor .milkdown .milkdown-slash-menu {
-  border-radius: var(--radius-drawer);
-  box-shadow: var(--shadow-drawer);
 }
 
 .pad-rich-editor .milkdown .milkdown-slash-menu li {
@@ -389,3 +387,12 @@
 .pad-assign { display: inline-flex; visibility: hidden; flex: none; position: relative; z-index: 1; margin-left: var(--space-3); }
 .pad-inset:hover .pad-assign, .pad-inset:focus-within .pad-assign { visibility: visible; }
 [data-dnd-dragging] .pad-assign { visibility: hidden !important; }
+
+/* Crepe's reset overrides native text selection with its object-selection wash. */
+.pad-rich-editor .milkdown .ProseMirror::selection,
+.pad-rich-editor .milkdown .ProseMirror *::selection,
+.pad-rich-editor .milkdown .ProseMirror .ProseMirror-selectednode::selection,
+.pad-rich-editor .milkdown .ProseMirror .ProseMirror-selectednode *::selection {
+  background-color: var(--text-selection);
+  color: var(--text-selection-ink);
+}

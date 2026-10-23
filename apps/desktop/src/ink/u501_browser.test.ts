@@ -14,8 +14,8 @@ const failClose = async () => {
   await browser("hover", ".project-tab");
   await wait(`(() => { const close = document.querySelector('[aria-label^="Close "]'); return close?.checkVisibility() && Number(getComputedStyle(close).opacity) > 0; })()`);
   await browser("click", '[aria-label^="Close "]');
-  await wait(`document.activeElement?.textContent === 'Cancel'`);
-  await browser("find", "role", "button", "click", "--name", "Stop and close", "--exact");
+  await wait(`!!window.__question.shown`);
+  await browser("eval", "window.__question.answer(true)");
   await wait(`document.querySelector('[role=alert]')?.textContent.includes('could not close project')`);
 };
 

@@ -82,9 +82,6 @@ One command of a shell Terminal, from its prompt through its output, between the
 **ReservedLine** (user label: none; the place a failure, status or count shows):
 The one component through which the webview shows a temporal message (U3807). In its *line* form it is always mounted with the height of one line; in its *overlay* form it is out of the flow. A message appearing or going moves no other element.
 
-**Excerpt**:
-The text of a Terminal's selection that "Send to agent" carries to an Agent, cut to 6 000 bytes with its end kept (U515, U516). Sent as a Message `note` fenced with the Turn's facts when known.
-
 **Terminal owner** (`TerminalOwner`, `TerminalOwners`, `with_terminal_owner`, internal `terminal_owner`):
 The Agent or Door attached to a Terminal as its Message receiver, with its Attempt, Status revision and receiver ending facts. A Run or the user's shell has no Message receiver, even when an Agent or Workstream owns its Terminal.
 
@@ -394,6 +391,12 @@ An extra label after a name; it never changes the Glyph.
 **Live line**:
 The Status label, in a Rail row's `title` and the Agent's pane; the Rail draws none.
 
+**Unseen** (`unseen`, user label: Unread result):
+An Agent's turn finish the user has not yet viewed. It is separate from Kind, a Decision, result acceptance and unseen output in a plain Terminal.
+
+**Finish count** (`finished`):
+The number of an Agent's observed Kind transitions directly from `working` to `idle` or `done`, across its Attempts. It identifies newer finishes without claiming that their results were accepted or checked.
+
 ### Agents at work
 
 **Adapter**:
@@ -649,6 +652,9 @@ One `($, e, next)` function an Extension registers.
 
 **Token**:
 One named look value in `apps/desktop/src/tokens.css` (a colour, type step, space step, radius, shadow, blur, duration or easing curve); no other file holds such a literal. `--blur-bubble-backdrop` is the 12px background-pane blur beneath a focused Terminal Bubble.
+
+**Text selection Token** (`--text-selection`, `--text-selection-ink`):
+The platform blue selected-text background and its matching foreground. Browser editors and active/inactive Terminal selections resolve the same colours (U3529c); row and tab selection use their own Tokens.
 
 **Section head**:
 The icon, capital label and trailing rule that name a section of the Rail or Shelf.
@@ -924,8 +930,16 @@ Missing evidence names its affected contributor; neither value is a subscription
 **Measurement time** (`MeasurementTime`):
 Elapsed since first observed start, separate from summed Attempt nanoseconds, whose
 disjoint categories give human wait, tools, coordination and model execution precedence
-in that order; positive startup/idle is other time and unexplained duration is unmeasured.
+in that order; positive startup is other time and unexplained duration is unmeasured.
+Observed idle intervals and time after the Agent stops contribute to neither the sum
+nor any category. An Attempt ends when its Agent stops; an unknown end stays disclosed.
 Incomparable clock lifetimes never authorize continuous execution through a gap.
 
 **Collapsible**:
 An expandable App region with a named trigger; closing it retains its content.
+
+**Native question** (`NativeQuestion`, `App.ask`, `NativeAlert`):
+A user-requested system confirmation containing its title, complete consequences and two named buttons. Only an affirmative answer authorizes the captured action; cancellation or a failed request authorizes nothing. NativeAlert owns pending-request suppression, retry and focus return, while the originating surface owns targets and mutations.
+
+**Shared floating surface** (`Dialog`, `--surface`, `--button-neutral`, `--button-accent-ink`, `--radius-pill`):
+The Token-owned opaque panel, hairline, radius and tight depth used by web forms, anchored panels/menus and Terminal Bubbles. Within it the existing primary and quiet button kinds have filled pill variants. `Dialog.Root.instant` suppresses fades for recovery; keyboard actions and reduced motion are always instant. Native questions retain system appearance.

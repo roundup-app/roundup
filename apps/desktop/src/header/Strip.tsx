@@ -37,10 +37,10 @@ export const Strip = (props: {
   /** A click on a Tab mark, and leader `⇧J`: that Project opens and its most urgent Agent is selected (U181). */
   onMark: (path: string) => void;
   onRename: (path: string, name: string, base?: string) => ReturnType<ProjectsState["rename"]>;
-  onClose: (path: string) => void;
+  onClose: (path: string) => void | Promise<void>;
   onChoose: () => void;
   /** U2694a: the seam that shows a tab's system menu. */
-  app?: Pick<AppCalls, "showContextMenu"> | undefined;
+  app: Pick<AppCalls, "showContextMenu" | "ask">;
 }) => {
   const [asking, setAsking] = createSignal<string | null>(null);
   // An edge that says the same thing is not a change: a slot resizes the list only when its cap really appears, changes or goes, so measuring cannot chase its own layout.
@@ -58,6 +58,8 @@ export const Strip = (props: {
   const question = createMemo(() => props.tabs.find((tab) => tab.path === asking()));
 
   const requestClose = (tab: StripTab) => {
+    if (asking() !== null) return;
+
     if (tab.exitText !== null || tab.running.length === 0) props.onClose(tab.path);
     else {
       setCloseOpener(document.activeElement instanceof HTMLElement ? document.activeElement : undefined);
@@ -263,12 +265,13 @@ export const Strip = (props: {
         {edge(copy.right, right())}
       </div>
       <IconButton data-flat-add="" class="strip-add" aria-label={copy.openAFolder} onClick={() => props.onChoose()}>{copy.addProjectMark}</IconButton>
-      <CloseDialog opener={closeOpener()} tab={question()} onCancel={() => setAsking(null)} onStop={() => {
+      <CloseDialog app={props.app} opener={closeOpener()} tab={question()} onCancel={() => setAsking(null)} onStop={() => {
         const path = asking();
 
         if (!path) return;
         setAsking(null);
-        props.onClose(path);
+
+        return props.onClose(path);
       }} />
     </div>
   );

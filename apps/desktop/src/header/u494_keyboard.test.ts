@@ -4,36 +4,6 @@ import { browser, read, wait, url } from "../ui/tabsBrowser";
 /** The Drawer and Project tabs mounted together: `u496Fixture.tsx` through `u496.html`. */
 const fixture = (query = "") => url(`${new URL("./u496Fixture.tsx", import.meta.url).pathname.replace("Fixture.tsx", ".html").replace(/^.*\/src\//, "/src/")}${query}`);
 
-it("u494_dialog_keyboard_wrap_escape_and_return_confirmation", async () => {
-  await browser("open", url("/harness.html?seed=tree-40"));
-  await wait(`!!window.__fake && document.querySelectorAll('.rail-row').length > 2`);
-  await browser("eval", `document.querySelector('[role=tab]').focus()`);
-  await browser("hover", ".project-tab");
-  await browser("eval", `(() => { const button = document.querySelector('.tab-close'); button.focus(); button.click(); })()`);
-
-  const role = "alertdialog";
-  await wait(`!!document.querySelector('[role=${role}] select, [role=${role}] button')`);
-  await browser("eval", `(() => { const panel = document.querySelector('[role=${role}]'); window.__origin = document.querySelector('.tab-close'); window.__fields = [...panel.querySelectorAll('select,input,button')]; window.__fields.at(-1).focus(); })()`);
-  await browser("press", "Tab");
-  await wait(`document.activeElement === window.__fields[0]`);
-  await browser("press", "Shift+Tab");
-  await wait(`document.activeElement === window.__fields.at(-1)`);
-  await browser("press", "Escape");
-  await wait(`!document.querySelector('[role=${role}]') && document.activeElement === window.__origin`);
-  expect(await read<boolean>(`window.__origin.isConnected`)).toBe(true);
-}, 90_000);
-
-it("u494_modal_blocks_underlying_actions_confirmation", async () => {
-  await browser("open", url("/harness.html?seed=tabs-8"));
-  await wait(`document.querySelectorAll('.project-tab').length === 8 && !!window.__fake`);
-  await browser("eval", `document.querySelector('[role=tab]').focus()`);
-  await browser("eval", `document.querySelector('.project-tab:nth-child(2) .tab-close').click()`);
-  await wait(`!!document.querySelector('[role=alertdialog]')`);
-  const writes = await read<number>(`[...document.querySelectorAll('.project-tab')].flatMap(t=>window.__fake.app.of(t.dataset.path).calls).filter(c=>c.method==='terminal.write').length`);
-  await browser("press", "x");
-  expect(await read<number>(`[...document.querySelectorAll('.project-tab')].flatMap(t=>window.__fake.app.of(t.dataset.path).calls).filter(c=>c.method==='terminal.write').length`)).toBe(writes);
-}, 90_000);
-
 for (const target of ["input", "textarea", "[contenteditable]", ".xterm"]) it(`u496_editor_and_terminal_keep_escape_${target}`, async () => {
   await browser("open", fixture());
   await wait(`!!document.querySelector('#origin')`);
@@ -61,8 +31,8 @@ it("u495_tabs_preserve_project_actions", async () => {
   await browser("click", '[role=tab][aria-selected=true] .tab-mark');
   await wait(`document.querySelector('[data-marks]').textContent === '1'`);
   await browser("click", '[aria-label="Close Authored 雪 name"]');
-  await wait(`!!document.querySelector('[role=alertdialog]')`);
-  await browser("find", "role", "button", "click", "--name", "Stop and close", "--exact");
+  await wait(`!!window.__question.shown`);
+  await browser("eval", "window.__question.answer(true)");
   await wait(`document.querySelectorAll('[role=tab]').length === 7`);
   expect(await read<boolean>(`!document.querySelector('[role=tab][data-value="/project 1 雪"]')`)).toBe(true);
 }, 90_000);
@@ -150,9 +120,9 @@ it("u494_removed_origin_is_safe", async () => {
   await wait(`document.querySelectorAll('[role=tab]').length === 8`);
   await browser("hover", ".project-tab");
   await browser("eval", `(() => { const button = document.querySelector('.tab-close'); button.focus(); button.click(); })()`);
-  await wait(`!!document.querySelector('[role=alertdialog]')`);
+  await wait(`!!window.__question.shown`);
   await browser("eval", `window.__removed = document.querySelector('.tab-close'); window.__removed.remove()`);
-  await browser("press", 'Escape');
-  await wait(`!document.querySelector('[role=alertdialog]')`);
+  await browser("eval", "window.__question.answer(false)");
+  await wait(`!window.__question.shown`);
   expect(await read<boolean>(`document.activeElement.isConnected && document.activeElement !== window.__removed`)).toBe(true);
 }, 60_000);

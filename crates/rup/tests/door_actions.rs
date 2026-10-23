@@ -318,8 +318,7 @@ async fn b37_real_claude_receives_d1_after_a_scripted_server_error() {
 
 #[tokio::test]
 async fn a39_the_placement_call_is_one_slim_request() {
-    // Inject dirty parent credentials into a test subprocess, without mutating this runner's
-    // shared environment. The production call must strip them before its observer starts.
+    // A15: inject nested-run markers without mutating the shared runner environment.
     if std::env::var_os("ROUNDUP_A39_OBSERVER_CHILD").is_none() {
         let mut command = std::process::Command::new(std::env::current_exe().unwrap());
         command
@@ -329,10 +328,7 @@ async fn a39_the_placement_call_is_one_slim_request() {
                 "--nocapture",
             ])
             .env("ROUNDUP_A39_OBSERVER_CHILD", "1");
-        for name in agents::claude_code::MARKERS
-            .into_iter()
-            .chain(agents::claude_code::OFF_PLAN)
-        {
+        for name in agents::claude_code::MARKERS {
             command.env(name, "must-be-stripped");
         }
         let output = command.output().unwrap();
@@ -359,7 +355,7 @@ async fn a39_the_placement_call_is_one_slim_request() {
         r#"#!/usr/bin/env python3
 import os, sys, json
 with open({log:?}, 'w') as f:
-    json.dump({{'argv':sys.argv[1:], 'files':os.listdir('.'), 'cwd':os.getcwd(), 'pid':os.getpid(), 'off_plan':[n for n in {off_plan:?} if n in os.environ], 'markers':[n for n in {markers:?} if n in os.environ]}}, f)
+    json.dump({{'argv':sys.argv[1:], 'files':os.listdir('.'), 'cwd':os.getcwd(), 'pid':os.getpid(), 'markers':[n for n in {markers:?} if n in os.environ]}}, f)
 os.environ['CLAUDE_CONFIG_DIR'] = {config:?}
 os.environ['ANTHROPIC_BASE_URL'] = {url:?}
 os.environ['ANTHROPIC_API_KEY'] = {key:?}
@@ -373,7 +369,6 @@ os.execv({binary:?}, [{binary:?}, *sys.argv[1:]])
         url = model.url,
         key = aimock::KEY,
         binary = aimock::package_bin("claude").to_str().unwrap(),
-        off_plan = agents::claude_code::OFF_PLAN,
         markers = agents::claude_code::MARKERS
     );
     std::fs::write(&wrapper, script).unwrap();
@@ -472,7 +467,6 @@ os.execv({binary:?}, [{binary:?}, *sys.argv[1:]])
         "Placement process remains running or unreaped"
     );
     assert_eq!(launch["files"], json!([]));
-    assert_eq!(launch["off_plan"], json!([]));
     assert_eq!(launch["markers"], json!([]));
     assert!(!std::path::Path::new(launch["cwd"].as_str().unwrap()).exists());
     let argv = launch["argv"].as_array().unwrap();
@@ -509,8 +503,8 @@ os.execv({binary:?}, [{binary:?}, *sys.argv[1:]])
             "",
             "--strict-mcp-config",
             "--disable-slash-commands",
-            "--setting-sources",
-            "",
+            "--settings",
+            argv[15],
             "--system-prompt",
             argv[17]
         ])
@@ -717,6 +711,11 @@ async fn a26_a_subagent_started_by_a_subagent_sits_three_deep_under_the_door_thr
 #[tokio::test]
 async fn a41_a_leading_slash_runs_the_skill() {
     let project = daemon::start_real("a41_skill", &[]);
+    std::fs::write(
+        project.dir.path().join("CLAUDE.md"),
+        "A41_PROJECT_INSTRUCTIONS",
+    )
+    .unwrap();
     let skill = project.dir.path().join(".claude/skills/a41-proof");
     std::fs::create_dir_all(&skill).unwrap();
     std::fs::write(skill.join("SKILL.md"), "---\nname: a41-proof\ndescription: Prove Ask delivery preserves skill invocation.\n---\nA41_SKILL_MARKER. Reply with Skill received.\n").unwrap();
@@ -754,6 +753,12 @@ async fn a41_a_leading_slash_runs_the_skill() {
     })
     .await
     .unwrap_or_else(|_| panic!("skill request missing from model journal: {journal:#?}"));
+    assert!(
+        journal.iter().any(|entry| entry["body"]
+            .to_string()
+            .contains("A41_PROJECT_INSTRUCTIONS")),
+        "Project instructions remain available"
+    );
     assert!(
         journal.iter().all(|entry| entry["response"]["status"]
             .as_i64()
