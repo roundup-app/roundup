@@ -44,6 +44,19 @@ The authoritative Project name an edit was captured against, distinct from an op
 **Project data**:
 The databases, launch files and Pad files roundup keeps for a Project, in `<app data>/projects/<key>/` and never in the Project folder (N1); only Worktrees go in the Project's `.roundup/` (G2).
 
+**Engine** (`engine`, `ModelList.engines`):
+The opaque identity of an implemented Adapter offered by `models.list`, with its display label.
+Today the Claude Code Adapter offers `claude-code` labelled `Claude Code`; no other engine is
+implemented. `agent.spawn` and `rail.startDoor` accept an offered id; omission selects the
+existing Adapter. Model and Effort ids remain opaque outside their Adapter.
+
+**Permission mode** (`PermissionMode`, `permissionMode` on launch calls):
+The user's choice for one normal Attempt (`LaunchMode` retains it for internal restarts): `default`, `acceptEdits`, `plan` or `auto`.
+Omission passes no permission flag, preserving the vendor's own default. `agent.spawn`,
+`rail.startDoor` and `agent.resume` apply it to their launch; `workstream.clear` applies it
+only to the next fresh Door launch. YOLO ignores it. An Agent cannot choose it, and it
+never changes an already running Attempt or stores an app-wide default in the Daemon.
+
 **Agent**:
 One supervised identity, with a Status, on the Rail under its Workstream; each launch of its program is an Attempt, and at most one runs at a time.
 _Avoid_: bot, worker; and _session_ for an Agent (only a Grant's `session` scope, Claude Code's own word, may carry it).

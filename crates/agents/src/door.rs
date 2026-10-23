@@ -104,12 +104,15 @@ impl Agents {
         handoff: String,
         iteration: u32,
         bound: Duration,
+        permission_mode: Option<contracts::agent::PermissionMode>,
     ) -> Result<RailNode, RpcError> {
         let held = self.shared.node(id)?;
         let params = StartDoorParams {
             id: id.to_owned(),
             model: held.model,
             effort: held.effort,
+            permission_mode,
+            engine: None,
         };
         let node = self
             .start_door_with(ctx, params, Some(handoff), true)
@@ -157,10 +160,18 @@ impl Agents {
     pub(super) async fn start_door_with(
         &self,
         ctx: &Ctx,
-        StartDoorParams { id, model, effort }: StartDoorParams,
+        StartDoorParams {
+            id,
+            model,
+            effort,
+            permission_mode,
+            engine,
+        }: StartDoorParams,
         first: Option<String>,
         startup_context: bool,
     ) -> Result<RailNode, RpcError> {
+        models::check_engine(engine.as_deref())?;
+        models::check_permissions(&ctx.actor, permission_mode)?;
         let _lifecycle = self.shared.door_lifecycle.read().await;
         let id = id.as_str();
         let saved = {
@@ -182,7 +193,9 @@ impl Agents {
                     pair.effort.as_deref().or(held.effort.as_deref()),
                 )?;
             }
-            return self.resume_saved(ctx, id, START_DOOR_ACK_BOUND).await;
+            return self
+                .resume_saved(ctx, id, START_DOOR_ACK_BOUND, permission_mode)
+                .await;
         }
         let attempt = {
             let mut rail = self.shared.rail();
@@ -223,7 +236,14 @@ impl Agents {
         };
         let project = self.project_dir().to_owned();
         if let Err(err) = self
-            .run_agent(id, &attempt, &project, first, startup_context)
+            .run_agent(
+                id,
+                &attempt,
+                &project,
+                first,
+                startup_context,
+                permission_mode,
+            )
             .await
         {
             let mut rail = self.shared.rail();
