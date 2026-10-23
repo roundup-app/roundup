@@ -28,7 +28,7 @@ const RecoveryEntry = () => {
   return <Show when={entries().length > 0}><button type="button" onClick={() => void entries()[0]!.run?.()}>Recover unfinished work</button></Show>;
 };
 
-export const mountAskBar = async (asks: Ask[] = [], selected: string | null = null, tree: RailNode[] | Promise<RailNode[]> = structuredClone(TREE), pane = false, path = `/ask-${crypto.randomUUID()}`) => {
+export const mountAskBar = async (asks: Ask[] = [], selected: string | null = null, tree: RailNode[] | Promise<RailNode[]> = structuredClone(TREE), pane = false, path = `/ask-${crypto.randomUUID()}`, reducedMotion = false) => {
   const app = createFakeApp();
 
   app.handlers["rail.tree"] = () => tree instanceof Promise ? [] : tree;
@@ -37,7 +37,7 @@ export const mountAskBar = async (asks: Ask[] = [], selected: string | null = nu
   app.handlers["terminal.snapshot"] = () => ({ cols: 100, rows: 30, after: 0, data: "existing output" });
   app.handlers["terminal.resize"] = () => null;
   const { factory } = fakeEmulators();
-  const connected = await connectProject(app, { name: "p", path }, () => false, () => 0);
+  const connected = await connectProject(app, { name: "p", path }, () => reducedMotion, () => 0);
 
   if (tree instanceof Promise) {
     app.handlers["rail.tree"] = () => tree;
