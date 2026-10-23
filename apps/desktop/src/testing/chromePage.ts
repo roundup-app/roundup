@@ -45,6 +45,8 @@ export type ChromePage = {
   until(predicate: string, ms?: number): Promise<void>;
   /** Moves the pointer to the page point (x, y), which makes `:hover` apply there. */
   hover(x: number, y: number): Promise<void>;
+  /** Scrolls with a real wheel event at the page point; native legacy deltas agree with deltaY. */
+  wheel(x: number, y: number, deltaY: number): Promise<void>;
   /** Moves the pointer to (x, y) with the primary button down or up: `down` makes `:active` apply on the element there. */
   pointer(type: "down" | "move" | "up", x: number, y: number): Promise<void>;
   /** One real left click (press, then release) at the page point (x, y). */
@@ -380,6 +382,9 @@ export const openPage = async (
     },
     hover: async (x, y) => {
       await send("Input.dispatchMouseEvent", { type: "mouseMoved", x, y }, session);
+    },
+    wheel: async (x, y, deltaY) => {
+      await send("Input.dispatchMouseEvent", { type: "mouseWheel", x, y, deltaX: 0, deltaY }, session);
     },
     pointer: async (type, x, y) => {
       if (type !== "move") held = type === "down";

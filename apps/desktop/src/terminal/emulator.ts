@@ -1,3 +1,4 @@
+import { showScrollbars } from "../scrollHover";
 import tokens from "../tokens.css?inline";
 import { DEFAULT_FONT_SIZE } from "./fontSize";
 import { createLinkProvider } from "./linkProvider";
@@ -166,7 +167,15 @@ export const createXtermEmulators = (
 
     element.style.height = "100%";
     terminal.loadAddon(fitter);
-    terminal.onRender(() => probe?.rendered());
+    terminal.onRender(() => {
+      element.toggleAttribute("data-scrollback", terminal.buffer.active.baseY > 0);
+      probe?.rendered();
+    });
+    terminal.onScroll(() => {
+      element.toggleAttribute("data-scrollback", terminal.buffer.active.baseY > 0);
+
+      if (opened && terminal.buffer.active.baseY > 0) showScrollbars(element);
+    });
 
     // X17: the Daemon answers a program's colour query and DA1 from the App's scheme, shown or not; a second reply from here would reach the program twice.
     for (const handler of [
