@@ -311,6 +311,7 @@ it("u3474b_the_last_completed_row_returns_to_the_toggle_before_its_exit_finishes
 
 it("u3474b_done_keeps_the_regrouped_nested_row_ready", async () => {
   const { store } = await mountTodos([todo(1), todo(2), todo(3), todo(4, { blockers: [3, 5], blocked: true }), todo(5)], false);
+  await waitFor(() => expect(row(1)?.closest("[hidden]")).toBeNull());
   row(1).focus();
   nextKey("t");
 

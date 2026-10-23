@@ -70,7 +70,10 @@ it("u3722_each_head_button_shows_its_name_and_chip", async () => {
     if (name === "Restore") await browser("click", '.shelf-controls button[aria-label="Maximise"]');
 
     for (const path of ["hover", "focus"]) {
-      if (path === "hover") await browser("hover", `.shelf-controls button[aria-label="${name === "Close" ? "Close work items" : name}"]`);
+      if (path === "hover") {
+        await evaluate(`document.querySelector('.shelf-controls button[aria-label="${name === "Close" ? "Close work items" : name}"]').focus()`);
+        await browser("hover", `.shelf-controls button[aria-label="${name === "Close" ? "Close work items" : name}"]`);
+      }
       else {
         await browser("mouse", "move", "700", "600");
         await evaluate(`document.querySelector('.shelf-controls button[aria-label="${name === "Close" ? "Restore" : "Close work items"}"]').focus()`);

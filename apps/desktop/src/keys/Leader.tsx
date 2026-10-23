@@ -46,9 +46,9 @@ export const Leader = () => {
   return (
     <Show when={leaderArmed()}>
       <aside class="leader" role="status" aria-label={copy.leaderPanel} ref={place}>
-        <For each={offered()}>
+        <For each={LEADER}>
           {(key) => (
-            <KeyHint class="leader-line" keys={key.keys}>{key.short}</KeyHint>
+            <span aria-hidden={!offered().includes(key) || undefined} class={offered().includes(key) ? undefined : "leader-unavailable"}><KeyHint class="leader-line" keys={key.keys}>{key.short}</KeyHint></span>
           )}
         </For>
       </aside>
