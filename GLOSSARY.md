@@ -647,6 +647,9 @@ One `($, e, next)` function an Extension registers.
 **Token**:
 One named look value in `apps/desktop/src/tokens.css` (a colour, type step, space step, radius, shadow, blur, duration or easing curve); no other file holds such a literal. `--blur-bubble-backdrop` is the 12px background-pane blur beneath a focused Terminal Bubble.
 
+**Text selection Token** (`--text-selection`, `--text-selection-ink`):
+The platform blue selected-text background and its matching foreground. Browser editors and active/inactive Terminal selections resolve the same colours (U3529c); row and tab selection use their own Tokens.
+
 **Section head**:
 The icon, capital label and trailing rule that name a section of the Rail or Shelf.
 
