@@ -55,7 +55,7 @@ export default {
   rules: {
     [focusRingRule]: true,
     'declaration-property-value-allowed-list': {
-      'z-index': ['-1', '0', '1', /^var\(--layer-(?:drawer|popover|dialog|menu|tooltip|toast)\)$/],
+      '/^z-index$/i': ['-1', '0', '1', /^var\(--layer-(?:drawer|popover|dialog|menu|tooltip|toast)\)$/],
     },
     [scrollRule]: true,
     'scale-unlimited/declaration-strict-value': [
