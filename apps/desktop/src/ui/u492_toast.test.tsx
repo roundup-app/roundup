@@ -55,6 +55,8 @@ it("u492_configured_limit_never_replays_evicted_cards", async () => {
 
   for (const id of ["old", "a", "b", "summary"]) toast.show({ id, name: id, content: "Changed", duration: Infinity });
   await vi.advanceTimersByTimeAsync(200);
+  screen.getByRole<HTMLButtonElement>("button").focus();
+  await vi.advanceTimersByTimeAsync(0);
   expect(screen.getAllByRole("button").map((button) => button.textContent)).toEqual(["summary Changed", "b Changed", "a Changed"]);
 
   for (const id of ["a", "b", "summary"]) toast.dismiss(id);

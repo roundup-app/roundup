@@ -7,7 +7,7 @@ import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { promisify } from "node:util";
 import { chromePath } from "./chromePage";
-import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { openLane } from "../todos/laneBrowser";
 import { App } from "../App";
 import { draftStorage } from "../state/storage";
@@ -335,14 +335,18 @@ describe("u2773 Rail persisted edits", () => {
 
   let second: StartedDaemon;
 
-  beforeAll(async () => {
+  // Keep the reload probe's forty Workstreams out of later probes' mount and cleanup.
+  beforeEach(async () => {
     first = await startRealDaemon({}, true);
     second = await startRealDaemon({});
   }, 180_000);
 
-  afterAll(async () => { await second?.stop(); await first?.stop(); });
-
-  afterEach(() => { cleanup(); localStorage.clear(); });
+  afterEach(async () => {
+    cleanup();
+    localStorage.clear();
+    await second?.stop();
+    await first?.stop();
+  });
 
   const open = () => fireEvent.keyDown(document, { key: "n", metaKey: true, shiftKey: true });
 
