@@ -898,3 +898,59 @@ mod guidance;
 
 use trust::vars;
 
+#[test]
+fn a3516a_user_launches_have_no_restart_restricting_flags() {
+    use agents::claude_code::Pair;
+    use std::os::unix::fs::PermissionsExt;
+    let s = setup();
+    let fake = s.root.path().join("claude");
+    std::fs::write(&fake, "#!/bin/sh\nprintf '%s\\n' \"$@\"\n").unwrap();
+    std::fs::set_permissions(&fake, std::fs::Permissions::from_mode(0o755)).unwrap();
+    let launcher = Launcher::new(
+        fake.to_string_lossy(),
+        s.claude_json.clone(),
+        s.rup.clone(),
+        None,
+    );
+    for resume in [None, Some("00000000-0000-4000-8000-000000003516")] {
+        for mcp_off in [false, true] {
+            let argv = launcher
+                .prepare_on(
+                    folders(&s.dir),
+                    "7",
+                    "1",
+                    &s.cwd,
+                    resume,
+                    Role::Agent,
+                    &Pair {
+                        mcp_off,
+                        ..Pair::default()
+                    },
+                )
+                .unwrap();
+            let output = std::process::Command::new(&argv[0])
+                .args(&argv[1..])
+                .output()
+                .unwrap();
+            assert!(output.status.success());
+            let recorded = String::from_utf8(output.stdout).unwrap();
+            for arg in recorded.lines() {
+                assert!(
+                    ![
+                        "--append-system-prompt-file",
+                        "--system-prompt",
+                        "--system-prompt-file",
+                        "--tools",
+                        "--setting-sources",
+                        "--strict-mcp-config",
+                        "--permission-prompt-tool",
+                        "--managed-settings",
+                        "--project-config-root",
+                    ]
+                    .contains(&arg.split('=').next().unwrap()),
+                    "restricted argv: {recorded}"
+                );
+            }
+        }
+    }
+}
