@@ -55,8 +55,6 @@
   overflow-x: hidden;
   padding: var(--space-1);
   color: var(--text);
-  background-color: var(--ground);
-  border-radius: var(--radius-drawer);
 }
 
 .app-select-item {

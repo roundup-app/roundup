@@ -576,13 +576,13 @@ def keep(branch, issue, run_url):
         call('api', '-X', 'DELETE', '/installation/token')
 
 
-ATTACH_PER_COMMAND = 50
+ATTACH_PER_COMMAND, ATTACH_MOST = 50, 12  # ATTACH_MOST: the captures a PR body holds, across every run
 IMAGES = ('.png', '.jpg')
 
 
 def attach(branch):
-    """L23: attach the rendered captures under `artifacts/ux/<id>/` of the scenarios the open PR from `branch` names on its
-    `Scenarios:` line, 50 to a `gh pr edit --attach`; the directory also holds other scenarios' captures, untracked.
+    """L23: attach the after-change captures under `artifacts/ux/<id>/` of the scenarios the open PR from `branch` names
+    on its `Scenarios:` line, until its body holds `ATTACH_MOST`, 50 to a `gh pr edit --attach`; the directory also holds other scenarios' captures, untracked.
     The upload needs a user token, which only this call holds: `PR_ATTACH_TOKEN` is set on the step that runs it, after
     the model ends. Captures are evidence for people, so a failure here exits 1 and changes no PR."""
     # The run works in its own worktree on `branch`; the checkout the step starts in may not be it.
@@ -605,9 +605,9 @@ def attach(branch):
     if not prs:
         print(f'::error::captures not attached: {branch} has no open PR')
         sys.exit(1)
-    number = str(prs[0]['number'])
-    ids = re.split(r'[,\s]+', orders.field(prs[0]['body'] or '', 'Scenarios', ''))
-    files = [path for path in captures if path.relative_to(base / 'artifacts/ux').parts[0] in ids]
+    number, body = str(prs[0]['number']), prs[0]['body'] or ''
+    ids, room = re.split(r'[,\s]+', orders.field(body, 'Scenarios', '')), max(0, ATTACH_MOST - body.count('https://github.com/user-attachments/assets/'))
+    files = [path for path in captures if path.relative_to(base / 'artifacts/ux').parts[0] in ids and 'before' not in path.stem][:room]
     if not files:
         print('no captures to attach')
         return

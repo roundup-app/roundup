@@ -46,10 +46,23 @@ const scrollDeclaresOverscroll = stylelint.createPlugin(scrollRule, () => (root,
   });
 });
 
+const elevationRule = 'roundup/token-elevation';
+
+const tokenElevation = stylelint.createPlugin(elevationRule, () => (root, result) => {
+  if (root.source?.input.file?.endsWith('/apps/desktop/src/tokens.css')) return;
+  root.walkDecls(/^box-shadow$/i, (declaration) => {
+    stylelint.utils.report({
+      ruleName: elevationRule, result, node: declaration,
+      message: 'box-shadow is applied only in apps/desktop/src/tokens.css (U3512e)',
+    });
+  });
+});
+
 export default {
-  plugins: ['stylelint-declaration-strict-value', noFocusRing, scrollDeclaresOverscroll],
+  plugins: ['stylelint-declaration-strict-value', noFocusRing, scrollDeclaresOverscroll, tokenElevation],
   rules: {
     [focusRingRule]: true,
+    [elevationRule]: true,
     'declaration-property-value-allowed-list': {
       '/^z-index$/i': ['-1', '0', '1', /^var\(--layer-(?:drawer|popover|dialog|menu|tooltip|toast)\)$/],
     },

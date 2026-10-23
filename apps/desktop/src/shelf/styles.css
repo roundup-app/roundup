@@ -66,7 +66,6 @@
   left: 0;
   z-index: 1;
   height: var(--space-2);
-  box-shadow: var(--shadow-scroll);
   opacity: 0;
   pointer-events: none;
 }
@@ -155,19 +154,7 @@
 .shelf-tab.app-tabs-trigger { --button-inline: 0; }
 .shelf-tab[data-selected] { --button-surface: transparent; --button-hover: transparent; }
 .shelf-panel.app-tabs-content { padding: 0; }
-.shelf-question {
-  width: calc(var(--shelf-width) - var(--space-6));
-  box-sizing: border-box;
-  max-height: calc(100vh - var(--space-6));
-  overflow: auto;
-  overscroll-behavior: contain;
-  overflow-wrap: anywhere;
-}
-.shelf-question-targets { list-style: none; margin: var(--space-2) 0; padding: 0; }
 .shelf-bulk-line[hidden] { display: none; }
-.shelf-question-words { display: flex; justify-content: flex-end; gap: var(--space-4); margin-top: var(--space-3); }
-
-.shelf-question-words button:last-child { color: var(--text); }
 
 .shelf-tab[data-open="false"] { color: var(--grey); }
 

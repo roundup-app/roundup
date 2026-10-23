@@ -61,10 +61,10 @@ for (const seed of ['tabs-8', 'tree-40']) for (const width of [1280, 1440]) for 
       await wait(`document.querySelectorAll('.project-tab')[${seed === 'tabs-8' ? 1 : 0}].dataset.selected === 'true'`);
       await browser('hover', '.project-tab[data-selected=true]');
       await browser('eval', `(() => { const button=document.querySelector('.project-tab[data-selected=true] .tab-close'); button.focus(); button.click(); })()`);
-      await wait(`!!document.querySelector('[role=alertdialog]')`);
+      await wait(`!!window.__question.shown`);
       await record('confirmation');
-      await browser('find', 'role', 'button', 'click', '--name', 'Stop and close', '--exact');
-      await wait(`!document.querySelector('[role=alertdialog]') && document.body.textContent.includes(${JSON.stringify(failure)})`);
+      await browser("eval", "window.__question.answer(true)");
+      await wait(`!window.__question.shown && document.body.textContent.includes(${JSON.stringify(failure)})`);
       expect(await read<boolean>(`[...document.querySelectorAll('[role=alert]')].some(e => e.textContent.includes(${JSON.stringify(failure)}) && e.checkVisibility())`)).toBe(true);
       await record('rejected-close');
       // `tabs-8`'s first Project answers no Todo calls; its second is the one with a Shelf Store.

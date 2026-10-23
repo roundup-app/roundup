@@ -1,3 +1,4 @@
+import { questionProbe } from "../testing/menuProbe";
 import { createSignal, For } from "solid-js";
 import { render } from "solid-js/web";
 import { ConnectedProjectContext, connectProject } from "../state/connectedProject";
@@ -10,6 +11,8 @@ import "../tokens.css";
 import "../styles.css";
 
 const app = createFakeApp();
+
+window.__question = questionProbe;
 
 app.handlers['project.get'] = () => ({ worktrees: { on: false, check: null }, mcp: { on: true }, workstreamCap: null, models: { roles: [{ role: 'door', model: null, effort: null }] } });
 
@@ -29,7 +32,7 @@ const Fixture = () => {
 
   const Top = () => <>
     <div style={{ height: 'calc(var(--space-6) * 2)', width: 'calc(var(--space-6) * 10)' }}>
-      <Strip tabs={tabs()} active={active()} onSelect={setActive}
+      <Strip app={app} tabs={tabs()} active={active()} onSelect={setActive}
         onMark={(path) => { setActive(path); setMarks(marks() + 1); }}
         onRename={async (path, name) => {
           setTabs(tabs().map(tab => tab.path === path ? { ...tab, name, base: name } : tab));
