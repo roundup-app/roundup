@@ -82,6 +82,13 @@ export const todoHandlers = (store: TodoStore, announce: Announce, actor: () => 
 
 const todoMethods = (store: TodoStore, announce: Announce, actor: () => Actor): Handlers => ({
   "todo.list": () => store.todos.map((todo) => ({ ...todo })),
+  "todo.listHanded": () => store.todos.flatMap((todo) => {
+    const last = store.changes?.get(todo.id)?.findLast(change => change.handed
+      || JSON.stringify(change.before?.owner ?? null) !== JSON.stringify(change.after.owner ?? null));
+
+    return todo.owner?.kind === "agent" && last?.handed && JSON.stringify(last.handed) === JSON.stringify(todo.owner)
+      ? [{ todo: todo.id, owner: todo.owner, seq: last.seq }] : [];
+  }).toSorted((a, b) => a.seq - b.seq),
   "todo.get": ({ id }) => {
     const todo = find(store.todos, (todo) => todo.id === id, `todo ${id}`);
     store.reads?.set(id, store.changes?.get(id)?.at(-1)?.seq ?? 0);

@@ -29,6 +29,16 @@ pub struct Todo {
     pub refs: Vec<String>,
 }
 
+/// One qualifying Hand-off for a Todo's current owner after its last owner change.
+/// Project-scoped, at most one per Todo, ordered by Change.seq; no History Values.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, TS)]
+#[ts(export, export_to = "todo/")]
+pub struct Handed {
+    pub todo: u32,
+    pub owner: Actor,
+    pub seq: u32,
+}
+
 #[derive(Clone, Debug, Serialize, Deserialize, TS, JsonSchema)]
 #[ts(export, export_to = "todo/")]
 pub struct CreateParams {
