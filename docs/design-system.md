@@ -215,7 +215,7 @@ The light header stays on root sunken. Borders carry ≥3:1 against the header a
 
 ### U2541 shortcut key chips
 
-Hint line, Help and leader keys use the shared `KeyChip`, a plain `kbd` per symbol.
+Help, leader and tooltip keys use the shared `KeyChip`, a plain `kbd` per symbol.
 Labels remain `--grey`; chips use `--text`, `--font-ui`, `--text-small`, weight 500,
 no border and a `--space-4` (16 px) height.
 
@@ -225,8 +225,13 @@ no border and a `--space-4` (16 px) height.
 | `--radius-chip` | `4px` | same |
 | `--key-chip-padding` | `5px` | same |
 
-Increased contrast retains the fill and promotes labels to text. Whole hints drop from
-the end when space runs out (U2230b). Keys have no motion (D6).
+Increased contrast retains the fill and promotes labels to text. Keys have no motion (D6).
+
+U3513 hint lines use plain text: up to three contextual actions, then `? more`,
+separated by ` · `. Labels are lowercase `--grey`, keys `--text`. Whole actions
+drop from the end when needed, retaining Help. The line and its wrappers are
+transparent, with `--space-2` above the text on the owning pane’s background.
+Editable input and other modal owners show no hint line. Tooltip chips stay unchanged.
 
 
 ## Terminal Bubble focus and return

@@ -128,8 +128,6 @@ describe("u54 keyboard help", () => {
 
     expect(panel).not.toBeNull();
     await waitFor(() => expect(document.activeElement).toBe(panel));
-
-    await waitFor(() => expect(document.activeElement).toBe(panel));
     fireEvent.keyDown(document.activeElement!, { key: "Escape" });
 
     await waitFor(() => expect(help()).toBeNull());
@@ -155,6 +153,18 @@ describe("u54 keyboard help", () => {
     await waitFor(() => expect(document.querySelector(".pane-screen textarea")).not.toBeNull());
 
     expect(question(document.querySelector(".pane-screen textarea")!)).toBe(false);
+
+    for (const tag of ["input", "textarea", "select", "div"]) {
+      const field = document.createElement(tag);
+
+      if (tag === "div") { field.setAttribute("contenteditable", "true"); field.tabIndex = 0; }
+
+      document.querySelector(".pane")!.append(field);
+      field.focus();
+      expect(question(field)).toBe(false);
+      field.remove();
+    }
+
     expect(question(document.body)).toBe(false);
     expect(help()).toBeNull();
   });

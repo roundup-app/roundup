@@ -90,7 +90,9 @@ it.each(chromeSurfaces.flatMap(surface => ["drag", "double-click"].map(gesture =
   "u2680c_chrome_drag_and_double_click_leave_no_browser_selection_$surface ($gesture)", async ({ surface, gesture }) => {
     await app();
 
-    if (surface === ".pane-empty-keys") {
+    if (surface === ".hint-line") {
+      await browser("focus", ".rail-row");
+    } else if (surface === ".pane-empty-keys") {
       await browser("open", url("/harness.html?seed=empty-project&renderer=dom"));
     } else if (surface === ".pane-control-state" || surface === ".resource-num") {
       // U408: the strip shows values only for a working Agent, so `.resource-num` needs one selected.
@@ -178,7 +180,7 @@ it.each(["agent", "door", "bubble"] as const)("u2680a_terminal_boundaries_never_
   }
 }, 180_000);
 
-const clickTargets = ["output", "inset", "bottom-strip", ".pane", ".rail", ".shelf-tabs", ".shelf-area", ".window-title", ".resource-strip", ".hint-line", ".terminal-new"];
+const clickTargets = ["output", "inset", "bottom-strip", ".pane", ".rail", ".shelf-tabs", ".shelf-area", ".window-title", ".resource-strip", ".terminal-new"];
 
 const clickCases = (["agent", "door", "bubble"] as const).flatMap(where => {
   const targets = where === "bubble" ? [...clickTargets, ".bubble-header", ...["n", "s", "e", "w", "ne", "nw", "se", "sw"].map(zone => `.bubble-zone[data-zone="${zone}"]`)] : clickTargets;

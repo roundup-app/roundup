@@ -5,7 +5,7 @@ import { fakeEmulators } from "../terminal/paneHarness";
 import { seedApp } from "../testing/seeds";
 import { showEverythingInApp } from "../testing/showEverything";
 import { confirmDeletion, stubDialogLayout } from "./bulkQuestionHarness";
-import { CHORDS, HELP_ROWS, hintsFor } from "../keys/chords";
+import { CHORDS } from "../keys/chords";
 
 afterEach(() => { cleanup(); localStorage.clear(); });
 
@@ -99,22 +99,6 @@ it("u3723_keys_are_shelf_scoped_and_leave_the_terminal_alone", async () => {
   expect(screen.queryByRole("button", { name: "Restore" })).toBeNull();
   terminal.remove();
 });
-
-it("u3724_each_new_key_is_in_chords_help_and_the_hint_line", async () => {
-  const { rows } = await open();
-  rows[0]!.focus();
-  await waitFor(() => expect(document.querySelector('.hint-line[data-place="shelf"]')).not.toBeNull());
-
-  for (const keys of ["M", "D", "E"]) {
-    expect(CHORDS.filter(row => row.keys === keys && row.inShelf)).toHaveLength(1);
-    expect(HELP_ROWS.filter(row => row.keys === keys)).toHaveLength(1);
-    expect(hintsFor("shelf").filter(row => row.keys === keys)).toHaveLength(1);
-
-    // Export is hinted only on a Pad row (HintLine), and a Todo row's line holds M, O and D.
-    if (keys !== "E") expect(document.querySelector('.hint-line')?.textContent).toContain(keys);
-  }
-});
-
 
 it("u3721_maximise_keeps_the_centre_mounted", async () => {
   const { rows } = await open();

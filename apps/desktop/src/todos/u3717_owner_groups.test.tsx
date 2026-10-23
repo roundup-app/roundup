@@ -3,7 +3,7 @@ import { afterEach, expect, it } from "vitest";
 import { RpcError } from "../app/seam";
 import { agent, event } from "../testing/nodes";
 import { withScopeRow } from "../testing/showEverything";
-import { CHORDS, HELP_ROWS, hintsFor } from "../keys/chords";
+import { CHORDS, HELP_ROWS } from "../keys/chords";
 import { copy } from "../copy";
 import { mountTodos, todo, todoEvent, todoCallsTo as callsTo } from "./testHarness";
 
@@ -211,7 +211,6 @@ it("u3720_the_key_is_a_registered_shelf_binding_listed_in_help", () => {
   expect(owned).toHaveLength(1);
   expect(owned[0]).toMatchObject({ inShelf: true, keys: "O" });
   expect(HELP_ROWS).toContainEqual(expect.objectContaining({ keys: "O", what: copy.assignTodo }));
-  expect(hintsFor("shelf").map((hint) => hint.keys)).toContain("O");
 });
 
 it("u3719_opening_another_groups_field_discards_the_first_text", async () => {

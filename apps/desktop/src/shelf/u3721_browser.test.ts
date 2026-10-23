@@ -113,7 +113,7 @@ it("u3723_rendered_focused_row_keys_keep_failure_visible", async () => {
   await browser("click", "#shelf-tab-pads");
   await browser("wait", ".shelf .pad-name");
   await evaluate(`document.querySelector('.shelf .pad-name').focus()`);
-  await browser("wait", '.hint-line[data-place="shelf"]');
+  await browser("wait", '.hint-line[data-place="pads"]');
   const hints = captureDir("U3724");
 
   if (hints) {

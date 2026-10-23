@@ -1,7 +1,7 @@
 import { cleanup, fireEvent, screen, waitFor } from "@solidjs/testing-library";
 import { afterEach, expect, it, vi } from "vitest";
 import { RpcError } from "../app/seam";
-import { HELP_ROWS, hintsFor } from "../keys/chords";
+import { HELP_ROWS } from "../keys/chords";
 import { agent, event, workstream } from "../testing/nodes";
 import { mountTodos, todo, todoEvent, todoCallsTo } from "./testHarness";
 
@@ -143,7 +143,6 @@ it("u3309_the_digits_are_registered_shelf_bindings_listed_in_help", async () => 
 
   expect(todoCallsTo(m.app, "todo.assign").map(call => call.params)).toEqual(agents.map(agent => ({ id: 1, owner: { kind: "agent", id: agent.id, parent: null } })));
   expect(HELP_ROWS).toContainEqual(expect.objectContaining({ keys: "1–9" }));
-  expect(hintsFor("shelf")).toContainEqual(expect.objectContaining({ keys: "1–9" }));
 });
 
 it("u3308_idle_groups_follow_the_workstream_and_lift_reveals_every_owner", async () => {

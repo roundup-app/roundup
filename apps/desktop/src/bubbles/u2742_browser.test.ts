@@ -147,9 +147,9 @@ it("u2742d_switch_respects_repeat_modifiers_and_focus_ownership", async () => {
   await browser("press", "Escape");
   await wait(`window.__fake.app.calls.some(c => c.method === 'terminal.write' && c.params.id === '103' && atob(c.params.data) === '\\x1b')`);
 
-  // Hints are pointer-transparent (resources/styles.css); their strip and the header still receive the press.
-  for (const target of [".hint-line", ".project-tab[data-selected] .tab-name-button"]) {
-    const receiver = target === ".hint-line" ? ".resource-strip" : target;
+  // U3513 suppresses hints in emulator input; the footer and header still receive outside presses.
+  for (const target of [".resource-strip", ".project-tab[data-selected] .tab-name-button"]) {
+    const receiver = target;
 
     await read(`(() => {
       window.__outsidePresses = 0;

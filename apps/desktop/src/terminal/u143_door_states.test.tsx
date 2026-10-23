@@ -221,16 +221,6 @@ describe("u143 direct Agent access beside a stopped Door", () => {
   });
 });
 
-it("u2571a_empty_centre_has_three_noninteractive_hints", async () => {
-  await openTabs({ p: [] });
-  const content = startWorkstream().closest<HTMLElement>(".pane-door")!;
-  const list = within(content).getByRole("list");
-  expect(within(list).getAllByRole("listitem")).toHaveLength(3);
-  expect(content.querySelectorAll('button, a, [tabindex], input')).toHaveLength(1);
-  expect(within(list).queryAllByRole("button")).toEqual([]);
-  expect(within(list).queryAllByRole("link")).toEqual([]);
-});
-
 it.each(CHORDS.filter((row) => row.what === copy.newAgent || row.what === copy.newTerminal || row.what === copy.askBarShortcut))(
   "u2571b_each_empty_hint_runs_its_action $what", async (row) => {
     const { app } = await openTabs({ p: [] });
@@ -271,21 +261,20 @@ it("u2571c_hints_follow_empty_pending_failure_and_nonempty_states", async () => 
   const { app: projects } = await openTabs({ p: tree });
   const app = projects.of(path("p"));
   app.handlers["rail.tree"] = () => structuredClone(tree);
-  const pane = within(document.querySelector<HTMLElement>(".pane")!);
   let reject!: (error: Error) => void;
   app.handlers["rail.createWorkstream"] = () => new Promise<RailNode>((_resolve, fail) => { reject = fail; });
   fireEvent.click(startWorkstream());
   await screen.findByText("Creating Workstream…");
-  expect(pane.getByRole("list")).toBeTruthy();
+  expect(document.querySelector(".pane-empty-keys")).toBeTruthy();
   reject(new RpcError(-32000, "no space"));
   await screen.findAllByRole("alert");
-  expect(pane.getByRole("list")).toBeTruthy();
+  expect(document.querySelector(".pane-empty-keys")).toBeTruthy();
   tree.push(agent("root", "idle", "ready"));
   app.emit(event({ name: "rail.changed" }));
-  await waitFor(() => expect(pane.queryByRole("list")).toBeNull());
+  await waitFor(() => expect(document.querySelector(".pane-empty-keys")).toBeNull());
   expect(screen.getByRole("region", { name: copy.projectOverview })).toBeTruthy();
   expect(screen.getByRole("textbox", { name: copy.askBarLabel })).toBeTruthy();
   tree.splice(0);
   app.emit(event({ name: "rail.changed" }));
-  await pane.findByRole("list");
+  await waitFor(() => expect(document.querySelector(".pane-empty-keys")).not.toBeNull());
 });

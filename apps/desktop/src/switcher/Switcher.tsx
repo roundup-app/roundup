@@ -7,7 +7,7 @@ import { KindGlyph } from "../ink/KindGlyph";
 import { Combobox } from "../ui/Combobox";
 import { useConnectedProject } from "../state/connectedProject";
 import { captureActions, modalOutside, modalOpen, registerKeys } from "../keys/registry";
-import { leaderChord, SWITCHER_CLOSE, SWITCHER_TAKE } from "../keys/chords";
+import { CHORDS, chordsOf, leaderChord, SWITCHER_CLOSE, SWITCHER_TAKE } from "../keys/chords";
 import { KeyHint } from "../keys/KeyHint";
 import { REVEAL_BUBBLE } from "../bubbles/places";
 import { entriesOf, matching } from "./entries";
@@ -57,6 +57,12 @@ export const Switcher = (props: { onFailure: (message: string | null) => void; o
   const actions = createMemo(() => openingSurvives() ? opening().actions.filter((action) => action.available()) : []);
 
   const entries = createMemo(() => entriesOf(rail.nodes, rail.terminals()));
+
+  const canTakeHighlighted = () => {
+    const node = entries().find(entry => entry.value === highlighted())?.node;
+
+    return node?.kind === "agent" && node.terminal_id !== null && takeover.taken() !== node.id;
+  };
 
   const shown = createMemo(() => [
     ...matching(entries(), text()),
@@ -160,7 +166,7 @@ export const Switcher = (props: { onFailure: (message: string | null) => void; o
 
   const chooseHighlighted = (take: boolean): void => chooseValue(highlighted(), take);
 
-  createEffect(() => { if (open() && modalOutside(panel)) close(false); });
+  createEffect(() => { if (open() && modalOutside(panel) && !panel?.hasAttribute("data-help-open")) close(false); });
 
   const show = (): void => {
     if (modalOpen()) return;
@@ -177,11 +183,14 @@ export const Switcher = (props: { onFailure: (message: string | null) => void; o
   registerKeys({ kind: "layer", element: () => panel, active: open, modal: true }, [
     { chords: SWITCHER_CLOSE, run: () => close(true) },
     { chords: SWITCHER_TAKE, run: () => chooseHighlighted(true) },
+    { chords: chordsOf(CHORDS.find(row => row.what === copy.todoLift)),
+      when: press => press.target instanceof Element && !press.target.closest('input,textarea,[contenteditable]'),
+      run: () => chooseHighlighted(false) },
   ]);
 
   return (
     <Show when={open()}>
-      <section class="switcher" ref={(element) => {
+      <section tabIndex={-1} class="switcher" data-has-result={highlighted() !== null} data-can-take={canTakeHighlighted()} ref={(element) => {
         panel = element;
         queueMicrotask(() => {
           input?.focus();

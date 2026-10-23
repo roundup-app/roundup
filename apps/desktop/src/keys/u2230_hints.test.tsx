@@ -10,10 +10,11 @@ import type { EmulatorFactory } from "../terminal/emulator";
 import { copy } from "../copy";
 import { KeyHint } from "./KeyHint";
 import { endLeader } from "./registry";
-import { CHORDS, hintsFor, pressOf } from "./chords";
-import type { HintPlace } from "./chords";
+import { seedApp } from "../testing/seeds";
+import { showEverythingInApp } from "../testing/showEverything";
+import { leaderKey } from "./leaderFixture";
 
-afterEach(() => { cleanup(); endLeader(); });
+afterEach(() => { cleanup(); endLeader(); localStorage.clear(); });
 
 const focusableEmulator = (): EmulatorFactory => () => {
   const field = document.createElement("textarea");
@@ -79,60 +80,16 @@ const open = async () => {
 
 const line = (): string[] => [...document.querySelectorAll(".hint-line .hint:not([hidden])")].map((hint) => hint.textContent!.replace(/\s+/g, " ").trim());
 
-const label = (place: HintPlace, watching = true): string[] => hintsFor(place, watching).map((hint) => `${hint.keys} ${hint.label}`);
-
-const toRail = async (watching = true) => {
+const toRail = async () => {
   fireEvent.click(rowOf("b"));
   rowOf("b").focus();
-  await waitFor(() => expect(line()).toEqual(label("rail", watching)));
+  await waitFor(() => expect(document.querySelector('.hint-line[data-place="rail"]')).not.toBeNull());
 };
 
 const toPane = async () => {
   fireEvent.click(rowOf("b"));
-  await waitFor(() => expect(document.querySelector(".pane-control[data-state=managed]")).not.toBeNull());
+  await waitFor(() => expect(document.querySelector(".pane-screen textarea")).not.toBeNull());
   document.querySelector<HTMLElement>(".pane-screen textarea")!.focus();
-  await waitFor(() => expect(line()).toEqual(label("agent")));
-};
-
-/** U2541b: a Terminal Bubble offers existing App chords. */
-const toBubble = async () => {
-  fireEvent.click(document.querySelector<HTMLElement>('[data-id="w"]')!);
-  await waitFor(() => expect(document.querySelector(".terminal-tab")).not.toBeNull());
-  document.querySelector<HTMLElement>(".terminal-tab")!.focus();
-  await waitFor(() => expect(line()).toEqual(label("bubble")));
-};
-
-const toPlace = async (place: "pad" | "drawer") => {
-  fireEvent.click(document.querySelector<HTMLElement>('[data-id="w"]')!);
-  document.querySelector<HTMLElement>('[data-id="w"]')!.focus();
-
-  if (document.querySelector<HTMLElement>(".window")!.dataset["shelf"] !== "open") {
-    fireEvent.keyDown(document.querySelector<HTMLElement>('[data-id="w"]')!, { key: "k", code: "KeyK", metaKey: true });
-    fireEvent.keyDown(document.querySelector<HTMLElement>('[data-id="w"]')!, { key: "s", code: "KeyS" });
-  }
-
-  showShelfTab("Pads");
-  fireEvent.click(await screen.findByRole("button", { name: "notes" }));
-  const selector = place === "pad" ? ".pad-body button" : ".drawer .close";
-  await waitFor(() => expect(document.querySelector(selector)).not.toBeNull());
-  document.querySelector<HTMLElement>(selector)!.focus();
-  await waitFor(() => expect(line()).toEqual(label(place)));
-};
-
-const keyOf = (code: string): string => (code.startsWith("Key") ? code.slice(3).toLowerCase() : code);
-
-const press = (target: Element, presses: string): boolean => {
-  const parts = presses.split("+");
-  const code = parts.at(-1)!;
-
-  const event = new KeyboardEvent("keydown", {
-    code, key: keyOf(code), bubbles: true, cancelable: true,
-    ctrlKey: parts.includes("ctrl"), altKey: parts.includes("alt"), metaKey: parts.includes("meta"), shiftKey: parts.includes("shift"),
-  });
-
-  target.dispatchEvent(event);
-
-  return event.defaultPrevented && pressOf(event) === presses;
 };
 
 describe("u2230 shortcut hints", () => {
@@ -151,55 +108,6 @@ describe("u2230 shortcut hints", () => {
     expect(chips("J K")).toEqual([1, ["J", "K"]]);
     expect(chips("J / K")).toEqual([1, ["J", "K"]]);
   });
-
-  it.each([["rail", toRail], ["agent", toPane], ["bubble", toBubble], ["pad", () => toPlace("pad")], ["drawer", () => toPlace("drawer")]] as const)("u2230_every_hint_names_a_bound_chord_in_%s", async (place, go) => {
-      for (const hint of hintsFor(place)) {
-        // Each press changes what has focus (take control, the Rail, the next Agent), so each starts on a fresh App.
-        cleanup();
-        endLeader();
-        const app = await open();
-
-        await go();
-
-        const chord = CHORDS.find((row) => row.keys === hint.keys);
-
-        expect(chord, `${place} ${hint.keys}`).toBeDefined();
-        expect(chord!.hint?.label).toBe(hint.label);
-        expect(press(document.activeElement!, chord!.presses[0]!), `${place} ${hint.keys} is bound`).toBe(true);
-
-        if (hint.keys === "⌘K") expect(document.querySelector('[role="status"].leader')).not.toBeNull();
-        else if (hint.keys === "⌘B") await waitFor(() => expect(document.activeElement?.closest(".bubble"), `${place}: ${document.activeElement?.outerHTML}`).not.toBeNull());
-        else if (hint.keys === "⌘/") expect(document.querySelector(".ask-input")).not.toBeNull();
-        else await waitFor(() => expect(app.calls.some((call) => call.method === (hint.keys === "⌘⌫" ? "rail.remove" : "takeover.begin"))).toBe(true));
-      }
-  });
-
-  it("u2230a_hints_follow_focus", async () => {
-    await open();
-    await toRail();
-    await toPane();
-    const control = screen.getByRole("button", { name: copy.takeOver });
-    control.focus();
-    fireEvent.click(control);
-    await waitFor(() => expect(document.activeElement?.closest(".pane-screen")).not.toBeNull());
-    await waitFor(() => expect(line()).toEqual(label("agent", false)));
-    fireEvent.keyDown(document.activeElement!, { key: "Enter", code: "Enter", metaKey: true });
-    await waitFor(() => expect(document.activeElement).toBe(control));
-    await toRail();
-    await toBubble();
-    await toRail();
-
-    document.body.focus();
-
-    if (document.activeElement instanceof HTMLElement) document.activeElement.blur();
-    await waitFor(() => expect(line()).toEqual([]));
-
-    await toRail();
-    fireEvent.keyDown(rowOf("b"), { key: "?", shiftKey: true });
-    await waitFor(() => expect(document.querySelector(".help")).not.toBeNull());
-    await waitFor(() => expect(line()).toEqual([]));
-  });
-
 
 });
 
@@ -259,15 +167,195 @@ it.each(["terminal", "pads", "contenteditable", "dialog", "menu"])("u3474a_keeps
 });
 
 
-it("u3513a_every_hint_line_ends_in_contextual_help: rail", async () => {
-  const app = await open();
-  rowOf("b").focus();
-  await waitFor(() => expect(document.querySelector('.hint-line[data-place="rail"]')).not.toBeNull());
-  const entries = [...document.querySelectorAll('.hint-line .hint:not([hidden])')];
-  expect(entries.length).toBeLessThanOrEqual(4);
-  expect(entries.at(-1)?.querySelector("kbd")?.textContent).toBe("?");
+const context = async (name: string) => {
+  const { app } = seedApp(name === "empty" ? "empty-project" : "tree-40", 0);
+
+  const tree = await app.handlers["rail.tree"]!(null);
+  app.handlers["rail.tree"] = () => tree.filter(node => node.id === "backend" || node.id === "agent-4").map(node => node.id === "agent-4" ? { ...node, parent: "backend" } : node);
+
+  if (name === "empty triage") app.handlers["todo.list"] = () => [];
+
+  render(() => <App app={app} reducedMotion={() => true} clock={() => 0} createEmulator={focusableEmulator()} />);
+  await screen.findByRole("tree", { name: "Rail" });
+
+  if (name === "empty") {
+    (await screen.findByRole("button", { name: copy.newWorkstreamWord.trim() })).focus();
+  } else if (["todos", "completed todos", "pads", "shelf", "maximised shelf", "overlay shelf", "triage", "empty triage", "pad", "drawer", "editor"].includes(name)) {
+    await showEverythingInApp();
+
+    if (["pads", "pad", "editor"].includes(name)) showShelfTab("Pads");
+
+    if (name === "completed todos") {
+      fireEvent.click(screen.getByRole("button", { name: "1 done" }));
+      document.querySelector<HTMLButtonElement>('.todo-done-fold .todo-row-button')!.focus();
+    } else if (name === "triage" || name === "empty triage") {
+      fireEvent.click(await screen.findByRole("button", { name: "Triage" }));
+
+      if (name === "empty triage") screen.getByRole("button", { name: "Triage" }).focus();
+      else (await waitFor(() => document.querySelector<HTMLButtonElement>('.todo-row-button[aria-pressed]')!)).focus();
+    } else if (name === "shelf" || name.endsWith("shelf")) {
+      const control = screen.getByRole("button", { name: "Maximise" });
+      control.focus();
+
+      if (name === "maximised shelf") fireEvent.click(control);
+
+      if (name === "overlay shelf") document.querySelector('.window')!.setAttribute('data-shelf-mode', 'overlay');
+    } else {
+      const row = await waitFor(() => {
+        const row = document.querySelector<HTMLButtonElement>(name === "pads" || name === "pad" || name === "editor" ? '.shelf .pad-name' : '.shelf .todo-row-button[aria-pressed]');
+        expect(row).not.toBeNull();
+
+        return row!;
+      });
+
+      row.focus();
+
+      if (name === "pad" || name === "drawer" || name === "editor") {
+        fireEvent.click(row);
+        const selector = name === "pad" ? '.pad-body button' : name === "editor" ? '.pad-rich-editor [contenteditable=true]' : '.drawer .close';
+
+        const control = await waitFor(() => { const node = document.querySelector<HTMLElement>(selector); expect(node).not.toBeNull();
+
+ return node!; });
+
+        control.focus();
+        await waitFor(() => expect(document.activeElement).toBe(control));
+      }
+    }
+  } else {
+    const row = document.querySelector<HTMLButtonElement>('.rail-row[data-id="agent-4"]')!;
+    fireEvent.click(row);
+    await waitFor(() => expect(document.querySelector('.pane-control')).not.toBeNull());
+
+    if (name === "rail") row.focus();
+    else if (name === "rail workstream") {
+      const workstream = document.querySelector<HTMLButtonElement>('.rail-row[data-id="backend"]')!;
+      fireEvent.click(workstream);
+      workstream.focus();
+    }
+    else if (name === "agent" || name === "taken agent") {
+      const control = await screen.findByRole("button", { name: copy.takeOver });
+
+      if (name === "taken agent") fireEvent.click(control);
+
+      control.focus();
+    } else if (name === "terminal input") document.querySelector<HTMLTextAreaElement>('.pane-screen textarea')!.focus();
+    else if (name === "bubble" || name === "terminal tab") {
+      fireEvent.click(document.querySelector<HTMLElement>('.terminal-new')!);
+      await waitFor(() => expect(document.querySelector('.bubble')).not.toBeNull());
+      document.querySelector<HTMLElement>(name === "bubble" ? '.bubble button' : '.terminal-tab')!.focus();
+    } else if (name === "switcher" || name === "empty switcher" || name === "switcher input") {
+      row.focus();
+      leaderKey("KeyK");
+      await screen.findByRole("combobox");
+
+      if (name === "empty switcher") fireEvent.input(document.querySelector('.switcher input')!, { target: { value: 'no result xyz' } });
+
+      if (name !== "switcher input") document.querySelector<HTMLElement>('.switcher')!.focus();
+    }
+  }
+
+  return app;
+};
+
+it.each([
+  ["rail", "rail", ["⌘⌫", "⌘⏎"]],
+  ["rail workstream", "rail", ["⌘⌫", "⌘⏎"]],
+  ["agent", "agent", ["⌘⏎", "⌘B"]],
+  ["taken agent", "agent", ["⌘⏎", "⌘B"]],
+  ["bubble", "bubble", ["⌘B"]],
+  ["terminal tab", "bubble", ["⌘B"]],
+  ["todos", "todos", ["O", "D", "T", "1–9"]],
+  ["completed todos", "todos", ["D", "T"]],
+  ["pads", "pads", ["O", "E", "D"]],
+  ["shelf", "shelf", ["M", "Esc", "1–9"]],
+  ["maximised shelf", "shelf", ["M", "Esc"]],
+  ["overlay shelf", "shelf", ["M", "Esc"]],
+  ["triage", "triage", ["J K", "A", "W", "Tab", "⇧Tab", "X", "C", "Esc"]],
+  ["empty triage", "triage", ["Esc"]],
+  ["pad", "pad", ["Esc", "⌘K", "⌘/"]],
+  ["drawer", "drawer", ["Esc", "⌘K", "⌘/"]],
+  ["switcher", "switcher", ["⏎", "⇧⏎", "Esc"]],
+  ["empty switcher", "switcher", ["Esc"]],
+  ["empty", "empty", ["⌘N", "⌘T", "⌘/"]],
+] as const)("u3513a_every_hint_line_ends_in_contextual_help: %s", async (name, place, fullKeys) => {
+  const app = await context(name);
+  const origin = document.activeElement!;
+  const selected = document.querySelector('.rail-row[data-selected=true]')?.getAttribute('data-id');
+  await waitFor(() => expect(document.querySelector(`.hint-line[data-place="${place}"]`)).not.toBeNull());
+  const lines = [...document.querySelectorAll('.hint-line')];
+  expect(lines).toHaveLength(1);
+
+  for (const line of lines) {
+    const entries = [...line.querySelectorAll('.hint:not([hidden])')];
+    expect(entries.length).toBeLessThanOrEqual(4);
+    expect(entries.at(-1)?.querySelector("kbd")?.textContent).toBe("?");
+
+    if (name === "empty triage") expect(entries).toHaveLength(1);
+
+    const priorities = new Map(Object.entries({
+      todos: ["O", "D", "T"], "completed todos": ["D", "T"], pads: ["O", "E", "D"],
+      shelf: ["M", "Esc", "⌘/"], "maximised shelf": ["M", "Esc", "⌘/"], "overlay shelf": ["Esc", "⌘/"],
+      triage: ["J K", "A", "X"], "empty triage": [], "empty switcher": ["Esc"],
+      "rail workstream": ["⌘K", "⌘/"],
+    }));
+
+    if (priorities.has(name)) expect(entries.slice(0, -1).map(entry => entry.querySelector('kbd')?.textContent)).toEqual(priorities.get(name));
+  }
+
+  const before = app.calls.length;
   fireEvent.keyDown(document.activeElement!, { key: "?", shiftKey: true });
   const help = await screen.findByRole("dialog", { name: copy.help });
-  expect(help.textContent).toContain(copy.remove);
-  expect(app.calls.filter(call => call.method === "agent.start")).toEqual([]);
+  const keys = [...help.querySelectorAll('.help-origin [data-help-keys]')].map(row => row.getAttribute('data-help-keys'));
+
+  for (const key of fullKeys) expect(keys).toContain(key);
+
+  await waitFor(() => expect(document.querySelector('.hint-line')).toBeNull());
+  fireEvent.keyDown(document.activeElement!, { key: "Escape", code: "Escape" });
+  await waitFor(() => expect(screen.queryByRole('dialog', { name: copy.help })).toBeNull());
+  await waitFor(() => expect(document.activeElement).toBe(origin));
+  expect(document.querySelector('.rail-row[data-selected=true]')?.getAttribute('data-id')).toBe(selected);
+  expect(app.calls.slice(before).filter(call => !["project.resources", "rail.tree", "terminal.list"].includes(call.method))).toEqual([]);
+
+  if (name === "switcher") {
+    fireEvent.keyDown(origin, { key: "Enter", code: "Enter" });
+    await waitFor(() => expect(document.querySelector('.switcher')).toBeNull());
+    expect(document.querySelector('.rail-row[data-selected=true]')?.getAttribute('data-id')).toBe("backend");
+  }
+
+});
+
+it.each(["terminal input", "switcher input"])("u3513c_editable_and_modal_owners_keep_question_mark: %s", async name => {
+  const app = await context(name);
+  const before = app.calls.length;
+  const origin = document.activeElement!;
+  fireEvent.keyDown(origin, { key: "?", shiftKey: true });
+  expect(document.querySelector('.help')).toBeNull();
+  await waitFor(() => expect(document.querySelector('.hint-line')).toBeNull());
+  expect(app.calls.slice(before).filter(call => !["project.resources", "rail.tree", "terminal.list"].includes(call.method))).toEqual([]);
+});
+
+it.each(["drawer", "switcher"])("u3513b_help_returns_to_its_origin_without_an_underlying_action: %s draft", async name => {
+  const app = await context(name);
+  const field = document.querySelector<HTMLTextAreaElement | HTMLInputElement>(name === "drawer" ? '.todo-comment-field' : '.switcher input')!;
+  fireEvent.input(field, { target: { value: 'unfinished ? work' } });
+  const origin = document.activeElement;
+
+  if (!(origin instanceof HTMLElement)) throw new Error("context has no focused frame");
+  const id = document.querySelector('.drawer[data-open=true] .todo-detail')?.textContent;
+  const before = app.calls.length;
+
+  for (const dismissal of ["Escape", "?"]) {
+    origin.focus();
+    fireEvent.keyDown(origin, { key: "?", shiftKey: true });
+    await screen.findByRole("dialog", { name: copy.help });
+    fireEvent.keyDown(document.activeElement!, { key: dismissal, shiftKey: dismissal === "?" });
+    await waitFor(() => expect(document.activeElement).toBe(origin));
+    expect(field.value).toBe('unfinished ? work');
+    expect(document.querySelector('.drawer[data-open=true] .todo-detail')?.textContent).toBe(id);
+  }
+
+  expect(app.calls.slice(before).filter(call => !["project.resources", "rail.tree", "terminal.list"].includes(call.method))).toEqual([]);
+  fireEvent.keyDown(origin, { key: "Escape" });
+  await waitFor(() => expect(document.querySelector(name === "drawer" ? '.drawer[data-open=true]' : '.switcher')).toBeNull());
 });
