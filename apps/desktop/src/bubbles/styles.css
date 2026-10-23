@@ -63,9 +63,6 @@
   flex-direction: column;
   isolation: isolate;
   overflow: hidden;
-  background: var(--ground);
-  border-radius: var(--radius-drawer);
-  box-shadow: var(--shadow-drawer);
   /* The bubble is the bar plus the Terminal, an even small inset around the Terminal; the bar meets it. */
   padding: var(--space-1);
   pointer-events: auto;

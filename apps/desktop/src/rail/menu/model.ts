@@ -75,6 +75,7 @@ export const createRailMenu = (app: AppSeam, rail: RailState, onFailure: (messag
 
   /** U428: the Rail's stop icon. A `working`, `needs-you` or `blocked` Agent asks first, any other running Agent stops at once. */
   const requestStop = (node: RailNode, exit: ExitState | null) => {
+    if (state()?.confirming) return;
     const current: MenuState = { node, exit, confirming: false, action: "stop" };
     setState(current);
 
@@ -175,6 +176,7 @@ export const createRailMenu = (app: AppSeam, rail: RailState, onFailure: (messag
 
   /** U358: the row menu's `remove` without the pointer: the same confirm, the same `rail.remove`, then `removed` once the Daemon has answered. */
   const requestRemove = (node: RailNode, exit: ExitState | null, removed: () => void) => {
+    if (state()?.confirming) return;
     setState({ node, exit, confirming: false, action: "remove", removed });
     chooseRemove();
   };
@@ -196,7 +198,8 @@ export const createRailMenu = (app: AppSeam, rail: RailState, onFailure: (messag
   /** U2694b: a row's items in the table's order; a Group (a Workstream with no Agent at it) offers Remove only. */
   const entries = (node: RailNode, exit: ExitState | null, removed?: () => void): MenuEntry[] => {
     const remove: MenuEntry = { id: "remove", label: copy.remove, shortcut: "⌘⌫", run: () => {
-      setState({ node, exit, confirming: false, action: "remove", removed });
+      if (state()?.confirming) return;
+    setState({ node, exit, confirming: false, action: "remove", removed });
       chooseRemove();
     } };
 

@@ -40,7 +40,7 @@ const openConfirm = async () => {
   }`);
   await page.until(`() => window.__fake.app.shownMenus.length > 0`);
   await page.call(`() => window.__fake.app.pickMenu("Remove")`);
-  await page.until(`() => /Unlanded work: Uncommitted changes/.test(document.body.textContent)`);
+  await page.until(`() => /Unlanded work: Uncommitted changes/.test(window.__question.shown?.message ?? '')`);
 };
 
 run("u367 the confirm", () => {
@@ -50,12 +50,7 @@ run("u367 the confirm", () => {
     await openConfirm();
     await page.call(`() => { window.__fake.app.handlers['rail.remove'] = () => { throw new Error('removal failed; work kept'); }; }`);
 
-    const point = await page.call<{ x: number; y: number }>(`() => {
-      const button = [...document.querySelectorAll('[role=alertdialog] button')].find(button => button.textContent === 'Remove').getBoundingClientRect();
-      return { x: (button.left + button.right) / 2, y: (button.top + button.bottom) / 2 };
-    }`);
-
-    await page.click(point.x, point.y);
+    await page.call(`() => window.__question.answer(true)`);
     await page.until(`() => document.querySelector('[role=alert]')?.textContent.includes('removal failed; work kept')`);
     expect(await page.call<boolean>(`() => Boolean(document.querySelector('.rail-row[data-id="backend"]'))`)).toBe(true);
   });
