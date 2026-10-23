@@ -10,6 +10,7 @@ export const TickBox = (props: { todo: Todo; onToggle: () => Promise<string | nu
   createEffect(on(() => props.todo.done, () => setPending(false), { defer: true }));
 
   return (
+    <span class="todo-tick-box">
     <input
       type="checkbox"
       class="todo-tick glyph"
@@ -35,6 +36,9 @@ export const TickBox = (props: { todo: Todo; onToggle: () => Promise<string | nu
         });
       }}
     />
+    {/* U3769: the tick is a stroke on the box, its dash offset runs 1 (hidden) to 0 (drawn); the input stays the one control. */}
+    <svg class="todo-tick-mark" viewBox="0 0 16 16" aria-hidden="true"><path d="M4 8.5 L6.8 11 L12 5.5" pathLength="1" /></svg>
+    </span>
   );
 };
 
