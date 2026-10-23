@@ -99,7 +99,7 @@ export const copy = {
   deliverableRetained: "File · published copy",
   deliverableRevision: () => "Pad · published copy",
   deliverableAttribution: (maker: string, home: string) => `${maker} · ${home}`,
-  openDeliverable: (title: string, maker: string, home: string, published: number) => `Open ${title} · ${maker} · ${home} · ${new Date(published).toLocaleString(undefined, { year: "numeric", month: "short", day: "numeric", hour: "numeric", minute: "2-digit", second: "2-digit", fractionalSecondDigits: 3 })}`,
+  openDeliverable: (title: string, maker: string, home: string, published: number) => `Open ${title} · ${maker} · ${home} · ${new Date(published).toLocaleString(undefined, { year: "numeric", month: "short", day: "numeric", hour: "numeric", minute: "2-digit", second: "2-digit" })}`,
   deliverableUnsafe: "Unavailable: only HTTP and HTTPS targets can open.",
   deliverableUnavailable: {
     "missing-revision": "Unavailable: retained revision is missing.",
@@ -409,7 +409,7 @@ export const copy = {
   copySessionId: "Copy session id",
   copied: "Copied",
   copyFailed: "Copy failed",
-  railDraftTaskTarget: (name: string) => `Task for ${name}`,
+  railDraftTaskTarget: (name: string) => `Work for ${name}`,
   railDraftTaskAction: (send: boolean) => send ? "Send to supervisor" : "Start Agent",
   railDraftUnknown: (project: string) => `A submission in ${project} may have completed. Its draft is kept; reopening does not retry it. Review the target before creating another request.`,
   railDraftBase: (name: string) => `Original name: ${name}`,
@@ -668,7 +668,7 @@ export const copy = {
   reactionGone: () => "Unavailable Agent",
   reactionBound: "Bound",
   reactionRemaining: (remaining: number, max: number, rearm: boolean) => `${remaining} of ${max} firings left${rearm ? ", re-arms" : ""}`,
-  reactionHealth: (health: string) => reactionHealth.get(health) ?? "Observation details could not be explained. Copy includes the original details.",
+  reactionHealth: (health: string) => reactionHealth.get(health) ?? "Observation details could not be explained.",
   reactionDelivery: (status: string) => reactionDelivery.get(status) ?? "Delivery unknown",
   reactionCause: (cause: string) => cause.startsWith("the PR head moved") ? "The PR has new commits. Create a new reaction for the current version."
     : cause.includes("no longer names an Agent with a state") ? "An Agent is no longer available. Stop this reaction and choose an available Agent in a new one."
@@ -692,7 +692,7 @@ export const copy = {
     : cause === "passed" ? "This question was passed on."
     : cause === "merged" ? "Included in a newer summary."
     : cause.includes("unsupported") ? "This source cannot be watched. Stop this reaction and choose a supported condition."
-    : "Observation details could not be explained. Refresh to check again; Copy includes the original cause.",
+    : "Observation details could not be explained. Refresh to check again.",
   reactionUnknownState: "Observation unclear",
   reactionUnknownEvidence: "Observation details could not be explained. Copy includes the original details.",
   reactionDetails: "Details",
@@ -700,8 +700,8 @@ export const copy = {
   reactionNoEvidence: "No event recorded",
   reactionHead: "Pinned commit",
   reactionObservation: "Observation",
-  reactionGap: (gap: string) => gap.startsWith("the Event history after ") ? "Earlier activity could not be read. This gap remains in the history." : (gap.startsWith("the Agent state was not read after Event ") || gap.startsWith("the Events after ")) ? "Agent activity could not be read. Nothing matched during that gap." : "Earlier observation details could not be explained. Copy includes the original details.",
-  reactionRecovery: (recovery: string) => recovery === "the recorded source gap remains; authoritative current Agent state reconciled observation" ? "Current Agent activity is available again; the earlier gap remains." : recovery === "stop this reaction and create one naming the Agents that exist" ? "Stop this reaction and create one with an available Agent." : "Refresh to check current observation. Copy includes the original recovery details.",
+  reactionGap: (gap: string) => gap.startsWith("the Event history after ") ? "Earlier activity could not be read. This gap remains in the history." : (gap.startsWith("the Agent state was not read after Event ") || gap.startsWith("the Events after ")) ? "Agent activity could not be read. Nothing matched during that gap." : "Earlier observation details could not be explained.",
+  reactionRecovery: (recovery: string) => recovery === "the recorded source gap remains; authoritative current Agent state reconciled observation" ? "Current Agent activity is available again; the earlier gap remains." : recovery === "stop this reaction and create one naming the Agents that exist" ? "Stop this reaction and create one with an available Agent." : "Refresh to check current observation.",
   reactionMessage: (_id: number) => "Message",
   reactionMessageState: "Delivery",
   reactionBackToFiring: "Back to firing",
