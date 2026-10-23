@@ -6,7 +6,7 @@ import type { JSX } from "solid-js";
 export const Progress = (props: { label: string; value: number; max: number; motion?: boolean; onMotionEnd?: () => void; children?: JSX.Element }): JSX.Element => (
   <ArkProgress.Root class="app-progress" min={0} max={props.max} value={props.value} data-state="" data-motion={props.motion ? "play" : undefined} onTransitionEnd={(event) => { if (event.propertyName === "transform") props.onMotionEnd?.(); }}>
     <ArkProgress.Track data-state="" class="app-progress-track" aria-label={props.label}>
-      <ArkProgress.Range data-state="" class="app-progress-fill" style={{ width: "100%", "--fill": props.max === 0 ? 0 : props.value / props.max }} />
+      <ArkProgress.Range data-state="" class="app-progress-fill" style={{ width: "100%", "--progress-ratio": props.max === 0 ? 0 : props.value / props.max }} />
     </ArkProgress.Track>
     {props.children}
   </ArkProgress.Root>
