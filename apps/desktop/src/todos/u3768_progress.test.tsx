@@ -56,6 +56,38 @@ describe("u3768 the Todos list shows a progress bar", () => {
   });
 });
 
+describe("u3773 the last open Todo finishes in place", () => {
+  it("u3773_the_only_open_todo_stays_while_it_finishes", async () => {
+    const mounted = await mountTodos([todo(1)], false);
+    const tick = await screen.findByRole("checkbox", { name: "Complete todo 1" });
+
+    fireEvent.click(tick);
+    await waitFor(() => expect(todoCallsTo(mounted.app, "todo.complete")).toHaveLength(1));
+    mounted.app.emit(todoEvent("todo.updated", mounted.store.todos[0]!));
+    await waitFor(() => expect(count()).toBe("1/1"));
+
+    expect(document.querySelector('.shelf-groups [data-todo="1"]')).not.toBeNull();
+    expect(screen.getByRole("checkbox", { name: "Reopen todo 1", checked: true })).toBe(tick);
+
+    // Progress emits its transform transition end; the row's strike ends after the bar.
+    fireEvent.transitionEnd(document.querySelector(".app-progress-fill")!, { propertyName: "transform" });
+    expect(document.querySelector('.shelf-groups [data-todo="1"]')).not.toBeNull();
+    fireEvent.animationEnd(document.querySelector('[data-todo="1"] .todo-strike')!);
+    expect(document.querySelector(".shelf-groups")).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: /1 done/ }));
+    expect(screen.getByRole("checkbox", { name: "Reopen todo 1" })).toBeDefined();
+    expect(document.querySelectorAll('[data-todo="1"]')).toHaveLength(1);
+  });
+
+  it("u3773_a_scope_with_no_open_todo_shows_no_group", async () => {
+    await mountTodos([todo(1, { done: true })], false);
+
+    expect(document.querySelector(".shelf-groups")).toBeNull();
+    expect(screen.queryByRole("checkbox")).toBeNull();
+    expect(screen.getByRole("button", { name: /1 done/ })).toBeDefined();
+  });
+});
+
 describe("u3770 a finishing Todo plays one motion", () => {
   it("u3770_ticking_plays_the_tick_ring_strike_bar_and_count", async () => {
     const mounted = await mountTodos([todo(1), todo(2)], false);
