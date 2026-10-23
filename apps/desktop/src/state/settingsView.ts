@@ -1,7 +1,7 @@
 import { createSignal } from "solid-js";
 import type { Accessor } from "solid-js";
 
-/** U3764: whether the centre shows the Project settings view, and the control to give focus back to when it closes (U3766). */
+/** U3814: the open center page and its original return destination, retained when changing pages. */
 export type SettingsViewState = {
   open: Accessor<boolean>;
   page: Accessor<"project-settings" | "import-work">;

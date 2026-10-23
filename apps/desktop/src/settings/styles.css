@@ -113,3 +113,11 @@
   height: auto;
   min-height: 0;
 }
+
+.project-center-area {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+}

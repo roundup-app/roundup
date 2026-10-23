@@ -64,13 +64,13 @@ pub(crate) fn app_chosen<R: Runtime>(app: &AppHandle<R>, event: &MenuEvent) {
     } else if matches!(event.id().0.as_str(), "import-work" | "project-settings") {
         let selected = app.state::<ProjectMenu>();
         let path = selected.0.lock().expect("Project menu lock");
-        if let Some(path) = path.as_ref() {
-            if let Err(error) = app.emit(
+        if let Some(path) = path.as_ref()
+            && let Err(error) = app.emit(
                 "open-project-page",
                 serde_json::json!({ "path": path, "command": event.id().0 }),
-            ) {
-                eprintln!("desktop: could not open Project page: {error}");
-            }
+            )
+        {
+            eprintln!("desktop: could not open Project page: {error}");
         }
     } else {
         app.state::<Choice>().chosen(event);

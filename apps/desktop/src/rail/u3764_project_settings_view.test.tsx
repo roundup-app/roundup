@@ -6,7 +6,7 @@ import { mountRail, railCallsTo } from "./railFixture";
 afterEach(cleanup);
 
 const mount = async () => {
-  const mounted = await mountRail([], [], () => null, () => false, { settings: true });
+  const mounted = await mountRail([]);
   mounted.app.handlers["project.get"] = () => ({ worktrees: { on: false, check: null }, mcp: { on: true }, workstreamCap: 2, models: { roles: [] } });
 
   return mounted.app;
