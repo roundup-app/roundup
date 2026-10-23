@@ -389,7 +389,7 @@ export const openPage = async (
     pointer: async (type, x, y) => {
       if (type !== "move") held = type === "down";
 
-      await send("Input.dispatchMouseEvent", { type: { down: "mousePressed", move: "mouseMoved", up: "mouseReleased" }[type], x, y, button: type === "move" ? "none" : "left", buttons: type === "down" || (type === "move" && held) ? 1 : 0, clickCount: type === "move" ? 0 : 1 }, session);
+      await send("Input.dispatchMouseEvent", { type: { down: "mousePressed", move: "mouseMoved", up: "mouseReleased" }[type], x, y, button: type === "move" && !held ? "none" : "left", buttons: type === "down" || (type === "move" && held) ? 1 : 0, clickCount: type === "move" ? 0 : 1 }, session);
     },
     click: async (x, y) => {
       await send("Input.dispatchMouseEvent", { type: "mouseMoved", x, y }, session);

@@ -18,11 +18,20 @@
   --os-handle-perpendicular-size: 75%;
   --os-handle-perpendicular-size-hover: 75%;
   --os-handle-perpendicular-size-active: 75%;
+  opacity: 0 !important;
+  visibility: hidden !important;
   transition: opacity var(--duration-scrollbar) var(--easing-out), visibility var(--duration-scrollbar);
 }
 
 .app-scrollbar .os-scrollbar-handle {
   transition: none;
+}
+
+/* Activity belongs to the viewport, never the pointer or a hovered handle. */
+.scrollbar-slot[data-scroll-active] > .app-scrollbar.os-scrollbar-visible,
+.scrollbar-slot[data-scroll-drag] > .app-scrollbar.os-scrollbar-visible {
+  opacity: 1 !important;
+  visibility: visible !important;
 }
 
 /* xterm owns its scrollbar and scrollback; hover never overrides no-overflow. */
@@ -49,6 +58,7 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
+  .scrollbar-slot,
   .app-scrollbar,
   .xterm .xterm-scrollable-element > .scrollbar {
     transition: none !important;
