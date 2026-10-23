@@ -9,6 +9,7 @@ import { agent, door, event, info } from "../testing/nodes";
 import type { EmulatorFactory } from "../terminal/emulator";
 import { RowIcons } from "../rail/RowIcons";
 import { copy } from "../copy";
+import { KeyHint } from "./KeyHint";
 import { endLeader } from "./registry";
 import { CHORDS, HELP_ROWS, LEADER, hintsFor, pressOf } from "./chords";
 import type { HintPlace } from "./chords";
@@ -164,11 +165,27 @@ describe("u2230 shortcut hints", () => {
     await waitFor(() => expect(keysIn(".help-line")).toEqual(HELP_ROWS.map((row) => row.keys.replace(/\s/g, ""))));
     expect([...document.querySelectorAll(".help-shelf p")].map((row) =>
       [...row.querySelectorAll("kbd")].map((key) => key.textContent),
-    )).toEqual([["↑", "↓"], ["⌘", "⏎"], ["⇧", "↑", "⇧", "↓"], ["⌫", "Esc"]]);
+    )).toEqual([["↑", "↓"], ["⌘⏎"], ["⇧↑", "⇧↓"], ["⌫", "Esc"]]);
     fireEvent.keyDown(document.activeElement!, { key: "Escape" });
     await waitFor(() => expect(document.querySelector(".help")).toBeNull());
     fireEvent.keyDown(rowOf("b"), { key: "k", code: "KeyK", metaKey: true });
     await waitFor(() => expect(keysIn(".leader-line")).toEqual(LEADER.map((row) => row.keys)));
+  });
+
+  it("u2541d_a_chord_is_one_chip_and_an_alternative_one_pair", () => {
+    const chips = (keys: string) => {
+      const { container, unmount } = render(() => <KeyHint keys={keys}>label</KeyHint>);
+      const pairs = container.querySelectorAll(".key-chips");
+      const result = [pairs.length, [...container.querySelectorAll("kbd")].map((key) => key.textContent)] as const;
+      unmount();
+
+      return result;
+    };
+
+    expect(chips("⇧Tab")).toEqual([1, ["⇧Tab"]]);
+    expect(chips("⌘K")).toEqual([1, ["⌘K"]]);
+    expect(chips("J K")).toEqual([1, ["J", "K"]]);
+    expect(chips("J / K")).toEqual([1, ["J", "K"]]);
   });
 
   it.each([["rail", toRail], ["agent", toPane], ["bubble", toBubble], ["pad", () => toPlace("pad")], ["drawer", () => toPlace("drawer")]] as const)("u2230_every_hint_names_a_bound_chord_in_%s", async (place, go) => {
