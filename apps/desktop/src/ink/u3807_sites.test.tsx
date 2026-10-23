@@ -38,7 +38,9 @@ import { TodoDraftRecovery } from "../todos/EditableText";
 import { TodoDrawer } from "../todos/TodoDrawer";
 import { mountSend } from "../terminal/sendHarness";
 import { openShelf, openPad, padOf } from "../pads/padsFixture";
-import { mountSwitcher, openSwitcher, field } from "../switcher/switcherFixture";
+import { Switcher } from "../switcher/Switcher";
+import { Keys } from "../keys/Keys";
+import { leaderKey } from "../keys/leaderFixture";
 
 beforeEach(() => { localStorage.clear(); sessionStorage.clear(); });
 
@@ -139,26 +141,24 @@ it("u3807_each_site_shows_its_message_in_the_reserved_line: Rail", async () => {
 });
 
 it("u3807_each_site_shows_its_message_in_the_reserved_line: Terminal name recovery", async () => {
-  window.localStorage.clear();
-  window.sessionStorage.clear();
   const mounted = await mountBubbles();
   fireEvent.dblClick(document.querySelector('button.terminal-tab[data-bubble="2"] .terminal-tab-name')!);
   const field = await within(mounted.container).findByRole("textbox", { name: "Terminal name" });
   fireEvent.input(field, { target: { value: "retained name" } });
-  mounted.setListed(TERMINALS.map(terminal => terminal.id === "2" ? { ...terminal, title: "external" } : terminal));
-  mounted.app.emit(event({ name: "terminal.changed" }));
-  await mounted.connected.rail.settled();
-  fireEvent.keyDown(field, { key: "Enter" });
+  fireEvent.keyDown(field, { key: "Escape" });
+  fireEvent.click(await within(mounted.container).findByRole("button", { name: "Recover unfinished work · Terminal name" }));
   const recovery = await within(document.body).findByRole("dialog", { name: "Unfinished work" });
-  const places = placesOf(recovery);
-  const notice = within(recovery).getByText(/original name changed/).closest<HTMLElement>(".reserved-line")!;
-  mounted.setListed(TERMINALS.map(terminal => terminal.id === "2" ? { ...terminal, incarnation: "replacement" } : terminal));
-  mounted.app.emit(event({ name: "terminal.changed" }));
-  await mounted.connected.rail.settled();
-  expect(mounted.connected.rail.terminals().find(terminal => terminal.id === "2")?.incarnation).toBe("replacement");
-  expect(recovery.isConnected).toBe(true);
-  await within(recovery).findByText("Original object unavailable");
-  unchanged(places, notice);
+  await cycle(recovery,
+    async () => {
+      mounted.setListed(TERMINALS.map(terminal => terminal.id === "2" ? { ...terminal, title: "external" } : terminal));
+      mounted.app.emit(event({ name: "terminal.changed" }));
+      await mounted.connected.rail.settled();
+    },
+    async () => {
+      mounted.setListed(TERMINALS);
+      mounted.app.emit(event({ name: "terminal.changed" }));
+      await mounted.connected.rail.settled();
+    }, "The original name changed");
 });
 
 it("u3807_each_site_shows_its_message_in_the_reserved_line: Ask send", async () => {
@@ -298,6 +298,7 @@ it("u3807_each_site_shows_its_message_in_the_reserved_line: importer Looking and
   void mounted.connected.importing.refresh();
   await waitFor(() => expect(within(surface).queryByRole("alert")).toBeNull());
   unchanged(places, place);
+  mounted.connected.importing.cancel();
 });
 
 it("u3807_each_site_shows_its_message_in_the_reserved_line: ProjectSettings", async () => {
@@ -352,13 +353,14 @@ it("u3807_each_site_shows_its_message_in_the_reserved_line: Bubbles", async () =
 });
 
 it("u3807_each_site_shows_its_message_in_the_reserved_line: Switcher", async () => {
-  const mounted = await mountSwitcher();
-  openSwitcher();
+  const mounted = await mountTodos([]);
+  render(() => <ConnectedProjectContext.Provider value={mounted.connected}><Keys /><Switcher onFailure={() => {}} onOpen={() => {}} /></ConnectedProjectContext.Provider>);
+  leaderKey("KeyK");
   await within(document.body).findByRole("combobox");
   const surface = document.querySelector<HTMLElement>(".switcher")!;
   const places = placesOf(surface);
   const storage = vi.spyOn(Storage.prototype, "setItem").mockImplementation(() => { throw new Error(FAILURE); });
-  fireEvent.input(field()!, { target: { value: "retained search" } });
+  fireEvent.input(within(surface).getByRole("combobox"), { target: { value: "retained search" } });
   const place = (await within(surface).findByRole("alert")).closest<HTMLElement>(".reserved-line")!;
   unchanged(places, place);
   storage.mockRestore();
@@ -499,6 +501,6 @@ it.each(["window", "Daemon exit", "Project"])("u3807_each_site_shows_its_message
       () => { app.chooseProjectPath = async () => { throw new Error(FAILURE); };
 
  fireEvent.click(within(container).getByRole("button", { name: "Open a folder" })); },
-      () => { app.chooseProjectPath = original; fireEvent.click(within(container).getByRole("button", { name: "Open a folder" })); });
+      () => { app.chooseProjectPath = original; app.chooser.path = "/p"; fireEvent.click(within(container).getByRole("button", { name: "Open a folder" })); });
   }
 });
