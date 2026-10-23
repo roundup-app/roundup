@@ -80,8 +80,9 @@ describe("u2694 the Rail's menu actions", () => {
 
     open("i");
     await app.pickMenu("Remove");
+    await questionDialog();
+    await answerQuestion(true);
     await waitFor(() => expect(removals(app)).toHaveLength(2));
-    expect(questionProbe.shown).toBeNull();
 
     open("i");
     await app.pickMenu("Stop");
@@ -175,6 +176,7 @@ describe("u2694 the Rail's menu actions", () => {
 
     open("a");
     await app.pickMenu("Remove");
+    await answerQuestion(true);
 
     await waitFor(() => expect(rail.nodes).toEqual([]));
     expect(screen.queryByText("gone")).toBeNull();
@@ -186,6 +188,7 @@ describe("u2694 the Rail's menu actions", () => {
 
     open("a");
     await app.pickMenu("Remove");
+    await answerQuestion(true);
 
     expect(await screen.findByText("cannot remove")).toBeTruthy();
   });

@@ -485,7 +485,7 @@ const PadBody = (props: {
         </Show>
       </div>
       <NativeAlert app={connected.app} open={asking()}
-        question={{ title: copy.deletePad(name), message: [pad().owner.kind !== "user" ? copy.ownsItYouMayDeleteAnyPad(connected.rail.nameOf(pad().owner)) : "", currentDraft() !== origin() ? copy.unsavedChangesAreLost : ""].filter(Boolean).join("\n"), okLabel: copy.delete, cancelLabel: copy.keep }}
+        question={{ title: copy.padDeleteQuestion(name), message: [pad().owner.kind !== "user" ? copy.padDeleteOwnership(connected.rail.nameOf(pad().owner)) : "", currentDraft() !== origin() ? copy.padDeleteUnsaved : ""].filter(Boolean).join("\n"), okLabel: copy.delete, cancelLabel: copy.keep }}
         onCancel={() => setAsking(false)} finalFocus={() => deleteButton ?? null}
         onConfirm={() => { setAsking(false); void remove("key"); }} />
       <ReservedLine data-state={saved() && !deleted() && !conflictActor() ? "saved" : undefined} message={actionFailure.message() ?? (deleted() && !removedByMe() ? `Pad ${name} was deleted` : retentionProblem() ? copy.draftRetention(connected.project.name, copy.pad, retentionProblem()!.cause) : conflictActor() ? conflictLabel() : paused() ? statusLabel() : null)}

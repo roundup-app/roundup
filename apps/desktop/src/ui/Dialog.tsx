@@ -1,8 +1,9 @@
+import { getInteractionModality, trackFocusVisible } from "@zag-js/focus-visible";
 import { Portal } from "solid-js/web";
 import { createSlideLifetime } from "./slideLifetime";
 import { createReducedMotion } from "../app/reducedMotion";
 import { Dialog as ArkDialog, useDialogContext } from "@ark-ui/solid/dialog";
-import { createContext, createEffect, createSignal, Show, on, untrack, useContext, type Accessor } from "solid-js";
+import { createContext, createEffect, createSignal, Show, on, onCleanup, untrack, useContext, type Accessor } from "solid-js";
 import { modalOutside, registerKeys } from "../keys/registry";
 import "./Dialog.css";
 
@@ -42,6 +43,7 @@ export const floatingControl = (props: { open?: boolean | undefined; defaultOpen
 export const Dialog = {
   ...ArkDialog,
   Root: (props: ArkDialog.RootProps & { instant?: boolean }) => {
+    onCleanup(trackFocusVisible());
     const parent = useContext(Ownership);
     const [element, setElement] = createSignal<HTMLElement>();
     const [local, setLocal] = createSignal(props.defaultOpen ?? false);
@@ -60,7 +62,7 @@ export const Dialog = {
       }
 
       wasOpen = open;
-      lifetime.retarget(open, !props.instant && !reduce && document.documentElement.dataset.keyboardFocus === "false");
+      lifetime.retarget(open, !props.instant && !reduce && getInteractionModality() === "pointer");
       setPresent(open || lifetime.exiting());
     }));
     // A close request must not unmount the panel before the lifetime effect retains its exit.
