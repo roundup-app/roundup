@@ -1,0 +1,85 @@
+{
+  "scenario": "U3528",
+  "base": "94a65e486914ee8688c401fbbe49f27526e98e80",
+  "head": "d3749a8328dec0844cac0d62f355608741a6970f",
+  "observer": "apps/desktop/src/testing/u2770_browser.test.ts at d3749a8328dec0844cac0d62f355608741a6970f",
+  "baseObserver": "Same interaction/capture sequence with no-ring and equal-press-background assertions disabled only for baseline observation. All focus destinations and Auto state/call assertions retained.",
+  "environment": "Isolated headless agent-browser; fresh profiles; Linux/Chromium",
+  "viewport": {
+    "width": 1512,
+    "height": 950
+  },
+  "scheme": "dark",
+  "seeds": [
+    "tree-40",
+    "decisions"
+  ],
+  "checks": [
+    "D2",
+    "D5",
+    "D6",
+    "D7"
+  ],
+  "mainClaims": "No native macOS claim; user reports what they meet on the Mac.",
+  "pairedScreens": 15,
+  "checksResult": "D2/D5/D6/D7 pass on all 15 main/head pairs; delta exits 0, with no passing Check regressed.",
+  "preexistingFailures": [
+    {
+      "screen": "1512x950-dark-shelf-click.checks.json",
+      "check": "D12",
+      "selector": "div.shelf-row",
+      "status": "fail",
+      "value": 32
+    },
+    {
+      "screen": "1512x950-dark-project-tab.checks.json",
+      "check": "D12",
+      "selector": "div.shelf-row",
+      "status": "fail",
+      "value": 32
+    },
+    {
+      "screen": "1512x950-dark-ask-click.checks.json",
+      "check": "D12",
+      "selector": "div.shelf-row",
+      "status": "fail",
+      "value": 32
+    },
+    {
+      "screen": "1512x950-dark-ask-typing.checks.json",
+      "check": "D12",
+      "selector": "div.shelf-row",
+      "status": "fail",
+      "value": 32
+    },
+    {
+      "screen": "1512x950-dark-keyboard-dialog.checks.json",
+      "check": "D10",
+      "selector": "",
+      "status": "fail",
+      "value": {
+        "contrast": "no-preference",
+        "failing": [
+          "D8"
+        ],
+        "scheme": "dark",
+        "viewport": "1512x950"
+      }
+    },
+    {
+      "screen": "1512x950-dark-keyboard-dialog.checks.json",
+      "check": "D8",
+      "selector": "div#dialog:cl-7:content.app-dialog",
+      "status": "fail",
+      "value": {
+        "boxShadow": "rgba(0, 0, 0, 0.5) 0px 8px 32px 0px"
+      }
+    }
+  ],
+  "denseSeed": "The original eight Todos, four Pads and forty Rail nodes are preserved; only normal UI navigation and the Auto failure response are exercised.",
+  "modifierEvidence": [
+    "base/modifiers.json",
+    "head/modifiers.json"
+  ],
+  "modifierEvidenceMeaning": "outline is true when computed outline-style is none or outline-width is zero; shadow is computed box-shadow. Each sample is taken in the real modifier keydown microtask before keyup."
+}

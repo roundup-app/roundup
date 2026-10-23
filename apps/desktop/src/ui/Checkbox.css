@@ -19,29 +19,9 @@
   cursor: pointer;
 }
 
-.app-checkbox > input:focus-visible {
-  outline: none;
-}
-
-.app-checkbox > input:active:not(:disabled) {
-  background-color: var(--pressed);
-  transition-duration: 0s;
-}
-
-/* The library's input is visually hidden, so the shared keyboard ring draws around the row. */
-.app-checkbox:has(input:focus-visible) {
-  outline: var(--keyboard-ring);
-  outline-offset: 0;
-}
-
 .app-checkbox > input:hover:not(:disabled),
 .app-checkbox:has(input:hover:not(:disabled)) .app-checkbox-label {
   color: var(--text);
-}
-
-.app-checkbox:has(input:active:not(:disabled)) {
-  background-color: var(--pressed);
-  transition-duration: 0s;
 }
 
 .app-checkbox-box::before {

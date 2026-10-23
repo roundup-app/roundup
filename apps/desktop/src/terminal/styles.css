@@ -173,16 +173,6 @@
   background-color: var(--ground);
 }
 
-.pane .xterm .xterm-helper-textarea:focus-visible {
-  box-shadow: none;
-}
-
-.pane .xterm .xterm-helper-textarea:active {
-  color: var(--text);
-  background-color: var(--selected);
-  transition-duration: 0s;
-}
-
 /* U514: the strips sit in the pane-screen's left padding, beside the cell grid, so no glyph is covered and `cols` is unchanged. */
 .turn-strips {
   position: absolute;
