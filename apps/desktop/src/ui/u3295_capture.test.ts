@@ -12,6 +12,7 @@ const exec = promisify(execFile);
 // Rendered acceptance evidence runs only when requested, never as another browser regression suite.
 it.skipIf(!captureDir("U3295b"))("u3295b_rendered_modal_dismissal_and_dialog_picker", async () => {
   const server = await appServer({ root: process.env.ROUNDUP_CAPTURE_ROOT ?? process.cwd() });
+  const revision = process.env.ROUNDUP_CAPTURE_REVISION ?? (await exec("git", ["rev-parse", "HEAD"])).stdout.trim();
   const profile = mkdtempSync(join(tmpdir(), "u3295-"));
   const session = `u3295-${process.pid}`;
   const browser = async (...args: string[]) => (await exec("agent-browser", ["--session", session, "--json", ...args], { timeout: 30_000, maxBuffer: 8 * 1024 * 1024 })).stdout;
@@ -34,7 +35,7 @@ it.skipIf(!captureDir("U3295b"))("u3295b_rendered_modal_dismissal_and_dialog_pic
 
       mkdirSync(dir, { recursive: true });
       await browser("screenshot", join(dir, `${step}.png`));
-      writeFileSync(join(dir, `${step}.checks.json`), JSON.stringify({ revision: process.env.ROUNDUP_CAPTURE_REVISION ?? "working-tree", checks: await read("window.__checks()") }, null, 2));
+      writeFileSync(join(dir, `${step}.checks.json`), JSON.stringify({ revision, ...await read<Record<string, unknown>>("window.__checks()") }, null, 2));
     }
   };
 
