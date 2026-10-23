@@ -5,21 +5,7 @@ use std::path::PathBuf;
 use std::time::Duration;
 
 fn import_daemon(project: &Path, launcher: agents::claude_code::Launcher) -> Daemon {
-    let data = project.join(".roundup");
-    Daemon::open_stores(project, &data, None, |_| {
-        let bus = Bus::new();
-        let terminals = Arc::new(terminal::Terminals::open(&data, bus.clone()).unwrap());
-        agents::Agents::open_in(
-            project,
-            &data,
-            bus,
-            terminals,
-            launcher,
-            agents::worktree::Git::from_env(),
-        )
-        .unwrap()
-    })
-    .unwrap()
+    crate::tests::daemon_with_launcher(project, &project.join(".roundup"), launcher)
 }
 
 fn import_source(config: &Path, cwd: &Path, number: usize, timestamp: &str) -> PathBuf {

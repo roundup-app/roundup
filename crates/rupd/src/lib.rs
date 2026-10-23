@@ -2,6 +2,9 @@
 //! It owns the connection loop, the module router, the event bus and the Provenance log.
 
 mod attachment;
+mod auto;
+#[cfg(test)]
+mod auto_tests;
 mod builtin;
 mod clear;
 mod connection;
@@ -92,6 +95,7 @@ pub struct Daemon {
     rewinding: rewind::Rewinding,
     /// A3196: what the Workstream Queue remembers between passes.
     queue: Arc<queue::Memory>,
+    auto: auto::Auto,
     /// B21: subscribed at `open`, so no change is missed before the pusher runs; taken once, when
     /// a Tokio runtime is there to run it.
     pushes: std::sync::Mutex<Option<tokio::sync::broadcast::Receiver<contracts::Event>>>,
