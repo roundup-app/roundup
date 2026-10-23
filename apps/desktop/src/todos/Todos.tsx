@@ -721,7 +721,7 @@ export const Todos = (props: {
     }),
   ]);
 
-  /** U2694b: Complete (disabled for done Todos), Send to Agent ▸, Copy Link, Delete, as the system menu of a row; Delete asks as U461 does. */
+  /** U2694b: Complete (only for open Todos), Send to Agent ▸, Copy Link, Delete, as the system menu of a row; Delete asks as U461 does. */
   const todoMenu = (event: MouseEvent) => {
     const row = event.target instanceof Element ? event.target.closest<HTMLElement>("[data-todo]") : null;
     const todo = row ? todos.byId().get(Number(row.dataset.todo)) : undefined;
@@ -729,7 +729,7 @@ export const Todos = (props: {
     if (todo === undefined) return;
 
     openOnRelease(event, (x, y) => void contextMenu(connected.app, [
-      { id: "complete", label: copy.complete, enabled: !todo.done, run: () => void toggle(todo, open().map(candidate => candidate.id)) },
+      ...(!todo.done ? [{ id: "complete", label: copy.complete, run: () => void toggle(todo, open().map(candidate => candidate.id)) }] : []),
       ...linkEntries(connected.app, { kind: "todo", id: todo.id }, connected.rail.nodes, (node) => connected.rail.exitOf(node) === null, setCreateFailure),
       { id: "delete", label: copy.delete, run: () => { selection.replace([todo.id]); bulk.ask(); } },
     ], x, y));
