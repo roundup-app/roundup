@@ -7,7 +7,7 @@ import { Dialog } from "../ui/Dialog";
 import { Editable } from "../ui/Editable";
 import { FlatAdd, FlatTab } from "../ui/FlatTab";
 import { IconButton } from "../ui/IconButton";
-import { contextMenu, linkEntries, openOnRelease, PULL_DISTANCE } from "../ui/contextMenu";
+import { contextMenu, linkEntries, openOnRelease, textTarget, PULL_DISTANCE } from "../ui/contextMenu";
 import { Panel } from "../ui/Panel";
 import { copy } from "../copy";
 import { createEffect, createMemo, createSignal, For, on, onCleanup, onMount, Show, untrack } from "solid-js";
@@ -408,8 +408,6 @@ export const Bubbles = (props: {
     let frame: number | null = null;
     let swallowMenu = false;
     let swallowUp = false;
-    let held: MouseEvent | null = null;
-    let replaying = false;
 
     const apply = (): void => {
       frame = null;
@@ -458,10 +456,9 @@ export const Bubbles = (props: {
     const down = (event: PointerEvent): void => {
       swallowMenu = false;
       swallowUp = false;
-      held = null;
       press = null;
 
-      if (event.pointerType !== "mouse" || event.button !== 2 || event.metaKey || event.ctrlKey || event.altKey || event.shiftKey || blocked()) return;
+      if (event.pointerType !== "mouse" || event.button !== 2 || event.metaKey || event.ctrlKey || event.altKey || event.shiftKey || textTarget(event.target) || blocked()) return;
 
       press = { x: event.clientX, y: event.clientY };
       pointer = press;
@@ -478,7 +475,7 @@ export const Bubbles = (props: {
         start();
       }
 
-      // A Terminal's mouse reporting (U11) hears nothing of a press that became a Pull.
+      // A Pull crossing a Terminal keeps its move and release out of that program.
       event.stopPropagation();
 
       if (id !== null) schedule();
@@ -491,26 +488,9 @@ export const Bubbles = (props: {
         event.stopPropagation();
         swallowMenu = true;
         swallowUp = true;
-        held = null;
-      } else if (held !== null) {
-        // The press never became a Pull: the Terminal hears it now, before its release.
-        const target = held.target;
-
-        replaying = true;
-        target?.dispatchEvent(new MouseEvent("mousedown", held));
-        replaying = false;
-        held = null;
       }
 
       end();
-    };
-
-    // A press is held back until it is known not to be a Pull, so a Terminal's mouse reporting (U11) never hears a Pull's press.
-    const hold = (event: MouseEvent): void => {
-      if (replaying || press === null || event.button !== 2) return;
-
-      held = event;
-      event.stopPropagation();
     };
 
     const swallow = (event: Event): void => {
@@ -542,7 +522,6 @@ export const Bubbles = (props: {
     listen("pointerup", up);
     listen("pointercancel", end);
     listen("mousemove", swallow);
-    listen("mousedown", hold);
     listen("mouseup", swallowRelease);
     listen("contextmenu", menu);
     registerKeys({ kind: "app" }, [{

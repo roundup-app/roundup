@@ -120,6 +120,12 @@ export const linkEntries = (
   ];
 };
 
+/** Text and emulator gestures belong to their editor, including text inside an object's row. */
+export const textTarget = (target: EventTarget | null): boolean => target instanceof Element && (
+  target.closest('.pane-screen, .bubble-body, input, textarea, [contenteditable], .pad-editor, .diff-content, pre, code') !== null
+  || getComputedStyle(target).userSelect === "text"
+);
+
 /** U421, U2694e: a right-button press that moves this far (CSS pixels) is a Pull; short of it, a click. */
 export const PULL_DISTANCE = 8;
 
@@ -128,6 +134,8 @@ export const PULL_DISTANCE = 8;
  * A Pull stops its own release (U421), so a drag past the distance opens nothing.
  */
 export const openOnRelease = (press: MouseEvent, open: (x: number, y: number) => void): void => {
+  if (textTarget(press.target)) return;
+
   press.preventDefault();
 
   if ((press.buttons & 2) === 0) {
