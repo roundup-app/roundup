@@ -8,9 +8,11 @@ mod discovery;
 pub mod extras;
 pub mod inbox;
 mod launch;
+mod launch_files;
 pub(crate) mod measurement;
 mod models;
 mod placement;
+mod profiles;
 pub use placement::Call as PlacementCall;
 pub mod plugins;
 mod skills;
@@ -23,11 +25,11 @@ use serde_json::Value;
 use crate::{AgentAdapter, Observation};
 
 pub use brief::Role;
-pub use launch::{
-    DOOR_TOOLS, DOOR_TOOLS_NO_MCP, Folders, INTENT_MISSING, Launcher, Lean, PROFILES, Pair,
-    Profile, SCOUT_TOOLS, SCOUT_TOOLS_NO_MCP, STATE_EVENTS, profile, settings_marker,
+pub use launch::{Folders, INTENT_MISSING, Launcher, STATE_EVENTS, settings_marker};
+pub use models::{Lean, Pair, efforts, engines, models};
+pub use profiles::{
+    DOOR_TOOLS, DOOR_TOOLS_NO_MCP, PROFILES, Profile, SCOUT_TOOLS, SCOUT_TOOLS_NO_MCP, profile,
 };
-pub use models::{efforts, models};
 pub use skills::{BANNED, skills};
 
 /// F4, F5: the program names this Adapter's vendor CLI is started by. The shim and the process

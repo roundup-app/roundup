@@ -421,6 +421,7 @@ impl Daemon {
                 saved.handoff.clone(),
                 next,
                 self.clears.restart_bound,
+                p.permission_mode,
             )
             .await?;
         if let Some(messages) = self.sender.get() {

@@ -1,6 +1,6 @@
-# UI: the visual system (U130 to U137, U161, U476, U3767, U3807, U3299a–d)
+# UI: the visual system (U130 to U137, U161, U476, U3767, U3807, U3299a–d, U3295a–c)
 
-Module: `apps/desktop` (the webview). Ids: U130–U137, U161, U476, U3767, U3807, U3299a–d.
+Module: `apps/desktop` (the webview). Ids: U130–U137, U161, U476, U3767, U3807, U3299a–d, U3295a–c.
 
 Webview only. No App command, no Daemon method and nothing under `contracts/` changes. `docs/design-system.md` holds the Tokens, the six rules and the checks D1 to D10; each scenario below is the test that proves some of them, and its test name starts with its id. For rendered captures, every Check runs on every visible element in dark and fails when it cannot measure; non-capture behavioral and Token tests retain their supported schemes (U3725). `docs/motion.md` is unchanged.
 
@@ -76,3 +76,55 @@ This supersedes U183's absolute-path title requirement and U497's requirement to
 Policy for U3299a–d: webview only, with existing App seams, contracts, Tokens and primitives; no new RPC, domain name or delivery semantics. Cost-and-time values belong to #3288. Keep U471's copy catalogue and user-label mappings. Applicable gates are P11 (retained input keeps its original identity), P12 (publication still opens its recorded target) and P13 (reaction facts and authority remain inspectable); observers are the identity, recovery, Copy and existing firing tests above. No blanket string-scraping test or exact-copy assertion is required.
 
 Rendered observer (policy): isolated headless Chromium with a dedicated session and fresh profile, at 1512×950 in dark, based on `tree-40` and `tabs-8`, extended with the fixtures above. Open every listed surface, including hover/focus tooltips, history, recovery, import conflict and reaction Message detail. Keep failure text visible on the densest seed. The design critic judges D2, D5 and D6 (`docs/design-system.md`, heading “The checks”) and every Check passing on main; no Check is weakened. Run `just capture U3299a,U3299b,U3299c,U3299d` during implementation; leave before/after PNGs and Check readings under `artifacts/ux/<id>/`, with immutable base/head SHAs, as `.agents/data/harness.md` prescribes. Images and videos are not committed. This specification PR requires no UI capture; implementation provides the observations. No native Mac behavior is claimed.
+
+**U3295a every floating surface uses the shared order.** Extends U3767 after its layer Tokens exist on main. Policy: audit U3767's floating surfaces under `apps/desktop/src`, including stylesheet and inline declarations, against the order in `docs/design-system.md`, heading “Surfaces and depth”: Drawer < Popover < Dialog < Menu/Select belonging to that Dialog < Tooltip < Toast. A floating surface uses a defined layer Token, never a local number. Include the Rail menu, Todo row menu, ask surface, Switcher, Toasts and Terminal overlays; include shared Popover, Menu, Select, Tooltip, Combobox and Mentions and every caller. Already compliant sites remain compliant; the audit is not limited to the Issue's original fault list. Keep the Terminal column stacking context and U346's observer. This is a webview audit, with existing primitives and App seams; no new RPC, App command, domain name or contract is required (policy).
+
+The existing `u3767_floating_surfaces_take_layers_from_tokens_in_one_order` in `apps/desktop/src/ui/u3767_layers.test.ts` remains the layer-order observer; extend its coverage only for an uncovered floating selector, without another test proving the same clause. The design critic judges stacking and occlusion; behavioral tests assert interactions, roles, focus and call counts rather than CSS values or geometry (policy).
+
+**U3295b a modal closes older floating controls and preserves unfinished input.** Narrows U3767's “any open Popover”: opening a modal Dialog closes transient floating controls belonging outside that Dialog; controls opened from inside the active Dialog remain usable. Ownership follows the trigger/field even when content is portalled (policy). Drawer content and Toast notifications retain U3767's order; they are not transient choice lists and do not close under this clause (policy).
+
+Given each surface below open outside the incoming modal, when a modal Dialog opens through the existing App seam, then the old surface is closed, absent from the accessible open controls, and cannot take keyboard focus or activate an item; focus stays within the Dialog. Closing the Dialog does not automatically reopen the old surface or activate its last highlighted choice. Observer: `u3295b_a_dialog_closes_outside_floating_controls`, a planned parameterized integration test beside the shared UI tests, rendering the real callers and Dialog with a normally answering App. Cover controlled and uncontrolled Popovers and callers that opt out of ordinary outside-click dismissal; modal dismissal does not depend on an outside click (policy).
+
+| Surface to exercise | Existing caller or primitive |
+| --- | --- |
+| Recovered change notes | `changes/NoteBatch.tsx` |
+| Worktree controls | `changes/WorktreeControl.tsx` |
+| Terminal selection and its note/recovery controls | `terminal/SendToAgent.tsx` |
+| Start-after Todo picker | `todos/NewWorkstream.tsx` |
+| Blocker picker | `todos/BlockerMenu.tsx` |
+| Mention suggestions with a nonempty result list | `ui/Mentions.tsx` |
+| Menu, Select and Tooltip from a background control | `ui/Menu.tsx`, `ui/Select.tsx`, `ui/Tooltip.tsx` |
+| Switcher with a typed query | `switcher/Switcher.tsx` |
+| Floating ask panel with unfinished input (not its home-screen form) | `ask/AskBar.tsx` |
+
+Given exact unsent text in an editable field belonging to each listed surface, when the modal closes that surface and the user closes the modal and explicitly reopens the same editor on the same Project/object/recipient, then the exact text and destination remain, with no submit, discard, selection or delivery caused by dismissal or restoration. Observer: `u3295b_modal_dismissal_keeps_unsubmitted_work`, planned parameterized caller tests beside the shared UI tests. Mention results need not reopen until the user resumes the field; the underlying text remains. Filter-only queries may reset under their existing contracts; the Switcher's retained query keeps its existing recovery behavior (policy). Reuse `u3767_opening_a_dialog_closes_the_note_popover` and `u3767_the_note_text_survives_the_dialog` in `apps/desktop/src/terminal/u3767_note_under_dialog.test.tsx` for their already covered Terminal-note clauses; add only uncovered cases. P11's Gate applies to dismissed editors; its Observer is the exact-text, identity and zero-submit comparison above. Wider unfinished-input scenarios remain unchanged (policy).
+
+Given the active Dialog open, when the user opens its Menu, Select, Tooltip, Mention suggestions or the Start-after Todo picker, then each applicable control opens, its keyboard/pointer interaction still works, and a chosen value reaches only that Dialog's field. Escape closes a choice list before its Dialog and returns focus to its trigger/field. Observer: `u3295b_dialog_owned_controls_still_work`, planned parameterized interaction tests beside the shared UI tests. Keep `u3767_a_menu_or_select_in_a_dialog_shows_above_it` in `apps/desktop/src/ui/u3767_browser.test.ts` as existing rendered evidence. Given a modal Dialog active, when the user presses the Switcher shortcut, then no Switcher opens over it and the Dialog retains focus (`u3295b_switcher_cannot_cover_a_dialog`, planned App-seam test beside the Switcher tests). A Tooltip on a Dialog control may open; a background Tooltip stays closed while the Dialog is active (`u3295b_background_tooltips_stay_closed`, planned shared UI interaction test).
+
+Rendered observer (policy): implementation uses isolated headless Chromium, a dedicated session and fresh profile at 1512×950 in dark. Start from `tree-40` and `agents-10`, seed the listed controls and their drafts, and show the Import Dialog and the New Workstream Dialog with its Todo picker. Inspect before opening, while open and after dismissal/reopen; include a failed call with its failure text visible on the densest seed. The design critic judges these numbered Checks, all defined in `docs/design-system.md`, heading “The checks”: D2 (type and spacing), D5 (contrast) and D6 (control states and targets), plus stacking and occlusion; no Check passing on main regresses. Run `just capture U3295a,U3295b` and leave PNGs and Check readings under `artifacts/ux/<id>/` with base/head SHAs as `.agents/data/harness.md`, heading “Captures”, requires. Images and videos are not committed. The journey stages are Understand and Intervene: opening a modal must leave it usable without losing the work interrupted. No native Mac observation is claimed; this specification-only PR needs no UI capture.
+
+**U3295c Stylelint rejects private layer values.** Policy: the existing `pnpm lint:styles` gate applies one Stylelint rule to every authored `z-index` declaration in `apps/desktop/src/**/*.css`. Accepted values are exactly `-1`, `0`, `1`, or a single `var(--layer-…)` reference to a layer Token defined by U3767 in `tokens.css`. No arithmetic, fallback, unrelated or undefined variable, CSS-wide keyword or other number is accepted. The three local integers are for content within a stacking context; floating surfaces still use Tokens under U3295a. Token definitions are custom properties, not `z-index` declarations. Do not lint third-party CSS or add a workflow, browser, source-text snapshot or new scanning framework for this guard (policy).
+
+Given the real Stylelint configuration and each fixture below, when linted, then the result matches the table. Observer: `u3295c_stylelint_accepts_only_layer_tokens_or_local_levels`, a planned parameterized test using Stylelint's in-process API and the real configuration; the diagnostic identifies the declaration and the rule. The fixture matrix is the same acceptance for the existing CLI (`pnpm exec stylelint --stdin --stdin-filename apps/desktop/src/layer-fixture.css --max-warnings 0`); each input is `.fixture { z-index: <value>; }`:
+
+| Value, one fixture per listed value | CLI exit |
+| --- | --- |
+| `-1`, `0`, `1` | 0 |
+| `var(--layer-drawer)`, `var(--layer-popover)`, `var(--layer-dialog)`, `var(--layer-menu)`, `var(--layer-tooltip)`, `var(--layer-toast)` | 0 |
+| `2` | 2 |
+| `3` | 2 |
+| `20` | 2 |
+| `100` | 2 |
+| `-2` | 2 |
+| `auto` | 2 |
+| `inherit` | 2 |
+| `initial` | 2 |
+| `unset` | 2 |
+| `revert` | 2 |
+| `revert-layer` | 2 |
+| `var(--space-1)` | 2 |
+| `var(--layer-missing)` | 2 |
+| `var(--layer-dialog, 999)` | 2 |
+| `calc(var(--layer-dialog) + 1)` | 2 |
+
+Given the complete authored stylesheet set after the audit, when `pnpm lint:styles` runs, then it exits 0 with this rule enabled (implementation gate, not another test). Existing U3767 and U346 regressions remain covered by their observers; no extra runtime layer registry or repeated browser suite is required (policy).
