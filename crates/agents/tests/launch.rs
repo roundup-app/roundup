@@ -225,369 +225,6 @@ fn a4_a_rup_that_is_not_there_fails_loudly() {
     assert!(err.message.contains("rup"), "{}", err.message);
 }
 
-#[test]
-fn a4_the_cwd_is_pre_trusted_and_nothing_else_in_the_config_changes() {
-    let s = setup();
-    let real = s.real(&s.cwd);
-    std::fs::write(
-        &s.claude_json,
-        json!({"theme": "dark", "projects": {"/other": {"allowedTools": ["x"]}, real.clone(): {"allowedTools": ["y"]}}}).to_string(),
-    )
-    .unwrap();
-    s.prepare("1").unwrap();
-    let config = read(&s.claude_json);
-    assert_eq!(config["theme"], "dark");
-    assert_eq!(config["projects"]["/other"], json!({"allowedTools": ["x"]}));
-    assert_eq!(
-        config["projects"][&real],
-        json!({"allowedTools": ["y"], "hasTrustDialogAccepted": true})
-    );
-}
-
-#[test]
-fn a4_a_missing_config_is_created_with_the_trust() {
-    let s = setup();
-    s.prepare("1").unwrap();
-    let real = s.real(&s.cwd);
-    assert_eq!(
-        read(&s.claude_json)["projects"][&real]["hasTrustDialogAccepted"],
-        true
-    );
-}
-
-#[test]
-fn a4_a_config_folder_that_does_not_exist_yet_is_created() {
-    let s = setup();
-    let config = s.root.path().join("config dir").join(".claude.json");
-    let launcher = Launcher::new("fake-claude", config.clone(), s.rup.clone(), None);
-    launcher
-        .prepare(folders(&s.dir), "1", "1", &s.cwd, None, Role::Agent)
-        .unwrap();
-    assert_eq!(
-        read(&config)["projects"][&s.real(&s.cwd)]["hasTrustDialogAccepted"],
-        true
-    );
-}
-
-#[test]
-fn a4_a_symlinked_cwd_is_trusted_under_its_resolved_path() {
-    let s = setup();
-    let link = s.cwd.parent().unwrap().join("link");
-    std::os::unix::fs::symlink(&s.cwd, &link).unwrap();
-    s.launcher()
-        .prepare(folders(&s.dir), "1", "1", &link, None, Role::Agent)
-        .unwrap();
-    let config = read(&s.claude_json);
-    let keys: Vec<_> = config["projects"]
-        .as_object()
-        .unwrap()
-        .keys()
-        .cloned()
-        .collect();
-    assert_eq!(keys, [s.real(&s.cwd)]);
-}
-
-#[test]
-fn a4_a_symlinked_config_is_written_through_and_stays_a_link() {
-    let s = setup();
-    let target = s.root.path().join("dotfiles-claude.json");
-    std::fs::write(&target, r#"{"theme": "dark"}"#).unwrap();
-    std::os::unix::fs::symlink(&target, &s.claude_json).unwrap();
-    s.prepare("1").unwrap();
-    assert!(
-        s.claude_json
-            .symlink_metadata()
-            .unwrap()
-            .file_type()
-            .is_symlink()
-    );
-    assert_eq!(read(&target)["theme"], "dark");
-    assert_eq!(
-        read(&target)["projects"][&s.real(&s.cwd)]["hasTrustDialogAccepted"],
-        true
-    );
-}
-
-#[test]
-fn a13_a_symlinked_agents_directory_is_refused() {
-    let s = setup();
-    let elsewhere = s.root.path().join("elsewhere");
-    std::fs::create_dir(&elsewhere).unwrap();
-    let agents = s.dir.join("agents");
-    std::os::unix::fs::symlink(&elsewhere, &agents).unwrap();
-
-    let err = s.prepare("1").unwrap_err();
-
-    assert_eq!(err.code, code::INVALID_PARAMS);
-    let real_agents = s.dir.canonicalize().unwrap().join("agents");
-    assert!(
-        err.message
-            .contains(&real_agents.to_string_lossy().into_owned()),
-        "{}",
-        err.message
-    );
-    assert!(agents.symlink_metadata().unwrap().file_type().is_symlink());
-    assert!(std::fs::read_dir(&elsewhere).unwrap().next().is_none());
-    assert!(!s.dir.join("1.settings.json").exists());
-    assert!(!s.dir.join("1.mcp.json").exists());
-    assert!(!s.claude_json.exists());
-}
-
-#[test]
-fn a13_a_real_agents_directory_works_as_before() {
-    let s = setup();
-    let agents = s.dir.join("agents");
-    std::fs::create_dir(&agents).unwrap();
-
-    let argv = s.prepare("1").unwrap();
-
-    let real_agents = s.real(&agents);
-    assert!(Path::new(&argv[2]).starts_with(&real_agents));
-    assert!(Path::new(&argv[4]).starts_with(&real_agents));
-}
-
-#[test]
-fn a13_a_missing_agents_directory_is_created_as_before() {
-    let s = setup();
-    let agents = s.dir.join("agents");
-    assert!(!agents.exists());
-
-    s.prepare("1").unwrap();
-
-    assert!(agents.is_dir());
-}
-
-#[test]
-fn a4_concurrent_spawns_each_get_their_cwd_trusted() {
-    let s = setup();
-    let launcher = Arc::new(s.launcher());
-    let gate = Arc::new(std::sync::Barrier::new(8));
-    let cwds: Vec<Vec<PathBuf>> = (0..8)
-        .map(|spawner| {
-            (0..5)
-                .map(|n| s.dir.parent().unwrap().join(format!("w{spawner}-{n}")))
-                .collect()
-        })
-        .collect();
-    cwds.iter()
-        .flatten()
-        .for_each(|cwd| std::fs::create_dir(cwd).unwrap());
-    let threads: Vec<_> = cwds
-        .iter()
-        .cloned()
-        .enumerate()
-        .map(|(spawner, mine)| {
-            let (launcher, gate, dir) = (Arc::clone(&launcher), Arc::clone(&gate), s.dir.clone());
-            std::thread::spawn(move || {
-                gate.wait();
-                for (n, cwd) in mine.iter().enumerate() {
-                    launcher
-                        .prepare(
-                            folders(&dir),
-                            &(spawner * 10 + n).to_string(),
-                            "1",
-                            cwd,
-                            None,
-                            Role::Agent,
-                        )
-                        .unwrap();
-                }
-            })
-        })
-        .collect();
-    threads.into_iter().for_each(|t| t.join().unwrap());
-    let config = read(&s.claude_json);
-    for cwd in cwds.iter().flatten() {
-        assert_eq!(
-            config["projects"][&s.real(cwd)]["hasTrustDialogAccepted"],
-            true
-        );
-    }
-}
-
-#[test]
-fn a4_only_a_cwd_inside_the_project_folder_is_trusted() {
-    let s = setup();
-    let elsewhere = s.root.path().join("elsewhere");
-    std::fs::create_dir(&elsewhere).unwrap();
-    let err = s
-        .launcher()
-        .prepare(folders(&s.dir), "1", "1", &elsewhere, None, Role::Agent)
-        .unwrap_err();
-    assert_eq!(err.code, code::INVALID_PARAMS);
-    assert!(!s.claude_json.exists());
-    assert!(!s.dir.join("agents").exists());
-}
-
-#[test]
-fn a4_an_unreadable_config_fails_loudly_and_is_left_as_it_was() {
-    let s = setup();
-    std::fs::write(&s.claude_json, "{ not json").unwrap();
-    let err = s.prepare("1").unwrap_err();
-    assert_eq!(err.code, code::INTERNAL);
-    assert_eq!(
-        std::fs::read_to_string(&s.claude_json).unwrap(),
-        "{ not json"
-    );
-}
-
-#[test]
-fn a4_a_cwd_that_is_a_file_is_the_callers_error() {
-    let s = setup();
-    let file = s.cwd.join("notes.txt");
-    std::fs::write(&file, "").unwrap();
-    let err = s
-        .launcher()
-        .prepare(folders(&s.dir), "1", "1", &file, None, Role::Agent)
-        .unwrap_err();
-    assert_eq!(err.code, code::INVALID_PARAMS);
-    assert!(!s.claude_json.exists());
-}
-
-#[test]
-fn a4_a_relative_project_dir_still_gives_claude_an_absolute_settings_path() {
-    let here = std::env::current_dir().unwrap();
-    let root = tempfile::tempdir_in(&here).unwrap();
-    let dir = root.path().join("proj").join(".roundup");
-    let cwd = root.path().join("proj");
-    std::fs::create_dir_all(&dir).unwrap();
-    let rup = root.path().join("rup");
-    std::fs::write(&rup, "").unwrap();
-    let launcher = Launcher::new("fake-claude", root.path().join("claude.json"), rup, None);
-
-    let argv = launcher
-        .prepare(
-            folders(dir.strip_prefix(&here).unwrap()),
-            "1",
-            "1",
-            &cwd,
-            None,
-            Role::Agent,
-        )
-        .unwrap();
-
-    assert!(Path::new(&argv[2]).is_absolute(), "{}", argv[2]);
-}
-
-#[test]
-fn a4_an_agent_id_that_is_not_a_node_id_is_refused_before_anything_is_written() {
-    let s = setup();
-    for id in ["1;touch pwned", "../1", "01", "+1", ""] {
-        let err = s.prepare(id).unwrap_err();
-        assert_eq!(err.code, code::INVALID_PARAMS, "{id:?}");
-    }
-    assert!(!s.dir.join("agents").exists());
-    assert!(!s.claude_json.exists());
-}
-
-#[test]
-fn a4_discarding_an_id_that_is_not_a_node_id_deletes_nothing() {
-    let s = setup();
-    s.prepare("1").unwrap();
-    let outside = s.dir.join("x.settings.json");
-    std::fs::write(&outside, "").unwrap();
-    Launcher::discard(&s.dir, "../x").unwrap();
-    assert!(outside.exists());
-}
-
-#[test]
-fn a4_a_symlinked_config_whose_target_is_missing_stays_a_link() {
-    let s = setup();
-    std::os::unix::fs::symlink("dotfiles/claude.json", &s.claude_json).unwrap();
-    s.prepare("1").unwrap();
-    assert!(
-        s.claude_json
-            .symlink_metadata()
-            .unwrap()
-            .file_type()
-            .is_symlink()
-    );
-    let target = s.root.path().join("dotfiles").join("claude.json");
-    assert_eq!(
-        read(&target)["projects"][&s.real(&s.cwd)]["hasTrustDialogAccepted"],
-        true
-    );
-}
-
-#[test]
-fn a4_a_leftover_at_the_old_fixed_temp_path_does_not_stop_trust() {
-    let s = setup();
-    std::fs::create_dir(beside(&s.claude_json, ".roundup-tmp")).unwrap();
-    s.prepare("1").unwrap();
-    assert_eq!(
-        read(&s.claude_json)["projects"][&s.real(&s.cwd)]["hasTrustDialogAccepted"],
-        true
-    );
-}
-
-/// Claude Code 2.1.286 saves its config holding the directory `<config>.lock` and re-reads the
-/// config under it; a trust written meanwhile would be lost to that save.
-#[test]
-fn a4_trust_waits_while_claude_holds_its_config_lock() {
-    let s = setup();
-    std::fs::write(&s.claude_json, "{}").unwrap();
-    let lock = beside(&s.claude_json, ".lock");
-    std::fs::create_dir(&lock).unwrap();
-    let mut saving = read(&s.claude_json);
-    let trusting = {
-        let (launcher, dir, cwd) = (s.launcher(), s.dir.clone(), s.cwd.clone());
-        std::thread::spawn(move || {
-            launcher.prepare(folders(&dir), "1", "1", &cwd, None, Role::Agent)
-        })
-    };
-
-    // An observation window: while the lock is held, trust must not write.
-    std::thread::sleep(Duration::from_millis(300));
-    saving["theme"] = "dark".into();
-    std::fs::write(&s.claude_json, saving.to_string()).unwrap();
-    std::fs::remove_dir(&lock).unwrap();
-
-    trusting.join().unwrap().unwrap();
-    let config = read(&s.claude_json);
-    assert_eq!(config["theme"], "dark");
-    assert_eq!(
-        config["projects"][&s.real(&s.cwd)]["hasTrustDialogAccepted"],
-        true
-    );
-}
-
-#[test]
-fn a4_a_config_lock_its_holder_left_behind_is_broken_once_stale() {
-    let s = setup();
-    let lock = beside(&s.claude_json, ".lock");
-    std::fs::create_dir(&lock).unwrap();
-    let minute_ago = SystemTime::now() - Duration::from_secs(60);
-    std::fs::File::open(&lock)
-        .unwrap()
-        .set_modified(minute_ago)
-        .unwrap();
-
-    s.prepare("1").unwrap();
-
-    assert!(!lock.exists());
-    assert_eq!(
-        read(&s.claude_json)["projects"][&s.real(&s.cwd)]["hasTrustDialogAccepted"],
-        true
-    );
-}
-
-#[test]
-fn a4_a_cwd_that_does_not_exist_is_the_callers_error() {
-    let s = setup();
-    let err = s
-        .launcher()
-        .prepare(
-            folders(&s.dir),
-            "1",
-            "1",
-            &s.cwd.join("missing"),
-            None,
-            Role::Agent,
-        )
-        .unwrap_err();
-    assert_eq!(err.code, code::INVALID_PARAMS);
-}
-
 fn vars<'a>(pairs: &'a [(&'a str, &'a str)]) -> impl Fn(&str) -> Option<OsString> + 'a {
     move |name| {
         pairs
@@ -753,66 +390,6 @@ fn brief(s: &Setup, id: &str, role: Role) -> String {
 }
 
 #[test]
-fn e9_two_agents_of_one_role_get_equal_brief_bytes() {
-    let s = setup();
-    assert_eq!(
-        brief(&s, "7013", Role::Agent),
-        brief(&s, "7014", Role::Agent)
-    );
-    assert_eq!(brief(&s, "7013", Role::Door), brief(&s, "7014", Role::Door));
-}
-
-#[test]
-fn e9_the_brief_holds_no_id() {
-    let s = setup();
-    let text = brief(&s, "7013", Role::Agent);
-    assert!(!text.contains("7013") && !text.contains("Agent id"));
-    assert!(text.contains("Context you get at start"));
-}
-
-#[test]
-fn e9_a_door_and_an_ordinary_agent_still_differ() {
-    let s = setup();
-    assert_ne!(brief(&s, "7", Role::Agent), brief(&s, "8", Role::Door));
-}
-
-#[test]
-fn e1_the_brief_names_the_tools_and_holds_nothing_mutable() {
-    let s = setup();
-    let text = brief(&s, "7", Role::Agent);
-    assert!(!text.contains("Agent id is 7"));
-    assert!(text.contains("supervises you"));
-    for tool in [
-        "todo_create",
-        "todo_update",
-        "pad_write",
-        "pad_append",
-        "message_send",
-        "ask_user",
-        "agent_context",
-    ] {
-        assert!(text.contains(&format!("`{tool}`")), "{tool}");
-    }
-    assert!(text.contains("`agent_spawn`"), "agent_spawn");
-    assert!(!text.contains(&s.cwd.to_string_lossy().into_owned()));
-}
-
-#[test]
-fn e1_the_flag_adds_to_the_argv_and_leaves_the_users_files_alone() {
-    let s = setup();
-    std::fs::write(s.cwd.join("CLAUDE.md"), "mine").unwrap();
-    for role in [Role::Agent, Role::Door] {
-        let argv = s.prepare_as("7", role).unwrap();
-        assert_eq!(argv[..5], s.prepare_as("7", role).unwrap()[..5]);
-        assert_eq!(
-            std::fs::read_to_string(s.cwd.join("CLAUDE.md")).unwrap(),
-            "mine"
-        );
-        assert!(!s.cwd.join(".claude").exists());
-    }
-}
-
-#[test]
 fn b24_only_a_door_brief_carries_the_role_guidance() {
     let s = setup();
     let door = brief(&s, "7", Role::Door);
@@ -898,35 +475,6 @@ fn a28_a_doors_brief_says_to_name_each_child() {
     assert!(brief(&s, "7", Role::Door).contains("Give each child a `name` after its task."));
 }
 
-#[test]
-fn e1_preparing_the_same_id_and_role_twice_writes_the_same_text() {
-    let s = setup();
-    assert_eq!(brief(&s, "7", Role::Door), brief(&s, "7", Role::Door));
-}
-
-#[test]
-fn e3_the_signal_stays_first_and_the_context_command_follows_with_five_seconds() {
-    let s = setup();
-    let settings = read(Path::new(&s.prepare("7").unwrap()[2]));
-    let at_start = settings["hooks"]["SessionStart"][0]["hooks"]
-        .as_array()
-        .unwrap();
-    assert_eq!(at_start.len(), 2);
-    assert!(
-        at_start[0]["command"]
-            .as_str()
-            .unwrap()
-            .contains(" signal '7'")
-    );
-    assert_eq!(at_start[1]["timeout"], 5);
-    assert!(
-        at_start[1]["command"]
-            .as_str()
-            .unwrap()
-            .ends_with(" context '7'")
-    );
-}
-
 /// A fake `claude` prints `9.9.9`; `dir` holds it.
 #[test]
 fn f3_every_agents_mcp_server_is_started_the_same_way() {
@@ -971,33 +519,6 @@ fn m10_a_doors_brief_names_checkpoint_write_and_no_other_does() {
     assert!(door.contains("facts needed to understand that point in the work"));
     assert!(!agent.contains("checkpoint_write"));
     assert!(agent.contains("- `checkpoint_list`:"));
-}
-
-#[test]
-fn q1_pin() {
-    use sha2::{Digest, Sha256};
-    let bytes =
-        std::fs::read(Path::new(env!("CARGO_MANIFEST_DIR")).join("assets/hold-plain.md")).unwrap();
-    let hex: String = Sha256::digest(bytes)
-        .iter()
-        .map(|b| format!("{b:02x}"))
-        .collect();
-    assert_eq!(
-        hex,
-        "0f2c26f0cea8ba39af771d2fdb09db6ae4a7a90c64c272a0a0e967f420e9af1e"
-    );
-}
-
-#[test]
-fn q1_brief() {
-    let s = setup();
-    let body =
-        std::fs::read_to_string(Path::new(env!("CARGO_MANIFEST_DIR")).join("assets/hold-plain.md"))
-            .unwrap();
-    let text = brief(&s, "7", Role::Agent);
-    assert!(text.contains(&body));
-    assert!(text.contains("Digest and Pad reply"));
-    assert!(text.contains("Write each limit of a Work order as a rule that reads on its own"));
 }
 
 #[test]
@@ -1100,50 +621,6 @@ fn sha256_hex(bytes: &[u8]) -> String {
         .collect()
 }
 
-#[test]
-fn q6_pin() {
-    assert_eq!(
-        sha256_hex(asset("reduce.md").as_bytes()),
-        "c0397f941ee2db71ab1ba870b6f53987e38f0b7b0cbfec23a780f5c393f3703f"
-    );
-    assert_eq!(
-        sha256_hex(asset("show-me.md").as_bytes()),
-        "434a2346cc95e313b0d367d477dda2e23ba642dd2181757415a09500664af100"
-    );
-}
-
-#[test]
-fn q6_brief() {
-    let s = setup();
-    for role in [Role::Agent, Role::Door] {
-        let text = brief(&s, "7", role);
-        assert!(text.contains(&asset("reduce.md")), "{role:?}");
-        assert!(text.contains(&asset("show-me.md")), "{role:?}");
-        assert!(text.contains(
-            "Run `reduce` on every Work order, Message to `you`, `ask_user` question, Digest, Pad reply and Todo title"
-        ));
-        assert_eq!(text, brief(&s, "7", role));
-    }
-}
-
-#[test]
-fn q7_brief_names_each_view_and_its_place() {
-    let s = setup();
-    let text = brief(&s, "7", Role::Agent);
-    for view in ["a table", "code-shape sketch", "`diff`", "Mermaid diagram"] {
-        assert!(text.contains(view), "{view}");
-    }
-    assert!(text.contains("only in a Pad"));
-    assert!(text.contains("write the diagram in a Pad and send the Pad's name"));
-}
-
-#[test]
-fn q7_brief_forbids_html() {
-    let s = setup();
-    let text = brief(&s, "7", Role::Agent);
-    assert!(text.contains("write no HTML file and never `open` one"));
-}
-
 fn fixture(name: &str) -> String {
     std::fs::read_to_string(
         Path::new(env!("CARGO_MANIFEST_DIR"))
@@ -1166,52 +643,6 @@ fn missing_facts(text: &str) -> Vec<String> {
 }
 
 #[test]
-fn q8_reduced_is_shorter() {
-    assert!(
-        fixture("door-question.reduced.md").chars().count()
-            < fixture("door-question.md").chars().count()
-    );
-}
-
-#[test]
-fn q8_every_fact_survives() {
-    assert!(missing_facts(&fixture("door-question.md")).is_empty());
-    assert!(missing_facts(&fixture("door-question.reduced.md")).is_empty());
-}
-
-#[test]
-fn q8_no_padding_phrase_survives() {
-    let original = fixture("door-question.md");
-    let reduced = fixture("door-question.reduced.md");
-    let padding = lines("door-question.padding");
-    assert_eq!(padding.len(), 4);
-    for phrase in padding {
-        assert!(original.contains(&phrase), "{phrase}");
-        assert!(!reduced.contains(&phrase), "{phrase}");
-    }
-}
-
-#[test]
-fn q8_the_check_rejects_a_dropped_fact() {
-    let dropped = fixture("door-question.reduced.md").replace("Friday 14 Nov", "");
-    assert_eq!(missing_facts(&dropped), ["Friday 14 Nov"]);
-}
-
-#[test]
-fn q9_door_guidance_names_the_four_paddings() {
-    let s = setup();
-    let text = brief(&s, "7", Role::Door);
-    for rule in [
-        "Open a question with the question.",
-        "State a guess once, as a choice to confirm.",
-        "Write a list as the choices and nothing around them.",
-        "Leave out an acknowledgment such as \"On it.\", a connective such as \"Separately:\" and a list item that restates its question.",
-    ] {
-        assert!(text.contains(rule), "{rule}");
-    }
-}
-
-#[test]
 fn h14b_the_brief_carries_the_ask_user_rules() {
     let s = setup();
     for role in [Role::Agent, Role::Door] {
@@ -1229,14 +660,6 @@ fn h14b_the_brief_carries_the_ask_user_rules() {
             assert!(text.contains(rule), "{rule}");
         }
     }
-}
-
-#[test]
-fn q9_ordinary_brief_has_no_door_guidance() {
-    let s = setup();
-    let text = brief(&s, "7", Role::Agent);
-    assert!(!text.contains("Open a question with the question."));
-    assert!(!text.contains("a connective such as"));
 }
 
 #[test]
@@ -1263,14 +686,6 @@ fn m9_a_doors_brief_names_the_workstream_and_project_tools() {
     assert!(!agent.contains("coordinating Door"));
 }
 
-#[test]
-fn q11_a_worker_gets_plain_for_every_reply() {
-    let s = setup();
-    let text = brief(&s, "7", Role::Agent);
-    assert!(text.contains("Write every reply, including direct Terminal prose, in hold:Plain regardless of recipient or tool."));
-    assert!(text.contains(&asset("hold-plain.md")));
-}
-
 #[tokio::test]
 async fn i5_launch_sets_roundup_agent_in_the_claude_environment() {
     let s = setup();
@@ -1289,7 +704,6 @@ async fn i5_launch_sets_roundup_agent_in_the_claude_environment() {
         .unwrap();
     assert_eq!(env["ROUNDUP_AGENT"], "7");
 }
-
 
 fn env_of(argv: &[String]) -> Value {
     read(Path::new(&argv[2]))["env"].clone()
@@ -1574,3 +988,8 @@ use plugins::plugin_launcher;
 
 #[path = "launch/shims.rs"]
 mod shims;
+
+#[path = "launch/briefs.rs"]
+mod briefs;
+#[path = "launch/trust.rs"]
+mod trust;
