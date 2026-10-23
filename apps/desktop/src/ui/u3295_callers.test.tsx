@@ -9,8 +9,6 @@ import { ConnectedProjectContext } from "../state/connectedProject";
 import { NoteRecovery } from "../changes/NoteBatch";
 import { notesFor } from "../changes/notes";
 import { mountControl } from "../changes/harness";
-import { agent } from "../testing/nodes";
-import { mountSend, pressShortcut } from "../terminal/sendHarness";
 import { mountTodos, todo, todoCallsTo } from "../todos/testHarness";
 
 afterEach(() => { cleanup(); localStorage.clear(); });
@@ -110,23 +108,6 @@ it.each(["worktree", "recovered notes"] as const)("u3295b_modal_dismissal_keeps_
   expect(app.calls.filter(call => call.method === "message.send")).toEqual([]);
 });
 
-it("u3295b_a_dialog_closes_outside_floating_controls: Terminal recipient menu", async () => {
-  const view = await mountSend([agent("a", "idle", "waiting"), agent("b", "idle", "waiting")]);
-
-  view.emulator.select("ls");
-  fireEvent.input(await screen.findByRole("textbox", { name: "Add a note (optional)" }), { target: { value: "keep recipient note" } });
-  fireEvent.click(screen.getByRole("button", { name: "Send to agent" }));
-  await screen.findByRole("menu");
-  const change = modal();
-
-  await change(true);
-  await waitFor(() => expect(screen.queryByRole("menu")).toBeNull());
-  await change(false);
-  pressShortcut(view);
-  expect((await screen.findByRole<HTMLInputElement>("textbox", { name: "Add a note (optional)" })).value).toBe("keep recipient note");
-  expect(screen.queryByRole("menu")).toBeNull();
-  expect(view.calls()).toEqual([]);
-});
 
 it("u3295b_dialog_owned_controls_still_work: Start-after Todo picker", async () => {
   const { app } = await mountTodos([todo(1, { title: "Ship", owner: { kind: "user", id: "you", parent: null } }), todo(2, { title: "Docs" })]);

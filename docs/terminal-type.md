@@ -26,7 +26,9 @@ a native Soloterm row/column match.
 
 `DEFAULT_FONT_SIZE` reads `--text-terminal`; App Settings and Project zoom reset
 already consume that holder. Existing saved Project sizes, including 13 px,
-remain absolute sizes. U102's former fixed 13 px reset is retired by U3517d;
+remain absolute sizes. U3529c's Terminal-only blue-highlight requirement is narrowed by this work order's
+explicit Ghostty/Tomorrow selection requirement; App/editor selections keep their
+platform Token. U102's former fixed 13 px reset is retired by U3517d;
 the same chord, bounds, focus, resize, persistence and scrollback tests remain.
 Font-change tests now move relative to the default so they still exercise a
 change after the upgrade.

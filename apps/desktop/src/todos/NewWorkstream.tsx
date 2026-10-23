@@ -1,5 +1,5 @@
 import { Portal } from "solid-js/web";
-import { createMemo, createSignal, Show } from "solid-js";
+import { createEffect, on, createMemo, createSignal, Show } from "solid-js";
 import type { Accessor } from "solid-js";
 import type { RailNode } from "@contracts/agent/RailNode";
 import type { StartChoice } from "@contracts/workstream/StartChoice";
@@ -63,12 +63,21 @@ export const NewWorkstream = (props: { target: Accessor<number | null>; done: (i
   const connected = useConnectedProject();
   const todos = useTodoList();
 
-  return <Show when={props.target()}>{id => {
+  const retained = createMemo<number | null>(previous => props.target() ?? previous, null);
+
+  return <Show when={retained()}>{id => {
     const [name, setName] = createSignal(todos.byId().get(id())?.title ?? "");
     const [start, setStart] = createSignal<Start>(startChoices()[1]!.value);
     const [after, setAfter] = createSignal<string>("");
     const [failure, setFailure] = createSignal<string | null>(null);
     const [pending, setPending] = createSignal(false);
+    createEffect(on(props.target, target => {
+      if (target === null) return;
+      setName(todos.byId().get(target)?.title ?? "");
+      setStart(startChoices()[1]!.value);
+      setAfter("");
+      setFailure(null);
+    }));
     const others = createMemo(() => todos.all().filter(todo => !todo.done && todo.id !== id()));
     const chosen = () => start() === "afterTodo" ? (others().find(todo => String(todo.id) === after())?.id ?? null) : null;
     const ready = () => name().trim() !== "" && (start() !== "afterTodo" || chosen() !== null) && !pending();
@@ -91,7 +100,7 @@ export const NewWorkstream = (props: { target: Accessor<number | null>; done: (i
       props.done(id(), made);
     };
 
-    return <Dialog.Root open onOpenChange={({ open }) => { if (!open) props.done(id(), null); }} finalFocusEl={() => props.returnTo(id())}>
+    return <Dialog.Root open={props.target() !== null} onOpenChange={({ open }) => { if (!open) props.done(id(), null); }} finalFocusEl={() => props.returnTo(id())}>
       <Portal><Dialog.Positioner>
         <Dialog.Content class="new-workstream" aria-label={copy.newWorkstreamTitle}>
           <form class="app-dialog-form" onSubmit={event => { event.preventDefault(); void create(); }}>
