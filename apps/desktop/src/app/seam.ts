@@ -115,6 +115,8 @@ export type App = {
   showContextMenu(items: MenuItem[], x: number, y: number): Promise<string | null>;
   /** Reports the window's native File drop, which Tauri takes before the webview sees a DOM `drop`. */
   onFileDrop(listener: (drop: FileDrop) => void): Promise<Unsubscribe>;
+  /** Opens the app-wide center settings view; no payload. */
+  onAppSettings(listener: () => void): Promise<Unsubscribe>;
   onDaemonExited(listener: (exit: DaemonExited) => void): Promise<Unsubscribe>;
   /** The calls into that Project's Daemon, with its path filled in. */
   forProject(path: string): AppSeam;

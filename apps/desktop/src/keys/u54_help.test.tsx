@@ -102,6 +102,9 @@ const boundPresses = async (from: Element, modSets: readonly KeyboardEventInit[]
         // `⇧⌘T` opens the capture field, a modal layer that would take every later probe.
         document.querySelector(".capture-field")?.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true, cancelable: true }));
 
+        // U3799's App view must close before the next scope probe, preserving its original focus.
+        document.querySelector('.settings-view[aria-label="Settings"]')?.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true, cancelable: true }));
+
         // `⇧⌘N` opens the spawn prompt, which would stop `⌘K` from opening the switcher.
         document.querySelector(".spawn-prompt-field:not([readonly])")?.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true, cancelable: true }));
       }
@@ -114,6 +117,8 @@ const boundPresses = async (from: Element, modSets: readonly KeyboardEventInit[]
 };
 
 describe("u54 keyboard help", () => {
+  // U2241's rendered-list proof is u54_question_mark_in_the_rail_opens_help_listing_each_chord_and_esc_returns_focus;
+  // u480_u54_help_stays_in_step_with_the_chords_bound_in_the_webview and u2241_no_other_chord_is_taken_at_app_scope retain the binding boundary.
   it("u54_question_mark_in_the_rail_opens_help_listing_each_chord_and_esc_returns_focus", async () => {
     await open();
     rowOf("a").focus();

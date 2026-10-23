@@ -1,3 +1,4 @@
+import { appSettings } from "../settings/preferences";
 import { MeasurementDashboard } from "./MeasurementDashboard";
 import { TimelineView } from "../timeline/TimelineView";
 import { copy } from "../copy";
@@ -19,7 +20,7 @@ import { CHORDS, TAKE_CONTROL_KEYS } from "../keys/chords";
 import { KeyHint } from "../keys/KeyHint";
 import { createXtermEmulators } from "./emulator";
 import type { EmulatorFactory } from "./emulator";
-import { DEFAULT_FONT_SIZE, MIN_FONT_SIZE, MAX_FONT_SIZE, fontSizeStorage } from "./fontSize";
+import { MIN_FONT_SIZE, MAX_FONT_SIZE, fontSizeStorage } from "./fontSize";
 import { createScreens } from "./screens";
 import type { Screens } from "./screens";
 import "./styles.css";
@@ -34,6 +35,7 @@ export const Pane = (props: { notice?: string | null; createEmulator?: EmulatorF
   const { rail } = connected;
   const storage = fontSizeStorage(connected.project.path);
   let fontSize: number | undefined;
+  let zoomed = storage.read() !== null;
   const [takeFailure, setTakeFailure] = createSignal<string | null>(null);
   const [storageFailure, setStorageFailure] = createSignal<string | null>(null);
   const createEmulator = props.createEmulator ?? createXtermEmulators();
@@ -65,13 +67,19 @@ export const Pane = (props: { notice?: string | null; createEmulator?: EmulatorF
   const isDoor = (id: string): boolean => rail.nodes.find((node) => node.id === id)?.kind === "workstream";
 
   const screens = createScreens(connected, (id) => {
-    fontSize ??= storage.read() ?? DEFAULT_FONT_SIZE;
+    fontSize ??= storage.read() ?? appSettings().fontSize;
     const emulator = createEmulator(id);
 
     emulator.setFontSize(fontSize);
 
     return emulator;
   }, (id) => inWatch() && id === terminalId(), () => setRefused(true));
+
+  createEffect(on(() => appSettings().fontSize, size => {
+    if (!zoomed) { fontSize = size; screens.setFontSize(size); refitNextFrame(); }
+  }, { defer: true }));
+
+  createEffect(on(() => appSettings().fontFamily, () => refitNextFrame(), { defer: true }));
 
   props.screensRef?.(screens);
 
@@ -189,13 +197,14 @@ export const Pane = (props: { notice?: string | null; createEmulator?: EmulatorF
   };
 
   const resize = (key: "grow" | "shrink" | "reset") => (): void => {
-    const next = key === "reset" ? DEFAULT_FONT_SIZE : Math.min(MAX_FONT_SIZE, Math.max(MIN_FONT_SIZE, (fontSize ?? DEFAULT_FONT_SIZE) + (key === "grow" ? 1 : -1)));
+    const next = key === "reset" ? appSettings().fontSize : Math.min(MAX_FONT_SIZE, Math.max(MIN_FONT_SIZE, (fontSize ?? appSettings().fontSize) + (key === "grow" ? 1 : -1)));
 
-    if (next === fontSize) return;
+    if (next === fontSize && key !== "reset") return;
 
+    zoomed = key !== "reset";
     fontSize = next;
     screens.setFontSize(next);
-    setStorageFailure(storage.write(next));
+    setStorageFailure(zoomed ? storage.write(next) : storage.clear());
     refitNextFrame();
   };
 
