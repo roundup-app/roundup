@@ -96,3 +96,7 @@
   color: var(--grey);
   opacity: 1;
 }
+
+.settings-group > .settings-font {
+  width: min(100%, var(--centre-min-width));
+}
