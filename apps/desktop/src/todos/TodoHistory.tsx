@@ -145,7 +145,7 @@ export const TodoHistory = (props: { id: number; onCapture?: (change: Change | u
       </button>
       <Show when={opened() && loaded()}>{record => <button type="button" data-button="quiet" onClick={() => {
         void navigator.clipboard.writeText(JSON.stringify({
-          lines: record().history.changes.flatMap(change => lines(change, id => rail.nodes.find(node => node.id === id)?.name ?? copy.unavailableAgent)),
+          lines: record().history.changes.flatMap(change => lines(change, id => rail.nodes.find(node => node.id === id)?.name ?? copy.missingAgent)),
           history: record().history, failure: failure(),
         }, null, 2)).then(() => failCopy(null), error => failCopy(copy.copyDraftFailure(error instanceof Error ? error.message : String(error))));
       }}>{copy.copy}</button>}</Show></div>
@@ -153,7 +153,7 @@ export const TodoHistory = (props: { id: number; onCapture?: (change: Change | u
         <Show when={copyFailure()}>{message => <ErrorLine message={message()} />}</Show>
         <Show when={failure()}>{(message) => <div><ErrorLine message={message()} /><button data-button="quiet" class="word" type="button" onClick={() => void refresh()}>{copy.retryHistory}</button></div>}</Show>
         <For each={loaded()?.history.changes ?? []}>{(change) => <>
-          <For each={lines(change, (id) => rail.nodes.find((node) => node.id === id)?.name ?? copy.unavailableAgent)}>{(line) => <p class="todo-change" data-change={change.seq}>{line}</p>}</For>
+          <For each={lines(change, (id) => rail.nodes.find((node) => node.id === id)?.name ?? copy.missingAgent)}>{(line) => <p class="todo-change" data-change={change.seq}>{line}</p>}</For>
         </>}</For>
       </Show>
     </section>

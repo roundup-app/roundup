@@ -548,7 +548,7 @@ export const copy = {
   importUnnamed: "Unavailable conversation title",
   importLocation: (cwd: string, project: string) => cwd === "" ? project : cwd.split(/[\\/]/).filter(Boolean).at(-1) ?? project,
   unavailableHome: "Unavailable Workstream",
-  unavailableAgent: "an unavailable Agent",
+  missingAgent: "an unavailable Agent",
   name: "Name",
   collapse: "Collapse",
   retryDoor: "Retry supervisor",
