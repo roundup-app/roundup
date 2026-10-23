@@ -1,3 +1,6 @@
+import { createFakeApp } from "../testing/fakeApp";
+import { questionDialog, answerQuestion } from "../shelf/bulkQuestionHarness";
+import { questionProbe } from "../testing/menuProbe";
 import { cleanup, fireEvent, render, waitFor, within } from "@solidjs/testing-library";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { createSignal, type JSX } from "solid-js";
@@ -407,7 +410,7 @@ it("u3807_each_site_shows_its_message_in_the_reserved_line: BulkDelete", async (
   const Site = () => {
     const [selected, setSelected] = createSignal<readonly number[]>([1]);
 
-    const bulk = createBulkDelete({ selected, targets: () => [{ id: 1, label: "Ship" }], context: () => "p", noun: "Todos",
+    const bulk = createBulkDelete({ app: createFakeApp(), selected, targets: () => [{ id: 1, label: "Ship" }], context: () => "p", noun: "Todos",
       replace: setSelected, clear: () => setSelected([]), cancelSelection: () => setSelected([]), remove: async () => failure === null ? new Promise(() => {}) : failure, reload: async () => null });
 
     return <bulk.Bar />;
@@ -417,17 +420,17 @@ it("u3807_each_site_shows_its_message_in_the_reserved_line: BulkDelete", async (
   const surface = view.container;
   const places = placesOf(surface);
   fireEvent.click(within(surface).getByRole("button", { name: "Delete 1" }));
-  const dialog = await within(document.body).findByRole("alertdialog");
-  fireEvent.click(within(dialog).getByRole("button", { name: "Delete 1" }));
+  await questionDialog();
+  await answerQuestion(true);
   const alert = await within(surface).findByRole("alert");
   const place = alert.closest<HTMLElement>(".reserved-line")!;
   expect(alert.textContent).toContain(FAILURE);
   unchanged(places, place);
   // Keep one selected item so the bar remains mounted while its failure clears.
   fireEvent.click(within(surface).getByRole("button", { name: "Delete 1" }));
-  const retry = await within(document.body).findByRole("alertdialog");
+  await questionDialog();
   failure = null;
-  fireEvent.click(within(retry).getByRole("button", { name: "Delete 1" }));
+  await answerQuestion(true);
   await waitFor(() => expect(within(surface).queryByRole("alert")).toBeNull());
   unchanged(places, place);
 });

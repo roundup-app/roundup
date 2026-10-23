@@ -214,7 +214,7 @@ export const ProjectTab = (props: {
         </div>
       </Show>
     </FlatTab>
-    <Dialog.Root open={recovering()} onOpenChange={details => recover(details.open)} finalFocusEl={() => button ?? null}>
+    <Dialog.Root instant open={recovering()} onOpenChange={details => recover(details.open)} finalFocusEl={() => button ?? null}>
       <Portal><Dialog.Positioner asChild={positioner => <aside {...positioner({})} />}><Dialog.Content class="draft-recovery header-recovery" ref={element => { panel = element; }}>
         <Dialog.Title asChild={title => <h2 {...title({})}>{copy.unfinishedWork}</h2>} />
         <Dialog.Description class="draft-identity">{props.tab.name}</Dialog.Description>

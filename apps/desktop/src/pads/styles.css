@@ -258,8 +258,6 @@
 }
 
 .pad-rich-editor .milkdown .milkdown-slash-menu {
-  border-radius: var(--radius-drawer);
-  box-shadow: var(--shadow-drawer);
 }
 
 .pad-rich-editor .milkdown .milkdown-slash-menu li {
