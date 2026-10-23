@@ -79,12 +79,14 @@ describe("u491a Shelf questions and navigation", () => {
   it("u491a_owned_tooltip_reveals_blockers", async () => {
     const [one, three, two] = await rows(lane);
 
-    // U3708: the third Todo nests under its first blocker, so only a second blocker draws a line.
+    // U3810: the tooltip includes the nesting parent as well as the other open blockers.
     await lane.evaluate(`(async () => { await window.__fake.app.rpc('todo.setBlockers', { id: ${three}, blockers: [${one}, ${two}] }); return true; })()`);
     await lane.until(`!!document.querySelector('.shelf [data-id="${three}"] .todo-blocker')`);
     await lane.browser("hover", `.shelf [data-id="${three}"] .todo-blocker`);
-    await lane.until("[...document.querySelectorAll('[role=tooltip]')].some(tip => tip.textContent === 'also waits on: second')");
-    expect(await lane.evaluate<string[]>("[...document.querySelectorAll('[role=tooltip]')].map(tip => tip.textContent)")).toContain("also waits on: second");
+    const titles = await lane.evaluate<string[]>(`(async () => (await window.__fake.app.rpc('todo.list', null)).filter(todo => [${one}, ${two}].includes(todo.id)).map(todo => todo.title))()`);
+
+    await lane.until(`[...document.querySelectorAll('[role=tooltip]')].some(tip => ${JSON.stringify(titles)}.every(title => tip.textContent.includes(title)))`);
+    expect((await lane.evaluate<string[]>("[...document.querySelectorAll('[role=tooltip]')].map(tip => tip.textContent)")).some(text => titles.every(title => text.includes(title)))).toBe(true);
   }, 120_000);
 
   it("u491a_bulk_question_focus", async () => {

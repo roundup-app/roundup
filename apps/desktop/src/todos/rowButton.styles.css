@@ -119,7 +119,8 @@
   -webkit-box-decoration-break: clone;
 }
 
-.todo-row:has(.todo-tick:checked) .todo-strike::after { background-size: 100% var(--strike-thickness); }
+.todo-row[data-group-complete="true"] .todo-strike::after,
+.todo-row:not([data-group-complete]):has(.todo-tick:checked) .todo-strike::after { background-size: 100% var(--strike-thickness); }
 
 /* U3770: a finish plays the tick, ring and strike once; nothing carries `data-motion` at rest. Unchecking runs forward keyframes from drawn to hidden, with the same ease-out. */
 @keyframes todo-tick-draw { from { stroke-dashoffset: 1; } to { stroke-dashoffset: 0; } }
@@ -144,11 +145,11 @@
   animation: todo-tick-erase var(--duration-tick) var(--ease-todo) both;
 }
 
-.todo-row[data-motion="play"]:has(.todo-tick:checked) .todo-strike::after {
+.todo-row[data-motion="play"]:not([data-group-complete]):has(.todo-tick:checked) .todo-strike::after {
   animation: todo-strike-grow var(--duration-strike) var(--ease-todo) var(--delay-strike) both;
 }
 
-.todo-row[data-motion="play"]:not(:has(.todo-tick:checked)) .todo-strike::after {
+.todo-row[data-motion="play"]:not([data-group-complete]):not(:has(.todo-tick:checked)) .todo-strike::after {
   animation: todo-strike-clear var(--duration-strike) var(--ease-todo) both;
 }
 
@@ -204,15 +205,22 @@
 }
 
 .todo-inset .todo-blockers {
+  display: flex;
+  align-items: baseline;
   min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
+.todo-inset .todo-blockers > span { flex: none; white-space: pre; }
+.todo-inset .todo-blocker:last-child:not(:first-child) { flex-shrink: 0; max-width: 50%; }
+
 .todo-inset .todo-blocker {
-  max-width: 100%;
+  flex: 0 1 auto;
+  min-width: 0;
   overflow: hidden;
+  text-overflow: ellipsis;
   vertical-align: baseline;
   white-space: nowrap;
 }
@@ -233,7 +241,7 @@
   pointer-events: none;
 }
 
-.todo-row .row-head { min-width: 0; display: flex; align-items: center; }
+.todo-row .row-head { min-width: 0; display: flex; align-items: start; }
 .todo-row .row-head > .todo-row-button { flex: 1; min-width: 0; }
 
 /* Keep the Menu trigger connected while Ark returns focus from its portal. */
@@ -314,7 +322,9 @@
 }
 
 .todo-done-fold[data-reduced-motion="true"] {
-  transition: none;
+  transition-property: grid-template-rows;
+  transition-duration: 0s;
+  transition-timing-function: var(--easing-out);
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -349,4 +359,46 @@
 
 @media (prefers-reduced-motion: reduce) {
   .todo-progress-count { animation-name: none !important; }
+}
+
+
+/* U3809: Ark owns branch disclosure; each row already carries its absolute tree indent. */
+.todo-list .todo-dependency { cursor: auto; margin-block: 0; }
+.todo-list .todo-dependency > [data-part="branch-content"] { padding-inline-start: 0; }
+.todo-list .todo-dependency > [data-part="branch-content"] {
+  display: grid;
+  grid-template-rows: 1fr;
+  transition-property: grid-template-rows;
+  transition-duration: 0s;
+  transition-timing-function: var(--easing-out);
+}
+.todo-list .todo-dependency[data-structural-motion="true"] > [data-part="branch-content"] {
+  transition: grid-template-rows var(--duration-todo) var(--easing-out);
+}
+.todo-list .todo-dependency > [data-part="branch-content"][inert] { grid-template-rows: 0fr; }
+.todo-group-content { min-height: 0; overflow: hidden; }
+@media (prefers-reduced-motion: reduce) {
+  .todo-list .todo-dependency > [data-part="branch-content"] { transition-duration: 0s !important; }
+}
+.todo-row .row-head > [data-group-toggle] {
+  position: absolute;
+  width: var(--space-4);
+  min-width: var(--space-4);
+  transform: translateX(calc(-1 * (var(--space-5) + var(--space-4))));
+}
+.todo-row .app-progress { margin-block: var(--space-1); font-size: var(--text-caption); color: var(--grey); }
+.todo-row .app-progress-track { height: calc(var(--space-1) / 2); }
+.todo-now { color: var(--accent); font-size: var(--text-small); }
+
+.todo-list [role="tree"] > .todo-dependency:not(:first-child) { margin-top: 0; }
+
+.shelf .todo-row .todo-row-button:has(.todo-now) { display: flex; align-items: baseline; gap: var(--space-2); }
+.todo-row-button .todo-now { flex: none; }
+.todo-row-button:has(.todo-now) .shelf-title { min-width: 0; }
+
+.todo-row[data-aggregate-motion="play"][data-group-complete="true"] .todo-strike::after {
+  animation: todo-strike-grow var(--duration-strike) var(--ease-todo) var(--delay-strike) both;
+}
+.todo-row[data-aggregate-motion="play"][data-group-complete="false"] .todo-strike::after {
+  animation: todo-strike-clear var(--duration-strike) var(--ease-todo) both;
 }

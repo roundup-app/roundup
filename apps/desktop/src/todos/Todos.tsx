@@ -8,10 +8,10 @@ import type { ActivationSource } from "../keys/registry";
 import { copy } from "../copy";
 import { shelfKeyScope, shelfRowKeys } from "../shelf/keys";
 import { createBulkDelete } from "../shelf/BulkDelete";
-
 import { createSelection } from "../shelf/selection";
 import { Progress } from "../ui/Progress";
-import { createFinishMotion } from "./finishMotion";
+import { createDependencyGroups } from "./dependencyGroups";
+import { createCountMotion, createFinishMotion } from "./finishMotion";
 import { Icon } from "../ink/Icon";
 import { EmptyState } from "../ink/EmptyState";
 import { EntryRow } from "../ink/EntryRow";
@@ -49,14 +49,7 @@ import type { TodosState } from "./state";
 import { useTodoList } from "./todoList";
 import { TodoDrawer } from "./TodoDrawer";
 import { shownTodos } from "./shownTodos";
-import { doneTodos, planDrop, treeCollection, treeRows, type NestedRow } from "./todoView";
-
-/** U138: the row to focus once a completed Todo leaves the open list — the next one, else the previous, else none (the `+` button). */
-export const rowAfter = (id: number, openIds: readonly number[]): number | null => {
-  const at = openIds.indexOf(id);
-
-  return openIds[at + 1] ?? openIds[at - 1] ?? null;
-};
+import { rowAfter, doneTodos, nowTodos, planDrop, treeCollection, treeRows, type NestedRow } from "./todoView";
 
 /** The Shelf's `todos` list: open Todos in id order, done ones folded, and the inline field that makes a new one. */
 export const Todos = (props: {
@@ -92,13 +85,16 @@ export const Todos = (props: {
 
   const open = shownTodos(connected, todos);
 
-  const selection = createSelection(() => [...open(), ...(unfolded() ? done() : [])].map((todo) => todo.id), () => connected.rail.selected() ?? "overview", id => rowButtonOf(id));
-
   const done = createMemo(() => doneTodos(todos.all()).filter((todo) =>
     scope.includes(todo.home, todo.creator, todo.owner)));
 
   const inScope = createMemo(() => todos.all().filter((todo) => scope.includes(todo.home, todo.creator, todo.owner)));
 
+  const now = createMemo(() => nowTodos(inScope(), todos.handed() ?? [], new Set(connected.rail.nodes.filter(node => node.kind === "agent").map(node => node.id))));
+
+  const dependencyRows = createMemo(() => ownerGroups(connected, inScope(), todo => todo.owner).flatMap(group => treeRows(group.items)));
+  const memberIds = createMemo(() => new Set(dependencyRows().flatMap(row => row.parent === null ? [] : [row.todo.id, row.parent])));
+  const foldedDone = createMemo(() => done().filter(todo => !memberIds().has(todo.id)));
   const rows = new Map<number, HTMLButtonElement>();
   const [closedGroups, setClosedGroups] = createSignal<readonly string[]>(["unassigned"]);
 
@@ -109,7 +105,9 @@ export const Todos = (props: {
     reduced: connected.reducedMotion,
     open: createMemo(() => open().map(todo => todo.id)),
     shown: (id, wasDone) => {
-      if (wasDone) return unfolded();
+      if (!dependency.visible(id)) return false;
+
+      if (wasDone && !memberIds().has(id)) return unfolded();
 
       const todo = inScope().find(todo => todo.id === id);
       const group = todo && ownerGroups(connected, [todo], item => item.owner).find(group => group.items.length > 0);
@@ -118,27 +116,62 @@ export const Todos = (props: {
     },
   });
 
+  const dependency = createDependencyGroups({
+    project: connected, key: () => connected.rail.selected() ?? "overview",
+    keys: () => new Set(["overview", ...connected.rail.nodes.map(node => node.id)]),
+    ids: () => new Set(todos.all().map(todo => todo.id)),
+    loaded: () => todos.isLoaded() && (!shelf || shelf.open()) && (tabs === null || tabs().value === "todos"),
+    rows: createMemo(() => dependencyRows().map(row => ({ ...row, todo: { ...row.todo } }))),
+    reduced: connected.reducedMotion,
+    playing: () => !connected.reducedMotion() && (finishing.bar() || inScope().some(todo => finishing.row(todo.id))),
+    group: id => groupOf(todos.byId().get(id)!),
+    shown: id => {
+      const todo = todos.byId().get(id);
+
+      return !!todo && !closedGroups().includes(groupOf(todo));
+    },
+    focusAfterClose: hidden => {
+      const held = document.activeElement?.closest<HTMLElement>("[data-todo]");
+
+      if (!held || !hidden.has(Number(held.dataset.todo))) return;
+      const order = dependencyRows().map(row => row.todo.id);
+      const at = order.indexOf(Number(held.dataset.todo));
+
+      queueMicrotask(() => {
+        const active = document.activeElement;
+        const current = active?.closest<HTMLElement>("[data-todo]");
+
+        if (active && active !== document.body && (!current || !hidden.has(Number(current.dataset.todo)))) return;
+        const candidates = [...order.slice(at + 1), ...order.slice(0, at).reverse()];
+
+        const target = candidates.find(id => {
+          const todo = todos.byId().get(id);
+
+          return todo && !todo.done && !hidden.has(id) && dependency.visible(id) && !closedGroups().includes(groupOf(todo));
+        });
+
+        (target === undefined ? plusButton : rowButtonOf(target) ?? plusButton)?.focus();
+      });
+    },
+  });
+
   // U3770: a Todo ticked in the open list stays in it, drawn done, until its motion ends, then moves to the done fold.
   const held = (todo: Todo) => todo.done && finishing.row(todo.id);
 
-  const listed = createMemo(() => finishing.order().flatMap(id => todos.byId().get(id) ?? []));
+  const listed = createMemo(() => {
+    const order = finishing.order();
+    const kept = new Set([...order, ...memberIds()]);
 
-  let progressCount: HTMLSpanElement | undefined;
+    return inScope().filter(todo => kept.has(todo.id));
+  });
 
-  createEffect(on(() => `${done().length}/${inScope().length}`, () => {
-    if (!finishing.bar() || !progressCount) return;
+  const selection = createSelection(() => [...listed().filter(todo => {
+    const group = ownerGroups(connected, [todo], item => item.owner).find(group => group.items.length > 0);
 
-    // Keep a burst's newest text moving from the visible pose, rather than replaying the roll's hidden start.
-    const style = getComputedStyle(progressCount);
-    const pose = { opacity: style.opacity, transform: style.transform };
+    return dependency.visible(todo.id) && group !== undefined && !closedGroups().includes(group.id);
+  }), ...(unfolded() ? foldedDone() : [])].map(todo => todo.id), () => connected.rail.selected() ?? "overview", id => rowButtonOf(id));
 
-    for (const animation of progressCount.getAnimations?.() ?? []) {
-      if (animation.playState !== "running" || !(animation.effect instanceof KeyframeEffect)) continue;
-
-      animation.effect.setKeyframes([{ ...pose, easing: animation.effect.getKeyframes()[0]!.easing }, { opacity: "1", transform: "none" }]);
-      animation.currentTime = 0;
-    }
-  }, { defer: true }));
+  const progressCount = createCountMotion(() => `${done().length}/${inScope().length}`, finishing.bar);
 
   const target = (todo: Todo) => ({ id: todo.id, label: todo.title });
 
@@ -171,6 +204,10 @@ export const Todos = (props: {
 
   /** The id of the group a Todo reads in: its owner, or Unassigned once that Agent left the Rail. */
   const groupOf = (todo: Todo) => ownerGroups(connected, [todo], item => item.owner).find(group => group.items.length > 0)!.id;
+  createEffect(() => {
+    for (const todo of inScope()) if (finishing.row(todo.id) && (!dependency.visible(todo.id) || closedGroups().includes(groupOf(todo)))) finishing.rowEnded(todo.id);
+  });
+
   const [dragging, setDragging] = createSignal(false);
   const [adding, setAdding] = createSignal<{ group: string; owner: Actor | null } | null>(null);
   const [picking, setPicking] = createSignal<{ id: number; anchor: HTMLElement } | null>(null);
@@ -241,7 +278,7 @@ export const Todos = (props: {
       if (nestFocus !== id) return;
       nestFocus = null;
 
-      if (document.activeElement === document.body || document.activeElement === null) rows.get(id)?.focus();
+      if (document.activeElement === document.body || document.activeElement === null) rowButtonOf(id)?.focus();
     });
   });
 
@@ -737,6 +774,8 @@ export const Todos = (props: {
     ], x, y));
   };
 
+  const groupAttributes = (id: number, level: number): JSX.HTMLAttributes<HTMLElement> => ({ role: "treeitem", "aria-level": level, "aria-expanded": dependency.expanded(id), "aria-controls": `todo-group-${id}`, "aria-owns": `todo-group-${id}` });
+
   return (
     <section aria-label={copy.todos} class="todos-tab" onContextMenu={todoMenu} ref={section}>
       <ScopeAction tab="todos">
@@ -770,27 +809,27 @@ export const Todos = (props: {
         const collection = createMemo(() => treeCollection(tree()));
         const placeOf = (id: number) => tree().find((row) => row.todo.id === id) ?? { level: 1, parent: null };
 
-        return <>
-        <TreeView.Root collection={collection()}>
-        <Sortable.Root class="todo-list shelf-list" plain ids={tree().map((row) => String(row.todo.id))} external={sorted.external} onDrag={setDragging} tree={{
-          holdPlace: true,
-          rows: tree().map((row) => ({ id: String(row.todo.id), parent: row.parent === null ? null : String(row.parent) })),
-          get indent() { return parseFloat(getComputedStyle(document.documentElement).getPropertyValue("--space-4")) || 16; },
-          nests: () => true,
-          onMove: (move) => void dropOf(tree(), group().items, Number(move.id), move.parent === null ? null : Number(move.parent), move.index),
-          onPreview: () => undefined,
-        }}>
-        <TreeView.Tree aria-label={copy.todos} style={{ padding: "0" }}>
-        <For each={tree().map((row) => row.todo)}>
-          {(todo, at) => {
+        const renderChildren = (parent: number | null): JSX.Element => <For each={tree().filter(row => row.parent === parent).map(row => row.todo)}>{todo => {
+            const at = () => tree().findIndex(row => row.todo.id === todo.id);
+            const members = () => dependency.groups().get(todo.id) ?? [];
+            let registered: HTMLButtonElement | null = null;
             const row = { get level() { return placeOf(todo.id).level; }, get parent() { return placeOf(todo.id).parent; } };
 
-            return (
-            <Sortable.Item id={String(todo.id)} index={at()} pressable>
-              {(parts) => (
-            <TreeView.NodeProvider node={{ id: String(todo.id) }} indexPath={collection().getIndexPath(String(todo.id)) ?? []}>
-            <TreeView.Item asChild={(itemProps) =>
+            return <Sortable.Item id={String(todo.id)} index={at()} pressable>{parts => {
+            const draw = (itemProps: () => JSX.HTMLAttributes<HTMLElement>) => (
             <OpenRow
+              disclosure={<Show when={members().length > 0}><TreeView.BranchTrigger asChild={trigger => <IconButton {...trigger({
+                "aria-label": copy.toggleTodoGroup(todo.title), "aria-controls": `todo-group-${todo.id}`, "aria-expanded": dependency.expanded(todo.id),
+                onClick: () => {
+                  const content = document.getElementById(`todo-group-${todo.id}`);
+
+                  if (dependency.expanded(todo.id) && content?.contains(document.activeElement)) document.querySelector<HTMLButtonElement>(`[data-group-toggle="${todo.id}"]`)?.focus();
+                },
+              })} aria-label={copy.toggleTodoGroup(todo.title)} data-group-toggle={todo.id}><Icon name={dependency.expanded(todo.id) ? "down" : "right"} /></IconButton>} /></Show>}
+              aggregateMotion={dependency.strike(todo.id)}
+              groupComplete={members().length ? dependency.complete(todo.id) : undefined}
+              groupProgress={<Show when={members().length > 0}><Progress label={copy.todosDoneIn(todo.title)} max={members().length} value={members().filter(row => row.todo.done).length} motion={dependency.bar(todo.id)} onMotionEnd={() => dependency.barEnded(todo.id)}><span class="todo-progress-count" data-state="">{members().filter(row => row.todo.done).length}/{members().length}</span></Progress></Show>}
+              current={now().has(todo.id)}
               motion={finishing.row(todo.id)}
               onMotionEnd={() => finishing.rowEnded(todo.id)}
               treeItem={itemProps()}
@@ -807,19 +846,55 @@ export const Todos = (props: {
               failWith={(show) => pickFails.set(todo.id, show)}
               sorted={sorted.row(todo.id, parts, () => tree().map(({ todo }) => todo.id))}
               place={row}
-              nest={nestOf(todo, row.parent, tree()[at() - 1]?.todo ?? null, at() === 0)}
+              nest={nestOf(todo, row.parent, tree().slice(0, at()).findLast(row => !row.todo.done)?.todo ?? null, at() === 0)}
               registerRow={(id, row) => {
-                selection.register(id, row);
-
-                if (row) rows.set(id, row);
-                else rows.delete(id);
+                if (row) {
+                  registered = row;
+                  rows.set(id, row);
+                  selection.register(id, row);
+                } else if (rows.get(id) === registered) {
+                  rows.delete(id);
+                  selection.register(id, null);
+                }
               }}
-            />} />
+            />
+            );
+
+            return (
+            <TreeView.NodeProvider node={collection().findNode(String(todo.id))!} indexPath={collection().getIndexPath(String(todo.id)) ?? []}>
+            <Show when={members().length > 0} fallback={<TreeView.Item asChild={draw} />}>
+              <TreeView.Branch asChild={branch => {
+                const attrs = () => {
+                  const { "aria-level": _level, "aria-expanded": _expanded, ...rest } = branch();
+
+                  return rest;
+                };
+
+                return <div {...attrs()} class="todo-dependency" role="presentation" data-structural-motion={dependency.moving()} data-complete={dependency.complete(todo.id)}>
+                {draw(() => groupAttributes(todo.id, row.level))}
+                <TreeView.BranchContent id={`todo-group-${todo.id}`} inert={!dependency.expanded(todo.id)} aria-hidden={!dependency.expanded(todo.id)}><div class="todo-group-content">{renderChildren(todo.id)}</div></TreeView.BranchContent>
+                </div>;
+              }} />
+            </Show>
             </TreeView.NodeProvider>
-              )}
-            </Sortable.Item>
-          );}}
-        </For>
+              );
+            }}</Sortable.Item>;
+        }}</For>;
+
+        return <>
+        <TreeView.Root collection={collection()} expandedValue={collection().getBranchValues().filter(id => dependency.expanded(Number(id)))} onExpandedChange={details => {
+          for (const id of collection().getBranchValues()) dependency.setExpanded(Number(id), details.expandedValue.includes(id));
+        }}>
+        <Sortable.Root class="todo-list shelf-list" plain ids={tree().map((row) => String(row.todo.id))} external={sorted.external} onDrag={setDragging} tree={{
+          holdPlace: true,
+          rows: tree().map((row) => ({ id: String(row.todo.id), parent: row.parent === null ? null : String(row.parent) })),
+          get indent() { return parseFloat(getComputedStyle(document.documentElement).getPropertyValue("--space-4")) || 16; },
+          nests: () => true,
+          onMove: (move) => void dropOf(tree(), group().items, Number(move.id), move.parent === null ? null : Number(move.parent), move.index),
+          onPreview: () => undefined,
+        }}>
+        <TreeView.Tree aria-label={copy.todos} style={{ padding: "0" }}>
+        {renderChildren(null)}
         </TreeView.Tree>
         </Sortable.Root>
         </TreeView.Root>
@@ -846,12 +921,12 @@ export const Todos = (props: {
       <TodoDraftRecovery object="new" active={typing()} onDiscard={revision => {
         if (creation()?.revision === revision) setTyping(false);
       }} />
-      <Show when={done().length > 0}>
+      <Show when={foldedDone().length > 0}>
         <div class="shelf-list">
         <Show when={wasDoneUnfolded()}>
           <div class="todo-done-fold" data-open={unfolded()} data-reduced-motion={connected.reducedMotion()} inert={!unfolded()}>
             <div class="todo-done-content">
-            <For each={done().filter((todo) => !held(todo))}>
+            <For each={foldedDone().filter((todo) => !held(todo))}>
               {(todo) => (
                 <OpenRow
                   todo={todo}
@@ -859,7 +934,7 @@ export const Todos = (props: {
                   onMotionEnd={() => finishing.rowEnded(todo.id)}
                   known={todos.byId()}
                   onOpen={show}
-                  onToggle={todo => toggle(todo, done().map(candidate => candidate.id))}
+                  onToggle={todo => toggle(todo, foldedDone().map(candidate => candidate.id))}
                   selected={shown()?.id === todo.id}
                   pressed={selection.selected().includes(todo.id)}
                   selectionActive={selection.selected().length > 0}
@@ -879,7 +954,7 @@ export const Todos = (props: {
           <ShelfRow glyph={<KindGlyph kind="done" decorative />} class="todo-inset">
             <div class="shelf-done-line">
               <RowButton hang={false} onClick={() => setUnfolded(!unfolded())}>
-                <span class="shelf-title">{done().length}{copy.doneCount}</span>
+                <span class="shelf-title">{foldedDone().length}{copy.doneCount}</span>
               </RowButton>
               <button data-button="quiet" type="button" onClick={() => bulk.ask(true)}>{copy.clearDone}</button>
             </div>
