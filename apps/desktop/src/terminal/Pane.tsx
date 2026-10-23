@@ -10,13 +10,14 @@ import { DecisionCard } from "../decisions/DecisionCard";
 import { FoldedLine } from "../decisions/FoldedLine";
 import { OrderDrawer } from "../orders/OrderDrawer";
 import { OrderLine } from "../orders/OrderLine";
+import { NoteQueue } from "./NoteQueue";
 import { ErrorLine } from "../ink/ErrorLine";
 import { Icon } from "../ink/Icon";
 import { doorStateOf, doorStateText } from "../rail/doorState";
 import { useConnectedProject } from "../state/connectedProject";
 import { registerKeys } from "../keys/registry";
 import { CHORDS, TAKE_CONTROL_KEYS } from "../keys/chords";
-import { KeyChip } from "../keys/KeyChip";
+import { KeyHint } from "../keys/KeyHint";
 import { Menu } from "../ui/Menu";
 import type { ToastQueue } from "../toasts/queue";
 import { createSendSelection } from "./sendSelection";
@@ -466,7 +467,7 @@ export const Pane = (props: { notice?: string | null; createEmulator?: EmulatorF
                 <Icon name="plus" />{copy.newWorkstreamWord}</button>
               <ul class="pane-empty-keys">
                 <For each={CHORDS.filter((row) => row.what === copy.newAgent || row.what === copy.newTerminal || row.what === copy.askBarShortcut)}>{(row) => (
-                  <li><span>{row.what}</span><KeyChip keys={row.keys} /></li>
+                  <li><KeyHint chipAfter keys={row.keys}>{row.what}</KeyHint></li>
                 )}</For>
               </ul>
             </div>
@@ -495,6 +496,7 @@ export const Pane = (props: { notice?: string | null; createEmulator?: EmulatorF
           )}
         </Show>
       </div>
+      <Show when={selected()?.kind === "agent" && terminalId() !== null && !closedAgent() ? selected() : null} keyed>{(node) => <NoteQueue node={node} />}</Show>
       </div>
       <div class="pane-failure">
         <Show when={notice() ?? rail.workstreamFailure()}>{(message) => <ErrorLine message={message()} />}</Show>
