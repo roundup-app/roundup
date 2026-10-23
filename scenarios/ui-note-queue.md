@@ -4,6 +4,8 @@ Module: `apps/desktop` (the webview); U3782 also owns the existing `crates/messa
 
 The user types to an Agent in Claude Code's own input in its Terminal. The waiting-Message queue remains below the Terminal, with row actions and Pause/Resume (Takeover, B6). It reads Messages, not a second store; B3, B32 and B50 to B52 keep their delivery and transport rules. U3787 retires the separate note field and its draft behavior. U12, U107 and U531 still govern Terminal typing and control. Removing a field adds no RPC method or App seam command and changes no Message law.
 
+Contract policy (AGENTS.md rule 4): U3782 changes `message.drop` (B3) and every caller in the same PR; no other contract, App command or `GLOSSARY.md` term is added, and the App prose terms go in `copy.ts`. U3782's `drop` of a `pending` Message touches laws M1 (a dropped Message is never typed, and one with an in-flight record is not dropped), M5 and M6 (`dropped` stays terminal and carries the reason `removed`); `proofs/messages/model.bend` gains the event, `LAWS.bend` weakens no law, and `docs/messages.md` agrees.
+
 Pause holds delivery, not the running turn: the Agent finishes the step it is on and takes nothing until `Resume`; stopping a turn is `agent.interrupt`, as before.
 
 **U3780 the queue lists the selected Agent's waiting Messages below its Terminal.** Given a watched Agent's pane (U12), when it shows, then:
@@ -12,7 +14,7 @@ Pause holds delivery, not the running turn: the Agent finishes the step it is on
 - With no rows and no Pause or failure to show, the queue draws nothing: no empty state or reserved height. While paused, Resume remains reachable even if no rows remain; a failed row action or Pause/Resume keeps its cause visible beside the queue. Tests: rename the existing empty-queue case to `u3780_an_empty_queue_draws_nothing`; `u3782_resume_remains_reachable_without_rows`; existing `u3782_pause_and_resume_are_takeover_and_show_its_state` and `u3782_remove_drops_one_message_and_keeps_the_rest` retain their failure assertions. The design critic observes the absence of reserved height.
 - Selecting another Agent shows only that Agent's queue; switching back restores only the original Agent's waiting Messages. Test: replace the draft-specific part of `u3780_two_agents_never_share_a_queue_or_a_draft` with `u3780_two_agents_never_share_a_queue`.
 
-Observer: Vitest on the existing fake App seam (`terminal/noteQueueHarness.tsx`); the design critic judges D2, D5 and D6 at 1512×950 in dark mode. Captures: `artifacts/ux/U3780/`.
+Observer: Vitest on the existing fake App seam (`apps/desktop/src/terminal/noteQueueHarness.tsx`); the design critic judges D2, D5 and D6 at 1512×950 in dark mode. Captures: `artifacts/ux/U3780/`.
 
 **U3781 note-field submission is retired.** Policy: Enter-to-queue, ⌘Enter-to-send-now, field-specific shortcuts and hints, blank/oversize submission handling, pending-submit suppression and per-Agent field drafts are retired by U3787. No replacement composer or hidden key-opened field is introduced. Delete their tests; U12 and U531 retain Terminal typing and control, and B1/B2 retain Message sending outside the removed field.
 
@@ -40,7 +42,6 @@ Observer: Vitest `u3783_` cases plus a real-Daemon case (`u3783_a_real_door_note
 - Policy: `docs/design-system.md` carries the same carve-out as #3300: nothing moves unless the user acted or an Agent took a note the user can see.
 
 Observer: Vitest `u3784_` cases with `matchMedia` forced; `just capture U3784` for a video of one delivery; the design critic accepts or shortens the duration. Moves: D2, D5, D9.
-
 
 **U3787 the Terminal is the Agent pane's only prompt input.** Given a Project with two running Agents, when the user selects each Agent and returns to the first, with an empty queue and again with waiting Messages, then the Agent pane renders no `textarea` outside its Terminal. One App-seam test, `u3787_the_agent_pane_has_no_textarea_outside_the_terminal`, asserts this through the existing Pane/App harness, scoped to the Agent pane and excluding only the Terminal emulator subtree. It waits for the selected Agent's Terminal and Message list to be ready before asserting; it must fail against the old note field. The emulator's own input is allowed. U12's existing typing observer continues to prove that vendor input reaches `terminal.write`.
 
