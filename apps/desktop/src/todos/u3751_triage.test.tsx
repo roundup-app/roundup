@@ -128,7 +128,7 @@ it("u3753_a_and_w_call_assign_and_move_once_each", async () => {
   const owners = await screen.findByRole("menu", { name: "Owners for #2" });
   fireEvent.click(within(owners).getByRole("menuitem", { name: "alpha" }));
   await waitFor(() => expect(callsTo(app, "todo.assign").map(call => call.params)).toEqual([{ id: 2, owner: by("a") }]));
-  await waitFor(() => expect(document.activeElement).toBe(row(2)));
+  await waitFor(() => expect(document.activeElement).toBe(row(3)));
 
   await waitFor(() => expect(screen.queryByRole("menu")).toBeNull());
   press(row(3), "w");
@@ -204,15 +204,80 @@ it("u3755_esc_in_the_comment_field_keeps_the_draft", async () => {
   expect(screen.getByRole<HTMLTextAreaElement>("textbox", { name: "Write a comment" }).value).toBe("draft");
 });
 
-
 it.each(["body", "toggle", "control"])("u3474a_enters_and_leaves_from_each_todos_target: %s", async (target) => {
   await mount();
   const toggle = screen.getByRole("button", { name: "Triage" });
   const start = target === "body" ? document.body : target === "toggle" ? toggle : screen.getAllByRole("button", { name: /add todo to/ })[0]!;
-  start.focus();
+  if (target === "body" && document.activeElement instanceof HTMLElement) document.activeElement.blur();
+  else start.focus();
   fireEvent.keyDown(document.activeElement!, { key: "t", code: "KeyT" });
   await waitFor(() => expect(toggle.getAttribute("aria-pressed")).toBe("true"));
   expect(document.activeElement).toBe(row(1));
   fireEvent.keyDown(document.activeElement!, { key: "Escape", code: "Escape" });
   expect(toggle.getAttribute("aria-pressed")).toBe("false");
+});
+
+const nextKey = (key: string, init: KeyboardEventInit = {}) => fireEvent.keyDown(document.activeElement ?? document.body,
+  { key, code: /^[a-z]$/i.test(key) ? `Key${key.toUpperCase()}` : key, ...init });
+
+it.each(["x", "Tab", "un-nest", "a", "o", "w", "c", "j", "k"])("u3474b_two_key_actions_keep_working: %s", async action => {
+  const { app, store } = await mountTodos([todo(1, { owner: by("a") }), todo(2, { blockers: action === "un-nest" ? [1] : [] }), todo(3)], true, RAIL);
+  row(2).focus();
+  nextKey("t");
+  nextKey(action === "un-nest" ? "Tab" : action, { shiftKey: action === "un-nest" });
+
+  if (action === "a" || action === "o" || action === "w") {
+    const menu = await screen.findByRole("menu");
+    await waitFor(() => expect(menu.contains(document.activeElement)).toBe(true));
+    nextKey("ArrowDown");
+    nextKey("Enter");
+  }
+  if (action === "c") {
+    const field = await screen.findByRole<HTMLTextAreaElement>("textbox", { name: "Write a comment" });
+    await waitFor(() => expect(document.activeElement).toBe(field));
+    fireEvent.input(field, { target: { value: "reviewed" } });
+    nextKey("Enter");
+    await waitFor(() => expect(callsTo(app, "todo.comment").map(call => call.params)).toEqual([{ id: 2, body: "reviewed" }]));
+  }
+  const destination = action === "k" ? 1 : 3;
+  await waitFor(() => expect(document.activeElement).toBe(row(destination)));
+  expect(shelf().getAttribute("data-triage")).toBe("on");
+  if (action === "x") expect(store.todos.find(todo => todo.id === 2)?.done).toBe(true);
+  if (action === "Tab") expect(store.todos.find(todo => todo.id === 2)?.blockers).toEqual([1]);
+  if (action === "un-nest") expect(store.todos.find(todo => todo.id === 2)?.blockers).toEqual([]);
+  if (action === "a" || action === "o") expect(store.todos.find(todo => todo.id === 2)?.owner).toEqual(by("a"));
+  if (action === "w") expect(store.todos.find(todo => todo.id === 2)?.home).toBe("w");
+  nextKey("x");
+  await waitFor(() => expect(store.todos.find(todo => todo.id === destination)?.done).toBe(true));
+  expect(callsTo(app, "todo.complete").map(call => call.params)).toEqual(action === "x" ? [{ id: 2 }, { id: destination }] : [{ id: destination }]);
+});
+
+it.each(["j", "k", "a", "o", "w", "Tab", "un-nest", "x", "c"])("u3474c_recovers_a_missing_or_empty_target: %s", async action => {
+  const { app } = await enter();
+  screen.getByRole("button", { name: "Triage" }).focus();
+  const before = app.calls.length;
+  nextKey(action === "un-nest" ? "Tab" : action, { shiftKey: action === "un-nest" });
+  expect(document.activeElement).toBe(row(1));
+  expect(app.calls.slice(before)).toEqual([]);
+  expect(screen.queryByRole("menu")).toBeNull();
+  expect(shelf().getAttribute("data-triage")).toBe("on");
+});
+
+it("u3474c_recovers_a_missing_or_empty_target_after_arrival", async () => {
+  const { app, store } = await mountTodos([]);
+  screen.getByRole("button", { name: "Triage" }).focus();
+  nextKey("t");
+  for (const key of ["j", "k", "a", "o", "w", "Tab", "x", "c"]) nextKey(key);
+  expect(callsTo(app, "todo.complete")).toEqual([]);
+  expect(document.activeElement).toBe(screen.getByRole("button", { name: "Triage" }));
+  store.todos = [todo(1)];
+  app.emit(todoEvent("todo.created", store.todos[0]!));
+  await waitFor(() => expect(row(1)).toBeTruthy());
+  nextKey("x");
+  expect(callsTo(app, "todo.complete")).toEqual([]);
+  expect(document.activeElement).toBe(row(1));
+  nextKey("x");
+  await waitFor(() => expect(document.activeElement).toBe(screen.getByRole("button", { name: "Triage" })));
+  nextKey("Escape");
+  expect(shelf().getAttribute("data-triage")).toBe("off");
 });
