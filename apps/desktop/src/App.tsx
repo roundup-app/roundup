@@ -170,7 +170,6 @@ export const App = (props: {
   drafts?: ReturnType<typeof createProjectDrafts>;
 }) => {
   const clearBrowserSelection = (event: MouseEvent) => {
-    document.documentElement.dataset.keyboardFocus = "false";
 
     if (event.button !== 0 || event.ctrlKey) return;
 
@@ -187,14 +186,11 @@ export const App = (props: {
 
   onMount(() => {
     window.addEventListener("contextmenu", suppressBrowserMenu, true);
-    // Start keyboard-visible for native accessibility focus arriving before any page input.
-    document.documentElement.dataset.keyboardFocus = "true";
     window.addEventListener("pointerdown", clearBrowserSelection, true);
   });
   onCleanup(() => {
     window.removeEventListener("contextmenu", suppressBrowserMenu, true);
     window.removeEventListener("pointerdown", clearBrowserSelection, true);
-    delete document.documentElement.dataset.keyboardFocus;
   });
 
   const projects = createProjectsState(props.app);
