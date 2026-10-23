@@ -110,16 +110,17 @@ const PadBody = (props: {
   const saveAfterPause = debounce(() => flush(), 500);
 
   const capture = () => {
-    if (invalid() || (recovered && !editor)) return;
+    if (closed || invalid() || (recovered && !editor)) return;
     const text = currentDraft();
-    const snapshot = text === null && !closed ? editor?.snapshot() : null;
+    // Markdown can normalize live spaces and empty paragraphs; retain the exact native draft until acknowledgement.
+    const snapshot = editor && (text === null || !editor.unchanged()) ? editor.snapshot() : null;
 
     if (text === null) actionFailure.show(copy.padSourceMappingFailed);
 
     if ((text === null && !snapshot) || (!editing() && text === origin())) return;
-    const selection = closed ? draftSelection : editor?.selection() ?? draftSelection;
+    const selection = editor?.selection() ?? draftSelection;
     draftSelection = selection;
-    const source = snapshot?.text ?? text;
+    const source = text ?? snapshot!.text;
     const fingerprint = JSON.stringify([source, selection, snapshot?.document ?? null]);
 
     if (captured === fingerprint) return;

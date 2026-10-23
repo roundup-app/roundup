@@ -179,13 +179,16 @@ it.each(ordinaryCases)("p3557a_ordinary_edits_preserve_source: $name", async ({ 
   expect(undo(view.state, view.dispatch)).toBe(true);
   expect(check()).toBe(source);
   expect(redo(view.state, view.dispatch)).toBe(true);
+  expect(handle.snapshot().text).toBe(serialized);
   check();
   const saved = check();
   handle.setText(saved);
   view.dispatch(view.state.tr.insertText("! "));
+  expect(view.state.doc.textContent).toContain("! ");
   const acknowledged = check();
   handle.setText(acknowledged);
   view.dispatch(view.state.tr.insertText("next"));
+  expect(view.state.doc.textContent).toContain("! next");
   const next = check();
   cleanup();
   vi.restoreAllMocks();
@@ -204,13 +207,13 @@ it.each(ordinaryCases)("p3557a_ordinary_edits_preserve_source: $name", async ({ 
 it("p3557a_ordinary_edits_preserve_source_after_whitespace_acknowledgement", async () => {
   const { handle, view } = await open("");
 
-  for (const text of [" ", " ", "x"]) {
+  for (const text of [" ", " ", "x", "y", "z", "q"]) {
     view.dispatch(view.state.tr.insertText(text));
     const source = handle.getText();
     expect(source).not.toBeNull();
     handle.setText(source!);
   }
 
-  expect(view.state.doc.textContent).toBe("  x");
+  expect(view.state.doc.textContent).toBe("  xyzq");
   expect(handle.getText()).toContain("x");
 });

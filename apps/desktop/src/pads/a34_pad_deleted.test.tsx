@@ -1,12 +1,14 @@
 import { cleanup, fireEvent, screen, waitFor, within } from "@solidjs/testing-library";
-import { afterEach, expect, it } from "vitest";
+import { afterEach, expect, it, vi } from "vitest";
 import type { Pad } from "@contracts/pad/Pad";
 import { AGENT, deferred, openPad, openShelf, padOf, RpcError } from "./padsFixture";
 
 import { answerQuestion, questionDialog } from "../shelf/bulkQuestionHarness";
+import { Editor, editorViewCtx } from "@milkdown/kit/core";
+import type { EditorView } from "@milkdown/kit/prose/view";
 import { USER } from "../testing/nodes";
 
-afterEach(cleanup);
+afterEach(() => { cleanup(); vi.restoreAllMocks(); });
 
 it("a34_pad_deleted_refreshes_the_pad_list_through_the_fake_app_seam", async () => {
   const { app, state, calls } = await openShelf([padOf("plan", AGENT)]);
@@ -221,4 +223,33 @@ it.each(["delete", "save", "dismiss"])("p3557c_failure_lifetime_pad_assignment: 
   } else fireEvent.click(screen.getByRole("button", { name: "Dismiss assignment failure" }));
   await waitFor(() => expect(screen.queryByText("assignment refused")).toBeNull());
   expect(screen.getByLabelText<HTMLInputElement>("Pad name").value).toBe("unfinished");
+});
+
+it("p3557b_failed_whitespace_save_restores_exact_editor_input", async () => {
+  const { app, connected } = await openShelf([padOf("spaces", USER, "")]);
+  app.handlers["pad.write"] = () => { throw new RpcError(-32002, "cannot store spaces"); };
+
+  let view: EditorView | undefined;
+  const make = Editor.make.bind(Editor);
+  vi.spyOn(Editor, "make").mockImplementation(() => {
+    const editor = make();
+    editor.onStatusChange(status => {
+      if (status === "Created") view = editor.action(ctx => ctx.get(editorViewCtx));
+    });
+
+    return editor;
+  });
+  const original = await openPad("spaces");
+
+  if (!view) throw new Error("editor did not open");
+  view.dispatch(view.state.tr.insertText("  "));
+  fireEvent.focusOut(original);
+  await screen.findByText("cannot store spaces");
+  connected.drawer.close("key");
+  await waitFor(() => expect(screen.queryByRole("textbox", { name: "Pad body" })).toBeNull());
+  const writes = app.calls.filter(call => call.method === "pad.write").length;
+  const restored = await openPad("spaces");
+  expect(restored.value).toBe("  ");
+  expect(restored.selectionStart).toBe(3);
+  expect(app.calls.filter(call => call.method === "pad.write")).toHaveLength(writes);
 });
