@@ -414,10 +414,9 @@ p {
 }
 
 .help {
-  position: fixed;
-  z-index: var(--layer-dialog);
   box-shadow: none;
-  inset: var(--space-4) var(--space-4) var(--space-4) calc(var(--rail-width) + var(--space-4));
+  width: min(calc(var(--space-6) * 40), 100%);
+  max-height: calc(100vh - var(--space-6) * 2);
   padding: var(--space-4);
   overflow: auto;
   overscroll-behavior: contain;
