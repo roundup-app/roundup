@@ -80,3 +80,35 @@ async fn a3360a_a_megabyte_tool_name_is_cut_to_64_characters() {
     assert_eq!(call.summary, None);
     assert!(call.arguments.contains("unchanged"));
 }
+
+#[tokio::test]
+async fn a3360a_the_cut_falls_on_a_character_boundary() {
+    let f = Fixture::running("sleep 30");
+    let node = f.spawn(None, None).await.unwrap();
+    let boundary = "a".repeat(63) + "🦀";
+    for (name, expected) in [
+        (boundary.clone() + "discarded", boundary.clone()),
+        (boundary.clone(), boundary),
+        ("a".repeat(64), "a".repeat(64)),
+        ("Bash".to_owned(), "Bash".to_owned()),
+    ] {
+        signal(
+            &f,
+            &node.id,
+            json!({"hook_event_name": "PreToolUse", "tool_use_id": "boundary", "tool_name": name, "tool_input": {"command": "echo unchanged"}}),
+        )
+        .await;
+        let tree = f.tree().await;
+        let call = tree
+            .iter()
+            .find(|n| n.id == node.id)
+            .unwrap()
+            .tool_call
+            .as_ref()
+            .unwrap();
+        assert_eq!(call.tool, expected);
+        if name == "Bash" {
+            assert_eq!(call.summary.as_deref(), Some("echo unchanged"));
+        }
+    }
+}
