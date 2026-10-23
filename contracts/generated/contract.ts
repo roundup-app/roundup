@@ -135,6 +135,7 @@ export const CONTRACT = {
     "todo.getHistory": "e0116b9c69507908",
     "todo.hand": "ba495830d41cd014",
     "todo.list": "e65f2d968ce36845",
+    "todo.listHanded": "f24cddf576971209",
     "todo.markCommentsRead": "35bafabaf21370cd",
     "todo.move": "bf4d113add2591c9",
     "todo.readHistory": "508a84bd3c2373ff",
