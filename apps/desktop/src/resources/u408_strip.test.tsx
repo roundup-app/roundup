@@ -212,12 +212,6 @@ describe("u408 the Resource strip", () => {
     await settle(2000);
     expect(words()).not.toContain("Not updating");
   });
-
-  it("u408_the_strip_is_a_quiet_status", async () => {
-    await mount([agent("a", "working", "x")]);
-    await settle();
-
-
 });
 
 describe("u444 the Resource strip is the quiet last line", () => {
