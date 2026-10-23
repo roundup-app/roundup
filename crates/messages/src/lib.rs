@@ -1846,7 +1846,7 @@ mod tests {
     }
 
     mod node;
-    use node::node;
+    pub(crate) use node::node;
 
     fn agent_node(id: &str, kind: Kind) -> RailNode {
         node(
