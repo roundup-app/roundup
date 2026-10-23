@@ -1,5 +1,5 @@
 import { ReservedLine } from "../ink/ReservedLine";
-import { KeyChip } from "./KeyChip";
+import { KeyHint } from "./KeyHint";
 import { createEffect, For, onCleanup } from "solid-js";
 import { useConnectedProject } from "../state/connectedProject";
 import { copy } from "../copy";
@@ -41,5 +41,5 @@ export const Leader = () => {
   return <ReservedLine overlay class={leaderArmed() ? "leader" : undefined} aria-label={copy.leaderPanel} ref={panel}
     style={{ position: "fixed", bottom: "auto", "inset-inline-start": "var(--leader-left, 0px)", "inset-inline-end": "auto", "inline-size": "var(--leader-width, 100%)", "min-height": "var(--line)", visibility: leaderArmed() ? "visible" : "hidden" }}
     status={leaderArmed() ? LEADER.map(key => `${key.keys}  ${key.short}`).join("  ") : null}
-    content={<For each={LEADER}>{key => <span class="leader-line"><KeyChip keys={key.keys} />{`  ${key.short}`}</span>}</For>} />;
+    content={<For each={LEADER}>{key => <KeyHint class="leader-line" keys={key.keys}>{key.short}</KeyHint>}</For>} />;
 };

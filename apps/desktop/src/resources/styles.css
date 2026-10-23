@@ -98,7 +98,7 @@
   grid-column: 1 / -1;
   grid-row: 1;
   display: flex;
-  column-gap: var(--space-3);
+  column-gap: var(--space-4);
   box-sizing: border-box;
   height: var(--space-4);
   inline-size: 0;

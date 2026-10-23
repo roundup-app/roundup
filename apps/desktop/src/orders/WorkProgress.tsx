@@ -60,6 +60,7 @@ export const WorkProgress = (props: { id: string }) => {
   const [opening, setOpening] = createSignal<string | null>(null);
 
   let request: string | null = null;
+  let carried = "";
   let button: HTMLButtonElement | undefined;
   let status: HTMLParagraphElement | undefined;
   let disposed = false;
@@ -107,6 +108,9 @@ export const WorkProgress = (props: { id: string }) => {
     const identity = chosen.map((action) => action.id);
     const previous = phase();
 
+    // One request id carries one payload: other actions are a new request.
+    if (carried !== identity.join("\n")) request = null;
+    carried = identity.join("\n");
     request ??= crypto.randomUUID();
     setPhase("pending");
 
