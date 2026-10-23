@@ -20,8 +20,8 @@ describe("u2694 the Project tab's system menu", () => {
 
     open("api");
 
-    expect(app.menuLabels()).toEqual(["Rename", "Close"]);
-    expect(app.shownMenus.at(-1)!.items[0]).toMatchObject({ shortcut: "F2" });
+    expect(app.menuLabels()).toEqual(["Copy", "Rename", "Close"]);
+    expect(app.shownMenus.at(-1)!.items.find(item => item.id === "rename")).toMatchObject({ shortcut: "F2" });
   });
 
   it("u2694b_rename_starts_the_in_place_edit_of_each_object_tab", async () => {
