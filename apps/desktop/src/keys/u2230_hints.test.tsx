@@ -317,6 +317,18 @@ it.each([
   expect(document.querySelector('.rail-row[data-selected=true]')?.getAttribute('data-id')).toBe(selected);
   expect(app.calls.slice(before).filter(call => !["project.resources", "rail.tree", "terminal.list"].includes(call.method))).toEqual([]);
 
+  if (origin instanceof HTMLElement && !origin.closest('.drawer, .switcher, [data-bubble]')) {
+    const other = document.querySelector<HTMLElement>('.rail-row[data-id="agent-4"]');
+
+    if (other) {
+      other.focus();
+      await waitFor(() => expect(document.querySelector('.hint-line[data-place="rail"]')).not.toBeNull());
+      expect(document.querySelector('.rail-row[data-selected=true]')?.getAttribute('data-id')).toBe(selected);
+      origin.focus();
+      await waitFor(() => expect(document.querySelector(`.hint-line[data-place="${place}"]`)).not.toBeNull());
+    }
+  }
+
   if (name === "switcher") {
     fireEvent.keyDown(origin, { key: "Enter", code: "Enter" });
     await waitFor(() => expect(document.querySelector('.switcher')).toBeNull());
