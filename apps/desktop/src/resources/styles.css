@@ -89,26 +89,30 @@
   scrollbar-width: none;
 }
 
-/* U2230b: the bar's first line, the width of the bar and above the tabs and resource values: grey labels beside key chips, never in the way of a click. Hints that do not fit whole are hidden from the end. */
-.hint[hidden] {
-  display: none;
-}
-
+/* U3513: plain text on the owning pane, with a Token gap above it. */
+.hint[hidden] { display: none; }
 .hint-line {
   grid-column: 1 / -1;
   grid-row: 1;
   display: flex;
-  column-gap: var(--space-4);
+  flex: none;
+  align-items: baseline;
   box-sizing: border-box;
-  height: var(--space-4);
-  inline-size: 0;
-  min-inline-size: 100%;
-  margin: 0 0 var(--space-2);
+  min-width: 0;
+  max-width: 100%;
+  margin: var(--space-2) 0 0;
   padding: 0 var(--space-2);
-  overflow: hidden;
+  background: transparent;
   color: var(--grey);
+  font-family: var(--font-ui);
+  font-size: var(--text-small);
   line-height: var(--space-4);
   white-space: nowrap;
   pointer-events: none;
   user-select: none;
 }
+.hint-line .hint { flex: none; }
+.hint-line .hint:not([hidden]) ~ .hint:not([hidden])::before { content: " · "; white-space: pre; }
+.hint-line kbd { font: inherit; color: var(--text); }
+.help-origin { grid-column: 1 / -1; }
+.shelf .hint-line, .drawer .hint-line, .switcher .hint-line { padding-bottom: var(--space-2); }

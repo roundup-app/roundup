@@ -414,7 +414,9 @@ p {
 }
 
 .help {
-  position: absolute;
+  position: fixed;
+  z-index: var(--layer-dialog);
+  box-shadow: none;
   inset: var(--space-4) var(--space-4) var(--space-4) calc(var(--rail-width) + var(--space-4));
   padding: var(--space-4);
   overflow: auto;

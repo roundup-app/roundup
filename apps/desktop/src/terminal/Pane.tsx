@@ -17,7 +17,6 @@ import { doorStateOf, doorStateText } from "../rail/doorState";
 import { useConnectedProject } from "../state/connectedProject";
 import { registerKeys } from "../keys/registry";
 import { CHORDS, TAKE_CONTROL_KEYS } from "../keys/chords";
-import { KeyHint } from "../keys/KeyHint";
 import { Menu } from "../ui/Menu";
 import type { ToastQueue } from "../toasts/queue";
 import { createSendSelection } from "./sendSelection";
@@ -460,11 +459,7 @@ export const Pane = (props: { notice?: string | null; createEmulator?: EmulatorF
               <p class="light">{rail.workstreamCreating() ? copy.creatingWorkstream : copy.noWorkstreamYet}</p>
               <button data-button="primary" class="word pane-action" aria-disabled={rail.workstreamCreating() || connected.daemonExit() !== null ? true : undefined} onClick={() => { if (!rail.workstreamCreating() && connected.daemonExit() === null) void rail.createWorkstream(); }}>
                 <Icon name="plus" />{copy.newWorkstreamWord}</button>
-              <ul class="pane-empty-keys">
-                <For each={CHORDS.filter((row) => row.what === copy.newAgent || row.what === copy.newTerminal || row.what === copy.askBarShortcut)}>{(row) => (
-                  <li><KeyHint chipAfter keys={row.keys}>{row.what}</KeyHint></li>
-                )}</For>
-              </ul>
+              <div class="pane-empty-keys" />
             </div>
           </Show>
         </Show>

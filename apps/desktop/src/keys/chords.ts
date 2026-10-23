@@ -4,41 +4,41 @@ import { copy } from "../copy";
 export type Chord = { keys: string; what: string; presses: readonly string[]; inRail?: true; onAgent?: true; inSwitcher?: true; inTerminals?: true; inShelf?: true; /** U3781: bound only while focus is in an Agent's note field. */ inNote?: true; /** U3751: a key of Todo triage mode, bound only while the mode is on. */ inTriage?: true; hint?: Hint };
 
 /** Where focus can sit for the hint line (U2230a): a Rail row, watched Agent, Bubble, Pad, Drawer, Switcher or Editor. */
-export type HintPlace = "rail" | "agent" | "bubble" | "pad" | "drawer" | "switcher" | "editor" | "shelf" | "note";
+export type HintPlace = "rail" | "agent" | "bubble" | "pad" | "drawer" | "switcher" | "shelf" | "todos" | "pads" | "triage" | "empty";
 
 /** A chord shown under focus: its short `label` and its position `at` in each place's line (U2230). */
-export type Hint = { label: string; at: Partial<Record<HintPlace, number>>; watching?: true };
+export type Hint = { label: string; at: Partial<Record<HintPlace, number>> };
 
 /** Every chord bound in the webview outside a Terminal screen, in Help's order (U54, U2241). Only `⌘N`, `⇧⌘N`, `⌘T`, `⇧⌘T`, `⌘K` and `⌘/` bind at App scope; `⌘⏎` binds on a Rail row and in an Agent's pane, taking control and giving it back (U531); every other `⌃`, `⌥` and `⌘` key reaches the Terminal, a plain Terminal's `⌘⏎` included. `⌘B` switches only between the selected Agent emulator and an eligible Bubble/tab (U2742c). `⇧⏎` binds only in the open switcher (`inSwitcher`). The Terminal's own `⌘C`, `⌘V`, `⌘=`, `⌘-` and `⌘0` act only in a Terminal screen, where `?` never opens Help. */
 export const CHORDS: readonly Chord[] = [
-  { keys: "⌘N", what: copy.newAgent, presses: ["meta+KeyN"] },
+  { keys: "⌘N", what: copy.newAgent, presses: ["meta+KeyN"], hint: { label: copy.newAgent.toLowerCase(), at: { empty: 0 } } },
   { keys: "⇧⌘N", what: copy.newAgentWithAPrompt, presses: ["meta+shift+KeyN"] },
-  { keys: "⌘T", what: copy.newTerminal, presses: ["meta+KeyT"] },
-  { keys: "⌘K", what: copy.leaderWaitsForAKey, presses: ["meta+KeyK"], hint: { label: copy.leaderWaitsForAKey, at: { rail: 3, agent: 2, bubble: 1, pad: 1, drawer: 1 } } },
+  { keys: "⌘T", what: copy.newTerminal, presses: ["meta+KeyT"], hint: { label: copy.newTerminal.toLowerCase(), at: { empty: 1 } } },
+  { keys: "⌘K", what: copy.leaderWaitsForAKey, presses: ["meta+KeyK"], hint: { label: copy.hintCommands, at: { rail: 1, bubble: 1, pad: 1, drawer: 1 } } },
   { keys: "⇧⌘T", what: copy.captureATodo, presses: ["meta+shift+KeyT"] },
-  { keys: "⌘B", what: copy.switchAgentTerminal, presses: ["meta+KeyB"], inTerminals: true, hint: { label: copy.switchAgentTerminal, at: { agent: 0, bubble: 0 } } },
-  { keys: "⇧⏎", what: copy.takeControlInTheSwitcher, presses: ["shift+Enter"], inSwitcher: true },
-  { keys: "⌘⌫", what: copy.remove, presses: ["meta+Backspace"], inRail: true, hint: { label: copy.remove, at: { rail: 2 } } },
-  { keys: "⌘⏎", what: copy.takeControlChord, presses: ["meta+Enter"], onAgent: true, hint: { label: copy.takeControlChord, at: { rail: 1, agent: 1 }, watching: true } },
-  { keys: "⌘/", what: copy.askBarShortcut, presses: ["meta+Slash"], hint: { label: copy.askBarShortcut, at: { rail: 4, agent: 3, bubble: 2, pad: 2, drawer: 2, shelf: 5 } } },
-  { keys: "⏎", what: copy.queueNote, presses: ["Enter"], inNote: true, hint: { label: copy.queueNote, at: { note: 0 } } },
-  { keys: "⌘⏎", what: copy.sendNoteNow, presses: ["meta+Enter"], inNote: true, hint: { label: copy.sendNoteNow, at: { note: 1 } } },
-  { keys: "1–9", what: copy.todoAssignDigit, presses: Array.from({ length: 9 }, (_, at) => `Digit${at + 1}`), inShelf: true, hint: { label: copy.todoAssignDigit, at: { shelf: 7 } } },
+  { keys: "⌘B", what: copy.switchAgentTerminal, presses: ["meta+KeyB"], inTerminals: true, hint: { label: copy.hintSwitchTerminal, at: { agent: 0, bubble: 0 } } },
+  { keys: "⇧⏎", what: copy.takeControlInTheSwitcher, presses: ["shift+Enter"], inSwitcher: true, hint: { label: copy.hintTakeControl, at: { switcher: 1 } } },
+  { keys: "⌘⌫", what: copy.remove, presses: ["meta+Backspace"], inRail: true },
+  { keys: "⌘⏎", what: copy.takeControlChord, presses: ["meta+Enter"], onAgent: true, hint: { label: copy.hintTakeControl, at: { rail: 0, agent: 1 } } },
+  { keys: "⌘/", what: copy.askBarShortcut, presses: ["meta+Slash"], hint: { label: copy.hintAsk, at: { rail: 2, agent: 2, bubble: 2, pad: 2, drawer: 2, shelf: 2, empty: 2 } } },
+  { keys: "⏎", what: copy.queueNote, presses: ["Enter"], inNote: true },
+  { keys: "⌘⏎", what: copy.sendNoteNow, presses: ["meta+Enter"], inNote: true },
+  { keys: "1–9", what: copy.todoAssignDigit, presses: Array.from({ length: 9 }, (_, at) => `Digit${at + 1}`), inShelf: true },
   { keys: "⏎", what: copy.todoLift, presses: ["Enter"], inShelf: true },
   { keys: "↑ ↓", what: copy.todoLiftTarget, presses: ["ArrowUp", "ArrowDown"], inShelf: true },
-  { keys: "O", what: copy.assignTodo, presses: ["KeyO"], inShelf: true, hint: { label: copy.assign, at: { shelf: 1 } } },
-  { keys: "M", what: copy.maximise, presses: ["KeyM"], inShelf: true, hint: { label: copy.maximise, at: { shelf: 0 } } },
-  { keys: "D", what: copy.deleteFocusedRow, presses: ["KeyD"], inShelf: true, hint: { label: copy.deleteFocusedRow, at: { shelf: 2 } } },
-  { keys: "E", what: copy.exportMd, presses: ["KeyE"], inShelf: true, hint: { label: copy.exportMd, at: { shelf: 3 } } },
-  { keys: "Esc", what: copy.close, presses: ["Escape"], inShelf: true, hint: { label: copy.close, at: { shelf: 4 } } },
-  // U3751 to U3753: past the four hints a Shelf row shows, so the mode's own line lists them.
-  { keys: "T", what: copy.triageEnter, presses: ["KeyT"], inShelf: true, hint: { label: copy.triageEnter, at: { shelf: 6 } } },
-  { keys: "J K", what: copy.triageMove, presses: ["KeyJ", "KeyK"], inShelf: true, inTriage: true },
-  { keys: "A", what: copy.triageAssign, presses: ["KeyA"], inShelf: true, inTriage: true },
+  { keys: "O", what: copy.assignTodo, presses: ["KeyO"], inShelf: true, hint: { label: copy.assign.toLowerCase(), at: { todos: 0, pads: 0 } } },
+  { keys: "M", what: copy.maximise, presses: ["KeyM"], inShelf: true, hint: { label: copy.maximise.toLowerCase(), at: { shelf: 0 } } },
+  { keys: "D", what: copy.deleteFocusedRow, presses: ["KeyD"], inShelf: true, hint: { label: copy.hintDelete, at: { todos: 1, pads: 2 } } },
+  { keys: "E", what: copy.exportMd, presses: ["KeyE"], inShelf: true, hint: { label: copy.hintExport, at: { pads: 1 } } },
+  { keys: "Esc", what: copy.close, presses: ["Escape"], inShelf: true, hint: { label: copy.close.toLowerCase(), at: { shelf: 1, pad: 0, drawer: 0, switcher: 2 } } },
+  // U3513: triage has its own priority; its remaining bindings stay in Help.
+  { keys: "T", what: copy.triageEnter, presses: ["KeyT"], inShelf: true, hint: { label: copy.hintTriage, at: { todos: 2 } } },
+  { keys: "J K", what: copy.triageMove, presses: ["KeyJ", "KeyK"], inShelf: true, inTriage: true, hint: { label: copy.triageMove.toLowerCase(), at: { triage: 0 } } },
+  { keys: "A", what: copy.triageAssign, presses: ["KeyA"], inShelf: true, inTriage: true, hint: { label: copy.assign.toLowerCase(), at: { triage: 1 } } },
   { keys: "W", what: copy.triageWorkstream, presses: ["KeyW"], inShelf: true, inTriage: true },
   { keys: "Tab", what: copy.triageNest, presses: ["Tab"], inShelf: true, inTriage: true },
   { keys: "⇧Tab", what: copy.triageUnnest, presses: ["shift+Tab"], inShelf: true, inTriage: true },
-  { keys: "X", what: copy.triageDone, presses: ["KeyX"], inShelf: true, inTriage: true },
+  { keys: "X", what: copy.triageDone, presses: ["KeyX"], inShelf: true, inTriage: true, hint: { label: copy.triageDone.toLowerCase(), at: { triage: 2 } } },
   { keys: "C", what: copy.triageComment, presses: ["KeyC"], inShelf: true, inTriage: true },
   { keys: "Esc", what: copy.triageLeave, presses: ["Escape"], inShelf: true, inTriage: true },
 ];
@@ -68,13 +68,13 @@ export const HELP_ROWS: readonly { keys: string; what: string }[] = [
 /** The leader key that shows as `keys`. */
 export const leaderChord = (keys: string): readonly string[] => [LEADER.find((key) => key.keys === keys)!.press];
 
-/** The hints of `place`, in the order the table gives them (U2230a). A `watching` hint shows only while the selected Agent is in Watch, the one state its key acts in. */
-export const hintsFor = (place: HintPlace, watching = true): readonly { keys: string; label: string }[] => {
-  const hints = CHORDS.flatMap((chord) => chord.hint?.at[place] === undefined || (chord.hint.watching && !watching) ? [] : [{ keys: chord.keys, label: chord.hint.label, at: chord.hint.at[place] }])
+/** U3513: the three priority actions from the shared binding rows; the renderer omits unavailable actions and appends Help. */
+export const hintsFor = (place: HintPlace): readonly { keys: string; label: string }[] => {
+  const hints = CHORDS.flatMap((chord) => chord.hint?.at[place] === undefined ? [] : [{ keys: chord.keys, label: chord.hint.label, at: chord.hint.at[place] }])
     .sort((a, b) => a.at - b.at)
     .map(({ keys, label }) => ({ keys, label }));
 
-  return hints.length < 2 ? [] : hints.slice(0, place === "shelf" ? 8 : 4);
+  return hints.slice(0, 3);
 };
 
 /** The `<mods>+<code>` of a key press, as `Chord.presses` writes it. */

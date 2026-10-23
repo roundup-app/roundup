@@ -27,13 +27,13 @@
   isolation: isolate;
 }
 
-/* The hint line keeps the page ground; only the tab row is the --sunken band. */
+/* U3513e: the hints inherit the pane; only the tab row has a band. */
+.resource-strip[data-flat-bar] { background-color: transparent; }
 .resource-strip[data-flat-bar]::before {
   content: "";
   position: absolute;
-  inset: 0 0 auto;
-  height: var(--hint-row-height);
-  background-color: var(--ground);
+  inset: var(--hint-row-height) 0 0;
+  background-color: var(--sunken);
   z-index: -1;
 }
 

@@ -218,22 +218,6 @@
 /* The strip under the Shelf shares its ground, so no seam shows beside the hidden Terminal bar. */
 .window[data-shelf-maximised="true"][data-shelf="open"]:not(:has(.drawer[data-open="true"])) .centre { background-color: var(--sunken); }
 
-/* U3752: the mode's keys sit after the rows, stuck to the bottom of the scroll area, so no row moves. */
-.triage-hints {
-  position: sticky;
-  bottom: 0;
-  z-index: 1;
-  display: flex;
-  flex-wrap: wrap;
-  column-gap: var(--space-4);
-  margin: 0;
-  padding-block: var(--space-1);
-  background: var(--sunken);
-  color: var(--grey);
-  font-size: var(--text-caption);
-  user-select: none;
-}
-
 .todo-create,
 .todos-tab,
 .pads-tab {

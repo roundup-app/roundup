@@ -170,7 +170,8 @@ const dispatch = (event: KeyboardEvent): void => {
   for (const registration of eligible) {
     const { scope } = registration;
 
-    if (scope.kind === "layer" && scope !== layer?.scope) continue;
+    // Registrations on one layer share its ownership (Help adds a binding to a surviving Drawer or Switcher).
+    if (scope.kind === "layer" && scope !== layer?.scope && (!rootOf(scope) || rootOf(scope) !== (layer && rootOf(layer.scope)))) continue;
 
     if (scope.kind === "region" && scope !== region?.scope) continue;
 
