@@ -261,8 +261,9 @@ One entry of the header strip for an open Project: its name (the folder's until 
 **Tab mark**:
 The small dot just after a Project tab's name: red if an Agent has Kind `error`, else amber if one has `needs-you`, else none (`scenarios/ui-project-tab-box.md`).
 
-**Rail** (`Rail::name`, `Agents::rail_name`):
-The tree of Workstreams and Agents. Rail names identify its nodes in prose.
+**Rail** (`Rail::name`, `Agents::rail_name`, `rail.tree`, `rail.list`):
+The tree of Workstreams and Agents. Both reads return the same tree, including each
+Workstream’s Auto choice. Rail names identify its nodes in prose.
 
 **Hint line**:
 The first line of the bottom bar, naming the two to four chords that act where keyboard focus is; each is a `CHORDS` row of `keys/chords.ts` (`scenarios/ui-shortcut-hints.md`).
