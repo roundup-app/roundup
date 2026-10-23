@@ -2,6 +2,8 @@
 //! It owns the connection loop, the module router, the event bus and the Provenance log.
 
 mod attachment;
+#[cfg(test)]
+mod auto_tests;
 mod builtin;
 mod clear;
 mod connection;
