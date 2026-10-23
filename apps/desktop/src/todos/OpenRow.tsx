@@ -119,6 +119,7 @@ export const OpenRow = (props: {
 
   const head = (
     <div class="row-head">
+        {props.disclosure}
         <RowButton
           hang={false}
           label={copy.todoRow(KIND_LABEL[kindOf(props.todo)], props.todo.id, props.todo.title)}
@@ -141,7 +142,6 @@ export const OpenRow = (props: {
           <span {...titleCut.attrs()} class="shelf-title">{props.todo.title}<span class="todo-strike" aria-hidden="true" data-title={props.todo.title} onAnimationEnd={() => props.onMotionEnd?.()} /></span>
           <Show when={props.current}><span class="todo-now" data-state="">{copy.todoNow}</span></Show>
         </RowButton>
-        {props.disclosure}
         <Show when={!props.nested && props.sorted}>
           <div class="todo-row-actions" role="group" aria-label={copy.rowActionsFor(props.todo.id)}>
             <Show when={props.sorted}>
@@ -203,11 +203,11 @@ export const OpenRow = (props: {
       }}
     >
       <Show when={props.nested}>{head}</Show>
-      {props.groupProgress}
       <Show when={bodyLine() !== ""}>
         {/* oxlint-disable-next-line anti-slop/no-tooltip-bypass -- U3731 requires the whole first line as the one-line body's title attribute. */}
         <p class="item-description" data-todo-description title={bodyLine()}>{bodyLine()}</p>
       </Show>
+      {props.groupProgress}
       <div class="todo-row-notice"><ReservedLine overlay message={failure()} /></div>
       <Show when={props.nested}>
         <p class="shelf-meta" data-todo-meta>
