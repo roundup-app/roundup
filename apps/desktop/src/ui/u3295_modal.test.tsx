@@ -114,3 +114,19 @@ it("u3295b_background_tooltips_stay_closed", async () => {
   await new Promise(resolve => setTimeout(resolve, 50));
   expect(screen.queryByRole("tooltip")).toBeNull();
 });
+
+it("u3295b_dialog_owned_controls_still_work: nested portalled Dialog", async () => {
+  const control = mount("menu");
+
+  render(() => <Dialog.Root open><Portal><Dialog.Positioner><Dialog.Content>
+    <Dialog.Title>Outer</Dialog.Title>
+    <Dialog.Root open><Portal><Dialog.Positioner><Dialog.Content>
+      <Dialog.Title>Active</Dialog.Title>{control.ui()}
+    </Dialog.Content></Dialog.Positioner></Portal></Dialog.Root>
+  </Dialog.Content></Dialog.Positioner></Portal></Dialog.Root>);
+  await screen.findByRole("dialog", { name: "Active" });
+  await control.show();
+  fireEvent.click(screen.getByText("Alpha"));
+  await waitFor(() => expect(control.picked).toHaveBeenCalledTimes(1));
+  expect(screen.getByRole("dialog", { name: "Active" })).toBeTruthy();
+});
