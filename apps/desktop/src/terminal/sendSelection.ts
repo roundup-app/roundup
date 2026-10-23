@@ -1,3 +1,4 @@
+import { writeText } from "../app/clipboard";
 import * as v from "valibot";
 import { INTERNAL_CODE, RpcError } from "../app/seam";
 import { batch, createEffect, createRenderEffect, createMemo, createSignal, onCleanup, untrack } from "solid-js";
@@ -299,7 +300,7 @@ export const createSendSelection = (connected: ConnectedProject, screens: Screen
     retry: () => drafts.retry(),
     copy: async (field: "note" | "excerpt") => {
       try {
-        await navigator.clipboard.writeText(field === "note" ? note() : held()?.text ?? text());
+        await writeText(app, field === "note" ? note() : held()?.text ?? text());
         setError(null);
       }
       catch (thrown) { setError(copy.copyDraftFailure(thrown instanceof Error ? thrown.message : String(thrown))); }

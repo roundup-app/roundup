@@ -33,6 +33,7 @@ pub fn build<R: Runtime>(
     let builder = builder.plugin(webkit_rate::plugin());
     builder
         .plugin(tauri_plugin_dialog::init())
+        .plugin(tauri_plugin_clipboard_manager::init())
         .plugin(window::plugin())
         .manage(AppState::new(config))
         .manage(menu::Choice::default())

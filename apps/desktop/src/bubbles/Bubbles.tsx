@@ -1,3 +1,4 @@
+import { writeText } from "../app/clipboard";
 import { ReservedLine } from "../ink/ReservedLine";
 import { CHORDS, LEADER } from "../keys/chords";
 import { registerKeys } from "../keys/registry";
@@ -19,14 +20,12 @@ import { isWorkstream, resolvedWorkstream, siblingsOf } from "../rail/layout";
 import { useConnectedProject } from "../state/connectedProject";
 import type { Screens } from "../terminal/screens";
 import {
-  clamped, defaultPlace, placesStorage, resizedAbout, REVEAL_BUBBLE, shownFor, shownName, STEP, toggledFill, zoneBox, ZONES,
+  clamped, defaultPlace, FALLBACK_EXTENT, placesStorage, resizedAbout, REVEAL_BUBBLE, shownFor, shownName, STEP, toggledFill, zoneBox, ZONES,
 } from "./places";
 import type { Place, Extent, Zone } from "./places";
 import "./styles.css";
 
 /** U421 engineering call 1: past the 3 to 4 px a hand wobbles while it clicks. */
-
-const FALLBACK_EXTENT: Extent = { width: 800, height: 600 };
 
 const focusPane = (): void => {
   const target = document.querySelector<HTMLElement>(".pane-screen textarea, .pane-screen [tabindex]");
@@ -81,7 +80,7 @@ export const Bubbles = (props: {
 
     if (!parsed?.success) return;
 
-    try { await navigator.clipboard.writeText(parsed.output.name); failCopy(null); }
+    try { await writeText(connected.app, parsed.output.name); failCopy(null); }
     catch (error) { failCopy(copy.copyDraftFailure(error instanceof Error ? error.message : String(error))); }
   };
 
@@ -865,7 +864,7 @@ export const Bubbles = (props: {
                 </span>
                 <span class="bubble-name">{nameFor(terminal()!)}</span>
               </header>
-              <div class="bubble-body" ref={mount} />
+              <div class="bubble-body" ref={mount} /><ReservedLine overlay class={props.screens.failure(id) ? "bubble-failure" : undefined} message={props.screens.failure(id)} />
             </section>
             <For each={ZONES}>{(zone) => (
               <span class="bubble-zone" data-zone={zone.name} data-zone-of={id} aria-hidden="true" hidden={place().min}

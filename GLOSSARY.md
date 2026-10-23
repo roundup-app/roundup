@@ -347,6 +347,9 @@ An image pasted or dropped into a Message's draft, shown inline as its name and 
 The copy of a pasted image the Daemon keeps under its data folder (`attachment.save`) so a path can name it in a Message; a native-dropped Attachment needs none.
 _Avoid_: upload, temp image
 
+**Clipboard write** (`writeClipboardText`):
+The App seam operation that writes exact text to the native pasteboard. The shared clipboard module owns App writes; native editor copy stays with the editor.
+
 **Pasted image**:
 An image `⌘V` read from the clipboard into a Terminal: the App seam command `save_pasted_image` saves its bytes as a file in the OS cache folder, and the Terminal pastes that file's path as a File drop does (U418). Not an **Attachment**, which is a Message's draft.
 

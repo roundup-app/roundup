@@ -476,7 +476,7 @@ describe("u2773 Project draft integration on real Projects", () => {
     expect(within(row()).getByRole("button", { name: "Open" })).toBeTruthy();
     expect(within(row()).queryByRole("button", { name: "Copy" })).toBeNull();
     const clipboard = vi.fn(async (_text: string) => {});
-    Object.defineProperty(navigator, "clipboard", { configurable: true, value: { writeText: clipboard } });
+    vi.spyOn(app, "writeClipboardText").mockImplementation(clipboard);
     await firstApp.rpc("pad.delete", { name: pad.name });
     const replacementPad = await firstApp.rpc("pad.create", { name: pad.name, text: "replacement" });
     expect(replacementPad.incarnation).not.toBe(pad.incarnation);
@@ -717,7 +717,7 @@ describe("u2773 Project draft integration on real Projects", () => {
     await waitFor(() => expect(within(rowOf(b.revision)).getByRole("img", { name: "original removed" })).toBeTruthy());
     expect(holder.list()).toEqual([expect.objectContaining({ ...a, status: "failed" }), b]);
     const clipboard = vi.fn(async (_text: string) => {});
-    Object.defineProperty(navigator, "clipboard", { configurable: true, value: { writeText: clipboard } });
+    vi.spyOn(app, "writeClipboardText").mockImplementation(clipboard);
     fireEvent.click(await copyOf(() => rowOf(b.revision)));
     expect(clipboard).toHaveBeenCalledWith(exact);
     writes.mockRestore();
@@ -861,7 +861,7 @@ describe("u2773 Project draft integration on real Projects", () => {
     const rowOf = (revision: string) => recovery.querySelector<HTMLElement>(`[data-revision="${revision}"]`)!;
     await waitFor(() => expect(rowOf(b.revision)).toBeTruthy());
     const clipboard = vi.fn(async (_text: string) => {});
-    Object.defineProperty(navigator, "clipboard", { configurable: true, value: { writeText: clipboard } });
+    vi.spyOn(app, "writeClipboardText").mockImplementation(clipboard);
     fireEvent.click(await copyOf(() => rowOf(b.revision)));
     await waitFor(() => expect(clipboard).toHaveBeenCalledWith(exact));
     fireEvent.click(within(rowOf(a.revision)).getByRole("button", { name: "Discard" }));
@@ -1187,7 +1187,7 @@ describe("u2773 Project draft integration on real Projects", () => {
     const reopened = await openRecovery();
     const copyRow = within(reopened.querySelector<HTMLElement>(`[data-revision="${a.revision}"]`)!);
     const clipboard = vi.fn(async (_text: string) => {});
-    Object.defineProperty(navigator, "clipboard", { configurable: true, value: { writeText: clipboard } });
+    vi.spyOn(app, "writeClipboardText").mockImplementation(clipboard);
     fireEvent.click(copyRow.getByRole("button", { name: "Copy" }));
     expect(clipboard).toHaveBeenCalledWith("older exact\n");
     fireEvent.click(copyRow.getByRole("button", { name: "Discard" }));
@@ -1497,7 +1497,7 @@ describe("u2773 unfinished Decision forms on real Projects", () => {
     expect(drafts(first.dir).list()).toEqual([saved]);
     expect(within(recovery).queryByRole("button", { name: "Send" })).toBeNull();
     const clipboard = vi.fn(async (_text: string) => {});
-    Object.defineProperty(navigator, "clipboard", { configurable: true, value: { writeText: clipboard } });
+    vi.spyOn(app, "writeClipboardText").mockImplementation(clipboard);
     fireEvent.click(await copyOf(() => recovery));
     expect(clipboard).toHaveBeenCalledWith(exact);
     const target = (await current.rpc("rail.tree", null)).find(node => node.id === agents[0]!.id);

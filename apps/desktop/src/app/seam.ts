@@ -75,6 +75,7 @@ export const SEAM_COMMANDS = [
   "open_target",
   "open_in_editor",
   "save_pasted_image",
+  "plugin:clipboard-manager|write_text",
   "show_context_menu",
   "plugin:window-bar|set_window_title",
   "plugin:window-bar|drag_window",
@@ -83,6 +84,8 @@ export const SEAM_COMMANDS = [
 
 /** The Tauri commands of `scenarios/app.md` and `scenarios/project-tabs.md`, plus the macOS choosers and the Dock badge; the only door from the webview to Tauri. */
 export type App = {
+  /** U3560a: write exactly this text to the native clipboard; rejects with the platform cause. */
+  writeClipboardText(text: string): Promise<void>;
   /** The open Projects in tab order. */
   projects(): Promise<ListedProject[]>;
   openProject(path: string): Promise<Project>;

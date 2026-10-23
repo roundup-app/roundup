@@ -26,6 +26,8 @@ export const MIN_HEIGHT = 6 * 17 + 2 * PADDING + HEADER;
 
 export type Extent = { width: number; height: number };
 
+export const FALLBACK_EXTENT: Extent = { width: 800, height: 600 };
+
 const between = (low: number, high: number, value: number): number => Math.max(low, Math.min(high, value));
 
 /** `place` kept inside `extent`, never smaller than the minimum nor larger than the extent. */

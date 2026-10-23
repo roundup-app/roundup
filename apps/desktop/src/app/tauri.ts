@@ -1,3 +1,4 @@
+import { writeText } from "@tauri-apps/plugin-clipboard-manager";
 import { Channel, convertFileSrc, invoke } from "@tauri-apps/api/core";
 import type { InvokeArgs, InvokeOptions } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
@@ -82,6 +83,7 @@ export const createTauriApp = (): App => {
   const selections = new Map<string, object>();
 
   const app: App = {
+    writeClipboardText: (text) => guarded(() => writeText(text)),
     projects: () => parsedCommand(v.array(listedProjectSchema), "projects", {}),
     openProject: (path) => parsedCommand(projectSchema, "open_project", { path }),
     closeProject: async (path) => {

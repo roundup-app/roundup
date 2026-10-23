@@ -40,7 +40,7 @@ export const Strip = (props: {
   onClose: (path: string) => void;
   onChoose: () => void;
   /** U2694a: the seam that shows a tab's system menu. */
-  app?: Pick<AppCalls, "showContextMenu"> | undefined;
+  app?: Pick<AppCalls, "showContextMenu" | "writeClipboardText"> | undefined;
 }) => {
   const [asking, setAsking] = createSignal<string | null>(null);
   // An edge that says the same thing is not a change: a slot resizes the list only when its cap really appears, changes or goes, so measuring cannot chase its own layout.

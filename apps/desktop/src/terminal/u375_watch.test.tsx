@@ -68,7 +68,8 @@ describe("u375 the user watches an Agent's screen without taking it over", () =>
 
     const written: string[] = [];
 
-    Object.assign(navigator, { clipboard: { writeText: async (text: string) => { written.push(text); } } });
+    app.writeClipboardText = async (text: string) => { written.push(text); };
+
     const target = document.querySelector<HTMLElement>(".pane-screen > *")!;
 
     target.focus();

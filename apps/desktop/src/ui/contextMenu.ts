@@ -1,3 +1,4 @@
+import { writeText } from "../app/clipboard";
 import type { RpcMethods } from "@contracts/methods";
 import type { RailNode } from "@contracts/agent/RailNode";
 import { railOrder } from "../rail/layout";
@@ -112,7 +113,7 @@ export const linkEntries = (
   return [
     children.length ? { id: "send", label: copy.sendToAgentMenu, children } : { id: "send", label: copy.sendToAgentMenu, enabled: false },
     { id: "copy-link", label: copy.copyLink, run: () => attempt(async link => {
-      await navigator.clipboard.writeText(target.kind === "deliverable" ? copy.linkNote(link) : link);
+      await writeText(app, target.kind === "deliverable" ? copy.linkNote(link) : link);
     }) },
   ];
 };

@@ -1,3 +1,4 @@
+import { writeText } from "../app/clipboard";
 import { ReservedLine } from "../ink/ReservedLine";
 import * as v from "valibot";
 import { RpcError, INTERNAL_CODE } from "../app/seam";
@@ -30,6 +31,7 @@ type OrderInput = {
 
 /** O17: the session id is muted text that copies itself on click and says so for a moment. */
 const SessionId = (props: { id: string }) => {
+  const { app } = useConnectedProject();
   const [note, setNote] = createSignal<string | null>(null);
   const idText = createUniqueId();
   let timer: ReturnType<typeof setTimeout> | undefined;
@@ -37,10 +39,12 @@ const SessionId = (props: { id: string }) => {
 
   const copyId = async () => {
     try {
-      await navigator.clipboard.writeText(props.id);
+      await writeText(app, props.id);
       setNote(copy.copied);
-    } catch {
-      setNote(copy.copyFailed);
+    } catch (error) {
+      if (!(error instanceof Error)) throw error;
+
+      setNote(copy.copyDraftFailure(error.message));
     }
 
     clearTimeout(timer);
@@ -289,7 +293,7 @@ const OrderContent = (props: OrderInput) => {
       <ReservedLine message={failure() ?? (!formValue().success ? copy.orderRestoreFailed : conflict() ? copy.orderChanged : drafts.problem() ? copy.draftRetention(project.name, copy.draftSurface(destination().surface), drafts.problem()!.cause) : null) ?? (!props.inline && order()?.kind === "work" ? spawn()?.error : null)} status={selectedDraft() && selectedDraft()!.status !== "draft" ? copy.draftStatus[selectedDraft()!.status] : null}>
         <Show when={drafts.problem()}><button data-button="quiet" type="button" onClick={() => drafts.retry()}>{copy.storageRetry}</button></Show>
         <Show when={recovery()}>
-          <For each={["title", "ask", "done"]}>{(name) => <button data-button="quiet" type="button" onClick={() => void navigator.clipboard.writeText(String(selectedDraft()?.value[name] ?? "")).catch((error) => setFailure(copy.copyDraftFailure(error instanceof Error ? error.message : String(error))))}>{copy.copyField(name)}</button>}</For>
+          <For each={["title", "ask", "done"]}>{(name) => <button data-button="quiet" type="button" onClick={() => void writeText(app, String(selectedDraft()?.value[name] ?? "")).catch((error) => setFailure(copy.copyDraftFailure(error instanceof Error ? error.message : String(error))))}>{copy.copyField(name)}</button>}</For>
           <button data-button="quiet" type="button" onClick={() => {
             const draft = selectedDraft();
 

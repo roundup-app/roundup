@@ -84,6 +84,8 @@ export type FakeApp = AppSeam & {
   menuLabels(): string[];
   /** Every image `save_pasted_image` was called with, in order; `saveImageFailure` is what it rejects with and `savedImagePath` what it resolves. */
   savedImages: PastedImage[];
+  clipboardWrites: string[];
+  clipboardFailure: Error | null;
   saveImageFailure: RpcError | null;
   savedImagePath: string;
   /** What the macOS chooser answers; `null` is a cancel. */
@@ -129,6 +131,12 @@ export const createFakeApp = (): FakeApp => {
     editorOpened: [],
     editorCalls: [],
     editorFailure: null,
+    clipboardWrites: [],
+    clipboardFailure: null,
+    writeClipboardText: async (text) => {
+      if (app.clipboardFailure) throw app.clipboardFailure;
+      app.clipboardWrites.push(text);
+    },
     savedImages: [],
     shownMenus: [],
     menuChoice: undefined,
@@ -261,6 +269,8 @@ export const createFakeApp = (): FakeApp => {
         openTarget: app.openTarget,
         openInEditor: app.openInEditor,
         savePastedImage: app.savePastedImage,
+        writeClipboardText: (text: string) => app.writeClipboardText(text),
+        clipboardWrites: app.clipboardWrites,
         showContextMenu: app.showContextMenu,
       });
       Object.defineProperty(other, "windowTitleHandler", {

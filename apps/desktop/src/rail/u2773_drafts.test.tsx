@@ -396,7 +396,7 @@ it.each([null, "a"])("u3299c_retention_preserves_original_work_rail_%s", async p
     await waitFor(() => expect(tab("Other").getAttribute("aria-selected")).toBe("true"));
     fireEvent.click(tab("Orchard"));
     const copied: string[] = [];
-    Object.defineProperty(navigator, "clipboard", { configurable: true, value: { writeText: async (text: string) => { copied.push(text); } } });
+    vi.spyOn(app, "writeClipboardText").mockImplementation(async (text: string) => { copied.push(text); });
     fireEvent.click(await screen.findByRole("button", { name: "Copy draft", hidden: true }));
     await waitFor(() => expect(copied).toEqual(["exact draft e\u0301\n🧭"]));
     expect(original.calls.filter(call => call.method === "agent.spawn" || call.method === "message.send")).toEqual([]);

@@ -1,3 +1,4 @@
+import { writeText } from "../app/clipboard";
 import { ReservedLine } from "../ink/ReservedLine";
 import { copy } from "../copy";
 import { createEffect, createSignal, For, on, onCleanup, Show } from "solid-js";
@@ -153,7 +154,7 @@ export const TodoHistory = (props: { id: number; onCapture?: (change: Change | u
         <span class="todo-history-count" data-state={loaded()?.unread ? "unread" : "read"}>{count() > 0 ? copy.changesCount(count()) : copy.changes}</span>
       </button>
       <Show when={opened() && loaded()}>{record => <button type="button" data-button="quiet" onClick={() => {
-        void navigator.clipboard.writeText(JSON.stringify({
+        void writeText(app, JSON.stringify({
           lines: record().history.changes.flatMap(change => lines(change, id => rail.nodes.find(node => node.id === id)?.name ?? copy.missingAgent)),
           history: record().history, failure: failure(),
         }, null, 2)).then(() => failCopy(null), error => failCopy(copy.copyDraftFailure(error instanceof Error ? error.message : String(error))));

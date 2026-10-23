@@ -1,8 +1,9 @@
+import { clipboardFailure, readPaste, writeText } from "../app/clipboard";
 import { copy as appCopy } from "../copy";
 import { createEffect, createSignal } from "solid-js";
 import type { Accessor } from "solid-js";
-import { PASTED_IMAGE_TYPES, RpcError } from "../app/seam";
-import type { OutputMessage, OutputSubscription, PastedImage } from "../app/seam";
+import { RpcError } from "../app/seam";
+import type { OutputMessage, OutputSubscription } from "../app/seam";
 import type { ConnectedProject } from "../state/connectedProject";
 import { fromBase64, toBase64 } from "./base64";
 import { absolutePath } from "./links";
@@ -27,8 +28,8 @@ export type Screens = {
   isAtBottom(id: string): boolean;
   /** Returns the Terminal's view to its newest line, as clicking `↓ latest` or typing (U12) does. */
   returnToBottom(id: string): void;
-  copy(id: string, clipboard: Pick<Clipboard, "writeText">): Promise<void>;
-  paste(id: string, clipboard: Pick<Clipboard, "readText"> & Partial<Pick<Clipboard, "read">>): Promise<void>;
+  copy(id: string): Promise<void>;
+  paste(id: string, event: Pick<ClipboardEvent, "clipboardData">): Promise<void>;
   /** Whether the Terminal has exited. */
   exited(id: string): boolean;
   /** Whether a plain Terminal has output its user has not viewed since: it arrived while `viewing(id, false)` held, and `viewing(id, true)` clears it. */
@@ -74,6 +75,7 @@ const takeFirst = (stream: Stream): void => {
 
 type Holder = {
   emulator: Emulator;
+  stopClipboard: (() => void) | null;
   atBottom: Accessor<boolean>;
   returnToBottom: () => void;
   stream: Stream | null;
@@ -96,36 +98,6 @@ const newestFailure = (state: TerminalFailures | undefined): FailureEntry | null
 };
 
 const NOT_FOUND = -32001;
-
-const IMAGE_ON_CLIPBOARD = appCopy.pasteFailedTheClipboardHoldsAnImageWhich;
-
-/** U349: a refusal is named in roundup's terms with the next step; any other failure keeps its message after the verb. */
-const clipboardFailure = (verb: "copy" | "paste", thrown: Error): string => {
-  if (thrown.name !== "NotAllowedError") return appCopy.failed(verb === "paste" ? appCopy.paste : appCopy.copy, thrown.message);
-
-  return verb === "paste"
-    ? appCopy.pasteFailedTheSystemClipboardRefusedItPress
-    : appCopy.copyFailedTheSystemClipboardRefusedItPress;
-};
-
-type ClipboardImage = { item: ClipboardItem; type: PastedImage["type"] } | "unsupported" | null;
-
-/** The first item the seam can save (U418), "unsupported" for images it cannot, null for none. A refused or missing `read()` is not a failure: an empty text paste stays silent (U101). */
-const imageOnClipboard = async (clipboard: Partial<Pick<Clipboard, "read">>): Promise<ClipboardImage> => {
-  try {
-    const items = (await clipboard.read?.()) ?? [];
-
-    for (const item of items) {
-      const type = PASTED_IMAGE_TYPES.find((accepted) => item.types.includes(accepted));
-
-      if (type) return { item, type };
-    }
-
-    return items.some((item) => item.types.some((type) => type.startsWith("image/"))) ? "unsupported" : null;
-  } catch {
-    return null;
-  }
-};
 
 /** `watching(id)`: U375, the user reads this Terminal without typing, so nothing typed or pasted reaches it. */
 export const createScreens = (connected: ConnectedProject, createEmulator: EmulatorFactory, watching: (id: string) => boolean = () => false, refused: () => void = () => {}): Screens => {
@@ -529,7 +501,7 @@ export const createScreens = (connected: ConnectedProject, createEmulator: Emula
     });
 
     const holder: Holder = {
-      emulator, atBottom, returnToBottom, stream: null, complete: false, shownSize: null,
+      emulator, stopClipboard: null, atBottom, returnToBottom, stream: null, complete: false, shownSize: null,
     };
 
     holders.set(id, holder);
@@ -539,13 +511,13 @@ export const createScreens = (connected: ConnectedProject, createEmulator: Emula
 
   const emulatorFor = (id: string): Emulator => holderFor(id).emulator;
 
-  const copy = async (id: string, clipboard: Pick<Clipboard, "writeText">): Promise<void> => {
+  const copy = async (id: string): Promise<void> => {
     const selection = emulatorFor(id).selection();
 
     if (!selection) return;
 
     try {
-      await clipboard.writeText(selection);
+      await writeText(app, selection);
       setFailure(id, "clipboard", null);
     } catch (thrown) {
       if (!(thrown instanceof Error)) throw thrown;
@@ -554,26 +526,23 @@ export const createScreens = (connected: ConnectedProject, createEmulator: Emula
     }
   };
 
-  const paste = async (id: string, clipboard: Pick<Clipboard, "readText"> & Partial<Pick<Clipboard, "read">>): Promise<void> => {
+  const paste = async (id: string, event: Pick<ClipboardEvent, "clipboardData">): Promise<void> => {
     if (exited(id) || daemonExit() !== null) return;
 
+    if (watching(id)) {
+      refused();
+
+      return;
+    }
+
     try {
-      const text = await clipboard.readText();
-
-      const image = text ? null : await imageOnClipboard(clipboard);
-
-      if (image === "unsupported") {
-        setFailure(id, "clipboard", IMAGE_ON_CLIPBOARD);
-
-        return;
-      }
+      const { text, image } = await readPaste(event);
 
       if (image) {
-        const bytes = new Uint8Array(await (await image.item.getType(image.type)).arrayBuffer());
-        const path = await app.savePastedImage({ type: image.type, bytes });
+        const path = await app.savePastedImage(image);
 
-        pastePaths(id, [path]);
-      } else if (text && !exited(id) && daemonExit() === null) emulatorFor(id).paste(text);
+        if (!watching(id)) pastePaths(id, [path]);
+      } else if (text && !exited(id) && daemonExit() === null && !watching(id)) emulatorFor(id).paste(text);
 
       setFailure(id, "clipboard", null);
     } catch (thrown) {
@@ -591,6 +560,32 @@ export const createScreens = (connected: ConnectedProject, createEmulator: Emula
 
   const show = (id: string, host: HTMLElement, focus?: boolean): Size => {
     const holder = holderFor(id);
+    holder.stopClipboard?.();
+
+    const editor = (target: EventTarget | null) => target instanceof Element
+      && !!target.closest('input, textarea, [contenteditable="true"]') && !target.closest(".xterm-helper-textarea");
+
+    const onPaste = (event: ClipboardEvent) => {
+      if (editor(event.target)) return;
+      event.preventDefault();
+      event.stopImmediatePropagation();
+      void paste(id, event);
+    };
+
+    const onKey = (event: KeyboardEvent) => {
+      if (editor(event.target) || !event.metaKey || event.ctrlKey || event.altKey || event.shiftKey || event.key.toLowerCase() !== "c") return;
+      event.preventDefault();
+      event.stopImmediatePropagation();
+      void copy(id);
+    };
+
+    host.addEventListener("paste", onPaste, true);
+    host.addEventListener("keydown", onKey, true);
+    holder.stopClipboard = () => {
+      host.removeEventListener("paste", onPaste, true);
+      host.removeEventListener("keydown", onKey, true);
+    };
+
     const size = holder.emulator.show(host, focus);
 
     holder.shownSize = size;
@@ -610,6 +605,8 @@ export const createScreens = (connected: ConnectedProject, createEmulator: Emula
 
   const hide = (id: string): void => {
     const holder = holders.get(id);
+
+    holder?.stopClipboard?.();
 
     if (holder) void release(id, holder).then(reconcile);
   };
@@ -659,6 +656,7 @@ export const createScreens = (connected: ConnectedProject, createEmulator: Emula
 
       for (const [id, holder] of holders) {
         void release(id, holder);
+        holder.stopClipboard?.();
         holder.emulator.dispose();
       }
 

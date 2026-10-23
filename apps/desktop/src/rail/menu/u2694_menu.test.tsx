@@ -164,7 +164,7 @@ describe("u2694 the Rail's system menu", () => {
   it("u2694c_copy_link_writes_the_link", async () => {
     const { app } = await mountRail([agent("a", "working", "busy")]);
     const write = vi.fn(async () => {});
-    Object.defineProperty(navigator, "clipboard", { value: { writeText: write }, configurable: true });
+    vi.spyOn(app, "writeClipboardText").mockImplementation(write);
     app.handlers["daemon.ping"] = () => ({ pong: true, pid: 1, project: "/p", projectKey: "p-1", contract: { fingerprint: "", methods: [] } });
 
     open("a");
