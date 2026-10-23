@@ -1,6 +1,7 @@
 import { cleanup, fireEvent, screen, waitFor, within } from "@solidjs/testing-library";
 import { afterEach, expect, it } from "vitest";
 import { RpcError } from "../app/seam";
+import { CHORDS } from "../keys/chords";
 import { agent, workstream } from "../testing/nodes";
 import { mountTodos, todo, todoCallsTo as callsTo, todoEvent } from "./testHarness";
 
@@ -85,9 +86,14 @@ it("u3751_t_is_ignored_in_fields_and_with_modifiers", async () => {
   expect(shelf().getAttribute("data-triage")).toBe("off");
 });
 
-it("u3752_the_hint_line_leaves_with_the_mode", async () => {
+it("u3752_the_hint_line_is_the_registry_rows_and_leaves_with_the_mode", async () => {
   await enter();
-  expect(document.querySelector(".triage-hints")).not.toBeNull();
+  const line = document.querySelector<HTMLElement>(".triage-hints")!;
+  const rows = CHORDS.filter(chord => chord.inTriage);
+
+  const squash = (text: string) => text.replace(/\s+/g, "");
+
+  expect([...line.querySelectorAll(".hint")].map(hint => squash(hint.textContent!))).toEqual(rows.map(chord => squash(`${chord.keys}${chord.what}`)));
   press(row(2), "Escape");
   await waitFor(() => expect(document.querySelector(".triage-hints")).toBeNull());
 });
@@ -111,6 +117,24 @@ it("u3753_j_and_k_move_focus_across_groups_and_call_nothing", async () => {
   expect(app.calls.filter(call => call.method !== "todo.list" && call.method !== "todo.listHanded" && call.method.startsWith("todo."))).toEqual([]);
 });
 
+it("u3753_a_and_w_call_assign_and_move_once_each", async () => {
+  const { app } = await enter();
+
+  press(row(2), "a");
+  const owners = await screen.findByRole("menu", { name: "Owners for #2" });
+  fireEvent.click(within(owners).getByRole("menuitem", { name: "alpha" }));
+  await waitFor(() => expect(callsTo(app, "todo.assign").map(call => call.params)).toEqual([{ id: 2, owner: by("a") }]));
+  await waitFor(() => expect(document.activeElement).toBe(row(3)));
+
+  await waitFor(() => expect(screen.queryByRole("menu")).toBeNull());
+  press(row(3), "w");
+  const homes = await screen.findByRole("menu", { name: "Homes for #3" });
+  expect(within(homes).getAllByRole("menuitem").map(item => item.textContent)).toEqual(["work", "scope"]);
+  fireEvent.click(within(homes).getByRole("menuitem", { name: "work" }));
+  await waitFor(() => expect(callsTo(app, "todo.move").map(call => call.params)).toEqual([{ id: 3, home: "w" }]));
+  expect(callsTo(app, "todo.assign")).toHaveLength(1);
+});
+
 it("u3753_x_completes_once_and_focus_moves_on", async () => {
   const { app, store } = await enter();
 
@@ -120,6 +144,20 @@ it("u3753_x_completes_once_and_focus_moves_on", async () => {
   app.emit(todoEvent("todo.updated", store.todos.find(item => item.id === 2)!));
   await waitFor(() => expect(document.activeElement?.closest("[data-todo]")?.getAttribute("data-todo")).toBe("3"));
   expect(callsTo(app, "todo.complete")).toHaveLength(1);
+});
+
+it("u3753_c_opens_the_comment_field_and_esc_returns_to_the_row", async () => {
+  const { app } = await enter();
+
+  press(row(2), "c");
+  const field = await screen.findByRole<HTMLTextAreaElement>("textbox", { name: "Write a comment" });
+  await waitFor(() => expect(document.activeElement).toBe(field));
+  fireEvent.input(field, { target: { value: "hello" } });
+  fireEvent.keyDown(field, { key: "Escape", code: "Escape" });
+  await waitFor(() => expect(document.activeElement).toBe(row(2)));
+  expect(document.querySelector(".drawer")?.getAttribute("data-open")).not.toBe("true");
+  expect(shelf().getAttribute("data-triage")).toBe("on");
+  expect(callsTo(app, "todo.comment")).toEqual([]);
 });
 
 it("u3753_the_keys_do_nothing_outside_the_mode", async () => {
