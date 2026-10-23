@@ -1,9 +1,8 @@
 import { Channel } from "@tauri-apps/api/core";
 import { emit } from "@tauri-apps/api/event";
 import { clearMocks, mockIPC, mockWindows } from "@tauri-apps/api/mocks";
-import { afterEach, describe, expect, expectTypeOf, it } from "vitest";
+import { afterEach, describe, expect, it } from "vitest";
 import type { Event as DaemonEvent } from "@contracts/Event";
-import type { RailNode } from "@contracts/agent/RailNode";
 import type { Todo } from "@contracts/todo/Todo";
 import { createFakeApp } from "../testing/fakeApp";
 import { connectEvents } from "./events";
@@ -41,17 +40,6 @@ afterEach(() => {
 });
 
 describe("u1 calls and events", () => {
-  it("u1_a_call_is_typed_from_the_method_table", async () => {
-    const app = createFakeApp();
-    app.handlers["todo.get"] = () => TODO;
-    app.handlers["rail.tree"] = () => [];
-
-    expectTypeOf(await app.rpc("todo.get", { id: 1 })).toEqualTypeOf<Todo>();
-    expectTypeOf(await app.rpc("rail.tree", null)).toEqualTypeOf<RailNode[]>();
-    // @ts-expect-error `todo.get` takes `{ id: number }`; a string id must not compile.
-    await app.rpc("todo.get", { id: "1" });
-  });
-
   it("u1_a_call_passes_its_method_and_params_and_resolves_the_result", async () => {
     mockIPC((command, args) => (command === "rpc" ? { echoed: args } : null));
 

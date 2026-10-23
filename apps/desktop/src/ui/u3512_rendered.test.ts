@@ -99,13 +99,22 @@ it("u3512d_instant_paths_release_focus_next_frame", async () => {
   await openForm();
   await lane.evaluate(`(async () => {
     window.__u3512Origin = document.activeElement;
+    window.__u3512ReducedFrames = [];
+    const sample = () => {
+      const panel = document.querySelector('.new-workstream');
+      const reduced = matchMedia('(prefers-reduced-motion: reduce)').matches;
+      window.__u3512ReducedFrames.push({t: performance.now(), reduced, opacity: panel ? getComputedStyle(panel).opacity : null, inert: panel?.inert});
+      if (panel || !reduced) requestAnimationFrame(sample);
+    };
+    sample();
     const original = document.querySelector('.new-workstream');
     const cancel = original.querySelector('[data-part=close-trigger]');
     cancel.dispatchEvent(new PointerEvent('pointerdown', {bubbles: true}));
     cancel.click();
     await new Promise(resolve => requestAnimationFrame(resolve));
-    // Quarter speed keeps the actual fade in flight while Chromium changes its media preference.
-    for (const animation of document.querySelector('.new-workstream').getAnimations()) animation.playbackRate = 0.25;
+    // Slow the actual fade so Chromium changes its media preference before it completes.
+    for (const element of document.querySelectorAll('.new-workstream, .app-dialog-backdrop'))
+      for (const animation of element.getAnimations()) animation.playbackRate = 0.01;
     return true;
   })()`);
   await lane.browser("set", "media", "dark", "reduced-motion");
@@ -114,6 +123,14 @@ it("u3512d_instant_paths_release_focus_next_frame", async () => {
     resolve(!document.querySelector('.new-workstream') && document.activeElement !== window.__u3512Origin)))`);
 
   expect(released).toBe(true);
+  const dir = captureDir("U3512d");
+  const frames = await lane.evaluate("window.__u3512ReducedFrames");
+
+  if (dir) {
+    mkdirSync(dir, { recursive: true });
+    writeFileSync(join(dir, "reduced-during-exit-frames.json"), JSON.stringify(frames));
+  }
+
   await lane.browser("set", "media", "dark");
   await lane.until("!matchMedia('(prefers-reduced-motion: reduce)').matches");
 });

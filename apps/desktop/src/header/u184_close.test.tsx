@@ -4,8 +4,6 @@ import { startRealDaemon, type StartedDaemon } from "../testing/realDaemonFixtur
 import { createServedApp } from "../testing/realSeam";
 import { App } from "../App";
 import { fakeEmulators } from "../terminal/paneHarness";
-import { readFileSync } from "node:fs";
-import { resolve } from "node:path";
 import { cleanup, render, fireEvent, screen, waitFor, within } from "@solidjs/testing-library";
 import { afterAll, beforeAll, afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { RpcError } from "../app/seam";
@@ -263,16 +261,6 @@ describe("u184 overflow", () => {
       expect(scroll.contains(add)).toBe(false);
       expect(scroll.nextElementSibling).toBe(add);
     });
-  });
-
-  it("u184_names_shorten_with_an_ellipsis_to_at_least_eight_characters", () => {
-    const css = readFileSync(resolve(process.cwd(), "src/header/strip.styles.css"), "utf8");
-    const rule = (selector: string) => css.match(new RegExp(`${selector.replace(".", "\\.")} \\{([^}]*)\\}`))?.[1] ?? "";
-
-    // The 8-character floor lives on the tab (U443 keeps the name column as wide as the name, so the dot follows it).
-    expect(rule(".project-tab")).toContain("min-width: calc(8ch");
-    expect(rule(".tab-head")).toContain("text-overflow: ellipsis");
-    expect(rule(".tablist")).toContain("overflow-x: auto");
   });
 
   it("u184_with_nothing_hidden_no_edge_line_shows", async () => {

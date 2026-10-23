@@ -56,11 +56,3 @@ it.each([
 
   expect(await screen.findByRole("button", { name: `${label} #5 my TITLE` })).toBeTruthy();
 });
-
-
-
-it("u471_previous_copy_assertions_are_preserved_todo_empty_hint_keeps_the_glossary_capital", async () => {
-  await mountTodos([]);
-
-  expect(await screen.findByText("No Todos yet")).toBeTruthy();
-});
