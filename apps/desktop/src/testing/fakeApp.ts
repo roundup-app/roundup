@@ -2,6 +2,7 @@ import type { Event as DaemonEvent } from "@contracts/Event";
 import type { RpcMethodName, RpcMethods } from "@contracts/methods";
 import { OWN_CONTRACT } from "../app/contractMatch";
 import { RpcError } from "../app/seam";
+import { menuProbe } from "./menuProbe";
 import type { AppSeam, DaemonExit, DaemonExited, FileDrop, MenuItem, OpenTarget, OutputMessage, PastedImage, Project } from "../app/seam";
 
 const CONFLICT = -32003;
@@ -41,6 +42,9 @@ export type FakeApp = AppSeam & {
   calls: { method: RpcMethodName; params: unknown }[];
   handlers: Handlers;
   emit(event: DaemonEvent): void;
+  /** Every `subscribe` call so far with the `after` it asked to replay from, and the `head` the Daemon answers. */
+  subscribed: { after: number | undefined }[];
+  head: number;
   /** Every `selectOutput` call so far, in call order. */
   outputSubscriptions: FakeOutputSubscription[];
   /** The next byte position of each Terminal's output stream; `selectOutput` starts there. Set it to start a stream mid-way. */
@@ -157,6 +161,8 @@ export const createFakeApp = (): FakeApp => {
       failure: null,
     },
     proof: { value: "fake-proof", failure: null },
+    subscribed: [],
+    head: 0,
     emit: (event) => {
       if (!onEvent) throw new Error("the webview has not subscribed yet");
 
@@ -294,8 +300,11 @@ export const createFakeApp = (): FakeApp => {
 
       return handler(params);
     },
-    subscribe: async (listener) => {
+    subscribe: async (listener, after) => {
       onEvent = listener;
+      app.subscribed.push({ after });
+
+      return app.head;
     },
     selectOutput: async (id, listener) => {
       if (app.outputFailure) throw app.outputFailure;
@@ -328,10 +337,12 @@ export const createFakeApp = (): FakeApp => {
     },
     showContextMenu: async (items, x, y) => {
       app.shownMenus.push({ items, x, y });
+      menuProbe.shown = items;
+      menuProbe.count += 1;
 
       if (app.menuChoice !== undefined) return app.menuChoice;
 
-      return new Promise<string | null>((resolve) => { app.menuResolve = resolve; });
+      return new Promise<string | null>((resolve) => { app.menuResolve = resolve; menuProbe.answer = resolve; });
     },
     savePastedImage: async (image) => {
       if (app.saveImageFailure) throw app.saveImageFailure;

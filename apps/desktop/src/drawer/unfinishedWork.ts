@@ -8,7 +8,7 @@ type Row = ReturnType<ReturnType<typeof useConnectedProject>["drafts"]["list"]>[
 /** When each revision first qualified, kept across panel openings. */
 const firstSeen = new Map<string, number>();
 
-type Cause = "failed" | "unknown" | "draft" | "gone";
+type Cause = "failed" | "unknown" | "draft" | "left" | "gone";
 
 /** Fields that hold text the user typed; everything else is a pick (period, ids, revisions, a tick). */
 const typed = new Set(["name", "title", "body", "text", "note", "document", "ask", "answer", "content", "message", "comment"]);
@@ -19,7 +19,8 @@ export const typedText = (draft: Row): string[] => Object.entries(draft.value)
   .map(([, value]) => String(value));
 
 /**
- * The one eligibility for the Overview entry and the panel (U3021a): work at risk only.
+ * The one eligibility for the Overview menu and the panel (U3021a, U3289a): work at risk only.
+ * A draft whose editor is open is still being typed and never qualifies; one left or found at start does.
  * Unknown original availability never qualifies; a gone original does.
  */
 export const useUnfinishedWork = () => {
@@ -52,7 +53,7 @@ export const useUnfinishedWork = () => {
       if (surface.startsWith("rail-") || !copy.hasDraftSurface(surface) || typedText(draft).length === 0) return [];
 
       const unsaved = stored && (problem.destination === null || (problem.destination.surface === surface && problem.destination.object === draft.destination.object));
-      const cause: Cause | null = gone(draft) ? "gone" : draft.status === "failed" ? "failed" : draft.status === "unknown" ? "unknown" : unsaved ? "draft" : null;
+      const cause: Cause | null = gone(draft) ? "gone" : draft.status === "failed" ? "failed" : draft.status === "unknown" ? "unknown" : unsaved ? "draft" : draft.status === "draft" ? "left" : null;
 
       if (cause === null) return [];
 
@@ -62,5 +63,6 @@ export const useUnfinishedWork = () => {
     });
   });
 
-  return { rows, problem: () => drafts.problem() };
+  // A Rail edit's problem is the Rail's own to show.
+  return { rows, problem: () => drafts.problem()?.destination?.surface.startsWith("rail-") ? null : drafts.problem() };
 };

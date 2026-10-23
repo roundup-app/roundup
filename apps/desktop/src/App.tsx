@@ -11,7 +11,6 @@ import { Reopen } from "./app/Reopen";
 import { createDropTargets } from "./app/dropTargets";
 import type { Requested } from "@contracts/project/Requested";
 import type { App as AppCalls, DaemonExit } from "./app/seam";
-import { DraftRecoveryEntry } from "./drawer/DraftRecovery";
 import { DrawerHost } from "./drawer/DrawerHost";
 import { InboxKey } from "./inbox/Inbox";
 import { WindowBar } from "./header/WindowBar";
@@ -384,7 +383,6 @@ export const App = (props: {
                   <>
                     <Keys />
                     <AttentionKey />
-                    <DraftRecoveryEntry />
                     <Rail />
                   </>
                 )}

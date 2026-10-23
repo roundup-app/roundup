@@ -2736,6 +2736,32 @@ fn a2681d_no_measured_split_gives_no_parts() {
     }
 }
 
+#[test]
+fn a3373a_a_later_cost_record_keeps_the_context_split() {
+    let context: Value =
+        serde_json::from_str(include_str!("fixtures/overview/2.1.296-context.jsonl")).unwrap();
+    let cost = json!({"type":"system","subtype":"local_command","commandRun":{"command":"cost"}});
+    let overview = conversation_overview(&[used_reply(20000), context, cost]);
+    assert_eq!(overview["context_parts"].as_array().unwrap().len(), 5);
+}
+
+#[test]
+fn a3373a_the_latest_context_record_still_decides() {
+    let context: Value =
+        serde_json::from_str(include_str!("fixtures/overview/2.1.296-context.jsonl")).unwrap();
+    let mut later = context.clone();
+    later["contextUsage"]["categories"][0]["tokens"] = json!(1);
+    let overview = conversation_overview(&[used_reply(20000), context.clone(), later]);
+    assert_eq!(overview["context_parts"][0]["tokens"], 1);
+    let mut garbled = context.clone();
+    garbled["contextUsage"]["categories"] = json!("x");
+    assert!(
+        conversation_overview(&[used_reply(20000), context, garbled])
+            .get("context_parts")
+            .is_none()
+    );
+}
+
 fn assistant_card(text: &str) -> Value {
     json!({"type":"assistant", "message":{"content":[{"type":"text", "text":text}]}})
 }

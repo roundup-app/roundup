@@ -52,8 +52,11 @@ export type ProjectCalls = {
     method: M,
     params: RpcMethods[M]["params"],
   ): Promise<RpcMethods[M]["result"]>;
-  /** Every Event the Project's Daemon emits from now on arrives at `onEvent`, in the Daemon's order. */
-  subscribe(onEvent: (event: DaemonEvent) => void): Promise<void>;
+  /**
+   * Every Event the Project's Daemon emits from now on arrives at `onEvent`, in the Daemon's order; with `after`, every saved Event numbered above it arrives first (D11).
+   * Resolves the Daemon's `head`, the highest Event number saved when it accepted.
+   */
+  subscribe(onEvent: (event: DaemonEvent) => void, after?: number): Promise<number>;
   /** Delivers the raw output of the Terminal `id`, and of no other, to `listener` in order; a second call for the same Terminal replaces the first. Rejects NOT_FOUND for an unknown or exited Terminal. */
   selectOutput(id: string, listener: (message: OutputMessage) => void): Promise<OutputSubscription>;
 };
