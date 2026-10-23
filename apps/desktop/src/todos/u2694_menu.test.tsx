@@ -31,7 +31,7 @@ it("u2694b_complete_calls_todo_complete", async () => {
   await waitFor(() => expect(callsTo(app, "todo.complete")).toEqual([{ method: "todo.complete", params: { id: 5 } }]));
 });
 
-it.each(["pads", "todos"] as const)("u3799_a_done_todo_menu_has_no_complete_in_the_%s", async (surface) => {
+it.each(["pads", "todos"] as const)("u3812_a_done_todo_menu_has_no_complete_in_the_%s", async (surface) => {
   const { app } = await mountTodos([todo(5, { title: "session store", done: true, creator: { kind: "agent", id: "a", parent: null } })], true, [agent("a", "idle", "ready")], true);
 
   if (surface === "pads") fireEvent.click(await screen.findByRole("button", { name: "1 todos" }));
@@ -45,7 +45,7 @@ it.each(["pads", "todos"] as const)("u3799_a_done_todo_menu_has_no_complete_in_t
   expect(callsTo(app, "todo.complete")).toEqual([]);
 });
 
-it.each(["pads", "todos"] as const)("u3799_no_item_of_the_todo_menu_is_built_disabled_%s", async (surface) => {
+it.each(["pads", "todos"] as const)("u3812_no_item_of_the_todo_menu_is_built_disabled_%s", async (surface) => {
   const { app, connected } = await mountTodos([todo(5, { title: "session store", creator: { kind: "agent", id: "a", parent: null } })], true, [agent("a", "idle", "ready"), agent("x", "done", "stopped")], true);
   app.handlers["terminal.list"] = () => [info("t-x", { running: false, exit_code: 0 })];
   await connected.rail.refresh({ terminals: true });
