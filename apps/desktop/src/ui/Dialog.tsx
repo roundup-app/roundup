@@ -1,6 +1,7 @@
 import { Portal } from "solid-js/web";
 import { createSlideLifetime } from "./slideLifetime";
 import { createReducedMotion } from "../app/reducedMotion";
+import { getInteractionModality, trackInteractionModality } from "@zag-js/focus-visible";
 import { Dialog as ArkDialog, useDialogContext } from "@ark-ui/solid/dialog";
 import { createContext, createEffect, createSignal, Show, on, untrack, useContext, type Accessor } from "solid-js";
 import { modalOutside, registerKeys } from "../keys/registry";
@@ -39,10 +40,8 @@ export const floatingControl = (props: { open?: boolean | undefined; defaultOpen
   return { open: () => requested() && !blocked() && !dismissed(), blocked, change };
 };
 
-/** U3512d: a key-open or key-close is instant, so the last input decides whether a modal fades. */
-let lastInputWasPointer = false;
-document.addEventListener("pointerdown", () => { lastInputWasPointer = true; }, true);
-document.addEventListener("keydown", () => { lastInputWasPointer = false; }, true);
+/** U3512d: a key-open or key-close is instant, so the last input modality decides whether a modal fades. */
+trackInteractionModality({ onChange: () => {} });
 
 export const Dialog = {
   ...ArkDialog,
@@ -65,7 +64,7 @@ export const Dialog = {
       }
 
       wasOpen = open;
-      lifetime.retarget(open, !props.instant && !reduce && lastInputWasPointer);
+      lifetime.retarget(open, !props.instant && !reduce && getInteractionModality() !== "keyboard");
       setPresent(open || lifetime.exiting());
     }));
     // A close request must not unmount the panel before the lifetime effect retains its exit.
