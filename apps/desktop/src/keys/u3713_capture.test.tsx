@@ -83,6 +83,8 @@ describe("u3713 the leader opens the capture field", () => {
     const rail = document.body.appendChild(document.createElement("div"));
 
     rail.setAttribute("role", "tree");
+    rail.tabIndex = 0;
+    rail.focus();
     fireEvent.keyDown(rail, { key: "?", code: "Slash", shiftKey: true });
     await waitFor(() => expect(document.querySelector(".help")).not.toBeNull());
     expect(document.querySelector(".help")!.textContent).toContain("⌘K T Capture a Todo");
