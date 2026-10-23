@@ -117,7 +117,7 @@ recommendation is to preserve acceptance and reopen #1990; no cancelled Issue is
 added as a blocker. Native U3517e/f observations remain separately required.
 
 
-The final merged-source focused run passes 56 tests. Four isolated rendered/
+The final merged-source focused run passes 55 retained tests. Four isolated rendered/
 behavior observers pass without retry: loaded-face resize, rendering-change
 scrollback/input retention, the six-state main/head capture, and the existing
 hint-line guard that exposed the input-readiness regression. All six captures
