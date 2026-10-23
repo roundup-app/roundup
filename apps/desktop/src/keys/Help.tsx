@@ -61,7 +61,15 @@ export const Help = () => {
 
     if (at === "switcher") rows.unshift({ ...CHORDS.find(row => row.what === copy.todoLift)!, what: copy.hintOpen });
 
-    return { title, rows, shelf };
+    // U480's component-navigation exception: these are existing TreeView, Combobox and panel-header keys.
+    const navigation = at === "rail" ? [
+      { keys: copy.previousNextKeys, what: copy.helpMoveFocus },
+      { keys: copy.helpBranchKeys, what: copy.helpBranches },
+      { keys: copy.renameChord, what: copy.rename },
+    ] : at === "switcher" ? [{ keys: copy.previousNextKeys, what: copy.helpMoveFocus }]
+      : at === "bubble" ? [{ keys: copy.helpPanelArrowKeys, what: copy.helpPanelMove }, { keys: copy.helpPanelResizeKeys, what: copy.helpPanelResize }] : [];
+
+    return { title, rows: [...rows, ...navigation], shelf };
   };
 
   const show = (): void => {
@@ -93,6 +101,7 @@ export const Help = () => {
       initialFocusEl={() => panel ?? null}
       finalFocusEl={() => returnTo instanceof HTMLElement && returnTo.isConnected ? returnTo : null}
       onEscapeKeyDown={(event) => event.stopImmediatePropagation()}>
+      <Dialog.Positioner class="help-positioner" popover="manual" ref={element => queueMicrotask(() => { if (element.isConnected && element.showPopover) element.showPopover(); })}>
       <Dialog.Content class="help" data-origin={origin()} aria-label={copy.help} ref={(element) => { panel = element; queueMicrotask(() => element.isConnected && element.focus({ preventScroll: true })); }}>
         <section class="help-origin" data-origin={origin()}>
           <h2>{originSection().title}</h2>
@@ -116,6 +125,7 @@ export const Help = () => {
         <p><KeyHint keys={copy.esc}>{copy.deleteSelectedShelfRowsCancelSelection}</KeyHint></p>
         </section>
       </Dialog.Content>
+      </Dialog.Positioner>
     </Dialog.Root>
     </Portal>
     </Show>

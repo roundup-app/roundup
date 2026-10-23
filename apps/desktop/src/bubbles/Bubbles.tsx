@@ -664,7 +664,7 @@ export const Bubbles = (props: {
   ]);
 
   const onFocusIn = (event: FocusEvent): void => {
-    if (!(event.target instanceof Element) || event.target.closest("[data-bubble]")) return;
+    if (!(event.target instanceof Element) || event.target.closest("[data-bubble], .help")) return;
 
     before = event.target;
   };
@@ -681,7 +681,7 @@ export const Bubbles = (props: {
   const onFocusLeave = (event: FocusEvent): void => {
     const { target } = event;
 
-    if (!(target instanceof Element) || target.closest("[data-bubble], .bubble-frame, .terminal-tab-pair, .terminal-recover, [role=menu], [role=menuitem]")) return;
+    if (!(target instanceof Element) || target.closest("[data-bubble], .bubble-frame, .terminal-tab-pair, .terminal-recover, .help, [role=menu], [role=menuitem]")) return;
 
     for (const { id } of shown()) if (!placeOf(id).min) setPlace(id, { ...placeOf(id), min: true });
   };
@@ -857,7 +857,7 @@ export const Bubbles = (props: {
       const press = event.detail.originalEvent;
       const target = press.target;
 
-      if (!(press instanceof PointerEvent) || press.button !== 0 || (target instanceof Element && target.closest(".terminal-tab-pair, .terminal-recover"))) return;
+      if (!(press instanceof PointerEvent) || press.button !== 0 || (target instanceof Element && target.closest(".terminal-tab-pair, .terminal-recover, .help, .help-positioner"))) return;
 
       if (!place().min) setPlace(id, { ...place(), min: true });
     };

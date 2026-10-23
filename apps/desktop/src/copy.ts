@@ -33,6 +33,13 @@ const reasonIs = (reason: string, fixed: string) => reason === fixed || reason.e
 const compactTokens = (value: number) => new Intl.NumberFormat("en", { notation: "compact" }).format(value);
 
 export const copy = {
+  helpMoveFocus: "Move focus",
+  helpBranchKeys: "← / →",
+  helpBranches: "Collapse or expand the row",
+  helpPanelArrowKeys: "← ↑ ↓ →",
+  helpPanelResizeKeys: "⇧← ⇧↑ ⇧↓ ⇧→",
+  helpPanelMove: "Move Terminal panel",
+  helpPanelResize: "Resize Terminal panel",
   hintMore: "more",
   hintCommands: "commands",
   hintAsk: "ask",

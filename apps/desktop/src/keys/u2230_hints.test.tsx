@@ -259,11 +259,11 @@ const context = async (name: string) => {
 };
 
 it.each([
-  ["rail", "rail", ["⌘⌫", "⌘⏎"]],
+  ["rail", "rail", ["⌘⌫", "⌘⏎", "F2"]],
   ["rail workstream", "rail", ["⌘⌫", "⌘⏎"]],
   ["agent", "agent", ["⌘⏎", "⌘B"]],
   ["taken agent", "agent", ["⌘⏎", "⌘B"]],
-  ["bubble", "bubble", ["⌘B"]],
+  ["bubble", "bubble", ["⌘B", "← ↑ ↓ →", "⇧← ⇧↑ ⇧↓ ⇧→"]],
   ["terminal tab", "bubble", ["⌘B"]],
   ["todos", "todos", ["O", "D", "T", "1–9"]],
   ["completed todos", "todos", ["D", "T"]],
