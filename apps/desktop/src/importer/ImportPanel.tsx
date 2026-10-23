@@ -1,5 +1,5 @@
 import "./import.css";
-import { For, onCleanup, Show } from "solid-js";
+import { createSignal, For, onCleanup, Show } from "solid-js";
 import { Portal } from "solid-js/web";
 import type { ImportPeriod } from "@contracts/project/ImportPeriod";
 import { copy } from "../copy";
@@ -14,6 +14,13 @@ const PERIODS: readonly ImportPeriod[] = ["day", "week", "month"];
 /** U2875d: the Project's `Import Claude Code work` panel. Opening discovers; nothing submits until `Import` is pressed, and a restored selection waits for a fresh discovery to match it. */
 export const ImportPanel = (props: { open: boolean; opener: HTMLElement | undefined; onClose: () => void }) => {
   const { importing: state, drafts, project, daemonExit, now } = useConnectedProject();
+  const [copyFailure, failCopy] = createSignal<string | null>(null);
+
+  const copyItem = (text: string) => {
+    void navigator.clipboard.writeText(text)
+      .then(() => failCopy(null), error => failCopy(copy.copyDraftFailure(error instanceof Error ? error.message : String(error))));
+  };
+
   const release = drafts.editor({ surface: "import", object: project.path, recipient: null });
   onCleanup(release);
   const period = state.period;
@@ -51,8 +58,9 @@ export const ImportPanel = (props: { open: boolean; opener: HTMLElement | undefi
               <For each={state.choices()}>{(choice, at) => (
                 <section aria-label={copy.importChoice(at() + 1)}>
                   <p>{copy.importPeriodName(choice.period)}</p>
-                  <ul><For each={choice.sources}>{(source, index) => <li>{choice.titles?.[index()] ?? source}</li>}</For></ul>
+                  <ul><For each={choice.sources}>{(source, index) => <li>{choice.titles?.[index()] || copy.importUnnamed}</li>}</For></ul>
                   <div class="import-actions">
+                    <button type="button" data-button="quiet" onClick={() => copyItem(JSON.stringify(choice, null, 2))}>{copy.copy}</button>
                     <button type="button" data-button="quiet" disabled={pending()} onClick={() => state.restoreChoice(choice.revision)}>{copy.importOpenChoice(at() + 1)}</button>
                     <button type="button" data-button="quiet" disabled={pending()} onClick={() => state.discardChoice(choice.revision)}>{copy.importDiscardChoice(at() + 1)}</button>
                   </div>
@@ -71,15 +79,16 @@ export const ImportPanel = (props: { open: boolean; opener: HTMLElement | undefi
               <Show when={result().candidates.length === 0}><p role="status">{copy.importNone}</p></Show>
               <ul class="import-list" aria-label={copy.importResults}>
                 <For each={result().candidates}>{(candidate) => (
-                  <li>
+                  <li class="import-candidate">
                     <Checkbox class="import-check" checked={wanted().has(candidate.source)} onCheckedChange={(checked) => state.choose(candidate.source, candidate.title, candidate.revision, checked)}>
-                      <span class="import-title">{candidate.title}</span>
+                      <span class="import-title">{candidate.title || copy.importUnnamed}</span>
                       <span class="import-meta">
-                        <span class="import-cwd"><bdi>{candidate.cwd === "" ? copy.importProjectFolder : candidate.cwd}</bdi></span>
+                        <span class="import-cwd"><bdi>{copy.importLocation(candidate.cwd, project.name)}</bdi></span>
                         <time dateTime={new Date(Number(candidate.last_activity_ms)).toISOString()}>{copy.importAge(Math.max(0, Math.floor((now() - Number(candidate.last_activity_ms)) / 60000)))}</time>
                         <Show when={refused().get(candidate.source)}>{(reason) => <span role="alert" data-kind="error" class="import-failure">{copy.importRowRefusal(reason())}</span>}</Show>
                       </span>
                     </Checkbox>
+                    <button type="button" data-button="quiet" onClick={() => copyItem(JSON.stringify({ ...candidate, last_activity_ms: candidate.last_activity_ms.toString() }, null, 2))}>{copy.copy}</button>
                   </li>
                 )}</For>
                 <For each={[...refused()].filter(([source]) => !result().candidates.some((candidate) => candidate.source === source))}>{([source, reason]) => <li><div class="import-text import-unavailable"><span class="import-title">{wanted().get(source)?.title ?? copy.importUnnamed}</span><p role="alert" data-kind="error" class="import-failure">{reason}</p></div></li>}</For>
@@ -90,12 +99,14 @@ export const ImportPanel = (props: { open: boolean; opener: HTMLElement | undefi
                     <For each={result().excluded}>{(excluded) => <li>
                       <span class="import-title">{excluded.title ?? (excluded.last_activity_ms === null ? copy.importUnnamed : new Date(Number(excluded.last_activity_ms)).toLocaleString())}</span>
                       <span class="import-meta">{copy.importExcludedReason(excluded.reason)}</span>
+                      <button type="button" data-button="quiet" onClick={() => copyItem(JSON.stringify({ ...excluded, last_activity_ms: excluded.last_activity_ms?.toString() ?? null }, null, 2))}>{copy.copy}</button>
                     </li>}</For>
                   </ul>
                 </Disclosure>
               </Show>
             </>}
           </Show>
+          <Show when={copyFailure()}>{failure => <p role="alert">{failure()}</p>}</Show>
           <p class="import-words">
             <button data-button="quiet" type="button" class="word" onClick={() => void discover()}>{copy.importRefresh}</button>
             <span class="import-actions">

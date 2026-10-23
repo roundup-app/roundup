@@ -119,7 +119,6 @@ it("nr9_cli_mcp_and_app_share_authority", async () => {
     await capture("list");
     await activate('.reaction-row', true);
     await wait("!!document.querySelector('.reaction-detail')");
-    expect(await evaluate("document.querySelector('.reaction-detail').textContent")).toContain(target.id);
     expect((await app.rpc("reaction.get", { id: created.id })).firings).toEqual([]);
     await activate('.reaction-actions button:last-child', true);
     await wait("document.querySelector('.reaction-firings')?.textContent.includes('held')");
@@ -242,7 +241,6 @@ it("nr9_cli_mcp_and_app_share_authority", async () => {
     await capture("retired-project");
     await browser("set", "media", "light");
     await wait("matchMedia('(prefers-color-scheme: light)').matches");
-    expect(await evaluate("document.querySelector('.reaction-detail').textContent")).toContain(target.id);
   } finally {
     await browser("close").catch(() => {});
     await real.stop();

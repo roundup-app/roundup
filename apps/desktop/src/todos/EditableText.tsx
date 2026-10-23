@@ -52,7 +52,7 @@ export const TodoDraftRecovery = (props: { object: string; active?: boolean; inD
   return <Show when={!drawer.content() || props.inDrawer}><section class="todo-draft-recovery" aria-label={copy.draftIdentity(surface, props.object)} onMouseDown={event => {
     if (event.target instanceof Element && event.target.closest("button")) event.preventDefault();
   }}>
-    <Show when={problem()}>{problem => <ErrorLine message={copy.draftRetention(project.path, copy.draftIdentity(surface, problem().destination?.object ?? props.object), problem().cause)} />}</Show>
+    <Show when={problem()}>{problem => <ErrorLine message={copy.draftRetention(project.name, copy.draftSurface(surface), problem().cause)} />}</Show>
     <Show when={failure()}>{message => <ErrorLine message={message()} />}</Show>
     <Show when={problem()}><button data-button="quiet" class="word" type="button" onClick={() => drafts.retry()}>{copy.storageRetry}</button></Show>
     <For each={records().map(draft => draft.revision)}>{revision => {
@@ -121,7 +121,7 @@ export const EditableText = (props: {
     const parsed = v.safeParse(formSchema, saved?.value);
 
     if (saved && !parsed.success) {
-      setFailure(copy.draftRetention(connected.project.path, copy.draftSurface("todos"), "invalid"));
+      setFailure(copy.draftRetention(connected.project.name, copy.draftSurface("todos"), "invalid"));
 
       return;
     }
