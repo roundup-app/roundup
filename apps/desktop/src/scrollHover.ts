@@ -61,12 +61,15 @@ export const trackScrollbars = (doc: Document): void => {
       parent = parent.parentElement ?? (root instanceof ShadowRoot ? root.host : null);
     }
 
+    const clip = [top - box.top, box.right - right, box.bottom - bottom, left - box.left]
+      .map((inset) => `${Math.max(0, inset)}px`).join(" ");
+
     const styles = {
       left: `${(parseFloat(slot.style.left) || 0) + box.left + element.clientLeft - origin.left}px`,
       top: `${(parseFloat(slot.style.top) || 0) + box.top + element.clientTop - origin.top}px`,
       width: `${element.clientWidth}px`,
       height: `${element.clientHeight}px`,
-      "clip-path": `inset(${Math.max(0, top - box.top)}px ${Math.max(0, box.right - right)}px ${Math.max(0, box.bottom - bottom)}px ${Math.max(0, left - box.left)}px)`,
+      "clip-path": `inset(${clip})`,
     };
 
     for (const [name, value] of Object.entries(styles)) {
