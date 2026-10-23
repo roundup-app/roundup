@@ -1,4 +1,4 @@
-import { createSignal, onCleanup } from "solid-js";
+import { createComputed, createMemo, createSignal, on, onCleanup } from "solid-js";
 import type { Accessor } from "solid-js";
 
 export type Clock = () => number;
@@ -7,11 +7,16 @@ export type Clock = () => number;
 export const NOW_TICK_MS = 15_000;
 
 /** One shared timer for the whole app; the injected `clock` is the only source of time. */
-export const createNow = (clock: Clock): Accessor<number> => {
+export const createNow = (clock: Clock, isLive: Accessor<boolean> = () => true): Accessor<number> => {
   const [now, setNow] = createSignal(clock());
-  const timer = setInterval(() => setNow(clock()), NOW_TICK_MS);
+  createComputed(on(createMemo(isLive), (live) => {
+    if (!live) return;
 
-  onCleanup(() => clearInterval(timer));
+    setNow(clock());
+    const timer = setInterval(() => setNow(clock()), NOW_TICK_MS);
+
+    onCleanup(() => clearInterval(timer));
+  }));
 
   return now;
 };
