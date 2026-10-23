@@ -20,7 +20,7 @@ Every rule below is a check with an id. A check passes or fails; it has no score
 
 ## Tokens
 
-`--text-selection: Highlight` is the platform selected-text background (CSS UI system colour, macOS NSColor.selectedTextBackgroundColor). Browser/editor selections and xterm's active/inactive selections resolve this one Token in both schemes and increased contrast. Selected text uses the existing `--text` ink for legibility, including ANSI-coloured output and links; row/tab selection retains `--selected`. Source: https://www.w3.org/TR/css-color-4/#css-system-colors and https://developer.apple.com/documentation/appkit/nscolor/selectedtextbackgroundcolor.
+`--text-selection: Highlight` is the platform selected-text background (CSS UI system colour, macOS NSColor.selectedTextBackgroundColor). Browser/editor selections and xterm's active/inactive selections resolve this one Token in both schemes and increased contrast. Selected text uses `--text-selection-ink: HighlightText`, the matching platform foreground, for legibility, including ANSI-coloured output and links; row/tab selection retains `--selected`. Source: https://www.w3.org/TR/css-color-4/#css-system-colors and https://developer.apple.com/documentation/appkit/nscolor/selectedtextbackgroundcolor.
 
 All Tokens live in one file, `apps/desktop/src/tokens.css`. No other stylesheet, and no inline style, holds a colour, font size, radius, shadow, duration or easing literal; it reads `var(--…)`. Spacing uses the space Tokens, and `0`.
 

@@ -631,5 +631,5 @@ code {
 
 ::selection {
   background-color: var(--text-selection);
-  color: var(--text);
+  color: var(--text-selection-ink);
 }

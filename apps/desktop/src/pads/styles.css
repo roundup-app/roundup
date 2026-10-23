@@ -396,5 +396,5 @@
 .pad-rich-editor .milkdown .ProseMirror .ProseMirror-selectednode::selection,
 .pad-rich-editor .milkdown .ProseMirror .ProseMirror-selectednode *::selection {
   background-color: var(--text-selection);
-  color: var(--text);
+  color: var(--text-selection-ink);
 }

@@ -57,11 +57,14 @@ export const terminalThemeFor = (dark: boolean): TerminalTheme => {
   // xterm accepts concrete colours, so resolve the same platform Token that browser selections paint.
   const probe = document.createElement("span");
   probe.style.backgroundColor = "var(--text-selection)";
+  probe.style.color = "var(--text-selection-ink)";
   document.documentElement.append(probe);
-  const selection = getComputedStyle(probe).backgroundColor;
+  const resolved = getComputedStyle(probe);
+  const selection = resolved.backgroundColor;
+  const ink = resolved.color;
   probe.remove();
 
   const theme = dark ? darkTerminalTheme : lightTerminalTheme;
 
-  return { ...theme, selectionBackground: selection, selectionInactiveBackground: selection, selectionForeground: theme.foreground };
+  return { ...theme, selectionBackground: selection, selectionInactiveBackground: selection, selectionForeground: ink };
 };

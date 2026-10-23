@@ -62,5 +62,5 @@ button:active { color: var(--ink-pressed); }
 
 ::selection {
   background-color: var(--text-selection);
-  color: var(--text);
+  color: var(--text-selection-ink);
 }
