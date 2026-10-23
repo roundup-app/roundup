@@ -2,6 +2,8 @@
 
 Module: `apps/desktop` (the webview). Id: U3747. The owner's words (#3205): scrollbars are too annoying; they want a slim, light, elegant design that shows only on hover over its own scrolling element, never always visible.
 
+Amended by U3530a–U3530c in `ui-scrollbar-overflow.md`: scrolling replaces hover as the visibility trigger in clauses 2 and 5 and their rendered observer; a fitting area shows no bar, and an overflowing area's bar fades after scrolling stops even with the pointer inside. Overlay reserves no gutter, including while hidden. The remaining appearance, access, hidden-bar and reuse clauses stand.
+
 **U3747 one slim scrollbar that shows only over its own element.** Given any scrolling surface of the App (the Rail, the Shelf's lists, a Drawer, a Pad, Changes, a dialog, a menu, a select list and a Terminal's scrollback), then it draws one scrollbar look from one shared style or component, using only Tokens:
 
 1. *Slim overlay.* The thumb is about 6 px wide, has no track and no arrows, and takes no layout width: an element's `clientWidth` and every row's box are the same with the bar shown and hidden, so content never shifts.
