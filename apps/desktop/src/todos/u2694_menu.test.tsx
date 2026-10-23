@@ -16,7 +16,7 @@ it("u2694a_each_object_builds_its_items_todo", async () => {
 
   fireEvent.contextMenu(await rowOf("session store"), { clientX: 10, clientY: 10 });
 
-  expect(app.menuLabels()).toEqual(["Complete", "Copy Link", "Delete"]);
+  expect(app.menuLabels()).toEqual(["Complete", "Send to Agent", "Copy Link", "Delete"]);
   await app.pickMenu("Delete");
   await waitFor(() => expect(screen.getByRole("alertdialog")).toBeTruthy());
   expect(callsTo(app, "todo.delete")).toEqual([]);
@@ -31,8 +31,13 @@ it("u2694b_complete_calls_todo_complete", async () => {
   await waitFor(() => expect(callsTo(app, "todo.complete")).toEqual([{ method: "todo.complete", params: { id: 5 } }]));
 });
 
-it.each(["pads", "todos"] as const)("u3812_a_done_todo_menu_has_no_complete_in_the_%s", async (surface) => {
-  const { app } = await mountTodos([todo(5, { title: "session store", done: true, creator: { kind: "agent", id: "a", parent: null } })], true, [agent("a", "idle", "ready")], true);
+it.each([["pads", true], ["pads", false], ["todos", true], ["todos", false]] as const)("u3812_a_done_todo_menu_has_no_complete_in_the_%s_running_%s", async (surface, running) => {
+  const { app, connected } = await mountTodos([todo(5, { title: "session store", done: true, creator: { kind: "agent", id: "a", parent: null } })], true, [agent("a", running ? "idle" : "done", "ready")], true);
+
+  if (!running) {
+    app.handlers["terminal.list"] = () => [info("t-a", { running: false, exit_code: 0 })];
+    await connected.rail.refresh({ terminals: true });
+  }
 
   if (surface === "pads") fireEvent.click(await screen.findByRole("button", { name: "1 todos" }));
   else fireEvent.click(screen.getByRole("button", { name: /1 done/ }));
