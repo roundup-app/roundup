@@ -262,7 +262,7 @@
   max-height: min(var(--available-height, 100vh), calc(var(--space-6) * 8));
   overflow-y: auto;
   overscroll-behavior: contain;
-  z-index: 100;
+  z-index: var(--layer-menu);
 }
 .owner-picker:focus-visible { outline: none; }
 
