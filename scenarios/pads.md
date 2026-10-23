@@ -88,7 +88,7 @@ Policy: measure 1000 prose keystrokes in a Pad containing 100 paragraphs plus a 
 
 Existing regression checks on main:
 1. No-edit source preservation and no write: `apps/desktop/src/pads/u147_live_preview.test.tsx`, `u147_an_unchanged_document_keeps_its_source_bytes_and_writes_nothing`.
-2. Conflict choices and in-flight editing: `apps/desktop/src/pads/u36_pad_conflict.test.tsx`, `u36_use_theirs_loads_the_latest_text_and_calls_nothing_else` and `u36_keep_mine_never_overwrites_text_typed_after_a_quick_refocus`.
+2. Conflict choices and in-flight editing: `apps/desktop/src/pads/u36_pad_conflict.test.tsx`, `u36_use_theirs_loads_the_latest_text_and_calls_nothing_else` and `p2544d_conflict_choices_preserve_latest_draft`.
 3. Mermaid preservation: `apps/desktop/src/pads/u148_mermaid_block.test.tsx`, `u148_an_unchanged_block_keeps_the_source_byte_for_byte`.
 
 Policy: this specification delivers acceptance only. Its dependent implementation Issue owns `apps/desktop/src/pads/`, Pad-only catalogue/style entries, the Revision guard in `crates/contracts`, generated bindings, `crates/pads`, Daemon/CLI/MCP callers and their affected tests. No shared UI replacement or loop machinery changes. An implementation requiring a missing shared capability files a scoped prerequisite. Implementation follows red/green, rule 10 and the Code recipe; the specification PR closes only its specification Issue.
