@@ -5,7 +5,7 @@ import { copy } from "../copy";
 import { shelfSliding } from "../shelf/sliding";
 import { drawerSliding } from "../drawer/sliding";
 import { resizeDragging } from "../resize/dragging";
-import { For, createEffect, createMemo, createSignal, on, onCleanup, Show, untrack } from "solid-js";
+import { createEffect, createMemo, createSignal, on, onCleanup, Show, untrack } from "solid-js";
 import { DecisionCard } from "../decisions/DecisionCard";
 import { FoldedLine } from "../decisions/FoldedLine";
 import { OrderDrawer } from "../orders/OrderDrawer";

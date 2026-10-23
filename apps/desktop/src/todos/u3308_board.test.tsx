@@ -129,7 +129,7 @@ it("u3309_a_refused_digit_assignment_shows_its_cause_and_keeps_the_owner", async
   expect(row.closest<HTMLElement>("[data-shelf-group]")?.dataset.shelfGroup).toBe("unassigned");
 });
 
-it("u3309_the_digits_are_registered_shelf_bindings_listed_in_help", async () => {
+it("u3309_every_digit_assigns_to_its_agent", async () => {
   const agents = Array.from({ length: 9 }, (_, at) => agent(`a${at + 1}`, "idle", "", { name: `Writer ${at + 1}`, order: at }));
   const m = await mountTodos([todo(1)], true, agents);
   const row = await screen.findByRole("button", { name: "Idle #1 todo 1" });
