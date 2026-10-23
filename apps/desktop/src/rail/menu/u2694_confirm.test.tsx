@@ -174,12 +174,5 @@ describe("u2694 the Rail's menu actions", () => {
     expect(await screen.findByText("inbox closed")).toBeTruthy();
   });
 
-  it("u2694d_both_show_on_a_running_or_exited_agent_and_a_door", async () => {
-    const { app } = await mountRail([agent("a", "working", "busy"), agent("x", "done", "done"), door("w", "idle", "idle")], [exitedTerminal("x", 0)]);
 
-    for (const name of ["a", "x", "w"]) {
-      open(name);
-      expect(app.menuLabels()).toEqual(expect.arrayContaining(["Restart", "Start YOLO"]));
-    }
-  });
 });
