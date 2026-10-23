@@ -41,7 +41,7 @@ import { OwnerPicker } from "./OwnerPicker";
 import { ownerGroups, ownersOnRail, sameOwner } from "../shelf/scope";
 import type { Actor } from "@contracts/Actor";
 import { CHORDS, TEXT_FIELDS, chordsFor, chordsOf } from "../keys/chords";
-import { KeyChip } from "../keys/KeyChip";
+import { KeyHint } from "../keys/KeyHint";
 import { ShelfActions } from "../shelf/BulkDelete";
 import { HomePicker } from "./HomePicker";
 import { idOfRow, openRowButtons, rowButtonOf as triageRowOf, triage } from "./triage";
@@ -830,7 +830,7 @@ export const Todos = (props: {
       </Show>
       <Show when={triage.on()}>
         <p class="triage-hints" aria-label={copy.triageKeys}>
-          <For each={CHORDS.filter(row => row.inTriage)}>{row => <span class="hint"><KeyChip keys={row.keys} /> {row.what}</span>}</For>
+          <For each={CHORDS.filter(row => row.inTriage)}>{row => <KeyHint keys={row.keys}>{row.what}</KeyHint>}</For>
         </p>
       </Show>
       <bulk.Bar />

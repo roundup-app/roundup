@@ -426,7 +426,6 @@ p {
 .help-line,
 .help-shelf > p {
   margin: 0;
-  white-space: pre;
 }
 
 
@@ -450,9 +449,6 @@ p {
   border-bottom: 1px solid var(--hairline);
 }
 
-.leader-line {
-  white-space: pre;
-}
 
 
 /* U348: while files are dragged, every target takes a 2 px --accent ring inside its edge, and the one under the pointer --hover; no size changes (U5, U46), nothing animates (D6). */

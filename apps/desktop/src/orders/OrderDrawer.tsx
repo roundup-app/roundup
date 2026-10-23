@@ -365,7 +365,7 @@ const OrderContent = (props: OrderInput) => {
           }
         </Match>
       </Switch>}>{editor()}</Show>
-      <Show when={props.recovery === undefined}><WorkProgress id={props.id} /></Show>
+      <Show when={props.recovery === undefined}><Show when={props.id} keyed>{(id) => <WorkProgress id={id} />}</Show></Show>
       <ReservedLine class="order-spawn-error" hidden={props.inline || editing()} message={!props.inline && order()?.kind === "work" ? spawn()?.error : null} />
     </section>
   );
