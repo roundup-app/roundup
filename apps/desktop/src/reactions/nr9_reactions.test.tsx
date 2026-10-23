@@ -342,3 +342,64 @@ it("u3299b_copy_keeps_original_facts", async () => {
     expect(app.calls.filter(call => call.method === "reaction.run")).toHaveLength(0);
   } finally { vi.unstubAllGlobals(); }
 });
+
+
+it.each([
+  { owner: "action", method: "reaction.run", action: copy.reactionRun },
+  { owner: "action", method: "reaction.stop", action: copy.reactionStop },
+  { owner: "inspection", method: "reaction.get", action: copy.refresh },
+  { owner: "clipboard", method: null, action: copy.copy },
+  { owner: "message", method: "message.get", action: copy.retry },
+  { owner: "message_clipboard", method: null, action: copy.copy },
+] as const)("p3557c_failure_lifetime_reactions_$owner ($action)", async ({ owner, method, action }) => {
+  const record = saved({ firings: [{ id: "f1", ordinal: 1, message: 42, matched: true, evidence: "finished", definition: "{}", outcome: "held" }] });
+  const second = saved({ id: "r2", name: "Other reaction", instruction: "other instruction" });
+  const { app, connected } = await mount(() => [record, second]);
+  const draft = connected.drafts.edit({ surface: "reactions", object: "create", recipient: null }, {
+    operation: "unsubmitted", name: "Unfinished", target: "a", instruction: " exact\n e\u0301 🧭 ", kind: "agents", ids: ["a"], any: false,
+    repository: "", number: "", atDate: "", atTime: "", atOffset: "Z", expDate: "", expTime: "", expOffset: "Z", maxFirings: "1", rearm: false,
+  }, null, "ordinary");
+  const retained = structuredClone(connected.drafts.list().find(item => item.revision === draft.revision));
+  const message = { id: 42, from: { kind: "user", id: "u", parent: null }, to: "a", body: "accepted exact instruction", kind: "note", replyTo: null, status: "dropped", reason: "receiver gone", passedFrom: null, at: 0 };
+  app.handlers["message.get"] = () => message;
+  const write = vi.fn().mockRejectedValue(new Error("clipboard unavailable"));
+  vi.stubGlobal("navigator", { ...navigator, clipboard: { writeText: write } });
+
+  try {
+    fireEvent.click(await screen.findByRole("button", { name: /Ship it/ }));
+    await screen.findByRole("region", { name: copy.reactionDetail("Ship it") });
+    await waitFor(() => expect(app.calls.filter(call => call.method === "reaction.get")).toHaveLength(1));
+    const fail = () => { throw new Error("request refused"); };
+
+    if (owner === "message" || owner === "message_clipboard") {
+      if (owner === "message") app.handlers["message.get"] = fail;
+      fireEvent.click(screen.getByRole("button", { name: /Firing 1/ }));
+      if (owner === "message_clipboard") await screen.findByText("accepted exact instruction");
+    }
+    if (method && owner !== "message") app.handlers[method] = fail;
+    if (owner !== "message") fireEvent.click(screen.getByRole("button", { name: action }));
+    const failure = owner.includes("clipboard") ? copy.copyDraftFailure("clipboard unavailable") : "request refused";
+    await screen.findByRole("alert", { name: failure });
+    const calls = app.calls.length;
+    fireEvent.click(screen.getByRole("button", { name: copy.clear }));
+    expect(screen.queryByRole("alert", { name: failure })).toBeNull();
+    expect(app.calls).toHaveLength(calls);
+    expect(connected.drafts.list().find(item => item.revision === draft.revision)).toEqual(retained);
+
+    // Reproduce the same failure, then recover through this owner's own acknowledged action.
+    fireEvent.click(screen.getByRole("button", { name: action }));
+    await screen.findByRole("alert", { name: failure });
+    if (method) app.handlers[method] = () => owner === "message" ? message : record;
+    else write.mockResolvedValue(undefined);
+    fireEvent.click(screen.getByRole("button", { name: action }));
+    await waitFor(() => expect(screen.queryByRole("alert", { name: failure })).toBeNull());
+    if (owner.startsWith("message")) fireEvent.click(screen.getByRole("button", { name: copy.reactionBackToFiring }));
+    fireEvent.click(screen.getByRole("button", { name: copy.reactionBack }));
+    fireEvent.click(await screen.findByRole("button", { name: /Other reaction/ }));
+    await screen.findByText("other instruction");
+    expect(screen.queryByRole("alert", { name: failure })).toBeNull();
+    expect(connected.drafts.list().find(item => item.revision === draft.revision)).toEqual(retained);
+    expect(app.calls.filter(call => call.method === "reaction.create" || call.method === "message.send")).toHaveLength(0);
+    expect(app.calls.filter(call => call.method === "reaction.run" || call.method === "reaction.stop").every(call => (call.params as { id: string }).id === "r1")).toBe(true);
+  } finally { vi.unstubAllGlobals(); }
+});
