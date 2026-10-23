@@ -22,7 +22,7 @@ import type { JSX } from "solid-js";
 import { createEffect, createMemo, createSignal, For, on, onCleanup, Show, useContext } from "solid-js";
 import { useTabsContext } from "@ark-ui/solid/tabs";
 import type { Todo } from "@contracts/todo/Todo";
-import { ErrorLine } from "../ink/ErrorLine";
+import { ReservedLine } from "../ink/ReservedLine";
 import { homesToOffer } from "./homes";
 import { ShelfRow } from "../ink/ShelfRow";
 import { KindGlyph } from "../ink/KindGlyph";
@@ -167,7 +167,7 @@ export const Todos = (props: {
     if (!bulk.pending()) selection.key(todo.id, event);
   };
 
-  const isEmpty = createMemo(() => todos.isLoaded() && todos.all().length === 0 && todos.failure() === null);
+  const isEmpty = createMemo(() => todos.isLoaded() && todos.all().length === 0);
 
   /** The id of the group a Todo reads in: its owner, or Unassigned once that Agent left the Rail. */
   const groupOf = (todo: Todo) => ownerGroups(connected, [todo], item => item.owner).find(group => group.items.length > 0)!.id;
@@ -498,7 +498,8 @@ export const Todos = (props: {
   };
 
   const field = () => (
-    <div class="shelf-list" ref={element => { creationRow = element; }}>
+    <div class="shelf-list todo-create" ref={element => { creationRow = element; }}>
+      <ReservedLine overlay message={adding() !== null && !fieldGroupGone() ? createFailure() : null} />
       <EntryRow
         glyph={<input type="checkbox" class="todo-tick" disabled tabIndex={-1} aria-hidden="true" />}
         class="todo-inset"
@@ -750,8 +751,7 @@ export const Todos = (props: {
         </button>
         <IconButton class="shelf-triage" data-triage-toggle aria-label={copy.triage} aria-pressed={triage.on()} chord={CHORDS.find(row => row.keys === "T" && row.inShelf)} onClick={() => triage.on() ? leaveTriage() : enterTriage()}><ListChecks class="icon" aria-hidden="true" width={16} height={16} stroke-width={1.75} /></IconButton>
       </ScopeAction>
-      <Show when={todos.failure()}>{(message) => <ErrorLine message={message()} />}</Show>
-      <Show when={createFailure() !== null && (adding() === null || fieldGroupGone())}>{(_) => <ErrorLine message={createFailure()!} />}</Show>
+      <ReservedLine overlay message={(createFailure() !== null && (adding() === null || fieldGroupGone()) ? createFailure()! : null) || (todos.failure()) || null} />
       <Show when={isEmpty() && !typing()}>
         <EmptyState icon="check" heading={copy.noTodosYet} hint={copy.noTodosHint} />
       </Show>
@@ -822,7 +822,6 @@ export const Todos = (props: {
         </Sortable.Root>
         </TreeView.Root>
         <Show when={typing() && !fieldGroupGone() && adding()?.group === group().id}>
-          <Show when={createFailure()}>{(message) => <ErrorLine message={message()} />}</Show>
           {field()}
         </Show>
         </>; }}</OwnerGroups>
@@ -889,7 +888,7 @@ export const Todos = (props: {
       <Show when={todos.isLoaded()}>
         <For each={[...new Set(connected.drafts.list().filter(draft => draft.destination.surface === "todos"
           && draft.destination.object !== "new" && !todos.byId().has(Number(draft.destination.object))).map(draft => draft.destination.object))]}>{object => <div>
-          <ErrorLine message={copy.draftIdentity(copy.originalUnavailable, object)} />
+          <ReservedLine message={copy.draftIdentity(copy.originalUnavailable, object)} />
           <TodoDraftRecovery object={object} />
         </div>}</For>
       </Show>

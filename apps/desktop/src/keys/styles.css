@@ -56,3 +56,9 @@
 }
 .help-section, .help-shelf { min-width: 0; }
 .leader-line { flex: 0 0 auto; }
+.leader .reserved-status {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: var(--space-4);
+}

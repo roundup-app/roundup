@@ -1,4 +1,4 @@
-import { fireEvent, screen, waitFor } from "@solidjs/testing-library";
+import { fireEvent, screen, waitFor, within } from "@solidjs/testing-library";
 import { describe, expect, it } from "vitest";
 import { mountApp, select } from "../decisions/decisionsFixture";
 import type { Order } from "@contracts/agent/Order";
@@ -40,8 +40,7 @@ describe("O17: the Drawer shows no Prompt", () => {
       throw new Error("no such Agent");
     });
 
-    await waitFor(() => expect(drawer.querySelector(".order-prompt-error")).not.toBeNull());
-    expect(drawer.querySelector(".order-prompt-error")!.textContent).toContain("no such Agent");
+    expect((await within(drawer).findByRole("alert")).textContent).toContain("no such Agent");
   });
 
   it("o17_no_prompt_is_drawn", async () => {

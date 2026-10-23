@@ -1,7 +1,6 @@
 import { copy } from "../copy";
 import { Icon } from "../ink/Icon";
-import { Show } from "solid-js";
-import { ErrorLine } from "../ink/ErrorLine";
+import { ReservedLine } from "../ink/ReservedLine";
 
 /** Screen 11 of `docs/wireframes.md`: each region says what will live there; there is no tutorial. */
 export const EmptyRail = () => (
@@ -12,9 +11,7 @@ export const EmptyRail = () => (
 
 export const ChooseProject = (props: { failure: string | null; onChoose: () => void }) => (
   <>
-    <Show when={props.failure} fallback={<p>{copy.openAFolderToStart}</p>}>
-      {(message) => <ErrorLine message={message()} />}
-    </Show>
+    <ReservedLine message={props.failure} status={copy.openAFolderToStart} />
     <button data-button="quiet" type="button" class="word" onClick={() => props.onChoose()}>{copy.chooseFolder}</button>
   </>
 );
