@@ -187,6 +187,7 @@ async fn f8_the_door_keeps_f2_on_start_and_resume() {
                     "Continue the work".into(),
                     2,
                     agents::START_DOOR_ACK_BOUND,
+                    None,
                 )
                 .await
         })

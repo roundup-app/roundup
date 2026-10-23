@@ -21,6 +21,9 @@ const SPACE_STEPS = new Set([0, 4, 8, 12, 16, 24, 32]);
 // docs/motion.md, in seconds. `0` is an instant change.
 const MOTION_SECONDS = [0, 0.12, 0.15, 0.18, 0.25, 0.4];
 
+// U3771's longer completion effects belong only to Todo rows and their progress, never other App motion.
+const TODO_MOTION_SECONDS = [...MOTION_SECONDS, 0.42, 0.56, 0.62, 1.1];
+
 const CLICK_TARGET = "button, a[href], input, select, textarea, summary, [role=button], [role=treeitem], [role=tab]";
 
 type Rgba = { r: number; g: number; b: number; a: number };
@@ -572,7 +575,8 @@ const d9 = (page: Page): Measure => {
 
   return offender(page, (el, style) => {
     const durations = [...seconds(style.transitionDuration), ...seconds(style.animationDuration)].map((duration) => (Number.isNaN(duration) ? 0 : duration));
-    const bad = durations.find((duration) => (reduced ? duration !== 0 : !MOTION_SECONDS.some((step) => Math.abs(duration - step) <= step * 0.25)));
+    const steps = el.closest(".todo-row, .todo-progress") ? TODO_MOTION_SECONDS : MOTION_SECONDS;
+    const bad = durations.find((duration) => (reduced ? duration !== 0 : !steps.some((step) => Math.abs(duration - step) <= step * 0.25)));
 
     return bad === undefined ? null : { duration: bad, reduced };
   });
@@ -677,7 +681,7 @@ const d12 = (page: Page): Measure => {
 
     const glyphs = own.map(({ row }) => left(row.querySelector(".shelf-glyph")?.firstElementChild ?? null) - indent(row));
 
-    const tickOnly = (row: Element) => list === "todos" && row.querySelector(".shelf-glyph > .todo-tick") !== null
+    const tickOnly = (row: Element) => list === "todos" && row.querySelector(".shelf-glyph .todo-tick") !== null
       && row.querySelector(".shelf-glyph > [data-state]") === null;
 
     const textLeft = (row: Element) => {

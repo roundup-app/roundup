@@ -316,6 +316,8 @@ impl Intake {
                             id: workstream.clone(),
                             model: None,
                             effort: None,
+                            engine: None,
+                            permission_mode: None,
                         },
                         None,
                         false,
@@ -410,6 +412,8 @@ impl Intake {
                                     id: workstream.into(),
                                     model: None,
                                     effort: None,
+                                    engine: None,
+                                    permission_mode: None,
                                 },
                             )
                             .await

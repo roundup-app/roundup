@@ -23,6 +23,7 @@ pub const METHODS: &[Method] = &[
         "project_MeasurementSummaryParams",
         "project_MeasurementSummary",
     ),
+    m("project.weeklyLimit", "null", "project_WeeklyLimit"),
     m(
         "deliverable.publish",
         "deliverable_PublishParams",
@@ -223,7 +224,7 @@ pub const METHODS: &[Method] = &[
         "decision_PermissionParams",
         "decision_PermissionOutput",
     ),
-    m("agent.ask", "decision_AskCall", "decision_AskOutput"),
+    m("agent.ask", "decision_AskParams", "decision_AskOutput"),
     m("decision.list", "null", "decision_Decision[]"),
     m(
         "decision.answers",
@@ -240,6 +241,7 @@ pub const METHODS: &[Method] = &[
         "decision_AnswerParams",
         "null | agent_HeldAction",
     ),
+    m("decision.revoke", "decision_RevokeParams", "null"),
     m("rail.tree", "null", "agent_RailNode[]"),
     m(
         "rail.createWorkstream",

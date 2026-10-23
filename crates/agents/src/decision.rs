@@ -7,8 +7,8 @@ use std::sync::{Arc, Mutex, MutexGuard};
 use std::time::Duration;
 
 use contracts::decision::{
-    Answer, AnswerParams, AskAnswer, AskCall, AskOutput, AskParams, ClearedEvent, Decision,
-    Outcome, PermissionOutput, PromptIdentity,
+    Answer, AnswerParams, AskAnswer, AskOutput, AskParams, ClearedEvent, Decision, Outcome,
+    PermissionOutput, PromptIdentity, RevokeParams, Scope,
 };
 use contracts::{Actor, EventData};
 use rpc::{RpcError, code};
@@ -36,9 +36,15 @@ struct Open {
     choices: Option<Question>,
     /// Terminal input can settle a native prompt before its next Signal clears the Card.
     identity_available: bool,
-    /// The authenticated writer of input for this original question.
-    terminal_actor: Option<Actor>,
     timing: Option<crate::MeasurementWait>,
+    /// H23: Claude Code's suggested rule, which a `session` or `project` answer echoes.
+    rule: Option<Value>,
+}
+
+/// H23: a rule a `project` answer added, kept in memory until `decision.revoke`.
+struct Grant {
+    dir: std::path::PathBuf,
+    rules: Vec<String>,
 }
 
 enum PromptInput {
@@ -48,7 +54,6 @@ enum PromptInput {
 
 struct Question {
     labels: Vec<String>,
-    terminal: Option<String>,
 }
 
 /// H14: the tool name an `ask_user` Decision carries, and the bounds on what the Agent asks.
@@ -90,6 +95,8 @@ fn valid_ask(question: &str, answers: &[AskAnswer]) -> bool {
 
 pub struct Decisions {
     open: Mutex<HashMap<String, Open>>,
+    /// H23: by Decision id.
+    grants: Mutex<HashMap<String, Grant>>,
     history: Mutex<rusqlite::Connection>,
     next: Mutex<i64>,
     /// No nonce means capture and guarded effects refuse; unguarded user answers still work.
@@ -114,6 +121,7 @@ impl Decisions {
         Self {
             history: Mutex::new(history),
             open: Mutex::new(HashMap::new()),
+            grants: Mutex::new(HashMap::new()),
             next: Mutex::new(0),
             daemon,
             before_effect: None,
@@ -205,15 +213,6 @@ impl Decisions {
             return Err(original_gone(identity));
         }
         Ok(())
-    }
-
-    /// U468: a native question ends with its own call, never a late generic
-    /// PostToolUse/Stop Signal from a replaced or concurrent tool.
-    pub(crate) fn waits_in_terminal(&self, agent: &str) -> bool {
-        self.open()
-            .get(agent)
-            .and_then(|entry| entry.choices.as_ref())
-            .is_some_and(|question| question.terminal.is_some())
     }
 
     /// Clear Agent `agent`'s Decision, if it has one, and say so. The waiting hook gets `reason`.
@@ -316,15 +315,12 @@ impl Shared {
     pub(crate) async fn ask(
         self: &Arc<Self>,
         actor: Actor,
-        params: AskCall,
+        params: AskParams,
     ) -> Result<AskOutput, RpcError> {
         if actor.kind != contracts::ActorKind::Agent {
             return Err(RpcError::forbidden("only an Agent asks the user"));
         }
-        let AskCall {
-            question: AskParams { question, answers },
-            terminal,
-        } = params;
+        let AskParams { question, answers } = params;
         if !valid_ask(&question, &answers) {
             return Err(RpcError::new(
                 code::INVALID_PARAMS,
@@ -335,15 +331,13 @@ impl Shared {
         }
         let labels = answers.iter().map(|a| a.label.clone()).collect();
         let id = actor.id.clone();
-        let mut input = serde_json::json!({ "question": question, "answers": answers });
-        if let Some(terminal) = &terminal {
-            input["terminal"] = terminal.clone().into();
-        }
+        let input = serde_json::json!({ "question": question, "answers": answers });
         let request = claude_code::PermissionRequest {
             tool: ASK_TOOL.to_owned(),
             args: input.to_string(),
             answerable: true,
             identity_available: true,
+            ..Default::default()
         };
         let signal = serde_json::json!({ "tool_name": ASK_TOOL, "tool_input": input });
         let opened = self.open_decision(
@@ -351,7 +345,7 @@ impl Shared {
             &id,
             request,
             claude_code::as_permission_signal(signal),
-            Some(Question { labels, terminal }),
+            Some(Question { labels }),
             input.to_string(),
         )?;
         let rx = opened.waiting.expect("an ask_user Decision waits");
@@ -387,14 +381,27 @@ impl Shared {
     ) -> Result<Opened, RpcError> {
         let name = self.rail().name(id)?;
         let started = (self.clock)();
-        let (rx, attempt, decision) = {
+        // D13: the Status reads `needs-you` before the request is published, so no reader of
+        // `decision.list` or the `DecisionOpened` Event ever sees it beside an idle Agent.
+        let attempt = {
+            let runs = self.runs();
+            let Some(crate::Slot::Running(run)) = runs.get(id) else {
+                return Err(RpcError::not_found(&name));
+            };
+            if run.ended || run.closing {
+                return Err(RpcError::not_found(format!("{name} has ended")));
+            }
+            run.attempt.clone()
+        };
+        self.observe(actor.clone(), id, &attempt, Observation::Signal(signal))?;
+        let (rx, decision) = {
             // `runs` before `decisions`, as every other path: an Agent that ends cannot be left
             // with a Decision opened after its clear.
             let runs = self.runs();
             let Some(crate::Slot::Running(run)) = runs.get(id) else {
                 return Err(RpcError::not_found(&name));
             };
-            if run.ended || run.closing {
+            if run.ended || run.closing || run.attempt != attempt {
                 return Err(RpcError::not_found(format!("{name} has ended")));
             }
             let decision = Decision {
@@ -404,6 +411,8 @@ impl Shared {
                 args: request.args,
                 opened_at: started,
                 answerable: request.answerable,
+                scopes: request.scopes,
+                risk: request.risk,
                 failure: None,
             };
             let (tx, rx) = oneshot::channel();
@@ -418,7 +427,7 @@ impl Shared {
                     waiter,
                     choices,
                     identity_available: request.identity_available,
-                    terminal_actor: None,
+                    rule: request.rule,
                     timing: crate::rail::decision_wait(
                         &self.timing,
                         id,
@@ -433,17 +442,10 @@ impl Shared {
                     let _ = waiter.send(Err(RpcError::new(code::CONFLICT, "superseded")));
                 }
             }
-            self.bus.emit(
-                actor.clone(),
-                EventData::DecisionOpened(decision.clone().into()),
-            );
-            (rx, run.attempt.clone(), decision)
+            self.bus
+                .emit(actor, EventData::DecisionOpened(decision.clone().into()));
+            (rx, decision)
         };
-        if let Err(err) = self.observe(actor, id, &attempt, Observation::Signal(signal)) {
-            self.decisions
-                .clear(&self.bus, id, Outcome::AgentGone, "the Agent ended");
-            return Err(err);
-        }
         Ok(Opened {
             waiting: decision.answerable.then_some(rx),
             id: decision.id,
@@ -745,6 +747,7 @@ impl Shared {
             id,
             answer,
             note,
+            scope,
             proof,
             identity,
         } = params;
@@ -759,6 +762,12 @@ impl Shared {
         }
         let actor = ctx.actor.clone();
         if actor.kind == contracts::ActorKind::Agent {
+            if scope.is_some_and(|scope| scope != Scope::Once) {
+                return Err(RpcError::new(
+                    code::INVALID_PARAMS,
+                    "an Agent's answer takes no scope",
+                ));
+            }
             if let Some(identity) = &identity {
                 self.guard_reach(&actor, &identity.agent, false)?;
                 if self
@@ -777,31 +786,67 @@ impl Shared {
         } else if self.decisions.proof.is_none() || self.decisions.proof.as_deref() != proof {
             return Err(RpcError::forbidden("decision.answer needs the App's proof"));
         }
-        self.deliver_answer(ctx, params_for_delivery(id, answer, &note, identity), None)
+        self.deliver_answer(ctx, params_for_delivery(id, answer, &note, scope, identity))
     }
 
-    fn deliver_answer(
-        &self,
-        ctx: &rpc::Ctx,
-        params: AnswerParams,
-        terminal: Option<(&str, u32)>,
-    ) -> Result<(), RpcError> {
+    /// H23: remove the rule a `project` answer added from the Project's local settings. Only the
+    /// user may; an unknown id, a `once` or `session` answer or a rule already gone is
+    /// `NOT_FOUND`.
+    pub(crate) fn revoke(&self, ctx: &rpc::Ctx, params: RevokeParams) -> Result<(), RpcError> {
+        if ctx.actor.kind == contracts::ActorKind::Agent {
+            return Err(RpcError::forbidden("only the user revokes a Grant"));
+        }
+        if self.decisions.proof.is_none()
+            || self.decisions.proof.as_deref() != params.proof.as_deref()
+        {
+            return Err(RpcError::forbidden("decision.revoke needs the App's proof"));
+        }
+        let mut grants = self.decisions.grants.lock().expect("Grant lock");
+        let not_found = || RpcError::not_found(format!("grant of decision {}", params.id));
+        let grant = grants.get(&params.id).ok_or_else(not_found)?;
+        let path = grant.dir.join(".claude").join("settings.local.json");
+        let text = std::fs::read_to_string(&path).map_err(|_| not_found())?;
+        let mut settings: Value = serde_json::from_str(&text).map_err(|_| not_found())?;
+        let removed = match settings["permissions"]["allow"].as_array_mut() {
+            Some(allow) => {
+                let before = allow.len();
+                allow.retain(|entry| {
+                    !entry
+                        .as_str()
+                        .is_some_and(|rule| grant.rules.iter().any(|each| each == rule))
+                });
+                before != allow.len()
+            }
+            None => false,
+        };
+        if !removed {
+            grants.remove(&params.id);
+            return Err(not_found());
+        }
+        let text = serde_json::to_string_pretty(&settings).map_err(RpcError::internal)?;
+        std::fs::write(&path, text).map_err(RpcError::internal)?;
+        grants.remove(&params.id);
+        Ok(())
+    }
+
+    fn deliver_answer(&self, ctx: &rpc::Ctx, params: AnswerParams) -> Result<(), RpcError> {
         let AnswerParams {
             id,
             answer,
             note,
+            scope,
             identity,
             ..
         } = params;
         let id = id.as_str();
         let answer = answer.as_deref();
-        let mut actor = ctx.actor.clone();
+        let actor = ctx.actor.clone();
         let mut history = self
             .decisions
             .history
             .lock()
             .expect("Decision history lock");
-        let (agent, attempt, outcome, waiter, text, timing) = {
+        let (agent, attempt, outcome, waiter, text, timing, grant) = {
             let runs = self.runs();
             let mut open = self.decisions.open();
             if let Some(identity) = &identity {
@@ -826,51 +871,13 @@ impl Shared {
             let Some((agent, entry)) = open.iter_mut().find(|(_, o)| o.decision.id == id) else {
                 return Err(RpcError::not_found(format!("decision {id}")));
             };
-            if let Some((owner, pid)) = terminal {
-                let Some(crate::Slot::Running(run)) = runs.get(owner) else {
-                    return Err(RpcError::conflict("the original question's Attempt ended"));
-                };
-                if agent != owner
-                    || run.ended
-                    || run.closing
-                    || run.attempt != entry.attempt
-                    || self.terminals.program_pid(&run.terminal_id) != Some(pid)
-                    || entry.choices.is_none()
-                {
-                    return Err(RpcError::conflict(
-                        "the original Terminal question is unavailable",
-                    ));
-                }
-                actor = entry.terminal_actor.clone().ok_or_else(|| {
-                    RpcError::forbidden(
-                        "a native question response needs authenticated Terminal input",
-                    )
-                })?;
-                if !matches!(
-                    actor.kind,
-                    contracts::ActorKind::User | contracts::ActorKind::Agent
-                ) {
-                    return Err(RpcError::forbidden(
-                        "only the user or an Agent in Reach may answer",
-                    ));
-                }
-                if actor.kind == contracts::ActorKind::Agent {
-                    if !self.reach(&actor.id)?.contains(owner) {
-                        return Err(RpcError::forbidden(
-                            "the Terminal writer has no Reach over this question",
-                        ));
-                    }
-                    if self.takeover.as_ref().is_some_and(|active| active(owner)) {
-                        return Err(RpcError::conflict("the child is under a Takeover"));
-                    }
-                }
-            }
-            if !entry.decision.answerable && terminal.is_none() {
+            if !entry.decision.answerable {
                 return Err(RpcError::new(
                     code::INVALID_PARAMS,
                     format!("decision {id} can only be answered in the Terminal"),
                 ));
             }
+            let mut grant = None;
             let (text, outcome) = match &entry.choices {
                 Some(choices) => {
                     let own = answer.is_none() && !note.trim().is_empty();
@@ -893,7 +900,26 @@ impl Shared {
                 }
                 None => match answer.and_then(Answer::from_word) {
                     Some(word) if note.is_empty() => (
-                        claude_code::reply(word),
+                        {
+                            let scope = scope.unwrap_or(Scope::Once);
+                            if scope != Scope::Once
+                                && (word == Answer::Deny || !entry.decision.scopes.contains(&scope))
+                            {
+                                return Err(RpcError::new(
+                                    code::INVALID_PARAMS,
+                                    format!("decision {id} does not offer that scope"),
+                                ));
+                            }
+                            match (&entry.rule, scope) {
+                                (Some(rule), Scope::Session | Scope::Project) => {
+                                    if scope == Scope::Project {
+                                        grant = Some(claude_code::rule_strings(rule));
+                                    }
+                                    claude_code::reply_scoped(word, Some((rule, scope)))
+                                }
+                                _ => claude_code::reply(word),
+                            }
+                        },
                         match word {
                             Answer::Allow => Outcome::Allow,
                             Answer::Deny => Outcome::Deny,
@@ -951,8 +977,17 @@ impl Shared {
             let waiter = entry.waiter.take().expect("an answerable Decision waits");
             let timing = entry.timing.take();
             open.remove(&agent);
-            (agent, attempt, outcome, waiter, text, timing)
+            (agent, attempt, outcome, waiter, text, timing, grant)
         };
+        if let Some(rules) = grant {
+            self.decisions.grants.lock().expect("Grant lock").insert(
+                id.to_owned(),
+                Grant {
+                    dir: self.project_dir.clone(),
+                    rules,
+                },
+            );
+        }
         cleared(&self.bus, id, outcome);
         let ctx = rpc::Ctx {
             actor: actor.clone(),
@@ -1033,62 +1068,6 @@ impl Shared {
 }
 
 impl crate::Agents {
-    /// U468: accept a native vendor form response only from that exact running
-    /// program, never its tools or MCP shim. Proof stays on decision.answer's path.
-    pub fn answer_terminal_question(
-        &self,
-        ctx: &rpc::Ctx,
-        pid: u32,
-        response: contracts::decision::TerminalAnswer,
-    ) -> Result<(), RpcError> {
-        let owner = self
-            .running_programs()
-            .into_iter()
-            .find(|(_, program)| *program == pid)
-            .map(|(owner, _)| owner)
-            .ok_or_else(|| {
-                RpcError::forbidden("only the live primary program reports a native answer")
-            })?;
-        let answer = {
-            let open = self.shared.decisions.open();
-            let entry = open
-                .get(&owner)
-                .filter(|entry| entry.decision.id == response.id)
-                .ok_or_else(|| {
-                    RpcError::conflict("the original Terminal question is unavailable")
-                })?;
-            let choices = entry
-                .choices
-                .as_ref()
-                .ok_or_else(|| RpcError::forbidden("this is not a question"))?;
-            if choices.terminal.is_none() {
-                return Err(RpcError::forbidden("this question has no native form"));
-            }
-            choices
-                .labels
-                .contains(&response.text)
-                .then_some(response.text.clone())
-        };
-        let note = if answer.is_some() {
-            response.note
-        } else if response.note.is_empty() {
-            response.text
-        } else {
-            format!("{}\n{}", response.text, response.note)
-        };
-        if note.chars().count() > MAX_NOTE_CHARS || (answer.is_none() && note.trim().is_empty()) {
-            return Err(RpcError::new(
-                code::INVALID_PARAMS,
-                "a question answer needs nonempty text of up to 2000 characters",
-            ));
-        }
-        self.shared.deliver_answer(
-            ctx,
-            params_for_delivery(&response.id, answer.as_deref(), &note, None),
-            Some((&owner, pid)),
-        )
-    }
-
     /// Supply B6's observer immediately before a guarded effect, within its identity
     /// critical section. Configure before the first call. A refusal has no effect;
     /// observers must not reenter Agents.
@@ -1104,12 +1083,10 @@ impl crate::Agents {
     /// `decisions` exclude Attempt changes, answers and prompt replacement. User input
     /// invalidates the original identity without removing H7's still-visible Decision.
     /// An identity is no authority: the caller must enforce the existing Terminal Reach.
-    /// `actor` preserves the RPC role's scheduling/guards; `source` is the socket's
-    /// authenticated writer, retained only as native answer provenance.
+    /// `actor` preserves the RPC role's scheduling/guards.
     pub async fn write_terminal(
         &self,
         actor: &Actor,
-        source: &Actor,
         terminal: &str,
         bytes: Vec<u8>,
         identity: Option<PromptIdentity>,
@@ -1150,7 +1127,6 @@ impl crate::Agents {
             };
         };
         let actor = actor.clone();
-        let source = source.clone();
         shared
             .terminals
             .clone()
@@ -1234,9 +1210,6 @@ impl crate::Agents {
                         EventData::DecisionOpened(entry.decision.clone().into()),
                     );
                 }
-                if !bytes.is_empty() {
-                    entry.terminal_actor = None;
-                }
                 writer
                     .write_all(&bytes)
                     .and_then(|()| writer.flush())
@@ -1245,9 +1218,6 @@ impl crate::Agents {
                             "Terminal prompt input may be partial: {error}"
                         ))
                     })?;
-                if !bytes.is_empty() {
-                    entry.terminal_actor = Some(source);
-                }
                 Ok(())
             })
             .await
@@ -1258,12 +1228,14 @@ fn params_for_delivery(
     id: &str,
     answer: Option<&str>,
     note: &str,
+    scope: Option<Scope>,
     identity: Option<PromptIdentity>,
 ) -> AnswerParams {
     AnswerParams {
         id: id.to_owned(),
         answer: answer.map(str::to_owned),
         note: note.to_owned(),
+        scope,
         proof: None,
         identity,
     }
@@ -1357,7 +1329,7 @@ mod tests {
             ),
         };
         let error = agents
-            .write_terminal(&actor, &actor, &terminal.id, vec![b'x'], Some(identity))
+            .write_terminal(&actor, &terminal.id, vec![b'x'], Some(identity))
             .await
             .unwrap_err();
         assert!(

@@ -1,7 +1,6 @@
 import { copy } from "../copy";
 import * as v from "valibot";
 import type { Todo } from "@contracts/todo/Todo";
-import { DraftRecoveryEntry } from "../drawer/DraftRecovery";
 import type { Change } from "@contracts/todo/Change";
 import { useConnectedProject } from "../state/connectedProject";
 import { outcomeOf } from "./failureOf";
@@ -56,7 +55,6 @@ export const TodoDraftRecovery = (props: { object: string; active?: boolean; inD
     <Show when={problem()}>{problem => <ErrorLine message={copy.draftRetention(project.path, copy.draftIdentity(surface, problem().destination?.object ?? props.object), problem().cause)} />}</Show>
     <Show when={failure()}>{message => <ErrorLine message={message()} />}</Show>
     <Show when={problem()}><button data-button="quiet" class="word" type="button" onClick={() => drafts.retry()}>{copy.storageRetry}</button></Show>
-    <Show when={records().length}><DraftRecoveryEntry /></Show>
     <For each={records().map(draft => draft.revision)}>{revision => {
       const draft = () => records().find(record => record.revision === revision);
 

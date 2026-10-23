@@ -268,60 +268,76 @@ async fn b2706_note_mode_is_the_users_default_mode() {
             "auto",
         ),
     ];
-    for (user_layer, project_layer, local_layer, want) in table {
-        let (_, dir) = launcher();
-        let launcher = Launcher::new(
-            "claude",
-            dir.path().join("claude.json"),
-            dir.path().join("rup"),
-            None,
-        );
-        std::fs::write(dir.path().join("rup"), "").unwrap();
-        let project = dir.path().join("proj");
-        let data = project.join(".roundup");
-        std::fs::create_dir_all(project.join(".claude")).unwrap();
-        std::fs::create_dir_all(&data).unwrap();
-        for (file, body) in [
-            (dir.path().join("settings.json"), user_layer),
-            (project.join(".claude/settings.json"), project_layer),
-            (project.join(".claude/settings.local.json"), local_layer),
+    use contracts::agent::PermissionMode;
+    for (user_layer, project_layer, local_layer, inherited) in table {
+        for (selected, want) in [
+            (None, inherited),
+            (Some(PermissionMode::Default), "default"),
+            (Some(PermissionMode::AcceptEdits), "acceptEdits"),
+            (Some(PermissionMode::Plan), "plan"),
+            (Some(PermissionMode::Auto), "auto"),
         ] {
-            if let Some(body) = body {
-                std::fs::write(file, body).unwrap();
-            }
-        }
-        let folders = agents::claude_code::Folders {
-            project: &project,
-            data: &data,
-        };
-        launcher
-            .prepare(
-                folders,
-                "7",
-                "1",
-                &project,
+            let (_, dir) = launcher();
+            let launcher = Launcher::new(
+                "claude",
+                dir.path().join("claude.json"),
+                dir.path().join("rup"),
                 None,
-                agents::claude_code::Role::Agent,
-            )
-            .unwrap();
-        let listener = listed_for(
-            "7",
-            &launcher,
-            dir.path(),
-            "2.1.302",
-            std::process::id(),
-            |j| j,
-        );
-        launcher
-            .inbox_write("7", &[note(7, "look", false)], false)
-            .unwrap();
-        let content = lines(&listener)[1]["message"]["content"].clone();
-        assert!(
-            content
-                .as_str()
-                .unwrap()
-                .contains(&format!("from-mode=\"{want}\">")),
-            "{want}: {content}"
-        );
+            );
+            std::fs::write(dir.path().join("rup"), "").unwrap();
+            let project = dir.path().join("proj");
+            let data = project.join(".roundup");
+            std::fs::create_dir_all(project.join(".claude")).unwrap();
+            std::fs::create_dir_all(&data).unwrap();
+            for (file, body) in [
+                (dir.path().join("settings.json"), user_layer.clone()),
+                (project.join(".claude/settings.json"), project_layer.clone()),
+                (
+                    project.join(".claude/settings.local.json"),
+                    local_layer.clone(),
+                ),
+            ] {
+                if let Some(body) = body {
+                    std::fs::write(file, body).unwrap();
+                }
+            }
+            let folders = agents::claude_code::Folders {
+                project: &project,
+                data: &data,
+            };
+            launcher
+                .prepare_on(
+                    folders,
+                    "7",
+                    "1",
+                    &project,
+                    None,
+                    agents::claude_code::Role::Agent,
+                    &agents::claude_code::Pair {
+                        permission_mode: selected,
+                        ..Default::default()
+                    },
+                )
+                .unwrap();
+            let listener = listed_for(
+                "7",
+                &launcher,
+                dir.path(),
+                "2.1.302",
+                std::process::id(),
+                |j| j,
+            );
+            launcher
+                .inbox_write("7", &[note(7, "look", false)], false)
+                .unwrap();
+            let content = lines(&listener)[1]["message"]["content"].clone();
+            assert!(
+                content
+                    .as_str()
+                    .unwrap()
+                    .contains(&format!("from-mode=\"{want}\">")),
+                "{want}: {content}"
+            );
+        }
     }
 }

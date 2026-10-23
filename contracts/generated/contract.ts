@@ -2,7 +2,7 @@
 export const CONTRACT = {
   methods: {
     "agent.actionHistory": "84ba706abda432d4",
-    "agent.ask": "d719318c25643424",
+    "agent.ask": "bd2a78ef02b459ca",
     "agent.brief": "578d4809b6cafc1b",
     "agent.changedFiles": "f80e4251cb77f2cd",
     "agent.channelUp": "f25fe63dfa04b01a",
@@ -40,6 +40,7 @@ export const CONTRACT = {
     "decision.answers": "62fa35a8b218f55c",
     "decision.capture": "daa8a9b947ed0149",
     "decision.list": "584a15f937c38aff",
+    "decision.revoke": "383bbee53e94ab35",
     "deliverable.get": "61cfff90cfe5766f",
     "deliverable.list": "e90e2a3db3efeb1d",
     "deliverable.move": "c0bc47257c05f0db",
@@ -88,6 +89,7 @@ export const CONTRACT = {
     "project.setPrepared": "bb3878797e8ab3cb",
     "project.setWorkstreamCap": "d7f79377655cd3d6",
     "project.setWorktrees": "6c93fbee222debed",
+    "project.weeklyLimit": "653c2e6ce9ec8ca9",
     "provenance.history": "c20c66fb119e79a3",
     "provenance.touched": "90d4eb550afcfb2b",
     "rail.createWorkstream": "caadcbf2e211b123",

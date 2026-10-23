@@ -4,7 +4,7 @@ import unittest
 import subprocess
 import io
 import time
-from contextlib import redirect_stdout
+from contextlib import redirect_stderr, redirect_stdout
 from unittest.mock import patch
 
 spec = importlib.util.spec_from_file_location('orders', 'loop/orders.py')
@@ -24,6 +24,15 @@ NO_SPEC = issue()['body'].replace('Specification: [scenarios/ui.md](https://gith
 class Orders(unittest.TestCase):
     def check(self, body):
         return subprocess.run(['python3', 'loop/orders.py', 'check', '-'], input=body, text=True, capture_output=True)
+
+    def test_l34_an_empty_rest_issue_list_reads_issues_through_graphql(self):
+        item = dict(number=7, url='https://github.com/a/b/issues/7', title='Explain missing prior output',
+                    body=issue()['body'], state='OPEN', stateReason=None, labels=[], updatedAt=issue()['updated_at'],
+                    author=dict(login='app/claude', is_bot=True))
+        with patch.object(orders, 'gh', side_effect=[[[]], [item]]), redirect_stderr(io.StringIO()):
+            issues = orders.list_issues()
+        rows = orders.classify(issues, {}, [])
+        self.assertEqual([(row['issue'], row['state']) for row in rows], [(7, 'ready')])
 
     def test_l96_check_refuses_a_key_without_a_specification(self):
         result = self.check(NO_SPEC)

@@ -44,9 +44,22 @@ The authoritative Project name an edit was captured against, distinct from an op
 **Project data**:
 The databases, launch files and Pad files roundup keeps for a Project, in `<app data>/projects/<key>/` and never in the Project folder (N1); only Worktrees go in the Project's `.roundup/` (G2).
 
+**Engine** (`engine`, `ModelList.engines`):
+The opaque identity of an implemented Adapter offered by `models.list`, with its display label.
+Today the Claude Code Adapter offers `claude-code` labelled `Claude Code`; no other engine is
+implemented. `agent.spawn` and `rail.startDoor` accept an offered id; omission selects the
+existing Adapter. Model and Effort ids remain opaque outside their Adapter.
+
+**Permission mode** (`PermissionMode`, `permissionMode` on launch calls):
+The user's choice for one normal Attempt (`LaunchMode` retains it for internal restarts): `default`, `acceptEdits`, `plan` or `auto`.
+Omission passes no permission flag, preserving the vendor's own default. `agent.spawn`,
+`rail.startDoor` and `agent.resume` apply it to their launch; `workstream.clear` applies it
+only to the next fresh Door launch. YOLO ignores it. An Agent cannot choose it, and it
+never changes an already running Attempt or stores an app-wide default in the Daemon.
+
 **Agent**:
 One supervised identity, with a Status, on the Rail under its Workstream; each launch of its program is an Attempt, and at most one runs at a time.
-_Avoid_: session, bot, worker
+_Avoid_: bot, worker; and _session_ for an Agent (only a Grant's `session` scope, Claude Code's own word, may carry it).
 
 **Terminal**:
 A shell or program roundup started, with a screen the user can watch; no Status beyond running or exited. Never a Rail row and never stored: it ends with the Daemon, with its owner's removal or when the user closes it. An Agent's own Terminal is its pane; any other is shown as a Bubble. A user-opened Terminal belongs to a Workstream, or to the Project before its first Workstream; a Project-owned Terminal uses the absolute Project folder path as its owner.
@@ -65,6 +78,9 @@ _Avoid_: shell integration (as a name; it is the means)
 
 **Turn** (user label: command):
 One command of a shell Terminal, from its prompt through its output, between the Shell marks `A` and `D`; its rows, exit code and directory, kept by xterm markers (U514).
+
+**ReservedLine** (user label: none; the place a failure, status or count shows):
+The one component through which the webview shows a temporal message (U3807). In its *line* form it is always mounted with the height of one line; in its *overlay* form it is out of the flow. A message appearing or going moves no other element.
 
 **Excerpt**:
 The text of a Terminal's selection that "Send to agent" carries to an Agent, cut to 6 000 bytes with its end kept (U515, U516). Sent as a Message `note` fenced with the Turn's facts when known.
@@ -178,7 +194,7 @@ Starting an Agent's next Attempt in its saved conversation; an explicit mode fir
 Permission prompts off for one Attempt. The Rail reports the last acknowledged Attempt's fact, cleared on reopen. Roundup authority is unchanged.
 
 **Conversation overview** (`ConversationOverview`, `RailNode.overview`):
-Available display parts from a closed Agent's saved conversation: coding program, opaque conversation id and optional name, used tokens and model limit. The Adapter reads vendor storage; its path never leaves it. Absent while an Attempt is live.
+Available display parts from a closed Agent's saved conversation: coding program, opaque conversation id and optional name, used tokens, model limit and, only where the program itself wrote one, the split of used (`ContextPart`, `ContextPartKind`: system, tools, files, conversation, other). The Adapter reads vendor storage; its path never leaves it. Absent while an Attempt is live.
 
 **Import** (`project.importDiscover`, `project.importCommit`, `ImportPeriod`, `ImportCandidate`, `ImportSelection`, `ImportResult`):
 The user's act of bringing recent top-level Claude Code conversations of the open Project into the Rail as closed work: one Workstream with one closed child Agent each, holding a retained copy of the conversation and no Attempt, Terminal or live Status. A candidate's `revision` binds the confirmation to the records previewed; a conversation already in the Project, imported earlier or since removed is not selectable again. Agents never import. Files come from the Project's current Base, never a recovered historical filesystem.
@@ -220,6 +236,9 @@ The macOS window; it starts a Daemon for each open Project and hosts the webview
 
 **App seam**:
 The few Tauri commands and events between the App and its webview (`scenarios/app.md`); not a Daemon contract.
+
+**App Settings**:
+The center view, opened from the app menu's `Settings…` (`⌘,`), holding the settings that apply to the whole App: Agents, Terminal, Shortcuts and Appearance (`scenarios/ui-app-settings.md`).
 
 **File drop**:
 The window's native drop of files, which the Tauri shell takes before the webview sees a DOM `drop`; the App seam reports it as `onFileDrop` and a Terminal pane pastes the dropped paths (U162); while one is dragged the Rail's rows and the Project tabs are its drop targets (U348).
@@ -524,12 +543,6 @@ The latest refused authenticated Agent answer on one original live Decision,
 read through `decision.list` with its Reach filtering: requesting Attempt,
 answering Actor, failure time and exact RPC error code and message. It is not a
 successful answer record; replacement, clearing or successful delivery discards it.
-
-**Terminal question** (`AskCall`, `TerminalAnswer`, `answer_terminal_question`):
-An `ask_user` question the user reads and answers in its Agent's primary Terminal.
-The answer belongs to the original Decision and Attempt and retains its authenticated
-answering Actor. `AskCall.terminal` correlates that waiting call with its form and
-grants no answering authority.
 
 **Prompt identity** (`PromptIdentity`, `CaptureParams`, `decision.capture`):
 The original Decision's identity within one Daemon run, Agent and Attempt. A held answer or answer-like Terminal write carries it into the effect; an answered, dismissed, replaced or unavailable original refuses with an error the Daemon can record as dropped. Equal text and a reused Decision id never revive it. It grants no Reach or Proof.
@@ -839,6 +852,9 @@ until their exact-version Result resolution. They block completion checks and cu
 attribution of later claims for that target. Other current attribution requires the
 same Order and latest Instruction revision, plus the latest reported version of that
 target. Opening or inspecting Progress starts nothing and sends no Message.
+User-label states, each led by a glyph: "Accepted" (check), "Checked independently"
+(check), "Check pending" (circle), "Older version" (circle), "Unknown outcome" (diamond)
+and "Evidence unavailable" (x).
 
 **Request cost** (`RequestCost`, `CacheWrites`):
 The observed opaque Model and independently observed five-minute/one-hour cache-write
@@ -861,6 +877,11 @@ A currency not established by its source is unknown; no conversion is inferred.
 One Workstream's retained consumed tokens and ranked contributors at one Measurement
 revision. Later pages name that revision; a changed revision requires reconciliation.
 It carries collection coverage and failure independently of known consumption.
+
+**Weekly limit** (`WeeklyLimit`, `project.weeklyLimit`):
+The account's weekly use and reset time, as the Claude Code Adapter reads it from the vendor's
+account usage, which spends no Model tokens. It is the account's figure, never a Workstream's
+share; unavailable carries a one-sentence reason and no number.
 
 **Consumed category** (`ConsumedCategory`):
 Input, output, cache read, cache write or their total, chosen to rank contributors.
