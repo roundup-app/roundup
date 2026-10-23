@@ -105,6 +105,7 @@ impl Store {
     }
 
     /// Every id in `blockers` must exist, or the call is `NOT_FOUND`.
+    #[allow(clippy::too_many_arguments)]
     pub(crate) fn insert(
         &self,
         title: &str,
@@ -112,6 +113,7 @@ impl Store {
         blockers: &[u32],
         creator: &Actor,
         owner: Option<&Actor>,
+        estimate_minutes: Option<u32>,
         after_touch: i64,
     ) -> Result<Todo, RpcError> {
         self.require_all(blockers)?;
@@ -121,14 +123,15 @@ impl Store {
             .unchecked_transaction()
             .map_err(RpcError::internal)?;
         tx.execute(
-            "INSERT INTO todos (title, body, created_at, creator, owner, pos)
-             VALUES (?1, ?2, ?3, ?4, ?5, (SELECT COALESCE(MAX(pos), 0) + 1 FROM todos))",
+            "INSERT INTO todos (title, body, created_at, creator, owner, estimate_minutes, pos)
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6, (SELECT COALESCE(MAX(pos), 0) + 1 FROM todos))",
             params![
                 title,
                 body,
                 created_at,
                 creator_json(creator),
-                owner.map(creator_json)
+                owner.map(creator_json),
+                estimate_minutes
             ],
         )
         .map_err(RpcError::internal)?;
@@ -143,7 +146,7 @@ impl Store {
         let row = self
             .db
             .query_row(
-                "SELECT title, body, done, created_at, creator, home, owner, EXISTS(
+                "SELECT title, body, done, created_at, creator, home, owner, estimate_minutes, EXISTS(
                     SELECT 1 FROM blockers b JOIN todos o ON o.id = b.blocker
                     WHERE b.todo = todos.id AND o.done = 0
                 ) FROM todos WHERE id = ?1",
@@ -158,12 +161,13 @@ impl Store {
                         r.get(5)?,
                         r.get::<_, Option<String>>(6)?,
                         r.get(7)?,
+                        r.get(8)?,
                     ))
                 },
             )
             .optional()
             .map_err(RpcError::internal)?;
-        let (title, body, done, created_at, creator, home, owner, blocked) =
+        let (title, body, done, created_at, creator, home, owner, estimate_minutes, blocked) =
             row.ok_or_else(|| RpcError::not_found(format!("todo {id}")))?;
         Ok(Todo {
             id,
@@ -180,6 +184,7 @@ impl Store {
                 .transpose()
                 .map_err(RpcError::internal)?,
             refs: self.refs(id)?,
+            estimate_minutes,
         })
     }
 
@@ -231,11 +236,13 @@ impl Store {
         ids.into_iter().map(|id| self.get(id)).collect()
     }
 
+    #[allow(clippy::too_many_arguments)]
     pub(crate) fn update(
         &self,
         id: u32,
         title: Option<&str>,
         body: Option<&str>,
+        estimate_minutes: Option<Option<u32>>,
         expected_change: Option<u32>,
         after_touch: i64,
         actor: &Actor,
@@ -244,12 +251,13 @@ impl Store {
             .db
             .unchecked_transaction()
             .map_err(RpcError::internal)?;
-        let before = values(&self.get(id)?);
+        let current = self.get(id)?;
+        let before = values(&current);
         self.require_change(id, expected_change)?;
         self.db
             .execute(
-                "UPDATE todos SET title = COALESCE(?2, title), body = COALESCE(?3, body) WHERE id = ?1",
-                params![id, title, body],
+                "UPDATE todos SET title = COALESCE(?2, title), body = COALESCE(?3, body), estimate_minutes = ?4 WHERE id = ?1",
+                params![id, title, body, estimate_minutes.unwrap_or(current.estimate_minutes)],
             )
             .map_err(RpcError::internal)?;
         self.record_change(id, Some(before), after_touch, actor)?;
@@ -700,6 +708,7 @@ fn values(todo: &Todo) -> Values {
         done: todo.done,
         blockers: todo.blockers.clone(),
         owner: todo.owner.clone(),
+        estimate_minutes: todo.estimate_minutes,
     }
 }
 
