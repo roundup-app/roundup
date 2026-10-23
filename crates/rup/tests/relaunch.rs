@@ -10,9 +10,24 @@ use std::time::Duration;
 
 #[tokio::test]
 async fn a3516b_start_context_carries_the_brief() {
-    let project = daemon::start(&[]);
+    let reports = tempfile::tempdir().unwrap();
+    let prompts = reports.path().join("prompts.jsonl");
+    let project = daemon::start(&[("FAKE_CLAUDE_PROMPT_LOG", prompts.to_str().unwrap())]);
     let client = project.client().await;
-    let agent = project.spawn_agent(&client).await;
+    let agent: contracts::agent::RailNode = serde_json::from_value(
+        client
+            .request(
+                "agent.spawn",
+                json!({"cwd": project.dir.path(), "name": "start-context", "prompt": "first work"}),
+            )
+            .await
+            .unwrap(),
+    )
+    .unwrap();
+    daemon::h21_poll("the user's initial prompt", async || {
+        std::fs::read_to_string(&prompts).ok()
+    })
+    .await;
     let files = project.data_dir().join("agents");
     let brief = std::fs::read_to_string(files.join(format!("{}.brief.md", agent.id))).unwrap();
     let settings: Value = serde_json::from_slice(
@@ -60,6 +75,12 @@ async fn a3516b_start_context_carries_the_brief() {
             )
         );
     }
+    let delivered: Vec<Value> = std::fs::read_to_string(&prompts)
+        .unwrap()
+        .lines()
+        .map(|line| serde_json::from_str::<Value>(line).unwrap()["prompt"].clone())
+        .collect();
+    assert_eq!(delivered, [json!("first work")]);
     assert_eq!(
         std::fs::read_to_string(files.join(format!("{}.brief.md", agent.id))).unwrap(),
         brief
