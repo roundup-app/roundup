@@ -5,9 +5,9 @@ import { copy } from "../copy";
 import { KindGlyph } from "../ink/KindGlyph";
 import { Combobox } from "../ui/Combobox";
 import { useConnectedProject } from "../state/connectedProject";
-import { captureActions, registerKeys } from "../keys/registry";
+import { captureActions, modalOutside, modalOpen, registerKeys } from "../keys/registry";
 import { leaderChord, SWITCHER_CLOSE, SWITCHER_TAKE } from "../keys/chords";
-import { KeyChip } from "../keys/KeyChip";
+import { KeyHint } from "../keys/KeyHint";
 import { REVEAL_BUBBLE } from "../bubbles/places";
 import { entriesOf, matching } from "./entries";
 import type { Entry } from "./entries";
@@ -155,7 +155,10 @@ export const Switcher = (props: { onFailure: (message: string | null) => void; o
 
   const chooseHighlighted = (take: boolean): void => chooseValue(highlighted(), take);
 
+  createEffect(() => { if (open() && modalOutside(panel)) close(false); });
+
   const show = (): void => {
+    if (modalOpen()) return;
     returnTo = document.activeElement;
     setOpening({ selected: rail.selected(), actions: captureActions(returnTo) });
     props.onOpen();
@@ -207,7 +210,7 @@ export const Switcher = (props: { onFailure: (message: string | null) => void; o
             const action = actions().find((candidate) => candidate.value === item.value);
             const entry = entries().find((candidate) => candidate.value === item.value);
 
-            if (action) return <><span class="switcher-name">{action.label}</span><KeyChip keys={action.keys} /></>;
+            if (action) return <KeyHint class="switcher-action" labelClass="switcher-name" chipAfter keys={action.keys}>{action.label}</KeyHint>;
 
             if (!entry) return null;
 

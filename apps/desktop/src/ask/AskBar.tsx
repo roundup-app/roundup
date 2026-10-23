@@ -6,7 +6,7 @@ import { openDeliverable } from "./openDeliverable";
 import { Icon } from "../ink/Icon";
 import { ErrorLine } from "../ink/ErrorLine";
 import { ASK_CLOSE, CHORDS, chordsFor } from "../keys/chords";
-import { registerKeys, type KeyScope } from "../keys/registry";
+import { modalOpen, modalOutside, registerKeys, type KeyScope } from "../keys/registry";
 import { useConnectedProject } from "../state/connectedProject";
 import { Mentions } from "../ui/Mentions";
 import { KindGlyph, LABELS } from "../ink/KindGlyph";
@@ -21,6 +21,7 @@ import { shelfScope } from "../shelf/scope";
 import type { RailNode } from "@contracts/agent/RailNode";
 import { AskRows } from "./AskRows";
 import { createReactions, Reactions } from "../reactions/Reactions";
+import { ToolCallLine } from "./ToolCallLine";
 import "./styles.css";
 
 /** The leading `@` and the letters after it, while the user has not yet typed the space that ends the name (U504). */
@@ -165,7 +166,10 @@ export const AskBar = (props: {
     if (restore && returnTo instanceof HTMLElement && returnTo.isConnected) returnTo.focus();
   };
 
+  createEffect(() => { if (over() && modalOutside(panel)) close(false); });
+
   const open = (): void => {
+    if (modalOpen()) return;
     returnTo = document.activeElement;
     setOver(true);
     queueMicrotask(() => {
@@ -251,7 +255,7 @@ export const AskBar = (props: {
     </Popover.Root></div></Show>
     <Show when={shown()}>
       <section class="ask-bar" data-mode={over() ? "over" : "home"} aria-label={copy.askBarLabel} ref={(element) => { panel = element; }}>
-        <Mentions.Root items={matching()} highlightedValue={highlighted()} onHighlightChange={setHighlighted} onSelect={complete}>
+        <Mentions.Root onDismiss={() => setDismissed(true)} items={matching()} highlightedValue={highlighted()} onHighlightChange={setHighlighted} onSelect={complete}>
           <Mentions.Field class="ask-input" ref={restoreSelection}
             rows={1} aria-label={copy.askBarLabel} placeholder={copy.askBarPlaceholder} value={text()} open={matching().length > 0}
             onInput={(event) => { setDismissed(false); setText(event.currentTarget.value); }} onSelect={retainSelection} onKeyUp={retainSelection} onClick={retainSelection} onKey={onKey} />
@@ -294,6 +298,8 @@ const ProjectOverview = () => {
   const workstreams = createMemo(() => siblingsOf(rail.nodes, null).flatMap((node) => [node, ...descendantsOf(rail.nodes, node.id)]).filter((node) => node.kind === "workstream"));
   const under = (id: string | null) => attention().filter((node) => resolvedWorkstream(rail.nodes, node.id) === id);
 
+  const called = (id: string | null) => rail.nodes.filter((node) => node.tool_call !== undefined && resolvedWorkstream(rail.nodes, node.id) === id);
+
   const entry = (node: RailNode, waiting = false) => <OverviewEntry node={node} waiting={waiting} select={() => rail.select(node.id)} />;
 
   return <section class="project-overview" aria-label={copy.projectOverview}>
@@ -310,8 +316,12 @@ const ProjectOverview = () => {
         <Show when={under(node.id).length > 0}><ul class="overview-attention">
           <For each={under(node.id)}>{(agent) => <li>{entry(agent, true)}</li>}</For>
         </ul></Show>
+        <Show when={called(node.id).length > 0}><ul class="overview-calls">
+          <For each={called(node.id)}>{(agent) => <li><ToolCallLine name={agent.name} call={agent.tool_call!} /></li>}</For>
+        </ul></Show>
       </li>}</For>
       <For each={under(null)}>{(node) => <li>{entry(node, true)}</li>}</For>
+      <For each={called(null)}>{(agent) => <li><ToolCallLine name={agent.name} call={agent.tool_call!} /></li>}</For>
     </ul>
   </section>;
 };

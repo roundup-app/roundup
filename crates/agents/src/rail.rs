@@ -1403,6 +1403,7 @@ fn load_nodes(db: &Connection, include_preparation: bool) -> Result<Vec<RailNode
                     .then(|| row.get(13))
                     .transpose()?,
                 inbox: None,
+                tool_call: None,
                 overview: None,
             })
         })
