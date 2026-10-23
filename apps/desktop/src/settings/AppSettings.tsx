@@ -1,7 +1,7 @@
 import { createResource, createSignal, onCleanup, Show } from "solid-js";
 import type { App } from "../app/seam";
 import { copy } from "../copy";
-import { ErrorLine } from "../ink/ErrorLine";
+import { ReservedLine } from "../ink/ReservedLine";
 import { registerKeys } from "../keys/registry";
 import { Combobox } from "../ui/Combobox";
 import { Select } from "../ui/Select";
@@ -96,7 +96,7 @@ export const AppSettings = (props: { app: App; project: () => string | null; onO
             items={[...defaults, ...(offered()?.list?.models ?? []).map(item => ({ value: item.id, label: item.label }))]}
             onSelect={model => save({ model, modelLabel: offered()?.list?.models.find(item => item.id === model)?.label ?? "" })} /></label>
         </Show>
-        <Show when={offered()?.failure}>{message => <ErrorLine message={message()} />}</Show>
+        <ReservedLine message={offered()?.failure} />
       </SettingsGroup>
       <SettingsGroup name={copy.settingsTerminal}>
         <label class="settings-field settings-font"><span>{copy.fontFamily}</span><input type="text" aria-label={copy.fontFamily} placeholder={defaultFont} value={field("fontFamily")}
@@ -105,7 +105,7 @@ export const AppSettings = (props: { app: App; project: () => string | null; onO
         <div class="settings-field"><label><span>{copy.fontSize}</span><input type="text" aria-label={copy.fontSize} inputMode="decimal" value={field("fontSize")}
           onInput={event => edit("fontSize", event.currentTarget)} onBlur={commitSize}
           onKeyDown={event => { if (event.key === "Enter" && !event.isComposing) { event.preventDefault(); commitSize(); } }} /></label>
-          <Show when={sizeFailure()}>{message => <ErrorLine message={message()} />}</Show>
+          <ReservedLine message={sizeFailure()} />
         </div>
       </SettingsGroup>
       <SettingsGroup name={copy.settingsShortcuts}><ShortcutSetting onFailure={setFailure} /></SettingsGroup>
@@ -113,8 +113,8 @@ export const AppSettings = (props: { app: App; project: () => string | null; onO
         <Select label={copy.mode} choices={[{ value: "dark", label: copy.modeDark }, { value: "light", label: copy.modeLight }, { value: "system", label: copy.modeSystem }]} value={appSettings().mode}
           onValueChange={mode => { if (mode === "dark" || mode === "light" || mode === "system") save({ mode }); }} />
       </SettingsGroup>
-      <Show when={failure()}>{message => <ErrorLine message={message()} />}</Show>
-      <Show when={drafts.problem()}>{problem => <><ErrorLine message={copy.draftRetention(copy.settings, copy.settingsTerminal, problem().cause)} /><button data-button="quiet" type="button" onClick={() => drafts.retry()}>{copy.storageRetry}</button></>}</Show>
+      <ReservedLine message={failure()} />
+      <ReservedLine message={drafts.problem() ? copy.draftRetention(copy.settings, copy.settingsTerminal, drafts.problem()!.cause) : null}><button data-button="quiet" type="button" onClick={() => drafts.retry()}>{copy.storageRetry}</button></ReservedLine>
     </SettingsShell>
   </Show>;
 };

@@ -85,7 +85,7 @@ export const withAppSettings = (app: AppSeam, resumesDoor: (id: string | number)
     ...app,
     rpc,
     // The native menu responder can change after connecting a Project; read it when invoked.
-    showContextMenu: (items, x, y) => app.showContextMenu(items, x, y),
+    get showContextMenu() { return app.showContextMenu; },
   };
 };
 

@@ -63,6 +63,8 @@ try:
     browser('wait', '--fn', 'document.documentElement.dataset.mode==="system"')
     capture('U3805', 'system-dark')
     browser('open', origin + '/harness.html?seed=first-run')
+    browser('set', 'viewport', '1512', '950')
+    browser('set', 'media', 'dark')
     browser('wait', '--fn', 'Boolean(window.__fake && document.querySelector(".settings-center"))')
     evaluate('window.dispatchEvent(new Event("open-app-settings"))')
     browser('wait', '--fn', 'Boolean(document.querySelector(".settings-view"))')
