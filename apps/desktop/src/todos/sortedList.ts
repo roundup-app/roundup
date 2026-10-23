@@ -47,9 +47,10 @@ export const createSortedList = (source: {
 
   /** A row's top on screen, any slide or drag offset in effect included: the offset parent of a nested row is its own Leaf, so `offsetTop` cannot tell where it is. */
   const positionOf = (el: HTMLElement) => {
-    const { top, left } = el.getBoundingClientRect();
+    const row = el.getBoundingClientRect();
+    const box = row.width > 0 && row.height > 0 ? row : el.closest("[data-shelf-group]")?.querySelector(".shelf-group-head")?.getBoundingClientRect();
 
-    return { top, left };
+    return box && box.width > 0 && box.height > 0 ? { top: box.top, left: box.left } : undefined;
   };
 
   const measure = () => {
@@ -57,7 +58,12 @@ export const createSortedList = (source: {
     const area = frames.values().next().value?.closest<HTMLElement>(".shelf-area");
 
     scroll = area ? { element: area, top: area.scrollTop, left: area.scrollLeft } : null;
-    frames.forEach((el, id) => positions.set(id, positionOf(el)));
+    frames.forEach((el, id) => {
+      const position = positionOf(el);
+
+      if (position) positions.set(id, position);
+      else positions.delete(id);
+    });
   };
 
   /** U156: slides each row from where it showed (mid-slide included) to where the refetched list puts it. */
@@ -76,6 +82,11 @@ export const createSortedList = (source: {
 
       const position = positionOf(el);
       const was = positions.get(id);
+
+      if (!position) {
+        positions.delete(id);
+        continue;
+      }
 
       positions.set(id, position);
 

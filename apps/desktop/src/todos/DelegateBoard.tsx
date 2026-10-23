@@ -18,6 +18,7 @@ export const createDelegateBoard = (active: Accessor<boolean>, all: Accessor<rea
   const agents = createMemo(() => ownersOnRail(connected).filter(owner => owner.actor?.kind === "agent"));
 
   return {
+    target: () => agents().find(owner => owner.id === preview()?.group),
     preview: setPreview,
     digit: (group: OwnerGroup<Todo>) => {
       const at = agents().findIndex(owner => owner.id === group.id);
@@ -37,7 +38,9 @@ export const createDelegateBoard = (active: Accessor<boolean>, all: Accessor<rea
       const time = `${String(date.getHours()).padStart(2, "0")}:${String(date.getMinutes()).padStart(2, "0")}`;
       const line = minutes === 0 ? copy.todoFreeNow : copy.todoBusyUntil(time);
 
-      return missing === 0 ? line : `${line} · ${missing === open.length ? copy.todoNoEstimates : copy.todoWithoutEstimates(missing)}`;
+      if (open.length > 0 && missing === open.length) return copy.todoNoEstimates;
+
+      return missing === 0 ? line : `${line} ${copy.todoWithoutEstimates(missing)}`;
     },
   };
 };

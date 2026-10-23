@@ -9,11 +9,6 @@ afterEach(() => { cleanup(); vi.useRealTimers(); });
 
 const owner = { kind: "agent" as const, id: "a", parent: null };
 
-it("u3308_a_free_agent_reads_free_now", async () => {
-  await mountTodos([todo(1, { owner })], true, [agent("a", "idle", "", { name: "Writer" })]);
-  await waitFor(() => expect(screen.getByText(/free now/)).toBeTruthy());
-});
-
 it("u3309_a_digit_assigns_to_that_agent_once_and_focus_returns_to_the_row", async () => {
   const m = await mountTodos([todo(1)], true, [agent("a", "idle", "", { name: "Writer" })]);
   const row = await screen.findByRole("button", { name: "Idle #1 todo 1" });
@@ -31,10 +26,10 @@ it("u3308_busy_until_is_now_plus_the_sum_of_estimates_and_done_todos_add_nothing
 
 it("u3308_missing_estimates_add_nothing_and_say_so", async () => {
   const m = await mountTodos([todo(1, { owner, estimate_minutes: 30 }), todo(2, { owner })], true, [agent("a", "idle", "")], false, undefined, () => new Date(2026, 9, 23, 13, 0).getTime());
-  await waitFor(() => expect(screen.getByText("busy until 13:30 · + 1 without estimate")).toBeTruthy());
+  await waitFor(() => expect(screen.getByText("busy until 13:30 + 1 without estimate")).toBeTruthy());
   m.store.todos = m.store.todos.map(row => ({ ...row, estimate_minutes: null }));
   m.app.emit(todoEvent("todo.updated", m.store.todos[0]!));
-  await waitFor(() => expect(screen.getByText("free now · no estimates")).toBeTruthy());
+  await waitFor(() => expect(screen.getByText("no estimates")).toBeTruthy());
 });
 
 it("u3308_the_line_follows_an_estimate_change_and_the_minute", async () => {
@@ -151,12 +146,20 @@ it("u3309_the_digits_are_registered_shelf_bindings_listed_in_help", async () => 
   expect(hintsFor("shelf")).toContainEqual(expect.objectContaining({ keys: "1–9" }));
 });
 
-it("u3308_an_agent_with_no_todos_still_shows_free_now", async () => {
-  await mountTodos([todo(1)], true, [agent("a", "idle", "", { name: "Writer" })]);
-  const group = document.querySelector('[data-shelf-group="a"]');
+it("u3308_idle_groups_follow_the_workstream_and_lift_reveals_every_owner", async () => {
+  const m = await mountTodos([todo(1, { home: "w" })], true, [workstream("w"), workstream("other"), agent("a", "idle", "", { name: "Writer", parent: "w" }), agent("b", "idle", "", { name: "Other", parent: "other" })]);
 
-  expect(group?.textContent).toContain("Writer");
-  expect(group?.textContent).toContain("free now");
+  expect(document.querySelector('[data-shelf-group="a"]')).toBeNull();
+  m.connected.rail.select("w");
+  await waitFor(() => expect(document.querySelector('[data-shelf-group="a"]')?.textContent).toContain("free now"));
+  expect(document.querySelector('[data-shelf-group="b"]')).toBeNull();
+  const row = await screen.findByRole("button", { name: "Idle #1 todo 1" });
+
+  row.focus();
+  fireEvent.keyDown(row, { key: "Enter", code: "Enter" });
+  expect(document.querySelector('[data-shelf-group="b"]')).toBeTruthy();
+  fireEvent.keyDown(row, { key: "Escape", code: "Escape" });
+  expect(document.querySelector('[data-shelf-group="b"]')).toBeNull();
 });
 
 it("u3311_a_door_hand_off_reveals_folded_destinations_without_stealing_focus", async () => {

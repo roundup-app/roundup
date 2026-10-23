@@ -181,6 +181,7 @@ export const OpenRow = (props: {
       </>}
       data-id={props.nested ? undefined : props.todo.id}
       data-todo={props.todo.id}
+      data-lifted={props.lifted ? "true" : undefined}
       onAnimationEnd={event => {
         if (props.groupComplete !== undefined && event.target instanceof Element && event.target.matches(".todo-tick-mark path")) props.onMotionEnd?.();
       }}
@@ -211,7 +212,7 @@ export const OpenRow = (props: {
         <p class="item-description" data-todo-description title={bodyLine()}>{bodyLine()}</p>
       </Show>
       {props.groupProgress}
-      <div class="todo-row-notice"><ReservedLine overlay={props.nested === true} message={failure()} /></div>
+      <div class="todo-row-notice"><ReservedLine overlay message={failure()} /></div>
       <Show when={props.nested}>
         <p class="shelf-meta" data-todo-meta>
           <Show when={props.nested}><span data-mono>{copy.todoNumberMark}{props.todo.id}</span>{" "}</Show>
