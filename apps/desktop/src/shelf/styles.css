@@ -326,14 +326,15 @@
   pointer-events: auto;
 }
 
-/* The title line has a full --line; overlaying shorter body prose would cover both lines. */
-.shelf .todos-tab .shelf-text {
+/* U3309: reserve the second line even for a Todo without body prose. */
+.shelf .todos-tab .todo-inset > .shelf-text {
   position: relative;
+  min-block-size: var(--line);
 }
 
-.shelf .todos-tab .todo-row-notice {
+.shelf .todos-tab .todo-inset > .shelf-text > .todo-row-notice {
   position: absolute;
-  top: calc(-1 * var(--line));
+  top: 0;
   inset-inline: 0;
   block-size: var(--line);
   pointer-events: none;
