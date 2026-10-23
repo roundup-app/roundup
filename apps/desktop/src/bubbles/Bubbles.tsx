@@ -1,3 +1,4 @@
+import { createTerminalClose } from "./close";
 import { ReservedLine } from "../ink/ReservedLine";
 import { CHORDS, LEADER } from "../keys/chords";
 import { registerKeys } from "../keys/registry";
@@ -127,7 +128,6 @@ export const Bubbles = (props: {
   const [editing, setEditing] = createSignal<{ id: string } | null>(null);
   createEffect(on(() => rail.selected(), () => setEditing(null), { defer: true }));
   onMount(() => setBar(layer()?.parentElement?.querySelector<HTMLElement>(".resource-strip") ?? undefined));
-  const [closing, setClosing] = createSignal<ReadonlySet<string>>(new Set());
   let before: Element | null = null;
 
   const extent = (): Extent => {
@@ -296,32 +296,7 @@ export const Bubbles = (props: {
 
   const readOnly = () => connected.daemonExit() !== null;
 
-  const close = async (id: string): Promise<void> => {
-    if (closing().has(id)) return;
-
-    const active = document.activeElement;
-    const controlHeldFocus = active instanceof Element && active.closest("[data-bubble]")?.getAttribute("data-bubble") === id;
-    setClosing((ids) => new Set([...ids, id]));
-
-    try {
-      await app.rpc("terminal.close", { id });
-      await rail.refresh({ terminals: true });
-      setFailure(null);
-
-      if (controlHeldFocus) queueMicrotask(() => {
-        const remaining = shown();
-        const nextId = remaining.find((terminal) => Number(terminal.id) > Number(id))?.id ?? remaining.at(-1)?.id;
-        const control = nextId === undefined ? document.querySelector<HTMLElement>('.terminal-new') : document.querySelector<HTMLElement>(`.terminal-tab[data-bubble="${nextId}"]`);
-        control?.focus();
-      });
-    } catch (thrown) {
-      if (!(thrown instanceof Error)) throw thrown;
-
-      setFailure(thrown.message);
-    } finally {
-      setClosing((ids) => new Set([...ids].filter((held) => held !== id)));
-    }
-  };
+  const { close, closing } = createTerminalClose(connected, shown, setFailure);
 
   const bubbleElement = (id: string): HTMLElement | null => document.querySelector<HTMLElement>(`[data-bubble="${id}"]`);
 
