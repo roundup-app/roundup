@@ -23,5 +23,15 @@ export const Menu = {
       (props.ref as ((element: HTMLButtonElement) => void) | undefined)?.(element);
     }} />;
   },
+  ContextTrigger: (props: ArkMenu.ContextTriggerProps) => {
+    const setElement = useContext(Owner);
+
+    return <ArkMenu.ContextTrigger {...props} ref={(element: HTMLButtonElement) => {
+      setElement?.(element);
+
+      // SAFETY: callers supply callback refs; Solid compiles element bindings into callbacks.
+      (props.ref as ((element: HTMLButtonElement) => void) | undefined)?.(element);
+    }} />;
+  },
   Content: (props: ArkMenu.ContentProps) => <ArkMenu.Content {...props} class={`app-menu ${props.class ?? ""}`} />,
 };
