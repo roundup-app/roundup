@@ -34,12 +34,11 @@ Starting values. The thresholds in the checks are fixed; a value that fails a th
 | `--selected` | `rgba(0,0,0,.05)` | `rgba(255,255,255,.10)` | the selected row |
 | `--selected-hover` | `rgba(0,0,0,.07)` | `rgba(255,255,255,.13)` | the selected row under the pointer |
 | `--scrim` | `rgba(0,0,0,.40)` | same | darkens the centre beneath an overlay Shelf |
-| `--pressed` | `rgba(0,0,0,.10)` | `rgba(255,255,255,.16)` | a button from `pointerdown` |
 | `--text` | `#1d1d1f` | `#f5f5f7` | body text |
 | `--grey` | `#68686d` | `#a1a1a6` | secondary text, Glyph tone of `blocked`, `idle`, `done` |
 | `--cache-write` | `#b4b4b9` | `#636368` | Measurement cache-write segment and swatch |
 | `--disabled` | `#6f6f74` | `#8e8e93` | the label of a button that cannot act (4.5:1 on `--ground` and `--sunken`) |
-| `--accent` | `#0a60d8` | `#4d9bff` | focus ring, Glyph tone of `working`, the primary action |
+| `--accent` | `#0a60d8` | `#4d9bff` | Glyph tone of `working`, the primary action |
 | `--amber` | `#975900` | `#f0a030` | `needs-you` |
 | `--red` | `#c4262e` | `#ff6b6b` | `error` |
 | `--hairline` | `rgba(0,0,0,.10)` | `rgba(255,255,255,.12)` | the one permitted border |
@@ -95,19 +94,19 @@ Three hues exist in the whole App: `--red`, `--amber`, `--accent`. Surfaces are 
 
 ## Click targets
 
-**Ghost, icon and disclosure buttons (U510)**: quiet, add, row-action and icon buttons draw no fill, border, radius or inline padding on hover or press. Hover moves the ink from `--grey` to `--text`; press dims it to `--ink-pressed`; a label and its chevron sit `--space-1` apart. Keyboard focus keeps the shared `--accent` ring (U133). A toggled icon keeps its persistent selected surface with no hover or press fill. A control resting on a selected wash (the Rail's selected-row Add Agent, a selected tab's ×) rests at `--ink-rest-selected`, a step below hover's `--text`. U2716a specifies the Project root as a future pinned Overview band: its hover wash, selected ground and icon tile follow that scenario, with U362's Todo drop highlight preserved. Tabs and a row's pads count (`display: none` while the pointer is near its row) keep their existing behaviour; `apps/desktop/src/app/u510_ink_feedback.test.ts` inventories every other caller on `tree-40`, `thread-report`, `tabs-8` and `door-stopped`.
+**Ghost, icon and disclosure buttons (U510)**: quiet, add, row-action and icon buttons draw no fill, border, radius or inline padding on hover or press. Hover moves the ink from `--grey` to `--text`; press dims it to `--ink-pressed`; a label and its chevron sit `--space-1` apart. Focus never draws a ring (U3528). A toggled icon keeps its persistent selected surface with no hover or press fill. A control resting on a selected wash (the Rail's selected-row Add Agent, a selected tab's ×) rests at `--ink-rest-selected`, a step below hover's `--text`. U2716a specifies the Project root as a future pinned Overview band: its hover wash, selected ground and icon tile follow that scenario, with U362's Todo drop highlight preserved. Tabs and a row's pads count (`display: none` while the pointer is near its row) keep their existing behaviour; `apps/desktop/src/app/u510_ink_feedback.test.ts` inventories every other caller on `tree-40`, `thread-report`, `tabs-8` and `door-stopped`.
 
-A click target is any element with a click, press or key handler, a `button`, `a` or `[role=button|row|tab]`, or `cursor: pointer`. Each has these states, and each state differs from the one before it in a computed colour, background or outline:
+A click target is any element with a click, press or key handler, a `button`, `a` or `[role=button|row|tab]`, or `cursor: pointer`. Each has these states. Focus adds no paint and pressing adds no background (U3528):
 
 | State | Looks like | When |
 |---|---|---|
 | rest | its resting surface; a button also has a label in `--text` or `--grey` and a hit height of at least 24 px | always |
 | hover | `--hover` surface, cursor `pointer` | pointer over it |
-| pressed | one step darker than hover, with no transition | from `pointerdown`, before `pointerup` |
-| focus | 2 px `--accent` outline, offset 1 px | keyboard focus only; a pointer press never draws it (U2770) |
+| pressed | unchanged background; existing ink feedback only | from `pointerdown`, before `pointerup` |
+| focus | no outline or focus shadow; fields keep their caret | every input path (U3528) |
 | disabled | `--disabled` text, cursor `default`, `aria-disabled`, no hover or pressed change | when it cannot act |
 
-A `textarea` is a text field, not a pressed surface: D6 and D7 skip it, because it answers with a text cursor and, while focused, one `--accent` bar inside its box (U353) instead of a hover surface, a pointer and a pressed style.
+A `textarea` is a text field, not a pressed surface: D6 and D7 skip it, because it answers with a text cursor while focused (U3528) instead of a hover surface, a pointer and a pressed style.
 
 A disabled button stays focusable and keeps `aria-disabled="true"`, never the `disabled` attribute, so its reason can be read as its `title`; its handler does nothing while it is set.
 
@@ -131,7 +130,7 @@ Every button of the Rail, Shelf, Drawer, Thread and centre is one of five kinds 
 | row action | a word or mark in `--grey`, shown on a row's hover, focus or selection, always reachable by keyboard | `Move`, `Complete`, `Start supervisor` |
 | icon button | a 16 px mark in a 24 px square, with an `aria-label` | Close, Remove, Collapse |
 
-An icon toggle with `aria-pressed="true"` uses `--text` on `--selected`, `--selected-hover` on hover, and `--pressed` from `pointerdown` (U470). Every kind has the five states above. Pressed is `--pressed`; the label tone of disabled is `--disabled`.
+An icon toggle with `aria-pressed="true"` uses `--text` on `--selected`, `--selected-hover` on hover, and keeps that background from `pointerdown` (U3528). Every kind has the five states above. Pressed adds no background; the label tone of disabled is `--disabled`.
 
 ## Surfaces and depth
 
@@ -155,9 +154,9 @@ Each check is measured from computed style and the DOM of the running App, never
 | D2 | every static interface font size is a type step; U102 Terminal sizing uses its bounded Token-defined scale; every margin, padding and gap is `0` or a space step, except U2541 `kbd.key-chip`: zero vertical padding and 5 px on each side matching `--key-chip-padding` (D1 still requires Token-only declarations). This adds no general space step. | U131 |
 | D3 | every colour whose saturation exceeds 15% is `--red`, `--amber` or `--accent`; with no `error` or `needs-you` row on screen, no red or amber is drawn | U132 |
 | D4 | every Rail, Shelf and Drawer item row (not editor menu categories or commands) shows one of the six Glyphs for its Kind; no Kind is drawn by colour only | U132 |
-| D5 | text has at least 4.5:1 against its own ground, and a Glyph tone and a focus ring 3:1 (`done` is exempt as U4 says), in light and in dark | U4, U135 |
-| D6 | every click target except a `textarea` shows its rest, hover and keyboard focus states from the table above; a pointer press never draws a focus ring (U2770), and its hit area is at least 24 px high | U133, U2770 |
-| D7 | every click target except a `textarea` has a pressed style that differs from hover, appears at `pointerdown` and has a transition of `0s` | U133 |
+| D5 | text has at least 4.5:1 against its own ground, and a Glyph tone 3:1 (`done` is exempt as U4 says), in light and in dark | U4, U135 |
+| D6 | every click target except a `textarea` retains hover feedback, keyboard reachability and a hit area at least 24 px high; no focus ring (U3528) | U133, U3528 |
+| D7 | every click target adds no pressed background at `pointerdown`; ink feedback may remain (U3528) | U133 |
 | D8 | no border is wider than 1 px or any colour but `--hairline`; only the Drawer, the Terminal bubble, the Shelf, the Terminal's control overlay (U375) and floating menus have a shadow (menus use `--shadow-drawer` on their surface only), and a list's scroll shadow is `--shadow-scroll`; no `backdrop-filter` element contains another | U134, U371 |
 | D9 | each duration is within 25% of `docs/motion.md`, and under `prefers-reduced-motion` all but the instant changes are 0; duration membership alone proves neither movement nor smoothness (U3010a, `scenarios/ui-motion.md`) | U5, U135 |
 | D10 | D1 to D9 hold in both colour schemes, in `prefers-contrast: more`, and at 1280 by 800 | U135 |
@@ -203,14 +202,14 @@ Root Tokens and painted surfaces outside the header stay unchanged. Backing valu
 | bare header controls | `--grey` / `--disabled` | root `#68686d` / `#6f6f74` | root `#a1a1a6` / `#8e8e93` |
 | unselected tabs | `--grey` | root `#68686d` | root `#a1a1a6` |
 | tab controls | `--disabled` | `--text` | `--text` |
-| header and tab focus rings | `--accent` | root `#0a60d8` | root `#4d9bff` |
+| header and tab focus | no paint (U3528) | none | none |
 | header Ink and Tab marks, including overflow | `--red` / `--amber` | root `#c4262e` / `#975900` | root `#ff6b6b` / `#f0a030` |
-| bare header controls | `--hover` / `--pressed` | root values | root values |
-| unselected tab and its × | `--hover` / `--pressed` | root values | root values |
+| bare header controls | `--hover` | root values | root values |
+| unselected tab and its × | `--hover` | root values | root values |
 | × inside selected hovered box | `--hover` | root `rgba(0,0,0,.04)` | root `rgba(255,255,255,.06)` |
-| selected tab controls | `--pressed` | opaque `#f8f8f8` | opaque `#38383a` |
+| selected tab controls | selected tab ground | unchanged | unchanged |
 
-Paint order: opaque header, opaque tab base, one unselected hover wash (selected hover replaces its base), then the close control’s local wash and Ink. The name contributes no second wash. Press replaces local hover immediately; the selected name and × retain the Enter press through keyup or blur via the shared button pressed hook. Overflow uses unselected-tab values; the strip's edge caps keep their opaque rest surface and answer with ink only; rename uses its own tab ground and text. Tooltips, tab menus and close dialogs resolve the root Tokens. More contrast promotes each scoped grey to its local text and preserves the opaque hairline. D3 and D8 resolve their colour Tokens at the measured element; D1 accepts no caller colour literal.
+Paint order: opaque header, opaque tab base, one unselected hover wash (selected hover replaces its base), then the close control’s local wash and Ink. The name contributes no second wash. Press keeps the resting background; the selected name and × retain the Enter press through keyup or blur via the shared button pressed hook. Overflow uses unselected-tab values; the strip's edge caps keep their opaque rest surface and answer with ink only; rename uses its own tab ground and text. Tooltips, tab menus and close dialogs resolve the root Tokens. More contrast promotes each scoped grey to its local text and preserves the opaque hairline. D3 and D8 resolve their colour Tokens at the measured element; D1 accepts no caller colour literal.
 
 The light header stays on root sunken. Borders carry ≥3:1 against the header and adjacent tab; selection uses a lighter ground and full ink, without a selected/header contrast threshold. Dark selected rest, hover and press stay no brighter than the corresponding selected Rail wash. Painted name buttons and rename fields carry exactly `--space-1` on both inline edges. The tab minimum includes those two insets outside U382’s eight-character text floor and the existing close target; the remaining box geometry belongs to U440.
 

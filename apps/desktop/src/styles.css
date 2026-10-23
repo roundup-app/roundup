@@ -20,32 +20,7 @@ p {
   margin: 0;
 }
 
-/* U2770: last input owns the ring, including scripted focus and shadow-root consumers. */
-:root {
-  --keyboard-ring: none;
-  --keyboard-ring-tree-offset: calc(-1 * var(--space-1));
-  --keyboard-ring-width: 0px;
-  --keyboard-ring-color: transparent;
-}
-:root[data-keyboard-focus="true"] {
-  --keyboard-ring: 2px solid var(--accent);
-  --keyboard-ring-width: 2px;
-  --keyboard-ring-color: var(--accent);
-}
-:focus,
-:focus-visible {
-  outline: var(--keyboard-ring);
-  outline-offset: 1px;
-}
-
-/* A press on a button inside a row shows on that button only: the row stays at its rest wash (U386, D7). A Shelf row's cover button (U379) is the row itself, so its press still washes the row. */
-.shelf-row:has(:is(button, input[type="checkbox"]):active:not(.todo-row-button, .pad-name)) {
-  background-image: none;
-}
-
-.shelf-row[data-selected="true"]:has(:is(button, input[type="checkbox"]):active:not(.todo-row-button, .pad-name)) {
-  background-image: linear-gradient(var(--accent), var(--accent)), linear-gradient(var(--selected), var(--selected));
-}
+:focus { outline: none; }
 
 /* U449: every content region starts beneath the shared window bar. */
 .window {
@@ -428,7 +403,6 @@ p {
   margin: 0;
 }
 
-
 /* U2240: the keys ⌘K waits for; it appears and goes in the frame of the key, takes no focus and no pointer events, and has no motion. */
 .leader {
   position: fixed;
@@ -448,8 +422,6 @@ p {
   background-color: var(--sunken);
   border-bottom: 1px solid var(--hairline);
 }
-
-
 
 /* U348: while files are dragged, every target takes a 2 px --accent ring inside its edge, and the one under the pointer --hover; no size changes (U5, U46), nothing animates (D6). */
 .project-tab[data-drop]::after,
@@ -538,63 +510,6 @@ code {
   gap: var(--space-2);
 }
 
-/* Focus geometry and text-caret exceptions share the same authority (U2770). */
-.todo-tick:focus {
-  outline: none;
-}
-
-.todo-tick:focus::before {
-  outline: var(--keyboard-ring);
-  outline-width: var(--keyboard-ring-width);
-  outline-offset: 2px;
-}
-
-/* Keyboard focus only, inside the bar's box so no ring is clipped. */
-[data-flat-tab] button:focus,
-[data-flat-add]:focus {
-  outline-offset: -2px;
-}
-
-.app-select-list:focus {
-  outline: none;
-}
-
-.app-listbox:focus {
-  outline-offset: -2px;
-}
-
-.terminal-tab-editor [data-part="input"]:focus {
-  outline-offset: -2px;
-}
-
-/* The shared focus ring (styles.css) is deliberately off here: the user chose the caret alone for this field. */
-.entry-row .entry-field:focus {
-  outline: none;
-}
-
-.spawn-prompt-field:focus {
-  outline-width: 0;
-}
-
-/* Full-width rows keep their keyboard ring inside the clipping Rail. */
-.rail-tree .app-tree .rail-row:focus {
-  outline-offset: calc(-1 * var(--space-1));
-}
-
-.note-form textarea:focus {
-  outline: none;
-}
-
-/* Focus is the caret alone: no box wraps the field inside the panel (the Thread composer's rule, U353). */
-.switcher .app-combobox-input:focus {
-  outline-width: 0;
-}
-
-.order-field textarea:focus {
-  outline-width: 0;
-}
-
-
 .draft-destination {
   display: flex;
   flex: 1;
@@ -613,7 +528,6 @@ code {
 .draft-revisions button, .draft-status {
   flex-shrink: 0;
 }
-
 
 .draft-identity, .draft-object { color: var(--grey); }
 .draft-object { font-family: var(--font-mono); }
