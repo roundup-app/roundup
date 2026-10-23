@@ -41,7 +41,7 @@ export const hintPlaceAt = (focus: Element | null): HintPlace | null => {
 
 /** One focused context, one quiet line, with Help always retained when space is scarce. */
 export const HintLine = () => {
-  const { rail, takeover, daemonExit } = useConnectedProject();
+  const { rail, takeover } = useConnectedProject();
   const [focus, setFocus] = createSignal<Element | null>(null);
   const [revision, setRevision] = createSignal(0);
 
@@ -90,7 +90,7 @@ export const HintLine = () => {
 
       if (at === "triage") return !!held?.closest('.todo-row-button') && !held.closest('.todo-done-fold');
 
-      return daemonExit() === null || hint.label === copy.close.toLowerCase();
+      return true;
     });
 
     if (at === "switcher" && held?.closest('.switcher')?.getAttribute('data-has-result') === "true") {
