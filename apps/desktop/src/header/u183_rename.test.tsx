@@ -564,3 +564,59 @@ it("u3299d_copy_uses_selected_item_project", async () => {
   expect(selected()).toBe("/two");
   expect(copied.map(text => JSON.parse(text))).toEqual([{ name: "Review", path: "/two" }]);
 });
+
+
+it.each([
+  ["dismiss", true],
+  ["discard copied revision", true],
+  ["discard other revision", false],
+  ["acknowledged save", true],
+  ["failed save", false],
+  ["unknown save", false],
+  ["other Project save", false],
+] as const)("p3557c_failure_lifetime_header_%s", async (action, clears) => {
+  const { app } = renderTabs({ api: [], web: [] });
+  const key = (project: string) => `roundup:drafts:${path(project)}`;
+  const retained = (project: string, revision: string, name: string, status = "draft") => ({
+    revision, destination: { surface: "header", object: path(project), recipient: null },
+    value: { name, base: project }, selection: { start: 2, end: 5, direction: "backward" }, status, policy: "ordinary",
+  });
+  const a = retained("api", "copied", "  A e\u0301 🪁 雪  ", "failed");
+  const b = retained("api", "newer", "  B 雪  ");
+  const elsewhere = retained("web", "elsewhere", "  other 🧭  ");
+  window.localStorage.setItem(key("api"), JSON.stringify({ version: 1, drafts: [a, b] }));
+  window.localStorage.setItem(key("web"), JSON.stringify({ version: 1, drafts: [elsewhere] }));
+  await screen.findByRole("tab", { name: "api" });
+  await waitFor(() => expect(projectTabs().every(tab => tab.getAttribute("aria-busy") === "false")).toBe(true));
+  fireEvent.click(tab("api"));
+  const records = (project: string) => JSON.parse(window.localStorage.getItem(key(project))!).drafts;
+  fireEvent.click(await screen.findByRole("button", { name: "Recover unfinished work · api" }));
+  let dialog = await screen.findByRole("dialog", { name: "Unfinished work" });
+  fireEvent.click(within(dialog).getByRole("button", { name: /^Failed ·/ }));
+  Object.defineProperty(navigator, "clipboard", { configurable: true, value: { writeText: vi.fn(async () => { throw new Error("clipboard blocked"); }) } });
+  fireEvent.click(within(dialog).getByRole("button", { name: "Copy name" }));
+  await within(dialog).findByRole("alert", { name: /clipboard blocked/ });
+  expect(navigator.clipboard.writeText).toHaveBeenCalledExactlyOnceWith(a.value.name);
+
+  if (action === "dismiss") fireEvent.click(within(dialog).getByRole("button", { name: "Close · Copy name" }));
+  else if (action.startsWith("discard")) {
+    if (action === "discard other revision") fireEvent.click(within(dialog).getByRole("button", { name: /^Current work ·/ }));
+    fireEvent.click(within(dialog).getByRole("button", { name: "Discard this revision" }));
+  } else {
+    fireEvent.click(within(dialog).getByRole("button", { name: "Close", exact: true }));
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+    const project = action === "other Project save" ? "web" : "api";
+    fireEvent.click(tab(project));
+    if (action === "failed save" || action === "unknown save") app.renameProject = vi.fn(async () => { throw new RpcError(action === "failed save" ? -32602 : -32603, action); });
+    await edit(project);
+    press("Enter");
+    await waitFor(() => expect(records(project).some((draft: { status: string }) => draft.status === "pending")).toBe(false));
+    fireEvent.click(document.querySelector(`[data-path="${path("api")}"] [role="tab"]`)!);
+    fireEvent.click(await screen.findByRole("button", { name: /^Recover unfinished work · (api|  B)/ }));
+    dialog = await screen.findByRole("dialog", { name: "Unfinished work" });
+  }
+  await waitFor(() => expect(within(dialog).queryByRole("alert", { name: /clipboard blocked/ }) === null).toBe(clears));
+  expect(records("api")).toEqual(action === "discard copied revision" ? [b] : action === "discard other revision" ? [a]
+    : action === "acknowledged save" ? [a] : action === "failed save" || action === "unknown save" ? [a, { ...b, status: action === "failed save" ? "failed" : "unknown" }] : [a, b]);
+  expect(records("web")).toEqual(action === "other Project save" ? [] : [elsewhere]);
+});
