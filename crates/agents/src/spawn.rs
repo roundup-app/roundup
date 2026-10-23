@@ -12,6 +12,8 @@ impl Agents {
         ctx: &Ctx,
         mut params: SpawnParams,
     ) -> Result<RailNode, RpcError> {
+        models::check_engine(params.engine.as_deref())?;
+        models::check_permissions(&ctx.actor, params.permission_mode)?;
         // F3, A26: any Agent may start a child, which sits under it; a `parent` it passes is ignored.
         if ctx.actor.kind == ActorKind::Agent {
             let agent = self.shared.rail().node(&ctx.actor.id).is_ok();
@@ -134,7 +136,7 @@ impl Agents {
             (node.id, attempt)
         };
         match self
-            .run_agent(&id, &attempt, cwd, None, true)
+            .run_agent(&id, &attempt, cwd, None, true, params.permission_mode)
             .await
             .map(drop)
         {
@@ -249,6 +251,7 @@ impl Agents {
         cwd: &Path,
         first: Option<String>,
         startup_context: bool,
+        permission_mode: Option<contracts::agent::PermissionMode>,
     ) -> Result<String, RpcError> {
         let (node, prompt) = {
             let mut rail = self.shared.rail();
@@ -286,7 +289,15 @@ impl Agents {
             |(cwd, _)| cwd.clone(),
         );
         let spawned = match self
-            .start(id, attempt, &effective_cwd, None, true, false)
+            .start(
+                id,
+                attempt,
+                &effective_cwd,
+                None,
+                true,
+                false,
+                permission_mode,
+            )
             .await
         {
             Ok(spawned) => spawned,
@@ -349,6 +360,7 @@ impl Agents {
     /// `resume` is A22's saved conversation id, added to argv as `--resume <id>`; `None` starts
     /// fresh. `attach` is false only for A22's pending resume, which must not record a
     /// `terminal_id` in the Rail until its launch is acknowledged.
+    #[allow(clippy::too_many_arguments)]
     pub(super) async fn start(
         &self,
         id: &str,
@@ -357,6 +369,7 @@ impl Agents {
         resume: Option<&str>,
         attach: bool,
         yolo: bool,
+        permission_mode: Option<contracts::agent::PermissionMode>,
     ) -> Result<terminal::Spawned, RpcError> {
         let node = self.shared.rail().node(id)?;
         let role = match node.kind {
@@ -365,6 +378,7 @@ impl Agents {
         };
         let pair = Pair {
             yolo,
+            permission_mode,
             model: node.model,
             effort: node.effort,
             mcp_off: !models::mcp_on(
