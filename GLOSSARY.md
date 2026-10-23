@@ -921,7 +921,9 @@ Missing evidence names its affected contributor; neither value is a subscription
 **Measurement time** (`MeasurementTime`):
 Elapsed since first observed start, separate from summed Attempt nanoseconds, whose
 disjoint categories give human wait, tools, coordination and model execution precedence
-in that order; positive startup/idle is other time and unexplained duration is unmeasured.
+in that order; positive startup is other time and unexplained duration is unmeasured.
+Observed idle intervals and time after the Agent stops contribute to neither the sum
+nor any category. An Attempt ends when its Agent stops; an unknown end stays disclosed.
 Incomparable clock lifetimes never authorize continuous execution through a gap.
 
 **Collapsible**:
