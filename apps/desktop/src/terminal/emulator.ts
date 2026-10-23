@@ -1,8 +1,10 @@
 import tokens from "../tokens.css?inline";
+import { createRoot, createEffect, on } from "solid-js";
+import { appSettings } from "../settings/preferences";
 import { DEFAULT_FONT_SIZE } from "./fontSize";
 import { createLinkProvider } from "./linkProvider";
 import type { Printed } from "./links";
-import { DARK_SCHEME, terminalThemeFor } from "./theme";
+import { appDark, followTerminalTheme, terminalThemeFor } from "./theme";
 import { attachTurns } from "./turns";
 import type { TurnFacts, TurnRows } from "./turns";
 import { FitAddon } from "@xterm/addon-fit";
@@ -108,9 +110,6 @@ const macEditingBytes = (event: KeyboardEvent): string | null => {
 /** Rule 7's 150 MB budget for ten idle Agents must hold under a Terminal that prints without end. */
 export const SCROLLBACK_LINES = 10_000;
 
-const schemeQuery = (): MediaQueryList | null =>
-  window.matchMedia?.(DARK_SCHEME) ?? null;
-
 export const xtermOptions: ITerminalOptions = {
   allowProposedApi: true,
   // xterm needs a family string, not a CSS var; resolve its unchanged Token from the owning stylesheet.
@@ -119,7 +118,7 @@ export const xtermOptions: ITerminalOptions = {
   scrollback: SCROLLBACK_LINES,
   // Read per Terminal: a module-level read is stale for every Terminal opened after the window's scheme changes.
   get theme() {
-    return terminalThemeFor(schemeQuery()?.matches ?? false);
+    return terminalThemeFor(appDark());
   },
 };
 
@@ -232,13 +231,12 @@ export const createXtermEmulators = (
     terminal.registerLinkProvider(createLinkProvider(terminal, () => cmdHeld, (printed) => linkListener(printed)));
 
     const shellTurns = attachTurns(terminal, (first, last) => terminal.selectLines(first, last));
-    const scheme = schemeQuery();
 
     const followScheme = () => {
-      terminal.options.theme = terminalThemeFor(scheme?.matches ?? false);
+      terminal.options.theme = terminalThemeFor(appDark());
     };
 
-    scheme?.addEventListener("change", followScheme);
+    const stopScheme = followTerminalTheme(followScheme);
 
     const restoreFontViewport = () => {
       fontFrame = null;
@@ -282,6 +280,16 @@ export const createXtermEmulators = (
 
       return { cols: terminal.cols, rows: terminal.rows };
     };
+
+    const stopFont = createRoot(dispose => {
+      createEffect(on(() => appSettings().fontFamily, family => {
+        terminal.options.fontFamily = family || /--font-mono:\s*([^;]+);/.exec(tokens)![1]!.trim();
+
+        if (opened) size();
+      }));
+
+      return dispose;
+    });
 
     return {
       write: (bytes, parsed) => terminal.write(bytes, () => {
@@ -373,7 +381,8 @@ export const createXtermEmulators = (
       dispose: () => {
         if (fontFrame !== null) cancelAnimationFrame(fontFrame);
 
-        scheme?.removeEventListener("change", followScheme);
+        stopScheme();
+        stopFont();
         window.removeEventListener("pointerdown", clearOldSelection, true);
         window.removeEventListener("click", selectionAction, true);
         clearTimeout(clearAfterAction);

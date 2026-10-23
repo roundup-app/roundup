@@ -286,6 +286,11 @@ export const createServedApp = (base: string, choice?: () => "choose" | "cancel"
           }),
       ),
     imageUrl: (path) => `file://${path}`,
+    onAppSettings: async (listener) => {
+      window.addEventListener("open-app-settings", listener);
+
+      return () => window.removeEventListener("open-app-settings", listener);
+    },
     onFileDrop: async () => () => {},
     onDaemonExited: async (listener) => {
       exits.add(listener);
