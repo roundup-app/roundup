@@ -3,6 +3,7 @@ import { afterEach, expect, it } from "vitest";
 import type { Pad } from "@contracts/pad/Pad";
 import { AGENT, deferred, openPad, openShelf, padOf, RpcError } from "./padsFixture";
 
+import { answerQuestion, questionDialog } from "../shelf/bulkQuestionHarness";
 import { USER } from "../testing/nodes";
 
 afterEach(cleanup);
@@ -89,30 +90,33 @@ const failedSave = async (close = true) => {
   return { ...shelf, field };
 };
 
+const answerDelete = async (accepted: boolean) => {
+  fireEvent.click(screen.getByRole("button", { name: "Delete" }));
+  await questionDialog();
+  await answerQuestion(accepted);
+};
+
 it("p3557b_delete_failed_pad_clears_its_line", async () => {
   const { app, state, connected } = await failedSave();
   await openPad("other");
-  fireEvent.click(screen.getByRole("button", { name: "Delete" }));
-  fireEvent.click(screen.getAllByRole("button", { name: "Delete" })[0]!);
+  await answerDelete(true);
   await waitFor(() => expect(connected.drawer.content()).toBeNull());
   app.emit({ actor: USER, name: "pad.deleted", data: { name: "other" } });
   await waitFor(() => expect(screen.queryByText("other")).toBeNull());
   expect(screen.getByText("cannot save failed")).toBeDefined();
   await openPad("failed");
-  fireEvent.click(screen.getByRole("button", { name: "Delete" }));
-  fireEvent.click(screen.getByRole("button", { name: "Keep" }));
+  await answerDelete(false);
   expect(screen.getByText("cannot save failed")).toBeDefined();
   app.handlers["pad.delete"] = () => { throw new RpcError(-32002, "deletion refused"); };
 
-  fireEvent.click(screen.getByRole("button", { name: "Delete" }));
-  fireEvent.click(screen.getAllByRole("button", { name: "Delete" })[0]!);
+  await answerDelete(true);
   await screen.findByText("deletion refused");
   expect(screen.getByText("cannot save failed")).toBeDefined();
   app.handlers["pad.delete"] = () => { state.pads = [];
 
  return null; };
 
-  fireEvent.click(screen.getAllByRole("button", { name: "Delete" })[0]!);
+  await answerDelete(true);
   await waitFor(() => expect(connected.drawer.content()).toBeNull());
   app.emit({ actor: USER, name: "pad.deleted", data: { name: "failed" } });
   await screen.findByText("No Pads yet");
