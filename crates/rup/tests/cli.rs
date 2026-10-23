@@ -910,7 +910,7 @@ async fn m2219_every_command_the_off_brief_names_is_in_rup_help() {
     let help = out(&help);
     let lines: Vec<&str> = help.lines().map(str::trim).collect();
     for role in [Role::Agent, Role::Door] {
-        let argv = launcher
+        let _argv = launcher
             .prepare_on(
                 Folders {
                     project: &project,
@@ -924,11 +924,7 @@ async fn m2219_every_command_the_off_brief_names_is_in_rup_help() {
                 &pair,
             )
             .unwrap();
-        let at = argv
-            .iter()
-            .position(|arg| arg == "--append-system-prompt-file")
-            .unwrap();
-        let brief = std::fs::read_to_string(&argv[at + 1]).unwrap();
+        let brief = std::fs::read_to_string(data.join("agents/7.brief.md")).unwrap();
         let named: BTreeSet<&str> = brief
             .split('`')
             .filter(|span| span.starts_with("rup "))
