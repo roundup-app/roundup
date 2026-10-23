@@ -107,7 +107,7 @@ button[data-pressed="true"]:not([aria-disabled="true"]) {
 }
 
 /* U523: ink feedback, for a button on a floating panel: hover and press change the ink and paint no box. */
-button[data-feedback="ink"]:is(:hover, :active):not([aria-disabled="true"]) {
+button[data-feedback="ink"]:hover:not([aria-disabled="true"]) {
   color: var(--text);
   background-color: transparent;
 }
@@ -213,7 +213,7 @@ button[aria-disabled="true"] {
   background: var(--hover);
 }
 
-/* Recovery actions leave breathing room around the keyboard ring without a hover surface. */
+/* Recovery actions keep an inset hit area without a hover surface. */
 .switcher-recovery-actions [data-button="quiet"] {
   --button-inline: var(--space-1);
 }

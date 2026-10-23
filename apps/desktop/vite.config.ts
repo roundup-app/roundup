@@ -44,6 +44,21 @@ export default defineConfig({
     postcss: {
       plugins: [
         {
+          postcssPlugin: "roundup-vendor-control-feedback",
+          Once(root) {
+            // Imported editors keep their selection paint, but cannot add rings or press washes (U3528).
+            root.walkRules((rule) => {
+              if (!rule.source?.input.file?.includes("/node_modules/")) return;
+
+              const paints = rule.nodes.some(node => node.type === "decl" && /^(?:background(?:-.+)?|box-shadow|outline(?:-.+)?|--.*(?:background|bg|pressed))$/.test(node.prop));
+              const selectors = rule.selectors.filter(selector => !/:focus(?:-visible|-within)?\b|\[data-focus/.test(selector) && !(paints && /:active\b/.test(selector)));
+
+              if (selectors.length === 0) rule.remove();
+              else rule.selectors = selectors;
+            });
+          },
+        },
+        {
           postcssPlugin: "radix-colors-prefers-color-scheme",
           Once(root, { AtRule }) {
             for (const node of root.nodes) {

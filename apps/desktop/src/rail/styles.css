@@ -240,11 +240,6 @@
   background-color: var(--hover);
 }
 
-.spawn-prompt-field:active {
-  background-color: var(--selected);
-  transition-duration: 0s;
-}
-
 .rail-tree {
   position: relative;
   font-family: var(--font-ui);
@@ -483,7 +478,6 @@
   display: none;
 }
 
-
 .rail-leaf .row-head > :not(.todo-row-button) {
   flex: none;
 }
@@ -580,14 +574,12 @@
 
 /* U362: a Todo drop uses one hover wash; a selected target keeps its accent bar. */
 .rail-row[data-todo-drop],
-.rail-row[data-todo-drop]:hover,
-.rail-row[data-todo-drop]:active {
+.rail-row[data-todo-drop]:hover {
   background-image: linear-gradient(var(--hover), var(--hover));
 }
 
 .rail-row[data-todo-drop][data-selected="true"],
-.rail-row[data-todo-drop][data-selected="true"]:hover,
-.rail-row[data-todo-drop][data-selected="true"]:active {
+.rail-row[data-todo-drop][data-selected="true"]:hover {
   background-image: linear-gradient(var(--accent), var(--accent)), linear-gradient(var(--hover), var(--hover));
 }
 
@@ -620,12 +612,6 @@
   background-image: linear-gradient(var(--hover), var(--hover));
 }
 
-.rail-leaf:active,
-.rail-fold:active {
-  background-image: linear-gradient(var(--pressed), var(--pressed));
-  transition-duration: 0s;
-}
-
 .rail-leaf:has([data-selected="true"]) {
   background-image: linear-gradient(var(--accent), var(--accent)), linear-gradient(var(--selected), var(--selected));
   background-size: 2px 100%, auto;
@@ -636,14 +622,9 @@
   background-image: linear-gradient(var(--accent), var(--accent)), linear-gradient(var(--selected-hover), var(--selected-hover));
 }
 
-.rail-leaf:has([data-selected="true"]):active {
-  background-image: linear-gradient(var(--accent), var(--accent)), linear-gradient(var(--pressed), var(--pressed));
-}
-
-.rail .rail-leaf .shelf-row:is(:hover, :active, [data-selected="true"]) {
+.rail .rail-leaf .shelf-row:is(:hover, [data-selected="true"]) {
   background-image: none;
 }
-
 
 /* U397: the 163 px stress surface reserves the whole width for row controls. */
 @container rail (width < 220px) {
@@ -859,11 +840,6 @@
 
 .rail-recovery summary:hover {
   color: var(--accent);
-}
-
-.rail-recovery summary:focus-visible {
-  color: var(--accent);
-  text-decoration: underline;
 }
 
 .rail-recovery summary:active {
