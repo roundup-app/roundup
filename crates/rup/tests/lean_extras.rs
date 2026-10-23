@@ -194,7 +194,7 @@ async fn lc4_an_agents_scout_and_worker_start_lean() {
     assert!(scout.contains(&"--disable-slash-commands"));
     assert!(!worker.contains(&"--tools") && !worker.contains(&"--disable-slash-commands"));
     for lean in [&scout, &worker] {
-        assert_eq!(after(lean, "--setting-sources"), Some("project"));
+        assert_eq!(after(lean, "--setting-sources"), Some(""));
         assert!(lean.contains(&"--strict-mcp-config"));
     }
 }
