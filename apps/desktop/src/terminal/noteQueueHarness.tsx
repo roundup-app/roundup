@@ -1,4 +1,4 @@
-import { render, screen } from "@solidjs/testing-library";
+import { render } from "@solidjs/testing-library";
 import type { Message } from "@contracts/message/Message";
 import type { RailNode } from "@contracts/agent/RailNode";
 import type { TerminalInfo } from "@contracts/terminal/TerminalInfo";
@@ -43,12 +43,3 @@ export const mountNotes = async (tree: RailNode[], terminals: TerminalInfo[], me
 export const sent = (message: Message) => event({ name: message.status === "held" ? "message.held" : message.status === "delivered" ? "message.delivered" : message.status === "dropped" ? "message.dropped" : "message.sent", data: message });
 
 export const rowsOf = (): string[] => [...document.querySelectorAll(".note-queue-row")].map((row) => row.querySelector(".note-queue-text")?.textContent ?? "");
-
-/** The note field of the Agent called `name`. */
-export const noteField = async (name: string): Promise<HTMLTextAreaElement> => {
-  const field = await screen.findByRole("textbox", { name: `Note to ${name}` });
-
-  if (!(field instanceof HTMLTextAreaElement)) throw new Error("the note field is not a textarea");
-
-  return field;
-};
