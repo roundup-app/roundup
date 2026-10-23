@@ -19,27 +19,10 @@ import { isWorkstream, resolvedWorkstream, siblingsOf } from "../rail/layout";
 import { useConnectedProject } from "../state/connectedProject";
 import type { Screens } from "../terminal/screens";
 import {
-  clamped, defaultPlace, placesStorage, resizedAbout, REVEAL_BUBBLE, shownFor, shownName, STEP, toggledFill, ZONES,
+  clamped, defaultPlace, placesStorage, resizedAbout, REVEAL_BUBBLE, shownFor, shownName, STEP, toggledFill, zoneBox, ZONES,
 } from "./places";
 import type { Place, Extent, Zone } from "./places";
 import "./styles.css";
-
-/** U2236 call 2: `--space-2` strips centred on the edges, `--space-4` squares over the corners. */
-const EDGE = 8;
-
-const CORNER = 16;
-
-const zoneBox = (place: Place, zone: Zone) => {
-  const thick = zone.sx !== 0 && zone.sy !== 0 ? CORNER : EDGE;
-
-  const along = (low: number, size: number, sign: number, span: number): [number, number] =>
-    sign < 0 ? [low - span / 2, span] : sign > 0 ? [low + size - span / 2, span] : [low + CORNER / 2, size - CORNER];
-
-  const [left, width] = along(place.x, place.w, zone.sx, thick);
-  const [top, height] = along(place.y, place.h, zone.sy, thick);
-
-  return { left: `${left}px`, top: `${top}px`, width: `${width}px`, height: `${height}px` };
-};
 
 /** U421 engineering call 1: past the 3 to 4 px a hand wobbles while it clicks. */
 
