@@ -18,7 +18,7 @@ const SETTLE_MS = 400;
 const WORKING_GLYPHS = 10;
 
 /** The only thing the drivers ask of time: a fake clock in tests, `setTimeout` in the App. */
-export type Clock = { sleep(ms: number): Promise<void> };
+type Clock = { sleep(ms: number): Promise<void> };
 
 /**
  * Runs `cycle` once every `CYCLE_MS`, `CYCLES` times, and answers whether every one completed. A cycle that reports a missing target ends the run
