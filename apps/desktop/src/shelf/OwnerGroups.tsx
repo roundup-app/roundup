@@ -24,6 +24,9 @@ export const OwnerGroups = <T,>(props: {
   unfold?: Accessor<number>;
   /** U3730: the group named like the scope (a selected Agent's own) shows no header, so the scope's name appears once. */
   bare?: Accessor<string | null>;
+  detail?: (group: OwnerGroup<T>) => string;
+  digit?: (group: OwnerGroup<T>) => number | undefined;
+  keepEmpty?: boolean;
   /** Absent for a list with no per-group field (the Pads tab). */
   onAdd?: (group: OwnerGroup<T>) => void;
   /** U3770: completion effects only play in expanded groups. */
@@ -36,7 +39,7 @@ export const OwnerGroups = <T,>(props: {
   createEffect(() => props.onClosedChange?.(closed()));
 
   const shown = createMemo<OwnerGroup<T>[]>((previous = []) => {
-    const groups = props.groups().filter(group => group.items.length > 0 || props.dragging() || props.adding() === group.id);
+    const groups = props.groups().filter(group => group.items.length > 0 || props.keepEmpty || props.dragging() || props.adding() === group.id);
 
     if (!props.dragging()) return groups;
 
@@ -70,11 +73,13 @@ export const OwnerGroups = <T,>(props: {
           <div class="shelf-group-head" hidden={props.bare?.() === id && !props.dragging()}>
             <TreeView.BranchControl class="shelf-group-control" data-button="quiet">
               <TreeView.BranchIndicator><Icon name={closed().includes(id) ? "right" : "down"} /></TreeView.BranchIndicator>
+              <Show when={props.digit?.(group())}>{digit => <span class="shelf-owner-digit" aria-hidden="true">{digit()}</span>}</Show>
               <TreeView.BranchText><Tip text={group().name}>{trigger => <span {...trigger()} class="shelf-group-name">{group().name}</span>}</Tip></TreeView.BranchText>
               <span class="shelf-group-count">{props.count ? props.count(group()) : group().items.length}</span>
             </TreeView.BranchControl>
             <Show when={props.onAdd}>{add => <IconButton class="shelf-group-add" aria-label={copy.addTodoTo(group().name)} onKeyDown={event => event.stopPropagation()} onClick={() => add()(group())}><Icon name="plus" /></IconButton>}</Show>
           </div>
+          <Show when={props.detail?.(group())}>{line => <p class="shelf-owner-time" data-state="">{line()}</p>}</Show>
           <TreeView.BranchContent>{props.children(group)}</TreeView.BranchContent>
         </TreeView.Branch>
       </TreeView.NodeProvider>; }}</For>

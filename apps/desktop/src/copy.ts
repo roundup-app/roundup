@@ -33,6 +33,20 @@ const reasonIs = (reason: string, fixed: string) => reason === fixed || reason.e
 const compactTokens = (value: number) => new Intl.NumberFormat("en", { notation: "compact" }).format(value);
 
 export const copy = {
+  freeNow: "free now",
+  busyUntil: (time: string) => `busy until ${time}`,
+  noEstimates: " · no estimates",
+  withoutEstimate: (count: number) => ` + ${count} without estimate`,
+  estimateMinutes: (minutes: number) => `${minutes} min`,
+  auto: "Auto",
+  autoExplanation: "Door hands out unassigned Todos",
+  autoHandling: "the Door is handing these out",
+  assignByDigit: "Hand Todo to Agent",
+  liftTodo: "Pick up or hand over Todo",
+  moveLift: "Choose owner",
+  cancelLift: "Put Todo down",
+  moveTodoTo: (id: number, label: string) => `Move #${id} to ${label}`,
+
   costAndTime: "Cost and time",
   measurementLoading: "Reading…",
   timeline: "Timeline",
