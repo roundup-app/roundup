@@ -316,7 +316,7 @@ describe("u41 rail by keyboard, the rest", () => {
     rail.select("a");
 
     await settled();
-    screen.getByRole("textbox").focus();
+    screen.getAllByRole("textbox")[0]!.focus();
     const field = document.activeElement;
 
     const notPrevented = press("ArrowLeft");

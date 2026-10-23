@@ -249,6 +249,10 @@ pub(crate) fn step(state: &State, event: Event) -> (State, Vec<Effect>) {
             } else if let Some(i) = s.held_takeover.iter().position(|x| *x == id) {
                 s.held_takeover.remove(i);
                 s.dropped.push(id);
+            } else if let Some(i) = s.queue.iter().position(|x| *x == id) {
+                // U3782: a pending Message the user removed; nothing is typed.
+                s.queue.remove(i);
+                s.dropped.push(id);
             }
         }
         // B8: nothing is typed. A lost Terminal is the receiver gone (B9); a kept one has no Takeover (B6),
