@@ -136,6 +136,10 @@
   animation: todo-tick-draw var(--duration-tick) var(--ease-todo) var(--delay-tick) both;
 }
 
+.todo-row[data-motion="play"] .todo-tick:not(:checked) + .todo-tick-mark {
+  stroke: var(--text);
+}
+
 .todo-row[data-motion="play"] .todo-tick:not(:checked) + .todo-tick-mark path {
   animation: todo-tick-erase var(--duration-tick) var(--ease-todo) both;
 }
