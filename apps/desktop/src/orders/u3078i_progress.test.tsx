@@ -141,3 +141,133 @@ it("u3078i_navigation_preserves_input_and_original_identity", async () => {
   expect(wrote(app).map((call) => call.method)).toEqual(["message.resumeWork"]);
   expect(drafts("/p").list().map((draft) => [draft.value["ask"], draft.status])).toEqual([["Fix login and logout", "draft"]]);
 });
+
+it.each(["dismiss", "same report recovery", "unrelated report recovery", "report removal", "read failure"] as const)("p3557c_failure_lifetime_work_progress: %s", async transition => {
+  let progress = seeded.progress;
+  let unavailable = true;
+  let unreadable = false;
+
+  const { app, drafts, section } = await openWork(fake => {
+    fake.handlers["message.progress"] = () => {
+      if (unreadable) throw new RpcError(-32003, "Progress read failed; retry");
+
+      return progress;
+    };
+
+    fake.handlers["deliverable.resolve"] = ({ id }) => {
+      if (unavailable && id === "output-r-login") throw new RpcError(-32003, "Cannot open login; retry");
+
+      return { kind: "retained", path: "/p/output.txt", sha256: "0" };
+    };
+  });
+
+  fireEvent.click(screen.getByRole("button", { name: "Edit order" }));
+  const exact = "  Unfinished\n草稿 📝  ";
+  fireEvent.input(screen.getByLabelText("Ask"), { target: { value: exact } });
+  const before = drafts("/p").list();
+  const view = within(section);
+  fireEvent.click(view.getByRole("button", { name: "Open login v2" }));
+  await view.findByText("Cannot open login; retry");
+  const other = section.querySelector('[data-report="r-deploy"]')!;
+
+  if (transition === "dismiss") fireEvent.click(view.getByRole("button", { name: "Dismiss failure" }));
+
+  if (transition.includes("recovery")) {
+    unavailable = false;
+    fireEvent.click(view.getByRole("button", { name: transition === "same report recovery" ? "Open login v2" : "Open deployment v1" }));
+    await waitFor(() => expect(app.openedTargets).toHaveLength(1));
+  }
+
+  if (transition === "report removal" || transition === "read failure") {
+    unreadable = transition === "read failure";
+    progress = { ...progress, results: progress.results.filter(result => result.report.report !== "r-login") };
+    app.emit({ actor: { kind: "user", id: "you", parent: null }, name: "rail.changed" });
+
+    if (unreadable) await screen.findByText(/Progress read failed; retry/);
+    else await waitFor(() => expect(section.querySelector('[data-report="r-login"]')).toBeNull());
+  }
+
+  expect(view.queryByText("Cannot open login; retry") !== null).toBe(transition === "unrelated report recovery" || transition === "read failure");
+  expect(section.querySelector('[data-report="r-deploy"]')).toBe(other);
+  expect(drafts("/p").list()).toEqual(before);
+  expect(screen.getByLabelText<HTMLTextAreaElement>("Ask").value).toBe(exact);
+});
+
+it.each(["dismiss", "acknowledge"] as const)("p3557c_failure_lifetime_work_progress_resume: %s", async transition => {
+  const { app, section } = await openWork(fake => {
+    fake.handlers["message.resumeWork"] = () => { throw new RpcError(-32003, "Agent stopped; start it again"); };
+  });
+
+  const view = within(section);
+  fireEvent.click(view.getByRole("button", { name: "Resume unfinished work" }));
+  await view.findByText(/Agent stopped; start it again/);
+
+  if (transition === "dismiss") fireEvent.click(view.getByRole("button", { name: "Dismiss failure" }));
+  else {
+    const reply = gate<ResumeWork>();
+    app.handlers["message.resumeWork"] = () => reply.promise;
+    fireEvent.click(view.getByRole("button", { name: "Try resuming again" }));
+    expect(view.getByText(/Agent stopped; start it again/)).toBeTruthy();
+    reply.resolve({ decision: { id: "d1", request: "r", actions: ["action-login"], message: 7 }, reconciliation: seeded.plan });
+    await view.findByText("Resumed: the Agent has the unfinished work.");
+  }
+
+  expect(view.queryByText(/Agent stopped; start it again/)).toBeNull();
+});
+
+it.each(["dismiss", "recover", "unrelated removal"] as const)("p3557c_failure_lifetime_work_progress_read: %s", async transition => {
+  let unreadable = false;
+
+  const { app, drafts } = await openWork(fake => {
+    fake.handlers["message.progress"] = () => {
+      if (unreadable) throw new RpcError(-32003, "Progress read failed; retry");
+
+      return seeded.progress;
+    };
+  });
+
+  fireEvent.click(screen.getByRole("button", { name: "Edit order" }));
+  const exact = "  still editing\n草稿  ";
+  fireEvent.input(screen.getByLabelText("Ask"), { target: { value: exact } });
+  const before = drafts("/p").list();
+  unreadable = true;
+  app.emit({ actor: { kind: "user", id: "you", parent: null }, name: "rail.changed" });
+  await screen.findByText(/Progress read failed; retry/);
+
+  if (transition === "dismiss") fireEvent.click(screen.getByRole("button", { name: "Dismiss failure" }));
+
+  if (transition === "recover") {
+    unreadable = false;
+    fireEvent.click(screen.getByRole("button", { name: "Read again" }));
+    await waitFor(() => expect(screen.queryByText(/Progress read failed; retry/)).toBeNull());
+  }
+
+  if (transition === "unrelated removal") {
+    app.handlers["rail.tree"] = () => [agent("a", "working", "editing", { name: "alpha", work: { kind: "work", ask: "Fix login", done: "Login passes", limits: [] } }), door("r", "working", "editing", { name: "harbor" })];
+    app.emit({ actor: { kind: "user", id: "you", parent: null }, name: "rail.changed" });
+    await waitFor(() => expect(document.querySelector('.rail-row[data-id="b"]')).toBeNull());
+  }
+
+  expect(screen.queryByText(/Progress read failed; retry/) !== null).toBe(transition === "unrelated removal");
+  expect(drafts("/p").list()).toEqual(before);
+  expect(screen.getByLabelText<HTMLTextAreaElement>("Ask").value).toBe(exact);
+});
+
+it("p3557c_failure_lifetime_work_progress_navigation", async () => {
+  const { drafts, section } = await openWork(fake => {
+    fake.handlers["deliverable.resolve"] = () => { throw new RpcError(-32003, "Cannot open alpha; retry"); };
+  });
+
+  fireEvent.click(screen.getByRole("button", { name: "Edit order" }));
+  const exact = "  alpha only\n草稿  ";
+  fireEvent.input(screen.getByLabelText("Ask"), { target: { value: exact } });
+  const before = drafts("/p").list();
+  fireEvent.click(within(section).getByRole("button", { name: "Open login v2" }));
+  await screen.findByText("Cannot open alpha; retry");
+  select("beta");
+  fireEvent.click(await screen.findByRole("button", { name: "Order of beta" }));
+  await screen.findByLabelText("Full order of beta");
+  expect(screen.queryByText("Cannot open alpha; retry")).toBeNull();
+  expect(drafts("/p").list()).toEqual(before);
+  expect(before.map(draft => [draft.destination, draft.value["ask"]])).toEqual([[{ surface: "orders", object: "a", recipient: "a" }, exact]]);
+});
