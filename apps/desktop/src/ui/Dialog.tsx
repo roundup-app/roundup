@@ -39,6 +39,11 @@ export const floatingControl = (props: { open?: boolean | undefined; defaultOpen
   return { open: () => requested() && !blocked() && !dismissed(), blocked, change };
 };
 
+/** U3512d: a key-open or key-close is instant, so the last input decides whether a modal fades. */
+let lastInputWasPointer = false;
+document.addEventListener("pointerdown", () => { lastInputWasPointer = true; }, true);
+document.addEventListener("keydown", () => { lastInputWasPointer = false; }, true);
+
 export const Dialog = {
   ...ArkDialog,
   Root: (props: ArkDialog.RootProps & { instant?: boolean }) => {
@@ -60,7 +65,7 @@ export const Dialog = {
       }
 
       wasOpen = open;
-      lifetime.retarget(open, !props.instant && !reduce && document.documentElement.dataset.keyboardFocus === "false");
+      lifetime.retarget(open, !props.instant && !reduce && lastInputWasPointer);
       setPresent(open || lifetime.exiting());
     }));
     // A close request must not unmount the panel before the lifetime effect retains its exit.
