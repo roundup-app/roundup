@@ -4,9 +4,9 @@ import type { AskSubmission } from "../state/asks";
 import { copy } from "../copy";
 import { openDeliverable } from "./openDeliverable";
 import { Icon } from "../ink/Icon";
-import { ErrorLine } from "../ink/ErrorLine";
+import { ReservedLine } from "../ink/ReservedLine";
 import { ASK_CLOSE, CHORDS, chordsFor } from "../keys/chords";
-import { registerKeys, type KeyScope } from "../keys/registry";
+import { modalOpen, modalOutside, registerKeys, type KeyScope } from "../keys/registry";
 import { useConnectedProject } from "../state/connectedProject";
 import { Mentions } from "../ui/Mentions";
 import { KindGlyph, LABELS } from "../ink/KindGlyph";
@@ -166,7 +166,10 @@ export const AskBar = (props: {
     if (restore && returnTo instanceof HTMLElement && returnTo.isConnected) returnTo.focus();
   };
 
+  createEffect(() => { if (over() && modalOutside(panel)) close(false); });
+
   const open = (): void => {
+    if (modalOpen()) return;
     returnTo = document.activeElement;
     setOver(true);
     queueMicrotask(() => {
@@ -252,21 +255,23 @@ export const AskBar = (props: {
     </Popover.Root></div></Show>
     <Show when={shown()}>
       <section class="ask-bar" data-mode={over() ? "over" : "home"} aria-label={copy.askBarLabel} ref={(element) => { panel = element; }}>
-        <Mentions.Root items={matching()} highlightedValue={highlighted()} onHighlightChange={setHighlighted} onSelect={complete}>
+        <div class="ask-compose">
+        <Mentions.Root onDismiss={() => setDismissed(true)} items={matching()} highlightedValue={highlighted()} onHighlightChange={setHighlighted} onSelect={complete}>
           <Mentions.Field class="ask-input" ref={restoreSelection}
             rows={1} aria-label={copy.askBarLabel} placeholder={copy.askBarPlaceholder} value={text()} open={matching().length > 0}
             onInput={(event) => { setDismissed(false); setText(event.currentTarget.value); }} onSelect={retainSelection} onKeyUp={retainSelection} onClick={retainSelection} onKey={onKey} />
           <Show when={matching().length > 0}><Mentions.List label={copy.askMentions} items={matching()} /></Show>
         </Mentions.Root>
-        <Show when={failure()?.message ?? (records().some(draft => draft.status === "unknown") ? null : asks.failure())}>{(message) => <div class="ask-send-status"><ErrorLine message={message()} /></div>}</Show>
+        <ReservedLine overlay class="ask-send-status" message={problem() ? copy.draftRetention(connected.project.name, copy.draftSurface("ask"), problem()!.cause) : failure()?.message ?? (records().some(draft => draft.status === "unknown") ? null : asks.failure())}
+          status={records().some(draft => draft.status === "unknown") ? copy.askUnknownState : null}>
         <For each={records().filter(draft => draft.status === "unknown").map(draft => draft.revision)}>{revision => {
           const [cause, setCause] = createSignal<string | null>(null);
           const label = () => String(records().find(draft => draft.revision === revision)?.value.text ?? "");
 
-          return <div class="ask-send-status">
+          return <div class="reserved-unknown">
             <div class="ask-unknown-content">
               <span class="ask-unknown-text">{label()}</span>
-              <span class="ask-unknown-state" role="status" data-state="unknown"><Icon name="circle" />{cause() ? copy.askUnknown + cause() : copy.askUnknownState}</span>
+              <span data-state="unknown">{cause() ? copy.askUnknown + cause() : copy.askUnknownState}</span>
             </div>
             <button type="button" data-button="quiet" aria-label={copy.askCheckAcceptanceLabel(label())} onClick={() => {
               void asks.reconcile(revision).then(outcome => {
@@ -278,10 +283,9 @@ export const AskBar = (props: {
             }}>{copy.askCheckAcceptance}</button>
           </div>;
         }}</For>
-        <Show when={problem()}>{problem => <div class="ask-send-status">
-          <ErrorLine message={copy.draftRetention(connected.project.name, copy.draftSurface("ask"), problem().cause)} />
-          <button type="button" data-button="quiet" onClick={() => drafts.retry()}>{copy.storageRetry}</button>
-        </div>}</Show>
+        <Show when={problem()}><button type="button" data-button="quiet" onClick={() => drafts.retry()}>{copy.storageRetry}</button></Show>
+        </ReservedLine>
+        </div>
         <Show when={!over()}><ProjectOverview /><Reactions state={reactions} /><Deliverables state={deliverables} /></Show>
         <AskRows keys={scope} onOpened={() => close(false)} />
       </section>
@@ -300,7 +304,7 @@ const ProjectOverview = () => {
   const entry = (node: RailNode, waiting = false) => <OverviewEntry node={node} waiting={waiting} select={() => rail.select(node.id)} />;
 
   return <section class="project-overview" aria-label={copy.projectOverview}>
-    <Show when={rail.failure()}>{(message) => <ErrorLine message={message()} />}</Show>
+    <ReservedLine overlay message={rail.failure()} />
     <Show when={attention().length > 0} fallback={<div class="empty-state overview-empty">
       <Icon name="check" />
       <h2 class="overview-heading" data-state="attention">{copy.projectAttention(0)}</h2>
@@ -461,7 +465,7 @@ const Deliverables = (props: { state: ReturnType<typeof createDeliverables> }) =
       <div class="made-heading"><h2 class="overview-heading">{copy.deliverables}</h2>
         <button type="button" data-button="quiet" onClick={() => { void props.state.refresh(); }}>{copy.refresh}</button>
       </div>
-      <Show when={props.state.failure()}>{message => <ErrorLine message={message()} />}</Show>
+      <ReservedLine message={props.state.failure()} />
       <ul class="made-list"><For each={records()}>{record => <li class="made-row" data-deliverable={record.id} data-selected={selected() === record.id}
         onContextMenu={event => openOnRelease(event, (x, y) => openMenu(record, x, y))}>
         <Tip disabled={failure()?.id === record.id} text={copy.openDeliverable(record.title, record.maker_name, home(record), record.published_at)}>{trigger => <button {...trigger()} type="button" data-button="quiet" class="made-open" aria-current={selected() === record.id ? "true" : undefined}
@@ -475,7 +479,7 @@ const Deliverables = (props: { state: ReturnType<typeof createDeliverables> }) =
           </span>
           <Icon name="right" />
         </button>}</Tip>
-        <Show when={failure()?.id === record.id}><ErrorLine message={failure()?.cause ?? ""} /></Show>
+        <ReservedLine overlay message={failure()?.id === record.id ? failure()?.cause ?? "" : null} />
       </li>}</For></ul>
     </section>
   </Show>;

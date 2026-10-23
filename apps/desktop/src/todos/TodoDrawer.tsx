@@ -10,7 +10,7 @@ import { Icon } from "../ink/Icon";
 import { createEffect, createSignal, For, on, Show } from "solid-js";
 import type { Change } from "@contracts/todo/Change";
 import type { Todo } from "@contracts/todo/Todo";
-import { ErrorLine } from "../ink/ErrorLine";
+import { ReservedLine } from "../ink/ReservedLine";
 import { KindGlyph } from "../ink/KindGlyph";
 import { TickBox } from "./TickBox";
 import { TodoComments } from "./TodoComments";
@@ -258,7 +258,7 @@ export const TodoDrawer = (props: {
           <Portal><AlertDialog.Positioner>
           <AlertDialog.Content class="todo-delete-confirm" ref={(element) => { confirmation = element; }}>
             <AlertDialog.Title>{copy.deleteTodoQuestion}</AlertDialog.Title>
-            <Show when={failure()}>{(message) => <ErrorLine message={message()} />}</Show>
+            <ReservedLine message={failure()} />
             <button data-button="quiet"
               type="button"
               class="word light"
@@ -284,13 +284,11 @@ export const TodoDrawer = (props: {
           </AlertDialog.Content>
           </AlertDialog.Positioner></Portal>
         </AlertDialog.Root>
-        <Show when={!asking() && failure()}>{(message) => <ErrorLine message={message()} />}</Show>
+        <ReservedLine message={!asking() && failure()} />
           <Show
             when={todo()}
             fallback={
-              <Show when={!removedByMe() && !deleting()}>
-                <ErrorLine message={copy.todoDeleted(props.id)} />
-              </Show>
+              <ReservedLine message={!removedByMe() && !deleting() ? copy.todoDeleted(props.id) : null} />
             }
           >
             {(current) => (
@@ -306,8 +304,9 @@ export const TodoDrawer = (props: {
                     multiline={false}
                     commit={async (title, expected_change) => { await app.rpc("todo.update", { id: props.id, title, body: null, expected_change }); }}
                   />
+                  <span class="todo-estimate" data-state="estimate">{copy.todoEstimate(current().estimate_minutes)}</span>
                 </div>
-                <Show when={titleFailure()}>{message => <ErrorLine message={message()} />}</Show>
+                <ReservedLine message={titleFailure()} />
                 <div class="todo-detail-body">
                 <EditableText
                   todo={current()}

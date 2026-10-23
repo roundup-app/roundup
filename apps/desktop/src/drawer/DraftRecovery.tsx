@@ -1,3 +1,4 @@
+import { ReservedLine } from "../ink/ReservedLine";
 import type { ActivationSource } from "../keys/registry";
 import { useConnectedProject } from "../state/connectedProject";
 import type { MenuEntry } from "../ui/contextMenu";
@@ -96,8 +97,9 @@ const DraftRecoveryPanel = () => {
 
   return <section class="draft-recovery" aria-label={copy.unfinishedWork}>
     <h2>{copy.unfinishedWork}</h2>
-    <Show when={drafts.problem()?.destination?.surface.startsWith("rail-") ? null : drafts.problem()}>{(problem) => <div role="alert"><p>{copy.draftProblem(problem().cause)}</p><button data-button="quiet" type="button" onClick={() => drafts.retry()}>{copy.tryAgain}</button></div>}</Show>
-    <Show when={failure()}>{(text) => <p role="alert">{text()}</p>}</Show>
+    <ReservedLine message={failure() ?? (drafts.problem() && !drafts.problem()!.destination?.surface.startsWith("rail-") ? copy.draftProblem(drafts.problem()!.cause) : null)}>
+<Show when={drafts.problem()}><button data-button="quiet" type="button" onClick={() => drafts.retry()}>{copy.tryAgain}</button></Show>
+      </ReservedLine>
     <Show when={work.rows().length} fallback={<p>{copy.noUnfinishedWork}</p>}>
       <ul class="draft-revisions">
         <For each={work.rows()}>{(row) => <li data-revision={row.draft.revision}>

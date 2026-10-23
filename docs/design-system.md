@@ -70,6 +70,8 @@ The App inherits `--font-ui`; code, paths, diffs, ids, token counts and Terminal
 
 Pad prose uses `--text-title` (15 px). Its `--text-pad-subheading` (20 px) and `--text-pad-heading` (24 px) steps apply only to rendered and formatted Pad headings, in both colour schemes; source and code stay mono at `--text-body`. A Pad's reading and editing views use the same steps.
 
+The reserved message line (`--line`) is 24 px in both schemes, including its actions. It stays mounted when empty; compact surfaces reserve an overlaid edge instead.
+
 Space: `--space-1` to `--space-6` are 4, 8, 12, 16, 24, 32 px. A Rail row is 28 px high. U2716a specifies a future pinned 40 px Overview band above the scrolling Rail tree, with `--space-3` inline inset, a 24 px icon tile and `--text-row` at weight 400; its count rides beside the name. `--measure` is `56rem`, the Thread's column width (D11).
 
 Mono is for the Terminal, paths, ids and code. Every other word is `--font-ui`.

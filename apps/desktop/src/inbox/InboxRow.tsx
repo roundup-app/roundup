@@ -3,7 +3,7 @@ import type { Decision } from "@contracts/decision/Decision";
 import type { RailNode } from "@contracts/agent/RailNode";
 import { copy } from "../copy";
 import { questionOf } from "../decisions/AskCard";
-import { ErrorLine } from "../ink/ErrorLine";
+import { ReservedLine } from "../ink/ReservedLine";
 import { KindGlyph } from "../ink/KindGlyph";
 import { Collapsible } from "../ui/Collapsible";
 import { quickAnswers } from "./rows";
@@ -66,11 +66,11 @@ export const InboxRow = (props: { row: AgentRow; open: boolean; toggle(): void; 
         <Collapsible.Content>
           <div class="inbox-body">
             <p class="inbox-step"><span class="light">{copy.inboxLastStep}</span> {node().status?.label}</p>
-            <Show when={failure()}>{(message) => <ErrorLine message={message()} />}</Show>
+            <ReservedLine message={failure()} />
           </div>
         </Collapsible.Content>
       </Collapsible.Root>}>
-        {(settled) => <p role="status" class="inbox-confirm" tabindex="-1" ref={(element) => queueMicrotask(() => element.focus())}>{settled().text}</p>}
+        {(settled) => <ReservedLine status={settled().text} class="inbox-confirm" tabindex="-1" ref={(element) => queueMicrotask(() => element.focus())} />}
       </Show>
     </div></div>
   </li>;

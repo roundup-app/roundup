@@ -1693,3 +1693,37 @@ async fn t28_the_tool_descriptions_name_the_section_form() {
         assert!(description.contains(phrase), "{phrase}: {description}");
     }
 }
+
+#[tokio::test]
+async fn t29_mcp_todo_update_sets_the_estimate() {
+    let project = start_daemon();
+    let user = client_as(&project.socket, Actor::user()).await;
+    user.request("todo.create", json!({"title": "ship"}))
+        .await
+        .unwrap();
+    let shim = spawn_shim(&project.socket, "a1").await;
+
+    let result = shim
+        .call("todo_update", json!({"id": 1, "estimate_minutes": 45}))
+        .await;
+
+    assert_ne!(result.is_error, Some(true));
+    assert_eq!(text(&result)["estimate_minutes"], 45);
+    let history = user
+        .request("todo.getHistory", json!({"id": 1}))
+        .await
+        .unwrap();
+    assert_eq!(history["changes"][1]["actor"], json!(agent("a1")));
+    assert_eq!(history["changes"][1]["after"]["estimate_minutes"], 45);
+    let touches = user
+        .request("provenance.history", json!({"item": "todo:1"}))
+        .await
+        .unwrap();
+    assert!(
+        touches
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|t| t["verb"] == "wrote" && t["actor"] == json!(agent("a1")))
+    );
+}

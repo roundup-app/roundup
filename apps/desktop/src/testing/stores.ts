@@ -38,7 +38,7 @@ const withBlocked = (todos: Todo[]): Todo[] =>
   }));
 
 /** Replaces `store.todos` with `change` applied, derives `blocked`, and announces `todo.updated` for `id` and `todo.unblocked` for every Todo the change freed. */
-const values = (todo: Todo): Values => ({ title: todo.title, body: todo.body, done: todo.done, blockers: [...todo.blockers].toSorted(), owner: todo.owner });
+const values = (todo: Todo): Values => ({ title: todo.title, body: todo.body, done: todo.done, blockers: [...todo.blockers].toSorted(), owner: todo.owner, estimate_minutes: todo.estimate_minutes });
 
 const recordChanges = (store: TodoStore, before: Todo[], actor: Actor | null) => {
   for (const todo of store.todos) {
@@ -82,6 +82,13 @@ export const todoHandlers = (store: TodoStore, announce: Announce, actor: () => 
 
 const todoMethods = (store: TodoStore, announce: Announce, actor: () => Actor): Handlers => ({
   "todo.list": () => store.todos.map((todo) => ({ ...todo })),
+  "todo.listHanded": () => store.todos.flatMap((todo) => {
+    const last = store.changes?.get(todo.id)?.findLast(change => change.handed
+      || JSON.stringify(change.before?.owner ?? null) !== JSON.stringify(change.after.owner ?? null));
+
+    return todo.owner?.kind === "agent" && last?.handed && JSON.stringify(last.handed) === JSON.stringify(todo.owner)
+      ? [{ todo: todo.id, owner: todo.owner, seq: last.seq }] : [];
+  }).toSorted((a, b) => a.seq - b.seq),
   "todo.get": ({ id }) => {
     const todo = find(store.todos, (todo) => todo.id === id, `todo ${id}`);
     store.reads?.set(id, store.changes?.get(id)?.at(-1)?.seq ?? 0);
@@ -101,7 +108,7 @@ const todoMethods = (store: TodoStore, announce: Announce, actor: () => Actor): 
   },
   "todo.create": ({ title, body, blockers, owner }) => {
     const id = Math.max(0, ...store.todos.map((todo) => todo.id)) + 1;
-    const created: Todo = { id, title, body: body ?? "", done: false, blockers: blockers ?? [], blocked: false, created_at: Date.now(), creator: actor(), home: null, owner: owner ?? null, refs: [] };
+    const created: Todo = { id, title, body: body ?? "", done: false, blockers: blockers ?? [], blocked: false, created_at: Date.now(), creator: actor(), home: null, owner: owner ?? null, refs: [], estimate_minutes: null };
     store.todos = withBlocked([...store.todos, created]);
     recordChanges(store, [], actor());
     const stored = find(store.todos, (todo) => todo.id === id, `todo ${id}`);

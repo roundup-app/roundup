@@ -246,3 +246,83 @@ p.ink[role="alert"] {
 .entry-row > .shelf-glyph > .todo-tick {
   pointer-events: none;
 }
+
+/* U3807: message text and actions share a fixed edge; neither determines its size. */
+.reserved-line {
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  inline-size: 100%;
+  min-inline-size: 0;
+  block-size: var(--line);
+  min-block-size: var(--line);
+  max-block-size: var(--line);
+  line-height: var(--line);
+  flex: none;
+  overflow: hidden;
+  animation-name: none;
+  transition-property: none;
+}
+
+.reserved-line[data-overlay="true"] {
+  position: absolute;
+  inset-inline: 0;
+  bottom: 0;
+  z-index: 1;
+  background: var(--ground);
+}
+
+.reserved-content > :is(.ink, .reserved-status) {
+  flex: 1;
+  min-inline-size: 0;
+  margin: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.reserved-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  flex: none;
+  white-space: nowrap;
+}
+
+.reserved-actions:empty {
+  display: none;
+}
+
+.reserved-actions :is(.todo-draft-revision, .todo-draft-actions, .send-to-agent-recovery) {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  white-space: nowrap;
+}
+
+.reserved-unknown,
+.reserved-unknown .ask-unknown-content {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-width: 0;
+  white-space: nowrap;
+}
+
+.reserved-line[data-overlay="true"][data-empty="true"] {
+  visibility: hidden;
+}
+
+.reserved-line .ink > .glyph {
+  margin-inline-end: var(--space-1);
+}
+
+.reserved-content {
+  display: flex;
+  align-items: center;
+  gap: inherit;
+  inline-size: 100%;
+  min-inline-size: 0;
+  block-size: 100%;
+}
