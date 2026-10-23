@@ -1,3 +1,4 @@
+import { openProjectPage } from "./menuProbe";
 // @vitest-environment jsdom
 import { mkdir, realpath, writeFile } from "node:fs/promises";
 import { join } from "node:path";
@@ -28,10 +29,11 @@ it("u2875d_real_import_reopen_and_resume", async () => {
       const emulators = fakeEmulators();
       render(() => <App app={app} reducedMotion={() => true} clock={Date.now} createEmulator={emulators.factory} />);
 
-      fireEvent.click(await screen.findByRole("button", { name: "Import Claude Code work" }));
+      await screen.findByRole("button", { name: /Overview/ });
+      openProjectPage("import-work", cwd);
       fireEvent.click(await screen.findByText("Imported 東京 work"));
       fireEvent.click(await screen.findByRole("button", { name: "Import 1" }));
-      await waitFor(() => expect(screen.queryByRole("dialog", { name: "Import Claude Code work" })).toBeNull());
+      await waitFor(() => expect(screen.queryByRole("region", { name: "Import Claude Code work" })).toBeNull());
 
       const created = async () => {
         const tree = await app.rpc("rail.tree", null);

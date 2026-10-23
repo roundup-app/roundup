@@ -358,6 +358,14 @@ export const createFakeApp = (): FakeApp => {
 
       return () => dropListeners.delete(listener);
     },
+    selectProjectMenu: async (_path) => {},
+    onProjectPage: async (listener) => {
+      const receive = (event: Event) => { if (event instanceof CustomEvent) listener(event.detail); };
+
+      window.addEventListener("open-project-page", receive);
+
+      return () => window.removeEventListener("open-project-page", receive);
+    },
     onAppSettings: async (listener) => {
       window.addEventListener("open-app-settings", listener);
 

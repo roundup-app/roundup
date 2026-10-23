@@ -100,3 +100,16 @@
 .settings-group > .settings-font {
   width: min(100%, var(--centre-min-width));
 }
+
+.project-center-content {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+}
+
+.project-center-content > .pane {
+  flex: 1;
+  height: auto;
+  min-height: 0;
+}

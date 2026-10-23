@@ -1,3 +1,4 @@
+import { openProjectPage } from "../testing/menuProbe";
 import { readdirSync, readFileSync } from "node:fs";
 import { openLane } from "../todos/laneBrowser";
 import { captureDir } from "../testing/captures";
@@ -5,6 +6,7 @@ import { cleanup, fireEvent, screen, waitFor, within } from "@solidjs/testing-li
 import { afterEach, expect, it, vi } from "vitest";
 import { render } from "@solidjs/testing-library";
 import { connectProject, ConnectedProjectContext } from "../state/connectedProject";
+import { ProjectSettingsView } from "../rail/ProjectSettings";
 import { Rail } from "../rail/Rail";
 import { RpcError } from "../app/seam";
 import { connectFakeProject } from "../terminal/paneHarness";
@@ -26,7 +28,7 @@ const mount = async () => {
     outcomes: params.selections.map((entry) => ({ source: entry.source, workstream: `w-${entry.source}`, agent: `a-${entry.source}`, error: null })),
   });
 
-  render(() => <ConnectedProjectContext.Provider value={connected}><Rail /></ConnectedProjectContext.Provider>);
+  render(() => <ConnectedProjectContext.Provider value={connected}><Rail /><ProjectSettingsView /></ConnectedProjectContext.Provider>);
 
   return { app, connected };
 };
@@ -40,16 +42,17 @@ const isChecked = (name: RegExp): boolean => {
 };
 
 const open = async () => {
-  fireEvent.click(screen.getByRole("button", { name: "Import Claude Code work" }));
+  openProjectPage("import-work");
   await waitFor(() => expect(screen.getByRole("checkbox", { name: /first/ })).toBeTruthy());
 };
 
-it("u2875d_dialog_focus_and_escape_return_to_the_rail", async () => {
+it("u3814_close_restores_the_previous_center_and_focus", async () => {
   await mount();
-  const opener = screen.getByRole("button", { name: "Import Claude Code work" });
+  const opener = screen.getByRole("button", { name: /Overview/ });
+  opener.focus();
 
   await open();
-  await waitFor(() => expect(document.activeElement).toBe(screen.getByRole("dialog")));
+  await waitFor(() => expect(document.activeElement).toBe(screen.getByRole("region", { name: "Import Claude Code work" })));
   fireEvent.keyDown(document.activeElement ?? document.body, { code: "Escape", key: "Escape", keyCode: 27 });
   await waitFor(() => expect(screen.queryByRole("checkbox")).toBeNull());
   await waitFor(() => expect(document.activeElement).toBe(opener));
@@ -82,7 +85,7 @@ it.each([new RpcError(-32003, "daemon said no"), new Error("daemon said no")])("
   await waitFor(() => expect(screen.getByText("daemon said no")).toBeTruthy());
   expect(connected.drafts.list().find((draft) => draft.destination.surface === "import")?.status).toBe(failure instanceof RpcError ? "failed" : "unknown");
   cleanup();
-  render(() => <ConnectedProjectContext.Provider value={connected}><Rail /></ConnectedProjectContext.Provider>);
+  render(() => <ConnectedProjectContext.Provider value={connected}><Rail /><ProjectSettingsView /></ConnectedProjectContext.Provider>);
   await open();
   expect(calls(app, "project.importCommit")).toHaveLength(1);
   expect(isChecked(/first/)).toBe(true);
@@ -106,7 +109,7 @@ it("u2875a_discovery_exclusions_remain_visible_after_partial_failure", async () 
   expect(screen.getByRole("button", { name: "Refresh" })).toBeTruthy();
 });
 
-it.each([false, true])("u2875d_cancel_consumes_only_the_current_draft (empty: %s)", async (empty) => {
+it.each([false, true])("u3815_cancel_keeps_the_exact_current_choices (empty: %s)", async (empty) => {
   const { app, connected } = await mount();
 
   app.handlers["project.importCommit"] = () => { throw new RpcError(-32003, "daemon said no"); };
@@ -128,10 +131,10 @@ it.each([false, true])("u2875d_cancel_consumes_only_the_current_draft (empty: %s
   fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
   await waitFor(() => expect(screen.queryByRole("checkbox")).toBeNull());
   cleanup();
-  render(() => <ConnectedProjectContext.Provider value={connected}><Rail /></ConnectedProjectContext.Provider>);
+  render(() => <ConnectedProjectContext.Provider value={connected}><Rail /><ProjectSettingsView /></ConnectedProjectContext.Provider>);
   await open();
-  expect(isChecked(/first/)).toBe(true);
-  expect(isChecked(/second/)).toBe(false);
+  expect(isChecked(/first/)).toBe(!empty);
+  expect(isChecked(/second/)).toBe(!empty);
   expect(calls(app, "project.importCommit")).toHaveLength(1);
 });
 
@@ -144,7 +147,7 @@ it.skipIf(!captureDir("U3049a"))("u3049a_u3049b_rendered_conflict_recovery", asy
       window.__fake.app.handlers['project.importDiscover'] = () => ({ candidates: Array.from({ length: 10 }, (_, at) => ({ source: 's' + (at + 1), revision: 'preview-' + (at + 1), title: ('長い会話 🪁 ' + (at + 1) + ' ').repeat(12), cwd: 'src', last_activity_ms: 1n })), excluded: [] });
       return true;
     })()`);
-    await lane.browser("click", ".rail-import");
+    await lane.evaluate("window.dispatchEvent(new CustomEvent('open-project-page', { detail: { path: document.querySelector('.project-tab[data-selected=true]').dataset.path, command: 'import-work' } }))");
     await lane.until("document.querySelectorAll('.import-check').length === 10");
     await lane.capture("U3049a", "before");
     await lane.browser("click", ".import-list li:first-child .import-check");
@@ -180,13 +183,13 @@ it("u3037d_discovery_deadline_and_retry", async () => {
   const { app } = await mount();
   app.handlers["project.importDiscover"] = () => new Promise(() => {});
   vi.useFakeTimers();
-  fireEvent.click(screen.getByRole("button", { name: "Import Claude Code work" }));
+  openProjectPage("import-work");
   await vi.advanceTimersByTimeAsync(0);
-  expect(within(screen.getByRole("dialog")).getByRole("status")).toBeTruthy();
+  expect(within(screen.getByRole("region", { name: "Import Claude Code work" })).getByRole("status")).toBeTruthy();
   expect(screen.getByRole("button", { name: "Cancel" })).toHaveProperty("disabled", false);
   await vi.advanceTimersByTimeAsync(20_000);
   expect(screen.getByRole("alert")).toBeTruthy();
-  expect(within(screen.getByRole("dialog")).queryByRole("status")).toBeNull();
+  expect(within(screen.getByRole("region", { name: "Import Claude Code work" })).queryByRole("status")).toBeNull();
   expect(calls(app, "project.importCommit")).toHaveLength(0);
   app.handlers["project.importDiscover"] = () => ({ candidates, excluded: [] });
   fireEvent.click(screen.getByRole("button", { name: "Refresh" }));
@@ -202,7 +205,7 @@ it.each(["timeout", "period", "dismiss", "project"])("u3037d_late_results_cannot
 
   app.handlers["project.importDiscover"] = () => new Promise((resolve) => { complete = resolve; });
   vi.useFakeTimers();
-  fireEvent.click(screen.getByRole("button", { name: "Import Claude Code work" }));
+  openProjectPage("import-work");
   await vi.advanceTimersByTimeAsync(0);
   app.handlers["project.importDiscover"] = () => { throw new Error("current failure"); };
 
@@ -219,8 +222,8 @@ it.each(["timeout", "period", "dismiss", "project"])("u3037d_late_results_cannot
     other.handlers["project.importDiscover"] = () => { throw new Error("current failure"); };
 
     const connected = await connectProject(other, { name: "q", path: "/q" }, () => false, () => 0, () => null);
-    render(() => <ConnectedProjectContext.Provider value={connected}><Rail /></ConnectedProjectContext.Provider>);
-    fireEvent.click(screen.getByRole("button", { name: "Import Claude Code work" }));
+    render(() => <ConnectedProjectContext.Provider value={connected}><Rail /><ProjectSettingsView /></ConnectedProjectContext.Provider>);
+    openProjectPage("import-work", "/q");
     await vi.advanceTimersByTimeAsync(0);
   }
 
@@ -228,7 +231,7 @@ it.each(["timeout", "period", "dismiss", "project"])("u3037d_late_results_cannot
   await vi.advanceTimersByTimeAsync(0);
   expect(screen.queryByRole("checkbox", { name: /first/ })).toBeNull();
 
-  if (action !== "dismiss") expect(within(screen.getByRole("dialog")).getByRole("alert")).toBeTruthy();
+  if (action !== "dismiss") expect(within(screen.getByRole("region", { name: "Import Claude Code work" })).getByRole("alert")).toBeTruthy();
   expect(calls(app, "project.importCommit")).toHaveLength(0);
 });
 
@@ -245,7 +248,7 @@ const mixed = () => {
 it("u3083b_excluded_rows_absent_until_the_disclosure_opens", async () => {
   await mixed();
   await open();
-  const dialog = screen.getByRole("dialog");
+  const dialog = screen.getByRole("region", { name: "Import Claude Code work" });
 
   expect(within(screen.getByRole("list", { name: "Conversations" })).getAllByRole("listitem")).toHaveLength(2);
   expect(within(dialog).queryByText("Already imported")).toBeNull();
@@ -290,12 +293,9 @@ it("u3083c_failed_import_preserves_failed_row", async () => {
 
 
 it("u3083a_every_modal_renders_in_the_shared_positioner", async () => {
-  await mount();
-  await open();
-  expect(screen.getByRole("dialog").parentElement?.classList.contains("app-dialog-positioner")).toBe(true);
 
   // The other modals: each wraps its Content in the Positioner of ui/Dialog, and no other stylesheet positions one.
-  for (const file of ["shelf/BulkDelete", "header/CloseDialog", "todos/TodoDrawer", "bubbles/Bubbles", "header/ProjectTab", "importer/ImportPanel"]) {
+  for (const file of ["shelf/BulkDelete", "header/CloseDialog", "todos/TodoDrawer", "bubbles/Bubbles", "header/ProjectTab"]) {
     const source = readFileSync(`src/${file}.tsx`, "utf8");
 
     expect(source, file).toMatch(/from "\.\.\/ui\/Dialog"/);
@@ -315,7 +315,7 @@ it("u3299d_copy_uses_selected_item_import", async () => {
   app.handlers["project.importDiscover"] = () => ({ candidates: duplicate, excluded: [] });
   const write = vi.fn().mockResolvedValue(undefined);
   Object.defineProperty(navigator, "clipboard", { configurable: true, value: { writeText: write } });
-  fireEvent.click(screen.getByRole("button", { name: "Import Claude Code work" }));
+  openProjectPage("import-work");
   const choices = await screen.findAllByRole("checkbox", { name: /Review/ });
   const rows = choices.map(choice => choice.closest("li")!);
   fireEvent.click(within(rows[1]!).getByRole("button", { name: "Copy" }));
@@ -327,7 +327,7 @@ it("u3299d_copy_uses_selected_item_import", async () => {
 it("u3299d_named_rows_keep_recorded_targets_import", async () => {
   const { app } = await mount();
   app.handlers["project.importDiscover"] = () => ({ candidates: candidates.map(candidate => ({ ...candidate, title: "Review" })), excluded: [] });
-  fireEvent.click(screen.getByRole("button", { name: "Import Claude Code work" }));
+  openProjectPage("import-work");
   const choices = await screen.findAllByRole("checkbox", { name: /Review/ });
   fireEvent.click(choices[1]!);
   const confirm = await screen.findByRole("button", { name: "Import 1" });
@@ -422,7 +422,7 @@ it.skipIf(!captureDir("U3299a")).each(["names", "retention"] as const)("u3299a_u
         window.__fake.app.handlers['project.importDiscover'] = () => ({ candidates: Array.from({length:10},(_,n) => ({source:'source-'+n,revision:'revision-'+n,title:n<2?'Review':('Conversation '+n+' 長い名前 ').repeat(8),cwd:'/Users/private/projects/orchard/'+(n<2?'location-'+n:'source-'+n),last_activity_ms:1792713600000n})),excluded:[] });
         return true;
       })()`);
-      await lane.browser("click", ".rail-import");
+      await lane.evaluate("window.dispatchEvent(new CustomEvent('open-project-page', { detail: { path: document.querySelector('.project-tab[data-selected=true]').dataset.path, command: 'import-work' } }))");
       await lane.until("document.querySelectorAll('.import-check').length === 10");
       await capture("U3299d", side!, "imports");
       await lane.browser("click", ".import-check");

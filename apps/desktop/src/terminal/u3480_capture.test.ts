@@ -39,15 +39,13 @@ it.skipIf(!captureDir("U3480"))("u3480_rendered_context_menu_under_dialog", asyn
     await read(`(() => {
       window.__copies = [];
       Object.defineProperty(navigator, 'clipboard', { configurable: true, value: { writeText: async text => window.__copies.push(text), readText: async () => '' } });
-      window.__fake.failNext(-32003, 'Source unavailable. Retry import.');
       document.querySelector('.pane-screen').dispatchEvent(new MouseEvent('contextmenu', { bubbles: true, cancelable: true, clientX: 800, clientY: 300 }));
     })()`);
     await wait("!!document.querySelector('[role=menu]') && document.activeElement === document.querySelector('[role=menu]')");
     await capture("context-open");
     // Programmatic activation opens the real App's modal without an outside pointer press.
-    await read("document.querySelector('.rail-import').click()");
+    await read("window.dispatchEvent(new KeyboardEvent('keydown', { key: 'T', code: 'KeyT', metaKey: true, shiftKey: true, bubbles: true, cancelable: true }))");
     await wait("!!document.querySelector('[role=dialog]') && document.querySelector('[role=dialog]').contains(document.activeElement) && !document.querySelector('[role=menu]')");
-    await wait("document.querySelector('.import-panel').textContent.includes('Source unavailable. Retry import.')");
     await capture("dialog");
     expect(await read("window.__copies")).toEqual([]);
     await browser("press", "Escape");

@@ -57,9 +57,7 @@ export const mountRail = async (
         <Show when={neighbors.pane}>
           <Pane createEmulator={neighbors.pane === true ? undefined : neighbors.pane} />
         </Show>
-        <Show when={neighbors.settings}>
-          <ProjectSettingsView />
-        </Show>
+        <ProjectSettingsView />
         <Show when={neighbors.drawer}>
           <DrawerHost drawer={connected.drawer} reducedMotion={reducedMotion} />
         </Show>

@@ -1,19 +1,17 @@
 import { ReservedLine } from "../ink/ReservedLine";
 import "./import.css";
 import { createSignal, For, onCleanup, Show } from "solid-js";
-import { Portal } from "solid-js/web";
 import type { ImportPeriod } from "@contracts/project/ImportPeriod";
 import { copy } from "../copy";
-import { registerKeys } from "../keys/registry";
 import { useConnectedProject } from "../state/connectedProject";
 import { Checkbox } from "../ui/Checkbox";
-import { Dialog } from "../ui/Dialog";
+import { SettingsGroup, SettingsShell } from "../settings/SettingsShell";
 import { Disclosure } from "../ui/Disclosure";
 
 const PERIODS: readonly ImportPeriod[] = ["day", "week", "month"];
 
 /** U2875d: the Project's `Import Claude Code work` panel. Opening discovers; nothing submits until `Import` is pressed, and a restored selection waits for a fresh discovery to match it. */
-export const ImportPanel = (props: { open: boolean; opener: HTMLElement | undefined; onClose: () => void }) => {
+export const ImportPanel = (props: { onClose: () => void }) => {
   const { importing: state, drafts, project, daemonExit, now } = useConnectedProject();
   const [copyFailure, failCopy] = createSignal<string | null>(null);
 
@@ -35,23 +33,18 @@ export const ImportPanel = (props: { open: boolean; opener: HTMLElement | undefi
   const confirm = state.confirm;
   const dismiss = () => { if (!pending()) props.onClose(); };
 
-  let panel: HTMLElement | undefined;
-  let periods: HTMLDivElement | undefined;
-  registerKeys({ kind: "layer", element: () => panel, active: () => props.open, modal: true }, []);
-
   return (
-    <Dialog.Root open={props.open} initialFocusEl={() => periods?.querySelector<HTMLElement>("[aria-pressed=true]") ?? null} finalFocusEl={() => props.opener?.isConnected ? props.opener : null}
-      onOpenChange={(details) => { if (!details.open) dismiss(); }}>
-      <Portal><Dialog.Backdrop /><Dialog.Positioner>
-        <Dialog.Content class="import-panel" ref={(element) => (panel = element)}>
-          <Dialog.Title>{copy.importTitle}</Dialog.Title>
-          <div role="group" aria-label={copy.importPeriod} class="import-period" ref={periods}>
+    <SettingsShell heading={copy.importTitle} onClose={dismiss}>
+      <SettingsGroup name={copy.importPeriod}>
+          <div role="group" aria-label={copy.importPeriod} class="import-period">
             <For each={PERIODS}>{(each) => (
               <button type="button" data-button="quiet" aria-pressed={period() === each} onClick={() => choose(each)}>
                 {copy.importPeriodName(each)}
               </button>
             )}</For>
           </div>
+      </SettingsGroup>
+      <SettingsGroup name={copy.importResults}><div class="import-panel">
           <ReservedLine message={failure() ?? (state.restoreFailure() || state.retentionFailure() ? `${state.restoreFailure() ? copy.importRestoreFailure : copy.importRetentionFailure} ${copy.importRetentionRecovery}` : null)}
             aria-live="polite" aria-label={state.hasConflict() ? copy.importConflict : undefined} status={state.hasConflict() ? copy.importConflictExplanation : !state.verified() && wanted().size > 0 ? copy.importRestored(wanted().size) : state.loading() ? copy.importLooking : found()?.candidates.length === 0 ? copy.importNone : null}>
             <Show when={state.restoreFailure() || state.retentionFailure()}><button type="button" data-button="quiet" onClick={state.retryStorage}>{copy.retryStorage}</button></Show>
@@ -112,8 +105,7 @@ export const ImportPanel = (props: { open: boolean; opener: HTMLElement | undefi
               </button>
             </span>
           </p>
-        </Dialog.Content>
-      </Dialog.Positioner></Portal>
-    </Dialog.Root>
+      </div></SettingsGroup>
+    </SettingsShell>
   );
 };
