@@ -99,7 +99,8 @@ it("u3512d_instant_paths_release_focus_next_frame", async () => {
   await openForm();
   await lane.evaluate(`(async () => {
     window.__u3512Origin = document.activeElement;
-    const cancel = document.querySelector('.new-workstream [data-part=close-trigger]');
+    const original = document.querySelector('.new-workstream');
+    const cancel = original.querySelector('[data-part=close-trigger]');
     cancel.dispatchEvent(new PointerEvent('pointerdown', {bubbles: true}));
     cancel.click();
     await new Promise(resolve => requestAnimationFrame(resolve));
@@ -136,12 +137,15 @@ it("u3512d_reopen_owns_exit_completion", async () => {
   })()`);
   const [id] = await lane.order();
 
-  const result = await lane.evaluate<string>(`(async () => {
+  const result = await lane.evaluate<{ draft: string; retained: boolean; inert: boolean }>(`(async () => {
     const frame = () => new Promise(resolve => requestAnimationFrame(resolve));
-    const cancel = document.querySelector('.new-workstream [data-part=close-trigger]');
+    const original = document.querySelector('.new-workstream');
+    const cancel = original.querySelector('[data-part=close-trigger]');
     cancel.dispatchEvent(new PointerEvent('pointerdown', {bubbles: true}));
     cancel.click();
     await frame();
+    const retained = document.querySelector('.new-workstream') === original;
+    const inert = original.inert;
     const row = document.querySelector('.shelf .todo-row[data-id="${id}"] .todo-row-button');
     row.focus();
     row.dispatchEvent(new KeyboardEvent('keydown', {key: 'o', code: 'KeyO', bubbles: true}));
@@ -156,10 +160,10 @@ it("u3512d_reopen_owns_exit_completion", async () => {
     field.dispatchEvent(new Event('input', {bubbles: true}));
     await Promise.all(document.querySelector('.new-workstream').getAnimations().map(animation => animation.finished.catch(() => {})));
     await frame();
-    return document.querySelector('.new-workstream textarea')?.value;
+    return { draft: document.querySelector('.new-workstream textarea')?.value, retained, inert };
   })()`);
 
-  expect(result).toBe("latest 雪");
+  expect(result).toEqual({ draft: "latest 雪", retained: true, inert: true });
   expect(await lane.evaluate<boolean>("!document.querySelector('.new-workstream').inert")).toBe(true);
   const dir = captureDir("U3512d");
   const frames = await lane.evaluate("(() => { window.__u3512Sampling = false; return window.__u3512Frames; })()");
