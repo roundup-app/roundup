@@ -1,6 +1,7 @@
 import { questionDialog, answerQuestion } from "../shelf/bulkQuestionHarness";
 import { cleanup, fireEvent, screen, waitFor, within } from "@solidjs/testing-library";
 import { afterEach, describe, expect, it } from "vitest";
+import { USER } from "../testing/nodes";
 import { RpcError } from "../app/seam";
 import { mountTodos, todo, todoCallsTo as callsTo, todoEvent, todoRowOf as rowOf } from "./testHarness";
 
@@ -203,4 +204,49 @@ describe("u152 remove a blocker", () => {
     expect((await within(drawer()).findByText(/cannot remove/)).textContent).toBe("cannot remove");
     expect(rowOf(2).getAttribute("aria-level")).toBe("2");
   });
+});
+
+
+it.each(["dismiss", "save", "delete", "cancel-delete", "failed-delete", "unrelated"] as const)("p3557c_failure_lifetime_todo_drawer_%s", async action => {
+  const m = await mountTodos([todo(1), todo(2)]);
+  await openDrawerOf(1);
+  const field = within(drawer()).getByRole<HTMLTextAreaElement>("textbox", { name: "Write a comment" });
+  const text = "  e\u0301 🧪\n次の行  ";
+  fireEvent.input(field, { target: { value: text } });
+  m.app.handlers["todo.complete"] = () => Promise.reject(new RpcError(-32003, "Cannot save; retry"));
+  fireEvent.click(within(drawer()).getByRole("checkbox", { name: "Complete todo 1" }));
+  await within(drawer()).findByRole("alert", { name: "Cannot save; retry" });
+  const before = [...m.app.calls];
+
+  if (action === "dismiss") fireEvent.click(within(drawer()).getByRole("button", { name: "Dismiss failure" }));
+  else if (action === "save") {
+    m.app.handlers["todo.complete"] = () => todo(1, { done: true });
+    fireEvent.click(within(drawer()).getByRole("checkbox", { name: "Complete todo 1" }));
+    await waitFor(() => expect(callsTo(m.app, "todo.complete")).toHaveLength(2));
+  } else if (action === "unrelated") {
+    m.app.emit(todoEvent("todo.updated", todo(2)));
+    m.app.emit({ actor: USER, name: "todo.deleted", data: { id: 2 } });
+  } else {
+    if (action === "failed-delete") m.app.handlers["todo.delete"] = () => Promise.reject(new RpcError(-32003, "Cannot delete; retry"));
+    fireEvent.click(within(drawer()).getByRole("button", { name: "Delete Todo" }));
+    await questionDialog();
+    // Opening the confirmation cannot consume the original failure.
+    expect(within(drawer()).getByRole("alert", { name: "Cannot save; retry" })).toBeTruthy();
+    await answerQuestion(action !== "cancel-delete");
+  }
+
+  if (action === "delete") {
+    await waitFor(() => expect(m.connected.drawer.content()).toBeNull());
+    m.app.emit({ actor: USER, name: "todo.deleted", data: { id: 1 } });
+    await waitFor(() => expect(document.querySelector('[data-id="1"]')).toBeNull());
+    await openDrawerOf(2);
+    expect(within(drawer()).queryByRole("alert")).toBeNull();
+  } else {
+    const stays = action === "cancel-delete" || action === "unrelated";
+    const message = action === "failed-delete" ? "Cannot delete; retry" : "Cannot save; retry";
+    await waitFor(() => expect(within(drawer()).queryByRole("alert", { name: message }) !== null).toBe(stays || action === "failed-delete"));
+    expect(field.value).toBe(text);
+    expect(m.store.todos.map(item => item.id)).toEqual([1, 2]);
+    if (action === "dismiss") expect(m.app.calls).toEqual(before);
+  }
 });
