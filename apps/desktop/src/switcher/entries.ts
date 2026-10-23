@@ -1,13 +1,10 @@
 import type { RailNode } from "@contracts/agent/RailNode";
 import type { TerminalInfo } from "@contracts/terminal/TerminalInfo";
-import { descendantsOf, resolvedWorkstream, siblingsOf } from "../rail/layout";
+import { railOrder, resolvedWorkstream } from "../rail/layout";
 import { nameOf } from "../bubbles/places";
 
 /** One row of the Switcher: a Rail node, or a Terminal with no Kind that names the Workstream owning it. */
 export type Entry = { value: string; label: string; node?: RailNode; terminal?: TerminalInfo; owner?: string };
-
-const railOrder = (nodes: readonly RailNode[]): RailNode[] =>
-  siblingsOf(nodes, null).flatMap((node) => [node, ...descendantsOf(nodes, node.id)]);
 
 const urgency = (entry: Entry): number => entry.node?.status?.kind === "error" ? 0 : entry.node?.status?.kind === "needs-you" ? 1 : 2;
 
