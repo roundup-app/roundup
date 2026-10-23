@@ -21,6 +21,7 @@ import { shelfScope } from "../shelf/scope";
 import type { RailNode } from "@contracts/agent/RailNode";
 import { AskRows } from "./AskRows";
 import { createReactions, Reactions } from "../reactions/Reactions";
+import { ToolCallLine } from "./ToolCallLine";
 import "./styles.css";
 
 /** The leading `@` and the letters after it, while the user has not yet typed the space that ends the name (U504). */
@@ -297,6 +298,8 @@ const ProjectOverview = () => {
   const workstreams = createMemo(() => siblingsOf(rail.nodes, null).flatMap((node) => [node, ...descendantsOf(rail.nodes, node.id)]).filter((node) => node.kind === "workstream"));
   const under = (id: string | null) => attention().filter((node) => resolvedWorkstream(rail.nodes, node.id) === id);
 
+  const called = (id: string | null) => rail.nodes.filter((node) => node.tool_call !== undefined && resolvedWorkstream(rail.nodes, node.id) === id);
+
   const entry = (node: RailNode, waiting = false) => <OverviewEntry node={node} waiting={waiting} select={() => rail.select(node.id)} />;
 
   return <section class="project-overview" aria-label={copy.projectOverview}>
@@ -313,8 +316,12 @@ const ProjectOverview = () => {
         <Show when={under(node.id).length > 0}><ul class="overview-attention">
           <For each={under(node.id)}>{(agent) => <li>{entry(agent, true)}</li>}</For>
         </ul></Show>
+        <Show when={called(node.id).length > 0}><ul class="overview-calls">
+          <For each={called(node.id)}>{(agent) => <li><ToolCallLine name={agent.name} call={agent.tool_call!} /></li>}</For>
+        </ul></Show>
       </li>}</For>
       <For each={under(null)}>{(node) => <li>{entry(node, true)}</li>}</For>
+      <For each={called(null)}>{(agent) => <li><ToolCallLine name={agent.name} call={agent.tool_call!} /></li>}</For>
     </ul>
   </section>;
 };
