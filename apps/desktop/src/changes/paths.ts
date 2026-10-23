@@ -1,3 +1,4 @@
+// fallow-ignore-file duplicate-export -- absolutePath joins a ChangedFile to its Worktree; terminal/links resolves terminal link text.
 import type { ChangedFile } from "@contracts/agent/ChangedFile";
 import type { ChangedStatus } from "@contracts/agent/ChangedStatus";
 import { copy } from "../copy";

@@ -1,3 +1,4 @@
+// fallow-ignore-file duplicate-export -- Place is a persisted bubble rectangle; keys/places owns keyboard focus regions.
 import * as v from "valibot";
 import type { RailNode } from "@contracts/agent/RailNode";
 import type { TerminalInfo } from "@contracts/terminal/TerminalInfo";

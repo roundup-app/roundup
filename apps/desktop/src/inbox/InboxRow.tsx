@@ -1,3 +1,4 @@
+// fallow-ignore-file duplicate-export -- RowActions is the Inbox callback contract; rail/RowIcons owns Rail callbacks.
 import { createEffect, createUniqueId, For, Show } from "solid-js";
 import type { Decision } from "@contracts/decision/Decision";
 import type { RailNode } from "@contracts/agent/RailNode";
