@@ -1,4 +1,4 @@
-import { createComputed, createMemo, createSignal, on, onCleanup } from "solid-js";
+import { createComputed, createContext, createMemo, createSignal, on, onCleanup, useContext } from "solid-js";
 import type { Accessor } from "solid-js";
 
 export type Clock = () => number;
@@ -6,10 +6,18 @@ export type Clock = () => number;
 /** Elapsed times read in whole minutes (`elapsed`), so a coarse tick is enough. */
 export const NOW_TICK_MS = 15_000;
 
+type Subscribe = (active: Accessor<boolean>) => Accessor<number>;
+
+export const DisplayClockContext = createContext<Subscribe>();
+
+/** Call inside the App's Solid owner. Demand lasts while active; disposal releases it automatically. */
+export const useDisplayNow = (active: Accessor<boolean>): Accessor<number> => useContext(DisplayClockContext)!(active);
+
 /** One shared timer for the whole app; the injected `clock` is the only source of time. */
-export const createNow = (clock: Clock, isLive: Accessor<boolean> = () => true): Accessor<number> => {
+export const createNow = (clock: Clock, isLive: Accessor<boolean> = () => true, visible: Accessor<boolean> = () => true): Accessor<number> & { subscribe: Subscribe } => {
   const [now, setNow] = createSignal(clock());
-  createComputed(on(createMemo(isLive), (live) => {
+  const [demands, setDemands] = createSignal(0);
+  createComputed(on(createMemo(() => visible() && (isLive() || demands() > 0)), (live) => {
     if (!live) return;
 
     setNow(clock());
@@ -18,5 +26,16 @@ export const createNow = (clock: Clock, isLive: Accessor<boolean> = () => true):
     onCleanup(() => clearInterval(timer));
   }));
 
-  return now;
+  const subscribe: Subscribe = (active) => {
+    createComputed(on(active, (live) => {
+      if (!live) return;
+
+      setDemands((count) => count + 1);
+      onCleanup(() => setDemands((count) => count - 1));
+    }));
+
+    return now;
+  };
+
+  return Object.assign(now, { subscribe });
 };
