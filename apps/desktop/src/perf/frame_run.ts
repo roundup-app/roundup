@@ -1,3 +1,4 @@
+// fallow-ignore-file duplicate-export -- The workload sleeps; state/clock reads time. Neither is re-exported through a barrel.
 import type { AppSeam } from "../app/seam";
 import { toBase64 } from "../terminal/base64";
 import { createXtermEmulators } from "../terminal/emulator";

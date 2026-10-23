@@ -60,25 +60,22 @@ precedes fitting and the authoritative Daemon resize; live output is parsed in
 order while the faces load. Existing input, scrollback and snapshot holders are
 reused.
 
-## Remaining native acceptance
+## Acceptance and native observation
 
-U3517e requires the existing opt-in Mac keystroke observer, with the bundled face
-loaded and unchanged limits. U3517f requires Soloterm and roundup on the same
-Mac, same Claude version/folder/window width/scheme/scale, default preferences
-and no Project zoom. Record App versions, commit, actual content rectangles,
-window dimensions, scale, font settings, row/column counts and captures. Counts
-must differ by at most one; the critic judges glyphs, spacing, colours, cursor,
-selection and ANSI samples. Inspect Tomorrow in Light without committing images.
-No native timing or Soloterm effective configuration is inferred from Linux or
-terminfo. #3517 stays open until these observations and the required gates hold.
+Owner direction on #3517 makes the existing CI performance result and Linux
+rendered observer the merge conditions for U3517e/f. #1990 stays closed and is
+no prerequisite. Native keystroke timing and the same-folder/version/width/scale
+Soloterm comparison belong to the owner's observation after merge; no per-PR
+Mac check is required. Linux evidence establishes no native timing or Soloterm
+match. No baseline, budget, workload or probe is changed.
 
 
-## Validation and blockers
+## Validation
 
 `pnpm install`, production web build, focused emulator/settings/zoom/scheme
 observers and Rust lints/proofs pass on the implementation. Final merged-head
-web and rendered checks are recorded on #3517. Main's unrelated Combobox
-Stylelint failure is owned by open #3601; this change does not weaken that gate.
+web and rendered checks are recorded on #3517. Merging current main brings
+#3598's Combobox Stylelint repair; #3601 is completed.
 The broad capture/related attempts were superseded by merging main and repairing
 input readiness; they are not reported as passing full-suite runs. CI remains
 the judge of every test on the pushed head.
@@ -109,12 +106,9 @@ baseline, budget, workload or probe is changed by this PR. No Daemon source
 changes appear against main; these reports do not measure the bundled font or
 establish native keystroke latency.
 
-The existing Linux gate repair #1990 and machine-class observer #1251 were
-closed by the owner as not planned. The Builder rule forbids silently restoring
-cancelled prerequisites. #3517 therefore needs the user's decision to restore
-#1990's scoped existing-gate repair, or explicitly revise that acceptance. The
-recommendation is to preserve acceptance and reopen #1990; no cancelled Issue is
-added as a blocker. Native U3517e/f observations remain separately required.
+The two local failed runs remain diagnostic evidence. They do not restore
+cancelled #1990 or add a new CI lane. The PR head's existing CI checks judge the
+push under the owner's revised U3517e acceptance.
 
 
 The final merged-source focused run passes 55 retained tests. Four isolated rendered/

@@ -1,3 +1,4 @@
+// fallow-ignore-file duplicate-export -- Inbox actions differ from rail/RowIcons actions; both are imported directly.
 import { createEffect, createUniqueId, For, Show } from "solid-js";
 import type { Decision } from "@contracts/decision/Decision";
 import type { RailNode } from "@contracts/agent/RailNode";
