@@ -90,12 +90,10 @@ p.ink[role="alert"] {
 }
 
 /* U379: the title button covers its row, so the wash and the click target are one box; every other control sits above it. */
-.shelf-row :is(.todo-row-button, .pad-name)::before {
+.shelf-row :is(.todo-row-button, .pad-name)::after {
   content: "";
   position: absolute;
   inset: 0;
-  /* Above a positioned `.shelf-text` (U3309's notice anchor), so its lines click through; a `::before` precedes the title in the DOM, so the title and the controls at z-index 1 stay above it. */
-  z-index: 1;
 }
 
 /* Keep the title above the expanded row hit area so it receives tooltip pointer events. */
