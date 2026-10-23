@@ -455,7 +455,7 @@ it.each([...editorKinds, "pad-source", "diff", "overview"] as const)("u3529a_tex
 }, 90_000);
 
 it.skipIf(!process.env.ROUNDUP_CAPTURES?.includes("U3529"))("u3529c_rendered_selection_and_terminal_menu_removal", async () => {
-  const { mkdirSync, writeFileSync } = await import("node:fs");
+  const { copyFileSync, mkdirSync, writeFileSync } = await import("node:fs");
   const { join } = await import("node:path");
   const { captureDir } = await import("../testing/captures");
   const phase = process.env.ROUNDUP_CAPTURE_PHASE ?? "head";
@@ -466,12 +466,20 @@ it.skipIf(!process.env.ROUNDUP_CAPTURES?.includes("U3529"))("u3529c_rendered_sel
   await browser("set", "media", "dark");
 
   const snap = async (step: string) => {
+    const first = join(captureDir("U3529a")!, phase);
+
+    mkdirSync(first, { recursive: true });
+    const shot = join(first, `${step}.png`);
+
+    await browser("screenshot", shot);
+    const checks = JSON.stringify({ revision, ...await read<Checks>("window.__checks()") }, null, 2);
+
     for (const id of ["U3529a", "U3529b", "U3529c", "U3529d"]) {
       const directory = join(captureDir(id)!, phase);
 
       mkdirSync(directory, { recursive: true });
-      await browser("screenshot", join(directory, `${step}.png`));
-      writeFileSync(join(directory, `${step}.checks.json`), JSON.stringify({ revision, ...await read<Checks>("window.__checks()") }, null, 2));
+      if (id !== "U3529a") copyFileSync(shot, join(directory, `${step}.png`));
+      writeFileSync(join(directory, `${step}.checks.json`), checks);
     }
   };
 
