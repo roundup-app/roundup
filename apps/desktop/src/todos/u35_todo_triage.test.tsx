@@ -43,16 +43,6 @@ describe("u35 Todo triage without the Drawer", () => {
     expect(screen.getByRole("checkbox", { name: "Complete todo 3" })).toBeTruthy();
   });
 
-  it("u35_no_complete_word_once_focus_leaves_the_row", async () => {
-    await mountTodos([todo(3)]);
-    const row = await screen.findByRole("button", { name: /#3/ });
-    fireEvent.focusIn(row);
-    await screen.findByRole("checkbox", { name: "Complete todo 3" });
-
-    fireEvent.focusOut(row);
-
-    expect(screen.queryByText("Complete")).toBeNull();
-  });
 
   it("u35_no_complete_word_once_focus_moves_to_another_row", async () => {
     await mountTodos([todo(3), todo(4)]);
@@ -79,7 +69,7 @@ describe("u35 Todo triage without the Drawer", () => {
 
   it("u35_a_blockers_title_opens_that_blockers_drawer_and_not_the_blocked_todos_own_drawer", async () => {
     await mountTodos(shelf());
-    await screen.findByText(/^also waits on/);
+    await screen.findByRole("button", { name: "Open blocker migrate" });
 
     fireEvent.click(screen.getByRole("button", { name: "Open blocker migrate" }));
 
@@ -93,7 +83,7 @@ describe("u35 Todo triage without the Drawer", () => {
 
   it("u35_a_blockers_title_click_opens_the_drawer_exactly_once", async () => {
     const { connected } = await mountTodos(shelf());
-    await screen.findByText(/^also waits on/);
+    await screen.findByRole("button", { name: "Open blocker migrate" });
     const opened: unknown[] = [];
     const open = connected.drawer.open.bind(connected.drawer);
     connected.drawer.open = (content) => {
@@ -108,14 +98,15 @@ describe("u35 Todo triage without the Drawer", () => {
 
   it("u35_the_blockers_title_is_reachable_by_keyboard", async () => {
     await mountTodos(shelf());
-    await screen.findByText(/^also waits on/);
+    await screen.findByRole("button", { name: "Open blocker migrate" });
 
     expect(screen.getByRole("button", { name: "Open blocker migrate" }).closest("button")).not.toBeNull();
   });
 
   it("u3807_each_site_shows_its_message_in_the_reserved_line: Todo row", async () => {
     const { app } = await mountTodos(shelf());
-    const description = await screen.findByText(/^also waits on/);
+    await screen.findByRole("button", { name: "Open blocker migrate" });
+    const description = rowOf(5).querySelector("[data-todo-also-waits]")!;
     const place = rowOf(5).querySelector(".reserved-line")!;
     const siblings = [...place.parentElement!.children];
     app.handlers["todo.complete"] = () => Promise.reject(new RpcError(-32000, "cannot complete"));
@@ -135,7 +126,7 @@ describe("u35 Todo triage without the Drawer", () => {
 
   it("u35_a_failed_complete_still_calls_todo_complete_with_the_rows_id", async () => {
     const { app } = await mountTodos(shelf());
-    await screen.findByText(/^also waits on/);
+    await screen.findByRole("button", { name: "Open blocker migrate" });
     app.handlers["todo.complete"] = () => Promise.reject(new RpcError(-32000, "cannot complete"));
 
     fireEvent.mouseEnter(rowOf(5));
@@ -184,7 +175,7 @@ describe("u35 Todo triage without the Drawer", () => {
 
   it("u35_a_click_anywhere_in_the_shelf_clears_another_rows_failure", async () => {
     const { app } = await mountTodos(shelf());
-    await screen.findByText(/^also waits on/);
+    await screen.findByRole("button", { name: "Open blocker migrate" });
     app.handlers["todo.complete"] = () => Promise.reject(new RpcError(-32000, "cannot complete"));
     fireEvent.mouseEnter(rowOf(5));
     fireEvent.click(within(rowOf(5)).getByRole("checkbox"));

@@ -84,8 +84,8 @@ describe("u132 colour and Kind", () => {
     // retaining the blocked Glyph and the done fold's summary Glyph.
     for (const row of shelfRowBoxes) {
       const box = row.querySelector<HTMLInputElement>('input[type="checkbox"]');
-      // U3708: a nested row's Glyph is its place in the tree, so only a level-1 blocked Todo draws one.
-      const blocked = row.querySelector('.todo-row-button')?.getAttribute("aria-label")?.startsWith("Blocked ") && row.getAttribute("data-level") === "1";
+      // U3810 requires a locked indicator even when the open blocker is the nesting parent.
+      const blocked = row.querySelector('.todo-row-button')?.getAttribute("aria-label")?.startsWith("Blocked ");
 
       expect(drawnIn(row), row.outerHTML.slice(0, 300)).toHaveLength(box ? blocked ? 1 : 0 : 1);
 
