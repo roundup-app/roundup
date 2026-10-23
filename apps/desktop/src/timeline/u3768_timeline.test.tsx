@@ -7,6 +7,7 @@ import { createFakeApp } from "../testing/fakeApp";
 import { agent, door, event } from "../testing/nodes";
 import { connectProject, ConnectedProjectContext } from "../state/connectedProject";
 import { decision } from "../decisions/decisionsFixture";
+import { blocksOf } from "./model";
 import { TimelineView } from "./TimelineView";
 import { mountRailAndPane } from "../terminal/paneHarness";
 
@@ -237,4 +238,32 @@ it("u3768a_the_pane_opens_the_timeline_and_escape_returns_focus", async () => {
   await vi.advanceTimersByTimeAsync(0);
   expect(document.activeElement).toBe(open);
   expect(connected.rail.selected()).toBe("home");
+});
+
+
+it.each([
+  { kind: "done" as const, ended: true },
+  { kind: "error" as const, ended: true },
+  { kind: "idle" as const, ended: false },
+])("u3768b_a_stopped_agent_has_no_span_after_its_stop_$kind", ({ kind, ended }) => {
+  const samples = [{ at: at(0), attempt: "1", kind: "working" as const }, { at: at(10), attempt: "1", kind, ended }];
+  for (const now of [at(20), at(30)]) {
+    const result = blocksOf(samples, now);
+    expect(result.every(block => block.end <= at(10))).toBe(true);
+    expect(result.reduce((sum, block) => sum + block.end - block.start, 0)).toBe(10 * MIN);
+  }
+  const resumed = blocksOf([...samples, { at: at(25), attempt: "2", kind: "working" }], NOW);
+  expect(resumed.map(block => [block.start, block.end])).toEqual([[at(0), at(10)], [at(25), NOW]]);
+});
+
+it("u3768a_exit_is_a_named_icon_button", async () => {
+  const back = vi.fn();
+  await mount(family(), { back });
+  const exit = screen.getByRole("button", { name: "Close" });
+  expect(screen.queryByText("Back")).toBeNull();
+  expect(exit.textContent).toBe("");
+  fireEvent.focus(exit);
+  expect(await screen.findByRole("tooltip", { name: "Close" })).toBeTruthy();
+  fireEvent.click(exit);
+  expect(back).toHaveBeenCalledOnce();
 });
