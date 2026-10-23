@@ -77,8 +77,18 @@ it("u3722_each_head_button_shows_its_name_and_chip", async () => {
         await browser("press", name === "Close" ? "Tab" : "Shift+Tab");
       }
 
-      await browser("wait", "--fn", `document.querySelector('[role=tooltip]')?.textContent === '${name}${chip}'`);
-      expect(await evaluate("document.querySelector('[role=tooltip]').textContent")).toBe(`${name}${chip}`);
+      await browser("wait", "--fn", `document.querySelector('[role=tooltip] .key-chips')?.textContent === '${chip}'`);
+      await evaluate(`document.querySelector('.shelf-controls button[aria-label="${name === "Close" ? "Close work items" : name}"]').focus()`);
+      await browser("press", name === "Close" ? "Escape" : "m");
+
+      if (name === "Close") {
+        expect(await evaluate("document.querySelector('.shelf').hasAttribute('inert')")).toBe(true);
+        await toggle();
+      } else {
+        expect(await evaluate("document.querySelector('.window').dataset.shelfMaximised")).toBe(name === "Maximise" ? "true" : "false");
+        await browser("press", "m");
+      }
+
       const dir = captureDir("U3722");
 
       if (dir) {

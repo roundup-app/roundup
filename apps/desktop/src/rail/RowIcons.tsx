@@ -38,7 +38,8 @@ export const RowIcons = (props: { actions: RowActions; children?: JSX.Element })
           class="rail-add"
           aria-label={copy.addAgentLabel}
           aria-disabled={add().disabled || undefined}
-          chord={CHORDS[0]}
+          tooltip={copy.selectedWorkstreamShortcut}
+          chord={add().disabled ? undefined : CHORDS[0]}
           onClick={(click) => {
             click.stopPropagation();
             add().run();

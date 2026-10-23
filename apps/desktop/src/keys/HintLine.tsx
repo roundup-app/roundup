@@ -53,11 +53,20 @@ export const HintLine = () => {
 
     // The Shelf's own hints follow its state: Restore while maximised, and Export only where `e` acts, on a Pad row.
     const maximised = focus()?.closest(".window")?.getAttribute("data-shelf-maximised") === "true";
-    const onPad = focus()?.closest(".pad-inset") != null;
+    const held = focus();
+    const rowButton = held?.matches(".todo-row-button") === true;
+    const onPad = rowButton && held?.closest(".pad-inset") != null;
+    const canAssign = rowButton && !held?.closest(".todo-done-fold");
+    const editing = held?.closest("input,textarea,select,[contenteditable]") != null;
+    const modal = document.querySelector('[role=dialog], [role=alertdialog], [role=menu][data-state=open], .drawer[data-open="true"]') != null;
+
+    if (editing || modal) return [];
 
     return shown
       .filter((hint) => hint.label !== copy.exportMd || onPad)
-      .filter((hint) => hint.label !== copy.assign || focus()?.closest("[data-shelf-row]") != null)
+      .filter((hint) => hint.label !== copy.assign || canAssign)
+      .filter((hint) => hint.label !== copy.deleteFocusedRow || rowButton)
+      .filter((hint) => hint.label !== copy.maximise || focus()?.closest(".window")?.getAttribute("data-shelf-mode") !== "overlay")
       .map((hint) => hint.label === copy.maximise && maximised ? { ...hint, label: copy.restore } : hint);
   };
 

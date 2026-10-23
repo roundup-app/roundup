@@ -3,7 +3,7 @@ import { createEffect, For, onCleanup, Show } from "solid-js";
 import { useConnectedProject } from "../state/connectedProject";
 import { copy } from "../copy";
 import { LEADER, LEADER_ARM } from "./chords";
-import { armLeader, endLeader, leaderArmed, modalOpen, registerKeys } from "./registry";
+import { armLeader, captureActions, endLeader, leaderArmed, modalOpen, registerKeys } from "./registry";
 
 /** U2239, U2240: `⌘K` waits for one key; while it waits a panel lists the keys of `LEADER`. The panel takes no focus and no pointer events. A pointer press, a modal layer opening or leaving the Project ends the wait. */
 export const Leader = () => {
@@ -33,10 +33,20 @@ export const Leader = () => {
     panel.style.setProperty("--leader-width", `${centre.width}px`);
   };
 
+  const offered = () => {
+    const actions = captureActions(document.activeElement);
+
+    return LEADER.filter(key => {
+      const action = actions.find(row => row.value === `action:leader:${key.keys}`);
+
+      return action?.available() ?? true;
+    });
+  };
+
   return (
     <Show when={leaderArmed()}>
       <aside class="leader" role="status" aria-label={copy.leaderPanel} ref={place}>
-        <For each={LEADER}>
+        <For each={offered()}>
           {(key) => (
             <span class="leader-line">
               <KeyChip keys={key.keys} />

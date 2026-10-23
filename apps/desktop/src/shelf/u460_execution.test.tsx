@@ -186,17 +186,20 @@ it("u460_plain_click_after_failure_clears_the_bar_before_opening_the_drawer", as
   expect(screen.getByRole("complementary", { name: "Drawer" })).toBeTruthy();
 });
 
-it("u3474e_mutation_keeps_the_next_key_live", async () => {
-  const { app } = await mountTodos([todo(1), todo(2), todo(3)]);
-  const row = screen.getByRole("button", { name: /#2 / });
+it.each([false, true])("u3474e_mutation_keeps_the_next_key_live: nested=%s", async nested => {
+  const initial = nested ? [todo(1), todo(2), todo(3), todo(4, { blockers: [5] }), todo(5), todo(6)] : [todo(1), todo(2), todo(3)];
+  const id = nested ? 3 : 2;
+  const next = nested ? 5 : 3;
+  const { app } = await mountTodos(initial);
+  const row = await screen.findByRole("button", { name: new RegExp(`#${id} `) });
   row.focus();
   fireEvent.keyDown(row, { key: "d", code: "KeyD" });
   await confirmDeletion();
   await questionClosed();
-  await waitFor(() => expect(document.activeElement).toBe(screen.getByRole("button", { name: /#3 / })));
+  await waitFor(() => expect(document.activeElement).toBe(screen.getByRole("button", { name: new RegExp(`#${next} `) })));
   fireEvent.keyDown(document.activeElement!, { key: "d", code: "KeyD" });
   const question = await questionDialog();
-  expect(question.textContent).toContain("todo 3");
+  expect(question.textContent).toContain(`todo ${next}`);
   expect(question.textContent).not.toContain("todo 1");
-  expect(todoCallsTo(app, "todo.delete").map(call => call.params)).toEqual([{ id: 2 }]);
+  expect(todoCallsTo(app, "todo.delete").map(call => call.params)).toEqual([{ id }]);
 });

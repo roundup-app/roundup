@@ -3,11 +3,12 @@ import { ShelfActions } from "./BulkDelete";
 import type { Accessor } from "solid-js";
 
 /** U458: identities, rather than positions, survive a list refetch. */
-export const createSelection = <Id>(ids: Accessor<readonly Id[]>, context: Accessor<string>) => {
+export const createSelection = <Id>(ids: Accessor<readonly Id[]>, context: Accessor<string>, find?: (id: Id) => HTMLButtonElement | null | undefined) => {
   const host = useContext(ShelfActions);
   const [selected, setSelected] = createSignal<readonly Id[]>([]);
   let anchor: Id | undefined;
   const rows = new Map<Id, HTMLButtonElement>();
+  const rowOf = find ?? ((id: Id) => rows.get(id));
 
   const clear = () => {
     setSelected([]);
@@ -31,10 +32,10 @@ export const createSelection = <Id>(ids: Accessor<readonly Id[]>, context: Acces
   };
 
   const visibleOrder = () => ids().filter(id => {
-    const row = rows.get(id);
+    const row = rowOf(id);
 
     return row && !row.closest("[hidden]");
-  }).sort((a, b) => rows.get(a)!.compareDocumentPosition(rows.get(b)!) & Node.DOCUMENT_POSITION_FOLLOWING ? -1 : 1);
+  }).sort((a, b) => rowOf(a)!.compareDocumentPosition(rowOf(b)!) & Node.DOCUMENT_POSITION_FOLLOWING ? -1 : 1);
 
   const range = (id: Id) => {
     const order = visibleOrder();
@@ -76,13 +77,23 @@ export const createSelection = <Id>(ids: Accessor<readonly Id[]>, context: Acces
       range(next);
     }
 
-    rows.get(next)?.focus();
+    rowOf(next)?.focus();
+  };
+
+  // Capture identities before a confirmation moves focus; resolve their current buttons after refetch.
+  const afterRemoval = () => {
+    const order = visibleOrder();
+    const at = order.findIndex(id => rowOf(id) === document.activeElement);
+    const candidates = at < 0 ? [] : [order[at]!, ...order.slice(at + 1), ...order.slice(0, at).reverse()];
+
+    return () => candidates.filter(id => ids().includes(id)).map(rowOf).find(row => row?.isConnected && !row.closest("[hidden], [inert]")) ?? null;
   };
 
   return {
-    focused: () => [...rows].find(([, row]) => row === document.activeElement)?.[0],
+    afterRemoval,
+    focused: () => ids().find(id => rowOf(id) === document.activeElement),
     selected, clear, click, key, toggle,
-    cancel: () => { const row = rows.get(selected()[0]!); clear(); row?.focus(); },
+    cancel: () => { const row = rowOf(selected()[0]!); clear(); row?.focus(); },
     replace: (values: readonly Id[]) => setSelected([...new Set(values)]),
     register: (id: Id, row: HTMLButtonElement | null) => row ? rows.set(id, row) : rows.delete(id),
   };

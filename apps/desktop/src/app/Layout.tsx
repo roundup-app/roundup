@@ -150,12 +150,12 @@ export const Layout = (props: {
     >
       <div class="shelf-controls">
         <Show when={mode() === "reserved" && placement().onMaximise}>
-          <IconButton aria-label={placement().maximised ? copy.restore : copy.maximise} chord={CHORDS.find(row => row.keys === "M")} onClick={event => placement().onMaximise?.(activationSource(event))}>
+          <IconButton aria-label={placement().maximised ? copy.restore : copy.maximise} tooltip={`${placement().maximised ? copy.restore : copy.maximise} · ${copy.shelfShortcutScope}`} chord={CHORDS.find(row => row.keys === "M")} onClick={event => placement().onMaximise?.(activationSource(event))}>
             <Show when={placement().maximised} fallback={<Maximize class="icon" aria-hidden="true" />}><Minimize class="icon" aria-hidden="true" /></Show>
           </IconButton>
         </Show>
         <Show when={placement().onClose}>
-          <IconButton aria-label={copy.closeShelf} tooltip={copy.close} chord={CHORDS.find(row => row.keys === "Esc")} onClick={event => placement().onClose?.(activationSource(event))}><X class="icon" aria-hidden="true" /></IconButton>
+          <IconButton aria-label={copy.closeShelf} tooltip={`${copy.close} · ${copy.shelfShortcutScope}`} chord={CHORDS.find(row => row.keys === "Esc")} onClick={event => placement().onClose?.(activationSource(event))}><X class="icon" aria-hidden="true" /></IconButton>
         </Show>
       </div>
       {props.shelf}

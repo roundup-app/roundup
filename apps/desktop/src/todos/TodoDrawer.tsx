@@ -33,6 +33,7 @@ const TodoLine = (props: { todo: Todo }) => (
 /** The current Todo follows list Events; TodoHistory captures and acknowledges this opening's read. */
 export const TodoDrawer = (props: {
   id: number;
+  onComment?: () => void;
   todos: TodosState;
   /** Recovery uses loaded original identities and never fetches or acknowledges History. */
   recovery?: { project: string; revision: string };
@@ -346,7 +347,7 @@ export const TodoDrawer = (props: {
                   onPick={(id) => { blockerButton?.focus(); addBlocker(id); }}
                 />
                 <Show when={blockerForm()}><p><button data-button="quiet" class="word" type="button" onClick={() => void saveBlockers()}>{copy.save}</button></p></Show>
-                <Show when={!props.recovery}><TodoComments id={props.id} /></Show>
+                <Show when={!props.recovery}><TodoComments id={props.id} onSent={props.onComment} /></Show>
                 <Show when={!props.recovery}><TodoHistory id={props.id} onCapture={setCaptured} /></Show>
               </>
             )}
