@@ -16,12 +16,6 @@
   margin-block-end: var(--space-2);
 }
 
-.import-period button:focus-visible {
-  outline: none;
-  text-decoration: underline;
-  text-underline-offset: var(--space-1);
-}
-
 .import-period,
 .import-words {
   display: flex;
