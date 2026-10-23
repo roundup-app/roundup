@@ -55,9 +55,8 @@ export const applyAppAppearance = () => {
 };
 
 /** Only user launch calls receive App defaults. A saved Door resumes its own engine/model; only its permission default changes. */
-export const withAppSettings = (app: AppSeam, resumesDoor: (id: string | number) => boolean): AppSeam => ({
-  ...app,
-  rpc: (method, params) => {
+export const withAppSettings = (app: AppSeam, resumesDoor: (id: string | number) => boolean): AppSeam => {
+  const rpc: AppSeam["rpc"] = (method, params) => {
     const settings = untrack(appSettings);
 
     const normal = !(params && "mode" in params && params.mode === "yolo");
@@ -80,8 +79,15 @@ export const withAppSettings = (app: AppSeam, resumesDoor: (id: string | number)
     }
 
     return app.rpc(method, params);
-  },
-});
+  };
+
+  return {
+    ...app,
+    rpc,
+    // The native menu responder can change after connecting a Project; read it when invoked.
+    showContextMenu: (items, x, y) => app.showContextMenu(items, x, y),
+  };
+};
 
 const DARK_SCHEME = "(prefers-color-scheme: dark)";
 

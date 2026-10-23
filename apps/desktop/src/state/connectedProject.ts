@@ -1,3 +1,4 @@
+import { notesFor } from "../changes/notes";
 import { withAppSettings } from "../settings/preferences";
 import { createContext, createRoot, createSignal, getOwner, onCleanup, useContext } from "solid-js";
 import type { Accessor } from "solid-js";
@@ -155,6 +156,8 @@ export const connectProject = async (
   storage?: RailStorage,
   drafts = createProjectDrafts()(project.path),
 ): Promise<ConnectedProject> => {
+  // Preserve the Project-owned Notes lookup for observers using the original connection.
+  notesFor(app, project.path, drafts);
   app = withAppSettings(app, id => rail.nodes.find(node => node.id === id)?.can_resume ?? false);
   let ended = false;
   let stopDecisions = () => {};

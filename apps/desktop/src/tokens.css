@@ -95,7 +95,7 @@
 }
 
 @media (prefers-color-scheme: dark) {
-  :root:not([data-mode="light"]) {
+  :root {
     --ground: #1c1c1e;
     --key-chip-fill: rgba(255, 255, 255, 0.08);
     --sunken: #141416;
@@ -127,7 +127,7 @@
 }
 
 @media (prefers-contrast: more) and (prefers-color-scheme: dark) {
-  :root:not([data-mode="light"]) {
+  :root {
     --hairline: rgba(255, 255, 255, 0.4);
     --scrollbar-thumb: rgba(255, 255, 255, 0.6);
   }
@@ -138,7 +138,29 @@ button, file-tree-container {
   --ink-pressed: color-mix(in srgb, var(--text) 75%, transparent);
 }
 
-/* U3805: Dark chooses the same dark column even on a light host; Light excludes the native dark column above. */
+/* U3805: Explicit choices use the same Token columns regardless of the host scheme. */
+:root[data-mode="light"] {
+  --ground: #ffffff;
+  --key-chip-fill: rgba(0, 0, 0, 0.06);
+  --sunken: #f5f5f7;
+  --hover: rgba(0, 0, 0, 0.04);
+  --selected: rgba(0, 0, 0, 0.05);
+  --selected-hover: rgba(0, 0, 0, 0.07);
+  --pressed: rgba(0, 0, 0, 0.1);
+  --text: #1d1d1f;
+  --grey: #68686d;
+  --cache-write: #b4b4b9;
+  --disabled: #6f6f74;
+  --accent: #0a60d8;
+  --amber: #975900;
+  --red: #c4262e;
+  --hairline: rgba(0, 0, 0, 0.1);
+  --scrollbar-thumb: rgba(0, 0, 0, 0.3);
+  --shadow-drawer: 0 8px 32px rgba(0, 0, 0, 0.14);
+  --shadow-shelf: 0 0 24px rgba(0, 0, 0, 0.1);
+  --shadow-scroll: inset 0 8px 8px -8px rgba(0, 0, 0, 0.18);
+}
+
 :root[data-mode="dark"] {
     --ground: #1c1c1e;
     --key-chip-fill: rgba(255, 255, 255, 0.08);
@@ -162,6 +184,12 @@ button, file-tree-container {
 }
 
 @media (prefers-contrast: more) {
+  :root[data-mode="light"] {
+    --grey: var(--text);
+    --hairline: rgba(0, 0, 0, 0.4);
+    --scrollbar-thumb: rgba(0, 0, 0, 0.6);
+  }
+
   :root[data-mode="dark"] {
     --grey: var(--text);
     --hairline: rgba(255, 255, 255, 0.4);
