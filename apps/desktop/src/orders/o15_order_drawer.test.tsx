@@ -503,3 +503,38 @@ it("u3289a_order_form_stays_off_the_list_until_left", async () => {
   await waitFor(() => expect(document.querySelector(".order-edit")).toBeNull());
   await vi.waitFor(async () => expect(await recoveryLabel()).toBe("Recover unfinished work (1)"));
 });
+
+it.each(["dismiss", "save", "unrelated removal", "item removal"] as const)("p3557c_failure_lifetime_order_drawer: %s", async transition => {
+  const app = createFakeApp();
+  let nodes = [agent("a", "working", "editing", { name: "alpha", work: full }), agent("b", "working", "editing", { name: "beta", work: full })];
+  app.handlers["rail.tree"] = () => nodes;
+  app.handlers["agent.spawnPrompt"] = () => ({ prompt: "original" });
+  app.handlers["agent.setOrder"] = () => { throw new RpcError(-32003, "Save refused; try again"); };
+  const connected = await connectProject(app, { name: "p", path: "/p" }, () => true, () => 0);
+  render(() => <ConnectedProjectContext.Provider value={connected}><OrderDrawer id="a" /></ConnectedProjectContext.Provider>);
+  fireEvent.click(screen.getByRole("button", { name: "Edit order" }));
+  const exact = "  Keep this\n草稿 📝  ";
+  fireEvent.input(screen.getByLabelText("Ask"), { target: { value: exact } });
+  const other = connected.drafts.edit({ surface: "orders", object: "b", recipient: "b" }, { ask: "  unrelated\n" }, null, "ordinary").draft;
+  fireEvent.click(screen.getByRole("button", { name: "Save" }));
+  await screen.findByText("Save refused; try again");
+  const before = connected.drafts.list();
+
+  if (transition === "dismiss") fireEvent.click(screen.getByRole("button", { name: "Dismiss failure" }));
+  if (transition === "save") {
+    app.handlers["agent.setOrder"] = () => null;
+    fireEvent.click(screen.getByRole("button", { name: "Save" }));
+    await waitFor(() => expect(document.querySelector(".order-edit")).toBeNull());
+    expect(app.calls.filter(call => call.method === "agent.setOrder").at(-1)?.params).toMatchObject({ id: "a", order: { ask: exact.trim() } });
+  }
+  if (transition.includes("removal")) {
+    nodes = nodes.filter(node => node.id !== (transition === "item removal" ? "a" : "b"));
+    await connected.rail.refresh();
+  }
+  expect(screen.queryByText("Save refused; try again") !== null).toBe(transition === "unrelated removal");
+  expect(connected.drafts.list().find(draft => draft.revision === other.revision)).toEqual(other);
+  if (transition !== "save") {
+    expect(connected.drafts.list()).toEqual(before);
+    expect(screen.getByLabelText<HTMLTextAreaElement>("Ask").value).toBe(exact);
+  }
+});
