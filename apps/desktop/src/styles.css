@@ -538,3 +538,8 @@ code {
 .draft-text { display: flex; flex-direction: column; gap: var(--space-1); min-width: 0; }
 .draft-cause { color: var(--grey); }
 .draft-destination { align-items: baseline; }
+
+::selection {
+  background-color: var(--text-selection);
+  color: var(--text-selection-ink);
+}
