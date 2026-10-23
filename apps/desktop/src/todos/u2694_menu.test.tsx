@@ -31,8 +31,8 @@ it("u2694b_complete_calls_todo_complete", async () => {
   await waitFor(() => expect(callsTo(app, "todo.complete")).toEqual([{ method: "todo.complete", params: { id: 5 } }]));
 });
 
-it.each([["pads", true], ["pads", false], ["todos", true], ["todos", false]] as const)("u3812_a_done_todo_menu_has_no_complete_in_the_%s_running_%s", async (surface, running) => {
-  const { app, connected } = await mountTodos([todo(5, { title: "session store", done: true, creator: { kind: "agent", id: "a", parent: null } })], true, [agent("a", running ? "idle" : "done", "ready")], true);
+it.each([["pads", true, true], ["pads", true, false], ["pads", false, false], ["todos", true, true], ["todos", true, false], ["todos", false, false]] as const)("u3812_todo_menu_omits_unavailable_actions_%s_done_%s_running_%s", async (surface, done, running) => {
+  const { app, connected } = await mountTodos([todo(5, { title: "session store", done, creator: { kind: "agent", id: "a", parent: null } })], true, [agent("a", running ? "idle" : "done", "ready")], true);
 
   if (!running) {
     app.handlers["terminal.list"] = () => [info("t-a", { running: false, exit_code: 0 })];
@@ -40,13 +40,13 @@ it.each([["pads", true], ["pads", false], ["todos", true], ["todos", false]] as 
   }
 
   if (surface === "pads") fireEvent.click(await screen.findByRole("button", { name: "1 todos" }));
-  else fireEvent.click(screen.getByRole("button", { name: /1 done/ }));
+  else if (done) fireEvent.click(screen.getByRole("button", { name: /1 done/ }));
   const owner = surface === "pads" ? screen.getByRole("tree", { name: "Rail" }) : screen.getByRole("region", { name: "Todos" });
   const row = (await within(owner).findByText(/session store/)).closest<HTMLElement>("[data-todo]")!;
 
   fireEvent.contextMenu(row, { clientX: 10, clientY: 10 });
 
-  expect(app.menuLabels()).toEqual([...(running ? ["Send to Agent"] : []), "Copy Link", "Delete"]);
+  expect(app.menuLabels()).toEqual([...(done ? [] : ["Complete"]), ...(running ? ["Send to Agent"] : []), "Copy Link", "Delete"]);
   expect(callsTo(app, "todo.complete")).toEqual([]);
 });
 
