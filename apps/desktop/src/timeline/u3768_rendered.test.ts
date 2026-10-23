@@ -15,7 +15,14 @@ const session = `u3768-${process.pid}`;
 
 let server: AppServer;
 
-const browser = async (...args: string[]) => (await exec("agent-browser", ["--session", session, "--json", ...args], { maxBuffer: 8 * 1024 * 1024, timeout: 30_000 })).stdout;
+const browser = async (...args: string[]) => {
+  try {
+    return (await exec("agent-browser", ["--session", session, "--json", ...args], { maxBuffer: 8 * 1024 * 1024, timeout: 30_000 })).stdout;
+  } catch (error) {
+    if (error instanceof Error && "stdout" in error) throw new Error(`${String(error)}\n${String(error.stdout)}`);
+    throw error;
+  }
+};
 
 const read = async <T,>(expression: string): Promise<T> => {
   // SAFETY: agent-browser owns this envelope; expressions below return the declared data.
@@ -52,7 +59,7 @@ const capture = async (name: string) => {
 const select = async (id: string) => {
   await browser("click", `[role=treeitem][data-id="${id}"]`);
   await wait("!!Array.from(document.querySelectorAll('button')).find(e => e.textContent === 'Timeline')");
-  await browser("click", 'button:has-text("Timeline")');
+  await browser("find", "role", "button", "click", "--name", "Timeline", "--exact");
   await wait("!!document.querySelector('.timeline-view')");
 };
 
@@ -90,8 +97,18 @@ it("u3768h_recorded_work_survives_stop_and_return_on_the_rendered_app", async ()
   const before = await read<number[]>("Array.from(document.querySelectorAll('.timeline-block')).map(e => Number(e.dataset.end))");
   await browser("click", ".timeline-header button");
   await wait("!document.querySelector('.timeline-view')");
-  await browser("click", 'button:has-text("Timeline")');
+  await browser("find", "role", "button", "click", "--name", "Timeline", "--exact");
   await wait("!!document.querySelector('.timeline-view')");
+
+  for (const key of ["Enter", "Space"]) {
+    await browser("focus", ".timeline-header button");
+    await browser("press", key);
+    await wait("!document.querySelector('.timeline-view')");
+    expect(await read("document.activeElement === Array.from(document.querySelectorAll('button')).find(e => e.textContent === 'Timeline')")).toBe(true);
+    await browser("find", "role", "button", "click", "--name", "Timeline", "--exact");
+    await wait("!!document.querySelector('.timeline-view')");
+  }
+
   const after = await read<number[]>("Array.from(document.querySelectorAll('.timeline-block')).map(e => Number(e.dataset.end))");
 
   await open("tree-40");
@@ -105,6 +122,21 @@ it("u3768h_recorded_work_survives_stop_and_return_on_the_rendered_app", async ()
   await select("payments");
   await capture("dense-subagents-failure");
   expect(await read<number>("document.querySelectorAll('.timeline-lane').length")).toBeGreaterThan(1);
+
+  await read(`(() => {
+    const actor = { kind: 'user', id: 'you', parent: null };
+    window.__fake.emit({ actor, name: 'agent.status', data: { id: 'agent-4', attempt: '1', status_revision: '50', status: { kind: 'needs-you', label: 'Approve the test run', since: Date.now() - 8 * 60000 } } });
+    window.__fake.emit({ actor, name: 'decision.opened', data: { id: 'timeline-decision', agent: 'agent-4', tool: 'Bash', args: JSON.stringify({ command: 'pnpm test', description: 'Run tests' }), opened_at: Date.now(), answerable: true } });
+  })()`);
+  await wait("!!document.querySelector('button.timeline-block')");
+  await browser("focus", "button.timeline-block");
+  await browser("press", "Enter");
+  await wait("!!document.querySelector('.decision-card')");
+  expect(await read("document.querySelector('.decision-card').contains(document.activeElement)")).toBe(true);
+  await browser("press", "Escape");
+  await wait("!document.querySelector('.decision-card')");
+  expect(await read("document.activeElement.matches('button.timeline-block')")).toBe(true);
+  await capture("dense-decision-focus");
 
   if (videoDir) await browser("record", "stop");
   expect(after).toEqual(before);

@@ -936,7 +936,8 @@ An expandable App region with a named trigger; closing it retains its content.
 An ended Attempt contributes no Agent time, regardless of Kind. An idle or done Status
 contributes none while the Attempt remains alive. Timeline samples retain the `ended`
 fact from Status Events or the Rail and use the Status `since` as the observed boundary.
-Measurement collection uses the same rule to retain excluded intervals without deleting evidence.
+Measurement reads use the same rule; collection retains raw idle intervals and Attempt ends without deleting evidence.
+A timeline Sample marked `recorded` comes from the Event log and takes precedence over a conflicting Rail seed.
 
 **Exit button** (`ExitButton`):
 The shared App return icon, labelled Close with an Ark tooltip; callers retain their return action and focus owner.
