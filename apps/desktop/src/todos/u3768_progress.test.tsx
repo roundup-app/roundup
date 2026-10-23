@@ -1,6 +1,6 @@
 import { cleanup, fireEvent, screen, waitFor, within } from "@solidjs/testing-library";
 import { afterEach, describe, expect, it } from "vitest";
-import { door } from "../testing/nodes";
+import { agent, door } from "../testing/nodes";
 import { mountTodos, todo, todoCallsTo, todoEvent } from "./testHarness";
 
 afterEach(cleanup);
@@ -196,5 +196,21 @@ describe("u3770 a finishing Todo plays one motion", () => {
     await waitFor(() => expect(playing()).toBeGreaterThan(0));
     mounted.setReduced(true);
     await waitFor(() => expect(playing()).toBe(0));
+  });
+});
+
+
+describe("u3808 the latest handed step reads now", () => {
+  it("u3808_now_uses_the_latest_eligible_handoff", async () => {
+    const owner = { kind: "agent", id: "a", parent: null } as const;
+    const mounted = await mountTodos([todo(8, { owner }), todo(2, { owner }), todo(4, { owner, blocked: true }), todo(5, { owner, done: true })], true, [agent("a", "working", "working")]);
+    mounted.app.handlers["todo.listHanded"] = () => [
+      { todo: 8, owner, seq: 2 }, { todo: 2, owner, seq: 4 }, { todo: 4, owner, seq: 6 }, { todo: 5, owner, seq: 8 },
+    ];
+    await mounted.todos.reload();
+    expect([...document.querySelectorAll('[aria-current="step"]')].map(row => row.getAttribute("data-todo"))).toEqual(["2"]);
+    mounted.app.handlers["todo.listHanded"] = () => [];
+    await mounted.todos.reload();
+    expect(document.querySelector('[aria-current="step"]')).toBeNull();
   });
 });
