@@ -1,3 +1,4 @@
+import { questionDialog, answerQuestion } from "../shelf/bulkQuestionHarness";
 // U2694f/g exercise the mounted App: row-only fixtures miss Ark activation and Bubble restoration.
 import { App } from "../App";
 import { seedApp } from "../testing/seeds";
@@ -178,7 +179,8 @@ it("u2694g_the_chosen_action_uses_the_clicked_row", async () => {
   gesture(row("branch"), true, false);
   await app.pickMenu("Stop");
   expect(app.calls.filter((call) => call.method === "agent.stop")).toEqual([]);
-  fireEvent.click(await screen.findByRole("button", { name: /^Stop$/ }));
+  await questionDialog();
+  await answerQuestion(true);
   await waitFor(() => expect(app.calls.filter((call) => call.method === "agent.stop").map((call) => call.params)).toEqual([{ id: "branch" }]));
 });
 

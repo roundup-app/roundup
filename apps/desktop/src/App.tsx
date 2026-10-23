@@ -374,7 +374,7 @@ export const App = (props: {
               onSelect={projects.select}
               onMark={jumpTo}
               onRename={renameProject}
-              onClose={(path) => void projects.close(path)}
+              onClose={(path) => projects.close(path)}
               onChoose={() => void projects.choose()}
               app={props.app}
             />
