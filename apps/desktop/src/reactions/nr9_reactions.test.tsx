@@ -1,5 +1,5 @@
 import { cleanup, fireEvent, screen, waitFor, within } from "@solidjs/testing-library";
-import { afterEach, expect, it } from "vitest";
+import { afterEach, expect, it, vi } from "vitest";
 import type { Reaction } from "@contracts/reaction/Reaction";
 import { RpcError } from "../app/seam";
 import { agent, door } from "../testing/nodes";
@@ -321,4 +321,22 @@ it("nr9_creation_acknowledgement_refreshes_the_remounted_project", async () => {
   await waitFor(() => expect(within(detail).getByRole("button", { name: copy.reactionStop })).toHaveProperty("disabled", true));
   expect(original.calls.filter(call => call.method === "reaction.stop").map(call => call.params)).toEqual([{ id: "r1" }]);
   expect(app.of(path("other")).calls.filter(call => call.method === "reaction.create" || call.method === "reaction.stop")).toHaveLength(0);
+});
+
+it("u3299b_copy_keeps_original_facts", async () => {
+  const record = saved({ observation: { health: "observing", cursor: 918, pinned_head: "commit-original", gap: "gap /Users/test/private agent-id", recovery: "recovery-original", evidence: '{"source":"unknown","id":"original"}' } });
+  const write = vi.fn().mockResolvedValue(undefined);
+  vi.stubGlobal("navigator", { ...navigator, clipboard: { writeText: write } });
+  try {
+    const { app } = await mount(() => [record]);
+    fireEvent.click(await screen.findByRole("button", { name: /Ship it/ }));
+    const detail = await screen.findByRole("region", { name: copy.reactionDetail("Ship it") });
+    fireEvent.click(within(detail).getByRole("button", { name: copy.refresh }));
+    await waitFor(() => expect(app.calls.filter(call => call.method === "reaction.get")).toHaveLength(2));
+    expect(write).not.toHaveBeenCalled();
+    fireEvent.click(within(detail).getByRole("button", { name: copy.copy }));
+    await waitFor(() => expect(write).toHaveBeenCalledOnce());
+    expect(JSON.parse(write.mock.calls[0]![0]).reaction).toEqual(record);
+    expect(app.calls.filter(call => call.method === "reaction.run")).toHaveLength(0);
+  } finally { vi.unstubAllGlobals(); }
 });
