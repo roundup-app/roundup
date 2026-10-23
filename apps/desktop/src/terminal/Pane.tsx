@@ -500,7 +500,7 @@ export const Pane = (props: { notice?: string | null; createEmulator?: EmulatorF
           )}
         </Show>
       </div>
-      <Show when={selected()?.kind === "agent" && terminalId() !== null && !closedAgent() ? selected() : null} keyed>{(node) => <NoteQueue node={node} />}</Show>
+      <Show when={selected()?.kind === "agent" && terminalId() !== null && !closedAgent() ? selected() : null} keyed>{(node) => <NoteQueue node={node} focusTerminal={focusTerminal} />}</Show>
       </div>
       <div class="pane-failure">
         <ReservedLine class={connected.decisions.listFailure() ? "decision-list-failure" : undefined} message={notice() ?? rail.workstreamFailure() ?? connected.decisions.listFailure()}>
