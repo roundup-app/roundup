@@ -58,7 +58,6 @@
   padding: var(--space-1);
   background: var(--ground);
   color: var(--text);
-  box-shadow: var(--shadow-drawer);
   border-radius: var(--radius-drawer);
 }
 

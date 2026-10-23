@@ -14,9 +14,19 @@ type Cause = "failed" | "unknown" | "draft" | "left" | "gone";
 const typed = new Set(["name", "title", "body", "text", "note", "document", "ask", "answer", "content", "message", "comment"]);
 
 /** A credential draft's values are never rendered; Copy is their only exposure (U2773h). */
-export const typedText = (draft: Row): string[] => Object.entries(draft.value)
+export const typedText = (draft: Row): string[] => {
+  if (draft.destination.surface === "terminal_selection") {
+    return [draft.value.note, draft.value.excerpt].flatMap(value => {
+      const text = String(value ?? "");
+
+      return text.length > 0 ? [text] : [];
+    });
+  }
+
+  return Object.entries(draft.value)
   .filter(([field, value]) => (((typed.has(field) || (field === "source" && draft.destination.surface === "pads")) && !(field === "name" && draft.destination.surface === "ask")) || (draft.policy === "credential" && field === "password")) && String(value ?? "").trim() !== "")
   .map(([, value]) => String(value));
+};
 
 /**
  * The one eligibility for the Overview menu and the panel (U3021a, U3289a): work at risk only.

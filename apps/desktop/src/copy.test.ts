@@ -38,6 +38,8 @@ const STRUCTURE = new Set([
   "D", "E", "O", "A", "X", "C", "Tab", "J K", "KeyA", "KeyX", "KeyC", "shift+Tab", "Esc", "Escape", "Enter", "KeyD", "KeyE", "KeyO", "J", "⇧J", "K", "M", "W", "S", "T", "I", "KeyI", "KeyJ", "KeyK", "KeyM", "KeyW", "KeyS", "KeyT", "Shift+KeyJ", "Shift", "Control", "Alt", "Meta", "CapsLock",
   "index.html has no #root element", "the keystroke run needs a Project open", "RpcError",
   "(prefers-reduced-motion: reduce)", "(prefers-color-scheme: dark)",
+  // U3529: display media and a recovery availability discriminant, never displayed copy.
+  "(prefers-contrast: more)", "(forced-colors: active)", "unavailable",
   "input, textarea, [contenteditable]", 'input, textarea, [contenteditable="true"]',
   'input, textarea, select, [contenteditable="true"]', "select, input, button",
   "input, textarea, select, [contenteditable], .todo-blocker", "visual-source is-open",

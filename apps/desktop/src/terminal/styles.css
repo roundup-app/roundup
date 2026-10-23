@@ -209,40 +209,6 @@
   min-height: 0;
 }
 
-/* U515: the control by the selection. Tokens only; the native look keeps no box on the buttons. */
-.send-to-agent {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-2);
-  min-width: var(--rail-width);
-  max-width: var(--shelf-width);
-  z-index: var(--layer-popover);
-}
-
-.send-to-agent p.ink[role="alert"] {
-  white-space: normal;
-  overflow-wrap: anywhere;
-}
-
-.send-to-agent-recovery {
-  display: flex;
-  gap: var(--space-2);
-}
-
-.send-to-agent-note {
-  font: inherit;
-  color: var(--text);
-  background-color: var(--ground);
-  border: 0;
-  border-radius: var(--radius-control);
-  padding: var(--space-2);
-}
-
-.send-to-agent-action {
-  align-self: flex-start;
-  color: var(--text);
-}
-
 .pane-empty-keys {
   display: flex;
   flex-direction: column;
