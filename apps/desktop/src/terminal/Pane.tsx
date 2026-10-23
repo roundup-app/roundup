@@ -79,11 +79,9 @@ export const Pane = (props: { notice?: string | null; createEmulator?: EmulatorF
     return emulator;
   }, (id) => inWatch() && id === terminalId(), () => setRefused(true));
 
-  createEffect(() => {
-    const size = appSettings().fontSize;
-
+  createEffect(on(() => appSettings().fontSize, size => {
     if (!zoomed) { fontSize = size; screens.setFontSize(size); refitNextFrame(); }
-  });
+  }, { defer: true }));
 
   createEffect(on(() => appSettings().fontFamily, () => refitNextFrame(), { defer: true }));
 
