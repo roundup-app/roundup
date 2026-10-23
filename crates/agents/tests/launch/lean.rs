@@ -199,10 +199,7 @@ async fn lc2_the_users_output_style_shapes_a_child() {
                     .unwrap()
                     .contains_key("CLAUDE_CODE_DISABLE_AUTO_MEMORY")
             );
-            let brief = std::fs::read_to_string(
-                Setup::after(&argv, "--append-system-prompt-file").unwrap(),
-            )
-            .unwrap();
+            let brief = std::fs::read_to_string(s.dir.join("agents/7.brief.md")).unwrap();
             assert!(brief.contains("USER GLOBAL RULE"));
             assert_eq!(
                 brief.contains("hold:Plain"),
@@ -815,5 +812,158 @@ fn a3507b_settings_extend_the_user_setup() {
     }
     for ((path, _), original) in files.iter().zip(before) {
         assert_eq!(std::fs::read(path).unwrap(), original);
+    }
+}
+
+#[test]
+fn a3507a_every_launch_keeps_the_users_gateway() {
+    use agents::claude_code::{Lean, PROFILES, Pair};
+    let s = setup();
+    let headers = "x-wise-llm-gateway-team: fixture\nx-wise-llm-gateway-use-case: test";
+    std::fs::write(s.root.path().join("settings.json"), json!({
+        "env": {"ANTHROPIC_CUSTOM_HEADERS": headers, "ANTHROPIC_BASE_URL": "https://gateway.invalid"},
+        "apiKeyHelper": "fixture-helper"
+    }).to_string()).unwrap();
+    let inherited = [
+        "ANTHROPIC_API_KEY",
+        "ANTHROPIC_AUTH_TOKEN",
+        "CLAUDE_CODE_USE_BEDROCK",
+        "CLAUDE_CODE_USE_VERTEX",
+        "CLAUDE_CODE_USE_FOUNDRY",
+        "ANTHROPIC_PROFILE",
+        "ANTHROPIC_FEDERATION_RULE_ID",
+        "ANTHROPIC_ORGANIZATION_ID",
+        "ANTHROPIC_BASE_URL",
+    ]
+    .map(|name| (name.to_owned(), "fixture-shell-value".to_owned()));
+    let inspect = |command: &std::process::Command| {
+        let argv: Vec<_> = command
+            .get_args()
+            .map(|arg| arg.to_str().unwrap())
+            .collect();
+        let selected = argv
+            .windows(2)
+            .find(|pair| pair[0] == "--settings")
+            .unwrap()[1];
+        let settings: Value = if selected.starts_with('{') {
+            serde_json::from_str(selected).unwrap()
+        } else {
+            read(Path::new(selected))
+        };
+        assert_eq!(settings["apiKeyHelper"], "fixture-helper", "{argv:?}");
+        assert_eq!(
+            settings["env"]["ANTHROPIC_BASE_URL"],
+            "https://gateway.invalid"
+        );
+        assert_eq!(settings["env"]["ANTHROPIC_CUSTOM_HEADERS"], headers);
+        // Apply the actual command's additions/removals to the inherited shell fixture.
+        let mut effective: std::collections::BTreeMap<_, _> =
+            inherited.clone().into_iter().collect();
+        for (key, value) in command.get_envs() {
+            let key = key.to_str().unwrap();
+            match value {
+                Some(value) => {
+                    effective.insert(key.into(), value.to_str().unwrap().into());
+                }
+                None => {
+                    effective.remove(key);
+                }
+            }
+        }
+        for (key, value) in &inherited {
+            assert_eq!(effective.get(key), Some(value), "{key}: {argv:?}");
+        }
+    };
+    let launcher = s.launcher();
+    let rows =
+        std::iter::once((Role::Agent, Pair::default())).chain(PROFILES.iter().map(|(role, _)| {
+            (
+                *role,
+                Pair {
+                    lean: Some(Lean {
+                        scout: *role == Role::Scout,
+                        ..Default::default()
+                    }),
+                    ..Default::default()
+                },
+            )
+        }));
+    for (role, pair) in rows {
+        for resume in [None, Some("saved")] {
+            inspect(
+                &launcher
+                    .command_on(folders(&s.dir), "7", "1", &s.cwd, resume, role, &pair)
+                    .unwrap(),
+            );
+        }
+    }
+    let empty = tempfile::tempdir().unwrap();
+    inspect(
+        launcher
+            .placement()
+            .in_project(folders(&s.dir).project)
+            .command(empty.path())
+            .unwrap()
+            .0
+            .as_std(),
+    );
+}
+
+#[test]
+fn a3516c_all_profiles_keep_the_renderer_choice() {
+    let s = setup();
+    let config = s.root.path().join("chosen-config");
+    std::fs::create_dir_all(&config).unwrap();
+    let config_text = config.to_str().unwrap();
+    let launcher = Launcher::from_vars(
+        vars(&[
+            ("CLAUDE_CONFIG_DIR", config_text),
+            ("ROUNDUP_RUP_BIN", s.rup.to_str().unwrap()),
+            ("HOME", s.root.path().to_str().unwrap()),
+        ]),
+        &s.rup.with_file_name("fake-daemon"),
+    )
+    .unwrap();
+    for tui in [Some("fullscreen"), Some("default"), None] {
+        for overrides in [false, true] {
+            let mut source = json!({});
+            if let Some(tui) = tui {
+                source["tui"] = json!(tui);
+            }
+            if overrides {
+                source["env"] = json!({
+                    "CLAUDE_CODE_NO_FLICKER": "0",
+                    "CLAUDE_CODE_DISABLE_ALTERNATE_SCREEN": "1"
+                });
+            }
+            std::fs::write(config.join("settings.json"), source.to_string()).unwrap();
+            for (_, role, pair) in
+                std::iter::once((Role::Agent, Role::Agent, Pair::default())).chain(lean_children())
+            {
+                for resume in [None, Some("saved-conversation")] {
+                    let command = launcher
+                        .command_on(folders(&s.dir), "7", "1", &s.cwd, resume, role, &pair)
+                        .unwrap();
+                    let argv: Vec<String> = std::iter::once(command.get_program())
+                        .chain(command.get_args())
+                        .map(|arg| arg.to_str().unwrap().to_owned())
+                        .collect();
+                    let settings = read(Path::new(Setup::after(&argv, "--settings").unwrap()));
+                    assert_eq!(settings.get("tui"), source.get("tui"));
+                    for name in [
+                        "CLAUDE_CODE_NO_FLICKER",
+                        "CLAUDE_CODE_DISABLE_ALTERNATE_SCREEN",
+                    ] {
+                        assert_eq!(settings["env"].get(name), source["env"].get(name));
+                        // Neither a shell override nor its inherited configuration directory is removed or overwritten.
+                        assert!(
+                            !command
+                                .get_envs()
+                                .any(|(key, _)| key == name || key == "CLAUDE_CONFIG_DIR")
+                        );
+                    }
+                }
+            }
+        }
     }
 }
