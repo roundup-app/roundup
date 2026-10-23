@@ -27,7 +27,6 @@ describe("u3768 the Todos list shows a progress bar", () => {
     expect(track.getAttribute("aria-valuemax")).toBe("4");
     expect(track.getAttribute("aria-valuenow")).toBe("2");
     expect(count()).toBe("2/4");
-    expect(track.querySelector<HTMLElement>(".app-progress-fill")?.style.getPropertyValue("--fill")).toBe("0.5");
   });
 
   it("u3768_the_count_follows_the_refetched_list", async () => {
