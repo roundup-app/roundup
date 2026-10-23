@@ -1339,7 +1339,7 @@ fn row_to_message(row: &rusqlite::Row<'_>) -> rusqlite::Result<Message> {
 
 /// The word a contract enum has on the wire: the one spelling stored, so a new variant needs no
 /// second table.
-fn text_of(value: impl Serialize) -> String {
+pub(crate) fn text_of(value: impl Serialize) -> String {
     match serde_json::to_value(value) {
         Ok(Value::String(text)) => text,
         other => unreachable!("a contract enum is a string on the wire: {other:?}"),
