@@ -200,6 +200,7 @@ const OrderContent = (props: OrderInput) => {
     const snapshot = drafts.submit(draft.revision);
 
     if (!snapshot) return;
+    setFailure(null);
     const fields = parsed.output;
     const next: WorkOrder = { kind: "work", ask: fields.ask.trim(), limits: captured.limits };
 
@@ -287,16 +288,16 @@ const OrderContent = (props: OrderInput) => {
       }</For>
       <ReservedLine message={failure() ?? (!formValue().success ? copy.orderRestoreFailed : conflict() ? copy.orderChanged : drafts.problem() ? copy.draftRetention(project.name, copy.draftSurface(destination().surface), drafts.problem()!.cause) : null)} status={selectedDraft() && selectedDraft()!.status !== "draft" ? copy.draftStatus[selectedDraft()!.status] : null}>
         <Show when={drafts.problem()}><button data-button="quiet" type="button" onClick={() => drafts.retry()}>{copy.storageRetry}</button></Show>
-      </ReservedLine>
-      <Show when={recovery()}><div class="order-edit-actions">
-        <For each={["title", "ask", "done"]}>{(name) => <button data-button="quiet" type="button" onClick={() => void navigator.clipboard.writeText(String(selectedDraft()?.value[name] ?? "")).catch((error) => setFailure(copy.copyDraftFailure(error instanceof Error ? error.message : String(error))))}>{copy.copyField(name)}</button>}</For>
-        <button data-button="quiet" type="button" onClick={() => {
-          const draft = selectedDraft();
+        <Show when={recovery()}>
+          <For each={["title", "ask", "done"]}>{(name) => <button data-button="quiet" type="button" onClick={() => void navigator.clipboard.writeText(String(selectedDraft()?.value[name] ?? "")).catch((error) => setFailure(copy.copyDraftFailure(error instanceof Error ? error.message : String(error))))}>{copy.copyField(name)}</button>}</For>
+          <button data-button="quiet" type="button" onClick={() => {
+            const draft = selectedDraft();
 
-          if (draft) drafts.discard(draft.revision);
-          close();
-        }}>{copy.discardRevision}</button>
-      </div></Show>
+            if (draft) drafts.discard(draft.revision);
+            close();
+          }}>{copy.discardRevision}</button>
+        </Show>
+      </ReservedLine>
       <div class="order-edit-actions">
         <Tip disabled={!saveBlocked()} text={conflict() ? copy.orderChanged : selectedDraft() ? copy.draftStatus[selectedDraft()!.status] : undefined}>{(trigger) =>
           <button {...trigger()} data-button="primary" type="submit" aria-disabled={saveBlocked()}>{copy.save}</button>
@@ -365,9 +366,7 @@ const OrderContent = (props: OrderInput) => {
         </Match>
       </Switch>}>{editor()}</Show>
       <Show when={props.recovery === undefined}><WorkProgress id={props.id} /></Show>
-      <Show when={!props.inline && order()?.kind === "work" ? spawn()?.error : undefined}>
-        {(text) => <p class="order-prompt-error">{text()}</p>}
-      </Show>
+      <ReservedLine class="order-spawn-error" hidden={props.inline || editing()} message={!props.inline && order()?.kind === "work" ? spawn()?.error : null} />
     </section>
   );
 };
