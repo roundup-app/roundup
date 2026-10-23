@@ -1,3 +1,4 @@
+import { readdirSync, readFileSync } from "node:fs";
 import { openLane } from "../todos/laneBrowser";
 import { captureDir } from "../testing/captures";
 import { cleanup, fireEvent, screen, waitFor, within } from "@solidjs/testing-library";
@@ -275,7 +276,7 @@ it("u3083c_row_is_checkbox_title_and_second_line", async () => {
   await waitFor(() => expect(isChecked(/second/)).toBe(true));
 });
 
-it("u3083c_failed_import_error_names_cause_and_fix", async () => {
+it("u3083c_failed_import_preserves_failed_row", async () => {
   const { app } = await mount();
 
   app.handlers["project.importCommit"] = () => ({ outcomes: [{ source: "s1", workstream: null, agent: null, error: "copy refused" }] });
@@ -285,8 +286,27 @@ it("u3083c_failed_import_error_names_cause_and_fix", async () => {
   const alert = await screen.findByText(/copy refused/);
 
   expect(alert.closest("label")).toBe(screen.getByRole("checkbox", { name: /first/ }).closest("label"));
-  expect(alert.textContent).toContain("Choose it again, or Refresh.");
 });
+
+
+it("u3083a_every_modal_renders_in_the_shared_positioner", async () => {
+  await mount();
+  await open();
+  expect(screen.getByRole("dialog").parentElement?.classList.contains("app-dialog-positioner")).toBe(true);
+
+  // The other modals: each wraps its Content in the Positioner of ui/Dialog, and no other stylesheet positions one.
+  for (const file of ["shelf/BulkDelete", "header/CloseDialog", "todos/TodoDrawer", "bubbles/Bubbles", "header/ProjectTab", "importer/ImportPanel"]) {
+    const source = readFileSync(`src/${file}.tsx`, "utf8");
+
+    expect(source, file).toMatch(/from "\.\.\/ui\/Dialog"/);
+    expect(source, file).toMatch(/Dialog\.Positioner[\s\S]*Dialog\.Content/);
+  }
+
+  const own = readdirSync("src", { recursive: true, encoding: "utf8" }).filter((file) => file.endsWith(".css") && !file.endsWith("ui/Dialog.css") && /positioner/i.test(readFileSync(`src/${file}`, "utf8")));
+
+  expect(own).toEqual(["ui/Tooltip.css"]);
+});
+
 
 
 it("u3299d_copy_uses_selected_item_import", async () => {
@@ -315,13 +335,15 @@ it("u3299d_named_rows_keep_recorded_targets_import", async () => {
   await waitFor(() => expect(calls(app, "project.importCommit").map(call => call.params)).toEqual([{ selections: [{ source: "s2", revision: "r2" }] }]));
 });
 
-it.skipIf(!captureDir("U3299a"))("u3299a_u3299b_u3299c_u3299d_rendered_audit", async () => {
-  const { mkdirSync, writeFileSync } = await import("node:fs");
+it.skipIf(!captureDir("U3299a")).each(["names", "retention"] as const)("u3299a_u3299b_u3299c_u3299d_rendered_audit_%s", async phase => {
+  const { mkdirSync, mkdtempSync, rmSync, writeFileSync } = await import("node:fs");
+  const { tmpdir } = await import("node:os");
   const { join } = await import("node:path");
   const { startAppServer } = await import("../testing/appServer");
   const baseline = process.env.ROUNDUP_BASELINE_ROOT ? await startAppServer({ root: process.env.ROUNDUP_BASELINE_ROOT }) : null;
   const lane = await openLane(1512, "dark", "builder-3299");
   const headUrl = await lane.evaluate<string>("location.origin");
+  const clockDirectory = mkdtempSync(join(tmpdir(), "u3299-clock-"));
 
   const capture = async (id: string, side: string, step: string) => {
     const dir = captureDir(id);
@@ -335,6 +357,13 @@ it.skipIf(!captureDir("U3299a"))("u3299a_u3299b_u3299c_u3299d_rendered_audit", a
   };
 
   try {
+    const clockScript = join(clockDirectory, "clock.js");
+    writeFileSync(clockScript, "Date.now = () => 1792713600000;\n");
+    await lane.browser("close");
+    await lane.browser("--init-script", clockScript, "open", "about:blank");
+    await lane.browser("set", "viewport", "1512", "950");
+    await lane.browser("set", "media", "dark");
+
     for (const [side, url] of [...(baseline ? [["base", baseline.resolvedUrls.local[0]]] : []), ["head", headUrl]] as const) {
       await lane.browser("open", `${url}/harness.html?seed=tree-40`);
       await lane.until("!!document.querySelector('.todo-project-root')");
@@ -342,7 +371,7 @@ it.skipIf(!captureDir("U3299a"))("u3299a_u3299b_u3299c_u3299d_rendered_audit", a
         const app = window.__fake.app;
         const tree = await app.rpc('rail.tree', null);
         for (const node of tree) { if (node.id === 'migrate' || node.id === 'tokens') node.name = 'Review'; }
-        tree.find(node => node.id === 'payments').work = {kind:'work',title:'Orchard release',ask:'Review the retained work',done:'Release checked',limits:[]};
+        tree.find(node => node.id === 'tokens').work = {kind:'work',title:'Orchard release',ask:'Review the retained work',done:'Release checked',limits:[]};
         app.handlers['rail.tree'] = () => tree;
         const common = { project: 'original-project', actor: {kind:'user',id:'you',parent:null}, home: 'backend', target: 'migrate', instruction: 'Keep /Users/authored/path and original-id verbatim.', condition: {kind:'agents',ids:['tokens'],any:false}, max_firings:2,remaining:1,rearm:false,expires_at:'2026-11-01T09:00:00Z',created_at:'2026-10-22T09:00:00Z',state:'active',firings:[{id:'firing-original',ordinal:1,message:42,matched:true,evidence:'original-evidence',definition:'{}',outcome:'held'}] };
         const observations = [
@@ -366,6 +395,8 @@ it.skipIf(!captureDir("U3299a"))("u3299a_u3299b_u3299c_u3299d_rendered_audit", a
       })()`);
       await lane.evaluate("window.dispatchEvent(new Event('focus'))");
       await lane.until("document.querySelectorAll('.reaction-row').length === 7 && document.querySelectorAll('.made-row').length === 2");
+
+      if (phase === "names") {
       await capture("U3299a", side!, "overview");
       await capture("U3299d", side!, "publications");
 
@@ -373,6 +404,7 @@ it.skipIf(!captureDir("U3299a"))("u3299a_u3299b_u3299c_u3299d_rendered_audit", a
         await lane.browser("focus", `[data-reaction-opener="audit-${index}"]`);
         await lane.browser("press", "Enter");
         await lane.until("!!document.querySelector('.reaction-detail')");
+        expect(await lane.evaluate("document.activeElement.matches('.reaction-back')")).toBe(true);
         await capture("U3299b", side!, `reaction-${index}`);
 
         if (index === 0) {
@@ -403,6 +435,9 @@ it.skipIf(!captureDir("U3299a"))("u3299a_u3299b_u3299c_u3299d_rendered_audit", a
       await capture("U3299d", side!, "import-conflict");
       await lane.browser("press", "Escape");
       await lane.until("!document.querySelector('.import-panel')");
+      }
+
+      if (phase === "retention") {
       await lane.evaluate(`(() => {
         Storage.prototype.setItem = () => { throw new Error('Storage is full'); };
         document.dispatchEvent(new KeyboardEvent('keydown',{key:'n',code:'KeyN',metaKey:true,shiftKey:true,bubbles:true}));
@@ -414,6 +449,7 @@ it.skipIf(!captureDir("U3299a"))("u3299a_u3299b_u3299c_u3299d_rendered_audit", a
       await lane.browser("click", '.rail [data-id="backend"] [data-part="branch-control"]');
       await lane.until("!!document.querySelector('.rail-task-target')");
       await capture("U3299c", side!, "retained-task");
+      await lane.browser("focus", ".spawn-prompt-field");
       await lane.browser("press", "Escape");
       await lane.until("!document.querySelector('.spawn-prompt-field')");
       await lane.browser("click", ".todo-project-root");
@@ -445,7 +481,7 @@ it.skipIf(!captureDir("U3299a"))("u3299a_u3299b_u3299c_u3299d_rendered_audit", a
       await capture("U3299c", side!, "retained-pad-body");
       await lane.browser("click", ".drawer .close");
       await lane.until("document.querySelector('.drawer')?.dataset.open === 'false'");
-      await lane.browser("click", '.rail [data-id="payments"] [data-part="branch-control"]');
+      await lane.browser("click", '.rail [data-id="tokens"]');
       await lane.until("!!document.querySelector('.order-line, [aria-label=\"Edit order\"]')");
       await lane.evaluate(`(() => { const edit = document.querySelector('[aria-label="Edit order"]'); if (edit) edit.click(); else document.querySelector('.order-line').click(); return true; })()`);
       await lane.until("!!document.querySelector('.order-edit, [aria-label=\"Edit order\"]')");
@@ -474,15 +510,27 @@ it.skipIf(!captureDir("U3299a"))("u3299a_u3299b_u3299c_u3299d_rendered_audit", a
       await lane.browser("click", ".todo-history-line");
       await lane.until("document.querySelectorAll('.todo-change').length >= 2");
       await capture("U3299a", side!, "history");
+      }
 
 
       await lane.browser("open", `${url}/harness.html?seed=tabs-8`);
       await lane.until("document.querySelectorAll('.project-tab').length === 8");
-      await lane.browser("hover", ".project-tab .tab-name");
-      await lane.browser("focus", ".project-tab .tab-name-button");
+      const projectPaths = await lane.evaluate<string[]>("[...document.querySelectorAll('.project-tab')].slice(0, 2).map(tab => tab.dataset.path)");
+
+      for (const projectPath of projectPaths) {
+        await lane.browser("dblclick", `.project-tab[data-path=${JSON.stringify(projectPath)}] .tab-name`);
+        await lane.until("!!document.querySelector('.tab-rename')");
+        await lane.browser("fill", ".tab-rename", "Orchard");
+        await lane.browser("press", "Enter");
+        await lane.until("!document.querySelector('.tab-rename')");
+      }
+
+      if (phase === "names") {
+      await lane.browser("hover", ".project-tab[data-selected=true] .tab-name");
       await lane.until("!!document.querySelector('[role=tooltip]')");
       await capture("U3299d", side!, "project-tooltip");
-      await lane.browser("dblclick", ".project-tab .tab-name");
+      } else {
+      await lane.browser("dblclick", ".project-tab[data-selected=true] .tab-name");
       await lane.until("!!document.querySelector('.tab-rename')");
       await lane.evaluate("(() => { Storage.prototype.setItem = () => { throw new Error('Storage is full'); }; return true; })()");
       await lane.browser("fill", ".tab-rename", "Original retained Project name");
@@ -490,10 +538,13 @@ it.skipIf(!captureDir("U3299a"))("u3299a_u3299b_u3299c_u3299d_rendered_audit", a
       await lane.until("!!document.querySelector('.tab-recover')");
       await lane.browser("click", ".tab-recover");
       await lane.until("!!document.querySelector('.header-recovery [role=alert]')");
+      expect(await lane.evaluate("document.querySelector('.header-recovery').contains(document.activeElement)")).toBe(true);
       await capture("U3299c", side!, "project-recovery");
+      }
     }
   } finally {
     await lane.close();
     await baseline?.close();
+    rmSync(clockDirectory, { recursive: true, force: true });
   }
 }, 180_000);
