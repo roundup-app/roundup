@@ -23,7 +23,8 @@ export const OwnerGroups = <T,>(props: {
   /** U3719: the group whose new-Todo field is open; it shows and unfolds. */
   adding: Accessor<string | null>;
   /** U3720: the group a reassigned Todo arrived in; it unfolds so the row can take focus. */
-  reveal: Accessor<readonly string[]>;
+  reveal: Accessor<string | null>;
+  arrivals?: Accessor<readonly string[]>;
   /** Each change opens the Unassigned group, so a Todo just captured shows. */
   unfold?: Accessor<number>;
   /** U3730: the group named like the scope (a selected Agent's own) shows no header, so the scope's name appears once. */
@@ -55,7 +56,7 @@ export const OwnerGroups = <T,>(props: {
     nodeToValue: node => node.id, nodeToString: node => node.name, isNodeDisabled: node => node.id.endsWith(":items"),
   }));
 
-  createEffect(on([props.adding, props.reveal], ([adding, reveal]) => setClosed(held => held.filter(each => each !== adding && !reveal.includes(each)))));
+  createEffect(on([props.adding, props.reveal, () => props.arrivals?.() ?? []], ([adding, reveal, arrivals]) => setClosed(held => held.filter(each => each !== adding && each !== reveal && !arrivals.includes(each)))));
 
   createEffect(on(() => props.unfold?.(), () => setClosed(held => held.filter(each => each !== "unassigned")), { defer: true }));
 

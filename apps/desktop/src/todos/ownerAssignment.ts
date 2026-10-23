@@ -74,7 +74,7 @@ export const createOwnerAssignment = (source: {
     }
   };
 
-  return { revealed: () => [...arriving(), ...(revealed() === null ? [] : [revealed()!])], setRevealed, setRegrouped, assign };
+  return { revealed, arrivals: arriving, setRevealed, setRegrouped, assign };
 };
 
 /** U3309: all keys share the Shelf registry; a lift chooses a destination without changing the Todo. */

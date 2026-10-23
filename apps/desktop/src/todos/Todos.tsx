@@ -85,7 +85,8 @@ export const Todos = (props: {
   const scope = shelfScope(connected);
   const selectedWorkstream = scope.home;
 
-  const board = createDelegateBoard(() => (!shelf || shelf.open()) && (!tabs || tabs().value === "todos"), todos.all);
+  const active = () => (!shelf || shelf.open()) && (tabs === null || tabs().value === "todos");
+  const board = createDelegateBoard(active, todos.all);
 
   const open = shownTodos(connected, todos);
 
@@ -103,7 +104,7 @@ export const Todos = (props: {
   const [closedGroups, setClosedGroups] = createSignal<readonly string[]>(["unassigned"]);
 
   const finishing = createFinishMotion({
-    loaded: () => todos.isLoaded() && (!shelf || shelf.open()) && (tabs === null || tabs().value === "todos"),
+    loaded: () => todos.isLoaded() && active(),
     key: () => connected.rail.selected() ?? "overview",
     done: createMemo(() => new Set(inScope().filter((todo) => todo.done).map((todo) => todo.id))),
     reduced: connected.reducedMotion,
@@ -124,7 +125,7 @@ export const Todos = (props: {
     project: connected, key: () => connected.rail.selected() ?? "overview",
     keys: () => new Set(["overview", ...connected.rail.nodes.map(node => node.id)]),
     ids: () => new Set(todos.all().map(todo => todo.id)),
-    loaded: () => todos.isLoaded() && (!shelf || shelf.open()) && (tabs === null || tabs().value === "todos"),
+    loaded: () => todos.isLoaded() && active(),
     rows: createMemo(() => dependencyRows().map(row => ({ ...row, todo: { ...row.todo } }))),
     reduced: connected.reducedMotion,
     playing: () => !connected.reducedMotion() && (finishing.bar() || inScope().some(todo => finishing.row(todo.id))),
@@ -344,7 +345,7 @@ export const Todos = (props: {
   // U3720: a chosen Todo moves to its new group's row once `todo.updated` has refetched, which replaces the row that held focus.
   const [naming, setNaming] = createSignal<number | null>(null);
 
-  const { revealed, setRevealed, setRegrouped, assign } = createOwnerAssignment({
+  const { revealed, arrivals, setRevealed, setRegrouped, assign } = createOwnerAssignment({
     connected, todos, advance: () => pickAdvance, fail: (id, message) => pickFails.get(id)?.(message),
   });
 
@@ -361,7 +362,7 @@ export const Todos = (props: {
     },
   }]);
 
-  const ownerKeys = createOwnerKeys({ connected, todos, active: () => (!shelf || shelf.open()) && (!tabs || tabs().value === "todos"), assign });
+  const ownerKeys = createOwnerKeys({ connected, todos, active, assign });
 
   const offers = () => {
     const current = todos.byId().get(picking()?.id ?? -1);
@@ -780,7 +781,7 @@ export const Todos = (props: {
         </div>
       </Show>
       <Show when={listed().length > 0 || adding() !== null}>
-        <OwnerGroups showEmpty={group => group.actor?.kind === "agent"} target={() => ownerKeys.lifted()?.group ?? null} mark={group => <Show when={board.digit(group)}>{digit => <kbd class="todo-owner-digit">{digit()}</kbd>}</Show>} detail={group => <Show when={board.line(group) ?? (group.id === "unassigned" && connected.rail.nodes.find(node => node.id === selectedWorkstream())?.auto ? copy.todoAutoHandling : null)}>{line => <p class="todo-busy" data-state="busy">{line()}</p>}</Show>} count={group => group.items.filter(todo => !todo.done).length} onClosedChange={setClosedGroups} groups={() => ownerGroups(connected, listed(), todo => todo.owner)} dragging={dragging} bare={() => connected.rail.nodes.find(node => node.id === connected.rail.selected())?.kind === "agent" ? connected.rail.selected() : null} adding={() => adding()?.group ?? null} reveal={revealed} unfold={todos.revealed} onAdd={group => openField({ group: group.id, owner: group.actor })}>{group => {
+        <OwnerGroups showEmpty={group => group.actor?.kind === "agent"} target={() => ownerKeys.lifted()?.group ?? null} mark={group => <Show when={board.digit(group)}>{digit => <kbd class="todo-owner-digit">{digit()}</kbd>}</Show>} detail={group => <Show when={board.line(group) ?? (group.id === "unassigned" && connected.rail.nodes.find(node => node.id === selectedWorkstream())?.auto ? copy.todoAutoHandling : null)}>{line => <p class="todo-busy" data-state="busy">{line()}</p>}</Show>} count={group => group.items.filter(todo => !todo.done).length} onClosedChange={setClosedGroups} groups={() => ownerGroups(connected, listed(), todo => todo.owner)} dragging={dragging} bare={() => connected.rail.nodes.find(node => node.id === connected.rail.selected())?.kind === "agent" ? connected.rail.selected() : null} adding={() => adding()?.group ?? null} reveal={revealed} arrivals={arrivals} unfold={todos.revealed} onAdd={group => openField({ group: group.id, owner: group.actor })}>{group => {
         const tree = createMemo(() => treeRows(group().items));
         const collection = createMemo(() => treeCollection(tree()));
         const placeOf = (id: number) => tree().find((row) => row.todo.id === id) ?? { level: 1, parent: null };
