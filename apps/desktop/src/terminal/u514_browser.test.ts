@@ -93,7 +93,7 @@ it.each(chromeSurfaces.flatMap(surface => ["drag", "double-click"].map(gesture =
     if (surface === ".pane-empty-keys") {
       await browser("open", url("/harness.html?seed=empty-project&renderer=dom"));
     } else if (surface === ".pane-control-state" || surface === ".resource-num") {
-      await browser("click", surface === ".pane-control-state" ? '[data-id="agent-4"] .name' : '[data-id="migrate"] .name');
+      await browser("click", surface === ".pane-control-state" ? '[data-id="agent-4"] .name' : '[data-id="tokens"] .name');
     } else if (surface === ".terminal-tab") {
       await browser("click", ".terminal-new");
       await browser("click", ".window-title");
