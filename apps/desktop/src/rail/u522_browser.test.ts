@@ -210,8 +210,15 @@ it("u3515_rendered_target_pickers", async () => {
     })()`);
     await lane.until("document.querySelectorAll('.shelf .todo-row-button').length === 1");
     await lane.browser("click", ".shelf .todo-row-button");
-    await lane.until("document.querySelector('.todo-blocker-trigger')?.disabled");
+    await lane.until("document.querySelector('.todo-blocker-trigger')?.getAttribute('aria-disabled') === 'true'");
     await lane.capture("U3515b", "disabled-blocker");
+    await lane.browser("hover", ".todo-blocker-trigger");
+    await lane.capture("U3515b", "disabled-blocker-hover");
+    await lane.browser("focus", ".todo-blocker-trigger");
+    await lane.browser("press", "Enter");
+    await lane.browser("press", "Space");
+    expect(await lane.evaluate<boolean>("document.activeElement.matches('.todo-blocker-trigger') && !document.activeElement.disabled && !!document.activeElement.title && !document.querySelector('.todo-blocker-menu [role=combobox]')")).toBe(true);
+    await lane.capture("U3515b", "disabled-blocker-focus");
     await lane.browser("press", "Escape");
     await lane.evaluate(`(async () => {
       const app = window.__fake.app;
@@ -223,9 +230,15 @@ it("u3515_rendered_target_pickers", async () => {
       return true;
     })()`);
     await lane.browser("click", "#shelf-tab-pads");
-    await lane.until("document.querySelector('.pad-assign')?.disabled");
+    await lane.until("document.querySelector('.pad-assign')?.getAttribute('aria-disabled') === 'true'");
     await lane.browser("hover", ".shelf .pad-inset");
     await lane.capture("U3515d", "disabled-assignment");
-    expect(await lane.evaluate<boolean>("document.querySelector('.pad-assign').disabled")).toBe(true);
+    await lane.browser("hover", ".pad-assign");
+    await lane.capture("U3515d", "disabled-assignment-hover");
+    await lane.browser("focus", ".pad-assign");
+    await lane.browser("press", "Enter");
+    await lane.browser("press", "Space");
+    expect(await lane.evaluate<boolean>("document.activeElement.matches('.pad-assign') && !document.activeElement.disabled && !!document.activeElement.title && !document.querySelector('[role=menu][data-state=open]')")).toBe(true);
+    await lane.capture("U3515d", "disabled-assignment-focus");
   } finally { await lane.close(); }
 }, 90_000);

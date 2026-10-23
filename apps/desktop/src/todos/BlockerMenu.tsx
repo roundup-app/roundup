@@ -41,7 +41,7 @@ export const BlockerMenu = (props: {
   }]);
 
   return <Popover.Root closeOnInteractOutside={false} open={props.open && props.others.length > 0} onOpenChange={({ open }) => { if (!open) close(); }} positioning={{ placement: "bottom-start", strategy: "fixed" }}>
-    <Popover.Trigger asChild={(attributes) => <button {...attributes()} data-button="add" type="button" disabled={props.others.length === 0} class="word todo-blocker-trigger"
+    <Popover.Trigger asChild={(attributes) => <button {...attributes()} data-button="add" type="button" aria-disabled={props.others.length === 0 || undefined} title={props.others.length === 0 ? copy.noOtherBlockers : undefined} class="word todo-blocker-trigger"
       ref={(element) => { button = element; props.buttonRef(element); }}
       onClick={() => { if (props.open) close(); else if (props.others.length > 0) props.onOpenChange(true); }}>
       <Icon name="plus" />{copy.blockerWord}</button>} />

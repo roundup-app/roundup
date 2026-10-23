@@ -435,7 +435,7 @@ const PadRow = (props: Parameters<typeof PadRows>[0] & { pad: Pad; parts: Parame
             >
               <span {...nameCut.attrs()} class="shelf-title">{pad.name}</span>
             </button>
-              <button data-button="row-action" type="button" class="word light pad-assign" aria-label={copy.assignPadNamed(pad.name)} disabled={ownersToOffer(connected, pad.owner).length === 0} onClick={(event) => props.onAssign(pad.name, event.currentTarget)}>{copy.assign}</button>
+              <button data-button="row-action" type="button" class="word light pad-assign" aria-label={copy.assignPadNamed(pad.name)} aria-disabled={ownersToOffer(connected, pad.owner).length === 0 || undefined} title={ownersToOffer(connected, pad.owner).length === 0 ? copy.noOtherOwners : undefined} onClick={(event) => { if (ownersToOffer(connected, pad.owner).length > 0) props.onAssign(pad.name, event.currentTarget); }}>{copy.assign}</button>
             </div>
             <p class="shelf-meta">{copy.ownedBy}{connected.rail.nameOf(pad.owner)}</p>
             <ReservedLine overlay message={failed()} />
