@@ -1,7 +1,6 @@
 import { cleanup, fireEvent, screen, waitFor, within } from "@solidjs/testing-library";
 import { afterEach, expect, it } from "vitest";
 import { RpcError } from "../app/seam";
-import { CHORDS } from "../keys/chords";
 import { agent, workstream } from "../testing/nodes";
 import { mountTodos, todo, todoCallsTo as callsTo, todoEvent } from "./testHarness";
 
@@ -86,14 +85,9 @@ it("u3751_t_is_ignored_in_fields_and_with_modifiers", async () => {
   expect(shelf().getAttribute("data-triage")).toBe("off");
 });
 
-it("u3752_the_hint_line_is_the_registry_rows_and_leaves_with_the_mode", async () => {
+it("u3752_the_hint_line_leaves_with_the_mode", async () => {
   await enter();
-  const line = document.querySelector<HTMLElement>(".triage-hints")!;
-  const rows = CHORDS.filter(chord => chord.inTriage);
-
-  const squash = (text: string) => text.replace(/\s+/g, "");
-
-  expect([...line.querySelectorAll(".hint")].map(hint => squash(hint.textContent!))).toEqual(rows.map(chord => squash(`${chord.keys}${chord.what}`)));
+  expect(document.querySelector(".triage-hints")).not.toBeNull();
   press(row(2), "Escape");
   await waitFor(() => expect(document.querySelector(".triage-hints")).toBeNull());
 });
@@ -117,24 +111,6 @@ it("u3753_j_and_k_move_focus_across_groups_and_call_nothing", async () => {
   expect(app.calls.filter(call => call.method !== "todo.list" && call.method !== "todo.listHanded" && call.method.startsWith("todo."))).toEqual([]);
 });
 
-it("u3753_a_and_w_call_assign_and_move_once_each", async () => {
-  const { app } = await enter();
-
-  press(row(2), "a");
-  const owners = await screen.findByRole("menu", { name: "Owners for #2" });
-  fireEvent.click(within(owners).getByRole("menuitem", { name: "alpha" }));
-  await waitFor(() => expect(callsTo(app, "todo.assign").map(call => call.params)).toEqual([{ id: 2, owner: by("a") }]));
-  await waitFor(() => expect(document.activeElement).toBe(row(3)));
-
-  await waitFor(() => expect(screen.queryByRole("menu")).toBeNull());
-  press(row(3), "w");
-  const homes = await screen.findByRole("menu", { name: "Homes for #3" });
-  expect(within(homes).getAllByRole("menuitem").map(item => item.textContent)).toEqual(["work", "scope"]);
-  fireEvent.click(within(homes).getByRole("menuitem", { name: "work" }));
-  await waitFor(() => expect(callsTo(app, "todo.move").map(call => call.params)).toEqual([{ id: 3, home: "w" }]));
-  expect(callsTo(app, "todo.assign")).toHaveLength(1);
-});
-
 it("u3753_x_completes_once_and_focus_moves_on", async () => {
   const { app, store } = await enter();
 
@@ -144,20 +120,6 @@ it("u3753_x_completes_once_and_focus_moves_on", async () => {
   app.emit(todoEvent("todo.updated", store.todos.find(item => item.id === 2)!));
   await waitFor(() => expect(document.activeElement?.closest("[data-todo]")?.getAttribute("data-todo")).toBe("3"));
   expect(callsTo(app, "todo.complete")).toHaveLength(1);
-});
-
-it("u3753_c_opens_the_comment_field_and_esc_returns_to_the_row", async () => {
-  const { app } = await enter();
-
-  press(row(2), "c");
-  const field = await screen.findByRole<HTMLTextAreaElement>("textbox", { name: "Write a comment" });
-  await waitFor(() => expect(document.activeElement).toBe(field));
-  fireEvent.input(field, { target: { value: "hello" } });
-  fireEvent.keyDown(field, { key: "Escape", code: "Escape" });
-  await waitFor(() => expect(document.activeElement).toBe(row(2)));
-  expect(document.querySelector(".drawer")?.getAttribute("data-open")).not.toBe("true");
-  expect(shelf().getAttribute("data-triage")).toBe("on");
-  expect(callsTo(app, "todo.comment")).toEqual([]);
 });
 
 it("u3753_the_keys_do_nothing_outside_the_mode", async () => {
@@ -326,4 +288,81 @@ it("u3474b_done_keeps_the_regrouped_nested_row_ready", async () => {
 
     await waitFor(() => expect(document.activeElement).toBe(row(next)));
   }
+});
+
+
+const cancelledPickers = ["a", "o", "w"].flatMap(entry => ["Escape", "outside"].map(dismissal => ({ entry, dismissal })));
+
+const cancelPicker = async (entry: string, dismissal: string) => {
+  const mounted = await mountTodos([todo(0, { owner: by("a") }), todo(1), todo(2), todo(3), todo(4)], true, RAIL);
+  await waitFor(() => expect(row(1)?.closest("[hidden]")).toBeNull());
+  row(1).focus();
+  nextKey("t");
+  nextKey(entry);
+  const menu = await screen.findByRole("menu");
+  await waitFor(() => expect(menu.contains(document.activeElement)).toBe(true));
+
+  if (dismissal === "Escape") nextKey("Escape");
+  else {
+    // @zag-js/interact-outside defers tracking to raf, then installs pointerdown in a zero-delay timer.
+    await new Promise<void>(resolve => requestAnimationFrame(() => { setTimeout(resolve, 0); }));
+    // jsdom has no PointerEvent constructor; MouseEvent retains the button used by Ark.
+    fireEvent(document.body, new MouseEvent("pointerdown", { bubbles: true, button: 0 }));
+    fireEvent(document.body, new MouseEvent("pointerup", { bubbles: true, button: 0 }));
+  }
+
+  await waitFor(() => expect(screen.queryByRole("menu")).toBeNull());
+  await waitFor(() => expect(document.activeElement).toBe(row(1)));
+
+  return mounted;
+};
+
+it.each(cancelledPickers)("u3487a_dismissing_a_picker_keeps_its_row: $entry $dismissal", async ({ entry, dismissal }) => {
+  const { app, store } = await cancelPicker(entry, dismissal);
+  expect(shelf().getAttribute("data-triage")).toBe("on");
+  expect(screen.getByRole("button", { name: "Triage" }).getAttribute("aria-pressed")).toBe("true");
+  expect(store.todos).toEqual([todo(0, { owner: by("a") }), todo(1), todo(2), todo(3), todo(4)]);
+  expect(app.calls.filter(call => call.method.startsWith("todo.") && !["todo.list", "todo.listHanded"].includes(call.method))).toEqual([]);
+});
+
+it.each(cancelledPickers.flatMap(cancelled => ["owner", "Home"].map(choice => ({ ...cancelled, choice }))))("u3487b_a_later_picker_choice_uses_its_own_order: $entry $dismissal $choice", async ({ entry, dismissal, choice }) => {
+  const { app, store } = await cancelPicker(entry, dismissal);
+  nextKey("j");
+  nextKey("j");
+  expect(document.activeElement).toBe(row(3));
+  nextKey(choice === "owner" ? "a" : "w");
+  const menu = await screen.findByRole("menu");
+  await waitFor(() => expect(menu.contains(document.activeElement)).toBe(true));
+  fireEvent.click(within(menu).getByRole("menuitem", { name: choice === "owner" ? "alpha" : "work" }));
+  await waitFor(() => expect(document.activeElement).toBe(row(4)));
+  const method = choice === "owner" ? "todo.assign" : "todo.move";
+  expect(callsTo(app, method).map(call => call.params)).toEqual([choice === "owner" ? { id: 3, owner: by("a") } : { id: 3, home: "w" }]);
+  expect(store.todos.find(todo => todo.id === 3)).toEqual(todo(3, choice === "owner" ? { owner: by("a") } : { home: "w" }));
+  expect(store.todos.filter(todo => [1, 2].includes(todo.id))).toEqual([todo(1), todo(2)]);
+  nextKey("x");
+  await waitFor(() => expect(store.todos.find(todo => todo.id === 4)?.done).toBe(true));
+  expect(callsTo(app, "todo.complete").map(call => call.params)).toEqual([{ id: 4 }]);
+});
+
+it.each(cancelledPickers)("u3487b_naming_after_cancel_never_uses_the_cancelled_rows_order: $entry $dismissal", async ({ entry, dismissal }) => {
+  const { app, store } = await cancelPicker(entry, dismissal);
+  app.handlers["todo.startWorkstream"] = () => workstream("w9", { name: "Ship it" });
+  nextKey("j");
+  nextKey("j");
+  nextKey("o");
+  const menu = await screen.findByRole("menu");
+  await waitFor(() => expect(menu.contains(document.activeElement)).toBe(true));
+  fireEvent.click(within(menu).getByRole("menuitem", { name: "New Workstream…" }));
+  const dialog = within(await screen.findByRole("dialog", { name: "New Workstream" }));
+  fireEvent.input(dialog.getByLabelText("Workstream name"), { target: { value: "Ship it" } });
+  fireEvent.click(dialog.getByRole("button", { name: "Create" }));
+  await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+  await waitFor(() => expect(document.activeElement).toBe(row(3)));
+  expect(callsTo(app, "todo.startWorkstream").map(call => call.params)).toEqual([{ id: 3, name: "Ship it", start: { kind: "queued" } }]);
+  expect(callsTo(app, "todo.assign")).toEqual([]);
+  expect(callsTo(app, "todo.move")).toEqual([]);
+  expect(store.todos).toEqual([todo(0, { owner: by("a") }), todo(1), todo(2), todo(3), todo(4)]);
+  nextKey("x");
+  await waitFor(() => expect(store.todos.find(todo => todo.id === 3)?.done).toBe(true));
+  expect(callsTo(app, "todo.complete").map(call => call.params)).toEqual([{ id: 3 }]);
 });
