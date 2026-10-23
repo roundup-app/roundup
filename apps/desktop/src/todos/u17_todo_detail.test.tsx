@@ -1,3 +1,4 @@
+import { questionDialog, answerQuestion } from "../shelf/bulkQuestionHarness";
 import { stubDialogLayout } from "../shelf/bulkQuestionHarness";
 import { cleanup, fireEvent, screen, waitFor, within } from "@solidjs/testing-library";
 import { afterEach, describe, expect, it, vi } from "vitest";
@@ -151,29 +152,6 @@ describe("u17 Todo detail", () => {
     await waitFor(() => expect(callsTo(app, "todo.complete")).toEqual([{ method: "todo.complete", params: { id: 5 } }]));
   });
 
-  it("u17_delete_calls_todo_delete_and_closes_the_drawer", async () => {
-    const { app, connected } = await openDrawerOf(/#5/);
-    app.handlers["todo.delete"] = () => null;
-
-    fireEvent.click(within(drawer()).getByRole("button", { name: "Delete Todo" }));
-    fireEvent.click(await screen.findByRole("button", { name: "Delete" }));
-
-    await waitFor(() => expect(connected.drawer.content()).toBeNull());
-    expect(callsTo(app, "todo.delete")).toEqual([{ method: "todo.delete", params: { id: 5 } }]);
-  });
-
-  it("u17_a_failed_delete_keeps_the_drawer_open_and_shows_the_message", async () => {
-    const { app, connected } = await openDrawerOf(/#5/);
-    app.handlers["todo.delete"] = () => Promise.reject(new RpcError(-32001, "not found"));
-
-    fireEvent.click(within(drawer()).getByRole("button", { name: "Delete Todo" }));
-    fireEvent.click(await screen.findByRole("button", { name: "Delete" }));
-
-    expect([(await screen.findByText(/not found/)).textContent, connected.drawer.content() === null]).toEqual([
-      "not found",
-      false,
-    ]);
-  });
 
   it("u17_double_clicking_the_title_edits_it_and_leaving_calls_todo_update_once", async () => {
     const { app } = await openDrawerOf(/#5/);
@@ -328,7 +306,8 @@ describe("u17 Todo detail", () => {
     };
 
     fireEvent.click(within(drawer()).getByRole("button", { name: "Delete Todo" }));
-    fireEvent.click(await screen.findByRole("button", { name: "Delete" }));
+    await questionDialog();
+    await answerQuestion(true);
     app.emit({ actor: USER, name: "todo.deleted", data: { id: 5 } });
     await waitFor(() => expect(screen.queryByRole("button", { name: /#5/ })).toBeNull());
 

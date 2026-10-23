@@ -20,6 +20,8 @@ const centred = async (selector: string) => {
 
   expect(Math.abs(x!)).toBeLessThanOrEqual(1);
   expect(Math.abs(y!)).toBeLessThanOrEqual(1);
+  await lane.capture("U3512b", selector.replace(/[^a-z0-9]/gi, ""));
+  await lane.capture("U3512c", selector.replace(/[^a-z0-9]/gi, ""));
 };
 
 const reload = async (seed: string) => {
@@ -41,33 +43,16 @@ const strand = async (field: string, name: string) => {
 it("u3083e_every_modal_centre_is_the_window_centre", async () => {
   await lane.seedTodos(["first", "second", "third"], false);
 
-  // Bulk delete.
-  const [one, two] = await lane.order();
-
-  for (const id of [one, two]) {
-    await lane.browser("focus", `.shelf [data-todo="${id}"] .todo-row-button`);
-    await lane.browser("press", "Meta+Enter");
-  }
-
-  await lane.until("document.querySelector('.shelf-bulk')?.textContent.includes('2 selected')");
-  await lane.browser("click", ".shelf-bulk-line button:nth-of-type(1)");
-  await centred("[role=alertdialog]");
+  // Help and Capture now use the shared window positioner too.
+  await lane.browser("focus", ".rail-row");
+  await lane.browser("press", "Shift+?");
+  await centred(".help");
   await lane.browser("press", "Escape");
-  await lane.until("!document.querySelector('[role=alertdialog]')");
-
-  // The Todo drawer's delete question.
-  await lane.browser("click", `.shelf [data-id="${one}"] .todo-row-button`);
-  await lane.until("!!document.querySelector('.drawer[data-open=\"true\"]')");
-  await lane.until("!!document.querySelector('.todo-delete')");
-  await lane.browser("click", ".todo-delete");
-  await centred(".todo-delete-confirm");
+  await lane.until("!document.querySelector('.help')");
+  await lane.browser("press", "Meta+Shift+t");
+  await centred(".capture");
   await lane.browser("press", "Escape");
-  await lane.until("!document.querySelector('.todo-delete-confirm')");
-
-  // The close dialog.
-  await reload("agents-10");
-  await lane.evaluate("(() => { document.querySelector('.project-tab[data-selected=true] .tab-close').click(); return true; })()");
-  await centred(".close-dialog");
+  await lane.until("!document.querySelector('.capture')");
 
   // The Project tab's recovery.
   await reload("tree-40");

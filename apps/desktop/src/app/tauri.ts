@@ -4,7 +4,7 @@ import type { InvokeArgs, InvokeOptions } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 import { getCurrentWebview } from "@tauri-apps/api/webview";
 import { getCurrentWindow } from "@tauri-apps/api/window";
-import { open, save } from "@tauri-apps/plugin-dialog";
+import { ask, open, save } from "@tauri-apps/plugin-dialog";
 import * as v from "valibot";
 import type { Event as DaemonEvent } from "@contracts/Event";
 import { methodNotFoundMessage } from "./contractMatch";
@@ -83,6 +83,7 @@ export const createTauriApp = (): App => {
   const selections = new Map<string, object>();
 
   const app: App = {
+    ask: ({ message, ...options }) => guarded(() => ask(message, { ...options, kind: "warning" })),
     projects: () => parsedCommand(v.array(listedProjectSchema), "projects", {}),
     openProject: (path) => parsedCommand(projectSchema, "open_project", { path }),
     closeProject: async (path) => {

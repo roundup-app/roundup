@@ -394,6 +394,12 @@ An extra label after a name; it never changes the Glyph.
 **Live line**:
 The Status label, in a Rail row's `title` and the Agent's pane; the Rail draws none.
 
+**Unseen** (`unseen`, user label: Unread result):
+An Agent's turn finish the user has not yet viewed. It is separate from Kind, a Decision, result acceptance and unseen output in a plain Terminal.
+
+**Finish count** (`finished`):
+The number of an Agent's observed Kind transitions directly from `working` to `idle` or `done`, across its Attempts. It identifies newer finishes without claiming that their results were accepted or checked.
+
 ### Agents at work
 
 **Adapter**:
@@ -934,3 +940,9 @@ An expandable App region with a named trigger; closing it retains its content.
 
 **Project menu** (`ProjectMenu`, `select_project_menu`, `selectProjectMenu`, `onProjectPage`, `projectPageSchema`):
 The native Project menu's selected-Project holder and App seam. The webview synchronizes its selected path; each activation emits `open-project-page` with that captured path and `import-work` or `project-settings`. A null selection disables both commands. Opening changes no Daemon data and starts no Agent.
+
+**Native question** (`NativeQuestion`, `App.ask`, `NativeAlert`):
+A user-requested system confirmation containing its title, complete consequences and two named buttons. Only an affirmative answer authorizes the captured action; cancellation or a failed request authorizes nothing. NativeAlert owns pending-request suppression, retry and focus return, while the originating surface owns targets and mutations.
+
+**Shared floating surface** (`Dialog`, `--surface`, `--button-neutral`, `--button-accent-ink`, `--radius-pill`):
+The Token-owned opaque panel, hairline, radius and tight depth used by web forms, anchored panels/menus and Terminal Bubbles. Within it the existing primary and quiet button kinds have filled pill variants. `Dialog.Root.instant` suppresses fades for recovery; keyboard actions and reduced motion are always instant. Native questions retain system appearance.
