@@ -10,8 +10,8 @@ it("u3799_the_event_and_cmd_comma_open_app_settings_in_the_center_with_four_grou
   await screen.findByRole("button", { name: /Choose/ });
   fireEvent.keyDown(window, { key: ",", code: "Comma", metaKey: true });
   const view = await screen.findByRole("region", { name: "Settings" });
-  expect(view.closest(".centre")).toBeTruthy();
-  expect([...view.querySelectorAll("h3")].map(item => item.textContent)).toEqual(["Agents", "Terminal", "Shortcuts", "Appearance"]);
+  expect(within(screen.getByRole("region", { name: "Centre" })).getByRole("region", { name: "Settings" })).toBe(view);
+  expect(within(view).getAllByRole("region").map(item => item.getAttribute("aria-label"))).toEqual(["Agents", "Terminal", "Shortcuts", "Appearance"]);
   expect(screen.queryByRole("dialog")).toBeNull();
   fireEvent.keyDown(window, { key: ",", code: "Comma", metaKey: true });
   expect(screen.getAllByRole("region", { name: "Settings" })).toHaveLength(1);
@@ -33,7 +33,7 @@ it("u3800_close_returns_the_center_and_focus", async () => {
   expect(document.activeElement).toBe(opener);
 });
 
-it("u3804_a_new_chord_opens_the_field_and_help_lists_it", async () => {
+it.each([["KeyY", "y", "⌃⇧Y"], ["Numpad1", "1", "⌃⇧1"], ["F13", "F13", "⌃⇧F13"]])("u3804_a_new_chord_opens_the_field_and_help_lists_it_%s", async (code, key, label) => {
   const { seedApp } = await import("../testing/seeds");
   const { HELP_ROWS } = await import("../keys/chords");
   const { copy } = await import("../copy");
@@ -42,11 +42,11 @@ it("u3804_a_new_chord_opens_the_field_and_help_lists_it", async () => {
   await screen.findAllByRole("treeitem");
   window.dispatchEvent(new Event("open-app-settings"));
   fireEvent.click(await screen.findByRole("button", { name: "Quick add a Todo" }));
-  fireEvent.keyDown(window, { key: "y", code: "KeyY", ctrlKey: true, shiftKey: true });
+  fireEvent.keyDown(window, { key, code, ctrlKey: true, shiftKey: true });
   fireEvent.click(within(screen.getByRole("region", { name: "Settings" })).getByRole("button", { name: "Close" }));
   fireEvent.keyDown(window, { key: "T", code: "KeyT", metaKey: true, shiftKey: true });
   expect(screen.queryByRole("dialog")).toBeNull();
-  fireEvent.keyDown(window, { key: "y", code: "KeyY", ctrlKey: true, shiftKey: true });
+  fireEvent.keyDown(window, { key, code, ctrlKey: true, shiftKey: true });
   expect(await screen.findByRole("dialog")).toBeTruthy();
-  expect(HELP_ROWS.findLast(row => row.what === copy.captureATodo)?.keys).toBe("⌃⇧Y");
+  expect(HELP_ROWS.findLast(row => row.what === copy.captureATodo)?.keys).toBe(label);
 });

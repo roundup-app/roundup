@@ -12,7 +12,8 @@ const schema = v.object({
   modelLabel: v.fallback(v.string(), ""),
   fontFamily: v.fallback(v.string(), ""),
   fontSize: v.fallback(v.pipe(v.number(), v.minValue(MIN_FONT_SIZE), v.maxValue(MAX_FONT_SIZE)), DEFAULT_FONT_SIZE),
-  quickAdd: v.fallback(v.pipe(v.string(), v.regex(/^(?=.*(?:meta|ctrl)\+)(?:ctrl\+)?(?:alt\+)?(?:meta\+)?(?:shift\+)?(?:Key[A-Z]|Digit[0-9]|F\d{1,2}|Arrow(?:Up|Down|Left|Right)|Space|Tab|Enter|Backspace|Delete|Comma|Period|Slash|Semicolon|Quote|BracketLeft|BracketRight|Backslash|Minus|Equal|Backquote)$/)), "meta+shift+KeyT"),
+  quickAdd: v.fallback(v.pipe(v.string(), v.regex(/^(?=.*(?:meta|ctrl)\+)(?:ctrl\+)?(?:alt\+)?(?:meta\+)?(?:shift\+)?[A-Za-z][A-Za-z0-9]*$/)), "meta+shift+KeyT"),
+  quickAddKey: v.fallback(v.string(), ""),
   mode: v.fallback(v.picklist(["dark", "light", "system"]), "system"),
 });
 
@@ -53,14 +54,18 @@ export const applyAppAppearance = () => {
   });
 };
 
-/** Only user launch calls receive App defaults. Resume never changes the session's engine or model. */
-export const withAppSettings = (app: AppSeam): AppSeam => ({
+/** Only user launch calls receive App defaults. A saved Door resumes its own engine/model; only its permission default changes. */
+export const withAppSettings = (app: AppSeam, resumesDoor: (id: string | number) => boolean): AppSeam => ({
   ...app,
   rpc: (method, params) => {
     const settings = untrack(appSettings);
 
     const normal = !(params && "mode" in params && params.mode === "yolo");
     const permission = normal && settings.permissionMode ? { permissionMode: settings.permissionMode } : {};
+
+    if (method === "rail.startDoor" && params && "id" in params && resumesDoor(params.id)) {
+      return app.rpc(method, Object.assign({}, params, permission));
+    }
 
     if (method === "agent.spawn" || method === "rail.startDoor") {
       return app.rpc(method, Object.assign({}, params,

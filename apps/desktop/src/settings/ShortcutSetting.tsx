@@ -10,7 +10,7 @@ export const ShortcutSetting = (props: { onFailure: (message: string | null) => 
   const [recording, setRecording] = createSignal(false);
   const [failure, setFailure] = createSignal<string | null>(null);
   let button: HTMLButtonElement | undefined;
-  const save = (press: string) => { setFailure(null); props.onFailure(saveAppSettings({ quickAdd: press })); setRecording(false); };
+  const save = (press: string, key = "") => { setFailure(null); props.onFailure(saveAppSettings({ quickAdd: press, quickAddKey: key })); setRecording(false); };
 
   const take = (event: KeyboardEvent) => {
     if (!event.metaKey && !event.ctrlKey) return setFailure(copy.shortcutModifier);
@@ -21,21 +21,21 @@ export const ShortcutSetting = (props: { onFailure: (message: string | null) => 
       ?? CHORDS.find(row => row.what !== copy.captureATodo && row.presses.includes(press))?.what
       ?? LEADER.find(row => row.press.toLowerCase() === press.toLowerCase())?.what;
 
-    if (holder) return setFailure(copy.shortcutRefusal(shortcutLabel(press), holder));
+    if (holder) return setFailure(copy.shortcutRefusal(shortcutLabel(press, event.key), holder));
 
     setFailure(null);
-    save(press);
+    save(press, event.key);
   };
 
   registerKeys({ kind: "layer", element: () => button, active: recording, modal: true }, [
     { chords: ["Escape"], run: () => { setRecording(false); setFailure(null); } },
-    { chords: [...copy.shortcutKeys.keys()].map(code => `[Control]+[Alt]+[Meta]+[Shift]+${code}`), run: take },
+    { chords: ["[Control]+[Alt]+[Meta]+[Shift]+(.+)"], when: event => !["Control", "Alt", "Meta", "Shift", "CapsLock"].includes(event.key) && !event.isComposing, run: take },
   ]);
 
   return <>
     <div class="settings-shortcut">
       <button ref={button} data-button="quiet" type="button" aria-label={copy.quickAddTodo} onClick={() => { setRecording(true); setFailure(null); }}>
-        {recording() ? copy.recordShortcut : `${copy.quickAddTodo} ${shortcutLabel(appSettings().quickAdd)}`}
+        {recording() ? copy.recordShortcut : `${copy.quickAddTodo} ${shortcutLabel(appSettings().quickAdd, appSettings().quickAddKey)}`}
       </button>
       <Show when={appSettings().quickAdd !== "meta+shift+KeyT"}><button data-button="quiet" type="button" onClick={() => save("meta+shift+KeyT")}>{copy.reset}</button></Show>
     </div>

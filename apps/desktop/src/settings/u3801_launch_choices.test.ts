@@ -7,13 +7,14 @@ import { saveAppSettings } from "./preferences";
 // These cross the same connected App seam that every user launch control calls.
 afterEach(() => localStorage.clear());
 
-const connect = async () => {
+const connect = async (path = "/p", resume = false) => {
   const app = createFakeApp();
+  app.handlers["rail.tree"] = () => resume ? [workstream("door", { can_resume: true, model: "held-model" })] : [];
   app.handlers["agent.spawn"] = () => agent("new", "working", "starting");
   app.handlers["rail.startDoor"] = () => workstream("door");
   app.handlers["agent.resume"] = () => agent("agent", "working", "starting");
   app.handlers["workstream.clear"] = () => ({ pending: true });
-  const connected = await connectProject(app, { name: "p", path: "/p" }, () => true, Date.now);
+  const connected = await connectProject(app, { name: "p", path }, () => true, Date.now);
 
   return { app, connected };
 };
@@ -74,7 +75,7 @@ it("u3802_engine_and_model_ride_a_new_agent", async () => {
 
 it("u3806_every_open_tab_sees_a_change", async () => {
   const first = await connect();
-  const second = await connect();
+  const second = await connect("/other-project");
   saveAppSettings({ permissionMode: "auto", model: "chosen" });
   await first.connected.app.rpc("rail.startDoor", { id: "first" });
   await second.connected.app.rpc("rail.startDoor", { id: "second" });
@@ -82,4 +83,12 @@ it("u3806_every_open_tab_sees_a_change", async () => {
   expect(second.app.calls.at(-1)?.params).toEqual({ id: "second", permissionMode: "auto", model: "chosen" });
   first.connected.stopTerminalScheme();
   second.connected.stopTerminalScheme();
+});
+
+it("u3802_a_saved_door_resumes_its_model_instead_of_the_new_agent_default", async () => {
+  const { app, connected } = await connect("/p", true);
+  saveAppSettings({ engine: "new-engine", model: "new-model", permissionMode: "plan" });
+  await connected.app.rpc("rail.startDoor", { id: "door" });
+  expect(app.calls.at(-1)?.params).toEqual({ id: "door", permissionMode: "plan" });
+  connected.stopTerminalScheme();
 });

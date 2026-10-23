@@ -7,7 +7,6 @@ import { RpcError } from "../app/seam";
 import { CHORDS, HELP_ROWS } from "../keys/chords";
 import { copy } from "../copy";
 
-// No then-clause in this new file duplicates an existing observer.
 afterEach(() => { cleanup(); localStorage.clear(); });
 
 const mount = async (fail = false) => {
@@ -50,6 +49,14 @@ it("u3802_changing_the_engine_resets_a_foreign_model", async () => {
   expect(appSettings()).toMatchObject({ engine: "engine-two", model: "" });
 });
 
+it("u3802_selecting_the_same_engine_keeps_its_model", async () => {
+  await mount();
+  await pick("Engine", "Engine One");
+  await pick("Model", "Model One");
+  await pick("Engine", "Engine One");
+  expect(appSettings().model).toBe("model-one");
+});
+
 it("u3802_a_failed_list_shows_the_message_and_keeps_the_choice", async () => {
   await mount();
   await pick("Engine", "Engine One");
@@ -62,13 +69,13 @@ it("u3802_a_failed_list_shows_the_message_and_keeps_the_choice", async () => {
   expect(screen.getByRole("button", { name: "Model" }).textContent).toBe("Model One");
 });
 
-it("u3803_a_bad_size_is_refused_and_changes_nothing", async () => {
+it.each(["300", "2", "not a number"])("u3803_a_bad_size_is_refused_and_changes_nothing_%s", async invalid => {
   await mount();
   commit("Font size", "17");
-  commit("Font size", "300");
+  commit("Font size", invalid);
   expect(await screen.findByText(/Choose a font size from/)).toBeTruthy();
   expect(appSettings().fontSize).toBe(17);
-  expect(screen.getByRole<HTMLInputElement>("textbox", { name: "Font size" }).value).toBe("300");
+  expect(screen.getByRole<HTMLInputElement>("textbox", { name: "Font size" }).value).toBe(invalid);
 });
 
 it("u3806_a_change_survives_a_reload", async () => {
@@ -81,6 +88,7 @@ it("u3806_a_change_survives_a_reload", async () => {
   await select("Mode", "Dark");
   fireEvent.click(screen.getByRole("button", { name: "Quick add a Todo" }));
   fireEvent.keyDown(window, { key: "y", code: "KeyY", ctrlKey: true, shiftKey: true });
+  expect(JSON.parse(localStorage.getItem("roundup:app-settings")!)).toMatchObject({ permissionMode: "plan", engine: "engine-one", model: "model-one", fontFamily: "Menlo", fontSize: 16, mode: "dark", quickAdd: "ctrl+shift+KeyY" });
   cleanup();
   await mount();
   expect(appSettings()).toMatchObject({ permissionMode: "plan", engine: "engine-one", model: "model-one", fontFamily: "Menlo", fontSize: 16, mode: "dark", quickAdd: "ctrl+shift+KeyY" });
