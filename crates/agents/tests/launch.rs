@@ -578,7 +578,6 @@ async fn i5_launch_sets_roundup_agent_in_the_claude_environment() {
     assert_eq!(env["ROUNDUP_AGENT"], "7");
 }
 
-
 fn env_of(argv: &[String]) -> Value {
     read(Path::new(&argv[2]))["env"].clone()
 }
@@ -875,23 +874,92 @@ use trust::vars;
 fn a3507a_every_launch_keeps_the_users_gateway() {
     use agents::claude_code::{Lean, PROFILES, Pair};
     let s = setup();
+    let headers = "x-wise-llm-gateway-team: fixture\nx-wise-llm-gateway-use-case: test";
     std::fs::write(s.root.path().join("settings.json"), json!({
-        "env": {
-            "ANTHROPIC_CUSTOM_HEADERS": "x-wise-llm-gateway-team: fixture\nx-wise-llm-gateway-use-case: test",
-            "ANTHROPIC_BASE_URL": "https://gateway.invalid"
-        },
+        "env": {"ANTHROPIC_CUSTOM_HEADERS": headers, "ANTHROPIC_BASE_URL": "https://gateway.invalid"},
         "apiKeyHelper": "fixture-helper"
     }).to_string()).unwrap();
-    let rows = std::iter::once((Role::Agent, Pair::default())).chain(PROFILES.iter().map(|(role, _)| {
-        (*role, Pair { lean: Some(Lean { scout: *role == Role::Scout, ..Default::default() }), ..Default::default() })
-    }));
+    let inherited = [
+        "ANTHROPIC_API_KEY",
+        "ANTHROPIC_AUTH_TOKEN",
+        "CLAUDE_CODE_USE_BEDROCK",
+        "CLAUDE_CODE_USE_VERTEX",
+        "CLAUDE_CODE_USE_FOUNDRY",
+        "ANTHROPIC_PROFILE",
+        "ANTHROPIC_FEDERATION_RULE_ID",
+        "ANTHROPIC_ORGANIZATION_ID",
+        "ANTHROPIC_BASE_URL",
+    ]
+    .map(|name| (name.to_owned(), "fixture-shell-value".to_owned()));
+    let inspect = |command: &std::process::Command| {
+        let argv: Vec<_> = command
+            .get_args()
+            .map(|arg| arg.to_str().unwrap())
+            .collect();
+        let selected = argv
+            .windows(2)
+            .find(|pair| pair[0] == "--settings")
+            .unwrap()[1];
+        let settings: Value = if selected.starts_with('{') {
+            serde_json::from_str(selected).unwrap()
+        } else {
+            read(Path::new(selected))
+        };
+        assert_eq!(settings["apiKeyHelper"], "fixture-helper", "{argv:?}");
+        assert_eq!(
+            settings["env"]["ANTHROPIC_BASE_URL"],
+            "https://gateway.invalid"
+        );
+        assert_eq!(settings["env"]["ANTHROPIC_CUSTOM_HEADERS"], headers);
+        // Apply the actual command's additions/removals to the inherited shell fixture.
+        let mut effective: std::collections::BTreeMap<_, _> =
+            inherited.clone().into_iter().collect();
+        for (key, value) in command.get_envs() {
+            let key = key.to_str().unwrap();
+            match value {
+                Some(value) => {
+                    effective.insert(key.into(), value.to_str().unwrap().into());
+                }
+                None => {
+                    effective.remove(key);
+                }
+            }
+        }
+        for (key, value) in &inherited {
+            assert_eq!(effective.get(key), Some(value), "{key}: {argv:?}");
+        }
+    };
+    let launcher = s.launcher();
+    let rows =
+        std::iter::once((Role::Agent, Pair::default())).chain(PROFILES.iter().map(|(role, _)| {
+            (
+                *role,
+                Pair {
+                    lean: Some(Lean {
+                        scout: *role == Role::Scout,
+                        ..Default::default()
+                    }),
+                    ..Default::default()
+                },
+            )
+        }));
     for (role, pair) in rows {
         for resume in [None, Some("saved")] {
-            let argv = s.launcher().prepare_on(folders(&s.dir), "7", "1", &s.cwd, resume, role, &pair).unwrap();
-            let settings = read(Path::new(&argv[2]));
-            assert_eq!(settings["apiKeyHelper"], "fixture-helper", "{role:?} {resume:?}");
-            assert_eq!(settings["env"]["ANTHROPIC_BASE_URL"], "https://gateway.invalid");
-            assert_eq!(settings["env"]["ANTHROPIC_CUSTOM_HEADERS"], "x-wise-llm-gateway-team: fixture\nx-wise-llm-gateway-use-case: test");
+            inspect(
+                &launcher
+                    .command_on(folders(&s.dir), "7", "1", &s.cwd, resume, role, &pair)
+                    .unwrap(),
+            );
         }
     }
+    let empty = tempfile::tempdir().unwrap();
+    inspect(
+        launcher
+            .placement()
+            .in_project(folders(&s.dir).project)
+            .command(empty.path())
+            .unwrap()
+            .0
+            .as_std(),
+    );
 }

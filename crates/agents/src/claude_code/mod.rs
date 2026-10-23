@@ -54,21 +54,6 @@ pub const MARKERS: [&str; 8] = [
     "CLAUDE_CODE_MESSAGING_TOKEN",
 ];
 
-/// A30: variables that make Claude Code bill per token or leave the user's plan, ranked above the
-/// subscription login in code.claude.com/docs/en/authentication. `CLAUDE_CODE_OAUTH_TOKEN` is the
-/// user's plan and stays.
-pub const OFF_PLAN: [&str; 9] = [
-    "ANTHROPIC_API_KEY",
-    "ANTHROPIC_AUTH_TOKEN",
-    "CLAUDE_CODE_USE_BEDROCK",
-    "CLAUDE_CODE_USE_VERTEX",
-    "CLAUDE_CODE_USE_FOUNDRY",
-    "ANTHROPIC_PROFILE",
-    "ANTHROPIC_FEDERATION_RULE_ID",
-    "ANTHROPIC_ORGANIZATION_ID",
-    "ANTHROPIC_BASE_URL",
-];
-
 /// How long a star right after `PreToolUse` waits for its `PermissionRequest`, in milliseconds,
 /// measured from the star. Across 9 dialogs the star precedes its `PermissionRequest` by 18-79 ms;
 /// 200 ms is about 2.5 times that. Shorter flickers `idle` before a dialog; longer delays the

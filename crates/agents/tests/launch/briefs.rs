@@ -151,4 +151,3 @@ fn e1_preparing_the_same_id_and_role_twice_writes_the_same_text() {
     let s = setup();
     assert_eq!(brief(&s, "7", Role::Door), brief(&s, "7", Role::Door));
 }
-

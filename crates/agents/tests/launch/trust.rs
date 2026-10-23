@@ -525,4 +525,3 @@ fn a4_a_symlink_planted_where_a_file_goes_is_replaced_not_written_through() {
     assert!(read(&agents.join("1.settings.json"))["hooks"]["Stop"].is_array());
     assert!(read(&agents.join("1.mcp.json"))["mcpServers"]["roundup"].is_object());
 }
-
