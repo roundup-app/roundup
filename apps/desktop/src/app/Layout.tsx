@@ -5,6 +5,7 @@ import { IconButton } from "../ui/IconButton";
 import { CHORDS } from "../keys/chords";
 import { activationSource } from "../keys/registry";
 import type { ActivationSource } from "../keys/registry";
+import { triage } from "../todos/triage";
 import { copy } from "../copy";
 import { createEffect, createMemo, createSignal, on, onCleanup, onMount, Show, splitProps } from "solid-js";
 import type { JSX } from "solid-js";
@@ -53,6 +54,23 @@ export const Layout = (props: {
 }) => {
   const binding = (part: "root" | "rail" | "centre" | "shelf") =>
     splitProps(props.splitter?.[part] ?? {}, ["style", "ref", "class", "classList", "children"])[1];
+
+  const [shelfFocus, setShelfFocus] = createSignal<Element | null>(null);
+
+  onMount(() => {
+    const sync = () => {
+      const focus = document.activeElement;
+
+      setShelfFocus(focus?.closest(".shelf") && !focus.closest("input, textarea, select, [contenteditable], [role=dialog], [role=menu]") ? focus : null);
+    };
+
+    document.addEventListener("focusin", sync);
+    document.addEventListener("focusout", sync);
+    onCleanup(() => {
+      document.removeEventListener("focusin", sync);
+      document.removeEventListener("focusout", sync);
+    });
+  });
 
   const placement = () => props.shelfPlacement ?? SETTLED;
 
@@ -150,12 +168,12 @@ export const Layout = (props: {
     >
       <div class="shelf-controls">
         <Show when={mode() === "reserved" && placement().onMaximise}>
-          <IconButton aria-label={placement().maximised ? copy.restore : copy.maximise} chord={CHORDS.find(row => row.keys === "M")} onClick={event => placement().onMaximise?.(activationSource(event))}>
+          <IconButton aria-label={placement().maximised ? copy.restore : copy.maximise} chord={shelfFocus() ? CHORDS.find(row => row.keys === "M") : undefined} onClick={event => placement().onMaximise?.(activationSource(event))}>
             <Show when={placement().maximised} fallback={<Maximize class="icon" aria-hidden="true" />}><Minimize class="icon" aria-hidden="true" /></Show>
           </IconButton>
         </Show>
         <Show when={placement().onClose}>
-          <IconButton aria-label={copy.closeShelf} tooltip={copy.close} chord={CHORDS.find(row => row.keys === "Esc")} onClick={event => placement().onClose?.(activationSource(event))}><X class="icon" aria-hidden="true" /></IconButton>
+          <IconButton aria-label={copy.closeShelf} tooltip={copy.close} chord={shelfFocus()?.closest(".shelf-controls") && !triage.on() ? CHORDS.find(row => row.keys === "Esc") : undefined} onClick={event => placement().onClose?.(activationSource(event))}><X class="icon" aria-hidden="true" /></IconButton>
         </Show>
       </div>
       {props.shelf}

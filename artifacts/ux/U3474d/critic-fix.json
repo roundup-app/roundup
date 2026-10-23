@@ -1,0 +1,103 @@
+{
+  "source": "ee32cb95c02ac4980312871d035d6dbb053b6db5",
+  "baseline": "2321923c2ee2fcaf1756792c97598dbe7fb09106",
+  "viewport": [
+    1512,
+    950
+  ],
+  "scheme": "dark",
+  "contrast_capture": {
+    "prefers_contrast_more": true,
+    "forced_colors": true
+  },
+  "states": [
+    {
+      "capture": "artifacts/ux/U3474a/critic-tab-entry.png",
+      "failed": []
+    },
+    {
+      "capture": "artifacts/ux/U3474b/critic-done-1.png",
+      "failed": []
+    },
+    {
+      "capture": "artifacts/ux/U3474b/critic-done-2.png",
+      "failed": []
+    },
+    {
+      "capture": "artifacts/ux/U3474b/critic-done-3.png",
+      "failed": []
+    },
+    {
+      "capture": "artifacts/ux/U3474b/critic-done-4.png",
+      "failed": []
+    },
+    {
+      "capture": "artifacts/ux/U3474b/critic-refusal.png",
+      "failed": []
+    },
+    {
+      "capture": "artifacts/ux/U3474c/critic-empty.png",
+      "failed": []
+    },
+    {
+      "capture": "artifacts/ux/U3474d/critic-add-agent.png",
+      "failed": []
+    },
+    {
+      "capture": "artifacts/ux/U3474d/critic-close-in-shelf.png",
+      "failed": []
+    },
+    {
+      "capture": "artifacts/ux/U3474d/critic-close-outside-shelf.png",
+      "failed": []
+    },
+    {
+      "capture": "artifacts/ux/U3474d/critic-contrast-more.png",
+      "failed": [
+        "D10",
+        "D8"
+      ]
+    },
+    {
+      "capture": "artifacts/ux/U3474d/critic-fixed-leader.png",
+      "failed": []
+    },
+    {
+      "capture": "artifacts/ux/U3474d/critic-help-sections.png",
+      "failed": [
+        "D10",
+        "D8"
+      ]
+    },
+    {
+      "capture": "artifacts/ux/U3474d/critic-long-agent-name.png",
+      "failed": []
+    },
+    {
+      "capture": "artifacts/ux/U3474d/critic-main-contrast-more.png",
+      "failed": [
+        "D10",
+        "D8"
+      ]
+    },
+    {
+      "capture": "artifacts/ux/U3474d/critic-main-help.png",
+      "failed": [
+        "D10",
+        "D8"
+      ]
+    },
+    {
+      "capture": "artifacts/ux/U3474d/critic-maximise-in-shelf.png",
+      "failed": []
+    },
+    {
+      "capture": "artifacts/ux/U3474d/critic-maximise-outside-shelf.png",
+      "failed": []
+    },
+    {
+      "capture": "artifacts/ux/U3474e/critic-shelf-rest.png",
+      "failed": []
+    }
+  ]
+}
