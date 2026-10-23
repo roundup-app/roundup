@@ -1,6 +1,5 @@
-import { cleanup, fireEvent, screen } from "@solidjs/testing-library";
+import { cleanup, fireEvent } from "@solidjs/testing-library";
 import { afterEach, expect, it } from "vitest";
-import { agent } from "../testing/nodes";
 import { openTabs, tab } from "./stripFixture";
 
 afterEach(cleanup);
@@ -33,15 +32,4 @@ it("u451_controls_do_not_drag_or_zoom", async () => {
   fireEvent.dblClick(input, { button: 0 });
   expect(app.windowOperations.filter((operation) => operation.kind !== "title")).toEqual([]);
   expect(input).toBeTruthy();
-});
-
-it("u451_a_close_dialog_does_not_drag_or_zoom_the_window", async () => {
-  const { app } = await openTabs({ api: [agent("working", "working", "running")] });
-
-  fireEvent.click(document.querySelector('.tab-close')!);
-  const dialog = await screen.findByRole("alertdialog");
-
-  fireEvent.mouseDown(dialog, { button: 0, detail: 1 });
-  fireEvent.mouseDown(dialog, { button: 0, detail: 2 });
-  expect(app.windowOperations.filter((operation) => operation.kind !== "title")).toEqual([]);
 });

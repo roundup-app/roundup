@@ -1,7 +1,5 @@
 .app-menu {
   color: var(--text);
-  background-color: var(--sunken);
-  border-radius: var(--radius-drawer);
   padding: var(--space-4);
 }
 

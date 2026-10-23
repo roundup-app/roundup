@@ -1,3 +1,5 @@
+import { questionDialog, answerQuestion } from "./bulkQuestionHarness";
+import { questionProbe } from "../testing/menuProbe";
 import { cleanup, fireEvent, screen, waitFor } from "@solidjs/testing-library";
 import { afterEach, expect, it } from "vitest";
 import { mountTodos, todo, todoCallsTo } from "../todos/testHarness";
@@ -13,7 +15,7 @@ it("u459_clear_done_targets_only_the_scoped_done_set", async () => {
   const { app, connected } = await mountTodos([todo(1, { done: true, home: SCOPE_ROW }), todo(2, { done: true, home: SCOPE_ROW }), todo(3, { done: true }), todo(4, { home: SCOPE_ROW })]);
   connected.rail.select("scope-row");
   fireEvent.click(await screen.findByRole("button", { name: "Clear done" }));
-  expect(await screen.findByText("Delete 2 done Todos?")).toBeTruthy();
+  expect((await questionDialog()).title).toBe("Delete 2 done Todos?");
   expect(todoCallsTo(app, "todo.delete")).toEqual([]);
 });
 
@@ -22,8 +24,8 @@ it("u459_clear_done_confirms_once_and_cancels_without_calls", async () => {
   const clear = await screen.findByRole("button", { name: "Clear done" });
   clear.focus();
   fireEvent.click(clear);
-  await waitFor(() => expect(document.activeElement).toBe(screen.getByRole("button", { name: "Keep" })));
-  fireEvent.keyDown(screen.getByRole("button", { name: "Keep" }), { key: "Escape" });
+  await questionDialog();
+  await answerQuestion(false);
   await waitFor(() => expect(document.activeElement).toBe(clear));
   expect(todoCallsTo(app, "todo.delete")).toEqual([]);
   expect(screen.queryByRole("button", { name: /#1 / })).toBeNull();

@@ -1,10 +1,12 @@
 import tokens from "../tokens.css?inline";
+import { createRoot, createEffect, on } from "solid-js";
+import { appSettings, appDark, followAppAppearance } from "../settings/preferences";
 import { DEFAULT_FONT_SIZE } from "./fontSize";
 import { createLinkProvider } from "./linkProvider";
 import type { Printed } from "./links";
-import { DARK_SCHEME, terminalThemeFor } from "./theme";
+import { terminalThemeFor } from "./theme";
 import { attachTurns } from "./turns";
-import type { TurnFacts, TurnRows } from "./turns";
+import type { TurnRows } from "./turns";
 import { FitAddon } from "@xterm/addon-fit";
 import { Unicode11Addon } from "@xterm/addon-unicode11";
 import { WebglAddon } from "@xterm/addon-webgl";
@@ -27,12 +29,6 @@ export type Emulator = {
   /** U365: a Cmd+click on a web link or path printed in the Terminal; one call per click. */
   onLink(listener: (printed: Printed) => void): void;
   selection(): string;
-  /** U515: fires whenever the selection changes. */
-  onSelection(listener: () => void): void;
-  /** U515: the viewport point just after the selection's last cell, or null with no selection or an unopened screen. */
-  selectionEnd(): { x: number; y: number } | null;
-  /** U516: the facts of the Turn holding the selection's first row, or null outside every Turn. */
-  selectionFacts(): TurnFacts | null;
   /** U514: the Turns the shell's marks drew, oldest first; none for a Terminal that prints no mark. */
   turns(): TurnRows[];
   /** U514: selects Turn `index`'s rows; with `extend`, from the Turn last selected through it. */
@@ -108,18 +104,19 @@ const macEditingBytes = (event: KeyboardEvent): string | null => {
 /** Rule 7's 150 MB budget for ten idle Agents must hold under a Terminal that prints without end. */
 export const SCROLLBACK_LINES = 10_000;
 
-const schemeQuery = (): MediaQueryList | null =>
-  window.matchMedia?.(DARK_SCHEME) ?? null;
-
 export const xtermOptions: ITerminalOptions = {
   allowProposedApi: true,
+  // Portal refs can still belong to an inert template; mouse listeners need the live window's document.
+  get documentOverride() {
+    return document;
+  },
   // xterm needs a family string, not a CSS var; resolve its unchanged Token from the owning stylesheet.
   fontFamily: /--font-mono:\s*([^;]+);/.exec(tokens)![1]!.trim(),
   fontSize: DEFAULT_FONT_SIZE,
   scrollback: SCROLLBACK_LINES,
   // Read per Terminal: a module-level read is stale for every Terminal opened after the window's scheme changes.
   get theme() {
-    return terminalThemeFor(schemeQuery()?.matches ?? false);
+    return terminalThemeFor(appDark());
   },
 };
 
@@ -158,7 +155,7 @@ export const createXtermEmulators = (
     const fitter = new FitAddon();
     const element = document.createElement("div");
     let opened = false;
-    let fontSizeChanged = false;
+    let fontChanged = false;
     let fontViewport: IMarker | null = null;
     let fontFrame: number | null = null;
     let loadedWebgl: RendererAddon | null = null;
@@ -205,25 +202,10 @@ export const createXtermEmulators = (
       if (event.button !== 0) return;
 
       window.getSelection()?.removeAllRanges();
-      const target = event.target;
-
-      // Selection controls consume their Excerpt before the click clears the highlight.
-      if (target instanceof Element && target.closest(".send-to-agent, [role=menu]")) return;
-
       terminal.clearSelection();
     };
 
-    let clearAfterAction: ReturnType<typeof setTimeout> | undefined;
-
-    const selectionAction = (event: MouseEvent) => {
-      if (event.button !== 0 || !(event.target instanceof Element) || !event.target.closest(".send-to-agent, [role=menu]")) return;
-
-      clearTimeout(clearAfterAction);
-      clearAfterAction = setTimeout(() => terminal.clearSelection(), 0);
-    };
-
     window.addEventListener("pointerdown", clearOldSelection, true);
-    window.addEventListener("click", selectionAction, true);
     window.addEventListener("keydown", trackCmd);
     window.addEventListener("keyup", trackCmd);
     window.addEventListener("blur", dropCmd);
@@ -232,18 +214,22 @@ export const createXtermEmulators = (
     terminal.registerLinkProvider(createLinkProvider(terminal, () => cmdHeld, (printed) => linkListener(printed)));
 
     const shellTurns = attachTurns(terminal, (first, last) => terminal.selectLines(first, last));
-    const scheme = schemeQuery();
 
     const followScheme = () => {
-      terminal.options.theme = terminalThemeFor(scheme?.matches ?? false);
+      terminal.options.theme = terminalThemeFor(appDark());
     };
 
-    scheme?.addEventListener("change", followScheme);
+    const contrast = window.matchMedia?.("(prefers-contrast: more)");
+    const forced = window.matchMedia?.("(forced-colors: active)");
+
+    for (const query of [contrast, forced]) query?.addEventListener("change", followScheme);
+
+    const stopScheme = followAppAppearance(followScheme);
 
     const restoreFontViewport = () => {
       fontFrame = null;
 
-      if (fontViewport === null || fontSizeChanged) return;
+      if (fontViewport === null || fontChanged) return;
 
       if (!fontViewport.isDisposed) {
         // xterm's pixel offset can disagree with viewportY after a font change; reset that origin first.
@@ -259,7 +245,7 @@ export const createXtermEmulators = (
       const reflowCursorLine = terminal.options.reflowCursorLine ?? false;
 
       // Font resizing must retain unfinished output; ordinary shell resizing keeps xterm's policy.
-      if (fontSizeChanged) terminal.options.reflowCursorLine = true;
+      if (fontChanged) terminal.options.reflowCursorLine = true;
 
       try {
         fitter.fit();
@@ -271,7 +257,7 @@ export const createXtermEmulators = (
         if (settled && (settled.cols !== terminal.cols || settled.rows !== terminal.rows)) fitter.fit();
       } finally {
         terminal.options.reflowCursorLine = reflowCursorLine;
-        fontSizeChanged = false;
+        fontChanged = false;
       }
 
       if (fontViewport !== null) {
@@ -282,6 +268,32 @@ export const createXtermEmulators = (
 
       return { cols: terminal.cols, rows: terminal.rows };
     };
+
+    const prepareFontChange = () => {
+      // Markers follow xterm's rewrap; a saved physical row would jump to different content.
+      if (terminal.buffer.active.viewportY !== terminal.buffer.active.baseY) {
+        const buffer = terminal.buffer.active;
+
+        fontViewport ??= terminal.registerMarker(buffer.viewportY - buffer.baseY - buffer.cursorY) ?? null;
+      }
+
+      fontChanged = true;
+    };
+
+    const stopFont = createRoot(dispose => {
+      createEffect(on(() => appSettings().fontFamily, family => {
+        const next = family || /--font-mono:\s*([^;]+);/.exec(tokens)![1]!.trim();
+
+        if (terminal.options.fontFamily === next) return;
+
+        prepareFontChange();
+        terminal.options.fontFamily = next;
+
+        if (opened) size();
+      }));
+
+      return dispose;
+    });
 
     return {
       write: (bytes, parsed) => terminal.write(bytes, () => {
@@ -299,15 +311,9 @@ export const createXtermEmulators = (
       setFontSize: (size) => {
         if (terminal.options.fontSize === size) return;
 
-        // Markers follow xterm's rewrap; a saved physical row would jump to different content.
-        if (terminal.buffer.active.viewportY !== terminal.buffer.active.baseY) {
-          const buffer = terminal.buffer.active;
-
-          fontViewport ??= terminal.registerMarker(buffer.viewportY - buffer.baseY - buffer.cursorY) ?? null;
-        }
+        prepareFontChange();
 
         terminal.options.fontSize = size;
-        fontSizeChanged = true;
       },
       reset: () => terminal.write("\x1bc"),
       onInput: (listener) => {
@@ -318,25 +324,6 @@ export const createXtermEmulators = (
         linkListener = listener;
       },
       selection: () => terminal.getSelection(),
-      onSelection: (listener) => {
-        terminal.onSelectionChange(listener);
-      },
-      selectionEnd: () => {
-        const end = terminal.getSelectionPosition()?.end;
-        const screen = terminal.element?.querySelector<HTMLElement>(".xterm-screen");
-
-        if (!end || !screen || terminal.rows === 0 || terminal.cols === 0) return null;
-
-        const box = screen.getBoundingClientRect();
-        const row = Math.min(Math.max(end.y - terminal.buffer.active.viewportY, 0), terminal.rows - 1);
-
-        return { x: box.left + (end.x * box.width) / terminal.cols, y: box.top + ((row + 1) * box.height) / terminal.rows };
-      },
-      selectionFacts: () => {
-        const start = terminal.getSelectionPosition()?.start;
-
-        return start ? shellTurns.factsAt(start.y) : null;
-      },
       turns: shellTurns.turns,
       selectTurn: shellTurns.selectTurn,
       paste: (text) => terminal.paste(text),
@@ -373,10 +360,11 @@ export const createXtermEmulators = (
       dispose: () => {
         if (fontFrame !== null) cancelAnimationFrame(fontFrame);
 
-        scheme?.removeEventListener("change", followScheme);
+        for (const query of [contrast, forced]) query?.removeEventListener("change", followScheme);
+
+        stopScheme();
+        stopFont();
         window.removeEventListener("pointerdown", clearOldSelection, true);
-        window.removeEventListener("click", selectionAction, true);
-        clearTimeout(clearAfterAction);
         window.removeEventListener("keydown", trackCmd);
         window.removeEventListener("keyup", trackCmd);
         window.removeEventListener("blur", dropCmd);

@@ -59,4 +59,9 @@ button { color: var(--grey); background: var(--sunken); font: inherit; border: 0
 button:hover { color: var(--text); }
 
 button:active { color: var(--ink-pressed); }
+
+::selection {
+  background-color: var(--text-selection);
+  color: var(--text-selection-ink);
+}
 :focus { outline: none; }

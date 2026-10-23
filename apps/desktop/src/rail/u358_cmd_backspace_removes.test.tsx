@@ -1,3 +1,5 @@
+import { questionDialog, answerQuestion } from "../shelf/bulkQuestionHarness";
+import { questionProbe } from "../testing/menuProbe";
 import { cleanup, fireEvent, screen, waitFor } from "@solidjs/testing-library";
 import { afterEach, describe, expect, it } from "vitest";
 import type { FakeApp } from "../testing/fakeApp";
@@ -41,18 +43,19 @@ describe("u358 cmd backspace removes the selected Rail row", () => {
     fireEvent.keyDown(rowOf("a"), CMD_BACKSPACE);
     await tick();
 
-    expect(screen.getByText("Stop and remove a?")).toBeTruthy();
+    expect((await questionDialog()).title).toBe("Stop and remove a?");
     expect(removals(app)).toEqual([]);
 
-    fireEvent.keyDown(screen.getByRole("alertdialog"), { key: "Escape" });
+    await answerQuestion(false);
     await tick();
 
-    expect(screen.queryByRole("alertdialog")).toBeNull();
+    expect(questionProbe.shown).toBeNull();
     expect(removals(app)).toEqual([]);
 
     fireEvent.keyDown(rowOf("a"), CMD_BACKSPACE);
     await tick();
-    fireEvent.click(screen.getByRole("button", { name: "Remove" }));
+    await questionDialog();
+    await answerQuestion(true);
 
     await waitFor(() => expect(removals(app)).toEqual([{ id: "a" }]));
     await waitFor(() => expect(rail.selected()).toBe("b"));
