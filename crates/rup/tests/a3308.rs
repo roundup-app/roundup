@@ -86,7 +86,7 @@ impl Auto {
         command
     }
 
-    async fn assigned_by_supervisor(&self) {
+    async fn assigned_by_door(&self) {
         let todo = self
             .user
             .request("todo.get", json!({"id":self.todo["id"]}))
@@ -110,7 +110,7 @@ impl Auto {
 }
 
 #[tokio::test]
-async fn a3308_authenticated_supervisor_assigns_over_public_mcp() {
+async fn a3308_authenticated_door_assigns_over_public_mcp() {
     let auto = Auto::start().await;
     let mut child = auto
         .command()
@@ -133,13 +133,13 @@ async fn a3308_authenticated_supervisor_assigns_over_public_mcp() {
     );
     let result = client.call_tool(request).await.unwrap();
     assert_ne!(result.is_error, Some(true), "{result:?}");
-    auto.assigned_by_supervisor().await;
+    auto.assigned_by_door().await;
     client.cancel().await.unwrap();
     child.wait().await.unwrap();
 }
 
 #[tokio::test]
-async fn a3308_schema_derived_cli_assigns_as_the_supervisor() {
+async fn a3308_schema_derived_cli_assigns_as_the_door() {
     let auto = Auto::start().await;
     let output = auto
         .command()
@@ -159,5 +159,5 @@ async fn a3308_schema_derived_cli_assigns_as_the_supervisor() {
     assert!(output.status.success(), "{output:?}");
     let assigned: Value = serde_json::from_slice(&output.stdout).unwrap();
     assert_eq!(assigned["owner"], auto.owner);
-    auto.assigned_by_supervisor().await;
+    auto.assigned_by_door().await;
 }
