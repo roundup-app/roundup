@@ -1,3 +1,5 @@
+import { questionDialog, answerQuestion } from "../shelf/bulkQuestionHarness";
+import { questionProbe } from "../testing/menuProbe";
 import { cleanup, fireEvent, screen, waitFor, within } from "@solidjs/testing-library";
 import { afterEach, describe, expect, it } from "vitest";
 import { agent, door, workstream } from "../testing/nodes";
@@ -78,7 +80,8 @@ describe("u426 a Rail row shows its icons", () => {
     expect(mounted.rail.selected()).toBe("g");
 
     if (kind !== "idle") {
-      fireEvent.click(within(await screen.findByRole("alertdialog")).getByRole("button", { name: "Stop" }));
+      await questionDialog();
+    await answerQuestion(true);
       expect(mounted.rail.selected()).toBe("g");
     }
   });

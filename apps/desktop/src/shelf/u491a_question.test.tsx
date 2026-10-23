@@ -1,3 +1,5 @@
+import { questionDialog, answerQuestion } from "./bulkQuestionHarness";
+import { questionProbe } from "../testing/menuProbe";
 import { cleanup, fireEvent, screen, within, waitFor } from "@solidjs/testing-library";
 import { afterEach, expect, it } from "vitest";
 import { stubDialogLayout } from "./bulkQuestionHarness";
@@ -14,11 +16,10 @@ it("u491a_bulk_question_focus_names_the_frozen_targets_and_cancels", async () =>
   const opener = screen.getByRole("button", { name: "Delete 2" });
   opener.focus();
   fireEvent.click(opener);
-  const question = await screen.findByRole("alertdialog", { name: "Delete 2 Todos?" });
-  expect(within(question).getByText("todo 1")).toBeTruthy();
-  expect(within(question).getByText("todo 2")).toBeTruthy();
-  await waitFor(() => expect(document.activeElement).toBe(within(question).getByRole("button", { name: "Keep" })));
-  fireEvent.click(within(question).getByRole("button", { name: "Keep" }));
+  const question = await questionDialog();
+  expect(question.message).toContain("todo 1");
+  expect(question.message).toContain("todo 2");
+  await answerQuestion(false);
   await waitFor(() => expect(document.activeElement).toBe(opener));
   expect(todoCallsTo(app, "todo.delete")).toEqual([]);
 });
