@@ -10,14 +10,8 @@ type Subscribe = (active: Accessor<boolean>) => Accessor<number>;
 
 export const DisplayClockContext = createContext<Subscribe>();
 
-/** Demand lasts while this owner's view is visible; disposal releases it automatically. */
-export const useDisplayNow = (active: Accessor<boolean>): Accessor<number> => {
-  const subscribe = useContext(DisplayClockContext);
-
-  if (!subscribe) throw new Error("Display clock requires the App clock provider");
-
-  return subscribe(active);
-};
+/** Call inside the App's Solid owner. Demand lasts while active; disposal releases it automatically. */
+export const useDisplayNow = (active: Accessor<boolean>): Accessor<number> => useContext(DisplayClockContext)!(active);
 
 /** One shared timer for the whole app; the injected `clock` is the only source of time. */
 export const createNow = (clock: Clock, isLive: Accessor<boolean> = () => true, visible: Accessor<boolean> = () => true): Accessor<number> & { subscribe: Subscribe } => {
