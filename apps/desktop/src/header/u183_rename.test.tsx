@@ -406,7 +406,7 @@ const selectedHeader = async (outcome: "failed" | "unknown" = "failed") => {
 
     return <ProjectDraftsContext.Provider value={authority}><Tabs.Root value={path("api")}><Tabs.List aria-label="Projects">
       <ProjectTab tab={{ path: path("api"), name: "same name", base: "same name", busy: false, running: [], needsYou: 0, error: 0, exitText: null }}
-        selected recovery={recovery()} onMark={() => {}} onClose={() => {}}
+        selected app={app} recovery={recovery()} onMark={() => {}} onClose={() => {}}
         onRename={(name, base) => projects.rename(path("api"), name, base)} />
     </Tabs.List></Tabs.Root></ProjectDraftsContext.Provider>;
   });
@@ -537,7 +537,7 @@ it("u3021c_copy_and_discard_keep_other_revisions_header_after_reopen", async () 
   const dialog = await screen.findByRole("dialog", { name: "Unfinished work" });
   fireEvent.click(within(dialog).getByRole("button", { name: /^Failed ·/ }));
   const copied: string[] = [];
-  vi.spyOn(app, "clipboardWrite").mockImplementation(async (text: string) => { copied.push(text); });
+  vi.spyOn(app, "writeClipboardText").mockImplementation(async (text: string) => { copied.push(text); });
   fireEvent.click(within(dialog).getByRole("button", { name: "Copy name" }));
   await waitFor(() => expect(copied).toEqual([a.value.name]));
   fireEvent.click(within(dialog).getByRole("button", { name: "Discard this revision" }));

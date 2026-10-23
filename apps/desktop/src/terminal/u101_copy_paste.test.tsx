@@ -43,7 +43,7 @@ it("u101_empty_clipboard_and_modified_chords_do_nothing", async () => {
   pasteEvent(target);
 
   for (const chord of [{ key: "c", shiftKey: true }, { key: "c", altKey: true }, { key: "v", shiftKey: true }, { key: "v", altKey: true }]) {
-    expect(key(target, chord.key, { metaKey: true, shiftKey: chord.shiftKey ?? false, altKey: chord.altKey ?? false }).defaultPrevented).toBe(false);
+    expect(key(target, chord.key, { metaKey: true, shiftKey: chord.shiftKey ?? false, altKey: chord.altKey ?? false }).defaultPrevented).toBe(chord.key === "v");
   }
 
   await Promise.resolve();

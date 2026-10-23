@@ -810,7 +810,7 @@ describe("u2773 Project draft integration on real Projects", () => {
     const previous = app.forProject;
     const current = { ...bound, rpc: authorityRead };
     calls.push(vi.spyOn(current, "rpc"));
-    app.forProject = (path) => path === first.dir ? current : previous(path);
+    app.forProject = (path) => path === first.dir ? Object.assign(current, { writeClipboardText: (text: string) => app.writeClipboardText(text) }) : previous(path);
     phase = "pending";
     mount();
     await screen.findByRole("region", { name: "Rail" });
@@ -1128,7 +1128,7 @@ describe("u2773 unfinished Decision forms on real Projects", () => {
       await first.restart();
       const current = createServedApp(first.base);
       const previous = app.forProject;
-      app.forProject = path => path === first.dir ? current : previous(path);
+      app.forProject = path => path === first.dir ? Object.assign(current, { writeClipboardText: (text: string) => app.writeClipboardText(text) }) : previous(path);
       calls.push(vi.spyOn(current, "rpc"));
     }
 
