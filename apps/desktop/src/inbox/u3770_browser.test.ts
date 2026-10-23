@@ -15,7 +15,6 @@ const capture = async (step: string) => {
 
 it("u3770e_the_drawer_renders_its_sections_with_a_failed_retry_visible", async () => {
   await browser("set", "viewport", "1512", "950");
-  await browser("set", "media", "dark");
   const dir = captureDir("P3557c");
 
   if (dir) {
@@ -23,6 +22,7 @@ it("u3770e_the_drawer_renders_its_sections_with_a_failed_retry_visible", async (
     await browser("record", "start", join(dir, "failure-lifetime.webm"));
   }
 
+  await browser("set", "media", "dark");
   await browser("open", url("/harness.html?seed=tree-40"));
   await wait(`!!window.__fake && document.querySelectorAll('.rail-row').length > 2`);
   await read(`window.__fake.app.handlers['agent.resume'] = () => { throw new Error('cannot resume'); }`);
