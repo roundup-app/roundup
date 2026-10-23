@@ -159,7 +159,6 @@
 }
 
 body:has(.reaction-form) .app-select-list {
-  box-shadow: var(--shadow-drawer);
 }
 
 body:has(.reaction-form) .app-select-item {

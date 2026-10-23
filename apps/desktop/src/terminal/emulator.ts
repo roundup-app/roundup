@@ -1,8 +1,10 @@
 import tokens from "../tokens.css?inline";
+import { createRoot, createEffect, on } from "solid-js";
+import { appSettings, appDark, followAppAppearance } from "../settings/preferences";
 import { DEFAULT_FONT_SIZE } from "./fontSize";
 import { createLinkProvider } from "./linkProvider";
 import type { Printed } from "./links";
-import { DARK_SCHEME, terminalThemeFor } from "./theme";
+import { terminalThemeFor } from "./theme";
 import { attachTurns } from "./turns";
 import type { TurnFacts, TurnRows } from "./turns";
 import { FitAddon } from "@xterm/addon-fit";
@@ -108,9 +110,6 @@ const macEditingBytes = (event: KeyboardEvent): string | null => {
 /** Rule 7's 150 MB budget for ten idle Agents must hold under a Terminal that prints without end. */
 export const SCROLLBACK_LINES = 10_000;
 
-const schemeQuery = (): MediaQueryList | null =>
-  window.matchMedia?.(DARK_SCHEME) ?? null;
-
 export const xtermOptions: ITerminalOptions = {
   allowProposedApi: true,
   // xterm needs a family string, not a CSS var; resolve its unchanged Token from the owning stylesheet.
@@ -119,7 +118,7 @@ export const xtermOptions: ITerminalOptions = {
   scrollback: SCROLLBACK_LINES,
   // Read per Terminal: a module-level read is stale for every Terminal opened after the window's scheme changes.
   get theme() {
-    return terminalThemeFor(schemeQuery()?.matches ?? false);
+    return terminalThemeFor(appDark());
   },
 };
 
@@ -158,7 +157,7 @@ export const createXtermEmulators = (
     const fitter = new FitAddon();
     const element = document.createElement("div");
     let opened = false;
-    let fontSizeChanged = false;
+    let fontChanged = false;
     let fontViewport: IMarker | null = null;
     let fontFrame: number | null = null;
     let loadedWebgl: RendererAddon | null = null;
@@ -232,18 +231,17 @@ export const createXtermEmulators = (
     terminal.registerLinkProvider(createLinkProvider(terminal, () => cmdHeld, (printed) => linkListener(printed)));
 
     const shellTurns = attachTurns(terminal, (first, last) => terminal.selectLines(first, last));
-    const scheme = schemeQuery();
 
     const followScheme = () => {
-      terminal.options.theme = terminalThemeFor(scheme?.matches ?? false);
+      terminal.options.theme = terminalThemeFor(appDark());
     };
 
-    scheme?.addEventListener("change", followScheme);
+    const stopScheme = followAppAppearance(followScheme);
 
     const restoreFontViewport = () => {
       fontFrame = null;
 
-      if (fontViewport === null || fontSizeChanged) return;
+      if (fontViewport === null || fontChanged) return;
 
       if (!fontViewport.isDisposed) {
         // xterm's pixel offset can disagree with viewportY after a font change; reset that origin first.
@@ -259,7 +257,7 @@ export const createXtermEmulators = (
       const reflowCursorLine = terminal.options.reflowCursorLine ?? false;
 
       // Font resizing must retain unfinished output; ordinary shell resizing keeps xterm's policy.
-      if (fontSizeChanged) terminal.options.reflowCursorLine = true;
+      if (fontChanged) terminal.options.reflowCursorLine = true;
 
       try {
         fitter.fit();
@@ -271,7 +269,7 @@ export const createXtermEmulators = (
         if (settled && (settled.cols !== terminal.cols || settled.rows !== terminal.rows)) fitter.fit();
       } finally {
         terminal.options.reflowCursorLine = reflowCursorLine;
-        fontSizeChanged = false;
+        fontChanged = false;
       }
 
       if (fontViewport !== null) {
@@ -282,6 +280,32 @@ export const createXtermEmulators = (
 
       return { cols: terminal.cols, rows: terminal.rows };
     };
+
+    const prepareFontChange = () => {
+      // Markers follow xterm's rewrap; a saved physical row would jump to different content.
+      if (terminal.buffer.active.viewportY !== terminal.buffer.active.baseY) {
+        const buffer = terminal.buffer.active;
+
+        fontViewport ??= terminal.registerMarker(buffer.viewportY - buffer.baseY - buffer.cursorY) ?? null;
+      }
+
+      fontChanged = true;
+    };
+
+    const stopFont = createRoot(dispose => {
+      createEffect(on(() => appSettings().fontFamily, family => {
+        const next = family || /--font-mono:\s*([^;]+);/.exec(tokens)![1]!.trim();
+
+        if (terminal.options.fontFamily === next) return;
+
+        prepareFontChange();
+        terminal.options.fontFamily = next;
+
+        if (opened) size();
+      }));
+
+      return dispose;
+    });
 
     return {
       write: (bytes, parsed) => terminal.write(bytes, () => {
@@ -299,15 +323,9 @@ export const createXtermEmulators = (
       setFontSize: (size) => {
         if (terminal.options.fontSize === size) return;
 
-        // Markers follow xterm's rewrap; a saved physical row would jump to different content.
-        if (terminal.buffer.active.viewportY !== terminal.buffer.active.baseY) {
-          const buffer = terminal.buffer.active;
-
-          fontViewport ??= terminal.registerMarker(buffer.viewportY - buffer.baseY - buffer.cursorY) ?? null;
-        }
+        prepareFontChange();
 
         terminal.options.fontSize = size;
-        fontSizeChanged = true;
       },
       reset: () => terminal.write("\x1bc"),
       onInput: (listener) => {
@@ -373,7 +391,8 @@ export const createXtermEmulators = (
       dispose: () => {
         if (fontFrame !== null) cancelAnimationFrame(fontFrame);
 
-        scheme?.removeEventListener("change", followScheme);
+        stopScheme();
+        stopFont();
         window.removeEventListener("pointerdown", clearOldSelection, true);
         window.removeEventListener("click", selectionAction, true);
         clearTimeout(clearAfterAction);

@@ -1,3 +1,5 @@
+import { AppSettings } from "./settings/AppSettings";
+import { applyAppAppearance } from "./settings/preferences";
 import { registerKeys } from "./keys/registry";
 import { LEADER } from "./keys/chords";
 import { copy } from "./copy";
@@ -193,7 +195,9 @@ export const App = (props: {
     window.removeEventListener("pointerdown", clearBrowserSelection, true);
   });
 
+  applyAppAppearance();
   const projects = createProjectsState(props.app);
+  const [settingsOpen, setSettingsOpen] = createSignal(false);
   const drafts = props.drafts ?? createProjectDrafts();
   const tabsId = createUniqueId();
   const [connections, setConnections] = createSignal<Connections>(new Map());
@@ -370,7 +374,7 @@ export const App = (props: {
               onSelect={projects.select}
               onMark={jumpTo}
               onRename={renameProject}
-              onClose={(path) => void projects.close(path)}
+              onClose={(path) => projects.close(path)}
               onChoose={() => void projects.choose()}
               app={props.app}
             />
@@ -395,6 +399,8 @@ export const App = (props: {
           </>
         }
         centre={
+          <div class="settings-center">
+          <div class="settings-center-content" inert={settingsOpen()} style={{ visibility: settingsOpen() ? "hidden" : "visible" }}>
           <Show when={projects.tabs().length > 0} fallback={<ChooseProject failure={projects.failure()} onChoose={() => void projects.choose()} />}>
             <InProject open={activeConnection()} failed={failureLine}>
               {(open) => {
@@ -414,6 +420,9 @@ export const App = (props: {
               }}
             </InProject>
           </Show>
+          </div>
+          <AppSettings app={props.app} project={() => projects.active()} onOpenChange={setSettingsOpen} />
+          </div>
         }
         shelf={
           <Tabs.RootProvider value={shelfTabs} id="shelf-panels" lazyMount unmountOnExit style={{ display: "contents" }} onKeyDown={shelfFocus.moveFocus}>
