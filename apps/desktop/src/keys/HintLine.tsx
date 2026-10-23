@@ -84,7 +84,7 @@ export const HintLine = () => {
 
       if (hint.label === copy.maximise.toLowerCase()) return held?.closest('.window')?.getAttribute('data-shelf-mode') !== "overlay";
 
-      if (hint.label === copy.assign.toLowerCase()) return !held?.closest('.todo-done-fold');
+      if ((at === "todos" || at === "pads") && hint.label === copy.assign.toLowerCase()) return !held?.closest('.todo-done-fold');
 
       if (hint.label === copy.close.toLowerCase() && at === "pad") return !!held?.closest('.drawer');
 

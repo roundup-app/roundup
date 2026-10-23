@@ -236,7 +236,10 @@ const context = async (name: string) => {
     else if (name === "agent" || name === "taken agent") {
       const control = await screen.findByRole("button", { name: copy.takeOver });
 
-      if (name === "taken agent") fireEvent.click(control);
+      if (name === "taken agent") {
+        fireEvent.click(control);
+        await waitFor(() => expect(document.activeElement?.closest('.pane-screen')).not.toBeNull());
+      }
 
       control.focus();
     } else if (name === "terminal input") document.querySelector<HTMLTextAreaElement>('.pane-screen textarea')!.focus();

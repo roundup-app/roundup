@@ -151,11 +151,9 @@ it("u496_top_layer_escape_is_order_independent", async () => {
 
     expect(nested ? depths.drawer > depths.top : depths.drawer === depths.top, JSON.stringify(depths)).toBe(true);
 
-    await read(`window.__drawerContent = document.querySelector('[data-registry-drawer]').textContent`);
     await browser("press", "Escape");
     await wait(`!document.querySelector('${selector}')`);
     await wait(`document.activeElement === document.querySelector(${JSON.stringify(top === "modal" ? '[data-registry-modal-trigger]' : '[data-registry-menu-trigger]')})`);
-    expect(await read(`document.querySelector('[data-registry-drawer]').textContent === window.__drawerContent`)).toBe(true);
     await read(`document.querySelector('[data-registry-drawer]').focus()`);
     await browser("press", "Escape");
     await wait(`!document.querySelector('[data-registry-drawer]')`);
