@@ -29,7 +29,7 @@ import { Help } from "./keys/Help";
 import { Leader } from "./keys/Leader";
 import { Capture } from "./todos/Capture";
 import { Keys } from "./keys/Keys";
-import { createNow } from "./state/clock";
+import { createNow, DisplayClockContext } from "./state/clock";
 import type { Clock } from "./state/clock";
 import { createProjectsState } from "./state/projects";
 import type { OpenTab } from "./state/projects";
@@ -213,7 +213,9 @@ export const App = (props: {
       && connection.rail.nodes.some((node) => node.status?.kind === "working");
   });
 
-  const now = createNow(props.clock, () => visible() && isWorking());
+  const now = createNow(props.clock, isWorking, visible);
+  // Display demand must not enable the Worktree and Decision RPC cadence.
+  const pollingNow = createMemo<number>((previous) => visible() && isWorking() ? now() : previous ?? untrack(now));
   // U413: roundup is in front while its window has focus and is visible.
   const inFront = () => document.hasFocus() && document.visibilityState === "visible";
   const toasts = createToastQueue(inFront, props.chime ?? webChime());
@@ -335,9 +337,9 @@ export const App = (props: {
   const emulators = () => props.createEmulator ?? createXtermEmulators();
 
   return (
-    <ProjectDraftsContext.Provider value={drafts}><Show when={projects.loaded()}>
+    <DisplayClockContext.Provider value={now.subscribe}><ProjectDraftsContext.Provider value={drafts}><Show when={projects.loaded()}>
       <For each={keys()}>
-        {(key) => <Connection drafts={drafts} app={dropTargets.app} tab={tabOf(key.split("\n")[0]!)} reducedMotion={props.reducedMotion} now={now} onConnected={connect} onRequested={answer} toasts={toasts} active={() => projects.active() === key.split("\n")[0]} show={() => projects.select(key.split("\n")[0]!)} />}
+        {(key) => <Connection drafts={drafts} app={dropTargets.app} tab={tabOf(key.split("\n")[0]!)} reducedMotion={props.reducedMotion} now={pollingNow} onConnected={connect} onRequested={answer} toasts={toasts} active={() => projects.active() === key.split("\n")[0]} show={() => projects.select(key.split("\n")[0]!)} />}
       </For>
       <DockBadge app={props.app} rails={() => [...connections().values()].flatMap((connection) => (connection instanceof Error ? [] : [connection.rail.nodes]))} onFailure={setBadgeFailure} />
       <Tabs.Root id={tabsId} value={projects.active()} onValueChange={({ value }) => projects.select(value)} activationMode="manual" style={{ display: "contents" }}
@@ -444,6 +446,6 @@ export const App = (props: {
         }
       />}</Tabs.Context>
       </Tabs.Root>
-    </Show></ProjectDraftsContext.Provider>
+    </Show></ProjectDraftsContext.Provider></DisplayClockContext.Provider>
   );
 };

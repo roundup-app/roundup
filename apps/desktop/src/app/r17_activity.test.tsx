@@ -1,5 +1,8 @@
 import { cleanup, fireEvent, render, screen } from "@solidjs/testing-library";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
+import { createSignal } from "solid-js";
+import { useDisplayNow } from "../state/clock";
+import type { EmulatorFactory } from "../terminal/emulator";
 import type { Kind } from "@contracts/Kind";
 import type { RailNode } from "@contracts/agent/RailNode";
 import { App } from "../App";
@@ -24,7 +27,7 @@ const status = (app: FakeApp, id: string, kind: Kind) => app.emit(event({ name: 
 
 const settle = () => vi.advanceTimersByTimeAsync(0);
 
-const mount = async (nodes: RailNode[] = [door("a", "working", "building", { worktree: { path: "/p/a", branch: "a", base: "main" } })], setup?: (app: FakeApp) => void) => {
+const mount = async (nodes: RailNode[] = [door("a", "working", "building", { worktree: { path: "/p/a", branch: "a", base: "main" } })], setup?: (app: FakeApp) => void, createEmulator?: EmulatorFactory) => {
   const app = createFakeApp();
   app.opened.project = { path: "/p", name: "p" };
   app.handlers["rail.tree"] = () => nodes;
@@ -39,7 +42,7 @@ const mount = async (nodes: RailNode[] = [door("a", "working", "building", { wor
   app.handlers["project.weeklyLimit"] = () => ({ used_percent: null, resets_at: null, reason: null });
   setup?.(app);
   const clock = vi.fn(() => Date.now());
-  const view = render(() => <App app={app} clock={clock} reducedMotion={() => true} createEmulator={fakeEmulators().factory} />);
+  const view = render(() => <App app={app} clock={clock} reducedMotion={() => true} createEmulator={createEmulator ?? fakeEmulators().factory} />);
   await settle();
   expect(document.querySelector(".resource-strip")).not.toBeNull();
   const row = document.querySelector(`[role="treeitem"][data-id="${nodes[0]?.id}"]`);
@@ -211,4 +214,52 @@ it.each(["hidden", "stopped", "transition"] as const)("r19_hidden_or_stopped_app
     await settle();
     await assertSleeping(app);
   }
+});
+
+it("u3308_idle_display_clock_demand_never_enables_periodic_rpcs", async () => {
+  const [active, activate] = createSignal(false);
+  const emulators = fakeEmulators();
+  let board: (() => number) | undefined;
+
+  const { app, clock, view } = await mount([
+    door("a", "idle", "stopped", { worktree: { path: "/p/a", branch: "branch-a", base: "main" } }),
+  ], (app) => {
+    app.handlers["decision.list"] = () => [{ id: "question", agent: "a", tool: "permission", args: "{}", opened_at: NOW, answerable: true }];
+  }, (id) => {
+    board = useDisplayNow(active);
+
+    return emulators.factory(id);
+  });
+
+  expect(board).toBeDefined();
+  expect(app.calls.some((call) => call.method === "agent.worktreeState")).toBe(true);
+  expect(document.querySelector(".decision-card")).not.toBeNull();
+  activate(true);
+  await settle();
+  expect(board!()).toBe(NOW);
+  expect(intervals.size).toBe(1);
+  app.calls.length = 0;
+  await vi.advanceTimersByTimeAsync(60_000);
+  expect(board!()).toBe(NOW + 60_000);
+  expect(app.calls).toEqual([]);
+  visibility("hidden");
+  expect(intervals.size).toBe(0);
+  const reads = clock.mock.calls.length;
+  await vi.advanceTimersByTimeAsync(3_600_000);
+  visibility("visible");
+  await settle();
+  expect(clock).toHaveBeenCalledTimes(reads + 1);
+  expect(board!()).toBe(NOW + 3_660_000);
+  expect(app.calls).toEqual([]);
+  activate(false);
+  expect(intervals.size).toBe(0);
+  activate(true);
+  expect(intervals.size).toBe(1);
+  view.unmount();
+  expect(intervals.size).toBe(0);
+  const disposed = clock.mock.calls.length;
+  visibility("hidden");
+  visibility("visible");
+  await vi.advanceTimersByTimeAsync(60_000);
+  expect(clock).toHaveBeenCalledTimes(disposed);
 });
