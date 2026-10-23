@@ -2,7 +2,7 @@
 
 How the App looks. `docs/wireframes.md` says what each screen holds and where; this file says how it is drawn. Where the two disagree on look, this file wins: it replaces the wireframes' "ink is the only colour" and "no borders" rules (the Glyph set, the visibility rule and the layout stay).
 
-The direction: a Mac app that stays out of the way. System sans for the chrome, mono only where text is code. Soft surfaces, small coloured Glyphs, nothing that moves unless the user did something, an Agent finished a visible Todo (U3010c), or the Workstream timeline's window slides with time while an Agent it shows runs (U3768e, U3768f); no shimmer or pulse. Light and dark.
+The direction: a Mac app that stays out of the way. System sans for the chrome, mono only where text is code. Soft surfaces, small coloured Glyphs, nothing moves unless the user acted or an Agent finished a Todo the user can see (U3010c, U3770), or the Workstream timeline's window slides with time while an Agent it shows runs (U3768e, U3768f); no shimmer or pulse. Light and dark.
 
 Every rule below is a check with an id. A check passes or fails; it has no score. The same checks run twice: as `vitest` tests in `just check` (the gate), and by the Design critic on the real rendering (advisory). One module measures them for both (U137).
 
@@ -54,6 +54,12 @@ Starting values. The thresholds in the checks are fixed; a value that fails a th
 | `--duration-toast` | `150ms` | same | a Toast's enter and exit (`docs/motion.md`, ~150 ms, U414) |
 | `--duration-note` / `--ease-note` | `150ms` / `cubic-bezier(0.32, 0.72, 0, 1)` | same | a queued note's glide into the Agent's step (`docs/motion.md`, U3784) |
 | `--duration-todo` | `150ms` | same | the Todo fold and row slide (`docs/motion.md`, ~150 ms, U3010c) |
+| `--ease-todo` / `--ease-pop` | `cubic-bezier(0.22, 1, 0.36, 1)` / `cubic-bezier(0.34, 1.56, 0.64, 1)` | same | a finishing Todo's tick, strike, bar and count / the ring's overshoot (`docs/motion.md`, U3771) |
+| `--duration-tick` / `--delay-tick` | `420ms` / `160ms` | same | the tick draw (U3771) |
+| `--duration-ring` | `560ms` | same | the ring pop (U3771) |
+| `--duration-strike` / `--delay-strike` | `620ms` / `220ms` | same | the label strike (U3771) |
+| `--strike-thickness` / `--strike-offset` / `--stroke-tick` | `1px` / `55%` / `1.5` | same | the label strike line's thickness and height in the label, and the tick mark's stroke width (U3769) |
+| `--duration-bar` / `--duration-count` | `1100ms` / `560ms` | same | the progress bar fill / the count roll (U3771) |
 | `--duration-crossfade` | `120ms` | same | a base interval (`docs/motion.md`, 120 ms); the working arc uses eight intervals (U446). U105 periphery dimming is retired |
 
 Nothing moves unless the user acted or an Agent took a note the user can see: a note glides into the step line only on `⌘⏎`, `×`, `Resume` or when the Agent takes it, never on mount, on selecting another Agent, on reopening the pane or while the queue is off screen (U3784).

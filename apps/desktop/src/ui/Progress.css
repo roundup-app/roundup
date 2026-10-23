@@ -1,0 +1,39 @@
+/* U3768: the bar and its count share one line; the fill is a full-width block scaled from its left edge. */
+.app-progress {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: var(--space-2);
+  min-width: 0;
+}
+
+.app-progress-track {
+  flex: 1;
+  min-width: 0;
+  height: var(--space-1);
+  overflow: hidden;
+  background-color: var(--progress-track);
+}
+
+.app-progress-fill {
+  height: 100%;
+  background-color: var(--accent);
+  transform: scaleX(var(--progress-ratio));
+  transform-origin: left center;
+  transition-property: transform;
+  transition-duration: 0s;
+}
+
+/* U3770: only a finish moves the fill; a mount, a switch or a refetch that changes nothing sets it at once. */
+.app-progress[data-motion="play"] .app-progress-fill {
+  transition-duration: var(--duration-bar);
+  transition-timing-function: var(--ease-todo);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .app-progress .app-progress-fill { transition-duration: 0s; }
+}
+
+.todo-progress-count {
+  min-width: 7ch;
+}
