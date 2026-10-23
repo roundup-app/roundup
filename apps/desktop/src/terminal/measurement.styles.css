@@ -77,10 +77,6 @@
   font-size: var(--text-small);
 }
 
-.measurement-state[data-live="true"] {
-  color: var(--text);
-}
-
 .measurement-dashboard h3 {
   font-size: var(--text-small);
   font-weight: 600;
@@ -117,12 +113,16 @@
   font-size: var(--text-title);
   font-weight: 600;
   min-height: var(--space-6);
+  white-space: nowrap;
+  overflow-wrap: normal;
 }
 
 .measurement-line {
   color: var(--grey);
   font-size: var(--text-small);
   min-height: var(--space-5);
+  white-space: nowrap;
+  overflow-wrap: normal;
 }
 
 .measurement-mark {
@@ -153,8 +153,8 @@
 .measurement-stack[data-dim="true"] .measurement-segment:not([data-active="true"]) { opacity: 0.35; }
 
 .measurement-legend {
-  display: flex;
-  flex-wrap: nowrap;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   white-space: nowrap;
   gap: var(--space-1) var(--space-3);
   margin: 0 0 var(--space-2);
@@ -206,39 +206,39 @@
 }
 
 .measurement-time {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) max-content;
+  column-gap: var(--space-5);
+  row-gap: var(--space-3);
   margin: 0;
 }
 
 .measurement-time > div {
-  display: flex;
-  justify-content: space-between;
-  gap: var(--space-3);
-  padding-block: var(--space-1);
+  display: contents;
 }
 
 .measurement-time dt {
-  flex: none;
-  width: 30%;
+  min-width: 0;
 }
 
-.measurement-time dd,
-.measurement-dashboard dd {
-  display: flex;
-  flex: 1;
-  align-items: center;
-  justify-content: flex-end;
-  gap: var(--space-3);
-  margin: 0;
+.measurement-share {
+  color: var(--grey);
+  white-space: nowrap;
+}
+
+.measurement-time dt .measurement-bar {
+  display: block;
+  width: 100%;
+  max-width: none;
+  margin-block-start: var(--space-1);
 }
 
 .measurement-duration {
-  flex: none;
-  width: 6ch;
+  align-self: start;
+  min-width: 10ch;
+  margin: 0;
   text-align: right;
-}
-
-.measurement-meter[data-unknown="true"] {
-  visibility: hidden;
+  white-space: nowrap;
 }
 
 .measurement-bar {
@@ -246,18 +246,9 @@
   flex: 1;
   height: var(--space-1);
   max-width: 50%;
-  background: var(--selected);
 }
 
 .measurement-bar > span { background: var(--text); }
-
-.measurement-detail {
-  margin-top: var(--space-3);
-}
-
-.measurement-detail [data-part="content"] {
-  padding-block: var(--space-2);
-}
 
 .measurement-dashboard table {
   width: 100%;
@@ -275,10 +266,21 @@
   font-weight: 400;
 }
 
-.measurement-dashboard td {
+.measurement-count {
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  white-space: nowrap;
+}
+
+.measurement-count > span {
+  min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
-  white-space: nowrap;
+}
+
+.measurement-count .measurement-mark {
+  flex: none;
 }
 
 .measurement-dashboard th .measurement-bar {
