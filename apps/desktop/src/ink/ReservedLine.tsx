@@ -20,14 +20,12 @@ export const ReservedLine = (props: Props) => {
 
   // U3807 explicitly requires the whole message as a title on its reserved place.
   // oxlint-disable-next-line anti-slop/no-tooltip-bypass
-  return <div title={local.message || undefined} role={(!local.message && local.status) || props["aria-live"] !== undefined ? "status" : undefined} {...rest} class={`reserved-line${local.class ? ` ${local.class}` : ""}`} data-overlay={local.overlay ? "true" : undefined} data-empty={local.message || local.status ? undefined : "true"}>
-    <div class="reserved-content" role={local.message ? "alert" : undefined} aria-label={local.message || undefined}>
-      {/* U3807 requires the whole status in its title; error text keeps its Ark tooltip too. */}
-      {/* oxlint-disable-next-line anti-slop/no-tooltip-bypass */}
-      <Show when={local.message} fallback={<span class="reserved-status" title={local.status || undefined}>{local.status ? local.content ?? local.status : null}</span>}>
-        {message => <ErrorLine message={message()} content={local.content} announce={false} />}
+  return <div title={local.message || local.status || undefined} role={!local.message && (local.status || props["aria-live"] !== undefined) ? "status" : undefined} {...rest} class={`reserved-line${local.class ? ` ${local.class}` : ""}`} data-overlay={local.overlay ? "true" : undefined} data-empty={local.message || local.status ? undefined : "true"}>
+    <div class="reserved-content">
+      <Show when={local.message} fallback={<span class="reserved-status">{local.status ? local.content ?? local.status : null}</span>}>
+        {message => <ErrorLine message={message()} content={local.content} />}
       </Show>
-      <div class="reserved-actions" hidden={!local.message && !local.status}>{local.children}</div>
+      <Show when={local.message || local.status}><div class="reserved-actions">{local.children}</div></Show>
     </div>
   </div>;
 };

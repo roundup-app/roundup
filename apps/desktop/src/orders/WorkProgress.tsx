@@ -12,7 +12,7 @@ import { Icon } from "../ink/Icon";
 import { useConnectedProject } from "../state/connectedProject";
 import { Disclosure } from "../ui/Disclosure";
 
-type Read = { progress: Progress; plan: Reconciliation } | { failure: string };
+type Read = { id: string; progress: Progress; plan: Reconciliation } | { failure: string };
 
 /** The Daemon's cause starts in lower case and may end without a stop; a note reads as a sentence. */
 const sentence = (cause: string) => {
@@ -33,7 +33,7 @@ export const WorkProgress = (props: { id: string }) => {
       const query = { project: project.path, id };
       const [progress, plan] = await Promise.all([app.rpc("message.progress", query), app.rpc("message.reconcileWork", query)]);
 
-      return { progress, plan };
+      return { id, progress, plan };
     } catch (error) {
       if (!(error instanceof Error)) throw error;
 
@@ -46,11 +46,13 @@ export const WorkProgress = (props: { id: string }) => {
   const unsubscribe = events.subscribe((event) => { if (event.name === "rail.changed") refresh(); });
   onCleanup(unsubscribe);
 
-  const loaded = () => {
+  const loaded = createMemo((previous: Extract<Read, { progress: Progress }> | undefined) => {
     const each = read.latest;
 
-    return each && "progress" in each ? each : undefined;
-  };
+    if (each && "progress" in each && each.id === props.id) return each;
+
+    return previous?.id === props.id ? previous : undefined;
+  });
 
   const [phase, setPhase] = createSignal<Phase>("idle");
   const [cause, setCause] = createSignal("");
@@ -202,12 +204,9 @@ export const WorkProgress = (props: { id: string }) => {
 
   return (
     <>
-      <Show when={unread()}>{(cause) => (
-        <section class="progress-section" aria-label={copy.progress}>
-          <ReservedLine message={copy.progressUnreadable(cause())} />
-          <button class="word" data-button="quiet" type="button" onClick={refresh}>{copy.progressRetry}</button>
-        </section>
-      )}</Show>
+      <ReservedLine message={unread() ? copy.progressUnreadable(unread()!) : null}>
+        <button class="word" data-button="quiet" type="button" onClick={refresh}>{copy.progressRetry}</button>
+      </ReservedLine>
       <Show when={loaded()}>
         {(data) => (
           <Show when={data().progress.results.length > 0}>

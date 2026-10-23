@@ -5,12 +5,12 @@ import { mountBubbles, TERMINALS } from "../bubbles/bubblesFixture";
 import { ChooseProject } from "../app/FirstRun";
 import { RpcError } from "../app/seam";
 import { Pads } from "../pads/Pads";
-import { Rail } from "../rail/Rail";
 import { createReactions, Reactions } from "../reactions/Reactions";
 import { Inbox } from "../inbox/Inbox";
 import { WorkProgress } from "../orders/WorkProgress";
 import { ConnectedProjectContext } from "../state/connectedProject";
 import { event } from "../testing/nodes";
+import { progressSeed } from "../testing/progressSeed";
 import { TodoComments } from "../todos/TodoComments";
 import { TodoHistory } from "../todos/TodoHistory";
 import { TodoRefs } from "../todos/TodoRefs";
@@ -47,6 +47,13 @@ const readers: { site: string; method: "todo.unread" | "todo.comments" | "todo.g
 
 it.each(readers)("u3807_each_site_shows_its_message_in_the_reserved_line: $site", async (site) => {
   const mounted = await mountTodos([todo(1)]);
+
+  if (site.method === "message.progress") {
+    const seed = progressSeed({ project: mounted.connected.project.path, agent: "a" });
+    mounted.app.handlers["message.progress"] = () => seed.progress;
+    mounted.app.handlers["message.reconcileWork"] = () => seed.plan;
+  }
+
   const view = render(() => <ConnectedProjectContext.Provider value={mounted.connected}><section>{site.render()}</section></ConnectedProjectContext.Provider>);
 
   if (site.method === "todo.getHistory") await within(view.container).findByRole("button", { name: /change/i });
@@ -54,6 +61,8 @@ it.each(readers)("u3807_each_site_shows_its_message_in_the_reserved_line: $site"
   if (site.method === "pad.list") await waitFor(() => expect(view.container.querySelector(".empty-state")).not.toBeNull());
 
   if (site.method === "reaction.list") await waitFor(() => expect(view.container.querySelector("[aria-busy=false]")).not.toBeNull());
+
+  if (site.method === "message.progress") await within(view.container).findByRole("region", { name: "Progress" });
 
   const original = mounted.app.handlers[site.method];
   const places = placesOf(view.container);

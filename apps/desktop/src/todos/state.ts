@@ -53,10 +53,12 @@ export const createTodosState = (app: AppSeam, events: Events, project: string):
       return;
     }
 
-    if (message === null) setShelf("todos", reconcile(list, { key: "id" }));
+    if (message === null) {
+      setShelf("todos", reconcile(list, { key: "id" }));
+      setIsLoaded(true);
+    }
 
     setFailure(message);
-    setIsLoaded(true);
   };
 
   const reload = () => {
