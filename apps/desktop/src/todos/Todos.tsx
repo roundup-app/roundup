@@ -50,14 +50,7 @@ import type { TodosState } from "./state";
 import { useTodoList } from "./todoList";
 import { TodoDrawer } from "./TodoDrawer";
 import { shownTodos } from "./shownTodos";
-import { doneTodos, nowTodos, planDrop, treeCollection, treeRows, type NestedRow } from "./todoView";
-
-/** U138: the row to focus once a completed Todo leaves the open list — the next one, else the previous, else none (the `+` button). */
-export const rowAfter = (id: number, openIds: readonly number[]): number | null => {
-  const at = openIds.indexOf(id);
-
-  return openIds[at + 1] ?? openIds[at - 1] ?? null;
-};
+import { rowAfter, doneTodos, nowTodos, planDrop, treeCollection, treeRows, type NestedRow } from "./todoView";
 
 /** The Shelf's `todos` list: open Todos in id order, done ones folded, and the inline field that makes a new one. */
 export const Todos = (props: {
