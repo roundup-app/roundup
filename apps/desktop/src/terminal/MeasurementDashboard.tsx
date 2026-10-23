@@ -189,6 +189,15 @@ export const MeasurementDashboard = (props: { home: string; name: string; back: 
     return share?.count ? `${share.label} ${exact(share.count)} · ${percent(share.part, share.whole)}` : "";
   };
 
+  const multiple = () => {
+    const time = snapshot()?.time;
+
+    if (!time?.elapsed_ns || BigInt(time.elapsed_ns) <= 0n) return null;
+    const value = (Number(BigInt(time.summed_ns)) / Number(BigInt(time.elapsed_ns))).toFixed(1);
+
+    return value === "0.0" ? null : `${value}×`;
+  };
+
   const price = () => snapshot() ? listPrice(snapshot()!.cost) : null;
 
   const columns = createMemo(() => categories.filter((key) => snapshot()?.rows.some((row) => BigInt(row.tokens[key].known) > 0n)));
@@ -196,8 +205,21 @@ export const MeasurementDashboard = (props: { home: string; name: string; back: 
   const ranks = createMemo(() => {
     const rows = snapshot()?.rows ?? [];
 
-    return rows.length >= 2 ? columns().filter((key) => rows.some((row) => row.tokens[key].known !== rows[0]!.tokens[key].known || row.tokens[key].missing !== rows[0]!.tokens[key].missing)) : [];
+    if (rows.length < 2) return [];
+    const available = categories.filter((key) => BigInt(snapshot()!.tokens[key].known) > 0n);
+
+    // Unloaded contributors may lead another category; only all rows can prove redundant ranks.
+    if (snapshot()!.next_offset !== null) return available;
+    const values = available.map((key) => ({ key, maximum: rows.reduce((most, row) => BigInt(row.tokens[key].known) > most ? BigInt(row.tokens[key].known) : most, 0n) }));
+
+    return values.flatMap((candidate, index) => values.slice(0, index).some((previous) => rows.every((row) => BigInt(row.tokens[previous.key].known) * candidate.maximum === BigInt(row.tokens[candidate.key].known) * previous.maximum && (row.tokens[previous.key].missing > 0) === (row.tokens[candidate.key].missing > 0))) ? [] : [candidate.key]);
   });
+
+  createEffect(() => {
+    if (category() !== "total" && !ranks().includes(category())) setCategory("total");
+  });
+
+  const isInspectable = () => shares().length > 1 || shares().some((share) => share.count !== undefined && tokenFigure(share.count) !== share.count.known);
 
   const times = createMemo(() => snapshot() ? timeRows(snapshot()!.time) : []);
   const limitReason = () => used() === null ? limit()?.reason ?? copy.measurementLimitReason : null;
@@ -232,24 +254,24 @@ export const MeasurementDashboard = (props: { home: string; name: string; back: 
       <div class="measurement-tile" data-tile="time">
         <h3>{copy.measurementTime}</h3>
         <p class="measurement-figure">{copy.measurementElapsed(duration(snapshot()?.time.elapsed_ns ?? null))}<Show when={snapshot() && snapshot()!.time.elapsed_ns === null}><Partial note={[copy.measurementPartialTime, ...snapshot()!.time.coverage].join(" ")} /></Show></p>
-        <Show when={snapshot() && BigInt(snapshot()!.time.summed_ns) > 0n}><p class="measurement-line">{copy.measurementAgentTime(duration(snapshot()?.time.summed_ns ?? null), (() => { const time = snapshot()?.time;
-
- return time?.elapsed_ns && BigInt(time.elapsed_ns) > 0n ? `${(Number(BigInt(time.summed_ns)) / Number(BigInt(time.elapsed_ns))).toFixed(1)}×` : null; })())}<Show when={snapshot()!.time.coverage.length > 0}><Partial note={[copy.measurementPartialTime, ...snapshot()!.time.coverage].join(" ")} /></Show></p></Show>
+        <Show when={snapshot() && BigInt(snapshot()!.time.summed_ns) > 0n}><p class="measurement-line">{copy.measurementAgentTime(duration(snapshot()?.time.summed_ns ?? null), multiple())}<Show when={snapshot()!.time.coverage.length > 0}><Partial note={[copy.measurementPartialTime, ...snapshot()!.time.coverage].join(" ")} /></Show></p></Show>
       </div>
       <div class="measurement-tile" data-tile="tokens">
         <h3>{copy.measurementTokensTile}</h3>
         <p class="measurement-figure measurement-tokens">{snapshot() ? tokenFigure(snapshot()!.tokens.total) : copy.measurementUnknown}<Show when={snapshot() && snapshot()!.tokens.total.missing > 0}><Partial note={[copy.measurementPartialTokens(snapshot()!.tokens.total.missing), ...snapshot()!.coverage].join(" ")} /></Show></p>
-        <Show when={shares().length > 0}><div class="measurement-stack" role="group" aria-label={copy.measurementShares} tabIndex={0} data-dim={active() !== null} onFocus={() => active() === null && setActive(largest()?.key ?? null)} onBlur={() => setActive(null)} onPointerLeave={() => setActive(null)} onKeyDown={(event) => { if (event.key === "ArrowRight") { event.preventDefault(); moveActive(1); } else if (event.key === "ArrowLeft") { event.preventDefault(); moveActive(-1); } }}>
-          <For each={shares()}>{(share) => <Tip text={share.count ? `${share.label} ${exact(share.count)}` : undefined}>{(trigger) => <span {...trigger({ onPointerEnter: () => setActive(share.key) })} class="measurement-segment" data-category={share.key} data-active={active() === share.key} style={{ width: `${share.whole > 0 ? (share.part / share.whole) * 100 : 0}%` }} />}</Tip>}</For>
+        <Show when={shares().length > 0}><div class="measurement-stack" role="group" aria-label={copy.measurementShares} tabIndex={isInspectable() ? 0 : undefined} data-dim={active() !== null} onFocus={() => isInspectable() && active() === null && setActive(largest()?.key ?? null)} onBlur={() => setActive(null)} onPointerLeave={() => setActive(null)} onKeyDown={(event) => { if (shares().length < 2) return;
+
+ if (event.key === "ArrowRight") { event.preventDefault(); moveActive(1); } else if (event.key === "ArrowLeft") { event.preventDefault(); moveActive(-1); } }}>
+          <For each={shares()}>{(share) => <Tip text={share.count ? `${share.label} ${exact(share.count)}` : undefined} disabled={!isInspectable()}>{(trigger) => <span {...trigger({ onPointerEnter: () => isInspectable() && setActive(share.key) })} class="measurement-segment" data-category={share.key} data-active={active() === share.key} style={{ width: `${share.whole > 0 ? (share.part / share.whole) * 100 : 0}%` }} />}</Tip>}</For>
         </div>
         <ul class="measurement-legend"><For each={shares()}>{(share) => <li data-category={share.key}><span class="measurement-swatch" />{share.label} {percent(share.part, share.whole)}</li>}</For></ul>
         <p class="measurement-line">{largest() ? copy.measurementLargest(largest()!.label, percent(largest()!.part, largest()!.whole)) : ""}</p>
-        <p class="measurement-line" aria-live="polite">{readout()}</p></Show>
+        <Show when={isInspectable()}><p class="measurement-line" aria-live="polite">{readout()}</p></Show></Show>
       </div>
       <div class="measurement-tile" data-tile="price">
         <h3>{copy.measurementPrice}</h3>
         <p class="measurement-figure">{price() === null ? copy.measurementUnknown : `≈ ${price()}`}
-          <Show when={priceDetail() && snapshot()}>{(value) => <Tip class="ink-tip" content={<><For each={value().cost.reference}>{(estimate) => <div>{modelLabel(estimate.rates.model)} {moneyText(estimate.amount, estimate.rates.currency)}<div>{estimate.rates.currency} · {copy.measurementRates(modelLabel(estimate.rates.model), estimate.rates)}</div><For each={estimate.missing}>{(cause) => <div>{cause}</div>}</For></div>}</For><For each={reported(value().cost)}>{(figure, index) => <div>{copy.measurementPriceReported(figure)} · {value().cost.reported[index()]!.source} · {value().cost.reported[index()]!.basis}</div>}</For><For each={value().cost.unavailable}>{(cause) => <div>{cause}</div>}</For><Show when={price() !== null && (value().cost.unavailable.length > 0 || value().cost.reference.some((estimate) => estimate.missing.length > 0))}><div>{copy.measurementPartialPrice}</div></Show></>}>{(trigger) => <button {...trigger()} data-button="quiet" type="button" class="measurement-mark" aria-label={copy.measurementPriceDetail}>{copy.measurementInfo}</button>}</Tip>}</Show>
+          <Show when={priceDetail() && snapshot()}>{(value) => <Tip class="ink-tip" content={<><For each={value().cost.reference}>{(estimate) => <div>{modelLabel(estimate.rates.model)} {moneyText(estimate.amount, estimate.rates.currency)}<div>{copy.measurementJoin(estimate.rates.currency, copy.measurementRates(modelLabel(estimate.rates.model), estimate.rates))}</div><For each={estimate.missing}>{(cause) => <div>{cause}</div>}</For></div>}</For><For each={reported(value().cost)}>{(figure, index) => <div>{copy.measurementJoin(copy.measurementPriceReported(figure), value().cost.reported[index()]!.source, value().cost.reported[index()]!.basis)}</div>}</For><For each={value().cost.unavailable}>{(cause) => <div>{cause}</div>}</For><Show when={price() !== null && (value().cost.unavailable.length > 0 || value().cost.reference.some((estimate) => estimate.missing.length > 0))}><div>{copy.measurementPartialPrice}</div></Show></>}>{(trigger) => <button {...trigger()} data-button="quiet" type="button" class="measurement-mark" aria-label={copy.measurementPriceDetail}>{copy.measurementInfo}</button>}</Tip>}</Show>
         </p>
         <Show when={price() !== null}><p class="measurement-line">{copy.measurementNotYourBill}</p></Show>
       </div>
