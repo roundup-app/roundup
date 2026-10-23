@@ -155,6 +155,7 @@ it.each([
   await open(m); await disclose(m);
   const entries = panel().querySelectorAll("[data-change]");
   expect(entries).toHaveLength(1);
+
   if (after !== null) expect(entries[0]?.textContent).toContain(String(after));
 });
 
