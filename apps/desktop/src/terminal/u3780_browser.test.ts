@@ -25,14 +25,13 @@ it("u3780_rendered_checks", async () => {
     await page.until(`() => Boolean(window.__fake && document.querySelector('.rail-row'))`);
     await page.call(`() => document.querySelector('.rail-row[data-id="agent-4"]').click()`);
     await page.until(`() => Boolean(document.querySelector('.pane'))`);
-    await new Promise((r) => setTimeout(r, 1500));
     await page.until(`() => document.querySelectorAll('.note-queue-row').length === 4`);
 
     const checks = await page.call<Checks>(`() => window.__checks()`);
     const dir = captureDir("U3780");
     const step = `queue-${scheme}${contrast ? "-contrast" : ""}`;
 
-    if (dir) {
+    if (dir && scheme === "dark") {
       mkdirSync(dir, { recursive: true });
       writeFileSync(join(dir, `${step}.png`), Buffer.from(await page.shot(), "base64"));
       writeFileSync(join(dir, `${step}.checks.json`), JSON.stringify(checks, null, 2));
