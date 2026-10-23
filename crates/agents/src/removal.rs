@@ -298,6 +298,48 @@ mod tests {
     use crate::{KillsTerminals, Observation, Run, Slot};
 
     use crate::tests::*;
+    fn record_call(shared: &crate::Shared, id: &str) -> crate::claude_code::toolcall::Tracked {
+        shared
+            .observe(
+                Actor::daemon(),
+                id,
+                "1",
+                Observation::Signal(serde_json::json!({
+                    "hook_event_name": "PreToolUse",
+                    "tool_use_id": "call-1",
+                    "tool_name": "Read",
+                    "tool_input": {"file_path": "/example.rs"}
+                })),
+            )
+            .unwrap();
+        shared
+            .events
+            .tool_calls
+            .lock()
+            .unwrap()
+            .get(id)
+            .unwrap()
+            .clone()
+    }
+
+    #[tokio::test]
+    async fn a3342a_removing_agents_leaves_no_tool_call_entries() {
+        let (_dir, _, shared) = shared_over_temp_dir(Arc::new(|| 0));
+        let survivor = running_agent(&shared, None);
+        let call = record_call(&shared, &survivor);
+        for _ in 0..32 {
+            let id = running_agent(&shared, None);
+            record_call(&shared, &id);
+            shared.remove(Actor::user(), &id).await.unwrap();
+            assert!(!shared.events.tool_calls.lock().unwrap().contains_key(&id));
+        }
+        let silent = running_agent(&shared, None);
+        shared.remove(Actor::user(), &silent).await.unwrap();
+        let calls = shared.events.tool_calls.lock().unwrap();
+        assert_eq!(calls.len(), 1);
+        assert_eq!(calls.get(&survivor), Some(&call));
+    }
+
     #[tokio::test]
     async fn a16_a_failed_stop_returns_the_error_and_deletes_nothing() {
         let shared = shared_with_a_failing_kill();
