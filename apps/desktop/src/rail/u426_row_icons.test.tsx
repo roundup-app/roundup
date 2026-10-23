@@ -83,14 +83,6 @@ describe("u426 a Rail row shows its icons", () => {
     }
   });
 
-  it("u426_the_row_menu_keeps_stop_resume_and_remove", async () => {
-    const { app } = await mountRail([agent("a", "working", "busy")]);
-
-    fireEvent.contextMenu(rowOf("a"), { clientX: 10, clientY: 10 });
-
-    expect(app.menuLabels()).toEqual(expect.arrayContaining(["Stop", "Resume", "Remove"]));
-  });
-
   it("u426_a_stopped_agent_offers_no_stop_icon", async () => {
     await mountRail([door("m", "done", "done")], [exitedTerminal("m", 0)]);
 

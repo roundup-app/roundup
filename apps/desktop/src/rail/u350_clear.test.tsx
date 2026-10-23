@@ -88,6 +88,9 @@ describe("u350 the user clears a Workstream from the Rail", () => {
     const { app } = await mountSelected();
 
     await open(app);
+    openMenu("ws");
+    expect(app.menuLabels()).not.toContain("Clear…");
+    await app.closeMenu();
     type("why");
     fireEvent.click(clearButton());
     await waitFor(() => expect(document.body.textContent).toContain("The supervisor is writing the summary"));
@@ -99,7 +102,7 @@ describe("u350 the user clears a Workstream from the Rail", () => {
 
     openMenu("ws");
 
-    expect(app.shownMenus.at(-1)?.items.find((item) => item.label === "Clear…")?.enabled).toBe(false);
+    expect(app.menuLabels()).not.toContain("Clear…");
 
     app.emit(event({ name: "workstream.cleared", data: { id: "w", iteration: 2 } }));
 
