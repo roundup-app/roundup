@@ -595,7 +595,7 @@ async fn u3523h_unrelated_sessions_are_not_read() {
         unreadable.push(file);
     }
     for file in &unreadable {
-        std::fs::set_permissions(file, std::fs::Permissions::from_mode(0)).unwrap();
+        std::fs::set_permissions(file, std::fs::Permissions::from_mode(0o0)).unwrap();
     }
     assert!(
         std::fs::File::open(&unreadable[0]).is_err(),
