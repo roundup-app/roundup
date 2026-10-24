@@ -164,7 +164,7 @@ class Orders(unittest.TestCase):
     def test_l34_a_scenario_id_with_a_multi_letter_prefix_is_read_like_any_other(self):
         for scenarios, mode in [('LC1', 'implement'), ('LC11-LC13', 'implement'), ('LC11–LC13', 'implement'),
                                 ('LC11 to LC13', 'implement'), ('LC11–13', 'implement'), ('LC1, LC14', 'implement'),
-                                ('LC15', 'specify'), ('LC13–LC15', 'specify')]:
+                                ('LC16', 'specify'), ('LC13–LC16', 'specify')]:
             with self.subTest(scenarios=scenarios):
                 body = issue()['body'].replace('Scenarios: U83', f'Scenarios: {scenarios}').replace('ui.md', 'lean-child-start.md')
                 row = orders.classify([issue(body=body)], {}, [])[0]
