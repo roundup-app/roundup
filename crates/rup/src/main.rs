@@ -3,7 +3,6 @@ use std::process::ExitCode;
 use std::time::Duration;
 
 use contracts::agent::{Brief, NodeId, SignalOutcome, SignalParams};
-use contracts::decision::{PermissionOutput, PermissionParams};
 use contracts::{Actor, ActorKind};
 use serde_json::{Value, json};
 
@@ -78,22 +77,13 @@ async fn main() -> ExitCode {
         rest.next();
     }
     let command: Vec<&str> = rest.collect();
-    let hook = options.ext.is_some()
-        && matches!(
-            command.first(),
-            Some(&("signal" | "context" | "permission"))
-        );
+    let hook = options.ext.is_some() && matches!(command.first(), Some(&("signal" | "context")));
     if hook {
         // Exit 2 would tell Claude Code to block its tool call or prompt (H8, E3, H15).
-        eprintln!("rup: signal, context and permission are Agent hooks; --as does not apply");
+        eprintln!("rup: signal and context are Agent hooks; --as does not apply");
         return ExitCode::FAILURE;
     }
-    if options.json
-        && matches!(
-            command.first(),
-            Some(&("mcp" | "signal" | "context" | "permission"))
-        )
-    {
+    if options.json && matches!(command.first(), Some(&("mcp" | "signal" | "context"))) {
         eprintln!(
             "rup: --json applies to ping and the commands of rup help; mcp owns stdout for the protocol"
         );
@@ -115,9 +105,6 @@ async fn main() -> ExitCode {
         ["context", agent_id] if !agent_id.starts_with('-') => return context(agent_id).await,
         // As for `signal`: only exit 1, never 2.
         ["context", ..] => Err("usage: rup context <agent-id>".into()),
-        ["permission", agent_id] if !agent_id.starts_with('-') => permission(agent_id).await,
-        // As for `signal`: exit 2 would block the tool call.
-        ["permission", ..] => Err("usage: rup permission <agent-id>".into()),
         ["mcp"] => return mcp::run(options.actor()).await,
         ["mcp", _] if options.ext.is_some() => {
             eprintln!("rup: an Agent id and --as ext:<name> cannot both be given");
@@ -251,42 +238,6 @@ async fn brief(agent_id: &str) -> Result<Brief, String> {
         .await
         .map_err(hung_up)?;
     serde_json::from_value(reply).map_err(|err| format!("the reply is unreadable: {err}"))
-}
-
-/// H8: Claude Code runs this as the Agent's `PermissionRequest` hook. It prints exactly the reply
-/// the Daemon gives and nothing else; every failure is a line on stderr and exit 1, so Claude Code
-/// shows its own dialog and no failure can allow or block a tool call.
-async fn permission(agent_id: &str) -> Result<(), String> {
-    let mut input = String::new();
-    std::io::stdin()
-        .read_to_string(&mut input)
-        .map_err(|err| format!("cannot read the payload: {err}"))?;
-    let payload: Value =
-        serde_json::from_str(&input).map_err(|err| format!("the payload is not JSON: {err}"))?;
-    // Without it `connect` would fall back to a default socket the hook was never pointed at.
-    if std::env::var_os("RUPD_SOCKET").is_none() {
-        return Err("RUPD_SOCKET is not set".into());
-    }
-    let client = identified(agent_id).await?;
-    let reply = client
-        .request(
-            "agent.permission",
-            PermissionParams {
-                id: agent_id.to_owned(),
-                payload,
-            },
-        )
-        .await
-        .map_err(hung_up)?;
-    let PermissionOutput { output } = serde_json::from_value(reply)
-        .map_err(|err| format!("rupd's reply is unreadable: {err}"))?;
-    if output.is_empty() {
-        // H2: the Decision is answered in the Terminal.
-        eprintln!("answer in the Terminal");
-    } else {
-        print!("{output}");
-    }
-    Ok(())
 }
 
 /// A connection that closed with no reply: nothing more will come.

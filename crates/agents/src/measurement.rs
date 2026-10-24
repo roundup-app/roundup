@@ -269,7 +269,7 @@ fn time_totals(
 ) -> Result<contracts::project::MeasurementTime, RpcError> {
     use contracts::project::{Execution, MeasurementValue, TimeState, TimedActivity};
     let ns = |s: &str| s.parse::<u128>().map_err(RpcError::internal);
-    let mut totals = [0_u128; 6];
+    let mut totals = [0_u128; 5];
     let mut first = None::<i64>;
     let mut last = None::<i64>;
     let mut unknown_start = false;
@@ -323,7 +323,7 @@ fn time_totals(
         }
         let mut partition = rangemap::RangeMap::new();
         // The residual is explicitly unmeasured, including discontinuities between samples.
-        partition.insert(bounds.clone(), 5_usize);
+        partition.insert(bounds.clone(), 4_usize);
         let mut evidence = Vec::new();
         let mut idle = Vec::new();
         for fact in facts
@@ -338,9 +338,8 @@ fn time_totals(
                     ..
                 } if clock == clock_lifetime => {
                     let category = match activity {
-                        TimedActivity::Decision { .. } => 0,
-                        TimedActivity::Coordination { .. } => 2,
-                        TimedActivity::Startup => 4,
+                        TimedActivity::Coordination { .. } => 1,
+                        TimedActivity::Startup => 3,
                         TimedActivity::Idle { .. } => {
                             for segment in segments {
                                 idle.push(
@@ -387,7 +386,7 @@ fn time_totals(
                                     .map_err(RpcError::internal)?)
                             .min(ns(&segment.end.monotonic_ns)?);
                             evidence.push((
-                                if *category == Execution::Tool { 1 } else { 3 },
+                                if *category == Execution::Tool { 0 } else { 2 },
                                 left..right,
                             ));
                         }
@@ -423,7 +422,7 @@ fn time_totals(
             "Historical Attempt start unavailable; summed time covers observed bounds only".into(),
         );
     }
-    if totals[5] > 0 {
+    if totals[4] > 0 {
         coverage.push("Unmeasured duration has no positive category evidence".into());
     }
     coverage.sort();
@@ -448,12 +447,11 @@ fn time_totals(
     Ok(contracts::project::MeasurementTime {
         elapsed_ns: elapsed,
         summed_ns: totals.iter().sum::<u128>().to_string(),
-        execution_ns: totals[3].to_string(),
-        tools_ns: totals[1].to_string(),
-        human_ns: totals[0].to_string(),
-        coordination_ns: totals[2].to_string(),
-        other_ns: totals[4].to_string(),
-        unmeasured_ns: totals[5].to_string(),
+        execution_ns: totals[2].to_string(),
+        tools_ns: totals[0].to_string(),
+        coordination_ns: totals[1].to_string(),
+        other_ns: totals[3].to_string(),
+        unmeasured_ns: totals[4].to_string(),
         active,
         coverage,
     })
@@ -476,14 +474,10 @@ mod time_tests {
             let begun = Instant::now();
             let adjustment = Arc::new(std::sync::atomic::AtomicI64::new(0));
             let adjust = adjustment.clone();
-            let (dir, bus, mut shared) = crate::tests::shared_over_temp_dir(Arc::new(move || {
+            let (dir, bus, shared) = crate::tests::shared_over_temp_dir(Arc::new(move || {
                 1000 + i64::try_from(begun.elapsed().as_millis()).unwrap()
                     + adjust.load(Ordering::SeqCst)
             }));
-            Arc::get_mut(&mut shared)
-                .unwrap()
-                .decisions
-                .set_proof(Some("time-test".into()));
             let agents = Arc::new(Agents {
                 shared,
                 dir: dir.path().into(),
@@ -573,31 +567,6 @@ mod time_tests {
                 self.read().await;
             }
         }
-        async fn ask<'a>(
-            &'a self,
-            id: &str,
-        ) -> std::pin::Pin<Box<impl std::future::Future<Output = Result<Value, RpcError>> + 'a>>
-        {
-            let agents = self.agents.clone();
-            let ctx = Ctx {
-                actor: Actor {
-                    kind: ActorKind::Agent,
-                    id: id.into(),
-                    parent: None,
-                },
-                bus: self.ctx.bus.clone(),
-                touches: self.ctx.touches.clone(),
-            };
-            let mut call = Box::pin(async move {
-                agents.call(&ctx,"agent.ask",json!({"question":"Continue?","answers":[{"label":"Yes","description":"Continue"}]})).await
-            });
-            assert!(
-                std::future::poll_fn(|cx| std::task::Poll::Ready(call.as_mut().poll(cx)))
-                    .await
-                    .is_pending()
-            );
-            call
-        }
         fn stop(&self, id: &str) {
             self.agents
                 .shared
@@ -655,7 +624,7 @@ mod time_tests {
             assert_eq!(read["time"]["summed_ns"], "5000000000");
             assert_eq!(read["time"]["execution_ns"], "2000000000");
             assert_eq!(read["time"]["tools_ns"], "3000000000");
-            for category in ["human_ns", "coordination_ns", "other_ns", "unmeasured_ns"] {
+            for category in ["coordination_ns", "other_ns", "unmeasured_ns"] {
                 assert_eq!(read["time"][category], "0", "{category}");
             }
             assert_eq!(read["time"]["active"], false);

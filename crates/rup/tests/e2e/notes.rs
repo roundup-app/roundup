@@ -7,7 +7,7 @@ use std::time::Duration;
 use contracts::{ActorKind, Kind};
 use serde_json::{Value, json};
 
-use super::daemon::{h21_ask, h21_bash, h21_poll, start};
+use super::daemon::{h21_poll, needs_you, start};
 use super::wake::{
     FAIL, STOP, WORK, ask, drive, messages, named, notes, scene, start_again, status_of, still,
     typed,
@@ -321,7 +321,7 @@ async fn b47_a_note_is_made_for_a_wake_needs_you_error_or_end() {
     ask(&as_door, &[&s.a], true).await.unwrap();
     drive(&s.user, &s.a, STOP).await;
     drive(&s.user, &err, FAIL).await;
-    let _ask = h21_ask(&s.project, &need, "Bash", h21_bash()).await;
+    needs_you(&s.user, &need).await;
     s.user
         .request("agent.stop", json!({ "id": end }))
         .await
@@ -369,16 +369,11 @@ async fn b47_the_same_kind_after_another_kind_is_a_new_note() {
         (count(&made(&s.user, &s.door).await, &error) == 1).then_some(())
     })
     .await;
-    let ask = h21_ask(&s.project, &s.a, "Bash", h21_bash()).await;
+    needs_you(&s.user, &s.a).await;
     h21_poll("the needs-you note", async || {
         (count(&made(&s.user, &s.door).await, &needs) == 1).then_some(())
     })
     .await;
-    let decision = super::daemon::h21_decision(&s.user, &s.a, None).await;
-    super::daemon::h21_user_answers(&s.user, decision["id"].as_str().unwrap(), "allow")
-        .await
-        .unwrap();
-    let _ = ask.await;
     drive(&s.user, &s.a, FAIL).await;
     h21_poll("the second error note", async || {
         (count(&made(&s.user, &s.door).await, &error) == 2).then_some(())

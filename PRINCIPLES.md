@@ -20,10 +20,10 @@ Concurrent Agents never share a working directory: each commits in its own workt
 
 ## P3 Cards over chatter
 
-Agents run in the background until they cannot continue; the only interruption is a Decision, and answering it resumes the Agent. A Decision is valid when its Agent is `needs-you`, it holds one question and the answers that unblock it, and it is that Agent's only open one (a repeat updates it). Every `needs-you` Agent has exactly one.
+Agents run in the background until they cannot continue; the only interruption is a native request (a question or permission prompt), shown in the requesting Agent's own Terminal, and answering it there resumes the Agent. A native request makes its Agent `needs-you`; roundup keeps no record of it and draws no answer form. Every `needs-you` Agent's attention entry opens that Agent's Terminal.
 
-- Gate: does anything but a valid Decision interrupt the user (a bell, an OS alert, Ink on a routine Kind), or does routine progress yield `needs-you`?
-- Observer: replay `spikes/hooks-state/*.jsonl`: routine transitions open no Decision, each `needs-you` opens one valid Decision.
+- Gate: does anything but a native request interrupt the user (a bell, an OS alert, Ink on a routine Kind), can native attention fail to lead to the requesting Terminal and its continuation, or does routine progress yield `needs-you`?
+- Observer: replay `spikes/hooks-state/*.jsonl`: routine transitions raise no attention, each `needs-you` raises one attention entry that opens its Agent's Terminal (A3564a, A3564e).
 
 ## P4 Black-box harness
 
@@ -76,9 +76,9 @@ Messages pending for an Agent when it becomes `idle` are typed as one prompt, so
 
 ## P11 Unfinished input (goal)
 
-For every roundup-owned editable surface, routine navigation, Project/Agent switches, reload, incoming events, external edits and a rejected or failed submit preserve the exact unsubmitted work and its original Project, object and recipient. An external edit keeps the user draft and exposes the conflict; replacement of a question never authorizes delivery to the replacement. A failed older submit cannot overwrite a newer draft; both remain recoverable. A successful acknowledged submit consumes only its submitted revision; an explicit user discard consumes only the selected draft. A draft is never sent merely because it was restored. Declared credential fields retain their existing secret-handling policy rather than gaining automatic disk persistence. Live vendor Terminal input remains protected by the existing unsent-input and Takeover contracts; roundup does not reconstruct a vendor editor after its process dies. A save/restore failure states what could not be retained while preserving the recoverable in-memory work.
+For every roundup-owned editable surface, routine navigation, Project/Agent switches, reload, incoming events, external edits and a rejected or failed submit preserve the exact unsubmitted work and its original Project, object and recipient. An external edit keeps the user draft and exposes the conflict. A failed older submit cannot overwrite a newer draft; both remain recoverable. A successful acknowledged submit consumes only its submitted revision; an explicit user discard consumes only the selected draft. A draft is never sent merely because it was restored. Declared credential fields retain their existing secret-handling policy rather than gaining automatic disk persistence. Live vendor Terminal input remains protected by the existing unsent-input and Takeover contracts; roundup does not reconstruct a vendor editor after its process dies. A save/restore failure states what could not be retained while preserving the recoverable in-memory work.
 
-- Gate: does the changed path lose or alter unsubmitted work or its original Project/object/recipient; overwrite a newer draft with an older failure; consume a revision other than the acknowledged submission or selected discard; send on restore; add credential persistence; bypass live Terminal input protection or reconstruct a dead vendor editor; deliver to a replaced question; hide an external-edit conflict; or hide a retention failure or destroy recoverable memory?
+- Gate: does the changed path lose or alter unsubmitted work or its original Project/object/recipient; overwrite a newer draft with an older failure; consume a revision other than the acknowledged submission or selected discard; send on restore; add credential persistence; bypass live Terminal input protection or reconstruct a dead vendor editor; hide an external-edit conflict; or hide a retention failure or destroy recoverable memory?
 - Observer: For each changed editable surface, run the unfinished-input probes in `scenarios/product-continuity.md`: compare exact text and identities, submitted call counts and recoverable revisions before and after each action. Use the existing App seam for navigation/reload and real Daemon/public MCP or CLI seams for delivery and identity refusal.
 
 ## P12 What they made (goal)

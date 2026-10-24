@@ -56,6 +56,11 @@ window.__checks = runChecks;
 // The existing failure injector can target the next comparison without affecting the tree's reads.
 if (new URLSearchParams(location.search).has("failure")) app.handlers["agent.compareFile"] = () => { throw new RpcError(-32001, `Worktree unavailable: ${path}`); };
 
+if (new URLSearchParams(location.search).has("submit-failure")) {
+  app.handlers["message.list"] = () => [];
+  app.handlers["message.send"] = () => { throw new RpcError(-32003, "Agent refused these notes; edit or retry sending them."); };
+}
+
 render(() => createComponent(App, { app, reducedMotion: () => true, clock: Date.now }), document.getElementById("root"));
 
 if (dense) {
