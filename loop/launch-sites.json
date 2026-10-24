@@ -81,6 +81,11 @@
     "data": "Production implementation, test caller, client or name reference; launches delegate to the owners above.",
     "kind": "reference"
   },
+  "apps/desktop/src/terminal/u514_browser.test.ts": {
+    "cleanup": "The mouse observer awaits real.stop() in finally; the fixture waits for its Daemon to exit before removing its owned folders.",
+    "data": "Delegates to startRealDaemon, which supplies an absolute ROUNDUP_DATA_DIR in its owned temporary folder.",
+    "kind": "reference"
+  },
   "apps/desktop/src/testing/a33_blocked_real_daemon.test.tsx": {
     "cleanup": "Launch owner above supplies cleanup; this caller launches no executable itself.",
     "data": "Uses audited desktop fixture or a fake/client reference; no separate built-Daemon launch.",
