@@ -2,6 +2,7 @@
 import type { AppSeam } from "../app/seam";
 import { toBase64 } from "../terminal/base64";
 import { createXtermEmulators } from "../terminal/emulator";
+import type { Emulator } from "../terminal/emulator";
 import { recordFrames } from "./frames";
 import type { FrameReport } from "./frames";
 import type { NativeDragReport } from "./nativeDragProbe";
@@ -229,27 +230,48 @@ const prepare = async (app: AppSeam, workload: string, cwd: string): Promise<(in
 };
 
 /**
+ * The report goes through the Terminal whose program printed `READY`, never the last one the page created: the workstream's `claude` Terminal
+ * also gets an emulator, and a report written into it never reaches the runner reading the shell's output.
+ */
+export const reportTerminal = <E extends Pick<Emulator, "write">>(create: (id: string) => E) => {
+  let target: string | null = null;
+  let announce: () => void = () => {};
+
+  const printed = new Promise<void>((resolve) => (announce = resolve));
+
+  return {
+    printed,
+    target: () => target,
+    createEmulator: (id: string): E => {
+      const emulator = create(id);
+
+      return {
+        ...emulator,
+        write: (bytes, parsed) =>
+          emulator.write(bytes, () => {
+            if (target === null && new TextDecoder().decode(bytes).includes(READY)) {
+              target = id;
+              announce();
+            }
+
+            parsed?.();
+          }),
+      };
+    },
+  };
+};
+
+/**
  * The frame run of `scenarios/ui-motion.md` U3010e: in a build made with `VITE_ROUNDUP_PERF` and `VITE_ROUNDUP_PERF_WORKLOAD`,
  * `start` opens a Terminal, records the workload's frame intervals and writes one `FRAMES <json>` line through that Terminal.
  */
 export const createFrameRun = (app: AppSeam, workload: string, cwd: string) => {
-  let terminalId: string | null = null;
-  let ready: () => void = () => {};
-
-  const isReady = new Promise<void>((resolve) => (ready = resolve));
-
-  const emulators = createXtermEmulators({
-    written: (bytes) => {
-      if (new TextDecoder().decode(bytes).includes(READY)) ready();
-    },
-    rendered: () => {},
-    renderer: () => {},
-  });
+  const terminal = reportTerminal(createXtermEmulators());
 
   const report = async (body: FrameReport | NativeDragReport | { error: string }) => {
-    if (terminalId === null) throw new Error("no Terminal was opened to report through");
+    const id = terminal.target();
 
-    const id = terminalId;
+    if (id === null) throw new Error("no Terminal printed the ready line to report through");
 
     await writeInChunks(new TextEncoder().encode(`FRAMES ${JSON.stringify(body)}\n`), async (data) => void (await app.rpc("terminal.write", { id, data: toBase64(data) })));
   };
@@ -264,7 +286,7 @@ export const createFrameRun = (app: AppSeam, workload: string, cwd: string) => {
     await appears(() => document.querySelector('[role="treeitem"][aria-selected="true"]'), "the new Workstream's selected row");
     document.dispatchEvent(new KeyboardEvent("keydown", { key: "t", code: "KeyT", metaKey: true, bubbles: true, cancelable: true }));
     await appears(() => document.querySelector("textarea.xterm-helper-textarea"), "the Terminal's input");
-    await Promise.race([isReady, sleep(SETUP_BOUND_MS).then(() => Promise.reject(new Error(`the Terminal never printed ${READY}`)))]);
+    await Promise.race([terminal.printed, sleep(SETUP_BOUND_MS).then(() => Promise.reject(new Error(`the Terminal never printed ${READY}`)))]);
 
     if (workload === "drag-compatibility") {
       const { runNativeDragProbe } = await import("./nativeDragProbe");
@@ -291,11 +313,7 @@ export const createFrameRun = (app: AppSeam, workload: string, cwd: string) => {
   };
 
   return {
-    createEmulator: (id: string) => {
-      terminalId = id;
-
-      return emulators(id);
-    },
+    createEmulator: terminal.createEmulator,
     start: async () => {
       try {
         await measure();
