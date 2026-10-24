@@ -4,7 +4,7 @@
 //! `git2` is rejected there: a native dependency whose rebase reports conflicts differently.
 
 use std::ffi::OsString;
-use std::io::Read;
+use std::io::{Read, Write};
 use std::path::{Path, PathBuf};
 use std::process::{Command, Stdio};
 use std::sync::{Arc, Mutex, RwLock};
