@@ -541,3 +541,37 @@ async fn u3523a_period_live_sessions_and_source_failures() {
         "{replaced}"
     );
 }
+
+#[tokio::test]
+async fn u3523h_unrelated_sessions_are_not_read() {
+    let root = tempfile::tempdir().unwrap();
+    let project = root.path().join("project");
+    let config = root.path().join("config");
+    let elsewhere = root.path().join("elsewhere");
+    std::fs::create_dir_all(&project).unwrap();
+    std::fs::create_dir_all(&elsewhere).unwrap();
+    let mine = session(&config, &project, 1, &[&project], false);
+    // The SDK reports the first cwd; a later cwd inside the Project is only found by reading the
+    // file, which an unrelated Project's session must not get.
+    let unrelated = session(&config, &elsewhere, 2, &[&elsewhere, &project], false);
+
+    let cli = root.path().join("claude");
+    executable(&cli, "#!/bin/sh\nprintf '[]'\n");
+    let (dir, _) = package(root.path(), &format!("exec '{}' \"$@\"", real_node()));
+    let launcher = agents::claude_code::Launcher::new(
+        cli.to_string_lossy(),
+        config.join(".claude.json"),
+        "rup".into(),
+        None,
+    )
+    .with_sidecar(dir);
+    let answer = list(&daemon(&project, launcher)).await;
+    let sources: Vec<&str> = answer["result"]["candidates"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|c| c["source"].as_str().unwrap())
+        .collect();
+    assert_eq!(sources, [mine.as_str()], "{answer}");
+    assert!(!sources.contains(&unrelated.as_str()), "{answer}");
+}
