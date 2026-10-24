@@ -49,8 +49,8 @@ Thread observer: retired by U467 with the Thread; the clear prompt (U350) is now
 |---|---|---|
 | Start Door | Start supervisor | Start the selected Workstream's Door |
 | Retry Door | Retry supervisor | Retry its failed start |
-| Clear without Handoff | Clear without a summary | Existing failure fallback, without writing a Handoff |
-| Clear (clear prompt submit only) | Clear and keep a summary | Normal Clear, writing the Handoff first |
+| Clear without Handoff | Clear without summary | Existing failure fallback, without writing a Handoff |
+| Clear (clear prompt submit only) | Clear with summary | Normal Clear, writing the Handoff first |
 
 Centre exception (U143, policy): the Workstream Door centre uses `Start` / `Retry`; the table's `Start supervisor` / `Retry supervisor` remain the Rail labels. This is a surface-specific action-label exception, not a change to code terms or the glossary mapping. The centre's state copy follows U143's four meanings and one-supervisor limit. Once this amendment is on main, #2679 updates only the centre queries in `u471_action_labels_describe_the_existing_action_retry_supervisor` (`apps/desktop/src/copy.test.ts`) to role and catalogue name, preserving its two `rail.startDoor {id: "w"}` calls, original failure message, selection and no-create assertions. Exact centre-label assertions are retired as word proofs; Rail-label and catalogue provenance coverage remain.
 
@@ -82,7 +82,7 @@ Policy: when wording changes, the implementing PR lists every affected scenario 
 
 ## Catalogue migration ownership (policy)
 
-U471 replaces U416's per-directory slicing and code-term capitalisation requirement once implemented; U416's sentence case, authored-text exemptions, Rail add and interaction coverage remain. The implementation changes `docs/design-system.md`'s D15 and Text case rule and every catalogue caller together. The existing glossary distinction and user-label mappings remain; no frozen agent instruction changes are authorized. Its PR includes the old/new label table and an inventory showing every former case assertion's replacement test. Cross-directory extraction and atomic caller migration are required by U471; behavioral or wire-contract expansion is outside this work.
+U471 replaces U416's per-directory slicing and code-term capitalisation requirement once implemented; U416's sentence case, authored-text exemptions, Rail add and interaction coverage remain. The implementation changes `docs/design-system.md`'s D15 and Text case rule and every catalogue caller together. The glossary distinction and Door/Shelf/Handoff meanings remain; update its two Clear action-label mappings to the three-word labels above with the corresponding code. No frozen agent instruction changes are authorized. Its PR includes the old/new label table and an inventory showing every former case assertion's replacement test. Cross-directory extraction and atomic caller migration are required by U471; behavioral or wire-contract expansion is outside this work.
 
 The dependent implementation Issue is blocked on this specification Issue through native GitHub dependencies. Implementation records library research under #1598's direction before choosing a catalogue representation: a typed static catalogue is the default; if a maintained i18n library is selected, surface modules remain the App-copy entry points. There is no root catalogue or re-export shim. This specification does not add translation, locale selection or a custom translation engine. Progress and engineering decisions belong on that Issue.
 
