@@ -52,7 +52,7 @@ describe("k2 a sample is keydown to the render that shows its echo", () => {
 
     await typeKeys(
       probe,
-      { press: () => {}, sleep: async (ms) => void sleeps.push(ms), random: () => 0.5 },
+      { press: () => {}, sleep: async (ms) => void sleeps.push(ms), random: () => 0.5, expired: () => false },
       1,
     );
 
@@ -85,13 +85,13 @@ describe("k2 a sample is keydown to the render that shows its echo", () => {
     const probe = createKeystrokeProbe(time.now, "a");
     const sleep = async () => {};
 
-    await typeKeys(probe, { press: () => {}, sleep, random: () => 0 }, 1);
+    await typeKeys(probe, { press: () => {}, sleep, random: () => 0, expired: () => false }, 1);
 
     void probe.keydown();
     probe.written(bytes("a"));
     time.advance(6);
     probe.rendered();
-    await typeKeys(probe, { press: () => {}, sleep, random: () => 0 }, 1);
+    await typeKeys(probe, { press: () => {}, sleep, random: () => 0, expired: () => false }, 1);
 
     expect(probe.summary(1)).toMatchObject({ n: 1, dropped: 2, p50: 6 });
   });
@@ -129,5 +129,26 @@ describe("k2 a sample is keydown to the render that shows its echo", () => {
       write_reply: { n: 1, p50: 4, p95: 4 },
     });
     expect(probe.summary(1)).toMatchObject({ n: 1, p50: 22 });
+  });
+
+  it("r20_a_run_out_of_time_counts_the_untyped_keys_as_dropped_and_still_reports", async () => {
+    const time = clock();
+    const probe = createKeystrokeProbe(time.now, "a");
+    let typed = 0;
+
+    await typeKeys(
+      probe,
+      { press: () => void (typed += 1), sleep: async () => {}, random: () => 0, expired: () => typed >= 2 },
+      5,
+    );
+
+    void probe.keydown();
+    probe.written(bytes("a"));
+    time.advance(4);
+    probe.rendered();
+
+    // Two keys were typed and dropped, three never typed.
+    expect(typed).toBe(2);
+    expect(probe.summary(0)).toMatchObject({ n: 1, dropped: 5, p50: 4 });
   });
 });
