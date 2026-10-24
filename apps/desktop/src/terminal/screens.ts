@@ -36,6 +36,8 @@ export type Screens = {
   unseen(id: string): boolean;
   /** Tells whether the user can see the Terminal now: its Bubble is open and its tab selected. */
   viewing(id: string, on: boolean): void;
+  /** Whether `viewing(id, true)` holds: the Terminal's Bubble is open, so that Bubble shows its failure and the pane does not. */
+  viewedInBubble(id: string): boolean;
   /** Pastes dropped paths as one shell line fragment (U162); an exited Terminal or Daemon, or no path, takes nothing. */
   pastePaths(id: string, paths: string[]): void;
   /** The selected Terminal's last failed call or `terminal.output`, until a later call for that Terminal succeeds. */
@@ -112,6 +114,7 @@ export const createScreens = (connected: ConnectedProject, createEmulator: Emula
   /** The offset up to which a Terminal's output was shown, kept when its stream is released. */
   const shownTo = new Map<string, number>();
   const viewed = new Set<string>();
+  const [bubbled, setBubbled] = createSignal(new Set<string>());
   const [unseenIds, setUnseenIds] = createSignal<ReadonlySet<string>>(new Set());
   const [failures, setFailures] = createSignal(new Map<string, TerminalFailures>());
   let failureOrder = 0;
@@ -650,7 +653,19 @@ export const createScreens = (connected: ConnectedProject, createEmulator: Emula
     pastePaths,
     exited,
     unseen: (id) => unseenIds().has(id),
+    viewedInBubble: (id) => bubbled().has(id),
     viewing: (id, on) => {
+      setBubbled((current) => {
+        if (current.has(id) === on) return current;
+
+        const next = new Set(current);
+
+        if (on) next.add(id);
+        else next.delete(id);
+
+        return next;
+      });
+
       if (on) {
         viewed.add(id);
         markUnseen(id, false);
