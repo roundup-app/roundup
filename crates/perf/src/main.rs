@@ -68,7 +68,29 @@ async fn run(args: &Args) -> Result<bool, Box<dyn std::error::Error>> {
         }
     }
 
-    conclude(per_run, loads, &budgets, &args.out)
+    // R16: after the runs, so a missing input still fails with its own name first.
+    if loads.is_empty() {
+        return Err("no load figures recorded".into());
+    }
+
+    let class = if cfg!(target_os = "linux") {
+        // R16: each class's baseline provenance sits beside the budgets.
+        let provenance =
+            perf::machine::read_provenance(&args.budgets.with_file_name("classes.json"))?;
+
+        Some(perf::machine::select(
+            &perf::machine::read(),
+            &provenance,
+            |metric, key| {
+                budgets
+                    .get(metric)
+                    .is_some_and(|budget| budget.baseline.contains_key(key))
+            },
+        )?)
+    } else {
+        None
+    };
+    conclude(per_run, loads, &budgets, class, &args.out)
 }
 
 #[tokio::main]
