@@ -5,6 +5,7 @@ import { todo } from "../todos/testHarness";
 import { agent, event } from "../testing/nodes";
 import { todoHandlers } from "../testing/stores";
 import type { TodoStore } from "../testing/stores";
+import { answerQuestion } from "../shelf/bulkQuestionHarness";
 import { mountRail, rowOf } from "./railFixture";
 
 afterEach(cleanup);
@@ -24,6 +25,7 @@ const failedRemove = async () => {
   mounted.rail.select("a");
   rowOf("a").focus();
   fireEvent.keyDown(rowOf("a"), { key: "Backspace", code: "Backspace", metaKey: true });
+  await answerQuestion(true);
   await waitFor(() => expect(screen.getByText(REFUSED)).toBeTruthy());
 
   return { ...mounted, drop: (id: string) => { tree = tree.filter((node) => node.id !== id); } };
@@ -51,6 +53,7 @@ describe("p3557c an item failure in the Rail goes with its item", () => {
     const { app } = await failedRemove();
     app.handlers["rail.remove"] = () => null;
     fireEvent.keyDown(rowOf("a"), { key: "Backspace", code: "Backspace", metaKey: true });
+    await answerQuestion(true);
     await waitFor(() => expect(screen.queryByText(REFUSED)).toBeNull());
   });
 
