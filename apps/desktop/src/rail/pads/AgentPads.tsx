@@ -18,6 +18,7 @@ import { createSortedList } from "../../todos/sortedList";
 import { Sortable } from "../../ui/sortable";
 import { useTodoList } from "../../todos/todoList";
 import { ownKeys } from "../rows";
+import { createItemFailure } from "../itemFailure";
 import { Tip } from "../../ui/Tip";
 import { Trunks } from "../Trunks";
 import { todosCreatedBy, padsOwnedBy } from "./owned";
@@ -28,9 +29,10 @@ export const createAgentPads = (node: Accessor<RailNode>) => {
   const all = usePadList().pads;
   const todos = useTodoList();
   const [shown, setShown] = createSignal(false);
-  const [failure, setFailure] = createSignal<string | null>(null);
   const owned = createMemo(() => (node().kind === "agent" ? padsOwnedBy(all(), node().id) : []));
   const ownedTodos = createMemo(() => (node().kind === "agent" ? todosCreatedBy(todos.all(), node().id) : []));
+  /** P3557c: items are `pad:<incarnation>` and `todo:<id>`; a failure goes with its item. */
+  const failure = createItemFailure((item) => item.startsWith("pad:") ? owned().some((pad) => `pad:${pad.incarnation}` === item) : ownedTodos().some((todo) => `todo:${todo.id}` === item));
   const connected = useConnectedProject();
 
   const reorder = createSortedList({
@@ -52,7 +54,6 @@ export const createAgentPads = (node: Accessor<RailNode>) => {
     shown: () => shown() && count() > 0,
     toggle: () => setShown((open) => !open),
     failure,
-    setFailure,
   };
 };
 
@@ -150,24 +151,32 @@ export const PadRows = (props: { pads: AgentPads; depth: number; trail: readonly
     },
   });
 
+  /** A save's outcome: a message is the item's failure, none acknowledges it. */
+  const showOutcome = (item: string, message: string | null) => {
+    if (message === null) props.pads.failure.acknowledge(item);
+    else props.pads.failure.show(message, item);
+  };
+
   const todoMenu = (todo: Todo, event: MouseEvent) => {
     event.stopPropagation();
     openOnRelease(event, (x, y) => void contextMenu(connected.app, [
-      ...(!todo.done ? [{ id: "complete", label: copy.complete, run: async () => { props.pads.setFailure(await failureOf(() => connected.app.rpc("todo.complete", { id: todo.id }))); } }] : []),
-      ...linkEntries(connected.app, { kind: "todo", id: todo.id }, connected.rail.nodes, (node) => connected.rail.exitOf(node) === null, props.pads.setFailure),
+      ...(!todo.done ? [{ id: "complete", label: copy.complete, run: async () => { showOutcome(`todo:${todo.id}`, await failureOf(() => connected.app.rpc("todo.complete", { id: todo.id }))); } }] : []),
+      ...linkEntries(connected.app, { kind: "todo", id: todo.id }, connected.rail.nodes, (node) => connected.rail.exitOf(node) === null, (message) => { const item = `todo:${todo.id}`; if (message === null) props.pads.failure.acknowledge(item); else props.pads.failure.show(message, item); }),
       { id: "delete", label: copy.delete, run: () => { setSelectedTodos([todo.id]); todoBulk.ask(); } },
     ], x, y));
   };
 
   const openPad = (name: string, event: MouseEvent) => {
-    props.pads.setFailure(null);
-    connected.drawer.open(() => <PadDrawer name={name} pads={props.pads.all} onLateFailure={props.pads.setFailure} />, activationSource(event));
+    const item = `pad:${props.pads.owned().find((pad) => pad.name === name)?.incarnation}`;
+
+    props.pads.failure.acknowledge(item);
+    connected.drawer.open(() => <PadDrawer name={name} pads={props.pads.all} onLateFailure={(message) => props.pads.failure.show(message, item)} onAcknowledged={(incarnation) => props.pads.failure.acknowledge(`pad:${incarnation}`)} />, activationSource(event));
   };
 
   const padMenu = (name: string, event: MouseEvent) => {
     event.stopPropagation();
     openOnRelease(event, (x, y) => void contextMenu(connected.app, [
-      ...linkEntries(connected.app, { kind: "pad", id: name }, connected.rail.nodes, (node) => connected.rail.exitOf(node) === null, props.pads.setFailure),
+      ...linkEntries(connected.app, { kind: "pad", id: name }, connected.rail.nodes, (node) => connected.rail.exitOf(node) === null, (message) => { const item = `pad:${props.pads.owned().find((pad) => pad.name === name)?.incarnation}`; if (message === null) props.pads.failure.acknowledge(item); else props.pads.failure.show(message, item); }),
       { id: "delete", label: copy.delete, run: () => { setSelected([name]); bulk.ask(); } },
     ], x, y));
   };
@@ -222,9 +231,15 @@ export const PadRows = (props: { pads: AgentPads; depth: number; trail: readonly
                         known={props.pads.todos.byId()}
                         onOpen={(opened, source) => connected.drawer.open(() => <TodoDrawer id={opened.id} todos={props.pads.todos} />, source)}
                         sorted={sorted}
-                        onToggle={(done) => failureOf(() => done.done
-                          ? connected.app.rpc("todo.reopen", { id: done.id })
-                          : connected.app.rpc("todo.complete", { id: done.id }))}
+                        onToggle={async (done) => {
+                          const message = await failureOf(() => done.done
+                            ? connected.app.rpc("todo.reopen", { id: done.id })
+                            : connected.app.rpc("todo.complete", { id: done.id }));
+
+                          if (message === null) props.pads.failure.acknowledge(`todo:${done.id}`);
+
+                          return message;
+                        }}
                       />
                     </Leaf>
                   );

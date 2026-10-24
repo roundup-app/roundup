@@ -159,6 +159,7 @@ export const DecisionCard = (props: { decision: Decision; name: string; focusTer
       </Show>
       <ReservedLine message={unreadable() ? "Unreadable question: Answer in the Terminal" : decisions.answerFailure(id()) ?? (props.decision.failure ? copy.answerRefused(rail.nodes.find(node => node.id === props.decision.failure!.answered_by.id)?.name ?? props.decision.failure.answered_by.id, props.decision.failure.message) : !props.selected && prompt()?.failure ? plainRefusal(prompt()!.failure!) : null)}
         status={!props.decision.answerable && !unreadable() ? copy.answerInTheTerminal : null}>
+        <Show when={!unreadable() && (decisions.answerFailure(id()) || props.decision.failure)}><button type="button" data-button="quiet" onClick={() => decisions.dismissFailure(id())}>{copy.dismiss}</button></Show>
         <Show when={!props.selected && prompt()?.failure}><button type="button" data-button="quiet" onClick={() => void refetch()}>{copy.retry}</button></Show>
       </ReservedLine>
       <Show when={props.decision.answerable ? asked() : null} keyed>
