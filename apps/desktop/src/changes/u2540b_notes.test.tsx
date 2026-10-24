@@ -485,7 +485,7 @@ it.each(["note", "all"].flatMap(scope => ["dismiss", "copy same", "copy other", 
   const first = within(recovery).getByText("  copied note e\u0301\n🐝  ", { normalizer: value => value }).parentElement!;
   const other = within(recovery).getByText("  other note 🐝  ", { normalizer: value => value }).parentElement!;
   const copied = vi.fn<(text: string) => Promise<void>>().mockRejectedValue(new Error("clipboard refused"));
-  Object.defineProperty(navigator, "clipboard", { configurable: true, value: { writeText: copied } });
+  vi.spyOn(app, "clipboardWrite").mockImplementation(copied);
   const source = scope === "all" ? within(recovery).getAllByRole("button", { name: "Copy" })[0]! : within(first).getByRole("button", { name: "Copy" });
 
   fireEvent.click(source);
@@ -519,12 +519,12 @@ it.each(["save", "cancel"])("p3557c_failure_lifetime_note_recovery_form: %s", as
   await screen.findByRole("button", { name: "Check Message history" });
   fireEvent.click(screen.getByRole("button", { name: "Add note" }));
   fireEvent.input(screen.getByRole("textbox", { name: "Note" }), { target: { value: "  exact form e\u0301\n🐝  " } });
-  fireEvent.click(screen.getByRole("button", { name: "Close" }));
+  fireEvent.click(screen.getByRole("button", { name: "Close changes" }));
   await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
   fireEvent.click(screen.getByRole("button", { name: "Recover Changes drafts" }));
   const recovery = await screen.findByRole("dialog", { name: "Recover Changes drafts" });
   const form = within(recovery).getByText("  exact form e\u0301\n🐝  ", { normalizer: value => value }).parentElement!;
-  Object.defineProperty(navigator, "clipboard", { configurable: true, value: { writeText: vi.fn().mockRejectedValue(new Error("refused")) } });
+  vi.spyOn(app, "clipboardWrite").mockRejectedValue(new Error("refused"));
   fireEvent.click(within(form).getByRole("button", { name: "Copy" }));
   await within(recovery).findByRole("alert");
   fireEvent.click(within(form).getByRole("button", { name: "Resume note" }));
