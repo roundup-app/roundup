@@ -4,9 +4,10 @@ use std::io::Read;
 use std::os::unix::process::CommandExt;
 use std::path::Path;
 use std::process::{Command, Stdio};
-use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
+use std::time::{Duration, Instant};
 
 use serde::Deserialize;
+use wait_timeout::ChildExt;
 
 const LIMIT: u64 = 1024 * 1024;
 
@@ -147,9 +148,7 @@ fn collect(gh: &Path, dir: &Path, deadline: Instant) -> Result<Evidence, Gap> {
             conclusion,
         });
     }
-    let read_at = SystemTime::now()
-        .duration_since(UNIX_EPOCH)
-        .map_or(0, |d| d.as_secs());
+    let read_at = u64::try_from(time::OffsetDateTime::now_utc().unix_timestamp()).unwrap_or(0);
     let facts = PrChecks {
         host,
         repository,
@@ -252,13 +251,10 @@ fn run(gh: &Path, dir: &Path, args: &[&str], deadline: Instant) -> Result<Output
         let _ = stdout.take(LIMIT + 1).read_to_end(&mut bytes);
         bytes
     });
-    let status = loop {
-        match child.try_wait() {
-            Ok(Some(status)) => break Some(status),
-            Ok(None) if Instant::now() < deadline => std::thread::sleep(Duration::from_millis(5)),
-            _ => break None,
-        }
-    };
+    let status = child
+        .wait_timeout(deadline.saturating_duration_since(Instant::now()))
+        .ok()
+        .flatten();
     if let Some(pid) = i32::try_from(child.id())
         .ok()
         .and_then(rustix::process::Pid::from_raw)
