@@ -263,6 +263,17 @@ export const Pane = (props: { notice?: string | null; createEmulator?: EmulatorF
     }
   };
 
+  /** P3557c: only a Takeover or Terminal failure is the user's to dismiss; a retention, Rail or Daemon line keeps its own recovery. */
+  const dismissFailure = (): (() => void) | null => {
+    if (props.notice != null || storageFailure() !== null) return null;
+
+    if (takeFailure() !== null) return () => setTakeFailure(null);
+
+    const id = terminalId();
+
+    return rail.doorFailure(selected()?.id ?? "") === null && id !== null && screens.failure(id) !== null ? () => screens.dismiss(id) : null;
+  };
+
   const focusTerminal = () => {
     const current = terminalId();
 
@@ -434,7 +445,9 @@ export const Pane = (props: { notice?: string | null; createEmulator?: EmulatorF
       <Show when={selected()?.kind === "agent" && terminalId() !== null && !closedAgent() ? selected() : null} keyed>{(node) => <NoteQueue node={node} focusTerminal={focusTerminal} />}</Show>
       </div>
       <div class="pane-failure">
-        <ReservedLine message={notice() ?? rail.workstreamFailure()} />
+        <ReservedLine message={notice() ?? rail.workstreamFailure()}>
+          <Show when={dismissFailure()}>{(dismiss) => <button data-button="quiet" type="button" class="word" onClick={() => dismiss()()}>{copy.dismissFailure}</button>}</Show>
+        </ReservedLine>
       </div>
     </div>
   );

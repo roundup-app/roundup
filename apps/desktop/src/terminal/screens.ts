@@ -39,6 +39,8 @@ export type Screens = {
   pastePaths(id: string, paths: string[]): void;
   /** The selected Terminal's last failed call or `terminal.output`, until a later call for that Terminal succeeds. */
   failure(id: string | null): string | null;
+  /** P3557c: the user dismisses the failure `failure(id)` shows; an older failure of that Terminal then shows, and no other Terminal, call or input changes. */
+  dismiss(id: string): void;
   dispose(): void;
 };
 
@@ -73,6 +75,7 @@ const takeFirst = (stream: Stream): void => {
 };
 
 type Holder = {
+  ready: boolean;
   emulator: Emulator;
   atBottom: Accessor<boolean>;
   returnToBottom: () => void;
@@ -85,6 +88,8 @@ type FailureEntry = { message: string; order: number };
 
 /** `output` is the subscription's own failure: a later successful call does not clear it, only a new subscription does. */
 type TerminalFailures = { snapshot: FailureEntry | null; live: FailureEntry | null; output: FailureEntry | null; clipboard: FailureEntry | null; link: FailureEntry | null };
+
+const FAILURE_KINDS = ["snapshot", "live", "output", "clipboard", "link"] as const;
 
 const newestFailure = (state: TerminalFailures | undefined): FailureEntry | null => {
   if (!state) return null;
@@ -164,6 +169,8 @@ export const createScreens = (connected: ConnectedProject, createEmulator: Emula
   const resize = (id: string, size: Size, changedOnly = false): void => {
     const holder = holders.get(id);
 
+    if (holder && !holder.ready) return;
+
     if (changedOnly && holder?.shownSize?.cols === size.cols && holder.shownSize.rows === size.rows) return;
 
     if (holder?.shownSize) holder.shownSize = size;
@@ -172,7 +179,7 @@ export const createScreens = (connected: ConnectedProject, createEmulator: Emula
   };
 
   const reflow = (id: string, holder: Holder): void => {
-    if (disposed || !holder.shownSize) return;
+    if (disposed || !holder.ready || !holder.shownSize) return;
 
     const fitted = holder.emulator.fit();
 
@@ -529,10 +536,18 @@ export const createScreens = (connected: ConnectedProject, createEmulator: Emula
     });
 
     const holder: Holder = {
-      emulator, atBottom, returnToBottom, stream: null, complete: false, shownSize: null,
+      emulator, ready: !emulator.ready, atBottom, returnToBottom, stream: null, complete: false, shownSize: null,
     };
 
     holders.set(id, holder);
+
+    void emulator.ready?.then(() => {
+      if (disposed) return;
+
+      holder.ready = true;
+
+      if (holder.shownSize && holder.stream?.open) resize(id, holder.emulator.fit());
+    });
 
     return holder;
   };
@@ -651,6 +666,12 @@ export const createScreens = (connected: ConnectedProject, createEmulator: Emula
       }
 
       return latest?.message ?? null;
+    },
+    dismiss: (id) => {
+      const state = failures().get(id);
+      const shown = newestFailure(state);
+
+      for (const kind of FAILURE_KINDS) if (state?.[kind] === shown) setFailure(id, kind, null);
     },
     dispose: () => {
       disposed = true;
