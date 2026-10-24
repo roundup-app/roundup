@@ -1,6 +1,8 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it } from "vitest";
 import { reportTerminal } from "./run";
 import { PATIENCE_MS, createKeystrokeProbe, typeKeys } from "./keystrokes";
+
+afterEach(() => document.body.replaceChildren());
 
 const bytes = (text: string) => new TextEncoder().encode(text);
 
@@ -28,7 +30,6 @@ describe("k2 a sample is keydown to the render that shows its echo", () => {
     run.input()!.dispatchEvent(new KeyboardEvent("keypress", { key: "a" }));
 
     expect(received).toEqual(["shell"]);
-    document.body.replaceChildren();
   });
 
   it("k2_the_render_after_the_echo_counts_as_the_time_since_the_keydown", () => {

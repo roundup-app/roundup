@@ -121,6 +121,10 @@ export const reportTerminal = <E extends Pick<Emulator, "write">>(create: (id: s
   return {
     printed,
     target: () => target,
+    /** K3 types into the same Terminal as the report; an Agent can already have an xterm input earlier in the document. */
+    input: () => [...document.querySelectorAll<HTMLElement>(".bubble[data-bubble]")]
+      .find((bubble) => bubble.dataset.bubble === target)
+      ?.querySelector<HTMLTextAreaElement>("textarea.xterm-helper-textarea") ?? null,
     createEmulator: (id: string): E => {
       const emulator = create(id);
 
@@ -179,9 +183,9 @@ export const createKeystrokeRun = (app: AppSeam) => {
     // U165: ⌘T opens the Terminal in the selected Workstream; its bubble takes the keys.
     document.dispatchEvent(new KeyboardEvent("keydown", { key: "t", code: "KeyT", metaKey: true, bubbles: true, cancelable: true }));
 
-    const textarea = await appears(() => document.querySelector<HTMLTextAreaElement>("textarea.xterm-helper-textarea"), "the Terminal's input");
-
     await bounded(terminal.printed, SETUP_BOUND_MS, `the Terminal's ${READY} line`);
+
+    const textarea = await appears(terminal.input, "the ready Terminal's input");
     textarea.focus();
 
     // A window drawn at no rate gives no animation frame: the run must say so rather than wait for one.

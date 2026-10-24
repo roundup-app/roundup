@@ -174,6 +174,25 @@ evidence. Hop instrumentation, the measured repair, the Solo comparisons and
 the final three passing native runs remain #3550 acceptance.
 
 
+The recorder repairs in #3694 and #3717 merged before a further native run at
+`01dacd91ce7b1e5ffd874202df4ada323e114d5c`. The command above exited 2: all
+three reports contained `{"probe":"roundup-keystroke-probe","error":"no key was echoed and rendered after the warm-up"}`.
+The machine was an M4 Max MacBook Pro, 16 CPUs, macOS 26.0.1, AC power at
+100% charge, Low Power Mode off, unlocked, with the owner not touching the
+window. Per-run 1-minute loads were 10.69091796875, 2.76953125 and
+2.396484375 (0.67, 0.17 and 0.15 per CPU); the first run was busy after the
+release build. There are no latency, renderer, frame-time or timer-resolution
+measurements from these failed runs. Full console output and the saved report
+remain on [#3550](https://github.com/saadshahd/roundup/issues/3550).
+
+The next recorder repair binds typing to the Terminal that printed `ready`,
+which already owns report delivery. The old document-wide lookup could select
+an Agent's earlier xterm textarea. A no-window regression test demonstrates
+that case with two inputs, and asserts that only the ready shell receives the
+key. This repairs input selection, not a measured performance hop; complete
+R20 attribution and R21's latency repair remain open.
+
+
 ## X14 retained flood observation
 
 `just perf --flood --out target/perf-flood.json` builds the release probe and runs
