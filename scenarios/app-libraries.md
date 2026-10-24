@@ -57,7 +57,13 @@ Policy for any measurement command introduced by implementation: retain one fail
 |---|---|
 | Valid samples meet the declared budget (including a valid no-gap decision) | 0 |
 | Valid samples exceed the budget | 1 |
-| Missing samples, wrong revision/host pairing, unsupported observer, setup/cleanup failure or incomplete actions | 2 |
+| Missing samples | 2 |
+| Wrong revision pairing | 2 |
+| Different host or observer for before/after | 2 |
+| Unsupported observer | 2 |
+| Setup failure | 2 |
+| Cleanup failure | 2 |
+| Incomplete actions | 2 |
 
 ## Library candidates
 
