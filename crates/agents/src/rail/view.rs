@@ -16,7 +16,7 @@ pub(super) fn load_nodes(
         .map_err(sql)?;
     let rows = query
         .query_map([include_preparation], |row| {
-            let kind = match row.get::<_, String>(1)?.as_str() {
+            let kind = match row.get_ref(1)?.as_str()? {
                 "group" | "workstream" => NodeKind::Workstream,
                 _ => NodeKind::Agent,
             };
@@ -29,8 +29,9 @@ pub(super) fn load_nodes(
                 _ => None,
             };
             let stored = row
-                .get::<_, Option<String>>(10)?
-                .and_then(|json| serde_json::from_str(&json).ok());
+                .get_ref(10)?
+                .as_str_or_null()?
+                .and_then(|json| serde_json::from_str(json).ok());
             let work = match kind {
                 NodeKind::Workstream => Some(stored.unwrap_or_else(workstream_order)),
                 NodeKind::Agent => stored,
@@ -79,7 +80,8 @@ impl Rail {
         let mut flat = load(&self.db)?;
         flat.sort_by_key(|node| node.order);
         let mut out = Vec::with_capacity(flat.len());
-        descend(&flat, None, &mut out);
+        let mut flat: Vec<_> = flat.into_iter().map(Some).collect();
+        descend(&mut flat, None, &mut out);
         Ok(out)
     }
 
@@ -134,9 +136,22 @@ impl Rail {
     }
 }
 
-fn descend(nodes: &[RailNode], parent: Option<&str>, out: &mut Vec<RailNode>) {
-    for node in nodes.iter().filter(|node| node.parent.as_deref() == parent) {
-        out.push(node.clone());
-        descend(nodes, Some(&node.id), out);
+// R3696c: a forty-Workstream reply allocated 530 times (181 KB). Move the
+// loaded nodes into traversal order rather than cloning their strings and Orders.
+fn descend(nodes: &mut [Option<RailNode>], parent: Option<&str>, out: &mut Vec<RailNode>) {
+    for index in 0..nodes.len() {
+        if !nodes[index]
+            .as_ref()
+            .is_some_and(|node| node.parent.as_deref() == parent)
+        {
+            continue;
+        }
+        let mut node = nodes[index].take().expect("selected node");
+        // Keep the id locally during recursion so neither it nor the node is copied.
+        let id = std::mem::take(&mut node.id);
+        let at = out.len();
+        out.push(node);
+        descend(nodes, Some(&id), out);
+        out[at].id = id;
     }
 }

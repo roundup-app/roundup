@@ -81,7 +81,6 @@ impl Shared {
             Some(Slot::Starting { .. } | Slot::Resuming { .. }) => Some("1".into()),
             _ => None,
         };
-        let finished = finished.to_string();
         let live = match runs.get(&node.id) {
             Some(Slot::Running(run)) => run
                 .adapter
@@ -91,7 +90,7 @@ impl Shared {
                 kind: Kind::Working,
                 label: "starting".into(),
                 since: *since,
-                finished: finished.clone(),
+                finished: finished.to_string(),
             }),
             Some(Slot::ResumeCleanup {
                 terminal_id, error, ..
@@ -101,7 +100,7 @@ impl Shared {
                     kind: Kind::Error,
                     label: error.message.clone(),
                     since: self.rail_view.opened,
-                    finished: finished.clone(),
+                    finished: finished.to_string(),
                 })
             }
             None | Some(Slot::Closing) => None,
@@ -110,7 +109,7 @@ impl Shared {
             kind: Kind::Done,
             label: "terminal gone".into(),
             since: self.rail_view.opened,
-            finished: finished.clone(),
+            finished: finished.to_string(),
         }));
         // A22: exited (no live process, and no start in flight), with A21 data to resume.
         let exited = match runs.get(&node.id) {
