@@ -692,3 +692,57 @@ fn assemble(
     });
     Ok((out, admitted))
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn row(id: &str, cwd: Option<&Path>) -> (Row, bool) {
+        let row = Row {
+            session_id: id.into(),
+            summary: None,
+            custom_title: None,
+            last_modified: 1,
+            cwd: cwd.map(|c| c.to_string_lossy().into_owned()),
+        };
+        (row, false)
+    }
+
+    /// U3523h: a source that is a directory fails any content open, so an `assemble` that
+    /// opens a session errors; the listing of 3,000 unrelated sessions must stay clean.
+    #[test]
+    fn u3523h_unrelated_sessions_are_not_opened() {
+        let base = std::env::temp_dir().join(format!("u3523h-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&base);
+        let root = base.join("projects");
+        let project = base.join("project");
+        let elsewhere = base.join("elsewhere");
+        for dir in [&project, &elsewhere, &root.join("bucket")] {
+            std::fs::create_dir_all(dir).unwrap();
+        }
+        let id = |n: usize| format!("{n:08x}-0000-4000-8000-000000000000");
+        let mut rows = Vec::new();
+        for n in 1..=3000 {
+            std::fs::create_dir(root.join("bucket").join(format!("{}.jsonl", id(n)))).unwrap();
+            rows.push(row(&id(n), Some(&elsewhere)));
+        }
+        let deadline = Instant::now() + Duration::from_secs(30);
+        let run = |rows| {
+            assemble(
+                &root,
+                &project,
+                std::slice::from_ref(&project),
+                rows,
+                HashMap::new(),
+                0,
+                deadline,
+            )
+        };
+        let (listing, admitted) = run(rows).expect("no unrelated session is opened");
+        assert!(listing.candidates.is_empty() && admitted.is_empty());
+        // Control: the same kind of source, with no cwd to decide it, is opened and fails.
+        let control = run(vec![row(&id(1), None)]);
+        assert!(control.is_err(), "fixture must fail a content open");
+        std::fs::remove_dir_all(&base).unwrap();
+    }
+}
