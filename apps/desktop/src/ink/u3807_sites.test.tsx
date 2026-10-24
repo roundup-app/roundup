@@ -108,7 +108,7 @@ it.each(readers)("u3807_each_site_shows_its_message_in_the_reserved_line: $site"
   expect(alert.textContent).toContain(FAILURE);
   unchanged(places, place);
   Object.assign(mounted.app.handlers, { [site.method]: original });
-  const retry = within(place).queryByRole("button");
+  const retry = place.querySelector<HTMLElement>("button:not([data-dismiss-failure])");
 
   if (retry) fireEvent.click(retry);
   else site.refresh(mounted);
@@ -193,7 +193,7 @@ it("u3807_each_site_shows_its_message_in_the_reserved_line: Todo row", async () 
   const place = (await within(row).findByRole("alert")).closest<HTMLElement>(".reserved-line")!;
   unchanged(places, place);
   expect([...row.children]).toEqual(siblings);
-  fireEvent.click(document.body);
+  fireEvent.click(within(place).getByRole("button", { name: "Dismiss failure" }));
   await waitFor(() => expect(within(row).queryByRole("alert")).toBeNull());
   unchanged(places, place);
   expect([...row.children]).toEqual(siblings);

@@ -70,6 +70,6 @@ export const TodoAuto = (props: { home: Accessor<string | null> }) => {
       setPending(false);
     }}>{copy.todoAuto}</Switch>
     <span class="todo-auto-hint">{copy.todoAutoHint}</span>
-    <ReservedLine overlay message={failure()}><button data-dismiss-failure onMouseDown={event => event.preventDefault()} data-button="quiet" class="word" type="button" onClick={() => setFailure(null)}>Dismiss failure</button></ReservedLine>
+    <ReservedLine overlay message={failure()}><button data-dismiss-failure onMouseDown={event => event.preventDefault()} data-button="quiet" class="word" type="button" onClick={() => setFailure(null)}>{copy.dismissFailure}</button></ReservedLine>
   </div>}</Show>;
 };

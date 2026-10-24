@@ -137,7 +137,7 @@ export const TodoComments = (props: { id: number; onSent?: (() => void) | undefi
 
   return <section class="todo-comments" aria-label={copy.commentsHeading(thread.length)}>
     <h3>{copy.commentsHeading(thread.length)}</h3>
-    <ReservedLine message={failure()}><button data-button="quiet" class="word" type="button" onClick={() => void refresh()}>{copy.commentRetry}</button><button data-dismiss-failure onMouseDown={event => event.preventDefault()} data-button="quiet" class="word" type="button" onClick={() => setFailure(null)}>Dismiss failure</button></ReservedLine>
+    <ReservedLine message={failure()}><button data-button="quiet" class="word" type="button" onClick={() => void refresh()}>{copy.commentRetry}</button><button data-dismiss-failure onMouseDown={event => event.preventDefault()} data-button="quiet" class="word" type="button" onClick={() => setFailure(null)}>{copy.dismissFailure}</button></ReservedLine>
     <For each={thread}>{(comment) => <div class="todo-comment" data-comment={comment.id} data-fresh={fresh().has(comment.id) ? "" : undefined}>
       <p class="todo-comment-head"><Show when={glyphOf(comment)} fallback={<Show when={comment.author.kind === "agent"}><span class="todo-comment-glyph-gap" aria-hidden="true" /></Show>}>{(node) => <KindGlyph kind={node().status?.kind ?? "idle"} />}</Show><span class="todo-comment-author">{author(comment)}</span> <time datetime={new Date(comment.created_at).toISOString()}>{copy.commentTime(comment.created_at)}</time>
         <Show when={comment.author.kind === "agent"}><button data-button="quiet" class="word" type="button" onClick={() => field?.focus()}>{copy.reply}</button></Show></p>
@@ -157,7 +157,7 @@ export const TodoComments = (props: { id: number; onSent?: (() => void) | undefi
 
         if (event.key === "Enter" && !event.shiftKey && !event.isComposing) { event.preventDefault(); void send(); }
       }} />
-    <ReservedLine message={sendFailure()}><button data-dismiss-failure onMouseDown={event => event.preventDefault()} data-button="quiet" class="word" type="button" onClick={() => setSendFailure(null)}>Dismiss failure</button></ReservedLine>
+    <ReservedLine message={sendFailure()}><button data-dismiss-failure onMouseDown={event => event.preventDefault()} data-button="quiet" class="word" type="button" onClick={() => setSendFailure(null)}>{copy.dismissFailure}</button></ReservedLine>
     <p class="todo-comments-send"><button data-button="quiet" class="word" type="button" aria-disabled={text().trim() === "" || sending() ? true : undefined} onClick={() => void send()}>{copy.comment}</button></p>
   </section>;
 };

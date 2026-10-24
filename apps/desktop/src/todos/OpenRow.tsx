@@ -221,7 +221,7 @@ export const OpenRow = (props: {
         <p class="item-description" data-todo-description title={bodyLine()}>{bodyLine()}</p>
       </Show>
       {props.groupProgress}
-      <div class="todo-row-notice"><ReservedLine overlay message={failure()}><button data-button="quiet" class="word" type="button" data-dismiss-failure onMouseDown={event => event.preventDefault()} onClick={clearFailure}>Dismiss failure</button></ReservedLine></div>
+      <div class="todo-row-notice"><ReservedLine overlay message={failure()}><button data-button="quiet" class="word" type="button" data-dismiss-failure onMouseDown={event => event.preventDefault()} onClick={clearFailure}>{copy.dismissFailure}</button></ReservedLine></div>
       <Show when={props.nested}>
         <p class="shelf-meta" data-todo-meta>
           <Show when={props.nested}><span data-mono>{copy.todoNumberMark}{props.todo.id}</span>{" "}</Show>

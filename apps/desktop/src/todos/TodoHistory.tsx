@@ -147,7 +147,7 @@ export const TodoHistory = (props: { id: number; saved?: () => number; onCapture
 
   return <>
     <ReservedLine message={copyFailure() ?? failure()} content={failure() && count() === 0 && !opened() ? <button data-button="quiet" class="word" type="button" aria-expanded={false} onClick={toggle}>{copy.changes}</button> : undefined}>
-      <button data-button="quiet" class="word" type="button" onClick={() => void refresh()}>{copy.retryHistory}</button><button data-dismiss-failure onMouseDown={event => event.preventDefault()} data-button="quiet" class="word" type="button" onClick={() => { failCopy(null); setFailure(null); }}>Dismiss failure</button>
+      <button data-button="quiet" class="word" type="button" onClick={() => void refresh()}>{copy.retryHistory}</button><button data-dismiss-failure onMouseDown={event => event.preventDefault()} data-button="quiet" class="word" type="button" onClick={() => { failCopy(null); setFailure(null); }}>{copy.dismissFailure}</button>
     </ReservedLine>
     <Show when={count() > 0}>
     <section class="todo-history" aria-label={copy.todoHistory}>
