@@ -1,0 +1,244 @@
+[
+  {
+    "source": "https://github.com/saadshahd/roundup/issues/3550#issuecomment-6387445289",
+    "recorded_at": "2026-10-24T17:41:25Z",
+    "observer": "saadshahd",
+    "comment": "Mac run for the needs-mac ask above: `ROUNDUP_ALLOW_WINDOW=1 just perf-keystroke --out target/perf-keystroke-before.json` at `01dacd91c`.\n\n**Exit code 2. No report:** all three runs failed with `no key was echoed and rendered after the warm-up`. This is the \"setup error naming a wait\" branch. The warm-up wait never saw a key echoed and rendered.\n\n- MacBook Pro M4 Max, 16 CPUs, macOS 26.0.1, AC power (100%, charged), Low Power Mode off. The screen was unlocked and the owner was at the Mac, not touching the window.\n- 1-min load per run: 10.69, 2.77, 2.40, which is 0.67, 0.17 and 0.15 per CPU. Run 1 is busy: it started right after the release build.\n\n<details><summary>target/perf-keystroke-before.json</summary>\n\n```json\n{\n  \"os\": \"macos\",\n  \"cpus\": 16,\n  \"loads\": [\n    10.69091796875,\n    2.76953125,\n    2.396484375\n  ],\n  \"runs\": 3,\n  \"reports\": [\n    {\n      \"probe\": \"roundup-keystroke-probe\",\n      \"error\": \"no key was echoed and rendered after the warm-up\"\n    },\n    {\n      \"probe\": \"roundup-keystroke-probe\",\n      \"error\": \"no key was echoed and rendered after the warm-up\"\n    },\n    {\n      \"probe\": \"roundup-keystroke-probe\",\n      \"error\": \"no key was echoed and rendered after the warm-up\"\n    }\n  ],\n  \"limit_ms\": 16.0,\n  \"exit\": 2,\n  \"failures\": [\n    \"run 1: invalid observation: the webview failed: no key was echoed and rendered after the warm-up\",\n    \"run 2: invalid observation: the webview failed: no key was echoed and rendered after the warm-up\",\n    \"run 3: invalid observation: the webview failed: no key was echoed and rendered after the warm-up\"\n  ]\n}\n```\n</details>\n\n<details><summary>Console output (build lines cut)</summary>\n\n```\n ^[[38;5;240m  \u2502^[[0m       \u2570\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500 module level directive may not be preserved\n ^[[38;5;240m  \u2502^[[0m \n ^[[38;5;240m  \u2502^[[0m ^[[38;5;115mHelp^[[0m: For more information, see https://rolldown.rs/in-depth/directives#other-directives\n^[[38;5;246m\u2500\u2500\u2500\u256f^[[0m\n^[[39m\n^[[33m^[[33m[MODULE_LEVEL_DIRECTIVE] ^[[0mThe semantics of the module level directive \"use client\" in \"../../node_modules/.pnpm/@radix-ui+react-portal@1.1.4_@types+react-dom@19.3.0_@types+react@19.3.0__@types+react@_6d7db2243a501b91e560b91fb93492c3/node_modules/@radix-ui/react-portal/dist/index.mjs\" may not be preserved when bundling.\n   ^[[38;5;246m\u256d^[[0m^[[38;5;246m\u2500^[[0m^[[38;5;246m[^[[0m ../../node_modules/.pnpm/@radix-ui+react-portal@1.1.4_@types+react-dom@19.3.0_@types+react@19.3.0__@types+react@_6d7db2243a501b91e560b91fb93492c3/node_modules/@radix-ui/react-portal/dist/index.mjs:1:1 ^[[38;5;246m]^[[0m\n   ^[[38;5;246m\u2502^[[0m\n ^[[38;5;246m1 \u2502^[[0m \"use client\";\n ^[[38;5;240m  \u2502^[[0m \u2500\u2500\u2500\u2500\u2500\u2500\u252c\u2500\u2500\u2500\u2500\u2500\u2500  \n ^[[38;5;240m  \u2502^[[0m       \u2570\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500 module level directive may not be preserved\n ^[[38;5;240m  \u2502^[[0m \n ^[[38;5;240m  \u2502^[[0m ^[[38;5;115mHelp^[[0m: For more information, see https://rolldown.rs/in-depth/directives#other-directives\n^[[38;5;246m\u2500\u2500\u2500\u256f^[[0m\n^[[39m\n^[[33m^[[33m[MODULE_LEVEL_DIRECTIVE] ^[[0mThe semantics of the module level directive \"use client\" in \"../../node_modules/.pnpm/@radix-ui+react-dismissable-layer@1.1.5_@types+react-dom@19.3.0_@types+react@19.3.0__@t_d0af1d5254a75defff58e08d9ce6af3a/node_modules/@radix-ui/react-dismissable-layer/dist/index.mjs\" may not be preserved when bundling.\n   ^[[38;5;246m\u256d^[[0m^[[38;5;246m\u2500^[[0m^[[38;5;246m[^[[0m ../../node_modules/.pnpm/@radix-ui+react-dismissable-layer@1.1.5_@types+react-dom@19.3.0_@types+react@19.3.0__@t_d0af1d5254a75defff58e08d9ce6af3a/node_modules/@radix-ui/react-dismissable-layer/dist/index.mjs:1:1 ^[[38;5;246m]^[[0m\n   ^[[38;5;246m\u2502^[[0m\n ^[[38;5;246m1 \u2502^[[0m \"use client\";\n ^[[38;5;240m  \u2502^[[0m \u2500\u2500\u2500\u2500\u2500\u2500\u252c\u2500\u2500\u2500\u2500\u2500\u2500  \n ^[[38;5;240m  \u2502^[[0m       \u2570\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500 module level directive may not be preserved\n ^[[38;5;240m  \u2502^[[0m \n ^[[38;5;240m  \u2502^[[0m ^[[38;5;115mHelp^[[0m: For more information, see https://rolldown.rs/in-depth/directives#other-directives\n^[[38;5;246m\u2500\u2500\u2500\u256f^[[0m\n^[[39m\n^[[33m^[[33m[MODULE_LEVEL_DIRECTIVE] ^[[0mThe semantics of the module level directive \"use client\" in \"../../node_modules/.pnpm/@radix-ui+react-focus-scope@1.1.2_@types+react-dom@19.3.0_@types+react@19.3.0__@types+r_988a42ff0f98d299e5cc74ff1bfdb3c7/node_modules/@radix-ui/react-focus-scope/dist/index.mjs\" may not be preserved when bundling.\n   ^[[38;5;246m\u256d^[[0m^[[38;5;246m\u2500^[[0m^[[38;5;246m[^[[0m ../../node_modules/.pnpm/@radix-ui+react-focus-scope@1.1.2_@types+react-dom@19.3.0_@types+react@19.3.0__@types+r_988a42ff0f98d299e5cc74ff1bfdb3c7/node_modules/@radix-ui/react-focus-scope/dist/index.mjs:1:1 ^[[38;5;246m]^[[0m\n   ^[[38;5;246m\u2502^[[0m\n ^[[38;5;246m1 \u2502^[[0m \"use client\";\n ^[[38;5;240m  \u2502^[[0m \u2500\u2500\u2500\u2500\u2500\u2500\u252c\u2500\u2500\u2500\u2500\u2500\u2500  \n ^[[38;5;240m  \u2502^[[0m       \u2570\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500 module level directive may not be preserved\n ^[[38;5;240m  \u2502^[[0m \n ^[[38;5;240m  \u2502^[[0m ^[[38;5;115mHelp^[[0m: For more information, see https://rolldown.rs/in-depth/directives#other-directives\n^[[38;5;246m\u2500\u2500\u2500\u256f^[[0m\n^[[39m\n^[[33m^[[33m[MODULE_LEVEL_DIRECTIVE] ^[[0mThe semantics of the module level directive \"use client\" in \"../../node_modules/.pnpm/@radix-ui+react-popper@1.2.2_@types+react-dom@19.3.0_@types+react@19.3.0__@types+react@_40109e7c38660447259f77f089ec67c9/node_modules/@radix-ui/react-popper/dist/index.mjs\" may not be preserved when bundling.\n   ^[[38;5;246m\u256d^[[0m^[[38;5;246m\u2500^[[0m^[[38;5;246m[^[[0m ../../node_modules/.pnpm/@radix-ui+react-popper@1.2.2_@types+react-dom@19.3.0_@types+react@19.3.0__@types+react@_40109e7c38660447259f77f089ec67c9/node_modules/@radix-ui/react-popper/dist/index.mjs:1:1 ^[[38;5;246m]^[[0m\n   ^[[38;5;246m\u2502^[[0m\n ^[[38;5;246m1 \u2502^[[0m \"use client\";\n ^[[38;5;240m  \u2502^[[0m \u2500\u2500\u2500\u2500\u2500\u2500\u252c\u2500\u2500\u2500\u2500\u2500\u2500  \n ^[[38;5;240m  \u2502^[[0m       \u2570\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500 module level directive may not be preserved\n ^[[38;5;240m  \u2502^[[0m \n ^[[38;5;240m  \u2502^[[0m ^[[38;5;115mHelp^[[0m: For more information, see https://rolldown.rs/in-depth/directives#other-directives\n^[[38;5;246m\u2500\u2500\u2500\u256f^[[0m\n^[[39m\n^[[32m\u2713 built in 1.87s^[[39m\n    Finished `release` profile [optimized] target(s) in 58.70s\n    Finished `release` profile [optimized] target(s) in 40.59s\nperf-keystroke: this opens a window over your screen for about 40 s per run\nrun 1/3: load 10.7\nrun 1: {\"probe\":\"roundup-keystroke-probe\",\"error\":\"no key was echoed and rendered after the warm-up\"}\nrun 2/3: load 2.8\nrun 2: {\"probe\":\"roundup-keystroke-probe\",\"error\":\"no key was echoed and rendered after the warm-up\"}\nrun 3/3: load 2.4\nrun 3: {\"probe\":\"roundup-keystroke-probe\",\"error\":\"no key was echoed and rendered after the warm-up\"}\nrun 1: invalid observation: the webview failed: no key was echoed and rendered after the warm-up\nrun 2: invalid observation: the webview failed: no key was echoed and rendered after the warm-up\nrun 3: invalid observation: the webview failed: no key was echoed and rendered after the warm-up\nreport: target/perf-keystroke-before.json\nerror: recipe `perf-keystroke` failed with exit code 2\n```\n</details>\n",
+    "report": {
+      "os": "macos",
+      "cpus": 16,
+      "loads": [
+        10.69091796875,
+        2.76953125,
+        2.396484375
+      ],
+      "runs": 3,
+      "reports": [
+        {
+          "probe": "roundup-keystroke-probe",
+          "error": "no key was echoed and rendered after the warm-up"
+        },
+        {
+          "probe": "roundup-keystroke-probe",
+          "error": "no key was echoed and rendered after the warm-up"
+        },
+        {
+          "probe": "roundup-keystroke-probe",
+          "error": "no key was echoed and rendered after the warm-up"
+        }
+      ],
+      "limit_ms": 16.0,
+      "exit": 2,
+      "failures": [
+        "run 1: invalid observation: the webview failed: no key was echoed and rendered after the warm-up",
+        "run 2: invalid observation: the webview failed: no key was echoed and rendered after the warm-up",
+        "run 3: invalid observation: the webview failed: no key was echoed and rendered after the warm-up"
+      ]
+    }
+  },
+  {
+    "source": "https://github.com/saadshahd/roundup/issues/3550#issuecomment-6387912547",
+    "recorded_at": "2026-10-24T18:26:21Z",
+    "observer": "saadshahd",
+    "comment": "Mac run for the needs-mac ask above, `ROUNDUP_ALLOW_WINDOW=1 just perf-keystroke --out target/perf-keystroke-ready-terminal.json` at `7ce598e5a`.\n\n**Exit code 2, and no report: the same failure as at `01dacd91c`.** All three runs gave `no key was echoed and rendered after the warm-up`, so #3748 did not change the result.\n\n- MacBook Pro M4 Max, 16 CPUs, macOS 26.0.1. AC power, Low Power Mode off. The screen was unlocked and the owner sat at the Mac without touching the window.\n- The release build ran before the measurement. 1-min load per run was 4.62, 2.81 and 2.32, which is 0.29, 0.18 and 0.15 per CPU.\n\n<details><summary>target/perf-keystroke-ready-terminal.json</summary>\n\n```json\n{\n  \"os\": \"macos\",\n  \"cpus\": 16,\n  \"loads\": [\n    4.623046875,\n    2.81201171875,\n    2.32275390625\n  ],\n  \"runs\": 3,\n  \"reports\": [\n    {\n      \"probe\": \"roundup-keystroke-probe\",\n      \"error\": \"no key was echoed and rendered after the warm-up\"\n    },\n    {\n      \"probe\": \"roundup-keystroke-probe\",\n      \"error\": \"no key was echoed and rendered after the warm-up\"\n    },\n    {\n      \"probe\": \"roundup-keystroke-probe\",\n      \"error\": \"no key was echoed and rendered after the warm-up\"\n    }\n  ],\n  \"limit_ms\": 16.0,\n  \"exit\": 2,\n  \"failures\": [\n    \"run 1: invalid observation: the webview failed: no key was echoed and rendered after the warm-up\",\n    \"run 2: invalid observation: the webview failed: no key was echoed and rendered after the warm-up\",\n    \"run 3: invalid observation: the webview failed: no key was echoed and rendered after the warm-up\"\n  ]\n}\n```\n</details>\n\n<details><summary>Console output (build lines cut)</summary>\n\n```\nperf-keystroke: this opens a window over your screen for about 40 s per run\nrun 1/3: load 4.6\nrun 1: {\"probe\":\"roundup-keystroke-probe\",\"error\":\"no key was echoed and rendered after the warm-up\"}\nrun 2/3: load 2.8\nrun 2: {\"probe\":\"roundup-keystroke-probe\",\"error\":\"no key was echoed and rendered after the warm-up\"}\nrun 3/3: load 2.3\nrun 3: {\"probe\":\"roundup-keystroke-probe\",\"error\":\"no key was echoed and rendered after the warm-up\"}\nrun 1: invalid observation: the webview failed: no key was echoed and rendered after the warm-up\nrun 2: invalid observation: the webview failed: no key was echoed and rendered after the warm-up\nrun 3: invalid observation: the webview failed: no key was echoed and rendered after the warm-up\nreport: target/perf-keystroke-ready-terminal.json\nerror: recipe `perf-keystroke` failed with exit code 2\n```\n</details>\n",
+    "report": {
+      "os": "macos",
+      "cpus": 16,
+      "loads": [
+        4.623046875,
+        2.81201171875,
+        2.32275390625
+      ],
+      "runs": 3,
+      "reports": [
+        {
+          "probe": "roundup-keystroke-probe",
+          "error": "no key was echoed and rendered after the warm-up"
+        },
+        {
+          "probe": "roundup-keystroke-probe",
+          "error": "no key was echoed and rendered after the warm-up"
+        },
+        {
+          "probe": "roundup-keystroke-probe",
+          "error": "no key was echoed and rendered after the warm-up"
+        }
+      ],
+      "limit_ms": 16.0,
+      "exit": 2,
+      "failures": [
+        "run 1: invalid observation: the webview failed: no key was echoed and rendered after the warm-up",
+        "run 2: invalid observation: the webview failed: no key was echoed and rendered after the warm-up",
+        "run 3: invalid observation: the webview failed: no key was echoed and rendered after the warm-up"
+      ]
+    }
+  },
+  {
+    "source": "https://github.com/saadshahd/roundup/issues/3550#issuecomment-6388267433",
+    "recorded_at": "2026-10-24T19:00:50Z",
+    "observer": "saadshahd",
+    "comment": "Mac run of `ROUNDUP_ALLOW_WINDOW=1 just perf-keystroke --out target/perf-keystroke-before.json` on PR #3755 (branch `build/issue-3550-mac`, `853f9440b`, rebased on `59cff55ca`). **Exit 0**: every run had p95 10 ms and 0 dropped keys.\n\nCause: the Workstream's Agent Terminal showed about 200 ms after the shell bubble printed `ready` and took focus. That folded the bubble (display none), and xterm's IntersectionObserver paused rendering, so the echoes were parsed but never rendered. Details are in #3755.\n\nMacBook Pro M4 Max, 16 CPUs, macOS 26.0.1, AC power, Low Power Mode off; loads 5.8 / 4.4 / 3.1.\n\n<details><summary>target/perf-keystroke-before.json</summary>\n\n```json\n{\n  \"os\": \"macos\",\n  \"cpus\": 16,\n  \"loads\": [\n    5.7705078125,\n    4.4482421875,\n    3.05078125\n  ],\n  \"runs\": 3,\n  \"reports\": [\n    {\n      \"probe\": \"roundup-keystroke-probe\",\n      \"n\": 1000,\n      \"dropped\": 0,\n      \"p50\": 6,\n      \"p95\": 10,\n      \"p99\": 12,\n      \"max\": 31.00000000000091,\n      \"hops\": {\n        \"keydown_to_input\": {\n          \"n\": 1000,\n          \"p50\": 0,\n          \"p95\": 1\n        },\n        \"input_to_dispatch\": {\n          \"n\": 1000,\n          \"p50\": 0,\n          \"p95\": 1\n        },\n        \"dispatch_to_echo_event\": {\n          \"n\": 1000,\n          \"p50\": 1.999999999996362,\n          \"p95\": 3.000000000001819\n        },\n        \"echo_event_to_parsed\": {\n          \"n\": 1000,\n          \"p50\": 0,\n          \"p95\": 0\n        },\n        \"parsed_to_frame\": {\n          \"n\": 1000,\n          \"p50\": 4,\n          \"p95\": 7.000000000003638\n        },\n        \"write_reply\": {\n          \"n\": 1000,\n          \"p50\": 1.000000000001819,\n          \"p95\": 4\n        }\n      },\n      \"hop_uncertainty_ms\": 1,\n      \"keys\": 1000,\n      \"patience_ms\": 500,\n      \"renderer\": \"webgl\",\n      \"frame_ms\": 8.322033898305085,\n      \"timer_resolution_ms\": 1,\n      \"device_pixel_ratio\": 2,\n      \"user_agent\": \"Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko)\"\n    },\n    {\n      \"probe\": \"roundup-keystroke-probe\",\n      \"n\": 1000,\n      \"dropped\": 0,\n      \"p50\": 5.999999999992724,\n      \"p95\": 10,\n      \"p99\": 11.00000000000091,\n      \"max\": 25.99999999999909,\n      \"hops\": {\n        \"keydown_to_input\": {\n          \"n\": 1000,\n          \"p50\": 0,\n          \"p95\": 1\n        },\n        \"input_to_dispatch\": {\n          \"n\": 1000,\n          \"p50\": 0,\n          \"p95\": 1\n        },\n        \"dispatch_to_echo_event\": {\n          \"n\": 1000,\n          \"p50\": 1.000000000003638,\n          \"p95\": 3\n        },\n        \"echo_event_to_parsed\": {\n          \"n\": 1000,\n          \"p50\": 0,\n          \"p95\": 0\n        },\n        \"parsed_to_frame\": {\n          \"n\": 1000,\n          \"p50\": 3.999999999996362,\n          \"p95\": 7.000000000003638\n        },\n        \"write_reply\": {\n          \"n\": 1000,\n          \"p50\": 1,\n          \"p95\": 3.9999999999990905\n        }\n      },\n      \"hop_uncertainty_ms\": 1,\n      \"keys\": 1000,\n      \"patience_ms\": 500,\n      \"renderer\": \"webgl\",\n      \"frame_ms\": 8.35593220338983,\n      \"timer_resolution_ms\": 1,\n      \"device_pixel_ratio\": 2,\n      \"user_agent\": \"Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko)\"\n    },\n    {\n      \"probe\": \"roundup-keystroke-probe\",\n      \"n\": 1000,\n      \"dropped\": 0,\n      \"p50\": 5.999999999992724,\n      \"p95\": 10,\n      \"p99\": 15,\n      \"max\": 29,\n      \"hops\": {\n        \"keydown_to_input\": {\n          \"n\": 1000,\n          \"p50\": 0,\n          \"p95\": 1\n        },\n        \"input_to_dispatch\": {\n          \"n\": 1000,\n          \"p50\": 0,\n          \"p95\": 1\n        },\n        \"dispatch_to_echo_event\": {\n          \"n\": 1000,\n          \"p50\": 1.999999999996362,\n          \"p95\": 3.999999999996362\n        },\n        \"echo_event_to_parsed\": {\n          \"n\": 1000,\n          \"p50\": 0,\n          \"p95\": 0\n        },\n        \"parsed_to_frame\": {\n          \"n\": 1000,\n          \"p50\": 3.999999999992724,\n          \"p95\": 7\n        },\n        \"write_reply\": {\n          \"n\": 1000,\n          \"p50\": 1,\n          \"p95\": 4\n        }\n      },\n      \"hop_uncertainty_ms\": 1,\n      \"keys\": 1000,\n      \"patience_ms\": 500,\n      \"renderer\": \"webgl\",\n      \"frame_ms\": 8.338983050847459,\n      \"timer_resolution_ms\": 1,\n      \"device_pixel_ratio\": 2,\n      \"user_agent\": \"Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko)\"\n    }\n  ],\n  \"limit_ms\": 16.0,\n  \"exit\": 0,\n  \"failures\": []\n}```\n</details>\n\n<details><summary>Console output (build lines cut)</summary>\n\n```\nperf-keystroke: this opens a window over your screen for about 40 s per run\nrun 1/3: load 5.8\nrun 1: {\"probe\":\"roundup-keystroke-probe\",\"n\":1000,\"dropped\":0,\"p50\":6,\"p95\":10,\"p99\":12,\"max\":31.00000000000091,\"hops\":{\"keydown_to_input\":{\"n\":1000,\"p50\":0,\"p95\":1},\"input_to_dispatch\":{\"n\":1000,\"p50\":0,\"p95\":1},\"dispatch_to_echo_event\":{\"n\":1000,\"p50\":1.999999999996362,\"p95\":3.000000000001819},\"echo_event_to_parsed\":{\"n\":1000,\"p50\":0,\"p95\":0},\"parsed_to_frame\":{\"n\":1000,\"p50\":4,\"p95\":7.000000000003638},\"write_reply\":{\"n\":1000,\"p50\":1.000000000001819,\"p95\":4}},\"hop_uncertainty_ms\":1,\"keys\":1000,\"patience_ms\":500,\"renderer\":\"webgl\",\"frame_ms\":8.322033898305085,\"timer_resolution_ms\":1,\"device_pixel_ratio\":2,\"user_agent\":\"Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko)\"}\nrun 2/3: load 4.4\nrun 2: {\"probe\":\"roundup-keystroke-probe\",\"n\":1000,\"dropped\":0,\"p50\":5.999999999992724,\"p95\":10,\"p99\":11.00000000000091,\"max\":25.99999999999909,\"hops\":{\"keydown_to_input\":{\"n\":1000,\"p50\":0,\"p95\":1},\"input_to_dispatch\":{\"n\":1000,\"p50\":0,\"p95\":1},\"dispatch_to_echo_event\":{\"n\":1000,\"p50\":1.000000000003638,\"p95\":3},\"echo_event_to_parsed\":{\"n\":1000,\"p50\":0,\"p95\":0},\"parsed_to_frame\":{\"n\":1000,\"p50\":3.999999999996362,\"p95\":7.000000000003638},\"write_reply\":{\"n\":1000,\"p50\":1,\"p95\":3.9999999999990905}},\"hop_uncertainty_ms\":1,\"keys\":1000,\"patience_ms\":500,\"renderer\":\"webgl\",\"frame_ms\":8.35593220338983,\"timer_resolution_ms\":1,\"device_pixel_ratio\":2,\"user_agent\":\"Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko)\"}\nrun 3/3: load 3.1\nrun 3: {\"probe\":\"roundup-keystroke-probe\",\"n\":1000,\"dropped\":0,\"p50\":5.999999999992724,\"p95\":10,\"p99\":15,\"max\":29,\"hops\":{\"keydown_to_input\":{\"n\":1000,\"p50\":0,\"p95\":1},\"input_to_dispatch\":{\"n\":1000,\"p50\":0,\"p95\":1},\"dispatch_to_echo_event\":{\"n\":1000,\"p50\":1.999999999996362,\"p95\":3.999999999996362},\"echo_event_to_parsed\":{\"n\":1000,\"p50\":0,\"p95\":0},\"parsed_to_frame\":{\"n\":1000,\"p50\":3.999999999992724,\"p95\":7},\"write_reply\":{\"n\":1000,\"p50\":1,\"p95\":4}},\"hop_uncertainty_ms\":1,\"keys\":1000,\"patience_ms\":500,\"renderer\":\"webgl\",\"frame_ms\":8.338983050847459,\"timer_resolution_ms\":1,\"device_pixel_ratio\":2,\"user_agent\":\"Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko)\"}\nreport: target/perf-keystroke-before.json\nexit=0\n```\n</details>\n",
+    "report": {
+      "os": "macos",
+      "cpus": 16,
+      "loads": [
+        5.7705078125,
+        4.4482421875,
+        3.05078125
+      ],
+      "runs": 3,
+      "reports": [
+        {
+          "probe": "roundup-keystroke-probe",
+          "n": 1000,
+          "dropped": 0,
+          "p50": 6,
+          "p95": 10,
+          "p99": 12,
+          "max": 31.00000000000091,
+          "hops": {
+            "keydown_to_input": {
+              "n": 1000,
+              "p50": 0,
+              "p95": 1
+            },
+            "input_to_dispatch": {
+              "n": 1000,
+              "p50": 0,
+              "p95": 1
+            },
+            "dispatch_to_echo_event": {
+              "n": 1000,
+              "p50": 1.999999999996362,
+              "p95": 3.000000000001819
+            },
+            "echo_event_to_parsed": {
+              "n": 1000,
+              "p50": 0,
+              "p95": 0
+            },
+            "parsed_to_frame": {
+              "n": 1000,
+              "p50": 4,
+              "p95": 7.000000000003638
+            },
+            "write_reply": {
+              "n": 1000,
+              "p50": 1.000000000001819,
+              "p95": 4
+            }
+          },
+          "hop_uncertainty_ms": 1,
+          "keys": 1000,
+          "patience_ms": 500,
+          "renderer": "webgl",
+          "frame_ms": 8.322033898305085,
+          "timer_resolution_ms": 1,
+          "device_pixel_ratio": 2,
+          "user_agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko)"
+        },
+        {
+          "probe": "roundup-keystroke-probe",
+          "n": 1000,
+          "dropped": 0,
+          "p50": 5.999999999992724,
+          "p95": 10,
+          "p99": 11.00000000000091,
+          "max": 25.99999999999909,
+          "hops": {
+            "keydown_to_input": {
+              "n": 1000,
+              "p50": 0,
+              "p95": 1
+            },
+            "input_to_dispatch": {
+              "n": 1000,
+              "p50": 0,
+              "p95": 1
+            },
+            "dispatch_to_echo_event": {
+              "n": 1000,
+              "p50": 1.000000000003638,
+              "p95": 3
+            },
+            "echo_event_to_parsed": {
+              "n": 1000,
+              "p50": 0,
+              "p95": 0
+            },
+            "parsed_to_frame": {
+              "n": 1000,
+              "p50": 3.999999999996362,
+              "p95": 7.000000000003638
+            },
+            "write_reply": {
+              "n": 1000,
+              "p50": 1,
+              "p95": 3.9999999999990905
+            }
+          },
+          "hop_uncertainty_ms": 1,
+          "keys": 1000,
+          "patience_ms": 500,
+          "renderer": "webgl",
+          "frame_ms": 8.35593220338983,
+          "timer_resolution_ms": 1,
+          "device_pixel_ratio": 2,
+          "user_agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko)"
+        },
+        {
+          "probe": "roundup-keystroke-probe",
+          "n": 1000,
+          "dropped": 0,
+          "p50": 5.999999999992724,
+          "p95": 10,
+          "p99": 15,
+          "max": 29,
+          "hops": {
+            "keydown_to_input": {
+              "n": 1000,
+              "p50": 0,
+              "p95": 1
+            },
+            "input_to_dispatch": {
+              "n": 1000,
+              "p50": 0,
+              "p95": 1
+            },
+            "dispatch_to_echo_event": {
+              "n": 1000,
+              "p50": 1.999999999996362,
+              "p95": 3.999999999996362
+            },
+            "echo_event_to_parsed": {
+              "n": 1000,
+              "p50": 0,
+              "p95": 0
+            },
+            "parsed_to_frame": {
+              "n": 1000,
+              "p50": 3.999999999992724,
+              "p95": 7
+            },
+            "write_reply": {
+              "n": 1000,
+              "p50": 1,
+              "p95": 4
+            }
+          },
+          "hop_uncertainty_ms": 1,
+          "keys": 1000,
+          "patience_ms": 500,
+          "renderer": "webgl",
+          "frame_ms": 8.338983050847459,
+          "timer_resolution_ms": 1,
+          "device_pixel_ratio": 2,
+          "user_agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko)"
+        }
+      ],
+      "limit_ms": 16.0,
+      "exit": 0,
+      "failures": []
+    }
+  }
+]
