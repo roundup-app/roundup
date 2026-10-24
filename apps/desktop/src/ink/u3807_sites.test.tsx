@@ -238,13 +238,13 @@ it("u3807_each_site_shows_its_message_in_the_reserved_line: Order editor", async
   await cycle(view.container,
     () => fireEvent.click(within(view.container).getByRole("button", { name: "Save" })),
     async () => {
-      const reply = gate<object>();
+      const reply = gate<ReturnType<typeof agent>>();
       mounted.app.handlers["agent.setOrder"] = () => reply.promise;
       fireEvent.click(within(view.container).getByRole("button", { name: "Save" }));
       const submitted = mounted.connected.drafts.list().find(draft => draft.value.ask === "Changed ask")!;
       // A newer revision keeps the editor and its reserved place mounted after acknowledgement.
       fireEvent.input(ask, { target: { value: "  Newer unsent ask 🧭\n" } });
-      reply.resolve({});
+      reply.resolve(agent("a", "working", "building", { work: { kind: "work", ask: "Changed ask", limits: [] } }));
       await waitFor(() => expect(mounted.connected.drafts.list().some(draft => draft.revision === submitted.revision)).toBe(false));
     });
   expect(within(view.container).getByLabelText<HTMLTextAreaElement>("Ask").value).toBe("  Newer unsent ask 🧭\n");
