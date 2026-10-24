@@ -23,8 +23,12 @@ export const createTerminalClose = (connected: ConnectedProject, shown: Accessor
       const terminal = shown().find(terminal => terminal.id === id);
 
       if (!terminal) return;
-      setRetry(null);
-      setFailure(null);
+      // Another Terminal's close leaves the held failure and its Retry; a later failure replaces them.
+      if (retry() === null || retry()!.id === id) {
+        setRetry(null);
+        setFailure(null);
+      }
+
       const accepted = await app.ask({ title: copy.closeQuestion(nameFor(terminal)), message: terminal.running ? copy.closeTerminalWarning : copy.closeTerminalOutputWarning, okLabel: copy.close, cancelLabel: copy.keep });
 
       if (!accepted) {
