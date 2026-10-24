@@ -9,6 +9,7 @@ use std::os::unix::fs::PermissionsExt;
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex, PoisonError};
 
+use super::vendor_list::Sidecar;
 use rpc::{OpenError, RpcError, code};
 use serde_json::{Map, Value, json};
 use tokio::sync::OnceCell;
@@ -65,6 +66,10 @@ pub struct Launcher {
     /// Claude Code's own config file, where it remembers which folders are trusted.
     claude_json: PathBuf,
     pub(super) conversation_dir: PathBuf,
+    /// U3523f: the bundled Node sidecar Import lists through.
+    pub(super) sidecar: Option<Sidecar>,
+    /// Counts started listings; a newer one supersedes the one running (U3523a).
+    pub(super) listings: Arc<tokio::sync::watch::Sender<u64>>,
     /// Filesystem observer for isolated import tests; absent from production builds.
     #[cfg(any(test, feature = "test-support"))]
     pub import_observer: Option<ImportObserver>,
@@ -161,6 +166,8 @@ impl Launcher {
         };
         Self {
             conversation_dir,
+            sidecar: None,
+            listings: Arc::new(tokio::sync::watch::channel(0).0),
             #[cfg(any(test, feature = "test-support"))]
             import_observer: None,
             discovery: (
@@ -225,6 +232,7 @@ impl Launcher {
         .into_iter()
         .filter(|name| var(name).is_some())
         .collect();
+        launcher.sidecar = Sidecar::beside(exe, var("ROUNDUP_SIDECAR_DIR"));
         Ok(launcher)
     }
 
@@ -396,6 +404,8 @@ impl Launcher {
             }
             if lean.is_some() {
                 own["env"]["CLAUDE_CODE_DISABLE_AUTO_MEMORY"] = json!("1");
+                // LC17: the Brief carries each `CLAUDE.md` as LC1 lists it; Claude Code loads none.
+                own["env"]["CLAUDE_CODE_DISABLE_CLAUDE_MDS"] = json!("1");
             }
             for (key, value) in pair.env() {
                 own["env"][key] = json!(value);
@@ -574,6 +584,7 @@ impl Launcher {
         }
         if lean_of(role, pair).is_some() {
             command.env("CLAUDE_CODE_DISABLE_AUTO_MEMORY", "1");
+            command.env("CLAUDE_CODE_DISABLE_CLAUDE_MDS", "1");
         }
         command.env("ROUNDUP_AGENT", id);
         if let Some(dir) = self.rup.parent().filter(|dir| dir.is_absolute()) {

@@ -26,6 +26,7 @@ The `roundup` MCP server offers these tools. They are deferred: load a tool befo
 - `pad_create`: start a Pad, a named text you own, for notes you want to keep.
 - `pad_read`: read one Pad.
 - `link_read`: read what a roundup:// link names, as it is now.
+- `import_list`: list this Project's saved and live Claude Code sessions with the revision to approve; it imports nothing.
 - `pad_list`: see which Pads exist.
 - `pad_write`: rewrite a Pad you own.
 - `pad_append`: add text to the end of any Pad.

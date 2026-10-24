@@ -17,6 +17,7 @@ pub mod toolcall;
 pub use placement::Call as PlacementCall;
 pub mod plugins;
 mod skills;
+mod vendor_list;
 
 use contracts::decision::{Answer, Risk, Scope};
 use contracts::{Kind, Status};
@@ -31,6 +32,7 @@ pub use profiles::{
     DOOR_TOOLS, DOOR_TOOLS_NO_MCP, PROFILES, Profile, SCOUT_TOOLS, SCOUT_TOOLS_NO_MCP, profile,
 };
 pub use skills::{BANNED, skills};
+pub use vendor_list::{Listed, Listing, Live};
 
 /// F4, F5: the program names this Adapter's vendor CLI is started by. The shim and the process
 /// scan read the names of every Adapter through a function like this one, and write none.
