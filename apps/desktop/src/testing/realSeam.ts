@@ -1,3 +1,4 @@
+import { projectMenu } from "./menuProbe";
 import * as v from "valibot";
 import type { SpawnParams } from "@contracts/agent/SpawnParams";
 import type { Event as DaemonEvent } from "@contracts/Event";
@@ -287,6 +288,14 @@ export const createServedApp = (base: string, choice?: () => "choose" | "cancel"
           }),
       ),
     imageUrl: (path) => `file://${path}`,
+    selectProjectMenu: async (path) => { projectMenu.path = path; },
+    onProjectPage: async (listener) => {
+      const receive = (event: Event) => { if (event instanceof CustomEvent) listener(event.detail); };
+
+      window.addEventListener("open-project-page", receive);
+
+      return () => window.removeEventListener("open-project-page", receive);
+    },
     onAppSettings: async (listener) => {
       window.addEventListener("open-app-settings", listener);
 
