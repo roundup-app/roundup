@@ -13,6 +13,37 @@ const clock = () => {
 };
 
 describe("k2 a sample is keydown to the render that shows its echo", () => {
+  it("r20_another_terminal_cannot_supply_the_echo_or_finish_its_render", () => {
+    const time = clock();
+    const probe = createKeystrokeProbe(time.now, "a", () => "shell");
+
+    void probe.keydown();
+    time.advance(1);
+    probe.input("shell");
+    probe.dispatched("shell");
+    time.advance(2);
+    probe.arrived(bytes("a"), "agent");
+    probe.written(bytes("a"), "agent");
+    probe.rendered("agent");
+
+    expect(() => probe.summary(0)).toThrow("no key was echoed");
+    time.advance(4);
+    probe.arrived(bytes("a"), "shell");
+    probe.written(bytes("a"), "shell");
+    time.advance(1);
+    probe.rendered("agent");
+
+    expect(() => probe.summary(0)).toThrow("no key was echoed");
+    time.advance(12);
+    probe.rendered("shell");
+
+    expect(probe.summary(0)).toMatchObject({ n: 1, dropped: 0, p95: 20 });
+    expect(probe.hops(0)).toMatchObject({
+      dispatch_to_echo_event: { n: 1, p95: 6 },
+      parsed_to_frame: { n: 1, p95: 13 },
+    });
+  });
+
   it("r20_keys_reach_the_terminal_that_printed_ready_even_with_an_earlier_agent_input", async () => {
     document.body.innerHTML = `<div class="bubble" data-bubble="door"><textarea class="xterm-helper-textarea"></textarea></div>
       <div class="bubble" data-bubble="shell"><textarea class="xterm-helper-textarea"></textarea></div>`;
