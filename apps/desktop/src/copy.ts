@@ -207,6 +207,7 @@ export const copy = {
   diff: "Diff",
   loadingDiff: "Loading diff…",
   noDifference: "No remaining difference",
+  diffNotLoaded: "Diff not loaded",
   binaryDiff: "Binary file — line notes unavailable",
   replacementDiff: "Large comparison shown as a complete replacement.",
   addNote: "Add note",
