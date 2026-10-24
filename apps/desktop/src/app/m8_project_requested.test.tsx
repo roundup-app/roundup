@@ -324,8 +324,8 @@ it.each([
   const reopened = createProjectDrafts();
   const copied = vi.fn(async (_text: string) => {});
 
-  Object.defineProperty(navigator, "clipboard", { configurable: true, value: { writeText: copied } });
   const app = mount(reopened);
+  vi.spyOn(app, "clipboardWrite").mockImplementation(copied);
   await openRecovery();
   const panel = await screen.findByRole("region", { name: "Unfinished work" });
   const row = panel.querySelector<HTMLElement>(`[data-revision="${a.revision}"]`)!;
