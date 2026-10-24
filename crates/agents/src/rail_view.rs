@@ -60,7 +60,7 @@ impl Shared {
                 attempt,
                 since,
                 named: false,
-                held: VecDeque::new(),
+                parked: VecDeque::new(),
             },
         );
     }
@@ -192,7 +192,7 @@ impl Agents {
     ///
     /// Daemon-internal only: never exposed through `Module::call`, and grants no Reach or
     /// Steer authority. Locks Rail then Attempts, like lifecycle attachment/removal. The cut
-    /// is the targeted read with both locks held; attach, detach, reassignment, removal,
+    /// is the targeted read with both locks parked; attach, detach, reassignment, removal,
     /// reopen and Status/Attempt transitions cannot cross it until `record` returns.
     /// `None` means no attached receiver (also after reopen), not a cached negative.
     ///
@@ -268,7 +268,7 @@ impl Agents {
     }
 
     /// O4, O13: replace the order of an Agent or a Door, and Steer it the new one unless the caller is
-    /// the Agent itself or a Takeover is active. A child change by an Agent waits for
+    /// the Agent itself. A child change by an Agent waits for
     /// the physical Steer and submit. Post-storage errors name the stored Order:
     /// A refused Steer reports no bytes; UNKNOWN_OUTCOME forbids blind retry.
     /// Direct user changes retain O4's asynchronous Steer.
@@ -311,22 +311,11 @@ impl Agents {
         };
         ctx.touch(contracts::Verb::Wrote, &format!("agent:{id}"))?;
         ctx.emit(EventData::RailChanged);
-        let takeover = self
-            .shared
-            .takeover
-            .as_ref()
-            .is_some_and(|active| active(&id));
         if ctx.actor.kind == ActorKind::Agent && ctx.actor.id != id {
-            if takeover {
-                return Err(RpcError::conflict(
-                    "Order stored; Takeover refused the Steer; no bytes written",
-                ));
-            }
             self.shared
                 .prompt(
                     &id,
                     &order::steer(&order, None),
-                    None,
                     None,
                     false,
                     Some(PromptRecord {
@@ -348,7 +337,7 @@ impl Agents {
                         "Order stored; Steer bytes may have been written; do not retry: {reason}"
                     )),
                 })?;
-        } else if ctx.actor.id != id && !takeover {
+        } else if ctx.actor.id != id {
             let shared = Arc::clone(&self.shared);
             let text = order::steer(&order, None);
             tokio::spawn(async move {
@@ -356,7 +345,6 @@ impl Agents {
                     .prompt(
                         &id,
                         &text,
-                        None,
                         None,
                         false,
                         Some(PromptRecord {
@@ -374,7 +362,7 @@ impl Agents {
     }
 }
 
-/// O7: an explicit order, also held to the ask cap.
+/// O7: an explicit order, also parked to the ask cap.
 pub(super) fn valid_explicit_order(order: &Order) -> Result<(), RpcError> {
     order
         .validate_explicit()
@@ -753,7 +741,7 @@ mod tests {
                 prompt: None,
                 starred: false,
                 terminal_id: Some("unacknowledged-terminal".into()),
-                held: VecDeque::new(),
+                parked: VecDeque::new(),
                 done,
             },
         );

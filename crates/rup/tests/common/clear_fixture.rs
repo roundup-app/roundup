@@ -59,12 +59,6 @@ pub async fn clear_fixture(
         .request("rail.startDoor", json!({"id": door}))
         .await
         .unwrap();
-    // Hold child Digests so Clear cannot race a startup or Todo/Pad update turn.
-    // Clear steers the Door directly; Takeover only holds Message delivery here.
-    client
-        .request("takeover.begin", json!({"agent": door}))
-        .await
-        .unwrap();
     let model = project.model.as_ref().unwrap();
     let first = model.tool_result("toolu_a32_child").await;
     let a: contracts::agent::RailNode =

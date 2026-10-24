@@ -20,7 +20,7 @@ pub struct Fire {
     pub body: String,
     /// The source facts the firing was accepted on, kept as written.
     pub evidence: String,
-    /// False for an explicit run, which claims no condition held.
+    /// False for an explicit run, which claims no condition true.
     pub matched: bool,
 }
 

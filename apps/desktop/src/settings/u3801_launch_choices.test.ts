@@ -9,7 +9,7 @@ afterEach(() => localStorage.clear());
 
 const connect = async (path = "/p", resume = false) => {
   const app = createFakeApp();
-  app.handlers["rail.tree"] = () => resume ? [workstream("door", { can_resume: true, model: "held-model" })] : [];
+  app.handlers["rail.tree"] = () => resume ? [workstream("door", { can_resume: true, model: "kept-model" })] : [];
   app.handlers["agent.spawn"] = () => agent("new", "working", "starting");
   app.handlers["rail.startDoor"] = () => workstream("door");
   app.handlers["agent.resume"] = () => agent("agent", "working", "starting");

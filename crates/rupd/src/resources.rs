@@ -175,7 +175,7 @@ struct State {
     last: Option<Resources>,
     /// CPU seconds of each program at the previous sample.
     cpu: HashMap<u32, f64>,
-    /// The Agents the previous sample held.
+    /// The Agents the previous sample had.
     agents: HashSet<String>,
 }
 
@@ -463,11 +463,11 @@ mod tests {
         // Block the actual walk, not the sampler state. Moving it onto the caller must fail
         // this bound too. The finite hold prevents that mutant from stranding the test thread.
         let release = Arc::new((Mutex::new(false), std::sync::Condvar::new()));
-        let held = Arc::clone(&release);
+        let shared = Arc::clone(&release);
         let (entered, arrivals) = std::sync::mpsc::channel();
         sampler.walk = Arc::new(move |path| {
             entered.send(()).unwrap();
-            let (lock, ready) = &*held;
+            let (lock, ready) = &*shared;
             let _hold = ready
                 .wait_timeout_while(lock.lock().unwrap(), Duration::from_secs(3), |released| {
                     !*released

@@ -263,7 +263,7 @@ fn a2_an_unanswered_star_after_pre_tool_use_resolves_to_idle_on_the_tick() {
 }
 
 #[test]
-fn a2_a_spinner_after_the_held_star_cancels_the_hold() {
+fn a2_a_spinner_after_the_parked_star_cancels_the_hold() {
     let mut a = Clocked::new();
     a.signal(0, "UserPromptSubmit");
     a.signal(10, "PreToolUse");
@@ -308,16 +308,16 @@ fn a2_a_denied_dialog_reads_needs_you_until_the_next_prompt() {
     let steps = replay(RUN3);
     let deny = mark(RUN3.1, "deny-select4");
     let next_prompt = first_after(&steps, deny, "UserPromptSubmit");
-    let held: Vec<_> = steps
+    let parked: Vec<_> = steps
         .iter()
         .filter(|s| s.ts >= deny && s.ts < next_prompt)
         .collect();
     assert!(
-        held.iter().any(|s| s.event.starts_with("title ◐")),
+        parked.iter().any(|s| s.event.starts_with("title ◐")),
         "the deny's spinner is in the window"
     );
     assert!(
-        held.iter().all(|s| s.kind == Some(Kind::NeedsYou)),
+        parked.iter().all(|s| s.kind == Some(Kind::NeedsYou)),
         "reads working while Claude waits"
     );
 }

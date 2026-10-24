@@ -318,7 +318,7 @@ mod recovery_tests {
         w.agents.observe_measurements();
         tokio::task::yield_now().await;
         let db = w.db();
-        db.execute_batch("ALTER TABLE measurement_state RENAME TO held_measurement_state")
+        db.execute_batch("ALTER TABLE measurement_state RENAME TO parked_measurement_state")
             .unwrap();
         assert!(w.push("second").is_err());
         assert!(
@@ -327,7 +327,7 @@ mod recovery_tests {
                 .await
                 .is_err()
         );
-        db.execute_batch("ALTER TABLE held_measurement_state RENAME TO measurement_state")
+        db.execute_batch("ALTER TABLE parked_measurement_state RENAME TO measurement_state")
             .unwrap();
         let restored = w.read().await;
         assert_eq!(
@@ -359,8 +359,8 @@ mod recovery_tests {
     async fn u3119b_revision_write_recovery_survives_reopen() {
         for (fail, restore) in [
             (
-                "ALTER TABLE measurement_state RENAME TO held_measurement_state",
-                "ALTER TABLE held_measurement_state RENAME TO measurement_state",
+                "ALTER TABLE measurement_state RENAME TO parked_measurement_state",
+                "ALTER TABLE parked_measurement_state RENAME TO measurement_state",
             ),
             (
                 "CREATE TRIGGER refuse_interval BEFORE INSERT ON measurement_revisions BEGIN SELECT RAISE(ABORT,'retention refused'); END;",
@@ -408,7 +408,7 @@ mod recovery_tests {
         };
         let read = || agents.call(&ctx, "project.measurements", Value::Null);
         let db = rusqlite::Connection::open(dir.path().join("agents.db")).unwrap();
-        db.execute_batch("ALTER TABLE measurement_state RENAME TO held_measurement_state")
+        db.execute_batch("ALTER TABLE measurement_state RENAME TO parked_measurement_state")
             .unwrap();
         // Failure at start must neither panic the caller nor permanently hold a dead claim.
         for _ in 0..4 {
@@ -416,7 +416,7 @@ mod recovery_tests {
         }
         tokio::task::yield_now().await;
         assert!(read().await.is_err());
-        db.execute_batch("ALTER TABLE held_measurement_state RENAME TO measurement_state")
+        db.execute_batch("ALTER TABLE parked_measurement_state RENAME TO measurement_state")
             .unwrap();
         let stale = read().await.unwrap();
         assert!(

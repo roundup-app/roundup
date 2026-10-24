@@ -3,7 +3,6 @@
 //! while the Agent has any other Kind, and go out through `message.send` like any note.
 
 use std::collections::HashMap;
-use std::sync::{Arc, OnceLock};
 use std::time::Duration;
 
 use contracts::agent::{NodeKind, RailNode};
@@ -265,8 +264,8 @@ async fn flush(told: &mut Told, reader: &Reader) {
 }
 
 /// T25: each Agent whose Status became `idle` and still is gets one Message for its next owned
-/// Todo, unless a Takeover or unsent input holds its Terminal (B6, B32). `todo.hand` writes the hand-off Change first; without it nothing is sent.
-async fn hand_off(told: &mut Told, reader: &Reader, held: &(dyn Fn(&str) -> bool + Sync)) {
+/// Todo. `todo.hand` writes the hand-off Change first; without it nothing is sent.
+async fn hand_off(told: &mut Told, reader: &Reader) {
     let idled = std::mem::take(&mut told.idled);
     if idled.is_empty() {
         return;
@@ -281,7 +280,7 @@ async fn hand_off(told: &mut Told, reader: &Reader, held: &(dyn Fn(&str) -> bool
                 && n.terminal_id.is_some()
                 && n.status.as_ref().is_some_and(|s| s.kind == Kind::Idle)
         });
-        if !ready || held(&id) {
+        if !ready {
             continue;
         }
         let handed = reader
@@ -331,11 +330,7 @@ async fn read(told: &mut Told, reader: &Reader, event: &Event) {
 }
 
 /// Runs until the Bus closes.
-pub async fn tell_owners(
-    reader: Reader,
-    mut events: rpc::Subscription,
-    sender: Arc<OnceLock<Arc<messages::Messages>>>,
-) {
+pub async fn tell_owners(reader: Reader, mut events: rpc::Subscription) {
     let todos = reader
         .world()
         .await
@@ -349,8 +344,7 @@ pub async fn tell_owners(
             read(&mut told, &reader, &more).await;
         }
         flush(&mut told, &reader).await;
-        let held = |agent: &str| sender.get().is_some_and(|m| m.holds_terminal(agent));
-        hand_off(&mut told, &reader, &held).await;
+        hand_off(&mut told, &reader).await;
     }
 }
 
@@ -604,8 +598,8 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn t18_takeover_holds_and_removed_agent_drops() {
-        // Any Kind but idle (a Takeover shows as one) holds the changes until the turn ends.
+    async fn t18_busy_agent_waits_and_removed_agent_drops() {
+        // Any Kind but idle keeps the changes waiting until the turn ends.
         let (stub, reader) = rig(vec![node("a", "working", true)]);
         let mut told = assigned();
         flush(&mut told, &reader).await;
@@ -710,8 +704,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn t22_a_comment_is_held_under_unsent_input() {
-        // A Takeover or unsent input shows as a Kind but `idle` (B6, B32), so the comment waits with the rest.
+    async fn t22_a_comment_waits_until_the_agent_is_idle() {
         let (stub, reader) = rig(vec![node("a", "working", true)]);
         let mut told = told_with(vec![todo(1, "Ship", Some(agent_actor("a")), vec![])]);
         *stub.thread.lock().unwrap() =

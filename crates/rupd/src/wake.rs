@@ -291,7 +291,7 @@ impl Waker {
 }
 
 /// B2704a: turn each committed name into one ordinary Daemon note. The Message module owns
-/// idle delivery, Takeover holding, persistence and transcript acknowledgement.
+/// idle delivery, persistence and transcript acknowledgement.
 pub async fn tell_renames(reader: Reader, mut events: rpc::Subscription) {
     while let Some(event) = events.next().await {
         let EventData::RailRenamed { id, name } = event.data else {
@@ -322,7 +322,7 @@ pub async fn tell_renames(reader: Reader, mut events: rpc::Subscription) {
         }), Actor::daemon()).await;
         if let Err(err) = sent {
             match err.code {
-                // B51 saves a mismatched-inbox note held before returning this error.
+                // B51 saves a mismatched-inbox note saved before returning this error.
                 rpc::code::INBOX_UNAVAILABLE => {}
                 // Ordinary B1/B51 send refusals (including a concurrent stop) must not
                 // terminate the observer and prevent later committed names being sent.

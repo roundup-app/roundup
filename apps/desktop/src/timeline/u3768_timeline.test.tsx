@@ -174,9 +174,9 @@ it("u3768e_the_window_slides_only_while_an_agent_runs", async () => {
   document.dispatchEvent(new Event("visibilitychange"));
   await vi.advanceTimersByTimeAsync(0);
   expect(vi.getTimerCount()).toBe(0);
-  const held = end();
+  const kept = end();
   await vi.advanceTimersByTimeAsync(5000);
-  expect(end()).toBe(held);
+  expect(end()).toBe(kept);
   Object.defineProperty(document, "visibilityState", { configurable: true, get: () => "visible" });
   document.dispatchEvent(new Event("visibilitychange"));
   await vi.advanceTimersByTimeAsync(0);

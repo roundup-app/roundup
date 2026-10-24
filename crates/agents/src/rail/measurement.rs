@@ -106,7 +106,7 @@ impl Rail {
             if node.id != agent
                 && self
                     .conversation(&node.id)?
-                    .is_some_and(|(held, _)| held == source)
+                    .is_some_and(|(parked, _)| parked == source)
             {
                 return Err(RpcError::conflict("interval source ownership is ambiguous"));
             }

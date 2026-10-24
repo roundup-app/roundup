@@ -81,7 +81,7 @@ beforeEach(() => {
 
 const TREE = [agent("a1", "idle", "x"), door("w1", "idle", "idle"), agent("gone", "idle", "x", { terminal_id: "t-gone" })];
 
-describe("u348 dragging files shows targets, a held drag opens one, a drop lands in it", () => {
+describe("u348 dragging files shows targets, a lingering drag opens one, a drop lands in it", () => {
   it("u348_over_shows_every_target_and_leave_clears_them", async () => {
     const { app } = await mount({ web: [agent("x1", "idle", "x")], api: TREE });
 

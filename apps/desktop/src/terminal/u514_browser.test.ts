@@ -81,7 +81,7 @@ const doubleAt = async (at: { x: number; y: number }) => {
 };
 
 const chromeSurfaces = [
-  ".window-title", ".project-tab", ".terminal-tab", ".pane-control-state",
+  ".window-title", ".project-tab", ".terminal-tab",
   '[data-id="migrate"] .name', ".rail-add", ".todo-project-root",
   ".shelf-tabs", ".shelf-add", ".shelf-title", ".todo-row-button",
   ".terminal-new", ".resource-num", ".hint-line", ".overview-heading",
@@ -94,9 +94,9 @@ it.each(chromeSurfaces.flatMap(surface => ["drag", "double-click"].map(gesture =
 
     if (surface === ".pane-empty-keys") {
       await browser("open", url("/harness.html?seed=empty-project&renderer=dom"));
-    } else if (surface === ".pane-control-state" || surface === ".resource-num") {
+    } else if (surface === ".resource-num") {
       // U408: the strip shows values only for a working Agent, so `.resource-num` needs one selected.
-      await browser("click", surface === ".pane-control-state" ? '[data-id="agent-4"] .name' : '[data-id="tokens"] .name');
+      await browser("click", '[data-id="tokens"] .name');
     } else if (surface === ".terminal-tab") {
       await browser("click", ".terminal-new");
       await browser("click", ".window-title");
@@ -359,11 +359,6 @@ it("u2680c_readonly_content_keeps_native_selection_and_copy_pad", async () => {
 it.each(["agent", "door", "bubble"] as const)("u3529b_terminal_gestures_match_plain_xterm_%s", async where => {
   const selector = await placement(where);
 
-
-  if (where === "agent" && await read<boolean>("!!document.querySelector('.pane-control[data-state=managed]')")) {
-    await browser("find", "role", "button", "click", "--name", "Take control", "--exact");
-    await wait("!!document.querySelector('.pane-control[data-state=controlled]')");
-  }
 
   const before = await read<string>("JSON.stringify([...document.querySelectorAll('.bubble')].map(b => [b.dataset.bubble,b.hidden,b.getAttribute('style')]))");
   const calls = await read<number>("window.__fake.app.calls.length");

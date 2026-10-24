@@ -146,7 +146,7 @@ async fn tell(reader: &digest::Reader) -> Result<(), RpcError> {
         .call("todo", "todo.list", Value::Null, Actor::daemon())
         .await?;
     // Read retained sends as the Daemon: only its own Messages are visible. This includes
-    // Held and dropped Messages; neither state authorizes sending the same firing twice.
+    // Dropped Messages; neither state authorizes sending the same firing twice.
     let sent: Vec<Message> = reader
         .call("message", "message.list", json!({}), Actor::daemon())
         .await?;

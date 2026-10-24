@@ -86,7 +86,6 @@ it.each(["agents-10", "tree-40", "bubbles"])("u3560e_intervention_paste_failure_
   await read(`document.querySelector('.rail-row[data-id="${agent}"]').click()`);
   await wait(`window.__terminals.has('${terminal}') && !!document.querySelector('.pane-screen .xterm-helper-textarea')`);
 
-  if (seed === "bubbles") await browser("find", "role", "button", "click", "--name", "Take control", "--exact");
   await read(`(() => {
     const data = new DataTransfer(); data.setData('text/plain', 'hello 雪\\n');
     document.querySelector('.pane-screen .xterm-helper-textarea').dispatchEvent(new ClipboardEvent('paste', { bubbles:true, cancelable:true, clipboardData:data }));

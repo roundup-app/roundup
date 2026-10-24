@@ -4,8 +4,7 @@ import type { Order } from "./Order";
 
 /**
  * O4, U2773c: replace the Order of Agent or Door `id`.
- * With `captured`, compare and replace atomically at execution, including after a
- * Held action. A mismatch is CONFLICT; a removed id is NOT_FOUND.
+ * With `captured`, compare and replace atomically at execution. A mismatch is CONFLICT; a removed id is NOT_FOUND.
  * Omit `captured` for an unconditional write.
  */
 export type SetOrderParams = { id: string, order: Order, captured?: CapturedOrder, };

@@ -16,9 +16,9 @@ beforeAll(async () => {
 
 afterAll(async () => { await page?.close(); });
 
-type Reading = { shown: number; watching: boolean; checks: Record<string, { status: string }> };
+type Reading = { shown: number; checks: Record<string, { status: string }> };
 
-const read = `() => ({ shown: document.querySelectorAll('.bubble:not([hidden])').length, watching: !!document.querySelector('.pane-control[data-state=managed]'), checks: window.__checks() })`;
+const read = `() => ({ shown: document.querySelectorAll('.bubble:not([hidden])').length, checks: window.__checks() })`;
 
 const shoot = async (name: string, reading: Reading): Promise<void> => {
   const dir = captureDir("U2224");
@@ -49,7 +49,6 @@ it("u2224_one_click_on_an_agent_leaves_no_bubble_over_its_output", async () => {
     const after = await page.call<Reading>(read);
 
     expect(after.shown, `${scheme} after`).toBe(0);
-    expect(after.watching, `${scheme} watching banner`).toBe(true);
 
     await shoot(`after-${scheme}`, after);
   }
