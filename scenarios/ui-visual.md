@@ -24,7 +24,7 @@ The Issue’s D4/D7/D8/D9/D10 names extend existing Checks; they never erase the
 | D7 | No new pressed background | `apps/desktop/src/testing/checks.ts`, `d7` |
 | D8 | Hairlines, allowed elevation, no nested filters | `apps/desktop/src/testing/checks.ts`, `d8` |
 | D9 | Duration membership and reduced motion | `apps/desktop/src/testing/checks.ts`, `d9` |
-| D10 | Aggregate of D1–D9 and scheme/preferences | `apps/desktop/src/testing/checks.ts`, `checks` |
+| D10 | Aggregate of D1–D9 and scheme/preferences | `apps/desktop/src/testing/checks.ts`, `runChecks` |
 
 Policy: U132’s Kind clause and U135’s preferences remain mandatory. No focus ring is introduced by this pass. U134’s new ring is on floating surfaces, never a control or focus indicator. The native Rail/Shelf material is a scoped exception to the opaque region rule; floating panels and Terminal output stay opaque. No shader or WebGL background is permitted; xterm’s existing glyph renderer is not a background.
 
