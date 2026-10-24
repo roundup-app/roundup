@@ -1,4 +1,4 @@
-// fallow-ignore-file duplicate-export -- press dispatches Ask fixture keys; switcherFixture owns its separate keyboard driver.
+// fallow-ignore-file duplicate-export -- press supplies Ask slash-key codes; switcherFixture supplies letter-key codes. Tests import each directly.
 import { createSignal, Show } from "solid-js";
 import { render } from "@solidjs/testing-library";
 import type { Ask } from "@contracts/ask/Ask";

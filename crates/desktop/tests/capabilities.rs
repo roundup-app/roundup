@@ -1,7 +1,9 @@
-//! The App webview’s exact native permission boundary.
-use serde_json::Value;
+//! S1: the exact webview permission boundary (`scenarios/app.md`).
+
 use std::collections::BTreeSet;
 use std::path::Path;
+
+use serde_json::Value;
 
 #[test]
 fn s1_the_webview_is_granted_dialogs_the_dock_badge_and_hearing_events_and_nothing_else() {

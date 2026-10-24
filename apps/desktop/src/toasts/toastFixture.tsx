@@ -1,4 +1,4 @@
-// fallow-ignore-file duplicate-export -- todo builds a toast event fixture; todos/testHarness builds editable Todo fixtures.
+// fallow-ignore-file duplicate-export -- AGENT and todo are toast-specific fixtures; Pad and Todo tests import their own fixtures directly.
 import { fireEvent, render } from "@solidjs/testing-library";
 import { createSignal } from "solid-js";
 import type { Actor } from "@contracts/Actor";
@@ -46,7 +46,7 @@ export const mountToasts = async (tree: RailNode[], options: { todos?: Todo[]; p
 
   const view = render(() => {
     queue = createToastQueue(front, () => sounds.push(Date.now()));
-    watchProject(connected, queue.push, () => shown.push("/p"), () => true);
+    watchProject(connected, queue.push, () => shown.push("/p"), () => true, queue.settle);
 
     return (
       <ConnectedProjectContext.Provider value={connected}>
