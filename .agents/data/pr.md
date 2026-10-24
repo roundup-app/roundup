@@ -6,7 +6,7 @@ Data for Builder runs: a build or fix run writing a PR.
 
 - The title starts with the Issue's scenario ids. The loop writes `Refs #<issue>` and `Scenarios: <ids>` after every run (L82), so write neither; write `Closes #<issue>` only for fully delivered acceptance.
 - A `Principles: <ids>` line only when a `PRINCIPLES.md` id applies.
-- `Reuse:` section (rule 9), required when the diff adds a file under `crates/*/src/`, `apps/desktop/src/` or `loop/`; name candidates and the selection/rejection evidence. Only edits to existing files require no section.
+- `Reuse:` section (rule 9), required when the diff adds a file under `crates/*/src/`, `apps/desktop/src/` or `loop/`, or adds rule 9 machinery to an existing file; name candidates, the installed dependency or platform feature checked first, and the selection/rejection evidence.
 - `Moves: D<n>, …` for a change under `apps/desktop/src` (rule 8).
 - `Stopped: <the question>` on a draft its Builder leaves on a question only the user can answer; the end of its run screens it like an `ask` (L79, L81).
 - Then only what a reader needs and CI does not show: no Shape, Proof, labels, history or boilerplate.
