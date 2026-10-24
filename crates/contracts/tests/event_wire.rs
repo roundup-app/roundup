@@ -34,12 +34,11 @@ fn r16_large_event_payloads_keep_the_exact_wire_envelope() {
         body: "question".into(),
         reply_to: Some(4),
         status: MessageStatus::Held,
-        reason: Some(Reason::Escalated),
-        passed_from: Some(8),
+        reason: Some(Reason::Inbox),
         at: 456,
         iteration: Some(2),
     };
-    let message_wire = json!({"id":9,"from":{"kind":"agent","id":"a1","parent":"door"},"to":"a1","kind":"question","body":"question","replyTo":4,"status":"held","reason":"escalated","passedFrom":8,"at":456,"iteration":2});
+    let message_wire = json!({"id":9,"from":{"kind":"agent","id":"a1","parent":"door"},"to":"a1","kind":"question","body":"question","replyTo":4,"status":"held","reason":"inbox","at":456,"iteration":2});
     let status = contracts::agent::StatusEvent {
         ended: true,
         id: "a1".into(),

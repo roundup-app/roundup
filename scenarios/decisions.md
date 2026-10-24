@@ -22,7 +22,7 @@ Retired by A3564a–f (`scenarios/native-questions.md`). roundup intercepts no q
 
 **H9 the Agent's settings route the request. (retired)** Retired by A3564a–f (`scenarios/native-questions.md`): the user answers in the requesting Agent's Terminal; roundup keeps no Decision store, answer path or hook for it.
 
-**H10 permission Decisions never climb the escalation chain. (retired)** Retired by A3564a–f (`scenarios/native-questions.md`): the user answers in the requesting Agent's Terminal; roundup keeps no Decision store, answer path or hook for it.
+**H10 permission Decisions never climb the Rail. (retired)** Retired by A3564a–f (`scenarios/native-questions.md`): the user answers in the requesting Agent's Terminal; roundup keeps no Decision store, answer path or hook for it.
 
 **H18 the App can answer through the real Daemon. (retired)** Retired by A3564a–f (`scenarios/native-questions.md`): the user answers in the requesting Agent's Terminal; roundup keeps no Decision store, answer path or hook for it.
 

@@ -42,7 +42,6 @@ pub(crate) async fn check_and_release(
     if state == Inbox::Ok {
         let mut store = lock(&inner.store);
         store.release_inbox_held(agent, at).expect("message store");
-        store.arm_chains((inner.clock)()).expect("message store");
     }
     state
 }

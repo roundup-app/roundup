@@ -126,7 +126,7 @@ it("u3299a_named_targets_keep_identity", async () => {
 
 it("nr9_firing_opens_only_its_recorded_message_and_returns_focus", async () => {
   const { app } = await mount(() => [saved({ firings: [{ id: "f1", ordinal: 1, message: 42, matched: true, evidence: "finished", definition: "{}", outcome: "held" }] })]);
-  app.handlers["message.get"] = () => ({ id: 42, from: { kind: "user", id: "u", parent: null }, to: "a", body: "exact accepted instruction", kind: "note", replyTo: null, status: "dropped", reason: "receiver gone", passedFrom: null, at: 0 });
+  app.handlers["message.get"] = () => ({ id: 42, from: { kind: "user", id: "u", parent: null }, to: "a", body: "exact accepted instruction", kind: "note", replyTo: null, status: "dropped", reason: "receiver gone", at: 0 });
   fireEvent.click(await screen.findByRole("button", { name: /Ship it/ }));
   const link = await screen.findByRole("button", { name: /Firing 1/ });
   fireEvent.click(link);
@@ -361,7 +361,7 @@ it.each(([
     repository: "", number: "", atDate: "", atTime: "", atOffset: "Z", expDate: "", expTime: "", expOffset: "Z", maxFirings: "1", rearm: false,
   }, null, "ordinary");
   const retained = structuredClone(connected.drafts.list());
-  const message: Message = { id: 42, from: { kind: "user", id: "u", parent: null }, to: "a", body: "accepted exact instruction", kind: "note", replyTo: null, status: "dropped", reason: "receiver gone", passedFrom: null, at: 0 };
+  const message: Message = { id: 42, from: { kind: "user", id: "u", parent: null }, to: "a", body: "accepted exact instruction", kind: "note", replyTo: null, status: "dropped", reason: "receiver gone", at: 0 };
   app.handlers["message.get"] = () => message;
   const write = vi.fn().mockRejectedValue(new Error("clipboard unavailable"));
   vi.spyOn(app, "clipboardWrite").mockImplementation(write);
@@ -476,7 +476,7 @@ it.each(["dismiss", "recover"])("p3557c_failure_lifetime_reactions_clipboard_ide
   const record = saved({ firings: [{ id: "f1", ordinal: 1, message: 42, matched: true, evidence: "finished", definition: "{}", outcome: "held" }] });
   const { app, connected } = await mount(() => [record]);
   const retained = structuredClone(connected.drafts.list());
-  app.handlers["message.get"] = () => ({ id: 42, from: { kind: "user", id: "u", parent: null }, to: "a", body: "different accepted instruction", kind: "note", replyTo: null, status: "held", reason: null, passedFrom: null, at: 0 });
+  app.handlers["message.get"] = () => ({ id: 42, from: { kind: "user", id: "u", parent: null }, to: "a", body: "different accepted instruction", kind: "note", replyTo: null, status: "held", reason: null, at: 0 });
   const write = vi.fn().mockRejectedValue(new Error("reaction clipboard unavailable"));
   vi.spyOn(app, "clipboardWrite").mockImplementation(write);
 
