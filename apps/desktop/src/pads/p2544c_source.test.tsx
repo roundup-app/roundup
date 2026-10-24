@@ -1,7 +1,8 @@
 import { cleanup, render, waitFor } from "@solidjs/testing-library";
 import { afterEach, expect, it, vi } from "vitest";
-import { Editor, editorViewCtx, parserCtx } from "@milkdown/kit/core";
+import { Editor, editorViewCtx, parserCtx, serializerCtx } from "@milkdown/kit/core";
 import type { EditorView } from "@milkdown/kit/prose/view";
+import { TextSelection } from "@milkdown/kit/prose/state";
 import { undo, redo } from "@milkdown/kit/prose/history";
 import PadRichEditor from "./PadRichEditor";
 import type { PadEditorHandle } from "./PadRichEditor";
@@ -40,7 +41,7 @@ const open = async (source: string) => {
     surface.dispatch(surface.state.tr.replaceWith(0, surface.state.doc.content.size, doc.content));
   };
 
-  return { handle, view: surface, replace };
+  return { handle, view: surface, replace, editor };
 };
 
 const table = "| A    | B    |\n| ---- | ---- |\n| one  | two  |";
@@ -58,8 +59,6 @@ it.each([
   { name: "nested generated heading ID", source: "> # Heading\n\nfirst", edit: "> # Heading\n\nFIRST", expected: "> # Heading\n\nFIRST" },
   { name: "deletion", source: "first\n\nremove\n\nlast\n", edit: "first\n\nlast", expected: "first\n\nlast\n" },
   { name: "formatting", source: "first\n\n* untouched\n", edit: "**first**\n\n* untouched", expected: "**first**\n\n* untouched\n" },
-  { name: "split", source: "first last\n\n* untouched", edit: "first\n\nlast\n\n* untouched", expected: "first\n\nlast\n\n* untouched" },
-  { name: "join", source: "first\n\nlast\n\n* untouched", edit: "first last\n\n* untouched", expected: "first last\n\n* untouched" },
   { name: "non-ASCII CRLF without final newline", source: "café\r\n\r\n* 日本語", edit: "café ☕\n\n* 日本語", expected: "café ☕\r\n\r\n* 日本語" },
   { name: "reordered authored list", source: "* authored\n\nlast\n", edit: "last\n\n* authored", expected: "last\n\n* authored\n" },
   { name: "opaque definition between edited paragraphs", source: "one\n\n[ref]: https://example.com\n\nthree", edit: "ONE\n\nTHREE", expected: "ONE\n\n[ref]: https://example.com\n\nTHREE" },
@@ -76,18 +75,6 @@ it("p2544c_only_edited_ranges_change_distinguishes_identical_repeated_paragraphs
   const second = view.state.doc.child(0).nodeSize + 1;
   view.dispatch(view.state.tr.insertText("changed", second, second + 4));
   expect(handle.getText()).toBe("same\n\n\nchanged\n\n* keep");
-});
-
-it("p2544c_no_edit_preserves_bytes_including_undo_redo", async () => {
-  const source = `first\n\n${table}\n\n`;
-  const { handle, view } = await open(source);
-  expect(handle.getText()).toBe(source);
-  view.dispatch(view.state.tr.insertText("!", 6));
-  expect(handle.getText()).toBe(`first!\n\n${table}\n\n`);
-  undo(view.state, view.dispatch);
-  expect(handle.getText()).toBe(source);
-  redo(view.state, view.dispatch);
-  expect(handle.getText()).toBe(`first!\n\n${table}\n\n`);
 });
 
 it("p2544c_repeated_saves_and_reload_preserve_bytes", async () => {
@@ -115,4 +102,118 @@ it("p2544c_new_lists_use_dash_existing_markers_survive", async () => {
 
   replace("- new\n\nfirst\n\n* authored");
   expect(handle.getText()).toBe("- new\n\nfirst\n\n* authored");
+});
+
+const ordinary = [
+  { name: "empty line", source: "<br />\n\nalpha", at: 0, keys: ["Enter"], expected: "<br />\n\n<br />\n\nalpha", empty: 2 },
+  { name: "remove before", source: "<br />\n\nalpha", paragraph: 1, at: 0, keys: ["Backspace"], expected: "alpha", empty: 0 },
+  { name: "remove between", source: "al\n\n<br />\n\npha", paragraph: 2, at: 0, keys: ["Backspace"], expected: "al\n\npha", empty: 0 },
+  { name: "remove after", source: "alpha\n\n<br />", paragraph: 1, at: 0, keys: ["Backspace"], expected: "alpha", empty: 0 },
+  { name: "exit list", source: "* alpha\n* ", paragraph: 1, at: 0, keys: ["Enter"], expected: "* alpha\n\n<br />", empty: 1 },
+  { name: "exit task", source: "- [ ] alpha", at: 5, keys: ["Enter", "Enter"], expected: "- [ ] alpha\n\n<br />", empty: 1 },
+  { name: "exit quote", source: "> alpha", at: 5, keys: ["Enter", "Enter"], expected: "> alpha\n\n<br />", empty: 1 },
+  { name: "start", source: "alpha", at: 0, keys: ["Enter"], expected: "<br />\n\nalpha", empty: 1 },
+  { name: "middle", source: "alpha", at: 2, keys: ["Enter"], expected: "al\n\npha", empty: 0 },
+  { name: "end", source: "alpha", at: 5, keys: ["Enter"], expected: "alpha\n\n<br />", empty: 1 },
+  { name: "twice", source: "alpha", at: 2, keys: ["Enter", "Enter"], expected: "al\n\n<br />\n\npha", empty: 1 },
+  { name: "hard break", source: "alpha", at: 2, keys: ["Shift-Enter"], expected: "al  \npha", empty: 0 },
+  ...["* alpha", "1. alpha", "- [ ] alpha", "- [x] alpha", "> alpha", "# alpha"].map(source => ({
+    name: source, source, at: 2, keys: ["Enter"],
+    expected: source.replace("alpha", "al") + (source.startsWith("#") ? "\n\n# pha" : source.startsWith(">") ? "\n>\n> pha" : "\n" + source.replace("alpha", "pha").replace("1.", "2.")), empty: 0,
+  })),
+  { name: "join", source: "al\n\npha", at: 0, paragraph: 1, keys: ["Backspace"], expected: "alpha", empty: 0 },
+];
+
+const fixtures = [
+  { name: "paragraphs", tail: "first\n\nlast" },
+  { name: "repeated", tail: "same\n\n\nsame" },
+  { name: "mixed", tail: `untouched\n\n* keep this marker\n\n${table}` },
+  { name: "CRLF", tail: "untouched\r\n\r\n* 日本語\r\n\r\ncafé", newline: "\r\n" },
+];
+
+const ordinaryCases = ordinary.flatMap(action => fixtures.flatMap(fixture => [false, true].map(after => ({ action, fixture, after, name: `${action.name} / ${fixture.name} / ${after ? "after" : "before"}` }))));
+
+ordinaryCases.push({ action: { name: "initially empty", source: "", at: 0, keys: ["Enter"], expected: "<br />", empty: 2 }, fixture: { name: "initially empty", tail: "", newline: "\n" }, after: false, name: "initially empty" });
+
+it.each(ordinaryCases)("p3557a_ordinary_edits_preserve_source: $name", async ({ action, fixture, after }) => {
+  const newline = fixture.newline ?? "\n";
+  const target = action.source.replace(/\n/g, newline);
+  const source = fixture.tail === "" ? target : after ? fixture.tail + newline + newline + target : target + newline + newline + fixture.tail;
+  const { handle, view, editor } = await open(source);
+  expect(handle.getText()).toBe(source);
+  const positions: number[] = [];
+  view.state.doc.descendants((node, pos) => { if (node.isTextblock) positions.push(pos + 1); });
+  let skip = 0;
+
+  if (after) editor.action(ctx => ctx.get(parserCtx)(fixture.tail)!.descendants(node => { if (node.isTextblock) skip++; }));
+  const position = positions[skip + ("paragraph" in action ? action.paragraph! : 0)]! + action.at;
+  view.dispatch(view.state.tr.setSelection(TextSelection.create(view.state.doc, position)));
+
+  const press = (key: string) => {
+    const shifted = key.startsWith("Shift-");
+    const name = shifted ? key.slice(6) : key;
+    const event = new KeyboardEvent("keydown", { key: name, keyCode: name === "Enter" ? 13 : 8, shiftKey: shifted, bubbles: true, cancelable: true });
+    expect(view.someProp("handleKeyDown", fn => fn(view, event)), key).toBeTruthy();
+  };
+
+  const check = () => {
+    const text = handle.getText();
+    expect(text).not.toBeNull();
+
+    if (fixture.tail) expect(text).toContain(fixture.tail);
+    expect(editor.action(ctx => ctx.get(serializerCtx)(ctx.get(parserCtx)(text!)!))).toBe(editor.action(ctx => ctx.get(serializerCtx)(ctx.get(parserCtx)(handle.snapshot().text)!)));
+
+    return text!;
+  };
+
+  for (const key of action.keys) { press(key); check(); }
+
+  const tail = fixture.tail.replace(/\r\n/g, "\n");
+  const expected = tail === "" ? action.expected : after ? tail + "\n\n" + action.expected : action.expected + "\n\n" + tail;
+  const trailingCaret = (after && action.name.startsWith("exit")) || fixture.name === "initially empty";
+  const serialized = editor.action(ctx => ctx.get(serializerCtx)(ctx.get(parserCtx)(expected + (trailingCaret ? "\n\n<br />" : ""))!));
+  expect(handle.snapshot().text).toBe(serialized);
+  let empties = 0;
+  view.state.doc.forEach(node => { if (node.type.name === "paragraph" && node.content.size === 0) empties++; });
+  expect(empties).toBe(action.empty + (!after && fixture.name === "mixed" ? 1 : after && (["* alpha", "1. alpha", "- [ ] alpha", "- [x] alpha", "> alpha"].includes(action.name) || action.name.startsWith("exit")) ? 1 : 0));
+  expect(undo(view.state, view.dispatch)).toBe(true);
+  expect(check()).toBe(source);
+  expect(redo(view.state, view.dispatch)).toBe(true);
+  expect(handle.snapshot().text).toBe(serialized);
+  check();
+  const saved = check();
+  handle.setText(saved);
+  view.dispatch(view.state.tr.insertText("! "));
+  expect(view.state.doc.textContent).toContain("! ");
+  const acknowledged = check();
+  handle.setText(acknowledged);
+  view.dispatch(view.state.tr.insertText("next"));
+  expect(view.state.doc.textContent).toContain("! next");
+  const next = check();
+  cleanup();
+  vi.restoreAllMocks();
+  const reopened = await open(next);
+  let start: number | undefined;
+  reopened.view.state.doc.descendants((node, pos) => { if (node.isTextblock && (after || start === undefined)) start = pos + 1; });
+  reopened.view.dispatch(reopened.view.state.tr.insertText("again", start));
+  const reloaded = reopened.handle.getText();
+  expect(reloaded).not.toBeNull();
+
+  if (fixture.tail) expect(reloaded).toContain(fixture.tail);
+  expect(reopened.editor.action(ctx => ctx.get(serializerCtx)(ctx.get(parserCtx)(reloaded!)!)))
+    .toBe(reopened.editor.action(ctx => ctx.get(serializerCtx)(ctx.get(parserCtx)(reopened.handle.snapshot().text)!)));
+});
+
+it("p3557a_ordinary_edits_preserve_source_after_whitespace_acknowledgement", async () => {
+  const { handle, view } = await open("");
+
+  for (const text of [" ", " ", "x", "y", "z", "q"]) {
+    view.dispatch(view.state.tr.insertText(text));
+    const source = handle.getText();
+    expect(source).not.toBeNull();
+    handle.setText(source!);
+  }
+
+  expect(view.state.doc.textContent).toBe("  xyzq");
+  expect(handle.getText()).toContain("x");
 });
