@@ -40,3 +40,27 @@ it("u3780_rendered_checks", async () => {
     expect(CHECK_IDS.filter((id) => checks[id].status === "fail"), step).toEqual([]);
   }
 }, 240_000);
+
+it("p3557c_failed_note_deletion_shows_then_clears", async () => {
+  const dir = captureDir("P3557c");
+
+  await page.scheme("dark");
+  await page.load("/harness.html?seed=note-queue", FULLSCREEN.width, FULLSCREEN.height);
+  await page.until(`() => Boolean(window.__fake && document.querySelector('.rail-row'))`);
+  await page.call(`() => document.querySelector('.rail-row[data-id="agent-4"]').click()`);
+  await page.until(`() => document.querySelectorAll('.note-queue-row').length === 4`);
+  await page.call(`() => { window.__fake.app.handlers['message.drop'] = () => { throw new Error('Daemon refused'); }; document.querySelector('.note-queue-row [data-remove]').click(); }`);
+  await page.until(`() => Boolean(document.querySelector('[role=alert]'))`);
+
+  const save = async (step: string) => {
+    if (!dir) return;
+    mkdirSync(dir, { recursive: true });
+    writeFileSync(join(dir, `${step}.png`), Buffer.from(await page.shot(), "base64"));
+    writeFileSync(join(dir, `${step}.checks.json`), JSON.stringify(await page.call<Checks>(`() => window.__checks()`), null, 2));
+  };
+
+  await save("terminal-failure-visible");
+  await page.call(`() => [...document.querySelectorAll('button')].find((each) => each.textContent === 'Dismiss').click()`);
+  await page.until(`() => !document.querySelector('.note-queue [role=alert]') && document.querySelectorAll('.note-queue-row').length === 4`);
+  await save("terminal-failure-cleared");
+}, 120_000);
