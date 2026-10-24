@@ -401,11 +401,11 @@ it.each(([
       await waitFor(() => expect(screen.queryByRole("alert", { name: failure })).toBeNull());
     } else {
       if (owner.startsWith("message")) {
-        fireEvent.click(screen.getByRole("button", { name: copy.close }));
+        fireEvent.click(within(screen.getByRole("region", { name: copy.reactionMessage(42) })).getByRole("button", { name: copy.close }));
         expect(screen.queryByRole("alert", { name: failure })).toBeNull();
       }
 
-      fireEvent.click(screen.getByRole("button", { name: copy.reactionBack }));
+      fireEvent.click(within(screen.queryByRole("form", { name: copy.reactionCreate }) ?? screen.getByRole("region", { name: copy.reactionDetail("Ship it") })).getByRole("button", { name: copy.close }));
       fireEvent.click(await screen.findByRole("button", { name: /Other reaction/ }));
       await screen.findByText("other instruction");
       expect(screen.queryByRole("alert", { name: failure })).toBeNull();
@@ -429,7 +429,7 @@ it.each(["dismiss", "recover"])("p3557c_failure_lifetime_reactions_list_%s", asy
   await screen.findByRole("alert", { name: "list unavailable" });
   fireEvent.click(screen.getByRole("button", { name: /Ship it/ }));
   await screen.findByRole("region", { name: copy.reactionDetail("Ship it") });
-  fireEvent.click(screen.getByRole("button", { name: copy.reactionBack }));
+  fireEvent.click(within(screen.queryByRole("form", { name: copy.reactionCreate }) ?? screen.getByRole("region", { name: copy.reactionDetail("Ship it") })).getByRole("button", { name: copy.close }));
   expect(screen.getByRole("alert", { name: "list unavailable" })).toBeTruthy();
 
   if (transition === "recover") app.handlers["reaction.list"] = () => [saved()];
@@ -495,7 +495,7 @@ it.each(["dismiss", "recover"])("p3557c_failure_lifetime_reactions_clipboard_ide
 
     fireEvent.click(screen.getByRole("button", { name: transition === "recover" ? copy.copy : copy.clear }));
     await waitFor(() => expect(screen.queryByRole("alert", { name: /message clipboard unavailable/ })).toBeNull());
-    fireEvent.click(screen.getByRole("button", { name: copy.close }));
+    fireEvent.click(within(screen.getByRole("region", { name: copy.reactionMessage(42) })).getByRole("button", { name: copy.close }));
     expect(screen.getByRole("alert", { name: /reaction clipboard unavailable/ })).toBeTruthy();
     expect(connected.drafts.list()).toEqual(retained);
     expect(app.calls.filter(call => call.method === "message.get").map(call => call.params)).toEqual([{ id: 42 }]);
@@ -511,7 +511,7 @@ it.each(["dismiss", "unrelated acknowledgement"])("p3557c_failure_lifetime_react
   fireEvent.input(screen.getByLabelText(copy.reactionInstruction), { target: { value: " keep exactly\n 🧭 " } });
   const retained = structuredClone(connected.drafts.list());
 
-  fireEvent.click(screen.getByRole("button", { name: copy.reactionBack }));
+  fireEvent.click(within(screen.queryByRole("form", { name: copy.reactionCreate }) ?? screen.getByRole("region", { name: copy.reactionDetail("Ship it") })).getByRole("button", { name: copy.close }));
   app.handlers["reaction.run"] = ({ id }) => {
     if (id === "r1") throw new Error("first reaction refused");
 
@@ -525,11 +525,11 @@ it.each(["dismiss", "unrelated acknowledgement"])("p3557c_failure_lifetime_react
   if (transition === "dismiss") fireEvent.click(screen.getByRole("button", { name: copy.clear }));
   else {
     await waitFor(() => expect(screen.getByRole("button", { name: copy.reactionRun })).toHaveProperty("disabled", false));
-    fireEvent.click(screen.getByRole("button", { name: copy.reactionBack }));
+    fireEvent.click(within(screen.queryByRole("form", { name: copy.reactionCreate }) ?? screen.getByRole("region", { name: copy.reactionDetail("Ship it") })).getByRole("button", { name: copy.close }));
     fireEvent.click(await screen.findByRole("button", { name: /Other reaction/ }));
     fireEvent.click(screen.getByRole("button", { name: copy.reactionRun }));
     await waitFor(() => expect(screen.getByRole("button", { name: copy.reactionRun })).toHaveProperty("disabled", false));
-    fireEvent.click(screen.getByRole("button", { name: copy.reactionBack }));
+    fireEvent.click(within(screen.queryByRole("form", { name: copy.reactionCreate }) ?? screen.getByRole("region", { name: copy.reactionDetail("Other reaction") })).getByRole("button", { name: copy.close }));
     fireEvent.click(await screen.findByRole("button", { name: /Ship it/ }));
   }
 
