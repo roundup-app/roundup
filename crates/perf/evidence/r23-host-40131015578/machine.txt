@@ -129,4 +129,3 @@ $ cat /proc/sys/kernel/random/boot_id
 1473ad4c-2a6c-493d-9264-bc6cf002aeee
 
 exit: 0
-

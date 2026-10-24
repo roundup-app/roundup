@@ -144,4 +144,3 @@ $ gh api repos/saadshahd/roundup/actions/runs/40125077401/jobs --jq '.jobs[] | s
 {"id":120964903480,"labels":["ubuntu-latest"],"name":"build #3756 / build","runner_name":"GitHub Actions 1000192777"}
 
 exit: 0
-
