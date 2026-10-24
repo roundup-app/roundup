@@ -397,7 +397,7 @@ it("p3557c_failure_lifetime_measurement_dashboard", async () => {
   await waitFor(() => expect(app.calls.some((call) => call.method === "rail.tree")).toBe(true));
   expect(screen.getByText(/Read unavailable/)).toBeTruthy();
 
-  app.handlers["project.measurementSummary"] = (params) => summary(params.home, params.category, "7");
+  app.handlers["project.measurementSummary"] = (params) => summary(params.home, "7", params.offset);
   fireEvent.click(screen.getByRole("button", { name: "Retry" }));
   await waitFor(() => expect(screen.queryByText(/Read unavailable/)).toBeNull());
 });
