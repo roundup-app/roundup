@@ -112,7 +112,15 @@ CAUSES = {
 
 
 def call(*args):
-    return subprocess.run(['gh', *args], check=True, text=True, stdout=subprocess.PIPE, timeout=60).stdout
+    """`gh *args`'s stdout. A GitHub 5xx (`HTTP 5` in stderr) is retried twice after 2 s then 5 s; any other failure raises at once, stderr re-emitted."""
+    for pause in (2, 5, None):
+        run = subprocess.run(['gh', *args], text=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, timeout=60)
+        if run.returncode == 0:
+            return run.stdout
+        sys.stderr.write(run.stderr)
+        if pause is None or 'HTTP 5' not in run.stderr:
+            run.check_returncode()
+        time.sleep(pause)
 
 
 def comment(number, body):
