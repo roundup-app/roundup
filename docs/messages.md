@@ -4,7 +4,7 @@ Design for `scenarios/messages.md` (B1–B18, B39/B40 and B50–B52) Serves `PRI
 
 ## Existing delivery seams
 
-`crates/messages` owns the durable Message store, Routes, holds and escalation chain.
+`crates/messages` owns the durable Message store, Routes and holds.
 `crates/rupd` wires delivery to Agents, and `crates/rup` exposes the existing RPC/MCP calls.
 The Adapter input seam supplies user prompt typing and cross-session inbox delivery;
 B50–B52 specify the sender-based selection and receipt rules. These changes reuse
@@ -15,11 +15,11 @@ those seams rather than adding a queue or another Adapter seam.
 | Status | Meaning | Leaves it by |
 |---|---|---|
 | `pending` | awaits transport and receipt when the current Attempt is delivery-ready (`idle` or B37's live `error`) | acknowledged (`delivered`), held, or the receiver exits (`dropped`) |
-| `held` (`ask-first`, `takeover`, `escalated` or `inbox`) | waits for the user, for a Takeover to end, for unsent input to be submitted or cleared, or for the Agent's Claude inbox to pass its check | `message.deliver`, `message.drop`, the end of a Takeover or the submit or clear of unsent input (only `takeover`), the user's answer (only `escalated`), a passing check at the Agent's next `idle` (only `inbox`; `message.deliver` of it needs that check too, else `INBOX_UNAVAILABLE`) |
-| `delivered` | receipt acknowledged by the Agent on the selected transport, or stored for the user (B10/B15) | final |
+| `held` (`ask-first`, `takeover` or `inbox`) | waits for the user, for a Takeover to end, for unsent input to be submitted or cleared, or for the Agent's Claude inbox to pass its check | `message.deliver`, `message.drop`, the end of a Takeover or the submit or clear of unsent input (only `takeover`), a passing check at the Agent's next `idle` (only `inbox`; `message.deliver` of it needs that check too, else `INBOX_UNAVAILABLE`) |
+| `delivered` | receipt acknowledged by the Agent on the selected transport, or stored for the user (B10) | final |
 | `dropped` | ended without delivery, with a reason | final |
 
-Default Route is `auto`. A Held Message never blocks a later one (B7). Delivery acknowledgement follows the selected transport (B39/B40, B50–B52): user prompts use `UserPromptSubmit`; non-user inbox Messages use the transcript receipt for `msg_id`. Successful writing alone is not delivery. A prompt id line cannot acknowledge an inbox Message or block a prompt that names one. An unacknowledged id may be retried after restart, without another delivered transition or escalation chain. `blocked` is unchanged: this series gives Routes no say in Kind (`GLOSSARY.md`, "Who decides Kind").
+Default Route is `auto`. A Held Message never blocks a later one (B7). Delivery acknowledgement follows the selected transport (B39/B40, B50–B52): user prompts use `UserPromptSubmit`; non-user inbox Messages use the transcript receipt for `msg_id`. Successful writing alone is not delivery. A prompt id line cannot acknowledge an inbox Message or block a prompt that names one. An unacknowledged id may be retried after restart, without another delivered transition. `blocked` is unchanged: this series gives Routes no say in Kind (`GLOSSARY.md`, "Who decides Kind").
 
 ## B50 to B52: authenticated sender selects transport
 
@@ -30,27 +30,27 @@ For an Agent receiver, both `note` and `question` use this table; authenticated 
 | User | Existing `Agents::prompt` user-input path, B2/B30 batching | `UserPromptSubmit`, B39/B40 |
 | Agent, Extension, Daemon | Existing Adapter cross-session inbox only | Transcript `msg_id`, B50–B52 |
 
-Messages addressed to the user have no Agent inbox: B10 stores direct Messages and B15 holds the final Escalated question. No non-user Message reaches `Agents::prompt` or a Terminal fallback, including questions, generated hops, retries and explicit user delivery. Reuse the existing Adapter, store, holds and escalation chain; no replacement queue or conversion of question to note.
+Messages addressed to the user have no Agent inbox: B10 stores direct Messages. No non-user Message reaches `Agents::prompt` or a Terminal fallback, including questions, retries and explicit user delivery. Reuse the existing Adapter, store and holds; no replacement queue or conversion of question to note.
 
-The Adapter owns socket authentication, protocol checking, envelope and receiving Attempt permission mode. An inbox question remains a durable `question` with its original sender, body, id, `replyTo` and `passedFrom`. The Adapter prefixes question content with `[question, replyTo: <id>]`; notes keep their existing content. This identifies the kind and the id to answer; transport metadata does not rewrite the stored body. Questions never enter note folding or note queue-bound exemptions, even when their authored body starts with `[digest]` or `[wake]`. Receipt resolves the same Message id through the existing transcript mechanism. The in-flight record precedes the socket write, and the Message stays pending until receipt. Repeated idle edges skip an in-flight id in this Daemon run. After restart an unacknowledged id may be resent with the same `msg_id`; this is a transport retry, not a second Message, answer or hop. An acknowledged id is never resent and emits `message.delivered` once.
+The Adapter owns socket authentication, protocol checking, envelope and receiving Attempt permission mode. An inbox question remains a durable `question` with its original sender, body, id, and `replyTo`. The Adapter prefixes question content with `[question, replyTo: <id>]`; notes keep their existing content. This identifies the kind and the id to answer; transport metadata does not rewrite the stored body. Questions never enter note folding or note queue-bound exemptions, even when their authored body starts with `[digest]` or `[wake]`. Receipt resolves the same Message id through the existing transcript mechanism. The in-flight record precedes the socket write, and the Message stays pending until receipt. Repeated idle edges skip an in-flight id in this Daemon run. After restart an unacknowledged id may be resent with the same `msg_id`; this is a transport retry, not a second Message or answer. An acknowledged id is never resent and emits `message.delivered` once.
 
-Missing or Mismatch holds either non-user kind for `inbox`, exposes the existing Rail fact and emits one held event with no false delivery. Mismatch returns `INBOX_UNAVAILABLE` after storing the held Message; Missing retains the existing send response. Manual `message.deliver` requires a usable inbox or fails visibly while leaving it held. A passing check at eligible idle or Attempt start releases inbox holds in order only after every remaining Takeover/input hold ends; AskFirst/Drop retain their own semantics. Explicit user delivery retains its hold override but cannot select another transport. Recovery binds a held id to the checked current Attempt before making it pending and arms its bound at release. The merged inbox-recovery repair's final-hold guards apply to questions as well as notes.
+Missing or Mismatch holds either non-user kind for `inbox`, exposes the existing Rail fact and emits one held event with no false delivery. Mismatch returns `INBOX_UNAVAILABLE` after storing the held Message; Missing retains the existing send response. Manual `message.deliver` requires a usable inbox or fails visibly while leaving it held. A passing check at eligible idle or Attempt start releases inbox holds in order only after every remaining Takeover/input hold ends; AskFirst/Drop retain their own semantics. Explicit user delivery retains its hold override but cannot select another transport. Recovery binds a held id to the checked current Attempt before making it pending. The merged inbox-recovery repair's final-hold guards apply to questions as well as notes.
 
-The vendor suppresses consecutive equal sender/text entries within a receiving Attempt. B51(g) conservatively refuses equal authenticated sender/body against the latest pending/delivered non-user Message in B7 delivery-rank order across both kinds, before allocating a Message or chain id. Tests cover all four ordered kind pairs and all non-user senders; another sender/body, an intervening entry or a new receiving Attempt remains accepted. A repeated same id is a B52 retry. Adapter fixtures for 2.1.300 and 2.1.302 pin the envelope and full question content; the Daemon fake peer suppresses repeated `msg_id` values and consecutive equal sender/content envelopes. The question header includes its distinct id, but does not relax the sender/body refusal. Recovery and manual release can deliver older ids after newer ids; the repeat boundary follows that release order, never allocation id. A refused held Message remains held and explicit delivery exposes `CONFLICT`; a refused new hop follows B16's unable-to-take skip. Distinct accepted questions keep distinct Message and chain ids.
+The vendor suppresses consecutive equal sender/text entries within a receiving Attempt. B51(g) conservatively refuses equal authenticated sender/body against the latest pending/delivered non-user Message in B7 delivery-rank order across both kinds, before allocating a Message id. Tests cover all four ordered kind pairs and all non-user senders; another sender/body, an intervening entry or a new receiving Attempt remains accepted. A repeated same id is a B52 retry. Adapter fixtures for 2.1.300 and 2.1.302 pin the envelope and full question content; the Daemon fake peer suppresses repeated `msg_id` values and consecutive equal sender/content envelopes. The question header includes its distinct id, but does not relax the sender/body refusal. Recovery and manual release can deliver older ids after newer ids; the repeat boundary follows that release order, never allocation id. A refused held Message remains held and explicit delivery exposes `CONFLICT`; Distinct accepted questions keep distinct Message ids.
 
-### Escalation and holds
+### Questions and holds
 
-B13–B17's chain is frozen at send: initial receiver, nearest ancestors in its Workstream, Door when present, then the user; skip the origin, never revisit or cross Workstreams. Every non-user Agent hop uses the inbox with the original authenticated sender and kind `question`; `passedFrom` identifies the previous hop. Each hop's 60 000 ms bound applies while pending or delivered, not while held for AskFirst, Takeover/input or inbox unavailability. It starts on pending release, not receipt. Receiver ending, Drop and other B16 unable-to-take cases skip immediately. Only an authorized note from the current delivered hop, addressed to the origin with that hop's `replyTo`, stops advancement. Earlier-hop answers, pending-hop answers and answers after escalation do not. The final held-escalated user Message is made once, changes no Kind and raises no alert.
+A question is one ordinary Message to one receiver. No timer, hop or held question passes it on: the user answers in the asking Agent's Terminal (A3564a), and a question nobody answers stays as its status says.
 
 ### Model interpretation and observers
 
-The existing `Type(id)` effect denotes the selected delivery transport; for non-user Messages it is an inbox effect, not Terminal typing. Missing/Mismatch projects that attempted transport to a hold, outside `step`. The pure model's atomic delivery abstraction does not establish Rust's in-flight, transcript or vendor repeat behavior. The sender/kind routing, receipt, hold and escalation observers exercise the Rust path independently of the model. The separate model-correspondence finding remains separate work.
+The existing `Type(id)` effect denotes the selected delivery transport; for non-user Messages it is an inbox effect, not Terminal typing. Missing/Mismatch projects that attempted transport to a hold, outside `step`. The pure model's atomic delivery abstraction does not establish Rust's in-flight, transcript or vendor repeat behavior. The sender/kind routing, receipt and hold observers exercise the Rust path independently of the model. The separate model-correspondence finding remains separate work.
 
-Affected laws: M1 (delivery/receipt and same-id retry), M2 (hold ownership), M3 (Takeover isolation), M4 (release order), M5 (unique ids and final states), M6 (no silent loss), M7 (receiver ending), M8 (bounded escalation and current-hop answer), M9 (restart replay), M10 (eligible-idle progress). No law may be weakened. The implementing Contract PR updates every changed interface's callers together and keeps the model and this interpretation agreeing. `just proofs` must print `ALL PROOFS CHECK`; it proves models, not Rust wiring.
+Affected laws: M1 (delivery/receipt and same-id retry), M2 (hold ownership), M3 (Takeover isolation), M4 (release order), M5 (unique ids and final states), M6 (no silent loss), M7 (receiver ending), M9 (restart replay), M10 (eligible-idle progress). No law may be weakened. The implementing Contract PR updates every changed interface's callers together and keeps the model and this interpretation agreeing. `just proofs` must print `ALL PROOFS CHECK`; it proves models, not Rust wiring.
 
-B50's sender/kind table exercises actual Daemon delivery, inbox entries, `Agents::prompt` calls and Terminal writes. B13–B17 replay the chain through inbox questions with a fake clock. B51 covers failure, explicit delivery and the tested repeat boundary. B52 counts entries per id, receipts and events over 30 idle edges and the four restart states (pending, in flight, acknowledged, held). Assertions run after each completed operation/handshake. Every regression names its clause and rejected mutation, including the Note-only transport gate and missing current-hop validation. Existing note regressions remain unless a named surviving test rejects the same break.
+B50's sender/kind table exercises actual Daemon delivery, inbox entries, `Agents::prompt` calls and Terminal writes. B51 covers failure, explicit delivery and the tested repeat boundary. B52 counts entries per id, receipts and events over 30 idle edges and the four restart states (pending, in flight, acknowledged, held). Assertions run after each completed operation/handshake. Every regression names its clause and rejected mutation, including the Note-only transport gate and missing current-hop validation. Existing note regressions remain unless a named surviving test rejects the same break.
 
-Gates and observers: P1/P11 require zero automatic inbox entries during Takeover/unsent input, including inbox recovery and overlapping holds; P3 requires no alert from ordinary Messages or escalation; P4 keeps vendor handling in the Adapter; P9/P10 require authorized delivery with user prompt batching retained and zero non-user prompt calls. These are behavior observers, not new App visuals.
+Gates and observers: P1/P11 require zero automatic inbox entries during Takeover/unsent input, including inbox recovery and overlapping holds; P3 requires no alert from ordinary Messages; P4 keeps vendor handling in the Adapter; P9/P10 require authorized delivery with user prompt batching retained and zero non-user prompt calls. These are behavior observers, not new App visuals.
 
 ## B37 lifecycle-to-model mapping
 
@@ -66,7 +66,7 @@ Attempt. B9 still applies to `done`, an ended Attempt or receiver removal.
 | Live current Attempt becomes `idle` or reports `StopFailure` / `error` | `Idle`: flush pending Messages in B7 order, with B30 batching in Rust; do not drop them or wait for another `idle` Signal. |
 | New Message while already delivery-ready | `Send` with the current Route and sender; the ready state permits delivery immediately. |
 | Route `ask-first` or `drop` | `Send` retains the ask-first hold or drops respectively; readiness bypasses neither Route. `UserDeliver` / `UserDrop` retain their existing guards. `UserDrop` also drops a `pending` Message the user sent that has no in-flight record: it leaves the queue as `dropped` (reason `removed`) and nothing is typed (U3782). |
-| Existing Takeover or unsent input | `TakeoverBegin` / `UserInput` keeps automatic delivery held, including Messages from the user (B32). `TakeoverEnd` clears only Takeover; `UserSubmit` and `UserClear` clear only unsent input. Automatic release waits until both are clear, then makes held Messages pending in B7 order; ask-first holds remain. Explicit `UserDeliver` still wins. B37 grants no new `takeover.begin` eligibility. |
+| Existing Takeover or unsent input | `TakeoverBegin` / `UserInput` keeps automatic delivery held, including Messages from the user (B32). `TakeoverEnd` clears only Takeover; `UserSubmit` and `UserClear` clear only unsent input. Automatic release waits until both are clear, then makes held Messages pending in B7 order; ask-first holds remain. Explicit `UserDeliver` still wins. B37 gives no new `takeover.begin` eligibility. |
 | Current Attempt is not ready, or typing is refused as `Busy` | `Busy`: no Type effect; keep the batch pending, or takeover-held if a Takeover began meanwhile. Rust undoes its pre-typing delivery record on refusal; the model's atomic record-and-Type step represents only accepted typing. A newer readiness revision supplies `Idle` again, including when its handler ran before the Busy completion: Rust re-reads authoritative readiness after rollback and retries only at a strictly newer revision of the same Attempt. An unchanged revision does not retry. |
 | Current Attempt actually ends, even with last Kind `error`; Kind `done`; or receiver is removed | `Exit`: drop pending and takeover-held Messages as receiver-gone in id order, retain ask-first holds, refuse later sends and manual delivery. A later `Idle` cannot clear `gone`. |
 | Observation belongs to an older Attempt or a stale Status revision | No model event for the current receiver: neither `Idle` nor `Exit`. An older `StopFailure` cannot reopen an exited receiver or close a resumed Attempt. |
@@ -97,11 +97,11 @@ check the lifecycle projection against those seams.
 
 | Module | Change |
 |---|---|
-| `crates/contracts` | `Message` (with `passedFrom`), `MessageKind`, `MessageStatus`, `Held` reason, `Route`, `Delivery` (moved out of `contracts/hooks.ts`, which imports it); methods `message.send`, `message.pass`, `message.get`, `message.list`, `message.deliver`, `message.drop`, `route.set`, `route.list`, `takeover.begin`, `takeover.end`; events `message.sent`, `message.held`, `message.delivered`, `message.dropped`, `route.changed`, `takeover.changed`; `generated/` is regenerated, never edited |
+| `crates/contracts` | `Message`, `MessageKind`, `MessageStatus`, `Held` reason, `Route`, `Delivery` (moved out of `contracts/hooks.ts`, which imports it); methods `message.send`, `message.get`, `message.list`, `message.deliver`, `message.drop`, `route.set`, `route.list`, `takeover.begin`, `takeover.end`; events `message.sent`, `message.held`, `message.delivered`, `message.dropped`, `route.changed`, `takeover.changed`; `generated/` is regenerated, never edited |
 | `crates/messages` (new) | stores Messages and Routes in `messages.db` of the Project data folder (N1, ADR 0004), holds Takeovers in memory, listens to `agent.status` on the bus, and delivers through the existing Adapter inbox or `Agents::prompt` according to authenticated sender |
 | `crates/agents` | the existing Adapter input seam handles inbox delivery for non-user Messages and `Agents::prompt` for user text; no fourth seam (P4) |
 | `crates/rupd` | registers the module |
-| `crates/rup` | MCP tools `message_send`, `message_get`, `message_list`, `message_pass` (B12) |
+| `crates/rup` | MCP tools `message_send`, `message_get`, `message_list` (B12) |
 | `crates/provenance` | none: `item` is a free string, `message:<id>` joins `todo:` and `pad:` (B11) |
 
 B32's Daemon-internal `TerminalOwners` dependency keeps `rpc::Module` unchanged. Production
@@ -121,10 +121,6 @@ Bounds, from the codes `rpc::code` already has: 32 `pending` or `held` Messages 
 - **P1.** No new path makes the user address an Agent instead of the Thread, or makes an Agent reachable only through the Thread. During a Takeover or unsent input, no automatically delivered Message reaches the Agent; the user's explicit `message.deliver` still wins (B6, B32).
 - **P3.** Nothing here interrupts the user. A Message to the user is stored, changes no Kind and carries no signal beyond the event (B10). The Inbox UI is not in this series; when it inks a badge for Held Messages it must answer this gate itself.
 - **P4.** The `messages` crate reads no vendor string; typing goes through the Adapter seam that exists.
-
-## Escalation
-
-Serves P1 and P3. P1: the user can still address any Agent, and a question never reaches the user through an Agent that owns the Thread's place. P1 also: a hop `held` for a Takeover waits, so a Takeover is never cut short. P3: the Escalated question is a Held Message, with no signal beyond the event, and a permission Card skips the chain, so only a valid Card interrupts. Added contract: `message.pass`, `passedFrom` on `Message`, and the Held reason `escalated`; the clock is injected, as B14's fake clock needs. A Door's hop uses the Door's own Agent, so nothing here adds a seam.
 
 ## Child digests
 
@@ -167,10 +163,8 @@ reopen preserve pending and held records and never type them. In the pure model,
 the window first applies Busy. Final receiver removal without an explicit retirement reservation bypasses this
 projection, ends the restart reservation and follows B9. Outside a reservation,
 actual ending applies Exit and drops pending and Takeover-held Messages; a live
-StopFailure instead applies Idle under B37. Ask-first and
-escalated holds retain their Reasons; skipped Agents' Takeovers are untouched.
-Question bounds pause while their receiver is reserved and restart on release;
-an explicit `message.pass` remains the Actor's choice.
+StopFailure instead applies Idle under B37. Ask-first
+holds retain their Reasons; skipped Agents' Takeovers are untouched.
 
 Release requires a live matching Attempt greater than the reserved Attempt, and
 any Door note's acknowledgement to be recorded for that Attempt or an earlier
@@ -201,8 +195,7 @@ M4 (B7 ranks retained), M5 (final records untouched), M6 (no queue loss), M7 (fi
 ending remains Exit, temporary restart is Busy), M9 (durable reservation/note
 replay), M10 (delivery follows coordinator release and fair Idle, including B37
 live error). M2's holds stay
-unchanged; M8's bound fairness additionally requires completion of the explicit
-restart. `model.bend` models the reservation as a schedule projection into the
+unchanged. `model.bend` models the reservation as a schedule projection into the
 unchanged delivery transitions and the already-typed prompt as an idempotent
 record journal that allocates one delivered id from the shared supply without a
 Type effect. Its stored frame replays the reservation bit before interpreting
@@ -228,14 +221,14 @@ reserve_retirement(agent, key)
 ```
 
 Reserve before stopping: it waits for in-flight Messages delivery, then atomically
-persists the key and pauses question bounds. It changes no existing Message id,
+persists the key It changes no existing Message id,
 content, status, Reason, rank or ordering, and creates no Takeover. It refuses an
 empty key, a missing receiver, stale Attempt or another restart/retirement
 reservation. An already stopped later Agent can reserve retirement after reconciling
 its ordinary B9 ending; dropped/final records never revive. Same-key retries succeed before or after removal and completion.
 Selected retirement immediately makes the receiver ineligible for new sends and
-manual delivery, including while still on the Rail. Explicit drop/pass retain
-their existing Actor permissions; the operation never drops or passes an archived record automatically.
+manual delivery, including while still on the Rail. Explicit drop retains
+its existing Actor permissions; the operation never drops an archived record automatically.
 An authorized `takeover.end` clears its Takeover without promoting held records.
 Retirement does not itself end a Takeover; the coordinator must end a selected
 Takeover before lifecycle removal. Unsent input cannot mutate retired records.
@@ -262,8 +255,7 @@ still vanishes under B6/B32, while archived Takeover-held Reasons remain unchang
 Affected laws M1–M10: M1/M3 prevent typing and internal Takeover locks; M2/M4 retain
 held Reasons and delivery ranks; M5 keeps final records final; M6 conserves every
 record; M7 keeps ordinary receiver-gone safety and distinguishes retirement's
-ineligible archive; M8 pauses automatic hop bounds for this selected receiver;
-M9 replays selection/completion and records durably; M10 permits delivery only to
+ineligible archive; M9 replays selection/completion and records durably; M10 permits delivery only to
 eligible receivers. `LAWS.bend` is unchanged: its fair-delivery cycle proves the
 ordinary eligible receiver. The retirement refinement proves ineligibility,
 completion idempotence, no typing on Idle, refused send/manual delivery, and record
@@ -448,8 +440,8 @@ or is cancelled. Pending Message residence and Wake registration supply no block
 interval. The observer cannot authorize, deliver, hold, drop or retry a Message.
 
 M1–M10 retain their transitions and laws: this adds no Type effect (M1/M3), changes
-no queue or retained identity (M4/M5/M6), revives no receiver (M7), changes no hop
-(M8/M9), and adds no progress requirement or await (M10). Routes and Held authority
+no queue or retained identity (M4/M5/M6), revives no receiver (M7), changes no
+replay (M9), and adds no progress requirement or await (M10). Routes and Held authority
 (M2) are unchanged. `proofs/messages` therefore needs no model or law change.
 
 
