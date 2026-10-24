@@ -427,7 +427,6 @@ p {
   position: absolute;
   inset: 0;
   border: 2px dashed var(--accent);
-  border-radius: var(--radius-row);
   pointer-events: none;
 }
 
