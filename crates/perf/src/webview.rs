@@ -5,6 +5,15 @@ use serde_json::Value;
 /// Frames slower than this mean the window was not drawn at full rate (behind other windows, occluded): the run says nothing about rendering.
 const FRAME_LIMIT_MS: f64 = 25.0;
 
+/// The hops of one key from keydown to the frame that shows its echo, in order (`apps/desktop/src/perf/keystrokes.ts`, `HOPS`).
+pub const HOPS: [&str; 5] = [
+    "keydown_to_input",
+    "input_to_dispatch",
+    "dispatch_to_echo_event",
+    "echo_event_to_parsed",
+    "parsed_to_frame",
+];
+
 pub fn failure(message: impl Into<String>) -> io::Error {
     io::Error::other(message.into())
 }
@@ -45,6 +54,19 @@ pub fn checked(report: &Value) -> io::Result<()> {
         return Err(failure(
             "keys and dropped must be integer counts, with keys above zero",
         ));
+    }
+
+    // R20: a report without every hop's p50/p95 cannot choose a repair.
+    for hop in HOPS {
+        let measured = &report["hops"][hop];
+        if measured["n"].as_u64().is_none_or(|n| n == 0)
+            || measured["p50"].as_f64().is_none()
+            || measured["p95"].as_f64().is_none()
+        {
+            return Err(failure(format!(
+                "the report has no hop attribution for {hop}"
+            )));
+        }
     }
 
     if frame > FRAME_LIMIT_MS {

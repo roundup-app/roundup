@@ -1,7 +1,9 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { buildReport } from "./frames";
-import { bounded, everyTwoSeconds, glyphsCycle, layersCycle, reportTerminal, todosCycle, writeInChunks } from "./frame_run";
+import { createHomed, everyTwoSeconds, glyphsCycle, layersCycle, todosCycle } from "./frame_run";
 import type { Layers, Todos } from "./frame_run";
+import { bounded, reportTerminal, writeInChunks } from "./run";
+import type { AppSeam } from "../app/seam";
 
 const clock = { sleep: (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms)) };
 
@@ -78,6 +80,16 @@ describe("u3010g the frame recorder drives every workload", () => {
     const lone: Todos = { ...todos, open: async () => [9], complete: async () => true };
 
     expect(await todosCycle(lone)(1)).toBe(false);
+  });
+
+  it("u3010g_a_driven_todo_is_homed_in_the_workstream_whose_shelf_shows_it", async () => {
+    const calls: [string, unknown][] = [];
+    const rpc = async (method: string, params: Record<string, string | number | null>) => (calls.push([method, params]), { id: 7 });
+
+    // SAFETY: createHomed calls only todo.create and todo.move, which this stub answers; the other methods are never reached.
+    await createHomed({ rpc } as Pick<AppSeam, "rpc">, "ws-1", "seed 0");
+
+    expect(calls).toEqual([["todo.create", { title: "seed 0", body: null, blockers: null }], ["todo.move", { id: 7, home: "ws-1" }]]);
   });
 
   it("u3010g_glyphs_need_ten_working_glyphs", async () => {

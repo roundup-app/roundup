@@ -25,24 +25,20 @@ pub enum MessageStatus {
 }
 
 /// Why a Message is `held` (`ask-first`: waiting on the user; `takeover`: on a Takeover's end;
-/// `escalated`: on the user's answer to a bubbled-up question, B15; `inbox`: on a Claude inbox
-/// that is missing or mismatched, B51) or `dropped`
-/// (`receiver gone`, B9; `not accepted`, B2; `passed`, a question's hop that was still `pending`
-/// when the next was made, B13; `removed`, a `pending` note the user took back, U3782; `merged`, a pushed digest folded into a newer one, B22).
+/// `inbox`: on a Claude inbox that is missing or mismatched, B51) or `dropped`
+/// (`receiver gone`, B9; `not accepted`, B2; `removed`, a `pending` note the user took back, U3782; `merged`, a pushed digest folded into a newer one, B22).
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize, TS, JsonSchema)]
 #[serde(rename_all = "kebab-case")]
 #[ts(export, export_to = "message/")]
 pub enum Reason {
     AskFirst,
     Takeover,
-    Escalated,
     /// B51: a `note` waits for its Agent's Claude inbox to pass the check.
     Inbox,
     #[serde(rename = "receiver gone")]
     ReceiverGone,
     #[serde(rename = "not accepted")]
     NotAccepted,
-    Passed,
     /// U3782: the user removed a `pending` note before it was typed.
     Removed,
     /// B22: two pushed digests folded into one Message.
@@ -50,9 +46,7 @@ pub enum Reason {
 }
 
 /// A typed envelope between Actors. `reply_to` names the Message this answers, if any; `reason`
-/// names why a `held` Message is held or a `dropped` one was dropped, and is `None` otherwise;
-/// `passed_from` names the earlier hop of a bubbling question (B13), and is `None` for any other
-/// Message and for a question's first hop.
+/// names why a `held` Message is held or a `dropped` one was dropped, and is `None` otherwise.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, TS)]
 #[ts(export, export_to = "message/")]
 pub struct Message {
@@ -65,8 +59,6 @@ pub struct Message {
     pub reply_to: Option<u32>,
     pub status: MessageStatus,
     pub reason: Option<Reason>,
-    #[serde(rename = "passedFrom")]
-    pub passed_from: Option<u32>,
     #[ts(type = "number")]
     pub at: i64,
     /// A32: the Iteration of the Door a `message.list {id}` answer was made for; absent elsewhere.

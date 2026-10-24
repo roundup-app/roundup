@@ -9,7 +9,7 @@ use serde_json::Value;
 
 use super::step::Event;
 use super::store::{Store, text_of};
-use super::{Messages, item, require_user, settle_logged, user_call_moves};
+use super::{Messages, item, require_user, user_call_moves};
 
 impl Messages {
     pub(super) async fn drop_message(&self, ctx: &Ctx, p: MessageId) -> Result<Value, RpcError> {
@@ -29,7 +29,6 @@ impl Messages {
         ctx.touch(Verb::Wrote, &item(p.id))?;
         let dropped = self.get_or_not_found(p.id)?;
         ctx.emit(EventData::MessageDropped(dropped.clone().into()));
-        settle_logged(&self.inner, "settle").await;
         reply(&dropped)
     }
 }
