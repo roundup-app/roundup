@@ -177,10 +177,6 @@ const TOOLS: &[(&str, &str)] = &[
     ("message_get", "read one Message you sent or received"),
     ("message_list", "see the Messages you sent or received"),
     (
-        "message_pass",
-        "hand a question you received on to the next Agent above, when it is not yours to answer",
-    ),
-    (
         "todo_move",
         "move a Todo into a Workstream, or out of every Workstream",
     ),

@@ -1319,7 +1319,6 @@ async fn b50_an_inbox_question_preserves_its_message_and_reply_identity() {
     assert_eq!(before["kind"], "question");
     assert_eq!(before["body"], body);
     assert_eq!(before["replyTo"], earlier["id"]);
-    assert_eq!(before["passedFrom"], Value::Null);
     assert_eq!(before["status"], "pending");
     run.record(&[id]).await;
     until("receipt", async || {
@@ -1600,7 +1599,6 @@ async fn a3564c_two_agents_exchange_a_question_and_reply_without_a_view() {
     assert_eq!(all[0]["to"], answerer.id.as_str());
     assert_eq!(all[0]["kind"], "question");
     assert_eq!(all[0]["body"], question);
-    assert_eq!(all[0]["passedFrom"], Value::Null);
     assert_eq!(all[1]["id"], replied);
     assert_eq!(all[1]["from"]["id"], answerer.id.as_str());
     assert_eq!(all[1]["to"], asker.id.as_str());

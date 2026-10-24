@@ -53,7 +53,6 @@ The `roundup` MCP server offers these tools. They are deferred: load a tool befo
 - `message_resumeWork`: only the user may resume unfinished work; one decision makes one successor Message and never repeats an uncertain external effect.
 - `message_get`: read one Message you sent or received.
 - `message_list`: see the Messages you sent or received.
-- `message_pass`: hand a question you received on to the next Agent above, when it is not yours to answer.
 - `todo_move`: move a Todo into a Workstream, or out of every Workstream.
 - `todo_reorder`: put a Todo before another in the Todo order, or last.
 - `todo_delete`: delete a Todo that should not exist.
