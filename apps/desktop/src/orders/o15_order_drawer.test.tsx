@@ -621,7 +621,7 @@ it.each(["dismiss", "copy", "timer", "unrelated removal", "item removal", "sessi
   app.handlers["agent.spawnPrompt"] = () => ({ prompt: "p" });
   const connected = await connectProject(app, { name: "p", path: "/p" }, () => true, () => 0);
   const write = vi.fn().mockRejectedValue(new Error("clipboard denied"));
-  vi.stubGlobal("navigator", { clipboard: { writeText: write } });
+  app.clipboardWrite = write;
   render(() => <ConnectedProjectContext.Provider value={connected}><OrderDrawer id="a" inline /></ConnectedProjectContext.Provider>);
 
   if (transition === "timer") vi.useFakeTimers();
@@ -654,5 +654,4 @@ it.each(["dismiss", "copy", "timer", "unrelated removal", "item removal", "sessi
   }
 
   expect(screen.queryByRole("alert") !== null).toBe(transition === "unrelated removal" || transition === "timer");
-  vi.unstubAllGlobals();
 });
