@@ -695,10 +695,8 @@ export const copy = {
     : cause === "receiver gone" ? "The original Agent is no longer available. Choose an available Agent for new work."
     : cause === "ask-first" ? "Waiting for your permission to send."
     : cause === "takeover" ? "Waiting until you leave the Agent's Terminal."
-    : cause === "escalated" ? "Waiting for your answer."
     : cause === "inbox" ? "The Agent's inbox is unavailable. Check the Agent before retrying."
     : cause === "not accepted" ? "The Agent did not accept this Message. Check the Agent before retrying."
-    : cause === "passed" ? "This question was passed on."
     : cause === "merged" ? "Included in a newer summary."
     : cause.includes("unsupported") ? "This source cannot be watched. Stop this reaction and choose a supported condition."
     : "Observation details could not be explained. Refresh to check again.",
