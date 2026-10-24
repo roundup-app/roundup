@@ -36,7 +36,7 @@ export const NoteBatch = (props: { id: string; name: string; fallback?: () => vo
 
   return <section class="note-batch" aria-label={copy.notesRegion}>
       <ReservedLine message={props.notes.problem() ?? props.notes.failure(props.id)} status={status()}>
-        <Show when={props.notes.failure(props.id)}><button type="button" data-button="quiet" onClick={() => props.notes.dismiss(props.id)}>Dismiss</button></Show>
+        <Show when={props.notes.failure(props.id)}><button type="button" data-button="quiet" onClick={() => props.notes.dismiss(props.id)}>{copy.dismissFailure}</button></Show>
         <Show when={uncertain()}><button type="button" data-button="quiet" onClick={() => void props.notes.reconcile(props.id)}>{copy.checkMessageHistory}</button></Show>
         <Show when={props.notes.problem()}><button type="button" data-button="quiet" onClick={props.recover}>{copy.openNotesRecovery}</button></Show></ReservedLine>
       <Show when={props.notes.list(props.id).length}>
@@ -136,7 +136,7 @@ export const NoteRecovery = (props: { notes: Notes; available: (id: string) => b
     <Popover.Positioner><Popover.Content class="worktree-panel note-recovery" aria-label={copy.recoverNotes}>
       <header class="diff-header"><span class="diff-identity">{copy.recoverNotes}</span><button type="button" data-button="quiet" onClick={close}>{copy.close}</button></header>
       <ReservedLine message={props.notes.problem()} />
-      <For each={[...failures()]}>{([key, text]) => <ReservedLine message={text}><button type="button" data-button="quiet" onClick={() => clear(key)}>Dismiss</button></ReservedLine>}</For>
+      <For each={[...failures()]}>{([key, text]) => <ReservedLine message={text}><button type="button" data-button="quiet" onClick={() => clear(key)}>{copy.dismissFailure}</button></ReservedLine>}</For>
       <div class="diff-actions"><button type="button" data-button="quiet" onClick={() => void copyValue(props.notes.copy(), "all")}>{copy.copy}</button><Show when={props.notes.problem()}><button type="button" data-button="quiet" onClick={props.notes.retry}>{copy.retry}</button></Show></div>
       <Show when={editing()} keyed>{value => <NoteForm id={value.id} comparison={comparisons().get(`${value.id}:${value.form.comparison.newPath}`) ?? value.form.comparison} notes={props.notes} recovered={value.form} selection={{ side: value.form.side, start: Number(value.form.start), end: Number(value.form.end) }} close={() => setEditing(undefined)} />}</Show>
       <For each={props.notes.entries()}>{([id, value]) => <section class="note-batch">
