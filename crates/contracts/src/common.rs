@@ -51,6 +51,52 @@ pub enum Kind {
     Done,
 }
 
+impl Kind {
+    /// U3768b/U3016c: only an unended Attempt outside idle/done contributes Agent time.
+    pub fn counts_time(self, ended: bool) -> bool {
+        !ended && !matches!(self, Self::Idle | Self::Done)
+    }
+}
+
+#[cfg(test)]
+mod time_contract {
+    #[test]
+    fn writes_agent_time_typescript() {
+        use super::Kind;
+        let kinds = [
+            Kind::Error,
+            Kind::NeedsYou,
+            Kind::Blocked,
+            Kind::Working,
+            Kind::Idle,
+            Kind::Done,
+        ];
+        let rows: Vec<_> = kinds
+            .iter()
+            .map(|kind| {
+                format!(
+                    "  {}: [{}, {}]",
+                    serde_json::to_string(kind).unwrap(),
+                    kind.counts_time(false),
+                    kind.counts_time(true)
+                )
+            })
+            .collect();
+        let text = format!(
+            "// Generated from contracts::Kind::counts_time; do not edit.\nimport type {{ Kind }} from './Kind';\n\nconst counts = {{\n{}\n}};\n\nexport const countsTime = (kind: Kind, ended: boolean): boolean => counts[kind][ended ? 1 : 0]!;\n",
+            rows.join(",\n")
+        );
+        std::fs::write(
+            concat!(
+                env!("CARGO_MANIFEST_DIR"),
+                "/../../contracts/generated/agentTime.ts"
+            ),
+            text,
+        )
+        .unwrap();
+    }
+}
+
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, TS)]
 #[ts(export)]
 pub struct Status {
