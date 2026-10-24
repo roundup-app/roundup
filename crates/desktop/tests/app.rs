@@ -451,8 +451,8 @@ fn s1_the_webview_is_granted_dialogs_the_dock_badge_and_hearing_events_and_nothi
                 .collect::<Vec<_>>()
         })
         .collect();
-
     let expected = [
+        "dialog:allow-message",
         "dialog:allow-open",
         "dialog:allow-save",
         "core:window:allow-set-badge-count",
