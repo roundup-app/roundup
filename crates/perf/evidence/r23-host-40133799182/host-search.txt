@@ -35,7 +35,7 @@ $ gh api --method GET repos/saadshahd/roundup/actions/runs -f status=in_progress
 
 exit: 0
 
-$ gh api repos/saadshahd/roundup/actions/runs/40133799182/jobs --jq '.jobs[] | {id,name,status,runner_name,labels}' 
+$ gh api repos/saadshahd/roundup/actions/runs/40133799182/jobs --jq '.jobs[] | {id,name,status,runner_name,labels}'
 {"id":120990922595,"labels":["ubuntu-latest"],"name":"pick","runner_name":"GitHub Actions 1000193758","status":"completed"}
 {"id":120991179834,"labels":["ubuntu-latest"],"name":"build #3776 / build","runner_name":"GitHub Actions 1000193778","status":"in_progress"}
 {"id":120991179949,"labels":["ubuntu-latest"],"name":"build #3764 / build","runner_name":"GitHub Actions 1000193781","status":"in_progress"}
@@ -49,7 +49,7 @@ Time:2026-10-24T21:26:04.5311316Z</Message></Error>gh: HTTP 404
 
 exit: 1
 
-$ gh api repos/saadshahd/roundup/actions/runs/40133612986/jobs --jq '.jobs[] | {id,name,status,runner_name,labels}' 
+$ gh api repos/saadshahd/roundup/actions/runs/40133612986/jobs --jq '.jobs[] | {id,name,status,runner_name,labels}'
 {"id":120990379657,"labels":["ubuntu-latest"],"name":"pick","runner_name":"GitHub Actions 1000193732","status":"completed"}
 {"id":120990756165,"labels":["ubuntu-latest"],"name":"build #3696 / build","runner_name":"GitHub Actions 1000193757","status":"in_progress"}
 
@@ -62,7 +62,7 @@ Time:2026-10-24T21:26:05.6041653Z</Message></Error>gh: HTTP 404
 
 exit: 1
 
-$ gh api repos/saadshahd/roundup/issues/3760/dependencies/blocked_by --jq '.[] | {number,state,title}' 
+$ gh api repos/saadshahd/roundup/issues/3760/dependencies/blocked_by --jq '.[] | {number,state,title}'
 {"number":3764,"state":"open","title":"R23: supply a qualified 9V45 execution lifetime for #3760"}
 
 exit: 0
@@ -110,4 +110,3 @@ jobs:
       ISSUE: ${{ inputs.issue }}
 
 exit: 0
-
