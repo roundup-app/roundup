@@ -41,6 +41,7 @@ An Agent does through its server everything the user does in the App, one tool p
 | `open_in_editor` | the user's click on a Rail row's editor icon (U429): an Agent that could call it launches an app on the user's Mac |
 | `save_pasted_image` | the user's `⌘V` of an image into a Terminal (U418): an Agent that could call it writes files to the user's cache folder, and it has the bytes already |
 | `plugin:window-bar\|set_window_title`, `plugin:window-bar\|drag_window`, `plugin:window-bar\|zoom_window` | the user's native window title and gestures (U449–U451); Agents do not rename or move that window |
+| `select_project_menu` | the webview’s selected tab and native Project-menu availability (U3813); an Agent does not navigate the user’s window |
 | `close_project` | it ends the caller's own Daemon, and the call with it (S8) |
 | `projects`, `daemon_proof`, `rpc`, `subscribe` | the App's own windowing, or another Project's Daemon, or the proof only the user holds (H4, H18); an Agent reaches its own Project's Daemon alone (S8) |
 
