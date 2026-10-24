@@ -40,11 +40,6 @@ fn skill_folders(root: &Path) -> Vec<(String, PathBuf)> {
         .collect()
 }
 
-/// LC1: Project skills remain available when original settings sources are disabled.
-pub(super) fn project_skills(project: &Path) -> Vec<(String, PathBuf)> {
-    skill_folders(&project.join(".claude/skills"))
-}
-
 fn skills(src: &Sources<'_>) -> Vec<(String, PathBuf)> {
     // The Project's skill shadows the user's of the same name.
     let mut found = skill_folders(&src.project.join(".claude/skills"));
@@ -182,7 +177,6 @@ pub fn merged(a: &Extras, b: &Extras) -> Extras {
 pub(super) fn skill_plugin(
     folder: &Path,
     skills: &[(String, PathBuf)],
-    commands: Option<&Path>,
 ) -> Result<PathBuf, RpcError> {
     if super::launch_files::is_symlink(folder) {
         return Err(RpcError::internal(format!(
@@ -204,10 +198,6 @@ pub(super) fn skill_plugin(
     std::fs::create_dir_all(folder.join("skills")).map_err(RpcError::internal)?;
     for (name, source) in skills {
         std::os::unix::fs::symlink(source, folder.join("skills").join(name))
-            .map_err(RpcError::internal)?;
-    }
-    if let Some(commands) = commands {
-        std::os::unix::fs::symlink(commands, folder.join("commands"))
             .map_err(RpcError::internal)?;
     }
     Ok(folder.to_owned())
