@@ -45,7 +45,6 @@ impl Module for Agents {
                     reply(&measurements)
                 }
             }
-            "project.weeklyLimit" => reply(&self.launcher.weekly_limit().await),
             "agent.spawn" => reply(&self.spawn(ctx, params(value)?).await?),
             "agent.extras" => reply(&claude_code::extras::available(
                 &self.launcher.extras_sources(self.project_dir()),

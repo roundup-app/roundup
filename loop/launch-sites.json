@@ -243,7 +243,7 @@
     "data": "Fresh absolute mkdtemp data directory overrides inherited App data; HOME, vendor config and Project are isolated under the same run-owned folder.",
     "issue": 3026,
     "kind": "real",
-    "sha256": "a98a814a165e89595917e128c522db11a34a8a20f3f7162e0eabd2d3ad05e533"
+    "sha256": "90e27bfae4c913fd8831393903f8bedebe238eb04101c6ad57f1575e46b104a8"
   },
   "crates/agents/src/claude_code/mod.rs": {
     "cleanup": "No separate built-Daemon launch site.",
