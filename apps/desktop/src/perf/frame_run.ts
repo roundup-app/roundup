@@ -4,6 +4,7 @@ import { toBase64 } from "../terminal/base64";
 import { createXtermEmulators } from "../terminal/emulator";
 import { recordFrames } from "./frames";
 import type { FrameReport } from "./frames";
+import type { NativeDragReport } from "./nativeDragProbe";
 import { READY, SETUP_BOUND_MS, appears, sleep, timerResolutionMs } from "./run";
 
 /** `docs/motion.md`, **Native performance protocol**: every 2 s one cycle of the workload, over the 60 s sample. */
@@ -235,7 +236,7 @@ export const createFrameRun = (app: AppSeam, workload: string, cwd: string) => {
     renderer: () => {},
   });
 
-  const report = async (body: FrameReport | { error: string }) => {
+  const report = async (body: FrameReport | NativeDragReport | { error: string }) => {
     if (terminalId === null) throw new Error("no Terminal was opened to report through");
 
     const line = `FRAMES ${JSON.stringify(body)}\n`;
@@ -254,6 +255,14 @@ export const createFrameRun = (app: AppSeam, workload: string, cwd: string) => {
     document.dispatchEvent(new KeyboardEvent("keydown", { key: "t", code: "KeyT", metaKey: true, bubbles: true, cancelable: true }));
     await appears(() => document.querySelector("textarea.xterm-helper-textarea"), "the Terminal's input");
     await Promise.race([isReady, sleep(SETUP_BOUND_MS).then(() => Promise.reject(new Error(`the Terminal never printed ${READY}`)))]);
+
+    if (workload === "drag-compatibility") {
+      const { runNativeDragProbe } = await import("./nativeDragProbe");
+
+      await report(await runNativeDragProbe(app));
+
+      return;
+    }
 
     const cycle = await prepare(app, workload, cwd);
 
