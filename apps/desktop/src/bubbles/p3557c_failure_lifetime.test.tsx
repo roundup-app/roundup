@@ -1,6 +1,7 @@
 import { cleanup, fireEvent, screen, waitFor, within } from "@solidjs/testing-library";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { event } from "../testing/nodes";
+import { confirmDeletion, answerQuestion, questionDialog } from "../shelf/bulkQuestionHarness";
 import { mountBubbles, TERMINALS } from "./bubblesFixture";
 
 const clipboardBefore = Object.getOwnPropertyDescriptor(navigator, "clipboard");
@@ -18,6 +19,8 @@ afterEach(() => {
 const tab = (id: string) => document.querySelector<HTMLElement>(`.terminal-tab[data-bubble="${id}"]`)!;
 
 const close = (id: string) => document.querySelector<HTMLElement>(`.terminal-tab-pair[data-bubble="${id}"] > button:last-child`)!;
+
+const closeAccepted = async (id: string) => { fireEvent.click(close(id)); await confirmDeletion(); };
 
 const field = () => document.querySelector<HTMLInputElement>(".terminal-tab-editor input")!;
 
@@ -42,7 +45,7 @@ it.each(["close", "rename", "context"].flatMap(source => transitions.map(transit
     if (source === "close") {
       app.handlers["terminal.close"] = () => { throw new Error("Close refused\nTry again"); };
 
-      fireEvent.click(close("2"));
+      await closeAccepted("2");
       await screen.findByRole("alert", { name: "Close refused\nTry again" });
       app.handlers["terminal.close"] = remove;
     } else if (source === "rename") {
@@ -84,14 +87,14 @@ it.each(["close", "rename", "context"].flatMap(source => transitions.map(transit
       app.emit(event({ name: "terminal.changed" }));
       await waitFor(() => expect(connected.rail.terminals().find(terminal => terminal.id === "2")!.incarnation).toBe("replacement"));
     } else if (transition === "successful-delete") {
-      fireEvent.click(close("2"));
+      await closeAccepted("2");
       await waitFor(() => expect(tab("2")).toBeNull());
       await connected.rail.refresh({ terminals: true });
     } else if (transition === "cancel-delete") {
       fireEvent.contextMenu(tab("2"), { clientX: 10, clientY: 10 });
       await app.closeMenu();
     } else if (transition === "other-delete") {
-      fireEvent.click(close("1"));
+      await closeAccepted("1");
       await waitFor(() => expect(tab("1")).toBeNull());
       await connected.rail.refresh({ terminals: true });
     } else if (transition === "open") {
@@ -110,7 +113,7 @@ it.each(["close", "rename", "context"].flatMap(source => transitions.map(transit
     } else {
       app.handlers["terminal.close"] = () => { throw new Error("Still refused"); };
 
-      fireEvent.click(close("2"));
+      await closeAccepted("2");
       await screen.findByRole("alert", { name: "Still refused" });
     }
 
@@ -197,4 +200,18 @@ it.each(["dismiss", "discard", "copy", "other-copy", "other-discard", "retention
   expect(drafts.list()).toContainEqual(transition === "other-discard" ? first : other);
 
   if (["dismiss", "copy", "other-copy"].includes(transition)) expect(drafts.list()).toEqual(before);
+});
+
+it("p3557c_failure_lifetime_bubbles_close: Retry then Keep leaves the failure with its Retry", async () => {
+  const { app } = await mountBubbles();
+  app.handlers["terminal.close"] = () => { throw new Error("Close refused"); };
+
+  await closeAccepted("2");
+  await screen.findByRole("alert", { name: "Close refused" });
+  fireEvent.click(screen.getByRole("button", { name: "Retry" }));
+  await questionDialog();
+  await answerQuestion(false);
+  await waitFor(() => expect(document.activeElement).toBe(close("2")));
+  expect(screen.getByRole("alert", { name: "Close refused" })).toBeDefined();
+  expect(screen.getByRole("button", { name: "Retry" })).toBeDefined();
 });
