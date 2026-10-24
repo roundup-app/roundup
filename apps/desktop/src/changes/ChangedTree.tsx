@@ -171,7 +171,7 @@ export const ChangedTree = (props: { root: string; files: readonly ChangedFile[]
   return (
     <>
       <div ref={setHost} class="worktree-tree" />
-      <For each={[...failures()]} fallback={<ReservedLine />}>{([path, error]) => <ReservedLine message={`${error} (${path})`}><button type="button" data-button="quiet" onClick={() => clear(path)}>Dismiss</button></ReservedLine>}</For>
+      <For each={[...failures()]} fallback={<ReservedLine />}>{([path, error]) => <ReservedLine message={`${path.split("/").pop()}: ${error}`}><button type="button" data-button="quiet" onClick={() => clear(path)}>{copy.dismissFailure}</button></ReservedLine>}</For>
     </>
   );
 };
