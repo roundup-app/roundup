@@ -193,6 +193,7 @@ it.each(["M", "W"])("u2572b_actions_share_key_behavior_in_the_opening_view: Bubb
 
     if (byAction) { await show(); await chooseAction(key === "M" ? "Minimise or restore the Bubble" : "Close the Bubble", "enter"); }
     else leaderKey(`Key${key}`, {}, document.activeElement!);
+    if (key === "W") await answerQuestion(true);
     await waitFor(() => expect(document.querySelector<HTMLElement>('.bubble[data-bubble="7"]')?.hidden).toBe(true));
     results.push(app.calls.filter((call) => call.method === "terminal.close" || call.method === "terminal.write"));
     cleanup();
@@ -393,6 +394,7 @@ it("u2572c_a_pending_Bubble_owner_removes_its_actions_while_the_Switcher_is_open
   expect(actionNames()).toContain("Close the Bubble");
   app.handlers["terminal.close"] = () => new Promise(() => {});
   fireEvent.click(document.querySelector<HTMLButtonElement>('.terminal-tab-pair[data-bubble="7"] button[aria-label^="Close "]')!);
+  await answerQuestion(true);
   await waitFor(() => expect(actionNames()).not.toContain("Close the Bubble"));
   expect(app.calls.filter((call) => call.method === "terminal.close").map((call) => call.params)).toEqual([{ id: "7" }]);
   expect(field()).not.toBeNull();
