@@ -26,7 +26,7 @@ pub(crate) fn parent_of(pid: u32) -> Option<u32> {
     (parent > 0 && parent != pid).then_some(parent)
 }
 
-#[cfg(target_os = "macos")]
+#[cfg(target_vendor = "apple")]
 fn native_parent(pid: u32) -> Option<u32> {
     let info =
         libproc::proc_pid::pidinfo::<libproc::bsd_info::BSDInfo>(i32::try_from(pid).ok()?, 0)
@@ -34,7 +34,7 @@ fn native_parent(pid: u32) -> Option<u32> {
     Some(info.pbi_ppid)
 }
 
-#[cfg(not(target_os = "macos"))]
+#[cfg(not(target_vendor = "apple"))]
 fn native_parent(pid: u32) -> Option<u32> {
     // `pid (comm) state ppid …`: `comm` may hold spaces and parentheses, so cut after its last `)`.
     std::fs::read_to_string(format!("/proc/{pid}/stat"))
