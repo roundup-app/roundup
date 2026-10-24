@@ -299,7 +299,6 @@ export const copy = {
   running: "Running",
   minimise: "Minimise",
   close: "Close",
-  back: "Back",
   closeChanges: "Close changes",
   answers: "Answers",
   recommended: "Recommended",

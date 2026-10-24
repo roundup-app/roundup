@@ -10,7 +10,7 @@ afterEach(() => { cleanup(); vi.restoreAllMocks(); localStorage.clear(); });
 it("u2540c_one_message_contains_all_original_context", async () => {
   const { app } = await openDiff();
   await saveNote("  exact\ncomment <script>  ");
-  fireEvent.click(screen.getByRole("button", { name: "Back" }));
+  fireEvent.click(screen.getByRole("button", { name: "Close" }));
   await openFile("src/deep/b.ts");
   await saveNote("second");
   let accepted: unknown;
