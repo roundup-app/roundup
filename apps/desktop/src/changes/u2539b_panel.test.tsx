@@ -101,3 +101,24 @@ describe("U2539b", () => {
     await waitFor(() => expect(host.shadowRoot!.activeElement).toBe(stops[0]));
   });
 });
+
+it.each(["retry", "dismiss"])("p3557c_failure_lifetime_worktree_control: %s", async action => {
+  let failed = true;
+
+  const { app } = await mountControl(() => { if (failed) throw new RpcError(-32001, "list refused; retry loading files");
+
+ return { files: [] }; });
+
+  fireEvent.click(control());
+  await screen.findByRole("alert");
+
+  if (action === "dismiss") fireEvent.click(screen.getByRole("button", { name: "Dismiss" }));
+  else {
+    failed = false;
+    fireEvent.click(screen.getByRole("button", { name: "Retry" }));
+    await screen.findByText("No changes");
+  }
+
+  expect(screen.queryByRole("alert")).toBeNull();
+  expect(app.calls.filter(call => call.method === "agent.changedFiles").map(call => call.params)).toEqual(Array.from({ length: action === "retry" ? 2 : 1 }, () => ({ id: "a" })));
+});
