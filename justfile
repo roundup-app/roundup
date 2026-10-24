@@ -17,6 +17,8 @@ lint-rust:
     just clippy
     cargo machete crates
     spikes/context-injection/e7_report.test.sh
+    tools/question-guard/guard.test.sh
+    tools/question-guard/guard.sh
     tools/retired-words.test.sh
     tools/retired-words.sh
     just proofs
