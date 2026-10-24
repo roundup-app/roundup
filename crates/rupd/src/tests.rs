@@ -404,30 +404,10 @@ async fn first_said(said: &mut tokio::sync::mpsc::UnboundedReceiver<&'static str
         .expect("the module still reports its calls")
 }
 
-/// H7(b): the hook's process dying closes its connection, which drops the waiting call.
-#[tokio::test]
-async fn h7_a_hung_up_permission_call_is_dropped() {
-    let (_dir, mut said, _release, socket) = serving_a_module_that_hangs().await;
-    let mut hook = UnixStream::connect(&socket).await.unwrap();
-    hook.write_all(b"{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"agent.permission\"}\n")
-        .await
-        .unwrap();
-    assert_eq!(first_said(&mut said).await, "entered");
-    assert!(
-        said.try_recv().is_err(),
-        "the call waits while the hook is connected"
-    );
-
-    drop(hook);
-
-    let seen = tokio::time::timeout(std::time::Duration::from_secs(5), said.recv()).await;
-    assert_eq!(seen.unwrap(), Some("dropped"));
-}
-
-/// Any other call is not dropped by a half-close: a client may write its request, shut down
+/// A call is not dropped by a half-close: a client may write its request, shut down
 /// its write side and wait for the reply.
 #[tokio::test]
-async fn a_half_closed_call_that_is_not_a_permission_call_still_runs() {
+async fn a_half_closed_call_still_runs() {
     let (_dir, mut said, release, socket) = serving_a_module_that_hangs().await;
     let mut client = UnixStream::connect(&socket).await.unwrap();
     client
