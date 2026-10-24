@@ -23,7 +23,7 @@ const visibility = (value: "hidden" | "visible") => {
 
 let revision = 1;
 
-const status = (app: FakeApp, id: string, kind: Kind) => app.emit(event({ name: "agent.status", data: { id, attempt: "1", status_revision: String(++revision), status: { kind, label: "stopped", since: Date.now() } } }));
+const status = (app: FakeApp, id: string, kind: Kind) => app.emit(event({ name: "agent.status", data: { id, attempt: "1", status_revision: String(++revision), status: { kind, label: "stopped", since: Date.now(), finished: "0" } } }));
 
 const settle = () => vi.advanceTimersByTimeAsync(0);
 
@@ -73,7 +73,7 @@ afterEach(() => { cleanup(); localStorage.clear(); vi.restoreAllMocks(); vi.useR
 
 it("r17_hidden_or_stopped_app_has_no_periodic_work", async () => {
   for (const kind of stopped) {
-    const { app, clock, view } = await mount([agent("a", "idle", "stopped", { status: kind === null ? null : { kind, label: "stopped", since: NOW } })]);
+    const { app, clock, view } = await mount([agent("a", "idle", "stopped", { status: kind === null ? null : { kind, label: "stopped", since: NOW, finished: "0" } })]);
     const reads = clock.mock.calls.length;
     app.calls.length = 0;
     await vi.advanceTimersByTimeAsync(60_000);

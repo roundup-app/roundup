@@ -211,6 +211,7 @@ export const ProjectTab = (props: {
                   }
                 }}>
                 <span class="tab-name" onDblClick={() => edit()}><span class="tab-head">{parts()[0]}</span><span class="tab-tail">{parts()[1]}</span></span>
+                <Show when={props.tab.unseen}><span class="unread-dot" data-state="" role="img" aria-label={copy.unreadResult}>{copy.unseenMark}</span></Show>
                 <Show when={mark()}>{(shown) => <span class="tab-mark ink" data-tone={MARKS[shown()].tone} data-kind={shown()} role="img" aria-label={MARKS[shown()].label} />}</Show>
               </Tabs.Trigger>
           }
