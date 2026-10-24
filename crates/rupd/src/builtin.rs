@@ -62,7 +62,7 @@ fn subscribe(daemon: &Daemon, conn: &Conn, args: &Value) -> Result<Value, RpcErr
             };
             let Some(event) = event else { return };
             let frame = json!({ "jsonrpc": "2.0", "method": "event", "params": event });
-            if frames.send(frame).is_err() {
+            if frames.send(frame.into()).is_err() {
                 return;
             }
         }
