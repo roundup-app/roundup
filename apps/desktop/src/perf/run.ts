@@ -1,6 +1,7 @@
 import type { App, AppSeam, ProjectCalls } from "../app/seam";
 import { toBase64 } from "../terminal/base64";
 import { createXtermEmulators } from "../terminal/emulator";
+import type { Emulator } from "../terminal/emulator";
 import { PATIENCE_MS, WARMUP_KEYS, createKeystrokeProbe, typeKeys } from "./keystrokes";
 import type { HopSummary, Summary } from "./keystrokes";
 
@@ -93,36 +94,63 @@ const press = (textarea: HTMLTextAreaElement) => {
 };
 
 /**
+ * The report goes through the Terminal whose program printed `READY`, never the last one the page created: the workstream's `claude` Terminal
+ * also gets an emulator, and a report written into it never reaches the runner reading the shell's output.
+ */
+export const reportTerminal = <E extends Pick<Emulator, "write">>(create: (id: string) => E) => {
+  let target: string | null = null;
+  let announce: () => void = () => {};
+
+  const printed = new Promise<void>((resolve) => (announce = resolve));
+
+  return {
+    printed,
+    target: () => target,
+    createEmulator: (id: string): E => {
+      const emulator = create(id);
+
+      return {
+        ...emulator,
+        write: (bytes, parsed) =>
+          emulator.write(bytes, () => {
+            if (target === null && new TextDecoder().decode(bytes).includes(READY)) {
+              target = id;
+              announce();
+            }
+
+            parsed?.();
+          }),
+      };
+    },
+  };
+};
+
+/**
  * The keystroke run of `scenarios/perf.md` (K1 to K3): in a build made with `VITE_ROUNDUP_PERF`, `start` opens a Terminal, types
  * into it and writes one `PERF <json>` line through that Terminal, where `crates/perf` reads it from `terminal.output`.
  */
 export const createKeystrokeRun = (app: AppSeam) => {
   const probe = createKeystrokeProbe(() => performance.now(), "a");
-  let terminalId: string | null = null;
   let webgl: boolean | null = null;
 
-  let ready: () => void = () => {};
-
-  const isReady = new Promise<void>((resolve) => (ready = resolve));
-
-  const emulators = createXtermEmulators({
-    input: probe.input,
-    arrived: probe.arrived,
-    written: (bytes) => {
-      probe.written(bytes);
-
-      if (new TextDecoder().decode(bytes).includes(READY)) ready();
-    },
-    rendered: probe.rendered,
-    renderer: (used) => (webgl = used),
-  });
+  const terminal = reportTerminal(
+    createXtermEmulators({
+      input: probe.input,
+      arrived: probe.arrived,
+      written: probe.written,
+      rendered: probe.rendered,
+      renderer: (used) => (webgl = used),
+    }),
+  );
 
   const report = async (body: PerfReport) => {
-    if (terminalId === null) throw new Error("no Terminal was opened to report through");
+    const id = terminal.target();
+
+    if (id === null) throw new Error("no Terminal printed the ready line to report through");
 
     const line = `PERF ${JSON.stringify({ probe: "roundup-keystroke-probe", ...body })}\n`;
 
-    await app.rpc("terminal.write", { id: terminalId, data: toBase64(new TextEncoder().encode(line)) });
+    await app.rpc("terminal.write", { id, data: toBase64(new TextEncoder().encode(line)) });
   };
 
   const measure = async () => {
@@ -138,7 +166,7 @@ export const createKeystrokeRun = (app: AppSeam) => {
 
     const textarea = await appears(() => document.querySelector<HTMLTextAreaElement>("textarea.xterm-helper-textarea"), "the Terminal's input");
 
-    await Promise.race([isReady, sleep(SETUP_BOUND_MS).then(() => Promise.reject(new Error(`the Terminal never printed ${READY}`)))]);
+    await Promise.race([terminal.printed, sleep(SETUP_BOUND_MS).then(() => Promise.reject(new Error(`the Terminal never printed ${READY}`)))]);
     textarea.focus();
 
     const frame = await frameMs();
@@ -173,11 +201,7 @@ export const createKeystrokeRun = (app: AppSeam) => {
 
   return {
     traced: (real: App): App => ({ ...real, forProject: (path) => traced(real.forProject(path)) }),
-    createEmulator: (id: string) => {
-      terminalId = id;
-
-      return emulators(id);
-    },
+    createEmulator: terminal.createEmulator,
     start: async () => {
       try {
         await measure();
