@@ -169,7 +169,7 @@ impl Sidecar {
     async fn start(&self, config: &Path, deadline: Instant) -> Result<Running, RpcError> {
         let node = self.dir.join("node");
         let script = self.dir.join("list.mjs");
-        for missing in [&node, &script].into_iter().filter(|p| !p.is_file()) {
+        if let Some(missing) = [&node, &script].into_iter().find(|p| !p.is_file()) {
             return Err(RpcError::not_found(format!(
                 "roundup's bundled Node runtime is incomplete: {} is missing; reinstall roundup (or point ROUNDUP_SIDECAR_DIR at a complete sidecar folder)",
                 missing.display()
