@@ -190,12 +190,17 @@ export const createBulkDelete = <Id,>(props: {
         <Show when={owners().length > 0}>
           <p>{copy.ownedBy}{owners().join(copy.comma)}{copy.agentsMayStillBeWritingDeletingDoesNot}</p>
         </Show>
-        <ReservedLine data-deletion-pending={question()?.kind === "pending"} aria-busy={question()?.kind === "pending"} status={question()?.kind === "pending" ? copy.draftStatus.pending : null} message={readFailure() ?? (failures().length > 0 ? `${copy.couldNotDelete}\n${failures().map(failure => `${labelOf(failure.target)}${copy.colon}${failure.message}`).join("\n")}` : null)}
-          content={failures().length > 0 && !readFailure() ? <For each={failures()}>{failure => <span>{labelOf(failure.target)}{copy.colon}{failure.message}</span>}</For> : undefined}>
-          <Show when={readFailure()} fallback={<For each={failures()}>{failure => <IconButton aria-label={`${copy.clear} ${labelOf(failure.target)}`} onClick={() => setFailures(held => held.filter(other => other.target.id !== failure.target.id))}><Icon name="x" /></IconButton>}</For>}>
+        <Show when={readFailure() === null && failures().length > 0} fallback={
+          <ReservedLine data-deletion-pending={question()?.kind === "pending"} aria-busy={question()?.kind === "pending"} status={question()?.kind === "pending" ? copy.draftStatus.pending : null} message={readFailure()}>
             <button data-button="quiet" type="button" onClick={() => void readback?.()}>{copy.refresh}</button>
-          </Show>
-        </ReservedLine>
+          </ReservedLine>
+        }>
+          <For each={failures()}>{failure => (
+            <ReservedLine message={`${copy.couldNotDelete} ${labelOf(failure.target)}${copy.colon}${failure.message}`}>
+              <IconButton aria-label={`${copy.clear} ${labelOf(failure.target)}`} onClick={() => setFailures(held => held.filter(other => other.target.id !== failure.target.id))}><Icon name="x" /></IconButton>
+            </ReservedLine>
+          )}</For>
+        </Show>
       </div>
     </Show>
   );
