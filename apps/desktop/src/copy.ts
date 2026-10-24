@@ -533,7 +533,6 @@ export const copy = {
   mermaid: (value1: CopyValue) => `Mermaid: ${value1}`,
   addAgent: "Add agent",
   retry: "Retry",
-  dismiss: "Dismiss",
   start: "Start",
   projectRoot: "Project root",
   unassigned: "Unassigned",
