@@ -330,6 +330,7 @@ export const copy = {
   allowedForProjectGone: "Allowed for this Project (already removed)",
   denied: "Denied",
   revoke: "Revoke",
+  dismiss: "Dismiss",
   focusTerminal: "Focus Terminal",
   drawer: "Drawer",
   lastTouch: (value1: CopyValue, value2: CopyValue, value3: CopyValue, value4: CopyValue) => `Last  ${value1} ${value2} ${value3}:${value4}`,
