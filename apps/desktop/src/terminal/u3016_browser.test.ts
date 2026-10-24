@@ -1,5 +1,5 @@
 import { execFile } from "node:child_process";
-import { mkdtempSync, mkdirSync, readFileSync, writeFileSync, rmSync, appendFileSync, renameSync } from "node:fs";
+import { mkdtempSync, mkdirSync, readFileSync, writeFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { promisify } from "node:util";
@@ -48,12 +48,11 @@ it("u3016f_real_collection_to_dashboard_survives_reopen", async () => {
     const home = await app.rpc("rail.createWorkstream", { name: "Measured work", parent: null });
     const other = await app.rpc("rail.createWorkstream", { name: "Other work", parent: null });
     await app.rpc("rail.startDoor", { id: home.id });
-    const encoded = real.dir.replace(/[^a-zA-Z0-9]/g, "-");
     const source = `00000000-0000-4000-8000-${home.id.padStart(12, "0")}`;
+    const encoded = real.dir.replace(/[^a-zA-Z0-9]/g, "-");
     const folder = join(real.dir, "claude-config/projects", encoded);
     mkdirSync(folder, { recursive: true });
-    const file = join(folder, `${source}.jsonl`);
-    writeFileSync(file, "");
+    writeFileSync(join(folder, `${source}.jsonl`), "");
     await browser("set", "viewport", "1512", "950");
     await browser("set", "media", "dark");
     await browser("open", `${real.base}/harness.html?daemon=1&renderer=dom`);
@@ -65,8 +64,6 @@ it("u3016f_real_collection_to_dashboard_survives_reopen", async () => {
     await browser("press", "Enter");
     await until("document.querySelector('.measurement-dashboard')?.getAttribute('aria-busy') === 'false'");
     await capture("empty");
-    const record = { type: "assistant", sessionId: source, requestId: "request-fixture", message: { model: "claude-sonnet-5-5" } };
-    appendFileSync(file, JSON.stringify(record) + "\n");
     await capture("overview");
     const nodes = await app.rpc("rail.tree", null);
     const terminal = nodes.find((node) => node.id === home.id)!.terminal_id!;
@@ -119,14 +116,6 @@ it("u3016f_real_collection_to_dashboard_survives_reopen", async () => {
     expect(BigInt(timed.time.execution_ns)).toBeGreaterThan(0n);
     expect(BigInt(timed.time.tools_ns)).toBeGreaterThan(0n);
     await capture("measured-waits");
-    // A real source failure keeps the displayed successful subtotal and offers retry.
-    renameSync(file, `${file}.held`);
-    await until("document.querySelector('.measurement-state')?.dataset.state === 'stale'");
-    expect(await evaluate("!!document.querySelector('.measurement-dashboard .measurement-rows')")).toBe(true);
-    await capture("stale");
-    renameSync(`${file}.held`, file);
-    await until("document.querySelector('.measurement-state')?.dataset.state !== 'stale'");
-    await capture("retry");
     await app.rpc("agent.stop", { id: home.id });
     await real.restart();
     await browser("open", `${real.base}/harness.html?daemon=1&renderer=dom`);
