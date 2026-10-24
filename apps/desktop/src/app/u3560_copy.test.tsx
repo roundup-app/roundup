@@ -53,7 +53,7 @@ it.each(["link", "draft"])("u3560d_clipboard_failure_preserves_input_copy_action
   let invoke: () => void | Promise<void>;
 
   if (surface === "link") {
-    const entries = linkEntries(app, { kind: "agent", id: "a" }, connected.rail.nodes, () => true, message => { cause = message; });
+    const entries = linkEntries(app, { kind: "agent", id: "a" }, connected.rail.nodes, () => true, message => { cause = message; }, () => { cause = null; });
     invoke = () => entries.find(entry => entry.id === "copy-link")!.run?.();
   } else {
     render(() => <ConnectedProjectContext.Provider value={connected}><Recovery /><DrawerHost drawer={connected.drawer} reducedMotion={() => true} /></ConnectedProjectContext.Provider>);
