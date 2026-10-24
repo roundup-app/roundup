@@ -3,4 +3,4 @@
 /**
  * An accepted decision and the one successor Message it made.
  */
-export type ContinuationDecision = { id: string, request: string, actions: Array<string>, message: number, };
+export type ContinuationChoice = { id: string, request: string, actions: Array<string>, message: number, };

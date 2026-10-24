@@ -473,6 +473,9 @@ mod tests {
             ))
             .unwrap();
         expected.extend(standalone::schema(&resize_schema));
+        // The standalone Agents store keeps its frozen head; the Project drops the answers table.
+        expected.remove("decision_answers");
+        expected.remove("decision_answers_agent");
         let actual: std::collections::BTreeMap<_, _> =
             standalone::schema(&db).into_iter().collect();
         assert_eq!(actual, expected);

@@ -158,77 +158,6 @@ async fn u3016c_startup_evidence_ends_on_acknowledgement() {
 }
 
 #[tokio::test(start_paused = true)]
-async fn u3016c_decisions_retain_answer_cancel_and_attempt_end() {
-    let w = World::new();
-    let first = w.agent(None);
-    let second = w.agent(None);
-    w.advance(6).await;
-    let question = w.ask(&first).await;
-    w.advance(2).await;
-    let opened = w.read().await;
-    let decision = activity(&opened, "decision")[0]["value"]["activity"]["decision"]
-        .as_str()
-        .unwrap();
-    let ctx = Ctx {
-        actor: Actor::user(),
-        bus: w.ctx.bus.clone(),
-        touches: w.ctx.touches.clone(),
-    };
-    w.agents
-        .shared
-        .answer(
-            &ctx,
-            serde_json::from_value(json!({"id":decision,"answer":"Yes","proof":null})).unwrap(),
-        )
-        .unwrap_err();
-    w.agents
-        .shared
-        .answer(
-            &ctx,
-            serde_json::from_value(json!({"id":decision,"answer":"Yes","proof":"time-test"}))
-                .unwrap(),
-        )
-        .unwrap();
-    question.await.unwrap();
-    w.agents
-        .shared
-        .observe(
-            Actor::daemon(),
-            &second,
-            "1",
-            Observation::Title("✳ Ready".into()),
-        )
-        .unwrap();
-    w.advance(1).await;
-    let read = w.read().await;
-    let wait = activity(&read, "decision")[0];
-    assert_eq!(wait["value"]["start"]["unix_ms"], 7000);
-    assert_eq!(wait["value"]["state"]["at"]["unix_ms"], 9000);
-    assert!(
-        read["contributions"].as_array().unwrap().is_empty(),
-        "Status is not model execution"
-    );
-    let unanswered = w.ask(&first).await;
-    w.advance(1).await;
-    drop(unanswered);
-    let cancelled = w.read().await;
-    assert!(
-        activity(&cancelled, "decision")
-            .iter()
-            .all(|f| f["value"]["state"]["kind"] == "ended")
-    );
-    let interrupted = w.ask(&first).await;
-    w.stop(&first);
-    assert!(interrupted.await.is_err());
-    let stopped = w.read().await;
-    assert!(
-        activity(&stopped, "decision")
-            .iter()
-            .all(|f| f["value"]["state"]["kind"] == "ended")
-    );
-}
-
-#[tokio::test(start_paused = true)]
 async fn u3016c_other_time_evidence_preserves_identity_and_gaps() {
     let w = World::new();
     let id = w.agent(None);
@@ -272,7 +201,7 @@ async fn u3016c_other_time_evidence_preserves_identity_and_gaps() {
     w.signal(&id, json!({"hook_event_name":"SessionStart"}));
     let duplicate = w.read().await;
     assert_eq!(duplicate["time_evidence"], read["time_evidence"]);
-    // Reopen uses the real Project store. No runtime Decision or program is restored.
+    // Reopen uses the real Project store. No runtime program is restored.
     let (reopened, ctx) = w.reopen();
     let read = reopened
         .call(&ctx, "project.measurements", Value::Null)
@@ -330,7 +259,6 @@ async fn u3016a_moves_and_removal_keep_recorded_attribution_time_sources() {
         .call(&w.ctx, "rail.rename", json!({"id":id,"name":"renamed"}))
         .await
         .unwrap();
-    let pending = w.ask(&id).await;
     w.advance(1).await;
     let moved = w.read().await;
     let attempt = activity(&moved, "attempt")[0];
@@ -357,8 +285,6 @@ async fn u3016a_moves_and_removal_keep_recorded_attribution_time_sources() {
             .iter()
             .any(|s| s.as_str().unwrap().contains("unsplittable"))
     );
-    assert_eq!(activity(&moved, "decision")[0]["home"], other);
-    assert_eq!(activity(&moved, "decision")[0]["maker"], "renamed");
     w.agents.shared.rail().remove(&home).unwrap();
     let erased = w.read().await;
     assert!(
@@ -366,13 +292,10 @@ async fn u3016a_moves_and_removal_keep_recorded_attribution_time_sources() {
         "active sampling cannot replay an explicitly erased identity"
     );
     w.stop(&id);
-    drop(pending);
     w.agents.shared.rail().remove(&id).unwrap();
     let removed = w.read().await;
     assert_eq!(activity(&removed, "idle")[0]["agent"], id);
     assert_eq!(activity(&removed, "idle")[0]["home"], other);
-    assert_eq!(activity(&removed, "decision")[0]["agent"], id);
-    assert_eq!(activity(&removed, "decision")[0]["home"], other);
     let another = World::new();
     another
         .agents
@@ -386,7 +309,6 @@ async fn u3016a_moves_and_removal_keep_recorded_attribution_time_sources() {
     another.agent(None);
     let isolated = another.read().await;
     assert_ne!(isolated["project"], removed["project"]);
-    assert!(activity(&isolated, "decision").is_empty());
 }
 
 #[tokio::test(start_paused = true)]
@@ -401,14 +323,13 @@ async fn u3016d_other_time_retention_recovers() {
     ));
     let db = rusqlite::Connection::open(w.dir.path().join("agents.db")).unwrap();
     db.execute_batch("CREATE TRIGGER refuse_measurement BEFORE INSERT ON measurement_revisions BEGIN SELECT RAISE(ABORT,'retention refused'); END;").unwrap();
-    // Passive timing must not fail an acknowledged Signal or a delivered answer.
+    // Passive timing must not fail an acknowledged Signal.
     w.signal(
         &id,
         json!({"hook_event_name":"UserPromptSubmit","prompt":"Fixture prompt"}),
     );
     w.signal(&id, json!({"hook_event_name":"Stop"}));
     w.signal(&id, json!({"hook_event_name":"SessionStart"}));
-    let question = w.ask(&id).await;
     w.advance(1).await;
     let failed = w.read().await;
     assert!(
@@ -440,16 +361,6 @@ async fn u3016d_other_time_retention_recovers() {
     assert_eq!(source["last_good"], original_source["last_good"]);
     assert!(std::iter::from_fn(||events.try_recv().ok()).any(|e|matches!(e.data,EventData::MeasurementsChanged {revision} if revision==failed["revision"])));
 
-    let decision = w.agents.shared.decisions.list()[0].id.clone();
-    w.agents
-        .shared
-        .answer(
-            &w.ctx,
-            serde_json::from_value(json!({"id":decision,"answer":"Yes","proof":"time-test"}))
-                .unwrap(),
-        )
-        .unwrap();
-    question.await.unwrap();
     db.execute_batch("DROP TRIGGER refuse_measurement").unwrap();
     let recovered = w.read().await;
     assert!(recovered["cause"].is_null());
@@ -458,11 +369,6 @@ async fn u3016d_other_time_retention_recovers() {
     assert_eq!(activity(&recovered, "idle").len(), 2);
     assert_eq!(
         activity(&recovered, "idle")[0]["value"]["state"]["kind"],
-        "ended"
-    );
-    assert_eq!(activity(&recovered, "decision").len(), 1);
-    assert_eq!(
-        activity(&recovered, "decision")[0]["value"]["state"]["kind"],
         "ended"
     );
     let repeated = w.read().await;

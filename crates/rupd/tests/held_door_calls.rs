@@ -6,13 +6,12 @@ mod rupd_harness;
 #[path = "support/takeover_run.rs"]
 mod takeover_run;
 use door_terminals::{
-    child_attempt, door_peer_request, door_terminal, idle, order_child, order_result, ordered_ask,
-    recorded_bytes, start_answer_door,
+    child_attempt, door_terminal, idle, order_child, order_result, ordered_ask, recorded_bytes,
 };
 use takeover_run::{BOUND, Run, launch};
 
 use base64::{Engine, engine::general_purpose::STANDARD};
-use rpc::{Client, RpcError};
+use rpc::Client;
 use serde_json::{Value, json};
 use std::sync::Arc;
 use std::time::Duration;
@@ -300,90 +299,6 @@ async fn b6_a_held_resume_runs_once_when_the_child_exits_during_takeover() {
     assert_eq!(history[0]["id"], receipt["id"]);
     assert_eq!(history[0]["outcome"]["status"], "completed", "{history}");
     assert_ne!(attempt, original, "the held Resume started no new Attempt");
-}
-
-async fn held_door_answer(
-    run: &Run,
-    kind: &str,
-) -> (
-    Value,
-    tokio::task::JoinHandle<Result<Value, RpcError>>,
-    Value,
-) {
-    let (_, terminal) = start_answer_door(run).await;
-    let (decision, waiting) = run.open(kind).await;
-    run.user
-        .request("takeover.begin", json!({"agent":run.child}))
-        .await
-        .unwrap();
-    let reply = door_peer_request(
-        run,
-        &terminal,
-        json!({"jsonrpc":"2.0","id":1,"method":"decision.answer",
-            "params":{"id":decision["id"],"answer":if kind == "permission" {"allow"} else {"Yes"}}}),
-    )
-    .await;
-    (decision, waiting, reply["result"].clone())
-}
-
-#[tokio::test]
-async fn u468_takeover_holds_door_answers_but_not_user_answers() {
-    for kind in ["permission", "ask_user"] {
-        let (run, _) = order_child().await;
-        let (decision, waiting, receipt) = held_door_answer(&run, kind).await;
-        assert_eq!(receipt["method"], "decision.answer", "{receipt}");
-        assert_eq!(
-            receipt["outcome"],
-            json!({"status":"waiting","reason":"takeover"})
-        );
-        let open = run.user.request("decision.list", ()).await.unwrap();
-        assert_eq!(
-            open.as_array().unwrap().len(),
-            1,
-            "answered during Takeover"
-        );
-        assert!(!waiting.is_finished());
-        run.user
-            .request("takeover.end", json!({"agent":run.child}))
-            .await
-            .unwrap();
-        let output = waiting.await.unwrap().unwrap();
-        let history = run
-            .user
-            .request("agent.actionHistory", json!({"id":run.child}))
-            .await
-            .unwrap();
-        run.finish().await;
-        assert!(
-            output
-                .to_string()
-                .contains(if kind == "permission" { "allow" } else { "Yes" })
-        );
-        assert_eq!(history[0]["id"], receipt["id"]);
-        assert_eq!(history[0]["outcome"]["status"], "completed", "{history}");
-        assert_eq!(decision["agent"], history[0]["agent"]);
-    }
-}
-
-#[tokio::test]
-async fn u468_an_answered_request_drops_the_held_door_answer_visibly() {
-    let (run, _) = order_child().await;
-    let (decision, waiting, receipt) = held_door_answer(&run, "permission").await;
-    run.user_answer(&decision, "permission").await;
-    waiting.await.unwrap().unwrap();
-    run.user
-        .request("takeover.end", json!({"agent":run.child}))
-        .await
-        .unwrap();
-    let history = run
-        .user
-        .request("agent.actionHistory", json!({"id":run.child}))
-        .await
-        .unwrap();
-    run.finish().await;
-    assert_eq!(history[0]["id"], receipt["id"]);
-    assert_eq!(history[0]["outcome"]["status"], "dropped", "{history}");
-    assert!(!history[0]["outcome"]["reason"].as_str().unwrap().is_empty());
 }
 
 async fn terminal_running(run: &Run) -> bool {

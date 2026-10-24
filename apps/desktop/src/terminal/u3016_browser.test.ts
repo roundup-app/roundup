@@ -4,7 +4,7 @@ import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { promisify } from "node:util";
 import { expect, it } from "vitest";
-import { PROOF, startRealDaemon } from "../testing/realDaemonFixture";
+import { startRealDaemon } from "../testing/realDaemonFixture";
 import { createServedApp } from "../testing/realSeam";
 import { chromePath } from "../testing/chromePage";
 import { captureDir } from "../testing/captures";
@@ -88,16 +88,11 @@ it("u3016f_real_collection_to_dashboard_survives_reopen", async () => {
     await until("!!document.querySelector('.measurement-dashboard table') && document.querySelector('.measurement-dashboard table').offsetHeight > 0");
     await capture("details");
 
-    const trigger = async <M extends "agent.ask" | "message.send">(method: M, params: RpcMethods[M]["params"]) => {
+    const trigger = async <M extends "message.send">(method: M, params: RpcMethods[M]["params"]) => {
       writeFileSync(join(real.dir, `call-${home.id}.json`), JSON.stringify({method,params}));
       await app.rpc("terminal.write", {id:terminal,data:"AQ=="});
     };
 
-    await trigger("agent.ask", {question:"Continue measured work?",answers:[{label:"Yes",description:"Continue"}]});
-    await expect.poll(async () => (await app.rpc("decision.list", null)).length).toBeGreaterThan(0);
-    const [asked] = await app.rpc("decision.list", null);
-    await app.rpc("decision.answer", {id:asked!.id,answer:"Yes",proof:PROOF});
-    await expect.poll(async () => (await app.rpc("decision.list", null)).length).toBe(0);
     const receiver=await app.rpc("agent.spawn",{cwd:real.dir,parent:home.id,prompt:null,model:null,effort:null});
     await until(`document.querySelector('.rail-row[data-id="${receiver.id}"]')?.dataset.kind === 'idle'`);
     writeFileSync(join(folder,`00000000-0000-4000-8000-${receiver.id.padStart(12,"0")}.jsonl`), "");
@@ -115,7 +110,6 @@ it("u3016f_real_collection_to_dashboard_survives_reopen", async () => {
     await browser("click", ".measurement-action button");
     await until("document.querySelector('.measurement-dashboard')?.getAttribute('aria-busy') === 'false'");
     const timed=await app.rpc("project.measurementSummary",{home:home.id,category:"total",offset:0,revision:null});
-    expect(BigInt(timed.time.human_ns)).toBeGreaterThan(0n);
     expect(BigInt(timed.time.coordination_ns)).toBeGreaterThan(0n);
     expect(BigInt(timed.time.execution_ns)).toBeGreaterThan(0n);
     expect(BigInt(timed.time.tools_ns)).toBeGreaterThan(0n);
@@ -182,7 +176,7 @@ it("u3016f_real_collection_to_dashboard_survives_reopen", async () => {
       owner.rows = owner.rows.slice(0, 1); owner.rows[0]!.maker = "Review changes";
       owner.contributors = 1; owner.next_offset = null;
       owner.cost = pricedCost();
-      owner.time = { ...owner.time, elapsed_ns: "624000000000", summed_ns: "556000000000", execution_ns: "1000000000", tools_ns: "0", human_ns: "1000000000", coordination_ns: "0", other_ns: "554000000000", unmeasured_ns: "0" };
+      owner.time = { ...owner.time, elapsed_ns: "624000000000", summed_ns: "556000000000", execution_ns: "1000000000", tools_ns: "0", coordination_ns: "0", other_ns: "555000000000", unmeasured_ns: "0" };
       await show(owner, "owner-other-9m14s");
       await browser("press", "Tab");
       await browser("focus", '.measurement-dashboard [aria-label="How the list price is made"]');
@@ -190,7 +184,7 @@ it("u3016f_real_collection_to_dashboard_survives_reopen", async () => {
       await capture("list-price-information", "U3016g");
       await browser("focus", ".measurement-dashboard");
       await until("!document.querySelector('[role=tooltip]')");
-      owner.time.other_ns = "624000000000"; owner.time.summed_ns = "626000000000";
+      owner.time.other_ns = "624000000000"; owner.time.summed_ns = "625000000000";
       await show(owner, "duration-10m24s");
 
       for (const key of ["total", "input", "output", "cache_read", "cache_write"] as const) {
@@ -198,7 +192,7 @@ it("u3016f_real_collection_to_dashboard_survives_reopen", async () => {
       }
 
       owner.cost = {reported:[],reference:[],unavailable:[]};
-      owner.time = { ...owner.time, summed_ns: "0", execution_ns: "0", tools_ns: "0", human_ns: "0", coordination_ns: "0", other_ns: "0", unmeasured_ns: "0" };
+      owner.time = { ...owner.time, summed_ns: "0", execution_ns: "0", tools_ns: "0", coordination_ns: "0", other_ns: "0", unmeasured_ns: "0" };
       await show(owner, "unknown-tokens-zero-time-one-agent");
       await browser("press", "Tab");
       await browser("focus", '[data-tile="tokens"] .measurement-mark');

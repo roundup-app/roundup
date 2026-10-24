@@ -40,7 +40,7 @@ The vendor suppresses consecutive equal sender/text entries within a receiving A
 
 ### Escalation and holds
 
-B13–B17's chain is frozen at send: initial receiver, nearest ancestors in its Workstream, Door when present, then the user; skip the origin, never revisit or cross Workstreams. Every non-user Agent hop uses the inbox with the original authenticated sender and kind `question`; `passedFrom` identifies the previous hop. Each hop's 60 000 ms bound applies while pending or delivered, not while held for AskFirst, Takeover/input or inbox unavailability. It starts on pending release, not receipt. Receiver ending, Drop and other B16 unable-to-take cases skip immediately. Only an authorized note from the current delivered hop, addressed to the origin with that hop's `replyTo`, stops advancement. Earlier-hop answers, pending-hop answers and answers after escalation do not. The final held-escalated user Message is made once, changes no Kind and raises no Decision or alert. B18 permission Decisions remain outside this chain.
+B13–B17's chain is frozen at send: initial receiver, nearest ancestors in its Workstream, Door when present, then the user; skip the origin, never revisit or cross Workstreams. Every non-user Agent hop uses the inbox with the original authenticated sender and kind `question`; `passedFrom` identifies the previous hop. Each hop's 60 000 ms bound applies while pending or delivered, not while held for AskFirst, Takeover/input or inbox unavailability. It starts on pending release, not receipt. Receiver ending, Drop and other B16 unable-to-take cases skip immediately. Only an authorized note from the current delivered hop, addressed to the origin with that hop's `replyTo`, stops advancement. Earlier-hop answers, pending-hop answers and answers after escalation do not. The final held-escalated user Message is made once, changes no Kind and raises no alert.
 
 ### Model interpretation and observers
 
@@ -50,7 +50,7 @@ Affected laws: M1 (delivery/receipt and same-id retry), M2 (hold ownership), M3 
 
 B50's sender/kind table exercises actual Daemon delivery, inbox entries, `Agents::prompt` calls and Terminal writes. B13–B17 replay the chain through inbox questions with a fake clock. B51 covers failure, explicit delivery and the tested repeat boundary. B52 counts entries per id, receipts and events over 30 idle edges and the four restart states (pending, in flight, acknowledged, held). Assertions run after each completed operation/handshake. Every regression names its clause and rejected mutation, including the Note-only transport gate and missing current-hop validation. Existing note regressions remain unless a named surviving test rejects the same break.
 
-Gates and observers: P1/P11 require zero automatic inbox entries during Takeover/unsent input, including inbox recovery and overlapping holds; P3 requires no Decision/alert from ordinary Messages or escalation; P4 keeps vendor handling in the Adapter; P9/P10 require authorized delivery with user prompt batching retained and zero non-user prompt calls. These are behavior observers, not new App visuals.
+Gates and observers: P1/P11 require zero automatic inbox entries during Takeover/unsent input, including inbox recovery and overlapping holds; P3 requires no alert from ordinary Messages or escalation; P4 keeps vendor handling in the Adapter; P9/P10 require authorized delivery with user prompt batching retained and zero non-user prompt calls. These are behavior observers, not new App visuals.
 
 ## B37 lifecycle-to-model mapping
 
@@ -89,7 +89,7 @@ already implements it. At this alignment, `crates/agents/src/lib.rs`'s `prompt`
 accepts live `Idle | Error` and refuses ended/closing Attempts, while
 `crates/messages/src/lib.rs`'s `ended`, `on_status` and fresh-delivery scheduling
 still classify by Kind. #1847 owns that projection repair and B37's runtime,
-Decision-note and real-Claude observer acceptance; this alignment does not close
+real-Claude observer acceptance; this alignment does not close
 it. V4's existing pure transition correspondence remains unchanged; V7 must also
 check the lifecycle projection against those seams.
 
@@ -275,26 +275,6 @@ including `a35_a_later_subagent_leaves_the_rail_and_keeps_its_worktree` and
 `a35_messages_todos_pads_and_checkpoints_stay`. This prerequisite leaves #808 open
 for full A35/U374 acceptance.
 
-### B6 original prompt effects
-
-`decision.capture` returns a Prompt identity for a live Decision. A held
-`decision.answer` or answer-like `terminal.write` supplies it as `identity`.
-The Agent checks the Daemon run, Agent, Attempt and original Decision together
-with the effect. Terminal input checks on the input thread and consumes the
-identity before its physical write; direct user input invalidates it even when
-H7 keeps a native Decision visible until the next Signal. These are explicit
-Terminal calls, not H16's forbidden lost-Signal fallback; ordinary user writes
-retain their queued acknowledgement. A refused guarded user write does not submit
-Unsent input or release its held Messages. Missing capture,
-replacement, dismissal, input, Attempt change and restart refuse safely; a
-Daemon queue must record the refusal rather than retry without the identity.
-
-This prerequisite integration-tests M1 (one original effect), M6 (explicit
-refusal), M7 (ended Attempt) and M9 (old Daemon identities cannot replay).
-M3's acquisition, M4's per-child release order and M10's release progress belong
-to #1581. `proofs/messages` models Messages, not Door actions: none of its laws
-or transitions changes or weakens here.
-
 ## B6 Door resize actions
 
 Door `terminal.resize` calls during Takeover are stored in the Daemon's Project database before their receipts return. `terminal.resizeHistory` (MCP `terminal_resizeHistory`) exposes the accepting Agent's own receipts; the user sees all receipts for that Terminal, including after it is gone. The receipt's `ResizeOutcome` distinguishes waiting for Takeover, an effect in progress, completion and a drop reason. Direct user resizing retains its null result and remains available during Takeover.
@@ -387,7 +367,7 @@ Daemon restart: it is dropped with the original-Attempt reason; one recorded in
 progress is dropped as possibly typed, and none is retried. These are
 integration-tested guarantees for M1, M3, M4, M6, M7, M9 and M10; Message proofs
 and laws are unchanged. #1581 retains the remaining action families (resume,
-Terminal writes, answers, rewind, reads) and full acceptance.
+Terminal writes, rewind, reads) and full acceptance.
 
 ## B6 Door Terminal close and kill actions
 
@@ -399,7 +379,7 @@ replaced child gives a retained drop reason and later actions proceed. A waiting
 call does not survive a Daemon restart: it is dropped with the original-Terminal
 reason, and none is retried. These are integration-tested guarantees for M1, M3,
 M4, M6, M7, M9 and M10; Message proofs and laws are unchanged. #1581 retains
-answers, rewind and reads.
+rewind and reads.
 
 ## B6 Door Terminal writes
 
@@ -433,17 +413,6 @@ Serves P1 and P3. An Agent asks `agent.wake {ids, any?}` to be told when all, or
 ## Reaction firing (NR3, NR8)
 
 A Reaction firing is accepted by `Messages::fire_reaction` in the one transaction that inserts its Message: the check that the Reaction is active with a firing left, the Message, and the `reaction_firings` row (`project.db`, migration 0009) holding the definition bytes and evidence as accepted. A fault before the commit leaves neither; after it, both, with the ids they were given. A retried `operation` returns the first firing and sends nothing. The Message is from the Daemon, outside B1's open bound like a Wake note, and is otherwise an ordinary Message: B2, B6, B32, B39 and B40 decide whether it is pending, Held, delivered or dropped, and recovery starts no program. `reaction.get` shows the firing's `matched` flag and the Message's status as `outcome`; delivery is not verified work. This adds no delivery state, so M1 to M10 and `proofs/messages` stand unchanged.
-
-## B6 Door answers
-
-Door `decision.answer` calls for a taken-over child use the same durable `HeldAction`
-receipts and ledger. The Daemon captures the original prompt identity when it accepts
-the call, so release answers that prompt only: one the user answered first, or whose
-Attempt ended, is dropped with a visible reason and never answers a later prompt. A
-waiting answer does not survive a Daemon restart (dropped with the Attempt reason),
-and none is retried. The user's own answers are never held.
-Integration-tested guarantees for M1, M3, M4, M6, M7, M9 and M10; Message proofs and
-laws are unchanged.
 
 ## B6 Door Resumes
 

@@ -252,13 +252,13 @@ it("u3016g_time_categories_are_not_parts_of_elapsed", async () => {
   const { app } = await dashboard();
   const section = screen.getByRole("region", { name: "Where Agent time went" });
   const entries = () => within(section).queryAllByRole("term").map((node) => node.textContent);
-  expect(entries()).toEqual(["Agent work 65%", "Tools 20%", "Waiting on you 10%", "Coordination 5%"]);
-  expect(within(section).getAllByRole("definition").map((node) => node.textContent)).toEqual(["13s", "4s", "2s", "1s"]);
+  expect(entries()).toEqual(["Agent work 75%", "Tools 20%", "Coordination 5%"]);
+  expect(within(section).getAllByRole("definition").map((node) => node.textContent)).toEqual(["15s", "4s", "1s"]);
   const value = summary();
-  value.time = { ...value.time, summed_ns: "556000000000", execution_ns: "1000000000", tools_ns: "0", human_ns: "1000000000", coordination_ns: "0", other_ns: "554000000000" };
+  value.time = { ...value.time, summed_ns: "556000000000", execution_ns: "1000000000", tools_ns: "0", coordination_ns: "0", other_ns: "555000000000" };
   await publish(app, value);
-  expect(entries()).toEqual(["Other 99%", "Agent work <1%", "Waiting on you <1%"]);
-  value.time = { ...value.time, summed_ns: "0", execution_ns: "0", human_ns: "0", other_ns: "0" };
+  expect(entries()).toEqual(["Other 99%", "Agent work <1%"]);
+  value.time = { ...value.time, summed_ns: "0", execution_ns: "0", other_ns: "0" };
   await publish(app, value);
   expect(entries()).toEqual([]);
   expect(section.querySelectorAll("p")).toHaveLength(1);
@@ -398,7 +398,7 @@ it("u3016k_unknown_zero_and_inert_marks_are_absent", async () => {
       value.rows[0]!.tokens[key] = { known, missing };
     }
 
-    value.time = { ...value.time, summed_ns: "0", execution_ns: "0", tools_ns: "0", human_ns: "0", coordination_ns: "0", other_ns: "0", unmeasured_ns: "0" };
+    value.time = { ...value.time, summed_ns: "0", execution_ns: "0", tools_ns: "0", coordination_ns: "0", other_ns: "0", unmeasured_ns: "0" };
     app.handlers["project.measurementSummary"] = () => value;
     app.emit(event({ name: "project.measurementsChanged", data: { revision: value.revision } }));
     await waitFor(() => expect(document.querySelector(".measurement-dashboard")?.getAttribute("data-revision")).toBe(value.revision));
@@ -479,7 +479,7 @@ it("u3016k_empty_sections_have_one_message_and_no_placeholder_rows", async () =>
   value.cost = { reported: [], reference: [], unavailable: [] };
 
   for (const key of ["total", ...copy.measurementParts] as const) value.tokens[key] = { known: "0", missing: 0 };
-  value.time = { ...value.time, elapsed_ns: "0", summed_ns: "0", execution_ns: "0", tools_ns: "0", human_ns: "0", coordination_ns: "0", other_ns: "0", unmeasured_ns: "0" };
+  value.time = { ...value.time, elapsed_ns: "0", summed_ns: "0", execution_ns: "0", tools_ns: "0", coordination_ns: "0", other_ns: "0", unmeasured_ns: "0" };
 
   for (const missing of [0, 1]) {
     value.tokens.total.missing = missing;

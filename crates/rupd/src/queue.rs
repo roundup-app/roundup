@@ -469,7 +469,7 @@ mod tests {
 
     fn watched(project: &Path) -> Daemon {
         let data = project.join(".roundup");
-        Daemon::open_stores(project, &data, None, |_| {
+        Daemon::open_stores(project, &data, |_| {
             let bus = Bus::new();
             let terminals = Arc::new(terminal::Terminals::open(&data, bus.clone()).unwrap());
             Agents::open_in(
