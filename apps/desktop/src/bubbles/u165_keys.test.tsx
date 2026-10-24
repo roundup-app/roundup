@@ -1,3 +1,4 @@
+import { answerQuestion } from "../shelf/bulkQuestionHarness";
 import { cleanup, fireEvent, waitFor } from "@solidjs/testing-library";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { leaderKey } from "../keys/leaderFixture";
@@ -91,6 +92,7 @@ describe("u165 the keys for bubbles", () => {
     focusBubble("1");
     expect(document.activeElement?.closest("[data-bubble]")?.getAttribute("data-bubble")).toBe("1");
     leaderKey("KeyW");
+    await answerQuestion(true);
     await waitFor(() => expect(document.querySelector('.bubble[data-bubble="1"]')).toBeNull());
     expect(bubbleCalls(mounted.app, "terminal.close")).toEqual([{ id: "1" }]);
     await waitFor(() => expect(document.activeElement).toBe(pane ?? document.body));
