@@ -13,6 +13,15 @@
   vertical-align: middle;
 }
 
+/* U3566d: an Agent, folded Workstream or Project whose latest finish is unread. U3704's mark in the accent; passive, so no cursor or action. */
+.unread-dot {
+  flex: none;
+  color: var(--accent);
+  font-size: var(--text-caption);
+  line-height: 1;
+  cursor: default;
+}
+
 .glyph[data-state],
 .ink-count[data-state],
 .folded-agents[data-state] {

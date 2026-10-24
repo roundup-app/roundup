@@ -507,6 +507,7 @@ pub(super) fn finished_event(id: &str, kind: contracts::Kind) -> String {
                 kind,
                 label: "finished".into(),
                 since: 0,
+                finished: "0".into(),
             },
         })),
     })
