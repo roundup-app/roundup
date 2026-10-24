@@ -495,7 +495,7 @@ async fn reserved_prompt(star_before_ack: bool) {
             .unwrap();
         assert!(
             !restarting.is_finished(),
-            "a mismatched held hook is not the ack"
+            "a mismatched parked hook is not the ack"
         );
     }
     acknowledge(&f, &before.id, &id, "resume").await.unwrap();
@@ -1015,7 +1015,7 @@ async fn a35_selected_resume_waits_for_reserved_first_prompt_and_keeps_messages_
     };
     let copied = selected_copy(&f, &before).await;
     until_file(&f.dir.path().join("ready")).await;
-    // A hook held before SessionStart is not acknowledgement of a prompt not yet typed.
+    // A hook parked before SessionStart is not acknowledgement of a prompt not yet typed.
     signal(
         &f,
         &before.id,

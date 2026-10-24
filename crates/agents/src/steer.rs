@@ -28,7 +28,7 @@ impl Shared {
                 }
             }
             let result = shared
-                .prompt(&id, &prompt, Some(&attempt), None, !startup_context, None)
+                .prompt(&id, &prompt, Some(&attempt), !startup_context, None)
                 .await;
             if let Err(err) = &result {
                 eprintln!("agents: the first prompt of {id} failed: {err}");
@@ -111,7 +111,7 @@ impl Shared {
 impl Agents {
     /// B6: wait through H19's gate, physical input and acknowledgement for this Attempt.
     /// Every completion accounts for its physical effect; none authorizes a retry.
-    /// An error means completion could not be established, never permission for Takeover.
+    /// An error means completion could not be established.
     /// Cancelling this wait changes no effect. No deadline is imposed on the physical
     /// writer: a caller deadline only stops observing, and a later caller may wait again.
     pub async fn first_steer_completion(
@@ -155,7 +155,7 @@ impl Agents {
             Steer::User(text) => (text, true),
         };
         self.shared
-            .prompt(id, text, None, None, verbatim, None)
+            .prompt(id, text, None, verbatim, None)
             .await
             .map_err(PromptError::from)
     }
@@ -251,7 +251,7 @@ mod tests {
         let error = crate::PromptError::from(
             watched
                 .shared
-                .prompt("7013", "hello", None, None, false, None)
+                .prompt("7013", "hello", None, false, None)
                 .await
                 .unwrap_err(),
         );
@@ -298,7 +298,7 @@ mod tests {
         if let Some(crate::Slot::Running(run)) = watched.shared.runs().get_mut("7013") {
             run.terminal_id = terminal.id.clone();
         }
-        let error = watched.shared.interrupt("7013", None).await.unwrap_err();
+        let error = watched.shared.interrupt("7013").await.unwrap_err();
         assert_eq!(error.code, rpc::code::UNKNOWN_OUTCOME);
         assert!(
             error.message.contains("sad") && !error.message.contains("7013"),
@@ -317,7 +317,6 @@ mod tests {
             "idle",
             "interrupted",
             "write",
-            "attempt",
         ] {
             let watched = Watched::named();
             let shared = &watched.shared;
@@ -356,17 +355,7 @@ mod tests {
                 }
                 _ => {}
             }
-            let error = shared
-                .interrupt(
-                    "7013",
-                    if case == "attempt" {
-                        Some("stale")
-                    } else {
-                        None
-                    },
-                )
-                .await
-                .unwrap_err();
+            let error = shared.interrupt("7013").await.unwrap_err();
             assert!(
                 error.message.contains("sad") && !error.message.contains("7013"),
                 "{case}: {error}"
@@ -374,7 +363,7 @@ mod tests {
             drop(receiver);
         }
         let watched = Watched::named();
-        let error = watched.shared.interrupt("8013", None).await.unwrap_err();
+        let error = watched.shared.interrupt("8013").await.unwrap_err();
         assert!(
             error.message.contains("an Agent that is gone") && !error.message.contains("8013"),
             "{error}"

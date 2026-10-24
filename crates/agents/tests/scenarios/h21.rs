@@ -25,8 +25,6 @@ struct World {
     grandchild: String,
     sibling: String,
     other: String,
-    /// The Agents under a Takeover.
-    taken: Arc<std::sync::Mutex<Vec<String>>>,
 }
 
 fn agent(id: &str) -> Actor {
@@ -41,12 +39,7 @@ impl World {
     /// Workstream `door` with `child` (which has `grandchild`) and `sibling`, and another
     /// Workstream's `other`.
     async fn new() -> Self {
-        let mut f = Fixture::running("sleep 30").with_proof(PROOF);
-        let taken = Arc::new(std::sync::Mutex::new(Vec::<String>::new()));
-        let probe = Arc::clone(&taken);
-        f.agents = f
-            .agents
-            .with_takeover(move |id| probe.lock().unwrap().iter().any(|t| t == id));
+        let f = Fixture::running("sleep 30").with_proof(PROOF);
         let f = Arc::new(f);
         let door = f.workstream("door", None).await;
         let child = f.spawn(Some(&door), None).await.unwrap().id;
@@ -63,7 +56,6 @@ impl World {
             grandchild,
             sibling,
             other,
-            taken,
         }
     }
 
@@ -288,21 +280,6 @@ async fn h21_an_agents_answer_logs_a_touch_naming_it() {
 }
 
 #[tokio::test]
-async fn h21_a_decision_under_takeover_is_conflict_for_an_agent() {
-    let w = World::new().await;
-    let (hook, id) = w.asks(&w.child).await;
-    w.taken.lock().unwrap().push(w.child.clone());
-
-    let conflict = w.answer(agent(&w.door), &id, "allow").await.unwrap_err();
-    let outside = w.answer(agent(&w.other), &id, "allow").await.unwrap_err();
-    w.user_answer(&id, "allow").await.unwrap();
-
-    assert_eq!(conflict.code, code::CONFLICT);
-    assert_eq!(outside.code, code::FORBIDDEN, "FORBIDDEN beats CONFLICT");
-    assert!(hook.await.unwrap().is_ok());
-}
-
-#[tokio::test]
 async fn h21_decision_list_holds_only_the_reach() {
     let w = World::new().await;
     let (_a, child) = w.asks(&w.child).await;
@@ -374,17 +351,6 @@ async fn h21_a_wrong_answer_word_or_an_unanswerable_decision_is_invalid_params()
 }
 
 #[tokio::test]
-async fn h21_the_user_answers_under_a_takeover() {
-    // The user's path skips Reach and Takeover; see the Takeover test above for the Agent's.
-    let w = World::new().await;
-    let (hook, id) = w.asks(&w.child).await;
-
-    w.user_answer(&id, "allow").await.unwrap();
-
-    assert!(hook.await.unwrap().is_ok());
-}
-
-#[tokio::test]
 async fn h21_a_non_agent_lists_every_decision_and_answers_only_with_proof() {
     let w = World::new().await;
     let (_a, child) = w.asks(&w.child).await;
@@ -424,10 +390,9 @@ async fn h21_the_answer_is_an_event_of_the_agent_that_answered() {
 }
 
 #[tokio::test]
-async fn h21_a_forbidden_beats_a_conflict_for_an_outside_agent() {
+async fn h21_an_outside_agent_cannot_answer() {
     let w = World::new().await;
     let (_hook, id) = w.asks(&w.child).await;
-    w.taken.lock().unwrap().push(w.child.clone());
 
     let outside = w.answer(agent(&w.other), &id, "allow").await.unwrap_err();
     let own = w.answer(agent(&w.child), &id, "allow").await.unwrap_err();
@@ -489,10 +454,9 @@ async fn status_terminal(w: &World, agent: &str) -> String {
 }
 
 #[tokio::test]
-async fn b6_prompt_identity_keeps_reach_proof_and_takeover_authority() {
+async fn b6_prompt_identity_keeps_reach_and_proof_authority() {
     let w = World::new().await;
     let (hook, id) = w.asks(&w.child).await;
-    w.taken.lock().unwrap().push(w.child.clone());
     let identity = w
         .call(agent(&w.door), "decision.capture", json!({"id":id}))
         .await
@@ -508,20 +472,12 @@ async fn b6_prompt_identity_keeps_reach_proof_and_takeover_authority() {
     }
     let guarded = json!({"id":id,"identity":identity,"answer":"allow","proof":"wrong"});
     assert_eq!(
-        w.call(agent(&w.door), "decision.answer", guarded.clone())
-            .await
-            .unwrap_err()
-            .code,
-        code::CONFLICT
-    );
-    assert_eq!(
         w.call(Actor::user(), "decision.answer", guarded.clone())
             .await
             .unwrap_err()
             .code,
         code::FORBIDDEN
     );
-    w.taken.lock().unwrap().clear();
     w.call(agent(&w.door), "decision.answer", guarded)
         .await
         .unwrap();

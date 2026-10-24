@@ -33,7 +33,7 @@ fn x9_kill_returns_while_writes_are_stuck() {
             terminals.kill(&spawned.id).await.unwrap();
         })
         .await
-        .expect("kill is not held up by writes");
+        .expect("kill is not parked up by writes");
     });
 }
 

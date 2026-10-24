@@ -432,15 +432,15 @@ impl Terminals {
     /// Forget `owner`'s oldest exited Terminal when it holds [`OWNED_CAP`]; true when one went.
     fn make_room(&self, owner: &str) -> Result<bool, RpcError> {
         let mut table = self.shared.table();
-        let held: Vec<(u64, bool)> = table
+        let parked: Vec<(u64, bool)> = table
             .iter()
             .filter(|(_, entry)| entry.info.owner.as_deref() == Some(owner))
             .map(|(number, entry)| (*number, entry.handle.is_none()))
             .collect();
-        if held.len() < OWNED_CAP {
+        if parked.len() < OWNED_CAP {
             return Ok(false);
         }
-        let oldest_exited = held
+        let oldest_exited = parked
             .iter()
             .find(|(_, exited)| *exited)
             .map(|(number, _)| *number);
@@ -745,7 +745,7 @@ impl Terminals {
     }
 
     /// X13: the lines of the output that match `params.pattern`. Changes nothing, and searches a
-    /// copy of the log with no lock held.
+    /// copy of the log with no lock parked.
     pub fn search(&self, params: &SearchParams) -> Result<contracts::terminal::Search, RpcError> {
         let cap = output::cap(params.max)?;
         let window = self.window(&params.id, params.after.unwrap_or(0))?;

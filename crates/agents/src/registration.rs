@@ -2,9 +2,9 @@ use super::*;
 
 impl Shared {
     /// Swap `id` from `Starting` to `Running` (the Run `build` makes, told whether a
-    /// `rail.rename` already settled its name) and apply every Signal held for it, in arrival
+    /// `rail.rename` already settled its name) and apply every Signal parked for it, in arrival
     /// order, all under one `rail`-then-`runs` lock section: a Signal that arrives once the
-    /// Agent is registered can never be applied ahead of one still held for it (A14), and
+    /// Agent is registered can never be applied ahead of one still parked for it (A14), and
     /// `agent.signal` never finds `id` missing between the two (it is never `NOT_FOUND` for an
     /// id that was spawned). Returns the first prompt, if an applied `SessionStart` released it,
     /// to Steer once the locks are let go.
@@ -23,13 +23,13 @@ impl Shared {
                 rail.name(id)?
             )));
         }
-        let Some(Slot::Starting { named, held, .. }) = runs.remove(id) else {
+        let Some(Slot::Starting { named, parked, .. }) = runs.remove(id) else {
             unreachable!("spawn marks {id} Starting before run_agent runs")
         };
         let mut run = build(named);
         let mut prompts = Vec::new();
-        for (actor, payload) in held {
-            // A21: a held Signal naming a conversation is saved before it is applied, same as a
+        for (actor, payload) in parked {
+            // A21: a parked Signal naming a conversation is saved before it is applied, same as a
             // Running Agent's; here, before `agent.spawn` has returned, a failed save fails the
             // whole spawn instead, as any other failed spawn does (A14), so the Terminal
             // `run_agent`'s own cleanup kills is this one, never left running.
@@ -45,7 +45,7 @@ impl Shared {
             // still locked, poisoning them and taking every later `rail()`/`runs()` call down
             // with it. `rail.node(id)` itself cannot be `NOT_FOUND` (a Starting id's Rail node is
             // removed only by its own failed spawn, which never reaches here), but the write a
-            // held rename makes can still fail on its own account.
+            // parked rename makes can still fail on its own account.
             match self.apply(
                 Some(&mut *rail),
                 &mut run,
@@ -56,7 +56,7 @@ impl Shared {
             ) {
                 Ok((prompt, _tick_at)) => prompts.extend(prompt),
                 Err(err) => eprintln!(
-                    "agents: could not apply a Signal held for {id} while it was starting: {err}"
+                    "agents: could not apply a Signal parked for {id} while it was starting: {err}"
                 ),
             }
         }
@@ -65,10 +65,10 @@ impl Shared {
     }
 
     /// A22: `id`'s slot is `Resuming` and `payload` is a Signal (`observe`'s own match already
-    /// checked both). A non-ack Signal is held exactly as `Starting`'s (A14); so is an ack that
+    /// checked both). A non-ack Signal is parked exactly as `Starting`'s (A14); so is an ack that
     /// arrives before `agent.resume` has recorded the Terminal it started (a race only an
     /// implausibly fast hook could win, but one `promote_resuming` must never be asked to attach
-    /// a Terminal id it does not have): `promote_held_resume_ack` is what notices, once that id
+    /// a Terminal id it does not have): `promote_parked_resume_ack` is what notices, once that id
     /// is recorded, that the wait is already over. Otherwise the ack — a `SessionStart` naming
     /// source `resume` and the saved conversation id — promotes it now.
     pub(super) fn finish_resuming(
@@ -89,14 +89,14 @@ impl Shared {
             prompt,
             starred,
             terminal_id,
-            mut held,
+            mut parked,
             done,
         }) = runs.remove(id)
         else {
             unreachable!("observe matched a Resuming slot for {id}");
         };
         if !is_resume_ack(&payload, &conversation_id) || terminal_id.is_none() {
-            hold(id, &mut held, actor, payload);
+            hold(id, &mut parked, actor, payload);
             runs.insert(
                 id.to_owned(),
                 Slot::Resuming {
@@ -109,7 +109,7 @@ impl Shared {
                     prompt,
                     starred,
                     terminal_id,
-                    held,
+                    parked,
                     done,
                 },
             );
@@ -128,7 +128,7 @@ impl Shared {
             prompt,
             starred,
             terminal_id,
-            held,
+            parked,
             done,
             actor,
             payload,
@@ -136,18 +136,18 @@ impl Shared {
     }
 
     /// A22: once a pending resume's Terminal id is recorded (`agent.resume`'s own `claimed`
-    /// step), promote it at once if its ack arrived and was held only because that id was not
+    /// step), promote it at once if its ack arrived and was parked only because that id was not
     /// yet known — the one case `finish_resuming` cannot act on by itself — instead of leaving it
-    /// held until the 10 s timeout rolls a resume back that in fact already succeeded.
-    pub(super) fn promote_held_resume_ack(&self, id: &str) {
+    /// parked until the 10 s timeout rolls a resume back that in fact already succeeded.
+    pub(super) fn promote_parked_resume_ack(&self, id: &str) {
         let mut rail = self.rail();
         let mut runs = self.runs();
         let found = match runs.get(id) {
             Some(Slot::Resuming {
                 conversation_id,
-                held,
+                parked,
                 ..
-            }) => held
+            }) => parked
                 .iter()
                 .position(|(_, payload)| is_resume_ack(payload, conversation_id)),
             _ => None,
@@ -161,17 +161,17 @@ impl Shared {
             prompt,
             starred,
             terminal_id,
-            mut held,
+            mut parked,
             done,
             ..
         }) = runs.remove(id)
         else {
             unreachable!("checked above, under the same lock")
         };
-        let (ack_actor, ack_payload) = held
+        let (ack_actor, ack_payload) = parked
             .remove(position)
-            .expect("position came from this held, under the same lock");
-        let terminal_id = terminal_id.expect("promote_held_resume_ack only runs once it is Some");
+            .expect("position came from this parked, under the same lock");
+        let terminal_id = terminal_id.expect("promote_parked_resume_ack only runs once it is Some");
         let promoted = self.promote_resuming(
             &mut rail,
             &mut runs,
@@ -183,7 +183,7 @@ impl Shared {
             prompt,
             starred,
             terminal_id,
-            held,
+            parked,
             done,
             ack_actor,
             ack_payload,
@@ -194,13 +194,13 @@ impl Shared {
             Ok((Some(prompt), _)) => self.steer_first_prompt(id, &attempt, prompt),
             Ok((None, _)) => {}
             Err(err) => {
-                eprintln!("agents: could not promote {id}'s already-held resume ack: {err}")
+                eprintln!("agents: could not promote {id}'s already-parked resume ack: {err}")
             }
         }
     }
 
     /// A22's ack confirmed for `id`: attach the Terminal `agent.resume` started (never before
-    /// this moment), re-save the conversation (A21), apply every earlier held Signal in arrival
+    /// this moment), re-save the conversation (A21), apply every earlier parked Signal in arrival
     /// order and then the ack itself, and wake the pending `agent.resume`. On failure, restore
     /// `old` only after the failed Attempt's Terminal is confirmed ended. The completion
     /// sender follows cleanup, so no Resume result can precede its effect.
@@ -217,7 +217,7 @@ impl Shared {
         prompt: Option<String>,
         starred: bool,
         terminal_id: String,
-        held: VecDeque<(Actor, Value)>,
+        parked: VecDeque<(Actor, Value)>,
         done: oneshot::Sender<Result<(), RpcError>>,
         actor: Actor,
         payload: Value,
@@ -255,19 +255,22 @@ impl Shared {
             terminal_id: terminal_id.clone(),
             cwd,
         };
-        // Only the matching ack may release the first prompt; a held mismatched SessionStart
+        // Only the matching ack may release the first prompt; a parked mismatched SessionStart
         // must not take it before the remembered title is applied below.
-        for (held_actor, held_payload) in held {
-            let first_prompt = claude_code::submitted_prompt(&held_payload).map(name::from_prompt);
+        for (parked_actor, parked_payload) in parked {
+            let first_prompt =
+                claude_code::submitted_prompt(&parked_payload).map(name::from_prompt);
             if let Err(err) = self.apply(
                 Some(rail),
                 &mut run,
                 id,
-                &held_actor,
-                Observation::Signal(held_payload),
+                &parked_actor,
+                Observation::Signal(parked_payload),
                 first_prompt,
             ) {
-                eprintln!("agents: could not apply a Signal held for {id} while it resumed: {err}");
+                eprintln!(
+                    "agents: could not apply a Signal parked for {id} while it resumed: {err}"
+                );
             }
         }
         if let Err(err) = save_signal_conversation(rail, &run, id, &payload) {
@@ -309,17 +312,17 @@ impl Shared {
 
 /// How many Signals a `Slot::Starting` holds (A14); past this, the oldest is dropped and logged,
 /// as A5 does for a payload the adapter refuses.
-const HELD_BOUND: usize = 8;
+const PARKED_BOUND: usize = 8;
 
-pub(super) fn hold(id: &str, held: &mut VecDeque<(Actor, Value)>, actor: Actor, payload: Value) {
-    if held.len() >= HELD_BOUND {
-        held.pop_front();
+pub(super) fn hold(id: &str, parked: &mut VecDeque<(Actor, Value)>, actor: Actor, payload: Value) {
+    if parked.len() >= PARKED_BOUND {
+        parked.pop_front();
         eprintln!(
-            "agents: dropping the oldest Signal held for {id}: more than {HELD_BOUND} arrived \
+            "agents: dropping the oldest Signal parked for {id}: more than {PARKED_BOUND} arrived \
              before it was registered"
         );
     }
-    held.push_back((actor, payload));
+    parked.push_back((actor, payload));
 }
 
 /// A21: if `payload` is a Signal naming a conversation, save it and `run`'s effective cwd,
