@@ -93,7 +93,7 @@ else
   bad "v5 the real observer ($rc: $out)"
 fi
 fresh_real
-sed 's/snoc(snoc(q, n), n)/snoc(snoc(q, n), n+n)/' "$scratch/l/mutants/m1.patch" > "$scratch/stale.patch"
+sed 's/flush(W{snoc(q, n), t/flush(W{snoc(q, n+n), t/' "$scratch/l/mutants/m1.patch" > "$scratch/stale.patch"
 mv "$scratch/stale.patch" "$scratch/l/mutants/m1.patch"
 out=$(observe); expect "v5 a stale m1 patch fails the standard observer" 1 "FAIL m1: cannot apply" "$?" "$out"
 fresh_real; rm "$scratch/l/mutants/m4.patch"

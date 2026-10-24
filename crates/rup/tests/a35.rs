@@ -1099,7 +1099,6 @@ async fn open_decisions(fx: &Fix, id: &str) -> usize {
 async fn m16_a_door_can_perform_each_user_action_on_a_child() {
     let fx = fixture().await;
     write(&fx).await;
-    give_back(&fx, &fx.ws).await;
     let model = fx.project.model.as_ref().unwrap();
     for child in [fx.a.clone(), fx.b.clone()] {
         let mut events = fx.project.subscribed().await;

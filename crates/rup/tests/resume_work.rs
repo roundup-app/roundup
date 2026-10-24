@@ -199,8 +199,6 @@ async fn u3078f_reopen_reconciles_unknown_acceptance() {
 
 #[tokio::test]
 async fn u3078g_resume_preserves_stop_holds_authority_and_attempts() {
-    let e = Evidence::start().await;
-    let id = e.report["author"]["id"].clone();
     // A stopped Agent stays stopped: no program starts, and the cause names the separate action.
     let other = Evidence::start().await;
     let (launches, before) = (other.log("launches"), other.messages().await);
