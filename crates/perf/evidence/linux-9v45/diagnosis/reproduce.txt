@@ -1,4 +1,5 @@
 #!/bin/bash
+# Run with bash; kept as .txt so it is evidence, not a launch site (loop/launch-sites.json).
 # Reproduces the 9V45 diagnosis. Build the historical reference first:
 #   git worktree add /tmp/hist 2029ed2c4 && (cd /tmp/hist && CARGO_TARGET_DIR=/tmp/hist-target cargo build --release -p rupd -p rup -p perf)
 # and put a budgets.json and classes.json under /tmp/scr that copy linux-boxd into linux-9v45.
