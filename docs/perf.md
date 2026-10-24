@@ -192,3 +192,26 @@ toolchain, profile and load when recording an observation. Do not replace or
 relax `budgets.json`. #1930 must migrate this output drain to selected streams
 in its Contract PR, rerun this command and retain zero Rail lag; this observer
 does not complete #1930 or X14's Terminal regression/journey acceptance.
+
+### R20 hop attribution
+
+Each report now carries `hops` and `hop_uncertainty_ms` (the 1 ms timer
+resolution). All boundaries are read on the webview's one clock, so no
+cross-process subtraction is involved; a report without every hop is invalid
+(exit 2). Per key, from the same key's echo (unrelated output is ignored):
+
+| Hop | From → to |
+| --- | --- |
+| `keydown_to_input` | `keydown` → xterm `onData` |
+| `input_to_dispatch` | `onData` → `terminal.write` called; holds base64 (same tick, not separable) and the wait for the previous write's reply |
+| `dispatch_to_echo_event` | `terminal.write` called → the echo reaches `emulator.write`; spans Tauri, the Daemon's write, the PTY, the echo read and the output channel |
+| `echo_event_to_parsed` | `emulator.write` → xterm has parsed the echo |
+| `parsed_to_frame` | parsed → the next render |
+| `write_reply` | `terminal.write` called → its reply (overlaps the echo's trip) |
+
+The Daemon-side boundaries inside `dispatch_to_echo_event` (Daemon received, PTY
+write completed, echo read) are not yet stamped: they need the Daemon's clock
+and a calibrated offset, and the first native report decides whether that hop
+needs splitting. The hop with the largest p95 is named here once the quiet-Mac
+before-repair reports exist; none exist yet, so no dominant hop and no repair
+are claimed.
