@@ -115,6 +115,9 @@ importers:
       '@xterm/xterm':
         specifier: ^6.0.0
         version: 6.0.0
+      '@zag-js/focus-visible':
+        specifier: 1.45.0
+        version: 1.45.0
       diff:
         specifier: ^9.0.0
         version: 9.0.0
