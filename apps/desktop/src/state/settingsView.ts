@@ -1,4 +1,4 @@
-import { queueFocus } from "../keys/focus";
+import { captureFocus, queueFocus } from "../keys/focus";
 import { createSignal } from "solid-js";
 import type { Accessor } from "solid-js";
 
@@ -20,6 +20,8 @@ export const createSettingsView = (): SettingsViewState => {
   return {
     open, page,
     show: (from, next = "project-settings", returning) => {
+      captureFocus(true);
+
       if (!open()) { opener = from; restore = returning; }
 
       setPage(next); setOpen(true);

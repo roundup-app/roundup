@@ -89,7 +89,7 @@ const Panel = (props: { id: string; name: string; worktree: Worktree; notes: Not
   createEffect(() => { if (props.recoveryOpen) hide(); });
 
   return (
-    <Popover.Root closeOnInteractOutside={false} open={open()} closeOnEscape onOpenChange={({ open: next }) => { if (next) openPanel(); else close(); }} positioning={{ placement: "top-end", strategy: "fixed" }}>
+    <Popover.Root initialFocus={treeFocus} closeOnInteractOutside={false} open={open()} closeOnEscape onOpenChange={({ open: next }) => { if (next) openPanel(); else close(); }} positioning={{ placement: "top-end", strategy: "fixed" }}>
       <Popover.Trigger asChild={(trigger) => (
         <button {...trigger()} ref={setControl} type="button" data-button="quiet" class="worktree-control" aria-label={props.worktree.branch} onClick={() => (open() ? close() : openPanel())}>
           <Icon name="branch" />
@@ -118,7 +118,7 @@ const Panel = (props: { id: string; name: string; worktree: Worktree; notes: Not
               )}
             </Show>
           </dl>
-          <ReservedLine message={failure()}><button type="button" data-button="quiet" onClick={() => { treeFocus = () => false; setVersion(value => value + 1); }}>{copy.retry}</button><button type="button" data-button="quiet" onClick={dismiss}>{copy.dismissFailure}</button></ReservedLine>
+          <ReservedLine message={failure()}><button type="button" data-button="quiet" onClick={() => { treeFocus = captureFocus(); treeFocus(() => {}); setVersion(value => value + 1); }}>{copy.retry}</button><button type="button" data-button="quiet" onClick={dismiss}>{copy.dismissFailure}</button></ReservedLine>
           <Show when={read()} keyed>
             {(value) => {
 

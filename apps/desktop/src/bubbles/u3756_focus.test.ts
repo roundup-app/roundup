@@ -30,6 +30,9 @@ it.each(["empty", "dense"])("u3756a_late_door_terminal_keeps_the_newer_bubble_an
   await read(`window.selectedWorkstream = document.querySelector('.rail-row[data-selected=true]').dataset.id`);
   await browser("keyboard", "type", "before");
   await wait(`window.__fake.app.calls.some(c => c.method === 'terminal.write')`);
+  await wait(`window.__fake.app.outputSubscriptions.some(s => s.id === "101" && !s.released)`);
+  await read(`window.__fake.writeOutput('101', 'BEFORE SUPERVISOR\\r\\n')`);
+  await wait(`document.querySelector('.bubble[data-bubble="101"] .xterm-rows').textContent.includes('BEFORE SUPERVISOR')`);
   await capture("U3756a", `${seed}-before`);
   await read(`window.bubbleFocus = document.activeElement; window.arrive()`);
   await wait(`!!document.querySelector('.pane-screen .xterm')`);
@@ -221,7 +224,7 @@ it.each(["reply-first", "list-first"])("u3756d_a_delayed_user_terminal_takes_foc
 }, 90_000);
 
 // Hold the native microtask boundary after the actual App action; the test replaces no focus owner.
-it.each(["timeline", "agent-editor", "ask", "switcher"])("u3756b_a_queued_appearance_yields_to_a_newer_rail_choice_%s", async appearance => {
+it.each(["timeline", "agent-editor", "ask"])("u3756b_a_queued_appearance_yields_to_a_newer_rail_choice_%s", async appearance => {
   await loadDense();
   await read(`window.arrive()`);
   await wait(`!!document.querySelector('.pane-screen .xterm')`);
@@ -239,7 +242,6 @@ it.each(["timeline", "agent-editor", "ask", "switcher"])("u3756b_a_queued_appear
       ${appearance === "timeline" ? "document.querySelectorAll('.measurement-action button')[1].click();" : appearance === "agent-editor" ? "document.querySelector('.rail-row[data-selected=true]').dispatchEvent(new KeyboardEvent('keydown', { key: 'N', code: 'KeyN', metaKey: true, shiftKey: true, bubbles: true }));" : appearance === "switcher" ? "document.activeElement.dispatchEvent(new KeyboardEvent('keydown', { key: 'k', code: 'KeyK', bubbles: true }));" : "document.activeElement.dispatchEvent(new KeyboardEvent('keydown', { key: '/', code: 'Slash', metaKey: true, bubbles: true }));"}
     } finally { window.queueMicrotask = queue; }
     window.queuedCount = queued.length;
-    window.appearanceMounted = !!document.querySelector(${JSON.stringify(appearance === "timeline" ? ".timeline-view" : appearance === "agent-editor" ? ".spawn-prompt-field" : appearance === "switcher" ? ".switcher" : '.ask-bar[data-mode="over"]')});
     const chosen = document.querySelector('.rail-row[data-selected=true]');
     chosen.focus();
     window.newFocus = chosen;
@@ -247,7 +249,7 @@ it.each(["timeline", "agent-editor", "ask", "switcher"])("u3756b_a_queued_appear
   })()`);
   // The App's queued callbacks run before this browser evaluation, after its input task ends.
   expect(await read(`window.queuedCount`)).toBeGreaterThan(0);
-  expect(await read(`window.appearanceMounted`)).toBe(true);
+  expect(await read(`!!document.querySelector(${JSON.stringify(appearance === "timeline" ? ".timeline-view" : appearance === "agent-editor" ? ".spawn-prompt-field" : appearance === "switcher" ? ".switcher" : '.ask-bar[data-mode="over"]')})`)).toBe(true);
   expect(await read(`document.activeElement === window.newFocus`)).toBe(true);
   expect(await read(`window.__fake.app.calls.filter(c => c.method === 'terminal.write').length`)).toBe(0);
 }, 90_000);
@@ -280,12 +282,13 @@ it("u3756c_a_new_drawer_editor_mount_leaves_body_focus_unclaimed_by_the_older_te
     window.restoreEditor = () => queued.forEach(task => queue(task));
   })()`);
   expect(await read(`!!window.editorMounted && document.activeElement === document.body`)).toBe(true);
+  const body = await read(`window.editorMounted.value`);
   await read(`window.arrive()`);
   await wait(`!!document.querySelector('.pane-screen .xterm')`);
   expect(await read(`document.activeElement === document.body && document.querySelector('.drawer').dataset.open === 'true'`)).toBe(true);
   await read(`window.restoreEditor()`);
   await wait(`document.activeElement === window.editorMounted`);
-  expect(await read(`window.editorMounted.value`)).toBe("body text");
+  expect(await read(`window.editorMounted.value`)).toBe(body);
   expect(await read(`window.__fake.app.calls.filter(c => c.method === 'terminal.write').length`)).toBe(0);
 }, 90_000);
 
@@ -313,4 +316,80 @@ it.each(["rail", "bubble", "uninterrupted"])("u3756b_a_deferred_changed_file_tre
   if (surface !== "uninterrupted") expect(await read(`document.activeElement === window.newFocus`)).toBe(true);
   else expect(await read(`document.activeElement === document.querySelector('file-tree-container')`)).toBe(true);
   expect(await read(`window.__fake.app.calls.filter(c => c.method === 'terminal.write').length`)).toBe(0);
+}, 90_000);
+
+it("u3756b_the_switcher_queued_focus_yields_after_its_mount", async () => {
+  await loadDense();
+  await read(`window.arrive()`);
+  await wait(`!!document.querySelector('.pane-screen .xterm')`);
+  await browser("press", "Meta+k");
+  await wait(`!!document.querySelector('.leader')`);
+  await read(`(() => {
+    const queue = window.queueMicrotask;
+    window.queueMicrotask = task => queue(() => {
+      if (!window.newFocus && document.querySelector('.switcher input')) {
+        window.newFocus = document.querySelector('.rail-row[data-selected=true]');
+        window.newFocus.focus();
+      }
+      task();
+    });
+    window.restoreQueue = () => { window.queueMicrotask = queue; };
+    document.activeElement.dispatchEvent(new KeyboardEvent('keydown', { key: 'k', code: 'KeyK', bubbles: true, cancelable: true }));
+  })()`);
+  await wait(`!!window.newFocus`);
+  await read(`window.restoreQueue()`);
+  expect(await read(`document.activeElement === window.newFocus`)).toBe(true);
+  expect(await read(`window.__fake.app.calls.filter(c => c.method === 'terminal.write').length`)).toBe(0);
+}, 90_000);
+
+const holdFrames = async () => read(`(() => {
+  const request = window.requestAnimationFrame;
+  const cancel = window.cancelAnimationFrame;
+  const frames = new Map();
+  let next = -1;
+  window.requestAnimationFrame = callback => { const id = next--; frames.set(id, callback); return id; };
+  window.cancelAnimationFrame = id => { if (!frames.delete(id)) cancel(id); };
+  window.releaseFrames = () => new Promise(resolve => {
+    window.requestAnimationFrame = request;
+    window.cancelAnimationFrame = cancel;
+    request(time => { for (const callback of frames.values()) callback(time); resolve(frames.size); });
+  });
+})()`);
+
+it.each(["initial", "return"])("u3756b_a_select_focus_frame_yields_to_the_newer_rail_choice_%s", async phase => {
+  await browser("open", url("/harness.html?seed=tree-40&renderer=dom"));
+  await wait(`!!window.__fake && !!document.querySelector('.rail-row')`);
+  await browser("press", "Meta+Comma");
+  await wait(`!!document.querySelector('.settings-view .app-select-trigger')`);
+
+  if (phase === "return") {
+    await read(`document.querySelector('.settings-view [role=combobox]').click()`);
+    await wait(`!!document.activeElement?.closest('.app-select-list')`);
+  }
+
+  await holdFrames();
+  await read(`${phase === "initial" ? "document.querySelector('.settings-view .app-select-trigger').click()" : "document.activeElement.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', code: 'Escape', bubbles: true, cancelable: true }))"}; document.querySelector('.rail-row').focus(); window.newFocus = document.activeElement;`);
+  expect(await read<number>(`window.releaseFrames()`)).toBeGreaterThan(0);
+  expect(await read(`document.activeElement === window.newFocus`)).toBe(true);
+}, 90_000);
+
+it("u3756b_a_menu_focus_frame_yields_to_a_newer_rail_choice", async () => {
+  await loadDense();
+  await browser("focus", ".todo-row-button");
+  await holdFrames();
+  await read(`document.activeElement.dispatchEvent(new KeyboardEvent('keydown', { key: 'o', code: 'KeyO', bubbles: true, cancelable: true })); document.querySelector('.rail-row[data-selected=true]').focus(); window.newFocus = document.activeElement;`);
+  expect(await read<number>(`window.releaseFrames()`)).toBeGreaterThan(0);
+  expect(await read(`document.activeElement === window.newFocus`)).toBe(true);
+}, 90_000);
+
+it("u3756b_a_terminal_name_return_frame_yields_to_the_newer_ask_bar", async () => {
+  await load();
+  await choose("bubble");
+  await browser("dblclick", '.terminal-tab[data-bubble="101"] .terminal-tab-name');
+  await wait(`document.activeElement?.matches('.terminal-tab-editor input')`);
+  await holdFrames();
+  await read(`document.activeElement.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', code: 'Escape', bubbles: true, cancelable: true }))`);
+  await choose("ask");
+  expect(await read<number>(`window.releaseFrames()`)).toBeGreaterThan(0);
+  expect(await read(`document.activeElement === window.newFocus && window.newFocus.value === window.newText`)).toBe(true);
 }, 90_000);

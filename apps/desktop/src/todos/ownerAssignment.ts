@@ -22,7 +22,7 @@ export const createOwnerAssignment = (source: {
   const [revealed, setRevealed] = createSignal<string | null>(null);
   const [arriving, setArriving] = createSignal<readonly string[]>([]);
   const [regrouped, regroup] = createSignal<{ id: number; owner: Actor | null; focus: ReturnType<typeof captureFocus> } | null>(null);
-  const setRegrouped = (request: { id: number; owner: Actor | null } | null) => regroup(request && { ...request, focus: captureFocus() });
+  const setRegrouped = (request: { id: number; owner: Actor | null; focus?: ReturnType<typeof captureFocus> } | null) => regroup(request && { ...request, focus: request.focus ?? captureFocus() });
 
   createEffect(() => {
     const request = regrouped();

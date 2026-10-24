@@ -1,4 +1,4 @@
-import { queueFocus } from "../keys/focus";
+import { captureFocus, queueFocus } from "../keys/focus";
 import { createRoot, onCleanup } from "solid-js";
 import { chordsFor } from "../keys/chords";
 import { registerKeys } from "../keys/registry";
@@ -43,6 +43,7 @@ export const shelfKeys = (props: { frame: ShelfFrame; shelf: () => HTMLElement |
     const kept = document.activeElement;
 
     if (opening) {
+      captureFocus(true);
       returnTo = kept instanceof HTMLElement && kept !== document.body ? kept : null;
     }
 

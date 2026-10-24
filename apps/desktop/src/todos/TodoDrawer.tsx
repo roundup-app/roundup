@@ -31,7 +31,7 @@ const TodoLine = (props: { todo: Todo }) => (
 /** The current Todo follows list Events; TodoHistory captures and acknowledges this opening's read. */
 export const TodoDrawer = (props: {
   id: number;
-  onComment?: () => void;
+  onComment?: (focus: ReturnType<typeof captureFocus>) => void;
   todos: TodosState;
   /** Recovery uses loaded original identities and never fetches or acknowledges History. */
   recovery?: { project: string; revision: string };

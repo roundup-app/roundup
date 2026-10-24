@@ -220,9 +220,11 @@ export const Todos = (props: {
 
   const [dragging, setDragging] = createSignal(false);
   const [adding, setAdding] = createSignal<{ group: string; owner: Actor | null } | null>(null);
-  const [picking, setPicking] = createSignal<{ id: number; anchor: HTMLElement } | null>(null);
-  let pickAdvance: (() => Promise<void>) | undefined;
-  let commentAdvance: (() => Promise<void>) | undefined;
+  const [picking, pick] = createSignal<{ id: number; anchor: HTMLElement; focus?: ReturnType<typeof captureFocus> } | null>(null);
+  const setPicking = (request: { id: number; anchor: HTMLElement } | null) => { pick(request && { ...request, focus: captureFocus(true) }); };
+
+  let pickAdvance: ((permission?: ReturnType<typeof captureFocus>) => Promise<void>) | undefined;
+  let commentAdvance: ((permission?: ReturnType<typeof captureFocus>) => Promise<void>) | undefined;
   const pickFails = new Map<number, (message: string | null) => void>();
 
   const sorted = createSortedList({
@@ -365,7 +367,7 @@ export const Todos = (props: {
       const found = row && todos.byId().get(id);
       const anchor = focus instanceof HTMLElement && !focus.matches(TEXT_FIELDS) ? focus : null;
 
-      return { available: () => !!found && !found.done && anchor !== null, invoke: () => { if (anchor) { pickAdvance = captureAdvance(id); setPicking({ id, anchor }); } } };
+      return { available: () => !!found && !found.done && anchor !== null, invoke: () => { if (anchor) { setPicking({ id, anchor }); pickAdvance = captureAdvance(id); } } };
     },
   }]);
 
@@ -556,11 +558,11 @@ export const Todos = (props: {
   const show = (todo: Todo, source: ActivationSource) => {
     commentAdvance = captureAdvance(todo.id);
 
-    const content = () => <TodoDrawer id={todo.id} todos={todos} onComment={() => {
+    const content = () => <TodoDrawer id={todo.id} todos={todos} onComment={focus => focus(() => {
       if (!triage.on() || !commentAdvance) return;
       connected.drawer.close("key");
-      void commentAdvance();
-    }} />;
+      void commentAdvance(captureFocus());
+    })} />;
 
     setShown({ id: todo.id, content });
     connected.drawer.open(content, source);
@@ -596,12 +598,12 @@ export const Todos = (props: {
     const at = order.indexOf(id);
     const candidates = [...order.slice(at + 1), ...order.slice(0, at).reverse(), id];
 
-    return async () => {
+    return async (permission = focus) => {
       await todos.reload();
 
       if (triage.on()) finishing.settle();
       // Ark reconciles regrouped trees and dismisses the picker before the next paint.
-      requestAnimationFrame(() => focus(() => {
+      requestAnimationFrame(() => permission(() => {
         if (!triage.on() || !section?.isConnected || todos.failure() !== null) return;
         const kept = document.activeElement;
 
@@ -614,7 +616,8 @@ export const Todos = (props: {
   };
 
   let entry: { id: number | undefined; order: (number | undefined)[] } | null = null;
-  const [moving, setMoving] = createSignal<{ id: number; anchor: HTMLElement } | null>(null);
+  const [moving, move] = createSignal<{ id: number; anchor: HTMLElement; focus?: ReturnType<typeof captureFocus> } | null>(null);
+  const setMoving = (request: { id: number; anchor: HTMLElement } | null) => move(request && { ...request, focus: captureFocus(true) });
 
   const homeOffers = () => homesToOffer(connected.rail.nodes, todos.byId().get(moving()?.id ?? -1)?.home ?? null);
 
@@ -701,7 +704,7 @@ export const Todos = (props: {
     else if (message === null) setAwaitingFocus(waiting => [...waiting, { id, target: rowAfter(id, triageButtons().map(idOfRow).filter(each => each !== undefined)), reopening: false, focus }]);
   };
 
-  let moveAdvance: (() => Promise<void>) | undefined;
+  let moveAdvance: ((permission?: ReturnType<typeof captureFocus>) => Promise<void>) | undefined;
 
   registerKeys({ kind: "app" }, [
     {
@@ -727,24 +730,23 @@ export const Todos = (props: {
     }),
     triageKey("A", (todo, button) => {
       clearFailures();
-      pickAdvance = captureAdvance(todo.id);
       setPicking({ id: todo.id, anchor: button });
+      pickAdvance = captureAdvance(todo.id);
     }),
     triageKey("W", (todo, button) => {
       if (homesToOffer(connected.rail.nodes, todo.home).length === 0) return;
       clearFailures();
-      moveAdvance = captureAdvance(todo.id);
       setMoving({ id: todo.id, anchor: button });
+      moveAdvance = captureAdvance(todo.id);
     }),
     triageKey("X", async (todo) => {
       clearFailures();
       pickFails.get(todo.id)?.(await toggle(todo, triageButtons().map(idOfRow).filter(each => each !== undefined)));
     }),
     triageKey("C", (todo) => {
-      commentAdvance = captureAdvance(todo.id);
-
       if (selectedId() !== todo.id) show(todo, "key");
       triage.askComment(todo.id);
+      commentAdvance = captureAdvance(todo.id);
     }),
   ]);
 
@@ -834,7 +836,7 @@ export const Todos = (props: {
               known={todos.byId()}
               onOpen={show}
               onToggle={todo => toggle(todo, tree().map(row => row.todo.id))}
-              onAssign={(item, anchor) => { pickAdvance = captureAdvance(item.id); setPicking({ id: item.id, anchor }); }}
+              onAssign={(item, anchor) => { setPicking({ id: item.id, anchor }); pickAdvance = captureAdvance(item.id); }}
               failWith={(show) => pickFails.set(todo.id, show)}
               sorted={sorted.row(todo.id, parts, () => tree().map(({ todo }) => todo.id))}
               place={row}
@@ -898,15 +900,20 @@ export const Todos = (props: {
         </>; }}</OwnerGroups>
       </Show>
       <HomePicker target={moving} offers={homeOffers} choose={(id, home) => void moveHome(id, home)} close={stopMoving} />
-      <OwnerPicker label={id => copy.ownersFor(id ?? "")} target={picking} offers={offers} choose={(id, owner) => void assign(id, owner)} close={stopPicking} newWorkstream={id => { namingNext = id; setTimeout(() => { namingNext = null; setNaming(id); }, 0); }} />
-      <NewWorkstream target={naming} returnTo={rowButtonOf} done={(id, made) => {
+      <OwnerPicker label={id => copy.ownersFor(id ?? "")} target={picking} offers={offers} choose={(id, owner) => void assign(id, owner)} close={stopPicking} newWorkstream={id => {
+        const focus = captureFocus(true);
+        namingNext = id;
+        setTimeout(() => { namingNext = null; focus(() => setNaming(id)); }, 0);
+      }} />
+      <NewWorkstream target={naming} returnTo={rowButtonOf} done={(id, made, focus = captureFocus()) => {
+        if (naming() !== id) return;
         setNaming(null);
 
         // U3743, U138: the Todo is the new Door's, so its row is found again once `todo.updated` has refetched it.
-        if (made && pickAdvance) void pickAdvance();
+        if (made && pickAdvance) focus(() => void pickAdvance?.(captureFocus()));
         else if (made) {
           setRevealed("unassigned");
-          setRegrouped({ id, owner: { kind: "agent", id: made.id, parent: null } });
+          setRegrouped({ id, owner: { kind: "agent", id: made.id, parent: null }, focus });
         } else queueFocus(() => rowButtonOf(id)?.focus());
       }} />
       <Show when={typing() && (adding() === null || fieldGroupGone())}>

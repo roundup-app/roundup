@@ -129,6 +129,8 @@ export const Rail = () => {
   };
 
   const openCompose = () => {
+    captureFocus(true);
+
     if (!composing()) setTaskDestination(parent());
     setComposing(true);
   };

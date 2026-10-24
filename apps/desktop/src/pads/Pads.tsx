@@ -203,7 +203,9 @@ export const Pads = (props: {
   });
 
   const [dragging, setDragging] = createSignal(false);
-  const [picking, setPicking] = createSignal<{ id: string; anchor: HTMLElement } | null>(null);
+  const [picking, pick] = createSignal<{ id: string; anchor: HTMLElement; focus?: ReturnType<typeof captureFocus> } | null>(null);
+  const setPicking = (request: { id: string; anchor: HTMLElement } | null) => { pick(request && { ...request, focus: captureFocus(true) }); };
+
   const pickFails = new Map<string, { message: string | null; show: (message: string | null) => void }>();
 
   const reportAssignmentFailure = (incarnation: string, message: string | null) => {

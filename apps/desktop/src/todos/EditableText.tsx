@@ -130,6 +130,8 @@ export const EditableText = (props: {
   let shown: HTMLElement | undefined;
 
   const startWith = (width = shown?.getBoundingClientRect().width ?? 0) => {
+    captureFocus(true);
+
     const saved = props.revision === undefined
       ? records().findLast(draft => draft.status === "draft" || draft.status === "failed")
       : records().find(draft => draft.revision === props.revision);
@@ -211,6 +213,7 @@ export const EditableText = (props: {
 
     const submit = async () => {
       if (left) return;
+      const retryFocus = captureFocus();
       left = true;
 
       if (element.value === started.form.base && !started.recovered) {
@@ -250,7 +253,7 @@ export const EditableText = (props: {
           setFailure(error.message);
 
           if (outcomeOf(error) === "failed" && connected.drawer.content() === content && editing() === null && !records().some(record => record.status === "draft")
-            && (document.activeElement === null || document.activeElement === document.body)) startWith(started.width);
+            && (document.activeElement === null || document.activeElement === document.body)) retryFocus(() => startWith(started.width));
         }
       }
     };

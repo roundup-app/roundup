@@ -548,7 +548,7 @@ export const Bubbles = (props: {
     const { id, focus } = request;
 
     queueMicrotask(() => {
-      if (bubbleElement(id) === null) return;
+      if (wanted() !== request || bubbleElement(id) === null) return;
 
       if (!focus(() => { show(id); focusItem(id); })) setPlace(id, { ...placeOf(id), min: true });
 
