@@ -12,7 +12,7 @@ Scope is the PR's own commits' diff and the `loop/rules.sh merge-loss` result, j
 
 ## Reuse
 
-Reject under rule 9 a missing required `Reuse:` section, or custom code where a maintained library covers the need and the section gives no specific rejection reason. Read that section as verifiable library evidence only; the body never sets scope or proves a change (rule 5). Verify claims against the diff and cited sources. Existing merge checks and independent review still hold; a branch cannot satisfy its own gate.
+Reject under rule 9 a missing required `Reuse:` section, or custom code where a maintained library covers the need and the section gives no specific rejection reason. In a new file or an edit, reject code that re-implements a feature of an installed dependency or the platform, or works around one (`!important` overrides of its styles, synthetic events, DOM clones, attributes copied onto its elements), unless the section names the capability it lacks. Read that section as verifiable library evidence only; the body never sets scope or proves a change (rule 5). Verify claims against the diff and cited sources. Existing merge checks and independent review still hold; a branch cannot satisfy its own gate.
 
 ## Verdicts
 
