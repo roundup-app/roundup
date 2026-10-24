@@ -40,9 +40,15 @@ export const AppSettings = (props: { app: App; project: () => string | null; onO
 
   let disposed = false;
   let stop: (() => void) | undefined;
+  let stopProject: (() => void) | undefined;
 
   void props.app.onAppSettings(show).then(unsubscribe => { if (disposed) unsubscribe(); else stop = unsubscribe; });
-  onCleanup(() => { disposed = true; stop?.(); });
+  void props.app.onProjectPage(({ path }) => {
+    if (path !== props.project() || !view.open()) return;
+    props.onOpenChange?.(false);
+    view.close();
+  }).then(unsubscribe => { if (disposed) unsubscribe(); else stopProject = unsubscribe; });
+  onCleanup(() => { disposed = true; stop?.(); stopProject?.(); });
   registerKeys({ kind: "app" }, [{ chords: ["Meta+Comma"], run: show }]);
 
   const [offered] = createResource(() => view.open() && props.project(), async path => {

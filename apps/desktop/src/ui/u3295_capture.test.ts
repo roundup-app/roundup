@@ -53,11 +53,11 @@ it.skipIf(!captureDir("U3295b"))("u3295b_rendered_modal_dismissal_and_dialog_pic
     await browser("click", ".ask-bar textarea");
     expect(await read<boolean>("!!document.querySelector('.app-mentions')")).toBe(true);
     await snap("ask-and-mentions");
-    await read("document.querySelector('.rail-import').click()");
-    await wait("!!document.querySelector('.import-panel')");
-    await snap("import-over-ask");
-    await read("[...document.querySelectorAll('.import-panel button')].find(b => b.textContent.trim() === 'Cancel').click()");
-    await wait("!document.querySelector('.import-panel')");
+    await read("window.dispatchEvent(new KeyboardEvent('keydown', { key: 'T', code: 'KeyT', metaKey: true, shiftKey: true, bubbles: true, cancelable: true }))");
+    await wait("!!document.querySelector('.capture')");
+    await snap("capture-over-ask");
+    await key("Escape", "Escape");
+    await wait("!document.querySelector('.capture')");
 
     if (!(await read<boolean>("!!document.querySelector('.ask-bar[data-mode=over]')"))) await key("/", "Slash", true);
     await wait("!!document.querySelector('.ask-bar[data-mode=over] textarea')");
@@ -91,12 +91,12 @@ it.skipIf(!captureDir("U3295b"))("u3295b_rendered_modal_dismissal_and_dialog_pic
     await snap("dense-failure");
 
     await browser("open", new URL("/harness.html?seed=agents-10", server.resolvedUrls.local[0]!).href);
-    await wait("!!window.__fake && !!document.querySelector('.rail-import')");
+    await wait("!!window.__fake && !!document.querySelector('.todo-project-root')");
     await snap("agents-before");
     await read("(() => { const nodes = window.__fake.app.handlers['rail.tree'](); for (const node of nodes.filter(n => n.kind === 'agent' && n.status?.kind !== 'needs-you').slice(0, 3)) window.__fake.setStatus(node.id, 'needs-you', 'Choose the next step'); })()");
     await wait("document.querySelectorAll('.app-toast').length >= 3");
     await snap("toast-stack");
-    await read("document.querySelector('.rail-import').click()");
+    await read("window.dispatchEvent(new CustomEvent('open-project-page', { detail: { path: document.querySelector('.project-tab[data-selected=true]').dataset.path, command: 'import-work' } }))");
     await wait("!!document.querySelector('.import-panel')");
     await snap("agents-import");
   } finally {

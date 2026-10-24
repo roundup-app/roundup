@@ -108,7 +108,7 @@ it.each(readers)("u3807_each_site_shows_its_message_in_the_reserved_line: $site"
   expect(alert.textContent).toContain(FAILURE);
   unchanged(places, place);
   Object.assign(mounted.app.handlers, { [site.method]: original });
-  const retry = within(place).queryByRole("button", { name: site.method === "message.progress" ? "Read again" : /^(?!Clear)/ });
+  const retry = within(place).queryByRole("button", { name: site.method === "message.progress" ? "Read again" : /^(?!Clear|Dismiss)/ });
 
   if (retry) fireEvent.click(retry);
   else site.refresh(mounted);
@@ -286,8 +286,8 @@ it("u3807_each_site_shows_its_message_in_the_reserved_line: worktree panel", asy
 
 it("u3807_each_site_shows_its_message_in_the_reserved_line: importer Looking and failure", async () => {
   const mounted = await mountTodos([]);
-  render(() => <ConnectedProjectContext.Provider value={mounted.connected}><ImportPanel open opener={undefined} onClose={() => {}} /></ConnectedProjectContext.Provider>);
-  const surface = await within(document.body).findByRole("dialog");
+  render(() => <ConnectedProjectContext.Provider value={mounted.connected}><ImportPanel onClose={() => {}} /></ConnectedProjectContext.Provider>);
+  const surface = await within(document.body).findByRole("region", { name: "Import Claude Code work" });
   const read = gate<{ candidates: []; excluded: [] }>();
   mounted.app.handlers["project.importDiscover"] = () => read.promise;
   await cycle(surface, () => { void mounted.connected.importing.refresh(); }, () => read.reject(new RpcError(-32003, FAILURE)), "Looking for conversations…");
