@@ -71,12 +71,7 @@ async fn a7_b1_b9_real_daemon_fences_old_status_after_door_restart() {
         auto: crate::auto::Auto::new(&bus),
     };
     daemon.register(Arc::new(
-        messages::Messages::open(
-            &dir,
-            bus.clone(),
-            agents.clone(),
-        )
-        .unwrap(),
+        messages::Messages::open(&dir, bus.clone(), agents.clone()).unwrap(),
     ));
     daemon.register(agents);
     daemon.register(terminals);

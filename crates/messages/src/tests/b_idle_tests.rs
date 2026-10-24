@@ -108,11 +108,7 @@ async fn b2_initial_acknowledgement_waits_for_idle_reconciliation() {
 
 /// A receiver `b` that is `idle` with a Terminal, a Working sender `a`, an inbox that fails with
 /// `failure` and records no receipt; `kind` is sent once.
-async fn recovering_note(
-    dir: &Path,
-    kind: &str,
-    failure: contracts::agent::Inbox,
-) -> Harness {
+async fn recovering_note(dir: &Path, kind: &str, failure: contracts::agent::Inbox) -> Harness {
     let mut receiver = agent_node("b", Kind::Idle);
     receiver.terminal_id = Some("terminal-b".into());
     let h = Harness::with_inbox(dir, vec![agent_node("a", Kind::Working), receiver]);
@@ -163,7 +159,14 @@ async fn b3563c_unavailable_inbox_keeps_pending_identity_and_reports_the_cause()
                     "{kind} {failure:?}"
                 );
                 for revision in 2..5 {
-                    on_status(&h.messages.inner, "b", "1", &revision.to_string(), Kind::Idle).await;
+                    on_status(
+                        &h.messages.inner,
+                        "b",
+                        "1",
+                        &revision.to_string(),
+                        Kind::Idle,
+                    )
+                    .await;
                 }
                 for id in [1, 2] {
                     let message = h.messages.get_or_not_found(id).unwrap();
@@ -186,7 +189,11 @@ async fn b3563c_unavailable_inbox_keeps_pending_identity_and_reports_the_cause()
                 on_status(&h.messages.inner, "b", "1", "9", Kind::Idle).await;
 
                 // The same ids, in order, once; the receipt alone delivers them.
-                assert_eq!(h.inbox.written(), [1, 2], "{kind} {failure:?} restart={restart}");
+                assert_eq!(
+                    h.inbox.written(),
+                    [1, 2],
+                    "{kind} {failure:?} restart={restart}"
+                );
                 let texts: Vec<_> = h.inbox.typed().into_iter().map(|t| t.1).collect();
                 assert_eq!(texts, ["recover after outage", "queued behind"]);
                 assert_eq!(
@@ -236,7 +243,9 @@ async fn b3563c_every_sender_and_kind_uses_the_inbox_and_never_the_terminal() {
                 .unwrap();
             assert_eq!(h.inbox.written(), [1], "{sender:?} {kind}");
             assert_eq!(
-                h.call("message.get", json!({"id":sent["id"]})).await.unwrap()["status"],
+                h.call("message.get", json!({"id":sent["id"]}))
+                    .await
+                    .unwrap()["status"],
                 "pending"
             );
         }
@@ -249,8 +258,7 @@ async fn b51_repeat_refusal_compares_both_kinds_before_allocating() {
     for first_kind in ["note", "question"] {
         for next_kind in ["note", "question"] {
             let dir = tempfile::tempdir().unwrap();
-            let h = recovering_note(dir.path(), first_kind, contracts::agent::Inbox::Missing)
-                .await;
+            let h = recovering_note(dir.path(), first_kind, contracts::agent::Inbox::Missing).await;
             h.inbox.set(contracts::agent::Inbox::Ok);
             on_status(&h.messages.inner, "b", "1", "2", Kind::Idle).await;
             h.messages.confirm_inbox("b", &[1]);
@@ -284,7 +292,14 @@ async fn b52_every_completed_idle_and_receipt_preserves_one_delivery() {
         let dir = tempfile::tempdir().unwrap();
         let mut h = recovering_note(dir.path(), kind, contracts::agent::Inbox::Ok).await;
         for revision in 2..32 {
-            on_status(&h.messages.inner, "b", "1", &revision.to_string(), Kind::Idle).await;
+            on_status(
+                &h.messages.inner,
+                "b",
+                "1",
+                &revision.to_string(),
+                Kind::Idle,
+            )
+            .await;
         }
         assert_eq!(h.inbox.written(), [1]);
         assert_eq!(
@@ -300,7 +315,10 @@ async fn b52_every_completed_idle_and_receipt_preserves_one_delivery() {
             );
         }
         assert_eq!(
-            h.events().iter().filter(|e| *e == "message.delivered").count(),
+            h.events()
+                .iter()
+                .filter(|e| *e == "message.delivered")
+                .count(),
             1
         );
         on_status(&h.messages.inner, "b", "1", "62", Kind::Idle).await;
@@ -313,7 +331,10 @@ async fn b3563d_routes_are_auto_or_drop_and_keep_authority() {
     let dir = tempfile::tempdir().unwrap();
     let mut h = Harness::new(
         dir.path(),
-        vec![agent_node("b", Kind::Working), agent_node("c", Kind::Working)],
+        vec![
+            agent_node("b", Kind::Working),
+            agent_node("c", Kind::Working),
+        ],
     );
     let route = |to: &str, delivery: &str| json!({"from": "a", "to": to, "delivery": delivery});
 

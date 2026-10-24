@@ -968,13 +968,7 @@ async fn u3016c_time_categories_use_observed_intervals_sources() {
         }
     }
     let (release, receive) = tokio::sync::oneshot::channel::<()>();
-    let messages = messages::Messages::open(
-        dir.path(),
-        bus.clone(),
-        agents.clone(),
-        Arc::new(|_, _| panic!("non-user coordination must not type a prompt")),
-    )
-    .unwrap();
+    let messages = messages::Messages::open(dir.path(), bus.clone(), agents.clone()).unwrap();
     messages.set_inbox(Arc::new(WaitingInbox(std::sync::Mutex::new(Some(receive)))));
     let mut sending = Box::pin(messages.call(
         &sender,

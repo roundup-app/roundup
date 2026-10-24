@@ -8,7 +8,7 @@ use contracts::{Actor, EventData, Kind, Status, Verb};
 use serde_json::{Value, json};
 
 use super::*;
-use super::{FakeRail, agent, agent_node, node};
+use super::{FakeInbox, FakeRail, agent, agent_node, attach_inbox, node};
 
 struct Hops {
     messages: Arc<Messages>,
@@ -16,7 +16,7 @@ struct Hops {
     rail: Arc<FakeRail>,
     clock: Arc<AtomicI64>,
     touches: Arc<provenance::Touches>,
-    typed: Arc<StdMutex<Vec<(String, String)>>>,
+    inbox: Arc<FakeInbox>,
     dir: std::path::PathBuf,
 }
 
@@ -61,12 +61,6 @@ impl Hops {
     fn over(dir: &Path, rail: Arc<FakeRail>, clock: Arc<AtomicI64>) -> Self {
         let bus = Bus::new();
         let touches = Arc::new(provenance::Touches::in_memory().unwrap());
-        let typed: Arc<StdMutex<Vec<(String, String)>>> = Arc::default();
-        let seen = Arc::clone(&typed);
-        let deliver: Deliver = Arc::new(move |id, text| {
-            seen.lock().unwrap().push((id, shown(text)));
-            Box::pin(async { Ok(()) })
-        });
         let reads = Arc::clone(&clock);
         let env = Env {
             touches: Arc::clone(&touches),
@@ -74,15 +68,16 @@ impl Hops {
             fault: Arc::new(|_| Ok(())),
         };
         let agents: Arc<dyn TerminalOwners> = rail.clone();
-        let messages =
-            Arc::new(Messages::open_with(dir, bus.clone(), agents, deliver, env).unwrap());
+        let messages = Messages::open_with(dir, bus.clone(), agents, env).unwrap();
+        let inbox = attach_inbox(&messages, true);
+        let messages = Arc::new(messages);
         Self {
             messages,
             bus,
             rail,
             clock,
             touches,
-            typed,
+            inbox,
             dir: dir.to_path_buf(),
         }
     }
@@ -211,7 +206,7 @@ async fn b13_a_question_goes_door_by_door_up_the_rail_and_lands_with_the_user() 
             row("sub", "dropped", json!("passed"), Value::Null),
             row("mid", "dropped", json!("passed"), json!(1)),
             row("top", "dropped", json!("passed"), json!(2)),
-            row("you", "held", json!("escalated"), json!(3)),
+            row("you", "delivered", json!("escalated"), json!(3)),
         ]
     );
     let escalated_question = h.get(4).await;
@@ -247,7 +242,7 @@ async fn b13_the_sender_is_never_a_hop_and_the_chain_is_read_once() {
         [
             row("sub", "dropped", json!("passed"), Value::Null),
             row("top", "dropped", json!("passed"), json!(1)),
-            row("you", "held", json!("escalated"), json!(2)),
+            row("you", "delivered", json!("escalated"), json!(2)),
         ]
     );
 }
@@ -265,7 +260,7 @@ async fn b13_a_question_to_an_agent_or_the_user_has_one_hop() {
         [
             row("r", "dropped", json!("passed"), Value::Null),
             row("you", "delivered", Value::Null, Value::Null),
-            row("you", "held", json!("escalated"), json!(1)),
+            row("you", "delivered", json!("escalated"), json!(1)),
         ]
     );
 }
@@ -289,48 +284,12 @@ async fn b13_a_delivered_hop_stays_delivered_when_it_passes() {
     let h = Hops::new(dir.path());
     h.ask("c", "sub").await;
     h.becomes("sub", Kind::Idle).await;
-    assert_eq!(h.typed.lock().unwrap().len(), 1);
+    assert_eq!(h.inbox.typed().len(), 1);
 
     h.at(60_000).await;
 
     let all = h.all().await;
     assert_eq!(all[0].1, "delivered");
-    assert_eq!(all[1], row("mid", "pending", Value::Null, json!(1)));
-}
-
-#[tokio::test]
-async fn b14_a_held_hop_has_no_bound_until_it_is_released() {
-    let dir = tempfile::tempdir().unwrap();
-    let h = Hops::new(dir.path());
-    let route = json!({"from": "c", "to": "sub", "delivery": "ask-first"});
-    h.call_as(Actor::user(), "route.set", route).await.unwrap();
-    h.ask("c", "sub").await;
-
-    h.at(600_000).await;
-    assert_eq!(h.all().await.len(), 1);
-    h.call_as(Actor::user(), "message.deliver", json!({"id": 1}))
-        .await
-        .unwrap();
-    h.at(659_999).await;
-    assert_eq!(h.all().await.len(), 1);
-    h.at(660_000).await;
-    assert_eq!(h.all().await.len(), 2);
-}
-
-#[tokio::test]
-async fn b16_a_hop_that_ends_without_an_answer_makes_the_next_at_once() {
-    let dir = tempfile::tempdir().unwrap();
-    let h = Hops::new(dir.path());
-    let route = json!({"from": "c", "to": "sub", "delivery": "ask-first"});
-    h.call_as(Actor::user(), "route.set", route).await.unwrap();
-    h.ask("c", "sub").await;
-
-    h.call_as(Actor::user(), "message.drop", json!({"id": 1}))
-        .await
-        .unwrap();
-
-    let all = h.all().await;
-    assert_eq!(all[0].1, "dropped");
     assert_eq!(all[1], row("mid", "pending", Value::Null, json!(1)));
 }
 
@@ -351,7 +310,7 @@ async fn b16_a_receiver_that_is_gone_or_a_drop_route_never_delays_the_escalated_
         [
             row("sub", "dropped", json!("passed"), Value::Null),
             row("top", "dropped", Value::Null, json!(1)),
-            row("you", "held", json!("escalated"), json!(2)),
+            row("you", "delivered", json!("escalated"), json!(2)),
         ]
     );
 }
@@ -457,48 +416,10 @@ async fn b17_a_note_from_an_earlier_hop_or_after_the_escalated_question_stops_no
     h.at(180_000).await;
 
     let all = h.all().await;
-    assert_eq!(all[4], row("you", "held", json!("escalated"), json!(4)));
-}
-
-#[tokio::test]
-async fn b15_the_users_reply_delivers_the_escalated_question_and_a_drop_ends_it() {
-    let dir = tempfile::tempdir().unwrap();
-    let h = Hops::new(dir.path());
-    h.ask("c", "top").await;
-    h.at(60_000).await;
-    assert_eq!(h.get(2).await["status"], "held");
-    let mut events = h.bus.subscribe();
-
-    let deliver = h
-        .call_as(Actor::user(), "message.deliver", json!({"id": 2}))
-        .await;
-    assert_eq!(deliver.unwrap_err().code, code::CONFLICT);
-    let reply = json!({"to": "c", "kind": "note", "body": "go left", "replyTo": 2});
-    h.call_as(Actor::user(), "message.send", reply)
-        .await
-        .unwrap();
-
-    assert_eq!(h.get(2).await["status"], "delivered");
-    assert_eq!(h.get(2).await["reason"], Value::Null);
-    let mut names = vec![];
-    while let Ok(event) = events.try_recv() {
-        names.push(serde_json::to_value(&event.data).unwrap()["name"].clone());
-    }
-    assert!(names.contains(&json!("message.delivered")));
-}
-
-#[tokio::test]
-async fn b15_an_escalated_question_dropped_is_dropped() {
-    let dir = tempfile::tempdir().unwrap();
-    let h = Hops::new(dir.path());
-    h.ask("c", "top").await;
-    h.at(60_000).await;
-
-    h.call_as(Actor::user(), "message.drop", json!({"id": 2}))
-        .await
-        .unwrap();
-
-    assert_eq!(h.get(2).await["status"], "dropped");
+    assert_eq!(
+        all[4],
+        row("you", "delivered", json!("escalated"), json!(4))
+    );
 }
 
 #[tokio::test]
@@ -547,22 +468,6 @@ async fn b17_a_note_to_anyone_but_the_asker_stops_nothing() {
     assert!(all.iter().any(|m| m.3 == json!(1)), "{all:?}");
 }
 
-#[tokio::test]
-async fn b15_a_reply_addressed_elsewhere_does_not_deliver_the_escalated_question() {
-    let dir = tempfile::tempdir().unwrap();
-    let h = Hops::new(dir.path());
-    h.ask("c", "top").await;
-    h.at(60_000).await;
-    assert_eq!(h.get(2).await["status"], "held");
-
-    let elsewhere = json!({"to": "d", "kind": "note", "body": "go left", "replyTo": 2});
-    h.call_as(Actor::user(), "message.send", elsewhere)
-        .await
-        .unwrap();
-
-    assert_eq!(h.get(2).await["status"], "held");
-}
-
 /// Marks `ids` `idle` on the Rail, with no status event.
 fn idle(h: &Hops, ids: &[&str]) {
     for node in h.rail.0.lock().unwrap().iter_mut() {
@@ -580,13 +485,13 @@ fn idle(h: &Hops, ids: &[&str]) {
 /// Waits for the delivery callback to have typed `n` prompts, then lets a stray one show.
 async fn typed_after(h: &Hops, n: usize) -> usize {
     for _ in 0..100 {
-        if h.typed.lock().unwrap().len() >= n {
+        if h.inbox.typed().len() >= n {
             break;
         }
         tokio::time::sleep(std::time::Duration::from_millis(10)).await;
     }
     tokio::time::sleep(std::time::Duration::from_millis(50)).await;
-    h.typed.lock().unwrap().len()
+    h.inbox.typed().len()
 }
 
 #[tokio::test]
@@ -595,42 +500,6 @@ async fn b2_a_message_to_an_already_idle_door_is_typed_without_a_new_status() {
     let h = Hops::new(dir.path());
     idle(&h, &["sub"]);
     h.ask("c", "sub").await;
-    assert_eq!(typed_after(&h, 1).await, 1);
-    assert_eq!(h.get(1).await["status"], "delivered");
-}
-
-#[tokio::test]
-async fn b3_a_released_message_to_an_already_idle_agent_is_typed_without_a_new_status() {
-    let dir = tempfile::tempdir().unwrap();
-    let h = Hops::new(dir.path());
-    idle(&h, &["d"]);
-    let route = json!({"from": "c", "to": "d", "delivery": "ask-first"});
-    h.call_as(Actor::user(), "route.set", route).await.unwrap();
-    let note = json!({"to": "d", "kind": "note", "body": "hi"});
-    h.call_as(agent("c"), "message.send", note).await.unwrap();
-    assert_eq!(h.get(1).await["status"], "held");
-    h.call_as(Actor::user(), "message.deliver", json!({"id": 1}))
-        .await
-        .unwrap();
-    assert_eq!(typed_after(&h, 1).await, 1);
-    assert_eq!(h.get(1).await["status"], "delivered");
-}
-
-#[tokio::test]
-async fn b6_ending_a_takeover_of_an_already_idle_agent_types_what_it_held() {
-    let dir = tempfile::tempdir().unwrap();
-    let h = Hops::new(dir.path());
-    idle(&h, &["d"]);
-    let take = json!({"agent": "d"});
-    h.call_as(Actor::user(), "takeover.begin", take.clone())
-        .await
-        .unwrap();
-    let note = json!({"to": "d", "kind": "note", "body": "hi"});
-    h.call_as(agent("c"), "message.send", note).await.unwrap();
-    assert_eq!(typed_after(&h, 1).await, 0);
-    h.call_as(Actor::user(), "takeover.end", take)
-        .await
-        .unwrap();
     assert_eq!(typed_after(&h, 1).await, 1);
     assert_eq!(h.get(1).await["status"], "delivered");
 }
@@ -671,56 +540,25 @@ async fn b17_a_kill_between_the_escalated_question_and_the_chain_move_leaves_nei
     assert_eq!(rows.iter().filter(|r| r.0 == Actor::user().id).count(), 1);
 }
 
-struct HopInbox(
-    StdMutex<Vec<(String, u32, contracts::message::MessageKind, String)>>,
-    StdMutex<contracts::agent::Inbox>,
-);
-impl Default for HopInbox {
-    fn default() -> Self {
-        Self(
-            StdMutex::new(vec![]),
-            StdMutex::new(contracts::agent::Inbox::Ok),
-        )
-    }
-}
-
-#[async_trait]
-impl NoteInbox for HopInbox {
-    async fn check(&self, _: &str) -> contracts::agent::Inbox {
-        *self.1.lock().unwrap()
-    }
-    fn write(
-        &self,
-        to: &str,
-        entries: &[agents::claude_code::inbox::Entry],
-    ) -> Result<(), contracts::agent::Inbox> {
-        self.0.lock().unwrap().extend(
-            entries
-                .iter()
-                .map(|e| (to.into(), e.id, e.kind, e.text.clone())),
-        );
-        Ok(())
-    }
-}
-
 impl Hops {
-    async fn with_inbox(dir: &Path) -> (Self, Arc<HopInbox>) {
+    async fn with_inbox(dir: &Path) -> (Self, Arc<FakeInbox>) {
         Self::new(dir).attach_inbox().await
     }
 
-    async fn attach_inbox(self) -> (Self, Arc<HopInbox>) {
+    /// The inbox stops standing for the transcript: a receipt is `confirm_inbox`.
+    async fn attach_inbox(self) -> (Self, Arc<FakeInbox>) {
         let mut completed = self.messages.inner.completed.subscribe();
-        let inbox = Arc::new(HopInbox::default());
-        self.messages.set_inbox(inbox.clone());
+        self.inbox.receipt(false);
         while completed.recv().await.unwrap() != "initial" {}
+        let inbox = Arc::clone(&self.inbox);
         (self, inbox)
     }
 
-    async fn receive(&self, inbox: &HopInbox, to: &str, id: u32) {
+    async fn receive(&self, inbox: &FakeInbox, to: &str, id: u32) {
         idle(self, &[to]);
         nudge(&self.messages.inner, to).await;
         {
-            let entries = inbox.0.lock().unwrap();
+            let entries = inbox.entries();
             assert!(
                 entries
                     .iter()
@@ -730,13 +568,10 @@ impl Hops {
                         && body == "which?")
             );
         }
-        assert!(self.typed.lock().unwrap().is_empty());
         assert_eq!(self.get(id).await["status"], "pending");
         self.messages.confirm_inbox(to, &[id]);
         assert_eq!(self.get(id).await["status"], "delivered");
     }
 }
-
-// B13: rejects rebuilding ancestors at pass time, changing the origin, or typing a hop.
 
 mod inbox;

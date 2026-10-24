@@ -1,8 +1,8 @@
 //! B6's Agent prerequisite: real Daemon, fake Claude and its recorded Terminal input.
-#[path = "support/rupd_harness.rs"]
-mod rupd_harness;
 #[path = "support/child_run.rs"]
 mod child_run;
+#[path = "support/rupd_harness.rs"]
+mod rupd_harness;
 use child_run::{BOUND, Run, launch};
 
 use base64::{Engine, engine::general_purpose::STANDARD};

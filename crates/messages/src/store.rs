@@ -298,7 +298,9 @@ impl Store {
     fn migrate_removed_holds(&self) -> rusqlite::Result<()> {
         let base: i64 =
             self.db
-                .query_row("SELECT COALESCE(MAX(rank), 0) FROM messages", [], |r| r.get(0))?;
+                .query_row("SELECT COALESCE(MAX(rank), 0) FROM messages", [], |r| {
+                    r.get(0)
+                })?;
         self.db.execute(
             "UPDATE messages SET status = 'delivered', reason = NULL
              WHERE status NOT IN ('pending', 'delivered', 'dropped') AND to_id = 'you'",

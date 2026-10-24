@@ -26,7 +26,6 @@ impl NoteInbox for agents::Agents {
     }
 }
 
-
 /// B51(g): what the sender hears of a note Claude Code would drop for repeating the last one.
 pub(crate) const REPEAT: &str = "same text as your last Message; Claude Code drops repeats";
 

@@ -166,11 +166,7 @@ impl Messages {
     /// `dir` is the Project's data folder (N1). `bus` is for events no call caused, and is
     /// how this module learns a Kind changed (it reads `agent.status`). `agents` answers
     /// the Rail; see `TerminalOwners` for its synchronous lifecycle contract.
-    pub fn open(
-        dir: &Path,
-        bus: Bus,
-        agents: Arc<dyn TerminalOwners>,
-    ) -> Result<Self, OpenError> {
+    pub fn open(dir: &Path, bus: Bus, agents: Arc<dyn TerminalOwners>) -> Result<Self, OpenError> {
         let env = Env::system(Arc::new(provenance::Touches::in_memory()?));
         Self::open_with(dir, bus, agents, env)
     }
@@ -1300,7 +1296,7 @@ mod tests {
     mod b_idle_tests;
     mod b_push_tests;
     mod b_resume_tests;
-    // TEMP-INV mod inv_tests;
+    mod inv_tests;
     mod u3782_tests;
 
     /// Stands in for the `agents` module's `rail.tree`: the only Rail fact `message.send` needs,
@@ -2040,7 +2036,10 @@ mod tests {
         assert!(h.events().is_empty());
 
         let dropped = h.call("message.drop", json!({"id": 2})).await.unwrap();
-        assert_eq!((&dropped["status"], &dropped["reason"]), (&json!("dropped"), &json!("removed")));
+        assert_eq!(
+            (&dropped["status"], &dropped["reason"]),
+            (&json!("dropped"), &json!("removed"))
+        );
         assert_eq!(h.events(), ["message.dropped"]);
         let again = h.call("message.drop", json!({"id": 2})).await.unwrap_err();
         assert_eq!(again.code, code::CONFLICT);
@@ -2458,7 +2457,10 @@ mod tests {
 
         let h = Harness::new(dir.path(), rail);
         let message = h.call("message.get", json!({"id": 1})).await.unwrap();
-        assert_eq!((&message["status"], &message["reason"]), (&json!("pending"), &Value::Null));
+        assert_eq!(
+            (&message["status"], &message["reason"]),
+            (&json!("pending"), &Value::Null)
+        );
         let pending = h.call("message.get", json!({"id": 2})).await.unwrap();
         assert_eq!(pending["status"], "pending");
         let dropped = h.call("message.get", json!({"id": 3})).await.unwrap();
@@ -2503,10 +2505,7 @@ mod tests {
 
         assert_eq!(
             h.touches(1),
-            [
-                (Verb::Wrote, "a".to_owned()),
-                (Verb::Read, "b".to_owned()),
-            ]
+            [(Verb::Wrote, "a".to_owned()), (Verb::Read, "b".to_owned()),]
         );
     }
 
@@ -2800,9 +2799,12 @@ mod tests {
         let dir = tempfile::tempdir().unwrap();
         let h = Harness::new(dir.path(), vec![agent_node("b", Kind::Working)]);
         for body in ["first", "second"] {
-            h.call("message.send", json!({"to": "b", "kind": "note", "body": body}))
-                .await
-                .unwrap();
+            h.call(
+                "message.send",
+                json!({"to": "b", "kind": "note", "body": body}),
+            )
+            .await
+            .unwrap();
         }
         h.call("message.drop", json!({"id": 1})).await.unwrap();
 

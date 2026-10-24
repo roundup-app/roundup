@@ -180,11 +180,6 @@ async fn b37_real_claude_receives_d1_after_a_scripted_server_error() {
     .await;
     // B50(c): the transcript records the Digest after the turn it starts may already be over, so the
     // door's idle edge can precede the Delivered event; the Rail poll below waits for idle instead.
-    // Hold the child's Digests as well as its Decision note: otherwise needs-you can
-    // start an intervening turn before tell_doors has queued the note.
-    user.request("takeover.begin", json!({"agent":door}))
-        .await
-        .unwrap();
     tokio::time::timeout(Duration::from_secs(30), async {
         loop {
             let nodes = rail_tree(&user).await;
@@ -228,13 +223,6 @@ async fn b37_real_claude_receives_d1_after_a_scripted_server_error() {
     })
     .await;
     assert_eq!(decision.id, "d1");
-    next(&mut events, |data| match data {
-        EventData::MessageHeld(m) if m.to == door && m.body.starts_with("[decision d1]") => {
-            Some(())
-        }
-        _ => None,
-    })
-    .await;
     user.request(
         "decision.answer",
         json!({"id":"d1","answer":"allow","proof":"0".repeat(64)}),
@@ -242,9 +230,6 @@ async fn b37_real_claude_receives_d1_after_a_scripted_server_error() {
     .await
     .unwrap();
     assert!(permission.await.unwrap().is_ok());
-    user.request("takeover.end", json!({"agent":door}))
-        .await
-        .unwrap();
     next(&mut events, |data| match data {
         EventData::MessageDelivered(m) if m.to == door && m.body.starts_with("[decision d1]") => {
             Some(())

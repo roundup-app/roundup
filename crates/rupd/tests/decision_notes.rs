@@ -1,12 +1,12 @@
 //! B6's Agent prerequisite: real Daemon, fake Claude and its recorded Terminal input.
+#[path = "support/child_run.rs"]
+mod child_run;
 #[path = "support/door_terminals.rs"]
 mod door_terminals;
 #[path = "support/rupd_harness.rs"]
 mod rupd_harness;
-#[path = "support/child_run.rs"]
-mod child_run;
-use door_terminals::{notice_events, recorded_bytes};
 use child_run::{BOUND, Run};
+use door_terminals::{notice_events, recorded_bytes};
 
 use base64::{Engine, engine::general_purpose::STANDARD};
 use contracts::EventData;
@@ -33,7 +33,13 @@ async fn busy_door(run: &Run, door: &str, attempt: &Value) {
     })
     .await
     .unwrap();
-    run.user.request("agent.signal", json!({"id":door,"attempt":attempt,"payload":{"hook_event_name":"UserPromptSubmit"}})).await.unwrap();
+    run.user
+        .request(
+            "agent.signal",
+            json!({"id":door,"attempt":attempt,"payload":{"hook_event_name":"UserPromptSubmit"}}),
+        )
+        .await
+        .unwrap();
 }
 
 async fn failed_notice(
@@ -274,10 +280,7 @@ async fn b37_a_failed_decision_note_is_retained_or_visible_to_the_user() {
         assert_eq!(notice["status"], "delivered");
         if failure == "full" {
             assert!(
-                notice["body"]
-                    .as_str()
-                    .unwrap()
-                    .contains("32 pending"),
+                notice["body"].as_str().unwrap().contains("32 pending"),
                 "{notice}"
             );
         }
@@ -685,12 +688,9 @@ async fn input_after_error(pending: bool) {
     .await
     .unwrap();
     // B3563c: the Messages reach the inbox once each, in id order, and no byte is typed.
-    let inbox = std::fs::read_to_string(
-        run.dir
-            .path()
-            .join(format!("received-{}.jsonl", run.child)),
-    )
-    .unwrap();
+    let inbox =
+        std::fs::read_to_string(run.dir.path().join(format!("received-{}.jsonl", run.child)))
+            .unwrap();
     let bodies: Vec<String> = inbox
         .lines()
         .map(|line| {
@@ -706,7 +706,10 @@ async fn input_after_error(pending: bool) {
         assert!(body.contains(wanted), "{inbox}");
     }
     let typed = String::from_utf8(recorded_bytes(&run).await).unwrap();
-    assert!(!typed.contains("[from"), "Message bytes were typed: {typed}");
+    assert!(
+        !typed.contains("[from"),
+        "Message bytes were typed: {typed}"
+    );
     run.finish().await;
 }
 

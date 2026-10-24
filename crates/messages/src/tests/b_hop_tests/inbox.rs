@@ -1,5 +1,6 @@
 use super::*;
 
+// B13: rejects rebuilding ancestors at pass time, changing the origin, or typing a hop.
 #[tokio::test]
 async fn b13_inbox_hops_preserve_the_frozen_chain_and_origin() {
     for (from, first, recipients) in [
@@ -37,7 +38,7 @@ async fn b13_inbox_hops_preserve_the_frozen_chain_and_origin() {
         let all = h.all().await;
         assert_eq!(all.last().unwrap().0, "you");
         assert_eq!(all.last().unwrap().2, "escalated");
-        assert_eq!(inbox.0.lock().unwrap().len(), recipients.len());
+        assert_eq!(inbox.entries().len(), recipients.len());
         h.at(600_000).await;
         assert_eq!(h.all().await, all);
     }
@@ -68,117 +69,35 @@ async fn b17_only_the_current_delivered_inbox_hop_can_answer() {
         .unwrap();
         h.at(120_000).await;
         assert_eq!(h.all().await.len(), if stops { 3 } else { 4 });
-        assert!(h.typed.lock().unwrap().is_empty());
     }
 }
 
 // B51(g): rejects silent peer repeat discard when releasing a held question or making a hop.
+// B14: rejects starting the bound while the inbox is unavailable or restarting it on receipt.
 #[tokio::test]
-async fn b51_repeat_refusal_preserves_held_questions_and_skips_unreceivable_hops() {
-    let dir = tempfile::tempdir().unwrap();
-    let (h, inbox) = Hops::with_inbox(dir.path()).await;
-    h.call_as(
-        Actor::user(),
-        "route.set",
-        json!({"from":"c", "to":"mid", "delivery":"ask-first"}),
-    )
-    .await
-    .unwrap();
-    h.ask("c", "mid").await;
-    h.call_as(
-        Actor::user(),
-        "route.set",
-        json!({"from":"c", "to":"mid", "delivery":"auto"}),
-    )
-    .await
-    .unwrap();
-    h.ask("c", "mid").await;
-    h.receive(&inbox, "mid", 2).await;
-    let err = h
-        .call_as(Actor::user(), "message.deliver", json!({"id":1}))
-        .await
-        .unwrap_err();
-    assert_eq!(err.code, code::CONFLICT);
-    assert_eq!(h.get(1).await["status"], "held");
-    assert_eq!(inbox.0.lock().unwrap().len(), 1);
-    h.ask("c", "sub").await;
-    h.call_as(agent("sub"), "message.pass", json!({"id":3}))
-        .await
-        .unwrap();
-    assert_eq!(h.get(4).await["to"], "top");
-    assert_eq!(h.get(4).await["passedFrom"], 3);
-    assert_eq!(h.get(4).await["kind"], "question");
-    assert_eq!(h.get(1).await["status"], "held");
-}
-
-// B14: rejects starting the bound while held or restarting it on transcript receipt.
-#[tokio::test]
-async fn b14_inbox_question_bounds_wait_for_all_holds() {
-    for hold in ["ask-first", "takeover", "input", "inbox"] {
-        for receipt in [false, true] {
-            let dir = tempfile::tempdir().unwrap();
-            let (h, inbox) = Hops::with_inbox(dir.path()).await;
-            h.rail
-                .0
-                .lock()
-                .unwrap()
-                .iter_mut()
-                .find(|n| n.id == "sub")
-                .unwrap()
-                .terminal_id = Some("terminal-sub".into());
-            idle(&h, &["sub"]);
-            match hold {
-                "ask-first" => {
-                    h.call_as(
-                        Actor::user(),
-                        "route.set",
-                        json!({"from":"c", "to":"sub", "delivery":"ask-first"}),
-                    )
-                    .await
-                    .unwrap();
-                }
-                "takeover" => {
-                    h.call_as(Actor::user(), "takeover.begin", json!({"agent":"sub"}))
-                        .await
-                        .unwrap();
-                }
-                "input" => h.messages.user_wrote("terminal-sub", b"draft").await,
-                _ => *inbox.1.lock().unwrap() = contracts::agent::Inbox::Missing,
-            }
-            h.ask("c", "sub").await;
-            h.at(600_000).await;
-            assert_eq!(h.all().await.len(), 1);
-            assert_eq!(h.get(1).await["status"], "held");
-            assert!(inbox.0.lock().unwrap().is_empty());
-            match hold {
-                "ask-first" => {
-                    h.call_as(Actor::user(), "message.deliver", json!({"id":1}))
-                        .await
-                        .unwrap();
-                }
-                "takeover" => {
-                    h.call_as(Actor::user(), "takeover.end", json!({"agent":"sub"}))
-                        .await
-                        .unwrap();
-                }
-                "input" => h.messages.user_wrote("terminal-sub", b"\x15").await,
-                _ => {
-                    *inbox.1.lock().unwrap() = contracts::agent::Inbox::Ok;
-                    nudge(&h.messages.inner, "sub").await;
-                }
-            }
-            h.at(600_001).await;
-            assert_eq!(h.all().await.len(), 1);
-            assert_eq!(inbox.0.lock().unwrap().len(), 1);
-            if receipt {
-                h.messages.confirm_inbox("sub", &[1]);
-            }
-            h.at(659_999).await;
-            assert_eq!(h.all().await.len(), 1);
-            h.at(660_000).await;
-            assert_eq!(h.all().await.len(), 2);
-            assert!(h.typed.lock().unwrap().is_empty());
+async fn b14_inbox_question_bounds_wait_for_the_inbox() {
+    for receipt in [false, true] {
+        let dir = tempfile::tempdir().unwrap();
+        let (h, inbox) = Hops::with_inbox(dir.path()).await;
+        idle(&h, &["sub"]);
+        inbox.set(contracts::agent::Inbox::Missing);
+        h.ask("c", "sub").await;
+        h.at(600_000).await;
+        assert_eq!(h.all().await.len(), 1);
+        assert_eq!(h.get(1).await["status"], "pending");
+        assert!(inbox.entries().is_empty());
+        inbox.set(contracts::agent::Inbox::Ok);
+        nudge(&h.messages.inner, "sub").await;
+        h.at(600_001).await;
+        assert_eq!(h.all().await.len(), 1);
+        assert_eq!(inbox.entries().len(), 1);
+        if receipt {
+            h.messages.confirm_inbox("sub", &[1]);
         }
+        h.at(659_999).await;
+        assert_eq!(h.all().await.len(), 1);
+        h.at(660_000).await;
+        assert_eq!(h.all().await.len(), 2);
     }
 }
 
@@ -190,7 +109,7 @@ async fn b52_question_restart_replays_receipts_and_escalation_once() {
         let (h, inbox) = Hops::with_inbox(dir.path()).await;
         idle(&h, &["sub"]);
         h.ask("c", "sub").await;
-        assert_eq!(inbox.0.lock().unwrap().len(), 1);
+        assert_eq!(inbox.entries().len(), 1);
         if acknowledged {
             h.messages.confirm_inbox("sub", &[1]);
         }
@@ -201,7 +120,7 @@ async fn b52_question_restart_replays_receipts_and_escalation_once() {
         }
         let (h, inbox) = h.restarted().attach_inbox().await;
         nudge(&h.messages.inner, "sub").await;
-        assert_eq!(inbox.0.lock().unwrap().len(), usize::from(!acknowledged));
+        assert_eq!(inbox.entries().len(), usize::from(!acknowledged));
         assert_eq!(h.all().await.len(), 1);
         h.messages.confirm_inbox("sub", &[1]);
         h.messages.confirm_inbox("sub", &[1]);
@@ -219,80 +138,16 @@ async fn b52_question_restart_replays_receipts_and_escalation_once() {
         h.at(180_000).await;
         let all = h.all().await;
         assert_eq!(all.len(), 4);
-        assert_eq!(all[3], row("you", "held", json!("escalated"), json!(3)));
+        assert_eq!(
+            all[3],
+            row("you", "delivered", json!("escalated"), json!(3))
+        );
         h.at(600_000).await;
         assert_eq!(h.all().await, all);
-        assert!(h.typed.lock().unwrap().is_empty());
     }
 }
 
 // B51(g): rejects bypassing repeat refusal on automatic inbox/Terminal hold release.
-#[tokio::test]
-async fn b51_automatic_release_retains_a_repeat_for_explicit_refusal() {
-    for kind in ["note", "question"] {
-        for hold in ["inbox", "takeover", "input"] {
-            let dir = tempfile::tempdir().unwrap();
-            let (h, inbox) = Hops::with_inbox(dir.path()).await;
-            h.rail
-                .0
-                .lock()
-                .unwrap()
-                .iter_mut()
-                .find(|n| n.id == "sub")
-                .unwrap()
-                .terminal_id = Some("terminal-sub".into());
-            idle(&h, &["sub"]);
-            match hold {
-                "inbox" => *inbox.1.lock().unwrap() = contracts::agent::Inbox::Missing,
-                "takeover" => {
-                    h.call_as(Actor::user(), "takeover.begin", json!({"agent":"sub"}))
-                        .await
-                        .unwrap();
-                }
-                _ => h.messages.user_wrote("terminal-sub", b"draft").await,
-            }
-            for id in [1, 2] {
-                let sent = h
-                    .call_as(
-                        agent("c"),
-                        "message.send",
-                        json!({"to":"sub", "kind":kind, "body":"which?"}),
-                    )
-                    .await
-                    .unwrap();
-                assert_eq!(sent["id"], id);
-                assert_eq!(h.get(id).await["status"], "held");
-                assert!(inbox.0.lock().unwrap().is_empty());
-            }
-            if hold == "inbox" {
-                *inbox.1.lock().unwrap() = contracts::agent::Inbox::Ok;
-                nudge(&h.messages.inner, "sub").await;
-            } else {
-                h.call_as(Actor::user(), "message.deliver", json!({"id":1}))
-                    .await
-                    .unwrap();
-                h.messages.confirm_inbox("sub", &[1]);
-                if hold == "takeover" {
-                    h.call_as(Actor::user(), "takeover.end", json!({"agent":"sub"}))
-                        .await
-                        .unwrap();
-                } else {
-                    h.messages.user_wrote("terminal-sub", b"\x15").await;
-                }
-            }
-            assert_eq!(inbox.0.lock().unwrap().len(), 1);
-            assert_eq!(h.get(2).await["status"], "held");
-            let error = h
-                .call_as(Actor::user(), "message.deliver", json!({"id":2}))
-                .await
-                .unwrap_err();
-            assert_eq!(error.code, code::CONFLICT);
-            assert_eq!(h.get(2).await["status"], "held");
-            assert!(h.typed.lock().unwrap().is_empty());
-        }
-    }
-}
-
 // B50(b,d): rejects treating a Daemon question's authored digest prefix as a foldable note.
 #[tokio::test]
 async fn b50_a_daemon_question_keeps_its_full_body_in_the_inbox() {
@@ -307,11 +162,10 @@ async fn b50_a_daemon_question_keeps_its_full_body_in_the_inbox() {
     )
     .await
     .unwrap();
-    assert_eq!(inbox.0.lock().unwrap().len(), 1);
-    assert_eq!(inbox.0.lock().unwrap()[0].3, body);
+    assert_eq!(inbox.entries().len(), 1);
+    assert_eq!(inbox.entries()[0].3, body);
     assert_eq!(h.get(1).await["body"], body);
     assert_eq!(h.get(1).await["status"], "pending");
-    assert!(h.typed.lock().unwrap().is_empty());
     h.rail
         .0
         .lock()
@@ -340,14 +194,9 @@ async fn b50_a_daemon_question_keeps_its_full_body_in_the_inbox() {
     idle(&h, &["sub"]);
     nudge(&h.messages.inner, "sub").await;
     assert!(
-        inbox
-            .0
-            .lock()
-            .unwrap()
-            .iter()
-            .any(|(_, id, kind, body)| *id == 2
-                && *kind == MessageKind::Question
-                && body == question)
+        inbox.entries().iter().any(|(_, id, kind, body)| *id == 2
+            && *kind == MessageKind::Question
+            && body == question)
     );
 }
 

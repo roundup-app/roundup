@@ -2,7 +2,6 @@
 //! its Terminal (as `steer.rs` does) and the test plays its hooks with `agent.signal`.
 
 use std::sync::Arc;
-use std::sync::atomic::{AtomicBool, Ordering};
 use std::time::Duration;
 
 use agents::worktree::Git;

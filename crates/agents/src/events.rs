@@ -458,7 +458,7 @@ impl Shared {
         {
             rail.set_finished(id, run.adapter.finished())?;
         }
-        // Announced while `runs` is held, so announcements leave in the order the Status
+        // Announced while `runs` is parked, so announcements leave in the order the Status
         // changed; `emit` never blocks.
         if let Some(status) = changed {
             let status = waiting_on(&status, self.wait_of(id));

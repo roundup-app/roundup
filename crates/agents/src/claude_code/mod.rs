@@ -259,7 +259,7 @@ impl AgentAdapter for ClaudeCode {
             Observation::Stopped if self.ending != Ending::Running => None,
             Observation::Stopped => {
                 self.ending = Ending::Stopped;
-                self.star_held_since = None;
+                self.star_parked_since = None;
                 self.settle_counting(Kind::Done, "stopped".into(), false)
             }
             Observation::Signal(_)
