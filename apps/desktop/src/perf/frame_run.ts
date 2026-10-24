@@ -169,12 +169,31 @@ const attempted = async <T>(work: () => Promise<T>): Promise<boolean> => {
   }
 };
 
-const domTodos = (app: AppSeam): Todos => {
+/**
+ * Creates a Todo in `home`. A created Todo has no home, and the Shelf of a selected Workstream lists only its own Todos: a homeless one
+ * never reaches a row the driver can press, so the Layers cycle found no target on WKWebView and the run stayed invalid (U3010g).
+ */
+export const createHomed = async (app: Pick<AppSeam, "rpc">, home: string, title: string): Promise<void> => {
+  const todo = await app.rpc("todo.create", { title, body: null, blockers: null });
+
+  await app.rpc("todo.move", { id: todo.id, home });
+};
+
+/** The Workstream the run made: the last one on the Rail, which the new Workstream's selected row is. */
+const runWorkstream = async (app: AppSeam): Promise<string> => {
+  const home = (await app.rpc("rail.tree", null)).filter((node) => node.kind === "workstream").at(-1)?.id;
+
+  if (!home) throw new Error("the Project has no Workstream to hold the Todos");
+
+  return home;
+};
+
+const domTodos = (app: AppSeam, home: string): Todos => {
   let made = 0;
 
   return {
-    open: async () => (await app.rpc("todo.list", null)).filter((todo) => !todo.done).map((todo) => todo.id),
-    create: () => attempted(() => app.rpc("todo.create", { title: `motion ${(made += 1)}`, body: null, blockers: null })),
+    open: async () => (await app.rpc("todo.list", null)).filter((todo) => !todo.done && todo.home === home).map((todo) => todo.id),
+    create: () => attempted(() => createHomed(app, home, `motion ${(made += 1)}`)),
     complete: (id) => attempted(() => app.rpc("todo.complete", { id })),
     toggleFold: () =>
       attempted(async () => {
@@ -212,12 +231,17 @@ const startWorkingAgents = async (app: AppSeam, cwd: string) => {
 const prepare = async (app: AppSeam, workload: string, cwd: string): Promise<(index: number) => Promise<boolean>> => {
   if (workload === "layers" || workload === "todos") {
     // Rows to open, complete and reorder; one open Todo always stays.
-    for (let each = 0; each < 4; each += 1) await app.rpc("todo.create", { title: `seed ${each}`, body: null, blockers: null });
+    const home = await runWorkstream(app);
+
+    for (let each = 0; each < 4; each += 1) await createHomed(app, home, `seed ${each}`);
+
+    // The press targets must be on screen before the sample, so a missing one is an error naming it, not a silent invalid run.
+    await appears(() => document.querySelector(SHELF_ROW), "the Shelf's first Todo row");
+
+    if (workload === "layers") return layersCycle(domLayers, wallClock);
+
+    return todosCycle(domTodos(app, home));
   }
-
-  if (workload === "layers") return layersCycle(domLayers, wallClock);
-
-  if (workload === "todos") return todosCycle(domTodos(app));
 
   if (workload === "glyphs") {
     await startWorkingAgents(app, cwd);
