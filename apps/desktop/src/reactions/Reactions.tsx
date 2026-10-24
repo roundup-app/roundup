@@ -72,7 +72,7 @@ export const createReactions = () => {
     .filter(draft => draft.destination.surface === "reactions" && (draft.status === "pending" || draft.status === "unknown"))
     .map(draft => draft.revision)) : false);
 
-  const [read, { refetch }] = createResource(submissions, async (_key, { value }): Promise<{ list: Reaction[]; failure: string | null }> => {
+  const [read, { refetch, mutate }] = createResource(submissions, async (_key, { value }): Promise<{ list: Reaction[]; failure: string | null }> => {
     try {
       return { list: await app.rpc("reaction.list", null), failure: null };
     } catch (error) {
@@ -87,14 +87,14 @@ export const createReactions = () => {
   window.addEventListener("focus", refresh);
   onCleanup(() => window.removeEventListener("focus", refresh));
 
-  return { read, refresh, refetch };
+  return { read, refresh, refetch, dismiss: () => mutate(value => ({ ...value, failure: null })) };
 };
 
 /** NR9: the Project overview's named reactions: a list, a create form that previews, and a detail with stop and run. */
 export const Reactions = (props: { state: ReturnType<typeof createReactions> }) => {
   const { app, drafts, daemonExit } = useConnectedProject();
   const [view, setView] = createSignal<View>({ kind: "list" });
-  const [actionFailure, setActionFailure] = createSignal<string | null>(null);
+  const [actionFailure, setActionFailure] = createSignal<Record<string, string | null>>({});
   const [pending, setPending] = createSignal(false);
   const [made, setMade] = createSignal<Reaction | null>(null);
   let opener = "";
@@ -115,7 +115,6 @@ export const Reactions = (props: { state: ReturnType<typeof createReactions> }) 
 
   const open = (next: View) => {
     opener = next.kind === "detail" ? next.id : next.kind;
-    setActionFailure(null);
     setView(next);
     queueMicrotask(() => document.querySelector<HTMLButtonElement>(".reaction-back")?.focus());
   };
@@ -126,13 +125,13 @@ export const Reactions = (props: { state: ReturnType<typeof createReactions> }) 
     return current.kind === "detail" ? current.id : null;
   };
 
-  const [inspection, { refetch: inspect }] = createResource(selected, async (id): Promise<{ value: Reaction | null; failure: string | null }> => {
+  const [inspection, { refetch: inspect, mutate: inspectValue }] = createResource(selected, async (id): Promise<{ id: string; value: Reaction | null; failure: string | null }> => {
     try {
-      return { value: await app.rpc("reaction.get", { id }), failure: null };
+      return { id, value: await app.rpc("reaction.get", { id }), failure: null };
     } catch (error) {
       if (!(error instanceof Error)) throw error;
 
-      return { value: null, failure: error.message };
+      return { id, value: null, failure: error.message };
     }
   });
 
@@ -147,13 +146,13 @@ export const Reactions = (props: { state: ReturnType<typeof createReactions> }) 
   const act = async (reaction: Reaction, method: "reaction.stop" | "reaction.run") => {
     if (pending()) return;
     setPending(true);
-    setActionFailure(null);
 
     try {
       setMade(method === "reaction.stop" ? await app.rpc(method, { id: reaction.id }) : await app.rpc(method, { id: reaction.id, operation: crypto.randomUUID() }));
+      setActionFailure(value => ({ ...value, [reaction.id]: null }));
     } catch (error) {
       if (!(error instanceof Error)) throw error;
-      setActionFailure(error.message);
+      setActionFailure(value => ({ ...value, [reaction.id]: error.message }));
     }
 
     if (daemonExit() === null) {
@@ -180,7 +179,12 @@ export const Reactions = (props: { state: ReturnType<typeof createReactions> }) 
         {(reaction) => <div class="reaction-detail" role="region" aria-label={copy.reactionDetail(reaction().name)}>
           <ExitButton class="reaction-back" onClick={back} />
           <h3 class="reaction-title">{reaction().name}</h3>
-          <ReservedLine message={inspection()?.failure ?? actionFailure()} />
+          <ReservedLine message={(inspection()?.id === selected() ? inspection()?.failure : null) ?? actionFailure()[reaction().id]}>
+            <button type="button" data-button="quiet" onClick={() => {
+              if (inspection()?.id === selected() && inspection()?.failure) inspectValue(value => value ? { ...value, failure: null } : value);
+              else setActionFailure(value => ({ ...value, [reaction().id]: null }));
+            }}>{copy.clear}</button>
+          </ReservedLine>
           <Facts reaction={reaction()} />
           <div class="reaction-actions">
             <button type="button" data-button="quiet" onClick={() => { void inspect(); }}>{copy.refresh}</button>
@@ -195,7 +199,10 @@ export const Reactions = (props: { state: ReturnType<typeof createReactions> }) 
         <h2 class="overview-heading">{copy.reactions}</h2>
         <button type="button" data-button="quiet" data-reaction-opener="create" onClick={() => open({ kind: "create" })}>{copy.reactionCreate}</button>
       </div>
-      <ReservedLine overlay status={read().failure} />
+      <ReservedLine overlay message={read().failure}>
+        <button type="button" data-button="quiet" onClick={() => void refetch()}>{copy.retry}</button>
+        <button type="button" data-button="quiet" onClick={props.state.dismiss}>{copy.clear}</button>
+      </ReservedLine>
       <Show when={read().list.length > 0} fallback={<p class="reaction-empty">{copy.reactionsEmpty}</p>}>
         <ul class="reaction-list">
           <For each={read().list.map(reaction => reaction.id)}>{(id) => {
@@ -217,17 +224,20 @@ export const Reactions = (props: { state: ReturnType<typeof createReactions> }) 
 const Facts = (props: { reaction: Reaction }) => {
   const nameOf = useNames();
   const { app, rail } = useConnectedProject();
-  const [copyFailure, failCopy] = createSignal<string | null>(null);
+  const [copyFailures, setCopyFailures] = createSignal<Record<string, string | null>>({});
   const r = () => props.reaction;
   const [messageId, setMessageId] = createSignal<number | null>(null);
 
-  const [message, { refetch }] = createResource(messageId, async (id): Promise<{ value: Message | null; failure: string | null }> => {
+  const copyOwner = () => messageId() === null ? `reaction:${r().id}` : `message:${messageId()}`;
+  const failCopy = (owner: string, message: string | null) => setCopyFailures(value => ({ ...value, [owner]: message }));
+
+  const [message, { refetch, mutate }] = createResource(messageId, async (id): Promise<{ id: number; value: Message | null; failure: string | null }> => {
     try {
-      return { value: await app.rpc("message.get", { id }), failure: null };
+      return { id, value: await app.rpc("message.get", { id }), failure: null };
     } catch (error) {
       if (!(error instanceof Error)) throw error;
 
-      return { value: null, failure: error.message };
+      return { id, value: null, failure: error.message };
     }
   });
 
@@ -259,12 +269,13 @@ const Facts = (props: { reaction: Reaction }) => {
       <ReservedLine message={r().observation.cause ? copy.reactionCause(r().observation.cause!) : r().observation.gap ? copy.reactionGap(r().observation.gap!) : null} status={!r().observation.cause?.includes("unsupported") && r().observation.recovery ? copy.reactionRecovery(r().observation.recovery!) : null} />
     </dd>
     <dt>{copy.reactionDetails}</dt><dd><button type="button" data-button="quiet" onClick={() => {
+      const owner = copyOwner();
       void writeText(app, JSON.stringify({
         name: r().name, authority: authority(),
         target: nameOf(r().target), home: home() ? nameOf(home()!) : copy.reactionNoHome,
         condition: conditionText(r().condition, nameOf), observation: observation(), reaction: r(),
-      }, null, 2)).then(() => failCopy(null), error => failCopy(copy.copyDraftFailure(error instanceof Error ? error.message : String(error))));
-    }}>{copy.copy}</button><ReservedLine message={copyFailure()} /></dd>
+      }, null, 2)).then(() => failCopy(owner, null), error => failCopy(owner, copy.copyDraftFailure(error instanceof Error ? error.message : String(error))));
+    }}>{copy.copy}</button><ReservedLine message={copyFailures()[copyOwner()]}><button type="button" data-button="quiet" onClick={() => failCopy(copyOwner(), null)}>{copy.clear}</button></ReservedLine></dd>
     <dt>{copy.reactionFirings}</dt>
     <dd><Show when={r().firings.length > 0} fallback={copy.reactionNoFirings}>
       <ol class="reaction-firings"><For each={r().firings}>{(firing) => <li data-outcome={firing.outcome}><button type="button" data-button="quiet" data-firing-message={firing.message} onClick={() => { returnId = firing.message; setMessageId(firing.message); }}>{copy.reactionFiring(firing.ordinal, firing.message, firing.outcome, firing.matched)}</button></li>}</For></ol>
@@ -272,15 +283,16 @@ const Facts = (props: { reaction: Reaction }) => {
   </dl>}>
     <section aria-label={copy.reactionMessage(messageId()!)}>
       <ExitButton ref={element => queueMicrotask(() => element.focus())} onClick={closeMessage} />
-      <ReservedLine message={message()?.failure}><button type="button" data-button="quiet" onClick={() => void refetch()}>{copy.retry}</button></ReservedLine>
-      <Show when={!message.loading && message()?.value}>{value => <dl class="reaction-facts">
+      <ReservedLine message={message()?.id === messageId() ? message()?.failure : null}><button type="button" data-button="quiet" onClick={() => void refetch()}>{copy.retry}</button><button type="button" data-button="quiet" onClick={() => mutate(value => value ? { ...value, failure: null } : value)}>{copy.clear}</button></ReservedLine>
+      <Show when={!message.loading && message()?.id === messageId() && message()?.value}>{value => <dl class="reaction-facts">
         <dt>{copy.reactionTarget}</dt><dd>{nameOf(value().to)}</dd>
         <dt>{copy.reactionMessage(messageId()!)}</dt><dd class="reaction-instruction">{value().body}</dd>
         <dt>{copy.reactionMessageState}</dt><dd data-state={value().status}>{copy.reactionDelivery(value().status)}{value().reason ? ` · ${copy.reactionCause(value().reason!)}` : ""}</dd>
         <dt>{copy.reactionDetails}</dt><dd><button type="button" data-button="quiet" onClick={() => {
+          const owner = copyOwner();
           void writeText(app, JSON.stringify({ target: nameOf(value().to), message: value() }, null, 2))
-            .then(() => failCopy(null), error => failCopy(copy.copyDraftFailure(error instanceof Error ? error.message : String(error))));
-        }}>{copy.copy}</button><ReservedLine message={copyFailure()} /></dd>
+            .then(() => failCopy(owner, null), error => failCopy(owner, copy.copyDraftFailure(error instanceof Error ? error.message : String(error))));
+        }}>{copy.copy}</button><ReservedLine message={copyFailures()[copyOwner()]}><button type="button" data-button="quiet" onClick={() => failCopy(copyOwner(), null)}>{copy.clear}</button></ReservedLine></dd>
       </dl>}</Show>
     </section>
   </Show>;
@@ -491,6 +503,7 @@ const ReactionForm = (props: { onDone: (made: Reaction, reveal: boolean) => void
     </section>
     <ReservedLine message={drafts.problem() ? copy.draftRetention(project.name, copy.draftSurface("reactions"), drafts.problem()!.cause) : unresolved()?.status === "unknown" ? failure() ?? copy.reactionCreationUnknown("") : failure()}>
       <Show when={drafts.problem()}><button type="button" data-button="quiet" onClick={() => drafts.retry()}>{copy.storageRetry}</button></Show>
+      <Show when={failure() && !drafts.problem() && !unresolved()}><button type="button" data-button="quiet" onClick={() => setFailure(null)}>{copy.clear}</button></Show>
       <Show when={unresolved()?.status === "unknown"}><button type="button" data-button="quiet" disabled={busy()} onClick={() => void reconcile()}>{copy.reactionCheckCreation}</button></Show>
     </ReservedLine>
     <div class="reaction-actions">
