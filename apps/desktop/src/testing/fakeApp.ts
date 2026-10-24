@@ -1,3 +1,4 @@
+import { projectMenu } from "./menuProbe";
 import type { Event as DaemonEvent } from "@contracts/Event";
 import type { RpcMethodName, RpcMethods } from "@contracts/methods";
 import { OWN_CONTRACT } from "../app/contractMatch";
@@ -88,6 +89,10 @@ export type FakeApp = AppSeam & {
   menuLabels(): string[];
   /** Every image `save_pasted_image` was called with, in order; `saveImageFailure` is what it rejects with and `savedImagePath` what it resolves. */
   savedImages: PastedImage[];
+  clipboardWrites: string[];
+  /** Native write edge, kept live through App decorators; tests can replace it after mounting. */
+  clipboardWrite(text: string): Promise<void>;
+  clipboardFailure: Error | null;
   saveImageFailure: RpcError | null;
   savedImagePath: string;
   /** What the macOS chooser answers; `null` is a cancel. */
@@ -133,6 +138,13 @@ export const createFakeApp = (): FakeApp => {
     editorOpened: [],
     editorCalls: [],
     editorFailure: null,
+    clipboardWrites: [],
+    clipboardFailure: null,
+    writeClipboardText: (text) => app.clipboardWrite(text),
+    clipboardWrite: async (text) => {
+      if (app.clipboardFailure) throw app.clipboardFailure;
+      app.clipboardWrites.push(text);
+    },
     savedImages: [],
     shownMenus: [],
     menuChoice: undefined,
@@ -266,6 +278,8 @@ export const createFakeApp = (): FakeApp => {
         openTarget: app.openTarget,
         openInEditor: app.openInEditor,
         savePastedImage: app.savePastedImage,
+        writeClipboardText: (text: string) => app.writeClipboardText(text),
+        clipboardWrites: app.clipboardWrites,
         showContextMenu: app.showContextMenu,
       });
       Object.defineProperty(other, "windowTitleHandler", {
@@ -373,6 +387,14 @@ export const createFakeApp = (): FakeApp => {
       dropListeners.add(listener);
 
       return () => dropListeners.delete(listener);
+    },
+    selectProjectMenu: async (path) => { projectMenu.path = path; },
+    onProjectPage: async (listener) => {
+      const receive = (event: Event) => { if (event instanceof CustomEvent) listener(event.detail); };
+
+      window.addEventListener("open-project-page", receive);
+
+      return () => window.removeEventListener("open-project-page", receive);
     },
     onAppSettings: async (listener) => {
       window.addEventListener("open-app-settings", listener);

@@ -23,7 +23,6 @@ pub const METHODS: &[Method] = &[
         "project_MeasurementSummaryParams",
         "project_MeasurementSummary",
     ),
-    m("project.weeklyLimit", "null", "project_WeeklyLimit"),
     m(
         "deliverable.publish",
         "deliverable_PublishParams",
@@ -267,6 +266,11 @@ pub const METHODS: &[Method] = &[
         "project.importDiscover",
         "project_ImportDiscoverParams",
         "project_ImportDiscovery",
+    ),
+    m(
+        "import.list",
+        "project_ImportListParams",
+        "project_ImportList",
     ),
     m(
         "project.importCommit",

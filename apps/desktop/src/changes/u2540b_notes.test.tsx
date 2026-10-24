@@ -36,7 +36,7 @@ it("u2540b_close_and_reopen_keep_unsent_notes", async () => {
   await openDiff();
   await saveNote("retain me");
   expect(screen.queryByRole("button", { name: "Recover Changes drafts" })).toBeNull();
-  fireEvent.click(screen.getByRole("button", { name: "Close" }));
+  fireEvent.click(screen.getByRole("button", { name: "Close changes" }));
   fireEvent.click(screen.getByRole("button", { name: "roundup/a" }));
   expect((await screen.findByRole("list", { name: "Notes" })).textContent).toContain("retain me");
 });
@@ -44,7 +44,7 @@ it("u2540b_close_and_reopen_keep_unsent_notes", async () => {
 it("u2540b_edit_remove_and_batch_across_files", async () => {
   await openDiff();
   await saveNote("first");
-  fireEvent.click(screen.getByRole("button", { name: "Back" }));
+  fireEvent.click(screen.getByRole("button", { name: "Close" }));
   await openFile("src/deep/b.ts");
   await saveNote("second");
   fireEvent.click(screen.getByRole("button", { name: "Edit note 1" }));
@@ -170,7 +170,7 @@ it("u2773e_recovery_actions_keep_surface_draft", async () => {
   await waitFor(() => expect(screen.queryByRole("dialog", { name: "Worktree" })).toBeNull());
   const recovery = await screen.findByRole("dialog", { name: "Recover Changes drafts" });
   const copyText = vi.fn<(text: string) => Promise<void>>().mockResolvedValue();
-  Object.defineProperty(navigator, "clipboard", { configurable: true, value: { writeText: copyText } });
+  vi.spyOn(app, "clipboardWrite").mockImplementation(copyText);
   fireEvent.click(within(recovery).getAllByRole("button", { name: "Copy" })[0]!);
   await waitFor(() => expect(copyText).toHaveBeenCalledOnce());
   expect(copyText.mock.calls[0]?.[0]).toContain("memory 🐝");
@@ -181,7 +181,7 @@ it("u2773e_recovery_actions_keep_surface_draft", async () => {
   const reopened = await openDiff();
   fireEvent.click(screen.getByRole("button", { name: "Add note" }));
   expect(screen.getByRole("textbox", { name: "Note" })).toHaveProperty("value", "  memory 🐝\nnewer  ");
-  fireEvent.click(screen.getByRole("button", { name: "Close" }));
+  fireEvent.click(screen.getByRole("button", { name: "Close changes" }));
   await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
   const blockedWrite = vi.spyOn(Storage.prototype, "setItem").mockImplementation(() => { throw new Error("disk full"); });
   fireEvent.click(screen.getByRole("button", { name: "roundup/a" }));
@@ -189,7 +189,7 @@ it("u2773e_recovery_actions_keep_surface_draft", async () => {
   fireEvent.click(screen.getByRole("button", { name: "Add note" }));
   fireEvent.input(screen.getByRole("textbox", { name: "Note" }), { target: { value: "temporary" } });
   fireEvent.input(screen.getByRole("textbox", { name: "Note" }), { target: { value: "  memory 🐝\nnewer  " } });
-  fireEvent.click(screen.getByRole("button", { name: "Close" }));
+  fireEvent.click(screen.getByRole("button", { name: "Close changes" }));
   blockedWrite.mockRestore();
   fireEvent.click(screen.getByRole("button", { name: "Recover Changes drafts" }));
   const recovered = await screen.findByRole("dialog", { name: "Recover Changes drafts" });
@@ -355,7 +355,7 @@ it("u2773c_changes_unavailable_original_keeps_recovery", async () => {
   expect(within(recovery).getByRole("status")).toBeTruthy();
   expect(within(recovery).queryByRole("button", { name: "Resume note" })).toBeNull();
   const copied = vi.fn<(text: string) => Promise<void>>().mockResolvedValue();
-  Object.defineProperty(navigator, "clipboard", { configurable: true, value: { writeText: copied } });
+  vi.spyOn(app, "clipboardWrite").mockImplementation(copied);
   fireEvent.click(within(recovery).getAllByRole("button", { name: "Copy" })[1]!);
   await waitFor(() => expect(copied).toHaveBeenCalledOnce());
   expect(JSON.parse(copied.mock.calls[0]?.[0] ?? "null")).toMatchObject({ recipient: "a", form: { text: "  unavailable exact 🐝  ", comparison: COMPARISON } });
@@ -371,7 +371,7 @@ it("u2773e_changes_retry_read_keeps_older_work_separate", async () => {
   fireEvent.click(screen.getByRole("button", { name: "Add note" }));
   fireEvent.input(screen.getByRole("textbox", { name: "Note" }), { target: { value: "newer memory work" } });
   read.mockRestore();
-  fireEvent.click(screen.getByRole("button", { name: "Close" }));
+  fireEvent.click(screen.getByRole("button", { name: "Close changes" }));
   await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
   fireEvent.click(screen.getByRole("button", { name: "Recover Changes drafts" }));
   const recovery = await screen.findByRole("dialog", { name: "Recover Changes drafts" });
@@ -382,7 +382,7 @@ it("u2773e_changes_retry_read_keeps_older_work_separate", async () => {
   const reopened = await openDiff();
   fireEvent.click(screen.getByRole("button", { name: "Add note" }));
   expect(screen.getByRole("textbox", { name: "Note" })).toHaveProperty("value", "newer memory work");
-  fireEvent.click(screen.getByRole("button", { name: "Close" }));
+  fireEvent.click(screen.getByRole("button", { name: "Close changes" }));
   await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
   fireEvent.click(screen.getByRole("button", { name: "Recover Changes drafts" }));
   expect((await screen.findByRole("dialog", { name: "Recover Changes drafts" })).textContent).toContain("older retained work");
@@ -440,7 +440,7 @@ it("u3474e_mutation_keeps_the_next_key_live", async () => {
   await waitFor(() => expect(document.activeElement).toBe(next));
   fireEvent.click(document.activeElement!);
   await waitFor(() => expect(screen.queryByRole("list", { name: "Notes" })).toBeNull());
-  expect(document.activeElement).toBe(screen.getByRole("button", { name: "Back" }));
+  expect(document.activeElement).toBe(screen.getByRole("button", { name: "Close" }));
 });
 
 it("u3474e_saving_a_note_returns_to_a_live_control", async () => {
@@ -465,7 +465,7 @@ it("u3474e_sending_the_batch_returns_to_a_live_control", async () => {
   const send = screen.getByRole("button", { name: /Send notes to/ });
   send.focus();
   fireEvent.click(send);
-  await waitFor(() => expect(document.activeElement).toBe(screen.getByRole("button", { name: "Back" })));
+  await waitFor(() => expect(document.activeElement).toBe(screen.getByRole("button", { name: "Close" })));
   expect(app.calls.filter(call => call.method === "message.send")).toHaveLength(1);
   fireEvent.click(document.activeElement!);
   expect(await screen.findByRole("button", { name: "View diff" })).toBeTruthy();

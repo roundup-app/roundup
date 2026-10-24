@@ -7,7 +7,7 @@ import { PadDrawer } from "../pads/PadDrawer";
 import { usePadList } from "../rail/pads/padList";
 import { useConnectedProject } from "../state/connectedProject";
 import { createCutTitle } from "../ui/cutTitle";
-import { failureOf } from "./failureOf";
+import { doesClearTodoFailure, failureOf } from "./failureOf";
 import { refTarget } from "./refTarget";
 
 const PadAt = (props: { name: string; heading: string | null }) => {
@@ -17,10 +17,12 @@ const PadAt = (props: { name: string; heading: string | null }) => {
 };
 
 /** U3760: the Todo's Pad links in the order added. An `ok` one opens its Pad; a `missing` one is text. An Agent's change shows without reopening. */
-export const TodoRefs = (props: { id: number }) => {
+export const TodoRefs = (props: { id: number; saved?: () => number; onSaved?: () => void }) => {
   const { app, drawer, events } = useConnectedProject();
   const [refs, setRefs] = createSignal<readonly Ref[]>([]);
   const [failure, setFailure] = createSignal<string | null>(null);
+  const [actionFailure, setActionFailure] = createSignal<string | null>(null);
+  createEffect(on(props.saved ?? (() => 0), () => setActionFailure(null), { defer: true }));
   let latest = 0;
   let alive = true;
 
@@ -38,10 +40,12 @@ export const TodoRefs = (props: { id: number }) => {
     if (alive && mine === latest && id === props.id) setFailure(message);
   };
 
-  createEffect(on(() => props.id, () => { setRefs([]); setFailure(null); void refresh(); }));
+  createEffect(on(() => props.id, () => { setRefs([]); setFailure(null); setActionFailure(null); void refresh(); }));
 
   // A Pad that changes or goes away moves a ref between `ok` and `missing`.
   onCleanup(events.subscribe((event) => {
+    if (doesClearTodoFailure(event, props.id)) setActionFailure(null);
+
     if (event.name === "pad.changed" || event.name === "pad.deleted") void refresh();
     else if ((event.name === "todo.refAdded" || event.name === "todo.refRemoved") && event.data.id === props.id) void refresh();
   }));
@@ -56,7 +60,14 @@ export const TodoRefs = (props: { id: number }) => {
     // SAFETY: the button sits inside its .todo-ref row.
     const at = rows.indexOf(button.closest(".todo-ref") as HTMLElement);
 
-    setFailure(await failureOf(async () => { await app.rpc("todo.removeRef", { id: props.id, url }); }));
+    const id = props.id;
+    const message = await failureOf(async () => { await app.rpc("todo.removeRef", { id, url }); });
+
+    if (!alive || id !== props.id) return;
+    setActionFailure(message);
+
+    if (message !== null) return;
+    props.onSaved?.();
     await refresh();
     // The row is gone; focus its next (else previous) row so the user keeps their place.
     const left = [...(section?.isConnected ? section.querySelectorAll<HTMLElement>(".todo-ref") : [])];
@@ -74,7 +85,7 @@ export const TodoRefs = (props: { id: number }) => {
   };
 
   return <>
-    <ReservedLine message={failure()}><button data-button="quiet" class="word" type="button" onClick={() => void refresh()}>{copy.padRefRetry}</button></ReservedLine>
+    <ReservedLine message={actionFailure() ?? failure()}><button data-button="quiet" class="word" type="button" onClick={() => void refresh()}>{copy.padRefRetry}</button><button data-dismiss-failure onMouseDown={event => event.preventDefault()} data-button="quiet" class="word" type="button" onClick={() => { setActionFailure(null); setFailure(null); }}>{copy.dismissFailure}</button></ReservedLine>
     <Show when={refs().length > 0}>
     <section class="todo-refs" aria-label={copy.padRefsHeading(refs().length)}>
       <h3>{copy.padRefsHeading(refs().length)}</h3>

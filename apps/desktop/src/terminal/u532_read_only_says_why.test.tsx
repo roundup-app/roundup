@@ -1,7 +1,7 @@
 import { cleanup, fireEvent, waitFor } from "@solidjs/testing-library";
 import { afterEach, describe, expect, it } from "vitest";
 import { callsTo } from "./paneHarness";
-import { mountSwitcher, press } from "../switcher/switcherFixture";
+import { mountSwitcher, switcherKey as press } from "../switcher/switcherFixture";
 
 afterEach(cleanup);
 

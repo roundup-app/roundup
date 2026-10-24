@@ -15,19 +15,20 @@ export type Settled = { decision: string; text: string; phase: "confirm" | "fold
 
 export type AgentRow = { key: string; node: RailNode; decision: Decision | undefined; settled: Settled | undefined; arrived: boolean };
 
-export type RowActions = {
+export type InboxActions = {
   answer(row: AgentRow, quick: Quick): void;
   retry(row: AgentRow): void;
   open(row: AgentRow): void;
   busy(row: AgentRow): boolean;
   failure(row: AgentRow): string | null;
   folded(row: AgentRow): void;
+  dismiss(row: AgentRow): void;
 };
 
 const summaryOf = (decision: Decision): string => decision.tool === "ask_user" ? (questionOf(decision.args)?.question ?? decision.tool) : decision.tool;
 
 /** U3770b: one Agent's row. A Decision shows its quick answers in the row; any row opens in place to the Agent's last step and the one action that fits its state. */
-export const InboxRow = (props: { row: AgentRow; open: boolean; toggle(): void; actions: RowActions; head(element: HTMLElement): void }) => {
+export const InboxRow = (props: { row: AgentRow; open: boolean; toggle(): void; actions: InboxActions; head(element: HTMLElement): void }) => {
   const name = createUniqueId();
   const node = () => props.row.node;
   const failure = () => props.actions.failure(props.row);
@@ -67,7 +68,9 @@ export const InboxRow = (props: { row: AgentRow; open: boolean; toggle(): void; 
         <Collapsible.Content>
           <div class="inbox-body">
             <p class="inbox-step"><span class="light">{copy.inboxLastStep}</span> {node().status?.label}</p>
-            <ReservedLine message={failure()} />
+            <ReservedLine message={failure()}>
+              <button type="button" data-button="quiet" class="word" aria-describedby={name} onClick={() => props.actions.dismiss(props.row)}>{copy.inboxDismiss}</button>
+            </ReservedLine>
           </div>
         </Collapsible.Content>
       </Collapsible.Root>}>

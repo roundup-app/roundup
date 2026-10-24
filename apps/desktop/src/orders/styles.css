@@ -103,6 +103,8 @@
   --button-inline: var(--space-2);
 }
 
+.order-edit-recovery { min-height: var(--space-5); }
+
 /* Q3: generated text is laid out as hold:Plain asks, left-aligned in the UI font. */
 .order-drawer {
   padding-top: var(--space-2);
@@ -197,6 +199,9 @@
 }
 
 .progress-head h3 {
+  font-size: var(--text-small);
+  font-weight: 400;
+  color: var(--grey);
   margin: 0;
 }
 

@@ -33,9 +33,11 @@ pub fn build<R: Runtime>(
     let builder = builder.plugin(webkit_rate::plugin());
     builder
         .plugin(tauri_plugin_dialog::init())
+        .plugin(tauri_plugin_clipboard_manager::init())
         .plugin(window::plugin())
         .manage(AppState::new(config))
         .manage(menu::Choice::default())
+        .manage(menu::ProjectMenu::default())
         .menu(menu::app_menu)
         .on_menu_event(|app, event| handle_menu_event(app, &event))
         .invoke_handler(tauri::generate_handler![
@@ -51,6 +53,7 @@ pub fn build<R: Runtime>(
             open_target,
             open_in_editor,
             save_pasted_image,
+            menu::select_project_menu,
             menu::show_context_menu
         ])
         .setup(move |app| {

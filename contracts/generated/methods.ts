@@ -94,6 +94,8 @@ import type { WriteParams as pad_WriteParams } from "./pad/WriteParams";
 import type { ImportCommitParams as project_ImportCommitParams } from "./project/ImportCommitParams";
 import type { ImportDiscoverParams as project_ImportDiscoverParams } from "./project/ImportDiscoverParams";
 import type { ImportDiscovery as project_ImportDiscovery } from "./project/ImportDiscovery";
+import type { ImportList as project_ImportList } from "./project/ImportList";
+import type { ImportListParams as project_ImportListParams } from "./project/ImportListParams";
 import type { ImportResult as project_ImportResult } from "./project/ImportResult";
 import type { Mcp as project_Mcp } from "./project/Mcp";
 import type { MeasurementSummary as project_MeasurementSummary } from "./project/MeasurementSummary";
@@ -107,7 +109,6 @@ import type { ProjectModels as project_ProjectModels } from "./project/ProjectMo
 import type { ProjectSettings as project_ProjectSettings } from "./project/ProjectSettings";
 import type { RenameParams as project_RenameParams } from "./project/RenameParams";
 import type { Resources as project_Resources } from "./project/Resources";
-import type { WeeklyLimit as project_WeeklyLimit } from "./project/WeeklyLimit";
 import type { Worktrees as project_Worktrees } from "./project/Worktrees";
 import type { CreateParams as reaction_CreateParams } from "./reaction/CreateParams";
 import type { Preview as reaction_Preview } from "./reaction/Preview";
@@ -165,7 +166,6 @@ import type { StartWorkstreamParams as workstream_StartWorkstreamParams } from "
 export type RpcMethods = {
   "project.measurements": { params: null; result: project_Measurements };
   "project.measurementSummary": { params: project_MeasurementSummaryParams; result: project_MeasurementSummary };
-  "project.weeklyLimit": { params: null; result: project_WeeklyLimit };
   "deliverable.publish": { params: deliverable_PublishParams; result: deliverable_Deliverable };
   "deliverable.list": { params: deliverable_ListParams; result: deliverable_Deliverable[] };
   "deliverable.get": { params: deliverable_DeliverableId; result: deliverable_Deliverable };
@@ -278,6 +278,7 @@ export type RpcMethods = {
   "project.setPrepared": { params: project_Prepared; result: null };
   "project.getPrepared": { params: null; result: project_Prepared };
   "project.importDiscover": { params: project_ImportDiscoverParams; result: project_ImportDiscovery };
+  "import.list": { params: project_ImportListParams; result: project_ImportList };
   "project.importCommit": { params: project_ImportCommitParams; result: project_ImportResult };
   "project.prepareDirectory": { params: project_PrepareParams; result: null };
   "project.get": { params: null; result: project_ProjectSettings };

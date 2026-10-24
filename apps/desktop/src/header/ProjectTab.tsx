@@ -1,3 +1,4 @@
+import { writeText } from "../app/clipboard";
 import { ReservedLine } from "../ink/ReservedLine";
 import type { ProjectsState } from "../state/projects";
 import { copy } from "../copy";
@@ -62,7 +63,7 @@ export const ProjectTab = (props: {
   onRename: (name: string, base?: string) => ReturnType<ProjectsState["rename"]>;
   onClose: () => void;
   /** U2694a: the seam that shows the tab's system menu; a tab without one has none. */
-  app?: Pick<App, "showContextMenu"> | undefined;
+  app?: Pick<App, "showContextMenu" | "writeClipboardText"> | undefined;
   ref?: (element: HTMLElement) => void;
 }) => {
   const { near, handlers } = createNear();
@@ -82,7 +83,12 @@ export const ProjectTab = (props: {
   const current = createMemo(() => records().filter(draft => draft.status === "draft").at(-1));
   const [recovering, recover] = createSignal(false);
   const [inspected, inspect] = createSignal<string>();
-  const [copyFailure, failCopy] = createSignal<string | null>(null);
+  const [copyFailure, failCopy] = createSignal<{ project: string; revision: string | null; message: string } | null>(null);
+  createEffect(() => {
+    const failure = copyFailure();
+
+    if (failure && (failure.project !== props.tab.path || (failure.revision !== null && !records().some(draft => draft.revision === failure.revision)))) failCopy(null);
+  });
   const shown = () => records().find(draft => draft.revision === inspected()) ?? current() ?? records().at(-1);
 
   const problem = createMemo(() => {
@@ -102,8 +108,8 @@ export const ProjectTab = (props: {
 
     if (!parsed.success) return;
 
-    try { await navigator.clipboard.writeText(parsed.output.name); failCopy(null); }
-    catch (error) { failCopy(copy.copyDraftFailure(error instanceof Error ? error.message : String(error))); }
+    try { await writeText(props.app!, parsed.output.name); failCopy(null); }
+    catch (error) { failCopy({ project: destination.object, revision: draft.revision, message: copy.copyDraftFailure(error instanceof Error ? error.message : String(error)) }); }
   };
 
   let base: string | undefined;
@@ -147,7 +153,7 @@ export const ProjectTab = (props: {
   ]);
 
   return <Tabs.Context>{(tabs) => <>
-    <FlatTab class="project-tab" selected={props.selected} role="presentation" data-path={props.tab.path} data-unfinished={records().length || problem() ? "true" : undefined}
+    <FlatTab class="project-tab" selected={props.selected} role="presentation" data-path={props.tab.path} data-unseen={props.tab.unseen ? "true" : undefined} data-unfinished={records().length || problem() || copyFailure() ? "true" : undefined}
       style={editing() === null ? undefined : { width: `${editing()?.width}px` }}
       ref={(element) => { wrap = element; props.ref?.(element); }}
       onPointerEnter={handlers.onMouseEnter} onPointerLeave={handlers.onMouseLeave}
@@ -157,10 +163,11 @@ export const ProjectTab = (props: {
 
         if (app) openOnRelease(press, (x, y) => void contextMenu(app, [
           { id: "copy", label: copy.copy, run: async () => {
+            const copied = shown();
             const details = records().length ? { name: props.tab.name, path: props.tab.path, drafts: records() } : { name: props.tab.name, path: props.tab.path };
 
-            try { await navigator.clipboard.writeText(JSON.stringify(details, null, 2)); failCopy(null); }
-            catch (error) { failCopy(copy.copyDraftFailure(error instanceof Error ? error.message : String(error))); recover(true); }
+            try { await writeText(props.app!, JSON.stringify(details, null, 2)); failCopy(null); }
+            catch (error) { failCopy({ project: details.path, revision: copied?.revision ?? null, message: copy.copyDraftFailure(error instanceof Error ? error.message : String(error)) }); recover(true); }
           } },
           { id: "rename", label: copy.rename, shortcut: "F2", run: edit },
           { id: "close", label: copy.close, run: () => props.onClose() },
@@ -179,6 +186,7 @@ export const ProjectTab = (props: {
 
         if (saved !== null) {
           const submitted = revision;
+          const failure = copyFailure();
 
           if (submitted && !drafts?.submit(submitted)) {
             recover(true);
@@ -188,13 +196,15 @@ export const ProjectTab = (props: {
 
           void props.onRename(saved, base).then(outcome => {
             if (submitted) drafts?.settle(submitted, outcome.status);
+
+            if (outcome.status === "acknowledged" && copyFailure() === failure) failCopy(null);
           });
         }
       }} />}</Show>}>
         <Tip ids={{ trigger: tabs().getTriggerProps({ value: props.tab.path }).id }} class="tab-tip" content={<>{props.tab.name}<Show when={mark()}><br />{tipOf(props.tab)}</Show><Show when={shown()}>{draft => <><br />{copy.draftIdentity(copy.unfinishedWork, String(draft().value.name ?? ""))}</>}</Show></>}>
           {(tooltip) =>
               <Tabs.Trigger {...tooltip({})} value={props.tab.path} class="tab-name-button"
-                aria-description={records().length || problem() ? copy.unfinishedWork : undefined} data-selected={props.selected ? "true" : undefined} aria-busy={props.tab.busy} ref={(element) => (button = element)}
+                aria-description={records().length || problem() || copyFailure() ? copy.unfinishedWork : undefined} data-selected={props.selected ? "true" : undefined} aria-busy={props.tab.busy} ref={(element) => (button = element)}
                 onClick={(click) => {
                   if (click.target instanceof Element && click.target.closest('.tab-mark')) {
                     click.preventDefault();
@@ -202,12 +212,13 @@ export const ProjectTab = (props: {
                   }
                 }}>
                 <span class="tab-name" onDblClick={() => edit()}><span class="tab-head">{parts()[0]}</span><span class="tab-tail">{parts()[1]}</span></span>
+                <Show when={props.tab.unseen}><span class="unread-dot" data-state="" role="img" aria-label={copy.unreadResult}>{copy.unseenMark}</span></Show>
                 <Show when={mark()}>{(shown) => <span class="tab-mark ink" data-tone={MARKS[shown()].tone} data-kind={shown()} role="img" aria-label={MARKS[shown()].label} />}</Show>
               </Tabs.Trigger>
           }
         </Tip>
         <div class="tab-actions">
-        <Show when={records().length || problem()}>
+        <Show when={records().length || problem() || copyFailure()}>
           <Tip text={copy.recoverDrafts}>{trigger => <IconButton {...trigger()} class="tab-recover" data-visible={near() || props.selected} tabIndex={props.selected ? 0 : -1} aria-label={copy.draftIdentity(copy.recoverDrafts, props.tab.name)} onClick={() => recover(true)}><Icon name="edit" /></IconButton>}</Tip>
         </Show>
         <IconButton class="tab-close" aria-label={copy.closeProject(props.tab.name)} data-visible={near() || props.closeFocus === true} onClick={() => props.onClose()}><Icon name="x" /></IconButton>
@@ -218,7 +229,10 @@ export const ProjectTab = (props: {
       <Portal><Dialog.Positioner asChild={positioner => <aside {...positioner({})} />}><Dialog.Content class="draft-recovery header-recovery" ref={element => { panel = element; }}>
         <Dialog.Title asChild={title => <h2 {...title({})}>{copy.unfinishedWork}</h2>} />
         <Dialog.Description class="draft-identity">{props.tab.name}</Dialog.Description>
-        <ReservedLine message={(copyFailure()) || (problem() ? (copy.draftRetention(props.tab.name, copy.projectName, problem()!.cause)) : null) || null} />
+        <ReservedLine message={copyFailure()?.message}>
+          <IconButton aria-label={copy.draftIdentity(copy.close, copy.copyProjectName)} onClick={() => failCopy(null)}><Icon name="x" /></IconButton>
+        </ReservedLine>
+        <Show when={problem()}>{failure => <ReservedLine message={copy.draftRetention(props.tab.name, copy.projectName, failure().cause)} />}</Show>
         <For each={[...records()].reverse().sort((a, b) => Number(b.revision === current()?.revision) - Number(a.revision === current()?.revision))}>{(draft, index) => <Show when={records().length > 1} fallback={<ReservedLine aria-label={copy.draftStatus[draft.status]} status={draft.revision === current()?.revision ? copy.currentDraft : copy.draftStatus[draft.status]} data-state={draft.status} />}><button type="button" data-button="quiet" aria-pressed={shown()?.revision === draft.revision} onClick={() => inspect(draft.revision)}>{copy.draftIdentity(draft.revision === current()?.revision ? copy.currentDraft : copy.draftStatus[draft.status], String(index() + 1))}</button></Show>}</For>
         <Show when={shown()}>{draft => <>
           <ReservedLine status={draft().value.base !== props.tab.base ? copy.railDraftConflict : null} />

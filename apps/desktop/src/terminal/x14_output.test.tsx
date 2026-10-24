@@ -147,7 +147,7 @@ describe("x14 the App's output subscription", () => {
       app.emitOutput("t-a", chunk);
 
       if (round % 50 === 0) {
-        app.emit(event({ name: "agent.status", data: { id: "o1", attempt: "1", status_revision: `${round + 2}`, status: { kind: "working", label: `step ${round}`, since: 0 } } }));
+        app.emit(event({ name: "agent.status", data: { id: "o1", attempt: "1", status_revision: `${round + 2}`, status: { kind: "working", label: `step ${round}`, since: 0, finished: "0" } } }));
       }
 
       if (round === 100) app.emit(opened(decision("d1", "o2")));
