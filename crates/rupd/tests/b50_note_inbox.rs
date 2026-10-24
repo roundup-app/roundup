@@ -81,7 +81,7 @@ def hook(event, fields):
     fields['hook_event_name'] = event
     for group in settings['hooks'][event]:
         for item in group['hooks']:
-            subprocess.run(item['command'], shell=True, input=json.dumps(fields), text=True, check=True)
+            subprocess.run(item['command'], shell=True, input=json.dumps(fields), text=True, check=True, stdout=subprocess.DEVNULL)
 hook('SessionStart', {'session_id': '00000000-0000-4000-8000-000000000050', 'source': 'resume' if '--resume' in sys.argv else 'startup', 'transcript_path': here + '/transcript.jsonl'})
 hook('Stop', {})
 print('READY', flush=True)
