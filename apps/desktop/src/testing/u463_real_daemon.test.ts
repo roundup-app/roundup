@@ -409,8 +409,8 @@ it("u2875d_real_import_reopen_and_resume", async () => {
     await browser("open", `${real.base}/harness.html?daemon=1`);
     await browser("set", "viewport", "1512", "950");
     await browser("set", "media", "dark");
-    await wait("!!document.querySelector('.rail-import')");
-    await activate(".rail-import");
+    await wait("!!document.querySelector('.todo-project-root')");
+    await browser("eval", "window.dispatchEvent(new CustomEvent('open-project-page', { detail: { path: document.querySelector('.project-tab[data-selected=true]').dataset.path, command: 'import-work' } }))");
     await wait("!!document.querySelector('.import-check')");
     await activate(".import-check");
     await wait("!document.querySelector('.import-confirm').disabled");
@@ -452,8 +452,8 @@ it("u2875d_real_import_reopen_and_resume", async () => {
       await browser("record", "start", join(captures, "recovery.webm"));
       await browser("set", "media", "dark");
       await browser("open", `${real.base}/harness.html?seed=import-candidates`);
-      await wait("!!window.__fake && !!document.querySelector('.rail-import')");
-      await activate(".rail-import");
+      await wait("!!window.__fake && !!document.querySelector('.todo-project-root')");
+      await browser("eval", "window.dispatchEvent(new CustomEvent('open-project-page', { detail: { path: document.querySelector('.project-tab[data-selected=true]').dataset.path, command: 'import-work' } }))");
       await wait("document.querySelectorAll('.import-check').length === 10");
 
       const capture = async (step: string) => {
@@ -480,7 +480,7 @@ it("u2875d_real_import_reopen_and_resume", async () => {
       await activate(".import-confirm");
       await wait("!document.querySelector('.import-panel')");
       expect((await browser("eval", "window.__fake.app.calls.filter(call => call.method === 'project.importCommit').at(-1).params.selections.map(entry => entry.source)")).result).toEqual(["s0"]);
-      await activate(".rail-import");
+      await browser("eval", "window.dispatchEvent(new CustomEvent('open-project-page', { detail: { path: document.querySelector('.project-tab[data-selected=true]').dataset.path, command: 'import-work' } }))");
       await wait("document.querySelectorAll('.import-check').length > 0");
 
       for (const state of ["failure", "empty", "loading", ...(captureDir("U3037d") ? ["rpc-timeout", "deadline"] : [])]) {
