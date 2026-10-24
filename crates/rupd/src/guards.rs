@@ -1,6 +1,6 @@
 use super::*;
 
-/// A Door's read of a child's Terminal, which waits out the child's Takeover.
+/// A Door's read of a child's Terminal.
 pub(crate) fn is_child_read(method: &str) -> bool {
     matches!(
         method,
@@ -9,27 +9,6 @@ pub(crate) fn is_child_read(method: &str) -> bool {
 }
 
 impl Daemon {
-    pub(crate) fn register_first_steer(
-        &self,
-        first_steers: &mut HashMap<String, String>,
-        node: &Value,
-    ) {
-        if let (Some(id), Some(attempt)) = (node["id"].as_str(), node["attempt"].as_str()) {
-            first_steers.insert(id.to_owned(), attempt.to_owned());
-            let first_steers = Arc::clone(&self.door_first_steers);
-            let agents = Arc::clone(&self.agents);
-            let (id, attempt) = (id.to_owned(), attempt.to_owned());
-            tokio::spawn(async move {
-                if agents.first_steer_completion(&id, &attempt).await.is_ok() {
-                    let mut first_steers = first_steers.lock().await;
-                    if first_steers.get(&id) == Some(&attempt) {
-                        first_steers.remove(&id);
-                    }
-                }
-            });
-        }
-    }
-
     /// A known Agent process cannot gain the user's control or receipt access by identifying
     /// as the user. The wire reader captures this before an earlier action can delay dispatch.
     pub(crate) fn action_actor(&self, conn: &Conn) -> Actor {
@@ -51,108 +30,6 @@ impl Daemon {
             None if conn.actor.kind == ActorKind::Ext => conn.actor.clone(),
             None => Actor::user(),
         }
-    }
-
-    /// Return once no Takeover holds `child`: subscribe first, so an end cannot slip past.
-    pub(crate) async fn wait_takeover_end(&self, child: &str) {
-        let (mut events, _) = self.subscribe();
-        while self.sender.get().is_some_and(|m| m.takeover_active(child)) {
-            match events.recv().await {
-                Ok(_) | Err(tokio::sync::broadcast::error::RecvError::Lagged(_)) => {}
-                Err(tokio::sync::broadcast::error::RecvError::Closed) => return,
-            }
-        }
-    }
-
-    /// Aggregate reads must respect each child's prior calls, not only the Door's own id.
-    pub(crate) async fn door_effect_children(
-        &self,
-        actor: &Actor,
-        method: &str,
-        params: &Value,
-    ) -> Result<Vec<String>, RpcError> {
-        if actor.kind != ActorKind::Agent {
-            return Ok(Vec::new());
-        }
-        let mut children: Vec<String> = match method {
-            "agent.digest" => {
-                let NodeId { id } = rpc::params(params.clone())?;
-                // The Digest module still owns its permission and node-kind checks.
-                if actor.id != id {
-                    return Err(RpcError::forbidden(format!(
-                        "{} may not read the digest of {}",
-                        self.agents.rail_name(&actor.id)?,
-                        self.agents.rail_name(&id)?
-                    )));
-                }
-                self.rail()
-                    .await?
-                    .into_iter()
-                    .filter(|n| n.parent.as_deref() == Some(&id) && n.status.is_some())
-                    .map(|n| n.id)
-                    .collect()
-            }
-            "workstream.rewind" | "workstream.rewindPlan" => {
-                self.rewind_children(actor, method, params).await?
-            }
-            _ => self
-                .door_effect_child(actor, method, params)
-                .await?
-                .into_iter()
-                .collect(),
-        };
-        children.sort();
-        children.dedup();
-        Ok(children)
-    }
-
-    /// The wire reader and router must agree which effects share a child's arrival order.
-    pub(crate) async fn door_effect_child(
-        &self,
-        actor: &Actor,
-        method: &str,
-        params: &Value,
-    ) -> Result<Option<String>, RpcError> {
-        if actor.kind != ActorKind::Agent {
-            return Ok(None);
-        }
-        match method {
-            "terminal.snapshot" | "terminal.screen" | "terminal.read" | "terminal.search"
-            | "terminal.write" | "terminal.kill" | "terminal.close" | "terminal.resize" => {
-                self.guard_terminal_read(actor, method, params).await
-            }
-            "agent.prompt"
-            | "agent.setOrder"
-            | "agent.interrupt"
-            | "agent.resume"
-            | "agent.stop"
-            | "agent.discard"
-            | "agent.land"
-            | "agent.worktreeState"
-            | "agent.changedFiles"
-            | "agent.spawnPrompt"
-            | "agent.run"
-            | "rail.rename"
-            | "rail.move"
-            | "rail.remove" => Ok(Some(rpc::params::<NodeId>(params.clone())?.id)),
-            _ => Ok(None),
-        }
-    }
-
-    pub(crate) fn child_effects(&self, child: &str) -> Arc<tokio::sync::RwLock<()>> {
-        let mut writes = self
-            .child_effects
-            .lock()
-            .unwrap_or_else(|poisoned| poisoned.into_inner());
-        // No historical child or completed effect needs a live lock. Weak entries keep
-        // concurrent callers on one lock without retaining every Agent ever created.
-        writes.retain(|_, lock| lock.strong_count() != 0);
-        if let Some(lock) = writes.get(child).and_then(std::sync::Weak::upgrade) {
-            return lock;
-        }
-        let lock = Arc::new(tokio::sync::RwLock::new(()));
-        writes.insert(child.to_owned(), Arc::downgrade(&lock));
-        lock
     }
 
     pub(crate) async fn before_prompt_effect(
@@ -187,7 +64,7 @@ impl Daemon {
 
     /// M13: `NOT_FOUND` for an unknown Terminal, then `FORBIDDEN` when an Agent may not read it.
     /// A malformed id is left to the Terminal's own `INVALID_PARAMS`. Returns the authorized
-    /// Terminal's owner so its write and the owner's Takeover use the same exclusion lock.
+    /// Terminal's owner.
     pub(crate) async fn guard_terminal_read(
         &self,
         actor: &Actor,
@@ -285,22 +162,6 @@ impl Daemon {
             return Ok(());
         }
         self.agents.guard_route(actor, params)
-    }
-
-    /// B32: the user's bytes are counted before they reach the Terminal, so a Message checked
-    /// after they arrive finds them. A call that is not well formed is left to the Terminal's own error.
-    pub(crate) async fn note_user_input(&self, params: &Value) {
-        use base64::Engine as _;
-        let (Some(messages), Some(id), Some(data)) = (
-            self.sender.get(),
-            params["id"].as_str(),
-            params["data"].as_str(),
-        ) else {
-            return;
-        };
-        if let Ok(bytes) = base64::engine::general_purpose::STANDARD.decode(data) {
-            messages.user_wrote(id, &bytes).await;
-        }
     }
 
     /// T14, P12: a Todo or Pad an Agent just created gets the nearest Workstream at or above that Agent as its Home.

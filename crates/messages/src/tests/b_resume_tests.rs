@@ -32,7 +32,7 @@ async fn a24_a_door_resumed_after_its_run_is_gone_takes_a_message() {
     let rail = FakeRail::new(vec![gone]);
     let bus = Bus::new();
     let agents: Arc<dyn TerminalOwners> = rail.clone();
-    let messages = Messages::open(dir.path(), bus.clone(), agents, noop_deliver()).unwrap();
+    let messages = Messages::open(dir.path(), bus.clone(), agents).unwrap();
     let ctx = Ctx {
         actor: Actor::user(),
         bus: bus.clone(),

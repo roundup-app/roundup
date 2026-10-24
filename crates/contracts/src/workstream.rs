@@ -159,8 +159,6 @@ pub struct RewindPlanParams {
 pub struct PlanAgent {
     pub agent: String,
     pub name: String,
-    /// Under Takeover (B6): the rewind of this child waits until the user gives it back.
-    pub takeover: bool,
     /// Started after the Checkpoint: a rewind removes it from the Rail.
     pub created_after: bool,
     /// Paths whose content differs between the Mark's snapshot and the Worktree now.
@@ -184,8 +182,7 @@ pub enum Files {
     Restore,
 }
 
-/// `workstream.rewind`. `files` is required. A held rewind (`HeldCall::Rewind`) carries the
-/// child it waits for in `agent`.
+/// `workstream.rewind`. `files` is required. `agent` selects one child, as in `RewindPlanParams`.
 #[derive(Clone, Debug, Serialize, Deserialize, TS, JsonSchema)]
 #[ts(export, export_to = "workstream/")]
 pub struct RewindParams {
@@ -197,13 +194,11 @@ pub struct RewindParams {
     pub agent: Option<String>,
 }
 
-/// How one selected child ended up: `waiting` for a Takeover (with the held action `action`),
-/// `rewound`, `removed` from the Rail, or `dropped` with its `reason`.
+/// How one selected child ended up: `rewound`, `removed` from the Rail, or `dropped` with its `reason`.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize, TS)]
 #[serde(rename_all = "lowercase")]
 #[ts(export, export_to = "workstream/")]
 pub enum RewindState {
-    Waiting,
     Rewound,
     Removed,
     Dropped,
@@ -218,9 +213,6 @@ pub struct RewindAgent {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     #[ts(optional)]
     pub reason: Option<String>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    #[ts(optional)]
-    pub action: Option<String>,
 }
 
 /// What `workstream.rewind` returns to the Door.

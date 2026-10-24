@@ -429,7 +429,7 @@ impl Launcher {
             let mut settings = carried;
             if pair.yolo {
                 settings["skipDangerousModePermissionPrompt"] = json!(true);
-                // Roundup has already checked its Route, Takeover and actor authority. Claude's
+                // Roundup has already checked its Route and actor authority. Claude's
                 // inbox class vocabulary differs from the launch-mode label on our notes.
                 settings["crossSessionInbound"] = json!("accept");
             }

@@ -27,7 +27,7 @@ const median = (values: readonly number[]): number => {
 };
 
 /** What a shard holding files of these durations takes, in seconds. */
-export const shardTime = (held: readonly number[]): number => Math.max(0, ...held, held.reduce((sum, seconds) => sum + seconds + FILE_SETUP_SECONDS, 0) / PARALLEL_FILES);
+export const shardTime = (kept: readonly number[]): number => Math.max(0, ...kept, kept.reduce((sum, seconds) => sum + seconds + FILE_SETUP_SECONDS, 0) / PARALLEL_FILES);
 
 /** The files, longest measured duration first (a file without one weighs the median), ties by name. */
 export function longestFirst(files: readonly string[], measured: Seconds): string[] {

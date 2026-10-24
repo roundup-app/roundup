@@ -49,4 +49,3 @@ The terminal title is the only acknowledgement of an Interrupt, because Claude C
 ## Open
 
 - Whether a Steer sent while the Agent is `working` is queued by Claude Code (not observed; H1b).
-- `Takeover`: a Steer during a Takeover is held by the mailbox series; this series sends nothing then.

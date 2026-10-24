@@ -54,12 +54,6 @@ async fn q11_plugins_survive_real_daemon_launch_resume_and_workstream_clear() {
             .await
             .unwrap();
         let prompt = format!("Q11 plugin inventory after resume {id}");
-        if id == &door {
-            client
-                .request("takeover.end", json!({"agent": id}))
-                .await
-                .unwrap();
-        }
         client
             .request(
                 "message.send",
@@ -80,12 +74,6 @@ async fn q11_plugins_survive_real_daemon_launch_resume_and_workstream_clear() {
         })
         .await;
         idle(&client, id).await;
-        if id == &door {
-            client
-                .request("takeover.begin", json!({"agent": id}))
-                .await
-                .unwrap();
-        }
     }
     until("Door and child resumed", || {
         (gate.rows().len() == 5).then_some(())

@@ -92,9 +92,17 @@ it("u3528_keys_and_pointer_never_draw_rings_or_pressed_backgrounds", async () =>
         ['.strip-add', 'button'],
       ]) {
         await lane.browser("click", selector!);
+
+        if (step === "rail-row") {
+          // Selecting an Agent shows its Terminal, which takes focus as a Door's does (U12); return to the row for the Rail's own keys.
+          await lane.until(focused(".pane-screen .xterm-helper-textarea"));
+          await lane.evaluate(`document.querySelector(${JSON.stringify(selector)}).focus()`);
+        }
+
         await lane.until(focused(selector!));
         await ring();
         await capture(step!);
+
         await lane.browser("press", step === "rail-row" ? "ArrowUp" : "Shift+Tab");
         await lane.until(`!(${focused(selector!)})`);
 
@@ -236,7 +244,7 @@ it("u3528_keys_and_pointer_never_draw_rings_or_pressed_backgrounds", async () =>
       await lane.browser("mouse", "down");
       expect(await backgrounds()).toEqual(before);
       await ring();
-      await capture("auto-held");
+      await capture("auto-kept");
       await lane.browser("mouse", "up");
       await lane.until(`document.querySelector('${auto}').getAttribute('aria-checked') !== ${JSON.stringify(checked)}`);
       expect(await lane.calls("workstream.setAuto")).toHaveLength(1);

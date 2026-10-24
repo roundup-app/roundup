@@ -3,16 +3,10 @@ import { createEffect, createMemo, createSignal, For, onCleanup, onMount } from 
 import { hintsFor } from "./chords";
 import type { HintPlace } from "./chords";
 import { copy } from "../copy";
-import { useConnectedProject } from "../state/connectedProject";
-
-/** The pane's state mark while an Agent is Managed (U375). */
-const MANAGED = '.pane-control[data-state="managed"]';
 
 /** Where keyboard focus sits, for the hint line: `null` anywhere that has no hints, a modal layer such as Help included (U2230a). */
-const placeAt = (focus: Element | null, selectedIsAgent: boolean): HintPlace | null => {
-  const inWatchedPane = selectedIsAgent && focus?.closest(".pane")?.querySelector(MANAGED) != null;
-
-  return !focus || focus.closest(".help") ? null
+const placeAt = (focus: Element | null): HintPlace | null =>
+  !focus || focus.closest(".help") ? null
     : focus.closest(".switcher") ? "switcher"
     : focus.closest(".pad-rich-editor, [contenteditable=true]") ? "editor"
     : focus.closest(".pad-body") ? "pad"
@@ -21,42 +15,31 @@ const placeAt = (focus: Element | null, selectedIsAgent: boolean): HintPlace | n
     : focus.closest("[data-bubble]") ? "bubble"
     : focus.closest(".shelf") ? "shelf"
     : focus.closest('[role="tree"]') ? "rail"
-    : inWatchedPane || focus.closest(".pane-screen") ? "agent"
+    : focus.closest(".pane-screen") ? "agent"
     : null;
-};
 
 /** U2230a: the quiet line of the keys that act where focus is, from the same `CHORDS` rows Help lists and the registry binds. */
 export const HintLine = () => {
-  const { rail, takeover } = useConnectedProject();
   const [focus, setFocus] = createSignal<Element | null>(null);
-  const [watched, setWatched] = createSignal(0);
 
-  const selectedIsAgent = () => {
-    watched();
-
-    return rail.nodes.find((node) => node.id === rail.selected())?.kind === "agent";
-  };
-
-  const place = createMemo(() => placeAt(focus(), selectedIsAgent()));
-
-  const watching = () => selectedIsAgent() && takeover.taken() !== rail.selected() && document.querySelector(`.pane ${MANAGED}`) != null;
+  const place = createMemo(() => placeAt(focus()));
 
   const hints = () => {
     const at = place();
 
     if (at === null) return [];
 
-    const shown = hintsFor(at, watching());
+    const shown = hintsFor(at);
 
     if (at !== "shelf") return shown;
 
     // The Shelf's own hints follow its state: Restore while maximised, and Export only where `e` acts, on a Pad row.
     const maximised = focus()?.closest(".window")?.getAttribute("data-shelf-maximised") === "true";
-    const held = focus();
-    const rowButton = held?.matches(".todo-row-button") === true;
-    const onPad = rowButton && held?.closest(".pad-inset") != null;
-    const canAssign = rowButton && !held?.closest(".todo-done-fold");
-    const editing = held?.closest("input,textarea,select,[contenteditable]") != null;
+    const focused = focus();
+    const rowButton = focused?.matches(".todo-row-button") === true;
+    const onPad = rowButton && focused?.closest(".pad-inset") != null;
+    const canAssign = rowButton && !focused?.closest(".todo-done-fold");
+    const editing = focused?.closest("input,textarea,select,[contenteditable]") != null;
     const modal = document.querySelector('[role=dialog], [role=alertdialog], [role=menu][data-state=open], .drawer[data-open="true"]') != null;
 
     if (editing || modal) return [];
@@ -104,15 +87,9 @@ export const HintLine = () => {
     document.addEventListener("focusout", sync);
     sync();
 
-    const panes = document.querySelectorAll(".pane, .pane-body");
-    const observer = new MutationObserver(() => setWatched((count) => count + 1));
-
-    for (const pane of panes) observer.observe(pane, { childList: true });
-
     onCleanup(() => {
       document.removeEventListener("focusin", sync);
       document.removeEventListener("focusout", sync);
-      observer.disconnect();
     });
   });
 

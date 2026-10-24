@@ -22,7 +22,7 @@ const under = (selector: string, container: string, x: number, y: number): HTMLE
 };
 
 /**
- * U348: the drag of files over the window. It reads the App seam's `onFileDrop`, shows the drop targets, opens a row or tab held for HOLD_MS, and on a drop
+ * U348: the drag of files over the window. It reads the App seam's `onFileDrop`, shows the drop targets, opens a row or tab hovered for HOLD_MS, and on a drop
  * selects the target and hands the drop to the pane it lands in. `forProject` returns calls whose `onFileDrop` is this router's feed,
  * so a Pane hears what the router lets through.
  */
@@ -32,14 +32,14 @@ export const createDropTargets = (
 ) => {
   const feed = new Set<Listener>();
   let marked = new Map<Element, string>();
-  let held: { element: HTMLElement; timer: ReturnType<typeof setTimeout> } | null = null;
+  let kept: { element: HTMLElement; timer: ReturnType<typeof setTimeout> } | null = null;
 
   const emit = (drop: FileDrop) => feed.forEach((listener) => listener(drop));
 
   const cancelHold = () => {
-    if (held) clearTimeout(held.timer);
+    if (kept) clearTimeout(kept.timer);
 
-    held = null;
+    kept = null;
   };
 
   const mark = (next: Map<Element, string>) => {
@@ -96,11 +96,11 @@ export const createDropTargets = (
 
     mark(next);
 
-    if (held?.element === target) return;
+    if (kept?.element === target) return;
 
     cancelHold();
 
-    if (target) held = { element: target, timer: setTimeout(() => open(target), HOLD_MS) };
+    if (target) kept = { element: target, timer: setTimeout(() => open(target), HOLD_MS) };
   };
 
   const land = async (drop: FileDrop) => {

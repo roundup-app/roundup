@@ -133,8 +133,8 @@ describe("u358 cmd backspace removes the selected Rail row", () => {
     const { app, rail } = await mount([agent("a", "idle", "x")]);
     rail.select("a");
 
-    for (const held of [{ metaKey: true, shiftKey: true }, { ctrlKey: true }, { altKey: true }, {}])
-      fireEvent.keyDown(rowOf("a"), { key: "Backspace", code: "Backspace", ...held });
+    for (const kept of [{ metaKey: true, shiftKey: true }, { ctrlKey: true }, { altKey: true }, {}])
+      fireEvent.keyDown(rowOf("a"), { key: "Backspace", code: "Backspace", ...kept });
 
     await tick();
 

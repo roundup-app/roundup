@@ -1,9 +1,9 @@
-/* U3780: the queue is absent when no Messages, Pause or failure need to show. */
+/* U3780: the queue is absent when no Messages or failure need to show. */
 .note-queue {
   flex: none;
   display: flex;
   flex-direction: column;
-  gap: var(--space-2);
+  gap: var(--space-1);
   padding: var(--space-2) var(--space-4);
 }
 
@@ -13,15 +13,6 @@
   gap: var(--space-4);
   color: var(--grey);
   font-size: var(--text-small);
-}
-
-.note-queue-step {
-  flex: 1;
-  text-align: start;
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
 }
 
 .note-queue-rows {
@@ -38,6 +29,7 @@
   align-items: center;
   gap: var(--space-2);
   min-width: 0;
+  min-height: var(--space-5);
 }
 
 .note-queue-from {
@@ -51,26 +43,4 @@
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-}
-
-/* U3784: a taken note moves to the step line and fades, and the rows below close up in the same time; only transform and opacity animate. */
-.note-queue-row[data-state="taken"] {
-  transform: translateY(var(--glide-y, 0));
-  opacity: 0;
-  pointer-events: none;
-  transition: transform var(--duration-note) var(--ease-note), opacity var(--duration-note) var(--ease-note);
-}
-
-.note-queue-row[data-closing],
-.note-queue-head[data-closing] {
-  transform: translateY(var(--close-up, 0px));
-  transition: transform var(--duration-note) var(--ease-note);
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .note-queue-row[data-state="taken"],
-  .note-queue-row[data-closing],
-  .note-queue-head[data-closing] {
-    transition: none;
-  }
 }

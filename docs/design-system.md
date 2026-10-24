@@ -53,7 +53,6 @@ Starting values. The thresholds in the checks are fixed; a value that fails a th
 | `--easing-out` | `cubic-bezier(0.32, 0.72, 0, 1)` | same | every eased motion (`docs/motion.md`, U2579a) |
 | `--duration-drawer` | `180ms` | same | the Drawer's slide in and out (`docs/motion.md`, ~180 ms) |
 | `--duration-toast` | `150ms` | same | a Toast's enter and exit (`docs/motion.md`, ~150 ms, U414) |
-| `--duration-note` / `--ease-note` | `150ms` / `cubic-bezier(0.32, 0.72, 0, 1)` | same | a queued note's glide into the Agent's step (`docs/motion.md`, U3784) |
 | `--duration-todo` | `150ms` | same | the Todo fold and row slide (`docs/motion.md`, ~150 ms, U3010c) |
 | `--ease-todo` / `--ease-pop` | `cubic-bezier(0.22, 1, 0.36, 1)` / `cubic-bezier(0.34, 1.56, 0.64, 1)` | same | a finishing Todo's tick, strike, bar and count / the ring's overshoot (`docs/motion.md`, U3771) |
 | `--duration-tick` / `--delay-tick` | `420ms` / `160ms` | same | the tick draw (U3771) |
@@ -63,7 +62,6 @@ Starting values. The thresholds in the checks are fixed; a value that fails a th
 | `--duration-bar` / `--duration-count` | `1100ms` / `560ms` | same | the progress bar fill / the count roll (U3771) |
 | `--duration-crossfade` | `120ms` | same | a base interval (`docs/motion.md`, 120 ms); the working arc uses eight intervals (U446). U105 periphery dimming is retired |
 
-Nothing moves unless the user acted or an Agent took a note the user can see: a note glides into the step line only on `⌘⏎`, `×`, `Resume` or when the Agent takes it, never on mount, on selecting another Agent, on reopening the pane or while the queue is off screen (U3784).
 
 Type: `--font-ui` is `-apple-system, BlinkMacSystemFont, "SF Pro Text", system-ui, sans-serif`; `--font-mono` is `ui-monospace, "SF Mono", Menlo, monospace`. The steps are `--text-caption` 11, `--text-small` 12, `--text-body` 13, `--text-row` 14 (every Rail row's name), `--text-title` 15, `--text-pad-subheading` 20 and `--text-pad-heading` 24 px. Weight is 400, 500 or 600. Tracking is `0` at body and below, `-0.01em` at title (apple-design: tracking follows size).
 
@@ -170,9 +168,9 @@ Each check is measured from computed style and the DOM of the running App, never
 
 ## Text case
 
-Sentence case: the first word capitalised, the rest as in prose (`Take control`, `Send`, `No checkpoint yet`, `Clarifying: What is this Workstream for?`; a word after a colon is capitalised like a first word). A `GLOSSARY.md` term without an explicit user-label mapping keeps its capital inside a phrase (`Workstream`, `Agent`, `Pad`). Exempt: section heads, which stay in spaced capitals (#1097); names, ids, paths, code and text the user or an Agent wrote, as written (a Workstream named `workstream` stays lower case); Terminal text and Agents' output. An add button reads `+ ` then the term (`+ Workstream`), with no `new`. This replaces `docs/wireframes.md`'s lower-case click-target rule.
+Sentence case: the first word capitalised, the rest as in prose (`Start supervisor`, `Send`, `No checkpoint yet`, `Clarifying: What is this Workstream for?`; a word after a colon is capitalised like a first word). A `GLOSSARY.md` term without an explicit user-label mapping keeps its capital inside a phrase (`Workstream`, `Agent`, `Pad`). Exempt: section heads, which stay in spaced capitals (#1097); names, ids, paths, code and text the user or an Agent wrote, as written (a Workstream named `workstream` stays lower case); Terminal text and Agents' output. An add button reads `+ ` then the term (`+ Workstream`), with no `new`. This replaces `docs/wireframes.md`'s lower-case click-target rule.
 
-All App-authored text comes from `apps/desktop/src/copy.ts`, including accessible names, errors, statuses, hints, placeholders, tooltips, section heads and generated prose. Identifiers and RPC values keep code terms; App prose uses supervisor, control, work items and summary for Door, Takeover, Shelf and Handoff. Other domain terms retain their user spelling. One catalogue-wide case observer replaces per-folder case checks while preserving their interaction and authored-text assertions.
+All App-authored text comes from `apps/desktop/src/copy.ts`, including accessible names, errors, statuses, hints, placeholders, tooltips, section heads and generated prose. Identifiers and RPC values keep code terms; App prose uses supervisor, work items and summary for Door, Shelf and Handoff. Other domain terms retain their user spelling. One catalogue-wide case observer replaces per-folder case checks while preserving their interaction and authored-text assertions.
 
 ## Held-out screens
 
@@ -238,7 +236,7 @@ Scoped to Terminal Bubbles (U2742a–d, `scenarios/ui-bubble-panel.md`); other A
 | --- | --- |
 | Focus on one matter | Only a user-activated Bubble with focus inside has one centre-pane backdrop: `--scrim` dimming and `--blur-bubble-backdrop` (12px in both schemes). Foreground text, header and controls stay opaque and unfiltered. Return removes the backdrop in the same render; no transition or delay. A new unfocused Run neither dims nor steals focus. U2742a App behavior and paired rendered captures decide. |
 | Large enough to work; visibly temporary | Fresh unsaved rectangles use, on each axis, `size = min(paneExtent, max(existingMinimum, paneExtent - 192))`, `position = (paneExtent - size) / 2`. Nominal outer inset is 96 CSS px (three `--space-6` steps); retain the 24-column/6-row minimum and clamping. Preserve all saved rectangles and user-requested fill. U2742b rendered captures at 1512×950 and 1280×600 decide. |
-| The Agent is the main thing | Return focuses the same selected Agent emulator through `Screens`, without Rail selection change or a tab/header focus stop. Watch/Takeover permissions stay unchanged. U2742c/d App typing and Watch proofs decide. |
+| The Agent is the main thing | Return focuses the same selected Agent emulator through `Screens`, without Rail selection change or a tab/header focus stop. U2742c/d App typing proofs decide. |
 | One shortcut both ways | One non-repeated ⌘B switches Agent → last-used eligible Terminal → Agent; a terminal tab restores its own Terminal. No second action or animation completion. U2742c/d App browser tests decide. |
 | Temporary view, continuing work | Preserve Terminal identity, command, screen/scroll, draft input and saved rectangle; switching opens/closes nothing and writes no chord. Close stays destructive and separate. U2742c/d call and emulator assertions decide. |
 
