@@ -492,24 +492,35 @@ it("u3289a_order_form_stays_off_the_list_until_left", async () => {
   await vi.waitFor(async () => expect(await recoveryLabel()).toBe("Recover unfinished work (1)"));
 });
 
-it.each(["dismiss", "save", "unrelated removal", "item removal"] as const)("p3557c_failure_lifetime_order_drawer: %s", async transition => {
+it.each(["dismiss", "save", "unrelated removal", "item removal", "older acknowledgement"] as const)("p3557c_failure_lifetime_order_drawer: %s", async transition => {
   const app = createFakeApp();
   let nodes = [agent("a", "working", "editing", { name: "alpha", work: full }), agent("b", "working", "editing", { name: "beta", work: full })];
   app.handlers["rail.tree"] = () => nodes;
   app.handlers["agent.spawnPrompt"] = () => ({ prompt: "original" });
-  app.handlers["agent.setOrder"] = () => { throw new RpcError(-32003, "Save refused; try again"); };
+  const older = gate<ReturnType<typeof agent>>();
+  let saves = 0;
+  app.handlers["agent.setOrder"] = () => {
+    if (transition === "older acknowledgement" && saves++ === 0) return older.promise;
+    throw new RpcError(-32003, "Save refused; try again");
+  };
 
   const connected = await connectProject(app, { name: "p", path: "/p" }, () => true, () => 0);
   render(() => <ConnectedProjectContext.Provider value={connected}><OrderDrawer id="a" /></ConnectedProjectContext.Provider>);
   fireEvent.click(screen.getByRole("button", { name: "Edit order" }));
   const exact = "  Keep this\n草稿 📝  ";
-  fireEvent.input(screen.getByLabelText("Ask"), { target: { value: exact } });
+  fireEvent.input(screen.getByLabelText("Ask"), { target: { value: transition === "older acknowledgement" ? "  earlier submit\n" : exact } });
   const other = connected.drafts.edit({ surface: "orders", object: "b", recipient: "b" }, { ask: "  unrelated\n" }, null, "ordinary").draft;
   fireEvent.click(screen.getByRole("button", { name: "Save" }));
+
+  if (transition === "older acknowledgement") {
+    fireEvent.input(screen.getByLabelText("Ask"), { target: { value: exact } });
+    fireEvent.click(screen.getByRole("button", { name: "Save" }));
+  }
+
   await screen.findByText("Save refused; try again");
   const before = connected.drafts.list();
 
-  if (transition === "dismiss") fireEvent.click(screen.getByRole("button", { name: "Dismiss failure" }));
+  if (transition === "dismiss") fireEvent.click(screen.getByRole("button", { name: "Clear error" }));
 
   if (transition === "save") {
     const reply = gate<ReturnType<typeof agent>>();
@@ -521,16 +532,22 @@ it.each(["dismiss", "save", "unrelated removal", "item removal"] as const)("p355
     expect(app.calls.filter(call => call.method === "agent.setOrder").at(-1)?.params).toMatchObject({ id: "a", order: { ask: exact.trim() } });
   }
 
+  if (transition === "older acknowledgement") {
+    older.resolve(agent("a", "working", "editing", { name: "alpha", work: full }));
+    await waitFor(() => expect(connected.drafts.list().some(draft => draft.status === "pending")).toBe(false));
+  }
+
   if (transition.includes("removal")) {
     nodes = nodes.filter(node => node.id !== (transition === "item removal" ? "a" : "b"));
     await connected.rail.refresh();
   }
 
-  expect(screen.queryByText("Save refused; try again") !== null).toBe(transition === "unrelated removal");
+  expect(screen.queryByText("Save refused; try again") !== null).toBe(transition === "unrelated removal" || transition === "older acknowledgement");
   expect(connected.drafts.list().find(draft => draft.revision === other.revision)).toEqual(other);
 
   if (transition !== "save") {
-    expect(connected.drafts.list()).toEqual(before);
+    if (transition === "older acknowledgement") expect(connected.drafts.list().filter(draft => draft.status === "failed")).toEqual(before.filter(draft => draft.status === "failed"));
+    else expect(connected.drafts.list()).toEqual(before);
     expect(screen.getByLabelText<HTMLTextAreaElement>("Ask").value).toBe(exact);
   }
 });
@@ -546,7 +563,7 @@ it.each(["dismiss", "save", "item removal", "unrelated removal"] as const)("p355
   render(() => <ConnectedProjectContext.Provider value={connected}><OrderDrawer id="a" /></ConnectedProjectContext.Provider>);
   await screen.findByText("Prompt unavailable; reopen to retry");
 
-  if (transition === "dismiss") fireEvent.click(screen.getByRole("button", { name: "Dismiss failure" }));
+  if (transition === "dismiss") fireEvent.click(screen.getByRole("button", { name: "Clear error" }));
 
   if (transition === "save") {
     fireEvent.click(screen.getByRole("button", { name: "Edit order" }));
@@ -579,7 +596,7 @@ it.each(["dismiss", "save", "unrelated removal"] as const)("p3557c_failure_lifet
   fireEvent.click(screen.getByRole("button", { name: "Save" }));
   await screen.findByText("Save refused; try again");
 
-  if (transition !== "save") fireEvent.click(screen.getByRole("button", { name: "Dismiss failure" }));
+  if (transition !== "save") fireEvent.click(screen.getByRole("button", { name: "Clear error" }));
   else {
     app.handlers["agent.setOrder"] = () => agent("a", "working", "editing", { name: "alpha", work: full });
     fireEvent.click(screen.getByRole("button", { name: "Save" }));
@@ -614,7 +631,10 @@ it.each(["dismiss", "copy", "timer", "unrelated removal", "item removal", "sessi
 
   if (transition === "timer") vi.runAllTimers();
 
-  if (transition === "dismiss") fireEvent.click(screen.getByRole("button", { name: "Dismiss failure" }));
+  if (transition === "dismiss") {
+    fireEvent.click(screen.getByRole("button", { name: "Clear error" }));
+    expect(screen.queryByRole("status")).toBeNull();
+  }
 
   if (transition === "copy") {
     write.mockResolvedValue(undefined);

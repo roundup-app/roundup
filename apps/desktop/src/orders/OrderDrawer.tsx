@@ -41,9 +41,9 @@ const SessionId = (props: { id: string }) => {
       await navigator.clipboard.writeText(props.id);
       setFailure(null);
       setNote(copy.copied);
-    } catch {
-      setNote(null);
-      setFailure("The clipboard refused the copy. Try copying the session id again.");
+    } catch (error) {
+      setNote(copy.copyFailed);
+      setFailure(copy.copyDraftFailure(error instanceof Error ? error.message : String(error)));
     }
 
     clearTimeout(timer);
@@ -53,7 +53,7 @@ const SessionId = (props: { id: string }) => {
   return <>
     <button type="button" class="overview-id" aria-label={copy.copySessionId} aria-describedby={idText} onClick={() => void copyId()}>{note() ?? props.id}</button>
     <span id={idText} class="overview-id-note">{props.id}</span>
-    <ReservedLine message={failure()} status={note()}><Show when={failure()}><IconButton aria-label="Dismiss failure" onClick={() => setFailure(null)}><Icon name="x" /></IconButton></Show></ReservedLine>
+    <ReservedLine message={failure()} status={note()}><Show when={failure()}><IconButton aria-label={copy.clearName(copy.error.toLowerCase())} onClick={() => { setFailure(null); setNote(null); }}><Icon name="x" /></IconButton></Show></ReservedLine>
   </>;
 };
 
@@ -156,6 +156,8 @@ const OrderContent = (props: OrderInput) => {
 
   let form: HTMLFormElement | undefined;
   let disposed = false;
+  let saveSequence = 0;
+  let shownSequence = 0;
   onCleanup(() => { disposed = true; });
 
   const begin = () => {
@@ -213,6 +215,7 @@ const OrderContent = (props: OrderInput) => {
     const snapshot = drafts.submit(draft.revision);
 
     if (!snapshot) return;
+    const sequence = ++saveSequence;
     const fields = parsed.output;
     const next: WorkOrder = { kind: "work", ask: fields.ask.trim(), limits: captured.limits };
 
@@ -226,13 +229,22 @@ const OrderContent = (props: OrderInput) => {
       });
       drafts.settle(draft.revision, "acknowledged");
 
-      if (!disposed) dismiss();
+      if (!disposed) setPromptDismissed(true);
+
+      // A late reply settles its own revision without replacing newer save feedback.
+      if (!disposed && sequence >= shownSequence) {
+        shownSequence = sequence;
+        setFailure(null);
+      }
 
       if (!disposed && selected() === draft.revision) close();
     } catch (thrown) {
       drafts.settle(draft.revision, thrown instanceof RpcError && thrown.code !== INTERNAL_CODE ? "failed" : "unknown");
 
-      if (!disposed && node()) setFailure(thrown instanceof Error && thrown.message !== "" ? thrown.message : copy.theOrderCouldNotBeSaved);
+      if (!disposed && node() && sequence >= shownSequence) {
+        shownSequence = sequence;
+        setFailure(thrown instanceof Error && thrown.message !== "" ? thrown.message : copy.theOrderCouldNotBeSaved);
+      }
     }
   };
 
@@ -301,11 +313,11 @@ const OrderContent = (props: OrderInput) => {
         </label>
       }</For>
       <ReservedLine message={failure() ?? (!formValue().success ? copy.orderRestoreFailed : conflict() ? copy.orderChanged : retentionFailure()) ?? (!props.inline && order()?.kind === "work" ? promptFailure() : null)} status={selectedDraft() && selectedDraft()!.status !== "draft" ? copy.draftStatus[selectedDraft()!.status] : null}>
-        <Show when={failure() || (!props.inline && promptFailure())}><IconButton aria-label="Dismiss failure" onClick={dismiss}><Icon name="x" /></IconButton></Show>
+        <Show when={failure() || (!props.inline && promptFailure())}><IconButton aria-label={copy.clearName(copy.error.toLowerCase())} onClick={dismiss}><Icon name="x" /></IconButton></Show>
         <Show when={drafts.problem()}><button data-button="quiet" type="button" onClick={() => drafts.retry()}>{copy.storageRetry}</button></Show>
       </ReservedLine>
-      <Show when={recovery()}>
-        <div class="order-edit-actions">
+      <div class="order-edit-actions order-edit-recovery">
+        <Show when={recovery()}>
           <For each={["title", "ask", "done"]}>{(name) => <button data-button="quiet" type="button" onClick={() => void navigator.clipboard.writeText(String(selectedDraft()?.value[name] ?? "")).catch((error) => setFailure(copy.copyDraftFailure(error instanceof Error ? error.message : String(error))))}>{copy.copyField(name)}</button>}</For>
           <button data-button="quiet" type="button" onClick={() => {
             const draft = selectedDraft();
@@ -313,8 +325,8 @@ const OrderContent = (props: OrderInput) => {
             if (draft) drafts.discard(draft.revision);
             close();
           }}>{copy.discardRevision}</button>
-        </div>
-      </Show>
+        </Show>
+      </div>
       <div class="order-edit-actions">
         <Tip disabled={!saveBlocked()} text={conflict() ? copy.orderChanged : selectedDraft() ? copy.draftStatus[selectedDraft()!.status] : undefined}>{(trigger) =>
           <button {...trigger()} data-button="primary" type="submit" aria-disabled={saveBlocked()}>{copy.save}</button>
@@ -386,7 +398,7 @@ const OrderContent = (props: OrderInput) => {
       <ReservedLine message={!editing() ? retentionFailure() : null}>
         <button data-button="quiet" type="button" onClick={() => drafts.retry()}>{copy.storageRetry}</button>
       </ReservedLine>
-      <ReservedLine class="order-spawn-error" hidden={props.inline || editing()} message={!props.inline && order()?.kind === "work" ? promptFailure() : null}><IconButton aria-label="Dismiss failure" onClick={dismiss}><Icon name="x" /></IconButton></ReservedLine>
+      <ReservedLine class="order-spawn-error" hidden={props.inline || editing()} message={!props.inline && order()?.kind === "work" ? promptFailure() : null}><IconButton aria-label={copy.clearName(copy.error.toLowerCase())} onClick={dismiss}><Icon name="x" /></IconButton></ReservedLine>
     </section>
   );
 };

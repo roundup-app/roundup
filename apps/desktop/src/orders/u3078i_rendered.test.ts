@@ -151,7 +151,7 @@ it.skipIf(!lifetimeArt)("p3557c_rendered_order_and_progress_failure_lifetime", {
   await step("order-failure");
 
   if (!lifetimeBase) {
-    await evaluate(`(() => { [...document.querySelectorAll('.order-edit button')].find(b => b.getAttribute('aria-label') === 'Dismiss failure').click(); return true; })()`);
+    await evaluate(`(() => { [...document.querySelectorAll('.order-edit button')].find(b => b.getAttribute('aria-label') === 'Clear error').click(); return true; })()`);
     await browser("wait", "--fn", "!document.querySelector('.order-edit [role=alert]')");
     await step("order-dismissed");
   }
@@ -161,7 +161,7 @@ it.skipIf(!lifetimeArt)("p3557c_rendered_order_and_progress_failure_lifetime", {
   await step("progress-failure");
 
   if (!lifetimeBase) {
-    await evaluate(`(() => { [...document.querySelectorAll('.progress-row[data-report="r-login"] button')].find(b => b.getAttribute('aria-label') === 'Dismiss failure').click(); return true; })()`);
+    await evaluate(`(() => { [...document.querySelectorAll('.progress-row[data-report="r-login"] button')].find(b => b.getAttribute('aria-label') === 'Clear error').click(); return true; })()`);
     await browser("wait", "--fn", "!document.querySelector('.progress-row [role=alert]')");
     await step("progress-dismissed");
   }
