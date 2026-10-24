@@ -80,6 +80,8 @@ STRIKE_CAUSE_CAP = 200
 PLUMBING = ('conflict', 'rules')
 PLUMBING_STEPS = re.compile(r'rules\.sh (?:base|ci-trailers|scenario-ids)\b')
 PLUMBING_RUNS = 6
+# L82: conflict fix runs on one PR since it opened or was last reopened; the next conflict closes the PR and its Issue is rebuilt.
+CONFLICT_RUNS = 3
 # L82, L120: a `rules` failure whose only failed step is this one is a merge that kept a stale side of a file.
 MERGE_LOSS_STEP = re.compile(r'rules\.sh merge-loss\b')
 # L82: the paths a fix run's script regenerates instead of a model resolving them, and the command that regenerates them
@@ -950,10 +952,10 @@ def rules_failed_only(current, steps):
         all(steps.search(name) for name in bad)
 
 
-def plumbing_runs(pr, opened, run_id):
-    """How many fix runs other than `run_id` answered a PLUMBING cause on PR `pr` since `opened`, read from Actions
-    history: a run counts once its `fix-run` model job started."""
-    title = re.compile(rf"Fix PR #{pr}: (?:{'|'.join(PLUMBING)})\Z")
+def plumbing_runs(pr, opened, run_id, causes=PLUMBING):
+    """How many fix runs other than `run_id` answered one of `causes` on PR `pr` since `opened`, read from Actions
+    history: a run counts once its `fix-run` job started."""
+    title = re.compile(rf"Fix PR #{pr}: (?:{'|'.join(causes)})\Z")
     runs = [run for page in orders.gh('api', f'repos/{{owner}}/{{repo}}/actions/workflows/fix.yml/runs?created=%3E%3D{opened}&per_page=100',
                                       '--paginate', '--slurp')
             for run in page['workflow_runs'] if run['id'] != run_id and title.match(run['display_title'])]
@@ -1082,6 +1084,11 @@ def fix_task(pr, head, cause, run_id=0, output=None):
         return None
     if cause in ('check', 'rules') and cause not in failed(current):
         # A newer run on this head superseded the failure, or is still going and will decide.
+        return None
+    if cause == 'conflict' and plumbing_runs(pr, time.strftime('%Y-%m-%dT%H:%M:%SZ', time.gmtime(
+            max(orders.created(current['createdAt']), restarted(pr)))), run_id, ('conflict',)) >= CONFLICT_RUNS:
+        # The conflict keeps coming back: a fresh build from main costs less than a fourth merge. Its Issue stays open.
+        call('pr', 'close', str(pr), '--comment', f'Rebuilt fresh from main after {CONFLICT_RUNS} conflict fixes.', '--delete-branch')
         return None
     plumbing = cause in PLUMBING and (cause == 'conflict' or rules_failed_only(current, PLUMBING_STEPS)) and \
         plumbing_runs(pr, current['createdAt'], run_id) < PLUMBING_RUNS
