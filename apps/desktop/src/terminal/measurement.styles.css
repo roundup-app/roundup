@@ -165,7 +165,7 @@
 .measurement-stack {
   display: flex;
   height: var(--space-3);
-  gap: 1px;
+  gap: 0;
 }
 
 .measurement-segment {
