@@ -60,7 +60,7 @@ const SessionId = (props: { id: string }) => {
   return <>
     <button type="button" class="overview-id" aria-label={copy.copySessionId} aria-describedby={idText} onClick={() => void copyId()}>{note() ?? props.id}</button>
     <span id={idText} class="overview-id-note">{props.id}</span>
-    <ReservedLine status={note()} class="overview-id-note" /><ReservedLine message={failure()} />
+    <ReservedLine status={note()} class="overview-id-note" /><Show when={failure()}>{message => <ReservedLine message={message()} />}</Show>
   </>;
 };
 

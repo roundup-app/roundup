@@ -1,4 +1,3 @@
-import { ReservedLine } from "../ink/ReservedLine";
 import { writeText } from "../app/clipboard";
 import { createEffect, createSignal, onCleanup, Show, type JSX } from "solid-js";
 import type { ToolCall } from "@contracts/agent/ToolCall";
@@ -24,7 +23,6 @@ const elapsed = (ms: number): string => {
 const Payload = (props: { label: string; text: string | undefined }): JSX.Element => {
   const { app } = useConnectedProject();
   const [state, setState] = createSignal<"idle" | "copied" | "failed">("idle");
-  const [failure, setFailure] = createSignal<string | null>(null);
   let timer: ReturnType<typeof setTimeout> | undefined;
 
   onCleanup(() => clearTimeout(timer));
@@ -33,12 +31,10 @@ const Payload = (props: { label: string; text: string | undefined }): JSX.Elemen
     try {
       await writeText(app, text);
       setState("copied");
-      setFailure(null);
     } catch (error) {
       if (!(error instanceof Error)) throw error;
 
       setState("failed");
-      setFailure(copy.copyDraftFailure(error.message));
     }
 
     clearTimeout(timer);
@@ -52,7 +48,6 @@ const Payload = (props: { label: string; text: string | undefined }): JSX.Elemen
         <button type="button" data-button="quiet" class="call-copy" onClick={() => void write(props.text!)}>{state() === "copied" ? copy.toolCallCopied : state() === "failed" ? copy.toolCallCopyFailed : copy.toolCallCopy}</button>
       </Show>
     </header>
-    <ReservedLine message={failure()} />
     <Show when={props.text !== undefined} fallback={<p class="call-none">{copy.toolCallNoResult}</p>}><pre class="call-text">{props.text}</pre></Show>
   </section>;
 };
