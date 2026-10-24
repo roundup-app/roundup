@@ -1,3 +1,25 @@
+diff --git a/dist/journal.js b/dist/journal.js
+index cf3e14eddf315c02ae01dfaddb4e17ea2007da08..550e03f835956d8348111b6360778434b0f8511c 100644
+--- a/dist/journal.js
++++ b/dist/journal.js
+@@ -14,7 +14,7 @@ import { generateId } from "./helpers.js";
+ * the total `JSON.stringify(journal.getAll())` output stays well under V8's
+ * ~512 MB string limit even at maximum capacity.
+ */
+-const JOURNAL_BODY_CAP_BYTES = 64 * 1024;
++const JOURNAL_BODY_CAP_BYTES = 256 * 1024;
+ /**
+ * If `body` serializes to more than JOURNAL_BODY_CAP_BYTES (in UTF-8 bytes),
+ * replace it with a truncation marker. Returns the original body when within
+@@ -32,7 +32,7 @@ function capBody(body) {
+ 	return {
+ 		__aimock_truncated: true,
+ 		originalByteSize: Buffer.byteLength(serialized, "utf8"),
+-		note: "body truncated by aimock journal cap (64 KB limit)"
++		note: "body truncated by aimock journal cap (256 KB limit)"
+ 	};
+ }
+ /**
 diff --git a/dist/messages.js b/dist/messages.js
 index a91bfd15fce0aaba349bd67cc56d5927120247f5..e1168af80d92f2c051337f59f74b80d8ead22d4a 100644
 --- a/dist/messages.js
