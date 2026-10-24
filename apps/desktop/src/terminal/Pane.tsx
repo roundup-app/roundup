@@ -114,7 +114,7 @@ export const Pane = (props: { notice?: string | null; createEmulator?: EmulatorF
 
   const terminalId = createMemo(() => selected()?.terminal_id ?? null);
   /** U38: a failure that fills this region shows in its place, never beside its empty line. */
-  const notice = createMemo(() => props.notice ?? storageFailure() ?? takeFailure() ?? rail.doorFailure(selected()?.id ?? "") ?? screens.failure(terminalId()));
+  const notice = createMemo(() => props.notice ?? storageFailure() ?? takeFailure() ?? rail.doorFailure(selected()?.id ?? "") ?? (screens.viewedInBubble(terminalId() ?? "") ? null : screens.failure(terminalId())));
   const [screen, setScreen] = createSignal<HTMLDivElement>();
   let pendingFrame: number | null = null;
 
@@ -271,7 +271,7 @@ export const Pane = (props: { notice?: string | null; createEmulator?: EmulatorF
 
     const id = terminalId();
 
-    return rail.doorFailure(selected()?.id ?? "") === null && id !== null && screens.failure(id) !== null ? () => screens.dismiss(id) : null;
+    return rail.doorFailure(selected()?.id ?? "") === null && id !== null && !screens.viewedInBubble(id) && screens.failure(id) !== null ? () => screens.dismiss(id) : null;
   };
 
   const decision = createMemo(() => connected.decisions.of(selected()?.id ?? null));

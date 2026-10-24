@@ -38,3 +38,14 @@ it.each(["read", "write", "save"])("u3560d_clipboard_failure_preserves_input_%s"
   else container.querySelector('[data-terminal="t-a"]')!.dispatchEvent(new KeyboardEvent("keydown", { bubbles: true, cancelable: true, key: "c", metaKey: true }));
   await vi.waitFor(() => expect(screen.queryByRole("alert")).toBeNull());
 });
+
+it("u3560d_a_terminal_in_an_open_bubble_shows_its_failure_there_and_not_in_the_pane", async () => {
+  const { connected, container, screens } = await mountPane([terminal("a")], [info("t-a")]);
+  connected.rail.select("a");
+  pasteEvent(container.querySelector("[data-terminal]")!, "", [], new RpcError(-32603, "pasteboard disconnected"));
+  await screen.findByRole("alert");
+  screens().viewing("t-a", true);
+  await vi.waitFor(() => expect(screen.queryByRole("alert")).toBeNull());
+  screens().viewing("t-a", false);
+  expect((await screen.findByRole("alert")).textContent).toContain("pasteboard disconnected");
+});
