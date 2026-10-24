@@ -9,6 +9,7 @@ use std::os::unix::fs::PermissionsExt;
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex, PoisonError};
 
+use super::vendor_list::Sidecar;
 use rpc::{OpenError, RpcError, code};
 use serde_json::{Map, Value, json};
 use tokio::sync::OnceCell;
@@ -65,6 +66,10 @@ pub struct Launcher {
     /// Claude Code's own config file, where it remembers which folders are trusted.
     claude_json: PathBuf,
     pub(super) conversation_dir: PathBuf,
+    /// U3523f: the bundled Node sidecar Import lists through.
+    pub(super) sidecar: Option<Sidecar>,
+    /// Counts started listings; a newer one supersedes the one running (U3523a).
+    pub(super) listings: Arc<tokio::sync::watch::Sender<u64>>,
     /// U3016h: the vendor's account usage endpoint when not its own, and the last answer.
     usage_url: Option<String>,
     usage: super::usage::Cache,
@@ -164,6 +169,8 @@ impl Launcher {
         };
         Self {
             conversation_dir,
+            sidecar: None,
+            listings: Arc::new(tokio::sync::watch::channel(0).0),
             usage_url: None,
             usage: super::usage::Cache::default(),
             #[cfg(any(test, feature = "test-support"))]
@@ -230,6 +237,7 @@ impl Launcher {
         .into_iter()
         .filter(|name| var(name).is_some())
         .collect();
+        launcher.sidecar = Sidecar::beside(exe, var("ROUNDUP_SIDECAR_DIR"));
         launcher.usage_url =
             var("ROUNDUP_CLAUDE_USAGE_URL").map(|url| url.to_string_lossy().into_owned());
         Ok(launcher)
