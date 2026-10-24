@@ -79,6 +79,8 @@ pub struct Daemon {
     project: std::path::PathBuf,
     /// LK1: the Project's key, the name of its data folder (`data::project_data`).
     project_key: String,
+    /// R16: the `daemon.ping` reply, written once: it holds every method name and nothing in it changes.
+    ping: std::sync::OnceLock<String>,
     touches: Arc<Touches>,
     /// B19: which Pads each Door's earlier digests already named.
     digests: Arc<messages::digest::Seen>,

@@ -29,6 +29,16 @@ impl Daemon {
                 .into(),
             );
         };
+        self.dispatch_parsed(conn, request, actor).await
+    }
+
+    /// `dispatch` for a line the caller already parsed.
+    pub(crate) async fn dispatch_parsed(
+        &self,
+        conn: &mut Conn,
+        request: Value,
+        actor: Option<Actor>,
+    ) -> Option<Frame> {
         let id = request.get("id").cloned();
         let method = request["method"].as_str().unwrap_or_default();
         let params = request.get("params").cloned().unwrap_or(Value::Null);
@@ -69,7 +79,9 @@ impl Daemon {
         {
             conn.actor = actor.unwrap_or_else(|| self.action_actor(conn));
         }
-        let outcome = if matches!(method, "rail.tree" | "rail.list") {
+        let outcome = if method == "daemon.ping" {
+            Ok(rpc::Reply::Json(builtin::ping_json(self)))
+        } else if matches!(method, "rail.tree" | "rail.list") {
             self.rail_reply(conn).await
         } else {
             self.route(conn, method, params)

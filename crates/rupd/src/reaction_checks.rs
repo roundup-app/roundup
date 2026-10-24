@@ -370,6 +370,7 @@ mod tests {
             bus: bus.clone(),
             project: dir.to_path_buf(),
             project_key: String::new(),
+            ping: Default::default(),
             touches: touches.clone(),
             digests: Default::default(),
             pushes: Default::default(),

@@ -16,13 +16,7 @@ pub(crate) fn call(
     args: &Value,
 ) -> Option<Result<Value, RpcError>> {
     Some(match (namespace, method) {
-        (_, "daemon.ping") => Ok(json!({
-            "pong": true,
-            "pid": std::process::id(),
-            "project": daemon.project,
-            "projectKey": daemon.project_key,
-            "contract": { "fingerprint": methods::fingerprint(), "methods": methods::method_names() },
-        })),
+        (_, "daemon.ping") => Ok(ping(daemon)),
         (_, "daemon.identify") => params::<IdentifyParams>(args.clone()).map(|p| {
             conn.actor = p.actor;
             Value::Null
@@ -42,6 +36,22 @@ pub(crate) fn call(
         ("daemon" | "events" | "provenance", _) => Err(RpcError::method_not_found(method)),
         _ => return None,
     })
+}
+
+fn ping(daemon: &Daemon) -> Value {
+    json!({
+        "pong": true,
+        "pid": std::process::id(),
+        "project": daemon.project,
+        "projectKey": daemon.project_key,
+        "contract": { "fingerprint": methods::fingerprint(), "methods": methods::method_names() },
+    })
+}
+
+/// The `daemon.ping` result as JSON text, built on the first call: the Contract's method list is
+/// long, so building and writing it on every ping is most of a ping's cost.
+pub(crate) fn ping_json(daemon: &Daemon) -> String {
+    daemon.ping.get_or_init(|| ping(daemon).to_string()).clone()
 }
 
 /// D11: a bad `after` fails here, before any Event is sent.
