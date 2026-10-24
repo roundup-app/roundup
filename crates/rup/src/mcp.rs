@@ -382,10 +382,6 @@ fn offered_tools() -> Vec<Offered> {
             "message.list",
             "List the Messages you sent or received, newest last.",
         ),
-        offered::<message::MessageId>(
-            "message.pass",
-            "Pass a question sent to you on to the next Door above, at once.",
-        ),
         offered::<todo::MoveParams>(
             "todo.move",
             "Move a Todo into a Workstream, or out of every Workstream with a null `home`.",
