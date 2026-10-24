@@ -113,6 +113,8 @@ it("dv5_open_failure_preserves_catalogue_selection_and_refuses_removed_or_revoke
   render(() => <ConnectedProjectContext.Provider value={connected}><AskBar /></ConnectedProjectContext.Provider>);
   const made = await screen.findByRole("region", { name: "Made" });
   const linkButton = await within(made).findByRole("button", { name: new RegExp(`^Open Failure link ·`) });
+  // P3557c: a failure belongs to its record, so each row is read on its own.
+  const rowOf = (button: HTMLElement) => button.closest("li")!;
   const count = within(made).getAllByRole("listitem").length;
   linkButton.focus();
   fireEvent.click(linkButton);
@@ -127,7 +129,7 @@ it("dv5_open_failure_preserves_catalogue_selection_and_refuses_removed_or_revoke
   refusal = "native opener refused";
   fireEvent.click(padButton);
   await waitFor(() => expect(made.getAttribute("aria-busy")).toBe("false"));
-  expect(within(made).getByRole("alert").textContent).toContain(refusal);
+  expect(within(rowOf(padButton)).getByRole("alert").textContent).toContain(refusal);
   expect(opened).toHaveLength(2);
   const cached = opened[1]!;
   expect(cached.kind).toBe("path");
@@ -136,7 +138,7 @@ it("dv5_open_failure_preserves_catalogue_selection_and_refuses_removed_or_revoke
   fireEvent.click(padButton);
   await waitFor(() => expect(made.getAttribute("aria-busy")).toBe("false"));
   expect(opened).toHaveLength(2);
-  expect(within(made).getByRole("alert")).toBeDefined();
+  expect(within(rowOf(padButton)).getByRole("alert")).toBeDefined();
   expect(within(made).getAllByRole("listitem")).toHaveLength(count);
 
   const fileButton = within(made).getByRole("button", { name: new RegExp(`^Open Cached file ·`) });
@@ -155,7 +157,7 @@ it("dv5_open_failure_preserves_catalogue_selection_and_refuses_removed_or_revoke
   fireEvent.click(linkButton);
   await waitFor(() => expect(made.getAttribute("aria-busy")).toBe("false"));
   expect(opened).toHaveLength(3);
-  expect(within(made).getByRole("alert")).toBeDefined();
+  expect(within(rowOf(linkButton)).getByRole("alert")).toBeDefined();
   expect(linkButton.getAttribute("aria-current")).toBe("true");
   expect(within(made).getAllByRole("listitem")).toHaveLength(count);
   expect(connected.rail.selected()).toBeNull();
@@ -166,7 +168,7 @@ it("dv5_open_failure_preserves_catalogue_selection_and_refuses_removed_or_revoke
   fireEvent.click(padButton);
   await waitFor(() => expect(made.getAttribute("aria-busy")).toBe("false"));
   expect(opened).toHaveLength(3);
-  expect(within(made).getByRole("alert")).toBeDefined();
+  expect(within(rowOf(padButton)).getByRole("alert")).toBeDefined();
   unsafe.mockRestore();
   const rpc = app.rpc;
   app.rpc = (method, params) => method === "deliverable.list" ? Promise.reject(new Error("catalogue connection interrupted")) : rpc(method, params);
