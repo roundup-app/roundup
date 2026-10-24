@@ -1,6 +1,6 @@
 import ChevronUp from "lucide-solid/icons/chevron-up";
 import type { JSX } from "solid-js";
-import { createMemo, createSignal, For, onCleanup, onMount, Show, untrack } from "solid-js";
+import { createEffect, createMemo, createSignal, For, on, onCleanup, Show, untrack } from "solid-js";
 import type { Todo } from "@contracts/todo/Todo";
 import { IconButton } from "../ui/IconButton";
 import { Tip } from "../ui/Tip";
@@ -17,7 +17,7 @@ import { useConnectedProject } from "../state/connectedProject";
 import { HomeMove } from "./HomeMove";
 import { TickBox } from "./TickBox";
 import { RowButton } from "./RowButton";
-import { failureOf } from "./failureOf";
+import { doesClearTodoFailure, failureOf } from "./failureOf";
 import { homeNameOf } from "./homes";
 import { kindOf, openBlockersOf } from "./todoView";
 
@@ -94,20 +94,23 @@ export const OpenRow = (props: {
   const failure = createMemo(() => moveFailure() ?? actionFailure());
 
   const toggle = async () => {
+    const id = props.todo.id;
     const message = await props.onToggle(props.todo);
 
-    setFailure(message);
+    if (id !== props.todo.id) return message;
+
+    if (message === null) clearFailure();
+    else setFailure(message);
 
     return message;
   };
 
-  // Matches U9's rule: a failure clears on the next click anywhere, not only inside its own row.
-  onMount(() => {
-    const clear = () => setFailure(null);
+  const clearFailure = () => { setFailure(null); setMoveFailure(null); };
 
-    document.addEventListener("click", clear);
-    onCleanup(() => document.removeEventListener("click", clear));
-  });
+  createEffect(on(() => props.todo.id, clearFailure));
+  onCleanup(connected.events.subscribe(event => {
+    if (doesClearTodoFailure(event, props.todo.id)) clearFailure();
+  }));
 
   onCleanup(() => {
     props.registerRow?.(props.todo.id, null);
@@ -115,8 +118,12 @@ export const OpenRow = (props: {
     sorted?.button(null);
   });
 
-  sorted?.fail(setMoveFailure);
-  props.failWith?.(setFailure);
+  const reportMove = (message: string | null) => { if (message === null) clearFailure(); else setMoveFailure(message); };
+
+  const reportAction = (message: string | null) => { if (message === null) clearFailure(); else setFailure(message); };
+
+  sorted?.fail(reportMove);
+  props.failWith?.(reportAction);
 
   const titleCut = createCutTitle(() => props.todo.title);
 
@@ -132,7 +139,7 @@ export const OpenRow = (props: {
           onClick={(event) => props.onPick ? props.onPick(props.todo, event) : props.onOpen(props.todo, activationSource(event))}
           reorderable={sorted !== undefined}
           nest={props.nest ? (out) => (out ? props.nest?.out : props.nest?.in) ?? null : undefined}
-          onNest={async (run) => setMoveFailure(await run())}
+          onNest={async (run) => reportMove(await run())}
           onKeyDown={(event) => {
             props.onSelectionKey?.(props.todo, event);
 
@@ -166,7 +173,7 @@ export const OpenRow = (props: {
             choose={async (home) => {
               const message = await failureOf(() => connected.app.rpc("todo.move", { id: props.todo.id, home }));
 
-              setFailure(message);
+              reportAction(message);
 
               return message;
             }}
@@ -214,7 +221,7 @@ export const OpenRow = (props: {
         <p class="item-description" data-todo-description title={bodyLine()}>{bodyLine()}</p>
       </Show>
       {props.groupProgress}
-      <div class="todo-row-notice"><ReservedLine overlay message={failure()} /></div>
+      <div class="todo-row-notice"><ReservedLine overlay message={failure()}><button data-button="quiet" class="word" type="button" data-dismiss-failure onMouseDown={event => event.preventDefault()} onClick={clearFailure}>{copy.dismissFailure}</button></ReservedLine></div>
       <Show when={props.nested}>
         <p class="shelf-meta" data-todo-meta>
           <Show when={props.nested}><span data-mono>{copy.todoNumberMark}{props.todo.id}</span>{" "}</Show>
