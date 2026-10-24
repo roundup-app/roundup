@@ -1,12 +1,11 @@
 // fallow-ignore-file duplicate-export -- Clock sleeps for the frame driver; state/clock’s Clock reads time. Neither is barrel-exported.
-import type { AppSeam } from "../app/seam";
+import type { App, AppSeam } from "../app/seam";
 import { toBase64 } from "../terminal/base64";
 import { createXtermEmulators } from "../terminal/emulator";
-import type { Emulator } from "../terminal/emulator";
 import { recordFrames } from "./frames";
 import type { FrameReport } from "./frames";
 import type { NativeDragReport } from "./nativeDragProbe";
-import { READY, SETUP_BOUND_MS, appears, sleep, timerResolutionMs } from "./run";
+import { READY, SETUP_BOUND_MS, appears, reportTerminal, sleep, timerResolutionMs } from "./run";
 
 /** `docs/motion.md`, **Native performance protocol**: every 2 s one cycle of the workload, over the 60 s sample. */
 const CYCLE_MS = 2000;
@@ -266,38 +265,6 @@ const prepare = async (app: AppSeam, workload: string, cwd: string): Promise<(in
 };
 
 /**
- * The report goes through the Terminal whose program printed `READY`, never the last one the page created: the workstream's `claude` Terminal
- * also gets an emulator, and a report written into it never reaches the runner reading the shell's output.
- */
-export const reportTerminal = <E extends Pick<Emulator, "write">>(create: (id: string) => E) => {
-  let target: string | null = null;
-  let announce: () => void = () => {};
-
-  const printed = new Promise<void>((resolve) => (announce = resolve));
-
-  return {
-    printed,
-    target: () => target,
-    createEmulator: (id: string): E => {
-      const emulator = create(id);
-
-      return {
-        ...emulator,
-        write: (bytes, parsed) =>
-          emulator.write(bytes, () => {
-            if (target === null && new TextDecoder().decode(bytes).includes(READY)) {
-              target = id;
-              announce();
-            }
-
-            parsed?.();
-          }),
-      };
-    },
-  };
-};
-
-/**
  * The frame run of `scenarios/ui-motion.md` U3010e: in a build made with `VITE_ROUNDUP_PERF` and `VITE_ROUNDUP_PERF_WORKLOAD`,
  * `start` opens a Terminal, records the workload's frame intervals and writes one `FRAMES <json>` line through that Terminal.
  */
@@ -350,6 +317,7 @@ export const createFrameRun = (app: AppSeam, workload: string, cwd: string) => {
   };
 
   return {
+    traced: (real: App): App => real,
     createEmulator: terminal.createEmulator,
     start: async () => {
       try {

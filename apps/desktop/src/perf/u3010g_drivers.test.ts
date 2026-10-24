@@ -1,7 +1,8 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { buildReport } from "./frames";
-import { bounded, createHomed, everyTwoSeconds, glyphsCycle, layersCycle, reportTerminal, todosCycle, writeInChunks } from "./frame_run";
+import { bounded, createHomed, everyTwoSeconds, glyphsCycle, layersCycle, todosCycle, writeInChunks } from "./frame_run";
 import type { Layers, Todos } from "./frame_run";
+import { reportTerminal } from "./run";
 import type { AppSeam } from "../app/seam";
 
 const clock = { sleep: (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms)) };

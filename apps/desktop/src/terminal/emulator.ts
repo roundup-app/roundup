@@ -127,6 +127,10 @@ export const xtermOptions: ITerminalOptions = {
 
 /** What the keystroke run (`scenarios/perf.md` K1 to K3) watches: each chunk the emulator has parsed, each render, and which renderer drew. A build without the run passes none. */
 export type EchoProbe = {
+  /** xterm's `onData` fired: the key became bytes to send. */
+  input(): void;
+  /** Output bytes reached the emulator, before they are parsed. */
+  arrived(bytes: Uint8Array): void;
   written(bytes: Uint8Array): void;
   rendered(): void;
   renderer(webgl: boolean): void;
@@ -355,10 +359,14 @@ export const createXtermEmulators = (
 
     return {
       ready,
-      write: (bytes, parsed) => terminal.write(bytes, () => {
-        probe?.written(bytes);
-        parsed?.();
-      }),
+      write: (bytes, parsed) => {
+        probe?.arrived(bytes);
+
+        terminal.write(bytes, () => {
+          probe?.written(bytes);
+          parsed?.();
+        });
+      },
       setSize: ({ cols, rows }) => {
         if (opened && loadedWebgl && (terminal.cols !== cols || terminal.rows !== rows)) {
           loadedWebgl.dispose();
@@ -376,7 +384,10 @@ export const createXtermEmulators = (
       },
       reset: () => terminal.write("\x1bc"),
       onInput: (listener) => {
-        terminal.onData((text) => listener(encoder.encode(text)));
+        terminal.onData((text) => {
+          probe?.input();
+          listener(encoder.encode(text));
+        });
         terminal.onBinary((text) => listener(Uint8Array.from(text, (char) => char.charCodeAt(0))));
       },
       onLink: (listener) => {
