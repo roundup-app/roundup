@@ -12,7 +12,7 @@ Accepted implementation target: U3010a–d in `scenarios/ui-motion.md`, commissi
 | M4 | Pointer App-rendered menu/popover: trigger-corner scale 0.96→1 and opacity 0→1, 150 ms enter, 100 ms exit | U3010b rendered placement/exit; Ark focus/action test |
 | M5 | Pointer/incoming reorder, nest, add/remove: Motion layout, 200 ms; no height keyframes | U3010c measured Solid layout probe and source review |
 | M6 | Dragging: accent outline on lifted row, dashed landing slot, other rows stationary; committed drop uses M5 | U3010c rendered drag; #3540 owns shared drag behavior |
-| M7 | Acknowledged pointer Todo completion: tick draws, row starts folding at acknowledgement +300 ms through M5; data/count changes immediately | U3010c fake-clock lifetime and rendered tick/fold |
+| M7 | Acknowledged non-key Todo completion: tick draws, row starts folding at acknowledgement +300 ms through M5; data/count changes immediately | U3010c fake-clock lifetime and rendered tick/fold |
 | M8 | Clipboard success: activated control's label “Copied” for 1.5 s, through one helper; rejection shows failure line | U3010c fake clipboard/clock and every rendered caller |
 | M9 | Kind change: 150 ms glyph crossfade; only working rotates at rest | U3010c rendered Kind transitions; P3 attention regression |
 | M10 | One live preference source, no `!important`: all movement becomes 150 ms opacity fade, final geometry/focus next frame; no loop/replay; M1 still instant | U3010b/d live switch, rendered reduced variants and source review |
@@ -38,9 +38,9 @@ Key source always overrides the preset to instant. Under reduced motion every no
 | Toast / expiry or dismissal | Feedback / sink and fade | Existing 150 ms exit Token/easing; transform/opacity | Existing timer pauses on hover/focus/hidden window; keyboard dismissal immediate | U3791/U3793; U3010a/d |
 | Toast time bar / visible timer | Time left / drain | Existing 5 s notice, 10 s failure, linear; transform | Pause with timer; reduced motion settles bar/fades instead of draining | U3790/U3791 amended by U3010d M10 |
 | Permission Card / answer | Result / fade to line | Existing 150 ms fold Token; opacity | Existing identity/focus/acknowledgement; key immediate | U3795; U3010a/d |
-| Todo / pointer or incoming add/remove, done fold, nest, committed reorder | Structural continuity / layout | Motion `animateLayout`, 200 ms; transform/opacity | Authoritative layout committed once; retarget displayed projection; removed content inert | U3010c M5; U53/U156 amended |
+| App rows (including Todo) / pointer or incoming add/remove, done fold, nest, committed reorder | Structural continuity / layout | Motion `animateLayout`, 200 ms; transform/opacity | Authoritative layout committed once; retarget displayed projection; removed content inert | U3010c M5; U53/U156 amended |
 | Todo / keyboard mutation or list move | Immediate access / none | 0 | Final order/focus identity next frame; no retirement hold | U3010b/c M1 |
-| Todo / acknowledged pointer completion | Feedback / tick then retirement | Tick revealed with transform/opacity during 300 ms hold; M5 fold follows | No animation before acknowledgement; refusal keeps row/cause; no replay on mount/switch | U3010c M7; U3770/U3771 amended |
+| Todo / acknowledged non-key completion | Feedback / tick then retirement | Tick revealed with transform/opacity during 300 ms hold; M5 fold follows | No animation before acknowledgement; refusal keeps row/cause; no replay on mount/switch | U3010c M7; U3770/U3771 amended |
 | Inbox row / pointer or incoming expand/collapse/arrival/fold/group move | Structural continuity / layout and fade | Motion layout 200 ms; transform/opacity | Retarget projection; no height keyframes; folded content inert | U3770e amended; U3010c M5 |
 | Order context parts/list / change | No accepted independent effect | Instant; remove width/opacity transitions | Data updates at once | U3010a M11 |
 | Todo comment / arrival | No accepted independent entrance | Instant; delete `todo-comment-in` | Existing comment identity and scroll ownership | U3010a M11 |
