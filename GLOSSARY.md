@@ -190,6 +190,12 @@ One launch of an Agent's program, numbered per Agent from `1` in launch order (A
 **Status revision**:
 The strictly increasing ordinal of published Status transitions within one Attempt, `1` at Starting. A canonical positive decimal string on the wire; absent after reopen. Never stands in for an Attempt or Terminal liveness.
 
+**Finish count** (`Status.finished`):
+The Agent's published finishes: a canonical nonnegative decimal string that rises once per direct `working` to `idle` or `done` Status transition, across Attempts and reopen (U3566c). It says a turn ended, not that its result was accepted.
+
+**Unseen** (`unseen`, `UnseenState`; user label: Unread result):
+An Agent whose finish count is above the count the user has read, kept by the App per original Project and Agent. Opening the Agent, or displaying its pane in the visible, focused, active Project, reads it. A folded Workstream and a Project tab show it when any Agent below or in them is unseen. Never Terminal unseen output (U3704) and never counted by the Dock badge.
+
 **Resume** (`ResumeParams`, `ResumeMode`):
 Starting an Agent's next Attempt in its saved conversation; an explicit mode first stops a running Attempt. Omitted mode resumes only an exited Agent with normal prompts.
 
@@ -201,6 +207,9 @@ Available display parts from a closed Agent's saved conversation: coding program
 
 **Import** (`project.importDiscover`, `project.importCommit`, `ImportPeriod`, `ImportCandidate`, `ImportSelection`, `ImportResult`):
 The user's act of bringing recent top-level Claude Code conversations of the open Project into the Rail as closed work: one Workstream with one closed child Agent each, holding a retained copy of the conversation and no Attempt, Terminal or live Status. A candidate's `revision` binds the confirmation to the records previewed; a conversation already in the Project, imported earlier or since removed is not selectable again. Agents never import. Files come from the Project's current Base, never a recovered historical filesystem.
+
+**Vendor listing sidecar** (`import.list`, `ImportList`, `ImportListed`, `ImportLive`):
+The read-only listing of the Project's saved and live top-level Claude Code sessions, each once with the `revision` an approval binds to. The Adapter runs a bundled Node program with the pinned TypeScript Agent SDK only while a listing runs and reaps it after; opening a Project starts none. A missing or incompatible runtime or CLI is an error naming its cause and recovery, never an empty list.
 
 **Conversation card** (`ConversationCard`, `ConversationOverview.card`):
 The available intent, shape, facts and outcome rebuilt from assistant card blocks, each key from its newest well-formed value. An empty facts list clears older facts and is omitted from the displayed parts.

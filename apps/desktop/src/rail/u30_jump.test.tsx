@@ -9,7 +9,7 @@ import { agent, workstream, door, MINUTE, NOW, terminal } from "../testing/nodes
 afterEach(cleanup);
 
 const since = (id: string, kind: Kind, minutesAgo: number, over = {}) =>
-  agent(id, kind, "x", { status: { kind, label: "x", since: NOW - minutesAgo * MINUTE }, ...over });
+  agent(id, kind, "x", { status: { kind, label: "x", since: NOW - minutesAgo * MINUTE, finished: "0" }, ...over });
 
 const jump = () => leaderKey("KeyJ");
 

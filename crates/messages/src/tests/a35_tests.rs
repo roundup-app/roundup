@@ -153,6 +153,7 @@ impl RestartHarness {
                     kind,
                     label: "test".into(),
                     since: 0,
+                    finished: "0".into(),
                 },
             })),
         );
@@ -662,6 +663,7 @@ async fn reservation_waits_for_prompt(retiring: bool) {
                 kind: Kind::Idle,
                 label: "idle".into(),
                 since: 0,
+                finished: "0".into(),
             },
         })),
     );
