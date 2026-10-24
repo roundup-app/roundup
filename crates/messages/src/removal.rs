@@ -7,8 +7,9 @@ use rpc::{Ctx, RpcError, reply};
 use rusqlite::params;
 use serde_json::Value;
 
+use super::receiver_view::user_drop_moves;
 use super::store::{Store, text_of};
-use super::{Messages, item, require_user, settle_logged};
+use super::{Messages, item, require_user};
 
 impl Messages {
     pub(super) async fn drop_message(&self, ctx: &Ctx, p: MessageId) -> Result<Value, RpcError> {
@@ -20,13 +21,13 @@ impl Messages {
                 p.id
             )));
         }
-        if !self.store()?.drop_pending(p.id, Reason::Removed)? {
+        let moves = user_drop_moves(&self.store()?.list_pending_to(&message.to)?, p.id);
+        if !moves || !self.store()?.drop_pending(p.id, Reason::Removed)? {
             return Err(RpcError::conflict(format!("message {} is in flight", p.id)));
         }
         ctx.touch(Verb::Wrote, &item(p.id))?;
         let dropped = self.get_or_not_found(p.id)?;
         ctx.emit(EventData::MessageDropped(dropped.clone().into()));
-        settle_logged(&self.inner, "settle").await;
         reply(&dropped)
     }
 }

@@ -2,7 +2,6 @@
 
 /**
  * Why a Message is `dropped`
- * (`receiver gone`, B9; `not accepted`, B2; `passed`, a question's hop that was still `pending`
- * when the next was made, B13; `removed`, a `pending` note the user took back, U3782; `merged`, a pushed digest folded into a newer one, B22).
+ * (`receiver gone`, B9; `not accepted`, B2; `removed`, a `pending` note the user took back, U3782; `merged`, a pushed digest folded into a newer one, B22).
  */
-export type Reason = "receiver gone" | "not accepted" | "passed" | "removed" | "merged";
+export type Reason = "receiver gone" | "not accepted" | "removed" | "merged";

@@ -297,11 +297,11 @@ async fn b22_after_a_burst_of_100_changes_every_change_is_counted_once() {
 async fn b22_pushes_never_get_conflict_and_do_not_fill_the_bound_of_32() {
     let dir = tempfile::tempdir().unwrap();
     let h = Pushes::new(dir.path());
-    for _ in 0..32 {
+    for n in 0..32 {
         h.call_as(
             agent("c"),
             "message.send",
-            json!({"to": "top", "kind": "note", "body": "hi"}),
+            json!({"to": "top", "kind": "note", "body": format!("hi {n}")}),
         )
         .await
         .unwrap();
@@ -310,7 +310,7 @@ async fn b22_pushes_never_get_conflict_and_do_not_fill_the_bound_of_32() {
         .call_as(
             agent("c"),
             "message.send",
-            json!({"to": "top", "kind": "note", "body": "hi"}),
+            json!({"to": "top", "kind": "note", "body": "one more"}),
         )
         .await;
     assert_eq!(refused.unwrap_err().code, code::CONFLICT);
@@ -330,7 +330,7 @@ async fn b22_pushes_never_get_conflict_and_do_not_fill_the_bound_of_32() {
         .call_as(
             agent("d"),
             "message.send",
-            json!({"to": "top", "kind": "note", "body": "hi"}),
+            json!({"to": "top", "kind": "note", "body": "one more"}),
         )
         .await;
     assert_eq!(again.unwrap_err().code, code::CONFLICT);

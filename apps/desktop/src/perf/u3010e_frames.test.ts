@@ -10,11 +10,23 @@ const describing = { workload: "glyphs", engine: "chromium", timerResolutionMs: 
 const clock = (hidden = () => false) => {
   let next: ((at: number) => void) | null = null;
   let wall: (() => void) | null = null;
-  const frames: Frames = { frame: (callback) => void (next = callback), hidden, after: (_ms, callback) => void (wall = callback) };
+  let now = 0;
+
+  const frames: Frames = {
+    frame: (callback) => void (next = callback),
+    hidden,
+    now: () => now,
+    // The rendering update of a frame costs 3 ms on this clock.
+    afterUpdate: (callback) => {
+      now += 3;
+      callback();
+    },
+    after: (_ms, callback) => void (wall = callback),
+  };
 
   return {
     frames,
-    at: (stamps: number[]) => stamps.forEach((stamp) => next?.(stamp)),
+    at: (stamps: number[]) => stamps.forEach((stamp) => ((now = stamp), next?.(stamp))),
     waiting: () => next !== null,
     wallClockRuns: () => wall?.(),
   };
@@ -67,6 +79,33 @@ describe("u3010e the frame recorder", () => {
 
     expect(report.sample).toMatchObject({ n: 100, p50: 16, p95: 16, p99: 30, max: 40, long_count: 2 });
     expect(report.sample.intervals).toEqual(sample);
+  });
+
+  it("u3010e_the_update_stage_holds_the_rendering_update_cost_of_each_sample_frame", async () => {
+    const time = clock();
+    const done = recordFrames(time.frames, { ...describing, entryTypes: ["event", "paint"] }, async () => true, WINDOWS);
+
+    time.at(evenly(0, 1100, 10));
+
+    const report = await done;
+
+    expect(report.stages.update).toMatchObject({ status: "measured", n: 60, p50: 3, p95: 3, max: 3 });
+    expect(report.performance_entry_types).toEqual(["event", "paint"]);
+  });
+
+  it("u3010e_a_run_without_updates_leaves_the_update_stage_unmeasured", () => {
+    expect(buildReport(facts()).stages.update).toMatchObject({ status: "unmeasured" });
+  });
+
+  it("u3010e_the_presentation_reason_names_what_the_webview_offered", () => {
+    const reason = (entryTypes: string[]) => {
+      const stage = buildReport(facts({ entryTypes })).stages.presentation;
+
+      return stage.status === "unmeasured" ? stage.reason : "";
+    };
+
+    expect(reason(["event"])).toContain("Event Timing, which reports trusted input only");
+    expect(reason(["paint"])).toContain("no presentation-paced entry type");
   });
 
   it("u3010e_the_report_names_the_scheduling_stage", () => {

@@ -73,6 +73,7 @@ impl Shared {
         mut node: RailNode,
         runs: &HashMap<String, Slot>,
         rail: &rail::Rail,
+        finished: u64,
     ) -> Result<RailNode, RpcError> {
         node.status_revision = match runs.get(&node.id) {
             Some(Slot::Running(run)) => Some(run.status_revision.to_string()),
@@ -80,7 +81,7 @@ impl Shared {
             Some(Slot::Starting { .. } | Slot::Resuming { .. }) => Some("1".into()),
             _ => None,
         };
-        let finished = rail.finished(&node.id)?.to_string();
+        let finished = finished.to_string();
         let live = match runs.get(&node.id) {
             Some(Slot::Running(run)) => run
                 .adapter
@@ -159,15 +160,24 @@ impl Shared {
     pub(super) fn node(&self, id: &str) -> Result<RailNode, RpcError> {
         let rail = self.rail();
         let runs = self.runs();
-        self.present(rail.node(id)?, &runs, &rail)
+        let finished = rail.finished(id)?;
+        self.present(rail.node(id)?, &runs, &rail, finished)
     }
 
     pub(super) fn tree(&self) -> Result<Vec<RailNode>, RpcError> {
-        let rail = self.rail();
+        self.presented_tree(&self.rail())
+    }
+
+    /// Every node of `rail` as `tree` presents it, its finish counts read in one query.
+    pub(super) fn presented_tree(&self, rail: &rail::Rail) -> Result<Vec<RailNode>, RpcError> {
         let runs = self.runs();
+        let finished = rail.finished_all()?;
         rail.tree()?
             .into_iter()
-            .map(|node| self.present(node, &runs, &rail))
+            .map(|node| {
+                let count = finished.get(&node.id).copied().unwrap_or_default();
+                self.present(node, &runs, rail, count)
+            })
             .collect()
     }
 }

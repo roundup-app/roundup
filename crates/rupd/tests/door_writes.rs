@@ -15,7 +15,7 @@ use std::sync::Arc;
 use std::time::Duration;
 
 #[tokio::test]
-async fn b6_ordinary_door_write_waits_for_earlier_input_and_its_physical_effect() {
+async fn door_write_completes_after_earlier_input_and_its_physical_effect() {
     let (run, caller) = door_terminal().await;
     let gate = run.dir.path().join("input-gate");
     std::fs::write(&gate, "pause").unwrap();
@@ -56,7 +56,7 @@ async fn b6_ordinary_door_write_waits_for_earlier_input_and_its_physical_effect(
 }
 
 #[tokio::test]
-async fn b6_ordinary_door_write_refuses_a_full_queue_before_any_bytes() {
+async fn door_write_refuses_a_full_queue_before_any_bytes() {
     let (run, caller) = door_terminal().await;
     let gate = run.dir.path().join("input-gate");
     std::fs::write(&gate, "pause").unwrap();
@@ -149,17 +149,17 @@ async fn uncertain_terminal_write(failure: &str, expected: &[u8]) {
 }
 
 #[tokio::test]
-async fn b6_ordinary_door_partial_write_is_unknown_without_retry() {
+async fn door_partial_write_is_unknown_without_retry() {
     uncertain_terminal_write("partial", b"u").await;
 }
 
 #[tokio::test]
-async fn b6_ordinary_door_flush_failure_is_unknown_without_retry() {
+async fn door_flush_failure_is_unknown_without_retry() {
     uncertain_terminal_write("flush", b"uncertain").await;
 }
 
 #[tokio::test]
-async fn b6_ordinary_door_write_lost_input_thread_result_stays_unknown() {
+async fn door_write_lost_input_thread_result_stays_unknown() {
     let (run, caller) = door_terminal().await;
     let gate = run.dir.path().join("input-gate");
     std::fs::write(&gate, "end").unwrap();
@@ -213,7 +213,7 @@ async fn b6_ordinary_door_write_lost_input_thread_result_stays_unknown() {
 }
 
 #[tokio::test]
-async fn b6_interrupt_completion_accounts_for_a_blocked_escape() {
+async fn door_interrupt_completion_accounts_for_a_blocked_escape() {
     let (run, caller) = order_child().await;
     idle(&run).await;
     let gate = run.dir.path().join("order-effect-gate");
@@ -254,7 +254,7 @@ async fn b6_interrupt_completion_accounts_for_a_blocked_escape() {
 }
 
 #[tokio::test]
-async fn b6_a_full_terminal_refuses_interrupt_before_bytes() {
+async fn door_a_full_terminal_refuses_interrupt_before_bytes() {
     let (run, caller) = order_child().await;
     idle(&run).await;
     let gate = run.dir.path().join("order-effect-gate");

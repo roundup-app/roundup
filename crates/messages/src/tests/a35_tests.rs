@@ -55,7 +55,6 @@ struct RestartHarness {
     ctx: Ctx,
     inbox: Arc<FakeInbox>,
     fail: Arc<StdMutex<Option<String>>>,
-    clock: Arc<std::sync::atomic::AtomicI64>,
 }
 
 impl RestartHarness {
@@ -98,7 +97,6 @@ impl RestartHarness {
             },
             inbox,
             fail,
-            clock,
         }
     }
 
@@ -411,44 +409,6 @@ async fn a35_failure_retains_the_same_retry_and_rejects_another_key() {
 }
 
 #[tokio::test]
-async fn a35_an_escalated_question_survives_the_retained_receiver_restart() {
-    let dir = tempfile::tempdir().unwrap();
-    let h = RestartHarness::new(dir.path());
-    let ask = h
-        .messages
-        .call(
-            &Ctx {
-                actor: agent("a"),
-                bus: h.ctx.bus.clone(),
-                touches: h.ctx.touches.clone(),
-            },
-            "message.send",
-            json!({"to":"door","kind":"question","body":"which?"}),
-        )
-        .await
-        .unwrap();
-    h.messages
-        .call(
-            &Ctx {
-                actor: agent("door"),
-                bus: h.ctx.bus.clone(),
-                touches: h.ctx.touches.clone(),
-            },
-            "message.pass",
-            json!({"id":ask["id"]}),
-        )
-        .await
-        .unwrap();
-    let before = h.messages.thread("you").unwrap();
-    assert_eq!(before.len(), 1);
-    h.messages.reserve_restart("door", "c", None).await.unwrap();
-    h.status("1", "2", Kind::Done).await;
-    h.next();
-    h.messages.release_restart("door", "c", "2").await.unwrap();
-    assert_eq!(h.messages.thread("you").unwrap(), before);
-}
-
-#[tokio::test]
 async fn a35_final_removal_still_drops_reserved_pending_messages() {
     let dir = tempfile::tempdir().unwrap();
     let h = RestartHarness::new(dir.path());
@@ -504,7 +464,7 @@ async fn a35_first_prompt_events_are_emitted_once_before_queue_delivery() {
 }
 
 #[tokio::test]
-async fn a35_a_question_waits_through_restart_without_using_its_answer_bound() {
+async fn a35_a_question_waits_through_restart() {
     let dir = tempfile::tempdir().unwrap();
     let h = RestartHarness::new(dir.path());
     let ctx = Ctx {
@@ -521,10 +481,6 @@ async fn a35_a_question_waits_through_restart_without_using_its_answer_bound() {
         .await
         .unwrap();
     h.messages.reserve_restart("door", "c", None).await.unwrap();
-    h.clock.store(
-        42 + hops::HOP_BOUND_MS + 1,
-        std::sync::atomic::Ordering::SeqCst,
-    );
     h.send(Actor::daemon(), "skipped", "settle").await;
     let before = h.messages.thread("door").unwrap();
     assert_eq!(before.len(), 1);
@@ -565,6 +521,8 @@ async fn reservation_waits_for_prompt(retiring: bool) {
         bus: bus.clone(),
         touches: Arc::new(Touches::in_memory().unwrap()),
     };
+    // The send's own inbox check passes through the gate; the `idle` delivery's check waits.
+    finish.notify_one();
     messages
         .call(
             &ctx,
@@ -573,6 +531,7 @@ async fn reservation_waits_for_prompt(retiring: bool) {
         )
         .await
         .unwrap();
+    entered.notified().await;
     bus.emit(
         Actor::daemon(),
         EventData::AgentStatus(Box::new(contracts::agent::StatusEvent {

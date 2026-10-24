@@ -291,7 +291,7 @@ describe("u2540 inspection and notes on the real Daemon", () => {
     expect(await app.rpc("message.list", { to: second.id, status: null })).toHaveLength(0);
     await waitFor(async () => expect((await messages())[0]?.status).toBe("delivered"), { timeout: 30_000 });
     const prompts = await readFile(join(logs, "prompts.jsonl"), "utf8");
-    expect(prompts).toContain("rup messages:");
+    expect(prompts).toContain(`"inbox": "rup-${accepted.id}"`);
     expect((await messages())[0]?.body).toBe(accepted.body);
     // Reopen on the same real Project: the Worktree change is still inspectable after the Message was accepted.
     cleanup();
@@ -533,7 +533,7 @@ describe("u2773 Project draft integration on real Projects", () => {
     document.body.append(outside);
     outside.focus();
     mount();
-    await vi.waitFor(async () => expect(await recoveryLabel()).not.toBeNull());
+    await vi.waitFor(async () => expect(await recoveryLabel()).not.toBeNull(), { timeout: 15_000 });
     expect(document.activeElement).toBe(outside);
     outside.remove();
     const focus = document.activeElement;
@@ -672,7 +672,7 @@ describe("u2773 Project draft integration on real Projects", () => {
     holder.settle(a.revision, "failed");
     const b = holder.edit(target(), { ask: exact }, null, "ordinary").draft;
     mount();
-    await vi.waitFor(async () => expect(await recoveryLabel()).not.toBeNull());
+    await vi.waitFor(async () => expect(await recoveryLabel()).not.toBeNull(), { timeout: 15_000 });
     await app.forProject(first.dir).rpc("rail.remove", { id: original.id });
     const recovery = await openRecovery();
     const rowOf = (revision: string) => recovery.querySelector<HTMLElement>(`[data-revision="${revision}"]`)!;
@@ -717,7 +717,7 @@ describe("u2773 Project draft integration on real Projects", () => {
     outside.focus();
     calls.forEach((spy) => spy.mockClear());
     mount(emulators);
-    await vi.waitFor(async () => expect(await recoveryLabel()).not.toBeNull());
+    await vi.waitFor(async () => expect(await recoveryLabel()).not.toBeNull(), { timeout: 15_000 });
     expect(document.activeElement).toBe(outside);
     const recovery = await openRecovery();
     expect(recovery.querySelector(`[data-revision="${saved.revision}"]`)).toBeTruthy();

@@ -55,11 +55,10 @@ cat > "$scratch/bend" <<'F'
 dir=$(dirname "$1")
 if ! cmp -s "$dir/model.bend" "$FAKE_MODEL"; then
   id=$(sed -nE 's/^law ((m|b)[0-9]+)_.*/\1/p' "$dir/LAWS.bend" | head -1)
-  [ "$(grep -c '^law ' "$dir/LAWS.bend")" = 11 ] && id=m8
   case "$id" in
     m1) loc=send_auto_inv ;;
-    m4) loc=fl_go4 ;; m5) loc=drop_q_inv ;; m6) loc=exit_inv ;;
-    m7) loc=send_ev7 ;; m8) loc=cA ;; m9) loc=restart_replay ;; m10) loc=fgo_alive10 ;; b39) loc=fconfirm_inv ;;
+    m4) loc=fl_go4 ;; m5) loc=user_drop_inv ;; m6) loc=exit_inv ;;
+    m7) loc=send_ev7 ;; m9) loc=restart_replay ;; m10) loc=fgo_alive10 ;; b39) loc=fconfirm_inv ;;
   esac
   printf '%s\n' "${FAKE_MUTANT_OUT:-SOME PROOFS FAIL}" "Location: ${FAKE_LOCATION:-$loc}"
   exit "${FAKE_MUTANT_RC:-1}"
@@ -87,8 +86,8 @@ observe() { BEND=$real_bend "$root/proofs/check.sh" "$scratch/l" 2>&1; }
 fresh_real() { rm -rf "$scratch/l"; cp -r "$root/proofs/messages" "$scratch/l"; }
 fresh_real
 out=$(observe); rc=$?
-if [ "$rc" = 0 ] && [ "$(grep -c '^PASS [mb][0-9]*:' <<<"$out")" = 9 ]; then
-  ok "v5 the real observer proves and rejects all nine mutants"
+if [ "$rc" = 0 ] && [ "$(grep -c '^PASS [mb][0-9]*:' <<<"$out")" = 8 ]; then
+  ok "v5 the real observer proves and rejects all eight mutants"
 else
   bad "v5 the real observer ($rc: $out)"
 fi
@@ -101,8 +100,8 @@ out=$(observe); expect "v5 a missing m4 mutant fails the standard observer" 1 "F
 fresh_real
 sed 's/^def m1_main(/def omitted_m1_main(/' "$scratch/l/PROOF.bend" > "$scratch/l/P.new"
 mv "$scratch/l/P.new" "$scratch/l/PROOF.bend"
-out=$(BEND=$real_bend "$scratch/l/mutants/run.sh" m8 2>&1)
-expect "v4b omitted m8 helper dependencies fail the baseline" 1 "FAIL m8: unmutated baseline" "$?" "$out"
+out=$(BEND=$real_bend "$scratch/l/mutants/run.sh" m1 2>&1)
+expect "v4b omitted m1 helper dependencies fail the baseline" 1 "FAIL m1: unmutated baseline" "$?" "$out"
 
 # Bend boundary failures cannot masquerade as successful mutation evidence.
 fresh; rm "$scratch/l/mutants/run.sh"; out=$(check "$scratch/l")
@@ -110,7 +109,7 @@ expect "v5 a missing mutation runner fails" 1 "mutants/run.sh" "$?" "$out"
 fresh; out=$(FAKE_LOCATION=unrelated check "$scratch/l")
 expect "v5 an unrelated proof rejection fails" 1 "FAIL m1: mutant rejection" "$?" "$out"
 fresh; out=$(FAKE_MUTANT_OUT=$'SOME PROOFS FAIL\n- expected : a defined name' check "$scratch/l")
-expect "v5 a missing name cannot count as mutation success" 1 "FAIL m8: mutant rejection" "$?" "$out"
+expect "v5 a missing name cannot count as mutation success" 1 "FAIL m1: mutant rejection" "$?" "$out"
 fresh; out=$(FAKE_MUTANT_RC=0 check "$scratch/l")
 expect "v5 a successful Bend exit cannot count as rejection" 1 "FAIL m10: mutant rejection" "$?" "$out"
 fresh; out=$(FAKE_OUT=$'ALL PROOFS CHECK\nSOME PROOFS FAIL' check "$scratch/l")

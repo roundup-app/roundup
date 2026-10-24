@@ -3,7 +3,7 @@
 use std::path::Path;
 /// M5: the methods with a tool for every Agent, each named after its method with the dot replaced
 /// by `_`, bar `agent.setOrder` (O4), whose tool is `agent_set_order`.
-pub const TOOL_METHODS: [&str; 88] = [
+pub const TOOL_METHODS: [&str; 87] = [
     "agent.wake",
     "reaction.create",
     "reaction.preview",
@@ -55,7 +55,6 @@ pub const TOOL_METHODS: [&str; 88] = [
     "message.send",
     "message.get",
     "message.list",
-    "message.pass",
     "route.list",
     // M10
     "checkpoint.list",

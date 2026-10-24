@@ -24,7 +24,7 @@ run("u3010e the recorder in the Chromium harness", () => {
     const report = await page.call<FrameReport>(`async () => {
       const { recordFrames } = await import('/src/perf/frames.ts');
       return recordFrames(
-        { frame: (callback) => void requestAnimationFrame(callback), hidden: () => document.hidden, after: (ms, callback) => void setTimeout(callback, ms) },
+        { frame: (callback) => void requestAnimationFrame(callback), hidden: () => document.hidden, now: () => performance.now(), afterUpdate: (callback) => void setTimeout(callback, 0), after: (ms, callback) => void setTimeout(callback, ms) },
         { workload: 'glyphs', engine: 'chromium', timerResolutionMs: 0.1, userAgent: navigator.userAgent },
         async () => true,
         { warmup: 200, sample: 800, idle: 400 },
@@ -34,6 +34,7 @@ run("u3010e the recorder in the Chromium harness", () => {
     expect(report.invalid).toEqual([]);
     expect(report.sample.n).toBeGreaterThan(0);
     expect(report.stages.scheduling.status).toBe("measured");
+    expect(report.stages.update.status).toBe("measured");
     expect(report.stages.presentation.status).toBe("unmeasured");
     expect(report).toMatchObject({ engine: "chromium", exit: 2 });
   }, 30_000);

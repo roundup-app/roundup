@@ -426,7 +426,7 @@ async fn b21_a_failed_start_keeps_the_entries_waiting() {
         newest["body"]
             .as_str()
             .unwrap()
-            .contains("[2 updates held back]"),
+            .contains("[2 updates kept back]"),
         "{newest}"
     );
     assert_eq!(run.digests().await.len(), before + 1);
@@ -631,7 +631,7 @@ async fn changed_children_under_caps() {
         rollup["body"]
             .as_str()
             .unwrap()
-            .starts_with("[digest] [10 updates held back]")
+            .starts_with("[digest] [10 updates kept back]")
     );
     for (name, count) in [("review", 31), ("build", 3), ("check", 2), ("observe", 2)] {
         let body = rollup["body"].as_str().unwrap();
