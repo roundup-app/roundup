@@ -1,3 +1,4 @@
+// fallow-ignore-file duplicate-export -- glyphOf finds a rendered Rail glyph; ink/glyph maps Kind to glyph data. Imports are direct.
 import { fireEvent, render, screen, within } from "@solidjs/testing-library";
 import { afterEach } from "vitest";
 import { createSignal, Show } from "solid-js";
@@ -86,7 +87,7 @@ export const rowOf = (name: string): HTMLElement => {
   return item.matches('[data-part="branch"]') ? item.querySelector<HTMLElement>('[data-part="branch-control"]')! : item;
 };
 
-export const glyphOf = (name: string): HTMLElement => {
+export const rowGlyph = (name: string): HTMLElement => {
   const glyph = rowOf(name).querySelector<HTMLElement>(".glyph");
 
   if (!glyph) throw new Error(`no glyph on ${name}`);

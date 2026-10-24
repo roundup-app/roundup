@@ -1,3 +1,4 @@
+import { answerQuestion } from "../shelf/bulkQuestionHarness";
 import { cleanup, fireEvent, waitFor } from "@solidjs/testing-library";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { event } from "../testing/nodes";
@@ -123,6 +124,7 @@ it("u2307c_the_dots_name_and_call_close_and_minimise", async () => {
   fireEvent.click(document.querySelector(".terminal-tab")!);
   await waitFor(() => expect(bubble()).not.toBeNull());
   fireEvent.click(bubble()!.querySelector('[aria-label="Close"]')!);
+  await answerQuestion(true);
   await waitFor(() => expect(bubbleCalls(mounted.app, "terminal.close")).toEqual([{ id: "1" }]));
 });
 

@@ -109,8 +109,8 @@ it("u3512d_instant_paths_release_focus_next_frame", async () => {
     sample();
     const original = document.querySelector('.new-workstream');
     const cancel = original.querySelector('[data-part=close-trigger]');
-    cancel.dispatchEvent(new PointerEvent('pointerdown', {bubbles: true}));
-    cancel.click();
+    cancel.dispatchEvent(new PointerEvent('pointerdown', {bubbles: true, pointerType: 'mouse', width: 4, height: 4, pressure: 0.5}));
+    cancel.dispatchEvent(new MouseEvent('click', {bubbles: true, detail: 1}));
     await new Promise(resolve => requestAnimationFrame(resolve));
     // Slow the actual fade so Chromium changes its media preference before it completes.
     for (const element of document.querySelectorAll('.new-workstream, .app-dialog-backdrop'))
@@ -158,8 +158,8 @@ it("u3512d_reopen_owns_exit_completion", async () => {
     const frame = () => new Promise(resolve => requestAnimationFrame(resolve));
     const original = document.querySelector('.new-workstream');
     const cancel = original.querySelector('[data-part=close-trigger]');
-    cancel.dispatchEvent(new PointerEvent('pointerdown', {bubbles: true}));
-    cancel.click();
+    cancel.dispatchEvent(new PointerEvent('pointerdown', {bubbles: true, pointerType: 'mouse', width: 4, height: 4, pressure: 0.5}));
+    cancel.dispatchEvent(new MouseEvent('click', {bubbles: true, detail: 1}));
     await frame();
     const retained = document.querySelector('.new-workstream') === original;
     const inert = original.inert;
@@ -168,8 +168,8 @@ it("u3512d_reopen_owns_exit_completion", async () => {
     row.dispatchEvent(new KeyboardEvent('keydown', {key: 'o', code: 'KeyO', bubbles: true}));
     await frame();
     const item = document.querySelector('[role=menuitem][data-value="new-workstream"]');
-    item.dispatchEvent(new PointerEvent('pointerdown', {bubbles: true}));
-    item.click();
+    item.dispatchEvent(new PointerEvent('pointerdown', {bubbles: true, pointerType: 'mouse', width: 4, height: 4, pressure: 0.5}));
+    item.dispatchEvent(new MouseEvent('click', {bubbles: true, detail: 1}));
     // Todos schedules NewWorkstream after the menu closes with its zero-delay naming timer.
     await frame();
     const field = document.querySelector('.new-workstream textarea');
