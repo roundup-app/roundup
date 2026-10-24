@@ -1,7 +1,8 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { buildReport } from "./frames";
-import { bounded, everyTwoSeconds, glyphsCycle, layersCycle, todosCycle, writeInChunks } from "./frame_run";
+import { bounded, createHomed, everyTwoSeconds, glyphsCycle, layersCycle, reportTerminal, todosCycle, writeInChunks } from "./frame_run";
 import type { Layers, Todos } from "./frame_run";
+import type { AppSeam } from "../app/seam";
 
 const clock = { sleep: (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms)) };
 
@@ -80,6 +81,16 @@ describe("u3010g the frame recorder drives every workload", () => {
     expect(await todosCycle(lone)(1)).toBe(false);
   });
 
+  it("u3010g_a_driven_todo_is_homed_in_the_workstream_whose_shelf_shows_it", async () => {
+    const calls: [string, unknown][] = [];
+    const rpc = async (method: string, params: Record<string, string | number | null>) => (calls.push([method, params]), { id: 7 });
+
+    // SAFETY: createHomed calls only todo.create and todo.move, which this stub answers; the other methods are never reached.
+    await createHomed({ rpc } as Pick<AppSeam, "rpc">, "ws-1", "seed 0");
+
+    expect(calls).toEqual([["todo.create", { title: "seed 0", body: null, blockers: null }], ["todo.move", { id: 7, home: "ws-1" }]]);
+  });
+
   it("u3010g_glyphs_need_ten_working_glyphs", async () => {
     expect(await glyphsCycle(() => 9)()).toBe(false);
     expect(await glyphsCycle(() => 10)()).toBe(true);
@@ -109,5 +120,21 @@ describe("u3010g the frame recorder drives every workload", () => {
 
     expect(await outcome).toBe("the glyphs setup did not finish within 5000 ms");
     expect(await bounded(Promise.resolve(3), 5_000, "x")).toBe(3);
+  });
+});
+
+describe("u3010e the report goes through the shell's Terminal", () => {
+  it("u3010e_the_report_target_is_the_terminal_that_printed_ready", async () => {
+    const stub = () => ({ write: (_bytes: Uint8Array, parsed?: () => void) => parsed?.() });
+    const run = reportTerminal(stub);
+    const shell = run.createEmulator("shell");
+    const claude = run.createEmulator("claude");
+
+    shell.write(new TextEncoder().encode("ready\n"));
+    claude.write(new TextEncoder().encode("welcome"));
+    run.createEmulator("claude-again");
+
+    await run.printed;
+    expect(run.target()).toBe("shell");
   });
 });

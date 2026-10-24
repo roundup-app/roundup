@@ -27,6 +27,9 @@ pub type Budgets = BTreeMap<String, Budget>;
 #[derive(Debug, Serialize, Deserialize)]
 pub struct Report {
     pub os: String,
+    /// R16: the Linux machine class whose baseline was compared; absent off Linux.
+    #[serde(default)]
+    pub class: Option<crate::machine::Class>,
     pub cpus: usize,
     pub runs: usize,
     /// 1-minute load average at the start of each run.
@@ -95,6 +98,10 @@ pub fn judge_all(result: &Report, budgets: &Budgets) -> Result<Outcome, String> 
         return Err(format!("budget {name:?} has no measurement"));
     }
 
+    let baseline_key = result
+        .class
+        .as_ref()
+        .map_or(result.os.as_str(), |class| class.key.as_str());
     let per_cpu = load_per_cpu(&result.loads, result.cpus);
     let mut misses = Vec::new();
     let mut skipped = Vec::new();
@@ -117,7 +124,7 @@ pub fn judge_all(result: &Report, budgets: &Budgets) -> Result<Outcome, String> 
                 }
             }
             _ => {
-                if let Some(miss) = judge(*value, budget, &result.os) {
+                if let Some(miss) = judge(*value, budget, baseline_key) {
                     misses.push((name.clone(), miss));
                 }
             }

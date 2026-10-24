@@ -4,5 +4,6 @@ pub mod budget;
 pub use measure::flood;
 pub mod gate;
 mod launch;
+pub mod machine;
 pub mod measure;
 pub mod webview;
