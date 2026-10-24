@@ -70,7 +70,6 @@ it("nr9_cli_mcp_and_app_share_authority", async () => {
 
     for (let n = 0; n < 10; n += 1) agents.push(await app.rpc("agent.spawn", { cwd: real.dir, prompt: null, parent: null, name: `Same long Agent name ${n % 2}` }));
     const target = agents[0]!;
-    await app.rpc("takeover.begin", { agent: target.id });
     const expires = new Date(Date.now() + 86_400_000).toISOString();
     const at = new Date(Date.now() + 43_200_000).toISOString();
     const resolved = await app.rpc("reaction.preview", { date: at.slice(0, 10), time: at.slice(11, 19), offset: "+00:00" });
@@ -123,13 +122,13 @@ it("nr9_cli_mcp_and_app_share_authority", async () => {
     await wait("!!document.querySelector('.reaction-detail')");
     expect((await app.rpc("reaction.get", { id: created.id })).firings).toEqual([]);
     await activate('.reaction-actions button:last-child', true);
-    await wait("!!document.querySelector('.reaction-firings [data-outcome=held]')");
+    await wait("!!document.querySelector('.reaction-firings [data-outcome]')");
     const fired = await app.rpc("reaction.get", { id: created.id });
     expect(fired.firings).toHaveLength(1);
     expect((await app.rpc("message.get", { id: fired.firings[0]!.message })).body).toBe("exact instruction\n retained ");
-    await capture("held-detail");
+    await capture("firing-detail");
     await activate('[data-firing-message]', true);
-    await wait("!!document.querySelector('.reaction-detail [data-state=held]')");
+    await wait("!!document.querySelector('.reaction-detail [data-state]')");
     await capture("message");
     await activate('.reaction-back', true);
     await wait("document.activeElement?.matches('.reaction-row')");

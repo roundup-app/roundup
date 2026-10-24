@@ -320,7 +320,7 @@ fn a4_trust_waits_while_claude_holds_its_config_lock() {
         })
     };
 
-    // An observation window: while the lock is held, trust must not write.
+    // An observation window: while the lock is parked, trust must not write.
     std::thread::sleep(Duration::from_millis(300));
     saving["theme"] = "dark".into();
     std::fs::write(&s.claude_json, saving.to_string()).unwrap();

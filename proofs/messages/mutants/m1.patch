@@ -1,11 +1,11 @@
 --- model.bend
 +++ model.bend
-@@ -243,7 +243,7 @@
- def user_deliver(+id: Nat, s: World) -> World:
+@@ -112,7 +112,7 @@
+ def send_auto(fu: Bool, s: World) -> World:
    match s:
-     case W{+q, +haf, +htk, +t, +d, +u, +tt, +rl, +n, +tk, +us, +i, +g}:
--      deliver_pick(Bool.and(mem(id, haf), Bool.not(g)), Bool.and(mem(id, htk), Bool.not(g)), id, W{q, haf, htk, t, d, u, tt, rl, n, tk, us, i, g})
-+      deliver_pick(Bool.not(g), Bool.and(mem(id, htk), Bool.not(g)), id, W{q, haf, htk, t, d, u, tt, rl, n, tk, us, i, g})
+     case W{+q, +t, +d, +u, +n, +i, +g}:
+-      flush(W{snoc(q, n), t, d, owned(fu, n, u), 1n+n, i, g})
++      flush(W{snoc(snoc(q, n), n), t, d, owned(fu, n, u), 1n+n, i, g})
  
- def drop_tk(b: Bool, +id: Nat, s: World) -> World:
-   match b:
+ def send_live(r: Route, fu: Bool, s: World) -> World:
+   match r:

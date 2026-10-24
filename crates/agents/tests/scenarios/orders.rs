@@ -2,7 +2,6 @@
 //! its Terminal (as `steer.rs` does) and the test plays its hooks with `agent.signal`.
 
 use std::sync::Arc;
-use std::sync::atomic::{AtomicBool, Ordering};
 use std::time::Duration;
 
 use agents::worktree::Git;
@@ -362,13 +361,8 @@ async fn o4_unknown_and_malformed_are_refused_and_change_nothing() {
 }
 
 #[tokio::test]
-async fn o4_another_callers_order_is_steered_unless_the_agent_set_it_or_a_takeover_holds() {
-    let mut f = recording();
-    let taken = Arc::new(AtomicBool::new(false));
-    let probe = Arc::clone(&taken);
-    f.agents = f
-        .agents
-        .with_takeover(move |_| probe.load(Ordering::SeqCst));
+async fn o4_another_callers_order_is_steered_unless_the_agent_set_it() {
+    let f = recording();
     let agent = spawn(&f, json!({"prompt": "first"})).await.unwrap().id;
     until_file(&f.dir.path().join("ready")).await;
     star(f.dir.path());
@@ -400,25 +394,13 @@ async fn o4_another_callers_order_is_steered_unless_the_agent_set_it_or_a_takeov
         .unwrap();
     assert_eq!(typed(&f), first);
 
-    // Under a Takeover nothing is sent either, yet the order is stored.
-    taken.store(true, Ordering::SeqCst);
-    f.call(
-        "agent.setOrder",
-        json!({"id": agent, "order": work("held", &[])}),
-    )
-    .await
-    .unwrap();
-    assert_eq!(typed(&f), first);
-    assert_eq!(order_of(&f.tree().await, &agent), Some(work("held", &[])));
-
-    taken.store(false, Ordering::SeqCst);
     f.call(
         "agent.setOrder",
         json!({"id": agent, "order": work("sent", &["x"])}),
     )
     .await
     .unwrap();
-    // The barrier for both checks above: a Steer of `mine` or `held` would type before
+    // The barrier for both checks above: a Steer of `mine` or `parked` would type before
     // `sent` or leave it Busy, so only these exact bytes show neither was sent.
     let all = format!("{first}{}", paste("sent\n\nLimits:\n- x"));
     assert_eq!(until_typed(&f, all.len()).await, all);

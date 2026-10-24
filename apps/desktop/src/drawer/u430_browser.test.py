@@ -146,9 +146,7 @@ def u430_centre_ends_where_the_drawer_begins(port, output, baseline):
                     browser("wait", ".centre")
                     if seed == "tree-40":
                         browser("eval", "[...document.querySelectorAll('[role=treeitem]')].find(e=>e.textContent.includes('token-rotation')).click()")
-                        browser("wait", ".pane-control button")
-                        browser("eval", "document.querySelector('.pane-control button').click()")
-                        browser("wait", ".pane-control[data-state=controlled]")
+                        browser("wait", ".pane-screen")
                     else:
                         browser("eval", "[...document.querySelectorAll('[role=treeitem]')].find(e=>e.textContent.includes('payments workstream')).click()")
                         browser("wait", ".thread-composer textarea")
@@ -204,9 +202,7 @@ def main():
             browser("wait", ".centre")
             if seed == "tree-40":
                 browser("eval", "[...document.querySelectorAll('[role=treeitem]')].find(e=>e.textContent.includes('token-rotation')).click()")
-                browser("wait", ".pane-control button")
-                browser("eval", "document.querySelector('.pane-control button').click()")
-                browser("wait", ".pane-control[data-state=controlled]")
+                browser("wait", ".pane-screen")
             result = browser("eval", "--stdin", script=observer.replace("SEED", json.dumps(seed)))["result"]
             capture(output, f"{seed}-frames.json", "[\n" + ",\n".join(json.dumps(frame) for frame in result["frames"]) + "\n]" + "\n")
             capture(output, f"{seed}.checks.json", json.dumps(result["checks"], indent=2) + "\n")

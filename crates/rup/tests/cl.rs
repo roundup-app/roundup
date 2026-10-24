@@ -219,7 +219,7 @@ async fn cl3_an_ext_actor_is_forbidden_what_the_daemon_forbids_it() {
     let id = project.spawn_agent(&project.client().await).await.id;
     let outside = client_as(project.socket(), ext("claude-code")).await;
 
-    for method in ["agent.context", "agent.brief", "agent.actionHistory"] {
+    for method in ["agent.context", "agent.brief"] {
         let err = outside
             .request(method, json!({ "id": id }))
             .await

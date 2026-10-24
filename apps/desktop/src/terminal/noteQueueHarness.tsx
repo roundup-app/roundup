@@ -13,8 +13,8 @@ export const note = (id: number, body: string, over: Partial<Message> = {}): Mes
   id, from: { kind: "user", id: "user", parent: null }, to: "a", kind: "note", body, replyTo: null, status: "pending", reason: null, at: id, ...over,
 });
 
-/** A Pane of an open Project whose Daemon lists `messages`; `reduced` is `prefers-reduced-motion`. */
-export const mountNotes = async (tree: RailNode[], terminals: TerminalInfo[], messages: Message[] = [], reduced = false) => {
+/** A Pane of an open Project whose Daemon lists `messages`. */
+export const mountNotes = async (tree: RailNode[], terminals: TerminalInfo[], messages: Message[] = []) => {
   const app = createFakeApp();
 
   app.handlers["rail.tree"] = () => tree;
@@ -23,11 +23,9 @@ export const mountNotes = async (tree: RailNode[], terminals: TerminalInfo[], me
   app.handlers["terminal.resize"] = () => null;
   app.handlers["terminal.snapshot"] = () => ({ cols: 100, rows: 30, after: 0, data: "" });
   app.handlers["message.list"] = (params) => messages.filter((each) => each.to === params.to);
-  app.handlers["takeover.begin"] = () => null;
-  app.handlers["takeover.end"] = () => null;
   app.handlers["agent.interrupt"] = () => null;
 
-  const connected = await connectProject(app, { name: "p", path: "/p" }, () => reduced, () => 0);
+  const connected = await connectProject(app, { name: "p", path: "/p" }, () => false, () => 0);
   const { factory, made } = fakeEmulators();
 
   const { container } = render(() => (
@@ -40,6 +38,6 @@ export const mountNotes = async (tree: RailNode[], terminals: TerminalInfo[], me
 };
 
 /** The Daemon's Event for `message`, by its status. */
-export const sent = (message: Message) => event({ name: message.status === "held" ? "message.held" : message.status === "delivered" ? "message.delivered" : message.status === "dropped" ? "message.dropped" : "message.sent", data: message });
+export const sent = (message: Message) => event({ name: message.status === "delivered" ? "message.delivered" : message.status === "dropped" ? "message.dropped" : "message.sent", data: message });
 
 export const rowsOf = (): string[] => [...document.querySelectorAll(".note-queue-row")].map((row) => row.querySelector(".note-queue-text")?.textContent ?? "");

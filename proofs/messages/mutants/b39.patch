@@ -1,5 +1,11 @@
 --- model.bend
 +++ model.bend
-@@ -742,1 +742,1 @@
--      F{q, [], List.append(&2, Nat, t, inf), d, n, hold, g}
-+      F{q, inf, List.append(&2, Nat, t, inf), d, n, hold, g}
+@@ -543,7 +543,7 @@
+ def fconfirm(s: Fl) -> Fl:
+   match s:
+     case F{+q, +inf, +t, +d, +n, +g}:
+-      F{q, [], List.append(&2, Nat, t, inf), d, n, g}
++      F{q, inf, List.append(&2, Nat, t, inf), d, n, g}
+ 
+ # B40, B8: what was in flight is `pending` again, ahead of what was sent after it.
+ def fkill(s: Fl) -> Fl:

@@ -15,7 +15,7 @@ it.runIf(process.platform === "linux")("u26_parallel_pages_answer_while_the_host
   const dir = mkdtempSync(join(tmpdir(), "u26-bus-"));
   const sockets = new Set<Socket>();
 
-  // Accept authentication bytes but never acknowledge them. This is a held
+  // Accept authentication bytes but never acknowledge them. This is a stalled
   // external dependency, not a slow browser or a probabilistic startup race.
   const bus = createServer((socket) => {
     sockets.add(socket);
@@ -41,7 +41,7 @@ it.runIf(process.platform === "linux")("u26_parallel_pages_answer_while_the_host
 
     expect(await Promise.all(opened.map((page) => page.call<number>("() => 42")))).toEqual([42, 42]);
   } finally {
-    // Release the held dependency before teardown, even on an unpatched head.
+    // Release the stalled dependency before teardown, even on an unpatched head.
     for (const socket of sockets) socket.destroy();
     await Promise.all(pages.map((page) => page.status === "fulfilled" ? page.value.close() : undefined));
     vi.unstubAllEnvs();

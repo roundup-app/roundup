@@ -1,13 +1,11 @@
 //! A35: the Door rewinds its children to a Checkpoint with `workstream.rewindPlan` and
-//! `workstream.rewind`. A child under Takeover waits as a held Door action (B6, `resize.rs`).
-use std::collections::{HashMap, HashSet};
-use std::path::PathBuf;
+//! `workstream.rewind`.
+use std::collections::HashMap;
 use std::sync::Arc;
 
 use crate::Daemon;
 use agents::marks::{MarkResume, Resume};
-use contracts::agent::{HeldCall, NodeKind, RailNode};
-use contracts::terminal::ResizeOutcome;
+use contracts::agent::{NodeKind, RailNode};
 use contracts::workstream::{
     Files, PlanAgent, Rewind, RewindAgent, RewindParams, RewindPlan, RewindPlanParams, RewindState,
     Rewound,
@@ -21,11 +19,9 @@ use tokio::sync::Mutex;
 pub(crate) struct Rewinding {
     /// One call at a time per Workstream; the slot keeps an unfinished call's progress for a retry.
     slots: Mutex<HashMap<String, Arc<Mutex<Option<Progress>>>>>,
-    /// Held-action ids already covered by a `workstream.rewound`.
-    announced: std::sync::Mutex<HashSet<String>>,
 }
 
-/// The work of one rewind on the children that are not under Takeover.
+/// The work of one rewind on its selected children.
 struct Batch {
     key: String,
     checkpoint: u32,
@@ -42,8 +38,6 @@ struct Progress {
     agent: Option<String>,
     title: String,
     outcomes: Vec<RewindAgent>,
-    /// The held-action rows of the children this call rewinds now.
-    rows: Vec<String>,
     batch: Batch,
 }
 
@@ -228,9 +222,6 @@ impl Daemon {
         Self::rewind_orphans(&nodes, children, &marks)?;
         let mut agents = Vec::new();
         for child in children {
-            let takeover = self.sender.get().is_some_and(|m| m.takeover_active(child));
-            // B6: reading a taken-over child waits for the user to give it back.
-            self.wait_takeover_end(child).await;
             let mark = marks.agents.iter().find(|m| &m.agent == child);
             let files_changed = match mark {
                 Some(mark) => agents::marks::changed_files(mark)
@@ -243,7 +234,6 @@ impl Daemon {
             agents.push(PlanAgent {
                 agent: child.clone(),
                 name: name_of(&nodes, child),
-                takeover,
                 created_after: mark.is_none(),
                 files_changed,
             });
@@ -278,15 +268,6 @@ impl Daemon {
         let mut slot = slot
             .try_lock()
             .map_err(|_| RpcError::conflict("Workstream is already being rewound"))?;
-        // No Takeover can begin on a selected child while its effects are held.
-        let mut locks = Vec::new();
-        for child in &children {
-            locks.push(self.child_effects(child).write_owned().await);
-        }
-        let messages = self
-            .sender
-            .get()
-            .ok_or_else(|| RpcError::internal("Messages unavailable"))?;
         let nodes = self.rail().await?;
         if let Some(p) = slot.as_ref() {
             if p.checkpoint != checkpoint || p.files != files || p.agent != agent {
@@ -294,76 +275,30 @@ impl Daemon {
                     "continue the unfinished rewind with the same choices",
                 ));
             }
-            let now = p
-                .outcomes
-                .iter()
-                .find(|o| o.state != RewindState::Waiting && messages.takeover_active(&o.agent));
-            if let Some(held) = now {
-                return Err(RpcError::conflict(format!(
-                    "{} is under Takeover; the unfinished rewind continues after it is given back",
-                    held.name
-                )));
-            }
         } else {
             let (title, marks) = self.rewind_marks(&nodes, &id, checkpoint).await?;
             Self::rewind_orphans(&nodes, &children, &marks)?;
-            let mut immediate = Vec::new();
             let mut later = Vec::new();
             let mut retained = Vec::new();
-            for child in &children {
-                if messages.takeover_active(child) {
-                    continue;
-                }
-                immediate.push(child.clone());
-                match marks.agents.iter().find(|m| &m.agent == child) {
-                    Some(mark) => retained.push(mark.clone()),
-                    None => later.push(child.clone()),
-                }
-            }
-            if files == Files::Restore {
-                self.rewind_protect_takeover(&nodes, &retained)?;
-            }
             let mut outcomes = Vec::new();
-            let mut rows = Vec::new();
             for child in &children {
                 let node = nodes
                     .iter()
                     .find(|n| &n.id == child)
                     .ok_or_else(|| RpcError::not_found(child))?;
-                let call = HeldCall::Rewind(RewindParams {
-                    id: id.clone(),
-                    checkpoint,
-                    files,
-                    agent: Some(child.clone()),
-                });
-                let waiting = !immediate.contains(child);
-                let row = self.held_actions.accept_as(
-                    actor,
-                    node,
-                    call,
-                    if waiting {
-                        ResizeOutcome::Waiting {
-                            reason: "takeover".into(),
-                        }
-                    } else {
-                        ResizeOutcome::InProgress
-                    },
-                )?;
-                if !waiting {
-                    rows.push(row.id.clone());
+                match marks.agents.iter().find(|m| &m.agent == child) {
+                    Some(mark) => retained.push(mark.clone()),
+                    None => later.push(child.clone()),
                 }
                 outcomes.push(RewindAgent {
                     agent: child.clone(),
                     name: node.name.clone(),
-                    state: if waiting {
-                        RewindState::Waiting
-                    } else if later.contains(child) {
+                    state: if later.contains(child) {
                         RewindState::Removed
                     } else {
                         RewindState::Rewound
                     },
-                    reason: waiting.then(|| "the user holds Takeover of this child".to_owned()),
-                    action: Some(row.id),
+                    reason: None,
                 });
             }
             let key = format!(
@@ -379,29 +314,12 @@ impl Daemon {
                 agent,
                 title,
                 outcomes,
-                rows,
                 batch: Batch::new(key, checkpoint, files, retained, later),
             });
         }
         let p = slot.as_mut().expect("selected above");
-        for row in &p.rows {
-            self.held_actions.outcome(row, ResizeOutcome::InProgress)?;
-        }
         let ctx = self.ctx(actor.clone());
-        if let Err(error) = self.rewind_batch(&ctx, &id, &mut p.batch).await {
-            for row in &p.rows {
-                self.held_actions.outcome(
-                    row,
-                    ResizeOutcome::Dropped {
-                        reason: format!("{}; call again to continue", error.message),
-                    },
-                )?;
-            }
-            return Err(error);
-        }
-        for row in &p.rows {
-            self.held_actions.outcome(row, ResizeOutcome::Completed)?;
-        }
+        self.rewind_batch(&ctx, &id, &mut p.batch).await?;
         let result = Rewind {
             checkpoint: p.title.clone(),
             files,
@@ -409,42 +327,13 @@ impl Daemon {
         };
         *slot = None;
         drop(slot);
-        drop(locks);
-        self.rewind_settled(&id, checkpoint).await;
+        let ctx = self.ctx(Actor::daemon());
+        ctx.emit(EventData::RailChanged);
+        ctx.emit(EventData::WorkstreamRewound(Rewound {
+            id: id.clone(),
+            checkpoint,
+        }));
         Ok(result)
-    }
-
-    /// Restoring a Worktree that a child under Takeover also works in would change its files.
-    fn rewind_protect_takeover(
-        &self,
-        nodes: &[RailNode],
-        marks: &[checkpoints::Mark],
-    ) -> Result<(), RpcError> {
-        let Some(messages) = self.sender.get() else {
-            return Ok(());
-        };
-        let mut protected: Vec<PathBuf> = Vec::new();
-        for node in nodes
-            .iter()
-            .filter(|n| n.kind == NodeKind::Agent && messages.takeover_active(&n.id))
-        {
-            let path = node
-                .worktree
-                .as_ref()
-                .map_or(self.project.as_path(), |w| std::path::Path::new(&w.path));
-            protected.push(path.canonicalize().map_err(RpcError::internal)?);
-        }
-        for mark in marks {
-            let root = std::path::Path::new(&mark.worktree)
-                .canonicalize()
-                .map_err(RpcError::internal)?;
-            if protected.contains(&root) {
-                return Err(RpcError::conflict(
-                    "files are shared with a child under Takeover; keep the files or rewind it alone after Takeover",
-                ));
-            }
-        }
-        Ok(())
     }
 
     /// Stop, restore and resume the batch's children, as `agent.stop` and A22's resume do. Steps
@@ -491,82 +380,6 @@ impl Daemon {
         }
         self.checkpoints.invalidate_after(id, batch.checkpoint)?;
         ctx.touch(Verb::Wrote, &format!("rail:{id}"))
-    }
-}
-
-impl Daemon {
-    /// B6: a held rewind of `params.agent` runs when its Takeover ends, under the child's effect
-    /// lock. The Checkpoint and the selection are revalidated first; a refusal is a dropped reason.
-    pub(crate) async fn release_rewind(
-        &self,
-        actor: &Actor,
-        rewind: &RewindParams,
-    ) -> Result<(), RpcError> {
-        let child = rewind
-            .agent
-            .clone()
-            .ok_or_else(|| RpcError::internal("held rewind names no child"))?;
-        let children = self
-            .rewind_children(actor, "workstream.rewind", &json!(rewind))
-            .await?;
-        let nodes = self.rail().await?;
-        let (_, marks) = self
-            .rewind_marks(&nodes, &rewind.id, rewind.checkpoint)
-            .await?;
-        Self::rewind_orphans(&nodes, &children, &marks)?;
-        let (retained, later) = match marks.agents.iter().find(|m| m.agent == child) {
-            Some(mark) => (vec![mark.clone()], vec![]),
-            None => (vec![], vec![child.clone()]),
-        };
-        if rewind.files == Files::Restore {
-            self.rewind_protect_takeover(&nodes, &retained)?;
-        }
-        let key = format!(
-            "rewind:{}:{}:{child}:{}",
-            rewind.id,
-            rewind.checkpoint,
-            std::time::SystemTime::now()
-                .duration_since(std::time::UNIX_EPOCH)
-                .map_err(RpcError::internal)?
-                .as_nanos()
-        );
-        let mut batch = Batch::new(key, rewind.checkpoint, rewind.files, retained, later);
-        self.rewind_batch(&self.ctx(actor.clone()), &rewind.id, &mut batch)
-            .await
-    }
-
-    /// `workstream.rewound` and one `rail.changed`, once, when no rewind of the Workstream waits,
-    /// runs or failed half-way.
-    pub(crate) async fn rewind_settled(&self, id: &str, checkpoint: u32) {
-        if let Some(slot) = self.rewinding.slots.lock().await.get(id)
-            && slot.try_lock().map_or(true, |p| p.is_some())
-        {
-            return;
-        }
-        let Ok(rows) = self.held_actions.rewinds(id) else {
-            return;
-        };
-        let mut announced = self
-            .rewinding
-            .announced
-            .lock()
-            .unwrap_or_else(|e| e.into_inner());
-        let pending = rows.iter().any(|(_, outcome)| {
-            matches!(
-                outcome,
-                ResizeOutcome::Waiting { .. } | ResizeOutcome::InProgress
-            )
-        });
-        if pending || rows.iter().all(|(row, _)| announced.contains(row)) {
-            return;
-        }
-        announced.extend(rows.into_iter().map(|(row, _)| row));
-        let ctx = self.ctx(Actor::daemon());
-        ctx.emit(EventData::RailChanged);
-        ctx.emit(EventData::WorkstreamRewound(Rewound {
-            id: id.to_owned(),
-            checkpoint,
-        }));
     }
 }
 
@@ -844,59 +657,5 @@ mod tests {
         }
         assert_eq!(daemon.rail().await.unwrap(), before);
         assert!(daemon.terminals.list().is_empty());
-        assert!(daemon.held_actions.rewinds("1").unwrap().is_empty());
-    }
-
-    #[tokio::test]
-    async fn a35_rewind_outcomes_survive_reopen() {
-        let (dir, daemon) = fixture();
-        let child = daemon
-            .rail()
-            .await
-            .unwrap()
-            .into_iter()
-            .find(|n| n.id == "3")
-            .unwrap();
-        let action = daemon
-            .held_actions
-            .accept_as(
-                &door(),
-                &child,
-                HeldCall::Rewind(RewindParams {
-                    id: "1".into(),
-                    checkpoint: 7,
-                    files: Files::Keep,
-                    agent: Some("3".into()),
-                }),
-                ResizeOutcome::InProgress,
-            )
-            .unwrap();
-        daemon
-            .held_actions
-            .outcome(&action.id, ResizeOutcome::Completed)
-            .unwrap();
-        let before = call(
-            &daemon,
-            Actor::user(),
-            "agent.actionHistory",
-            json!({"id":"3"}),
-        )
-        .await
-        .unwrap();
-        assert_eq!(before.as_array().unwrap().len(), 1);
-        assert_eq!(before[0]["outcome"]["status"], "completed");
-        assert_eq!(before[0]["method"], "workstream.rewind");
-        assert_eq!(before[0]["params"]["checkpoint"], 7);
-        drop(daemon);
-        let daemon = crate::tests::daemon_in(dir.path());
-        let after = call(
-            &daemon,
-            Actor::user(),
-            "agent.actionHistory",
-            json!({"id":"3"}),
-        )
-        .await
-        .unwrap();
-        assert_eq!(after, before);
     }
 }

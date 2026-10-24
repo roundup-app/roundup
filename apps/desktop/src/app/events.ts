@@ -19,7 +19,7 @@ export const connectEvents = async (app: AppSeam): Promise<Events> => {
   const listeners = new Map<(event: DaemonEvent) => void, boolean>();
   let head: number | null = null;
   // Events that arrive before the Daemon has answered, and replay no `replay` listener has taken yet.
-  let held: DaemonEvent[] | null = [];
+  let kept: DaemonEvent[] | null = [];
 
   const isReplay = (event: DaemonEvent) => head !== null && event.seq !== undefined && event.seq <= head;
 
@@ -30,7 +30,7 @@ export const connectEvents = async (app: AppSeam): Promise<Events> => {
   };
 
   const onEvent = (event: DaemonEvent) => {
-    if (head === null || (held !== null && isReplay(event))) held?.push(event);
+    if (head === null || (kept !== null && isReplay(event))) kept?.push(event);
     else deliver(event);
   };
 
@@ -49,10 +49,10 @@ export const connectEvents = async (app: AppSeam): Promise<Events> => {
     subscribe: (listener, options) => {
       listeners.set(listener, options?.replay === true);
 
-      if (options?.replay === true && held !== null) {
-        const pending = held;
+      if (options?.replay === true && kept !== null) {
+        const pending = kept;
 
-        held = null;
+        kept = null;
 
         for (const event of pending) listener(event);
       }

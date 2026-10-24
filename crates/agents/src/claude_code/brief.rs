@@ -205,34 +205,24 @@ const TOOLS: &[(&str, &str)] = &[
         "rail_startDoor",
         "start the Door of a Workstream you made or one in your Reach; the Door asks the user what the Workstream is for",
     ),
-    (
-        "rail_rename",
-        "rename yourself or a node in your Reach; a waiting receipt means accepted, not executed; read agent_actionHistory for its outcome",
-    ),
+    ("rail_rename", "rename yourself or a node in your Reach"),
     (
         "agent_instructions",
         "read exact instruction revisions and Attempt-bound delivery facts for yourself or your Reach; reading sends nothing, and submission is not work completion",
-    ),
-    (
-        "agent_actionHistory",
-        "read your durably accepted child actions and their outcomes; never resubmit a waiting action",
     ),
     (
         "rail_move",
         "move a node in your Reach; a Workstream moves only to the root",
     ),
     ("rail_remove", "remove a node in your Reach, never yourself"),
-    (
-        "agent_stop",
-        "stop an Agent in your Reach, never yourself; a waiting receipt means accepted, not executed; read agent_actionHistory for its outcome",
-    ),
+    ("agent_stop", "stop an Agent in your Reach, never yourself"),
     (
         "agent_interrupt",
-        "interrupt the turn of an Agent in your Reach; a waiting receipt means accepted, not executed; read agent_actionHistory for its outcome",
+        "interrupt the turn of an Agent in your Reach",
     ),
     (
         "agent_prompt",
-        "send a prompt to an Agent in your Reach as the user would; a waiting receipt means accepted, not executed; read agent_actionHistory for its outcome",
+        "send a prompt to an Agent in your Reach as the user would",
     ),
     (
         "agent_resume",
@@ -302,7 +292,7 @@ const TOOLS: &[(&str, &str)] = &[
     ),
     (
         "route_set",
-        "set where Messages from one Agent to another go (`auto`, `ask-first`, `drop`); it acts on others, never on you, and never over a Route the user set",
+        "set where Messages from one Agent to another go (`auto` or `drop`); it acts on others, never on you, and never over a Route the user set",
     ),
     (
         "terminal_spawn",
@@ -320,14 +310,7 @@ const TOOLS: &[(&str, &str)] = &[
         "terminal_write",
         "type base64 `data` into a Terminal you or your Reach own",
     ),
-    (
-        "terminal_resize",
-        "resize a Terminal you or your Reach own; a waiting receipt means accepted, not executed",
-    ),
-    (
-        "terminal_resizeHistory",
-        "read your durable resize outcomes, including Takeover waits and drop reasons",
-    ),
+    ("terminal_resize", "resize a Terminal you or your Reach own"),
     (
         "terminal_kill",
         "stop the program of a Terminal you or your Reach own",
@@ -528,17 +511,9 @@ pub fn text(role: Role, mcp: bool, plain: bool) -> String {
     } else {
         &[]
     };
-    TOOLS
-        .iter()
-        .chain(door)
-        .fold(brief, |brief, &(name, _)| {
-            brief.replace(&format!("`{name}`"), &format!("`{}`", command(name)))
-        })
-        // The one tool a description names without ticks.
-        .replace(
-            "agent_actionHistory",
-            &format!("`{}`", command("agent_actionHistory")),
-        )
+    TOOLS.iter().chain(door).fold(brief, |brief, &(name, _)| {
+        brief.replace(&format!("`{name}`"), &format!("`{}`", command(name)))
+    })
 }
 
 pub(super) fn door_tools() -> impl Iterator<Item = &'static str> {

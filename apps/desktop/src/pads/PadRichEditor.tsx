@@ -75,6 +75,11 @@ export default function PadRichEditor(props: {
   let original = props.text;
   let applying = false;
   let closed = false;
+
+  // The restored selection, held until the user's first input: Chromium may still hand ProseMirror the caret it adopted at focus.
+  let restored: { start: number; end: number; direction: "forward" | "backward" | "none" } | null = null;
+  let restoreAgain = () => {};
+
   let ready = false;
   let topBarLabels: string[] = [];
   const [failure, setFailure] = createSignal<string | null>(null);
@@ -140,7 +145,10 @@ export default function PadRichEditor(props: {
           new Plugin({
             view: () => ({
               update: (view, previous) => {
-                if (!applying && !closed && !view.state.doc.eq(previous.doc)) props.onChange();
+                if (!applying && !closed && !view.state.doc.eq(previous.doc)) {
+                  restored = null;
+                  props.onChange();
+                } else if (!applying && !closed && restored && !view.state.selection.eq(previous.selection) && !view.composing) restoreAgain();
                 else if (!applying && !closed && !view.state.selection.eq(previous.selection)) props.onSelection?.();
               },
             }),
@@ -306,15 +314,28 @@ export default function PadRichEditor(props: {
         }),
         restoreSelection: (selection) => crepe!.editor.action(ctx => {
           const view = ctx.get(editorViewCtx);
-          const start = Math.min(selection.start, view.state.doc.content.size);
-          const end = Math.min(selection.end, view.state.doc.content.size);
-          applying = true;
 
-          try {
-            view.dispatch(view.state.tr.setSelection(TextSelection.create(view.state.doc, selection.direction === "backward" ? end : start, selection.direction === "backward" ? start : end)));
-          } finally {
-            applying = false;
-          }
+          const apply = () => {
+            const start = Math.min(selection.start, view.state.doc.content.size);
+            const end = Math.min(selection.end, view.state.doc.content.size);
+            applying = true;
+
+            try {
+              view.dispatch(view.state.tr.setSelection(TextSelection.create(view.state.doc, selection.direction === "backward" ? end : start, selection.direction === "backward" ? start : end)));
+            } finally {
+              applying = false;
+            }
+          };
+
+          const release = () => { restored = null; restoreAgain = () => {}; };
+
+          restored = selection;
+          restoreAgain = apply;
+
+          view.dom.addEventListener("keydown", release, { once: true });
+          view.dom.addEventListener("pointerdown", release, { once: true });
+
+          apply();
         }),
         focus: focusEditor,
         unchanged: () => document().eq(originalDocument),

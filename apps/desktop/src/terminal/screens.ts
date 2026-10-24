@@ -32,7 +32,7 @@ export type Screens = {
   paste(id: string, event: Pick<ClipboardEvent, "clipboardData">): Promise<void>;
   /** Whether the Terminal has exited. */
   exited(id: string): boolean;
-  /** Whether a plain Terminal has output its user has not viewed since: it arrived while `viewing(id, false)` held, and `viewing(id, true)` clears it. */
+  /** Whether a plain Terminal has output its user has not viewed since: it arrived while `viewing(id, false)` applied, and `viewing(id, true)` clears it. */
   unseen(id: string): boolean;
   /** Tells whether the user can see the Terminal now: its Bubble is open and its tab selected. */
   viewing(id: string, on: boolean): void;
@@ -47,8 +47,8 @@ export type Screens = {
   dispose(): void;
 };
 
-/** Bytes held for one Terminal while its screen is fetched; past this the oldest go and the screen is fetched again. */
-const MAX_HELD_BYTES = 1_048_576;
+/** Bytes buffered for one Terminal while its screen is fetched; past this the oldest go and the screen is fetched again. */
+const MAX_BUFFERED_BYTES = 1_048_576;
 
 /** One output subscription of a displayed Terminal, and the stream state that belongs to it alone. */
 type Stream = {
@@ -106,8 +106,7 @@ const newestFailure = (state: TerminalFailures | undefined): FailureEntry | null
 
 const NOT_FOUND = -32001;
 
-/** `watching(id)`: U375, the user reads this Terminal without typing, so nothing typed or pasted reaches it. */
-export const createScreens = (connected: ConnectedProject, createEmulator: EmulatorFactory, watching: (id: string) => boolean = () => false, refused: () => void = () => {}): Screens => {
+export const createScreens = (connected: ConnectedProject, createEmulator: EmulatorFactory): Screens => {
   const { app, rail, daemonExit, project } = connected;
   const holders = new Map<string, Holder>();
   const watches = new Map<string, Watch>();
@@ -340,7 +339,7 @@ export const createScreens = (connected: ConnectedProject, createEmulator: Emula
     stream.position += message.length;
     stream.queued += message.length;
 
-    while (stream.queued > MAX_HELD_BYTES) {
+    while (stream.queued > MAX_BUFFERED_BYTES) {
       takeFirst(stream);
       stream.lost = true;
     }
@@ -496,13 +495,6 @@ export const createScreens = (connected: ConnectedProject, createEmulator: Emula
     emulator.onInput((bytes) => {
       if (exited(id) || daemonExit() !== null) return;
 
-      if (watching(id)) {
-        refused();
-
-        return;
-      }
-
-
       returnToBottom();
 
       for (const byte of bytes) typed.push(byte);
@@ -547,20 +539,14 @@ export const createScreens = (connected: ConnectedProject, createEmulator: Emula
   const paste = async (id: string, event: Pick<ClipboardEvent, "clipboardData">): Promise<void> => {
     if (exited(id) || daemonExit() !== null) return;
 
-    if (watching(id)) {
-      refused();
-
-      return;
-    }
-
     try {
       const pasted = await readPaste(event);
 
       if (pasted.kind === "image") {
         const path = await app.savePastedImage(pasted.image);
 
-        if (!watching(id)) pastePaths(id, [path]);
-      } else if (pasted.kind === "text" && !exited(id) && daemonExit() === null && !watching(id)) emulatorFor(id).paste(pasted.text);
+        pastePaths(id, [path]);
+      } else if (pasted.kind === "text" && !exited(id) && daemonExit() === null) emulatorFor(id).paste(pasted.text);
 
       setFailure(id, "clipboard", null);
     } catch (thrown) {

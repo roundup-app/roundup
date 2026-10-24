@@ -95,7 +95,7 @@ describe("u40 the Drawer takes and gives back focus", () => {
     expect(field.value).toBe("a");
   });
 
-  it("u40_closing_gives_focus_back_to_the_terminal_that_held_it", async () => {
+  it("u40_closing_gives_focus_back_to_the_terminal_that_had_it", async () => {
     const { connected, field } = await mountPaneWithDrawer();
     field.focus();
 
@@ -106,7 +106,7 @@ describe("u40 the Drawer takes and gives back focus", () => {
     await vi.waitFor(() => expect(document.activeElement).toBe(field));
   });
 
-  it("u40_closing_gives_focus_back_to_the_rail_row_that_held_it", async () => {
+  it("u40_closing_gives_focus_back_to_the_rail_row_that_had_it", async () => {
     const { connected } = await mountRail([agent("a", "idle", "x")], [], undefined, undefined, { drawer: true });
     railRowOf("a").focus();
 
@@ -117,7 +117,7 @@ describe("u40 the Drawer takes and gives back focus", () => {
     await vi.waitFor(() => expect(document.activeElement).toBe(railRowOf("a")));
   });
 
-  it("u40_closing_gives_focus_back_to_the_shelf_row_that_held_it", async () => {
+  it("u40_closing_gives_focus_back_to_the_shelf_row_that_had_it", async () => {
     const { connected } = await mountTodos([todo(1)]);
     await screen.findByText(/todo 1/);
     const button = shelfRowOf(1).querySelector("button");
@@ -148,7 +148,7 @@ describe("u40 the Drawer takes and gives back focus", () => {
     other.remove();
   });
 
-  it("u40_replacing_the_open_drawers_content_keeps_the_original_held_focus", async () => {
+  it("u40_replacing_the_open_drawers_content_keeps_the_original_focus", async () => {
     const { connected } = await mountRail([agent("a", "idle", "x")], [], undefined, undefined, { drawer: true });
     railRowOf("a").focus();
     connected.drawer.open(() => <input aria-label="first" />);
@@ -162,7 +162,7 @@ describe("u40 the Drawer takes and gives back focus", () => {
     await vi.waitFor(() => expect(document.activeElement).toBe(railRowOf("a")));
   });
 
-  it("u40_a_held_row_removed_from_the_rail_while_open_is_not_refocused", async () => {
+  it("u40_a_focused_row_removed_from_the_rail_while_open_is_not_refocused", async () => {
     const { connected, app } = await mountRail([agent("a", "idle", "x")], [], undefined, undefined, { drawer: true });
     railRowOf("a").focus();
     connected.drawer.open(() => <input aria-label="field" />);

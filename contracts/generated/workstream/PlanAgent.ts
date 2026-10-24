@@ -5,10 +5,6 @@
  */
 export type PlanAgent = { agent: string, name: string, 
 /**
- * Under Takeover (B6): the rewind of this child waits until the user gives it back.
- */
-takeover: boolean, 
-/**
  * Started after the Checkpoint: a rewind removes it from the Rail.
  */
 created_after: boolean, 

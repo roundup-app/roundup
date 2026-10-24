@@ -247,12 +247,6 @@ async fn a32_iteration_advances_once() {
                 .iteration,
             Some(2)
         );
-        // The retired Subagents' Digest would start a turn after the Handoff's; held, only one turn runs
-        // before the next Clear.
-        client
-            .request("takeover.begin", json!({"agent": door}))
-            .await
-            .unwrap();
         turn_done(model, &client, &door, "Iteration advanced").await;
         client
             .request(

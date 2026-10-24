@@ -1064,13 +1064,13 @@ async fn g5_rejected_slow_precheck_keeps_the_live_door_watched() {
     use std::sync::Arc;
     use std::time::Duration;
     let guard = tempfile::tempdir().unwrap();
-    let held = guard.path().join("held");
+    let parked = guard.path().join("parked");
     let release = guard.path().join("release");
     let git = wrapped_git(
         guard.path(),
         &format!(
-            "if [ \"$1\" = status ]; then echo held > '{}'; while [ ! -e '{}' ]; do sleep 0.01; done; fi\nexec \"$REAL\" \"$@\"",
-            held.display(),
+            "if [ \"$1\" = status ]; then echo parked > '{}'; while [ ! -e '{}' ]; do sleep 0.01; done; fi\nexec \"$REAL\" \"$@\"",
+            parked.display(),
             release.display()
         ),
     );
@@ -1096,7 +1096,7 @@ async fn g5_rejected_slow_precheck_keeps_the_live_door_watched() {
         let id = id.clone();
         tokio::spawn(async move { f.call("rail.remove", json!({"id":id})).await })
     };
-    crate::common::until_file(&held).await;
+    crate::common::until_file(&parked).await;
     let mut titles = f
         .terminals
         .subscribe(node.terminal_id.as_ref().unwrap())
@@ -1431,7 +1431,7 @@ mod prepared {
         assert!(!alive(&std::fs::read_to_string(&pid).unwrap()));
         assert_eq!(count(&launches), 2);
 
-        // Cancelling the start stops readiness and launches nothing; the directory stays held.
+        // Cancelling the start stops readiness and launches nothing; the directory stays parked.
         enroll(&f, &[&dir], check, 5000).await.unwrap();
         f.call(
             "project.prepareDirectory",
@@ -1971,7 +1971,7 @@ mod prepared {
     }
 
     #[tokio::test]
-    async fn g2542d_failed_readiness_that_left_edits_keeps_the_directory_held() {
+    async fn g2542d_failed_readiness_that_left_edits_keeps_the_directory_parked() {
         let logs = tempfile::tempdir().unwrap();
         let (launches, script) = launch_counter(logs.path());
         let (f, dir) = project_with_dir(&script, Git::from_env());
@@ -1982,7 +1982,7 @@ mod prepared {
         let err = f.spawn(None, None).await.unwrap_err();
         assert!(err.message.contains("phase=readiness"), "{}", err.message);
 
-        // Parking would lose the edits, so the directory stays held, unavailable and intact.
+        // Parking would lose the edits, so the directory stays parked, unavailable and intact.
         assert_eq!(f.tree().await.len(), 1);
         let err = f.spawn(None, None).await.unwrap_err();
         assert!(
