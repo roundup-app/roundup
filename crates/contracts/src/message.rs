@@ -388,7 +388,7 @@ pub struct Reconciliation {
 /// An accepted decision and the one successor Message it made.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, TS)]
 #[ts(export, export_to = "message/")]
-pub struct ContinuationDecision {
+pub struct ContinuationChoice {
     pub id: String,
     pub request: String,
     pub actions: Vec<String>,
@@ -399,6 +399,6 @@ pub struct ContinuationDecision {
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, TS)]
 #[ts(export, export_to = "message/")]
 pub struct ResumeWork {
-    pub decision: Option<ContinuationDecision>,
+    pub decision: Option<ContinuationChoice>,
     pub reconciliation: Reconciliation,
 }

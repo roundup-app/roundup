@@ -17,6 +17,8 @@ lint-rust:
     just clippy
     cargo machete crates
     spikes/context-injection/e7_report.test.sh
+    tools/question-guard/guard.test.sh
+    tools/question-guard/guard.sh
     just proofs
 
 # Lints every target of the workspace; CI runs it on Linux and on macOS, whose `target_os = "macos"` code Linux never compiles (L89).

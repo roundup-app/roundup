@@ -91,7 +91,7 @@ const fixture = async (offset = 0) => {
           else next();
         });
       },
-    }, realDaemon({ project: dir, socket: path, proof: "0".repeat(64) })] });
+    }, realDaemon({ project: dir, socket: path })] });
     await vite.listen();
   } catch (error) {
     await close();

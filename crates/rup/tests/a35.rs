@@ -1312,18 +1312,6 @@ async fn working(events: &mut rpc::Client, id: &str) {
     .await;
 }
 
-async fn open_decisions(fx: &Fix, id: &str) -> usize {
-    fx.user
-        .request("decision.list", Value::Null)
-        .await
-        .unwrap()
-        .as_array()
-        .unwrap()
-        .iter()
-        .filter(|d| d["agent"] == id)
-        .count()
-}
-
 #[tokio::test]
 async fn m16_a_door_can_perform_each_user_action_on_a_child() {
     let fx = fixture().await;
@@ -1386,45 +1374,6 @@ async fn m16_a_door_can_perform_each_user_action_on_a_child() {
                 .then_some(())
         })
         .await;
-
-        // Permission prompt and question: the Door's own Claude answers each open Decision through its MCP.
-        let first = if child == fx.a { 1 } else { 3 };
-        let permission = daemon::h21_ask(&fx.project, &child, "Bash", daemon::h21_bash()).await;
-        model
-            .tool_result(&format!("toolu_m16_answer_{first}"))
-            .await;
-        let result = permission.await.unwrap().unwrap();
-        assert!(
-            result["output"]
-                .as_str()
-                .unwrap()
-                .contains("\"behavior\":\"allow\""),
-            "{result}"
-        );
-        // The tool result precedes the end of the Door's model turn. A new note during
-        // that exchange can be consumed with its result instead of starting the next turn.
-        idle(&fx.user, &fx.ws).await;
-        let ask = json!({"name": "ask_user", "arguments": {"question": "Proceed?",
-            "answers": [{"label": "Yes", "description": "Continue"}]}});
-        let calls = [("tools/call", ask)];
-        let answer_id = format!("toolu_m16_answer_{}", first + 1);
-        let (asked, _) = tokio::join!(mcp(&fx, &child, &calls), model.tool_result(&answer_id));
-        assert!(
-            answered(&asked[0]).to_string().contains("go"),
-            "{}",
-            asked[0]
-        );
-        assert_eq!(open_decisions(&fx, &child).await, 0);
-        let touch = fx
-            .user
-            .request(
-                "provenance.history",
-                json!({"item": format!("decision:d{first}")}),
-            )
-            .await
-            .unwrap();
-        assert_eq!(touch[0]["actor"]["id"], fx.ws.as_str());
-        idle(&fx.user, &fx.ws).await;
 
         // Stop and resume: the conversation stays saved and the child runs again.
         answered(&door_calls(&fx, &[("agent_stop", json!({"id": child}))]).await[0]);

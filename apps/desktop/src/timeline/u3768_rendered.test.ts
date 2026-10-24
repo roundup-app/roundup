@@ -126,17 +126,12 @@ it("u3768h_recorded_work_survives_stop_and_return_on_the_rendered_app", async ()
   await read(`(() => {
     const actor = { kind: 'user', id: 'you', parent: null };
     window.__fake.emit({ actor, name: 'agent.status', data: { id: 'agent-4', attempt: '1', status_revision: '50', status: { kind: 'needs-you', label: 'Approve the test run', since: Date.now() - 8 * 60000 } } });
-    window.__fake.emit({ actor, name: 'decision.opened', data: { id: 'timeline-decision', agent: 'agent-4', tool: 'Bash', args: JSON.stringify({ command: 'pnpm test', description: 'Run tests' }), opened_at: Date.now(), answerable: true } });
   })()`);
   await wait("!!document.querySelector('button.timeline-block')");
   await browser("focus", "button.timeline-block");
+  await capture("dense-needs-you-focus");
   await browser("press", "Enter");
-  await wait("!!document.querySelector('.decision-card')");
-  expect(await read("document.querySelector('.decision-card').contains(document.activeElement)")).toBe(true);
-  await browser("press", "Escape");
-  await wait("!document.querySelector('.decision-card')");
-  expect(await read("document.activeElement.matches('button.timeline-block')")).toBe(true);
-  await capture("dense-decision-focus");
+  await wait("!document.querySelector('.timeline-view')");
 
   if (videoDir) await browser("record", "stop");
   expect(after).toEqual(before);

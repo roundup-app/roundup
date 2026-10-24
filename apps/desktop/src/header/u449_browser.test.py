@@ -41,7 +41,7 @@ read = r"""(() => {
     titleStyle:{overflow:title ? getComputedStyle(title).textOverflow : "",whiteSpace:title ? getComputedStyle(title).whiteSpace : ""},
     titleTextWidth:title ? titleRange.getBoundingClientRect().width : 0,titlePadding:titleCss ? parseFloat(titleCss.paddingLeft)+parseFloat(titleCss.paddingRight) : 0,
     strip:box('.strip'),rail:box('.rail'),centre:box('.centre'),shelf:box('.shelf'),drawer:box('.drawer'),close:box('.drawer .close'),menu:box('.tab-menu'),
-    centreSurfaces:[...document.querySelectorAll('.centre .decision-card,.centre .order-line,.centre .thread-header')].map(e=>e.getBoundingClientRect().toJSON()),
+    centreSurfaces:[...document.querySelectorAll('.centre .order-line,.centre .thread-header')].map(e=>e.getBoundingClientRect().toJSON()),
     checks:window.__checks(),controls,plus:box('.strip-add'),scroll:{width:document.querySelector('.tablist').clientWidth,total:document.querySelector('.tablist').scrollWidth}};
 })()"""
 
@@ -275,7 +275,7 @@ try:
         browser("set", "viewport", str(width), "800")
         for scheme in ("light", "dark"):
             browser("set", "media", scheme)
-            for seed in ("first-run", "agents-10", "tabs-8", "tree-40", "decisions"):
+            for seed in ("first-run", "agents-10", "tabs-8", "tree-40"):
                 evaluate("localStorage.clear()")
                 browser("open", origin + "harness.html?seed=" + seed)
                 browser("wait", ".strip")
@@ -284,11 +284,6 @@ try:
                     browser("wait", ".rail [data-todo-root]")
                 prefix = f"{seed}-{width}-{scheme}"
                 capture(prefix + "-rest")
-                if seed == "decisions":
-                    browser("wait", ".decision-card")
-                    evaluate("document.querySelector('.shelf-tab[data-selected]').click()")
-                    browser("wait", '.shelf-tab[data-selected][aria-expanded="false"]')
-                    capture(prefix + "-closed")
                 if seed == "tree-40":
                     # Every Drawer keeps its top throughout opening and closing, with either Shelf state.
                     for shelf_open in (True, False):

@@ -701,13 +701,6 @@ async fn n1_fallback_uses_a_nested_temporary_home() {
             .spawn()
             .unwrap(),
     };
-    use std::io::Write as _;
-    writeln!(
-        daemon.child.stdin.as_mut().unwrap(),
-        "roundup-proof 1 {}",
-        "0".repeat(64)
-    )
-    .unwrap();
     tokio::time::timeout(Duration::from_secs(15), async {
         loop {
             if let Ok(client) = rpc::Client::connect(&socket).await

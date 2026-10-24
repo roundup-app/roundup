@@ -108,13 +108,6 @@ const Connection = (props: {
     if (open && !(open instanceof Error)) open.worktrees.watch(props.active);
   });
 
-  // Refused Agent answers have no Event, so live requests refresh on the App's shared clock.
-  createEffect(on(props.now, () => {
-    const open = connected();
-
-    if (open && !(open instanceof Error) && !props.tab()?.exit && open.decisions.open().length > 0) open.decisions.retryList();
-  }, { defer: true }));
-
   // M8: the Daemon cannot reach the App, so an Agent's open or rename of a Project arrives as an Event.
   createEffect(() => {
     const open = connected();
@@ -229,7 +222,7 @@ export const App = (props: {
   });
 
   const now = createNow(props.clock, isWorking, visible);
-  // Display demand must not enable the Worktree and Decision RPC cadence.
+  // Display demand must not enable the Worktree RPC cadence.
   const pollingNow = createMemo<number>((previous) => visible() && isWorking() ? now() : previous ?? untrack(now));
   // U413: roundup is in front while its window has focus and is visible.
   const inFront = () => document.hasFocus() && document.visibilityState === "visible";

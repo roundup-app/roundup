@@ -9,12 +9,14 @@ const describing = { workload: "glyphs", engine: "chromium", timerResolutionMs: 
 /** A frame clock the test steps: each `step` delivers one frame at the given timestamp. */
 const clock = (hidden = () => false) => {
   let next: ((at: number) => void) | null = null;
-  const frames: Frames = { frame: (callback) => void (next = callback), hidden };
+  let wall: (() => void) | null = null;
+  const frames: Frames = { frame: (callback) => void (next = callback), hidden, after: (_ms, callback) => void (wall = callback) };
 
   return {
     frames,
     at: (stamps: number[]) => stamps.forEach((stamp) => next?.(stamp)),
     waiting: () => next !== null,
+    wallClockRuns: () => wall?.(),
   };
 };
 
@@ -44,6 +46,19 @@ describe("u3010e the frame recorder", () => {
     expect(report.idle.n).toBe(30);
     expect(time.waiting()).toBe(true);
     expect(report.sample.intervals.every((interval) => interval === 10)).toBe(true);
+  });
+
+  it("u3010e_a_silent_frame_clock_still_reports_invalid", async () => {
+    const time = clock();
+    const done = recordFrames(time.frames, describing, async () => true, WINDOWS);
+
+    time.at(evenly(0, 50, 10));
+    time.wallClockRuns();
+
+    const report = await done;
+
+    expect(report).toMatchObject({ verdict: "invalid", exit: 2 });
+    expect(report.invalid).toContain("the frame clock delivered no frame before the wall-clock bound");
   });
 
   it("u3010e_the_report_holds_raw_intervals_and_nearest_rank_percentiles", () => {

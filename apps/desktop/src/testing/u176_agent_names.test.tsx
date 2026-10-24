@@ -51,16 +51,6 @@ describe("u176 Agent names", () => {
       await waitFor(async () => expect((await agents())[count - 1]!.status?.label).not.toBe("starting"), { timeout: 30_000 });
       await waitFor(async () => expect(await app.rpc("agent.prompt", { id: (await agents())[count - 1]!.id, text: "what should this do" })).toBeNull(), { timeout: 30_000 });
       await waitFor(async () => expect((await agents())[count - 1]!.name).not.toBe("new-agent"), { timeout: 60_000 });
-
-      // Only the second Agent keeps a pending Decision; the first one's is allowed.
-      if (count === 1) {
-        const first = (await agents())[0]!.id;
-
-        await waitFor(async () => {
-          for (const decision of await app.rpc("decision.list", null)) if (decision.agent === first) await app.rpc("decision.answer", { id: decision.id, answer: "allow", proof: await app.daemonProof() });
-          expect((await app.rpc("decision.list", null)).filter((decision) => decision.agent === first)).toHaveLength(0);
-        }, { timeout: 60_000 });
-      }
     }
 
     const nodes = await agents();
@@ -71,11 +61,6 @@ describe("u176 Agent names", () => {
       for (const name of names) expect(within(rail).getAllByText(name).length).toBeGreaterThan(0);
     });
 
-    const second = nodes[1]!;
-
-    await waitFor(async () => expect((await app.rpc("decision.list", null)).map((decision) => decision.agent)).toContain(second.id), { timeout: 60_000 });
-    fireEvent.click(rail.querySelector(`[data-id="${second.id}"] .name`) ?? rail);
-    expect(await screen.findByRole("region", { name: new RegExp(`Decision for ${second.name}|${second.name} wants to `) }, { timeout: 30_000 })).toBeTruthy();
     await real.model!.assertMatched();
   }, 180_000);
 
