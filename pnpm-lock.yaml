@@ -15,7 +15,7 @@ patchedDependencies:
     hash: 53e576addedd6d850426eb700f7100e4c6d7fefc6a372b0a35cf5c4cd1d44585
     path: patches/@ark-ui__solid@5.39.3.patch
   '@copilotkit/aimock@1.45.1':
-    hash: 4d0e1f2521f56aa02ab1299b6619701fe34c292a9f5a7a09e3df60a8d7992c2d
+    hash: a336dfbaac9c157abbe0b8fd789150be6aa3cccedc9347bd07cc67fd4bfd27f6
     path: patches/@copilotkit__aimock@1.45.1.patch
   '@dnd-kit/dom@0.5.1':
     hash: 02b32aaff4ce0eee78e6e6cc8f4e27208d1bf796e284a07a4407a6d2f0a592d2
