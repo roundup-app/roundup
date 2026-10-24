@@ -34,7 +34,7 @@
   }
 }
 
-/* U3016g: the Agents table keeps its columns where they are when its bar appears. */
+/* U3016g: the chart keeps its columns where they are when its bar appears. */
 .measurement-dashboard {
   scrollbar-gutter: stable;
 }

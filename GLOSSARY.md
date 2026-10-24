@@ -494,7 +494,7 @@ How much an Agent's Model reasons per turn, picked with the Model (P8); an opaqu
 The kind of Agent roundup starts, which a Project's Model and Effort are set for: `door` or `subagent`, one list in `crates/agents` that every surface reads. A **scout** is a Subagent started with `scout: true` for reading and searching only (LC4); it takes the Subagent's Model and Effort and is no third entry. A **standing specialist** is a scout kept for one kind of reading, named by `SpawnParams.specialist` within its Workstream (LC12). Not a Kind (a Status).
 
 **Usage**:
-The share of the user's plan limits that an Agent's turns spend (P9, P10).
+The share of the user's plan limits that an Agent's turns spend (P9, P10). roundup reads, sums and shows no figure of it (P14).
 
 **Evaluator**:
 A small model run inside the Daemon for a routine judgement at no frontier-model cost; a spike (B27), not yet built.
@@ -800,10 +800,9 @@ The exact retained target or an explicit cause preventing its use. Missing or co
 
 **Measurement** (`project.measurements`):
 A retained source contribution attributed to its original Project, maker Agent, Home at
-observation and Attempt when known. A source revision replaces the same contribution's
-consumption; the revision journal preserves earlier facts. `Consumed` holds four disjoint
-categories (input, output, cache read and cache write), with missing values unknown.
-`MeasurementValue` is a request, an `Execution` interval (Agent or tool), or an observed Timed activity; source wall-clock
+observation and Attempt when known. A source revision replaces the same contribution;
+the revision journal preserves earlier facts. roundup keeps no token or money (P14).
+`MeasurementValue` is an `Execution` interval (Agent or tool) or an observed Timed activity; source wall-clock
 endpoints retain their meaning and never imply monotonic continuity. `Measurements` is a
 coherent read at one retained revision; `MeasurementsChanged` (`project.measurementsChanged`)
 tells subscribers to reconcile that revision. `MeasurementSource` reports last good collection,
@@ -883,49 +882,14 @@ User-label states, each led by a glyph: "Accepted" (check), "Checked independent
 (check), "Check pending" (circle), "Older version" (circle), "Unknown outcome" (diamond)
 and "Evidence unavailable" (x).
 
-**Request cost** (`RequestCost`, `CacheWrites`):
-The observed opaque Model and independently observed five-minute/one-hour cache-write
-classes of one retained request. Classes partition its consumed cache writes; a missing
-class is unknown. `unavailable` explains missing evidence. Old retained requests with
-no cost evidence remain unknown until their source is replayed.
-
-**Reference rates** (`ReferenceRates`):
-An Adapter-matched, versioned and dated offline category rate basis, with currency,
-exact decimal rates, token denominator, source link and comparison assumptions. It
-supports a separately labelled reference estimate, never a subscription bill.
-
-**Reported money** (`ReportedMoney`, `MoneyScope`, `MeasurementValue::Money`):
-An exact source amount with its currency when established, source, pricing basis and
-request or inclusive conversation scope. Conversation totals include their constituent
-requests and native children: they never add to request money or reference estimates.
-A currency not established by its source is unknown; no conversion is inferred.
-
 **Measurement summary** (`MeasurementSummary`, `MeasurementSummaryParams`, `project.measurementSummary`):
-One Workstream's retained consumed tokens and ranked contributors at one Measurement
-revision. Later pages name that revision; a changed revision requires reconciliation.
-It carries collection coverage and failure independently of known consumption.
-
-**Weekly limit** (`WeeklyLimit`, `project.weeklyLimit`):
-The account's weekly use and reset time, as the Claude Code Adapter reads it from the vendor's
-account usage, which spends no Model tokens. It is the account's figure, never a Workstream's
-share; unavailable carries a one-sentence reason and no number.
-
-**Consumed category** (`ConsumedCategory`):
-Input, output, cache read, cache write or their total, chosen to rank contributors.
-
-**Consumed subtotal** (`ConsumedSubtotal`, `ConsumedTotals`):
-An exact known token count with the number of contributions whose count is
-unknown; a contributor without retained requests is one unknown contribution. A total includes known categories even when another category is missing.
-Missing history is separate coverage; it is never a measured zero.
+One Workstream's time and its contributors, ranked by summed Agent time (exact
+nanoseconds, then stable Agent identity), at one Measurement revision. Later pages name that
+revision; a changed revision requires reconciliation. It carries collection coverage and
+failure independently of known time.
 
 **Measurement contributor** (`MeasurementContributor`):
-An Agent's retained consumption in one Home, including a stopped or removed maker.
-Unknown selected categories rank after fully known ones; ties use stable Agent identity.
-
-**Measurement cost** (`MeasurementCost`, `ReferenceEstimate`):
-Reported money retained separately by source, currency and request/conversation scope,
-and exact decimal reference estimates grouped only by identical Reference rates.
-Missing evidence names its affected contributor; neither value is a subscription bill.
+An Agent's retained time in one Home, including a stopped or removed maker.
 
 **Measurement time** (`MeasurementTime`):
 Elapsed since first observed start, separate from summed Attempt nanoseconds, whose

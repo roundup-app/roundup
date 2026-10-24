@@ -120,7 +120,7 @@ pub const DOOR_METHODS: [&str; 8] = [
 ];
 
 /// M5: the methods and App commands with no tool; the reasons are in `scenarios/mcp.md`.
-pub const NO_TOOL: [&str; 71] = [
+pub const NO_TOOL: [&str; 70] = [
     // A3308: Auto is the user's choice; Agents read its value through the existing rail_tree tool.
     "workstream.setAuto",
     "rail.list",
@@ -194,8 +194,6 @@ pub const NO_TOOL: [&str; 71] = [
     "project.importDiscover",
     "project.importCommit",
     "agent.setModel",
-    // U3016h: the App's weekly-limit line, the account's figure
-    "project.weeklyLimit",
     // D8: the App's Resource strip
     "project.resources",
     // A32: the user's act of clearing; a Door answers it with `workstream_handoff`
