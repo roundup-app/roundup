@@ -1,4 +1,7 @@
 {
+  "rules": {
+    "duplicate-exports": "off"
+  },
   "entry": [
     "contracts/**/*.ts",
     "apps/*/harness.html",

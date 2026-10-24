@@ -46,6 +46,10 @@ async fn u3016c_elapsed_and_parallel_time_are_distinct() {
     let w = World::new();
     let home = w.home();
     let live = w.agent(Some(&home));
+    w.signal(
+        &live,
+        json!({"hook_event_name":"UserPromptSubmit","prompt":"work"}),
+    );
     w.fact(&home, "a", "first", &attempt(0, 10, false).to_string());
     w.fact(&home, "b", "parallel", &attempt(0, 10, false).to_string());
     w.fact(&home, &live, "resumed", &attempt(15, 20, true).to_string());
@@ -61,6 +65,10 @@ async fn u3016i_unknown_attempt_end_stops_the_clock_once_its_agent_stops() {
     let w = World::new();
     let home = w.home();
     let live = w.agent(Some(&home));
+    w.signal(
+        &live,
+        json!({"hook_event_name":"UserPromptSubmit","prompt":"work"}),
+    );
     w.fact(&home, &live, "open", &attempt(0, 10, true).to_string());
     let read = w.summary(&home).await;
     assert_eq!(read["time"]["active"], true);
