@@ -1,3 +1,4 @@
+import { writeText } from "../app/clipboard";
 import { batch, untrack, createResource, createEffect, createMemo, createSignal, For, onCleanup, onMount, Show } from "solid-js";
 import * as v from "valibot";
 import type { AskSubmission } from "../state/asks";
@@ -452,7 +453,7 @@ const Deliverables = (props: { state: ReturnType<typeof createDeliverables> }) =
             }
 
             const url = copy.linkUrl("deliverable", encodeURIComponent(record.id), encodeURIComponent(record.project));
-            await navigator.clipboard.writeText(`${copy.linkNote(url)}\n${JSON.stringify({ home: home(record), publication: status(record), record }, null, 2)}`);
+            await writeText(connected.app, `${copy.linkNote(url)}\n${JSON.stringify({ home: home(record), publication: status(record), record }, null, 2)}`);
             clear(record.id);
           } catch (error) {
             if (!(error instanceof Error)) throw error;

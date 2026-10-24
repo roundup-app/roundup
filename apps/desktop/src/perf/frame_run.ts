@@ -4,6 +4,7 @@ import { toBase64 } from "../terminal/base64";
 import { createXtermEmulators } from "../terminal/emulator";
 import { recordFrames } from "./frames";
 import type { FrameReport } from "./frames";
+import type { NativeDragReport } from "./nativeDragProbe";
 import { READY, SETUP_BOUND_MS, appears, sleep, timerResolutionMs } from "./run";
 
 /** `docs/motion.md`, **Native performance protocol**: every 2 s one cycle of the workload, over the 60 s sample. */
@@ -37,6 +38,14 @@ export const everyTwoSeconds = async (clock: Clock, cycle: (index: number) => Pr
   }
 
   return { performed, completed: true };
+};
+
+/** A report holds every raw interval, so it is tens of KiB; one write that large into a tty under the stream is the likeliest to be cut short. */
+const WRITE_CHUNK = 4096;
+
+/** Hands `bytes` to `write` in order, `WRITE_CHUNK` at a time, each after the last was accepted. */
+export const writeInChunks = async (bytes: Uint8Array, write: (chunk: Uint8Array) => Promise<void>): Promise<void> => {
+  for (let at = 0; at < bytes.length; at += WRITE_CHUNK) await write(bytes.subarray(at, at + WRITE_CHUNK));
 };
 
 /** What the Layers driver presses; each answers whether its control was found. */
@@ -233,12 +242,12 @@ export const createFrameRun = (app: AppSeam, workload: string, cwd: string) => {
     renderer: () => {},
   });
 
-  const report = async (body: FrameReport | { error: string }) => {
+  const report = async (body: FrameReport | NativeDragReport | { error: string }) => {
     if (terminalId === null) throw new Error("no Terminal was opened to report through");
 
-    const line = `FRAMES ${JSON.stringify(body)}\n`;
+    const id = terminalId;
 
-    await app.rpc("terminal.write", { id: terminalId, data: toBase64(new TextEncoder().encode(line)) });
+    await writeInChunks(new TextEncoder().encode(`FRAMES ${JSON.stringify(body)}\n`), async (data) => void (await app.rpc("terminal.write", { id, data: toBase64(data) })));
   };
 
   const measure = async () => {
@@ -253,11 +262,19 @@ export const createFrameRun = (app: AppSeam, workload: string, cwd: string) => {
     await appears(() => document.querySelector("textarea.xterm-helper-textarea"), "the Terminal's input");
     await Promise.race([isReady, sleep(SETUP_BOUND_MS).then(() => Promise.reject(new Error(`the Terminal never printed ${READY}`)))]);
 
+    if (workload === "drag-compatibility") {
+      const { runNativeDragProbe } = await import("./nativeDragProbe");
+
+      await report(await runNativeDragProbe(app));
+
+      return;
+    }
+
     const cycle = await prepare(app, workload, cwd);
 
     await report(
       await recordFrames(
-        { frame: (callback) => void requestAnimationFrame(callback), hidden: () => document.hidden },
+        { frame: (callback) => void requestAnimationFrame(callback), hidden: () => document.hidden, after: (ms, callback) => void setTimeout(callback, ms) },
         {
           workload,
           engine: /Chrome|Chromium/.test(navigator.userAgent) ? "chromium" : "webkit",

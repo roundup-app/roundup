@@ -1,3 +1,4 @@
+import { writeText } from "../app/clipboard";
 import { ReservedLine } from "../ink/ReservedLine";
 import "./import.css";
 import { createSignal, For, onCleanup, Show } from "solid-js";
@@ -12,11 +13,11 @@ const PERIODS: readonly ImportPeriod[] = ["day", "week", "month"];
 
 /** U2875d: the Project's `Import Claude Code work` panel. Opening discovers; nothing submits until `Import` is pressed, and a restored selection waits for a fresh discovery to match it. */
 export const ImportPanel = (props: { onClose: () => void }) => {
-  const { importing: state, drafts, project, daemonExit, now } = useConnectedProject();
+  const { app, importing: state, drafts, project, daemonExit, now } = useConnectedProject();
   const [copyFailure, failCopy] = createSignal<string | null>(null);
 
   const copyItem = (text: string) => {
-    void navigator.clipboard.writeText(text)
+    void writeText(app, text)
       .then(() => failCopy(null), error => failCopy(copy.copyDraftFailure(error instanceof Error ? error.message : String(error))));
   };
 

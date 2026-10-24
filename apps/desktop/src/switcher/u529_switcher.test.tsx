@@ -165,12 +165,12 @@ it.each(["write", "read", "invalid"])("u2773e_recovery_actions_keep_surface_draf
   const key = "roundup:drafts:/p";
   const exact = "  e\u0301 🧭 東京  ";
   const writeText = vi.fn(async (_text: string) => {});
-  Object.defineProperty(navigator, "clipboard", { configurable: true, value: { writeText } });
 
   if (failure === "invalid") localStorage.setItem(key, "{broken");
 
   const read = failure === "read" ? vi.spyOn(Storage.prototype, "getItem").mockImplementation(() => { throw new Error("denied"); }) : null;
   const { app } = await mountSwitcher();
+  vi.spyOn(app, "clipboardWrite").mockImplementation(writeText);
   const write = failure === "write" ? vi.spyOn(Storage.prototype, "setItem").mockImplementation(() => { throw new Error("full"); }) : null;
   const calls = app.calls.length;
   openSwitcher();
@@ -231,8 +231,8 @@ it.each(["dismiss", "copy", "discard", "failed discard", "unrelated discard", "f
   "p3557c_failure_lifetime_switcher_%s", async (action) => {
     const exact = "  e\u0301 🧭 東京  ";
     const writeText = vi.fn<(_text: string) => Promise<void>>().mockRejectedValue(new Error("denied"));
-    Object.defineProperty(navigator, "clipboard", { configurable: true, value: { writeText } });
     const { app, connected } = await mountSwitcher("ann");
+    vi.spyOn(app, "clipboardWrite").mockImplementation(writeText);
     const other = connected.drafts.edit({ surface: "other", object: "bob", recipient: null }, { text: " untouched 東京 " }, null, "ordinary").draft;
     const refuse = vi.spyOn(Storage.prototype, "setItem").mockImplementation(() => { throw new Error("full"); });
     openSwitcher();
@@ -279,8 +279,8 @@ it.each(["dismiss", "copy", "discard", "failed discard", "unrelated discard", "f
 it("p3557c_failure_lifetime_switcher_late_copy_cannot_fail_a_new_revision", async () => {
   let reject!: (error: Error) => void;
   const writeText = vi.fn(() => new Promise<void>((_resolve, refuse) => { reject = refuse; }));
-  Object.defineProperty(navigator, "clipboard", { configurable: true, value: { writeText } });
-  const { connected } = await mountSwitcher();
+  const { app, connected } = await mountSwitcher();
+  vi.spyOn(app, "clipboardWrite").mockImplementation(writeText);
   vi.spyOn(Storage.prototype, "setItem").mockImplementation(() => { throw new Error("full"); });
   openSwitcher();
   await waitFor(() => expect(field()).not.toBeNull());

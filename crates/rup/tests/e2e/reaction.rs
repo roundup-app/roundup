@@ -714,9 +714,8 @@ async fn nr3_automatic_write_failure_is_inspectable_and_recovers() {
         .unwrap();
     start_again(&s.user, &s.door).await;
     let sent = notes(&s.user, &s.w, "failed firing", 1).await;
-    let recovered = current(&s, &saved).await;
+    let recovered = super::wake::cleared_cause(&s.user, &saved.id).await;
     assert_eq!((recovered.firings.len(), recovered.remaining), (1, 0));
-    assert!(recovered.observation.cause.is_none());
     let firing = &recovered.firings[0];
     assert_eq!(sent[0]["id"], json!(firing.message));
     assert!(firing.matched);

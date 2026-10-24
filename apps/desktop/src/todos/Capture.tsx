@@ -1,3 +1,4 @@
+import { writeText } from "../app/clipboard";
 import * as v from "valibot";
 import { createEffect, createSignal, For, onCleanup, Show } from "solid-js";
 import type { Todo } from "@contracts/todo/Todo";
@@ -218,7 +219,7 @@ export const Capture = (props: { onFile: (() => void) | undefined }) => {
             <span class="ink" data-state={draft.status}>{copy.draftStatus[draft.status]}</span>
             <textarea class="capture-field" aria-label={copy.recoveredCaptureDraft} rows={1} readOnly value={String(draft.value.text)} />
             <div class="capture-actions">
-            <button data-button="quiet" type="button" onClick={() => { void failureOf(() => navigator.clipboard.writeText(String(draft.value.text))).then(cause => { if (cause) setFailure(copy.copyDraftFailure(cause)); }); }}>{copy.copy}</button>
+            <button data-button="quiet" type="button" onClick={() => { void failureOf(() => writeText(connected.app, String(draft.value.text))).then(cause => { setFailure(cause ? copy.copyDraftFailure(cause) : null); }); }}>{copy.copy}</button>
             <button data-button="quiet" type="button" onClick={() => drafts.discard(draft.revision)}>{copy.discardRevision}</button>
             </div>
           </div>}</For>

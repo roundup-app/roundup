@@ -83,6 +83,8 @@ export type Facts = {
   hidden: boolean;
   completed: boolean;
   actionsDone: boolean;
+  /** The wall clock ran out before the frame clock delivered its last frame. */
+  stalled?: boolean;
 };
 
 /** What a run proves. Only a valid run is judged, and the webview never measures presentation, so no report here is a pass. */
@@ -93,6 +95,7 @@ export const buildReport = (facts: Facts): FrameReport => {
 
   const invalid = [
     ...(Math.max(...facts.sample, ...facts.idle, 0) > STALL_MS ? ["the frame clock stopped (an interval over 1 s)"] : []),
+    ...(facts.stalled ? ["the frame clock delivered no frame before the wall-clock bound"] : []),
     ...(facts.hidden ? ["the window was hidden during the run"] : []),
     ...(facts.completed ? [] : ["the sample ended early"]),
     ...(facts.actionsDone ? [] : ["the workload's actions did not complete"]),
@@ -138,7 +141,12 @@ export type Frames = {
   /** Calls back with the frame's timestamp, as `requestAnimationFrame` does. */
   frame(callback: (at: number) => void): void;
   hidden(): boolean;
+  /** Calls back once after `ms` of wall time, which passes even when no frame is delivered. */
+  after(ms: number, callback: () => void): void;
 };
+
+/** Wall time past the three windows before a silent frame clock ends the run. */
+const WALL_MARGIN_MS = 10_000;
 
 /**
  * One workload's run: ignores the warm-up, records every frame interval of the sample window, then of the idle window, and stops.
@@ -159,11 +167,21 @@ export const recordFrames = (
     let hidden = false;
     let actionsDone = false;
     let began = false;
+    let finished = false;
 
-    const finish = (completed: boolean) =>
-      resolve(buildReport({ ...describe, hz: refreshHz(warmup), sample, idle, hidden, completed, actionsDone }));
+    const finish = (completed: boolean, stalled = false) => {
+      if (finished) return;
+
+      finished = true;
+      resolve(buildReport({ ...describe, hz: refreshHz(warmup), sample, idle, hidden, completed, actionsDone, stalled }));
+    };
+
+    // A webview that stops delivering frames (occluded, throttled) would otherwise leave the run silent, and the runner with no line to read.
+    frames.after(windows.warmup + windows.sample + windows.idle + WALL_MARGIN_MS, () => finish(false, true));
 
     const tick = (at: number) => {
+      if (finished) return;
+
       start ??= at;
 
       hidden ||= frames.hidden();
