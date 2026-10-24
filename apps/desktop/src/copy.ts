@@ -116,7 +116,6 @@ export const copy = {
   measurementTimeSpent: "Where Agent time went",
   measurementExecution: "Agent work",
   measurementTools: "Tools",
-  measurementHuman: "Waiting on you",
   measurementCoordination: "Coordination",
   measurementOther: "Other",
   measurementUnmeasured: "Unmeasured",

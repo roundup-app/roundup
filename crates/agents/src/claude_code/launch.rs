@@ -796,16 +796,10 @@ impl Launcher {
         let agent_id = id.to_string();
         let rup = shell_quote(&self.rup.to_string_lossy());
         let id = shell_quote(&id.to_string());
-        // H9: `PermissionRequest` waits for the user's answer, so its hook outlives the 5 s of the rest.
         let signal = json!([{ "hooks": [{
             "type": "command",
             "command": format!("ROUNDUP_ATTEMPT={} {rup} signal {id}", shell_quote(attempt)),
             "timeout": 5,
-        }] }]);
-        let permission = json!([{ "hooks": [{
-            "type": "command",
-            "command": format!("{rup} permission {id}"),
-            "timeout": super::PERMISSION_TIMEOUT_SECS,
         }] }]);
         // E3: at start the Agent is told its Context, by a second command beside the Signal.
         let session_start = json!([{ "hooks": [
@@ -816,7 +810,6 @@ impl Launcher {
             .iter()
             .map(|event| {
                 let hook = match *event {
-                    "PermissionRequest" => &permission,
                     "SessionStart" => &session_start,
                     _ => &signal,
                 };

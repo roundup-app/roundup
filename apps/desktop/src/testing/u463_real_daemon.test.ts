@@ -172,7 +172,6 @@ it(`u463_the_first_run_observer_is_opt_in_and_confined_to_its_project ${width} k
     expect(await firstRun.projects()).toEqual([]);
     await firstRun.openProject(real.dir);
     expect((await firstRun.projects())[0]?.path).toBe(real.dir);
-    expect(await firstRun.daemonProof()).toBe("0".repeat(64));
   } finally { await fixture.close(); }
 }, 180_000);
 

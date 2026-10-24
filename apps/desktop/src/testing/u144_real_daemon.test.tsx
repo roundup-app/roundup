@@ -16,7 +16,7 @@ import type { AppSeam } from "../app/seam";
 import { fakeEmulators } from "../terminal/paneHarness";
 import { createServedApp } from "./realSeam";
 import { realDaemon } from "./realDaemonPlugin";
-import { PROOF, startRealDaemon } from "./realDaemonFixture";
+import { startRealDaemon } from "./realDaemonFixture";
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
 import { createProjectDrafts, connectProject, ConnectedProjectContext, ProjectDraftsContext } from "../state/connectedProject";
@@ -80,7 +80,7 @@ describe("u144 the harness serves the App on a real Daemon", () => {
   it("u144_the_choosers_answer_null_and_the_dock_badge_does_nothing", async () => {
     const app = createServedApp(base);
 
-    expect([await app.chooseProjectPath(), await app.chooseSavePath("x.md"), await app.setDockBadge(3), (await app.projects())[0]?.path, await app.forProject(dir).daemonProof()]).toEqual([null, null, undefined, dir, PROOF]);
+    expect([await app.chooseProjectPath(), await app.chooseSavePath("x.md"), await app.setDockBadge(3), (await app.projects())[0]?.path]).toEqual([null, null, undefined, dir]);
   });
 
   it("u144_a_method_the_daemon_rejects_reaches_the_caller_with_its_message", async () => {
@@ -149,7 +149,7 @@ describe("u144 the harness serves the App on a real Daemon", () => {
         configFile: join(process.cwd(), "vite.config.ts"),
         root: process.cwd(),
         logLevel: "silent",
-        plugins: [realDaemon({ project: dir, socket: join(dir, "rupd.sock"), proof: PROOF })],
+        plugins: [realDaemon({ project: dir, socket: join(dir, "rupd.sock") })],
         build: { outDir: out, emptyOutDir: true },
       });
 

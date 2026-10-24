@@ -445,7 +445,7 @@ fn accept(
 }
 
 /// One Project's local observation clock and active facts. This connection never takes
-/// Rail/Attempt/Decision locks, so passive retention cannot reenter a lifecycle owner.
+/// Rail/Attempt locks, so passive retention cannot reenter a lifecycle owner.
 pub(crate) struct Timing {
     db: Connection,
     bus: Bus,
@@ -574,9 +574,6 @@ impl Timing {
             }
             contracts::project::TimedActivity::Idle { status_revision } => {
                 format!("roundup:idle:{agent}:{attempt}:{status_revision}")
-            }
-            contracts::project::TimedActivity::Decision { decision } => {
-                format!("roundup:decision:{}:{decision}", self.lifetime)
             }
             contracts::project::TimedActivity::Coordination { message } => format!(
                 "roundup:coordination:{}:{agent}:{attempt}:{message}",
@@ -1009,23 +1006,4 @@ impl crate::Agents {
         )?;
         Some(MeasurementWait { timing, identity })
     }
-}
-
-pub(crate) fn decision_wait(
-    timing: &Arc<Mutex<Timing>>,
-    agent: &str,
-    attempt: &str,
-    decision: &str,
-) -> Option<MeasurementWait> {
-    let identity = timing.lock().expect("measurement timing lock").begin(
-        agent,
-        attempt,
-        contracts::project::TimedActivity::Decision {
-            decision: decision.into(),
-        },
-    )?;
-    Some(MeasurementWait {
-        timing: Arc::clone(timing),
-        identity,
-    })
 }

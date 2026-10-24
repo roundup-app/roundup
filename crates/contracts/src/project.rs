@@ -365,7 +365,6 @@ pub enum TimedActivity {
     Attempt,
     Startup,
     Idle { status_revision: String },
-    Decision { decision: String },
     Coordination { message: u32 },
 }
 
@@ -571,7 +570,6 @@ pub struct MeasurementTime {
     pub summed_ns: String,
     pub execution_ns: String,
     pub tools_ns: String,
-    pub human_ns: String,
     pub coordination_ns: String,
     pub other_ns: String,
     pub unmeasured_ns: String,

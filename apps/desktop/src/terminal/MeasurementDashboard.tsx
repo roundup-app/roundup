@@ -30,7 +30,7 @@ const Partial = (props: { note: string }) => <Tip text={props.note}>{(trigger) =
 const reported = (cost: MeasurementCost) => cost.reported.map((money) => money.currency === null ? `${money.amount} ?` : moneyText(money.amount, money.currency));
 
 const timeRows = (time: MeasurementTime): [string, string][] => ([
-  [copy.measurementExecution, time.execution_ns], [copy.measurementTools, time.tools_ns], [copy.measurementHuman, time.human_ns],
+  [copy.measurementExecution, time.execution_ns], [copy.measurementTools, time.tools_ns],
   [copy.measurementCoordination, time.coordination_ns], [copy.measurementOther, time.other_ns], [copy.measurementUnmeasured, time.unmeasured_ns],
 ] satisfies [string, string][]).filter(([, value]) => BigInt(value) > 0n).sort((a, b) => BigInt(a[1]) > BigInt(b[1]) ? -1 : BigInt(a[1]) < BigInt(b[1]) ? 1 : 0);
 

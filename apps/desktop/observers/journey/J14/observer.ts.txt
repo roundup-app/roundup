@@ -144,7 +144,7 @@ for (const width of [1280, 1440]) for (const input of ["keyboard", "pointer"] as
       await observe("thread");
       // Audit stages continue on this same fresh Project.
       const read = async (name: string) => {
-        if (ART) await writeFile(join(ART, `${width}-${input}-${name}.rpc.json`), JSON.stringify({tree: await app.rpc("rail.tree", null), todos: await app.rpc("todo.list", null), messages: await app.rpc("message.list", {to:null,status:null}), decisions: await app.rpc("decision.list", null)}));
+        if (ART) await writeFile(join(ART, `${width}-${input}-${name}.rpc.json`), JSON.stringify({tree: await app.rpc("rail.tree", null), todos: await app.rpc("todo.list", null), messages: await app.rpc("message.list", {to:null,status:null})}));
       };
       const evalResult = async (js: string) => (await browser("eval", js)).result;
       const first = workstream.id;

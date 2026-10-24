@@ -118,40 +118,6 @@ async fn h13_only_the_user_or_a_doors_own_workstream_may_interrupt() {
 }
 
 #[tokio::test]
-async fn h13_an_interrupt_of_an_agent_with_an_open_decision_clears_it() {
-    let (f, id) = working(ACKS, Duration::from_secs(30)).await;
-    let hook = {
-        let (f, id) = (Arc::clone(&f), id.clone());
-        tokio::spawn(async move {
-            f.call(
-                "agent.permission",
-                json!({"id": id, "payload": {"hook_event_name": "PermissionRequest",
-                    "tool_name": "Bash", "tool_input": {"command": "ls"}}}),
-            )
-            .await
-        })
-    };
-    f.until(|tree| status_of(tree, &id).kind == Kind::NeedsYou)
-        .await;
-
-    // Esc on the dialog closes the hook's connection: H7(b) folds `Dismissed`, the
-    // acknowledgement of this Interrupt.
-    let call = interrupt(&f, &id);
-    for _ in 0..500 {
-        if read(&typed(&f)) == b"\x1b" {
-            break;
-        }
-        tokio::time::sleep(Duration::from_millis(10)).await;
-    }
-    hook.abort();
-    let _ = hook.await;
-    assert_eq!(call.await.unwrap().unwrap(), Value::Null);
-    assert_eq!(status_of(&f.tree().await, &id).kind, Kind::Idle);
-    let open = f.call("decision.list", Value::Null).await.unwrap();
-    assert_eq!(open, json!([]));
-}
-
-#[tokio::test]
 async fn h17_a_lost_acknowledgement_is_not_acked_and_nothing_else_is_written() {
     let (f, id) = working(IGNORES, BOUND).await;
     f.call("rail.rename", json!({"id":id,"name":"sad"}))

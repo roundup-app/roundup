@@ -63,10 +63,6 @@ pub async fn serve(listener: UnixListener, daemon: Arc<Daemon>) -> io::Result<()
     }
 }
 
-/// The methods whose call is dropped when the caller hangs up: they wait on a process of the
-/// caller's, not on the Daemon.
-const WAITS_ON_ITS_CALLER: [&str; 2] = ["agent.permission", "agent.ask"];
-
 pub(crate) async fn handle(stream: UnixStream, daemon: Arc<Daemon>) -> io::Result<()> {
     daemon.clears.me.get_or_init(|| Arc::downgrade(&daemon));
     let stream_pid = stream
@@ -108,8 +104,6 @@ pub(crate) async fn handle(stream: UnixStream, daemon: Arc<Daemon>) -> io::Resul
     };
     let mut lines = BufReader::new(read).lines();
     let mut ordinary = tokio::task::JoinSet::new();
-    let mut caller_waits = tokio::task::JoinSet::new();
-    let mut preceding_wait = None;
     let read_result = loop {
         let line = match lines.next_line().await {
             Ok(Some(line)) => line,
@@ -139,11 +133,6 @@ pub(crate) async fn handle(stream: UnixStream, daemon: Arc<Daemon>) -> io::Resul
             } else {
                 conn.actor.clone()
             }
-        } else if method
-            .as_deref()
-            .is_some_and(|m| m.starts_with("decision."))
-        {
-            daemon.decision_actor(&conn)
         } else if method.as_deref().is_some_and(|m| {
             m.starts_with("deliverable.")
                 || m.starts_with("reaction.")
@@ -219,53 +208,28 @@ pub(crate) async fn handle(stream: UnixStream, daemon: Arc<Daemon>) -> io::Resul
         };
         let mut request_conn = conn.clone();
         let daemon = Arc::clone(&daemon);
-        if method
-            .as_deref()
-            .is_some_and(|method| WAITS_ON_ITS_CALLER.contains(&method))
-        {
-            // Chain receivers are allocated in wire order, rather than task scheduling order.
-            let before = preceding_wait.take();
-            let (done, next) = tokio::sync::oneshot::channel::<()>();
-            preceding_wait = Some(next);
-            caller_waits.spawn(async move {
-                if let Some(before) = before {
-                    let _ = before.await;
+        ordinary.spawn(async move {
+            let mut completed = Vec::new();
+            for (before, done) in child_arrival {
+                if let Some(mut before) = before {
+                    let _ = before.wait_for(|done| *done).await;
                 }
-                if let Some(reply) = daemon.dispatch(&mut request_conn, &line, Some(actor)).await {
-                    let _ = request_conn.events.send(reply);
+                if let Some(done) = done {
+                    completed.push(done);
                 }
-                let _ = done.send(());
-            });
-        } else {
-            ordinary.spawn(async move {
-                let mut completed = Vec::new();
-                for (before, done) in child_arrival {
-                    if let Some(mut before) = before {
-                        let _ = before.wait_for(|done| *done).await;
-                    }
-                    if let Some(done) = done {
-                        completed.push(done);
-                    }
-                }
-                if let Some(reply) = daemon.dispatch(&mut request_conn, &line, Some(actor)).await {
-                    let _ = request_conn.events.send(reply);
-                }
-                for done in completed {
-                    daemon.held_actions.finish_arrival(done);
-                }
-            });
-        }
+            }
+            if let Some(reply) = daemon.dispatch(&mut request_conn, &line, Some(actor)).await {
+                let _ = request_conn.events.send(reply);
+            }
+            for done in completed {
+                daemon.held_actions.finish_arrival(done);
+            }
+        });
         while let Some(joined) = ordinary.try_join_next() {
             joined.map_err(io::Error::other)?;
         }
-        while let Some(joined) = caller_waits.try_join_next() {
-            joined.map_err(io::Error::other)?;
-        }
     };
-    // EOF cancels both the entered caller wait and every successor before one can enter.
-    caller_waits.abort_all();
-    while caller_waits.join_next().await.is_some() {}
-    // Accepted ordinary calls survive a write-side half-close and can still send their replies.
+    // Accepted calls survive a write-side half-close and can still send their replies.
     while let Some(joined) = ordinary.join_next().await {
         joined.map_err(io::Error::other)?;
     }

@@ -48,7 +48,6 @@ pub fn build<R: Runtime>(
             subscribe,
             terminal_output,
             terminal_output_stop,
-            daemon_proof,
             open_target,
             open_in_editor,
             save_pasted_image,
@@ -188,11 +187,6 @@ fn terminal_output_stop(
     id: String,
 ) -> Result<(), RpcError> {
     state.terminal_output_stop(&path, &id)
-}
-
-#[tauri::command]
-fn daemon_proof(state: State<'_, AppState>, path: String) -> Result<String, RpcError> {
-    state.daemon_proof(&path)
 }
 
 #[tauri::command]

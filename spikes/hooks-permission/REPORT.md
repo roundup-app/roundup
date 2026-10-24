@@ -1,5 +1,7 @@
 # Claude Code 2.1.287 permission/prompt-channel spike (macOS, haiku)
 
+Historical record of vendor behaviour (state hooks, Esc, dialogs, paste). The permission-answer design it served was removed by #3564; the user answers in the Terminal. Still cited by `scenarios/control.md` for the vendor facts.
+
 Setup: throwaway repo `<throwaway repo>`. All runs used `--setting-sources project --settings <file>` so user settings/allow-rules/hooks were excluded (first attempt without it: `echo hello` is auto-allowed in default mode and never prompts; `touch spike_out.txt` does prompt). 25 claude invocations total. Raw material in `runs/`. Auth worked (OAuth, no login problem). 
 pexpect and pyte are not installed: own pty driver `drv.py`, raw bytes in `runs/*.raw`, timelines in `runs/*.timeline.txt`.
 Scripts: hook1.sh, hook2.sh, loghook.sh, mcp_server.py, http_srv.py, e2.py, e4.py, e5.py, e6b.py, e7m.py; settings s1/sT/s5/s7_*.json.
@@ -52,8 +54,8 @@ finding 7: http and mcp_tool PermissionRequest hooks both return decisions; fail
 ## Summary (10 lines)
 1. Hook returns the decision: works in -p and in the TUI (command, http, mcp_tool); allow/deny(+message) honoured, deny message reaches the model; `interrupt:true` aborts the run in -p; `ask`/invalid/empty/exit 1/ECONNREFUSED all fall through to the normal dialog.
 2. --permission-prompt-tool: works only in -p (args: tool_name, input, tool_use_id; reply text JSON allow+updatedInput honoured); in the TUI it is accepted but never called.
-3. Hook raises Decision and a keystroke goes into the dialog: works in the TUI; the dialog is drawn while the hook sleeps (Notification permission_prompt also fires), Enter = Yes ran the tool at once, hook left running unsignalled and its later reply ignored; Esc SIGTERMs the hook and fires no hook event.
-4. Desyncs seen: (a) Decision shown after the user already answered the dialog (hook still running); (b) Esc ack only visible as the title glyph ◐/◑ -> ✳ and "Interrupted" on screen, no hook event; (c) text+CR one-write failed to submit once at startup (text left in the box).
+3. Hook raises a request and a keystroke goes into the dialog: works in the TUI; the dialog is drawn while the hook sleeps (Notification permission_prompt also fires), Enter = Yes ran the tool at once, hook left running unsignalled and its later reply ignored; Esc SIGTERMs the hook and fires no hook event.
+4. Desyncs seen: (a) request shown after the user already answered the dialog (hook still running); (b) Esc ack only visible as the title glyph ◐/◑ -> ✳ and "Interrupted" on screen, no hook event; (c) text+CR one-write failed to submit once at startup (text left in the box).
 5. Test next: option "3. No" and Tab-amend effect on the hook; Shift-Tab/auto mode; two concurrent prompts (parallel tool calls) with two hooks; hook timeout actually expiring (short timeout vs dialog); whether a hook allow arriving while the dialog is open closes the dialog (not observed: in E2 the 40 s hook reply arrived after the user had answered).
 6. Test next: SIGKILL vs SIGTERM on Esc (only SIGTERM logged), Ctrl-C during dialog, session resume; delivery readiness gate (wait for first title glyph ✳ or a Stop/SessionStart + idle) before text+CR; paste containing newlines.
 7. Test next: mcp_tool/http hook latency and whether returning `{}` from http keeps the dialog interactive in the TUI (only -p tested), and `--permission-prompts none`.

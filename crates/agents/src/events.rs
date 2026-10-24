@@ -324,24 +324,6 @@ impl Shared {
                 .expect("measurement timing lock")
                 .end_attempt(id, &run.attempt);
         }
-        match &observation {
-            // H6: an Agent that ends takes its Decision with it.
-            Observation::Exit { .. } => {
-                self.decisions
-                    .clear(&self.bus, id, Outcome::AgentGone, "the Agent ended");
-            }
-            Observation::Stopped => {
-                self.decisions
-                    .clear(&self.bus, id, Outcome::AgentGone, "the Agent ended");
-            }
-            // H7(a): the tool ran or the prompt moved on, so the dialog was answered in the
-            // Terminal.
-            Observation::Signal(payload) if claude_code::ends_decision(payload) => {
-                self.decisions
-                    .clear(&self.bus, id, Outcome::Terminal, "answered in the Terminal");
-            }
-            _ => {}
-        }
         // H19: the first Steer waits for the first `SessionStart` and the first star title.
         let session_start = matches!(&observation, Observation::Signal(payload)
             if claude_code::is_session_start(payload));
@@ -391,10 +373,7 @@ impl Shared {
         }
         // H13: the Interrupt's wait ends with the title (or the Dismissal of its dialog) that
         // leaves the Agent idle, or with the Agent.
-        let acks = matches!(
-            observation,
-            Observation::Title(_) | Observation::Tick | Observation::Dismissed
-        );
+        let acks = matches!(observation, Observation::Title(_) | Observation::Tick);
         if matches!(observation, Observation::Exit { .. } | Observation::Stopped) {
             run.interrupt = None;
         }

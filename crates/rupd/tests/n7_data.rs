@@ -170,7 +170,6 @@ mod x14_daemon_observer {
             let daemon = Arc::new(rupd::Daemon::open_project(
                 &project,
                 &dir.path().join("data"),
-                None,
             )?);
             let socket = dir.path().join("daemon.sock");
             let listener = UnixListener::bind(&socket)?;

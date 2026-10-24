@@ -21,7 +21,7 @@ pub(super) fn daemon_with_launcher(
     data: &Path,
     launcher: agents::claude_code::Launcher,
 ) -> Daemon {
-    Daemon::open_stores(project, data, None, |_| {
+    Daemon::open_stores(project, data, |_| {
         let bus = Bus::new();
         let terminals = Arc::new(terminal::Terminals::open(data, bus.clone()).unwrap());
         agents::Agents::open_in(
@@ -363,7 +363,7 @@ impl Drop for Dropped {
 #[async_trait::async_trait]
 impl Module for Hangs {
     fn namespaces(&self) -> &'static [&'static str] {
-        &["agent", "decision"]
+        &["agent"]
     }
 
     async fn call(&self, _ctx: &Ctx, _method: &str, _params: Value) -> Result<Value, RpcError> {
