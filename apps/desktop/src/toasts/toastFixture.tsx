@@ -22,7 +22,7 @@ export const toastTodo = (id: number, creator: Actor, title = "ship it"): Todo =
 export const pad = (name: string, owner: Actor): Pad => ({ incarnation: `fixture-${name}`, name, owner, text: "", updated_at: 0, revision: 1, home: null });
 
 export const status = (id: string, kind: Kind) =>
-  event({ name: "agent.status", data: { id, attempt: "1", status_revision: String(Math.random()).slice(2), status: { kind, label: kind, since: NOW } } });
+  event({ name: "agent.status", data: { id, attempt: "1", status_revision: String(Math.random()).slice(2), status: { kind, label: kind, since: NOW, finished: "0" } } });
 
 export const by = (actor: Actor, data: Parameters<typeof event>[0]) => ({ ...event(data), actor });
 

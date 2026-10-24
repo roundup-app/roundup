@@ -348,6 +348,7 @@ async fn a35_a_stopped_later_agent_retires_without_reviving_final_messages() {
             kind: Kind::Done,
             label: "stopped".into(),
             since: 0,
+            finished: "0".into(),
         }),
         status_revision: None,
         terminal_id: None,

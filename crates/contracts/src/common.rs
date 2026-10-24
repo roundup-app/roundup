@@ -105,6 +105,9 @@ pub struct Status {
     /// Milliseconds since the Unix epoch.
     #[ts(type = "number")]
     pub since: i64,
+    /// U3566c: a canonical nonnegative decimal counting the Agent's published finishes (direct
+    /// `working` to `idle` or `done` transitions); `"0"` for a Workstream aggregate.
+    pub finished: String,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize, TS)]
