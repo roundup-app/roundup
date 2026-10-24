@@ -551,7 +551,6 @@ pub mod flood {
             let owner = Arc::new(rupd::Daemon::open_project(
                 &project,
                 &dir.path().join("data"),
-                None,
             )?);
             daemon = Some(Arc::clone(&owner));
             let socket = dir.path().join("daemon.sock");

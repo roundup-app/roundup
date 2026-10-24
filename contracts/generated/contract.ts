@@ -1,7 +1,6 @@
 // Generated from crates/contracts/src/methods.rs. Do not edit.
 export const CONTRACT = {
   methods: {
-    "agent.ask": "bd2a78ef02b459ca",
     "agent.brief": "578d4809b6cafc1b",
     "agent.changedFiles": "f80e4251cb77f2cd",
     "agent.channelUp": "f25fe63dfa04b01a",
@@ -14,7 +13,6 @@ export const CONTRACT = {
     "agent.instructions": "656ce925870a23fd",
     "agent.interrupt": "14f2a58ce154f8c5",
     "agent.land": "5aba65a94dd09a2a",
-    "agent.permission": "4fc43162a2dd39d4",
     "agent.prompt": "827059ae7d416823",
     "agent.resume": "03d50d8e10ea3910",
     "agent.run": "c39f7757662ce10c",
@@ -35,11 +33,6 @@ export const CONTRACT = {
     "checkpoint.write": "7c29e6996e1bf419",
     "daemon.identify": "2a0bf35352bb8646",
     "daemon.ping": "f245e69dd85876cf",
-    "decision.answer": "b7499b6c0c082a75",
-    "decision.answers": "62fa35a8b218f55c",
-    "decision.capture": "daa8a9b947ed0149",
-    "decision.list": "584a15f937c38aff",
-    "decision.revoke": "383bbee53e94ab35",
     "deliverable.get": "61cfff90cfe5766f",
     "deliverable.list": "e90e2a3db3efeb1d",
     "deliverable.move": "c0bc47257c05f0db",

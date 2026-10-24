@@ -1158,12 +1158,7 @@ impl Module for Terminals {
                 reply(&TerminalId { id: spawned.id })
             }
             "terminal.write" => {
-                let WriteParams { id, data, identity } = params(value)?;
-                if identity.is_some() {
-                    return Err(RpcError::conflict(
-                        "original prompt identity requires the Agent effect",
-                    ));
-                }
+                let WriteParams { id, data } = params(value)?;
                 let bytes = STANDARD
                     .decode(data)
                     .map_err(|err| invalid(format!("data is not base64: {err}")))?;

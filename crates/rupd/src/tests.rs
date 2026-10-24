@@ -21,7 +21,7 @@ pub(super) fn daemon_with_launcher(
     data: &Path,
     launcher: agents::claude_code::Launcher,
 ) -> Daemon {
-    Daemon::open_stores(project, data, None, |_| {
+    Daemon::open_stores(project, data, |_| {
         let bus = Bus::new();
         let terminals = Arc::new(terminal::Terminals::open(data, bus.clone()).unwrap());
         agents::Agents::open_in(
@@ -363,7 +363,7 @@ impl Drop for Dropped {
 #[async_trait::async_trait]
 impl Module for Hangs {
     fn namespaces(&self) -> &'static [&'static str] {
-        &["agent", "decision"]
+        &["agent"]
     }
 
     async fn call(&self, _ctx: &Ctx, _method: &str, _params: Value) -> Result<Value, RpcError> {
@@ -404,30 +404,10 @@ async fn first_said(said: &mut tokio::sync::mpsc::UnboundedReceiver<&'static str
         .expect("the module still reports its calls")
 }
 
-/// H7(b): the hook's process dying closes its connection, which drops the waiting call.
-#[tokio::test]
-async fn h7_a_hung_up_permission_call_is_dropped() {
-    let (_dir, mut said, _release, socket) = serving_a_module_that_hangs().await;
-    let mut hook = UnixStream::connect(&socket).await.unwrap();
-    hook.write_all(b"{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"agent.permission\"}\n")
-        .await
-        .unwrap();
-    assert_eq!(first_said(&mut said).await, "entered");
-    assert!(
-        said.try_recv().is_err(),
-        "the call waits while the hook is connected"
-    );
-
-    drop(hook);
-
-    let seen = tokio::time::timeout(std::time::Duration::from_secs(5), said.recv()).await;
-    assert_eq!(seen.unwrap(), Some("dropped"));
-}
-
-/// Any other call is not dropped by a half-close: a client may write its request, shut down
+/// A call is not dropped by a half-close: a client may write its request, shut down
 /// its write side and wait for the reply.
 #[tokio::test]
-async fn a_half_closed_call_that_is_not_a_permission_call_still_runs() {
+async fn a_half_closed_call_still_runs() {
     let (_dir, mut said, release, socket) = serving_a_module_that_hangs().await;
     let mut client = UnixStream::connect(&socket).await.unwrap();
     client
@@ -610,5 +590,38 @@ async fn u3808_the_list_reads_recorded_handoffs_without_history_or_touches() {
             .await
             .unwrap(),
         list
+    );
+}
+
+/// R3696b: the wire reader's actor serves routing, so one write walks its peer's ancestry once.
+#[tokio::test]
+async fn r3696b_write_classifies_its_caller_once() {
+    let (dir, daemon) = daemon();
+    let socket = dir.path().join("rupd.sock");
+    tokio::spawn(serve(
+        UnixListener::bind(&socket).unwrap(),
+        Arc::new(daemon),
+    ));
+    let mut client = BufReader::new(UnixStream::connect(&socket).await.unwrap());
+    let mut call = async |method: &str| {
+        let line = format!(
+            "{{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"{method}\",\"params\":{{\"id\":\"none\",\"data\":\"eA==\"}}}}\n"
+        );
+        client.get_mut().write_all(line.as_bytes()).await.unwrap();
+        let mut reply = String::new();
+        client.read_line(&mut reply).await.unwrap();
+    };
+    // Any one classification of this process is one chain; `agent.stop` classifies once.
+    call("agent.stop").await;
+    let before = agents::parent_lookups();
+    call("terminal.write").await;
+    let write = agents::parent_lookups() - before;
+    let before = agents::parent_lookups();
+    call("agent.stop").await;
+    let chain = agents::parent_lookups() - before;
+    assert!(chain > 0, "no lookups counted for one classification");
+    assert!(
+        write <= chain,
+        "{write} lookups for a write, one chain is {chain}"
     );
 }

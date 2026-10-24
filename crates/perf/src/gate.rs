@@ -2,6 +2,7 @@ use std::collections::BTreeMap;
 use std::path::Path;
 
 use crate::budget::{Budgets, Miss, Outcome, Report, judge_all, load_per_cpu, median};
+use crate::machine::Class;
 
 /// Reads `budgets.json`-shaped files; the error names the file.
 pub fn read_budgets(path: &Path) -> Result<Budgets, Box<dyn std::error::Error>> {
@@ -57,6 +58,26 @@ pub fn render(result: &Report, outcome: &Outcome, out: &Path) -> Vec<String> {
         })
         .collect();
 
+    if let Some(class) = &result.class {
+        let machine = &class.machine;
+        let text = |field: &Option<String>| field.clone().unwrap_or_default();
+
+        lines.push(format!(
+            "class {} baseline {:?}: {} {} {} {:?} online {} available {} affinity {} kernel {} shell {}",
+            class.key,
+            class.provenance,
+            text(&machine.distro_id),
+            text(&machine.version_id),
+            text(&machine.arch),
+            text(&machine.cpu_model),
+            text(&machine.online_cpus),
+            machine.available_cpus.unwrap_or_default(),
+            text(&machine.affinity),
+            text(&machine.kernel),
+            text(&machine.shell),
+        ));
+    }
+
     lines.push(format!(
         "os {} cpus {} runs {} load {:?} -> {}",
         result.os,
@@ -82,11 +103,13 @@ pub fn conclude(
     per_run: BTreeMap<String, Vec<f64>>,
     loads: Vec<f64>,
     budgets: &Budgets,
+    class: Option<Class>,
     out: &Path,
 ) -> Result<bool, Box<dyn std::error::Error>> {
     let cpus = std::thread::available_parallelism()?.get();
     let mut result = Report {
         os: std::env::consts::OS.into(),
+        class,
         cpus,
         runs: loads.len(),
         loads,

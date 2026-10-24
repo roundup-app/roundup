@@ -32,7 +32,7 @@ it("u3528_keys_and_pointer_never_draw_rings_or_pressed_backgrounds", async () =>
           const active = document.activeElement;
           const sites = active === document.body ? [active] : [active, ...active.querySelectorAll('*')];
           if (active.closest('.app-checkbox')) sites.push(active.closest('.app-checkbox'), ...active.closest('.app-checkbox').querySelectorAll('*'));
-          const panel = active.closest('.app-menu, .app-dialog, .import-panel, .bubble-frame, .bubble, .decision-card');
+          const panel = active.closest('.app-menu, .app-dialog, .import-panel, .bubble-frame, .bubble');
           if (panel) sites.push(panel);
           return sites.flatMap(el => [null, '::before', '::after'].flatMap(pseudo => {
             const style = getComputedStyle(el, pseudo);
@@ -255,15 +255,6 @@ it("u3528_keys_and_pointer_never_draw_rings_or_pressed_backgrounds", async () =>
       await capture("import-dialog");
       await lane.browser("press", "Escape");
       await lane.until("!document.querySelector('.import-panel')");
-
-      const url = await lane.evaluate<string>("location.href");
-
-      await lane.browser("open", url.replace('seed=tree-40', 'seed=decisions'));
-      await lane.until("!!document.querySelector('.decision-card button')");
-      await lane.browser("focus", ".decision-card button");
-      await lane.until("!!document.activeElement.closest('.decision-card')");
-      await ring();
-      await capture("decision");
     } finally {
       try { if (dir) await lane.browser("record", "stop"); } finally { await lane.close(); }
     }

@@ -8,7 +8,7 @@ import { orderLine } from "./orderText";
 import "./styles.css";
 
 /**
- * O6: the selected Agent's or Door's order on one line above its Terminal, below any Decision Card. Activating it opens
+ * O6: the selected Agent's or Door's order on one line above its Terminal. Activating it opens
  * the full order in the Drawer. A node with no order (a Terminal) shows no line.
  */
 export const OrderLine = (props: { node: RailNode }) => {

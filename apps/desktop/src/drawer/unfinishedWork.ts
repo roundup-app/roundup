@@ -34,7 +34,7 @@ export const typedText = (draft: Row): string[] => {
  * Unknown original availability never qualifies; a gone original does.
  */
 export const useUnfinishedWork = () => {
-  const { drafts, rail, daemonExit, decisions } = useConnectedProject();
+  const { drafts, rail, daemonExit } = useConnectedProject();
   // Reading the Pad list costs an RPC; only a Pad draft needs it.
   const needsPads = createMemo(() => drafts.list().some((draft) => draft.destination.surface === "pads"));
   const padList = createMemo(() => needsPads() ? usePadList() : null);
@@ -50,7 +50,7 @@ export const useUnfinishedWork = () => {
 
     if (surface === "orders" || surface === "rail") return !rail.nodes.some((node) => node.id === object);
 
-    return drafts.availability(draft, { rail, daemonExit, decisions }) === "unavailable";
+    return drafts.availability(draft, { rail, daemonExit }) === "unavailable";
   };
 
   const rows = createMemo(() => {

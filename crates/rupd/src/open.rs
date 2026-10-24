@@ -4,39 +4,24 @@ impl Daemon {
     /// `dir` is the Project's data folder (N1); it is created if missing. The Project folder is
     /// taken as its parent.
     pub fn open(dir: &Path) -> Result<Self, OpenError> {
-        Self::open_with_proof(dir, None)
+        Self::open_in(dir.parent().unwrap_or(dir), dir)
     }
 
     /// Open `project`, keeping its data in `data` (N1) after moving an older Project's files
     /// there (N3).
-    pub fn open_project(
-        project: &Path,
-        data: &Path,
-        proof: Option<String>,
-    ) -> Result<Self, OpenError> {
+    pub fn open_project(project: &Path, data: &Path) -> Result<Self, OpenError> {
         let dir = data::project_data(data, project)?;
         data::migrate(project, &dir).map_err(OpenError::from)?;
-        Self::open_in(project, &dir, proof)
+        Self::open_in(project, &dir)
     }
 
-    /// Like `open`, with the `proof` an attached App handed over (H4, H18); without one every
-    /// `decision.answer` is `FORBIDDEN`.
-    pub fn open_with_proof(dir: &Path, proof: Option<String>) -> Result<Self, OpenError> {
-        Self::open_in(dir.parent().unwrap_or(dir), dir, proof)
-    }
-
-    pub(crate) fn open_in(
-        project: &Path,
-        dir: &Path,
-        proof: Option<String>,
-    ) -> Result<Self, OpenError> {
-        Self::open_stores(project, dir, proof, |agents| agents)
+    pub(crate) fn open_in(project: &Path, dir: &Path) -> Result<Self, OpenError> {
+        Self::open_stores(project, dir, |agents| agents)
     }
 
     pub(crate) fn open_stores(
         project: &Path,
         dir: &Path,
-        proof: Option<String>,
         configure: impl FnOnce(agents::Agents) -> agents::Agents,
     ) -> Result<Self, OpenError> {
         std::fs::create_dir_all(dir)?;
@@ -60,7 +45,6 @@ impl Daemon {
                 bus.clone(),
                 Arc::clone(&terminals),
             )?)
-            .with_proof(proof)
             .with_context(move |nodes, id| {
                 let todos = Arc::clone(&context_todos);
                 let ctx = Ctx {
@@ -76,7 +60,6 @@ impl Daemon {
                     Ok(context::text(&nodes, &context))
                 }
             })
-            .with_prompt_effect(prompt_effect_observer())
             .with_steer_effect(steer_effect_observer())
             .with_resume_effect(resume_effect_observer()),
         );
@@ -100,7 +83,6 @@ impl Daemon {
             sender: Arc::clone(&messages),
             agents: Arc::clone(&agents),
             terminals: Arc::clone(&terminals),
-            notes: std::sync::Mutex::new(Some(bus.subscribe())),
             wake_events: std::sync::Mutex::new(Some(bus.subscribe())),
             renames: std::sync::Mutex::new(Some(bus.subscribe_after(None)?)),
             owner_events: std::sync::Mutex::new(Some(bus.subscribe_after(None)?)),
@@ -187,14 +169,6 @@ impl Daemon {
             .lock()
             .unwrap_or_else(|poisoned| poisoned.into_inner())
             .take();
-        let notes = self
-            .notes
-            .lock()
-            .unwrap_or_else(|poisoned| poisoned.into_inner())
-            .take();
-        if let Some(events) = notes {
-            tokio::spawn(decision_notes::tell_doors(self.reader(), events));
-        }
         if let Some(renames) = self
             .renames
             .lock()

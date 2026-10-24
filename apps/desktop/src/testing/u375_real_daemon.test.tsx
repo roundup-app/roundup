@@ -41,7 +41,7 @@ it("u2773a_queries_keep_original_project_through_switch_events_and_reopen", asyn
     const mutations: string[] = [];
 
     const apps = served.map((app): AppSeam => ({ ...app, rpc: (method, params) => {
-      if (!["rail.tree", "terminal.list", "daemon.ping", "worktree.status", "decision.list", "events.subscribe", "terminal.scheme"].includes(method)) mutations.push(method);
+      if (!["rail.tree", "terminal.list", "daemon.ping", "worktree.status", "events.subscribe", "terminal.scheme"].includes(method)) mutations.push(method);
 
       return app.rpc(method, params);
     } }));

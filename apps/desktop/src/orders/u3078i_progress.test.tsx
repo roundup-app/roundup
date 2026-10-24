@@ -1,6 +1,6 @@
 import { fireEvent, render, screen, waitFor, within } from "@solidjs/testing-library";
 import { expect, it } from "vitest";
-import { gate, mountApp, select } from "../decisions/decisionsFixture";
+import { gate, mountApp, select } from "../testing/appFixture";
 import { WorkProgress } from "./WorkProgress";
 import { connectProject, ConnectedProjectContext } from "../state/connectedProject";
 import { createFakeApp } from "../testing/fakeApp";
@@ -15,7 +15,7 @@ const WRITES = ["message.send", "message.resumeWork", "agent.setOrder", "agent.s
 const seeded = progressSeed({ project: "/p", agent: "a" });
 
 const openWork = async (prepare: (app: FakeApp) => void = () => {}) => {
-  const mounted = await mountApp([], (app) => {
+  const mounted = await mountApp((app) => {
     app.handlers["rail.tree"] = () => [
       agent("a", "working", "editing", { name: "alpha", order: 0, work: { kind: "work", ask: "Fix login", done: "Login passes", limits: [] } }),
       agent("b", "working", "editing", { name: "beta", order: 1, work: clarifying("which?") }),
