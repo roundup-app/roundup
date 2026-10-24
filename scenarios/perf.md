@@ -180,7 +180,12 @@ Checks on main: 1. Connection and rendered Project ownership (`apps/desktop/src/
 | Complete valid input below ceiling, no eager forbidden module | 0 | Entry, counted files, raw/gzip totals and ceiling |
 | Total at or above ceiling | 1 | Actual bytes and ceiling |
 | Forbidden runtime module in static closure | 1 | Module and containing chunk |
-| Missing/invalid config, HTML entry, manifest, module metadata or referenced JS; unreadable file; build/metadata mismatch | 2 | Offending input, no passing size result |
+| Missing/invalid budget config | 2 | Config path and invalid field |
+| Missing/invalid HTML entry | 2 | Entry path or unresolved entry |
+| Missing/invalid manifest | 2 | Manifest path or invalid graph edge |
+| Missing/invalid module metadata | 2 | Metadata path or invalid module record |
+| Missing/unreadable referenced JS file | 2 | Referenced file path |
+| Build/metadata mismatch | 2 | Mismatched build input; no passing size result |
 
 `r3800_entry_budget_invalid_input_is_an_error` asserts every exit-2 row case. No regex parser for JavaScript or filename-only package detection substitutes for bundler metadata.
 
