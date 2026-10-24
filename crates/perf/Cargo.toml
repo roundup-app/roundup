@@ -21,6 +21,9 @@ tokio = { workspace = true, features = ["process", "rt-multi-thread"] }
 name = "perf-keystroke"
 path = "src/keystroke.rs"
 
+[dev-dependencies]
+shlex = "2.0.1"
+
 [lints]
 workspace = true
 
