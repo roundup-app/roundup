@@ -13,11 +13,7 @@
   border-radius: var(--radius-row);
 }
 
-/* U3800a: the lifted row is raised by a shadow; the slot where it will land is an empty dashed --accent box one row high. */
-[data-dnd-dragging] {
-  box-shadow: var(--shadow-drawer);
-}
-
+/* U3800a: the lifted row keeps its fill and no edge; the slot where it will land is an empty dashed --accent box one row high. */
 [data-dnd-placeholder]::after {
   content: "";
   position: absolute;
