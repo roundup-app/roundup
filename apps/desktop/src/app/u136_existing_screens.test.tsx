@@ -91,11 +91,11 @@ describe("u136 the existing screens", () => {
     const exit = controls.app.exitDaemon;
     let release = () => {};
 
-    let held!: () => void;
-    const requested = new Promise<void>((done) => { held = done; });
+    let kept!: () => void;
+    const requested = new Promise<void>((done) => { kept = done; });
     controls.app.exitDaemon = (ending, path) => {
       release = () => exit(ending, path);
-      held();
+      kept();
     };
 
     let observed = false;
@@ -104,7 +104,7 @@ describe("u136 the existing screens", () => {
     try {
       await vi.advanceTimersByTimeAsync(0);
       await requested;
-      // The former observer completed at 50 ms even while the exit was held.
+      // The former observer completed at 50 ms even while the exit was delayed.
       await vi.advanceTimersByTimeAsync(50);
       expect(observed).toBe(false);
       release();

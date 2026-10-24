@@ -165,15 +165,6 @@ impl Daemon {
         let Some(SpecialistHandoff::Ready(summary)) = &specialist.handoff else {
             return Err(RpcError::conflict("specialist summary is pending"));
         };
-        if self
-            .sender
-            .get()
-            .is_some_and(|messages| messages.takeover_active(&specialist.id))
-        {
-            return Err(RpcError::conflict(
-                "specialist replacement waits for Takeover to end",
-            ));
-        }
         let mut params = specialist.params.clone();
         if params.order.is_none() {
             params.order = Some(contracts::agent::Order::Work {

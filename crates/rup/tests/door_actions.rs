@@ -180,11 +180,6 @@ async fn b37_real_claude_receives_a_note_after_a_scripted_server_error() {
     .await;
     // B50(c): the transcript records the Digest after the turn it starts may already be over, so the
     // door's idle edge can precede the Delivered event; the Rail poll below waits for idle instead.
-    // Hold the child's Digests as well as its needs-you note: otherwise needs-you can
-    // start an intervening turn before tell_doors has queued the note.
-    user.request("takeover.begin", json!({"agent":door}))
-        .await
-        .unwrap();
     tokio::time::timeout(Duration::from_secs(30), async {
         loop {
             let nodes = rail_tree(&user).await;
@@ -218,18 +213,6 @@ async fn b37_real_claude_receives_a_note_after_a_scripted_server_error() {
     assert!(live.terminal_id.is_some());
     assert_eq!(live.attempt.as_deref(), Some(failed.attempt.as_str()));
     daemon::needs_you(&user, &child).await;
-    next(&mut events, |data| match data {
-        EventData::MessageHeld(m)
-            if m.to == door && m.body.contains("[digest] B37 child is needs-you") =>
-        {
-            Some(())
-        }
-        _ => None,
-    })
-    .await;
-    user.request("takeover.end", json!({"agent":door}))
-        .await
-        .unwrap();
     next(&mut events, |data| match data {
         EventData::MessageDelivered(m)
             if m.to == door && m.body.contains("[digest] B37 child is needs-you") =>

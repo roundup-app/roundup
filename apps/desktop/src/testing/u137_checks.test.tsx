@@ -226,7 +226,7 @@ rendered("u137 rendered surfaces", () => {
     expect(statuses).toEqual(["pass", "fail", "fail", "fail", "fail", "fail"]);
   });
 
-  it.each(["milkdown-slash-menu", "pane-control", "import-panel", "app-select-list"])("u137_floating_surface_%s_keeps_unrelated_shadow_rejection", async (surface) => {
+  it.each(["milkdown-slash-menu", "import-panel", "app-select-list"])("u137_floating_surface_%s_keeps_unrelated_shadow_rejection", async (surface) => {
     for (const scheme of ["light", "dark"] as const) {
       await page.scheme(scheme);
       await page.load("/harness.html?seed=tree-40");

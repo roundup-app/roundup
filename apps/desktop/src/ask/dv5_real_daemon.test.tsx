@@ -408,7 +408,7 @@ it("dv6_bound_share_refuses_foreign_wrong_removed_and_revoked_identities_without
   }
 });
 
-it("dv6_guarded_send_retries_the_same_identity_through_existing_held_delivery", async () => {
+it("dv6_guarded_send_retries_the_same_identity_through_existing_pending_delivery", async () => {
   const logs = await mkdtemp(join(tmpdir(), "dv6-delivery-"));
   const log = join(logs, "prompts.jsonl");
   const delivery = await startRealDaemon({ FAKE_CLAUDE_PROMPT_LOG: log });
@@ -465,17 +465,15 @@ it("dv6_guarded_send_retries_the_same_identity_through_existing_held_delivery", 
     await waitFor(async () => expect(await messages()).toHaveLength(1));
     const accepted = (await messages())[0]!;
     const url = `roundup://deliverable/${publication.id}?project=${publication.project}`;
-    expect(accepted).toMatchObject({ to: receiver.id, body: `${url}\nrup link read ${url}`, status: "held", reason: "takeover", kind: "note" });
+    expect(accepted).toMatchObject({ to: receiver.id, body: `${url}\nrup link read ${url}`, kind: "note" });
     expect(sends).toHaveLength(2);
     expect(sends[0]).toEqual(sends[1]);
-    expect(await readFile(log, "utf8").catch(() => "")).not.toContain(url);
-    await app.rpc("takeover.begin", { agent: receiver.id });
-    await app.rpc("terminal.write", { id: receiver.terminal_id!, data: Buffer.from("\u0015").toString("base64") });
-    expect((await messages())[0]?.status).toBe("held");
-    await app.rpc("takeover.end", { agent: receiver.id });
     await waitFor(async () => expect((await messages())[0]?.status).toBe("delivered"));
     expect((await messages())[0]?.body).toBe(accepted.body);
-    expect(await readFile(log, "utf8")).toContain(url);
+    // The unsent input does not hold it, and it reaches the receiver's inbox, never its Terminal.
+    // SAFETY: the fake Claude writes exactly these fields to its prompt log.
+    const taken = (await readFile(log, "utf8")).trim().split("\n").map(line => JSON.parse(line) as { prompt: string; inbox?: string });
+    expect(taken.filter(line => line.prompt.includes(url)).map(line => line.inbox)).toEqual([`rup-${accepted.id}`]);
     await app.rpc("deliverable.remove", { project: publication.project, id: publication.id });
     fireEvent.contextMenu(row);
     await within(row).findByRole("alert");

@@ -54,13 +54,13 @@ describe("u467 a Workstream shows its Door's Terminal", () => {
   it("u467_a_late_snapshot_cannot_replace_the_selected_door", async () => {
     let release: () => void = () => {};
 
-    const held = new Promise<void>((resolve) => { release = resolve; });
+    const kept = new Promise<void>((resolve) => { release = resolve; });
 
     const { app, connected, emulators } = await mountCentre(tree(), {
       select: null,
       prepare: (fake) => {
         fake.handlers["terminal.snapshot"] = async (params) => {
-          if (params.id === "t-w1") await held;
+          if (params.id === "t-w1") await kept;
 
           return { cols: 100, rows: 30, after: 0, data: params.id === "t-w1" ? "first door" : "second door" };
         };

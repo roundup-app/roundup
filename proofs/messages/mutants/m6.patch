@@ -1,11 +1,11 @@
 --- model.bend
 +++ model.bend
-@@ -203,7 +203,7 @@
+@@ -135,7 +135,7 @@
  def exit_(s: World) -> World:
    match s:
-     case W{+q, +haf, +htk, +t, +d, +u, +tt, +rl, +n, +tk, +us, +i, +g}:
--      W{[], haf, [], t, List.append(&2, Nat, d, List.append(&2, Nat, q, htk)), u, tt, rl, n, tk, us, False{}, True{}}
-+      W{[], haf, [], t, List.append(&2, Nat, d, q), u, tt, rl, n, tk, us, False{}, True{}}
+     case W{+q, +t, +d, +u, +n, +i, +g}:
+-      W{[], t, List.append(&2, Nat, d, q), u, n, False{}, True{}}
++      W{[], t, d, u, n, False{}, True{}}
  
- def deliver_if(b: Bool, +id: Nat, s: World) -> World:
-   match b:
+ # U3782: a `pending` Message, with no in-flight record (the model sends atomically), is dropped (reason `removed`): it leaves the queue, nothing is sent.
+ def drop_q(b: Bool, +id: Nat, s: World) -> World:

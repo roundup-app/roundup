@@ -74,7 +74,7 @@ fn r5_the_median_ignores_one_outlier_and_averages_the_middle_pair() {
 }
 
 #[test]
-fn r6_a_platform_without_a_baseline_is_held_to_the_limit_only() {
+fn r6_a_platform_without_a_baseline_is_parked_to_the_limit_only() {
     let b = budget(Some(300.0), 0.0, &[("linux", 10.0)]);
 
     assert_eq!(judge(299.0, &b, "macos"), None);

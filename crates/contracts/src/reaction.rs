@@ -136,7 +136,7 @@ pub struct Observation {
     pub cause: Option<String>,
 }
 
-/// An accepted firing and the Message it made (NR3, NR8). `matched` says whether a condition held; an
+/// An accepted firing and the Message it made (NR3, NR8). `matched` says whether a condition was met; an
 /// explicit run claims none. `outcome` is the Message's status in the history, and a delivered Message
 /// is not verified work.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, TS)]
@@ -150,7 +150,7 @@ pub struct Firing {
     pub evidence: String,
     /// The definition's bytes when it was accepted, frozen.
     pub definition: String,
-    /// `pending`, `held`, `delivered` or `dropped`.
+    /// `pending`, `delivered` or `dropped`.
     pub outcome: String,
 }
 

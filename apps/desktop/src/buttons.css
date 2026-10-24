@@ -219,7 +219,7 @@ button[aria-disabled="true"] {
 }
 
 /* U3512c: the existing kinds gain filled variants only on floating surfaces. */
-:is(.app-dialog, .app-popover, .app-menu, .bubble, .pane-control) button[data-button] {
+:is(.app-dialog, .app-popover, .app-menu, .bubble) button[data-button] {
   --button-radius: var(--radius-pill);
   --button-inline: var(--space-3);
   --button-surface: var(--button-neutral);
@@ -227,24 +227,24 @@ button[aria-disabled="true"] {
   background-color: var(--button-surface);
 }
 
-:is(.app-dialog, .app-popover, .app-menu, .bubble, .pane-control) button[data-button="primary"] {
+:is(.app-dialog, .app-popover, .app-menu, .bubble) button[data-button="primary"] {
   --button-surface: var(--accent);
   color: var(--button-accent-ink);
 }
 
-:is(.app-dialog, .app-popover, .app-menu, .bubble, .pane-control) button[data-button]:hover:not(:disabled, [aria-disabled="true"]) {
+:is(.app-dialog, .app-popover, .app-menu, .bubble) button[data-button]:hover:not(:disabled, [aria-disabled="true"]) {
   color: var(--grey);
   background-color: var(--button-surface);
 }
 
-:is(.app-dialog, .app-popover, .app-menu, .bubble, .pane-control) button[data-button="primary"]:hover:not(:disabled, [aria-disabled="true"]) {
+:is(.app-dialog, .app-popover, .app-menu, .bubble) button[data-button="primary"]:hover:not(:disabled, [aria-disabled="true"]) {
   color: var(--surface);
 }
 
-:is(.app-dialog, .app-popover, .app-menu, .bubble, .pane-control) button[data-button="icon"] {
+:is(.app-dialog, .app-popover, .app-menu, .bubble) button[data-button="icon"] {
   --button-inline: 0;
 }
 
-:is(.app-dialog, .app-popover, .app-menu, .bubble, .pane-control) button[data-button][data-feedback="ink"]:is(:hover, :active) {
+:is(.app-dialog, .app-popover, .app-menu, .bubble) button[data-button][data-feedback="ink"]:is(:hover, :active) {
   background-color: var(--button-surface);
 }

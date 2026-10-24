@@ -383,7 +383,7 @@ pub async fn restore_files(mark: &Mark) -> Result<(), RpcError> {
 
 /// Progress for one authorized Mark's lifecycle Resume. Keep this value for retries in the
 /// same Daemon; a completed value never launches another Attempt. The coordinator owns Mark
-/// validity, per-Workstream serialization, Takeover consent and Proof before constructing it.
+/// validity, per-Workstream serialization and Proof before constructing it.
 pub struct MarkResume {
     mark: Mark,
     prompt: Option<String>,
@@ -425,8 +425,7 @@ impl Agents {
     /// Stop as `agent.stop` does and Resume a shortened copy, completing only at the matching
     /// Attempt's SessionStart. Launch/ack errors leave it stopped and retain the copy for retry.
     /// An optional first prompt uses the existing first-Steer reservation before idle is
-    /// published. This grants no rewind authorization and neither changes nor clears Takeover;
-    /// #808 must validate consent/Proof and end an authorized Takeover before calling.
+    /// published. This grants no rewind authorization and and #808 must validate Proof before calling.
     pub async fn resume_mark(
         &self,
         ctx: &rpc::Ctx,
@@ -556,7 +555,7 @@ impl Agents {
 /// Selected Mark lifecycle work for an authorized coordinator. Keep this value across failures
 /// and interrupted calls. `stop_marks` stops writers before the coordinator restores files;
 /// `resume_marks` acknowledges every Resume and reserved first prompt. Neither publishes Rail
-/// events. The coordinator owns Proof, Takeover consent, Mark validity, serialization and the
+/// events. The coordinator owns Proof, Mark validity, serialization and the
 /// single completion announcement; constructing this value grants none of them.
 pub struct Resume {
     retained: Vec<MarkResume>,

@@ -56,15 +56,15 @@ export const OwnerGroups = <T,>(props: {
     nodeToValue: node => node.id, nodeToString: node => node.name, isNodeDisabled: node => node.id.endsWith(":items"),
   }));
 
-  createEffect(on([props.adding, props.reveal, () => props.arrivals?.() ?? []], ([adding, reveal, arrivals]) => setClosed(held => held.filter(each => each !== adding && each !== reveal && !arrivals.includes(each)))));
+  createEffect(on([props.adding, props.reveal, () => props.arrivals?.() ?? []], ([adding, reveal, arrivals]) => setClosed(kept => kept.filter(each => each !== adding && each !== reveal && !arrivals.includes(each)))));
 
-  createEffect(on(() => props.unfold?.(), () => setClosed(held => held.filter(each => each !== "unassigned")), { defer: true }));
+  createEffect(on(() => props.unfold?.(), () => setClosed(kept => kept.filter(each => each !== "unassigned")), { defer: true }));
 
   return <TreeView.Root collection={collection()} expandedValue={collection().getBranchValues().filter(id => !closed().includes(id))} selectedValue={[]} expandOnClick
     onExpandedChange={details => {
       const branches = collection().getBranchValues();
 
-      setClosed(held => [...held.filter(id => !branches.includes(id)), ...branches.filter(id => !details.expandedValue.includes(id))]);
+      setClosed(kept => [...kept.filter(id => !branches.includes(id)), ...branches.filter(id => !details.expandedValue.includes(id))]);
     }}>
     <TreeView.Tree class="shelf-groups" aria-label={copy.shelfLabel}>
       <For each={shown().map(group => group.id)}>{(id, at) => {

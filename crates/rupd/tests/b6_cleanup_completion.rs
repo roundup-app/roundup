@@ -255,10 +255,6 @@ while True:
                     .unwrap()
                     .unwrap()
                     .unwrap();
-                run.user
-                    .request("takeover.begin", json!({"agent":run.child}))
-                    .await
-                    .unwrap();
                 assert!(
                     run.terminal_running(node["terminal_id"].as_str().unwrap())
                         .await

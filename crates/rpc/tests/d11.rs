@@ -61,7 +61,7 @@ async fn d11_replay_then_live_has_no_gap_and_no_repeat() {
     let bus = bus();
     emit(&bus, 20);
     let mut sub = bus.subscribe_after(Some(12)).unwrap();
-    // Saved while the replay is held: it is in the ring and must not be sent twice.
+    // Saved while the replay is parked: it is in the ring and must not be sent twice.
     emit(&bus, 3);
     let first = take(&mut sub, 11).await;
     emit(&bus, 2);

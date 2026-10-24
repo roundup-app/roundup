@@ -223,25 +223,3 @@ pub struct Screen {
     pub lines: Vec<String>,
     pub truncated: bool,
 }
-
-/// B6: a durably accepted Door resize, distinct from the null result of an executed resize.
-#[derive(Clone, Debug, Serialize, Deserialize, TS)]
-#[ts(export, export_to = "terminal/")]
-pub struct ResizeAction {
-    pub id: String,
-    pub agent: String,
-    pub terminal: String,
-    pub cols: u16,
-    pub rows: u16,
-    pub outcome: ResizeOutcome,
-}
-
-#[derive(Clone, Debug, Serialize, Deserialize, TS)]
-#[serde(tag = "status", rename_all = "kebab-case")]
-#[ts(export, export_to = "terminal/")]
-pub enum ResizeOutcome {
-    Waiting { reason: String },
-    InProgress,
-    Completed,
-    Dropped { reason: String },
-}

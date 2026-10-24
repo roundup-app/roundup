@@ -25,14 +25,14 @@ it("u460_pending_delete_stays_with_its_project", async () => {
   const rows = within(list).getAllByRole("button").filter((row) => row.classList.contains("todo-row-button") && row.hasAttribute("aria-pressed"));
   fireEvent.click(rows[0]!, { metaKey: true });
   fireEvent.click(rows[1]!, { metaKey: true });
-  const held = deferred<null>();
-  app.handlers["todo.delete"] = async () => { await held.promise; throw new RpcError(-32001, "old Project error"); };
+  const kept = deferred<null>();
+  app.handlers["todo.delete"] = async () => { await kept.promise; throw new RpcError(-32001, "old Project error"); };
 
   await askToDelete(2);
 
   await confirmDeletion();
   fireEvent.click(screen.getByRole("tab", { name: "other" }));
-  held.resolve(null);
+  kept.resolve(null);
   await waitFor(() => expect(app.calls.filter((call) => call.method === "todo.delete")).toHaveLength(2));
   expect(other.calls.filter((call) => call.method === "todo.delete")).toEqual([]);
   expect(screen.queryByText(/old Project error/)).toBeNull();

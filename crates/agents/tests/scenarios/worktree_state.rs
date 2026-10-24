@@ -283,7 +283,7 @@ async fn d9_worktree_lock_acquisition_uses_the_same_deadline_as_commands() {
     std::fs::write(enabled, "hold").unwrap();
     let project = f.dir.path().to_owned();
     // The existing CLI holder has no App deadline; it must not lend its lifetime to an App read.
-    let held = tokio::task::spawn_blocking(move || holder.plan(&project, "held"));
+    let parked = tokio::task::spawn_blocking(move || holder.plan(&project, "parked"));
     tokio::time::timeout(Duration::from_secs(5), async {
         while !marker.exists() {
             tokio::task::yield_now().await;
@@ -300,7 +300,7 @@ async fn d9_worktree_lock_acquisition_uses_the_same_deadline_as_commands() {
             .unwrap()
             .success()
     );
-    assert!(held.await.unwrap().is_err());
+    assert!(parked.await.unwrap().is_err());
     f.call("agent.stop", json!({"id": id})).await.unwrap();
     let err = result
         .expect("lock acquisition exceeded the Daemon budget")
@@ -325,7 +325,7 @@ async fn g4_the_configured_check_keeps_its_lifetime_beyond_app_git_waits() {
 }
 
 #[tokio::test]
-async fn d9_reopening_with_held_git_preserves_unfinished_provisioning() {
+async fn d9_reopening_with_parked_git_preserves_unfinished_provisioning() {
     use std::os::unix::fs::PermissionsExt;
     use std::time::Duration;
 

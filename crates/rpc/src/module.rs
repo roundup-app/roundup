@@ -28,7 +28,7 @@ pub trait EventLog: Send + Sync {
 struct Shared {
     sender: broadcast::Sender<Event>,
     log: Option<Arc<dyn EventLog>>,
-    /// Held across save-and-publish, so the log order is the live order and a subscriber that
+    /// Parked across save-and-publish, so the log order is the live order and a subscriber that
     /// takes it sees the log's highest number and the live ring meet with no gap.
     order: Mutex<()>,
 }
