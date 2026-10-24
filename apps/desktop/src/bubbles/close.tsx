@@ -23,6 +23,7 @@ export const createTerminalClose = (connected: ConnectedProject, shown: Accessor
       const terminal = shown().find(terminal => terminal.id === id);
 
       if (!terminal) return;
+
       // Another Terminal's close leaves the held failure and its Retry; a later failure replaces them.
       if (retry() === null || retry()!.id === id) {
         setRetry(null);
