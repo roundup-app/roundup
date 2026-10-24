@@ -1,3 +1,4 @@
+// fallow-ignore-file duplicate-export -- glyphOf maps Kind to ink; railFixture finds rendered glyph elements by name.
 import type { Kind } from "@contracts/Kind";
 
 type Tone = "amber" | "red" | "grey" | "accent";

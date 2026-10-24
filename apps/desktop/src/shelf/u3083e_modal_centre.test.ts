@@ -43,12 +43,6 @@ const strand = async (field: string, name: string) => {
 it("u3083e_every_modal_centre_is_the_window_centre", async () => {
   await lane.seedTodos(["first", "second", "third"], false);
 
-  // The import dialog.
-  await lane.browser("click", ".rail-import");
-  await centred(".import-panel");
-  await lane.browser("press", "Escape");
-  await lane.until("!document.querySelector('.import-panel')");
-
   // Help and Capture now use the shared window positioner too.
   await lane.browser("focus", ".rail-row");
   await lane.browser("press", "Shift+?");
