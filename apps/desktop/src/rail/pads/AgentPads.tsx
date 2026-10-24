@@ -161,7 +161,7 @@ export const PadRows = (props: { pads: AgentPads; depth: number; trail: readonly
     event.stopPropagation();
     openOnRelease(event, (x, y) => void contextMenu(connected.app, [
       ...(!todo.done ? [{ id: "complete", label: copy.complete, run: async () => { showOutcome(`todo:${todo.id}`, await failureOf(() => connected.app.rpc("todo.complete", { id: todo.id }))); } }] : []),
-      ...linkEntries(connected.app, { kind: "todo", id: todo.id }, connected.rail.nodes, (node) => connected.rail.exitOf(node) === null, (message) => { const item = `todo:${todo.id}`; if (message === null) props.pads.failure.acknowledge(item); else props.pads.failure.show(message, item); }),
+      ...linkEntries(connected.app, { kind: "todo", id: todo.id }, connected.rail.nodes, (node) => connected.rail.exitOf(node) === null, (message) => props.pads.failure.show(message, `todo:${todo.id}`)),
       { id: "delete", label: copy.delete, run: () => { setSelectedTodos([todo.id]); todoBulk.ask(); } },
     ], x, y));
   };
@@ -176,7 +176,7 @@ export const PadRows = (props: { pads: AgentPads; depth: number; trail: readonly
   const padMenu = (name: string, event: MouseEvent) => {
     event.stopPropagation();
     openOnRelease(event, (x, y) => void contextMenu(connected.app, [
-      ...linkEntries(connected.app, { kind: "pad", id: name }, connected.rail.nodes, (node) => connected.rail.exitOf(node) === null, (message) => { const item = `pad:${props.pads.owned().find((pad) => pad.name === name)?.incarnation}`; if (message === null) props.pads.failure.acknowledge(item); else props.pads.failure.show(message, item); }),
+      ...linkEntries(connected.app, { kind: "pad", id: name }, connected.rail.nodes, (node) => connected.rail.exitOf(node) === null, (message) => props.pads.failure.show(message, `pad:${props.pads.owned().find((pad) => pad.name === name)?.incarnation}`)),
       { id: "delete", label: copy.delete, run: () => { setSelected([name]); bulk.ask(); } },
     ], x, y));
   };
