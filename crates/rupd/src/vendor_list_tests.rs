@@ -41,7 +41,7 @@ fn real_node() -> String {
 /// path) and a `node` that journals each start's pid before it becomes the real runtime.
 fn package(root: &Path, runtime: &str) -> (PathBuf, PathBuf) {
     let dir = root.join("sidecar");
-    std::fs::create_dir(&dir).unwrap();
+    std::fs::create_dir_all(&dir).unwrap();
     let journal = root.join("children");
     let source = Path::new(env!("CARGO_MANIFEST_DIR")).join("../agents/sidecar/list.mjs");
     std::os::unix::fs::symlink(source.canonicalize().unwrap(), dir.join("list.mjs")).unwrap();
@@ -374,5 +374,170 @@ async fn u3523f_runtime_is_lazy_bounded_and_reaped() {
     assert!(
         message.contains("Claude Code") && message.contains("ROUNDUP_CLAUDE_BIN"),
         "{message}"
+    );
+}
+
+fn aged(config: &Path, id: &str, at: std::time::SystemTime) {
+    let file = std::fs::read_dir(config.join("projects"))
+        .unwrap()
+        .flat_map(|bucket| std::fs::read_dir(bucket.unwrap().path()).unwrap())
+        .map(|entry| entry.unwrap().path())
+        .find(|path| path.file_name().unwrap().to_string_lossy().starts_with(id))
+        .unwrap();
+    std::fs::File::options()
+        .write(true)
+        .open(file)
+        .unwrap()
+        .set_modified(at)
+        .unwrap();
+}
+
+#[tokio::test]
+async fn u3523a_period_live_sessions_and_source_failures() {
+    let root = tempfile::tempdir().unwrap();
+    let project = root.path().join("project");
+    let config = root.path().join("config");
+    std::fs::create_dir_all(&project).unwrap();
+    let recent = [
+        session(&config, &project, 1, &[&project], false),
+        session(&config, &project, 2, &[&project], false),
+    ];
+    let old = session(&config, &project, 3, &[&project], false);
+    let old_live = session(&config, &project, 4, &[&project], false);
+    // Equal times order by session id; the window is the day, so older files fall outside it.
+    let hour = std::time::SystemTime::now() - std::time::Duration::from_secs(3600);
+    let tenth_day = hour - std::time::Duration::from_secs(10 * 86_400);
+    for id in &recent {
+        aged(&config, &id[..8], hour);
+    }
+    aged(&config, &old[..8], tenth_day);
+    aged(&config, &old_live[..8], tenth_day);
+
+    let cli = root.path().join("claude");
+    executable(
+        &cli,
+        &format!("#!/bin/sh\nprintf '[{{\"sessionId\":\"{old_live}\",\"pid\":9}}]'\n"),
+    );
+    let launcher = |dir: PathBuf, bin: &Path| {
+        agents::claude_code::Launcher::new(
+            bin.to_string_lossy(),
+            config.join(".claude.json"),
+            "rup".into(),
+            None,
+        )
+        .with_sidecar(dir)
+    };
+    let (dir, _) = package(root.path(), &format!("exec '{}' \"$@\"", real_node()));
+    let daemon = daemon(&project, launcher(dir, &cli));
+    let day = async |daemon: &Daemon| {
+        ask(
+            daemon,
+            &json!({"jsonrpc":"2.0", "id":1, "method":"import.list", "params":{"period":"day"}})
+                .to_string(),
+        )
+        .await
+    };
+
+    let first = day(&daemon).await;
+    let sources: Vec<&str> = first["result"]["candidates"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|c| c["source"].as_str().unwrap())
+        .collect();
+    let mut expected = vec![recent[0].as_str(), recent[1].as_str()];
+    expected.sort();
+    assert_eq!(sources[..2], expected, "{first}");
+    assert!(sources.contains(&old_live.as_str()), "{first}");
+    assert!(!sources.contains(&old.as_str()), "{first}");
+    assert_eq!(sources.len(), 3, "{first}");
+
+    // Refresh binds to the source as it now is.
+    let target = first["result"]["candidates"][0]["source"].as_str().unwrap();
+    let before = first["result"]["candidates"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|c| c["source"] == target)
+        .unwrap()["revision"]
+        .clone();
+    let file = std::fs::read_dir(config.join("projects"))
+        .unwrap()
+        .flat_map(|b| std::fs::read_dir(b.unwrap().path()).unwrap())
+        .map(|e| e.unwrap().path())
+        .find(|p| p.to_string_lossy().contains(target))
+        .unwrap();
+    let mut text = std::fs::read_to_string(&file).unwrap();
+    text.push_str(&record(&project, target, false));
+    text.push('\n');
+    std::fs::write(&file, text).unwrap();
+    let again = day(&daemon).await;
+    let after = again["result"]["candidates"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|c| c["source"] == target)
+        .unwrap()["revision"]
+        .clone();
+    assert_ne!(before, after, "{again}");
+    drop(daemon);
+
+    // A true empty result is a success, not a failure.
+    let empty_project = root.path().join("empty");
+    std::fs::create_dir(&empty_project).unwrap();
+    let none_cli = root.path().join("claude-none");
+    executable(&none_cli, "#!/bin/sh\nprintf '[]'\n");
+    let (dir, _) = package(
+        &root.path().join("e"),
+        &format!("exec '{}' \"$@\"", real_node()),
+    );
+    let quiet = self::daemon(&empty_project, launcher(dir, &none_cli));
+    let found = day(&quiet).await;
+    assert_eq!(found["result"]["candidates"], json!([]), "{found}");
+    drop(quiet);
+
+    // Each source fails on its own and names itself.
+    let (dir, _) = package(
+        &root.path().join("s"),
+        "read line\nprintf '{\"sdk\":\"x\",\"error\":\"storage unreadable\"}\\n'\nexec cat >/dev/null",
+    );
+    let sdk_down = self::daemon(&project, launcher(dir, &cli));
+    let refused = day(&sdk_down).await;
+    let message = refused["error"]["message"].as_str().unwrap();
+    assert!(
+        message.contains("Agent SDK") && message.contains("storage unreadable"),
+        "{refused}"
+    );
+    assert!(refused.get("result").is_none());
+    drop(sdk_down);
+    let bad_cli = root.path().join("claude-bad");
+    executable(&bad_cli, "#!/bin/sh\necho nope >&2\nexit 3\n");
+    let (dir, _) = package(
+        &root.path().join("c"),
+        &format!("exec '{}' \"$@\"", real_node()),
+    );
+    let cli_down = self::daemon(&project, launcher(dir, &bad_cli));
+    let refused = day(&cli_down).await;
+    let message = refused["error"]["message"].as_str().unwrap();
+    assert!(
+        message.contains("agents --json") && message.contains("update Claude Code"),
+        "{refused}"
+    );
+    assert!(refused.get("result").is_none());
+    drop(cli_down);
+
+    // One active listing: a newer one replaces the running one, which is refused, not late.
+    let (dir, _) = package(&root.path().join("h"), "exec sleep 600");
+    let hung = self::daemon(&project, launcher(dir, &cli));
+    let (replaced, waiting) = tokio::join!(
+        day(&hung),
+        tokio::time::timeout(std::time::Duration::from_millis(800), day(&hung))
+    );
+    assert!(waiting.is_err());
+    assert!(
+        replaced["error"]["message"]
+            .as_str()
+            .is_some_and(|m| m.contains("newer listing")),
+        "{replaced}"
     );
 }
