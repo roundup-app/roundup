@@ -337,9 +337,9 @@ async fn h16_no_signal_text_reaches_the_terminal_and_only_one_function_writes_to
     assert_eq!(
         callers,
         [
-            "agents/src/decision.rs: 2",
             "agents/src/ending.rs: 1",
-            "agents/src/lib.rs: 2"
+            "agents/src/lib.rs: 2",
+            "agents/src/reach.rs: 1"
         ]
     );
 }
@@ -466,31 +466,6 @@ async fn h20_four_line_steer_has_typed_lead_in() {
 #[tokio::test]
 async fn h20_one_line_steer_has_typed_lead_in() {
     h20_one_write("run the tests").await;
-}
-
-#[test]
-fn b33_a_batch_of_only_digests_is_typed_without_the_lead_in() {
-    let digests = "[from rupd, note] [digest] c is idle\n  last: x\n  open todos: 0\n\n\
-                   [from rupd, note] [digest] [2 updates held back]\nd is done\n  last: y\n  open todos: 1\n\n\
-                   [rup messages: 3 4]";
-    let typed = String::from_utf8(agents::claude_code::steer_bytes(digests)).unwrap();
-    assert_eq!(
-        typed,
-        format!(
-            "{}\x1b[200~{digests}\x1b[201~\r",
-            agents::claude_code::STATUS_LEAD
-        )
-    );
-    assert!(!typed.contains(agents::claude_code::LEAD_IN));
-}
-
-#[test]
-fn b33_a_batch_with_a_work_order_keeps_the_lead_in() {
-    let mixed = "[from rupd, note] [digest] c is idle\n  last: x\n  open todos: 0\n\n[from saad, note] fix it";
-    let typed = String::from_utf8(agents::claude_code::steer_bytes(mixed)).unwrap();
-    assert!(typed.starts_with(agents::claude_code::LEAD_IN));
-    let order = String::from_utf8(agents::claude_code::steer_bytes("Fix the race")).unwrap();
-    assert!(order.starts_with(agents::claude_code::LEAD_IN));
 }
 
 #[tokio::test]

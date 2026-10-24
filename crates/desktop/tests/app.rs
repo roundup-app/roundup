@@ -435,38 +435,6 @@ fn s1_started_as_roundup_project_opens_that_project() {
     );
 }
 
-#[test]
-fn s1_the_webview_is_granted_dialogs_the_dock_badge_and_hearing_events_and_nothing_else() {
-    let capabilities = Path::new(env!("CARGO_MANIFEST_DIR")).join("capabilities");
-    let granted: BTreeSet<String> = std::fs::read_dir(capabilities)
-        .unwrap()
-        .flat_map(|entry| {
-            let file: Value =
-                serde_json::from_slice(&std::fs::read(entry.unwrap().path()).unwrap()).unwrap();
-            file["permissions"]
-                .as_array()
-                .unwrap()
-                .iter()
-                .map(|p| p.as_str().unwrap().to_owned())
-                .collect::<Vec<_>>()
-        })
-        .collect();
-
-    let expected = [
-        "dialog:allow-open",
-        "dialog:allow-save",
-        "core:window:allow-set-badge-count",
-        "window-bar:allow-set-window-title",
-        "window-bar:allow-drag-window",
-        "window-bar:allow-zoom-window",
-        "core:event:allow-listen",
-        "core:event:allow-unlisten",
-    ]
-    .map(String::from)
-    .into();
-    assert_eq!(granted, expected);
-}
-
 fn tauri_config() -> Value {
     let path = Path::new(env!("CARGO_MANIFEST_DIR")).join("tauri.conf.json");
     serde_json::from_slice(&std::fs::read(path).unwrap()).unwrap()
@@ -1415,7 +1383,6 @@ fn s8_a_path_that_is_not_open_is_conflict_for_every_call() {
             "subscribe",
             json!({ "path": stranger, "channel": channel }),
         ),
-        invoke(&webview, "daemon_proof", json!({ "path": stranger })),
         invoke(&webview, "close_project", json!({ "path": stranger })),
         invoke(
             &webview,
@@ -1510,7 +1477,7 @@ fn s8_one_exit_among_two_names_its_path_and_the_other_keeps_answering() {
 }
 
 #[test]
-fn s8_each_daemon_has_its_own_proof_and_closing_one_leaves_the_other_valid() {
+fn s8_closing_one_daemon_leaves_the_other_answering() {
     let fx = Fixture::new(TWO_DAEMONS);
     let other = fx.second_project("other-project");
     fx.serve_real_daemon_named("my-project");
@@ -1518,16 +1485,15 @@ fn s8_each_daemon_has_its_own_proof_and_closing_one_leaves_the_other_valid() {
     let (_app, webview) = app(fx.config.clone(), None);
     open(&webview, &fx.project);
     open(&webview, &other);
-    let proof = |path: &Path| {
+    let ping = |path: &Path| {
         invoke(
             &webview,
-            "daemon_proof",
-            json!({ "path": path.display().to_string() }),
+            "rpc",
+            json!({ "path": path.display().to_string(), "method": "daemon.ping", "params": null }),
         )
     };
-    let mine = proof(&fx.project).unwrap();
-    let theirs = proof(&other).unwrap();
-    assert_ne!(mine, theirs);
+    assert_eq!(pong(ping(&fx.project)), Ok(json!(true)));
+    assert_eq!(pong(ping(&other)), Ok(json!(true)));
 
     invoke(
         &webview,
@@ -1536,8 +1502,8 @@ fn s8_each_daemon_has_its_own_proof_and_closing_one_leaves_the_other_valid() {
     )
     .unwrap();
 
-    assert_eq!(proof(&other).unwrap(), theirs);
-    assert_eq!(proof(&fx.project).unwrap_err()["code"], code::CONFLICT);
+    assert_eq!(pong(ping(&other)), Ok(json!(true)));
+    assert_eq!(ping(&fx.project).unwrap_err()["code"], code::CONFLICT);
 }
 
 #[test]

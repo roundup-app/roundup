@@ -19,6 +19,7 @@ fn budget(limit: Option<f64>, noise: f64, baseline: &[(&str, f64)]) -> Budget {
 fn report(os: &str, metrics: &[(&str, f64)]) -> Report {
     Report {
         os: os.into(),
+        class: None,
         cpus: 1,
         runs: 1,
         loads: vec![0.0],
@@ -73,7 +74,7 @@ fn r5_the_median_ignores_one_outlier_and_averages_the_middle_pair() {
 }
 
 #[test]
-fn r6_a_platform_without_a_baseline_is_held_to_the_limit_only() {
+fn r6_a_platform_without_a_baseline_is_parked_to_the_limit_only() {
     let b = budget(Some(300.0), 0.0, &[("linux", 10.0)]);
 
     assert_eq!(judge(299.0, &b, "macos"), None);
@@ -97,10 +98,23 @@ fn r7_a_budget_for_a_metric_that_was_not_measured_is_an_error() {
     );
 }
 
+fn class(key: &str) -> perf::machine::Class {
+    perf::machine::Class {
+        key: key.into(),
+        provenance: "test".into(),
+        machine: Default::default(),
+    }
+}
+
 fn committed() -> Budgets {
     let path = concat!(env!("CARGO_MANIFEST_DIR"), "/budgets.json");
 
     serde_json::from_slice(&std::fs::read(path).unwrap()).unwrap()
+}
+
+/// A baseline key is an OS (`macos`) or a Linux machine class (`linux-7763`); load thresholds are per OS.
+fn os_of(key: &str) -> &str {
+    key.split('-').next().unwrap()
 }
 
 fn next_up(value: f64) -> f64 {
@@ -176,7 +190,9 @@ fn r8_committed_max_load_per_cpu_pins_the_thresholds_and_exempts_memory_only() {
             continue;
         }
 
-        for os in budget.baseline.keys() {
+        for key in budget.baseline.keys() {
+            let os = os_of(key);
+
             assert!(
                 budget.max_load_per_cpu.contains_key(os),
                 "{name} has a baseline for {os} but no max_load_per_cpu threshold"
@@ -185,7 +201,7 @@ fn r8_committed_max_load_per_cpu_pins_the_thresholds_and_exempts_memory_only() {
 
         for os in budget.max_load_per_cpu.keys() {
             assert!(
-                budget.baseline.contains_key(os),
+                budget.baseline.keys().any(|key| os_of(key) == os),
                 "{name} names a max_load_per_cpu threshold for {os} with no baseline there"
             );
         }
@@ -219,16 +235,16 @@ fn r9_the_regression_ceiling_is_inclusive_and_exact_at_the_float_edge() {
 #[test]
 fn r8_the_committed_baselines_are_the_recorded_values() {
     let recorded = [
-        ("cold_plugin_materialization_ms", "linux", 11.940635),
+        ("cold_plugin_materialization_ms", "linux-7763", 11.940635),
         ("cold_start_ms", "macos", 7.1),
-        ("rss_extra_mb", "linux", 1.6),
+        ("rss_extra_mb", "linux-boxd", 1.6),
         ("rss_extra_mb", "macos", 3.1),
-        ("write_to_output_p95_ms", "linux", 0.066),
+        ("write_to_output_p95_ms", "linux-boxd", 0.066),
         ("write_to_output_p95_ms", "macos", 0.056),
-        ("terminal_write_p95_ms", "linux", 0.055),
+        ("terminal_write_p95_ms", "linux-boxd", 0.055),
         ("terminal_write_p95_ms", "macos", 0.0365),
-        ("ping_p95_ms", "linux", 0.025),
-        ("rail_tree_40_p95_ms", "linux", 0.265),
+        ("ping_p95_ms", "linux-boxd", 0.025),
+        ("rail_tree_40_p95_ms", "linux-boxd", 0.265),
         ("rail_tree_40_p95_ms", "macos", 0.1345),
     ];
     let budgets = committed();
@@ -271,6 +287,7 @@ fn q11_perf_reports_cold_plugin_materialization_and_fails_an_over_budget_median(
         BTreeMap::from([("cold_plugin_materialization_ms".to_string(), vec![331.0])]),
         vec![0.0],
         &budgets,
+        None,
         &out,
     )
     .unwrap();
@@ -291,7 +308,10 @@ fn q11_cold_plugin_materialization_rejects_a_release_regression_below_the_hard_l
     let mut budgets = committed();
     budgets.retain(|name, _| name == "cold_plugin_materialization_ms");
     let outcome = judge_all(
-        &report("linux", &[("cold_plugin_materialization_ms", 13.5)]),
+        &Report {
+            class: Some(class("linux-7763")),
+            ..report("linux", &[("cold_plugin_materialization_ms", 13.5)])
+        },
         &budgets,
     )
     .unwrap();

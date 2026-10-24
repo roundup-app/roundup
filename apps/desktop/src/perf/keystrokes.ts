@@ -23,14 +23,26 @@ const percentile = (sorted: number[], share: number): number => {
   return value;
 };
 
-type Pending = { key: number; at: number; echoed: boolean; counted: () => void };
+/** The ordered boundaries of one key, all read on the webview's clock so no cross-process subtraction is needed. */
+export const BOUNDARIES = ["keydown", "input", "dispatched", "replied", "arrived", "parsed", "rendered"] as const;
+
+type Boundary = (typeof BOUNDARIES)[number];
+
+type Marks = Partial<Record<Boundary, number>>;
+
+export type HopSummary = { n: number; p50: number | null; p95: number | null };
+
+type Pending = { key: number; at: number; echoed: boolean; counted: () => void; marks: Marks };
 
 /** Keydown to the first render that shows its echo. A render before the echo reached the screen's buffer is the previous frame's and does not count. */
 export const createKeystrokeProbe = (now: () => number, typed: string) => {
   const latencies: { key: number; ms: number }[] = [];
+  const finished: { key: number; marks: Marks }[] = [];
+  let dispatched: Marks | null = null;
   const droppedKeys: number[] = [];
   let pending: Pending | null = null;
   let keys = 0;
+  let unsent = 0;
 
   return {
     /** Resolves when the key's echo has been rendered, or at `abandon`. */
@@ -38,17 +50,43 @@ export const createKeystrokeProbe = (now: () => number, typed: string) => {
       new Promise((resolve) => {
         if (pending) droppedKeys.push(pending.key);
 
-        pending = { key: keys, at: now(), echoed: false, counted: resolve };
+        const at = now();
+
+        pending = { key: keys, at, echoed: false, counted: resolve, marks: { keydown: at } };
         keys += 1;
       }),
     /** Called with each chunk the emulator has parsed. Only the typed character itself is the echo; anything else is the program's own output. */
     written: (bytes: Uint8Array) => {
-      if (pending && new TextDecoder().decode(bytes) === typed)
+      if (pending && new TextDecoder().decode(bytes) === typed) {
         pending.echoed = true;
+        pending.marks.parsed ??= now();
+      }
+    },
+    /** xterm's `onData` for the pending key. */
+    input: () => {
+      if (pending) pending.marks.input ??= now();
+    },
+    /** `terminal.write` called (the bytes are base64-encoded just before, in the same tick) and, later, answered. */
+    dispatched: () => {
+      if (pending?.marks.input === undefined || pending.marks.dispatched !== undefined) return;
+
+      pending.marks.dispatched = now();
+      dispatched = pending.marks;
+    },
+    replied: () => {
+      if (dispatched && dispatched.replied === undefined) dispatched.replied = now();
+
+      dispatched = null;
+    },
+    /** The output event carrying the typed character reached the webview, before `emulator.write`. */
+    arrived: (bytes: Uint8Array) => {
+      if (pending && new TextDecoder().decode(bytes) === typed) pending.marks.arrived ??= now();
     },
     rendered: () => {
       if (!pending?.echoed) return;
 
+      pending.marks.rendered = now();
+      finished.push({ key: pending.key, marks: pending.marks });
       latencies.push({ key: pending.key, ms: now() - pending.at });
       pending.counted();
       pending = null;
@@ -60,7 +98,37 @@ export const createKeystrokeProbe = (now: () => number, typed: string) => {
       pending.counted();
       pending = null;
     },
-    /** `skip` is the number of leading keys typed, whether or not they came back: warm-up drops stay out of the count. */
+    /** p50/p95 of each hop over the measured keys that carry both of its boundaries. */
+    hops: (skip: number) => {
+      const sample = (from: Boundary, to: Boundary): HopSummary => {
+        const spans = finished
+          .flatMap(({ key, marks }) => {
+            const a = marks[from];
+            const b = marks[to];
+
+            return key >= skip && a !== undefined && b !== undefined ? [b - a] : [];
+          })
+          .sort((x, y) => x - y);
+
+        return spans.length === 0
+          ? { n: 0, p50: null, p95: null }
+          : { n: spans.length, p50: percentile(spans, 0.5), p95: percentile(spans, 0.95) };
+      };
+
+      return {
+        keydown_to_input: sample("keydown", "input"),
+        input_to_dispatch: sample("input", "dispatched"),
+        dispatch_to_echo_event: sample("dispatched", "arrived"),
+        echo_event_to_parsed: sample("arrived", "parsed"),
+        parsed_to_frame: sample("parsed", "rendered"),
+        write_reply: sample("dispatched", "replied"),
+      };
+    },
+    /** Keys the run's time ran out before it typed: dropped, never skipped. */
+    unsent: (count: number) => {
+      unsent += count;
+    },
+    /** Warm-up latency samples are excluded, but every dropped key fails R21. */
     summary: (skip: number): Summary => {
       const sorted = latencies
         .flatMap(({ key, ms }) => (key >= skip ? [ms] : []))
@@ -68,7 +136,7 @@ export const createKeystrokeProbe = (now: () => number, typed: string) => {
 
       return {
         n: sorted.length,
-        dropped: droppedKeys.filter((key) => key >= skip).length,
+        dropped: droppedKeys.length + unsent,
         p50: percentile(sorted, 0.5),
         p95: percentile(sorted, 0.95),
         p99: percentile(sorted, 0.99),
@@ -85,15 +153,23 @@ export type Surroundings = {
   press(): void;
   sleep(ms: number): Promise<void>;
   random(): number;
+  /** True once the run's time is spent: the keys not yet typed are counted as dropped and the run reports. */
+  expired(): boolean;
 };
 
-/** Types `count` keys one at a time, 20 to 40 ms apart so the key's phase against the display frame is not constant. */
+/** Types `count` keys one at a time, 20 to 40 ms apart so the key's phase against the display frame is not constant. Stops when time is spent, so a run of dropped keys still ends in a report. */
 export const typeKeys = async (
   probe: KeystrokeProbe,
   surroundings: Surroundings,
   count: number,
 ): Promise<void> => {
   for (let key = 0; key < count; key += 1) {
+    if (surroundings.expired()) {
+      probe.unsent(count - key);
+
+      return;
+    }
+
     const echoed = probe.keydown();
 
     surroundings.press();

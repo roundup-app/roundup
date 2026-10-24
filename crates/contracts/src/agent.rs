@@ -835,8 +835,7 @@ pub struct CapturedOrder {
 }
 
 /// O4, U2773c: replace the Order of Agent or Door `id`.
-/// With `captured`, compare and replace atomically at execution, including after a
-/// Held action. A mismatch is CONFLICT; a removed id is NOT_FOUND.
+/// With `captured`, compare and replace atomically at execution. A mismatch is CONFLICT; a removed id is NOT_FOUND.
 /// Omit `captured` for an unconditional write.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, TS, JsonSchema)]
 #[ts(export, export_to = "agent/")]
@@ -864,54 +863,17 @@ pub struct RenameParams {
     pub name: String,
 }
 
+/// `ended` records an Attempt ending even when its final Kind is error.
 #[derive(Clone, Debug, Serialize, Deserialize, TS)]
 #[ts(export, export_to = "agent/")]
 pub struct StatusEvent {
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    #[ts(optional, as = "Option<bool>")]
+    pub ended: bool,
     pub id: String,
     pub attempt: String,
     pub status_revision: String,
     pub status: Status,
-}
-
-/// B6: durable acceptance of an action that waits for a child's Takeover.
-#[derive(Clone, Debug, Serialize, Deserialize, TS)]
-#[ts(export, export_to = "agent/")]
-pub struct HeldAction {
-    pub id: String,
-    pub agent: String,
-    #[serde(flatten)]
-    pub call: HeldCall,
-    pub outcome: crate::terminal::ResizeOutcome,
-}
-
-#[derive(Clone, Debug, Serialize, Deserialize, TS)]
-#[serde(tag = "method", content = "params")]
-#[ts(export, export_to = "agent/")]
-pub enum HeldCall {
-    #[serde(rename = "terminal.resize")]
-    Resize(crate::terminal::ResizeParams),
-    #[serde(rename = "terminal.close")]
-    Close(crate::terminal::TerminalId),
-    #[serde(rename = "terminal.kill")]
-    Kill(crate::terminal::TerminalId),
-    #[serde(rename = "terminal.write")]
-    Write(crate::terminal::WriteParams),
-    #[serde(rename = "rail.rename")]
-    Rename(RenameParams),
-    #[serde(rename = "agent.setOrder")]
-    SetOrder(SetOrderParams),
-    #[serde(rename = "decision.answer")]
-    Answer(crate::decision::AnswerParams),
-    #[serde(rename = "agent.resume")]
-    Resume(ResumeParams),
-    #[serde(rename = "agent.stop")]
-    Stop(NodeId),
-    #[serde(rename = "agent.interrupt")]
-    Interrupt(NodeId),
-    #[serde(rename = "agent.prompt")]
-    Prompt(PromptParams),
-    #[serde(rename = "workstream.rewind")]
-    Rewind(crate::workstream::RewindParams),
 }
 
 #[cfg(test)]

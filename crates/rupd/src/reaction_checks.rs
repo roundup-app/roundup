@@ -346,15 +346,8 @@ mod tests {
             )
             .unwrap(),
         );
-        let messages = Arc::new(
-            messages::Messages::open(
-                &dir,
-                bus.clone(),
-                agents.clone(),
-                Arc::new(|_, _| Box::pin(async { Err(messages::Refusal::Busy) })),
-            )
-            .unwrap(),
-        );
+        let messages =
+            Arc::new(messages::Messages::open(&dir, bus.clone(), agents.clone()).unwrap());
         let sender = Arc::new(std::sync::OnceLock::new());
         sender.set(messages.clone()).ok();
         let touches = Arc::new(provenance::Touches::open(&dir.join("provenance.db")).unwrap());
@@ -363,10 +356,7 @@ mod tests {
             modules: Default::default(),
             todos: Arc::new(todos::Todos::open(&dir, bus.clone()).unwrap()),
             pads: Arc::new(pads::Pads::open(&dir, bus.clone()).unwrap()),
-            door_first_steers: Default::default(),
-            child_effects: Default::default(),
             specialists: Default::default(),
-            held_actions: crate::resize::HeldActions::open(&dir).unwrap(),
             bus: bus.clone(),
             project: dir.to_path_buf(),
             project_key: String::new(),
@@ -379,7 +369,6 @@ mod tests {
             reactions: Arc::new(Reactions::open(&dir).unwrap()),
             prompt_effect_gate: None,
             agents: agents.clone(),
-            notes: Default::default(),
             renames: std::sync::Mutex::new(None),
             owner_events: std::sync::Mutex::new(None),
             wake_events: Default::default(),

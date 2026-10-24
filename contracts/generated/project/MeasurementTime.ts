@@ -3,4 +3,4 @@
 /**
  * Nanoseconds are exact strings. Summed time partitions Attempts, not wall time.
  */
-export type MeasurementTime = { elapsed_ns: string | null, summed_ns: string, execution_ns: string, tools_ns: string, human_ns: string, coordination_ns: string, other_ns: string, unmeasured_ns: string, active: boolean, coverage: Array<string>, };
+export type MeasurementTime = { elapsed_ns: string | null, summed_ns: string, execution_ns: string, tools_ns: string, coordination_ns: string, other_ns: string, unmeasured_ns: string, active: boolean, coverage: Array<string>, };

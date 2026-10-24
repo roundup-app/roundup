@@ -1,6 +1,5 @@
 import { createFakeApp } from "../testing/fakeApp";
 import { questionDialog, answerQuestion } from "../shelf/bulkQuestionHarness";
-import { questionProbe } from "../testing/menuProbe";
 import { cleanup, fireEvent, render, waitFor, within } from "@solidjs/testing-library";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { createSignal, type JSX } from "solid-js";
@@ -27,8 +26,7 @@ import { Tabs } from "../ui/Tabs";
 import { Pane } from "../terminal/Pane";
 import { fakeEmulators } from "../terminal/paneHarness";
 import { OrderDrawer } from "../orders/OrderDrawer";
-import { DecisionCard } from "../decisions/DecisionCard";
-import { decision, gate, mountApp, select } from "../decisions/decisionsFixture";
+import { gate, mountApp, select } from "../testing/appFixture";
 import { mountControl } from "../changes/harness";
 import { DiffReader } from "../changes/DiffReader";
 import { notesFor } from "../changes/notes";
@@ -75,7 +73,7 @@ const readers: { site: string; method: "todo.unread" | "todo.comments" | "todo.g
   { site: "Todo history", method: "todo.getHistory", render: () => <TodoHistory id={1} />, refresh: m => m.app.emit(event({ name: "todo.deleted", data: { id: 2 } })) },
   { site: "Todo Pad references", method: "todo.refs", render: () => <TodoRefs id={1} />, refresh: m => m.app.emit(event({ name: "pad.changed", data: { name: "Plan" } })) },
   { site: "Pads", method: "pad.list", render: () => <Pads />, refresh: m => m.app.emit(event({ name: "pad.changed", data: { name: "Plan" } })) },
-  { site: "Reactions", method: "reaction.list", render: () => <ReactionSite />, refresh: () => window.dispatchEvent(new Event("focus")), role: "status" },
+  { site: "Reactions", method: "reaction.list", render: () => <ReactionSite />, refresh: () => window.dispatchEvent(new Event("focus")) },
   { site: "Work progress", method: "message.progress", render: () => <WorkProgress id="a" />, refresh: m => m.app.emit(event({ name: "rail.changed" })) },
 ];
 
@@ -108,7 +106,7 @@ it.each(readers)("u3807_each_site_shows_its_message_in_the_reserved_line: $site"
   expect(alert.textContent).toContain(FAILURE);
   unchanged(places, place);
   Object.assign(mounted.app.handlers, { [site.method]: original });
-  const retry = within(place).queryByRole("button");
+  const retry = within(place).queryByRole("button", { name: site.method === "message.progress" ? "Read again" : /^(?!Clear|Dismiss)/ });
 
   if (retry) fireEvent.click(retry);
   else site.refresh(mounted);
@@ -193,7 +191,7 @@ it("u3807_each_site_shows_its_message_in_the_reserved_line: Todo row", async () 
   const place = (await within(row).findByRole("alert")).closest<HTMLElement>(".reserved-line")!;
   unchanged(places, place);
   expect([...row.children]).toEqual(siblings);
-  fireEvent.click(document.body);
+  fireEvent.click(within(place).getByRole("button", { name: "Dismiss" }));
   await waitFor(() => expect(within(row).queryByRole("alert")).toBeNull());
   unchanged(places, place);
   expect([...row.children]).toEqual(siblings);
@@ -231,19 +229,23 @@ it("u3807_each_site_shows_its_message_in_the_reserved_line: Order editor", async
   const mounted = await mountTodos([], true, [agent("a", "working", "building", { work: { kind: "work", ask: "Ship", limits: [] } })]);
   const view = render(() => <ConnectedProjectContext.Provider value={mounted.connected}><OrderDrawer id="a" /></ConnectedProjectContext.Provider>);
   fireEvent.click(within(view.container).getByRole("button", { name: "Edit order" }));
-  fireEvent.input(await within(view.container).findByLabelText("Ask"), { target: { value: "Changed ask" } });
+  const ask = await within(view.container).findByLabelText<HTMLTextAreaElement>("Ask");
+  fireEvent.input(ask, { target: { value: "Changed ask" } });
   mounted.app.handlers["agent.setOrder"] = () => { throw new RpcError(-32003, FAILURE); };
 
   await cycle(view.container,
     () => fireEvent.click(within(view.container).getByRole("button", { name: "Save" })),
-    () => { mounted.app.handlers["agent.setOrder"] = () => new Promise(() => {}); fireEvent.click(within(view.container).getByRole("button", { name: "Save" })); });
-});
-
-it("u3807_each_site_shows_its_message_in_the_reserved_line: Decision cards", async () => {
-  const mounted = await mountTodos([]);
-  const [failure, setFailure] = createSignal(false);
-  const view = render(() => <ConnectedProjectContext.Provider value={mounted.connected}><DecisionCard decision={decision("d", "a", failure() ? { failure: { attempt: "1", failed_at: 0, error_code: -32003, answered_by: USER, message: FAILURE } } : {})} name="alpha" focusTerminal={() => {}} ref={() => {}} onFocusIn={() => {}} onFocusOut={() => {}} /></ConnectedProjectContext.Provider>);
-  await cycle(view.container, () => setFailure(true), () => setFailure(false));
+    async () => {
+      const reply = gate<ReturnType<typeof agent>>();
+      mounted.app.handlers["agent.setOrder"] = () => reply.promise;
+      fireEvent.click(within(view.container).getByRole("button", { name: "Save" }));
+      const submitted = mounted.connected.drafts.list().find(draft => draft.value.ask === "Changed ask")!;
+      // A newer revision keeps the editor and its reserved place mounted after acknowledgement.
+      fireEvent.input(ask, { target: { value: "  Newer unsent ask 🧭\n" } });
+      reply.resolve(agent("a", "working", "building", { work: { kind: "work", ask: "Changed ask", limits: [] } }));
+      await waitFor(() => expect(mounted.connected.drafts.list().some(draft => draft.revision === submitted.revision)).toBe(false));
+    });
+  expect(within(view.container).getByLabelText<HTMLTextAreaElement>("Ask").value).toBe("  Newer unsent ask 🧭\n");
 });
 
 it("u3807_each_site_shows_its_message_in_the_reserved_line: Diff reader", async () => {
@@ -275,8 +277,8 @@ it("u3807_each_site_shows_its_message_in_the_reserved_line: worktree panel", asy
 
 it("u3807_each_site_shows_its_message_in_the_reserved_line: importer Looking and failure", async () => {
   const mounted = await mountTodos([]);
-  render(() => <ConnectedProjectContext.Provider value={mounted.connected}><ImportPanel open opener={undefined} onClose={() => {}} /></ConnectedProjectContext.Provider>);
-  const surface = await within(document.body).findByRole("dialog");
+  render(() => <ConnectedProjectContext.Provider value={mounted.connected}><ImportPanel onClose={() => {}} /></ConnectedProjectContext.Provider>);
+  const surface = await within(document.body).findByRole("region", { name: "Import Claude Code work" });
   const read = gate<{ candidates: []; excluded: [] }>();
   mounted.app.handlers["project.importDiscover"] = () => read.promise;
   await cycle(surface, () => { void mounted.connected.importing.refresh(); }, () => read.reject(new RpcError(-32003, FAILURE)), "Looking for conversations…");
@@ -374,7 +376,7 @@ it("u3807_each_site_shows_its_message_in_the_reserved_line: Capture", async () =
   fireEvent.keyDown(document.body, { key: "T", code: "KeyT", metaKey: true, shiftKey: true });
   const surface = await within(document.body).findByRole("dialog");
   const field = within(surface).getByRole("textbox");
-  fireEvent.input(field, { target: { value: "held capture" } });
+  fireEvent.input(field, { target: { value: "kept capture" } });
   const places = placesOf(surface);
   const storage = vi.spyOn(Storage.prototype, "setItem").mockImplementation(() => { throw new Error(FAILURE); });
   fireEvent.input(field, { target: { value: "retained capture" } });
@@ -423,33 +425,24 @@ it("u3807_each_site_shows_its_message_in_the_reserved_line: ProjectTab", async (
   const path = mounted.connected.project.path;
   const draft = mounted.connected.drafts.edit({ surface: "header", object: path, recipient: null }, { name: "retained", base: "p" }, null, "ordinary").draft;
   render(() => <ProjectDraftsContext.Provider value={() => mounted.connected.drafts}><Tabs.Root value={path}><Tabs.List>
-    <ProjectTab tab={{ path, name: "p", base: "p", busy: false, running: [], needsYou: 0, error: 0, exitText: null }} selected recovery={{ project: path, revision: draft.revision }} onMark={() => {}} onClose={() => {}} onRename={async () => ({ path, name: "p", revision: 1, status: "acknowledged", project: { path, name: "p" } })} />
+    <ProjectTab tab={{ path, name: "p", base: "p", busy: false, running: [], needsYou: 0, error: 0, exitText: null }} selected app={mounted.app} recovery={{ project: path, revision: draft.revision }} onMark={() => {}} onClose={() => {}} onRename={async () => ({ path, name: "p", revision: 1, status: "acknowledged", project: { path, name: "p" } })} />
   </Tabs.List></Tabs.Root></ProjectDraftsContext.Provider>);
   fireEvent.keyDown(await within(document.body).findByRole("textbox", { name: "Project name" }), { key: "Escape" });
   fireEvent.click(await within(document.body).findByRole("button", { name: /Recover unfinished work/ }));
   const surface = await within(document.body).findByRole("dialog", { name: "Unfinished work" });
   let rejected = true;
-  Object.defineProperty(navigator, "clipboard", { configurable: true, value: { writeText: async () => { if (rejected) throw new Error(FAILURE); } } });
+  vi.spyOn(mounted.app, "clipboardWrite").mockImplementation(async () => { if (rejected) throw new Error(FAILURE); });
   await cycle(surface, () => fireEvent.click(within(surface).getByRole("button", { name: "Copy name" })),
     () => { rejected = false; fireEvent.click(within(surface).getByRole("button", { name: "Copy name" })); });
 });
 
-it.each(["pane-failure", "decision-list failure"])("u3807_each_site_shows_its_message_in_the_reserved_line: Terminal %s", async site => {
+it("u3807_each_site_shows_its_message_in_the_reserved_line: Terminal pane-failure", async () => {
   const mounted = await mountTodos([]);
   const [notice, setNotice] = createSignal<string | null>(null);
   const view = render(() => <ConnectedProjectContext.Provider value={mounted.connected}><Pane notice={notice()} createEmulator={fakeEmulators().factory} /></ConnectedProjectContext.Provider>);
 
-  if (site === "pane-failure") await cycle(view.container, () => setNotice(FAILURE), () => setNotice(null));
-  else {
-    const original = mounted.app.handlers["decision.list"]!;
-    await cycle(view.container,
-      async () => { mounted.app.handlers["decision.list"] = () => { throw new RpcError(-32003, FAILURE); };
-
- mounted.connected.decisions.retryList(); },
-      async () => { mounted.app.handlers["decision.list"] = original; mounted.connected.decisions.retryList(); });
-  }
+  await cycle(view.container, () => setNotice(FAILURE), () => setNotice(null));
 });
-
 
 it("u3807_each_site_shows_its_message_in_the_reserved_line: Todo field recovery and retry", async () => {
   const mounted = await mountTodos([todo(1)]);

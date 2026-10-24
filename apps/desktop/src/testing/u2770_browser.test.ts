@@ -32,7 +32,7 @@ it("u3528_keys_and_pointer_never_draw_rings_or_pressed_backgrounds", async () =>
           const active = document.activeElement;
           const sites = active === document.body ? [active] : [active, ...active.querySelectorAll('*')];
           if (active.closest('.app-checkbox')) sites.push(active.closest('.app-checkbox'), ...active.closest('.app-checkbox').querySelectorAll('*'));
-          const panel = active.closest('.app-menu, .app-dialog, .import-panel, .bubble-frame, .bubble, .decision-card');
+          const panel = active.closest('.app-menu, .app-dialog, .import-panel, .bubble-frame, .bubble');
           if (panel) sites.push(panel);
           return sites.flatMap(el => [null, '::before', '::after'].flatMap(pseudo => {
             const style = getComputedStyle(el, pseudo);
@@ -92,9 +92,17 @@ it("u3528_keys_and_pointer_never_draw_rings_or_pressed_backgrounds", async () =>
         ['.strip-add', 'button'],
       ]) {
         await lane.browser("click", selector!);
+
+        if (step === "rail-row") {
+          // Selecting an Agent shows its Terminal, which takes focus as a Door's does (U12); return to the row for the Rail's own keys.
+          await lane.until(focused(".pane-screen .xterm-helper-textarea"));
+          await lane.evaluate(`document.querySelector(${JSON.stringify(selector)}).focus()`);
+        }
+
         await lane.until(focused(selector!));
         await ring();
         await capture(step!);
+
         await lane.browser("press", step === "rail-row" ? "ArrowUp" : "Shift+Tab");
         await lane.until(`!(${focused(selector!)})`);
 
@@ -190,7 +198,7 @@ it("u3528_keys_and_pointer_never_draw_rings_or_pressed_backgrounds", async () =>
       await lane.until(focused(".strip-add"));
       await ring();
       await lane.browser("reload");
-      await lane.until("!!document.querySelector('.rail-import')");
+      await lane.until("!!document.querySelector('.todo-project-root')");
 
       if (!(await lane.evaluate<boolean>("document.querySelector('#shelf-tab-todos')?.getAttribute('aria-expanded') === 'true'"))) await lane.browser("click", "#shelf-tab-todos");
 
@@ -236,7 +244,7 @@ it("u3528_keys_and_pointer_never_draw_rings_or_pressed_backgrounds", async () =>
       await lane.browser("mouse", "down");
       expect(await backgrounds()).toEqual(before);
       await ring();
-      await capture("auto-held");
+      await capture("auto-kept");
       await lane.browser("mouse", "up");
       await lane.until(`document.querySelector('${auto}').getAttribute('aria-checked') !== ${JSON.stringify(checked)}`);
       expect(await lane.calls("workstream.setAuto")).toHaveLength(1);
@@ -249,21 +257,12 @@ it("u3528_keys_and_pointer_never_draw_rings_or_pressed_backgrounds", async () =>
         await capture("dense-failure");
       }
 
-      await lane.browser("click", ".rail-import");
-      await lane.until("!!document.activeElement.closest('.import-panel')");
+      await lane.evaluate("window.dispatchEvent(new CustomEvent('open-project-page', { detail: { path: document.querySelector('.project-tab[data-selected=true]').dataset.path, command: 'import-work' } }))");
+      await lane.until("!!document.activeElement.closest('.settings-view')");
       await ring();
       await capture("import-dialog");
       await lane.browser("press", "Escape");
       await lane.until("!document.querySelector('.import-panel')");
-
-      const url = await lane.evaluate<string>("location.href");
-
-      await lane.browser("open", url.replace('seed=tree-40', 'seed=decisions'));
-      await lane.until("!!document.querySelector('.decision-card button')");
-      await lane.browser("focus", ".decision-card button");
-      await lane.until("!!document.activeElement.closest('.decision-card')");
-      await ring();
-      await capture("decision");
     } finally {
       try { if (dir) await lane.browser("record", "stop"); } finally { await lane.close(); }
     }

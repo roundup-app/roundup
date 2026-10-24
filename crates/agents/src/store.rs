@@ -97,15 +97,6 @@ impl Agents {
                 eprintln!("agents: {}: {}; kept", node.id, error.message);
             }
         }
-        let decisions = decision::Decisions::new(
-            None,
-            Duration::from_secs(claude_code::PERMISSION_TIMEOUT_SECS),
-        )
-        .with_store(&dir.join(if dir.join("project.db").exists() {
-            "project.db"
-        } else {
-            "agents.db"
-        }))?;
         let timing = Arc::new(Mutex::new(rail::Timing::open(
             &dir.join(if dir.join("project.db").exists() {
                 "project.db"
@@ -134,7 +125,6 @@ impl Agents {
                     opened: now_ms(),
                     launcher: launcher.clone(),
                 },
-                decisions,
                 me: me.clone(),
                 resume_effect: None,
                 steer_bound: STEER_BOUND,
@@ -145,14 +135,12 @@ impl Agents {
                 events: events::State {
                     gate_observer: None,
                     channel_deadline: channel_deadline_from_env(),
-                    prompt_observer: std::sync::OnceLock::new(),
                     inbox: Default::default(),
                     tool_calls: Default::default(),
                 },
                 channels: Mutex::new(HashMap::new()),
                 scan: Scan::new(scan_interval_from_env()),
                 strays: Mutex::new(HashMap::new()),
-                takeover: None,
                 context: None,
                 waits: Mutex::new(HashMap::new()),
             }),
@@ -205,14 +193,7 @@ impl Agents {
         self
     }
 
-    /// H3, H4: answers need `proof`; the App holds it. Without one every `decision.answer` is
-    /// `FORBIDDEN`. Call it before the first call is made.
-    #[must_use]
-    pub fn with_proof(self, proof: Option<String>) -> Self {
-        self.configure(|shared| shared.decisions.set_proof(proof))
-    }
-
-    /// E3: supply the Context text held by the Daemon, without giving Agents a Todos dependency.
+    /// E3: supply the Context text kept by the Daemon, without giving Agents a Todos dependency.
     /// Read once for the first Steer; a failed or timed-out read leaves that Steer unchanged.
     #[must_use]
     pub fn with_context<F, Fut>(self, read: F) -> Self
@@ -223,12 +204,6 @@ impl Agents {
         self.configure(|shared| {
             shared.context = Some(Arc::new(move |nodes, id| Box::pin(read(nodes, id))))
         })
-    }
-
-    /// O4: `active` says whether a Takeover of an Agent is active. Call it before the first call.
-    #[must_use]
-    pub fn with_takeover(self, active: impl Fn(&str) -> bool + Send + Sync + 'static) -> Self {
-        self.configure(|shared| shared.takeover = Some(Arc::new(active)))
     }
 
     /// Stamp Statuses and time Ticks by `clock`, milliseconds since the Unix epoch, instead of
@@ -274,13 +249,6 @@ impl Agents {
         self.configure(|shared| shared.events.gate_observer = Some(Arc::new(observer)))
     }
 
-    /// B39: tell `observer` the text of each prompt an Agent submits (`UserPromptSubmit`); `true`
-    /// makes `agent.signal` answer that the hook drops the prompt. Set once, after the Daemon
-    /// opens Messages.
-    pub fn observe_prompts(&self, observer: PromptObserver) {
-        let _ = self.shared.events.prompt_observer.set(observer);
-    }
-
     /// B50(c): tell `observer` the Message ids an Agent's transcript records as another
     /// session's message, as its Signals arrive. Set once, after the Daemon opens Messages.
     pub fn observe_inbox(&self, observer: crate::InboxObserver) {
@@ -294,7 +262,7 @@ impl Agents {
         state
     }
 
-    /// B50: write notes to Agent `id`'s Claude inbox; a failure is the state to hold them for,
+    /// B50: write notes to Agent `id`'s Claude inbox; a failure is the state they stay pending under,
     /// and is the Rail fact too.
     pub fn inbox_write(
         &self,
@@ -303,7 +271,7 @@ impl Agents {
     ) -> Result<(), contracts::agent::Inbox> {
         // Native socket connect/write is synchronous: a Ready routing future can still
         // have blocked on IO. Only a validated native endpoint earns this evidence;
-        // missing/held inboxes and generic pending Messages earn no coordination time.
+        // missing/mismatched inboxes and generic pending Messages earn no coordination time.
         let waiting: Vec<_> = if self.launcher.inbox_check(id) == contracts::agent::Inbox::Ok {
             notes
                 .iter()
@@ -616,7 +584,6 @@ pub(super) mod tests {
                     None,
                 ),
             },
-            decisions: crate::decision::Decisions::new(None, Duration::from_secs(4)),
             me: std::sync::Weak::new(),
             resume_effect: None,
             steer_bound: crate::STEER_BOUND,
@@ -627,14 +594,12 @@ pub(super) mod tests {
             events: events::State {
                 gate_observer: None,
                 channel_deadline: crate::CHANNEL_DEADLINE,
-                prompt_observer: std::sync::OnceLock::new(),
                 inbox: Default::default(),
                 tool_calls: Default::default(),
             },
             channels: Mutex::new(HashMap::new()),
             scan: crate::Scan::new(crate::SCAN_INTERVAL),
             strays: Mutex::new(HashMap::new()),
-            takeover: None,
             context: None,
             waits: Mutex::new(HashMap::new()),
         });
@@ -683,7 +648,6 @@ pub(super) mod tests {
                     None,
                 ),
             },
-            decisions: crate::decision::Decisions::new(None, Duration::from_secs(4)),
             me: std::sync::Weak::new(),
             resume_effect: None,
             steer_bound: crate::STEER_BOUND,
@@ -694,14 +658,12 @@ pub(super) mod tests {
             events: events::State {
                 gate_observer: None,
                 channel_deadline: crate::CHANNEL_DEADLINE,
-                prompt_observer: std::sync::OnceLock::new(),
                 inbox: Default::default(),
                 tool_calls: Default::default(),
             },
             channels: Mutex::new(HashMap::new()),
             scan: crate::Scan::new(crate::SCAN_INTERVAL),
             strays: Mutex::new(HashMap::new()),
-            takeover: None,
             context: None,
             waits: Mutex::new(HashMap::new()),
         })
@@ -782,7 +744,6 @@ pub(super) mod tests {
                     None,
                 ),
             },
-            decisions: crate::decision::Decisions::new(None, Duration::from_secs(4)),
             me: std::sync::Weak::new(),
             resume_effect: None,
             steer_bound: crate::STEER_BOUND,
@@ -793,61 +754,15 @@ pub(super) mod tests {
             events: events::State {
                 gate_observer: None,
                 channel_deadline: crate::CHANNEL_DEADLINE,
-                prompt_observer: std::sync::OnceLock::new(),
                 inbox: Default::default(),
                 tool_calls: Default::default(),
             },
             channels: Mutex::new(HashMap::new()),
             scan: crate::Scan::new(crate::SCAN_INTERVAL),
             strays: Mutex::new(HashMap::new()),
-            takeover: None,
             context: None,
             waits: Mutex::new(HashMap::new()),
         });
         (dir, shared)
-    }
-
-    /// H7(c): `elapsed_ms` after the hook began, on an injected clock and the 4 s `timeout` the
-    /// Decisions are built with, the hook's connection closes. Returns the events and the Kind.
-    pub(crate) async fn hook_closes_after(
-        elapsed_ms: i64,
-    ) -> (Vec<EventData>, Vec<contracts::decision::Decision>, Kind) {
-        use std::sync::atomic::{AtomicI64, Ordering};
-        let now = Arc::new(AtomicI64::new(1_000));
-        let clock = {
-            let now = Arc::clone(&now);
-            Arc::new(move || now.load(Ordering::SeqCst))
-        };
-        let (_dir, bus, shared) = shared_over_temp_dir(clock);
-        let id = running_agent(&shared, None);
-        let mut events = bus.subscribe();
-        let payload = json!({"hook_event_name": "PermissionRequest", "tool_name": "Bash",
-                             "tool_input": {"command": "ls"}});
-        let hook = {
-            let (shared, id) = (Arc::clone(&shared), id.clone());
-            tokio::spawn(async move { shared.permission(Actor::daemon(), &id, payload).await })
-        };
-        while shared.decisions.list().is_empty() {
-            tokio::task::yield_now().await;
-        }
-
-        now.fetch_add(elapsed_ms, Ordering::SeqCst);
-        hook.abort();
-        let _ = hook.await;
-
-        let seen = std::iter::from_fn(|| events.try_recv().ok())
-            .map(|event| event.data)
-            .filter(|data| {
-                matches!(
-                    data,
-                    EventData::DecisionOpened(_) | EventData::DecisionCleared(_)
-                )
-            })
-            .collect();
-        let kind = match shared.runs().get(&id) {
-            Some(Slot::Running(run)) => run.adapter.status().unwrap().kind,
-            _ => panic!("the Agent is running"),
-        };
-        (seen, shared.decisions.list(), kind)
     }
 }

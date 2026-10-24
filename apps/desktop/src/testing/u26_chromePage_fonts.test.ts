@@ -7,7 +7,7 @@ import { chromePath, openPage } from "./chromePage";
 
 const overrides = ["FONTCONFIG_FILE", "FONTCONFIG_PATH", "FONTCONFIG_SYSROOT"] as const;
 
-it.runIf(process.platform === "linux").each(overrides)("u26_parallel_pages_answer_while_the_host_font_configuration_is_held_via_%s", async (name) => {
+it.runIf(process.platform === "linux").each(overrides)("u26_parallel_pages_answer_while_the_host_font_configuration_is_kept_open_via_%s", async (name) => {
   const found = chromePath();
 
   if (!found) throw new Error("U26 requires isolated Chromium");
@@ -45,7 +45,7 @@ it.runIf(process.platform === "linux").each(overrides)("u26_parallel_pages_answe
 
 const homes = ["HOME", "XDG_CONFIG_HOME"] as const;
 
-it.runIf(process.platform === "linux").each(homes)("u26_parallel_pages_answer_while_the_host_user_font_configuration_is_held_via_%s", async (name) => {
+it.runIf(process.platform === "linux").each(homes)("u26_parallel_pages_answer_while_the_host_user_font_configuration_is_kept_open_via_%s", async (name) => {
   const found = chromePath();
 
   if (!found) throw new Error("U26 requires isolated Chromium");
@@ -55,7 +55,7 @@ it.runIf(process.platform === "linux").each(homes)("u26_parallel_pages_answer_wh
 
   mkdirSync(join(dir, "fontconfig"));
   // System 50-user.conf includes both HOME/.fonts.conf and the XDG user
-  // fonts.conf even without any FONTCONFIG override. Keep that open held
+  // fonts.conf even without any FONTCONFIG override. Keep that open
   // while both real browsers must create their pages and answer a call.
   execFileSync("mkfifo", [config], { timeout: 5_000 });
 

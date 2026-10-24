@@ -29,6 +29,22 @@ const unmeasured = (stage: string): Unmeasured => ({
   reason: `the webview exposes no ${stage} timing to a page; only a native instrument can show it`,
 });
 
+/**
+ * Event Timing is the one page API paced by presentation, and it cannot stand for the driver's frames: it reports trusted input only, never a
+ * synthetic event, and rounds to 8 ms, as coarse as a 120 Hz period.
+ */
+const presentationReason = (entryTypes: string[]): string =>
+  entryTypes.includes("event")
+    ? "the webview lists Event Timing, which reports trusted input only and rounds to 8 ms, so it shows neither the driver's frames nor a 120 Hz period; only a native instrument can show presentation"
+    : "the webview lists no presentation-paced entry type (no Event Timing); only a native instrument can show presentation";
+
+/** The main-thread cost of each frame's rendering update, from its animation callback to the next task: style, layout and paint recording together, not split and not displayed. */
+export type UpdateStage =
+  | { status: "measured"; scope: string; n: number; p50: number; p95: number; p99: number; max: number; intervals: number[] }
+  | Unmeasured;
+
+const UPDATE_SCOPE = "from the requestAnimationFrame callback to the next task: style, layout and paint recording together; not compositor, not presentation";
+
 export type FrameReport = {
   probe: "roundup-frame-recorder";
   workload: string;
@@ -41,12 +57,15 @@ export type FrameReport = {
   idle: Series;
   stages: {
     scheduling: { status: "measured"; meets_thresholds: boolean | null };
+    update: UpdateStage;
     style: Unmeasured;
     layout: Unmeasured;
     paint: Unmeasured;
     compositor: Unmeasured;
     presentation: Unmeasured;
   };
+  /** The entry types `PerformanceObserver` lists, so a reader sees what the webview offered. */
+  performance_entry_types: string[];
   invalid: string[];
   verdict: "fail" | "invalid" | "incomplete";
   exit: 1 | 2;
@@ -83,6 +102,12 @@ export type Facts = {
   hidden: boolean;
   completed: boolean;
   actionsDone: boolean;
+  /** The main-thread update cost of each sample frame, in ms. */
+  update?: number[];
+  /** `PerformanceObserver.supportedEntryTypes`. */
+  entryTypes?: string[];
+  /** The wall clock ran out before the frame clock delivered its last frame. */
+  stalled?: boolean;
 };
 
 /** What a run proves. Only a valid run is judged, and the webview never measures presentation, so no report here is a pass. */
@@ -90,9 +115,18 @@ export const buildReport = (facts: Facts): FrameReport => {
   const period = 1000 / facts.hz;
   const sample = series(facts.sample, period);
   const idle = series(facts.idle, period);
+  const update = facts.update ?? [];
+  const entryTypes = facts.entryTypes ?? [];
+  const spent = series(update, period);
+
+  const updateStage: UpdateStage =
+    update.length === 0
+      ? { status: "unmeasured", reason: "the run recorded no frame update" }
+      : { status: "measured", scope: UPDATE_SCOPE, n: spent.n, p50: spent.p50, p95: spent.p95, p99: spent.p99, max: spent.max, intervals: update };
 
   const invalid = [
     ...(Math.max(...facts.sample, ...facts.idle, 0) > STALL_MS ? ["the frame clock stopped (an interval over 1 s)"] : []),
+    ...(facts.stalled ? ["the frame clock delivered no frame before the wall-clock bound"] : []),
     ...(facts.hidden ? ["the window was hidden during the run"] : []),
     ...(facts.completed ? [] : ["the sample ended early"]),
     ...(facts.actionsDone ? [] : ["the workload's actions did not complete"]),
@@ -113,12 +147,14 @@ export const buildReport = (facts: Facts): FrameReport => {
     idle,
     stages: {
       scheduling: { status: "measured", meets_thresholds: meets },
+      update: updateStage,
       style: unmeasured("style"),
       layout: unmeasured("layout"),
       paint: unmeasured("paint"),
       compositor: unmeasured("compositor"),
-      presentation: unmeasured("presentation"),
+      presentation: { status: "unmeasured", reason: presentationReason(entryTypes) },
     },
+    performance_entry_types: entryTypes,
     invalid,
     verdict: invalid.length > 0 ? "invalid" : meets ? "incomplete" : "fail",
     exit: invalid.length === 0 && !meets ? 1 : 2,
@@ -138,7 +174,16 @@ export type Frames = {
   /** Calls back with the frame's timestamp, as `requestAnimationFrame` does. */
   frame(callback: (at: number) => void): void;
   hidden(): boolean;
+  /** Milliseconds on the clock the frame timestamps use. */
+  now(): number;
+  /** Calls back from the first task after the frame's rendering update. */
+  afterUpdate(callback: () => void): void;
+  /** Calls back once after `ms` of wall time, which passes even when no frame is delivered. */
+  after(ms: number, callback: () => void): void;
 };
+
+/** Wall time past the three windows before a silent frame clock ends the run. */
+const WALL_MARGIN_MS = 10_000;
 
 /**
  * One workload's run: ignores the warm-up, records every frame interval of the sample window, then of the idle window, and stops.
@@ -146,7 +191,7 @@ export type Frames = {
  */
 export const recordFrames = (
   frames: Frames,
-  describe: Pick<Facts, "workload" | "engine" | "timerResolutionMs" | "userAgent">,
+  describe: Pick<Facts, "workload" | "engine" | "timerResolutionMs" | "userAgent" | "entryTypes">,
   actions: () => Promise<boolean>,
   windows: Windows = PROTOCOL,
 ): Promise<FrameReport> =>
@@ -154,16 +199,27 @@ export const recordFrames = (
     const warmup: number[] = [];
     const sample: number[] = [];
     const idle: number[] = [];
+    const update: number[] = [];
     let start: number | null = null;
     let previous: number | null = null;
     let hidden = false;
     let actionsDone = false;
     let began = false;
+    let finished = false;
 
-    const finish = (completed: boolean) =>
-      resolve(buildReport({ ...describe, hz: refreshHz(warmup), sample, idle, hidden, completed, actionsDone }));
+    const finish = (completed: boolean, stalled = false) => {
+      if (finished) return;
+
+      finished = true;
+      resolve(buildReport({ ...describe, hz: refreshHz(warmup), sample, idle, update, hidden, completed, actionsDone, stalled }));
+    };
+
+    // A webview that stops delivering frames (occluded, throttled) would otherwise leave the run silent, and the runner with no line to read.
+    frames.after(windows.warmup + windows.sample + windows.idle + WALL_MARGIN_MS, () => finish(false, true));
 
     const tick = (at: number) => {
+      if (finished) return;
+
       start ??= at;
 
       hidden ||= frames.hidden();
@@ -177,8 +233,15 @@ export const recordFrames = (
 
       if (interval !== null) {
         if (into < windows.warmup) warmup.push(interval);
-        else if (into < windows.warmup + windows.sample) sample.push(interval);
-        else idle.push(interval);
+        else if (into < windows.warmup + windows.sample) {
+          sample.push(interval);
+
+          const begun = frames.now();
+
+          frames.afterUpdate(() => {
+            if (!finished) update.push(frames.now() - begun);
+          });
+        } else idle.push(interval);
       }
 
       if (into >= windows.warmup && !began) {

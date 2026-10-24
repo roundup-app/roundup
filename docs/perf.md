@@ -33,7 +33,7 @@ Rule 7's 10% regression test is enforced for six metrics on Linux (including Q11
 | `cold_start_ms` | 3.08 | 0.57 | limit 300 ms only: its median varies 3x between identical invocations, so no 10% test can hold |
 | `rail_tree_10_p95_ms` | 1.66 | 0.51 | limit 2 ms only (about 8x its median): same reason |
 
-`noise` is an absolute floor for the clock's resolution, not slack: it is 0.05 MB on a 1.6 MB metric and 1 microsecond on latencies of 25 to 265 microseconds. The worst observed ratio (1.13, `ping`) is a 0.5 microsecond overshoot that the floor covers; with only 9 invocations, one false fail in a few dozen runs is expected, so rerun before believing a single fail. The `linux` baselines are the medians of those 9 invocations and are valid for that VM class only. The `macos` baselines are in the next section; the `limit`s hold anywhere. To accept a new baseline, copy the medians from `target/perf.json` into `budgets.json` under the OS name in the same PR that explains why. See `scenarios/perf.md` (R1 to R10).
+`noise` is an absolute floor for the clock's resolution, not slack: it is 0.05 MB on a 1.6 MB metric and 1 microsecond on latencies of 25 to 265 microseconds. The worst observed ratio (1.13, `ping`) is a 0.5 microsecond overshoot that the floor covers; with only 9 invocations, one false fail in a few dozen runs is expected, so rerun before believing a single fail. The `linux-boxd` baselines are the medians of those 9 invocations and are valid for that VM class only. The `macos` baselines are in the next section; the `limit`s hold anywhere. To accept a new baseline, copy the medians from `target/perf.json` into `budgets.json` under the OS name (`macos`) or Linux class key (`linux-boxd`, `linux-9v45`, `linux-7763`, `linux-9v74`, `linux-8573c`, `linux-8370c`) in the same PR that explains why. See `scenarios/perf.md` (R1 to R10).
 
 ## Linux Builder classes (R16 specification)
 
@@ -74,7 +74,29 @@ The identity evidence in #1941 records an Intel 8370C Builder at `06fd4eb7e24c47
 
 #1266, #1303, #1313 and #1941 specify identities only; the Intel specification PR closes #1303 when its specification acceptance holds and the 9V74 specification PR uses `Refs #1313` and closes #1313 only when its specification acceptance holds; the 8370C specification PR uses `Refs #1941` and `Closes #1941` only when its specification acceptance holds. #1366 stays open for same-host Message latency evidence, #1361 for final combined latency acceptance and #1251 for observer implementation, independent calibration and completion observations. Measurement policy: for each newly measured class, including 9V74 and 8370C independently, R16 requires historical/current same-host diagnosis with nine alternating invocations of eleven fresh Daemons per reference, compatible identical probe bytes and isolation of probe changes using the same binaries, nine clean calibration invocations only after regression diagnosis and repair, then three separate clean eleven-Daemon observations on the implementation head with the baseline fixed. Retain every report, per-run metric and load, failed observation and repeat, exit code, reference commit, binary hash and exact command; retain and repeat busy invocations rather than counting them as clean. Diagnose and repair Daemon or probe regressions before accepting a baseline. This identity amendment supplies no evidence that either regression is absent.
 
+### Class selection
+
+`just perf` reads `/etc/os-release`, `lscpu`, `/sys/devices/system/cpu/online`, `/proc/self/status` and the available CPU count (`crates/perf/src/machine.rs`), picks the class whose exact identity matches, and compares only that class's `baseline` entry in `crates/perf/budgets.json`. `crates/perf/classes.json` holds each class's baseline provenance; `target/perf.json` and the printed `class` line carry the key, provenance and machine facts. The boxd class is two online CPUs, affinity `0-1` and an `AMD EPYC` model, so narrowing a Builder's affinity never selects it. An unknown model, a missing field, a class without provenance or without all five Linux baseline metrics (`ping_p95_ms`, `rail_tree_40_p95_ms`, `rss_extra_mb`, `terminal_write_p95_ms`, `write_to_output_p95_ms`) exits 2 naming it. Today only `linux-boxd` is fully measured; `linux-7763` holds Q11's baseline alone, so the Builder classes exit 2 until #3700 records their baselines, each under its own key and provenance. Load thresholds stay keyed by OS (`linux`).
+
 R1–R15 and R8's pins remain unchanged, as do ten login shells, all measured calls, #1366's historical write ceilings and #1361's final combined acceptance. Every class keeps all absolute limits, 10% plus existing noise, Linux's load threshold of 2.0 per CPU, memory comparisons at every load and loud latency skips. A skipped latency comparison cannot complete R16, even on exit 0. No automatic baseline generation, removed metric, widened allowance, baseline increase to hide a regression or CPU-count rescaling is permitted. The implementation pins each class's values, provenance and thresholds in R8's tests; see R16 for test names and the failure/exit table.
+
+### Builder 9V45 diagnosis (#3700, R16 steps 1 to 3)
+
+No Builder baseline is recorded: the same-class comparison finds a regression, not a class mismatch, and R16 step 3 says to repair it before accepting baselines. The earlier 7763 figures (taken from `main` itself, with no historical comparison) are withdrawn; a 7763 baseline needs its own diagnosis on a 7763 host.
+
+References: the commit that set the Linux baselines, `2029ed2c4ee606d26e73c858c4d7c93130df36e0` (2026-10-01), and `main` at `90df821c0` (2026-10-24), 21,720 added lines of Daemon and probe source apart. Both built with `cargo build --release -p rupd -p rup -p perf`, rustc 1.99.0; hashes and machine facts are in `crates/perf/evidence/linux-9v45/machine.txt`. Commands, nine rounds alternating the two on one VM (AMD EPYC 9V45, four CPUs), 11 fresh Daemons each, script `crates/perf/evidence/linux-9v45/diagnosis/reproduce.txt`: historical `perf --runs 11 --rupd <hist>/rupd --out historical-N.json`, current `perf --runs 11 --budgets <scratch>/budgets.json --out current-N.json`, where the scratch `budgets.json` and `classes.json` copy `linux-boxd` into `linux-9v45` so the current binary runs. Every report, log and exit code is kept (`historical-N.*`: exit 0; `current-N.*`: exit 1, the ceilings missed). Loads were 1.6 to 3.8 on four CPUs, under R13's 2.0 per CPU, so every invocation is clean.
+
+| Metric | Historical median | Ceiling (×1.10 + noise) | Current median | Current invocations over ceiling |
+|---|---|---|---|---|
+| `ping_p95_ms` | 0.0358 | 0.0404 | 0.0700 | 9 of 9 |
+| `rail_tree_40_p95_ms` | 0.1917 | 0.2119 | 0.3575 | 9 of 9 |
+| `rss_extra_mb` | 2.5195 | 2.8215 | 3.0742 | 9 of 9 |
+| `terminal_write_p95_ms` | 0.0624 | 0.0697 | 0.1077 | 9 of 9 |
+| `write_to_output_p95_ms` | 0.1108 | 0.1229 | 0.1629 | 9 of 9 |
+
+Conclusion per metric: the historical reference misses the boxd ceilings by a factor near 1.4 (`ping_p95_ms` 0.0358 against 0.025), which is class; current `main` is a further 1.5 to 2 times slower than the historical reference on the same VM, which is a regression that class does not excuse. `ping_p95_ms`, `terminal_write_p95_ms` and `write_to_output_p95_ms` keep step 3 in full; `rail_tree_40_p95_ms` is covered by the user's 0.71 ms settlement (its 0.3575 is under it); `rss_extra_mb` rose 0.55 MB and stays far under 150 MB.
+
+Probe isolation failed and is recorded rather than hidden: the historical probe against today's `rupd` and today's probe against the historical `rupd` both exit 2 (`rail.createGroup` and `rail.createWorkstream` not found; `newprobe-histdaemon-N` and `oldprobe-curdaemon-N`). A first-parent `git bisect` between the two also skipped most steps, because intermediate commits do not build or write a report. #3720 owns the repair and the isolation; #3700 stays blocked on it. The sidecar is not the cause (rule 7 cold start about 30 ms, ten idle Agents about 3 MB extra). The macOS write-path figures belong to #3696, whose owner direction records the 16 ms delay as fixed.
 
 ## macOS baseline
 
@@ -109,11 +131,47 @@ What the number proves: keydown to the first xterm render that shows the echo, i
 
 `just perf-keystroke` (macOS only) builds the App with the keystroke probe (`VITE_ROUNDUP_PERF`, K1) into `target/perf-app`, opens its window once per run, lets the webview type 1000 keys into a raw `cat` Terminal and reads the result back (K3, R11). The report carries the renderer (`webgl` or `dom`) and the mean frame time.
 
+R21 judges each run separately: p95 must be strictly below 16 ms, with zero
+dropped keys, including the 100 warm-up keys. Warm-up latency samples remain
+excluded. `target/perf-keystroke.json` retains the complete `reports` array and
+per-run `loads`, including failures, and is updated after each run. A latency
+or drop miss exits 1; an invalid observation exits 2. The runner uses temporary
+App, webview and Daemon data even when the caller has data overrides. Its
+Workstream uses the fake vendor executable, never the user's real `claude`.
+
 What can go wrong:
-- **A covered or napped window stops drawing.** macOS stops rAF and timers for a window other windows cover and naps an App that is not frontmost: measured here, with the window behind a full-screen Chrome, rendering stopped entirely and every key timed out. The perf build's window is therefore always on top and on every Space (a `TAURI_CONFIG` override in the recipe, so normal builds are unchanged), and the runner passes `-NSAppSleepDisabled YES`. The window stays over whatever you are doing for about 40 s per run, three runs. A throttled run is refused, not reported: mean frame time above 25 ms or more than 5% dropped keys exits 2.
+- **A covered or napped window stops drawing.** macOS stops rAF and timers for a window other windows cover and naps an App that is not frontmost: measured here, with the window behind a full-screen Chrome, rendering stopped entirely and every key timed out. The perf build's window is therefore always on top and on every Space (a `TAURI_CONFIG` override in the recipe, so normal builds are unchanged), and the runner passes `-NSAppSleepDisabled YES`. The window stays over whatever you are doing for about 40 s per run, three runs. A mean frame time above 25 ms exits 2; its report is retained. Any dropped key fails under R21.
 - **Low Power Mode.** It halves the webview's frame rate, so a run in it measures the power setting, not the App; run on AC power with Low Power Mode off.
 - **Load.** Run it with the laptop idle; the load average is printed per run.
 - **Windows over a headless Chromium number.** Chromium with the same xterm measured p95 under 5 ms; WKWebView on an M4 Max in the earlier spike measured 11 to 15 ms. The difference is the frame wait, so the budget is only meaningful here.
+
+### R20 observations retained from #3550
+
+These are the work order's observations, before the repair, on AC power on a
+16-core Mac. The raw reports, OS/app versions, power-mode confirmation and
+per-hop attribution were not supplied. They cannot establish the dominant hop
+or replace R20's quiet-machine observations. No after-repair performance is
+claimed by the observer-safety changes.
+
+| Method / workload | roundup p50 / p95 (ms) | Solo p50 / p95 (ms) | Samples / load |
+| --- | --- | --- | --- |
+| WKWebView, raw `cat` | 30 / 35 | — | 1000 keys × 3; 13–25 drops/run; load 6–9 |
+| Daemon `write_to_output` | — / 20.8 | — | `just perf`; load 6–9 |
+| Outside key-to-pixel, idle zsh | 36 / 45 | — | 60 samples × 2; load 6–9 |
+| Outside, idle zsh comparison | 40 / 50 | 39 / 48 | one run set; load ~7 |
+| Outside, real `claude`, no Enter | 39–41 / 48 | 39.5 / 49–53 | one run set; load ~7 |
+| Outside, typing beside `yes` | 101–106 / 129–136 | 33 / 38.5 | load 5.5–6.8 |
+| Outside, switch two Terminals | 70–71 / 80–81 | 75 / 81–82 | load 5.5–6.8 |
+| Outside, scroll 10k lines | 20–23 / 26–29 | 26–28 / 37 | load 5.5–6.8 |
+
+The flooding observation had 100–120% CPU each in the webview, Daemon and host
+App, versus about 30% for Solo's flooding Terminal. The proposed hidden-screen
+explanation remains unproven. Next native observation: on AC, Low Power Mode
+off and load per CPU <= 0.45, run
+`ROUNDUP_ALLOW_WINDOW=1 just perf-keystroke --out target/perf-keystroke-before.json`.
+Keep all three reports and the exit code, commit, OS, CPU count and power-mode
+evidence. Hop instrumentation, the measured repair, the Solo comparisons and
+the final three passing native runs remain #3550 acceptance.
 
 
 ## X14 retained flood observation
@@ -156,3 +214,45 @@ toolchain, profile and load when recording an observation. Do not replace or
 relax `budgets.json`. #1930 must migrate this output drain to selected streams
 in its Contract PR, rerun this command and retain zero Rail lag; this observer
 does not complete #1930 or X14's Terminal regression/journey acceptance.
+
+### R20 hop attribution
+
+Each report now carries `hops` and `hop_uncertainty_ms` (the 1 ms timer
+resolution). All boundaries are read on the webview's one clock, so no
+cross-process subtraction is involved; a report without every hop is invalid
+(exit 2). Per key, from the same key's echo (unrelated output is ignored):
+
+| Hop | From → to |
+| --- | --- |
+| `keydown_to_input` | `keydown` → xterm `onData` |
+| `input_to_dispatch` | `onData` → `terminal.write` called; holds base64 (same tick, not separable) and the wait for the previous write's reply |
+| `dispatch_to_echo_event` | `terminal.write` called → the echo reaches `emulator.write`; spans Tauri, the Daemon's write, the PTY, the echo read and the output channel |
+| `echo_event_to_parsed` | `emulator.write` → xterm has parsed the echo |
+| `parsed_to_frame` | parsed → the next render |
+| `write_reply` | `terminal.write` called → its reply (overlaps the echo's trip) |
+
+The Daemon-side boundaries inside `dispatch_to_echo_event` (Daemon received, PTY
+write completed, echo read) are not yet stamped: they need the Daemon's clock
+and a calibrated offset, and the first native report decides whether that hop
+needs splitting. The hop with the largest p95 is named here once the quiet-Mac
+before-repair reports exist; none exist yet, so no dominant hop and no repair
+are claimed.
+
+## macOS `cold_start_ms` and `rail_tree_40_p95_ms` (#3696)
+
+Neither is a spawned `ps`: `resources.rs` runs only for `daemon.resources` and `scan.rs` only with a live Door, and `strace -f -e execve` of a fresh `rupd` shows one `execve`, so the lazy sidecar adds no spawn at start. Measured on one Linux machine at one load, `just perf` at the macOS baseline commit `02fd86775` against `main`: `rail_tree_40_p95_ms` 0.25 against 0.71 ms, `ping_p95_ms` 0.046 against 0.093 ms, `cold_start_ms` 14 to 16 against 24 ms. The Daemon itself got slower after the baseline, as the Mac's ratios show.
+
+- `rail.tree`: `Shared::present` read each node's `finished` with `WHERE CAST(id AS TEXT)=?`, a full scan per node, and `load_nodes` parsed its SQL on every call. A tree read now takes one `finished_all` query and prepares both statements once; 0.71 became about 0.49 ms.
+- `cold_start_ms`: a fresh Project replays 37 migrations into `project.db` (`storage::open`), 11 to 12 ms of DDL parse and `ALTER TABLE` schema checks; an existing Project starts in 10 ms against 24 ms for a fresh one. `PRAGMA synchronous=OFF` saves 1 ms and `legacy_alter_table` nothing. `build.rs` now migrates an empty database once at build time (`VACUUM INTO`), and `storage::open` copies that image when `project.db` does not exist, giving the two per-Project ids (`deliverable_project`, `reaction_project`) fresh values. `r3696c_a_fresh_project_db_equals_the_migrated_one_with_its_own_identity` holds the image equal to the migrated database. No budget changes; the Mac's `target/perf.json` is the observer.
+
+- `rail_tree_40_p95_ms` after the batched read, per call inside the Daemon (release, 40 Workstreams, a Linux machine at load 1.2 per CPU): `Shared::tree` 90 µs (`load_nodes` 55 µs, of which the `closed_sources` subquery is 12 µs; presenting 8 µs), then `serde_json::to_value` of the 16.5 KB reply 90 µs, then the writer's `to_vec` 17 µs. `daemon.ping` is 19 µs in the Daemon. Rewriting the subquery uncorrelated and reading `kind` without an allocation moved `load_nodes` by under 3 µs, within noise, so neither is kept. The largest remaining share is the `Value` tree that every `Module::call` reply passes through; removing it (a pre-serialized reply that `dispatch` and the connection writer carry without a `Value`) changes the `Module` seam and is the next repair, not a budget change. This measurement needs no Mac; whether it brings the Mac's 0.338 ms under 0.149 ms is the Mac's `just perf` to say.
+
+- Mac run at `6ce9103e2` (`cold_start_ms` 10.54, `rail_tree_40_p95_ms` 0.220, `rss_extra_mb` 3.81; the first two were 16.87 and 0.338 before the repairs above). Two more repairs, both measured without the Mac:
+  - `rail.tree` and `rail.list` reach the socket as JSON text written from the typed nodes (`Module::call_reply`, `rpc::Reply::Json`, `connection::Frame::Json`), with no `serde_json::Value` tree between: `rail_tree_40_p95_ms` on a loaded Linux machine (load 3 to 5 per 4 CPUs) 0.62 against 0.54 ms through the same client, `rail_tree_10_p95_ms` 0.25 against 0.22. Every other method still returns a `Value`; `r3696c_a_rail_tree_reply_written_directly_equals_the_value_route` holds the two replies equal.
+  - `cold_start_ms`: a fresh start made 12 `fsync` calls (`strace -f -e fsync`): three SQLite commits at about four each (the seeding `UPDATE`, and the switch of `project.db` to WAL mode). The image is now stored in WAL mode, so `storage::open` writes nothing, and the seeded copy is written with `synchronous=OFF` then synced once before it is linked: 1 `fsync`. A fresh start went from 16.1 to 17.1 ms down to 14.6 to 14.8 ms (15 starts each) on a filesystem where `fsync` is cheap; `fsync` costs more on APFS, so the Mac's gain should be larger. The remaining start is CPU: about 0.6 ms for each of the 17 stores opening `project.db`, 2.4 ms for `Agents::open`.
+  - `rss_extra_mb`: ten Terminals grow the Daemon by 2.85 MB of anonymous memory on Linux (about 285 KB each: two `vt100` grids, the output ring, two threads). No cause of the Mac's rise from 3.1 to 3.81 is established, and no change is claimed. The Mac's next `target/perf.json` is the observer.
+
+
+- Mac A/B at `bca7dc582` against the baseline `02fd86775` (9 runs each, one session, #3696): `cold_start_ms` 16.51 against 5.91 ms, `rail_tree_40_p95_ms` 0.1926 against 0.1237, `rss_extra_mb` 3.50 against 3.11, `ping_p95_ms` 0.0411 against 0.0193; the baseline reproduced its recorded numbers. Every request, `daemon.ping` included, costs about 22 µs more than at the baseline, so part of `rail.tree`'s 69 µs is the shared request path and not the read. The Linux attribution of a fresh start (release, 4 CPUs at load 4): `rupd` is 7.3 ms from `open_stores` to the socket, `storage::open` 2.5 of it (seed 1.7, WAL switch 0.4) and 17 `project.db` connections about 0.4 ms each. Tried and not kept: opening the independent stores on threads made a start 2 ms slower; dropping the per-store `PRAGMA journal_mode=WAL`, or reading it first, only moves the 0.06 ms of WAL setup per store to its first query. Kept: the fresh `project.db` image takes its two ids by replacing placeholder bytes in the copy (`storage::reidentified`), so a start opens no connection, `-wal` or `-shm` to seed; a fresh start went from 8.1 to 7.9 ms (median of 40 starts, each side alternating), more where file creation costs more. The Mac's `target/perf.json` stays the observer; the rest of the 10.6 ms is not attributed.
+
+- Per-phase cold start (#3696): `rupd` now ends its `serving` line with `(open X ms, bound Y ms)`, measured from `main`: `open` is `Daemon::open_project` (stores, plugins), `bound` the socket. The gap between `cold_start_ms` and `bound` is process spawn, runtime start and the first ping round trip. On the Mac, run `RUPD_SOCKET=/tmp/x.sock ROUNDUP_DATA_DIR=$(mktemp -d) target/release/rupd $(mktemp -d)` at the baseline `02fd86775`'s successor commits and `main` to attribute the 10.6 ms.

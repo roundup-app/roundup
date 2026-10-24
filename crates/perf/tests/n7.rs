@@ -59,6 +59,51 @@ fn n7_launch_sites_use_owned_data() {
     assert_eq!(snapshot(&seed), before);
 }
 
+const CLASSES: [&str; 5] = [
+    "linux-9v45",
+    "linux-7763",
+    "linux-9v74",
+    "linux-8573c",
+    "linux-8370c",
+];
+
+/// Budgets and provenance that give every known Linux class a baseline, so launch cleanup is observed on whichever class runs the test.
+fn every_class_budgets(dir: &Path) -> std::path::PathBuf {
+    let src = Path::new(env!("CARGO_MANIFEST_DIR"));
+    let mut budgets: serde_json::Value =
+        serde_json::from_slice(&std::fs::read(src.join("budgets.json")).unwrap()).unwrap();
+    for budget in budgets.as_object_mut().unwrap().values_mut() {
+        let Some(baseline) = budget.get_mut("baseline").and_then(|b| b.as_object_mut()) else {
+            continue;
+        };
+        let Some(value) = baseline.get("linux-boxd").cloned() else {
+            continue;
+        };
+        for key in CLASSES {
+            baseline.insert(key.into(), value.clone());
+        }
+    }
+    let path = dir.join("budgets.json");
+    std::fs::write(&path, serde_json::to_vec(&budgets).unwrap()).unwrap();
+    let classes: serde_json::Value = [
+        "linux-9v45",
+        "linux-7763",
+        "linux-9v74",
+        "linux-8573c",
+        "linux-8370c",
+    ]
+    .into_iter()
+    .map(|key| (key.to_string(), serde_json::Value::from("test")))
+    .collect::<serde_json::Map<_, _>>()
+    .into();
+    std::fs::write(
+        dir.join("classes.json"),
+        serde_json::to_vec(&classes).unwrap(),
+    )
+    .unwrap();
+    path
+}
+
 #[test]
 fn n7_launch_sites_clean_on_success_and_failure() {
     use std::os::unix::fs::PermissionsExt;
@@ -89,16 +134,11 @@ fn n7_launch_sites_clean_on_success_and_failure() {
         std::fs::write(&failing_rup, "#!/bin/sh\nexit 1\n").unwrap();
         std::fs::set_permissions(&failing_rup, std::fs::Permissions::from_mode(0o755)).unwrap();
         let report = dir.path().join("report.json");
+        let budgets = every_class_budgets(dir.path());
         let out = Command::new(env!("CARGO_BIN_EXE_perf"))
-            .args([
-                "--runs",
-                "1",
-                "--calls",
-                "1",
-                "--budgets",
-                concat!(env!("CARGO_MANIFEST_DIR"), "/budgets.json"),
-                "--rupd",
-            ])
+            .args(["--runs", "1", "--calls", "1", "--budgets"])
+            .arg(&budgets)
+            .arg("--rupd")
             .arg(&wrapper)
             .arg("--rup")
             .arg(if fail_hook { &failing_rup } else { &rup })
@@ -119,7 +159,12 @@ fn n7_launch_sites_clean_on_success_and_failure() {
                 String::from_utf8_lossy(&out.stderr)
             );
         } else {
-            assert!(report.is_file(), "{}", String::from_utf8_lossy(&out.stderr));
+            // A host outside the measured classes is refused after both launches, which are checked below.
+            let stderr = String::from_utf8_lossy(&out.stderr);
+            assert!(
+                report.is_file() || stderr.contains("perf: machine class:"),
+                "{stderr}"
+            );
         }
         let launches = std::fs::read_to_string(log).unwrap();
         assert_eq!(

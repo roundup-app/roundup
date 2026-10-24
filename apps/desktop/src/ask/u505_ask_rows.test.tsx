@@ -61,7 +61,7 @@ describe("u505 an Ask row shows progress from Agent state", () => {
     app.emit(event({ name: "ask.changed", data: { ask: ask("a0", 1, [{ text: "later", placement: { kind: "routed", workstream: "lead" }, state: "typed" }]) } }));
     await waitFor(() => expect(rowTexts()[1]).toBe("later | lead | Sent"));
     expect(within(document.querySelectorAll<HTMLElement>(".ask-row")[1]!).getByRole("img", { name: "Idle" })).toBeTruthy();
-    app.emit(event({ name: "agent.status", data: { id: "lead", attempt: "1", status_revision: "2", status: { kind: "working", label: "working", since: 2 } } }));
+    app.emit(event({ name: "agent.status", data: { id: "lead", attempt: "1", status_revision: "2", status: { kind: "working", label: "working", since: 2, finished: "0" } } }));
     await waitFor(() => expect(within(document.querySelectorAll<HTMLElement>(".ask-row")[1]!).getByRole("img", { name: "Working" })).toBeTruthy());
   });
 
@@ -94,7 +94,7 @@ describe("u505 an Ask row shows progress from Agent state", () => {
         const observed = await browser("eval", `({
           clicks: window.__activations,
           writes: window.__fake.app.calls.slice(window.__calls).filter(c =>
-            ["rail.startDoor", "terminal.write", "takeover.begin"].includes(c.method) || c.method.startsWith("ask.")).length
+            ["rail.startDoor", "terminal.write"].includes(c.method) || c.method.startsWith("ask.")).length
         })`);
 
         expect(observed.result).toEqual({ clicks: 1, writes: 0 });

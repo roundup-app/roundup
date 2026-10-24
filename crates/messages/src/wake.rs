@@ -1,6 +1,6 @@
 //! B41 to B44: the saved Wake requests of Agents, and the one write that fires one. The Daemon
 //! decides from `agent.status` Events when a request holds; this module keeps the requests across a
-//! restart and turns a held request into exactly one Message.
+//! restart and turns a pending request into exactly one Message.
 
 use contracts::agent::DigestEntry;
 use contracts::message::{MessageKind, SendParams};
@@ -66,11 +66,6 @@ pub fn note_body(entries: &[DigestEntry]) -> String {
 }
 
 impl Messages {
-    /// B6, B32: whether a Takeover of `agent` or unsent input in its Terminal holds its Messages.
-    pub fn holds_terminal(&self, agent: &str) -> bool {
-        lock(&self.inner.store).holds_terminal(agent)
-    }
-
     /// B41: saves a request for `waiter`. Refused with `CONFLICT` at the eighth open request.
     pub fn save_wake(
         &self,

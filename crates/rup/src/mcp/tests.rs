@@ -145,42 +145,6 @@ fn assert_matches_tools_list_schema(reply: &Value) {
     }
 }
 
-fn asked() -> Value {
-    json!({"question": "Cats or dogs?", "answers": [
-        {"label": "cats", "description": "quiet"},
-        {"label": "dogs", "description": "loyal", "preview": "```text\nwoof\n```"},
-    ]})
-}
-
-fn asking_daemon(socket: &Path, delay: Duration) -> mpsc::UnboundedReceiver<Value> {
-    let listener = UnixListener::bind(socket).unwrap();
-    let (seen, requests) = mpsc::unbounded_channel();
-    tokio::spawn(async move {
-        loop {
-            let (stream, _) = listener.accept().await.unwrap();
-            let seen = seen.clone();
-            tokio::spawn(async move {
-                let (read, mut write) = stream.into_split();
-                let mut lines = BufReader::new(read).lines();
-                while let Ok(Some(line)) = lines.next_line().await {
-                    let request: Value = serde_json::from_str(&line).unwrap();
-                    let _ = seen.send(request.clone());
-                    let result = match request["method"].as_str() {
-                        Some("agent.ask") => {
-                            tokio::time::sleep(delay).await;
-                            json!({ "answer": "dogs", "note": "walks" })
-                        }
-                        _ => Value::Null,
-                    };
-                    let reply = json!({ "jsonrpc": "2.0", "id": request["id"], "result": result });
-                    write_line(&mut write, &reply).await;
-                }
-            });
-        }
-    });
-    requests
-}
-
 async fn raw_tools_list(socket: &Path, cursor: Option<&str>) -> Value {
     let transport = transport(socket);
     let (read, mut stdin) = tokio::io::split(transport);
@@ -241,7 +205,7 @@ async fn m4_the_full_tools_list_carries_a_numeric_ttl_ms_and_cache_scope() {
     let result = raw_tools_list(&socket, None).await;
 
     assert_matches_tools_list_schema(&result);
-    // M5: one tool for each method of its first list, and `ask_user` (H14).
+    // M5: one tool for each method of its first list.
     assert_eq!(
         result["tools"].as_array().unwrap().len(),
         tools(false).len()
@@ -326,36 +290,4 @@ async fn x11_agent_run_over_mcp_runs_under_the_caller() {
         }
     }
     panic!("agent.run was never sent");
-}
-
-#[tokio::test]
-async fn h14_ask_user_waits_past_the_call_bound_and_returns_the_answer_and_the_note() {
-    let dir = tempfile::tempdir().unwrap();
-    let socket = dir.path().join("fake.sock");
-    let mut requests = asking_daemon(&socket, CALL_TIMEOUT + Duration::from_secs(1));
-    let shim = spawn_shim(&socket).await;
-
-    let call = tokio::spawn(async move { shim.call("ask_user", asked()).await });
-    let sent = loop {
-        let request = requests.recv().await.unwrap();
-        if request["method"] == "agent.ask" {
-            break request;
-        }
-    };
-    tokio::time::pause();
-    tokio::time::advance(CALL_TIMEOUT + Duration::from_secs(1)).await;
-    tokio::time::resume();
-    let result = call.await.unwrap();
-
-    assert_eq!(result.is_error, Some(false));
-    assert_eq!(
-        result.content[0]
-            .as_text()
-            .unwrap()
-            .text
-            .parse::<Value>()
-            .unwrap(),
-        json!({"answer": "dogs", "note": "walks"})
-    );
-    assert_eq!(sent["params"], asked());
 }

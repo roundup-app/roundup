@@ -763,7 +763,7 @@ impl Daemon {
         Ok(saved)
     }
 
-    /// NR4's explicit run, as far as NR3 needs it: one accepted firing that claims no condition held.
+    /// NR4's explicit run, as far as NR3 needs it: one accepted firing that claims no condition true.
     async fn reaction_run(&self, actor: &Actor, p: RunParams) -> Result<Reaction, RpcError> {
         let (_, saved) = self.reaction_own(actor, &p.id)?;
         let first = self

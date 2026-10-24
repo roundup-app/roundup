@@ -56,9 +56,9 @@ describe("u2239 the leader takes the next key", () => {
     key("KeyS");
     await waitFor(() => expect(shelf()).not.toBe(before));
 
-    const held = key("KeyS", { repeat: true });
+    const kept = key("KeyS", { repeat: true });
 
-    expect(held.defaultPrevented).toBe(true);
+    expect(kept.defaultPrevented).toBe(true);
     expect(shelf()).not.toBe(before);
   });
 

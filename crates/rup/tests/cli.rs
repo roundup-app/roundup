@@ -223,11 +223,7 @@ fn command_key(usage: &str) -> String {
 }
 
 fn tool_key(name: &str) -> String {
-    if name == "ask_user" {
-        "agentask".to_owned()
-    } else {
-        squash(name)
-    }
+    squash(name)
 }
 
 #[tokio::test]
@@ -270,10 +266,7 @@ async fn i1_every_mcp_tool_is_a_command_and_no_command_is_extra() {
         .filter(|line| line.starts_with("    rup "))
         .map(|line| line.split_whitespace().nth(1).unwrap())
         .collect();
-    assert_eq!(
-        other,
-        ["help", "ping", "mcp", "signal", "context", "permission"]
-    );
+    assert_eq!(other, ["help", "ping", "mcp", "signal", "context"]);
 }
 
 #[tokio::test]
@@ -501,7 +494,7 @@ async fn i4_exit_codes_are_0_1_and_2_as_the_help_lists() {
 async fn i4_a_hook_command_with_bad_usage_exits_1_not_2() {
     let dir = tempfile::tempdir().unwrap();
     let run = on(&dir.path().join("none"));
-    for hook in ["signal", "context", "permission"] {
+    for hook in ["signal", "context"] {
         for extra in [&[][..], &["a1", "b2"], &["--bogus"]] {
             let args: Vec<&str> = std::iter::once(hook).chain(extra.iter().copied()).collect();
             let output = run.rup(&args).await;
@@ -588,7 +581,7 @@ async fn i6_terminal_write_types_the_text_and_presses_enter() {
     let params = request_of(&mut seen, "terminal.write").await;
     assert_eq!(params["id"], "3");
     assert_eq!(decode(&params), "héllo\r".as_bytes());
-    assert_eq!(out(&output), "null\n");
+    assert_eq!(out(&output), "accepted terminal write\n");
 }
 
 fn decode(params: &Value) -> Vec<u8> {
@@ -1072,7 +1065,6 @@ async fn i2706a_help_explains_rail_names_and_machine_ids() {
         vec!["help", "agent"],
         vec!["help", "rail"],
         vec!["help", "workstream"],
-        vec!["help", "decision"],
     ] {
         let result = on(&dir.path().join("absent.sock")).rup(&args).await;
         assert_eq!(code(&result), 0);
@@ -1094,7 +1086,6 @@ async fn i2706a_plain_output_uses_current_rail_names() {
     let discarded = run.rup(&["agent", "discard", &spare]).await;
     assert_eq!(code(&discarded), 0, "{}", err(&discarded));
     assert_eq!(out(&discarded), "discarded Worktree of Agent Spare\n");
-    let (_decision, pending) = fx.decision().await;
     for renamed in [false, true] {
         if renamed {
             fx.rename().await;
@@ -1113,7 +1104,6 @@ async fn i2706a_plain_output_uses_current_rail_names() {
             vec!["rail", "tree"],
             vec!["agent", "context"],
             vec!["agent", "digest"],
-            vec!["decision", "list"],
         ] {
             let caller = if args == ["agent", "context"] {
                 &fx.child
@@ -1149,14 +1139,10 @@ async fn i2706a_plain_output_uses_current_rail_names() {
                         .iter()
                         .any(|entry| entry["name"] == child)
                 ),
-                _ => {
-                    assert_eq!(items[0]["agent"], fx.child);
-                    assert_eq!(items[0]["agent_name"], child);
-                }
+                _ => unreachable!(),
             }
         }
     }
-    pending.abort();
     let tree = fx.user.request("rail.tree", ()).await.unwrap();
     let path = tree
         .as_array()
@@ -1221,7 +1207,6 @@ async fn i2706a_plain_output_uses_current_rail_names() {
 async fn i2706a_json_keeps_machine_results() {
     let fx = common::NamedRail::start().await;
     let run = on(&fx.served.socket()).acting_as(Some(&fx.door));
-    let (_decision, pending) = fx.decision().await;
     for renamed in [false, true] {
         if renamed {
             fx.rename().await;
@@ -1237,11 +1222,6 @@ async fn i2706a_json_keeps_machine_results() {
                 vec!["agent", "digest", "--json"],
                 "agent.digest",
                 json!({"id":fx.door}),
-            ),
-            (
-                vec!["decision", "list", "--json"],
-                "decision.list",
-                Value::Null,
             ),
         ] {
             let actual = run.rup(&args).await;
@@ -1261,7 +1241,6 @@ async fn i2706a_json_keeps_machine_results() {
         assert_eq!(code(&moved), 0, "{}", err(&moved));
         assert_eq!(out(&moved), "null\n");
     }
-    pending.abort();
     let discarded = run.rup(&["agent", "discard", &fx.child, "--json"]).await;
     assert_eq!(code(&discarded), 0, "{}", err(&discarded));
     assert_eq!(out(&discarded), "null\n");

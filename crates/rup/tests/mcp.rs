@@ -17,6 +17,8 @@ use tokio::net::UnixListener;
 use tokio::process::Child;
 use tokio::sync::mpsc;
 
+#[path = "mcp/removed_questions.rs"]
+mod removed_questions;
 #[path = "mcp/tool_lists.rs"]
 mod tool_lists;
 use tool_lists::{DOOR_METHODS, NO_TOOL, TOOL_METHODS, expected_tools, seam_commands};
@@ -265,7 +267,7 @@ fn m5_every_app_action_has_a_tool_or_a_reason() {
 }
 
 #[tokio::test]
-async fn m1_offers_one_tool_per_method_and_ask_user_and_no_others() {
+async fn m1_offers_one_tool_per_method_and_no_others() {
     let project = start_daemon();
     let shim = spawn_shim(&project.socket, "a1").await;
 
@@ -367,10 +369,6 @@ async fn m1_input_schemas_are_the_contract_schemas() {
             "message_list",
             derived(schemars::schema_for!(message::ListParams)),
         ),
-        (
-            "message_pass",
-            derived(schemars::schema_for!(message::MessageId)),
-        ),
     ];
     for (name, contract_schema) in expected {
         assert_eq!(schema(name), contract_schema, "{name}");
@@ -435,8 +433,6 @@ async fn b12_a_call_is_made_as_the_agent_and_returns_the_daemons_result() {
     let refused = other.call("message_get", json!({"id": 1})).await;
     assert_eq!(refused.is_error, Some(true));
     assert_eq!(text(&refused)["code"], rpc::code::FORBIDDEN);
-    let pass = shim.call("message_pass", json!({"id": 1})).await;
-    assert_eq!(text(&pass)["code"], rpc::code::FORBIDDEN);
 }
 
 #[tokio::test]
@@ -625,20 +621,6 @@ async fn m3_stdout_carries_only_protocol_messages_up_to_the_exit() {
         let message: Value = serde_json::from_str(line).unwrap_or_else(|_| panic!("{line}"));
         assert_eq!(message["jsonrpc"], "2.0", "{line}");
     }
-}
-
-#[tokio::test]
-async fn h14_ask_user_schema_is_the_contract_schema() {
-    let project = start_daemon();
-    let shim = spawn_shim(&project.socket, "a1").await;
-
-    let tools = shim.client.list_all_tools().await.unwrap();
-
-    let tool = tools.iter().find(|t| t.name == "ask_user").unwrap();
-    assert_eq!(
-        Value::Object((*tool.input_schema).clone()),
-        serde_json::to_value(schemars::schema_for!(contracts::decision::AskParams)).unwrap()
-    );
 }
 
 #[tokio::test]
@@ -897,10 +879,13 @@ async fn m17_every_offered_unit_method_acknowledges_its_action() {
                 "requested renaming Project to New name",
             ),
             "terminal.show" => (json!({"id":"t1"}), "showing Terminal t1"),
-            "decision.answer" => (
-                json!({"id":"d1","answer":"allow"}),
-                "answered Decision d1: allow",
-            ),
+            "terminal.close" => (json!({"id":"t1"}), "accepted terminal close"),
+            "agent.interrupt" => (json!({"id":"t1"}), "accepted agent interrupt"),
+            "agent.prompt" => (json!({"id":"t1"}), "accepted agent prompt"),
+            "agent.stop" => (json!({"id":"t1"}), "accepted agent stop"),
+            "terminal.kill" => (json!({"id":"t1"}), "accepted terminal kill"),
+            "terminal.resize" => (json!({"id":"t1"}), "accepted terminal resize"),
+            "terminal.write" => (json!({"id":"t1"}), "accepted terminal write"),
             "workstream.handoff" => (
                 json!({"summary":"done","keep_todos":[],"keep_pads":[]}),
                 "handed off Workstream Door",
@@ -914,24 +899,6 @@ async fn m17_every_offered_unit_method_acknowledges_its_action() {
             expected,
             "{name}"
         );
-    }
-    // A refusal, a chosen option and a note alone each name what was submitted.
-    for (args, expected) in [
-        (
-            json!({"id":"d1","answer":"deny"}),
-            "answered Decision d1: deny",
-        ),
-        (
-            json!({"id":"d1","answer":"Yes","note":""}),
-            "answered Decision d1: Yes",
-        ),
-        (
-            json!({"id":"d1","answer":null,"note":"Use the other option"}),
-            "answered Decision d1: Use the other option",
-        ),
-    ] {
-        let result = shim.call("decision_answer", args).await;
-        assert_eq!(result.content[0].as_text().unwrap().text, expected);
     }
     server.abort();
 }
@@ -978,90 +945,6 @@ async fn m17_data_results_keep_their_json_text() {
         let shim = spawn_shim(&socket, "a1").await;
         // rail.remove declares nullable data, so even null must retain its JSON encoding.
         let result = shim.call("rail_remove", json!({"id":"child"})).await;
-        assert_eq!(result.is_error, Some(false));
-        assert_eq!(result.content[0].as_text().unwrap().text, value.to_string());
-        server.abort();
-    }
-}
-
-#[tokio::test]
-async fn b6_mcp_held_action_receipts_and_history_keep_their_waiting_or_completed_data() {
-    for (name, args, value) in [
-        (
-            "agent_stop",
-            json!({"id":"child"}),
-            json!({"id":"3","agent":"child","method":"agent.stop","params":{"id":"child"},"outcome":{"status":"waiting","reason":"takeover"}}),
-        ),
-        ("agent_stop", json!({"id":"child"}), Value::Null),
-        (
-            "agent_interrupt",
-            json!({"id":"child"}),
-            json!({"id":"4","agent":"child","method":"agent.interrupt","params":{"id":"child"},"outcome":{"status":"waiting","reason":"takeover"}}),
-        ),
-        ("agent_interrupt", json!({"id":"child"}), Value::Null),
-        (
-            "agent_prompt",
-            json!({"id":"child","text":"hello"}),
-            json!({"id":"5","agent":"child","method":"agent.prompt","params":{"id":"child","text":"hello"},"outcome":{"status":"waiting","reason":"takeover"}}),
-        ),
-        (
-            "agent_prompt",
-            json!({"id":"child","text":"hello"}),
-            Value::Null,
-        ),
-        (
-            "terminal_close",
-            json!({"id":"t1"}),
-            json!({"id":"6","agent":"child","method":"terminal.close","params":{"id":"t1"},"outcome":{"status":"waiting","reason":"takeover"}}),
-        ),
-        ("terminal_close", json!({"id":"t1"}), Value::Null),
-        (
-            "terminal_kill",
-            json!({"id":"t1"}),
-            json!({"id":"7","agent":"child","method":"terminal.kill","params":{"id":"t1"},"outcome":{"status":"waiting","reason":"takeover"}}),
-        ),
-        ("terminal_kill", json!({"id":"t1"}), Value::Null),
-        (
-            "terminal_write",
-            json!({"id":"t1","data":"aGk="}),
-            json!({"id":"8","agent":"child","method":"terminal.write","params":{"id":"t1","data":"aGk="},"outcome":{"status":"waiting","reason":"takeover"}}),
-        ),
-        (
-            "terminal_write",
-            json!({"id":"t1","data":"aGk="}),
-            Value::Null,
-        ),
-        (
-            "rail_rename",
-            json!({"id":"child","name":"waiting rename"}),
-            json!({"id":"2","agent":"child","method":"rail.rename","params":{"id":"child","name":"waiting rename"},"outcome":{"status":"waiting","reason":"takeover"}}),
-        ),
-        (
-            "agent_actionHistory",
-            json!({"id":"child"}),
-            json!([{"id":"2","agent":"child","method":"rail.rename","params":{"id":"child","name":"waiting rename"},"outcome":{"status":"completed"}}]),
-        ),
-        (
-            "terminal_resize",
-            json!({"id":"t1","cols":80,"rows":24}),
-            Value::Null,
-        ),
-        (
-            "terminal_resize",
-            json!({"id":"t1","cols":80,"rows":24}),
-            json!({"id":"1","agent":"child","terminal":"t1","cols":80,"rows":24,"outcome":{"status":"waiting","reason":"takeover"}}),
-        ),
-        (
-            "terminal_resizeHistory",
-            json!({"id":"t1"}),
-            json!([{ "id":"1","agent":"child","terminal":"t1","cols":80,"rows":24,"outcome":{"status":"dropped","reason":"original Terminal did not survive Daemon restart"}}]),
-        ),
-    ] {
-        let dir = tempfile::tempdir().unwrap();
-        let socket = dir.path().join("resize.sock");
-        let server = m17_daemon(&socket, value.clone());
-        let shim = spawn_shim(&socket, "a1").await;
-        let result = shim.call(name, args).await;
         assert_eq!(result.is_error, Some(false));
         assert_eq!(result.content[0].as_text().unwrap().text, value.to_string());
         server.abort();
@@ -1415,7 +1298,6 @@ async fn m2706a_data_names_every_referenced_agent() {
     let fx = common::NamedRail::start().await;
     let door = spawn_shim(&fx.served.socket(), &fx.door).await;
     let child = spawn_shim(&fx.served.socket(), &fx.child).await;
-    let (_id, pending) = fx.decision().await;
     for renamed in [false, true] {
         if renamed {
             fx.rename().await;
@@ -1447,34 +1329,13 @@ async fn m2706a_data_names_every_referenced_agent() {
                 .iter()
                 .any(|entry| entry["name"] == name)
         );
-        let decisions = text(&door.call("decision_list", json!({})).await);
-        assert_eq!(decisions[0]["agent"], fx.child);
-        assert_eq!(decisions[0]["agent_name"], name);
-        assert!(decisions[0].get("failure").is_none());
-        assert_eq!(
-            serde_json::from_str::<Value>(decisions[0]["args"].as_str().unwrap()).unwrap()["question"],
-            "Choose"
-        );
     }
-    pending.abort();
 }
 
 #[tokio::test]
 async fn m2706a_non_agent_identifiers_keep_their_meaning() {
     let fx = common::NamedRail::start().await;
     let door = spawn_shim(&fx.served.socket(), &fx.door).await;
-    let (id, pending) = fx.decision().await;
-    let answered = door
-        .call(
-            "decision_answer",
-            json!({"id":id,"answer":"Yes","proof":"test-proof"}),
-        )
-        .await;
-    assert_eq!(
-        answered.content[0].as_text().unwrap().text,
-        format!("answered Decision {id}: Yes")
-    );
-    assert_eq!(pending.await.unwrap().unwrap()["answer"], "Yes");
     let todo = fx
         .user
         .request("todo.create", json!({"title":"Notes"}))
@@ -1526,29 +1387,6 @@ async fn m2706a_a_failed_name_lookup_sends_no_action() {
         reads += usize::from(request["method"] == "rail.tree");
     }
     assert_eq!(reads, 2, "startup and the action each read the Rail");
-}
-
-#[tokio::test]
-async fn m2706a_failed_answer_authors_have_names() {
-    let dir = tempfile::tempdir().unwrap();
-    let socket = dir.path().join("answer-author.sock");
-    let server = m17_daemon(
-        &socket,
-        json!([{
-            "id":"d1", "agent":"missing", "args":"authored content: missing",
-            "failure":{"answered_by":{"kind":"agent","id":"a1","parent":"a1"}}
-        }]),
-    );
-    let shim = spawn_shim(&socket, "a1").await;
-    let decisions = text(&shim.call("decision_list", json!({})).await);
-    assert_eq!(decisions[0]["agent_name"], "an Agent that is gone");
-    assert_eq!(decisions[0]["failure"]["answered_by"]["name"], "Door");
-    assert_eq!(
-        decisions[0]["failure"]["answered_by"]["parent_name"],
-        "Door"
-    );
-    assert_eq!(decisions[0]["args"], "authored content: missing");
-    server.abort();
 }
 
 #[tokio::test]

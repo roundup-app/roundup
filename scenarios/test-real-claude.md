@@ -24,7 +24,7 @@ Use [aimock](https://github.com/CopilotKit/aimock), whose [v1.45.1 release](http
 Cost observer (TC1): `e11_a_tool_result_matches_the_next_turn` also asserts D3’s creator Provenance from the same real-Claude Todo creation. It needs the actual vendor MCP/tool-result round trip and strict aimock request match; a scripted vendor or a directly invoked Todo method cannot prove that the tool result reaches Claude’s next model request.
 
 **E12 isolated configuration preserves credential stripping.** Given a fresh test-owned `CLAUDE_CONFIG_DIR`, its `settings.json` env routes `ANTHROPIC_BASE_URL` to that test's loopback aimock and supplies a dummy credential through `apiKeyHelper` or `ANTHROPIC_AUTH_TOKEN`. The real model request reaches aimock while the dummy credential reaches neither the MCP shim nor hooks (`e12_model_routing_keeps_credentials_out_of_hooks_and_mcp`). Both tests in check 1 still pass; roundup continues stripping inherited `ANTHROPIC_*` (regression).
-- `permissions.defaultMode` is `default`; an unallowed tool reaches PermissionRequest and the hook's answer controls it (`e12_default_permissions_reach_the_permission_hook`).
+- `permissions.defaultMode` is `default`; an unallowed tool raises `needs-you` through the PermissionRequest hook and stays so until the user allows it in the Terminal (`e12_default_permissions_raise_needs_you_until_allowed`).
 - Disable nonessential traffic (`CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC=1`), autoupdates and official marketplace auto-install. Deny and observe non-loopback egress: a complete test performs no connection past loopback and no paid model call (`e12_a_complete_turn_has_only_loopback_traffic`). Dependency installation is outside this runtime assertion (policy).
 - Seed the test-owned `.claude.json`: `hasCompletedOnboarding: true`, `theme: "dark"`, `lastOnboardingVersion: "2.1.300"`, `customApiKeyResponses.approved: [<last 20 characters of dummy key>]` with `rejected: []`, `projects.<cwd>.hasTrustDialogAccepted: true`, `lastReleaseNotesSeen: "2.1.300"`, and `hasSeenAutoDefaultNudge`, `hasResetAutoModeOptInForDefaultOffer`, `hasSeenAutoModeEntryWarning` all `true`. Seed the canonical cwd alias too where the OS supplies one. A fresh interactive launch reaches prompt input without onboarding, trust, key-approval or auto-mode dialogs (`e12_a_fresh_configuration_accepts_the_first_prompt`). Never use a personal profile (policy).
 
@@ -107,9 +107,6 @@ Cost observer (TC1): `e11_a_tool_result_matches_the_next_turn` also asserts D3�
 - `f3_a_door_spawns_into_a_worktree_when_the_setting_is_on`
 - `f3_a_door_starts_a_child_with_agent_spawn_and_the_child_is_the_doors_own`
 - `h15_every_hook_call_of_a_hundred_tool_use_loop_is_answered_and_the_final_stop_leaves_the_agent_idle`
-- `h21_a_message_delivered_after_the_decision_cleared_is_still_typed`
-- `h21_observer_a_door_allows_its_childs_permission_request_and_the_touch_names_it`
-- `h21_observer_the_childs_and_another_workstreams_agents_are_forbidden_and_the_user_wins`
 - `m9_a_door_asked_for_a_workstream_makes_one`
 - `t8_creator_survives_removing_the_agent_that_made_the_todo`
 
@@ -162,7 +159,6 @@ Cost observer (TC1): `e11_a_tool_result_matches_the_next_turn` also asserts D3�
 
 
 **E3206 the real-Claude tests live in concept files, each under 1000 lines.** Given `crates/rup/tests/real_claude.rs` at 5338 lines, when it is split, then:
-- Each of its tests moves, with the setup only that concept uses, into a file under `crates/rup/tests/` named for the behaviour its tests prove (the `a32_` workstream clear, the `b55_` new session, the `h21_` Door decisions, the `e6_` shim, and so on); no file is named `part1`, `utils` or `helpers`, none re-exports from the old path, and setup shared by several concepts goes into `crates/rup/tests/common/` under a name for what it does (policy).
 - `wc -l` prints under 1000 for every resulting file, and `crates/rup/tests/real_claude.rs` no longer exists (policy).
 - Every test keeps its name, its `#[ignore]` where it had one, and its assertions; a test moves and nothing else about it changes, so each commit is one followable move (policy).
 - Every caller that names the old test target (`.config/nextest.toml` filters and `ci4` shards, the `justfile`, `package.json`, workflows, `scenarios/` citations) names the new targets in the same PR, so the same tests run in the same groups and shards (policy).
@@ -210,7 +206,6 @@ Baseline: `rup::real_claude` on successful [check run 39378452452](https://githu
 | `e12_a_complete_turn_has_only_loopback_traffic` | `rup::real_claude` | 11.9 |
 | `b2693b_real_yolo_receiver_takes_a_note_without_approval` | `rup::real_claude` | 11.8 |
 | `a32_message_list_spans_iterations` | `rup::real_claude` | 11.6 |
-| `h21_observer_a_door_allows_its_childs_permission_request_and_the_touch_names_it` | `rup::real_claude` | 11.5 |
 | `lc9_the_profile_holds_in_the_real_tui` | `rup::real_claude` | 11.2 |
 | `m16_real_claude_runs_tests_with_bash_without_a_run` | `rup::real_claude` | 10.5 |
 | `a32_only_the_door_may_hand_off` | `rup::real_claude` | 10.2 |
@@ -219,16 +214,14 @@ Baseline: `rup::real_claude` on successful [check run 39378452452](https://githu
 | `e12_model_routing_keeps_credentials_out_of_hooks_and_mcp` | `rup::real_claude` | 9.0 |
 | `e6_no_shim_is_missing_with_the_status_unchanged_and_hooks_do_not_count` | `rup::real_claude` | 8.8 |
 | `e12_a_fresh_configuration_accepts_the_first_prompt` | `rup::real_claude` | 8.7 |
-| `h21_observer_the_childs_and_another_workstreams_agents_are_forbidden_and_the_user_wins` | `rup::real_claude` | 8.4 |
 | `a2693a_real_claude_skips_only_yolo_tool_permissions` | `rup::real_claude` | 8.2 |
-| `h21_a_message_delivered_after_the_decision_cleared_is_still_typed` | `rup::real_claude` | 8.0 |
 | `e6_a_late_shim_goes_missing_then_up` | `rup::real_claude` | 7.7 |
 | `b55_thirty_idle_edges_of_the_new_session_type_none_of_it` | `rup::real_claude` | 7.7 |
 | `b55_the_next_session_holds_no_word_of_the_old_ask` | `rup::real_claude` | 7.2 |
 | `x17_real_claude_takes_the_apps_scheme_at_start_and_on_a_switch` | `rup::real_claude` | 7.2 |
-| `b55_pending_held_and_waiting_messages_of_the_old_iteration_are_not_replayed` | `rup::real_claude` | 7.0 |
+| `b55_pending_messages_of_the_old_iteration_are_not_replayed` | `rup::real_claude` | 7.0 |
 | `b55_the_word_appears_only_inside_the_handoff_when_the_summary_has_it` | `rup::real_claude` | 6.9 |
-| `b37_real_claude_receives_d1_after_a_scripted_server_error` | `rup::real_claude` | 6.7 |
+| `b37_real_claude_receives_a_note_after_a_scripted_server_error` | `rup::real_claude` | 6.7 |
 | `f3_a_door_spawns_into_a_worktree_when_the_setting_is_on` | `rup::real_claude` | 6.0 |
 
 ## E2962 retention boundaries
@@ -260,9 +253,8 @@ The following requirements narrow the existing named clauses for this inventory 
 | `e14_roundup_launches_and_resumes_real_claude` | Keep | `e14_roundup_launches_and_resumes_real_claude`; E14 | real Claude Agent/Door launch and --resume; model/effort and previous conversation in actual HTTP requests detect ignored or overridden argv. A process-free test cannot observe this vendor/process lifecycle boundary. |
 | `a32_resume_is_held_until_session_start` | Keep | `a32_resume_is_held_until_session_start`; A32 Failure / Then (4) | gated real Claude launch and real SessionStart; resume must stay pending while no hook can acknowledge it. A process-free test cannot observe this vendor/process lifecycle boundary. |
 | `e12_a_complete_turn_has_only_loopback_traffic` | Keep | `e12_a_complete_turn_has_only_loopback_traffic`; E12 | real Claude complete MCP turn inside an observed loopback-only network namespace; strace destinations detect vendor nonessential/external traffic. A process-free test cannot observe this vendor/process lifecycle boundary. |
-| `b2693b_real_yolo_receiver_takes_a_note_without_approval` | Keep | `b2693b_real_yolo_receiver_takes_a_note_without_approval`; B2693b | real Claude resumes YOLO then restarts normal; inbox transcript acknowledgement, model request, Delivered count and no permission Decision prove receiver-mode transport. A process-free test cannot observe this vendor/process lifecycle boundary. |
+| `b2693b_real_yolo_receiver_takes_a_note_without_approval` | Keep | `b2693b_real_yolo_receiver_takes_a_note_without_approval`; B2693b | real Claude resumes YOLO then restarts normal; inbox transcript acknowledgement, model request, Delivered count and no roundup permission record prove receiver-mode transport. A process-free test cannot observe this vendor/process lifecycle boundary. |
 | `a32_message_list_spans_iterations` | Keep | `a32_message_list_spans_iterations`; A32 Old Thread | real rupd and Claude replacement; prior and new Iteration Messages stay readable after the live restart. A process-free test cannot observe this vendor/process lifecycle boundary. |
-| `h21_observer_a_door_allows_its_childs_permission_request_and_the_touch_names_it` | Keep | `h21_observer_a_door_allows_its_childs_permission_request_and_the_touch_names_it`; H21 | real Claude Door answers via MCP and the child PermissionRequest unblocks real Bash; filesystem effect and attributed Touch catch hook-answer delivery failures. A process-free test cannot observe this vendor/process lifecycle boundary. |
 | `lc9_the_profile_holds_in_the_real_tui` | Cut | `retired recurring LC9 observer`; LC9 | LC9 explicitly requests a one-time implementing-PR measurement and no ongoing budget test; retire its recurring tool/relative-size assertions. LC1–LC6 launch tests remain unchanged. |
 | `m16_real_claude_runs_tests_with_bash_without_a_run` | Keep | `m16_real_claude_runs_tests_with_bash_without_a_run`; M16 | real Claude worker executes Bash tests after Door MCP spawn; actual test output without a Terminal run catches vendor tool restrictions. A process-free test cannot observe this vendor/process lifecycle boundary. |
 | `a32_only_the_door_may_hand_off` | Keep | `a32_only_the_door_may_hand_off`; A32 Handoff | real rupd connections identified as Door, child and user during a real Claude clear turn; refuses unauthorized handoff without completing it. A process-free test cannot observe this vendor/process lifecycle boundary. |
@@ -271,14 +263,12 @@ The following requirements narrow the existing named clauses for this inventory 
 | `e12_model_routing_keeps_credentials_out_of_hooks_and_mcp` | Keep | `e12_model_routing_keeps_credentials_out_of_hooks_and_mcp`; E12 | real Claude consumes isolated routing/dummy credentials; wrappers inspect environments of actual hook/MCP children and aimock authenticates the model request. A process-free test cannot observe this vendor/process lifecycle boundary. |
 | `e6_no_shim_is_missing_with_the_status_unchanged_and_hooks_do_not_count` | Keep | `e6_no_shim_is_missing_with_the_status_unchanged_and_hooks_do_not_count`; E6 | fail the real Claude-launched MCP subprocess while real SessionStart/Submit/Stop hooks succeed; Missing must remain independent of Agent Status. A process-free test cannot observe this vendor/process lifecycle boundary. |
 | `e12_a_fresh_configuration_accepts_the_first_prompt` | Keep | `e12_a_fresh_configuration_accepts_the_first_prompt`; E12 | real interactive Claude TUI accepts bracketed-paste first input from a fresh isolated profile; seed-only assertions cannot catch new onboarding dialogs. A process-free test cannot observe this vendor/process lifecycle boundary. |
-| `h21_observer_the_childs_and_another_workstreams_agents_are_forbidden_and_the_user_wins` | Keep | `h21_observer_the_childs_and_another_workstreams_agents_are_forbidden_and_the_user_wins`; H21 | real Claude MCP callers in two Workstreams and a late Door after user answer; tool-result refusals and sole user Touch detect authority crossing in transport. A process-free test cannot observe this vendor/process lifecycle boundary. |
 | `a2693a_real_claude_skips_only_yolo_tool_permissions` | Keep | `a2693a_real_claude_skips_only_yolo_tool_permissions`; A2693a | real Claude tool permission machinery executes YOLO tools without PermissionRequest but retains other hooks; argv-only proof cannot detect vendor interpretation. A process-free test cannot observe this vendor/process lifecycle boundary. |
-| `h21_a_message_delivered_after_the_decision_cleared_is_still_typed` | Keep | `h21_a_message_delivered_after_the_decision_cleared_is_still_typed`; H21 | hold real Claude launch until the user clears a Decision, then inspect the actual batched model prompt for the queued notice and preceding note. A process-free test cannot observe this vendor/process lifecycle boundary. |
 | `e6_a_late_shim_goes_missing_then_up` | Keep | `e6_a_late_shim_goes_missing_then_up`; E6 | gate the real rup mcp subprocess across the Daemon channel deadline; observe Pending→Missing→Up after releasing the shim. A process-free test cannot observe this vendor/process lifecycle boundary. |
 | `b55_thirty_idle_edges_of_the_new_session_type_none_of_it` | Keep | `b55_thirty_idle_edges_of_the_new_session_type_none_of_it`; B55 (a–b, d) | real Claude new session after clear then 30 idle signals; whole request/launch record proves fresh argv and no old-Iteration retyping, including delayed delivery. A process-free test cannot observe this vendor/process lifecycle boundary. |
 | `b55_the_next_session_holds_no_word_of_the_old_ask` | Cut | `b55_thirty_idle_edges_of_the_new_session_type_none_of_it`; B55 (a–b, d) | The idle-edge case already checks the whole second-session input for the same word; assert fresh argv before its idle probes. |
 | `x17_real_claude_takes_the_apps_scheme_at_start_and_on_a_switch` | Keep | `x17_real_claude_takes_the_apps_scheme_at_start_and_on_a_switch`; X17 | real Claude TUI OSC colour queries at start and live scheme switch; Terminal snapshots expose actual vendor palette response. A process-free test cannot observe this vendor/process lifecycle boundary. |
-| `b55_pending_held_and_waiting_messages_of_the_old_iteration_are_not_replayed` | Keep | `b55_pending_held_and_waiting_messages_of_the_old_iteration_are_not_replayed`; B55 (d) | real Claude new session after clear with ask-first pending/held/waiting delivery; whole request/launch record must exclude queued old-Iteration text. A process-free test cannot observe this vendor/process lifecycle boundary. |
+| `b55_pending_messages_of_the_old_iteration_are_not_replayed` | Keep | `b55_pending_messages_of_the_old_iteration_are_not_replayed`; B55 (d) | real Claude new session after clear with pending delivery; whole request/launch record must exclude queued old-Iteration text. A process-free test cannot observe this vendor/process lifecycle boundary. |
 | `b55_the_word_appears_only_inside_the_handoff_when_the_summary_has_it` | Keep | `b55_the_word_appears_only_inside_the_handoff_when_the_summary_has_it`; B55 (c) | real Claude new-session request and launch files; remove only the Handoff substring and verify no other occurrence of the old ask. A process-free test cannot observe this vendor/process lifecycle boundary. |
-| `b37_real_claude_receives_d1_after_a_scripted_server_error` | Keep | `b37_real_claude_receives_d1_after_a_scripted_server_error`; B37 | real Claude HTTP 500 produces StopFailure while its PTY stays live; next request in the same vendor session must carry Decision d1. A process-free test cannot observe this vendor/process lifecycle boundary. |
+| `b37_real_claude_receives_a_note_after_a_scripted_server_error` | Keep | `b37_real_claude_receives_a_note_after_a_scripted_server_error`; B37 | real Claude HTTP 500 produces StopFailure while its PTY stays live; next request in the same vendor session must carry the note. A process-free test cannot observe this vendor/process lifecycle boundary. |
 | `f3_a_door_spawns_into_a_worktree_when_the_setting_is_on` | Keep | `f3_a_door_spawns_into_a_worktree_when_the_setting_is_on`; F3 | real Claude MCP agent_spawn with Worktrees enabled; real git Worktree location and branch in the returned child verify provisioning through vendor transport. A process-free test cannot observe this vendor/process lifecycle boundary. |

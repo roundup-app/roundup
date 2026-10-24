@@ -2,7 +2,7 @@ use serde::{Deserialize, Serialize};
 use ts_rs::TS;
 
 use crate::common::Actor;
-use crate::{agent, checkpoint, decision, message, pad, project, terminal, todo, workstream};
+use crate::{agent, checkpoint, message, pad, project, terminal, todo, workstream};
 
 /// Pushed to subscribers as a JSON-RPC notification: `{"method":"event","params":<Event>}`.
 #[derive(Clone, Debug, Serialize, Deserialize, TS)]
@@ -51,16 +51,12 @@ pub enum EventData {
     PadDeleted(pad::PadName),
     #[serde(rename = "message.sent")]
     MessageSent(Box<message::Message>),
-    #[serde(rename = "message.held")]
-    MessageHeld(Box<message::Message>),
     #[serde(rename = "message.delivered")]
     MessageDelivered(Box<message::Message>),
     #[serde(rename = "message.dropped")]
     MessageDropped(Box<message::Message>),
     #[serde(rename = "route.changed")]
     RouteChanged(message::Route),
-    #[serde(rename = "takeover.changed")]
-    TakeoverChanged(message::TakeoverChanged),
     #[serde(rename = "agent.status")]
     AgentStatus(Box<agent::StatusEvent>),
     #[serde(rename = "agent.channel")]
@@ -78,10 +74,6 @@ pub enum EventData {
     CheckpointWritten(checkpoint::Checkpoint),
     #[serde(rename = "workstream.rewound")]
     WorkstreamRewound(workstream::Rewound),
-    #[serde(rename = "decision.opened")]
-    DecisionOpened(Box<decision::Decision>),
-    #[serde(rename = "decision.cleared")]
-    DecisionCleared(decision::ClearedEvent),
     #[serde(rename = "project.requested")]
     ProjectRequested(project::Requested),
     #[serde(rename = "workstream.cleared")]

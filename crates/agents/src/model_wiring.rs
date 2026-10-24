@@ -54,11 +54,11 @@ impl Agents {
             NodeKind::Agent => Role::Agent,
         };
         let pair = models::resolve(&self.project_models()?, role, model, effort);
-        let held = self.shared.node(id)?;
-        if (&held.model, &held.effort) == (&pair.model, &pair.effort) {
-            return Ok(held);
+        let parked = self.shared.node(id)?;
+        if (&parked.model, &parked.effort) == (&pair.model, &pair.effort) {
+            return Ok(parked);
         }
-        let live = held.channel.is_some();
+        let live = parked.channel.is_some();
         if live && !self.shared.rail().has_conversation(id)? {
             return Err(RpcError::conflict(format!(
                 "{id} has no saved conversation yet to resume on the new model"

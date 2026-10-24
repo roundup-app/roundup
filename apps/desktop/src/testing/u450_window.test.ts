@@ -44,7 +44,7 @@ it.each(["dragWindow", "zoomWindow"] as const)("u451_fake_records_%s_from_each_p
 it("u451_served_window_operations_leave_the_browser_and_daemon_untouched", async () => {
   const { vi } = await import("vitest");
   const { createServedApp } = await import("./realSeam");
-  const fetch = vi.fn(async () => ({ json: async () => ({ project: { name: "p", path: "/p" }, proof: "test" }) }));
+  const fetch = vi.fn(async () => ({ json: async () => ({ project: { name: "p", path: "/p" } }) }));
   vi.stubGlobal("fetch", fetch);
   const title = document.title;
 

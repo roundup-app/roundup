@@ -20,7 +20,7 @@ Every rule below is a check with an id. A check passes or fails; it has no score
 
 ## Tokens
 
-`--text-selection: Highlight` is the platform selected-text background (CSS UI system colour, macOS NSColor.selectedTextBackgroundColor). Browser/editor selections and xterm's active/inactive selections resolve this one Token in both schemes and increased contrast. Selected text uses `--text-selection-ink: HighlightText`, the matching platform foreground, for legibility, including ANSI-coloured output and links; row/tab selection retains `--selected`. Source: https://www.w3.org/TR/css-color-4/#css-system-colors and https://developer.apple.com/documentation/appkit/nscolor/selectedtextbackgroundcolor.
+`--text-selection: Highlight` is the platform selected-text background (CSS UI system colour, macOS NSColor.selectedTextBackgroundColor). Browser/editor selections resolve this Token in both schemes and increased contrast. U3517c's Terminal cells instead use their pinned Ghostty/Tomorrow selection Tokens. Selected text uses `--text-selection-ink: HighlightText`, the matching platform foreground, for legibility, including ANSI-coloured output and links; row/tab selection retains `--selected`. Source: https://www.w3.org/TR/css-color-4/#css-system-colors and https://developer.apple.com/documentation/appkit/nscolor/selectedtextbackgroundcolor.
 
 All Tokens live in one file, `apps/desktop/src/tokens.css`. No other stylesheet, and no inline style, holds a colour, font size, radius, shadow, duration or easing literal; it reads `var(--…)`. Spacing uses the space Tokens, and `0`.
 
@@ -53,7 +53,6 @@ Starting values. The thresholds in the checks are fixed; a value that fails a th
 | `--easing-out` | `cubic-bezier(0.32, 0.72, 0, 1)` | same | every eased motion (`docs/motion.md`, U2579a) |
 | `--duration-drawer` | `180ms` | same | the Drawer's slide in and out (`docs/motion.md`, ~180 ms) |
 | `--duration-toast` | `150ms` | same | a Toast's enter and exit (`docs/motion.md`, ~150 ms, U414) |
-| `--duration-note` / `--ease-note` | `150ms` / `cubic-bezier(0.32, 0.72, 0, 1)` | same | a queued note's glide into the Agent's step (`docs/motion.md`, U3784) |
 | `--duration-todo` | `150ms` | same | the Todo fold and row slide (`docs/motion.md`, ~150 ms, U3010c) |
 | `--ease-todo` / `--ease-pop` | `cubic-bezier(0.22, 1, 0.36, 1)` / `cubic-bezier(0.34, 1.56, 0.64, 1)` | same | a finishing Todo's tick, strike, bar and count / the ring's overshoot (`docs/motion.md`, U3771) |
 | `--duration-tick` / `--delay-tick` | `420ms` / `160ms` | same | the tick draw (U3771) |
@@ -63,11 +62,10 @@ Starting values. The thresholds in the checks are fixed; a value that fails a th
 | `--duration-bar` / `--duration-count` | `1100ms` / `560ms` | same | the progress bar fill / the count roll (U3771) |
 | `--duration-crossfade` | `120ms` | same | a base interval (`docs/motion.md`, 120 ms); the working arc uses eight intervals (U446). U105 periphery dimming is retired |
 
-Nothing moves unless the user acted or an Agent took a note the user can see: a note glides into the step line only on `⌘⏎`, `×`, `Resume` or when the Agent takes it, never on mount, on selecting another Agent, on reopening the pane or while the queue is off screen (U3784).
 
 Type: `--font-ui` is `-apple-system, BlinkMacSystemFont, "SF Pro Text", system-ui, sans-serif`; `--font-mono` is `ui-monospace, "SF Mono", Menlo, monospace`. The steps are `--text-caption` 11, `--text-small` 12, `--text-body` 13, `--text-row` 14 (every Rail row's name), `--text-title` 15, `--text-pad-subheading` 20 and `--text-pad-heading` 24 px. Weight is 400, 500 or 600. Tracking is `0` at body and below, `-0.01em` at title (apple-design: tracking follows size).
 
-The App inherits `--font-ui`; code, paths, diffs, ids, token counts and Terminal output select `--font-mono`. `--mono` aliases `--font-mono` in the Token file. Static interface typography uses the listed type steps. U102’s user-adjustable Terminal font starts at `--text-body` and changes in 1 px increments within `--text-terminal-min` and `--text-terminal-max`; this scale applies only to the Terminal, not the Rail or other interface text.
+The App inherits `--font-ui`; code, paths, diffs, ids and token counts select `--font-mono`; Terminal output selects `--font-terminal`. `--mono` aliases `--font-mono` in the Token file. Static interface typography uses the listed type steps. U102’s user-adjustable Terminal font starts at `--text-terminal` and changes in 1 px increments within `--text-terminal-min` and `--text-terminal-max`; this scale applies only to the Terminal, not the Rail or other interface text.
 
 Pad prose uses `--text-title` (15 px). Its `--text-pad-subheading` (20 px) and `--text-pad-heading` (24 px) steps apply only to rendered and formatted Pad headings, in both colour schemes; source and code stay mono at `--text-body`. A Pad's reading and editing views use the same steps.
 
@@ -170,9 +168,9 @@ Each check is measured from computed style and the DOM of the running App, never
 
 ## Text case
 
-Sentence case: the first word capitalised, the rest as in prose (`Take control`, `Send`, `No checkpoint yet`, `Clarifying: What is this Workstream for?`; a word after a colon is capitalised like a first word). A `GLOSSARY.md` term without an explicit user-label mapping keeps its capital inside a phrase (`Workstream`, `Agent`, `Pad`). Exempt: section heads, which stay in spaced capitals (#1097); names, ids, paths, code and text the user or an Agent wrote, as written (a Workstream named `workstream` stays lower case); Terminal text and Agents' output. An add button reads `+ ` then the term (`+ Workstream`), with no `new`. This replaces `docs/wireframes.md`'s lower-case click-target rule.
+Sentence case: the first word capitalised, the rest as in prose (`Start supervisor`, `Send`, `No checkpoint yet`, `Clarifying: What is this Workstream for?`; a word after a colon is capitalised like a first word). A `GLOSSARY.md` term without an explicit user-label mapping keeps its capital inside a phrase (`Workstream`, `Agent`, `Pad`). Exempt: section heads, which stay in spaced capitals (#1097); names, ids, paths, code and text the user or an Agent wrote, as written (a Workstream named `workstream` stays lower case); Terminal text and Agents' output. An add button reads `+ ` then the term (`+ Workstream`), with no `new`. This replaces `docs/wireframes.md`'s lower-case click-target rule.
 
-All App-authored text comes from `apps/desktop/src/copy.ts`, including accessible names, errors, statuses, hints, placeholders, tooltips, section heads and generated prose. Identifiers and RPC values keep code terms; App prose uses supervisor, control, work items and summary for Door, Takeover, Shelf and Handoff. Other domain terms retain their user spelling. One catalogue-wide case observer replaces per-folder case checks while preserving their interaction and authored-text assertions.
+All App-authored text comes from `apps/desktop/src/copy.ts`, including accessible names, errors, statuses, hints, placeholders, tooltips, section heads and generated prose. Identifiers and RPC values keep code terms; App prose uses supervisor, work items and summary for Door, Shelf and Handoff. Other domain terms retain their user spelling. One catalogue-wide case observer replaces per-folder case checks while preserving their interaction and authored-text assertions.
 
 ## Held-out screens
 
@@ -238,7 +236,7 @@ Scoped to Terminal Bubbles (U2742a–d, `scenarios/ui-bubble-panel.md`); other A
 | --- | --- |
 | Focus on one matter | Only a user-activated Bubble with focus inside has one centre-pane backdrop: `--scrim` dimming and `--blur-bubble-backdrop` (12px in both schemes). Foreground text, header and controls stay opaque and unfiltered. Return removes the backdrop in the same render; no transition or delay. A new unfocused Run neither dims nor steals focus. U2742a App behavior and paired rendered captures decide. |
 | Large enough to work; visibly temporary | Fresh unsaved rectangles use, on each axis, `size = min(paneExtent, max(existingMinimum, paneExtent - 192))`, `position = (paneExtent - size) / 2`. Nominal outer inset is 96 CSS px (three `--space-6` steps); retain the 24-column/6-row minimum and clamping. Preserve all saved rectangles and user-requested fill. U2742b rendered captures at 1512×950 and 1280×600 decide. |
-| The Agent is the main thing | Return focuses the same selected Agent emulator through `Screens`, without Rail selection change or a tab/header focus stop. Watch/Takeover permissions stay unchanged. U2742c/d App typing and Watch proofs decide. |
+| The Agent is the main thing | Return focuses the same selected Agent emulator through `Screens`, without Rail selection change or a tab/header focus stop. U2742c/d App typing proofs decide. |
 | One shortcut both ways | One non-repeated ⌘B switches Agent → last-used eligible Terminal → Agent; a terminal tab restores its own Terminal. No second action or animation completion. U2742c/d App browser tests decide. |
 | Temporary view, continuing work | Preserve Terminal identity, command, screen/scroll, draft input and saved rectangle; switching opens/closes nothing and writes no chord. Close stays destructive and separate. U2742c/d call and emulator assertions decide. |
 
@@ -256,3 +254,27 @@ Native confirmations use the system's appearance. Every remaining web modal, anc
 | `--radius-pill` | `999px` | same | Floating-surface action buttons |
 
 The existing primary kind uses `--accent` and `--button-accent-ink`; the existing quiet kind uses `--button-neutral` and `--text`. Both use `--radius-pill`, 24 px minimum targets and space Tokens. Hover changes ink only. Menu items retain their menu semantics. This scoped exception supersedes the ink-only/no-control-radius rule within these floating surfaces; other controls keep it. The shared backdrop uses the existing `--scrim` in both schemes and never blurs. The Terminal Bubble retains its existing background-Agent treatment.
+
+
+### Terminal Tokens (U3517)
+
+Terminal defaults use bundled JetBrains Mono 2.304 (regular, bold, italic and bold
+italic, OFL in `apps/desktop/public/fonts/jetbrains-mono/`). `--font-terminal` is
+`"JetBrains Mono", ui-monospace, "SF Mono", Menlo, monospace`. Only Terminal content
+uses it; the rest of the App retains its existing type.
+
+The emulator, App Settings and Project zoom reset share `--text-terminal` (14 CSS
+px). `--line-terminal` is xterm's unitless line-height multiplier (1.06) and
+`--letter-terminal` is extra cell tracking (0 CSS px). These are initial calibrated
+web values, starting from Ghostty's documented macOS 13 pt default, not a conversion
+of native points to CSS pixels. Rendered cell measurements and remaining native
+comparison are recorded in `docs/terminal-type.md`.
+
+`--terminal-background`, `--terminal-foreground`, `--terminal-cursor`,
+`--terminal-cursor-text`, `--terminal-selection`, `--terminal-selection-text`, and
+`--terminal-{black,red,green,yellow,blue,magenta,cyan,white}` with their
+`bright-` variants hold every emulator colour. CSS viewport/inset and X17 colour
+replies consume the same columns. Dark uses Ghostty's pinned unconfigured palette;
+Light uses its shipped Tomorrow companion (sources in `scenarios/ui-terminal-type.md`).
+Default text and App controls retain D5; reference ANSI cells and program-authored
+colours have U3517c's explicit exception. No colour is brightened to meet a Check.

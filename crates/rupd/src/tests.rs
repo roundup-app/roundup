@@ -9,7 +9,11 @@ pub(crate) async fn ask(daemon: &Daemon, line: &str) -> Value {
         events,
         output: None,
     };
-    daemon.dispatch(&mut conn, line, None).await.unwrap()
+    daemon
+        .dispatch(&mut conn, line, None)
+        .await
+        .unwrap()
+        .into_value()
 }
 
 pub(super) fn daemon_in(dir: &Path) -> Daemon {
@@ -21,7 +25,7 @@ pub(super) fn daemon_with_launcher(
     data: &Path,
     launcher: agents::claude_code::Launcher,
 ) -> Daemon {
-    Daemon::open_stores(project, data, None, |_| {
+    Daemon::open_stores(project, data, |_| {
         let bus = Bus::new();
         let terminals = Arc::new(terminal::Terminals::open(data, bus.clone()).unwrap());
         agents::Agents::open_in(
@@ -107,7 +111,7 @@ async fn r16_rail_reply_preserves_every_field_and_row_order_on_the_socket() {
          "can_resume":false, "channel":null, "work":null, "stray":[],
          "model":null, "effort":null, "iteration":2},
         {"id":"child", "kind":"agent", "name":"Child", "parent":"door",
-         "order":0, "status":{"kind":"needs-you", "label":"Waiting for approval", "since":123456789},
+         "order":0, "status":{"kind":"needs-you", "label":"Waiting for approval", "since":123456789, "finished":"0"},
          "attempt":"9223372036854775807", "status_revision":"3",
          "terminal_id":"terminal-1", "worktree":{"path":"/tmp/p", "branch":"b", "base":"main"},
          "can_resume":false, "channel":"missing", "work":{"kind":"work", "ask":"Continue", "limits":["Preserve files"]},
@@ -143,6 +147,34 @@ async fn r16_rail_reply_preserves_every_field_and_row_order_on_the_socket() {
     drop(write);
     drop(lines);
     handler.await.unwrap().unwrap();
+}
+
+#[tokio::test]
+async fn r3696c_a_rail_tree_reply_written_directly_equals_the_value_route() {
+    let (_dir, daemon) = daemon();
+    for name in ["Ship", "日本語 \"Door\""] {
+        let line = json!({"id":1,"method":"rail.createWorkstream","params":{"name":name}});
+        ask(&daemon, &line.to_string()).await;
+    }
+    let (events, _) = mpsc::unbounded_channel();
+    let mut conn = Conn {
+        actor: Actor::user(),
+        peer: None,
+        events,
+        output: None,
+    };
+    let routed = daemon
+        .route(&mut conn, "rail.tree", Value::Null)
+        .await
+        .unwrap();
+    assert_eq!(routed.as_array().unwrap().len(), 2);
+    for method in ["rail.tree", "rail.list"] {
+        let reply = ask(&daemon, &json!({"id":"a\nb","method":method}).to_string()).await;
+        assert_eq!(
+            reply,
+            json!({"jsonrpc":"2.0", "id":"a\nb", "result":routed})
+        );
+    }
 }
 
 async fn frames(daemon: Daemon, requests: &str, count: usize) -> Vec<Value> {
@@ -363,7 +395,7 @@ impl Drop for Dropped {
 #[async_trait::async_trait]
 impl Module for Hangs {
     fn namespaces(&self) -> &'static [&'static str] {
-        &["agent", "decision"]
+        &["agent"]
     }
 
     async fn call(&self, _ctx: &Ctx, _method: &str, _params: Value) -> Result<Value, RpcError> {
@@ -404,30 +436,10 @@ async fn first_said(said: &mut tokio::sync::mpsc::UnboundedReceiver<&'static str
         .expect("the module still reports its calls")
 }
 
-/// H7(b): the hook's process dying closes its connection, which drops the waiting call.
-#[tokio::test]
-async fn h7_a_hung_up_permission_call_is_dropped() {
-    let (_dir, mut said, _release, socket) = serving_a_module_that_hangs().await;
-    let mut hook = UnixStream::connect(&socket).await.unwrap();
-    hook.write_all(b"{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"agent.permission\"}\n")
-        .await
-        .unwrap();
-    assert_eq!(first_said(&mut said).await, "entered");
-    assert!(
-        said.try_recv().is_err(),
-        "the call waits while the hook is connected"
-    );
-
-    drop(hook);
-
-    let seen = tokio::time::timeout(std::time::Duration::from_secs(5), said.recv()).await;
-    assert_eq!(seen.unwrap(), Some("dropped"));
-}
-
-/// Any other call is not dropped by a half-close: a client may write its request, shut down
+/// A call is not dropped by a half-close: a client may write its request, shut down
 /// its write side and wait for the reply.
 #[tokio::test]
-async fn a_half_closed_call_that_is_not_a_permission_call_still_runs() {
+async fn a_half_closed_call_still_runs() {
     let (_dir, mut said, release, socket) = serving_a_module_that_hangs().await;
     let mut client = UnixStream::connect(&socket).await.unwrap();
     client
@@ -610,5 +622,45 @@ async fn u3808_the_list_reads_recorded_handoffs_without_history_or_touches() {
             .await
             .unwrap(),
         list
+    );
+}
+
+/// R3696b: the wire reader's actor serves routing, so one write walks its peer's ancestry once.
+#[tokio::test]
+async fn r3696b_write_classifies_its_caller_once() {
+    let (dir, daemon) = daemon();
+    let socket = dir.path().join("rupd.sock");
+    tokio::spawn(serve(
+        UnixListener::bind(&socket).unwrap(),
+        Arc::new(daemon),
+    ));
+    let mut client = BufReader::new(UnixStream::connect(&socket).await.unwrap());
+    let mut call = async |method: &str| {
+        let line = format!(
+            "{{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"{method}\",\"params\":{{\"id\":\"none\",\"data\":\"eA==\"}}}}\n"
+        );
+        client.get_mut().write_all(line.as_bytes()).await.unwrap();
+        let mut reply = String::new();
+        client.read_line(&mut reply).await.unwrap();
+    };
+    // `agent.stop` classifies its caller once; a write must not classify more often.
+    call("agent.stop").await;
+    let before = agents::classifications();
+    let lookups = agents::parent_lookups();
+    call("terminal.write").await;
+    let write = agents::classifications() - before;
+    // With no Agent running no ancestor can be one, so a write reads no /proc.
+    assert_eq!(
+        agents::parent_lookups(),
+        lookups,
+        "a write walked /proc with no Agent running"
+    );
+    let before = agents::classifications();
+    call("agent.stop").await;
+    let chain = agents::classifications() - before;
+    assert_eq!(chain, 1, "one classification for agent.stop");
+    assert_eq!(
+        write, 1,
+        "{write} classifications for a write, one chain is {chain}"
     );
 }

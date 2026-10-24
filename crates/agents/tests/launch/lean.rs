@@ -73,18 +73,14 @@ fn lc1_each_role_launches_as_its_row() {
             };
             let argv = s.prepare_lean("7", role, &pair, None).unwrap();
             let tools = match (row, mcp) {
-                (Role::Door, true) => Some("Read,Grep,Glob,ToolSearch,Skill"),
-                (Role::Door, false) => Some("Read,Grep,Glob,Skill"),
-                (Role::Scout, true) => Some("Read,Grep,Glob,Bash,ToolSearch"),
-                (Role::Scout, false) => Some("Read,Grep,Glob,Bash"),
+                (Role::Door, true) => Some("Read,Grep,Glob,ToolSearch,Skill,AskUserQuestion"),
+                (Role::Door, false) => Some("Read,Grep,Glob,Skill,AskUserQuestion"),
+                (Role::Scout, true) => Some("Read,Grep,Glob,Bash,ToolSearch,AskUserQuestion"),
+                (Role::Scout, false) => Some("Read,Grep,Glob,Bash,AskUserQuestion"),
                 _ => None,
             };
             assert_eq!(Setup::after(&argv, "--tools"), tools, "{row:?} mcp={mcp}");
-            assert_eq!(
-                has(&argv, "--disable-slash-commands"),
-                row == Role::Scout,
-                "{row:?}"
-            );
+            assert!(!has(&argv, "--disable-slash-commands"), "{row:?}");
             let brief = std::fs::read_to_string(
                 Setup::after(&argv, "--append-system-prompt-file").unwrap(),
             )
@@ -119,12 +115,8 @@ fn lc2_a_child_starts_from_its_own_settings() {
             .to_string(),
         );
         let argv = s.prepare_lean("7", role, &pair, None).unwrap();
-        assert_eq!(
-            Setup::after(&argv, "--setting-sources"),
-            Some(""),
-            "{row:?}"
-        );
-        assert!(has(&argv, "--strict-mcp-config") && has(&argv, "--mcp-config"));
+        assert!(!has(&argv, "--setting-sources"));
+        assert!(!has(&argv, "--strict-mcp-config") && has(&argv, "--mcp-config"));
         let settings = read(Path::new(Setup::after(&argv, "--settings").unwrap()));
         if row == Role::Door {
             assert!(
@@ -143,15 +135,15 @@ fn lc2_a_child_starts_from_its_own_settings() {
         assert_eq!(settings["permissions"]["deny"], json!(["Read(.env)"]));
         // A3507b: every unnamed key carries over, including env and permission mode.
         assert_eq!(settings["permissions"]["defaultMode"], "plan");
-        assert_eq!(settings["env"]["CLAUDE_CODE_DISABLE_AUTO_MEMORY"], "1");
-        for dropped in [
+        assert_eq!(settings["env"]["CLAUDE_CODE_DISABLE_AUTO_MEMORY"], "0");
+        for kept in [
             "outputStyle",
             "enabledPlugins",
             "mcpServers",
             "autoMemoryEnabled",
             "autoMemoryDirectory",
         ] {
-            assert!(settings.get(dropped).is_none(), "{dropped}");
+            assert!(settings.get(kept).is_some(), "{kept}");
         }
         assert!(
             settings["hooks"]["Stop"][0]["hooks"][0]["command"]
@@ -163,84 +155,84 @@ fn lc2_a_child_starts_from_its_own_settings() {
 }
 
 #[tokio::test]
-async fn lc2_the_users_output_style_never_shapes_a_child() {
-    let s = setup();
-    s.user_file(
-        "settings.json",
-        r#"{"outputStyle":"Learning","enabledPlugins":{"p@m":true},"mcpServers":{"a":{"command":"a"}},"permissions":{"allow":["Read(x)"]}}"#,
-    );
-    let launcher = plugin_launcher(&s);
-    let (argv, env) = launcher
-        .launch_on(
-            folders(&s.dir),
-            "7",
-            "1",
-            &s.cwd,
-            None,
-            Role::Agent,
-            &lean_pair(false, Extras::default()),
-        )
-        .await
-        .unwrap();
-    assert_eq!(env["CLAUDE_CODE_DISABLE_AUTO_MEMORY"], "1");
-    assert!(has(&argv, "--strict-mcp-config"));
-    let settings = read(Path::new(Setup::after(&argv, "--settings").unwrap()));
-    assert_eq!(settings.get("outputStyle"), None);
-    assert_eq!(
-        settings["permissions"]["allow"],
-        json!(["Read(x)", "mcp__roundup__*"])
-    );
-    let config = read(Path::new(Setup::after(&argv, "--mcp-config").unwrap()));
-    assert_eq!(config["mcpServers"].as_object().unwrap().len(), 1);
+async fn lc2_the_users_output_style_shapes_a_child() {
+    for output_style in [Some("Learning"), None] {
+        for (row, role, pair) in
+            lean_children()
+                .into_iter()
+                .chain([(Role::Agent, Role::Agent, Pair::default())])
+        {
+            let s = setup();
+            s.user_file("CLAUDE.md", "USER GLOBAL RULE");
+            let mut user = json!({"enabledPlugins":{"p@m":true},"mcpServers":{"a":{"command":"a"}},"autoMemoryEnabled":true,"autoMemoryDirectory":"/user-memory"});
+            if let Some(style) = output_style {
+                user["outputStyle"] = json!(style);
+            }
+            s.user_file("settings.json", &user.to_string());
+            let launcher = plugin_launcher(&s);
+            let (argv, env) = launcher
+                .launch_on(folders(&s.dir), "7", "1", &s.cwd, None, role, &pair)
+                .await
+                .unwrap();
+            for flag in [
+                "--strict-mcp-config",
+                "--setting-sources",
+                "--disable-slash-commands",
+            ] {
+                assert!(!has(&argv, flag), "{row:?}: {flag}");
+            }
+            assert!(!env.contains_key("CLAUDE_CODE_DISABLE_AUTO_MEMORY"));
+            assert_eq!(argv.iter().filter(|arg| *arg == "--plugin-dir").count(), 3);
+            let tools = match row {
+                Role::Door => Some("Read,Grep,Glob,ToolSearch,Skill,AskUserQuestion"),
+                Role::Scout => Some("Read,Grep,Glob,Bash,ToolSearch,AskUserQuestion"),
+                Role::Agent => None,
+            };
+            assert_eq!(Setup::after(&argv, "--tools"), tools);
+            let settings = read(Path::new(Setup::after(&argv, "--settings").unwrap()));
+            for (key, value) in user.as_object().unwrap() {
+                assert_eq!(&settings[key], value, "{row:?}: {key}");
+            }
+            assert!(
+                !settings["env"]
+                    .as_object()
+                    .unwrap()
+                    .contains_key("CLAUDE_CODE_DISABLE_AUTO_MEMORY")
+            );
+            let brief = std::fs::read_to_string(s.dir.join("agents/7.brief.md")).unwrap();
+            assert!(brief.contains("USER GLOBAL RULE"));
+            assert_eq!(
+                brief.contains("hold:Plain"),
+                output_style.is_none(),
+                "{row:?}"
+            );
+            assert_eq!(
+                brief.contains(&asset("hold-plain.md")),
+                output_style.is_none() && row == Role::Agent
+            );
+            if output_style.is_none() {
+                assert!(settings.get("outputStyle").is_none());
+            }
+        }
+    }
 }
 
 #[test]
-fn lc3_the_door_launches_lean_and_its_brief_omits_the_plain_body() {
+fn lc2_no_user_output_style_gets_plain() {
     let s = setup();
-    s.user_file("CLAUDE.md", "USER GLOBAL RULE");
-    let argv = s.prepare_as("7", Role::Door).unwrap();
-    assert_eq!(
-        Setup::after(&argv, "--tools"),
-        Some("Read,Grep,Glob,ToolSearch,Skill")
-    );
-    assert!(!has(&argv, "--disable-slash-commands"));
-    assert_eq!(Setup::after(&argv, "--setting-sources"), Some(""));
-    assert!(!has(&argv, "--plugin-dir"));
-    let text = std::fs::read_to_string(Setup::after(&argv, "--append-system-prompt-file").unwrap())
-        .unwrap();
-    assert!(!text.contains(&asset("hold-plain.md")));
-    assert!(!text.contains("USER GLOBAL RULE"));
-    assert!(text.contains("Where the Project's `CLAUDE.md` asks for something else, follow it."));
-    assert!(!text.contains("hold:Plain"));
-}
-
-#[test]
-fn lc4_a_scout_launches_with_read_tools_and_no_user_instructions() {
-    let s = setup();
-    s.user_file("CLAUDE.md", "USER GLOBAL RULE");
-    let pair = Pair {
-        model: Some("haiku".into()),
-        effort: Some("low".into()),
-        ..lean_pair(true, Extras::default())
-    };
-    let argv = s.prepare_lean("7", Role::Agent, &pair, None).unwrap();
-    assert_eq!(
-        Setup::after(&argv, "--tools"),
-        Some("Read,Grep,Glob,Bash,ToolSearch")
-    );
-    assert!(has(&argv, "--disable-slash-commands"));
-    assert_eq!(Setup::after(&argv, "--model"), Some("haiku"));
-    assert_eq!(Setup::after(&argv, "--effort"), Some("low"));
-    let text = std::fs::read_to_string(Setup::after(&argv, "--append-system-prompt-file").unwrap())
-        .unwrap();
-    assert!(!text.contains("USER GLOBAL RULE"));
-    let old: contracts::agent::SpawnParams =
-        serde_json::from_value(json!({"cwd": "/x", "prompt": null, "parent": null})).unwrap();
-    assert_eq!(old.scout, None);
+    for (_, role, pair) in lean_children() {
+        let argv = s.prepare_lean("7", role, &pair, None).unwrap();
+        let settings = read(Path::new(Setup::after(&argv, "--settings").unwrap()));
+        assert!(settings.get("outputStyle").is_none());
+        let brief =
+            std::fs::read_to_string(Setup::after(&argv, "--append-system-prompt-file").unwrap())
+                .unwrap();
+        assert!(brief.contains("hold:Plain"));
+    }
 }
 
 #[tokio::test]
-async fn lc5_a_worker_gets_the_plugins_and_global_instructions() {
+async fn lc3_the_door_launches_with_the_users_setup_and_its_brief_omits_the_plain_body() {
     let s = setup();
     s.user_file("CLAUDE.md", "USER GLOBAL RULE");
     let launcher = plugin_launcher(&s);
@@ -251,23 +243,58 @@ async fn lc5_a_worker_gets_the_plugins_and_global_instructions() {
             "1",
             &s.cwd,
             None,
-            Role::Agent,
-            &lean_pair(false, Extras::default()),
+            Role::Door,
+            &Pair::default(),
         )
         .await
         .unwrap();
+    assert_eq!(
+        Setup::after(&argv, "--tools"),
+        Some("Read,Grep,Glob,ToolSearch,Skill,AskUserQuestion")
+    );
     assert!(!has(&argv, "--disable-slash-commands"));
-    assert!(!has(&argv, "--tools"));
+    assert!(!has(&argv, "--setting-sources"));
     assert_eq!(argv.iter().filter(|arg| *arg == "--plugin-dir").count(), 3);
     let text = std::fs::read_to_string(Setup::after(&argv, "--append-system-prompt-file").unwrap())
         .unwrap();
-    assert!(text.contains("## The user's global instructions (read-only)\n\nUSER GLOBAL RULE"));
+    assert!(!text.contains(&asset("hold-plain.md")));
+    assert!(text.contains("USER GLOBAL RULE"));
+    assert!(text.contains("Where the Project's `CLAUDE.md` asks for something else, follow it."));
+    assert!(text.contains("hold:Plain"));
+}
+
+#[test]
+fn lc4_a_scout_launches_with_read_tools_and_the_users_setup() {
+    let s = setup();
+    s.user_file("CLAUDE.md", "USER GLOBAL RULE");
+    let pair = Pair {
+        model: Some("haiku".into()),
+        effort: Some("low".into()),
+        ..lean_pair(true, Extras::default())
+    };
+    let argv = s.prepare_lean("7", Role::Agent, &pair, None).unwrap();
+    assert_eq!(
+        Setup::after(&argv, "--tools"),
+        Some("Read,Grep,Glob,Bash,ToolSearch,AskUserQuestion")
+    );
+    assert!(!has(&argv, "--disable-slash-commands"));
+    assert_eq!(Setup::after(&argv, "--model"), Some("haiku"));
+    assert_eq!(Setup::after(&argv, "--effort"), Some("low"));
+    let text = std::fs::read_to_string(Setup::after(&argv, "--append-system-prompt-file").unwrap())
+        .unwrap();
+    assert!(text.contains("USER GLOBAL RULE"));
+    let settings = read(Path::new(Setup::after(&argv, "--settings").unwrap()));
+    assert_eq!(settings["env"]["CLAUDE_CODE_DISABLE_CLAUDE_MDS"], "1");
+    let old: contracts::agent::SpawnParams =
+        serde_json::from_value(json!({"cwd": "/x", "prompt": null, "parent": null})).unwrap();
+    assert_eq!(old.scout, None);
 }
 
 #[tokio::test]
-async fn lc5_only_the_door_among_lean_children_gets_hope() {
-    for (row, role, pair) in lean_children().into_iter().take(2) {
+async fn lc5_every_child_gets_the_plugins_and_global_instructions() {
+    for (row, role, pair) in lean_children() {
         let s = setup();
+        s.user_file("CLAUDE.md", "USER GLOBAL RULE");
         let launcher = plugin_launcher(&s);
         let (argv, env) = launcher
             .launch_on(folders(&s.dir), "7", "1", &s.cwd, None, role, &pair)
@@ -280,16 +307,84 @@ async fn lc5_only_the_door_among_lean_children_gets_hope() {
                 read(&Path::new(&pair[1]).join(".claude-plugin/plugin.json"))["name"].clone()
             })
             .collect();
-        let want = match row {
-            Role::Door => json!(["hope"]),
-            _ => json!([]),
-        };
-        assert_eq!(json!(names), want, "{row:?}");
+        assert_eq!(json!(names), json!(["hope", "hunch", "hold"]), "{row:?}");
         let brief =
             std::fs::read_to_string(Setup::after(&argv, "--append-system-prompt-file").unwrap())
                 .unwrap();
+        assert!(
+            brief.contains("## The user's global instructions (read-only)\n\nUSER GLOBAL RULE")
+        );
         assert_eq!(brief.contains("hope:intent"), row == Role::Door, "{row:?}");
-        assert_eq!(env["CLAUDE_CODE_DISABLE_AUTO_MEMORY"], "1");
+        assert!(!env.contains_key("CLAUDE_CODE_DISABLE_AUTO_MEMORY"));
+    }
+}
+
+#[tokio::test]
+async fn lc5_a_users_installed_plugin_replaces_its_bundled_copy() {
+    for (enabled, want) in [
+        (
+            json!({"hope@personal":true,"hunch@personal":true,"hold@personal":true}),
+            json!([]),
+        ),
+        (
+            json!({"hope@personal":false,"hunch@personal":false,"hold@personal":false}),
+            json!(["hope", "hunch", "hold"]),
+        ),
+        (
+            json!({"hope@personal":true,"hunch@personal":false,"hold@personal":true}),
+            json!(["hunch"]),
+        ),
+    ] {
+        for (row, role, pair) in lean_children() {
+            let s = setup();
+            let install = s.root.path().join("user-plugin");
+            std::fs::create_dir_all(install.join("skills/intent")).unwrap();
+            std::fs::write(install.join("skills/intent/SKILL.md"), "USER INTENT").unwrap();
+            s.user_file(
+                "settings.json",
+                &json!({"enabledPlugins":enabled}).to_string(),
+            );
+            s.user_file(
+                "plugins/installed_plugins.json",
+                &json!({"version":2,"plugins":{
+                    "hope@personal":[{"installPath":install}],
+                    "hunch@personal":[{"installPath":install}],
+                    "hold@personal":[{"installPath":install}]
+                }})
+                .to_string(),
+            );
+            let launcher = plugin_launcher(&s);
+            let launcher = if row == Role::Door && enabled["hope@personal"] == true {
+                launcher.without_intent_skill()
+            } else {
+                launcher
+            };
+            let (argv, _) = launcher
+                .launch_on(folders(&s.dir), "7", "1", &s.cwd, None, role, &pair)
+                .await
+                .unwrap();
+            let names: Vec<_> = argv
+                .windows(2)
+                .filter(|pair| pair[0] == "--plugin-dir")
+                .map(|pair| {
+                    read(&Path::new(&pair[1]).join(".claude-plugin/plugin.json"))["name"].clone()
+                })
+                .collect();
+            assert_eq!(json!(names), want, "{row:?}: {enabled}");
+            let settings = read(Path::new(Setup::after(&argv, "--settings").unwrap()));
+            assert_eq!(settings["enabledPlugins"], enabled);
+            if row == Role::Door && enabled["hope@personal"] == true {
+                let brief = std::fs::read_to_string(
+                    Setup::after(&argv, "--append-system-prompt-file").unwrap(),
+                )
+                .unwrap();
+                assert!(
+                    brief.contains("hope:intent"),
+                    "the user's intent replaces the missing bundle"
+                );
+                assert!(settings.get("statusLine").is_none());
+            }
+        }
     }
 }
 
@@ -327,7 +422,7 @@ async fn lc14_a_door_without_the_intent_skill_starts_and_says_so() {
         .filter(|pair| pair[0] == "--plugin-dir")
         .map(|pair| read(&Path::new(&pair[1]).join(".claude-plugin/plugin.json"))["name"].clone())
         .collect();
-    assert_eq!(json!(names), json!([]));
+    assert_eq!(json!(names), json!(["hunch", "hold"]));
     let brief =
         std::fs::read_to_string(Setup::after(&argv, "--append-system-prompt-file").unwrap())
             .unwrap();
@@ -374,6 +469,7 @@ async fn lc6_a_user_started_agent_keeps_the_users_setup() {
         assert!(!has(&argv, flag), "{flag}");
     }
     assert!(!env.contains_key("CLAUDE_CODE_DISABLE_AUTO_MEMORY"));
+    assert!(!env.contains_key("CLAUDE_CODE_DISABLE_CLAUDE_MDS"));
     assert!(has(&argv, "--settings") && has(&argv, "--mcp-config"));
     let settings = read(Path::new(Setup::after(&argv, "--settings").unwrap()));
     assert_eq!(
@@ -527,8 +623,12 @@ fn lc10_no_launch_uses_bare_safe_mode_or_agent() {
 fn lc11_the_doors_start_allows_no_shell_or_terminal_start() {
     for (mcp, carry_user_rules) in [(true, false), (true, true), (false, false), (false, true)] {
         let s = setup();
+        s.user_file(
+            "settings.json",
+            &json!({"mcpServers":{"personal":{"command":"personal"}}}).to_string(),
+        );
         if carry_user_rules {
-            s.user_file("settings.json", &json!({"permissions":{"allow":["Bash(*)","PowerShell","mcp__roundup__terminal_spawn","mcp__roundup__terminal_open","mcp__roundup__terminal_write","mcp__roundup__agent_run","mcp__roundup__*","Read(*)"]}}).to_string());
+            s.user_file("settings.json", &json!({"mcpServers":{"personal":{"command":"personal"}},"permissions":{"allow":["Bash(*)","PowerShell","mcp__roundup__terminal_spawn","mcp__roundup__terminal_open","mcp__roundup__terminal_write","mcp__roundup__agent_run","mcp__roundup__*","Read(*)"]}}).to_string());
         }
         let argv = s
             .prepare_lean(
@@ -542,6 +642,7 @@ fn lc11_the_doors_start_allows_no_shell_or_terminal_start() {
             )
             .unwrap();
         let settings = read(Path::new(Setup::after(&argv, "--settings").unwrap()));
+        assert_eq!(settings["mcpServers"]["personal"]["command"], "personal");
         let allowed = settings["permissions"]["allow"]
             .as_array()
             .cloned()
@@ -717,6 +818,83 @@ fn a3507b_settings_extend_the_user_setup() {
     }
 }
 
+// A3564b: a native question or permission prompt is the vendor's; no role's launch intercepts,
+// answers or auto-allows it, and the user's own rules and hook survive.
+#[test]
+fn a3564b_native_questions_preserve_each_roles_setup() {
+    let s = setup();
+    let user = json!({
+        "permissions": {
+            "defaultMode": "auto",
+            "allow": ["Bash(git status)", "Read(shared)"],
+            "ask": ["Read(shared)", "Bash(*)"],
+            "deny": ["Read(shared)", "Read(.env)"]
+        },
+        "hooks": {"PermissionRequest": [{"matcher":"", "hooks":[{"type":"command","command":"user-permission-hook"}]}]}
+    });
+    s.user_file("settings.json", &user.to_string());
+    let source = std::fs::read(s.root.path().join("settings.json")).unwrap();
+    let roles = lean_children()
+        .into_iter()
+        .map(|(row, role, pair)| (Some(row), role, pair))
+        .chain([(None, Role::Agent, Pair::default())]);
+    for (row, role, pair) in roles {
+        for mcp in [true, false] {
+            for resume in [None, Some("saved")] {
+                let pair = Pair {
+                    mcp_off: !mcp,
+                    ..pair.clone()
+                };
+                let argv = s.prepare_lean("7", role, &pair, resume).unwrap();
+                let label = format!("{row:?} mcp={mcp} resume={resume:?}");
+                for flag in [
+                    "--permission-mode",
+                    "--dangerously-skip-permissions",
+                    "--allow-dangerously-skip-permissions",
+                    "--allowedTools",
+                    "--disallowedTools",
+                    "--permission-prompt-tool",
+                ] {
+                    assert!(!has(&argv, flag), "{label}: {flag}");
+                }
+                let settings = read(Path::new(Setup::after(&argv, "--settings").unwrap()));
+                let rules = &settings["permissions"];
+                assert_eq!(rules["defaultMode"], "auto", "{label}");
+                assert_eq!(rules["ask"], user["permissions"]["ask"], "{label}");
+                assert_eq!(rules["deny"], user["permissions"]["deny"], "{label}");
+                for rule in rules["allow"].as_array().unwrap() {
+                    let rule = rule.as_str().unwrap();
+                    assert!(
+                        user["permissions"]["allow"]
+                            .as_array()
+                            .unwrap()
+                            .contains(&json!(rule))
+                            || rule.starts_with("mcp__roundup__"),
+                        "{label}: added {rule}"
+                    );
+                }
+                // Routine state hooks observe the request; the user's hook stays and no
+                // other hook is a roundup command that answers.
+                let groups = settings["hooks"]["PermissionRequest"].as_array().unwrap();
+                assert_eq!(groups[0], user["hooks"]["PermissionRequest"][0], "{label}");
+                for group in &groups[1..] {
+                    let command = group["hooks"][0]["command"].as_str().unwrap();
+                    assert!(command.contains("signal"), "{label}: {command}");
+                    assert!(!command.contains("permission"), "{label}: {command}");
+                }
+                if let Some(tools) = Setup::after(&argv, "--tools") {
+                    assert!(tools.split(',').any(|t| t == "AskUserQuestion"), "{label}");
+                }
+            }
+        }
+    }
+    assert_eq!(
+        std::fs::read(s.root.path().join("settings.json")).unwrap(),
+        source,
+        "the user's source settings changed"
+    );
+}
+
 #[test]
 fn a3507a_every_launch_keeps_the_users_gateway() {
     use agents::claude_code::{Lean, PROFILES, Pair};
@@ -866,6 +1044,47 @@ fn a3516c_all_profiles_keep_the_renderer_choice() {
                     }
                 }
             }
+        }
+    }
+}
+
+#[tokio::test]
+async fn lc17_a_lean_child_loads_no_claude_md_by_itself() {
+    for (row, role, pair) in lean_children() {
+        let s = setup();
+        s.user_file("CLAUDE.md", "USER_GLOBAL_TOKEN");
+        std::fs::write(s.dir.parent().unwrap().join("CLAUDE.md"), "PROJECT_TOKEN").unwrap();
+        let launcher = plugin_launcher(&s);
+        let (argv, env) = launcher
+            .launch_on(folders(&s.dir), "7", "1", &s.cwd, None, role, &pair)
+            .await
+            .unwrap();
+        assert_eq!(env["CLAUDE_CODE_DISABLE_CLAUDE_MDS"], "1", "{row:?}");
+        let brief =
+            std::fs::read_to_string(Setup::after(&argv, "--append-system-prompt-file").unwrap())
+                .unwrap();
+        assert_eq!(brief.matches("PROJECT_TOKEN").count(), 1, "{row:?}");
+        assert_eq!(brief.matches("USER_GLOBAL_TOKEN").count(), 1, "{row:?}");
+    }
+}
+
+#[test]
+fn lc16_no_role_hides_slash_commands() {
+    let roles = agents::claude_code::PROFILES.iter().map(|(role, _)| *role);
+    for role in roles.chain([Role::Agent]) {
+        for pair in [
+            Pair::default(),
+            lean_pair(false, Extras::default()),
+            lean_pair(true, Extras::default()),
+        ] {
+            let s = setup();
+            let argv = s.prepare_lean("7", role, &pair, None).unwrap();
+            assert!(!has(&argv, "--disable-slash-commands"), "{role:?}");
+            assert!(
+                !has(&argv, "--setting-sources")
+                    || Setup::after(&argv, "--setting-sources") != Some(""),
+                "{role:?}"
+            );
         }
     }
 }

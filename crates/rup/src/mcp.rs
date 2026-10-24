@@ -6,8 +6,8 @@ use std::process::ExitCode;
 use std::time::Duration;
 
 use contracts::{
-    Actor, ActorKind, HistoryParams, IdentifyParams, TouchedParams, agent, checkpoint, decision,
-    deliverable, link, message, pad, project, reaction, terminal, todo, workstream,
+    Actor, ActorKind, HistoryParams, IdentifyParams, TouchedParams, agent, checkpoint, deliverable,
+    link, message, pad, project, reaction, terminal, todo, workstream,
 };
 use rmcp::model::{
     CacheScope, CallToolRequestParams, CallToolResponse, CallToolResult, ContentBlock,
@@ -30,8 +30,7 @@ pub(crate) const CALL_TIMEOUT: Duration = Duration::from_secs(10);
 mod agent_tools;
 use agent_tools::{
     agent_context, agent_digest, agent_extras, agent_extras_add, agent_set_order, agent_spawn,
-    agent_wake, checkpoint_write, decision_answer, workstream_handoff, workstream_rewind,
-    workstream_rewind_plan,
+    agent_wake, checkpoint_write, workstream_handoff, workstream_rewind, workstream_rewind_plan,
 };
 
 const TOOLS_TTL_MS: u64 = 3_600_000;
@@ -102,29 +101,6 @@ fn offered<P: JsonSchema>(method: &'static str, description: &'static str) -> Of
         unreachable!("a params struct's schema is an object");
     };
     offer(method, description, schema, true)
-}
-
-/// H14: the one tool that is not a method's name with the dot replaced; the Agent asks the user and the call returns the answer.
-fn ask_user() -> Offered {
-    let Ok(Value::Object(schema)) =
-        serde_json::to_value(schemars::schema_for!(decision::AskParams))
-    else {
-        unreachable!("a params struct's schema is an object");
-    };
-    Offered {
-        method: "agent.ask",
-        tool: Tool::new(
-            "ask_user",
-            "Ask the user a decision with up to four answers, each with its tradeoff and optionally a preview sketch. Waits for the user and returns `{answer, note}`: the label they picked or null for their own answer, and their note.",
-            schema,
-        ),
-        takes_params: true,
-        own_id: false,
-        own_reader: false,
-        waits_for_user: true,
-        door_only: false,
-        stream: false,
-    }
 }
 
 fn offered_without_params(method: &'static str, description: &'static str) -> Offered {
@@ -353,6 +329,10 @@ fn offered_tools() -> Vec<Offered> {
             "link.read",
             "Read a Project roundup:// link: current Pad, Todo, Agent, Workstream or Terminal content, or a Deliverable recorded revision/current external target and its availability.",
         ),
+        offered::<project::ImportListParams>(
+            "import.list",
+            "Read-only: list this Project's saved and live top-level Claude Code sessions active in the period, once each, with the revision to approve. Starts no import and spends no Model turn.",
+        ),
         offered_without_params("pad.list", "List every Pad."),
         offered::<pad::WriteParams>(
             "pad.write",
@@ -402,10 +382,6 @@ fn offered_tools() -> Vec<Offered> {
             "message.list",
             "List the Messages you sent or received, newest last.",
         ),
-        offered::<message::MessageId>(
-            "message.pass",
-            "Pass a question sent to you on to the next Door above, at once.",
-        ),
         offered::<todo::MoveParams>(
             "todo.move",
             "Move a Todo into a Workstream, or out of every Workstream with a null `home`.",
@@ -435,10 +411,7 @@ fn offered_tools() -> Vec<Offered> {
             "rail.startDoor",
             "Start the Door of a Workstream you made, or of one in your Reach. It asks the user what the Workstream is for.",
         ),
-        offered::<agent::RenameParams>(
-            "rail.rename",
-            "Rename yourself or a node in your Reach. During Takeover, a waiting receipt means accepted, not executed; read agent_actionHistory for its outcome.",
-        ),
+        offered::<agent::RenameParams>("rail.rename", "Rename yourself or a node in your Reach."),
         offered::<agent::MoveParams>(
             "rail.move",
             "Move a node in your Reach: an Agent under a Workstream or Agent, a Workstream only to the root.",
@@ -447,17 +420,14 @@ fn offered_tools() -> Vec<Offered> {
             "rail.remove",
             "Remove a node in your Reach, never yourself. Its children move to its parent.",
         ),
-        offered::<agent::NodeId>(
-            "agent.stop",
-            "Stop an Agent in your Reach, never yourself. During Takeover, a waiting receipt means accepted, not executed; read agent_actionHistory for its outcome.",
-        ),
+        offered::<agent::NodeId>("agent.stop", "Stop an Agent in your Reach, never yourself."),
         offered::<agent::NodeId>(
             "agent.interrupt",
-            "Interrupt the turn of an Agent in your Reach. During Takeover, a waiting receipt means accepted, not executed; read agent_actionHistory for its outcome.",
+            "Interrupt the turn of an Agent in your Reach.",
         ),
         offered::<agent::PromptParams>(
             "agent.prompt",
-            "Send a prompt to an Agent in your Reach as the user would. During Takeover, a waiting receipt means accepted, not executed; read agent_actionHistory for its outcome.",
+            "Send a prompt to an Agent in your Reach as the user would.",
         ),
         offered::<agent::ResumeParams>(
             "agent.resume",
@@ -501,11 +471,6 @@ fn offered_tools() -> Vec<Offered> {
             "checkpoint.list",
             "List the Checkpoints of a Workstream, oldest first.",
         ),
-        offered_without_params(
-            "decision.list",
-            "List the open Decisions of the Agents below you: their permission requests and `ask_user` questions.",
-        ),
-        decision_answer(),
         offered::<terminal::TerminalId>(
             "terminal.screen",
             "Read a Terminal's screen as it is now, as plain text, with the `offset` to read from next. Only the Terminals of your Runs and your Workstream.",
@@ -518,7 +483,7 @@ fn offered_tools() -> Vec<Offered> {
         terminal_show(),
         offered::<message::SetRouteParams>(
             "route.set",
-            "Set where one Agent's Messages to another go: `auto`, `ask-first` or `drop`. Both must be you or in your Reach; never a Route to yourself, and never over a Route the user set.",
+            "Set where one Agent's Messages to another go: `auto` or `drop`. Both must be you or in your Reach; never a Route to yourself, and never over a Route the user set.",
         ),
         offered::<terminal::SpawnParams>(
             "terminal.spawn",
@@ -536,27 +501,19 @@ fn offered_tools() -> Vec<Offered> {
         ),
         offered::<terminal::TerminalId>(
             "terminal.close",
-            "Stop a Terminal you or your Reach own and forget it. During Takeover, a waiting receipt means accepted, not executed; read agent_actionHistory for its outcome.",
+            "Stop a Terminal you or your Reach own and forget it.",
         ),
         offered::<terminal::WriteParams>(
             "terminal.write",
-            "Type base64 `data` into a Terminal you or your Reach own. To prompt, interrupt or stop an Agent, or to answer its Decision, use `agent_prompt`, `agent_interrupt`, `agent_stop` or `decision_answer`; type keystrokes only when no direct tool does. During Takeover, a waiting receipt means accepted, not executed; read agent_actionHistory for its outcome.",
+            "Type base64 `data` into a Terminal you or your Reach own. To prompt, interrupt or stop an Agent, use `agent_prompt`, `agent_interrupt` or `agent_stop`; type keystrokes only when no direct tool does.",
         ),
         offered::<terminal::ResizeParams>(
             "terminal.resize",
-            "Resize a Terminal you or your Reach own to `cols` by `rows`. During Takeover, a durable waiting receipt means accepted, not executed; read terminal_resizeHistory for its outcome.",
-        ),
-        offered::<terminal::TerminalId>(
-            "terminal.resizeHistory",
-            "Read your accepted resize actions and their outcomes, even after the Terminal is gone. Waiting means the user holds Takeover; a dropped reason explains why no retry was made.",
+            "Resize a Terminal you or your Reach own to `cols` by `rows`.",
         ),
         offered::<terminal::TerminalId>(
             "terminal.kill",
-            "Stop the program of a Terminal you or your Reach own. During Takeover, a waiting receipt means accepted, not executed; read agent_actionHistory for its outcome.",
-        ),
-        offered::<agent::NodeId>(
-            "agent.actionHistory",
-            "Read your durably accepted child actions and their outcomes. Waiting means accepted, not executed; do not resubmit it. A dropped reason explains an unavailable or uncertain effect.",
+            "Stop the program of a Terminal you or your Reach own.",
         ),
         offered::<agent::NodeId>(
             "agent.instructions",
@@ -566,7 +523,6 @@ fn offered_tools() -> Vec<Offered> {
         agent_wake(),
         agent_set_order(),
         agent_run(),
-        ask_user(),
         agent_spawn(),
     ]
 }
@@ -624,34 +580,10 @@ pub(crate) async fn display_data(
                 }
             }
         }
-        "agent.context" => {
-            // A Door asks the user; only an Agent destination needs a Rail name.
-            if result["ask"]["to"].as_str().is_some_and(|to| to != "you") {
-                let nodes = rail_nodes(client).await?;
-                result["ask"]["name"] = rail_name(&nodes, &result["ask"]["to"]).into();
-            }
-        }
-        "decision.list" => {
-            let decisions = result
-                .as_array_mut()
-                .ok_or_else(|| RpcError::internal("invalid Decision list"))?;
-            if !decisions.is_empty() {
-                let nodes = rail_nodes(client).await?;
-                for decision in decisions {
-                    decision["agent_name"] = rail_name(&nodes, &decision["agent"]).into();
-                    if let Some(actor) = decision
-                        .get_mut("failure")
-                        .and_then(|failure| failure.get_mut("answered_by"))
-                    {
-                        if actor["kind"] == "agent" {
-                            actor["name"] = rail_name(&nodes, &actor["id"]).into();
-                        }
-                        if !actor["parent"].is_null() {
-                            actor["parent_name"] = rail_name(&nodes, &actor["parent"]).into();
-                        }
-                    }
-                }
-            }
+        // A Door asks the user; only an Agent destination needs a Rail name.
+        "agent.context" if result["ask"]["to"].as_str().is_some_and(|to| to != "you") => {
+            let nodes = rail_nodes(client).await?;
+            result["ask"]["name"] = rail_name(&nodes, &result["ask"]["to"]).into();
         }
         _ => {}
     }
@@ -662,9 +594,7 @@ pub(crate) async fn display_data(
 pub(crate) fn success_text(method: &str, params: &Value, result: Value) -> String {
     let unit = contracts::methods::METHODS
         .iter()
-        .any(|m| m.name == method && m.result == "null")
-        // A held answer is a receipt; an answer that ran has nothing to return.
-        || method == "decision.answer" && result.is_null();
+        .any(|m| m.name == method && m.result == "null");
     if !unit {
         return result.to_string();
     }
@@ -674,14 +604,6 @@ pub(crate) fn success_text(method: &str, params: &Value, result: Value) -> Strin
     };
     let id = field("id");
     match method {
-        "decision.answer" => {
-            let answer = if params["answer"].is_null() {
-                field("note")
-            } else {
-                field("answer")
-            };
-            format!("answered Decision {id}: {answer}")
-        }
         "todo.delete" => format!("deleted Todo {id}"),
         "deliverable.remove" => format!("removed publication {id}"),
         "pad.delete" => format!("deleted Pad {}", field("name")),

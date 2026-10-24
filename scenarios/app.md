@@ -2,7 +2,7 @@
 
 Module: `crates/desktop` (the App: Tauri shell, App seam). Ids: every `S` heading in the file.
 
-The App is the Tauri 2 shell in `crates/desktop` (ADR 0001). It starts a Daemon for each open Project and passes calls and events between the webview (`apps/desktop`, see `ui.md`) and that Daemon. It holds no state of its own beyond which Projects are open, their names (`project-tabs.md`, S10) and the list of recently opened Projects (S6). Tests use Tauri's mock runtime (`tauri::test`) and need no window. A fake `rupd` comes from `ROUNDUP_RUPD_BIN`; a real Daemon runs in-process on a temp socket (`rupd` as a dev-dependency).
+The App is the Tauri 2 shell in `crates/desktop` (ADR 0001). It starts a Daemon for each open Project and passes calls and events between the webview (`apps/desktop`, see `ui.md`) and that Daemon. It holds no state of its own beyond which Projects are open, their names (`project-tabs.md`, S10), the list of recently opened Projects (S6), and the selected Project for native menu dispatch (U3813). Tests use Tauri's mock runtime (`tauri::test`) and need no window. A fake `rupd` comes from `ROUNDUP_RUPD_BIN`; a real Daemon runs in-process on a temp socket (`rupd` as a dev-dependency).
 
 ## App seam
 
@@ -10,6 +10,7 @@ The App is the Tauri 2 shell in `crates/desktop` (ADR 0001). It starts a Daemon 
 
 | Webview calls (Tauri command) | Arguments | Result |
 |---|---|---|
+| `select_project_menu` | `{path: string or null}` | `null`; the webview synchronizes its selected Project whenever tabs change; native Project commands stay present and disabled for null (U3813). Starts no Daemon and sends no prompt. |
 | `projects` | none | `[{name, path, running}]`, the open Projects in tab order (S8) |
 | `open_project` | `{path}` (absolute) | `{name, path}`; the Project joins the end of `projects` (S8) |
 | `close_project` | `{path}` | `null`; the Project's Daemon ends (S8) |
@@ -18,11 +19,11 @@ The App is the Tauri 2 shell in `crates/desktop` (ADR 0001). It starts a Daemon 
 | `subscribe` | `{path, channel, after?}` (a Tauri `Channel`; `after` an Event number) | the Daemon's `head` (D11, I9); then, with `after`, every saved Event numbered above it, then every Event of that Project's Daemon, is sent on the channel, in the Daemon's order |
 | `recent_projects` | none | the absolute paths of recently opened Projects, most recent first (S6) |
 | `claude_binary` | none | `{path, version}` of the `claude` the App would run, or `null` (S6) |
-| `daemon_proof` | `{path}` | the `proof` string the App gave that Project's Daemon, which `decision.answer` needs (H4); it never reaches an Agent |
 | `open_in_editor` | `{path, line?}` (an absolute directory or file) | `null`; the directory, or the file at `line` when the editor takes one, opens in the user's code editor (`ui-rail-actions.md` U429, `ui-worktree-changes.md` U2539c) |
 
 | App emits (Tauri event) | Payload | Result |
 |---|---|---|
+| `open-project-page` | `{path, command: "import-work" or "project-settings"}` | Native Project menu activation captures its synchronized selected Project; only that Project opens its center page (U3813/U3814). No selection emits nothing. |
 | `open-app-settings` | none | The webview opens App Settings in the center (U3799); works without an open Project. |
 
 Every command fails with `{code, message}`, using the codes in `rpc::code`; an error from the Daemon passes through unchanged. When the Daemon ends while the App runs, the App emits the Tauri event `daemon-exited` with `{path, code: number | null}`. `scenarios/project-tabs.md` (S8 to S10) holds the several-Project rules this table follows; where S1, S2, S3 and S5 say one Project or one Daemon, they now say it of each.

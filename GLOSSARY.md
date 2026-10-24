@@ -18,7 +18,6 @@ The single collection of App-authored labels and parameterised prose, separate f
 | Code term | User label in App prose |
 | --- | --- |
 | Door | supervisor |
-| Takeover | control |
 | Shelf | work items |
 | Handoff | summary |
 
@@ -26,8 +25,6 @@ The single collection of App-authored labels and parameterised prose, separate f
 | --- | --- |
 | Start Door | Start supervisor |
 | Retry Door | Retry supervisor |
-| End Takeover | Give control back |
-| Take over | Take control |
 | Clear without Handoff | Clear without a summary |
 | Clear (prompt submit) | Clear and keep a summary |
 
@@ -59,7 +56,7 @@ never changes an already running Attempt or stores an app-wide default in the Da
 
 **Agent**:
 One supervised identity, with a Status, on the Rail under its Workstream; each launch of its program is an Attempt, and at most one runs at a time.
-_Avoid_: bot, worker; and _session_ for an Agent (only a Grant's `session` scope, Claude Code's own word, may carry it).
+_Avoid_: bot, worker; and _session_ for an Agent.
 
 **Terminal**:
 A shell or program roundup started, with a screen the user can watch; no Status beyond running or exited. Never a Rail row and never stored: it ends with the Daemon, with its owner's removal or when the user closes it. An Agent's own Terminal is its pane; any other is shown as a Bubble. A user-opened Terminal belongs to a Workstream, or to the Project before its first Workstream; a Project-owned Terminal uses the absolute Project folder path as its owner.
@@ -171,8 +168,8 @@ What the Daemon's evaluator knows of an Agents Reaction: the Event `cursor` it d
 **Mark**:
 The Daemon’s durable record of one Agent at a Checkpoint: the end of its conversation and a snapshot of its tracked and untracked working files git does not ignore. A complete set belongs to one Iteration; invalidated Marks remain stored but unusable (A35).
 
-**Rewind** (`workstream.rewindPlan`, `workstream.rewind`, `workstream.rewound`, `workstream_rewindPlan`, `workstream_rewind`, `HeldCall::Rewind`):
-A Door's tool call that takes one child, or every child of its Workstream, back to one of its Checkpoints: each rewound Agent restarts on a copy of its conversation cut at its Mark, and the working files return to the Mark only when the call says `restore`. A child that started after the Checkpoint leaves the Rail. A child the user holds in Takeover waits as a Held action. It is not Claude Code's own `/rewind`, which the user types in a child's Terminal, and it never types one (A35).
+**Rewind** (`workstream.rewindPlan`, `workstream.rewind`, `workstream.rewound`, `workstream_rewindPlan`, `workstream_rewind`):
+A Door's tool call that takes one child, or every child of its Workstream, back to one of its Checkpoints: each rewound Agent restarts on a copy of its conversation cut at its Mark, and the working files return to the Mark only when the call says `restore`. A child that started after the Checkpoint leaves the Rail. It is not Claude Code's own `/rewind`, which the user types in a child's Terminal, and it never types one (A35).
 _Avoid_: roll back
 
 **Checkpoint**:
@@ -182,13 +179,19 @@ A short card of facts a Door writes when its Workstream's work reaches a point w
 One part of a Checkpoint that the Door chooses: `rows` (label and value), `table`, `diagram` (Mermaid source) or `text`, each with an optional title (M10).
 
 **Rollup**:
-The one Message that stands for the pushed Digests a window's cap held back (B22), or the merge of the oldest two when more than 20 are open. Each pushed Digest has a weight, the number of changes it stands for, so no cap loses a count.
+The one Message that stands for the pushed Digests a window's cap kept back (B22), or the merge of the oldest two when more than 20 are open. Each pushed Digest has a weight, the number of changes it stands for, so no cap loses a count.
 
 **Attempt**:
 One launch of an Agent's program, numbered per Agent from `1` in launch order (A20). It travels in the hook command, `SignalParams`, `StatusEvent` and `RailNode.attempt` as a canonical positive decimal string within SQLite's signed 64-bit range; a client may compare two of one Agent and reads nothing else from it. Never a Rail identity or a vendor conversation id; the last one survives stop, failure and reopen.
 
 **Status revision**:
 The strictly increasing ordinal of published Status transitions within one Attempt, `1` at Starting. A canonical positive decimal string on the wire; absent after reopen. Never stands in for an Attempt or Terminal liveness.
+
+**Finish count** (`Status.finished`):
+The Agent's published finishes: a canonical nonnegative decimal string that rises once per direct `working` to `idle` or `done` Status transition, across Attempts and reopen (U3566c). It says a turn ended, not that its result was accepted.
+
+**Unseen** (`unseen`, `UnseenState`; user label: Unread result):
+An Agent whose finish count is above the count the user has read, kept by the App per original Project and Agent. Opening the Agent, or displaying its pane in the visible, focused, active Project, reads it. A folded Workstream and a Project tab show it when any Agent below or in them is unseen. Never Terminal unseen output (U3704) and never counted by the Dock badge.
 
 **Resume** (`ResumeParams`, `ResumeMode`):
 Starting an Agent's next Attempt in its saved conversation; an explicit mode first stops a running Attempt. Omitted mode resumes only an exited Agent with normal prompts.
@@ -201,6 +204,9 @@ Available display parts from a closed Agent's saved conversation: coding program
 
 **Import** (`project.importDiscover`, `project.importCommit`, `ImportPeriod`, `ImportCandidate`, `ImportSelection`, `ImportResult`):
 The user's act of bringing recent top-level Claude Code conversations of the open Project into the Rail as closed work: one Workstream with one closed child Agent each, holding a retained copy of the conversation and no Attempt, Terminal or live Status. A candidate's `revision` binds the confirmation to the records previewed; a conversation already in the Project, imported earlier or since removed is not selectable again. Agents never import. Files come from the Project's current Base, never a recovered historical filesystem.
+
+**Vendor listing sidecar** (`import.list`, `ImportList`, `ImportListed`, `ImportLive`):
+The read-only listing of the Project's saved and live top-level Claude Code sessions, each once with the `revision` an approval binds to. The Adapter runs a bundled Node program with the pinned TypeScript Agent SDK only while a listing runs and reaps it after; opening a Project starts none. A missing or incompatible runtime or CLI is an error naming its cause and recovery, never an empty list.
 
 **Conversation card** (`ConversationCard`, `ConversationOverview.card`):
 The available intent, shape, facts and outcome rebuilt from assistant card blocks, each key from its newest well-formed value. An empty facts list clears older facts and is omitted from the displayed parts.
@@ -344,6 +350,9 @@ An image pasted or dropped into a Message's draft, shown inline as its name and 
 The copy of a pasted image the Daemon keeps under its data folder (`attachment.save`) so a path can name it in a Message; a native-dropped Attachment needs none.
 _Avoid_: upload, temp image
 
+**Clipboard write** (`writeClipboardText`):
+The App's act of placing the user's selected or action-defined text on the system clipboard. It grants no Agent access to the clipboard.
+
 **Pasted image**:
 An image `⌘V` read from the clipboard into a Terminal: the App seam command `save_pasted_image` saves its bytes as a file in the OS cache folder, and the Terminal pastes that file's path as a File drop does (U418). Not an **Attachment**, which is a Message's draft.
 
@@ -392,7 +401,7 @@ An extra label after a name; it never changes the Glyph.
 The Status label, in a Rail row's `title` and the Agent's pane; the Rail draws none.
 
 **Unseen** (`unseen`, user label: Unread result):
-An Agent's turn finish the user has not yet viewed. It is separate from Kind, a Decision, result acceptance and unseen output in a plain Terminal.
+An Agent's turn finish the user has not yet viewed. It is separate from Kind, result acceptance and unseen output in a plain Terminal.
 
 **Finish count** (`finished`):
 The number of an Agent's observed Kind transitions directly from `working` to `idle` or `done`, across its Attempts. It identifies newer finishes without claiming that their results were accepted or checked.
@@ -423,14 +432,8 @@ _Avoid_: cancel, abort
 **Toast**:
 A small card with an Agent's Glyph, its name and one line, shown for a moment when that Agent needs the user, fails or changes the user's work; it hides by itself and is never kept in a list.
 
-**Takeover**:
-The user typing into an Agent directly; meanwhile no other Actor sends it anything.
-
-**Watch**:
-The user reading an Agent's Terminal pane without typing into it; no Takeover, so nothing is held and no work stops.
-
 **Work order**:
-The ask an Agent works on, optionally its Done condition, and its limits, rules that each read on their own, such as "Change no file in the repo", held on the Agent's Rail node. Not a Work Issue.
+The ask an Agent works on, optionally its Done condition, and its limits, rules that each read on their own, such as "Change no file in the repo", kept on the Agent's Rail node. Not a Work Issue.
 
 **Instruction** (`Instruction`, `InstructionRevision`, `Instructions`, `agent.instructions`, `agent_instructions`):
 Exact Work order values or a Message's identity and body, retained under a never-reused Project revision with its original Agent and Workstream. A replacement is a new revision even with equal bytes; Home follows the user's placement while historical attribution stays fixed.
@@ -444,7 +447,7 @@ The sentence in a Work order that says how the Agent knows it is done (`order.do
 **Captured Order** (`CapturedOrder`, `SetOrderParams.captured`):
 The exact Order (including its absence) read with an editor's original Project and
 Rail node id. `agent.setOrder` compares it and replaces the Order in one storage
-transaction at execution, including after a Held action: a changed base is
+transaction at execution: a changed base is
 `CONFLICT`, a removed id is `NOT_FOUND`, and refusal produces no Touch, Event or
 Steer. Omission keeps unconditional writes. It grants no authority.
 
@@ -470,7 +473,7 @@ What `agent.context` returns for one Agent: its own Status, its parent, whom to 
 Whether one Agent's `roundup` MCP server (`rup mcp <id>`) has reported to the Daemon: `pending`, `up` or `missing`. Not the vendor's own channels feature.
 
 **Claude inbox**:
-Claude Code's own messaging socket for a message from another Claude Code instance, which the Adapter uses for non-user Messages, notes and questions, instead of typing them (B50). The Rail fact `inbox` is `ok`, `missing` or `mismatch` (B51). Not the user's Inbox.
+Claude Code's own messaging socket for a message from another Claude Code instance, which the Adapter uses for every Message to an Agent, notes and questions, never typing them (B50, B3563c). The Rail fact `inbox` is `ok`, `missing` or `mismatch` (B51). Not the user's Inbox.
 
 **Mcp**:
 The Project setting `mcp {on}` (`project.setMcp`, M2219): with `on` false, or the Daemon's `ROUNDUP_MCP=off`, an Agent starts with no `roundup` MCP server and its Brief names `rup` commands. Only Agents started afterward change.
@@ -494,7 +497,7 @@ How much an Agent's Model reasons per turn, picked with the Model (P8); an opaqu
 The kind of Agent roundup starts, which a Project's Model and Effort are set for: `door` or `subagent`, one list in `crates/agents` that every surface reads. A **scout** is a Subagent started with `scout: true` for reading and searching only (LC4); it takes the Subagent's Model and Effort and is no third entry. A **standing specialist** is a scout kept for one kind of reading, named by `SpawnParams.specialist` within its Workstream (LC12). Not a Kind (a Status).
 
 **Usage**:
-The share of the user's plan limits that an Agent's turns spend (P9, P10).
+The share of the user's plan limits that an Agent's turns spend (P9, P10). roundup reads, sums and shows no figure of it (P14).
 
 **Evaluator**:
 A small model run inside the Daemon for a routine judgement at no frontier-model cost; a spike (B27), not yet built.
@@ -506,22 +509,19 @@ The conversation with a Workstream's Door about that Workstream's work, not a se
 _Avoid_: chat, main agent
 
 **Message**:
-A typed envelope `{from, to, kind, body, replyTo}` between Actors, with a status of `pending`, `held`, `delivered` or `dropped`. `delivered` means the Agent's Signal confirmed the prompt that carried it, not that it was typed (B39).
+A typed envelope `{from, to, kind, body, replyTo}` between Actors, with a status of `pending`, `delivered` or `dropped`. An Agent-addressed Message is written to the receiving Attempt's Claude inbox, never typed into a Terminal; it is `delivered` only when its transcript receipt arrives (B3563c).
 
-**In-flight record** (`message_flight`, `SignalOutcome`, `Agents::observe_prompts`, `Messages::confirm_prompt`):
-The saved mark that a pending Message was typed in a prompt and its `UserPromptSubmit` Signal has not confirmed it; a Message is `delivered` only when that Signal arrives, and a prompt that only repeats delivered Messages is dropped by the hook (B39, B40).
+**In-flight record** (`message_flight`):
+The saved mark that a pending Message was written to the receiving Attempt's Claude inbox and its transcript receipt has not arrived; a Message is `delivered` only when that receipt arrives (B50, B52).
 
 **Restart reservation**:
-The Daemon coordinator's durable hold on Message delivery to a retained Agent during its conversation restart (A35), separate from a Takeover. Pending and held Messages keep their states and Reasons until release after SessionStart and the reserved first prompt, which the Door's Thread records once without another Steer.
+The Daemon coordinator's durable protection of Message delivery to a retained Agent during its conversation restart (A35). Pending Messages keep their states and Reasons until release after SessionStart and the reserved first prompt, which the Door's Thread records once without another Steer.
 
 **Retirement reservation**:
-The Daemon coordinator's durable protection of a selected later Agent's existing Messages during A35 removal from the Rail. Completion keeps those records unchanged and permanently ineligible for typing, separate from a retained Agent's Restart reservation and from Takeover consent.
+The Daemon coordinator's durable protection of a selected later Agent's existing Messages during A35 removal from the Rail. Completion keeps those records unchanged and permanently ineligible for delivery, separate from a retained Agent's Restart reservation.
 
 **Route**:
-A sender→receiver pair with a delivery value: `auto | ask-first | drop`.
-
-**Held**:
-A Message waiting on an ask-first Route, the end of a Takeover, the submit or clear of unsent input, or the user's answer to an escalated question.
+A sender→receiver pair with a delivery value: `auto | drop`.
 
 **Draft** (`draftStorage`):
 Unsubmitted user-entered content and selections belonging to one original Project,
@@ -529,59 +529,18 @@ surface, object and recipient, separate from a vendor's live editor. A revision 
 one exact recovery snapshot, whether current, pending, failed or of unknown acceptance;
 acknowledgement or explicit selected discard consumes only that revision (U2773a/b/e).
 
-**Unsent input**:
-The bytes the user wrote to an Agent's Terminal since the last submit or clear. While there are any, no Message is typed there (B32).
-
 **Reason**:
-The word on a held or dropped Message saying why: `ask-first`, `takeover` or `escalated` or `inbox` (held); `receiver gone`, `not accepted` or `passed` (dropped).
-
-**Hop**:
-One Message of a bubbling question: sent to an Agent, then to each Agent above it in its Workstream, nearest first, ending with the Door, each linked to the one before by `passedFrom`. A hop passes when its Agent answers nothing within 60 000 ms or calls `message.pass`; the chain ends at the Escalated question.
-
-**Escalated question**:
-The Message to the user that ends a bubbling question: `held` with the reason `escalated`, never `delivered` until the user answers it.
+The word on a dropped Message saying why: `receiver gone`, `not accepted`, `removed` or `merged`.
 
 **Card**:
-Anything the user sees in the app (a permission request, a question, an Inbox Message, a status, a summary); it has a kind.
+Anything the user sees in the app (an Inbox Message, a status, a summary); it has a kind.
 _Avoid_: popup
 
 **Markdown**:
 The text format an Agent writes; `renderMarkdown` draws it as elements on every surface of generated text (`scenarios/plain-text.md` Q10), and text the user typed is not drawn.
 
-**Decision**:
-The kind of Card that blocks an Agent on a live hook or tool call; the user answers any of them, and an Agent answers only those of Agents in its Reach, never its own (`scenarios/decisions.md` H21). An Agent's `ask_user` call is one, answered with one of its listed answers (outcome `answered`).
-
-**Grant** (`Decision.scopes`, `Decision.risk`, `decision.answer.scope`, `decision.revoke`):
-How long a user's allow lasts: `once`, `session` or `project`, each a permission rule Claude Code itself suggested and the hook reply echoes (`scenarios/decisions.md` H23). Only a `project` Grant can be revoked. `Decision.risk` is `destructive` for a command H23 names; such a Decision offers no `project` Grant.
-
-**Answered Decision** (`AnsweredDecision`, `AnswersParams`, `decision.answers`):
-The Project's durable record of one accepted Decision answer: the full original Decision,
-complete prompt, request kind (`RequestKind`: question or permission), requesting Attempt, exact answer and note, authenticated answering Actor and answer time.
-Its Decision id distinguishes consecutive requests across Daemon runs. The user reads any
-Agent's records; an Agent reads only those in its Reach. Open Decisions stay ephemeral.
-
-**Failed answer** (`FailedAnswer`, `Decision.failure`):
-The latest refused authenticated Agent answer on one original live Decision,
-read through `decision.list` with its Reach filtering: requesting Attempt,
-answering Actor, failure time and exact RPC error code and message. It is not a
-successful answer record; replacement, clearing or successful delivery discards it.
-
-**Prompt identity** (`PromptIdentity`, `CaptureParams`, `decision.capture`):
-The original Decision's identity within one Daemon run, Agent and Attempt. A held answer or answer-like Terminal write carries it into the effect; an answered, dismissed, replaced or unavailable original refuses with an error the Daemon can record as dropped. Equal text and a reused Decision id never revive it. It grants no Reach or Proof.
-
-**Prompt effect**:
-An answer or Terminal write applied to its captured Prompt identity. The check and effect exclude a concurrent answer, replacement or Attempt change; refusal writes no bytes, and a successful effect consumes the identity. It does not store a held action or acquire a Takeover.
-
 **Actor**:
 The user, an Agent, an Extension or the Daemon (as `rupd`) making a call.
-
-**Held action** (`HeldAction`, `HeldCall`, `HeldCall::Stop`, `HeldCall::Interrupt`, `HeldCall::Prompt`, `HeldCall::SetOrder`, `HeldCall::Resume`, `HeldCall::Answer`, `HeldCall::Close`, `HeldCall::Kill`, `HeldCall::Write`, `Agents::prompt_attempt`, `Agents::stop_attempt`, `Agents::interrupt_attempt`, `agent.actionHistory`, `agent_actionHistory`):
-A durably accepted Door action waiting for a child's Takeover to end, with its
-original Actor, target, method and parameters retained. Its outcome records
-waiting, in-progress, completion or a dropped reason; acceptance is not execution.
-
-**Resize action** (`ResizeAction`, `ResizeOutcome`, `terminal.resizeHistory`, `terminal_resizeHistory`):
-An Agent's accepted Terminal resize and its retained outcome: waiting for the child's Takeover, in-progress, completed or dropped with a reason.
 
 **Output stream** (`Output`, `OutputStream`, `Terminals::subscribe_output`, `terminal.output`, `terminal.outputStop`, `OutputStarted`, `OutputEvent`, `OutputGap`, `terminal.gap`):
 One Terminal's bytes with their offsets, delivered only to a connection that selected that Terminal (`scenarios/terminal-stream.md` X14). `terminal.output` selects it and answers the offset of the first byte; the Daemon then pushes `terminal.output` notifications with the bytes and, when the connection fell behind, a `terminal.gap` naming the offsets it dropped, so the App recovers with `terminal.snapshot`. `terminal.outputStop` or closing the connection releases it. Output never enters the Bus.
@@ -611,13 +570,13 @@ The last 1 MiB of a Terminal's output bytes, kept so an Agent can read what is n
 The offset in a Terminal's Output log where one reader's next `terminal.read` without `after` begins, set to the reply's `next`; each (Agent id, Terminal) pair has its own, it is Daemon state only, and it ends with its Terminal (`scenarios/terminal-stream.md` X16).
 
 **Reach** (`Agents::guard_reach`):
-The Rail nodes an Agent may act on through its MCP server: its descendants, and the Workstreams it created with theirs (`scenarios/mcp.md` M7); a call outside it is `FORBIDDEN`. It also bounds the Decisions an Agent lists and answers (H21).
+The Rail nodes an Agent may act on through its MCP server: its descendants, and the Workstreams it created with theirs (`scenarios/mcp.md` M7); a call outside it is `FORBIDDEN`.
 
 **project.requested**:
 The Event an Agent's `project_open` or `project_rename` emits, because a Daemon cannot reach the App; the webview answers it with `open_project` or `rename_project` (`scenarios/mcp.md` M8).
 
 **Touch**:
-One logged read or write of a Todo, a Pad, a Message or a Decision (`decision:<id>`) by an Actor.
+One logged read or write of a Todo, a Pad or a Message by an Actor.
 
 **Provenance**:
 The append-only log of Touches.
@@ -632,9 +591,6 @@ A durable `roundup://<kind>/<id>?project=<key>` URL naming one object of one Pro
 
 **Context menu** (`show_context_menu`):
 The macOS system menu (`NSMenu`) a right-click or `ContextMenu` key opens on a Rail row, a Project tab, a Terminal tab, a Pad or a Todo; the webview builds its items and the host pops it up (U2694a).
-
-**Proof**:
-The random secret the App gives its attached Daemon on stdin and the webview reads through `daemon_proof`; the user's `decision.answer` needs it; an Agent's is checked by Reach instead (H4, H18, H21).
 
 **openTarget**:
 The App seam command (`open_target`) that opens a web link in the browser, or an absolute path in its default app (a folder in Finder), when the user Cmd+clicks one printed in a Terminal; a missing path is `NOT_FOUND`, a scheme but http and https is `FORBIDDEN` (U365).
@@ -706,7 +662,7 @@ A PNG, video or checks JSON under the artifact-relative `artifacts/ux/<id>/` (jo
 
 **Get History** (`todo.getHistory`): fetch one Todo's History and its previous read boundary without logging a read Touch.
 
-**Values** (`Values`): a Todo's title, body, done state and blocker identities, as held by a Change.
+**Values** (`Values`): a Todo's title, body, done state and blocker identities, as kept by a Change.
 
 **Captured Change** (`expected_change`): the last History Change sequence captured with a Todo's editable Values in its original Project. `todo.update` and `todo.setBlockers` can require that sequence atomically: a mismatch refuses with conflict; a removed Todo is not found. Omission keeps an unconditional write. Read the base Values and sequence together from the last Change returned by `todo.getHistory`; a separate later History read is not the base of an earlier `todo.get`. Immediate completion needs no captured Change.
 
@@ -766,7 +722,7 @@ The matching spellings of one displayed Help chord.
 ### Ask placement
 
 **Ask** (`ask::Ask`, `Asks`, `SendParams`, `PickParams`):
-One message the user sends from the Ask bar; distinct from an Agent's Decision. `Asks` stores and delivers it; `SendParams` sends it and `PickParams` chooses one part's destination. `Steer::User` carries its exact words through `Agents::prompt`; ordinary `Steer::Instruction` keeps H20's lead.
+One message the user sends from the Ask bar; distinct from an Agent's own question in its Terminal. `Asks` stores and delivers it; `SendParams` sends it and `PickParams` chooses one part's destination. `Steer::User` carries its exact words through `Agents::prompt`; ordinary `Steer::Instruction` keeps H20's lead.
 
 **Ask submission** (`AskSubmission`, `submission`):
 The caller-captured identity of one submitted Ask revision within its original Project. Durable intake binds it to exact text and an optional captured Workstream id; equal replay returns the same Ask and conflicting replay refuses. Separate intentional submissions use distinct identities even for equal text.
@@ -800,17 +756,16 @@ The exact retained target or an explicit cause preventing its use. Missing or co
 
 **Measurement** (`project.measurements`):
 A retained source contribution attributed to its original Project, maker Agent, Home at
-observation and Attempt when known. A source revision replaces the same contribution's
-consumption; the revision journal preserves earlier facts. `Consumed` holds four disjoint
-categories (input, output, cache read and cache write), with missing values unknown.
-`MeasurementValue` is a request, an `Execution` interval (Agent or tool), or an observed Timed activity; source wall-clock
+observation and Attempt when known. A source revision replaces the same contribution;
+the revision journal preserves earlier facts. roundup keeps no token or money (P14).
+`MeasurementValue` is an `Execution` interval (Agent or tool) or an observed Timed activity; source wall-clock
 endpoints retain their meaning and never imply monotonic continuity. `Measurements` is a
 coherent read at one retained revision; `MeasurementsChanged` (`project.measurementsChanged`)
 tells subscribers to reconcile that revision. `MeasurementSource` reports last good collection,
 failure cause and uncovered history. Explicit Project/Workstream deletion remains effective.
 
 **Timed activity** (`TimedActivity`):
-A roundup-observed Attempt lifetime, Startup, Idle phase, blocking Decision, or blocking coordination operation linked to its original Message. It is distinct from model/tool execution.
+A roundup-observed Attempt lifetime, Startup, Idle phase, or blocking coordination operation linked to its original Message. It is distinct from model/tool execution.
 
 **Startup** (`TimedActivity::Startup`):
 The positively observed launch phase ending at its first acknowledgement. It is retained only for an acknowledged Attempt; missing historical launch points stay unknown.
@@ -850,11 +805,11 @@ exact declared repository/PR/head. Unsupported sources and uncertain external ef
 remain unknown with a cause and checking action. Agent status and Terminal prose
 supply no verification authority.
 
-**Continuation** (`ContinuationAction`, `ContinuationDecision`, `Reconciliation`, `ResumeWorkParams`, `message.reconcileWork`, `message.resumeWork`):
+**Continuation** (`ContinuationAction`, `ContinuationChoice`, `Reconciliation`, `ResumeWorkParams`, `message.reconcileWork`, `message.resumeWork`):
 The user's explicit choice to resume one Agent's unfinished work. Reconciliation reads
 retained Result reports, acceptance and observations and changes nothing; an action is a
 current report's pending next step, identified by its Agent, instruction, target, output
-and next step, never by a report key or client request id. A decision accepts its actions
+and next step, never by a report key or client request id. A choice accepts its actions
 once and makes one successor Message in the same write; a stopped Agent, a removed target,
 an unknown external effect or a completed result never yields one.
 
@@ -883,49 +838,14 @@ User-label states, each led by a glyph: "Accepted" (check), "Checked independent
 (check), "Check pending" (circle), "Older version" (circle), "Unknown outcome" (diamond)
 and "Evidence unavailable" (x).
 
-**Request cost** (`RequestCost`, `CacheWrites`):
-The observed opaque Model and independently observed five-minute/one-hour cache-write
-classes of one retained request. Classes partition its consumed cache writes; a missing
-class is unknown. `unavailable` explains missing evidence. Old retained requests with
-no cost evidence remain unknown until their source is replayed.
-
-**Reference rates** (`ReferenceRates`):
-An Adapter-matched, versioned and dated offline category rate basis, with currency,
-exact decimal rates, token denominator, source link and comparison assumptions. It
-supports a separately labelled reference estimate, never a subscription bill.
-
-**Reported money** (`ReportedMoney`, `MoneyScope`, `MeasurementValue::Money`):
-An exact source amount with its currency when established, source, pricing basis and
-request or inclusive conversation scope. Conversation totals include their constituent
-requests and native children: they never add to request money or reference estimates.
-A currency not established by its source is unknown; no conversion is inferred.
-
 **Measurement summary** (`MeasurementSummary`, `MeasurementSummaryParams`, `project.measurementSummary`):
-One Workstream's retained consumed tokens and ranked contributors at one Measurement
-revision. Later pages name that revision; a changed revision requires reconciliation.
-It carries collection coverage and failure independently of known consumption.
-
-**Weekly limit** (`WeeklyLimit`, `project.weeklyLimit`):
-The account's weekly use and reset time, as the Claude Code Adapter reads it from the vendor's
-account usage, which spends no Model tokens. It is the account's figure, never a Workstream's
-share; unavailable carries a one-sentence reason and no number.
-
-**Consumed category** (`ConsumedCategory`):
-Input, output, cache read, cache write or their total, chosen to rank contributors.
-
-**Consumed subtotal** (`ConsumedSubtotal`, `ConsumedTotals`):
-An exact known token count with the number of contributions whose count is
-unknown; a contributor without retained requests is one unknown contribution. A total includes known categories even when another category is missing.
-Missing history is separate coverage; it is never a measured zero.
+One Workstream's time and its contributors, ranked by summed Agent time (exact
+nanoseconds, then stable Agent identity), at one Measurement revision. Later pages name that
+revision; a changed revision requires reconciliation. It carries collection coverage and
+failure independently of known time.
 
 **Measurement contributor** (`MeasurementContributor`):
-An Agent's retained consumption in one Home, including a stopped or removed maker.
-Unknown selected categories rank after fully known ones; ties use stable Agent identity.
-
-**Measurement cost** (`MeasurementCost`, `ReferenceEstimate`):
-Reported money retained separately by source, currency and request/conversation scope,
-and exact decimal reference estimates grouped only by identical Reference rates.
-Missing evidence names its affected contributor; neither value is a subscription bill.
+An Agent's retained time in one Home, including a stopped or removed maker.
 
 **Measurement time** (`MeasurementTime`):
 Elapsed since first observed start, separate from summed Attempt nanoseconds, whose
@@ -937,6 +857,19 @@ Incomparable clock lifetimes never authorize continuous execution through a gap.
 
 **Collapsible**:
 An expandable App region with a named trigger; closing it retains its content.
+
+**Project menu** (`ProjectMenu`, `projectMenu`, `select_project_menu`, `selectProjectMenu`, `onProjectPage`, `projectPageSchema`):
+The native Project menu's selected-Project holder and App seam. The webview synchronizes its selected path; each activation emits `open-project-page` with that captured path and `import-work` or `project-settings`. A null selection disables both commands. Opening changes no Daemon data and starts no Agent.
+
+**Agent time rule** (`Kind::counts_time`, generated `countsTime`):
+An ended Attempt contributes no Agent time, regardless of Kind. An idle or done Status
+contributes none while the Attempt remains alive. Timeline samples retain the `ended`
+fact from Status Events or the Rail and use the Status `since` as the observed boundary.
+Measurement reads use the same rule; collection retains raw idle intervals and Attempt ends without deleting evidence.
+A timeline Sample marked `recorded` comes from the Event log and takes precedence over a conflicting Rail seed.
+
+**Exit button** (`ExitButton`):
+The shared App return icon, labelled Close with an Ark tooltip; callers retain their return action and focus owner.
 
 **Native question** (`NativeQuestion`, `App.ask`, `NativeAlert`):
 A user-requested system confirmation containing its title, complete consequences and two named buttons. Only an affirmative answer authorizes the captured action; cancellation or a failed request authorizes nothing. NativeAlert owns pending-request suppression, retry and focus return, while the originating surface owns targets and mutations.

@@ -3,7 +3,6 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import * as xtermModule from "@xterm/xterm";
 import type { Terminal } from "@xterm/xterm";
 import type { Snapshot } from "@contracts/terminal/Snapshot";
-import { decision, opened } from "../decisions/decisionsFixture";
 import { event, info, node } from "../testing/nodes";
 import { fromBase64, toBase64 } from "./base64";
 import { createXtermEmulators } from "./emulator";
@@ -147,16 +146,14 @@ describe("x14 the App's output subscription", () => {
       app.emitOutput("t-a", chunk);
 
       if (round % 50 === 0) {
-        app.emit(event({ name: "agent.status", data: { id: "o1", attempt: "1", status_revision: `${round + 2}`, status: { kind: "working", label: `step ${round}`, since: 0 } } }));
+        app.emit(event({ name: "agent.status", data: { id: "o1", attempt: "1", status_revision: `${round + 2}`, status: { kind: "working", label: `step ${round}`, since: 0, finished: "0" } } }));
       }
-
-      if (round === 100) app.emit(opened(decision("d1", "o2")));
     }
 
     emulators.get("t-a")?.type(text("ls\r"));
 
     await vi.waitFor(() => expect(bytesOf("t-a")).toBe(300 * 1024 + 3));
-    expect([statusOf("o1"), connected.decisions.open().map((each) => each.id), app.outputSubscriptions.map((each) => each.id)]).toEqual(["step 250", ["d1"], ["t-a"]]);
+    expect([statusOf("o1"), app.outputSubscriptions.map((each) => each.id)]).toEqual(["step 250", ["t-a"]]);
     expect(others.some((other) => emulators.has(`t-${other}`))).toBe(false);
 
     // Selecting the other Terminal: its echo arrives, the first stops receiving.

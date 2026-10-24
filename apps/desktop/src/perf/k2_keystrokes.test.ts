@@ -52,7 +52,7 @@ describe("k2 a sample is keydown to the render that shows its echo", () => {
 
     await typeKeys(
       probe,
-      { press: () => {}, sleep: async (ms) => void sleeps.push(ms), random: () => 0.5 },
+      { press: () => {}, sleep: async (ms) => void sleeps.push(ms), random: () => 0.5, expired: () => false },
       1,
     );
 
@@ -80,20 +80,75 @@ describe("k2 a sample is keydown to the render that shows its echo", () => {
     expect(probe.summary(1)).toEqual({ n: 20, dropped: 0, p50: 10, p95: 19, p99: 20, max: 20 });
   });
 
-  it("k2_the_warm_up_is_counted_in_keys_so_a_dropped_warm_up_key_stays_out_of_the_drops", async () => {
+  it("r21_dropped_keys_cannot_be_hidden_by_warmup", async () => {
     const time = clock();
     const probe = createKeystrokeProbe(time.now, "a");
     const sleep = async () => {};
 
-    await typeKeys(probe, { press: () => {}, sleep, random: () => 0 }, 1);
+    await typeKeys(probe, { press: () => {}, sleep, random: () => 0, expired: () => false }, 1);
 
     void probe.keydown();
     probe.written(bytes("a"));
     time.advance(6);
     probe.rendered();
-    await typeKeys(probe, { press: () => {}, sleep, random: () => 0 }, 1);
+    await typeKeys(probe, { press: () => {}, sleep, random: () => 0, expired: () => false }, 1);
 
-    expect(probe.summary(1)).toMatchObject({ n: 1, dropped: 1, p50: 6 });
-    expect(probe.summary(0)).toMatchObject({ n: 1, dropped: 2 });
+    expect(probe.summary(1)).toMatchObject({ n: 1, dropped: 2, p50: 6 });
+  });
+
+  it("r20_hop_report_accounts_for_the_echo_round_trip", () => {
+    const time = clock();
+    const probe = createKeystrokeProbe(time.now, "a");
+
+    // A warm-up key (skipped), then a measured key whose output is preceded by unrelated output and a render before the echo.
+    for (const queued of [0, 7]) {
+      void probe.keydown();
+      time.advance(2);
+      probe.input();
+      time.advance(queued);
+      probe.dispatched();
+      time.advance(1);
+      probe.arrived(bytes("noise"));
+      probe.written(bytes("noise"));
+      probe.rendered();
+      time.advance(3);
+      probe.arrived(bytes("a"));
+      probe.replied();
+      time.advance(4);
+      probe.written(bytes("a"));
+      time.advance(5);
+      probe.rendered();
+    }
+
+    expect(probe.hops(1)).toEqual({
+      keydown_to_input: { n: 1, p50: 2, p95: 2 },
+      input_to_dispatch: { n: 1, p50: 7, p95: 7 },
+      dispatch_to_echo_event: { n: 1, p50: 4, p95: 4 },
+      echo_event_to_parsed: { n: 1, p50: 4, p95: 4 },
+      parsed_to_frame: { n: 1, p50: 5, p95: 5 },
+      write_reply: { n: 1, p50: 4, p95: 4 },
+    });
+    expect(probe.summary(1)).toMatchObject({ n: 1, p50: 22 });
+  });
+
+  it("r20_a_run_out_of_time_counts_the_untyped_keys_as_dropped_and_still_reports", async () => {
+    const time = clock();
+    const probe = createKeystrokeProbe(time.now, "a");
+    let typed = 0;
+
+    await typeKeys(
+      probe,
+      { press: () => void (typed += 1), sleep: async () => {}, random: () => 0, expired: () => typed >= 2 },
+      5,
+    );
+
+    void probe.keydown();
+    probe.written(bytes("a"));
+    time.advance(4);
+    probe.rendered();
+
+    // Two keys were typed and dropped, three never typed.
+    expect(typed).toBe(2);
+    expect(probe.summary(0)).toMatchObject({ n: 1, dropped: 5, p50: 4 });
   });
 });

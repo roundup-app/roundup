@@ -52,7 +52,7 @@ if '--resume' not in sys.argv:
     payload = json.dumps({'hook_event_name':'SessionStart','source':'startup','session_id':'11111111-1111-4111-8111-111111111111'})
     for group in settings['hooks']['SessionStart']:
         for hook in group['hooks']:
-            subprocess.run(hook['command'], shell=True, input=payload, text=True, check=True)
+            subprocess.run(hook['command'], shell=True, input=payload, text=True, check=True, stdout=subprocess.DEVNULL)
     print('SAVED', flush=True)
 else:
     print('RESUMED', flush=True)
@@ -254,10 +254,6 @@ while True:
                     .await
                     .unwrap()
                     .unwrap()
-                    .unwrap();
-                run.user
-                    .request("takeover.begin", json!({"agent":run.child}))
-                    .await
                     .unwrap();
                 assert!(
                     run.terminal_running(node["terminal_id"].as_str().unwrap())

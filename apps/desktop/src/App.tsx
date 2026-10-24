@@ -75,6 +75,8 @@ const Connection = (props: {
   onRequested: (request: Requested) => void;
   toasts: ToastQueue;
   active: () => boolean;
+  /** U3566: this Project is on screen in a visible, focused window. */
+  viewing: () => boolean;
   show: () => void;
 }) => {
   const first = props.tab();
@@ -86,7 +88,7 @@ const Connection = (props: {
 
   const [connected] = createResource(async () => {
     try {
-      return await connectProject(props.app.forProject(path), first.project, props.reducedMotion, props.now, () => props.tab()?.exit ?? null, railStorage(path), props.drafts(path));
+      return await connectProject(props.app.forProject(path), first.project, props.reducedMotion, props.now, () => props.tab()?.exit ?? null, railStorage(path), props.drafts(path), props.viewing);
     } catch (failure) {
       if (!(failure instanceof Error)) throw failure;
 
@@ -105,13 +107,6 @@ const Connection = (props: {
 
     if (open && !(open instanceof Error)) open.worktrees.watch(props.active);
   });
-
-  // Refused Agent answers have no Event, so live requests refresh on the App's shared clock.
-  createEffect(on(props.now, () => {
-    const open = connected();
-
-    if (open && !(open instanceof Error) && !props.tab()?.exit && open.decisions.open().length > 0) open.decisions.retryList();
-  }, { defer: true }));
 
   // M8: the Daemon cannot reach the App, so an Agent's open or rename of a Project arrives as an Event.
   createEffect(() => {
@@ -133,7 +128,7 @@ const Connection = (props: {
     if (!open || open instanceof Error) return;
 
     // Untracked: watchProject reads the Rail's nodes, and each Status change would else rebuild the watch with that change already seen.
-    onCleanup(untrack(() => watchProject(open, props.toasts.push, props.show, props.active)));
+    onCleanup(untrack(() => watchProject(open, props.toasts.push, props.show, props.active, props.toasts.settle)));
   });
 
   createEffect(() => {
@@ -208,6 +203,16 @@ export const App = (props: {
   const onVisibility = () => setVisible(document.visibilityState !== "hidden");
   document.addEventListener("visibilitychange", onVisibility);
   onCleanup(() => document.removeEventListener("visibilitychange", onVisibility));
+  // U3566: the window's focus, which `document.hasFocus()` alone does not announce.
+  const [focused, setFocused] = createSignal(document.hasFocus());
+  const onFocus = () => setFocused(true);
+  const onBlur = () => setFocused(false);
+  window.addEventListener("focus", onFocus);
+  window.addEventListener("blur", onBlur);
+  onCleanup(() => {
+    window.removeEventListener("focus", onFocus);
+    window.removeEventListener("blur", onBlur);
+  });
 
   const isWorking = () => projects.tabs().some((tab) => {
     const connection = connections().get(tab.project.path);
@@ -217,7 +222,7 @@ export const App = (props: {
   });
 
   const now = createNow(props.clock, isWorking, visible);
-  // Display demand must not enable the Worktree and Decision RPC cadence.
+  // Display demand must not enable the Worktree RPC cadence.
   const pollingNow = createMemo<number>((previous) => visible() && isWorking() ? now() : previous ?? untrack(now));
   // U413: roundup is in front while its window has focus and is visible.
   const inFront = () => document.hasFocus() && document.visibilityState === "visible";
@@ -272,6 +277,12 @@ export const App = (props: {
     return connection instanceof Error ? undefined : connection?.rail;
   };
 
+  const connectionOf = (path: string): ConnectedProject | undefined => {
+    const connection = connections().get(path);
+
+    return connection instanceof Error ? undefined : connection;
+  };
+
   const stripTabs = createMemo<StripTab[]>(() =>
     projects.tabs().map((tab) => {
       const nodes = railOf(tab.project.path)?.nodes ?? [];
@@ -283,6 +294,7 @@ export const App = (props: {
         exitText: tab.exit ? daemonExitText(tab.exit) : null,
         busy: !connections().has(tab.project.path),
         ...attentionCounts(nodes),
+        unseen: connectionOf(tab.project.path)?.unseen.any() ?? false,
         running: nodes.flatMap((node) => (node.status && RUNNING.has(node.status.kind) ? [node.name] : [])),
       };
     }),
@@ -309,6 +321,8 @@ export const App = (props: {
 
     return path === null ? undefined : connections().get(path);
   });
+
+  createEffect(() => { void props.app.selectProjectMenu(projects.active()).catch(error => setWindowFailure(error instanceof Error ? error.message : String(error))); });
 
   /** U181: that Project opens and its most urgent Agent is selected, as leader `J` does. */
   const jumpTo = (path: string) => {
@@ -342,7 +356,7 @@ export const App = (props: {
   return (
     <DisplayClockContext.Provider value={now.subscribe}><ProjectDraftsContext.Provider value={drafts}><Show when={projects.loaded()}>
       <For each={keys()}>
-        {(key) => <Connection drafts={drafts} app={dropTargets.app} tab={tabOf(key.split("\n")[0]!)} reducedMotion={props.reducedMotion} now={pollingNow} onConnected={connect} onRequested={answer} toasts={toasts} active={() => projects.active() === key.split("\n")[0]} show={() => projects.select(key.split("\n")[0]!)} />}
+        {(key) => <Connection drafts={drafts} app={dropTargets.app} tab={tabOf(key.split("\n")[0]!)} reducedMotion={props.reducedMotion} now={pollingNow} onConnected={connect} onRequested={answer} toasts={toasts} active={() => projects.active() === key.split("\n")[0]} viewing={() => projects.active() === key.split("\n")[0] && visible() && focused()} show={() => projects.select(key.split("\n")[0]!)} />}
       </For>
       <DockBadge app={props.app} rails={() => [...connections().values()].flatMap((connection) => (connection instanceof Error ? [] : [connection.rail.nodes]))} onFailure={setBadgeFailure} />
       <Tabs.Root id={tabsId} value={projects.active()} onValueChange={({ value }) => projects.select(value)} activationMode="manual" style={{ display: "contents" }}
@@ -412,12 +426,16 @@ export const App = (props: {
 
                 return (
                   <div class="centre-stack">
+                    <div class="project-center-area">
+                    <div class="project-center-content" inert={open.settingsView.open()} style={{ visibility: open.settingsView.open() ? "hidden" : "visible" }}>
                     <Pane notice={open.rail.failure() ?? jumpFailure() ?? open.contractNotice} createEmulator={tracked} screensRef={setScreens} />
                     <AskBar />
-                    <Show when={screens()}>{(shared) => <Bubbles screens={shared()} />}</Show>
                     <Switcher onFailure={setJumpFailure} onOpen={() => { if (document.querySelector('.window[data-shelf="open"][data-shelf-mode="overlay"]')) shelfFocus.toggle("key"); }} />
-                    <ResourceStrip />
+                    </div>
                     <ProjectSettingsView />
+                    </div>
+                    <Show when={screens()}>{(shared) => <Bubbles screens={shared()} />}</Show>
+                    <ResourceStrip />
                   </div>
                 );
               }}

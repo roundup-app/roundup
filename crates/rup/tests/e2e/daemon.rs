@@ -303,29 +303,15 @@ pub fn start_real(fixture: &str, env: &[(&str, &str)]) -> Project {
     project
 }
 
-// H21: an Agent answers the Decisions of the Agents in its Reach, never its own.
-
-/// The proof the harness hands the Daemon, the user's.
-pub const H21_PROOF: &str = "0000000000000000000000000000000000000000000000000000000000000000";
-
-/// `agent`'s permission request, left open: the call returns once the Decision is cleared.
-pub async fn h21_ask(
-    project: &Project,
-    agent: &str,
-    tool: &str,
-    input: Value,
-) -> tokio::task::JoinHandle<Result<Value, rpc::RpcError>> {
-    let client = project.client().await;
-    let (agent, tool) = (agent.to_owned(), tool.to_owned());
-    tokio::spawn(async move {
-        client
-            .request(
-                "agent.permission",
-                json!({"id": agent, "payload": {"hook_event_name": "PermissionRequest",
-                    "tool_name": tool, "tool_input": input}}),
-            )
-            .await
-    })
+/// Put Agent `agent` in needs-you, the way Claude's `PermissionRequest` hook does.
+pub async fn needs_you(client: &Client, agent: &str) {
+    signal(
+        client,
+        agent,
+        json!({"hook_event_name": "PermissionRequest", "tool_name": "Bash",
+            "tool_input": {"command": "ls"}}),
+    )
+    .await;
 }
 
 pub async fn h21_poll<T>(what: &str, mut found: impl AsyncFnMut() -> Option<T>) -> T {
@@ -341,52 +327,22 @@ pub async fn h21_poll<T>(what: &str, mut found: impl AsyncFnMut() -> Option<T>) 
     .unwrap_or_else(|_| panic!("timed out waiting for {what}"))
 }
 
-/// The open Decision of `agent` that is not `except`.
-pub async fn h21_decision(client: &Client, agent: &str, except: Option<&str>) -> Value {
-    h21_poll("a Decision", async || {
-        let listed = client.request("decision.list", Value::Null).await.unwrap();
-        listed
-            .as_array()
-            .unwrap()
-            .iter()
-            .find(|d| d["agent"] == agent && Some(d["id"].as_str().unwrap()) != except)
-            .cloned()
-    })
-    .await
-}
-
-/// The `[decision <id>]` notes the Daemon sent to `to`, once at least `least` are there.
-pub async fn h21_notes(client: &Client, to: &str, least: usize) -> Vec<Value> {
-    h21_poll("the notes", async || {
-        let listed = client
-            .request("message.list", json!({ "to": to }))
-            .await
-            .unwrap();
-        let notes: Vec<Value> = listed
-            .as_array()
-            .unwrap()
-            .iter()
-            .filter(|m| m["body"].as_str().unwrap().starts_with("[decision "))
-            .cloned()
-            .collect();
-        (notes.len() >= least).then_some(notes)
-    })
-    .await
-}
-
-pub async fn h21_user_answers(
-    client: &Client,
-    id: &str,
-    answer: &str,
-) -> Result<Value, rpc::RpcError> {
+/// Allow the permission prompt on `agent`'s Terminal: type the number of its first choice, "Yes".
+pub async fn allow_prompt(client: &Client, agent: &str) {
+    use base64::Engine as _;
+    let terminal = rail_tree(client)
+        .await
+        .into_iter()
+        .find(|n| n.id == agent)
+        .unwrap()
+        .terminal_id
+        .unwrap();
     client
         .request(
-            "decision.answer",
-            json!({"id": id, "answer": answer, "proof": H21_PROOF}),
+            "terminal.write",
+            json!({"id": terminal,
+                "data": base64::engine::general_purpose::STANDARD.encode("1")}),
         )
         .await
-}
-
-pub fn h21_bash() -> Value {
-    json!({"command": "ls"})
+        .unwrap();
 }

@@ -15,8 +15,6 @@ import type { Model } from "./realModel";
 
 const REPO = resolve(process.cwd(), "../..");
 
-export const PROOF = "0".repeat(64);
-
 /** A running `rupd` of a fresh Project and the dev server that serves it to the harness page (U144, U146). */
 export type StartedDaemon = { daemon: ChildProcess; dir: string; dataDir: string; base: string; model?: Model | undefined; restart: () => Promise<void>; stop: () => Promise<void> };
 
@@ -71,7 +69,7 @@ const DAEMON_WAIT_MS = 20_000;
 /** How the fixture launches the Daemon and the dev server; N5 watches both. */
 type FixtureRuntime = { spawn: (command: string, args: string[], options: SpawnOptions) => ChildProcess; createServer: typeof createServer };
 
-/** Starts `rupd` on the fake `claude` with `env` added to its environment, as `just harness-real` does; `inBrowser` lets the dev server bundle dependencies for a real browser page. With `fixture` (E10), `rupd` starts the pinned Claude Code against aimock serving that file's turns, one of four real-Claude slots (E14) held until `stop`. */
+/** Starts `rupd` on the fake `claude` with `env` added to its environment, as `just harness-real` does; `inBrowser` lets the dev server bundle dependencies for a real browser page. With `fixture` (E10), `rupd` starts the pinned Claude Code against aimock serving that file's turns, one of four real-Claude slots (E14) kept until `stop`. */
 export const startRealDaemon = async (env: Record<string, string>, inBrowser = false, runtime: FixtureRuntime = { spawn, createServer }, fixture?: string): Promise<StartedDaemon> => {
   configure({ asyncUtilTimeout: DAEMON_WAIT_MS });
   await buildOnce();
@@ -117,7 +115,6 @@ export const startRealDaemon = async (env: Record<string, string>, inBrowser = f
     daemon = child;
     // A Daemon that exits at once closes its stdin; the wait below reports that exit.
     child.stdin!.on("error", () => {});
-    child.stdin!.write(`roundup-proof 1 ${PROOF}\n`);
     await new Promise<void>((serving, fail) => {
       child.stderr!.on("data", (chunk: Buffer) => chunk.toString().includes("serving") && serving());
       child.on("exit", () => fail(new Error("rupd exited before serving")));
@@ -145,7 +142,7 @@ export const startRealDaemon = async (env: Record<string, string>, inBrowser = f
       root: process.cwd(),
       cacheDir,
       logLevel: "silent",
-      plugins: [realDaemon({ project: dir, socket, proof: PROOF })],
+      plugins: [realDaemon({ project: dir, socket })],
       server: { host: "127.0.0.1", port: 0 },
       // A real browser page needs the bundled dependencies; the jsdom tests do not.
       optimizeDeps: inBrowser ? {} : { noDiscovery: true, include: [] },

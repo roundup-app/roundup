@@ -42,10 +42,7 @@ impl Messages {
         }
         let mut store = self.store()?;
         accept_reservation(&self.inner, &mut store, node)?;
-        store.atomically(|s| {
-            s.reserve_restart(agent, key, binding(node).0, first_prompt)?;
-            s.arm_chains((self.inner.clock)())
-        })
+        store.atomically(|s| s.reserve_restart(agent, key, binding(node).0, first_prompt))
     }
 
     /// After the coordinator has observed the matching SessionStart AND first-prompt
@@ -109,7 +106,6 @@ impl Messages {
                 None,
                 (self.inner.clock)(),
                 at,
-                None,
             )?;
             s.record_restart_note(agent, key, message.id)?;
             Ok(message)
@@ -144,10 +140,10 @@ impl Messages {
     }
 
     /// Release only after the coordinator observes SessionStart and any reserved first prompt
-    /// has been recorded. Rebinds open Messages to `attempt`, preserving B7 ranks and holds.
+    /// has been recorded. Rebinds open Messages to `attempt`, preserving B7 ranks.
     /// A failed restart/reopen keeps its reservation for the same retry. Completed releases
     /// are no-ops even if that Attempt has since ended. Recovery may release a later live
-    /// Attempt after recording the original acknowledgement. No consent or Takeover changes.
+    /// Attempt after recording the original acknowledgement.
     pub async fn release_restart(
         &self,
         agent: &str,
@@ -187,8 +183,7 @@ impl Messages {
                     "first prompt acknowledgement is newer than release Attempt",
                 ));
             }
-            store.atomically(|s| s.release_restart(agent, key, at, (self.inner.clock)()))?;
-            store.rebind_takeover(agent, at);
+            store.atomically(|s| s.release_restart(agent, key, at))?;
         }
         nudge(&self.inner, agent).await;
         Ok(())

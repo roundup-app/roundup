@@ -1,9 +1,11 @@
-import type { AppSeam } from "../app/seam";
+// fallow-ignore-file duplicate-export -- Clock sleeps for the frame driver; state/clock’s Clock reads time. Neither is barrel-exported.
+import type { App, AppSeam } from "../app/seam";
 import { toBase64 } from "../terminal/base64";
 import { createXtermEmulators } from "../terminal/emulator";
 import { recordFrames } from "./frames";
 import type { FrameReport } from "./frames";
-import { READY, SETUP_BOUND_MS, appears, sleep, timerResolutionMs } from "./run";
+import type { NativeDragReport } from "./nativeDragProbe";
+import { READY, SETUP_BOUND_MS, appears, bounded, reportTerminal, sleep, timerResolutionMs, writeInChunks } from "./run";
 
 /** `docs/motion.md`, **Native performance protocol**: every 2 s one cycle of the workload, over the 60 s sample. */
 const CYCLE_MS = 2000;
@@ -17,8 +19,20 @@ const SETTLE_MS = 400;
 
 const WORKING_GLYPHS = 10;
 
+/** The first task after the rendering update that follows the current animation callback. */
+const afterUpdate = (callback: () => void) => {
+  const channel = new MessageChannel();
+
+  channel.port1.onmessage = () => {
+    channel.port1.close();
+    callback();
+  };
+
+  channel.port2.postMessage(null);
+};
+
 /** The only thing the drivers ask of time: a fake clock in tests, `setTimeout` in the App. */
-export type Clock = { sleep(ms: number): Promise<void> };
+type Clock = { sleep(ms: number): Promise<void> };
 
 /**
  * Runs `cycle` once every `CYCLE_MS`, `CYCLES` times, and answers whether every one completed. A cycle that reports a missing target ends the run
@@ -155,12 +169,31 @@ const attempted = async <T>(work: () => Promise<T>): Promise<boolean> => {
   }
 };
 
-const domTodos = (app: AppSeam): Todos => {
+/**
+ * Creates a Todo in `home`. A created Todo has no home, and the Shelf of a selected Workstream lists only its own Todos: a homeless one
+ * never reaches a row the driver can press, so the Layers cycle found no target on WKWebView and the run stayed invalid (U3010g).
+ */
+export const createHomed = async (app: Pick<AppSeam, "rpc">, home: string, title: string): Promise<void> => {
+  const todo = await app.rpc("todo.create", { title, body: null, blockers: null });
+
+  await app.rpc("todo.move", { id: todo.id, home });
+};
+
+/** The Workstream the run made: the last one on the Rail, which the new Workstream's selected row is. */
+const runWorkstream = async (app: AppSeam): Promise<string> => {
+  const home = (await app.rpc("rail.tree", null)).filter((node) => node.kind === "workstream").at(-1)?.id;
+
+  if (!home) throw new Error("the Project has no Workstream to hold the Todos");
+
+  return home;
+};
+
+const domTodos = (app: AppSeam, home: string): Todos => {
   let made = 0;
 
   return {
-    open: async () => (await app.rpc("todo.list", null)).filter((todo) => !todo.done).map((todo) => todo.id),
-    create: () => attempted(() => app.rpc("todo.create", { title: `motion ${(made += 1)}`, body: null, blockers: null })),
+    open: async () => (await app.rpc("todo.list", null)).filter((todo) => !todo.done && todo.home === home).map((todo) => todo.id),
+    create: () => attempted(() => createHomed(app, home, `motion ${(made += 1)}`)),
     complete: (id) => attempted(() => app.rpc("todo.complete", { id })),
     toggleFold: () =>
       attempted(async () => {
@@ -198,12 +231,17 @@ const startWorkingAgents = async (app: AppSeam, cwd: string) => {
 const prepare = async (app: AppSeam, workload: string, cwd: string): Promise<(index: number) => Promise<boolean>> => {
   if (workload === "layers" || workload === "todos") {
     // Rows to open, complete and reorder; one open Todo always stays.
-    for (let each = 0; each < 4; each += 1) await app.rpc("todo.create", { title: `seed ${each}`, body: null, blockers: null });
+    const home = await runWorkstream(app);
+
+    for (let each = 0; each < 4; each += 1) await createHomed(app, home, `seed ${each}`);
+
+    // The press targets must be on screen before the sample, so a missing one is an error naming it, not a silent invalid run.
+    await appears(() => document.querySelector(SHELF_ROW), "the Shelf's first Todo row");
+
+    if (workload === "layers") return layersCycle(domLayers, wallClock);
+
+    return todosCycle(domTodos(app, home));
   }
-
-  if (workload === "layers") return layersCycle(domLayers, wallClock);
-
-  if (workload === "todos") return todosCycle(domTodos(app));
 
   if (workload === "glyphs") {
     await startWorkingAgents(app, cwd);
@@ -219,25 +257,14 @@ const prepare = async (app: AppSeam, workload: string, cwd: string): Promise<(in
  * `start` opens a Terminal, records the workload's frame intervals and writes one `FRAMES <json>` line through that Terminal.
  */
 export const createFrameRun = (app: AppSeam, workload: string, cwd: string) => {
-  let terminalId: string | null = null;
-  let ready: () => void = () => {};
+  const terminal = reportTerminal(createXtermEmulators());
 
-  const isReady = new Promise<void>((resolve) => (ready = resolve));
+  const report = async (body: FrameReport | NativeDragReport | { error: string }) => {
+    const id = terminal.target();
 
-  const emulators = createXtermEmulators({
-    written: (bytes) => {
-      if (new TextDecoder().decode(bytes).includes(READY)) ready();
-    },
-    rendered: () => {},
-    renderer: () => {},
-  });
+    if (id === null) throw new Error("no Terminal printed the ready line to report through");
 
-  const report = async (body: FrameReport | { error: string }) => {
-    if (terminalId === null) throw new Error("no Terminal was opened to report through");
-
-    const line = `FRAMES ${JSON.stringify(body)}\n`;
-
-    await app.rpc("terminal.write", { id: terminalId, data: toBase64(new TextEncoder().encode(line)) });
+    await writeInChunks(new TextEncoder().encode(`FRAMES ${JSON.stringify(body)}\n`), async (data) => void (await app.rpc("terminal.write", { id, data: toBase64(data) })));
   };
 
   const measure = async () => {
@@ -250,18 +277,27 @@ export const createFrameRun = (app: AppSeam, workload: string, cwd: string) => {
     await appears(() => document.querySelector('[role="treeitem"][aria-selected="true"]'), "the new Workstream's selected row");
     document.dispatchEvent(new KeyboardEvent("keydown", { key: "t", code: "KeyT", metaKey: true, bubbles: true, cancelable: true }));
     await appears(() => document.querySelector("textarea.xterm-helper-textarea"), "the Terminal's input");
-    await Promise.race([isReady, sleep(SETUP_BOUND_MS).then(() => Promise.reject(new Error(`the Terminal never printed ${READY}`)))]);
+    await Promise.race([terminal.printed, sleep(SETUP_BOUND_MS).then(() => Promise.reject(new Error(`the Terminal never printed ${READY}`)))]);
 
-    const cycle = await prepare(app, workload, cwd);
+    if (workload === "drag-compatibility") {
+      const { runNativeDragProbe } = await import("./nativeDragProbe");
+
+      await report(await runNativeDragProbe(app));
+
+      return;
+    }
+
+    const cycle = await bounded(prepare(app, workload, cwd), SETUP_BOUND_MS, `the ${workload} setup`);
 
     await report(
       await recordFrames(
-        { frame: (callback) => void requestAnimationFrame(callback), hidden: () => document.hidden },
+        { frame: (callback) => void requestAnimationFrame(callback), hidden: () => document.hidden, now: () => performance.now(), afterUpdate: afterUpdate, after: (ms, callback) => void setTimeout(callback, ms) },
         {
           workload,
           engine: /Chrome|Chromium/.test(navigator.userAgent) ? "chromium" : "webkit",
           timerResolutionMs: timerResolutionMs(),
           userAgent: navigator.userAgent,
+          entryTypes: [...(PerformanceObserver.supportedEntryTypes ?? [])],
         },
         async () => (await everyTwoSeconds(wallClock, cycle)).completed,
       ),
@@ -269,11 +305,8 @@ export const createFrameRun = (app: AppSeam, workload: string, cwd: string) => {
   };
 
   return {
-    createEmulator: (id: string) => {
-      terminalId = id;
-
-      return emulators(id);
-    },
+    traced: (real: App): App => real,
+    createEmulator: terminal.createEmulator,
     start: async () => {
       try {
         await measure();

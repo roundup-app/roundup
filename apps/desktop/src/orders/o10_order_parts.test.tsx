@@ -1,6 +1,6 @@
 import { fireEvent, screen, waitFor, within } from "@solidjs/testing-library";
 import { describe, expect, it } from "vitest";
-import { mountApp, select } from "../decisions/decisionsFixture";
+import { mountApp, select } from "../testing/appFixture";
 import type { Order } from "@contracts/agent/Order";
 import { agent, clarifying, door } from "../testing/nodes";
 
@@ -15,7 +15,7 @@ const open = async (done: string | undefined, read: () => { prompt: string | nul
 
   if (done !== undefined) order.done = done;
 
-  await mountApp([], (app) => {
+  await mountApp((app) => {
     app.handlers["rail.tree"] = () => [
       agent("a", "working", "editing", {
         name: "alpha",

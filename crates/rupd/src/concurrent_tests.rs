@@ -9,13 +9,13 @@ impl Drop for Lifetime {
     }
 }
 
-struct Held {
+struct Parked {
     entered: mpsc::UnboundedSender<String>,
     release: Arc<Semaphore>,
 }
 
 #[async_trait::async_trait]
-impl Module for Held {
+impl Module for Parked {
     fn namespaces(&self) -> &'static [&'static str] {
         &["agent"]
     }
@@ -42,7 +42,7 @@ async fn fixture() -> (
     let mut daemon = Daemon::open(dir.path()).unwrap();
     let (entered, entries) = mpsc::unbounded_channel();
     let release = Arc::new(Semaphore::new(0));
-    daemon.register(Arc::new(Held {
+    daemon.register(Arc::new(Parked {
         entered,
         release: release.clone(),
     }));
@@ -86,20 +86,20 @@ async fn reply(read: &mut tokio::io::Lines<BufReader<tokio::net::unix::OwnedRead
 }
 
 #[tokio::test]
-async fn d9_a_held_call_does_not_hold_the_next_reply() {
+async fn d9_a_parked_call_does_not_hold_the_next_reply() {
     let (_dir, stream, mut entries, release) = fixture().await;
     let (read, mut write) = stream.into_split();
     let mut read = BufReader::new(read).lines();
-    send(&mut write, json!("held"), "agent.stop").await;
+    send(&mut write, json!("parked"), "agent.stop").await;
     assert_eq!(entry(&mut entries).await, "agent.stop");
     send(&mut write, json!(2), "rail.tree").await;
     let tree = reply(&mut read).await;
     assert_eq!(tree, json!({"jsonrpc":"2.0", "id":2, "result":[]}));
     release.add_permits(1);
-    let held = reply(&mut read).await;
+    let parked = reply(&mut read).await;
     assert_eq!(
-        held,
-        json!({"jsonrpc":"2.0", "id":"held", "result":{"actor":"you", "method":"agent.stop"}})
+        parked,
+        json!({"jsonrpc":"2.0", "id":"parked", "result":{"actor":"you", "method":"agent.stop"}})
     );
 }
 
@@ -121,57 +121,6 @@ async fn d9_half_close_keeps_ordinary_calls_alive() {
     assert_eq!(reply(&mut read).await["result"]["method"], "agent.stop");
 }
 
-#[tokio::test]
-async fn d9_caller_waits_keep_wire_order_without_holding_other_requests() {
-    let (_dir, stream, mut entries, release) = fixture().await;
-    let (read, mut write) = stream.into_split();
-    let mut read = BufReader::new(read).lines();
-    send(&mut write, json!(1), "agent.permission").await;
-    assert_eq!(entry(&mut entries).await, "agent.permission");
-    send(&mut write, json!(2), "agent.ask").await;
-    send(&mut write, json!(3), "rail.tree").await;
-    assert_eq!(reply(&mut read).await["id"], 3);
-    assert!(entries.try_recv().is_err(), "queued ask must not enter");
-    release.add_permits(1);
-    assert_eq!(reply(&mut read).await["id"], 1);
-    assert_eq!(entry(&mut entries).await, "dropped:agent.permission");
-    assert_eq!(entry(&mut entries).await, "agent.ask");
-    release.add_permits(1);
-    assert_eq!(reply(&mut read).await["id"], 2);
-}
-
-#[tokio::test]
-async fn d9_caller_waits_cancel_after_pipelined_traffic() {
-    let (_dir, stream, mut entries, release) = fixture().await;
-    let (read, mut write) = stream.into_split();
-    let mut read = BufReader::new(read).lines();
-    send(&mut write, json!(1), "agent.permission").await;
-    assert_eq!(entry(&mut entries).await, "agent.permission");
-    send(&mut write, json!(2), "agent.ask").await;
-    send(&mut write, json!(3), "rail.tree").await;
-    assert_eq!(reply(&mut read).await["id"], 3);
-    write.shutdown().await.unwrap();
-    assert_eq!(
-        tokio::time::timeout(Duration::from_secs(1), entries.recv())
-            .await
-            .unwrap()
-            .unwrap(),
-        "dropped:agent.permission"
-    );
-    release.add_permits(2);
-    assert_eq!(
-        tokio::time::timeout(Duration::from_secs(1), read.next_line())
-            .await
-            .unwrap()
-            .unwrap(),
-        None
-    );
-    assert!(
-        entries.try_recv().is_err(),
-        "queued ask never enters after EOF"
-    );
-}
-
 async fn frame(write: &mut tokio::net::unix::OwnedWriteHalf, value: Value) {
     let mut bytes = serde_json::to_vec(&value).unwrap();
     bytes.push(b'\n');
@@ -185,7 +134,7 @@ async fn d9_replies_events_and_notifications_keep_their_envelopes() {
     let mut read = BufReader::new(read).lines();
     send(&mut write, json!(0), "events.subscribe").await;
     assert_eq!(reply(&mut read).await["id"], 0);
-    send(&mut write, json!("held"), "agent.stop").await;
+    send(&mut write, json!("parked"), "agent.stop").await;
     entry(&mut entries).await;
     frame(
         &mut write,
@@ -208,15 +157,15 @@ async fn d9_replies_events_and_notifications_keep_their_envelopes() {
         }
     }
     release.add_permits(1);
-    let mut held = None;
-    while held.is_none() || events < 2 {
+    let mut parked = None;
+    while parked.is_none() || events < 2 {
         let value = reply(&mut read).await;
         if value["method"] == "event" {
             events += 1;
         } else {
-            assert_eq!(value["id"], "held");
+            assert_eq!(value["id"], "parked");
             assert_eq!(value["result"]["method"], "agent.stop");
-            held = Some(value);
+            parked = Some(value);
         }
     }
     write.shutdown().await.unwrap();

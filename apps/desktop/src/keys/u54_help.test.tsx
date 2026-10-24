@@ -6,7 +6,6 @@ import { createFakeApp } from "../testing/fakeApp";
 import { agent, door } from "../testing/nodes";
 import type { EmulatorFactory } from "../terminal/emulator";
 import { CHORDS, pressOf } from "./chords";
-import { leaderKey } from "./leaderFixture";
 import { endLeader } from "./registry";
 
 afterEach(cleanup);
@@ -185,14 +184,13 @@ describe("u54 keyboard help", () => {
     fireEvent.click(rowOf("a"));
     await waitFor(() => expect(document.querySelector(".terminal-new")).not.toBeNull());
 
-    const listed = CHORDS.filter((chord) => !chord.inRail && !chord.onAgent && !chord.inSwitcher && !chord.inTerminals && !chord.inShelf).flatMap((chord) => chord.presses).sort();
+    const listed = CHORDS.filter((chord) => !chord.inRail && !chord.inTerminals && !chord.inShelf).flatMap((chord) => chord.presses).sort();
     // Arrow keys are probed for `⌘` alone: the Terminal tabs bind them with other modifiers too (U2230).
     const outsideTerminal = document.querySelector(".terminal-new")!;
     const bound = [...new Set([...(await boundPresses(outsideTerminal)), ...(await boundPresses(outsideTerminal, [{ metaKey: true }], ["ArrowUp", "ArrowDown"]))])].sort();
 
     expect(bound).toEqual(listed);
 
-    // `⌘⏎` binds from a Rail row, not from a text field (U531); a Rail row prevents any modified `⏎`, so only ⌘⏎ is probed.
     const row = rowOf("a");
 
     // The tree types ahead on ⌥ and a letter, which a Mac makes into another character and Help lists as no chord (U520); ⌥1 to ⌥9 bind from the Terminal's probe above.
@@ -202,22 +200,13 @@ describe("u54 keyboard help", () => {
     // A Rail chord binds while focus is in the Rail, and ⌘2 above moved it to the pane.
     const railOnly: string[] = [];
 
-    for (const code of ["Enter", "Backspace"]) {
+    for (const code of ["Backspace"]) {
       row.focus();
       railOnly.push(...(await boundPresses(row, [{ metaKey: true }], [code])));
     }
 
     const railBound = [...new Set([...railPresses, ...railOnly])].sort();
-    const field = document.activeElement;
-
-    leaderKey("KeyK");
-    await waitFor(() => expect(document.querySelector(".switcher input")).not.toBeNull());
-
-    const switcherBound = await boundPresses(document.querySelector(".switcher input")!, [{ shiftKey: true }], ["Enter"]);
-
-    expect(switcherBound).toEqual(["shift+Enter"]);
-    expect(field).not.toBeNull();
-    expect([...new Set([...bound, ...railBound, ...switcherBound])].sort()).toEqual(CHORDS.filter((chord) => !chord.inTerminals && !chord.inShelf).flatMap((chord) => chord.presses).sort());
+    expect([...new Set([...bound, ...railBound])].sort()).toEqual(CHORDS.filter((chord) => !chord.inTerminals && !chord.inShelf).flatMap((chord) => chord.presses).sort());
   });
 
 });
