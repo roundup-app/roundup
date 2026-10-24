@@ -233,7 +233,7 @@ const Root = <T extends ExternalTarget>(props: RootProps<T>) => {
 
   onCleanup(() => { clearPreview(); stopRestoringFocus?.(); stopListening?.(); mark(null); });
 
-  return <DragDropProvider sensors={defaults => defaults.map(sensor => sensor === PointerSensor ? PointerSensor.configure({ activationConstraints: [new PointerActivationConstraints.Distance({ value: PRESS_DRAG_PX })] }) : sensor)} modifiers={[RestrictToElement.configure({ element: operation => operation.activatorEvent instanceof KeyboardEvent ? null : list ?? null })]} onDragStart={(event) => {
+  return <DragDropProvider sensors={defaults => defaults.map(sensor => sensor === PointerSensor ? PointerSensor.configure({ activationConstraints: [new PointerActivationConstraints.Distance({ value: PRESS_DRAG_PX })] }) : sensor)} modifiers={[RestrictToElement.configure({ element: () => list ?? null })]} onDragStart={(event) => {
     const tree = local.tree;
     const source = event.operation.source;
 
