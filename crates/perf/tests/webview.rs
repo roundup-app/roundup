@@ -1,9 +1,9 @@
 //! Scenario R11 (`scenarios/perf.md`): what the keystroke runner accepts from the webview.
 
-use perf::webview::{checked, perf_line};
+use perf::webview::{checked, judge_runs, perf_line};
 use serde_json::json;
 
-fn report(frame_ms: f64, dropped: f64) -> serde_json::Value {
+fn report(frame_ms: f64, dropped: u64) -> serde_json::Value {
     json!({ "p95": 9.0, "frame_ms": frame_ms, "dropped": dropped, "keys": 1000 })
 }
 
@@ -14,20 +14,10 @@ fn r11_the_perf_line_is_found_once_complete_among_echoed_keys() {
 }
 
 #[test]
-fn r11_a_full_rate_run_with_few_dropped_keys_is_accepted() {
-    assert!(checked(&report(16.7, 50.0)).is_ok());
-}
-
-#[test]
 fn r11_a_throttled_window_is_refused_naming_the_frame_time() {
-    let err = checked(&report(500.0, 0.0)).unwrap_err().to_string();
+    let err = checked(&report(500.0, 0)).unwrap_err().to_string();
 
     assert!(err.contains("500.0 ms") && err.contains("front"));
-}
-
-#[test]
-fn r11_more_than_five_percent_dropped_keys_is_refused() {
-    assert!(checked(&report(16.7, 51.0)).is_err());
 }
 
 #[test]
@@ -41,8 +31,46 @@ fn r11_a_failure_the_webview_reported_is_refused_with_its_message() {
 
 #[test]
 fn r11_the_frame_time_limit_is_25_ms_inclusive() {
-    assert!(checked(&report(25.0, 0.0)).is_ok());
-    assert!(checked(&report(25.1, 0.0)).is_err());
+    assert!(checked(&report(25.0, 0)).is_ok());
+    assert!(checked(&report(25.1, 0)).is_err());
+}
+
+#[test]
+fn r21_each_run_must_meet_the_latency_and_drop_budget() {
+    for (p95, dropped, expected, reason) in [
+        (15.999, 0, 0, ""),
+        (16.0, 0, 1, "p95 16"),
+        (16.001, 0, 1, "p95 16.001"),
+        (9.0, 1, 1, "1 dropped"),
+    ] {
+        let mut middle = report(16.7, dropped);
+        middle["p95"] = json!(p95);
+        let (exit, failures) = judge_runs(&[report(16.7, 0), middle, report(16.7, 0)], 16.0);
+        assert_eq!(exit, expected);
+        if expected != 0 {
+            assert!(
+                failures
+                    .iter()
+                    .any(|message| message.contains("run 2") && message.contains(reason)),
+                "{failures:?}"
+            );
+        }
+    }
+}
+
+#[test]
+fn r21_invalid_observation_never_has_a_latency_verdict() {
+    for invalid in [
+        json!({"error": "missing PERF line"}),
+        report(25.1, 0),
+        json!({"p95": 1}),
+        json!({"frame_ms": 16, "keys": 1000, "dropped": 0, "p95": -1}),
+    ] {
+        let (exit, failures) = judge_runs(&[report(16.7, 0), invalid], 16.0);
+        assert_eq!(exit, 2);
+        assert!(failures.iter().any(|message| message.contains("run 2")));
+    }
+    assert_eq!(judge_runs(&[], 16.0).0, 2);
 }
 
 #[test]
