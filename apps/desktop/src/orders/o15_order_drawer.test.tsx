@@ -1,6 +1,6 @@
 import { cleanup, fireEvent, render, screen, waitFor, within } from "@solidjs/testing-library";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { gate, mountApp, select } from "../decisions/decisionsFixture";
+import { gate, mountApp, select } from "../testing/appFixture";
 import { RpcError } from "../app/seam";
 import type { Kind } from "@contracts/Kind";
 import type { Order } from "@contracts/agent/Order";
@@ -25,7 +25,7 @@ export const openDrawer = async (
   order: Order,
   options: { kind?: Kind; handlers?: Record<string, (params: never) => object | null> } = {},
 ) => {
-  await mountApp([], (app) => {
+  await mountApp((app) => {
     app.handlers["rail.tree"] = () => [
       agent("a", options.kind ?? "working", "editing", { name: "alpha", order: 0, work: order }),
       agent("b", "working", "editing", { name: "beta", order: 1, work: clarifying("which?") }),
@@ -305,7 +305,7 @@ it("u2773e_recovery_actions_keep_surface_draft_orders", async () => {
 it("u2773c_orders_untouched_editor_follows_external_change", async () => {
   let latest = full;
 
-  const { app } = await mountApp([], (app) => {
+  const { app } = await mountApp((app) => {
     app.handlers["rail.tree"] = () => [
       agent("a", "working", "editing", { name: "alpha", order: 0, work: latest }),
       agent("b", "working", "editing", { name: "beta", order: 1 }),

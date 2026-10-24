@@ -94,7 +94,7 @@ it("u2567b_the_overview_makes_no_call_of_its_own", async () => {
   app.emit(event({ name: "agent.status", data: { id: "a", attempt: "1", status_revision: "2", status: { kind: "working", label: "busy", since: 40 } } }));
   await connected.rail.settled();
 
-  expect(app.calls.map((call) => call.method).sort()).toEqual(["ask.list", "daemon.ping", "decision.list", "deliverable.list", "rail.tree", "reaction.list", "terminal.list", "terminal.scheme"]);
+  expect(app.calls.map((call) => call.method).sort()).toEqual(["ask.list", "daemon.ping", "deliverable.list", "rail.tree", "reaction.list", "terminal.list", "terminal.scheme"]);
 });
 
 it("u2567c_activating_an_entry_selects_its_workstream_and_shows_the_terminal", async () => {

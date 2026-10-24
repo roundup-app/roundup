@@ -157,10 +157,6 @@ it("r17_events_and_explicit_refresh_work_while_suspended", async () => {
   fireEvent.click(screen.getByRole("button", { name: "branch-a" }));
   await settle();
   expect(reads()).toBe(2);
-  const decision = { id: "question", agent: "a", tool: "permission", args: "{}", opened_at: NOW, answerable: true };
-  app.emit(event({ name: "decision.opened", data: decision }));
-  await settle();
-  expect(document.querySelector(".decision-card")).not.toBeNull();
   status(app, "a", "blocked");
   expect(screen.getAllByRole("img", { name: "Blocked" }).length).toBeGreaterThan(0);
   expect(intervals.size).toBe(0);
@@ -226,9 +222,7 @@ it("u3308_idle_display_clock_demand_never_enables_periodic_rpcs", async () => {
 
   const { app, clock, view } = await mount([
     door("a", "idle", "stopped", { worktree: { path: "/p/a", branch: "branch-a", base: "main" } }),
-  ], (app) => {
-    app.handlers["decision.list"] = () => [{ id: "question", agent: "a", tool: "permission", args: "{}", opened_at: NOW, answerable: true }];
-  }, (id) => {
+  ], undefined, (id) => {
     board = useDisplayNow(active);
 
     return emulators.factory(id);
@@ -236,7 +230,6 @@ it("u3308_idle_display_clock_demand_never_enables_periodic_rpcs", async () => {
 
   expect(board).toBeDefined();
   expect(app.calls.some((call) => call.method === "agent.worktreeState")).toBe(true);
-  expect(document.querySelector(".decision-card")).not.toBeNull();
   activate(true);
   await settle();
   expect(board!()).toBe(NOW);

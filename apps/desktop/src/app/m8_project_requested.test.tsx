@@ -203,7 +203,7 @@ it("u2773h_credential_values_remain_hidden_until_copy", async () => {
   const drafts = createProjectDrafts();
   const holder = drafts(FIRST.path);
   const secret = "sentinel-credential-recovery";
-  const { revision } = holder.edit({ surface: "decisions", object: "original-prompt", recipient: "original-agent" }, { password: secret }, null, "credential").draft;
+  const { revision } = holder.edit({ surface: "agent", object: "original-prompt", recipient: "original-agent" }, { password: secret }, null, "credential").draft;
 
   holder.submit(revision);
   holder.settle(revision, "failed");

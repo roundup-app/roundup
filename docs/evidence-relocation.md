@@ -12,7 +12,7 @@ Inventory revision: `b0d75619e9631910b325e647597e58bbaa33ad67`. `loop/evidence-p
 Relocation preserves the tracked-file count. Added source/summary files are `loop/evidence.test.py`, `loop/evidence-paths.json` and this summary. #1651 must reconcile against its actual base; this inventory fixes the original universe, not later unrelated additions. Generated payloads are not added or edited here.
 
 ```text
-apps/desktop/observers/       U152, U157, U194, U346, U431, journey/J14
+apps/desktop/observers/       U152, U157, U346, U431, journey/J14
 crates/rpc/tests/observers/   R16 collectors, comparators and four inputs
 crates/rupd/tests/observers/  Rail reply collector and comparator
 loop/fixtures/               L103 verdicts
@@ -25,7 +25,6 @@ loop/fixtures/               L103 verdicts
 | Builder L103 | Two exact-byte fixtures in `loop/fixtures/`; no generated report input | Two named tests below |
 | U152's three scripts | Running isolated `tree-40` harness, width/theme arguments; browser seed and in-page RPC wrapper. No adjacent files read | `bash apps/desktop/observers/U152/observe{,-agent,-motion}.sh <width> <theme>`; stdout readings. U156 motion/reduced-motion sampling unchanged |
 | U157 | Isolated real harness on port 5199 with the recorded Workstreams/Todos; RPC responses, width/theme arguments. No adjacent file read | `bash apps/desktop/observers/U157/observe-real.sh <width> <theme>`; stdout. Historical method names require the recorded historical production revision |
-| U194 | Isolated decisions harness on port 5199; in-page long command and layout/hit test; no file read | `bash apps/desktop/observers/U194/observe.sh`; stdout; 1280×800 and 700×800, shown/hidden order line |
 | U346/N7 | Adjacent `observe.sh`; root `target/debug/rupd`, `rup`, fake Claude at `crates/rup/tests/e2e/fake_claude.py`; Vite/RPC/browser doubles or real Daemon. Root depth updated; every original lifecycle/isolation assertion retained | `cargo build -p rupd -p rup`, then `python3 apps/desktop/observers/U346/observe.test.py`. Live observer runs from root and creates `artifacts/ux/U346`; six isolated headless profiles, owned data and stdin cleanup unchanged |
 | U431/U432 | Running isolated `tree-40` harness, browser DOM; no adjacent input | `bash apps/desktop/observers/U431/observe.sh` from root. Creates `artifacts/ux/U431` and `U432`, never writes beside source |
 | J14 | Adjacent `observer.ts.txt`; `apps/desktop/package.json`; source-owned testing helpers `captures`, `checks`, `chromePage`, `realDaemonFixture`, `realSeam`, then their fake Claude/Daemon/browser inputs. No generated evidence read | `python3 apps/desktop/observers/journey/J14/reproduce.py`; installs temporary test, runs `just capture J14`, restores package/test. Root depth updated; four passes, journey partition and all assertions unchanged; historical assertions run against their recorded production revision |
