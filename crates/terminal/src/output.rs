@@ -348,9 +348,9 @@ struct Rows<'a> {
     sink: &'a mut dyn FnMut(Line) -> ControlFlow<()>,
     open: Vec<Slot>,
     open_start: Option<u64>,
-    /// The line before, held until the start of the next gives its end; true when nothing in the
+    /// The line before, parked until the start of the next gives its end; true when nothing in the
     /// window wrote it.
-    held: Option<(Line, bool)>,
+    parked: Option<(Line, bool)>,
     /// No line starts before this: the last start, or the last byte a line holds.
     floor: u64,
     stopped: bool,
@@ -364,7 +364,7 @@ impl<'a> Rows<'a> {
             sink,
             open: Vec::new(),
             open_start: None,
-            held: None,
+            parked: None,
             floor: from,
             stopped: false,
         }
@@ -412,11 +412,11 @@ impl<'a> Rows<'a> {
         let start = raw.max(self.floor);
         // The line before ends where this one starts. If nothing in the window wrote it, it is
         // still a line when its own line feed came after `from`, and not otherwise.
-        if let Some((mut held, ghost)) = self.held.take()
+        if let Some((mut parked, ghost)) = self.parked.take()
             && !(ghost && raw <= self.from)
         {
-            held.end = if nothing { self.end } else { start };
-            self.emit(held);
+            parked.end = if nothing { self.end } else { start };
+            self.emit(parked);
         }
         if nothing {
             return;
@@ -443,12 +443,12 @@ impl<'a> Rows<'a> {
             cells,
             newline,
         };
-        self.held = Some((line, before && !written));
+        self.parked = Some((line, before && !written));
     }
 
     fn close(&mut self) {
-        if let Some((held, _)) = self.held.take() {
-            self.emit(held);
+        if let Some((parked, _)) = self.parked.take() {
+            self.emit(parked);
         }
     }
 

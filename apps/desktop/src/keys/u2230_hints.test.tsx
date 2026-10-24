@@ -8,7 +8,6 @@ import { rowOf } from "../rail/railFixture";
 import { createFakeApp } from "../testing/fakeApp";
 import { agent, door, event, info } from "../testing/nodes";
 import type { EmulatorFactory } from "../terminal/emulator";
-import { copy } from "../copy";
 import { KeyHint } from "./KeyHint";
 import { endLeader } from "./registry";
 import { CHORDS, hintsFor, pressOf } from "./chords";
@@ -57,8 +56,6 @@ const open = async () => {
   ];
   Object.assign(app.handlers, padHandlers({ pads: [{ incarnation: "fixture-1", name: "notes", text: "", owner: { kind: "user", id: "you", parent: null }, updated_at: 0, revision: 1, home: "w" }], history: [] }, () => {}));
   app.handlers["terminal.list"] = () => listed;
-  app.handlers["takeover.begin"] = () => null;
-  app.handlers["takeover.end"] = () => null;
   app.handlers["terminal.write"] = () => null;
   app.handlers["terminal.resize"] = () => null;
   app.handlers["terminal.snapshot"] = () => ({ cols: 100, rows: 30, after: 0, data: "" });
@@ -77,17 +74,17 @@ const open = async () => {
 
 const line = (): string[] => [...document.querySelectorAll(".hint-line .hint:not([hidden])")].map((hint) => hint.textContent!.replace(/\s+/g, " ").trim());
 
-const label = (place: HintPlace, watching = true): string[] => hintsFor(place, watching).map((hint) => `${hint.keys} ${hint.label}`);
+const label = (place: HintPlace): string[] => hintsFor(place).map((hint) => `${hint.keys} ${hint.label}`);
 
-const toRail = async (watching = true) => {
+const toRail = async () => {
   fireEvent.click(rowOf("b"));
   rowOf("b").focus();
-  await waitFor(() => expect(line()).toEqual(label("rail", watching)));
+  await waitFor(() => expect(line()).toEqual(label("rail")));
 };
 
 const toPane = async () => {
   fireEvent.click(rowOf("b"));
-  await waitFor(() => expect(document.querySelector(".pane-control[data-state=managed]")).not.toBeNull());
+  await waitFor(() => expect(document.querySelector(".pane-screen textarea")).not.toBeNull());
   document.querySelector<HTMLElement>(".pane-screen textarea")!.focus();
   await waitFor(() => expect(line()).toEqual(label("agent")));
 };
@@ -152,7 +149,7 @@ describe("u2230 shortcut hints", () => {
 
   it.each([["rail", toRail], ["agent", toPane], ["bubble", toBubble], ["pad", () => toPlace("pad")], ["drawer", () => toPlace("drawer")]] as const)("u2230_every_hint_names_a_bound_chord_in_%s", async (place, go) => {
       for (const hint of hintsFor(place)) {
-        // Each press changes what has focus (take control, the Rail, the next Agent), so each starts on a fresh App.
+        // Each press changes what has focus (the Rail, the next Agent), so each starts on a fresh App.
         cleanup();
         endLeader();
         const app = await open();
@@ -170,7 +167,7 @@ describe("u2230 shortcut hints", () => {
         if (hint.keys === "⌘K") expect(document.querySelector('[role="status"].leader')).not.toBeNull();
         else if (hint.keys === "⌘B") await waitFor(() => expect(document.activeElement?.closest(".bubble"), `${place}: ${document.activeElement?.outerHTML}`).not.toBeNull());
         else if (hint.keys === "⌘/") expect(document.querySelector(".ask-input")).not.toBeNull();
-        else await waitFor(() => expect(app.calls.some((call) => call.method === (hint.keys === "⌘⌫" ? "rail.remove" : "takeover.begin"))).toBe(true));
+        else await waitFor(() => expect(app.calls.some((call) => call.method === "rail.remove")).toBe(true));
       }
   });
 
@@ -178,13 +175,6 @@ describe("u2230 shortcut hints", () => {
     await open();
     await toRail();
     await toPane();
-    const control = screen.getByRole("button", { name: copy.takeOver });
-    control.focus();
-    fireEvent.click(control);
-    await waitFor(() => expect(document.activeElement?.closest(".pane-screen")).not.toBeNull());
-    await waitFor(() => expect(line()).toEqual(label("agent", false)));
-    fireEvent.keyDown(document.activeElement!, { key: "Enter", code: "Enter", metaKey: true });
-    await waitFor(() => expect(document.activeElement).toBe(control));
     await toRail();
     await toBubble();
     await toRail();

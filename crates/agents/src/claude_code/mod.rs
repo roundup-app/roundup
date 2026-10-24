@@ -90,7 +90,7 @@ pub struct ClaudeCode {
     /// The latest recognised Signal was `PreToolUse`: a dialog may be about to open.
     after_pre_tool_use: bool,
     /// When a star after `PreToolUse` was first seen and not yet resolved.
-    star_held_since: Option<i64>,
+    star_parked_since: Option<i64>,
     clock: Box<dyn Fn() -> i64 + Send>,
     /// U3566c: the Agent's published finishes, carried across Attempts by its caller.
     finished: u64,
@@ -103,7 +103,7 @@ impl ClaudeCode {
             status: None,
             ending: Ending::Running,
             after_pre_tool_use: false,
-            star_held_since: None,
+            star_parked_since: None,
             clock: Box::new(clock),
             finished: 0,
         }
@@ -169,21 +169,21 @@ impl ClaudeCode {
 
     /// When the adapter wants an `Observation::Tick`: `STAR_HOLD` after the star it is holding.
     pub fn tick_at(&self) -> Option<i64> {
-        self.star_held_since.map(|since| since + STAR_HOLD)
+        self.star_parked_since.map(|since| since + STAR_HOLD)
     }
 
     /// Claude Code spins ◐/◑ while it works and shows ✳ whenever it is not, a permission dialog
     /// included. A spinner means working, but never ends `needs-you` (a denied dialog resumes the
     /// spinner with no hook). A star means idle only for a working Agent, so it never ends
     /// `needs-you`, `error` or `done`. The one star not read at once follows `PreToolUse`: it may
-    /// be the dialog's, which precedes its `PermissionRequest`, so it is held for `STAR_HOLD`;
+    /// be the dialog's, which precedes its `PermissionRequest`, so it is parked for `STAR_HOLD`;
     /// reading it as idle would flicker `idle` before `needs-you`. A spinner after that star shows
     /// the tool still running and drops the hold.
     fn retitle(&mut self, title: &str) -> Option<Status> {
         let kind = self.status.as_ref().map(|status| status.kind);
         match title.chars().next()? {
             '◐' | '◑' => {
-                self.star_held_since = None;
+                self.star_parked_since = None;
                 if kind == Some(Kind::NeedsYou) {
                     return None;
                 }
@@ -191,7 +191,7 @@ impl ClaudeCode {
             }
             '✳' if kind == Some(Kind::Working) && self.after_pre_tool_use => {
                 let now = (self.clock)();
-                self.star_held_since.get_or_insert(now);
+                self.star_parked_since.get_or_insert(now);
                 None
             }
             '✳' if kind == Some(Kind::Working) => self.settle(Kind::Idle, "idle".into()),
@@ -199,23 +199,23 @@ impl ClaudeCode {
         }
     }
 
-    /// A held star that no `PermissionRequest` followed was a plain idle.
+    /// A parked star that no `PermissionRequest` followed was a plain idle.
     fn tick(&mut self) -> Option<Status> {
-        self.star_held_since
+        self.star_parked_since
             .filter(|since| (self.clock)() - since >= STAR_HOLD)?;
-        self.star_held_since = None;
+        self.star_parked_since = None;
         self.settle(Kind::Idle, "idle".into())
     }
 
     fn signal(&mut self, payload: &Value) -> Option<Status> {
         let (kind, label) = hook_status(payload)?;
         self.after_pre_tool_use = payload["hook_event_name"] == "PreToolUse";
-        self.star_held_since = None;
+        self.star_parked_since = None;
         self.settle(kind, label)
     }
 
     fn exit(&mut self, code: Option<i32>) -> Option<Status> {
-        self.star_held_since = None;
+        self.star_parked_since = None;
         if matches!(self.ending, Ending::Stopped | Ending::Failed) {
             return None;
         }
@@ -234,7 +234,7 @@ impl ClaudeCode {
         if self.ending != Ending::Running {
             return None;
         }
-        self.star_held_since = None;
+        self.star_parked_since = None;
         self.settle(Kind::Error, "prompt not accepted".into())
     }
 
@@ -245,7 +245,7 @@ impl ClaudeCode {
             return None;
         }
         self.ending = Ending::Failed;
-        self.star_held_since = None;
+        self.star_parked_since = None;
         self.settle(Kind::Error, label)
     }
 }
@@ -257,7 +257,7 @@ impl AgentAdapter for ClaudeCode {
             Observation::Stopped if self.ending != Ending::Running => None,
             Observation::Stopped => {
                 self.ending = Ending::Stopped;
-                self.star_held_since = None;
+                self.star_parked_since = None;
                 self.settle_counting(Kind::Done, "stopped".into(), false)
             }
             Observation::Signal(_) | Observation::Title(_) | Observation::Tick
@@ -285,28 +285,6 @@ pub fn event_name(payload: &Value) -> &str {
 pub fn submitted_prompt(payload: &Value) -> Option<&str> {
     (payload["hook_event_name"] == "UserPromptSubmit")
         .then(|| payload["prompt"].as_str().unwrap_or_default())
-}
-
-/// B39: a paste that Claude Code shows as a Paste placeholder reaches `UserPromptSubmit` inside an
-/// envelope (seen with 2.1.302): `<pasted_content id="…">`, a newline, the pasted text, a newline,
-/// `</pasted_content id="…">`. The pasted text of the envelope that ends `prompt`, or `prompt` when
-/// none ends it.
-pub(crate) fn pasted_text(prompt: &str) -> &str {
-    const CLOSE: &str = "\n</pasted_content id=\"";
-    let trimmed = prompt.trim_end();
-    let Some(close_at) = trimmed.rfind(CLOSE) else {
-        return prompt;
-    };
-    let Some(id) = trimmed[close_at + CLOSE.len()..]
-        .strip_suffix("\">")
-        .filter(|id| !id.contains(['"', '\n']))
-    else {
-        return prompt;
-    };
-    let open = format!("<pasted_content id=\"{id}\">\n");
-    trimmed[..close_at]
-        .rfind(&open)
-        .map_or(prompt, |open_at| &trimmed[open_at + open.len()..close_at])
 }
 
 /// Whether `payload` is the `SessionStart` Signal, which readies a fresh Agent for its first
@@ -351,33 +329,12 @@ pub fn read_start_context(stdout: &str) -> Result<String, String> {
 /// asks it to act on the pasted block instead of treating the block as bare quoted paste.
 pub const LEAD_IN: &str = "Follow this instruction: ";
 
-/// B33: typed instead of `LEAD_IN` before a prompt that holds only pushed Digests, which report
-/// state and ask for nothing.
-pub const STATUS_LEAD: &str = "Status, nothing to follow: ";
-
-/// What B30 writes before each pushed Digest of a batch.
-const DIGEST_HEAD: &str = "[from rupd, note] [digest]";
-
-/// The lead a Steer of `text` is typed with: `STATUS_LEAD` when every Message of the batch (the
-/// paragraphs B30 joins) is a pushed Digest, `LEAD_IN` otherwise. B39's id line closing the prompt is
-/// not a Message.
-fn lead_of(text: &str) -> &'static str {
-    let parts = text
-        .split("\n\n")
-        .filter(|part| !part.starts_with("[rup messages:"));
-    if parts.into_iter().all(|part| part.starts_with(DIGEST_HEAD)) {
-        STATUS_LEAD
-    } else {
-        LEAD_IN
-    }
-}
-
-/// The bytes of a Steer (H11, H20, B33): `LEAD_IN` (or `STATUS_LEAD`), then `text` as one bracketed paste, then `\r`, written
+/// The bytes of a Steer (H11, H20): `LEAD_IN`, then `text` as one bracketed paste, then `\r`, written
 /// as `write_submitted` does. A paste followed by a pause submitted 8 of 8 times in the spike and a bare
 /// `text\r` failed once, so the paste markers stay. `text` loses its `ESC` bytes, so it cannot
 /// close the paste early and type what follows as keys.
 pub fn steer_bytes(text: &str) -> Vec<u8> {
-    let mut bytes = lead_of(text).as_bytes().to_vec();
+    let mut bytes = LEAD_IN.as_bytes().to_vec();
     bytes.extend(verbatim_bytes(&text.replace('\x1b', "")));
     bytes
 }

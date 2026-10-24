@@ -7,15 +7,10 @@ use contracts::message::Delivery;
 #[derive(Clone, Debug, PartialEq)]
 pub(crate) struct State {
     pub queue: Vec<u32>,
-    pub held_ask_first: Vec<u32>,
-    pub held_takeover: Vec<u32>,
     pub typed: Vec<u32>,
     pub dropped: Vec<u32>,
     pub users: Vec<u32>,
     pub next: u32,
-    pub takeover: bool,
-    /// B32: the user has typed into the Terminal and not yet submitted or cleared it.
-    pub unsent: bool,
     pub idle: bool,
     pub gone: bool,
 }
@@ -24,14 +19,10 @@ impl Default for State {
     fn default() -> Self {
         Self {
             queue: vec![],
-            held_ask_first: vec![],
-            held_takeover: vec![],
             typed: vec![],
             dropped: vec![],
             users: vec![],
             next: 1,
-            takeover: false,
-            unsent: false,
             idle: false,
             gone: false,
         }
@@ -45,12 +36,6 @@ pub(crate) enum Event {
     Idle,
     Busy,
     Exit,
-    TakeoverBegin,
-    TakeoverEnd,
-    UserInput,
-    UserSubmit,
-    UserClear,
-    UserDeliver(u32),
     UserDrop(u32),
     Restart { alive: bool },
 }
@@ -61,20 +46,7 @@ pub(crate) enum Effect {
 }
 
 #[cfg(test)]
-pub(crate) const TRANSITIONS: [&str; 12] = [
-    "send",
-    "idle",
-    "busy",
-    "exit",
-    "takeover_begin",
-    "takeover_end",
-    "user_input",
-    "user_submit",
-    "user_clear",
-    "user_deliver",
-    "user_drop",
-    "restart",
-];
+pub(crate) const TRANSITIONS: [&str; 6] = ["send", "idle", "busy", "exit", "user_drop", "restart"];
 
 fn flush(mut s: State, effects: &mut Vec<Effect>) -> State {
     if s.idle && !s.queue.is_empty() {
@@ -84,23 +56,6 @@ fn flush(mut s: State, effects: &mut Vec<Effect>) -> State {
             effects.push(Effect::Type(x));
         }
         s.idle = false;
-    }
-    s
-}
-
-/// B6, B32: what waits in the queue when the user takes hold of the Terminal is held, whoever sent it.
-fn hold_queue(s: &mut State) {
-    let held = std::mem::take(&mut s.queue);
-    s.held_takeover.extend(held);
-}
-
-/// B6, B32: once neither a Takeover nor unsent input holds the Terminal, what was held is
-/// pending again, in order.
-fn release(mut s: State, effects: &mut Vec<Effect>) -> State {
-    if !s.takeover && !s.unsent {
-        let held = std::mem::take(&mut s.held_takeover);
-        s.queue.extend(held);
-        s = flush(s, effects);
     }
     s
 }
@@ -120,19 +75,8 @@ pub(crate) fn step(state: &State, event: Event) -> (State, Vec<Effect>) {
                     if from_user {
                         s.users.push(n);
                     }
-                    // B6, B32: whoever sends, nothing is typed while the user holds the Terminal.
-                    if s.takeover || s.unsent {
-                        s.held_takeover.push(n);
-                    } else {
-                        s.queue.push(n);
-                    }
+                    s.queue.push(n);
                     s = flush(s, &mut fx);
-                }
-                Delivery::AskFirst => {
-                    s.held_ask_first.push(n);
-                    if from_user {
-                        s.users.push(n);
-                    }
                 }
                 Delivery::Drop => {
                     s.dropped.push(n);
@@ -151,67 +95,23 @@ pub(crate) fn step(state: &State, event: Event) -> (State, Vec<Effect>) {
         Event::Busy => s.idle = false,
         Event::Exit => {
             let mut gone = std::mem::take(&mut s.queue);
-            gone.append(&mut s.held_takeover);
             s.dropped.append(&mut gone);
             s.idle = false;
             s.gone = true;
         }
-        Event::TakeoverBegin => {
-            hold_queue(&mut s);
-            s.takeover = true;
-        }
-        Event::TakeoverEnd => {
-            s.takeover = false;
-            s = release(s, &mut fx);
-        }
-        Event::UserInput => {
-            hold_queue(&mut s);
-            s.unsent = true;
-        }
-        // B32: a submit and a clear both end the unsent input.
-        Event::UserSubmit | Event::UserClear => {
-            s.unsent = false;
-            s = release(s, &mut fx);
-        }
-        Event::UserDeliver(id) => {
-            if !s.gone {
-                if let Some(i) = s.held_ask_first.iter().position(|x| *x == id) {
-                    s.held_ask_first.remove(i);
-                    s.queue.push(id);
-                    s = flush(s, &mut fx);
-                } else if let Some(i) = s.held_takeover.iter().position(|x| *x == id) {
-                    s.held_takeover.remove(i);
-                    s.queue.push(id);
-                    s = flush(s, &mut fx);
-                }
-            }
-        }
         Event::UserDrop(id) => {
-            if let Some(i) = s.held_ask_first.iter().position(|x| *x == id) {
-                s.held_ask_first.remove(i);
-                s.dropped.push(id);
-            } else if let Some(i) = s.held_takeover.iter().position(|x| *x == id) {
-                s.held_takeover.remove(i);
-                s.dropped.push(id);
-            } else if let Some(i) = s.queue.iter().position(|x| *x == id) {
-                // U3782: a pending Message the user removed; nothing is typed.
+            // U3782: a pending Message the user removed; nothing is typed.
+            if let Some(i) = s.queue.iter().position(|x| *x == id) {
                 s.queue.remove(i);
                 s.dropped.push(id);
             }
         }
-        // B8: nothing is typed. A lost Terminal is the receiver gone (B9); a kept one has no Takeover (B6),
-        // so what one held is pending behind what waits, and the receiver is not yet known idle.
+        // B8: nothing is typed. A lost Terminal is the receiver gone (B9); a kept one is not yet known idle.
         Event::Restart { alive } => {
             if alive {
                 s.idle = false;
-                let held = std::mem::take(&mut s.held_takeover);
-                s.queue.extend(held);
-                s.takeover = false;
-                s.unsent = false;
             } else {
                 s = step(&s, Event::Exit).0;
-                s.takeover = false;
-                s.unsent = false;
             }
         }
     }
@@ -229,22 +129,12 @@ pub(crate) fn restart_event(reserved: bool, event: Event) -> Event {
 }
 
 /// A35: selected retirement is an enduring ineligible receiver, including after final removal.
-/// Preserve its ledger on automatic lifecycle/replay inputs, refuse new send/manual delivery.
-/// Authorized Takeover end is handled separately without releasing held records.
+/// Preserve its ledger on automatic lifecycle/replay inputs, refuse new sends.
 pub(crate) fn retirement_event(retiring: bool, event: Event) -> Event {
     if retiring
         && matches!(
             event,
-            Event::Send { .. }
-                | Event::UserDeliver(_)
-                | Event::TakeoverBegin
-                | Event::TakeoverEnd
-                | Event::UserInput
-                | Event::UserSubmit
-                | Event::UserClear
-                | Event::Exit
-                | Event::Idle
-                | Event::Restart { .. }
+            Event::Send { .. } | Event::Exit | Event::Idle | Event::Restart { .. }
         )
     {
         Event::Busy

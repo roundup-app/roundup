@@ -5,6 +5,7 @@ const CONTENT_BYTES: usize = 22;
 
 const IS_WIDE: u8 = 0b1000_0000;
 const IS_WIDE_CONTINUATION: u8 = 0b0100_0000;
+const HAS_SOURCE: u8 = 0b0010_0000;
 const LEN_BITS: u8 = 0b0001_1111;
 
 /// Represents a single terminal cell.
@@ -13,13 +14,15 @@ pub struct Cell {
     contents: [u8; CONTENT_BYTES],
     len: u8,
     attrs: crate::attrs::Attrs,
-    pub(crate) source: Option<u64>,
+    // #3696: ten idle grids retained 949,600 bytes with Option<u64>.
+    // Byte storage avoids alignment padding; HAS_SOURCE uses the spare length bit.
+    source: [u8; 8],
 }
-const _: () = assert!(std::mem::size_of::<Cell>() == 48);
+const _: () = assert!(std::mem::size_of::<Cell>() == 40);
 
 impl PartialEq<Self> for Cell {
     fn eq(&self, other: &Self) -> bool {
-        if self.len != other.len {
+        if self.len & !HAS_SOURCE != other.len & !HAS_SOURCE {
             return false;
         }
         if self.attrs != other.attrs {
@@ -35,7 +38,7 @@ impl Cell {
         Self {
             contents: Default::default(),
             len: 0,
-            source: None,
+            source: [0; 8],
             attrs: crate::attrs::Attrs::default(),
         }
     }
@@ -45,7 +48,6 @@ impl Cell {
     }
 
     pub(crate) fn set(&mut self, c: char, a: crate::attrs::Attrs) {
-        self.source = None;
         self.len = 0;
         self.append_char(0, c);
         // strings in this context should always be an arbitrary character
@@ -77,7 +79,6 @@ impl Cell {
     }
 
     pub(crate) fn clear(&mut self, attrs: crate::attrs::Attrs) {
-        self.source = None;
         self.len = 0;
         self.attrs = attrs;
     }
@@ -88,7 +89,16 @@ impl Cell {
     /// ANSI formatting and is preserved by Clone, not by formatted restoration.
     #[must_use]
     pub fn source(&self) -> Option<u64> {
-        self.source
+        (self.len & HAS_SOURCE != 0).then(|| u64::from_ne_bytes(self.source))
+    }
+
+    pub(crate) fn set_source(&mut self, source: Option<u64>) {
+        self.source = source.unwrap_or_default().to_ne_bytes();
+        if source.is_some() {
+            self.len |= HAS_SOURCE;
+        } else {
+            self.len &= !HAS_SOURCE;
+        }
     }
 
     /// Returns the text contents of the cell.

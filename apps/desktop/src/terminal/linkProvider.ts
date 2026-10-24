@@ -37,17 +37,17 @@ const logicalLine = (terminal: Pick<Terminal, "buffer" | "cols">, y: number): { 
 };
 
 /**
- * U365: xterm's link provider for web links and paths. A link exists only while Cmd is held (`cmdHeld`), so a
+ * U365: xterm's link provider for web links and paths. A link exists only while Cmd is pressed (`cmdDown`), so a
  * plain click selects as before and the underline and hand show only with Cmd. `open` gets the printed target
  * on a Cmd+click, once.
  */
 export const createLinkProvider = (
   terminal: Pick<Terminal, "buffer" | "cols">,
-  cmdHeld: () => boolean,
+  cmdDown: () => boolean,
   open: (printed: Printed) => void,
 ): ILinkProvider => ({
   provideLinks: (y, callback) => {
-    const line = cmdHeld() ? logicalLine(terminal, y) : null;
+    const line = cmdDown() ? logicalLine(terminal, y) : null;
     const links: ILink[] = [];
 
     for (const { start, end, printed } of line ? findTargets(line.text) : []) {

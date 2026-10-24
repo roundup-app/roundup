@@ -9,6 +9,7 @@ agents = { path = "../agents" }
 base64.workspace = true
 checkpoints = { path = "../checkpoints" }
 contracts = { path = "../contracts" }
+getrandom = "0.3"
 messages = { path = "../messages" }
 pads = { path = "../pads" }
 provenance = { path = "../provenance" }

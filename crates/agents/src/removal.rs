@@ -601,8 +601,8 @@ mod tests {
             .unwrap()
             .id;
         let failed = running_agent(&shared, Some(&ws));
-        let held = running_agent(&shared, Some(&ws));
-        for (id, terminal) in [(&failed, "failed"), (&held, "held")] {
+        let parked = running_agent(&shared, Some(&ws));
+        for (id, terminal) in [(&failed, "failed"), (&parked, "parked")] {
             let mut runs = shared.runs();
             let Slot::Running(run) = runs.get_mut(id).unwrap() else {
                 unreachable!()
@@ -615,7 +615,7 @@ mod tests {
         let mut before = shared.rail().tree().unwrap();
         before
             .iter_mut()
-            .find(|node| node.id == held)
+            .find(|node| node.id == parked)
             .unwrap()
             .terminal_id = None;
         let applied = Arc::new(std::sync::atomic::AtomicBool::new(false));
@@ -631,7 +631,7 @@ mod tests {
                 result = &mut removal => panic!("accepted stop abandoned: {result:?}"),
             }
         }
-        // There is no completion signal while shutdown is deliberately held.
+        // There is no completion signal while shutdown is deliberately parked.
         assert!(
             tokio::time::timeout(Duration::from_millis(100), &mut removal)
                 .await
@@ -645,7 +645,7 @@ mod tests {
         assert_eq!(err.code, rpc::code::INTERNAL);
         assert!(!applied.load(std::sync::atomic::Ordering::SeqCst));
         assert_eq!(shared.rail().tree().unwrap(), before);
-        for id in [&failed, &held] {
+        for id in [&failed, &parked] {
             let runs = shared.runs();
             let Slot::Running(run) = runs.get(id).unwrap() else {
                 unreachable!()

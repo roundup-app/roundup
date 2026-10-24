@@ -80,7 +80,7 @@ roundup   payments-api                                                          
   + Workstream                  │ > █                                   │
 ```
 
-Detail, a pad, history and the inbox open by widening leftward over the terminal. The terminal is never resized, so Claude's screen does not reflow; the rail stays visible. Clicking the sender tag `[from checkout 14:02]` flips that Route between auto and ask-first.
+Detail, a pad, history and the inbox open by widening leftward over the terminal. The terminal is never resized, so Claude's screen does not reflow; the rail stays visible. Clicking the sender tag `[from checkout 14:02]` flips that Route between auto and drop.
 
 ### Screen 2 — One agent needs you and one has errored, among 12 agents
 ```
@@ -124,7 +124,7 @@ roundup   payments-api                                                          
   ○ checkout                    │ auth- │ inbox                                              close
     planning: split #7 into th… │       │
 ›   ○ auth-refactor             │ > [fr │ time   from           item
-      editing src/auth/token.ts │   mai │ 14:33  token-tests    ● held for auth-refactor
+      editing src/auth/token.ts │   mai │ 14:33  token-tests    ● pending for auth-refactor
     ○ token-tests        ci red │       │                         "refresh race: add a mutex?"
       vitest auth/  42 of 118   │ Read  │                         deliver   drop   always deliver
     ⏸ session-store             │ Updat │ 14:22  auth-refactor  ◈ auth-notes changed, +12 lines
@@ -145,9 +145,9 @@ roundup   payments-api                                                          
   + Workstream                  │ > █   │
 ```
 - The drawer slides in from the right edge, over the shelf and the terminal; the rail stays visible.
-- The badge counts rows that are new since the drawer was last opened (the top 5) and is inked while anything is held.
-- Held rows never fold, because each needs its own deliver or drop. Other repeats from one sender fold.
-- Clicking a `from` name flips that route between auto and ask first.
+- The badge counts rows that are new since the drawer was last opened (the top 5) and is inked while anything is pending.
+- Pending rows never fold, because each needs its own drop. Other repeats from one sender fold.
+- Clicking a `from` name flips that route between auto and drop.
 
 ### Screen 4 — Todos (list, blockers, dependency, detail with provenance)
 ```
@@ -351,11 +351,11 @@ delivery between agents
 
   from            to                delivery      set by
   any             any               auto          default
-  token-tests     auth-refactor     ask first     you 14:30
-  gateway         any               ask first     route-guard
+  token-tests     auth-refactor     drop          you 14:30
+  gateway         any               drop          route-guard
   + route
 ```
-One click on a `delivery` value flips it between auto and ask first, and `set by` records who decided. Messages on an ask-first route land in the inbox as held ● rows.
+One click on a `delivery` value flips it between auto and drop, and `set by` records who decided.
 
 ### Screen 11 — First run, empty
 ```
@@ -384,7 +384,7 @@ Each region is labelled in place with what will live there; there is no tutorial
 3. Off-screen exceptions get one pinned inked line (`● 1 below`) that scrolls to the row on click. The rail never reorders.
 4. Background attention = Dock badge (needs-you + error count) only; no macOS banners.
 5. Each Agent gets a unique fixed initial at spawn (first letter of its name not yet taken in the Project). `Y` is reserved for the user; hovering a letter shows the full name.
-6. The Inbox excludes auto-delivered agent↔agent traffic. It holds Messages to the user, Held Messages, unblocked Todos and changed Pads.
+6. The Inbox excludes auto-delivered agent↔agent traffic. It holds Messages to the user, unblocked Todos and changed Pads. Pending Messages show in the Rail's inbox state, never as a hold.
 7. `agent.status` and `agent.classify` may return labels and Chips only, never `kind`. The built-in classifier owns it.
 8. A user's Route click wins over any `bus.route` Hook; `set by` shows who decided.
 9. A Pad's owner may rewrite it; everyone else may only append. Appends count as writes in Provenance.

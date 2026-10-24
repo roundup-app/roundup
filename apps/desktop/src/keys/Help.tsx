@@ -11,12 +11,10 @@ const bubbleScopes = new Map(Object.entries(copy.helpBubbleScope));
 const rowScopes = new Map(Object.entries(copy.helpRowScope));
 
 const sections = () => [
-  { title: copy.helpScope.app, rows: CHORDS.filter(row => !row.inRail && !row.onAgent && !row.inSwitcher && !row.inTerminals && !row.inShelf) },
+  { title: copy.helpScope.app, rows: CHORDS.filter(row => !row.inRail && !row.inTerminals && !row.inShelf) },
   { title: copy.helpScope.leader, rows: LEADER.map(row => ({ ...row, keys: `${copy.leaderChord} ${row.keys}`, what: bubbleScopes.get(row.keys) ?? row.what })) },
   { title: copy.helpScope.terminals, rows: CHORDS.filter(row => row.inTerminals) },
-  { title: copy.helpScope.switcher, rows: CHORDS.filter(row => row.inSwitcher) },
   { title: copy.helpScope.rail, rows: CHORDS.filter(row => row.inRail) },
-  { title: copy.helpScope.agent, rows: CHORDS.filter(row => row.onAgent) },
   { title: copy.helpScope.shelf, rows: CHORDS.filter(row => row.inShelf && !row.inTriage && row.keys !== "T").map(row => ({ ...row, what: rowScopes.get(row.keys) ?? row.what })) },
   { title: copy.helpScope.todos, rows: CHORDS.filter(row => row.inShelf && row.keys === "T") },
   { title: copy.helpScope.triage, rows: CHORDS.filter(row => row.inTriage) },

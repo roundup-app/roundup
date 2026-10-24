@@ -12,7 +12,7 @@ const OWNER = "agent-7f3";
 const running = () => agent(OWNER, "working", "editing", { name: "auth-refactor", terminal_id: "t-owner" });
 
 /** The Pad is opened from the Shelf while its owner is off the Rail, then the owner joins it. */
-const openOwned = async (over: { exited?: boolean; resumable?: boolean; beginFails?: string } = {}) => {
+const openOwned = async (over: { exited?: boolean; resumable?: boolean; resumeFails?: string } = {}) => {
   const shelf = await openShelf([padOf("auth-notes", AGENT, "x")]);
   const { app, connected } = shelf;
   let live = !over.exited;
@@ -23,15 +23,11 @@ const openOwned = async (over: { exited?: boolean; resumable?: boolean; beginFai
   app.handlers["terminal.list"] = () =>
     live ? [] : [{ id: "t-owner", incarnation: "fixture-owner", cwd: "/p", title: null, program: "claude", running: false, exit_code: 0, owner: OWNER }];
   app.handlers["agent.resume"] = () => {
+    if (over.resumeFails) throw new Error(over.resumeFails);
+
     live = true;
 
     return running();
-  };
-
-  app.handlers["takeover.begin"] = () => {
-    if (over.beginFails) throw new Error(over.beginFails);
-
-    return null;
   };
 
   await connected.rail.refresh({ terminals: true });
@@ -66,21 +62,18 @@ describe("u432 open owner", () => {
     expect(screen.queryByRole("button", { name: "Open owner" })).toBeNull();
   });
 
-  it("u432_open_owner_selects_and_begins_takeover", async () => {
-    const { app, connected } = await openOwned();
+  it("u432_open_owner_selects_the_owner", async () => {
+    const { connected } = await openOwned();
 
     fireEvent.click(await openOwnerButton());
-    await waitFor(() => expect(connected.takeover.taken()).toBe(OWNER));
-
-    expect(connected.rail.selected()).toBe(OWNER);
-    expect(app.calls.filter((call) => call.method === "takeover.begin")).toEqual([{ method: "takeover.begin", params: { agent: OWNER } }]);
+    await waitFor(() => expect(connected.rail.selected()).toBe(OWNER));
   });
 
   it("u432_drawer_stays_open", async () => {
     const { connected } = await openOwned();
 
     fireEvent.click(await openOwnerButton());
-    await waitFor(() => expect(connected.takeover.taken()).toBe(OWNER));
+    await waitFor(() => expect(connected.rail.selected()).toBe(OWNER));
 
     expect(within(screen.getByLabelText("Drawer")).getByRole("textbox", { name: "Pad body" })).toBeTruthy();
   });
@@ -89,16 +82,13 @@ describe("u432 open owner", () => {
     const { app, connected } = await openOwned({ exited: true, resumable: true });
 
     fireEvent.click(await openOwnerButton());
-    await waitFor(() => expect(connected.takeover.taken()).toBe(OWNER));
+    await waitFor(() => expect(app.calls.some((call) => call.method === "agent.resume")).toBe(true));
 
-    const methods = app.calls.map((call) => call.method);
-
-    expect(methods.indexOf("agent.resume")).toBeGreaterThan(-1);
-    expect(methods.indexOf("agent.resume")).toBeLessThan(methods.lastIndexOf("takeover.begin"));
+    expect(connected.rail.selected()).toBe(OWNER);
   });
 
   it("u432_open_owner_failure_shows_its_message", async () => {
-    await openOwned({ beginFails: "the terminal is busy" });
+    await openOwned({ exited: true, resumable: true, resumeFails: "the terminal is busy" });
 
     fireEvent.click(await openOwnerButton());
 

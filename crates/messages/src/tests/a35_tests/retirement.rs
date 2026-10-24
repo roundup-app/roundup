@@ -7,12 +7,6 @@ async fn a35_a_previously_stopped_retained_agent_can_restart_without_reviving_fi
     let gone = h
         .send(Actor::user(), "door", "ordinary stop drops this")
         .await;
-    h.call(
-        "route.set",
-        json!({"from":"a","to":"door","delivery":"ask-first"}),
-    )
-    .await;
-    let held = h.send(agent("a"), "door", "ask").await;
     h.status("1", "2", Kind::Done).await;
     h.rail.0.lock().unwrap()[0].status.as_mut().unwrap().kind = Kind::Done;
     h.rail.0.lock().unwrap()[0].status_revision = Some("2".into());
@@ -25,12 +19,9 @@ async fn a35_a_previously_stopped_retained_agent_can_restart_without_reviving_fi
             .iter()
             .map(|m| (m.id, m.status, m.reason))
             .collect::<Vec<_>>(),
-        vec![
-            (gone.id, MessageStatus::Dropped, Some(Reason::ReceiverGone)),
-            (held.id, MessageStatus::Held, Some(Reason::AskFirst))
-        ]
+        vec![(gone.id, MessageStatus::Dropped, Some(Reason::ReceiverGone))]
     );
-    assert!(h.typed.lock().unwrap().is_empty());
+    assert!(h.inbox.written().is_empty());
 }
 
 #[tokio::test]
@@ -48,14 +39,9 @@ async fn a35_retirement_preserves_records_after_removal_and_old_events() {
         status_revision: Some("2".into()),
         ..agent_node("door", Kind::Working)
     };
-    h.typed.lock().unwrap().clear();
+    let written = h.inbox.written();
     h.send(Actor::user(), "door", "pending").await;
-    h.call(
-        "route.set",
-        json!({"from":"a","to":"door","delivery":"ask-first"}),
-    )
-    .await;
-    let held = h.send(agent("a"), "door", "held").await;
+    h.send(agent("a"), "door", "second").await;
     h.call(
         "route.set",
         json!({"from":"a","to":"door","delivery":"drop"}),
@@ -81,14 +67,8 @@ async fn a35_retirement_preserves_records_after_removal_and_old_events() {
             .await
             .is_err()
     );
-    assert!(
-        h.messages
-            .call(&h.ctx, "message.deliver", json!({"id":held.id}))
-            .await
-            .is_err()
-    );
     assert_eq!(h.messages.thread("door").unwrap(), before);
-    assert!(h.typed.lock().unwrap().is_empty());
+    assert_eq!(h.inbox.written(), written);
 }
 
 #[tokio::test]
@@ -138,51 +118,7 @@ async fn a35_retirement_failure_retries_keep_protection_and_completed_work() {
             .is_err()
     );
     assert_eq!(h.messages.thread("door").unwrap(), before);
-    assert!(h.typed.lock().unwrap().is_empty());
-}
-
-#[tokio::test]
-async fn a35_retirement_ends_only_an_authorized_takeover_without_changing_records() {
-    let dir = tempfile::tempdir().unwrap();
-    let h = RestartHarness::new(dir.path());
-    for receiver in ["door", "skipped"] {
-        h.call("takeover.begin", json!({"agent":receiver})).await;
-        h.send(agent("a"), receiver, "held").await;
-    }
-    let before = h.messages.thread("door").unwrap();
-    let skipped = h.messages.thread("skipped").unwrap();
-    h.messages.reserve_retirement("door", "c").await.unwrap();
-    assert!(h.messages.takeover_active("door"));
-    assert!(
-        h.messages
-            .call(
-                &Ctx {
-                    actor: agent("door"),
-                    bus: h.ctx.bus.clone(),
-                    touches: h.ctx.touches.clone()
-                },
-                "takeover.end",
-                json!({"agent":"door"})
-            )
-            .await
-            .is_err()
-    );
-    assert!(h.messages.takeover_active("door"));
-    h.call("takeover.end", json!({"agent":"door"})).await;
-    assert!(!h.messages.takeover_active("door"));
-    h.status("1", "2", Kind::Done).await;
-    h.rail.0.lock().unwrap().retain(|n| n.id != "door");
-    h.messages.complete_retirement("door", "c").await.unwrap();
-    assert_eq!(h.messages.thread("door").unwrap(), before);
-    assert_eq!(h.messages.thread("skipped").unwrap(), skipped);
-    assert!(h.messages.takeover_active("skipped"));
-    assert!(
-        h.messages
-            .complete_retirement("skipped", "c")
-            .await
-            .is_err()
-    );
-    assert!(h.typed.lock().unwrap().is_empty());
+    assert!(h.inbox.written().is_empty());
 }
 
 #[test]
@@ -198,16 +134,8 @@ fn a35_retirement_reopen_before_after_removal_and_completion_never_delivers() {
             .build()
             .unwrap();
         first.block_on(async {
-            let pending = h.send(Actor::user(), "door", "pending").await;
-            h.call("takeover.begin", json!({"agent":"door"})).await;
-            h.call("message.deliver", json!({"id":pending.id})).await;
-            h.send(agent("a"), "door", "takeover-held").await;
-            h.call(
-                "route.set",
-                json!({"from":"b","to":"door","delivery":"ask-first"}),
-            )
-            .await;
-            h.send(agent("b"), "door", "ask-first-held").await;
+            h.send(Actor::user(), "door", "pending").await;
+            h.send(agent("a"), "door", "second").await;
             h.call(
                 "route.set",
                 json!({"from":"b","to":"door","delivery":"drop"}),
@@ -240,7 +168,6 @@ fn a35_retirement_reopen_before_after_removal_and_completion_never_delivers() {
                 .reserve_retirement("door", "c")
                 .await
                 .unwrap();
-            assert!(!recovered.messages.takeover_active("door"));
             // Even a stale Rail entry and Idle after reopen cannot make archived records eligible.
             if stage == 0 {
                 recovered.next();
@@ -252,17 +179,6 @@ fn a35_retirement_reopen_before_after_removal_and_completion_never_delivers() {
                             "message.send",
                             json!({"to":"door","kind":"note","body":"new"})
                         )
-                        .await
-                        .is_err()
-                );
-                let held = before
-                    .iter()
-                    .find(|m| m.reason == Some(Reason::AskFirst))
-                    .unwrap();
-                assert!(
-                    recovered
-                        .messages
-                        .call(&recovered.ctx, "message.deliver", json!({"id":held.id}))
                         .await
                         .is_err()
                 );
@@ -289,7 +205,7 @@ fn a35_retirement_reopen_before_after_removal_and_completion_never_delivers() {
                 .await
                 .unwrap();
             assert_eq!(recovered.messages.thread("door").unwrap(), before);
-            assert!(recovered.typed.lock().unwrap().is_empty());
+            assert!(recovered.inbox.written().is_empty());
         });
     }
 }
@@ -314,7 +230,7 @@ async fn a35_retirement_keeps_a_delivered_question_on_receiver_loss() {
         .unwrap();
     let before = h.messages.thread("door").unwrap();
     assert_eq!(before[0].status, MessageStatus::Delivered);
-    h.typed.lock().unwrap().clear();
+    let written = h.inbox.written();
     h.messages.reserve_retirement("door", "c").await.unwrap();
     h.rail.0.lock().unwrap().retain(|n| n.id != "door");
     h.send(Actor::daemon(), "skipped", "settle").await;
@@ -324,7 +240,7 @@ async fn a35_retirement_keeps_a_delivered_question_on_receiver_loss() {
     h.send(Actor::daemon(), "skipped", "settle again").await;
     assert_eq!(h.messages.thread("door").unwrap(), before);
     assert!(h.messages.thread("you").unwrap().is_empty());
-    assert!(h.typed.lock().unwrap().is_empty());
+    assert_eq!(h.inbox.written(), written);
 }
 
 #[tokio::test]
@@ -332,12 +248,6 @@ async fn a35_a_stopped_later_agent_retires_without_reviving_final_messages() {
     let dir = tempfile::tempdir().unwrap();
     let h = RestartHarness::new(dir.path());
     let pending = h.send(Actor::user(), "door", "ordinary stop").await;
-    h.call(
-        "route.set",
-        json!({"from":"a","to":"door","delivery":"ask-first"}),
-    )
-    .await;
-    let held = h.send(agent("a"), "door", "ask").await;
     h.status("1", "2", Kind::Done).await;
     h.rail.0.lock().unwrap()[0] = RailNode {
         status: Some(Status {
@@ -359,15 +269,11 @@ async fn a35_a_stopped_later_agent_retires_without_reviving_final_messages() {
             Some(Reason::ReceiverGone)
         )
     );
-    assert_eq!(
-        (before[1].id, before[1].status, before[1].reason),
-        (held.id, MessageStatus::Held, Some(Reason::AskFirst))
-    );
     h.messages.reserve_retirement("door", "c").await.unwrap();
     h.rail.0.lock().unwrap().retain(|n| n.id != "door");
     h.ctx.bus.emit(Actor::daemon(), EventData::RailChanged);
     h.status("1", "3", Kind::Idle).await;
     h.messages.complete_retirement("door", "c").await.unwrap();
     assert_eq!(h.messages.thread("door").unwrap(), before);
-    assert!(h.typed.lock().unwrap().is_empty());
+    assert!(h.inbox.written().is_empty());
 }

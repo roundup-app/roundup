@@ -17,7 +17,7 @@ pub(super) struct ConfigLock {
 }
 
 impl ConfigLock {
-    /// Wait for the lock, breaking it once stale. An error once it has been held past `STALE`
+    /// Wait for the lock, breaking it once stale. An error once it has been parked past `STALE`
     /// and then some, which no live holder does.
     pub(super) fn take(config: &Path) -> std::io::Result<Self> {
         let mut path = config.as_os_str().to_owned();
@@ -41,7 +41,7 @@ impl ConfigLock {
                 },
                 Err(_) if Instant::now() >= deadline => {
                     return Err(std::io::Error::other(format!(
-                        "{} is still held after {} s",
+                        "{} is still parked after {} s",
                         path.display(),
                         STALE.as_secs() + 1
                     )));

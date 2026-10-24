@@ -164,7 +164,7 @@ impl Daemon {
     }
 
     /// `workstream.clear`: validates, asks the Door and returns `{pending: true}` at once, so no
-    /// connection is held while the Door writes. A spawned task waits for the Handoff, applies it
+    /// connection is open while the Door writes. A spawned task waits for the Handoff, applies it
     /// and ends with `workstream.cleared`, or with `workstream.clearFailed` and the state as far
     /// as it got. A second call after a failure that came after the Handoff goes on from there.
     pub(crate) async fn clear(&self, actor: &Actor, params: Value) -> Result<Value, RpcError> {

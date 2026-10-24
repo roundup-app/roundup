@@ -77,7 +77,7 @@ describe("u138 focus stays put until the Todo actually leaves the open list", ()
     await waitFor(() => expect(todoCallsTo(mounted.app, "todo.complete")).toHaveLength(1));
 
     // No `todo.updated` has reached the list yet, so #2 is still open; focus must not already have
-    // jumped to its target before the row that held it is actually gone.
+    // jumped to its target before the row that had it is actually gone.
     expect(document.activeElement).toBe(complete);
   });
 });

@@ -76,7 +76,7 @@ impl Agents {
                 let mut rail = shared.rail();
                 let before = rail.measurement_revision().map_err(|e| e.message)?;
                 let acknowledged=matches!(shared.runs().get(&agent),Some(Slot::Running(run)) if run.attempt==attempt && run.session_started);
-                if acknowledged && let Some((held,cwd))=rail.conversation(&agent).map_err(|e|e.message)? && held==source {
+                if acknowledged && let Some((parked,cwd))=rail.conversation(&agent).map_err(|e|e.message)? && parked==source {
                     rail.retain_measurement_owner(&agent,&source,&cwd,Some(&attempt)).map_err(|e|e.message)?;
                 }
                 let result = rail.accept_intervals(

@@ -69,7 +69,7 @@ const DAEMON_WAIT_MS = 20_000;
 /** How the fixture launches the Daemon and the dev server; N5 watches both. */
 type FixtureRuntime = { spawn: (command: string, args: string[], options: SpawnOptions) => ChildProcess; createServer: typeof createServer };
 
-/** Starts `rupd` on the fake `claude` with `env` added to its environment, as `just harness-real` does; `inBrowser` lets the dev server bundle dependencies for a real browser page. With `fixture` (E10), `rupd` starts the pinned Claude Code against aimock serving that file's turns, one of four real-Claude slots (E14) held until `stop`. */
+/** Starts `rupd` on the fake `claude` with `env` added to its environment, as `just harness-real` does; `inBrowser` lets the dev server bundle dependencies for a real browser page. With `fixture` (E10), `rupd` starts the pinned Claude Code against aimock serving that file's turns, one of four real-Claude slots (E14) kept until `stop`. */
 export const startRealDaemon = async (env: Record<string, string>, inBrowser = false, runtime: FixtureRuntime = { spawn, createServer }, fixture?: string): Promise<StartedDaemon> => {
   configure({ asyncUtilTimeout: DAEMON_WAIT_MS });
   await buildOnce();

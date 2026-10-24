@@ -61,14 +61,13 @@ The `roundup` MCP server offers these tools. They are deferred: load a tool befo
 - `rail_tree`: read the Rail: every Workstream, Agent and Terminal with its Status.
 - `rail_createWorkstream`: make a Workstream at the Project root with `parent` null; Workstreams never nest, and `rail_startDoor` starts its Door next.
 - `rail_startDoor`: start the Door of a Workstream you made or one in your Reach; the Door asks the user what the Workstream is for.
-- `rail_rename`: rename yourself or a node in your Reach; a waiting receipt means accepted, not executed; read agent_actionHistory for its outcome.
+- `rail_rename`: rename yourself or a node in your Reach.
 - `agent_instructions`: read exact instruction revisions and Attempt-bound delivery facts for yourself or your Reach; reading sends nothing, and submission is not work completion.
-- `agent_actionHistory`: read your durably accepted child actions and their outcomes; never resubmit a waiting action.
 - `rail_move`: move a node in your Reach; a Workstream moves only to the root.
 - `rail_remove`: remove a node in your Reach, never yourself.
-- `agent_stop`: stop an Agent in your Reach, never yourself; a waiting receipt means accepted, not executed; read agent_actionHistory for its outcome.
-- `agent_interrupt`: interrupt the turn of an Agent in your Reach; a waiting receipt means accepted, not executed; read agent_actionHistory for its outcome.
-- `agent_prompt`: send a prompt to an Agent in your Reach as the user would; a waiting receipt means accepted, not executed; read agent_actionHistory for its outcome.
+- `agent_stop`: stop an Agent in your Reach, never yourself.
+- `agent_interrupt`: interrupt the turn of an Agent in your Reach.
+- `agent_prompt`: send a prompt to an Agent in your Reach as the user would.
 - `agent_resume`: resume a stopped Agent in your Reach from its saved conversation.
 - `agent_discard`: discard the Worktree of an Agent in your Reach with its changes.
 - `agent_land`: land the Worktree of an Agent in your Reach on the Base branch.
@@ -87,13 +86,12 @@ The `roundup` MCP server offers these tools. They are deferred: load a tool befo
 - `terminal_screen`: read a Terminal's screen as it is now, as plain text, with the `offset` to read from next.
 - `terminal_read`: read a Terminal's output from the `after` offset you got last, as plain text; its `next` is the offset to give the next time.
 - `terminal_search`: search a Terminal's output for a regular expression and get only the matching lines with their offsets.
-- `route_set`: set where Messages from one Agent to another go (`auto`, `ask-first`, `drop`); it acts on others, never on you, and never over a Route the user set.
+- `route_set`: set where Messages from one Agent to another go (`auto` or `drop`); it acts on others, never on you, and never over a Route the user set.
 - `terminal_spawn`: start a program in a Terminal of your own; close it with `terminal_close` when you are done; use your own tools for commands; open a Bubble only when the user needs to see its output or will interactively type into it. Routine builds, tests and inspection use your own tools.
 - `terminal_open`: start a login shell in a Terminal owned by a Workstream of yours; use your own tools for commands; open a Bubble only when the user needs to see its output or will interactively type into it. Routine builds, tests and inspection use your own tools.
 - `terminal_close`: stop a Terminal you or your Reach own and forget it.
 - `terminal_write`: type base64 `data` into a Terminal you or your Reach own.
-- `terminal_resize`: resize a Terminal you or your Reach own; a waiting receipt means accepted, not executed.
-- `terminal_resizeHistory`: read your durable resize outcomes, including Takeover waits and drop reasons.
+- `terminal_resize`: resize a Terminal you or your Reach own.
 - `terminal_kill`: stop the program of a Terminal you or your Reach own.
 
 To read a Terminal of your Runs or your Workstream, search first with `terminal_search` for a pattern, read what is new with `terminal_read` and the `next` of your last read, and look at what is on screen now with `terminal_screen`. Never read from 0 again; every answer is capped, and says `truncated` when more is left.
