@@ -42,6 +42,7 @@ export const createKeystrokeProbe = (now: () => number, typed: string) => {
   const droppedKeys: number[] = [];
   let pending: Pending | null = null;
   let keys = 0;
+  let unsent = 0;
 
   return {
     /** Resolves when the key's echo has been rendered, or at `abandon`. */
@@ -123,6 +124,10 @@ export const createKeystrokeProbe = (now: () => number, typed: string) => {
         write_reply: sample("dispatched", "replied"),
       };
     },
+    /** Keys the run's time ran out before it typed: dropped, never skipped. */
+    unsent: (count: number) => {
+      unsent += count;
+    },
     /** Warm-up latency samples are excluded, but every dropped key fails R21. */
     summary: (skip: number): Summary => {
       const sorted = latencies
@@ -131,7 +136,7 @@ export const createKeystrokeProbe = (now: () => number, typed: string) => {
 
       return {
         n: sorted.length,
-        dropped: droppedKeys.length,
+        dropped: droppedKeys.length + unsent,
         p50: percentile(sorted, 0.5),
         p95: percentile(sorted, 0.95),
         p99: percentile(sorted, 0.99),
@@ -148,15 +153,23 @@ export type Surroundings = {
   press(): void;
   sleep(ms: number): Promise<void>;
   random(): number;
+  /** True once the run's time is spent: the keys not yet typed are counted as dropped and the run reports. */
+  expired(): boolean;
 };
 
-/** Types `count` keys one at a time, 20 to 40 ms apart so the key's phase against the display frame is not constant. */
+/** Types `count` keys one at a time, 20 to 40 ms apart so the key's phase against the display frame is not constant. Stops when time is spent, so a run of dropped keys still ends in a report. */
 export const typeKeys = async (
   probe: KeystrokeProbe,
   surroundings: Surroundings,
   count: number,
 ): Promise<void> => {
   for (let key = 0; key < count; key += 1) {
+    if (surroundings.expired()) {
+      probe.unsent(count - key);
+
+      return;
+    }
+
     const echoed = probe.keydown();
 
     surroundings.press();
