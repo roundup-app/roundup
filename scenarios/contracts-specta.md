@@ -104,9 +104,13 @@ the work order's original evidence. The migration fixture covers these families:
 | `type = "Record<string, unknown>"` | String-keyed map of TS `Unknown` metadata; no `any` substitution |
 
 Specta v2.0.0-rc.27 source supplies field `type`/`optional` overrides,
-Serde renaming/tagging/flattening and TS `Number`/`Unknown`. This is source
-feasibility evidence, not proof of a full migration: the type fixture must pass
-before replacing the installed generator. Select and pin compatible Specta,
+Serde renaming/tagging/flattening and TS `Number`/`Unknown`. A disposable Rust
+fixture compiled with that tag and `specta-serde`/`specta-typescript` 0.0.14,
+exporting required/nullable numbers, optional non-null boolean/string, optional
+nullable string, `permissionMode`, a string-to-unknown map, a tagged Event,
+flattening and a transparent wrapper with their expected TS shapes. This proves
+those annotation mechanisms, not a full migration: the whole-contract type
+fixture must pass before replacing the installed generator. Select and pin compatible Specta,
 Serde and TS exporter versions together. No custom type parser or router
 framework is authorized by this specification; rule 9 applies to any generator
 glue and requires a specific missing library capability before custom machinery.
