@@ -36,7 +36,6 @@ fn e1_the_brief_names_the_tools_and_holds_nothing_mutable() {
         "pad_write",
         "pad_append",
         "message_send",
-        "ask_user",
         "agent_context",
     ] {
         assert!(text.contains(&format!("`{tool}`")), "{tool}");
@@ -66,14 +65,7 @@ fn b24_only_a_door_brief_carries_the_role_guidance() {
     let door = brief(&s, "7", Role::Door);
     let agent = brief(&s, "8", Role::Agent);
     assert!(door.contains("coordinating Door"));
-    assert!(door.contains("ask directly in your Terminal"));
-    assert!(
-        !door
-            .split("## Your role")
-            .nth(1)
-            .unwrap()
-            .contains("ask_user")
-    );
+    assert!(door.contains("ask with `AskUserQuestion`"));
     assert!(door.contains("Report the outcome directly in your Terminal"));
     // M9: the tool list names `rail_startDoor`; no other line of an Agent's Brief speaks of a Door.
     assert!(
@@ -95,7 +87,7 @@ fn f8_the_door_brief_delegates_and_uses_its_terminal() {
         "Delegate implementation to children with `agent_spawn`",
         "You cannot execute commands or open or write to a Terminal",
         "Report the outcome directly in your Terminal",
-        "ask directly in your Terminal",
+        "ask with `AskUserQuestion`",
         "`checkpoint_write`",
         "`order`",
         "`prompt`",

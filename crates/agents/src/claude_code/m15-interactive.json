@@ -4,7 +4,7 @@
   "fixtures": [
     {
       "role": "Agent",
-      "cliGrant": false,
+      "cliAllow": false,
       "argv": [
         "claude",
         "--permission-mode",
@@ -124,7 +124,7 @@
     },
     {
       "role": "Agent",
-      "cliGrant": true,
+      "cliAllow": true,
       "argv": [
         "claude",
         "--permission-mode",
@@ -246,7 +246,7 @@
     },
     {
       "role": "Door",
-      "cliGrant": false,
+      "cliAllow": false,
       "argv": [
         "claude",
         "--permission-mode",
@@ -340,7 +340,7 @@
     },
     {
       "role": "Door",
-      "cliGrant": true,
+      "cliAllow": true,
       "argv": [
         "claude",
         "--permission-mode",

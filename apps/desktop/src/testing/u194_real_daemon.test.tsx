@@ -29,8 +29,8 @@ const mount = () => {
   return app;
 };
 
-describe("u194 a long command's Decision is answered by pointer on the real Daemon", () => {
-  it("u194_allow_by_pointer_clears_the_decision_and_the_workstream_reads_idle", async () => {
+describe("a3564a a Door's native prompt is attended to in its own Terminal on the real Daemon", () => {
+  it("a3564a_attention_opens_the_requesting_terminal", async () => {
     const app = mount();
 
     fireEvent.click((await screen.findAllByRole("button", { name: /^(New Workstream|Add Workstream)$/ }))[0]!);
@@ -39,26 +39,17 @@ describe("u194 a long command's Decision is answered by pointer on the real Daem
 
     fireEvent.click(await within(rail).findByRole("button", { name: /Start supervisor/i }));
 
-    const card = () => screen.queryByRole("region", { name: /Decision for| wants to / });
-    const kind = async () => (await app.rpc("rail.tree", null)).find((node) => node.kind === "workstream")?.status?.kind;
+    const door = async () => (await app.rpc("rail.tree", null)).find((node) => node.kind === "workstream")!;
 
-    await waitFor(() => expect(card()).not.toBeNull(), { timeout: 90_000 });
-    expect(card()!.textContent).toContain("x".repeat(300));
+    await waitFor(async () => expect((await door()).status?.kind).toBe("needs-you"), { timeout: 90_000 });
 
-    // The Door asks once for its Clarification order; the ask is answered by clicking `allow`.
-    // jsdom has no layout, so the click is dispatched at the button the Card holds; the pointer's reach is observed in a browser.
-    // The second ask can land just after the first answer leaves the list empty, so quiet must hold across several polls.
-    let quiet = 0;
+    // The Door's prompt stays in its Terminal: no roundup form appears, and selecting the row opens that Terminal.
+    expect(screen.queryByRole("region", { name: / wants to / })).toBeNull();
+    fireEvent.click(rail.querySelector(`[data-id="${(await door()).id}"] .name`)!);
+    const id = (await door()).id;
 
-    await waitFor(async () => {
-      const open = card();
-
-      if (open) fireEvent.click(within(open).getByRole("button", { name: "Allow" }));
-      const settled = (await app.rpc("decision.list", null)).length === 0 && (await kind()) === "idle" && !card();
-
-      quiet = settled ? quiet + 1 : 0;
-      expect(quiet).toBeGreaterThanOrEqual(5);
-    }, { timeout: 90_000, interval: 1000 });
+    await waitFor(() => expect(rail.querySelector("[data-selected=true]")?.getAttribute("data-id")).toBe(id));
+    expect(screen.queryByRole("region", { name: / wants to / })).toBeNull();
     await real.model!.assertMatched();
   }, 240_000);
 });

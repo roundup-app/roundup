@@ -178,17 +178,17 @@ const timed = (seconds: Record<string, number>, active = false) => {
   const get = (key: string) => nanoseconds(seconds[key] ?? 0);
   const summed = Object.values(seconds).reduce((sum, value) => sum + value, 0);
 
-  return { elapsed_ns: nanoseconds((9 * 60 + 49) * 60), summed_ns: nanoseconds(summed), execution_ns: get("execution"), tools_ns: get("tools"), human_ns: get("human"), coordination_ns: get("coordination"), other_ns: get("other"), unmeasured_ns: get("unmeasured"), active, coverage: noCoverage };
+  return { elapsed_ns: nanoseconds((9 * 60 + 49) * 60), summed_ns: nanoseconds(summed), execution_ns: get("execution"), tools_ns: get("tools"), coordination_ns: get("coordination"), other_ns: get("other"), unmeasured_ns: get("unmeasured"), active, coverage: noCoverage };
 };
 
 const agent = (id: string, seconds: Record<string, number>, coverage: string[] = []) => ({ agent: id, maker: id, removed: false, time: { ...timed(seconds), coverage }, coverage: noCoverage });
 
-/** A (6 m work, 4 m tools, 2 m waiting) and B (3 m work), as U3016g's example. */
+/** A (8 m work, 4 m tools) and B (3 m work), as U3016g's example. */
 const two = (revision = "1", active = false): MeasurementSummary => {
-  const a = agent("A", { execution: 360, tools: 240, human: 120 });
+  const a = agent("A", { execution: 480, tools: 240 });
   const b = agent("B", { execution: 180 });
 
-  return { ...summary("home", revision), contributors: 2, next_offset: null, rows: [a, b], time: { ...timed({ execution: 540, tools: 240, human: 120 }, active) } };
+  return { ...summary("home", revision), contributors: 2, next_offset: null, rows: [a, b], time: { ...timed({ execution: 660, tools: 240 }, active) } };
 };
 
 const calls = (app: { calls: { method: string }[] }, method: string) => app.calls.filter((call) => call.method === method).length;
@@ -210,7 +210,7 @@ it("u3016g_dashboard_reads_in_the_ordered_layout", async () => {
   expect(within(root).getByRole("heading", { name: "home" })).toBeTruthy();
   expect(root.querySelector(".measurement-line")?.textContent).toContain("9h 49m elapsed");
   expect(root.querySelector(".measurement-line")?.textContent).toContain("15m Agent time");
-  expect(within(key).getAllByRole("listitem")).toHaveLength(3);
+  expect(within(key).getAllByRole("listitem")).toHaveLength(2);
   expect(within(root).queryAllByRole("tab")).toHaveLength(0);
   expect(within(root).queryAllByRole("table")).toHaveLength(0);
 });
@@ -222,8 +222,8 @@ it("u3016g_a_summary_of_two_agents_renders_one_mark_per_nonzero_category_and_no_
   await publish(app, value);
   const found = rows();
   const [a, b, c, z] = [found[0]!, found[1]!, found[2]!, found[3]!];
-  expect(segments(a).map((name) => name!.split(", ")[1])).toEqual(["Waiting on you", "Tools", "Agent work"]);
-  expect(segments(a)[2]).toBe("A, Agent work, 6m, 50%");
+  expect(segments(a).map((name) => name!.split(", ")[1])).toEqual(["Tools", "Agent work"]);
+  expect(segments(a)[1]).toBe("A, Agent work, 8m, 67%");
   expect(segments(b)).toEqual(["B, Agent work, 3m, 100%"]);
   expect(segments(c)).toEqual(["C, Coordination, 10s, 100%"]);
   expect(segments(z)).toEqual([]);

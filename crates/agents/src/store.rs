@@ -97,15 +97,6 @@ impl Agents {
                 eprintln!("agents: {}: {}; kept", node.id, error.message);
             }
         }
-        let decisions = decision::Decisions::new(
-            None,
-            Duration::from_secs(claude_code::PERMISSION_TIMEOUT_SECS),
-        )
-        .with_store(&dir.join(if dir.join("project.db").exists() {
-            "project.db"
-        } else {
-            "agents.db"
-        }))?;
         let timing = Arc::new(Mutex::new(rail::Timing::open(
             &dir.join(if dir.join("project.db").exists() {
                 "project.db"
@@ -134,7 +125,6 @@ impl Agents {
                     opened: now_ms(),
                     launcher: launcher.clone(),
                 },
-                decisions,
                 me: me.clone(),
                 resume_effect: None,
                 steer_bound: STEER_BOUND,
@@ -203,13 +193,6 @@ impl Agents {
             shared
         });
         self
-    }
-
-    /// H3, H4: answers need `proof`; the App holds it. Without one every `decision.answer` is
-    /// `FORBIDDEN`. Call it before the first call is made.
-    #[must_use]
-    pub fn with_proof(self, proof: Option<String>) -> Self {
-        self.configure(|shared| shared.decisions.set_proof(proof))
     }
 
     /// E3: supply the Context text held by the Daemon, without giving Agents a Todos dependency.
@@ -616,7 +599,6 @@ pub(super) mod tests {
                     None,
                 ),
             },
-            decisions: crate::decision::Decisions::new(None, Duration::from_secs(4)),
             me: std::sync::Weak::new(),
             resume_effect: None,
             steer_bound: crate::STEER_BOUND,
@@ -683,7 +665,6 @@ pub(super) mod tests {
                     None,
                 ),
             },
-            decisions: crate::decision::Decisions::new(None, Duration::from_secs(4)),
             me: std::sync::Weak::new(),
             resume_effect: None,
             steer_bound: crate::STEER_BOUND,
@@ -782,7 +763,6 @@ pub(super) mod tests {
                     None,
                 ),
             },
-            decisions: crate::decision::Decisions::new(None, Duration::from_secs(4)),
             me: std::sync::Weak::new(),
             resume_effect: None,
             steer_bound: crate::STEER_BOUND,
@@ -805,49 +785,5 @@ pub(super) mod tests {
             waits: Mutex::new(HashMap::new()),
         });
         (dir, shared)
-    }
-
-    /// H7(c): `elapsed_ms` after the hook began, on an injected clock and the 4 s `timeout` the
-    /// Decisions are built with, the hook's connection closes. Returns the events and the Kind.
-    pub(crate) async fn hook_closes_after(
-        elapsed_ms: i64,
-    ) -> (Vec<EventData>, Vec<contracts::decision::Decision>, Kind) {
-        use std::sync::atomic::{AtomicI64, Ordering};
-        let now = Arc::new(AtomicI64::new(1_000));
-        let clock = {
-            let now = Arc::clone(&now);
-            Arc::new(move || now.load(Ordering::SeqCst))
-        };
-        let (_dir, bus, shared) = shared_over_temp_dir(clock);
-        let id = running_agent(&shared, None);
-        let mut events = bus.subscribe();
-        let payload = json!({"hook_event_name": "PermissionRequest", "tool_name": "Bash",
-                             "tool_input": {"command": "ls"}});
-        let hook = {
-            let (shared, id) = (Arc::clone(&shared), id.clone());
-            tokio::spawn(async move { shared.permission(Actor::daemon(), &id, payload).await })
-        };
-        while shared.decisions.list().is_empty() {
-            tokio::task::yield_now().await;
-        }
-
-        now.fetch_add(elapsed_ms, Ordering::SeqCst);
-        hook.abort();
-        let _ = hook.await;
-
-        let seen = std::iter::from_fn(|| events.try_recv().ok())
-            .map(|event| event.data)
-            .filter(|data| {
-                matches!(
-                    data,
-                    EventData::DecisionOpened(_) | EventData::DecisionCleared(_)
-                )
-            })
-            .collect();
-        let kind = match shared.runs().get(&id) {
-            Some(Slot::Running(run)) => run.adapter.status().unwrap().kind,
-            _ => panic!("the Agent is running"),
-        };
-        (seen, shared.decisions.list(), kind)
     }
 }

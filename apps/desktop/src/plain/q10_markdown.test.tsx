@@ -1,6 +1,5 @@
-import { cleanup, render, waitFor } from "@solidjs/testing-library";
+import { cleanup, render } from "@solidjs/testing-library";
 import { afterEach, describe, expect, it } from "vitest";
-import { asking, card, mountApp, select } from "../decisions/decisionsFixture";
 import { Markdown } from "./Markdown";
 import { renderMarkdown } from "./renderMarkdown";
 
@@ -34,11 +33,10 @@ const expectRendered = (root: Element) => {
 afterEach(cleanup);
 
 describe("Q10 the App renders the Markdown an Agent writes", () => {
-  it("q10_markdown_becomes_elements", async () => {
-    await mountApp([asking("d1", "a", BODY, ["ok"])]);
-    select("alpha");
-    await waitFor(() => expect(card()).not.toBeNull());
-    expectRendered(card()!.querySelector(".decision-question")!);
+  it("q10_markdown_becomes_elements", () => {
+    const { container } = render(() => <Markdown body={BODY} />);
+
+    expectRendered(container);
   });
 
   it("q10_all_elements", () => {

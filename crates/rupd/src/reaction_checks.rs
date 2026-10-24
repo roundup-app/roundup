@@ -379,7 +379,6 @@ mod tests {
             reactions: Arc::new(Reactions::open(&dir).unwrap()),
             prompt_effect_gate: None,
             agents: agents.clone(),
-            notes: Default::default(),
             renames: std::sync::Mutex::new(None),
             owner_events: std::sync::Mutex::new(None),
             wake_events: Default::default(),

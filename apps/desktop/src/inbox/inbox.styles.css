@@ -7,9 +7,6 @@
 .inbox-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; }
 .inbox-item { display: block; }
 .inbox-item[data-arrived] { animation: inbox-arrive var(--duration-todo) var(--easing-out); }
-.inbox-fold { display: grid; grid-template-rows: 1fr; transition: grid-template-rows var(--duration-todo) var(--easing-out), opacity var(--duration-todo) var(--easing-out); }
-.inbox-fold-inner { min-height: 0; overflow: clip; overflow-clip-margin: var(--space-1); }
-.inbox-item[data-phase="fold"] .inbox-fold { grid-template-rows: 0fr; opacity: 0; }
 .inbox-head { display: flex; align-items: center; gap: var(--space-2); }
 .inbox-row {
   --button-inline: 0;
@@ -24,11 +21,9 @@
 .inbox-item [data-part="content"] { overflow: hidden; }
 .inbox-item [data-part="content"][data-state="open"] { animation: inbox-expand var(--duration-todo) var(--easing-out); }
 .inbox-item [data-part="content"][data-state="closed"] { animation: inbox-collapse var(--duration-todo) var(--easing-out); }
-.inbox-row-summary { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .inbox-actions { display: flex; gap: var(--space-2); flex-shrink: 0; }
 .inbox-body { display: flex; flex-direction: column; gap: var(--space-2); padding: var(--space-1) 0 var(--space-2) var(--space-5); }
 .inbox-step { margin: 0; }
-.inbox-confirm { margin: 0; padding: var(--space-1) 0 var(--space-1) var(--space-5); }
 .inbox-comment { display: grid; grid-template-columns: auto 1fr; column-gap: var(--space-2); align-items: start; }
 .inbox-comment > .glyph { grid-row: span 2; }
 .inbox-row-line { grid-column: 2; color: var(--amber); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -38,5 +33,4 @@
 @media (prefers-reduced-motion: reduce) {
   .inbox-item[data-arrived] { animation-name: none; animation-duration: 0s; }
   .inbox-item [data-part="content"] { animation-name: none; animation-duration: 0s; }
-  .inbox-fold { transition-property: none; transition-duration: 0s; }
 }

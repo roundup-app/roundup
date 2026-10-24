@@ -10,13 +10,11 @@ mod clear;
 mod connection;
 mod context;
 pub mod data;
-mod decision_notes;
 mod deliverables;
 mod digest;
 mod event_log;
 mod evidence;
 mod guards;
-mod handshake;
 mod link;
 mod observers;
 mod open;
@@ -38,14 +36,12 @@ mod todo_refs;
 mod waits;
 mod wake;
 
-pub use handshake::{HANDSHAKE_BOUND, Handshake, HandshakeError, read_handshake};
-
 use connection::failure;
 pub use connection::serve;
 use guards::is_child_read;
 use observers::{
-    messages_env, prompt_effect_observer, resume_effect_observer, steer_effect_observer,
-    terminal_exit_observer, terminal_input_observer,
+    messages_env, resume_effect_observer, steer_effect_observer, terminal_exit_observer,
+    terminal_input_observer,
 };
 use route::{HomeOnly, OwnerOnly};
 use specialist::Specialist;
@@ -106,8 +102,6 @@ pub struct Daemon {
     wake_events: std::sync::Mutex<Option<tokio::sync::broadcast::Receiver<contracts::Event>>>,
     /// B41: serialises the decisions on Wake requests.
     wake_gate: Arc<tokio::sync::Mutex<wake::Gate>>,
-    /// H21: subscribed at `open`, taken once with `pushes`.
-    notes: std::sync::Mutex<Option<tokio::sync::broadcast::Receiver<contracts::Event>>>,
     /// H21: knows the Agent behind a calling process.
     agents: Arc<agents::Agents>,
     /// X14: where a connection's selected output streams come from.
@@ -407,5 +401,5 @@ fn test_daemon_with_agents(
     configure: impl FnOnce(agents::Agents) -> agents::Agents,
 ) -> Result<Daemon, OpenError> {
     assert!(dir.is_absolute(), "test data directory must be absolute");
-    Daemon::open_stores(dir, dir, None, configure)
+    Daemon::open_stores(dir, dir, configure)
 }

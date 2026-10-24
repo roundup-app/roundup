@@ -68,8 +68,6 @@ def take(conn):
         msg = json.loads(line)
         # A msg_id taken up before is dropped, as Claude Code drops it.
         if msg['msg_id'] in seen: continue
-        # The fixture's Claude never records a Decision note: it stays sent, not delivered.
-        if os.path.isfile('decision-notice-fixture') and '[decision ' in msg['message']['content']: continue
         seen.add(msg['msg_id'])
         with open('received-' + agent + '.jsonl', 'a') as out: out.write(line)
         with open(transcript, 'a') as out: out.write(json.dumps({'type': 'user', 'origin': {'kind': 'peer', 'from': msg['from'], 'msg_id': msg['msg_id']}}) + '\n')
@@ -123,11 +121,9 @@ while True:
         continue
     print('BARRIER' if data == b'\x00' else 'BYTE:' + data.hex(), flush=True)
     if data != b'\x00': pending += data
-    if data == b'\r' and (os.path.isfile('order-submit') or os.path.isfile('decision-notice-fixture')):
+    if data == b'\r' and (os.path.isfile('order-submit')):
         text = pending.decode().replace('\x1b[200~','').replace('\x1b[201~','').removeprefix('Follow this instruction: ').strip()
         pending = b''
-        if os.path.isfile('decision-notice-fixture') and '[decision ' in text:
-            continue
         deadline = time.monotonic() + 10
         while 'occupying steer' in text and os.path.isfile('background-gate'):
             if time.monotonic() >= deadline: raise RuntimeError('background Steer was not released')
@@ -188,73 +184,6 @@ while True:
             .to_owned()
     }
 
-    pub async fn open(
-        &self,
-        kind: &str,
-    ) -> (Value, tokio::task::JoinHandle<Result<Value, RpcError>>) {
-        self.open_prompt(kind, "Same prompt?").await
-    }
-
-    pub async fn open_prompt(
-        &self,
-        kind: &str,
-        prompt: &str,
-    ) -> (Value, tokio::task::JoinHandle<Result<Value, RpcError>>) {
-        let before = self.user.request("decision.list", ()).await.unwrap();
-        let before = before.as_array().unwrap().first().map(|d| d["id"].clone());
-        let caller = Arc::new(Client::connect(&self.daemon.socket).await.unwrap());
-        if kind == "ask_user" {
-            caller
-                .request(
-                    "daemon.identify",
-                    json!({"actor":{"kind":"agent","id":self.child}}),
-                )
-                .await
-                .unwrap();
-        }
-        let child = self.child.clone();
-        let kind = kind.to_owned();
-        let prompt = prompt.to_owned();
-        let task = tokio::spawn(async move {
-            if kind == "ask_user" {
-                caller.request("agent.ask", json!({"question":prompt,"answers":[{"label":"Yes","description":"Proceed"}]})).await
-            } else {
-                let mut payload = if kind == "unreadable" {
-                    json!({})
-                } else if kind == "native" {
-                    json!({"tool_name":"AskUserQuestion","tool_input":{"questions":[{"question":"Same prompt?","options":[{"label":"Yes"}]}]}})
-                } else {
-                    json!({"tool_name":"Bash","tool_input":{"command":prompt}})
-                };
-                payload["hook_event_name"] = json!("PermissionRequest");
-                caller
-                    .request("agent.permission", json!({"id":child,"payload":payload}))
-                    .await
-            }
-        });
-        let decision = tokio::time::timeout(BOUND, async {
-            loop {
-                let listed = self.user.request("decision.list", ()).await.unwrap();
-                if let Some(decision) = listed.as_array().unwrap().first()
-                    && Some(&decision["id"]) != before.as_ref()
-                {
-                    return decision.clone();
-                }
-                tokio::task::yield_now().await;
-            }
-        })
-        .await
-        .unwrap();
-        (decision, task)
-    }
-
-    pub async fn capture(&self, decision: &Value) -> Value {
-        self.user
-            .request("decision.capture", json!({"id":decision["id"]}))
-            .await
-            .unwrap()
-    }
-
     pub async fn clear(&self) {
         self.user.request("agent.signal", json!({"id":self.child,"attempt":self.attempt,"payload":{"hook_event_name":"PostToolUse"}})).await.unwrap();
     }
@@ -266,30 +195,6 @@ while True:
                 json!({"id":self.terminal,"data":STANDARD.encode(bytes),"identity":identity}),
             )
             .await
-    }
-
-    pub async fn user_answer(&self, decision: &Value, kind: &str) {
-        if kind == "native" {
-            self.user
-                .request(
-                    "terminal.write",
-                    json!({"id":self.terminal,"data":STANDARD.encode(b"u")}),
-                )
-                .await
-                .unwrap();
-            self.clear().await;
-        } else {
-            self.user.request("decision.answer", json!({"id":decision["id"],"answer":if kind == "permission" {"allow"} else {"Yes"},"proof":"0".repeat(64)})).await.unwrap();
-        }
-    }
-
-    pub async fn guarded_answer(
-        &self,
-        decision: &Value,
-        identity: Value,
-        kind: &str,
-    ) -> Result<Value, RpcError> {
-        self.user.request("decision.answer", json!({"id":decision["id"],"identity":identity,"answer":if kind == "permission" {"allow"} else {"Yes"},"proof":"0".repeat(64)})).await
     }
 
     pub async fn resumed(&mut self) {

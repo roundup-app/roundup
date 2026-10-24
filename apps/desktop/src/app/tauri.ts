@@ -116,7 +116,6 @@ export const createTauriApp = (): App => {
       guarded(() => listen("daemon-exited", (event) => listener(v.parse(daemonExitedSchema, event.payload)))),
     forProject: (path) => ({
       ...app,
-      daemonProof: () => parsedCommand(v.string(), "daemon_proof", { path }),
       rpc: async (method, params) => {
         try {
           return await command("rpc", { path, method, params });

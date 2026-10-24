@@ -285,17 +285,6 @@ fn a4_the_settings_hold_one_command_per_state_event_and_two_at_start() {
     }
 }
 
-#[test]
-fn h9_the_permission_request_hook_runs_rup_permission_with_a_day_long_timeout() {
-    let s = setup();
-    let settings = read(Path::new(&s.prepare("7").unwrap()[2]));
-    let command = format!("'{}' permission '7'", s.rup.display());
-    assert_eq!(
-        settings["hooks"]["PermissionRequest"],
-        json!([{"hooks": [{"type": "command", "command": command, "timeout": 86400}]}])
-    );
-}
-
 fn brief(s: &Setup, id: &str, role: Role) -> String {
     let argv = s.prepare_as(id, role).unwrap();
     let file = s.dir.join(format!("agents/{id}.brief.md"));
@@ -352,7 +341,10 @@ fn f2_a_door_starts_with_the_tool_allowlist_once() {
     let door = s.prepare_as("7", Role::Door).unwrap();
 
     let at = door.iter().position(|arg| arg == "--tools").unwrap();
-    assert_eq!(door[at + 1], "Read,Grep,Glob,ToolSearch,Skill");
+    assert_eq!(
+        door[at + 1],
+        "Read,Grep,Glob,ToolSearch,Skill,AskUserQuestion"
+    );
     assert_eq!(door.iter().filter(|arg| *arg == "--tools").count(), 1);
 }
 
@@ -537,7 +529,7 @@ fn m11_the_brief_names_how_to_load_and_the_first_turn_tools() {
         (Role::Agent, "Load `agent_context` and `todo_list` together"),
         (
             Role::Door,
-            "Load `agent_context`, `message_list`, `agent_digest` and `ask_user` together",
+            "Load `agent_context`, `message_list` and `agent_digest` together",
         ),
     ] {
         let text = brief(&s, "7", role);
@@ -716,7 +708,7 @@ fn m2219_off_keeps_the_hooks_and_the_tools_without_toolsearch() {
     let s = setup();
     let door = s.prepare_off("7", Role::Door);
     let at = door.iter().position(|arg| arg == "--tools").unwrap();
-    assert_eq!(door[at + 1], "Read,Grep,Glob,Skill");
+    assert_eq!(door[at + 1], "Read,Grep,Glob,Skill,AskUserQuestion");
     let hooks = &read(Path::new(&door[2]))["hooks"];
     for event in EVENTS {
         assert!(hooks[event].is_array(), "{event}");
@@ -733,7 +725,7 @@ fn m2219_off_brief_names_rup_commands_and_no_mcp_tool() {
         ),
         (
             Role::Door,
-            "Run `rup agent context`, `rup message list`, `rup agent digest` and `rup agent ask` first.",
+            "Run `rup agent context`, `rup message list` and `rup agent digest` first.",
         ),
     ] {
         let text = off_brief(&s, "7", role);

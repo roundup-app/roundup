@@ -6,7 +6,7 @@ mod measurement;
 mod queue;
 mod view;
 pub use measurement::MeasurementWait;
-pub(crate) use measurement::{Timing, decision_wait};
+pub(crate) use measurement::Timing;
 use view::load_nodes;
 
 use std::path::Path;

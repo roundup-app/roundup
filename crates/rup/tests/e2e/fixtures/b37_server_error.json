@@ -2,18 +2,18 @@
   "fixtures": [
     {
       "match": {
-        "userMessage": "from-name=\"rupd\" from-mode=\"default\">\n[digest]"
+        "userMessage": "[digest] B37 child is needs-you"
       },
       "response": {
-        "content": "Status noted."
+        "content": "Received the needs-you note after the server error."
       }
     },
     {
       "match": {
-        "userMessage": "[decision d1]"
+        "userMessage": "from-name=\"rupd\" from-mode=\"default\">\n[digest]"
       },
       "response": {
-        "content": "Received the Decision note after the server error."
+        "content": "Status noted."
       }
     },
     {
