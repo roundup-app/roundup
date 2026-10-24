@@ -100,6 +100,16 @@ class DownstreamDraft(unittest.TestCase):
             self.assertIn('needs: task', model)
             self.assertIn("if: needs.task.outputs.pr != ''", model)
 
+    def test_l46_the_merge_queue_commit_reports_every_required_check_without_an_agent(self):
+        workflows = ROOT / '.github/workflows'
+        for name in ('check', 'loop'):
+            self.assertIn('merge_group:\n    types: [checks_requested]', (workflows / f'{name}.yml').read_text())
+        source = (workflows / 'merge-group.yml').read_text()
+        self.assertIn('on:\n  merge_group:\n    types: [checks_requested]\n', source)
+        self.assertNotIn('pull_request', source.split('\njobs:', 1)[0].split('\n#', 1)[-1].split('on:', 1)[1])
+        self.assertNotIn('secrets', source)
+        self.assertEqual(re.findall(r'\n  ([a-z]+):\n    runs-on', source), ['review', 'critic'])
+
     def test_l24_gate_definitions_and_publishers_remain_trusted(self):
         for workflow in ('review', 'critic'):
             source = (ROOT / f'.github/workflows/{workflow}.yml').read_text()
