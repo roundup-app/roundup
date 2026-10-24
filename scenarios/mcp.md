@@ -34,14 +34,15 @@ An Agent does through its server everything the user does in the App, one tool p
 | `project.setMcp` | whether Agents are offered these tools at all (M2219): an Agent that turned it off or on would change what the next Agent can do |
 | `models.list`, `project.setModels`, `agent.setModel` | the user's choice of Model and Effort, and what it spends (P8, `scenarios/models.md`): an Agent that set them could raise its own cost |
 | `attachment.save` | the user's pasted image on its way to a Message (U419): the bytes come from the user's clipboard, and an Agent has no clipboard |
-| `project.weeklyLimit` | the App's weekly-limit line (U3016h): the account's figure, which an Agent cannot act on, and each read is a request to the vendor |
 | `project.resources` | the App's Resource strip (D8, U408): an Agent reading how hungry its peers are would gain nothing it can act on, and each call samples the operating system |
 | `workstream.clear` | the user's act of starting a Workstream over (A32): an Agent that cleared it would remove the Subagents the user watches. A Door answers the user's clear with `workstream_handoff` |
 | `open_target` | the user's Cmd+click on a Terminal's link (U365): an Agent that could open a URL or a path launches an app on the user's Mac |
 | `agent.changedFiles`, `agent.compareFile` | the App's Worktree panel and file comparison (U2539b, U2540a): an Agent reads its own diff with git, and a peer's Worktree is not its to list or read |
 | `open_in_editor` | the user's click on a Rail row's editor icon (U429): an Agent that could call it launches an app on the user's Mac |
+| `plugin:clipboard-manager\|write_text` | the user’s clipboard; Agents cannot overwrite it (U3560a) |
 | `save_pasted_image` | the user's `⌘V` of an image into a Terminal (U418): an Agent that could call it writes files to the user's cache folder, and it has the bytes already |
 | `plugin:window-bar\|set_window_title`, `plugin:window-bar\|drag_window`, `plugin:window-bar\|zoom_window` | the user's native window title and gestures (U449–U451); Agents do not rename or move that window |
+| `select_project_menu` | the webview’s selected tab and native Project-menu availability (U3813); an Agent does not navigate the user’s window |
 | `close_project` | it ends the caller's own Daemon, and the call with it (S8) |
 | `projects`, `daemon_proof`, `rpc`, `subscribe` | the App's own windowing, or another Project's Daemon, or the proof only the user holds (H4, H18); an Agent reaches its own Project's Daemon alone (S8) |
 

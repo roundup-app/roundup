@@ -1,0 +1,11 @@
+{
+  "name": "roundup-vendor-listing",
+  "private": true,
+  "version": "0.0.0",
+  "license": "MIT",
+  "type": "module",
+  "main": "list.mjs",
+  "dependencies": {
+    "@anthropic-ai/claude-agent-sdk": "0.3.309"
+  }
+}

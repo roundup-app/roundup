@@ -1,3 +1,4 @@
+import { clipboardFailure, writeText } from "../app/clipboard";
 import { createCutTitle } from "../ui/cutTitle";
 import { copy } from "../copy";
 import { createEffect, createSignal, For, on, onCleanup, Show } from "solid-js";
@@ -121,8 +122,8 @@ export const NoteRecovery = (props: { notes: Notes; available: (id: string) => b
   const close = () => { props.onOpenChange(false); setEditing(undefined); trigger?.focus(); };
 
   const copyValue = async (value: string, key: string) => {
-    try { await navigator.clipboard.writeText(value); clear(key); }
-    catch { setFailures(previous => new Map(previous).set(key, copy.copyFailedTheSystemClipboardRefusedItPress)); }
+    try { await writeText(app, value); clear(key); }
+    catch (error) { if (!(error instanceof Error)) throw error; setFailures(previous => new Map(previous).set(key, clipboardFailure("copy", error))); }
   };
 
   const any = () => props.notes.entries().some(([id, value]) => (!props.available(id) && (value.notes.length || value.forms.length || value.submissions.length)) || value.submissions.some(submission => submission.status !== "pending") || value.recovered.length) || props.notes.problem();

@@ -4,6 +4,7 @@ import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import type { DaemonExit } from "../app/seam";
 import { info, terminal } from "../testing/nodes";
 import { callsTo, mountPane, subscribed } from "./paneHarness";
+import { DEFAULT_FONT_SIZE } from "./fontSize";
 
 const savedKey = "roundup:terminal-font:/p";
 
@@ -34,7 +35,7 @@ beforeEach(() => {
 afterEach(() => { cleanup(); vi.useRealTimers(); vi.restoreAllMocks(); localStorage.clear(); });
 
 it.each([
-  ["=", false, 14], ["=", true, 14], ["+", false, 14], ["+", true, 14], ["-", false, 12], ["0", false, 13],
+  ["=", false, 15], ["=", true, 15], ["+", false, 15], ["+", true, 15], ["-", false, 13], ["0", false, 14],
 ])("u102_command_%s_shift_%s_sets_size_%s", async (key, shiftKey, expected) => {
   const { emulator, target, app } = await mount();
   const typed = vi.fn();
@@ -54,7 +55,7 @@ it.each(["=", "+", "-", "0"])("u102_%s_ignores_other_modifier_sets", async (key)
 
   for (const options of modifiers) expect(press(target, key, options).defaultPrevented).toBe(false);
   vi.advanceTimersToNextFrame();
-  expect(emulator.fontSize).toBe(13);
+  expect(emulator.fontSize).toBe(DEFAULT_FONT_SIZE);
 });
 
 it.each([["=", 21], ["-", 9]])("u102_repeated_%s_stops_at_%s", async (key, bound) => {
@@ -76,7 +77,7 @@ it("u102_zero_restores_the_default", async () => {
   const { emulator, target } = await mount();
   press(target, "0");
   vi.advanceTimersToNextFrame();
-  expect(emulator.fontSize).toBe(13);
+  expect(emulator.fontSize).toBe(DEFAULT_FONT_SIZE);
 });
 
 it("u102_size_is_shared_with_existing_and_later_terminals", async () => {
@@ -84,11 +85,11 @@ it("u102_size_is_shared_with_existing_and_later_terminals", async () => {
   press(target, "=");
   vi.advanceTimersToNextFrame();
   connected.rail.select("b");
-  expect(emulators.get("t-b")!.fontSize).toBe(14);
+  expect(emulators.get("t-b")!.fontSize).toBe(DEFAULT_FONT_SIZE + 1);
   press(document.querySelector("[data-terminal='t-b']")!, "=");
   vi.advanceTimersToNextFrame();
   connected.rail.select("a");
-  expect(emulator.fontSize).toBe(15);
+  expect(emulator.fontSize).toBe(DEFAULT_FONT_SIZE + 2);
 });
 
 it.each([true, false])("u102_changed_fit_%s_sends_only_the_required_resize", async (changed) => {
@@ -135,7 +136,7 @@ it.each(["outside", "input", "textarea", "editable"])("u102_leaves_%s_focus_alon
   field.focus();
   expect(press(field, "=").defaultPrevented).toBe(false);
   vi.advanceTimersToNextFrame();
-  expect(emulator.fontSize).toBe(13);
+  expect(emulator.fontSize).toBe(DEFAULT_FONT_SIZE);
 });
 
 it("u102_daemon_exited_prevents_size_changes", async () => {
@@ -145,12 +146,12 @@ it("u102_daemon_exited_prevents_size_changes", async () => {
   setExit({ code: 1 });
   expect(press(target, "=").defaultPrevented).toBe(false);
   vi.advanceTimersToNextFrame();
-  expect(emulator.fontSize).toBe(13);
+  expect(emulator.fontSize).toBe(DEFAULT_FONT_SIZE);
   expect(callsTo(app, "terminal.resize")).toEqual([]);
   expect(localStorage.getItem(savedKey)).toBeNull();
 });
 
-it.each([["9", 9], ["21", 21], ["17", 17], ["8", 13], ["22", 13], ['"17"', 13], ["null", 13], ["{}", 13], ["broken", 13]])(
+it.each([["9", 9], ["21", 21], ["17", 17], ["13", 13], ["8", DEFAULT_FONT_SIZE], ["22", DEFAULT_FONT_SIZE], ['"17"', DEFAULT_FONT_SIZE], ["null", DEFAULT_FONT_SIZE], ["{}", DEFAULT_FONT_SIZE], ["broken", DEFAULT_FONT_SIZE]])(
   "u102_saved_%s_mounts_at_%s", async (saved, expected) => {
     localStorage.setItem(savedKey, saved);
     expect((await mount()).emulator.fontSize).toBe(expected);
@@ -162,7 +163,7 @@ it("u102_size_survives_remount", async () => {
   press(target, "=");
   vi.advanceTimersToNextFrame();
   cleanup();
-  expect((await mount()).emulator.fontSize).toBe(14);
+  expect((await mount()).emulator.fontSize).toBe(DEFAULT_FONT_SIZE + 1);
 });
 
 it("u102_storage_failure_keeps_size_and_shows_the_error", async () => {
@@ -170,6 +171,6 @@ it("u102_storage_failure_keeps_size_and_shows_the_error", async () => {
   vi.spyOn(Storage.prototype, "setItem").mockImplementation(() => { throw new Error("storage full"); });
   press(target, "=");
   vi.advanceTimersToNextFrame();
-  expect(emulator.fontSize).toBe(14);
+  expect(emulator.fontSize).toBe(DEFAULT_FONT_SIZE + 1);
   expect(screen.getByText("storage full").closest(".pane-failure")).not.toBeNull();
 });

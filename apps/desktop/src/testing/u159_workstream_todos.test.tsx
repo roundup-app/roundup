@@ -137,7 +137,7 @@ it("u2744a_shelf_scope_stopped_agent_items_show", async () => {
   connected.rail.select("a");
 
   for (const kind of ["idle", "done"] as const) {
-    tree[1] = { ...tree[1]!, terminal_id: null, status: { kind, label: kind, since: 0 } };
+    tree[1] = { ...tree[1]!, terminal_id: null, status: { kind, label: kind, since: 0, finished: "0" } };
     app.emit(event({ name: "rail.changed" }));
     await connected.rail.settled();
     await waitFor(() => expect(ids()).toEqual([2, 5]));

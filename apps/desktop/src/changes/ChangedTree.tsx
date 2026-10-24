@@ -4,7 +4,7 @@ import { copy } from "../copy";
 import { ReservedLine } from "../ink/ReservedLine";
 import { failureOf } from "../todos/failureOf";
 import { useConnectedProject } from "../state/connectedProject";
-import { absolutePath, statusText } from "./paths";
+import { changedPath as absolutePath, statusText } from "./paths";
 import treeStyles from "./tree.styles.css?inline";
 
 /** The library is fetched when the panel first has files to draw (rule 7). */
