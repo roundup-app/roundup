@@ -30,22 +30,22 @@ export const InboxRow = (props: { row: AgentRow; open: boolean; toggle(): void; 
     : act(copy.inboxOpen, () => props.actions.open(props.row));
 
   return <li class="inbox-item" data-row={props.row.key} data-arrived={props.row.arrived ? "" : undefined}>
-      <Collapsible.Root open={props.open} onOpenChange={props.toggle} lazyMount unmountOnExit>
-        <div class="inbox-head">
-          <Collapsible.Trigger data-button="quiet" class="inbox-row" ref={props.head}>
-            <KindGlyph kind={node().status?.kind ?? "idle"} />
-            <span id={name} class="inbox-row-name">{node().name}</span>
-          </Collapsible.Trigger>
-          <div class="inbox-actions">{actions()}</div>
+    <Collapsible.Root open={props.open} onOpenChange={props.toggle} lazyMount unmountOnExit>
+      <div class="inbox-head">
+        <Collapsible.Trigger data-button="quiet" class="inbox-row" ref={props.head}>
+          <KindGlyph kind={node().status?.kind ?? "idle"} />
+          <span id={name} class="inbox-row-name">{node().name}</span>
+        </Collapsible.Trigger>
+        <div class="inbox-actions">{actions()}</div>
+      </div>
+      <Collapsible.Content>
+        <div class="inbox-body">
+          <p class="inbox-step"><span class="light">{copy.inboxLastStep}</span> {node().status?.label}</p>
+          <ReservedLine message={failure()}>
+            <button type="button" data-button="quiet" class="word" aria-describedby={name} onClick={() => props.actions.dismiss(props.row)}>{copy.inboxDismiss}</button>
+          </ReservedLine>
         </div>
-        <Collapsible.Content>
-          <div class="inbox-body">
-            <p class="inbox-step"><span class="light">{copy.inboxLastStep}</span> {node().status?.label}</p>
-            <ReservedLine message={failure()}>
-              <button type="button" data-button="quiet" class="word" aria-describedby={name} onClick={() => props.actions.dismiss(props.row)}>{copy.inboxDismiss}</button>
-            </ReservedLine>
-          </div>
-        </Collapsible.Content>
-      </Collapsible.Root>
+      </Collapsible.Content>
+    </Collapsible.Root>
   </li>;
 };
