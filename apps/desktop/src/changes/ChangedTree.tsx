@@ -1,4 +1,4 @@
-import { createSignal, onCleanup, onMount, Show } from "solid-js";
+import { createSignal, For, onCleanup, onMount } from "solid-js";
 import type { ChangedFile } from "@contracts/agent/ChangedFile";
 import { copy } from "../copy";
 import { ReservedLine } from "../ink/ReservedLine";
@@ -18,7 +18,16 @@ export const treesLoaded = (): boolean => library !== undefined;
 /** U2539b, U2539d: the changed files as a tree of `@pierre/trees`; `Enter` or a double click on a file opens it in the editor at its line. */
 export const ChangedTree = (props: { root: string; files: readonly ChangedFile[]; selected?: string | undefined; onSelect?: (path: string) => void }) => {
   const { app } = useConnectedProject();
-  const [failure, setFailure] = createSignal<string | null>(null);
+  const [failures, setFailures] = createSignal<ReadonlyMap<string, string>>(new Map());
+
+  const clear = (path: string) => setFailures(previous => {
+    const next = new Map(previous);
+
+    next.delete(path);
+
+    return next;
+  });
+
   const byPath = new Map(props.files.map((file) => [file.path, file]));
   const [host, setHost] = createSignal<HTMLDivElement>();
 
@@ -27,8 +36,10 @@ export const ChangedTree = (props: { root: string; files: readonly ChangedFile[]
 
     if (!file || file.status === "deleted") return;
 
-    setFailure(null);
-    void failureOf(() => app.openInEditor(absolutePath(props.root, file), file.line ?? undefined)).then(setFailure);
+    void failureOf(() => app.openInEditor(absolutePath(props.root, file), file.line ?? undefined)).then(error => {
+      if (error) setFailures(previous => new Map(previous).set(file.path, error));
+      else clear(file.path);
+    });
   };
 
   onMount(() => {
@@ -160,7 +171,7 @@ export const ChangedTree = (props: { root: string; files: readonly ChangedFile[]
   return (
     <>
       <div ref={setHost} class="worktree-tree" />
-      <ReservedLine message={failure()} />
+      <For each={[...failures()]} fallback={<ReservedLine />}>{([path, error]) => <ReservedLine message={`${path.split("/").pop()}: ${error}`}><button type="button" data-button="quiet" onClick={() => clear(path)}>{copy.dismissFailure}</button></ReservedLine>}</For>
     </>
   );
 };

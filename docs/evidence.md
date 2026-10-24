@@ -34,16 +34,9 @@ Historical payload partition: `artifacts/ux/U451/head/`. The result stays unobse
 
 `docs/evidence-relocation.md` lists the observer sources, their required inputs and their regeneration paths. Historical checkout commands above refer to the files at those recorded revisions.
 
-## U468a a child's question is answered once, in the App
+## U468a a child's question is answered once, in the App (retired)
 
-The observer is `cargo test -p rup --test u468`: real-Daemon tests drive the production `rup mcp` →
-`agent.ask` call from a stdio client that advertises form elicitation. They assert that the shim writes
-no `elicitation/create` request while the call waits, that the call never fails while its Card is open,
-that an App answer and a Door's `decision.answer` return from it, and that a child cannot answer its own
-question. Captured Prompt identity remains covered by
-`b6_terminal_input_invalidates_identity_before_the_next_signal` in
-`crates/rupd/tests/prompt_identity.rs`. Claude Code's own rendering is not observed here: no Claude
-Code form can appear because the shim sends it none.
+Retired by A3564a–f (`scenarios/native-questions.md`): the user answers in the requesting Agent's Terminal; roundup draws and records no answer.
 
 ## A2698a Ask delivery and local commands
 

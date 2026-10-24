@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { buildReport } from "./frames";
-import { everyTwoSeconds, glyphsCycle, layersCycle, todosCycle, writeInChunks } from "./frame_run";
+import { bounded, everyTwoSeconds, glyphsCycle, layersCycle, todosCycle, writeInChunks } from "./frame_run";
 import type { Layers, Todos } from "./frame_run";
 
 const clock = { sleep: (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms)) };
@@ -100,5 +100,14 @@ describe("u3010g the frame recorder drives every workload", () => {
     expect(performed).toBe(0);
     expect(report).toMatchObject({ verdict: "invalid", exit: 2 });
     expect(report.invalid).toContain("the workload's actions did not complete");
+  });
+
+  it("u3010g_a_setup_that_never_answers_ends_in_an_error_naming_it", async () => {
+    const outcome = bounded(new Promise<never>(() => {}), 5_000, "the glyphs setup").catch((failure: Error) => failure.message);
+
+    await vi.advanceTimersByTimeAsync(5_000);
+
+    expect(await outcome).toBe("the glyphs setup did not finish within 5000 ms");
+    expect(await bounded(Promise.resolve(3), 5_000, "x")).toBe(3);
   });
 });

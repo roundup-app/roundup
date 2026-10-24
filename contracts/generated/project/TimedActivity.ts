@@ -3,4 +3,4 @@
 /**
  * The operation whose blocking/lifetime was observed, with its original identity.
  */
-export type TimedActivity = { "kind": "attempt" } | { "kind": "startup" } | { "kind": "idle", status_revision: string, } | { "kind": "decision", decision: string, } | { "kind": "coordination", message: number, };
+export type TimedActivity = { "kind": "attempt" } | { "kind": "startup" } | { "kind": "idle", status_revision: string, } | { "kind": "coordination", message: number, };

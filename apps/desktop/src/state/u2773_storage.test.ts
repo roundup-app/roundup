@@ -27,7 +27,7 @@ it("u2773e_storage_failure_keeps_memory_distinguishes_missing_from_invalid", () 
 it("u2773a_storage_restores_exact_work", () => {
   const drafts = draftStorage("/project/a");
   const value = { text: " \ne\u0301 😀\n ", choices: ["second", "first"], enabled: false };
-  const revision = drafts.edit({ surface: "decisions", object: "d1", recipient: "agent-a" }, value, { start: 2, end: 5, direction: "backward" }, "ordinary").draft;
+  const revision = drafts.edit({ surface: "agent", object: "d1", recipient: "agent-a" }, value, { start: 2, end: 5, direction: "backward" }, "ordinary").draft;
   const reopened = draftStorage("/project/a");
   expect(reopened.list()).toEqual([{ ...revision, value, status: "draft" }]);
   expect(draftStorage("/project/b").list()).toEqual([]);
@@ -356,7 +356,7 @@ it.each(["pending", "failed", "unknown"] as const)("u2773a_shared_project_restor
     expect(draftStorage(replaced.project.path).list()).toEqual([newer]);
     expect(document.activeElement).toBe(focus);
     expect(opened.paths.map((path) => opened.app.of(path!).calls.length)).toEqual(before);
-    const submits = new Set(["ask.send", "terminal.write", "decision.answer", "message.send"]);
+    const submits = new Set(["ask.send", "terminal.write", "message.send"]);
     expect(opened.paths.flatMap((path) => opened.app.of(path!).calls).filter((call) => submits.has(call.method))).toEqual([]);
   } finally { opened.close(); }
 });

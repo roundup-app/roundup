@@ -329,20 +329,13 @@ it("u2680b_minimising_and_restoring_does_not_restore_selection", async () => {
 }, 90_000);
 
 
-it.each(["pad", "decision"])("u2680c_readonly_content_keeps_native_selection_and_copy_%s", async (content) => {
+it("u2680c_readonly_content_keeps_native_selection_and_copy_pad", async () => {
   await app();
-  let selector: string;
-
-  if (content === "pad") {
-    await browser("click", '[data-id="agent-1"] .name');
-    await browser("click", "#shelf-tab-pads");
-    await wait("[...document.querySelectorAll('[data-shelf-row] .pad-name')].some(row => row.textContent === 'pad-0')");
-    await browser("eval", "[...document.querySelectorAll('[data-shelf-row] .pad-name')].find(row => row.textContent === 'pad-0').click()");
-    selector = '.pad-readonly .ProseMirror[contenteditable=false] p';
-  } else {
-    await browser("open", url("/harness.html?seed=decisions&renderer=dom"));
-    selector = ".decision-card .decision-title code";
-  }
+  await browser("click", '[data-id="agent-1"] .name');
+  await browser("click", "#shelf-tab-pads");
+  await wait("[...document.querySelectorAll('[data-shelf-row] .pad-name')].some(row => row.textContent === 'pad-0')");
+  await browser("eval", "[...document.querySelectorAll('[data-shelf-row] .pad-name')].find(row => row.textContent === 'pad-0').click()");
+  const selector = '.pad-readonly .ProseMirror[contenteditable=false] p';
 
   await wait(`!!document.querySelector(${JSON.stringify(selector)})`);
 

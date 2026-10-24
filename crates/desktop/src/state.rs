@@ -46,8 +46,6 @@ struct Open {
     client: Arc<Client>,
     /// Closing it is how the Daemon learns the App is gone (D1).
     _stdin: ChildStdin,
-    /// The proof this Daemon holds (H18); a reopen's Daemon gets its own.
-    proof: String,
     /// This run's socket path (S5): `subscribe` reconnects here, not through `Config`, since a
     /// reopen's Daemon runs on its own path.
     socket: OwnedSocket,
@@ -179,11 +177,6 @@ impl AppState {
                 Err(err)
             }
         }
-    }
-
-    /// The live Daemon's proof (H18): never an earlier Daemon's, so it fails once the Daemon exits.
-    pub fn daemon_proof(&self, path: &str) -> Result<String, RpcError> {
-        self.open_ref(path, |open| open.proof.clone())
     }
 
     pub async fn rpc(&self, path: &str, method: &str, params: Value) -> Result<Value, RpcError> {
@@ -450,7 +443,6 @@ impl AppState {
         let open = Open {
             client: Arc::new(started.client),
             _stdin: started.stdin,
-            proof: started.proof,
             socket: started.socket,
             run,
             subscription: None,

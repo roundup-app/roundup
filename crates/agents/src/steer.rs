@@ -238,9 +238,6 @@ impl From<SteerError> for PromptError {
 
 #[cfg(test)]
 mod tests {
-
-    use contracts::{EventData, Kind};
-
     use crate::tests::*;
     #[tokio::test]
     async fn a2703a_prompt_storage_failure_stays_an_error() {
@@ -379,32 +376,6 @@ mod tests {
         assert!(
             error.message.contains("an Agent that is gone") && !error.message.contains("8013"),
             "{error}"
-        );
-    }
-
-    #[tokio::test]
-    async fn h7_a_close_at_the_hook_timeout_leaves_the_decision_open_and_unanswerable() {
-        let (seen, open, kind) = hook_closes_after(4_000).await;
-
-        assert_eq!(open.len(), 1);
-        assert!(!open[0].answerable);
-        assert_eq!(kind, Kind::NeedsYou);
-        assert_eq!(
-            seen.len(),
-            1,
-            "decision.opened is not repeated and nothing clears: {}",
-            seen.len()
-        );
-        assert!(matches!(seen[0], EventData::DecisionOpened(_)));
-    }
-    #[tokio::test]
-    async fn h7_a_close_before_the_hook_timeout_is_a_no_or_an_esc() {
-        let (seen, open, kind) = hook_closes_after(3_999).await;
-
-        assert!(open.is_empty());
-        assert_eq!(kind, Kind::Idle);
-        assert!(
-            matches!(&seen[1], EventData::DecisionCleared(c) if c.outcome == contracts::decision::Outcome::Terminal)
         );
     }
 

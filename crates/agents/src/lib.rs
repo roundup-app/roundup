@@ -16,7 +16,6 @@ use contracts::agent::{
     SignalOutcome, SignalParams, SpawnParams, StartDoorParams, StatusEvent, Stray, StrayEvent,
     WorktreeState,
 };
-use contracts::decision::{AnswerParams, CaptureParams, Outcome, PermissionParams};
 use contracts::project::{Mcp, PrepareParams, ProjectModels, ProjectSettings, Worktrees};
 use contracts::terminal::{OpenParams, Opened, SpawnParams as TerminalSpawn};
 use contracts::{Actor, ActorKind, EventData, Kind, Status};
@@ -31,11 +30,11 @@ use tokio::time::{Instant, sleep_until};
 mod asks;
 mod auto;
 pub mod claude_code;
-mod decision;
 pub mod marks;
 mod models;
 pub mod placement;
 mod pr_checks;
+mod reach;
 pub use asks::Asks;
 pub use models::mcp_on;
 mod measurement;
@@ -65,10 +64,6 @@ pub enum Observation {
     Stopped,
     /// The Agent's program ended. `None` when it was killed by a signal.
     Exit { code: Option<i32> },
-    /// The user's `decision.answer` reached the hook (`scenarios/decisions.md` H9).
-    Answered,
-    /// The hook's own side closed its connection with no later Signal (H7(b), H9).
-    Dismissed,
 }
 
 impl Observation {
@@ -80,8 +75,6 @@ impl Observation {
             Self::Tick => "tick",
             Self::Stopped => "stop",
             Self::Exit { .. } => "exit",
-            Self::Answered => "answer",
-            Self::Dismissed => "dismissal",
         }
     }
 }
@@ -133,8 +126,6 @@ struct Shared {
     /// Ticks by it, so the two never disagree about when a hold ends.
     clock: Clock,
     timing: Arc<Mutex<rail::Timing>>,
-    /// H2 to H7: the open permission Decisions, in memory only.
-    decisions: decision::Decisions,
     /// Itself, so a Signal's fold can start H12's first Steer on a task of its own.
     me: Weak<Shared>,
     /// E6: the Channel of each Agent's current Attempt that has left `pending`, as
