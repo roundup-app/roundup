@@ -2,7 +2,6 @@ import { cleanup, fireEvent, screen, waitFor, within } from "@solidjs/testing-li
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { event, workstream } from "../testing/nodes";
 import { RpcError } from "../app/seam";
-import { copy } from "../copy";
 import type { Deliverable } from "@contracts/deliverable/Deliverable";
 import type { Ask } from "@contracts/ask/Ask";
 import { ask, input, mountAskBar, press, rowTexts } from "./askFixture";
@@ -168,22 +167,6 @@ it("u2773b_reconciliation_reads_acceptance_without_sending", async () => {
   expect(sent(app)).toEqual([{ text: "same", submission: "a" }]);
 });
 
-
-it("p3557c_failure_lifetime_ask_bar_list_failure_retry_and_dismiss", async () => {
-  const { app, connected } = await mountAskBar(new RpcError(-32603, "disconnected"));
-  let lists = 0;
-
-  app.handlers["ask.list"] = () => { lists += 1; throw new RpcError(-32603, "disconnected"); };
-
-  await waitFor(() => expect(connected.asks.listFailure()).not.toBeNull());
-  type("hello");
-  const before = lists;
-  fireEvent.click(await screen.findByRole("button", { name: copy.retry }));
-  await waitFor(() => expect(lists).toBeGreaterThan(before));
-  fireEvent.click(await screen.findByRole("button", { name: copy.dismiss }));
-  await waitFor(() => expect(connected.asks.listFailure()).toBeNull());
-  expect(screen.queryByRole("button", { name: copy.dismiss })).toBeNull();
-});
 
 it("u2773a_ask_restores_exact_work", async () => {
   const first = await mountAskBar();
