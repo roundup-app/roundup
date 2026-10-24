@@ -1,3 +1,4 @@
+import type { Screens } from "./screens";
 import { render } from "@solidjs/testing-library";
 import { expect, vi } from "vitest";
 import type { Accessor } from "solid-js";
@@ -133,6 +134,7 @@ type Mounted = {
   connected: ConnectedProject;
   emulators: ReturnType<typeof fakeEmulators>["made"];
   container: HTMLElement;
+  screens: () => Screens;
 };
 
 /** A ConnectedProject whose Rail holds `tree` and whose Daemon lists `terminals`, with no Pane rendered. */
@@ -165,13 +167,15 @@ export const mountPane = async (
   const { app, connected } = await connectFakeProject(tree, terminals, now, daemonExit);
   const { factory, made } = fakeEmulators();
 
+  let screens: Screens | undefined;
+
   const { container } = render(() => (
     <ConnectedProjectContext.Provider value={connected}>
-      <Pane createEmulator={factory} />
+      <Pane createEmulator={factory} screensRef={(shared) => { screens = shared; }} />
     </ConnectedProjectContext.Provider>
   ));
 
-  return { app, connected, emulators: made, container };
+  return { app, connected, emulators: made, container, screens: () => screens! };
 };
 
 /** A Rail above a Pane in one open Project, so a spawn's new row can be watched handing focus to its Terminal (U33). */
@@ -186,7 +190,7 @@ export const mountRailAndPane = async (tree: RailNode[]): Promise<Mounted> => {
     </ConnectedProjectContext.Provider>
   ));
 
-  return { app, connected, emulators: made, container };
+  return { app, connected, emulators: made, container, screens: () => { throw new Error("mountRailAndPane holds no shared screens"); } };
 };
 
 export const callsTo = (app: FakeApp, method: "terminal.write" | "terminal.resize") =>

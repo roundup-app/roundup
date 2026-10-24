@@ -1,3 +1,4 @@
+import { writeText } from "../app/clipboard";
 import { ReservedLine } from "../ink/ReservedLine";
 import * as v from "valibot";
 import { RpcError, INTERNAL_CODE } from "../app/seam";
@@ -30,6 +31,7 @@ type OrderInput = {
 
 /** O17: the session id is muted text that copies itself on click and says so for a moment. */
 const SessionId = (props: { id: string }) => {
+  const { app } = useConnectedProject();
   const [note, setNote] = createSignal<string | null>(null);
   const [failure, setFailure] = createSignal<string | null>(null);
   const idText = createUniqueId();
@@ -37,8 +39,10 @@ const SessionId = (props: { id: string }) => {
   onCleanup(() => clearTimeout(timer));
 
   const copyId = async () => {
+    clearTimeout(timer);
+
     try {
-      await navigator.clipboard.writeText(props.id);
+      await writeText(app, props.id);
       setFailure(null);
       setNote(copy.copied);
     } catch (error) {
@@ -318,7 +322,7 @@ const OrderContent = (props: OrderInput) => {
       </ReservedLine>
       <div class="order-edit-actions order-edit-recovery">
         <Show when={recovery()}>
-          <For each={["title", "ask", "done"]}>{(name) => <button data-button="quiet" type="button" onClick={() => void navigator.clipboard.writeText(String(selectedDraft()?.value[name] ?? "")).catch((error) => setFailure(copy.copyDraftFailure(error instanceof Error ? error.message : String(error))))}>{copy.copyField(name)}</button>}</For>
+          <For each={["title", "ask", "done"]}>{(name) => <button data-button="quiet" type="button" onClick={() => void writeText(app, String(selectedDraft()?.value[name] ?? "")).then(() => setFailure(null)).catch((error) => setFailure(copy.copyDraftFailure(error instanceof Error ? error.message : String(error))))}>{copy.copyField(name)}</button>}</For>
           <button data-button="quiet" type="button" onClick={() => {
             const draft = selectedDraft();
 

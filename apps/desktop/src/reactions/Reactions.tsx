@@ -1,3 +1,4 @@
+import { writeText } from "../app/clipboard";
 import { ExitButton } from "../ui/IconButton";
 import { createEffect, createMemo, createResource, createSignal, For, onCleanup, Show, type Accessor } from "solid-js";
 import * as v from "valibot";
@@ -269,7 +270,7 @@ const Facts = (props: { reaction: Reaction }) => {
     </dd>
     <dt>{copy.reactionDetails}</dt><dd><button type="button" data-button="quiet" onClick={() => {
       const owner = copyOwner();
-      void navigator.clipboard.writeText(JSON.stringify({
+      void writeText(app, JSON.stringify({
         name: r().name, authority: authority(),
         target: nameOf(r().target), home: home() ? nameOf(home()!) : copy.reactionNoHome,
         condition: conditionText(r().condition, nameOf), observation: observation(), reaction: r(),
@@ -289,7 +290,7 @@ const Facts = (props: { reaction: Reaction }) => {
         <dt>{copy.reactionMessageState}</dt><dd data-state={value().status}>{copy.reactionDelivery(value().status)}{value().reason ? ` · ${copy.reactionCause(value().reason!)}` : ""}</dd>
         <dt>{copy.reactionDetails}</dt><dd><button type="button" data-button="quiet" onClick={() => {
           const owner = copyOwner();
-          void navigator.clipboard.writeText(JSON.stringify({ target: nameOf(value().to), message: value() }, null, 2))
+          void writeText(app, JSON.stringify({ target: nameOf(value().to), message: value() }, null, 2))
             .then(() => failCopy(owner, null), error => failCopy(owner, copy.copyDraftFailure(error instanceof Error ? error.message : String(error))));
         }}>{copy.copy}</button><ReservedLine message={copyFailures()[copyOwner()]}><button type="button" data-button="quiet" onClick={() => failCopy(copyOwner(), null)}>{copy.clear}</button></ReservedLine></dd>
       </dl>}</Show>
