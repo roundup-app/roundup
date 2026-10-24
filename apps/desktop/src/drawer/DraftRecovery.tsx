@@ -4,7 +4,7 @@ import type { ActivationSource } from "../keys/registry";
 import { useConnectedProject } from "../state/connectedProject";
 import type { MenuEntry } from "../ui/contextMenu";
 import { copy } from "../copy";
-import { createSignal, For, Show } from "solid-js";
+import { createEffect, createSignal, For, Show } from "solid-js";
 import { KindGlyph } from "../ink/KindGlyph";
 import { usePadList } from "../rail/pads/padList";
 import { useTodoList } from "../todos/todoList";
@@ -38,16 +38,23 @@ const DraftRecoveryPanel = () => {
   const pads = usePadList();
   const todos = useTodoList();
   const work = useUnfinishedWork();
-  const [failure, failed] = createSignal<string | null>(null);
+  const [failures, setFailures] = createSignal<Record<string, string>>({});
+
+  const clear = (revision: string) => setFailures(current => Object.fromEntries(Object.entries(current).filter(([key]) => key !== revision)));
+
+  createEffect(() => {
+    const revisions = new Set(drafts.list().map(draft => draft.revision));
+    setFailures(current => Object.fromEntries(Object.entries(current).filter(([key]) => revisions.has(key))));
+  });
 
   type Row = ReturnType<typeof work.rows>[number];
 
-  const copyText = async (text: string) => {
+  const copyText = async (row: Row) => {
     try {
-      await writeText(app, text);
-      failed(null);
+      await writeText(app, typedText(row.draft).join("\n"));
+      clear(row.draft.revision);
     } catch (error) {
-      failed(copy.copyDraftFailure(error instanceof Error ? error.message : String(error)));
+      setFailures(current => ({ ...current, [row.draft.revision]: copy.copyDraftFailure(error instanceof Error ? error.message : String(error)) }));
     }
   };
 
@@ -98,7 +105,7 @@ const DraftRecoveryPanel = () => {
 
   return <section class="draft-recovery" aria-label={copy.unfinishedWork}>
     <h2>{copy.unfinishedWork}</h2>
-    <ReservedLine message={failure() ?? (drafts.problem() && !drafts.problem()!.destination?.surface.startsWith("rail-") ? copy.draftProblem(drafts.problem()!.cause) : null)}>
+    <ReservedLine message={(drafts.problem() && !drafts.problem()!.destination?.surface.startsWith("rail-") ? copy.draftProblem(drafts.problem()!.cause) : null)}>
 <Show when={drafts.problem()}><button data-button="quiet" type="button" onClick={() => drafts.retry()}>{copy.tryAgain}</button></Show>
       </ReservedLine>
     <Show when={work.rows().length} fallback={<p>{copy.noUnfinishedWork}</p>}>
@@ -106,14 +113,17 @@ const DraftRecoveryPanel = () => {
         <For each={work.rows()}>{(row) => <li data-revision={row.draft.revision}>
           <div class="draft-destination">
             <KindGlyph kind={row.cause === "failed" || row.cause === "gone" ? "error" : "blocked"} label={copy.riskCause[row.cause]} />
-            <span class="draft-text">
+            <div class="draft-text">
               <span class="draft-name">{copy.draftTitle(title(row).place, title(row).name)}</span>
               <span class="draft-cause">{copy.riskLine(copy.riskCause[row.cause], copy.riskTime(Math.floor((Date.now() - row.since) / 60000)))}</span>
-            </span>
+              <Show when={failures()[row.draft.revision]}>{message => <ReservedLine message={message()}>
+                <button data-button="quiet" type="button" onClick={() => clear(row.draft.revision)}>{copy.dismissCopyFailure}</button>
+              </ReservedLine>}</Show>
+            </div>
           </div>
           <div class="draft-actions">
             <Show when={row.cause === "gone" || row.draft.policy === "credential"} fallback={<button data-button="quiet" type="button" onClick={open(row)}>{copy.openDraft}</button>}>
-              <button data-button="quiet" type="button" onClick={() => void copyText(typedText(row.draft).join("\n"))}>{copy.copyDraft}</button>
+              <button data-button="quiet" type="button" onClick={() => void copyText(row)}>{copy.copyDraft}</button>
             </Show>
             <button data-button="quiet" type="button" onClick={() => drafts.discard(row.draft.revision)}>{copy.discardRow}</button>
           </div>
