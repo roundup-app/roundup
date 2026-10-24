@@ -267,11 +267,11 @@ export const TodoDrawer = (props: {
               drawer.close("key");
             }).then(() => setDeleting(false));
           }} />
-        <ReservedLine message={failure()}><button data-dismiss-failure onMouseDown={event => event.preventDefault()} data-button="quiet" class="word" type="button" onClick={() => setFailure(null)}>Dismiss failure</button></ReservedLine>
+        <ReservedLine message={failure()}><button data-dismiss-failure onMouseDown={event => event.preventDefault()} data-button="quiet" class="word" type="button" onClick={() => setFailure(null)}>{copy.dismissFailure}</button></ReservedLine>
           <Show
             when={todo()}
             fallback={
-              <ReservedLine message={!removedByMe() && !deleting() && !noticeDismissed() ? copy.todoDeleted(props.id) : null}><button data-dismiss-failure onMouseDown={event => event.preventDefault()} data-button="quiet" class="word" type="button" onClick={() => setNoticeDismissed(true)}>Dismiss failure</button></ReservedLine>
+              <ReservedLine message={!removedByMe() && !deleting() && !noticeDismissed() ? copy.todoDeleted(props.id) : null}><button data-dismiss-failure onMouseDown={event => event.preventDefault()} data-button="quiet" class="word" type="button" onClick={() => setNoticeDismissed(true)}>{copy.dismissFailure}</button></ReservedLine>
             }
           >
             {(current) => (
@@ -291,7 +291,7 @@ export const TodoDrawer = (props: {
                   />
                   <span class="todo-estimate" data-state="estimate">{copy.todoEstimate(current().estimate_minutes)}</span>
                 </div>
-                <ReservedLine message={titleFailure()}><button data-dismiss-failure onMouseDown={event => event.preventDefault()} data-button="quiet" class="word" type="button" onClick={() => dismissTitle?.()}>Dismiss failure</button></ReservedLine>
+                <ReservedLine message={titleFailure()}><button data-dismiss-failure onMouseDown={event => event.preventDefault()} data-button="quiet" class="word" type="button" onClick={() => dismissTitle?.()}>{copy.dismissFailure}</button></ReservedLine>
                 <div class="todo-detail-body">
                 <EditableText
                   todo={current()}

@@ -85,7 +85,7 @@ export const TodoRefs = (props: { id: number; saved?: () => number; onSaved?: ()
   };
 
   return <>
-    <ReservedLine message={actionFailure() ?? failure()}><button data-button="quiet" class="word" type="button" onClick={() => void refresh()}>{copy.padRefRetry}</button><button data-dismiss-failure onMouseDown={event => event.preventDefault()} data-button="quiet" class="word" type="button" onClick={() => { setActionFailure(null); setFailure(null); }}>Dismiss failure</button></ReservedLine>
+    <ReservedLine message={actionFailure() ?? failure()}><button data-button="quiet" class="word" type="button" onClick={() => void refresh()}>{copy.padRefRetry}</button><button data-dismiss-failure onMouseDown={event => event.preventDefault()} data-button="quiet" class="word" type="button" onClick={() => { setActionFailure(null); setFailure(null); }}>{copy.dismissFailure}</button></ReservedLine>
     <Show when={refs().length > 0}>
     <section class="todo-refs" aria-label={copy.padRefsHeading(refs().length)}>
       <h3>{copy.padRefsHeading(refs().length)}</h3>
