@@ -22,9 +22,9 @@ const NODES: RailNode[] = [
   agent("a", "needs-you", "asks", { name: "alpha", order: 0 }),
   agent("b", "working", "editing Thread.tsx", { name: "beta", order: 1 }),
   agent("c", "error", "crashed", { name: "gamma", order: 2 }),
-  agent("d", "done", "finished", { name: "delta", order: 3, status: { kind: "done", label: "finished", since: NOW - 10 } }),
-  agent("e", "done", "finished", { name: "epsilon", order: 4, status: { kind: "done", label: "finished", since: NOW } }),
-  agent("f", "needs-you", "asks", { name: "zeta", order: 5, status: { kind: "needs-you", label: "asks", since: NOW + 1 } }),
+  agent("d", "done", "finished", { name: "delta", order: 3, status: { kind: "done", label: "finished", since: NOW - 10, finished: "0" } }),
+  agent("e", "done", "finished", { name: "epsilon", order: 4, status: { kind: "done", label: "finished", since: NOW, finished: "0" } }),
+  agent("f", "needs-you", "asks", { name: "zeta", order: 5, status: { kind: "needs-you", label: "asks", since: NOW + 1, finished: "0" } }),
 ];
 
 const mountInbox = async (nodes: RailNode[] = NODES, reducedMotion = true) => {
@@ -41,7 +41,7 @@ const mountInbox = async (nodes: RailNode[] = NODES, reducedMotion = true) => {
 
 let revision = 1;
 
-const status = (id: string, kind: Kind, label = "x", since = NOW) => event({ name: "agent.status", data: { status_revision: String(++revision), attempt: "1", id, status: { kind, label, since } } });
+const status = (id: string, kind: Kind, label = "x", since = NOW) => event({ name: "agent.status", data: { status_revision: String(++revision), attempt: "1", id, status: { kind, label, since, finished: "0" } } });
 
 const groupOf = (name: string) => within(panel()).getByRole("region", { name });
 
