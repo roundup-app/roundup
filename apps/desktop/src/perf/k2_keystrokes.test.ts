@@ -26,14 +26,14 @@ describe("k2 a sample is keydown to the render that shows its echo", () => {
     probe.written(bytes("a"), "agent");
     probe.rendered("agent");
 
-    expect(() => probe.summary(0)).toThrow("no key was echoed");
+    expect(probe.summary(0)).toMatchObject({ n: 0, p95: null });
     time.advance(4);
     probe.arrived(bytes("a"), "shell");
     probe.written(bytes("a"), "shell");
     time.advance(1);
     probe.rendered("agent");
 
-    expect(() => probe.summary(0)).toThrow("no key was echoed");
+    expect(probe.summary(0)).toMatchObject({ n: 0, p95: null });
     time.advance(12);
     probe.rendered("shell");
 
