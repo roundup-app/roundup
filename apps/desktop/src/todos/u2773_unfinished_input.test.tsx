@@ -137,7 +137,7 @@ it("u2773e_todos_recovery_actions_keep_surface_draft", async () => {
   const writes = vi.spyOn(Storage.prototype, "setItem").mockImplementation(() => { throw new Error("disk full"); });
   const writeText = vi.fn().mockResolvedValue(undefined);
 
-  Object.defineProperty(navigator, "clipboard", { configurable: true, value: { writeText } });
+  vi.spyOn(app, "clipboardWrite").mockImplementation(writeText);
   fireEvent.input(field, { target: { value: "  exact 🧪  " } });
   expect(screen.getByRole("alert")).toBeTruthy();
   fireEvent.click(screen.getByRole("button", { name: "Copy Todo" }));
@@ -215,7 +215,7 @@ it("u2773e_todos_blocker_recovery_copies_complete_form", async () => {
   const { app } = await mountTodos([todo(1), todo(2)]);
   const writeText = vi.fn().mockResolvedValue(undefined);
 
-  Object.defineProperty(navigator, "clipboard", { configurable: true, value: { writeText } });
+  vi.spyOn(app, "clipboardWrite").mockImplementation(writeText);
   app.handlers["todo.setBlockers"] = () => Promise.reject(new RpcError(-32003, "conflict"));
   fireEvent.click(await screen.findByRole("button", { name: /#1 / }));
   await waitFor(() => expect(app.calls.some(call => call.method === "todo.getHistory")).toBe(true));
@@ -281,7 +281,7 @@ it("u2773e_todos_incompatible_form_keeps_original_bytes_and_newer_work", async (
   const recovery = within(screen.getByRole("region", { name: "Todo · new" }));
   const writeText = vi.fn().mockResolvedValue(undefined);
 
-  Object.defineProperty(navigator, "clipboard", { configurable: true, value: { writeText } });
+  vi.spyOn(app, "clipboardWrite").mockImplementation(writeText);
   fireEvent.click(recovery.getByRole("button", { name: "Copy Todo" }));
   expect(writeText).toHaveBeenCalledWith(exact);
   fireEvent.click(recovery.getByRole("button", { name: "Retry storage only" }));

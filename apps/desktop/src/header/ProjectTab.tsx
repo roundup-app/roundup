@@ -1,3 +1,4 @@
+import { writeText } from "../app/clipboard";
 import { ReservedLine } from "../ink/ReservedLine";
 import type { ProjectsState } from "../state/projects";
 import { copy } from "../copy";
@@ -62,7 +63,7 @@ export const ProjectTab = (props: {
   onRename: (name: string, base?: string) => ReturnType<ProjectsState["rename"]>;
   onClose: () => void;
   /** U2694a: the seam that shows the tab's system menu; a tab without one has none. */
-  app?: Pick<App, "showContextMenu"> | undefined;
+  app?: Pick<App, "showContextMenu" | "writeClipboardText"> | undefined;
   ref?: (element: HTMLElement) => void;
 }) => {
   const { near, handlers } = createNear();
@@ -107,7 +108,7 @@ export const ProjectTab = (props: {
 
     if (!parsed.success) return;
 
-    try { await navigator.clipboard.writeText(parsed.output.name); failCopy(null); }
+    try { await writeText(props.app!, parsed.output.name); failCopy(null); }
     catch (error) { failCopy({ project: destination.object, revision: draft.revision, message: copy.copyDraftFailure(error instanceof Error ? error.message : String(error)) }); }
   };
 
@@ -152,7 +153,7 @@ export const ProjectTab = (props: {
   ]);
 
   return <Tabs.Context>{(tabs) => <>
-    <FlatTab class="project-tab" selected={props.selected} role="presentation" data-path={props.tab.path} data-unfinished={records().length || problem() || copyFailure() ? "true" : undefined}
+    <FlatTab class="project-tab" selected={props.selected} role="presentation" data-path={props.tab.path} data-unseen={props.tab.unseen ? "true" : undefined} data-unfinished={records().length || problem() || copyFailure() ? "true" : undefined}
       style={editing() === null ? undefined : { width: `${editing()?.width}px` }}
       ref={(element) => { wrap = element; props.ref?.(element); }}
       onPointerEnter={handlers.onMouseEnter} onPointerLeave={handlers.onMouseLeave}
@@ -165,7 +166,7 @@ export const ProjectTab = (props: {
             const copied = shown();
             const details = records().length ? { name: props.tab.name, path: props.tab.path, drafts: records() } : { name: props.tab.name, path: props.tab.path };
 
-            try { await navigator.clipboard.writeText(JSON.stringify(details, null, 2)); failCopy(null); }
+            try { await writeText(props.app!, JSON.stringify(details, null, 2)); failCopy(null); }
             catch (error) { failCopy({ project: details.path, revision: copied?.revision ?? null, message: copy.copyDraftFailure(error instanceof Error ? error.message : String(error)) }); recover(true); }
           } },
           { id: "rename", label: copy.rename, shortcut: "F2", run: edit },
@@ -211,6 +212,7 @@ export const ProjectTab = (props: {
                   }
                 }}>
                 <span class="tab-name" onDblClick={() => edit()}><span class="tab-head">{parts()[0]}</span><span class="tab-tail">{parts()[1]}</span></span>
+                <Show when={props.tab.unseen}><span class="unread-dot" data-state="" role="img" aria-label={copy.unreadResult}>{copy.unseenMark}</span></Show>
                 <Show when={mark()}>{(shown) => <span class="tab-mark ink" data-tone={MARKS[shown()].tone} data-kind={shown()} role="img" aria-label={MARKS[shown()].label} />}</Show>
               </Tabs.Trigger>
           }

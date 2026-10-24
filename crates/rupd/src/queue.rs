@@ -431,7 +431,7 @@ mod tests {
     fn node(id: &str, kind: &str, parent: Option<&str>, status: Option<&str>) -> RailNode {
         serde_json::from_value(json!({
             "id": id, "kind": kind, "name": id, "parent": parent, "order": 0,
-            "status": status.map(|k| json!({"kind": k, "label": k, "since": 0})),
+            "status": status.map(|k| json!({"kind": k, "label": k, "since": 0,"finished":"0"})),
             "attempt": null, "status_revision": null, "terminal_id": null, "worktree": null,
             "can_resume": false, "channel": null, "work": null, "stray": [],
             "model": null, "effort": null,

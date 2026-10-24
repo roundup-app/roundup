@@ -26,7 +26,7 @@ async fn u3016c_time_categories_use_observed_intervals() {
     for (i, (agent, value)) in facts.iter().enumerate() {
         db.execute("INSERT INTO measurement_revisions(identity,source_revision,source,agent,attempt,home,maker,observed,value,coverage) VALUES(?1,'1','fixture',?2,'1',?3,?2,11000,?4,'[]')",rusqlite::params![format!("time-{i}"),agent,home,value.to_string()]).unwrap();
     }
-    let read = w.summary(&home, "total").await;
+    let read = w.summary(&home).await;
     assert_eq!(read["time"]["elapsed_ns"], "10000000000");
     assert_eq!(read["time"]["summed_ns"], "20000000000");
     assert_eq!(read["time"]["execution_ns"], "15000000000");
@@ -48,7 +48,7 @@ async fn u3016c_elapsed_and_parallel_time_are_distinct() {
     w.fact(&home, "a", "first", &attempt(0, 10, false).to_string());
     w.fact(&home, "b", "parallel", &attempt(0, 10, false).to_string());
     w.fact(&home, &live, "resumed", &attempt(15, 20, true).to_string());
-    let read = w.summary(&home, "total").await;
+    let read = w.summary(&home).await;
     assert_eq!(read["time"]["elapsed_ns"], "20000000000");
     assert_eq!(read["time"]["summed_ns"], "25000000000");
     assert_eq!(read["time"]["active"], true);
@@ -65,13 +65,13 @@ async fn u3016i_unknown_attempt_end_stops_the_clock_once_its_agent_stops() {
         json!({"hook_event_name":"UserPromptSubmit","prompt":"work"}),
     );
     w.fact(&home, &live, "open", &attempt(0, 10, true).to_string());
-    let read = w.summary(&home, "total").await;
+    let read = w.summary(&home).await;
     assert_eq!(read["time"]["active"], true);
     w.signal(
         &live,
         json!({"hook_event_name":"SessionEnd","reason":"done"}),
     );
-    let read = w.summary(&home, "total").await;
+    let read = w.summary(&home).await;
     assert_eq!(read["time"]["active"], false);
     assert!(read["time"]["coverage"].to_string().contains("end unknown"));
 }
@@ -86,7 +86,7 @@ async fn u3016c_clock_gaps_and_late_intervals_are_honest() {
     let execution = json!({"kind":"interval","category":"agent","clock":"source wall","start_unix_ns":"1000000000","end_unix_ns":"11000000000"});
     w.fact(&home, "a", "execution", &execution.to_string());
     w.fact(&home, "a", "execution", &execution.to_string());
-    let read = w.summary(&home, "total").await;
+    let read = w.summary(&home).await;
     assert_eq!(read["time"]["execution_ns"], "4000000000");
     assert_eq!(read["time"]["unmeasured_ns"], "6000000000");
     let (reopened, ctx) = w.reopen();
@@ -97,116 +97,57 @@ async fn u3016c_clock_gaps_and_late_intervals_are_honest() {
     assert_eq!(read["time"]["execution_ns"], "4000000000");
     a["segments"][1]["end"]["unix_ms"] = json!(9000);
     w.fact(&home, "a", "first", &a.to_string());
-    let read = w.summary(&home, "total").await;
+    let read = w.summary(&home).await;
     assert_eq!(read["time"]["elapsed_ns"], Value::Null);
     assert_eq!(read["time"]["execution_ns"], "0");
     assert_eq!(read["time"]["summed_ns"], "10000000000");
 }
 
 #[tokio::test]
-async fn u3016b_token_totals_reconcile_by_source() {
-    let w = World::new();
-    let home = w
-        .agents
-        .shared
-        .rail()
-        .insert(NodeKind::Workstream, "Measured work", None, None)
-        .unwrap()
-        .id;
-    let a = w.agent(Some(&home));
-    let b = w.agent(Some(&home));
-    w.request(&home, &a, "a", [Some(100), Some(20), Some(400), Some(50)]);
-    w.request(&home, &b, "b", [Some(200), Some(30), Some(0), Some(0)]);
-    let read = w
-        .agents
-        .call(
-            &w.ctx,
-            "project.measurementSummary",
-            json!({"home":home,"category":"total","offset":0}),
-        )
-        .await
-        .unwrap();
-    assert_eq!(
-        read["tokens"],
-        json!({"input":{"known":"300","missing":0},"output":{"known":"50","missing":0},"cache_read":{"known":"400","missing":0},"cache_write":{"known":"50","missing":0},"total":{"known":"800","missing":0}})
-    );
-    assert_eq!(read["contributors"], 2);
-    assert_eq!(read["rows"][0]["agent"], a);
-    assert_eq!(read["rows"][0]["tokens"]["total"]["known"], "570");
-    assert_eq!(read["rows"][1]["agent"], b);
-    assert_eq!(read["rows"][1]["tokens"]["total"]["known"], "230");
-}
-
-#[tokio::test]
-async fn u3016b_cost_basis_and_missing_coverage_are_explicit() {
-    let w = World::new();
-    let home = w.home();
-    w.request(
-        &home,
-        "a",
-        "priced",
-        [Some(100), Some(20), Some(400), Some(50)],
-    );
-    w.request(&home, "b", "unknown", [Some(1); 4]);
-    let db = rusqlite::Connection::open(w.dir.path().join("agents.db")).unwrap();
-    let cost = json!({"model":"opaque","cache_write":{"five_minute":30,"one_hour":20},"reported":{"scope":"request","amount":"0.001","currency":"EUR","source":"fixture","basis":"source estimate"},"reference":{"version":"v1","date":"2026-10-21","currency":"USD","source":"https://example.com/rates","basis":"fixture per category","per_tokens":1000000,"input":"3","output":"15","cache_read":"0.3","cache_write_five_minute":"3.75","cache_write_one_hour":"6"},"unavailable":[]});
-    db.execute("UPDATE measurement_revisions SET value=json_set(value,'$.cost',json(?1)) WHERE identity='priced'",[cost.to_string()]).unwrap();
-    let read = w.summary(&home, "total").await;
-    assert_eq!(read["cost"]["reference"][0]["amount"], "0.0009525");
-    assert_eq!(read["cost"]["reference"][0]["rates"]["version"], "v1");
-    assert_eq!(read["cost"]["reported"][0]["amount"], "0.001");
-    assert_eq!(read["cost"]["reported"][0]["currency"], "EUR");
-    assert!(!read["cost"]["unavailable"].as_array().unwrap().is_empty());
-}
-
-#[tokio::test]
-async fn u3016b_partial_consumption_keeps_exact_subtotals() {
-    let w = World::new();
-    let home = w.home();
-    w.request(
-        &home,
-        "unknown",
-        "partial",
-        [Some(u64::MAX), None, Some(0), Some(0)],
-    );
-    w.request(&home, "zero", "zero", [Some(0); 4]);
-    let read = w.summary(&home, "output").await;
-    assert_eq!(
-        read["tokens"]["input"],
-        json!({"known":"18446744073709551615", "missing":0})
-    );
-    assert_eq!(read["tokens"]["output"], json!({"known":"0", "missing":1}));
-    assert_eq!(
-        read["tokens"]["total"],
-        json!({"known":"18446744073709551615", "missing":1})
-    );
-    assert_eq!(read["rows"][0]["agent"], "zero");
-    assert_eq!(read["rows"][1]["agent"], "unknown");
-    assert_eq!(read["rows"][1]["maker"], "Maker unknown");
-    assert_eq!(read["rows"][1]["removed"], true);
-}
-
-#[tokio::test]
-async fn u3016e_category_rank_uses_latest_recorded_home_contributions() {
+async fn u3016e_rank_and_totals_share_contributions() {
     let w = World::new();
     let home = w.home();
     let other = w.home();
-    w.request(
-        &home,
-        "a",
-        "one",
-        [Some(100), Some(20), Some(400), Some(50)],
-    );
-    w.request(&home, "b", "two", [Some(200), Some(30), Some(0), Some(0)]);
-    // An updated request replaces the older contribution; another Home is excluded.
-    w.request(&home, "b", "two", [Some(200), Some(40), Some(0), Some(0)]);
-    w.request(&other, "a", "later", [Some(999); 4]);
-    let read = w.summary(&home, "output").await;
-    assert_eq!(read["tokens"]["output"]["known"], "60");
-    assert_eq!(read["tokens"]["total"]["known"], "810");
-    assert_eq!(read["rows"][0]["agent"], "b");
-    assert_eq!(read["rows"][1]["agent"], "a");
-    assert_eq!(read["contributors"], 2);
+    w.fact(&home, "a", "a-attempt", &attempt(0, 12, false).to_string());
+    w.fact(&home, "a", "a-agent", &interval("agent", 0, 6));
+    w.fact(&home, "a", "a-tool", &interval("tool", 6, 10));
+    w.fact(&home, "b", "b-attempt", &attempt(0, 3, false).to_string());
+    w.fact(&home, "b", "b-agent", &interval("agent", 0, 3));
+    // An updated Attempt replaces the older contribution; another Home is excluded.
+    w.fact(&home, "c", "c-attempt", &attempt(0, 1, false).to_string());
+    w.fact(&home, "c", "c-attempt", &attempt(0, 20, false).to_string());
+    w.fact(&other, "a", "later", &attempt(0, 99, false).to_string());
+    let read = w.summary(&home).await;
+    let order: Vec<_> = read["rows"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|row| row["agent"].as_str().unwrap())
+        .collect();
+    assert_eq!(order, ["c", "a", "b"]);
+    assert_eq!(read["contributors"], 3);
+    for category in [
+        "summed_ns",
+        "execution_ns",
+        "tools_ns",
+        "unmeasured_ns",
+    ] {
+        let rows: u128 = read["rows"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .map(|row| {
+                row["time"][category]
+                    .as_str()
+                    .unwrap()
+                    .parse::<u128>()
+                    .unwrap()
+            })
+            .sum();
+        assert_eq!(read["time"][category], rows.to_string(), "{category}");
+    }
+    assert_eq!(read["rows"][1]["time"]["execution_ns"], "6000000000");
+    assert_eq!(read["rows"][1]["time"]["tools_ns"], "4000000000");
 }
 
 #[tokio::test]
@@ -215,12 +156,12 @@ async fn u3016e_pages_keep_all_contributors_at_one_revision() {
     let home = w.home();
     let expected: Vec<_> = (0..1005).map(|i| format!("former-{i:04}")).collect();
     for agent in &expected {
-        w.request(&home, agent, agent, [Some(3), Some(0), Some(0), Some(0)]);
+        w.fact(&home, agent, agent, &attempt(0, 3, false).to_string());
     }
     let measured = std::time::Instant::now();
-    let mut page = w.summary(&home, "total").await;
+    let mut page = w.summary(&home).await;
     assert_eq!(page["contributors"], 1005);
-    assert_eq!(page["tokens"]["total"]["known"], "3015");
+    assert_eq!(page["time"]["summed_ns"], "3015000000000");
     let revision = page["revision"].clone();
     let mut ids = Vec::new();
     loop {
@@ -249,7 +190,7 @@ async fn u3016e_pages_keep_all_contributors_at_one_revision() {
         measured.elapsed()
     );
     assert_eq!(ids, expected);
-    w.request(&home, "new", "new", [Some(1); 4]);
+    w.fact(&home, "new", "new", &attempt(0, 1, false).to_string());
     let stale = w
         .agents
         .call(
@@ -269,7 +210,7 @@ async fn u3016e_unbound_pages_and_missing_workstreams_are_refused() {
     for params in [
         json!({"home":home,"offset":20}),
         json!({"home":home,"offset":1,"revision":"0"}),
-        json!({"home":home,"category":"money"}),
+        json!({"home":home,"category":"total"}),
     ] {
         assert_eq!(
             w.agents
@@ -302,7 +243,7 @@ async fn u3016d_summary_keeps_a_source_failure_before_first_measurement() {
     let db = rusqlite::Connection::open(w.dir.path().join("agents.db")).unwrap();
     db.execute("DELETE FROM measurement_revisions", []).unwrap();
     db.execute("INSERT INTO measurement_positions(source,file,position,last_good,cause) VALUES(?1,'fixture','{}',NULL,'fixture collection refused')", [format!("roundup:{id}")]).unwrap();
-    let summary = w.summary(&home, "total").await;
+    let summary = w.summary(&home).await;
     assert!(
         summary["cause"]
             .as_str()
@@ -310,9 +251,5 @@ async fn u3016d_summary_keeps_a_source_failure_before_first_measurement() {
             .contains("fixture collection refused")
     );
     assert_eq!(summary["rows"][0]["agent"], id);
-    assert_eq!(
-        summary["tokens"]["input"],
-        json!({"known":"0", "missing":1})
-    );
     assert_eq!(summary["last_observed"], Value::Null);
 }

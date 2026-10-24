@@ -108,6 +108,68 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn u3016m_measurement_store_has_no_token_or_money_and_reopens_with_the_same_time() {
+        use serde_json::json;
+        let dir = tempfile::tempdir().unwrap();
+        let mut db = Connection::open(dir.path().join("project.db")).unwrap();
+        let before = 10
+            + added::ADDED
+                .iter()
+                .position(|sql| {
+                    *sql == include_str!(
+                        "../migrations/project/0023-measurement-no-tokens-or-money.sql"
+                    )
+                })
+                .unwrap();
+        Migrations::new(migrations())
+            .to_version(&mut db, before)
+            .unwrap();
+        let attempt = r#"{"kind":"observed","activity":{"kind":"attempt"},"clock_lifetime":"c","start":{"unix_ms":1000,"monotonic_ns":"0"},"segments":[{"start":{"unix_ms":1000,"monotonic_ns":"0"},"end":{"unix_ms":3000,"monotonic_ns":"2000000000"}}],"state":{"kind":"ended","at":{"unix_ms":3000,"monotonic_ns":"2000000000"}}}"#;
+        for (identity, value) in [
+            ("roundup:attempt:1:1", attempt.to_string()),
+            (
+                "request:r",
+                format!(
+                    r#"{{"kind":"request","usage":{{"input":1,"output":2,"{}_read":3,"{}_write":4}},"cost":null}}"#,
+                    "cache", "cache"
+                ),
+            ),
+            (
+                "money:s",
+                format!(
+                    r#"{{"kind":"money","reported":{{"scope":"conversation","amount":"1","{}":"USD","source":"s","basis":"b"}}}}"#,
+                    ["curr", "ency"].concat()
+                ),
+            ),
+        ] {
+            db.execute(
+                "INSERT INTO measurement_revisions(identity,source_revision,source,agent,attempt,home,maker,observed,value,coverage) VALUES(?1,'1','roundup:1','1','1','2','maker',1000,?2,'[]')",
+                params![identity, value],
+            )
+            .unwrap();
+        }
+        drop(db);
+        let reopened = crate::tests::daemon_in(dir.path());
+        let reply =
+            crate::tests::ask(&reopened, r#"{"id":1,"method":"project.measurements"}"#).await;
+        let facts = reply["result"]["time_evidence"].as_array().unwrap();
+        assert_eq!(facts.len(), 1);
+        assert_eq!(facts[0]["identity"], "roundup:attempt:1:1");
+        assert_eq!(reply["result"]["contributions"], json!([]));
+        let db = Connection::open(dir.path().join("project.db")).unwrap();
+        let tables: Vec<String> = db
+            .prepare(
+                "SELECT name FROM sqlite_master WHERE type='table' AND name LIKE 'measurement%'",
+            )
+            .unwrap()
+            .query_map([], |r| r.get(0))
+            .unwrap()
+            .collect::<Result<_, _>>()
+            .unwrap();
+        assert!(tables.iter().all(|t| !t.contains("request")), "{tables:?}");
+    }
+
+    #[tokio::test]
     async fn t19_main_project_upgrades_without_losing_todo_history() {
         use contracts::Actor;
         use rpc::Ctx;

@@ -421,7 +421,7 @@ describe("u2773 Project draft integration on real Projects", () => {
     app = {
       ...served,
       projects: async () => opened.map((path) => ({ name: path === first.dir ? "first" : "second", path, running: true })),
-      forProject: (path) => live.get(path)!,
+      forProject: (path) => Object.assign(live.get(path)!, { writeClipboardText: (text: string) => app.writeClipboardText(text) }),
       chooseProjectPath: async () => opened.includes(second.dir) ? first.dir : second.dir,
       openProject: async (path) => {
         const root = roots.find((each) => each.dir === path)!;
@@ -464,7 +464,7 @@ describe("u2773 Project draft integration on real Projects", () => {
     expect(within(row()).getByRole("button", { name: "Open" })).toBeTruthy();
     expect(within(row()).queryByRole("button", { name: "Copy" })).toBeNull();
     const clipboard = vi.fn(async (_text: string) => {});
-    Object.defineProperty(navigator, "clipboard", { configurable: true, value: { writeText: clipboard } });
+    vi.spyOn(app, "writeClipboardText").mockImplementation(clipboard);
     await firstApp.rpc("pad.delete", { name: pad.name });
     const replacementPad = await firstApp.rpc("pad.create", { name: pad.name, text: "replacement" });
     expect(replacementPad.incarnation).not.toBe(pad.incarnation);
@@ -680,7 +680,7 @@ describe("u2773 Project draft integration on real Projects", () => {
     const rowOf = (revision: string) => recovery.querySelector<HTMLElement>(`[data-revision="${revision}"]`)!;
     await waitFor(() => expect(rowOf(b.revision)).toBeTruthy());
     const clipboard = vi.fn(async (_text: string) => {});
-    Object.defineProperty(navigator, "clipboard", { configurable: true, value: { writeText: clipboard } });
+    vi.spyOn(app, "writeClipboardText").mockImplementation(clipboard);
     fireEvent.click(await copyOf(() => rowOf(b.revision)));
     await waitFor(() => expect(clipboard).toHaveBeenCalledWith(exact));
     fireEvent.click(within(rowOf(a.revision)).getByRole("button", { name: "Discard" }));

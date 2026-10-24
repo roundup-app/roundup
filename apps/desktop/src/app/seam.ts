@@ -76,6 +76,7 @@ export const SEAM_COMMANDS = [
   "open_target",
   "open_in_editor",
   "save_pasted_image",
+  "plugin:clipboard-manager|write_text",
   "show_context_menu",
   "plugin:window-bar|set_window_title",
   "plugin:window-bar|drag_window",
@@ -87,6 +88,8 @@ export type NativeQuestion = { title: string; message: string; okLabel: string; 
 
 /** The Tauri commands of `scenarios/app.md` and `scenarios/project-tabs.md`, plus the macOS choosers and the Dock badge; the only door from the webview to Tauri. */
 export type App = {
+  /** U3560a: write exactly this text to the native clipboard; rejects with the platform cause. */
+  writeClipboardText(text: string): Promise<void>;
   /** A system alert; false (including Escape) authorizes nothing. Plugin failure rejects as RpcError. */
   ask(question: NativeQuestion): Promise<boolean>;
   /** The open Projects in tab order. */

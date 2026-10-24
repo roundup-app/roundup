@@ -8,7 +8,7 @@ import { agent, workstream, door, MINUTE, NOW, terminal } from "../testing/nodes
 afterEach(cleanup);
 
 const doneFor = (id: string, minutes: number, over: Partial<RailNode> = {}): RailNode =>
-  agent(id, "done", "finished", { status: { kind: "done", label: "finished", since: NOW - minutes * MINUTE }, ...over });
+  agent(id, "done", "finished", { status: { kind: "done", label: "finished", since: NOW - minutes * MINUTE, finished: "0" }, ...over });
 
 /** U403: the Agent Glyphs a folded Workstream shows at its right, most urgent first. */
 const foldedKinds = (name: string): (string | null)[] =>
@@ -62,7 +62,7 @@ describe("u8 folding", () => {
   });
 
   it("u8_a_door_never_folds_even_when_done", async () => {
-    await mountRail([door("lead", "done", "d", { status: { kind: "done", label: "d", since: NOW - 60 * MINUTE } })]);
+    await mountRail([door("lead", "done", "d", { status: { kind: "done", label: "d", since: NOW - 60 * MINUTE, finished: "0" } })]);
 
     expect(rowNames()).toEqual(["lead"]);
   });
