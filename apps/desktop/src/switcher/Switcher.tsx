@@ -1,3 +1,4 @@
+import { writeText } from "../app/clipboard";
 import { ReservedLine } from "../ink/ReservedLine";
 import { createEffect, createMemo, createSignal, on, onCleanup, Show } from "solid-js";
 import { debounce } from "@solid-primitives/scheduled";
@@ -23,7 +24,7 @@ const focusTarget = (): void => {
 
 /** U529, U530: leader `K` opens a filter field over the centre pane listing every row by name; `⏎` selects the highlighted one as a click does. `onFailure` gets a failed selection's message; `onOpen` runs as it opens, so an overlaid Shelf can close and leave no scrim over it. */
 export const Switcher = (props: { onFailure: (message: string | null) => void; onOpen: () => void }) => {
-  const { rail, project, drafts } = useConnectedProject();
+  const { app, rail, project, drafts } = useConnectedProject();
   const [open, setOpen] = createSignal(false);
 
   const destination = { surface: "switcher", object: project.path, recipient: null };
@@ -118,7 +119,7 @@ export const Switcher = (props: { onFailure: (message: string | null) => void; o
   const copyQuery = (): void => {
     const revision = current()?.revision ?? null;
 
-    void navigator.clipboard.writeText(text()).then(() => {
+    void writeText(app, text()).then(() => {
       if (revision !== (current()?.revision ?? null)) return;
       setCopyFailure(null);
       setCopied(true);

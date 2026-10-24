@@ -44,7 +44,6 @@ import { OwnerPicker } from "./OwnerPicker";
 import { sameOwner, ownerGroups, ownersOnRail } from "../shelf/scope";
 import type { Actor } from "@contracts/Actor";
 import { CHORDS, TEXT_FIELDS, chordsFor, chordsOf } from "../keys/chords";
-import { KeyHint } from "../keys/KeyHint";
 import { ShelfActions } from "../shelf/BulkDelete";
 import { HomePicker } from "./HomePicker";
 import { idOfRow, openRowButtons, rowButtonOf as triageRowOf, triage } from "./triage";
@@ -55,6 +54,9 @@ import { shownTodos } from "./shownTodos";
 import { rowAfter, doneTodos, nowTodos, offeredAsBlockers, planDrop, treeCollection, treeRows, type NestedRow } from "./todoView";
 
 /** The Shelf's `todos` list: open Todos in id order, done ones folded, and the inline field that makes a new one. */
+/** U3513a: the keys the quiet footer shows; Help lists the rest. */
+const QUIET_KEYS = ["J K", "A", "X"];
+
 export const Todos = (props: {
   /** Open a retained creation form using this Project's already-loaded Todo facts. */
   recovery?: { project: string; revision: string; list: TodosState };
@@ -955,7 +957,8 @@ export const Todos = (props: {
       </Show>
       <Show when={triage.on()}>
         <p class="triage-hints" aria-label={copy.triageKeys}>
-          <For each={CHORDS.filter(row => row.inTriage)}>{row => <KeyHint keys={row.keys}>{row.what}</KeyHint>}</For>
+          <For each={[...(open().length > 0 ? QUIET_KEYS.flatMap(keys => CHORDS.filter(row => row.inTriage && row.keys === keys)) : []), { keys: copy.questionMark, what: copy.triageMore }]}>{row =>
+            <span class="triage-hint"><kbd class="triage-key">{row.keys}</kbd>{" "}{row.what}</span>}</For>
         </p>
       </Show>
       <bulk.Bar />

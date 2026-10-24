@@ -24,7 +24,7 @@ run("u3010e the recorder in the Chromium harness", () => {
     const report = await page.call<FrameReport>(`async () => {
       const { recordFrames } = await import('/src/perf/frames.ts');
       return recordFrames(
-        { frame: (callback) => void requestAnimationFrame(callback), hidden: () => document.hidden },
+        { frame: (callback) => void requestAnimationFrame(callback), hidden: () => document.hidden, after: (ms, callback) => void setTimeout(callback, ms) },
         { workload: 'glyphs', engine: 'chromium', timerResolutionMs: 0.1, userAgent: navigator.userAgent },
         async () => true,
         { warmup: 200, sample: 800, idle: 400 },
