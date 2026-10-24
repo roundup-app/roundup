@@ -318,7 +318,9 @@ export const RailRowView = (props: {
         </span>
         <PadsControl pads={pads} />
       </p>
-      <ReservedLine overlay message={pads.failure()} />
+      <ReservedLine overlay message={pads.failure.message()}>
+        <button type="button" data-button="quiet" onClick={pads.failure.clear}>{copy.close}</button>
+      </ReservedLine>
     </div>
   );
 
