@@ -1,4 +1,4 @@
-// fallow-ignore-file duplicate-export -- ChangedFile resolution differs from terminal/links printed-path normalization; imports name the module.
+// fallow-ignore-file duplicate-export -- absolutePath joins a ChangedFile to its Project; terminal/links resolves Terminal links. Imports are direct.
 import type { ChangedFile } from "@contracts/agent/ChangedFile";
 import type { ChangedStatus } from "@contracts/agent/ChangedStatus";
 import { copy } from "../copy";

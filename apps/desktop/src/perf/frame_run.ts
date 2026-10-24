@@ -1,4 +1,4 @@
-// fallow-ignore-file duplicate-export -- The workload sleeps; state/clock reads time. Neither is re-exported through a barrel.
+// fallow-ignore-file duplicate-export -- Clock sleeps for the frame driver; state/clock’s Clock reads time. Neither is barrel-exported.
 import type { AppSeam } from "../app/seam";
 import { toBase64 } from "../terminal/base64";
 import { createXtermEmulators } from "../terminal/emulator";

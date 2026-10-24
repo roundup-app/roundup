@@ -1,4 +1,4 @@
-// fallow-ignore-file duplicate-export -- This fixture finds a DOM glyph; ink/glyph maps a Kind to a drawing. Imports name the module.
+// fallow-ignore-file duplicate-export -- glyphOf finds a rendered Rail glyph; ink/glyph maps Kind to glyph data. Imports are direct.
 import { fireEvent, render, screen, within } from "@solidjs/testing-library";
 import { afterEach } from "vitest";
 import { createSignal, Show } from "solid-js";

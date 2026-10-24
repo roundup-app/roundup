@@ -67,12 +67,14 @@ impl Config {
     pub fn from_env() -> Result<Self, String> {
         let exe = std::env::current_exe()
             .map_err(|err| format!("cannot find the App's own executable: {err}"))?;
-        Self::locate(
+        let mut config = Self::locate(
             std::env::var_os("ROUNDUP_RUPD_BIN"),
             &exe,
             &std::env::temp_dir(),
             std::process::id(),
-        )
+        )?;
+        config.data_dir = std::env::var_os("ROUNDUP_DATA_DIR").map(PathBuf::from);
+        Ok(config)
     }
 }
 
@@ -90,6 +92,38 @@ fn check_limit(socket: &Path) -> Result<(), String> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn r20_perf_data_override_keeps_saved_tabs_untouched() {
+        const CHILD: &str = "R20_ISOLATED_CONFIG_TEST";
+        if std::env::var_os(CHILD).is_none() {
+            let fixture = tempfile::tempdir().unwrap();
+            let seeded = fixture.path().join("saved");
+            std::fs::create_dir(&seeded).unwrap();
+            let saved = br#"{"open":["/original/project"],"names":{}}"#;
+            std::fs::write(seeded.join("projects.json"), saved).unwrap();
+            let status = std::process::Command::new(std::env::current_exe().unwrap())
+                .args([
+                    "--exact",
+                    "config::tests::r20_perf_data_override_keeps_saved_tabs_untouched",
+                ])
+                .env(CHILD, &seeded)
+                .env("ROUNDUP_DATA_DIR", fixture.path().join("isolated"))
+                .status()
+                .unwrap();
+            assert!(status.success());
+            assert_eq!(std::fs::read(seeded.join("projects.json")).unwrap(), saved);
+            assert!(fixture.path().join("isolated/projects.json").is_file());
+            return;
+        }
+        let config = Config::from_env().unwrap();
+        let store = crate::store::Store::new(config.data_dir);
+        // Mirrors setup's fallback: resolving the native App folder must not replace
+        // the explicit override or restore its saved Projects.
+        store.use_dir(PathBuf::from(std::env::var_os(CHILD).unwrap()));
+        assert!(store.open_paths().is_empty());
+        store.set_open(vec!["/tmp/bench/project".into()]);
+    }
 
     /// Mirrors `s1_a_socket_path_of_103_bytes_is_accepted_and_104_is_rejected` (`tests/app.rs`):
     /// builds a base socket path of an exact byte length so a reopen's `{run}-` prefix can be
