@@ -286,7 +286,7 @@ export const AskBar = (props: {
         <Show when={problem()}><button type="button" data-button="quiet" onClick={() => drafts.retry()}>{copy.storageRetry}</button></Show>
         <Show when={!problem() && !records().some(draft => draft.status === "unknown")}>
           <Show when={failure()} fallback={<Show when={asks.listFailure() ?? asks.intakeFailure()}>{each => <button type="button" data-button="quiet" onClick={() => asks.dismiss(each())}>{copy.dismiss}</button>}</Show>}>
-            <button type="button" data-button="quiet" onClick={() => setFailure(null)}>{copy.dismiss}</button>
+            <button type="button" data-button="quiet" onClick={() => { setFailure(null); const intake = asks.intakeFailure(); if (intake) asks.dismiss(intake); }}>{copy.dismiss}</button>
           </Show>
         </Show>
         </ReservedLine>
