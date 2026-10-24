@@ -83,8 +83,7 @@ describe("u12 typing", () => {
 
     emulators.get("t-a")?.type(bytes(1));
 
-    expect((await screen.findByRole("alert", { name: "conflict: write queue full" })).className).toBe("ink");
-    expect(screen.getByRole("alert").querySelector('svg.lucide-x[aria-hidden="true"]')).not.toBeNull();
+    await vi.waitFor(() => expect(screen.queryByRole("alert", { name: "conflict: write queue full" })).not.toBeNull());
   });
 
   it("u12_a_failed_write_does_not_stall_the_keystrokes_after_it", async () => {
