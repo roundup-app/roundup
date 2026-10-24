@@ -2,6 +2,14 @@
   "fixtures": [
     {
       "match": {
+        "userMessage": "from-name=\"you\" from-mode=\"default\">\nI want a login page\n</cross-session-message>"
+      },
+      "response": {
+        "content": "Login page request noted."
+      }
+    },
+    {
+      "match": {
         "userMessage": "too much fluff",
         "hasToolResult": false
       },
