@@ -12,14 +12,15 @@ use std::sync::{Arc, Mutex, PoisonError};
 use super::vendor_list::Sidecar;
 use rpc::{OpenError, RpcError, code};
 use serde_json::{Map, Value, json};
+use shlex::try_quote;
 use tokio::sync::OnceCell;
 use unicode_normalization::UnicodeNormalization;
 
 use super::brief::{self, Role};
 use super::extras;
 use super::launch_files::{
-    ConfigLock, is_symlink, landing, merge_settings, replace_file, replace_text, shell_quote,
-    socket_folder, user_settings,
+    ConfigLock, is_symlink, landing, merge_settings, replace_file, replace_text, socket_folder,
+    user_settings,
 };
 use super::models::{Lean, Pair};
 use super::plugins;
@@ -400,7 +401,7 @@ impl Launcher {
         let missing_intent = self.door_lacks_intent(role, &carried, &project);
         let plain = carried.get("outputStyle").is_none();
         replace_file(&settings, &{
-            let mut own = self.settings_json(id, attempt, &path, mcp, missing_intent, &carried);
+            let mut own = self.settings_json(id, attempt, &path, mcp, missing_intent, &carried)?;
             if role == Role::Door && mcp {
                 own["permissions"]["allow"] = json!(
                     brief::door_tools()
@@ -422,7 +423,12 @@ impl Launcher {
                     .expect("context command");
                 own["hooks"]["SessionStart"][0]["hooks"][1]["command"] = json!(format!(
                     "ROUNDUP_BRIEF_FILE={} {command}",
-                    shell_quote(&brief_path(&dir, id).to_string_lossy())
+                    try_quote(
+                        brief_path(&dir, id)
+                            .to_str()
+                            .ok_or_else(|| invalid("Brief path is not UTF-8".into()))?
+                    )
+                    .map_err(RpcError::internal)?
                 ));
             }
             merge_settings(&mut carried, own);
@@ -785,13 +791,19 @@ impl Launcher {
         mcp: bool,
         missing_intent: bool,
         carried: &Value,
-    ) -> Value {
+    ) -> Result<Value, RpcError> {
         let agent_id = id.to_string();
-        let rup = shell_quote(&self.rup.to_string_lossy());
-        let id = shell_quote(&id.to_string());
+        let rup = try_quote(
+            self.rup
+                .to_str()
+                .ok_or_else(|| RpcError::internal("rup path is not UTF-8"))?,
+        )
+        .map_err(RpcError::internal)?;
+        let id = try_quote(&agent_id).expect("numeric Agent id");
+        let attempt = try_quote(attempt).map_err(RpcError::internal)?;
         let signal = json!([{ "hooks": [{
             "type": "command",
-            "command": format!("ROUNDUP_ATTEMPT={} {rup} signal {id}", shell_quote(attempt)),
+            "command": format!("ROUNDUP_ATTEMPT={attempt} {rup} signal {id}"),
             "timeout": 5,
         }] }]);
         // E3: at start the Agent is told its Context, by a second command beside the Signal.
@@ -818,7 +830,7 @@ impl Launcher {
         if missing_intent {
             settings["statusLine"] = json!({
                 "type": "command",
-                "command": format!("printf %s {}", shell_quote(INTENT_MISSING)),
+                "command": format!("printf %s {}", try_quote(INTENT_MISSING).expect("status line has no NUL")),
             });
         }
         // User env wins over defaults; identity, PATH and the named lean exclusion are explicit.
@@ -835,7 +847,7 @@ impl Launcher {
         env.insert("ROUNDUP_AGENT_ID".into(), agent_id.into());
         env.insert("PATH".into(), path.to_string_lossy().into());
         settings["env"] = Value::Object(env);
-        settings
+        Ok(settings)
     }
 
     /// A43: the folder of `rup`, then (F4) a Door's `shims`, then the `PATH` this process has.
@@ -932,7 +944,7 @@ fn write_shims(shims: &Path) -> std::io::Result<()> {
     for program in super::programs() {
         let script = format!(
             "#!/bin/sh\necho {} >&2\nexit 1\n",
-            shell_quote(SHIM_MESSAGE)
+            try_quote(SHIM_MESSAGE).expect("shim message has no NUL")
         );
         let path = shims.join(program);
         replace_text(&path, &script)?;

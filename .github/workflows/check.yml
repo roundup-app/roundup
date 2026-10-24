@@ -8,6 +8,10 @@ on:
   # head, whose `pre` run starts its review (L24).
   pull_request:
     types: [opened, synchronize, reopened, ready_for_review]
+  # L46: the merge queue's `merge_group` commit runs every lane; its empty `BASE` tests everything, and `approved` passes
+  # a non-PR event, since `review` and `critic` report on that commit from `merge-group.yml`.
+  merge_group:
+    types: [checks_requested]
   push:
     branches: [main]
 
