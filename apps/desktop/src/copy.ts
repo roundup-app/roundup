@@ -921,6 +921,7 @@ export const copy = {
   paste: "Paste",
   clipboardDataUnavailable: "Clipboard data is unavailable.",
   clipboardRetry: "Try again, or copy the content in its source app again.",
+  clipboardCopyRetry: "Try again, or select the text and copy it with the context menu.",
   copy: "Copy",
   comma: ", ",
 
