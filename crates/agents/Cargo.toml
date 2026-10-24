@@ -22,6 +22,8 @@ serde_json = { workspace = true, features = ["raw_value"] }
 flate2 = "1"
 fs-more = "0.8.1"
 sha2 = "0.10"
+shlex = "2.0.1"
+wait-timeout = "0.2.1"
 terminal = { path = "../terminal" }
 tempfile.workspace = true
 tokio = { workspace = true, features = ["process"] }
