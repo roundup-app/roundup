@@ -59,7 +59,7 @@ describe("k2 a sample is keydown to the render that shows its echo", () => {
     const agent = run.createEmulator("agent");
     const shell = run.createEmulator("shell");
 
-    for (const text of ["already\n", "not ready\n", "readying\n", "x".repeat(100_000) + "ready\n", "ready"]) {
+    for (const text of ["already\n", "not ready\n", "readying\n", "x".repeat(100_000) + "rea", "dy\n", "ready"]) {
       agent.write(bytes(text));
       expect(run.target()).toBeNull();
     }
