@@ -197,6 +197,7 @@ export const Pane = (props: { notice?: string | null; createEmulator?: EmulatorF
 
     return rail.doorFailure(selected()?.id ?? "") === null && id !== null && !screens.viewedInBubble(id) && screens.failure(id) !== null ? () => screens.dismiss(id) : null;
   };
+
   const decision = createMemo(() => connected.decisions.of(selected()?.id ?? null));
 
   let card: HTMLElement | undefined;
