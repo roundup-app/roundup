@@ -61,7 +61,7 @@ it("u2572b_a_real_action_choice_reports_creation_failure_without_writing_to_a_Te
         }
 
         await read("(() => { const f=document.querySelector('.switcher input'); f.value='New Terminal'; f.dispatchEvent(new Event('input',{bubbles:true})); window.__fake.failNext(-32003,'Terminal creation rejected'); window.__before=window.__fake.app.calls.length; })()");
-        await browser("press", "Shift+Enter");
+        await browser("press", "Enter");
         await browser("wait", "--fn", "!document.querySelector('.switcher') && [...document.querySelectorAll('[role=alert]')].some(e=>e.textContent.includes('Terminal creation rejected'))");
         const calls = await read<{ method: string; params: unknown }[]>("window.__fake.app.calls.slice(window.__before).filter(c=>['terminal.open','terminal.write'].includes(c.method))");
 
