@@ -230,7 +230,11 @@ impl Daemon {
             .lock()
             .unwrap_or_else(|poisoned| poisoned.into_inner())
             .take();
-        if let (Some(events), Some(waker)) = (wake_events, self.waker()) {
+        // `waker` and `evaluator` copy the module map and read the environment, so they are
+        // built only when there are events to hand them, not on every request.
+        if let Some(events) = wake_events
+            && let Some(waker) = self.waker()
+        {
             tokio::spawn(waker.run(events));
         }
         if let Some(sender) = self.sender.get().filter(|_| {
@@ -248,7 +252,9 @@ impl Daemon {
                 .run(),
             );
         }
-        if let (Some(events), Some(evaluator)) = (self.reactions.take_events(), self.evaluator()) {
+        if let Some(events) = self.reactions.take_events()
+            && let Some(evaluator) = self.evaluator()
+        {
             tokio::spawn(evaluator.run(events));
         }
         if let (Some(events), Some(sender)) = (events, self.sender.get()) {

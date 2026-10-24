@@ -177,6 +177,24 @@ async fn r3696c_a_rail_tree_reply_written_directly_equals_the_value_route() {
     }
 }
 
+#[tokio::test]
+async fn r3696c_a_ping_written_directly_equals_the_value_route() {
+    let (_dir, daemon) = daemon();
+    let (events, _) = mpsc::unbounded_channel();
+    let mut conn = Conn {
+        actor: Actor::user(),
+        peer: None,
+        events,
+        output: None,
+    };
+    let routed = daemon
+        .route(&mut conn, "daemon.ping", Value::Null)
+        .await
+        .unwrap();
+    let reply = ask(&daemon, &json!({"id":7,"method":"daemon.ping"}).to_string()).await;
+    assert_eq!(reply, json!({"jsonrpc":"2.0", "id":7, "result":routed}));
+}
+
 async fn frames(daemon: Daemon, requests: &str, count: usize) -> Vec<Value> {
     let (client, server) = UnixStream::pair().unwrap();
     let handler = tokio::spawn(handle(server, Arc::new(daemon)));
