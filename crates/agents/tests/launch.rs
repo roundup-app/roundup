@@ -803,6 +803,9 @@ fn b45_every_command_the_brief_names_is_in_rup_help() {
 
 // LC1–LC10: the lean child start.
 
+#[path = "launch/quoting.rs"]
+mod quoting;
+
 #[path = "launch/lean.rs"]
 mod lean;
 
