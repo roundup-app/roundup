@@ -1,6 +1,7 @@
 packages:
   - "apps/*"
   - "ext/*"
+  - "crates/agents/sidecar"
   - "loop/agent-runners"
 
 # No parent release takes these fixes (Dependabot alerts on pnpm-lock.yaml, Z1).
