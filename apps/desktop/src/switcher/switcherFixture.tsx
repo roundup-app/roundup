@@ -67,7 +67,7 @@ export const mountSwitcher = async (selected: string | null = null, tree: RailNo
   return { app, connected, emulators, failures };
 };
 
-export const press = (key: string, init: KeyboardEventInit = {}, target: EventTarget = document.activeElement ?? document.body): KeyboardEvent => {
+export const switcherKey = (key: string, init: KeyboardEventInit = {}, target: EventTarget = document.activeElement ?? document.body): KeyboardEvent => {
   const event = new KeyboardEvent("keydown", { key, code: key.length === 1 ? `Key${key.toUpperCase()}` : key, bubbles: true, cancelable: true, ...init });
 
   target.dispatchEvent(event);

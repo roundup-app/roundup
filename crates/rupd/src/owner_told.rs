@@ -552,7 +552,7 @@ mod tests {
     fn node(id: &str, kind: &str, terminal: bool) -> Value {
         json!({
             "id": id, "kind": "agent", "name": id, "parent": null, "order": 0,
-            "status": {"kind": kind, "label": kind, "since": 0},
+            "status": {"kind": kind, "label": kind, "since": 0,"finished":"0"},
             "attempt": "1", "status_revision": null,
             "terminal_id": terminal.then_some("t"), "worktree": null, "can_resume": false,
             "yolo": false, "channel": null, "work": null, "stray": [], "model": null,

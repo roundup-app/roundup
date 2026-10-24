@@ -1,6 +1,6 @@
 import { ReservedLine } from "../ink/ReservedLine";
 import { copy } from "../copy";
-import { createEffect, createSignal, createUniqueId, onCleanup, onMount, Show } from "solid-js";
+import { createEffect, createSignal, createUniqueId, onCleanup, onMount } from "solid-js";
 import { Portal } from "solid-js/web";
 import { CrepeBuilder } from "@milkdown/crepe/builder";
 import { blockEdit } from "@milkdown/crepe/feature/block-edit";
@@ -377,7 +377,7 @@ export default function PadRichEditor(props: {
         class="pad-editor pad-rich-editor"
         classList={{ "pad-readonly": props.readonly }}
         onFocusOut={(event) => props.onBlur(event.relatedTarget)}>
-        <ReservedLine message={failure()} />
+        <ReservedLine message={failure()}><button data-button="quiet" type="button" onClick={() => setFailure(null)}>{copy.dismiss}</button></ReservedLine>
         <div ref={(element) => (host = element)} />
       </div>
     </>

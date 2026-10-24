@@ -53,6 +53,13 @@ export const NoteQueue = (props: { node: RailNode; focusTerminal: () => void }) 
 
   const failure = () => notes.failure(agent());
 
+  // P3557c: dismissing clears the shown line only; Messages, the Agent's draft and recipients stay as they are.
+  const dismiss = (): void => {
+    const shown = notes.selected(agent());
+
+    if (shown !== null) notes.dismiss(shown.key);
+  };
+
   return (
     <Show when={rows().length > 0 || failure()}>
       <section ref={(element) => { root = element; }} class="note-queue" aria-label={copy.noteTo(props.node.name)}>
@@ -70,7 +77,9 @@ export const NoteQueue = (props: { node: RailNode; focusTerminal: () => void }) 
             </li>
           )}</For>
         </ul>
-        <ReservedLine message={failure()} />
+        <ReservedLine message={failure()}>
+          <Show when={failure()}><button data-button="quiet" type="button" class="word" onClick={dismiss}>{copy.dismissFailure}</button></Show>
+        </ReservedLine>
       </section>
     </Show>
   );

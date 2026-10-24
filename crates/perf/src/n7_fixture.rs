@@ -48,6 +48,8 @@ pub(crate) fn app(dir: &Path) -> PathBuf {
         bin.is_file(),
         "build rupd before testing the isolated App fixture"
     );
+    // A Workstream needs the real hook executable beside the fixture's Daemon.
+    std::os::unix::fs::symlink(bin.with_file_name("rup"), dir.join("rup")).unwrap();
     std::fs::write(
         &daemon,
         format!(

@@ -10,7 +10,7 @@ afterEach(() => { cleanup(); vi.restoreAllMocks(); localStorage.clear(); });
 it("u2540c_one_message_contains_all_original_context", async () => {
   const { app } = await openDiff();
   await saveNote("  exact\ncomment <script>  ");
-  fireEvent.click(screen.getByRole("button", { name: "Back" }));
+  fireEvent.click(screen.getByRole("button", { name: "Close" }));
   await openFile("src/deep/b.ts");
   await saveNote("second");
   let accepted: unknown;
@@ -94,7 +94,7 @@ it.each(["failed", "acknowledged", "unknown"] as const)("u2773b_changes_settleme
   const reopened = await openDiff();
   expect(screen.getByRole("list", { name: "Notes" }).textContent).toContain("  revision B 🐝\n newer  ");
   expect(screen.getByRole("list", { name: "Notes" }).textContent).not.toContain("revision A");
-  fireEvent.click(screen.getByRole("button", { name: "Close" }));
+  fireEvent.click(screen.getByRole("button", { name: "Close changes" }));
   await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
   expect(reopened.app.calls.filter(call => call.method === "message.send")).toHaveLength(0);
 

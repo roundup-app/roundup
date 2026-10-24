@@ -263,7 +263,7 @@ describe("u2540 inspection and notes on the real Daemon", () => {
       fireEvent.click(screen.getByRole("button", { name: "Add note" }));
       fireEvent.input(screen.getByRole("textbox", { name: "Note" }), { target: { value: "check selected source" } });
       fireEvent.click(screen.getByRole("button", { name: "Save" }));
-      fireEvent.click(screen.getByRole("button", { name: "Close" }));
+      fireEvent.click(screen.getByRole("button", { name: "Close changes" }));
       await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
     }
 
@@ -330,7 +330,7 @@ describe("u2540 inspection and notes on the real Daemon", () => {
           await openFile("same.ts");
 
           if (phase === "with notes") await saveNote("optional unsent note");
-          fireEvent.click(screen.getByRole("button", { name: "Close" }));
+          fireEvent.click(screen.getByRole("button", { name: "Close changes" }));
           await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
         }
 
