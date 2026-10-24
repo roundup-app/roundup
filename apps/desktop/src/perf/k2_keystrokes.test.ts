@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { reportTerminal } from "./run";
 import { PATIENCE_MS, createKeystrokeProbe, typeKeys } from "./keystrokes";
 
 const bytes = (text: string) => new TextEncoder().encode(text);
@@ -10,6 +11,26 @@ const clock = () => {
 };
 
 describe("k2 a sample is keydown to the render that shows its echo", () => {
+  it("r20_keys_reach_the_terminal_that_printed_ready_even_with_an_earlier_agent_input", async () => {
+    document.body.innerHTML = `<div class="bubble" data-bubble="door"><textarea class="xterm-helper-textarea"></textarea></div>
+      <div class="bubble" data-bubble="shell"><textarea class="xterm-helper-textarea"></textarea></div>`;
+    const run = reportTerminal(() => ({ write: (_bytes: Uint8Array, parsed?: () => void) => parsed?.() }));
+    const door = run.createEmulator("door");
+    const shell = run.createEmulator("shell");
+    const received: string[] = [];
+
+    for (const input of document.querySelectorAll("textarea")) input.addEventListener("keypress", () => received.push(input.closest<HTMLElement>("[data-bubble]")!.dataset.bubble!));
+
+    expect(run.input()).toBeNull();
+    shell.write(bytes("ready\n"));
+    door.write(bytes("welcome"));
+    await run.printed;
+    run.input()!.dispatchEvent(new KeyboardEvent("keypress", { key: "a" }));
+
+    expect(received).toEqual(["shell"]);
+    document.body.replaceChildren();
+  });
+
   it("k2_the_render_after_the_echo_counts_as_the_time_since_the_keydown", () => {
     const time = clock();
     const probe = createKeystrokeProbe(time.now, "a");
