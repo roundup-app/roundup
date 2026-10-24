@@ -66,6 +66,8 @@ export type FrameReport = {
   };
   /** The entry types `PerformanceObserver` lists, so a reader sees what the webview offered. */
   performance_entry_types: string[];
+  /** Epoch milliseconds align the page sample with a separately recorded native trace. */
+  windows_epoch_ms?: { sample_start: number; sample_end: number; idle_end: number };
   invalid: string[];
   verdict: "fail" | "invalid" | "incomplete";
   exit: 1 | 2;
@@ -191,7 +193,7 @@ const WALL_MARGIN_MS = 10_000;
  */
 export const recordFrames = (
   frames: Frames,
-  describe: Pick<Facts, "workload" | "engine" | "timerResolutionMs" | "userAgent" | "entryTypes">,
+  describe: Pick<Facts, "workload" | "engine" | "timerResolutionMs" | "userAgent" | "entryTypes"> & { timeOriginMs?: number },
   actions: () => Promise<boolean>,
   windows: Windows = PROTOCOL,
 ): Promise<FrameReport> =>
@@ -211,7 +213,15 @@ export const recordFrames = (
       if (finished) return;
 
       finished = true;
-      resolve(buildReport({ ...describe, hz: refreshHz(warmup), sample, idle, update, hidden, completed, actionsDone, stalled }));
+      const report = buildReport({ ...describe, hz: refreshHz(warmup), sample, idle, update, hidden, completed, actionsDone, stalled });
+
+      if (start !== null && describe.timeOriginMs !== undefined) {
+        const sampleStart = describe.timeOriginMs + start + windows.warmup;
+
+        report.windows_epoch_ms = { sample_start: sampleStart, sample_end: sampleStart + windows.sample, idle_end: sampleStart + windows.sample + windows.idle };
+      }
+
+      resolve(report);
     };
 
     // A webview that stops delivering frames (occluded, throttled) would otherwise leave the run silent, and the runner with no line to read.

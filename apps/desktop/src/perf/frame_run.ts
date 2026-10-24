@@ -294,6 +294,7 @@ export const createFrameRun = (app: AppSeam, workload: string, cwd: string) => {
         { frame: (callback) => void requestAnimationFrame(callback), hidden: () => document.hidden, now: () => performance.now(), afterUpdate: afterUpdate, after: (ms, callback) => void setTimeout(callback, ms) },
         {
           workload,
+          timeOriginMs: performance.timeOrigin,
           engine: /Chrome|Chromium/.test(navigator.userAgent) ? "chromium" : "webkit",
           timerResolutionMs: timerResolutionMs(),
           userAgent: navigator.userAgent,
