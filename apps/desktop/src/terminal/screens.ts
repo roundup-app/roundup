@@ -39,6 +39,8 @@ export type Screens = {
   pastePaths(id: string, paths: string[]): void;
   /** The selected Terminal's last failed call or `terminal.output`, until a later call for that Terminal succeeds. */
   failure(id: string | null): string | null;
+  /** P3557c: the user dismisses the failure `failure(id)` shows; an older failure of that Terminal then shows, and no other Terminal, call or input changes. */
+  dismiss(id: string): void;
   dispose(): void;
 };
 
@@ -85,6 +87,8 @@ type FailureEntry = { message: string; order: number };
 
 /** `output` is the subscription's own failure: a later successful call does not clear it, only a new subscription does. */
 type TerminalFailures = { snapshot: FailureEntry | null; live: FailureEntry | null; output: FailureEntry | null; clipboard: FailureEntry | null; link: FailureEntry | null };
+
+const FAILURE_KINDS = ["snapshot", "live", "output", "clipboard", "link"] as const;
 
 const newestFailure = (state: TerminalFailures | undefined): FailureEntry | null => {
   if (!state) return null;
@@ -651,6 +655,12 @@ export const createScreens = (connected: ConnectedProject, createEmulator: Emula
       }
 
       return latest?.message ?? null;
+    },
+    dismiss: (id) => {
+      const state = failures().get(id);
+      const shown = newestFailure(state);
+
+      for (const kind of FAILURE_KINDS) if (state?.[kind] === shown) setFailure(id, kind, null);
     },
     dispose: () => {
       disposed = true;

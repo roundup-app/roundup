@@ -150,6 +150,7 @@ export const copy = {
   switcherCopyFailure: "Could not copy query. Select the text and copy again.",
   copyQuery: "Copy query",
   retryStorage: "Try again",
+  dismissFailure: "Dismiss",
   queryCopied: "Copied",
   discardQuery: "Discard query",
   draftSurface: (surface: string) => draftSurfaceLabels.get(surface) ?? "Unfinished work",
