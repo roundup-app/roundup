@@ -8,9 +8,9 @@ use std::process::{ExitCode, Stdio};
 use std::time::Duration;
 
 use clap::Parser;
-use perf::gate::{conclude, read_budgets};
+use perf::gate::read_budgets;
 use perf::webview::failure;
-use perf::webview::{checked, marked_line};
+use perf::webview::{judge_runs, marked_line};
 use rpc::Client;
 use serde_json::Value;
 use sysinfo::System;
@@ -20,7 +20,7 @@ mod launch;
 
 const RUN_BOUND: Duration = Duration::from_secs(240);
 
-/// Measure keystroke-to-render in the App's own webview; each metric is the median over fresh App runs.
+/// Measure keystroke-to-render in the App's own webview; every fresh App run must pass.
 #[derive(Parser)]
 struct Args {
     #[arg(long, default_value_t = 3)]
@@ -43,7 +43,7 @@ const ALLOW_WINDOW: &str = "ROUNDUP_ALLOW_WINDOW";
 /// Starts the Terminal's program: a raw tty, a `ready` line, then `cat`, so each typed byte comes back only through the program.
 const SHELL: &str = "#!/bin/sh\nstty raw -echo\necho ready\nexec cat\n";
 
-/// The Agents of the `glyphs` workload run this instead of `claude` (`crates/rup/tests/e2e/fake_claude.py`): the Daemon starts them and counts them working, with no model call.
+/// Every perf-created Workstream, including the keystroke run's, uses this fake vendor; no model call.
 const FAKE_CLAUDE: &str = concat!(
     env!("CARGO_MANIFEST_DIR"),
     "/../rup/tests/e2e/fake_claude.py"
@@ -369,36 +369,56 @@ async fn run_frames(args: &Args) -> Result<u8, Box<dyn std::error::Error>> {
     Ok(frame_exit(&report).unwrap_or(2))
 }
 
-async fn run(args: &Args) -> Result<bool, Box<dyn std::error::Error>> {
+async fn run(args: &Args) -> Result<u8, Box<dyn std::error::Error>> {
     let budgets = read_budgets(&args.budgets)?;
-    let mut per_run: BTreeMap<String, Vec<f64>> = BTreeMap::new();
+    let limit = budgets
+        .get("keystroke_p95_ms")
+        .and_then(|budget| budget.limit)
+        .ok_or_else(|| failure("no keystroke_p95_ms limit in the budgets file"))?;
+    // An alternate budget file may tighten, but never relax, R21's absolute rule.
+    let limit = limit.min(16.0);
+    if args.runs == 0 {
+        return Err(failure("no keystroke runs requested").into());
+    }
+    let mut reports = Vec::new();
     let mut loads = Vec::new();
 
     for turn in 1..=args.runs {
         let load = System::load_average().one;
-
         eprintln!("run {turn}/{}: load {load:.1}", args.runs);
         loads.push(load);
-
-        let report = one_run(&args.app, false, None).await?;
-
-        checked(&report)?;
-        eprintln!("  {report}");
-
-        for (name, key) in [
-            ("keystroke_p50_ms", "p50"),
-            ("keystroke_p95_ms", "p95"),
-            ("keystroke_p99_ms", "p99"),
-        ] {
-            per_run.entry(name.into()).or_default().push(
-                report[key]
-                    .as_f64()
-                    .ok_or_else(|| failure(format!("the report has no {key}")))?,
-            );
+        let report = match one_run(&args.app, false, None).await {
+            Ok(report) => report,
+            Err(error) => serde_json::json!({"error": error.to_string()}),
+        };
+        println!("run {turn}: {report}");
+        reports.push(report);
+        let (exit, failures) = judge_runs(&reports, limit);
+        // Save after every run, including invalid or failed observations, so a later
+        // launch failure cannot discard the earlier evidence.
+        if let Some(parent) = args.out.parent() {
+            std::fs::create_dir_all(parent)?;
         }
+        std::fs::write(
+            &args.out,
+            serde_json::to_vec_pretty(&serde_json::json!({
+                "os": std::env::consts::OS,
+                "cpus": std::thread::available_parallelism()?.get(),
+                "loads": loads,
+                "runs": reports.len(),
+                "reports": reports,
+                "limit_ms": limit,
+                "exit": exit,
+                "failures": failures,
+            }))?,
+        )?;
     }
-
-    conclude(per_run, loads, &budgets, &args.out)
+    let (exit, failures) = judge_runs(&reports, limit);
+    for message in failures {
+        eprintln!("{message}");
+    }
+    eprintln!("report: {}", args.out.display());
+    Ok(exit)
 }
 
 #[tokio::main]
@@ -426,8 +446,7 @@ async fn main() -> ExitCode {
     }
 
     match run(&args).await {
-        Ok(true) => ExitCode::SUCCESS,
-        Ok(false) => ExitCode::FAILURE,
+        Ok(code) => ExitCode::from(code),
         Err(err) => {
             eprintln!("perf-keystroke: {err}");
             ExitCode::from(2)
@@ -693,6 +712,87 @@ mod tests {
         let logs = Path::new(report["diagnostics"].as_str().unwrap());
         assert!(logs.join("app.stderr.log").is_file());
         assert!(logs.join("app.stdout.log").is_file());
+    }
+
+    #[tokio::test]
+    async fn r20_perf_workstream_never_starts_real_claude() {
+        const CHILD: &str = "R20_ISOLATED_VENDOR_TEST";
+        if std::env::var_os(CHILD).is_none() {
+            let dir = tempfile::tempdir().unwrap();
+            let sentinel = dir.path().join("claude");
+            std::fs::write(
+                &sentinel,
+                "#!/bin/sh\nprintf forbidden > \"$R20_ISOLATED_VENDOR_TEST/forbidden\"\nexit 81\n",
+            )
+            .unwrap();
+            std::fs::set_permissions(
+                &sentinel,
+                std::os::unix::fs::PermissionsExt::from_mode(0o755),
+            )
+            .unwrap();
+            let mut paths = vec![dir.path().to_path_buf()];
+            paths.extend(std::env::split_paths(
+                &std::env::var_os("PATH").unwrap_or_default(),
+            ));
+            let status = std::process::Command::new(std::env::current_exe().unwrap())
+                .args([
+                    "--exact",
+                    "tests::r20_perf_workstream_never_starts_real_claude",
+                    "--nocapture",
+                ])
+                .env(CHILD, dir.path())
+                .env("ROUNDUP_CLAUDE_BIN", &sentinel)
+                .env("PATH", std::env::join_paths(paths).unwrap())
+                .env("FAKE_CLAUDE_LAUNCH_LOG", dir.path().join("launches"))
+                .status()
+                .unwrap();
+            assert!(
+                !dir.path().join("forbidden").exists(),
+                "the forbidden vendor executable ran"
+            );
+            assert!(status.success());
+            return;
+        }
+        let root = PathBuf::from(std::env::var_os(CHILD).unwrap());
+        let fixture = tempfile::tempdir().unwrap();
+        let app = n7_fixture::app(fixture.path());
+        let mut owned_socket = None;
+        let result = one_run_with_report(&app, false, None, async |socket| {
+            owned_socket = Some(socket.to_path_buf());
+            n7_fixture::ready(socket).await?;
+            let client = Client::connect(socket).await?;
+            let workstream = client
+                .request("rail.createWorkstream", serde_json::json!({"name":"perf"}))
+                .await
+                .map_err(io::Error::other)?;
+            client
+                .request("rail.startDoor", serde_json::json!({"id":workstream["id"]}))
+                .await
+                .map_err(io::Error::other)?;
+            tokio::time::timeout(Duration::from_secs(5), async {
+                loop {
+                    if let Ok(log) = std::fs::read_to_string(root.join("launches"))
+                        && let Some(line) = log.lines().next()
+                    {
+                        let launch: Value = serde_json::from_str(line).map_err(io::Error::other)?;
+                        return Ok(launch);
+                    }
+                    tokio::time::sleep(Duration::from_millis(5)).await;
+                }
+            })
+            .await
+            .map_err(io::Error::other)?
+        })
+        .await;
+        std::fs::remove_file(owned_socket.unwrap()).unwrap();
+        let result = result.unwrap();
+        assert!(
+            result["argv"]
+                .as_array()
+                .is_some_and(|argv| !argv.is_empty()),
+            "fake vendor recorded no launch: {result}"
+        );
+        assert!(!root.join("forbidden").exists());
     }
 
     #[tokio::test]
