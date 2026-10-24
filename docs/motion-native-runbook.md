@@ -50,22 +50,42 @@ The page cannot fill `stages.presentation`. `perf-presentation` consumes a separ
 
 Use Xcode Instruments' **Animation Hitches** instrument, recording all processes so the WKWebView's WebContent/render-server work is included. [Apple describes its frame lifetime and displayed-frame tracks](https://developer.apple.com/documentation/xcode/improving-app-responsiveness). Availability for this Mac, display and WKWebView must be established by the trace, not by the template's name. A vsync track alone measures display opportunities; callback, commit, GPU completion, expected presentation and hitch-only rows cannot supply actual presentation intervals.
 
-For the next authorized Mac sequence:
+The next step is the offline attribution prerequisite below, using the retained capture; it needs no build or new window. Only after an attributable native source is established, use this sequence for an authorized Mac run:
 
 1. Build the source revisions first. Keep the existing three alternating base/head pairs, all workload variants, load/fixture, 10 s warmup, 60 s sample and 30 s idle. Use the same observer on both revisions. For an older base, transfer only the observer changes from the merged PR; retain the original source revision and the observer patch/binary hashes separately. No concurrent builds during sampling.
 2. Start an all-process Instruments recording, then run the existing `ROUNDUP_ALLOW_WINDOW=1 just perf-frames <workload>` command. Stop recording after the report is written; save each `.trace` under a unique name beside its original scheduling JSON and diagnostics. Retain failures and missing-stage captures. Record Instruments/Xcode versions and settings along with the existing machine, fixture, load, binary and cleanup metadata. Keep the screen unlocked, awake and uncovered throughout; a locked screen invalidates the run.
 3. In Instruments, identify the **actual** presentation endpoint of the WKWebView's frames and its one surface/display. Retain the attribution view with the trace. Do not combine different surfaces, displays or expected/actual lifetimes. If that track is unsupported or cannot be attributed, return the trace/table-of-contents and reason as **unmeasured**; do not manufacture timestamps or repeat the old callback-only observation as a presentation result.
-4. Export the native data. Reuse [instruments-analyzer](https://github.com/jlreyes/instruments-analyzer) at commit `647a8f4da2f14cb146014152be0526484634f272` (its script uses `uv` to supply DuckDB/PyArrow/lxml). In a separate scratch checkout of that tool, run `uv run scripts/export_to_duckdb.py /absolute/run.trace /absolute/run.duckdb`. Retain its stdout/stderr and original XML exports (`xcrun xctrace export --input /absolute/run.trace --toc --output /absolute/toc.xml` identifies supported tables). A supported `hitches-frame-lifetimes` table becomes `hitches_frame_lifetimes`. Only when Instruments confirms its endpoints are actual presentations for the selected surface/display, use the query below. Empty or unsupported tables leave the stage unmeasured. No custom XML parser or guessed table schema is used here.
+4. Export only the tables needed for attribution, one at a time, with the installed `xcrun xctrace export`. First save the table of contents, then inspect its run numbers and schema names. Use a new output directory, retain stdout/stderr and check free space before each export. Do not run the bulk `instruments-analyzer` exporter: its parallel workers each unpack the trace and exhausted the owner's disk in the [2026-10-24 capture](https://github.com/saadshahd/roundup/issues/3013#issuecomment-6388867069). A failed export is retained as an observer error, never an empty successful series.
 
-```sql
--- Run with duckdb run.duckdb; replace both identity values with the attributed ones.
--- Retain the full surface series, including the frames bracketing the sample.
-SELECT to_json(list(start_ns + duration_ns ORDER BY start_ns + duration_ns)) AS timestamps_ns
-FROM hitches_frame_lifetimes
-WHERE surface_id = <WKWebView surface> AND display = '<fixed display>';
+```sh
+# Offline: uses the retained trace; opens no App or native window.
+# Create a new directory first; never overwrite an earlier export.
+mkdir /tmp/p3013-attribution
+xcrun xctrace export --input /tmp/i3013/layers.trace --toc \
+  --output /tmp/p3013-attribution/toc.xml
+# Confirm number="1" and each schema in toc.xml before exporting it.
+# Run each command separately; inspect its exit status, log and disk space before the next.
+df -h /tmp
+xcrun xctrace export --input /tmp/i3013/layers.trace \
+  --xpath '/trace-toc/run[@number="1"]/data/table[@schema="visual-chain"]' \
+  --output /tmp/p3013-attribution/visual-chain.xml \
+  > /tmp/p3013-attribution/visual-chain.log 2>&1
 ```
 
-A lifetime's duration is NOT a presented-frame interval: the query uses its actual ending instant; the consumer differences consecutive ending instants. Verify that interpretation against the native track before using the query. Retain the query, trace hash and attribution evidence. Do not filter out late frames, zero-fill missing rows or substitute refresh ticks. Exported data from an instrument version with different semantics needs investigation, not relabelling.
+Repeat the single-table export for `visual-connection`, `process-info`, and `metal-known-compositor-process` only when present in the table of contents, each with its own XML/log. Start with the existing trace and existing `hitches-frame-lifetimes.xml`, `displayed-surfaces-interval.xml` and `display-surface-swap.xml` in `/tmp/i3013`; do not record another window to obtain these files. Stop on a failed export or unexpected disk growth and keep its diagnostics. These schema names are investigation targets observed in that trace, not a promise that they contain an ownership join.
+
+### Attribution prerequisite before another capture
+
+The owner's capture at `17e407711302654aedeb34350c69ba89c46a8a8d` did **not** establish an attributable presentation series. Its three surface ids (7, 12, 13) each ran at roughly 39 frames/s on a 120 Hz display, with a combined rate near 117 frames/s; the owner identified them as rotating display buffers, with no link to roundup or its WebContent process. A surface id and display id alone are insufficient. Do not rerun the same capture or use a lifetime endpoint as a WKWebView presentation just because its rate looks plausible.
+
+```text
+retained trace → ownership links + actual endpoint semantics → native input
+missing link  → unmeasured; retain evidence, no interval distribution
+```
+
+Inspect the selected exports for an explicit chain from the recorded roundup/WebContent process identity through its rendered content to actual presentation events. Retain the field names, identifiers and matching rows for every link, including process lifetime, display identity and endpoint interpretation. Do not join by temporal proximity, matching numeric ids in unrelated namespaces, combined display refresh, or App pid alone. A render/commit/GPU-completion event is not an actual presentation. If no complete chain exists, return the exports and the missing link on #3013; keep presentation unmeasured and investigate a different native source before requesting another capture. [Apple distinguishes commit, render and presentation times](https://developer.apple.com/documentation/xcode/understanding-hitches-in-your-app).
+
+Only after verifying both ownership and actual endpoint semantics may a complete per-target timestamp series be normalized below. Derive the extraction from the observed schema and retain the exact query and raw rows; the previous `start_ns + duration_ns` query over a guessed `hitches-frame-lifetimes` surface is not valid evidence for this captured WKWebView. Never combine the three display-buffer series, filter late frames, zero-fill missing rows or substitute refresh ticks. Hash the retained trace files and keep a manifest mapping hashes to relative paths, plus the attribution evidence, with the report. A changed instrument schema requires renewed verification.
 
 The scheduling JSON now records `windows_epoch_ms.sample_start`, `sample_end` and `idle_end` using `performance.timeOrigin` plus the first recorder callback and the fixed protocol windows. They exclude setup and warmup. Convert `sample_start` to trace-relative nanoseconds by subtracting the trace's start epoch (from its run metadata), then multiplying milliseconds by 1,000,000. Retain both clock origins, conversion and their resolution; a clock change, unalignable origins or resolution coarser than the display period invalidates the observation. Do not choose a favourable subwindow. Check the scheduling report's `invalid` list before attributing its matching native sample.
 
@@ -99,4 +119,4 @@ cargo run --release -p perf --bin perf-presentation -- \
 
 The consumer retains raw timestamps and intervals, nearest-rank p50/p95/p99/max and the >1.5P count/rate. It applies U3010d's existing presentation thresholds independently. It refuses incomplete coverage, duplicate/reversed timestamps, missing provenance, a callback stage or insufficient resolution; it includes intervals crossing the sample boundaries so cropping cannot hide a late frame. Exit 1 means a measured presentation budget miss; exit 2 means invalid/unmeasured evidence or a passing **single stage** with full acceptance still incomplete. This command never exits 0, never overwrites an existing output and never promotes the page's scheduling report to a presentation pass.
 
-Paste both reports and retain the trace, clock conversion, raw exports, attribution and full run manifest. The 30 s idle observation, style/layout/paint attribution, cleanup and same-machine three-pair regression comparisons remain required, separate evidence. A passing imported presentation sample alone cannot close #3013. Request this Mac observation only after the observer PR merges.
+Paste both reports and retain the trace, clock conversion, raw exports, attribution and full run manifest. The 30 s idle observation, style/layout/paint attribution, cleanup and same-machine three-pair regression comparisons remain required, separate evidence. A passing imported presentation sample alone cannot close #3013. Request a new Mac capture only after the observer repair merges and the attribution prerequisite establishes a usable native source.
