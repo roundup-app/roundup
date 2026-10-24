@@ -126,12 +126,7 @@ async fn u3016e_rank_and_totals_share_contributions() {
         .collect();
     assert_eq!(order, ["c", "a", "b"]);
     assert_eq!(read["contributors"], 3);
-    for category in [
-        "summed_ns",
-        "execution_ns",
-        "tools_ns",
-        "unmeasured_ns",
-    ] {
+    for category in ["summed_ns", "execution_ns", "tools_ns", "unmeasured_ns"] {
         let rows: u128 = read["rows"]
             .as_array()
             .unwrap()
