@@ -50,32 +50,12 @@ The page cannot fill `stages.presentation`. `perf-presentation` consumes a separ
 
 Use Xcode Instruments' **Animation Hitches** instrument, recording all processes so the WKWebView's WebContent/render-server work is included. [Apple describes its frame lifetime and displayed-frame tracks](https://developer.apple.com/documentation/xcode/improving-app-responsiveness). Availability for this Mac, display and WKWebView must be established by the trace, not by the template's name. A vsync track alone measures display opportunities; callback, commit, GPU completion, expected presentation and hitch-only rows cannot supply actual presentation intervals.
 
-The next step is the **Metal ownership inspection** below, using the retained capture; it needs no build or new window. The earlier visual-connection inspection is complete and did not establish attribution. Only after an attributable native source is established, use this sequence for an authorized Mac run:
+The retained trace has completed both ownership inspections below without establishing an attributable source. **No further export or timing run is requested.** First establish a different source with an explicit ownership chain and actual endpoint semantics; then use this sequence for an authorized Mac run:
 
 1. Build the source revisions first. Keep the existing three alternating base/head pairs, all workload variants, load/fixture, 10 s warmup, 60 s sample and 30 s idle. Use the same observer on both revisions. For an older base, transfer only the observer changes from the merged PR; retain the original source revision and the observer patch/binary hashes separately. No concurrent builds during sampling.
 2. Start an all-process Instruments recording, then run the existing `ROUNDUP_ALLOW_WINDOW=1 just perf-frames <workload>` command. Stop recording after the report is written; save each `.trace` under a unique name beside its original scheduling JSON and diagnostics. Retain failures and missing-stage captures. Record Instruments/Xcode versions and settings along with the existing machine, fixture, load, binary and cleanup metadata. Keep the screen unlocked, awake and uncovered throughout; a locked screen invalidates the run.
 3. In Instruments, identify the **actual** presentation endpoint of the WKWebView's frames and its one surface/display. Retain the attribution view with the trace. Do not combine different surfaces, displays or expected/actual lifetimes. If that track is unsupported or cannot be attributed, return the trace/table-of-contents and reason as **unmeasured**; do not manufacture timestamps or repeat the old callback-only observation as a presentation result.
 4. Export only the tables needed for attribution, one at a time, with the installed `xcrun xctrace export`. First save the table of contents, then inspect its run numbers and schema names. Use a new output directory, retain stdout/stderr and check free space before each export. Do not run the bulk `instruments-analyzer` exporter: its parallel workers each unpack the trace and exhausted the owner's disk in the [2026-10-24 capture](https://github.com/saadshahd/roundup/issues/3013#issuecomment-6388867069). A failed export is retained as an observer error, never an empty successful series.
-
-```sh
-# Offline: uses the retained trace; opens no App or native window.
-# Create a new directory first; never overwrite an earlier export.
-mkdir /tmp/p3013-metal
-xcrun xctrace export --input /tmp/i3013/layers.trace --toc \
-  --output /tmp/p3013-metal/toc.xml
-# Confirm number="1" and each schema in toc.xml before exporting it.
-# Run each command separately; inspect its exit status, log and disk space before the next.
-df -h /tmp
-xcrun xctrace export --input /tmp/i3013/layers.trace \
-  --xpath '/trace-toc/run[@number="1"]/data/table[@schema="metal-io-surface-access"]' \
-  --output /tmp/p3013-metal/metal-io-surface-access.xml \
-  > /tmp/p3013-metal/metal-io-surface-access.log 2>&1
-metal_export_status=$?
-echo "$metal_export_status" > /tmp/p3013-metal/metal-io-surface-access.exit
-df -h /tmp
-```
-
-Inspect the exit file, log, output size and free space before proceeding. Only on exit 0 and no unexpected disk growth, repeat this single-table export for `metal-object-dependency-chain-display`, with its own XML/log/exit files, if present in the saved table of contents. Stop after these two tables; do not export `kdebug` or bulk-export the trace. A schema-only result is a successful empty export; a failed export is an observer error. Retain both distinctly.
 
 ### Attribution prerequisite before another capture
 
@@ -97,26 +77,36 @@ The [owner's completed offline export](https://github.com/saadshahd/roundup/issu
 
 Those four exports cannot establish attribution. Keep `/tmp/i3013-x2` and its logs; do not repeat them or reinterpret their absence as a presentation-budget failure.
 
-### Metal ownership inspection (offline, before another capture)
+### Completed Metal ownership inspection
 
-The retained trace's table of contents also lists `metal-io-surface-access` and `metal-object-dependency-chain-display`. Their **rows and field semantics remain unchecked**. Inspect these native Metal event sources for an explicit ownership relation; their names are not evidence that a relation exists. This inspection neither starts a new recording nor changes the App, renderer or permissions.
+The [owner's completed Metal export](https://github.com/saadshahd/roundup/issues/3013#issuecomment-6389400184) at `626e639af` also failed to establish attribution. Both sequential exports exited 0; free space remained 433 GiB. Retain the full XML, referenced definitions, per-file hashes and logs in `/tmp/i3013-x3`; do not repeat these exports.
+
+| Source | Rows / bytes | Observed limit |
+| --- | --- | --- |
+| `metal-io-surface-access` | 124,477 / 56,827,450 | GPU access records have process/surface fields, but no display, window, layer or actual presentation event |
+| `metal-object-dependency-chain-display` | 11,301 / 3,096,745 | Dependency rows have in/out times, root/block ids, colour and track; no process, surface or display fields |
+
+The access table contains eight roundup rows, all on tiny 64×64 or 128×64 surfaces, and zero rows for the three identified WebContent pids. The WebKit GPU process has 256 rows on thirteen surfaces, none shared with WindowServer. Numeric surface ids occur with different sizes and unrelated processes, so equality alone does not establish the same rendered content over time. The single roundup segment/root numeric match is 10.5 s apart and has different engineering types; it is not an ownership join. A dependency out-time is not an independently established display endpoint.
 
 ```text
-recorded process lifetime → rendered-content identity → displayed surface → actual endpoint
-Metal access/completion alone → ownership candidate only; presentation stays unmeasured
+process → rendered content → displayed surface → actual endpoint
+         missing links in the retained trace
 ```
 
-Use the two sequential exports above and the existing `/tmp/i3013` presentation XML and `/tmp/i3013-x2/process-info.xml`. Return each schema, total row count, exit/log and the matching rows for any claimed link. Keep the original XML files, their SHA-256 hashes, and referenced definitions: an xctrace `ref` may point to an earlier row, so a matching row without its definitions is insufficient. If a table is large, share its schema and the relevant rows plus referenced definitions, retaining the full file on the Mac. Do not paste the entire process table again. If no matching row exists, report that explicitly; do not invent a join from similar values.
+Presentation remains unmeasured. No timestamp extractor can be derived from these rows, and another run of the same capture would not repair their missing semantics. Keep the original scheduling reports separate; these failed attribution attempts demonstrate no presentation-budget failure.
 
-For any candidate link, establish the identifier's namespace and lifetime from the actual schema and instrument interpretation. A Metal resource, IOSurface, display swap buffer and visual connection are not interchangeable identities. GPU access or completion does not show when the window server displayed that content. Retain the field names and rows for **every** ownership link and an independently established actual presentation endpoint, including display and clock origins. Do not join by temporal proximity, matching numeric ids in unrelated namespaces, combined display refresh, or App pid alone. [Apple distinguishes commit, render and presentation times](https://developer.apple.com/documentation/xcode/understanding-hitches-in-your-app).
+### Source capability required before another Mac request
 
-| Inspection result | Next action |
-| --- | --- |
-| Explicit ownership chain and actual endpoint semantics established | Derive an extractor from those observed rows; test it without a window, merge, then request the fixed paired sequence |
-| Only resource ownership, GPU work, empty tables or an ambiguous join | Keep presentation unmeasured; return the missing link on #3013; no new timing run |
-| Export failure or unexpected disk growth | Stop, retain diagnostics; no empty-series substitution or further exports |
+The next engineering step is to establish a source that exposes both target identity and actual presentation times without a new native permission. Retain the field names, rows, referenced definitions, identifier namespaces and lifetimes for every ownership link; do not join by temporal proximity, equal numbers in unrelated namespaces, combined refresh or App pid alone. [Apple distinguishes commit, render and presentation times](https://developer.apple.com/documentation/xcode/understanding-hitches-in-your-app). It must identify its clock/resolution, distinguish dropped frames from displayed frames and provide complete coverage of the fixed sample window. Review its API or observed schema before writing a collector; test extraction and refusal of unsupported evidence without starting a window. Only after that collector merges should the owner be asked for the remaining paired sequence.
 
-No extractor is implemented from an unobserved schema. The offline inspection is the remaining Mac-only evidence request for this slice; it builds nothing and opens no window. It is not the remaining full workload sequence.
+Two native API names do not supply that missing source:
+
+| Candidate | Capability checked | Why it cannot fill this report |
+| --- | --- | --- |
+| WKWebView `_doAfterNextPresentationUpdate:` | [WebKit implementation at `e381818e`](https://github.com/WebKit/WebKit/blob/e381818e3a0e7ec7883904754024b603c2fb2272/Source/WebKit/UIProcess/API/Cocoa/WKWebView.mm), method of that name | Its source describes a callback after the next WebProcess transaction. The callback supplies no actual display timestamp or complete per-frame series; measuring its invocation would substitute another callback clock. This is upstream source research, not a claim about the installed WebKit build. |
+| Metal `MTLDrawable.presentedTime` | [Apple's displayed-time property](https://developer.apple.com/documentation/metal/mtldrawable/presentedtime) and [drawable ownership](https://developer.apple.com/documentation/metal/mtldrawable) | It is an actual endpoint for an owned drawable (zero for an unpresented/dropped frame). No WKWebView-to-drawable ownership relation has been established here. A separate Metal layer would measure that layer rather than roundup's existing rendered content. |
+
+Neither a private callback hook nor a new renderer is justified by these findings. Source unavailability stays an engineering gap on #3013, with acceptance open; it does not authorize a new permission, relaxed thresholds, inferred FPS or another callback-only timing request.
 
 ### Alternative source considered: ScreenCaptureKit
 
