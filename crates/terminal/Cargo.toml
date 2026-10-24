@@ -18,6 +18,7 @@ regex.workspace = true
 tokio.workspace = true
 
 [dev-dependencies]
+stats_alloc = "0.1"
 provenance = { path = "../provenance" }
 tempfile.workspace = true
 
