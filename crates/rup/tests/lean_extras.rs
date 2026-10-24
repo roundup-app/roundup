@@ -183,7 +183,10 @@ async fn lc4_an_agents_scout_and_worker_start_lean() {
     let (mut scout, mut worker): (Vec<_>, Vec<_>) = launches[..3]
         .iter()
         .map(argv)
-        .filter(|args| args.contains(&"--strict-mcp-config"))
+        .filter(|args| {
+            after(args, "--settings")
+                .is_some_and(|path| !path.ends_with(&format!("/{}.settings.json", parent.id)))
+        })
         .partition(|args| args.contains(&"--tools"));
     assert_eq!((scout.len(), worker.len()), (1, 1));
     let (scout, worker) = (scout.remove(0), worker.remove(0));
@@ -195,7 +198,7 @@ async fn lc4_an_agents_scout_and_worker_start_lean() {
     assert!(!worker.contains(&"--tools") && !worker.contains(&"--disable-slash-commands"));
     for lean in [&scout, &worker] {
         assert!(!lean.contains(&"--setting-sources"));
-        assert!(lean.contains(&"--strict-mcp-config"));
+        assert!(!lean.contains(&"--strict-mcp-config"));
     }
 }
 

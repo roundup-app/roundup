@@ -117,13 +117,9 @@ async fn q11_plugins_survive_real_daemon_launch_resume_and_workstream_clear() {
             .filter(|pair| pair[0] == "--plugin-dir")
             .map(|pair| std::path::Path::new(pair[1].as_str().unwrap()))
             .collect();
-        // LC14: a Door is lean and gets `hope` only; its children are workers.
+        // LC5: the same bundles survive every role's launch, resume and Clear.
         let bundled = [("hope", "13.1.0"), ("hunch", "0.9.4"), ("hold", "0.0.9")];
-        let wanted = if argv.iter().any(|arg| arg == "--tools") {
-            &bundled[..1]
-        } else {
-            &bundled[..]
-        };
+        let wanted = &bundled;
         assert_eq!(paths.len(), wanted.len());
         for (path, &(name, version)) in paths.iter().zip(wanted) {
             let manifest: Value = serde_json::from_slice(
@@ -147,8 +143,7 @@ async fn q11_plugins_survive_real_daemon_launch_resume_and_workstream_clear() {
         ("clear", &["hope:intent"][..]),
     ] {
         for (index, skill) in skills.iter().enumerate() {
-            // aimock matches the real result before applying its 64 KiB journal-body cap.
-            // The resumed worker's conversation exceeds that cap after loading these skills.
+            // Match the real result before journal truncation can hide a long resumed conversation.
             let call = format!("toolu_q11_{phase}_{index}");
             let expected = if *skill == "hunch:fly" {
                 // hunch's skills require explicit user invocation; resolving that policy proves loading.

@@ -35,8 +35,8 @@ mod todo_refs;
 mod waits;
 mod wake;
 
-use connection::failure;
 pub use connection::serve;
+use connection::{Frame, failure};
 use observers::{
     messages_env, resume_effect_observer, steer_effect_observer, terminal_exit_observer,
     terminal_input_observer,
@@ -123,7 +123,7 @@ pub struct Conn {
     actor: Actor,
     /// H21: the pid of the process on the other end, as the OS reports it.
     peer: Option<u32>,
-    events: mpsc::UnboundedSender<Value>,
+    events: mpsc::UnboundedSender<Frame>,
     /// X14: where this connection's selected Terminal output goes; `None` for a call with no socket.
     output: Option<output::Port>,
 }

@@ -4,6 +4,38 @@ pub(crate) fn failure(id: &Value, err: &RpcError) -> Value {
     json!({ "jsonrpc": "2.0", "id": id, "error": err })
 }
 
+/// One line for the socket writer: a `Value`, or a frame already written as JSON text.
+pub(crate) enum Frame {
+    Value(Value),
+    Json(String),
+}
+
+impl From<Value> for Frame {
+    fn from(value: Value) -> Self {
+        Self::Value(value)
+    }
+}
+
+impl Frame {
+    /// The frame as the client reads it.
+    #[cfg(test)]
+    pub(crate) fn into_value(self) -> Value {
+        match self {
+            Self::Value(value) => value,
+            Self::Json(text) => serde_json::from_str(&text).expect("a written frame is JSON"),
+        }
+    }
+
+    fn into_line(self) -> io::Result<Vec<u8>> {
+        let mut bytes = match self {
+            Self::Value(value) => serde_json::to_vec(&value).map_err(io::Error::other)?,
+            Self::Json(text) => text.into_bytes(),
+        };
+        bytes.push(b'\n');
+        Ok(bytes)
+    }
+}
+
 /// Accept connections until the listener fails.
 pub async fn serve(listener: UnixListener, daemon: Arc<Daemon>) -> io::Result<()> {
     daemon.agents.observe_measurements();
@@ -27,7 +59,7 @@ pub(crate) async fn handle(stream: UnixStream, daemon: Arc<Daemon>) -> io::Resul
         .and_then(|pid| u32::try_from(pid).ok());
     let stream = BufReader::new(stream);
     let (read, mut write) = tokio::io::split(stream);
-    let (frames, mut outbox) = mpsc::unbounded_channel::<Value>();
+    let (frames, mut outbox) = mpsc::unbounded_channel::<Frame>();
     let (port, mut selected_output) = output::Port::new();
     let (finished, mut finish) = tokio::sync::oneshot::channel();
     let writer = tokio::spawn(async move {
@@ -45,9 +77,7 @@ pub(crate) async fn handle(stream: UnixStream, daemon: Arc<Daemon>) -> io::Resul
                 // Behind replies, so a flood of selected output cannot starve them.
                 Some(frame) = selected_output.recv() => frame,
             };
-            let mut bytes = serde_json::to_vec(&frame).map_err(io::Error::other)?;
-            bytes.push(b'\n');
-            write.write_all(&bytes).await?;
+            write.write_all(&frame.into_line()?).await?;
         }
         io::Result::Ok(())
     });

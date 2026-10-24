@@ -18,7 +18,7 @@ impl Auto {
         }
     }
 
-    fn start(&self, reader: digest::Reader) {
+    pub(crate) fn start(&self, reader: digest::Reader) {
         let Some(mut events) = self.events.lock().expect("Auto events lock").take() else {
             return;
         };

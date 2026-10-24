@@ -6,6 +6,14 @@ impl Module for Agents {
         &["agent", "rail", "project", "import", "models", "workstream"]
     }
 
+    async fn call_reply(&self, ctx: &Ctx, method: &str, value: Value) -> Result<Reply, RpcError> {
+        match method {
+            // R3696c: the Rail is the largest reply a keystroke-paced client asks for.
+            "rail.tree" | "rail.list" => rpc::json(&self.shared.tree()?),
+            _ => self.call(ctx, method, value).await.map(Reply::Value),
+        }
+    }
+
     async fn call(&self, ctx: &Ctx, method: &str, value: Value) -> Result<Value, RpcError> {
         let shared = &self.shared;
         match method {
