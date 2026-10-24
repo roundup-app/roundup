@@ -37,6 +37,22 @@ pub(crate) fn app_menu<R: Runtime>(app: &AppHandle<R>) -> tauri::Result<Menu<R>>
         &MenuItem::with_id(app, "app-settings", "Settings…", true, Some("CmdOrCtrl+,"))?,
         1,
     )?;
+    let project = Submenu::with_id(app, "project-menu", "Project", true)?;
+    project.append(&MenuItem::with_id(
+        app,
+        "import-work",
+        "Import Claude Code Work…",
+        false,
+        None::<&str>,
+    )?)?;
+    project.append(&MenuItem::with_id(
+        app,
+        "project-settings",
+        "Project Settings…",
+        false,
+        None::<&str>,
+    )?)?;
+    menu.insert(&project, 1)?;
     Ok(menu)
 }
 
@@ -45,9 +61,46 @@ pub(crate) fn app_chosen<R: Runtime>(app: &AppHandle<R>, event: &MenuEvent) {
         if let Err(error) = app.emit("open-app-settings", ()) {
             eprintln!("desktop: could not open Settings: {error}");
         }
+    } else if matches!(event.id().0.as_str(), "import-work" | "project-settings") {
+        let selected = app.state::<ProjectMenu>();
+        let path = selected.0.lock().expect("Project menu lock");
+        if let Some(path) = path.as_ref()
+            && let Err(error) = app.emit(
+                "open-project-page",
+                serde_json::json!({ "path": path, "command": event.id().0 }),
+            )
+        {
+            eprintln!("desktop: could not open Project page: {error}");
+        }
     } else {
         app.state::<Choice>().chosen(event);
     }
+}
+
+/// The webview's selected Project, captured by each native command at activation.
+#[derive(Default)]
+pub struct ProjectMenu(Mutex<Option<String>>);
+
+#[tauri::command]
+pub fn select_project_menu<R: Runtime>(
+    app: AppHandle<R>,
+    path: Option<String>,
+) -> Result<(), RpcError> {
+    let menu = app.menu().ok_or_else(|| internal("No application menu"))?;
+    let Some(MenuItemKind::Submenu(project)) = menu.get("project-menu") else {
+        return Err(internal("No Project menu"));
+    };
+    for id in ["import-work", "project-settings"] {
+        let Some(MenuItemKind::MenuItem(item)) = project.get(id) else {
+            return Err(internal("No Project command"));
+        };
+        item.set_enabled(path.is_some()).map_err(internal)?;
+    }
+    *app.state::<ProjectMenu>()
+        .0
+        .lock()
+        .expect("Project menu lock") = path;
+    Ok(())
 }
 
 /// One item of the webview's menu model. `shortcut` is text appended to the label, never an accelerator.
@@ -209,5 +262,67 @@ mod tests {
                 .collect::<Vec<_>>(),
             [true, false]
         );
+    }
+    #[test]
+    fn s_u3813_project_menu_tracks_the_selected_project() {
+        use std::sync::Arc;
+        use tauri::Listener;
+        use tauri::test::{mock_builder, mock_context, noop_assets};
+        let app = mock_builder()
+            .manage(ProjectMenu::default())
+            .menu(app_menu)
+            .build(mock_context(noop_assets()))
+            .unwrap();
+        let menu = app.menu().unwrap();
+        let project = menu
+            .items()
+            .unwrap()
+            .into_iter()
+            .find_map(|item| match item {
+                MenuItemKind::Submenu(sub) if sub.text().unwrap() == "Project" => Some(sub),
+                _ => None,
+            })
+            .expect("Project menu");
+        let items: Vec<_> = project.items().unwrap().into_iter().map(plain).collect();
+        assert_eq!(
+            items
+                .iter()
+                .map(|item| item.text().unwrap())
+                .collect::<Vec<_>>(),
+            ["Import Claude Code Work…", "Project Settings…"]
+        );
+        let received = Arc::new(Mutex::new(Vec::new()));
+        let observed = Arc::clone(&received);
+        app.listen("open-project-page", move |event| {
+            observed
+                .lock()
+                .unwrap()
+                .push(serde_json::from_str::<serde_json::Value>(event.payload()).unwrap())
+        });
+        for path in [None, Some("/A"), Some("/B"), None] {
+            select_project_menu(app.handle().clone(), path.map(str::to_owned)).unwrap();
+            let before = received.lock().unwrap().len();
+            for item in &items {
+                assert_eq!(item.is_enabled().unwrap(), path.is_some());
+                app_chosen(
+                    app.handle(),
+                    &MenuEvent {
+                        id: item.id().clone(),
+                    },
+                );
+            }
+            let replies = received.lock().unwrap();
+            if let Some(path) = path {
+                assert_eq!(
+                    &replies[before..],
+                    &[
+                        serde_json::json!({"path": path, "command": "import-work"}),
+                        serde_json::json!({"path": path, "command": "project-settings"}),
+                    ]
+                );
+            } else {
+                assert_eq!(replies.len(), before);
+            }
+        }
     }
 }

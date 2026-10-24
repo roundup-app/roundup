@@ -120,7 +120,7 @@ pub const DOOR_METHODS: [&str; 8] = [
 ];
 
 /// M5: the methods and App commands with no tool; the reasons are in `scenarios/mcp.md`.
-pub const NO_TOOL: [&str; 71] = [
+pub const NO_TOOL: [&str; 72] = [
     // A3308: Auto is the user's choice; Agents read its value through the existing rail_tree tool.
     "workstream.setAuto",
     "rail.list",
@@ -208,6 +208,8 @@ pub const NO_TOOL: [&str; 71] = [
     "save_pasted_image",
     // U2694a: the native menu of the user's right-click
     "show_context_menu",
+    // U3813: native commands act on the user’s selected tab.
+    "select_project_menu",
     // U449–U451: the user's native window, which an Agent cannot move or rename.
     "plugin:window-bar|set_window_title",
     "plugin:window-bar|drag_window",
