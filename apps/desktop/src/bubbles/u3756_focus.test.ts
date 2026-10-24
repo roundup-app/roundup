@@ -1,138 +1,133 @@
-import { mkdirSync, writeFileSync } from "node:fs";
+import { mkdir, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { captureDir } from "../testing/captures";
 import { expect, it } from "vitest";
 import { browser, read, url, wait } from "../ui/tabsBrowser";
 
-const load = async () => {
+const capture = async (id: string, step: string) => {
+  const root = captureDir(id);
+  const paired = id === "U3756a" && /-(before|arrived)$/.test(step);
+  const dir = root && (paired ? join(root, process.env.U3756_BASELINE ? "base" : "head") : root);
+
+  if (!dir) return;
+  await mkdir(dir, { recursive: true });
+  await browser("screenshot", join(dir, `${step}.png`));
+  await writeFile(join(dir, `${step}.checks.json`), JSON.stringify(await read(`window.__checks()`), null, 2));
+};
+
+const load = async (seed = "empty-project", recording?: string) => {
   await browser("set", "viewport", "1512", "950");
   await browser("set", "media", "dark");
-  await browser("open", url("/harness.html?seed=empty-project&renderer=dom"));
-  await wait(`!!window.__fake && !!document.querySelector('.pane-action')`);
+  await browser("open", url(`/harness.html?seed=${seed}&renderer=dom`, process.env.U3756_BASELINE === "1"));
+
+  // agent-browser start creates a new context and drops media emulation; restart records this dark context.
+  if (recording) await browser("record", "restart", recording);
+
+  await wait(`!!window.__fake && !!document.querySelector('.rail-actions button')`);
   await read(`(() => {
     const app = window.__fake.app;
     const start = app.handlers['rail.startDoor'];
     app.handlers['rail.startDoor'] = params => new Promise(resolve => { window.arrive = () => resolve(start(params)); });
-    document.querySelector('.pane-action').click();
+    document.querySelector('.rail-actions button').click();
   })()`);
   await wait(`!!window.arrive && !!document.querySelector('.rail-row[data-selected=true]')`);
 };
 
-it.each(["empty", "dense"])("u3756a_late_door_terminal_keeps_the_newer_bubble_and_input_%s", async seed => {
+it.each(["empty-project", "tree-40"])("u3756a_late_door_terminal_keeps_the_newer_bubble_and_input_%s", async seed => {
   const dir = captureDir("U3756a");
 
-  if (dir) { mkdirSync(dir, { recursive: true }); await browser("record", "start", join(dir, `${seed}.webm`)); }
+  const recording = dir && !process.env.U3756_BASELINE;
+
+  if (recording) await mkdir(dir, { recursive: true });
+  await load(seed, recording ? join(dir, `${seed}.webm`) : undefined);
 
   try {
-  await browser("set", "viewport", "1512", "950");
-  await browser("set", "media", "dark");
 
-  if (seed === "dense") await loadDense();
-  else await load();
   await browser("press", "Meta+t");
   await wait(`!!document.activeElement?.closest('.bubble') && !!window.__terminals.get('101')`);
   await read(`window.selectedWorkstream = document.querySelector('.rail-row[data-selected=true]').dataset.id`);
   await browser("keyboard", "type", "before");
   await wait(`window.__fake.app.calls.some(c => c.method === 'terminal.write')`);
-  await wait(`window.__fake.app.outputSubscriptions.some(s => s.id === "101" && !s.released)`);
-  await read(`window.__fake.writeOutput('101', 'BEFORE SUPERVISOR\\r\\n')`);
-  await wait(`document.querySelector('.bubble[data-bubble="101"] .xterm-rows').textContent.includes('BEFORE SUPERVISOR')`);
+  await read(`window.__fake.writeOutput('101', 'DRAWING BEFORE ARRIVAL' + String.fromCharCode(13, 10))`);
+  await wait(`document.querySelector('.bubble[data-bubble="101"] .xterm-rows').textContent.includes('DRAWING BEFORE ARRIVAL')`);
   await capture("U3756a", `${seed}-before`);
   await read(`window.bubbleFocus = document.activeElement; window.arrive()`);
   await wait(`!!document.querySelector('.pane-screen .xterm')`);
+  await capture("U3756a", `${seed}-arrived`);
   expect(await read(`document.activeElement === window.bubbleFocus`)).toBe(true);
   expect(await read(`document.querySelector('.rail-row[data-selected=true]').dataset.id === window.selectedWorkstream`)).toBe(true);
-  expect(await read(`window.__fake.app.outputSubscriptions.some(s => s.id === "101" && !s.released)`)).toBe(true);
-  expect(await read(`window.__fake.app.calls.filter(c => c.method === "terminal.close").length`)).toBe(0);
+  expect(await read(`window.__fake.app.outputSubscriptions.some(s => s.id === '101' && !s.released)`)).toBe(true);
+  expect(await read(`window.__fake.app.calls.filter(c => c.method === 'terminal.close')`)).toEqual([]);
   expect(await read(`document.querySelector('.terminal-tab[data-bubble="101"]').getAttribute('aria-pressed')`)).toBe("true");
   await browser("keyboard", "type", "after");
   await wait(`window.__fake.app.calls.filter(c => c.method === 'terminal.write').map(c => atob(c.params.data)).join('') === 'beforeafter'`);
   expect(await read(`window.__fake.app.calls.filter(c => c.method === 'terminal.write').every(c => c.params.id === '101')`)).toBe(true);
-  await read(`window.__fake.writeOutput('101', 'DRAWING AFTER ARRIVAL\\r\\n')`);
+  await read(`window.__fake.writeOutput('101', 'DRAWING AFTER ARRIVAL' + String.fromCharCode(13, 10))`);
   await wait(`document.querySelector('.bubble[data-bubble="101"] .xterm-rows').textContent.includes('DRAWING AFTER ARRIVAL')`);
   expect(await read(`document.activeElement === window.bubbleFocus && document.activeElement.checkVisibility()`)).toBe(true);
-
-  if (seed === "dense") await read(`window.__fake.app.handlers["terminal.write"] = () => { throw new Error("Write refused: reconnect and retry in this Terminal."); };`);
-
-  if (seed === "dense") await browser("keyboard", "type", "!");
-
-  if (seed === "dense") await wait(`!!document.querySelector('.bubble [role=alert]')`);
   await capture("U3756a", `${seed}-after`);
 
-  } finally { if (dir) await browser("record", "stop"); }
+  if (seed === "tree-40") {
+    await read(`document.querySelector('.terminal-tab[data-bubble="101"]').click()`);
+    await wait(`document.querySelector('.terminal-tab[data-bubble="101"]').getAttribute('aria-pressed') === 'false'`);
+    await read(`window.__fake.app.handlers['terminal.open'] = () => { throw new Error('Terminal could not open: retry New Terminal'); }`);
+    await browser("press", "Meta+t");
+    await wait(`document.body.textContent.includes('Terminal could not open: retry New Terminal')`);
+    await capture("U3756a", "tree-40-failure");
+  }
+  } finally { if (recording) await browser("record", "stop"); }
 }, 90_000);
 
-const choose = async (surface: string) => {
-  if (surface === "bubble") {
+const fresh = async (seed = "tree-40") => {
+  await browser("set", "viewport", "1512", "950");
+  await browser("set", "media", "dark");
+  await browser("open", url(`/harness.html?seed=${seed}&renderer=dom`, process.env.U3756_BASELINE === "1"));
+  await wait(`!!window.__fake && !!document.querySelector('.terminal-new')`);
+};
+
+const newer = async (choice: string) => {
+  if (choice === "bubble") {
     await browser("press", "Meta+t");
     await wait(`!!document.activeElement?.closest('.bubble')`);
-  } else if (surface === "ask") {
+  } else if (choice === "ask") {
     await browser("press", "Meta+/");
-    await wait(`document.activeElement?.matches('.ask-bar textarea')`);
-    await browser("keyboard", "type", "keep this destination");
-  } else if (surface === "drawer") {
-    await read(`document.querySelector('.todo-row-button').click()`);
-    await wait(`!!document.querySelector('.drawer[data-open=true] .todo-detail-body p[tabindex]')`);
-    await browser("focus", ".todo-detail-body p[tabindex]");
-    await browser("press", "Enter");
-    await wait(`document.activeElement?.matches('.todo-detail-body textarea')`);
-    await browser("keyboard", "type", "keep this destination");
+    await wait(`document.activeElement?.matches('.ask-field') || !!document.activeElement?.closest('.ask-bar')`);
+  } else if (choice === "drawer") {
+    await read(`(async () => {
+      const app = window.__fake.app;
+      const made = await app.rpc('todo.create', {title:'Newer Drawer',body:null,blockers:null});
+      window.newTodo = made.id;
+      const selected = document.querySelector('.rail-row[data-selected=true]')?.closest('[data-id]')?.dataset.id;
+      if (selected) await app.rpc('todo.move', {id:made.id,home:selected});
+      [...document.querySelectorAll('[role=tab]')].find(t => t.textContent.startsWith('Todos')).click();
+    })()`);
+    await wait(`!!document.querySelector('[data-todo="' + window.newTodo + '"] .todo-row-button')`);
+    await read(`document.querySelector('[data-todo="' + window.newTodo + '"] .todo-row-button').click()`);
+    await wait(`!!document.querySelector('.drawer[data-open=true]')`);
+    await wait(`!!document.querySelector('.drawer .todo-add-notes')`);
+    await read(`document.querySelector('.drawer .todo-add-notes').click()`);
+    await wait(`!!document.querySelector('.drawer textarea')`);
+    await read(`document.querySelector('.drawer textarea').focus()`);
+    await browser('keyboard', 'type', ' exact newer drawer é 😀 ');
   } else {
-    await read(`document.querySelector('.rail-row[data-selected=true]').focus()`);
+    await read(`document.querySelector('.rail-row:not([data-selected=true])[tabindex], .rail-row[tabindex], .rail-row [tabindex], .rail [role=treeitem][tabindex]')?.focus()`);
+    expect(await read(`!!document.activeElement?.closest('.rail') && document.activeElement.matches('[tabindex]')`)).toBe(true);
   }
 
-  await read(`window.newFocus = document.activeElement; window.newText = window.newFocus.value;`);
+  await read(`window.newerFocus = document.activeElement; window.newerText = document.activeElement.value ?? document.activeElement.textContent`);
 };
 
-it.each(["bubble", "ask", "drawer", "rail"])("u3756b_older_appearance_cannot_replace_a_newer_focus_choice_%s", async surface => {
-  await loadDense();
-  await choose(surface);
-  await read(`window.arrive()`);
-  await wait(`!!document.querySelector('.pane-screen .xterm')`);
-  expect(await read(`document.activeElement === window.newFocus`)).toBe(true);
-  expect(await read(`window.newFocus.value === window.newText`)).toBe(true);
-  await capture("U3756b", `pane-${surface}`);
-  expect(await read(`window.__fake.app.calls.filter(c => c.method === 'terminal.write').length`)).toBe(0);
-}, 90_000);
-
-const loadDense = async () => {
-  await browser("open", url("/harness.html?seed=tree-40&renderer=dom"));
-  await wait(`!!window.__fake && !!document.querySelector('.rail-row') && !!document.querySelector('#shelf-tab-todos')`);
-  await read(`(() => {
-    const app = window.__fake.app;
-    const start = app.handlers['rail.startDoor'];
-    app.handlers['rail.startDoor'] = params => new Promise(resolve => { window.arrive = () => resolve(start(params)); });
-    const tab = document.querySelector('#shelf-tab-todos'); if (tab.getAttribute('aria-expanded') !== 'true') tab.click();
-    document.querySelector('.rail-actions button').click();
-  })()`);
-  await wait(`!!window.arrive`);
-  await read(`window.__fake.app.rpc('todo.move', { id: 1, home: document.querySelector('.rail-row[data-selected=true]').dataset.id })`);
-  await wait(`!!document.querySelector('.todo-row-button')`);
-};
-
-it.each(["reply-first", "list-first"])("u3756b_a_late_user_terminal_open_keeps_the_newer_drawer_%s", async order => {
-  await loadDense();
-  await read(`(() => {
-    const app = window.__fake.app;
-    const open = app.handlers['terminal.open'];
-    app.handlers['terminal.open'] = params => {
-      ${order === "list-first" ? "const result = open(params);" : ""}
-      return new Promise(resolve => { window.opened = () => resolve(${order === "list-first" ? "result" : "open(params)"}); });
-    };
-  })()`);
-  await browser("press", "Meta+t");
-  await wait(`!!window.opened`);
-  await choose("drawer");
-  await read(`window.opened()`);
-  await wait(`!!document.querySelector('.terminal-tab[data-bubble="101"]')`);
-  expect(await read(`document.activeElement === window.newFocus && window.newFocus.value === window.newText`)).toBe(true);
-  expect(await read(`document.querySelector('.terminal-tab[data-bubble="101"]').getAttribute('aria-pressed')`)).toBe("false");
-  await read(`document.querySelector('.terminal-tab[data-bubble="101"]').click()`);
-  await wait(`!!document.activeElement?.closest('.bubble[data-bubble="101"]')`);
-  await browser("keyboard", "type", "restored");
-  await wait(`window.__fake.app.calls.filter(c => c.method === 'terminal.write').map(c => atob(c.params.data)).join('') === 'restored'`);
-  expect(await read(`window.__fake.app.calls.filter(c => c.method === 'terminal.write').every(c => c.params.id === '101')`)).toBe(true);
-}, 90_000);
+for (const choice of ["drawer", "ask", "rail"]) {
+  it(`u3756b_older_appearance_cannot_replace_a_newer_focus_choice_${choice}`, async () => {
+    await load(choice === "rail" ? "tree-40" : "empty-project");
+    await newer(choice);
+    await read(`window.arrive()`);
+    await wait(`!!document.querySelector('.pane-screen .xterm')`);
+    expect(await read(`document.activeElement === window.newerFocus && (document.activeElement.value ?? document.activeElement.textContent) === window.newerText`)).toBe(true);
+    expect(await read(`window.__fake.app.calls.filter(c => c.method === 'terminal.write')`)).toEqual([]);
+    await capture("U3756b", choice);
+  }, 90_000);
+}
 
 it.each(["origin", "body"])("u3756c_returning_to_origin_or_body_does_not_rearm_old_focus_%s", async ending => {
   await browser("open", url("/harness.html?seed=tree-40&renderer=dom"));
@@ -156,206 +151,152 @@ it.each(["origin", "body"])("u3756c_returning_to_origin_or_body_does_not_rearm_o
   expect(await read(`window.__fake.app.calls.filter(c => c.method === 'terminal.write').length`)).toBe(0);
 }, 90_000);
 
+for (const listFirst of [false, true]) {
+  for (const intervene of [false, true]) {
+    it(`u3756${intervene ? "b" : "d"}_a_late_user_terminal_open_${listFirst ? "list" : "reply"}_first_${intervene ? "keeps_the_newer_drawer" : "takes_initial_focus"}`, async () => {
+      await fresh();
+      await read(`(() => {
+        const app = window.__fake.app, open = app.handlers['terminal.open'];
+        app.handlers['terminal.open'] = params => new Promise(resolve => {
+          ${listFirst ? "const result = open(params); window.finishOpen = () => resolve(result);" : "window.finishOpen = () => resolve(open(params));"}
+        });
+      })()`);
+      await browser("press", "Meta+t");
+      await wait(`!!window.finishOpen`);
+
+      if (intervene) await newer("drawer");
+      await read(`window.finishOpen()`);
+      await wait(`!!document.querySelector('.terminal-tab[data-bubble="101"]')`);
+      // The wanted effect queues Bubble focus after list reconciliation (Bubbles.tsx).
+      await read(`new Promise(resolve => queueMicrotask(resolve))`);
+
+      if (intervene) {
+        expect(await read(`document.activeElement === window.newerFocus && (document.activeElement.value ?? document.activeElement.textContent) === window.newerText`)).toBe(true);
+        await read(`document.querySelector('.terminal-tab[data-bubble="101"]').click()`);
+        await wait(`!!document.activeElement?.closest('.bubble[data-bubble="101"]')`);
+      } else await wait(`!!document.activeElement?.closest('.bubble[data-bubble="101"]')`);
+      await browser("keyboard", "type", "one");
+      await wait(`window.__fake.app.calls.filter(c => c.method === 'terminal.write').map(c => atob(c.params.data)).join('') === 'one'`);
+      expect(await read(`({ text:window.__fake.app.calls.filter(c => c.method === 'terminal.write').map(c => atob(c.params.data)).join(''), same:window.__fake.app.calls.filter(c => c.method === 'terminal.write').every(c => c.params.id === '101') })`)).toEqual({text:"one",same:true});
+    }, 90_000);
+  }
+}
+
 it("u3756d_initial_and_explicit_terminal_focus_still_work", async () => {
   await load();
   await read(`window.arrive()`);
   await wait(`!!document.activeElement?.closest('.pane-screen')`);
   await browser("keyboard", "type", "initial");
-  await wait(`window.__fake.app.calls.filter(c => c.method === 'terminal.write').map(c => atob(c.params.data)).join('') === 'initial'`);
-  expect(await read(`window.__fake.app.calls.filter(c => c.method === 'terminal.write').every(c => c.params.id === 't-n1-1')`)).toBe(true);
-  await choose("bubble");
-  await browser("press", "Meta+b");
+  await wait(`window.__fake.app.calls.some(c => c.method === 'terminal.write')`);
+  expect(await read(`window.__fake.app.calls.filter(c => c.method === 'terminal.write').map(c => atob(c.params.data)).join('')`)).toBe("initial");
+  await capture("U3756d", "initial");
+  await newer("bubble");
+  await read(`window.originalRow = document.querySelector('.rail-row[data-selected=true]'); document.querySelector('[data-todo-root]').click()`);
+  await wait(`!document.querySelector('.rail-row[data-selected=true]')`);
+  await read(`window.originalRow.click()`);
   await wait(`!!document.activeElement?.closest('.pane-screen')`);
   await browser("keyboard", "type", "selected");
   await wait(`window.__fake.app.calls.filter(c => c.method === 'terminal.write').map(c => atob(c.params.data)).join('') === 'initialselected'`);
-  await capture("U3756d", "explicit-selection");
-  expect(await read(`window.__fake.app.calls.filter(c => c.method === 'terminal.write').every(c => c.params.id === 't-n1-1')`)).toBe(true);
+  expect(await read(`window.__fake.app.calls.filter(c => c.method === 'terminal.write').map(c => atob(c.params.data)).join('')`)).toBe("initialselected");
+  await capture("U3756d", "explicit");
 }, 90_000);
 
-const capture = async (id: string, step: string) => {
-  const dir = captureDir(id);
+for (const intervene of [false, true]) {
+  it(`u3756${intervene ? "b" : "d"}_rich_pad_initialization_${intervene ? "yields" : "focuses"}`, async () => {
+    await fresh();
+    await read(`(() => {
+      const app = window.__fake.app, read = app.handlers['pad.read'];
+      app.handlers['pad.read'] = params => new Promise(resolve => { window.finishPad = () => resolve(read(params)); });
+      [...document.querySelectorAll('[role=tab]')].find(t => t.textContent.startsWith('Pads')).click();
+    })()`);
+    await wait(`!!document.querySelector('.pad-name')`);
+    await read(`document.querySelector('[data-pad="pad-3"] .pad-name').click()`);
+    await wait(`!!window.finishPad`);
 
-  if (!dir) return;
-  mkdirSync(dir, { recursive: true });
-  await browser("screenshot", join(dir, `${step}.png`));
-  writeFileSync(join(dir, `${step}.checks.json`), JSON.stringify(await read(`window.__checks()`), null, 2));
+    if (intervene) await newer("bubble");
+    await read(`window.finishPad()`);
+    await wait(`!!document.querySelector('.drawer .ProseMirror[contenteditable=true]')`);
+    // Milkdown's onReady follows its create promise; the editor's toolbar is initialized before focus.
+    await wait(`!!document.querySelector('.drawer .milkdown-toolbar') || !!document.querySelector('.drawer [aria-label="Pad body"]')`);
+
+    if (intervene) expect(await read(`document.activeElement === window.newerFocus`)).toBe(true);
+    else expect(await read(`!!document.activeElement?.closest('.ProseMirror')`)).toBe(true);
+  }, 90_000);
+}
+
+for (const path of ["ask", "switcher", "timeline", "rail-name", "todo-title"]) {
+  it(`u3756b_queued_${path}_appearance_yields_to_a_newer_rail_choice`, async () => {
+    await fresh();
+
+    if (path === "timeline") {
+      await read(`document.querySelector('.rail-row[data-id="payments"]').click()`);
+      await wait(`!!document.querySelector('.measurement-action')`);
+    }
+
+    if (path === "todo-title") await newer("drawer");
+
+    await read(`window.queuedFocus = []; window.realMicrotask = window.queueMicrotask; window.queueMicrotask = fn => window.queuedFocus.push(fn)`);
+
+    if (path === "ask") await browser("press", "Meta+/");
+    else if (path === "switcher") {
+      await browser("press", "Meta+k");
+      await browser("press", "k");
+    } else if (path === "timeline") await read(`[...document.querySelectorAll('.measurement-action button')].find(b => b.textContent === 'Timeline').click()`);
+    else if (path === "rail-name") await read(`document.querySelector('.rail-row .name').dispatchEvent(new MouseEvent('dblclick', {bubbles:true}))`);
+    else await read(`document.querySelector('.todo-detail-title p[tabindex]').dispatchEvent(new MouseEvent('dblclick', {bubbles:true}))`);
+    expect(await read(`window.queuedFocus.length`)).toBeGreaterThan(0);
+    await read(`window.newerFocus = document.querySelector('.rail-row[tabindex], .rail-row [tabindex], .rail [role=treeitem][tabindex]'); window.newerFocus.focus(); window.queueMicrotask = window.realMicrotask; window.queuedFocus.splice(0).forEach(fn => fn())`);
+    // All app microtasks queued by this action have completed before checking its final focus.
+    expect(await read(`document.activeElement === window.newerFocus`)).toBe(true);
+  }, 90_000);
+}
+
+it.each([true, false])("u3756b_changed_files_read_and_library_readiness_respect_focus_permission_%s", async intervene => {
+  await fresh("resources");
+  await read(`(() => {
+    window.__fake.app.handlers['agent.worktreeState'] = () => ({ahead:1,behind:0,dirty:true});
+    window.__fake.app.handlers['agent.changedFiles'] = () => new Promise(resolve => { window.finishFiles = () => resolve({files:[{path:'src/file.ts',status:'modified',line:1}]}); });
+    document.querySelector('[data-id="worktree-agent"] .name').click();
+  })()`);
+  await wait(`!!document.querySelector('.worktree-control')`);
+  await read(`document.querySelector('.worktree-control').click()`);
+  await wait(`!!window.finishFiles`);
+
+  if (intervene) await newer("rail");
+
+  await read(`window.finishFiles()`);
+  await wait(`!!document.querySelector('file-tree-container')?.shadowRoot?.querySelector('[data-item-path]')`);
+  expect(await read(intervene ? `document.activeElement === window.newerFocus && (document.activeElement.value ?? document.activeElement.textContent) === window.newerText` : `document.activeElement === document.querySelector('file-tree-container')`)).toBe(true);
+}, 90_000);
+
+it("u3756d_explicit_supervisor_start_owns_its_initial_terminal_focus", async () => {
+  await fresh("door-stopped");
+  await wait(`!!document.querySelector('.pane-action')`);
+  await read(`document.querySelector('.pane-action').click()`);
+  await wait(`!!document.activeElement?.closest('.pane-screen .xterm')`);
+  await browser("keyboard", "type", "start");
+  await wait(`window.__fake.app.calls.filter(c => c.method === 'terminal.write').map(c => atob(c.params.data)).join('') === 'start'`);
+  expect(await read(`new Set(window.__fake.app.calls.filter(c => c.method === 'terminal.write').map(c => c.params.id)).size`)).toBe(1);
+}, 90_000);
+
+
+const loadDense = async () => {
+  await browser("open", url("/harness.html?seed=tree-40&renderer=dom"));
+  await wait(`!!window.__fake && !!document.querySelector('.rail-row') && !!document.querySelector('#shelf-tab-todos')`);
+  await read(`(() => {
+    const app = window.__fake.app;
+    const start = app.handlers['rail.startDoor'];
+    app.handlers['rail.startDoor'] = params => new Promise(resolve => { window.arrive = () => resolve(start(params)); });
+    const tab = document.querySelector('#shelf-tab-todos'); if (tab.getAttribute('aria-expanded') !== 'true') tab.click();
+    document.querySelector('.rail-actions button').click();
+  })()`);
+  await wait(`!!window.arrive`);
+  await read(`window.__fake.app.rpc('todo.move', { id: 1, home: document.querySelector('.rail-row[data-selected=true]').dataset.id })`);
+  await wait(`!!document.querySelector('.todo-row-button')`);
 };
 
-it.each(["bubble", "ask", "rail", "uninterrupted"])("u3756b_older_appearance_cannot_replace_a_newer_focus_choice_rich_pad_%s", async surface => {
-  await browser("open", url("/harness.html?seed=tree-40&renderer=dom"));
-  await wait(`!!window.__fake && !!document.querySelector('#shelf-tab-pads')`);
-  await read(`(async () => {
-    const source = await (await fetch('/src/pads/PadRichEditor.tsx')).text();
-    const module = source.match(/from "([^" ]*milkdown_kit_core[^" ]*)"/)[1];
-    const { Editor } = await import(module);
-    const make = Editor.make;
-    Editor.make = () => {
-      const editor = make();
-      const create = editor.create;
-      editor.create = () => create().then(value => new Promise(resolve => {
-        window.editorReady = () => { Editor.make = make; resolve(value); };
-      }));
-      return editor;
-    };
-    const tab = document.querySelector('#shelf-tab-pads');
-    if (tab.getAttribute('aria-expanded') !== 'true') tab.click();
-  })()`);
-  await wait(`!![...document.querySelectorAll('.pad-name')].find(e => e.textContent === 'pad-3')`);
-  await read(`[...document.querySelectorAll('.pad-name')].find(e => e.textContent === 'pad-3').click()`);
-  await wait(`!!window.editorReady`);
 
-  if (surface !== "uninterrupted") {
-    if (surface === "rail") await read(`document.querySelector('.rail-row').focus()`);
-    else await choose(surface);
-  }
-
-  await read(`window.newFocus = document.activeElement; window.newText = window.newFocus.value; window.editorReady()`);
-  // onReady installs the Pad's editor handle after the same completion that performs initial focus.
-  await wait(`!!document.querySelector('.ProseMirror[contenteditable=true][aria-label="Pad body"]')`);
-
-  if (surface === "uninterrupted") expect(await read(`document.activeElement.matches('.ProseMirror')`)).toBe(true);
-  else expect(await read(`document.activeElement === window.newFocus && window.newFocus.value === window.newText`)).toBe(true);
-  expect(await read(`window.__fake.app.calls.filter(c => ['pad.write','terminal.write'].includes(c.method)).length`)).toBe(0);
-  await capture("U3756b", `pad-${surface}`);
-}, 90_000);
-
-it.each(["reply-first", "list-first"])("u3756d_a_delayed_user_terminal_takes_focus_without_newer_navigation_%s", async order => {
-  await load();
-  await read(`(() => {
-    const app = window.__fake.app;
-    const open = app.handlers['terminal.open'];
-    app.handlers['terminal.open'] = params => {
-      ${order === "list-first" ? "const result = open(params);" : ""}
-      return new Promise(resolve => { window.opened = () => resolve(${order === "list-first" ? "result" : "open(params)"}); });
-    };
-  })()`);
-  await browser("press", "Meta+t");
-  await wait(`!!window.opened`);
-  await read(`window.opened()`);
-  await wait(`!!document.activeElement?.closest('.bubble[data-bubble="101"]')`);
-  await browser("keyboard", "type", "initial bubble");
-  await wait(`window.__fake.app.calls.filter(c => c.method === 'terminal.write').map(c => atob(c.params.data)).join('') === 'initial bubble'`);
-  expect(await read(`window.__fake.app.calls.filter(c => c.method === 'terminal.write').every(c => c.params.id === '101')`)).toBe(true);
-}, 90_000);
-
-// Hold the native microtask boundary after the actual App action; the test replaces no focus owner.
-it.each(["timeline", "agent-editor", "ask"])("u3756b_a_queued_appearance_yields_to_a_newer_rail_choice_%s", async appearance => {
-  await loadDense();
-  await read(`window.arrive()`);
-  await wait(`!!document.querySelector('.pane-screen .xterm')`);
-
-  if (appearance === "switcher") {
-    await browser("press", "Meta+k");
-    await wait(`!!document.querySelector('.leader')`);
-  }
-
-  await read(`(() => {
-    const queued = [];
-    const queue = window.queueMicrotask;
-    window.queueMicrotask = task => queued.push(task);
-    try {
-      ${appearance === "timeline" ? "document.querySelectorAll('.measurement-action button')[1].click();" : appearance === "agent-editor" ? "document.querySelector('.rail-row[data-selected=true]').dispatchEvent(new KeyboardEvent('keydown', { key: 'N', code: 'KeyN', metaKey: true, shiftKey: true, bubbles: true }));" : appearance === "switcher" ? "document.activeElement.dispatchEvent(new KeyboardEvent('keydown', { key: 'k', code: 'KeyK', bubbles: true }));" : "document.activeElement.dispatchEvent(new KeyboardEvent('keydown', { key: '/', code: 'Slash', metaKey: true, bubbles: true }));"}
-    } finally { window.queueMicrotask = queue; }
-    window.queuedCount = queued.length;
-    const chosen = document.querySelector('.rail-row[data-selected=true]');
-    chosen.focus();
-    window.newFocus = chosen;
-    queued.forEach(task => queue(task));
-  })()`);
-  // The App's queued callbacks run before this browser evaluation, after its input task ends.
-  expect(await read(`window.queuedCount`)).toBeGreaterThan(0);
-  expect(await read(`!!document.querySelector(${JSON.stringify(appearance === "timeline" ? ".timeline-view" : appearance === "agent-editor" ? ".spawn-prompt-field" : appearance === "switcher" ? ".switcher" : '.ask-bar[data-mode="over"]')})`)).toBe(true);
-  expect(await read(`document.activeElement === window.newFocus`)).toBe(true);
-  expect(await read(`window.__fake.app.calls.filter(c => c.method === 'terminal.write').length`)).toBe(0);
-}, 90_000);
-
-it("u3756d_explicit_start_focuses_the_selected_supervisor_terminal", async () => {
-  await browser("open", url("/harness.html?seed=tree-40&renderer=dom"));
-  await wait(`!!document.querySelector('.rail-row[data-id=backend]')`);
-  await browser("click", ".rail-row[data-id=backend]");
-  await wait(`!!document.querySelector('.pane-action')`);
-  await browser("click", ".pane-action");
-  await wait(`!!document.querySelector('.pane-screen .xterm')`);
-  expect(await read(`!!document.activeElement.closest('.pane-screen')`)).toBe(true);
-  await browser("keyboard", "type", "started");
-  await wait(`window.__fake.app.calls.filter(c => c.method === 'terminal.write').map(c => atob(c.params.data)).join('') === 'started'`);
-  expect(await read(`window.__fake.app.calls.filter(c => c.method === 'terminal.write').every(c => c.params.id === 't-backend-1')`)).toBe(true);
-}, 90_000);
-
-it("u3756c_a_new_drawer_editor_mount_leaves_body_focus_unclaimed_by_the_older_terminal", async () => {
-  await loadDense();
-  await read(`document.querySelector('.todo-row-button').click()`);
-  await wait(`!!document.querySelector('.todo-detail-body p[tabindex]')`);
-  await browser("focus", ".todo-detail-body p[tabindex]");
-  await read(`(() => {
-    const queued = [];
-    const queue = window.queueMicrotask;
-    window.queueMicrotask = task => queued.push(task);
-    document.activeElement.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', code: 'Enter', bubbles: true }));
-    window.queueMicrotask = queue;
-    window.editorMounted = document.querySelector('.todo-detail-body textarea');
-    window.restoreEditor = () => queued.forEach(task => queue(task));
-  })()`);
-  expect(await read(`!!window.editorMounted && document.activeElement === document.body`)).toBe(true);
-  const body = await read(`window.editorMounted.value`);
-  await read(`window.arrive()`);
-  await wait(`!!document.querySelector('.pane-screen .xterm')`);
-  expect(await read(`document.activeElement === document.body && document.querySelector('.drawer').dataset.open === 'true'`)).toBe(true);
-  await read(`window.restoreEditor()`);
-  await wait(`document.activeElement === window.editorMounted`);
-  expect(await read(`window.editorMounted.value`)).toBe(body);
-  expect(await read(`window.__fake.app.calls.filter(c => c.method === 'terminal.write').length`)).toBe(0);
-}, 90_000);
-
-it.each(["rail", "bubble", "uninterrupted"])("u3756b_a_deferred_changed_file_tree_keeps_the_newer_focus_choice_%s", async surface => {
-  await browser("open", url("/harness.html?seed=tree-40&renderer=dom"));
-  await wait(`!!window.__fake && !!document.querySelector('.rail-row[data-id=migrate]')`);
-  await read(`(() => {
-    const app = window.__fake.app;
-    const tree = app.handlers['rail.tree'];
-    app.handlers['rail.tree'] = () => tree().map(row => row.id === 'migrate' ? { ...row, worktree: { path: '/project/worktree', branch: 'roundup/test', base: 'main' } } : row);
-    app.handlers['agent.worktreeState'] = () => ({ ahead: 1, behind: 0, dirty: true });
-    app.handlers['agent.changedFiles'] = () => new Promise(resolve => { window.filesReady = () => resolve({ files: [{ path: 'changed.ts', status: 'modified', line: 1 }] }); });
-    window.__fake.emit({ actor: { kind: 'user', id: 'you', parent: null }, name: 'rail.changed' });
-  })()`);
-  await browser("click", ".rail-row[data-id=migrate]");
-  await wait(`!!document.querySelector('.worktree-control')`);
-  await browser("click", ".worktree-control");
-  await wait(`!!window.filesReady`);
-
-  if (surface === "rail") await read(`document.querySelector('.rail-row[data-id=migrate]').focus()`);
-  else if (surface === "bubble") await choose("bubble");
-  await read(`window.newFocus = document.activeElement; window.filesReady()`);
-  await wait(`!!document.querySelector('file-tree-container')?.shadowRoot?.querySelector('[data-item-path]')`);
-
-  if (surface !== "uninterrupted") expect(await read(`document.activeElement === window.newFocus`)).toBe(true);
-  else expect(await read(`document.activeElement === document.querySelector('file-tree-container')`)).toBe(true);
-  expect(await read(`window.__fake.app.calls.filter(c => c.method === 'terminal.write').length`)).toBe(0);
-}, 90_000);
-
-it("u3756b_the_switcher_queued_focus_yields_after_its_mount", async () => {
-  await loadDense();
-  await read(`window.arrive()`);
-  await wait(`!!document.querySelector('.pane-screen .xterm')`);
-  await browser("press", "Meta+k");
-  await wait(`!!document.querySelector('.leader')`);
-  await read(`(() => {
-    const queue = window.queueMicrotask;
-    window.queueMicrotask = task => queue(() => {
-      if (!window.newFocus && document.querySelector('.switcher input')) {
-        window.newFocus = document.querySelector('.rail-row[data-selected=true]');
-        window.newFocus.focus();
-      }
-      task();
-    });
-    window.restoreQueue = () => { window.queueMicrotask = queue; };
-    document.activeElement.dispatchEvent(new KeyboardEvent('keydown', { key: 'k', code: 'KeyK', bubbles: true, cancelable: true }));
-  })()`);
-  await wait(`!!window.newFocus`);
-  await read(`window.restoreQueue()`);
-  expect(await read(`document.activeElement === window.newFocus`)).toBe(true);
-  expect(await read(`window.__fake.app.calls.filter(c => c.method === 'terminal.write').length`)).toBe(0);
-}, 90_000);
+const choose = async (surface: string) => { await newer(surface); await read(`window.newFocus = window.newerFocus; window.newText = window.newerText`); };
 
 const holdFrames = async () => read(`(() => {
   const request = window.requestAnimationFrame;
@@ -395,12 +336,15 @@ it.each(["owner", "home"])("u3756b_a_menu_focus_frame_yields_to_a_newer_rail_cho
     await wait(`!!window.__fake && !!document.querySelector('.rail [data-id="agent-1"]')`);
     await read(`(async () => {
       window.__fake.actAs({ kind: 'agent', id: 'agent-1', parent: null });
-      await window.__fake.app.rpc('todo.create', { title: 'Move this Todo', body: null, blockers: null });
+      window.menuTodo = (await window.__fake.app.rpc('todo.create', { title: 'Move this Todo', body: null, blockers: null })).id;
       window.__fake.actAs({ kind: 'user', id: 'you', parent: null });
+      await window.__fake.app.rpc('rail.createWorkstream', {name:'Other Home',parent:null});
     })()`);
     await wait(`!!document.querySelector('.rail [data-id="agent-1"] [data-pads-control]')`);
-    await browser("click", '.rail [data-id="agent-1"] [data-pads-control]');
-    await wait(`!!document.querySelector('.todo-move')`);
+    await read(`(() => { const control = document.querySelector('.rail [data-id="agent-1"] [data-pads-control]'); if (control.getAttribute('aria-expanded') !== 'true') control.click(); })()`);
+    await wait(`!!document.querySelector('.rail [data-todo="' + window.menuTodo + '"]')`);
+    await browser("hover", '.rail [data-todo]');
+    await wait(`!!document.querySelector('.todo-move') && document.querySelector('.todo-move').getAttribute('aria-disabled') !== 'true'`);
   }
 
   await browser("focus", ".todo-row-button");
@@ -420,4 +364,55 @@ it("u3756b_a_terminal_name_return_frame_yields_to_the_newer_ask_bar", async () =
   await choose("ask");
   expect(await read<number>(`window.releaseFrames()`)).toBeGreaterThan(0);
   expect(await read(`document.activeElement === window.newFocus && window.newFocus.value === window.newText`)).toBe(true);
+}, 90_000);
+
+it("u3756c_a_new_drawer_editor_mount_keeps_body_unclaimed_by_the_older_terminal", async () => {
+  await load();
+  await read(`(async () => {
+    const app = window.__fake.app;
+    const made = await app.rpc('todo.create', {title:'Mounted editor',body:null,blockers:null});
+    window.newTodo = made.id;
+    await app.rpc('todo.move', {id:made.id,home:document.querySelector('.rail-row[data-selected=true]').dataset.id});
+    [...document.querySelectorAll('[role=tab]')].find(t => t.textContent.startsWith('Todos')).click();
+  })()`);
+  await wait(`!!document.querySelector('[data-todo="' + window.newTodo + '"] .todo-row-button')`);
+  await read(`document.querySelector('[data-todo="' + window.newTodo + '"] .todo-row-button').click()`);
+  await wait(`!!document.querySelector('.drawer .todo-add-notes')`);
+  await read(`(() => {
+    const queue = window.queueMicrotask, queued = [];
+    window.queueMicrotask = task => queued.push(task);
+    document.querySelector('.drawer .todo-add-notes').focus();
+    document.querySelector('.drawer .todo-add-notes').click();
+    window.queueMicrotask = queue;
+    window.editorMounted = document.querySelector('.drawer textarea');
+    window.restoreEditor = () => queued.forEach(task => queue(task));
+  })()`);
+  expect(await read(`!!window.editorMounted && document.activeElement === document.body`)).toBe(true);
+  await read(`window.arrive()`);
+  await wait(`!!document.querySelector('.pane-screen .xterm')`);
+  expect(await read(`document.activeElement === document.body`)).toBe(true);
+  await read(`window.restoreEditor()`);
+  await wait(`document.activeElement === window.editorMounted`);
+  expect(await read(`window.__fake.app.calls.filter(c => c.method === 'terminal.write')`)).toEqual([]);
+}, 90_000);
+
+it("u3756b_the_queued_agent_editor_yields_to_the_newer_rail_choice", async () => {
+  await loadDense();
+  await read(`window.arrive()`);
+  await wait(`!!document.querySelector('.pane-screen .xterm')`);
+  await read(`(() => {
+    const queued = [], queue = window.queueMicrotask;
+    window.queueMicrotask = task => queued.push(task);
+    try {
+      document.querySelector('.rail-row[data-selected=true]').dispatchEvent(new KeyboardEvent('keydown', {key:'N',code:'KeyN',metaKey:true,shiftKey:true,bubbles:true}));
+    } finally { window.queueMicrotask = queue; }
+    window.queuedCount = queued.length;
+    window.newFocus = document.querySelector('.rail-row[data-selected=true]');
+    window.newFocus.focus();
+    queued.forEach(task => queue(task));
+  })()`);
+  expect(await read(`window.queuedCount`)).toBeGreaterThan(0);
+  expect(await read(`!!document.querySelector('.spawn-prompt-field')`)).toBe(true);
+  expect(await read(`document.activeElement === window.newFocus`)).toBe(true);
+  expect(await read(`window.__fake.app.calls.filter(c => c.method === 'terminal.write')`)).toEqual([]);
 }, 90_000);

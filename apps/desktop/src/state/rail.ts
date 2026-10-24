@@ -217,7 +217,10 @@ export const createRailState = (app: AppSeam, events: Events, storage?: RailStor
   const startDoor = async (id: string): Promise<void> => {
     if (doors[id]?.pending) return;
 
-    if (selected() === id) setTerminalFocus(() => captureFocus(true));
+    if (selected() === id) batch(() => {
+      setTerminalFocus(() => captureFocus(true));
+      setRestored(false);
+    });
     setDoors(id, { pending: true, observedLive: false, failure: null });
 
     try {

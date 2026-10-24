@@ -137,11 +137,9 @@ export const Pane = (props: { notice?: string | null; createEmulator?: EmulatorF
     }
 
     untrack(() => {
-      const size = screens.show(id, host, false);
+      const show = (focus: boolean) => screens.resize(id, screens.show(id, host, focus));
 
-      if (!rail.restored()) rail.terminalFocus()(() => screens.emulatorFor(id).focus());
-
-      screens.resize(id, size);
+      if (rail.restored() || !rail.terminalFocus()(() => show(true))) show(false);
     });
   });
 
