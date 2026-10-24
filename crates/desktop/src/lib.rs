@@ -33,10 +33,13 @@ pub fn build<R: Runtime>(
     let builder = builder.plugin(webkit_rate::plugin());
     builder
         .plugin(tauri_plugin_dialog::init())
+        .plugin(tauri_plugin_clipboard_manager::init())
         .plugin(window::plugin())
         .manage(AppState::new(config))
         .manage(menu::Choice::default())
-        .on_menu_event(|app, event| app.state::<menu::Choice>().chosen(&event))
+        .manage(menu::ProjectMenu::default())
+        .menu(menu::app_menu)
+        .on_menu_event(|app, event| handle_menu_event(app, &event))
         .invoke_handler(tauri::generate_handler![
             projects,
             open_project,
@@ -50,6 +53,7 @@ pub fn build<R: Runtime>(
             open_target,
             open_in_editor,
             save_pasted_image,
+            menu::select_project_menu,
             menu::show_context_menu
         ])
         .setup(move |app| {
@@ -83,6 +87,11 @@ pub fn context<R: Runtime>() -> tauri::Context<R> {
     tauri::generate_context!()
 }
 
+/// Dispatch the native menu event through the same path used by the App builder.
+pub fn handle_menu_event<R: Runtime>(app: &AppHandle<R>, event: &tauri::menu::MenuEvent) {
+    menu::app_chosen(app, event);
+}
+
 pub fn handle_run_event<R: Runtime>(app: &AppHandle<R>, event: &RunEvent) {
     if matches!(event, RunEvent::Exit) {
         app.state::<AppState>().close();
@@ -91,6 +100,13 @@ pub fn handle_run_event<R: Runtime>(app: &AppHandle<R>, event: &RunEvent) {
 
 pub fn run() -> Result<(), Box<dyn std::error::Error>> {
     let config = Config::from_env()?;
+    let mut context = context();
+    if let Some(dir) = &config.data_dir {
+        // Isolate the webview profile as well as the Project store and Daemon.
+        context.config_mut().app.app_directories_override = Some(
+            tauri::utils::config::AppDirectoriesOverride::Root(std::path::absolute(dir)?),
+        );
+    }
     let project_dir = std::env::args_os()
         .nth(1)
         .map(std::path::absolute)
@@ -101,7 +117,7 @@ pub fn run() -> Result<(), Box<dyn std::error::Error>> {
         project_dir,
         |app, code| app.exit(code),
     )
-    .build(context())?
+    .build(context)?
     .run(|app, event| handle_run_event(app, &event));
     Ok(())
 }

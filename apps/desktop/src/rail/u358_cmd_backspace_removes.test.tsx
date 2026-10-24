@@ -1,3 +1,5 @@
+import { questionDialog, answerQuestion } from "../shelf/bulkQuestionHarness";
+import { questionProbe } from "../testing/menuProbe";
 import { cleanup, fireEvent, screen, waitFor } from "@solidjs/testing-library";
 import { afterEach, describe, expect, it } from "vitest";
 import type { FakeApp } from "../testing/fakeApp";
@@ -27,6 +29,7 @@ describe("u358 cmd backspace removes the selected Rail row", () => {
     rowOf("a").focus();
 
     fireEvent.keyDown(rowOf("a"), CMD_BACKSPACE);
+    await answerQuestion(true);
 
     await waitFor(() => expect(rail.selected()).toBe("b"));
     expect(removals(app)).toEqual([{ id: "a" }]);
@@ -41,18 +44,19 @@ describe("u358 cmd backspace removes the selected Rail row", () => {
     fireEvent.keyDown(rowOf("a"), CMD_BACKSPACE);
     await tick();
 
-    expect(screen.getByText("Stop and remove a?")).toBeTruthy();
+    expect((await questionDialog()).title).toBe("Stop and remove a?");
     expect(removals(app)).toEqual([]);
 
-    fireEvent.keyDown(screen.getByRole("alertdialog"), { key: "Escape" });
+    await answerQuestion(false);
     await tick();
 
-    expect(screen.queryByRole("alertdialog")).toBeNull();
+    expect(questionProbe.shown).toBeNull();
     expect(removals(app)).toEqual([]);
 
     fireEvent.keyDown(rowOf("a"), CMD_BACKSPACE);
     await tick();
-    fireEvent.click(screen.getByRole("button", { name: "Remove" }));
+    await questionDialog();
+    await answerQuestion(true);
 
     await waitFor(() => expect(removals(app)).toEqual([{ id: "a" }]));
     await waitFor(() => expect(rail.selected()).toBe("b"));
@@ -64,6 +68,7 @@ describe("u358 cmd backspace removes the selected Rail row", () => {
     rowOf("b").focus();
 
     fireEvent.keyDown(rowOf("b"), CMD_BACKSPACE);
+    await answerQuestion(true);
 
     await waitFor(() => expect(rail.selected()).toBe("a"));
     expect(removals(app)).toEqual([{ id: "b" }]);
@@ -90,6 +95,7 @@ describe("u358 cmd backspace removes the selected Rail row", () => {
     rowOf("a").focus();
 
     fireEvent.keyDown(rowOf("a"), CMD_BACKSPACE);
+    await answerQuestion(true);
     await waitFor(() => expect(rail.selected()).toBe("b"));
 
     const repeat = new KeyboardEvent("keydown", { ...CMD_BACKSPACE, repeat: true, bubbles: true, cancelable: true });
@@ -101,6 +107,7 @@ describe("u358 cmd backspace removes the selected Rail row", () => {
     expect(repeat.defaultPrevented).toBe(true);
 
     fireEvent.keyDown(rowOf("b"), CMD_BACKSPACE);
+    await answerQuestion(true);
 
     await waitFor(() => expect(removals(app)).toEqual([{ id: "a" }, { id: "b" }]));
   });
@@ -115,6 +122,7 @@ describe("u358 cmd backspace removes the selected Rail row", () => {
     rowOf("a").focus();
 
     fireEvent.keyDown(rowOf("a"), CMD_BACKSPACE);
+    await answerQuestion(true);
 
     await waitFor(() => expect(screen.getByText(/daemon said no/)).toBeTruthy());
     expect(rail.selected()).toBe("a");

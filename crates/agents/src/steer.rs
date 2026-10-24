@@ -98,6 +98,7 @@ impl Shared {
             self.bus.emit(
                 Actor::daemon(),
                 EventData::AgentStatus(Box::new(StatusEvent {
+                    ended: false,
                     id: id.to_owned(),
                     attempt: run.attempt.clone(),
                     status_revision: run.status_revision.to_string(),

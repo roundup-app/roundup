@@ -92,6 +92,10 @@ const TOOLS: &[(&str, &str)] = &[
         "link_read",
         "read what a roundup:// link names, as it is now",
     ),
+    (
+        "import_list",
+        "list this Project's saved and live Claude Code sessions with the revision to approve; it imports nothing",
+    ),
     ("pad_list", "see which Pads exist"),
     ("pad_write", "rewrite a Pad you own"),
     ("pad_append", "add text to the end of any Pad"),
@@ -273,7 +277,7 @@ const TOOLS: &[(&str, &str)] = &[
     ),
     (
         "project_measurementSummary",
-        "read a Workstream's exact consumed token subtotals and ranked contributors; later pages require the first page's revision",
+        "read a Workstream's time by category and its Agents ranked by summed time; later pages require the first page's revision",
     ),
     (
         "project_setWorktrees",

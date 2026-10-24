@@ -77,27 +77,9 @@
   font-size: var(--text-small);
 }
 
-.measurement-state[data-live="true"] {
-  color: var(--text);
-}
-
-.measurement-dashboard h3 {
-  font-size: var(--text-small);
-  font-weight: 600;
-  margin: 0 0 var(--space-2);
-  color: var(--grey);
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
-}
-
 .measurement-dashboard p {
   margin: 0 0 var(--space-2);
   overflow-wrap: anywhere;
-}
-
-.measurement-dashboard h3 .measurement-note {
-  text-transform: none;
-  letter-spacing: 0;
 }
 
 .measurement-note {
@@ -106,23 +88,12 @@
   overflow-wrap: anywhere;
 }
 
-.measurement-tiles {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: var(--space-5);
+.measurement-line {
   padding-block: var(--space-4);
-}
-
-.measurement-figure {
   font-size: var(--text-title);
   font-weight: 600;
-  min-height: var(--space-6);
-}
-
-.measurement-line {
-  color: var(--grey);
-  font-size: var(--text-small);
-  min-height: var(--space-5);
+  white-space: nowrap;
+  overflow-wrap: normal;
 }
 
 .measurement-mark {
@@ -130,38 +101,16 @@
   font-size: var(--text-small);
 }
 
-.measurement-stack {
+.measurement-key {
   display: flex;
-  height: var(--space-2);
-  gap: 0;
-  margin-block: var(--space-2);
-}
-
-.measurement-segment,
-.measurement-bar > span,
-.measurement-meter > span {
-  display: block;
-  height: 100%;
-  transition: opacity var(--duration-crossfade) var(--easing-out);
-}
-
-.measurement-segment[data-category="input"] { background: var(--text); }
-.measurement-segment[data-category="output"] { background: var(--grey); }
-.measurement-segment[data-category="cache_read"] { background: var(--accent); }
-.measurement-segment[data-category="cache_write"] { background: var(--cache-write); }
-
-.measurement-stack[data-dim="true"] .measurement-segment:not([data-active="true"]) { opacity: 0.35; }
-
-.measurement-legend {
-  display: flex;
-  flex-wrap: nowrap;
-  white-space: nowrap;
-  gap: var(--space-1) var(--space-3);
-  margin: 0 0 var(--space-2);
+  flex-wrap: wrap;
+  gap: var(--space-1) var(--space-4);
+  margin: 0 0 var(--space-3);
   padding: 0;
   list-style: none;
   color: var(--grey);
   font-size: var(--text-caption);
+  white-space: nowrap;
 }
 
 .measurement-swatch {
@@ -171,144 +120,63 @@
   margin-inline-end: var(--space-1);
 }
 
-.measurement-legend [data-category="input"] .measurement-swatch { background: var(--text); }
-.measurement-legend [data-category="output"] .measurement-swatch { background: var(--grey); }
-.measurement-legend [data-category="cache_read"] .measurement-swatch { background: var(--accent); }
-.measurement-legend [data-category="cache_write"] .measurement-swatch { background: var(--cache-write); }
+/* One hue per category; the key, the segment and its accessible name all say which. */
+.measurement-key [data-category="human"] .measurement-swatch,
+.measurement-segment[data-category="human"] { background: var(--amber); }
+.measurement-key [data-category="tools"] .measurement-swatch,
+.measurement-segment[data-category="tools"] { background: var(--accent); }
+.measurement-key [data-category="coordination"] .measurement-swatch,
+.measurement-segment[data-category="coordination"] { background: var(--grey); }
+.measurement-key [data-category="execution"] .measurement-swatch,
+.measurement-segment[data-category="execution"] { background: var(--text); }
+.measurement-key [data-category="other"] .measurement-swatch,
+.measurement-segment[data-category="other"] { background: var(--cache-write); }
+.measurement-key [data-category="unmeasured"] .measurement-swatch,
+.measurement-segment[data-category="unmeasured"] { background: var(--disabled); }
 
-.measurement-limit {
-  display: flex;
-  align-items: center;
-  gap: var(--space-3);
-  padding-block: var(--space-3);
-  font-size: var(--text-small);
-}
-
-.measurement-label {
-  color: var(--grey);
-  font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
-}
-
-.measurement-meter {
-  flex: 1;
-  height: var(--space-1);
-  background: var(--selected);
-}
-
-.measurement-meter > span { background: var(--text); }
-.measurement-limit[data-near="true"] .measurement-meter > span { background: var(--amber); }
-.measurement-limit[data-near="true"] .measurement-limit-text { color: var(--amber); }
-
-.measurement-section {
-  padding-block: var(--space-3);
-}
-
-.measurement-time {
+.measurement-rows {
   margin: 0;
+  padding: 0;
+  list-style: none;
 }
 
-.measurement-time > div {
-  display: flex;
-  justify-content: space-between;
-  gap: var(--space-3);
-  padding-block: var(--space-1);
-}
-
-.measurement-time dt {
-  flex: none;
-  width: 30%;
-}
-
-.measurement-time dd,
-.measurement-dashboard dd {
-  display: flex;
-  flex: 1;
+/* Agent, bar on the one shared scale, then the summed duration in a column that fits `10m 24s`. */
+.measurement-row {
+  display: grid;
+  grid-template-columns: minmax(0, 20%) minmax(0, 1fr) 12ch;
   align-items: center;
-  justify-content: flex-end;
-  gap: var(--space-3);
-  margin: 0;
-}
-
-.measurement-duration {
-  flex: none;
-  width: 6ch;
-  text-align: right;
-}
-
-.measurement-meter[data-unknown="true"] {
-  visibility: hidden;
-}
-
-.measurement-bar {
-  display: inline-block;
-  flex: 1;
-  height: var(--space-1);
-  max-width: 50%;
-  background: var(--selected);
-}
-
-.measurement-bar > span { background: var(--text); }
-
-.measurement-detail {
-  margin-top: var(--space-3);
-}
-
-.measurement-detail [data-part="content"] {
+  column-gap: var(--space-4);
   padding-block: var(--space-2);
 }
 
-.measurement-dashboard table {
-  width: 100%;
-  table-layout: fixed;
-  border-collapse: collapse;
-  margin-block: var(--space-2);
-  font-size: var(--text-caption);
-}
-
-.measurement-dashboard th,
-.measurement-dashboard td {
-  padding: var(--space-2) var(--space-1);
-  text-align: right;
-  vertical-align: top;
-  font-weight: 400;
-}
-
-.measurement-dashboard td {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.measurement-dashboard th .measurement-bar {
-  display: block;
-  width: 100%;
-  max-width: none;
-}
-
-.measurement-dashboard th:first-child {
-  width: 25%;
-  text-align: left;
-}
-
-.measurement-dashboard th button {
+.measurement-agent {
   display: block;
   max-width: 100%;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+  text-align: left;
 }
 
-.measurement-dashboard tbody:has(tr:hover) tr:not(:hover) .measurement-bar > span,
-.measurement-dashboard tbody:has(:focus-visible) tr:not(:focus-within) .measurement-bar > span {
-  opacity: 0.35;
+.measurement-bar {
+  min-width: 0;
 }
 
-/* Selection is text colour only, as the Shelf's flat tabs. */
-.measurement-agents .app-tabs-trigger { color: var(--grey); }
-.measurement-agents .app-tabs-trigger[data-selected] {
-  --button-surface: transparent;
-  --button-hover: transparent;
-  color: var(--text);
+.measurement-stack {
+  display: flex;
+  height: var(--space-3);
+  gap: 0;
+}
+
+.measurement-segment {
+  display: block;
+  flex-basis: 0;
+  min-width: 1px;
+  height: 100%;
+}
+
+.measurement-duration {
+  text-align: right;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
 }

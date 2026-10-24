@@ -172,3 +172,33 @@ pub fn merged(a: &Extras, b: &Extras) -> Extras {
         mcp: join(&a.mcp, &b.mcp),
     }
 }
+
+/// LC7: a plugin folder of its own whose skills are the extras' skill folders.
+pub(super) fn skill_plugin(
+    folder: &Path,
+    skills: &[(String, PathBuf)],
+) -> Result<PathBuf, RpcError> {
+    if super::launch_files::is_symlink(folder) {
+        return Err(RpcError::internal(format!(
+            "{} is a symlink",
+            folder.display()
+        )));
+    }
+    match std::fs::remove_dir_all(folder) {
+        Err(err) if err.kind() != std::io::ErrorKind::NotFound => {
+            return Err(RpcError::internal(err));
+        }
+        _ => {}
+    }
+    super::launch_files::replace_text(
+        &folder.join(".claude-plugin/plugin.json"),
+        r#"{"name":"roundup-extras","version":"0.0.1"}"#,
+    )
+    .map_err(RpcError::internal)?;
+    std::fs::create_dir_all(folder.join("skills")).map_err(RpcError::internal)?;
+    for (name, source) in skills {
+        std::os::unix::fs::symlink(source, folder.join("skills").join(name))
+            .map_err(RpcError::internal)?;
+    }
+    Ok(folder.to_owned())
+}

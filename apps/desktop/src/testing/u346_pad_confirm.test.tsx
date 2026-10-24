@@ -1,3 +1,4 @@
+import { questionDialog, answerQuestion } from "../shelf/bulkQuestionHarness";
 // @vitest-environment jsdom
 import { cleanup, fireEvent, render, screen, waitFor, within } from "@solidjs/testing-library";
 import { showEverythingInApp } from "./showEverything";
@@ -69,9 +70,8 @@ describe("u346 the Pad's confirm delete takes a real click", () => {
 
     fireEvent.click(await within(drawer).findByRole("button", { name: "Delete" }));
 
-    const confirm = (await within(drawer).findAllByRole("button", { name: "Delete" }))[0]!;
-
-    for (const type of ["pointerdown", "mousedown", "pointerup", "mouseup", "click"]) fireEvent(confirm, new MouseEvent(type, { bubbles: true, cancelable: true }));
+    await questionDialog();
+    await answerQuestion(true);
 
     await waitFor(() => expect(within(shelf).queryByRole("button", { name: "plan" })).toBeNull());
     expect(calls.filter((method) => method === "pad.delete")).toHaveLength(1);
@@ -196,9 +196,10 @@ it("p2544e_reopen_saved_agent_work", async () => {
       await browser("wait", ".ProseMirror[role=textbox]");
       // DrawerHost and styles.css's Shelf transitions finish independently before the next pointer input.
       // Readiness comes after the lazy editor mounts, so its layout participates in the settled frame.
+      // Overlay thumbs follow a ScrollTimeline; only the wall-clock transitions finish at rest.
       await evaluate(`(async () => {
         await Promise.all(document.getAnimations()
-          .filter(animation => animation.effect.getComputedTiming().iterations !== Infinity)
+          .filter(animation => animation.timeline === document.timeline && animation.effect.getComputedTiming().iterations !== Infinity)
           .map(animation => animation.finished));
         return true;
       })()`);

@@ -499,6 +499,7 @@ pub(super) fn finished_event(id: &str, kind: contracts::Kind) -> String {
         seq: None,
         actor: contracts::Actor::daemon(),
         data: contracts::EventData::AgentStatus(Box::new(contracts::agent::StatusEvent {
+            ended: false,
             id: id.into(),
             attempt: "1".into(),
             status_revision: "99".into(),
@@ -506,6 +507,7 @@ pub(super) fn finished_event(id: &str, kind: contracts::Kind) -> String {
                 kind,
                 label: "finished".into(),
                 since: 0,
+                finished: "0".into(),
             },
         })),
     })

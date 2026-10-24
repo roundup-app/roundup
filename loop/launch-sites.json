@@ -81,6 +81,11 @@
     "data": "Production implementation, test caller, client or name reference; launches delegate to the owners above.",
     "kind": "reference"
   },
+  "apps/desktop/src/terminal/u514_browser.test.ts": {
+    "cleanup": "The mouse observer awaits real.stop() in finally; the fixture waits for its Daemon to exit before removing its owned folders.",
+    "data": "Delegates to startRealDaemon, which supplies an absolute ROUNDUP_DATA_DIR in its owned temporary folder.",
+    "kind": "reference"
+  },
   "apps/desktop/src/testing/a33_blocked_real_daemon.test.tsx": {
     "cleanup": "Launch owner above supplies cleanup; this caller launches no executable itself.",
     "data": "Uses audited desktop fixture or a fake/client reference; no separate built-Daemon launch.",
@@ -238,7 +243,7 @@
     "data": "Fresh absolute mkdtemp data directory overrides inherited App data; HOME, vendor config and Project are isolated under the same run-owned folder.",
     "issue": 3026,
     "kind": "real",
-    "sha256": "a98a814a165e89595917e128c522db11a34a8a20f3f7162e0eabd2d3ad05e533"
+    "sha256": "90e27bfae4c913fd8831393903f8bedebe238eb04101c6ad57f1575e46b104a8"
   },
   "crates/agents/src/claude_code/mod.rs": {
     "cleanup": "No separate built-Daemon launch site.",
@@ -862,11 +867,6 @@
     "sha256": "42c071ff14001c2633d5bbca5c3c3ff3fa832538a3d26c6151c41132abe2af6b"
   },
   "apps/desktop/src/terminal/u3783_note_routes.test.tsx": {
-    "cleanup": "Launch owner above supplies cleanup; this caller launches no executable itself.",
-    "data": "Uses audited desktop fixture or a fake/client reference; no separate built-Daemon launch.",
-    "kind": "reference"
-  },
-  "apps/desktop/src/testing/u3781_real_daemon.test.tsx": {
     "cleanup": "Launch owner above supplies cleanup; this caller launches no executable itself.",
     "data": "Uses audited desktop fixture or a fake/client reference; no separate built-Daemon launch.",
     "kind": "reference"

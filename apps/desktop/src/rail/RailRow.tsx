@@ -129,7 +129,10 @@ export const RailRowView = (props: {
   /** U426: the icons of a Workstream or Agent row. */
   actions: RowActions;
 }) => {
-  const { worktrees, queue } = useConnectedProject();
+  const { worktrees, queue, unseen } = useConnectedProject();
+
+  /** U3566: the row's own finish is unread, or a folded Workstream hides an unread one below it. */
+  const unread = () => unseen.of(props.row.node.id) || (workstream() && props.row.collapsed !== null && unseen.below(props.row.node.id));
 
   /** a queued Workstream's place, or the Todo it waits for; gone once its Door starts or the entry leaves. */
   const queuedBadge = () => {
@@ -178,6 +181,7 @@ export const RailRowView = (props: {
   const label = () => [
     props.row.node.name,
     ...(workstream() || !props.row.node.status ? [] : [props.row.node.status.label]),
+    ...(unread() ? [copy.unreadResult] : []),
     ...(needsYouShown() ? [copy.needYou(props.needsYou)] : []),
     ...(workstream() && props.row.collapsed ? [copy.agents(props.row.collapsed.agents.length)] : []),
   ].join(copy.comma);
@@ -267,6 +271,7 @@ export const RailRowView = (props: {
             </span>
           </span>
         }>{name()}</Show>
+        <Show when={unread()}><span class="unread-dot" data-state="" role="img" aria-label={copy.unreadResult}>{copy.unseenMark}</span></Show>
         <Show when={queuedBadge()}>{(badge) => <span class="light queue-badge">{badge()}</span>}</Show>
         <Show when={workstream()}>
           <Show
@@ -318,7 +323,9 @@ export const RailRowView = (props: {
         </span>
         <PadsControl pads={pads} />
       </p>
-      <ReservedLine overlay message={pads.failure()} />
+      <ReservedLine overlay message={pads.failure.message()}>
+        <button type="button" data-button="quiet" onClick={pads.failure.clear}>{copy.close}</button>
+      </ReservedLine>
     </div>
   );
 

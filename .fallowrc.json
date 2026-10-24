@@ -1,4 +1,7 @@
 {
+  "rules": {
+    "duplicate-exports": "off"
+  },
   "entry": [
     "contracts/**/*.ts",
     "apps/*/harness.html",
@@ -10,5 +13,8 @@
   ],
   "ignoreDependencies": [
     "@oxlint/plugins"
-  ]
+  ],
+  "rules": {
+    "duplicate-exports": "off"
+  }
 }

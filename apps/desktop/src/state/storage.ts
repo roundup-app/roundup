@@ -27,6 +27,15 @@ export const storedValue = <T>(key: string, schema: v.GenericSchema<unknown, T>)
 
   return {
     restore,
+    clear: (): string | null => {
+      try {
+        window.localStorage.removeItem(key);
+
+        return null;
+      } catch (error) {
+        return error instanceof Error ? error.message : String(error);
+      }
+    },
     read: (): T | null => {
       const result = restore();
 

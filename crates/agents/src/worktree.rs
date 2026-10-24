@@ -1192,7 +1192,7 @@ fn retain_directory(
 
 /// `path` as git lists it, even when the directory is gone: the nearest existing ancestor is
 /// resolved (a symlinked temp directory) and the missing rest is appended.
-fn canonical_path(path: &Path) -> PathBuf {
+pub(crate) fn canonical_path(path: &Path) -> PathBuf {
     if let Ok(resolved) = path.canonicalize() {
         return resolved;
     }

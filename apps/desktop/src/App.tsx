@@ -1,3 +1,6 @@
+import { textTarget } from "./ui/contextMenu";
+import { AppSettings } from "./settings/AppSettings";
+import { applyAppAppearance } from "./settings/preferences";
 import { registerKeys } from "./keys/registry";
 import { LEADER } from "./keys/chords";
 import { copy } from "./copy";
@@ -72,6 +75,8 @@ const Connection = (props: {
   onRequested: (request: Requested) => void;
   toasts: ToastQueue;
   active: () => boolean;
+  /** U3566: this Project is on screen in a visible, focused window. */
+  viewing: () => boolean;
   show: () => void;
 }) => {
   const first = props.tab();
@@ -83,7 +88,7 @@ const Connection = (props: {
 
   const [connected] = createResource(async () => {
     try {
-      return await connectProject(props.app.forProject(path), first.project, props.reducedMotion, props.now, () => props.tab()?.exit ?? null, railStorage(path), props.drafts(path));
+      return await connectProject(props.app.forProject(path), first.project, props.reducedMotion, props.now, () => props.tab()?.exit ?? null, railStorage(path), props.drafts(path), props.viewing);
     } catch (failure) {
       if (!(failure instanceof Error)) throw failure;
 
@@ -130,7 +135,7 @@ const Connection = (props: {
     if (!open || open instanceof Error) return;
 
     // Untracked: watchProject reads the Rail's nodes, and each Status change would else rebuild the watch with that change already seen.
-    onCleanup(untrack(() => watchProject(open, props.toasts.push, props.show, props.active)));
+    onCleanup(untrack(() => watchProject(open, props.toasts.push, props.show, props.active, props.toasts.settle)));
   });
 
   createEffect(() => {
@@ -170,7 +175,6 @@ export const App = (props: {
   drafts?: ReturnType<typeof createProjectDrafts>;
 }) => {
   const clearBrowserSelection = (event: MouseEvent) => {
-    document.documentElement.dataset.keyboardFocus = "false";
 
     if (event.button !== 0 || event.ctrlKey) return;
 
@@ -183,21 +187,22 @@ export const App = (props: {
     }
   };
 
-  const suppressBrowserMenu = (event: MouseEvent) => event.preventDefault();
+  const suppressBrowserMenu = (event: MouseEvent) => {
+    if (!textTarget(event.target)) event.preventDefault();
+  };
 
   onMount(() => {
-    window.addEventListener("contextmenu", suppressBrowserMenu, true);
-    // Start keyboard-visible for native accessibility focus arriving before any page input.
-    document.documentElement.dataset.keyboardFocus = "true";
+    window.addEventListener("contextmenu", suppressBrowserMenu);
     window.addEventListener("pointerdown", clearBrowserSelection, true);
   });
   onCleanup(() => {
-    window.removeEventListener("contextmenu", suppressBrowserMenu, true);
+    window.removeEventListener("contextmenu", suppressBrowserMenu);
     window.removeEventListener("pointerdown", clearBrowserSelection, true);
-    delete document.documentElement.dataset.keyboardFocus;
   });
 
+  applyAppAppearance();
   const projects = createProjectsState(props.app);
+  const [settingsOpen, setSettingsOpen] = createSignal(false);
   const drafts = props.drafts ?? createProjectDrafts();
   const tabsId = createUniqueId();
   const [connections, setConnections] = createSignal<Connections>(new Map());
@@ -205,6 +210,16 @@ export const App = (props: {
   const onVisibility = () => setVisible(document.visibilityState !== "hidden");
   document.addEventListener("visibilitychange", onVisibility);
   onCleanup(() => document.removeEventListener("visibilitychange", onVisibility));
+  // U3566: the window's focus, which `document.hasFocus()` alone does not announce.
+  const [focused, setFocused] = createSignal(document.hasFocus());
+  const onFocus = () => setFocused(true);
+  const onBlur = () => setFocused(false);
+  window.addEventListener("focus", onFocus);
+  window.addEventListener("blur", onBlur);
+  onCleanup(() => {
+    window.removeEventListener("focus", onFocus);
+    window.removeEventListener("blur", onBlur);
+  });
 
   const isWorking = () => projects.tabs().some((tab) => {
     const connection = connections().get(tab.project.path);
@@ -269,6 +284,12 @@ export const App = (props: {
     return connection instanceof Error ? undefined : connection?.rail;
   };
 
+  const connectionOf = (path: string): ConnectedProject | undefined => {
+    const connection = connections().get(path);
+
+    return connection instanceof Error ? undefined : connection;
+  };
+
   const stripTabs = createMemo<StripTab[]>(() =>
     projects.tabs().map((tab) => {
       const nodes = railOf(tab.project.path)?.nodes ?? [];
@@ -280,6 +301,7 @@ export const App = (props: {
         exitText: tab.exit ? daemonExitText(tab.exit) : null,
         busy: !connections().has(tab.project.path),
         ...attentionCounts(nodes),
+        unseen: connectionOf(tab.project.path)?.unseen.any() ?? false,
         running: nodes.flatMap((node) => (node.status && RUNNING.has(node.status.kind) ? [node.name] : [])),
       };
     }),
@@ -306,6 +328,8 @@ export const App = (props: {
 
     return path === null ? undefined : connections().get(path);
   });
+
+  createEffect(() => { void props.app.selectProjectMenu(projects.active()).catch(error => setWindowFailure(error instanceof Error ? error.message : String(error))); });
 
   /** U181: that Project opens and its most urgent Agent is selected, as leader `J` does. */
   const jumpTo = (path: string) => {
@@ -339,7 +363,7 @@ export const App = (props: {
   return (
     <DisplayClockContext.Provider value={now.subscribe}><ProjectDraftsContext.Provider value={drafts}><Show when={projects.loaded()}>
       <For each={keys()}>
-        {(key) => <Connection drafts={drafts} app={dropTargets.app} tab={tabOf(key.split("\n")[0]!)} reducedMotion={props.reducedMotion} now={pollingNow} onConnected={connect} onRequested={answer} toasts={toasts} active={() => projects.active() === key.split("\n")[0]} show={() => projects.select(key.split("\n")[0]!)} />}
+        {(key) => <Connection drafts={drafts} app={dropTargets.app} tab={tabOf(key.split("\n")[0]!)} reducedMotion={props.reducedMotion} now={pollingNow} onConnected={connect} onRequested={answer} toasts={toasts} active={() => projects.active() === key.split("\n")[0]} viewing={() => projects.active() === key.split("\n")[0] && visible() && focused()} show={() => projects.select(key.split("\n")[0]!)} />}
       </For>
       <DockBadge app={props.app} rails={() => [...connections().values()].flatMap((connection) => (connection instanceof Error ? [] : [connection.rail.nodes]))} onFailure={setBadgeFailure} />
       <Tabs.Root id={tabsId} value={projects.active()} onValueChange={({ value }) => projects.select(value)} activationMode="manual" style={{ display: "contents" }}
@@ -374,7 +398,7 @@ export const App = (props: {
               onSelect={projects.select}
               onMark={jumpTo}
               onRename={renameProject}
-              onClose={(path) => void projects.close(path)}
+              onClose={(path) => projects.close(path)}
               onChoose={() => void projects.choose()}
               app={props.app}
             />
@@ -399,6 +423,8 @@ export const App = (props: {
           </>
         }
         centre={
+          <div class="settings-center">
+          <div class="settings-center-content" inert={settingsOpen()} style={{ visibility: settingsOpen() ? "hidden" : "visible" }}>
           <Show when={projects.tabs().length > 0} fallback={<ChooseProject failure={projects.failure()} onChoose={() => void projects.choose()} />}>
             <InProject open={activeConnection()} failed={failureLine}>
               {(open) => {
@@ -407,17 +433,24 @@ export const App = (props: {
 
                 return (
                   <div class="centre-stack">
-                    <Pane notice={open.rail.failure() ?? jumpFailure() ?? open.contractNotice} createEmulator={tracked} screensRef={setScreens} toasts={toasts} />
+                    <div class="project-center-area">
+                    <div class="project-center-content" inert={open.settingsView.open()} style={{ visibility: open.settingsView.open() ? "hidden" : "visible" }}>
+                    <Pane notice={open.rail.failure() ?? jumpFailure() ?? open.contractNotice} createEmulator={tracked} screensRef={setScreens} />
                     <AskBar />
-                    <Show when={screens()}>{(shared) => <Bubbles screens={shared()} />}</Show>
                     <Switcher onFailure={setJumpFailure} onOpen={() => { if (document.querySelector('.window[data-shelf="open"][data-shelf-mode="overlay"]')) shelfFocus.toggle("key"); }} />
-                    <ResourceStrip />
+                    </div>
                     <ProjectSettingsView />
+                    </div>
+                    <Show when={screens()}>{(shared) => <Bubbles screens={shared()} />}</Show>
+                    <ResourceStrip />
                   </div>
                 );
               }}
             </InProject>
           </Show>
+          </div>
+          <AppSettings app={props.app} project={() => projects.active()} onOpenChange={setSettingsOpen} />
+          </div>
         }
         shelf={
           <Tabs.RootProvider value={shelfTabs} id="shelf-panels" lazyMount unmountOnExit style={{ display: "contents" }} onKeyDown={shelfFocus.moveFocus}>

@@ -862,12 +862,11 @@ class Attach(unittest.TestCase):
         self.assertIn('::error::PR_ATTACH_TOKEN is not set; captures not attached', out)
         self.assertEqual([c.args[0][0] for c in run.call_args_list], ['git'])
 
-    def test_l23_captures_attach_to_the_branch_pr_with_only_the_attach_token(self):
-        code, _, run = self.run_attach('user')
+    def test_l23_at_most_a_dozen_after_change_captures_attach_to_the_branch_pr_with_only_the_attach_token(self):
+        # A before capture is skipped, and the body's 11 attachments leave room for one more of a dozen.
+        code, _, run = self.run_attach('user', ('ux/U1/a.png', 'ux/U1/a-before.png', 'ux/U1/c.webm'), 'Scenarios: U1' + ' https://github.com/user-attachments/assets/1' * 11)
         self.assertEqual(code, 0)
-        command = run.call_args.args[0]
-        self.assertEqual(command, ['gh', 'pr', 'edit', '7', '--attach', f'{self.tree}/artifacts/ux/U1/a.png#U1/a', '--attach',
-                                   f'{self.tree}/artifacts/ux/U1/c.webm'])
+        self.assertEqual(run.call_args.args[0], ['gh', 'pr', 'edit', '7', '--attach', f'{self.tree}/artifacts/ux/U1/a.png#U1/a'])
         self.assertEqual(run.call_args.kwargs['env']['GH_TOKEN'], 'user')
 
     def test_l23_a_capture_of_a_scenario_the_pr_does_not_name_is_not_attached(self):

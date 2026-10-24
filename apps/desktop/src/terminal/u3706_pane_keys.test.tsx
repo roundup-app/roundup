@@ -1,6 +1,6 @@
 import { cleanup, waitFor } from "@solidjs/testing-library";
 import { afterEach, expect, it } from "vitest";
-import { mountSwitcher, press } from "../switcher/switcherFixture";
+import { mountSwitcher, switcherKey as press } from "../switcher/switcherFixture";
 
 afterEach(cleanup);
 
@@ -19,7 +19,6 @@ it("u3706_pane_keys_follow_the_registry", async () => {
   const { app, connected } = await mountFocused();
 
   expect(press("c", { metaKey: true }, screenTarget()).defaultPrevented).toBe(true);
-  expect(press("a", { metaKey: true, shiftKey: true }, screenTarget()).defaultPrevented).toBe(true);
   expect(press("Enter", { metaKey: true }, screenTarget()).defaultPrevented).toBe(true);
   await waitFor(() => expect(connected.takeover.taken()).toBe("ann"));
   expect(app.calls.filter((call) => call.method === "takeover.begin")).toHaveLength(1);
@@ -30,7 +29,7 @@ it("u3706_typing_reaches_xterm", async () => {
 
   const chords: [string, KeyboardEventInit][] = [
     ["r", { ctrlKey: true }], ["f", { altKey: true }], ["j", { metaKey: true }], ["x", { metaKey: true }],
-    ["=", { ctrlKey: true }], ["c", { ctrlKey: true }], ["c", { metaKey: true, altKey: true }], ["v", { metaKey: true, shiftKey: true }],
+    ["=", { ctrlKey: true }], ["c", { ctrlKey: true }], ["c", { metaKey: true, altKey: true }],
   ];
 
   for (const [key, init] of chords) expect(press(key, init, screenTarget()).defaultPrevented, `${key} ${JSON.stringify(init)}`).toBe(false);

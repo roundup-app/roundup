@@ -1,7 +1,6 @@
 .todo-blocker-menu {
   width: min(calc(var(--space-5) * 16), 90vw);
   padding: var(--space-1);
-  box-shadow: var(--shadow-drawer);
 }
 
 .todo-blocker-menu .app-combobox-item[data-highlighted] {
@@ -23,10 +22,6 @@
 
 .todo-blocker-menu .app-combobox-input {
   box-sizing: border-box;
-}
-
-.todo-blocker-menu .app-combobox-input:focus {
-  outline-width: 0;
 }
 
 .todo-blocker-trigger {

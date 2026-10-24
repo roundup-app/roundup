@@ -1,6 +1,6 @@
 import { KeyHint } from "./KeyHint";
 import { copy } from "../copy";
-import { createSignal, For, Show } from "solid-js";
+import { createSignal, For } from "solid-js";
 import { CHORDS, HELP_KEYS, LEADER } from "./chords";
 import { placeOf } from "./places";
 import { registerKeys } from "./registry";
@@ -11,13 +11,12 @@ const bubbleScopes = new Map(Object.entries(copy.helpBubbleScope));
 const rowScopes = new Map(Object.entries(copy.helpRowScope));
 
 const sections = () => [
-  { title: copy.helpScope.app, rows: CHORDS.filter(row => !row.inRail && !row.onAgent && !row.inSwitcher && !row.inTerminals && !row.inShelf && !row.inNote) },
+  { title: copy.helpScope.app, rows: CHORDS.filter(row => !row.inRail && !row.onAgent && !row.inSwitcher && !row.inTerminals && !row.inShelf) },
   { title: copy.helpScope.leader, rows: LEADER.map(row => ({ ...row, keys: `${copy.leaderChord} ${row.keys}`, what: bubbleScopes.get(row.keys) ?? row.what })) },
   { title: copy.helpScope.terminals, rows: CHORDS.filter(row => row.inTerminals) },
   { title: copy.helpScope.switcher, rows: CHORDS.filter(row => row.inSwitcher) },
   { title: copy.helpScope.rail, rows: CHORDS.filter(row => row.inRail) },
   { title: copy.helpScope.agent, rows: CHORDS.filter(row => row.onAgent) },
-  { title: copy.helpScope.note, rows: CHORDS.filter(row => row.inNote) },
   { title: copy.helpScope.shelf, rows: CHORDS.filter(row => row.inShelf && !row.inTriage && row.keys !== "T").map(row => ({ ...row, what: rowScopes.get(row.keys) ?? row.what })) },
   { title: copy.helpScope.todos, rows: CHORDS.filter(row => row.inShelf && row.keys === "T") },
   { title: copy.helpScope.triage, rows: CHORDS.filter(row => row.inTriage) },
@@ -57,12 +56,11 @@ export const Help = () => {
   ]);
 
   return (
-    <Show when={open()}>
-    <Dialog.Root open onOpenChange={({ open }) => { if (!open) close(); }}
+    <Dialog.Root open={open()} onOpenChange={({ open }) => { if (!open) close(); }}
       initialFocusEl={() => panel ?? null}
       finalFocusEl={() => returnTo instanceof HTMLElement && returnTo.isConnected ? returnTo : null}
       onEscapeKeyDown={(event) => event.stopImmediatePropagation()}>
-      <Dialog.Content class="help" aria-label={copy.help} ref={(element) => { panel = element; queueMicrotask(() => element.isConnected && element.focus({ preventScroll: true })); }}>
+      <Dialog.Positioner><Dialog.Content class="help" aria-label={copy.help} ref={(element) => { panel = element; queueMicrotask(() => element.isConnected && element.focus({ preventScroll: true })); }}>
         <For each={sections()}>{section => <section class="help-section">
           <h2>{section.title}</h2>
           <For each={section.rows}>{chord => <p class="help-line"><KeyHint keys={chord.keys}>{chord.what}</KeyHint></p>}</For>
@@ -74,8 +72,8 @@ export const Help = () => {
         <p><KeyHint keys={copy.rangeKeys}>{copy.selectARangeOfShelfRows}</KeyHint></p>
         <p><KeyHint keys={copy.esc}>{copy.deleteSelectedShelfRowsCancelSelection}</KeyHint></p>
         </section>
-      </Dialog.Content>
+        <div class="app-dialog-actions"><Dialog.CloseTrigger data-button="quiet">{copy.close}</Dialog.CloseTrigger></div>
+      </Dialog.Content></Dialog.Positioner>
     </Dialog.Root>
-    </Show>
   );
 };

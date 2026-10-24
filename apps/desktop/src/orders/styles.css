@@ -87,13 +87,6 @@
   overscroll-behavior: contain;
 }
 
-.order-field textarea:focus-visible {
-  background-image: linear-gradient(var(--accent), var(--accent));
-  background-repeat: no-repeat;
-  background-position: bottom;
-  background-size: 100% calc(var(--space-1) / 2);
-}
-
 .order-edit-error {
   display: flex;
   align-items: baseline;
@@ -109,6 +102,8 @@
   gap: var(--space-3);
   --button-inline: var(--space-2);
 }
+
+.order-edit-recovery { min-height: var(--space-5); }
 
 /* Q3: generated text is laid out as hold:Plain asks, left-aligned in the UI font. */
 .order-drawer {
@@ -204,6 +199,9 @@
 }
 
 .progress-head h3 {
+  font-size: var(--text-small);
+  font-weight: 400;
+  color: var(--grey);
   margin: 0;
 }
 

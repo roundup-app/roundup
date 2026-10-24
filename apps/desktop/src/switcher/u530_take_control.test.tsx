@@ -1,6 +1,6 @@
 import { cleanup, fireEvent, waitFor } from "@solidjs/testing-library";
 import { afterEach, describe, expect, it } from "vitest";
-import { openSwitcher, field, mountSwitcher, press, rows } from "./switcherFixture";
+import { openSwitcher, field, mountSwitcher, switcherKey as press, rows } from "./switcherFixture";
 
 afterEach(() => { cleanup(); localStorage.clear(); });
 

@@ -1,58 +1,36 @@
 import type { ITheme } from "@xterm/xterm";
+import tokens from "../tokens.css?inline";
 
 /** An emulator theme that always names the two colours the Daemon reports to a program (X17). */
 export type TerminalTheme = ITheme & { background: string; foreground: string };
 
-/** The emulator's colours per scheme, as the values of `tokens.css`'s `--ground`, `--text` and `--selected` in that scheme; `u59_terminal_theme.test.ts` fails when they drift apart. Each ANSI colour is 4.5:1 or better on its scheme's `--ground` as text (U4). */
-export const lightTerminalTheme: TerminalTheme = {
-  background: "#ffffff",
-  foreground: "#1d1d1f",
-  cursor: "#1d1d1f",
-  cursorAccent: "#ffffff",
-  selectionBackground: "rgba(0, 0, 0, 0.05)",
-  black: "#1d1d1f",
-  red: "#c4262e",
-  green: "#1a7f37",
-  yellow: "#975900",
-  blue: "#0a60d8",
-  magenta: "#a626a4",
-  cyan: "#0b7285",
-  white: "#68686d",
-  brightBlack: "#515154",
-  brightRed: "#d1242f",
-  brightGreen: "#167a33",
-  brightYellow: "#8f5400",
-  brightBlue: "#0a55c0",
-  brightMagenta: "#9b2199",
-  brightCyan: "#0a6a7c",
-  brightWhite: "#3a3a3c",
+// Resolve the same Terminal Tokens CSS uses, including for X17 before a pane is attached.
+const theme = (dark: boolean): TerminalTheme => {
+  const column = dark ? tokens.split(/:root\[data-mode=["']?dark["']?\]/)[1]! : tokens;
+
+  const value = (name: string): string => {
+    const colour = new RegExp(`--terminal-${name}:\\s*([^;]+);`).exec(column)![1]!.trim();
+
+    // Vite shortens hex in production CSS; terminal.scheme requires #rrggbb.
+    return colour.replace(/^#([a-f\d])([a-f\d])([a-f\d])$/i, "#$1$1$2$2$3$3");
+  };
+
+  return {
+    background: value("background"), foreground: value("foreground"),
+    cursor: value("cursor"), cursorAccent: value("cursor-text"),
+    selectionBackground: value("selection"), selectionForeground: value("selection-text"),
+    selectionInactiveBackground: value("selection"),
+    black: value("black"), red: value("red"), green: value("green"), yellow: value("yellow"),
+    blue: value("blue"), magenta: value("magenta"), cyan: value("cyan"), white: value("white"),
+    brightBlack: value("bright-black"), brightRed: value("bright-red"), brightGreen: value("bright-green"),
+    brightYellow: value("bright-yellow"), brightBlue: value("bright-blue"), brightMagenta: value("bright-magenta"),
+    brightCyan: value("bright-cyan"), brightWhite: value("bright-white"),
+  };
 };
 
-export const darkTerminalTheme: TerminalTheme = {
-  background: "#1c1c1e",
-  foreground: "#f5f5f7",
-  cursor: "#f5f5f7",
-  cursorAccent: "#1c1c1e",
-  selectionBackground: "rgba(255, 255, 255, 0.1)",
-  black: "#8e8e93",
-  red: "#ff6b6b",
-  green: "#5fd37a",
-  yellow: "#f0a030",
-  blue: "#4d9bff",
-  magenta: "#d98cff",
-  cyan: "#4ccfe0",
-  white: "#d1d1d6",
-  brightBlack: "#a1a1a6",
-  brightRed: "#ff8a8a",
-  brightGreen: "#7ee596",
-  brightYellow: "#ffbe55",
-  brightBlue: "#79b4ff",
-  brightMagenta: "#e5a8ff",
-  brightCyan: "#7adfec",
-  brightWhite: "#ffffff",
-};
+export const lightTerminalTheme = theme(false);
 
-export const DARK_SCHEME = "(prefers-color-scheme: dark)";
+export const darkTerminalTheme = theme(true);
 
 /** The theme for the window's colour scheme. */
 export const terminalThemeFor = (dark: boolean): TerminalTheme => (dark ? darkTerminalTheme : lightTerminalTheme);

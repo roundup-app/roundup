@@ -14,7 +14,6 @@ export const TickBox = (props: { todo: Todo; onToggle: () => Promise<string | nu
     <input
       type="checkbox"
       class="todo-tick glyph"
-      style={{ "outline-offset": "calc(-1 * var(--space-1))" }}
       aria-label={props.todo.done ? copy.reopenTodo(props.todo.title) : copy.completeTodo(props.todo.title)}
       checked={props.todo.done}
       aria-busy={pending()}

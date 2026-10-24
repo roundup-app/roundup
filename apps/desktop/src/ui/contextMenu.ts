@@ -1,5 +1,7 @@
+import { writeText } from "../app/clipboard";
 import type { RpcMethods } from "@contracts/methods";
 import type { RailNode } from "@contracts/agent/RailNode";
+import { railOrder } from "../rail/layout";
 import { copy } from "../copy";
 import type { App, AppSeam, MenuItem } from "../app/seam";
 
@@ -76,8 +78,9 @@ export const linkEntries = (
   nodes: readonly RailNode[],
   running: (node: RailNode) => boolean,
   fail: (message: string) => void,
+  copied: () => void = () => {},
 ): MenuEntry[] => {
-  const attempt = async (call: (link: string) => Promise<void>) => {
+  const attempt = async (call: (link: string) => Promise<void>, verb: "copy" | "send" = "send") => {
     try {
       const link = await linkOf(app, target);
 
@@ -88,14 +91,19 @@ export const linkEntries = (
       }
 
       await call(link.url);
+
+      if (verb === "copy") copied();
     } catch (error) {
-      if (error instanceof Error) fail(error.message);
+      if (error instanceof Error) fail(verb === "copy" ? copy.copyDraftFailure(error.message) : error.message);
       else throw error;
     }
   };
 
-  const children = nodes.flatMap((agent): MenuEntry[] =>
-    (agent.kind !== "agent" && agent.attempt === null) || !running(agent) ? [] : [{
+  const source = target.kind === "agent" || target.kind === "workstream" ? target.id
+    : target.kind === "terminal" ? nodes.find(node => node.terminal_id === target.id && (node.kind === "agent" || node.attempt !== null))?.id : undefined;
+
+  const children = railOrder(nodes).flatMap((agent): MenuEntry[] =>
+    agent.id === source || (agent.kind !== "agent" && agent.attempt === null) || !running(agent) ? [] : [{
       id: `send:${agent.id}`,
       label: agent.name,
       run: () => attempt(async link => {
@@ -106,12 +114,18 @@ export const linkEntries = (
     }]);
 
   return [
-    ...(children.length ? [{ id: "send", label: copy.sendToAgentMenu, children }] : []),
+    children.length ? { id: "send", label: copy.sendToAgentMenu, children } : { id: "send", label: copy.sendToAgentMenu, enabled: false },
     { id: "copy-link", label: copy.copyLink, run: () => attempt(async link => {
-      await navigator.clipboard.writeText(target.kind === "deliverable" ? copy.linkNote(link) : link);
-    }) },
+      await writeText(app, target.kind === "deliverable" ? copy.linkNote(link) : link);
+    }, "copy") },
   ];
 };
+
+/** Text and emulator gestures belong to their editor, including text inside an object's row. */
+export const textTarget = (target: EventTarget | null): boolean => target instanceof Element && (
+  target.closest('.pane-screen, .bubble-body, input, textarea, [contenteditable], .pad-editor, .diff-content, pre, code') !== null
+  || getComputedStyle(target).userSelect === "text"
+);
 
 /** U421, U2694e: a right-button press that moves this far (CSS pixels) is a Pull; short of it, a click. */
 export const PULL_DISTANCE = 8;
@@ -121,6 +135,8 @@ export const PULL_DISTANCE = 8;
  * A Pull stops its own release (U421), so a drag past the distance opens nothing.
  */
 export const openOnRelease = (press: MouseEvent, open: (x: number, y: number) => void): void => {
+  if (textTarget(press.target)) return;
+
   press.preventDefault();
 
   if ((press.buttons & 2) === 0) {

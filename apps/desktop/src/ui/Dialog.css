@@ -1,9 +1,9 @@
 .app-dialog {
+  box-sizing: border-box;
+  max-width: calc(100vw - var(--space-6) * 2);
+  max-height: calc(100vh - var(--space-6) * 2);
   color: var(--text);
-  background-color: var(--sunken);
-  border-radius: var(--radius-drawer);
   padding: var(--space-4);
-  box-shadow: var(--shadow-drawer);
 }
 
 .app-dialog [data-part="title"] {
@@ -20,11 +20,6 @@
   place-items: center;
   box-sizing: border-box;
   padding: var(--space-6);
-}
-
-.app-dialog:focus,
-.app-dialog:focus-visible {
-  outline: none;
 }
 
 /* A titled form dialog: the title leads, fields stack on space Tokens, the actions sit right-aligned. */
@@ -60,10 +55,6 @@
   resize: none;
   overflow: hidden;
   white-space: pre;
-}
-
-.app-dialog-form textarea:focus {
-  outline-width: 0;
 }
 
 .app-dialog-form textarea:hover:not(:disabled) {
@@ -108,4 +99,31 @@
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.app-dialog-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: var(--layer-popover);
+  background-color: var(--scrim);
+}
+
+:is(.app-dialog, .app-dialog-backdrop) {
+  opacity: 1;
+}
+
+:is(.app-dialog, .app-dialog-backdrop)[data-motion="fade"] {
+  transition: opacity var(--duration-crossfade) var(--easing-out);
+  @starting-style { opacity: 0; }
+}
+
+:is(.app-dialog, .app-dialog-backdrop)[data-open="false"] {
+  opacity: 0;
+  pointer-events: none;
+}
+
+.app-dialog-positioner:has(.app-dialog[inert]) { pointer-events: none; }
+
+@media (prefers-reduced-motion: reduce) {
+  :is(.app-dialog, .app-dialog-backdrop)[data-motion="fade"] { transition-duration: 0s; }
 }

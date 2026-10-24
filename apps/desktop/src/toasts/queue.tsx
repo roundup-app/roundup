@@ -12,8 +12,8 @@ const MOST_SHOWN = 3;
 
 const CHIME_GAP_MS = 1000;
 
-/** U3790: a notice leaves after 5 s (the shared Toast's default), a failure after 10 s. */
-const FAILURE_MS = 10000;
+/** P3557c: a failure about an item has no time; it leaves when the item is deleted or saved, or the user closes it. */
+const NO_TIME = Number.POSITIVE_INFINITY;
 
 /** The failure line's card identity; like the summary, no Candidate owns it. */
 const FAILURE = "failure";
@@ -24,6 +24,8 @@ const MORE = "more";
 /** What an event of U410 asks for. `key` is the acting Agent, so its repeats replace its Toast; `open` answers a failure line, or `null`. */
 export type Candidate = {
   key: string;
+  /** P3557c: the item a failure of `open` is about, such as `todo:7`; the same item opening again, deleted or saved clears that failure. */
+  item: string;
   kind: Kind;
   name: string;
   line: string;
@@ -39,10 +41,12 @@ export type ToastQueue = {
   toast: ReturnType<typeof createToast>;
   /** How many cards show, so the layer re-measures only when they change. */
   shown: Accessor<number>;
-  /** U80's one failure line: a card of its own that hides after 10 s; the next Toast click or push clears it. */
+  /** U80's one failure line: a card of its own with no time; P3557c clears it with its item. */
   failure: Accessor<string | null>;
+  /** P3557c: the item was deleted or saved; its failure, and no other, clears. */
+  settle(item: string): void;
   push(candidate: Candidate): void;
-  /** U516: a Toast for something the user just did; it makes no sound and is never suppressed for the selected Agent. */
+  /** A Toast for something the user just did; it makes no sound and is never suppressed for the selected Agent. */
   notify(candidate: Candidate): void;
 };
 
@@ -50,6 +54,7 @@ export type ToastQueue = {
 export const createToastQueue = (inFront: () => boolean, chime: Chime, now: () => number = Date.now): ToastQueue => {
   const [entries, setEntries] = createSignal<readonly Entry[]>([]);
   const [failure, setFailure] = createSignal<string | null>(null);
+  let failedItem: string | null = null;
   const held = new Map<string, Candidate>();
   // Entries whose card is closing stay findable until the next push, for the activation that closed them.
   const known = new Map<string, Entry>();
@@ -63,6 +68,7 @@ export const createToastQueue = (inFront: () => boolean, chime: Chime, now: () =
     newestFirst: true,
     onDismiss: (id) => {
       if (id === FAILURE) {
+        failedItem = null;
         setFailure(null);
 
         return;
@@ -82,26 +88,31 @@ export const createToastQueue = (inFront: () => boolean, chime: Chime, now: () =
 
       if (!entry) return;
 
-      clearFailure();
-      void Promise.resolve(entry.open(source)).then(showFailure);
+      void Promise.resolve(entry.open(source)).then((message) => {
+        if (message === null) settle(entry.item);
+        else showFailure(message, entry.item);
+      });
     },
   });
 
-  /** A new line replaces the old one and starts its own time. */
   function clearFailure() {
     if (failure() === null) return;
 
+    failedItem = null;
     setFailure(null);
     toast.store.remove(FAILURE);
   }
 
-  function showFailure(message: string | null) {
+  function settle(item: string) {
+    if (failedItem === item) clearFailure();
+  }
+
+  /** A new line replaces the old one. */
+  function showFailure(message: string, item: string) {
     clearFailure();
-
-    if (message === null) return;
-
+    failedItem = item;
     setFailure(message);
-    toast.show({ id: FAILURE, name: "", content: "", body: () => <ReservedLine message={message} />, duration: FAILURE_MS, extra: true });
+    toast.show({ id: FAILURE, name: "", content: "", body: () => <ReservedLine message={message}><button type="button" data-button="quiet" onClick={() => toast.dismiss(FAILURE)}>{copy.close}</button></ReservedLine>, duration: NO_TIME, extra: true });
   }
 
   const shown = createMemo(() => Math.min(entries().length, MOST_SHOWN));
@@ -185,13 +196,11 @@ export const createToastQueue = (inFront: () => boolean, chime: Chime, now: () =
     toast,
     shown,
     failure,
+    settle,
     notify: (candidate) => {
-      clearFailure();
       show(candidate);
     },
     push: (candidate) => {
-      clearFailure();
-
       if (inFront()) {
         if (candidate.selected) return;
 

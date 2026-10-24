@@ -110,3 +110,11 @@ Rule 7 remains cold start <300 ms, keystroke-to-render <16 ms p95, ten idle Agen
 `just capture U3010b` runs `drawer/u3010b_rendered.test.ts` on `tree-40`, dark 1512×950: the Inbox Drawer (pointer open, reversal at 50% displaced, reopen at 50% of the return, Escape) and the reserved Shelf (close, reversal at 50%), each normal, quarter-speed (`Animation.playbackRate` 0.25) and reduced-motion, three runs each, raw timestamped boxes, focus and content in `artifacts/ux/U3010b/head/` (untracked). Observed: each retarget starts at the displayed edge (0 px difference at the same animation time, tolerance 1 px); normal runs hold 5 and quarter-speed runs 12 distinct intermediate Drawer samples; one frame after Escape the Drawer is closed with no exit content and focus on the opening control; reduced motion jumps to the destination with no intermediate sample.
 
 Decision: keep the crisp ease-out. The Motion spring variant was not run, so there is no measured gain to cite and no scenario amendment is filed; the library decision above stands, and the lifecycle is one small owner, `ui/slideLifetime.ts`, used by `DrawerHost` and `createShelfFrame` (no maintained library owns Solid exit retention). Native WKWebView evidence stays pending with U3010d until the Mac observation passes.
+
+### U3512 shared web modals
+
+| Surface | Source | Purpose | Property | Preset | Exit |
+| --- | --- | --- | --- | --- | --- |
+| Remaining web modal panel and scrim | Pointer | Soft appearance/disappearance | Opacity only | `--duration-crossfade` (120 ms), `--easing-out` | Same fade; retained content inert; focus/keyboard ownership released immediately |
+
+`ui/Dialog.tsx` reads pointer modality from `@zag-js/focus-visible`; the key registry marks modifier chords as keyboard input too. It reuses `createSlideLifetime` for completion, cancellation and reversal; CSS transitions retarget from current opacity. Key open/close, recovery and reduced motion are instant. Enabling reduced motion during a fade settles it immediately. No submit or RPC waits for a fade. Ark owns modal focus containment and dismissal. NSAlert motion is system-owned; anchored panels and Terminal Bubbles retain their previous motion contracts.

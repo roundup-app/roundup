@@ -74,6 +74,29 @@ pub(super) fn load_nodes(
 }
 
 impl Rail {
+    /// U3566c: the Agent's published finishes; `0` for a node never counted.
+    pub(crate) fn finished(&self, id: &str) -> Result<u64, RpcError> {
+        self.db
+            .query_row(
+                "SELECT finished FROM nodes WHERE CAST(id AS TEXT)=?1",
+                [id],
+                |row| row.get::<_, i64>(0),
+            )
+            .optional()
+            .map(|finished| finished.unwrap_or_default().cast_unsigned())
+            .map_err(sql)
+    }
+
+    pub(crate) fn set_finished(&mut self, id: &str, finished: u64) -> Result<(), RpcError> {
+        self.db
+            .execute(
+                "UPDATE nodes SET finished=?1 WHERE CAST(id AS TEXT)=?2",
+                params![finished.cast_signed(), id],
+            )
+            .map(drop)
+            .map_err(sql)
+    }
+
     pub(crate) fn set_auto(&mut self, id: &str, auto: bool) -> Result<bool, RpcError> {
         self.db
             .execute(

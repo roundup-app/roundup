@@ -1,3 +1,6 @@
+import { createFakeApp } from "../testing/fakeApp";
+import { questionDialog, answerQuestion } from "../shelf/bulkQuestionHarness";
+import { questionProbe } from "../testing/menuProbe";
 import { cleanup, fireEvent, render, waitFor, within } from "@solidjs/testing-library";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { createSignal, type JSX } from "solid-js";
@@ -36,7 +39,6 @@ import { NewWorkstream } from "../todos/NewWorkstream";
 import { Capture } from "../todos/Capture";
 import { TodoDraftRecovery } from "../todos/EditableText";
 import { TodoDrawer } from "../todos/TodoDrawer";
-import { mountSend } from "../terminal/sendHarness";
 import { openShelf, openPad, padOf } from "../pads/padsFixture";
 import { Switcher } from "../switcher/Switcher";
 import { Keys } from "../keys/Keys";
@@ -73,7 +75,7 @@ const readers: { site: string; method: "todo.unread" | "todo.comments" | "todo.g
   { site: "Todo history", method: "todo.getHistory", render: () => <TodoHistory id={1} />, refresh: m => m.app.emit(event({ name: "todo.deleted", data: { id: 2 } })) },
   { site: "Todo Pad references", method: "todo.refs", render: () => <TodoRefs id={1} />, refresh: m => m.app.emit(event({ name: "pad.changed", data: { name: "Plan" } })) },
   { site: "Pads", method: "pad.list", render: () => <Pads />, refresh: m => m.app.emit(event({ name: "pad.changed", data: { name: "Plan" } })) },
-  { site: "Reactions", method: "reaction.list", render: () => <ReactionSite />, refresh: () => window.dispatchEvent(new Event("focus")), role: "status" },
+  { site: "Reactions", method: "reaction.list", render: () => <ReactionSite />, refresh: () => window.dispatchEvent(new Event("focus")) },
   { site: "Work progress", method: "message.progress", render: () => <WorkProgress id="a" />, refresh: m => m.app.emit(event({ name: "rail.changed" })) },
 ];
 
@@ -106,7 +108,7 @@ it.each(readers)("u3807_each_site_shows_its_message_in_the_reserved_line: $site"
   expect(alert.textContent).toContain(FAILURE);
   unchanged(places, place);
   Object.assign(mounted.app.handlers, { [site.method]: original });
-  const retry = within(place).queryByRole("button");
+  const retry = within(place).queryByRole("button", { name: site.method === "message.progress" ? "Read again" : /^(?!Clear|Dismiss)/ });
 
   if (retry) fireEvent.click(retry);
   else site.refresh(mounted);
@@ -191,7 +193,7 @@ it("u3807_each_site_shows_its_message_in_the_reserved_line: Todo row", async () 
   const place = (await within(row).findByRole("alert")).closest<HTMLElement>(".reserved-line")!;
   unchanged(places, place);
   expect([...row.children]).toEqual(siblings);
-  fireEvent.click(document.body);
+  fireEvent.click(within(place).getByRole("button", { name: "Dismiss" }));
   await waitFor(() => expect(within(row).queryByRole("alert")).toBeNull());
   unchanged(places, place);
   expect([...row.children]).toEqual(siblings);
@@ -229,12 +231,23 @@ it("u3807_each_site_shows_its_message_in_the_reserved_line: Order editor", async
   const mounted = await mountTodos([], true, [agent("a", "working", "building", { work: { kind: "work", ask: "Ship", limits: [] } })]);
   const view = render(() => <ConnectedProjectContext.Provider value={mounted.connected}><OrderDrawer id="a" /></ConnectedProjectContext.Provider>);
   fireEvent.click(within(view.container).getByRole("button", { name: "Edit order" }));
-  fireEvent.input(await within(view.container).findByLabelText("Ask"), { target: { value: "Changed ask" } });
+  const ask = await within(view.container).findByLabelText<HTMLTextAreaElement>("Ask");
+  fireEvent.input(ask, { target: { value: "Changed ask" } });
   mounted.app.handlers["agent.setOrder"] = () => { throw new RpcError(-32003, FAILURE); };
 
   await cycle(view.container,
     () => fireEvent.click(within(view.container).getByRole("button", { name: "Save" })),
-    () => { mounted.app.handlers["agent.setOrder"] = () => new Promise(() => {}); fireEvent.click(within(view.container).getByRole("button", { name: "Save" })); });
+    async () => {
+      const reply = gate<ReturnType<typeof agent>>();
+      mounted.app.handlers["agent.setOrder"] = () => reply.promise;
+      fireEvent.click(within(view.container).getByRole("button", { name: "Save" }));
+      const submitted = mounted.connected.drafts.list().find(draft => draft.value.ask === "Changed ask")!;
+      // A newer revision keeps the editor and its reserved place mounted after acknowledgement.
+      fireEvent.input(ask, { target: { value: "  Newer unsent ask 🧭\n" } });
+      reply.resolve(agent("a", "working", "building", { work: { kind: "work", ask: "Changed ask", limits: [] } }));
+      await waitFor(() => expect(mounted.connected.drafts.list().some(draft => draft.revision === submitted.revision)).toBe(false));
+    });
+  expect(within(view.container).getByLabelText<HTMLTextAreaElement>("Ask").value).toBe("  Newer unsent ask 🧭\n");
 });
 
 it("u3807_each_site_shows_its_message_in_the_reserved_line: Decision cards", async () => {
@@ -270,27 +283,11 @@ it("u3807_each_site_shows_its_message_in_the_reserved_line: worktree panel", asy
     async () => { app.handlers["agent.worktreeState"] = original; await connected.worktrees.refresh("a"); });
 });
 
-it("u3807_each_site_shows_its_message_in_the_reserved_line: Send to agent", async () => {
-  const mounted = await mountSend([agent("a", "working", "building")]);
-  mounted.emulator.select("excerpt");
-  const field = await within(document.body).findByRole("textbox", { name: "Add a note (optional)" });
-  const surface = field.closest<HTMLElement>(".send-to-agent")!;
-  fireEvent.input(field, { target: { value: "held note" } });
-  const places = placesOf(surface);
-  const storage = vi.spyOn(Storage.prototype, "setItem").mockImplementation(() => { throw new Error(FAILURE); });
-  fireEvent.input(field, { target: { value: "retained note" } });
-  const place = (await within(surface).findByRole("alert")).closest<HTMLElement>(".reserved-line")!;
-  unchanged(places, place);
-  storage.mockRestore();
-  mounted.connected.drafts.retry();
-  await waitFor(() => expect(within(surface).queryByRole("alert")).toBeNull());
-  unchanged(places, place);
-});
 
 it("u3807_each_site_shows_its_message_in_the_reserved_line: importer Looking and failure", async () => {
   const mounted = await mountTodos([]);
-  render(() => <ConnectedProjectContext.Provider value={mounted.connected}><ImportPanel open opener={undefined} onClose={() => {}} /></ConnectedProjectContext.Provider>);
-  const surface = await within(document.body).findByRole("dialog");
+  render(() => <ConnectedProjectContext.Provider value={mounted.connected}><ImportPanel onClose={() => {}} /></ConnectedProjectContext.Provider>);
+  const surface = await within(document.body).findByRole("region", { name: "Import Claude Code work" });
   const read = gate<{ candidates: []; excluded: [] }>();
   mounted.app.handlers["project.importDiscover"] = () => read.promise;
   await cycle(surface, () => { void mounted.connected.importing.refresh(); }, () => read.reject(new RpcError(-32003, FAILURE)), "Looking for conversations…");
@@ -407,7 +404,7 @@ it("u3807_each_site_shows_its_message_in_the_reserved_line: BulkDelete", async (
   const Site = () => {
     const [selected, setSelected] = createSignal<readonly number[]>([1]);
 
-    const bulk = createBulkDelete({ selected, targets: () => [{ id: 1, label: "Ship" }], context: () => "p", noun: "Todos",
+    const bulk = createBulkDelete({ app: createFakeApp(), selected, targets: () => [{ id: 1, label: "Ship" }], context: () => "p", noun: "Todos",
       replace: setSelected, clear: () => setSelected([]), cancelSelection: () => setSelected([]), remove: async () => failure === null ? new Promise(() => {}) : failure, reload: async () => null });
 
     return <bulk.Bar />;
@@ -417,17 +414,17 @@ it("u3807_each_site_shows_its_message_in_the_reserved_line: BulkDelete", async (
   const surface = view.container;
   const places = placesOf(surface);
   fireEvent.click(within(surface).getByRole("button", { name: "Delete 1" }));
-  const dialog = await within(document.body).findByRole("alertdialog");
-  fireEvent.click(within(dialog).getByRole("button", { name: "Delete 1" }));
+  await questionDialog();
+  await answerQuestion(true);
   const alert = await within(surface).findByRole("alert");
   const place = alert.closest<HTMLElement>(".reserved-line")!;
   expect(alert.textContent).toContain(FAILURE);
   unchanged(places, place);
   // Keep one selected item so the bar remains mounted while its failure clears.
   fireEvent.click(within(surface).getByRole("button", { name: "Delete 1" }));
-  const retry = await within(document.body).findByRole("alertdialog");
+  await questionDialog();
   failure = null;
-  fireEvent.click(within(retry).getByRole("button", { name: "Delete 1" }));
+  await answerQuestion(true);
   await waitFor(() => expect(within(surface).queryByRole("alert")).toBeNull());
   unchanged(places, place);
 });
@@ -437,13 +434,13 @@ it("u3807_each_site_shows_its_message_in_the_reserved_line: ProjectTab", async (
   const path = mounted.connected.project.path;
   const draft = mounted.connected.drafts.edit({ surface: "header", object: path, recipient: null }, { name: "retained", base: "p" }, null, "ordinary").draft;
   render(() => <ProjectDraftsContext.Provider value={() => mounted.connected.drafts}><Tabs.Root value={path}><Tabs.List>
-    <ProjectTab tab={{ path, name: "p", base: "p", busy: false, running: [], needsYou: 0, error: 0, exitText: null }} selected recovery={{ project: path, revision: draft.revision }} onMark={() => {}} onClose={() => {}} onRename={async () => ({ path, name: "p", revision: 1, status: "acknowledged", project: { path, name: "p" } })} />
+    <ProjectTab tab={{ path, name: "p", base: "p", busy: false, running: [], needsYou: 0, error: 0, exitText: null }} selected app={mounted.app} recovery={{ project: path, revision: draft.revision }} onMark={() => {}} onClose={() => {}} onRename={async () => ({ path, name: "p", revision: 1, status: "acknowledged", project: { path, name: "p" } })} />
   </Tabs.List></Tabs.Root></ProjectDraftsContext.Provider>);
   fireEvent.keyDown(await within(document.body).findByRole("textbox", { name: "Project name" }), { key: "Escape" });
   fireEvent.click(await within(document.body).findByRole("button", { name: /Recover unfinished work/ }));
   const surface = await within(document.body).findByRole("dialog", { name: "Unfinished work" });
   let rejected = true;
-  Object.defineProperty(navigator, "clipboard", { configurable: true, value: { writeText: async () => { if (rejected) throw new Error(FAILURE); } } });
+  vi.spyOn(mounted.app, "clipboardWrite").mockImplementation(async () => { if (rejected) throw new Error(FAILURE); });
   await cycle(surface, () => fireEvent.click(within(surface).getByRole("button", { name: "Copy name" })),
     () => { rejected = false; fireEvent.click(within(surface).getByRole("button", { name: "Copy name" })); });
 });

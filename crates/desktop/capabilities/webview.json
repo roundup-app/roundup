@@ -2,8 +2,10 @@
   "identifier": "webview",
   "windows": ["*"],
   "permissions": [
+    "clipboard-manager:allow-write-text",
     "dialog:allow-open",
     "dialog:allow-save",
+    "dialog:allow-message",
     "core:window:allow-set-badge-count",
     "window-bar:allow-set-window-title",
     "window-bar:allow-drag-window",
