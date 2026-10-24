@@ -265,12 +265,12 @@ fn h9_dismissed_after_needs_you_gives_idle() {
 }
 
 #[test]
-fn h9_answered_clears_a_held_star() {
+fn h9_answered_clears_a_parked_star() {
     let (mut adapter, _) = adapter();
     signal(&mut adapter, event(RUN1, "UserPromptSubmit"));
     signal(&mut adapter, event(RUN1, "PreToolUse"));
     adapter.observe(Observation::Title("✳ Reading".into()));
-    assert!(adapter.tick_at().is_some(), "the star should be held");
+    assert!(adapter.tick_at().is_some(), "the star should be parked");
 
     adapter.observe(Observation::Answered);
 
@@ -278,12 +278,12 @@ fn h9_answered_clears_a_held_star() {
 }
 
 #[test]
-fn h9_dismissed_clears_a_held_star() {
+fn h9_dismissed_clears_a_parked_star() {
     let (mut adapter, _) = adapter();
     signal(&mut adapter, event(RUN1, "UserPromptSubmit"));
     signal(&mut adapter, event(RUN1, "PreToolUse"));
     adapter.observe(Observation::Title("✳ Reading".into()));
-    assert!(adapter.tick_at().is_some(), "the star should be held");
+    assert!(adapter.tick_at().is_some(), "the star should be parked");
 
     adapter.observe(Observation::Dismissed);
 

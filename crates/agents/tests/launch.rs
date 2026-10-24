@@ -61,7 +61,7 @@ fn setup() -> Setup {
     }
 }
 
-/// The Project folder is the data folder's parent, as it was when `.roundup/` held both.
+/// The Project folder is the data folder's parent, as it was when `.roundup/` parked both.
 fn folders(dir: &Path) -> agents::claude_code::Folders<'_> {
     agents::claude_code::Folders {
         project: dir.parent().unwrap_or(dir),

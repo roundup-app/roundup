@@ -468,31 +468,6 @@ async fn h20_one_line_steer_has_typed_lead_in() {
     h20_one_write("run the tests").await;
 }
 
-#[test]
-fn b33_a_batch_of_only_digests_is_typed_without_the_lead_in() {
-    let digests = "[from rupd, note] [digest] c is idle\n  last: x\n  open todos: 0\n\n\
-                   [from rupd, note] [digest] [2 updates held back]\nd is done\n  last: y\n  open todos: 1\n\n\
-                   [rup messages: 3 4]";
-    let typed = String::from_utf8(agents::claude_code::steer_bytes(digests)).unwrap();
-    assert_eq!(
-        typed,
-        format!(
-            "{}\x1b[200~{digests}\x1b[201~\r",
-            agents::claude_code::STATUS_LEAD
-        )
-    );
-    assert!(!typed.contains(agents::claude_code::LEAD_IN));
-}
-
-#[test]
-fn b33_a_batch_with_a_work_order_keeps_the_lead_in() {
-    let mixed = "[from rupd, note] [digest] c is idle\n  last: x\n  open todos: 0\n\n[from saad, note] fix it";
-    let typed = String::from_utf8(agents::claude_code::steer_bytes(mixed)).unwrap();
-    assert!(typed.starts_with(agents::claude_code::LEAD_IN));
-    let order = String::from_utf8(agents::claude_code::steer_bytes("Fix the race")).unwrap();
-    assert!(order.starts_with(agents::claude_code::LEAD_IN));
-}
-
 #[tokio::test]
 async fn b37_live_error_accepts_one_prompt_in_the_same_attempt() {
     let (f, id) = idle(Duration::from_secs(30)).await;

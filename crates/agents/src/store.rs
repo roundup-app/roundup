@@ -145,14 +145,12 @@ impl Agents {
                 events: events::State {
                     gate_observer: None,
                     channel_deadline: channel_deadline_from_env(),
-                    prompt_observer: std::sync::OnceLock::new(),
                     inbox: Default::default(),
                     tool_calls: Default::default(),
                 },
                 channels: Mutex::new(HashMap::new()),
                 scan: Scan::new(scan_interval_from_env()),
                 strays: Mutex::new(HashMap::new()),
-                takeover: None,
                 context: None,
                 waits: Mutex::new(HashMap::new()),
             }),
@@ -212,7 +210,7 @@ impl Agents {
         self.configure(|shared| shared.decisions.set_proof(proof))
     }
 
-    /// E3: supply the Context text held by the Daemon, without giving Agents a Todos dependency.
+    /// E3: supply the Context text parked by the Daemon, without giving Agents a Todos dependency.
     /// Read once for the first Steer; a failed or timed-out read leaves that Steer unchanged.
     #[must_use]
     pub fn with_context<F, Fut>(self, read: F) -> Self
@@ -223,12 +221,6 @@ impl Agents {
         self.configure(|shared| {
             shared.context = Some(Arc::new(move |nodes, id| Box::pin(read(nodes, id))))
         })
-    }
-
-    /// O4: `active` says whether a Takeover of an Agent is active. Call it before the first call.
-    #[must_use]
-    pub fn with_takeover(self, active: impl Fn(&str) -> bool + Send + Sync + 'static) -> Self {
-        self.configure(|shared| shared.takeover = Some(Arc::new(active)))
     }
 
     /// Stamp Statuses and time Ticks by `clock`, milliseconds since the Unix epoch, instead of
@@ -274,13 +266,6 @@ impl Agents {
         self.configure(|shared| shared.events.gate_observer = Some(Arc::new(observer)))
     }
 
-    /// B39: tell `observer` the text of each prompt an Agent submits (`UserPromptSubmit`); `true`
-    /// makes `agent.signal` answer that the hook drops the prompt. Set once, after the Daemon
-    /// opens Messages.
-    pub fn observe_prompts(&self, observer: PromptObserver) {
-        let _ = self.shared.events.prompt_observer.set(observer);
-    }
-
     /// B50(c): tell `observer` the Message ids an Agent's transcript records as another
     /// session's message, as its Signals arrive. Set once, after the Daemon opens Messages.
     pub fn observe_inbox(&self, observer: crate::InboxObserver) {
@@ -294,7 +279,7 @@ impl Agents {
         state
     }
 
-    /// B50: write notes to Agent `id`'s Claude inbox; a failure is the state to hold them for,
+    /// B50: write notes to Agent `id`'s Claude inbox; a failure is the state they stay pending under,
     /// and is the Rail fact too.
     pub fn inbox_write(
         &self,
@@ -303,7 +288,7 @@ impl Agents {
     ) -> Result<(), contracts::agent::Inbox> {
         // Native socket connect/write is synchronous: a Ready routing future can still
         // have blocked on IO. Only a validated native endpoint earns this evidence;
-        // missing/held inboxes and generic pending Messages earn no coordination time.
+        // missing/mismatched inboxes and generic pending Messages earn no coordination time.
         let waiting: Vec<_> = if self.launcher.inbox_check(id) == contracts::agent::Inbox::Ok {
             notes
                 .iter()
@@ -627,14 +612,12 @@ pub(super) mod tests {
             events: events::State {
                 gate_observer: None,
                 channel_deadline: crate::CHANNEL_DEADLINE,
-                prompt_observer: std::sync::OnceLock::new(),
                 inbox: Default::default(),
                 tool_calls: Default::default(),
             },
             channels: Mutex::new(HashMap::new()),
             scan: crate::Scan::new(crate::SCAN_INTERVAL),
             strays: Mutex::new(HashMap::new()),
-            takeover: None,
             context: None,
             waits: Mutex::new(HashMap::new()),
         });
@@ -694,14 +677,12 @@ pub(super) mod tests {
             events: events::State {
                 gate_observer: None,
                 channel_deadline: crate::CHANNEL_DEADLINE,
-                prompt_observer: std::sync::OnceLock::new(),
                 inbox: Default::default(),
                 tool_calls: Default::default(),
             },
             channels: Mutex::new(HashMap::new()),
             scan: crate::Scan::new(crate::SCAN_INTERVAL),
             strays: Mutex::new(HashMap::new()),
-            takeover: None,
             context: None,
             waits: Mutex::new(HashMap::new()),
         })
@@ -793,14 +774,12 @@ pub(super) mod tests {
             events: events::State {
                 gate_observer: None,
                 channel_deadline: crate::CHANNEL_DEADLINE,
-                prompt_observer: std::sync::OnceLock::new(),
                 inbox: Default::default(),
                 tool_calls: Default::default(),
             },
             channels: Mutex::new(HashMap::new()),
             scan: crate::Scan::new(crate::SCAN_INTERVAL),
             strays: Mutex::new(HashMap::new()),
-            takeover: None,
             context: None,
             waits: Mutex::new(HashMap::new()),
         });

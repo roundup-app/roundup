@@ -678,7 +678,7 @@ impl Shared {
     }
 
     /// H21: whether Agent `m` may answer Decision `id`: `NOT_FOUND` for an unknown id, then
-    /// `FORBIDDEN` outside its Reach, then `CONFLICT` under a Takeover.
+    /// `FORBIDDEN` outside its Reach.
     fn may_answer(&self, m: &str, id: &str) -> Result<(), RpcError> {
         let Some(agent) = self.decisions.agent_of(id) else {
             return Err(RpcError::not_found(format!("decision {id}")));
@@ -689,12 +689,6 @@ impl Shared {
                 "decision {id} is of {}, which is not in the Reach of {}",
                 rail.name(&agent)?,
                 rail.name(m)?
-            )));
-        }
-        if self.takeover.as_ref().is_some_and(|active| active(&agent)) {
-            return Err(RpcError::conflict(format!(
-                "{} is under a Takeover; the user decides at its Terminal",
-                self.rail().name(&agent)?
             )));
         }
         Ok(())
@@ -770,16 +764,6 @@ impl Shared {
             }
             if let Some(identity) = &identity {
                 self.guard_reach(&actor, &identity.agent, false)?;
-                if self
-                    .takeover
-                    .as_ref()
-                    .is_some_and(|active| active(&identity.agent))
-                {
-                    return Err(RpcError::conflict(format!(
-                        "{} is under a Takeover; the user decides at its Terminal",
-                        self.rail().name(&identity.agent)?
-                    )));
-                }
             } else {
                 self.may_answer(&actor.id, id)?;
             }
@@ -1131,11 +1115,6 @@ impl crate::Agents {
             .terminals
             .clone()
             .write_with(terminal, move |writer| {
-                let target = match &check {
-                    PromptInput::Captured(identity) => Some(identity.agent.clone()),
-                    PromptInput::Question(id) => shared.decisions.agent_of(id),
-                };
-                let name = shared.rail().name(target.as_deref().unwrap_or(""))?;
                 let runs = shared.runs();
                 let mut open = shared.decisions.open();
                 let unavailable = || match &check {
@@ -1183,9 +1162,6 @@ impl crate::Agents {
                     return Err(RpcError::forbidden(
                         "the Terminal writer has no Reach over this question",
                     ));
-                }
-                if !user && shared.takeover.as_ref().is_some_and(|active| active(agent)) {
-                    return Err(RpcError::conflict(format!("{name} is under a Takeover")));
                 }
                 if let PromptInput::Captured(identity) = &check {
                     shared.decisions.guard(entry, identity)?;
@@ -1251,7 +1227,6 @@ mod tests {
     async fn a2703a_errors_use_rail_names() {
         let mut watched = Watched::named();
         let _ = (&mut watched.watcher).await;
-        Arc::get_mut(&mut watched.shared).unwrap().takeover = Some(Arc::new(|_| true));
         let shared = &watched.shared;
         let reader = shared
             .rail()
@@ -1294,49 +1269,6 @@ mod tests {
             }
             assert!(!error.message.contains("7013"), "{case}: {error}");
         }
-        // A descendant's Decision is reachable, but its Takeover still refuses the answer.
-        let db = rusqlite::Connection::open(watched._dir.path().join("agents.db")).unwrap();
-        db.execute("UPDATE nodes SET parent = ? WHERE id = 7013", [&reader.id])
-            .unwrap();
-        let error = shared.may_answer(&reader.id, &opened.id).unwrap_err();
-        assert!(
-            error.message.contains("sad is under a Takeover") && !error.message.contains("7013"),
-            "{error}"
-        );
-        let terminal = shared
-            .terminals
-            .spawn(contracts::terminal::SpawnParams {
-                cwd: watched._dir.path().to_string_lossy().into_owned(),
-                command: Some(vec!["sh".into(), "-c".into(), "sleep 30".into()]),
-                env: Default::default(),
-                cols: 80,
-                rows: 24,
-            })
-            .await
-            .unwrap();
-        if let Some(crate::Slot::Running(run)) = shared.runs().get_mut("7013") {
-            run.terminal_id = terminal.id.clone();
-        }
-        let identity = shared.capture(&Actor::user(), &opened.id).unwrap();
-        let agents = crate::Agents {
-            shared: shared.clone(),
-            dir: watched._dir.path().to_owned(),
-            launcher: crate::claude_code::Launcher::new(
-                "false",
-                watched._dir.path().join("config"),
-                watched._dir.path().join("rup"),
-                None,
-            ),
-        };
-        let error = agents
-            .write_terminal(&actor, &terminal.id, vec![b'x'], Some(identity))
-            .await
-            .unwrap_err();
-        assert!(
-            error.message.contains("sad is under a Takeover") && !error.message.contains("7013"),
-            "{error}"
-        );
-        shared.terminals.kill(&terminal.id).await.unwrap();
         if let Some(crate::Slot::Running(run)) = shared.runs().get_mut("7013") {
             run.ended = true;
         }

@@ -110,8 +110,8 @@ async fn fetch(url: &str, token: &str) -> WeeklyLimit {
 
 /// The weekly figure, read at most once a minute.
 pub(super) async fn weekly_limit(cache: &Cache, config: &Path, url: Option<&str>) -> WeeklyLimit {
-    let mut held = cache.0.lock().await;
-    if let Some((at, limit)) = held.as_ref()
+    let mut parked = cache.0.lock().await;
+    if let Some((at, limit)) = parked.as_ref()
         && at.elapsed() < EVERY
     {
         return limit.clone();
@@ -120,7 +120,7 @@ pub(super) async fn weekly_limit(cache: &Cache, config: &Path, url: Option<&str>
         None => unavailable("Claude Code is signed out, so its weekly limit cannot be read."),
         Some(token) => fetch(url.unwrap_or(ENDPOINT), &token).await,
     };
-    *held = Some((Instant::now(), limit.clone()));
+    *parked = Some((Instant::now(), limit.clone()));
     limit
 }
 

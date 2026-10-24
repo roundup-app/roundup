@@ -471,7 +471,6 @@ impl Intake {
                             workstream,
                             &part.text,
                             None,
-                            None,
                             true,
                             Some(crate::PromptRecord {
                                 revision: None,

@@ -64,14 +64,13 @@ The `roundup` MCP server offers these tools. They are deferred: load a tool befo
 - `rail_tree`: read the Rail: every Workstream, Agent and Terminal with its Status.
 - `rail_createWorkstream`: make a Workstream at the Project root with `parent` null; Workstreams never nest, and `rail_startDoor` starts its Door next.
 - `rail_startDoor`: start the Door of a Workstream you made or one in your Reach; the Door asks the user what the Workstream is for.
-- `rail_rename`: rename yourself or a node in your Reach; a waiting receipt means accepted, not executed; read agent_actionHistory for its outcome.
+- `rail_rename`: rename yourself or a node in your Reach.
 - `agent_instructions`: read exact instruction revisions and Attempt-bound delivery facts for yourself or your Reach; reading sends nothing, and submission is not work completion.
-- `agent_actionHistory`: read your durably accepted child actions and their outcomes; never resubmit a waiting action.
 - `rail_move`: move a node in your Reach; a Workstream moves only to the root.
 - `rail_remove`: remove a node in your Reach, never yourself.
-- `agent_stop`: stop an Agent in your Reach, never yourself; a waiting receipt means accepted, not executed; read agent_actionHistory for its outcome.
-- `agent_interrupt`: interrupt the turn of an Agent in your Reach; a waiting receipt means accepted, not executed; read agent_actionHistory for its outcome.
-- `agent_prompt`: send a prompt to an Agent in your Reach as the user would; a waiting receipt means accepted, not executed; read agent_actionHistory for its outcome.
+- `agent_stop`: stop an Agent in your Reach, never yourself.
+- `agent_interrupt`: interrupt the turn of an Agent in your Reach.
+- `agent_prompt`: send a prompt to an Agent in your Reach as the user would.
 - `agent_resume`: resume a stopped Agent in your Reach from its saved conversation.
 - `agent_discard`: discard the Worktree of an Agent in your Reach with its changes.
 - `agent_land`: land the Worktree of an Agent in your Reach on the Base branch.
@@ -92,8 +91,7 @@ The `roundup` MCP server offers these tools. They are deferred: load a tool befo
 - `route_set`: set where Messages from one Agent to another go (`auto`, `ask-first`, `drop`); it acts on others, never on you, and never over a Route the user set.
 - `terminal_close`: stop a Terminal you or your Reach own and forget it.
 - `terminal_write`: type base64 `data` into a Terminal you or your Reach own.
-- `terminal_resize`: resize a Terminal you or your Reach own; a waiting receipt means accepted, not executed.
-- `terminal_resizeHistory`: read your durable resize outcomes, including Takeover waits and drop reasons.
+- `terminal_resize`: resize a Terminal you or your Reach own.
 - `terminal_kill`: stop the program of a Terminal you or your Reach own.
 - `agent_digest`: ask what each of your direct children did: its Kind, its last line, its open Todos and the Pads it wrote since you were last told.
 - `workstream_handoff`: answer the user clearing your Workstream: what happened and why, and the Todos and Pads to keep, only when asked to.

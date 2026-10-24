@@ -488,7 +488,7 @@ impl Store {
         Ok(added > 0)
     }
 
-    /// T27: whether the Todo held `target`.
+    /// T27: whether the Todo parked `target`.
     pub(crate) fn remove_ref(&self, id: u32, target: &str) -> Result<bool, RpcError> {
         self.get(id)?;
         let removed = self

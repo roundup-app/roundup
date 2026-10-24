@@ -72,7 +72,7 @@ impl Module for Agents {
             "agent.interrupt" => {
                 let NodeId { id } = params(value)?;
                 self.may_steer(&ctx.actor, &id, "Interrupt")?;
-                shared.interrupt(&id, None).await?;
+                shared.interrupt(&id).await?;
                 Self::touch_rail(ctx, &id)?;
                 reply(&())
             }
@@ -156,29 +156,14 @@ impl Module for Agents {
                         "attempt must be a canonical positive decimal within signed 64-bit range",
                     ));
                 }
-                // B39: the Signal H11 waits for confirms the Messages its prompt carried, before
-                // the wait ends, so nothing can type them again in between. A Steer's text is
-                // one paste, so a paste's envelope is taken off first.
-                let drop = match (
-                    claude_code::submitted_prompt(&payload),
-                    shared.events.prompt_observer.get(),
-                ) {
-                    (Some(prompt), Some(observer)) => {
-                        observer(&id, claude_code::pasted_text(prompt))
-                    }
-                    _ => false,
-                };
-                // The hook blocks a dropped prompt, so no turn starts and nothing is folded.
-                if !drop {
-                    shared.events.inbox.scan(&id, &payload);
-                    shared.observe(
-                        ctx.actor.clone(),
-                        &id,
-                        &attempt,
-                        Observation::Signal(payload),
-                    )?;
-                }
-                reply(&drop.then_some(SignalOutcome { drop }))
+                shared.events.inbox.scan(&id, &payload);
+                shared.observe(
+                    ctx.actor.clone(),
+                    &id,
+                    &attempt,
+                    Observation::Signal(payload),
+                )?;
+                reply(&None::<SignalOutcome>)
             }
             "agent.permission" => {
                 let PermissionParams { id, payload } = params(value)?;

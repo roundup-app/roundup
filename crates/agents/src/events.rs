@@ -6,7 +6,6 @@ pub(super) struct State {
     /// E6: how long after a start `agent.channelUp` may take before the Channel is `missing`.
     pub(super) channel_deadline: Duration,
     /// B39: told each submitted prompt; its answer says whether the hook must drop the prompt.
-    pub(super) prompt_observer: std::sync::OnceLock<PromptObserver>,
     /// B50, B51: what the Claude inbox of each Agent is and what its transcript has recorded.
     pub(super) inbox: Arc<InboxState>,
     /// U3780a: the current or last tool call of each Agent.
@@ -39,7 +38,7 @@ impl InboxState {
         let before = facts.insert(agent.to_owned(), state);
         if state == contracts::agent::Inbox::Mismatch && before != Some(state) {
             eprintln!(
-                "agents: Agent {agent}: its Claude Code speaks a messaging protocol this build does not; notes to it are held"
+                "agents: Agent {agent}: its Claude Code speaks a messaging protocol this build does not; notes to it stay pending"
             );
         }
     }
@@ -130,9 +129,6 @@ impl InboxState {
         }
     }
 }
-
-/// B39: `(agent id, submitted prompt)` to whether the prompt repeats Messages already delivered.
-pub type PromptObserver = Arc<dyn Fn(&str, &str) -> bool + Send + Sync>;
 
 impl Shared {
     /// E6: `agent.channelUp` from Agent `id`. Nothing to report when no program of the Agent
@@ -235,7 +231,7 @@ impl Shared {
                     // A21: a Signal naming a conversation of the current Attempt saves it
                     // before being applied; a failed save fails this call, settles the Status
                     // to `error` and stops the Terminal, since `agent.spawn` has already
-                    // returned by the time a Running Agent can reach here (the held window's
+                    // returned by the time a Running Agent can reach here (the parked window's
                     // own save is `finish_starting`'s; A22's resuming is `finish_resuming`'s).
                     if let Observation::Signal(payload) = &observation
                         && let Some(rail) = rail.as_deref_mut()
@@ -270,17 +266,17 @@ impl Shared {
                         first_prompt,
                     )?
                 }
-                // A14: a Signal here is held, in arrival order, for when the Agent is
+                // A14: a Signal here is parked, in arrival order, for when the Agent is
                 // registered, instead of `NOT_FOUND`; anything else cannot arrive this early
                 // (`watch` only starts once the Agent is `Running`).
-                Some(Slot::Starting { held, .. }) => {
+                Some(Slot::Starting { parked, .. }) => {
                     let Observation::Signal(payload) = observation else {
                         return Err(RpcError::not_found(&name));
                     };
-                    hold(id, held, actor, payload);
+                    hold(id, parked, actor, payload);
                     return Ok(None);
                 }
-                // A22: a non-ack Signal is held exactly as `Starting`'s; the ack promotes to
+                // A22: a non-ack Signal is parked exactly as `Starting`'s; the ack promotes to
                 // `Running` and wakes the pending `agent.resume` (`finish_resuming`).
                 Some(Slot::Resuming { starred, .. }) => {
                     if let Observation::Title(title) = &observation {
@@ -398,7 +394,7 @@ impl Shared {
             run.interrupt = None;
         }
         if let Observation::Signal(payload) = &observation {
-            // Announced while `runs` is held, as the Status is, so calls leave in arrival order.
+            // Announced while `runs` is parked, as the Status is, so calls leave in arrival order.
             let mut calls = self
                 .events
                 .tool_calls
@@ -451,7 +447,7 @@ impl Shared {
                 rail.detach_terminal(id)?;
             }
         }
-        // Announced while `runs` is held, so announcements leave in the order the Status
+        // Announced while `runs` is parked, so announcements leave in the order the Status
         // changed; `emit` never blocks.
         if let Some(status) = changed {
             let status = waiting_on(&status, self.wait_of(id));
@@ -550,7 +546,7 @@ pub(super) fn interrupt_bound_from_env() -> Duration {
 }
 
 /// Feed one Terminal's titles and its exit to the Agent behind it, and a Tick at the time its
-/// adapter asks for one. Only a held star asks, so the watcher of an idle Agent never wakes.
+/// adapter asks for one. Only a parked star asks, so the watcher of an idle Agent never wakes.
 pub(super) async fn watch(
     shared: Arc<Shared>,
     id: String,
@@ -638,7 +634,7 @@ mod tests {
                             prompt: None,
                             starred: false,
                             terminal_id: None,
-                            held: VecDeque::new(),
+                            parked: VecDeque::new(),
                             done: tokio::sync::oneshot::channel().0,
                         },
                     );
@@ -689,7 +685,7 @@ mod tests {
     }
 
     #[tokio::test(start_paused = true)]
-    async fn a2_a_held_star_reads_idle_when_star_hold_has_passed_and_not_before() {
+    async fn a2_a_parked_star_reads_idle_when_star_hold_has_passed_and_not_before() {
         let mut w = Watched::start();
         w.signal("PreToolUse");
         assert_eq!(w.next_kind().await, Kind::Working);
@@ -697,7 +693,7 @@ mod tests {
 
         w.star();
 
-        // An observation window: no Status may change while the star is held.
+        // An observation window: no Status may change while the star is parked.
         tokio::time::sleep(HOLD - Duration::from_millis(1)).await;
         assert!(!w.has_news());
         assert_eq!(w.next_kind().await, Kind::Idle);
@@ -718,7 +714,7 @@ mod tests {
         assert_eq!(star.elapsed().as_millis(), HOLD.as_millis());
     }
     #[tokio::test(start_paused = true)]
-    async fn a2_an_exit_ends_the_watch_without_waiting_out_a_held_star() {
+    async fn a2_an_exit_ends_the_watch_without_waiting_out_a_parked_star() {
         let w = Watched::start();
         w.signal("PreToolUse");
         w.star();
@@ -747,7 +743,7 @@ mod tests {
                 attempt: "1".into(),
                 since: 0,
                 named: false,
-                held: VecDeque::new(),
+                parked: VecDeque::new(),
             },
         );
 
@@ -757,10 +753,10 @@ mod tests {
 
         assert_eq!(err.code, rpc::code::NOT_FOUND);
     }
-    /// A held Signal whose `rail.rename` fails (a SQLite trigger refuses the update) must not panic while `finish_starting` still holds `rail` and `runs`: a panic
+    /// A parked Signal whose `rail.rename` fails (a SQLite trigger refuses the update) must not panic while `finish_starting` still holds `rail` and `runs`: a panic
     /// there would poison both mutexes, so every later `rail()`/`runs()` call would panic too.
     #[test]
-    fn a14_a_failed_rail_write_for_a_held_signal_does_not_poison_the_locks() {
+    fn a14_a_failed_rail_write_for_a_parked_signal_does_not_poison_the_locks() {
         let (dir, _bus, shared) = shared_over_temp_dir(Arc::new(|| 0));
         let id = shared
             .rail()
@@ -768,8 +764,8 @@ mod tests {
             .unwrap()
             .id;
         shared.mark_starting(&id, "1".into());
-        if let Some(Slot::Starting { held, .. }) = shared.runs().get_mut(&id) {
-            held.push_back((
+        if let Some(Slot::Starting { parked, .. }) = shared.runs().get_mut(&id) {
+            parked.push_back((
                 Actor::daemon(),
                 json!({"hook_event_name": "UserPromptSubmit", "prompt": "fix the build"}),
             ));
@@ -803,12 +799,12 @@ mod tests {
         assert!(matches!(shared.runs().get(&id), Some(Slot::Running(_))));
         shared.rail().tree().unwrap();
     }
-    /// A21: a held `SessionStart` whose conversation save fails must abort `finish_starting`
+    /// A21: a parked `SessionStart` whose conversation save fails must abort `finish_starting`
     /// outright (never apply it, never drain anything after it) rather than log and continue as
     /// a failed rename does; and it must put `id` back as `Running` so the caller's own
     /// failed-spawn cleanup (which only removes an Attempt it still finds in `runs`) still runs.
     #[test]
-    fn a21_a_failed_held_save_reinserts_so_the_caller_can_clean_up() {
+    fn a21_a_failed_parked_save_reinserts_so_the_caller_can_clean_up() {
         let (dir, _bus, shared) = shared_over_temp_dir(Arc::new(|| 0));
         let id = shared
             .rail()
@@ -816,8 +812,8 @@ mod tests {
             .unwrap()
             .id;
         shared.mark_starting(&id, "1".into());
-        if let Some(Slot::Starting { held, .. }) = shared.runs().get_mut(&id) {
-            held.push_back((
+        if let Some(Slot::Starting { parked, .. }) = shared.runs().get_mut(&id) {
+            parked.push_back((
                 Actor::daemon(),
                 json!({
                     "hook_event_name": "SessionStart",
@@ -825,7 +821,7 @@ mod tests {
                 }),
             ));
             // Never reached if the save aborts the drain as it must.
-            held.push_back((Actor::daemon(), json!({"hook_event_name": "Stop"})));
+            parked.push_back((Actor::daemon(), json!({"hook_event_name": "Stop"})));
         }
         let db = refuse_rail_writes(dir.path());
 
@@ -856,13 +852,13 @@ mod tests {
         let Some(Slot::Running(run)) = runs.get(&id) else {
             panic!("put back as Running for the caller's cleanup to find")
         };
-        // The Stop held after the SessionStart was never drained: the abort is immediate.
+        // The Stop parked after the SessionStart was never drained: the abort is immediate.
         assert_eq!(run.adapter.status().unwrap().kind, Kind::Working);
     }
     /// Keep all 20,000 interleavings using one reusable late-observer thread. The
     /// build rendezvous checks lock exclusion before releasing the actual late Signal.
     #[test]
-    fn a14_a_signal_released_once_the_agent_is_registered_never_outruns_the_held_one() {
+    fn a14_a_signal_released_once_the_agent_is_registered_never_outruns_the_parked_one() {
         let (_dir, bus, shared) = shared_over_temp_dir(Arc::new(|| 0));
         let mut events = bus.subscribe();
         let (observe, observations) = mpsc::sync_channel::<String>(0);
@@ -903,7 +899,7 @@ mod tests {
                         attempt: "1".into(),
                         since: 0,
                         named: false,
-                        held: VecDeque::from([(
+                        parked: VecDeque::from([(
                             Actor::daemon(),
                             json!({"hook_event_name":"PreToolUse", "tool_name":"Bash"}),
                         )]),
