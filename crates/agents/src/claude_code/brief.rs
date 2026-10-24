@@ -267,7 +267,7 @@ const TOOLS: &[(&str, &str)] = &[
     ),
     (
         "project_measurementSummary",
-        "read a Workstream's exact consumed token subtotals and ranked contributors; later pages require the first page's revision",
+        "read a Workstream's time by category and its Agents ranked by summed time; later pages require the first page's revision",
     ),
     (
         "project_setWorktrees",
