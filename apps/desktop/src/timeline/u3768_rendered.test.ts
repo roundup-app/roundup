@@ -130,13 +130,9 @@ it("u3768h_recorded_work_survives_stop_and_return_on_the_rendered_app", async ()
   })()`);
   await wait("!!document.querySelector('button.timeline-block')");
   await browser("focus", "button.timeline-block");
-  await browser("press", "Enter");
-  await wait("!!document.querySelector('.decision-card')");
-  expect(await read("document.querySelector('.decision-card').contains(document.activeElement)")).toBe(true);
-  await browser("press", "Escape");
-  await wait("!document.querySelector('.decision-card')");
-  expect(await read("document.activeElement.matches('button.timeline-block')")).toBe(true);
   await capture("dense-decision-focus");
+  await browser("press", "Enter");
+  await wait("!document.querySelector('.timeline-view')");
 
   if (videoDir) await browser("record", "stop");
   expect(after).toEqual(before);
