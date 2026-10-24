@@ -42,7 +42,7 @@ export const DiffReader = (props: { id: string; name: string; path: string; note
   const notice = createMemo(() => {
     const value = read();
 
-    if (!value) return loading() && !failure() ? copy.loadingDiff : null;
+    if (!value) return loading() ? (failure() ? null : copy.loadingDiff) : failure() ? null : copy.diffNotLoaded;
 
     if (value.status === null) return copy.noDifference;
 
@@ -164,7 +164,7 @@ export const DiffReader = (props: { id: string; name: string; path: string; note
         <button type="button" data-button="quiet" onClick={props.onClose}>{copy.closeChanges}</button>
       </div>
     </header>
-    <ReservedLine message={failure()} status={notice()}><Show when={failure() || !read()}><button type="button" data-button="quiet" onClick={() => setVersion(v => v + 1)}>{copy.retry}</button></Show><Show when={failure()}><button type="button" data-button="quiet" onClick={() => setFailure(null)}>{copy.dismissFailure}</button></Show></ReservedLine>
+    <ReservedLine message={failure()} status={notice()}><Show when={!loading() && !read()}><button type="button" data-button="quiet" onClick={() => setVersion(v => v + 1)}>{copy.retry}</button></Show><Show when={failure()}><button type="button" data-button="quiet" onClick={() => setFailure(null)}>{copy.dismissFailure}</button></Show></ReservedLine>
     <Show when={read()}>{value => <>
       <Show when={value().status !== null}>
         <Show when={value().old.kind !== "binary" && value().new.kind !== "binary"}>
