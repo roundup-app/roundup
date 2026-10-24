@@ -183,6 +183,7 @@ export const copy = {
   draftProblem,
   draftRetention: (project: string, surface: string, cause: string) => `${project} · ${surface}: ${draftProblem(cause)}`,
   tryAgain: "Try again",
+  dismissCopyFailure: "Dismiss copy failure",
   allDraftSurfaces: "stored surfaces",
   copyField: (field: string) => `Copy ${field}`,
   copyDraftFailure: (reason: string) => `Copy failed: ${reason}. Select the text to copy it.`,
