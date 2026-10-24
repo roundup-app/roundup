@@ -196,9 +196,10 @@ it("p2544e_reopen_saved_agent_work", async () => {
       await browser("wait", ".ProseMirror[role=textbox]");
       // DrawerHost and styles.css's Shelf transitions finish independently before the next pointer input.
       // Readiness comes after the lazy editor mounts, so its layout participates in the settled frame.
+      // Overlay thumbs follow a ScrollTimeline; only the wall-clock transitions finish at rest.
       await evaluate(`(async () => {
         await Promise.all(document.getAnimations()
-          .filter(animation => animation.effect.getComputedTiming().iterations !== Infinity)
+          .filter(animation => animation.timeline === document.timeline && animation.effect.getComputedTiming().iterations !== Infinity)
           .map(animation => animation.finished));
         return true;
       })()`);
