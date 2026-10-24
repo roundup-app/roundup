@@ -266,24 +266,6 @@
   user-select: text;
 }
 
-.rail-row[data-lifted="true"] {
-  opacity: 0.4;
-}
-
-.drop-line {
-  position: absolute;
-  left: calc(var(--space-4) + var(--depth) * var(--rail-step) + var(--rail-inset));
-  right: 0;
-  box-sizing: border-box;
-  border: 2px dashed var(--accent);
-  pointer-events: none;
-}
-
-/* U3800a: the slot drawn at the drop depth is the only landing marker; the library's own slot only keeps the space. */
-.rail-tree [data-dnd-placeholder]::after {
-  display: none;
-}
-
 /* Greyed, not faded: opacity would sink the Live lines under the 4.5:1 contrast U25 keeps; grayscale holds it (rail/u25_daemon_gone.test.tsx). */
 .rail-tree [role="tree"][aria-disabled="true"] {
   filter: grayscale(1);
