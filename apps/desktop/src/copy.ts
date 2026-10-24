@@ -149,7 +149,7 @@ export const copy = {
     : `Your search in ${project} won't be kept after reload. Keep this Project open to recover your work.`,
   switcherCopyFailure: "Could not copy query. Select the text and copy again.",
   copyQuery: "Copy query",
-  dismissFailure: "Dismiss failure",
+  dismissFailure: "Dismiss",
   retryStorage: "Try again",
   queryCopied: "Copied",
   discardQuery: "Discard query",

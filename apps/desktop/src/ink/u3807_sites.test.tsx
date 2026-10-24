@@ -193,7 +193,7 @@ it("u3807_each_site_shows_its_message_in_the_reserved_line: Todo row", async () 
   const place = (await within(row).findByRole("alert")).closest<HTMLElement>(".reserved-line")!;
   unchanged(places, place);
   expect([...row.children]).toEqual(siblings);
-  fireEvent.click(within(place).getByRole("button", { name: "Dismiss failure" }));
+  fireEvent.click(within(place).getByRole("button", { name: "Dismiss" }));
   await waitFor(() => expect(within(row).queryByRole("alert")).toBeNull());
   unchanged(places, place);
   expect([...row.children]).toEqual(siblings);

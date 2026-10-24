@@ -210,7 +210,7 @@ it.each(["dismiss", "save", "delete", "cancel-delete", "failed-delete", "unrelat
   await within(drawer()).findByRole("alert", { name: "Cannot save; retry" });
   const before = [...m.app.calls];
 
-  if (action === "dismiss") fireEvent.click(within(drawer()).getByRole("button", { name: "Dismiss failure" }));
+  if (action === "dismiss") fireEvent.click(within(drawer()).getByRole("button", { name: "Dismiss" }));
   else if (action === "save") {
     m.app.handlers["todo.complete"] = () => todo(1, { done: true });
     fireEvent.click(within(drawer()).getByRole("checkbox", { name: "Complete todo 1" }));
@@ -302,7 +302,7 @@ for (const owner of ["open_row", "open_row_move", "editable_text_title", "editab
     expect(m.connected.drafts.list()).toEqual(retained);
 
     if (action === "dismiss") {
-      const dismiss = within(failure.closest<HTMLElement>(".reserved-line")!).getByRole("button", { name: "Dismiss failure" });
+      const dismiss = within(failure.closest<HTMLElement>(".reserved-line")!).getByRole("button", { name: "Dismiss" });
       const editor = within(drawer()).queryByRole("textbox", { name: fieldName });
 
       if (editor) fireEvent.blur(editor, { relatedTarget: dismiss });
@@ -367,7 +367,7 @@ it.each(["dismiss", "save", "switch", "delete"] as const)("p3557c_failure_lifeti
   expect(screen.getByRole("alert", { name: "Cannot automate; retry" })).toBeTruthy();
   const before = [...m.app.calls];
 
-  if (action === "dismiss") fireEvent.click(screen.getByRole("button", { name: "Dismiss failure" }));
+  if (action === "dismiss") fireEvent.click(screen.getByRole("button", { name: "Dismiss" }));
   else if (action === "save") {
     m.app.handlers["workstream.setAuto"] = () => null;
     fireEvent.click(control);
@@ -401,7 +401,7 @@ for (const owner of ["todo_comments", "todo_history", "todo_refs"] as const) {
     expect(within(drawer()).getByRole("alert", { name: "Read unavailable; retry" })).toBeTruthy();
     const before = writes(m.app.calls);
 
-    if (action === "dismiss") fireEvent.click(within(drawer()).getByRole("button", { name: "Dismiss failure" }));
+    if (action === "dismiss") fireEvent.click(within(drawer()).getByRole("button", { name: "Dismiss" }));
     else {
       Object.assign(m.app.handlers, { [method]: original });
       const retry = owner === "todo_comments" ? "Retry comments" : owner === "todo_history" ? "Retry history" : "Retry Pads";
@@ -431,7 +431,7 @@ it.each(["dismiss", "save", "delete"] as const)("p3557c_failure_lifetime_editabl
   m.app.emit(todoEvent("todo.updated", todo(2)));
   expect(within(drawer()).getByRole("alert", { name: /Clipboard unavailable; retry/ })).toBeTruthy();
 
-  if (action === "dismiss") fireEvent.click(within(drawer()).getByRole("button", { name: "Dismiss failure" }));
+  if (action === "dismiss") fireEvent.click(within(drawer()).getByRole("button", { name: "Dismiss" }));
   else if (action === "save") {
     fireEvent.click(within(drawer()).getByRole("checkbox", { name: "Complete todo 1" }));
     await waitFor(() => expect(callsTo(m.app, "todo.complete")).toHaveLength(1));
@@ -466,7 +466,7 @@ it("p3557c_failure_lifetime_todo_drawer_removed_notice_dismiss", async () => {
   expect(within(drawer()).queryByRole("alert", { name: "Save refused; retry" })).toBeNull();
   const retained = m.connected.drafts.list();
   const calls = writes(m.app.calls);
-  fireEvent.click(within(drawer()).getByRole("button", { name: "Dismiss failure" }));
+  fireEvent.click(within(drawer()).getByRole("button", { name: "Dismiss" }));
   expect(within(drawer()).queryByRole("alert", { name: "#1 was deleted" })).toBeNull();
   expect(m.connected.drafts.list()).toEqual(retained);
   expect(retained.map(draft => [draft.destination.object, draft.destination.recipient, draft.value.text])).toEqual([["1", "body", exactDraft]]);
