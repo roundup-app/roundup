@@ -77,7 +77,7 @@ try:
         })()""")
         browser('wait', '--fn', 'Boolean(document.querySelector(".todo-comments [role=alert]"))')
         capture('comment-failure')
-        evaluate("[...document.querySelectorAll('.todo-comments button')].find(b=>b.textContent==='Dismiss failure').click()")
+        evaluate("[...document.querySelectorAll('.todo-comments button')].find(b=>b.textContent==='Dismiss').click()")
         browser('wait', '--fn', '!document.querySelector(".todo-comments [role=alert]")')
         assert evaluate("document.querySelector('.todo-comment-field').value") == '  e\u0301 🧪\n次の行  '
         capture('comment-dismissed')
