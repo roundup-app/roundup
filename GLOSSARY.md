@@ -938,6 +938,9 @@ Incomparable clock lifetimes never authorize continuous execution through a gap.
 **Collapsible**:
 An expandable App region with a named trigger; closing it retains its content.
 
+**Project menu** (`ProjectMenu`, `projectMenu`, `select_project_menu`, `selectProjectMenu`, `onProjectPage`, `projectPageSchema`):
+The native Project menu's selected-Project holder and App seam. The webview synchronizes its selected path; each activation emits `open-project-page` with that captured path and `import-work` or `project-settings`. A null selection disables both commands. Opening changes no Daemon data and starts no Agent.
+
 **Agent time rule** (`Kind::counts_time`, generated `countsTime`):
 An ended Attempt contributes no Agent time, regardless of Kind. An idle or done Status
 contributes none while the Attempt remains alive. Timeline samples retain the `ended`
