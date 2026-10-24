@@ -6,6 +6,7 @@ use std::path::Path;
 use std::process::{Command, Output, Stdio};
 use std::sync::{MutexGuard, TryLockError};
 use std::time::{Duration, Instant};
+use wait_timeout::ChildExt;
 
 use super::Git;
 
@@ -56,9 +57,9 @@ impl Git {
             .args(args)
             .stdin(stdin);
         // Landing retains its configured check and Git/hook lifetime, including rollback.
-        if self.deadline.is_none() {
+        let Some(deadline) = self.deadline else {
             return command.output().map_err(|err| err.to_string());
-        }
+        };
         // Files avoid pipe backpressure and inherited hook pipes keeping collection alive.
         let mut stdout = tempfile::tempfile().map_err(|err| err.to_string())?;
         let mut stderr = tempfile::tempfile().map_err(|err| err.to_string())?;
@@ -69,7 +70,10 @@ impl Git {
             .spawn()
             .map_err(|err| err.to_string())?;
         let status = loop {
-            match child.try_wait() {
+            // Retain output-limit checks without waiting past the operation's shared budget.
+            let pause =
+                Duration::from_millis(5).min(deadline.saturating_duration_since(Instant::now()));
+            match child.wait_timeout(pause) {
                 Ok(Some(status)) => break Ok(status),
                 Ok(None) => {}
                 Err(err) => break Err(err.to_string()),
@@ -80,7 +84,6 @@ impl Git {
             if let Err(err) = self.check_deadline() {
                 break Err(err);
             }
-            std::thread::sleep(Duration::from_millis(5));
         };
         // A hook can spawn descendants even when Git has exited. End the entire owned group.
         if let Some(pid) = i32::try_from(child.id())
