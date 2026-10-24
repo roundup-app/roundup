@@ -335,6 +335,11 @@ export const Rail = () => {
     const height = room?.height ?? 0;
 
     setDrop((now) => (base && room ? (now && now.depth === roomDepth && now.top === top && now.height === height ? now : { depth: roomDepth, top, height }) : null));
+
+    // The library slides the room into place by an animation that writes nothing to the DOM when it ends: measure again then.
+    const running = followRoom === undefined ? [] : (container()?.getAnimations?.({ subtree: true }) ?? []);
+
+    if (running.length > 0) void Promise.allSettled(running.map((one) => one.finished)).then(() => followRoom !== undefined && measureRoom());
   };
 
   const placeDrop = (next: { depth: number } | null) => {
