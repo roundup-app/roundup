@@ -20,14 +20,18 @@
   position: absolute;
   inset: 0;
   border: 2px solid var(--accent);
-  border-radius: inherit;
   pointer-events: none;
 }
 
 [data-dnd-placeholder] {
   position: relative;
   visibility: visible !important;
-  animation: sortable-slot var(--duration-crossfade) var(--easing-out);
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  [data-dnd-placeholder]:not(.rail-tree *) {
+    animation: sortable-slot var(--duration-crossfade) var(--easing-out);
+  }
 }
 
 [data-dnd-placeholder]::after {
@@ -40,8 +44,4 @@
 
 @keyframes sortable-slot {
   from { opacity: 0; }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  [data-dnd-placeholder] { animation: none; }
 }

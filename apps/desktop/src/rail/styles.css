@@ -276,15 +276,10 @@
   right: 0;
   box-sizing: border-box;
   border: 2px dashed var(--accent);
-  border-radius: var(--radius-row);
   pointer-events: none;
 }
 
 /* U3800a: the slot drawn at the drop depth is the only landing marker; the library's own slot only keeps the space. */
-.rail-tree [data-dnd-placeholder] {
-  animation: none;
-}
-
 .rail-tree [data-dnd-placeholder]::after {
   display: none;
 }

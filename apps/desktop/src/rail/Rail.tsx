@@ -337,12 +337,16 @@ export const Rail = () => {
       return;
     }
 
-    queueMicrotask(() => {
+    const measure = () => {
       const base = container()?.getBoundingClientRect();
       const room = container()?.querySelector("[data-dnd-placeholder]")?.getBoundingClientRect();
 
       setDrop(base && room ? { depth: next.depth, top: room.top - base.top, height: room.height } : null);
-    });
+    };
+
+    // The library moves the room after the preview: measure again on the next frame so the slot never trails it.
+    queueMicrotask(measure);
+    requestAnimationFrame(measure);
   };
 
   /** The index among all of `parent`'s other children for one counted among the shown ones: a done row folded into its `✓ n done` line is still a sibling. */
