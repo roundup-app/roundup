@@ -1,6 +1,6 @@
 import { cleanup, fireEvent, render, screen, waitFor, within } from "@solidjs/testing-library";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { gate, mountApp, select } from "../decisions/decisionsFixture";
+import { gate, mountApp, select } from "../testing/appFixture";
 import { RpcError } from "../app/seam";
 import type { Kind } from "@contracts/Kind";
 import type { Order } from "@contracts/agent/Order";
@@ -13,19 +13,17 @@ import { openRecovery, recoveryLabel } from "../testing/recovery";
 
 beforeEach(() => window.localStorage.clear());
 
-afterEach(() => vi.restoreAllMocks());
+afterEach(() => { vi.restoreAllMocks(); vi.useRealTimers(); vi.unstubAllGlobals(); });
 
 const limits = ["Change no file", "Keep it short", "Ask before deleting", "Use no network"];
 
 const prompt = `## Details\n\n${"Walk through each part of the screenshot. ".repeat(60)}\n\n- **bold** item`;
 
-const KINDS: Kind[] = ["error", "needs-you", "blocked", "working", "idle", "done"];
-
 export const openDrawer = async (
   order: Order,
-  options: { kind?: Kind; handlers?: Record<string, (params: never) => object | null> } = {},
+  options: { app?: (app: ReturnType<typeof createFakeApp>) => void; kind?: Kind; handlers?: Record<string, (params: never) => object | null> } = {},
 ) => {
-  await mountApp([], (app) => {
+  await mountApp((app) => {
     app.handlers["rail.tree"] = () => [
       agent("a", options.kind ?? "working", "editing", { name: "alpha", order: 0, work: order }),
       agent("b", "working", "editing", { name: "beta", order: 1, work: clarifying("which?") }),
@@ -33,6 +31,7 @@ export const openDrawer = async (
     ];
     app.handlers["agent.spawnPrompt"] = () => ({ prompt });
     Object.assign(app.handlers, options.handlers ?? {});
+    options.app?.(app);
   });
   select("alpha");
   await waitFor(() => expect(document.querySelector(".order-line")).not.toBeNull());
@@ -65,7 +64,7 @@ describe("O15: the Drawer shows a title, the done line and no prompt", () => {
   });
 
   it("o15_the_done_mark_follows_the_agent_kind", async () => {
-    for (const kind of KINDS) {
+    for (const kind of ["working", "done"] as const) {
       const drawer = await openDrawer(full, { kind });
       const line = drawer.querySelector<HTMLElement>(".order-done-line")!;
       expect(line.textContent).toContain("The tour is written");
@@ -136,16 +135,6 @@ describe("O16: the user edits the order in the Drawer", () => {
     await waitFor(() => expect(sent).toHaveLength(1));
     expect("title" in sent[0]!.order).toBe(false);
     expect("done" in sent[0]!.order).toBe(false);
-  });
-
-  it("o16_a_rejected_save_keeps_the_input_and_shows_the_error", async () => {
-    await edit(full, () => {
-      throw new Error("order title is over 6 words");
-    });
-    fireEvent.input(field("title"), { target: { value: "one two three four five six seven" } });
-    fireEvent.click(screen.getByRole("button", { name: "Save" }));
-    await waitFor(() => expect(screen.getByRole("alert").textContent).toContain("order title is over 6 words"));
-    expect(field("title").value).toBe("one two three four five six seven");
   });
 
   it("o16_a_clarification_order_has_no_edit_button", async () => {
@@ -272,7 +261,8 @@ it("u2773b_orders_out_of_order_acknowledgement_keeps_late_failure", async () => 
 
 it("u2773e_recovery_actions_keep_surface_draft_orders", async () => {
   const sends: object[] = [];
-  await openDrawer(full, { handlers: { "agent.setOrder": (params) => { sends.push(params);
+  const clipboard = vi.fn(async (_text: string) => {});
+  await openDrawer(full, { app: value => { value.clipboardWrite = clipboard; }, handlers: { "agent.setOrder": (params) => { sends.push(params);
 
  return {}; } } });
   fireEvent.click(screen.getByRole("button", { name: "Edit order" }));
@@ -281,8 +271,6 @@ it("u2773e_recovery_actions_keep_surface_draft_orders", async () => {
   fireEvent.input(screen.getByLabelText("Ask"), { target: { value: "  unsaved ask\n" } });
   fireEvent.input(screen.getByLabelText("Done when"), { target: { value: "  unsaved done é  " } });
   expect(screen.getByRole("alert").textContent).toContain("reload");
-  const clipboard = vi.fn(async (_text: string) => {});
-  Object.defineProperty(navigator, "clipboard", { configurable: true, value: { writeText: clipboard } });
 
   for (const name of ["Copy title", "Copy ask", "Copy done"]) fireEvent.click(screen.getByRole("button", { name }));
   await waitFor(() => expect(clipboard.mock.calls).toEqual([["  unsaved title 👋  "], ["  unsaved ask\n"], ["  unsaved done é  "]]));
@@ -305,7 +293,7 @@ it("u2773e_recovery_actions_keep_surface_draft_orders", async () => {
 it("u2773c_orders_untouched_editor_follows_external_change", async () => {
   let latest = full;
 
-  const { app } = await mountApp([], (app) => {
+  const { app } = await mountApp((app) => {
     app.handlers["rail.tree"] = () => [
       agent("a", "working", "editing", { name: "alpha", order: 0, work: latest }),
       agent("b", "working", "editing", { name: "beta", order: 1 }),
@@ -502,4 +490,168 @@ it("u3289a_order_form_stays_off_the_list_until_left", async () => {
   fireEvent.keyDown(screen.getByLabelText("Ask"), { key: "Escape" });
   await waitFor(() => expect(document.querySelector(".order-edit")).toBeNull());
   await vi.waitFor(async () => expect(await recoveryLabel()).toBe("Recover unfinished work (1)"));
+});
+
+it.each(["dismiss", "save", "unrelated removal", "item removal", "older acknowledgement"] as const)("p3557c_failure_lifetime_order_drawer: %s", async transition => {
+  const app = createFakeApp();
+  let nodes = [agent("a", "working", "editing", { name: "alpha", work: full }), agent("b", "working", "editing", { name: "beta", work: full })];
+  app.handlers["rail.tree"] = () => nodes;
+  app.handlers["agent.spawnPrompt"] = () => ({ prompt: "original" });
+  const older = gate<ReturnType<typeof agent>>();
+  let saves = 0;
+  app.handlers["agent.setOrder"] = () => {
+    if (transition === "older acknowledgement" && saves++ === 0) return older.promise;
+    throw new RpcError(-32003, "Save refused; try again");
+  };
+
+  const connected = await connectProject(app, { name: "p", path: "/p" }, () => true, () => 0);
+  render(() => <ConnectedProjectContext.Provider value={connected}><OrderDrawer id="a" /></ConnectedProjectContext.Provider>);
+  fireEvent.click(screen.getByRole("button", { name: "Edit order" }));
+  const exact = "  Keep this\n草稿 📝  ";
+  fireEvent.input(screen.getByLabelText("Ask"), { target: { value: transition === "older acknowledgement" ? "  earlier submit\n" : exact } });
+  const other = connected.drafts.edit({ surface: "orders", object: "b", recipient: "b" }, { ask: "  unrelated\n" }, null, "ordinary").draft;
+  fireEvent.click(screen.getByRole("button", { name: "Save" }));
+
+  if (transition === "older acknowledgement") {
+    fireEvent.input(screen.getByLabelText("Ask"), { target: { value: exact } });
+    fireEvent.click(screen.getByRole("button", { name: "Save" }));
+  }
+
+  await screen.findByText("Save refused; try again");
+  const before = connected.drafts.list();
+
+  if (transition === "dismiss") fireEvent.click(screen.getByRole("button", { name: "Clear error" }));
+
+  if (transition === "save") {
+    const reply = gate<ReturnType<typeof agent>>();
+    app.handlers["agent.setOrder"] = () => reply.promise;
+    fireEvent.click(screen.getByRole("button", { name: "Save" }));
+    expect(screen.getByText("Save refused; try again")).toBeTruthy();
+    reply.resolve(agent("a", "working", "editing", { name: "alpha", work: full }));
+    await waitFor(() => expect(document.querySelector(".order-edit")).toBeNull());
+    expect(app.calls.filter(call => call.method === "agent.setOrder").at(-1)?.params).toMatchObject({ id: "a", order: { ask: exact.trim() } });
+  }
+
+  if (transition === "older acknowledgement") {
+    older.resolve(agent("a", "working", "editing", { name: "alpha", work: full }));
+    await waitFor(() => expect(connected.drafts.list().some(draft => draft.status === "pending")).toBe(false));
+  }
+
+  if (transition.includes("removal")) {
+    nodes = nodes.filter(node => node.id !== (transition === "item removal" ? "a" : "b"));
+    await connected.rail.refresh();
+  }
+
+  expect(screen.queryByText("Save refused; try again") !== null).toBe(transition === "unrelated removal" || transition === "older acknowledgement");
+  expect(connected.drafts.list().find(draft => draft.revision === other.revision)).toEqual(other);
+
+  if (transition !== "save") {
+    if (transition === "older acknowledgement") expect(connected.drafts.list().filter(draft => draft.status === "failed")).toEqual(before.filter(draft => draft.status === "failed"));
+    else expect(connected.drafts.list()).toEqual(before);
+    expect(screen.getByLabelText<HTMLTextAreaElement>("Ask").value).toBe(exact);
+  }
+});
+
+it.each(["dismiss", "save", "item removal", "unrelated removal"] as const)("p3557c_failure_lifetime_order_drawer_prompt: %s", async transition => {
+  const app = createFakeApp();
+  let nodes = [agent("a", "working", "editing", { name: "alpha", work: full }), agent("b", "working", "editing", { name: "beta", work: full })];
+  app.handlers["rail.tree"] = () => nodes;
+  app.handlers["agent.spawnPrompt"] = () => { throw new RpcError(-32003, "Prompt unavailable; reopen to retry"); };
+
+  app.handlers["agent.setOrder"] = () => agent("a", "working", "editing", { name: "alpha", work: full });
+  const connected = await connectProject(app, { name: "p", path: "/p" }, () => true, () => 0);
+  render(() => <ConnectedProjectContext.Provider value={connected}><OrderDrawer id="a" /></ConnectedProjectContext.Provider>);
+  await screen.findByText("Prompt unavailable; reopen to retry");
+
+  if (transition === "dismiss") fireEvent.click(screen.getByRole("button", { name: "Clear error" }));
+
+  if (transition === "save") {
+    fireEvent.click(screen.getByRole("button", { name: "Edit order" }));
+    fireEvent.input(screen.getByLabelText("Ask"), { target: { value: "  new order\n" } });
+    fireEvent.click(screen.getByRole("button", { name: "Save" }));
+    await waitFor(() => expect(document.querySelector(".order-edit")).toBeNull());
+  }
+
+  if (transition.includes("removal")) {
+    nodes = nodes.filter(node => node.id !== (transition === "item removal" ? "a" : "b"));
+    await connected.rail.refresh();
+  }
+
+  expect(screen.queryByText("Prompt unavailable; reopen to retry") !== null).toBe(transition === "unrelated removal");
+});
+
+it.each(["dismiss", "save", "unrelated removal"] as const)("p3557c_failure_lifetime_order_drawer_retention: %s", async transition => {
+  const app = createFakeApp();
+  let nodes = [agent("a", "working", "editing", { name: "alpha", work: full }), agent("b", "working", "editing", { name: "beta", work: full })];
+  app.handlers["rail.tree"] = () => nodes;
+  app.handlers["agent.spawnPrompt"] = () => ({ prompt: "p" });
+  app.handlers["agent.setOrder"] = () => { throw new RpcError(-32003, "Save refused; try again"); };
+
+  const connected = await connectProject(app, { name: "p", path: "/p" }, () => true, () => 0);
+  render(() => <ConnectedProjectContext.Provider value={connected}><OrderDrawer id="a" /></ConnectedProjectContext.Provider>);
+  fireEvent.click(screen.getByRole("button", { name: "Edit order" }));
+  vi.spyOn(Storage.prototype, "setItem").mockImplementation(() => { throw new Error("disk full"); });
+  const exact = "  keep in memory\n草稿  ";
+  fireEvent.input(screen.getByLabelText("Ask"), { target: { value: exact } });
+  fireEvent.click(screen.getByRole("button", { name: "Save" }));
+  await screen.findByText("Save refused; try again");
+
+  if (transition !== "save") fireEvent.click(screen.getByRole("button", { name: "Clear error" }));
+  else {
+    app.handlers["agent.setOrder"] = () => agent("a", "working", "editing", { name: "alpha", work: full });
+    fireEvent.click(screen.getByRole("button", { name: "Save" }));
+    await waitFor(() => expect(document.querySelector(".order-edit")).toBeNull());
+  }
+
+  if (transition === "unrelated removal") {
+    nodes = nodes.filter(node => node.id !== "b");
+    await connected.rail.refresh();
+  }
+
+  expect(screen.getByRole("alert").textContent).toContain("Could not store unfinished work");
+
+  if (transition !== "save") expect(screen.getByLabelText<HTMLTextAreaElement>("Ask").value).toBe(exact);
+  expect(connected.drafts.problem()?.cause).toBe("write");
+});
+
+it.each(["dismiss", "copy", "timer", "unrelated removal", "item removal", "session replacement"] as const)("p3557c_failure_lifetime_order_drawer_session_copy: %s", async transition => {
+  const app = createFakeApp();
+  let nodes = [agent("a", "done", "finished", { name: "alpha", work: full, overview: { program: "Claude Code", id: "session-a" } }), agent("b", "working", "editing", { name: "beta" })];
+  app.handlers["rail.tree"] = () => nodes;
+  app.handlers["agent.spawnPrompt"] = () => ({ prompt: "p" });
+  const connected = await connectProject(app, { name: "p", path: "/p" }, () => true, () => 0);
+  const write = vi.fn().mockRejectedValue(new Error("clipboard denied"));
+  app.clipboardWrite = write;
+  render(() => <ConnectedProjectContext.Provider value={connected}><OrderDrawer id="a" inline /></ConnectedProjectContext.Provider>);
+
+  if (transition === "timer") vi.useFakeTimers();
+  fireEvent.click(screen.getByRole("button", { name: "Copy session id" }));
+  await vi.waitFor(() => expect(screen.getByRole("alert")).toBeTruthy());
+  // SessionId's success-status timeout must never clear a copy failure.
+
+  if (transition === "timer") vi.runAllTimers();
+
+  if (transition === "dismiss") {
+    fireEvent.click(screen.getByRole("button", { name: "Clear error" }));
+    expect(screen.queryByRole("status")).toBeNull();
+  }
+
+  if (transition === "copy") {
+    write.mockResolvedValue(undefined);
+    fireEvent.click(screen.getByRole("button", { name: "Copy session id" }));
+    await waitFor(() => expect(screen.queryByRole("alert")).toBeNull());
+    expect(write).toHaveBeenLastCalledWith("session-a");
+  }
+
+  if (transition === "unrelated removal") {
+    nodes = nodes.filter(node => node.id !== "b");
+    await connected.rail.refresh();
+  }
+
+  if (transition === "item removal" || transition === "session replacement") {
+    nodes = transition === "item removal" ? nodes.filter(node => node.id !== "a") : nodes.map(node => node.id === "a" ? { ...node, overview: { program: "Claude Code", id: "session-replacement" } } : node);
+    await connected.rail.refresh();
+  }
+
+  expect(screen.queryByRole("alert") !== null).toBe(transition === "unrelated removal" || transition === "timer");
 });

@@ -10,7 +10,7 @@ afterEach(() => { cleanup(); vi.restoreAllMocks(); localStorage.clear(); });
 it("u2540c_one_message_contains_all_original_context", async () => {
   const { app } = await openDiff();
   await saveNote("  exact\ncomment <script>  ");
-  fireEvent.click(screen.getByRole("button", { name: "Back" }));
+  fireEvent.click(screen.getByRole("button", { name: "Close" }));
   await openFile("src/deep/b.ts");
   await saveNote("second");
   let accepted: unknown;
@@ -43,11 +43,11 @@ it("u2540c_acceptance_clears_only_the_submitted_batch", async () => {
   await waitFor(() => expect(app.calls.filter(call => call.method === "message.send")).toHaveLength(1));
   fireEvent.click(send);
   await saveNote("added meanwhile");
-  resolve(message(1, { to: "a", status: "held" }));
+  resolve(message(1, { to: "a", status: "pending" }));
   await waitFor(() => expect(screen.getByRole("list", { name: "Notes" }).textContent).not.toContain("submitted"));
   expect(screen.getByRole("list", { name: "Notes" }).textContent).toContain("added meanwhile");
   expect(app.calls.filter(call => call.method === "message.send")).toHaveLength(1);
-  expect(screen.getByRole("region", { name: "Agent notes" }).textContent).toContain("held");
+  expect(screen.getByRole("region", { name: "Agent notes" }).textContent).toContain("queued");
 });
 
 it("u2540c_rejection_and_unknown_acceptance_preserve_notes", async () => {
@@ -94,7 +94,7 @@ it.each(["failed", "acknowledged", "unknown"] as const)("u2773b_changes_settleme
   const reopened = await openDiff();
   expect(screen.getByRole("list", { name: "Notes" }).textContent).toContain("  revision B 🐝\n newer  ");
   expect(screen.getByRole("list", { name: "Notes" }).textContent).not.toContain("revision A");
-  fireEvent.click(screen.getByRole("button", { name: "Close" }));
+  fireEvent.click(screen.getByRole("button", { name: "Close changes" }));
   await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
   expect(reopened.app.calls.filter(call => call.method === "message.send")).toHaveLength(0);
 
@@ -236,4 +236,111 @@ it("u2773b_changes_reconnect_failure_preserves_newer_revision", async () => {
   next.view.unmount();
   await openDiff("/p", first.connected.drafts);
   expect(screen.getByRole("list", { name: "Notes" }).textContent).toContain("new connection revision B 🐝");
+});
+
+it.each(["remove", "save", "dismiss", "other remove", "other save", "cancel edit"])("p3557c_failure_lifetime_note_batch: %s", async action => {
+  const { app } = await openDiff();
+  const exact = "  original e\u0301\n🐝  ";
+  await saveNote(exact);
+  app.handlers["message.send"] = () => { throw new RpcError(-32003, "recipient refused; edit or retry notes"); };
+
+  fireEvent.click(screen.getByRole("button", { name: /Send notes to/ }));
+  await screen.findByText("recipient refused; edit or retry notes");
+  await saveNote("  unrelated 🐝\n exact  ");
+  fireEvent.click(screen.getByRole("button", { name: "Add note" }));
+  const field = screen.getByRole("textbox", { name: "Note" });
+  fireEvent.input(field, { target: { value: "  unfinished e\u0301\n🐝  " } });
+
+  if (action === "dismiss") fireEvent.click(screen.getByRole("button", { name: "Dismiss" }));
+  else if (action.endsWith("remove")) fireEvent.click(screen.getByRole("button", { name: action === "remove" ? "Remove note 1" : "Remove note 2" }));
+  else {
+    fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
+    fireEvent.click(screen.getByRole("button", { name: action === "other save" ? "Edit note 2" : "Edit note 1" }));
+
+    if (action === "cancel edit") fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
+    else {
+      fireEvent.input(screen.getByRole("textbox", { name: "Note" }), { target: { value: "  acknowledged replacement 🐝  " } });
+      fireEvent.click(screen.getByRole("button", { name: "Save" }));
+    }
+
+    fireEvent.click(screen.getByRole("button", { name: "Add note" }));
+  }
+
+  expect(screen.queryByText("recipient refused; edit or retry notes") !== null).toBe(action.startsWith("other") || action === "cancel edit");
+  expect(screen.getByRole("textbox", { name: "Note" })).toHaveProperty("value", "  unfinished e\u0301\n🐝  ");
+  const list = screen.getByRole("list", { name: "Notes" });
+  expect(list.textContent).toContain(action === "other save" ? "  acknowledged replacement 🐝  " : action === "other remove" ? exact : "  unrelated 🐝\n exact  ");
+  expect(app.calls.filter(call => call.method === "message.send").map(call => call.params)).toEqual([expect.objectContaining({ to: "a", body: expect.stringContaining(exact.replaceAll("\n", "\\n")) })]);
+});
+
+it.each(["remove", "save", "dismiss"])("p3557c_failure_lifetime_note_batch_load: %s", async action => {
+  const { app } = await openDiff();
+  await saveNote("  original note e\u0301\n🐝  ");
+  app.handlers["message.list"] = () => { throw new RpcError(-32003, "history refused; retry loading history"); };
+
+  fireEvent.click(screen.getByRole("button", { name: /Send notes to/ }));
+  await screen.findByText("history refused; retry loading history");
+
+  if (action === "remove") fireEvent.click(screen.getByRole("button", { name: "Remove note 1" }));
+  else if (action === "save") {
+    fireEvent.click(screen.getByRole("button", { name: "Edit note 1" }));
+    fireEvent.input(screen.getByRole("textbox", { name: "Note" }), { target: { value: "  revised 🐝  " } });
+    fireEvent.click(screen.getByRole("button", { name: "Save" }));
+  } else fireEvent.click(screen.getByRole("button", { name: "Dismiss" }));
+  expect(screen.queryByText("history refused; retry loading history") !== null).toBe(action !== "dismiss");
+  expect(app.calls.filter(call => call.method === "message.send")).toHaveLength(0);
+});
+
+it.each(["dismiss", "remove", "save"])("p3557c_failure_lifetime_note_batch_retention: %s", async action => {
+  const { app } = await openDiff();
+  await saveNote("  original note e\u0301\n🐝  ");
+  app.handlers["message.send"] = () => { throw new RpcError(-32003, "recipient refused; retry"); };
+
+  fireEvent.click(screen.getByRole("button", { name: /Send notes to/ }));
+  await screen.findByText("recipient refused; retry");
+  const write = vi.spyOn(Storage.prototype, "setItem").mockImplementation(() => { throw new Error("disk refused"); });
+  fireEvent.click(screen.getByRole("button", { name: "Add note" }));
+  fireEvent.input(screen.getByRole("textbox", { name: "Note" }), { target: { value: "  in memory e\u0301\n🐝  " } });
+
+  if (action === "dismiss") fireEvent.click(screen.getByRole("button", { name: "Dismiss" }));
+  else if (action === "remove") fireEvent.click(screen.getByRole("button", { name: "Remove note 1" }));
+  else {
+    fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
+    fireEvent.click(screen.getByRole("button", { name: "Edit note 1" }));
+    fireEvent.input(screen.getByRole("textbox", { name: "Note" }), { target: { value: "  cannot retain save 🐝  " } });
+    fireEvent.click(screen.getByRole("button", { name: "Save" }));
+    fireEvent.click(screen.getByRole("button", { name: "Add note" }));
+  }
+
+  expect(screen.getByRole("alert").textContent).toContain("storage refused a write");
+  expect(screen.getByRole("textbox", { name: "Note" })).toHaveProperty("value", "  in memory e\u0301\n🐝  ");
+  expect(app.calls.filter(call => call.method === "message.send")).toHaveLength(1);
+  write.mockRestore();
+});
+
+it.each(["same", "older"])("p3557c_failure_lifetime_note_batch_submission: %s", async selected => {
+  const { app } = await openDiff();
+  await saveNote("  older submission 🐝  ");
+  app.handlers["message.send"] = () => { throw new RpcError(-32003, "old refusal; retry"); };
+
+  fireEvent.click(screen.getByRole("button", { name: /Send notes to/ }));
+  await screen.findByText("old refusal; retry");
+  fireEvent.click(screen.getByRole("button", { name: "Remove note 1" }));
+  await saveNote("  current submission e\u0301\n🐝  ");
+  app.handlers["message.send"] = () => { throw new RpcError(-32003, "current refusal; retry"); };
+
+  fireEvent.click(screen.getByRole("button", { name: /Send notes to/ }));
+  await screen.findByText("current refusal; retry");
+  fireEvent.click(screen.getByRole("button", { name: "Add note" }));
+  fireEvent.input(screen.getByRole("textbox", { name: "Note" }), { target: { value: "  unfinished e\u0301\n🐝  " } });
+  fireEvent.click(screen.getByRole("button", { name: "Recover Changes drafts" }));
+  const recovery = await screen.findByRole("dialog", { name: "Recover Changes drafts" });
+  fireEvent.click(within(recovery).getAllByRole("button", { name: "Discard this submission" })[selected === "same" ? 1 : 0]!);
+  fireEvent.click(within(recovery).getByRole("button", { name: "Close" }));
+  fireEvent.click(screen.getByRole("button", { name: "roundup/a" }));
+  await openFile();
+  fireEvent.click(screen.getByRole("button", { name: "Add note" }));
+  expect(screen.queryByText("current refusal; retry") !== null).toBe(selected === "older");
+  expect(screen.getByRole("textbox", { name: "Note" })).toHaveProperty("value", "  unfinished e\u0301\n🐝  ");
+  expect(app.calls.filter(call => call.method === "message.send").map(call => call.params)).toEqual([expect.objectContaining({ to: "a" }), expect.objectContaining({ to: "a" })]);
 });

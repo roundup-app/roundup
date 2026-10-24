@@ -306,12 +306,12 @@ it("u3311_real_daemon_delegate_board", async () => {
     await observe(made[6]!.id, agents[0]!.id);
 
     await lane.browser("focus", '[role="switch"]');
-    await lane.evaluate("window.__held = document.activeElement");
+    await lane.evaluate("window.__kept = document.activeElement");
     const scroll = await lane.evaluate<number>("document.querySelector('.shelf-area').scrollTop");
     await lane.browser("press", "Space");
     await lane.until("document.querySelector('[role=switch]').getAttribute('aria-checked')==='true'");
     await observe(made[7]!.id, agents[0]!.id);
-    expect(await lane.evaluate("document.activeElement === window.__held")).toBe(true);
+    expect(await lane.evaluate("document.activeElement === window.__kept")).toBe(true);
     expect(await lane.evaluate("document.querySelector('.shelf-area').scrollTop")).toBe(scroll);
     const prompts = await readFile(join(scratch, "prompts.jsonl"), "utf8");
     expect(prompts).toContain(`Todo #${made[7]!.id}`);

@@ -21,8 +21,6 @@ Inventory: binary names identify the original CI test binaries; seconds are the 
 | `b21_start_releases_each_changed_child_under_b22s_caps` | `rupd::b21_stopped_door` | 16.9 |
 | `b6_later_door_effects_cannot_overtake_a_released_resize` | `rupd::held_resizes` | 14.0 |
 | `b21_a_reopened_door_waits_until_explicit_start` | `rupd::b21_stopped_door` | 11.5 |
-| `b6_interrupt_completion_accounts_for_a_blocked_escape_before_takeover` | `rupd::door_writes` | 11.1 |
-| `b6_takeover_acquisition_waits_for_a_door_spawned_first_prompt` | `rupd::door_writes` | 11.1 |
 | `b6_an_order_completion_waits_for_its_steer_effect` | `rupd::order_steering` | 10.8 |
 | `b2704a_rename_updates_context_and_queues_one_note` | `rupd::b50_note_inbox` | 10.3 |
 | `resources::tests::d8_a_disk_size_is_cached_for_30_s_and_the_walk_never_holds_the_call_past_1_s` | `rupd` | 10.2 |
@@ -36,9 +34,6 @@ Inventory: binary names identify the original CI test binaries; seconds are the 
 | `x14_daemon_observer::x14_daemon_observer_capacity_matches_its_receiver` | `rupd::n7_data` | 9.1 |
 | `b2704a_unchanged_names_produce_no_note_for_a_no_word_first_prompt` | `rupd::b50_note_inbox` | 8.8 |
 | `b6_checked_effects_exclude_prompt_replacement_under_parallel_load` | `rupd::prompt_identity` | 6.7 |
-| `b6_wire_door_decision_calls_wait_for_all_earlier_resizes` | `rupd::door_answers` | 5.8 |
-| `b6_begin_racing_a_door_interrupt_waits_for_the_child_effect` | `rupd::takeover_races` | 5.7 |
-| `b6_a_door_interrupt_waits_for_takeover_release` | `rupd::held_door_calls` | 5.5 |
 | `cleanup_completion::b6_cleanup_refusal_preserves_the_resume_failure_and_blocks_a_blind_retry` | `rupd::b6_cleanup_completion` | 5.5 |
 
 **T2964b measure the implementation head.** Given T2964a's dispositions and a green `check` on the implementation PR's head, when its CI test timings are read, then the PR reports that run URL and head, each surviving original test's elapsed time and their sum against the recorded 313 s baseline (policy). Include the timings and a separate sum for replacement tests so moving work to another name cannot hide its cost. A cut contributes zero; a split or merge maps its measured tests back to all affected original rows and counts each executed test once in the total. Use per-test elapsed times from that run, not job duration, local timings or the baseline substituted for missing data. Missing timing evidence leaves acceptance unmet. No workflow or loop change is required or authorized by this scenario (policy).
@@ -46,7 +41,7 @@ Inventory: binary names identify the original CI test binaries; seconds are the 
 Checks (existing acceptance on main; all remain in force):
 
 1. `AGENTS.md`, Rules, rule 10: a test must detect its scenario's break without duplicating a cheaper proof.
-2. `scenarios/messages.md`, B6 Takeover and its amendments, B21 pushed on change, B22 caps, and B2704a: preserve action ordering, cleanup, stopped-Door delivery and rename-note behavior when changing their tests.
+2. `scenarios/messages.md`, B6's retired Takeover (its surviving cleanup amendments), B21 pushed on change, B22 caps, and B2704a: preserve action ordering, cleanup, stopped-Door delivery and rename-note behavior when changing their tests.
 3. `scenarios/resources.md`, D8 the Daemon samples an Agent's Resource use when asked: preserve disk-cache and bounded-walk behavior.
 4. `crates/rupd/tests/n7_data.rs`, `x14_daemon_observer::x14_daemon_observer_capacity_matches_its_receiver`: preserve actual receiver capacity, ordered delivery at capacity and lag at capacity plus one unless a named surviving test proves the same boundary.
 

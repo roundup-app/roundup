@@ -92,6 +92,10 @@ const TOOLS: &[(&str, &str)] = &[
         "link_read",
         "read what a roundup:// link names, as it is now",
     ),
+    (
+        "import_list",
+        "list this Project's saved and live Claude Code sessions with the revision to approve; it imports nothing",
+    ),
     ("pad_list", "see which Pads exist"),
     ("pad_write", "rewrite a Pad you own"),
     ("pad_append", "add text to the end of any Pad"),
@@ -104,14 +108,6 @@ const TOOLS: &[(&str, &str)] = &[
     (
         "checkpoint_list",
         "read the Checkpoints written for a Workstream, oldest first",
-    ),
-    (
-        "decision_list",
-        "see the open permission requests and `ask_user` questions of the Agents below you",
-    ),
-    (
-        "decision_answer",
-        "answer one of those Decisions with `allow` or `deny`, or with one of the listed answers; never your own, never one outside the Agents below you",
     ),
     (
         "agent_context",
@@ -181,14 +177,6 @@ const TOOLS: &[(&str, &str)] = &[
     ("message_get", "read one Message you sent or received"),
     ("message_list", "see the Messages you sent or received"),
     (
-        "message_pass",
-        "hand a question you received on to the next Agent above, when it is not yours to answer",
-    ),
-    (
-        "ask_user",
-        "put a decision to the user with up to four answers, each with its tradeoff and a preview, and wait for the answer or the note they give back",
-    ),
-    (
         "todo_move",
         "move a Todo into a Workstream, or out of every Workstream",
     ),
@@ -217,34 +205,24 @@ const TOOLS: &[(&str, &str)] = &[
         "rail_startDoor",
         "start the Door of a Workstream you made or one in your Reach; the Door asks the user what the Workstream is for",
     ),
-    (
-        "rail_rename",
-        "rename yourself or a node in your Reach; a waiting receipt means accepted, not executed; read agent_actionHistory for its outcome",
-    ),
+    ("rail_rename", "rename yourself or a node in your Reach"),
     (
         "agent_instructions",
         "read exact instruction revisions and Attempt-bound delivery facts for yourself or your Reach; reading sends nothing, and submission is not work completion",
-    ),
-    (
-        "agent_actionHistory",
-        "read your durably accepted child actions and their outcomes; never resubmit a waiting action",
     ),
     (
         "rail_move",
         "move a node in your Reach; a Workstream moves only to the root",
     ),
     ("rail_remove", "remove a node in your Reach, never yourself"),
-    (
-        "agent_stop",
-        "stop an Agent in your Reach, never yourself; a waiting receipt means accepted, not executed; read agent_actionHistory for its outcome",
-    ),
+    ("agent_stop", "stop an Agent in your Reach, never yourself"),
     (
         "agent_interrupt",
-        "interrupt the turn of an Agent in your Reach; a waiting receipt means accepted, not executed; read agent_actionHistory for its outcome",
+        "interrupt the turn of an Agent in your Reach",
     ),
     (
         "agent_prompt",
-        "send a prompt to an Agent in your Reach as the user would; a waiting receipt means accepted, not executed; read agent_actionHistory for its outcome",
+        "send a prompt to an Agent in your Reach as the user would",
     ),
     (
         "agent_resume",
@@ -273,7 +251,7 @@ const TOOLS: &[(&str, &str)] = &[
     ),
     (
         "project_measurementSummary",
-        "read a Workstream's exact consumed token subtotals and ranked contributors; later pages require the first page's revision",
+        "read a Workstream's time by category and its Agents ranked by summed time; later pages require the first page's revision",
     ),
     (
         "project_setWorktrees",
@@ -314,7 +292,7 @@ const TOOLS: &[(&str, &str)] = &[
     ),
     (
         "route_set",
-        "set where Messages from one Agent to another go (`auto`, `ask-first`, `drop`); it acts on others, never on you, and never over a Route the user set",
+        "set where Messages from one Agent to another go (`auto` or `drop`); it acts on others, never on you, and never over a Route the user set",
     ),
     (
         "terminal_spawn",
@@ -332,14 +310,7 @@ const TOOLS: &[(&str, &str)] = &[
         "terminal_write",
         "type base64 `data` into a Terminal you or your Reach own",
     ),
-    (
-        "terminal_resize",
-        "resize a Terminal you or your Reach own; a waiting receipt means accepted, not executed",
-    ),
-    (
-        "terminal_resizeHistory",
-        "read your durable resize outcomes, including Takeover waits and drop reasons",
-    ),
+    ("terminal_resize", "resize a Terminal you or your Reach own"),
     (
         "terminal_kill",
         "stop the program of a Terminal you or your Reach own",
@@ -398,11 +369,10 @@ const DOOR: &str = "\
 
 You are this Workstream's coordinating Door. Use the Todo tools to record the work and update it as it changes. \
 The user types to you in your own Terminal. Report the outcome directly in your Terminal when the work ends. \
-When the user's goal or a taste limit is unclear, ask directly in your Terminal and wait for their reply there. \
+When the user's goal or a taste limit is unclear, ask with `AskUserQuestion` and wait for their reply there. \
 {intent}\
 Delegate implementation to children with `agent_spawn`. You cannot execute commands or open or write to a Terminal. \
 Start a child with `agent_spawn` and talk to it with `message_send`. \
-A note beginning `[decision <id>]` tells you a child opened a permission request or question: read it with `decision_list` and answer it with `decision_answer`, which acts only on the Agents below you. \
 Make a Workstream with `rail_createWorkstream` and then `rail_startDoor`; a Workstream is never nested, and its Door asks the user what it is for. \
 Open another Project with `project_open`. \
 When the user asks to see a child's output, call `terminal_show` with the id of the child's Terminal and read nothing: no `terminal_screen`, `terminal_read`, `terminal_search` or `message_send`. \
@@ -440,17 +410,16 @@ const PLAIN_RULE: &str = "\
 ## Output style
 
 Write every reply, including direct Terminal prose, in hold:Plain regardless of recipient or tool. \
-Write every Work order, Message to `you`, `ask_user` question, Digest and Pad reply in the output style below. \
+Write every Work order, Message to `you`, `AskUserQuestion` question, Digest and Pad reply in the output style below. \
 Write each limit of a Work order as a rule that reads on its own, such as \"Change no file in the repo\".
 
 ";
 
-/// LC3: Plain's rules in the Door's own words; the Door reads no user `CLAUDE.md` and a Project's
-/// stays in force, so nothing here overrides it or forces a status table.
+/// LC3: Plain's rules without the worker's vendored body; Project instructions stay in force.
 const DOOR_PLAIN: &str = "\
 ## Output style
 
-Write plainly, action first: the first line is the next action or the answer, the last line is the real next action, and what the reader would not miss is left out. \
+Write every reply in hold:Plain. Write plainly, action first: the first line is the next action or the answer, the last line is the real next action, and what the reader would not miss is left out. \
 Keep prose to a few short lines and put rows in a table. \
 Where the Project's `CLAUDE.md` asks for something else, follow it.
 
@@ -471,21 +440,14 @@ const REDUCE: &str = include_str!("../../assets/reduce.md");
 /// 653b6411c1f70c275a18e37673b042ff99f67ceb, vendored byte for byte.
 const SHOW_ME: &str = include_str!("../../assets/show-me.md");
 
-/// H14b: how to ask with `ask_user`.
+/// A3564c: a question for the user goes through Claude Code's own `AskUserQuestion`, a question for
+/// another Agent is a Message, and neither channel answers for the other.
 const ASK_RULE: &str = "\
-## Asking the user
+## Asking
 
-When you call `ask_user`:
-
-- The question is one line: the decision.
-- The context is at most 3 lines, only what the pick turns on, and you run `reduce` on it.
-- The answers are 2 to 4, the recommended one first and its label ending ` (recommended)`.
-- A label is at most 5 words.
-- A description is the tradeoff: what the pick gains and what it costs.
-- A preview is the smallest `show-me` sketch of what the pick builds, and is required when the user has not met its terms.
-- An open question the user answers in their own words takes no answers.
-- Never ask what you can answer by looking, and never ask `you` in a Message what `ask_user` asks.
-- The reply is `{answer, note}`: `answer` is the label picked, or null for the user's own answer, and `note` is their text.
+Ask the user with `AskUserQuestion`: Claude Code shows it in your Terminal and the user answers there. \
+Ask another Agent with `message_send` as a question; it answers with a note that names your question in `replyTo`, and you read the answer in your own conversation. \
+Never answer another Agent's `AskUserQuestion` or permission prompt, and never type into its Terminal.
 
 ";
 
@@ -493,14 +455,14 @@ When you call `ask_user`:
 const REDUCE_RULE: &str = "\
 ## Reduce and show
 
-Run `reduce` on every Work order, Message to `you`, `ask_user` question, Digest, Pad reply and Todo title before you write it, \
+Run `reduce` on every Work order, Message to `you`, `AskUserQuestion` question, Digest, Pad reply and Todo title before you write it, \
 and lay it out as `show-me` does. Both skills follow. \
 When the text explains structure, a flow or a comparison, pick the smallest view that makes the point, and only a view the App draws:
 
 - a table, in any of that text;
 - a code-shape sketch, call tree, file tree or `diff` in a fenced block, in any of that text;
 - a Mermaid diagram only in a Pad, written with `pad_write` or `pad_append`: \
-a Message, `ask_user` question, Digest, Work order or Todo title never holds one, so write the diagram in a Pad and send the Pad's name;
+a Message, `AskUserQuestion` question, Digest, Work order or Todo title never holds one, so write the diagram in a Pad and send the Pad's name;
 - no HTML artifact: write no HTML file and never `open` one.
 
 ";
@@ -512,10 +474,9 @@ Write a list as the choices and nothing around them. \
 Leave out an acknowledgment such as \"On it.\", a connective such as \"Separately:\" and a list item that restates its question.
 ";
 
-/// M2219: the `rup` command for tool `name`: `noun_verbName` is `rup noun verb-name`, and `ask_user` is `rup agent ask`, and the two ref tools are `rup todo ref add|remove`.
+/// M2219: the `rup` command for tool `name`: `noun_verbName` is `rup noun verb-name`, and the two ref tools are `rup todo ref add|remove`.
 fn command(name: &str) -> String {
     match name {
-        "ask_user" => return "rup agent ask".into(),
         // T28: the one pair of commands with a group word between noun and verb.
         "todo_addRef" => return "rup todo ref add".into(),
         "todo_removeRef" => return "rup todo ref remove".into(),
@@ -539,8 +500,9 @@ fn command(name: &str) -> String {
 /// E9: the Brief text for `role`, the same bytes for every Agent of it, so sessions share one
 /// prompt cache. The Agent's id reaches it in its Context at start (E3). `mcp` is whether the
 /// roundup MCP server is launched (M2219); with it off the Brief names `rup` commands instead.
-pub fn text(role: Role, mcp: bool) -> String {
-    let brief = with_tools(role, mcp);
+/// `plain` delivers hold:Plain only when the user has no output style (LC2).
+pub fn text(role: Role, mcp: bool, plain: bool) -> String {
+    let brief = with_tools(role, mcp, plain);
     if mcp {
         return brief;
     }
@@ -549,17 +511,9 @@ pub fn text(role: Role, mcp: bool) -> String {
     } else {
         &[]
     };
-    TOOLS
-        .iter()
-        .chain(door)
-        .fold(brief, |brief, &(name, _)| {
-            brief.replace(&format!("`{name}`"), &format!("`{}`", command(name)))
-        })
-        // The one tool a description names without ticks.
-        .replace(
-            "agent_actionHistory",
-            &format!("`{}`", command("agent_actionHistory")),
-        )
+    TOOLS.iter().chain(door).fold(brief, |brief, &(name, _)| {
+        brief.replace(&format!("`{name}`"), &format!("`{}`", command(name)))
+    })
 }
 
 pub(super) fn door_tools() -> impl Iterator<Item = &'static str> {
@@ -570,16 +524,14 @@ pub(super) fn door_tools() -> impl Iterator<Item = &'static str> {
         .filter(|name| !matches!(*name, "agent_run" | "terminal_spawn" | "terminal_open"))
 }
 
-fn with_tools(role: Role, mcp: bool) -> String {
+fn with_tools(role: Role, mcp: bool, plain: bool) -> String {
     // M11: the tools to load together on the first turn.
     let first_turn = match (mcp, role) {
         (true, Role::Door) => {
-            "Load `agent_context`, `message_list`, `agent_digest` and `ask_user` together first."
+            "Load `agent_context`, `message_list` and `agent_digest` together first."
         }
         (true, _) => "Load `agent_context` and `todo_list` together first.",
-        (false, Role::Door) => {
-            "Run `agent_context`, `message_list`, `agent_digest` and `ask_user` first."
-        }
+        (false, Role::Door) => "Run `agent_context`, `message_list` and `agent_digest` first.",
         (false, _) => "Run `agent_context` and `todo_list` first.",
     };
     let (heading, help, tools) = if mcp {
@@ -628,15 +580,14 @@ fn with_tools(role: Role, mcp: bool) -> String {
     }
     text.push('\n');
     text.push_str(TERMINAL_HABIT);
-    // LC3, LC5: the vendored body is the worker's; the Door states the rules in its own words and a
-    // scout, which writes only to its parent, needs none.
-    match role {
-        Role::Door => text.push_str(DOOR_PLAIN),
-        Role::Scout => {}
-        Role::Agent => {
-            text.push_str(PLAIN_RULE);
-            text.push_str(HOLD_PLAIN);
-            text.push('\n');
+    if plain {
+        match role {
+            Role::Door | Role::Scout => text.push_str(DOOR_PLAIN),
+            Role::Agent => {
+                text.push_str(PLAIN_RULE);
+                text.push_str(HOLD_PLAIN);
+                text.push('\n');
+            }
         }
     }
     text.push_str(ASK_RULE);
@@ -661,24 +612,8 @@ mod tests {
     use super::*;
 
     #[test]
-    fn o9_the_brief_and_the_tool_description_name_order_and_prompt() {
-        let brief = text(Role::Door, true);
-        assert!(
-            brief.contains("`order`") && brief.contains("`prompt`"),
-            "{brief}"
-        );
-    }
-
-    #[test]
-    fn i8_every_brief_says_to_run_rup_help() {
-        for role in [Role::Agent, Role::Door] {
-            assert!(text(role, true).contains("run `rup help`"), "{role:?}");
-        }
-    }
-
-    #[test]
     fn o12_the_brief_names_the_typed_prompt_flow() {
-        let brief = text(Role::Door, true);
+        let brief = text(Role::Door, true, true);
         assert!(
             brief.contains("`prompt`")
                 && brief.contains("`order`")

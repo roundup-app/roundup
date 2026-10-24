@@ -17,9 +17,8 @@ pub mod toolcall;
 pub use placement::Call as PlacementCall;
 pub mod plugins;
 mod skills;
-mod usage;
+mod vendor_list;
 
-use contracts::decision::{Answer, Risk, Scope};
 use contracts::{Kind, Status};
 use serde_json::Value;
 
@@ -32,6 +31,7 @@ pub use profiles::{
     DOOR_TOOLS, DOOR_TOOLS_NO_MCP, PROFILES, Profile, SCOUT_TOOLS, SCOUT_TOOLS_NO_MCP, profile,
 };
 pub use skills::{BANNED, skills};
+pub use vendor_list::{Listed, Listing, Live};
 
 /// F4, F5: the program names this Adapter's vendor CLI is started by. The shim and the process
 /// scan read the names of every Adapter through a function like this one, and write none.
@@ -90,8 +90,10 @@ pub struct ClaudeCode {
     /// The latest recognised Signal was `PreToolUse`: a dialog may be about to open.
     after_pre_tool_use: bool,
     /// When a star after `PreToolUse` was first seen and not yet resolved.
-    star_held_since: Option<i64>,
+    star_parked_since: Option<i64>,
     clock: Box<dyn Fn() -> i64 + Send>,
+    /// U3566c: the Agent's published finishes, carried across Attempts by its caller.
+    finished: u64,
 }
 
 impl ClaudeCode {
@@ -101,9 +103,22 @@ impl ClaudeCode {
             status: None,
             ending: Ending::Running,
             after_pre_tool_use: false,
-            star_held_since: None,
+            star_parked_since: None,
             clock: Box::new(clock),
+            finished: 0,
         }
+    }
+
+    /// Continue the Agent's finish count from an earlier Attempt.
+    pub(crate) fn set_finished(&mut self, finished: u64) {
+        self.finished = finished;
+        if let Some(status) = &mut self.status {
+            status.finished = finished.to_string();
+        }
+    }
+
+    pub(crate) fn finished(&self) -> u64 {
+        self.finished
     }
 
     /// An adapter for a program that has just started: working until it says otherwise.
@@ -123,35 +138,52 @@ impl ClaudeCode {
 
     /// Adopt `kind` and `label`. `since` moves only when the Kind does.
     fn settle(&mut self, kind: Kind, label: String) -> Option<Status> {
+        let finishes = self
+            .status
+            .as_ref()
+            .is_some_and(|s| s.kind == Kind::Working)
+            && matches!(kind, Kind::Idle | Kind::Done);
+        self.settle_counting(kind, label, finishes)
+    }
+
+    /// `settle`, with the finish count raised first when `finish` holds.
+    fn settle_counting(&mut self, kind: Kind, label: String, finish: bool) -> Option<Status> {
         let since = match &self.status {
             Some(current) if current.kind == kind => current.since,
             _ => (self.clock)(),
         };
-        let next = Status { kind, label, since };
+        let finished = self.finished + u64::from(finish);
+        let next = Status {
+            kind,
+            label,
+            since,
+            finished: finished.to_string(),
+        };
         if self.status.as_ref() == Some(&next) {
             return None;
         }
+        self.finished = finished;
         self.status = Some(next.clone());
         Some(next)
     }
 
     /// When the adapter wants an `Observation::Tick`: `STAR_HOLD` after the star it is holding.
     pub fn tick_at(&self) -> Option<i64> {
-        self.star_held_since.map(|since| since + STAR_HOLD)
+        self.star_parked_since.map(|since| since + STAR_HOLD)
     }
 
     /// Claude Code spins ◐/◑ while it works and shows ✳ whenever it is not, a permission dialog
     /// included. A spinner means working, but never ends `needs-you` (a denied dialog resumes the
     /// spinner with no hook). A star means idle only for a working Agent, so it never ends
     /// `needs-you`, `error` or `done`. The one star not read at once follows `PreToolUse`: it may
-    /// be the dialog's, which precedes its `PermissionRequest`, so it is held for `STAR_HOLD`;
+    /// be the dialog's, which precedes its `PermissionRequest`, so it is parked for `STAR_HOLD`;
     /// reading it as idle would flicker `idle` before `needs-you`. A spinner after that star shows
     /// the tool still running and drops the hold.
     fn retitle(&mut self, title: &str) -> Option<Status> {
         let kind = self.status.as_ref().map(|status| status.kind);
         match title.chars().next()? {
             '◐' | '◑' => {
-                self.star_held_since = None;
+                self.star_parked_since = None;
                 if kind == Some(Kind::NeedsYou) {
                     return None;
                 }
@@ -159,7 +191,7 @@ impl ClaudeCode {
             }
             '✳' if kind == Some(Kind::Working) && self.after_pre_tool_use => {
                 let now = (self.clock)();
-                self.star_held_since.get_or_insert(now);
+                self.star_parked_since.get_or_insert(now);
                 None
             }
             '✳' if kind == Some(Kind::Working) => self.settle(Kind::Idle, "idle".into()),
@@ -167,23 +199,23 @@ impl ClaudeCode {
         }
     }
 
-    /// A held star that no `PermissionRequest` followed was a plain idle.
+    /// A parked star that no `PermissionRequest` followed was a plain idle.
     fn tick(&mut self) -> Option<Status> {
-        self.star_held_since
+        self.star_parked_since
             .filter(|since| (self.clock)() - since >= STAR_HOLD)?;
-        self.star_held_since = None;
+        self.star_parked_since = None;
         self.settle(Kind::Idle, "idle".into())
     }
 
     fn signal(&mut self, payload: &Value) -> Option<Status> {
         let (kind, label) = hook_status(payload)?;
         self.after_pre_tool_use = payload["hook_event_name"] == "PreToolUse";
-        self.star_held_since = None;
+        self.star_parked_since = None;
         self.settle(kind, label)
     }
 
     fn exit(&mut self, code: Option<i32>) -> Option<Status> {
-        self.star_held_since = None;
+        self.star_parked_since = None;
         if matches!(self.ending, Ending::Stopped | Ending::Failed) {
             return None;
         }
@@ -202,7 +234,7 @@ impl ClaudeCode {
         if self.ending != Ending::Running {
             return None;
         }
-        self.star_held_since = None;
+        self.star_parked_since = None;
         self.settle(Kind::Error, "prompt not accepted".into())
     }
 
@@ -213,7 +245,7 @@ impl ClaudeCode {
             return None;
         }
         self.ending = Ending::Failed;
-        self.star_held_since = None;
+        self.star_parked_since = None;
         self.settle(Kind::Error, label)
     }
 }
@@ -225,14 +257,10 @@ impl AgentAdapter for ClaudeCode {
             Observation::Stopped if self.ending != Ending::Running => None,
             Observation::Stopped => {
                 self.ending = Ending::Stopped;
-                self.star_held_since = None;
-                self.settle(Kind::Done, "stopped".into())
+                self.star_parked_since = None;
+                self.settle_counting(Kind::Done, "stopped".into(), false)
             }
-            Observation::Signal(_)
-            | Observation::Title(_)
-            | Observation::Tick
-            | Observation::Answered
-            | Observation::Dismissed
+            Observation::Signal(_) | Observation::Title(_) | Observation::Tick
                 if self.ending != Ending::Running =>
             {
                 None
@@ -240,14 +268,6 @@ impl AgentAdapter for ClaudeCode {
             Observation::Tick => self.tick(),
             Observation::Signal(payload) => self.signal(&payload),
             Observation::Title(title) => self.retitle(&title),
-            Observation::Answered => {
-                self.star_held_since = None;
-                self.settle(Kind::Working, "working".into())
-            }
-            Observation::Dismissed => {
-                self.star_held_since = None;
-                self.settle(Kind::Idle, "idle".into())
-            }
         }
     }
 }
@@ -265,28 +285,6 @@ pub fn event_name(payload: &Value) -> &str {
 pub fn submitted_prompt(payload: &Value) -> Option<&str> {
     (payload["hook_event_name"] == "UserPromptSubmit")
         .then(|| payload["prompt"].as_str().unwrap_or_default())
-}
-
-/// B39: a paste that Claude Code shows as a Paste placeholder reaches `UserPromptSubmit` inside an
-/// envelope (seen with 2.1.302): `<pasted_content id="…">`, a newline, the pasted text, a newline,
-/// `</pasted_content id="…">`. The pasted text of the envelope that ends `prompt`, or `prompt` when
-/// none ends it.
-pub(crate) fn pasted_text(prompt: &str) -> &str {
-    const CLOSE: &str = "\n</pasted_content id=\"";
-    let trimmed = prompt.trim_end();
-    let Some(close_at) = trimmed.rfind(CLOSE) else {
-        return prompt;
-    };
-    let Some(id) = trimmed[close_at + CLOSE.len()..]
-        .strip_suffix("\">")
-        .filter(|id| !id.contains(['"', '\n']))
-    else {
-        return prompt;
-    };
-    let open = format!("<pasted_content id=\"{id}\">\n");
-    trimmed[..close_at]
-        .rfind(&open)
-        .map_or(prompt, |open_at| &trimmed[open_at + open.len()..close_at])
 }
 
 /// Whether `payload` is the `SessionStart` Signal, which readies a fresh Agent for its first
@@ -331,33 +329,12 @@ pub fn read_start_context(stdout: &str) -> Result<String, String> {
 /// asks it to act on the pasted block instead of treating the block as bare quoted paste.
 pub const LEAD_IN: &str = "Follow this instruction: ";
 
-/// B33: typed instead of `LEAD_IN` before a prompt that holds only pushed Digests, which report
-/// state and ask for nothing.
-pub const STATUS_LEAD: &str = "Status, nothing to follow: ";
-
-/// What B30 writes before each pushed Digest of a batch.
-const DIGEST_HEAD: &str = "[from rupd, note] [digest]";
-
-/// The lead a Steer of `text` is typed with: `STATUS_LEAD` when every Message of the batch (the
-/// paragraphs B30 joins) is a pushed Digest, `LEAD_IN` otherwise. B39's id line closing the prompt is
-/// not a Message.
-fn lead_of(text: &str) -> &'static str {
-    let parts = text
-        .split("\n\n")
-        .filter(|part| !part.starts_with("[rup messages:"));
-    if parts.into_iter().all(|part| part.starts_with(DIGEST_HEAD)) {
-        STATUS_LEAD
-    } else {
-        LEAD_IN
-    }
-}
-
-/// The bytes of a Steer (H11, H20, B33): `LEAD_IN` (or `STATUS_LEAD`), then `text` as one bracketed paste, then `\r`, written
+/// The bytes of a Steer (H11, H20): `LEAD_IN`, then `text` as one bracketed paste, then `\r`, written
 /// as `write_submitted` does. A paste followed by a pause submitted 8 of 8 times in the spike and a bare
 /// `text\r` failed once, so the paste markers stay. `text` loses its `ESC` bytes, so it cannot
 /// close the paste early and type what follows as keys.
 pub fn steer_bytes(text: &str) -> Vec<u8> {
-    let mut bytes = lead_of(text).as_bytes().to_vec();
+    let mut bytes = LEAD_IN.as_bytes().to_vec();
     bytes.extend(verbatim_bytes(&text.replace('\x1b', "")));
     bytes
 }
@@ -470,234 +447,6 @@ fn permission_label(payload: &Value) -> String {
     match input["command"].as_str() {
         Some(command) => format!("{tool}: {command}"),
         None => tool.to_owned(),
-    }
-}
-
-/// The `timeout`, in seconds, of the `PermissionRequest` hook in the per-Agent settings (H9).
-pub const PERMISSION_TIMEOUT_SECS: u64 = 86400;
-
-/// How many characters of a tool's input a Decision's `args` keeps (H2).
-const ARGS_LIMIT: usize = 2000;
-
-/// What a `PermissionRequest` payload says the Decision is about (H2, H8).
-#[derive(Default)]
-pub struct PermissionRequest {
-    pub tool: String,
-    pub args: String,
-    /// `false` when no hook reply can answer it: `AskUserQuestion` (H1c) or a payload this cannot
-    /// read (H8).
-    pub answerable: bool,
-    /// B6: an unreadable Signal identifies no original prompt for guarded Terminal bytes.
-    pub identity_available: bool,
-    /// H23: the Grants the user may pick, `once` first; empty when not `answerable`.
-    pub scopes: Vec<Scope>,
-    /// H23: a command the Daemon recognises as destructive.
-    pub risk: Option<Risk>,
-    /// H23: Claude Code's own first `addRules` allow suggestion, which a `session` or `project`
-    /// answer echoes.
-    pub rule: Option<Value>,
-}
-
-/// The Decision a `PermissionRequest` payload opens: the tool name, its input as text cut at
-/// `ARGS_LIMIT` characters with a final `…`, and whether a hook reply can answer it. An
-/// `AskUserQuestion` reads as lines of text (H22).
-pub fn permission_request(payload: &Value) -> PermissionRequest {
-    let tool = payload["tool_name"].as_str();
-    let input = &payload["tool_input"];
-    let asked = if tool == Some("AskUserQuestion") {
-        questions_text(&input["questions"])
-    } else {
-        None
-    };
-    let args = match asked {
-        Some(text) => cut_at_line(text),
-        None if tool == Some("AskUserQuestion") => cut(input["questions"].to_string(), ARGS_LIMIT),
-        None if input.is_null() => String::new(),
-        None => cut(input.to_string(), ARGS_LIMIT),
-    };
-    let answerable = tool.is_some()
-        && tool != Some("AskUserQuestion")
-        && payload["hook_event_name"] == "PermissionRequest";
-    let risk = (tool == Some("Bash"))
-        .then(|| destructive(input["command"].as_str().unwrap_or_default()))
-        .filter(|destructive| *destructive)
-        .map(|_| Risk::Destructive);
-    let rule = if answerable {
-        suggested_rule(payload)
-    } else {
-        None
-    };
-    let mut scopes = Vec::new();
-    if answerable {
-        scopes.push(Scope::Once);
-        if rule.is_some() {
-            scopes.push(Scope::Session);
-            if risk.is_none() {
-                scopes.push(Scope::Project);
-            }
-        }
-    }
-    PermissionRequest {
-        identity_available: tool.is_some_and(|tool| !tool.is_empty())
-            && payload["hook_event_name"] == "PermissionRequest",
-        answerable,
-        tool: tool.unwrap_or_default().to_owned(),
-        args,
-        scopes,
-        risk,
-        rule,
-    }
-}
-
-/// H23: the first `addRules` entry with `behavior: "allow"` among the payload's
-/// `permission_suggestions`.
-fn suggested_rule(payload: &Value) -> Option<Value> {
-    payload["permission_suggestions"]
-        .as_array()?
-        .iter()
-        .find(|entry| {
-            entry["type"] == "addRules"
-                && entry["behavior"] == "allow"
-                && entry["rules"].as_array().is_some_and(|rules| {
-                    !rules.is_empty() && rules.iter().all(|rule| rule["toolName"].is_string())
-                })
-        })
-        .cloned()
-}
-
-/// H23: whether one part of `command`, split on `;`, `&&`, `||` and `|`, is `rm` with a recursive
-/// flag, `git reset --hard`, or a forced `git push`.
-fn destructive(command: &str) -> bool {
-    let parts = command.split([';', '|', '&']);
-    parts
-        .map(|part| part.split_whitespace().collect::<Vec<_>>())
-        .any(|words| match words.as_slice() {
-            ["rm", flags @ ..] => flags.iter().any(|word| {
-                word.starts_with('-') && !word.starts_with("--") && word.contains(['r', 'R'])
-            }),
-            ["git", "reset", rest @ ..] => rest.contains(&"--hard"),
-            ["git", "push", rest @ ..] => rest.iter().any(|word| {
-                matches!(*word, "--force" | "--force-with-lease" | "-f")
-                    || word.starts_with("--force-with-lease=")
-            }),
-            _ => false,
-        })
-}
-
-/// H23: the `settings.local.json` `permissions.allow` string of a rule entry's rules.
-pub fn rule_strings(entry: &Value) -> Vec<String> {
-    entry["rules"]
-        .as_array()
-        .into_iter()
-        .flatten()
-        .filter_map(|rule| {
-            let tool = rule["toolName"].as_str()?;
-            Some(match rule["ruleContent"].as_str() {
-                Some(content) => format!("{tool}({content})"),
-                None => tool.to_owned(),
-            })
-        })
-        .collect()
-}
-
-/// `text` cut at `limit` characters with a final `…`.
-fn cut(text: String, limit: usize) -> String {
-    match text.char_indices().nth(limit) {
-        Some((end, _)) => format!("{}…", &text[..end]),
-        None => text,
-    }
-}
-
-/// How many characters an `AskUserQuestion`'s `args` keeps (H22).
-const QUESTIONS_LIMIT: usize = 20000;
-
-/// `text` cut at the end of the last line that fits `QUESTIONS_LIMIT`, with a final `…` (H22).
-fn cut_at_line(text: String) -> String {
-    let Some((end, _)) = text.char_indices().nth(QUESTIONS_LIMIT) else {
-        return text;
-    };
-    match text[..end].rfind('\n') {
-        Some(line_end) => format!("{}…", text[..line_end].trim_end()),
-        None => cut(text, QUESTIONS_LIMIT),
-    }
-}
-
-/// An `AskUserQuestion`'s `questions` as plain lines (H22); `None` when it is not a non-empty list
-/// of questions with options.
-fn questions_text(questions: &Value) -> Option<String> {
-    let asked = questions.as_array().filter(|list| !list.is_empty())?;
-    let mut blocks = Vec::new();
-    for item in asked {
-        let mut lines = Vec::new();
-        if let Some(header) = item["header"].as_str().filter(|header| !header.is_empty()) {
-            lines.push(header.to_owned());
-        }
-        let multiple = if item["multiSelect"] == true {
-            " (choose several)"
-        } else {
-            ""
-        };
-        lines.push(format!("{}{multiple}", item["question"].as_str()?));
-        for (n, option) in item["options"].as_array()?.iter().enumerate() {
-            lines.push(format!("{}. {}", n + 1, option["label"].as_str()?));
-            for field in ["description", "preview"] {
-                let text = option[field].as_str().unwrap_or_default();
-                lines.extend(
-                    text.lines()
-                        .filter(|_| !text.is_empty())
-                        .map(|line| format!("   {line}")),
-                );
-            }
-        }
-        blocks.push(lines.join("\n"));
-    }
-    Some(blocks.join("\n\n"))
-}
-
-/// `payload` as the `PermissionRequest` Signal the adapter reads, whatever event name it carried:
-/// an Agent is `needs-you` exactly while its Decision is open.
-pub fn as_permission_signal(mut payload: Value) -> Value {
-    match payload.as_object_mut() {
-        Some(fields) => {
-            fields.insert("hook_event_name".into(), "PermissionRequest".into());
-            payload
-        }
-        None => serde_json::json!({"hook_event_name": "PermissionRequest"}),
-    }
-}
-
-/// Whether a Signal means the tool was answered, ran or was abandoned in the Terminal, so an open
-/// Decision is over (H7(a)).
-pub fn ends_decision(payload: &Value) -> bool {
-    matches!(
-        payload["hook_event_name"].as_str(),
-        Some("PostToolUse" | "PostToolUseFailure" | "Stop" | "UserPromptSubmit")
-    )
-}
-
-/// What the hook prints for `answer`, exactly the replies `spikes/hooks-permission/REPORT.md`
-/// findings 12 and 13 record.
-pub fn reply(answer: Answer) -> String {
-    reply_scoped(answer, None)
-}
-
-/// H23: `reply`, whose allow carries `rule` (Claude Code's own suggestion) with `scope`'s
-/// destination.
-pub fn reply_scoped(answer: Answer, grant: Option<(&Value, Scope)>) -> String {
-    match answer {
-        Answer::Allow => match grant {
-            Some((rule, scope)) => {
-                let mut entry = rule.clone();
-                entry["destination"] = match scope {
-                    Scope::Project => "localSettings",
-                    _ => "session",
-                }
-                .into();
-                serde_json::json!({"hookSpecificOutput": {"hookEventName": "PermissionRequest", "decision": {"behavior": "allow", "updatedPermissions": [entry]}}}).to_string()
-            }
-            None => r#"{"hookSpecificOutput":{"hookEventName":"PermissionRequest","decision":{"behavior":"allow"}}}"#.into(),
-        },
-        Answer::Deny => r#"{"hookSpecificOutput":{"hookEventName":"PermissionRequest","decision":{"behavior":"deny","message":"Denied in roundup"}}}"#.into(),
     }
 }
 

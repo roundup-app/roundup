@@ -106,11 +106,11 @@ impl Agents {
         bound: Duration,
         permission_mode: Option<contracts::agent::PermissionMode>,
     ) -> Result<RailNode, RpcError> {
-        let held = self.shared.node(id)?;
+        let parked = self.shared.node(id)?;
         let params = StartDoorParams {
             id: id.to_owned(),
-            model: held.model,
-            effort: held.effort,
+            model: parked.model,
+            effort: parked.effort,
             permission_mode,
             engine: None,
         };
@@ -184,13 +184,13 @@ impl Agents {
         let own = model.is_some() || effort.is_some();
         let pair = self.choose(&ctx.actor, Role::Door, model, effort)?;
         if saved && first.is_none() {
-            // A36: a resume takes the pair the Door held; one the call names replaces it.
+            // A36: a resume takes the pair the Door parked; one the call names replaces it.
             if own {
-                let held = self.shared.rail().node(id)?;
+                let parked = self.shared.rail().node(id)?;
                 self.shared.rail().set_pair(
                     id,
-                    pair.model.as_deref().or(held.model.as_deref()),
-                    pair.effort.as_deref().or(held.effort.as_deref()),
+                    pair.model.as_deref().or(parked.model.as_deref()),
+                    pair.effort.as_deref().or(parked.effort.as_deref()),
                 )?;
             }
             return self
@@ -229,7 +229,7 @@ impl Agents {
                     attempt: attempt.clone(),
                     since: (self.shared.clock)(),
                     named: true,
-                    held: VecDeque::new(),
+                    parked: VecDeque::new(),
                 },
             );
             attempt

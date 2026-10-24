@@ -1,5 +1,5 @@
-//! B50, B51: non-user Messages use the receiver's inbox, never prompt input.
-//! A failed check holds them for `inbox`; recovery waits for the final Terminal hold.
+//! B50, B51, B3563c: every Message to an Agent uses the receiver's inbox, never Terminal input.
+//! A failed check leaves them `pending`; the next eligible event retries them in id order.
 
 use agents::claude_code::inbox::Entry;
 use contracts::agent::Inbox;
@@ -26,55 +26,18 @@ impl NoteInbox for agents::Agents {
     }
 }
 
-/// B50(e): authenticated sender selects transport, independently of kind.
-pub(crate) fn is_inbox_message(message: &Message) -> bool {
-    message.from.kind != ActorKind::User && message.to != Actor::user().id
-}
-
-/// B51(d): the check at an `idle`; when it passes, what is held for `inbox` becomes `pending`.
-pub(crate) async fn check_and_release(
-    inner: &Inner,
-    inbox: &dyn NoteInbox,
-    agent: &str,
-    at: store::Binding,
-) -> Inbox {
-    let state = inbox.check(agent).await;
-    if state == Inbox::Ok {
-        let mut store = lock(&inner.store);
-        store.release_inbox_held(agent, at).expect("message store");
-        store.arm_chains((inner.clock)()).expect("message store");
-    }
-    state
-}
-
-/// B51(e): `message.deliver` of a held `inbox` note by hand needs the inbox to pass the check.
-pub(crate) async fn require_usable(inner: &Inner, agent: &str) -> Result<(), RpcError> {
-    let usable = match inner.inbox.get() {
-        Some(inbox) => inbox.check(agent).await == Inbox::Ok,
-        None => false,
-    };
-    if usable {
-        Ok(())
-    } else {
-        Err(RpcError::new(
-            code::INBOX_UNAVAILABLE,
-            "the Agent's Claude inbox is missing or does not match this Claude Code",
-        ))
-    }
-}
-
 /// B51(g): what the sender hears of a note Claude Code would drop for repeating the last one.
 pub(crate) const REPEAT: &str = "same text as your last Message; Claude Code drops repeats";
 
 /// B51(f), B51(g): whether this send uses the inbox and its refusal rules.
-pub(crate) fn is_inbox_send(ctx: &Ctx, p: &SendParams) -> bool {
-    ctx.actor.kind != ActorKind::User && p.to != Actor::user().id
+pub(crate) fn is_inbox_send(p: &SendParams) -> bool {
+    p.to != Actor::user().id
 }
 
 /// B51(f): after a note is stored, the sender hears `INBOX_UNAVAILABLE` when its receiver's inbox
-/// is a `mismatch`: the note is `held` for `inbox` and stays so until Claude Code or the Daemon
-/// changes. A `missing` inbox is not told: the session is starting or gone, and the note goes at
-/// the Agent's next passing check.
+/// is a `mismatch`: the note stays `pending` until Claude Code or the Daemon changes. A `missing`
+/// inbox is not told: the session is starting or gone, and the note goes at the Agent's next
+/// passing check.
 pub(crate) async fn refuse_mismatch(inner: &Arc<Inner>, note: &Message) -> Result<(), RpcError> {
     let Some(inbox) = inner.inbox.get() else {
         return Ok(());
@@ -82,29 +45,14 @@ pub(crate) async fn refuse_mismatch(inner: &Arc<Inner>, note: &Message) -> Resul
     if inbox.check(&note.to).await != Inbox::Mismatch {
         return Ok(());
     }
-    hold(inner, std::slice::from_ref(note));
     Err(RpcError::new(
         code::INBOX_UNAVAILABLE,
-        "Messages held: Claude Code changed its message format",
+        "Message pending: Claude Code changed its message format",
     ))
 }
 
-/// B51(b): holds each of `notes` for `inbox`, `message.held` once each.
-fn hold(inner: &Inner, notes: &[Message]) {
-    for note in notes {
-        let held = lock(&inner.store)
-            .hold_for_inbox(note.id)
-            .expect("message store");
-        if let Some(held) = held {
-            inner
-                .bus
-                .emit(Actor::daemon(), EventData::MessageHeld(held.into()));
-        }
-    }
-}
-
-/// B50(a), B50(c): writes `notes` to `agent`'s inbox when `state` is `ok` and holds them for
-/// `inbox` otherwise. A note already written and not yet recorded is not written again. `false`
+/// B50(a), B50(c): writes `notes` to `agent`'s inbox when `state` is `ok` and leaves them
+/// `pending` otherwise. A note already written and not yet recorded is not written again. `false`
 /// when the batch must not go on (a stale revision or a Message no longer `pending`).
 pub(crate) async fn send(
     inner: &Arc<Inner>,
@@ -122,7 +70,6 @@ pub(crate) async fn send(
         return true;
     }
     if state != Inbox::Ok {
-        hold(inner, &notes);
         return true;
     }
     let (mut entries, mut texts) = (Vec::new(), pushes::bodies_of(&notes).into_iter());
@@ -184,7 +131,6 @@ pub(crate) async fn send(
         for id in &ids {
             lock(&inner.store).clear_flight(*id).expect("message store");
         }
-        hold(inner, &notes);
         return true;
     }
     if !empty.is_empty() {

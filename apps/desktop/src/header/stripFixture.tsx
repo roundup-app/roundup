@@ -9,8 +9,8 @@ import type { FakeApp } from "../testing/fakeApp";
 export const path = (name: string): string => `/Users/me/${name}`;
 
 /** The App on a fake whose open Projects are `names`, each with its own Rail tree; it returns before any Project connects. */
-export const renderTabs = (trees: Record<string, RailNode[]>) => {
-  window.localStorage.clear();
+export const renderTabs = (trees: Record<string, RailNode[]>, keepStorage = false) => {
+  if (!keepStorage) window.localStorage.clear();
 
   const app = createFakeApp();
   const names = Object.keys(trees);
@@ -30,8 +30,8 @@ export const renderTabs = (trees: Record<string, RailNode[]>) => {
 };
 
 /** `renderTabs`, once no tab is busy, so every Project's Rail and Tab mark is current (U181). */
-export const openTabs = async (trees: Record<string, RailNode[]>) => {
-  const opened = renderTabs(trees);
+export const openTabs = async (trees: Record<string, RailNode[]>, keepStorage = false) => {
+  const opened = renderTabs(trees, keepStorage);
 
   await waitFor(() => expect(projectTabs().map((tab) => tab.getAttribute("aria-busy"))).toEqual(Object.keys(trees).map(() => "false")));
 

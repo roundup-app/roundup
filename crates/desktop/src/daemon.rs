@@ -8,14 +8,12 @@ use std::time::Duration;
 
 use rpc::{Client, RpcError};
 use serde_json::Value;
-use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
+use tokio::io::{AsyncBufReadExt, BufReader};
 use tokio::process::{Child, ChildStderr, ChildStdin, Command};
 use tokio::time::{sleep, timeout};
 
 use crate::config::Config;
 
-/// The first line `rupd --attached` reads from stdin (H18).
-const HANDSHAKE_TAG: &str = "roundup-proof 1 ";
 const STDERR_LINES_KEPT: usize = 20;
 const PING_RETRY: Duration = Duration::from_millis(25);
 /// A grandchild that inherited the Daemon's stderr can hold the pipe open after the Daemon is gone.
@@ -23,11 +21,9 @@ const STDERR_DRAIN_BOUND: Duration = Duration::from_secs(1);
 
 pub struct Started {
     pub client: Client,
-    /// Held and never written: its closing is how the Daemon learns the App is gone (D1).
+    /// Kept open and never written: its closing is how the Daemon learns the App is gone (D1).
     pub stdin: ChildStdin,
     pub child: Child,
-    /// What `decision.answer` needs (H4); it lives here and in the Daemon's memory only.
-    pub proof: String,
     pub socket: OwnedSocket,
 }
 
@@ -77,7 +73,6 @@ pub async fn start(
     socket: &Path,
     data_dir: Option<&Path>,
 ) -> Result<Started, RpcError> {
-    let proof = new_proof()?;
     let mut command = Command::new(&config.rupd_bin);
     command
         .arg(project)
@@ -93,22 +88,11 @@ pub async fn start(
         .map_err(|err| {
             RpcError::internal(format!("cannot start {}: {err}", config.rupd_bin.display()))
         })?;
-    let mut stdin = child.stdin.take().expect("stdin was requested piped");
+    let stdin = child.stdin.take().expect("stdin was requested piped");
     let stderr = child.stderr.take().expect("stderr was requested piped");
     let owned_socket = OwnedSocket(socket.to_path_buf());
     let tail = StderrTail::default();
     let drain = tauri::async_runtime::spawn(drain(stderr, tail.clone()));
-
-    // A Daemon that already exited is reported below with its stderr, not as a failed write.
-    let handshake = async {
-        stdin
-            .write_all(format!("{HANDSHAKE_TAG}{proof}\n").as_bytes())
-            .await?;
-        stdin.flush().await
-    };
-    if let Err(err) = handshake.await {
-        eprintln!("desktop: could not write the Daemon's handshake: {err}");
-    }
 
     let failure = tokio::select! {
         status = child.wait() => match status {
@@ -116,7 +100,7 @@ pub async fn start(
             Err(err) => format!("could not be waited on: {err}"),
         },
         ready = timeout(config.ready_bound, ping_until_answered(socket)) => match ready {
-            Ok(client) => return Ok(Started { client, stdin, child, proof, socket: owned_socket }),
+            Ok(client) => return Ok(Started { client, stdin, child, socket: owned_socket }),
             Err(_) => format!("did not answer daemon.ping within {:?}", config.ready_bound),
         },
     };
@@ -129,14 +113,6 @@ pub async fn start(
         "rupd {failure}; its last stderr lines:\n{}",
         tail.text()
     )))
-}
-
-/// 256 random bits from the operating system, as the 64 lowercase hex digits `rupd` accepts.
-fn new_proof() -> Result<String, RpcError> {
-    let mut bytes = [0u8; 32];
-    getrandom::fill(&mut bytes)
-        .map_err(|err| RpcError::internal(format!("cannot create a proof: {err}")))?;
-    Ok(bytes.iter().map(|byte| format!("{byte:02x}")).collect())
 }
 
 /// Calls `on_exit` with the Daemon's exit code, `None` when a signal ended it.

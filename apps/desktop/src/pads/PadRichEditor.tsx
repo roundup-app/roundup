@@ -1,6 +1,6 @@
 import { ReservedLine } from "../ink/ReservedLine";
 import { copy } from "../copy";
-import { createEffect, createSignal, createUniqueId, onCleanup, onMount, Show } from "solid-js";
+import { createEffect, createSignal, createUniqueId, onCleanup, onMount } from "solid-js";
 import { Portal } from "solid-js/web";
 import { CrepeBuilder } from "@milkdown/crepe/builder";
 import { blockEdit } from "@milkdown/crepe/feature/block-edit";
@@ -75,6 +75,11 @@ export default function PadRichEditor(props: {
   let original = props.text;
   let applying = false;
   let closed = false;
+
+  // The restored selection, kept until the user's first input: Chromium may still hand ProseMirror the caret it adopted at focus.
+  let restored: { start: number; end: number; direction: "forward" | "backward" | "none" } | null = null;
+  let restoreAgain = () => {};
+
   let ready = false;
   let topBarLabels: string[] = [];
   const [failure, setFailure] = createSignal<string | null>(null);
@@ -140,7 +145,10 @@ export default function PadRichEditor(props: {
           new Plugin({
             view: () => ({
               update: (view, previous) => {
-                if (!applying && !closed && !view.state.doc.eq(previous.doc)) props.onChange();
+                if (!applying && !closed && !view.state.doc.eq(previous.doc)) {
+                  restored = null;
+                  props.onChange();
+                } else if (!applying && !closed && restored && !view.state.selection.eq(previous.selection) && !view.composing) restoreAgain();
                 else if (!applying && !closed && !view.state.selection.eq(previous.selection)) props.onSelection?.();
               },
             }),
@@ -242,8 +250,10 @@ export default function PadRichEditor(props: {
       ready = true;
       crepe.setReadonly(props.readonly);
 
-      // Focus may let ProseMirror adopt the DOM caret; restore the caller's selection after that.
-      if (!props.readonly) field.focus();
+      // ProseMirror's own focus writes its selection to the DOM first, so Chromium has no caret of its own to adopt.
+      const focusEditor = () => crepe!.editor.action((ctx) => ctx.get(editorViewCtx).focus());
+
+      if (!props.readonly) focusEditor();
 
       props.onReady({
         getText,
@@ -304,17 +314,30 @@ export default function PadRichEditor(props: {
         }),
         restoreSelection: (selection) => crepe!.editor.action(ctx => {
           const view = ctx.get(editorViewCtx);
-          const start = Math.min(selection.start, view.state.doc.content.size);
-          const end = Math.min(selection.end, view.state.doc.content.size);
-          applying = true;
 
-          try {
-            view.dispatch(view.state.tr.setSelection(TextSelection.create(view.state.doc, selection.direction === "backward" ? end : start, selection.direction === "backward" ? start : end)));
-          } finally {
-            applying = false;
-          }
+          const apply = () => {
+            const start = Math.min(selection.start, view.state.doc.content.size);
+            const end = Math.min(selection.end, view.state.doc.content.size);
+            applying = true;
+
+            try {
+              view.dispatch(view.state.tr.setSelection(TextSelection.create(view.state.doc, selection.direction === "backward" ? end : start, selection.direction === "backward" ? start : end)));
+            } finally {
+              applying = false;
+            }
+          };
+
+          const release = () => { restored = null; restoreAgain = () => {}; };
+
+          restored = selection;
+          restoreAgain = apply;
+
+          view.dom.addEventListener("keydown", release, { once: true });
+          view.dom.addEventListener("pointerdown", release, { once: true });
+
+          apply();
         }),
-        focus: () => field.focus(),
+        focus: focusEditor,
         unchanged: () => document().eq(originalDocument),
         scrollToHeading: (heading) => {
           const wanted = normalHeading(heading);
@@ -377,7 +400,7 @@ export default function PadRichEditor(props: {
         class="pad-editor pad-rich-editor"
         classList={{ "pad-readonly": props.readonly }}
         onFocusOut={(event) => props.onBlur(event.relatedTarget)}>
-        <ReservedLine message={failure()} />
+        <ReservedLine message={failure()}><button data-button="quiet" type="button" onClick={() => setFailure(null)}>{copy.dismiss}</button></ReservedLine>
         <div ref={(element) => (host = element)} />
       </div>
     </>

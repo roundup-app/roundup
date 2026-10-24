@@ -1,9 +1,9 @@
+import { writeText } from "../app/clipboard";
 import { NativeAlert } from "../ui/NativeAlert";
 import * as v from "valibot";
 import { Tip } from "../ui/Tip";
 import { createCutTitle } from "../ui/cutTitle";
 import { IconButton } from "../ui/IconButton";
-import { activationSource } from "../keys/registry";
 import type { ActivationSource } from "../keys/registry";
 import { debounce } from "@solid-primitives/scheduled";
 import { copy } from "../copy";
@@ -15,6 +15,7 @@ import type { Pad } from "@contracts/pad/Pad";
 import { ItemDrawer } from "../drawer/ItemDrawer";
 import { ReservedLine } from "../ink/ReservedLine";
 import { useConnectedProject } from "../state/connectedProject";
+import { failureOf } from "../todos/failureOf";
 import { createFailure } from "./failure";
 import { RpcError, INTERNAL_CODE } from "../app/seam";
 import { usePadList } from "../rail/pads/padList";
@@ -35,6 +36,9 @@ const PadBody = (props: {
   /** T27: a Todo's section link opens the Pad scrolled to this heading. */
   heading?: string | undefined;
   onLateFailure: (message: string) => void;
+  onFailureCleared?: (() => void) | undefined;
+  /** Successful pad.write reply for the captured original incarnation, even after closure; never an event echo or read recovery. */
+  onAcknowledged?: ((incarnation: Pad["incarnation"]) => void) | undefined;
 }) => {
   const connected = useConnectedProject();
   const list = props.list ?? usePadList();
@@ -108,16 +112,17 @@ const PadBody = (props: {
   const saveAfterPause = debounce(() => flush(), 500);
 
   const capture = () => {
-    if (invalid() || (recovered && !editor)) return;
+    if (closed || invalid() || (recovered && !editor)) return;
     const text = currentDraft();
-    const snapshot = text === null && !closed ? editor?.snapshot() : null;
+    // Markdown can normalize live spaces and empty paragraphs; retain the exact native draft until acknowledgement.
+    const snapshot = editor && (text === null || !editor.unchanged()) ? editor.snapshot() : null;
 
     if (text === null) actionFailure.show(copy.padSourceMappingFailed);
 
     if ((text === null && !snapshot) || (!editing() && text === origin())) return;
-    const selection = closed ? draftSelection : editor?.selection() ?? draftSelection;
+    const selection = editor?.selection() ?? draftSelection;
     draftSelection = selection;
-    const source = snapshot?.text ?? text;
+    const source = text ?? snapshot!.text;
     const fingerprint = JSON.stringify([source, selection, snapshot?.document ?? null]);
 
     if (captured === fingerprint) return;
@@ -182,6 +187,8 @@ const PadBody = (props: {
           due = null;
           setSaved(false);
           setConflictActor(null);
+          actionFailure.clear();
+          props.onFailureCleared?.();
 
           return;
         }
@@ -215,19 +222,20 @@ const PadBody = (props: {
     finalDraft = currentDraft();
     closed = true;
     flush();
+    const message = actionFailure.message();
+
+    if (!deleted() && message) props.onLateFailure(message);
   });
 
   /** A call that fails after the Drawer closed has no ✕ line to land on, so it goes to the Shelf's. */
-  const act = (work: () => Promise<void>, failure = actionFailure) =>
-    failure.run(async () => {
-      try {
-        await work();
-      } catch (thrown) {
-        if (!closed || !(thrown instanceof Error)) throw thrown;
+  const act = async (work: () => Promise<void>) => {
+    const message = await failureOf(work);
 
-        props.onLateFailure(thrown.message);
-      }
-    });
+    if (message === null) return;
+
+    if (closed) props.onLateFailure(message);
+    else actionFailure.show(message);
+  };
 
   const ownedByUser = () => pad().owner.kind === "user";
 
@@ -268,6 +276,8 @@ const PadBody = (props: {
       try {
         const next = await connected.app.rpc("pad.write", { name, text, expectedRevision, expectedIncarnation: destination.object });
         connected.drafts.settle(submission.draft.revision, "acknowledged");
+        actionFailure.clear();
+        props.onFailureCleared?.();
 
         if (draftRevision === submission.draft.revision) {
           draftRevision = undefined;
@@ -311,6 +321,8 @@ const PadBody = (props: {
         sent = null;
       }
 
+      props.onAcknowledged?.(destination.object);
+
       if (due) void write();
     });
 
@@ -323,7 +335,7 @@ const PadBody = (props: {
   /** The Agent that owns the Pad, while it is on the Rail (U432). */
   const owner = () => (pad().owner.kind === "agent" ? connected.rail.nodes.find((node) => node.id === pad().owner.id) : undefined);
 
-  /** U432: selects the owner's row and begins a Takeover of it, Resuming it first when it has exited (A22); the Drawer stays open. */
+  /** U432: selects the owner's row, Resuming it first when it has exited (A22); the Drawer stays open. */
   const openOwner = () =>
     act(async () => {
       const node = owner();
@@ -338,10 +350,6 @@ const PadBody = (props: {
         await connected.app.rpc("agent.resume", { id: node.id });
         await connected.rail.refresh();
       }
-
-      const failure = await connected.takeover.begin(node.id);
-
-      if (failure !== null) throw new Error(failure);
     });
 
   const exportToFile = () =>
@@ -357,6 +365,8 @@ const PadBody = (props: {
       due = null;
       await connected.app.rpc("pad.delete", { name });
       setDeleted(true);
+      actionFailure.clear();
+      props.onFailureCleared?.();
       setRemovedByMe(true);
       connected.drawer.close(source);
     });
@@ -385,7 +395,7 @@ const PadBody = (props: {
   };
 
   const onEditorBlur = (next: EventTarget | null) => {
-    if (next instanceof Element && next.closest(".pad-rich-editor")) return;
+    if (next instanceof Element && next.closest(".pad-rich-editor, [data-pad-dismiss]")) return;
 
     if (ownedByUser()) flush();
   };
@@ -485,17 +495,18 @@ const PadBody = (props: {
         </Show>
       </div>
       <NativeAlert app={connected.app} open={asking()}
-        question={{ title: copy.deletePad(name), message: [pad().owner.kind !== "user" ? copy.ownsItYouMayDeleteAnyPad(connected.rail.nameOf(pad().owner)) : "", currentDraft() !== origin() ? copy.unsavedChangesAreLost : ""].filter(Boolean).join("\n"), okLabel: copy.delete, cancelLabel: copy.keep }}
+        question={{ title: copy.padDeleteQuestion(name), message: [pad().owner.kind !== "user" ? copy.padDeleteOwnership(connected.rail.nameOf(pad().owner)) : "", currentDraft() !== origin() ? copy.padDeleteUnsaved : ""].filter(Boolean).join("\n"), okLabel: copy.delete, cancelLabel: copy.keep }}
         onCancel={() => setAsking(false)} finalFocus={() => deleteButton ?? null}
         onConfirm={() => { setAsking(false); void remove("key"); }} />
       <ReservedLine data-state={saved() && !deleted() && !conflictActor() ? "saved" : undefined} message={actionFailure.message() ?? (deleted() && !removedByMe() ? `Pad ${name} was deleted` : retentionProblem() ? copy.draftRetention(connected.project.name, copy.pad, retentionProblem()!.cause) : conflictActor() ? conflictLabel() : paused() ? statusLabel() : null)}
         status={saved() && !deleted() && !conflictActor() ? copy.padSaved : null}>
         <Show when={retentionProblem()}>
           <button data-button="primary" type="button" onClick={() => connected.drafts.retry()}>{copy.storageRetry}</button>
-          <button data-button="quiet" type="button" onClick={() => void navigator.clipboard.writeText(invalid() ? JSON.stringify(retained?.value) : currentDraft() ?? shown()).catch(error => actionFailure.show(copy.copyDraftFailure(String(error))))}>{sourceLabel}</button>
+          <button data-button="quiet" type="button" onClick={() => void writeText(connected.app, invalid() ? JSON.stringify(retained?.value) : currentDraft() ?? shown()).then(() => actionFailure.clear()).catch(error => actionFailure.show(copy.copyDraftFailure(String(error))))}>{sourceLabel}</button>
           <button data-button="quiet" type="button" onClick={useTheirs}>{copy.discardRevision}</button>
         </Show>
         <Show when={paused() && !retentionProblem()}><button data-button="primary" type="button" disabled={deleted() || invalid()} onClick={() => void resume()}>{copy.resume}</button></Show>
+        <Show when={actionFailure.message()}><button data-pad-dismiss data-button="quiet" type="button" onClick={() => { actionFailure.clear(); props.onFailureCleared?.(); }}>{copy.dismiss}</button></Show>
         <Show when={conflictActor()}>
           <button data-button="quiet" type="button" class="word" onClick={() => void keepMine()}>{copy.keepMine}</button>
           <button data-button="quiet" type="button" class="word" onClick={useTheirs}>{copy.useTheirs}</button>
@@ -545,6 +556,9 @@ export const PadDrawer = (props: {
   recovery?: { project: string; revision: string; list: PadList };
   pads: Accessor<readonly Pad[]>;
   onLateFailure: (message: string) => void;
+  onFailureCleared?: (() => void) | undefined;
+  /** Successful pad.write reply for the captured original incarnation, even after closure; never an event echo or read recovery. */
+  onAcknowledged?: ((incarnation: Pad["incarnation"]) => void) | undefined;
 }) => {
   const connected = useConnectedProject();
 
@@ -556,7 +570,7 @@ export const PadDrawer = (props: {
     const retained = connected.drafts.list().find(draft => draft.revision === recovery.revision && draft.destination.surface === "pads" && draft.destination.recipient === null);
     const original = recovery.list.loaded() && recovery.list.failure() === null ? recovery.list.pads().find(pad => pad.name === props.name && pad.incarnation === retained?.destination.object && retained?.value.originalName === pad.name) : undefined;
 
-    return original ? <PadBody initial={original} revision={recovery.revision} list={recovery.list} pads={recovery.list.pads} onLateFailure={props.onLateFailure} /> : null;
+    return original ? <PadBody initial={original} revision={recovery.revision} list={recovery.list} pads={recovery.list.pads} onLateFailure={props.onLateFailure} onFailureCleared={props.onFailureCleared} onAcknowledged={props.onAcknowledged} /> : null;
   }
 
   return (
@@ -572,6 +586,8 @@ export const PadDrawer = (props: {
           pads={props.pads}
           heading={props.heading}
           onLateFailure={props.onLateFailure}
+          onFailureCleared={props.onFailureCleared}
+          onAcknowledged={props.onAcknowledged}
         />
       )}
     </ItemDrawer>

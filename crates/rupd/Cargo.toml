@@ -9,6 +9,7 @@ agents = { path = "../agents" }
 base64.workspace = true
 checkpoints = { path = "../checkpoints" }
 contracts = { path = "../contracts" }
+getrandom = "0.3"
 messages = { path = "../messages" }
 pads = { path = "../pads" }
 provenance = { path = "../provenance" }
@@ -27,6 +28,10 @@ time = { version = "0.3.55", features = ["parsing", "formatting"] }
 tokio.workspace = true
 cap-std = "4"
 rustix = { version = "1", features = ["fs"] }
+
+[build-dependencies]
+rusqlite.workspace = true
+rusqlite_migration.workspace = true
 
 [dev-dependencies]
 agents = { path = "../agents", features = ["test-support"] }

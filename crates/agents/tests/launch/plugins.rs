@@ -5,7 +5,7 @@ use super::*;
 async fn q11_each_launch_loads_all_three_pinned_plugins() {
     let s = setup();
     let launcher = plugin_launcher(&s);
-    for role in [Role::Door, Role::Agent] {
+    for role in [Role::Door, Role::Scout, Role::Agent] {
         for resume in [None, Some("saved-conversation"), None] {
             let (argv, env) = launcher
                 .launch_on(
@@ -24,16 +24,6 @@ async fn q11_each_launch_loads_all_three_pinned_plugins() {
                 .filter(|pair| pair[0] == "--plugin-dir")
                 .map(|pair| Path::new(&pair[1]))
                 .collect();
-            if role == Role::Door {
-                // LC14: the Door gets `hope` only.
-                assert_eq!(paths.len(), 1);
-                assert_eq!(
-                    read(&paths[0].join(".claude-plugin/plugin.json"))["name"],
-                    "hope"
-                );
-                assert!(paths[0].join("skills/intent/SKILL.md").is_file());
-                continue;
-            }
             assert_eq!(paths.len(), 3);
             for (path, name, version) in paths
                 .iter()

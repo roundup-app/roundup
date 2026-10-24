@@ -1,3 +1,4 @@
+// fallow-ignore-file duplicate-export -- glyphOf finds a rendered Rail glyph; ink/glyph maps Kind to glyph data. Imports are direct.
 import { fireEvent, render, screen, within } from "@solidjs/testing-library";
 import { afterEach } from "vitest";
 import { createSignal, Show } from "solid-js";
@@ -26,7 +27,7 @@ export const exitedTerminal = (id: string, exit_code: number | null): TerminalIn
   info(`t-${id}`, { running: false, exit_code });
 
 /** What else to mount alongside the Rail: a Pane (an `EmulatorFactory` gives it a focusable screen) or the DrawerHost. */
-type RailNeighbors = { pane?: true | EmulatorFactory; drawer?: boolean; settings?: boolean };
+type RailNeighbors = { pane?: true | EmulatorFactory; drawer?: boolean };
 
 /** The Rail on a fake Daemon whose tree is `tree` and whose clock is a signal the test can advance. */
 export const mountRail = async (
@@ -57,9 +58,7 @@ export const mountRail = async (
         <Show when={neighbors.pane}>
           <Pane createEmulator={neighbors.pane === true ? undefined : neighbors.pane} />
         </Show>
-        <Show when={neighbors.settings}>
-          <ProjectSettingsView />
-        </Show>
+        <ProjectSettingsView />
         <Show when={neighbors.drawer}>
           <DrawerHost drawer={connected.drawer} reducedMotion={reducedMotion} />
         </Show>
@@ -86,7 +85,7 @@ export const rowOf = (name: string): HTMLElement => {
   return item.matches('[data-part="branch"]') ? item.querySelector<HTMLElement>('[data-part="branch-control"]')! : item;
 };
 
-export const glyphOf = (name: string): HTMLElement => {
+export const rowGlyph = (name: string): HTMLElement => {
   const glyph = rowOf(name).querySelector<HTMLElement>(".glyph");
 
   if (!glyph) throw new Error(`no glyph on ${name}`);

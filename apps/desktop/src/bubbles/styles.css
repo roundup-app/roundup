@@ -26,11 +26,11 @@
   pointer-events: auto;
 }
 
-/* U3761: the frame sits in the top layer, whose native backdrop always spans the window, so the dim is drawn on the centre column itself, from the window bar to the top of the Terminal bar, which stays undimmed, above every pane descendant; the frame is portalled out, hence the document-level :has(). Pointer events pass through (U2307a). */
+/* U3761: the frame sits in the top layer, whose native backdrop always spans the window, so the dim is drawn on the centre column itself, from the window bar to the top of the Terminal bar, hint line included, which stays undimmed, above every pane descendant; the frame is portalled out, hence the document-level :has(). Pointer events pass through (U2307a). */
 .centre-stack::before {
   content: "";
   position: absolute;
-  inset: 0 0 calc(var(--hint-row-height) + var(--rail-actions-height));
+  inset: 0 0 var(--rail-actions-height);
   z-index: var(--layer-popover);
   pointer-events: none;
   background: none;
@@ -68,10 +68,11 @@
   pointer-events: auto;
 }
 
-/* U59, D1: xterm.css paints its viewport black; a bubble's emulator shows the panel's ground. */
+/* U3517c: the shell viewport shares the Terminal canvas ground. */
+.bubble-body,
 .bubble .xterm .xterm-viewport,
 .bubble .xterm .xterm-scrollable-element {
-  background-color: var(--ground);
+  background-color: var(--terminal-background);
 }
 
 /* U371: an overlay Shelf floats over the pane's trailing edge, so a bubble's pane ends where the Shelf begins; a reserved Shelf is its own column and the pane is already narrower. */
@@ -132,17 +133,17 @@
   font-size: var(--text-body);
 }
 
-/* The fit leaves under one cell spare; the body paints it as the Terminal's ground. FitAddon always takes xterm's 14 px scrollbar from the width, so the host is that much wider than the body, which clips it: the grid then ends within a cell of the inset. */
+/* The fit leaves under one cell spare; the body paints it as the Terminal's ground. */
 .bubble-body {
   flex: 1;
   min-height: 0;
   overflow: hidden;
-  background: var(--ground);
+  background: var(--terminal-background);
 }
 
 .bubble-body > div {
   height: 100%;
-  width: calc(100% + 14px);
+  width: 100%;
 }
 
 /* U2236: transparent hit areas over the shown bubble's edges and corners; nothing is drawn. */

@@ -165,12 +165,8 @@ fn clone_observation(observation: &Observation) -> Observation {
     match observation {
         Observation::Signal(payload) => Observation::Signal(payload.clone()),
         Observation::Title(title) => Observation::Title(title.clone()),
-        Observation::Tick
-        | Observation::Stopped
-        | Observation::Exit { .. }
-        | Observation::Answered
-        | Observation::Dismissed => {
-            unreachable!("a timeline never carries a Tick, Stopped, Exit, Answered or Dismissed")
+        Observation::Tick | Observation::Stopped | Observation::Exit { .. } => {
+            unreachable!("a timeline never carries a Tick, Stopped or Exit")
         }
     }
 }

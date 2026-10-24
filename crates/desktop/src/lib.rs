@@ -33,9 +33,11 @@ pub fn build<R: Runtime>(
     let builder = builder.plugin(webkit_rate::plugin());
     builder
         .plugin(tauri_plugin_dialog::init())
+        .plugin(tauri_plugin_clipboard_manager::init())
         .plugin(window::plugin())
         .manage(AppState::new(config))
         .manage(menu::Choice::default())
+        .manage(menu::ProjectMenu::default())
         .menu(menu::app_menu)
         .on_menu_event(|app, event| handle_menu_event(app, &event))
         .invoke_handler(tauri::generate_handler![
@@ -47,10 +49,10 @@ pub fn build<R: Runtime>(
             subscribe,
             terminal_output,
             terminal_output_stop,
-            daemon_proof,
             open_target,
             open_in_editor,
             save_pasted_image,
+            menu::select_project_menu,
             menu::show_context_menu
         ])
         .setup(move |app| {
@@ -97,6 +99,13 @@ pub fn handle_run_event<R: Runtime>(app: &AppHandle<R>, event: &RunEvent) {
 
 pub fn run() -> Result<(), Box<dyn std::error::Error>> {
     let config = Config::from_env()?;
+    let mut context = context();
+    if let Some(dir) = &config.data_dir {
+        // Isolate the webview profile as well as the Project store and Daemon.
+        context.config_mut().app.app_directories_override = Some(
+            tauri::utils::config::AppDirectoriesOverride::Root(std::path::absolute(dir)?),
+        );
+    }
     let project_dir = std::env::args_os()
         .nth(1)
         .map(std::path::absolute)
@@ -107,7 +116,7 @@ pub fn run() -> Result<(), Box<dyn std::error::Error>> {
         project_dir,
         |app, code| app.exit(code),
     )
-    .build(context())?
+    .build(context)?
     .run(|app, event| handle_run_event(app, &event));
     Ok(())
 }
@@ -179,11 +188,6 @@ fn terminal_output_stop(
     id: String,
 ) -> Result<(), RpcError> {
     state.terminal_output_stop(&path, &id)
-}
-
-#[tauri::command]
-fn daemon_proof(state: State<'_, AppState>, path: String) -> Result<String, RpcError> {
-    state.daemon_proof(&path)
 }
 
 #[tauri::command]

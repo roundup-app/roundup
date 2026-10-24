@@ -22,21 +22,21 @@ export const DrawerHost = (props: { drawer: DrawerState; reducedMotion: Accessor
   const [settling, setSettling] = createSignal(false);
   let settleFrame: number | undefined;
   let revision = 0;
-  let heldFocus: HTMLElement | null = null;
+  let savedFocus: HTMLElement | null = null;
 
-  // U40: opening takes the keyboard; closing gives it back to whatever held it, unless focus left the Drawer on its own.
+  // U40: opening takes the keyboard; closing gives it back to whatever kept it, unless focus left the Drawer on its own.
   createEffect(
     on(isOpen, (open, wasOpen) => {
       const host = panel();
 
       if (open && !wasOpen) {
-        heldFocus = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+        savedFocus = document.activeElement instanceof HTMLElement ? document.activeElement : null;
         host?.querySelector<HTMLElement>(".close")?.focus({ preventScroll: true });
       } else if (wasOpen && !open) {
         const stayedInDrawer = host?.contains(document.activeElement) ?? false;
-        const toRefocus = heldFocus;
+        const toRefocus = savedFocus;
 
-        heldFocus = null;
+        savedFocus = null;
 
         if (stayedInDrawer && toRefocus?.isConnected) toRefocus.focus({ preventScroll: true });
       }

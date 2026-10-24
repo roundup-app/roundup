@@ -18,7 +18,7 @@ import type { AppSeam } from "../app/seam";
 import "../tokens.css";
 import "../styles.css";
 import "../scrollbar.css";
-import { trackScrollHover } from "../scrollHover";
+import { trackScrollbars } from "../scrollHover";
 import "./todoWorstCase.styles.css";
 
 declare global {
@@ -35,7 +35,7 @@ declare global {
 
 window.__question = questionProbe;
 
-trackScrollHover(document);
+trackScrollbars(document);
 
 const root = document.getElementById("root");
 
@@ -101,7 +101,7 @@ if (query.get("daemon") === "1") {
     });
   }
 
-  const SELECTED = new Map([["door-stopped", "first-workstream"], ["door-report", "r1"], ["earlier-run", "earlier-agent"], ["context-bar", "split-agent"], ["decisions", "agent-1"]]);
+  const SELECTED = new Map([["door-stopped", "first-workstream"], ["door-report", "r1"], ["earlier-run", "earlier-agent"], ["context-bar", "split-agent"]]);
 
   const selected = SELECTED.get(seed);
 

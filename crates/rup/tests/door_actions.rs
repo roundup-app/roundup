@@ -117,7 +117,7 @@ async fn q11_a_loaded_bundle_allows_a_subsequent_agent() {
 }
 
 #[tokio::test]
-async fn b37_real_claude_receives_d1_after_a_scripted_server_error() {
+async fn b37_real_claude_receives_a_note_after_a_scripted_server_error() {
     let mut project = daemon::start_real("b37_server_error", &[]);
     let user = project.client().await;
     let mut events = project.subscribed().await;
@@ -180,11 +180,6 @@ async fn b37_real_claude_receives_d1_after_a_scripted_server_error() {
     .await;
     // B50(c): the transcript records the Digest after the turn it starts may already be over, so the
     // door's idle edge can precede the Delivered event; the Rail poll below waits for idle instead.
-    // Hold the child's Digests as well as its Decision note: otherwise needs-you can
-    // start an intervening turn before tell_doors has queued the note.
-    user.request("takeover.begin", json!({"agent":door}))
-        .await
-        .unwrap();
     tokio::time::timeout(Duration::from_secs(30), async {
         loop {
             let nodes = rail_tree(&user).await;
@@ -217,36 +212,11 @@ async fn b37_real_claude_receives_d1_after_a_scripted_server_error() {
     let live = nodes.iter().find(|n| n.id == door).unwrap();
     assert!(live.terminal_id.is_some());
     assert_eq!(live.attempt.as_deref(), Some(failed.attempt.as_str()));
-    let caller = project.client().await;
-    let child_id = child.clone();
-    let permission = tokio::spawn(async move {
-        caller.request("agent.permission", json!({"id":child_id,"payload":{"hook_event_name":"PermissionRequest","tool_name":"Bash","tool_input":{"command":"echo B37"}}})).await
-    });
-    let decision = next(&mut events, |data| match data {
-        EventData::DecisionOpened(d) if d.agent == child => Some(d),
-        _ => None,
-    })
-    .await;
-    assert_eq!(decision.id, "d1");
+    daemon::needs_you(&user, &child).await;
     next(&mut events, |data| match data {
-        EventData::MessageHeld(m) if m.to == door && m.body.starts_with("[decision d1]") => {
-            Some(())
-        }
-        _ => None,
-    })
-    .await;
-    user.request(
-        "decision.answer",
-        json!({"id":"d1","answer":"allow","proof":"0".repeat(64)}),
-    )
-    .await
-    .unwrap();
-    assert!(permission.await.unwrap().is_ok());
-    user.request("takeover.end", json!({"agent":door}))
-        .await
-        .unwrap();
-    next(&mut events, |data| match data {
-        EventData::MessageDelivered(m) if m.to == door && m.body.starts_with("[decision d1]") => {
+        EventData::MessageDelivered(m)
+            if m.to == door && m.body.contains("[digest] B37 child is needs-you") =>
+        {
             Some(())
         }
         _ => None,
@@ -302,7 +272,9 @@ async fn b37_real_claude_receives_d1_after_a_scripted_server_error() {
             .as_array()
             .unwrap()
             .iter()
-            .any(|m| { m["role"] == "user" && m["content"].to_string().contains("[decision d1]") }),
+            .any(|m| {
+                m["role"] == "user" && m["content"].to_string().contains("B37 child is needs-you")
+            }),
         "Door request sequence: {:#?}",
         journal
             .iter()
@@ -517,6 +489,12 @@ os.execv({binary:?}, [{binary:?}, *sys.argv[1:]])
 async fn m16_real_claude_runs_tests_with_bash_without_a_run() {
     let project = daemon::start_real("m16_door_child_bash", &[]);
     std::fs::write(project.dir.path().join("test.sh"), "exit 0\n").unwrap();
+    std::fs::create_dir_all(project.dir.path().join(".claude")).unwrap();
+    std::fs::write(
+        project.dir.path().join(".claude/settings.json"),
+        r#"{"permissions":{"allow":["Bash(sh test.sh)"]}}"#,
+    )
+    .unwrap();
     let client = project.subscribed().await;
     let door = client
         .request(
@@ -551,15 +529,6 @@ async fn m16_real_claude_runs_tests_with_bash_without_a_run() {
         &client.request("terminal.list", Value::Null).await.unwrap(),
         &spawned.id,
     );
-    let decision = daemon::h21_decision(&client, &spawned.id, None).await;
-    assert_eq!(decision["tool"], "Bash");
-    client
-        .request(
-            "decision.answer",
-            json!({"id": decision["id"], "answer": "allow", "proof": daemon::H21_PROOF}),
-        )
-        .await
-        .unwrap();
     let result = model.tool_result("toolu_m16_bash").await;
     assert_eq!(result["is_error"], json!(null), "{result}");
     let after = owned(

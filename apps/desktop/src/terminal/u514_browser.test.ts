@@ -1,3 +1,4 @@
+import { journal } from "./mouseJournalHarness";
 import type { Checks } from "../testing/checks";
 import { expect, it } from "vitest";
 import { execFile } from "node:child_process";
@@ -80,7 +81,7 @@ const doubleAt = async (at: { x: number; y: number }) => {
 };
 
 const chromeSurfaces = [
-  ".window-title", ".project-tab", ".terminal-tab", ".pane-control-state",
+  ".window-title", ".project-tab", ".terminal-tab",
   '[data-id="migrate"] .name', ".rail-add", ".todo-project-root",
   ".shelf-tabs", ".shelf-add", ".shelf-title", ".todo-row-button",
   ".terminal-new", ".resource-num", ".hint-line", ".overview-heading",
@@ -93,9 +94,9 @@ it.each(chromeSurfaces.flatMap(surface => ["drag", "double-click"].map(gesture =
 
     if (surface === ".pane-empty-keys") {
       await browser("open", url("/harness.html?seed=empty-project&renderer=dom"));
-    } else if (surface === ".pane-control-state" || surface === ".resource-num") {
+    } else if (surface === ".resource-num") {
       // U408: the strip shows values only for a working Agent, so `.resource-num` needs one selected.
-      await browser("click", surface === ".pane-control-state" ? '[data-id="agent-4"] .name' : '[data-id="tokens"] .name');
+      await browser("click", '[data-id="tokens"] .name');
     } else if (surface === ".terminal-tab") {
       await browser("click", ".terminal-new");
       await browser("click", ".window-title");
@@ -328,20 +329,13 @@ it("u2680b_minimising_and_restoring_does_not_restore_selection", async () => {
 }, 90_000);
 
 
-it.each(["pad", "decision"])("u2680c_readonly_content_keeps_native_selection_and_copy_%s", async (content) => {
+it("u2680c_readonly_content_keeps_native_selection_and_copy_pad", async () => {
   await app();
-  let selector: string;
-
-  if (content === "pad") {
-    await browser("click", '[data-id="agent-1"] .name');
-    await browser("click", "#shelf-tab-pads");
-    await wait("[...document.querySelectorAll('[data-shelf-row] .pad-name')].some(row => row.textContent === 'pad-0')");
-    await browser("eval", "[...document.querySelectorAll('[data-shelf-row] .pad-name')].find(row => row.textContent === 'pad-0').click()");
-    selector = '.pad-readonly .ProseMirror[contenteditable=false] p';
-  } else {
-    await browser("open", url("/harness.html?seed=decisions&renderer=dom"));
-    selector = ".decision-card .decision-title code";
-  }
+  await browser("click", '[data-id="agent-1"] .name');
+  await browser("click", "#shelf-tab-pads");
+  await wait("[...document.querySelectorAll('[data-shelf-row] .pad-name')].some(row => row.textContent === 'pad-0')");
+  await browser("eval", "[...document.querySelectorAll('[data-shelf-row] .pad-name')].find(row => row.textContent === 'pad-0').click()");
+  const selector = '.pad-readonly .ProseMirror[contenteditable=false] p';
 
   await wait(`!!document.querySelector(${JSON.stringify(selector)})`);
 
@@ -362,57 +356,9 @@ it.each(["pad", "decision"])("u2680c_readonly_content_keeps_native_selection_and
   expect(await read<string>("document.querySelector('#copy-result').value")).toBe(text);
 }, 120_000);
 
-const journal = async (screen: string, reporting: boolean, program = false) => {
-    await browser("eval", `(() => {
-      const journal = [];
-      window.__journal = journal;
-      window.__emu.onInput(bytes => journal.push([...bytes]));
-      if (${program}) return;
-      window.__parsed = false;
-      window.__emu.write(new TextEncoder().encode(${JSON.stringify("\x1b[2J\x1b[Halpha bravo charlie\r\n" + (reporting ? "\x1b[?1000h\x1b[?1006h" : "\x1b[?1000l\x1b[?1006l"))}), () => { window.__parsed = true; });
-    })()`);
-
-    if (!program) await wait("window.__parsed");
-
-    return read<{ bytes: number[][]; selections: string[] }>(`(() => {
-      const target = document.querySelector(${JSON.stringify(screen)});
-      const box = target.getBoundingClientRect();
-      const size = window.__emu.fit();
-      const selections = [];
-      const emit = (type, button, buttons, offset, ctrlKey = false, detail = 1) => {
-        const event = new MouseEvent(type, { bubbles: true, cancelable: true, clientX: box.left + (offset / 10 + 0.5) * box.width / size.cols, clientY: box.top + 0.5 * box.height / size.rows, button, buttons, ctrlKey, detail });
-        Object.defineProperty(event, 'pointerType', { value: 'mouse' });
-        target.dispatchEvent(event);
-      };
-      const click = (button, ctrl = false, distance = 0, detail = 1) => {
-        emit('pointerdown', button, (button === 2 ? 2 : 1), 20, ctrl, detail);
-        emit('mousedown', button, (button === 2 ? 2 : 1), 20, ctrl, detail);
-        emit('pointermove', button, (button === 2 ? 2 : 1), 20 + distance, ctrl, detail);
-        emit('mousemove', button, (button === 2 ? 2 : 1), 20 + distance, ctrl, detail);
-        if(button === 2 || ctrl) emit('contextmenu', button, (button === 2 ? 2 : 1), 20, ctrl);
-        emit('pointerup', button, 0, 20 + distance, ctrl, detail);
-        emit('mouseup', button, 0, 20 + distance, ctrl, detail);
-        selections.push(window.__emu.selection());
-      };
-      click(0, false, 80);
-      click(0, false, 0, 2);
-      emit('dblclick', 0, 0, 20, false, 2);
-      selections.push(window.__emu.selection());
-      click(2);
-      click(0, true);
-      click(2, false, 30);
-      return { bytes: window.__journal, selections };
-    })()`);
-  };
-
 it.each(["agent", "door", "bubble"] as const)("u3529b_terminal_gestures_match_plain_xterm_%s", async where => {
   const selector = await placement(where);
 
-
-  if (where === "agent" && await read<boolean>("!!document.querySelector('.pane-control[data-state=managed]')")) {
-    await browser("find", "role", "button", "click", "--name", "Take control", "--exact");
-    await wait("!!document.querySelector('.pane-control[data-state=controlled]')");
-  }
 
   const before = await read<string>("JSON.stringify([...document.querySelectorAll('.bubble')].map(b => [b.dataset.bubble,b.hidden,b.getAttribute('style')]))");
   const calls = await read<number>("window.__fake.app.calls.length");
@@ -554,46 +500,4 @@ it.skipIf(!process.env.ROUNDUP_CAPTURES?.includes("U3529"))("u3529c_rendered_sel
   await read("window.__fake.app.pickMenu(window.__fake.app.menuLabels().find(label => label.startsWith('Recover unfinished work')))");
   await wait("!!document.querySelector('.draft-recovery')");
   await snap("retired-note-recovery");
-}, 300_000);
-
-it("u3529b_live_shell_acknowledges_the_plain_xterm_mouse_bytes_once", async () => {
-  const { startRealDaemon } = await import("../testing/realDaemonFixture");
-  const real = await startRealDaemon({ SHELL: "/bin/bash" }, true);
-
-  try {
-    await load("?plain=1");
-    const expected = await journal("#host .xterm-screen", true);
-    const bytes = expected.bytes.flat();
-    expect(bytes.length).toBeGreaterThan(0);
-    await browser("open", `${real.base}/harness.html?daemon=1`);
-    await wait("!!document.querySelector('.terminal-new')");
-    await browser("click", ".terminal-new");
-    await wait("!!document.querySelector('.bubble:not([hidden]) .xterm-screen') && window.__terminals.size > 0");
-    await browser("eval", `(() => {
-      window.__emu = [...window.__terminals.values()].at(-1);
-      const write = window.__emu.write;
-      let output = '';
-      window.__emu.write = (bytes, parsed) => write(bytes, () => { output += new TextDecoder().decode(bytes); window.__mouseReady = output.includes('MOUSE_READY'); parsed?.(); });
-    })()`);
-    const program = `import os,tty,termios\nold=termios.tcgetattr(0)\ntty.setraw(0)\nos.write(1,b'\\x1b[?1000h\\x1b[?1006h\\r\\nMOUSE_' + b'READY\\r\\n')\ndata=b''\nwhile len(data)<${bytes.length}: data+=os.read(0,${bytes.length}-len(data))\ntermios.tcsetattr(0,termios.TCSANOW,old)\nos.write(1,('\\x1b[?1000l\\x1b[?1006l\\r\\nMOUSE_ACK:'+data.hex()+'\\r\\n').encode())`;
-    const command = "python3 -c '" + program.replaceAll("'", "'\\''") + "'\n";
-    await read(`(async () => {
-      window.__terminalId = document.querySelector('.bubble:not([hidden])').dataset.bubble;
-      window.__rpc = async (method, params) => {
-        const response = await fetch('/__daemon/rpc', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({method,params}) });
-        const reply = await response.json();
-        if(reply.error) throw new Error(reply.error.message);
-        return reply.result;
-      };
-      await window.__rpc('terminal.write', {id:window.__terminalId,data:btoa(${JSON.stringify(command)})});
-    })()`);
-    await wait("(async () => atob((await window.__rpc('terminal.snapshot',{id:window.__terminalId})).data).includes('MOUSE_READY'))()");
-    await wait("window.__mouseReady");
-    const actual = await journal(".bubble:not([hidden]) .xterm-screen", true, true);
-    expect(actual.bytes).toEqual(expected.bytes);
-    const hex = Buffer.from(bytes).toString("hex");
-    await wait(`(async () => atob((await window.__rpc('terminal.snapshot',{id:window.__terminalId})).data).includes('MOUSE_ACK:${hex}'))()`);
-  } finally {
-    await real.stop();
-  }
 }, 300_000);

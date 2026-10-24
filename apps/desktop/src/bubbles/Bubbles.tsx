@@ -1,3 +1,5 @@
+import { writeText } from "../app/clipboard";
+import { createTerminalClose } from "./close";
 import { ReservedLine } from "../ink/ReservedLine";
 import { CHORDS, LEADER } from "../keys/chords";
 import { registerKeys } from "../keys/registry";
@@ -7,7 +9,7 @@ import { Editable } from "../ui/Editable";
 import { FlatAdd, FlatTab } from "../ui/FlatTab";
 import { IconButton } from "../ui/IconButton";
 import { contextMenu, linkEntries, openOnRelease, textTarget, PULL_DISTANCE } from "../ui/contextMenu";
-import { Panel } from "../ui/Panel";
+import { Bubble } from "./Bubble";
 import { copy } from "../copy";
 import { createEffect, createMemo, createSignal, For, on, onCleanup, onMount, Show, untrack } from "solid-js";
 import { Portal } from "solid-js/web";
@@ -19,27 +21,10 @@ import { isWorkstream, resolvedWorkstream, siblingsOf } from "../rail/layout";
 import { useConnectedProject } from "../state/connectedProject";
 import type { Screens } from "../terminal/screens";
 import {
-  clamped, defaultPlace, placesStorage, resizedAbout, REVEAL_BUBBLE, shownFor, shownName, STEP, toggledFill, ZONES,
+  clamped, defaultPlace, placesStorage, REVEAL_BUBBLE, shownFor, shownName,
 } from "./places";
-import type { Place, Extent, Zone } from "./places";
+import type { Place, Extent } from "./places";
 import "./styles.css";
-
-/** U2236 call 2: `--space-2` strips centred on the edges, `--space-4` squares over the corners. */
-const EDGE = 8;
-
-const CORNER = 16;
-
-const zoneBox = (place: Place, zone: Zone) => {
-  const thick = zone.sx !== 0 && zone.sy !== 0 ? CORNER : EDGE;
-
-  const along = (low: number, size: number, sign: number, span: number): [number, number] =>
-    sign < 0 ? [low - span / 2, span] : sign > 0 ? [low + size - span / 2, span] : [low + CORNER / 2, size - CORNER];
-
-  const [left, width] = along(place.x, place.w, zone.sx, thick);
-  const [top, height] = along(place.y, place.h, zone.sy, thick);
-
-  return { left: `${left}px`, top: `${top}px`, width: `${width}px`, height: `${height}px` };
-};
 
 /** U421 engineering call 1: past the 3 to 4 px a hand wobbles while it clicks. */
 
@@ -54,10 +39,6 @@ const focusPane = (): void => {
 };
 
 const ESCAPE = "Escape".split(" ");
-
-const SHIFT = "Shift+".split(" ")[0]!;
-
-const ARROWS = new Map<string, [number, number]>(Object.entries({ ArrowLeft: [-1, 0], ArrowRight: [1, 0], ArrowUp: [0, -1], ArrowDown: [0, 1] }));
 
 /** U469: the selected Terminals, their Bubble geometry, bottom tabs and opening/cycling chords. */
 export const Bubbles = (props: {
@@ -81,7 +62,13 @@ export const Bubbles = (props: {
   const records = createMemo(() => drafts.list().filter(draft => draft.destination.surface === "bubbles"));
   const [recovering, recover] = createSignal(false);
   const [inspected, inspect] = createSignal<string>();
-  const [copyFailure, failCopy] = createSignal<string | null>(null);
+  const [copyFailure, failCopy] = createSignal<{ revision: string; message: string } | null>(null);
+  createEffect(() => {
+    const listed = records();
+    const prior = untrack(copyFailure);
+
+    if (prior && !listed.some(draft => draft.revision === prior.revision)) failCopy(null);
+  });
   const shownDraft = () => records().find(draft => draft.revision === inspected()) ?? records().filter(draft => draft.status === "draft" && !draft.value.recovery).at(-1) ?? records().at(-1);
 
   const problem = () => {
@@ -98,8 +85,12 @@ export const Bubbles = (props: {
 
     if (!parsed?.success) return;
 
-    try { await navigator.clipboard.writeText(parsed.output.name); failCopy(null); }
-    catch (error) { failCopy(copy.copyDraftFailure(error instanceof Error ? error.message : String(error))); }
+    try {
+      await writeText(connected.app, parsed.output.name);
+      failCopy(prior => prior?.revision === draft!.revision ? null : prior);
+    } catch (error) {
+      failCopy({ revision: draft!.revision, message: copy.copyDraftFailure(error instanceof Error ? error.message : String(error)) });
+    }
   };
 
   let recoveryPanel: HTMLDivElement | undefined;
@@ -117,7 +108,20 @@ export const Bubbles = (props: {
   };
 
   const [places, setPlaces] = createSignal<Record<string, Place>>(store.read());
-  const [failure, setFailure] = createSignal<string | null>(null);
+  const [failure, setFailure] = createSignal<{ message: string; terminal: { id: string; incarnation: string } | null } | null>(null);
+
+  const clearItemFailure = (terminal: { id: string; incarnation: string }) => {
+    setFailure(prior => prior?.terminal?.id === terminal.id && prior.terminal.incarnation === terminal.incarnation ? null : prior);
+  };
+
+  createEffect(() => {
+    const terminals = rail.terminals();
+
+    if (connected.daemonExit() !== null) return;
+    const prior = untrack(failure);
+
+    if (prior?.terminal && !terminals.some(terminal => terminal.id === prior.terminal!.id && terminal.incarnation === prior.terminal!.incarnation)) setFailure(null);
+  });
   const [opening, setOpening] = createSignal(false);
   const [wanted, setWanted] = createSignal<string | null>(null);
   const [layer, setLayer] = createSignal<HTMLElement>();
@@ -127,7 +131,6 @@ export const Bubbles = (props: {
   const [editing, setEditing] = createSignal<{ id: string } | null>(null);
   createEffect(on(() => rail.selected(), () => setEditing(null), { defer: true }));
   onMount(() => setBar(layer()?.parentElement?.querySelector<HTMLElement>(".resource-strip") ?? undefined));
-  const [closing, setClosing] = createSignal<ReadonlySet<string>>(new Set());
   let before: Element | null = null;
 
   const extent = (): Extent => {
@@ -169,10 +172,10 @@ export const Bubbles = (props: {
 
     lastSelected = chosen;
 
-    const held = untrack(places);
-    const missing = eligible.filter((terminal) => held[terminal.id] === undefined);
-    const visible = eligible.filter((terminal) => held[terminal.id] && !held[terminal.id]!.min);
-    const next = { ...held };
+    const prior = untrack(places);
+    const missing = eligible.filter((terminal) => prior[terminal.id] === undefined);
+    const visible = eligible.filter((terminal) => prior[terminal.id] && !prior[terminal.id]!.min);
+    const next = { ...prior };
     const latest = folds ? undefined : visible.at(-1)?.id ?? missing.at(-1)?.id;
 
     for (const terminal of missing) next[terminal.id] = { ...defaultPlace(untrack(extent)), min: terminal.id !== latest };
@@ -181,7 +184,7 @@ export const Bubbles = (props: {
 
     if (folds) for (const terminal of eligible) next[terminal.id] = { ...next[terminal.id]!, min: true };
 
-    if (JSON.stringify(next) === JSON.stringify(held)) return;
+    if (JSON.stringify(next) === JSON.stringify(prior)) return;
     setPlaces(next);
     persistPlaces(next);
   });
@@ -236,10 +239,10 @@ export const Bubbles = (props: {
     }
 
     const listed = new Set(rail.terminals().map((terminal) => terminal.id));
-    const held = untrack(places);
-    const kept = Object.fromEntries(Object.entries(held).filter(([id]) => listed.has(id)));
+    const prior = untrack(places);
+    const kept = Object.fromEntries(Object.entries(prior).filter(([id]) => listed.has(id)));
 
-    if (Object.keys(kept).length !== Object.keys(held).length) {
+    if (Object.keys(kept).length !== Object.keys(prior).length) {
       setPlaces(kept);
       persistPlaces(kept);
     }
@@ -259,17 +262,17 @@ export const Bubbles = (props: {
 
       const corner = host.getBoundingClientRect();
 
-      setOrigin((held) => (held.left === corner.left && held.top === corner.top && held.width === corner.width && held.height === corner.height ? held : { left: corner.left, top: corner.top, width: corner.width, height: corner.height }));
+      setOrigin((prior) => (prior.left === corner.left && prior.top === corner.top && prior.width === corner.width && prior.height === corner.height ? prior : { left: corner.left, top: corner.top, width: corner.width, height: corner.height }));
       setMeasured(true);
     };
 
     const watched = new ResizeObserver(() => {
       sync();
 
-      const held = untrack(places);
-      const next = Object.fromEntries(Object.entries(held).map(([id, place]) => [id, clamped(place, extent())]));
+      const prior = untrack(places);
+      const next = Object.fromEntries(Object.entries(prior).map(([id, place]) => [id, clamped(place, extent())]));
 
-      if (JSON.stringify(next) === JSON.stringify(held)) return;
+      if (JSON.stringify(next) === JSON.stringify(prior)) return;
 
       setPlaces(next);
       persistPlaces(next);
@@ -296,32 +299,7 @@ export const Bubbles = (props: {
 
   const readOnly = () => connected.daemonExit() !== null;
 
-  const close = async (id: string): Promise<void> => {
-    if (closing().has(id)) return;
-
-    const active = document.activeElement;
-    const controlHeldFocus = active instanceof Element && active.closest("[data-bubble]")?.getAttribute("data-bubble") === id;
-    setClosing((ids) => new Set([...ids, id]));
-
-    try {
-      await app.rpc("terminal.close", { id });
-      await rail.refresh({ terminals: true });
-      setFailure(null);
-
-      if (controlHeldFocus) queueMicrotask(() => {
-        const remaining = shown();
-        const nextId = remaining.find((terminal) => Number(terminal.id) > Number(id))?.id ?? remaining.at(-1)?.id;
-        const control = nextId === undefined ? document.querySelector<HTMLElement>('.terminal-new') : document.querySelector<HTMLElement>(`.terminal-tab[data-bubble="${nextId}"]`);
-        control?.focus();
-      });
-    } catch (thrown) {
-      if (!(thrown instanceof Error)) throw thrown;
-
-      setFailure(thrown.message);
-    } finally {
-      setClosing((ids) => new Set([...ids].filter((held) => held !== id)));
-    }
-  };
+  const { close, closing, Failure: CloseFailure } = createTerminalClose(connected, shown, nameFor, (message, terminal) => setFailure(message === null ? null : { message, terminal: terminal ?? null }), clearItemFailure);
 
   const bubbleElement = (id: string): HTMLElement | null => document.querySelector<HTMLElement>(`[data-bubble="${id}"]`);
 
@@ -353,7 +331,7 @@ export const Bubbles = (props: {
     const fromTab = focus?.closest(".terminal-tabs") !== null;
 
     void close(id).then(() => {
-      if (failure() !== null || fromTab) return;
+      if (failure() !== null || fromTab || shown().some(terminal => terminal.id === id)) return;
 
       if (back instanceof HTMLElement && back.isConnected) back.focus();
       else focusPane();
@@ -376,7 +354,7 @@ export const Bubbles = (props: {
 
       setFromRoot(rail.selected() === null ? opened.terminal_id : null);
       setWanted(opened.terminal_id);
-      setFailure(null);
+      setFailure(prior => prior?.terminal === null ? null : prior);
       await rail.refresh({ terminals: true });
       show(opened.terminal_id);
 
@@ -384,7 +362,7 @@ export const Bubbles = (props: {
     } catch (thrown) {
       if (!(thrown instanceof Error)) throw thrown;
 
-      setFailure(thrown.message);
+      setFailure({ message: thrown.message, terminal: null });
 
       return null;
     } finally {
@@ -569,7 +547,7 @@ export const Bubbles = (props: {
     });
   });
 
-  // U511: the name's editor owns its keys. Help and the Switcher are modal layers, so no chord acts under them (U54); a held key repeats nothing.
+  // U511: the name's editor owns its keys. Help and the Switcher are modal layers, so no chord acts under them (U54); a pressed key repeats nothing.
   const outsideEditor = (focus: EventTarget | null): boolean => !(focus instanceof Element && focus.closest(".terminal-tab-editor"));
 
   registerKeys({ kind: "app" }, [
@@ -689,190 +667,6 @@ export const Bubbles = (props: {
   // Bubbles are keyed by id: a refreshed `terminal.list` brings new objects for the same Terminals, and a remount would drop the emulator's focus.
   const shownIds = createMemo(() => shown().map((terminal) => terminal.id), [], { equals: (a, b) => a.length === b.length && a.every((id, at) => id === b[at]) });
 
-  const Bubble = (bubble: { id: string }) => {
-    const id = bubble.id;
-    const terminal = createMemo(() => shown().find((candidate) => candidate.id === id) ?? rail.terminals().find((candidate) => candidate.id === id));
-    let body: HTMLDivElement | undefined;
-    let frame: number | null = null;
-
-    const place = () => placeOf(id);
-
-    const refit = () => {
-      frame = null;
-
-      if (body && !place().min && !readOnly()) props.screens.resize(id, props.screens.emulatorFor(id).fit(), true);
-    };
-
-    const refitNextFrame = () => {
-      frame ??= requestAnimationFrame(refit);
-    };
-
-    onCleanup(() => {
-      if (frame !== null) cancelAnimationFrame(frame);
-
-      props.screens.viewing(id, false);
-      props.screens.hide(id);
-    });
-
-    // A Terminal is viewed while its Bubble is open; a folded or closed one gathers unseen output.
-    createEffect(() => props.screens.viewing(id, !place().min));
-
-    const mount = (host: HTMLDivElement) => {
-      body = host;
-
-      props.screens.resize(id, props.screens.show(id, host, false));
-
-      if (typeof ResizeObserver !== "undefined") {
-        const watched = new ResizeObserver(refitNextFrame);
-
-        watched.observe(host);
-        onCleanup(() => watched.disconnect());
-      }
-    };
-
-    // A bubble that was folded is fitted again when it comes back.
-    createEffect(on(() => place().min, (folded) => { if (!folded) refitNextFrame(); }, { defer: true }));
-
-    const drag = (start: PointerEvent, change: (from: Place, dx: number, dy: number) => Place) => {
-      if (start.button !== 0) return;
-
-      start.preventDefault();
-
-      const from = place();
-      const move = (event: PointerEvent) => setPlace(id, clamped(change(from, event.clientX - start.clientX, event.clientY - start.clientY), extent()));
-
-      const stop = () => {
-        window.removeEventListener("pointermove", move);
-        window.removeEventListener("pointerup", stop);
-      };
-
-      window.addEventListener("pointermove", move);
-      window.addEventListener("pointerup", stop);
-    };
-
-    // The restore of the zone resize in flight, if any; Escape runs it through the registry.
-    let restoreResize: (() => void) | undefined;
-
-    registerKeys({ kind: "app" }, [{ chords: ESCAPE, when: () => restoreResize !== undefined, run: () => restoreResize?.() }]);
-
-    /** U2236: a press on a zone resizes about the centre, one style write per frame; Escape puts the place back. */
-    const resize = (start: PointerEvent, zone: Zone) => {
-      if (start.button !== 0) return;
-
-      start.preventDefault();
-      start.stopPropagation();
-
-      const from = place();
-      let pointer = { x: start.clientX, y: start.clientY };
-      let pending: number | null = null;
-
-      const apply = () => {
-        pending = null;
-        setPlace(id, resizedAbout(from, zone, pointer.x - start.clientX, pointer.y - start.clientY, extent()));
-      };
-
-      const move = (event: PointerEvent) => {
-        pointer = { x: event.clientX, y: event.clientY };
-        pending ??= requestAnimationFrame(apply);
-      };
-
-      const finish = (restore: boolean) => {
-        window.removeEventListener("pointermove", move);
-        window.removeEventListener("pointerup", up);
-        window.removeEventListener("pointercancel", cancel);
-        restoreResize = undefined;
-
-        if (pending !== null) cancelAnimationFrame(pending);
-
-        if (restore) setPlace(id, from);
-        else if (pending !== null) apply();
-
-        pending = null;
-      };
-
-      const up = () => finish(false);
-      const cancel = () => finish(true);
-
-      try {
-        if (start.target instanceof Element) start.target.setPointerCapture?.(start.pointerId);
-      } catch {
-        // The window listeners still follow the pointer.
-      }
-
-      window.addEventListener("pointermove", move);
-      window.addEventListener("pointerup", up);
-      window.addEventListener("pointercancel", cancel);
-      restoreResize = cancel;
-    };
-
-    let header: HTMLElement | undefined;
-
-    // Arrows on the focused header move the bubble, Shift arrows resize it; the registry matches the exact modifiers.
-    registerKeys({ kind: "region", element: () => header }, [{
-      chords: [...ARROWS.keys(), ...[...ARROWS.keys()].map((key) => `${SHIFT}${key}`)],
-      when: (press) => press.target === header,
-      run: (press) => {
-        const arrow = ARROWS.get(press.key)!;
-        const from = place();
-
-        setPlace(id, clamped(press.shiftKey ? { ...from, w: from.w + arrow[0] * STEP, h: from.h + arrow[1] * STEP } : { ...from, x: from.x + arrow[0] * STEP, y: from.y + arrow[1] * STEP }, extent()));
-      },
-    }]);
-
-    let panel: HTMLElement | undefined;
-
-    // The browser top layer orders by the last `showPopover`, so a restored bubble is the topmost layer and no z-index ranks it (U2307b).
-    createEffect(() => {
-      const open = !place().min;
-
-      if (!panel?.showPopover) return;
-
-      if (open && !panel.matches(":popover-open")) panel.showPopover();
-      else if (!open && panel.matches(":popover-open")) panel.hidePopover();
-    });
-
-    /** U2307a: a primary press outside the bubble minimises it; its own tab or chip toggles it, and the press still reaches its target. */
-    const dismissed = (event: { detail: { originalEvent: Event } }): void => {
-      const press = event.detail.originalEvent;
-      const target = press.target;
-
-      if (!(press instanceof PointerEvent) || press.button !== 0 || (target instanceof Element && target.closest(".terminal-tab-pair, .terminal-recover"))) return;
-
-      if (!place().min) setPlace(id, { ...place(), min: true });
-    };
-
-    return (
-      <Panel.Root open={!place().min} onPointerDownOutside={dismissed}>
-        <Portal>
-          <Panel.Content ref={(element: HTMLElement) => (panel = element)} class="bubble-frame" role="presentation" popover="manual"
-            style={{ left: `${origin().left}px`, top: `${origin().top}px` }}>
-            <section class="bubble" data-bubble={id} role="group" aria-label={nameFor(terminal()!)} hidden={place().min}
-              style={{ left: `${place().x}px`, top: `${place().y}px`, width: `${place().w}px`, height: `${place().h}px` }}>
-              <header class="bubble-header" tabindex="0" ref={header} onPointerDown={(event) => {
-                  // SAFETY: a pointer event on the header always targets an Element.
-                  if (!(event.target as Element).closest("button")) drag(event, (from, dx, dy) => ({ ...from, x: from.x + dx, y: from.y + dy }));
-                }} onDblClick={(event) => {
-                  // SAFETY: a mouse event on the header always targets an Element.
-                  if (!(event.target as Element).closest("button")) setPlace(id, toggledFill(place(), extent()));
-                }}>
-                <span class="bubble-controls">
-                  <IconButton data-feedback="ink" aria-label={copy.close} onClick={() => void close(id)}><span class="bubble-dot"><Icon name="x" /></span></IconButton>
-                  <IconButton data-feedback="ink" aria-label={copy.minimise} onClick={() => toggleMinimised(id)}><span class="bubble-dot"><Icon name="minus" /></span></IconButton>
-                </span>
-                <span class="bubble-name">{nameFor(terminal()!)}</span>
-              </header>
-              <div class="bubble-body" ref={mount} />
-            </section>
-            <For each={ZONES}>{(zone) => (
-              <span class="bubble-zone" data-zone={zone.name} data-zone-of={id} aria-hidden="true" hidden={place().min}
-                style={{ cursor: zone.cursor, ...zoneBox(place(), zone) }} onPointerDown={(event) => resize(event, zone)} />
-            )}</For>
-          </Panel.Content>
-        </Portal>
-      </Panel.Root>
-    );
-  };
-
   const Tab = (tabProps: { id: string }) => {
     const id = tabProps.id;
     const terminal = () => shown().find((candidate) => candidate.id === id)!;
@@ -937,7 +731,7 @@ export const Bubbles = (props: {
     createEffect(on(() => props.recovery, selected => { if (selected) start(selected); }));
 
     createEffect(() => {
-      if (terminal().incarnation !== destination.object || !terminal().running || readOnly()) setEditing(held => held?.id === id ? null : held);
+      if (terminal().incarnation !== destination.object || !terminal().running || readOnly()) setEditing(prior => prior?.id === id ? null : prior);
     });
 
     const tab = () => document.querySelector<HTMLElement>(`button.terminal-tab[data-bubble="${id}"]`);
@@ -945,10 +739,11 @@ export const Bubbles = (props: {
     /** U2694b: Rename, Send to Agent ▸, Copy Link and Close, as the system menu of the tab. */
     const tabMenu = (x: number, y: number) => {
       const agents = rail.nodes;
+      const target = terminal();
 
       return contextMenu(app, [
         { id: "rename", label: copy.rename, run: start },
-        ...linkEntries(app, { kind: "terminal", id: id }, agents, (node) => rail.exitOf(node) === null, setFailure),
+        ...linkEntries(app, { kind: "terminal", id: id }, agents, (node) => rail.exitOf(node) === null, message => setFailure({ message, terminal: target })),
         { id: "close", label: copy.close, shortcut: lastTarget() === id ? copy.closeChord : undefined, run: () => close(id) },
       ], x, y);
     };
@@ -989,7 +784,9 @@ export const Bubbles = (props: {
                 const failure = rename(live, value);
 
                 if (submitted) drafts.settle(submitted, failure === null ? "acknowledged" : "failed");
-                setFailure(failure);
+
+                if (failure === null) clearItemFailure(live);
+                else setFailure({ message: failure, terminal: live });
 
                 if (failure !== null) openRecovery();
               }}
@@ -1023,7 +820,7 @@ export const Bubbles = (props: {
 
   return (
     <div class="bubbles" ref={setLayer}>
-      <For each={shownIds()}>{(id) => <Bubble id={id} />}</For>
+      <For each={shownIds()}>{(id) => <Bubble id={id} screens={props.screens} name={nameFor(shown().find(terminal => terminal.id === id)!)} place={placeOf(id)} origin={origin()} extent={extent} setPlace={setPlace} readOnly={readOnly} close={close} toggleMinimised={toggleMinimised} />}</For>
       <Show when={bar()}>{(host) => <Portal mount={host()} ref={(element) => { element.classList.add("terminal-tabs-host"); }}>
         <div class="terminal-tabs" role="group" aria-label={copy.terminals} onFocusIn={(event) => {
           if (event.target instanceof HTMLElement) event.target.scrollIntoView({ block: "nearest", inline: "nearest" });
@@ -1037,7 +834,7 @@ export const Bubbles = (props: {
         <Portal><Dialog.Positioner asChild={positioner => <aside {...positioner({})} />}><Dialog.Content class="draft-recovery bubble-recovery" ref={element => { recoveryPanel = element; }}>
           <Dialog.Title asChild={title => <h2 {...title({})}>{copy.unfinishedWork}</h2>} />
           <Dialog.Description class="draft-identity">{copy.draftIdentity(connected.project.name, copy.terminalName)}</Dialog.Description>
-          <ReservedLine message={(copyFailure()) || (problem() ? (copy.draftRetention(connected.project.name, copy.terminalName, problem()!.cause)) : null) || null} />
+          <ReservedLine message={(copyFailure()?.message) || (problem() ? (copy.draftRetention(connected.project.name, copy.terminalName, problem()!.cause)) : null) || null}><Show when={copyFailure()}><button data-button="quiet" class="word" type="button" onClick={() => failCopy(null)}>{copy.dismissFailure}</button></Show></ReservedLine>
           <Show when={records().length > 1}><For each={[...records()].reverse().sort((a, b) => Number(b.status === "draft") - Number(a.status === "draft"))}>{(draft, index) => <button type="button" data-button="quiet" aria-pressed={shownDraft()?.revision === draft.revision} onClick={() => inspect(draft.revision)}>{copy.draftIdentity(copy.inspectDraft, draft.status === "draft" ? copy.currentDraft : copy.draftStatus[draft.status], String(draft.value.base ?? ""), String(index() + 1))}</button>}</For></Show>
           <Show when={shownDraft()}>{draft => <>
             <p class="draft-identity">{copy.draftIdentity(String(draft().value.base ?? ""), draft().destination.recipient ?? copy.noDraftRecipient)}</p>
@@ -1052,7 +849,7 @@ export const Bubbles = (props: {
           </div>
         </Dialog.Content></Dialog.Positioner></Portal>
       </Dialog.Root>
-      <ReservedLine overlay class={failure() ? "bubble-failure" : undefined} message={failure()} />
+      <CloseFailure message={failure()?.message ?? null}><button data-button="quiet" class="word" type="button" onClick={() => setFailure(null)}>{copy.dismissFailure}</button></CloseFailure>
     </div>
   );
 };

@@ -1,4 +1,6 @@
-import { createEffect, createSignal, on, onMount, Show } from "solid-js";
+import * as v from "valibot";
+import { batch, createEffect, createSignal, on, onCleanup, onMount, Show } from "solid-js";
+import { ImportPanel } from "../importer/ImportPanel";
 import { copy } from "../copy";
 import { ReservedLine } from "../ink/ReservedLine";
 import { SettingsGroup, SettingsShell } from "../settings/SettingsShell";
@@ -9,40 +11,59 @@ import { Checkbox } from "../ui/Checkbox";
 /** a whole number of 1 or more, else `null`. */
 const capOf = (text: string): number | null => /^\d+$/.test(text.trim()) && Number(text) >= 1 ? Number(text) : null;
 
-/** The Rail's `Project settings` control (U3764): opens the centre view. */
-export const ProjectSettings = () => {
-  const { settingsView } = useConnectedProject();
-
-  return <button data-button="quiet" class="word rail-import" type="button" onClick={event => settingsView.show(event.currentTarget)}>{copy.projectSettings}</button>;
-};
-
-/** U3764: the centre's Project settings view while it is open. Its Workstreams group holds the Project's `Workstreams at once` cap. */
+/** U3813/U3814: native Project commands share one persistent center-page owner. */
 export const ProjectSettingsView = () => {
-  const { settingsView } = useConnectedProject();
+  const { app, project, settingsView, importing, rail } = useConnectedProject();
+  let disposed = false;
+  let stop: (() => void) | undefined;
+  void app.onProjectPage(({ path, command }) => {
+    if (path !== project.path) return;
+    const selected = rail.selected();
+    batch(() => {
+      settingsView.show(document.activeElement instanceof HTMLElement ? document.activeElement : document.body, command, () => rail.select(selected));
 
-  return <Show when={settingsView.open()}><ProjectSettingsBody /></Show>;
+      if (command === "import-work" && !importing.open()) importing.show();
+    });
+  }).then(release => { if (disposed) release(); else stop = release; });
+  onCleanup(() => { disposed = true; stop?.(); });
+  createEffect(on(importing.open, open => {
+    if (open && !settingsView.open()) settingsView.show(document.body, "import-work");
+
+    if (!open && settingsView.open() && settingsView.page() === "import-work") settingsView.close(false);
+  }));
+
+  const close = () => batch(() => { importing.cancel(); settingsView.close(); });
+  const closeImport = () => { if (!importing.pending()) close(); };
+
+  return <>
+    <Show when={settingsView.open() && settingsView.page() === "project-settings"}><ProjectSettingsBody onClose={close} /></Show>
+    <Show when={settingsView.open() && settingsView.page() === "import-work" && importing.open()}><ImportPanel onClose={closeImport} /></Show>
+  </>;
 };
 
 /** the Project's `Workstreams at once` cap. Enter or blur with a changed value, or the `No limit` toggle, is one `project.setWorkstreamCap`; a bad entry is refused in the field and calls nothing. */
-const ProjectSettingsBody = () => {
-  const { app, settingsView, rail } = useConnectedProject();
+const ProjectSettingsBody = (props: { onClose: () => void }) => {
+  const { app, drafts } = useConnectedProject();
+  drafts.validate("settings", v.object({ text: v.string() }));
+  const destination = { surface: "settings", object: "workstreamCap", recipient: null };
+  const draft = () => drafts.list().findLast(entry => entry.destination.surface === "settings" && entry.destination.object === "workstreamCap");
+  const release = drafts.editor(destination);
+  onCleanup(release);
   const [saved, setSaved] = createSignal<number | null>(null);
   const [text, setText] = createSignal("1");
   const [failure, setFailure] = createSignal<string | null>(null);
 
-  // Opening reads the cap; picking another row shows that row's Terminal instead.
+  // Each opening reads the current cap.
   onMount(() => void (async () => {
     const message = await failureOf(async () => {
       const cap = (await app.rpc("project.get", null)).workstreamCap;
 
       setSaved(cap);
-      setText(String(cap ?? 1));
+      setText(String(draft()?.value.text ?? cap ?? 1));
     });
 
     if (message !== null) setFailure(message);
   })());
-
-  createEffect(on(rail.selected, () => settingsView.close(false), { defer: true }));
 
   let saving = false;
 
@@ -51,14 +72,19 @@ const ProjectSettingsBody = () => {
 
     saving = true;
     setFailure(null);
+    const revision = draft()?.revision;
     const message = await failureOf(() => app.rpc("project.setWorkstreamCap", { cap }));
 
     saving = false;
 
     if (message !== null) return setFailure(message);
 
+    const current = draft()?.revision;
+
+    if (revision) drafts.discard(revision);
     setSaved(cap);
-    setText(String(cap ?? text()));
+
+    if (current === revision) setText(String(cap ?? text()));
   };
 
   const commit = () => {
@@ -72,17 +98,22 @@ const ProjectSettingsBody = () => {
     else setFailure(null);
   };
 
-  return <SettingsShell heading={copy.projectSettings} onClose={() => settingsView.close()}>
+  return <SettingsShell heading={copy.projectSettings} onClose={props.onClose}>
     <SettingsGroup name={copy.workstreams}><div class="app-dialog-form">
       <label class="app-dialog-field">
         <span>{copy.runAtMost}</span>
         <textarea rows={1} inputMode="numeric" aria-label={copy.workstreamsAtOnce} value={text()} disabled={saved() === null}
-          onInput={event => setText(event.currentTarget.value)} onBlur={commit}
+          onInput={event => {
+            const field = event.currentTarget;
+            setText(field.value);
+            drafts.edit(destination, { text: field.value }, { start: field.selectionStart, end: field.selectionEnd, direction: field.selectionDirection }, "ordinary");
+          }} onBlur={commit}
           onKeyDown={event => { if (event.key === "Enter" && !event.isComposing) { event.preventDefault(); commit(); } }} />
         <span>{copy.workstreamsAtOnce}</span>
       </label>
       <Checkbox class="app-dialog-checkbox" checked={saved() === null} onCheckedChange={checked => void save(checked ? null : (capOf(text()) ?? 1))}>{copy.noLimit}</Checkbox>
       <ReservedLine message={failure()} />
+      <ReservedLine message={drafts.problem() ? copy.draftRetention(copy.projectSettings, copy.workstreams, drafts.problem()!.cause) : null}><button data-button="quiet" type="button" onClick={() => drafts.retry()}>{copy.storageRetry}</button></ReservedLine>
     </div></SettingsGroup>
   </SettingsShell>;
 };

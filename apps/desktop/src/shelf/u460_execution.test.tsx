@@ -18,9 +18,9 @@ const pickTwo = async () => {
 
 it("u460_each_confirmed_target_is_called_once", async () => {
   const { app, store } = await mountTodos([todo(1), todo(2)]);
-  const held = deferred<null>();
+  const kept = deferred<null>();
   app.handlers["todo.delete"] = async (params) => {
-    if (params.id === 1) await held.promise;
+    if (params.id === 1) await kept.promise;
     store.todos = store.todos.filter((row) => row.id !== params.id);
 
     return null;
@@ -31,7 +31,7 @@ it("u460_each_confirmed_target_is_called_once", async () => {
   await confirmDeletion();
   await answerQuestion(true);
   expect(todoCallsTo(app, "todo.delete")).toHaveLength(1);
-  held.resolve(null);
+  kept.resolve(null);
   await questionClosed();
   expect(todoCallsTo(app, "todo.delete").map((call) => call.params)).toEqual([{ id: 1 }, { id: 2 }]);
 });
@@ -166,7 +166,7 @@ it("u460_readback_waits_for_a_newer_event_refetch_before_retry", async () => {
   app.emit({ actor: USER, name: "todo.updated", data: todo(2) });
   await waitFor(() => expect(reads).toBe(2));
   old.resolve([todo(1), todo(2)]);
-  // Observe that no retry is offered while the newer list response is withheld.
+  // Observe that no retry is offered while the newer list response is stale.
   await new Promise((resolve) => setTimeout(resolve, 40));
   expect(screen.getByRole("button", { name: "Delete 2" }).hasAttribute("disabled")).toBe(true);
   fresh.resolve([todo(2)]);

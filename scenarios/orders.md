@@ -1,6 +1,6 @@
 # Orders
 
-Module: `crates/agents` (the order on each Agent, set at spawn and at a Door's start, persisted with the Rail), `crates/contracts` (`Order`, `RailNode.order` (named `work` in the wire type if `order` collides with the sibling position field), `SpawnParams.order`, `CreateWorkstreamParams.order`, `ContextSelf.order`, `agent.setOrder`), `crates/rupd` (registration), `crates/rup` (the `agent_set_order` MCP tool), `apps/desktop` (O6 only). Terms: Work order, Clarification order, Workstream, Door, Steer, Decision, Provenance (`GLOSSARY.md`). Principles served: P1, P3, P6. Contract change (rule 4): the fields and method above, with every caller in the same PR. Reported in #389. Workstream becomes Workstream with #369, and these clauses rename with it. Ids: O1–O16 (O1, O2 and O6 are narrowed by Q4 and Q5; O1, O2 and O4 by O7 to O9; O2 and O4 by O11 to O13). O7 to O9 are the Daemon slice and O10 the App slice (rule 3), reported in #732. O11 to O13 make the Door write the order for a typed prompt (#1177).
+Module: `crates/agents` (the order on each Agent, set at spawn and at a Door's start, persisted with the Rail), `crates/contracts` (`Order`, `RailNode.order` (named `work` in the wire type if `order` collides with the sibling position field), `SpawnParams.order`, `CreateWorkstreamParams.order`, `ContextSelf.order`, `agent.setOrder`), `crates/rupd` (registration), `crates/rup` (the `agent_set_order` MCP tool), `apps/desktop` (O6 only). Terms: Work order, Clarification order, Workstream, Door, Steer, Provenance (`GLOSSARY.md`). Principles served: P1, P3, P6. Contract change (rule 4): the fields and method above, with every caller in the same PR. Reported in #389. Workstream becomes Workstream with #369, and these clauses rename with it. Ids: O1–O16 (O1, O2 and O6 are narrowed by Q4 and Q5; O1, O2 and O4 by O7 to O9; O2 and O4 by O11 to O13). O7 to O9 are the Daemon slice and O10 the App slice (rule 3), reported in #732. O11 to O13 make the Door write the order for a typed prompt (#1177).
 
 **O1 every Workstream and every ordered Agent holds one order.** Given any node in `rail.tree`, then each Workstream node (its Door), and each Agent node but one spawned with neither a prompt nor an order (O2), has an order that is exactly one of `{kind: "work", ask, done?, limits}` (O7) or `{kind: "clarification", question}`. `ask` and `question` are non-empty after trimming. `limits` is a list, possibly empty, of non-empty strings, each a rule that reads on its own (Q4). Test: `o1_`, over a real Daemon after each path of O2 and O3.
 
@@ -20,7 +20,7 @@ A Door's `agent_spawn` (F3) takes the same `order`; B24's policy (fixed limits, 
 
 **O4 settling an order.** Given `agent.setOrder {id, order}`, then the Agent itself, the Door of its Workstream, or the user may replace its order with any order of O1's shape. The change emits `rail.changed` and records a Touch with the Actor (Provenance).
 
-If a caller other than the Agent changes the order, the new order is sent to the Agent as O2's Steer, except during a Takeover (P1), when it is not sent. In both cases `agent.context` returns it as `this.order`.
+If a caller other than the Agent changes the order, the new order is sent to the Agent as O2's Steer. In both cases `agent.context` returns it as `this.order`.
 
 Errors:
 - Another Agent: `FORBIDDEN`.
@@ -28,7 +28,7 @@ Errors:
 - An unknown id: `NOT_FOUND`.
 - A malformed order: `INVALID_PARAMS`, with nothing changed.
 
-A Clarification order whose question only the user can answer reaches the user only as a Decision (P3, `agent.ask`); holding the order alone never yields `needs-you`. `rup mcp <id>` offers `agent_set_order`, with `id` filled with its own Agent's id. Test: `o4_`.
+A Clarification order whose question only the user can answer reaches the user only as a native `AskUserQuestion` in the Agent's Terminal (P3); holding the order alone never yields `needs-you`. `rup mcp <id>` offers `agent_set_order`, with `id` filled with its own Agent's id. Test: `o4_`.
 
 **O5 an order survives.** Given an Agent with an order, when the Daemon reopens (A8, A12), the Agent is Resumed (A22), or it is moved to another Home (`rail.move`), then `rail.tree` shows the same order. A Resume sends no new order Steer. Discard and `rail.remove` drop it with the node. Test: `o5_`.
 

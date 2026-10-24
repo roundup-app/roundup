@@ -3,7 +3,7 @@ import { createSignal } from "solid-js";
 import { Portal } from "solid-js/web";
 import { afterEach, expect, it } from "vitest";
 import { Dialog } from "./Dialog";
-import { mountSwitcher, openSwitcher, field, press } from "../switcher/switcherFixture";
+import { mountSwitcher, openSwitcher, field, switcherKey as press } from "../switcher/switcherFixture";
 import { openDiff, openFile, COMPARISON } from "../changes/noteHarness";
 import { ConnectedProjectContext } from "../state/connectedProject";
 import { NoteRecovery } from "../changes/NoteBatch";
@@ -51,7 +51,7 @@ it.each(["ask", "switcher"] as const)("u3295b_modal_dismissal_keeps_unsubmitted_
   expect((await show()).value).toBe(text);
   expect(connected.drafts.list().filter(draft => draft.destination.surface === kind).map(draft => draft.destination)).toEqual(before.map(draft => draft.destination));
   expect(connected.rail.selected()).toBe("dee");
-  expect(app.calls.slice(calls).filter(call => ["ask.send", "message.send", "takeover.begin"].includes(call.method))).toEqual([]);
+  expect(app.calls.slice(calls).filter(call => ["ask.send", "message.send"].includes(call.method))).toEqual([]);
 });
 
 it("u3295b_switcher_cannot_cover_a_dialog", async () => {

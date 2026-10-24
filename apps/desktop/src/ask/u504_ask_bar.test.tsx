@@ -323,7 +323,7 @@ it("u2773e_recovery_actions_keep_surface_draft", async () => {
   const mounted = await mountAskBar();
   const exact = "  memory e\u0301 🌿\nlast line  ";
   const clipboard = vi.fn().mockResolvedValue(undefined);
-  vi.stubGlobal("navigator", { ...navigator, clipboard: { writeText: clipboard } });
+  vi.spyOn(mounted.app, "clipboardWrite").mockImplementation(clipboard);
   const writes = vi.spyOn(Storage.prototype, "setItem").mockImplementation(() => { throw new Error("full"); });
 
   try {
@@ -503,7 +503,7 @@ it("u3021c_copy_and_discard_keep_other_revisions_ask", async () => {
   type("B current");
   const b = connected.drafts.list().at(-1)!;
   const clipboard = vi.fn().mockResolvedValue(undefined);
-  vi.stubGlobal("navigator", { ...navigator, clipboard: { writeText: clipboard } });
+  vi.spyOn(app, "clipboardWrite").mockImplementation(clipboard);
 
   try {
     connected.rail.select("ann");
@@ -585,7 +585,7 @@ it("u3299d_copy_uses_selected_item_publication", async () => {
   const made = await screen.findByRole("region", { name: "Made" });
   const rows = await within(made).findAllByRole("listitem");
   const copied: string[] = [];
-  Object.defineProperty(navigator, "clipboard", { configurable: true, value: { writeText: async (text: string) => { copied.push(text); } } });
+  vi.spyOn(app, "clipboardWrite").mockImplementation(async (text: string) => { copied.push(text); });
   fireEvent.contextMenu(rows[1]!);
   await app.pickMenu("Copy");
   expect(JSON.parse(copied[0]!.split("\n").slice(2).join("\n")).record).toEqual(records[1]);

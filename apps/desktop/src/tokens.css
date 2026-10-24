@@ -7,6 +7,29 @@
   --text-selection: Highlight;
   --text-selection-ink: HighlightText;
   color-scheme: light dark;
+  --terminal-background: #ffffff;
+  --terminal-foreground: #4d4d4c;
+  --terminal-cursor: #4d4d4c;
+  --terminal-cursor-text: #ffffff;
+  --terminal-selection: #d6d6d6;
+  --terminal-selection-text: #4d4d4c;
+  --terminal-black: #000000;
+  --terminal-red: #c82829;
+  --terminal-green: #718c00;
+  --terminal-yellow: #eab700;
+  --terminal-blue: #4271ae;
+  --terminal-magenta: #8959a8;
+  --terminal-cyan: #3e999f;
+  --terminal-white: #bfbfbf;
+  --terminal-bright-black: #000000;
+  --terminal-bright-red: #c82829;
+  --terminal-bright-green: #718c00;
+  --terminal-bright-yellow: #eab700;
+  --terminal-bright-blue: #4271ae;
+  --terminal-bright-magenta: #8959a8;
+  --terminal-bright-cyan: #3e999f;
+  --terminal-bright-white: #ffffff;
+
   --ground: #ffffff;
   --sunken: #f5f5f7;
   --hover: rgba(0, 0, 0, 0.04);
@@ -80,8 +103,6 @@
   --stroke-tick: 1.5;
   --duration-count: 560ms;
   --duration-toast: 150ms;
-  --duration-note: 150ms;
-  --ease-note: cubic-bezier(0.32, 0.72, 0, 1);
   --duration-toast-in: 200ms;
   --duration-fold: 150ms;
   --duration-scrollbar: 200ms;
@@ -89,6 +110,10 @@
   --font-ui: -apple-system, BlinkMacSystemFont, "SF Pro Text", system-ui, sans-serif;
   --font-mono: ui-monospace, "SF Mono", Menlo, monospace;
   --mono: var(--font-mono);
+  --font-terminal: "JetBrains Mono", ui-monospace, "SF Mono", Menlo, monospace;
+  --text-terminal: 14px;
+  --line-terminal: 1.06;
+  --letter-terminal: 0px;
   --text-caption: 11px;
   --text-small: 12px;
   --text-body: 13px;
@@ -115,6 +140,28 @@
 
 @media (prefers-color-scheme: dark) {
   :root {
+    --terminal-background: #282c34;
+    --terminal-foreground: #ffffff;
+    --terminal-cursor: #ffffff;
+    --terminal-cursor-text: #282c34;
+    --terminal-selection: #ffffff;
+    --terminal-selection-text: #282c34;
+    --terminal-black: #1d1f21;
+    --terminal-red: #cc6666;
+    --terminal-green: #b5bd68;
+    --terminal-yellow: #f0c674;
+    --terminal-blue: #81a2be;
+    --terminal-magenta: #b294bb;
+    --terminal-cyan: #8abeb7;
+    --terminal-white: #c5c8c6;
+    --terminal-bright-black: #666666;
+    --terminal-bright-red: #d54e53;
+    --terminal-bright-green: #b9ca4a;
+    --terminal-bright-yellow: #e7c547;
+    --terminal-bright-blue: #7aa6da;
+    --terminal-bright-magenta: #c397d8;
+    --terminal-bright-cyan: #70c0b1;
+    --terminal-bright-white: #eaeaea;
     --ground: #1c1c1e;
     --surface: #242426;
     --button-neutral: #343438;
@@ -161,6 +208,29 @@ button, file-tree-container {
 
 /* U3805: Explicit choices use the same Token columns regardless of the host scheme. */
 :root[data-mode="light"] {
+  --terminal-background: #ffffff;
+  --terminal-foreground: #4d4d4c;
+  --terminal-cursor: #4d4d4c;
+  --terminal-cursor-text: #ffffff;
+  --terminal-selection: #d6d6d6;
+  --terminal-selection-text: #4d4d4c;
+  --terminal-black: #000000;
+  --terminal-red: #c82829;
+  --terminal-green: #718c00;
+  --terminal-yellow: #eab700;
+  --terminal-blue: #4271ae;
+  --terminal-magenta: #8959a8;
+  --terminal-cyan: #3e999f;
+  --terminal-white: #bfbfbf;
+  --terminal-bright-black: #000000;
+  --terminal-bright-red: #c82829;
+  --terminal-bright-green: #718c00;
+  --terminal-bright-yellow: #eab700;
+  --terminal-bright-blue: #4271ae;
+  --terminal-bright-magenta: #8959a8;
+  --terminal-bright-cyan: #3e999f;
+  --terminal-bright-white: #ffffff;
+
   --ground: #ffffff;
   --key-chip-fill: rgba(0, 0, 0, 0.06);
   --sunken: #f5f5f7;
@@ -183,6 +253,28 @@ button, file-tree-container {
 }
 
 :root[data-mode="dark"] {
+    --terminal-background: #282c34;
+    --terminal-foreground: #ffffff;
+    --terminal-cursor: #ffffff;
+    --terminal-cursor-text: #282c34;
+    --terminal-selection: #ffffff;
+    --terminal-selection-text: #282c34;
+    --terminal-black: #1d1f21;
+    --terminal-red: #cc6666;
+    --terminal-green: #b5bd68;
+    --terminal-yellow: #f0c674;
+    --terminal-blue: #81a2be;
+    --terminal-magenta: #b294bb;
+    --terminal-cyan: #8abeb7;
+    --terminal-white: #c5c8c6;
+    --terminal-bright-black: #666666;
+    --terminal-bright-red: #d54e53;
+    --terminal-bright-green: #b9ca4a;
+    --terminal-bright-yellow: #e7c547;
+    --terminal-bright-blue: #7aa6da;
+    --terminal-bright-magenta: #c397d8;
+    --terminal-bright-cyan: #70c0b1;
+    --terminal-bright-white: #eaeaea;
     --ground: #1c1c1e;
     --key-chip-fill: rgba(255, 255, 255, 0.08);
     --sunken: #141416;
@@ -206,6 +298,29 @@ button, file-tree-container {
 
 @media (prefers-contrast: more) {
   :root[data-mode="light"] {
+  --terminal-background: #ffffff;
+  --terminal-foreground: #4d4d4c;
+  --terminal-cursor: #4d4d4c;
+  --terminal-cursor-text: #ffffff;
+  --terminal-selection: #d6d6d6;
+  --terminal-selection-text: #4d4d4c;
+  --terminal-black: #000000;
+  --terminal-red: #c82829;
+  --terminal-green: #718c00;
+  --terminal-yellow: #eab700;
+  --terminal-blue: #4271ae;
+  --terminal-magenta: #8959a8;
+  --terminal-cyan: #3e999f;
+  --terminal-white: #bfbfbf;
+  --terminal-bright-black: #000000;
+  --terminal-bright-red: #c82829;
+  --terminal-bright-green: #718c00;
+  --terminal-bright-yellow: #eab700;
+  --terminal-bright-blue: #4271ae;
+  --terminal-bright-magenta: #8959a8;
+  --terminal-bright-cyan: #3e999f;
+  --terminal-bright-white: #ffffff;
+
     --grey: var(--text);
     --hairline: rgba(0, 0, 0, 0.4);
     --scrollbar-thumb: rgba(0, 0, 0, 0.6);
@@ -221,6 +336,38 @@ button, file-tree-container {
 /* U3768: the progress bar's track tints the grey. */
 :root {
   --progress-track: color-mix(in srgb, var(--grey) 40%, transparent);
+}
+
+@font-face {
+  font-family: "JetBrains Mono";
+  src: url("/fonts/jetbrains-mono/JetBrainsMono-Regular.woff2") format("woff2");
+  font-style: normal;
+  font-weight: 400;
+  font-display: block;
+}
+
+@font-face {
+  font-family: "JetBrains Mono";
+  src: url("/fonts/jetbrains-mono/JetBrainsMono-Bold.woff2") format("woff2");
+  font-style: normal;
+  font-weight: 700;
+  font-display: block;
+}
+
+@font-face {
+  font-family: "JetBrains Mono";
+  src: url("/fonts/jetbrains-mono/JetBrainsMono-Italic.woff2") format("woff2");
+  font-style: italic;
+  font-weight: 400;
+  font-display: block;
+}
+
+@font-face {
+  font-family: "JetBrains Mono";
+  src: url("/fonts/jetbrains-mono/JetBrainsMono-BoldItalic.woff2") format("woff2");
+  font-style: italic;
+  font-weight: 700;
+  font-display: block;
 }
 
 /* U3512e: Drawer/Shelf depth, scroll cues and non-elevation resets retain their roles. */
@@ -249,7 +396,7 @@ button, file-tree-container {
 }
 
 /* U3512b: one recipe for web modals, anchored panels and the movable Terminal Bubble. */
-:is(.app-dialog, .app-menu, .app-popover, .app-select-list, .bubble, .milkdown-slash-menu, .pane-control) {
+:is(.app-dialog, .app-menu, .app-popover, .app-select-list, .bubble, .milkdown-slash-menu) {
   color: var(--text);
   background-color: var(--surface);
   border: 1px solid var(--hairline);

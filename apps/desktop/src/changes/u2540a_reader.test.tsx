@@ -1,10 +1,10 @@
 import { cleanup, fireEvent, screen, waitFor } from "@solidjs/testing-library";
 import { afterEach, expect, it } from "vitest";
-import { COMPARISON, openDiff } from "./noteHarness";
+import { COMPARISON, openDiff, saveNote } from "./noteHarness";
 import { RpcError } from "../app/seam";
 import { mountControl } from "./harness";
 
-afterEach(cleanup);
+afterEach(() => { cleanup(); localStorage.clear(); });
 
 it("u2540a_open_back_close_and_editor_actions", async () => {
   const { app } = await mountControl();
@@ -16,7 +16,7 @@ it("u2540a_open_back_close_and_editor_actions", async () => {
   fireEvent.click(screen.getByRole("button", { name: "View diff" }));
   await screen.findByRole("button", { name: "Add note" });
   expect(app.calls.filter(c => c.method === "agent.compareFile").map(c => c.params)).toEqual([{ id: "a", path: "src/a.ts" }]);
-  fireEvent.click(screen.getByRole("button", { name: "Back" }));
+  fireEvent.click(screen.getByRole("button", { name: "Close" }));
   await waitFor(() => expect(document.querySelector("file-tree-container")?.shadowRoot?.activeElement?.getAttribute("data-item-path")).toBe("src/a.ts"));
   fireEvent.keyDown(document.querySelector("file-tree-container")!.shadowRoot!.activeElement!, { key: "Enter", composed: true });
   await waitFor(() => expect(app.editorCalls).toHaveLength(1));
@@ -47,7 +47,7 @@ it("u2540a_nontext_empty_and_failed_reads_remain_navigable", async () => {
   fireEvent.click(screen.getByRole("button", { name: "Refresh" }));
   await screen.findByRole("button", { name: "Refresh" });
   expect(screen.queryByRole("button", { name: "Add note" })).toBeNull();
-  expect(screen.getByRole("button", { name: "Back" })).toBeTruthy();
+  expect(screen.getByRole("button", { name: "Close" })).toBeTruthy();
   app.handlers["agent.compareFile"] = () => ({ ...COMPARISON, status: null });
   fireEvent.click(screen.getByRole("button", { name: "Refresh" }));
   await screen.findByText(/No remaining difference/);
@@ -58,6 +58,30 @@ it("u2540a_nontext_empty_and_failed_reads_remain_navigable", async () => {
   app.handlers["agent.compareFile"] = () => COMPARISON;
   fireEvent.click(screen.getByRole("button", { name: "Retry" }));
   await screen.findByRole("button", { name: "Add note" });
-  fireEvent.click(screen.getByRole("button", { name: "Close" }));
+  fireEvent.click(screen.getByRole("button", { name: "Close changes" }));
   await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+});
+
+it.each(["retry", "dismiss"])("p3557c_failure_lifetime_diff_reader: %s", async action => {
+  const { app } = await openDiff();
+  await saveNote("  unrelated note e\u0301\n🐝  ");
+  fireEvent.click(screen.getByRole("button", { name: "Add note" }));
+  fireEvent.input(screen.getByRole("textbox", { name: "Note" }), { target: { value: "  unfinished e\u0301\n🐝  " } });
+  app.handlers["agent.compareFile"] = () => { throw new Error("comparison refused; retry loading this diff"); };
+
+  fireEvent.click(screen.getByRole("button", { name: "Refresh" }));
+  await screen.findByRole("alert");
+
+  if (action === "dismiss") fireEvent.click(screen.getByRole("button", { name: "Dismiss" }));
+  else {
+    app.handlers["agent.compareFile"] = () => COMPARISON;
+    fireEvent.click(screen.getByRole("button", { name: "Retry" }));
+    await screen.findByRole("button", { name: "Refresh" });
+  }
+
+  expect(screen.queryByRole("alert")).toBeNull();
+  expect(screen.getByRole("textbox", { name: "Note" })).toHaveProperty("value", "  unfinished e\u0301\n🐝  ");
+  expect(screen.getByRole("list", { name: "Notes" }).textContent).toContain("  unrelated note e\u0301\n🐝  ");
+  expect(app.calls.filter(call => call.method === "agent.compareFile").map(call => call.params)).toEqual(Array.from({ length: action === "retry" ? 3 : 2 }, () => ({ id: "a", path: "src/a.ts" })));
+  expect(app.calls.filter(call => call.method === "message.send")).toHaveLength(0);
 });

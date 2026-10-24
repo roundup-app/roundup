@@ -16,11 +16,10 @@ use contracts::agent::{
     SignalOutcome, SignalParams, SpawnParams, StartDoorParams, StatusEvent, Stray, StrayEvent,
     WorktreeState,
 };
-use contracts::decision::{AnswerParams, CaptureParams, Outcome, PermissionParams};
 use contracts::project::{Mcp, PrepareParams, ProjectModels, ProjectSettings, Worktrees};
 use contracts::terminal::{OpenParams, Opened, SpawnParams as TerminalSpawn};
 use contracts::{Actor, ActorKind, EventData, Kind, Status};
-use rpc::{Bus, Ctx, Module, OpenError, RpcError, code, params, reply};
+use rpc::{Bus, Ctx, Module, OpenError, Reply, RpcError, code, params, reply};
 use serde_json::Value;
 use terminal::Terminals;
 use tokio::sync::broadcast::Receiver;
@@ -31,11 +30,11 @@ use tokio::time::{Instant, sleep_until};
 mod asks;
 mod auto;
 pub mod claude_code;
-mod decision;
 pub mod marks;
 mod models;
 pub mod placement;
 mod pr_checks;
+mod reach;
 pub use asks::Asks;
 pub use models::mcp_on;
 mod measurement;
@@ -43,6 +42,8 @@ pub use rail::MeasurementWait;
 mod name;
 mod order;
 mod peer;
+#[cfg(feature = "test-support")]
+pub use peer::{classifications, parent_lookups};
 mod prepared;
 mod queue;
 mod rail;
@@ -63,10 +64,6 @@ pub enum Observation {
     Stopped,
     /// The Agent's program ended. `None` when it was killed by a signal.
     Exit { code: Option<i32> },
-    /// The user's `decision.answer` reached the hook (`scenarios/decisions.md` H9).
-    Answered,
-    /// The hook's own side closed its connection with no later Signal (H7(b), H9).
-    Dismissed,
 }
 
 impl Observation {
@@ -78,8 +75,6 @@ impl Observation {
             Self::Tick => "tick",
             Self::Stopped => "stop",
             Self::Exit { .. } => "exit",
-            Self::Answered => "answer",
-            Self::Dismissed => "dismissal",
         }
     }
 }
@@ -91,8 +86,6 @@ pub trait AgentAdapter {
     fn observe(&mut self, observation: Observation) -> Option<Status>;
 }
 
-/// Whether an Agent's Terminal is under Takeover, asked before the Daemon writes into it.
-type TakeoverProbe = Arc<dyn Fn(&str) -> bool + Send + Sync>;
 type ResumeEffect = Arc<dyn Fn(&str, &str) -> Result<(), RpcError> + Send + Sync>;
 
 type SteerEffect = Arc<dyn Fn(&str) -> Result<(), RpcError> + Send + Sync>;
@@ -109,6 +102,7 @@ fn waiting_on(status: &Status, wait: Option<u32>) -> Status {
             kind: Kind::Blocked,
             label: format!("waits on #{blocker}"),
             since: status.since,
+            finished: status.finished.clone(),
         },
         _ => status.clone(),
     }
@@ -130,16 +124,11 @@ struct Shared {
     /// Ticks by it, so the two never disagree about when a hold ends.
     clock: Clock,
     timing: Arc<Mutex<rail::Timing>>,
-    /// H2 to H7: the open permission Decisions, in memory only.
-    decisions: decision::Decisions,
     /// Itself, so a Signal's fold can start H12's first Steer on a task of its own.
     me: Weak<Shared>,
     /// E6: the Channel of each Agent's current Attempt that has left `pending`, as
     /// `(attempt, channel)`; an entry of an earlier Attempt reads as `pending`.
     channels: Mutex<HashMap<String, (String, Channel)>>,
-    /// O4: whether a Takeover of the Agent is active, which keeps a changed order from being
-    /// sent to it. Without one, none is.
-    takeover: Option<TakeoverProbe>,
     /// E3: the Daemon supplies mutable Context before the one first Steer.
     context: Option<ContextText>,
     /// A33: the lowest open blocker of the Todos each Agent created that wait; an idle Agent in
@@ -300,7 +289,7 @@ enum Slot {
         named: bool,
         /// Signals that reached `agent.signal` in this window, in arrival order, applied once
         /// the Agent is registered (A14).
-        held: VecDeque<(Actor, Value)>,
+        parked: VecDeque<(Actor, Value)>,
     },
     /// A22: a resume's launch is pending acknowledgement; `since` is when, on `clock`, it began.
     Resuming {
@@ -322,8 +311,8 @@ enum Slot {
         /// The Terminal this launch started, once `agent.resume` has spawned it; `None` until
         /// then, so a Signal cannot arrive for it any earlier.
         terminal_id: Option<String>,
-        /// Signals held exactly as `Starting`'s, awaiting the ack among them (A14).
-        held: VecDeque<(Actor, Value)>,
+        /// Signals parked exactly as `Starting`'s, awaiting the ack among them (A14).
+        parked: VecDeque<(Actor, Value)>,
         /// Promotion or timeout claims this sender under the runs lock. Failure sends only
         /// after cleanup finishes; a timer that loses the claim still awaits this sender.
         done: tokio::sync::oneshot::Sender<Result<(), RpcError>>,
@@ -468,7 +457,7 @@ mod worktrunk;
 
 use door::{Scan, scan_interval_from_env};
 use ending::{Ending, RailPublication};
-pub use events::{InboxObserver, PromptObserver};
+pub use events::InboxObserver;
 use events::{channel_deadline_from_env, channel_in, interrupt_bound_from_env, watch};
 use rail_view::{valid_explicit_order, valid_order};
 use registration::{hold, save_signal_conversation};
@@ -506,7 +495,6 @@ impl Shared {
         id: &str,
         text: &str,
         first: Option<&str>,
-        original: Option<&str>,
         verbatim: bool,
         record: Option<PromptRecord>,
     ) -> Result<(), SteerError> {
@@ -532,8 +520,6 @@ impl Shared {
                     }));
                 };
                 if first.is_some_and(|attempt| attempt != run.attempt)
-                    // B6: a held prompt never reaches a replacement Attempt.
-                    || original.is_some_and(|attempt| attempt != run.attempt)
                     || run.ended
                     || run.closing
                     || run.adapter.is_ended()
@@ -716,19 +702,11 @@ impl Shared {
     /// when `id` has a turn to end; this returns when the Agent's title shows it is no longer
     /// working (`Kind::Idle`). Physical completion precedes the title timeout; `NOT_ACKED`
     /// means the Escape was written but its outcome is uncertain. Nothing is retried.
-    async fn interrupt(&self, id: &str, original: Option<&str>) -> Result<(), RpcError> {
+    async fn interrupt(&self, id: &str) -> Result<(), RpcError> {
         let name = self.rail().name(id)?;
         let not_found = || RpcError::not_found(format!("{name} is not running"));
         let (terminal_id, acked) = {
             let mut runs = self.runs();
-            // B6: a held Interrupt never ends a replacement Attempt's turn.
-            if let Some(original) = original
-                && runs.get(id).is_none_or(|slot| slot.attempt() != original)
-            {
-                return Err(RpcError::conflict(format!(
-                    "{name}: original Attempt changed or ended before Interrupt"
-                )));
-            }
             let Some(Slot::Running(run)) = runs.get_mut(id) else {
                 return Err(match runs.get(id) {
                     Some(Slot::Starting { .. } | Slot::Resuming { .. }) => RpcError::new(

@@ -3,14 +3,15 @@ use super::*;
 #[async_trait]
 impl Module for Agents {
     fn namespaces(&self) -> &'static [&'static str] {
-        &[
-            "agent",
-            "rail",
-            "project",
-            "decision",
-            "models",
-            "workstream",
-        ]
+        &["agent", "rail", "project", "import", "models", "workstream"]
+    }
+
+    async fn call_reply(&self, ctx: &Ctx, method: &str, value: Value) -> Result<Reply, RpcError> {
+        match method {
+            // R3696c: the Rail is the largest reply a keystroke-paced client asks for.
+            "rail.tree" | "rail.list" => rpc::json(&self.shared.tree()?),
+            _ => self.call(ctx, method, value).await.map(Reply::Value),
+        }
     }
 
     async fn call(&self, ctx: &Ctx, method: &str, value: Value) -> Result<Value, RpcError> {
@@ -34,18 +35,12 @@ impl Module for Agents {
                 }
                 if let Some(params) = summary {
                     // U3016i: the live Status says whether an Agent still runs.
-                    let runs = shared.runs();
-                    let tree = rail
-                        .tree()?
-                        .into_iter()
-                        .map(|node| shared.present(node, &runs, &rail))
-                        .collect::<Result<Vec<_>, _>>()?;
+                    let tree = shared.presented_tree(&rail)?;
                     reply(&measurement::summarize(measurements, tree, params)?)
                 } else {
                     reply(&measurements)
                 }
             }
-            "project.weeklyLimit" => reply(&self.launcher.weekly_limit().await),
             "agent.spawn" => reply(&self.spawn(ctx, params(value)?).await?),
             "agent.extras" => reply(&claude_code::extras::available(
                 &self.launcher.extras_sources(self.project_dir()),
@@ -72,7 +67,7 @@ impl Module for Agents {
             "agent.interrupt" => {
                 let NodeId { id } = params(value)?;
                 self.may_steer(&ctx.actor, &id, "Interrupt")?;
-                shared.interrupt(&id, None).await?;
+                shared.interrupt(&id).await?;
                 Self::touch_rail(ctx, &id)?;
                 reply(&())
             }
@@ -156,67 +151,14 @@ impl Module for Agents {
                         "attempt must be a canonical positive decimal within signed 64-bit range",
                     ));
                 }
-                // B39: the Signal H11 waits for confirms the Messages its prompt carried, before
-                // the wait ends, so nothing can type them again in between. A Steer's text is
-                // one paste, so a paste's envelope is taken off first.
-                let drop = match (
-                    claude_code::submitted_prompt(&payload),
-                    shared.events.prompt_observer.get(),
-                ) {
-                    (Some(prompt), Some(observer)) => {
-                        observer(&id, claude_code::pasted_text(prompt))
-                    }
-                    _ => false,
-                };
-                // The hook blocks a dropped prompt, so no turn starts and nothing is folded.
-                if !drop {
-                    shared.events.inbox.scan(&id, &payload);
-                    shared.observe(
-                        ctx.actor.clone(),
-                        &id,
-                        &attempt,
-                        Observation::Signal(payload),
-                    )?;
-                }
-                reply(&drop.then_some(SignalOutcome { drop }))
-            }
-            "agent.permission" => {
-                let PermissionParams { id, payload } = params(value)?;
-                reply(&shared.permission(ctx.actor.clone(), &id, payload).await?)
-            }
-            "agent.ask" => {
-                let ask: contracts::decision::AskParams = params(value)?;
-                reply(&shared.ask(ctx.actor.clone(), ask).await?)
-            }
-            "decision.answers" => {
-                let contracts::decision::AnswersParams { agent } = params(value)?;
-                reply(&shared.answers_for(&ctx.actor, &agent)?)
-            }
-            "decision.list" => reply(&shared.decisions_for(&ctx.actor)?),
-            "decision.capture" => {
-                let CaptureParams { id } = params(value)?;
-                reply(&shared.capture(&ctx.actor, &id)?)
-            }
-            "decision.answer" => {
-                let answer: AnswerParams = params(value)?;
-                let shared = Arc::clone(shared);
-                let ctx = Ctx {
-                    actor: ctx.actor.clone(),
-                    bus: ctx.bus.clone(),
-                    touches: Arc::clone(&ctx.touches),
-                };
-                // An answer may wait for a guarded physical write. Keep that wait off
-                // the reactor so the user's competing call can reach its own effect.
-                tokio::task::spawn_blocking(move || shared.answer(&ctx, answer))
-                    .await
-                    .map_err(|err| {
-                        RpcError::unknown_outcome(format!("prompt effect worker ended: {err}"))
-                    })??;
-                reply(&())
-            }
-            "decision.revoke" => {
-                let revoke: contracts::decision::RevokeParams = params(value)?;
-                reply(&shared.revoke(ctx, revoke)?)
+                shared.events.inbox.scan(&id, &payload);
+                shared.observe(
+                    ctx.actor.clone(),
+                    &id,
+                    &attempt,
+                    Observation::Signal(payload),
+                )?;
+                reply(&None::<SignalOutcome>)
             }
             "rail.tree" | "rail.list" => reply(&shared.tree()?),
             "workstream.setAuto" => {
@@ -310,6 +252,10 @@ impl Module for Agents {
             "project.setPrepared" => {
                 self.set_prepared(params(value)?).await?;
                 reply(&())
+            }
+            "import.list" => {
+                let params: contracts::project::ImportListParams = params(value)?;
+                reply(&self.import_list(ctx, params).await?)
             }
             "project.importDiscover" => {
                 let params: contracts::project::ImportDiscoverParams = params(value)?;

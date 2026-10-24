@@ -35,30 +35,6 @@ pub(super) fn checkpoint_write() -> Offered {
     }
 }
 
-/// H21: `decision.answer` takes `{id, answer, note}`; an Agent has no `proof` to send, and the Daemon
-/// ignores one, so the tool's schema omits it.
-pub(super) fn decision_answer() -> Offered {
-    let Ok(Value::Object(mut schema)) =
-        serde_json::to_value(schemars::schema_for!(decision::AnswerParams))
-    else {
-        unreachable!("a params struct's schema is an object");
-    };
-    if let Some(Value::Object(properties)) = schema.get_mut("properties") {
-        properties.remove("proof");
-    }
-    if let Some(Value::Array(required)) = schema.get_mut("required") {
-        required.retain(|name| name != "proof");
-    }
-    Offered {
-        tool: Tool::new(
-            "decision_answer",
-            "Answer an open Decision of an Agent below you: `allow` or `deny` for a permission request; for an `ask_user` question one of its labels, or null with a `note` as your own answer, and an optional `note`. Never your own.",
-            schema,
-        ),
-        ..offer("decision.answer", "", JsonObject::new(), true)
-    }
-}
-
 /// B41: ask to be woken when named Agents finish. The caller is the Agent itself, so `id` is not a parameter.
 pub(super) fn agent_wake() -> Offered {
     offered::<agent::WakeParams>(
@@ -87,28 +63,22 @@ pub(super) fn workstream_handoff() -> Offered {
 }
 
 /// A35: a Door's rewind of its children, in two steps: read the plan, then rewind. The shim fills
-/// `id` with the Door's own id. Both wait for the user when a selected child is in Takeover.
+/// `id` with the Door's own id.
 pub(super) fn workstream_rewind_plan() -> Offered {
-    Offered {
-        waits_for_user: true,
-        ..with_own_id::<workstream::RewindPlanParams>(
-            "workstream.rewindPlan",
-            "workstream_rewindPlan",
-            "Read what rewinding your Workstream to one of your Checkpoints would do, changing nothing: for each child (one named by `agent`, or all), whether it started after the Checkpoint and so would leave the Rail, and the files changed since. A child the user holds in Takeover makes the read wait until the user gives it back.",
-        )
-    }
+    with_own_id::<workstream::RewindPlanParams>(
+        "workstream.rewindPlan",
+        "workstream_rewindPlan",
+        "Read what rewinding your Workstream to one of your Checkpoints would do, changing nothing: for each child (one named by `agent`, or all), whether it started after the Checkpoint and so would leave the Rail, and the files changed since.",
+    )
 }
 
 /// A35: the Door's rewind. `files` is required, and nothing but the conversations changes on `keep`.
 pub(super) fn workstream_rewind() -> Offered {
-    Offered {
-        waits_for_user: true,
-        ..with_own_id::<workstream::RewindParams>(
-            "workstream.rewind",
-            "workstream_rewind",
-            "Rewind one child (`agent`) or every child of your Workstream to a Checkpoint you wrote. The turns after it leave each rewound Agent's context. `files` is `keep` to leave every file as it is, or `restore` to return each Worktree to its state at the Checkpoint; commits, pushes and Issues are never undone. A child that started after the Checkpoint leaves the Rail and keeps its Worktree. A child the user holds in Takeover waits, and its entry says so; read agent_actionHistory for its outcome.",
-        )
-    }
+    with_own_id::<workstream::RewindParams>(
+        "workstream.rewind",
+        "workstream_rewind",
+        "Rewind one child (`agent`) or every child of your Workstream to a Checkpoint you wrote. The turns after it leave each rewound Agent's context. `files` is `keep` to leave every file as it is, or `restore` to return each Worktree to its state at the Checkpoint; commits, pushes and Issues are never undone. A child that started after the Checkpoint leaves the Rail and keeps its Worktree.",
+    )
 }
 
 /// F8, M16: the Bubble rule every Terminal-starting tool's description states, as the Brief does.

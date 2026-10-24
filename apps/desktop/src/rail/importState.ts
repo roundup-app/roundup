@@ -224,6 +224,8 @@ export const createImport = (app: AppSeam, path: string, onOpened: (workstream: 
       persist(false);
     },
     show: () => {
+      if (open()) return;
+
       if (selected().size === 0) {
         const retained = previous();
         const parsed = v.safeParse(form, retained?.value);
@@ -241,13 +243,8 @@ export const createImport = (app: AppSeam, path: string, onOpened: (workstream: 
       invalidate();
       persist();
 
-      if (draftRevision) drafts?.discard(draftRevision);
-      batch(() => {
-        setPeriodSignal("week"); setOpen(false); setSelected(new Map()); setDiscovery(null);
-        setVerified(false); setStale([]); setFailed(new Map()); setFailure(null); setLoading(false);
-      });
-
-      draftRevision = undefined;
+      setOpen(false);
+      setLoading(false);
       persist(false);
     },
     refresh,

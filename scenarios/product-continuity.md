@@ -32,7 +32,7 @@ The owner's words and the confirmed scopes below are acceptance authority. Bise 
 ## Regression checks on main
 
 1. Preserve `PRINCIPLES.md`, headings P1–P10, especially P4's opaque vendor boundary, P6's user-controlled Home, P9's usage/start rules and P10's batching.
-2. Preserve `scenarios/messages.md`, headings B32, B39, B40, B41, B42, B43, B44 and B45: unsent input/Takeover, acknowledged delivery and existing event-wake/replay contracts. A new policy grants no exception to them.
+2. Preserve `scenarios/messages.md`, headings B32, B39, B40, B41, B42, B43, B44 and B45: acknowledged delivery and existing event-wake/replay contracts. A new policy grants no exception to them.
 3. Preserve `scenarios/ui-persist.md`, heading U100; `scenarios/ask-bar.md`, headings U504–U506; `scenarios/ui-diff-notes.md`, headings U2540a–U2540d; and `scenarios/door-terminal.md`, headings U467/U468. These are existing contracts, not claims that all draft or publication goals already pass.
 4. Preserve `.agents/data/pr.md`, “Title and body”, and `.agents/data/gates.md`, “Merge” and “Scope”; do not edit the loop read paths. Existing links (#2692) and context-menu sending (#2694) retain their separate contracts; neither alone delivers a published-work catalogue.
 
@@ -52,12 +52,12 @@ Cases:
 - Ask field starts as a local empty signal: wrong = Switching/reloading loses an unfinished Ask; forced answer = Restore the same Project draft; do not send.
 - An Ask send fails while the next Ask is being typed: wrong = Restore old text over newer text, or forget the failed Ask; forced answer = Retain both revisions with their original recipients.
 - A Pad is changed by another Actor during editing: wrong = Replace the user draft; forced answer = Keep the user edit and expose the conflict.
-- A Message arrives while Terminal input is unsent: wrong = Inject into the user draft; forced answer = Existing unsent-input/Takeover holds win.
+- A Message arrives while Terminal input is unsent: wrong = Inject into the user draft; forced answer = Messages go to the inbox only (B3563c).
 
 Ten additional situations:
 1. User renames a Todo, then changes Project → Recover text against the same Todo, not the newly selected one.
 2. A diff note is open when a file read completes → Keep note text and its original comparison identity.
-3. A question is replaced while its answer draft is open → Keep recoverable text but refuse delivery to the replacement question.
+3. The recipient of an open Ask draft is replaced → Keep recoverable text but refuse delivery to the replacement recipient.
 4. User edits the next draft before the prior send acknowledgement → Consume the acknowledged revision only.
 5. Emoji, composed text and non-Latin input are interrupted by a view change → Keep exact text; do not normalize or truncate it.
 6. Restoring Project A while Project B is active → No cross-Project draft or send.

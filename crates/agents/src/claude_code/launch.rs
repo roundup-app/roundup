@@ -9,6 +9,7 @@ use std::os::unix::fs::PermissionsExt;
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex, PoisonError};
 
+use super::vendor_list::Sidecar;
 use rpc::{OpenError, RpcError, code};
 use serde_json::{Map, Value, json};
 use tokio::sync::OnceCell;
@@ -65,9 +66,10 @@ pub struct Launcher {
     /// Claude Code's own config file, where it remembers which folders are trusted.
     claude_json: PathBuf,
     pub(super) conversation_dir: PathBuf,
-    /// U3016h: the vendor's account usage endpoint when not its own, and the last answer.
-    usage_url: Option<String>,
-    usage: super::usage::Cache,
+    /// U3523f: the bundled Node sidecar Import lists through.
+    pub(super) sidecar: Option<Sidecar>,
+    /// Counts started listings; a newer one supersedes the one running (U3523a).
+    pub(super) listings: Arc<tokio::sync::watch::Sender<u64>>,
     /// Filesystem observer for isolated import tests; absent from production builds.
     #[cfg(any(test, feature = "test-support"))]
     pub import_observer: Option<ImportObserver>,
@@ -164,8 +166,8 @@ impl Launcher {
         };
         Self {
             conversation_dir,
-            usage_url: None,
-            usage: super::usage::Cache::default(),
+            sidecar: None,
+            listings: Arc::new(tokio::sync::watch::channel(0).0),
             #[cfg(any(test, feature = "test-support"))]
             import_observer: None,
             discovery: (
@@ -192,8 +194,27 @@ impl Launcher {
         self
     }
 
-    fn door_lacks_intent(&self, role: Role) -> bool {
-        role == Role::Door && (self.lacks_intent || !plugins::has_intent())
+    fn door_lacks_intent(&self, role: Role, settings: &Value, project: &Path) -> bool {
+        if role != Role::Door {
+            return false;
+        }
+        if let Some(name) = enabled_plugin(settings, "hope") {
+            return extras::resolve(
+                &self.extras_sources(project),
+                &contracts::agent::Extras {
+                    plugins: vec![name.to_owned()],
+                    ..Default::default()
+                },
+            )
+            .ok()
+            .is_none_or(|delivery| {
+                !delivery
+                    .plugins
+                    .iter()
+                    .any(|path| path.join("skills/intent/SKILL.md").is_file())
+            });
+        }
+        self.lacks_intent || !plugins::has_intent()
     }
 
     pub fn from_env() -> Result<Self, OpenError> {
@@ -230,8 +251,7 @@ impl Launcher {
         .into_iter()
         .filter(|name| var(name).is_some())
         .collect();
-        launcher.usage_url =
-            var("ROUNDUP_CLAUDE_USAGE_URL").map(|url| url.to_string_lossy().into_owned());
+        launcher.sidecar = Sidecar::beside(exe, var("ROUNDUP_SIDECAR_DIR"));
         Ok(launcher)
     }
 
@@ -279,16 +299,6 @@ impl Launcher {
             claude_json: &self.claude_json,
             project,
         }
-    }
-
-    /// U3016h: the account's weekly use, read at most once a minute; spends no Model tokens.
-    pub async fn weekly_limit(&self) -> contracts::project::WeeklyLimit {
-        super::usage::weekly_limit(
-            &self.usage,
-            &self.conversation_dir,
-            self.usage_url.as_deref(),
-        )
-        .await
     }
 
     /// Write Agent `id`'s settings, MCP config and Brief (E1, for its `role`) under `dir` (the Project's data folder, N1), trust
@@ -381,34 +391,14 @@ impl Launcher {
             (Some(lean), Role::Agent) if lean.scout => Role::Scout,
             _ => role,
         };
-        let mut delivery = match &lean {
+        let delivery = match &lean {
             Some(lean) => extras::resolve(&self.extras_sources(&project), &lean.extras)?,
             None => extras::Delivery::default(),
         };
-        if lean.is_some() && profile(role).skills {
-            for skill in extras::project_skills(&project) {
-                if !delivery.skills.iter().any(|(name, _)| *name == skill.0) {
-                    delivery.skills.push(skill);
-                }
-            }
-        }
         let mut carried =
             user_settings(&self.conversation_dir, &project).map_err(RpcError::internal)?;
-        if lean.is_some() {
-            for key in [
-                "outputStyle",
-                "enabledPlugins",
-                "mcpServers",
-                "autoMemoryEnabled",
-                "autoMemoryDirectory",
-            ] {
-                carried
-                    .as_object_mut()
-                    .expect("settings object")
-                    .remove(key);
-            }
-        }
-        let missing_intent = self.door_lacks_intent(role);
+        let missing_intent = self.door_lacks_intent(role, &carried, &project);
+        let plain = carried.get("outputStyle").is_none();
         replace_file(&settings, &{
             let mut own = self.settings_json(id, attempt, &path, mcp, missing_intent, &carried);
             if role == Role::Door && mcp {
@@ -420,7 +410,8 @@ impl Launcher {
                 );
             }
             if lean.is_some() {
-                own["env"]["CLAUDE_CODE_DISABLE_AUTO_MEMORY"] = json!("1");
+                // LC17: the Brief carries each `CLAUDE.md` as LC1 lists it; Claude Code loads none.
+                own["env"]["CLAUDE_CODE_DISABLE_CLAUDE_MDS"] = json!("1");
             }
             for (key, value) in pair.env() {
                 own["env"][key] = json!(value);
@@ -438,7 +429,7 @@ impl Launcher {
             let mut settings = carried;
             if pair.yolo {
                 settings["skipDangerousModePermissionPrompt"] = json!(true);
-                // Roundup has already checked its Route, Takeover and actor authority. Claude's
+                // Roundup has already checked its Route and actor authority. Claude's
                 // inbox class vocabulary differs from the launch-mode label on our notes.
                 settings["crossSessionInbound"] = json!("accept");
             }
@@ -466,11 +457,11 @@ impl Launcher {
             }
         }
         let brief_file = brief_path(&dir, id);
-        let mut brief = brief::text(role, mcp);
+        let mut brief = brief::text(role, mcp, plain);
         if missing_intent {
             brief = brief::without_intent(&brief);
         }
-        if lean.is_some() && profile(role).global_instructions {
+        if profile(role).global_instructions {
             self.append_global_instructions(&mut brief);
         }
         if lean.is_some() {
@@ -496,27 +487,13 @@ impl Launcher {
         if let Some(lean) = &lean {
             argv.push("--append-system-prompt-file".into());
             argv.push(brief_file.to_string_lossy().into_owned());
-            // LC2: use the merged copy so original sources cannot restore the named exclusions.
-            argv.extend(["--strict-mcp-config", "--setting-sources", ""].map(String::from));
             let row = profile(role);
             if let Some((with, without)) = row.tools {
                 argv.push("--tools".into());
                 argv.push(if mcp { with } else { without }.into());
             }
-            let skills = !delivery.skills.is_empty();
-            let commands = row
-                .skills
-                .then(|| project.join(".claude/commands"))
-                .filter(|path| path.is_dir());
-            if !row.skills && !skills {
-                argv.push("--disable-slash-commands".into());
-            }
-            if skills || commands.is_some() {
-                let folder = extras::skill_plugin(
-                    &extras_dir(&dir, id),
-                    &delivery.skills,
-                    commands.as_deref(),
-                )?;
+            if !delivery.skills.is_empty() {
+                let folder = extras::skill_plugin(&extras_dir(&dir, id), &delivery.skills)?;
                 argv.extend(["--plugin-dir".into(), folder.to_string_lossy().into_owned()]);
             }
             for plugin in &delivery.plugins {
@@ -611,7 +588,7 @@ impl Launcher {
             command.env_remove(marker);
         }
         if lean_of(role, pair).is_some() {
-            command.env("CLAUDE_CODE_DISABLE_AUTO_MEMORY", "1");
+            command.env("CLAUDE_CODE_DISABLE_CLAUDE_MDS", "1");
         }
         command.env("ROUNDUP_AGENT", id);
         if let Some(dir) = self.rup.parent().filter(|dir| dir.is_absolute()) {
@@ -650,9 +627,7 @@ impl Launcher {
         );
         let lean = lean_of(role, &pair);
         let (resume_given, id_text) = (resume.is_some(), id.clone());
-        let missing = self.door_lacks_intent(role);
         let bundled = match &lean {
-            _ if missing => &[][..],
             None => profile(Role::Agent).bundled_plugins,
             Some(lean) => profile(if lean.scout { Role::Scout } else { role }).bundled_plugins,
         };
@@ -717,11 +692,19 @@ impl Launcher {
             .map_err(RpcError::internal)?;
         let command = command.as_std();
         argv[0] = command.get_program().to_string_lossy().into_owned();
-        // LC5, LC14: each role's bundled plugins, by the folder name `Runtime::command` passes.
+        let settings: Value =
+            serde_json::from_slice(&std::fs::read(&argv[2]).map_err(RpcError::internal)?)
+                .map_err(RpcError::internal)?;
+        let missing_intent = self.door_lacks_intent(role, &settings, folders.project);
+        // LC5: a user's enabled install takes precedence over the bundled plugin of the same name.
         let args: Vec<_> = command.get_args().collect();
         for pair in args.chunks(2) {
             let named = Path::new(pair[1]).file_name().and_then(OsStr::to_str);
-            if named.is_some_and(|name| bundled.contains(&name)) {
+            if named.is_some_and(|name| {
+                bundled.contains(&name)
+                    && enabled_plugin(&settings, name).is_none()
+                    && !(name == "hope" && missing_intent)
+            }) {
                 argv.extend(pair.iter().map(|arg| arg.to_string_lossy().into_owned()));
             }
         }
@@ -806,16 +789,10 @@ impl Launcher {
         let agent_id = id.to_string();
         let rup = shell_quote(&self.rup.to_string_lossy());
         let id = shell_quote(&id.to_string());
-        // H9: `PermissionRequest` waits for the user's answer, so its hook outlives the 5 s of the rest.
         let signal = json!([{ "hooks": [{
             "type": "command",
             "command": format!("ROUNDUP_ATTEMPT={} {rup} signal {id}", shell_quote(attempt)),
             "timeout": 5,
-        }] }]);
-        let permission = json!([{ "hooks": [{
-            "type": "command",
-            "command": format!("{rup} permission {id}"),
-            "timeout": super::PERMISSION_TIMEOUT_SECS,
         }] }]);
         // E3: at start the Agent is told its Context, by a second command beside the Signal.
         let session_start = json!([{ "hooks": [
@@ -826,7 +803,6 @@ impl Launcher {
             .iter()
             .map(|event| {
                 let hook = match *event {
-                    "PermissionRequest" => &permission,
                     "SessionStart" => &session_start,
                     _ => &signal,
                 };
@@ -992,4 +968,13 @@ fn lean_of(role: Role, pair: &Pair) -> Option<Lean> {
 
 fn brief_path(dir: &Path, id: u64) -> PathBuf {
     agents_dir(dir).join(format!("{id}.brief.md"))
+}
+
+fn enabled_plugin<'a>(settings: &'a Value, name: &str) -> Option<&'a str> {
+    settings
+        .get("enabledPlugins")?
+        .as_object()?
+        .iter()
+        .find(|(key, value)| key.split('@').next() == Some(name) && value.as_bool() == Some(true))
+        .map(|(key, _)| key.as_str())
 }

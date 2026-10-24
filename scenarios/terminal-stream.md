@@ -67,8 +67,8 @@ not tests claimed to exist in this specification PR.
    transport and X13's reference to output *events*; their byte content, ordering,
    offsets and all other guarantees remain. `terminal.write` input encoding is
    unchanged. Agents' in-process subscriptions, Run capture, MCP reads and
-   performance clients migrate in that same Contract PR. No Message, Route,
-   Held or Takeover semantics change. Test:
+   performance clients migrate in that same Contract PR. No Message or Route
+   semantics change. Test:
    `x14_all_output_callers_use_selected_streams` in `crates/rup/tests/`
    exercises the real Daemon and Run/MCP paths, alongside existing X1–X13 tests.
 7. **Flood observer.** Given a real isolated Daemon and ten Terminals running
@@ -97,7 +97,7 @@ not tests claimed to exist in this specification PR.
    No baseline, noise allowance or workload is relaxed. In isolated headless
    browser sessions at 1512×950, observe the journey's Understand
    and Intervene stages: switch between two live Terminals, type into the selected
-   one and see its echo while ten others print, with Status and Decision updates
+   one and see its echo while ten others print, with Status updates
    still delivered. Test: `x14_selected_terminal_echo_and_rail_updates_survive_output_flood`
    in `apps/desktop/src/terminal/`. Policy: preserve D2, D5 and D6 and every
    Check passing on main; retain rendered results under the harness rules.

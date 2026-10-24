@@ -116,7 +116,7 @@ it("u507_bindings_preserve_resize_state", async () => {
   await browser("mouse", "down", "left");
   await browser("mouse", "move", "416", "400");
   await settle();
-  // The Terminal's single refit after a drag is proved with held buttons in `u502_resize_preserves_terminal_fit`; agent-browser moves carry none.
+  // The Terminal's single refit after a drag is proved with pressed buttons in `u502_resize_preserves_terminal_fit`; agent-browser moves carry none.
   await browser("mouse", "up", "left");
   await settle();
   expect(await evaluate("window.__fake.app.calls.filter(c=>!['terminal.resize','project.resources'].includes(c.method)).map(c=>c.method)")).toEqual([]);

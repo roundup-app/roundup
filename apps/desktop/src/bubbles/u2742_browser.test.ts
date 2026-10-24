@@ -50,10 +50,7 @@ const start = async () => {
   await wait(`!!window.__fake && !!document.querySelector('[data-id="runner"]')`);
   await read(`document.querySelector('[data-id="runner"]').click()`);
   await wait(`!!document.querySelector('.pane-screen .xterm-helper-textarea') && !!document.querySelector('.terminal-tab[data-bubble="101"]')`);
-  // The real Takeover action makes the Agent writable before any switch under test.
   await read(`document.querySelector('.pane-screen .xterm-helper-textarea').focus()`);
-  await browser("press", "Meta+Enter");
-  await wait(`!document.querySelector('.pane-control[data-state="managed"]') && window.__fake.app.calls.some(c => c.method === 'takeover.begin')`);
   await read(`window.__switchStart = window.__fake.app.calls.length`);
 };
 
@@ -74,7 +71,7 @@ it("u2742c_round_trips_type_only_into_the_focused_terminal", async () => {
   expect(await read(`(() => {
     const calls = window.__fake.app.calls.slice(window.__switchStart);
     const text = id => calls.filter(c => c.method === 'terminal.write' && c.params.id === id).map(c => atob(c.params.data)).join('');
-    return { bubble: text('103'), agent: text('t-runner'), lifecycle: calls.filter(c => ['terminal.open','terminal.close','takeover.begin','takeover.end'].includes(c.method)), selected: document.querySelector('.rail-row[aria-selected=true]')?.dataset.id };
+    return { bubble: text('103'), agent: text('t-runner'), lifecycle: calls.filter(c => ['terminal.open','terminal.close'].includes(c.method)), selected: document.querySelector('.rail-row[aria-selected=true]')?.dataset.id };
   })()`)).toEqual({ bubble: "bubblebubblebubble", agent: "agentagentagent", lifecycle: [], selected: "runner" });
 }, 120_000);
 
@@ -102,20 +99,6 @@ it("u2742c_targets_stay_eligible_in_the_current_project", async () => {
   await key();
   expect(await read(`window.__fake.app.calls.length`)).toBe(before);
 }, 120_000);
-
-it("u2742d_return_to_watch_never_takes_control", async () => {
-  await browser("open", new URL("/harness.html?seed=bubbles", origin).href);
-  await wait(`!!document.querySelector('[data-id="runner"]')`);
-  await read(`document.querySelector('[data-id="runner"]').click()`);
-  await wait(`!!document.querySelector('.pane-screen textarea') && !!document.querySelector('.terminal-tab[data-bubble="101"]')`);
-  await read(`document.querySelector('.pane-screen textarea').focus(); window.__switchStart = window.__fake.app.calls.length`);
-  await key();
-  await wait(focused("103"));
-  await key();
-  await wait(`!!document.activeElement?.closest('.pane-screen')`);
-  await browser("keyboard", "type", "watched");
-  expect(await read(`({watch:!!document.querySelector('.pane-control[data-state="managed"]'), calls:window.__fake.app.calls.slice(window.__switchStart).filter(c => ['takeover.begin','takeover.end','terminal.write','agent.prompt'].includes(c.method))})`)).toEqual({ watch: true, calls: [] });
-}, 90_000);
 
 it("u2742a_an_unfocused_run_does_not_activate_or_steal_focus", async () => {
   await start();
@@ -162,7 +145,7 @@ it("u2742d_switch_respects_repeat_modifiers_and_focus_ownership", async () => {
     await browser("mouse", "down", "left");
     await browser("mouse", "up", "left");
     await wait(`!document.querySelector('.bubble:not([hidden])')`);
-    expect(await read(`({presses:window.__outsidePresses, mutations:window.__fake.app.calls.slice(window.__outsideStart).filter(c => ['terminal.open','terminal.close','terminal.write','takeover.begin','takeover.end','agent.prompt'].includes(c.method))})`), target).toEqual({ presses: 1, mutations: [] });
+    expect(await read(`({presses:window.__outsidePresses, mutations:window.__fake.app.calls.slice(window.__outsideStart).filter(c => ['terminal.open','terminal.close','terminal.write','agent.prompt'].includes(c.method))})`), target).toEqual({ presses: 1, mutations: [] });
     await browser("click", '.terminal-tab[data-bubble="103"]');
     await wait(focused("103"));
   }
@@ -181,7 +164,7 @@ it("u2742d_switch_respects_repeat_modifiers_and_focus_ownership", async () => {
   expect(await read(`!!document.activeElement?.closest('.help')`)).toBe(true);
   await browser("press", "Escape");
   await wait(`!document.querySelector('.help') && document.activeElement === window.__helpReturn`);
-  expect(await read(`window.__fake.app.calls.slice(window.__helpStart).filter(c => ['terminal.open','terminal.close','terminal.write','takeover.begin','takeover.end','agent.prompt'].includes(c.method))`)).toEqual([]);
+  expect(await read(`window.__fake.app.calls.slice(window.__helpStart).filter(c => ['terminal.open','terminal.close','terminal.write','agent.prompt'].includes(c.method))`)).toEqual([]);
   await browser("open", new URL("/harness.html?seed=tree-40", origin).href);
   await wait(`!!document.querySelector('#shelf-tab-pads')`);
   await browser("click", "#shelf-tab-pads");
@@ -198,7 +181,7 @@ it("u2742d_round_trip_preserves_work", async () => {
   await key();
   await wait(focused("103"));
   await read(`(() => {
-    window.__heldEmulator = window.__terminals.get('103');
+    window.__keptEmulator = window.__terminals.get('103');
     window.__fake.writeOutput('103', Array.from({length:180},(_,i) => 'running command line '+i+'\\r\\n').join(''));
     window.__fake.app.handlers['terminal.write'] = ({id,data}) => { window.__fake.writeOutput(id, atob(data)); return null; };
   })()`);
@@ -208,10 +191,10 @@ it("u2742d_round_trip_preserves_work", async () => {
   await browser("press", "Shift+PageUp");
   await wait(`!window.__terminals.get('103').isAtBottom()`);
   await read(`(() => {
-    window.__heldPlace = JSON.parse(sessionStorage.getItem('roundup:bubble-places:/Users/you/harness'))['103'];
-    window.__heldCalls = window.__fake.app.calls.length;
-    window.__heldTerminal = window.__fake.app.handlers['terminal.list'](null).find(t => t.id === '103');
-    window.__heldScreen = document.querySelector('.bubble[data-bubble="103"] .xterm-screen');
+    window.__keptPlace = JSON.parse(sessionStorage.getItem('roundup:bubble-places:/Users/you/harness'))['103'];
+    window.__keptCalls = window.__fake.app.calls.length;
+    window.__keptTerminal = window.__fake.app.handlers['terminal.list'](null).find(t => t.id === '103');
+    window.__keptScreen = document.querySelector('.bubble[data-bubble="103"] .xterm-screen');
   })()`);
   await key();
   await wait(`!!document.activeElement?.closest('.pane-screen')`);
@@ -220,10 +203,10 @@ it("u2742d_round_trip_preserves_work", async () => {
   expect(await read(`(() => {
     const terminal = window.__fake.app.handlers['terminal.list'](null).find(t => t.id === '103');
     const place = JSON.parse(sessionStorage.getItem('roundup:bubble-places:/Users/you/harness'))['103'];
-    return {emulator:window.__heldEmulator === window.__terminals.get('103'), screen:window.__heldScreen === document.querySelector('.bubble[data-bubble="103"] .xterm-screen'), scrolled:!window.__terminals.get('103').isAtBottom(), place:JSON.stringify(place) === JSON.stringify(window.__heldPlace), terminal:JSON.stringify(terminal) === JSON.stringify(window.__heldTerminal), mutations:window.__fake.app.calls.slice(window.__heldCalls).filter(c => ['terminal.open','terminal.close','terminal.write','takeover.begin','takeover.end'].includes(c.method))};
+    return {emulator:window.__keptEmulator === window.__terminals.get('103'), screen:window.__keptScreen === document.querySelector('.bubble[data-bubble="103"] .xterm-screen'), scrolled:!window.__terminals.get('103').isAtBottom(), place:JSON.stringify(place) === JSON.stringify(window.__keptPlace), terminal:JSON.stringify(terminal) === JSON.stringify(window.__keptTerminal), mutations:window.__fake.app.calls.slice(window.__keptCalls).filter(c => ['terminal.open','terminal.close','terminal.write'].includes(c.method))};
   })()`)).toEqual({ emulator: true, screen: true, scrolled: true, place: true, terminal: true, mutations: [] });
   await browser("press", "Enter");
-  await wait(`window.__fake.app.calls.slice(window.__heldCalls).some(c => c.method === 'terminal.write' && atob(c.params.data) === '\\r')`);
+  await wait(`window.__fake.app.calls.slice(window.__keptCalls).some(c => c.method === 'terminal.write' && atob(c.params.data) === '\\r')`);
 }, 120_000);
 
 it("u2742c_project_switches_do_not_reuse_a_previous_projects_target", async () => {

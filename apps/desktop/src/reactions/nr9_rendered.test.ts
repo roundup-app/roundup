@@ -8,6 +8,8 @@ import type { RailNode } from "@contracts/agent/RailNode";
 import type { Reaction } from "@contracts/reaction/Reaction";
 import { startRealDaemon } from "../testing/realDaemonFixture";
 import { createServedApp } from "../testing/realSeam";
+import { CHECK_IDS } from "../testing/checks";
+import { appServer } from "../testing/appServer";
 import { chromePath } from "../testing/chromePage";
 import { captureDir } from "../testing/captures";
 
@@ -68,7 +70,6 @@ it("nr9_cli_mcp_and_app_share_authority", async () => {
 
     for (let n = 0; n < 10; n += 1) agents.push(await app.rpc("agent.spawn", { cwd: real.dir, prompt: null, parent: null, name: `Same long Agent name ${n % 2}` }));
     const target = agents[0]!;
-    await app.rpc("takeover.begin", { agent: target.id });
     const expires = new Date(Date.now() + 86_400_000).toISOString();
     const at = new Date(Date.now() + 43_200_000).toISOString();
     const resolved = await app.rpc("reaction.preview", { date: at.slice(0, 10), time: at.slice(11, 19), offset: "+00:00" });
@@ -121,13 +122,13 @@ it("nr9_cli_mcp_and_app_share_authority", async () => {
     await wait("!!document.querySelector('.reaction-detail')");
     expect((await app.rpc("reaction.get", { id: created.id })).firings).toEqual([]);
     await activate('.reaction-actions button:last-child', true);
-    await wait("!!document.querySelector('.reaction-firings [data-outcome=held]')");
+    await wait("!!document.querySelector('.reaction-firings [data-outcome]')");
     const fired = await app.rpc("reaction.get", { id: created.id });
     expect(fired.firings).toHaveLength(1);
     expect((await app.rpc("message.get", { id: fired.firings[0]!.message })).body).toBe("exact instruction\n retained ");
-    await capture("held-detail");
+    await capture("firing-detail");
     await activate('[data-firing-message]', true);
-    await wait("!!document.querySelector('.reaction-detail [data-state=held]')");
+    await wait("!!document.querySelector('.reaction-detail [data-state]')");
     await capture("message");
     await activate('.reaction-back', true);
     await wait("document.activeElement?.matches('.reaction-row')");
@@ -248,3 +249,78 @@ it("nr9_cli_mcp_and_app_share_authority", async () => {
     await rm(profile, { recursive: true, force: true });
   }
 }, 180_000);
+
+
+it.skipIf(!captureDir("P3557c"))("p3557c_failure_lifetime_reactions_rendered", async () => {
+  const server = await appServer();
+  const profile = await mkdtemp(join(tmpdir(), "p3557c-browser-"));
+  const config = join(profile, "config.json");
+  await writeFile(config, "{}");
+  const executable = chromePath();
+
+  if (!executable) throw new Error("P3557c needs headless Chromium");
+  const env = Object.fromEntries(Object.entries(process.env).filter(([key]) => !key.startsWith("AGENT_BROWSER_")));
+  const session = `p3557c-${process.pid}`;
+
+  const browser = async (...args: string[]) => {
+    const { stdout } = await execute("agent-browser", ["--executable-path", executable, "--args", "--no-sandbox", "--config", config, "--session", session, "--profile", profile, "--json", ...args], { env, timeout: 60_000, maxBuffer: 4 * 1024 * 1024 });
+    const answer = JSON.parse(stdout);
+
+    if (!answer.success) throw new Error(stdout);
+
+    return answer.data;
+  };
+
+  const evaluate = async (source: string) => (await browser("eval", source)).result;
+  const dir = captureDir("P3557c")!;
+  await mkdir(dir, { recursive: true });
+
+  const capture = async (step: string) => {
+    const checks = await evaluate("window.__checks()");
+    await writeFile(join(dir, `reactions-${step}.checks.json`), JSON.stringify(checks));
+    await browser("screenshot", join(dir, `reactions-${step}.png`));
+
+    return checks;
+  };
+
+  try {
+    await browser("set", "media", "dark");
+    await browser("set", "viewport", "1512", "950");
+    await browser("open", `${server.resolvedUrls.local[0]}harness.html?seed=tree-40`);
+    await browser("wait", "--fn", "!!window.__fake && !!document.querySelector('.reaction-head')");
+    await evaluate(`(() => {
+      const record = {
+        project: 'p', id: 'reaction-lifetime', name: 'Review changes', actor: { kind: 'user', id: 'you', parent: null }, home: null, target: 'agent-1',
+        instruction: 'Review the saved changes', condition: { kind: 'agents', ids: ['agent-1'], any: false }, max_firings: 1, remaining: 1, rearm: false,
+        expires_at: '2026-10-24T09:00:00Z', created_at: '2026-10-23T09:00:00Z', state: 'active',
+        observation: { health: 'observing', cursor: null, gap: null, recovery: null, evidence: null }, firings: [],
+      };
+      window.__fake.app.handlers['reaction.list'] = () => [record];
+      window.__fake.app.handlers['reaction.get'] = () => record;
+      window.__fake.app.handlers['reaction.run'] = () => { throw new Error('Could not run the reaction. Try Run now again.'); };
+      window.dispatchEvent(new Event('focus'));
+    })()`);
+    await browser("wait", "--fn", "!!document.querySelector('[data-reaction-opener=reaction-lifetime]')");
+    await evaluate("document.querySelector('[data-reaction-opener=reaction-lifetime]').click()");
+    await browser("wait", "--fn", "!!document.querySelector('.reaction-detail')");
+    const baseline = await capture("before");
+    await evaluate("[...document.querySelectorAll('.reaction-actions button')].find(button => button.textContent === 'Run now').click()");
+    await browser("wait", "--fn", "!!document.querySelector('.reaction-detail [role=alert]')");
+    const failed = await capture("failure");
+    await evaluate("[...document.querySelectorAll('.reaction-detail button')].find(button => button.textContent === 'Clear').click()");
+    await browser("wait", "--fn", "!document.querySelector('.reaction-detail [role=alert]')");
+    const cleared = await capture("cleared");
+
+    for (const checks of [baseline, failed, cleared]) {
+      for (const id of ["D2", "D5", "D6"]) expect(checks[id]).toMatchObject({ status: "pass" });
+
+      for (const id of CHECK_IDS) {
+        if (baseline[id].status === "pass") expect(checks[id], id).toMatchObject({ status: "pass" });
+      }
+    }
+  } finally {
+    await browser("close").catch(() => {});
+    await server.close();
+    await rm(profile, { recursive: true, force: true });
+  }
+}, 90_000);

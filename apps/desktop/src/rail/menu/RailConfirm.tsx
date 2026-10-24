@@ -6,26 +6,40 @@ import { NativeAlert } from "../../ui/NativeAlert";
 
 /** Consequences are read before the native question is shown. */
 export const RailConfirm = (props: { menu: RailMenuModel; rowElement: (id: string) => HTMLElement | undefined }) => {
-  const { app } = useConnectedProject();
+  const { app, rail } = useConnectedProject();
   const current = () => props.menu.state();
 
   const question = () => {
-    const held = current();
-    const removal = held?.removal;
+    const kept = current();
+    const removal = kept?.removal;
 
     return {
-      title: held ? held.action === "stop" ? copy.stopQuestion(held.node.name) : held.node.kind === "workstream" ? copy.removeQuestion(held.node.name) : copy.stopAndRemoveQuestion(held.node.name) : "",
+      title: kept ? kept.action === "stop" ? copy.stopQuestion(kept.node.name) : (kept.node.kind === "workstream" || kept.exit !== null) ? copy.removeQuestion(kept.node.name) : copy.stopAndRemoveQuestion(kept.node.name) : "",
       message: removal ? [goesLine(removal), ...goingNames(removal), staysLine(removal), ...removal.stays.agents.map(stay => copy.toastLine(stay.name, stay.reason))].filter(Boolean).join("\n") : "",
-      okLabel: held?.action === "stop" ? copy.stop : copy.remove,
+      okLabel: kept?.action === "stop" ? copy.stop : copy.remove,
       cancelLabel: copy.keep,
     };
   };
 
   let target: HTMLElement | null = null;
+  let removedFromKeyboard = false;
 
   return <NativeAlert app={app} open={current()?.confirming === true && current()?.removal !== null}
-    question={question()} onConfirm={() => { const held = current(); target = held ? props.rowElement(held.node.id) ?? null : null;
+    question={question()}
+    onConfirm={() => {
+      const kept = current();
+      removedFromKeyboard = kept?.action === "remove" && kept.removed !== undefined;
+      target = kept ? props.rowElement(kept.node.id) ?? null : null;
 
- if (held?.action === "stop") props.menu.chooseStop(); else props.menu.chooseRemove(); }}
-    onCancel={() => { const held = current(); target = held ? props.rowElement(held.node.id) ?? null : null; props.menu.close(); }} finalFocus={() => target?.isConnected ? target : null} />;
+      if (kept?.action === "stop") return props.menu.chooseStop();
+
+      return props.menu.chooseRemove();
+    }}
+    onCancel={() => {
+      const kept = current();
+      removedFromKeyboard = false;
+      target = kept ? props.rowElement(kept.node.id) ?? null : null;
+      props.menu.close();
+    }}
+    finalFocus={() => removedFromKeyboard ? props.rowElement(rail.selected() ?? "") ?? null : target?.isConnected ? target : null} />;
 };

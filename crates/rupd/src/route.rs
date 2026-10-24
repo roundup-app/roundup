@@ -19,19 +19,26 @@ impl Daemon {
         conn: &mut Conn,
         line: &str,
         actor: Option<Actor>,
-    ) -> Option<Value> {
+    ) -> Option<Frame> {
         let Ok(request) = serde_json::from_str::<Value>(line) else {
-            return Some(failure(
-                &Value::Null,
-                &RpcError::new(code::PARSE_ERROR, "parse error"),
-            ));
+            return Some(
+                failure(
+                    &Value::Null,
+                    &RpcError::new(code::PARSE_ERROR, "parse error"),
+                )
+                .into(),
+            );
         };
         let id = request.get("id").cloned();
         let method = request["method"].as_str().unwrap_or_default();
         let params = request.get("params").cloned().unwrap_or(Value::Null);
-        if method.starts_with("decision.") {
-            // Preserve the wire reader's authenticated identity while earlier actions finish.
-            conn.actor = actor.unwrap_or_else(|| self.decision_actor(conn));
+        if method == "terminal.write" {
+            // A child may not turn its Terminal keystrokes into a user's answer by claiming
+            // `user`; H21's process identity applies here. The wire reader already resolved it.
+            let actor = actor.unwrap_or_else(|| self.terminal_writer(conn));
+            if actor.kind == ActorKind::Agent {
+                conn.actor = actor;
+            }
         } else if method.starts_with("deliverable.")
             || method.starts_with("reaction.")
             || matches!(
@@ -54,7 +61,6 @@ impl Daemon {
                     | "agent.prompt"
                     | "agent.setOrder"
                     | "agent.resume"
-                    | "agent.actionHistory"
                     | "agent.instructions"
                     | "workstream.rewind"
                     | "workstream.rewindPlan"
@@ -62,18 +68,41 @@ impl Daemon {
         {
             conn.actor = actor.unwrap_or_else(|| self.action_actor(conn));
         }
-        let outcome = self.route(conn, method, params).await;
+        let outcome = if matches!(method, "rail.tree" | "rail.list") {
+            self.rail_reply(conn).await
+        } else {
+            self.route(conn, method, params)
+                .await
+                .map(rpc::Reply::Value)
+        };
         let id = id?;
         Some(match outcome {
-            Ok(result) => {
+            Ok(rpc::Reply::Value(result)) => {
                 let mut envelope = serde_json::Map::new();
                 envelope.insert("jsonrpc".into(), Value::String("2.0".into()));
                 envelope.insert("id".into(), id);
                 envelope.insert("result".into(), result);
-                Value::Object(envelope)
+                Frame::Value(Value::Object(envelope))
             }
-            Err(err) => failure(&id, &err),
+            Ok(rpc::Reply::Json(result)) => Frame::Json(format!(
+                r#"{{"jsonrpc":"2.0","id":{id},"result":{result}}}"#
+            )),
+            Err(err) => failure(&id, &err).into(),
         })
+    }
+
+    /// `rail.tree` and `rail.list`, written without a `Value` tree. No guard in `route_inner`
+    /// applies to them (they name no child and no Terminal), so this keeps only its entry steps.
+    async fn rail_reply(&self, conn: &Conn) -> Result<rpc::Reply, RpcError> {
+        self.auto.start(self.reader());
+        self.start_pushes();
+        self.start_queue();
+        let rail = self
+            .modules
+            .get("rail")
+            .ok_or_else(|| RpcError::method_not_found("rail.tree"))?;
+        rail.call_reply(&self.ctx(conn.actor.clone()), "rail.tree", Value::Null)
+            .await
     }
 
     pub(crate) async fn route_inner(
@@ -84,14 +113,6 @@ impl Daemon {
     ) -> Result<Value, RpcError> {
         self.start_pushes();
         self.start_queue();
-        // A child may not turn its Terminal keystrokes into a user's answer by
-        // claiming `user`; H21's process identity applies to this input path too.
-        if method == "terminal.write" {
-            let actor = self.terminal_writer(conn);
-            if actor.kind == ActorKind::Agent {
-                conn.actor = actor;
-            }
-        }
         let namespace = method.split('.').next().unwrap_or_default();
         if matches!(method, "daemon.identify" | "events.subscribe") {
             return builtin::call(self, conn, namespace, method, &params)
@@ -100,17 +121,6 @@ impl Daemon {
         if matches!(method, "terminal.output" | "terminal.outputStop") {
             return self.terminal_output(conn, method, params).await;
         }
-        if method == "agent.actionHistory" {
-            return self.action_history(conn, params).await;
-        }
-        if method == "terminal.resizeHistory" {
-            return self.resize_history(conn, params).await;
-        }
-        // These Door calls account for their physical effects before returning, including
-        // uncertain outcomes. Begin must not grant the child while an effect can still run.
-        let children = self
-            .door_effect_children(&conn.actor, method, &params)
-            .await?;
         if matches!(method, "workstream.rewind" | "workstream.rewindPlan") {
             // The wire reader selects only for an Agent; the Door's authority is decided here for every caller.
             let children = self.rewind_children(&conn.actor, method, &params).await?;
@@ -118,148 +128,10 @@ impl Daemon {
                 .rewind_call(&conn.actor, method, params, children)
                 .await;
         }
-        let child = children.first();
-        let _ordered_effect = if matches!(
-            method,
-            "terminal.resize"
-                | "terminal.close"
-                | "terminal.kill"
-                | "terminal.write"
-                | "rail.rename"
-                | "agent.stop"
-        ) {
-            if let Some(child) = child {
-                let guard = self.child_effects(child).write_owned().await;
-                if method == "terminal.resize" {
-                    if let Some(receipt) = self.hold_resize(conn, child, params.clone()).await? {
-                        return Ok(receipt);
-                    }
-                } else if let Some(receipt) = self
-                    .hold_child_action(conn, child, method, params.clone())
-                    .await?
-                {
-                    return Ok(receipt);
-                }
-                Some(guard)
-            } else {
-                None
-            }
-        } else {
-            None
-        };
-        let mut door_effects = Vec::new();
-        if !matches!(
-            method,
-            "terminal.resize"
-                | "terminal.close"
-                | "terminal.kill"
-                | "terminal.write"
-                | "rail.rename"
-                | "agent.stop"
-        ) {
-            // Multi-child reads acquire in one stable order, so two reads cannot deadlock.
-            for child in &children {
-                let guard = loop {
-                    // A Door's read of a taken-over child waits for the Takeover's end,
-                    // behind the actions released then.
-                    if is_child_read(method) {
-                        self.wait_takeover_end(child).await;
-                    }
-                    let guard = if !self.sender.get().is_some_and(|m| m.takeover_active(child))
-                        && self.held_actions.waiting(child)?
-                    {
-                        let guard = self.child_effects(child).write_owned().await;
-                        // A newer begin may have won while this call waited for exclusion.
-                        if !self.sender.get().is_some_and(|m| m.takeover_active(child)) {
-                            self.release_actions(child).await?;
-                        }
-                        guard.downgrade()
-                    } else {
-                        // With no older queue, Interrupt must still reach an in-flight Steer.
-                        self.child_effects(child).read_owned().await
-                    };
-                    // Begin needs the write lock, so a begin since the wait shows here.
-                    if is_child_read(method)
-                        && self.sender.get().is_some_and(|m| m.takeover_active(child))
-                    {
-                        continue;
-                    }
-                    break guard;
-                };
-                // Begin needs the write lock, so this check under the read guard is final.
-                let guard = if matches!(
-                    method,
-                    "agent.interrupt"
-                        | "agent.prompt"
-                        | "agent.setOrder"
-                        | "agent.resume"
-                        | "decision.answer"
-                ) && self.sender.get().is_some_and(|m| m.takeover_active(child))
-                {
-                    drop(guard);
-                    let write = self.child_effects(child).write_owned().await;
-                    if let Some(receipt) = self
-                        .hold_child_action(conn, child, method, params.clone())
-                        .await?
-                    {
-                        return Ok(receipt);
-                    }
-                    write.downgrade()
-                } else {
-                    guard
-                };
-                door_effects.push(guard);
-            }
-        }
-        let _takeover = if method == "takeover.begin" && conn.actor.kind == ActorKind::User {
-            let contracts::message::TakeoverParams { agent } = rpc::params(params.clone())?;
-            Some(self.child_effects(&agent).write_owned().await)
-        } else {
-            None
-        };
-        // A Door's spawn publishes the child before its detached first Steer completes.
-        // Hold registration through that publication so begin cannot miss the effect.
-        let mut first_steers = if method == "agent.spawn" && conn.actor.kind == ActorKind::Agent {
-            Some(self.door_first_steers.lock().await)
-        } else {
-            None
-        };
-        if method == "takeover.begin" && conn.actor.kind == ActorKind::User {
-            let contracts::message::TakeoverParams { agent } = rpc::params(params.clone())?;
-            let attempt = self.door_first_steers.lock().await.get(&agent).cloned();
-            if let Some(attempt) = attempt
-                && self
-                    .rail()
-                    .await?
-                    .iter()
-                    .any(|node| node.id == agent && node.attempt.as_deref() == Some(&attempt))
-            {
-                self.agents
-                    .first_steer_completion(&agent, &attempt)
-                    .await
-                    .map_err(|err| {
-                        RpcError::conflict(format!(
-                            "cannot acquire Takeover of {agent}: first Steer completion is unknown: {err}"
-                        ))
-                    })?;
-                self.door_first_steers.lock().await.remove(&agent);
-            }
-        }
         if matches!(method, "agent.context" | "agent.brief") {
             return self.awareness(conn, method, params).await;
         }
-        if matches!(
-            method,
-            "decision.list"
-                | "decision.answer"
-                | "decision.capture"
-                | "decision.answers"
-                | "decision.revoke"
-        ) {
-            return self.decision_call(conn, method, params).await;
-        }
-        self.before_prompt_effect(&conn.actor, method, &params)
-            .await?;
+        self.before_prompt_effect(&conn.actor, method).await?;
         if matches!(
             method,
             "message.progress"
@@ -393,18 +265,9 @@ impl Daemon {
                     .map_err(|err| {
                         RpcError::new(code::INVALID_PARAMS, format!("data is not base64: {err}"))
                     })?;
-                let guarded = write.identity.is_some();
-                if conn.actor.kind == ActorKind::User && !guarded {
-                    self.note_user_input(&params).await;
-                }
                 self.agents
-                    .write_terminal(&conn.actor, &write.id, bytes, write.identity)
+                    .write_terminal(&conn.actor, &write.id, bytes)
                     .await?;
-                // A refused guarded submit wrote no bytes and cannot release Messages
-                // waiting behind the user's input. Ordinary writes retain their queued cut.
-                if conn.actor.kind == ActorKind::User && guarded {
-                    self.note_user_input(&params).await;
-                }
                 return rpc::reply(&());
             }
         }
@@ -441,39 +304,16 @@ impl Daemon {
                 .await
                 .values()
                 .any(|specialist| specialist.id == id);
-            // Ordinary hooks must not wait behind a specialist's spawn registration:
-            // first-input completion can itself depend on those hooks returning.
             if is_specialist {
-                // Takeover acquisition and ordinary spawn use this same effect/registration order.
-                let _effect = self.child_effects(id).read_owned().await;
-                let mut registration = self.door_first_steers.lock().await;
                 let repair = if method == "message.send" {
                     self.specialist_summary(&conn.actor, &params).await
                 } else {
                     self.specialist_stop(&params).await
                 };
-                match repair {
-                    Ok(Some(node)) => self.register_first_steer(&mut registration, &node),
-                    Ok(None) => {}
-                    Err(err) => eprintln!("rupd: specialist handoff: {}", err.message),
+                if let Err(err) = repair {
+                    eprintln!("rupd: specialist handoff: {}", err.message);
                 }
             }
-        }
-        if method == "takeover.end" && outcome.is_ok() {
-            let contracts::message::TakeoverParams { agent } = rpc::params(params.clone())?;
-            // Message release can await an already-recorded prompt. A new Takeover must
-            // remain independent of that typing, and it wins over this older release.
-            let _release = self.child_effects(&agent).write_owned().await;
-            if !self
-                .sender
-                .get()
-                .is_some_and(|messages| messages.takeover_active(&agent))
-            {
-                self.release_actions(&agent).await?;
-            }
-        }
-        if let (Some(first_steers), Ok(node)) = (&mut first_steers, &outcome) {
-            self.register_first_steer(first_steers, node);
         }
         if matches!(method, "todo.create" | "pad.create") && conn.actor.kind == ActorKind::Agent {
             return self.home_in_workstream(method, &conn.actor, outcome?).await;

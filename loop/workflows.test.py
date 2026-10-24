@@ -151,14 +151,22 @@ class Permissions(unittest.TestCase):
             self.assertLess(install, source.index('builder.py" claude-read-only'), workflow)
             self.assertIn('>>"$GITHUB_PATH"', source[install:], workflow)
 
-    def test_l82_the_engine_waits_for_the_generated_conflict_script(self):
+    def test_l82_the_engine_waits_for_the_merge_script(self):
         source = (ROOT / '.github/workflows/fix.yml').read_text()
         resolve = source.split('      - id: resolve\n', 1)[1].split('\n      - ', 1)[0]
         engine = source.split('      - id: engine\n', 1)[1].split('\n      - ', 1)[0]
         self.assertIn("needs.task.outputs.cause == 'conflict'", resolve)
-        self.assertIn('builder.py" resolve-generated', resolve)
+        self.assertIn('builder.py" merge-main', resolve)
         self.assertIn("if: steps.resolve.outputs.resolved != 'true'", engine)
         self.assertLess(source.index('      - id: resolve'), source.index('      - id: engine'))
+
+    def test_l82_a_conflict_engine_run_is_capped_and_short(self):
+        source = (ROOT / '.github/workflows/fix.yml').read_text()
+        engine = source.split('      - id: engine\n', 1)[1].split('\n      - ', 1)[0]
+        self.assertIn("timeout-minutes: ${{ needs.task.outputs.cause == 'conflict' && 15 || 105 }}", engine)
+        self.assertIn('engine$([ "$CAUSE" = conflict ] && echo -conflict)', engine)
+        task = source.split('      - id: task\n', 1)[1].split('\n  fix-run:', 1)[0]
+        self.assertIn('prompt $([ "$CAUSE" = conflict ] && echo conflict)', task)
 
     def test_l120_the_engine_waits_for_the_merge_loss_restore(self):
         source = (ROOT / '.github/workflows/fix.yml').read_text()

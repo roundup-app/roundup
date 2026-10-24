@@ -1,3 +1,4 @@
+import { writeText } from "../app/clipboard";
 import { ReservedLine } from "../ink/ReservedLine";
 import { createEffect, createMemo, createSignal, on, onCleanup, Show } from "solid-js";
 import { debounce } from "@solid-primitives/scheduled";
@@ -7,7 +8,7 @@ import { KindGlyph } from "../ink/KindGlyph";
 import { Combobox } from "../ui/Combobox";
 import { useConnectedProject } from "../state/connectedProject";
 import { captureActions, modalOutside, modalOpen, registerKeys } from "../keys/registry";
-import { leaderChord, SWITCHER_CLOSE, SWITCHER_TAKE } from "../keys/chords";
+import { leaderChord, SWITCHER_CLOSE } from "../keys/chords";
 import { KeyHint } from "../keys/KeyHint";
 import { REVEAL_BUBBLE } from "../bubbles/places";
 import { entriesOf, matching } from "./entries";
@@ -21,9 +22,9 @@ const focusTarget = (): void => {
   target?.focus();
 };
 
-/** U529, U530: leader `K` opens a filter field over the centre pane listing every row by name; `⏎` selects the highlighted one as a click does, `⇧⏎` also takes control of an Agent. `onFailure` gets a failed Takeover's message; `onOpen` runs as it opens, so an overlaid Shelf can close and leave no scrim over it. */
+/** U529, U530: leader `K` opens a filter field over the centre pane listing every row by name; `⏎` selects the highlighted one as a click does. `onFailure` gets a failed selection's message; `onOpen` runs as it opens, so an overlaid Shelf can close and leave no scrim over it. */
 export const Switcher = (props: { onFailure: (message: string | null) => void; onOpen: () => void }) => {
-  const { rail, takeover, project, drafts } = useConnectedProject();
+  const { app, rail, project, drafts } = useConnectedProject();
   const [open, setOpen] = createSignal(false);
 
   const destination = { surface: "switcher", object: project.path, recipient: null };
@@ -41,7 +42,7 @@ export const Switcher = (props: { onFailure: (message: string | null) => void; o
   const [text, setText] = createSignal(restored.success ? restored.output : "");
   const [copied, setCopied] = createSignal(false);
   const clearCopied = debounce(() => setCopied(false), 2000);
-  const [copyFailure, setCopyFailure] = createSignal<string | null>(null);
+  const [copyFailure, setCopyFailure] = createSignal<{ revision: string | null } | null>(null);
   const [highlighted, setHighlighted] = createSignal<string | null>(null);
   let restoring = false;
   let savedSelection = current()?.selection ?? null;
@@ -79,7 +80,9 @@ export const Switcher = (props: { onFailure: (message: string | null) => void; o
     } : previous?.selection ?? null;
 
     if ((!previous && text() === "") || (previous?.value.query === text() && JSON.stringify(previous.selection) === JSON.stringify(selection))) return;
-    drafts.edit(destination, { query: text() }, selection, "ordinary");
+
+    if (previous?.value.query === text()) drafts.setSelection(previous.revision, selection);
+    else drafts.edit(destination, { query: text() }, selection, "ordinary");
   };
 
   onCleanup(() => { if (open()) retain(); });
@@ -104,8 +107,29 @@ export const Switcher = (props: { onFailure: (message: string | null) => void; o
   };
 
   createEffect(on(retentionProblem, (problem, previous) => {
-    if (!problem && previous) { setCopyFailure(null); restoreQueryFocus(); }
+    if (!problem && previous) restoreQueryFocus();
   }, { defer: true }));
+
+  createEffect(() => {
+    const failure = copyFailure();
+
+    if (failure && failure.revision !== (current()?.revision ?? null)) setCopyFailure(null);
+  });
+
+  const copyQuery = (): void => {
+    const revision = current()?.revision ?? null;
+
+    void writeText(app, text()).then(() => {
+      if (revision !== (current()?.revision ?? null)) return;
+      setCopyFailure(null);
+      setCopied(true);
+      clearCopied();
+    }, () => {
+      if (revision !== (current()?.revision ?? null)) return;
+      setCopied(false);
+      setCopyFailure({ revision });
+    });
+  };
 
   const close = (restore: boolean): void => {
     retain();
@@ -118,7 +142,7 @@ export const Switcher = (props: { onFailure: (message: string | null) => void; o
     }
   };
 
-  const choose = (entry: Entry, take: boolean): void => {
+  const choose = (entry: Entry): void => {
     close(false);
     props.onFailure(null);
 
@@ -133,16 +157,9 @@ export const Switcher = (props: { onFailure: (message: string | null) => void; o
 
     rail.select(node.id);
     focusTarget();
-
-    if (!take || node.kind !== "agent") return;
-
-    void takeover.begin(node.id).then((failure) => {
-      if (failure !== null) props.onFailure(failure);
-      else focusTarget();
-    });
   };
 
-  const chooseValue = (value: string | null, take: boolean): void => {
+  const chooseValue = (value: string | null): void => {
     const action = opening().actions.find((candidate) => candidate.value === value);
 
     if (action) {
@@ -155,10 +172,8 @@ export const Switcher = (props: { onFailure: (message: string | null) => void; o
 
     const entry = matching(entries(), text()).find((candidate) => candidate.value === value);
 
-    if (entry) choose(entry, take);
+    if (entry) choose(entry);
   };
-
-  const chooseHighlighted = (take: boolean): void => chooseValue(highlighted(), take);
 
   createEffect(() => { if (open() && modalOutside(panel)) close(false); });
 
@@ -176,7 +191,6 @@ export const Switcher = (props: { onFailure: (message: string | null) => void; o
   registerKeys({ kind: "leader" }, [{ chords: leaderChord("K"), run: show }]);
   registerKeys({ kind: "layer", element: () => panel, active: open, modal: true }, [
     { chords: SWITCHER_CLOSE, run: () => close(true) },
-    { chords: SWITCHER_TAKE, run: () => chooseHighlighted(true) },
   ]);
 
   return (
@@ -205,11 +219,11 @@ export const Switcher = (props: { onFailure: (message: string | null) => void; o
           element.addEventListener("pointerup", retain);
           element.addEventListener("blur", (event) => {
             // A recovery action must run before blur can retry storage and remove its target.
-            if (event.relatedTarget instanceof Element && event.relatedTarget.closest(".switcher-recovery")) return;
+            if (event.relatedTarget instanceof Element && event.relatedTarget.closest(".switcher .reserved-actions")) return;
             retain();
           });
         }} items={shown()} group={(item) => item.value.startsWith("action:") ? copy.switcherActions : undefined} highlightedValue={highlighted()} onHighlightChange={setHighlighted} onInput={() => {}}
-          onSelect={(value) => chooseValue(value, false)}
+          onSelect={(value) => chooseValue(value)}
           label={copy.switcherLabel} placeholder={copy.switcherPlaceholder} empty={copy.noMatch}
           row={(item) => {
             const action = actions().find((candidate) => candidate.value === item.value);
@@ -225,25 +239,24 @@ export const Switcher = (props: { onFailure: (message: string | null) => void; o
               <Show when={entry.owner}><span class="switcher-owner">{entry.owner}</span></Show>
             </>;
           }} />
-        <ReservedLine message={copyFailure() ?? (retentionProblem() ? copy.switcherRetentionFailure(retentionProblem()!.operation, project.name) : null)}>
-
-          <Show when={text() !== ""}>
-          <button data-button="quiet" ref={restoreFocusOnRemoval} onClick={() => { void navigator.clipboard.writeText(text()).then(() => {
-            setCopyFailure(null);
-            setCopied(true);
-            clearCopied();
-          }, () => { setCopied(false); setCopyFailure(copy.switcherCopyFailure); }); }}>{copied() ? copy.queryCopied : copy.copyQuery}</button>
+        <ReservedLine message={retentionProblem() ? copy.switcherRetentionFailure(retentionProblem()!.operation, project.name) : null}>
+          <Show when={text() !== "" && !copyFailure()}>
+            <button data-button="quiet" ref={restoreFocusOnRemoval} onClick={copyQuery}>{copied() ? copy.queryCopied : copy.copyQuery}</button>
           </Show>
           <button data-button="quiet" ref={restoreFocusOnRemoval} onClick={() => { drafts.retry(); }}>{copy.retryStorage}</button>
           <Show when={text() !== ""}>
-          <button data-button="quiet" ref={restoreFocusOnRemoval} onClick={() => {
-            const draft = current();
+            <button data-button="quiet" ref={restoreFocusOnRemoval} onClick={() => {
+              const draft = current();
 
-            if (draft) drafts.discard(draft.revision);
-            setText("");
-          }}>{copy.discardQuery}</button>
+              if (draft) drafts.discard(draft.revision);
+              setText("");
+            }}>{copy.discardQuery}</button>
           </Show>
-      </ReservedLine>
+        </ReservedLine>
+        <ReservedLine message={copyFailure() ? copy.switcherCopyFailure : null}>
+          <button data-button="quiet" ref={restoreFocusOnRemoval} onClick={copyQuery}>{copied() ? copy.queryCopied : copy.copyQuery}</button>
+          <button data-button="quiet" ref={restoreFocusOnRemoval} onClick={() => { setCopyFailure(null); }}>{copy.close}</button>
+        </ReservedLine>
       </section>
     </Show>
   );

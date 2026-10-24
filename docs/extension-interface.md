@@ -34,7 +34,7 @@ export function register(on) {
 | Sort / order | `rail.sort` | comparator key; user drag-reorder persists as `order` in `$.store` and wins |
 | Render | `ui.render {component}` | element tree (`Rail`, `Row`, `Shelf`, `Inbox`, `Statusbar`) |
 | Gate tools | `tool.call` | `{deny}` / `{context}` |
-| Delivery between Agents | `bus.route` | `{deliver: auto\|ask-first\|drop}`; a user click wins |
+| Delivery between Agents | `bus.route` | `{deliver: auto\|drop}`; a user click wins |
 | Provenance chips | `provenance.render` | chips folded from the Touch log (default: last toucher letter) |
 
 Note on `agent.status`: the glyph is the most urgent Kind. Hooks add labels and Chips only (decision 7 in `wireframes.md`).

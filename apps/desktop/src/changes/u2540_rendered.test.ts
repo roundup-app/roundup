@@ -118,7 +118,7 @@ it("u2540d_review_stage_rendered_observer", async () => {
     const after = await capture(`${theme}-diff`);
 
     for (const id of CHECK_IDS) if (baseline[id].status === "pass") expect(after[id].status, id).toBe("pass");
-    await click("Back");
+    await click("Close");
     await wait("!!document.querySelector('file-tree-container')");
     await click("Close");
     await open("/src/changes/u2540.html?dense");
@@ -128,14 +128,14 @@ it("u2540d_review_stage_rendered_observer", async () => {
     const dense = await capture(`${theme}-dense`);
 
     for (const id of CHECK_IDS) if (baseline[id].status === "pass") expect(dense[id].status, id).toBe("pass");
-    await click("Close");
+    await click("Close changes");
     await open("/src/changes/u2540.html?dense&failure");
     await showDiff();
     await wait("!!document.querySelector('[role=alert]')");
     const failure = await capture(`${theme}-failure`);
 
     for (const id of CHECK_IDS) if (baseline[id].status === "pass") expect(failure[id].status, id).toBe("pass");
-    await click("Back");
+    await click("Close");
     await click("Close");
   }
 }, 180_000);
@@ -188,7 +188,7 @@ it("u2773e_changes_rendered_retention_failure_is_actionable", async () => {
     await capture("real-retention-failure", "U2773e");
     await browser("screenshot", "/tmp/unfinished-changes-retention.png");
     expect(await app.rpc("message.list", { to: node.id, status: null })).toHaveLength(0);
-    await press("Close");
+    await press("Close changes");
     await wait("!document.querySelector('.worktree-panel')");
     await press("Recover Changes drafts");
     await wait("!!document.querySelector('.note-recovery')");
@@ -207,3 +207,44 @@ it("u2773e_changes_rendered_retention_failure_is_actionable", async () => {
     await rm(logs, { recursive: true, force: true });
   }
 }, 120_000);
+
+it("p3557c_failure_lifetime_changes_rendered", async () => {
+  await browser("set", "media", "dark");
+  await open("/src/changes/u2540.html?dense&submit-failure");
+  // SAFETY: the harness exposes runChecks directly as window.__checks.
+  const baseline = await browser("eval", "window.__checks()") as Checks;
+
+  const observe = async (name: string) => {
+    const checks = await capture(name, "P3557c");
+
+    for (const id of CHECK_IDS) if (baseline[id].status === "pass") expect(checks[id].status, id).toBe("pass");
+  };
+
+  await click("roundup/agent-1");
+  await wait("!!document.querySelector('file-tree-container')?.shadowRoot?.querySelector('[data-item-type=file]')");
+  await browser("eval", `(() => {
+    window.__fake.app.editorFailure = new Error('Editor refused this file; retry opening it.');
+    document.querySelector('file-tree-container').shadowRoot.querySelector('[data-item-type=file]').dispatchEvent(new MouseEvent('dblclick', { bubbles: true, composed: true }));
+  })()`);
+  await wait("!!document.querySelector('[role=alert]')");
+  await observe("changes-editor-failed");
+  await click("Dismiss");
+  await wait("!document.querySelector('[role=alert]')");
+  await observe("changes-editor-dismissed");
+  await browser("eval", "document.querySelector('file-tree-container').shadowRoot.querySelector('[data-item-type=file]').click()");
+  await click("View diff");
+  await wait("!!document.querySelector('.diff-reader button') && !!document.querySelector('diffs-container')");
+  await browser("eval", "[...document.querySelectorAll('button')].find(button => button.textContent === 'Send notes to agent-1').click()");
+  await wait("!!document.querySelector('.note-batch [role=alert]')");
+  await observe("changes-submit-failed");
+  await click("Dismiss");
+  await wait("!document.querySelector('.note-batch [role=alert]')");
+  await observe("changes-submit-dismissed");
+  await browser("eval", "window.__fake.app.handlers['agent.compareFile'] = () => { throw new Error('Comparison unavailable; retry loading this diff.'); }");
+  await click("Refresh");
+  await wait("!!document.querySelector('.diff-reader > .reserved-line [role=alert]')");
+  await observe("changes-comparison-failed");
+  await click("Dismiss");
+  await wait("!document.querySelector('[role=alert]')");
+  await observe("changes-comparison-dismissed");
+}, 90_000);

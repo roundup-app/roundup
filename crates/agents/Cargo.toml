@@ -5,7 +5,6 @@ license.workspace = true
 version.workspace = true
 
 [dependencies]
-bigdecimal = "0.4.11"
 rangemap = "1.6"
 axum = { version = "0.8.9", default-features = false, features = ["http1", "json", "tokio"] }
 async-trait.workspace = true
@@ -27,8 +26,10 @@ terminal = { path = "../terminal" }
 tempfile.workspace = true
 tokio = { workspace = true, features = ["process"] }
 unicode-normalization = "0.1"
-reqwest = { version = "0.13.5", default-features = false, features = ["rustls"] }
 time = { version = "0.3.55", features = ["parsing"] }
+
+[target.'cfg(target_vendor = "apple")'.dependencies]
+libproc = "0.14"
 
 [dev-dependencies]
 messages = { path = "../messages" }

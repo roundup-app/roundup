@@ -37,6 +37,7 @@ impl Shared {
             self.bus.emit(
                 Actor::daemon(),
                 EventData::AgentStatus(Box::new(StatusEvent {
+                    ended: false,
                     id: id.clone(),
                     attempt: run.attempt.clone(),
                     status_revision: run.status_revision.to_string(),
@@ -59,7 +60,7 @@ impl Shared {
                 attempt,
                 since,
                 named: false,
-                held: VecDeque::new(),
+                parked: VecDeque::new(),
             },
         );
     }
@@ -72,6 +73,7 @@ impl Shared {
         mut node: RailNode,
         runs: &HashMap<String, Slot>,
         rail: &rail::Rail,
+        finished: u64,
     ) -> Result<RailNode, RpcError> {
         node.status_revision = match runs.get(&node.id) {
             Some(Slot::Running(run)) => Some(run.status_revision.to_string()),
@@ -79,6 +81,7 @@ impl Shared {
             Some(Slot::Starting { .. } | Slot::Resuming { .. }) => Some("1".into()),
             _ => None,
         };
+        let finished = finished.to_string();
         let live = match runs.get(&node.id) {
             Some(Slot::Running(run)) => run
                 .adapter
@@ -88,6 +91,7 @@ impl Shared {
                 kind: Kind::Working,
                 label: "starting".into(),
                 since: *since,
+                finished: finished.clone(),
             }),
             Some(Slot::ResumeCleanup {
                 terminal_id, error, ..
@@ -97,6 +101,7 @@ impl Shared {
                     kind: Kind::Error,
                     label: error.message.clone(),
                     since: self.rail_view.opened,
+                    finished: finished.clone(),
                 })
             }
             None | Some(Slot::Closing) => None,
@@ -105,6 +110,7 @@ impl Shared {
             kind: Kind::Done,
             label: "terminal gone".into(),
             since: self.rail_view.opened,
+            finished: finished.clone(),
         }));
         // A22: exited (no live process, and no start in flight), with A21 data to resume.
         let exited = match runs.get(&node.id) {
@@ -154,15 +160,24 @@ impl Shared {
     pub(super) fn node(&self, id: &str) -> Result<RailNode, RpcError> {
         let rail = self.rail();
         let runs = self.runs();
-        self.present(rail.node(id)?, &runs, &rail)
+        let finished = rail.finished(id)?;
+        self.present(rail.node(id)?, &runs, &rail, finished)
     }
 
     pub(super) fn tree(&self) -> Result<Vec<RailNode>, RpcError> {
-        let rail = self.rail();
+        self.presented_tree(&self.rail())
+    }
+
+    /// Every node of `rail` as `tree` presents it, its finish counts read in one query.
+    pub(super) fn presented_tree(&self, rail: &rail::Rail) -> Result<Vec<RailNode>, RpcError> {
         let runs = self.runs();
+        let finished = rail.finished_all()?;
         rail.tree()?
             .into_iter()
-            .map(|node| self.present(node, &runs, &rail))
+            .map(|node| {
+                let count = finished.get(&node.id).copied().unwrap_or_default();
+                self.present(node, &runs, rail, count)
+            })
             .collect()
     }
 }
@@ -177,7 +192,7 @@ impl Agents {
     ///
     /// Daemon-internal only: never exposed through `Module::call`, and grants no Reach or
     /// Steer authority. Locks Rail then Attempts, like lifecycle attachment/removal. The cut
-    /// is the targeted read with both locks held; attach, detach, reassignment, removal,
+    /// is the targeted read with both locks parked; attach, detach, reassignment, removal,
     /// reopen and Status/Attempt transitions cannot cross it until `record` returns.
     /// `None` means no attached receiver (also after reopen), not a cached negative.
     ///
@@ -253,7 +268,7 @@ impl Agents {
     }
 
     /// O4, O13: replace the order of an Agent or a Door, and Steer it the new one unless the caller is
-    /// the Agent itself or a Takeover is active. A child change by an Agent waits for
+    /// the Agent itself. A child change by an Agent waits for
     /// the physical Steer and submit. Post-storage errors name the stored Order:
     /// A refused Steer reports no bytes; UNKNOWN_OUTCOME forbids blind retry.
     /// Direct user changes retain O4's asynchronous Steer.
@@ -296,22 +311,11 @@ impl Agents {
         };
         ctx.touch(contracts::Verb::Wrote, &format!("agent:{id}"))?;
         ctx.emit(EventData::RailChanged);
-        let takeover = self
-            .shared
-            .takeover
-            .as_ref()
-            .is_some_and(|active| active(&id));
         if ctx.actor.kind == ActorKind::Agent && ctx.actor.id != id {
-            if takeover {
-                return Err(RpcError::conflict(
-                    "Order stored; Takeover refused the Steer; no bytes written",
-                ));
-            }
             self.shared
                 .prompt(
                     &id,
                     &order::steer(&order, None),
-                    None,
                     None,
                     false,
                     Some(PromptRecord {
@@ -333,7 +337,7 @@ impl Agents {
                         "Order stored; Steer bytes may have been written; do not retry: {reason}"
                     )),
                 })?;
-        } else if ctx.actor.id != id && !takeover {
+        } else if ctx.actor.id != id {
             let shared = Arc::clone(&self.shared);
             let text = order::steer(&order, None);
             tokio::spawn(async move {
@@ -341,7 +345,6 @@ impl Agents {
                     .prompt(
                         &id,
                         &text,
-                        None,
                         None,
                         false,
                         Some(PromptRecord {
@@ -359,7 +362,7 @@ impl Agents {
     }
 }
 
-/// O7: an explicit order, also held to the ask cap.
+/// O7: an explicit order, also parked to the ask cap.
 pub(super) fn valid_explicit_order(order: &Order) -> Result<(), RpcError> {
     order
         .validate_explicit()
@@ -738,7 +741,7 @@ mod tests {
                 prompt: None,
                 starred: false,
                 terminal_id: Some("unacknowledged-terminal".into()),
-                held: VecDeque::new(),
+                parked: VecDeque::new(),
                 done,
             },
         );

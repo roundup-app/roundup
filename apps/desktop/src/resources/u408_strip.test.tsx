@@ -247,7 +247,7 @@ it("r18_non_working_selection_retains_its_sample_without_polling", async () => {
   let revision = 1;
 
   for (const kind of ["idle", "blocked", "needs-you", "error", "done"] as const) {
-    app.emit(event({ name: "agent.status", data: { id: "a", attempt: "1", status_revision: String(++revision), status: { kind, label: "stopped", since: NOW } } }));
+    app.emit(event({ name: "agent.status", data: { id: "a", attempt: "1", status_revision: String(++revision), status: { kind, label: "stopped", since: NOW, finished: "0" } } }));
     await settle(6000);
     expect(calls()).toBe(1);
     expect(words()).toContain("412 MB");
@@ -270,7 +270,7 @@ it("r18_working_selection_resumes_one_visible_poll", async () => {
   const { app, calls, view, setExit } = await mount([agent("a", "idle", "stopped")]);
   await settle(6000);
   expect(calls()).toBe(0);
-  app.emit(event({ name: "agent.status", data: { id: "a", attempt: "1", status_revision: "2", status: { kind: "working", label: "building", since: NOW } } }));
+  app.emit(event({ name: "agent.status", data: { id: "a", attempt: "1", status_revision: "2", status: { kind: "working", label: "building", since: NOW, finished: "0" } } }));
   await settle();
   expect(calls()).toBe(1);
   await settle(2000);

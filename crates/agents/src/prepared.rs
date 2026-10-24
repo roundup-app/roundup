@@ -135,7 +135,7 @@ impl Agents {
             }
         }
         let previous = self.shared.rail().get_prepared()?.enrolled;
-        let (git, project, wanted, held) = (
+        let (git, project, wanted, parked) = (
             self.shared.git.bounded(),
             self.project_dir().to_owned(),
             prepared.enrolled.clone(),
@@ -155,7 +155,7 @@ impl Agents {
                 if !path.is_absolute() {
                     return Err(invalid(format!("path {} is not absolute", path.display())));
                 }
-                let resolved = if held.iter().any(|held| Path::new(held) == path) {
+                let resolved = if parked.iter().any(|parked| Path::new(parked) == path) {
                     path.canonicalize()
                         .map_err(|err| invalid(format!("{}: {err}", path.display())))?
                 } else {
@@ -279,7 +279,7 @@ impl Agents {
             }
             // The reservation is durable before any git command touches the directory.
             if !self.shared.rail().reserve_prepared(id, &plan)? {
-                reasons.push(format!("{dir}: held by an Agent"));
+                reasons.push(format!("{dir}: used by an Agent"));
                 continue;
             }
             let release = |why: String| {
