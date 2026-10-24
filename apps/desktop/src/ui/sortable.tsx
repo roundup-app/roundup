@@ -209,6 +209,8 @@ const Root = <T extends ExternalTarget>(props: RootProps<T>) => {
     copy.classList.add("sortable-source");
     copy.setAttribute("aria-hidden", "true");
     copy.setAttribute("inert", "");
+    // A consumer's own `position` rule (the Rail's rows set one) must not put the copy in flow.
+    copy.style.setProperty("position", "absolute", "important");
     copy.style.top = `${at.top - base.top + box.scrollTop}px`;
     copy.style.left = `${at.left - base.left + box.scrollLeft}px`;
     copy.style.width = `${at.width}px`;

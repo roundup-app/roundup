@@ -15,7 +15,6 @@
 
 /* U3800a: the source row stays in its place with a solid --accent edge (a ghost drawn over its original box); the lifted copy draws no box and the dashed slot marks the destination. */
 .sortable-source {
-  position: absolute;
   box-sizing: border-box;
   margin: 0;
   border: 2px solid var(--accent);
