@@ -60,7 +60,7 @@ export const createKeystrokeProbe = (now: () => number, typed: string) => {
       pending.counted();
       pending = null;
     },
-    /** `skip` is the number of leading keys typed, whether or not they came back: warm-up drops stay out of the count. */
+    /** Warm-up latency samples are excluded, but every dropped key fails R21. */
     summary: (skip: number): Summary => {
       const sorted = latencies
         .flatMap(({ key, ms }) => (key >= skip ? [ms] : []))
@@ -68,7 +68,7 @@ export const createKeystrokeProbe = (now: () => number, typed: string) => {
 
       return {
         n: sorted.length,
-        dropped: droppedKeys.filter((key) => key >= skip).length,
+        dropped: droppedKeys.length,
         p50: percentile(sorted, 0.5),
         p95: percentile(sorted, 0.95),
         p99: percentile(sorted, 0.99),

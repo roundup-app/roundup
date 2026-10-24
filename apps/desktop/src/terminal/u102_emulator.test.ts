@@ -2,7 +2,7 @@ import * as xtermModule from "@xterm/xterm";
 import { FitAddon } from "@xterm/addon-fit";
 import { afterEach, expect, it, vi } from "vitest";
 import { createXtermEmulators } from "./emulator";
-import { fontSizeStorage } from "./fontSize";
+import { DEFAULT_FONT_SIZE, fontSizeStorage } from "./fontSize";
 
 afterEach(() => { vi.useRealTimers(); vi.restoreAllMocks(); vi.unstubAllGlobals(); localStorage.clear(); });
 
@@ -97,7 +97,7 @@ it.each([[100, 93, 60], [93, 100, 90], [93, 100, 91], [101, 94, -1], [51, 47, -1
     terminal.resize(afterCols, 24);
   });
 
-  emulator.setFontSize(14);
+  emulator.setFontSize(DEFAULT_FONT_SIZE + 1);
   emulator.fit();
 
   if (row >= 0) expect(top()).toMatch(/^030 /);
@@ -107,7 +107,7 @@ it.each([[100, 93, 60], [93, 100, 90], [93, 100, 91], [101, 94, -1], [51, 47, -1
     fitPolicies.push(terminal.options.reflowCursorLine);
     terminal.resize(beforeCols, 24);
   });
-  emulator.setFontSize(13);
+  emulator.setFontSize(DEFAULT_FONT_SIZE);
   emulator.fit();
   expect(content()).toEqual(before);
 
@@ -139,10 +139,10 @@ it("u102_a_second_chord_before_restoration_keeps_the_reflow_anchor", async () =>
   const lines = Array.from({ length: 100 }, (_, index) => `${String(index).padStart(3, "0")} ${"x".repeat(180)}`).join("\r\n");
   await new Promise<void>((resolve) => emulator.write(new TextEncoder().encode(lines), resolve));
   terminal.scrollToLine(60);
-  emulator.setFontSize(14);
+  emulator.setFontSize(DEFAULT_FONT_SIZE + 1);
   cols = 93;
   emulator.fit();
-  emulator.setFontSize(15);
+  emulator.setFontSize(DEFAULT_FONT_SIZE + 2);
   cols = 87;
   requestAnimationFrame(() => emulator.fit());
   vi.advanceTimersToNextFrame();
