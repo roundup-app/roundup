@@ -186,7 +186,7 @@ Only the Rail ceiling is this Issue’s completion condition; the combined four-
 | 9 | historical | 1 | 0.340065 | 0.415 | 1 | clean under R13 |
 | 9 | repaired | 1 | 0.784576 | 0.625 | 1 | clean under R13 |
 
-Busy/failed invocations are retained with their qualification reason and repeated. The comparison queue was held after three busy repaired pair-six observations while the web suite finished; active observations finished and were retained. The 2.0 threshold remains unchanged. The older identical probe predates R13, so busy qualification is recorded outside its untouched reports. Its committed-budget memory comparison still runs at every load. The original login-shell workload (ten Terminals), 1,000 calls, 100 warmups and eleven fresh Daemons per invocation remain intact.
+Busy/failed invocations are retained with their qualification reason and repeated. The comparison queue was parked after three busy repaired pair-six observations while the web suite finished; active observations finished and were retained. The 2.0 threshold remains unchanged. The older identical probe predates R13, so busy qualification is recorded outside its untouched reports. Its committed-budget memory comparison still runs at every load. The original login-shell workload (ten Terminals), 1,000 calls, 100 warmups and eleven fresh Daemons per invocation remain intact.
 
 ## Machine and binary provenance
 

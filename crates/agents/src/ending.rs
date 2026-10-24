@@ -8,53 +8,6 @@ pub(super) struct State {
 }
 
 impl Agents {
-    /// B6: check the original Attempt under the run lock that claims Interrupt's Escape.
-    pub async fn interrupt_attempt(
-        &self,
-        ctx: &Ctx,
-        id: &str,
-        attempt: &str,
-    ) -> Result<(), RpcError> {
-        self.may_steer(&ctx.actor, id, "Interrupt")?;
-        self.shared.interrupt(id, Some(attempt)).await?;
-        Self::touch_rail(ctx, id)
-    }
-
-    /// B6: write a held prompt only while the original Attempt still runs, checked under the
-    /// admission lock that claims the Terminal.
-    pub async fn prompt_attempt(
-        &self,
-        ctx: &Ctx,
-        params: contracts::agent::PromptParams,
-        attempt: &str,
-    ) -> Result<(), RpcError> {
-        let contracts::agent::PromptParams { id, text } = params;
-        self.may_steer(&ctx.actor, &id, "Steer")?;
-        self.shared
-            .prompt(&id, &text, None, Some(attempt), false, None)
-            .await
-            .map_err(PromptError::from)?;
-        Self::touch_rail(ctx, &id)
-    }
-
-    /// B6: check the original Attempt under the same locks that claim Stop's effect.
-    pub async fn stop_attempt(&self, ctx: &Ctx, id: &str, attempt: &str) -> Result<(), RpcError> {
-        self.shared.guard_reach(&ctx.actor, id, false)?;
-        let attempt = contracts::agent::parse_positive_ordinal(attempt)
-            .ok_or_else(|| RpcError::new(code::INVALID_PARAMS, "invalid original Attempt"))?;
-        self.shared
-            .end_with(
-                ctx.actor.clone(),
-                id,
-                Ending::StopAttempt(attempt),
-                RailPublication::Immediate,
-            )
-            .await?;
-        Self::touch_rail(ctx, id)
-    }
-}
-
-impl Agents {
     /// Daemon shutdown: end every running Agent's Claude Code through its own exit, concurrently,
     /// and return once each has exited or `CLEAN_EXIT_BOUND` has passed. What is left running is
     /// the caller's to kill.
@@ -136,10 +89,7 @@ impl Shared {
         ending: Ending,
         publication: RailPublication,
     ) -> Result<(), RpcError> {
-        let remove = !matches!(
-            ending,
-            Ending::Stop | Ending::StopAttempt(_) | Ending::StopForRemoval
-        );
+        let remove = !matches!(ending, Ending::Stop | Ending::StopForRemoval);
         let checked_node = if ending == Ending::Remove {
             Some(self.rail().node(id)?)
         } else {
@@ -167,19 +117,6 @@ impl Shared {
                 )));
             }
             let mut runs = self.runs();
-            if let Ending::StopAttempt(expected) = ending {
-                let expected = expected.to_string();
-                if node.attempt.as_deref() != Some(expected.as_str())
-                    || runs.get(id).is_none_or(|slot| {
-                        slot.attempt() != expected
-                            || matches!(slot, Slot::Running(run) if run.ended)
-                    })
-                {
-                    return Err(RpcError::conflict(format!(
-                        "{id}: original Attempt changed or ended before Stop"
-                    )));
-                }
-            }
             if !remove
                 && node.terminal_id.is_none()
                 && runs
@@ -454,8 +391,6 @@ pub(super) enum RailPublication {
 pub(super) enum Ending {
     /// Stop the program; the node stays on the Rail.
     Stop,
-    /// Stop only while the original Attempt still owns the node.
-    StopAttempt(i64),
     /// A34: stop without publishing a Rail change before coordinated removal commits.
     StopForRemoval,
     /// A16: delete the node and its Worktree when landed.
@@ -605,7 +540,7 @@ mod tests {
     async fn a7_stop_types_claude_codes_exit_keys_and_sends_no_kill() {
         let dir = tempfile::tempdir().unwrap();
         let typed = dir.path().join("typed");
-        let (arrived, held) = tokio::sync::oneshot::channel();
+        let (arrived, parked) = tokio::sync::oneshot::channel();
         let arrived = std::sync::Mutex::new(Some(arrived));
         let (release, released) = std::sync::mpsc::channel();
         let released = std::sync::Mutex::new(released);
@@ -632,7 +567,7 @@ mod tests {
                 crate::ending::kill_or_already_gone(&*kill, &terminals, &id).await
             })
         };
-        held.await.unwrap();
+        parked.await.unwrap();
         // Hold Terminal publication after process exit: cleanup must still await its event.
         let premature = tokio::time::timeout(crate::KILL_WAIT_BOUND / 2, &mut stopping).await;
         release.send(()).unwrap();

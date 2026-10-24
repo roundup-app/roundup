@@ -14,7 +14,7 @@ import { Icon } from "../ink/Icon";
 import { doorStateOf, doorStateText } from "../rail/doorState";
 import { useConnectedProject } from "../state/connectedProject";
 import { registerKeys } from "../keys/registry";
-import { CHORDS, TAKE_CONTROL_KEYS } from "../keys/chords";
+import { CHORDS } from "../keys/chords";
 import { KeyHint } from "../keys/KeyHint";
 import { createXtermEmulators } from "./emulator";
 import type { EmulatorFactory } from "./emulator";
@@ -34,35 +34,8 @@ export const Pane = (props: { notice?: string | null; createEmulator?: EmulatorF
   const storage = fontSizeStorage(connected.project.path);
   let fontSize: number | undefined;
   let zoomed = storage.read() !== null;
-  const [takeFailure, setTakeFailure] = createSignal<string | null>(null);
   const [storageFailure, setStorageFailure] = createSignal<string | null>(null);
   const createEmulator = props.createEmulator ?? createXtermEmulators();
-
-  /** U375: an Agent below a Door is read-only until the user takes it over; the Door itself is always typed into (U467),
-   * and a child that needs you takes keys, so the user answers its question or permission in its own Terminal (U468). */
-  const inWatch = (): boolean => {
-    const id = rail.selected();
-
-    return id !== null && !isDoor(id) && belowDoor(id) && !needsYou(id) && connected.takeover.taken() !== id;
-  };
-
-  const needsYou = (id: string): boolean => rail.nodes.find((node) => node.id === id)?.status?.kind === "needs-you";
-
-  const belowDoor = (from: string): boolean => {
-    for (let id: string | null = from; id !== null; ) {
-      const found = rail.nodes.find((node) => node.id === id);
-
-      if (found === undefined) return false;
-
-      if (found.kind === "workstream") return true;
-
-      id = found.parent;
-    }
-
-    return false;
-  };
-
-  const isDoor = (id: string): boolean => rail.nodes.find((node) => node.id === id)?.kind === "workstream";
 
   const screens = createScreens(connected, (id) => {
     fontSize ??= storage.read() ?? appSettings().fontSize;
@@ -71,7 +44,7 @@ export const Pane = (props: { notice?: string | null; createEmulator?: EmulatorF
     emulator.setFontSize(fontSize);
 
     return emulator;
-  }, (id) => inWatch() && id === terminalId(), () => setRefused(true));
+  });
 
   createEffect(on(() => appSettings().fontSize, size => {
     if (!zoomed) { fontSize = size; screens.setFontSize(size); refitNextFrame(); }
@@ -112,7 +85,7 @@ export const Pane = (props: { notice?: string | null; createEmulator?: EmulatorF
 
   const terminalId = createMemo(() => selected()?.terminal_id ?? null);
   /** U38: a failure that fills this region shows in its place, never beside its empty line. */
-  const notice = createMemo(() => props.notice ?? storageFailure() ?? takeFailure() ?? rail.doorFailure(selected()?.id ?? "") ?? (screens.viewedInBubble(terminalId() ?? "") ? null : screens.failure(terminalId())));
+  const notice = createMemo(() => props.notice ?? storageFailure() ?? rail.doorFailure(selected()?.id ?? "") ?? (screens.viewedInBubble(terminalId() ?? "") ? null : screens.failure(terminalId())));
   const [screen, setScreen] = createSignal<HTMLDivElement>();
   let pendingFrame: number | null = null;
 
@@ -163,7 +136,7 @@ export const Pane = (props: { notice?: string | null; createEmulator?: EmulatorF
     }
 
     untrack(() => {
-      const size = screens.show(id, host, !rail.restored() && !inWatch());
+      const size = screens.show(id, host, !rail.restored());
 
       screens.resize(id, size);
     });
@@ -182,9 +155,6 @@ export const Pane = (props: { notice?: string | null; createEmulator?: EmulatorF
 
     return screens.isAtBottom(id) ? null : id;
   });
-
-  /** U532: a key landed on the watched pane, so the band says why nothing was sent. */
-  const [refused, setRefused] = createSignal(false);
 
   /** U106: the Terminal screen's own chords, run by the registry before xterm.js sees them. */
   const inScreen = (press: KeyboardEvent): boolean => {
@@ -217,55 +187,9 @@ export const Pane = (props: { notice?: string | null; createEmulator?: EmulatorF
     { chords: ["Meta+0"], ...onScreen(resize("reset"), true) },
   ]);
 
-  const leftThePane = (leave: FocusEvent): void => {
-    if (!(leave.relatedTarget instanceof Element) || !leave.relatedTarget.closest(".pane-screen")) setRefused(false);
-  };
-
-  const taken = (): boolean => {
-    const id = selected()?.id ?? null;
-
-    return id !== null && connected.takeover.taken() === id;
-  };
-
-  createEffect(on(() => rail.selected(), () => setTakeFailure(null), { defer: true }));
-  createEffect(() => { if (!inWatch()) setRefused(false); });
-
-  const takeOver = async (): Promise<void> => {
-    const id = selected()?.id;
-
-    if (id === undefined) return;
-
-    setTakeFailure(null);
-
-    const failure = await connected.takeover.begin(id);
-
-    setTakeFailure(failure);
-
-    if (failure === null) focusTerminal();
-  };
-
-  let toggleControl: HTMLButtonElement | undefined;
-
-  const giveBack = async (): Promise<void> => {
-    const id = selected()?.id;
-
-    if (id === undefined) return;
-
-    setTakeFailure(null);
-    const failure = await connected.takeover.end(id);
-
-    if (selected()?.id === id) {
-      setTakeFailure(failure);
-
-      if (failure === null) toggleControl?.focus();
-    }
-  };
-
-  /** P3557c: only a Takeover or Terminal failure is the user's to dismiss; a retention, Rail or Daemon line keeps its own recovery. */
+  /** P3557c: only a Terminal failure is the user's to dismiss; a retention, Rail or Daemon line keeps its own recovery. */
   const dismissFailure = (): (() => void) | null => {
     if (props.notice != null || storageFailure() !== null) return null;
-
-    if (takeFailure() !== null) return () => setTakeFailure(null);
 
     const id = terminalId();
 
@@ -278,31 +202,6 @@ export const Pane = (props: { notice?: string | null; createEmulator?: EmulatorF
     if (current !== null) screens.emulatorFor(current).focus();
   };
 
-  const toggle = (): Promise<void> => (taken() ? giveBack() : takeOver());
-
-  /** U531: `⌘⏎` takes control of the selected Agent in Watch and gives it back in a Takeover, from anywhere but a text field or a Shelf row button; a Terminal's own input counts as neither. */
-  const ownsTakeControl = (target: EventTarget | null): boolean => {
-    if (!(target instanceof Element)) return true;
-
-    if (target.closest(".shelf-row") && target.closest("button")) return false;
-
-    return !target.closest('input, textarea, [contenteditable="true"]') || (!!target.closest(".xterm-helper-textarea") && (inWatch() || taken()));
-  };
-
-  registerKeys({ kind: "app" }, [{
-    action: CHORDS.find((row) => row.keys === TAKE_CONTROL_KEYS)!,
-    when: (press) => ownsTakeControl(press.target),
-    capture: (target) => ({
-      available: () => {
-        const id = terminalId();
-
-        return ownsTakeControl(target) && (inWatch() || taken()) && id !== null && !screens.exited(id)
-          && connected.daemonExit() === null && selected()?.kind === "agent";
-      },
-      invoke: () => void toggle(),
-    }),
-  }]);
-
   // U162: the window's native File drop, reported by the App seam. The ring shows only while a drop would be taken.
   const [dropOver, setDropOver] = createSignal(false);
   let body: HTMLElement | undefined;
@@ -310,7 +209,7 @@ export const Pane = (props: { notice?: string | null; createEmulator?: EmulatorF
   const takesDrop = (): string | null => {
     const id = terminalId();
 
-    return id !== null && !inWatch() && connected.daemonExit() === null && !screens.exited(id) ? id : null;
+    return id !== null && connected.daemonExit() === null && !screens.exited(id) ? id : null;
   };
 
   const inBody = (x: number, y: number): boolean => {
@@ -375,7 +274,7 @@ export const Pane = (props: { notice?: string | null; createEmulator?: EmulatorF
   });
 
   return (
-    <div class="pane" data-takeover={taken() ? "" : undefined} onFocusOut={leftThePane}>
+    <div class="pane">
       <Show when={selected()?.kind === "workstream"}>
         <div class="measurement-action" classList={{ "pane-origin-hidden": dashboard() }}><button ref={dashboardAction} data-button="quiet" type="button" onClick={() => setView("dashboard")}>{copy.measurementTime}</button><button ref={timelineAction} data-button="quiet" type="button" onClick={() => setView("timeline")}>{copy.timeline}</button></div>
       </Show>
@@ -392,16 +291,6 @@ export const Pane = (props: { notice?: string | null; createEmulator?: EmulatorF
           watch(element);
         }}
       >
-        <Show when={taken() || (inWatch() && terminalId() !== null && !screens.exited(terminalId()!))}>
-          <div class="pane-control" data-state={taken() ? "controlled" : "managed"}>
-            <div class="pane-control-state" data-label={taken() ? copy.youControl : copy.managed}>
-              <ReservedLine status={taken() ? copy.youControl : refused() ? copy.managedTypingNotSent : copy.managed} />
-            </div>
-            <Show when={selected()?.kind === "agent"}>
-              <button data-button="quiet" type="button" class="word" aria-label={taken() ? copy.endTheTakeover : copy.takeOver} aria-keyshortcuts="Meta+Enter" aria-disabled={connected.daemonExit() !== null ? true : undefined} ref={toggleControl} onClick={() => { if (connected.daemonExit() === null) void toggle(); }}>{taken() ? copy.endTheTakeover : copy.takeOver}<span class="light" aria-hidden="true">{" "}{TAKE_CONTROL_KEYS}</span></button>
-            </Show>
-          </div>
-        </Show>
         <div class="pane-screen" ref={setScreen} />
         <Show when={selected() === null && notice() === null}>
           <Show when={rail.nodes.length === 0} fallback={<p class="pane-empty">{copy.selectAnAgentOrATerminal}</p>}>

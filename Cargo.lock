@@ -3792,6 +3792,7 @@ dependencies = [
  "cap-std",
  "checkpoints",
  "contracts",
+ "getrandom 0.3.4",
  "messages",
  "pads",
  "percent-encoding",

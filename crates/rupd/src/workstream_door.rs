@@ -11,7 +11,7 @@ use tokio::net::UnixListener;
 use super::{Daemon, serve};
 
 #[tokio::test]
-async fn a7_b1_b6_b9_real_daemon_fences_old_status_after_door_restart() {
+async fn a7_b1_b9_real_daemon_fences_old_status_after_door_restart() {
     let project = tempfile::tempdir().unwrap();
     let dir = project.path().join(".roundup");
     std::fs::create_dir(&dir).unwrap();
@@ -44,10 +44,7 @@ async fn a7_b1_b6_b9_real_daemon_fences_old_status_after_door_restart() {
         modules: Default::default(),
         todos: Arc::new(todos::Todos::open(&dir, bus.clone()).unwrap()),
         pads: Arc::new(pads::Pads::open(&dir, bus.clone()).unwrap()),
-        door_first_steers: Default::default(),
-        child_effects: Default::default(),
         specialists: Default::default(),
-        held_actions: crate::resize::HeldActions::open(&dir).unwrap(),
         bus: bus.clone(),
         project: dir.to_path_buf(),
         project_key: String::new(),
@@ -73,13 +70,7 @@ async fn a7_b1_b6_b9_real_daemon_fences_old_status_after_door_restart() {
         auto: crate::auto::Auto::new(&bus),
     };
     daemon.register(Arc::new(
-        messages::Messages::open(
-            &dir,
-            bus.clone(),
-            agents.clone(),
-            Arc::new(|_, _| Box::pin(async { Err(messages::Refusal::Busy) })),
-        )
-        .unwrap(),
+        messages::Messages::open(&dir, bus.clone(), agents.clone()).unwrap(),
     ));
     daemon.register(agents);
     daemon.register(terminals);
@@ -109,22 +100,17 @@ async fn a7_b1_b6_b9_real_daemon_fences_old_status_after_door_restart() {
     let send = json!({"to":id,"kind":"note","body":"pending"});
     let old = client.request("message.send", send.clone()).await.unwrap();
     client
-        .request("takeover.begin", json!({"agent":id}))
-        .await
-        .unwrap();
-    client
         .request("agent.stop", json!({"id":id}))
         .await
         .unwrap();
-    for (method, params) in [
-        ("message.send", send.clone()),
-        ("takeover.begin", json!({"agent":id})),
-    ] {
-        assert_eq!(
-            client.request(method, params).await.unwrap_err().code,
-            rpc::code::CONFLICT
-        );
-    }
+    assert_eq!(
+        client
+            .request("message.send", send.clone())
+            .await
+            .unwrap_err()
+            .code,
+        rpc::code::CONFLICT
+    );
     let second = client
         .request("rail.startDoor", json!({"id":id}))
         .await
@@ -153,10 +139,6 @@ async fn a7_b1_b6_b9_real_daemon_fences_old_status_after_door_restart() {
     .unwrap();
     let new = client.request("message.send", send.clone()).await.unwrap();
     assert_eq!(new["status"], "pending");
-    client
-        .request("takeover.begin", json!({"agent":id}))
-        .await
-        .unwrap();
     let ext = Client::connect(&socket).await.unwrap();
     ext.request(
         "daemon.identify",
@@ -164,8 +146,8 @@ async fn a7_b1_b6_b9_real_daemon_fences_old_status_after_door_restart() {
     )
     .await
     .unwrap();
-    let held = ext.request("message.send", send).await.unwrap();
-    assert_eq!(held["status"], "held");
+    let from_ext = ext.request("message.send", send).await.unwrap();
+    assert_eq!(from_ext["status"], "pending");
     let mut events = Client::connect(&socket).await.unwrap();
     events
         .request("events.subscribe", Value::Null)
@@ -210,21 +192,13 @@ async fn a7_b1_b6_b9_real_daemon_fences_old_status_after_door_restart() {
     })
     .await
     .unwrap();
-    for (message, expected) in [(&old, "dropped"), (&new, "held"), (&held, "held")] {
+    for (message, expected) in [(&old, "dropped"), (&new, "pending"), (&from_ext, "pending")] {
         let found = client
             .request("message.get", json!({"id":message["id"]}))
             .await
             .unwrap();
         assert_eq!(found["status"], expected);
     }
-    let again = ext
-        .request(
-            "message.send",
-            json!({"to":id,"kind":"note","body":"still held"}),
-        )
-        .await
-        .unwrap();
-    assert_eq!(again["reason"], "takeover");
     let stale = client
         .request(
             "agent.signal",
@@ -244,121 +218,6 @@ async fn a7_b1_b6_b9_real_daemon_fences_old_status_after_door_restart() {
         nodes.iter().find(|n| n["id"] == workstream["id"]).unwrap()["terminal_id"],
         second["terminal_id"]
     );
-    daemon.stop_terminals().await.unwrap();
-    serving.abort();
-}
-
-#[tokio::test]
-async fn u467_unsent_terminal_input_is_not_clobbered() {
-    let project = tempfile::tempdir().unwrap();
-    let dir = project.path().join(".roundup");
-    std::fs::create_dir(&dir).unwrap();
-    let fake = project.path().join("fake-claude");
-    std::fs::write(&fake, "#!/bin/sh\nif [ \"$1\" = plugin ] && [ \"$2\" = test ]; then echo 'Q11 runtime hook closure: 1 pass'; exit 0; fi\nwhile read line; do :; done\n").unwrap();
-    std::fs::set_permissions(&fake, std::fs::Permissions::from_mode(0o755)).unwrap();
-    let rup = project.path().join("rup");
-    std::fs::write(&rup, "").unwrap();
-    crate::storage::open(&dir).unwrap();
-    let bus = Bus::new();
-    let terminals = Arc::new(terminal::Terminals::open(&dir, bus.clone()).unwrap());
-    let agents = Arc::new(
-        agents::Agents::open_with(
-            &dir,
-            bus.clone(),
-            terminals.clone(),
-            Launcher::new(
-                fake.to_str().unwrap(),
-                project.path().join("claude.json"),
-                rup,
-                None,
-            ),
-            agents::worktree::Git::from_env(),
-        )
-        .unwrap(),
-    );
-    let messages = Arc::new(
-        messages::Messages::open(
-            &dir,
-            bus.clone(),
-            agents.clone(),
-            Arc::new(|_, _| Box::pin(async { Err(messages::Refusal::Busy) })),
-        )
-        .unwrap(),
-    );
-    let sender = Arc::new(std::sync::OnceLock::new());
-    sender.set(messages.clone()).ok();
-    let touches = Arc::new(provenance::Touches::open(&dir.join("provenance.db")).unwrap());
-    let mut daemon = Daemon {
-        terminals: terminals.clone(),
-        modules: Default::default(),
-        todos: Arc::new(todos::Todos::open(&dir, bus.clone()).unwrap()),
-        pads: Arc::new(pads::Pads::open(&dir, bus.clone()).unwrap()),
-        door_first_steers: Default::default(),
-        child_effects: Default::default(),
-        specialists: Default::default(),
-        held_actions: crate::resize::HeldActions::open(&dir).unwrap(),
-        bus: bus.clone(),
-        project: dir.to_path_buf(),
-        project_key: String::new(),
-        touches,
-        digests: Default::default(),
-        pushes: Default::default(),
-        waits: Default::default(),
-        resources: Default::default(),
-        publications: crate::deliverables::Publications::in_memory(dir.join("deliverables")),
-        reactions: std::sync::Arc::new(crate::reaction::Reactions::in_memory()),
-        prompt_effect_gate: None,
-        agents: agents.clone(),
-        renames: std::sync::Mutex::new(None),
-        owner_events: std::sync::Mutex::new(None),
-        wake_events: Default::default(),
-        wake_gate: Default::default(),
-        sender,
-        attachments: crate::attachment::Attachments::open(&dir),
-        clears: Default::default(),
-        checkpoints: Arc::new(checkpoints::Checkpoints::open(&dir).unwrap()),
-        rewinding: Default::default(),
-        queue: Default::default(),
-        auto: crate::auto::Auto::new(&bus),
-    };
-    daemon.register(messages);
-    daemon.register(agents);
-    daemon.register(terminals);
-    let daemon = Arc::new(daemon);
-    let socket = project.path().join("rupd.sock");
-    let serving = tokio::spawn(serve(UnixListener::bind(&socket).unwrap(), daemon.clone()));
-    let client = Client::connect(&socket).await.unwrap();
-    let agent = client
-        .request(
-            "agent.spawn",
-            json!({"cwd":project.path(),"prompt":null,"parent":null}),
-        )
-        .await
-        .unwrap();
-    let send = json!({"to":agent["id"],"kind":"note","body":"for the agent"});
-    let write = |data: &'static str| {
-        client.request(
-            "terminal.write",
-            json!({"id":agent["terminal_id"],"data":data}),
-        )
-    };
-
-    write("d2lw").await.unwrap(); // "wip"
-    let held = client.request("message.send", send.clone()).await.unwrap();
-    assert_eq!(
-        (held["status"].as_str(), held["reason"].as_str()),
-        (Some("held"), Some("takeover"))
-    );
-
-    write("DQ==").await.unwrap(); // "\r"
-    let released = client
-        .request("message.get", json!({"id":held["id"]}))
-        .await
-        .unwrap();
-    assert_eq!(released["status"], "pending");
-    let after = client.request("message.send", send).await.unwrap();
-    assert_eq!(after["status"], "pending");
-
     daemon.stop_terminals().await.unwrap();
     serving.abort();
 }

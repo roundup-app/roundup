@@ -52,21 +52,27 @@ async fn a32_the_workstream_and_its_terminals_survive() {
             break;
         }
     }
-    assert!(
-        model.journal().iter().any(|entry| entry["body"]["tools"]
-            .as_array()
-            .is_some_and(|tools| !tools.is_empty())
-            && entry["body"]["messages"]
+    // Peer digests start turns of their own, so the Clear prompt's turn may end after the first idle.
+    daemon::h21_poll("Clear to reach real Claude", async || {
+        (model.journal().iter().any(|entry| {
+            entry["body"]["tools"]
                 .as_array()
-                .is_some_and(
-                    |messages| messages.iter().any(|message| message["role"] == "user"
-                        && message["content"]
-                            .as_str()
-                            .is_some_and(|text| text.contains("preserve the terminals")
-                                && text.contains("workstream_handoff")))
-                )),
-        "Clear must reach real Claude"
-    );
+                .is_some_and(|tools| !tools.is_empty())
+                && entry["body"]["messages"]
+                    .as_array()
+                    .is_some_and(|messages| {
+                        messages.iter().any(|message| {
+                            message["role"] == "user"
+                                && message["content"].as_str().is_some_and(|text| {
+                                    text.contains("preserve the terminals")
+                                        && text.contains("workstream_handoff")
+                                })
+                        })
+                    })
+        }))
+        .then_some(())
+    })
+    .await;
     let actor = project.client().await;
     actor
         .request(
@@ -179,21 +185,27 @@ async fn a32_worktrees_and_branches_survive_even_dirty() {
             break;
         }
     }
-    assert!(
-        model.journal().iter().any(|entry| entry["body"]["tools"]
-            .as_array()
-            .is_some_and(|tools| !tools.is_empty())
-            && entry["body"]["messages"]
+    // Peer digests start turns of their own, so the Clear prompt's turn may end after the first idle.
+    daemon::h21_poll("Clear to reach real Claude", async || {
+        (model.journal().iter().any(|entry| {
+            entry["body"]["tools"]
                 .as_array()
-                .is_some_and(
-                    |messages| messages.iter().any(|message| message["role"] == "user"
-                        && message["content"]
-                            .as_str()
-                            .is_some_and(|text| text.contains("preserve dirty worktrees")
-                                && text.contains("workstream_handoff")))
-                )),
-        "Clear must reach real Claude"
-    );
+                .is_some_and(|tools| !tools.is_empty())
+                && entry["body"]["messages"]
+                    .as_array()
+                    .is_some_and(|messages| {
+                        messages.iter().any(|message| {
+                            message["role"] == "user"
+                                && message["content"].as_str().is_some_and(|text| {
+                                    text.contains("preserve dirty worktrees")
+                                        && text.contains("workstream_handoff")
+                                })
+                        })
+                    })
+        }))
+        .then_some(())
+    })
+    .await;
     let actor = project.client().await;
     actor
         .request(
@@ -314,21 +326,27 @@ async fn a32_unkept_todos_and_pads_are_archived_not_lost() {
             break;
         }
     }
-    assert!(
-        model.journal().iter().any(|entry| entry["body"]["tools"]
-            .as_array()
-            .is_some_and(|tools| !tools.is_empty())
-            && entry["body"]["messages"]
+    // Peer digests start turns of their own, so the Clear prompt's turn may end after the first idle.
+    daemon::h21_poll("Clear to reach real Claude", async || {
+        (model.journal().iter().any(|entry| {
+            entry["body"]["tools"]
                 .as_array()
-                .is_some_and(
-                    |messages| messages.iter().any(|message| message["role"] == "user"
-                        && message["content"]
-                            .as_str()
-                            .is_some_and(|text| text.contains("archive unkept items")
-                                && text.contains("workstream_handoff")))
-                )),
-        "Clear must reach real Claude"
-    );
+                .is_some_and(|tools| !tools.is_empty())
+                && entry["body"]["messages"]
+                    .as_array()
+                    .is_some_and(|messages| {
+                        messages.iter().any(|message| {
+                            message["role"] == "user"
+                                && message["content"].as_str().is_some_and(|text| {
+                                    text.contains("archive unkept items")
+                                        && text.contains("workstream_handoff")
+                                })
+                        })
+                    })
+        }))
+        .then_some(())
+    })
+    .await;
     let actor = project.client().await;
     actor
         .request(
@@ -478,21 +496,27 @@ async fn a32_kept_items_keep_their_ids_and_owners() {
             break;
         }
     }
-    assert!(
-        model.journal().iter().any(|entry| entry["body"]["tools"]
-            .as_array()
-            .is_some_and(|tools| !tools.is_empty())
-            && entry["body"]["messages"]
+    // Peer digests start turns of their own, so the Clear prompt's turn may end after the first idle.
+    daemon::h21_poll("Clear to reach real Claude", async || {
+        (model.journal().iter().any(|entry| {
+            entry["body"]["tools"]
                 .as_array()
-                .is_some_and(
-                    |messages| messages.iter().any(|message| message["role"] == "user"
-                        && message["content"]
-                            .as_str()
-                            .is_some_and(|text| text.contains("preserve kept items")
-                                && text.contains("workstream_handoff")))
-                )),
-        "Clear must reach real Claude"
-    );
+                .is_some_and(|tools| !tools.is_empty())
+                && entry["body"]["messages"]
+                    .as_array()
+                    .is_some_and(|messages| {
+                        messages.iter().any(|message| {
+                            message["role"] == "user"
+                                && message["content"].as_str().is_some_and(|text| {
+                                    text.contains("preserve kept items")
+                                        && text.contains("workstream_handoff")
+                                })
+                        })
+                    })
+        }))
+        .then_some(())
+    })
+    .await;
     let actor = project.client().await;
     actor
         .request(

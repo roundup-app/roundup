@@ -5,7 +5,7 @@ import { createServedApp } from "./realSeam";
 import { startRealDaemon } from "./realDaemonFixture";
 import type { StartedDaemon } from "./realDaemonFixture";
 
-/** U375's rendered observer: the real `rupd`, a Subagent selected in Watch and then in a Takeover, in a real Chromium at 1280×800. */
+/** The real `rupd` in a real Chromium: U2567c's attention capture. */
 
 const found = chromePath();
 
@@ -29,44 +29,6 @@ afterAll(async () => {
 
 run("u375 on the real Daemon", () => {
   vi.setConfig({ testTimeout: 120_000 });
-
-  it("u375_a_subagent_shows_managed_and_then_you_control", async () => {
-    const app = createServedApp(real.base);
-
-    await app.rpc("rail.createWorkstream", { name: "scope", parent: null });
-
-    const door = (await app.rpc("rail.tree", null)).find((node) => node.kind === "workstream")!;
-    const sub = await app.rpc("agent.spawn", { cwd: real.dir, prompt: null, parent: door.id });
-
-    await page.load(`${real.base}/harness.html?daemon=1`, 1280, 800);
-    await page.until(`() => [...document.querySelectorAll("*")].some((each) => each.children.length === 0 && each.textContent.trim() === ${JSON.stringify(sub.name)})`, 30_000);
-    await page.call(`(name) => [...document.querySelectorAll("*")].filter((each) => each.children.length === 0 && each.textContent.trim() === name).at(-1).click()`, sub.name);
-    await page.until(`() => /Managed/.test(document.body.textContent)`, 30_000);
-
-    const terminal = sub.terminal_id!;
-    const received = async () => (await app.rpc("terminal.snapshot", { id: terminal })).after;
-    const before = await received();
-
-    for (const [key, code] of [["h", "KeyH"], ["i", "KeyI"], ["Enter", "Enter"]] as const) await page.press(key, code);
-
-    await new Promise((done) => setTimeout(done, 2_000));
-    expect(await received()).toBe(before);
-
-    await page.call(`() => [...document.querySelectorAll("button")].find((each) => each.textContent.trim().startsWith("Take control")).click()`);
-    await page.until(`() => /You control/.test(document.body.textContent)`, 30_000);
-    expect(await page.call<boolean>(`() => !/read-only/.test(document.body.textContent)`)).toBe(true);
-
-    const watched = await received();
-
-    for (const [key, code] of [["h", "KeyH"], ["i", "KeyI"], ["Enter", "Enter"]] as const) await page.press(key, code);
-
-    for (let waited = 0; (await received()) === watched; waited += 250) {
-      if (waited >= 15_000) throw new Error("the Subagent's Terminal received nothing after the control");
-
-      await new Promise((done) => setTimeout(done, 250));
-    }
-
-  });
 
 it("u2567c_real_daemon_attention_opens_its_agents_terminal", async () => {
   const app = createServedApp(real.base);

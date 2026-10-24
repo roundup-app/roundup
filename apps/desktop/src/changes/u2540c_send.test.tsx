@@ -43,11 +43,11 @@ it("u2540c_acceptance_clears_only_the_submitted_batch", async () => {
   await waitFor(() => expect(app.calls.filter(call => call.method === "message.send")).toHaveLength(1));
   fireEvent.click(send);
   await saveNote("added meanwhile");
-  resolve(message(1, { to: "a", status: "held" }));
+  resolve(message(1, { to: "a", status: "pending" }));
   await waitFor(() => expect(screen.getByRole("list", { name: "Notes" }).textContent).not.toContain("submitted"));
   expect(screen.getByRole("list", { name: "Notes" }).textContent).toContain("added meanwhile");
   expect(app.calls.filter(call => call.method === "message.send")).toHaveLength(1);
-  expect(screen.getByRole("region", { name: "Agent notes" }).textContent).toContain("held");
+  expect(screen.getByRole("region", { name: "Agent notes" }).textContent).toContain("queued");
 });
 
 it("u2540c_rejection_and_unknown_acceptance_preserve_notes", async () => {

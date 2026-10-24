@@ -1,5 +1,5 @@
-//! B3, U3782: the user takes a Message back. A `held` one is released as `dropped`; a `pending` note of theirs that the
-//! Daemon has not typed is dropped as `removed`. `lib.rs` routes the call and `store.rs` keeps the rows.
+//! B3, U3782: the user takes a `pending` Message of theirs back; it is dropped as `removed`.
+//! `lib.rs` routes the call and `store.rs` keeps the rows.
 
 use contracts::message::{MessageId, MessageStatus, Reason};
 use contracts::{ActorKind, EventData, Verb};
@@ -7,24 +7,23 @@ use rpc::{Ctx, RpcError, reply};
 use rusqlite::params;
 use serde_json::Value;
 
-use super::step::Event;
+use super::receiver_view::user_drop_moves;
 use super::store::{Store, text_of};
-use super::{Messages, item, require_user, user_call_moves};
+use super::{Messages, item, require_user};
 
 impl Messages {
     pub(super) async fn drop_message(&self, ctx: &Ctx, p: MessageId) -> Result<Value, RpcError> {
-        require_user(ctx, "drop a held Message")?;
+        require_user(ctx, "drop a Message")?;
         let message = self.get_or_not_found(p.id)?;
-        if message.status == MessageStatus::Pending && message.from.kind == ActorKind::User {
-            // U3782: a note the user sent and the Daemon has not typed.
-            if !self.store()?.drop_pending(p.id, Reason::Removed)? {
-                return Err(RpcError::conflict(format!("message {} is in flight", p.id)));
-            }
-        } else {
-            if !user_call_moves(&message, Event::UserDrop(p.id)) {
-                return Err(RpcError::conflict(format!("message {} is not held", p.id)));
-            }
-            self.release_held(p.id, MessageStatus::Dropped, None)?;
+        if message.status != MessageStatus::Pending || message.from.kind != ActorKind::User {
+            return Err(RpcError::conflict(format!(
+                "message {} is not a pending Message of the user",
+                p.id
+            )));
+        }
+        let moves = user_drop_moves(&self.store()?.list_pending_to(&message.to)?, p.id);
+        if !moves || !self.store()?.drop_pending(p.id, Reason::Removed)? {
+            return Err(RpcError::conflict(format!("message {} is in flight", p.id)));
         }
         ctx.touch(Verb::Wrote, &item(p.id))?;
         let dropped = self.get_or_not_found(p.id)?;

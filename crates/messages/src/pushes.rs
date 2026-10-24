@@ -1,5 +1,5 @@
 //! B22: what keeps pushed digests (B21) from flooding a Door. At most 8 go out in any
-//! 60 000 ms; the rest wait and leave as one rollup; at most 20 stay `pending` or `held`, the
+//! 60 000 ms; the rest wait and leave as one rollup; at most 20 stay `pending`, the
 //! oldest two merging into one when a twenty-first arrives. No cap loses a count: each digest has
 //! a weight, read from its body, and a rollup or a merge weighs what it holds.
 
@@ -32,7 +32,7 @@ pub(crate) struct Ledger {
 struct Slot {
     /// When the pushes of the last window went out, oldest first.
     sent: VecDeque<i64>,
-    /// The entries of the changes held back, oldest first.
+    /// The entries of the changes kept back, oldest first.
     waiting: Vec<(String, DigestEntry, u32)>,
 }
 
@@ -65,7 +65,7 @@ pub(crate) fn weight(body: &str) -> u32 {
     };
     let digits = counted.bytes().take_while(u8::is_ascii_digit).count();
     let rest = &counted[digits..];
-    if rest.starts_with(" updates held back]") || rest.starts_with(" earlier updates: ") {
+    if rest.starts_with(" updates kept back]") || rest.starts_with(" earlier updates: ") {
         counted[..digits].parse().unwrap_or(1)
     } else {
         1
@@ -253,7 +253,7 @@ pub(crate) fn merged_body(older: &Message, newer: &Message) -> String {
 /// B22(a): the Message that stands for the `waiting` changes, oldest first.
 fn rollup_body(waiting: &[(String, DigestEntry, u32)]) -> String {
     let count: u32 = waiting.iter().map(|(_, _, weight)| weight).sum();
-    let header = format!("{PREFIX} [{count} updates held back]");
+    let header = format!("{PREFIX} [{count} updates kept back]");
     compose(
         &header,
         &waiting
@@ -281,7 +281,7 @@ pub(crate) async fn push(inner: &Arc<Inner>, meta: &str, subagent: &str, entry: 
     roll_up(inner, meta, slot, now, plain).await;
 }
 
-/// B22(a): at the window's end, the changes held back go out as one Message.
+/// B22(a): at the window's end, the changes kept back go out as one Message.
 pub(crate) async fn flush(inner: &Arc<Inner>) {
     let mut ledger = inner.pushes.lock().await;
     let now = (inner.clock)();

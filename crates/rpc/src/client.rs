@@ -137,7 +137,7 @@ impl Drop for Client {
 
 /// Reserves `id` in `pending` unless `mark_closed` already ran. Holding the lock across the
 /// check and the insert is what makes the two mutually exclusive with `mark_closed`'s own
-/// lock-held clear: a reservation always either completes before the clear (and is woken by
+/// lock-parked clear: a reservation always either completes before the clear (and is woken by
 /// it, below) or is refused, never both.
 fn reserve(state: &State, id: u64, tx: Waiter) -> Result<(), RpcError> {
     let mut state = state.lock().map_err(RpcError::internal)?;

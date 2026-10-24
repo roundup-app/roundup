@@ -70,7 +70,7 @@ it("u399_alt_enter_and_the_other_chords_write_what_they_did", () => {
   }
 });
 
-it("u399_a_held_shift_enter_writes_a_line_each_repeat", () => {
+it("u399_a_repeating_shift_enter_writes_a_line_each_repeat", () => {
   const { sent, press } = open();
 
   press({ shiftKey: true });

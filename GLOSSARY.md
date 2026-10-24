@@ -18,7 +18,6 @@ The single collection of App-authored labels and parameterised prose, separate f
 | Code term | User label in App prose |
 | --- | --- |
 | Door | supervisor |
-| Takeover | control |
 | Shelf | work items |
 | Handoff | summary |
 
@@ -26,8 +25,6 @@ The single collection of App-authored labels and parameterised prose, separate f
 | --- | --- |
 | Start Door | Start supervisor |
 | Retry Door | Retry supervisor |
-| End Takeover | Give control back |
-| Take over | Take control |
 | Clear without Handoff | Clear without a summary |
 | Clear (prompt submit) | Clear and keep a summary |
 
@@ -171,8 +168,8 @@ What the Daemon's evaluator knows of an Agents Reaction: the Event `cursor` it d
 **Mark**:
 The Daemon’s durable record of one Agent at a Checkpoint: the end of its conversation and a snapshot of its tracked and untracked working files git does not ignore. A complete set belongs to one Iteration; invalidated Marks remain stored but unusable (A35).
 
-**Rewind** (`workstream.rewindPlan`, `workstream.rewind`, `workstream.rewound`, `workstream_rewindPlan`, `workstream_rewind`, `HeldCall::Rewind`):
-A Door's tool call that takes one child, or every child of its Workstream, back to one of its Checkpoints: each rewound Agent restarts on a copy of its conversation cut at its Mark, and the working files return to the Mark only when the call says `restore`. A child that started after the Checkpoint leaves the Rail. A child the user holds in Takeover waits as a Held action. It is not Claude Code's own `/rewind`, which the user types in a child's Terminal, and it never types one (A35).
+**Rewind** (`workstream.rewindPlan`, `workstream.rewind`, `workstream.rewound`, `workstream_rewindPlan`, `workstream_rewind`):
+A Door's tool call that takes one child, or every child of its Workstream, back to one of its Checkpoints: each rewound Agent restarts on a copy of its conversation cut at its Mark, and the working files return to the Mark only when the call says `restore`. A child that started after the Checkpoint leaves the Rail. It is not Claude Code's own `/rewind`, which the user types in a child's Terminal, and it never types one (A35).
 _Avoid_: roll back
 
 **Checkpoint**:
@@ -182,7 +179,7 @@ A short card of facts a Door writes when its Workstream's work reaches a point w
 One part of a Checkpoint that the Door chooses: `rows` (label and value), `table`, `diagram` (Mermaid source) or `text`, each with an optional title (M10).
 
 **Rollup**:
-The one Message that stands for the pushed Digests a window's cap held back (B22), or the merge of the oldest two when more than 20 are open. Each pushed Digest has a weight, the number of changes it stands for, so no cap loses a count.
+The one Message that stands for the pushed Digests a window's cap kept back (B22), or the merge of the oldest two when more than 20 are open. Each pushed Digest has a weight, the number of changes it stands for, so no cap loses a count.
 
 **Attempt**:
 One launch of an Agent's program, numbered per Agent from `1` in launch order (A20). It travels in the hook command, `SignalParams`, `StatusEvent` and `RailNode.attempt` as a canonical positive decimal string within SQLite's signed 64-bit range; a client may compare two of one Agent and reads nothing else from it. Never a Rail identity or a vendor conversation id; the last one survives stop, failure and reopen.
@@ -435,14 +432,8 @@ _Avoid_: cancel, abort
 **Toast**:
 A small card with an Agent's Glyph, its name and one line, shown for a moment when that Agent needs the user, fails or changes the user's work; it hides by itself and is never kept in a list.
 
-**Takeover**:
-The user typing into an Agent directly; meanwhile no other Actor sends it anything.
-
-**Watch**:
-The user reading an Agent's Terminal pane without typing into it; no Takeover, so nothing is held and no work stops.
-
 **Work order**:
-The ask an Agent works on, optionally its Done condition, and its limits, rules that each read on their own, such as "Change no file in the repo", held on the Agent's Rail node. Not a Work Issue.
+The ask an Agent works on, optionally its Done condition, and its limits, rules that each read on their own, such as "Change no file in the repo", kept on the Agent's Rail node. Not a Work Issue.
 
 **Instruction** (`Instruction`, `InstructionRevision`, `Instructions`, `agent.instructions`, `agent_instructions`):
 Exact Work order values or a Message's identity and body, retained under a never-reused Project revision with its original Agent and Workstream. A replacement is a new revision even with equal bytes; Home follows the user's placement while historical attribution stays fixed.
@@ -456,7 +447,7 @@ The sentence in a Work order that says how the Agent knows it is done (`order.do
 **Captured Order** (`CapturedOrder`, `SetOrderParams.captured`):
 The exact Order (including its absence) read with an editor's original Project and
 Rail node id. `agent.setOrder` compares it and replaces the Order in one storage
-transaction at execution, including after a Held action: a changed base is
+transaction at execution: a changed base is
 `CONFLICT`, a removed id is `NOT_FOUND`, and refusal produces no Touch, Event or
 Steer. Omission keeps unconditional writes. It grants no authority.
 
@@ -482,7 +473,7 @@ What `agent.context` returns for one Agent: its own Status, its parent, whom to 
 Whether one Agent's `roundup` MCP server (`rup mcp <id>`) has reported to the Daemon: `pending`, `up` or `missing`. Not the vendor's own channels feature.
 
 **Claude inbox**:
-Claude Code's own messaging socket for a message from another Claude Code instance, which the Adapter uses for non-user Messages, notes and questions, instead of typing them (B50). The Rail fact `inbox` is `ok`, `missing` or `mismatch` (B51). Not the user's Inbox.
+Claude Code's own messaging socket for a message from another Claude Code instance, which the Adapter uses for every Message to an Agent, notes and questions, never typing them (B50, B3563c). The Rail fact `inbox` is `ok`, `missing` or `mismatch` (B51). Not the user's Inbox.
 
 **Mcp**:
 The Project setting `mcp {on}` (`project.setMcp`, M2219): with `on` false, or the Daemon's `ROUNDUP_MCP=off`, an Agent starts with no `roundup` MCP server and its Brief names `rup` commands. Only Agents started afterward change.
@@ -518,22 +509,19 @@ The conversation with a Workstream's Door about that Workstream's work, not a se
 _Avoid_: chat, main agent
 
 **Message**:
-A typed envelope `{from, to, kind, body, replyTo}` between Actors, with a status of `pending`, `held`, `delivered` or `dropped`. `delivered` means the Agent's Signal confirmed the prompt that carried it, not that it was typed (B39).
+A typed envelope `{from, to, kind, body, replyTo}` between Actors, with a status of `pending`, `delivered` or `dropped`. An Agent-addressed Message is written to the receiving Attempt's Claude inbox, never typed into a Terminal; it is `delivered` only when its transcript receipt arrives (B3563c).
 
-**In-flight record** (`message_flight`, `SignalOutcome`, `Agents::observe_prompts`, `Messages::confirm_prompt`):
-The saved mark that a pending Message was typed in a prompt and its `UserPromptSubmit` Signal has not confirmed it; a Message is `delivered` only when that Signal arrives, and a prompt that only repeats delivered Messages is dropped by the hook (B39, B40).
+**In-flight record** (`message_flight`):
+The saved mark that a pending Message was written to the receiving Attempt's Claude inbox and its transcript receipt has not arrived; a Message is `delivered` only when that receipt arrives (B50, B52).
 
 **Restart reservation**:
-The Daemon coordinator's durable hold on Message delivery to a retained Agent during its conversation restart (A35), separate from a Takeover. Pending and held Messages keep their states and Reasons until release after SessionStart and the reserved first prompt, which the Door's Thread records once without another Steer.
+The Daemon coordinator's durable protection of Message delivery to a retained Agent during its conversation restart (A35). Pending Messages keep their states and Reasons until release after SessionStart and the reserved first prompt, which the Door's Thread records once without another Steer.
 
 **Retirement reservation**:
-The Daemon coordinator's durable protection of a selected later Agent's existing Messages during A35 removal from the Rail. Completion keeps those records unchanged and permanently ineligible for typing, separate from a retained Agent's Restart reservation and from Takeover consent.
+The Daemon coordinator's durable protection of a selected later Agent's existing Messages during A35 removal from the Rail. Completion keeps those records unchanged and permanently ineligible for delivery, separate from a retained Agent's Restart reservation.
 
 **Route**:
-A sender→receiver pair with a delivery value: `auto | ask-first | drop`.
-
-**Held**:
-A Message waiting on an ask-first Route, the end of a Takeover, the submit or clear of unsent input.
+A sender→receiver pair with a delivery value: `auto | drop`.
 
 **Draft** (`draftStorage`):
 Unsubmitted user-entered content and selections belonging to one original Project,
@@ -541,11 +529,8 @@ surface, object and recipient, separate from a vendor's live editor. A revision 
 one exact recovery snapshot, whether current, pending, failed or of unknown acceptance;
 acknowledgement or explicit selected discard consumes only that revision (U2773a/b/e).
 
-**Unsent input**:
-The bytes the user wrote to an Agent's Terminal since the last submit or clear. While there are any, no Message is typed there (B32).
-
 **Reason**:
-The word on a held or dropped Message saying why: `ask-first`, `takeover` or `inbox` (held); `receiver gone`, `not accepted`, `removed` or `merged` (dropped).
+The word on a dropped Message saying why: `receiver gone`, `not accepted`, `removed` or `merged`.
 
 **Card**:
 Anything the user sees in the app (an Inbox Message, a status, a summary); it has a kind.
@@ -556,14 +541,6 @@ The text format an Agent writes; `renderMarkdown` draws it as elements on every 
 
 **Actor**:
 The user, an Agent, an Extension or the Daemon (as `rupd`) making a call.
-
-**Held action** (`HeldAction`, `HeldCall`, `HeldCall::Stop`, `HeldCall::Interrupt`, `HeldCall::Prompt`, `HeldCall::SetOrder`, `HeldCall::Resume`, `HeldCall::Answer`, `HeldCall::Close`, `HeldCall::Kill`, `HeldCall::Write`, `Agents::prompt_attempt`, `Agents::stop_attempt`, `Agents::interrupt_attempt`, `agent.actionHistory`, `agent_actionHistory`):
-A durably accepted Door action waiting for a child's Takeover to end, with its
-original Actor, target, method and parameters retained. Its outcome records
-waiting, in-progress, completion or a dropped reason; acceptance is not execution.
-
-**Resize action** (`ResizeAction`, `ResizeOutcome`, `terminal.resizeHistory`, `terminal_resizeHistory`):
-An Agent's accepted Terminal resize and its retained outcome: waiting for the child's Takeover, in-progress, completed or dropped with a reason.
 
 **Output stream** (`Output`, `OutputStream`, `Terminals::subscribe_output`, `terminal.output`, `terminal.outputStop`, `OutputStarted`, `OutputEvent`, `OutputGap`, `terminal.gap`):
 One Terminal's bytes with their offsets, delivered only to a connection that selected that Terminal (`scenarios/terminal-stream.md` X14). `terminal.output` selects it and answers the offset of the first byte; the Daemon then pushes `terminal.output` notifications with the bytes and, when the connection fell behind, a `terminal.gap` naming the offsets it dropped, so the App recovers with `terminal.snapshot`. `terminal.outputStop` or closing the connection releases it. Output never enters the Bus.
@@ -685,7 +662,7 @@ A PNG, video or checks JSON under the artifact-relative `artifacts/ux/<id>/` (jo
 
 **Get History** (`todo.getHistory`): fetch one Todo's History and its previous read boundary without logging a read Touch.
 
-**Values** (`Values`): a Todo's title, body, done state and blocker identities, as held by a Change.
+**Values** (`Values`): a Todo's title, body, done state and blocker identities, as kept by a Change.
 
 **Captured Change** (`expected_change`): the last History Change sequence captured with a Todo's editable Values in its original Project. `todo.update` and `todo.setBlockers` can require that sequence atomically: a mismatch refuses with conflict; a removed Todo is not found. Omission keeps an unconditional write. Read the base Values and sequence together from the last Change returned by `todo.getHistory`; a separate later History read is not the base of an earlier `todo.get`. Immediate completion needs no captured Change.
 

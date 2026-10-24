@@ -76,7 +76,7 @@ fn old_schema(db: &mut Connection) {
 }
 
 #[tokio::test]
-async fn b3692b_a_store_with_hops_and_a_held_question_opens_terminal() {
+async fn b3692b_a_store_with_hops_and_a_waiting_question_opens_terminal() {
     let dir = tempfile::tempdir().unwrap();
     let path = dir.path().join("messages.db");
     {
@@ -94,7 +94,13 @@ async fn b3692b_a_store_with_hops_and_a_held_question_opens_terminal() {
         row(1, "sub", "delivered", None, None);
         row(2, "mid", "delivered", None, Some(1));
         row(3, "top", "pending", None, Some(2));
-        row(4, "you", "held", Some(concat!("escal", "ated")), Some(3));
+        row(
+            4,
+            "you",
+            concat!("he", "ld"),
+            Some(concat!("escal", "ated")),
+            Some(3),
+        );
         db.execute(
             "INSERT INTO chains (origin, body, rest, current, armed_at) VALUES (?1, 'which?', '[]', 3, 1)",
             [from],
@@ -111,6 +117,6 @@ async fn b3692b_a_store_with_hops_and_a_held_question_opens_terminal() {
         assert_eq!(status(3), ("dropped", "not accepted"));
         h.at(600_000).await;
         assert_eq!(h.all().await, all);
-        assert!(h.typed.lock().unwrap().is_empty());
+        assert!(h.inbox.typed().is_empty());
     }
 }

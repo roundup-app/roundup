@@ -335,7 +335,7 @@ const PadBody = (props: {
   /** The Agent that owns the Pad, while it is on the Rail (U432). */
   const owner = () => (pad().owner.kind === "agent" ? connected.rail.nodes.find((node) => node.id === pad().owner.id) : undefined);
 
-  /** U432: selects the owner's row and begins a Takeover of it, Resuming it first when it has exited (A22); the Drawer stays open. */
+  /** U432: selects the owner's row, Resuming it first when it has exited (A22); the Drawer stays open. */
   const openOwner = () =>
     act(async () => {
       const node = owner();
@@ -350,10 +350,6 @@ const PadBody = (props: {
         await connected.app.rpc("agent.resume", { id: node.id });
         await connected.rail.refresh();
       }
-
-      const failure = await connected.takeover.begin(node.id);
-
-      if (failure !== null) throw new Error(failure);
     });
 
   const exportToFile = () =>
