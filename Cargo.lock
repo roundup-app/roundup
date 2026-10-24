@@ -4974,6 +4974,7 @@ dependencies = [
  "regex",
  "rpc",
  "serde_json",
+ "stats_alloc",
  "tempfile",
  "tokio",
  "vt100",
