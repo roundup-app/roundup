@@ -257,6 +257,7 @@ async fn a32_a_valid_clear_only_asks_the_door() {
         )
         .await
         .unwrap();
+    turn_done(model, &client, &door, "I want a login page").await;
     let reply = client
         .request(
             "workstream.clear",
