@@ -13,7 +13,23 @@
   border-radius: var(--radius-row);
 }
 
-/* U3800a: the lifted copy draws no box; the slot where it will land is an empty dashed --accent box one row high. */
+/* U3800a: the lifted row keeps a solid --accent edge drawn inside its box, with the row's own Token radius; the slot where it will land is an empty dashed --accent box one row high. */
+[data-dnd-dragging] {
+  position: relative;
+}
+
+[data-dnd-dragging]::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border: 2px solid var(--accent);
+  pointer-events: none;
+}
+
+[data-dnd-dragging]:not([data-plain] *)::before {
+  border-radius: var(--radius-row);
+}
+
 [data-dnd-placeholder]::after {
   content: "";
   position: absolute;
