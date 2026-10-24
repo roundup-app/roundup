@@ -77,7 +77,8 @@ export const linkEntries = (
   target: Link,
   nodes: readonly RailNode[],
   running: (node: RailNode) => boolean,
-  fail: (message: string | null) => void,
+  fail: (message: string) => void,
+  copied: () => void = () => {},
 ): MenuEntry[] => {
   const attempt = async (call: (link: string) => Promise<void>, verb: "copy" | "send" = "send") => {
     try {
@@ -91,7 +92,7 @@ export const linkEntries = (
 
       await call(link.url);
 
-      if (verb === "copy") fail(null);
+      if (verb === "copy") copied();
     } catch (error) {
       if (error instanceof Error) fail(verb === "copy" ? copy.copyDraftFailure(error.message) : error.message);
       else throw error;
