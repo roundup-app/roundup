@@ -205,3 +205,21 @@ it.each([false, true])("u3474e_mutation_keeps_the_next_key_live: nested=%s", asy
   expect(question.message).not.toContain("todo 1");
   expect(todoCallsTo(app, "todo.delete").map(call => call.params)).toEqual([{ id }]);
 });
+
+it("u460_refresh_shows_only_after_a_failed_readback", async () => {
+  const { app } = await mountTodos([todo(1), todo(2)]);
+  const kept = deferred<null>();
+  app.handlers["todo.delete"] = async () => {
+    await kept.promise;
+    throw new RpcError(-32001, "denied");
+  };
+
+  await pickTwo();
+  await askToDelete(2);
+  await confirmDeletion();
+  await answerQuestion(true);
+  expect(screen.queryByRole("button", { name: "Refresh" })).toBeNull();
+  kept.resolve(null);
+  await screen.findAllByText(/denied/);
+  expect(screen.queryByRole("button", { name: "Refresh" })).toBeNull();
+});
