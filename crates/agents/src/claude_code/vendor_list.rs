@@ -21,6 +21,8 @@ use crate::worktree::canonical_path;
 const BUDGET: Duration = Duration::from_secs(18);
 const MAX_RECORD: u64 = 8 * 1024 * 1024;
 const MAX_CWDS: usize = 64;
+/// How much of an unrelated-Project session with no SDK cwd is read to find one (U3523h).
+const PROBE_BYTES: u64 = 256 * 1024;
 const MAX_FILES: usize = 10_000;
 const MAX_NOTICE_BYTES: u64 = 64 * 1024;
 
@@ -333,9 +335,14 @@ struct Records {
     foreign_identity: bool,
 }
 
-fn read_records(path: &Path, stem: &str, deadline: Instant) -> Result<Records, RpcError> {
+fn read_records(
+    path: &Path,
+    stem: &str,
+    limit: u64,
+    deadline: Instant,
+) -> Result<Records, RpcError> {
     let file = std::fs::File::open(path).map_err(|err| io_error(path, err))?;
-    let mut reader = BufReader::with_capacity(64 * 1024, file);
+    let mut reader = BufReader::with_capacity(64 * 1024, file.take(limit));
     let mut out = Records {
         cwds: Vec::new(),
         sidechain: false,
@@ -604,8 +611,17 @@ fn assemble(
         let mut sidechain = false;
         let mut foreign_identity = false;
         let mut revision = source_revision(&before);
-        if relative.is_none() {
-            let records = read_records(path, &source, deadline)?;
+        // An unrelated Project's session whose cwd the SDK reported and which still exists is
+        // decided without opening it; one with no cwd, or started in a since-deleted folder (a
+        // removed Worktree, U3523b), is probed only at its start (U3523h).
+        let placed = row
+            .cwd
+            .as_deref()
+            .is_some_and(|cwd| Path::new(cwd).exists())
+            || live_cwd.clone().next().is_some();
+        if relative.is_none() && (scoped || !placed) {
+            let limit = if scoped { u64::MAX } else { PROBE_BYTES };
+            let records = read_records(path, &source, limit, deadline)?;
             let after = path.metadata().map_err(|err| io_error(path, err))?;
             if source_revision(&before) != source_revision(&after) {
                 return Err(RpcError::conflict(format!(
