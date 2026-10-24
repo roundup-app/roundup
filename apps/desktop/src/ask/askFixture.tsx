@@ -1,3 +1,4 @@
+// fallow-ignore-file duplicate-export -- press supplies Ask slash-key codes; switcherFixture supplies letter-key codes. Tests import each directly.
 import { createSignal, Show } from "solid-js";
 import { render } from "@solidjs/testing-library";
 import type { Ask } from "@contracts/ask/Ask";
