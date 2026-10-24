@@ -12,6 +12,17 @@ export const probeMenu = (items: MenuItem[]): Promise<string | null> => new Prom
   menuProbe.answer = resolve;
 });
 
+type ProjectMenuProbe = { path: string | null };
+
+export const projectMenu: ProjectMenuProbe = { path: null };
+
+/** Deliver the native host's captured Project command through the fake App seam. */
+export const openProjectPage = (command: "import-work" | "project-settings", path: string | null = document.querySelector(".project-tab") ? projectMenu.path : "/p") => {
+  if (path === null) return;
+
+  window.dispatchEvent(new CustomEvent("open-project-page", { detail: { path, command } }));
+};
+
 /** Native questions have no web DOM. The isolated harness observes and answers this boundary. */
 type QuestionProbe = { shown: NativeQuestion | null; answer: ((accepted: boolean) => void) | null; count: number };
 

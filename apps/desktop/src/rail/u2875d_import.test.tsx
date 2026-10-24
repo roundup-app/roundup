@@ -1,3 +1,4 @@
+import { openProjectPage } from "../testing/menuProbe";
 import { cleanup, fireEvent, render, screen, waitFor } from "@solidjs/testing-library";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { ImportDiscovery } from "@contracts/project/ImportDiscovery";
@@ -33,18 +34,17 @@ describe("u2875d the import panel is an ordinary Rail action", () => {
     app.handlers["project.importCommit"] = () => commit();
 
     // Cancel changes nothing: only discovery was called.
-    fireEvent.click(screen.getByRole("button", { name: "Import Claude Code work" }));
+    openProjectPage("import-work");
     await screen.findByText("First");
     fireEvent.click(screen.getByText("First"));
-    await waitFor(() => expect(document.activeElement).toBe(screen.getByRole("dialog", { name: "Import Claude Code work" })));
-    fireEvent.keyDown(screen.getByRole("dialog", { name: "Import Claude Code work" }), { key: "Escape", code: "Escape", keyCode: 27 });
+    await waitFor(() => expect(document.activeElement).toBe(screen.getByRole("region", { name: "Import Claude Code work" })));
+    fireEvent.keyDown(screen.getByRole("region", { name: "Import Claude Code work" }), { key: "Escape", code: "Escape", keyCode: 27 });
     await waitFor(() => expect(screen.queryByText("First")).toBeNull());
     expect(app.calls.filter((call) => call.method !== "project.importDiscover" && call.method.startsWith("project.")).length).toBe(0);
 
-    // A rejected call keeps the selection and the panel.
-    fireEvent.click(screen.getByRole("button", { name: "Import Claude Code work" }));
+    // A rejected call keeps the selection and the page.
+    openProjectPage("import-work");
     await screen.findByText("First");
-    fireEvent.click(screen.getByText("First"));
     fireEvent.click(screen.getByText("Second"));
     commit = () => { throw new RpcError(-32000, "daemon refused"); };
 
@@ -71,7 +71,7 @@ describe("u2875d the import panel is an ordinary Rail action", () => {
     await waitFor(() => expect(calls(app, "project.importCommit").length).toBe(3));
     expect(calls(app, "project.importCommit")[2]!.params).toEqual({ selections: [{ source: "s2", revision: "r2" }] });
     release({ outcomes: [{ source: "s2", workstream: "w1", agent: "a2", error: null }] });
-    await waitFor(() => expect(screen.queryByRole("dialog", { name: "Import Claude Code work" })).toBeNull());
+    await waitFor(() => expect(screen.queryByRole("region", { name: "Import Claude Code work" })).toBeNull());
     expect(calls(app, "project.importCommit").length).toBe(3);
   });
 
@@ -84,7 +84,7 @@ describe("u2875d the import panel is an ordinary Rail action", () => {
     daemon.handlers["project.importDiscover"] = () => found();
     daemon.handlers["project.importCommit"] = () => new Promise<ImportResult>((resolve) => { release = resolve; });
 
-    fireEvent.click(screen.getByRole("button", { name: "Import Claude Code work" }));
+    openProjectPage("import-work");
     fireEvent.click(await screen.findByText("First"));
     fireEvent.click(await screen.findByRole("button", { name: "Import 1" }));
 
@@ -139,7 +139,7 @@ describe("u2875d the import panel is an ordinary Rail action", () => {
     await waitFor(() => expect(tab("api").getAttribute("aria-selected")).toBe("true"));
     const daemon = app.of(path("api"));
     daemon.handlers["project.importDiscover"] = () => found();
-    fireEvent.click(screen.getByRole("button", { name: "Import Claude Code work" }));
+    openProjectPage("import-work");
     await screen.findByText("First");
     const writes = vi.spyOn(Storage.prototype, "setItem").mockImplementation(() => { throw new Error("quota exceeded"); });
 
@@ -209,7 +209,7 @@ describe("u2875d the import panel is an ordinary Rail action", () => {
     app.handlers["project.importDiscover"] = () => found();
     app.handlers["project.importCommit"] = () => ({ outcomes: [{ source: "s1", workstream: "w1", agent: "a1", error: null }] });
 
-    fireEvent.click(screen.getByRole("button", { name: "Import Claude Code work" }));
+    openProjectPage("import-work");
     fireEvent.click(await screen.findByText("First"));
     fireEvent.click(await screen.findByRole("button", { name: "Import 1" }));
 
@@ -264,7 +264,7 @@ const importConflict = () => screen.getByRole("status", { name: /conflict/i });
 it.each([false, true])("u3049a_external_save_keeps_both_versions_shared_record_%s", async (shared) => {
   const { app, connected } = await mountRail([]);
   app.handlers["project.importDiscover"] = concurrentFound;
-  fireEvent.click(screen.getByRole("button", { name: "Import Claude Code work" }));
+  openProjectPage("import-work");
   await screen.findByRole("checkbox", { name: /一つ目/ });
   await clickSource("一つ目");
   let externalRevision: string | undefined;
@@ -290,7 +290,7 @@ it.each([false, true])("u3049a_external_save_keeps_both_versions_shared_record_%
 it("u3049a_unchanged_record_saves_normally", async () => {
   const { app } = await mountRail([]);
   app.handlers["project.importDiscover"] = concurrentFound;
-  fireEvent.click(screen.getByRole("button", { name: "Import Claude Code work" }));
+  openProjectPage("import-work");
   await screen.findByRole("checkbox", { name: /一つ目/ });
   await clickSource("一つ目");
   await clickSource("三つ目");
@@ -310,13 +310,13 @@ const conflictingProjects = async () => {
   app.of(path("web")).handlers["project.importDiscover"] = concurrentFound;
   fireEvent.click(tab("web"));
   await waitFor(() => expect(tab("web").getAttribute("aria-selected")).toBe("true"));
-  fireEvent.click(screen.getByRole("button", { name: "Import Claude Code work" }));
+  openProjectPage("import-work");
   await screen.findByRole("checkbox", { name: /別の窓/ });
   await clickSource("別の窓");
   const other = localStorage.getItem(importKey(path("web")));
   fireEvent.click(tab("api"));
   await waitFor(() => expect(tab("api").getAttribute("aria-selected")).toBe("true"));
-  fireEvent.click(screen.getByRole("button", { name: "Import Claude Code work" }));
+  openProjectPage("import-work");
   await screen.findByRole("checkbox", { name: /一つ目/ });
   await clickSource("一つ目");
   localStorage.setItem(importKey(path("api")), externalChoices);
@@ -383,7 +383,7 @@ it.each([1, 2])("u3049b_discard_consumes_only_selected_version_%s", async (numbe
 it.each(["read", "json", "schema", "write", "draft-write"])("u3049b_retention_failure_keeps_conflicting_choices_%s", async (failure) => {
   const { app, connected } = await mountRail([]);
   app.handlers["project.importDiscover"] = concurrentFound;
-  fireEvent.click(screen.getByRole("button", { name: "Import Claude Code work" }));
+  openProjectPage("import-work");
   await screen.findByRole("checkbox", { name: /一つ目/ });
   await clickSource("一つ目");
   localStorage.setItem(importKey(), externalChoices);
@@ -428,7 +428,7 @@ it.each(["read", "json", "schema", "write", "draft-write"])("u3049b_retention_fa
 it.each(["discovery", "retry"])("u3049a_detects_external_record_before_%s_write", async (operation) => {
   const { app } = await mountRail([]);
   app.handlers["project.importDiscover"] = concurrentFound;
-  fireEvent.click(screen.getByRole("button", { name: "Import Claude Code work" }));
+  openProjectPage("import-work");
   await screen.findByRole("checkbox", { name: /一つ目/ });
   await clickSource("一つ目");
 
@@ -460,7 +460,7 @@ it.each([false, true])("u3049b_initial_restore_retry_keeps_versions_separate_rec
   try {
     const { app, connected } = await mountRail([]);
     app.handlers["project.importDiscover"] = concurrentFound;
-    fireEvent.click(screen.getByRole("button", { name: "Import Claude Code work" }));
+    openProjectPage("import-work");
     await screen.findByRole("checkbox", { name: /一つ目/ });
     await screen.findByText(/Import choices could not be restored/);
 
