@@ -6,7 +6,6 @@ import type { RailNode } from "@contracts/agent/RailNode";
 import { createFakeApp } from "../testing/fakeApp";
 import { agent, door, event } from "../testing/nodes";
 import { connectProject, ConnectedProjectContext } from "../state/connectedProject";
-import { decision } from "../decisions/decisionsFixture";
 import { TimelineView } from "./TimelineView";
 import { mountRailAndPane } from "../terminal/paneHarness";
 
@@ -148,23 +147,13 @@ it("u3768c_a_removed_subagent_keeps_its_lane_and_line", async () => {
   expect(screen.getByRole("img", { name: "Alpha started Beta" })).toBeTruthy();
 });
 
-it("u3768d_waiting_block_opens_its_decision", async () => {
+it("a3564a_a_waiting_block_selects_the_requesting_terminal", async () => {
   const tree = [door("home", "working", "go", { name: "Door", attempt: "1" }), agent("a", "needs-you", "asks", { name: "Alpha", parent: "home", attempt: "1", status: { kind: "needs-you", label: "asks", since: at(20) } })];
-  const { app } = await mount(tree);
-  app.emit(event({ name: "decision.opened", data: decision("d1", "a") }));
-  const block = await screen.findByRole("button", { name: "Decision for Alpha" });
-  fireEvent.click(block);
-  const card = await screen.findByRole("region", { name: /Decision for Alpha|Alpha wants to / });
-  await vi.advanceTimersByTimeAsync(0);
-  expect(card.contains(document.activeElement)).toBe(true);
-  fireEvent.keyDown(card, { key: "Escape" });
-  await vi.advanceTimersByTimeAsync(0);
-  expect(document.activeElement).toBe(block);
-  expect(screen.queryByRole("region", { name: /Decision for Alpha|Alpha wants to / })).toBeNull();
-  app.emit(event({ name: "decision.cleared", data: { id: "d1", outcome: "answered" } }));
-  await vi.advanceTimersByTimeAsync(0);
-  expect(screen.queryByRole("button", { name: "Decision for Alpha" })).toBeNull();
-  expect(screen.getAllByRole("img", { name: "Needs-you" })).toHaveLength(1);
+  const back = vi.fn();
+  const { connected } = await mount(tree, { back });
+  fireEvent.click(await screen.findByRole("button", { name: "Open Alpha" }));
+  expect(connected.rail.selected()).toBe("a");
+  expect(back).toHaveBeenCalledOnce();
 });
 
 it("u3768e_the_window_slides_only_while_an_agent_runs", async () => {

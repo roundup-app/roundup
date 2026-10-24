@@ -24,7 +24,7 @@ Observer: independent review compares the cited evidence with the stage acceptan
 
 **J8 audit the journey after the Workstream's Agents and restarted Door are observable (policy).** Follows J1's policy on the main that holds U176, U177 and U178: it drives Understand, Intervene and Review through `just harness-real` with more than one Workstream, two Agents in one of them and a Door that asks for a permission, restarts the Daemon and starts each Door again, reads each Workstream's Door Terminal and its Todos from the Workstream, puts its evidence under `artifacts/ux/journey/`, and leaves a successor only as J1 says.
 
-**J9 audit the journey after a Decision's buttons can be pressed (policy).** Follows J1's policy on the main that holds U194: it drives Understand with ten Agents in more than one Workstream, Intervene by pointer on a Door that asks for a long command and Review of each Workstream's Todos, through `just harness-real`, restarts the Daemon and starts each Door again, puts its evidence under `artifacts/ux/journey/`, and leaves a successor only as J1 says.
+**J9 audit the journey after a Decision's buttons can be pressed (policy). (retired)** Retired by A3564a–f (`scenarios/native-questions.md`): the user answers in the requesting Agent's Terminal; roundup draws no answer view.
 
 **J10 audit the journey after the Agents' Kinds and the Terminal's checks are observable (policy).** Follows J1's policy on the main that holds U351 and the Terminal's D1, D6, D7 and D10: it drives Understand with ten Agents in every Kind in more than one Workstream and the `⌘J` jump through `just harness-real`, reads each Workstream's Todos, puts its evidence under `artifacts/ux/journey/`, and leaves a successor only as J1 says.
 

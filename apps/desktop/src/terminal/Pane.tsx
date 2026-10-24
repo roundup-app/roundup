@@ -6,8 +6,6 @@ import { shelfSliding } from "../shelf/sliding";
 import { drawerSliding } from "../drawer/sliding";
 import { resizeDragging } from "../resize/dragging";
 import { For, createEffect, createMemo, createSignal, on, onCleanup, Show, untrack } from "solid-js";
-import { DecisionCard } from "../decisions/DecisionCard";
-import { FoldedLine } from "../decisions/FoldedLine";
 import { OrderDrawer } from "../orders/OrderDrawer";
 import { OrderLine } from "../orders/OrderLine";
 import { ReservedLine } from "../ink/ReservedLine";
@@ -265,24 +263,6 @@ export const Pane = (props: { notice?: string | null; createEmulator?: EmulatorF
     }
   };
 
-  const decision = createMemo(() => connected.decisions.of(selected()?.id ?? null));
-
-  let card: HTMLElement | undefined;
-  let focusInCard = false;
-
-  // The Card is the one thing the user types into besides the Terminal, so its removal hands the keyboard back, but only if it held it.
-  createEffect(on(() => decision()?.id, (id, previous) => {
-    if (previous === undefined || id === previous) return;
-
-    const held = focusInCard;
-
-    focusInCard = false;
-
-    const current = terminalId();
-
-    if (held && current !== null) screens.emulatorFor(current).focus();
-  }));
-
   const focusTerminal = () => {
     const current = terminalId();
 
@@ -394,22 +374,6 @@ export const Pane = (props: { notice?: string | null; createEmulator?: EmulatorF
       <Show when={view() === "timeline" && selected()?.kind === "workstream" ? selected()!.id : null} keyed>{(home) => <TimelineView home={home} name={selected()?.name ?? ""} back={backFromView} />}</Show>
       <div class="pane-origin" classList={{ "pane-origin-hidden": dashboard() }}>
 
-      <Show when={decision()}>
-        {(open) => (
-          <DecisionCard
-              decision={open()}
-              name={selected()?.name ?? ""}
-              focusTerminal={focusTerminal}
-              ref={(element) => { card = element; }}
-              onFocusIn={() => { focusInCard = true; }}
-              onFocusOut={(leave) => {
-                if (leave.relatedTarget instanceof Node && !card?.contains(leave.relatedTarget)) focusInCard = false;
-                else if (leave.relatedTarget === null) queueMicrotask(() => { if (card?.isConnected && !card.contains(document.activeElement)) focusInCard = false; });
-              }}
-            />
-        )}
-      </Show>
-      <Show when={!decision() ? connected.decisions.folded(selected()?.id ?? null) : undefined}>{(line) => <FoldedLine line={line()} />}</Show>
       <Show when={selected()?.kind !== "workstream" && !closedAgent() ? selected() : null}>{(node) => <OrderLine node={node()} />}</Show>
       <div
         class="pane-body"
@@ -470,9 +434,7 @@ export const Pane = (props: { notice?: string | null; createEmulator?: EmulatorF
       <Show when={selected()?.kind === "agent" && terminalId() !== null && !closedAgent() ? selected() : null} keyed>{(node) => <NoteQueue node={node} focusTerminal={focusTerminal} />}</Show>
       </div>
       <div class="pane-failure">
-        <ReservedLine class={connected.decisions.listFailure() ? "decision-list-failure" : undefined} message={notice() ?? rail.workstreamFailure() ?? connected.decisions.listFailure()}>
-          <Show when={connected.decisions.listFailure()}><button data-button="quiet" type="button" class="word" onClick={() => connected.decisions.retryList()}>{copy.retry}</button></Show>
-        </ReservedLine>
+        <ReservedLine message={notice() ?? rail.workstreamFailure()} />
       </div>
     </div>
   );

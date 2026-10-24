@@ -179,7 +179,7 @@ it(`u463_the_first_run_observer_is_opt_in_and_confined_to_its_project ${width} k
 // U2773g composes the category proofs on one real Project; it adds no editor or storage seam.
 it("u2773g_journey_retains_unfinished_work", async () => {
   const real = await startWorktreeProject({ "result.txt": "original result\n" }, {
-    FAKE_CLAUDE_DOOR_PROCESS: JSON.stringify(["python3", "-c", "import subprocess,sys\nsubprocess.run(sys.argv[1:],check=True)\nsubprocess.run([sys.argv[1], '--json', 'todo', 'create', 'Reviewed result'],check=True)", resolve("../../target/debug/rup"), "--json", "agent", "ask", "Review this result?", "--answers", JSON.stringify({ label: "Keep", description: "retain the result" }), "--answers", JSON.stringify({ label: "Revise", description: "change the result" })]),
+    FAKE_CLAUDE_DOOR_PROCESS: JSON.stringify(["python3", "-c", "import subprocess,sys\nsubprocess.run([sys.argv[1], '--json', 'todo', 'create', 'Reviewed result'],check=True)", resolve("../../target/debug/rup")]),
   }, true);
 
   const fixture = await observer(1512, "keyboard", "unfinished", undefined, real);
@@ -187,7 +187,6 @@ it("u2773g_journey_retains_unfinished_work", async () => {
   const evaluate = async (source: string) => (await browser("eval", source)).result;
 
   const ask = "@workstream  exact e\u0301 🧭\nlast line  ";
-  const answer = "  review e\u0301\nkeep 🧭  ";
   const note = "  diff e\u0301\ninspect 🧭  ";
 
   const capture = async (step: string) => {
@@ -231,10 +230,8 @@ it("u2773g_journey_retains_unfinished_work", async () => {
     await activate('[aria-label="Centre"] button');
     await wait("!!document.querySelector('.pane-action')");
     await activate(".pane-action");
-    await wait("!!document.querySelector('.ask-note textarea')");
     const door = (await app.rpc("rail.tree", null)).find(node => node.kind === "workstream")!;
-    const decision = (await app.rpc("decision.list", null))[0]!;
-    const identity = await app.rpc("decision.capture", { id: decision.id });
+    await wait("[...document.querySelectorAll('[data-todo]')].some(row => row.textContent.includes('Reviewed result'))");
     expect(await evaluate("document.querySelector('.project-tab').dataset.path")).toBe(real.dir);
     await capture("entered");
 
@@ -249,17 +246,12 @@ it("u2773g_journey_retains_unfinished_work", async () => {
     await browser("press", "Escape");
     await wait("!document.querySelector('.ask-input')");
 
-    await browser("fill", ".ask-note textarea", answer);
-    await evaluate("(() => { const field = document.querySelector('.ask-note textarea'); field.setSelectionRange(2, 8, 'backward'); field.dispatchEvent(new Event('select', {bubbles:true})); })()");
     // Incoming authoritative events must preserve work and the focused editor.
     await app.rpc("rail.rename", { id: door.id, name: "renamed original" });
     await wait("document.querySelector('.rail-row .name')?.textContent === 'renamed original'");
-    expect(await evaluate("[document.querySelector('.ask-note textarea').value, document.activeElement === document.querySelector('.ask-note textarea')]")).toEqual([answer, true]);
     // The opt-in first-run chooser is intentionally empty on every load; reopen the selected Project through its normal harness route.
     await browser("open", `${real.base}/harness.html?daemon=1`);
-    await wait("!!document.querySelector('.ask-note textarea')");
-    expect(await evaluate("(() => { const field = document.querySelector('.ask-note textarea'); return [field.value, field.selectionStart, field.selectionEnd, field.selectionDirection]; })()")).toEqual([answer, 2, 8, "backward"]);
-    expect(await app.rpc("decision.answers", { agent: door.id })).toEqual([]);
+    await wait("!!document.querySelector('.rail-row')");
     await openAsk();
     expect(await evaluate("document.querySelector('.ask-input').value")).toBe(ask);
     expect(await app.rpc("ask.list", null)).toEqual([]);
@@ -279,17 +271,7 @@ it("u2773g_journey_retains_unfinished_work", async () => {
     await wait("!document.querySelector('.ask-send-status [data-state=unknown]')");
     expect(await app.rpc("ask.list", null)).toHaveLength(1);
     await browser("press", "Escape");
-    await wait("!!document.querySelector('.ask-note textarea') && !document.querySelector('.ask-input')");
-    expect(await evaluate("document.querySelector('.ask-note textarea').value")).toBe(answer);
-    await failNext("decision.answer", false);
-    await browser("click", ".ask-note button");
-    await wait("!!document.querySelector('.decision-card [role=alert]')");
-    expect(await evaluate("document.querySelector('.ask-note textarea').value")).toBe(answer);
-    expect(await app.rpc("decision.answers", { agent: door.id })).toEqual([]);
-    await browser("click", ".ask-note button");
-    await wait("!document.querySelector('.ask-note textarea')");
-    expect(await app.rpc("decision.answers", { agent: door.id })).toMatchObject([{ answer: "Keep", note: answer, attempt: identity.attempt, answered_by: { kind: "user", id: "you" } }]);
-    await wait("[...document.querySelectorAll('[data-todo]')].some(row => row.textContent.includes('Reviewed result'))");
+    await wait("!document.querySelector('.ask-input')");
     const todos = await app.rpc("todo.list", null);
 
     expect(todos).toMatchObject([{ title: "Reviewed result", home: door.id }]);
@@ -334,7 +316,6 @@ it("u2773g_journey_retains_unfinished_work", async () => {
     expect(await evaluate("document.querySelector('.note-form textarea').value")).toBe(note + "newer");
     expect(await app.rpc("message.list", { to: door.id, status: null })).toEqual(before);
     expect(await app.rpc("ask.list", null)).toHaveLength(1);
-    expect(await app.rpc("decision.answers", { agent: door.id })).toHaveLength(1);
     expect(await evaluate("typeof window.__fake")).toBe("undefined");
     expect(await app.rpc("todo.list", null)).toEqual(todos);
     await capture("review-reopened");
@@ -357,7 +338,7 @@ it("u2773g_journey_retains_unfinished_work", async () => {
       }
     }
   } catch (error) {
-    console.error(JSON.stringify({ body: await evaluate("document.body.innerText"), panel: await evaluate("document.querySelector('.worktree-panel')?.outerHTML"), tree: await app.rpc("rail.tree", null), decisions: await app.rpc("decision.list", null) }));
+    console.error(JSON.stringify({ body: await evaluate("document.body.innerText"), panel: await evaluate("document.querySelector('.worktree-panel')?.outerHTML"), tree: await app.rpc("rail.tree", null) }));
     throw error;
   } finally { await fixture.close(); }
 }, 240_000);

@@ -1,35 +1,15 @@
 import { cleanup, fireEvent, render, screen, waitFor } from "@solidjs/testing-library";
 import { afterEach, beforeEach, expect } from "vitest";
-import type { Decision } from "@contracts/decision/Decision";
 import { createProjectDrafts } from "../state/connectedProject";
 import { App } from "../App";
-import { createFakeApp } from "../testing/fakeApp";
-import type { FakeApp } from "../testing/fakeApp";
-import { agent, door, event } from "../testing/nodes";
+import { createFakeApp } from "./fakeApp";
+import type { FakeApp } from "./fakeApp";
+import { agent, door } from "./nodes";
 import { fakeEmulators } from "../terminal/paneHarness";
 
 afterEach(cleanup);
 
 beforeEach(() => localStorage.clear());
-
-export const decision = (id: string, agentId: string, over: Partial<Decision> = {}): Decision => ({
-  id,
-  agent: agentId,
-  tool: "Bash",
-  args: JSON.stringify({ command: "rm -rf build", description: "clean" }),
-  opened_at: 1,
-  answerable: true,
-  ...over,
-});
-
-export const asking = (id: string, agentId: string, question: string, answers: string[]): Decision =>
-  decision(id, agentId, { tool: "ask_user", args: JSON.stringify({ answers: answers.map((label) => ({ label, description: `about ${label}` })), question }) });
-
-export type Asked = { label: string; description: string; preview?: string };
-
-/** H14: an `ask_user` Decision whose answers carry a description and maybe a preview. */
-export const askingWith = (id: string, agentId: string, question: string, answers: Asked[]): Decision =>
-  decision(id, agentId, { tool: "ask_user", args: JSON.stringify({ answers, question }) });
 
 export type Gate<T> = { promise: Promise<T>; resolve(value: T): void; reject(error: Error): void };
 
@@ -45,13 +25,8 @@ export const gate = <T,>(): Gate<T> => {
   return { promise, resolve, reject };
 };
 
-export const opened = (value: Decision) => event({ name: "decision.opened", data: value });
-
-export const cleared = (id: string, outcome: "allow" | "deny" | "replaced" | "agent-gone" | "terminal" | "answered" = "terminal") =>
-  event({ name: "decision.cleared", data: { id, outcome } });
-
 /** The real App over a fake Daemon holding agents alpha and beta and the Workstream "harbor" with a live Door. */
-export const mountApp = async (listed: Decision[] | Promise<Decision[]> = [], prepare: (app: FakeApp) => void = () => {}, clock: () => number = () => 0, reducedMotion = false) => {
+export const mountApp = async (prepare: (app: FakeApp) => void = () => {}, clock: () => number = () => 0, reducedMotion = false) => {
   const app = createFakeApp();
   const emulators = fakeEmulators();
 
@@ -65,9 +40,6 @@ export const mountApp = async (listed: Decision[] | Promise<Decision[]> = [], pr
   app.handlers["terminal.write"] = () => null;
   app.handlers["terminal.resize"] = () => null;
   app.handlers["terminal.snapshot"] = () => ({ cols: 100, rows: 30, after: 0, data: "" });
-  app.handlers["decision.list"] = () => listed;
-  app.handlers["decision.answer"] = () => null;
-  app.handlers["decision.capture"] = ({ id }) => ({ daemon: "daemon", agent: "a", attempt: "attempt-a", decision: id });
   prepare(app);
 
   const drafts = createProjectDrafts();
@@ -87,7 +59,5 @@ export const select = (name: string) => {
 
   fireEvent.click(row);
 };
-
-export const card = (): HTMLElement | null => document.querySelector<HTMLElement>(".decision-card");
 
 export const rpcCalls = (app: FakeApp, method: string) => app.calls.filter((call) => call.method === method).map((call) => call.params);

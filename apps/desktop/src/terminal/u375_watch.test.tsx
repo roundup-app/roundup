@@ -1,6 +1,5 @@
-import { cleanup, fireEvent, screen, within } from "@solidjs/testing-library";
+import { cleanup, fireEvent, screen } from "@solidjs/testing-library";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import type { Decision } from "@contracts/decision/Decision";
 import { RpcError } from "../app/seam";
 import { callsTo } from "./paneHarness";
 import { agent, door, event, NOW } from "../testing/nodes";
@@ -14,13 +13,8 @@ const band = () => document.querySelector('.pane-control[data-state="managed"]')
 
 const bytes = (...values: number[]) => Uint8Array.from(values);
 
-const open: Decision = { id: "d1", agent: "a", tool: "Bash", args: JSON.stringify({ command: "rm -rf build" }), opened_at: 1, answerable: true };
-
-const mountWatch = async (decisions: Decision[] = []) => {
-  const mounted = await mountCentre(tree(), { select: "a", prepare: (app) => {
-    app.handlers["decision.list"] = () => decisions;
-    app.handlers["decision.answer"] = () => null;
-  } });
+const mountWatch = async () => {
+  const mounted = await mountCentre(tree(), { select: "a" });
 
   // As u162 does: jsdom's box is 0×0, so a drop at (5, 5) would never reach the Watch gate.
   document.querySelector<HTMLElement>(".pane-body")!.getBoundingClientRect = () => new DOMRect(0, 0, 100, 100);
@@ -153,18 +147,6 @@ describe("u375 the user watches an Agent's screen without taking it over", () =>
     emulators.get("t-a")!.type(bytes(108));
     await vi.waitFor(() => expect(callsTo(app, "terminal.write")).toEqual([{ id: "t-a", data: "bA==" }]));
   });
-
-  it("u375_a_decision_card_holds_in_watch", async () => {
-    const { app } = await mountWatch([open]);
-
-    await vi.waitFor(() => expect(document.querySelector(".decision-card")).not.toBeNull());
-    expect(document.querySelector(".decision-card")!.textContent).toContain("rm -rf build");
-    expect(band()).not.toBeNull();
-
-    fireEvent.click(within(document.querySelector<HTMLElement>(".decision-card")!).getByRole("button", { name: "Allow" }));
-    await vi.waitFor(() => expect(app.calls.filter((call) => call.method === "decision.answer")).toHaveLength(1));
-  });
-
 
   it("u468_a_child_that_needs_you_takes_its_answer_in_its_terminal", async () => {
     const { app, connected, emulators } = await mountCentre(tree(), { select: "workstream" });
