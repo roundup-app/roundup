@@ -13,20 +13,7 @@
   border-radius: var(--radius-row);
 }
 
-/* U3800a: the lifted row keeps a solid --accent outline, drawn inside its box so nothing shifts; the slot where it will land is an empty dashed --accent box one row high. */
-[data-dnd-dragging] {
-  position: relative;
-}
-
-[data-dnd-dragging]::before {
-  content: "";
-  position: absolute;
-  inset: 0;
-  border: 2px solid var(--accent);
-  border-radius: inherit;
-  pointer-events: none;
-}
-
+/* U3800a: one dashed --accent slot, one row high, is the only box; the lifted copy floats without an outline. */
 [data-dnd-placeholder]::after {
   content: "";
   position: absolute;
