@@ -198,8 +198,8 @@ export const createBulkDelete = <Id,>(props: {
           <p>{copy.ownedBy}{owners().join(copy.comma)}{copy.agentsMayStillBeWritingDeletingDoesNot}</p>
         </Show>
         <ReservedLine data-deletion-pending={question()?.kind === "pending"} aria-busy={question()?.kind === "pending"} status={question()?.kind === "pending" ? copy.draftStatus.pending : null} message={readFailure() ?? (shown().length > 0 ? failureText(shown()[0]!) : null)}>
-          <Show when={readFailure() === null && shown().length > 0} fallback={<button data-button="quiet" type="button" onClick={() => void readback?.()}>{copy.refresh}</button>}>
-            {clearButton(shown()[0]!)}
+          <Show when={readFailure() !== null} fallback={shown().length > 0 ? clearButton(shown()[0]!) : null}>
+            <button data-button="quiet" type="button" onClick={() => void readback?.()}>{copy.refresh}</button>
           </Show>
         </ReservedLine>
         <For each={shown().slice(1)}>{failure => (
