@@ -42,8 +42,37 @@ fn migrations() -> Vec<M<'static>> {
         .collect()
 }
 
+/// R3696c: every migration applied to an empty database, built by `build.rs`.
+const FRESH: &[u8] = include_bytes!(concat!(env!("OUT_DIR"), "/fresh.db"));
+
+/// Seeds a Project's own identities, which the image would otherwise share between Projects.
+const REIDENTIFY: &str = "UPDATE deliverable_project SET id=lower(hex(randomblob(16)));
+UPDATE reaction_project SET id=lower(hex(randomblob(16)));";
+
+/// A Project without `project.db` starts from the migrated image: a first start skips replaying every migration.
+fn seed_fresh(path: &Path) -> std::io::Result<()> {
+    if path.exists() {
+        return Ok(());
+    }
+    let staging = path.with_extension("db.new");
+    std::fs::write(&staging, FRESH)?;
+    let db = Connection::open(&staging).map_err(std::io::Error::other)?;
+    db.execute_batch(REIDENTIFY)
+        .map_err(std::io::Error::other)?;
+    drop(db);
+    // A racing opener or an existing file wins; the normal path then migrates it.
+    let linked = std::fs::hard_link(&staging, path);
+    std::fs::remove_file(&staging)?;
+    match linked {
+        Err(e) if e.kind() != std::io::ErrorKind::AlreadyExists => Err(e),
+        _ => Ok(()),
+    }
+}
+
 pub(crate) fn open(dir: &Path) -> rusqlite::Result<()> {
     let path = dir.join("project.db");
+    // A failed seed only costs the replay: the migrations below build the same database.
+    let _ = seed_fresh(&path);
     let run = || -> rusqlite::Result<()> {
         let mut db = Connection::open(&path)?;
         db.pragma_update(None, "journal_mode", "WAL")?;
@@ -77,6 +106,63 @@ mod tests {
         "digest",
         "checkpoints",
     ];
+
+    fn dump(db: &Connection) -> Vec<String> {
+        let mut out = Vec::new();
+        let mut q = db
+            .prepare("SELECT type,name,sql FROM sqlite_master ORDER BY type,name")
+            .unwrap();
+        let rows: Vec<(String, String, Option<String>)> = q
+            .query_map([], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?)))
+            .unwrap()
+            .map(Result::unwrap)
+            .collect();
+        for (kind, name, sql) in rows {
+            out.push(format!("{kind} {name} {sql:?}"));
+            if kind == "table"
+                && !name.starts_with("sqlite_")
+                && name != "deliverable_project"
+                && name != "reaction_project"
+            {
+                let mut s = db.prepare(&format!("SELECT * FROM \"{name}\"")).unwrap();
+                let n = s.column_count();
+                let mut rows = s.query([]).unwrap();
+                while let Some(r) = rows.next().unwrap() {
+                    let row: Vec<String> = (0..n)
+                        .map(|i| format!("{:?}", r.get_ref(i).unwrap()))
+                        .collect();
+                    out.push(format!("{name}: {}", row.join("|")));
+                }
+            }
+        }
+        out
+    }
+
+    #[test]
+    fn r3696c_a_fresh_project_db_equals_the_migrated_one_with_its_own_identity() {
+        let (a, b) = (tempfile::tempdir().unwrap(), tempfile::tempdir().unwrap());
+        open(a.path()).unwrap();
+        open(b.path()).unwrap();
+        let migrated = tempfile::tempdir().unwrap();
+        let mut db = Connection::open(migrated.path().join("project.db")).unwrap();
+        apply(&mut db, migrations()).unwrap();
+        let fresh = Connection::open(a.path().join("project.db")).unwrap();
+        let version = |d: &Connection| {
+            d.query_row("PRAGMA user_version", [], |r| r.get::<_, i64>(0))
+                .unwrap()
+        };
+        assert_eq!(version(&fresh), version(&db));
+        assert_eq!(dump(&fresh), dump(&db));
+        let id = |dir: &Path, table: &str| -> String {
+            Connection::open(dir.join("project.db"))
+                .unwrap()
+                .query_row(&format!("SELECT id FROM {table}"), [], |r| r.get(0))
+                .unwrap()
+        };
+        for table in ["deliverable_project", "reaction_project"] {
+            assert_ne!(id(a.path(), table), id(b.path(), table));
+        }
+    }
 
     mod standalone {
         include!("../tests/support/store_migrations.rs");
@@ -725,7 +811,17 @@ mod tests {
     fn crate_copy(root: &Path) {
         let src = Path::new(env!("CARGO_MANIFEST_DIR"));
         std::fs::create_dir_all(root.join("crate")).unwrap();
-        std::fs::copy(src.join("build.rs"), root.join("crate/build.rs")).unwrap();
+        // The probe has no dependencies: cut the fresh image, which needs rusqlite.
+        let build = std::fs::read_to_string(src.join("build.rs")).unwrap();
+        let listing: String = build
+            .split("// IMAGE-BEGIN")
+            .next()
+            .unwrap()
+            .lines()
+            .filter(|l| !l.contains("// IMAGE-CALL"))
+            .map(|l| format!("{l}\n"))
+            .collect();
+        std::fs::write(root.join("crate/build.rs"), listing).unwrap();
     }
 
     fn git(root: &Path, args: &[&str]) -> std::process::Output {
