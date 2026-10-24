@@ -101,7 +101,7 @@ describe("k2 a sample is keydown to the render that shows its echo", () => {
     const probe = createKeystrokeProbe(time.now, "a");
 
     // A warm-up key (skipped), then a measured key whose output is preceded by unrelated output and a render before the echo.
-    for (const [queued, skip] of [[0, true], [7, false]] as const) {
+    for (const queued of [0, 7]) {
       void probe.keydown();
       time.advance(2);
       probe.input();
@@ -118,7 +118,6 @@ describe("k2 a sample is keydown to the render that shows its echo", () => {
       probe.written(bytes("a"));
       time.advance(5);
       probe.rendered();
-      expect(skip || queued > 0).toBe(true);
     }
 
     expect(probe.hops(1)).toEqual({
