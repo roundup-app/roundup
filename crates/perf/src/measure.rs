@@ -313,7 +313,13 @@ async fn hook_loop_ms(rupd: &Path, rup: &Path) -> io::Result<f64> {
 }
 
 /// One fresh Daemon on an empty Project: cold start, memory with ten login-shell Terminals, and call latencies with 10 and 40 Workstreams on the Rail.
-pub async fn one_run(rupd: &Path, rup: &Path, calls: usize) -> io::Result<Sample> {
+/// `stderr` receives the Daemon's diagnostics, including its store-open and socket-bind times.
+pub async fn one_run(
+    rupd: &Path,
+    rup: &Path,
+    calls: usize,
+    stderr: std::process::Stdio,
+) -> io::Result<Sample> {
     if calls == 0 {
         return Err(io::Error::new(
             io::ErrorKind::InvalidInput,
@@ -345,7 +351,7 @@ pub async fn one_run(rupd: &Path, rup: &Path, calls: usize) -> io::Result<Sample
             std::path::absolute(dir.path().join("data"))?,
         )
         .stdin(std::process::Stdio::null())
-        .stderr(std::process::Stdio::null())
+        .stderr(stderr)
         .kill_on_drop(true)
         .spawn()
         .map_err(|err| io::Error::other(format!("{}: {err}", rupd.display())))?;

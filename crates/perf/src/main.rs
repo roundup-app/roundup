@@ -60,10 +60,21 @@ async fn run(args: &Args) -> Result<bool, Box<dyn std::error::Error>> {
     for turn in 1..=args.runs {
         let load = System::load_average().one;
 
-        eprintln!("run {turn}/{}: load {load:.1} on {cpus} cpus", args.runs);
+        let log = args.out.with_extension(format!("startup-{turn}.log"));
+        if let Some(parent) = log.parent() {
+            std::fs::create_dir_all(parent)?;
+        }
+        // Open before the cold-start timer; a direct file descriptor needs no collector
+        // task or pipe drain and survives an observer error before perf.json is written.
+        let stderr = std::fs::File::create(&log)?;
+        eprintln!(
+            "run {turn}/{}: load {load:.1} on {cpus} cpus; Daemon log {}",
+            args.runs,
+            log.display()
+        );
         loads.push(load);
 
-        for (name, value) in one_run(&args.rupd, &args.rup, args.calls).await? {
+        for (name, value) in one_run(&args.rupd, &args.rup, args.calls, stderr.into()).await? {
             per_run.entry(name).or_default().push(value);
         }
     }
