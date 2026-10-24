@@ -167,9 +167,9 @@ it.each(["M", "W"])("u2572b_actions_share_key_behavior_in_the_opening_view: Bubb
   const results: unknown[] = [];
 
   for (const byAction of [false, true]) {
-    const { app } = await mountSwitcher("ops");
-    const tab = document.querySelector<HTMLElement>('.terminal-tab[data-bubble="7"]')!;
-    fireEvent.click(tab);
+    const { app, emulators } = await mountSwitcher("ops");
+    await waitFor(() => expect(document.querySelector<HTMLElement>('.bubble[data-bubble="7"]')?.hidden).toBe(false));
+    emulators.made.get("7")!.focus();
     await waitFor(() => expect(document.activeElement?.closest("[data-bubble]")?.getAttribute("data-bubble")).toBe("7"));
 
     if (byAction) { await show(); await chooseAction(key === "M" ? "Minimise or restore the Bubble" : "Close the Bubble", "enter"); }
