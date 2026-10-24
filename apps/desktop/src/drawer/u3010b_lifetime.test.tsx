@@ -1,9 +1,14 @@
-import { cleanup, fireEvent, render, screen } from "@solidjs/testing-library";
+import { cleanup, fireEvent, render, screen, waitFor, within } from "@solidjs/testing-library";
 import { createSignal } from "solid-js";
 import { afterEach, expect, it, vi } from "vitest";
 import { createDrawer } from "./drawer";
 import { DrawerHost } from "./DrawerHost";
 import { drawerSliding } from "./sliding";
+import { mountApp } from "../decisions/decisionsFixture";
+import { openRecovery } from "../testing/recovery";
+import { connectProject, ConnectedProjectContext } from "../state/connectedProject";
+import { createFakeApp } from "../testing/fakeApp";
+import { ItemDrawer } from "./ItemDrawer";
 
 afterEach(() => { cleanup(); vi.useRealTimers(); });
 
@@ -120,4 +125,68 @@ it("u3010b_preference_change_preserves_destination_and_focus", () => {
   setReduced(true);
   expect(drawerSliding()).toBe(false);
   expect(screen.queryByText("again")).toBeNull();
+});
+
+
+it.each(["dismiss", "discard", "acknowledged", "other-copy", "failed", "retention"] as const)("p3557c_failure_lifetime_draft_recovery_%s", async action => {
+  localStorage.clear();
+  const { drafts } = await mountApp();
+  const store = drafts("/p");
+  const original = store.edit({ surface: "terminal_selection", object: "original", recipient: "a" }, { note: "  original é\n雪  ", excerpt: "exact excerpt", source: "gone" }, null, "ordinary").draft;
+  const other = store.edit({ surface: "terminal_selection", object: "other", recipient: "b" }, { note: "  unrelated 🪁\n  ", source: "gone-too" }, null, "ordinary").draft;
+  const retained = store.list();
+  const clipboard = vi.fn().mockRejectedValue(new Error("clipboard refused"));
+  vi.stubGlobal("navigator", Object.assign(Object.create(navigator), { clipboard: { writeText: clipboard } }));
+  await openRecovery();
+  const panel = await screen.findByLabelText("Unfinished work");
+  const row = panel.querySelector(`[data-revision="${original.revision}"]`)! as HTMLElement;
+  fireEvent.click(within(row).getByRole("button", { name: "Copy" }));
+  await screen.findByText(/clipboard refused/);
+  if (action === "dismiss" || action === "retention") {
+    if (action === "retention") {
+      vi.spyOn(Storage.prototype, "setItem").mockImplementation(() => { throw new Error("disk full"); });
+      store.retry();
+    }
+    fireEvent.click(screen.getByRole("button", { name: "Dismiss failure" }));
+  } else if (action === "discard") {
+    fireEvent.click(within(row).getByRole("button", { name: "Discard" }));
+  } else if (action === "acknowledged" || action === "failed") {
+    store.submit(original.revision);
+    store.settle(original.revision, action);
+  } else {
+    clipboard.mockResolvedValue(undefined);
+    fireEvent.click(within(panel.querySelector(`[data-revision="${other.revision}"]`)! as HTMLElement).getByRole("button", { name: "Copy" }));
+    await waitFor(() => expect(clipboard).toHaveBeenCalledTimes(2));
+  }
+  expect(Boolean(screen.queryByText(/clipboard refused/))).toBe(action === "other-copy" || action === "failed");
+  expect(store.list().find(draft => draft.revision === other.revision)).toEqual(other);
+  if (action === "discard" || action === "acknowledged") expect(store.list()).toEqual([other]);
+  else if (action !== "failed") expect(store.list()).toEqual(retained);
+  else expect(store.list().find(draft => draft.revision === original.revision)).toEqual({ ...original, status: "failed" });
+  if (action === "retention") expect(screen.getByRole("alert").textContent).toContain("reload");
+  expect(clipboard.mock.calls[0]).toEqual(["  original é\n雪  \nexact excerpt"]);
+  vi.restoreAllMocks();
+  vi.unstubAllGlobals();
+});
+
+it.each(["history", "read", "render"] as const)("p3557c_failure_lifetime_item_drawer_%s", async failure => {
+  localStorage.clear();
+  const app = createFakeApp();
+  app.handlers["provenance.history"] = () => { if (failure === "history") throw new Error("opening refused"); return []; };
+  const connected = await connectProject(app, { name: "p", path: "/p" }, () => true, () => 0);
+  const draft = connected.drafts.edit({ surface: "orders", object: "other", recipient: "b" }, { ask: "  unfinished é\n雪  " }, null, "ordinary").draft;
+  const [item, setItem] = createSignal("original");
+  render(() => <ConnectedProjectContext.Provider value={connected}>
+    <ItemDrawer item={item()} read={async () => { if (item() === "original" && failure === "read") throw new Error("opening refused"); return item(); }}>
+      {value => { if (value === "original" && failure === "render") throw new Error("opening refused"); return <p>{value}</p>; }}
+    </ItemDrawer>
+  </ConnectedProjectContext.Provider>);
+  await screen.findByText("opening refused");
+  fireEvent.click(screen.getByRole("button", { name: "Dismiss failure" }));
+  expect(screen.queryByRole("alert")).toBeNull();
+  app.handlers["provenance.history"] = () => [];
+  setItem("next item");
+  await screen.findByText("next item");
+  expect(screen.queryByRole("alert")).toBeNull();
+  expect(connected.drafts.list()).toEqual([draft]);
 });
