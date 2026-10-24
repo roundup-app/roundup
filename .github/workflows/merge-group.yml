@@ -1,0 +1,20 @@
+name: merge-group
+
+# L46: the merge queue requires `review` and `critic` on its `merge_group` commit. Both verdicts were given on the PR
+# head before it joined the queue, so on this event each job reports success and starts no agent. `review.yml` and
+# `critic.yml` still judge every pull_request head.
+on:
+  merge_group:
+    types: [checks_requested]
+
+permissions: {}
+
+jobs:
+  review:
+    runs-on: ubuntu-latest
+    steps:
+      - run: echo review verdict given on the PR head
+  critic:
+    runs-on: ubuntu-latest
+    steps:
+      - run: echo critic verdict given on the PR head
