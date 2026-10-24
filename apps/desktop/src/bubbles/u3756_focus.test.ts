@@ -19,12 +19,16 @@ const load = async () => {
 };
 
 it.each(["empty", "dense"])("u3756a_late_door_terminal_keeps_the_newer_bubble_and_input_%s", async seed => {
-  if (seed === "dense") await loadDense();
-  else await load();
   const dir = captureDir("U3756a");
 
   if (dir) { mkdirSync(dir, { recursive: true }); await browser("record", "start", join(dir, `${seed}.webm`)); }
 
+  try {
+  await browser("set", "viewport", "1512", "950");
+  await browser("set", "media", "dark");
+
+  if (seed === "dense") await loadDense();
+  else await load();
   await browser("press", "Meta+t");
   await wait(`!!document.activeElement?.closest('.bubble') && !!window.__terminals.get('101')`);
   await read(`window.selectedWorkstream = document.querySelector('.rail-row[data-selected=true]').dataset.id`);
@@ -55,7 +59,7 @@ it.each(["empty", "dense"])("u3756a_late_door_terminal_keeps_the_newer_bubble_an
   if (seed === "dense") await wait(`!!document.querySelector('.bubble [role=alert]')`);
   await capture("U3756a", `${seed}-after`);
 
-  if (dir) await browser("record", "stop");
+  } finally { if (dir) await browser("record", "stop"); }
 }, 90_000);
 
 const choose = async (surface: string) => {
@@ -373,11 +377,24 @@ it.each(["initial", "return"])("u3756b_a_select_focus_frame_yields_to_the_newer_
   expect(await read(`document.activeElement === window.newFocus`)).toBe(true);
 }, 90_000);
 
-it("u3756b_a_menu_focus_frame_yields_to_a_newer_rail_choice", async () => {
-  await loadDense();
+it.each(["owner", "home"])("u3756b_a_menu_focus_frame_yields_to_a_newer_rail_choice_%s", async kind => {
+  if (kind === "owner") await loadDense();
+  else {
+    await browser("open", url("/harness.html?seed=agents-10&renderer=dom"));
+    await wait(`!!window.__fake && !!document.querySelector('.rail [data-id="agent-1"]')`);
+    await read(`(async () => {
+      window.__fake.actAs({ kind: 'agent', id: 'agent-1', parent: null });
+      await window.__fake.app.rpc('todo.create', { title: 'Move this Todo', body: null, blockers: null });
+      window.__fake.actAs({ kind: 'user', id: 'you', parent: null });
+    })()`);
+    await wait(`!!document.querySelector('.rail [data-id="agent-1"] [data-pads-control]')`);
+    await browser("click", '.rail [data-id="agent-1"] [data-pads-control]');
+    await wait(`!!document.querySelector('.todo-move')`);
+  }
+
   await browser("focus", ".todo-row-button");
   await holdFrames();
-  await read(`document.activeElement.dispatchEvent(new KeyboardEvent('keydown', { key: 'o', code: 'KeyO', bubbles: true, cancelable: true })); document.querySelector('.rail-row[data-selected=true]').focus(); window.newFocus = document.activeElement;`);
+  await read(`${kind === "owner" ? "document.activeElement.dispatchEvent(new KeyboardEvent('keydown', { key: 'o', code: 'KeyO', bubbles: true, cancelable: true }))" : "document.querySelector('.todo-move').click()"}; document.querySelector('.rail-row').focus(); window.newFocus = document.activeElement;`);
   expect(await read<number>(`window.releaseFrames()`)).toBeGreaterThan(0);
   expect(await read(`document.activeElement === window.newFocus`)).toBe(true);
 }, 90_000);
