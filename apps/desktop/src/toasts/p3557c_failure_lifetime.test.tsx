@@ -2,7 +2,7 @@ import { cleanup, fireEvent, screen, within } from "@solidjs/testing-library";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { Actor } from "@contracts/Actor";
 import { agent, event, USER } from "../testing/nodes";
-import { AGENT, by, mountToasts, pad, status, todo } from "./toastFixture";
+import { TOAST_AGENT as AGENT, by, mountToasts, pad, status, toastTodo as todo } from "./toastFixture";
 
 const tree = () => [agent("a", "working", "x", { name: "scout" })];
 

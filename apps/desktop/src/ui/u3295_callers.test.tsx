@@ -3,7 +3,7 @@ import { createSignal } from "solid-js";
 import { Portal } from "solid-js/web";
 import { afterEach, expect, it } from "vitest";
 import { Dialog } from "./Dialog";
-import { mountSwitcher, openSwitcher, field, press } from "../switcher/switcherFixture";
+import { mountSwitcher, openSwitcher, field, switcherKey as press } from "../switcher/switcherFixture";
 import { openDiff, openFile, COMPARISON } from "../changes/noteHarness";
 import { ConnectedProjectContext } from "../state/connectedProject";
 import { NoteRecovery } from "../changes/NoteBatch";
