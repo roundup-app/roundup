@@ -6,6 +6,7 @@ use tokio::net::{UnixListener, UnixStream};
 
 #[tokio::main]
 async fn main() -> io::Result<()> {
+    let begun = std::time::Instant::now();
     let mut args: Vec<_> = std::env::args_os().skip(1).collect();
     let attached = args.iter().any(|arg| arg == "--attached");
     args.retain(|arg| arg != "--attached");
@@ -15,6 +16,7 @@ async fn main() -> io::Result<()> {
     // N1: the Project's data lives in the App's data folder, never in the Project folder.
     let data = rupd::data::data_dir()?;
     let opened = rupd::Daemon::open_project(&project, &data);
+    let opened_at = begun.elapsed();
     let daemon = match opened {
         Ok(daemon) => daemon,
         Err(err) => {
@@ -32,7 +34,14 @@ async fn main() -> io::Result<()> {
         std::fs::remove_file(&path)?;
     }
     let listener = UnixListener::bind(&path)?;
-    eprintln!("rupd: serving {} on {}", project.display(), path.display());
+    // Per-phase start time from `main`, so a slow start can be split into store open and bind.
+    eprintln!(
+        "rupd: serving {} on {} (open {:.2} ms, bound {:.2} ms)",
+        project.display(),
+        path.display(),
+        opened_at.as_secs_f64() * 1e3,
+        begun.elapsed().as_secs_f64() * 1e3
+    );
     let daemon = Arc::new(daemon);
     if !attached {
         return rupd::serve(listener, daemon).await;
