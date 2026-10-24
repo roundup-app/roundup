@@ -38,23 +38,28 @@ describe("u12 typing", () => {
     await vi.waitFor(() => expect(releases).toHaveLength(2));
   });
 
-  it("u12_what_is_typed_while_a_write_is_in_flight_goes_as_one_write_in_order", async () => {
+  it("r20_encoding_is_stamped_only_when_the_queued_bytes_are_ready_to_dispatch", async () => {
     const { app, connected, emulators } = await mountPane([terminal("a")], [info("t-a")]);
     const releases: (() => void)[] = [];
+    const order: string[] = [];
 
-    app.handlers["terminal.write"] = () => new Promise<null>((resolve) => releases.push(() => resolve(null)));
+    app.handlers["terminal.write"] = ({ data }) => {
+      order.push(data);
+
+      return new Promise<null>((resolve) => releases.push(() => resolve(null)));
+    };
     connected.rail.select("a");
-    emulators.get("t-a")?.type(bytes(1));
-    emulators.get("t-a")?.type(bytes(2));
-    emulators.get("t-a")?.type(bytes(3, 4));
-    await vi.waitFor(() => expect(releases).toHaveLength(1));
-    releases[0]?.();
-    await vi.waitFor(() => expect(releases).toHaveLength(2));
+    const emulator = emulators.get("t-a")!;
 
-    expect(callsTo(app, "terminal.write")).toEqual([
-      { id: "t-a", data: "AQ==" },
-      { id: "t-a", data: "AgME" },
-    ]);
+    Object.assign(emulator, { inputEncoded: () => order.push("encoded") });
+    emulator.type(bytes(1));
+    emulator.type(bytes(2));
+    emulator.type(bytes(3, 4));
+
+    expect(order).toEqual(["encoded", "AQ=="]);
+    releases[0]!();
+    await vi.waitFor(() => expect(order).toEqual(["encoded", "AQ==", "encoded", "AgME"]));
+    releases[1]!();
   });
 
   it("u12_an_exited_terminal_takes_no_input", async () => {
