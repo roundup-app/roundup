@@ -3,10 +3,10 @@
 mod door_terminals;
 #[path = "support/rupd_harness.rs"]
 mod rupd_harness;
-#[path = "support/takeover_run.rs"]
-mod takeover_run;
+#[path = "support/child_run.rs"]
+mod child_run;
 use door_terminals::{notice_events, recorded_bytes};
-use takeover_run::{BOUND, Run};
+use child_run::{BOUND, Run};
 
 use base64::{Engine, engine::general_purpose::STANDARD};
 use contracts::EventData;
@@ -14,6 +14,27 @@ use rpc::Client;
 use serde_json::{Value, json};
 use std::sync::Arc;
 use std::time::{Duration, Instant};
+
+/// The Door is mid-turn, so Messages to it stay pending.
+async fn busy_door(run: &Run, door: &str, attempt: &Value) {
+    tokio::time::timeout(BOUND, async {
+        loop {
+            let tree = run.user.request("rail.tree", ()).await.unwrap();
+            if tree
+                .as_array()
+                .unwrap()
+                .iter()
+                .any(|n| n["id"] == door && n["status"]["kind"] == "idle")
+            {
+                break;
+            }
+            tokio::task::yield_now().await;
+        }
+    })
+    .await
+    .unwrap();
+    run.user.request("agent.signal", json!({"id":door,"attempt":attempt,"payload":{"hook_event_name":"UserPromptSubmit"}})).await.unwrap();
+}
 
 async fn failed_notice(
     run: &Run,
@@ -37,7 +58,6 @@ async fn failed_notice(
                 .ok_or("subscription closed".to_owned())?;
             let (name, message) = match event.data {
                 EventData::MessageSent(m) => ("message.sent", m),
-                EventData::MessageHeld(m) => ("message.held", m),
                 EventData::MessageDropped(m) => ("message.dropped", m),
                 EventData::MessageDelivered(m) => ("message.delivered", m),
                 _ => continue,
@@ -104,7 +124,7 @@ async fn failed_notice(
 #[tokio::test]
 async fn b37_a_failed_decision_note_is_retained_or_visible_to_the_user() {
     // B50(e): a note never reaches the Terminal, so a Terminal refusal cannot fail one; the failure
-    // of its inbox is a hold (B51), not a drop.
+    // of its inbox leaves it pending (B51), not dropped.
     for failure in ["send", "full"] {
         let mut run = Run::start().await;
         let door = run
@@ -126,15 +146,13 @@ async fn b37_a_failed_decision_note_is_retained_or_visible_to_the_user() {
         if failure == "terminal" {
             std::fs::write(run.dir.path().join("decision-notice-fixture"), "").unwrap();
         }
-        run.user
+        let started = run
+            .user
             .request("rail.startDoor", json!({"id":door}))
             .await
             .unwrap();
         if failure != "terminal" {
-            run.user
-                .request("takeover.begin", json!({"agent":door}))
-                .await
-                .unwrap();
+            busy_door(&run, &door, &started["attempt"]).await;
         }
         if failure == "full" {
             // Setup may already have queued a Digest. Fill the actual remaining capacity.
@@ -148,7 +166,7 @@ async fn b37_a_failed_decision_note_is_retained_or_visible_to_the_user() {
                     .await
                 {
                     assert_eq!(err.code, rpc::code::CONFLICT);
-                    assert!(err.message.contains("32 pending or held"), "{err}");
+                    assert!(err.message.contains("32 pending"), "{err}");
                     break;
                 }
             }
@@ -259,7 +277,7 @@ async fn b37_a_failed_decision_note_is_retained_or_visible_to_the_user() {
                 notice["body"]
                     .as_str()
                     .unwrap()
-                    .contains("32 pending or held"),
+                    .contains("32 pending"),
                 "{notice}"
             );
         }
@@ -411,7 +429,7 @@ async fn b38_a_missing_notice_fails_with_bounded_delivery_evidence() {
 
 #[tokio::test]
 async fn b37_decision_note_exclusions_still_hold() {
-    for exclusion in ["takeover", "unanswerable", "no Door"] {
+    for exclusion in ["unanswerable", "no Door"] {
         let mut run = Run::start().await;
         let door = run
             .user
@@ -428,12 +446,6 @@ async fn b37_decision_note_exclusions_still_hold() {
                 .unwrap();
             run.door = Some(door.clone());
             run.spawn().await;
-        }
-        if exclusion == "takeover" {
-            run.user
-                .request("takeover.begin", json!({"agent":run.child}))
-                .await
-                .unwrap();
         }
         let kind = if exclusion == "unanswerable" {
             "native"
@@ -522,10 +534,7 @@ async fn b37_a_stop_failure_door_receives_its_answered_childs_decision_note() {
     })
     .await
     .unwrap();
-    run.user
-        .request("takeover.begin", json!({"agent":door}))
-        .await
-        .unwrap();
+    busy_door(&run, &door, &door_node["attempt"]).await;
     let (decision, waiting) = run.open("permission").await;
     let marker = format!("[decision {}]", decision["id"].as_str().unwrap());
     let note = tokio::time::timeout(BOUND, async {
@@ -569,10 +578,6 @@ async fn b37_a_stop_failure_door_receives_its_answered_childs_decision_note() {
         .await
         .unwrap();
     assert!(waiting.await.unwrap().is_ok());
-    run.user
-        .request("takeover.end", json!({"agent":door}))
-        .await
-        .unwrap();
     tokio::time::timeout(BOUND, async {
         let mut delivered = false;
         let mut working = false;
@@ -679,14 +684,29 @@ async fn input_after_error(pending: bool) {
     })
     .await
     .unwrap();
-    let text = String::from_utf8(recorded_bytes(&run).await).unwrap();
-    let expected = if pending {
-        "[from you, note] one\n\n[from you, note] two"
-    } else {
-        "[from you, note] one"
-    };
-    assert_eq!(text.matches(expected).count(), 1, "{text}");
-    assert_eq!(text.matches('\r').count(), 1, "one prompt: {text}");
+    // B3563c: the Messages reach the inbox once each, in id order, and no byte is typed.
+    let inbox = std::fs::read_to_string(
+        run.dir
+            .path()
+            .join(format!("received-{}.jsonl", run.child)),
+    )
+    .unwrap();
+    let bodies: Vec<String> = inbox
+        .lines()
+        .map(|line| {
+            serde_json::from_str::<Value>(line).unwrap()["message"]["content"]
+                .as_str()
+                .unwrap()
+                .to_owned()
+        })
+        .collect();
+    let expected: &[&str] = if pending { &["one", "two"] } else { &["one"] };
+    assert_eq!(bodies.len(), expected.len(), "{inbox}");
+    for (body, wanted) in bodies.iter().zip(expected) {
+        assert!(body.contains(wanted), "{inbox}");
+    }
+    let typed = String::from_utf8(recorded_bytes(&run).await).unwrap();
+    assert!(!typed.contains("[from"), "Message bytes were typed: {typed}");
     run.finish().await;
 }
 
@@ -696,6 +716,6 @@ async fn b37_a_live_error_accepts_and_delivers_a_new_message() {
 }
 
 #[tokio::test]
-async fn b37_stop_failure_delivers_pending_messages_in_one_prompt() {
+async fn b37_stop_failure_delivers_pending_messages_in_id_order() {
     input_after_error(true).await;
 }

@@ -351,7 +351,6 @@ mod tests {
                 &dir,
                 bus.clone(),
                 agents.clone(),
-                Arc::new(|_, _| Box::pin(async { Err(messages::Refusal::Busy) })),
             )
             .unwrap(),
         );
@@ -363,10 +362,7 @@ mod tests {
             modules: Default::default(),
             todos: Arc::new(todos::Todos::open(&dir, bus.clone()).unwrap()),
             pads: Arc::new(pads::Pads::open(&dir, bus.clone()).unwrap()),
-            door_first_steers: Default::default(),
-            child_effects: Default::default(),
             specialists: Default::default(),
-            held_actions: crate::resize::HeldActions::open(&dir).unwrap(),
             bus: bus.clone(),
             project: dir.to_path_buf(),
             project_key: String::new(),

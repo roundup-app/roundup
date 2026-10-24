@@ -121,7 +121,7 @@ it("u3078i_navigation_preserves_input_and_original_identity", async () => {
   const slow = gate<ResumeWork>();
 
   const { app, drafts, section } = await openWork((fake) => {
-    // SAFETY: the fake Daemon awaits whatever a handler returns, so a pending promise is a held reply.
+    // SAFETY: the fake Daemon awaits whatever a handler returns, so a pending promise is a delayed reply.
     fake.handlers["message.resumeWork"] = () => slow.promise as never;
   });
 

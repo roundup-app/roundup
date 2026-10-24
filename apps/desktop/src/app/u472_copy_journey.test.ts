@@ -172,7 +172,7 @@ it("u2892c_backdrops_preserve_layer_key_ownership", async () => {
     else await pressAt('.rail [aria-label="Add Workstream"]');
 
     await wait("!document.querySelector('.help') && document.activeElement === window.__backdropReturn");
-    expect(await evaluate(`({shelf:document.querySelector('.shelf').dataset.open, selected:document.querySelector('.rail-row[data-selected=true]')?.dataset.id, mutations:window.__fake.app.calls.slice(window.__backdropStart).filter(c => ['terminal.open','terminal.close','terminal.write','takeover.begin','takeover.end','agent.prompt','rail.createWorkstream','rail.startDoor','todo.delete','pad.delete'].includes(c.method))})`)).toEqual({ shelf: "true", selected: "payments", mutations: [] });
+    expect(await evaluate(`({shelf:document.querySelector('.shelf').dataset.open, selected:document.querySelector('.rail-row[data-selected=true]')?.dataset.id, mutations:window.__fake.app.calls.slice(window.__backdropStart).filter(c => ['terminal.open','terminal.close','terminal.write','agent.prompt','rail.createWorkstream','rail.startDoor','todo.delete','pad.delete'].includes(c.method))})`)).toEqual({ shelf: "true", selected: "payments", mutations: [] });
   }
 
   // The visual scrim extends over the header, whose controls remain reachable.
@@ -183,5 +183,5 @@ it("u2892c_backdrops_preserve_layer_key_ownership", async () => {
   // The Hint line is in the scrim's existing dismissal target. Its press closes only the Shelf.
   await pressAt(".hint-line");
   await wait("document.querySelector('.shelf').hidden && !document.querySelector('.shelf-scrim')");
-  expect(await evaluate(`({focus:document.activeElement === window.__backdropReturn, mutations:window.__fake.app.calls.slice(window.__backdropStart).filter(c => ['terminal.open','terminal.close','terminal.write','takeover.begin','takeover.end','agent.prompt','rail.createWorkstream','rail.startDoor','todo.delete','pad.delete'].includes(c.method))})`)).toEqual({ focus: true, mutations: [] });
+  expect(await evaluate(`({focus:document.activeElement === window.__backdropReturn, mutations:window.__fake.app.calls.slice(window.__backdropStart).filter(c => ['terminal.open','terminal.close','terminal.write','agent.prompt','rail.createWorkstream','rail.startDoor','todo.delete','pad.delete'].includes(c.method))})`)).toEqual({ focus: true, mutations: [] });
 }, 120_000);

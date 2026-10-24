@@ -29,12 +29,12 @@ describe("u365 recognised text", () => {
 });
 
 const links = (terminal: Terminal, y: number): Promise<ILink[]> => new Promise((resolve) => {
-  const provider = createLinkProvider(terminal, () => held, (printedTarget) => opened.push(printedTarget));
+  const provider = createLinkProvider(terminal, () => kept, (printedTarget) => opened.push(printedTarget));
 
   provider.provideLinks(y, (found) => resolve(found ?? []));
 });
 
-let held = true;
+let kept = true;
 
 let opened: unknown[] = [];
 
@@ -50,7 +50,7 @@ const click = (link: ILink, init: MouseEventInit) => link.activate(new MouseEven
 
 describe("u365 the provider", () => {
   it("u365_cmd_click_opens_once", async () => {
-    held = true;
+    kept = true;
     opened = [];
     const [link] = await links(await written(80, "go https://example.com ok"), 1);
 
@@ -61,7 +61,7 @@ describe("u365 the provider", () => {
   });
 
   it("u365_a_plain_click_selects_and_opens_nothing", async () => {
-    held = true;
+    kept = true;
     opened = [];
     const term = await written(80, "https://example.com");
     const [link] = await links(term, 1);
@@ -69,12 +69,12 @@ describe("u365 the provider", () => {
     for (const init of [{}, { ctrlKey: true }, { shiftKey: true }, { altKey: true }]) click(link!, init);
 
     expect(opened).toEqual([]);
-    held = false;
+    kept = false;
     expect(await links(term, 1)).toEqual([]);
   });
 
   it("u365_wrapped_and_dense_lines_find_each_target", async () => {
-    held = true;
+    kept = true;
     opened = [];
     const dense = Array.from({ length: 20 }, (_, index) => `/p/f${index}.ts`).join(" ");
     const term = await written(60, `${dense}\r\n`);

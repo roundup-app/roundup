@@ -5,7 +5,7 @@ import { createSignal } from "solid-js";
 import { CHORDS, LEADER } from "../keys/chords";
 import { leaderKey } from "../keys/leaderFixture";
 import { openTabs, tab } from "../header/stripFixture";
-import { agent, event, info, workstream } from "../testing/nodes";
+import { agent, info, workstream } from "../testing/nodes";
 import { field, mountSwitcher, openSwitcher, press } from "./switcherFixture";
 
 afterEach(() => { cleanup(); localStorage.clear(); });
@@ -92,7 +92,7 @@ it.each(["enter", "shift", "pointer"] as const)("u2572b_actions_share_key_behavi
   await show();
   await chooseAction("New Agent", how);
   await waitFor(() => expect(outcomes).toEqual([keyOutcome, keyOutcome]));
-  expect(app.calls.filter((call) => call.method === "terminal.write" || call.method === "takeover.begin")).toEqual([]);
+  expect(app.calls.filter((call) => call.method === "terminal.write")).toEqual([]);
 });
 
 it("u2572b_action_choice_does_not_select_a_highlighted_destination", async () => {
@@ -155,24 +155,6 @@ it.each([false, true])("u2572b_actions_share_key_behavior_in_the_opening_view: R
   expect(connected.rail.selected()).toBe("ann");
 });
 
-it.each([false, true])("u2572b_actions_share_key_behavior_in_the_opening_view: Take control toggle %s", async (byAction) => {
-  const { app, connected } = await mountSwitcher("ann");
-  const pane = document.querySelector<HTMLElement>(".pane-screen [tabindex]")!;
-  pane.focus();
-
-  if (byAction) { await show(); await chooseAction("Take control", "shift"); }
-  else press("Enter", { metaKey: true }, pane);
-  await waitFor(() => expect(connected.takeover.taken()).toBe("ann"));
-  await waitFor(() => expect(document.activeElement?.closest("[data-terminal]")?.getAttribute("data-terminal")).toBe("t-ann"));
-
-  if (byAction) { await show(); await chooseAction("Take control", "pointer"); }
-  else press("Enter", { metaKey: true });
-  await waitFor(() => expect(connected.takeover.taken()).toBeNull());
-  expect(app.calls.filter((call) => ["takeover.begin", "takeover.end", "terminal.write"].includes(call.method))).toEqual([
-    { method: "takeover.begin", params: { agent: "ann" } }, { method: "takeover.end", params: { agent: "ann" } },
-  ]);
-});
-
 it.each([false, true])("u2572b_actions_share_key_behavior_in_the_opening_view: attention %s", async (byAction) => {
   const { connected } = await mountSwitcher("ops");
 
@@ -216,24 +198,13 @@ it.each(["S", "⇧J"])("u2572b_actions_share_key_behavior_in_the_opening_view: A
   }
 });
 
-it.each(["rail", "watch", "taken", "bubble", "editor", "text"])("u2572c_actions_follow_opening_context_and_revalidate: %s", async (context) => {
-  const { connected } = await mountSwitcher(context === "bubble" || context === "editor" ? "ops" : "ann");
+it.each(["rail", "pane", "bubble", "editor", "text"])("u2572c_actions_follow_opening_context_and_revalidate: %s", async (context) => {
+  await mountSwitcher(context === "bubble" || context === "editor" ? "ops" : "ann");
   let focus: HTMLElement;
 
   if (context === "rail") focus = document.querySelector<HTMLElement>('[data-id="ann"][role="treeitem"]')!;
-  else if (context === "watch" || context === "taken") {
-    focus = document.querySelector<HTMLElement>(".pane-screen [tabindex]")!;
-
-    if (context === "taken") {
-      await connected.takeover.begin("ann");
-      const input = focus.appendChild(document.createElement("textarea"));
-      input.className = "xterm-helper-textarea";
-      focus = input;
-      focus.focus();
-      await waitFor(() => expect(document.activeElement?.closest("[data-terminal]")).not.toBeNull());
-
-    }
-  } else if (context === "bubble") focus = document.querySelector<HTMLElement>('.terminal-tab[data-bubble="7"]')!;
+  else if (context === "pane") focus = document.querySelector<HTMLElement>(".pane-screen [tabindex]")!;
+  else if (context === "bubble") focus = document.querySelector<HTMLElement>('.terminal-tab[data-bubble="7"]')!;
   else if (context === "editor") {
     fireEvent.dblClick(document.querySelector('.terminal-tab[data-bubble="7"] .terminal-tab-name')!);
     await waitFor(() => expect(document.querySelector(".terminal-tab-editor input")).not.toBeNull());
@@ -247,7 +218,7 @@ it.each(["rail", "watch", "taken", "bubble", "editor", "text"])("u2572c_actions_
   await show();
 
   const expected = ["New Agent", "New Agent with a prompt", ...(context === "editor" ? [] : ["New Terminal"]),
-    ...(context === "rail" ? ["Remove"] : []), ...(["rail", "watch", "taken"].includes(context) ? ["Take control"] : []),
+    ...(context === "rail" ? ["Remove"] : []),
     "Ask bar", "Jump to what needs you", ...(["bubble", "editor"].includes(context) ? ["Minimise or restore the Bubble", "Close the Bubble"] : [])];
 
   expect(actionNames()).toEqual(expected);
@@ -258,13 +229,13 @@ it.each(["rail", "watch", "taken", "bubble", "editor", "text"])("u2572c_actions_
   if (context === "text") focus.remove();
 });
 
-it.each(["daemon", "removed", "selection", "pending", "exited"])("u2572c_actions_follow_opening_context_and_revalidate: stale %s", async (change) => {
+it.each(["daemon", "removed", "selection", "pending"])("u2572c_actions_follow_opening_context_and_revalidate: stale %s", async (change) => {
   const [daemonExit, setDaemonExit] = createSignal<{ code: number | null } | null>(null);
   const { app, connected } = await mountSwitcher("ann", undefined, undefined, daemonExit);
   const origin = document.querySelector<HTMLElement>('[data-id="ann"][role="treeitem"]')!;
   origin.focus();
   await show();
-  const label = change === "exited" ? "Take control" : "New Agent";
+  const label = "New Agent";
   await search(label);
   const stale = actionRows().find((row) => row.querySelector(".switcher-name")?.textContent === label)!;
   const before = app.calls.length;
@@ -272,7 +243,6 @@ it.each(["daemon", "removed", "selection", "pending", "exited"])("u2572c_actions
   if (change === "daemon") setDaemonExit({ code: 1 });
   else if (change === "removed") { app.handlers["rail.tree"] = () => []; await connected.rail.refresh(); }
   else if (change === "selection") connected.rail.select("ops");
-  else if (change === "exited") app.emit(event({ name: "terminal.exited", data: { id: "t-ann", code: 0 } }));
   else {
     app.handlers["agent.spawn"] = () => new Promise(() => {});
     fireEvent.click(document.querySelector<HTMLButtonElement>('[data-id="lead"] button[aria-label="Add Agent"]')!);

@@ -191,7 +191,7 @@ it("x14_harness_output_relay_is_bounded_without_blocking_control", async () => {
     expect(sent).toBeLessThan(4096);
     expect(real.responses[0]!.writableLength).toBeLessThanOrEqual(real.responses[0]!.writableHighWaterMark + 196_608);
     const before = sent;
-    // A reply barrier proves control works while output is held, rather than
+    // A reply barrier proves control works while output is stalled, rather than
     // measuring elapsed time or assuming a particular kernel socket capacity.
     const rpc = await bound(fetch(`${real.base}/__daemon/rpc`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ method: "daemon.ping" }) }));
     expect(await rpc.json()).toEqual({ result: "control-reply" });

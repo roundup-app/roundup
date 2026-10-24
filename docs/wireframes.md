@@ -147,7 +147,7 @@ roundup   payments-api                                                          
 - The drawer slides in from the right edge, over the shelf and the terminal; the rail stays visible.
 - The badge counts rows that are new since the drawer was last opened (the top 5) and is inked while anything is pending.
 - Pending rows never fold, because each needs its own drop. Other repeats from one sender fold.
-- Clicking a `from` name flips that route between auto and ask first.
+- Clicking a `from` name flips that route between auto and drop.
 
 ### Screen 4 — Todos (list, blockers, dependency, detail with provenance)
 ```
@@ -351,8 +351,8 @@ delivery between agents
 
   from            to                delivery      set by
   any             any               auto          default
-  token-tests     auth-refactor     ask first     you 14:30
-  gateway         any               ask first     route-guard
+  token-tests     auth-refactor     drop          you 14:30
+  gateway         any               drop          route-guard
   + route
 ```
 One click on a `delivery` value flips it between auto and drop, and `set by` records who decided.

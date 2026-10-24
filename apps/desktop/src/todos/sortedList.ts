@@ -39,7 +39,7 @@ export const createSortedList = (source: {
   const fails = new Map<number, (message: string | null) => void>();
   const positions = new Map<number, { top: number; left: number }>();
   const animations = new Map<number, Animation>();
-  let heldFocus: number | undefined;
+  let savedFocus: number | undefined;
   let scroll: { element: HTMLElement; top: number; left: number } | null = null;
   onCleanup(() => animations.forEach(animation => animation.cancel()));
   let refocus: number | null = null;
@@ -54,7 +54,7 @@ export const createSortedList = (source: {
   };
 
   const measure = () => {
-    heldFocus = [...buttons].find(([, button]) => button === document.activeElement)?.[0];
+    savedFocus = [...buttons].find(([, button]) => button === document.activeElement)?.[0];
     const area = frames.values().next().value?.closest<HTMLElement>(".shelf-area");
 
     scroll = area ? { element: area, top: area.scrollTop, left: area.scrollLeft } : null;
@@ -108,8 +108,8 @@ export const createSortedList = (source: {
     }
 
     if (refocus !== null) buttons.get(refocus)?.focus({ preventScroll: true });
-    else if (heldFocus !== undefined && (document.activeElement === document.body || document.activeElement === null)) buttons.get(heldFocus)?.focus({ preventScroll: true });
-    heldFocus = undefined;
+    else if (savedFocus !== undefined && (document.activeElement === document.body || document.activeElement === null)) buttons.get(savedFocus)?.focus({ preventScroll: true });
+    savedFocus = undefined;
 
     refocus = null;
   };

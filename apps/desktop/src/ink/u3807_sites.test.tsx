@@ -374,7 +374,7 @@ it("u3807_each_site_shows_its_message_in_the_reserved_line: Capture", async () =
   fireEvent.keyDown(document.body, { key: "T", code: "KeyT", metaKey: true, shiftKey: true });
   const surface = await within(document.body).findByRole("dialog");
   const field = within(surface).getByRole("textbox");
-  fireEvent.input(field, { target: { value: "held capture" } });
+  fireEvent.input(field, { target: { value: "kept capture" } });
   const places = placesOf(surface);
   const storage = vi.spyOn(Storage.prototype, "setItem").mockImplementation(() => { throw new Error(FAILURE); });
   fireEvent.input(field, { target: { value: "retained capture" } });

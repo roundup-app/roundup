@@ -7,51 +7,6 @@ pub(crate) fn failure(id: &Value, err: &RpcError) -> Value {
 /// Accept connections until the listener fails.
 pub async fn serve(listener: UnixListener, daemon: Arc<Daemon>) -> io::Result<()> {
     daemon.agents.observe_measurements();
-    let mut exits = daemon.bus.subscribe();
-    daemon.reconcile_actions().await.map_err(io::Error::other)?;
-    let weak = Arc::downgrade(&daemon);
-    tokio::spawn(async move {
-        loop {
-            match exits.recv().await {
-                Ok(event) => {
-                    // User release can still be typing a recorded Message; its router call
-                    // owns that later cut. Only the Daemon's exit release runs here.
-                    if let contracts::EventData::TakeoverChanged(change) = &event.data
-                        && event.actor == Actor::daemon()
-                        && !change.on
-                    {
-                        let Some(daemon) = weak.upgrade() else { return };
-                        let _child = daemon.child_effects(&change.agent).write_owned().await;
-                        if !daemon
-                            .sender
-                            .get()
-                            .is_some_and(|m| m.takeover_active(&change.agent))
-                            && let Err(e) = daemon.release_actions(&change.agent).await
-                        {
-                            eprintln!("rupd: held action release failed: {}", e.message);
-                            return;
-                        }
-                    }
-                    if let contracts::EventData::TerminalExited(exit) = event.data {
-                        let Some(daemon) = weak.upgrade() else { return };
-                        if let Err(e) = daemon.resize_exit(&exit.id).await {
-                            eprintln!("rupd: resize exit accounting failed: {}", e.message);
-                            return;
-                        }
-                    }
-                }
-                Err(tokio::sync::broadcast::error::RecvError::Lagged(_)) => {
-                    // A missed exit must not silently strand an accepted resize.
-                    let Some(daemon) = weak.upgrade() else { return };
-                    if let Err(e) = daemon.reconcile_actions().await {
-                        eprintln!("rupd: resize exit reconciliation failed: {}", e.message);
-                        return;
-                    }
-                }
-                Err(tokio::sync::broadcast::error::RecvError::Closed) => return,
-            }
-        }
-    });
     loop {
         let (stream, _) = listener.accept().await?;
         let daemon = Arc::clone(&daemon);
@@ -168,7 +123,6 @@ pub(crate) async fn handle(stream: UnixStream, daemon: Arc<Daemon>) -> io::Resul
                     | "agent.prompt"
                     | "agent.setOrder"
                     | "agent.resume"
-                    | "agent.actionHistory"
                     | "agent.instructions"
                     | "workstream.rewind"
                     | "workstream.rewindPlan"
@@ -177,45 +131,6 @@ pub(crate) async fn handle(stream: UnixStream, daemon: Arc<Daemon>) -> io::Resul
             daemon.action_actor(&conn)
         } else {
             conn.actor.clone()
-        };
-        let params = request
-            .as_ref()
-            .and_then(|r| r.get("params"))
-            .unwrap_or(&Value::Null);
-        // Register before spawning so scheduler order cannot overtake wire arrival.
-        let child_arrival = match daemon
-            .door_effect_children(&actor, method.as_deref().unwrap_or_default(), params)
-            .await
-        {
-            Ok(children) => children
-                .into_iter()
-                .map(|child| {
-                    daemon.held_actions.arrive(
-                        child,
-                        matches!(
-                            method.as_deref(),
-                            Some(
-                                "terminal.resize"
-                                    | "terminal.close"
-                                    | "terminal.kill"
-                                    | "terminal.write"
-                                    | "rail.rename"
-                                    | "agent.stop"
-                                    | "agent.interrupt"
-                                    | "agent.prompt"
-                                    | "workstream.rewind"
-                            )
-                        ),
-                    )
-                })
-                .collect::<Vec<_>>(),
-            Err(error) => {
-                // Reject the original target; a later target must not revive an invalid call.
-                if let Some(id) = request.as_ref().and_then(|r| r.get("id")) {
-                    let _ = frames.send(failure(id, &error));
-                }
-                continue;
-            }
         };
         let mut request_conn = conn.clone();
         let daemon = Arc::clone(&daemon);
@@ -238,20 +153,8 @@ pub(crate) async fn handle(stream: UnixStream, daemon: Arc<Daemon>) -> io::Resul
             });
         } else {
             ordinary.spawn(async move {
-                let mut completed = Vec::new();
-                for (before, done) in child_arrival {
-                    if let Some(mut before) = before {
-                        let _ = before.wait_for(|done| *done).await;
-                    }
-                    if let Some(done) = done {
-                        completed.push(done);
-                    }
-                }
                 if let Some(reply) = daemon.dispatch(&mut request_conn, &line, Some(actor)).await {
                     let _ = request_conn.events.send(reply);
-                }
-                for done in completed {
-                    daemon.held_actions.finish_arrival(done);
                 }
             });
         }

@@ -169,10 +169,10 @@ export const Bubbles = (props: {
 
     lastSelected = chosen;
 
-    const held = untrack(places);
-    const missing = eligible.filter((terminal) => held[terminal.id] === undefined);
-    const visible = eligible.filter((terminal) => held[terminal.id] && !held[terminal.id]!.min);
-    const next = { ...held };
+    const kept = untrack(places);
+    const missing = eligible.filter((terminal) => kept[terminal.id] === undefined);
+    const visible = eligible.filter((terminal) => kept[terminal.id] && !kept[terminal.id]!.min);
+    const next = { ...kept };
     const latest = folds ? undefined : visible.at(-1)?.id ?? missing.at(-1)?.id;
 
     for (const terminal of missing) next[terminal.id] = { ...defaultPlace(untrack(extent)), min: terminal.id !== latest };
@@ -181,7 +181,7 @@ export const Bubbles = (props: {
 
     if (folds) for (const terminal of eligible) next[terminal.id] = { ...next[terminal.id]!, min: true };
 
-    if (JSON.stringify(next) === JSON.stringify(held)) return;
+    if (JSON.stringify(next) === JSON.stringify(kept)) return;
     setPlaces(next);
     persistPlaces(next);
   });
@@ -236,10 +236,10 @@ export const Bubbles = (props: {
     }
 
     const listed = new Set(rail.terminals().map((terminal) => terminal.id));
-    const held = untrack(places);
-    const kept = Object.fromEntries(Object.entries(held).filter(([id]) => listed.has(id)));
+    const before = untrack(places);
+    const kept = Object.fromEntries(Object.entries(before).filter(([id]) => listed.has(id)));
 
-    if (Object.keys(kept).length !== Object.keys(held).length) {
+    if (Object.keys(kept).length !== Object.keys(before).length) {
       setPlaces(kept);
       persistPlaces(kept);
     }
@@ -259,17 +259,17 @@ export const Bubbles = (props: {
 
       const corner = host.getBoundingClientRect();
 
-      setOrigin((held) => (held.left === corner.left && held.top === corner.top && held.width === corner.width && held.height === corner.height ? held : { left: corner.left, top: corner.top, width: corner.width, height: corner.height }));
+      setOrigin((kept) => (kept.left === corner.left && kept.top === corner.top && kept.width === corner.width && kept.height === corner.height ? kept : { left: corner.left, top: corner.top, width: corner.width, height: corner.height }));
       setMeasured(true);
     };
 
     const watched = new ResizeObserver(() => {
       sync();
 
-      const held = untrack(places);
-      const next = Object.fromEntries(Object.entries(held).map(([id, place]) => [id, clamped(place, extent())]));
+      const kept = untrack(places);
+      const next = Object.fromEntries(Object.entries(kept).map(([id, place]) => [id, clamped(place, extent())]));
 
-      if (JSON.stringify(next) === JSON.stringify(held)) return;
+      if (JSON.stringify(next) === JSON.stringify(kept)) return;
 
       setPlaces(next);
       persistPlaces(next);
@@ -300,7 +300,7 @@ export const Bubbles = (props: {
     if (closing().has(id)) return;
 
     const active = document.activeElement;
-    const controlHeldFocus = active instanceof Element && active.closest("[data-bubble]")?.getAttribute("data-bubble") === id;
+    const controlHadFocus = active instanceof Element && active.closest("[data-bubble]")?.getAttribute("data-bubble") === id;
     setClosing((ids) => new Set([...ids, id]));
 
     try {
@@ -308,7 +308,7 @@ export const Bubbles = (props: {
       await rail.refresh({ terminals: true });
       setFailure(null);
 
-      if (controlHeldFocus) queueMicrotask(() => {
+      if (controlHadFocus) queueMicrotask(() => {
         const remaining = shown();
         const nextId = remaining.find((terminal) => Number(terminal.id) > Number(id))?.id ?? remaining.at(-1)?.id;
         const control = nextId === undefined ? document.querySelector<HTMLElement>('.terminal-new') : document.querySelector<HTMLElement>(`.terminal-tab[data-bubble="${nextId}"]`);
@@ -319,7 +319,7 @@ export const Bubbles = (props: {
 
       setFailure(thrown.message);
     } finally {
-      setClosing((ids) => new Set([...ids].filter((held) => held !== id)));
+      setClosing((ids) => new Set([...ids].filter((kept) => kept !== id)));
     }
   };
 
@@ -569,7 +569,7 @@ export const Bubbles = (props: {
     });
   });
 
-  // U511: the name's editor owns its keys. Help and the Switcher are modal layers, so no chord acts under them (U54); a held key repeats nothing.
+  // U511: the name's editor owns its keys. Help and the Switcher are modal layers, so no chord acts under them (U54); a repeating key repeats nothing.
   const outsideEditor = (focus: EventTarget | null): boolean => !(focus instanceof Element && focus.closest(".terminal-tab-editor"));
 
   registerKeys({ kind: "app" }, [
@@ -937,7 +937,7 @@ export const Bubbles = (props: {
     createEffect(on(() => props.recovery, selected => { if (selected) start(selected); }));
 
     createEffect(() => {
-      if (terminal().incarnation !== destination.object || !terminal().running || readOnly()) setEditing(held => held?.id === id ? null : held);
+      if (terminal().incarnation !== destination.object || !terminal().running || readOnly()) setEditing(kept => kept?.id === id ? null : kept);
     });
 
     const tab = () => document.querySelector<HTMLElement>(`button.terminal-tab[data-bubble="${id}"]`);

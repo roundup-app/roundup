@@ -4,7 +4,7 @@ use super::*;
 impl Messages {
     /// Reserve before stopping/removing a selected later Agent. Waits for in-flight delivery,
     /// then durably preserves its existing records and refuses further sends/delivery.
-    /// The coordinator owns Proof, selection and Takeover consent; this changes none of them.
+    /// The coordinator owns Proof and selection; this changes neither.
     /// Same-key retries are no-ops even after removal/reopen/completion. Another reservation,
     /// an empty key, missing receiver or stale Attempt is refused. An already stopped Agent
     /// reconciles its ordinary B9 ending first; no final record revives. No rollback releases

@@ -3,13 +3,13 @@
 mod door_terminals;
 #[path = "support/rupd_harness.rs"]
 mod rupd_harness;
-#[path = "support/takeover_run.rs"]
-mod takeover_run;
+#[path = "support/child_run.rs"]
+mod child_run;
 use door_terminals::{
     child_attempt, door_peer_request, door_terminal, idle, order_child, order_result, ordered_ask,
     recorded_bytes, start_answer_door,
 };
-use takeover_run::{BOUND, Run, launch};
+use child_run::{BOUND, Run, launch};
 
 use base64::{Engine, engine::general_purpose::STANDARD};
 use rpc::{Client, RpcError};

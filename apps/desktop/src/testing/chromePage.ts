@@ -71,8 +71,8 @@ export const openPage = async (
   const startup = performance.now();
   let stage = "executable-reading";
   let ready = false;
-  // A move while the button is held carries `buttons: 1`, as a real drag does.
-  let held = false;
+  // A move while the button is pressed carries `buttons: 1`, as a real drag does.
+  let kept = false;
 
   const completed = (name: string) => {
     stage = name;
@@ -127,7 +127,7 @@ export const openPage = async (
         XDG_CONFIG_HOME: join(profile, "config"),
         XDG_CACHE_HOME: join(profile, "cache"),
         DBUS_SESSION_BUS_ADDRESS: "disabled:",
-        // Fontconfig opens inherited configuration on a startup worker; a held
+        // Fontconfig opens inherited configuration on a startup worker; a kept
         // read leaves the browser waiting before its DevTools pipe answers.
         // The observer renders with the installed fonts and system config.
         FONTCONFIG_FILE: undefined,
@@ -382,9 +382,9 @@ export const openPage = async (
       await send("Input.dispatchMouseEvent", { type: "mouseMoved", x, y }, session);
     },
     pointer: async (type, x, y) => {
-      if (type !== "move") held = type === "down";
+      if (type !== "move") kept = type === "down";
 
-      await send("Input.dispatchMouseEvent", { type: { down: "mousePressed", move: "mouseMoved", up: "mouseReleased" }[type], x, y, button: type === "move" ? "none" : "left", buttons: type === "down" || (type === "move" && held) ? 1 : 0, clickCount: type === "move" ? 0 : 1 }, session);
+      await send("Input.dispatchMouseEvent", { type: { down: "mousePressed", move: "mouseMoved", up: "mouseReleased" }[type], x, y, button: type === "move" ? "none" : "left", buttons: type === "down" || (type === "move" && kept) ? 1 : 0, clickCount: type === "move" ? 0 : 1 }, session);
     },
     click: async (x, y) => {
       await send("Input.dispatchMouseEvent", { type: "mouseMoved", x, y }, session);
@@ -402,10 +402,10 @@ export const openPage = async (
     down: async (x, y) => {
       await send("Input.dispatchMouseEvent", { type: "mouseMoved", x, y }, session);
       await send("Input.dispatchMouseEvent", { type: "mousePressed", x, y, button: "left", buttons: 1, clickCount: 1 }, session);
-      held = true;
+      kept = true;
     },
     release: async (x, y) => {
-      held = false;
+      kept = false;
       await send("Input.dispatchMouseEvent", { type: "mouseReleased", x, y, button: "left", clickCount: 1 }, session);
     },
     press: async (key, code, modifiers = 0) => {

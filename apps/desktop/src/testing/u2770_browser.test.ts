@@ -236,7 +236,7 @@ it("u3528_keys_and_pointer_never_draw_rings_or_pressed_backgrounds", async () =>
       await lane.browser("mouse", "down");
       expect(await backgrounds()).toEqual(before);
       await ring();
-      await capture("auto-held");
+      await capture("auto-kept");
       await lane.browser("mouse", "up");
       await lane.until(`document.querySelector('${auto}').getAttribute('aria-checked') !== ${JSON.stringify(checked)}`);
       expect(await lane.calls("workstream.setAuto")).toHaveLength(1);

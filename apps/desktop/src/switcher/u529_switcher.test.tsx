@@ -9,8 +9,6 @@ afterEach(() => { cleanup(); localStorage.clear(); vi.restoreAllMocks(); });
 
 const type = (text: string) => fireEvent.input(field()!, { target: { value: text } });
 
-const methods = (app: { calls: { method: string }[] }) => app.calls.map((call) => call.method);
-
 describe("u529 ⌘K switches to an Agent or Terminal by name", () => {
   it("u529_cmd_k_lists_agents_doors_groups_and_terminals_and_filters_as_you_type", async () => {
     await mountSwitcher();
@@ -30,8 +28,7 @@ describe("u529 ⌘K switches to an Agent or Terminal by name", () => {
   });
 
   it("u529_enter_on_an_agent_selects_it_and_focuses_the_pane", async () => {
-    const { connected, app } = await mountSwitcher();
-    const before = app.calls.length;
+    const { connected } = await mountSwitcher();
 
     openSwitcher();
     await waitFor(() => expect(field()).not.toBeNull());
@@ -42,7 +39,6 @@ describe("u529 ⌘K switches to an Agent or Terminal by name", () => {
     await waitFor(() => expect(connected.rail.selected()).toBe("dee"));
     expect(field()).toBeNull();
     expect(document.activeElement?.closest(".pane-screen")).not.toBeNull();
-    expect(methods(app).slice(before)).not.toContain("takeover.begin");
   });
 
   it("u529_enter_on_a_terminal_shows_its_bubble_and_focuses_its_emulator", async () => {

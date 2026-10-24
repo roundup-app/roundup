@@ -195,7 +195,7 @@ export const Pads = (props: {
 
     pickFails.get(name)?.(message);
 
-    // U138: the refetch replaces the row that held focus; give it back once the Pad has arrived.
+    // U138: the refetch replaces the row that had focus; give it back once the Pad has arrived.
     if (message === null && focus) setRegrouped({ name, owner });
   };
 
@@ -207,9 +207,9 @@ export const Pads = (props: {
 
     if (!request || !arrived || !sameOwner(arrived.owner, request.owner)) return;
     queueMicrotask(() => {
-      const held = document.activeElement;
+      const kept = document.activeElement;
 
-      if (held && held !== document.body && held.isConnected && !held.closest("[role=menu]")) return setRegrouped(null);
+      if (kept && kept !== document.body && kept.isConnected && !kept.closest("[role=menu]")) return setRegrouped(null);
       const button = rowButtonOf(request.name);
 
       if (button) { button.focus(); setRegrouped(null); }

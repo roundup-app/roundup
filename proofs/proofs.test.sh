@@ -55,10 +55,10 @@ cat > "$scratch/bend" <<'F'
 dir=$(dirname "$1")
 if ! cmp -s "$dir/model.bend" "$FAKE_MODEL"; then
   id=$(sed -nE 's/^law ((m|b)[0-9]+)_.*/\1/p' "$dir/LAWS.bend" | head -1)
-  [ "$(grep -c '^law ' "$dir/LAWS.bend")" = 14 ] && id=m8
+  [ "$(grep -c '^law ' "$dir/LAWS.bend")" = 11 ] && id=m8
   case "$id" in
-    m1) loc=user_deliver_inv ;; m2) loc=step2 ;; m3) loc=takeover_begin3 ;;
-    m4) loc=fl_go4 ;; m5) loc=user_drop_inv ;; m6) loc=exit_inv ;;
+    m1) loc=send_auto_inv ;;
+    m4) loc=fl_go4 ;; m5) loc=drop_q_inv ;; m6) loc=exit_inv ;;
     m7) loc=send_ev7 ;; m8) loc=cA ;; m9) loc=restart_replay ;; m10) loc=fgo_alive10 ;; b39) loc=fconfirm_inv ;;
   esac
   printf '%s\n' "${FAKE_MUTANT_OUT:-SOME PROOFS FAIL}" "Location: ${FAKE_LOCATION:-$loc}"
@@ -87,15 +87,15 @@ observe() { BEND=$real_bend "$root/proofs/check.sh" "$scratch/l" 2>&1; }
 fresh_real() { rm -rf "$scratch/l"; cp -r "$root/proofs/messages" "$scratch/l"; }
 fresh_real
 out=$(observe); rc=$?
-if [ "$rc" = 0 ] && [ "$(grep -c '^PASS m[0-9]*:' <<<"$out")" = 10 ]; then
-  ok "v5 the real observer proves and rejects all ten mutants"
+if [ "$rc" = 0 ] && [ "$(grep -c '^PASS [mb][0-9]*:' <<<"$out")" = 9 ]; then
+  ok "v5 the real observer proves and rejects all nine mutants"
 else
   bad "v5 the real observer ($rc: $out)"
 fi
 fresh_real
-sed 's/keep_users(q, \[\])/keep_users(q, u)/; s/drop_users(q, \[\])/drop_users(q, u)/' "$scratch/l/mutants/m3.patch" > "$scratch/stale.patch"
-mv "$scratch/stale.patch" "$scratch/l/mutants/m3.patch"
-out=$(observe); expect "v5 a stale m3 patch fails the standard observer" 1 "FAIL m3: cannot apply" "$?" "$out"
+sed 's/snoc(snoc(q, n), n)/snoc(snoc(q, n), n+n)/' "$scratch/l/mutants/m1.patch" > "$scratch/stale.patch"
+mv "$scratch/stale.patch" "$scratch/l/mutants/m1.patch"
+out=$(observe); expect "v5 a stale m1 patch fails the standard observer" 1 "FAIL m1: cannot apply" "$?" "$out"
 fresh_real; rm "$scratch/l/mutants/m4.patch"
 out=$(observe); expect "v5 a missing m4 mutant fails the standard observer" 1 "FAIL m4: missing m4.patch" "$?" "$out"
 fresh_real
@@ -104,33 +104,18 @@ mv "$scratch/l/P.new" "$scratch/l/PROOF.bend"
 out=$(BEND=$real_bend "$scratch/l/mutants/run.sh" m8 2>&1)
 expect "v4b omitted m8 helper dependencies fail the baseline" 1 "FAIL m8: unmutated baseline" "$?" "$out"
 
-# V7: evaluate M3 itself, not just whether a proof helper rejects changed code.
-fresh_real
-patch --batch --forward --fuzz=0 --quiet "$scratch/l/model.bend" "$scratch/l/mutants/m3_unsent.patch" || exit 1
-cat > "$scratch/l/v7.bend" <<'BEND'
-import Base
-import ./model.bend as M
-import ./spec.bend as S
-
-def main() -> Bool:
-  +s = S.world([M.UserInput{}, M.Send{True{}, M.Auto{}}, M.Idle{}])
-  S.all_in(S.tk_typed(s), S.released(s))
-BEND
-out=$(BEND_NO_TELEMETRY=1 "$real_bend" "$scratch/l/v7.bend" 2>&1)
-expect "v7 m3 rejects typing over unsent input without Takeover" 0 "False{}" "$?" "$out"
-
 # Bend boundary failures cannot masquerade as successful mutation evidence.
 fresh; rm "$scratch/l/mutants/run.sh"; out=$(check "$scratch/l")
 expect "v5 a missing mutation runner fails" 1 "mutants/run.sh" "$?" "$out"
 fresh; out=$(FAKE_LOCATION=unrelated check "$scratch/l")
-expect "v5 an unrelated proof rejection fails" 1 "FAIL m3: mutant rejection" "$?" "$out"
+expect "v5 an unrelated proof rejection fails" 1 "FAIL m1: mutant rejection" "$?" "$out"
 fresh; out=$(FAKE_MUTANT_OUT=$'SOME PROOFS FAIL\n- expected : a defined name' check "$scratch/l")
 expect "v5 a missing name cannot count as mutation success" 1 "FAIL m8: mutant rejection" "$?" "$out"
 fresh; out=$(FAKE_MUTANT_RC=0 check "$scratch/l")
 expect "v5 a successful Bend exit cannot count as rejection" 1 "FAIL m10: mutant rejection" "$?" "$out"
 fresh; out=$(FAKE_OUT=$'ALL PROOFS CHECK\nSOME PROOFS FAIL' check "$scratch/l")
 expect "v5 a failing baseline cannot count as mutation success" 1 "FAIL m1: unmutated baseline" "$?" "$out"
-fresh; cp "$scratch/l/mutants/m2.patch" "$scratch/l/mutants/m3.patch"
-out=$(observe); expect "v5 a different guard mutation is unrelated to m3" 1 "FAIL m3: mutant rejection" "$?" "$out"
+fresh; cp "$scratch/l/mutants/m1.patch" "$scratch/l/mutants/m5.patch"
+out=$(observe); expect "v5 a different guard mutation is unrelated to m5" 1 "FAIL m5: mutant rejection" "$?" "$out"
 
 [ $fails = 0 ] || { echo "$fails failed"; exit 1; }

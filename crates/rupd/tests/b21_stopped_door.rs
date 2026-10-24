@@ -536,12 +536,6 @@ async fn changed_children_under_caps() {
             .unwrap();
         children.push((name.to_owned(), client));
     }
-    // Hold setup Digests so draining them costs one prompt, rather than racing repeated
-    // fake-claude hooks against the burst's 30-second bound on macOS.
-    run.user
-        .request("takeover.begin", json!({"agent":run.door}))
-        .await
-        .unwrap();
     // Force a setup queue past eight sends, then drain it before counting the regression burst.
     for i in 0..20 {
         run.change(&format!("setup {i}")).await;
@@ -566,10 +560,6 @@ async fn changed_children_under_caps() {
     })
     .await
     .expect("setup rollup sent at the fake-clock window's end");
-    run.user
-        .request("takeover.end", json!({"agent":run.door}))
-        .await
-        .unwrap();
     delivered(&mut events, setup).await;
     let base = run
         .digests()
@@ -653,17 +643,13 @@ async fn changed_children_under_caps() {
                 .any(|line| line == format!("  open todos: {count}"))
         );
     }
-    run.user
-        .request("takeover.begin", json!({"agent":run.door}))
-        .await
-        .unwrap();
     let mut all = messages;
     // Bring the total to B22(c)'s 100 changes; each tick ends the preceding cap window.
     for i in 0..82 {
         advance(&run, 240_000 + i64::from(i) * 60_000);
         let todo = children[i as usize % 4]
             .1
-            .request("todo.create", json!({"title":format!("held {i}")}))
+            .request("todo.create", json!({"title":format!("burst {i}")}))
             .await
             .unwrap();
         wait(|| {
@@ -680,7 +666,7 @@ async fn changed_children_under_caps() {
         eprintln!("B21/B22: {} changes accounted", 19 + i);
         assert!(
             all.iter()
-                .filter(|m| m["status"] == "pending" || m["status"] == "held")
+                .filter(|m| m["status"] == "pending")
                 .count()
                 <= 20
         );

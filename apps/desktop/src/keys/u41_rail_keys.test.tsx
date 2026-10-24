@@ -69,8 +69,8 @@ const terminalMarkerEmulator = (): EmulatorFactory => (id: string) => {
   };
 };
 
-const press = (key: string, held: KeyboardEventInit = {}) =>
-  fireEvent.keyDown(document.activeElement ?? document, { key, ...held });
+const press = (key: string, kept: KeyboardEventInit = {}) =>
+  fireEvent.keyDown(document.activeElement ?? document, { key, ...kept });
 
 describe("u41 rail by keyboard, the rest", () => {
   it("u41_left_on_an_expanded_group_collapses_it", async () => {
@@ -280,11 +280,11 @@ describe("u41 rail by keyboard, the rest", () => {
     ["ctrl", { ctrlKey: true }],
     ["alt", { altKey: true }],
     ["cmd", { metaKey: true }],
-  ])("u41_arrow_left_with_a_modifier_does_nothing_%s", async (_, held) => {
+  ])("u41_arrow_left_with_a_modifier_does_nothing_%s", async (_, kept) => {
     await mountKeys([workstream("g"), agent("child", "idle", "x", { parent: "g" })]);
     rowOf("g").focus();
 
-    const notPrevented = press("ArrowLeft", held);
+    const notPrevented = press("ArrowLeft", kept);
 
     await settled();
 
