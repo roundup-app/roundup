@@ -7,6 +7,7 @@ import { answerQuestion } from "../shelf/bulkQuestionHarness";
 import { todoHandlers } from "../testing/stores";
 import type { TodoStore } from "../testing/stores";
 import { mountRail, rowOf } from "./railFixture";
+import { answerQuestion } from "../shelf/bulkQuestionHarness";
 
 afterEach(cleanup);
 
