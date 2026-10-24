@@ -128,11 +128,11 @@ export const xtermOptions: ITerminalOptions = {
 /** What the keystroke run (`scenarios/perf.md` K1 to K3) watches: each chunk the emulator has parsed, each render, and which renderer drew. A build without the run passes none. */
 export type EchoProbe = {
   /** xterm's `onData` fired: the key became bytes to send. */
-  input(): void;
+  input(id: string): void;
   /** Output bytes reached the emulator, before they are parsed. */
-  arrived(bytes: Uint8Array): void;
-  written(bytes: Uint8Array): void;
-  rendered(): void;
+  arrived(bytes: Uint8Array, id: string): void;
+  written(bytes: Uint8Array, id: string): void;
+  rendered(id: string): void;
   renderer(webgl: boolean): void;
 };
 
@@ -157,7 +157,7 @@ export const createXtermEmulators = (
 ): EmulatorFactory => {
   let webglDenied = false;
 
-  return () => {
+  return (id) => {
     const terminal = new Terminal(xtermOptions);
     terminal.loadAddon(new Unicode11Addon());
     terminal.unicode.activeVersion = "11";
@@ -199,7 +199,7 @@ export const createXtermEmulators = (
     terminal.loadAddon(fitter);
     terminal.onRender(() => {
       element.toggleAttribute("data-scrollback", terminal.buffer.active.baseY > 0);
-      probe?.rendered();
+      probe?.rendered(id);
     });
     terminal.onScroll(() => {
       element.toggleAttribute("data-scrollback", terminal.buffer.active.baseY > 0);
@@ -360,10 +360,10 @@ export const createXtermEmulators = (
     return {
       ready,
       write: (bytes, parsed) => {
-        probe?.arrived(bytes);
+        probe?.arrived(bytes, id);
 
         terminal.write(bytes, () => {
-          probe?.written(bytes);
+          probe?.written(bytes, id);
           parsed?.();
         });
       },
@@ -385,7 +385,7 @@ export const createXtermEmulators = (
       reset: () => terminal.write("\x1bc"),
       onInput: (listener) => {
         terminal.onData((text) => {
-          probe?.input();
+          probe?.input(id);
           listener(encoder.encode(text));
         });
         terminal.onBinary((text) => listener(Uint8Array.from(text, (char) => char.charCodeAt(0))));

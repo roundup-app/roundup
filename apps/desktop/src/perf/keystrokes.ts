@@ -34,8 +34,8 @@ export type HopSummary = { n: number; p50: number | null; p95: number | null };
 
 type Pending = { key: number; at: number; echoed: boolean; counted: () => void; marks: Marks };
 
-/** Keydown to the first render that shows its echo. A render before the echo reached the screen's buffer is the previous frame's and does not count. */
-export const createKeystrokeProbe = (now: () => number, typed: string) => {
+/** Keydown to the target Terminal's first render that shows its echo. Other Terminals and renders before its echo reaches the buffer cannot finish a sample. */
+export const createKeystrokeProbe = (now: () => number, typed: string, target: () => string | null) => {
   const latencies: { key: number; ms: number }[] = [];
   const finished: { key: number; marks: Marks }[] = [];
   let dispatched: Marks | null = null;
@@ -56,33 +56,45 @@ export const createKeystrokeProbe = (now: () => number, typed: string) => {
         keys += 1;
       }),
     /** Called with each chunk the emulator has parsed. Only the typed character itself is the echo; anything else is the program's own output. */
-    written: (bytes: Uint8Array) => {
+    written: (bytes: Uint8Array, id: string) => {
+      if (id !== target()) return;
+
       if (pending && new TextDecoder().decode(bytes) === typed) {
         pending.echoed = true;
         pending.marks.parsed ??= now();
       }
     },
     /** xterm's `onData` for the pending key. */
-    input: () => {
+    input: (id: string) => {
+      if (id !== target()) return;
+
       if (pending) pending.marks.input ??= now();
     },
     /** `terminal.write` called (the bytes are base64-encoded just before, in the same tick) and, later, answered. */
-    dispatched: () => {
+    dispatched: (id: string) => {
+      if (id !== target()) return;
+
       if (pending?.marks.input === undefined || pending.marks.dispatched !== undefined) return;
 
       pending.marks.dispatched = now();
       dispatched = pending.marks;
     },
-    replied: () => {
+    replied: (id: string) => {
+      if (id !== target()) return;
+
       if (dispatched && dispatched.replied === undefined) dispatched.replied = now();
 
       dispatched = null;
     },
     /** The output event carrying the typed character reached the webview, before `emulator.write`. */
-    arrived: (bytes: Uint8Array) => {
+    arrived: (bytes: Uint8Array, id: string) => {
+      if (id !== target()) return;
+
       if (pending && new TextDecoder().decode(bytes) === typed) pending.marks.arrived ??= now();
     },
-    rendered: () => {
+    rendered: (id: string) => {
+      if (id !== target()) return;
+
       if (!pending?.echoed) return;
 
       pending.marks.rendered = now();

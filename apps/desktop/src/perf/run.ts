@@ -1,4 +1,5 @@
 import type { App, AppSeam, ProjectCalls } from "../app/seam";
+import type { WriteParams } from "@contracts/terminal/WriteParams";
 import { toBase64 } from "../terminal/base64";
 import { createXtermEmulators } from "../terminal/emulator";
 import type { Emulator } from "../terminal/emulator";
@@ -158,7 +159,7 @@ export const reportTerminal = <E extends Pick<Emulator, "write">>(create: (id: s
  * into it and writes one `PERF <json>` line through that Terminal, where `crates/perf` reads it from `terminal.output`.
  */
 export const createKeystrokeRun = (app: AppSeam) => {
-  const probe = createKeystrokeProbe(() => performance.now(), "a");
+  const probe = createKeystrokeProbe(() => performance.now(), "a", () => terminal.target());
   let webgl: boolean | null = null;
 
   const terminal = reportTerminal(
@@ -228,9 +229,12 @@ export const createKeystrokeRun = (app: AppSeam) => {
     rpc: (method, params) => {
       if (method !== "terminal.write") return calls.rpc(method, params);
 
-      probe.dispatched();
+      // SAFETY: the generated RPC contract ties params to method; TypeScript cannot narrow that generic pair together.
+      const { id } = params as WriteParams;
 
-      return calls.rpc(method, params).finally(probe.replied);
+      probe.dispatched(id);
+
+      return calls.rpc(method, params).finally(() => probe.replied(id));
     },
   });
 
