@@ -21,6 +21,7 @@ export const FoldedLine = (props: { line: Folded }) => {
   return (
     <>
       <ReservedLine class="decision-fold" message={decisions.revokeFailure(props.line.agent)} status={`${words(props.line)} ${props.line.target}`} tabIndex={-1} onKeyDown={(key) => { if (key.key === "Escape" && !key.defaultPrevented) { key.stopPropagation(); decisions.dismiss(props.line.agent); } }}>
+        <Show when={decisions.revokeFailure(props.line.agent)}><button type="button" data-button="quiet" onClick={() => decisions.dismissRevokeFailure(props.line.agent)}>Dismiss</button></Show>
         <Show when={props.line.verdict === "project" && !props.line.removed}>
           <button type="button" data-button="quiet" class="word" aria-disabled={decisions.revoking(props.line.agent) ? true : undefined} onClick={() => { if (!decisions.revoking(props.line.agent)) void decisions.revoke(props.line.agent); }}>{copy.revoke}</button>
         </Show>

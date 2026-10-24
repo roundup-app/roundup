@@ -195,6 +195,7 @@ it.each(["dismiss", "clear", "acknowledge", "unrelated"] as const)("p3557c_failu
   const original = asking("d1", "a", "Keep the original?", ["keep"]);
   const { app, drafts } = await mountApp([original, decision("d2", "b")]);
   app.handlers["decision.answer"] = () => { throw new RpcError(-32003, "Answer failed; try again"); };
+
   select("alpha");
   await waitFor(() => expect(card()?.querySelector("textarea")).toBeTruthy());
   const input = card()!.querySelector("textarea")!;
@@ -222,6 +223,7 @@ it.each(["dismiss", "clear", "acknowledge", "unrelated"] as const)("p3557c_failu
     pending.resolve(null);
     await waitFor(() => expect(card()).toBeNull());
     expect(drafts("/p").list().some(draft => draft.value.note === text + "newer")).toBe(true);
+
     return;
   } else {
     app.emit(cleared("d2"));
@@ -230,5 +232,77 @@ it.each(["dismiss", "clear", "acknowledge", "unrelated"] as const)("p3557c_failu
   await waitFor(() => expect(within(card()!).queryByRole("alert") !== null).toBe(transition === "unrelated"));
   expect(rpcCalls(app, "decision.answer")).toHaveLength(1);
   expect(drafts("/p").list().filter(draft => draft.destination.surface === "decisions").map(draft => ({ destination: draft.destination, value: draft.value }))).toEqual(retained);
+
   if (transition !== "clear") expect(card()!.querySelector("textarea")!.value).toBe(text);
+});
+
+it.each(["dismiss", "acknowledge", "clear", "unrelated"] as const)("p3557c_failure_lifetime_DecisionCard_permission_%s", async transition => {
+  const { app } = await mountApp([decision("d1", "a"), decision("d2", "b")]);
+  app.handlers["decision.answer"] = () => { throw new RpcError(-32003, "Permission failed; retry"); };
+
+  select("alpha");
+  await waitFor(() => expect(card()).not.toBeNull());
+  fireEvent.click(within(card()!).getByRole("button", { name: "Allow" }));
+  await waitFor(() => expect(within(card()!).getByRole("alert").textContent).toContain("Permission failed"));
+
+  if (transition === "dismiss") fireEvent.click(within(card()!).getByRole("button", { name: "Dismiss" }));
+  else if (transition === "acknowledge") {
+    app.handlers["decision.answer"] = () => null;
+    fireEvent.click(within(card()!).getByRole("button", { name: "Allow" }));
+    await waitFor(() => expect(card()).toBeNull());
+    expect(rpcCalls(app, "decision.answer")).toHaveLength(2);
+
+    return;
+  } else if (transition === "clear") {
+    app.emit(cleared("d1"));
+    app.emit(opened(decision("d3", "a")));
+  } else app.emit(cleared("d2"));
+  await waitFor(() => expect(within(card()!).queryByRole("alert") !== null).toBe(transition === "unrelated"));
+  expect(rpcCalls(app, "decision.answer")).toHaveLength(1);
+});
+
+it.each(["dismiss", "clear"] as const)("p3557c_failure_lifetime_DecisionCard_refusal_%s", async transition => {
+  const original = decision("d1", "a", { failure: { attempt: "attempt-a", answered_by: { kind: "agent", id: "b", parent: null }, failed_at: 1, error_code: -32003, message: "Answer refused; choose again" } });
+  const { app } = await mountApp([original]);
+
+  select("alpha");
+  await waitFor(() => expect(within(card()!).getByRole("alert").textContent).toContain("Answer refused"));
+
+  if (transition === "dismiss") fireEvent.click(within(card()!).getByRole("button", { name: "Dismiss" }));
+  else {
+    app.emit(cleared("d1"));
+    app.emit(opened(decision("d2", "a")));
+  }
+
+  await waitFor(() => expect(within(card()!).queryByRole("alert")).toBeNull());
+  expect(rpcCalls(app, "decision.answer")).toEqual([]);
+  expect(rpcCalls(app, "decision.revoke")).toEqual([]);
+});
+
+it.each(["same", "new", "action"] as const)("p3557c_failure_lifetime_DecisionCard_refusal_refresh_%s", async observed => {
+  const original = decision("d1", "a", { failure: { attempt: "attempt-a", answered_by: { kind: "agent", id: "b", parent: null }, failed_at: 1, error_code: -32003, message: "Answer refused; choose again" } });
+
+  const { app, container } = await mountApp([], app => {
+    app.handlers["decision.list"] = () => { throw new RpcError(-32000, "List failed; retry"); };
+  });
+
+  select("alpha");
+  app.emit(opened(original));
+  await waitFor(() => expect(within(card()!).getByRole("alert").textContent).toContain("Answer refused"));
+  fireEvent.click(within(card()!).getByRole("button", { name: "Dismiss" }));
+  await waitFor(() => expect(within(card()!).queryByRole("alert")).toBeNull());
+
+  if (observed === "action") {
+    app.handlers["decision.answer"] = () => { throw new RpcError(-32003, "Another answer failed"); };
+
+    fireEvent.click(within(card()!).getByRole("button", { name: "Allow" }));
+    await waitFor(() => expect(within(card()!).getByRole("alert").textContent).toContain("Another answer failed"));
+    fireEvent.click(within(card()!).getByRole("button", { name: "Dismiss" }));
+  }
+
+  app.handlers["decision.list"] = () => [{ ...original, failure: { ...original.failure!, failed_at: observed === "new" ? 2 : 1 } }];
+  fireEvent.click(within(container.querySelector<HTMLElement>(".decision-list-failure")!).getByRole("button", { name: "Retry" }));
+  await waitFor(() => expect(container.querySelector(".decision-list-failure")).toBeNull());
+  expect(within(card()!).queryByRole("alert") !== null).toBe(observed === "new");
+  expect(rpcCalls(app, "decision.answer")).toHaveLength(observed === "action" ? 1 : 0);
 });
