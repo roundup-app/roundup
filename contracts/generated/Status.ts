@@ -5,4 +5,9 @@ export type Status = { kind: Kind, label: string,
 /**
  * Milliseconds since the Unix epoch.
  */
-since: number, };
+since: number, 
+/**
+ * U3566c: a canonical nonnegative decimal counting the Agent's published finishes (direct
+ * `working` to `idle` or `done` transitions); `"0"` for a Workstream aggregate.
+ */
+finished: string, };
