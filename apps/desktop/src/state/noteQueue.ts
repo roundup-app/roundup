@@ -22,8 +22,8 @@ export type NoteQueue = {
   remove(message: Message): Promise<void>;
 };
 
-/** B1: whether `message` waits in the queue: a note the user sent. */
-const waiting = (message: Message): boolean => message.status === "pending" && message.from.kind === "user";
+/** B1, B3563b: whether `message` waits in the queue: any Message to the Agent that is still pending. */
+const waiting = (message: Message): boolean => message.status === "pending";
 
 export const createNoteQueue = (app: AppSeam, events: Events, daemonExit: Accessor<DaemonExit | null>): NoteQueue => {
   const [messages, setMessages] = createSignal<Map<number, Message>>(new Map());

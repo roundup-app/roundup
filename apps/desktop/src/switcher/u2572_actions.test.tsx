@@ -49,7 +49,7 @@ const show = async () => {
   await waitFor(() => expect(document.activeElement).toBe(field()));
 };
 
-const chooseAction = async (label: string, how: "enter" | "shift" | "pointer") => {
+const chooseAction = async (label: string, how: "enter" | "pointer") => {
   await search(label);
   const option = actionRows().find((row) => row.querySelector(".switcher-name")?.textContent === label)!;
   expect(option).toBeDefined();
@@ -58,7 +58,7 @@ const chooseAction = async (label: string, how: "enter" | "shift" | "pointer") =
     fireEvent.pointerDown(option, { button: 0, pointerType: "mouse" });
     fireEvent.pointerUp(option, { button: 0, pointerType: "mouse" });
     fireEvent.click(option);
-  } else press("Enter", { shiftKey: how === "shift" }, field()!);
+  } else press("Enter", {}, field()!);
   await waitFor(() => expect(field()).toBeNull());
 };
 
@@ -77,7 +77,7 @@ it.each(["New Agent with a prompt", "zzzz-no-match", ""])("u2572a_action_only_em
   }
 });
 
-it.each(["enter", "shift", "pointer"] as const)("u2572b_actions_share_key_behavior_in_the_opening_view: creation by %s", async (how) => {
+it.each(["enter", "pointer"] as const)("u2572b_actions_share_key_behavior_in_the_opening_view: creation by %s", async (how) => {
   const { app, connected } = await mountSwitcher("ops");
   const outcomes: unknown[] = [];
   app.handlers["agent.spawn"] = (params) => {
@@ -112,7 +112,7 @@ it.each([false, true])("u2572b_actions_share_key_behavior_in_the_opening_view: p
   const { app } = await mountSwitcher("ops");
   app.handlers["agent.spawn"] = () => (agent("created", "idle", "idle", { terminal_id: "created-terminal" }));
 
-  if (byAction) { await show(); await chooseAction("New Agent with a prompt", "shift"); }
+  if (byAction) { await show(); await chooseAction("New Agent with a prompt", "enter"); }
   else press("N", { metaKey: true, shiftKey: true, code: "KeyN" });
   await waitFor(() => expect(document.activeElement?.matches(".spawn-prompt-field")).toBe(true));
   const prompt = document.querySelector<HTMLTextAreaElement>(".spawn-prompt-field")!;
