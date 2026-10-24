@@ -1,3 +1,4 @@
+import { openProjectPage } from "../testing/menuProbe";
 import { cleanup, fireEvent, screen, waitFor } from "@solidjs/testing-library";
 import { afterEach, expect, it } from "vitest";
 import { mountRail, railCallsTo } from "./railFixture";
@@ -5,11 +6,11 @@ import { mountRail, railCallsTo } from "./railFixture";
 afterEach(cleanup);
 
 const mount = async (cap: number | null) => {
-  const mounted = await mountRail([], [], () => null, () => false, { settings: true });
+  const mounted = await mountRail([]);
   mounted.app.handlers["project.get"] = () => ({ worktrees: { on: false, check: null }, mcp: { on: true }, workstreamCap: cap, models: { roles: [] } });
   mounted.app.handlers["project.setWorkstreamCap"] = () => null;
 
-  fireEvent.click(screen.getByRole("button", { name: "Project settings" }));
+  openProjectPage("project-settings");
 
   return { app: mounted.app, field: async () => await screen.findByLabelText<HTMLInputElement>("Workstreams at once") };
 };
