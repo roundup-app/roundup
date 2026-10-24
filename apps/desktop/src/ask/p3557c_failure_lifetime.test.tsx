@@ -2,6 +2,7 @@ import { cleanup, fireEvent, screen, waitFor, within } from "@solidjs/testing-li
 import { afterEach, expect, it } from "vitest";
 import type { Deliverable } from "@contracts/deliverable/Deliverable";
 import { ask, input, mountAskBar } from "./askFixture";
+import { RpcError } from "../app/seam";
 
 afterEach(cleanup);
 
@@ -85,3 +86,17 @@ it("p3557c_failure_lifetime_ask_bar_deliverables", async () => {
 function type(element: HTMLTextAreaElement | HTMLInputElement | null, value: string) {
   fireEvent.input(element!, { target: { value } });
 }
+
+it("p3557c_failure_lifetime_ask_bar_send_dismiss_once", async () => {
+  const { app } = await mountAskBar();
+  app.handlers["ask.send"] = () => { throw new RpcError(-32003, "the Daemon refused the ask"); };
+
+  type(input(), "send me");
+  fireEvent.keyDown(input()!, { key: "Enter" });
+  const line = () => document.querySelector(".ask-send-status")?.getAttribute("title") ?? null;
+  await waitFor(() => expect(line()).toContain("refused"));
+
+  fireEvent.click(screen.getByRole("button", { name: "Dismiss" }));
+  await waitFor(() => expect(line()).toBeNull());
+  expect(screen.queryByRole("button", { name: "Dismiss" })).toBeNull();
+});
