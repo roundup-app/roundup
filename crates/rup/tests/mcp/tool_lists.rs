@@ -210,6 +210,8 @@ pub const NO_TOOL: [&str; 72] = [
     "plugin:clipboard-manager|write_text",
     // U2694a: the native menu of the user's right-click
     "show_context_menu",
+    // U3813: native commands act on the user’s selected tab.
+    "select_project_menu",
     // U449–U451: the user's native window, which an Agent cannot move or rename.
     "plugin:window-bar|set_window_title",
     "plugin:window-bar|drag_window",
