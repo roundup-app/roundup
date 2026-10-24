@@ -68,6 +68,8 @@ pub struct Launcher {
     pub(super) conversation_dir: PathBuf,
     /// U3523f: the bundled Node sidecar Import lists through.
     pub(super) sidecar: Option<Sidecar>,
+    /// Counts started listings; a newer one supersedes the one running (U3523a).
+    pub(super) listings: Arc<tokio::sync::watch::Sender<u64>>,
     /// U3016h: the vendor's account usage endpoint when not its own, and the last answer.
     usage_url: Option<String>,
     usage: super::usage::Cache,
@@ -168,6 +170,7 @@ impl Launcher {
         Self {
             conversation_dir,
             sidecar: None,
+            listings: Arc::new(tokio::sync::watch::channel(0).0),
             usage_url: None,
             usage: super::usage::Cache::default(),
             #[cfg(any(test, feature = "test-support"))]

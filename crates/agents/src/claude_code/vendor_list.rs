@@ -449,6 +449,28 @@ impl Launcher {
         worktrees: &[PathBuf],
         window: (i64, i64),
     ) -> Result<Listing, RpcError> {
+        // One listing is active: a newer one drops this one, which reaps its child, so a late
+        // result never arrives.
+        let mut mine = 0;
+        self.listings.send_modify(|count| {
+            *count += 1;
+            mine = *count;
+        });
+        let mut newer = self.listings.subscribe();
+        tokio::select! {
+            found = self.list_once(project, worktrees, window) => found,
+            _ = newer.wait_for(|count| *count != mine) => Err(RpcError::conflict(
+                "a newer listing replaced this one; Refresh to see its result",
+            )),
+        }
+    }
+
+    async fn list_once(
+        &self,
+        project: &Path,
+        worktrees: &[PathBuf],
+        window: (i64, i64),
+    ) -> Result<Listing, RpcError> {
         let (now_ms, period_ms) = window;
         let deadline = Instant::now() + BUDGET;
         let sidecar = self.sidecar.as_ref().ok_or_else(|| {
@@ -559,48 +581,53 @@ fn assemble(
             }
         };
         let before = path.metadata().map_err(|err| io_error(path, err))?;
-        let records = read_records(path, &source, deadline)?;
-        let after = path.metadata().map_err(|err| io_error(path, err))?;
-        if source_revision(&before) != source_revision(&after) {
-            return Err(RpcError::conflict(format!(
-                "source changed while listing: {source}; Refresh to try again"
-            )));
-        }
         let live_row = live.remove(&source);
-        let recorded = records
-            .cwds
-            .iter()
-            .cloned()
-            .chain(row.cwd.iter().map(PathBuf::from))
-            .chain(
-                live_row
-                    .iter()
-                    .filter_map(|l| l.cwd.as_deref())
-                    .map(PathBuf::from),
-            );
-        let mut internal = false;
-        let mut mapped = None;
-        for cwd in recorded {
-            match map_into_project(&cwd, project, roots) {
-                Ok(Some(relative)) => {
-                    mapped = Some(relative);
-                    break;
+        let map = |cwds: &mut dyn Iterator<Item = PathBuf>| {
+            let mut internal = false;
+            for cwd in cwds {
+                match map_into_project(&cwd, project, roots) {
+                    Ok(Some(relative)) => return (Some(relative), internal),
+                    Ok(None) => {}
+                    Err(_) => internal = true,
                 }
-                Ok(None) => {}
-                Err(_) => internal = true,
             }
+            (None, internal)
+        };
+        let live_cwd = live_row
+            .iter()
+            .filter_map(|l| l.cwd.as_deref())
+            .map(PathBuf::from);
+        // The SDK's own cwd decides a session its directory query found; only a session it
+        // omitted, or whose first cwd maps nowhere, has its records read for a later cwd.
+        let (mut relative, mut internal) =
+            map(&mut row.cwd.iter().map(PathBuf::from).chain(live_cwd.clone()));
+        let mut sidechain = false;
+        let mut foreign_identity = false;
+        let mut revision = source_revision(&before);
+        if relative.is_none() {
+            let records = read_records(path, &source, deadline)?;
+            let after = path.metadata().map_err(|err| io_error(path, err))?;
+            if source_revision(&before) != source_revision(&after) {
+                return Err(RpcError::conflict(format!(
+                    "source changed while listing: {source}; Refresh to try again"
+                )));
+            }
+            revision = source_revision(&after);
+            sidechain = records.sidechain;
+            foreign_identity = records.foreign_identity;
+            (relative, internal) = map(&mut records.cwds.iter().cloned().chain(live_cwd));
         }
-        let Some(relative) = mapped else {
+        let Some(relative) = relative else {
             if internal {
                 exclude(&mut out, "inside roundup's own folder");
             }
             continue;
         };
-        if records.sidechain {
+        if sidechain {
             exclude(&mut out, "subagent record");
             continue;
         }
-        if records.foreign_identity {
+        if foreign_identity {
             exclude(&mut out, "identity does not match source");
             continue;
         }
@@ -617,7 +644,7 @@ fn assemble(
             title,
             cwd: relative,
             last_activity_ms: row.last_modified,
-            revision: source_revision(&after),
+            revision,
             live: live_row,
         });
     }
