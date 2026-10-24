@@ -25,8 +25,6 @@ export const MIN_HEIGHT = 6 * 17 + 2 * PADDING + HEADER;
 
 export type Extent = { width: number; height: number };
 
-export const FALLBACK_EXTENT: Extent = { width: 800, height: 600 };
-
 const between = (low: number, high: number, value: number): number => Math.max(low, Math.min(high, value));
 
 /** `place` kept inside `extent`, never smaller than the minimum nor larger than the extent. */
@@ -146,21 +144,3 @@ export const REVEAL_BUBBLE = "roundup:reveal-bubble";
 
 /** U511: the name the user gave a Terminal wins over its default; clearing it brings the default back. */
 export const shownName = (terminal: TerminalInfo, place: Place | undefined): string => place?.name || nameOf(terminal);
-
-/** U2236 call 2: `--space-2` strips centred on the edges, `--space-4` squares over the corners. */
-const EDGE = 8;
-
-const CORNER = 16;
-
-export const zoneBox = (place: Place, zone: Zone) => {
-  const thick = zone.sx !== 0 && zone.sy !== 0 ? CORNER : EDGE;
-
-  const along = (low: number, size: number, sign: number, span: number): [number, number] =>
-    sign < 0 ? [low - span / 2, span] : sign > 0 ? [low + size - span / 2, span] : [low + CORNER / 2, size - CORNER];
-
-  const [left, width] = along(place.x, place.w, zone.sx, thick);
-  const [top, height] = along(place.y, place.h, zone.sy, thick);
-
-  return { left: `${left}px`, top: `${top}px`, width: `${width}px`, height: `${height}px` };
-};
-
