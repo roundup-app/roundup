@@ -41,6 +41,7 @@ type Recovery = (draft: Draft, facts: {
 
 type ProjectDrafts = Drafts & {
   importing: ReturnType<typeof createImport> | null;
+  settingsView: SettingsViewState;
   /** Surface-owned identity extraction, installed independently of the original editor.
    * App-run lifetime; facts come from the inspected connection, never a captured old one.
    */
@@ -73,6 +74,7 @@ export const createProjectDrafts = () => {
 
     const holder: ProjectDrafts = {
       importing: null,
+      settingsView: createSettingsView(),
       editor: storage.editor,
       recoverable: () => {
         revision();
@@ -198,7 +200,7 @@ export const connectProject = async (
 
   const takeover = createTakeover(app, events, daemonExit);
 
-  return { project, drafts, app, events, rail, queue, timeline, importing, worktrees: createWorktreeState(app, rail, now, daemonExit), drawer: createDrawer(), asks: createAsks(app, events), takeover, settingsView: createSettingsView(), notes: createNoteQueue(app, events, reducedMotion, daemonExit), reducedMotion, now, contractNotice, daemonExit, stopTerminalScheme: () => { timeline.stop(); stopQueue(); stopTerminalScheme(); } };
+  return { project, drafts, app, events, rail, queue, timeline, importing, worktrees: createWorktreeState(app, rail, now, daemonExit), drawer: createDrawer(), asks: createAsks(app, events), takeover, settingsView: drafts.settingsView, notes: createNoteQueue(app, events, reducedMotion, daemonExit), reducedMotion, now, contractNotice, daemonExit, stopTerminalScheme: () => { timeline.stop(); stopQueue(); stopTerminalScheme(); } };
 };
 
 /** App-run authority for owners outside a connection, including Project tabs.

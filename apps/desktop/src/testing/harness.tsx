@@ -18,7 +18,7 @@ import type { AppSeam } from "../app/seam";
 import "../tokens.css";
 import "../styles.css";
 import "../scrollbar.css";
-import { trackScrollHover } from "../scrollHover";
+import { trackScrollbars } from "../scrollHover";
 import "./todoWorstCase.styles.css";
 
 declare global {
@@ -35,7 +35,7 @@ declare global {
 
 window.__question = questionProbe;
 
-trackScrollHover(document);
+trackScrollbars(document);
 
 const root = document.getElementById("root");
 

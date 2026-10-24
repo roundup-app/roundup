@@ -1,23 +1,52 @@
-/* U3747: the one scrollbar look. A slim thumb over the content, none at rest; the bar of the element under the pointer shows and fades out when the pointer leaves. Surfaces that hide theirs (the tab strip, Bubbles rows, the Rail) set `scrollbar-width: none` in their own rule. */
-* {
-  scrollbar-width: thin;
-  scrollbar-color: transparent transparent;
-  transition: scrollbar-color var(--duration-scrollbar) var(--easing-out);
+/* U3530: native viewports keep their content and input handlers. Library thumbs
+   live in fixed overlay slots, so even classic scrollbars reserve no gutter. */
+.scrollbar-slot {
+  position: fixed;
+  pointer-events: none;
+  z-index: var(--layer-tooltip);
 }
 
-/* U3748: only the innermost scrolling element under the pointer (marked by scrollHover.ts), so an ancestor that also scrolls stays bare. The mark changes colour only, never `scrollbar-width`, so a bar takes the same width shown or hidden (U3749). */
-[data-scroll-hover] {
-  scrollbar-color: var(--scrollbar-thumb) transparent;
+.app-scrollbar {
+  --os-size: var(--space-2);
+  --os-padding-perpendicular: 0;
+  --os-padding-axis: 0;
+  --os-track-border-radius: 0;
+  --os-handle-border-radius: var(--radius-scrollbar);
+  --os-handle-bg: var(--scrollbar-thumb);
+  --os-handle-bg-hover: var(--scrollbar-thumb);
+  --os-handle-bg-active: var(--scrollbar-thumb);
+  --os-handle-perpendicular-size: 75%;
+  --os-handle-perpendicular-size-hover: 75%;
+  --os-handle-perpendicular-size-active: 75%;
+  opacity: 0 !important;
+  visibility: hidden !important;
+  transition: opacity var(--duration-scrollbar) var(--easing-out), visibility var(--duration-scrollbar);
 }
 
-/* The emulator draws its own overlay bar: slim it, keep it out of sight until the pointer is over the Terminal, and leave the fit's 14 px reserve alone so no resize is sent. */
+.app-scrollbar .os-scrollbar-handle {
+  transition: none;
+}
+
+/* Activity belongs to the viewport, never the pointer or a hovered handle. */
+.scrollbar-slot[data-scroll-active] > .app-scrollbar.os-scrollbar-visible,
+.scrollbar-slot[data-scroll-drag] > .app-scrollbar.os-scrollbar-visible {
+  opacity: 1 !important;
+  visibility: visible !important;
+}
+
+/* xterm owns its scrollbar and scrollback; hover never overrides no-overflow. */
 .xterm .xterm-scrollable-element > .scrollbar {
   opacity: 0 !important;
   transition: opacity var(--duration-scrollbar) var(--easing-out) !important;
 }
 
-.xterm .xterm-scrollable-element:hover > .scrollbar {
+[data-scroll-active][data-scrollback] .xterm-scrollable-element > .scrollbar.vertical {
   opacity: 1 !important;
+}
+
+/* Removing scrollback must hide immediately, even during the idle delay. */
+.xterm-scrollable-element > .scrollbar.invisible {
+  visibility: hidden !important;
 }
 
 .xterm .xterm-scrollable-element > .scrollbar > .slider {
@@ -29,12 +58,9 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
+  .scrollbar-slot,
+  .app-scrollbar,
   .xterm .xterm-scrollable-element > .scrollbar {
     transition: none !important;
   }
-}
-
-/* U3016g: the Agents table keeps its columns where they are when its bar appears. */
-.measurement-dashboard {
-  scrollbar-gutter: stable;
 }

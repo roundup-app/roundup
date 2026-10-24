@@ -150,6 +150,7 @@ export const copy = {
   switcherCopyFailure: "Could not copy query. Select the text and copy again.",
   copyQuery: "Copy query",
   dismissFailure: "Dismiss",
+  dismiss: "Dismiss",
   retryStorage: "Try again",
   queryCopied: "Copied",
   discardQuery: "Discard query",

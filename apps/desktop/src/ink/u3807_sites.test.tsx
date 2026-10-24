@@ -277,8 +277,8 @@ it("u3807_each_site_shows_its_message_in_the_reserved_line: worktree panel", asy
 
 it("u3807_each_site_shows_its_message_in_the_reserved_line: importer Looking and failure", async () => {
   const mounted = await mountTodos([]);
-  render(() => <ConnectedProjectContext.Provider value={mounted.connected}><ImportPanel open opener={undefined} onClose={() => {}} /></ConnectedProjectContext.Provider>);
-  const surface = await within(document.body).findByRole("dialog");
+  render(() => <ConnectedProjectContext.Provider value={mounted.connected}><ImportPanel onClose={() => {}} /></ConnectedProjectContext.Provider>);
+  const surface = await within(document.body).findByRole("region", { name: "Import Claude Code work" });
   const read = gate<{ candidates: []; excluded: [] }>();
   mounted.app.handlers["project.importDiscover"] = () => read.promise;
   await cycle(surface, () => { void mounted.connected.importing.refresh(); }, () => read.reject(new RpcError(-32003, FAILURE)), "Looking for conversations…");
