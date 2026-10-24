@@ -51,16 +51,12 @@ pub enum EventData {
     PadDeleted(pad::PadName),
     #[serde(rename = "message.sent")]
     MessageSent(Box<message::Message>),
-    #[serde(rename = "message.held")]
-    MessageHeld(Box<message::Message>),
     #[serde(rename = "message.delivered")]
     MessageDelivered(Box<message::Message>),
     #[serde(rename = "message.dropped")]
     MessageDropped(Box<message::Message>),
     #[serde(rename = "route.changed")]
     RouteChanged(message::Route),
-    #[serde(rename = "takeover.changed")]
-    TakeoverChanged(message::TakeoverChanged),
     #[serde(rename = "agent.status")]
     AgentStatus(Box<agent::StatusEvent>),
     #[serde(rename = "agent.channel")]

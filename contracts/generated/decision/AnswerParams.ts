@@ -16,7 +16,7 @@ import type { Scope } from "./Scope";
  */
 export type AnswerParams = { 
 /**
- * B6: supplied when releasing a held answer; mismatch is CONFLICT with no effect.
+ * The prompt the answer is for; a mismatch is CONFLICT with no effect.
  */
 identity?: PromptIdentity, id: string, answer: string | null, note?: string, 
 /**

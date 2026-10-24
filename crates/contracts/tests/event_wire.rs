@@ -34,13 +34,13 @@ fn r16_large_event_payloads_keep_the_exact_wire_envelope() {
         kind: MessageKind::Question,
         body: "question".into(),
         reply_to: Some(4),
-        status: MessageStatus::Held,
-        reason: Some(Reason::Escalated),
+        status: MessageStatus::Dropped,
+        reason: Some(Reason::Passed),
         passed_from: Some(8),
         at: 456,
         iteration: Some(2),
     };
-    let message_wire = json!({"id":9,"from":{"kind":"agent","id":"a1","parent":"door"},"to":"a1","kind":"question","body":"question","replyTo":4,"status":"held","reason":"escalated","passedFrom":8,"at":456,"iteration":2});
+    let message_wire = json!({"id":9,"from":{"kind":"agent","id":"a1","parent":"door"},"to":"a1","kind":"question","body":"question","replyTo":4,"status":"dropped","reason":"passed","passedFrom":8,"at":456,"iteration":2});
     let decision = Decision {
         id: "d1".into(),
         agent: "a1".into(),
@@ -85,11 +85,6 @@ fn r16_large_event_payloads_keep_the_exact_wire_envelope() {
             message_wire.clone(),
         ),
         (
-            "message.held",
-            EventData::MessageHeld(message.clone().into()),
-            message_wire.clone(),
-        ),
-        (
             "message.delivered",
             EventData::MessageDelivered(message.clone().into()),
             message_wire.clone(),
@@ -113,7 +108,6 @@ fn r16_large_event_payloads_keep_the_exact_wire_envelope() {
             (EventData::TodoCreated(a), EventData::TodoCreated(b))
             | (EventData::TodoUpdated(a), EventData::TodoUpdated(b)) => assert_eq!(a, b),
             (EventData::MessageSent(a), EventData::MessageSent(b))
-            | (EventData::MessageHeld(a), EventData::MessageHeld(b))
             | (EventData::MessageDelivered(a), EventData::MessageDelivered(b))
             | (EventData::MessageDropped(a), EventData::MessageDropped(b)) => assert_eq!(a, b),
             (EventData::DecisionOpened(a), EventData::DecisionOpened(b)) => assert_eq!(a, b),

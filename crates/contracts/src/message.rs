@@ -19,25 +19,17 @@ pub enum MessageKind {
 #[ts(export, export_to = "message/")]
 pub enum MessageStatus {
     Pending,
-    Held,
     Delivered,
     Dropped,
 }
 
-/// Why a Message is `held` (`ask-first`: waiting on the user; `takeover`: on a Takeover's end;
-/// `escalated`: on the user's answer to a bubbled-up question, B15; `inbox`: on a Claude inbox
-/// that is missing or mismatched, B51) or `dropped`
+/// Why a Message is `dropped`
 /// (`receiver gone`, B9; `not accepted`, B2; `passed`, a question's hop that was still `pending`
 /// when the next was made, B13; `removed`, a `pending` note the user took back, U3782; `merged`, a pushed digest folded into a newer one, B22).
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize, TS, JsonSchema)]
 #[serde(rename_all = "kebab-case")]
 #[ts(export, export_to = "message/")]
 pub enum Reason {
-    AskFirst,
-    Takeover,
-    Escalated,
-    /// B51: a `note` waits for its Agent's Claude inbox to pass the check.
-    Inbox,
     #[serde(rename = "receiver gone")]
     ReceiverGone,
     #[serde(rename = "not accepted")]
@@ -50,7 +42,7 @@ pub enum Reason {
 }
 
 /// A typed envelope between Actors. `reply_to` names the Message this answers, if any; `reason`
-/// names why a `held` Message is held or a `dropped` one was dropped, and is `None` otherwise;
+/// names why a `dropped` Message was dropped, and is `None` otherwise;
 /// `passed_from` names the earlier hop of a bubbling question (B13), and is `None` for any other
 /// Message and for a question's first hop.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, TS)]
@@ -108,7 +100,6 @@ pub struct ListParams {
 #[ts(export, export_to = "message/")]
 pub enum Delivery {
     Auto,
-    AskFirst,
     Drop,
 }
 
@@ -127,21 +118,6 @@ pub struct SetRouteParams {
     pub from: String,
     pub to: String,
     pub delivery: Delivery,
-}
-
-/// `takeover.begin` and `takeover.end` name the Agent to take over.
-#[derive(Clone, Debug, Serialize, Deserialize, TS, JsonSchema)]
-#[ts(export, export_to = "message/")]
-pub struct TakeoverParams {
-    pub agent: String,
-}
-
-/// `takeover.changed {agent, on}`: pushed each time a Takeover of `agent` begins or ends.
-#[derive(Clone, Debug, Serialize, Deserialize, TS)]
-#[ts(export, export_to = "message/")]
-pub struct TakeoverChanged {
-    pub agent: String,
-    pub on: bool,
 }
 
 /// Read the exact instruction and result history of one Agent in its original Project.

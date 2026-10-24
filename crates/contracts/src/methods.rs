@@ -84,27 +84,22 @@ pub const METHODS: &[Method] = &[
     m(
         "terminal.close",
         "terminal_TerminalId",
-        "null | agent_HeldAction",
+        "null",
     ),
     m(
         "terminal.write",
         "terminal_WriteParams",
-        "null | agent_HeldAction",
+        "null",
     ),
     m(
         "terminal.resize",
         "terminal_ResizeParams",
-        "terminal_ResizeAction | null",
-    ),
-    m(
-        "terminal.resizeHistory",
-        "terminal_TerminalId",
-        "terminal_ResizeAction[]",
+        "null",
     ),
     m(
         "terminal.kill",
         "terminal_TerminalId",
-        "null | agent_HeldAction",
+        "null",
     ),
     m("terminal.scheme", "terminal_SchemeParams", "null"),
     m("terminal.show", "terminal_TerminalId", "null"),
@@ -167,14 +162,13 @@ pub const METHODS: &[Method] = &[
         "agent_ExtrasAddParams",
         "agent_RailNode",
     ),
-    m("agent.actionHistory", "agent_NodeId", "agent_HeldAction[]"),
-    m("agent.stop", "agent_NodeId", "null | agent_HeldAction"),
+    m("agent.stop", "agent_NodeId", "null"),
     m(
         "agent.prompt",
         "agent_PromptParams",
-        "null | agent_HeldAction",
+        "null",
     ),
-    m("agent.interrupt", "agent_NodeId", "null | agent_HeldAction"),
+    m("agent.interrupt", "agent_NodeId", "null"),
     m("agent.worktreeState", "agent_NodeId", "agent_WorktreeState"),
     m("agent.changedFiles", "agent_NodeId", "agent_ChangedFiles"),
     m(
@@ -211,7 +205,7 @@ pub const METHODS: &[Method] = &[
     m(
         "agent.setOrder",
         "agent_SetOrderParams",
-        "agent_RailNode | agent_HeldAction",
+        "agent_RailNode",
     ),
     m("agent.instructions", "agent_NodeId", "agent_Instructions"),
     m("agent.channelUp", "agent_NodeId", "null"),
@@ -240,7 +234,7 @@ pub const METHODS: &[Method] = &[
     m(
         "decision.answer",
         "decision_AnswerParams",
-        "null | agent_HeldAction",
+        "null",
     ),
     m("decision.revoke", "decision_RevokeParams", "null"),
     m("rail.tree", "null", "agent_RailNode[]"),
@@ -255,7 +249,7 @@ pub const METHODS: &[Method] = &[
     m(
         "rail.rename",
         "agent_RenameParams",
-        "agent_RailNode | agent_HeldAction",
+        "agent_RailNode",
     ),
     m("rail.startDoor", "agent_StartDoorParams", "agent_RailNode"),
     m("agent.run", "agent_RunParams", "terminal_Opened"),
@@ -324,12 +318,9 @@ pub const METHODS: &[Method] = &[
     m("message.pass", "message_MessageId", "message_Message"),
     m("message.get", "message_MessageId", "message_Message"),
     m("message.list", "message_ListParams", "message_Message[]"),
-    m("message.deliver", "message_MessageId", "message_Message"),
     m("message.drop", "message_MessageId", "message_Message"),
     m("route.set", "message_SetRouteParams", "message_Route"),
     m("route.list", "null", "message_Route[]"),
-    m("takeover.begin", "message_TakeoverParams", "null"),
-    m("takeover.end", "message_TakeoverParams", "null"),
     m(
         "checkpoint.write",
         "checkpoint_WriteParams",
@@ -344,7 +335,7 @@ pub const METHODS: &[Method] = &[
     m(
         "agent.resume",
         "agent_ResumeParams",
-        "agent_RailNode | agent_HeldAction",
+        "agent_RailNode",
     ),
     m("agent.setModel", "agent_SetModelParams", "agent_RailNode"),
     m(
