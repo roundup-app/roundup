@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { buildReport } from "./frames";
-import { everyTwoSeconds, glyphsCycle, layersCycle, todosCycle } from "./frame_run";
+import { everyTwoSeconds, glyphsCycle, layersCycle, todosCycle, writeInChunks } from "./frame_run";
 import type { Layers, Todos } from "./frame_run";
 
 const clock = { sleep: (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms)) };
@@ -22,6 +22,16 @@ const layers = (log: [number, string][], missing?: keyof Layers): Layers => {
 };
 
 describe("u3010g the frame recorder drives every workload", () => {
+  it("u3010g_a_large_report_reaches_the_terminal_whole_and_in_order", async () => {
+    const bytes = Uint8Array.from({ length: 20_000 }, (_, at) => at % 251);
+    const seen: Uint8Array[] = [];
+
+    await writeInChunks(bytes, async (chunk) => { seen.push(chunk); });
+
+    expect(seen.length).toBeGreaterThan(1);
+    expect(Uint8Array.from(seen.flatMap((chunk) => [...chunk]))).toEqual(bytes);
+  });
+
   it("u3010g_layers_perform_the_drawer_and_shelf_sequence_every_two_seconds", async () => {
     const log: [number, string][] = [];
     const start = Date.now();
