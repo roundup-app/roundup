@@ -84,8 +84,9 @@ fn seed_fresh(path: &Path) -> std::io::Result<()> {
         let _ = std::fs::remove_file(path.with_extension(leftover));
     }
     std::fs::write(&staging, reidentified()?)?;
-    // One sync makes the image durable before it is linked.
-    std::fs::File::open(&staging)?.sync_all()?;
+    // One sync makes the image durable before it is linked. Plain `fsync`, as SQLite issues:
+    // `File::sync_all` is `F_FULLFSYNC` on macOS, several ms of the Daemon's cold start.
+    rustix::fs::fsync(std::fs::File::open(&staging)?)?;
     // A racing opener or an existing file wins; the normal path then migrates it.
     let linked = std::fs::hard_link(&staging, path);
     std::fs::remove_file(&staging)?;
