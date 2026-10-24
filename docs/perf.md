@@ -80,6 +80,47 @@ The identity evidence in #1941 records an Intel 8370C Builder at `06fd4eb7e24c47
 
 R1–R15 and R8's pins remain unchanged, as do ten login shells, all measured calls, #1366's historical write ceilings and #1361's final combined acceptance. Every class keeps all absolute limits, 10% plus existing noise, Linux's load threshold of 2.0 per CPU, memory comparisons at every load and loud latency skips. A skipped latency comparison cannot complete R16, even on exit 0. No automatic baseline generation, removed metric, widened allowance, baseline increase to hide a regression or CPU-count rescaling is permitted. The implementation pins each class's values, provenance and thresholds in R8's tests; see R16 for test names and the failure/exit table.
 
+### R23 execution lifetime (#3764)
+
+[#3764](https://github.com/saadshahd/roundup/issues/3764) remains open: Builder
+[40127972413](https://github.com/saadshahd/roundup/actions/runs/40127972413)
+at `f82fd7499a07f81a8dd42947b2b9d3c353c15905` has exact model
+`AMD EPYC 7763 64-Core Processor`, so its R23 host preflight exits 2.
+The commands, full identity, statuses and existing-host search are retained in
+[`r23-host-40127972413`](../crates/perf/evidence/r23-host-40127972413/README.md).
+No R23 timing or profile was collected. The earlier 9V45 diagnosis below predates
+R23's candidate and supplies neither a live host nor an R23 observation.
+
+For the next execution attempt, use the existing Builder facility:
+
+1. Search existing host evidence and active Actions jobs before allocating a host.
+   A job name or `ubuntu-latest` label does not establish CPU identity or access.
+   This attempt's runner inventory request returned HTTP 403; job metadata exposed
+   no remote execution endpoint. The existing `build-issue.yml` selects
+   `ubuntu-latest` without an exact CPU selector and serializes builds of one Issue.
+   Dispatching another build during this one would not hand off its lifetime.
+2. On the execution host, retain the full identity commands above and execute the
+   preflight in `qualification.txt`. Require exit 0 and retain the Actions run/job,
+   runner name and `/proc/sys/kernel/random/boot_id` to identify the lifetime.
+   Exit 2 means stop before timing; never substitute another CPU class.
+3. Keep that host alive through #3760's observations. Build historical
+   `2029ed2c4ee606d26e73c858c4d7c93130df36e0` and candidate
+   `50e546c1a3ce74689738b08a3dfe273895f9ae31` there with the same toolchain and
+   release settings (`cargo build --release -p rupd -p rup -p perf`). Retain
+   executable SHA-256 hashes and #3760's compatibility diff before measuring.
+4. Execute #3760's compatible probe commands in order historical-1, candidate-1,
+   historical-2, candidate-2, historical-3, candidate-3, eleven fresh Daemons each.
+   Retain reports, logs, statuses, failed attempts and busy-pair repeats. Collect
+   both diagnostic profiles separately from these timing invocations. Keep all
+   evidence under `crates/perf/evidence/` and link it on #3760 before the job ends.
+   If another run cannot execute on this same live host, the qualifying run must
+   collect these observations itself; an identity-only handoff is incomplete.
+
+R23 in `scenarios/perf.md` governs workloads, load qualification, ceilings and
+attribution. #3760 owns probe compatibility and per-metric conclusions; remaining
+measurement and repair work stays linked to #3720. This failed preflight establishes
+no calibration, performance pass or completed host prerequisite.
+
 ### Builder 9V45 diagnosis (#3700, R16 steps 1 to 3)
 
 No Builder baseline is recorded: the same-class comparison finds a regression, not a class mismatch, and R16 step 3 says to repair it before accepting baselines. The earlier 7763 figures (taken from `main` itself, with no historical comparison) are withdrawn; a 7763 baseline needs its own diagnosis on a 7763 host.
