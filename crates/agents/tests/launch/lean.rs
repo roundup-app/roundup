@@ -73,10 +73,10 @@ fn lc1_each_role_launches_as_its_row() {
             };
             let argv = s.prepare_lean("7", role, &pair, None).unwrap();
             let tools = match (row, mcp) {
-                (Role::Door, true) => Some("Read,Grep,Glob,ToolSearch,Skill"),
-                (Role::Door, false) => Some("Read,Grep,Glob,Skill"),
-                (Role::Scout, true) => Some("Read,Grep,Glob,Bash,ToolSearch"),
-                (Role::Scout, false) => Some("Read,Grep,Glob,Bash"),
+                (Role::Door, true) => Some("Read,Grep,Glob,ToolSearch,Skill,AskUserQuestion"),
+                (Role::Door, false) => Some("Read,Grep,Glob,Skill,AskUserQuestion"),
+                (Role::Scout, true) => Some("Read,Grep,Glob,Bash,ToolSearch,AskUserQuestion"),
+                (Role::Scout, false) => Some("Read,Grep,Glob,Bash,AskUserQuestion"),
                 _ => None,
             };
             assert_eq!(Setup::after(&argv, "--tools"), tools, "{row:?} mcp={mcp}");
@@ -191,7 +191,7 @@ fn lc3_the_door_launches_lean_and_its_brief_omits_the_plain_body() {
     let argv = s.prepare_as("7", Role::Door).unwrap();
     assert_eq!(
         Setup::after(&argv, "--tools"),
-        Some("Read,Grep,Glob,ToolSearch,Skill")
+        Some("Read,Grep,Glob,ToolSearch,Skill,AskUserQuestion")
     );
     assert!(!has(&argv, "--disable-slash-commands"));
     assert!(!has(&argv, "--setting-sources"));
@@ -216,7 +216,7 @@ fn lc4_a_scout_launches_with_read_tools_and_no_user_instructions() {
     let argv = s.prepare_lean("7", Role::Agent, &pair, None).unwrap();
     assert_eq!(
         Setup::after(&argv, "--tools"),
-        Some("Read,Grep,Glob,Bash,ToolSearch")
+        Some("Read,Grep,Glob,Bash,ToolSearch,AskUserQuestion")
     );
     assert!(!has(&argv, "--disable-slash-commands"));
     assert_eq!(Setup::after(&argv, "--model"), Some("haiku"));
@@ -708,6 +708,83 @@ fn a3507b_settings_extend_the_user_setup() {
     for ((path, _), original) in files.iter().zip(before) {
         assert_eq!(std::fs::read(path).unwrap(), original);
     }
+}
+
+// A3564b: a native question or permission prompt is the vendor's; no role's launch intercepts,
+// answers or auto-allows it, and the user's own rules and hook survive.
+#[test]
+fn a3564b_native_questions_preserve_each_roles_setup() {
+    let s = setup();
+    let user = json!({
+        "permissions": {
+            "defaultMode": "auto",
+            "allow": ["Bash(git status)", "Read(shared)"],
+            "ask": ["Read(shared)", "Bash(*)"],
+            "deny": ["Read(shared)", "Read(.env)"]
+        },
+        "hooks": {"PermissionRequest": [{"matcher":"", "hooks":[{"type":"command","command":"user-permission-hook"}]}]}
+    });
+    s.user_file("settings.json", &user.to_string());
+    let source = std::fs::read(s.root.path().join("settings.json")).unwrap();
+    let roles = lean_children()
+        .into_iter()
+        .map(|(row, role, pair)| (Some(row), role, pair))
+        .chain([(None, Role::Agent, Pair::default())]);
+    for (row, role, pair) in roles {
+        for mcp in [true, false] {
+            for resume in [None, Some("saved")] {
+                let pair = Pair {
+                    mcp_off: !mcp,
+                    ..pair.clone()
+                };
+                let argv = s.prepare_lean("7", role, &pair, resume).unwrap();
+                let label = format!("{row:?} mcp={mcp} resume={resume:?}");
+                for flag in [
+                    "--permission-mode",
+                    "--dangerously-skip-permissions",
+                    "--allow-dangerously-skip-permissions",
+                    "--allowedTools",
+                    "--disallowedTools",
+                    "--permission-prompt-tool",
+                ] {
+                    assert!(!has(&argv, flag), "{label}: {flag}");
+                }
+                let settings = read(Path::new(Setup::after(&argv, "--settings").unwrap()));
+                let rules = &settings["permissions"];
+                assert_eq!(rules["defaultMode"], "auto", "{label}");
+                assert_eq!(rules["ask"], user["permissions"]["ask"], "{label}");
+                assert_eq!(rules["deny"], user["permissions"]["deny"], "{label}");
+                for rule in rules["allow"].as_array().unwrap() {
+                    let rule = rule.as_str().unwrap();
+                    assert!(
+                        user["permissions"]["allow"]
+                            .as_array()
+                            .unwrap()
+                            .contains(&json!(rule))
+                            || rule.starts_with("mcp__roundup__"),
+                        "{label}: added {rule}"
+                    );
+                }
+                // Routine state hooks observe the request; the user's hook stays and no
+                // other hook is a roundup command that answers.
+                let groups = settings["hooks"]["PermissionRequest"].as_array().unwrap();
+                assert_eq!(groups[0], user["hooks"]["PermissionRequest"][0], "{label}");
+                for group in &groups[1..] {
+                    let command = group["hooks"][0]["command"].as_str().unwrap();
+                    assert!(command.contains("signal"), "{label}: {command}");
+                    assert!(!command.contains("permission"), "{label}: {command}");
+                }
+                if let Some(tools) = Setup::after(&argv, "--tools") {
+                    assert!(tools.split(',').any(|t| t == "AskUserQuestion"), "{label}");
+                }
+            }
+        }
+    }
+    assert_eq!(
+        std::fs::read(s.root.path().join("settings.json")).unwrap(),
+        source,
+        "the user's source settings changed"
+    );
 }
 
 #[test]

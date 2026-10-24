@@ -337,9 +337,9 @@ async fn h16_no_signal_text_reaches_the_terminal_and_only_one_function_writes_to
     assert_eq!(
         callers,
         [
-            "agents/src/decision.rs: 2",
             "agents/src/ending.rs: 1",
-            "agents/src/lib.rs: 2"
+            "agents/src/lib.rs: 2",
+            "agents/src/reach.rs: 1"
         ]
     );
 }

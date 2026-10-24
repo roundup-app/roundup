@@ -97,7 +97,7 @@ not tests claimed to exist in this specification PR.
    No baseline, noise allowance or workload is relaxed. In isolated headless
    browser sessions at 1512×950, observe the journey's Understand
    and Intervene stages: switch between two live Terminals, type into the selected
-   one and see its echo while ten others print, with Status and Decision updates
+   one and see its echo while ten others print, with Status updates
    still delivered. Test: `x14_selected_terminal_echo_and_rail_updates_survive_output_flood`
    in `apps/desktop/src/terminal/`. Policy: preserve D2, D5 and D6 and every
    Check passing on main; retain rendered results under the harness rules.

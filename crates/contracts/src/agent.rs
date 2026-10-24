@@ -904,8 +904,6 @@ pub enum HeldCall {
     Rename(RenameParams),
     #[serde(rename = "agent.setOrder")]
     SetOrder(SetOrderParams),
-    #[serde(rename = "decision.answer")]
-    Answer(crate::decision::AnswerParams),
     #[serde(rename = "agent.resume")]
     Resume(ResumeParams),
     #[serde(rename = "agent.stop")]

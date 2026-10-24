@@ -208,8 +208,8 @@ impl Daemon {
             .get()
             .ok_or_else(|| RpcError::internal("Message holder is unavailable"))?;
         let payload = json!({"id":p.id,"action":p.action}).to_string();
-        let decided = |decision: continuation::Decision, reconciliation| ResumeWork {
-            decision: Some(ContinuationDecision {
+        let decided = |decision: continuation::Choice, reconciliation| ResumeWork {
+            decision: Some(ContinuationChoice {
                 id: decision.id,
                 request: decision.request,
                 actions: decision.actions,
