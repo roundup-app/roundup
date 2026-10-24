@@ -325,8 +325,22 @@ export const Rail = () => {
   });
 
   /** Where the drop slot sits: at the top of the room the library opened for the dragged row, once it has moved there. */
+  let followRoom: MutationObserver | undefined;
+  let roomDepth = 0;
+
+  const measureRoom = () => {
+    const base = container()?.getBoundingClientRect();
+    const room = container()?.querySelector("[data-dnd-placeholder]")?.getBoundingClientRect();
+    const top = base && room ? room.top - base.top : 0;
+    const height = room?.height ?? 0;
+
+    setDrop((now) => (base && room ? (now && now.depth === roomDepth && now.top === top && now.height === height ? now : { depth: roomDepth, top, height }) : null));
+  };
+
   const placeDrop = (next: { depth: number } | null) => {
     if (next === null) {
+      followRoom?.disconnect();
+      followRoom = undefined;
       const back = liftedRow;
 
       liftedRow = null;
@@ -337,16 +351,16 @@ export const Rail = () => {
       return;
     }
 
-    const measure = () => {
-      const base = container()?.getBoundingClientRect();
-      const room = container()?.querySelector("[data-dnd-placeholder]")?.getBoundingClientRect();
+    roomDepth = next.depth;
+    queueMicrotask(measureRoom);
 
-      setDrop(base && room ? { depth: next.depth, top: room.top - base.top, height: room.height } : null);
-    };
+    // The library moves the room after the preview, by its own DOM writes: measure on each one so the slot never trails it.
+    const tree = container();
 
-    // The library moves the room after the preview: measure again on the next frame so the slot never trails it.
-    queueMicrotask(measure);
-    requestAnimationFrame(measure);
+    if (followRoom === undefined && tree) {
+      followRoom = new MutationObserver(measureRoom);
+      followRoom.observe(tree, { subtree: true, childList: true, attributes: true, attributeFilter: ["style", "data-dnd-placeholder"] });
+    }
   };
 
   /** The index among all of `parent`'s other children for one counted among the shown ones: a done row folded into its `✓ n done` line is still a sibling. */
