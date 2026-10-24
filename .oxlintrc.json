@@ -25,6 +25,7 @@
   ],
   "rules": {
     "anti-slop/no-tooltip-bypass": "error",
+    "anti-slop/no-inline-delete-confirmation": "error",
     "oxc/no-accumulating-spread": "error",
     "anti-slop/no-array-filter-map": "error",
     "anti-slop/no-reduce-accumulator-copy": "error",

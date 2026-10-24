@@ -149,7 +149,9 @@ it("u2580a_key_layers_open_and_focus_in_the_next_frame", async () => {
     expect(await keyFrame("m", "KeyM", "!!document.querySelector('.bubble:not([hidden])') && !!document.activeElement.closest('.bubble')")).toBe(true);
     await settle();
     await leader();
-    expect(await keyFrame("w", "KeyW", "!document.querySelector('.bubble:not([hidden])') && document.activeElement === window.__bubbleOrigin")).toBe(true);
+    expect(await keyFrame("w", "KeyW", "!!window.__fake.app.answerQuestion && !!document.querySelector('.bubble:not([hidden])')")).toBe(true);
+    await evaluate(`window.__fake.app.answerQuestion(true)`);
+    await browser("wait", "--fn", "!document.querySelector('.bubble:not([hidden])') && document.activeElement === window.__bubbleOrigin");
     await settle();
   }
 }, 120_000);
