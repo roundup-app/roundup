@@ -698,7 +698,7 @@
   white-space: nowrap;
 }
 
-.rail-tree [data-dnd-dragging] {
+.rail-tree [data-dnd-dragging], .rail-tree [data-dnd-dragging]::before {
   border-radius: var(--tree-row-radius);
 }
 
