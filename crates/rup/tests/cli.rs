@@ -581,7 +581,7 @@ async fn i6_terminal_write_types_the_text_and_presses_enter() {
     let params = request_of(&mut seen, "terminal.write").await;
     assert_eq!(params["id"], "3");
     assert_eq!(decode(&params), "héllo\r".as_bytes());
-    assert_eq!(out(&output), "null\n");
+    assert_eq!(out(&output), "accepted terminal write\n");
 }
 
 fn decode(params: &Value) -> Vec<u8> {

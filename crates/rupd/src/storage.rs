@@ -654,7 +654,7 @@ mod tests {
         call(
             &daemon,
             "route.set",
-            json!({"from":"you","to":ws,"delivery":"ask-first"}),
+            json!({"from":"you","to":ws,"delivery":"drop"}),
         )
         .await;
         let ctx = Ctx {
@@ -767,7 +767,7 @@ mod tests {
         );
         assert_eq!(
             call(&daemon, "route.list", Json::Null).await[0]["delivery"],
-            "ask-first"
+            "drop"
         );
     }
 
