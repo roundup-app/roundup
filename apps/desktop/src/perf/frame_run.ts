@@ -298,7 +298,7 @@ export const createFrameRun = (app: AppSeam, workload: string, cwd: string) => {
     const dragActions = { released: 0, cancelled: 0 };
 
     const count = (event: Event) => {
-      if (!event.isTrusted || !document.querySelector("[data-sortable-source]")) return;
+      if (!event.isTrusted || !document.querySelector(".sortable-source")) return;
 
       if (event instanceof PointerEvent) dragActions.released += 1;
       else if (event instanceof KeyboardEvent && event.key === "Escape") dragActions.cancelled += 1;

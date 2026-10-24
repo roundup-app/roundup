@@ -43,8 +43,4 @@ const u484Fixture = () => {
   </>;
 };
 
-if (new URLSearchParams(location.search).has("native-probe")) {
-  const { NativeDragProbe } = await import("../perf/nativeDragProbe");
-
-  render(NativeDragProbe, document.getElementById("root")!);
-} else render(u484Fixture, document.getElementById("root")!);
+render(u484Fixture, document.getElementById("root")!);

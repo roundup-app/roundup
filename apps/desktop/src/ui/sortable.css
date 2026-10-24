@@ -1,15 +1,14 @@
-/* The library's live region is clipped; no off-scale negative margin is needed. */
+/* Keep the library's live region clipped without its off-scale negative margin. */
 [id^="dnd-kit-announcement-"] {
   margin: 0 !important;
 }
 
-[data-sortable-source] {
+/* The real row keeps its layout and input state; an inset edge changes no geometry. */
+.sortable-source {
   position: relative;
-  background-color: var(--ground);
-  background-image: linear-gradient(var(--selected), var(--selected));
 }
 
-[data-sortable-source]::before {
+.sortable-source::after {
   content: "";
   position: absolute;
   inset: 0;
@@ -21,20 +20,19 @@
   box-sizing: border-box;
   overflow: hidden;
   white-space: nowrap;
-  pointer-events: none;
-  color: var(--ink);
+  text-overflow: ellipsis;
   background: var(--ground);
-  padding-inline: var(--space-3);
-  display: flex;
-  align-items: center;
+  color: var(--text);
+  padding: var(--space-2);
+  font: inherit;
 }
 
 .sortable-slot {
-  position: relative;
   box-sizing: border-box;
+  position: relative;
   flex-shrink: 0;
+  margin-inline-start: var(--sortable-indent, 0px);
   pointer-events: none;
-  opacity: 0;
 }
 
 .sortable-slot::after {
@@ -42,19 +40,19 @@
   position: absolute;
   inset: 0;
   border: 2px dashed var(--accent);
-}
-
-.sortable-slot[data-open],
-.sortable-slot[data-keyboard="true"] {
-  opacity: 1;
+  pointer-events: none;
 }
 
 @media (prefers-reduced-motion: no-preference) {
-  .sortable-slot[data-keyboard="false"] {
+  .sortable-slot:not([data-keyboard="true"]) {
     transition: opacity var(--duration-crossfade) var(--easing-out);
+
+    @starting-style {
+      opacity: 0;
+    }
   }
 }
 
-@media (prefers-reduced-motion: reduce) {
-  .sortable-slot { opacity: 1; }
+.sortable-slot[data-ending="true"] {
+  opacity: 0;
 }

@@ -260,8 +260,6 @@ export const Rail = () => {
   /** One indent step (--rail-step) in pixels: how far sideways the pointer goes to change the drop's depth. */
   const [railStep, setRailStep] = createSignal(1);
 
-
-
   /** Whether the press that began the drag was a pointer's: a keyboard lift has no pointer to leave the Rail. */
   let pointerPressed = false;
   let pointerAt: { x: number; y: number } | null = null;
@@ -326,7 +324,6 @@ export const Rail = () => {
 
   const placeDrop = (next: { depth: number } | null) => {
     if (next !== null) return;
-
     const back = liftedRow;
 
     liftedRow = null;
@@ -673,7 +670,6 @@ export const Rail = () => {
           )}
         </For>
       </TreeView.Tree>
-
       </Sortable.Root>
     </TreeView.Root>
     </div>

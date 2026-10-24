@@ -266,6 +266,10 @@
   user-select: text;
 }
 
+.rail-tree .sortable-slot {
+  margin-inline-start: calc(var(--space-4) + var(--sortable-indent, 0px) + var(--rail-inset));
+}
+
 /* Greyed, not faded: opacity would sink the Live lines under the 4.5:1 contrast U25 keeps; grayscale holds it (rail/u25_daemon_gone.test.tsx). */
 .rail-tree [role="tree"][aria-disabled="true"] {
   filter: grayscale(1);
