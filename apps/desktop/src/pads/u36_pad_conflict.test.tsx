@@ -636,7 +636,7 @@ it("u2773e_recovery_actions_keep_surface_draft", async () => {
   expect(body.getByRole("alert")).toBeTruthy();
   expect(localStorage.getItem("roundup:drafts:/p")).toBe(stored);
   const clipboard = vi.fn(async () => {});
-  Object.defineProperty(navigator, "clipboard", { configurable: true, value: { writeText: clipboard } });
+  vi.spyOn(app, "clipboardWrite").mockImplementation(clipboard);
   fireEvent.click(body.getByRole("button", { name: "Copy source" }));
   expect(clipboard).toHaveBeenCalledWith("recoverable é 🪁");
   writes.mockRestore();

@@ -1,19 +1,15 @@
 import { cleanup, fireEvent, screen, waitFor, within } from "@solidjs/testing-library";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
+import { copy } from "../copy";
 import { event } from "../testing/nodes";
 import { confirmDeletion, answerQuestion, questionDialog } from "../shelf/bulkQuestionHarness";
 import { mountBubbles, TERMINALS } from "./bubblesFixture";
-
-const clipboardBefore = Object.getOwnPropertyDescriptor(navigator, "clipboard");
 
 beforeEach(() => { localStorage.clear(); sessionStorage.clear(); });
 
 afterEach(() => {
   cleanup();
   vi.restoreAllMocks();
-
-  if (clipboardBefore) Object.defineProperty(navigator, "clipboard", clipboardBefore);
-  else Reflect.deleteProperty(navigator, "clipboard");
 });
 
 const tab = (id: string) => document.querySelector<HTMLElement>(`.terminal-tab[data-bubble="${id}"]`)!;
@@ -41,6 +37,7 @@ it.each(["close", "rename", "context"].flatMap(source => transitions.map(transit
     const text = "  unfinished e\u0301 🫧 雪  ";
     const retained = connected.drafts.edit({ surface: "bubbles", object: TERMINALS[2]!.incarnation, recipient: "3" }, { name: text, base: "other run" }, null, "ordinary").draft;
     const remove = app.handlers["terminal.close"]!;
+    const refusal = source === "context" ? copy.copyDraftFailure("Close refused\nTry again") : "Close refused\nTry again";
 
     if (source === "close") {
       app.handlers["terminal.close"] = () => { throw new Error("Close refused\nTry again"); };
@@ -70,7 +67,7 @@ it.each(["close", "rename", "context"].flatMap(source => transitions.map(transit
 
       fireEvent.contextMenu(tab("2"), { clientX: 10, clientY: 10 });
       await app.pickMenu("Copy Link");
-      await screen.findByRole("alert", { name: "Close refused\nTry again" });
+      await screen.findByRole("alert", { name: refusal });
     }
 
     const before = connected.drafts.list();
@@ -119,7 +116,7 @@ it.each(["close", "rename", "context"].flatMap(source => transitions.map(transit
 
     if (["delete", "dismiss", "save", "replace", "successful-delete"].includes(transition)) {
       await waitFor(() => expect(screen.queryByRole("alert")).toBeNull());
-    } else expect(screen.getByRole("alert", { name: transition === "failed-delete" ? "Still refused" : "Close refused\nTry again" })).toBeDefined();
+    } else expect(screen.getByRole("alert", { name: transition === "failed-delete" ? "Still refused" : refusal })).toBeDefined();
     expect(connected.drafts.list()).toContainEqual(retained);
 
     if (!["save", "other-save"].includes(transition)) expect(connected.drafts.list()).toEqual(before);
@@ -158,12 +155,12 @@ it.each(["delete", "save", "dismiss", "recover"])("p3557c_failure_lifetime_bubbl
 });
 
 it.each(["dismiss", "discard", "copy", "other-copy", "other-discard", "retention"])("p3557c_failure_lifetime_bubbles_recovery: %s", async transition => {
-  const { connected } = await mountBubbles();
+  const { app, connected } = await mountBubbles();
   const drafts = connected.drafts;
   const destination = { surface: "bubbles", object: TERMINALS[1]!.incarnation, recipient: "2" };
   const first = drafts.edit(destination, { name: "  copied e\u0301 雪  ", base: "zsh" }, null, "ordinary").draft;
   const other = drafts.edit({ ...destination, object: TERMINALS[2]!.incarnation, recipient: "3" }, { name: "other unfinished", base: "other run" }, null, "ordinary").draft;
-  Object.defineProperty(navigator, "clipboard", { configurable: true, value: { writeText: vi.fn().mockRejectedValue(new Error("Clipboard refused")) } });
+  app.clipboardFailure = new Error("Clipboard refused");
   fireEvent.click(screen.getByRole("button", { name: "Recover unfinished work · Terminal name" }));
   const dialog = await screen.findByRole("dialog", { name: "Unfinished work" });
   const inspect = (name: string) => fireEvent.click(within(dialog).getByRole("button", { name: new RegExp(`Inspect.*${name}`) }));
@@ -175,13 +172,13 @@ it.each(["dismiss", "discard", "copy", "other-copy", "other-discard", "retention
   if (transition === "dismiss") fireEvent.click(within(dialog).getByRole("button", { name: "Dismiss" }));
   else if (transition === "discard") fireEvent.click(within(dialog).getByRole("button", { name: "Discard this revision" }));
   else if (transition === "copy") {
-    vi.mocked(navigator.clipboard.writeText).mockResolvedValue(undefined);
+    app.clipboardFailure = null;
     fireEvent.click(within(dialog).getByRole("button", { name: "Copy name" }));
   } else if (transition === "other-copy") {
     inspect("other run");
-    vi.mocked(navigator.clipboard.writeText).mockResolvedValue(undefined);
+    app.clipboardFailure = null;
     fireEvent.click(within(dialog).getByRole("button", { name: "Copy name" }));
-    await waitFor(() => expect(navigator.clipboard.writeText).toHaveBeenLastCalledWith("other unfinished"));
+    await waitFor(() => expect(app.clipboardWrites.at(-1)).toBe("other unfinished"));
   } else if (transition === "other-discard") {
     inspect("other run");
     fireEvent.click(within(dialog).getByRole("button", { name: "Discard this revision" }));
