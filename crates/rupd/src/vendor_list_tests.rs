@@ -342,7 +342,7 @@ async fn u3523f_runtime_is_lazy_bounded_and_reaped() {
     assert!(waited.is_err(), "the hung sidecar never answers");
     let started = std::fs::read_to_string(&journal).unwrap();
     assert!(
-        eventually_gone(&started.lines().next().unwrap()).await,
+        eventually_gone(started.lines().next().unwrap()).await,
         "a dropped listing reaps its child"
     );
     drop(hung);
