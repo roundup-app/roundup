@@ -133,6 +133,7 @@ app-release project:
     path=$(cd {{quote(invocation_directory())}} && realpath -- {{quote(project)}})
     pnpm -r --if-present build
     cargo build --release -p rupd -p rup
+    tools/sidecar/bundle.sh target/release/sidecar
     cargo build --release -p desktop --features custom-protocol
     cargo run --release -p desktop --features custom-protocol -- "$path"
 
@@ -143,6 +144,7 @@ icon:
 # Rule 7 as a command: measures a fresh Daemon (median of 11 runs), writes target/perf.json, fails on a miss against crates/perf/budgets.json.
 perf *args:
     cargo build --release -p rupd -p rup -p perf
+    tools/sidecar/bundle.sh target/release/sidecar
     ./target/release/perf {{args}}
 
 # Keystroke-to-render p95 in the real App's WKWebView (macOS only; scenarios/perf.md K1-K3, R11). Builds the App with the probe into target/perf-app and opens its window, kept above every other window and Space, for about 40 s per run, and refuses unless ROUNDUP_ALLOW_WINDOW=1.
