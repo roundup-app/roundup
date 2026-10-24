@@ -133,7 +133,7 @@
   font-size: var(--text-body);
 }
 
-/* The fit leaves under one cell spare; the body paints it as the Terminal's ground. FitAddon always takes xterm's 14 px scrollbar from the width, so the host is that much wider than the body, which clips it: the grid then ends within a cell of the inset. */
+/* The fit leaves under one cell spare; the body paints it as the Terminal's ground. */
 .bubble-body {
   flex: 1;
   min-height: 0;
@@ -143,7 +143,7 @@
 
 .bubble-body > div {
   height: 100%;
-  width: calc(100% + 14px);
+  width: 100%;
 }
 
 /* U2236: transparent hit areas over the shown bubble's edges and corners; nothing is drawn. */

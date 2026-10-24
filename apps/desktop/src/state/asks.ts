@@ -18,6 +18,11 @@ export type AskOutcome =
   | { kind: "refused"; submission: string; error: RpcError }
   | { kind: "unknown"; submission: string; message: string };
 
+/** P3557c: one failure with an identity of its own; dismissing it never touches a later failure that reads the same. */
+export type AskFailure = { id: number; message: string };
+
+export type IntakeFailure = AskFailure & { kind: "refused" | "unknown"; submission: string; destination: string | null };
+
 export type AsksState = {
   /** Newest first; an Ask still being sent comes before every other. */
   entries(): readonly AskEntry[];
@@ -30,9 +35,18 @@ export type AsksState = {
   /** U506: `ask.pick` for one part; resolves with the failure message or `null`. */
   pick(id: string, part: number, target: Target): Promise<string | null>;
   picking(id: string, part: number): boolean;
-  /** The message of the last `ask.pick` for that part that failed, until the next pick of it. */
+  /** The message of the last `ask.pick` for that part that failed, until that part's acknowledged pick or its dismissal. */
   pickFailure(id: string, part: number): string | undefined;
+  /** The `ask.list` load failure, else the intake failure's message. */
   failure(): string | null;
+  /** P3557c: the `ask.list` load failure; only its own successful load or `dismiss` clears it. */
+  listFailure(): AskFailure | null;
+  /** P3557c: the last intake refusal or uncertain intake with its submission revision and captured destination. */
+  intakeFailure(): IntakeFailure | null;
+  /** P3557c: the failure of the last `ask.pick` of that part; a retry keeps it until the part's acknowledged pick. */
+  partFailure(id: string, part: number): AskFailure | undefined;
+  /** P3557c: clears exactly this failure; no RPC, no Ask change, no draft touched. */
+  dismiss(failure: AskFailure): void;
 };
 
 /** The part an Ask holds until the Daemon's answer replaces it (A40). */
@@ -42,8 +56,11 @@ export const createAsks = (app: AppSeam, events: Events): AsksState => {
   const [asks, setAsks] = createSignal<readonly Ask[]>([]);
   const [pending, setPending] = createSignal<readonly AskEntry[]>([]);
   const [picking, setPicking] = createSignal<ReadonlySet<string>>(new Set());
-  const [pickFailures, setPickFailures] = createSignal<ReadonlyMap<string, string>>(new Map());
-  const [failure, setFailure] = createSignal<string | null>(null);
+  const [pickFailures, setPickFailures] = createSignal<ReadonlyMap<string, AskFailure>>(new Map());
+  const [listFailure, setListFailure] = createSignal<AskFailure | null>(null);
+  const [intakeFailure, setIntakeFailure] = createSignal<IntakeFailure | null>(null);
+  let sequence = 0;
+  const fail = (message: string): AskFailure => ({ id: ++sequence, message });
   let loaded = false;
 
   const upsert = (ask: Ask): void => {
@@ -76,13 +93,13 @@ export const createAsks = (app: AppSeam, events: Events): AsksState => {
       void call(() => app.rpc("ask.list", null)).then((result) => {
         if (!result.ok) {
           loaded = false;
-          setFailure(result.message);
+          setListFailure(fail(result.message));
 
           return;
         }
 
         batch(() => {
-          setFailure(null);
+          setListFailure(null);
 
           for (const ask of [...result.value].reverse()) upsert(ask);
         });
@@ -95,19 +112,20 @@ export const createAsks = (app: AppSeam, events: Events): AsksState => {
       const { text, submission } = captured;
       const key = submission;
       setPending((all) => [{ key, text, parts: [placing(text)], pending: true }, ...all.filter(entry => entry.key !== key)]);
-      setFailure(null);
 
       try {
         const ask = await app.rpc("ask.send", captured);
         upsert(ask);
+        setIntakeFailure(null);
 
         return { kind: "acknowledged", submission, ask };
       } catch (error) {
         const message = error instanceof Error ? error.message : String(error);
-        setFailure(message);
-
         // INTERNAL and UNKNOWN_OUTCOME can follow committed intake; neither proves refusal.
-        if (error instanceof RpcError && [-32700, -32601, -32602, -32001, -32002, -32003].includes(error.code)) return { kind: "refused", submission, error };
+        const refused = error instanceof RpcError && [-32700, -32601, -32602, -32001, -32002, -32003].includes(error.code);
+        setIntakeFailure({ ...fail(message), kind: refused ? "refused" : "unknown", submission, destination: captured.workstream ?? null });
+
+        if (refused) return { kind: "refused", submission, error };
 
         return { kind: "unknown", submission, message };
       } finally {
@@ -122,7 +140,7 @@ export const createAsks = (app: AppSeam, events: Events): AsksState => {
 
         if (ask) {
           upsert(ask);
-          setFailure(null);
+          setIntakeFailure(null);
 
           return { kind: "acknowledged", submission, ask };
         }
@@ -138,13 +156,6 @@ export const createAsks = (app: AppSeam, events: Events): AsksState => {
 
       batch(() => {
         setPicking((all) => new Set(all).add(key));
-
-        setPickFailures((all) => {
-          const next = new Map(all);
-          next.delete(key);
-
-          return next;
-        });
       });
 
       const result = await call(() => app.rpc("ask.pick", { id, part, target }));
@@ -157,15 +168,40 @@ export const createAsks = (app: AppSeam, events: Events): AsksState => {
           return next;
         });
 
-        if (result.ok) upsert(result.value);
-        else setPickFailures((all) => new Map(all).set(key, result.message));
+        if (result.ok) {
+          upsert(result.value);
+
+          setPickFailures((all) => {
+            const next = new Map(all);
+            next.delete(key);
+
+            return next;
+          });
+        } else {
+          setPickFailures((all) => new Map(all).set(key, fail(result.message)));
+        }
       });
 
       return result.ok ? null : result.message;
     },
 
     picking: (id, part) => picking().has(`${id}:${part}`),
-    pickFailure: (id, part) => pickFailures().get(`${id}:${part}`),
-    failure,
+    pickFailure: (id, part) => pickFailures().get(`${id}:${part}`)?.message,
+    failure: () => listFailure()?.message ?? intakeFailure()?.message ?? null,
+    listFailure,
+    intakeFailure,
+    partFailure: (id, part) => pickFailures().get(`${id}:${part}`),
+
+    dismiss: (target) => {
+      batch(() => {
+        if (listFailure()?.id === target.id) setListFailure(null);
+
+        if (intakeFailure()?.id === target.id) setIntakeFailure(null);
+
+        if ([...pickFailures().values()].some((each) => each.id === target.id)) {
+          setPickFailures((all) => new Map([...all].filter(([, each]) => each.id !== target.id)));
+        }
+      });
+    },
   };
 };
