@@ -1,3 +1,4 @@
+// fallow-ignore-file duplicate-export -- Place names keyboard focus regions; bubbles/places’s Place is a rectangle. Callers import each directly.
 /** The places `placeOf` distinguishes today (Help is U54's); U41's switcher arrives with U51. `"other"` is
  * anywhere keyboard focus can sit that is none of these. */
 export type FocusPlace = "rail" | "pane" | "drawer" | "help" | "other";
