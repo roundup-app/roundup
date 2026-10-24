@@ -20,7 +20,7 @@ A Door's `agent_spawn` (F3) takes the same `order`; B24's policy (fixed limits, 
 
 **O4 settling an order.** Given `agent.setOrder {id, order}`, then the Agent itself, the Door of its Workstream, or the user may replace its order with any order of O1's shape. The change emits `rail.changed` and records a Touch with the Actor (Provenance).
 
-If a caller other than the Agent changes the order, the new order is sent to the Agent as O2's Steer, except during a Takeover (P1), when it is not sent. In both cases `agent.context` returns it as `this.order`.
+If a caller other than the Agent changes the order, the new order is sent to the Agent as O2's Steer. In both cases `agent.context` returns it as `this.order`.
 
 Errors:
 - Another Agent: `FORBIDDEN`.

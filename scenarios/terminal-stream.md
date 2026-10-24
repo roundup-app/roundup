@@ -67,8 +67,8 @@ not tests claimed to exist in this specification PR.
    transport and X13's reference to output *events*; their byte content, ordering,
    offsets and all other guarantees remain. `terminal.write` input encoding is
    unchanged. Agents' in-process subscriptions, Run capture, MCP reads and
-   performance clients migrate in that same Contract PR. No Message, Route,
-   Held or Takeover semantics change. Test:
+   performance clients migrate in that same Contract PR. No Message or Route
+   semantics change. Test:
    `x14_all_output_callers_use_selected_streams` in `crates/rup/tests/`
    exercises the real Daemon and Run/MCP paths, alongside existing X1–X13 tests.
 7. **Flood observer.** Given a real isolated Daemon and ten Terminals running
