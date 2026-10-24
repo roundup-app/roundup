@@ -18,6 +18,8 @@ export type Size = { cols: number; rows: number };
 
 /** One Terminal's screen. It exists before it is shown: bytes written to it wait for the first `show`. */
 export type Emulator = {
+  /** When present, wait before sending a fitted size to the Daemon. Output can be parsed while faces load. */
+  readonly ready?: Promise<void> | undefined;
   write(bytes: Uint8Array, parsed?: () => void): void;
   /** Restores the Daemon's screen at its recorded size before later output is written. */
   setSize(size: Size): void;
@@ -34,11 +36,11 @@ export type Emulator = {
   /** U514: selects Turn `index`'s rows; with `extend`, from the Turn last selected through it. */
   selectTurn(index: number, extend: boolean): void;
   paste(text: string): void;
-  /** Moves the emulator into `host` (opening it the first time), returns its fitted size, and focuses it unless restoring the Rail. */
+  /** Moves the emulator into `host` and focuses it unless restoring the Rail. Until `ready` resolves, returns the snapshot grid; afterward returns the fitted size. */
   show(host: HTMLElement, focus?: boolean): Size;
   /** Gives the keyboard back to the emulator. */
   focus(): void;
-  /** The size that fills the emulator's current host. */
+  /** The size that fills the current host, or the snapshot grid while `ready` is pending. */
   fit(): Size;
   /** Whether the view sits at the newest line; false once the user has scrolled up. */
   isAtBottom(): boolean;
@@ -110,9 +112,11 @@ export const xtermOptions: ITerminalOptions = {
   get documentOverride() {
     return document;
   },
-  // xterm needs a family string, not a CSS var; resolve its unchanged Token from the owning stylesheet.
-  fontFamily: /--font-mono:\s*([^;]+);/.exec(tokens)![1]!.trim(),
+  // xterm needs resolved values rather than CSS var references.
+  fontFamily: /--font-terminal:\s*([^;]+);/.exec(tokens)![1]!.trim(),
   fontSize: DEFAULT_FONT_SIZE,
+  lineHeight: Number.parseFloat(/--line-terminal:\s*([^;]+);/.exec(tokens)![1]!),
+  letterSpacing: Number.parseFloat(/--letter-terminal:\s*([^;]+);/.exec(tokens)![1]!),
   scrollback: SCROLLBACK_LINES,
   // Read per Terminal: a module-level read is stale for every Terminal opened after the window's scheme changes.
   get theme() {
@@ -127,7 +131,7 @@ export type EchoProbe = {
   renderer(webgl: boolean): void;
 };
 
-/** xterm paints the scroll element's background inline from the theme; the stylesheet paints it from `--ground`, so the inline copy is dropped (D1) each time xterm writes it. */
+/** xterm paints the scroll element's background inline from the theme; the stylesheet paints it from `--terminal-background`, so the inline copy is dropped (D1) each time xterm writes it. */
 const dropInlineGround = (element: HTMLElement, disposers: (() => void)[]): void => {
   const scroller = element.querySelector<HTMLElement>(".xterm-scrollable-element");
 
@@ -155,6 +159,31 @@ export const createXtermEmulators = (
     const fitter = new FitAddon();
     const element = document.createElement("div");
     let opened = false;
+    let disposed = false;
+    let focusOnShow = true;
+    let fontsReady = !document.fonts;
+    const family = xtermOptions.fontFamily!;
+
+    // Load every bundled style even with a custom preference, so clearing it never fits a fallback face.
+    const ready = document.fonts ? Promise.all(
+      ["normal 400", "normal 700", "italic 400", "italic 700"].map(style => document.fonts.load(`${style} ${DEFAULT_FONT_SIZE}px ${family}`)),
+    ).catch((failure: Error) => {
+      // A damaged/missing local asset still leaves the existing fallback stack usable.
+      console.warn("Terminal font unavailable; using the fallback face", failure);
+    }).then(() => {
+      fontsReady = true;
+
+      if (element.parentElement && !disposed) {
+        prepareFontChange();
+        const family = terminal.options.fontFamily!;
+
+        // xterm caches cell metrics at open. Changing its public font option remeasures the loaded face.
+        terminal.options.fontFamily = /--font-mono:\s*([^;]+);/.exec(tokens)![1]!.trim();
+        terminal.options.fontFamily = family;
+        size();
+      }
+    }) : undefined;
+
     let fontChanged = false;
     let fontViewport: IMarker | null = null;
     let fontFrame: number | null = null;
@@ -242,6 +271,8 @@ export const createXtermEmulators = (
     };
 
     const size = (): Size => {
+      if (!fontsReady || disposed) return { cols: terminal.cols, rows: terminal.rows };
+
       const reflowCursorLine = terminal.options.reflowCursorLine ?? false;
 
       // Font resizing must retain unfinished output; ordinary shell resizing keeps xterm's policy.
@@ -282,7 +313,7 @@ export const createXtermEmulators = (
 
     const stopFont = createRoot(dispose => {
       createEffect(on(() => appSettings().fontFamily, family => {
-        const next = family || /--font-mono:\s*([^;]+);/.exec(tokens)![1]!.trim();
+        const next = family || /--font-terminal:\s*([^;]+);/.exec(tokens)![1]!.trim();
 
         if (terminal.options.fontFamily === next) return;
 
@@ -295,7 +326,26 @@ export const createXtermEmulators = (
       return dispose;
     });
 
+    const open = () => {
+      if (!opened) {
+        terminal.open(element);
+        opened = true;
+        dropInlineGround(element, disposers);
+
+        if (!webglDenied) webglDenied = !attachRenderer(terminal, () => {
+          loadedWebgl = createWebgl();
+
+          return loadedWebgl;
+        }, console.warn);
+
+        probe?.renderer(!webglDenied);
+      }
+
+      if (focusOnShow) terminal.focus();
+    };
+
     return {
+      ready,
       write: (bytes, parsed) => terminal.write(bytes, () => {
         probe?.written(bytes);
         parsed?.();
@@ -330,21 +380,9 @@ export const createXtermEmulators = (
       show: (host, focus = true) => {
         host.replaceChildren(element);
 
-        if (!opened) {
-          terminal.open(element);
-          opened = true;
-          dropInlineGround(element, disposers);
+        focusOnShow = focus;
 
-          if (!webglDenied) webglDenied = !attachRenderer(terminal, () => {
-            loadedWebgl = createWebgl();
-
-            return loadedWebgl;
-          }, console.warn);
-
-          probe?.renderer(!webglDenied);
-        }
-
-        if (focus) terminal.focus();
+        open();
 
         return size();
       },
@@ -358,6 +396,8 @@ export const createXtermEmulators = (
         terminal.scrollToBottom();
       },
       dispose: () => {
+        disposed = true;
+
         if (fontFrame !== null) cancelAnimationFrame(fontFrame);
 
         for (const query of [contrast, forced]) query?.removeEventListener("change", followScheme);

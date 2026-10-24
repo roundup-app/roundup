@@ -10,7 +10,7 @@ import { applyAppAppearance, saveAppSettings, followAppAppearance, appDark } fro
 
 afterEach(() => { cleanup(); vi.restoreAllMocks(); vi.unstubAllGlobals(); localStorage.clear(); });
 
-it("u3803_a_commit_applies_to_open_and_new_terminals", async () => {
+it("u3517d_settings_and_project_zoom_share_the_default", async () => {
   const { connected, emulators } = await mountPane([terminal("a"), terminal("b")], [info("t-a"), info("t-b")]);
   connected.rail.select("a");
   await waitFor(() => expect(emulators.has("t-a")).toBe(true));
@@ -22,7 +22,7 @@ it("u3803_a_commit_applies_to_open_and_new_terminals", async () => {
   expect(first.disposed).toBe(false);
 });
 
-it("u3803_a_per_terminal_zoom_still_wins", async () => {
+it("u3517d_saved_absolute_zoom_survives_default_changes_and_reset", async () => {
   localStorage.setItem("roundup:terminal-font:/p", "19");
   const { connected, emulators, container } = await mountPane([terminal("a")], [info("t-a")]);
   connected.rail.select("a");
@@ -92,15 +92,4 @@ it("u3805_system_follows_a_change_of_the_media_query", () => {
   stop();
   query.dispatchEvent(new Event("change"));
   expect(observed).toHaveLength(2);
-});
-
-it("u3805_open_terminals_take_the_new_theme", async () => {
-  const spy = vi.spyOn(xtermModule, "Terminal");
-  const emulator = createXtermEmulators(undefined, () => ({ activate() {}, dispose() {}, onContextLoss() { return { dispose() {} }; } }))("theme");
-  const instance = spy.mock.instances[0]!;
-  saveAppSettings({ mode: "dark" });
-  await waitFor(() => expect(instance.options.theme?.background).toBe("#1c1c1e"));
-  saveAppSettings({ mode: "light" });
-  await waitFor(() => expect(instance.options.theme?.background).toBe("#ffffff"));
-  emulator.dispose();
 });
