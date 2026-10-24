@@ -116,7 +116,7 @@ pub const DOOR_METHODS: [&str; 8] = [
 ];
 
 /// M5: the methods and App commands with no tool; the reasons are in `scenarios/mcp.md`.
-pub const NO_TOOL: [&str; 63] = [
+pub const NO_TOOL: [&str; 64] = [
     // A3308: Auto is the user's choice; Agents read its value through the existing rail_tree tool.
     "workstream.setAuto",
     "rail.list",
@@ -155,6 +155,7 @@ pub const NO_TOOL: [&str; 63] = [
     // X17: the App tells the Daemon its colour scheme; no Agent sets it.
     "terminal.scheme",
     "daemon.ping",
+    "daemon.methods",
     "daemon.identify",
     "events.subscribe",
     "agent.brief",

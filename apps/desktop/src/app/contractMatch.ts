@@ -4,14 +4,14 @@ import { CONTRACT } from "@contracts/contract";
 import type { AppSeam } from "./seam";
 
 const daemonContract = v.safeParser(
-  v.object({ contract: v.object({ fingerprint: v.string(), methods: v.array(v.string()) }) }),
+  v.object({ contract: v.object({ fingerprint: v.string(), methods: v.optional(v.array(v.string())) }) }),
 );
 
 /** A `daemon.ping` answer; an older Daemon's carries no `contract`. */
 type Pong = { pong: boolean; contract?: unknown };
 
 /** What the Daemon reports of its contract; `null` when its ping carries none (built before A38). */
-type ReportedContract = { fingerprint: string; methods: string[] } | null;
+type ReportedContract = { fingerprint: string; methods?: string[] | undefined } | null;
 
 /** Reads the contract out of a `daemon.ping` answer, which an older Daemon gives without one. */
 const reportedContract = (pong: Pong): ReportedContract => {
@@ -52,6 +52,8 @@ const contractNotice = (reported: ReportedContract): string | null => {
 
   if (fingerprint === OWN_CONTRACT.fingerprint) return null;
 
+  if (!methods) return copy.theAppAndTheDaemonDiffer(REMEDY);
+
   const theirs = new Set(methods);
   const ours = new Set(OWN_CONTRACT.methods);
   const appHasMore = OWN_CONTRACT.methods.some((name) => !theirs.has(name));
@@ -67,7 +69,20 @@ const contractNotice = (reported: ReportedContract): string | null => {
 /** Asks the Project's Daemon once at connect; a failed ping says nothing here, since every later call fails and says why. */
 export const checkContract = async (app: AppSeam): Promise<string | null> => {
   try {
-    return contractNotice(reportedContract(await app.rpc("daemon.ping", null)));
+    const reported = reportedContract(await app.rpc("daemon.ping", null));
+
+    if (!reported || reported.fingerprint === OWN_CONTRACT.fingerprint) return contractNotice(reported);
+
+    // A38 before slim ping reported the names inline and has no daemon.methods.
+    if (!reported.methods) {
+      try {
+        reported.methods = v.parse(v.array(v.string()), await app.rpc("daemon.methods", null));
+      } catch {
+        return contractNotice(reported);
+      }
+    }
+
+    return contractNotice(reported);
   } catch {
     return null;
   }

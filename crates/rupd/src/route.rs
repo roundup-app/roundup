@@ -78,9 +78,7 @@ impl Daemon {
         {
             conn.actor = actor.unwrap_or_else(|| self.action_actor(conn));
         }
-        let outcome = if method == "daemon.ping" {
-            Ok(rpc::Reply::Json(builtin::ping_json(self)))
-        } else if matches!(method, "rail.tree" | "rail.list") {
+        let outcome = if matches!(method, "rail.tree" | "rail.list") {
             self.rail_reply(conn).await
         } else if method == "daemon.ping" {
             // Every guard in `route_inner` passes a ping, so only its entry steps remain.
