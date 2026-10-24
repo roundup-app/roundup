@@ -1,3 +1,4 @@
+// fallow-ignore-file duplicate-export -- AGENT and todo are toast-specific fixtures; Pad and Todo tests import their own fixtures directly.
 import { fireEvent, render } from "@solidjs/testing-library";
 import { createSignal } from "solid-js";
 import type { Actor } from "@contracts/Actor";
