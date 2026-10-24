@@ -3,8 +3,8 @@ import type { PromptIdentity } from "../decision/PromptIdentity";
 
 export type WriteParams = { 
 /**
- * B6: held answer bytes require the captured original prompt. A stale or unavailable
- * identity is CONFLICT and writes no bytes; the Daemon must never omit it on release.
+ * Answer bytes require the captured original prompt. A stale or unavailable
+ * identity is CONFLICT and writes no bytes.
  */
 identity?: PromptIdentity, id: string, 
 /**

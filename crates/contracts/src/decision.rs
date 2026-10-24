@@ -116,8 +116,8 @@ pub struct AnswersParams {
     pub agent: String,
 }
 
-/// B6: a Decision's original prompt, scoped to one Daemon run and Attempt. It is an
-/// identity, not permission: Proof, Reach and Takeover are checked separately.
+/// A Decision's original prompt, scoped to one Daemon run and Attempt. It is an
+/// identity, not permission: Proof and Reach are checked separately.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, TS, JsonSchema)]
 #[ts(export, export_to = "decision/")]
 pub struct PromptIdentity {
@@ -217,7 +217,7 @@ impl Answer {
 #[derive(Clone, Debug, Serialize, Deserialize, TS, JsonSchema)]
 #[ts(export, export_to = "decision/")]
 pub struct AnswerParams {
-    /// B6: supplied when releasing a held answer; mismatch is CONFLICT with no effect.
+    /// The prompt the answer is for; a mismatch is CONFLICT with no effect.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     #[ts(optional)]
     pub identity: Option<PromptIdentity>,

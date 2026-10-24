@@ -40,8 +40,8 @@ pub struct OpenParams {
 #[derive(Clone, Debug, Serialize, Deserialize, TS, JsonSchema)]
 #[ts(export, export_to = "terminal/")]
 pub struct WriteParams {
-    /// B6: held answer bytes require the captured original prompt. A stale or unavailable
-    /// identity is CONFLICT and writes no bytes; the Daemon must never omit it on release.
+    /// Answer bytes require the captured original prompt. A stale or unavailable
+    /// identity is CONFLICT and writes no bytes.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     #[ts(optional)]
     pub identity: Option<crate::decision::PromptIdentity>,
@@ -227,26 +227,4 @@ pub struct Screen {
     /// One string per row, trailing blanks trimmed and trailing empty rows dropped.
     pub lines: Vec<String>,
     pub truncated: bool,
-}
-
-/// B6: a durably accepted Door resize, distinct from the null result of an executed resize.
-#[derive(Clone, Debug, Serialize, Deserialize, TS)]
-#[ts(export, export_to = "terminal/")]
-pub struct ResizeAction {
-    pub id: String,
-    pub agent: String,
-    pub terminal: String,
-    pub cols: u16,
-    pub rows: u16,
-    pub outcome: ResizeOutcome,
-}
-
-#[derive(Clone, Debug, Serialize, Deserialize, TS)]
-#[serde(tag = "status", rename_all = "kebab-case")]
-#[ts(export, export_to = "terminal/")]
-pub enum ResizeOutcome {
-    Waiting { reason: String },
-    InProgress,
-    Completed,
-    Dropped { reason: String },
 }

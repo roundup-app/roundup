@@ -6,7 +6,7 @@ import type { Reason } from "./Reason";
 
 /**
  * A typed envelope between Actors. `reply_to` names the Message this answers, if any; `reason`
- * names why a `held` Message is held or a `dropped` one was dropped, and is `None` otherwise;
+ * names why a `dropped` Message was dropped, and is `None` otherwise;
  * `passed_from` names the earlier hop of a bubbling question (B13), and is `None` for any other
  * Message and for a question's first hop.
  */
