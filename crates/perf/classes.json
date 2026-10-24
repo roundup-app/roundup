@@ -1,4 +1,4 @@
 {
  "linux-boxd": "docs/perf.md, What is enforced: median of 9 invocations of 11 runs on an isolated 2-vCPU boxd VM",
- "linux-7763": "docs/perf.md, Q11: cold_plugin_materialization_ms only, 9 eleven-sample observations on 2026-10-14; the five R16 metrics are unmeasured (#3700)"
+ "linux-7763": "docs/perf.md, Linux Builder 7763 baselines: median of 9 invocations of 11 runs on 2026-10-24 (commit 780ad58a1); cold_plugin_materialization_ms from Q11"
 }

@@ -237,6 +237,11 @@ fn r8_the_committed_baselines_are_the_recorded_values() {
     let recorded = [
         ("cold_plugin_materialization_ms", "linux-7763", 11.940635),
         ("cold_start_ms", "macos", 7.1),
+        ("rss_extra_mb", "linux-7763", 3.003906),
+        ("write_to_output_p95_ms", "linux-7763", 0.368307),
+        ("terminal_write_p95_ms", "linux-7763", 0.268696),
+        ("ping_p95_ms", "linux-7763", 0.136495),
+        ("rail_tree_40_p95_ms", "linux-7763", 0.871625),
         ("rss_extra_mb", "linux-boxd", 1.6),
         ("rss_extra_mb", "macos", 3.1),
         ("write_to_output_p95_ms", "linux-boxd", 0.066),
