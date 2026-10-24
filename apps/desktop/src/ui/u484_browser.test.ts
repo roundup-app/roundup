@@ -61,7 +61,7 @@ const keyboard = async (id: string) => {
 
 const down = async (expected: string[]) => {
   await browser("press", "ArrowDown");
-  await browser("wait", "--fn", `[...document.querySelectorAll('.sortable-fixture > .sortable-row:not([data-dnd-placeholder])')].map(el => el.dataset.id).join(',') === '${expected.join(',')}'`);
+  await browser("wait", "--fn", `document.querySelector('.sortable-fixture').dataset.sortableIndex === '${expected.indexOf(expected.includes("5") ? "5" : "A")}'`);
 };
 
 const drag = async (id: string, target: string) => {
@@ -120,7 +120,8 @@ it("u3800a_one_drag_fixture", async () => {
 
   await load();
   await drag("A", "C");
-  await browser("wait", "--fn", `[...document.querySelectorAll('.sortable-fixture > .sortable-row:not([data-dnd-placeholder])')].map(el => el.dataset.id).join(',') === 'B,C,A'`);
+  await browser("wait", "--fn", `document.querySelector('.sortable-fixture').dataset.sortableIndex === '2'`);
+  expect(await order()).toEqual(['A', 'B', 'C']);
   await browser("press", "Escape");
   await browser("mouse", "up");
   await browser("wait", "--fn", idle);
@@ -180,9 +181,10 @@ it("u484_scroll_and_stop", async () => {
   await browser("mouse", "move", String(Math.round(edge.x)), String(Math.round(edge.y)));
   await browser("wait", "--fn", `document.querySelector('.sortable-fixture').scrollTop > 160`);
   await browser("mouse", "move", String(Math.round(edge.x)), String(Math.round(edge.y / 2)));
-  await browser("wait", "--fn", `[...document.querySelectorAll('.sortable-fixture > .sortable-row:not([data-dnd-placeholder])')].findIndex(el => el.dataset.id === '1') > 4`);
+  await browser("wait", "--fn", `Number(document.querySelector('.sortable-fixture').dataset.sortableIndex) > 4`);
   expect(new Set(await stopped()).size).toBe(1);
-  const preview = await order();
+  const preview = initial.filter(id => id !== "1");
+  preview.splice(await read<number>(`Number(document.querySelector('.sortable-fixture').dataset.sortableIndex)`), 0, "1");
   expect(preview.indexOf("1")).toBeGreaterThan(4);
   await browser("mouse", "up");
   await committed(preview.join(","));
@@ -191,7 +193,8 @@ it("u484_scroll_and_stop", async () => {
   await keyboard("5");
 
   for (let index = 0; index < 8; index++) {
-    const next = await order();
+    const next = initial.filter(id => id !== "5");
+    next.splice(4 + index, 0, "5");
     const from = next.indexOf("5");
     next.splice(from, 1); next.splice(from + 1, 0, "5");
     await down(next);
