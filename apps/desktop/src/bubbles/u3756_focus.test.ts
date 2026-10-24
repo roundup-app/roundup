@@ -135,8 +135,19 @@ it.each(["reply-first", "list-first"])("u3756b_a_late_user_terminal_open_keeps_t
 }, 90_000);
 
 it.each(["origin", "body"])("u3756c_returning_to_origin_or_body_does_not_rearm_old_focus_%s", async ending => {
-  await load();
-  await read(`window.originFocus = document.querySelector('.rail-row[data-selected=true]'); window.originFocus.focus()`);
+  await browser("open", url("/harness.html?seed=tree-40&renderer=dom"));
+  await wait(`!!window.__fake && !!document.querySelector('.rail-row[data-id=backend]')`);
+  await browser("click", ".rail-row[data-id=backend]");
+  await wait(`!!document.querySelector('.pane-action')`);
+  await read(`(() => {
+    const app = window.__fake.app;
+    const start = app.handlers['rail.startDoor'];
+    app.handlers['rail.startDoor'] = params => new Promise(resolve => { window.arrive = () => resolve(start(params)); });
+    window.originFocus = document.querySelector('.rail-row[data-id=backend]');
+    window.originFocus.focus();
+    document.querySelector('.pane-action').click();
+  })()`);
+  await wait(`!!window.arrive`);
   await choose("bubble");
   await read(`${ending === "origin" ? "window.originFocus.focus()" : "document.activeElement.blur()"}; window.expectedFocus = document.activeElement; window.arrive()`);
   await wait(`!!document.querySelector('.pane-screen .xterm')`);
