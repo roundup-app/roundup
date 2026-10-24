@@ -1,3 +1,4 @@
+import { writeText } from "../app/clipboard";
 import * as v from "valibot";
 import { attentionCount } from "./attention";
 import { copy } from "../copy";
@@ -718,7 +719,7 @@ export const Rail = () => {
                   <ReservedLine status={entry().destination.surface === "rail-name" && rail.nodes.some((node) => node.id === entry().destination.object && node.name !== entry().value.base) ? copy.railDraftConflict : null} />
                   <Show when={base()}>{(base) => <p>{copy.railDraftBase(base())}</p>}</Show>
                   <div class="rail-recovery-actions">
-                  <button data-button="quiet" onClick={() => { void attempt(() => navigator.clipboard.writeText(text())); }}>{copy.railDraftCopy}</button>
+                  <button data-button="quiet" onClick={() => { void attempt(() => writeText(connected.app, text())); }}>{copy.railDraftCopy}</button>
                   <button data-button="quiet" onClick={() => {
                     const current = task()?.revision === entry().revision;
                     retained.discard(entry().revision);

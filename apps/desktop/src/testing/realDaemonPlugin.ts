@@ -13,14 +13,9 @@ export type RealDaemon = {
   project: string;
   /** The Daemon's socket, as `rpc::socket_path` resolves it. */
   socket: string;
-  /** The H18 proof the Daemon was started with. */
-  proof: string;
 };
 
 const ROUTE = "/__daemon";
-
-/** The proof `crates/rup/tests/e2e/daemon.rs` hands the Daemons it starts. */
-const TEST_PROOF = "0".repeat(64);
 
 const RPC_BOUND_MS = 60_000;
 
@@ -36,7 +31,7 @@ const socketPath = (env: NodeJS.ProcessEnv): string => env.RUPD_SOCKET ?? join(e
 /** `just harness-real` names its Project in the environment; no name, no Daemon routes. */
 export const realDaemonFromEnv = (env: NodeJS.ProcessEnv): RealDaemon | null =>
   env.ROUNDUP_REAL_PROJECT
-    ? { project: env.ROUNDUP_REAL_PROJECT, socket: socketPath(env), proof: env.ROUNDUP_REAL_PROOF ?? TEST_PROOF }
+    ? { project: env.ROUNDUP_REAL_PROJECT, socket: socketPath(env) }
     : null;
 
 /** Newline-delimited JSON lines from a socket, until it closes. */
@@ -121,7 +116,7 @@ const readBody = (request: IncomingMessage): Promise<string> =>
     request.on("error", reject);
   });
 
-const json = (response: ServerResponse, status: number, body: Outcome | { error: string } | { project: { name: string; path: string }; proof: string }) => {
+const json = (response: ServerResponse, status: number, body: Outcome | { error: string } | { project: { name: string; path: string } }) => {
   response.writeHead(status, { "Content-Type": "application/json" });
   response.end(JSON.stringify(body));
 };
@@ -265,7 +260,7 @@ const serve = (daemon: RealDaemon, request: IncomingMessage, response: ServerRes
     return output(daemon, response, terminal);
   }
 
-  if (path === "open" && request.method === "GET") return json(response, 200, { project: { name: basename(daemon.project), path: daemon.project }, proof: daemon.proof });
+  if (path === "open" && request.method === "GET") return json(response, 200, { project: { name: basename(daemon.project), path: daemon.project } });
 
   if (path === "events" && request.method === "GET") return stream(daemon, response);
 

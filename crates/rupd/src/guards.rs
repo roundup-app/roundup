@@ -95,15 +95,6 @@ impl Daemon {
             "workstream.rewind" | "workstream.rewindPlan" => {
                 self.rewind_children(actor, method, params).await?
             }
-            "decision.list" => {
-                // Use the Agent's Reach filtering; never wait on an unrelated Workstream.
-                let listed = self.modules["decision"]
-                    .call(&self.ctx(actor.clone()), method, Value::Null)
-                    .await?;
-                let decisions: Vec<contracts::decision::Decision> =
-                    serde_json::from_value(listed).map_err(RpcError::internal)?;
-                decisions.into_iter().map(|d| d.agent).collect()
-            }
             _ => self
                 .door_effect_child(actor, method, params)
                 .await?
@@ -129,23 +120,6 @@ impl Daemon {
             "terminal.snapshot" | "terminal.screen" | "terminal.read" | "terminal.search"
             | "terminal.write" | "terminal.kill" | "terminal.close" | "terminal.resize" => {
                 self.guard_terminal_read(actor, method, params).await
-            }
-            "decision.answers" => {
-                let answers: contracts::decision::AnswersParams = rpc::params(params.clone())?;
-                Ok(Some(answers.agent))
-            }
-            "decision.answer" | "decision.capture" => {
-                let id = if method == "decision.answer" {
-                    rpc::params::<contracts::decision::AnswerParams>(params.clone())?.id
-                } else {
-                    rpc::params::<contracts::decision::CaptureParams>(params.clone())?.id
-                };
-                let listed = self.modules["decision"]
-                    .call(&self.ctx(actor.clone()), "decision.list", Value::Null)
-                    .await?;
-                let decisions: Vec<contracts::decision::Decision> =
-                    serde_json::from_value(listed).map_err(RpcError::internal)?;
-                Ok(decisions.into_iter().find(|d| d.id == id).map(|d| d.agent))
             }
             "agent.prompt"
             | "agent.setOrder"
@@ -185,21 +159,10 @@ impl Daemon {
         &self,
         actor: &Actor,
         method: &str,
-        params: &Value,
     ) -> Result<(), RpcError> {
-        if method == "agent.signal"
-            && agents::claude_code::ends_decision(&params["payload"])
-            && let Some(gate) = &self.prompt_effect_gate
-            && std::fs::read_to_string(gate).ok().as_deref() == Some("effect")
-        {
-            // The Signal proceeds to its synchronous fold in this same router poll.
-            std::fs::write(gate.with_extension("racing"), method).map_err(RpcError::internal)?;
-        }
         let observed = match method {
             "agent.stop" | "agent.interrupt" | "agent.prompt" | "rail.rename" | "terminal.kill"
             | "terminal.close" | "terminal.resize" => actor.kind == ActorKind::Agent,
-            "decision.answer" => params["identity"].is_object() || actor.kind == ActorKind::Agent,
-            "terminal.write" => params["identity"].is_object(),
             _ => false,
         };
         if !observed {
@@ -220,36 +183,6 @@ impl Daemon {
         .await
         .map_err(|_| RpcError::conflict("original prompt effect observer was not released"))?;
         Ok(())
-    }
-
-    /// H21: a Decision caller is the Agent owning its peer process, else the user.
-    pub(crate) fn decision_actor(&self, conn: &Conn) -> Actor {
-        match conn.peer.and_then(|pid| self.agents.agent_of_peer(pid)) {
-            Some(id) => Actor {
-                kind: ActorKind::Agent,
-                id,
-                parent: None,
-            },
-            None => Actor::user(),
-        }
-    }
-
-    pub(crate) async fn decision_call(
-        &self,
-        conn: &Conn,
-        method: &str,
-        params: Value,
-    ) -> Result<Value, RpcError> {
-        let module = self
-            .modules
-            .get("decision")
-            .ok_or_else(|| RpcError::method_not_found(method))?;
-        // The router holds the child's effect guard; taking it again could deadlock
-        // behind a waiting Takeover writer. Identity was fixed before that guard.
-        let ctx = self.ctx(conn.actor.clone());
-        self.before_prompt_effect(&ctx.actor, method, &params)
-            .await?;
-        module.call(&ctx, method, params).await
     }
 
     /// M13: `NOT_FOUND` for an unknown Terminal, then `FORBIDDEN` when an Agent may not read it.

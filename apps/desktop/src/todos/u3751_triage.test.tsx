@@ -1,7 +1,6 @@
 import { cleanup, fireEvent, screen, waitFor, within } from "@solidjs/testing-library";
 import { afterEach, expect, it } from "vitest";
 import { RpcError } from "../app/seam";
-import { CHORDS } from "../keys/chords";
 import { agent, workstream } from "../testing/nodes";
 import { mountTodos, todo, todoCallsTo as callsTo, todoEvent } from "./testHarness";
 
@@ -84,18 +83,6 @@ it("u3751_t_is_ignored_in_fields_and_with_modifiers", async () => {
   fireEvent.click(screen.getAllByRole("button", { name: /add todo to/ })[0]!);
   press(await screen.findByRole("textbox", { name: "New Todo title" }), "t");
   expect(shelf().getAttribute("data-triage")).toBe("off");
-});
-
-it("u3752_the_hint_line_is_the_registry_rows_and_leaves_with_the_mode", async () => {
-  await enter();
-  const line = document.querySelector<HTMLElement>(".triage-hints")!;
-  const rows = CHORDS.filter(chord => chord.inTriage);
-
-  const squash = (text: string) => text.replace(/\s+/g, "");
-
-  expect([...line.querySelectorAll(".hint")].map(hint => squash(hint.textContent!))).toEqual(rows.map(chord => squash(`${chord.keys}${chord.what}`)));
-  press(row(2), "Escape");
-  await waitFor(() => expect(document.querySelector(".triage-hints")).toBeNull());
 });
 
 it("u3753_j_and_k_move_focus_across_groups_and_call_nothing", async () => {

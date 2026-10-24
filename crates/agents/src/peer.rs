@@ -7,26 +7,44 @@ use std::collections::HashMap;
 /// A parent chain longer than this is not a real one.
 const MAX_DEPTH: usize = 128;
 
-/// The parent of process `pid`, or `None` when it cannot be read or is the root.
+/// Parent lookups made so far, for the test that counts them per write.
+#[cfg(feature = "test-support")]
+static LOOKUPS: std::sync::atomic::AtomicUsize = std::sync::atomic::AtomicUsize::new(0);
+
+/// Parent lookups made so far in this process.
+#[cfg(feature = "test-support")]
+pub fn parent_lookups() -> usize {
+    LOOKUPS.load(std::sync::atomic::Ordering::Relaxed)
+}
+
+/// The parent of process `pid`, or `None` when it cannot be read or is the root. Reads the kernel
+/// directly and never starts a process: a spawn per ancestor costs a frame on every Terminal write.
 pub(crate) fn parent_of(pid: u32) -> Option<u32> {
-    let parent = match std::fs::read_to_string(format!("/proc/{pid}/stat")) {
-        // `pid (comm) state ppid …`: `comm` may hold spaces and parentheses, so cut after its last `)`.
-        Ok(stat) => stat
-            .rsplit_once(')')?
-            .1
-            .split_whitespace()
-            .nth(1)?
-            .parse()
-            .ok()?,
-        Err(_) => {
-            let out = std::process::Command::new("ps")
-                .args(["-o", "ppid=", "-p", &pid.to_string()])
-                .output()
-                .ok()?;
-            String::from_utf8_lossy(&out.stdout).trim().parse().ok()?
-        }
-    };
+    #[cfg(feature = "test-support")]
+    LOOKUPS.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+    let parent = native_parent(pid)?;
     (parent > 0 && parent != pid).then_some(parent)
+}
+
+#[cfg(target_vendor = "apple")]
+fn native_parent(pid: u32) -> Option<u32> {
+    let info =
+        libproc::proc_pid::pidinfo::<libproc::bsd_info::BSDInfo>(i32::try_from(pid).ok()?, 0)
+            .ok()?;
+    Some(info.pbi_ppid)
+}
+
+#[cfg(not(target_vendor = "apple"))]
+fn native_parent(pid: u32) -> Option<u32> {
+    // `pid (comm) state ppid …`: `comm` may hold spaces and parentheses, so cut after its last `)`.
+    std::fs::read_to_string(format!("/proc/{pid}/stat"))
+        .ok()?
+        .rsplit_once(')')?
+        .1
+        .split_whitespace()
+        .nth(1)?
+        .parse()
+        .ok()
 }
 
 /// The Agent whose `claude` pid is `pid` or an ancestor of it, given `claudes` (pid to Agent id).
@@ -72,7 +90,40 @@ mod tests {
     }
 
     #[test]
-    fn h21_the_parent_of_this_process_is_read() {
-        assert!(parent_of(std::process::id()).is_some());
+    fn r3696a_parent_walk_spawns_no_process() {
+        const CHILD: &str = "R3696A_SHIM";
+        if let Some(ran) = std::env::var_os(CHILD) {
+            assert_eq!(
+                parent_of(std::process::id()),
+                Some(std::os::unix::process::parent_id())
+            );
+            assert!(
+                !std::path::Path::new(&ran).exists(),
+                "the parent lookup ran `ps`"
+            );
+            return;
+        }
+        // Re-run this test with a `ps` shim first on `PATH`, which marks the file if it runs.
+        let dir = tempfile::tempdir().unwrap();
+        let ran = dir.path().join("ran");
+        let shim = dir.path().join("ps");
+        std::fs::write(&shim, format!("#!/bin/sh\ntouch '{}'\n", ran.display())).unwrap();
+        std::fs::set_permissions(&shim, std::os::unix::fs::PermissionsExt::from_mode(0o755))
+            .unwrap();
+        let path = std::env::var_os("PATH").unwrap_or_default();
+        let shimmed = std::env::join_paths(
+            std::iter::once(dir.path().to_path_buf()).chain(std::env::split_paths(&path)),
+        )
+        .unwrap();
+        let status = std::process::Command::new(std::env::current_exe().unwrap())
+            .args([
+                "--exact",
+                "peer::tests::r3696a_parent_walk_spawns_no_process",
+            ])
+            .env("PATH", shimmed)
+            .env(CHILD, &ran)
+            .status()
+            .unwrap();
+        assert!(status.success());
     }
 }

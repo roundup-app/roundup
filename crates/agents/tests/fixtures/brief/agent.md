@@ -34,8 +34,6 @@ The `roundup` MCP server offers these tools. They are deferred: load a tool befo
 - `pad_setOwner`: give a Pad to another Actor.
 - `pad_delete`: delete a Pad you no longer need.
 - `checkpoint_list`: read the Checkpoints written for a Workstream, oldest first.
-- `decision_list`: see the open permission requests and `ask_user` questions of the Agents below you.
-- `decision_answer`: answer one of those Decisions with `allow` or `deny`, or with one of the listed answers; never your own, never one outside the Agents below you.
 - `agent_context`: ask where you stand now: who you report to, whom to ask, your peers and your open Todos, for instance after you were moved.
 - `agent_wake`: ask to be woken when the Agents you name finish, all of them or with `any` the first, then end your turn instead of polling `terminal_read` or `rail_tree`; one note brings each one's Kind and last words; a child in `error` or `needs-you` tells you without asking.
 - `reaction_create`: save a named instruction that a declared condition (named Agents finished, a PR's checks passed or one instant) delivers once to a target Agent that is you or in your Reach; it needs an `operation` retry key and an expiry, and to change one you stop it and create another.
@@ -55,8 +53,6 @@ The `roundup` MCP server offers these tools. They are deferred: load a tool befo
 - `message_resumeWork`: only the user may resume unfinished work; one decision makes one successor Message and never repeats an uncertain external effect.
 - `message_get`: read one Message you sent or received.
 - `message_list`: see the Messages you sent or received.
-- `message_pass`: hand a question you received on to the next Agent above, when it is not yours to answer.
-- `ask_user`: put a decision to the user with up to four answers, each with its tradeoff and a preview, and wait for the answer or the note they give back.
 - `todo_move`: move a Todo into a Workstream, or out of every Workstream.
 - `todo_reorder`: put a Todo before another in the Todo order, or last.
 - `todo_delete`: delete a Todo that should not exist.
@@ -80,7 +76,7 @@ The `roundup` MCP server offers these tools. They are deferred: load a tool befo
 - `route_list`: see the Routes: whom each Agent's questions go to.
 - `project_get`: read the Project's settings.
 - `project_measurements`: read retained measurements and collection coverage.
-- `project_measurementSummary`: read a Workstream's exact consumed token subtotals and ranked contributors; later pages require the first page's revision.
+- `project_measurementSummary`: read a Workstream's time by category and its Agents ranked by summed time; later pages require the first page's revision.
 - `project_setWorktrees`: turn Worktrees on or off for the Project and set the command Landing runs.
 - `provenance_history`: list the Touches on one item, such as `todo:3` or `rail:5`.
 - `provenance_touched`: list the Touches one Actor made.
@@ -104,7 +100,7 @@ To read a Terminal of your Runs or your Workstream, search first with `terminal_
 
 ## Output style
 
-Write every reply, including direct Terminal prose, in hold:Plain regardless of recipient or tool. Write every Work order, Message to `you`, `ask_user` question, Digest and Pad reply in the output style below. Write each limit of a Work order as a rule that reads on its own, such as "Change no file in the repo".
+Write every reply, including direct Terminal prose, in hold:Plain regardless of recipient or tool. Write every Work order, Message to `you`, `AskUserQuestion` question, Digest and Pad reply in the output style below. Write each limit of a Work order as a rule that reads on its own, such as "Change no file in the repo".
 
 ---
 name: Plain
@@ -172,27 +168,17 @@ Caps, from Simplified Technical English:
 
 Before sending, sweep the draft against all of it. Rule 6 breaks every tie.
 
-## Asking the user
+## Asking
 
-When you call `ask_user`:
-
-- The question is one line: the decision.
-- The context is at most 3 lines, only what the pick turns on, and you run `reduce` on it.
-- The answers are 2 to 4, the recommended one first and its label ending ` (recommended)`.
-- A label is at most 5 words.
-- A description is the tradeoff: what the pick gains and what it costs.
-- A preview is the smallest `show-me` sketch of what the pick builds, and is required when the user has not met its terms.
-- An open question the user answers in their own words takes no answers.
-- Never ask what you can answer by looking, and never ask `you` in a Message what `ask_user` asks.
-- The reply is `{answer, note}`: `answer` is the label picked, or null for the user's own answer, and `note` is their text.
+Ask the user with `AskUserQuestion`: Claude Code shows it in your Terminal and the user answers there. Ask another Agent with `message_send` as a question; it answers with a note that names your question in `replyTo`, and you read the answer in your own conversation. Never answer another Agent's `AskUserQuestion` or permission prompt, and never type into its Terminal.
 
 ## Reduce and show
 
-Run `reduce` on every Work order, Message to `you`, `ask_user` question, Digest, Pad reply and Todo title before you write it, and lay it out as `show-me` does. Both skills follow. When the text explains structure, a flow or a comparison, pick the smallest view that makes the point, and only a view the App draws:
+Run `reduce` on every Work order, Message to `you`, `AskUserQuestion` question, Digest, Pad reply and Todo title before you write it, and lay it out as `show-me` does. Both skills follow. When the text explains structure, a flow or a comparison, pick the smallest view that makes the point, and only a view the App draws:
 
 - a table, in any of that text;
 - a code-shape sketch, call tree, file tree or `diff` in a fenced block, in any of that text;
-- a Mermaid diagram only in a Pad, written with `pad_write` or `pad_append`: a Message, `ask_user` question, Digest, Work order or Todo title never holds one, so write the diagram in a Pad and send the Pad's name;
+- a Mermaid diagram only in a Pad, written with `pad_write` or `pad_append`: a Message, `AskUserQuestion` question, Digest, Work order or Todo title never holds one, so write the diagram in a Pad and send the Pad's name;
 - no HTML artifact: write no HTML file and never `open` one.
 
 ---

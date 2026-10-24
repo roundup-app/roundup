@@ -6,7 +6,6 @@ import type { RailNode } from "@contracts/agent/RailNode";
 import { createFakeApp } from "../testing/fakeApp";
 import { agent, door, event } from "../testing/nodes";
 import { connectProject, ConnectedProjectContext } from "../state/connectedProject";
-import { decision } from "../decisions/decisionsFixture";
 import { blocksOf } from "./model";
 import { TimelineView } from "./TimelineView";
 import { mountRailAndPane } from "../terminal/paneHarness";
@@ -18,7 +17,7 @@ const NOW = Date.UTC(2026, 9, 22, 10, 30);
 const at = (minute: number) => NOW - (30 - minute) * MIN;
 
 const status = (id: string, attempt: string, kind: Kind, minute: number, revision = `${minute}`, ended = false) =>
-  event({ name: "agent.status", data: { id, attempt, ended, status_revision: revision, status: { kind, label: kind, since: at(minute) } } });
+  event({ name: "agent.status", data: { id, attempt, ended, status_revision: revision, status: { kind, label: kind, since: at(minute), finished: "0" } } });
 
 const connect = async (tree: RailNode[], reduced: () => boolean) => {
   const app = createFakeApp();
@@ -56,11 +55,11 @@ beforeEach(() => vi.useFakeTimers({ toFake: ["setInterval", "clearInterval", "Da
 afterEach(() => { cleanup(); vi.useRealTimers(); });
 
 const family = () => [
-  door("home", "working", "go", { name: "Door", attempt: "1", status: { kind: "working", label: "go", since: at(0) } }),
-  agent("a", "working", "go", { name: "Alpha", parent: "home", attempt: "1", status: { kind: "working", label: "go", since: at(5) } }),
-  agent("b", "working", "go", { name: "Beta", parent: "a", attempt: "1", status: { kind: "working", label: "go", since: at(9) } }),
-  door("other", "working", "go", { name: "Other door", attempt: "1", status: { kind: "working", label: "go", since: at(0) } }),
-  agent("x", "working", "go", { name: "Stranger", parent: "other", attempt: "1", status: { kind: "working", label: "go", since: at(1) } }),
+  door("home", "working", "go", { name: "Door", attempt: "1", status: { kind: "working", label: "go", since: at(0), finished: "0" } }),
+  agent("a", "working", "go", { name: "Alpha", parent: "home", attempt: "1", status: { kind: "working", label: "go", since: at(5), finished: "0" } }),
+  agent("b", "working", "go", { name: "Beta", parent: "a", attempt: "1", status: { kind: "working", label: "go", since: at(9), finished: "0" } }),
+  door("other", "working", "go", { name: "Other door", attempt: "1", status: { kind: "working", label: "go", since: at(0), finished: "0" } }),
+  agent("x", "working", "go", { name: "Stranger", parent: "other", attempt: "1", status: { kind: "working", label: "go", since: at(1), finished: "0" } }),
 ];
 
 it("u3768a_lanes_cover_agents_of_the_workstream", async () => {
@@ -72,7 +71,7 @@ it("u3768a_lanes_cover_agents_of_the_workstream", async () => {
 });
 
 it("u3768b_blocks_follow_kind_changes_and_attempts", async () => {
-  const { app } = await mount([door("home", "working", "go", { name: "Door", attempt: "2", status: { kind: "working", label: "go", since: at(20) } })]);
+  const { app } = await mount([door("home", "working", "go", { name: "Door", attempt: "2", status: { kind: "working", label: "go", since: at(20), finished: "0" } })]);
   app.emit(status("home", "1", "working", 0));
   app.emit(status("home", "1", "needs-you", 12));
   app.emit(status("home", "1", "working", 15));
@@ -84,18 +83,18 @@ it("u3768b_blocks_follow_kind_changes_and_attempts", async () => {
 });
 
 it("u3768b_a_log_shorter_than_the_window_leaves_an_unknown_span", async () => {
-  await mount([door("home", "working", "go", { name: "Door", attempt: "1", status: { kind: "working", label: "go", since: at(10) } })]);
+  await mount([door("home", "working", "go", { name: "Door", attempt: "1", status: { kind: "working", label: "go", since: at(10), finished: "0" } })]);
   expect(screen.getByRole("img", { name: "Unknown" })).toBeTruthy();
   expect(blocks("Door")).toEqual([["Working", at(10), NOW]]);
 });
 
 it("u3768b_a_view_opened_later_shows_the_history_before_it_opened", async () => {
   const [reduced] = createSignal(false);
-  const { app, connected } = await connect([door("home", "working", "go", { name: "Door", attempt: "1", status: { kind: "working", label: "go", since: at(15) } }), agent("gone", "working", "go", { name: "Gone", parent: "home", attempt: "1", status: { kind: "working", label: "go", since: at(3) } })], reduced);
+  const { app, connected } = await connect([door("home", "working", "go", { name: "Door", attempt: "1", status: { kind: "working", label: "go", since: at(15), finished: "0" } }), agent("gone", "working", "go", { name: "Gone", parent: "home", attempt: "1", status: { kind: "working", label: "go", since: at(3), finished: "0" } })], reduced);
   app.emit(status("home", "1", "working", 0));
   app.emit(status("home", "1", "needs-you", 12));
   app.emit(status("home", "1", "working", 15));
-  app.handlers["rail.tree"] = () => [door("home", "working", "go", { name: "Door", attempt: "1", status: { kind: "working", label: "go", since: at(15) } })];
+  app.handlers["rail.tree"] = () => [door("home", "working", "go", { name: "Door", attempt: "1", status: { kind: "working", label: "go", since: at(15), finished: "0" } })];
   await connected.rail.refresh();
   await show(connected);
   expect(blocks("Door")).toEqual([["Working", at(0), at(12)], ["Needs-you", at(12), at(15)], ["Working", at(15), NOW]]);
@@ -105,7 +104,7 @@ it("u3768b_a_view_opened_later_shows_the_history_before_it_opened", async () => 
 
 it("u3768g_log_replays_saved_events_on_creation", async () => {
   const app = createFakeApp();
-  app.handlers["rail.tree"] = () => [door("home", "working", "go", { name: "Door", attempt: "1", status: { kind: "working", label: "go", since: at(15) } })];
+  app.handlers["rail.tree"] = () => [door("home", "working", "go", { name: "Door", attempt: "1", status: { kind: "working", label: "go", since: at(15), finished: "0" } })];
   app.handlers["terminal.list"] = () => [];
   app.head = 3;
   const subscribe = app.subscribe;
@@ -136,7 +135,7 @@ it("u3768g_log_replays_saved_events_on_creation", async () => {
   expect(heard).toEqual(["agent.status"]);
   app.emit(status("home", "1", "error", 20, "20", true));
   app.emit(status("home", "1", "error", 20));
-  app.handlers["rail.tree"] = () => [door("home", "error", "failed", { name: "Door", attempt: "1", terminal_id: null, status: { kind: "error", label: "failed", since: at(15) } })];
+  app.handlers["rail.tree"] = () => [door("home", "error", "failed", { name: "Door", attempt: "1", terminal_id: null, status: { kind: "error", label: "failed", since: at(15), finished: "0" } })];
   await connected.rail.refresh();
   expect(blocks("Door")).toEqual([["Working", at(0), at(12)], ["Needs-you", at(12), at(15)], ["Working", at(15), at(20)]]);
 });
@@ -154,27 +153,17 @@ it("u3768c_a_removed_subagent_keeps_its_lane_and_line", async () => {
   expect(screen.getByRole("img", { name: "Alpha started Beta" })).toBeTruthy();
 });
 
-it("u3768d_waiting_block_opens_its_decision", async () => {
-  const tree = [door("home", "working", "go", { name: "Door", attempt: "1" }), agent("a", "needs-you", "asks", { name: "Alpha", parent: "home", attempt: "1", status: { kind: "needs-you", label: "asks", since: at(20) } })];
-  const { app } = await mount(tree);
-  app.emit(event({ name: "decision.opened", data: decision("d1", "a") }));
-  const block = await screen.findByRole("button", { name: "Decision for Alpha" });
-  fireEvent.click(block);
-  const card = await screen.findByRole("region", { name: /Decision for Alpha|Alpha wants to / });
-  await vi.advanceTimersByTimeAsync(0);
-  expect(card.contains(document.activeElement)).toBe(true);
-  fireEvent.keyDown(card, { key: "Escape" });
-  await vi.advanceTimersByTimeAsync(0);
-  expect(document.activeElement).toBe(block);
-  expect(screen.queryByRole("region", { name: /Decision for Alpha|Alpha wants to / })).toBeNull();
-  app.emit(event({ name: "decision.cleared", data: { id: "d1", outcome: "answered" } }));
-  await vi.advanceTimersByTimeAsync(0);
-  expect(screen.queryByRole("button", { name: "Decision for Alpha" })).toBeNull();
-  expect(screen.getAllByRole("img", { name: "Needs-you" })).toHaveLength(1);
+it("a3564a_a_waiting_block_selects_the_requesting_terminal", async () => {
+  const tree = [door("home", "working", "go", { name: "Door", attempt: "1" }), agent("a", "needs-you", "asks", { name: "Alpha", parent: "home", attempt: "1", status: { kind: "needs-you", label: "asks", since: at(20), finished: "0" } })];
+  const back = vi.fn();
+  const { connected } = await mount(tree, { back });
+  fireEvent.click(await screen.findByRole("button", { name: "Open Alpha" }));
+  expect(connected.rail.selected()).toBe("a");
+  expect(back).toHaveBeenCalledOnce();
 });
 
 it("u3768e_the_window_slides_only_while_an_agent_runs", async () => {
-  const { app, view } = await mount([door("home", "working", "go", { name: "Door", attempt: "1", status: { kind: "working", label: "go", since: at(10) } })]);
+  const { app, view } = await mount([door("home", "working", "go", { name: "Door", attempt: "1", status: { kind: "working", label: "go", since: at(10), finished: "0" } })]);
   const region = screen.getByRole("region", { name: "Timeline" });
   const end = () => Number(region.dataset.windowEnd);
   expect(vi.getTimerCount()).toBe(1);
@@ -212,7 +201,7 @@ it("u3768e_the_window_slides_only_while_an_agent_runs", async () => {
 });
 
 it("u3768f_only_the_slide_moves_and_reduced_motion_redraws", async () => {
-  const { app, setReduced } = await mount([door("home", "working", "go", { name: "Door", attempt: "1", status: { kind: "working", label: "go", since: at(10) } })], { reduced: true });
+  const { app, setReduced } = await mount([door("home", "working", "go", { name: "Door", attempt: "1", status: { kind: "working", label: "go", since: at(10), finished: "0" } })], { reduced: true });
   const region = screen.getByRole("region", { name: "Timeline" });
   const start = region.dataset.windowStart;
   await vi.advanceTimersByTimeAsync(2 * MIN);

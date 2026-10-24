@@ -62,7 +62,7 @@ const parseRecipient = (data: string): Recipient => {
   return value;
 };
 
-type Send = { kind: "idle" | "failed"; text: string } | { kind: "pending" } | { kind: "unknown"; submission: Submission; text: string };
+type Send = { kind: "idle"; text: string } | { kind: "failed"; text: string; submission: string; notes: readonly number[] | null } | { kind: "pending" } | { kind: "unknown"; submission: Submission; text: string };
 
 const stores = new WeakMap<AppSeam["rpc"], Map<string, ReturnType<typeof createNotes>>>();
 
@@ -167,6 +167,15 @@ const createNotes = (firstApp: AppSeam, project: string, storage: ReturnType<typ
 
   const putState = (id: string, value: Send) => setSends(old => new Map(old).set(id, value));
 
+  const clearItem = (id: string, note: number) => {
+    const failed = sends().get(id);
+
+    if (failed?.kind !== "failed" || failed.notes === null) return;
+    const remaining = failed.notes.filter(value => value !== note);
+
+    putState(id, remaining.length ? { ...failed, notes: remaining } : { kind: "idle", text: "" });
+  };
+
   const retain = (id: string, value: Recipient) => {
     const empty = !value.notes.length && !value.forms.length && !value.submissions.length && !value.recovered.length;
 
@@ -194,18 +203,24 @@ const createNotes = (firstApp: AppSeam, project: string, storage: ReturnType<typ
     putState(id, { kind: "idle", text: message.status === "held" ? copy.notesHeld : message.status === "pending" ? copy.notesQueued : copy.notesAccepted(message.status) });
   };
 
-  const settle = (id: string, submission: Submission, status: "failed" | "unknown", text: string) => {
+  const settle = (id: string, submission: Submission, status: "failed" | "unknown", text: string, item = true) => {
     const current = recipient(id);
 
     retain(id, { ...current, submissions: current.submissions.map(value => value.revision === submission.revision ? { ...submission, status, text } : value) });
 
-    if (status === "failed") putState(id, { kind: "failed", text });
+    if (status === "failed") putState(id, { kind: "failed", text, submission: submission.revision, notes: item ? submission.notes.map(note => note.id) : null });
   };
 
   const history = (connection: AppSeam, id: string) => reply(() => connection.rpc("message.list", { to: id, status: null }));
 
   const notes = {
     list, state,
+    failure: (id: string) => {
+      const value = sends().get(id);
+
+      return value?.kind === "failed" ? value.text : null;
+    },
+    dismiss: (id: string) => { if (sends().get(id)?.kind === "failed") putState(id, { kind: "idle", text: "" }); },
     project,
     entries: () => [...all().entries()],
     problem: () => invalidCount() ? copy.notesRestoreFailed(project) : problem() ? copy.notesRetentionFailed(project, problem()?.operation ?? "retain", problem()?.cause ?? "write") : null,
@@ -291,6 +306,13 @@ const createNotes = (firstApp: AppSeam, project: string, storage: ReturnType<typ
       const revisions = new Set(selected?.notes.map(note => note.revision));
 
       retain(id, { ...current, notes: current.notes.filter(note => !revisions.has(note.revision)), submissions: current.submissions.filter(value => value.revision !== revision) });
+
+      if (notes.problem()) return;
+      const failure = sends().get(id);
+
+      if (failure?.kind === "failed" && failure.notes !== null && failure.submission === revision) putState(id, { kind: "idle", text: "" });
+
+      for (const note of selected?.notes ?? []) if (!list(id).some(value => value.id === note.id)) clearItem(id, note.id);
     },
     save: (id: string, note: Omit<Note, "id" | "revision">, replacing?: number, form?: string) => {
       const current = recipient(id);
@@ -301,9 +323,15 @@ const createNotes = (firstApp: AppSeam, project: string, storage: ReturnType<typ
       const updated = values.some(old => old.id === replacing) ? values.map(old => old.id === replacing ? value : old) : [...values, value];
       retain(id, { ...current, notes: updated, forms: current.forms.filter(value => value.revision !== form) });
 
+      if (replacing !== undefined && !notes.problem()) clearItem(id, replacing);
+
       return true;
     },
-    remove: (id: string, note: number) => retain(id, { ...recipient(id), notes: list(id).filter(value => value.id !== note) }),
+    remove: (id: string, note: number) => {
+      retain(id, { ...recipient(id), notes: list(id).filter(value => value.id !== note) });
+
+      if (!notes.problem()) clearItem(id, note);
+    },
     send: async (id: string) => {
       if (list(id).length === 0 || (state(id).kind === "pending" || state(id).kind === "unknown")) return;
       const connection = app;
@@ -313,7 +341,7 @@ const createNotes = (firstApp: AppSeam, project: string, storage: ReturnType<typ
       const prior = await history(connection, id);
 
       if (prior.kind !== "ok") {
-        settle(id, submission, "failed", prior.text);
+        settle(id, submission, "failed", prior.text, false);
 
         return;
       }

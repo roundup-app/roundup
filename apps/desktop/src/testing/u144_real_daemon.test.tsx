@@ -1,4 +1,3 @@
-import { questionDialog, answerQuestion } from "../shelf/bulkQuestionHarness";
 // @vitest-environment jsdom
 import * as v from "valibot";
 import type { ChildProcess } from "node:child_process";
@@ -17,7 +16,7 @@ import type { AppSeam } from "../app/seam";
 import { fakeEmulators } from "../terminal/paneHarness";
 import { createServedApp } from "./realSeam";
 import { realDaemon } from "./realDaemonPlugin";
-import { PROOF, startRealDaemon } from "./realDaemonFixture";
+import { startRealDaemon } from "./realDaemonFixture";
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
 import { createProjectDrafts, connectProject, ConnectedProjectContext, ProjectDraftsContext } from "../state/connectedProject";
@@ -81,7 +80,7 @@ describe("u144 the harness serves the App on a real Daemon", () => {
   it("u144_the_choosers_answer_null_and_the_dock_badge_does_nothing", async () => {
     const app = createServedApp(base);
 
-    expect([await app.chooseProjectPath(), await app.chooseSavePath("x.md"), await app.setDockBadge(3), (await app.projects())[0]?.path, await app.forProject(dir).daemonProof()]).toEqual([null, null, undefined, dir, PROOF]);
+    expect([await app.chooseProjectPath(), await app.chooseSavePath("x.md"), await app.setDockBadge(3), (await app.projects())[0]?.path]).toEqual([null, null, undefined, dir]);
   });
 
   it("u144_a_method_the_daemon_rejects_reaches_the_caller_with_its_message", async () => {
@@ -150,7 +149,7 @@ describe("u144 the harness serves the App on a real Daemon", () => {
         configFile: join(process.cwd(), "vite.config.ts"),
         root: process.cwd(),
         logLevel: "silent",
-        plugins: [realDaemon({ project: dir, socket: join(dir, "rupd.sock"), proof: PROOF })],
+        plugins: [realDaemon({ project: dir, socket: join(dir, "rupd.sock") })],
         build: { outDir: out, emptyOutDir: true },
       });
 
@@ -422,7 +421,7 @@ describe("u2773 Project draft integration on real Projects", () => {
     app = {
       ...served,
       projects: async () => opened.map((path) => ({ name: path === first.dir ? "first" : "second", path, running: true })),
-      forProject: (path) => live.get(path)!,
+      forProject: (path) => Object.assign(live.get(path)!, { writeClipboardText: (text: string) => app.writeClipboardText(text) }),
       chooseProjectPath: async () => opened.includes(second.dir) ? first.dir : second.dir,
       openProject: async (path) => {
         const root = roots.find((each) => each.dir === path)!;
@@ -465,7 +464,7 @@ describe("u2773 Project draft integration on real Projects", () => {
     expect(within(row()).getByRole("button", { name: "Open" })).toBeTruthy();
     expect(within(row()).queryByRole("button", { name: "Copy" })).toBeNull();
     const clipboard = vi.fn(async (_text: string) => {});
-    Object.defineProperty(navigator, "clipboard", { configurable: true, value: { writeText: clipboard } });
+    vi.spyOn(app, "writeClipboardText").mockImplementation(clipboard);
     await firstApp.rpc("pad.delete", { name: pad.name });
     const replacementPad = await firstApp.rpc("pad.create", { name: pad.name, text: "replacement" });
     expect(replacementPad.incarnation).not.toBe(pad.incarnation);
@@ -667,175 +666,6 @@ describe("u2773 Project draft integration on real Projects", () => {
     noDelivery();
   }, 60_000);
 
-  it.each(["answered", "dismissed", "replaced"] as const)("u2773d_original_prompt_refuses_replacement_recovery_%s", async (retirement) => {
-    await setup();
-    const bound = app.forProject(first.dir);
-    const agent = await bound.rpc("rail.startDoor", { id: original.id });
-    const signal = () => { void bound.rpc("agent.permission", { id: agent.id, payload: { hook_event_name: "PermissionRequest", tool_name: "Bash", tool_input: { command: "git status" } } }).catch(() => undefined); };
-
-    signal();
-
-    await waitFor(async () => expect(await bound.rpc("decision.list", null)).toHaveLength(1));
-    const decision = (await bound.rpc("decision.list", null))[0]!;
-    const prompt = await bound.rpc("decision.capture", { id: decision.id });
-    const holder = drafts(first.dir);
-    const destination = { surface: "decisions", object: prompt.decision, recipient: prompt.agent };
-    const a = holder.edit(destination, { ...prompt, choice: "allow", note: "older exact\n" }, null, "ordinary").draft;
-    holder.submit(a.revision);
-    holder.settle(a.revision, "failed");
-    const write = Storage.prototype.setItem;
-
-    const writes = vi.spyOn(Storage.prototype, "setItem").mockImplementation(function (this: Storage, key, value) {
-      if (key.startsWith("roundup:drafts:")) throw new Error("disk full");
-
-      write.call(this, key, value);
-    });
-
-    const b = holder.edit(destination, { ...prompt, choice: "deny", note: exact }, { start: 2, end: 6, direction: "backward" }, "ordinary").draft;
-    calls.forEach((spy) => spy.mockClear());
-    mount();
-    const recovery = await openRecovery();
-    expect(document.querySelector(".decision-card")).toBeNull();
-
-    if (retirement === "answered") await bound.rpc("decision.answer", { id: decision.id, identity: prompt, answer: "deny", proof: PROOF });
-    else if (retirement === "dismissed") await bound.rpc("agent.signal", { id: agent.id, attempt: agent.attempt!, payload: { hook_event_name: "Stop" } });
-    else signal();
-
-    expect((await bound.rpc("rail.tree", null)).find((node) => node.id === agent.id)?.attempt).toBe(agent.attempt);
-    const rowOf = (revision: string) => recovery.querySelector<HTMLElement>(`[data-revision="${revision}"]`)!;
-    await waitFor(() => expect(within(rowOf(b.revision)).getByRole("img", { name: "original removed" })).toBeTruthy());
-    expect(holder.list()).toEqual([expect.objectContaining({ ...a, status: "failed" }), b]);
-    const clipboard = vi.fn(async (_text: string) => {});
-    Object.defineProperty(navigator, "clipboard", { configurable: true, value: { writeText: clipboard } });
-    fireEvent.click(await copyOf(() => rowOf(b.revision)));
-    expect(clipboard).toHaveBeenCalledWith(exact);
-    writes.mockRestore();
-    fireEvent.click(within(rowOf(a.revision)).getByRole("button", { name: "Discard" }));
-    expect(createProjectDrafts()(first.dir).list()).toEqual([b]);
-    cleanup();
-    drafts = createProjectDrafts();
-    mount();
-    const restarted = await openRecovery();
-    expect(restarted.querySelector(`[data-revision="${b.revision}"]`)).toBeTruthy();
-    expect(drafts(first.dir).list()).toEqual([b]);
-    expect(calls.flatMap((spy) => spy.mock.calls).filter(([method]) => ["terminal.write", "agent.spawn", "rail.startDoor", "agent.prompt"].includes(method))).toEqual([]);
-    expect(calls.flatMap((spy) => spy.mock.calls).filter(([method]) => method === "decision.answer")).toEqual(retirement === "answered" ? [["decision.answer", { id: decision.id, identity: prompt, answer: "deny", proof: PROOF }]] : []);
-    const accepted = await bound.rpc("decision.answers", { agent: agent.id });
-    expect(accepted).toHaveLength(retirement === "answered" ? 1 : 0);
-
-    if (retirement === "answered") expect(accepted[0]).toMatchObject({ decision, attempt: agent.attempt, answer: "deny", answered_by: { kind: "user", id: "you", parent: null } });
-
-    noDelivery();
-  }, 60_000);
-
-  it("u2773d_original_prompt_refuses_replacement_recovery_reused_id_after_restart", async () => {
-    await first.restart();
-    await setup();
-    const bound = app.forProject(first.dir);
-
-    const open = async () => {
-      const agent = await bound.rpc("rail.startDoor", { id: original.id });
-
-      void bound.rpc("agent.permission", { id: agent.id, payload: { hook_event_name: "PermissionRequest", tool_name: "Bash", tool_input: { command: "git status" } } }).catch(() => undefined);
-      await waitFor(async () => expect(await bound.rpc("decision.list", null)).toHaveLength(1));
-      const decision = (await bound.rpc("decision.list", null))[0]!;
-
-      return { decision, prompt: await bound.rpc("decision.capture", { id: decision.id }) };
-    };
-
-    const originalPrompt = await open();
-    const saved = drafts(first.dir).edit({ surface: "decisions", object: originalPrompt.prompt.decision, recipient: originalPrompt.prompt.agent }, { ...originalPrompt.prompt, choice: "allow", note: exact }, { start: 2, end: 6, direction: "backward" }, "ordinary").draft;
-    mount();
-    await screen.findByRole("region", { name: "Rail" });
-    cleanup();
-    await first.restart();
-    const replacementPrompt = await open();
-    expect(replacementPrompt.decision).toMatchObject({ id: originalPrompt.decision.id, agent: originalPrompt.decision.agent, tool: originalPrompt.decision.tool, args: originalPrompt.decision.args });
-    expect(replacementPrompt.prompt.daemon).not.toBe(originalPrompt.prompt.daemon);
-    calls.forEach((spy) => spy.mockClear());
-    mount();
-    const restarted = await openRecovery();
-    expect(restarted.querySelector(`[data-revision="${saved.revision}"]`)).toBeTruthy();
-    expect(drafts(first.dir).list()).toEqual([saved]);
-    expect(await bound.rpc("decision.answers", { agent: replacementPrompt.prompt.agent })).toEqual([]);
-    expect(calls.flatMap((spy) => spy.mock.calls).filter(([method]) => ["decision.answer", "terminal.write", "agent.spawn", "rail.startDoor", "agent.prompt"].includes(method))).toEqual([]);
-  }, 60_000);
-
-  it.each(["list", "capture"] as const)("u2773h_shared_authority_survives_project_lifecycle_decision_%s_failure", async (read) => {
-    await setup();
-    const bound = app.forProject(first.dir);
-    const agent = await bound.rpc("rail.startDoor", { id: original.id });
-
-    void bound.rpc("agent.permission", { id: agent.id, payload: { hook_event_name: "PermissionRequest", tool_name: "Bash", tool_input: { command: "git status" } } }).catch(() => undefined);
-    await waitFor(async () => expect(await bound.rpc("decision.list", null)).toHaveLength(1));
-    const decision = (await bound.rpc("decision.list", null))[0]!;
-    const prompt = await bound.rpc("decision.capture", { id: decision.id });
-    const destination = { surface: "decisions", object: prompt.decision, recipient: prompt.agent };
-    const holder = drafts(first.dir);
-    const a = holder.edit(destination, { ...prompt, choice: "allow", note: "older" }, null, "ordinary").draft;
-    holder.submit(a.revision);
-    const b = holder.edit(destination, { ...prompt, choice: "deny", note: exact }, { start: 2, end: 6, direction: "backward" }, "ordinary").draft;
-    const separate = drafts(second.dir).edit(destination, { ...prompt, choice: "allow", note: "other Project" }, null, "ordinary").draft;
-    let release!: () => void;
-    const pending = new Promise<void>((resolve) => { release = resolve; });
-    let finished!: () => void;
-    const completed = new Promise<void>((resolve) => { finished = resolve; });
-    let phase = "failure";
-    const rpc = bound.rpc;
-
-    const authorityRead: AppSeam["rpc"] = async (method, params) => {
-      if (method === `decision.${read}`) {
-        if (phase === "failure") throw new Error("authority unavailable");
-
-        await pending;
-      }
-
-      const result = await rpc(method, params);
-
-      if (method === `decision.${read}`) finished();
-
-      return result;
-    };
-
-    bound.rpc = authorityRead;
-    const oldCalls = vi.spyOn(bound, "rpc");
-    calls.push(oldCalls);
-    calls.forEach((spy) => spy.mockClear());
-    mount();
-    await screen.findByRole("region", { name: "Rail" });
-    await waitFor(() => expect(oldCalls.mock.calls.some(([method]) => method === `decision.${read}`)).toBe(true));
-    expect(holder.list()).toEqual([expect.objectContaining({ ...a, status: "pending" }), b]);
-    cleanup();
-    const oldReads = [...oldCalls.mock.calls];
-    const previous = app.forProject;
-    const current = { ...bound, rpc: authorityRead };
-    calls.push(vi.spyOn(current, "rpc"));
-    app.forProject = (path) => path === first.dir ? current : previous(path);
-    phase = "pending";
-    mount();
-    await screen.findByRole("region", { name: "Rail" });
-    holder.settle(a.revision, "failed");
-    await openRecovery();
-    fireEvent.click(screen.getByRole("button", { name: "Open a folder" }));
-    await screen.findByRole("tab", { name: "second" });
-    const otherRecovery = await openRecovery();
-    // The row opens as unfinished work and turns to Copy once the original is known gone.
-    const otherCopy = await copyOf(() => otherRecovery.querySelector<HTMLElement>(`[data-revision="${separate.revision}"]`)!);
-    otherCopy.focus();
-    release();
-    await completed;
-    expect(document.activeElement).toBe(otherCopy);
-    expect(holder.list()).toEqual([expect.objectContaining({ ...a, status: "failed" }), b]);
-    fireEvent.click(screen.getByRole("tab", { name: /^first\b/ }));
-    const recovery = await openRecovery();
-    expect(recovery.querySelector(`[data-revision="${a.revision}"]`)).toBeTruthy();
-    expect(drafts(second.dir).list()).toEqual([separate]);
-
-    expect(oldCalls.mock.calls).toEqual(oldReads);
-
-    expect(calls.flatMap((spy) => spy.mock.calls).filter(([method]) => ["decision.answer", "terminal.write", "agent.spawn", "rail.startDoor", "agent.prompt"].includes(method))).toEqual([]);
-  }, 60_000);
-
   it("u2773h_unavailable_original_remains_recoverable", async () => {
     await setup();
     const holder = drafts(first.dir);
@@ -850,7 +680,7 @@ describe("u2773 Project draft integration on real Projects", () => {
     const rowOf = (revision: string) => recovery.querySelector<HTMLElement>(`[data-revision="${revision}"]`)!;
     await waitFor(() => expect(rowOf(b.revision)).toBeTruthy());
     const clipboard = vi.fn(async (_text: string) => {});
-    Object.defineProperty(navigator, "clipboard", { configurable: true, value: { writeText: clipboard } });
+    vi.spyOn(app, "writeClipboardText").mockImplementation(clipboard);
     fireEvent.click(await copyOf(() => rowOf(b.revision)));
     await waitFor(() => expect(clipboard).toHaveBeenCalledWith(exact));
     fireEvent.click(within(rowOf(a.revision)).getByRole("button", { name: "Discard" }));
@@ -903,262 +733,5 @@ describe("u2773 Project draft integration on real Projects", () => {
   }, 60_000);
 
 
-
-});
-
-// The fake vendor's child uses the public CLI, with the Agent environment supplied by its launcher.
-// No test impersonates that Actor at the App seam or parses a vendor editor.
-describe("u2773 unfinished Decision forms on real Projects", () => {
-  let first: StartedDaemon;
-  let second: StartedDaemon;
-  let app: AppSeam;
-  let drafts: ReturnType<typeof createProjectDrafts>;
-  let agents: RailNode[];
-  let calls: MockInstance<AppSeam["rpc"]>[];
-  const exact = "  first é\nsecond 👩🏽‍💻  ";
-  const choice = [{ label: "A", description: "first" }, { label: "B", description: "second" }];
-  const field = () => screen.getByRole<HTMLTextAreaElement>("textbox", { name: "Note" });
-  const mount = () => render(() => <App app={app} drafts={drafts} reducedMotion={() => true} clock={() => 0} createEmulator={fakeEmulators().factory} />);
-
-  const selectAgent = async (agent: RailNode) => {
-    fireEvent.click(await screen.findByRole("treeitem", { name: new RegExp(agent.name) }));
-
-    return screen.findByRole<HTMLTextAreaElement>("textbox", { name: "Note" });
-  };
-
-  const openRecovery = async () => {
-    await openMenu();
-
-    return screen.findByRole("region", { name: "Unfinished work" });
-  };
-
-  beforeAll(async () => {
-    const env = { FAKE_CLAUDE_DOOR_PROCESS: JSON.stringify(["rup", "--json", "agent", "ask", "Same question?", ...choice.flatMap(answer => ["--answers", JSON.stringify(answer)])]) };
-    first = await startRealDaemon(env);
-    second = await startRealDaemon(env);
-  }, 240_000);
-  afterAll(async () => {
-    await first?.stop();
-    await second?.stop();
-
-  });
-  afterEach(() => { cleanup(); vi.restoreAllMocks(); localStorage.clear(); });
-
-  const setup = async () => {
-    cleanup();
-    localStorage.clear();
-    drafts = createProjectDrafts();
-    const roots = [first, second];
-    const connections = roots.map(root => createServedApp(root.base));
-    agents = [];
-
-    for (const bound of connections) {
-      for (const node of await bound.rpc("rail.tree", null)) {
-        if (node.kind === "workstream" && node.parent === null) await bound.rpc("rail.remove", { id: node.id });
-      }
-
-      if (agents.length > 0) {
-        const spacer = await bound.rpc("rail.createWorkstream", { name: "spacer", parent: null });
-        await bound.rpc("rail.remove", { id: spacer.id });
-      }
-
-      const workstream = await bound.rpc("rail.createWorkstream", { name: "same name", parent: null });
-      agents.push(await bound.rpc("rail.startDoor", { id: workstream.id }));
-      await waitFor(async () => expect(await bound.rpc("decision.list", null)).toHaveLength(1));
-    }
-
-    let opened = [first.dir];
-    const closed = new Set<string>();
-    app = {
-      ...connections[0]!,
-      projects: async () => opened.map(path => ({ path, name: path === first.dir ? "first" : "second", running: true })),
-      forProject: path => connections[path === first.dir ? 0 : 1]!,
-      chooseProjectPath: async () => second.dir,
-      closeProject: async path => {
-        roots.find(root => root.dir === path)!.daemon.kill();
-        closed.add(path);
-        opened = opened.filter(open => open !== path);
-      },
-      openProject: async path => {
-        if (closed.delete(path)) {
-          const index = path === first.dir ? 0 : 1;
-          await roots[index]!.restart();
-          connections[index] = createServedApp(roots[index]!.base);
-          calls.push(vi.spyOn(connections[index]!, "rpc"));
-        }
-
-        if (!opened.includes(path)) opened.push(path);
-
-        return { path, name: path === first.dir ? "first" : "second" };
-      },
-      onDaemonExited: async () => () => {},
-    };
-    calls = connections.map(bound => vi.spyOn(bound, "rpc"));
-  };
-
-  it("u2773a_decisions_restores_exact_work_real_projects", async () => {
-    await setup();
-    mount();
-    await selectAgent(agents[0]!);
-    const original = await app.forProject(first.dir).rpc("decision.capture", { id: (await app.forProject(first.dir).rpc("decision.list", null))[0]!.id });
-    fireEvent.click(screen.getByRole("option", { name: "B" }));
-    await waitFor(() => expect(screen.getByRole("option", { name: "B" }).getAttribute("aria-selected")).toBe("true"));
-    fireEvent.input(field(), { target: { value: exact } });
-    field().focus();
-    field().setSelectionRange(2, 7, "backward");
-    fireEvent.select(field());
-    const saved = drafts(first.dir).list()[0]!;
-    expect(saved.value).toEqual({ ...original, choice: "B", note: exact });
-    fireEvent.click(screen.getByRole("button", { name: "Open a folder" }));
-    await screen.findByRole("tab", { name: /^second\b/ });
-    await selectAgent(agents[1]!);
-    expect(field().value).toBe("");
-    fireEvent.input(field(), { target: { value: "  other Project\n🌿 " } });
-    const other = drafts(second.dir).list()[0]!;
-    expect(other.value.agent).toBe(agents[1]!.id);
-    expect(other.value.daemon).not.toBe(original.daemon);
-    const outside = screen.getByRole("tab", { name: /^first\b/ });
-    outside.focus();
-    fireEvent.click(outside);
-    await waitFor(() => expect(field().value).toBe(exact));
-    // Explicit Project selection keeps its Terminal focus contract; a later background Event must not move it.
-    const focus = document.activeElement;
-    await app.forProject(first.dir).rpc("rail.rename", { id: agents[0]!.id, name: "renamed original" });
-    await screen.findByRole("treeitem", { name: /renamed original/ });
-    await screen.findByRole("textbox", { name: "Note" });
-    expect(document.activeElement).toBe(focus);
-    expect([field().selectionStart, field().selectionEnd, field().selectionDirection]).toEqual([2, 7, "backward"]);
-    cleanup();
-    drafts = createProjectDrafts();
-    mount();
-    await selectAgent({ ...agents[0]!, name: "renamed original" });
-    expect(field().value).toBe(exact);
-    expect(drafts(first.dir).list()).toEqual([saved]);
-    expect(drafts(second.dir).list()).toEqual([other]);
-    fireEvent.pointerEnter(screen.getByRole("tab", { name: /^first\b/ }).closest(".project-tab")!);
-    fireEvent.click(screen.getByRole("button", { name: "Close first" }));
-    await questionDialog().then(() => answerQuestion(true));
-    await waitFor(() => expect(screen.queryByRole("tab", { name: /^first\b/, hidden: true })).toBeNull());
-    app.chooseProjectPath = async () => first.dir;
-    fireEvent.click(screen.getByRole("button", { name: "Open a folder" }));
-    await screen.findByRole("tab", { name: /^first\b/ });
-    const recovery = await openRecovery();
-    expect(recovery.querySelector(`[data-revision="${saved.revision}"]`)).toBeTruthy();
-    expect(drafts(first.dir).list()).toEqual([saved]);
-    expect(drafts(second.dir).list()).toEqual([other]);
-    expect(calls.flatMap(spy => spy.mock.calls).filter(([method]) => ["decision.answer", "terminal.write", "agent.prompt"].includes(method))).toEqual([]);
-  }, 60_000);
-
-  it.each(["failed", "unknown", "acknowledged"] as const)("u2773b_decisions_settlement_preserves_other_revisions_real_%s", async outcome => {
-    await setup();
-    const bound = app.forProject(first.dir);
-    const transport = bound.rpc;
-    let release!: () => void;
-    const reply = new Promise<void>(resolve => { release = resolve; });
-    bound.rpc = async (method, params) => {
-      if (method !== "decision.answer") return transport(method, params);
-      await reply;
-
-      if (outcome === "failed") throw new RpcError(-32602, "refused before delivery");
-      const result = await transport(method, params);
-
-      if (outcome === "unknown") throw new RpcError(-32004, "reply lost after acceptance");
-
-      return result;
-    };
-
-    const answerCalls = vi.spyOn(bound, "rpc");
-    mount();
-    await selectAgent(agents[0]!);
-    fireEvent.input(field(), { target: { value: exact } });
-    fireEvent.click(screen.getByRole("button", { name: "Send" }));
-    await waitFor(() => expect(answerCalls.mock.calls.filter(([method]) => method === "decision.answer")).toHaveLength(1));
-    fireEvent.input(field(), { target: { value: "  newer B\né 🧭  " } });
-    const [a, b] = drafts(first.dir).list();
-    fireEvent.click(screen.getByRole("button", { name: "Open a folder" }));
-    await screen.findByRole("tab", { name: /^second\b/ });
-    release();
-    await waitFor(() => expect(drafts(first.dir).list().some(draft => draft.status === "pending")).toBe(false));
-    expect(drafts(first.dir).list()).toEqual(outcome === "acknowledged" ? [b] : [{ ...a, status: outcome }, b]);
-    const accepted = await transport("decision.answers", { agent: agents[0]!.id });
-    expect(accepted).toHaveLength(outcome === "failed" ? 0 : 1);
-
-    if (outcome !== "failed") expect(accepted[0]).toMatchObject({ answer: "A", note: exact, attempt: agents[0]!.attempt, answered_by: { kind: "user", id: "you", parent: null } });
-    expect(answerCalls.mock.calls.filter(([method]) => method === "decision.answer")).toHaveLength(1);
-    fireEvent.click(screen.getByRole("tab", { name: /^first\b/ }));
-
-    if (outcome === "acknowledged") expect(await recoveryLabel()).toBeNull();
-    else {
-      const recovery = await openRecovery();
-
-      expect(within(recovery.querySelector<HTMLElement>(`[data-revision="${a!.revision}"]`)!).getByRole("img", { name: outcome === "unknown" ? /may not have saved|original removed/ : "failed to save" })).toBeTruthy();
-    }
-
-    expect(drafts(first.dir).list()).toContainEqual(b);
-    expect(calls.flatMap(spy => spy.mock.calls).filter(([method]) => method === "terminal.write")).toEqual([]);
-  }, 60_000);
-  it.each(["answered", "dismissed", "attempt", "restart"] as const)("u2773d_original_prompt_refuses_replacement_form_%s", async retirement => {
-    await setup();
-    mount();
-    await selectAgent(agents[0]!);
-    const bound = app.forProject(first.dir);
-    const decision = (await bound.rpc("decision.list", null))[0]!;
-    const identity = await bound.rpc("decision.capture", { id: decision.id });
-    fireEvent.click(screen.getByRole("option", { name: "B" }));
-    await waitFor(() => expect(screen.getByRole("option", { name: "B" }).getAttribute("aria-selected")).toBe("true"));
-    fireEvent.input(field(), { target: { value: exact } });
-    const saved = drafts(first.dir).list()[0]!;
-    expect(saved.value).toEqual({ ...identity, choice: "B", note: exact });
-    cleanup();
-
-    if (retirement === "answered") await bound.rpc("decision.answer", { id: decision.id, identity, answer: "A", proof: PROOF });
-    else if (retirement === "dismissed") await bound.rpc("agent.signal", { id: agents[0]!.id, attempt: agents[0]!.attempt!, payload: { hook_event_name: "Stop" } });
-    else if (retirement === "attempt") {
-      const id = agents[0]!.id;
-      const session = "00000000-0000-4000-8000-000000002773";
-      await bound.rpc("agent.signal", { id, attempt: agents[0]!.attempt!, payload: { hook_event_name: "SessionStart", session_id: session, source: "startup" } });
-      const resuming = bound.rpc("agent.resume", { id, mode: "normal" });
-      await waitFor(async () => expect((await bound.rpc("terminal.list", null)).some(terminal => terminal.id !== agents[0]!.terminal_id && terminal.running)).toBe(true));
-      const next = (await bound.rpc("rail.tree", null)).find(node => node.id === id)!;
-      await bound.rpc("agent.signal", { id, attempt: next.attempt!, payload: { hook_event_name: "SessionStart", session_id: session, source: "resume" } });
-      expect(await resuming).toMatchObject({ id, attempt: next.attempt });
-      expect(next.attempt).not.toBe(agents[0]!.attempt);
-    }
-    else {
-      await first.restart();
-      const current = createServedApp(first.base);
-      const previous = app.forProject;
-      app.forProject = path => path === first.dir ? current : previous(path);
-      calls.push(vi.spyOn(current, "rpc"));
-    }
-
-    const current = app.forProject(first.dir);
-
-    calls.forEach(spy => spy.mockClear());
-    drafts = createProjectDrafts();
-    mount();
-    const recovery = await openRecovery();
-    expect(recovery.querySelector(`[data-revision="${saved.revision}"]`)).toBeTruthy();
-    expect(drafts(first.dir).list()).toEqual([saved]);
-    expect(within(recovery).queryByRole("button", { name: "Send" })).toBeNull();
-    const clipboard = vi.fn(async (_text: string) => {});
-    Object.defineProperty(navigator, "clipboard", { configurable: true, value: { writeText: clipboard } });
-    fireEvent.click(await copyOf(() => recovery));
-    expect(clipboard).toHaveBeenCalledWith(exact);
-    const target = (await current.rpc("rail.tree", null)).find(node => node.id === agents[0]!.id);
-    const live = (await current.rpc("terminal.list", null)).find(terminal => terminal.id === target?.terminal_id && terminal.running);
-    const before = live ? await current.rpc("terminal.snapshot", { id: live.id }) : null;
-    await expect(current.rpc("decision.answer", { id: decision.id, identity, answer: "B", note: exact, proof: PROOF })).rejects.toBeInstanceOf(RpcError);
-
-    if (live) expect((await current.rpc("terminal.snapshot", { id: live.id })).after).toBe(before!.after);
-    else expect((await current.rpc("terminal.list", null)).some(terminal => terminal.running)).toBe(false);
-    const accepted = await current.rpc("decision.answers", { agent: agents[0]!.id });
-    expect(accepted).toHaveLength(retirement === "answered" ? 1 : 0);
-
-    if (retirement === "answered") expect(accepted[0]).toMatchObject({ answer: "A", answered_by: { kind: "user", id: "you", parent: null } });
-    expect(calls.flatMap(spy => spy.mock.calls).filter(([method]) => method === "terminal.write")).toEqual([]);
-    fireEvent.click(within(recovery).getByRole("button", { name: "Discard" }));
-    expect(drafts(first.dir).list()).toEqual([]);
-  }, 60_000);
 
 });

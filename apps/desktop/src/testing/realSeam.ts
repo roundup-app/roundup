@@ -11,7 +11,7 @@ const outcomeSchema = v.union([
   v.object({ error: v.object({ code: v.number(), message: v.string() }) }),
 ]);
 
-const openSchema = v.object({ project: projectSchema, proof: v.string() });
+const openSchema = v.object({ project: projectSchema });
 
 const frameSchema = v.union([
   v.object({ ready: v.literal(true) }),
@@ -156,6 +156,7 @@ export const createServedApp = (base: string, choice?: () => "choose" | "cancel"
     });
 
   const app: AppSeam = {
+    writeClipboardText: async () => { throw new RpcError(-32003, "Native clipboard is unavailable in the browser harness. Use the desktop App to copy."); },
     projects: () =>
       reach(async () => {
         const { project } = await open;
@@ -189,12 +190,6 @@ export const createServedApp = (base: string, choice?: () => "choose" | "cancel"
         projectOpened = true;
 
         return { ...project };
-      }),
-    daemonProof: () =>
-      reach(async () => {
-        if (exited) throw new RpcError(INTERNAL_CODE, "the Daemon exited");
-
-        return (await open).proof;
       }),
     chooseProjectPath: () => reach(async () => choice?.() === "choose" ? (await open).project.path : null),
     chooseSavePath: async () => null,

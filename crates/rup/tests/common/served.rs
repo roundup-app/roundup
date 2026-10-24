@@ -17,11 +17,7 @@ async fn serve_for_the_parent() {
         return;
     };
     let dir = Path::new(&dir);
-    let daemon = rupd::Daemon::open_with_proof(
-        &dir.join(".roundup"),
-        std::env::var("ROUNDUP_TEST_PROOF").ok(),
-    )
-    .unwrap();
+    let daemon = rupd::Daemon::open(&dir.join(".roundup")).unwrap();
     let listener = tokio::net::UnixListener::bind(dir.join("rupd.sock")).unwrap();
     rupd::serve(listener, std::sync::Arc::new(daemon))
         .await
@@ -117,14 +113,7 @@ impl NamedRail {
             "#!/bin/sh\nexec python3 '{}/tests/e2e/fake_claude.py' \"$@\"\n",
             env!("CARGO_MANIFEST_DIR")
         );
-        let served = Served::start(
-            &fake,
-            &[
-                ("FAKE_CLAUDE_PROMPT_LOG", "/dev/null"),
-                ("ROUNDUP_TEST_PROOF", "test-proof"),
-            ],
-        )
-        .await;
+        let served = Served::start(&fake, &[("FAKE_CLAUDE_PROMPT_LOG", "/dev/null")]).await;
         for args in [
             vec!["init", "-b", "main"],
             vec![
@@ -254,44 +243,5 @@ impl NamedRail {
                 .await
                 .unwrap();
         }
-    }
-
-    pub async fn decision(
-        &self,
-    ) -> (
-        String,
-        tokio::task::JoinHandle<Result<serde_json::Value, rpc::RpcError>>,
-    ) {
-        use serde_json::json;
-        let mut events = rpc::Client::connect(&self.served.socket()).await.unwrap();
-        events.request("events.subscribe", ()).await.unwrap();
-        let caller = rpc::Client::connect(&self.served.socket()).await.unwrap();
-        caller
-            .request(
-                "daemon.identify",
-                contracts::IdentifyParams {
-                    actor: contracts::Actor {
-                        kind: contracts::ActorKind::Agent,
-                        id: self.child.clone(),
-                        parent: None,
-                    },
-                },
-            )
-            .await
-            .unwrap();
-        let call = tokio::spawn(async move {
-            caller.request("agent.ask", json!({"question":"Choose","answers":[{"label":"Yes","description":"Continue"},{"label":"No","description":"Stop"}]})).await
-        });
-        let id = tokio::time::timeout(Duration::from_secs(20), async {
-            while let Some(event) = events.next_event().await {
-                if let contracts::EventData::DecisionOpened(decision) = event.data {
-                    return decision.id;
-                }
-            }
-            panic!("event connection closed");
-        })
-        .await
-        .unwrap();
-        (id, call)
     }
 }
