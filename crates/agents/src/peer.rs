@@ -11,6 +11,16 @@ const MAX_DEPTH: usize = 128;
 #[cfg(feature = "test-support")]
 static LOOKUPS: std::sync::atomic::AtomicUsize = std::sync::atomic::AtomicUsize::new(0);
 
+/// Classifications of a caller made so far, one per `agent_above`, whether or not it read the kernel.
+#[cfg(feature = "test-support")]
+static CLASSIFIED: std::sync::atomic::AtomicUsize = std::sync::atomic::AtomicUsize::new(0);
+
+/// Classifications of a caller made so far in this process.
+#[cfg(feature = "test-support")]
+pub fn classifications() -> usize {
+    CLASSIFIED.load(std::sync::atomic::Ordering::Relaxed)
+}
+
 /// Parent lookups made so far in this process.
 #[cfg(feature = "test-support")]
 pub fn parent_lookups() -> usize {
@@ -53,6 +63,12 @@ pub(crate) fn agent_above(
     claudes: &HashMap<u32, String>,
     parent_of: impl Fn(u32) -> Option<u32>,
 ) -> Option<String> {
+    #[cfg(feature = "test-support")]
+    CLASSIFIED.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+    // No `claude` runs: no ancestor can match, so skip the /proc reads every Terminal write would pay.
+    if claudes.is_empty() {
+        return None;
+    }
     let mut at = Some(pid);
     for _ in 0..MAX_DEPTH {
         let current = at?;
