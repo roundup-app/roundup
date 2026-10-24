@@ -85,10 +85,11 @@
   padding-top: var(--space-2);
 }
 
-/* U59: xterm.css paints `.xterm-viewport` black; the pane shows the app's ground instead. */
+/* U3517c: the viewport and the surrounding inset share the canvas ground. */
+.pane-screen,
 .pane .xterm .xterm-viewport,
 .pane .xterm .xterm-scrollable-element {
-  background-color: var(--ground);
+  background-color: var(--terminal-background);
 }
 
 .pane-body.drop-over::after {
