@@ -68,6 +68,29 @@ it("u2572b_a_real_action_choice_reports_creation_failure_without_writing_to_a_Te
         // The harness rejects the next call before recording it; another creation attempt or a Terminal write would be recorded.
         expect(calls).toEqual([]);
         await capture("failure");
+
+        const failureCaptures = captureDir("P3557c");
+
+        if (failureCaptures) {
+          mkdirSync(failureCaptures, { recursive: true });
+          await browser("record", "start", join(failureCaptures, "dismiss.webm"));
+          await browser("wait", "--fn", "!!window.__fake && !!document.querySelector('.rail-row')");
+          await browser("set", "media", "dark");
+          await browser("press", "Meta+k");
+          await browser("press", "k");
+          await browser("wait", "--fn", "!!document.querySelector('.switcher input')");
+          await read("(() => { Storage.prototype.setItem=()=>{throw new Error('full')}; Object.defineProperty(navigator,'clipboard',{configurable:true,value:{writeText:()=>Promise.reject(new Error('denied'))}}); const f=document.querySelector('.switcher input'); f.value='  é 🧭 東京  '; f.dispatchEvent(new Event('input',{bubbles:true})); f.setSelectionRange(2,9,'backward'); f.dispatchEvent(new Event('keyup',{bubbles:true})); })()");
+          await browser("find", "role", "button", "click", "--name", "Copy query", "--exact");
+          await browser("wait", "--fn", "[...document.querySelectorAll('.switcher [role=alert]')].some(e=>e.textContent.includes('Could not copy query'))");
+
+          for (const step of ["before", "after"]) {
+            if (step === "after") await browser("find", "role", "button", "click", "--name", "Close", "--exact");
+            await browser("screenshot", join(failureCaptures, `${step}.png`));
+            writeFileSync(join(failureCaptures, `${step}.checks.json`), JSON.stringify(await read("window.__checks()"), null, 2));
+          }
+
+          await browser("record", "stop");
+        }
       } finally {
         try { await browser("close"); } finally { rmSync(profile, { recursive: true, force: true }); }
       }

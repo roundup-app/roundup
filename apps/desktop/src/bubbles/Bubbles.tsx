@@ -1,3 +1,4 @@
+import { createTerminalClose } from "./close";
 import { ReservedLine } from "../ink/ReservedLine";
 import { CHORDS, LEADER } from "../keys/chords";
 import { registerKeys } from "../keys/registry";
@@ -129,7 +130,6 @@ export const Bubbles = (props: {
   const [editing, setEditing] = createSignal<{ id: string } | null>(null);
   createEffect(on(() => rail.selected(), () => setEditing(null), { defer: true }));
   onMount(() => setBar(layer()?.parentElement?.querySelector<HTMLElement>(".resource-strip") ?? undefined));
-  const [closing, setClosing] = createSignal<ReadonlySet<string>>(new Set());
   let before: Element | null = null;
 
   const extent = (): Extent => {
@@ -298,36 +298,7 @@ export const Bubbles = (props: {
 
   const readOnly = () => connected.daemonExit() !== null;
 
-  const close = async (id: string): Promise<void> => {
-    if (closing().has(id)) return;
-
-    const terminal = rail.terminals().find(terminal => terminal.id === id);
-
-    if (!terminal) return;
-
-    const active = document.activeElement;
-    const controlHeldFocus = active instanceof Element && active.closest("[data-bubble]")?.getAttribute("data-bubble") === id;
-    setClosing((ids) => new Set([...ids, id]));
-
-    try {
-      await app.rpc("terminal.close", { id });
-      await rail.refresh({ terminals: true });
-      clearItemFailure(terminal);
-
-      if (controlHeldFocus) queueMicrotask(() => {
-        const remaining = shown();
-        const nextId = remaining.find((terminal) => Number(terminal.id) > Number(id))?.id ?? remaining.at(-1)?.id;
-        const control = nextId === undefined ? document.querySelector<HTMLElement>('.terminal-new') : document.querySelector<HTMLElement>(`.terminal-tab[data-bubble="${nextId}"]`);
-        control?.focus();
-      });
-    } catch (thrown) {
-      if (!(thrown instanceof Error)) throw thrown;
-
-      setFailure({ message: thrown.message, terminal });
-    } finally {
-      setClosing((ids) => new Set([...ids].filter((held) => held !== id)));
-    }
-  };
+  const { close, closing, Failure: CloseFailure } = createTerminalClose(connected, shown, nameFor, (message, terminal) => setFailure(message === null ? null : { message, terminal: terminal ?? null }), clearItemFailure);
 
   const bubbleElement = (id: string): HTMLElement | null => document.querySelector<HTMLElement>(`[data-bubble="${id}"]`);
 
@@ -359,7 +330,7 @@ export const Bubbles = (props: {
     const fromTab = focus?.closest(".terminal-tabs") !== null;
 
     void close(id).then(() => {
-      if (failure() !== null || fromTab) return;
+      if (failure() !== null || fromTab || shown().some(terminal => terminal.id === id)) return;
 
       if (back instanceof HTMLElement && back.isConnected) back.focus();
       else focusPane();
@@ -877,7 +848,7 @@ export const Bubbles = (props: {
           </div>
         </Dialog.Content></Dialog.Positioner></Portal>
       </Dialog.Root>
-      <ReservedLine overlay class={failure() ? "bubble-failure" : undefined} message={failure()?.message}><IconButton aria-label="Dismiss" onClick={() => setFailure(null)}><Icon name="x" /></IconButton></ReservedLine>
+      <CloseFailure message={failure()?.message ?? null}><IconButton aria-label="Dismiss" onClick={() => setFailure(null)}><Icon name="x" /></IconButton></CloseFailure>
     </div>
   );
 };

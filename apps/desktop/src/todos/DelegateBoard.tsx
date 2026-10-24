@@ -1,4 +1,4 @@
-import { createMemo, createSignal, onCleanup, Show, useContext, type Accessor } from "solid-js";
+import { createEffect, createMemo, createSignal, on, onCleanup, Show, useContext, type Accessor } from "solid-js";
 import type { Todo } from "@contracts/todo/Todo";
 import type { OwnerGroup } from "../shelf/scope";
 import { ownersOnRail, sameOwner } from "../shelf/scope";
@@ -51,18 +51,25 @@ export const TodoAuto = (props: { home: Accessor<string | null> }) => {
   const current = createMemo(() => connected.rail.nodes.find(node => node.kind === "workstream" && node.id === props.home()));
   const [failure, setFailure] = createSignal<string | null>(null);
   const [pending, setPending] = createSignal(false);
+  createEffect(on(() => current()?.id, () => setFailure(null)));
   onCleanup(connected.events.subscribe(event => {
-    if (event.name === "workstream.updated") void connected.rail.refresh();
+    if (event.name === "workstream.updated") {
+      if (event.data.id === current()?.id) setFailure(null);
+      void connected.rail.refresh();
+    }
   }));
 
   return <Show when={current()}>{node => <div class="todo-auto">
     <Switch checked={node().auto ?? false} onCheckedChange={async auto => {
       if (pending()) return;
+      const id = node().id;
       setPending(true);
-      setFailure(await failureOf(() => connected.app.rpc("workstream.setAuto", { id: node().id, auto })));
+      const message = await failureOf(() => connected.app.rpc("workstream.setAuto", { id, auto }));
+
+      if (current()?.id === id) setFailure(message);
       setPending(false);
     }}>{copy.todoAuto}</Switch>
     <span class="todo-auto-hint">{copy.todoAutoHint}</span>
-    <ReservedLine overlay message={failure()} />
+    <ReservedLine overlay message={failure()}><button data-dismiss-failure onMouseDown={event => event.preventDefault()} data-button="quiet" class="word" type="button" onClick={() => setFailure(null)}>{copy.dismissFailure}</button></ReservedLine>
   </div>}</Show>;
 };
