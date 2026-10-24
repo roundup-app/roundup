@@ -196,3 +196,10 @@ toolchain, profile and load when recording an observation. Do not replace or
 relax `budgets.json`. #1930 must migrate this output drain to selected streams
 in its Contract PR, rerun this command and retain zero Rail lag; this observer
 does not complete #1930 or X14's Terminal regression/journey acceptance.
+
+## macOS `cold_start_ms` and `rail_tree_40_p95_ms` (#3696)
+
+Neither is a spawned `ps`: `resources.rs` runs only for `daemon.resources` and `scan.rs` only with a live Door, and `strace -f -e execve` of a fresh `rupd` shows one `execve`, so the lazy sidecar adds no spawn at start. Measured on one Linux machine at one load, `just perf` at the macOS baseline commit `02fd86775` against `main`: `rail_tree_40_p95_ms` 0.25 against 0.71 ms, `ping_p95_ms` 0.046 against 0.093 ms, `cold_start_ms` 14 to 16 against 24 ms. The Daemon itself got slower after the baseline, as the Mac's ratios show.
+
+- `rail.tree`: `Shared::present` read each node's `finished` with `WHERE CAST(id AS TEXT)=?`, a full scan per node, and `load_nodes` parsed its SQL on every call. A tree read now takes one `finished_all` query and prepares both statements once; 0.71 became about 0.49 ms.
+- `cold_start_ms`: a fresh Project replays 37 migrations into `project.db` (`storage::open`), 11 to 12 ms of DDL parse and `ALTER TABLE` schema checks; an existing Project starts in 10 ms against 24 ms for a fresh one. `PRAGMA synchronous=OFF` saves 1 ms and `legacy_alter_table` nothing. The remaining fix is to create a fresh `project.db` from one precomputed schema, not to loosen a budget.
