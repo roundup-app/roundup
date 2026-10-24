@@ -30,6 +30,8 @@ const visit = (node: Node, ancestors: readonly Node[], read: (node: Node, ancest
 const STRUCTURE = new Set([
   // U3794: tool names the Agent runtime sends and a selector for text fields are executable structure, not prose.
   "Edit", "MultiEdit", "Write", "NotebookEdit", "textarea, select, [contenteditable]:not([contenteditable=false]), input:not([type=radio]):not([type=checkbox]):not([type=button])",
+  // U3517a: a console-only font fallback diagnostic, never rendered by the App.
+  "Terminal font unavailable; using the fallback face",
   // U2749b: a development/test invariant, never App copy.
   "Tooltip anchor excludes its opening pointer",
   // U3309: physical key codes (including the generated Digit template) never render as copy.
@@ -38,6 +40,8 @@ const STRUCTURE = new Set([
   "D", "E", "O", "A", "X", "C", "Tab", "J K", "KeyA", "KeyX", "KeyC", "shift+Tab", "Esc", "Escape", "Enter", "KeyD", "KeyE", "KeyO", "J", "⇧J", "K", "M", "W", "S", "T", "I", "KeyI", "KeyJ", "KeyK", "KeyM", "KeyW", "KeyS", "KeyT", "Shift+KeyJ", "Shift", "Control", "Alt", "Meta", "CapsLock",
   "index.html has no #root element", "the keystroke run needs a Project open", "RpcError",
   "(prefers-reduced-motion: reduce)", "(prefers-color-scheme: dark)",
+  // U3529: display media and a recovery availability discriminant, never displayed copy.
+  "(prefers-contrast: more)", "(forced-colors: active)", "unavailable",
   "input, textarea, [contenteditable]", 'input, textarea, [contenteditable="true"]',
   'input, textarea, select, [contenteditable="true"]', "select, input, button",
   "input, textarea, select, [contenteditable], .todo-blocker", "visual-source is-open",
@@ -91,6 +95,12 @@ const candidates = (source: string): { line: number; text: string }[] => {
 
     if (ancestors.some((each) => each.type === "TemplateLiteral" && /^<a href=/.test(each.quasis[0]?.value.cooked ?? ""))) return;
     const parent = ancestors.at(-1);
+
+    // FontFaceSet.load consumes CSS font syntax, never App copy.
+    const call = parent?.type === "CallExpression" && parent.callee.type === "MemberExpression" ? parent.callee : null;
+    const owner = call?.object;
+
+    if (call?.property.type === "Identifier" && call.property.name === "load" && owner?.type === "MemberExpression" && owner.object.type === "Identifier" && owner.object.name === "document" && owner.property.type === "Identifier" && owner.property.name === "fonts") return;
 
     const uiSetter = parent?.type === "CallExpression" && parent.callee.type === "MemberExpression" && parent.callee.property.type === "Identifier" && parent.callee.property.name === "setAttribute" && parent.arguments[0]?.type === "StringLiteral" && UI_ATTRIBUTES.test(parent.arguments[0].value) && parent.arguments[1] === node;
 
@@ -151,6 +161,7 @@ it("u471_catalogue_distinguishes_internal_fallback_props_from_app_copy", () => {
     const view = <Show fallback={<RenameField restored={restored} aria-label="rename">
       Rename project{format(label)}
     </RenameField>} />;
+    document.fonts.load(\`\${style} \${size}px \${family}\`);
   `)).toEqual([
     { line: 3, text: "recover" },
     { line: 4, text: "recovery failed" },

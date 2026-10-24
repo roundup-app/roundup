@@ -1,3 +1,4 @@
+import { answerQuestion } from "../shelf/bulkQuestionHarness";
 import { cleanup, fireEvent, render, screen, waitFor } from "@solidjs/testing-library";
 import { afterEach, describe, expect, it } from "vitest";
 import { App } from "../App";
@@ -31,9 +32,6 @@ const focusableEmulator = (): EmulatorFactory => () => {
     onInput: () => {},
     turns: () => [],
     selectTurn: () => {},
-    onSelection: () => {},
-    selectionEnd: () => null,
-    selectionFacts: () => null,
     show: (host) => {
       host.replaceChildren(field);
 
@@ -166,6 +164,8 @@ describe("u2230 shortcut hints", () => {
         expect(chord, `${place} ${hint.keys}`).toBeDefined();
         expect(chord!.hint?.label).toBe(hint.label);
         expect(press(document.activeElement!, chord!.presses[0]!), `${place} ${hint.keys} is bound`).toBe(true);
+
+        if (hint.keys === "⌘⌫") await answerQuestion(true);
 
         if (hint.keys === "⌘K") expect(document.querySelector('[role="status"].leader')).not.toBeNull();
         else if (hint.keys === "⌘B") await waitFor(() => expect(document.activeElement?.closest(".bubble"), `${place}: ${document.activeElement?.outerHTML}`).not.toBeNull());

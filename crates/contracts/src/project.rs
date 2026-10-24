@@ -195,6 +195,49 @@ pub struct ImportDiscovery {
     pub excluded: Vec<ImportExclusion>,
 }
 
+/// U3523a: what `import.list` reads. `period` is as in `project.importDiscover`.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, TS, JsonSchema)]
+#[ts(export, export_to = "project/")]
+pub struct ImportListParams {
+    pub period: ImportPeriod,
+}
+
+/// U3523a: a live Claude Code session as `claude agents --json` reported it; each field only
+/// when the program supplied it. roundup never signals or writes `pid`.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, TS)]
+#[ts(export, export_to = "project/")]
+pub struct ImportLive {
+    pub pid: Option<u32>,
+    pub cwd: Option<String>,
+    pub name: Option<String>,
+    pub busy: Option<bool>,
+    pub started_at_ms: Option<i64>,
+}
+
+/// U3523a: one session `import.list` offers, once. `revision` binds an approval to what was listed.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, TS)]
+#[ts(export, export_to = "project/")]
+pub struct ImportListed {
+    pub source: String,
+    pub title: String,
+    /// The first recorded directory inside the Project, relative to it ("" is the Project folder).
+    pub cwd: String,
+    pub last_activity_ms: i64,
+    pub revision: String,
+    pub live: Option<ImportLive>,
+}
+
+/// U3523a, U3523f: read-only; newest first, equal times by source identity. `notices` are what the
+/// SDK sidecar printed; `sdk` is its pinned version.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, TS)]
+#[ts(export, export_to = "project/")]
+pub struct ImportList {
+    pub candidates: Vec<ImportListed>,
+    pub excluded: Vec<ImportExclusion>,
+    pub notices: Vec<String>,
+    pub sdk: String,
+}
+
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, TS, JsonSchema)]
 #[ts(export, export_to = "project/")]
 pub struct ImportSelection {
@@ -257,14 +300,6 @@ pub struct Measurement {
 #[serde(tag = "kind", rename_all = "kebab-case")]
 #[ts(export, export_to = "project/")]
 pub enum MeasurementValue {
-    Request {
-        usage: Consumed,
-        // Old retained records remain explicitly unknown until bounded source replay.
-        #[serde(default)]
-        cost: Option<Box<RequestCost>>,
-    },
-    /// Inclusive source totals never add to constituent requests or their reference estimates.
-    Money { reported: ReportedMoney },
     /// Roundup-owned lifetimes and waits. Never model/tool execution.
     Observed {
         activity: TimedActivity,
@@ -287,20 +322,6 @@ pub enum MeasurementValue {
 pub enum Execution {
     Agent,
     Tool,
-}
-
-/// Disjoint consumed categories. Unknown is not measured zero.
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, TS)]
-#[ts(export, export_to = "project/")]
-pub struct Consumed {
-    #[ts(type = "number | null")]
-    pub input: Option<u64>,
-    #[ts(type = "number | null")]
-    pub output: Option<u64>,
-    #[ts(type = "number | null")]
-    pub cache_read: Option<u64>,
-    #[ts(type = "number | null")]
-    pub cache_write: Option<u64>,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize, TS)]
@@ -352,79 +373,6 @@ pub enum TimeState {
     Interrupted,
 }
 
-/// Retained evidence, never a subscription bill. Missing fields are unknown, never zero.
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, TS)]
-#[ts(export, export_to = "project/")]
-pub struct RequestCost {
-    pub model: Option<String>,
-    pub cache_write: CacheWrites,
-    pub reference: Option<ReferenceRates>,
-    pub reported: Option<ReportedMoney>,
-    pub unavailable: Vec<String>,
-}
-
-/// Independently observed write classes; they partition Consumed.cache_write, never add to it.
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, TS)]
-#[ts(export, export_to = "project/")]
-pub struct CacheWrites {
-    #[ts(type = "number | null")]
-    pub five_minute: Option<u64>,
-    #[ts(type = "number | null")]
-    pub one_hour: Option<u64>,
-}
-
-/// Exact decimal currency units per `per_tokens`; an offline comparison, not observed money.
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, TS)]
-#[ts(export, export_to = "project/")]
-pub struct ReferenceRates {
-    /// The response Model id these rates price; empty when the record names none.
-    #[serde(default)]
-    pub model: String,
-    pub version: String,
-    pub date: String,
-    pub currency: String,
-    pub source: String,
-    pub basis: String,
-    pub per_tokens: u32,
-    pub input: String,
-    pub output: String,
-    pub cache_read: String,
-    pub cache_write_five_minute: String,
-    pub cache_write_one_hour: String,
-}
-
-/// Source money is separate from reference rates. Currency absence forbids conversion/summing.
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, TS)]
-#[ts(export, export_to = "project/")]
-pub struct ReportedMoney {
-    pub scope: MoneyScope,
-    pub amount: String,
-    pub currency: Option<String>,
-    pub source: String,
-    pub basis: String,
-}
-
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, TS)]
-#[serde(rename_all = "kebab-case")]
-#[ts(export, export_to = "project/")]
-pub enum MoneyScope {
-    Request,
-    Conversation,
-}
-
-/// The disjoint consumed category used to rank a Workstream's contributors.
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize, TS, JsonSchema)]
-#[serde(rename_all = "snake_case")]
-#[ts(export, export_to = "project/")]
-pub enum ConsumedCategory {
-    Input,
-    Output,
-    CacheRead,
-    CacheWrite,
-    #[default]
-    Total,
-}
-
 /// Later pages require the revision returned by the first page; a changed revision conflicts.
 #[derive(Clone, Debug, Serialize, Deserialize, TS, JsonSchema)]
 #[ts(export, export_to = "project/")]
@@ -432,42 +380,8 @@ pub enum ConsumedCategory {
 pub struct MeasurementSummaryParams {
     pub home: String,
     #[serde(default)]
-    pub category: ConsumedCategory,
-    #[serde(default)]
     pub offset: u32,
     pub revision: Option<String>,
-}
-
-/// The account's weekly use, as the vendor's account usage read answers it. Never a Workstream
-/// share: every session on the account draws the same pool. `used_percent` and `resets_at` are
-/// absent together with a one-sentence `reason` when the read is unavailable.
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, TS)]
-#[ts(export, export_to = "project/")]
-pub struct WeeklyLimit {
-    pub used_percent: Option<u32>,
-    /// Milliseconds since the Unix epoch.
-    #[ts(type = "number | null")]
-    pub resets_at: Option<i64>,
-    pub reason: Option<String>,
-}
-
-/// Exact known subtotal and number of contributions lacking this category.
-/// A contributor with no retained requests counts as one unknown contribution.
-#[derive(Clone, Debug, Serialize, Deserialize, TS)]
-#[ts(export, export_to = "project/")]
-pub struct ConsumedSubtotal {
-    pub known: String,
-    pub missing: u32,
-}
-
-#[derive(Clone, Debug, Serialize, Deserialize, TS)]
-#[ts(export, export_to = "project/")]
-pub struct ConsumedTotals {
-    pub input: ConsumedSubtotal,
-    pub output: ConsumedSubtotal,
-    pub cache_read: ConsumedSubtotal,
-    pub cache_write: ConsumedSubtotal,
-    pub total: ConsumedSubtotal,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize, TS)]
@@ -476,48 +390,25 @@ pub struct MeasurementContributor {
     pub agent: String,
     pub maker: String,
     pub removed: bool,
-    pub tokens: ConsumedTotals,
-    pub cost: MeasurementCost,
     pub time: MeasurementTime,
     pub coverage: Vec<String>,
 }
 
-/// One Workstream's consumed tokens, ranked in pages of at most twenty at one revision.
-/// Money and time retain their separate evidence contract; they are not token totals.
+/// One Workstream's time, with its Agents ranked by summed time in pages of at most twenty at one revision.
 #[derive(Clone, Debug, Serialize, Deserialize, TS)]
 #[ts(export, export_to = "project/")]
 pub struct MeasurementSummary {
     pub project: String,
     pub home: String,
     pub revision: String,
-    pub category: ConsumedCategory,
     pub cause: Option<String>,
     #[ts(type = "number | null")]
     pub last_observed: Option<i64>,
-    pub tokens: ConsumedTotals,
-    pub cost: MeasurementCost,
     pub time: MeasurementTime,
     pub coverage: Vec<String>,
     pub contributors: u32,
     pub rows: Vec<MeasurementContributor>,
     pub next_offset: Option<u32>,
-}
-
-/// Money evidence remains partitioned by scope, currency and reference basis.
-#[derive(Clone, Debug, Default, Serialize, Deserialize, TS)]
-#[ts(export, export_to = "project/")]
-pub struct MeasurementCost {
-    pub reported: Vec<ReportedMoney>,
-    pub reference: Vec<ReferenceEstimate>,
-    pub unavailable: Vec<String>,
-}
-
-#[derive(Clone, Debug, Serialize, Deserialize, TS)]
-#[ts(export, export_to = "project/")]
-pub struct ReferenceEstimate {
-    pub amount: String,
-    pub missing: Vec<String>,
-    pub rates: ReferenceRates,
 }
 
 /// Nanoseconds are exact strings. Summed time partitions Attempts, not wall time.

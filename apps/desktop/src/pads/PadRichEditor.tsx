@@ -1,14 +1,14 @@
 import { ReservedLine } from "../ink/ReservedLine";
 import { copy } from "../copy";
-import { createEffect, createSignal, createUniqueId, onCleanup, onMount, Show } from "solid-js";
+import { createEffect, createSignal, createUniqueId, onCleanup, onMount } from "solid-js";
 import { Portal } from "solid-js/web";
 import { CrepeBuilder } from "@milkdown/crepe/builder";
 import { blockEdit } from "@milkdown/crepe/feature/block-edit";
 import type { BlockEditFeatureConfig } from "@milkdown/crepe/feature/block-edit";
 import { linkTooltip } from "@milkdown/crepe/feature/link-tooltip";
+import { linkPreviewTooltip } from "@milkdown/kit/component/link-tooltip";
 import { listItem } from "@milkdown/crepe/feature/list-item";
 import { placeholder } from "@milkdown/crepe/feature/placeholder";
-import { toolbar } from "@milkdown/crepe/feature/toolbar";
 import { topBar } from "@milkdown/crepe/feature/top-bar";
 import { editorViewCtx, remarkStringifyOptionsCtx } from "@milkdown/kit/core";
 import { $prose } from "@milkdown/kit/utils";
@@ -97,7 +97,6 @@ export default function PadRichEditor(props: {
       .addFeature(listItem)
       .addFeature(linkTooltip)
       .addFeature(placeholder)
-      .addFeature(toolbar)
       .addFeature(topBar, {
         buildTopBar: (builder) => {
           topBarLabels = builder.build().flatMap((group) =>
@@ -121,6 +120,8 @@ export default function PadRichEditor(props: {
       });
 
     crepe.editor.config((ctx) => {
+      // Hovering a link while selecting text must not open a floating preview; the fixed bar still edits links.
+      ctx.update(linkPreviewTooltip.key, (options) => ({ ...options, props: { ...options.props, handleDOMEvents: {} } }));
       ctx.update(remarkStringifyOptionsCtx, (options) => ({ ...options, bullet: "-" as const }));
       ctx.update(trailingConfig.key, (options) => ({
         ...options,
@@ -376,7 +377,7 @@ export default function PadRichEditor(props: {
         class="pad-editor pad-rich-editor"
         classList={{ "pad-readonly": props.readonly }}
         onFocusOut={(event) => props.onBlur(event.relatedTarget)}>
-        <ReservedLine message={failure()} />
+        <ReservedLine message={failure()}><button data-button="quiet" type="button" onClick={() => setFailure(null)}>{copy.dismiss}</button></ReservedLine>
         <div ref={(element) => (host = element)} />
       </div>
     </>

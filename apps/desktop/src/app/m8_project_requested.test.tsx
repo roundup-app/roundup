@@ -185,7 +185,7 @@ it("u3021c_copy_and_discard_keep_other_revisions", async () => {
   const app = mount(drafts);
   const clipboard = vi.fn(async (_text: string) => {});
 
-  Object.defineProperty(navigator, "clipboard", { configurable: true, value: { writeText: clipboard } });
+  vi.spyOn(app, "clipboardWrite").mockImplementation(clipboard);
   await openRecovery();
   const recovery = await screen.findByRole("region", { name: "Unfinished work" });
   const row = within(recovery).getAllByRole("listitem").find((item) => item.dataset.revision === gone)!;
@@ -207,10 +207,10 @@ it("u2773h_credential_values_remain_hidden_until_copy", async () => {
 
   holder.submit(revision);
   holder.settle(revision, "failed");
-  mount(drafts);
+  const app = mount(drafts);
   const clipboard = vi.fn(async (_text: string) => {});
 
-  Object.defineProperty(navigator, "clipboard", { configurable: true, value: { writeText: clipboard } });
+  vi.spyOn(app, "clipboardWrite").mockImplementation(clipboard);
   await openRecovery();
   const recovery = await screen.findByRole("region", { name: "Unfinished work" });
 
@@ -306,4 +306,34 @@ it("u3289c_overview_menu_opens_recovery", async () => {
   expect(screen.queryByRole("region", { name: "Unfinished work" })).toBeNull();
   await openRecovery();
   expect(within(await screen.findByRole("region", { name: "Unfinished work" })).getAllByRole("listitem")).toHaveLength(2);
+});
+
+
+it.each([
+  { name: "Unicode", note: "  note é 🪁\nlast  ", excerpt: "  output 👩🏽‍💻\n exact  " },
+  { name: "whitespace", note: "  \n  ", excerpt: " \t " },
+])("u3529d_retired_selection_drafts_remain_copyable: $name", async ({ note, excerpt }) => {
+  const drafts = createProjectDrafts();
+  const holder = drafts(FIRST.path);
+  const destination = { surface: "terminal_selection", object: "retired", recipient: "original-agent" };
+  const a = holder.edit(destination, { note, excerpt }, null, "ordinary").draft;
+  holder.submit(a.revision);
+  holder.settle(a.revision, "unknown");
+  const b = holder.edit(destination, { note: "newer", excerpt: "kept" }, null, "ordinary").draft;
+  const saved = holder.list();
+  const reopened = createProjectDrafts();
+  const copied = vi.fn(async (_text: string) => {});
+
+  const app = mount(reopened);
+  vi.spyOn(app, "clipboardWrite").mockImplementation(copied);
+  await openRecovery();
+  const panel = await screen.findByRole("region", { name: "Unfinished work" });
+  const row = panel.querySelector<HTMLElement>(`[data-revision="${a.revision}"]`)!;
+  expect(within(row).queryByRole("button", { name: "Open" })).toBeNull();
+  fireEvent.click(within(row).getByRole("button", { name: "Copy" }));
+  expect(copied).toHaveBeenCalledWith(note + "\n" + excerpt);
+  expect(reopened(FIRST.path).list()).toEqual(saved);
+  expect(app.calls.filter(call => ["message.send", "agent.prompt", "agent.spawn", "agent.setOrder", "terminal.open", "terminal.write"].includes(call.method))).toEqual([]);
+  fireEvent.click(within(row).getByRole("button", { name: "Discard" }));
+  expect(reopened(FIRST.path).list()).toEqual([b]);
 });

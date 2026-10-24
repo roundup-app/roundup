@@ -2,7 +2,7 @@
 """U3016 source observer: run after pnpm install and cargo build -p rupd -p rup.
 Fresh HOME/config/Project, dummy key and loopback responses; production launch, Adapter,
 journal and user CLI reads. No subscription credential or real-model inference.
-Only counts and source timing projections are printed; disposable local files stay private.
+Only counts and source timing projections are printed (no token or money is read); disposable local files stay private.
 """
 import http.server,threading,json,subprocess,os,pathlib,tempfile,time,socket,sys,hashlib
 repo=pathlib.Path(__file__).resolve().parents[4]
@@ -27,8 +27,8 @@ class Handler(http.server.BaseHTTPRequestHandler):
   if 'observe-source-child-3016' in text and 'tool_result' not in text:content=[{'type':'text','text':'Child measured.'}]
   elif n==1:content=[{'type':'tool_use','id':'toolu_source_3016','name':'Agent','input':{'description':'Observe local measurement','prompt':'observe-source-child-3016','subagent_type':'general-purpose'}}]
   else:content=[{'type':'text','text':'Measurement observation complete.'}]
-  usage={'input_tokens':100*n,'output_tokens':20*n,'cache_read_input_tokens':400*n,'cache_creation_input_tokens':50*n,'cache_creation':{'ephemeral_5m_input_tokens':30*n,'ephemeral_1h_input_tokens':20*n}}
-  msg={'id':f'msg_source_{n}','type':'message','role':'assistant','model':body['model'],'content':[],'stop_reason':None,'stop_sequence':None,'usage':{**usage,'output_tokens':0}}
+  usage={f'{k}_tokens':0 for k in ('input','output')}  # the vendor client requires the fields on the wire
+  msg={'id':f'msg_source_{n}','type':'message','role':'assistant','model':body['model'],'content':[],'stop_reason':None,'stop_sequence':None,'usage':usage}
   events=[('message_start',{'type':'message_start','message':msg})]
   for i,block in enumerate(content):
    start={**block};start['input' if block['type']=='tool_use' else 'text']={} if block['type']=='tool_use' else ''
@@ -77,68 +77,21 @@ try:
   except (OSError,RuntimeError):time.sleep(.02)
  home=rpc('rail.createWorkstream',{'name':'Source observer work'})
  node=rpc('agent.spawn',{'name':'Source observer','cwd':str(root/'project'),'parent':home['id']})
- start=time.monotonic();accepted={};reads=[];last=None;cost_absent=time.time_ns()
+ start=time.monotonic();accepted={};reads=[];last=None
  while time.monotonic()-start<50:
   at=time.perf_counter_ns();last=rpc('project.measurements');reads.append((time.perf_counter_ns()-at)/1e6)
   for c in last['contributions']:accepted.setdefault(c['identity'],time.time_ns())
-  requests=[c for c in last['contributions'] if c['value']['kind']=='request']
   intervals=[c for c in last['contributions'] if c['value']['kind']=='interval']
-  money=[c for c in last['contributions'] if c['value']['kind']=='money']
-  checked=time.time_ns()
-  present=any('"type":"cost-state"' in p.read_text() for p in config.glob('projects/*/*.jsonl'))
-  if not present:cost_absent=checked
-  emitted={f'request:req_source_{record["n"]}' for record in records}
   emitted_spans={f"interval:{span['traceId']}:{span['spanId']}" for batch in exports for resource in batch['body']['resourceSpans'] for scope in resource['scopeSpans'] for span in scope['spans'] if span['name'] in ('claude_code.llm_request','claude_code.tool.execution')}
-  if (root/'vendor-exit').exists() and len(money)==1 and {c['identity'] for c in requests}==emitted and {c['identity'] for c in intervals}==emitted_spans:break
+  if (root/'vendor-exit').exists() and {c['identity'] for c in intervals}==emitted_spans:break
   time.sleep(.02)
  (root/'public.json').write_text(json.dumps(last));(root/'wire-summary.json').write_text(json.dumps(records))
- totals={key:sum(c['value']['usage'][key] for c in requests) for key in ('input','output','cache_read','cache_write')}
  assert (root/'vendor-exit').read_text()=='0', 'pinned vendor did not complete successfully'
  assert len(records)>=3, 'parent/tool/child exchange did not complete'
- assert {c['identity'] for c in requests}==emitted
- expected_totals={key:sum(rate*record['n'] for record in records) for key,rate in (('input',100),('output',20),('cache_read',400),('cache_write',50))}
- assert totals==expected_totals, (totals,expected_totals)
  assert len(intervals)==len(records)+1
  assert sum(c['value']['category']=='agent' for c in intervals)==len(records)
  assert sum(c['value']['category']=='tool' for c in intervals)==1
- local={}
- summaries=[]
- locations={}
- for path in config.glob('projects/**/*.jsonl'):
-  for line in path.read_text().splitlines():
-   row=json.loads(line,parse_float=str)
-   if row.get('type')=='cost-state':summaries.append(row)
-   if row.get('type')=='assistant' and row.get('requestId'):
-    local[row['requestId']]=row
-    locations[row['requestId']]=path.parent.name=='subagents'
- assert set(local)=={f'req_source_{record["n"]}' for record in records}
- assert sum(locations.values())==1, locations
- import datetime
- local_delay=[]
- for contribution in requests:
-  row=local[contribution['identity'].removeprefix('request:')]
-  n=int(row['requestId'].rsplit('_',1)[1])
-  expected={'input':100*n,'output':20*n,'cache_read':400*n,'cache_write':50*n}
-  assert contribution['value']['usage']==expected
-  raw=row['message']['usage']
-  cost=contribution['value']['cost']
-  assert cost['model']==row['message']['model']
-  assert cost['cache_write']=={'five_minute':30*n,'one_hour':20*n}
-  rates=cost['reference']
-  assert rates['date']=='2026-10-21' and rates['currency']=='USD' and rates['per_tokens']==1000000
-  assert [rates[k] for k in ('input','output','cache_read','cache_write_five_minute','cache_write_one_hour')]==['4','20','0.20','5','8']
-  assert cost['reported'] is None
-  assert [raw[k] for k in ('input_tokens','output_tokens','cache_read_input_tokens','cache_creation_input_tokens')]==list(expected.values())
-  source_at=datetime.datetime.fromisoformat(row['timestamp'].replace('Z','+00:00')).timestamp()*1000
-  local_delay.append(contribution['observed']-source_at)
- assert len(money)==1 and summaries
- assert money[0]['value']['reported']['amount']==str(summaries[-1]['totalCostUSD'])
- assert money[0]['value']['reported']['currency']=='USD'
- assert money[0]['value']['reported']['scope']=='conversation'
- assert 'usage' not in money[0]['value']
- from decimal import Decimal
- reference=sum(Decimal('0.00119')*record['n'] for record in records)
- money_delay_bound=max(0,(accepted[money[0]['identity']]-cost_absent)/1e6)
+ assert {c['value']['kind'] for c in last['contributions']}=={'interval'}
  span_delay=[c['observed']-int(c['value']['end_unix_ns'])/1e6 for c in intervals]
  raw_spans={}
  arrivals={}
@@ -167,10 +120,8 @@ try:
   except (OSError,RuntimeError):time.sleep(.02)
  assert reopened['contributions']==last['contributions']
  summary=rpc('project.measurementSummary',{'home':home['id']})
- assert {key:int(summary['tokens'][key]['known']) for key in totals}==totals
- assert summary['tokens']['total']=={'known':str(sum(totals.values())),'missing':0}
- assert Decimal(summary['cost']['reference'][0]['amount'])==reference
- assert summary['cost']['reported']==[money[0]['value']['reported']]
+ assert summary['rows'][0]['agent']==str(node['id'])
+ assert int(summary['time']['execution_ns'])>0 and int(summary['time']['tools_ns'])>0
  dashboard=None
  if '--dashboard' in sys.argv:
   import signal
@@ -197,9 +148,8 @@ try:
    browser('click','.measurement-action button')
    browser('wait','--fn',"document.querySelector('.measurement-dashboard')?.getAttribute('aria-busy') === 'false'")
    text=json.loads(browser('eval',"document.querySelector('.measurement-dashboard').textContent"))
-   assert format(sum(totals.values()),',') in text
-   assert summary['cost']['reference'][0]['amount'] in text
-   dashboard={'total_displayed':sum(totals.values()),'reference_displayed':summary['cost']['reference'][0]['amount'],'reconciliation':'pinned raw -> production collector -> public summary -> real headless App'}
+   assert 'elapsed' in text and 'Agent time' in text
+   dashboard={'reconciliation':'pinned raw -> production collector -> public summary -> real headless App'}
    if 'U3016f' in os.environ.get('ROUNDUP_CAPTURES','').split(','):
     target=repo/'artifacts/ux/U3016f';target.mkdir(parents=True,exist_ok=True)
     browser('screenshot',str(target/'pinned-vendor.png'))
@@ -208,7 +158,7 @@ try:
    subprocess.run(browser_command+['close'],env=browser_env,capture_output=True,timeout=20)
    os.killpg(vite.pid,signal.SIGTERM);vite.wait(timeout=10);vite_log.close()
  version=subprocess.run([str(binary),'--version'],env=env,capture_output=True,text=True,check=True).stdout.strip()
- print(json.dumps({'dashboard':dashboard,'binary_version':version,'binary_sha256':hashlib.sha256(binary.read_bytes()).hexdigest(),'observed_models':sorted({r['message']['model'] for r in local.values()}),'reference_basis':requests[0]['value']['cost']['reference'],'source_money':money[0]['value']['reported'],'independent_reference_usd':str(reference),'cache_write_classes':{'five_minute':sum(30*r['n'] for r in records),'one_hour':sum(20*r['n'] for r in records)},'money_availability_to_read_upper_ms':money_delay_bound,'raw_requests':len(records),'local_requests':len(local),'accepted_requests':len(requests),'model_intervals':sum(c['value']['category']=='agent' for c in intervals),'tool_intervals':1,'raw_completed_spans':len(raw_spans),'excluded_span_names':excluded,'export_arrival_to_public_read_ms':export_to_read,'totals':totals,'record_timestamp_to_accept_ms':local_delay,'span_end_to_accept_ms':span_delay,'public_read_max_ms':max(reads),'public_read_p95_ms':sorted(reads)[int(.95*(len(reads)-1))],'read_samples':len(reads),'cli_and_reopen':'same retained contributions','unsupported':'live request money, non-USD source money/conversion, active execution, clock lifetime across restart, human wait and Message-correlated coordination; permission-check spans excluded','local_artifacts':str(root)},indent=2))
+ print(json.dumps({'dashboard':dashboard,'binary_version':version,'binary_sha256':hashlib.sha256(binary.read_bytes()).hexdigest(),'raw_requests':len(records),'model_intervals':sum(c['value']['category']=='agent' for c in intervals),'tool_intervals':1,'raw_completed_spans':len(raw_spans),'excluded_span_names':excluded,'export_arrival_to_public_read_ms':export_to_read,'span_end_to_accept_ms':span_delay,'public_read_max_ms':max(reads),'public_read_p95_ms':sorted(reads)[int(.95*(len(reads)-1))],'read_samples':len(reads),'cli_and_reopen':'same retained contributions','unsupported':'active execution, clock lifetime across restart, human wait and Message-correlated coordination; permission-check spans excluded','local_artifacts':str(root)},indent=2))
 
 finally:
  daemon.terminate()

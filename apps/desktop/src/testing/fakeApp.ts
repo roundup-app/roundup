@@ -1,9 +1,10 @@
+import { projectMenu } from "./menuProbe";
 import type { Event as DaemonEvent } from "@contracts/Event";
 import type { RpcMethodName, RpcMethods } from "@contracts/methods";
 import { OWN_CONTRACT } from "../app/contractMatch";
 import { RpcError } from "../app/seam";
-import { menuProbe } from "./menuProbe";
-import type { AppSeam, DaemonExit, DaemonExited, FileDrop, MenuItem, OpenTarget, OutputMessage, PastedImage, Project } from "../app/seam";
+import { menuProbe, probeQuestion, questionProbe } from "./menuProbe";
+import type { AppSeam, NativeQuestion, DaemonExit, DaemonExited, FileDrop, MenuItem, OpenTarget, OutputMessage, PastedImage, Project } from "../app/seam";
 
 const CONFLICT = -32003;
 
@@ -21,6 +22,7 @@ const emptyReads: Handlers = {
   "rail.tree": () => [],
   "agent.worktreeState": () => ({ ahead: 0, behind: 0, dirty: false }),
   "terminal.list": () => [],
+  "models.list": () => ({ engines: [{ id: "test-engine", label: "Claude Code" }], models: [{ id: "test-model", label: "Offered model" }], efforts: [] }),
   "terminal.scheme": () => null,
   "todo.list": () => [],
   "todo.listHanded": () => [],
@@ -39,6 +41,9 @@ const emptyReads: Handlers = {
 export type FakeOutputSubscription = { id: string; offset: number; listener: (message: OutputMessage) => void; released: boolean };
 
 export type FakeApp = AppSeam & {
+  questions: NativeQuestion[];
+  answerQuestion: ((answer: boolean) => void) | undefined;
+  questionFailure: Error | null;
   /** Every `rpc` call so far, in call order. */
   calls: { method: RpcMethodName; params: unknown }[];
   handlers: Handlers;
@@ -84,6 +89,10 @@ export type FakeApp = AppSeam & {
   menuLabels(): string[];
   /** Every image `save_pasted_image` was called with, in order; `saveImageFailure` is what it rejects with and `savedImagePath` what it resolves. */
   savedImages: PastedImage[];
+  clipboardWrites: string[];
+  /** Native write edge, kept live through App decorators; tests can replace it after mounting. */
+  clipboardWrite(text: string): Promise<void>;
+  clipboardFailure: Error | null;
   saveImageFailure: RpcError | null;
   savedImagePath: string;
   /** What the macOS chooser answers; `null` is a cancel. */
@@ -129,6 +138,13 @@ export const createFakeApp = (): FakeApp => {
     editorOpened: [],
     editorCalls: [],
     editorFailure: null,
+    clipboardWrites: [],
+    clipboardFailure: null,
+    writeClipboardText: (text) => app.clipboardWrite(text),
+    clipboardWrite: async (text) => {
+      if (app.clipboardFailure) throw app.clipboardFailure;
+      app.clipboardWrites.push(text);
+    },
     savedImages: [],
     shownMenus: [],
     menuChoice: undefined,
@@ -253,6 +269,7 @@ export const createFakeApp = (): FakeApp => {
         imageUrl: app.imageUrl,
         chooseProjectPath: app.chooseProjectPath,
         chooseSavePath: app.chooseSavePath,
+        ask: app.ask,
         setDockBadge: app.setDockBadge,
         setWindowTitle: app.setWindowTitle,
         dragWindow: app.dragWindow,
@@ -261,6 +278,8 @@ export const createFakeApp = (): FakeApp => {
         openTarget: app.openTarget,
         openInEditor: app.openInEditor,
         savePastedImage: app.savePastedImage,
+        writeClipboardText: (text: string) => app.writeClipboardText(text),
+        clipboardWrites: app.clipboardWrites,
         showContextMenu: app.showContextMenu,
       });
       Object.defineProperty(other, "windowTitleHandler", {
@@ -276,6 +295,18 @@ export const createFakeApp = (): FakeApp => {
       if (app.proof.failure) throw app.proof.failure;
 
       return app.proof.value;
+    },
+    questions: [],
+    answerQuestion: undefined,
+    questionFailure: null,
+    ask: async (question) => {
+      app.questions.push(question);
+
+      if (app.questionFailure) throw app.questionFailure;
+      const answer = probeQuestion(question);
+      app.answerQuestion = accepted => questionProbe.answer?.(accepted);
+
+      return answer;
     },
     chooseProjectPath: async () => app.chooser.path,
     chooseSavePath: async (suggestedName) => {
@@ -356,6 +387,19 @@ export const createFakeApp = (): FakeApp => {
       dropListeners.add(listener);
 
       return () => dropListeners.delete(listener);
+    },
+    selectProjectMenu: async (path) => { projectMenu.path = path; },
+    onProjectPage: async (listener) => {
+      const receive = (event: Event) => { if (event instanceof CustomEvent) listener(event.detail); };
+
+      window.addEventListener("open-project-page", receive);
+
+      return () => window.removeEventListener("open-project-page", receive);
+    },
+    onAppSettings: async (listener) => {
+      window.addEventListener("open-app-settings", listener);
+
+      return () => window.removeEventListener("open-app-settings", listener);
     },
     onDaemonExited: async (listener) => {
       exitListeners.add(listener);

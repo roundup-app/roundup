@@ -13,6 +13,15 @@
   vertical-align: middle;
 }
 
+/* U3566d: an Agent, folded Workstream or Project whose latest finish is unread. U3704's mark in the accent; passive, so no cursor or action. */
+.unread-dot {
+  flex: none;
+  color: var(--accent);
+  font-size: var(--text-caption);
+  line-height: 1;
+  cursor: default;
+}
+
 .glyph[data-state],
 .ink-count[data-state],
 .folded-agents[data-state] {
@@ -294,7 +303,7 @@ p.ink[role="alert"] {
   display: none;
 }
 
-.reserved-actions :is(.todo-draft-revision, .todo-draft-actions, .send-to-agent-recovery) {
+.reserved-actions :is(.todo-draft-revision, .todo-draft-actions) {
   display: flex;
   align-items: center;
   gap: var(--space-2);

@@ -1,3 +1,5 @@
+import { questionDialog, answerQuestion } from "./bulkQuestionHarness";
+import { questionProbe } from "../testing/menuProbe";
 import { cleanup, fireEvent, screen } from "@solidjs/testing-library";
 import { afterEach, expect, it } from "vitest";
 import { mountTodos, todo, todoCallsTo } from "../todos/testHarness";
@@ -34,9 +36,9 @@ it("u460_one_question_precedes_every_delete", async () => {
   fireEvent.click(await screen.findByRole("button", { name: /#1 / }), { metaKey: true });
   fireEvent.click(screen.getByRole("button", { name: /#2 / }), { metaKey: true });
   await askToDelete(2);
-  expect(screen.getByText("Delete 2 Todos?")).toBeTruthy();
+  expect((await questionDialog()).title).toBe("Delete 2 Todos?");
   expect(todoCallsTo(app, "todo.delete")).toEqual([]);
-  fireEvent.click(screen.getByRole("button", { name: "Keep" }));
+  await answerQuestion(false);
   expect(screen.getByText("2 selected")).toBeTruthy();
 });
 

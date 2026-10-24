@@ -1,9 +1,8 @@
 import stylelint from 'stylelint';
 
-const focusRingRule = 'roundup/shared-keyboard-ring';
+const focusRingRule = 'roundup/no-focus-ring';
 
-const sharedKeyboardRing = stylelint.createPlugin(focusRingRule, () => (root, result) => {
-  if (root.source?.input.file?.endsWith('/apps/desktop/src/styles.css')) return;
+const noFocusRing = stylelint.createPlugin(focusRingRule, () => (root, result) => {
   root.walkDecls((declaration) => {
     if (!/^(outline(?:-.+)?|box-shadow)$/i.test(declaration.prop)) return;
     let focused = false;
@@ -12,15 +11,12 @@ const sharedKeyboardRing = stylelint.createPlugin(focusRingRule, () => (root, re
       if (parent.type === 'rule' && /:focus(?:-visible|-within)?|\[\s*data-focus(?:-visible)?(?:[\]=\s])/i.test(parent.selector)) focused = true;
     }
 
-    if (!focused) return;
-
-    // Shadow-root consumers may reference the shared ring but cannot define another.
-    if (/^var\(--keyboard-ring(?:-width|-color|-tree-offset)?\)$/.test(declaration.value)) return;
+    if (!focused && !/^outline(?:-.+)?$/i.test(declaration.prop)) return;
 
     if (/^(?:none|0(?:px)?)$/.test(declaration.value)) return;
     stylelint.utils.report({
       ruleName: focusRingRule, result, node: declaration,
-      message: 'Draw focus rings only through the shared keyboard-mode rule in styles.css (U2770)',
+      message: 'Focus rings are forbidden on every surface (U3528)',
     });
   });
 });
@@ -50,10 +46,23 @@ const scrollDeclaresOverscroll = stylelint.createPlugin(scrollRule, () => (root,
   });
 });
 
+const elevationRule = 'roundup/token-elevation';
+
+const tokenElevation = stylelint.createPlugin(elevationRule, () => (root, result) => {
+  if (root.source?.input.file?.endsWith('/apps/desktop/src/tokens.css')) return;
+  root.walkDecls(/^box-shadow$/i, (declaration) => {
+    stylelint.utils.report({
+      ruleName: elevationRule, result, node: declaration,
+      message: 'box-shadow is applied only in apps/desktop/src/tokens.css (U3512e)',
+    });
+  });
+});
+
 export default {
-  plugins: ['stylelint-declaration-strict-value', sharedKeyboardRing, scrollDeclaresOverscroll],
+  plugins: ['stylelint-declaration-strict-value', noFocusRing, scrollDeclaresOverscroll, tokenElevation],
   rules: {
     [focusRingRule]: true,
+    [elevationRule]: true,
     'declaration-property-value-allowed-list': {
       '/^z-index$/i': ['-1', '0', '1', /^var\(--layer-(?:drawer|popover|dialog|menu|tooltip|toast)\)$/],
     },

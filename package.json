@@ -18,7 +18,7 @@
     "@anthropic-ai/claude-code": "2.1.300",
     "@copilotkit/aimock": "1.45.1",
     "@oxlint/plugins": "1.86.0",
-    "fallow": "^3.31.0",
+    "fallow": "^3.34.0",
     "lefthook": "2.2.2",
     "oxlint": "1.86.0",
     "stylelint": "17.16.0",
@@ -31,7 +31,9 @@
       "@dnd-kit/dom@0.5.1": "patches/@dnd-kit__dom@0.5.1.patch",
       "@zag-js/splitter@1.45.0": "patches/@zag-js__splitter@1.45.0.patch",
       "@ark-ui/solid@5.39.3": "patches/@ark-ui__solid@5.39.3.patch",
-      "@copilotkit/aimock@1.45.1": "patches/@copilotkit__aimock@1.45.1.patch"
+      "@copilotkit/aimock@1.45.1": "patches/@copilotkit__aimock@1.45.1.patch",
+      "@xterm/addon-fit@0.11.0": "patches/@xterm__addon-fit@0.11.0.patch",
+      "overlayscrollbars@2.17.0": "patches/overlayscrollbars@2.17.0.patch"
     }
   }
 }

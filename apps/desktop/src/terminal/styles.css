@@ -85,10 +85,11 @@
   padding-top: var(--space-2);
 }
 
-/* U59: xterm.css paints `.xterm-viewport` black; the pane shows the app's ground instead. */
+/* U3517c: the viewport and the surrounding inset share the canvas ground. */
+.pane-screen,
 .pane .xterm .xterm-viewport,
 .pane .xterm .xterm-scrollable-element {
-  background-color: var(--ground);
+  background-color: var(--terminal-background);
 }
 
 .pane-body.drop-over::after {
@@ -119,9 +120,6 @@
   padding: 0 var(--space-2);
   font-size: var(--text-caption);
   color: var(--text);
-  background-color: var(--sunken);
-  border-radius: var(--radius-drawer);
-  box-shadow: var(--shadow-drawer);
 }
 
 .pane-control-state {
@@ -173,16 +171,6 @@
   background-color: var(--ground);
 }
 
-.pane .xterm .xterm-helper-textarea:focus-visible {
-  box-shadow: none;
-}
-
-.pane .xterm .xterm-helper-textarea:active {
-  color: var(--text);
-  background-color: var(--selected);
-  transition-duration: 0s;
-}
-
 /* U514: the strips sit in the pane-screen's left padding, beside the cell grid, so no glyph is covered and `cols` is unchanged. */
 .turn-strips {
   position: absolute;
@@ -220,40 +208,6 @@
   flex: 1;
   height: auto;
   min-height: 0;
-}
-
-/* U515: the control by the selection. Tokens only; the native look keeps no box on the buttons. */
-.send-to-agent {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-2);
-  min-width: var(--rail-width);
-  max-width: var(--shelf-width);
-  z-index: var(--layer-popover);
-}
-
-.send-to-agent p.ink[role="alert"] {
-  white-space: normal;
-  overflow-wrap: anywhere;
-}
-
-.send-to-agent-recovery {
-  display: flex;
-  gap: var(--space-2);
-}
-
-.send-to-agent-note {
-  font: inherit;
-  color: var(--text);
-  background-color: var(--ground);
-  border: 0;
-  border-radius: var(--radius-control);
-  padding: var(--space-2);
-}
-
-.send-to-agent-action {
-  align-self: flex-start;
-  color: var(--text);
 }
 
 .pane-empty-keys {

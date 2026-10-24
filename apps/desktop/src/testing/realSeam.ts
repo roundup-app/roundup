@@ -1,8 +1,9 @@
+import { projectMenu } from "./menuProbe";
 import * as v from "valibot";
 import type { SpawnParams } from "@contracts/agent/SpawnParams";
 import type { Event as DaemonEvent } from "@contracts/Event";
 import { INTERNAL_CODE, projectSchema, RpcError } from "../app/seam";
-import { probeMenu } from "./menuProbe";
+import { probeMenu, probeQuestion } from "./menuProbe";
 import type { AppSeam, DaemonExited, OutputSubscription } from "../app/seam";
 
 const outcomeSchema = v.union([
@@ -155,6 +156,7 @@ export const createServedApp = (base: string, choice?: () => "choose" | "cancel"
     });
 
   const app: AppSeam = {
+    writeClipboardText: async () => { throw new RpcError(-32003, "Native clipboard is unavailable in the browser harness. Use the desktop App to copy."); },
     projects: () =>
       reach(async () => {
         const { project } = await open;
@@ -197,6 +199,7 @@ export const createServedApp = (base: string, choice?: () => "choose" | "cancel"
       }),
     chooseProjectPath: () => reach(async () => choice?.() === "choose" ? (await open).project.path : null),
     chooseSavePath: async () => null,
+    ask: probeQuestion,
     setDockBadge: async () => {},
     // The isolated browser has no native window; these calls never move or rename a host window.
     setWindowTitle: async () => {},
@@ -286,6 +289,19 @@ export const createServedApp = (base: string, choice?: () => "choose" | "cancel"
           }),
       ),
     imageUrl: (path) => `file://${path}`,
+    selectProjectMenu: async (path) => { projectMenu.path = path; },
+    onProjectPage: async (listener) => {
+      const receive = (event: Event) => { if (event instanceof CustomEvent) listener(event.detail); };
+
+      window.addEventListener("open-project-page", receive);
+
+      return () => window.removeEventListener("open-project-page", receive);
+    },
+    onAppSettings: async (listener) => {
+      window.addEventListener("open-app-settings", listener);
+
+      return () => window.removeEventListener("open-app-settings", listener);
+    },
     onFileDrop: async () => () => {},
     onDaemonExited: async (listener) => {
       exits.add(listener);

@@ -5,6 +5,9 @@ import type { RpcMethodName, RpcMethods } from "@contracts/methods";
 /** Hand-written App seam types (`scenarios/app.md`), not generated from Rust, so the adapter parses them. */
 export const projectSchema = v.object({ name: v.string(), path: v.string() });
 
+/** U3813: a native command with its captured selected Project. */
+export const projectPageSchema = v.object({ path: v.string(), command: v.picklist(["import-work", "project-settings"]) });
+
 /** One entry of `projects`, in tab order (S8): `running` is false once that Project's Daemon exited. */
 export const listedProjectSchema = v.object({ name: v.string(), path: v.string(), running: v.boolean() });
 
@@ -64,6 +67,7 @@ export type ProjectCalls = {
 /** The Tauri commands the App registers (`crates/desktop`), every one of them; `m5_every_app_action_has_a_tool_or_a_reason` reads this table and fails for a command without an MCP tool or a reason. */
 export const SEAM_COMMANDS = [
   "projects",
+  "select_project_menu",
   "open_project",
   "close_project",
   "rename_project",
@@ -75,14 +79,22 @@ export const SEAM_COMMANDS = [
   "open_target",
   "open_in_editor",
   "save_pasted_image",
+  "plugin:clipboard-manager|write_text",
   "show_context_menu",
   "plugin:window-bar|set_window_title",
   "plugin:window-bar|drag_window",
   "plugin:window-bar|zoom_window",
 ] as const;
 
+/** A captured system question with complete consequences and named affirmative/cancel buttons. */
+export type NativeQuestion = { title: string; message: string; okLabel: string; cancelLabel: string };
+
 /** The Tauri commands of `scenarios/app.md` and `scenarios/project-tabs.md`, plus the macOS choosers and the Dock badge; the only door from the webview to Tauri. */
 export type App = {
+  /** U3560a: write exactly this text to the native clipboard; rejects with the platform cause. */
+  writeClipboardText(text: string): Promise<void>;
+  /** A system alert; false (including Escape) authorizes nothing. Plugin failure rejects as RpcError. */
+  ask(question: NativeQuestion): Promise<boolean>;
   /** The open Projects in tab order. */
   projects(): Promise<ListedProject[]>;
   openProject(path: string): Promise<Project>;
@@ -115,6 +127,12 @@ export type App = {
   showContextMenu(items: MenuItem[], x: number, y: number): Promise<string | null>;
   /** Reports the window's native File drop, which Tauri takes before the webview sees a DOM `drop`. */
   onFileDrop(listener: (drop: FileDrop) => void): Promise<Unsubscribe>;
+  /** Synchronizes native Project-menu availability with the selected tab. */
+  selectProjectMenu(path: string | null): Promise<void>;
+  /** Native commands carry the selected Project captured by the host at activation. */
+  onProjectPage(listener: (page: { path: string; command: "import-work" | "project-settings" }) => void): Promise<Unsubscribe>;
+  /** Opens the app-wide center settings view; no payload. */
+  onAppSettings(listener: () => void): Promise<Unsubscribe>;
   onDaemonExited(listener: (exit: DaemonExited) => void): Promise<Unsubscribe>;
   /** The calls into that Project's Daemon, with its path filled in. */
   forProject(path: string): AppSeam;

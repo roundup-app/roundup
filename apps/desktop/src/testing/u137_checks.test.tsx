@@ -67,14 +67,14 @@ describe("u137 one module measures the checks", () => {
     document.body.innerHTML = '<button class="rail-row" style="height:24px;cursor:pointer">x</button>';
     const before = runChecks();
 
-    expect(before.D6).toMatchObject({ status: "fail", value: { missing: ["hover", "focus"] } });
-    expect(before.D7).toMatchObject({ status: "fail", value: { pressed: 0 } });
+    expect(before.D6).toMatchObject({ status: "fail", value: { missing: ["hover"] } });
+    expect(before.D7.status).toBe("pass");
 
-    addSheet(".rail-row:hover { color: red; } .rail-row:focus-visible { outline: 1px solid; } .rail-row:active { color: blue; transition-duration: 0s; }");
+    addSheet(".rail-row:hover { color: red; } .rail-row:active { background-color: blue; }");
     const after = runChecks();
 
     expect(after.D6.status).toBe("pass");
-    expect(after.D7.status).toBe("pass");
+    expect(after.D7).toMatchObject({ status: "fail", value: { pressedBackground: true } });
   });
 
   it("u133_d6_measures_text_input_hit_areas_without_button_states", () => {
@@ -187,7 +187,7 @@ const chrome = chromePath();
 
 const rendered = chrome || process.env.CI ? describe : describe.skip;
 
-rendered("u137 rendered focus marks", () => {
+rendered("u137 rendered surfaces", () => {
   let page: Awaited<ReturnType<typeof openPage>>;
 
   // The first load compiles the harness bundle; do it here so no test's 5 s budget pays for it.
@@ -253,42 +253,6 @@ rendered("u137 rendered focus marks", () => {
       expect(observed, scheme).toEqual(surface === "app-select-list" ? ["pass", "fail", "fail", "fail", "fail"] : ["pass", "fail", "fail", "fail"]);
     }
   }, 60_000);
-
-  for (const field of ["title", "ask"]) {
-    for (const lowContrast of [false, true]) {
-      it(`u137_measures_the_order_${field}_focus_mark_${lowContrast ? "below" : "above"}_three_to_one`, async () => {
-        await page.load("/harness.html?seed=door-report", 1280, 800);
-        await page.call(`() => document.querySelector('[data-id="c1"] .name').click()`);
-        await page.until(`() => Boolean(document.querySelector('.order-line'))`);
-        await page.call(`() => document.querySelector('.order-line').click()`);
-        await page.until(`() => Boolean(document.querySelector('[aria-label="Edit order"]'))`);
-        await page.call(`() => document.querySelector('[aria-label="Edit order"]').click()`);
-        await page.until(`() => Boolean(document.querySelector('textarea[name="${field}"]'))`);
-        await page.call(`(field, lowContrast) => {
-          const input = document.querySelector('textarea[name="' + field + '"]');
-          input.focus();
-          if (lowContrast) input.style.backgroundImage = 'linear-gradient(var(--ground), var(--ground))';
-        }`, field, lowContrast);
-        const checks = await page.call<Checks>(`() => window.__checks()`);
-
-        expect(checks.D5).toMatchObject(lowContrast
-          ? { status: "fail", value: { focusRing: 1 } }
-          : { status: "pass" });
-      });
-    }
-  }
-
-  it("u137_measures_a_percentage_width_focus_mark_on_an_unnamed_container", async () => {
-    await page.load("/harness.html?seed=door-report", 1280, 800);
-    await page.until(`() => Boolean(document.querySelector('.pane-screen'))`);
-    await page.call(`() => {
-      document.body.innerHTML = '<div style="width: 240px; height: 80px; background-color: white; background-image: linear-gradient(white, white); background-size: 1% 100%; background-repeat: no-repeat; background-position: left"><textarea style="color: black; background: transparent; outline-width: 0">text</textarea></div>';
-      document.querySelector('textarea').focus();
-    }`);
-    const checks = await page.call<Checks>(`() => window.__checks()`);
-
-    expect(checks.D5).toMatchObject({ status: "fail", value: { focusRing: 1 } });
-  });
 
   it("u137_a_full_size_uniform_wash_remains_part_of_the_text_ground", async () => {
     await page.load("/harness.html?seed=door-report", 1280, 800);

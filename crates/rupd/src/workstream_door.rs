@@ -175,6 +175,7 @@ async fn a7_b1_b6_b9_real_daemon_fences_old_status_after_door_restart() {
     bus.emit(
         Actor::daemon(),
         EventData::AgentStatus(Box::new(StatusEvent {
+            ended: false,
             id: id.into(),
             attempt: "1".into(),
             status_revision: "1".into(),
@@ -182,6 +183,7 @@ async fn a7_b1_b6_b9_real_daemon_fences_old_status_after_door_restart() {
                 kind: Kind::Done,
                 label: "old exit".into(),
                 since: 0,
+                finished: "0".into(),
             },
         })),
     );

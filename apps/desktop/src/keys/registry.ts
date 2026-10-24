@@ -1,3 +1,4 @@
+import { setInteractionModality } from "@zag-js/focus-visible";
 import { createSignal, onCleanup } from "solid-js";
 import { CHORDS, LEADER, chordsFor, leaderChord, TEXT_FIELDS } from "./chords";
 import type { Chord, LeaderKey } from "./chords";
@@ -111,17 +112,10 @@ const takeLeaderKey = (event: KeyboardEvent): void => {
 };
 
 const dispatch = (event: KeyboardEvent): void => {
+  // Modifier chords are keyboard actions too; the focus-visible library excludes them by default.
+  setInteractionModality("keyboard");
+
   if (!(event instanceof KeyboardEvent)) return;
-
-  const target = event.composedPath()[0];
-
-  const editing = target instanceof HTMLElement
-    && (target instanceof HTMLInputElement || target instanceof HTMLTextAreaElement || target.isContentEditable);
-
-  // U2770: update before a shortcut consumes the press; editing alone keeps the field's ring steady.
-  if (!event.isComposing && (!editing || event.key === "Tab" || event.key === "Escape")) {
-    document.documentElement.dataset.keyboardFocus = "true";
-  }
 
   if (event.repeat && event.code === held) {
     event.preventDefault();
@@ -180,7 +174,6 @@ const dispatch = (event: KeyboardEvent): void => {
       if (!binding.matches.some((chord) => matchKeybindingPress(event, chord)) || binding.when?.(event) === false) continue;
       event.preventDefault();
       event.stopImmediatePropagation();
-      document.documentElement.dataset.keyboardFocus = "true";
       binding.run(event);
 
       return;

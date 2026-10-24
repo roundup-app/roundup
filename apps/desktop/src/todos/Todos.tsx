@@ -41,7 +41,7 @@ import { ScopeAction } from "../shelf/ScopeAction";
 import { OwnerGroups } from "../shelf/OwnerGroups";
 import { NewWorkstream } from "./NewWorkstream";
 import { OwnerPicker } from "./OwnerPicker";
-import { ownerGroups, ownersOnRail } from "../shelf/scope";
+import { sameOwner, ownerGroups, ownersOnRail } from "../shelf/scope";
 import type { Actor } from "@contracts/Actor";
 import { CHORDS, TEXT_FIELDS, chordsFor, chordsOf } from "../keys/chords";
 import { KeyHint } from "../keys/KeyHint";
@@ -52,7 +52,7 @@ import type { TodosState } from "./state";
 import { useTodoList } from "./todoList";
 import { TodoDrawer } from "./TodoDrawer";
 import { shownTodos } from "./shownTodos";
-import { rowAfter, doneTodos, nowTodos, planDrop, treeCollection, treeRows, type NestedRow } from "./todoView";
+import { rowAfter, doneTodos, nowTodos, offeredAsBlockers, planDrop, treeCollection, treeRows, type NestedRow } from "./todoView";
 
 /** The Shelf's `todos` list: open Todos in id order, done ones folded, and the inline field that makes a new one. */
 export const Todos = (props: {
@@ -182,6 +182,7 @@ export const Todos = (props: {
   const target = (todo: Todo) => ({ id: todo.id, label: todo.title });
 
   const bulk = createBulkDelete({
+    app: connected.app,
     selected: selection.selected,
     afterRemoval: selection.afterRemoval,
     targets: () => [...open(), ...(unfolded() ? done() : [])].map(target),
@@ -262,7 +263,7 @@ export const Todos = (props: {
           const owner = ownersOnRail(connected).find(each => each.id === group);
 
           // A drop on the own group reorders (U155), and a group that left the Rail takes nothing.
-          if (!owner || !own || group === groupOf(own)) return null;
+          if (!owner || !own || sameOwner(owner.actor, own.owner)) return null;
 
           board.preview({ id, group });
 
@@ -306,7 +307,7 @@ export const Todos = (props: {
     };
 
     return {
-      in: first || above === null || parent === above.id ? null : call([above.id, ...todo.blockers.filter((id) => id !== above.id)]),
+      in: first || above === null || parent === above.id || !offeredAsBlockers({ ...todo, blockers: [] }, todos.all()).some(other => other.id === above.id) ? null : call([above.id, ...todo.blockers.filter((id) => id !== above.id)]),
       out: parent === null ? null : call(todo.blockers.filter((id) => id !== parent)),
     };
   };
@@ -368,7 +369,7 @@ export const Todos = (props: {
   const offers = () => {
     const current = todos.byId().get(picking()?.id ?? -1);
 
-    return ownersOnRail(connected).filter(owner => !current || owner.id !== groupOf(current));
+    return ownersOnRail(connected).filter(owner => !current || !sameOwner(owner.actor, current.owner));
   };
 
   // U138: a completed Todo leaves the open list only once its `todo.updated` Event has refetched it, so the row to focus
@@ -720,6 +721,7 @@ export const Todos = (props: {
       setPicking({ id: todo.id, anchor: button });
     }),
     triageKey("W", (todo, button) => {
+      if (homesToOffer(connected.rail.nodes, todo.home).length === 0) return;
       clearFailures();
       moveAdvance = captureAdvance(todo.id);
       setMoving({ id: todo.id, anchor: button });

@@ -7,7 +7,7 @@ import { endLeader } from "./registry";
 
 afterEach(cleanup);
 
-const KEPT = ["meta+KeyN", "meta+shift+KeyN", "meta+KeyT", "meta+KeyK", "meta+shift+KeyT", "meta+Slash"];
+const KEPT = ["meta+KeyN", "meta+shift+KeyN", "meta+KeyT", "meta+KeyK", "meta+shift+KeyT", "meta+Slash", "meta+Comma"];
 
 /** The Terminal's own `⌘C`, `⌘V`, `⌘=`, `⌘-` and `⌘0` act in the Terminal screen (U101, U102), not at App scope. */
 const TERMINALS_OWN = ["meta+KeyC", "meta+KeyV", "meta+Equal", "meta+Minus", "meta+Digit0", "meta+shift+Equal"];
@@ -19,7 +19,7 @@ const MODS: KeyboardEventInit[] = [{ ctrlKey: true }, { altKey: true }, { metaKe
   { ctrlKey: true, altKey: true }, { ctrlKey: true, metaKey: true }, { altKey: true, metaKey: true }];
 
 it("u2241_no_other_chord_is_taken_at_app_scope", async () => {
-  expect(CHORDS.filter((chord) => !chord.inRail && !chord.onAgent && !chord.inSwitcher && !chord.inTerminals && !chord.inShelf && !chord.inNote).flatMap((chord) => chord.presses)).toEqual(KEPT);
+  expect(CHORDS.filter((chord) => !chord.inRail && !chord.onAgent && !chord.inSwitcher && !chord.inTerminals && !chord.inShelf).flatMap((chord) => chord.presses)).toEqual(KEPT);
 
   await openTabs({ api: [agent("a1", "idle", "x")] });
 

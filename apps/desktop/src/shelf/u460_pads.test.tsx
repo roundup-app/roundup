@@ -1,4 +1,6 @@
-import { cleanup, fireEvent, screen, within } from "@solidjs/testing-library";
+import { questionDialog, answerQuestion } from "./bulkQuestionHarness";
+import { questionProbe } from "../testing/menuProbe";
+import { cleanup, fireEvent, screen, waitFor, within } from "@solidjs/testing-library";
 import { afterEach, expect, it } from "vitest";
 import { AGENT, openShelf, padOf } from "../pads/padsFixture";
 import { USER } from "../testing/nodes";
@@ -13,7 +15,7 @@ it("u460_agent_owned_pads_warn_and_delete_without_stopping_agents", async () => 
   fireEvent.click(await screen.findByRole("button", { name: "notes" }), { metaKey: true });
   fireEvent.click(screen.getByRole("button", { name: "mine" }), { metaKey: true });
   await askToDelete(2);
-  expect(screen.getByText(/Agents may still be writing/).textContent).toContain("auth-refactor");
+  expect((await questionDialog()).message).toContain("auth-refactor");
   expect(app.calls.filter((call) => call.method === "pad.delete")).toEqual([]);
 });
 
@@ -37,8 +39,12 @@ it("u460_question_tracks_pad_owner_changes_without_expanding_targets", async () 
   state.pads = [padOf("notes", AGENT), padOf("mine", USER)];
   app.emit({ actor: USER, name: "pad.changed", data: { name: "notes" } });
   await screen.findByText(/Agents may still be writing/);
-  const question = within(screen.getByRole("alertdialog"));
-  expect(question.getByText("notes")).toBeTruthy();
-  expect(question.queryByText("mine")).toBeNull();
+  const question = await questionDialog();
+  expect(question.message).toContain("notes");
+  expect(question.message).not.toContain("mine");
+  await answerQuestion(true);
+  await waitFor(() => expect(questionProbe.shown?.message).toContain("auth-refactor"));
   expect(app.calls.filter((call) => call.method === "pad.delete")).toEqual([]);
+  await answerQuestion(true);
+  await waitFor(() => expect(app.calls.filter((call) => call.method === "pad.delete").map(call => call.params)).toEqual([{ name: "notes" }]));
 });

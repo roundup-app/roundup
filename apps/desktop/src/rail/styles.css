@@ -240,11 +240,6 @@
   background-color: var(--hover);
 }
 
-.spawn-prompt-field:active {
-  background-color: var(--selected);
-  transition-duration: 0s;
-}
-
 .rail-tree {
   position: relative;
   font-family: var(--font-ui);
@@ -312,34 +307,8 @@
 }
 
 /* U2694: the dialog replaces the floating menu; its opaque surface keeps the standard panel shadow. */
-.rail-confirm.app-dialog {
-  box-sizing: border-box;
-  width: min(360px, calc(100vw - var(--space-6)));
-}
-
-.rail-confirm [data-part="description"] {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-1);
-}
-
-.rail-confirm-line {
-  padding: 0 var(--space-2);
-  overflow: hidden;
-  color: var(--grey);
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.rail-confirm-name {
-  padding-left: var(--space-4);
-}
 
 /* U367: kept Agents' reasons remain readable when the confirm is narrow. */
-.rail-confirm-stay {
-  overflow-wrap: anywhere;
-  white-space: normal;
-}
 
 /* U402: the dashed trunk of a nested row, a background and never a border (D8), out of layout and clear of every label. `.rail-pass` is a parent's trunk running on past a deeper row; `.rail-stem` drops from a row's own mark to its first child; `.rail-branch` is the trunk into this row's Glyph: down from the parent's mark to the row's middle (or past it when a sibling follows) and an elbow right into the Glyph. A trunk drops from the centre of a 16 px mark. */
 .rail-pass,
@@ -483,7 +452,6 @@
   display: none;
 }
 
-
 .rail-leaf .row-head > :not(.todo-row-button) {
   flex: none;
 }
@@ -580,14 +548,12 @@
 
 /* U362: a Todo drop uses one hover wash; a selected target keeps its accent bar. */
 .rail-row[data-todo-drop],
-.rail-row[data-todo-drop]:hover,
-.rail-row[data-todo-drop]:active {
+.rail-row[data-todo-drop]:hover {
   background-image: linear-gradient(var(--hover), var(--hover));
 }
 
 .rail-row[data-todo-drop][data-selected="true"],
-.rail-row[data-todo-drop][data-selected="true"]:hover,
-.rail-row[data-todo-drop][data-selected="true"]:active {
+.rail-row[data-todo-drop][data-selected="true"]:hover {
   background-image: linear-gradient(var(--accent), var(--accent)), linear-gradient(var(--hover), var(--hover));
 }
 
@@ -620,12 +586,6 @@
   background-image: linear-gradient(var(--hover), var(--hover));
 }
 
-.rail-leaf:active,
-.rail-fold:active {
-  background-image: linear-gradient(var(--pressed), var(--pressed));
-  transition-duration: 0s;
-}
-
 .rail-leaf:has([data-selected="true"]) {
   background-image: linear-gradient(var(--accent), var(--accent)), linear-gradient(var(--selected), var(--selected));
   background-size: 2px 100%, auto;
@@ -636,14 +596,9 @@
   background-image: linear-gradient(var(--accent), var(--accent)), linear-gradient(var(--selected-hover), var(--selected-hover));
 }
 
-.rail-leaf:has([data-selected="true"]):active {
-  background-image: linear-gradient(var(--accent), var(--accent)), linear-gradient(var(--pressed), var(--pressed));
-}
-
-.rail .rail-leaf .shelf-row:is(:hover, :active, [data-selected="true"]) {
+.rail .rail-leaf .shelf-row:is(:hover, [data-selected="true"]) {
   background-image: none;
 }
-
 
 /* U397: the 163 px stress surface reserves the whole width for row controls. */
 @container rail (width < 220px) {
@@ -678,7 +633,6 @@
   left: 0;
   right: 0;
   height: var(--space-2);
-  box-shadow: var(--shadow-scroll);
   z-index: 1;
   pointer-events: none;
 }
@@ -861,11 +815,6 @@
   color: var(--accent);
 }
 
-.rail-recovery summary:focus-visible {
-  color: var(--accent);
-  text-decoration: underline;
-}
-
 .rail-recovery summary:active {
   color: var(--text);
   transition-duration: 0s;
@@ -944,13 +893,6 @@
   flex-wrap: wrap;
   gap: var(--space-3);
   margin-block: var(--space-3);
-}
-
-/* U2875d: the import opener is a Rail row, inset like the tree's rows, at the button's own Token height. */
-.rail > button.rail-import[data-button] {
-  justify-content: flex-start;
-  margin-inline: var(--space-6) var(--space-4);
-  padding-left: var(--space-3);
 }
 
 .rail-leaf[role="treeitem"] { cursor: pointer; }

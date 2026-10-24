@@ -107,7 +107,7 @@ button[data-pressed="true"]:not([aria-disabled="true"]) {
 }
 
 /* U523: ink feedback, for a button on a floating panel: hover and press change the ink and paint no box. */
-button[data-feedback="ink"]:is(:hover, :active):not([aria-disabled="true"]) {
+button[data-feedback="ink"]:hover:not([aria-disabled="true"]) {
   color: var(--text);
   background-color: transparent;
 }
@@ -213,7 +213,38 @@ button[aria-disabled="true"] {
   background: var(--hover);
 }
 
-/* Recovery actions leave breathing room around the keyboard ring without a hover surface. */
+/* Recovery actions keep an inset hit area without a hover surface. */
 .switcher-recovery-actions [data-button="quiet"] {
   --button-inline: var(--space-1);
+}
+
+/* U3512c: the existing kinds gain filled variants only on floating surfaces. */
+:is(.app-dialog, .app-popover, .app-menu, .bubble, .pane-control) button[data-button] {
+  --button-radius: var(--radius-pill);
+  --button-inline: var(--space-3);
+  --button-surface: var(--button-neutral);
+  color: var(--text);
+  background-color: var(--button-surface);
+}
+
+:is(.app-dialog, .app-popover, .app-menu, .bubble, .pane-control) button[data-button="primary"] {
+  --button-surface: var(--accent);
+  color: var(--button-accent-ink);
+}
+
+:is(.app-dialog, .app-popover, .app-menu, .bubble, .pane-control) button[data-button]:hover:not(:disabled, [aria-disabled="true"]) {
+  color: var(--grey);
+  background-color: var(--button-surface);
+}
+
+:is(.app-dialog, .app-popover, .app-menu, .bubble, .pane-control) button[data-button="primary"]:hover:not(:disabled, [aria-disabled="true"]) {
+  color: var(--surface);
+}
+
+:is(.app-dialog, .app-popover, .app-menu, .bubble, .pane-control) button[data-button="icon"] {
+  --button-inline: 0;
+}
+
+:is(.app-dialog, .app-popover, .app-menu, .bubble, .pane-control) button[data-button][data-feedback="ink"]:is(:hover, :active) {
+  background-color: var(--button-surface);
 }

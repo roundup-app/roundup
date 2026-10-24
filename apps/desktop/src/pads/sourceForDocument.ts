@@ -25,6 +25,8 @@ const children = (doc: DocumentNode, caretNodes: WeakSet<DocumentNode>) => {
   return nodes;
 };
 
+const emptyParagraph = (node: DocumentNode) => node.type.name === "paragraph" && node.content.size === 0;
+
 type Block = { node: DocumentNode; from: number; to: number };
 
 /** Reconcile editor blocks against their own baseline; null refuses a source mapping we cannot prove. */
@@ -41,6 +43,12 @@ export const sourceForDocument = (
   // SAFETY: Milkdown's configured remark processor returns the MarkdownNode tree consumed by ParserState.
   const tree = remark.runSync(remark.parse(originalSource), originalSource) as MarkdownNode;
   const schema = ctx.get(schemaCtx);
+  const newline = originalSource.includes("\r\n") ? "\r\n" : "\n";
+
+  // Milkdown drops a final empty paragraph as a caret target; append one so edited empties serialize too.
+  const serialize = (nodes: DocumentNode[]) => ctx.get(serializerCtx)(schema.topNodeType.create(null, [...nodes, schema.nodes.paragraph!.create()]))
+    .replace(/\n$/, "").replace(/\n/g, newline);
+
   const blocks: Block[] = [];
   let previousEnd = 0;
 
@@ -63,11 +71,36 @@ export const sourceForDocument = (
   const before = children(originalDocument, caretNodes);
   const after = children(currentDocument, caretNodes);
 
-  if (!originalSource && blocks.length === 0 && before.length === 1 && before[0]!.content.size === 0) {
-    blocks.push({ node: before[0]!, from: 0, to: 0 });
+  if (!originalSource.trim() && blocks.length === 0 && before.length === 1) {
+    const supported = ctx.get(parserCtx)(serialize(before));
+
+    if (supported?.childCount === 1 && emptyParagraph(supported.child(0))) {
+      blocks.push({ node: before[0]!, from: 0, to: originalSource.length });
+    }
   }
 
-  if (blocks.length !== before.length || blocks.some((block, index) => !equal(block.node, before[index]!))) return null;
+  // Empty editor paragraphs have no remark node, including after an acknowledged save.
+  // Give them a zero-width source range at the next block, without consuming authored gaps.
+  let sourceIndex = 0;
+  const aligned: Block[] = [];
+
+  for (const node of before) {
+    const block = blocks[sourceIndex];
+
+    // An acknowledged editor baseline can retain spaces that Markdown normalizes on load.
+    const normalized = !block || !equal(block.node, node) ? ctx.get(parserCtx)(serialize([node])) : null;
+
+    if (block && (equal(block.node, node) || (normalized?.childCount === 1 && equal(block.node, normalized.child(0))))) {
+      aligned.push(block);
+      sourceIndex++;
+    } else if ((emptyParagraph(node) || (normalized?.childCount === 1 && emptyParagraph(normalized.child(0)))) && (blocks.length > 0 || !originalSource.trim())) {
+      const position = block?.from ?? previousEnd;
+      aligned.push({ node, from: position, to: position });
+    } else return null;
+  }
+
+  if (sourceIndex !== blocks.length) return null;
+  blocks.splice(0, blocks.length, ...aligned);
 
   // Keep identity when ProseMirror retains a node: equal repeated paragraphs can have different authored bytes.
   const retained = new Set(after.filter((node) => before.includes(node)));
@@ -75,11 +108,6 @@ export const sourceForDocument = (
   const changes = diffArrays(before, after, {
     comparator: (left, right) => left === right || (!retained.has(left) && equal(left, right)),
   });
-
-  const newline = originalSource.includes("\r\n") ? "\r\n" : "\n";
-
-  const serialize = (nodes: DocumentNode[]) => ctx.get(serializerCtx)(schema.topNodeType.create(null, nodes))
-    .replace(/\n$/, "").replace(/\n/g, newline);
 
   const removed = new Set<DocumentNode>();
   let index = 0;
@@ -137,7 +165,10 @@ export const sourceForDocument = (
 
       const opaque = gaps.some((gap) => /\S/.test(gap));
 
-      if (addition?.count === deleted) {
+      if (addition && from === end) {
+        result += (start > 0 && from === previousEnd ? newline + newline : "")
+          + addedText(addition.value) + (index < blocks.length ? newline + newline : "");
+      } else if (addition?.count === deleted) {
         result += addition.value.map((node, offset) => addedText([node]) + (gaps[offset] ?? "")).join("");
       } else {
         // An unmatched structural edit cannot relocate opaque syntax on the user's behalf.
@@ -173,7 +204,14 @@ export const sourceForDocument = (
   const reparsed = ctx.get(parserCtx)(result);
 
   if (!reparsed) return null;
-  const reconciled = children(reparsed, caretNodes);
+  const reconciled = children(reparsed, caretNodes).filter(node => !emptyParagraph(node));
+  const exact = after.filter(node => !emptyParagraph(node));
 
-  return reconciled.length === after.length && reconciled.every((node, i) => equal(node, after[i]!)) ? result : null;
+  if (reconciled.length === exact.length && reconciled.every((node, i) => equal(node, exact[i]!))) return result;
+  const supported = ctx.get(parserCtx)(serialize(after));
+
+  if (!supported) return null;
+  const represented = children(supported, caretNodes).filter(node => !emptyParagraph(node));
+
+  return reconciled.length === represented.length && reconciled.every((node, i) => equal(node, represented[i]!)) ? result : null;
 };

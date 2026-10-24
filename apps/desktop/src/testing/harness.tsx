@@ -1,3 +1,4 @@
+import { questionProbe } from "./menuProbe";
 import { createRoot } from "solid-js";
 import { render } from "solid-js/web";
 import { mountTodoWorstCase } from "./todoWorstCase";
@@ -17,12 +18,13 @@ import type { AppSeam } from "../app/seam";
 import "../tokens.css";
 import "../styles.css";
 import "../scrollbar.css";
-import { trackScrollHover } from "../scrollHover";
+import { trackScrollbars } from "../scrollHover";
 import "./todoWorstCase.styles.css";
 
 declare global {
   interface Window {
     __fake: Controls;
+    __question: typeof questionProbe;
     __terminals: Map<string, Emulator>;
     /** U463: cancel only the next isolated choice; no caller-supplied path. */
     __firstRun?: { cancelNextChoice: () => void };
@@ -31,7 +33,9 @@ declare global {
   }
 }
 
-trackScrollHover(document);
+window.__question = questionProbe;
+
+trackScrollbars(document);
 
 const root = document.getElementById("root");
 

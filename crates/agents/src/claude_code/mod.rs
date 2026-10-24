@@ -17,7 +17,7 @@ pub mod toolcall;
 pub use placement::Call as PlacementCall;
 pub mod plugins;
 mod skills;
-mod usage;
+mod vendor_list;
 
 use contracts::decision::{Answer, Risk, Scope};
 use contracts::{Kind, Status};
@@ -32,6 +32,7 @@ pub use profiles::{
     DOOR_TOOLS, DOOR_TOOLS_NO_MCP, PROFILES, Profile, SCOUT_TOOLS, SCOUT_TOOLS_NO_MCP, profile,
 };
 pub use skills::{BANNED, skills};
+pub use vendor_list::{Listed, Listing, Live};
 
 /// F4, F5: the program names this Adapter's vendor CLI is started by. The shim and the process
 /// scan read the names of every Adapter through a function like this one, and write none.
@@ -52,21 +53,6 @@ pub const MARKERS: [&str; 8] = [
     "CLAUDE_CODE_EXECPATH",
     "CLAUDE_CODE_MESSAGING_SOCKET",
     "CLAUDE_CODE_MESSAGING_TOKEN",
-];
-
-/// A30: variables that make Claude Code bill per token or leave the user's plan, ranked above the
-/// subscription login in code.claude.com/docs/en/authentication. `CLAUDE_CODE_OAUTH_TOKEN` is the
-/// user's plan and stays.
-pub const OFF_PLAN: [&str; 9] = [
-    "ANTHROPIC_API_KEY",
-    "ANTHROPIC_AUTH_TOKEN",
-    "CLAUDE_CODE_USE_BEDROCK",
-    "CLAUDE_CODE_USE_VERTEX",
-    "CLAUDE_CODE_USE_FOUNDRY",
-    "ANTHROPIC_PROFILE",
-    "ANTHROPIC_FEDERATION_RULE_ID",
-    "ANTHROPIC_ORGANIZATION_ID",
-    "ANTHROPIC_BASE_URL",
 ];
 
 /// How long a star right after `PreToolUse` waits for its `PermissionRequest`, in milliseconds,
@@ -107,6 +93,8 @@ pub struct ClaudeCode {
     /// When a star after `PreToolUse` was first seen and not yet resolved.
     star_held_since: Option<i64>,
     clock: Box<dyn Fn() -> i64 + Send>,
+    /// U3566c: the Agent's published finishes, carried across Attempts by its caller.
+    finished: u64,
 }
 
 impl ClaudeCode {
@@ -118,7 +106,20 @@ impl ClaudeCode {
             after_pre_tool_use: false,
             star_held_since: None,
             clock: Box::new(clock),
+            finished: 0,
         }
+    }
+
+    /// Continue the Agent's finish count from an earlier Attempt.
+    pub(crate) fn set_finished(&mut self, finished: u64) {
+        self.finished = finished;
+        if let Some(status) = &mut self.status {
+            status.finished = finished.to_string();
+        }
+    }
+
+    pub(crate) fn finished(&self) -> u64 {
+        self.finished
     }
 
     /// An adapter for a program that has just started: working until it says otherwise.
@@ -138,14 +139,31 @@ impl ClaudeCode {
 
     /// Adopt `kind` and `label`. `since` moves only when the Kind does.
     fn settle(&mut self, kind: Kind, label: String) -> Option<Status> {
+        let finishes = self
+            .status
+            .as_ref()
+            .is_some_and(|s| s.kind == Kind::Working)
+            && matches!(kind, Kind::Idle | Kind::Done);
+        self.settle_counting(kind, label, finishes)
+    }
+
+    /// `settle`, with the finish count raised first when `finish` holds.
+    fn settle_counting(&mut self, kind: Kind, label: String, finish: bool) -> Option<Status> {
         let since = match &self.status {
             Some(current) if current.kind == kind => current.since,
             _ => (self.clock)(),
         };
-        let next = Status { kind, label, since };
+        let finished = self.finished + u64::from(finish);
+        let next = Status {
+            kind,
+            label,
+            since,
+            finished: finished.to_string(),
+        };
         if self.status.as_ref() == Some(&next) {
             return None;
         }
+        self.finished = finished;
         self.status = Some(next.clone());
         Some(next)
     }
@@ -241,7 +259,7 @@ impl AgentAdapter for ClaudeCode {
             Observation::Stopped => {
                 self.ending = Ending::Stopped;
                 self.star_held_since = None;
-                self.settle(Kind::Done, "stopped".into())
+                self.settle_counting(Kind::Done, "stopped".into(), false)
             }
             Observation::Signal(_)
             | Observation::Title(_)
@@ -320,6 +338,26 @@ pub fn session_start_context(text: &str) -> String {
         }
     })
     .to_string()
+}
+
+/// A3516b: read the immutable Brief named by the normal Agent's start hook and add it to
+/// E3's reply. The path belongs to the hook command, so vendor relaunches keep the delivery.
+pub fn read_start_context(stdout: &str) -> Result<String, String> {
+    let Some(path) = std::env::var_os("ROUNDUP_BRIEF_FILE") else {
+        return Ok(stdout.to_owned());
+    };
+    let brief = std::fs::read_to_string(&path).map_err(|err| {
+        format!(
+            "cannot read Brief {}: {err}",
+            std::path::Path::new(&path).display()
+        )
+    })?;
+    let reply: Value =
+        serde_json::from_str(stdout).map_err(|err| format!("cannot read start Context: {err}"))?;
+    let context = reply["hookSpecificOutput"]["additionalContext"]
+        .as_str()
+        .ok_or("start Context has no additionalContext")?;
+    Ok(session_start_context(&format!("{brief}\n{context}")))
 }
 
 /// H20: typed outside the paste markers, so the model's first user message holds typed text that

@@ -1,3 +1,4 @@
+import { warmApp } from "./appServer";
 import { execFile, spawn, spawnSync } from "node:child_process";
 import type { ChildProcess, SpawnOptions } from "node:child_process";
 import { mkdir, mkdtemp, rm, stat, writeFile } from "node:fs/promises";
@@ -151,6 +152,9 @@ export const startRealDaemon = async (env: Record<string, string>, inBrowser = f
     });
 
     await server.listen();
+
+    if (inBrowser) await warmApp(server);
+
     base = server.resolvedUrls!.local[0]!.replace(/\/$/, "");
     await served(base);
   } catch (error) {

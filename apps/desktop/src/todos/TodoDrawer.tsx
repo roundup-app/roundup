@@ -1,13 +1,10 @@
-import { Portal } from "solid-js/web";
 import { todoEditor } from "../drawer/editors";
 import * as v from "valibot";
-import { AlertDialog } from "../ui/Dialog";
-import { activationSource } from "../keys/registry";
-import { registerKeys } from "../keys/registry";
+import { NativeAlert } from "../ui/NativeAlert";
 import { IconButton } from "../ui/IconButton";
 import { copy } from "../copy";
 import { Icon } from "../ink/Icon";
-import { createEffect, createSignal, For, on, Show } from "solid-js";
+import { createEffect, createSignal, For, on, onCleanup, Show } from "solid-js";
 import type { Change } from "@contracts/todo/Change";
 import type { Todo } from "@contracts/todo/Todo";
 import { ReservedLine } from "../ink/ReservedLine";
@@ -19,7 +16,7 @@ import { TodoHistory } from "./TodoHistory";
 import "./drawer.styles.css";
 import { useConnectedProject } from "../state/connectedProject";
 import { EditableText, TodoDraftRecovery, todoDraftSchema, formSchema, blockerSchema } from "./EditableText";
-import { failureOf, outcomeOf } from "./failureOf";
+import { doesClearTodoFailure, failureOf, outcomeOf } from "./failureOf";
 import { BlockerMenu } from "./BlockerMenu";
 import type { TodosState } from "./state";
 import { blockedBy, blockersOf, kindOf, offeredAsBlockers } from "./todoView";
@@ -38,7 +35,7 @@ export const TodoDrawer = (props: {
   /** Recovery uses loaded original identities and never fetches or acknowledges History. */
   recovery?: { project: string; revision: string };
 }) => {
-  const { app, drawer, drafts, project } = useConnectedProject();
+  const { app, drawer, drafts, project, events } = useConnectedProject();
   drafts.validate("todos", todoDraftSchema);
 
   const retained = props.recovery ? drafts.list().find(draft => draft.revision === props.recovery?.revision
@@ -66,18 +63,29 @@ export const TodoDrawer = (props: {
   const bodyRevision = () => retained?.destination.recipient === "body" ? retained.revision : undefined;
 
   const [titleFailure, setTitleFailure] = createSignal<string | null>(null);
+  let dismissTitle: (() => void) | undefined;
   const [captured, setCaptured] = createSignal<Change>();
   const [failure, setFailure] = createSignal<string | null>(null);
   const [offering, setOffering] = createSignal(false);
+  const [noticeDismissed, setNoticeDismissed] = createSignal(false);
   const [removedByMe, setRemovedByMe] = createSignal(false);
   const [asking, setAsking] = createSignal(false);
   const [deleting, setDeleting] = createSignal(false);
   let deleteButton: HTMLButtonElement | undefined;
 
+  const [saved, setSaved] = createSignal(0);
+  const clearFailure = () => { setFailure(null); setTitleFailure(null); setSaved(value => value + 1); };
+
+  createEffect(on(() => props.id, () => { clearFailure(); setNoticeDismissed(false); }, { defer: true }));
+  onCleanup(events.subscribe(event => {
+    if (doesClearTodoFailure(event, props.id)) clearFailure();
+  }));
+
   const attempt = async <Result,>(call: () => Promise<Result>) => {
     const message = await failureOf(call);
 
-    setFailure(message);
+    if (message === null) clearFailure();
+    else setFailure(message);
 
     return message;
   };
@@ -189,7 +197,7 @@ export const TodoDrawer = (props: {
       try {
         setAnswered(await app.rpc("todo.setBlockers", { id: props.id, blockers, expected_change: change.seq }));
         drafts.settle(draft.revision, "acknowledged");
-        setFailure(null);
+        clearFailure();
       } catch (error) {
         if (!(error instanceof Error)) throw error;
         drafts.settle(draft.revision, outcomeOf(error));
@@ -226,7 +234,7 @@ export const TodoDrawer = (props: {
     try {
       setAnswered(await app.rpc("todo.setBlockers", { id: props.id, blockers: form.blockers.map(Number), expected_change: form.expected_change }));
       drafts.settle(draft.revision, "acknowledged");
-      setFailure(null);
+      clearFailure();
     } catch (error) {
       if (!(error instanceof Error)) throw error;
       drafts.settle(draft.revision, outcomeOf(error));
@@ -242,54 +250,28 @@ export const TodoDrawer = (props: {
     changeBlockers("remove", blocker);
   };
 
-  const keep = () => {
-    setAsking(false);
-  };
-
-  // The confirmation is a layer nested in the Drawer's panel, so Escape reaches it first.
-  let confirmation: HTMLDivElement | undefined;
-  let keepButton: HTMLButtonElement | undefined;
-
-  registerKeys({ kind: "layer", element: () => confirmation, active: () => asking() && !!todo(), modal: true }, []);
-
   return (
     <>
       <div class="todo-detail">
-        <AlertDialog.Root open={asking() && !!todo()} initialFocusEl={() => keepButton ?? null} finalFocusEl={() => deleteButton ?? null} onOpenChange={({ open }) => { if (!open && !deleting()) keep(); }}>
-          <Portal><AlertDialog.Positioner>
-          <AlertDialog.Content class="todo-delete-confirm" ref={(element) => { confirmation = element; }}>
-            <AlertDialog.Title>{copy.deleteTodoQuestion}</AlertDialog.Title>
-            <ReservedLine message={failure()} />
-            <button data-button="quiet"
-              type="button"
-              class="word light"
-              disabled={deleting()}
-              onClick={(event) => {
-                const source = activationSource(event);
+        <NativeAlert app={app} open={asking() && !!todo()}
+          question={{ title: copy.deleteTodoQuestion, message: todo() ? `#${props.id} ${todo()!.title}` : "", okLabel: copy.delete, cancelLabel: copy.keep }}
+          onCancel={() => setAsking(false)} finalFocus={() => deleteButton ?? null}
+          onConfirm={() => {
+            setAsking(false);
 
-                if (deleting()) return;
-                setDeleting(true);
-                void attempt(async () => {
-                  await app.rpc("todo.delete", { id: props.id });
-                  setRemovedByMe(true);
-                  drawer.close(source);
-                }).then(() => setDeleting(false));
-              }}
-            >{copy.delete}</button>{" "}
-            <button data-button="quiet"
-              type="button"
-              class="word light"
-              ref={(button) => { keepButton = button; }}
-              onClick={keep}
-            >{copy.keep}</button>
-          </AlertDialog.Content>
-          </AlertDialog.Positioner></Portal>
-        </AlertDialog.Root>
-        <ReservedLine message={!asking() && failure()} />
+            if (deleting()) return;
+            setDeleting(true);
+            void attempt(async () => {
+              await app.rpc("todo.delete", { id: props.id });
+              setRemovedByMe(true);
+              drawer.close("key");
+            }).then(() => setDeleting(false));
+          }} />
+        <ReservedLine message={failure()}><button data-dismiss-failure onMouseDown={event => event.preventDefault()} data-button="quiet" class="word" type="button" onClick={() => setFailure(null)}>{copy.dismissFailure}</button></ReservedLine>
           <Show
             when={todo()}
             fallback={
-              <ReservedLine message={!removedByMe() && !deleting() ? copy.todoDeleted(props.id) : null} />
+              <ReservedLine message={!removedByMe() && !deleting() && !noticeDismissed() ? copy.todoDeleted(props.id) : null}><button data-dismiss-failure onMouseDown={event => event.preventDefault()} data-button="quiet" class="word" type="button" onClick={() => setNoticeDismissed(true)}>{copy.dismissFailure}</button></ReservedLine>
             }
           >
             {(current) => (
@@ -299,26 +281,30 @@ export const TodoDrawer = (props: {
                   <EditableText
                     todo={current()}
                     captured={captured}
+                    saved={saved}
+                    onSaved={clearFailure}
                     revision={titleRevision()}
-                    onFailure={setTitleFailure}
+                    onFailure={(message, dismiss) => { setTitleFailure(message); dismissTitle = dismiss; }}
                     name="title"
                     multiline={false}
                     commit={async (title, expected_change) => { await app.rpc("todo.update", { id: props.id, title, body: null, expected_change }); }}
                   />
                   <span class="todo-estimate" data-state="estimate">{copy.todoEstimate(current().estimate_minutes)}</span>
                 </div>
-                <ReservedLine message={titleFailure()} />
+                <ReservedLine message={titleFailure()}><button data-dismiss-failure onMouseDown={event => event.preventDefault()} data-button="quiet" class="word" type="button" onClick={() => dismissTitle?.()}>{copy.dismissFailure}</button></ReservedLine>
                 <div class="todo-detail-body">
                 <EditableText
                   todo={current()}
                   captured={captured}
+                  saved={saved}
+                  onSaved={clearFailure}
                   revision={bodyRevision()}
                   name="body"
                   multiline
                   commit={async (body, expected_change) => { await app.rpc("todo.update", { id: props.id, title: null, body, expected_change }); }}
                 />
                 </div>
-                <Show when={!props.recovery}><TodoRefs id={props.id} /></Show>
+                <Show when={!props.recovery}><TodoRefs id={props.id} saved={saved} onSaved={clearFailure} /></Show>
                 <Show when={blockersOf(current(), props.todos.byId()).length > 0}>
                   <div class="todo-dependencies" style={{ display: "grid", "grid-template-columns": "1fr auto", "column-gap": "var(--space-2)" }}>
                     <p class="light" style={{ "grid-column": "1 / -1" }}>{copy.waitsOn}</p>
@@ -346,17 +332,17 @@ export const TodoDrawer = (props: {
                   onPick={(id) => { blockerButton?.focus(); addBlocker(id); }}
                 />
                 <Show when={blockerForm()}><p><button data-button="quiet" class="word" type="button" onClick={() => void saveBlockers()}>{copy.save}</button></p></Show>
-                <Show when={!props.recovery}><TodoComments id={props.id} onSent={props.onComment} /></Show>
-                <Show when={!props.recovery}><TodoHistory id={props.id} onCapture={setCaptured} /></Show>
+                <Show when={!props.recovery}><TodoComments id={props.id} saved={saved} onSaved={clearFailure} onSent={props.onComment} /></Show>
+                <Show when={!props.recovery}><TodoHistory id={props.id} saved={saved} onCapture={setCaptured} /></Show>
               </>
             )}
           </Show>
       </div>
-      <TodoDraftRecovery object={String(props.id)} active inDrawer />
+      <TodoDraftRecovery object={String(props.id)} saved={saved} active inDrawer />
       <Show when={todo()}>
         <IconButton class="todo-delete" aria-label={copy.deleteTodo}
           ref={(button) => { deleteButton = button; }}
-          onClick={() => { setFailure(null); setAsking(true); }}>
+          onClick={() => { if (!deleting()) setAsking(true); }}>
           <Icon name="trash" />
         </IconButton>
       </Show>

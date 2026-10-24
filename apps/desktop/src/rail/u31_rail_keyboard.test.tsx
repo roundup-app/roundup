@@ -20,9 +20,6 @@ const focusableEmulator = (): EmulatorFactory => () => {
     selection: () => "",
     turns: () => [],
     selectTurn: () => {},
-    onSelection: () => {},
-    selectionEnd: () => null,
-    selectionFacts: () => null,
     onLink: () => {},
     paste: () => {},
     onInput: () => {},
@@ -251,7 +248,7 @@ describe("u31 rail keyboard", () => {
 
   it("u31_folding_the_selected_row_moves_the_roving_tabindex_to_the_first_row", async () => {
     const { rail } = await mountRail([
-      agent("old", "done", "finished", { status: { kind: "done", label: "finished", since: NOW - 10 * MINUTE }, order: 0 }),
+      agent("old", "done", "finished", { status: { kind: "done", label: "finished", since: NOW - 10 * MINUTE, finished: "0" }, order: 0 }),
       agent("after", "idle", "x", { order: 1 }),
     ]);
 

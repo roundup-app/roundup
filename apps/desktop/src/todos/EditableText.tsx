@@ -1,11 +1,12 @@
+import { writeText } from "../app/clipboard";
 import { copy } from "../copy";
 import * as v from "valibot";
 import type { Todo } from "@contracts/todo/Todo";
 import type { Change } from "@contracts/todo/Change";
 import { useConnectedProject } from "../state/connectedProject";
-import { outcomeOf } from "./failureOf";
+import { doesClearTodoFailure, outcomeOf } from "./failureOf";
 import { ReservedLine } from "../ink/ReservedLine";
-import { batch, createEffect, createSignal, For, onCleanup, Show } from "solid-js";
+import { batch, createEffect, createSignal, For, on, onCleanup, Show } from "solid-js";
 
 export const formSchema = v.strictObject({ text: v.string(), base: v.string(), home: v.optional(v.nullable(v.string()), null), expected_change: v.nullable(v.number()), title: v.string(), body: v.string(), blockers: v.array(v.string()), done: v.boolean() });
 
@@ -25,9 +26,14 @@ export const todoDraftSchema = v.union([creationSchema, formSchema, blockerSchem
 type Editing = { form: v.InferOutput<typeof formSchema>; text: string; width: number; recovered: boolean; selection: { start: number; end: number; direction: "forward" | "backward" | "none" } | null };
 
 /** Surface actions share the Project authority; selecting/copying an older revision never changes the editor. */
-export const TodoDraftRecovery = (props: { object: string; active?: boolean; inDrawer?: boolean; onDiscard?: (revision: string) => void }) => {
-  const { drafts, project, drawer } = useConnectedProject();
+export const TodoDraftRecovery = (props: { object: string; active?: boolean; inDrawer?: boolean; saved?: () => number; onDiscard?: (revision: string) => void }) => {
+  const { app, drafts, project, drawer, events } = useConnectedProject();
   const [failure, setFailure] = createSignal<string | null>(null);
+  createEffect(on(props.saved ?? (() => 0), () => setFailure(null), { defer: true }));
+  createEffect(on(() => props.object, () => setFailure(null), { defer: true }));
+  onCleanup(events.subscribe(event => {
+    if (doesClearTodoFailure(event, Number(props.object))) setFailure(null);
+  }));
   const surface = copy.draftSurface("todos");
   const records = () => drafts.recoverable().filter(draft => draft.destination.surface === "todos" && draft.destination.object === props.object);
 
@@ -45,7 +51,7 @@ export const TodoDraftRecovery = (props: { object: string; active?: boolean; inD
   );
 
   const copyDraft = async (text: string) => {
-    try { await navigator.clipboard.writeText(text); setFailure(null); }
+    try { await writeText(app, text); setFailure(null); }
     catch (error) { if (!(error instanceof Error)) throw error; setFailure(copy.copyDraftFailure(error.message)); }
   };
 
@@ -53,6 +59,7 @@ export const TodoDraftRecovery = (props: { object: string; active?: boolean; inD
     if (event.target instanceof Element && event.target.closest("button")) event.preventDefault();
   }}>
     <ReservedLine overlay message={failure() ?? (problem() ? copy.draftRetention(project.name, copy.draftSurface(surface), problem()!.cause) : null)} status={records().length > 0 ? label(records()[records().length - 1]!) : null}>
+    <Show when={failure()}><button data-dismiss-failure onMouseDown={event => event.preventDefault()} data-button="quiet" class="word" type="button" onClick={() => setFailure(null)}>{copy.dismissFailure}</button></Show>
     <Show when={problem()}><button data-button="quiet" class="word" type="button" onClick={() => drafts.retry()}>{copy.storageRetry}</button></Show>
     <For each={records().map(draft => draft.revision)}>{revision => {
       const draft = () => records().find(record => record.revision === revision);
@@ -85,7 +92,9 @@ export const EditableText = (props: {
   revision?: string | undefined;
   multiline: boolean;
   name: "title" | "body";
-  onFailure?: (message: string | null) => void;
+  saved?: () => number;
+  onSaved?: () => void;
+  onFailure?: (message: string | null, dismiss: () => void) => void;
   /** Resolves only after acknowledgement; the RPC error preserves refusal versus unknown acceptance. */
   commit: (text: string, expectedChange: number) => Promise<void>;
 }) => {
@@ -93,6 +102,11 @@ export const EditableText = (props: {
   const draftDestination = { surface: "todos", object: String(props.todo.id), recipient: props.name };
   const records = () => connected.drafts.list().filter(draft => draft.destination.surface === "todos" && draft.destination.object === String(props.todo.id) && draft.destination.recipient === props.name);
   const [failure, setFailure] = createSignal<string | null>(null);
+  const [retentionFailure, setRetentionFailure] = createSignal<string | null>(null);
+  createEffect(on(props.saved ?? (() => 0), () => setFailure(null), { defer: true }));
+  onCleanup(connected.events.subscribe(event => {
+    if (doesClearTodoFailure(event, props.todo.id)) setFailure(null);
+  }));
   const content = connected.drawer.content();
   let alive = true;
   onCleanup(() => { alive = false; });
@@ -109,7 +123,7 @@ export const EditableText = (props: {
   createEffect(() => {
     if (editing() && connected.drawer.content() === content) onCleanup(connected.drafts.editor(draftDestination));
   });
-  createEffect(() => props.onFailure?.(failure()));
+  createEffect(() => props.onFailure?.(failure(), () => setFailure(null)));
 
   let shown: HTMLElement | undefined;
 
@@ -121,11 +135,12 @@ export const EditableText = (props: {
     const parsed = v.safeParse(formSchema, saved?.value);
 
     if (saved && !parsed.success) {
-      setFailure(copy.draftRetention(connected.project.name, copy.draftSurface("todos"), "invalid"));
+      setRetentionFailure(copy.draftRetention(connected.project.name, copy.draftSurface("todos"), "invalid"));
 
       return;
     }
 
+    setRetentionFailure(null);
     const change = props.captured();
     const values = change?.after ?? props.todo;
 
@@ -222,6 +237,8 @@ export const EditableText = (props: {
       try {
         await props.commit(element.value, started.form.expected_change);
         connected.drafts.settle(draft.revision, "acknowledged");
+
+        if (alive) { setFailure(null); props.onSaved?.(); }
       } catch (error) {
         if (!(error instanceof Error)) throw error;
         connected.drafts.settle(draft.revision, outcomeOf(error));
@@ -254,7 +271,7 @@ export const EditableText = (props: {
       const target = event.relatedTarget;
       queueMicrotask(() => {
         if (!alive || connected.drawer.content() !== content || started.recovered
-          || (target instanceof Element && (target.closest(".close, .todo-draft-recovery") || !target.closest(".drawer")))) return;
+          || (target instanceof Element && (target.closest(".close, .todo-draft-recovery, [data-dismiss-failure]") || !target.closest(".drawer")))) return;
         void submit();
       });
     });
@@ -265,7 +282,7 @@ export const EditableText = (props: {
 
   return (
     <div class="todo-editable">
-    <ReservedLine overlay message={!props.onFailure && failure()} />
+    <ReservedLine overlay message={retentionFailure() || (!props.onFailure && failure())}><Show when={!retentionFailure()}><button data-dismiss-failure onMouseDown={event => event.preventDefault()} data-button="quiet" class="word" type="button" onClick={() => setFailure(null)}>{copy.dismissFailure}</button></Show></ReservedLine>
     <Show
       when={editing()}
       fallback={
@@ -318,7 +335,6 @@ export const EditableText = (props: {
             "min-height": "1.4em",
             resize: "none",
             overflow: "hidden",
-            outline: "none",
             background: "var(--hover)",
             "caret-color": "var(--accent)",
           }}

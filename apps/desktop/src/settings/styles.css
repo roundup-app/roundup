@@ -39,3 +39,85 @@
   font-size: var(--text-small);
   font-weight: 600;
 }
+
+.settings-field {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  min-width: 0;
+}
+
+.settings-field > span,
+.settings-field > label > span {
+  font-size: var(--text-caption);
+  color: var(--grey);
+}
+
+.settings-field input {
+  min-width: 0;
+  width: 100%;
+  min-height: var(--space-5);
+  border: 0;
+  padding: var(--space-1) 0;
+  background: transparent;
+  color: var(--text);
+  font: inherit;
+}
+
+.settings-shortcut {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-3);
+}
+
+.settings-center,
+.settings-center-content {
+  position: relative;
+  height: 100%;
+}
+
+/* Keep each value and its disclosure in one readable field column. */
+.settings-group > .app-select,
+.settings-group > .settings-field {
+  width: min(100%, var(--shelf-width));
+}
+
+.settings-field > label {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.settings-shortcut > button {
+  color: var(--text);
+}
+
+.settings-field input::placeholder {
+  color: var(--grey);
+  opacity: 1;
+}
+
+.settings-group > .settings-font {
+  width: min(100%, var(--centre-min-width));
+}
+
+.project-center-content {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+}
+
+.project-center-content > .pane {
+  flex: 1;
+  height: auto;
+  min-height: 0;
+}
+
+.project-center-area {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+}
