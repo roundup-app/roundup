@@ -75,6 +75,7 @@ const takeFirst = (stream: Stream): void => {
 };
 
 type Holder = {
+  ready: boolean;
   emulator: Emulator;
   atBottom: Accessor<boolean>;
   returnToBottom: () => void;
@@ -168,6 +169,8 @@ export const createScreens = (connected: ConnectedProject, createEmulator: Emula
   const resize = (id: string, size: Size, changedOnly = false): void => {
     const holder = holders.get(id);
 
+    if (holder && !holder.ready) return;
+
     if (changedOnly && holder?.shownSize?.cols === size.cols && holder.shownSize.rows === size.rows) return;
 
     if (holder?.shownSize) holder.shownSize = size;
@@ -176,7 +179,7 @@ export const createScreens = (connected: ConnectedProject, createEmulator: Emula
   };
 
   const reflow = (id: string, holder: Holder): void => {
-    if (disposed || !holder.shownSize) return;
+    if (disposed || !holder.ready || !holder.shownSize) return;
 
     const fitted = holder.emulator.fit();
 
@@ -533,10 +536,18 @@ export const createScreens = (connected: ConnectedProject, createEmulator: Emula
     });
 
     const holder: Holder = {
-      emulator, atBottom, returnToBottom, stream: null, complete: false, shownSize: null,
+      emulator, ready: !emulator.ready, atBottom, returnToBottom, stream: null, complete: false, shownSize: null,
     };
 
     holders.set(id, holder);
+
+    void emulator.ready?.then(() => {
+      if (disposed) return;
+
+      holder.ready = true;
+
+      if (holder.shownSize && holder.stream?.open) resize(id, holder.emulator.fit());
+    });
 
     return holder;
   };
