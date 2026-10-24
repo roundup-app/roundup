@@ -64,15 +64,15 @@ Policy: native traffic lights use Tauri's existing overlay titlebar and `traffic
 
 These numbered checks cite existing holders on `origin/main`; planned `u3787*` tests above are added by implementation, never claimed present here.
 
-| Check | Existing holder | Required preservation |
+| Check | Existing holder | Gate (reject if yes) |
 |---|---|---|
-| 1 | `PRINCIPLES.md`, P3 Gate/Observer; `scenarios/ui-shortcuts.md`, U2241 | No routine attention; editor/Terminal input ownership remains, except focus-scoped item undo outside them |
-| 2 | `PRINCIPLES.md`, P6 and P11 Gate/Observer; `apps/desktop/src/state/storage.ts`, `draftStorage`; `scenarios/product-continuity.md`, Unfinished input | Original Home/Project/recipient and exact drafts survive; restore never submits or starts a program |
-| 3 | `scenarios/ui-shelf-delete.md`, U458–U460; `scenarios/todos.md`, T6; `scenarios/pads.md`, P9 | Chosen targets only, unchanged scope and permissions, blockers and Pad ownership survive delete/undo |
-| 4 | `crates/desktop/src/menu.rs`, `u2694a_no_item_carries_an_accelerator`, `app_menu`; `scenarios/ui-shortcuts.md`, U2238–U2241 | Context menus remain native and accelerator-free; menu-bar commands obey scoped dispatch |
-| 5 | `docs/design-system.md`, The checks (D2, D5, D6, D9); `docs/motion.md`, Accepted triggers | Tokens only; no regression of a passing Check; feedback never delays an action |
-| 6 | `scenarios/ui-window.md`, U452/U453; `crates/desktop/tests/window.rs`, `u452_window_width_is_at_least_1280` | Minimum width and supported layout stay; only the unconditional maximization assertion is retired |
-| 7 | `PRINCIPLES.md`, P9 and P14 Gate/Observer; `scenarios/ui-modal-surfaces.md`, U3512a | No automatic Agent start, prohibited usage logs or destructive action without undo or prior consent |
+| 1 | `PRINCIPLES.md`, P3 Gate/Observer; `scenarios/ui-shortcuts.md`, U2241 | Does routine deletion raise attention, or does item undo take editor/Terminal input? |
+| 2 | `PRINCIPLES.md`, P6 and P11 Gate/Observer; `apps/desktop/src/state/storage.ts`, `draftStorage`; `scenarios/product-continuity.md`, Unfinished input | Does a changed path lose original Home/Project/recipient or exact drafts, or does restoration submit/start a program? |
+| 3 | `scenarios/ui-shelf-delete.md`, U458–U460; `scenarios/todos.md`, T6; `scenarios/pads.md`, P9 | Does deletion affect unchosen targets, widen scope/permissions, or does undo lose blocker edges or original Pad identity/ownership? |
+| 4 | `crates/desktop/src/menu.rs`, `u2694a_no_item_carries_an_accelerator`, `app_menu`; `scenarios/ui-shortcuts.md`, U2238–U2241 | Does a context menu gain an accelerator, or does a menu-bar command bypass its key’s target/scope or run twice? |
+| 5 | `docs/design-system.md`, The checks (D2, D5, D6, D9); `docs/motion.md`, Accepted triggers | Does a moved Check fail, a baseline-passing Check regress, a visual value bypass Tokens, or feedback delay an action? |
+| 6 | `scenarios/ui-window.md`, U452/U453; `crates/desktop/tests/window.rs`, `u452_window_width_is_at_least_1280` | Does restoration violate the minimum width or supported layout, or discard valid saved normal bounds? |
+| 7 | `PRINCIPLES.md`, P9 and P14 Gate/Observer; `scenarios/ui-modal-surfaces.md`, U3512a | Does a path start an Agent automatically, log prohibited usage data, or destroy chosen work without undo or prior consent? |
 
 Policy: behavioral tests assert input, focus, call counts, identities and contracts; native integration tests exercise actual plugin behavior where the mock runtime cannot. Do not retain tests whose only proof is a copied config constant or test-double call. When touching existing test files, name every retired then-clause or surviving proof under rule 10. Source search supplements behavioral evidence; it never substitutes for restored data or menu dispatch.
 
