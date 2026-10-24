@@ -69,7 +69,7 @@ Read these current `apps/desktop/src/` callers and every additional `writeText` 
 | Todo history | `todos/TodoHistory.tsx`, `TodoHistory` | Existing JSON payload, local acknowledgement |
 | Context-menu link | `ui/contextMenu.ts`, `linkEntries` / `contextMenu` | Native menu closes normally; originating item's local label shows feedback; no menu reopening or focus trap |
 
-Native context menus dismiss before `contextMenu` dispatches `linkEntries` actions; their copied acknowledgement therefore belongs to the originating visible item's local label, via the existing callback, for 1.5 s. Preserve U2694 native menus; do not retain/reopen an NSMenu, change its App seam or replace it with a web menu to display feedback.
+Native context menus dismiss before `contextMenu` dispatches `linkEntries` actions; their copied acknowledgement therefore belongs to the originating visible item's local label, via the existing callback, for 1.5 s. Preserve U2694a/U2694c native menus; do not retain/reopen an NSMenu, change its App seam or replace it with a web menu to display feedback.
 
 The shared helper owns clipboard acknowledgement, local success deadline, timer cleanup and stale-result protection. Owners supply payload, label and failure sink; content, permissions and focus stay with them. Existing already-confirming copies join this helper rather than retaining a second feedback lifecycle. No save/file operation becomes a clipboard action.
 
