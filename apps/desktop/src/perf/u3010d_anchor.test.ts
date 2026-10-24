@@ -3,6 +3,7 @@ import { recordFrames } from "./frames";
 
 it("u3010d_the_native_trace_can_locate_the_sample_after_setup_and_warmup", async () => {
   let next: (at: number) => void = () => {};
+
   const done = recordFrames(
     {
       frame: (callback) => void (next = callback),
