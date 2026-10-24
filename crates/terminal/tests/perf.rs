@@ -19,8 +19,11 @@ fn r3696c_ten_idle_terminal_grids_retain_under_850_kb() {
     let stats = region.change();
     let retained = stats.bytes_allocated - stats.bytes_deallocated;
     eprintln!("ten idle parser grids retain {retained} bytes");
-    // #3696: 48-byte cells alone cost 921,600 bytes. Recover at least 150 KB
-    // while retaining the screen, history capacity and all source annotations.
-    assert!(retained < 850_000, "ten idle parsers retain {retained} bytes");
+    // #3696: 48-byte cells alone cost 921,600 bytes. This cap also rejects a
+    // second retained grid without changing screen size or history capacity.
+    assert!(
+        retained < 850_000,
+        "ten idle parsers retain {retained} bytes"
+    );
     std::hint::black_box(parsers);
 }
