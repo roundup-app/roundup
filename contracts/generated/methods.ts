@@ -161,7 +161,8 @@ export type RpcMethods = {
   "ask.send": { params: ask_SendParams; result: ask_Ask };
   "ask.list": { params: null; result: ask_Ask[] };
   "ask.pick": { params: ask_PickParams; result: ask_Ask };
-  "daemon.ping": { params: null; result: { pong: true, pid: number, project: string, projectKey: string, contract: { fingerprint: string, methods: string[] } } };
+  "daemon.ping": { params: null; result: { pong: true, pid: number, project: string, projectKey: string, contract: { fingerprint: string } } };
+  "daemon.methods": { params: null; result: string[] };
   "link.read": { params: link_LinkUrl; result: link_LinkContent };
   "daemon.identify": { params: common_IdentifyParams; result: null };
   "events.subscribe": { params: common_SubscribeParams | null; result: common_SubscribeResult };

@@ -9,6 +9,7 @@ use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
 
 use serde::Deserialize;
+use wait_timeout::ChildExt;
 
 use crate::pr_checks::{self, Evidence, Gap};
 
@@ -523,11 +524,14 @@ fn execute_until(
             if let Err(err) = drain(&mut stdout, &mut bytes, cancelled, deadline) {
                 break Err(err);
             }
-            match child.try_wait() {
+            // Keep servicing the bounded pipe and Project cancellation between waits.
+            let pause =
+                Duration::from_millis(5).min(deadline.saturating_duration_since(Instant::now()));
+            match child.wait_timeout(pause) {
                 Ok(Some(status)) if status.success() => break Ok(()),
                 Ok(Some(status)) => break Err(format!("worktrunk exited {status}")),
                 Err(err) => break Err(err.to_string()),
-                Ok(None) => std::thread::sleep(Duration::from_millis(5)),
+                Ok(None) => {}
             }
         }
     });

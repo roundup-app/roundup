@@ -20,6 +20,8 @@ describe("u165 K3 opens its terminal with the key", () => {
     const app = createFakeApp();
     const tree: RailNode[] = [];
     let listed: TerminalInfo[] = [];
+    let agentShown = false;
+    let openedAfterAgent: boolean | null = null;
 
     app.handlers["rail.tree"] = () => structuredClone(tree);
     app.handlers["terminal.list"] = () => listed;
@@ -32,11 +34,17 @@ describe("u165 K3 opens its terminal with the key", () => {
 
       tree.push(made);
       queueMicrotask(() => app.emit(event({ name: "rail.changed" })));
+      // The Workstream's Agent Terminal shows after its row: its focus would fold a bubble opened before it.
+      setTimeout(() => {
+        agentShown = true;
+        document.body.append(Object.assign(document.createElement("textarea"), { className: "xterm-helper-textarea" }));
+      }, 50);
 
       return made;
     };
 
     app.handlers["terminal.open"] = ({ workstream: owner }) => {
+      openedAfterAgent = agentShown;
       listed = [info("9", { owner, title: "sh" })];
       queueMicrotask(() => app.emit(event({ name: "terminal.changed" })));
 
@@ -69,6 +77,7 @@ describe("u165 K3 opens its terminal with the key", () => {
 
     expect(methods.indexOf("rail.createWorkstream")).toBeLessThan(methods.indexOf("terminal.open"));
     expect(methods.filter((method) => method === "rail.createWorkstream")).toHaveLength(1);
+    expect(openedAfterAgent).toBe(true);
     expect(document.querySelector('[role="treeitem"]')).not.toBeNull();
   });
 });

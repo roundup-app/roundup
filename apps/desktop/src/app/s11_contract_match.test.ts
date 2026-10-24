@@ -14,7 +14,9 @@ const connectTo = async (contract: { fingerprint: string; methods: string[] } | 
   // SAFETY: a Daemon built before A38 answers `{ pong: true }`, which the generated result type no longer allows.
   const old = { pong: true } as RpcMethods["daemon.ping"]["result"];
 
-  app.handlers["daemon.ping"] = () => (contract ? { pong: true, pid: 1, project: "/p", projectKey: "p-0000000000000000", contract } : old);
+  app.handlers["daemon.ping"] = () => (contract ? { pong: true, pid: 1, project: "/p", projectKey: "p-0000000000000000", contract: { fingerprint: contract.fingerprint } } : old);
+
+  app.handlers["daemon.methods"] = () => contract?.methods ?? [];
 
   const connected = await connectProject(app, { name: "p", path: "/p" }, () => false, () => 0);
 
@@ -25,9 +27,10 @@ afterEach(clearMocks);
 
 describe("s11 the App says when the Daemon is not the one it was built with", () => {
   it("s11_equal_contracts_show_no_notice", async () => {
-    const { connected } = await connectTo({ fingerprint: OWN_CONTRACT.fingerprint, methods: ours });
+    const { app, connected } = await connectTo({ fingerprint: OWN_CONTRACT.fingerprint, methods: ours });
 
     expect(connected.contractNotice).toBeNull();
+    expect(app.calls.filter((call) => call.method === "daemon.methods")).toHaveLength(0);
   });
 
   it("a38_the_app_derives_the_fingerprint_rust_computes", () => {
@@ -40,6 +43,7 @@ describe("s11 the App says when the Daemon is not the one it was built with", ()
 
     expect(connected.contractNotice).toBe("The Daemon is older than the App. Quit and run `just app` again to rebuild it.");
     expect(app.calls[0]?.method).toBe("daemon.ping");
+    expect(app.calls.filter((call) => call.method === "daemon.methods")).toHaveLength(1);
     expect(app.calls.filter((call) => call.method === "daemon.ping")).toHaveLength(1);
   });
 

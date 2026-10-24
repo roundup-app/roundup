@@ -1,4 +1,5 @@
 import type { App, AppSeam, ProjectCalls } from "../app/seam";
+import type { WriteParams } from "@contracts/terminal/WriteParams";
 import { toBase64 } from "../terminal/base64";
 import { createXtermEmulators } from "../terminal/emulator";
 import type { Emulator } from "../terminal/emulator";
@@ -121,16 +122,29 @@ export const reportTerminal = <E extends Pick<Emulator, "write">>(create: (id: s
   return {
     printed,
     target: () => target,
+    /** K3 types into the same Terminal as the report; an Agent can already have an xterm input earlier in the document. */
+    input: () => [...document.querySelectorAll<HTMLElement>(".bubble[data-bubble]")]
+      .find((bubble) => bubble.dataset.bubble === target)
+      ?.querySelector<HTMLTextAreaElement>("textarea.xterm-helper-textarea") ?? null,
     createEmulator: (id: string): E => {
       const emulator = create(id);
+      const decoder = new TextDecoder();
+      // A PTY may split READY anywhere; retain its preceding newline without buffering an unbounded output line.
+      let tail = "\n";
 
       return {
         ...emulator,
         write: (bytes, parsed) =>
           emulator.write(bytes, () => {
-            if (target === null && new TextDecoder().decode(bytes).includes(READY)) {
-              target = id;
-              announce();
+            if (target === null) {
+              const text = tail + decoder.decode(bytes, { stream: true });
+
+              if (text.includes(`\n${READY}\n`) || text.includes(`\n${READY}\r\n`)) {
+                target = id;
+                announce();
+              }
+
+              tail = text.slice(-(READY.length + 2));
             }
 
             parsed?.();
@@ -145,7 +159,7 @@ export const reportTerminal = <E extends Pick<Emulator, "write">>(create: (id: s
  * into it and writes one `PERF <json>` line through that Terminal, where `crates/perf` reads it from `terminal.output`.
  */
 export const createKeystrokeRun = (app: AppSeam) => {
-  const probe = createKeystrokeProbe(() => performance.now(), "a");
+  const probe = createKeystrokeProbe(() => performance.now(), "a", () => terminal.target());
   let webgl: boolean | null = null;
 
   const terminal = reportTerminal(
@@ -176,12 +190,17 @@ export const createKeystrokeRun = (app: AppSeam) => {
 
     create.click();
     await appears(() => document.querySelector('[role="treeitem"][aria-selected="true"]'), "the new Workstream's selected row");
+    // The Workstream's Agent Terminal takes focus when it shows, and focus outside a bubble folds it, which pauses xterm's rendering: open the bubble after.
+    await appears(
+      () => [...document.querySelectorAll("textarea.xterm-helper-textarea")].find((input) => !input.closest(".bubble[data-bubble]")) ?? null,
+      "the new Workstream's Agent input",
+    );
     // U165: ⌘T opens the Terminal in the selected Workstream; its bubble takes the keys.
     document.dispatchEvent(new KeyboardEvent("keydown", { key: "t", code: "KeyT", metaKey: true, bubbles: true, cancelable: true }));
 
-    const textarea = await appears(() => document.querySelector<HTMLTextAreaElement>("textarea.xterm-helper-textarea"), "the Terminal's input");
-
     await bounded(terminal.printed, SETUP_BOUND_MS, `the Terminal's ${READY} line`);
+
+    const textarea = await appears(terminal.input, "the ready Terminal's input");
     textarea.focus();
 
     // A window drawn at no rate gives no animation frame: the run must say so rather than wait for one.
@@ -210,9 +229,12 @@ export const createKeystrokeRun = (app: AppSeam) => {
     rpc: (method, params) => {
       if (method !== "terminal.write") return calls.rpc(method, params);
 
-      probe.dispatched();
+      // SAFETY: the generated RPC contract ties params to method; TypeScript cannot narrow that generic pair together.
+      const { id } = params as WriteParams;
 
-      return calls.rpc(method, params).finally(probe.replied);
+      probe.dispatched(id);
+
+      return calls.rpc(method, params).finally(() => probe.replied(id));
     },
   });
 

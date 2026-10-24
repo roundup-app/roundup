@@ -55,8 +55,9 @@ pub const METHODS: &[Method] = &[
     m(
         "daemon.ping",
         "null",
-        "{ pong: true, pid: number, project: string, projectKey: string, contract: { fingerprint: string, methods: string[] } }",
+        "{ pong: true, pid: number, project: string, projectKey: string, contract: { fingerprint: string } }",
     ),
+    m("daemon.methods", "null", "string[]"),
     m("link.read", "link_LinkUrl", "link_LinkContent"),
     m("daemon.identify", "common_IdentifyParams", "null"),
     m(
