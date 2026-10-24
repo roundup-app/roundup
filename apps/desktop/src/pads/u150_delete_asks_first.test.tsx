@@ -14,13 +14,13 @@ const ask = async () => { fireEvent.click(screen.getByRole("button", { name: "De
  return questionDialog(); };
 
 describe("u150 delete asks first (Pad)", () => {
-  it("u150_a_user_pad_asks_in_place_and_calls_nothing", async () => {
+  it("u150_a_user_pad_asks_natively_and_calls_nothing", async () => {
     const { app } = await openShelf([padOf("notes", USER, "a")]);
     await openPad("notes");
 
     await ask();
 
-    expect([`${questionProbe.shown?.title}${questionProbe.shown?.message}`, calls(app)]).toEqual(["Delete notes?  ", []]);
+    expect([`${questionProbe.shown?.title}${questionProbe.shown?.message}`, calls(app)]).toEqual(["Delete notes?", []]);
   });
 
   it("u150_an_agent_pad_names_its_owner", async () => {
@@ -69,16 +69,6 @@ describe("u150 delete asks first (Pad)", () => {
 
     await waitFor(() => expect(document.activeElement).toBe(screen.getByRole("button", { name: "Delete" })));
     expect(calls(app)).toEqual([]);
-  });
-
-  it("u150_esc_closes_the_drawer_and_calls_nothing", async () => {
-    const { app, connected } = await openShelf([padOf("notes", USER, "a")]);
-    await openPad("notes");
-    await ask();
-
-    await answerQuestion(false);
-
-    expect([connected.drawer.content() === null, calls(app)]).toEqual([false, []]);
   });
 
   it("u150_an_error_keeps_the_drawer_and_the_pad", async () => {

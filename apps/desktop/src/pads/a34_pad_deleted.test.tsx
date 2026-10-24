@@ -1,9 +1,14 @@
-import { cleanup, screen, waitFor } from "@solidjs/testing-library";
-import { afterEach, expect, it } from "vitest";
+import { cleanup, fireEvent, screen, waitFor, within } from "@solidjs/testing-library";
+import { afterEach, expect, it, vi } from "vitest";
 import type { Pad } from "@contracts/pad/Pad";
 import { AGENT, deferred, openPad, openShelf, padOf, RpcError } from "./padsFixture";
 
-afterEach(cleanup);
+import { answerQuestion, questionDialog } from "../shelf/bulkQuestionHarness";
+import { Editor, editorViewCtx } from "@milkdown/kit/core";
+import type { EditorView } from "@milkdown/kit/prose/view";
+import { USER } from "../testing/nodes";
+
+afterEach(() => { cleanup(); vi.restoreAllMocks(); });
 
 it("a34_pad_deleted_refreshes_the_pad_list_through_the_fake_app_seam", async () => {
   const { app, state, calls } = await openShelf([padOf("plan", AGENT)]);
@@ -69,4 +74,182 @@ it("a34_pad_deleted_refreshes_the_open_drawers_touch_history", async () => {
 
   expect((await screen.findByText(/auth-refactor wrote this Pad at/)).textContent)
     .toContain("auth-refactor wrote this Pad at");
+});
+
+const failedSave = async (close = true) => {
+  const shelf = await openShelf([padOf("failed", USER, "old"), padOf("other", USER, "kept")]);
+  const reply = deferred<Pad>();
+  shelf.app.handlers["pad.write"] = () => reply.promise;
+  const field = await openPad("failed");
+  fireEvent.input(field, { target: { value: "recoverable" } });
+
+  if (close) shelf.connected.drawer.close("key");
+  else fireEvent.focusOut(field);
+
+  reply.reject(new RpcError(-32002, "cannot save failed"));
+  await screen.findByText("cannot save failed");
+
+  return { ...shelf, field };
+};
+
+const answerDelete = async (accepted: boolean) => {
+  fireEvent.click(screen.getByRole("button", { name: "Delete" }));
+  await questionDialog();
+  await answerQuestion(accepted);
+};
+
+it("p3557b_delete_failed_pad_clears_its_line", async () => {
+  const { app, state, connected } = await failedSave();
+  await openPad("other");
+  await answerDelete(true);
+  await waitFor(() => expect(connected.drawer.content()).toBeNull());
+  app.emit({ actor: USER, name: "pad.deleted", data: { name: "other" } });
+  await waitFor(() => expect(screen.queryByText("other")).toBeNull());
+  expect(screen.getByText("cannot save failed")).toBeDefined();
+  await openPad("failed");
+  await answerDelete(false);
+  expect(screen.getByText("cannot save failed")).toBeDefined();
+  app.handlers["pad.delete"] = () => { throw new RpcError(-32002, "deletion refused"); };
+
+  await answerDelete(true);
+  await screen.findByText("deletion refused");
+  expect(screen.getByText("cannot save failed")).toBeDefined();
+  app.handlers["pad.delete"] = () => { state.pads = [];
+
+ return null; };
+
+  await answerDelete(true);
+  await waitFor(() => expect(connected.drawer.content()).toBeNull());
+  app.emit({ actor: USER, name: "pad.deleted", data: { name: "failed" } });
+  await screen.findByText("No Pads yet");
+  expect(screen.queryByText("cannot save failed")).toBeNull();
+});
+
+it("p3557b_success_clears_same_pad_failure", async () => {
+  const { app, state, connected } = await failedSave();
+  app.handlers["pad.write"] = ({ name, text }) => {
+    const pad = { ...state.pads.find(pad => pad.name === name)!, text, revision: 2 };
+    state.pads = state.pads.map(current => current.name === name ? pad : current);
+
+    return pad;
+  };
+
+  const other = await openPad("other");
+  fireEvent.input(other, { target: { value: "other saved" } });
+  fireEvent.focusOut(other);
+  await waitFor(() => expect(state.pads.find(pad => pad.name === "other")?.text).toBe("other saved"));
+  expect(screen.getByText("cannot save failed")).toBeDefined();
+  connected.drawer.close("key");
+  const field = await openPad("failed");
+  fireEvent.input(field, { target: { value: "saved again" } });
+  fireEvent.click(screen.getByRole("button", { name: "Resume" }));
+  await waitFor(() => expect(state.pads.find(pad => pad.name === "failed")?.text).toBe("saved again"));
+  await waitFor(() => expect(screen.queryByText("cannot save failed")).toBeNull());
+});
+
+it.each([true, false])("p3557b_dismiss_keeps_draft: closed=%s", async close => {
+  const { app, connected, field } = await failedSave(close);
+  const before = connected.drafts.list().map(draft => draft.value);
+  const calls = app.calls.length;
+  const dismiss = screen.getByRole("button", { name: "Dismiss" });
+
+  if (!close) fireEvent.focusOut(field, { relatedTarget: dismiss });
+  fireEvent.click(dismiss);
+  expect(screen.queryByText("cannot save failed")).toBeNull();
+  expect(connected.drafts.list().map(draft => draft.value)).toEqual(before);
+  expect(app.calls.slice(calls)).toEqual([]);
+
+  if (!close) expect(field.value).toBe("recoverable");
+});
+
+it("p3557b_edits_save_and_reopen", async () => {
+  const { state, app, connected } = await openShelf([padOf("notes", USER, "one\n\ntwo\n\nthree")]);
+  let field = await openPad("notes");
+  expect(app.calls.filter(call => call.method === "pad.write")).toEqual([]);
+  field.setSelectionRange(4, 4);
+  fireEvent.keyDown(field.querySelector(".ProseMirror")!, { key: "Enter", keyCode: 13 });
+  await waitFor(() => expect(state.pads[0]!.text).not.toBe("one\n\ntwo\n\nthree"));
+  fireEvent.keyDown(field.querySelector(".ProseMirror")!, { key: "Enter", keyCode: 13 });
+  fireEvent.input(field, { target: { value: "one\n\nnew\n\ntwo\n\nthree" } });
+  await waitFor(() => expect(state.pads[0]!.text).toContain("new"));
+  connected.drawer.close("key");
+  field = await openPad("notes");
+  expect(field.value).toContain("new");
+  fireEvent.input(field, { target: { value: "one\n\nnewer\n\ntwo\n\nthree" } });
+  await waitFor(() => expect(state.pads[0]!.text).toContain("newer"));
+  expect(screen.queryByText(/edited blocks could not be matched/)).toBeNull();
+
+  for (const call of app.calls.filter(call => call.method === "pad.write")) expect(call.params).toEqual(expect.objectContaining({ text: expect.any(String) }));
+});
+
+it.each(["delete", "save", "dismiss"])("p3557c_failure_lifetime_pad_assignment: %s", async action => {
+  const { app, connected } = await openShelf([padOf("failed", AGENT, "authored")], true);
+  const group = document.querySelector<HTMLElement>(`[data-shelf-group="${AGENT.id}"]`)!;
+  const content = group.querySelector('[data-part="branch-content"]');
+
+  if (content?.hasAttribute("hidden")) {
+    fireEvent.click(group.querySelector('[data-part="branch-control"]')!);
+    await waitFor(() => expect(content.hasAttribute("hidden")).toBe(false));
+  }
+
+  const save = app.handlers["pad.setOwner"]!;
+  app.handlers["pad.setOwner"] = () => { throw new RpcError(-32002, "assignment refused"); };
+
+  fireEvent.click(screen.getByRole("button", { name: "Add Pad" }));
+  const pending = screen.getByLabelText<HTMLInputElement>("Pad name");
+  fireEvent.input(pending, { target: { value: "unfinished" } });
+
+  const assign = async () => {
+    fireEvent.click(document.querySelector('[data-pad="failed"] [aria-label="assign failed"]')!);
+    fireEvent.click(within(await screen.findByRole("menu")).getByText("Me"));
+  };
+
+  await assign();
+  await screen.findByText("assignment refused");
+  await app.rpc("pad.create", { name: "added", text: null });
+  app.emit({ actor: USER, name: "pad.changed", data: { name: "added" } });
+  await screen.findByText("added");
+  expect(within(document.querySelector<HTMLElement>('[data-pad="failed"]')!).getByText("assignment refused")).toBeDefined();
+
+  if (action === "delete") {
+    await openPad("failed");
+    await answerDelete(true);
+    await waitFor(() => expect(connected.drawer.content()).toBeNull());
+    app.emit({ actor: USER, name: "pad.deleted", data: { name: "failed" } });
+    await waitFor(() => expect(document.querySelector('[data-pad="failed"]')).toBeNull());
+  } else if (action === "save") {
+    app.handlers["pad.setOwner"] = save;
+    await assign();
+  } else fireEvent.click(screen.getByRole("button", { name: "Dismiss" }));
+  await waitFor(() => expect(screen.queryByText("assignment refused")).toBeNull());
+  expect(screen.getByLabelText<HTMLInputElement>("Pad name").value).toBe("unfinished");
+});
+
+it("p3557b_failed_whitespace_save_restores_exact_editor_input", async () => {
+  const { app, connected } = await openShelf([padOf("spaces", USER, "")]);
+  app.handlers["pad.write"] = () => { throw new RpcError(-32002, "cannot store spaces"); };
+
+  let view: EditorView | undefined;
+  const make = Editor.make.bind(Editor);
+  vi.spyOn(Editor, "make").mockImplementation(() => {
+    const editor = make();
+    editor.onStatusChange(status => {
+      if (status === "Created") view = editor.action(ctx => ctx.get(editorViewCtx));
+    });
+
+    return editor;
+  });
+  const original = await openPad("spaces");
+
+  if (!view) throw new Error("editor did not open");
+  view.dispatch(view.state.tr.insertText("  "));
+  fireEvent.focusOut(original);
+  await screen.findByText("cannot store spaces");
+  connected.drawer.close("key");
+  await waitFor(() => expect(screen.queryByRole("textbox", { name: "Pad body" })).toBeNull());
+  const writes = app.calls.filter(call => call.method === "pad.write").length;
+  const restored = await openPad("spaces");
+  expect(restored.value).toBe("  ");
+  expect(restored.selectionStart).toBe(3);
+  expect(app.calls.filter(call => call.method === "pad.write")).toHaveLength(writes);
 });
