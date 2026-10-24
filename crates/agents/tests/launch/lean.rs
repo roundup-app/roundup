@@ -234,6 +234,8 @@ fn lc4_a_scout_launches_with_read_tools_and_no_user_instructions() {
     let text = std::fs::read_to_string(Setup::after(&argv, "--append-system-prompt-file").unwrap())
         .unwrap();
     assert!(!text.contains("USER GLOBAL RULE"));
+    let settings = read(Path::new(Setup::after(&argv, "--settings").unwrap()));
+    assert_eq!(settings["env"]["CLAUDE_CODE_DISABLE_CLAUDE_MDS"], "1");
     let old: contracts::agent::SpawnParams =
         serde_json::from_value(json!({"cwd": "/x", "prompt": null, "parent": null})).unwrap();
     assert_eq!(old.scout, None);
@@ -374,6 +376,7 @@ async fn lc6_a_user_started_agent_keeps_the_users_setup() {
         assert!(!has(&argv, flag), "{flag}");
     }
     assert!(!env.contains_key("CLAUDE_CODE_DISABLE_AUTO_MEMORY"));
+    assert!(!env.contains_key("CLAUDE_CODE_DISABLE_CLAUDE_MDS"));
     assert!(has(&argv, "--settings") && has(&argv, "--mcp-config"));
     let settings = read(Path::new(Setup::after(&argv, "--settings").unwrap()));
     assert_eq!(
@@ -867,5 +870,29 @@ fn a3516c_all_profiles_keep_the_renderer_choice() {
                 }
             }
         }
+    }
+}
+
+#[tokio::test]
+async fn lc17_a_lean_child_loads_no_claude_md_by_itself() {
+    for (row, role, pair) in lean_children() {
+        let s = setup();
+        s.user_file("CLAUDE.md", "USER_GLOBAL_TOKEN");
+        std::fs::write(s.dir.parent().unwrap().join("CLAUDE.md"), "PROJECT_TOKEN").unwrap();
+        let launcher = plugin_launcher(&s);
+        let (argv, env) = launcher
+            .launch_on(folders(&s.dir), "7", "1", &s.cwd, None, role, &pair)
+            .await
+            .unwrap();
+        assert_eq!(env["CLAUDE_CODE_DISABLE_CLAUDE_MDS"], "1", "{row:?}");
+        let brief =
+            std::fs::read_to_string(Setup::after(&argv, "--append-system-prompt-file").unwrap())
+                .unwrap();
+        assert_eq!(brief.matches("PROJECT_TOKEN").count(), 1, "{row:?}");
+        assert_eq!(
+            brief.matches("USER_GLOBAL_TOKEN").count(),
+            usize::from(row == Role::Agent),
+            "{row:?}"
+        );
     }
 }
