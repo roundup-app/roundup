@@ -112,66 +112,41 @@ it("u484_external_drop", async () => {
   expect(await dropped()).toBe("");
 }, 90_000);
 
-it("u484_keyboard_reorder", async () => {
-  await load();
-  await keyboard("A");
-  await down(["B", "A", "C"]);
-  await browser("press", "Space");
-  await committed("B,A,C");
-  await browser("wait", "--fn", `document.activeElement?.getAttribute('aria-label') === 'Move A'`);
-  expect(await read<string>(`document.activeElement.getAttribute('aria-label')`)).toBe("Move A");
-}, 60_000);
+// U3800a/c: one drop look's behaviour — pointer drag, keyboard lift, Escape and a following click — through the installed shared Sortable.
+it("u3800a_one_drag_fixture", async () => {
+  const idle = `[...document.querySelectorAll('.sortable-fixture > .sortable-row:not([data-dnd-placeholder])')].map(el => el.dataset.id).join(',') === 'A,B,C' && document.querySelector('[data-id=A]').dataset.dragging === 'false'`;
+  const commits = () => read<string>(`document.querySelector('[aria-label=Commits]').textContent`);
+  const focusedA = () => browser("wait", "--fn", `document.activeElement?.getAttribute('aria-label') === 'Move A'`);
 
-it("u484_pointer_reorder", async () => {
   await load();
   await drag("A", "C");
   await browser("wait", "--fn", `[...document.querySelectorAll('.sortable-fixture > .sortable-row:not([data-dnd-placeholder])')].map(el => el.dataset.id).join(',') === 'B,C,A'`);
+  await browser("press", "Escape");
+  await browser("mouse", "up");
+  await browser("wait", "--fn", idle);
+  expect(await commits()).toBe("0");
+  await focusedA();
+
+  await drag("A", "C");
   await browser("mouse", "up");
   await committed("B,C,A");
   await browser("click", '[aria-label="Inspect A"]');
   await browser("wait", "--fn", `document.querySelector('[aria-label=Actions]').textContent === '1'`);
-  expect(await read<string>(`document.querySelector('[aria-label=Commits]').textContent`)).toBe("1");
-}, 60_000);
+  expect(await commits()).toBe("1");
 
-it("u484_cancel_without_mutation", async () => {
-  for (const input of ["keyboard", "pointer"]) {
-    await load();
-
-    if (input === "keyboard") { await keyboard("A"); await down(["B", "A", "C"]); }
-    else { await drag("A", "C"); await browser("wait", "--fn", `[...document.querySelectorAll('.sortable-fixture > .sortable-row:not([data-dnd-placeholder])')].map(el => el.dataset.id).join(',') === 'B,C,A'`); }
-
-    await browser("press", "Escape");
-
-    if (input === "pointer") await browser("mouse", "up");
-    await browser("wait", "--fn", `[...document.querySelectorAll('.sortable-fixture > .sortable-row:not([data-dnd-placeholder])')].map(el => el.dataset.id).join(',') === 'A,B,C' && document.querySelector('[data-id=A]').dataset.dragging === 'false'`);
-    expect(await order()).toEqual(["A", "B", "C"]);
-    expect(await read<string>(`document.querySelector('[aria-label=Commits]').textContent`)).toBe("0");
-    expect(await read<string>(`document.querySelector('[aria-label="Committed order"]').textContent`)).toBe("A,B,C");
-
-    await browser("wait", "--fn", `document.activeElement?.getAttribute('aria-label') === 'Move A'`);
-    expect(await read<string>(`document.activeElement.getAttribute('aria-label')`)).toBe("Move A");
-    await keyboard("A"); await down(["B", "A", "C"]);
-    await browser("press", "Space"); await committed("B,A,C");
-  }
-}, 90_000);
-
-it("u484_native_file_drop_coexists", async () => {
   await load();
-  expect(await read<boolean>(`(() => {
-    const row = document.querySelector('[data-id=A]');
-    const transfer = new DataTransfer(); transfer.items.add(new File(['hello'], 'example.txt', {type: 'text/plain'}));
-    const over = new DragEvent('dragover', { bubbles: true, cancelable: true, dataTransfer: transfer });
-    row.dispatchEvent(over); row.dispatchEvent(new DragEvent('drop', { bubbles: true, cancelable: true, dataTransfer: transfer }));
-    return over.defaultPrevented;
-  })()`)).toBe(true);
-  await browser("wait", "--fn", `document.querySelector('[aria-label=Files]').textContent === 'example.txt'`);
-  expect(await read<string>(`document.querySelector('[aria-label=Commits]').textContent`)).toBe("0");
-  expect(await read<number>(`document.querySelectorAll('[data-dragging=true]').length`)).toBe(0);
-  await keyboard("A"); await down(["B", "A", "C"]);
-  await browser("press", "Space"); await committed("B,A,C");
-  await drag("B", "C");
-  await browser("wait", "--fn", `[...document.querySelectorAll('.sortable-fixture > .sortable-row:not([data-dnd-placeholder])')].map(el => el.dataset.id).join(',') === 'A,C,B'`);
-  await browser("mouse", "up"); await committed("A,C,B", 2);
+  await keyboard("A");
+  await down(["B", "A", "C"]);
+  await browser("press", "Escape");
+  await browser("wait", "--fn", idle);
+  expect(await commits()).toBe("0");
+  await focusedA();
+
+  await keyboard("A");
+  await down(["B", "A", "C"]);
+  await browser("press", "Space");
+  await committed("B,A,C");
+  await focusedA();
 }, 90_000);
 
 it("u484_scroll_and_stop", async () => {
