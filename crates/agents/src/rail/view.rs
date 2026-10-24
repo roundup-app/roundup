@@ -74,6 +74,15 @@ pub(super) fn load_nodes(
 }
 
 impl Rail {
+    /// Every node, each parent before its children, siblings by `order`.
+    pub fn tree(&self) -> Result<Vec<RailNode>, RpcError> {
+        let mut flat = load(&self.db)?;
+        flat.sort_by_key(|node| node.order);
+        let mut out = Vec::with_capacity(flat.len());
+        descend(&flat, None, &mut out);
+        Ok(out)
+    }
+
     /// U3566c: the Agent's published finishes; `0` for a node never counted.
     pub(crate) fn finished(&self, id: &str) -> Result<u64, RpcError> {
         self.db
@@ -122,5 +131,12 @@ impl Rail {
             )
             .map(|changed| changed != 0)
             .map_err(sql)
+    }
+}
+
+fn descend(nodes: &[RailNode], parent: Option<&str>, out: &mut Vec<RailNode>) {
+    for node in nodes.iter().filter(|node| node.parent.as_deref() == parent) {
+        out.push(node.clone());
+        descend(nodes, Some(&node.id), out);
     }
 }
