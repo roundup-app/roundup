@@ -43,7 +43,7 @@ mod name;
 mod order;
 mod peer;
 #[cfg(feature = "test-support")]
-pub use peer::parent_lookups;
+pub use peer::{classifications, parent_lookups};
 mod prepared;
 mod queue;
 mod rail;

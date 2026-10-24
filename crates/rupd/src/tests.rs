@@ -611,17 +611,24 @@ async fn r3696b_write_classifies_its_caller_once() {
         let mut reply = String::new();
         client.read_line(&mut reply).await.unwrap();
     };
-    // Any one classification of this process is one chain; `agent.stop` classifies once.
+    // `agent.stop` classifies its caller once; a write must not classify more often.
     call("agent.stop").await;
-    let before = agents::parent_lookups();
+    let before = agents::classifications();
+    let lookups = agents::parent_lookups();
     call("terminal.write").await;
-    let write = agents::parent_lookups() - before;
-    let before = agents::parent_lookups();
+    let write = agents::classifications() - before;
+    // With no Agent running no ancestor can be one, so a write reads no /proc.
+    assert_eq!(
+        agents::parent_lookups(),
+        lookups,
+        "a write walked /proc with no Agent running"
+    );
+    let before = agents::classifications();
     call("agent.stop").await;
-    let chain = agents::parent_lookups() - before;
-    assert!(chain > 0, "no lookups counted for one classification");
-    assert!(
-        write <= chain,
-        "{write} lookups for a write, one chain is {chain}"
+    let chain = agents::classifications() - before;
+    assert_eq!(chain, 1, "one classification for agent.stop");
+    assert_eq!(
+        write, 1,
+        "{write} classifications for a write, one chain is {chain}"
     );
 }
