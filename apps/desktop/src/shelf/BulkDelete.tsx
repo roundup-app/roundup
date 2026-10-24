@@ -177,6 +177,12 @@ export const createBulkDelete = <Id,>(props: {
 
   const labelOf = (target: Target<Id>) => `${target.label}${props.noun === "Todos" ? ` #${String(target.id)}` : ""}`;
 
+  const shown = () => (readFailure() === null ? failures() : []);
+  const failureText = (failure: { target: Target<Id>; message: string }) => `${copy.couldNotDelete} ${labelOf(failure.target)}${copy.colon}${failure.message}`;
+  const clearButton = (failure: { target: Target<Id>; message: string }) => (
+    <IconButton aria-label={`${copy.clear} ${labelOf(failure.target)}`} onClick={() => setFailures(held => held.filter(other => other.target.id !== failure.target.id))}><Icon name="x" /></IconButton>
+  );
+
   const bar = () => (
     <Show when={props.selected().length > 0 || failures().length > 0 || question()?.kind === "pending" || readFailure() !== null}>
       <div class="shelf-bulk" role="group" aria-label={copy.shelfDeletion}>
@@ -190,17 +196,14 @@ export const createBulkDelete = <Id,>(props: {
         <Show when={owners().length > 0}>
           <p>{copy.ownedBy}{owners().join(copy.comma)}{copy.agentsMayStillBeWritingDeletingDoesNot}</p>
         </Show>
-        <Show when={readFailure() === null && failures().length > 0} fallback={
-          <ReservedLine data-deletion-pending={question()?.kind === "pending"} aria-busy={question()?.kind === "pending"} status={question()?.kind === "pending" ? copy.draftStatus.pending : null} message={readFailure()}>
-            <button data-button="quiet" type="button" onClick={() => void readback?.()}>{copy.refresh}</button>
-          </ReservedLine>
-        }>
-          <For each={failures()}>{failure => (
-            <ReservedLine message={`${copy.couldNotDelete} ${labelOf(failure.target)}${copy.colon}${failure.message}`}>
-              <IconButton aria-label={`${copy.clear} ${labelOf(failure.target)}`} onClick={() => setFailures(held => held.filter(other => other.target.id !== failure.target.id))}><Icon name="x" /></IconButton>
-            </ReservedLine>
-          )}</For>
-        </Show>
+        <ReservedLine data-deletion-pending={question()?.kind === "pending"} aria-busy={question()?.kind === "pending"} status={question()?.kind === "pending" ? copy.draftStatus.pending : null} message={readFailure() ?? (shown().length > 0 ? failureText(shown()[0]!) : null)}>
+          <Show when={readFailure() === null && shown().length > 0} fallback={<button data-button="quiet" type="button" onClick={() => void readback?.()}>{copy.refresh}</button>}>
+            {clearButton(shown()[0]!)}
+          </Show>
+        </ReservedLine>
+        <For each={shown().slice(1)}>{failure => (
+          <ReservedLine message={failureText(failure)}>{clearButton(failure)}</ReservedLine>
+        )}</For>
       </div>
     </Show>
   );
