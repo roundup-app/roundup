@@ -486,7 +486,8 @@ async fn a3308_an_agent_cannot_enable_auto_by_claiming_user() {
             None,
         )
         .await
-        .unwrap();
+        .unwrap()
+        .into_value();
     assert_eq!(response["error"]["code"], code::FORBIDDEN);
     assert_eq!(
         call(&daemon, "rail.list", Value::Null).await[0]["auto"],
