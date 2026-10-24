@@ -42,6 +42,8 @@ pub use rail::MeasurementWait;
 mod name;
 mod order;
 mod peer;
+#[cfg(feature = "test-support")]
+pub use peer::parent_lookups;
 mod prepared;
 mod queue;
 mod rail;
