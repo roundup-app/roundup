@@ -4,7 +4,7 @@ import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { promisify } from "node:util";
 import { expect, it } from "vitest";
-import { startRealDaemon } from "../testing/realDaemonFixture";
+import { PROOF, startRealDaemon } from "../testing/realDaemonFixture";
 import { createServedApp } from "../testing/realSeam";
 import { chromePath } from "../testing/chromePage";
 import { captureDir } from "../testing/captures";
@@ -96,7 +96,7 @@ it("u3016f_real_collection_to_dashboard_survives_reopen", async () => {
     await trigger("agent.ask", {question:"Continue measured work?",answers:[{label:"Yes",description:"Continue"}]});
     await expect.poll(async () => (await app.rpc("decision.list", null)).length).toBeGreaterThan(0);
     const [asked] = await app.rpc("decision.list", null);
-    await app.rpc("decision.answer", {id:asked!.id,answer:"Yes"});
+    await app.rpc("decision.answer", {id:asked!.id,answer:"Yes",proof:PROOF});
     await expect.poll(async () => (await app.rpc("decision.list", null)).length).toBe(0);
     const receiver=await app.rpc("agent.spawn",{cwd:real.dir,parent:home.id,prompt:null,model:null,effort:null});
     await until(`document.querySelector('.rail-row[data-id="${receiver.id}"]')?.dataset.kind === 'idle'`);
