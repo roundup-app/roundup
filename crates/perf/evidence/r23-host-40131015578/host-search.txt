@@ -1,0 +1,147 @@
+$ date -u +%FT%TZ
+2026-10-24T20:47:11Z
+
+exit: 0
+
+$ gh pr list --state all --search "9V45" --json number,title,state,url
+[{"number":3763,"state":"MERGED","title":"R23 specify remaining 9V45 write-path profiling","url":"https://github.com/saadshahd/roundup/pull/3763"},{"number":3721,"state":"MERGED","title":"R16: 9V45 same-class diagnosis; withdraw unsupported 7763 baselines","url":"https://github.com/saadshahd/roundup/pull/3721"},{"number":3769,"state":"MERGED","title":"R23 retain failed host qualification and same-lifetime instructions","url":"https://github.com/saadshahd/roundup/pull/3769"},{"number":1281,"state":"MERGED","title":"R16 support the 9V45 Builder class — Refs #1266","url":"https://github.com/saadshahd/roundup/pull/1281"},{"number":1309,"state":"MERGED","title":"R16 specify Intel 8573C Builder identity","url":"https://github.com/saadshahd/roundup/pull/1309"},{"number":3729,"state":"MERGED","title":"R16: perf: Daemon latency doubled since the Linux baselines on the 9V45 Builder","url":"https://github.com/saadshahd/roundup/pull/3729"},{"number":3735,"state":"MERGED","title":"R16 A38 S11: slim ping and fetch method names on mismatch","url":"https://github.com/saadshahd/roundup/pull/3735"},{"number":1351,"state":"MERGED","title":"R16: prove repaired idle Terminal RSS (Refs #1326)","url":"https://github.com/saadshahd/roundup/pull/1351"},{"number":1318,"state":"MERGED","title":"R16 specify the distinct AMD 9V74 Builder class; Refs #1313","url":"https://github.com/saadshahd/roundup/pull/1318"}]
+
+exit: 0
+
+$ cat crates/perf/evidence/linux-9v45/machine.txt
+GitHub Actions Ubuntu 24.04, AMD EPYC 9V45 96-Core Processor, 4 CPUs (online 0-3, affinity 0-3), kernel 6.17.0-1022-azure, shell /bin/bash, rustc 1.99.0 (b940084d7 2026-09-28)
+current reference: a5652186e70decf3bdf6b6aab211d6205c7b7c51 (origin/main 90df821c0 plus this evidence); rupd sha256 ad72c6b0fa2f0c20…, rup fec2ab3b4240804c…, perf 1c389656f15b89f7…
+historical reference: 2029ed2c4ee606d26e73c858c4d7c93130df36e0; rupd sha256 8e0ecdbed53dcf17…, perf 1a73c903b0b514b1…
+
+exit: 0
+
+$ gh api repos/saadshahd/roundup/actions/runners
+{"message":"Resource not accessible by integration","documentation_url":"https://docs.github.com/rest/actions/self-hosted-runners#list-self-hosted-runners-for-a-repository","status":"403"}gh: Resource not accessible by integration (HTTP 403)
+
+exit: 1
+
+$ gh api --method GET repos/saadshahd/roundup/actions/runs -f status=in_progress --jq '.workflow_runs[] | {id,name,head_sha,html_url}'
+{"head_sha":"bf7a668ef763358376093e9398542623bb635088","html_url":"https://github.com/saadshahd/roundup/actions/runs/40131202968","id":40131202968,"name":"Check"}
+{"head_sha":"eb709a515e5fe2168fc9fa5969e1e8852b6adf5e","html_url":"https://github.com/saadshahd/roundup/actions/runs/40131174026","id":40131174026,"name":"Check"}
+{"head_sha":"66d0a5cc67d083b8f1c140af88680fd0bd89cfe4","html_url":"https://github.com/saadshahd/roundup/actions/runs/40131045728","id":40131045728,"name":"Check"}
+{"head_sha":"66d0a5cc67d083b8f1c140af88680fd0bd89cfe4","html_url":"https://github.com/saadshahd/roundup/actions/runs/40131045734","id":40131045734,"name":"Check"}
+{"head_sha":"c1423abeea0e9ca8f3f2c1fcdebdbc5196c97810","html_url":"https://github.com/saadshahd/roundup/actions/runs/40131015578","id":40131015578,"name":"Build ready work Issues"}
+{"head_sha":"c1423abeea0e9ca8f3f2c1fcdebdbc5196c97810","html_url":"https://github.com/saadshahd/roundup/actions/runs/40130690337","id":40130690337,"name":"Check"}
+{"head_sha":"f82fd7499a07f81a8dd42947b2b9d3c353c15905","html_url":"https://github.com/saadshahd/roundup/actions/runs/40128749271","id":40128749271,"name":"Fix PR #3761: unfinished"}
+{"head_sha":"86981f3cd2c3122f8cdbb4258ffad8a02f1395ef","html_url":"https://github.com/saadshahd/roundup/actions/runs/40125077401","id":40125077401,"name":"Build ready work Issues"}
+
+exit: 0
+
+$ gh api repos/saadshahd/roundup/actions/runs/40131015578/jobs --jq '.jobs[] | {id,name,status,runner_name,labels}'
+{"id":120982539799,"labels":["ubuntu-latest"],"name":"pick","runner_name":"GitHub Actions 1000193415","status":"completed"}
+{"id":120982788030,"labels":["ubuntu-latest"],"name":"build #3013 / build","runner_name":"GitHub Actions 1000193439","status":"in_progress"}
+{"id":120982788248,"labels":["ubuntu-latest"],"name":"build #3764 / build","runner_name":"GitHub Actions 1000193440","status":"in_progress"}
+
+exit: 0
+
+$ gh api repos/saadshahd/roundup/actions/jobs/120982788030/logs
+﻿<?xml version="1.0" encoding="utf-8"?><Error><Code>BlobNotFound</Code><Message>The specified blob does not exist.
+RequestId:dc1ca833-e01e-0013-32f8-63b3fd000000
+Time:2026-10-24T20:47:14.2829051Z</Message></Error>gh: HTTP 404
+
+exit: 1
+
+$ gh api repos/saadshahd/roundup/issues/3760/dependencies/blocked_by --jq '.[] | {number,state,title}'
+{"number":3764,"state":"open","title":"R23: supply a qualified 9V45 execution lifetime for #3760"}
+
+exit: 0
+
+$ sed -n '1,40p' .github/workflows/build-issue.yml
+name: build-issue
+
+# L23: one build job and its own `after`, called once per Issue by build.yml's matrix. Each Issue's `after` runs as
+# soon as its build ends, so a finished job frees its slot and starts the next pick without waiting for the other
+# Issues of its run. `after` holds the write token the Builder never sees.
+on:
+  workflow_call:
+    inputs:
+      issue:
+        required: true
+        type: number
+      slug:
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+# L98: bash -eo pipefail, so a failure left of a pipe fails the step.
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  build:
+    # A second job for one Issue waits, then finds the first one's PR and starts no run.
+    concurrency:
+      group: build-${{ inputs.issue }}
+      cancel-in-progress: false
+    runs-on: ${{ fromJSON(contains(fromJSON(vars.BOXD_ISSUES || '[]'), inputs.issue) && format('["self-hosted","boxd","roundup-build-{0}-{1}-{2}"]', inputs.issue, github.run_id, github.run_attempt) || '["ubuntu-latest"]') }}
+    timeout-minutes: 120
+    permissions:
+      contents: read
+      issues: read
+      pull-requests: read
+      id-token: write
+    outputs:
+      ran: ${{ steps.worked.outputs.ran }}
+    env:
+      ISSUE: ${{ inputs.issue }}
+
+exit: 0
+
+$ gh api repos/saadshahd/roundup/actions/runs/40131202968/jobs --jq '.jobs[] | select(.status == "in_progress") | {id,name,runner_name,labels}'
+{"id":120983093372,"labels":["ubuntu-latest"],"name":"lint","runner_name":"GitHub Actions 1000193449"}
+{"id":120983152396,"labels":["ubuntu-latest"],"name":"lint-web","runner_name":"GitHub Actions 1000193454"}
+
+exit: 0
+
+$ gh api repos/saadshahd/roundup/actions/runs/40131174026/jobs --jq '.jobs[] | select(.status == "in_progress") | {id,name,runner_name,labels}'
+{"id":120983011909,"labels":["ubuntu-latest"],"name":"lint","runner_name":"GitHub Actions 1000193441"}
+{"id":120983066194,"labels":["ubuntu-latest"],"name":"lint-web","runner_name":"GitHub Actions 1000193447"}
+
+exit: 0
+
+$ gh api repos/saadshahd/roundup/actions/runs/40131045728/jobs --jq '.jobs[] | select(.status == "in_progress") | {id,name,runner_name,labels}'
+{"id":120982709518,"labels":["ubuntu-latest"],"name":"rust 5","runner_name":"GitHub Actions 1000193425"}
+{"id":120982709530,"labels":["macos-latest"],"name":"mac","runner_name":"GitHub Actions 1000193430"}
+{"id":120982709550,"labels":["ubuntu-latest"],"name":"web 4","runner_name":"GitHub Actions 1000193426"}
+{"id":120982709564,"labels":["ubuntu-latest"],"name":"rust 4","runner_name":"GitHub Actions 1000193432"}
+{"id":120982709569,"labels":["ubuntu-latest"],"name":"web 2","runner_name":"GitHub Actions 1000193427"}
+{"id":120982709573,"labels":["ubuntu-latest"],"name":"rust 1","runner_name":"GitHub Actions 1000193428"}
+{"id":120982709584,"labels":["ubuntu-latest"],"name":"web 1","runner_name":"GitHub Actions 1000193429"}
+{"id":120982709592,"labels":["ubuntu-latest"],"name":"web 7","runner_name":"GitHub Actions 1000193437"}
+{"id":120982709601,"labels":["ubuntu-latest"],"name":"rust 3","runner_name":"GitHub Actions 1000193438"}
+{"id":120982709620,"labels":["ubuntu-latest"],"name":"web 3","runner_name":"GitHub Actions 1000193436"}
+{"id":120982709624,"labels":["ubuntu-latest"],"name":"rust 2","runner_name":"GitHub Actions 1000193433"}
+{"id":120982709672,"labels":["ubuntu-latest"],"name":"web 5","runner_name":"GitHub Actions 1000193434"}
+{"id":120982709683,"labels":["ubuntu-latest"],"name":"web 6","runner_name":"GitHub Actions 1000193435"}
+
+exit: 0
+
+$ gh api repos/saadshahd/roundup/actions/runs/40130690337/jobs --jq '.jobs[] | select(.status == "in_progress") | {id,name,runner_name,labels}'
+{"id":120981675995,"labels":["ubuntu-latest"],"name":"rust 5","runner_name":"GitHub Actions 1000193395"}
+{"id":120981676022,"labels":["ubuntu-latest"],"name":"web 2","runner_name":"GitHub Actions 1000193398"}
+{"id":120981676026,"labels":["ubuntu-latest"],"name":"web 4","runner_name":"GitHub Actions 1000193397"}
+{"id":120981676077,"labels":["ubuntu-latest"],"name":"web 1","runner_name":"GitHub Actions 1000193401"}
+{"id":120981676082,"labels":["ubuntu-latest"],"name":"web 5","runner_name":"GitHub Actions 1000193402"}
+{"id":120981676108,"labels":["ubuntu-latest"],"name":"web 7","runner_name":"GitHub Actions 1000193403"}
+{"id":120981676120,"labels":["ubuntu-latest"],"name":"web 6","runner_name":"GitHub Actions 1000193404"}
+
+exit: 0
+
+$ gh api repos/saadshahd/roundup/actions/runs/40128749271/jobs --jq '.jobs[] | select(.status == "in_progress") | {id,name,runner_name,labels}'
+{"id":120975793987,"labels":["ubuntu-latest"],"name":"fix-run","runner_name":"GitHub Actions 1000193177"}
+
+exit: 0
+
+$ gh api repos/saadshahd/roundup/actions/runs/40125077401/jobs --jq '.jobs[] | select(.status == "in_progress") | {id,name,runner_name,labels}'
+{"id":120964903480,"labels":["ubuntu-latest"],"name":"build #3756 / build","runner_name":"GitHub Actions 1000192777"}
+
+exit: 0
+
