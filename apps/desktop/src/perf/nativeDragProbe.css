@@ -38,13 +38,11 @@
 }
 
 .native-probe-rows [data-probe-dragging] {
-  outline: 1px solid var(--accent);
-  outline-offset: -1px;
+  box-shadow: inset 0 0 0 1px var(--accent);
 }
 
 .native-probe-rows [data-probe-target] {
-  outline: 1px dashed var(--accent);
-  outline-offset: -1px;
+  box-shadow: inset 0 0 0 2px var(--accent);
 }
 
 .native-drag-probe dd {
