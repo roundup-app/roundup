@@ -208,6 +208,9 @@ Available display parts from a closed Agent's saved conversation: coding program
 **Import** (`project.importDiscover`, `project.importCommit`, `ImportPeriod`, `ImportCandidate`, `ImportSelection`, `ImportResult`):
 The user's act of bringing recent top-level Claude Code conversations of the open Project into the Rail as closed work: one Workstream with one closed child Agent each, holding a retained copy of the conversation and no Attempt, Terminal or live Status. A candidate's `revision` binds the confirmation to the records previewed; a conversation already in the Project, imported earlier or since removed is not selectable again. Agents never import. Files come from the Project's current Base, never a recovered historical filesystem.
 
+**Vendor listing sidecar** (`import.list`, `ImportList`, `ImportListed`, `ImportLive`):
+The read-only listing of the Project's saved and live top-level Claude Code sessions, each once with the `revision` an approval binds to. The Adapter runs a bundled Node program with the pinned TypeScript Agent SDK only while a listing runs and reaps it after; opening a Project starts none. A missing or incompatible runtime or CLI is an error naming its cause and recovery, never an empty list.
+
 **Conversation card** (`ConversationCard`, `ConversationOverview.card`):
 The available intent, shape, facts and outcome rebuilt from assistant card blocks, each key from its newest well-formed value. An empty facts list clears older facts and is omitted from the displayed parts.
 

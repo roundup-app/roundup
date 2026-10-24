@@ -7,6 +7,7 @@ impl Module for Agents {
             "agent",
             "rail",
             "project",
+            "import",
             "decision",
             "models",
             "workstream",
@@ -310,6 +311,10 @@ impl Module for Agents {
             "project.setPrepared" => {
                 self.set_prepared(params(value)?).await?;
                 reply(&())
+            }
+            "import.list" => {
+                let params: contracts::project::ImportListParams = params(value)?;
+                reply(&self.import_list(ctx, params).await?)
             }
             "project.importDiscover" => {
                 let params: contracts::project::ImportDiscoverParams = params(value)?;
