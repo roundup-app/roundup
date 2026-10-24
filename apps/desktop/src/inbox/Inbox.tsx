@@ -1,4 +1,4 @@
-import { createMemo, createSignal, For, onCleanup, onMount, Show } from "solid-js";
+import { createEffect, createMemo, createSignal, For, onCleanup, onMount, Show } from "solid-js";
 import type { RailNode } from "@contracts/agent/RailNode";
 import type { UnreadComment } from "@contracts/todo/UnreadComment";
 import { copy } from "../copy";
@@ -95,6 +95,13 @@ export const Inbox = () => {
     return next;
   });
 
+  createEffect(() => {
+    const keys = new Set(rail.nodes.map((node) => `a:${node.id}`));
+
+    setFailures((current) => [...current.keys()].some((key) => !keys.has(key))
+      ? new Map([...current].filter(([key]) => keys.has(key))) : current);
+  });
+
   const fail = (key: string, message: string | null) => setFailures((current) => {
     const next = new Map(current);
 
@@ -108,7 +115,6 @@ export const Inbox = () => {
       if (busy().has(row.key)) return;
 
       flag(row.key, true);
-      fail(row.key, null);
 
       const message = await failureOf(() => app.rpc("agent.resume", { id: row.node.id }));
 
@@ -122,6 +128,7 @@ export const Inbox = () => {
     open: (row) => { rail.select(row.node.id); drawer.close(); },
     busy: (row) => busy().has(row.key),
     failure: (row) => failures().get(row.key) ?? null,
+    dismiss: (row) => { fail(row.key, null); heads.get(row.key)?.focus(); },
   };
 
   // Escape collapses the open row and returns focus to it before the Drawer's own Escape sees the press.

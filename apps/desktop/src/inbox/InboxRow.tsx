@@ -13,6 +13,7 @@ export type RowActions = {
   open(row: AgentRow): void;
   busy(row: AgentRow): boolean;
   failure(row: AgentRow): string | null;
+  dismiss(row: AgentRow): void;
 };
 
 /** U3770b: one Agent's row. Any row opens in place to the Agent's last step and the one action that fits its state. */
@@ -40,7 +41,9 @@ export const InboxRow = (props: { row: AgentRow; open: boolean; toggle(): void; 
         <Collapsible.Content>
           <div class="inbox-body">
             <p class="inbox-step"><span class="light">{copy.inboxLastStep}</span> {node().status?.label}</p>
-            <ReservedLine message={failure()} />
+            <ReservedLine message={failure()}>
+              <button type="button" data-button="quiet" class="word" aria-describedby={name} onClick={() => props.actions.dismiss(props.row)}>{copy.inboxDismiss}</button>
+            </ReservedLine>
           </div>
         </Collapsible.Content>
       </Collapsible.Root>
