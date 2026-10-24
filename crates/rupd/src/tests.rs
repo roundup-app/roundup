@@ -592,3 +592,36 @@ async fn u3808_the_list_reads_recorded_handoffs_without_history_or_touches() {
         list
     );
 }
+
+/// R3696b: the wire reader's actor serves routing, so one write walks its peer's ancestry once.
+#[tokio::test]
+async fn r3696b_write_classifies_its_caller_once() {
+    let (dir, daemon) = daemon();
+    let socket = dir.path().join("rupd.sock");
+    tokio::spawn(serve(
+        UnixListener::bind(&socket).unwrap(),
+        Arc::new(daemon),
+    ));
+    let mut client = BufReader::new(UnixStream::connect(&socket).await.unwrap());
+    let mut call = async |method: &str| {
+        let line = format!(
+            "{{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"{method}\",\"params\":{{\"id\":\"none\",\"data\":\"eA==\"}}}}\n"
+        );
+        client.get_mut().write_all(line.as_bytes()).await.unwrap();
+        let mut reply = String::new();
+        client.read_line(&mut reply).await.unwrap();
+    };
+    // Any one classification of this process is one chain; `agent.stop` classifies once.
+    call("agent.stop").await;
+    let before = agents::parent_lookups();
+    call("terminal.write").await;
+    let write = agents::parent_lookups() - before;
+    let before = agents::parent_lookups();
+    call("agent.stop").await;
+    let chain = agents::parent_lookups() - before;
+    assert!(chain > 0, "no lookups counted for one classification");
+    assert!(
+        write <= chain,
+        "{write} lookups for a write, one chain is {chain}"
+    );
+}
