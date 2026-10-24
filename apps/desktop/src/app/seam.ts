@@ -49,8 +49,6 @@ export type OutputSubscription = { offset: number; release(): Promise<void> };
 
 /** The calls into one Project's Daemon, bound to its path (S8); regions use only these and the choosers. */
 export type ProjectCalls = {
-  /** The proof the App gave the Project's Daemon, which `decision.answer` needs (H4); keep it in memory only. Rejects when the Project is not open and after its Daemon exits. */
-  daemonProof(): Promise<string>;
   rpc<M extends RpcMethodName>(
     method: M,
     params: RpcMethods[M]["params"],
@@ -75,7 +73,6 @@ export const SEAM_COMMANDS = [
   "subscribe",
   "terminal_output",
   "terminal_output_stop",
-  "daemon_proof",
   "open_target",
   "open_in_editor",
   "save_pasted_image",

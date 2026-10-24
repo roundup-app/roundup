@@ -47,7 +47,7 @@ pub struct Continue {
 
 /// A decision as stored.
 #[derive(Clone, Debug, PartialEq, Eq)]
-pub struct Decision {
+pub struct Choice {
     pub id: String,
     pub agent: String,
     pub request: String,
@@ -99,11 +99,11 @@ impl Store {
             .map_err(RpcError::internal)
     }
 
-    fn decision(&self, sql: &str, key: &[&str]) -> Result<Option<Decision>, RpcError> {
+    fn decision(&self, sql: &str, key: &[&str]) -> Result<Option<Choice>, RpcError> {
         let row = self
             .db
             .query_row(sql, rusqlite::params_from_iter(key), |r| {
-                Ok(Decision {
+                Ok(Choice {
                     id: r.get(0)?,
                     agent: r.get(1)?,
                     request: r.get(2)?,
@@ -133,7 +133,7 @@ impl Store {
         agent: &str,
         request: &str,
         payload: &str,
-    ) -> Result<Option<Decision>, RpcError> {
+    ) -> Result<Option<Choice>, RpcError> {
         let stored: Option<String> = self
             .db
             .query_row(
@@ -156,7 +156,7 @@ impl Store {
         }
     }
 
-    fn decision_of(&self, action: &str) -> Result<Option<Decision>, RpcError> {
+    fn decision_of(&self, action: &str) -> Result<Option<Choice>, RpcError> {
         self.decision(
             "SELECT d.id, d.agent, d.request, d.message, d.evidence FROM continuation_decisions d
              JOIN continuation_actions a ON a.decision = d.id WHERE a.action = ?1",
@@ -166,7 +166,7 @@ impl Store {
 
     /// The decision that already accepts every action of `c`, whether by this request, an earlier
     /// one or a reaction firing; `None` when some action is still unaccepted.
-    pub(crate) fn accepted(&self, c: &Continue) -> Result<Option<Decision>, RpcError> {
+    pub(crate) fn accepted(&self, c: &Continue) -> Result<Option<Choice>, RpcError> {
         if let Some(decision) = self.requested(&c.agent, &c.request, &c.payload)? {
             return Ok(Some(decision));
         }
@@ -187,7 +187,7 @@ impl Store {
         self.insert_decision(c, first.message).map(Some)
     }
 
-    fn insert_decision(&self, c: &Continue, message: u32) -> Result<Decision, RpcError> {
+    fn insert_decision(&self, c: &Continue, message: u32) -> Result<Choice, RpcError> {
         let id: String = self
             .db
             .query_row("SELECT lower(hex(randomblob(16)))", [], |r| r.get(0))
@@ -207,7 +207,7 @@ impl Store {
                 )
                 .map_err(|_| RpcError::conflict("an action was accepted by another resume"))?;
         }
-        Ok(Decision {
+        Ok(Choice {
             id,
             agent: c.agent.clone(),
             request: c.request.clone(),
@@ -227,7 +227,7 @@ impl Messages {
     /// rules as any Message from the Daemon. A retry, a fresh request id for an accepted action, a
     /// concurrent observer and a reaction firing of the same action all return the first decision
     /// and its Message; nothing more is sent.
-    pub async fn continue_work(&self, c: Continue) -> Result<(Decision, Message), RpcError> {
+    pub async fn continue_work(&self, c: Continue) -> Result<(Choice, Message), RpcError> {
         if c.actions.is_empty() {
             return Err(RpcError::conflict(
                 "there is no unfinished action to accept",
@@ -266,7 +266,7 @@ impl Messages {
         Ok((decision, message))
     }
 
-    fn accepted_now(&self, c: &Continue) -> Result<Option<(Decision, Message)>, RpcError> {
+    fn accepted_now(&self, c: &Continue) -> Result<Option<(Choice, Message)>, RpcError> {
         let mut store = self.store()?;
         let Some(decision) = store.atomically(|store| store.accepted(c))? else {
             return Ok(None);
@@ -283,7 +283,7 @@ impl Messages {
         agent: &str,
         request: &str,
         payload: &str,
-    ) -> Result<Option<(Decision, Message)>, RpcError> {
+    ) -> Result<Option<(Choice, Message)>, RpcError> {
         let store = self.store()?;
         let Some(decision) = store.requested(agent, request, payload)? else {
             return Ok(None);
@@ -311,7 +311,7 @@ impl Messages {
     }
 
     /// The decision that accepted `action` and the Message it made.
-    pub fn decision_of(&self, action: &str) -> Result<Option<(Decision, Message)>, RpcError> {
+    pub fn decision_of(&self, action: &str) -> Result<Option<(Choice, Message)>, RpcError> {
         let store = self.store()?;
         let Some(decision) = store.decision_of(action)? else {
             return Ok(None);

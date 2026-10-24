@@ -3,7 +3,7 @@
 use std::path::Path;
 /// M5: the methods with a tool for every Agent, each named after its method with the dot replaced
 /// by `_`, bar `agent.setOrder` (O4), whose tool is `agent_set_order`.
-pub const TOOL_METHODS: [&str; 92] = [
+pub const TOOL_METHODS: [&str; 90] = [
     "agent.wake",
     "reaction.create",
     "reaction.preview",
@@ -66,9 +66,6 @@ pub const TOOL_METHODS: [&str; 92] = [
     "agent.setOrder",
     "agent.run",
     "agent.spawn",
-    // H21
-    "decision.list",
-    "decision.answer",
     // M6, M7
     "rail.tree",
     "rail.createWorkstream",
@@ -122,7 +119,7 @@ pub const DOOR_METHODS: [&str; 8] = [
 ];
 
 /// M5: the methods and App commands with no tool; the reasons are in `scenarios/mcp.md`.
-pub const NO_TOOL: [&str; 72] = [
+pub const NO_TOOL: [&str; 66] = [
     // A3308: Auto is the user's choice; Agents read its value through the existing rail_tree tool.
     "workstream.setAuto",
     "rail.list",
@@ -169,14 +166,6 @@ pub const NO_TOOL: [&str; 72] = [
     "agent.brief",
     "agent.channelUp",
     "agent.signal",
-    "agent.permission",
-    // B6: the Daemon captures an original prompt when it holds an action.
-    "decision.capture",
-    // U468: the App reads retained answers for display; Agents act on open Decisions.
-    "decision.answers",
-    // H23: the user withdraws a Grant they gave; no Agent revokes its own permission.
-    "decision.revoke",
-    "agent.ask",
     "agent.skills",
     // O8: the App's Drawer reads the prompt an Agent's spawn gave; the spawning Agent wrote it
     "agent.spawnPrompt",
@@ -202,7 +191,6 @@ pub const NO_TOOL: [&str; 72] = [
     "workstream.clear",
     "close_project",
     "projects",
-    "daemon_proof",
     "open_target",
     "open_in_editor",
     "save_pasted_image",
@@ -273,8 +261,5 @@ pub fn seam_commands() -> Vec<String> {
 
 /// M5, M6: the tools a non-Door Agent is offered.
 pub fn expected_tools() -> Vec<String> {
-    let mut expected: Vec<_> = TOOL_METHODS.iter().map(|m| tool_name(m)).collect();
-    // H14: `ask_user` is the one tool that is not a method's name.
-    expected.push("ask_user".into());
-    expected
+    TOOL_METHODS.iter().map(|m| tool_name(m)).collect()
 }

@@ -3,7 +3,7 @@
 export type TerminalInfo = { id: string, 
 /**
  * Opaque, non-secret identity of this original Terminal; stable until removal, never reused
- * by another Terminal or Project, including after a Daemon restart. Grants no authority.
+ * by another Terminal or Project, including after a Daemon restart. Confers no authority.
  */
 incarnation: string, cwd: string, 
 /**

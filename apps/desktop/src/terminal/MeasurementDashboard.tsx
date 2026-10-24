@@ -19,9 +19,8 @@ const Partial = (props: { note: string }) => <Tip text={props.note}>{(trigger) =
 
 type Category = { key: string; label: string; of: (time: MeasurementTime) => string };
 
-/** The segment order of every row: waiting for the user first, so every wait starts on one baseline. */
+/** The segment order of every row. */
 const order: Category[] = [
-  { key: "human", label: copy.measurementHuman, of: (time) => time.human_ns },
   { key: "tools", label: copy.measurementTools, of: (time) => time.tools_ns },
   { key: "coordination", label: copy.measurementCoordination, of: (time) => time.coordination_ns },
   { key: "execution", label: copy.measurementExecution, of: (time) => time.execution_ns },
