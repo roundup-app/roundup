@@ -94,6 +94,8 @@ import type { WriteParams as pad_WriteParams } from "./pad/WriteParams";
 import type { ImportCommitParams as project_ImportCommitParams } from "./project/ImportCommitParams";
 import type { ImportDiscoverParams as project_ImportDiscoverParams } from "./project/ImportDiscoverParams";
 import type { ImportDiscovery as project_ImportDiscovery } from "./project/ImportDiscovery";
+import type { ImportList as project_ImportList } from "./project/ImportList";
+import type { ImportListParams as project_ImportListParams } from "./project/ImportListParams";
 import type { ImportResult as project_ImportResult } from "./project/ImportResult";
 import type { Mcp as project_Mcp } from "./project/Mcp";
 import type { MeasurementSummary as project_MeasurementSummary } from "./project/MeasurementSummary";
@@ -278,6 +280,7 @@ export type RpcMethods = {
   "project.setPrepared": { params: project_Prepared; result: null };
   "project.getPrepared": { params: null; result: project_Prepared };
   "project.importDiscover": { params: project_ImportDiscoverParams; result: project_ImportDiscovery };
+  "import.list": { params: project_ImportListParams; result: project_ImportList };
   "project.importCommit": { params: project_ImportCommitParams; result: project_ImportResult };
   "project.prepareDirectory": { params: project_PrepareParams; result: null };
   "project.get": { params: null; result: project_ProjectSettings };
