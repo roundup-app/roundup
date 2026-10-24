@@ -967,3 +967,24 @@ fn a3516c_all_profiles_keep_the_renderer_choice() {
         }
     }
 }
+
+#[test]
+fn lc16_no_role_hides_slash_commands() {
+    let roles = agents::claude_code::PROFILES.iter().map(|(role, _)| *role);
+    for role in roles.chain([Role::Agent]) {
+        for pair in [
+            Pair::default(),
+            lean_pair(false, Extras::default()),
+            lean_pair(true, Extras::default()),
+        ] {
+            let s = setup();
+            let argv = s.prepare_lean("7", role, &pair, None).unwrap();
+            assert!(!has(&argv, "--disable-slash-commands"), "{role:?}");
+            assert!(
+                !has(&argv, "--setting-sources")
+                    || Setup::after(&argv, "--setting-sources") != Some(""),
+                "{role:?}"
+            );
+        }
+    }
+}

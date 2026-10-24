@@ -400,17 +400,10 @@ impl Launcher {
             (Some(lean), Role::Agent) if lean.scout => Role::Scout,
             _ => role,
         };
-        let mut delivery = match &lean {
+        let delivery = match &lean {
             Some(lean) => extras::resolve(&self.extras_sources(&project), &lean.extras)?,
             None => extras::Delivery::default(),
         };
-        if lean.is_some() && profile(role).skills {
-            for skill in extras::project_skills(&project) {
-                if !delivery.skills.iter().any(|(name, _)| *name == skill.0) {
-                    delivery.skills.push(skill);
-                }
-            }
-        }
         let mut carried =
             user_settings(&self.conversation_dir, &project).map_err(RpcError::internal)?;
         let missing_intent = self.door_lacks_intent(role, &carried, &project);
@@ -504,20 +497,8 @@ impl Launcher {
                 argv.push("--tools".into());
                 argv.push(if mcp { with } else { without }.into());
             }
-            let skills = !delivery.skills.is_empty();
-            let commands = row
-                .skills
-                .then(|| project.join(".claude/commands"))
-                .filter(|path| path.is_dir());
-            if !row.skills && !skills {
-                argv.push("--disable-slash-commands".into());
-            }
-            if skills || commands.is_some() {
-                let folder = extras::skill_plugin(
-                    &extras_dir(&dir, id),
-                    &delivery.skills,
-                    commands.as_deref(),
-                )?;
+            if !delivery.skills.is_empty() {
+                let folder = extras::skill_plugin(&extras_dir(&dir, id), &delivery.skills)?;
                 argv.extend(["--plugin-dir".into(), folder.to_string_lossy().into_owned()]);
             }
             for plugin in &delivery.plugins {
