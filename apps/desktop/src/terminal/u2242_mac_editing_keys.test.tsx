@@ -74,13 +74,13 @@ it("u2242_every_ctrl_letter_and_symbol_writes_xterms_byte", () => {
   expect(sent).toEqual(Array.from({ length: 26 }, (_, i) => String.fromCharCode(i + 1)));
 });
 
-it("u2242_a_held_key_writes_each_repeat_and_extra_modifiers_write_what_they_did", () => {
-  const held = open();
+it("u2242_a_repeating_key_writes_each_repeat_and_extra_modifiers_write_what_they_did", () => {
+  const kept = open();
 
-  held.press("ArrowLeft", { metaKey: true });
-  held.press("ArrowLeft", { metaKey: true, repeat: true });
-  held.press("ArrowLeft", { metaKey: true, repeat: true });
-  expect(held.sent).toEqual(["\x01", "\x01", "\x01"]);
+  kept.press("ArrowLeft", { metaKey: true });
+  kept.press("ArrowLeft", { metaKey: true, repeat: true });
+  kept.press("ArrowLeft", { metaKey: true, repeat: true });
+  expect(kept.sent).toEqual(["\x01", "\x01", "\x01"]);
 
   const plain = open();
 

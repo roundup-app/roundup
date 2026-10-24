@@ -6,7 +6,6 @@ pub(super) struct State {
     /// E6: how long after a start `agent.channelUp` may take before the Channel is `missing`.
     pub(super) channel_deadline: Duration,
     /// B39: told each submitted prompt; its answer says whether the hook must drop the prompt.
-    pub(super) prompt_observer: std::sync::OnceLock<PromptObserver>,
     /// B50, B51: what the Claude inbox of each Agent is and what its transcript has recorded.
     pub(super) inbox: Arc<InboxState>,
     /// U3780a: the current or last tool call of each Agent.
@@ -39,7 +38,7 @@ impl InboxState {
         let before = facts.insert(agent.to_owned(), state);
         if state == contracts::agent::Inbox::Mismatch && before != Some(state) {
             eprintln!(
-                "agents: Agent {agent}: its Claude Code speaks a messaging protocol this build does not; notes to it are held"
+                "agents: Agent {agent}: its Claude Code speaks a messaging protocol this build does not; notes to it stay pending"
             );
         }
     }
@@ -130,9 +129,6 @@ impl InboxState {
         }
     }
 }
-
-/// B39: `(agent id, submitted prompt)` to whether the prompt repeats Messages already delivered.
-pub type PromptObserver = Arc<dyn Fn(&str, &str) -> bool + Send + Sync>;
 
 impl Shared {
     /// E6: `agent.channelUp` from Agent `id`. Nothing to report when no program of the Agent
@@ -231,7 +227,7 @@ impl Shared {
                     // A21: a Signal naming a conversation of the current Attempt saves it
                     // before being applied; a failed save fails this call, settles the Status
                     // to `error` and stops the Terminal, since `agent.spawn` has already
-                    // returned by the time a Running Agent can reach here (the held window's
+                    // returned by the time a Running Agent can reach here (the parked window's
                     // own save is `finish_starting`'s; A22's resuming is `finish_resuming`'s).
                     if let Observation::Signal(payload) = &observation
                         && let Some(rail) = rail.as_deref_mut()
@@ -267,17 +263,17 @@ impl Shared {
                         first_prompt,
                     )?
                 }
-                // A14: a Signal here is held, in arrival order, for when the Agent is
+                // A14: a Signal here is parked, in arrival order, for when the Agent is
                 // registered, instead of `NOT_FOUND`; anything else cannot arrive this early
                 // (`watch` only starts once the Agent is `Running`).
-                Some(Slot::Starting { held, .. }) => {
+                Some(Slot::Starting { parked, .. }) => {
                     let Observation::Signal(payload) = observation else {
                         return Err(RpcError::not_found(&name));
                     };
-                    hold(id, held, actor, payload);
+                    hold(id, parked, actor, payload);
                     return Ok(None);
                 }
-                // A22: a non-ack Signal is held exactly as `Starting`'s; the ack promotes to
+                // A22: a non-ack Signal is parked exactly as `Starting`'s; the ack promotes to
                 // `Running` and wakes the pending `agent.resume` (`finish_resuming`).
                 Some(Slot::Resuming { starred, .. }) => {
                     if let Observation::Title(title) = &observation {
@@ -374,7 +370,7 @@ impl Shared {
             run.interrupt = None;
         }
         if let Observation::Signal(payload) = &observation {
-            // Announced while `runs` is held, as the Status is, so calls leave in arrival order.
+            // Announced while `runs` is parked, as the Status is, so calls leave in arrival order.
             let mut calls = self
                 .events
                 .tool_calls
@@ -441,7 +437,7 @@ impl Shared {
         {
             rail.set_finished(id, run.adapter.finished())?;
         }
-        // Announced while `runs` is held, so announcements leave in the order the Status
+        // Announced while `runs` is parked, so announcements leave in the order the Status
         // changed; `emit` never blocks.
         if let Some(status) = changed {
             let status = waiting_on(&status, self.wait_of(id));
@@ -541,7 +537,7 @@ pub(super) fn interrupt_bound_from_env() -> Duration {
 }
 
 /// Feed one Terminal's titles and its exit to the Agent behind it, and a Tick at the time its
-/// adapter asks for one. Only a held star asks, so the watcher of an idle Agent never wakes.
+/// adapter asks for one. Only a parked star asks, so the watcher of an idle Agent never wakes.
 pub(super) async fn watch(
     shared: Arc<Shared>,
     id: String,

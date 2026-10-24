@@ -10,10 +10,8 @@ file. What it does comes from the environment, so one script serves every scenar
                            the Brief and the real MCP list stand together
   FAKE_CLAUDE_PROMPT_LOG   a file path (A32): each typed prompt is appended as
                            one JSON line {"resume": whether this run has `--resume`, "prompt": the text}
-  FAKE_CLAUDE_BLOCKED_LOG  a file path (B39): each typed prompt whose UserPromptSubmit hook exited 2 is appended as one
-                           JSON line {"prompt": the text}; Claude Code runs no turn for it, so neither does this
-  FAKE_CLAUDE_HOLD_PROMPT  a file path (B40): a typed prompt that carries Messages is logged, then its UserPromptSubmit waits until the file
-                           exists, as a Daemon that is killed meanwhile never gets that Signal
+  FAKE_CLAUDE_HOLD_PROMPT  a file path (B40): a Message taken from the inbox is logged, then its turn waits until the file
+                           exists, as a Daemon that is killed meanwhile never gets the transcript receipt
   FAKE_CLAUDE_CHILD_PROCESS / FAKE_CLAUDE_DOOR_PROCESS
                            JSON argv (H21): started as a child of this process, with the environment of the `--settings`
                            file added, by a run with no `--tools` in its argv / with it; a process below `claude`
@@ -178,9 +176,6 @@ def play_prompts():
         if "FAKE_CLAUDE_PROMPT_LOG" in os.environ and not inbox:
             with open(os.environ["FAKE_CLAUDE_PROMPT_LOG"], "a") as log:
                 log.write(json.dumps({"resume": "--resume" in sys.argv, "prompt": prompt}) + "\n")
-        gate = os.environ.get("FAKE_CLAUDE_HOLD_PROMPT")
-        while gate and not inbox and "[rup messages: " in prompt and not os.path.exists(gate):
-            time.sleep(0.02)
         if inbox:
             # B50: Claude Code takes a turn on another session's message with no UserPromptSubmit.
             hook("PostToolUse", {"transcript_path": inbox})
@@ -189,9 +184,6 @@ def play_prompts():
         if BLOCKED:
             # B39: the prompt is blocked, so no turn runs and no Stop follows.
             BLOCKED.clear()
-            if "FAKE_CLAUDE_BLOCKED_LOG" in os.environ:
-                with open(os.environ["FAKE_CLAUDE_BLOCKED_LOG"], "a") as log:
-                    log.write(json.dumps({"prompt": prompt}) + "\n")
             return
         hook("Stop")
 

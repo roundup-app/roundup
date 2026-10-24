@@ -169,7 +169,7 @@ impl Agents {
                     prompt,
                     starred: false,
                     terminal_id: None,
-                    held: VecDeque::new(),
+                    parked: VecDeque::new(),
                     done: done_tx,
                 },
             );
@@ -303,9 +303,9 @@ impl Agents {
         } else if let Err(err) = self.shared.resume_effect("claimed", &terminal_id).await {
             self.shared.rollback_resume(id, &attempt, err);
         }
-        // An ack that raced ahead of this very claim (held because the Terminal id was not yet
-        // recorded) is acted on now, rather than left held until the 10 s timeout.
-        self.shared.promote_held_resume_ack(id);
+        // An ack that raced ahead of this very claim (parked because the Terminal id was not yet
+        // recorded) is acted on now, rather than left parked until the 10 s timeout.
+        self.shared.promote_parked_resume_ack(id);
         tokio::spawn(watch(
             Arc::clone(&self.shared),
             id.to_owned(),

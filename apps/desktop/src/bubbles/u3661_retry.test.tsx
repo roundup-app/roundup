@@ -47,7 +47,7 @@ it("u3661_cancelling_another_close_keeps_the_failed_close_retry", async () => {
   expect(screen.getByRole("button", { name: "Retry" })).toBeTruthy();
 });
 
-it("u3661_a_later_failure_replaces_the_held_retry", async () => {
+it("u3661_a_later_failure_replaces_the_earlier_retry", async () => {
   const { app, succeed } = await failTerminalTwo();
   const before = app.handlers["terminal.close"]!;
 

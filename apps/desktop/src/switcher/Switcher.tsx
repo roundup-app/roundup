@@ -8,7 +8,7 @@ import { KindGlyph } from "../ink/KindGlyph";
 import { Combobox } from "../ui/Combobox";
 import { useConnectedProject } from "../state/connectedProject";
 import { captureActions, modalOutside, modalOpen, registerKeys } from "../keys/registry";
-import { leaderChord, SWITCHER_CLOSE, SWITCHER_TAKE } from "../keys/chords";
+import { leaderChord, SWITCHER_CLOSE } from "../keys/chords";
 import { KeyHint } from "../keys/KeyHint";
 import { REVEAL_BUBBLE } from "../bubbles/places";
 import { entriesOf, matching } from "./entries";
@@ -22,9 +22,9 @@ const focusTarget = (): void => {
   target?.focus();
 };
 
-/** U529, U530: leader `K` opens a filter field over the centre pane listing every row by name; `⏎` selects the highlighted one as a click does, `⇧⏎` also takes control of an Agent. `onFailure` gets a failed Takeover's message; `onOpen` runs as it opens, so an overlaid Shelf can close and leave no scrim over it. */
+/** U529, U530: leader `K` opens a filter field over the centre pane listing every row by name; `⏎` selects the highlighted one as a click does. `onFailure` gets a failed selection's message; `onOpen` runs as it opens, so an overlaid Shelf can close and leave no scrim over it. */
 export const Switcher = (props: { onFailure: (message: string | null) => void; onOpen: () => void }) => {
-  const { app, rail, takeover, project, drafts } = useConnectedProject();
+  const { app, rail, project, drafts } = useConnectedProject();
   const [open, setOpen] = createSignal(false);
 
   const destination = { surface: "switcher", object: project.path, recipient: null };
@@ -142,7 +142,7 @@ export const Switcher = (props: { onFailure: (message: string | null) => void; o
     }
   };
 
-  const choose = (entry: Entry, take: boolean): void => {
+  const choose = (entry: Entry): void => {
     close(false);
     props.onFailure(null);
 
@@ -157,16 +157,9 @@ export const Switcher = (props: { onFailure: (message: string | null) => void; o
 
     rail.select(node.id);
     focusTarget();
-
-    if (!take || node.kind !== "agent") return;
-
-    void takeover.begin(node.id).then((failure) => {
-      if (failure !== null) props.onFailure(failure);
-      else focusTarget();
-    });
   };
 
-  const chooseValue = (value: string | null, take: boolean): void => {
+  const chooseValue = (value: string | null): void => {
     const action = opening().actions.find((candidate) => candidate.value === value);
 
     if (action) {
@@ -179,10 +172,8 @@ export const Switcher = (props: { onFailure: (message: string | null) => void; o
 
     const entry = matching(entries(), text()).find((candidate) => candidate.value === value);
 
-    if (entry) choose(entry, take);
+    if (entry) choose(entry);
   };
-
-  const chooseHighlighted = (take: boolean): void => chooseValue(highlighted(), take);
 
   createEffect(() => { if (open() && modalOutside(panel)) close(false); });
 
@@ -200,7 +191,6 @@ export const Switcher = (props: { onFailure: (message: string | null) => void; o
   registerKeys({ kind: "leader" }, [{ chords: leaderChord("K"), run: show }]);
   registerKeys({ kind: "layer", element: () => panel, active: open, modal: true }, [
     { chords: SWITCHER_CLOSE, run: () => close(true) },
-    { chords: SWITCHER_TAKE, run: () => chooseHighlighted(true) },
   ]);
 
   return (
@@ -233,7 +223,7 @@ export const Switcher = (props: { onFailure: (message: string | null) => void; o
             retain();
           });
         }} items={shown()} group={(item) => item.value.startsWith("action:") ? copy.switcherActions : undefined} highlightedValue={highlighted()} onHighlightChange={setHighlighted} onInput={() => {}}
-          onSelect={(value) => chooseValue(value, false)}
+          onSelect={(value) => chooseValue(value)}
           label={copy.switcherLabel} placeholder={copy.switcherPlaceholder} empty={copy.noMatch}
           row={(item) => {
             const action = actions().find((candidate) => candidate.value === item.value);

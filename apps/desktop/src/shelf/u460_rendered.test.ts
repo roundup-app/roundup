@@ -1,10 +1,11 @@
 import { execFile } from "node:child_process";
-import { mkdtempSync, rmSync } from "node:fs";
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { promisify } from "node:util";
 import { expect, it } from "vitest";
 import { appServer } from "../testing/appServer";
+import { captureDir } from "../testing/captures";
 
 const exec = promisify(execFile);
 
@@ -17,8 +18,16 @@ it("u460_rendered_bulk_actions_name_failures", async () => {
   // Shelf.select and createBulkDelete.ask queue their focus microtasks; a render frame follows those microtasks.
   const settle = () => browser("eval", "new Promise(resolve => requestAnimationFrame(() => resolve(true)))");
 
+  const dir = captureDir("P3557c");
+
   try {
-    await browser("set", "viewport", "1280", "800");
+    if (dir) {
+      mkdirSync(dir, { recursive: true });
+      await browser("record", "start", join(dir, "shelf-clearing.webm"));
+    }
+
+    await browser("set", "viewport", "1512", "950");
+    await browser("set", "media", "dark");
     await browser("open", `${server.resolvedUrls.local[0]}harness.html?seed=tree-40`);
     await browser("wait", ".shelf-tabs");
     await evaluate(`(() => { const tab = document.querySelector('#shelf-tab-todos');
@@ -47,7 +56,7 @@ it("u460_rendered_bulk_actions_name_failures", async () => {
     await evaluate(`(() => { document.querySelector('.shelf-bulk button').click(); return true; })()`);
     await settle();
     await evaluate(`(() => { window.__fake.failNext(-32001, 'Injected deletion failure'); window.__question.answer(true); return true; })()`);
-    await browser("wait", "--text", "Could not delete");
+    await browser("wait", ".shelf-bulk [role=alert]");
     await settle();
 
     expect(await evaluate<string>("document.querySelector('.shelf-bulk').textContent")).toContain("Injected deletion failure");
@@ -69,6 +78,33 @@ it("u460_rendered_bulk_actions_name_failures", async () => {
     await settle();
 
     expect(await evaluate<string>("document.querySelector('.shelf-bulk').textContent")).toContain('p'.repeat(120));
+
+    const capture = async (step: string) => {
+      const dir = captureDir("P3557c");
+
+      if (!dir) return;
+      mkdirSync(dir, { recursive: true });
+      await browser("screenshot", join(dir, `${step}.png`));
+      writeFileSync(join(dir, `${step}.checks.json`), JSON.stringify(await evaluate("window.__checks()"), null, 2));
+    };
+
+    await capture("shelf-long-failure");
+    await evaluate(`(() => { document.querySelector('.shelf-bulk .reserved-actions button').click(); return true; })()`);
+    await settle();
+    expect(await evaluate("document.querySelector('.shelf-bulk [role=alert]') === null")).toBe(true);
+    await capture("shelf-dismissed");
+    await evaluate(`(() => { const row = [...document.querySelectorAll('.pad-name')].find(row => row.textContent === 'bulk-pad-2'); row.focus(); row.dispatchEvent(new KeyboardEvent('keydown', { key: 'd', code: 'KeyD', bubbles: true })); return true; })()`);
+    await settle();
+    await evaluate(`(() => { window.__fake.failNext(-32001, 'Deletion refused'); window.__question.answer(true); return true; })()`);
+    await browser("wait", "--text", "Deletion refused");
+    await settle();
+    await capture("shelf-failure");
+    await evaluate(`(async () => { await window.__fake.app.rpc('pad.delete', { name: 'bulk-pad-2' }); return true; })()`);
+    await browser("wait", "--fn", "!document.querySelector('.shelf-bulk [role=alert]')");
+    await settle();
+    await capture("shelf-deleted");
+
+    if (dir) await browser("record", "stop");
   } catch (error) {
     console.error(await browser("errors"));
     console.error(await browser("snapshot", "-i"));

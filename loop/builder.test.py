@@ -164,6 +164,19 @@ CODEX_REFUSED = codex_events('error', end='turn.failed')
 
 
 class Prompt(unittest.TestCase):
+    def test_l23_gh_retries_a_github_5xx_and_never_a_4xx(self):
+        def gh(*replies):
+            return Mock(side_effect=[subprocess.CompletedProcess([], code, out, err) for code, out, err in replies])
+
+        with patch.object(builder.time, 'sleep'), redirect_stderr(io.StringIO()):
+            with patch.object(builder.subprocess, 'run', gh((1, '', 'gh: Server Error (HTTP 502)'), (0, 'ok', ''))) as run:
+                self.assertEqual(builder.call('api', 'x'), 'ok')
+                self.assertEqual(run.call_count, 2)
+            with patch.object(builder.subprocess, 'run', gh((1, '', 'gh: Not Found (HTTP 404)'), (0, 'ok', ''))) as run:
+                with self.assertRaises(subprocess.CalledProcessError):
+                    builder.call('api', 'x')
+                self.assertEqual(run.call_count, 1)
+
     def test_l23_prompt_is_the_role_file_then_the_task(self):
         with tempfile.NamedTemporaryFile('r') as output:
             os.chdir(ROOT)

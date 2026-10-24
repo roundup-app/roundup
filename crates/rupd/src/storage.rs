@@ -45,9 +45,33 @@ fn migrations() -> Vec<M<'static>> {
 /// R3696c: every migration applied to an empty database, built by `build.rs`.
 const FRESH: &[u8] = include_bytes!(concat!(env!("OUT_DIR"), "/fresh.db"));
 
-/// Seeds a Project's own identities, which the image would otherwise share between Projects.
-const REIDENTIFY: &str = "UPDATE deliverable_project SET id=lower(hex(randomblob(16)));
-UPDATE reaction_project SET id=lower(hex(randomblob(16)));";
+/// The ids the image holds in place of a Project's own (`build.rs` writes the same pair); each is
+/// replaced in a copy's bytes, so a fresh start opens no connection to give them values.
+const IDENTITIES: [&[u8; 32]; 2] = [
+    b"00000000000000000000000000000001",
+    b"00000000000000000000000000000002",
+];
+
+/// The image with a new random id where each of `IDENTITIES` stood.
+fn reidentified() -> std::io::Result<Vec<u8>> {
+    let mut random = [0u8; 16 * IDENTITIES.len()];
+    getrandom::fill(&mut random).map_err(|e| std::io::Error::other(e.to_string()))?;
+    let mut image = FRESH.to_vec();
+    for (placeholder, bytes) in IDENTITIES.iter().zip(random.chunks(16)) {
+        let id: String = bytes.iter().map(|byte| format!("{byte:02x}")).collect();
+        let mut found = 0;
+        for at in 0..=image.len() - placeholder.len() {
+            if image[at..at + placeholder.len()] == placeholder[..] {
+                image[at..at + placeholder.len()].copy_from_slice(id.as_bytes());
+                found += 1;
+            }
+        }
+        if found == 0 {
+            return Err(std::io::Error::other("the image holds no placeholder id"));
+        }
+    }
+    Ok(image)
+}
 
 /// A Project without `project.db` starts from the migrated image: a first start skips replaying every migration.
 fn seed_fresh(path: &Path) -> std::io::Result<()> {
@@ -59,15 +83,10 @@ fn seed_fresh(path: &Path) -> std::io::Result<()> {
     for leftover in ["db.new-wal", "db.new-shm"] {
         let _ = std::fs::remove_file(path.with_extension(leftover));
     }
-    std::fs::write(&staging, FRESH)?;
-    let db = Connection::open(&staging).map_err(std::io::Error::other)?;
-    // One sync below makes the image durable; SQLite's own syncs of a throwaway file cost four each.
-    db.pragma_update(None, "synchronous", "OFF")
-        .map_err(std::io::Error::other)?;
-    db.execute_batch(REIDENTIFY)
-        .map_err(std::io::Error::other)?;
-    db.close().map_err(|(_, e)| std::io::Error::other(e))?;
-    std::fs::File::open(&staging)?.sync_all()?;
+    std::fs::write(&staging, reidentified()?)?;
+    // One sync makes the image durable before it is linked. Plain `fsync`, as SQLite issues:
+    // `File::sync_all` is `F_FULLFSYNC` on macOS, several ms of the Daemon's cold start.
+    rustix::fs::fsync(std::fs::File::open(&staging)?)?;
     // A racing opener or an existing file wins; the normal path then migrates it.
     let linked = std::fs::hard_link(&staging, path);
     std::fs::remove_file(&staging)?;
@@ -168,7 +187,17 @@ mod tests {
                 .unwrap()
         };
         for table in ["deliverable_project", "reaction_project"] {
-            assert_ne!(id(a.path(), table), id(b.path(), table));
+            let own = id(a.path(), table);
+            assert_ne!(own, id(b.path(), table));
+            assert!(own.len() == 32 && own.bytes().all(|c| c.is_ascii_hexdigit()));
+        }
+        for placeholder in IDENTITIES {
+            assert!(
+                !std::fs::read(a.path().join("project.db"))
+                    .unwrap()
+                    .windows(32)
+                    .any(|window| window == placeholder)
+            );
         }
     }
 
@@ -662,7 +691,7 @@ mod tests {
         call(
             &daemon,
             "route.set",
-            json!({"from":"you","to":ws,"delivery":"ask-first"}),
+            json!({"from":"you","to":ws,"delivery":"drop"}),
         )
         .await;
         let ctx = Ctx {
@@ -775,7 +804,7 @@ mod tests {
         );
         assert_eq!(
             call(&daemon, "route.list", Json::Null).await[0]["delivery"],
-            "ask-first"
+            "drop"
         );
     }
 

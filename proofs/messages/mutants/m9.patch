@@ -1,5 +1,11 @@
 --- model.bend
 +++ model.bend
-@@ -1,1 +1,1 @@
--          W{List.append(&2, Nat, q, htk), haf, [], t, d, u, tt, rl, n, False{}, False{}, False{}, g}
-+          W{q, haf, htk, t, d, u, tt, rl, n, False{}, False{}, False{}, g}
+@@ -182,7 +182,7 @@
+     case True{}:
+       match s:
+         case W{+q, +t, +d, +u, +n, +i, +g}:
+-          W{q, t, d, u, n, False{}, g}
++          W{[], t, d, u, n, False{}, g}
+     case False{}:
+       match s:
+         case W{+q, +t, +d, +u, +n, +i, +g}:

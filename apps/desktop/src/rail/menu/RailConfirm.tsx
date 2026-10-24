@@ -10,13 +10,13 @@ export const RailConfirm = (props: { menu: RailMenuModel; rowElement: (id: strin
   const current = () => props.menu.state();
 
   const question = () => {
-    const held = current();
-    const removal = held?.removal;
+    const kept = current();
+    const removal = kept?.removal;
 
     return {
-      title: held ? held.action === "stop" ? copy.stopQuestion(held.node.name) : (held.node.kind === "workstream" || held.exit !== null) ? copy.removeQuestion(held.node.name) : copy.stopAndRemoveQuestion(held.node.name) : "",
+      title: kept ? kept.action === "stop" ? copy.stopQuestion(kept.node.name) : (kept.node.kind === "workstream" || kept.exit !== null) ? copy.removeQuestion(kept.node.name) : copy.stopAndRemoveQuestion(kept.node.name) : "",
       message: removal ? [goesLine(removal), ...goingNames(removal), staysLine(removal), ...removal.stays.agents.map(stay => copy.toastLine(stay.name, stay.reason))].filter(Boolean).join("\n") : "",
-      okLabel: held?.action === "stop" ? copy.stop : copy.remove,
+      okLabel: kept?.action === "stop" ? copy.stop : copy.remove,
       cancelLabel: copy.keep,
     };
   };
@@ -27,18 +27,18 @@ export const RailConfirm = (props: { menu: RailMenuModel; rowElement: (id: strin
   return <NativeAlert app={app} open={current()?.confirming === true && current()?.removal !== null}
     question={question()}
     onConfirm={() => {
-      const held = current();
-      removedFromKeyboard = held?.action === "remove" && held.removed !== undefined;
-      target = held ? props.rowElement(held.node.id) ?? null : null;
+      const kept = current();
+      removedFromKeyboard = kept?.action === "remove" && kept.removed !== undefined;
+      target = kept ? props.rowElement(kept.node.id) ?? null : null;
 
-      if (held?.action === "stop") return props.menu.chooseStop();
+      if (kept?.action === "stop") return props.menu.chooseStop();
 
       return props.menu.chooseRemove();
     }}
     onCancel={() => {
-      const held = current();
+      const kept = current();
       removedFromKeyboard = false;
-      target = held ? props.rowElement(held.node.id) ?? null : null;
+      target = kept ? props.rowElement(kept.node.id) ?? null : null;
       props.menu.close();
     }}
     finalFocus={() => removedFromKeyboard ? props.rowElement(rail.selected() ?? "") ?? null : target?.isConnected ? target : null} />;

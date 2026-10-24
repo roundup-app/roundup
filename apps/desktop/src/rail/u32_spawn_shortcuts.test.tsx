@@ -8,7 +8,7 @@ afterEach(cleanup);
 
 const SPAWNED = agent("fresh", "idle", "starting");
 
-const chord = (key: string, held: KeyboardEventInit = { metaKey: true }) => fireEvent.keyDown(document, { key, ...held });
+const chord = (key: string, kept: KeyboardEventInit = { metaKey: true }) => fireEvent.keyDown(document, { key, ...kept });
 
 const spawnCalls = (mounted: Awaited<ReturnType<typeof mountRail>>) => railCallsTo(mounted.app, "agent.spawn");
 
@@ -61,11 +61,11 @@ describe("u32 spawn shortcuts and pinned actions", () => {
     ["alt", { altKey: true }],
     ["cmd and ctrl", { metaKey: true, ctrlKey: true }],
     ["cmd and alt", { metaKey: true, altKey: true }],
-  ])("u32_a_plain_n_or_t_spawns_nothing_%s", async (_, held) => {
+  ])("u32_a_plain_n_or_t_spawns_nothing_%s", async (_, kept) => {
     const mounted = await mountRail([workstream("g")]);
 
-    chord("n", held);
-    chord("t", held);
+    chord("n", kept);
+    chord("t", kept);
     await Promise.resolve();
 
     expect(spawnCalls(mounted)).toEqual([]);

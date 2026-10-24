@@ -1,5 +1,0 @@
---- model.bend
-+++ model.bend
-@@ -1,1 +1,1 @@
--      send_route(fu, Bool.or(tk, us), W{q, haf, htk, t, d, u, tt, rl, n, tk, us, i, g})
-+      send_route(fu, tk, W{q, haf, htk, t, d, u, tt, rl, n, tk, us, i, g})

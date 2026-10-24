@@ -25,7 +25,6 @@ mod reaction;
 mod reaction_checks;
 mod reaction_time;
 mod removal;
-mod resize;
 mod resources;
 mod resume;
 mod rewind;
@@ -38,7 +37,6 @@ mod wake;
 
 pub use connection::serve;
 use connection::{Frame, failure};
-use guards::is_child_read;
 use observers::{
     messages_env, resume_effect_observer, steer_effect_observer, terminal_exit_observer,
     terminal_input_observer,
@@ -68,19 +66,12 @@ pub struct Daemon {
     bus: Bus,
     todos: Arc<todos::Todos>,
     pads: Arc<pads::Pads>,
-    /// B6: spawn publication and its Door-owned first Steer are registered together.
-    door_first_steers: Arc<tokio::sync::Mutex<HashMap<String, String>>>,
-    held_actions: resize::HeldActions,
     /// LC12–LC13: lookup and replacement share one claim, including while a summary is pending.
     specialists: tokio::sync::Mutex<HashMap<(String, String), Specialist>>,
-    /// B6: Takeover acquisition excludes in-flight Door effects on this child.
-    child_effects: std::sync::Mutex<HashMap<String, std::sync::Weak<tokio::sync::RwLock<()>>>>,
     /// A31: the Project folder, where the Skills of an Agent with no Worktree are read.
     project: std::path::PathBuf,
     /// LK1: the Project's key, the name of its data folder (`data::project_data`).
     project_key: String,
-    /// R16: the `daemon.ping` reply, written once: it holds every method name and nothing in it changes.
-    ping: std::sync::OnceLock<String>,
     touches: Arc<Touches>,
     /// B19: which Pads each Door's earlier digests already named.
     digests: Arc<messages::digest::Seen>,
@@ -116,7 +107,7 @@ pub struct Daemon {
     resources: resources::Sampler,
     publications: deliverables::Publications,
     reactions: Arc<reaction::Reactions>,
-    /// B6's isolated observer pauses a Door action or guarded call before its effect; absent in production.
+    /// An isolated observer pauses a guarded call before its effect; absent in production.
     prompt_effect_gate: Option<std::path::PathBuf>,
 }
 

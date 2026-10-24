@@ -139,11 +139,11 @@ export const Todos = (props: {
       return !!todo && !closedGroups().includes(groupOf(todo));
     },
     focusAfterClose: hidden => {
-      const held = document.activeElement?.closest<HTMLElement>("[data-todo]");
+      const kept = document.activeElement?.closest<HTMLElement>("[data-todo]");
 
-      if (!held || !hidden.has(Number(held.dataset.todo))) return;
+      if (!kept || !hidden.has(Number(kept.dataset.todo))) return;
       const order = dependencyRows().map(row => row.todo.id);
-      const at = order.indexOf(Number(held.dataset.todo));
+      const at = order.indexOf(Number(kept.dataset.todo));
 
       queueMicrotask(() => {
         const active = document.activeElement;
@@ -164,7 +164,7 @@ export const Todos = (props: {
   });
 
   // U3770: a Todo ticked in the open list stays in it, drawn done, until its motion ends, then moves to the done fold.
-  const held = (todo: Todo) => todo.done && finishing.row(todo.id);
+  const finishingRow = (todo: Todo) => todo.done && finishing.row(todo.id);
 
   const listed = createMemo(() => {
     const order = finishing.order();
@@ -346,7 +346,7 @@ export const Todos = (props: {
     if (!skipRefocus && id !== undefined) queueMicrotask(() => rowButtonOf(id)?.focus());
   };
 
-  // U3720: a chosen Todo moves to its new group's row once `todo.updated` has refetched, which replaces the row that held focus.
+  // U3720: a chosen Todo moves to its new group's row once `todo.updated` has refetched, which replaces the row that had focus.
   const [naming, setNaming] = createSignal<number | null>(null);
 
   const { revealed, arrivals, setRevealed, setRegrouped, assign } = createOwnerAssignment({
@@ -375,7 +375,7 @@ export const Todos = (props: {
   };
 
   // U138: a completed Todo leaves the open list only once its `todo.updated` Event has refetched it, so the row to focus
-  // is held here until this list no longer carries `id`, then it is given to that target, else to the `+` button — but
+  // is saved here until this list no longer carries `id`, then it is given to that target, else to the `+` button — but
   // only while focus is still unclaimed (null or the page body), so a request that outlives the user moving focus
   // elsewhere (typing in U16's field, Tab into the pane) never yanks it back.
   const [awaitingFocus, setAwaitingFocus] = createSignal<{ id: number; target: number | null; reopening: boolean }[]>([]);
@@ -596,9 +596,9 @@ export const Todos = (props: {
       // Ark reconciles regrouped trees and dismisses the picker before the next paint.
       requestAnimationFrame(() => {
         if (!triage.on() || !section?.isConnected || todos.failure() !== null) return;
-        const held = document.activeElement;
+        const kept = document.activeElement;
 
-        if (held instanceof Element && held !== document.body && !held.closest(".todos-tab, .owner-picker, .todo-comment-field, .todo-comments-send")) return;
+        if (kept instanceof Element && kept !== document.body && !kept.closest(".todos-tab, .owner-picker, .todo-comment-field, .todo-comments-send")) return;
         const visible = triageButtons();
         const next = candidates.map(candidate => visible.find(button => idOfRow(button) === candidate)).find(button => button !== undefined);
         (next ?? triageButton())?.focus();
@@ -622,15 +622,15 @@ export const Todos = (props: {
 
   const enterTriage = () => {
     const buttons = triageButtons();
-    const held = idOfRow(document.activeElement);
-    const start = held !== undefined && todos.byId().get(held)?.done === false ? triageRowOf(held) : buttons[0] ?? null;
+    const kept = idOfRow(document.activeElement);
+    const start = kept !== undefined && todos.byId().get(kept)?.done === false ? triageRowOf(kept) : buttons[0] ?? null;
 
     entry = { id: idOfRow(start), order: buttons.map(idOfRow) };
     triage.set(true);
     (start ?? triageButton())?.focus();
   };
 
-  /** U3751: the row that held focus at entry, else the nearest open one in the order the list had then. */
+  /** U3751: the row that had focus at entry, else the nearest open one in the order the list had then. */
   const leaveTriage = () => {
     const kept = entry;
 
@@ -912,7 +912,7 @@ export const Todos = (props: {
         <Show when={wasDoneUnfolded()}>
           <div class="todo-done-fold" data-open={unfolded()} data-reduced-motion={connected.reducedMotion()} inert={!unfolded()}>
             <div class="todo-done-content">
-            <For each={foldedDone().filter((todo) => !held(todo))}>
+            <For each={foldedDone().filter((todo) => !finishingRow(todo))}>
               {(todo) => (
                 <OpenRow
                   todo={todo}

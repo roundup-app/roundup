@@ -200,7 +200,7 @@ const createNotes = (firstApp: AppSeam, project: string, storage: ReturnType<typ
     const current = recipient(id);
 
     retain(id, { ...current, notes: current.notes.filter(note => !revisions.has(note.revision)), submissions: current.submissions.filter(value => value.revision !== submission.revision) });
-    putState(id, { kind: "idle", text: message.status === "held" ? copy.notesHeld : message.status === "pending" ? copy.notesQueued : copy.notesAccepted(message.status) });
+    putState(id, { kind: "idle", text: message.status === "pending" ? copy.notesQueued : copy.notesAccepted(message.status) });
   };
 
   const settle = (id: string, submission: Submission, status: "failed" | "unknown", text: string, item = true) => {

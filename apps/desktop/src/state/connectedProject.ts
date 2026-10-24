@@ -23,10 +23,8 @@ import type { TimelineLog } from "../timeline/log";
 import type { QueueView } from "./queue";
 import { createSettingsView } from "./settingsView";
 import type { SettingsViewState } from "./settingsView";
-import { createTakeover } from "./takeover";
 import { createNoteQueue } from "./noteQueue";
 import type { NoteQueue } from "./noteQueue";
-import type { TakeoverState } from "./takeover";
 import type { RailStorage } from "../rail/persist/storage";
 import type { RailState } from "./rail";
 
@@ -138,8 +136,6 @@ export type ConnectedProject = {
   drawer: DrawerState;
   /** U504: the Asks the user sent and where each part went. */
   asks: AsksState;
-  /** U187: the Takeover the user holds. */
-  takeover: TakeoverState;
   /** U3780: the notes waiting for each Agent. */
   notes: NoteQueue;
   /** U3764: the Project settings view in the centre. */
@@ -215,9 +211,8 @@ export const connectProject = async (
   importing.reconnect(app, onImported);
   drafts.importing = importing;
 
-  const takeover = createTakeover(app, events, daemonExit);
 
-  return { project, drafts, app, events, rail, unseen, queue, timeline, importing, worktrees: createWorktreeState(app, rail, now, daemonExit), drawer: createDrawer(), asks: createAsks(app, events), takeover, settingsView: drafts.settingsView, notes: createNoteQueue(app, events, reducedMotion, daemonExit), reducedMotion, now, contractNotice, daemonExit, stopTerminalScheme: () => { timeline.stop(); stopQueue(); stopUnseen(); stopTerminalScheme(); } };
+  return { project, drafts, app, events, rail, unseen, queue, timeline, importing, worktrees: createWorktreeState(app, rail, now, daemonExit), drawer: createDrawer(), asks: createAsks(app, events), settingsView: drafts.settingsView, notes: createNoteQueue(app, events, daemonExit), reducedMotion, now, contractNotice, daemonExit, stopTerminalScheme: () => { timeline.stop(); stopQueue(); stopUnseen(); stopTerminalScheme(); } };
 };
 
 /** App-run authority for owners outside a connection, including Project tabs.

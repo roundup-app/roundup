@@ -7,24 +7,24 @@ afterEach(cleanup);
 
 const REPEATS = 20;
 
-const press = (key: string, held: KeyboardEventInit) =>
-  fireEvent.keyDown(document, { key, ...held });
+const press = (key: string, kept: KeyboardEventInit) =>
+  fireEvent.keyDown(document, { key, ...kept });
 
 const tick = () => new Promise((resolve) => setTimeout(resolve, 0));
 
 /** The key goes down, then repeats at the keyboard's rate: the previous spawn call has answered before each repeat. */
-const hold = async (key: string, held: KeyboardEventInit) => {
-  press(key, held);
+const hold = async (key: string, kept: KeyboardEventInit) => {
+  press(key, kept);
 
   for (let i = 0; i < REPEATS; i++) {
     await tick();
-    press(key, { ...held, repeat: true });
+    press(key, { ...kept, repeat: true });
   }
 
   await tick();
 };
 
-describe("u32 a held chord spawns once", () => {
+describe("u32 a repeated chord spawns once", () => {
   it("u32_holding_cmd_n_spawns_one_agent_not_one_per_key_repeat", async () => {
     const mounted = await mountRail([workstream("g")]);
     mounted.app.handlers["agent.spawn"] = () =>

@@ -1,12 +1,12 @@
 //! B6's Agent prerequisite: real Daemon, fake Claude and its recorded Terminal input.
+#[path = "support/child_run.rs"]
+mod child_run;
 #[path = "support/door_terminals.rs"]
 mod door_terminals;
 #[path = "support/rupd_harness.rs"]
 mod rupd_harness;
-#[path = "support/takeover_run.rs"]
-mod takeover_run;
+use child_run::BOUND;
 use door_terminals::{idle, order_child, order_result, ordered_ask, recorded_bytes};
-use takeover_run::BOUND;
 
 use serde_json::json;
 use std::sync::Arc;

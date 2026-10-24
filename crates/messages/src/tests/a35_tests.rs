@@ -1,4 +1,10 @@
 use super::*;
+use super::{FakeInbox, GatedInbox, attach_inbox, fake_inbox};
+
+/// The bodies written to the inbox, in order.
+fn texts(inbox: &FakeInbox) -> Vec<String> {
+    inbox.typed().into_iter().map(|t| t.1).collect()
+}
 
 #[tokio::test]
 async fn a35_reserved_messages_wait_for_the_next_attempt_release() {
@@ -8,13 +14,8 @@ async fn a35_reserved_messages_wait_for_the_next_attempt_release() {
         ..agent_node("door", Kind::Working)
     }]);
     let bus = Bus::new();
-    let typed: Arc<StdMutex<Vec<String>>> = Arc::default();
-    let seen = typed.clone();
-    let deliver: Deliver = Arc::new(move |_, text| {
-        seen.lock().unwrap().push(shown(text));
-        Box::pin(async { Ok(()) })
-    });
-    let m = Messages::open(dir.path(), bus.clone(), rail.clone(), deliver).unwrap();
+    let m = Messages::open(dir.path(), bus.clone(), rail.clone()).unwrap();
+    let inbox = attach_inbox(&m, true);
     let ctx = Ctx {
         actor: Actor::user(),
         bus,
@@ -38,10 +39,10 @@ async fn a35_reserved_messages_wait_for_the_next_attempt_release() {
     };
     *rail.0.lock().unwrap() = vec![next];
     m.reserve_restart("door", "rewind-c", None).await.unwrap();
-    assert!(typed.lock().unwrap().is_empty());
+    assert!(inbox.written().is_empty());
     m.release_restart("door", "rewind-c", "2").await.unwrap();
     m.release_restart("door", "rewind-c", "2").await.unwrap();
-    assert_eq!(*typed.lock().unwrap(), vec!["[from you, note] queued"]);
+    assert_eq!(texts(&inbox), ["queued"]);
     assert_eq!(
         m.thread("door").unwrap()[0].status,
         MessageStatus::Delivered
@@ -52,7 +53,7 @@ struct RestartHarness {
     messages: Messages,
     rail: Arc<FakeRail>,
     ctx: Ctx,
-    typed: Arc<StdMutex<Vec<String>>>,
+    inbox: Arc<FakeInbox>,
     fail: Arc<StdMutex<Option<String>>>,
 }
 
@@ -66,12 +67,6 @@ impl RestartHarness {
             agent_node("skipped", Kind::Working),
         ]);
         let bus = Bus::new();
-        let typed: Arc<StdMutex<Vec<String>>> = Arc::default();
-        let seen = typed.clone();
-        let deliver: Deliver = Arc::new(move |_, text| {
-            seen.lock().unwrap().push(shown(text));
-            Box::pin(async { Ok(()) })
-        });
         let fail: Arc<StdMutex<Option<String>>> = Arc::default();
         let failing = fail.clone();
         let touches = Arc::new(Touches::open(&dir.join("touches.db")).unwrap());
@@ -90,7 +85,8 @@ impl RestartHarness {
                 }
             }),
         };
-        let messages = Messages::open_with(dir, bus.clone(), rail.clone(), deliver, env).unwrap();
+        let messages = Messages::open_with(dir, bus.clone(), rail.clone(), env).unwrap();
+        let inbox = attach_inbox(&messages, true);
         Self {
             messages,
             rail,
@@ -99,7 +95,7 @@ impl RestartHarness {
                 bus,
                 touches,
             },
-            typed,
+            inbox,
             fail,
         }
     }
@@ -164,35 +160,13 @@ impl RestartHarness {
 }
 
 #[tokio::test]
-async fn a35_restart_keeps_holds_and_b7_order() {
+async fn a35_restart_keeps_b7_order() {
     let dir = tempfile::tempdir().unwrap();
     let h = RestartHarness::new(dir.path());
-    let pending = h.send(Actor::user(), "door", "first").await;
-    h.call(
-        "route.set",
-        json!({"from":"a","to":"door","delivery":"ask-first"}),
-    )
-    .await;
-    let ask = h.send(agent("a"), "door", "ask").await;
-    h.call("takeover.begin", json!({"agent":"door"})).await;
-    let held = h.send(agent("b"), "door", "held").await;
-    h.call("message.deliver", json!({"id":pending.id})).await;
-    assert_eq!(
-        h.messages
-            .thread("door")
-            .unwrap()
-            .iter()
-            .map(|m| (m.status, m.reason))
-            .collect::<Vec<_>>(),
-        vec![
-            (MessageStatus::Pending, None),
-            (MessageStatus::Held, Some(Reason::AskFirst)),
-            (MessageStatus::Held, Some(Reason::Takeover))
-        ]
-    );
+    let first = h.send(Actor::user(), "door", "first").await;
+    let second = h.send(agent("a"), "door", "second").await;
+    let third = h.send(agent("b"), "door", "third").await;
     h.messages.reserve_restart("door", "c", None).await.unwrap();
-    // Consent is the coordinator's responsibility: it explicitly ends a chosen Takeover.
-    h.call("takeover.end", json!({"agent":"door"})).await;
     h.rail.0.lock().unwrap()[0] = agent_node("door", Kind::Error);
     h.status("1", "3", Kind::Error).await;
     h.next();
@@ -206,38 +180,30 @@ async fn a35_restart_keeps_holds_and_b7_order() {
             .map(|m| (m.id, m.status, m.reason))
             .collect::<Vec<_>>(),
         vec![
-            (pending.id, MessageStatus::Pending, None),
-            (ask.id, MessageStatus::Held, Some(Reason::AskFirst)),
-            (held.id, MessageStatus::Pending, None)
+            (first.id, MessageStatus::Pending, None),
+            (second.id, MessageStatus::Pending, None),
+            (third.id, MessageStatus::Pending, None)
         ]
     );
-    assert!(h.typed.lock().unwrap().is_empty());
+    assert!(h.inbox.written().is_empty());
     h.messages.release_restart("door", "c", "2").await.unwrap();
-    assert_eq!(
-        *h.typed.lock().unwrap(),
-        vec!["[from you, note] first\n\n[from an Agent that is gone, note] held"]
-    );
-    assert_eq!(
-        h.messages.thread("door").unwrap()[1].reason,
-        Some(Reason::AskFirst)
-    );
+    assert_eq!(h.inbox.written(), [first.id, second.id, third.id]);
 }
 
 #[tokio::test]
-async fn a35_skipped_takeover_is_untouched() {
+async fn a35_a_skipped_agents_pending_message_is_untouched() {
     let dir = tempfile::tempdir().unwrap();
     let h = RestartHarness::new(dir.path());
-    h.call("takeover.begin", json!({"agent":"skipped"})).await;
-    let held = h.send(agent("a"), "skipped", "wait").await;
+    let waiting = h.send(agent("a"), "skipped", "wait").await;
     h.messages.reserve_restart("door", "c", None).await.unwrap();
     h.next();
     h.messages.release_restart("door", "c", "2").await.unwrap();
-    assert!(h.messages.takeover_active("skipped"));
     let saved = h.messages.thread("skipped").unwrap();
-    assert_eq!(saved[0].id, held.id);
-    assert_eq!(saved[0].status, MessageStatus::Held);
-    assert_eq!(saved[0].reason, Some(Reason::Takeover));
-    assert!(h.typed.lock().unwrap().is_empty());
+    assert_eq!(
+        (saved[0].id, saved[0].status),
+        (waiting.id, MessageStatus::Pending)
+    );
+    assert!(h.inbox.written().is_empty());
 }
 
 #[tokio::test]
@@ -288,7 +254,7 @@ async fn a35_first_prompt_recording_retries_without_a_second_note_or_steer() {
     assert_eq!(note.status, MessageStatus::Delivered);
     assert_eq!(note.body, "rewound c");
     assert_eq!(h.ctx.touches.history(&item(note.id)).unwrap().len(), 1);
-    assert!(h.typed.lock().unwrap().is_empty());
+    assert!(h.inbox.written().is_empty());
 }
 
 // Event ordering is the subject; SQLite work after overflow must not consume the hang guard.
@@ -309,11 +275,11 @@ async fn a35_lag_resync_preserves_reserved_messages() {
         h.messages.thread("door").unwrap()[0].status,
         MessageStatus::Pending
     );
-    assert!(h.typed.lock().unwrap().is_empty());
+    assert!(h.inbox.written().is_empty());
     h.next();
     h.messages.release_restart("door", "c", "2").await.unwrap();
     h.status("1", "99", Kind::Done).await;
-    assert_eq!(*h.typed.lock().unwrap(), vec!["[from you, note] queued"]);
+    assert_eq!(texts(&h.inbox), ["queued"]);
     assert_eq!(
         h.messages.thread("door").unwrap()[0].status,
         MessageStatus::Delivered
@@ -321,7 +287,7 @@ async fn a35_lag_resync_preserves_reserved_messages() {
 }
 
 #[test]
-fn a35_daemon_death_replays_held_messages_and_the_acknowledged_note() {
+fn a35_daemon_death_replays_queued_messages_and_the_acknowledged_note() {
     let dir = tempfile::tempdir().unwrap();
     let h = RestartHarness::new(dir.path());
     let first = tokio::runtime::Builder::new_current_thread()
@@ -330,12 +296,6 @@ fn a35_daemon_death_replays_held_messages_and_the_acknowledged_note() {
         .unwrap();
     first.block_on(async {
         h.send(Actor::user(), "door", "queue").await;
-        h.call("takeover.begin", json!({"agent":"door"})).await;
-        h.call(
-            "route.set",
-            json!({"from":"a","to":"door","delivery":"ask-first"}),
-        )
-        .await;
         h.send(agent("a"), "door", "ask").await;
         h.messages
             .reserve_restart("door", "c", Some("rewound"))
@@ -389,20 +349,17 @@ fn a35_daemon_death_replays_held_messages_and_the_acknowledged_note() {
                 .collect::<Vec<_>>(),
             vec![
                 (MessageStatus::Delivered, None),
-                (MessageStatus::Held, Some(Reason::AskFirst)),
+                (MessageStatus::Delivered, None),
                 (MessageStatus::Delivered, None)
             ]
         );
-        assert_eq!(
-            *recovered.typed.lock().unwrap(),
-            vec!["[from you, note] queue"]
-        );
+        assert_eq!(texts(&recovered.inbox), ["queue", "ask"]);
         recovered
             .messages
             .release_restart("door", "c", "3")
             .await
             .unwrap();
-        assert_eq!(recovered.typed.lock().unwrap().len(), 1);
+        assert_eq!(recovered.inbox.written().len(), 2);
     });
 }
 
@@ -440,7 +397,7 @@ async fn a35_failure_retains_the_same_retry_and_rejects_another_key() {
         .await
         .unwrap();
     h.messages.release_restart("door", "c", "2").await.unwrap();
-    assert_eq!(*h.typed.lock().unwrap(), vec!["[from you, note] queued"]);
+    assert_eq!(texts(&h.inbox), ["queued"]);
     h.rail.0.lock().unwrap()[0] = agent_node("door", Kind::Done);
     h.messages.release_restart("door", "c", "2").await.unwrap();
     h.messages
@@ -448,7 +405,7 @@ async fn a35_failure_retains_the_same_retry_and_rejects_another_key() {
         .await
         .unwrap();
     assert_eq!(h.messages.thread("door").unwrap().len(), 2);
-    assert_eq!(h.typed.lock().unwrap().len(), 1);
+    assert_eq!(h.inbox.written().len(), 1);
 }
 
 #[tokio::test]
@@ -464,35 +421,7 @@ async fn a35_final_removal_still_drops_reserved_pending_messages() {
     assert_eq!(message.status, MessageStatus::Dropped);
     assert_eq!(message.reason, Some(Reason::ReceiverGone));
     assert!(h.messages.release_restart("door", "c", "2").await.is_err());
-    assert!(h.typed.lock().unwrap().is_empty());
-}
-
-#[tokio::test]
-async fn a35_temporary_statuses_preserve_takeover_held_reasons() {
-    let dir = tempfile::tempdir().unwrap();
-    let h = RestartHarness::new(dir.path());
-    h.call("takeover.begin", json!({"agent":"door"})).await;
-    let held = h.send(agent("a"), "door", "held").await;
-    h.messages.reserve_restart("door", "c", None).await.unwrap();
-    h.status("1", "2", Kind::Done).await;
-    h.status("1", "3", Kind::Error).await;
-    h.next();
-    h.status("2", "2", Kind::Idle).await;
-    let before = h.messages.thread("door").unwrap();
-    assert_eq!(before[0].id, held.id);
-    assert_eq!(before[0].status, MessageStatus::Held);
-    assert_eq!(before[0].reason, Some(Reason::Takeover));
-    assert!(h.messages.takeover_active("door"));
-    h.messages.release_restart("door", "c", "2").await.unwrap();
-    h.status("1", "99", Kind::Done).await;
-    assert!(h.messages.takeover_active("door"));
-    assert_eq!(h.messages.thread("door").unwrap(), before);
-    assert!(h.typed.lock().unwrap().is_empty());
-    h.call("takeover.end", json!({"agent":"door"})).await;
-    assert_eq!(
-        *h.typed.lock().unwrap(),
-        vec!["[from an Agent that is gone, note] held"]
-    );
+    assert!(h.inbox.written().is_empty());
 }
 
 #[tokio::test]
@@ -562,10 +491,7 @@ async fn a35_a_question_waits_through_restart() {
     let after = h.messages.thread("door").unwrap();
     assert_eq!(after.len(), 1);
     assert_eq!(after[0].status, MessageStatus::Delivered);
-    assert_eq!(
-        *h.typed.lock().unwrap(),
-        vec!["[from an Agent that is gone, question] which?"]
-    );
+    assert_eq!(texts(&h.inbox), ["which?"]);
 }
 
 #[tokio::test]
@@ -583,23 +509,20 @@ async fn reservation_waits_for_prompt(retiring: bool) {
     let rail = FakeRail::new(vec![agent_node("door", Kind::Working)]);
     let bus = Bus::new();
     let entered = Arc::new(tokio::sync::Notify::new());
-    let (finish, finished) = tokio::sync::oneshot::channel();
-    let finished = Arc::new(StdMutex::new(Some(finished)));
-    let entered_delivery = entered.clone();
-    let deliver: Deliver = Arc::new(move |_, _| {
-        let finished = finished.lock().unwrap().take().unwrap();
-        entered_delivery.notify_one();
-        Box::pin(async move {
-            finished.await.unwrap();
-            Ok(())
-        })
-    });
-    let messages = Messages::open(dir.path(), bus.clone(), rail.clone(), deliver).unwrap();
+    let finish = Arc::new(tokio::sync::Notify::new());
+    let messages = Messages::open(dir.path(), bus.clone(), rail.clone()).unwrap();
+    messages.set_inbox(Arc::new(GatedInbox {
+        inbox: fake_inbox(&messages, true),
+        entered: entered.clone(),
+        release: finish.clone(),
+    }));
     let ctx = Ctx {
         actor: Actor::user(),
         bus: bus.clone(),
         touches: Arc::new(Touches::in_memory().unwrap()),
     };
+    // The send's own inbox check passes through the gate; the `idle` delivery's check waits.
+    finish.notify_one();
     messages
         .call(
             &ctx,
@@ -608,6 +531,7 @@ async fn reservation_waits_for_prompt(retiring: bool) {
         )
         .await
         .unwrap();
+    entered.notified().await;
     bus.emit(
         Actor::daemon(),
         EventData::AgentStatus(Box::new(contracts::agent::StatusEvent {
@@ -640,7 +564,7 @@ async fn reservation_waits_for_prompt(retiring: bool) {
             .await
             .is_err()
     );
-    finish.send(()).unwrap();
+    finish.notify_one();
     reservation.await.unwrap();
     assert_eq!(
         messages.thread("door").unwrap()[0].status,
@@ -679,7 +603,7 @@ async fn a35_acknowledged_first_prompt_can_be_recorded_after_its_attempt_stopped
         note
     );
     assert_eq!(h.messages.thread("door").unwrap().len(), 1);
-    assert!(h.typed.lock().unwrap().is_empty());
+    assert!(h.inbox.written().is_empty());
 }
 
 mod retirement;

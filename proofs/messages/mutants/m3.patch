@@ -1,5 +1,0 @@
---- model.bend
-+++ model.bend
-@@ -1,1 +1,1 @@
--      W{keep_users(q, []), haf, List.append(&2, Nat, htk, drop_users(q, [])), t, d, u, tt, rl, n, True{}, us, i, g}
-+      W{q, haf, htk, t, d, u, tt, rl, n, True{}, us, i, g}

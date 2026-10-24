@@ -234,15 +234,8 @@ async fn b55_a_restart_and_start_door_still_holds_no_word() {
 }
 
 #[tokio::test]
-async fn b55_pending_held_and_waiting_messages_of_the_old_iteration_are_not_replayed() {
+async fn b55_pending_messages_of_the_old_iteration_are_not_replayed() {
     let mut w = Fresh::start().await;
-    w.client
-        .request(
-            "route.set",
-            json!({"from": "you", "to": w.door, "delivery": "ask-first"}),
-        )
-        .await
-        .unwrap();
     w.ask(false).await;
     w.clear("Build the login page.").await;
     w.word_free();
