@@ -15,8 +15,16 @@
 
 /* U3800a: the lifted row keeps a solid --accent outline, drawn inside its box so nothing shifts; the slot where it will land is an empty dashed --accent box one row high. */
 [data-dnd-dragging] {
-  outline: 2px solid var(--accent);
-  outline-offset: -2px;
+  position: relative;
+}
+
+[data-dnd-dragging]::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border: 2px solid var(--accent);
+  border-radius: inherit;
+  pointer-events: none;
 }
 
 [data-dnd-placeholder]::after {
