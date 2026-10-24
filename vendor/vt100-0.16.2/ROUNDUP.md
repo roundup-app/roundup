@@ -307,9 +307,11 @@ inside CSI, OSC and UTF-8. Formatted ANSI export deliberately omits annotations;
 this facility supplies in-memory source tracking, not a provenance wire format.
 Existing callbacks remain unchanged and default to no-op.
 
-Storage is exactly one `Option<u64>` per allocated cell and row, including both
-normal and alternate grids and configured retained history. On Linux x86_64,
-Cell grows from 32 to 48 bytes; the row annotation adds 16 bytes. No annotation
+Storage is one eight-byte source value per allocated cell, with presence in
+the unused bit of the existing length byte, and one `Option<u64>` per row.
+This includes normal and alternate grids and configured retained history.
+R3696c compacts the original 48-byte annotated cell to 40 bytes on Linux
+x86_64 (the pre-annotation cell was 32 bytes); row annotations remain 16 bytes. No annotation
 list, raw byte history, edit queue or per-input allocation is retained. Thus
 storage is bounded by configured screen/history dimensions plus the existing
 fixed recognizer state. Caller callback storage has its own policy; the test's
@@ -330,7 +332,7 @@ through CSI, BEL/ST OSC and UTF-8. It checks source associations, formatted
 screen, callbacks, history and original isolation. Literal source assertions
 anchor replay comparisons. Its isolated Linux child feeds more than 1 MiB and
 64 MiB of writes/edits with 4×16 cells and 8 history rows, checking unchanged
-source state, the history bound, 48-byte cells and RSS within 1024 KiB of the
+source state, the history bound and RSS within 1024 KiB of the
 1 MiB reading. The focused run observed 3044 KiB at both samples (exit 0).
 
 Exact pins and archive hashes above are unchanged: vt100 0.16.2 (MIT), vte

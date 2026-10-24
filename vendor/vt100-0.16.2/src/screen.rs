@@ -563,7 +563,7 @@ impl Screen {
             .grid_mut()
             .drawing_cell_mut(crate::grid::Pos { row, col })
         {
-            cell.source = source;
+            cell.set_source(source);
             true
         } else {
             false
