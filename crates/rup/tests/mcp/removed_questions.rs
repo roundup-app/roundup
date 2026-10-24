@@ -38,3 +38,17 @@ async fn a3564d_removed_question_methods_are_not_offered_or_dispatched() {
         );
     }
 }
+
+#[tokio::test]
+async fn b3692a_message_pass_is_not_offered_or_dispatched() {
+    let project = start_daemon();
+    let shim = spawn_shim(&project.socket, "a1").await;
+    let tools = shim.client.list_all_tools().await.unwrap();
+    assert!(!tools.iter().any(|tool| tool.name == "message_pass"));
+    let user = client_as(&project.socket, Actor::user()).await;
+    let error = user
+        .request("message.pass", json!({"id": 1}))
+        .await
+        .unwrap_err();
+    assert_eq!(error.code, rpc::code::METHOD_NOT_FOUND, "{error:?}");
+}

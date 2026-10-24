@@ -27,12 +27,7 @@ impl Module for Agents {
                 }
                 if let Some(params) = summary {
                     // U3016i: the live Status says whether an Agent still runs.
-                    let runs = shared.runs();
-                    let tree = rail
-                        .tree()?
-                        .into_iter()
-                        .map(|node| shared.present(node, &runs, &rail))
-                        .collect::<Result<Vec<_>, _>>()?;
+                    let tree = shared.presented_tree(&rail)?;
                     reply(&measurement::summarize(measurements, tree, params)?)
                 } else {
                     reply(&measurements)

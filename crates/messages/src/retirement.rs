@@ -31,10 +31,7 @@ impl Messages {
         let mut store = self.store()?;
         accept_reservation(&self.inner, &mut store, node)?;
         (self.inner.fault)("reserve_retirement").map_err(RpcError::internal)?;
-        store.atomically(|s| {
-            s.reserve_retirement(agent, key)?;
-            s.arm_chains((self.inner.clock)())
-        })
+        store.atomically(|s| s.reserve_retirement(agent, key))
     }
 
     /// Complete after Agents::retire removes the Agent from the Rail; no SessionStart is needed.

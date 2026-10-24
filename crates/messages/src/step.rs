@@ -1,26 +1,8 @@
-//! The one pure, total transition function of a receiver's Messages (B1 to B9) and of one question's
-//! escalation chain (B13 to B17), named and ordered
+//! The one pure, total transition function of a receiver's Messages (B1 to B9), named and ordered
 //! as `proofs/messages/model.bend` names them. No I/O, clock or random source: the Daemon builds
 //! the `Event`, reads the `State` back from the store and applies the `Effect`s.
 
 use contracts::message::Delivery;
-
-/// Where a question is on its chain (B13 to B17); `model.bend`'s `Phase`.
-#[derive(Clone, Copy, Debug, PartialEq)]
-pub(crate) enum Phase {
-    /// No question yet.
-    NoQ,
-    /// The chain is read, no hop made.
-    Chained,
-    /// The current hop is live.
-    OnHop,
-    /// The current hop ended without an answer; the next is due.
-    Ended,
-    /// B17 stopped the bubble, or the user answered the Escalated question.
-    Answered,
-    /// The Escalated question was made for the user, who has it at once (B15).
-    Escalated,
-}
 
 #[derive(Clone, Debug, PartialEq)]
 pub(crate) struct State {
@@ -31,15 +13,6 @@ pub(crate) struct State {
     pub next: u32,
     pub idle: bool,
     pub gone: bool,
-    pub phase: Phase,
-    /// The sender of the question, never a hop.
-    pub origin: u32,
-    /// The hops still to make, nearest first.
-    pub rest: Vec<u32>,
-    /// The hops made, latest first.
-    pub hops: Vec<u32>,
-    /// How many per-hop bounds (B14) have passed.
-    pub bounds: u32,
 }
 
 impl Default for State {
@@ -52,11 +25,6 @@ impl Default for State {
             next: 1,
             idle: false,
             gone: false,
-            phase: Phase::NoQ,
-            origin: 0,
-            rest: vec![],
-            hops: vec![],
-            bounds: 0,
         }
     }
 }
@@ -70,13 +38,6 @@ pub(crate) enum Event {
     Exit,
     UserDrop(u32),
     Restart { alive: bool },
-    Ask { origin: u32, chain: Vec<u32> },
-    HopMade,
-    HopEnded,
-    BoundPassed,
-    Answer,
-    Escalate,
-    Reply,
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -85,21 +46,7 @@ pub(crate) enum Effect {
 }
 
 #[cfg(test)]
-pub(crate) const TRANSITIONS: [&str; 13] = [
-    "send",
-    "idle",
-    "busy",
-    "exit",
-    "user_drop",
-    "restart",
-    "ask",
-    "hop_made",
-    "hop_ended",
-    "bound_passed",
-    "answer",
-    "escalate",
-    "reply",
-];
+pub(crate) const TRANSITIONS: [&str; 6] = ["send", "idle", "busy", "exit", "user_drop", "restart"];
 
 fn flush(mut s: State, effects: &mut Vec<Effect>) -> State {
     if s.idle && !s.queue.is_empty() {
@@ -111,16 +58,6 @@ fn flush(mut s: State, effects: &mut Vec<Effect>) -> State {
         s.idle = false;
     }
     s
-}
-
-/// B13: the chain as read when the sender sends: the sender skipped, an Agent at most once.
-fn clean(origin: u32, chain: &[u32]) -> Vec<u32> {
-    chain
-        .iter()
-        .enumerate()
-        .filter(|(i, x)| **x != origin && !chain[i + 1..].contains(x))
-        .map(|(_, x)| *x)
-        .collect()
 }
 
 pub(crate) fn step(state: &State, event: Event) -> (State, Vec<Effect>) {
@@ -177,52 +114,6 @@ pub(crate) fn step(state: &State, event: Event) -> (State, Vec<Effect>) {
                 s = step(&s, Event::Exit).0;
             }
         }
-        // B13: the chain is read once; there is one question.
-        Event::Ask { origin, chain } => {
-            if s.phase == Phase::NoQ {
-                s.phase = Phase::Chained;
-                s.origin = origin;
-                s.rest = clean(origin, &chain);
-            }
-        }
-        // B13, B16: the next hop is the nearest Agent left in the chain.
-        Event::HopMade => {
-            if matches!(s.phase, Phase::Chained | Phase::Ended) && !s.rest.is_empty() {
-                s.hops.insert(0, s.rest.remove(0));
-                s.phase = Phase::OnHop;
-            }
-        }
-        // B16: a hop that ended without an answer is passed at once.
-        Event::HopEnded => {
-            if s.phase == Phase::OnHop {
-                s.phase = Phase::Ended;
-            }
-        }
-        // B14: the live hop's bound ran out.
-        Event::BoundPassed => {
-            if s.phase == Phase::OnHop {
-                s.phase = Phase::Ended;
-                s.bounds += 1;
-            }
-        }
-        // B17: the hop's Agent answered.
-        Event::Answer => {
-            if s.phase == Phase::OnHop {
-                s.phase = Phase::Answered;
-            }
-        }
-        // B15: no hop is left, so the Escalated question is made, once.
-        Event::Escalate => {
-            if matches!(s.phase, Phase::Chained | Phase::Ended) && s.rest.is_empty() {
-                s.phase = Phase::Escalated;
-            }
-        }
-        // B15: the user's reply answers the Escalated question.
-        Event::Reply => {
-            if s.phase == Phase::Escalated {
-                s.phase = Phase::Answered;
-            }
-        }
     }
     (s, fx)
 }
@@ -230,16 +121,7 @@ pub(crate) fn step(state: &State, event: Event) -> (State, Vec<Effect>) {
 /// A35: a reserved receiver's temporary ending, idle and Daemon reopen cannot apply
 /// Exit/Idle/Restart to its Message ledger. Removal is final and bypasses this projection.
 pub(crate) fn restart_event(reserved: bool, event: Event) -> Event {
-    if reserved
-        && matches!(
-            event,
-            Event::Exit
-                | Event::Idle
-                | Event::Restart { .. }
-                | Event::HopEnded
-                | Event::BoundPassed
-        )
-    {
+    if reserved && matches!(event, Event::Exit | Event::Idle | Event::Restart { .. }) {
         Event::Busy
     } else {
         event
@@ -252,12 +134,7 @@ pub(crate) fn retirement_event(retiring: bool, event: Event) -> Event {
     if retiring
         && matches!(
             event,
-            Event::Send { .. }
-                | Event::Exit
-                | Event::Idle
-                | Event::Restart { .. }
-                | Event::HopEnded
-                | Event::BoundPassed
+            Event::Send { .. } | Event::Exit | Event::Idle | Event::Restart { .. }
         )
     {
         Event::Busy

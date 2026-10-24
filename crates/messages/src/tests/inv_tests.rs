@@ -6,24 +6,22 @@
 //! transitions run through, named and ordered as `model.bend` names and orders them:
 //! ```text
 //! pub(crate) struct State { queue, typed, dropped, users: Vec<u32>,
-//!                           next: u32, idle: bool, gone: bool,
-//!                           phase: Phase, origin: u32, rest, hops: Vec<u32>, bounds: u32 }   // Clone, Debug, PartialEq
+//!                           next: u32, idle: bool, gone: bool }   // Clone, Debug, PartialEq
 //! impl Default for State   // model.bend's `init`: empty lists, `next` 1, `idle` and `gone` false
 //! #[derive(Clone, Debug)]
 //! pub(crate) enum Event { Send { from_user: bool, route: Delivery }, Idle, Busy, Exit,
 //!                         UserDrop(u32),
-//!                         Restart { alive: bool }, Ask { origin: u32, chain: Vec<u32> },
-//!                         HopMade, HopEnded, BoundPassed, Answer, Escalate, Reply }
+//!                         Restart { alive: bool } }
 //! pub(crate) enum Effect { Type(u32) }             // Clone, Debug, PartialEq
 //! pub(crate) fn step(state: &State, event: Event) -> (State, Vec<Effect>)
-//! pub(crate) const TRANSITIONS: [&str; 13]          // the snake_case names of the Event variants
+//! pub(crate) const TRANSITIONS: [&str; 6]          // the snake_case names of the Event variants
 //! ```
 //! `step` has no I/O, clock or random source. Slice 2's Daemon applies its effects: `Type(id)`
 //! is the one prompt handed to `Deliver`.
 
 use contracts::message::Delivery;
 
-use crate::step::{Effect, Event, Phase, State, TRANSITIONS, step};
+use crate::step::{Effect, Event, State, TRANSITIONS, step};
 
 /// xorshift64: a fixed seed gives the same schedules on every machine.
 struct Rng(u64);
@@ -220,60 +218,6 @@ fn inv_m9_restart_is_a_replay() {
     }
 }
 
-/// B13 to B17 as events: the chain read at send (the sender may be in it, an Agent may repeat), a hop made,
-/// a hop ended without an answer, its bound passing, the answer, the Escalated question, the user's reply.
-fn chain_schedule(rng: &mut Rng) -> Vec<Event> {
-    (0..rng.below(EVENTS + 1))
-        .map(|_| match rng.below(8) {
-            0 | 7 => Event::Ask {
-                origin: 1 + rng.below(3) as u32,
-                chain: (0..rng.below(5)).map(|_| 1 + rng.below(4) as u32).collect(),
-            },
-            1 => Event::HopMade,
-            2 => Event::HopEnded,
-            3 => Event::BoundPassed,
-            4 => Event::Answer,
-            5 => Event::Escalate,
-            _ => Event::Reply,
-        })
-        .collect()
-}
-
-fn chain_schedules() -> Vec<Vec<Event>> {
-    let mut rng = Rng(0xD1B5_4A32_D192_ED03);
-    (0..4000).map(|_| chain_schedule(&mut rng)).collect()
-}
-
-#[test]
-fn inv_m8_escalation_terminates() {
-    for events in chain_schedules() {
-        let mut s = State::default();
-        for event in &events {
-            s = step(&s, event.clone()).0;
-            let mut unique = s.hops.clone();
-            unique.sort_unstable();
-            unique.dedup();
-            assert_eq!(unique.len(), s.hops.len(), "a hop twice: {events:?}");
-            assert!(!s.hops.contains(&s.origin), "the sender a hop: {events:?}");
-            assert!(s.bounds as usize <= s.hops.len(), "{events:?}");
-        }
-        if s.phase == Phase::NoQ {
-            continue;
-        }
-        // hops + 1 bounds: a round makes the next hop, lets its bound pass and escalates when none is left.
-        for _ in 0..=s.rest.len() {
-            for event in [Event::HopMade, Event::BoundPassed, Event::Escalate] {
-                s = step(&s, event).0;
-            }
-        }
-        assert!(
-            matches!(s.phase, Phase::Answered | Phase::Escalated),
-            "{events:?} ended {:?}",
-            s.phase
-        );
-    }
-}
-
 #[test]
 fn inv_the_transition_names_in_step_and_in_model_bend_are_the_same_set() {
     let model = std::fs::read_to_string(concat!(
@@ -415,22 +359,6 @@ fn a35_reserved_projection_preserves_records_and_never_types() {
 }
 
 #[test]
-fn a35_reserved_question_projection_preserves_the_live_hop() {
-    for events in chain_schedules() {
-        let initial = events
-            .iter()
-            .fold(State::default(), |s, e| step(&s, e.clone()).0);
-        for event in [Event::HopEnded, Event::BoundPassed] {
-            let after = step(&initial, crate::step::restart_event(true, event)).0;
-            assert_eq!(after.phase, initial.phase);
-            assert_eq!(after.rest, initial.rest);
-            assert_eq!(after.hops, initial.hops);
-            assert_eq!(after.bounds, initial.bounds);
-        }
-    }
-}
-
-#[test]
 fn a35_retirement_projection_preserves_records_and_never_types() {
     let send = |from_user, route| Event::Send { from_user, route };
     for events in schedules() {
@@ -442,20 +370,14 @@ fn a35_retirement_projection_preserves_records_and_never_types() {
             Event::Idle,
             Event::Restart { alive: false },
             Event::Restart { alive: true },
-            Event::UserDrop(1),
             send(true, Delivery::Auto),
             send(false, Delivery::Drop),
-            Event::HopEnded,
-            Event::BoundPassed,
         ] {
             let (after, effects) = step(&initial, crate::step::retirement_event(true, event));
             assert_eq!(after.queue, initial.queue);
             assert_eq!(after.typed, initial.typed);
             assert_eq!(after.dropped, initial.dropped);
             assert_eq!(after.next, initial.next);
-            assert_eq!(after.phase, initial.phase);
-            assert_eq!(after.hops, initial.hops);
-            assert_eq!(after.bounds, initial.bounds);
             assert!(effects.is_empty());
         }
     }

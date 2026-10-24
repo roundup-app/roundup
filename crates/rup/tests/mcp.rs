@@ -369,10 +369,6 @@ async fn m1_input_schemas_are_the_contract_schemas() {
             "message_list",
             derived(schemars::schema_for!(message::ListParams)),
         ),
-        (
-            "message_pass",
-            derived(schemars::schema_for!(message::MessageId)),
-        ),
     ];
     for (name, contract_schema) in expected {
         assert_eq!(schema(name), contract_schema, "{name}");
@@ -437,8 +433,6 @@ async fn b12_a_call_is_made_as_the_agent_and_returns_the_daemons_result() {
     let refused = other.call("message_get", json!({"id": 1})).await;
     assert_eq!(refused.is_error, Some(true));
     assert_eq!(text(&refused)["code"], rpc::code::FORBIDDEN);
-    let pass = shim.call("message_pass", json!({"id": 1})).await;
-    assert_eq!(text(&pass)["code"], rpc::code::FORBIDDEN);
 }
 
 #[tokio::test]
@@ -885,6 +879,13 @@ async fn m17_every_offered_unit_method_acknowledges_its_action() {
                 "requested renaming Project to New name",
             ),
             "terminal.show" => (json!({"id":"t1"}), "showing Terminal t1"),
+            "terminal.close" => (json!({"id":"t1"}), "accepted terminal close"),
+            "agent.interrupt" => (json!({"id":"t1"}), "accepted agent interrupt"),
+            "agent.prompt" => (json!({"id":"t1"}), "accepted agent prompt"),
+            "agent.stop" => (json!({"id":"t1"}), "accepted agent stop"),
+            "terminal.kill" => (json!({"id":"t1"}), "accepted terminal kill"),
+            "terminal.resize" => (json!({"id":"t1"}), "accepted terminal resize"),
+            "terminal.write" => (json!({"id":"t1"}), "accepted terminal write"),
             "workstream.handoff" => (
                 json!({"summary":"done","keep_todos":[],"keep_pads":[]}),
                 "handed off Workstream Door",

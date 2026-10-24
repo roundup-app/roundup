@@ -32,12 +32,12 @@ async fn a3564d_existing_project_opens_without_custom_question_authority() {
     }
 
     // Make it the Project an older version left: the Decision table, rows and events return and
-    // the schema is one migration behind.
+    // the schema is two migrations behind (the removal, then 0024).
     let db = Connection::open(dir.path().join("project.db")).unwrap();
     let version: i64 = db
         .query_row("PRAGMA user_version", [], |row| row.get(0))
         .unwrap();
-    db.execute_batch(&format!("PRAGMA user_version = {}", version - 1))
+    db.execute_batch(&format!("PRAGMA user_version = {}", version - 2))
         .unwrap();
     db.execute_batch(
         "CREATE TABLE decision_answers (seq INTEGER PRIMARY KEY, decision TEXT NOT NULL UNIQUE,

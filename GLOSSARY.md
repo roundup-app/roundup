@@ -530,13 +530,7 @@ one exact recovery snapshot, whether current, pending, failed or of unknown acce
 acknowledgement or explicit selected discard consumes only that revision (U2773a/b/e).
 
 **Reason**:
-The word on a dropped Message saying why: `receiver gone`, `not accepted`, `passed`, `removed` or `merged`.
-
-**Hop**:
-One Message of a bubbling question: sent to an Agent, then to each Agent above it in its Workstream, nearest first, ending with the Door, each linked to the one before by `passedFrom`. A hop passes when its Agent answers nothing within 60 000 ms or calls `message.pass`; the chain ends at the Escalated question.
-
-**Escalated question**:
-The Message to the user that ends a bubbling question: stored `delivered` at once (B10); #3564 removes the rest of the escalation machinery.
+The word on a dropped Message saying why: `receiver gone`, `not accepted`, `removed` or `merged`.
 
 **Card**:
 Anything the user sees in the app (an Inbox Message, a status, a summary); it has a kind.

@@ -53,7 +53,6 @@ The `roundup` MCP server offers these tools. They are deferred: load a tool befo
 - `message_resumeWork`: only the user may resume unfinished work; one decision makes one successor Message and never repeats an uncertain external effect.
 - `message_get`: read one Message you sent or received.
 - `message_list`: see the Messages you sent or received.
-- `message_pass`: hand a question you received on to the next Agent above, when it is not yours to answer.
 - `todo_move`: move a Todo into a Workstream, or out of every Workstream.
 - `todo_reorder`: put a Todo before another in the Todo order, or last.
 - `todo_delete`: delete a Todo that should not exist.
@@ -86,7 +85,7 @@ The `roundup` MCP server offers these tools. They are deferred: load a tool befo
 - `terminal_screen`: read a Terminal's screen as it is now, as plain text, with the `offset` to read from next.
 - `terminal_read`: read a Terminal's output from the `after` offset you got last, as plain text; its `next` is the offset to give the next time.
 - `terminal_search`: search a Terminal's output for a regular expression and get only the matching lines with their offsets.
-- `route_set`: set where Messages from one Agent to another go (`auto`, `ask-first`, `drop`); it acts on others, never on you, and never over a Route the user set.
+- `route_set`: set where Messages from one Agent to another go (`auto` or `drop`); it acts on others, never on you, and never over a Route the user set.
 - `terminal_close`: stop a Terminal you or your Reach own and forget it.
 - `terminal_write`: type base64 `data` into a Terminal you or your Reach own.
 - `terminal_resize`: resize a Terminal you or your Reach own.

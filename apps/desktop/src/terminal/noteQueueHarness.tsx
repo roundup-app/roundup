@@ -10,7 +10,7 @@ import { Pane } from "./Pane";
 
 /** A Message to `to`, as the Daemon sends it. */
 export const note = (id: number, body: string, over: Partial<Message> = {}): Message => ({
-  id, from: { kind: "user", id: "user", parent: null }, to: "a", kind: "note", body, replyTo: null, status: "pending", reason: null, passedFrom: null, at: id, ...over,
+  id, from: { kind: "user", id: "user", parent: null }, to: "a", kind: "note", body, replyTo: null, status: "pending", reason: null, at: id, ...over,
 });
 
 /** A Pane of an open Project whose Daemon lists `messages`. */

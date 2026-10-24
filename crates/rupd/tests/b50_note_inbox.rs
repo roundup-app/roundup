@@ -690,6 +690,7 @@ async fn b3563c_all_senders_use_the_inbox_while_terminal_input_is_unsent() {
                 (run.status(id).await.0 == "delivered").then_some(())
             })
             .await;
+            run.signal(json!({"hook_event_name":"Stop"})).await;
             sent.push(id);
         }
         // Queued while busy, they go in id order at the next idle edge, still without a byte typed.
@@ -765,9 +766,9 @@ async fn b3563c_unavailable_inbox_keeps_pending_identity_and_reports_the_cause()
     for (sender, kind, mismatch, restart) in [
         ("user", "note", false, false),
         ("agent", "question", false, true),
-        ("ext", "note", true, true),
+        ("ext", "note", true, false),
         ("daemon", "question", true, true),
-        ("user", "question", true, true),
+        ("user", "question", true, false),
         ("agent", "note", false, false),
         ("ext", "question", false, true),
         ("daemon", "note", true, true),
@@ -820,8 +821,23 @@ async fn b3563c_unavailable_inbox_keeps_pending_identity_and_reports_the_cause()
                 .count();
             assert_eq!(lines, 1, "{case}: {log}");
         }
+        // B8, B46: a Daemon note waits for the resumed Agent; any other Message with no inbox
+        // write made goes with the Attempt that does not survive.
+        let waits = sender == "daemon" && kind == "note";
         if restart {
             run.restart().await;
+        }
+        if restart && !waits {
+            for id in &ids {
+                assert_eq!(
+                    run.status(*id).await,
+                    ("dropped".into(), Some("receiver gone".into())),
+                    "{case}"
+                );
+            }
+            assert!(run.entries().is_empty(), "{case}");
+            assert_eq!(run.typed().await, 0, "{case}");
+            continue;
         }
         if mismatch {
             run.repair_protocol();
@@ -1217,7 +1233,6 @@ async fn b50_an_inbox_question_preserves_its_message_and_reply_identity() {
     assert_eq!(before["kind"], "question");
     assert_eq!(before["body"], body);
     assert_eq!(before["replyTo"], earlier["id"]);
-    assert_eq!(before["passedFrom"], Value::Null);
     assert_eq!(before["status"], "pending");
     run.record(&[id]).await;
     until("receipt", async || {
@@ -1498,7 +1513,6 @@ async fn a3564c_two_agents_exchange_a_question_and_reply_without_a_view() {
     assert_eq!(all[0]["to"], answerer.id.as_str());
     assert_eq!(all[0]["kind"], "question");
     assert_eq!(all[0]["body"], question);
-    assert_eq!(all[0]["passedFrom"], Value::Null);
     assert_eq!(all[1]["id"], replied);
     assert_eq!(all[1]["from"]["id"], answerer.id.as_str());
     assert_eq!(all[1]["to"], asker.id.as_str());

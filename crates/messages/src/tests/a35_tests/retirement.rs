@@ -211,7 +211,7 @@ fn a35_retirement_reopen_before_after_removal_and_completion_never_delivers() {
 }
 
 #[tokio::test]
-async fn a35_retirement_does_not_pass_a_delivered_question_on_receiver_loss_or_timeout() {
+async fn a35_retirement_keeps_a_delivered_question_on_receiver_loss() {
     let dir = tempfile::tempdir().unwrap();
     let h = RestartHarness::new(dir.path());
     h.rail.0.lock().unwrap()[0] = agent_node("door", Kind::Idle);
@@ -233,10 +233,6 @@ async fn a35_retirement_does_not_pass_a_delivered_question_on_receiver_loss_or_t
     let written = h.inbox.written();
     h.messages.reserve_retirement("door", "c").await.unwrap();
     h.rail.0.lock().unwrap().retain(|n| n.id != "door");
-    h.clock.store(
-        42 + hops::HOP_BOUND_MS + 1,
-        std::sync::atomic::Ordering::SeqCst,
-    );
     h.send(Actor::daemon(), "skipped", "settle").await;
     h.ctx.bus.emit(Actor::daemon(), EventData::RailChanged);
     h.status("1", "2", Kind::Done).await;

@@ -671,6 +671,44 @@ async fn a35_plan_lists_each_agent_and_changes_nothing() {
 }
 
 #[tokio::test]
+async fn b3563d_rewind_has_no_control_consent_or_deferred_action() {
+    let fx = fixture().await;
+    write(&fx).await;
+    let roots = roots(&fx).await;
+    let root = |id: &str| roots.iter().find(|(r, _)| r == id).unwrap().1.clone();
+    std::fs::write(root(&fx.a).join("README"), "after").unwrap();
+    std::fs::write(root(&fx.b).join("README"), "after").unwrap();
+
+    let listing = plan(&fx, None).await.unwrap();
+    for entry in listing["agents"].as_array().unwrap() {
+        assert!(
+            entry
+                .as_object()
+                .unwrap()
+                .keys()
+                .all(|k| !k.contains("control")
+                    && !k.contains("consent")
+                    && !k.contains("takeover")),
+            "{entry}"
+        );
+    }
+
+    // Selecting one child applies in the call: its file returns, the other child's stays.
+    let done = rewind(&fx, Some(&fx.a), "restore").await;
+    let agents = done["agents"].as_array().unwrap();
+    assert_eq!(agents.len(), 1, "{done}");
+    assert_eq!(agents[0]["state"], "rewound", "{done}");
+    assert_ne!(std::fs::read(root(&fx.a).join("README")).unwrap(), b"after");
+    assert_eq!(std::fs::read(root(&fx.b).join("README")).unwrap(), b"after");
+
+    // A failed validation is an error in the call and changes nothing.
+    let before = attempts(&rail_tree(&fx.user).await);
+    let refused = rewind_as(&fx, &fx.ws, &fx.ws, Some("nobody"), "keep").await;
+    assert!(refused.is_err(), "{refused:?}");
+    assert_eq!(attempts(&rail_tree(&fx.user).await), before);
+}
+
+#[tokio::test]
 async fn a35_keep_changes_no_file() {
     let fx = fixture().await;
     write(&fx).await;

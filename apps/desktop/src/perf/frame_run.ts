@@ -1,12 +1,11 @@
 // fallow-ignore-file duplicate-export -- Clock sleeps for the frame driver; state/clock’s Clock reads time. Neither is barrel-exported.
-import type { AppSeam } from "../app/seam";
+import type { App, AppSeam } from "../app/seam";
 import { toBase64 } from "../terminal/base64";
 import { createXtermEmulators } from "../terminal/emulator";
-import type { Emulator } from "../terminal/emulator";
 import { recordFrames } from "./frames";
 import type { FrameReport } from "./frames";
 import type { NativeDragReport } from "./nativeDragProbe";
-import { READY, SETUP_BOUND_MS, appears, sleep, timerResolutionMs } from "./run";
+import { READY, SETUP_BOUND_MS, appears, bounded, reportTerminal, sleep, timerResolutionMs, writeInChunks } from "./run";
 
 /** `docs/motion.md`, **Native performance protocol**: every 2 s one cycle of the workload, over the 60 s sample. */
 const CYCLE_MS = 2000;
@@ -19,6 +18,18 @@ const HALF_SLIDE_MS = 90;
 const SETTLE_MS = 400;
 
 const WORKING_GLYPHS = 10;
+
+/** The first task after the rendering update that follows the current animation callback. */
+const afterUpdate = (callback: () => void) => {
+  const channel = new MessageChannel();
+
+  channel.port1.onmessage = () => {
+    channel.port1.close();
+    callback();
+  };
+
+  channel.port2.postMessage(null);
+};
 
 /** The only thing the drivers ask of time: a fake clock in tests, `setTimeout` in the App. */
 type Clock = { sleep(ms: number): Promise<void> };
@@ -40,18 +51,6 @@ export const everyTwoSeconds = async (clock: Clock, cycle: (index: number) => Pr
 
   return { performed, completed: true };
 };
-
-/** A report holds every raw interval, so it is tens of KiB; one write that large into a tty under the stream is the likeliest to be cut short. */
-const WRITE_CHUNK = 4096;
-
-/** Hands `bytes` to `write` in order, `WRITE_CHUNK` at a time, each after the last was accepted. */
-export const writeInChunks = async (bytes: Uint8Array, write: (chunk: Uint8Array) => Promise<void>): Promise<void> => {
-  for (let at = 0; at < bytes.length; at += WRITE_CHUNK) await write(bytes.subarray(at, at + WRITE_CHUNK));
-};
-
-/** Settles with `work`, or rejects naming `step` once `ms` pass: a setup call that never answers must still end in a report line, with its cause. */
-export const bounded = <T>(work: Promise<T>, ms: number, step: string): Promise<T> =>
-  Promise.race([work, sleep(ms).then(() => Promise.reject(new Error(`${step} did not finish within ${ms} ms`)))]);
 
 /** What the Layers driver presses; each answers whether its control was found. */
 export type Layers = {
@@ -254,38 +253,6 @@ const prepare = async (app: AppSeam, workload: string, cwd: string): Promise<(in
 };
 
 /**
- * The report goes through the Terminal whose program printed `READY`, never the last one the page created: the workstream's `claude` Terminal
- * also gets an emulator, and a report written into it never reaches the runner reading the shell's output.
- */
-export const reportTerminal = <E extends Pick<Emulator, "write">>(create: (id: string) => E) => {
-  let target: string | null = null;
-  let announce: () => void = () => {};
-
-  const printed = new Promise<void>((resolve) => (announce = resolve));
-
-  return {
-    printed,
-    target: () => target,
-    createEmulator: (id: string): E => {
-      const emulator = create(id);
-
-      return {
-        ...emulator,
-        write: (bytes, parsed) =>
-          emulator.write(bytes, () => {
-            if (target === null && new TextDecoder().decode(bytes).includes(READY)) {
-              target = id;
-              announce();
-            }
-
-            parsed?.();
-          }),
-      };
-    },
-  };
-};
-
-/**
  * The frame run of `scenarios/ui-motion.md` U3010e: in a build made with `VITE_ROUNDUP_PERF` and `VITE_ROUNDUP_PERF_WORKLOAD`,
  * `start` opens a Terminal, records the workload's frame intervals and writes one `FRAMES <json>` line through that Terminal.
  */
@@ -324,12 +291,13 @@ export const createFrameRun = (app: AppSeam, workload: string, cwd: string) => {
 
     await report(
       await recordFrames(
-        { frame: (callback) => void requestAnimationFrame(callback), hidden: () => document.hidden, after: (ms, callback) => void setTimeout(callback, ms) },
+        { frame: (callback) => void requestAnimationFrame(callback), hidden: () => document.hidden, now: () => performance.now(), afterUpdate: afterUpdate, after: (ms, callback) => void setTimeout(callback, ms) },
         {
           workload,
           engine: /Chrome|Chromium/.test(navigator.userAgent) ? "chromium" : "webkit",
           timerResolutionMs: timerResolutionMs(),
           userAgent: navigator.userAgent,
+          entryTypes: [...(PerformanceObserver.supportedEntryTypes ?? [])],
         },
         async () => (await everyTwoSeconds(wallClock, cycle)).completed,
       ),
@@ -337,6 +305,7 @@ export const createFrameRun = (app: AppSeam, workload: string, cwd: string) => {
   };
 
   return {
+    traced: (real: App): App => real,
     createEmulator: terminal.createEmulator,
     start: async () => {
       try {

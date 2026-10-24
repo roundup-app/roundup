@@ -36,3 +36,11 @@ pub(crate) fn idle_batch(pending: &[Message]) -> Vec<u32> {
     let (_, effects) = step(&view(pending), Event::Idle);
     effects.iter().map(|Effect::Type(id)| *id).collect()
 }
+
+/// U3782: whether `step` takes `id` out of the queue when the user drops it.
+pub(crate) fn user_drop_moves(pending: &[Message], id: u32) -> bool {
+    step(&view(pending), Event::UserDrop(id))
+        .0
+        .dropped
+        .contains(&id)
+}

@@ -28,6 +28,10 @@ tokio.workspace = true
 cap-std = "4"
 rustix = { version = "1", features = ["fs"] }
 
+[build-dependencies]
+rusqlite.workspace = true
+rusqlite_migration.workspace = true
+
 [dev-dependencies]
 agents = { path = "../agents", features = ["test-support"] }
 async-trait.workspace = true
