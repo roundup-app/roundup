@@ -19,12 +19,15 @@ impl Daemon {
         conn: &mut Conn,
         line: &str,
         actor: Option<Actor>,
-    ) -> Option<Value> {
+    ) -> Option<Frame> {
         let Ok(request) = serde_json::from_str::<Value>(line) else {
-            return Some(failure(
-                &Value::Null,
-                &RpcError::new(code::PARSE_ERROR, "parse error"),
-            ));
+            return Some(
+                failure(
+                    &Value::Null,
+                    &RpcError::new(code::PARSE_ERROR, "parse error"),
+                )
+                .into(),
+            );
         };
         let id = request.get("id").cloned();
         let method = request["method"].as_str().unwrap_or_default();
@@ -66,18 +69,41 @@ impl Daemon {
         {
             conn.actor = actor.unwrap_or_else(|| self.action_actor(conn));
         }
-        let outcome = self.route(conn, method, params).await;
+        let outcome = if matches!(method, "rail.tree" | "rail.list") {
+            self.rail_reply(conn).await
+        } else {
+            self.route(conn, method, params)
+                .await
+                .map(rpc::Reply::Value)
+        };
         let id = id?;
         Some(match outcome {
-            Ok(result) => {
+            Ok(rpc::Reply::Value(result)) => {
                 let mut envelope = serde_json::Map::new();
                 envelope.insert("jsonrpc".into(), Value::String("2.0".into()));
                 envelope.insert("id".into(), id);
                 envelope.insert("result".into(), result);
-                Value::Object(envelope)
+                Frame::Value(Value::Object(envelope))
             }
-            Err(err) => failure(&id, &err),
+            Ok(rpc::Reply::Json(result)) => Frame::Json(format!(
+                r#"{{"jsonrpc":"2.0","id":{id},"result":{result}}}"#
+            )),
+            Err(err) => failure(&id, &err).into(),
         })
+    }
+
+    /// `rail.tree` and `rail.list`, written without a `Value` tree. No guard in `route_inner`
+    /// applies to them (they name no child and no Terminal), so this keeps only its entry steps.
+    async fn rail_reply(&self, conn: &Conn) -> Result<rpc::Reply, RpcError> {
+        self.auto.start(self.reader());
+        self.start_pushes();
+        self.start_queue();
+        let rail = self
+            .modules
+            .get("rail")
+            .ok_or_else(|| RpcError::method_not_found("rail.tree"))?;
+        rail.call_reply(&self.ctx(conn.actor.clone()), "rail.tree", Value::Null)
+            .await
     }
 
     pub(crate) async fn route_inner(

@@ -616,7 +616,8 @@ mod tests {
         let reply = daemon
             .dispatch(&mut conn, &request.to_string(), None)
             .await
-            .unwrap();
+            .unwrap()
+            .into_value();
         if let Some(error) = reply.get("error") {
             Err(serde_json::from_value(error.clone()).unwrap())
         } else {

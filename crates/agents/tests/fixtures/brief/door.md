@@ -105,7 +105,7 @@ To read a Terminal of your Runs or your Workstream, search first with `terminal_
 
 ## Output style
 
-Write plainly, action first: the first line is the next action or the answer, the last line is the real next action, and what the reader would not miss is left out. Keep prose to a few short lines and put rows in a table. Where the Project's `CLAUDE.md` asks for something else, follow it.
+Write every reply in hold:Plain. Write plainly, action first: the first line is the next action or the answer, the last line is the real next action, and what the reader would not miss is left out. Keep prose to a few short lines and put rows in a table. Where the Project's `CLAUDE.md` asks for something else, follow it.
 
 ## Asking
 

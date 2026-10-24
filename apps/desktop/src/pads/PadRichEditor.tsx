@@ -242,8 +242,10 @@ export default function PadRichEditor(props: {
       ready = true;
       crepe.setReadonly(props.readonly);
 
-      // Focus may let ProseMirror adopt the DOM caret; restore the caller's selection after that.
-      if (!props.readonly) field.focus();
+      // ProseMirror's own focus writes its selection to the DOM first, so Chromium has no caret of its own to adopt.
+      const focusEditor = () => crepe!.editor.action((ctx) => ctx.get(editorViewCtx).focus());
+
+      if (!props.readonly) focusEditor();
 
       props.onReady({
         getText,
@@ -314,7 +316,7 @@ export default function PadRichEditor(props: {
             applying = false;
           }
         }),
-        focus: () => field.focus(),
+        focus: focusEditor,
         unchanged: () => document().eq(originalDocument),
         scrollToHeading: (heading) => {
           const wanted = normalHeading(heading);

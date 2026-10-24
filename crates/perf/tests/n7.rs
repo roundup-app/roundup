@@ -159,7 +159,12 @@ fn n7_launch_sites_clean_on_success_and_failure() {
                 String::from_utf8_lossy(&out.stderr)
             );
         } else {
-            assert!(report.is_file(), "{}", String::from_utf8_lossy(&out.stderr));
+            // A host outside the measured classes is refused after both launches, which are checked below.
+            let stderr = String::from_utf8_lossy(&out.stderr);
+            assert!(
+                report.is_file() || stderr.contains("perf: machine class:"),
+                "{stderr}"
+            );
         }
         let launches = std::fs::read_to_string(log).unwrap();
         assert_eq!(
