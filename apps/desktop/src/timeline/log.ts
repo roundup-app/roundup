@@ -29,8 +29,11 @@ export const createTimelineLog = (events: Events, rail: RailState): TimelineLog 
   const [version, setVersion] = createSignal(0);
 
   const remember = (id: string, sample: Sample) => {
-    if (samples[id]?.some((each) => each.at === sample.at && each.attempt === sample.attempt && each.kind === sample.kind)) return;
-    setSamples(id, (before) => withSample(before ?? [], sample).toSorted((a, b) => a.at - b.at).slice(-PER_AGENT));
+    const before = samples[id] ?? [];
+    const after = withSample(before, sample);
+
+    if (before === after) return;
+    setSamples(id, after.toSorted((a, b) => a.at - b.at).slice(-PER_AGENT));
     setVersion((each) => each + 1);
   };
 
@@ -44,7 +47,7 @@ export const createTimelineLog = (events: Events, rail: RailState): TimelineLog 
 
         if (!before || before.name !== node.name || before.parent !== node.parent || before.order !== node.order || before.removed) setKnown(node.id, { name: node.name, parent: node.parent, order: node.order, removed: false });
 
-        if (node.status && node.attempt !== null && node.terminal_id !== null) remember(node.id, { at: node.status.since, attempt: node.attempt, kind: node.status.kind });
+        if (node.status && node.attempt !== null) remember(node.id, { at: node.status.since, attempt: node.attempt, kind: node.status.kind, ended: rail.exitOf(node) !== null, recorded: false });
       }
 
       for (const id of Object.keys(known)) if (!known[id]!.removed && !present.has(id)) setKnown(id, "removed", true);
@@ -57,7 +60,7 @@ export const createTimelineLog = (events: Events, rail: RailState): TimelineLog 
 
   // The saved Events replay first (D11), then the live ones; `remember` drops a Status it already holds.
   const unsubscribe = events.subscribe((event) => {
-    if (event.name === "agent.status") remember(event.data.id, { at: event.data.status.since, attempt: event.data.attempt, kind: event.data.status.kind });
+    if (event.name === "agent.status") remember(event.data.id, { at: event.data.status.since, attempt: event.data.attempt, kind: event.data.status.kind, ended: event.data.ended ?? false, recorded: true });
   }, { replay: true });
 
   return { samples, known, version, stop: () => { unsubscribe(); dispose(); } };

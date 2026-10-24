@@ -1,13 +1,17 @@
 .timeline-view {
   --lane-height: var(--space-6);
-  --name-width: 160px;
+  --name-width: calc(var(--space-6) * 6);
   flex: 1;
   min-height: 0;
   overflow-y: auto;
   overscroll-behavior: contain;
   padding: var(--space-4);
   color: var(--text);
-  font-size: var(--text-body);
+  font-size: var(--text-row);
+}
+
+.timeline-single {
+  --name-width: 0px;
 }
 
 .timeline-header {
@@ -31,10 +35,21 @@
   font-size: var(--text-caption);
 }
 
-.timeline-axis-ends {
-  display: flex;
-  justify-content: space-between;
+.timeline-axis-ticks {
+  position: relative;
+  height: var(--space-5);
+  border-bottom: 1px solid var(--hairline);
+  margin-bottom: var(--space-2);
 }
+
+.timeline-axis-ticks > span {
+  position: absolute;
+  white-space: nowrap;
+  transform: translateX(-50%);
+}
+
+.timeline-axis-ticks > span:first-child { transform: none; }
+.timeline-axis-ticks > span:last-child { transform: translateX(-100%); }
 
 .timeline-lanes {
   position: relative;
@@ -62,24 +77,35 @@
 
 .timeline-track {
   position: relative;
-  height: var(--space-4);
-  border-radius: var(--radius-chip);
-  background: var(--sunken);
+  height: var(--space-5);
+
 }
 
-.timeline-block,
-.timeline-unknown {
+.timeline-block {
   position: absolute;
   top: 0;
   bottom: 0;
-  min-width: var(--space-1);
   padding: 0;
   border: 0;
-  border-radius: var(--radius-chip);
+  border-radius: 0;
+  font-size: var(--text-caption);
+  color: var(--ground);
+}
+
+.timeline-block-label {
+  display: block;
+  box-sizing: border-box;
+  width: 100%;
+  overflow: hidden;
+  padding-inline: var(--space-1);
+  white-space: nowrap;
+  line-height: var(--space-5);
 }
 
 .timeline-unknown {
-  background: var(--hairline);
+  position: absolute;
+  width: 0;
+  height: 0;
 }
 
 .timeline-block[data-tone="accent"] {
@@ -111,5 +137,5 @@ button.timeline-block {
 .timeline-line {
   position: absolute;
   width: 1px;
-  background: var(--text);
+  background: var(--grey);
 }
