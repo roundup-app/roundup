@@ -1,3 +1,4 @@
+import { captureFocus, queueFocus } from "../keys/focus";
 import { writeText } from "../app/clipboard";
 import { contextMenu, linkEntries, openOnRelease } from "../ui/contextMenu";
 import * as v from "valibot";
@@ -229,7 +230,7 @@ export const Pads = (props: {
 
     setPicking(null);
 
-    if (name !== undefined) queueMicrotask(() => rowButtonOf(name)?.focus());
+    if (name !== undefined) queueFocus(() => rowButtonOf(name)?.focus());
   };
 
   /** U3736: the one `pad.setOwner` of a drop or a choice; a refusal shows on the row and the Pad stays in its group. */
@@ -237,15 +238,16 @@ export const Pads = (props: {
     const source = padOf(name);
 
     if (owner === null || !source) return;
+    const permission = captureFocus();
     const message = await failureOf(() => connected.app.rpc("pad.setOwner", { name, owner }));
 
     reportAssignmentFailure(source.incarnation, message);
 
     // U138: the refetch replaces the row that had focus; give it back once the Pad has arrived.
-    if (message === null && focus) setRegrouped({ name, owner });
+    if (message === null && focus) setRegrouped({ name, owner, focus: permission });
   };
 
-  const [regrouped, setRegrouped] = createSignal<{ name: string; owner: Actor } | null>(null);
+  const [regrouped, setRegrouped] = createSignal<{ name: string; owner: Actor; focus: ReturnType<typeof captureFocus> } | null>(null);
 
   createEffect(() => {
     const request = regrouped();
@@ -258,7 +260,7 @@ export const Pads = (props: {
       if (kept && kept !== document.body && kept.isConnected && !kept.closest("[role=menu]")) return setRegrouped(null);
       const button = rowButtonOf(request.name);
 
-      if (button) { button.focus(); setRegrouped(null); }
+      if (button) { request.focus(() => button.focus()); setRegrouped(null); }
     });
   });
 
@@ -364,7 +366,7 @@ export const Pads = (props: {
             <Editable.Input type="text" class="entry-field shelf-title" aria-label={copy.padName} placeholder={copy.newPadPlaceholder} value={name()}
               ref={(input) => {
                 field = input;
-                queueMicrotask(() => {
+                queueFocus(() => {
                   if (!input.isConnected) return;
                   input.focus();
 

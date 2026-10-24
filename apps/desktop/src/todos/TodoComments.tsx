@@ -111,7 +111,7 @@ export const TodoComments = (props: { id: number; onSent?: (() => void) | undefi
   // U3753: `c` on a triage row asks for this Todo's field.
   createEffect(() => {
     if (triage.commentFor() === props.id && field) {
-      field.focus();
+      triage.focusComment(() => field!.focus());
       triage.askComment(null);
     }
   });

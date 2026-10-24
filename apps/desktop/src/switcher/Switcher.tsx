@@ -1,3 +1,4 @@
+import { queueFocus } from "../keys/focus";
 import { writeText } from "../app/clipboard";
 import { ReservedLine } from "../ink/ReservedLine";
 import { createEffect, createMemo, createSignal, on, onCleanup, Show } from "solid-js";
@@ -91,7 +92,7 @@ export const Switcher = (props: { onFailure: (message: string | null) => void; o
     const selection = input ? [input.selectionStart, input.selectionEnd, input.selectionDirection ?? "none"] as const : null;
 
     // Let removal of the pressed button finish before returning the native caret.
-    queueMicrotask(() => {
+    queueFocus(() => {
       if (!open() || !input?.isConnected) return;
       input.focus();
 
@@ -197,7 +198,7 @@ export const Switcher = (props: { onFailure: (message: string | null) => void; o
     <Show when={open()}>
       <section class="switcher" ref={(element) => {
         panel = element;
-        queueMicrotask(() => {
+        queueFocus(() => {
           input?.focus();
           // Restore after Ark's initial-focus frame; a dismissed opening must not touch the next field.
           requestAnimationFrame(() => requestAnimationFrame(() => {

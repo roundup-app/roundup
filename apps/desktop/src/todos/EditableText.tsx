@@ -1,3 +1,5 @@
+import { captureFocus } from "../keys/focus";
+import { queueFocus } from "../keys/focus";
 import { writeText } from "../app/clipboard";
 import { copy } from "../copy";
 import * as v from "valibot";
@@ -163,12 +165,13 @@ export const EditableText = (props: {
 
   const field = (started: Editing) => (element: HTMLTextAreaElement) => {
     element.value = started.text;
+    const focus = captureFocus();
     // Fitted again once attached: `scrollHeight` is 0 before then.
     queueMicrotask(() => {
       fit(element);
 
       if (!alive) return;
-      element.focus({ preventScroll: true });
+      focus(() => element.focus({ preventScroll: true }));
 
       if (started.selection) element.setSelectionRange(started.selection.start, started.selection.end, started.selection.direction);
     });
@@ -258,7 +261,7 @@ export const EditableText = (props: {
 
         if (element.value !== started.form.base || started.recovered) retain();
         left = true; setEditing(null);
-        queueMicrotask(() => shown?.focus());
+        queueFocus(() => shown?.focus());
       } else if (event.key === "Enter" && (!props.multiline || event.metaKey || event.ctrlKey)) {
         event.preventDefault(); void submit();
       }

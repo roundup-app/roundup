@@ -1,3 +1,4 @@
+import { queueFocus } from "../keys/focus";
 import { createSignal } from "solid-js";
 import type { Accessor } from "solid-js";
 
@@ -35,7 +36,7 @@ export const createSettingsView = (): SettingsViewState => {
         };
 
         focus();
-        queueMicrotask(() => { if (document.activeElement === document.body) focus(); });
+        queueFocus(() => { if (document.activeElement === document.body) focus(); });
       }
     },
   };

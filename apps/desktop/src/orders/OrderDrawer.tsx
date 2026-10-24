@@ -1,3 +1,4 @@
+import { queueFocus } from "../keys/focus";
 import { writeText } from "../app/clipboard";
 import { ReservedLine } from "../ink/ReservedLine";
 import * as v from "valibot";
@@ -108,7 +109,7 @@ const OrderContent = (props: OrderInput) => {
   const close = () => {
     setEditing(false);
     setFailure(null);
-    queueMicrotask(() => editButton?.focus());
+    queueFocus(() => editButton?.focus());
   };
 
   const destination = () => ({ surface: "orders", object: props.id, recipient: props.id });
@@ -305,7 +306,7 @@ const OrderContent = (props: OrderInput) => {
 
             if (parsed.success && parsed.output.field === item.name) {
               if (draft?.selection) field.setSelectionRange(draft.selection.start, draft.selection.end, draft.selection.direction);
-              queueMicrotask(() => { if (field.isConnected) field.focus(); });
+              queueFocus(() => { if (field.isConnected) field.focus(); });
             }
 
             sizeField(field);

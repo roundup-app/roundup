@@ -1,3 +1,4 @@
+import { captureFocus, queueFocus } from "../keys/focus";
 import { createDelegateBoard, TodoAuto } from "./DelegateBoard";
 import { createOwnerAssignment, createOwnerKeys } from "./ownerAssignment";
 import { todoCreationEditor } from "../drawer/editors";
@@ -145,7 +146,7 @@ export const Todos = (props: {
       const order = dependencyRows().map(row => row.todo.id);
       const at = order.indexOf(Number(kept.dataset.todo));
 
-      queueMicrotask(() => {
+      queueFocus(() => {
         const active = document.activeElement;
         const current = active?.closest<HTMLElement>("[data-todo]");
 
@@ -280,6 +281,7 @@ export const Todos = (props: {
 
   // U138, U3709: reordering retained DOM nodes can lose native focus without mounting a new button.
   let nestFocus: number | null = null;
+  let nestPermission = captureFocus();
 
   createEffect(() => {
     open().forEach(todo => todo.blockers.join());
@@ -290,7 +292,7 @@ export const Todos = (props: {
       if (nestFocus !== id) return;
       nestFocus = null;
 
-      if (document.activeElement === document.body || document.activeElement === null) rowButtonOf(id)?.focus();
+      if (document.activeElement === document.body || document.activeElement === null) nestPermission(() => rowButtonOf(id)?.focus());
     });
   });
 
@@ -298,6 +300,7 @@ export const Todos = (props: {
   const nestOf = (todo: Todo, parent: number | null, above: Todo | null, first: boolean) => {
     const call = (blockers: number[]) => async () => {
       const advance = captureAdvance(todo.id);
+      nestPermission = captureFocus();
       nestFocus = advance ? null : todo.id;
 
       const message = await failureOf(() => connected.app.rpc("todo.setBlockers", { id: todo.id, blockers }));
@@ -343,7 +346,7 @@ export const Todos = (props: {
     setPicking(null);
 
     // U3743: the dialog opens from the select callback, so the picker's close order cannot lose it; the row keeps no focus then.
-    if (!skipRefocus && id !== undefined) queueMicrotask(() => rowButtonOf(id)?.focus());
+    if (!skipRefocus && id !== undefined) queueFocus(() => rowButtonOf(id)?.focus());
   };
 
   // U3720: a chosen Todo moves to its new group's row once `todo.updated` has refetched, which replaces the row that had focus.
@@ -378,7 +381,7 @@ export const Todos = (props: {
   // is saved here until this list no longer carries `id`, then it is given to that target, else to the `+` button — but
   // only while focus is still unclaimed (null or the page body), so a request that outlives the user moving focus
   // elsewhere (typing in U16's field, Tab into the pane) never yanks it back.
-  const [awaitingFocus, setAwaitingFocus] = createSignal<{ id: number; target: number | null; reopening: boolean }[]>([]);
+  const [awaitingFocus, setAwaitingFocus] = createSignal<{ id: number; target: number | null; reopening: boolean; focus: ReturnType<typeof captureFocus> }[]>([]);
 
   createEffect(() => {
     const openIds = new Set(open().map((todo) => todo.id));
@@ -392,13 +395,15 @@ export const Todos = (props: {
       waiting.filter((request) => {
         if (remains(request)) return true;
 
-        if (document.activeElement === null || document.activeElement === document.body) {
-          const target = request.target !== null ? rows.get(request.target) : undefined;
+        request.focus(() => {
+          if (document.activeElement === null || document.activeElement === document.body) {
+            const target = request.target !== null ? rows.get(request.target) : undefined;
 
-          if (target && !target.closest("[hidden], [inert]")) target.focus();
+            if (target && !target.closest("[hidden], [inert]")) target.focus();
 
-          if (document.activeElement === null || document.activeElement === document.body) plusButton?.focus();
-        }
+            if (document.activeElement === null || document.activeElement === document.body) plusButton?.focus();
+          }
+        });
 
         return false;
       }),
@@ -562,6 +567,7 @@ export const Todos = (props: {
   };
 
   const toggle = async (todo: Todo, ids: readonly number[]) => {
+    const focus = captureFocus();
     const reopening = todo.done;
     const advance = !reopening ? captureAdvance(todo.id) : undefined;
     const target = rowAfter(todo.id, ids);
@@ -571,7 +577,7 @@ export const Todos = (props: {
       : connected.app.rpc("todo.complete", { id: todo.id }));
 
     if (message === null && advance) await advance();
-    else if (message === null) setAwaitingFocus((waiting) => [...waiting, { id: todo.id, target, reopening }]);
+    else if (message === null) setAwaitingFocus((waiting) => [...waiting, { id: todo.id, target, reopening, focus }]);
 
     return message;
   };
@@ -585,6 +591,7 @@ export const Todos = (props: {
   // U3474b: retain rendered order before a picker, editor or mutation can move the row.
   const captureAdvance = (id: number) => {
     if (!triage.on()) return undefined;
+    const focus = captureFocus();
     const order = triageButtons().map(idOfRow);
     const at = order.indexOf(id);
     const candidates = [...order.slice(at + 1), ...order.slice(0, at).reverse(), id];
@@ -594,7 +601,7 @@ export const Todos = (props: {
 
       if (triage.on()) finishing.settle();
       // Ark reconciles regrouped trees and dismisses the picker before the next paint.
-      requestAnimationFrame(() => {
+      requestAnimationFrame(() => focus(() => {
         if (!triage.on() || !section?.isConnected || todos.failure() !== null) return;
         const kept = document.activeElement;
 
@@ -602,7 +609,7 @@ export const Todos = (props: {
         const visible = triageButtons();
         const next = candidates.map(candidate => visible.find(button => idOfRow(button) === candidate)).find(button => button !== undefined);
         (next ?? triageButton())?.focus();
-      });
+      }));
     };
   };
 
@@ -617,7 +624,7 @@ export const Todos = (props: {
     moveAdvance = undefined;
     setMoving(null);
 
-    if (id !== undefined) queueMicrotask(() => triageRowOf(id)?.focus());
+    if (id !== undefined) queueFocus(() => triageRowOf(id)?.focus());
   };
 
   const enterTriage = () => {
@@ -683,6 +690,7 @@ export const Todos = (props: {
   });
 
   const moveHome = async (id: number, home: string | null) => {
+    const focus = captureFocus();
     const advance = moveAdvance;
     clearFailures();
     const message = await failureOf(() => connected.app.rpc("todo.move", { id, home }));
@@ -690,7 +698,7 @@ export const Todos = (props: {
     pickFails.get(id)?.(message);
 
     if (message === null && advance) await advance();
-    else if (message === null) setAwaitingFocus(waiting => [...waiting, { id, target: rowAfter(id, triageButtons().map(idOfRow).filter(each => each !== undefined)), reopening: false }]);
+    else if (message === null) setAwaitingFocus(waiting => [...waiting, { id, target: rowAfter(id, triageButtons().map(idOfRow).filter(each => each !== undefined)), reopening: false, focus }]);
   };
 
   let moveAdvance: (() => Promise<void>) | undefined;
@@ -899,7 +907,7 @@ export const Todos = (props: {
         else if (made) {
           setRevealed("unassigned");
           setRegrouped({ id, owner: { kind: "agent", id: made.id, parent: null } });
-        } else queueMicrotask(() => rowButtonOf(id)?.focus());
+        } else queueFocus(() => rowButtonOf(id)?.focus());
       }} />
       <Show when={typing() && (adding() === null || fieldGroupGone())}>
         {field()}

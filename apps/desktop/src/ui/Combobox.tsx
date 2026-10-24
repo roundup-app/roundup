@@ -1,3 +1,4 @@
+import { queueFocus } from "../keys/focus";
 import "./Combobox.css";
 import "./Select.css";
 import { Portal } from "solid-js/web";
@@ -35,7 +36,7 @@ const Root = (props: {
     setTimeout(() => { pointerEvent = false; });
   };
 
-  return <ArkCombobox.Root class="app-combobox" collection={collection()} open lazyMount={false} inputBehavior="none" selectionBehavior="clear" loopFocus={false} autoFocus
+  return <ArkCombobox.Root class="app-combobox" collection={collection()} open lazyMount={false} inputBehavior="none" selectionBehavior="clear" loopFocus={false} autoFocus={false}
     inputValue={props.inputValue} value={[]} highlightedValue={props.highlightedValue ?? undefined}
     onHighlightChange={(details) => { if (!pointerEvent) props.onHighlightChange(details.highlightedValue); }}
     onInputValueChange={(details) => props.onInput(details.inputValue)}
@@ -45,7 +46,7 @@ const Root = (props: {
       if (value !== undefined) props.onSelect(value);
     }}>
     <ArkCombobox.Label class="app-combobox-label">{props.label}</ArkCombobox.Label>
-    <ArkCombobox.Control><ArkCombobox.Input ref={props.inputRef} class="app-combobox-input" placeholder={props.placeholder} autofocus /></ArkCombobox.Control>
+    <ArkCombobox.Control><ArkCombobox.Input ref={input => { props.inputRef?.(input); queueFocus(() => { if (input.isConnected) input.focus(); }); }} class="app-combobox-input" placeholder={props.placeholder} /></ArkCombobox.Control>
     <ArkCombobox.Content class="app-combobox-list" on:pointermove={{ handleEvent: notePointer, capture: true }} on:pointerleave={{ handleEvent: notePointer, capture: true }}>
       <For each={collection().group()} fallback={<p class="app-combobox-empty">{props.empty}</p>}>
         {([group, items]) => group ? <ArkCombobox.ItemGroup>

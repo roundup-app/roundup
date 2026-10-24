@@ -1,3 +1,4 @@
+import { queueFocus } from "../keys/focus";
 import { writeText } from "../app/clipboard";
 import { batch, untrack, createResource, createEffect, createMemo, createSignal, For, onCleanup, onMount, Show } from "solid-js";
 import * as v from "valibot";
@@ -182,7 +183,7 @@ export const AskBar = (props: {
     if (modalOpen()) return;
     returnTo = document.activeElement;
     setOver(true);
-    queueMicrotask(() => {
+    queueFocus(() => {
       field?.focus();
 
       if (field) restoreSelection(field);

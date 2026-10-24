@@ -1,5 +1,6 @@
+import { captureFocus } from "../keys/focus";
 import { Popover as ArkPopover } from "@ark-ui/solid/popover";
-import { createContext, createSignal, useContext } from "solid-js";
+import { createComputed, createContext, createSignal, on, useContext } from "solid-js";
 import { dialogOwned, floatingControl } from "./Dialog";
 import "./Popover.css";
 
@@ -11,8 +12,26 @@ export const Popover = {
   Root: (props: ArkPopover.RootProps) => {
     const [element, setElement] = createSignal<HTMLElement>();
     const control = floatingControl(props, element);
+    let initialFocus = captureFocus();
+    let finalFocus = captureFocus();
 
-    return <Owner.Provider value={setElement}><ArkPopover.Root lazyMount unmountOnExit autoFocus={false} modal={false} closeOnEscape={false} {...props} open={control.open()} onOpenChange={control.change} /></Owner.Provider>;
+    createComputed(on(control.open, open => {
+      if (open) initialFocus = captureFocus();
+      else finalFocus = captureFocus();
+    }));
+
+    return <Owner.Provider value={setElement}><ArkPopover.Root lazyMount unmountOnExit autoFocus={false} modal={false} closeOnEscape={false} {...props} open={control.open()} onOpenChange={control.change}
+      initialFocusEl={() => {
+        let target: HTMLElement | null | false = false;
+        initialFocus(() => { target = props.initialFocusEl?.() ?? null; });
+
+        return target;
+      }} finalFocusEl={() => {
+        let target = document.activeElement instanceof HTMLElement ? document.activeElement : document.body;
+        finalFocus(() => { target = props.finalFocusEl?.() ?? element() ?? target; });
+
+        return target;
+      }} /></Owner.Provider>;
   },
   Trigger: (props: ArkPopover.TriggerProps) => {
     const setElement = useContext(Owner);
