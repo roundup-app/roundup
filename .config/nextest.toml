@@ -38,7 +38,7 @@ default-filter = '''
 
 # L89: the Rust lanes. A lane runs the test binaries its profile names, packed so the lanes' replayed test time (the
 # per-test seconds of a `main` run through nextest's scheduling: four threads in list order, isolated tests alone first)
-# is as even as whole binaries allow, with the three CPU-heavy daemon binaries (`perf::flood`, the `rupd` Takeover binaries (`prompt_identity` to `order_base_changes`),
+# is as even as whole binaries allow, with the three CPU-heavy daemon binaries (`perf::flood`, the `rupd` prompt-identity binaries (`prompt_identity` to `order_base_changes`),
 # `b21_stopped_door`) in three lanes: together their timed waits overran. `ci5` is everything the others do not name:
 # a new test binary runs in `ci5` until it is packed. Edit the lists together.
 [profile.ci1]
@@ -79,13 +79,7 @@ binary_id(=agents)
 | binary_id(=rupd::order_steering)
 | binary_id(=rupd::decision_notes)
 | binary_id(=rupd::door_writes)
-| binary_id(=rupd::takeover_races)
 | binary_id(=rupd::door_answers)
-| binary_id(=rupd::held_resizes)
-| binary_id(=rupd::held_renames)
-| binary_id(=rupd::held_stops)
-| binary_id(=rupd::held_door_calls)
-| binary_id(=rupd::held_door_authority)
 | binary_id(=rupd::order_base_changes)
 | binary_id(=rupd::b6_cleanup_completion)
 | binary_id(=rupd::n7_data)
@@ -156,13 +150,7 @@ binary_id(=agents::launch)
 | binary_id(=rupd::order_steering)
 | binary_id(=rupd::decision_notes)
 | binary_id(=rupd::door_writes)
-| binary_id(=rupd::takeover_races)
 | binary_id(=rupd::door_answers)
-| binary_id(=rupd::held_resizes)
-| binary_id(=rupd::held_renames)
-| binary_id(=rupd::held_stops)
-| binary_id(=rupd::held_door_calls)
-| binary_id(=rupd::held_door_authority)
 | binary_id(=rupd::order_base_changes)
 | binary_id(=rupd::b6_cleanup_completion)
 | binary_id(=rupd::n7_data)

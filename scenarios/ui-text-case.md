@@ -7,7 +7,7 @@ Webview only: no App command, no Daemon method, no `contracts/` file and no Toke
 **U416 every word the App writes is in sentence case.** Given the App on the seeds `first-run`, `agents-10`, `tree-40`, `door-stopped`, `decisions` and `conflict` (U26) in both schemes at 1280 by 800, when a test reads every button, menu item, label, hint, tooltip, `aria-label`, `title` and status word, then:
 
 - **Sentence case.** Each starts with a capital and no later word is capitalised, so `Take control`, `Send`, `Answer`, `No checkpoint yet`, `Full log`, `Clarifying: What is this Workstream for?`. A word after a colon follows the same rule as a first word.
-- **User labels.** A `GLOSSARY.md` term without an explicit user-label mapping keeps its capital inside a phrase: `Workstream`, `Agent`, `Pad`. U471 maps Door, Takeover, Shelf and Handoff to supervisor, control, work items and summary.
+- **User labels.** A `GLOSSARY.md` term without an explicit user-label mapping keeps its capital inside a phrase: `Workstream`, `Agent`, `Pad`. U471 maps Door, Shelf and Handoff to supervisor, work items and summary.
 - **Exempt.** Section heads stay in spaced capitals (#1097). A name, id, path, code and any text the user or an Agent wrote stays as written: a Workstream named `workstream` shows lower case on its Rail row, and an Agent's Status label (`asks: keep v1 routes?`) is shown as the Agent wrote it. Terminal text and Agents' output are outside this scenario.
 - **The add.** The Rail's add reads `+ Workstream` (U391) and the word `new` is gone from it; its `aria-label` is `Add Workstream`. The empty centre's button (U143) reads `New Workstream`, sentence case, since the add's `+` is what drops `new`. Slicing: quotes of `+ Workstream` in other scenarios change in this PR, while `scenarios/workstream.md` keeps `new Workstream` and `no Workstream yet` until the PR that changes that label in code; the difference is planned, not a mismatch.
 - **Docs.** `docs/design-system.md` states the rule under "Text case" with Check D15, and `docs/wireframes.md` no longer says lower-case words are click targets. Every scenario that quotes a label is changed to the label's new case in the PR that changes the label in code, and a scenario text still quoting an old label fails `u471_previous_copy_assertions_are_preserved_no_scenario_quotes_a_lower_case_label`.
@@ -50,14 +50,12 @@ Thread observer: retired by U467 with the Thread; the clear prompt (U350) is now
 |---|---|---|
 | Start Door | Start supervisor | Start the selected Workstream's Door |
 | Retry Door | Retry supervisor | Retry its failed start |
-| End Takeover | Give control back | End Takeover and resume routed delivery |
-| Take over | Take control | Begin Takeover |
 | Clear without Handoff | Clear without a summary | Existing failure fallback, without writing a Handoff |
 | Clear (clear prompt submit only) | Clear and keep a summary | Normal Clear, writing the Handoff first |
 
 Centre exception (U143, policy): the Workstream Door centre uses `Start` / `Retry`; the table's `Start supervisor` / `Retry supervisor` remain the Rail labels. This is a surface-specific action-label exception, not a change to code terms or the glossary mapping. The centre's state copy follows U143's four meanings and one-supervisor limit. Once this amendment is on main, #2679 updates only the centre queries in `u471_action_labels_describe_the_existing_action_retry_supervisor` (`apps/desktop/src/copy.test.ts`) to role and catalogue name, preserving its two `rail.startDoor {id: "w"}` calls, original failure message, selection and no-create assertions. Exact centre-label assertions are retired as word proofs; Rail-label and catalogue provenance coverage remain.
 
-The glossary maps Door to supervisor, Takeover to control, Shelf to work items and Handoff to summary in App-authored prose as well as these controls. Clear elsewhere remains Clear; the summary label must never describe the fallback. User-authored occurrences of these words remain untouched.
+The glossary maps Door to supervisor, Shelf to work items and Handoff to summary in App-authored prose as well as these controls. Clear elsewhere remains Clear; the summary label must never describe the fallback. User-authored occurrences of these words remain untouched.
 
 **U472 catalogue copy preserves the first journey.** Given U471's labels on `first-run`, `agents-10`, `tree-40`, `door-stopped`, `decisions` and `conflict`, in light at 1280×800 and `tree-40` also in dark, when the isolated headless observer drives Enter, Understand, Intervene and Review in light from `.agents/data/journey.md`, then `u472_copy_preserves_journey_actions_and_failure_text` asserts start/retry, take/give control, show/hide work items, normal clear and injected failed clear. Failure text remains visible on the densest seed; the reason survives a rejected clear; stopping and clearing preserve the existing Workstream/file guarantees. The design critic judges those Checks in dark only (AGENTS.md rule 10, U3725): D2 (`docs/design-system.md:126`), D5 (`:129`), D6 (`:130`) and D15 (`:139`) hold, and no previously passing Check regresses; the behaviour test above is the kept proof. Moves: D6, D15. Tokens and layout behavior stay governed by the existing Checks. This observer proves webview copy and its existing seam actions, not a new native or real-Claude claim.
 
@@ -74,7 +72,7 @@ Implementation observer commands (one row per failure):
 | `pnpm --filter desktop exec vitest run src/copy.test.ts` | Any U471 catalogue, coverage, case or label assertion fails | 1 |
 | `pnpm --filter desktop exec vitest run src/app/u472_copy_journey.test.ts` | Any journey action, or preservation assertion fails | 1 |
 | `python3 -c "from pathlib import Path; raise SystemExit(int(len(list(Path('apps/desktop/src').rglob('u416_sentence_case*'))) > 1))"` | More than one former case observer remains | 1 |
-| `! rg -n -e '"Start Door"' -e '"End Takeover"' -e '"Clear without Handoff"' apps/desktop/src` | A replaced label remains | 1 |
+| `! rg -n -e '"Start Door"' -e '"Clear without Handoff"' apps/desktop/src` | A replaced label remains | 1 |
 | `loop/rules.sh vocab` | A public code name violates rule 6 | 1 |
 
 These are future implementation observers, not claims that tests exist on main. Specification acceptance (policy): these headings define catalogue ownership, exact mappings, exemptions, regression observers and Checks; a checked dependent implementation Issue owns their delivery. The specification PR closes #1611 and leaves that implementation Issue open.

@@ -46,7 +46,6 @@ Baseline: `rup` binaries on green `check` run 39378452452, 341 s together. The r
 | `a33_completing_the_blocker_reads_idle` | `rup::e2e` | 6.5 |
 | `d9_clear_failure_is_evented_without_an_app_timeout` | `rup::d9` | 6.2 |
 | `a33_an_idle_agent_with_a_blocked_todo_reads_blocked` | `rup::e2e` | 6.2 |
-| `u468_takeover_keeps_the_native_question_for_the_user` | `rup::u468` | 5.9 |
 | `u468_a_door_direct_answer_still_resumes_a_native_question` | `rup::u468` | 5.7 |
 | `u468_a_child_cannot_claim_user_to_answer_its_own_question` | `rup::u468` | 5.7 |
 | `u468_replaced_question_cannot_take_a_late_native_answer` | `rup::u468` | 5.6 |
