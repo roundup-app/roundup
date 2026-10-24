@@ -52,7 +52,7 @@ it("u459_failed_done_rows_are_visible_and_selected", async () => {
 
   fireEvent.click(await screen.findByRole("button", { name: "Clear done" }));
   await confirmDeletion();
-  await screen.findByText("todo 2 #2: denied");
+  await screen.findByText("Could not delete todo 2 #2: denied");
   await questionClosed();
   expect(screen.getByRole("button", { name: /#2 / }).getAttribute("aria-pressed")).toBe("true");
   expect(screen.getByText("1 selected")).toBeTruthy();

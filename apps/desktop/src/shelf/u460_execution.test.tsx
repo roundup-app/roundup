@@ -48,7 +48,7 @@ it("u460_partial_failure_names_and_selects_only_failed_rows", async () => {
   await pickTwo();
   await askToDelete(2);
   await confirmDeletion();
-  await screen.findByText("same #2: denied");
+  await screen.findByText("Could not delete same #2: denied");
   expect(screen.getByText("1 selected")).toBeTruthy();
   expect(screen.queryByRole("button", { name: /#1 / })).toBeNull();
   expect(screen.getByRole("button", { name: /#2 / }).getAttribute("aria-pressed")).toBe("true");
@@ -121,7 +121,7 @@ it("u460_retry_confirms_only_the_remaining_set", async () => {
   await pickTwo();
   await askToDelete(2);
   await confirmDeletion();
-  await screen.findByText("todo 2 #2: denied");
+  await screen.findByText("Could not delete todo 2 #2: denied");
   failed = false;
   await askToDelete(1);
   await confirmDeletion();
@@ -182,7 +182,7 @@ it("u460_plain_click_after_failure_clears_the_bar_before_opening_the_drawer", as
   await pickTwo();
   await askToDelete(2);
   await confirmDeletion();
-  await screen.findByText("todo 1 #1: denied");
+  await screen.findByText("Could not delete todo 1 #1: denied");
   fireEvent.click(screen.getByRole("button", { name: /#1 / }));
   expect(screen.queryByRole("group", { name: "Work items deletion" })).toBeNull();
   expect(screen.getByRole("complementary", { name: "Drawer" })).toBeTruthy();
@@ -216,7 +216,7 @@ for (const owner of ["todos", "pads"] as const) {
     const { app, connected } = fixture;
     const first = owner === "todos" ? 1 : "first";
     const row = (which: "first" | "second" | "other") => screen.getByRole("button", { name: owner === "todos" ? new RegExp(`#${{ first: 1, second: 2, other: 3 }[which]} `) : which });
-    const message = (which: "first" | "second") => owner === "todos" ? `same #${which === "first" ? 1 : 2}: denied` : `${which}: denied`;
+    const message = (which: "first" | "second") => owner === "todos" ? `Could not delete same #${which === "first" ? 1 : 2}: denied` : `Could not delete ${which}: denied`;
     const remove = owner === "todos" ? "todo.delete" : "pad.delete";
     const deleteTodo = app.handlers["todo.delete"];
     const deletePad = app.handlers["pad.delete"];
