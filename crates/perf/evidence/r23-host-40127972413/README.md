@@ -12,9 +12,10 @@ remaining measurement/repair work belongs under #3720.
 Checkout: `f82fd7499a07f81a8dd42947b2b9d3c353c15905`.
 Execution: [Actions run 40127972413](https://github.com/saadshahd/roundup/actions/runs/40127972413),
 job `120973603580` (`build #3764 / build`), runner `GitHub Actions 1000193095`.
-The boot id in `machine.txt` identifies this VM lifetime. No Daemon/probe build,
-timing invocation or diagnostic profile was attempted. There are no executable
-hashes or release measurement settings to report for this attempt.
+The boot id in `machine.txt` identifies this VM lifetime. No release measurement
+build, timing invocation or diagnostic profile was attempted. There are no release
+executable hashes or measurement settings to report. Development/test binaries
+built by the PR's lint and test checks provide no R23 performance evidence.
 
 | Failed command (full text/output in linked evidence) | Reference | Failure | Actual exit |
 |---|---|---|---|
