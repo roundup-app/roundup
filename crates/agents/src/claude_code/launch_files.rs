@@ -73,11 +73,6 @@ fn is_stale(lock: &Path) -> bool {
         .is_ok_and(|modified| modified.elapsed().is_ok_and(|age| age > STALE))
 }
 
-/// One word for a shell, whatever the path holds.
-pub(super) fn shell_quote(word: &str) -> String {
-    format!("'{}'", word.replace('\'', r"'\''"))
-}
-
 /// Write to a fresh file beside `path`, then rename it over `path` itself, so a reader never sees
 /// half a file and two writers never share a temp file. A symlink at `path` is replaced, never
 /// written through: the files in the Project are not ours to trust. The old permissions are kept
