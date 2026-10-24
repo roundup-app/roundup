@@ -54,6 +54,12 @@ const HEAD: [&str; 10] = [
     "../messages/migrations/003/up.sql",
 ];
 
+/// The ids the image holds in place of a Project's own, one per table; `storage.rs` has the same pair.
+const IDENTITIES: [&str; 2] = [
+    "00000000000000000000000000000001",
+    "00000000000000000000000000000002",
+];
+
 /// R3696c: a fresh `project.db` is copied from this migrated image, not replayed through every migration.
 fn fresh_image(root: &Path, dir: &Path, added: &[String]) {
     let mut sources = Vec::new();
@@ -73,6 +79,14 @@ fn fresh_image(root: &Path, dir: &Path, added: &[String]) {
     let mut db = Connection::open(&work).unwrap();
     let migrations: Vec<M> = sources.iter().map(|s| M::up(s)).collect();
     Migrations::new(migrations).to_latest(&mut db).unwrap();
+    // Placeholders `storage.rs` replaces with each Project's own ids, in the bytes of the copy.
+    for (table, id) in [
+        ("deliverable_project", IDENTITIES[0]),
+        ("reaction_project", IDENTITIES[1]),
+    ] {
+        db.execute(&format!("UPDATE {table} SET id=?1"), [id])
+            .unwrap();
+    }
     db.execute("VACUUM INTO ?1", [image.to_str().unwrap()])
         .unwrap();
     // The WAL mode is kept in the file, so `storage::open` finds it set and writes nothing.
