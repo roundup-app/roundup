@@ -343,7 +343,7 @@ it("dv6_bound_share_copies_the_selected_publication_and_resolves_its_retained_re
   await real.restart();
   const reader = await app.rpc("agent.spawn", { cwd: real.dir, parent: null, prompt: null, name: "Link reader" });
   const copied: string[] = [];
-  Object.defineProperty(navigator, "clipboard", { configurable: true, value: { writeText: async (text: string) => { copied.push(text); } } });
+  vi.spyOn(app, "writeClipboardText").mockImplementation(async (text: string) => { copied.push(text); });
   app.showContextMenu = vi.fn(async () => "copy-link");
   const connected = await connectProject(app, { path: real.dir, name: "Project" }, () => false, () => 0);
   render(() => <ConnectedProjectContext.Provider value={connected}><AskBar /></ConnectedProjectContext.Provider>);
