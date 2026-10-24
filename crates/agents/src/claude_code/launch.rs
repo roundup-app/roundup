@@ -9,6 +9,7 @@ use std::os::unix::fs::PermissionsExt;
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex, PoisonError};
 
+use super::vendor_list::Sidecar;
 use rpc::{OpenError, RpcError, code};
 use serde_json::{Map, Value, json};
 use tokio::sync::OnceCell;
@@ -65,6 +66,10 @@ pub struct Launcher {
     /// Claude Code's own config file, where it remembers which folders are trusted.
     claude_json: PathBuf,
     pub(super) conversation_dir: PathBuf,
+    /// U3523f: the bundled Node sidecar Import lists through.
+    pub(super) sidecar: Option<Sidecar>,
+    /// Counts started listings; a newer one supersedes the one running (U3523a).
+    pub(super) listings: Arc<tokio::sync::watch::Sender<u64>>,
     /// U3016h: the vendor's account usage endpoint when not its own, and the last answer.
     usage_url: Option<String>,
     usage: super::usage::Cache,
@@ -164,6 +169,8 @@ impl Launcher {
         };
         Self {
             conversation_dir,
+            sidecar: None,
+            listings: Arc::new(tokio::sync::watch::channel(0).0),
             usage_url: None,
             usage: super::usage::Cache::default(),
             #[cfg(any(test, feature = "test-support"))]
@@ -230,6 +237,7 @@ impl Launcher {
         .into_iter()
         .filter(|name| var(name).is_some())
         .collect();
+        launcher.sidecar = Sidecar::beside(exe, var("ROUNDUP_SIDECAR_DIR"));
         launcher.usage_url =
             var("ROUNDUP_CLAUDE_USAGE_URL").map(|url| url.to_string_lossy().into_owned());
         Ok(launcher)
@@ -381,31 +389,23 @@ impl Launcher {
             (Some(lean), Role::Agent) if lean.scout => Role::Scout,
             _ => role,
         };
-        let mut delivery = match &lean {
+        let delivery = match &lean {
             Some(lean) => extras::resolve(&self.extras_sources(&project), &lean.extras)?,
             None => extras::Delivery::default(),
         };
-        if lean.is_some() && profile(role).skills {
-            for skill in extras::project_skills(&project) {
-                if !delivery.skills.iter().any(|(name, _)| *name == skill.0) {
-                    delivery.skills.push(skill);
-                }
-            }
-        }
         let mut carried =
             user_settings(&self.conversation_dir, &project).map_err(RpcError::internal)?;
         if lean.is_some() {
-            for key in [
-                "outputStyle",
-                "enabledPlugins",
-                "mcpServers",
-                "autoMemoryEnabled",
-                "autoMemoryDirectory",
-            ] {
-                carried
-                    .as_object_mut()
-                    .expect("settings object")
-                    .remove(key);
+            // LC2, LC16: the original sources stay on so their commands list, and merge under
+            // this copy; so each exclusion is set off here, not left out.
+            let object = carried.as_object_mut().expect("settings object");
+            for key in ["mcpServers", "autoMemoryDirectory"] {
+                object.remove(key);
+            }
+            object.insert("outputStyle".into(), json!("default"));
+            object.insert("autoMemoryEnabled".into(), json!(false));
+            if let Some(Value::Object(plugins)) = object.get_mut("enabledPlugins") {
+                plugins.values_mut().for_each(|on| *on = json!(false));
             }
         }
         let missing_intent = self.door_lacks_intent(role);
@@ -421,6 +421,8 @@ impl Launcher {
             }
             if lean.is_some() {
                 own["env"]["CLAUDE_CODE_DISABLE_AUTO_MEMORY"] = json!("1");
+                // LC17: the Brief carries each `CLAUDE.md` as LC1 lists it; Claude Code loads none.
+                own["env"]["CLAUDE_CODE_DISABLE_CLAUDE_MDS"] = json!("1");
             }
             for (key, value) in pair.env() {
                 own["env"][key] = json!(value);
@@ -496,27 +498,14 @@ impl Launcher {
         if let Some(lean) = &lean {
             argv.push("--append-system-prompt-file".into());
             argv.push(brief_file.to_string_lossy().into_owned());
-            // LC2: use the merged copy so original sources cannot restore the named exclusions.
-            argv.extend(["--strict-mcp-config", "--setting-sources", ""].map(String::from));
+            argv.push("--strict-mcp-config".into());
             let row = profile(role);
             if let Some((with, without)) = row.tools {
                 argv.push("--tools".into());
                 argv.push(if mcp { with } else { without }.into());
             }
-            let skills = !delivery.skills.is_empty();
-            let commands = row
-                .skills
-                .then(|| project.join(".claude/commands"))
-                .filter(|path| path.is_dir());
-            if !row.skills && !skills {
-                argv.push("--disable-slash-commands".into());
-            }
-            if skills || commands.is_some() {
-                let folder = extras::skill_plugin(
-                    &extras_dir(&dir, id),
-                    &delivery.skills,
-                    commands.as_deref(),
-                )?;
+            if !delivery.skills.is_empty() {
+                let folder = extras::skill_plugin(&extras_dir(&dir, id), &delivery.skills)?;
                 argv.extend(["--plugin-dir".into(), folder.to_string_lossy().into_owned()]);
             }
             for plugin in &delivery.plugins {
@@ -612,6 +601,7 @@ impl Launcher {
         }
         if lean_of(role, pair).is_some() {
             command.env("CLAUDE_CODE_DISABLE_AUTO_MEMORY", "1");
+            command.env("CLAUDE_CODE_DISABLE_CLAUDE_MDS", "1");
         }
         command.env("ROUNDUP_AGENT", id);
         if let Some(dir) = self.rup.parent().filter(|dir| dir.is_absolute()) {

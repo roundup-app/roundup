@@ -27,6 +27,8 @@ impl Shared {
             unreachable!("spawn marks {id} Starting before run_agent runs")
         };
         let mut run = build(named);
+        run.adapter
+            .set_finished(rail.finished(id).unwrap_or_default());
         let mut prompts = Vec::new();
         for (actor, payload) in parked {
             // A21: a parked Signal naming a conversation is saved before it is applied, same as a
@@ -255,7 +257,9 @@ impl Shared {
             terminal_id: terminal_id.clone(),
             cwd,
         };
-        // Only the matching ack may release the first prompt; a parked mismatched SessionStart
+        run.adapter
+            .set_finished(rail.finished(id).unwrap_or_default());
+        // Only the matching ack may release the first prompt; a held mismatched SessionStart
         // must not take it before the remembered title is applied below.
         for (parked_actor, parked_payload) in parked {
             let first_prompt =

@@ -3,7 +3,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { createSignal, Show } from "solid-js";
 import { Combobox } from "../ui/Combobox";
 import { info } from "../testing/nodes";
-import { openSwitcher, field, mountSwitcher, press, rows } from "./switcherFixture";
+import { openSwitcher, field, mountSwitcher, switcherKey as press, rows } from "./switcherFixture";
 
 afterEach(() => { cleanup(); localStorage.clear(); vi.restoreAllMocks(); });
 
@@ -225,4 +225,72 @@ it("u2773e_unreadable_query_offers_only_retry_until_there_is_text", async () => 
   type("recoverable");
   expect(screen.getByRole("button", { name: "Copy query" })).toBeDefined();
   expect(screen.getByRole("button", { name: "Discard query" })).toBeDefined();
+});
+
+it.each(["dismiss", "copy", "discard", "failed discard", "unrelated discard", "failed retry", "storage recovery"] as const)(
+  "p3557c_failure_lifetime_switcher_%s", async (action) => {
+    const exact = "  e\u0301 🧭 東京  ";
+    const writeText = vi.fn<(_text: string) => Promise<void>>().mockRejectedValue(new Error("denied"));
+    Object.defineProperty(navigator, "clipboard", { configurable: true, value: { writeText } });
+    const { app, connected } = await mountSwitcher("ann");
+    const other = connected.drafts.edit({ surface: "other", object: "bob", recipient: null }, { text: " untouched 東京 " }, null, "ordinary").draft;
+    const refuse = vi.spyOn(Storage.prototype, "setItem").mockImplementation(() => { throw new Error("full"); });
+    openSwitcher();
+    await waitFor(() => expect(field()).not.toBeNull());
+    type(exact);
+    field()!.setSelectionRange(2, 9, "backward");
+    fireEvent.select(field()!);
+    const calls = app.calls.length;
+    fireEvent.click(screen.getByRole("button", { name: "Copy query" }));
+    await screen.findByRole("alert", { name: "Could not copy query. Select the text and copy again." });
+    field()!.setSelectionRange(2, 9, "backward");
+    fireEvent.keyUp(field()!);
+    const before = connected.drafts.list();
+
+    if (action !== "failed discard" && action !== "failed retry") refuse.mockRestore();
+
+    if (action === "dismiss") fireEvent.click(screen.getByRole("button", { name: "Close" }));
+
+    if (action === "copy") {
+      writeText.mockResolvedValue(undefined);
+      fireEvent.click(screen.getByRole("button", { name: "Copy query" }));
+    }
+
+    if (action === "discard" || action === "failed discard") fireEvent.click(screen.getByRole("button", { name: "Discard query" }));
+
+    if (action === "unrelated discard") connected.drafts.discard(other.revision);
+
+    if (action === "failed retry" || action === "storage recovery") fireEvent.click(screen.getByRole("button", { name: "Try again" }));
+
+    const keepsCopyFailure = ["unrelated discard", "failed retry", "storage recovery"].includes(action);
+    await waitFor(() => expect(screen.queryByRole("alert", { name: "Could not copy query. Select the text and copy again." }) !== null).toBe(keepsCopyFailure));
+    const discards = action === "discard" || action === "failed discard";
+    expect(field()!.value).toBe(discards ? "" : exact);
+
+    if (!discards) expect([field()!.selectionStart, field()!.selectionEnd, field()!.selectionDirection]).toEqual([2, 9, "backward"]);
+    expect(connected.drafts.list()).toEqual(action === "unrelated discard" ? before.filter(draft => draft.revision !== other.revision) : discards ? [other] : before);
+    expect(connected.rail.selected()).toBe("ann");
+    expect(app.calls.length).toBe(calls);
+
+    if (action === "dismiss" || action === "copy" || action === "failed discard") expect(screen.getByRole("alert", { name: /won't be kept/ })).toBeDefined();
+  },
+);
+
+it("p3557c_failure_lifetime_switcher_late_copy_cannot_fail_a_new_revision", async () => {
+  let reject!: (error: Error) => void;
+  const writeText = vi.fn(() => new Promise<void>((_resolve, refuse) => { reject = refuse; }));
+  Object.defineProperty(navigator, "clipboard", { configurable: true, value: { writeText } });
+  const { connected } = await mountSwitcher();
+  vi.spyOn(Storage.prototype, "setItem").mockImplementation(() => { throw new Error("full"); });
+  openSwitcher();
+  await waitFor(() => expect(field()).not.toBeNull());
+  type("original query");
+  fireEvent.click(screen.getByRole("button", { name: "Copy query" }));
+  type(" newer 東京 query ");
+  const drafts = connected.drafts.list();
+  reject(new Error("denied"));
+  await waitFor(() => expect(screen.getByRole("alert", { name: /won't be kept/ })).toBeDefined());
+  expect(screen.queryByRole("alert", { name: "Could not copy query. Select the text and copy again." })).toBeNull();
+  expect(field()!.value).toBe(" newer 東京 query ");
+  expect(connected.drafts.list()).toEqual(drafts);
 });

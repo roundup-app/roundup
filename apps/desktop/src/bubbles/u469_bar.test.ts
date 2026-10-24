@@ -107,12 +107,15 @@ it("u469_the_observer_records_open_switch_minimise_pull_close_failure_and_select
       }`);
       await record('pulled');
       await page.call(`() => document.querySelector('.terminal-tab-pair[data-bubble="101"] button:last-child').click()`);
+      await page.until(`() => Boolean(window.__fake.app.answerQuestion)`);
+      await page.call(`() => window.__fake.app.answerQuestion(true)`);
       await page.until(`() => document.querySelectorAll('.terminal-tab').length===3`);
       await record('closed');
       await page.call(`() => {
         window.__fake.app.handlers['terminal.close']=()=>{throw new Error('cannot close this Terminal');};
         document.querySelector('.terminal-tab-pair button:last-child').click();
       }`);
+      await page.call(`() => window.__fake.app.answerQuestion(true)`);
       await page.until(`() => document.querySelector('.bubble-failure [role="alert"]')`);
       await record('rejected');
       await page.call(`() => document.querySelector('[data-id="dense"]').click()`);

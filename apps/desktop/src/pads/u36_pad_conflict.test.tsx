@@ -700,7 +700,7 @@ it("u2773b_pads_matching_source_does_not_acknowledge_an_unknown_write", async ()
   await waitFor(() => expect(screen.queryByRole("textbox", { name: "Pad body" })).toBeNull());
   await openPad("unknown");
   fireEvent.click(screen.getByRole("button", { name: "Resume" }));
-  await screen.findByRole("alert");
+  await within(screen.getByLabelText("Drawer")).findByRole("alert");
   expect(connected.drafts.list()).toEqual([snapshot]);
   expect(app.calls.filter(call => call.method === "pad.write")).toHaveLength(1);
   expect(state.pads[0]?.text).toBe("submitted é");

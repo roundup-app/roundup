@@ -593,6 +593,7 @@ mod tests {
             kind,
             label: label.into(),
             since: 0,
+            finished: "0".into(),
         }
     }
 

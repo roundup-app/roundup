@@ -1363,6 +1363,7 @@ mod tests {
                 kind,
                 label: "status".into(),
                 since: 0,
+                finished: "0".into(),
             }),
         )
     }
@@ -1671,6 +1672,7 @@ mod tests {
                 kind: Kind::Idle,
                 label: "status".into(),
                 since: 0,
+                finished: "0".into(),
             }),
         );
         let h = Harness::new(dir.path(), vec![meta]);
@@ -2827,6 +2829,7 @@ mod tests {
                 kind: Kind::Idle,
                 label: "status".into(),
                 since: 0,
+                finished: "0".into(),
             }),
         );
         door.parent = parent.map(Into::into);

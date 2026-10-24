@@ -1,7 +1,7 @@
 import { cleanup, fireEvent, screen } from "@solidjs/testing-library";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { agent, USER } from "../testing/nodes";
-import { AGENT, by, mountToasts, status, todo } from "./toastFixture";
+import { TOAST_AGENT as AGENT, by, mountToasts, status, toastTodo as todo } from "./toastFixture";
 
 beforeEach(() => vi.useFakeTimers());
 

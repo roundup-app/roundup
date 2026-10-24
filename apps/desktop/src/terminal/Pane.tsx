@@ -191,6 +191,14 @@ export const Pane = (props: { notice?: string | null; createEmulator?: EmulatorF
     { chords: ["Meta+V"], ...onScreen((id) => void screens.paste(id, navigator.clipboard)) },
   ]);
 
+  /** P3557c: only a Terminal failure is the user's to dismiss; a retention, Rail or Daemon line keeps its own recovery. */
+  const dismissFailure = (): (() => void) | null => {
+    if (props.notice != null || storageFailure() !== null) return null;
+
+    const id = terminalId();
+
+    return rail.doorFailure(selected()?.id ?? "") === null && id !== null && screens.failure(id) !== null ? () => screens.dismiss(id) : null;
+  };
   const decision = createMemo(() => connected.decisions.of(selected()?.id ?? null));
 
   let card: HTMLElement | undefined;
@@ -363,6 +371,7 @@ export const Pane = (props: { notice?: string | null; createEmulator?: EmulatorF
       <div class="pane-failure">
         <ReservedLine class={connected.decisions.listFailure() ? "decision-list-failure" : undefined} message={notice() ?? rail.workstreamFailure() ?? connected.decisions.listFailure()}>
           <Show when={connected.decisions.listFailure()}><button data-button="quiet" type="button" class="word" onClick={() => connected.decisions.retryList()}>{copy.retry}</button></Show>
+          <Show when={dismissFailure()}>{(dismiss) => <button data-button="quiet" type="button" class="word" onClick={() => dismiss()()}>{copy.dismissFailure}</button>}</Show>
         </ReservedLine>
       </div>
     </div>

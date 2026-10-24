@@ -54,6 +54,7 @@ fn r16_large_event_payloads_keep_the_exact_wire_envelope() {
     };
     let decision_wire = json!({"id":"d1","agent":"a1","tool":"Bash","args":"echo hi","opened_at":789,"answerable":true});
     let status = contracts::agent::StatusEvent {
+        ended: true,
         id: "a1".into(),
         attempt: "2".into(),
         status_revision: "3".into(),
@@ -61,13 +62,14 @@ fn r16_large_event_payloads_keep_the_exact_wire_envelope() {
             kind: contracts::common::Kind::Working,
             label: "building".into(),
             since: 123,
+            finished: "0".into(),
         },
     };
     let cases = [
         (
             "agent.status",
             EventData::AgentStatus(status.into()),
-            json!({"id":"a1","attempt":"2","status_revision":"3","status":{"kind":"working","label":"building","since":123}}),
+            json!({"id":"a1","attempt":"2","status_revision":"3","ended":true,"status":{"kind":"working","label":"building","since":123,"finished":"0"}}),
         ),
         (
             "todo.created",

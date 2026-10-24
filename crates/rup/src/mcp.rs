@@ -353,6 +353,10 @@ fn offered_tools() -> Vec<Offered> {
             "link.read",
             "Read a Project roundup:// link: current Pad, Todo, Agent, Workstream or Terminal content, or a Deliverable recorded revision/current external target and its availability.",
         ),
+        offered::<project::ImportListParams>(
+            "import.list",
+            "Read-only: list this Project's saved and live top-level Claude Code sessions active in the period, once each, with the revision to approve. Starts no import and spends no Model turn.",
+        ),
         offered_without_params("pad.list", "List every Pad."),
         offered::<pad::WriteParams>(
             "pad.write",

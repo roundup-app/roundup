@@ -161,14 +161,14 @@ pub(crate) fn summarize(
             "Measurements changed; read again from offset zero",
         ));
     }
-    // An Agent counts as running until its Status settles as done or error; a removed one is stopped.
+    // The shared Agent-time rule excludes idle and ended Attempts.
     let running = |agent: &str| {
         tree.iter().any(|node| {
             node.id == agent
                 && node
                     .status
                     .as_ref()
-                    .is_some_and(|s| !matches!(s.kind, Kind::Done | Kind::Error))
+                    .is_some_and(|s| s.kind.counts_time(node.terminal_id.is_none()))
         })
     };
     let mut contributors =

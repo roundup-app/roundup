@@ -263,6 +263,11 @@ pub const METHODS: &[Method] = &[
         "project_ImportDiscovery",
     ),
     m(
+        "import.list",
+        "project_ImportListParams",
+        "project_ImportList",
+    ),
+    m(
         "project.importCommit",
         "project_ImportCommitParams",
         "project_ImportResult",

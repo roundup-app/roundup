@@ -195,6 +195,49 @@ pub struct ImportDiscovery {
     pub excluded: Vec<ImportExclusion>,
 }
 
+/// U3523a: what `import.list` reads. `period` is as in `project.importDiscover`.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, TS, JsonSchema)]
+#[ts(export, export_to = "project/")]
+pub struct ImportListParams {
+    pub period: ImportPeriod,
+}
+
+/// U3523a: a live Claude Code session as `claude agents --json` reported it; each field only
+/// when the program supplied it. roundup never signals or writes `pid`.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, TS)]
+#[ts(export, export_to = "project/")]
+pub struct ImportLive {
+    pub pid: Option<u32>,
+    pub cwd: Option<String>,
+    pub name: Option<String>,
+    pub busy: Option<bool>,
+    pub started_at_ms: Option<i64>,
+}
+
+/// U3523a: one session `import.list` offers, once. `revision` binds an approval to what was listed.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, TS)]
+#[ts(export, export_to = "project/")]
+pub struct ImportListed {
+    pub source: String,
+    pub title: String,
+    /// The first recorded directory inside the Project, relative to it ("" is the Project folder).
+    pub cwd: String,
+    pub last_activity_ms: i64,
+    pub revision: String,
+    pub live: Option<ImportLive>,
+}
+
+/// U3523a, U3523f: read-only; newest first, equal times by source identity. `notices` are what the
+/// SDK sidecar printed; `sdk` is its pinned version.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, TS)]
+#[ts(export, export_to = "project/")]
+pub struct ImportList {
+    pub candidates: Vec<ImportListed>,
+    pub excluded: Vec<ImportExclusion>,
+    pub notices: Vec<String>,
+    pub sdk: String,
+}
+
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, TS, JsonSchema)]
 #[ts(export, export_to = "project/")]
 pub struct ImportSelection {

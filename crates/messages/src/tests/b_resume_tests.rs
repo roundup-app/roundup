@@ -13,6 +13,7 @@ fn status(kind: Kind, label: &str) -> Option<Status> {
         kind,
         label: label.into(),
         since: 0,
+        finished: "0".into(),
     })
 }
 

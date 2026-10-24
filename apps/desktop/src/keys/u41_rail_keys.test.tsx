@@ -197,7 +197,7 @@ describe("u41 rail by keyboard, the rest", () => {
   it("u41_right_moves_to_the_first_visible_child_skipping_a_row_folded_into_done", async () => {
     await mountKeys([
       workstream("g"),
-      agent("old", "done", "finished", { parent: "g", order: 0, status: { kind: "done", label: "finished", since: NOW - 11 * MINUTE } }),
+      agent("old", "done", "finished", { parent: "g", order: 0, status: { kind: "done", label: "finished", since: NOW - 11 * MINUTE, finished: "0" } }),
       agent("live", "idle", "x", { parent: "g", order: 1 }),
     ]);
 

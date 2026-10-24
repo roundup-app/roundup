@@ -863,9 +863,13 @@ pub struct RenameParams {
     pub name: String,
 }
 
+/// `ended` records an Attempt ending even when its final Kind is error.
 #[derive(Clone, Debug, Serialize, Deserialize, TS)]
 #[ts(export, export_to = "agent/")]
 pub struct StatusEvent {
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    #[ts(optional, as = "Option<bool>")]
+    pub ended: bool,
     pub id: String,
     pub attempt: String,
     pub status_revision: String,
