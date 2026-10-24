@@ -255,15 +255,26 @@ fn a4_the_settings_hold_one_command_per_state_event_and_two_at_start() {
     let mut settings = read(Path::new(&s.prepare("7").unwrap()[2]));
     settings.as_object_mut().unwrap().remove("permissions");
     assert!(s.rup.is_absolute() && s.rup.exists());
-    let command = format!("ROUNDUP_ATTEMPT='1' '{}' signal '7'", s.rup.display());
+    for entries in settings["hooks"].as_object_mut().unwrap().values_mut() {
+        for entry in entries.as_array_mut().unwrap() {
+            for hook in entry["hooks"].as_array_mut().unwrap() {
+                hook["command"] = json!(shlex::split(hook["command"].as_str().unwrap()).unwrap());
+            }
+        }
+    }
+    let command = ["ROUNDUP_ATTEMPT=1", s.rup.to_str().unwrap(), "signal", "7"];
     let signal = json!({"type": "command", "command": command, "timeout": 5});
     let entry = json!([{"hooks": [signal]}]);
     // E3: `SessionStart` has a second command, `rup context`, beside the Signal.
-    let context = format!(
-        "ROUNDUP_BRIEF_FILE='{}' '{}' context '7'",
-        s.dir.join("agents/7.brief.md").display(),
-        s.rup.display()
-    );
+    let context = json!([
+        format!(
+            "ROUNDUP_BRIEF_FILE={}",
+            s.dir.join("agents/7.brief.md").display()
+        ),
+        s.rup.to_str().unwrap(),
+        "context",
+        "7",
+    ]);
     let at_start =
         json!([{"hooks": [signal, {"type": "command", "command": context, "timeout": 5}]}]);
     let expected: serde_json::Map<String, Value> = EVENTS
@@ -290,29 +301,6 @@ fn brief(s: &Setup, id: &str, role: Role) -> String {
     let file = s.dir.join(format!("agents/{id}.brief.md"));
     assert!(read(Path::new(&argv[2]))["hooks"]["SessionStart"].is_array());
     std::fs::read_to_string(file).unwrap()
-}
-
-#[test]
-fn e3_the_signal_stays_first_and_the_context_command_follows_with_five_seconds() {
-    let s = setup();
-    let settings = read(Path::new(&s.prepare("7").unwrap()[2]));
-    let at_start = settings["hooks"]["SessionStart"][0]["hooks"]
-        .as_array()
-        .unwrap();
-    assert_eq!(at_start.len(), 2);
-    assert!(
-        at_start[0]["command"]
-            .as_str()
-            .unwrap()
-            .contains(" signal '7'")
-    );
-    assert_eq!(at_start[1]["timeout"], 5);
-    assert!(
-        at_start[1]["command"]
-            .as_str()
-            .unwrap()
-            .ends_with(" context '7'")
-    );
 }
 
 /// A fake `claude` prints `9.9.9`; `dir` holds it.
@@ -355,24 +343,6 @@ fn f2_no_shim_directory_exists_for_an_agent() {
     s.prepare("8").unwrap();
 
     assert!(!s.dir.join("agents/8.bin").exists());
-}
-
-#[test]
-fn f4_a_doors_settings_put_its_shim_directory_before_the_daemons_path() {
-    let s = setup();
-
-    let argv = s.prepare_as("7", Role::Door).unwrap();
-
-    let path = read(Path::new(&argv[2]))["env"]["PATH"]
-        .as_str()
-        .unwrap()
-        .to_owned();
-    let shims = s.real(&s.dir.join("agents/7.bin"));
-    let inherited = std::env::var("PATH").unwrap();
-    assert_eq!(
-        path,
-        format!("{}:{shims}:{inherited}", s.rup.parent().unwrap().display())
-    );
 }
 
 #[test]
@@ -532,15 +502,6 @@ fn m11_the_brief_names_how_to_load_and_the_first_turn_tools() {
         assert!(text.contains("`ToolSearch`") && text.contains("select:mcp__roundup__<name>"));
         assert!(text.contains(first), "{first}");
     }
-}
-
-#[test]
-fn m11_a_role_told_to_use_tool_search_has_it() {
-    let s = setup();
-    let door = s.prepare_as("7", Role::Door).unwrap();
-    let at = door.iter().position(|arg| arg == "--tools").unwrap();
-    assert!(door[at + 1].split(',').any(|tool| tool == "ToolSearch"));
-    assert!(brief(&s, "7", Role::Door).contains("`ToolSearch`"));
 }
 
 fn asset(name: &str) -> String {

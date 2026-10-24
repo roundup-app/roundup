@@ -23,3 +23,7 @@ path = "src/keystroke.rs"
 
 [lints]
 workspace = true
+
+[[bin]]
+name = "perf-presentation"
+path = "src/presentation.rs"

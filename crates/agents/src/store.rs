@@ -316,10 +316,8 @@ impl Agents {
 
 /// Milliseconds since the Unix epoch.
 pub(super) fn now_ms() -> i64 {
-    let since_epoch = SystemTime::now()
-        .duration_since(UNIX_EPOCH)
-        .unwrap_or_default();
-    i64::try_from(since_epoch.as_millis()).unwrap_or(i64::MAX)
+    let millis = time::OffsetDateTime::now_utc().unix_timestamp_nanos() / 1_000_000;
+    i64::try_from(millis.max(0)).unwrap_or(i64::MAX)
 }
 
 #[cfg(test)]

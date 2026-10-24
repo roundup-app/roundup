@@ -177,6 +177,24 @@ async fn r3696c_a_rail_tree_reply_written_directly_equals_the_value_route() {
     }
 }
 
+#[tokio::test]
+async fn r3696c_a_ping_written_directly_equals_the_value_route() {
+    let (_dir, daemon) = daemon();
+    let (events, _) = mpsc::unbounded_channel();
+    let mut conn = Conn {
+        actor: Actor::user(),
+        peer: None,
+        events,
+        output: None,
+    };
+    let routed = daemon
+        .route(&mut conn, "daemon.ping", Value::Null)
+        .await
+        .unwrap();
+    let reply = ask(&daemon, &json!({"id":7,"method":"daemon.ping"}).to_string()).await;
+    assert_eq!(reply, json!({"jsonrpc":"2.0", "id":7, "result":routed}));
+}
+
 async fn frames(daemon: Daemon, requests: &str, count: usize) -> Vec<Value> {
     let (client, server) = UnixStream::pair().unwrap();
     let handler = tokio::spawn(handle(server, Arc::new(daemon)));
@@ -236,7 +254,7 @@ async fn r16_notifications_do_not_add_frames_between_pipelined_replies() {
 }
 
 #[tokio::test]
-async fn ping_answers_pong() {
+async fn a38_ping_reports_the_generated_contract() {
     let (_dir, daemon) = daemon();
     let reply = ask(
         &daemon,
@@ -245,16 +263,6 @@ async fn ping_answers_pong() {
     .await;
     assert_eq!(reply["id"], 7);
     assert_eq!(reply["result"]["pong"], true);
-}
-
-#[tokio::test]
-async fn a38_ping_reports_the_generated_contract() {
-    let (_dir, daemon) = daemon();
-    let reply = ask(
-        &daemon,
-        r#"{"jsonrpc":"2.0","id":7,"method":"daemon.ping"}"#,
-    )
-    .await;
     let generated = std::fs::read_to_string(concat!(
         env!("CARGO_MANIFEST_DIR"),
         "/../../contracts/generated/contract.ts"
@@ -266,7 +274,9 @@ async fn a38_ping_reports_the_generated_contract() {
         .filter_map(|line| line.trim().strip_suffix("\","))
         .filter_map(|line| line.strip_prefix('"')?.split_once("\": \""))
         .collect();
-    let names: Vec<&str> = contract["methods"]
+    assert!(contract.get("methods").is_none());
+    let methods = ask(&daemon, r#"{"id":8,"method":"daemon.methods"}"#).await;
+    let names: Vec<&str> = methods["result"]
         .as_array()
         .unwrap()
         .iter()

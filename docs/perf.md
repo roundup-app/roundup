@@ -80,6 +80,47 @@ The identity evidence in #1941 records an Intel 8370C Builder at `06fd4eb7e24c47
 
 R1–R15 and R8's pins remain unchanged, as do ten login shells, all measured calls, #1366's historical write ceilings and #1361's final combined acceptance. Every class keeps all absolute limits, 10% plus existing noise, Linux's load threshold of 2.0 per CPU, memory comparisons at every load and loud latency skips. A skipped latency comparison cannot complete R16, even on exit 0. No automatic baseline generation, removed metric, widened allowance, baseline increase to hide a regression or CPU-count rescaling is permitted. The implementation pins each class's values, provenance and thresholds in R8's tests; see R16 for test names and the failure/exit table.
 
+### R23 execution lifetime (#3764)
+
+[#3764](https://github.com/saadshahd/roundup/issues/3764) remains open: Builder
+[40127972413](https://github.com/saadshahd/roundup/actions/runs/40127972413)
+at `f82fd7499a07f81a8dd42947b2b9d3c353c15905` has exact model
+`AMD EPYC 7763 64-Core Processor`, so its R23 host preflight exits 2.
+The commands, full identity, statuses and existing-host search are retained in
+[`r23-host-40127972413`](../crates/perf/evidence/r23-host-40127972413/README.md).
+No R23 timing or profile was collected. The earlier 9V45 diagnosis below predates
+R23's candidate and supplies neither a live host nor an R23 observation.
+
+For the next execution attempt, use the existing Builder facility:
+
+1. Search existing host evidence and active Actions jobs before allocating a host.
+   A job name or `ubuntu-latest` label does not establish CPU identity or access.
+   This attempt's runner inventory request returned HTTP 403; job metadata exposed
+   no remote execution endpoint. The existing `build-issue.yml` selects
+   `ubuntu-latest` without an exact CPU selector and serializes builds of one Issue.
+   Dispatching another build during this one would not hand off its lifetime.
+2. On the execution host, retain the full identity commands above and execute the
+   preflight in `qualification.txt`. Require exit 0 and retain the Actions run/job,
+   runner name and `/proc/sys/kernel/random/boot_id` to identify the lifetime.
+   Exit 2 means stop before timing; never substitute another CPU class.
+3. Keep that host alive through #3760's observations. Build historical
+   `2029ed2c4ee606d26e73c858c4d7c93130df36e0` and candidate
+   `50e546c1a3ce74689738b08a3dfe273895f9ae31` there with the same toolchain and
+   release settings (`cargo build --release -p rupd -p rup -p perf`). Retain
+   executable SHA-256 hashes and #3760's compatibility diff before measuring.
+4. Execute #3760's compatible probe commands in order historical-1, candidate-1,
+   historical-2, candidate-2, historical-3, candidate-3, eleven fresh Daemons each.
+   Retain reports, logs, statuses, failed attempts and busy-pair repeats. Collect
+   both diagnostic profiles separately from these timing invocations. Keep all
+   evidence under `crates/perf/evidence/` and link it on #3760 before the job ends.
+   If another run cannot execute on this same live host, the qualifying run must
+   collect these observations itself; an identity-only handoff is incomplete.
+
+R23 in `scenarios/perf.md` governs workloads, load qualification, ceilings and
+attribution. #3760 owns probe compatibility and per-metric conclusions; remaining
+measurement and repair work stays linked to #3720. This failed preflight establishes
+no calibration, performance pass or completed host prerequisite.
+
 ### Builder 9V45 diagnosis (#3700, R16 steps 1 to 3)
 
 No Builder baseline is recorded: the same-class comparison finds a regression, not a class mismatch, and R16 step 3 says to repair it before accepting baselines. The earlier 7763 figures (taken from `main` itself, with no historical comparison) are withdrawn; a 7763 baseline needs its own diagnosis on a 7763 host.
@@ -166,12 +207,65 @@ claimed by the observer-safety changes.
 
 The flooding observation had 100–120% CPU each in the webview, Daemon and host
 App, versus about 30% for Solo's flooding Terminal. The proposed hidden-screen
-explanation remains unproven. Next native observation: on AC, Low Power Mode
-off and load per CPU <= 0.45, run
+explanation remains unproven. The native observations below use
 `ROUNDUP_ALLOW_WINDOW=1 just perf-keystroke --out target/perf-keystroke-before.json`.
-Keep all three reports and the exit code, commit, OS, CPU count and power-mode
-evidence. Hop instrumentation, the measured repair, the Solo comparisons and
-the final three passing native runs remain #3550 acceptance.
+The [retained reports](perf-keystroke-mac-observations.json) include the owner's
+complete comments, console output, source links and JSON, including the failures.
+
+
+The recorder repairs in #3694 and #3717 merged before a further native run at
+`01dacd91ce7b1e5ffd874202df4ada323e114d5c`. The command above exited 2: all
+three reports contained `{"probe":"roundup-keystroke-probe","error":"no key was echoed and rendered after the warm-up"}`.
+The machine was an M4 Max MacBook Pro, 16 CPUs, macOS 26.0.1, AC power at
+100% charge, Low Power Mode off, unlocked, with the owner not touching the
+window. Per-run 1-minute loads were 10.69091796875, 2.76953125 and
+2.396484375 (0.67, 0.17 and 0.15 per CPU); the first run was busy after the
+release build. There are no latency, renderer, frame-time or timer-resolution
+measurements from these failed runs. Full console output and the saved report
+remain on [#3550](https://github.com/saadshahd/roundup/issues/3550).
+
+#3748 binds typing to the Terminal that printed `ready`, which already owns
+report delivery. The old document-wide lookup could select an Agent's earlier
+xterm textarea. A no-window regression test demonstrates that case with two
+inputs and asserts that only the ready shell receives the key. The owner's
+repeat at `7ce598e5a` still failed all three runs with the same warm-up error
+(exit 2; [comment](https://github.com/saadshahd/roundup/issues/3550#issuecomment-6387912547)).
+
+### Successful idle observation on #3755 (2026-10-24)
+
+At `853f9440b8269b943dab07c9fa1dae79d060a204`, based on `59cff55ca`, the
+owner ran the command above on an M4 Max MacBook Pro, 16 CPUs, macOS 26.0.1,
+AC power, Low Power Mode off. Exit: 0. Each run reports 1000 measured keys,
+zero drops, WebGL, 1 ms timer resolution and device pixel ratio 2.
+
+| Run | 1-minute load / per CPU | p50 / p95 / p99 (ms) | Mean frame (ms) |
+| --- | --- | --- | --- |
+| 1 | 5.7705 / 0.361 | 6 / 10 / 12 | 8.3220 |
+| 2 | 4.4482 / 0.278 | 6 / 10 / 11 | 8.3559 |
+| 3 | 3.0508 / 0.191 | 6 / 10 / 15 | 8.3390 |
+
+All three are below R20's 0.45 load-per-CPU threshold. The owner identified
+an observer failure: the Workstream's Agent Terminal appeared about 200 ms
+after `ready`, took focus and folded the shell bubble. xterm's
+IntersectionObserver then paused rendering; echoes were parsed but never
+rendered. #3755 waits for that Agent Terminal before opening the shell Terminal.
+This repairs the recorder's visibility, not a measured production latency hop.
+The successful reports came from that open PR; they do not establish results
+for an unmodified `main` build.
+
+The largest reported hop is `parsed_to_frame`, p50 4 ms and p95 7 ms in all
+three runs. `dispatch_to_echo_event` is next, p50 2 / 1 / 2 ms and p95
+3 / 3 / 4 ms. `write_reply` overlaps that chain (p95 4 ms in each run).
+The reported uncertainty is 1 ms timer resolution, not cross-clock calibration.
+These coarse webview spans cannot identify the largest of all R20's required
+hops: base64, Daemon receipt, PTY write and echo read remain unsplit.
+
+#3550 stays open. Missing acceptance includes full R20 attribution and calibrated
+uncertainty, reproducible quiet-Mac Solo comparisons, a measured production
+repair with before/after distributions, the shared Agent/shell input-path test,
+and three passing runs while another Terminal floods output. The three idle
+runs above meet the numerical idle budget only. No further Mac timing is
+requested by this evidence update.
 
 
 ## X14 retained flood observation
@@ -233,10 +327,21 @@ cross-process subtraction is involved; a report without every hop is invalid
 
 The Daemon-side boundaries inside `dispatch_to_echo_event` (Daemon received, PTY
 write completed, echo read) are not yet stamped: they need the Daemon's clock
-and a calibrated offset, and the first native report decides whether that hop
-needs splitting. The hop with the largest p95 is named here once the quiet-Mac
-before-repair reports exist; none exist yet, so no dominant hop and no repair
-are claimed.
+and a calibrated offset. R20 requires those boundaries even when that coarse
+span is not largest.
+The quiet-Mac reports above place `parsed_to_frame` first among the recorded
+spans; full attribution and a production latency repair remain unclaimed.
+
+The recorder accepts input, write replies, echo bytes and renders only from the
+Terminal that printed the ready line. Previously every emulator shared those
+marks: another Terminal printing `a` could supply the echo, and another
+Terminal's render could complete a sample after the measured echo was parsed.
+The deterministic `r20_another_terminal_cannot_supply_the_echo_or_finish_its_render`
+and `r20_another_terminals_write_cannot_stamp_the_measured_input` tests reproduce
+both forms of contamination without a native window. The retained Mac reports
+predate this correction; this identifies a possible attribution error, not
+evidence that another Terminal actually contaminated those runs. No reports are
+discarded and no production latency improvement is claimed.
 
 ## macOS `cold_start_ms` and `rail_tree_40_p95_ms` (#3696)
 
@@ -256,3 +361,67 @@ Neither is a spawned `ps`: `resources.rs` runs only for `daemon.resources` and `
 - Mac A/B at `bca7dc582` against the baseline `02fd86775` (9 runs each, one session, #3696): `cold_start_ms` 16.51 against 5.91 ms, `rail_tree_40_p95_ms` 0.1926 against 0.1237, `rss_extra_mb` 3.50 against 3.11, `ping_p95_ms` 0.0411 against 0.0193; the baseline reproduced its recorded numbers. Every request, `daemon.ping` included, costs about 22 µs more than at the baseline, so part of `rail.tree`'s 69 µs is the shared request path and not the read. The Linux attribution of a fresh start (release, 4 CPUs at load 4): `rupd` is 7.3 ms from `open_stores` to the socket, `storage::open` 2.5 of it (seed 1.7, WAL switch 0.4) and 17 `project.db` connections about 0.4 ms each. Tried and not kept: opening the independent stores on threads made a start 2 ms slower; dropping the per-store `PRAGMA journal_mode=WAL`, or reading it first, only moves the 0.06 ms of WAL setup per store to its first query. Kept: the fresh `project.db` image takes its two ids by replacing placeholder bytes in the copy (`storage::reidentified`), so a start opens no connection, `-wal` or `-shm` to seed; a fresh start went from 8.1 to 7.9 ms (median of 40 starts, each side alternating), more where file creation costs more. The Mac's `target/perf.json` stays the observer; the rest of the 10.6 ms is not attributed.
 
 - Per-phase cold start (#3696): `rupd` now ends its `serving` line with `(open X ms, bound Y ms)`, measured from `main`: `open` is `Daemon::open_project` (stores, plugins), `bound` the socket. The gap between `cold_start_ms` and `bound` is process spawn, runtime start and the first ping round trip. On the Mac, run `RUPD_SOCKET=/tmp/x.sock ROUNDUP_DATA_DIR=$(mktemp -d) target/release/rupd $(mktemp -d)` at the baseline `02fd86775`'s successor commits and `main` to attribute the 10.6 ms.
+
+- Per-request cost (#3696), found by profiling `daemon.ping` in a release `rupd` on Linux (`perf record`, 150 000 pings), no Mac needed. Each request paid for work no request needs: `Daemon::start_pushes` built a `Reader` for the waker and again for the evaluator (a module-map copy plus a `getenv`) before checking there were events to hand them, and `Auto::start` built one more before checking it had already started; and `daemon.ping` built its `contract.methods` (about 300 names, sorted, then one `String` each) as a `Value` every call. The readers are now built only when there are events, and `daemon.ping` writes its reply as JSON text with the Contract part rendered once (`builtin::ping_json`, `r3696c_a_ping_written_directly_equals_the_value_route`). A ping round trip from a plain client went from 43 to 28 us (baseline `02fd86775`: 20 us; its reply was 14 bytes, today's is about 8 KB, which accounts for the rest and for `ping_p95_ms` having no baseline). `rail.tree` at 40 Workstreams shows no change beyond noise on Linux (130 us either side through a Python client), so the Mac's 0.069 ms gap there is the read itself, which has grown with the fields the Rail now loads; `Shared::tree` is 90 us of it above.
+- Binary size, a hypothesis only the Mac can test: release `rupd` is 34.3 MB against 5.6 MB at `02fd86775` (`reqwest` with `rustls`, `axum`, `notify`, `regex`, bundled SQLite). On Linux a start costs 1.4 ms more (10.3 against 11.7 ms to the first ping); macOS pays at exec for every page it validates against the code signature and for the rebase of every pointer in the data segments, so size may be most of the Mac's 10.6 ms. The `serving` line's `bound` time against `cold_start_ms` separates that (spawn and load) from `open` (stores and plugins).
+
+- Cold start's remaining Mac cost (#3696), attributed from the Mac runs already on this Issue: `cold_start_ms` was 10.54 ms at `6ce9103e2`, whose fresh start paid SQLite's 12 plain `fsync` calls, and 15.65 to 16.51 ms at `bca7dc582`, after `fdfad6b6c` replaced them with one `std::fs::File::sync_all` of the seeded image. Rust's `sync_all` is `fcntl(F_FULLFSYNC)` on macOS, which waits for the drive to flush its cache and costs several ms on APFS, more than the 12 plain `fsync` calls it replaced; on Linux it is `fsync`, so the Linux measurement could not show it. `seed_fresh` now calls `rustix::fs::fsync`, the plain `fsync` SQLite itself uses, so no `F_FULLFSYNC` runs at start. The Mac's `target/perf.json` is the observer; the ping and `rail.tree` per-request gap and `rss_extra_mb` are not attributed by this change.
+
+
+- Retained Terminal memory (#3696): `460203cfa` added cell source annotations for X14. On this Linux x86_64 runner, ten 80×24 idle `vt100` parsers retain 949,600 heap bytes, including 921,600 bytes of 48-byte cells. The pre-annotation cell was 32 bytes: 307,200 extra bytes for ten grids, independent of machine load. These annotations are used by Output replay; the live screen retains the same cell representation even when it has no annotations. This explains an allocation increase, not the entirety of the Mac's measured RSS change (3.109 to 3.500 MB); RSS also includes allocator residency and the added output channels. R3696c now stores each opaque source value as eight bytes and its presence in the unused length bit: a cell is 40 bytes, preserving `None`, zero and `u64::MAX`, all text capacity, and screen/history dimensions. `r3696c_ten_idle_terminal_grids_retain_under_850_kb` measured 796,000 retained heap bytes after the repair, saving 153,600 bytes per ten idle grids. It runs without a Daemon or clock. Existing edit/replay tests cover source movement and invalidation; the literal `Cell == 48` test assertion was removed because the library's compile-time size assertion already catches representation growth and the new observer checks actual parser allocation. No Mac RSS pass, baseline rebase or complete R3696c pass is claimed. The later same-M4-Max `just perf` and per-phase startup attribution remain required.
+
+### Retaining startup attribution (#3696)
+
+`just perf` keeps each cold-start Daemon's stderr beside its report: with the default output,
+`target/perf.startup-1.log` through `target/perf.startup-11.log`; with
+`--out target/mac/current-1.json`, `target/mac/current-1.startup-1.log` through
+`target/mac/current-1.startup-11.log`. The CLI prints the path before each run,
+and an observer failure retains the log even when no JSON report can be written.
+The parent opens the file before timing cold start and passes its descriptor directly
+to the Daemon, with no pipe collector or extra process. This replaces `/dev/null`;
+metric calculations and `budgets.json` do not change.
+
+The `serving` line's cumulative times are measured from entry to async `main`:
+`open` covers `Daemon::open_project`, and `bound - open` covers socket setup.
+`cold_start_ms - bound` includes process creation/loading, Tokio runtime startup,
+readiness polling and the first ping; it is **not** a pure process-load measurement.
+Plugin materialization is deferred to `Launcher::launch_on` at Agent launch, so no
+plugin materialization occurs in this cold start. The separately timed
+`cold_plugin_materialization_ms` is not part of `cold_start_ms`.
+
+For the next same-M4-Max observation, retain these logs with `perf.json`, commit,
+load and exit code. The last posted A/B (`bca7dc582` against `02fd86775`) predates
+the plain-fsync repair and #3745's retained Terminal allocation repair. These logs
+supply the missing in-process evidence; they do not establish a Mac pass or attribute
+the entire remaining startup gap. The nine alternating same-session invocations,
+commit-by-commit attribution, unchanged-code false-fail bar and separate later main
+pass required by #3696 remain outstanding. No baseline rebase is justified here.
+
+### Rail reply allocation (#3696)
+
+The latest M4 Max A/B on #3696 (`59cff55cae` against `02fd86775`, nine
+alternating invocations each) reproduces the baseline and still fails current
+cold start (10.64 ms), Rail 40 (0.186 ms) and RSS growth (3.922 MB). The startup
+logs give median open/bound times of 5.32/5.38 ms; neither these logs nor the
+following Linux measurement attributes the entire remaining startup or RSS gap.
+
+`e03234712` removes temporary allocations from Rail reads: rusqlite's borrowed
+`ValueRef` supplies kind and Order text, traversal moves loaded nodes instead of
+cloning them, and presentation formats a finish count only in the Status that
+uses it. No result is cached. Through `Module::call_reply`, the ordinary
+forty-Workstream reply allocates 290 times / 176,266 bytes, against 530 times /
+181,047 bytes before the repair. `r3696c_forty_workstreams_avoid_temporary_node_copies`
+uses the existing `stats_alloc` observer, with no Daemon, process or clock; its
+400-allocation ceiling fails on the original path. Existing Rail ordering,
+Order and Status tests cover the returned contents.
+
+A separate release probe on Linux (four available CPUs, AMD EPYC 9V45) constructs
+40 Workstreams, warms 100 reads, then times seven batches of 10,000 `Rail::tree`
+reads. Two alternating before/after invocations, with builds and tests stopped,
+gave median batch means of 38.35 us before (37.22–41.07) and 32.44 us after
+(31.85–33.10), about 15% less construction time. This probe excludes live
+presentation, JSON and transport; it is not the end-to-end Mac metric. The final
+presentation change is included in the allocation observer, not this timing.
+The saved allocations are temporary request work, not an explanation of idle
+RSS. Budgets remain unchanged. R3696c's same-M4-Max full gate, remaining
+attribution, false-fail evidence and separate later main pass remain open.

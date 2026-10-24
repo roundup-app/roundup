@@ -429,15 +429,6 @@ impl Rail {
             .map_err(sql)?
     }
 
-    /// Every node, each parent before its children, siblings by `order`.
-    pub fn tree(&self) -> Result<Vec<RailNode>, RpcError> {
-        let mut flat = load(&self.db)?;
-        flat.sort_by_key(|node| node.order);
-        let mut out = Vec::with_capacity(flat.len());
-        descend(&flat, None, &mut out);
-        Ok(out)
-    }
-
     /// Append a node under `parent` (`None` is the root); `check_parent` says which kinds fit where.
     #[cfg(test)]
     pub fn insert(
@@ -1362,13 +1353,6 @@ fn siblings(nodes: &[RailNode], parent: Option<&str>) -> Vec<String> {
         .collect();
     children.sort_by_key(|node| node.order);
     children.into_iter().map(|node| node.id.clone()).collect()
-}
-
-fn descend(nodes: &[RailNode], parent: Option<&str>, out: &mut Vec<RailNode>) {
-    for node in nodes.iter().filter(|node| node.parent.as_deref() == parent) {
-        out.push(node.clone());
-        descend(nodes, Some(&node.id), out);
-    }
 }
 
 /// A26: a Workstream sits at the root. An Agent sits under a Workstream or under the Agent that

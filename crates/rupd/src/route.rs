@@ -29,6 +29,16 @@ impl Daemon {
                 .into(),
             );
         };
+        self.dispatch_parsed(conn, request, actor).await
+    }
+
+    /// `dispatch` for a line the caller already parsed.
+    pub(crate) async fn dispatch_parsed(
+        &self,
+        conn: &mut Conn,
+        request: Value,
+        actor: Option<Actor>,
+    ) -> Option<Frame> {
         let id = request.get("id").cloned();
         let method = request["method"].as_str().unwrap_or_default();
         let params = request.get("params").cloned().unwrap_or(Value::Null);
@@ -70,6 +80,12 @@ impl Daemon {
         }
         let outcome = if matches!(method, "rail.tree" | "rail.list") {
             self.rail_reply(conn).await
+        } else if method == "daemon.ping" {
+            // Every guard in `route_inner` passes a ping, so only its entry steps remain.
+            self.auto.start(|| self.reader());
+            self.start_pushes();
+            self.start_queue();
+            Ok(rpc::Reply::Json(builtin::ping_json(self)))
         } else {
             self.route(conn, method, params)
                 .await
@@ -94,7 +110,7 @@ impl Daemon {
     /// `rail.tree` and `rail.list`, written without a `Value` tree. No guard in `route_inner`
     /// applies to them (they name no child and no Terminal), so this keeps only its entry steps.
     async fn rail_reply(&self, conn: &Conn) -> Result<rpc::Reply, RpcError> {
-        self.auto.start(self.reader());
+        self.auto.start(|| self.reader());
         self.start_pushes();
         self.start_queue();
         let rail = self
