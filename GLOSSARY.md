@@ -190,6 +190,12 @@ One launch of an Agent's program, numbered per Agent from `1` in launch order (A
 **Status revision**:
 The strictly increasing ordinal of published Status transitions within one Attempt, `1` at Starting. A canonical positive decimal string on the wire; absent after reopen. Never stands in for an Attempt or Terminal liveness.
 
+**Finish count** (`Status.finished`):
+The Agent's published finishes: a canonical nonnegative decimal string that rises once per direct `working` to `idle` or `done` Status transition, across Attempts and reopen (U3566c). It says a turn ended, not that its result was accepted.
+
+**Unseen** (`unseen`, `UnseenState`; user label: Unread result):
+An Agent whose finish count is above the count the user has read, kept by the App per original Project and Agent. Opening the Agent, or displaying its pane in the visible, focused, active Project, reads it. A folded Workstream and a Project tab show it when any Agent below or in them is unseen. Never Terminal unseen output (U3704) and never counted by the Dock badge.
+
 **Resume** (`ResumeParams`, `ResumeMode`):
 Starting an Agent's next Attempt in its saved conversation; an explicit mode first stops a running Attempt. Omitted mode resumes only an exited Agent with normal prompts.
 

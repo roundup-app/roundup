@@ -169,6 +169,7 @@ mod tests {
             kind,
             label: "x".into(),
             since: 1,
+            finished: "0".into(),
         })
     }
 
@@ -240,10 +241,10 @@ mod tests {
         assert_eq!(
             serde_json::to_value(&context).unwrap(),
             json!({
-                "self": {"id": "2", "name": "a", "status": {"kind": "idle", "label": "x", "since": 1}, "order": {"kind": "clarification", "question": "?"}},
+                "self": {"id": "2", "name": "a", "status": {"kind": "idle", "label": "x", "since": 1,"finished":"0"}, "order": {"kind": "clarification", "question": "?"}},
                 "parent": {"id": "1", "name": "m", "node": "agent"},
                 "ask": {"to": "1"},
-                "peers": [{"id": "3", "name": "b", "status": {"kind": "idle", "label": "x", "since": 1}}],
+                "peers": [{"id": "3", "name": "b", "status": {"kind": "idle", "label": "x", "since": 1,"finished":"0"}}],
                 "todos": [],
             })
         );

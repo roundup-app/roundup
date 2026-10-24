@@ -107,7 +107,7 @@ async fn r16_rail_reply_preserves_every_field_and_row_order_on_the_socket() {
          "can_resume":false, "channel":null, "work":null, "stray":[],
          "model":null, "effort":null, "iteration":2},
         {"id":"child", "kind":"agent", "name":"Child", "parent":"door",
-         "order":0, "status":{"kind":"needs-you", "label":"Waiting for approval", "since":123456789},
+         "order":0, "status":{"kind":"needs-you", "label":"Waiting for approval", "since":123456789, "finished":"0"},
          "attempt":"9223372036854775807", "status_revision":"3",
          "terminal_id":"terminal-1", "worktree":{"path":"/tmp/p", "branch":"b", "base":"main"},
          "can_resume":false, "channel":"missing", "work":{"kind":"work", "ask":"Continue", "limits":["Preserve files"]},

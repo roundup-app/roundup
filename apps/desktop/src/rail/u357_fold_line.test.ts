@@ -4,7 +4,7 @@ import { agent, workstream, MINUTE, NOW } from "../testing/nodes";
 
 /** U357: one vertical line shared by siblings, so a nested `✓ n done` line sits on it too. */
 
-const done = { kind: "done" as const, label: "finished", since: NOW - 60 * MINUTE };
+const done = { kind: "done" as const, label: "finished", since: NOW - 60 * MINUTE, finished: "0" };
 
 describe("u357 fold line", () => {
   it("u357_a_nested_done_line_continues_its_ancestors_connector", () => {
