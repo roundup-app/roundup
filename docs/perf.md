@@ -109,11 +109,47 @@ What the number proves: keydown to the first xterm render that shows the echo, i
 
 `just perf-keystroke` (macOS only) builds the App with the keystroke probe (`VITE_ROUNDUP_PERF`, K1) into `target/perf-app`, opens its window once per run, lets the webview type 1000 keys into a raw `cat` Terminal and reads the result back (K3, R11). The report carries the renderer (`webgl` or `dom`) and the mean frame time.
 
+R21 judges each run separately: p95 must be strictly below 16 ms, with zero
+dropped keys, including the 100 warm-up keys. Warm-up latency samples remain
+excluded. `target/perf-keystroke.json` retains the complete `reports` array and
+per-run `loads`, including failures, and is updated after each run. A latency
+or drop miss exits 1; an invalid observation exits 2. The runner uses temporary
+App, webview and Daemon data even when the caller has data overrides. Its
+Workstream uses the fake vendor executable, never the user's real `claude`.
+
 What can go wrong:
-- **A covered or napped window stops drawing.** macOS stops rAF and timers for a window other windows cover and naps an App that is not frontmost: measured here, with the window behind a full-screen Chrome, rendering stopped entirely and every key timed out. The perf build's window is therefore always on top and on every Space (a `TAURI_CONFIG` override in the recipe, so normal builds are unchanged), and the runner passes `-NSAppSleepDisabled YES`. The window stays over whatever you are doing for about 40 s per run, three runs. A throttled run is refused, not reported: mean frame time above 25 ms or more than 5% dropped keys exits 2.
+- **A covered or napped window stops drawing.** macOS stops rAF and timers for a window other windows cover and naps an App that is not frontmost: measured here, with the window behind a full-screen Chrome, rendering stopped entirely and every key timed out. The perf build's window is therefore always on top and on every Space (a `TAURI_CONFIG` override in the recipe, so normal builds are unchanged), and the runner passes `-NSAppSleepDisabled YES`. The window stays over whatever you are doing for about 40 s per run, three runs. A mean frame time above 25 ms exits 2; its report is retained. Any dropped key fails under R21.
 - **Low Power Mode.** It halves the webview's frame rate, so a run in it measures the power setting, not the App; run on AC power with Low Power Mode off.
 - **Load.** Run it with the laptop idle; the load average is printed per run.
 - **Windows over a headless Chromium number.** Chromium with the same xterm measured p95 under 5 ms; WKWebView on an M4 Max in the earlier spike measured 11 to 15 ms. The difference is the frame wait, so the budget is only meaningful here.
+
+### R20 observations retained from #3550
+
+These are the work order's observations, before the repair, on AC power on a
+16-core Mac. The raw reports, OS/app versions, power-mode confirmation and
+per-hop attribution were not supplied. They cannot establish the dominant hop
+or replace R20's quiet-machine observations. No after-repair performance is
+claimed by the observer-safety changes.
+
+| Method / workload | roundup p50 / p95 (ms) | Solo p50 / p95 (ms) | Samples / load |
+| --- | --- | --- | --- |
+| WKWebView, raw `cat` | 30 / 35 | — | 1000 keys × 3; 13–25 drops/run; load 6–9 |
+| Daemon `write_to_output` | — / 20.8 | — | `just perf`; load 6–9 |
+| Outside key-to-pixel, idle zsh | 36 / 45 | — | 60 samples × 2; load 6–9 |
+| Outside, idle zsh comparison | 40 / 50 | 39 / 48 | one run set; load ~7 |
+| Outside, real `claude`, no Enter | 39–41 / 48 | 39.5 / 49–53 | one run set; load ~7 |
+| Outside, typing beside `yes` | 101–106 / 129–136 | 33 / 38.5 | load 5.5–6.8 |
+| Outside, switch two Terminals | 70–71 / 80–81 | 75 / 81–82 | load 5.5–6.8 |
+| Outside, scroll 10k lines | 20–23 / 26–29 | 26–28 / 37 | load 5.5–6.8 |
+
+The flooding observation had 100–120% CPU each in the webview, Daemon and host
+App, versus about 30% for Solo's flooding Terminal. The proposed hidden-screen
+explanation remains unproven. Next native observation: on AC, Low Power Mode
+off and load per CPU <= 0.45, run
+`ROUNDUP_ALLOW_WINDOW=1 just perf-keystroke --out target/perf-keystroke-before.json`.
+Keep all three reports and the exit code, commit, OS, CPU count and power-mode
+evidence. Hop instrumentation, the measured repair, the Solo comparisons and
+the final three passing native runs remain #3550 acceptance.
 
 
 ## X14 retained flood observation
