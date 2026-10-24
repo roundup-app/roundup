@@ -328,6 +328,20 @@ fn map_into_project(
         .map(Path::to_path_buf))
 }
 
+/// Worktree folders the Project's Git still records but that no longer exist: the one place a
+/// session's SDK cwd is gone yet its records may hold a later cwd inside the Project (U3523b).
+fn removed_worktrees(project: &Path) -> Vec<PathBuf> {
+    let Ok(entries) = std::fs::read_dir(project.join(".git/worktrees")) else {
+        return Vec::new();
+    };
+    entries
+        .flatten()
+        .filter_map(|e| std::fs::read_to_string(e.path().join("gitdir")).ok())
+        .filter_map(|g| Path::new(g.trim()).parent().map(canonical_path))
+        .filter(|dir| !dir.exists())
+        .collect()
+}
+
 /// The directories one saved session recorded, in order, and what else decides eligibility.
 struct Records {
     cwds: Vec<PathBuf>,
@@ -557,6 +571,7 @@ fn assemble(
     deadline: Instant,
 ) -> Result<(Listing, Vec<String>), RpcError> {
     let files = index_sources(root)?;
+    let removed_worktrees = removed_worktrees(project);
     let mut out = Listing::default();
     let mut admitted = Vec::new();
     let mut seen = std::collections::HashSet::new();
@@ -614,11 +629,9 @@ fn assemble(
         // An unrelated Project's session whose cwd the SDK reported and which still exists is
         // decided without opening it; one with no cwd, or started in a since-deleted folder (a
         // removed Worktree, U3523b), is probed only at its start (U3523h).
-        let placed = row
-            .cwd
-            .as_deref()
-            .is_some_and(|cwd| Path::new(cwd).exists())
-            || live_cwd.clone().next().is_some();
+        let placed = row.cwd.as_deref().is_some_and(|cwd| {
+            Path::new(cwd).exists() || !removed_worktrees.contains(&canonical_path(Path::new(cwd)))
+        }) || live_cwd.clone().next().is_some();
         if relative.is_none() && (scoped || !placed) {
             let limit = if scoped { u64::MAX } else { PROBE_BYTES };
             let records = read_records(path, &source, limit, deadline)?;
