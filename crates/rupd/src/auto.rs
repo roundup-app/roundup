@@ -18,10 +18,13 @@ impl Auto {
         }
     }
 
-    pub(crate) fn start(&self, reader: digest::Reader) {
+    /// `reader` runs only on the first call: it copies the module map, which every request
+    /// would otherwise pay for.
+    pub(crate) fn start(&self, reader: impl FnOnce() -> digest::Reader) {
         let Some(mut events) = self.events.lock().expect("Auto events lock").take() else {
             return;
         };
+        let reader = reader();
         let gate = Arc::clone(&self.gate);
         tokio::spawn(async move {
             use tokio::sync::broadcast::error::RecvError;
@@ -56,7 +59,7 @@ impl Daemon {
         method: &str,
         params: Value,
     ) -> Result<Value, RpcError> {
-        self.auto.start(self.reader());
+        self.auto.start(|| self.reader());
         let observes = method.starts_with("todo.")
             || method.starts_with("workstream.")
             || matches!(
