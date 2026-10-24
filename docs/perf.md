@@ -283,3 +283,30 @@ Neither is a spawned `ps`: `resources.rs` runs only for `daemon.resources` and `
 
 
 - Retained Terminal memory (#3696): `460203cfa` added cell source annotations for X14. On this Linux x86_64 runner, ten 80×24 idle `vt100` parsers retain 949,600 heap bytes, including 921,600 bytes of 48-byte cells. The pre-annotation cell was 32 bytes: 307,200 extra bytes for ten grids, independent of machine load. These annotations are used by Output replay; the live screen retains the same cell representation even when it has no annotations. This explains an allocation increase, not the entirety of the Mac's measured RSS change (3.109 to 3.500 MB); RSS also includes allocator residency and the added output channels. R3696c now stores each opaque source value as eight bytes and its presence in the unused length bit: a cell is 40 bytes, preserving `None`, zero and `u64::MAX`, all text capacity, and screen/history dimensions. `r3696c_ten_idle_terminal_grids_retain_under_850_kb` measured 796,000 retained heap bytes after the repair, saving 153,600 bytes per ten idle grids. It runs without a Daemon or clock. Existing edit/replay tests cover source movement and invalidation; the literal `Cell == 48` test assertion was removed because the library's compile-time size assertion already catches representation growth and the new observer checks actual parser allocation. No Mac RSS pass, baseline rebase or complete R3696c pass is claimed. The later same-M4-Max `just perf` and per-phase startup attribution remain required.
+
+### Retaining startup attribution (#3696)
+
+`just perf` keeps each cold-start Daemon's stderr beside its report: with the default output,
+`target/perf.startup-1.log` through `target/perf.startup-11.log`; with
+`--out target/mac/current-1.json`, `target/mac/current-1.startup-1.log` through
+`target/mac/current-1.startup-11.log`. The CLI prints the path before each run,
+and an observer failure retains the log even when no JSON report can be written.
+The parent opens the file before timing cold start and passes its descriptor directly
+to the Daemon, with no pipe collector or extra process. This replaces `/dev/null`;
+metric calculations and `budgets.json` do not change.
+
+The `serving` line's cumulative times are measured from entry to async `main`:
+`open` covers `Daemon::open_project`, and `bound - open` covers socket setup.
+`cold_start_ms - bound` includes process creation/loading, Tokio runtime startup,
+readiness polling and the first ping; it is **not** a pure process-load measurement.
+Plugin materialization is deferred to `Launcher::launch_on` at Agent launch, so no
+plugin materialization occurs in this cold start. The separately timed
+`cold_plugin_materialization_ms` is not part of `cold_start_ms`.
+
+For the next same-M4-Max observation, retain these logs with `perf.json`, commit,
+load and exit code. The last posted A/B (`bca7dc582` against `02fd86775`) predates
+the plain-fsync repair and #3745's retained Terminal allocation repair. These logs
+supply the missing in-process evidence; they do not establish a Mac pass or attribute
+the entire remaining startup gap. The nine alternating same-session invocations,
+commit-by-commit attribution, unchanged-code false-fail bar and separate later main
+pass required by #3696 remain outstanding. No baseline rebase is justified here.
