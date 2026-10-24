@@ -1,7 +1,7 @@
 import { createResource, createSignal, ErrorBoundary, onCleanup, Show } from "solid-js";
 import type { JSX } from "solid-js";
 import type { Event } from "@contracts/Event";
-import { failureLine } from "../ink/ReservedLine";
+import { ReservedLine } from "../ink/ReservedLine";
 import { useConnectedProject } from "../state/connectedProject";
 import { lastTouchLine, padTouchSentence } from "./touchLine";
 
@@ -9,7 +9,7 @@ import { lastTouchLine, padTouchSentence } from "./touchLine";
  * Body of a Drawer for `todo:<id>` or `pad:<name>`. It fetches `provenance.history` first and only then calls
  * `read`: the read is itself a Touch by the user, and fetching after it would show "you read" at the moment of opening.
  */
-export const ItemDrawer = <Value,>(props: {
+type Props<Value> = {
   item: string;
   read: () => Promise<Value>;
   /** U190: a Pad's line is a sentence in `--font-ui`; a Todo's stays the mono `last` line. */
@@ -17,7 +17,13 @@ export const ItemDrawer = <Value,>(props: {
   /** U190: an Event that makes a new Touch, so the line is read again. */
   touchedBy?: (event: Event) => boolean;
   children: (value: Value) => JSX.Element;
-}) => {
+};
+
+export const ItemDrawer = <Value,>(props: Props<Value>) => (
+  <Show when={props.item} keyed>{(_item) => <ItemDrawerBody {...props} />}</Show>
+);
+
+const ItemDrawerBody = <Value,>(props: Props<Value>) => {
   const connected = useConnectedProject();
 
   const [newer, setNewer] = createSignal<string | null>(null);
@@ -50,7 +56,13 @@ export const ItemDrawer = <Value,>(props: {
   );
 
   return (
-    <ErrorBoundary fallback={failureLine}>
+    <ErrorBoundary fallback={(error: Error) => {
+      const [dismissed, setDismissed] = createSignal(false);
+
+      return <ReservedLine message={!dismissed() && error.message}>
+        <button data-button="quiet" type="button" onClick={() => setDismissed(true)}>Dismiss failure</button>
+      </ReservedLine>;
+    }}>
       <Show when={loaded()}>
         {(item) => (
           <>
