@@ -6,6 +6,7 @@ import { todo } from "../todos/testHarness";
 import { agent, event } from "../testing/nodes";
 import { todoHandlers } from "../testing/stores";
 import type { TodoStore } from "../testing/stores";
+import { answerQuestion } from "../shelf/bulkQuestionHarness";
 import { mountRail, rowOf } from "./railFixture";
 
 afterEach(cleanup);
