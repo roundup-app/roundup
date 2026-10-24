@@ -537,3 +537,26 @@ it.skipIf(!captureDir("U3299a")).each(["names", "retention"] as const)("u3299a_u
     rmSync(clockDirectory, { recursive: true, force: true });
   }
 }, 180_000);
+
+it("u3817_closing_a_page_keeps_a_pending_import", async () => {
+  const { app, connected } = await mount();
+  let settle: (value: { outcomes: { source: string; workstream: string; agent: string; error: null }[] }) => void = () => {};
+  app.handlers["project.importCommit"] = () => new Promise((resolve) => { settle = resolve; });
+
+  await open();
+  fireEvent.click(screen.getByText("first"));
+  fireEvent.click(await screen.findByRole("button", { name: "Import 1" }));
+  await waitFor(() => expect(calls(app, "project.importCommit")).toHaveLength(1));
+
+  openProjectPage("project-settings");
+  fireEvent.click(await screen.findByRole("button", { name: /Close/ }));
+  await waitFor(() => expect(screen.queryByRole("button", { name: /Close/ })).toBeNull());
+
+  expect(connected.importing.open()).toBe(true);
+  expect(connected.importing.pending()).toBe(true);
+  expect(calls(app, "project.importCommit")).toHaveLength(1);
+
+  settle({ outcomes: [{ source: "s1", workstream: "w-s1", agent: "a-s1", error: null }] });
+  await waitFor(() => expect(connected.importing.pending()).toBe(false));
+  expect(calls(app, "project.importCommit")).toHaveLength(1);
+});
