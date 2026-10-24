@@ -132,6 +132,13 @@ fn x14_library_observes_screen_edits_for_source_offsets() {
     // visual equality and may be explicitly cleared by its owner.
     assert!(!parser.screen_mut().set_cell_source(9, 0, Some(8)));
     assert!(!parser.screen_mut().set_row_source(9, Some(8)));
+    let before = parser.screen().cell(0, 0).unwrap().clone();
+    for source in [None, Some(0), Some(u64::MAX)] {
+        assert!(parser.screen_mut().set_cell_source(0, 0, source));
+        let cloned = parser.clone();
+        assert_eq!(cloned.screen().cell(0, 0).unwrap().source(), source);
+        assert_eq!(cloned.screen().cell(0, 0).unwrap(), &before);
+    }
     assert!(parser.screen_mut().set_cell_source(0, 0, None));
     assert!(parser.screen_mut().set_row_source(0, None));
 }
@@ -234,9 +241,9 @@ fn x14_library_screen_edit_observation_survives_checkpoint_replay() {
         assert!(checkpoint.screen().scrollback() <= 8);
         assert_eq!(parser.screen().row_source(0), Some(42));
         assert_eq!(parser.screen().cell(0, 0).unwrap().source(), Some(43));
-        assert_eq!(std::mem::size_of::<vt100::Cell>(), 48);
         println!(
-            "edit annotations: 1MiB={one_mib}KiB 64MiB={sixty_four_mib}KiB Cell=48 bytes; history<=8 rows"
+            "edit annotations: 1MiB={one_mib}KiB 64MiB={sixty_four_mib}KiB Cell={} bytes; history<=8 rows",
+            std::mem::size_of::<vt100::Cell>()
         );
         return;
     }
