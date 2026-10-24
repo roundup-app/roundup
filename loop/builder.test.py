@@ -475,6 +475,17 @@ class Pick(unittest.TestCase):
                 builder.main([command, '{}'] if command == 'engine-read-only' else [command])
             self.assertEqual(codex.call_args.args[-1], effort)
 
+    def test_l82_a_conflict_runs_at_low_effort_on_a_prompt_that_keeps_its_scope(self):
+        with patch.object(builder, 'codex', return_value=0) as codex, patch.object(builder, 'worked', return_value=True), \
+                patch.object(builder, 'switched', return_value=False), \
+                patch.dict(os.environ, RUNNER_TEMP='/tmp', GITHUB_OUTPUT=os.devnull), patch.object(sys, 'stdin', io.StringIO('x')):
+            builder.main(['engine-conflict'])
+        self.assertEqual(codex.call_args.args[-1], 'low')
+        role = builder.role('conflict')
+        for scope in ('only the files git lists as conflicted', 'only the tests those files reach', 'merge-loss', 'Read no scenario'):
+            self.assertIn(scope, role)
+        self.assertIn('Read no scenario', builder.CAUSES['conflict'])
+
     def test_l23_a_pr_with_a_live_fix_run_gets_no_second(self):
         prs = [pr(number=2), pr(number=3)]
         sent, errors = [], io.StringIO()
@@ -1158,7 +1169,7 @@ class Generated(unittest.TestCase):
 
     def resolve(self, root, regenerate=REGENERATE):
         with chdir(root):
-            return builder.resolve_generated(regenerate)
+            return builder.merge_main(regenerate)
 
     def test_l82_a_generated_only_conflict_is_regenerated_with_no_model(self):
         root = self.conflict()
@@ -1166,6 +1177,34 @@ class Generated(unittest.TestCase):
         parents = subprocess.run(['git', 'rev-list', '--parents', '-1', 'HEAD'], cwd=root, text=True, capture_output=True).stdout
         self.assertEqual(len(parents.split()), 3)
         self.assertEqual((root / 'contracts/generated/methods.ts').read_text(), 'm0\nm_main\nm_pr\nx\n')
+
+    def test_l82_a_clean_merge_of_main_is_committed_with_no_model(self):
+        root = Path(tempfile.mkdtemp())
+        self.addCleanup(lambda: subprocess.run(['rm', '-rf', str(root)]))
+
+        def git(*args):
+            subprocess.run(['git', '-c', 'user.name=t', '-c', 'user.email=t@t', '-c', 'init.defaultBranch=main', *args],
+                           cwd=root, check=True, capture_output=True)
+
+        def commit(name):
+            (root / name).write_text(f'{name}\n')
+            git('add', '-A')
+            git('commit', '-m', name)
+
+        git('init')
+        commit('base.txt')
+        git('switch', '-c', 'build/x')
+        commit('pr.txt')
+        git('switch', 'main')
+        commit('main.txt')
+        git('update-ref', 'refs/remotes/origin/main', 'main')
+        git('switch', 'build/x')
+        with patch.object(builder, 'engine') as engine:
+            self.assertTrue(self.resolve(root, ('false',)))  # a regenerate would fail: nothing conflicted, so it never runs
+        engine.assert_not_called()
+        parents = subprocess.run(['git', 'rev-list', '--parents', '-1', 'HEAD'], cwd=root, text=True, capture_output=True).stdout
+        self.assertEqual(len(parents.split()), 3)
+        self.assertTrue((root / 'main.txt').is_file())
 
     def test_l82_a_conflict_that_also_touches_source_or_cannot_regenerate_leaves_the_branch_untouched(self):
         cases = [(True, self.REGENERATE), (False, ('false',)),

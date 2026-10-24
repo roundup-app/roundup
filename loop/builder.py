@@ -38,6 +38,8 @@ BUILD_EFFORT = 'medium'
 SCREEN_EFFORT = 'low'
 # L23: the Codex `model_reasoning_effort` of a build or fix run (the Claude `BUILD_EFFORT`) and of a review or critic run.
 CODEX_BUILD_EFFORT = BUILD_EFFORT
+# L82: a conflict fix run resolves the files git marked and runs only their tests, so it thinks at a lower effort.
+CODEX_CONFLICT_EFFORT = 'low'
 CODEX_READ_ONLY_EFFORT = 'high'
 API_ATTEMPTS = 2
 READ_ONLY_TOOLS = 'Bash,Read,Glob,Grep,Skill'
@@ -100,7 +102,9 @@ CAUSES = {
     'critic': 'The design critic rejected this head (L103); its findings are the last `CRITIC:` comment below. Meet each '
               'finding, or the bar it names, without loosening `docs/design-system.md`, and meet each `NOTE:` line too: '
               'the notes are polish the critic raises once and never blocks on again.',
-    'conflict': 'The PR conflicts with `main`: merge `origin/main` and keep the behaviour of both sides.',
+    'conflict': 'The PR conflicts with `main`. Run `git merge origin/main`, resolve only the files git lists as conflicted, '
+                'and keep the behaviour of both sides. Then run only the tests those files reach and '
+                '`loop/rules.sh merge-loss`. Read no scenario and run no full lint: `pre` does that on the push.',
     'unfinished': 'The last run left this PR a draft without a `Stopped:` line: finish the work.',
 }
 
@@ -964,14 +968,18 @@ def git(*args):
     return subprocess.run(['git', '-c', f'user.name={name}', '-c', f'user.email={email}', *args], text=True, capture_output=True, timeout=3600)
 
 
-def resolve_generated(regenerate=REGENERATE):
-    """L82: merge `origin/main` into the checked-out branch and commit it when every conflicted path is GENERATED: take
-    main's side, run `regenerate`, and require no conflict marker and no change from a second run. Returns whether it
-    committed; any other conflict, a failed `regenerate` or a changed second run leaves the branch as it was."""
+def merge_main(regenerate=REGENERATE):
+    """L82: merge `origin/main` into the checked-out branch and commit it when git merged it cleanly or every conflicted
+    path is GENERATED: take main's side, run `regenerate`, and require no conflict marker and no change from a second run.
+    The merge then passes `rules.sh merge-loss`, restoring the files it lists (`restore_merge_loss`) when it does not.
+    Returns whether it committed; any other conflict, a failed `regenerate`, a merge that keeps losing work or a changed second
+    run leaves the branch as it was."""
+    start = git('rev-parse', 'HEAD').stdout.strip()
+
     def undo(why):
-        print(f'resolve-generated: {why}; the branch is left as it was', file=sys.stderr)
+        print(f'merge-main: {why}; the branch is left as it was', file=sys.stderr)
         # `merge --abort` refuses a file the index and the worktree hold differently, so the reset comes first.
-        git('reset', '-q', '--hard', 'HEAD')
+        git('reset', '-q', '--hard', start)
         git('merge', '--abort')
         git('clean', '-fdq', '--', *GENERATED)
         return False
@@ -987,20 +995,26 @@ def resolve_generated(regenerate=REGENERATE):
             git('rm', '-q', '-f', '--', path)
         else:
             git('checkout', 'origin/main', '--', path)
-    if subprocess.run(regenerate, timeout=3600).returncode:
-        return undo('the regenerate command failed')
-    git('add', '-A', '--', *GENERATED)
-    # The second run must leave the worktree as the index holds it: no change, and no file the first run left unstaged.
-    if subprocess.run(regenerate, timeout=3600).returncode:
-        return undo('the second regenerate failed')
-    if changed := git('status', '--porcelain', '--untracked-files=all').stdout:
-        unstaged = [line for line in changed.splitlines() if line[1] != ' ']
-        if unstaged:
-            return undo(f'the regenerate left changes: {unstaged}')
-    if git('grep', '--cached', '-lE', r'^(<{7}|>{7})( |$)', '--', *GENERATED).stdout:
-        return undo('a conflict marker remains')
+    if conflicted:
+        if subprocess.run(regenerate, timeout=3600).returncode:
+            return undo('the regenerate command failed')
+        git('add', '-A', '--', *GENERATED)
+        # The second run must leave the worktree as the index holds it: no change, and no file the first run left unstaged.
+        if subprocess.run(regenerate, timeout=3600).returncode:
+            return undo('the second regenerate failed')
+        if changed := git('status', '--porcelain', '--untracked-files=all').stdout:
+            unstaged = [line for line in changed.splitlines() if line[1] != ' ']
+            if unstaged:
+                return undo(f'the regenerate left changes: {unstaged}')
+        if git('grep', '--cached', '-lE', r'^(<{7}|>{7})( |$)', '--', *GENERATED).stdout:
+            return undo('a conflict marker remains')
+    if git('rev-parse', '-q', '--verify', 'MERGE_HEAD').returncode:
+        return True  # the branch already holds main
     commit = git('commit', '--no-edit')
-    return not commit.returncode or undo(f'the commit failed: {commit.stderr.strip()} {commit.stdout.strip()}')
+    if commit.returncode:
+        return undo(f'the commit failed: {commit.stderr.strip()} {commit.stdout.strip()}')
+    loss = subprocess.run(['bash', str(ROOT / 'loop/rules.sh'), 'merge-loss', 'origin/main'], text=True, capture_output=True, timeout=600)
+    return not loss.returncode or restore_merge_loss() or undo(f'merge-loss fails: {loss.stderr.strip()}')
 
 
 def restore_merge_loss(main_ref='origin/main', rules=None):
@@ -1405,6 +1419,8 @@ def main(args):
             return 0 if worked(path) else 1
         case ['engine', *schema] if len(schema) < 2:
             return engine(sys.stdin.read(), schema[0] if schema else None, os.environ['GITHUB_OUTPUT'])
+        case ['engine-conflict']:
+            return engine(sys.stdin.read(), None, os.environ['GITHUB_OUTPUT'], effort=CODEX_CONFLICT_EFFORT)
         case ['engine-read-only', schema]:
             return engine(sys.stdin.read(), schema, os.environ['GITHUB_OUTPUT'], rights=None, effort=CODEX_READ_ONLY_EFFORT)
         case ['claude-read-only', who, schema] if who in READ_ONLY:
@@ -1422,8 +1438,8 @@ def main(args):
                 print(encode(screen(ask)))
         case ['built', issue, slug, ran, verdict] if issue.isdigit() and ran in ('true', 'false'):
             built(int(issue), slug, ran == 'true', sys.stdin.read(), run_url, decode(verdict))
-        case ['resolve-generated']:
-            return 0 if resolve_generated() else 1
+        case ['merge-main']:
+            return 0 if merge_main() else 1
         case ['restore-merge-loss']:
             return 0 if restore_merge_loss() else 1
         case ['fix-task', pr, head, cause] if pr.isdigit() and cause in CAUSES:
@@ -1444,7 +1460,7 @@ def main(args):
         case ['critic-post', pr, head, critic, ran] if pr.isdigit() and ran in ('true', 'false'):
             return 0 if critic_post(int(pr), head, critic, sys.stdin.read(), ran == 'true', run_url) else 1
         case _:
-            print('usage: builder.py prompt [<role>] | worked <file> | engine [<schema>] | engine-read-only <schema> | claude-read-only <review|critic> <schema> | keep <branch> [<issue>] | attach <branch> | resolve-generated | restore-merge-loss | pick | screen <branch> | '
+            print('usage: builder.py prompt [<role>] | worked <file> | engine [<schema>] | engine-conflict | engine-read-only <schema> | claude-read-only <review|critic> <schema> | keep <branch> [<issue>] | attach <branch> | merge-main | restore-merge-loss | pick | screen <branch> | '
                   'built <issue> <slug> <ran> '
                   '<verdict> | fix-task <pr> <head> <cause> | fixed <pr> <cause> <ran> <verdict> <plumbing> | review-task <pr> <head> | '
                   'review-post <pr> <head> <reviewer> <ran> | critic-task <pr> <head> | critic-post <pr> <head> <critic> <ran>',
