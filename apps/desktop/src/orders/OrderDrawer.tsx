@@ -31,6 +31,7 @@ type OrderInput = {
 /** O17: the session id is muted text that copies itself on click and says so for a moment. */
 const SessionId = (props: { id: string }) => {
   const [note, setNote] = createSignal<string | null>(null);
+  const [failure, setFailure] = createSignal<string | null>(null);
   const idText = createUniqueId();
   let timer: ReturnType<typeof setTimeout> | undefined;
   onCleanup(() => clearTimeout(timer));
@@ -38,9 +39,11 @@ const SessionId = (props: { id: string }) => {
   const copyId = async () => {
     try {
       await navigator.clipboard.writeText(props.id);
+      setFailure(null);
       setNote(copy.copied);
-    } catch {
+    } catch (error) {
       setNote(copy.copyFailed);
+      setFailure(copy.copyDraftFailure(error instanceof Error ? error.message : String(error)));
     }
 
     clearTimeout(timer);
@@ -50,7 +53,7 @@ const SessionId = (props: { id: string }) => {
   return <>
     <button type="button" class="overview-id" aria-label={copy.copySessionId} aria-describedby={idText} onClick={() => void copyId()}>{note() ?? props.id}</button>
     <span id={idText} class="overview-id-note">{props.id}</span>
-    <ReservedLine status={note()} class="overview-id-note" />
+    <ReservedLine message={failure()} status={note()}><Show when={failure()}><IconButton aria-label={copy.clearName(copy.error.toLowerCase())} onClick={() => { setFailure(null); setNote(null); }}><Icon name="x" /></IconButton></Show></ReservedLine>
   </>;
 };
 
@@ -73,6 +76,13 @@ const OrderContent = (props: OrderInput) => {
 
   const [editing, setEditing] = createSignal(props.recovery !== undefined);
   const [failure, setFailure] = createSignal<string | null>(null);
+  const [promptDismissed, setPromptDismissed] = createSignal(false);
+  createEffect(() => {
+    if (!node()) {
+      setFailure(null);
+      setPromptDismissed(true);
+    }
+  });
 
   /** O10, U83: read on opening the order or selecting a closed Agent; a failed read keeps its text. */
   const [read] = createResource(() => props.recovery ? false : props.id, async (id): Promise<SpawnRead> => {
@@ -86,6 +96,8 @@ const OrderContent = (props: OrderInput) => {
   });
 
   const spawn = () => read()?.id === props.id ? read() : undefined;
+  const promptFailure = () => !promptDismissed() && node() ? spawn()?.error : null;
+  const dismiss = () => { setFailure(null); setPromptDismissed(true); };
 
   let editButton: HTMLButtonElement | undefined;
 
@@ -96,6 +108,7 @@ const OrderContent = (props: OrderInput) => {
   };
 
   const destination = () => ({ surface: "orders", object: props.id, recipient: props.id });
+  const retentionFailure = () => drafts.problem() ? copy.draftRetention(project.name, copy.draftSurface(destination().surface), drafts.problem()!.cause) : null;
 
   createEffect(() => { if (editing()) onCleanup(drafts.editor(destination())); });
 
@@ -143,6 +156,8 @@ const OrderContent = (props: OrderInput) => {
 
   let form: HTMLFormElement | undefined;
   let disposed = false;
+  let saveSequence = 0;
+  let shownSequence = 0;
   onCleanup(() => { disposed = true; });
 
   const begin = () => {
@@ -200,7 +215,7 @@ const OrderContent = (props: OrderInput) => {
     const snapshot = drafts.submit(draft.revision);
 
     if (!snapshot) return;
-    setFailure(null);
+    const sequence = ++saveSequence;
     const fields = parsed.output;
     const next: WorkOrder = { kind: "work", ask: fields.ask.trim(), limits: captured.limits };
 
@@ -214,11 +229,22 @@ const OrderContent = (props: OrderInput) => {
       });
       drafts.settle(draft.revision, "acknowledged");
 
+      if (!disposed) setPromptDismissed(true);
+
+      // A late reply settles its own revision without replacing newer save feedback.
+      if (!disposed && sequence >= shownSequence) {
+        shownSequence = sequence;
+        setFailure(null);
+      }
+
       if (!disposed && selected() === draft.revision) close();
     } catch (thrown) {
       drafts.settle(draft.revision, thrown instanceof RpcError && thrown.code !== INTERNAL_CODE ? "failed" : "unknown");
 
-      if (!disposed) setFailure(thrown instanceof Error && thrown.message !== "" ? thrown.message : copy.theOrderCouldNotBeSaved);
+      if (!disposed && node() && sequence >= shownSequence) {
+        shownSequence = sequence;
+        setFailure(thrown instanceof Error && thrown.message !== "" ? thrown.message : copy.theOrderCouldNotBeSaved);
+      }
     }
   };
 
@@ -286,8 +312,11 @@ const OrderContent = (props: OrderInput) => {
           }} />
         </label>
       }</For>
-      <ReservedLine message={failure() ?? (!formValue().success ? copy.orderRestoreFailed : conflict() ? copy.orderChanged : drafts.problem() ? copy.draftRetention(project.name, copy.draftSurface(destination().surface), drafts.problem()!.cause) : null) ?? (!props.inline && order()?.kind === "work" ? spawn()?.error : null)} status={selectedDraft() && selectedDraft()!.status !== "draft" ? copy.draftStatus[selectedDraft()!.status] : null}>
+      <ReservedLine message={failure() ?? (!formValue().success ? copy.orderRestoreFailed : conflict() ? copy.orderChanged : retentionFailure()) ?? (!props.inline && order()?.kind === "work" ? promptFailure() : null)} status={selectedDraft() && selectedDraft()!.status !== "draft" ? copy.draftStatus[selectedDraft()!.status] : null}>
+        <Show when={failure() || (!props.inline && promptFailure())}><IconButton aria-label={copy.clearName(copy.error.toLowerCase())} onClick={dismiss}><Icon name="x" /></IconButton></Show>
         <Show when={drafts.problem()}><button data-button="quiet" type="button" onClick={() => drafts.retry()}>{copy.storageRetry}</button></Show>
+      </ReservedLine>
+      <div class="order-edit-actions order-edit-recovery">
         <Show when={recovery()}>
           <For each={["title", "ask", "done"]}>{(name) => <button data-button="quiet" type="button" onClick={() => void navigator.clipboard.writeText(String(selectedDraft()?.value[name] ?? "")).catch((error) => setFailure(copy.copyDraftFailure(error instanceof Error ? error.message : String(error))))}>{copy.copyField(name)}</button>}</For>
           <button data-button="quiet" type="button" onClick={() => {
@@ -297,7 +326,7 @@ const OrderContent = (props: OrderInput) => {
             close();
           }}>{copy.discardRevision}</button>
         </Show>
-      </ReservedLine>
+      </div>
       <div class="order-edit-actions">
         <Tip disabled={!saveBlocked()} text={conflict() ? copy.orderChanged : selectedDraft() ? copy.draftStatus[selectedDraft()!.status] : undefined}>{(trigger) =>
           <button {...trigger()} data-button="primary" type="submit" aria-disabled={saveBlocked()}>{copy.save}</button>
@@ -340,7 +369,7 @@ const OrderContent = (props: OrderInput) => {
         {(overview) => <header class="overview-session">
           <p class="light">{overview().program}</p>
           <Show when={overview().name}>{(name) => <h2>{name()}</h2>}</Show>
-          <SessionId id={overview().id} />
+          <Show when={overview().id} keyed>{id => <SessionId id={id} />}</Show>
           <ContextBar overview={overview()} />
           <div class="overview-card">
             <Show when={overview().card?.intent}>{(text) => <section><h3>{copy.cardIntent}</h3><Markdown body={text()} /></section>}</Show>
@@ -366,7 +395,10 @@ const OrderContent = (props: OrderInput) => {
         </Match>
       </Switch>}>{editor()}</Show>
       <Show when={props.recovery === undefined}><Show when={props.id} keyed>{(id) => <WorkProgress id={id} />}</Show></Show>
-      <ReservedLine class="order-spawn-error" hidden={props.inline || editing()} message={!props.inline && order()?.kind === "work" ? spawn()?.error : null} />
+      <ReservedLine message={!editing() ? retentionFailure() : null}>
+        <button data-button="quiet" type="button" onClick={() => drafts.retry()}>{copy.storageRetry}</button>
+      </ReservedLine>
+      <ReservedLine class="order-spawn-error" hidden={props.inline || editing()} message={!props.inline && order()?.kind === "work" ? promptFailure() : null}><IconButton aria-label={copy.clearName(copy.error.toLowerCase())} onClick={dismiss}><Icon name="x" /></IconButton></ReservedLine>
     </section>
   );
 };

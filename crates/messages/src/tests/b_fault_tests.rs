@@ -133,6 +133,7 @@ impl Faulty {
         self.bus.emit(
             Actor::daemon(),
             EventData::AgentStatus(Box::new(StatusEvent {
+                ended: false,
                 id: "a".into(),
                 attempt: "1".into(),
                 status_revision: revision.into(),
@@ -401,6 +402,7 @@ async fn b28_status_acknowledgement_waits_for_delivery_to_finish() {
         bus.emit(
             Actor::daemon(),
             EventData::AgentStatus(Box::new(StatusEvent {
+                ended: false,
                 id: "a".into(),
                 attempt: "1".into(),
                 status_revision: "2".into(),

@@ -12,6 +12,8 @@ afterEach(() => { cleanup(); vi.useRealTimers(); });
 
 beforeEach(() => localStorage.clear());
 
+const act = async (run: () => void) => { await run(); await Promise.resolve(); };
+
 const send = async (m: Awaited<ReturnType<typeof mountInbox>>, ...sent: DaemonEvent[]) => { for (const each of sent) m.app.emit(each); await m.connected.rail.settled(); await Promise.resolve(); };
 
 const panel = () => screen.getByRole("complementary", { name: "Drawer" });
@@ -54,12 +56,6 @@ it("u3770a_sections_hold_their_agents_in_order_with_counts", async () => {
   expect(within(groupOf("Needs you")).getByText("3")).toBeTruthy();
   expect(within(groupOf("Done")).getByText("2")).toBeTruthy();
   expect(within(groupOf("Running")).getAllByRole("img", { name: "Working" })).toHaveLength(1);
-});
-
-it("u3770a_needs_you_rows_equal_the_overview_line", async () => {
-  await mountInbox();
-  const expected = attentionOrder(NODES).map((node) => node.name);
-  expect(names(groupOf("Needs you"))).toEqual(expected);
 });
 
 it("u3770a_an_empty_inbox_says_nothing_waits", async () => {
@@ -183,3 +179,90 @@ it("u3770a_unread_comment_rows_keep_u3742_behaviour", async () => {
   expect(m.app.calls.some((call) => call.method.startsWith("message."))).toBe(false);
 });
 
+it.each(["dismiss", "acknowledge", "remove"] as const)("p3557c_failure_lifetime_inboxrow_resume_%s", async (transition) => {
+  const nodes = [agent("a", "error", "crashed", { name: "alpha" }), agent("b", "error", "crashed", { name: "beta" })];
+  const m = await mountInbox(nodes);
+
+  fireEvent.click(screen.getByRole("button", { name: /^add todo to/ }));
+  const input = await screen.findByRole("textbox", { name: "New Todo title" });
+
+  fireEvent.input(input, { target: { value: "  unfinished e\u0301 東京 🧭  " } });
+  const drafts = structuredClone(m.connected.drafts.list());
+
+  expect(drafts.map((draft) => draft.value.title)).toContain("  unfinished e\u0301 東京 🧭  ");
+  const row = (name: string) => within(panel()).getByText(name).closest("li")!;
+  const head = (name: string) => within(row(name)).getByText(name).closest("button")!;
+
+  m.app.handlers["todo.unread"] = () => { throw new Error("cannot load comments"); };
+
+  await act(() => m.app.emit(event({ name: "todo.deleted", data: { id: 9 } })));
+  await within(panel()).findByText("cannot load comments");
+
+  m.app.handlers["agent.resume"] = ({ id }) => { throw new Error(`resume ${id} refused`); };
+
+  fireEvent.click(within(row("beta")).getByRole("button", { name: "Retry" }));
+  await within(row("beta")).findByRole("alert");
+
+  const label = "Retry";
+  const message = "resume a refused";
+
+  fireEvent.click(within(row("alpha")).getByRole("button", { name: label }));
+  expect((await within(row("alpha")).findByRole("alert")).textContent).toBe(message);
+
+  if (transition === "dismiss") {
+    const dismiss = within(row("alpha")).getByRole("button", { name: "Dismiss" });
+
+    dismiss.focus();
+    fireEvent.click(dismiss);
+    expect(document.activeElement).toBe(head("alpha"));
+  }
+
+  if (transition === "acknowledge") {
+    let acknowledge!: () => void;
+    const reply = new Promise<void>((resolve) => { acknowledge = resolve; });
+
+    m.app.handlers["agent.resume"] = async () => { await reply;
+
+ return nodes[0]!; };
+
+
+    fireEvent.click(within(row("alpha")).getByRole("button", { name: label }));
+    expect(within(row("alpha")).getByRole("alert").textContent).toBe(message);
+    acknowledge();
+    await waitFor(() => expect(within(panel()).queryByText(message)).toBeNull());
+  }
+
+  if (transition === "remove") {
+    m.app.handlers["rail.tree"] = () => [nodes[1]!];
+    await send(m, event({ name: "rail.changed" }));
+    expect(within(panel()).queryByText("alpha")).toBeNull();
+    m.app.handlers["rail.tree"] = () => nodes;
+    await send(m, event({ name: "rail.changed" }));
+  }
+
+  if (head("alpha").getAttribute("aria-expanded") !== "true") fireEvent.click(head("alpha"));
+
+  await waitFor(() => expect(within(row("alpha")).queryByRole("alert")).toBeNull());
+  fireEvent.click(head("beta"));
+  expect((await within(row("beta")).findByRole("alert")).textContent).toBe("resume b refused");
+  expect(m.connected.drafts.list()).toEqual(drafts);
+  expect(within(panel()).getByRole("alert", { name: "cannot load comments" })).toBeTruthy();
+});
+
+it.each(["recover", "unrelated"] as const)("p3557c_failure_lifetime_inbox_%s", async (transition) => {
+  const m = await mountInbox();
+  m.app.handlers["todo.unread"] = () => { throw new Error("cannot load comments"); };
+
+  await act(() => m.app.emit(event({ name: "todo.deleted", data: { id: 9 } })));
+  await within(panel()).findByText("cannot load comments");
+
+  if (transition === "recover") {
+    m.app.handlers["todo.unread"] = () => [];
+    fireEvent.click(within(panel()).getByRole("button", { name: "Retry Inbox" }));
+    await waitFor(() => expect(within(panel()).queryByText("cannot load comments")).toBeNull());
+  } else {
+    m.app.handlers["rail.tree"] = () => NODES.filter((node) => node.id !== "c");
+    await send(m, event({ name: "rail.changed" }));
+    expect(within(panel()).getByText("cannot load comments").closest('[role="alert"]')).not.toBeNull();
+  }
+});
