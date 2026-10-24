@@ -151,7 +151,7 @@ it.each([true, false])("p3557b_dismiss_keeps_draft: closed=%s", async close => {
   const { app, connected, field } = await failedSave(close);
   const before = connected.drafts.list().map(draft => draft.value);
   const calls = app.calls.length;
-  const dismiss = screen.getByRole("button", { name: "Dismiss failure" });
+  const dismiss = screen.getByRole("button", { name: "Dismiss" });
 
   if (!close) fireEvent.focusOut(field, { relatedTarget: dismiss });
   fireEvent.click(dismiss);
@@ -220,7 +220,7 @@ it.each(["delete", "save", "dismiss"])("p3557c_failure_lifetime_pad_assignment: 
   } else if (action === "save") {
     app.handlers["pad.setOwner"] = save;
     await assign();
-  } else fireEvent.click(screen.getByRole("button", { name: "Dismiss assignment failure" }));
+  } else fireEvent.click(screen.getByRole("button", { name: "Dismiss" }));
   await waitFor(() => expect(screen.queryByText("assignment refused")).toBeNull());
   expect(screen.getByLabelText<HTMLInputElement>("Pad name").value).toBe("unfinished");
 });

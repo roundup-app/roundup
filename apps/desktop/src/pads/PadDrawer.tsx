@@ -509,7 +509,7 @@ const PadBody = (props: {
           <button data-button="quiet" type="button" onClick={useTheirs}>{copy.discardRevision}</button>
         </Show>
         <Show when={paused() && !retentionProblem()}><button data-button="primary" type="button" disabled={deleted() || invalid()} onClick={() => void resume()}>{copy.resume}</button></Show>
-        <Show when={actionFailure.message()}><button data-pad-dismiss aria-label={copy.dismissFailure} data-button="quiet" type="button" onClick={() => { actionFailure.clear(); props.onFailureCleared?.(); }}>{copy.close}</button></Show>
+        <Show when={actionFailure.message()}><button data-pad-dismiss data-button="quiet" type="button" onClick={() => { actionFailure.clear(); props.onFailureCleared?.(); }}>{copy.dismiss}</button></Show>
         <Show when={conflictActor()}>
           <button data-button="quiet" type="button" class="word" onClick={() => void keepMine()}>{copy.keepMine}</button>
           <button data-button="quiet" type="button" class="word" onClick={useTheirs}>{copy.useTheirs}</button>
