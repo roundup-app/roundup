@@ -44,6 +44,34 @@ describe("k2 a sample is keydown to the render that shows its echo", () => {
     });
   });
 
+  it("r20_another_terminals_write_cannot_stamp_the_measured_input", () => {
+    const time = clock();
+    const probe = createKeystrokeProbe(time.now, "a", () => "shell");
+
+    void probe.keydown();
+    time.advance(1);
+    probe.input("agent");
+    time.advance(1);
+    probe.input("shell");
+    time.advance(1);
+    probe.dispatched("agent");
+    time.advance(2);
+    probe.dispatched("shell");
+    time.advance(1);
+    probe.replied("agent");
+    time.advance(3);
+    probe.replied("shell");
+    probe.arrived(bytes("a"), "shell");
+    probe.written(bytes("a"), "shell");
+    probe.rendered("shell");
+
+    expect(probe.hops(0)).toMatchObject({
+      keydown_to_input: { n: 1, p95: 2 },
+      input_to_dispatch: { n: 1, p95: 3 },
+      write_reply: { n: 1, p95: 4 },
+    });
+  });
+
   it("r20_keys_reach_the_terminal_that_printed_ready_even_with_an_earlier_agent_input", async () => {
     document.body.innerHTML = `<div class="bubble" data-bubble="door"><textarea class="xterm-helper-textarea"></textarea></div>
       <div class="bubble" data-bubble="shell"><textarea class="xterm-helper-textarea"></textarea></div>`;
@@ -102,42 +130,42 @@ describe("k2 a sample is keydown to the render that shows its echo", () => {
 
   it("k2_the_render_after_the_echo_counts_as_the_time_since_the_keydown", () => {
     const time = clock();
-    const probe = createKeystrokeProbe(time.now, "a");
+    const probe = createKeystrokeProbe(time.now, "a", () => "shell");
 
     void probe.keydown();
     time.advance(3);
-    probe.written(bytes("a"));
+    probe.written(bytes("a"), "shell");
     time.advance(9);
-    probe.rendered();
+    probe.rendered("shell");
 
     expect(probe.summary(0)).toMatchObject({ n: 1, dropped: 0, p50: 12 });
   });
 
   it("k2_a_render_before_the_echo_is_not_a_sample", () => {
     const time = clock();
-    const probe = createKeystrokeProbe(time.now, "a");
+    const probe = createKeystrokeProbe(time.now, "a", () => "shell");
 
     void probe.keydown();
     time.advance(5);
-    probe.rendered();
+    probe.rendered("shell");
 
     expect(() => probe.summary(0)).toThrow("no key was echoed");
   });
 
   it("k2_output_that_is_not_the_typed_character_is_not_the_echo", () => {
     const time = clock();
-    const probe = createKeystrokeProbe(time.now, "a");
+    const probe = createKeystrokeProbe(time.now, "a", () => "shell");
 
     void probe.keydown();
-    probe.written(bytes("ready\n"));
-    probe.rendered();
+    probe.written(bytes("ready\n"), "shell");
+    probe.rendered("shell");
 
     expect(() => probe.summary(0)).toThrow("no key was echoed");
   });
 
   it("k2_a_key_with_no_rendered_echo_in_time_is_dropped_and_counted", async () => {
     const time = clock();
-    const probe = createKeystrokeProbe(time.now, "a");
+    const probe = createKeystrokeProbe(time.now, "a", () => "shell");
     const sleeps: number[] = [];
 
     await typeKeys(
@@ -149,22 +177,22 @@ describe("k2 a sample is keydown to the render that shows its echo", () => {
     expect(sleeps).toEqual([PATIENCE_MS, 30]);
 
     void probe.keydown();
-    probe.written(bytes("a"));
+    probe.written(bytes("a"), "shell");
     time.advance(4);
-    probe.rendered();
+    probe.rendered("shell");
 
     expect(probe.summary(0)).toMatchObject({ n: 1, dropped: 1, p50: 4 });
   });
 
   it("k2_the_first_samples_are_skipped_and_the_rest_summarised_by_nearest_rank", () => {
     const time = clock();
-    const probe = createKeystrokeProbe(time.now, "a");
+    const probe = createKeystrokeProbe(time.now, "a", () => "shell");
 
     for (const wait of [100, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20]) {
       void probe.keydown();
-      probe.written(bytes("a"));
+      probe.written(bytes("a"), "shell");
       time.advance(wait);
-      probe.rendered();
+      probe.rendered("shell");
     }
 
     expect(probe.summary(1)).toEqual({ n: 20, dropped: 0, p50: 10, p95: 19, p99: 20, max: 20 });
@@ -172,15 +200,15 @@ describe("k2 a sample is keydown to the render that shows its echo", () => {
 
   it("r21_dropped_keys_cannot_be_hidden_by_warmup", async () => {
     const time = clock();
-    const probe = createKeystrokeProbe(time.now, "a");
+    const probe = createKeystrokeProbe(time.now, "a", () => "shell");
     const sleep = async () => {};
 
     await typeKeys(probe, { press: () => {}, sleep, random: () => 0, expired: () => false }, 1);
 
     void probe.keydown();
-    probe.written(bytes("a"));
+    probe.written(bytes("a"), "shell");
     time.advance(6);
-    probe.rendered();
+    probe.rendered("shell");
     await typeKeys(probe, { press: () => {}, sleep, random: () => 0, expired: () => false }, 1);
 
     expect(probe.summary(1)).toMatchObject({ n: 1, dropped: 2, p50: 6 });
@@ -188,26 +216,26 @@ describe("k2 a sample is keydown to the render that shows its echo", () => {
 
   it("r20_hop_report_accounts_for_the_echo_round_trip", () => {
     const time = clock();
-    const probe = createKeystrokeProbe(time.now, "a");
+    const probe = createKeystrokeProbe(time.now, "a", () => "shell");
 
     // A warm-up key (skipped), then a measured key whose output is preceded by unrelated output and a render before the echo.
     for (const queued of [0, 7]) {
       void probe.keydown();
       time.advance(2);
-      probe.input();
+      probe.input("shell");
       time.advance(queued);
-      probe.dispatched();
+      probe.dispatched("shell");
       time.advance(1);
-      probe.arrived(bytes("noise"));
-      probe.written(bytes("noise"));
-      probe.rendered();
+      probe.arrived(bytes("noise"), "shell");
+      probe.written(bytes("noise"), "shell");
+      probe.rendered("shell");
       time.advance(3);
-      probe.arrived(bytes("a"));
-      probe.replied();
+      probe.arrived(bytes("a"), "shell");
+      probe.replied("shell");
       time.advance(4);
-      probe.written(bytes("a"));
+      probe.written(bytes("a"), "shell");
       time.advance(5);
-      probe.rendered();
+      probe.rendered("shell");
     }
 
     expect(probe.hops(1)).toEqual({
@@ -223,7 +251,7 @@ describe("k2 a sample is keydown to the render that shows its echo", () => {
 
   it("r20_a_run_out_of_time_counts_the_untyped_keys_as_dropped_and_still_reports", async () => {
     const time = clock();
-    const probe = createKeystrokeProbe(time.now, "a");
+    const probe = createKeystrokeProbe(time.now, "a", () => "shell");
     let typed = 0;
 
     await typeKeys(
@@ -233,9 +261,9 @@ describe("k2 a sample is keydown to the render that shows its echo", () => {
     );
 
     void probe.keydown();
-    probe.written(bytes("a"));
+    probe.written(bytes("a"), "shell");
     time.advance(4);
-    probe.rendered();
+    probe.rendered("shell");
 
     // Two keys were typed and dropped, three never typed.
     expect(typed).toBe(2);

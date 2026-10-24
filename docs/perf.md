@@ -291,6 +291,17 @@ span is not largest.
 The quiet-Mac reports above place `parsed_to_frame` first among the recorded
 spans; full attribution and a production latency repair remain unclaimed.
 
+The recorder accepts input, write replies, echo bytes and renders only from the
+Terminal that printed the ready line. Previously every emulator shared those
+marks: another Terminal printing `a` could supply the echo, and another
+Terminal's render could complete a sample after the measured echo was parsed.
+The deterministic `r20_another_terminal_cannot_supply_the_echo_or_finish_its_render`
+and `r20_another_terminals_write_cannot_stamp_the_measured_input` tests reproduce
+both forms of contamination without a native window. The retained Mac reports
+predate this correction; this identifies a possible attribution error, not
+evidence that another Terminal actually contaminated those runs. No reports are
+discarded and no production latency improvement is claimed.
+
 ## macOS `cold_start_ms` and `rail_tree_40_p95_ms` (#3696)
 
 Neither is a spawned `ps`: `resources.rs` runs only for `daemon.resources` and `scan.rs` only with a live Door, and `strace -f -e execve` of a fresh `rupd` shows one `execve`, so the lazy sidecar adds no spawn at start. Measured on one Linux machine at one load, `just perf` at the macOS baseline commit `02fd86775` against `main`: `rail_tree_40_p95_ms` 0.25 against 0.71 ms, `ping_p95_ms` 0.046 against 0.093 ms, `cold_start_ms` 14 to 16 against 24 ms. The Daemon itself got slower after the baseline, as the Mac's ratios show.
