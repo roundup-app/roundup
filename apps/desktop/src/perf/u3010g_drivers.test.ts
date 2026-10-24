@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { buildReport } from "./frames";
-import { bounded, everyTwoSeconds, glyphsCycle, layersCycle, todosCycle, writeInChunks } from "./frame_run";
+import { bounded, everyTwoSeconds, glyphsCycle, layersCycle, reportTerminal, todosCycle, writeInChunks } from "./frame_run";
 import type { Layers, Todos } from "./frame_run";
 
 const clock = { sleep: (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms)) };
@@ -109,5 +109,21 @@ describe("u3010g the frame recorder drives every workload", () => {
 
     expect(await outcome).toBe("the glyphs setup did not finish within 5000 ms");
     expect(await bounded(Promise.resolve(3), 5_000, "x")).toBe(3);
+  });
+});
+
+describe("u3010e the report goes through the shell's Terminal", () => {
+  it("u3010e_the_report_target_is_the_terminal_that_printed_ready", async () => {
+    const stub = () => ({ write: (_bytes: Uint8Array, parsed?: () => void) => parsed?.() });
+    const run = reportTerminal(stub);
+    const shell = run.createEmulator("shell");
+    const claude = run.createEmulator("claude");
+
+    shell.write(new TextEncoder().encode("ready\n"));
+    claude.write(new TextEncoder().encode("welcome"));
+    run.createEmulator("claude-again");
+
+    await run.printed;
+    expect(run.target()).toBe("shell");
   });
 });
