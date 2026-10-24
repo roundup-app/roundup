@@ -42,7 +42,7 @@ describe("u68 resume from the Rail menu", () => {
         resumable("live-done"),
         agent("live-error", "error", "failed"),
         agent("gone", "done", "done"),
-        resumable("run", { status: { kind: "working", label: "busy", since: 0 } }),
+        resumable("run", { status: { kind: "working", label: "busy", since: 0, finished: "0" } }),
         workstream("g"),
         door("d", "done", "done", { can_resume: true }),
         terminal("t"),

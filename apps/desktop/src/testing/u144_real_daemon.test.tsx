@@ -263,7 +263,7 @@ describe("u2540 inspection and notes on the real Daemon", () => {
       fireEvent.click(screen.getByRole("button", { name: "Add note" }));
       fireEvent.input(screen.getByRole("textbox", { name: "Note" }), { target: { value: "check selected source" } });
       fireEvent.click(screen.getByRole("button", { name: "Save" }));
-      fireEvent.click(screen.getByRole("button", { name: "Close" }));
+      fireEvent.click(screen.getByRole("button", { name: "Close changes" }));
       await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
     }
 
@@ -332,7 +332,7 @@ describe("u2540 inspection and notes on the real Daemon", () => {
           await openFile("same.ts");
 
           if (phase === "with notes") await saveNote("optional unsent note");
-          fireEvent.click(screen.getByRole("button", { name: "Close" }));
+          fireEvent.click(screen.getByRole("button", { name: "Close changes" }));
           await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
         }
 
@@ -422,7 +422,7 @@ describe("u2773 Project draft integration on real Projects", () => {
     app = {
       ...served,
       projects: async () => opened.map((path) => ({ name: path === first.dir ? "first" : "second", path, running: true })),
-      forProject: (path) => live.get(path)!,
+      forProject: (path) => Object.assign(live.get(path)!, { writeClipboardText: (text: string) => app.writeClipboardText(text) }),
       chooseProjectPath: async () => opened.includes(second.dir) ? first.dir : second.dir,
       openProject: async (path) => {
         const root = roots.find((each) => each.dir === path)!;
@@ -465,7 +465,7 @@ describe("u2773 Project draft integration on real Projects", () => {
     expect(within(row()).getByRole("button", { name: "Open" })).toBeTruthy();
     expect(within(row()).queryByRole("button", { name: "Copy" })).toBeNull();
     const clipboard = vi.fn(async (_text: string) => {});
-    Object.defineProperty(navigator, "clipboard", { configurable: true, value: { writeText: clipboard } });
+    vi.spyOn(app, "writeClipboardText").mockImplementation(clipboard);
     await firstApp.rpc("pad.delete", { name: pad.name });
     const replacementPad = await firstApp.rpc("pad.create", { name: pad.name, text: "replacement" });
     expect(replacementPad.incarnation).not.toBe(pad.incarnation);
@@ -706,7 +706,7 @@ describe("u2773 Project draft integration on real Projects", () => {
     await waitFor(() => expect(within(rowOf(b.revision)).getByRole("img", { name: "original removed" })).toBeTruthy());
     expect(holder.list()).toEqual([expect.objectContaining({ ...a, status: "failed" }), b]);
     const clipboard = vi.fn(async (_text: string) => {});
-    Object.defineProperty(navigator, "clipboard", { configurable: true, value: { writeText: clipboard } });
+    vi.spyOn(app, "writeClipboardText").mockImplementation(clipboard);
     fireEvent.click(await copyOf(() => rowOf(b.revision)));
     expect(clipboard).toHaveBeenCalledWith(exact);
     writes.mockRestore();
@@ -810,7 +810,7 @@ describe("u2773 Project draft integration on real Projects", () => {
     const previous = app.forProject;
     const current = { ...bound, rpc: authorityRead };
     calls.push(vi.spyOn(current, "rpc"));
-    app.forProject = (path) => path === first.dir ? current : previous(path);
+    app.forProject = (path) => path === first.dir ? Object.assign(current, { writeClipboardText: (text: string) => app.writeClipboardText(text) }) : previous(path);
     phase = "pending";
     mount();
     await screen.findByRole("region", { name: "Rail" });
@@ -850,7 +850,7 @@ describe("u2773 Project draft integration on real Projects", () => {
     const rowOf = (revision: string) => recovery.querySelector<HTMLElement>(`[data-revision="${revision}"]`)!;
     await waitFor(() => expect(rowOf(b.revision)).toBeTruthy());
     const clipboard = vi.fn(async (_text: string) => {});
-    Object.defineProperty(navigator, "clipboard", { configurable: true, value: { writeText: clipboard } });
+    vi.spyOn(app, "writeClipboardText").mockImplementation(clipboard);
     fireEvent.click(await copyOf(() => rowOf(b.revision)));
     await waitFor(() => expect(clipboard).toHaveBeenCalledWith(exact));
     fireEvent.click(within(rowOf(a.revision)).getByRole("button", { name: "Discard" }));
@@ -972,7 +972,7 @@ describe("u2773 unfinished Decision forms on real Projects", () => {
     app = {
       ...connections[0]!,
       projects: async () => opened.map(path => ({ path, name: path === first.dir ? "first" : "second", running: true })),
-      forProject: path => connections[path === first.dir ? 0 : 1]!,
+      forProject: path => Object.assign(connections[path === first.dir ? 0 : 1]!, { writeClipboardText: (text: string) => app.writeClipboardText(text) }),
       chooseProjectPath: async () => second.dir,
       closeProject: async path => {
         roots.find(root => root.dir === path)!.daemon.kill();
@@ -1128,7 +1128,7 @@ describe("u2773 unfinished Decision forms on real Projects", () => {
       await first.restart();
       const current = createServedApp(first.base);
       const previous = app.forProject;
-      app.forProject = path => path === first.dir ? current : previous(path);
+      app.forProject = path => path === first.dir ? Object.assign(current, { writeClipboardText: (text: string) => app.writeClipboardText(text) }) : previous(path);
       calls.push(vi.spyOn(current, "rpc"));
     }
 
@@ -1142,7 +1142,7 @@ describe("u2773 unfinished Decision forms on real Projects", () => {
     expect(drafts(first.dir).list()).toEqual([saved]);
     expect(within(recovery).queryByRole("button", { name: "Send" })).toBeNull();
     const clipboard = vi.fn(async (_text: string) => {});
-    Object.defineProperty(navigator, "clipboard", { configurable: true, value: { writeText: clipboard } });
+    vi.spyOn(app, "writeClipboardText").mockImplementation(clipboard);
     fireEvent.click(await copyOf(() => recovery));
     expect(clipboard).toHaveBeenCalledWith(exact);
     const target = (await current.rpc("rail.tree", null)).find(node => node.id === agents[0]!.id);

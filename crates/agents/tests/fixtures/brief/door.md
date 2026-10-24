@@ -26,6 +26,7 @@ The `roundup` MCP server offers these tools. They are deferred: load a tool befo
 - `pad_create`: start a Pad, a named text you own, for notes you want to keep.
 - `pad_read`: read one Pad.
 - `link_read`: read what a roundup:// link names, as it is now.
+- `import_list`: list this Project's saved and live Claude Code sessions with the revision to approve; it imports nothing.
 - `pad_list`: see which Pads exist.
 - `pad_write`: rewrite a Pad you own.
 - `pad_append`: add text to the end of any Pad.
@@ -79,7 +80,7 @@ The `roundup` MCP server offers these tools. They are deferred: load a tool befo
 - `route_list`: see the Routes: whom each Agent's questions go to.
 - `project_get`: read the Project's settings.
 - `project_measurements`: read retained measurements and collection coverage.
-- `project_measurementSummary`: read a Workstream's exact consumed token subtotals and ranked contributors; later pages require the first page's revision.
+- `project_measurementSummary`: read a Workstream's time by category and its Agents ranked by summed time; later pages require the first page's revision.
 - `project_setWorktrees`: turn Worktrees on or off for the Project and set the command Landing runs.
 - `provenance_history`: list the Touches on one item, such as `todo:3` or `rail:5`.
 - `provenance_touched`: list the Touches one Actor made.

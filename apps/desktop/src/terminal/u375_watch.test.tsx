@@ -1,3 +1,4 @@
+import { imageFile, pasteEvent } from "../testing/clipboard";
 import { cleanup, fireEvent, screen, within } from "@solidjs/testing-library";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { Decision } from "@contracts/decision/Decision";
@@ -50,6 +51,16 @@ describe("u375 the user watches an Agent's screen without taking it over", () =>
     expect(document.activeElement?.closest("[data-terminal]")).toBeNull();
   });
 
+  it.each(["text", "image"])("u3560b_watch_paste_neither_saves_nor_types_%s", async payload => {
+    const { app, emulators } = await mountWatch();
+    pasteEvent(document.querySelector(".pane-screen [data-terminal]")!, payload === "text" ? "blocked text" : "", payload === "image" ? [imageFile()] : []);
+    // The Watch band acknowledges refusal before this observation; no scheduler-step wait stands in for it.
+    await screen.findByText("Managed: typing is not sent");
+    expect(app.savedImages).toEqual([]);
+    expect(emulators.get("t-a")!.pasted).toEqual([]);
+    expect(callsTo(app, "terminal.write")).toEqual([]);
+  });
+
   it("u375_the_overlay_says_managed_and_offers_take_control", async () => {
     await mountWatch();
 
@@ -68,7 +79,8 @@ describe("u375 the user watches an Agent's screen without taking it over", () =>
 
     const written: string[] = [];
 
-    Object.assign(navigator, { clipboard: { writeText: async (text: string) => { written.push(text); } } });
+    app.clipboardWrite = async (text: string) => { written.push(text); };
+
     const target = document.querySelector<HTMLElement>(".pane-screen > *")!;
 
     target.focus();
@@ -170,7 +182,7 @@ describe("u375 the user watches an Agent's screen without taking it over", () =>
     const { app, connected, emulators } = await mountCentre(tree(), { select: "workstream" });
 
     const status = (kind: "needs-you" | "working", revision: string) =>
-      app.emit(event({ name: "agent.status", data: { id: "a", attempt: "1", status_revision: revision, status: { kind, label: kind, since: NOW } } }));
+      app.emit(event({ name: "agent.status", data: { id: "a", attempt: "1", status_revision: revision, status: { kind, label: kind, since: NOW, finished: "0" } } }));
 
     status("needs-you", "2");
     // U412: activating the child's Toast selects its row, as a click on the row does.

@@ -113,3 +113,66 @@ describe("u3795 an answered permission folds to one line", () => {
     await waitFor(() => expect(line()).toBeNull());
   });
 });
+
+it.each(["dismiss", "escape", "acknowledge", "failed", "replacement", "unrelated", "removed"] as const)("p3557c_failure_lifetime_FoldedLine_%s", async transition => {
+  const { app, drafts } = await answer("This Project");
+  const retained = drafts("/p").edit({ surface: "decisions", object: "other", recipient: "b" }, { daemon: "daemon", agent: "b", attempt: "attempt-b", decision: "other", choice: null, note: "  untouched\n日本語 🪴  " }, null, "ordinary", null).draft;
+  app.handlers["decision.revoke"] = () => { throw new RpcError(-32000, "Revoke failed; try again"); };
+
+  fireEvent.click(within(line()!).getByRole("button", { name: "Revoke" }));
+  await waitFor(() => expect(within(line()!).getByRole("alert").textContent).toContain("Revoke failed"));
+
+  if (transition === "dismiss") {
+    fireEvent.click(within(line()!).getByRole("button", { name: "Dismiss" }));
+  } else if (transition === "escape") {
+    fireEvent.keyDown(line()!, { key: "Escape" });
+  } else if (transition === "acknowledge" || transition === "failed") {
+    const pending = gate<null>();
+    app.handlers["decision.revoke"] = () => pending.promise;
+    fireEvent.click(within(line()!).getByRole("button", { name: "Revoke" }));
+    await waitFor(() => expect(rpcCalls(app, "decision.revoke")).toHaveLength(2));
+    expect(within(line()!).getByRole("alert").textContent).toContain("Revoke failed");
+
+    if (transition === "failed") pending.reject(new RpcError(-32000, "Revoke failed again"));
+    else pending.resolve(null);
+  } else if (transition === "replacement") {
+    app.emit(opened(decision("d2", "a")));
+  } else if (transition === "unrelated") {
+    app.emit(cleared("other"));
+  } else {
+    app.handlers["rail.tree"] = () => [];
+    app.emit({ actor: { kind: "user", id: "you", parent: null }, name: "rail.changed" });
+  }
+
+  if (["escape", "acknowledge", "replacement", "removed"].includes(transition)) {
+    await waitFor(() => expect(line()).toBeNull());
+  } else {
+    await waitFor(() => expect(within(line()!).queryByRole("alert") !== null).toBe(transition !== "dismiss"));
+    expect(within(line()!).getByRole("button", { name: "Revoke" })).toBeTruthy();
+  }
+
+  expect(rpcCalls(app, "decision.answer")).toHaveLength(1);
+  expect(rpcCalls(app, "decision.revoke")).toHaveLength(["acknowledge", "failed"].includes(transition) ? 2 : 1);
+  expect(drafts("/p").list()).toContainEqual(retained);
+});
+
+it.each(["failed", "acknowledged"] as const)("p3557c_failure_lifetime_FoldedLine_late_revoke_%s", async outcome => {
+  const { app } = await answer("This Project");
+  const pending = gate<null>();
+
+  app.handlers["decision.revoke"] = () => pending.promise;
+  fireEvent.click(within(line()!).getByRole("button", { name: "Revoke" }));
+  await waitFor(() => expect(rpcCalls(app, "decision.revoke")).toHaveLength(1));
+  app.emit(opened(decision("d2", "a", { scopes: ["once", "project"] })));
+  await waitFor(() => expect(card()).not.toBeNull());
+  fireEvent.click(within(card()!).getByRole("button", { name: "Deny" }));
+  await waitFor(() => expect(line()?.textContent).toContain("Denied"));
+
+  if (outcome === "failed") pending.reject(new RpcError(-32000, "Old revoke failed"));
+  else pending.resolve(null);
+
+  await pending.promise.catch(() => {});
+  expect(line()?.textContent).toContain("Denied");
+  expect(within(line()!).queryByRole("alert")).toBeNull();
+  expect(rpcCalls(app, "decision.revoke")).toEqual([{ id: "d1", proof: "proof-1" }]);
+});

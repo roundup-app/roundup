@@ -1,8 +1,10 @@
+import { writeText } from "../app/clipboard";
 import * as v from "valibot";
 import { attentionCount } from "./attention";
 import { copy } from "../copy";
 import { createEffect, createMemo, createSignal, For, on, onCleanup, onMount, Show } from "solid-js";
 import { Portal } from "solid-js/web";
+import { createItemFailure } from "./itemFailure";
 import { ReservedLine } from "../ink/ReservedLine";
 import { SectionHead } from "../ink/SectionHead";
 import { KindGlyph } from "../ink/KindGlyph";
@@ -14,8 +16,6 @@ import { TreeView } from "../ui/TreeView";
 import { railCollection } from "./collection";
 import { useConnectedProject } from "../state/connectedProject";
 import { doorStateOf } from "./doorState";
-import { ImportPanel } from "../importer/ImportPanel";
-import { ProjectSettings } from "./ProjectSettings";
 import { RailConfirm } from "./menu/RailConfirm";
 import { createRailMenu } from "./menu/model";
 import { agentKindsBelow, isWorkstream, layoutRail, siblingsOf } from "./layout";
@@ -46,19 +46,17 @@ export const Rail = () => {
 
   const attention = createMemo(() => attentionCount(rail.nodes));
   const [scrolled, setScrolled] = createSignal(false);
-  let importOpener: HTMLButtonElement | undefined;
   const collapsed = rail.collapsed;
   const [unfolded, setUnfolded] = createSignal<ReadonlySet<string | null>>(new Set());
-  const [failure, setFailure] = createSignal<string | null>(null);
+  const failure = createItemFailure((id) => rail.nodes.some((node) => node.id === id));
   const retained = draftsOf(connected.drafts);
   // #2788: avoid rescanning all drafts per recovery row; 10k lookups took 527 ms with find, 0.6 ms with Map.
   const revisions = createMemo(() => new Map(retained.records().map((draft) => [draft.revision, draft])));
 
-  const menu = createRailMenu(app, rail, setFailure, connected.events, connected.drafts, (id) => {
+  const menu = createRailMenu(app, rail, failure.show, failure.acknowledge, connected.events, connected.drafts, (id) => {
     rowElement(id)?.querySelector(".name")?.dispatchEvent(new MouseEvent("dblclick", { bubbles: true }));
   }, connected.queue);
 
-  const importing = connected.importing;
 
   const clearPrompt = createMemo(() => {
     const node = menu.clearTarget();
@@ -161,13 +159,15 @@ export const Rail = () => {
   const keys = createMemo(() => rows().map((row) => row.key));
   const byKey = createMemo(() => new Map(rows().map((row) => [row.key, row])));
 
-  const attempt = async <T,>(call: () => Promise<T>): Promise<void> => {
+  const attempt = async <T,>(call: () => Promise<T>, item?: string): Promise<void> => {
     try {
       await call();
+
+      if (item !== undefined) failure.acknowledge(item);
     } catch (error) {
       if (!(error instanceof Error)) throw error;
 
-      setFailure(error.message);
+      failure.show(error.message, item);
     }
   };
 
@@ -311,9 +311,6 @@ export const Rail = () => {
 
       if (id === undefined) return;
 
-      // Enter on the already-selected row brings its Terminal back over the settings view, as a click does.
-      if (id === rail.selected()) connected.settingsView.close(false);
-
       rail.select(id);
     };
 
@@ -360,7 +357,7 @@ export const Rail = () => {
   const moveTo = ({ id, parent, index }: SortableMove) => {
     if (daemonExit() !== null || pointerOutside()) return;
 
-    void attempt(() => app.rpc("rail.move", { id, parent, index: trueIndex(id, parent, index) }));
+    void attempt(() => app.rpc("rail.move", { id, parent, index: trueIndex(id, parent, index) }), id);
   };
 
   const [pending, setPending] = createSignal(false);
@@ -446,7 +443,7 @@ export const Rail = () => {
     const action = taskAction();
 
     if (originalParent !== null && !rail.nodes.some((node) => node.id === originalParent && node.kind === "workstream")) {
-      setFailure(copy.railDraftUnavailable);
+      failure.show(copy.railDraftUnavailable);
 
       return;
     }
@@ -487,7 +484,7 @@ export const Rail = () => {
 
   onMount(() => {
     const clear = () => {
-      setFailure(null);
+      failure.clear();
       rail.clearWorkstreamFailure();
       rail.clearStorageFailure();
     };
@@ -536,7 +533,7 @@ export const Rail = () => {
       aria-label={copy.overviewLabel(attention())}
       data-scrolled={scrolled()}
       class="todo-project-root"
-      onClick={() => { rail.select(null); connected.settingsView.close(false); }}
+      onClick={() => rail.select(null)}
       onContextMenu={(press: MouseEvent) => openOnRelease(press, (x, y) => {
         const entries = recoveryEntries();
 
@@ -551,11 +548,6 @@ export const Rail = () => {
         </span>
       </Show>
     </button>
-    <button type="button" data-button="quiet" class="word rail-import" ref={importOpener} disabled={daemonExit() !== null} onClick={() => importing.show()}>
-      {copy.importTitle}
-    </button>
-    <ProjectSettings />
-    <ImportPanel open={importing.open()} opener={importOpener} onClose={() => importing.cancel()} />
     <div class="rail-scroll" onScroll={(event) => setScrolled(event.currentTarget.scrollTop > 0)}>
     <TreeView.Root
       class="rail-tree"
@@ -574,9 +566,6 @@ export const Rail = () => {
         // A native menu may consume the compatibility click; keyboard activation must still work next.
         element.addEventListener("keydown", () => { contextClick = false; }, true);
         element.addEventListener("click", (event) => {
-          // Pressing the row the Rail already marks selected brings its Terminal back over the settings view.
-          if (event.target instanceof Element && event.target.closest<HTMLElement>("[data-id]")?.dataset.id === rail.selected()) connected.settingsView.close(false);
-
           if (!contextClick && !event.ctrlKey) return;
 
           contextClick = false;
@@ -656,10 +645,11 @@ export const Rail = () => {
                           tabbable={tabbableId() === view().node.id}
                           branch={collection().isBranchNode(entryOf(view().node.id).node)}
                           onToggle={() => rail.toggleCollapsed(view().node.id)}
-                          onFailure={setFailure}
+                          onFailure={(message) => failure.show(message, view().node.id)}
                           onEditing={(editing) => setEditingName(editing ? view().node.id : null)}
                           onRename={async (name) => {
                             await app.rpc("rail.rename", { id: view().node.id, name });
+                            failure.acknowledge(view().node.id);
                           }}
                           onStartDoor={() => { rail.select(view().node.id); void rail.startDoor(view().node.id); }}
                           doorPending={rail.doorPending(view().node.id)}
@@ -729,7 +719,7 @@ export const Rail = () => {
                   <ReservedLine status={entry().destination.surface === "rail-name" && rail.nodes.some((node) => node.id === entry().destination.object && node.name !== entry().value.base) ? copy.railDraftConflict : null} />
                   <Show when={base()}>{(base) => <p>{copy.railDraftBase(base())}</p>}</Show>
                   <div class="rail-recovery-actions">
-                  <button data-button="quiet" onClick={() => { void attempt(() => navigator.clipboard.writeText(text())); }}>{copy.railDraftCopy}</button>
+                  <button data-button="quiet" onClick={() => { void attempt(() => writeText(connected.app, text())); }}>{copy.railDraftCopy}</button>
                   <button data-button="quiet" onClick={() => {
                     const current = task()?.revision === entry().revision;
                     retained.discard(entry().revision);
@@ -765,7 +755,7 @@ export const Rail = () => {
           </Show>
         </Portal>
       </Show>
-      <ReservedLine overlay message={failure() ?? rail.workstreamFailure() ?? rail.doorFailure(rail.selected() ?? "") ?? rail.storageFailure() ?? (retained.problem()?.destination?.surface.startsWith("rail-") ? copy.railDraftRetention(project.name, retained.problem()!.destination?.surface ?? "rail", retained.problem()!.operation) : null)}
+      <ReservedLine overlay message={failure.message() ?? rail.workstreamFailure() ?? rail.doorFailure(rail.selected() ?? "") ?? rail.storageFailure() ?? (retained.problem()?.destination?.surface.startsWith("rail-") ? copy.railDraftRetention(project.name, retained.problem()!.destination?.surface ?? "rail", retained.problem()!.operation) : null)}
         status={asking() ? copy.askingTheDoor : retained.records().some(entry => entry.destination.surface.startsWith("rail-") && entry.status === "unknown") ? copy.railDraftUnknown(project.name) : null}>
         <Show when={retained.problem()?.destination?.surface.startsWith("rail-")}><button data-button="quiet" onClick={() => retained.retry()}>{copy.railDraftRetry}</button></Show>
       </ReservedLine>

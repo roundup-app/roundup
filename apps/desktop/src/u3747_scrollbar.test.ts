@@ -22,5 +22,5 @@ it("u3747_no_stylesheet_outside_the_shared_scrollbar_style_sets_a_scrollbar", ()
     .flatMap(([path, css]) => declarations(css).filter((d) => !/:\s*none$|display\s*:\s*none/.test(d)).map((d) => `${path}: ${d}`));
 
   expect(strays).toEqual([]);
-  expect(declarations(sheets[SHARED] ?? "").length).toBeGreaterThan(0);
+  expect(sheets[SHARED]).toMatch(/\.app-scrollbar\b[^{]*\{[^}]*--os-handle-bg:/);
 });

@@ -18,7 +18,7 @@ export const AppSettings = (props: { app: App; project: () => string | null; onO
   const view = createSettingsView();
   const [failure, setFailure] = createSignal<string | null>(null);
   const [sizeFailure, setSizeFailure] = createSignal<string | null>(null);
-  const defaultFont = getComputedStyle(document.documentElement).getPropertyValue("--font-mono").trim();
+  const defaultFont = getComputedStyle(document.documentElement).getPropertyValue("--font-terminal").trim();
   const drafts = draftStorage("app-settings");
   drafts.validate("settings", v.object({ text: v.string() }));
   const destination = (field: string) => ({ surface: "settings", object: field, recipient: null });
@@ -40,9 +40,15 @@ export const AppSettings = (props: { app: App; project: () => string | null; onO
 
   let disposed = false;
   let stop: (() => void) | undefined;
+  let stopProject: (() => void) | undefined;
 
   void props.app.onAppSettings(show).then(unsubscribe => { if (disposed) unsubscribe(); else stop = unsubscribe; });
-  onCleanup(() => { disposed = true; stop?.(); });
+  void props.app.onProjectPage(({ path }) => {
+    if (path !== props.project() || !view.open()) return;
+    props.onOpenChange?.(false);
+    view.close();
+  }).then(unsubscribe => { if (disposed) unsubscribe(); else stopProject = unsubscribe; });
+  onCleanup(() => { disposed = true; stop?.(); stopProject?.(); });
   registerKeys({ kind: "app" }, [{ chords: ["Meta+Comma"], run: show }]);
 
   const [offered] = createResource(() => view.open() && props.project(), async path => {
