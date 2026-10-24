@@ -1115,17 +1115,28 @@ class Plumbing(unittest.TestCase):
             self.assertFalse(plumbing)
             self.assertIn(('pr', 'close', '9', '--delete-branch'), github.writes)
 
+    def test_l82_a_fourth_conflict_closes_the_pr_for_a_fresh_build_and_starts_no_model(self):
+        history = [(n, 'Fix PR #9: conflict', MODEL) for n in range(1, builder.CONFLICT_RUNS + 1)]
+        task, plumbing, github = self.start(pr(**CONFLICTED), 'conflict', history=history)
+        self.assertIsNone(task)
+        self.assertEqual([w for w in github.writes if w[:2] == ('pr', 'close')],
+                         [('pr', 'close', '9', '--comment', 'Rebuilt fresh from main after 3 conflict fixes.', '--delete-branch')])
+        task, _, github = self.start(pr(**CONFLICTED), 'conflict', history=history[1:])
+        self.assertTrue(task)
+        self.assertEqual(github.writes, [])
+
     def test_l82_past_the_ceiling_a_plumbing_cause_counts_as_any_other(self):
-        title = 'Fix PR #9: conflict'
+        title = 'Fix PR #9: rules'
         def history(count):
             return [(n, title, MODEL) for n in range(1, count + 1)]
-        view, notes = pr(**CONFLICTED), [note(PLUMBED)] * builder.ATTEMPTS
-        task, plumbing, _ = self.start(view, 'conflict', notes, history(builder.PLUMBING_RUNS))
+        view, steps = rules_run('loop/rules.sh ci-trailers "$PR"')
+        notes = [note(PLUMBED)] * builder.ATTEMPTS
+        task, plumbing, _ = self.start(view, 'rules', notes, history(builder.PLUMBING_RUNS), steps)
         self.assertIsNone(task)
         self.assertFalse(plumbing)
         # This run, runs of other PRs and causes, and runs whose model job never started are not plumbing runs.
-        other = [(10, 'Fix PR #9: check', MODEL), (11, 'Fix PR #8: conflict', MODEL), (12, title, [dict(name='fix-run', conclusion='skipped')])]
-        task, plumbing, _ = self.start(view, 'conflict', notes, history(builder.PLUMBING_RUNS - 1) + other + [(99, title, MODEL)])
+        other = [(10, 'Fix PR #9: check', MODEL), (11, 'Fix PR #8: rules', MODEL), (12, title, [dict(name='fix-run', conclusion='skipped')])]
+        task, plumbing, _ = self.start(view, 'rules', notes, history(builder.PLUMBING_RUNS - 1) + other + [(99, title, MODEL)], steps)
         self.assertTrue(task and plumbing)
 
 
