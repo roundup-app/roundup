@@ -22,7 +22,6 @@ export const createTerminalClose = (connected: ConnectedProject, shown: Accessor
 
     try {
       if (!terminal) return;
-      setRetry(null);
       const accepted = await app.ask({ title: copy.closeQuestion(nameFor(terminal)), message: terminal.running ? copy.closeTerminalWarning : copy.closeTerminalOutputWarning, okLabel: copy.close, cancelLabel: copy.keep });
 
       if (!accepted) {
@@ -33,6 +32,7 @@ export const createTerminalClose = (connected: ConnectedProject, shown: Accessor
 
       await app.rpc("terminal.close", { id });
       await rail.refresh({ terminals: true });
+      setRetry((held) => held?.id === id ? null : held);
       clearItemFailure(terminal);
 
       if (controlHeldFocus) queueMicrotask(() => {
@@ -52,12 +52,12 @@ export const createTerminalClose = (connected: ConnectedProject, shown: Accessor
   };
 
   const Failure = (props: { message: string | null; children?: JSX.Element }) => <ReservedLine overlay class={props.message ? "bubble-failure" : undefined} message={props.message}>
-    {props.children}
     <Show when={retry()?.message === props.message ? retry() : null}>{failed => <button data-button="quiet" type="button" onClick={() => {
       // Retry starts from the original close control, so cancel and success keep their normal focus destinations.
       document.querySelector<HTMLElement>(`.terminal-tab-pair[data-bubble="${failed().id}"] button:last-child`)?.focus();
       void close(failed().id);
     }}>{copy.retry}</button>}</Show>
+    {props.children}
   </ReservedLine>;
 
   return { close, closing, Failure };
