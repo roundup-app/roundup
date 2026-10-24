@@ -31,9 +31,9 @@ export const createOwnerAssignment = (source: {
     const id = request.id;
 
     queueMicrotask(() => {
-      const held = document.activeElement;
+      const kept = document.activeElement;
 
-      if (held && held !== document.body && held.isConnected && !held.closest("[role=menu]")) return (setRegrouped(null), setRevealed(null));
+      if (kept && kept !== document.body && kept.isConnected && !kept.closest("[role=menu]")) return (setRegrouped(null), setRevealed(null));
 
       const button = rowButtonOf(id);
 
@@ -118,30 +118,30 @@ export const createOwnerKeys = (source: {
     chords: chordsOf(CHORDS.find(chord => chord.keys === "⏎" && chord.inShelf)), when: can,
     run: event => {
       const todo = focused(event)!;
-      const held = lifted();
-      const target = owners().find(owner => owner.id === held?.group);
+      const kept = lifted();
+      const target = owners().find(owner => owner.id === kept?.group);
 
-      if (held?.id === todo.id && target) drop(todo, target.actor);
+      if (kept?.id === todo.id && target) drop(todo, target.actor);
       else if (owners().some(owner => !sameOwner(owner.actor, todo.owner))) setLifted({ id: todo.id, group: null });
     },
   }, {
     chords: chordsFor("↑ ↓"), when: event => can(event) && lifted()?.id === focused(event)?.id,
     run: event => {
-      const held = lifted()!;
+      const kept = lifted()!;
       const current = focused(event)!.owner;
       const all = owners();
       const offered = all.filter(owner => !sameOwner(owner.actor, current));
-      const at = offered.findIndex(owner => owner.id === held.group);
+      const at = offered.findIndex(owner => owner.id === kept.group);
       const origin = all.findIndex(owner => sameOwner(owner.actor, current));
       const from = origin < 0 ? all.length - 1 : origin;
 
-      const target = held.group === null
+      const target = kept.group === null
         ? event.key === "ArrowUp"
           ? all.slice(0, from).findLast(owner => offered.includes(owner)) ?? offered[0]
           : all.slice(from + 1).find(owner => offered.includes(owner)) ?? offered.at(-1)
         : offered[Math.min(offered.length - 1, Math.max(0, at + (event.key === "ArrowUp" ? -1 : 1)))];
 
-      if (target) setLifted({ id: held.id, group: target.id });
+      if (target) setLifted({ id: kept.id, group: target.id });
     },
   }, {
     chords: chordsFor("Esc"), when: event => can(event) && lifted() !== null,
@@ -151,10 +151,10 @@ export const createOwnerKeys = (source: {
   return {
     lifted,
     announcement: () => {
-      const held = lifted();
-      const target = owners().find(owner => owner.id === held?.group);
+      const kept = lifted();
+      const target = owners().find(owner => owner.id === kept?.group);
 
-      return held && target ? copy.todoMoveTo(held.id, target.name) : null;
+      return kept && target ? copy.todoMoveTo(kept.id, target.name) : null;
     },
   };
 };

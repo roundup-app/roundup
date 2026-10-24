@@ -51,12 +51,12 @@ export const createBulkDelete = <Id,>(props: {
   createEffect(on(() => `${props.context()}:${host?.open()}`, reset, { defer: true }));
   onCleanup(() => { revision += 1; });
   createEffect(() => {
-    const held = question();
+    const kept = question();
 
-    if (held?.kind !== "question") return;
-    const eligible = held.done ? props.done?.() ?? [] : props.targets();
+    if (kept?.kind !== "question") return;
+    const eligible = kept.done ? props.done?.() ?? [] : props.targets();
 
-    if (held.targets.some((target) => !eligible.some((row) => row.id === target.id))) setQuestion(null);
+    if (kept.targets.some((target) => !eligible.some((row) => row.id === target.id))) setQuestion(null);
   });
 
   const ask = (done = false, focused?: Id) => {
@@ -85,20 +85,20 @@ export const createBulkDelete = <Id,>(props: {
   };
 
   const cancel = () => {
-    const held = question();
+    const kept = question();
 
-    if (held?.kind !== "question") return;
+    if (kept?.kind !== "question") return;
     setQuestion(null);
   };
 
   const confirm = async () => {
-    const held = question();
+    const kept = question();
 
-    if (held?.kind !== "question") return;
+    if (kept?.kind !== "question") return;
     const mine = revision;
-    const eligible = held.done ? props.done?.() ?? [] : props.targets();
-    const targets = held.targets.map(target => ({ ...target, owner: eligible.find(row => row.id === target.id)?.owner ?? target.owner }));
-    setQuestion({ ...held, kind: "pending", targets });
+    const eligible = kept.done ? props.done?.() ?? [] : props.targets();
+    const targets = kept.targets.map(target => ({ ...target, owner: eligible.find(row => row.id === target.id)?.owner ?? target.owner }));
+    setQuestion({ ...kept, kind: "pending", targets });
     setFailures([]);
     const failed: { target: Target<Id>; message: string }[] = [];
 
@@ -117,7 +117,7 @@ export const createBulkDelete = <Id,>(props: {
 
       if (message !== null) return;
 
-      if (held.done && failed.length > 0) props.reveal?.();
+      if (kept.done && failed.length > 0) props.reveal?.();
       const remaining = failed.filter(({ target }) => props.targets().some((row) => row.id === target.id));
       props.replace(remaining.map(({ target }) => target.id));
       setFailures(remaining);
@@ -161,10 +161,10 @@ export const createBulkDelete = <Id,>(props: {
   });
 
   const owners = createMemo(() => {
-    const held = question();
+    const kept = question();
 
-    const targets = held?.kind === "pending" ? held.targets : props.targets().filter((target) =>
-      held ? held.targets.some((row) => row.id === target.id) : props.selected().includes(target.id));
+    const targets = kept?.kind === "pending" ? kept.targets : props.targets().filter((target) =>
+      kept ? kept.targets.some((row) => row.id === target.id) : props.selected().includes(target.id));
 
     return [...new Set(targets.flatMap((target) => target.owner ? [target.owner] : []))];
   });

@@ -42,7 +42,7 @@ browser transport buffers are separate, finite transport buffers. There is no
 accumulation proportional to the duration of a pause. Bounds are per selection;
 callers own and must release their displayed selections.
 
-Ordinary RPCs and the global Event route retain their own connections. A held
+Ordinary RPCs and the global Event route retain their own connections. A kept
 output connection cannot queue an ordinary call behind output. This is bounded
 dedicated-connection backpressure. An offset discontinuity is fatal to
 this response. Cancellation destroys its socket and pipeline, including pending
@@ -54,6 +54,6 @@ The `x14_harness_output_relay_*` observers use fixture-owned Unix sockets and
 actual HTTP; byte fidelity also crosses an isolated headless agent-browser
 profile. The saturation observer pauses the HTTP receiver directly to make the
 network backpressure barrier deterministic, checks the actual Node writable
-queue and observes a control reply while the output sender is held. These prove
+queue and observes a control reply while the output sender is kept. These prove
 harness transport support only. They claim no X14 production isolation, raw
 Tauri body, parser, matched performance or full flood journey acceptance.

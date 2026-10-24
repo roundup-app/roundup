@@ -18,7 +18,7 @@ export const createSelection = <Id>(ids: Accessor<readonly Id[]>, context: Acces
   createEffect(on(() => `${context()}:${host?.open()}`, clear, { defer: true }));
   createEffect(() => {
     const visible = ids();
-    setSelected((held) => held.filter((id) => visible.includes(id)));
+    setSelected((kept) => kept.filter((id) => visible.includes(id)));
 
     for (const id of rows.keys()) if (!visible.includes(id)) rows.delete(id);
 
@@ -27,7 +27,7 @@ export const createSelection = <Id>(ids: Accessor<readonly Id[]>, context: Acces
   onCleanup(clear);
 
   const toggle = (id: Id) => {
-    setSelected((held) => held.includes(id) ? held.filter((other) => other !== id) : [...held, id]);
+    setSelected((kept) => kept.includes(id) ? kept.filter((other) => other !== id) : [...kept, id]);
     anchor = id;
   };
 

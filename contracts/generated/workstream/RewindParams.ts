@@ -2,7 +2,6 @@
 import type { Files } from "./Files";
 
 /**
- * `workstream.rewind`. `files` is required. A held rewind (`HeldCall::Rewind`) carries the
- * child it waits for in `agent`.
+ * `workstream.rewind`. `files` is required. `agent` selects one child, as in `RewindPlanParams`.
  */
 export type RewindParams = { id: string, checkpoint: number, files: Files, agent?: string, };

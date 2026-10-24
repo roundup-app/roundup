@@ -151,7 +151,7 @@ describe("u103 a reloaded pane shows the screen", () => {
     await vi.waitFor(() => expect(fits()).toBe(1));
   });
 
-  it("u103_the_emulator_is_sized_then_gets_the_data_then_the_held_and_later_output_in_order", async () => {
+  it("u103_the_emulator_is_sized_then_gets_the_data_then_the_buffered_and_later_output_in_order", async () => {
     const { app, pending, snapshots, log } = await mount(undefined, undefined, (fake) => fake.outputPositions.set("t-a", 6));
 
     await vi.waitFor(() => expect(snapshots()).toHaveLength(1));
@@ -174,7 +174,7 @@ describe("u103 a reloaded pane shows the screen", () => {
     await vi.waitFor(() => expect(snapshots()).toHaveLength(1));
   });
 
-  it("u103_output_held_during_a_slow_snapshot_stays_bounded_and_resnapshots_after_a_dropped_prefix", async () => {
+  it("u103_output_buffered_during_a_slow_snapshot_stays_bounded_and_resnapshots_after_a_dropped_prefix", async () => {
     const { app, pending, snapshots, log } = await mount();
     const large = "x".repeat(400_000);
 
@@ -316,7 +316,7 @@ describe("u103 a reloaded pane shows the screen", () => {
     expect(screen.getByRole("alert").querySelector('svg.lucide-x[aria-hidden="true"]')).not.toBeNull();
   });
 
-  it("u103_output_held_during_a_failed_initial_snapshot_continues_as_live_output", async () => {
+  it("u103_output_buffered_during_a_failed_initial_snapshot_continues_as_live_output", async () => {
     const { app, pending, snapshots, log } = await mount();
 
     await vi.waitFor(() => expect(snapshots()).toHaveLength(1));
@@ -374,17 +374,6 @@ describe("u103 a reloaded pane shows the screen", () => {
     pending[0]?.(snapshotOf("bye", 0));
 
     await vi.waitFor(() => expect(log()).toEqual(["size 100x30", "bye"]));
-    expect(typed(app)).toEqual([]);
-  });
-
-  it("u103_a_takeover_restores_the_screen_without_typing", async () => {
-    const { app, pending, snapshots, log } = await mount();
-
-    app.emit(event({ name: "takeover.changed", data: { agent: "a", on: true } }));
-    await vi.waitFor(() => expect(snapshots()).toHaveLength(1));
-    pending[0]?.(snapshotOf("user screen", 0));
-
-    await vi.waitFor(() => expect(log()).toEqual(["size 100x30", "user screen"]));
     expect(typed(app)).toEqual([]);
   });
 });

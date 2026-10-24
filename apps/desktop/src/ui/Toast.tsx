@@ -29,7 +29,7 @@ function layoutStack(group: Element) {
   }
 }
 
-const held = () => document.visibilityState === "hidden" || focusInStack();
+const kept = () => document.visibilityState === "hidden" || focusInStack();
 
 /** Caller supplies eligibility, identity and summaries. Ark alone owns card lifetimes. */
 export function createToast(policy: {
@@ -43,10 +43,10 @@ export function createToast(policy: {
   // U3791: Ark's group pauses every timer while the pointer or focus is in the stack and resumes each from the time it had left; its own page-idle option sends an event nothing handles, so ToastProvider pauses on a hidden window. U3792: overlap folds the cards behind the newest one; hover or focus fans them out.
   const store = createToaster({ placement: "bottom-end", max: Infinity, duration: DURATION, removeDelay: 150, pauseOnPageIdle: false, overlap: true, gap: GAP, offsets: "0px" });
 
-  // Ark resumes and folds the stack when the pointer leaves, whatever else holds it: focus still in the stack, or a hidden window, keeps the time held and the cards fanned out.
+  // Ark resumes and folds the stack when the pointer leaves, whatever else holds it: focus still in the stack, or a hidden window, keeps the time frozen and the cards fanned out.
   const { resume, collapse } = store;
 
-  store.resume = (id) => { if (!held()) resume(id); };
+  store.resume = (id) => { if (!kept()) resume(id); };
 
   store.collapse = () => { if (!focusInStack()) collapse(); };
 

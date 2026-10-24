@@ -206,11 +206,11 @@ export const Pads = (props: {
   const pickFails = new Map<string, { message: string | null; show: (message: string | null) => void }>();
 
   const reportAssignmentFailure = (incarnation: string, message: string | null) => {
-    const held = pickFails.get(incarnation);
+    const prior = pickFails.get(incarnation);
 
-    if (!held || !pads().some(pad => pad.incarnation === incarnation)) return;
-    held.message = message;
-    held.show(message);
+    if (!prior || !pads().some(pad => pad.incarnation === incarnation)) return;
+    prior.message = message;
+    prior.show(message);
   };
 
   createEffect(() => {
@@ -241,7 +241,7 @@ export const Pads = (props: {
 
     reportAssignmentFailure(source.incarnation, message);
 
-    // U138: the refetch replaces the row that held focus; give it back once the Pad has arrived.
+    // U138: the refetch replaces the row that had focus; give it back once the Pad has arrived.
     if (message === null && focus) setRegrouped({ name, owner });
   };
 
@@ -253,9 +253,9 @@ export const Pads = (props: {
 
     if (!request || !arrived || !sameOwner(arrived.owner, request.owner)) return;
     queueMicrotask(() => {
-      const held = document.activeElement;
+      const kept = document.activeElement;
 
-      if (held && held !== document.body && held.isConnected && !held.closest("[role=menu]")) return setRegrouped(null);
+      if (kept && kept !== document.body && kept.isConnected && !kept.closest("[role=menu]")) return setRegrouped(null);
       const button = rowButtonOf(request.name);
 
       if (button) { button.focus(); setRegrouped(null); }

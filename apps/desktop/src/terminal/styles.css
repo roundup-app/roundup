@@ -106,58 +106,6 @@
   display: none;
 }
 
-/* U375, U187: the one state of the Terminal, Managed or You control, and the way to the other, float over its top-right corner, left of the work-items control, where lines end blank; the bottom is the Agent's input. */
-.pane-control {
-  inline-size: max-content;
-  max-inline-size: calc(100% - var(--space-6) * 2);
-  position: absolute;
-  top: var(--space-2);
-  right: calc(var(--space-6) + var(--space-2));
-  z-index: 1;
-  display: flex;
-  align-items: center;
-  gap: var(--space-4);
-  padding: 0 var(--space-2);
-  font-size: var(--text-caption);
-  color: var(--text);
-}
-
-.pane-control-state {
-  display: inline-grid;
-  grid-template-columns: auto auto;
-  align-items: center;
-  gap: var(--space-2);
-  white-space: nowrap;
-}
-
-/* Keep the resting label's width while allowing the refused-typing explanation to read in full. */
-.pane-control-state::after {
-  content: attr(data-label);
-  visibility: hidden;
-  grid-column: 2;
-  grid-row: 1;
-}
-
-.pane-control-state > .reserved-line {
-  grid-column: 2;
-  grid-row: 1;
-  inline-size: max-content;
-  min-inline-size: 100%;
-}
-
-.pane-control-state::before {
-  content: "●";
-  color: var(--grey);
-}
-
-.pane-control[data-state="controlled"] .pane-control-state::before {
-  color: var(--accent);
-}
-
-.pane-control > button {
-  flex: none;
-}
-
 /* D6, D7: the emulator's input is a textarea, so it carries the click target states; it is invisible, so each is a Token read with no transition. */
 .pane .xterm .xterm-helper-textarea {
   cursor: pointer;

@@ -39,17 +39,17 @@ export const shelfKeys = (props: { frame: ShelfFrame; shelf: () => HTMLElement |
 
   const toggle = (source: ActivationSource = "pointer") => {
     const opening = !props.frame.open();
-    const held = document.activeElement;
+    const kept = document.activeElement;
 
     if (opening) {
-      returnTo = held instanceof HTMLElement && held !== document.body ? held : null;
+      returnTo = kept instanceof HTMLElement && kept !== document.body ? kept : null;
     }
 
     props.frame.toggle(source);
 
-    if (!opening && held instanceof HTMLElement && (props.shelf()?.contains(held) || held.closest(".shelf-tabs"))) {
+    if (!opening && kept instanceof HTMLElement && (props.shelf()?.contains(kept) || kept.closest(".shelf-tabs"))) {
       if (returnTo?.isConnected) returnTo.focus({ preventScroll: true });
-      else held.blur();
+      else kept.blur();
 
       returnTo = null;
     }

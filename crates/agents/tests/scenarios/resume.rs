@@ -5,7 +5,7 @@ use std::time::Duration;
 
 use contracts::Kind;
 use contracts::agent::RailNode;
-use rpc::{Module, code};
+use rpc::code;
 use serde_json::{Value, json};
 
 use crate::common::Fixture;
@@ -148,7 +148,7 @@ async fn a21_a_later_session_start_overrides_the_earlier_saved_conversation() {
 }
 
 #[tokio::test]
-async fn a21_a_failed_save_while_held_fails_the_whole_spawn() {
+async fn a21_a_failed_save_while_parked_fails_the_whole_spawn() {
     let f = Arc::new(Fixture::running("sleep 30"));
     let config = crate::common::hold_starts(&f);
     let spawning = {
@@ -168,10 +168,10 @@ async fn a21_a_failed_save_while_held_fails_the_whole_spawn() {
         .await
         .first()
         .map(|n| n.id.clone())
-        .expect("the node exists while its launch is held");
+        .expect("the node exists while its launch is parked");
     let db = rusqlite::Connection::open(f.dir.path().join("agents.db")).unwrap();
     db.execute_batch("CREATE TRIGGER fail_save BEFORE UPDATE OF conversation_id ON nodes BEGIN SELECT RAISE(ABORT,'save refused'); END; CREATE TRIGGER fail_delete BEFORE DELETE ON nodes BEGIN SELECT RAISE(ABORT,'delete refused'); END;").unwrap();
-    // The held SessionStart reaches `agent.signal` before the config read `start` is waiting on
+    // The parked SessionStart reaches `agent.signal` before the config read `start` is waiting on
     // returns, exactly as A14's own window does.
     f.signal_payload(
         &id,
@@ -188,7 +188,7 @@ async fn a21_a_failed_save_while_held_fails_the_whole_spawn() {
         .unwrap();
     assert!(
         result.is_err(),
-        "a held conversation save failure must fail the spawn"
+        "a parked conversation save failure must fail the spawn"
     );
     tokio::time::timeout(Duration::from_secs(2), async {
         while f.terminals.list().iter().any(|t| t.running) {
@@ -196,7 +196,7 @@ async fn a21_a_failed_save_while_held_fails_the_whole_spawn() {
         }
     })
     .await
-    .expect("failed held save must reap its actual Terminal");
+    .expect("failed parked save must reap its actual Terminal");
     // Node deletion was also refused. The process-free registration test proves
     // reinsertion for caller cleanup; this observer proves the real Terminal is reaped.
     assert_eq!(
@@ -436,10 +436,10 @@ async fn a22_no_acknowledgement_within_ten_seconds_times_out_and_rolls_back() {
 }
 
 /// A `SessionStart` is the ack only with source `resume` naming the saved id; anything else is
-/// held exactly as a non-`SessionStart` Signal is, never promoting the pending resume. Proven by
+/// parked exactly as a non-`SessionStart` Signal is, never promoting the pending resume. Proven by
 /// timing it out (success would mean the mismatched ack was mistaken for the real one) rather
 /// than by only sending the real one afterward, which would pass even if the check were a no-op.
-async fn held_as_not_the_ack(session_id: &str, source: &str) {
+async fn parked_as_not_the_ack(session_id: &str, source: &str) {
     let f = Fixture::running("sleep 30");
     let node = exited_with_conversation(&f, CONVERSATION).await;
     // Plugin compatibility probes use a real process; pause only the resume deadline.
@@ -464,19 +464,19 @@ async fn held_as_not_the_ack(session_id: &str, source: &str) {
 }
 
 #[tokio::test]
-async fn a22_an_ack_with_the_wrong_source_is_held_not_promoted() {
-    held_as_not_the_ack(CONVERSATION, "startup").await;
+async fn a22_an_ack_with_the_wrong_source_is_parked_not_promoted() {
+    parked_as_not_the_ack(CONVERSATION, "startup").await;
 }
 
 #[tokio::test]
-async fn a22_an_ack_naming_a_different_conversation_is_held_not_promoted() {
-    held_as_not_the_ack(OTHER_CONVERSATION, "resume").await;
+async fn a22_an_ack_naming_a_different_conversation_is_parked_not_promoted() {
+    parked_as_not_the_ack(OTHER_CONVERSATION, "resume").await;
 }
 
-/// A non-ack held first, then the real ack: proves a mismatch is held (not rejected outright)
+/// A non-ack parked first, then the real ack: proves a mismatch is parked (not rejected outright)
 /// and the resume still resolves once the real one arrives.
 #[tokio::test]
-async fn a22_a_mismatched_signal_held_before_the_real_ack_still_lets_it_resolve() {
+async fn a22_a_mismatched_signal_parked_before_the_real_ack_still_lets_it_resolve() {
     let f = Fixture::running("sleep 30");
     let node = exited_with_conversation(&f, CONVERSATION).await;
     let f = Arc::new(f);
@@ -786,289 +786,6 @@ async fn a24_a_resume_whose_run_is_gone_presents_a_live_status_revision() {
     resuming.await.unwrap().unwrap();
 }
 
-/// The same Agent RPC module used by the Daemon's Message receiver lookup.
-struct Receiver(Arc<Fixture>, tokio::sync::mpsc::UnboundedSender<Value>);
-
-impl messages::TerminalOwners for Receiver {
-    fn with_terminal_owner(
-        &self,
-        terminal: &str,
-        record: &mut dyn FnMut(Option<&agents::TerminalOwner>) -> Result<(), rpc::RpcError>,
-    ) -> Result<(), rpc::RpcError> {
-        self.0.agents.with_terminal_owner(terminal, record)
-    }
-}
-
-#[async_trait::async_trait]
-impl rpc::Module for Receiver {
-    fn namespaces(&self) -> &'static [&'static str] {
-        &["agent", "rail"]
-    }
-
-    async fn call(
-        &self,
-        ctx: &rpc::Ctx,
-        method: &str,
-        params: Value,
-    ) -> Result<Value, rpc::RpcError> {
-        let result = self.0.agents.call(ctx, method, params).await?;
-        if method == "rail.tree" {
-            self.1.send(result.clone()).unwrap();
-        }
-        Ok(result)
-    }
-}
-
-#[tokio::test]
-async fn b36_a_message_to_an_agent_resumed_in_the_same_daemon_run_is_accepted() {
-    let f = Arc::new(Fixture::running("sleep 30"));
-    let node = exited_with_conversation(&f, CONVERSATION).await;
-    let (messages, mut reads, mut delivery) = open_messages(&f);
-    tokio::time::timeout(Duration::from_secs(10), reads.recv())
-        .await
-        .unwrap()
-        .unwrap();
-    let resuming = {
-        let f = Arc::clone(&f);
-        let id = node.id.clone();
-        tokio::spawn(async move { f.resume(&id).await })
-    };
-    f.until_attempt_changed(&node.id, node.attempt.as_deref().unwrap())
-        .await;
-    // resync reads this Attempt before acknowledgement; it reconciles the tree without
-    // yielding after rail.tree returns (crates/messages/src/lib.rs:968).
-    tokio::time::timeout(Duration::from_secs(10), async {
-        loop {
-            let tree = reads.recv().await.unwrap();
-            if tree
-                .as_array()
-                .unwrap()
-                .iter()
-                .any(|n| n["id"] == node.id && n["attempt"] != node.attempt.as_deref().unwrap())
-            {
-                break;
-            }
-        }
-    })
-    .await
-    .unwrap();
-    f.session_start(&node.id, CONVERSATION, "resume")
-        .await
-        .unwrap();
-    resuming.await.unwrap().unwrap();
-    let sent = messages
-        .call(
-            &f.ctx(),
-            "message.send",
-            json!({"to": node.id, "kind": "note", "body": "ship b"}),
-        )
-        .await
-        .unwrap();
-    assert_eq!(sent["status"], "pending");
-    let delivered = tokio::time::timeout(Duration::from_secs(10), delivery.recv())
-        .await
-        .unwrap()
-        .unwrap();
-    assert_eq!(
-        delivered,
-        (
-            node.id,
-            "[from you, note] ship b\n\n[rup messages: 1]".into()
-        )
-    );
-}
-
-type Reads = tokio::sync::mpsc::UnboundedReceiver<Value>;
-type Delivery = tokio::sync::mpsc::UnboundedReceiver<(String, String)>;
-
-fn open_messages(f: &Arc<Fixture>) -> (messages::Messages, Reads, Delivery) {
-    let (read, reads) = tokio::sync::mpsc::unbounded_channel();
-    let (typed, delivery) = tokio::sync::mpsc::unbounded_channel();
-    let messages = messages::Messages::open(
-        f.dir.path(),
-        f.bus.clone(),
-        Arc::new(Receiver(Arc::clone(f), read)),
-        Arc::new(move |id, text| {
-            typed.send((id, text)).unwrap();
-            Box::pin(async { Ok(()) })
-        }),
-    )
-    .unwrap();
-    (messages, reads, delivery)
-}
-
-async fn message_during_resume(door: bool) {
-    let f = Arc::new(Fixture::running("sleep 30"));
-    let node = if door {
-        exited_door(&f).await
-    } else {
-        exited_with_conversation(&f, CONVERSATION).await
-    };
-    let (messages, _reads, mut delivery) = open_messages(&f);
-    let resuming = {
-        let f = Arc::clone(&f);
-        let id = node.id.clone();
-        tokio::spawn(async move {
-            if door {
-                start_door(&f, &id).await
-            } else {
-                f.resume(&id).await
-            }
-        })
-    };
-    f.until_attempt_changed(&node.id, node.attempt.as_deref().unwrap())
-        .await;
-    let sent = messages
-        .call(
-            &f.ctx(),
-            "message.send",
-            json!({"to": node.id, "kind": "note", "body": "before ack"}),
-        )
-        .await
-        .unwrap();
-    assert_eq!(sent["status"], "pending");
-    assert!(
-        delivery.try_recv().is_err(),
-        "no delivery before acknowledgement"
-    );
-    f.session_start(&node.id, CONVERSATION, "resume")
-        .await
-        .unwrap();
-    resuming.await.unwrap().unwrap();
-    let delivered = tokio::time::timeout(Duration::from_secs(10), delivery.recv())
-        .await
-        .unwrap()
-        .unwrap();
-    assert_eq!(
-        delivered,
-        (
-            node.id,
-            "[from you, note] before ack\n\n[rup messages: 1]".into()
-        )
-    );
-}
-
-#[tokio::test]
-async fn b36_pending_messages_reach_the_resumed_agents_first_idle() {
-    message_during_resume(false).await;
-}
-
-#[tokio::test]
-async fn b36_pending_messages_reach_the_resumed_doors_first_idle() {
-    message_during_resume(true).await;
-}
-
-#[tokio::test]
-async fn b36_messages_to_the_stopped_run_are_still_dropped_receiver_gone() {
-    let f = Arc::new(Fixture::running("sleep 30"));
-    let node = f.spawn(None, None).await.unwrap();
-    f.session_start(&node.id, CONVERSATION, "startup")
-        .await
-        .unwrap();
-    f.signal_payload(
-        &node.id,
-        node.attempt.as_deref().unwrap(),
-        json!({"hook_event_name": "UserPromptSubmit"}),
-    )
-    .await
-    .unwrap();
-    let (messages, _reads, mut delivery) = open_messages(&f);
-    let sent = messages
-        .call(
-            &f.ctx(),
-            "message.send",
-            json!({"to": node.id, "kind": "note", "body": "old work"}),
-        )
-        .await
-        .unwrap();
-    f.call("agent.stop", json!({"id": node.id})).await.unwrap();
-    // message.get is an observation; wait until the stop's listener records its outcome.
-    let dropped = tokio::time::timeout(Duration::from_secs(10), async {
-        loop {
-            let message = messages
-                .call(&f.ctx(), "message.get", json!({"id": sent["id"]}))
-                .await
-                .unwrap();
-            if message["status"] == "dropped" {
-                break message;
-            }
-            tokio::task::yield_now().await;
-        }
-    })
-    .await
-    .unwrap();
-    assert_eq!(dropped["reason"], "receiver gone");
-    let resuming = {
-        let f = Arc::clone(&f);
-        let id = node.id.clone();
-        tokio::spawn(async move { f.resume(&id).await })
-    };
-    f.until_attempt_changed(&node.id, node.attempt.as_deref().unwrap())
-        .await;
-    f.session_start(&node.id, CONVERSATION, "resume")
-        .await
-        .unwrap();
-    resuming.await.unwrap().unwrap();
-    let after = messages
-        .call(&f.ctx(), "message.get", json!({"id": sent["id"]}))
-        .await
-        .unwrap();
-    assert_eq!(after["status"], "dropped");
-    assert_eq!(after["reason"], "receiver gone");
-    assert!(delivery.try_recv().is_err());
-}
-
-#[tokio::test]
-async fn b36_the_ended_attempts_late_status_cannot_close_the_resumed_attempt() {
-    let f = Arc::new(Fixture::running("sleep 30"));
-    let node = exited_with_conversation(&f, CONVERSATION).await;
-    let (messages, _reads, mut delivery) = open_messages(&f);
-    let resuming = {
-        let f = Arc::clone(&f);
-        let id = node.id.clone();
-        tokio::spawn(async move { f.resume(&id).await })
-    };
-    f.until_attempt_changed(&node.id, node.attempt.as_deref().unwrap())
-        .await;
-    f.signal_payload(
-        &node.id,
-        node.attempt.as_deref().unwrap(),
-        json!({"hook_event_name": "Stop"}),
-    )
-    .await
-    .unwrap();
-    f.session_start(&node.id, CONVERSATION, "resume")
-        .await
-        .unwrap();
-    resuming.await.unwrap().unwrap();
-    f.signal_payload(
-        &node.id,
-        node.attempt.as_deref().unwrap(),
-        json!({"hook_event_name": "SessionEnd"}),
-    )
-    .await
-    .unwrap();
-    messages
-        .call(
-            &f.ctx(),
-            "message.send",
-            json!({"to": node.id, "kind": "note", "body": "new work"}),
-        )
-        .await
-        .unwrap();
-    let delivered = tokio::time::timeout(Duration::from_secs(10), delivery.recv())
-        .await
-        .unwrap()
-        .unwrap();
-    assert_eq!(
-        delivered,
-        (
-            node.id,
-            "[from you, note] new work\n\n[rup messages: 1]".into()
-        )
-    );
-}
-
 #[tokio::test]
 async fn r16_resume_availability_is_gated_by_the_current_attempt() {
     let f = Arc::new(Fixture::running("sleep 30"));
@@ -1122,63 +839,6 @@ async fn r16_reopened_rail_keeps_resume_data_without_live_presentation() {
     assert_eq!(reopened.model, node.model);
     assert_eq!(reopened.effort, node.effort);
     assert_eq!(reopened.iteration, node.iteration);
-}
-
-#[tokio::test]
-async fn b32_r16_messages_use_the_authoritative_agents_dependency_for_agent_and_door() {
-    for door in [false, true] {
-        let f = Fixture::running("sleep 30");
-        let node: RailNode = if door {
-            let id = f.workstream("team", None).await;
-            serde_json::from_value(f.call("rail.startDoor", json!({"id":id})).await.unwrap())
-                .unwrap()
-        } else {
-            f.spawn(None, None).await.unwrap()
-        };
-        let terminal = node.terminal_id.clone().unwrap();
-        let ctx = f.ctx();
-        let Fixture {
-            dir,
-            bus,
-            agents,
-            terminals,
-            ..
-        } = f;
-        let agents = Arc::new(agents);
-        let messages = messages::Messages::open(
-            dir.path(),
-            bus,
-            agents.clone(),
-            Arc::new(|_, _| Box::pin(async { Ok(()) })),
-        )
-        .unwrap();
-        messages.user_wrote(&terminal, b"unsent").await;
-        let sent = messages
-            .call(
-                &ctx,
-                "message.send",
-                json!({"to":node.id,"kind":"note","body":"wait"}),
-            )
-            .await
-            .unwrap();
-        assert_eq!(sent["status"], "held");
-        messages.user_wrote(&terminal, b"\rtail").await;
-        let get = || json!({"id":sent["id"]});
-        assert_eq!(
-            messages.call(&ctx, "message.get", get()).await.unwrap()["status"],
-            "held"
-        );
-        messages.user_wrote(&terminal, b"\x15").await;
-        assert_eq!(
-            messages.call(&ctx, "message.get", get()).await.unwrap()["status"],
-            "pending"
-        );
-        agents
-            .call(&ctx, "agent.stop", json!({"id":node.id}))
-            .await
-            .unwrap();
-        drop(terminals);
-    }
 }
 
 #[tokio::test]

@@ -1086,23 +1086,6 @@ async fn b21_a_child_with_no_door_above_it_pushes_nothing() {
 }
 
 #[tokio::test]
-async fn b21_under_a_takeover_of_the_door_the_push_is_held() {
-    let project = start(&[]);
-    let user = project.client().await;
-    let rail = rail(&project, &user).await;
-    settled(&user, &rail.m).await;
-    user.request("takeover.begin", json!({ "agent": rail.m }))
-        .await
-        .unwrap();
-
-    signal(&user, &rail.b, json!({"hook_event_name": "Stop"})).await;
-
-    let (message, _) = push_where(&user, &rail.m, |_, e| e["kind"] == "idle").await;
-    assert_eq!(message["status"], "held");
-    assert_eq!(message["reason"], "takeover");
-}
-
-#[tokio::test]
 async fn b22_a_burst_of_changes_sends_a_door_at_most_eight_pushes_in_a_window() {
     let project = start(&[]);
     let user = project.client().await;
@@ -3237,12 +3220,7 @@ async fn m13_every_role_is_offered_the_three_read_tools_and_no_write_tool() {
     for id in [&rail.m, &rail.a] {
         let mut shim = Shim::start(&project, id).await;
         let offered = tool_names(&mut shim).await;
-        for name in [
-            "terminal_screen",
-            "terminal_read",
-            "terminal_search",
-            "terminal_resizeHistory",
-        ] {
+        for name in ["terminal_screen", "terminal_read", "terminal_search"] {
             assert!(offered.iter().any(|n| n == name), "{id} lacks {name}");
         }
         assert!(
@@ -3251,7 +3229,7 @@ async fn m13_every_role_is_offered_the_three_read_tools_and_no_write_tool() {
                 .filter(|n| n.starts_with("terminal_"))
                 .count()
                 // M16: a Door lacks `terminal_spawn` and `terminal_open`; B53: it alone has `terminal_show`.
-                == if id == &rail.m { 9 } else { 10 },
+                == if id == &rail.m { 8 } else { 9 },
             "{offered:?}"
         );
     }
@@ -3729,14 +3707,7 @@ async fn m14_every_role_is_offered_the_seven_tools_and_not_the_user_only_ones() 
         ] {
             assert!(offered.iter().any(|n| n == name), "{id} lacks {name}");
         }
-        for name in [
-            "message_deliver",
-            "message_drop",
-            "takeover_begin",
-            "takeover_end",
-            "terminal_list",
-            "terminal_snapshot",
-        ] {
+        for name in ["message_drop", "terminal_list", "terminal_snapshot"] {
             assert!(!offered.iter().any(|n| n == name), "{id} has {name}");
         }
     }
@@ -3772,7 +3743,7 @@ async fn m14_an_agent_sets_a_route_between_nodes_in_its_reach() {
 
     as_m.request(
         "route.set",
-        json!({ "from": rail.a, "to": rail.b, "delivery": "ask-first" }),
+        json!({ "from": rail.a, "to": rail.b, "delivery": "drop" }),
     )
     .await
     .unwrap();
@@ -3780,7 +3751,7 @@ async fn m14_an_agent_sets_a_route_between_nodes_in_its_reach() {
     let routes = user.request("route.list", Value::Null).await.unwrap();
     assert_eq!(
         routes,
-        json!([{ "from": rail.a, "to": rail.b, "delivery": "ask-first" }])
+        json!([{ "from": rail.a, "to": rail.b, "delivery": "drop" }])
     );
 }
 
@@ -3814,7 +3785,7 @@ async fn m14_an_agent_cannot_route_or_replace_the_users_routes() {
     let as_m = client_as(&project, actor(ActorKind::Agent, &rail.m)).await;
     user.request(
         "route.set",
-        json!({ "from": rail.a, "to": rail.b, "delivery": "ask-first" }),
+        json!({ "from": rail.a, "to": rail.b, "delivery": "drop" }),
     )
     .await
     .unwrap();
@@ -3835,7 +3806,7 @@ async fn m14_an_agent_cannot_route_or_replace_the_users_routes() {
     assert_eq!(m14_code(replaced), rpc::code::FORBIDDEN);
     assert_eq!(m14_code(from_user), rpc::code::FORBIDDEN);
     let routes = user.request("route.list", Value::Null).await.unwrap();
-    assert_eq!(routes[0]["delivery"], "ask-first");
+    assert_eq!(routes[0]["delivery"], "drop");
 }
 
 #[tokio::test]
@@ -3971,7 +3942,7 @@ async fn m14_an_agent_has_no_tool_to_deliver_or_drop() {
     let rail = rail(&project, &user).await;
     for id in [&rail.m, &rail.a] {
         let mut shim = Shim::start(&project, id).await;
-        for name in ["message_deliver", "message_drop"] {
+        for name in ["message_drop"] {
             let result = shim
                 .request(
                     "tools/call",
@@ -4074,126 +4045,6 @@ async fn u516_message_list_holds_the_sent_excerpt() {
         .expect("message.list holds the Excerpt for an Agent with no Thread");
     assert_eq!(sent["from"]["kind"], "user");
     assert_eq!(sent["kind"], "note");
-}
-
-/// The lines of a JSON-lines `log` the fake `claude` writes for a prompt that carries Messages (a
-/// B39 id line), once at least `least` are there.
-async fn b39_log(log: &std::path::Path, least: usize) -> Vec<Value> {
-    h21_poll("the fake claude's log", async || {
-        let lines: Vec<Value> = std::fs::read_to_string(log)
-            .unwrap_or_default()
-            .lines()
-            .map(|line| serde_json::from_str::<Value>(line).unwrap())
-            .filter(|line| line["prompt"].as_str().unwrap().contains("[rup messages: "))
-            .collect();
-        (lines.len() >= least).then_some(lines)
-    })
-    .await
-}
-
-async fn b39_status(client: &rpc::Client, id: u64) -> String {
-    let message = client
-        .request("message.get", json!({ "id": id }))
-        .await
-        .unwrap();
-    message["status"].as_str().unwrap().to_owned()
-}
-
-async fn b39_delivered(client: &rpc::Client, id: u64) {
-    h21_poll("the Message to be delivered", async || {
-        (b39_status(client, id).await == "delivered").then_some(())
-    })
-    .await;
-}
-
-#[tokio::test]
-async fn b39_a_prompt_that_repeats_delivered_messages_is_dropped_by_the_hook() {
-    let logs = tempfile::tempdir().unwrap();
-    let prompts = logs.path().join("prompts.jsonl");
-    let blocked = logs.path().join("blocked.jsonl");
-    let project = start(&[
-        ("FAKE_CLAUDE_PROMPT_LOG", prompts.to_str().unwrap()),
-        ("FAKE_CLAUDE_BLOCKED_LOG", blocked.to_str().unwrap()),
-    ]);
-    let client = project.client().await;
-    let door = start_door(&client).await;
-    client
-        .request(
-            "message.send",
-            json!({"to": door, "kind": "note", "body": "hello"}),
-        )
-        .await
-        .unwrap();
-
-    b39_delivered(&client, 1).await;
-    let first = b39_log(&prompts, 1).await;
-    let prompt = first[0]["prompt"].as_str().unwrap().to_owned();
-    assert!(prompt.ends_with("\n\n[rup messages: 1]"), "{prompt}");
-
-    // The same Message typed to a second turn: the hook exits 2 and the fake runs no turn for it.
-    let again = format!("[from you, note] {prompt}");
-    let typed_again = h21_poll("the repeated prompt to be typed", async || {
-        // A refusal means the Door is still in its turn (Busy); typed, the call waits for a
-        // Signal that the hook never lets through, so it outlasts this bound.
-        let asked = client.request("agent.prompt", json!({ "id": door, "text": again }));
-        tokio::time::timeout(Duration::from_secs(2), asked)
-            .await
-            .is_err()
-            .then_some(())
-    })
-    .await;
-    let () = typed_again;
-    let dropped = b39_log(&blocked, 1).await;
-    assert_eq!(dropped[0]["prompt"], prompt);
-    assert_eq!(b39_status(&client, 1).await, "delivered");
-    assert_eq!(b39_log(&prompts, 2).await.len(), 2);
-    let working = rail_tree(&client)
-        .await
-        .into_iter()
-        .find(|node| node.id == door)
-        .and_then(|node| node.status)
-        .map(|status| status.kind);
-    assert_eq!(working, Some(contracts::Kind::Idle), "a second turn ran");
-}
-
-#[tokio::test]
-async fn b40_a_message_typed_and_unconfirmed_at_a_kill_is_typed_again_and_delivered_once() {
-    let logs = tempfile::tempdir().unwrap();
-    let hold = logs.path().join("signal");
-    let prompts = logs.path().join("prompts.jsonl");
-    let log = prompts.to_str().unwrap();
-    let env = [("FAKE_CLAUDE_PROMPT_LOG", log)];
-    let held = [
-        ("FAKE_CLAUDE_PROMPT_LOG", log),
-        ("FAKE_CLAUDE_HOLD_PROMPT", hold.to_str().unwrap()),
-    ];
-    let mut project = start(&held);
-    let client = project.client().await;
-    let door = start_door(&client).await;
-    client
-        .request(
-            "message.send",
-            json!({"to": door, "kind": "note", "body": "hello"}),
-        )
-        .await
-        .unwrap();
-    let typed = b39_log(&prompts, 1).await;
-    assert_eq!(b39_status(&client, 1).await, "pending");
-
-    // Killed after the typing and before the Signal: nothing was lost, nothing is delivered.
-    project.restart(&env);
-    let client = project.client().await;
-    assert_eq!(b39_status(&client, 1).await, "pending");
-    client
-        .request("rail.startDoor", json!({ "id": door }))
-        .await
-        .unwrap();
-
-    b39_delivered(&client, 1).await;
-    let log = b39_log(&prompts, 2).await;
-    assert_eq!(log[1]["prompt"], typed[0]["prompt"]);
-    tokio::time::sleep(Duration::from_millis(500)).await;
-    assert_eq!(b39_log(&prompts, 2).await.len(), 2, "typed a third time");
 }
 
 const M16_START: [&str; 3] = ["agent_run", "terminal_spawn", "terminal_open"];

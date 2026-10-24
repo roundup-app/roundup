@@ -36,13 +36,13 @@ impl Daemon {
             .refs(id)?
             .into_iter()
             .map(|url| {
-                let held = match pads::reference::parse(&url) {
+                let exists = match pads::reference::parse(&url) {
                     Ok(link) => link.project == self.project_key && self.pads.holds(&link)?,
                     Err(_) => false,
                 };
                 Ok(Ref {
                     url,
-                    state: if held {
+                    state: if exists {
                         RefState::Ok
                     } else {
                         RefState::Missing

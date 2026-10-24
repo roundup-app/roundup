@@ -6,7 +6,7 @@ import type { Reason } from "./Reason";
 
 /**
  * A typed envelope between Actors. `reply_to` names the Message this answers, if any; `reason`
- * names why a `held` Message is held or a `dropped` one was dropped, and is `None` otherwise.
+ * names why a `dropped` Message was dropped, and is `None` otherwise.
  */
 export type Message = { id: number, from: Actor, to: string, kind: MessageKind, body: string, replyTo: number | null, status: MessageStatus, reason: Reason | null, at: number, 
 /**

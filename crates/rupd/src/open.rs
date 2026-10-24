@@ -32,10 +32,7 @@ impl Daemon {
                 .with_input_writer(terminal_input_observer())
                 .with_exit_hold(terminal_exit_observer()),
         );
-        // O4: the Agents ask whether a Takeover is active before they Steer a changed order; the
-        // Messages that know are made after them.
         let messages = Arc::new(std::sync::OnceLock::<Arc<messages::Messages>>::new());
-        let probe = Arc::clone(&messages);
         let touches = Arc::new(Touches::open(&dir.join("project.db"))?);
         let todos = Arc::new(todos::Todos::open(dir, bus.clone())?);
         let context_todos = Arc::clone(&todos);
@@ -64,12 +61,7 @@ impl Daemon {
                 }
             })
             .with_steer_effect(steer_effect_observer())
-            .with_resume_effect(resume_effect_observer())
-            .with_takeover(move |agent| {
-                probe
-                    .get()
-                    .is_some_and(|messages| messages.takeover_active(agent))
-            }),
+            .with_resume_effect(resume_effect_observer()),
         );
         let agents_module: Arc<dyn messages::TerminalOwners> = agents.clone();
         let checkpoints = Arc::new(checkpoints::Checkpoints::open(dir)?.with_marks(agents.clone()));
@@ -78,9 +70,6 @@ impl Daemon {
             modules: HashMap::new(),
             todos: Arc::clone(&todos),
             pads: Arc::clone(&pads),
-            door_first_steers: Default::default(),
-            child_effects: Default::default(),
-            held_actions: resize::HeldActions::open(dir)?,
             specialists: Default::default(),
             touches,
             bus: bus.clone(),
@@ -121,38 +110,13 @@ impl Daemon {
         daemon.register(todos);
         daemon.register(pads);
         daemon.register(checkpoints);
-        // B2: the one function that types a Message is `Agents::prompt` (H11).
-        let typist = Arc::clone(&agents);
-        let deliver: messages::Deliver = Arc::new(move |id, text| {
-            let typist = Arc::clone(&typist);
-            Box::pin(async move {
-                typist
-                    .prompt(&id, &text)
-                    .await
-                    .map_err(|refused| match refused {
-                        agents::PromptError::Busy { .. } => messages::Refusal::Busy,
-                        agents::PromptError::NotAccepted { .. } | agents::PromptError::Rail(_) => {
-                            messages::Refusal::NotAccepted
-                        }
-                        agents::PromptError::NotFound { .. } => messages::Refusal::NotFound,
-                    })
-            })
-        });
         let opened = Arc::new(messages::Messages::open_with(
             dir,
             bus,
             agents_module,
-            deliver,
             messages_env(Arc::clone(&daemon.touches)),
         )?);
-        // B39: the Agent's `UserPromptSubmit` Signal confirms the Messages its prompt carried.
-        let confirming = Arc::downgrade(&opened);
-        agents.observe_prompts(Arc::new(move |id, prompt| {
-            confirming
-                .upgrade()
-                .is_some_and(|messages| messages.confirm_prompt(id, prompt))
-        }));
-        // B50: a `note` is written to the Agent's Claude inbox; its transcript confirms it.
+        // B50: every Message to an Agent is written to the Agent's Claude inbox; its transcript confirms it.
         opened.set_inbox(agents.clone());
         let recording = Arc::downgrade(&opened);
         agents.observe_inbox(Arc::new(move |id, ids| {
@@ -219,11 +183,7 @@ impl Daemon {
             .unwrap_or_else(|p| p.into_inner())
             .take()
         {
-            tokio::spawn(owner_told::tell_owners(
-                self.reader(),
-                owner_events,
-                self.sender.clone(),
-            ));
+            tokio::spawn(owner_told::tell_owners(self.reader(), owner_events));
         }
         let wake_events = self
             .wake_events

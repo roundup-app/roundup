@@ -66,7 +66,7 @@ const typesInto = (event: KeyboardEvent, eligible: readonly Registration[]): boo
 const [armed, setArmed] = createSignal(false);
 
 /** The code whose key repeat is swallowed: the `⌘K` that armed the leader, or the key that ended its wait (U2239). */
-let held: string | null = null;
+let kept: string | null = null;
 
 const MODIFIER_KEYS = new Set(["Shift", "Control", "Alt", "Meta", "CapsLock"]);
 
@@ -75,7 +75,7 @@ export const leaderArmed = armed;
 
 /** `⌘K`'s run: the leader waits for one key. */
 export const armLeader = (event: KeyboardEvent): void => {
-  held = event.code;
+  kept = event.code;
   setArmed(true);
 };
 
@@ -106,7 +106,7 @@ const takeLeaderKey = (event: KeyboardEvent): void => {
 
   event.preventDefault();
   event.stopImmediatePropagation();
-  held = event.code;
+  kept = event.code;
   setArmed(false);
   hit?.run(event);
 };
@@ -117,14 +117,14 @@ const dispatch = (event: KeyboardEvent): void => {
 
   if (!(event instanceof KeyboardEvent)) return;
 
-  if (event.repeat && event.code === held) {
+  if (event.repeat && event.code === kept) {
     event.preventDefault();
     event.stopImmediatePropagation();
 
     return;
   }
 
-  if (!event.repeat) held = null;
+  if (!event.repeat) kept = null;
 
   if (armed()) {
     takeLeaderKey(event);

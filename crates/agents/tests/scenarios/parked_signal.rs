@@ -1,4 +1,4 @@
-//! A14 a Signal that arrives early is held and applied.
+//! A14 a Signal that arrives early is parked and applied.
 
 use std::sync::Arc;
 use std::time::Duration;
@@ -37,7 +37,7 @@ async fn next_kinds(events: &mut Receiver<Event>, n: usize) -> Vec<Kind> {
 }
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 4)]
-async fn a14_signals_held_while_starting_are_applied_in_arrival_order() {
+async fn a14_signals_parked_while_starting_are_applied_in_arrival_order() {
     let f = Arc::new(Fixture::running("sleep 30"));
     let mut events = f.bus.subscribe();
     let config = hold_starts(&f);
@@ -49,7 +49,7 @@ async fn a14_signals_held_while_starting_are_applied_in_arrival_order() {
     let id = tree[0].id.clone();
 
     // Arrival order: working, then needs-you, then idle. The replies are captured, not unwrapped,
-    // so a `NOT_FOUND` reply — what a Signal gets if it is rejected instead of held while starting
+    // so a `NOT_FOUND` reply — what a Signal gets if it is rejected instead of parked while starting
     // — fails the assertion below instead of leaving this Signal's `spawn_blocking` read stuck on
     // `config` forever (never released) when the test panics.
     let replies = [
@@ -70,7 +70,7 @@ async fn a14_signals_held_while_starting_are_applied_in_arrival_order() {
 }
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 4)]
-async fn a14_a_held_user_prompt_submit_still_names_the_agent() {
+async fn a14_a_parked_user_prompt_submit_still_names_the_agent() {
     let f = Arc::new(Fixture::running("sleep 30"));
     let config = hold_starts(&f);
     let spawning = {
@@ -81,7 +81,7 @@ async fn a14_a_held_user_prompt_submit_still_names_the_agent() {
     let id = tree[0].id.clone();
 
     let payload = json!({"hook_event_name": "UserPromptSubmit", "prompt": "fix the build"});
-    let held = f
+    let parked = f
         .call(
             "agent.signal",
             json!({"id": id, "attempt": f.attempt(&id).await, "payload": payload}),
@@ -91,7 +91,7 @@ async fn a14_a_held_user_prompt_submit_still_names_the_agent() {
     release(config).await;
     let node = spawning.await.unwrap().unwrap();
 
-    assert!(held.is_ok(), "{held:?}");
+    assert!(parked.is_ok(), "{parked:?}");
     let tree = f.tree().await;
     assert_eq!(
         tree.iter().find(|n| n.id == node.id).unwrap().name,
@@ -100,7 +100,7 @@ async fn a14_a_held_user_prompt_submit_still_names_the_agent() {
 }
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 4)]
-async fn a14_a_held_session_start_still_steers_the_spawn_prompt() {
+async fn a14_a_parked_session_start_still_steers_the_spawn_prompt() {
     let f = Arc::new(Fixture::running(GATED));
     let config = hold_starts(&f);
     let typed = f.dir.path().join("typed");
@@ -112,14 +112,14 @@ async fn a14_a_held_session_start_still_steers_the_spawn_prompt() {
     let id = tree[0].id.clone();
 
     // The first `SessionStart` releases the spawn prompt as a Steer (A4, H12).
-    let held = signal(&f, &id, "SessionStart").await;
+    let parked = signal(&f, &id, "SessionStart").await;
 
     release(config).await;
     spawning.await.unwrap().unwrap();
     until_file(&f.dir.path().join("ready")).await;
     star(f.dir.path());
 
-    assert!(held.is_ok(), "{held:?}");
+    assert!(parked.is_ok(), "{parked:?}");
     assert!(until_file(&typed).await.contains("hello there"));
 }
 
@@ -131,7 +131,7 @@ async fn a14_a_signal_for_an_id_that_was_never_spawned_is_still_not_found() {
 }
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 4)]
-async fn a14_a_failed_spawn_discards_the_signals_it_held() {
+async fn a14_a_failed_spawn_discards_the_signals_it_parked() {
     let f = Arc::new(Fixture::running("sleep 30"));
     let mut events = f.bus.subscribe();
     let config = hold_starts(&f);
@@ -143,9 +143,9 @@ async fn a14_a_failed_spawn_discards_the_signals_it_held() {
     let id = tree[0].id.clone();
 
     // Captured, not unwrapped: see the comment in the ordering test above.
-    let held = signal(&f, &id, "Stop").await;
+    let parked = signal(&f, &id, "Stop").await;
     // Invalid JSON makes `trust` fail once it reads this: the spawn fails after the Signal was
-    // held.
+    // parked.
     tokio::task::spawn_blocking({
         let config = config.clone();
         move || std::fs::write(config, "{ not json")
@@ -158,12 +158,12 @@ async fn a14_a_failed_spawn_discards_the_signals_it_held() {
 
     assert_eq!(err.code, code::INTERNAL);
     assert!(f.tree().await.is_empty(), "a failed spawn leaves no Agent");
-    assert!(held.is_ok(), "{held:?}");
+    assert!(parked.is_ok(), "{parked:?}");
     let err = signal(&f, &id, "Stop").await.unwrap_err();
     assert_eq!(
         err.code,
         code::NOT_FOUND,
-        "nothing was held for a later Agent to inherit at this id"
+        "nothing was parked for a later Agent to inherit at this id"
     );
     assert!(
         std::iter::from_fn(|| events.try_recv().ok())
@@ -178,11 +178,11 @@ const BOUND: usize = 8;
 const CYCLE: [&str; 3] = ["PreToolUse", "PermissionRequest", "Stop"];
 
 /// Not a test: with `NOISY_OVERFLOW` set, holds a spawn, sends `BOUND + 2` Signals for it, lets it
-/// finish, then prints the Kinds the surviving held Signals produced, so the parent process can
+/// finish, then prints the Kinds the surviving parked Signals produced, so the parent process can
 /// read both this (real) stdout and this (real) stderr without the test harness's own capturing
-/// (which a held Signal's background task can escape) getting in the way.
+/// (which a parked Signal's background task can escape) getting in the way.
 #[tokio::test(flavor = "multi_thread", worker_threads = 4)]
-async fn child_overflows_the_held_signals() {
+async fn child_overflows_the_parked_signals() {
     if std::env::var_os(NOISY_OVERFLOW).is_none() {
         return;
     }
@@ -198,7 +198,7 @@ async fn child_overflows_the_held_signals() {
 
     // Captured, not unwrapped immediately (see the comment in the ordering test above): the
     // scenario says every call returns success, including the ninth and later ones that only get
-    // dropped from the held queue, so that is checked below rather than here, where a failure
+    // dropped from the parked queue, so that is checked below rather than here, where a failure
     // would panic while this Signal's `spawn_blocking` read of `config` is still stuck, never
     // released.
     let mut replies = Vec::with_capacity(BOUND + 2);
@@ -230,11 +230,11 @@ async fn child_overflows_the_held_signals() {
 }
 
 #[tokio::test]
-async fn a14_past_the_bound_the_oldest_held_signal_is_dropped_and_logged() {
+async fn a14_past_the_bound_the_oldest_parked_signal_is_dropped_and_logged() {
     let out = std::process::Command::new(std::env::current_exe().unwrap())
         .args([
             "--exact",
-            "held_signal::child_overflows_the_held_signals",
+            "parked_signal::child_overflows_the_parked_signals",
             "--nocapture",
         ])
         .env(NOISY_OVERFLOW, "1")

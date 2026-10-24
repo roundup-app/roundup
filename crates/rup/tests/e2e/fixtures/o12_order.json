@@ -61,7 +61,7 @@
           {
             "id": "toolu_o12_spawn",
             "name": "mcp__roundup__agent_spawn",
-            "arguments": "{\"cwd\": \".\", \"order\": {\"kind\": \"work\", \"ask\": \"Make the build pass on main.\", \"done\": \"just check is green\", \"limits\": [\"no force push\"]}, \"prompt\": \"[from you, note] fix the build, it fails on main since Friday\", \"name\": \"fix the build\"}"
+            "arguments": "{\"cwd\": \".\", \"order\": {\"kind\": \"work\", \"ask\": \"Make the build pass on main.\", \"done\": \"just check is green\", \"limits\": [\"no force push\"]}, \"prompt\": \"fix the build, it fails on main since Friday\", \"name\": \"fix the build\"}"
           }
         ]
       }

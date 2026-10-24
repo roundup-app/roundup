@@ -1,12 +1,12 @@
 //! B6's Agent prerequisite: real Daemon, fake Claude and its recorded Terminal input.
+#[path = "support/child_run.rs"]
+mod child_run;
 #[path = "support/door_terminals.rs"]
 mod door_terminals;
 #[path = "support/rupd_harness.rs"]
 mod rupd_harness;
-#[path = "support/takeover_run.rs"]
-mod takeover_run;
+use child_run::BOUND;
 use door_terminals::{door_terminal, idle, order_child, order_result, recorded_bytes};
-use takeover_run::BOUND;
 
 use base64::{Engine, engine::general_purpose::STANDARD};
 use rpc::Client;
@@ -15,7 +15,7 @@ use std::sync::Arc;
 use std::time::Duration;
 
 #[tokio::test]
-async fn b6_ordinary_door_write_waits_for_earlier_input_and_its_physical_effect() {
+async fn door_write_completes_after_earlier_input_and_its_physical_effect() {
     let (run, caller) = door_terminal().await;
     let gate = run.dir.path().join("input-gate");
     std::fs::write(&gate, "pause").unwrap();
@@ -56,7 +56,7 @@ async fn b6_ordinary_door_write_waits_for_earlier_input_and_its_physical_effect(
 }
 
 #[tokio::test]
-async fn b6_ordinary_door_write_refuses_a_full_queue_before_any_bytes() {
+async fn door_write_refuses_a_full_queue_before_any_bytes() {
     let (run, caller) = door_terminal().await;
     let gate = run.dir.path().join("input-gate");
     std::fs::write(&gate, "pause").unwrap();
@@ -149,17 +149,17 @@ async fn uncertain_terminal_write(failure: &str, expected: &[u8]) {
 }
 
 #[tokio::test]
-async fn b6_ordinary_door_partial_write_is_unknown_without_retry() {
+async fn door_partial_write_is_unknown_without_retry() {
     uncertain_terminal_write("partial", b"u").await;
 }
 
 #[tokio::test]
-async fn b6_ordinary_door_flush_failure_is_unknown_without_retry() {
+async fn door_flush_failure_is_unknown_without_retry() {
     uncertain_terminal_write("flush", b"uncertain").await;
 }
 
 #[tokio::test]
-async fn b6_ordinary_door_write_lost_input_thread_result_stays_unknown() {
+async fn door_write_lost_input_thread_result_stays_unknown() {
     let (run, caller) = door_terminal().await;
     let gate = run.dir.path().join("input-gate");
     std::fs::write(&gate, "end").unwrap();
@@ -213,7 +213,7 @@ async fn b6_ordinary_door_write_lost_input_thread_result_stays_unknown() {
 }
 
 #[tokio::test]
-async fn b6_interrupt_completion_accounts_for_a_blocked_escape_before_takeover() {
+async fn door_interrupt_completion_accounts_for_a_blocked_escape() {
     let (run, caller) = order_child().await;
     idle(&run).await;
     let gate = run.dir.path().join("order-effect-gate");
@@ -249,27 +249,12 @@ async fn b6_interrupt_completion_accounts_for_a_blocked_escape_before_takeover()
     let before = recorded_bytes(&run).await;
     assert_eq!(before.iter().filter(|byte| **byte == 0x1b).count(), 3);
     assert_eq!(before.last(), Some(&0x1b));
-    run.user
-        .request("takeover.begin", json!({"agent":run.child}))
-        .await
-        .unwrap();
-    run.user
-        .request(
-            "terminal.write",
-            json!({"id":run.terminal,"data":STANDARD.encode(b"later")}),
-        )
-        .await
-        .unwrap();
-    assert_eq!(
-        recorded_bytes(&run).await,
-        [before, b"later".to_vec()].concat()
-    );
     let _ = order.await.unwrap();
     run.finish().await;
 }
 
 #[tokio::test]
-async fn b6_a_full_terminal_refuses_interrupt_before_bytes() {
+async fn door_a_full_terminal_refuses_interrupt_before_bytes() {
     let (run, caller) = order_child().await;
     idle(&run).await;
     let gate = run.dir.path().join("order-effect-gate");
@@ -329,59 +314,5 @@ async fn b6_a_full_terminal_refuses_interrupt_before_bytes() {
     .unwrap();
     assert_eq!(recorded_bytes(&run).await, expected);
     let _ = order.await.unwrap();
-    run.finish().await;
-}
-
-#[tokio::test]
-async fn b6_takeover_acquisition_waits_for_a_door_spawned_first_prompt() {
-    let (mut run, caller) = order_child().await;
-    run.user
-        .request("agent.stop", json!({"id":run.child}))
-        .await
-        .unwrap();
-    let gate = run.dir.path().join("input-gate");
-    std::fs::write(&gate, "pause").unwrap();
-    let node = caller
-        .request(
-            "agent.spawn",
-            json!({"name":"first prompt child","cwd":run.dir.path(),"prompt":"first prompt","order":{"kind":"work","ask":"first prompt","limits":[]}}),
-        )
-        .await
-        .unwrap();
-    run.child = node["id"].as_str().unwrap().to_owned();
-    run.terminal = node["terminal_id"].clone();
-    run.attempt = node["attempt"].clone();
-    tokio::time::timeout(BOUND, async {
-        while !gate.with_extension("arrived").is_file() {
-            tokio::task::yield_now().await;
-        }
-    })
-    .await
-    .unwrap();
-    let user = Arc::clone(&run.user);
-    let child = run.child.clone();
-    let mut begin =
-        tokio::spawn(async move { user.request("takeover.begin", json!({"agent":child})).await });
-    // The physical input observer acknowledges the first Steer before this absence window.
-    let early = tokio::time::timeout(Duration::from_millis(200), &mut begin).await;
-    std::fs::remove_file(&gate).unwrap();
-    assert!(
-        early.is_err(),
-        "Takeover acquired before the first prompt effect: {early:?}"
-    );
-    tokio::time::timeout(BOUND, begin)
-        .await
-        .unwrap()
-        .unwrap()
-        .unwrap();
-    let held = caller
-        .request(
-            "message.send",
-            json!({"to":run.child,"kind":"note","body":"after acquisition"}),
-        )
-        .await
-        .unwrap();
-    assert_eq!(held["status"], "held");
-    assert_eq!(held["reason"], "takeover");
     run.finish().await;
 }

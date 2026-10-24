@@ -50,6 +50,13 @@ export const mountBubbles = async (selected: string | null = "a", terminals: Ter
 
   if (selected !== null) connected.rail.select(selected);
 
+  /** A selected Agent's Pane takes focus on show, which would minimise the Bubbles under test (U2224); these tests place focus themselves. */
+  const unfocused = (id: string) => {
+    const emulator = emulators.factory(id);
+
+    return { ...emulator, show: (host: HTMLElement) => emulator.show(host, false) };
+  };
+
   const rendered = render(() => {
     const [screens, setScreens] = createSignal<Screens>();
 
@@ -57,7 +64,7 @@ export const mountBubbles = async (selected: string | null = "a", terminals: Ter
       <ConnectedProjectContext.Provider value={connected}>
         <div class="rail-row" tabindex="0">row</div>
         <div class="centre-stack">
-          <Pane createEmulator={emulators.factory} screensRef={setScreens} />
+          <Pane createEmulator={unfocused} screensRef={setScreens} />
           <Show when={screens()}>{(shared) => <Bubbles screens={shared()} recovery={recovery()} />}</Show>
           <ResourceStrip />
         </div>

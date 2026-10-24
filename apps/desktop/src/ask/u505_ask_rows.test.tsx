@@ -94,7 +94,7 @@ describe("u505 an Ask row shows progress from Agent state", () => {
         const observed = await browser("eval", `({
           clicks: window.__activations,
           writes: window.__fake.app.calls.slice(window.__calls).filter(c =>
-            ["rail.startDoor", "terminal.write", "takeover.begin"].includes(c.method) || c.method.startsWith("ask.")).length
+            ["rail.startDoor", "terminal.write"].includes(c.method) || c.method.startsWith("ask.")).length
         })`);
 
         expect(observed.result).toEqual({ clicks: 1, writes: 0 });

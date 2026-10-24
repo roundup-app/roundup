@@ -9,8 +9,8 @@ afterEach(cleanup);
 
 const SPAWNED = agent("fresh", "idle", "starting");
 
-const chord = (key: string, held: KeyboardEventInit = { metaKey: true, shiftKey: true }) =>
-  fireEvent.keyDown(document, { key, ...held });
+const chord = (key: string, kept: KeyboardEventInit = { metaKey: true, shiftKey: true }) =>
+  fireEvent.keyDown(document, { key, ...kept });
 
 const field = () => screen.getByLabelText<HTMLTextAreaElement>("Task");
 
@@ -179,10 +179,10 @@ describe("u33 spawn with a prompt", () => {
     ["cmd shift and ctrl", { metaKey: true, shiftKey: true, ctrlKey: true }],
     ["cmd shift and alt", { metaKey: true, shiftKey: true, altKey: true }],
     ["shift alone", { shiftKey: true }],
-  ])("u33_shift_cmd_n_does_nothing_with_%s", async (_, held) => {
+  ])("u33_shift_cmd_n_does_nothing_with_%s", async (_, kept) => {
     await mountRail([workstream("g")]);
 
-    chord("n", held);
+    chord("n", kept);
 
     expect(screen.queryByLabelText("Task")).toBeNull();
   });
