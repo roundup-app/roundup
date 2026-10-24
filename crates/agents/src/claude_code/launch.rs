@@ -418,6 +418,10 @@ impl Launcher {
                         .collect::<Vec<_>>()
                 );
             }
+            if lean.is_some() {
+                // LC17: the Brief carries each `CLAUDE.md` as LC1 lists it; Claude Code loads none.
+                own["env"]["CLAUDE_CODE_DISABLE_CLAUDE_MDS"] = json!("1");
+            }
             for (key, value) in pair.env() {
                 own["env"][key] = json!(value);
             }
@@ -591,6 +595,9 @@ impl Launcher {
         }
         for marker in super::MARKERS {
             command.env_remove(marker);
+        }
+        if lean_of(role, pair).is_some() {
+            command.env("CLAUDE_CODE_DISABLE_CLAUDE_MDS", "1");
         }
         command.env("ROUNDUP_AGENT", id);
         if let Some(dir) = self.rup.parent().filter(|dir| dir.is_absolute()) {
