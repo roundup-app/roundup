@@ -206,22 +206,6 @@ describe("u348 dragging files shows targets, a lingering drag opens one, a drop 
     expect(callsTo(app.of("/Users/me/api"), "terminal.write")).toHaveLength(1);
   });
 
-  it("u348_a_drop_on_the_pane_delivers_a_quoted_path_once_and_moving_off_a_row_clears_its_hover", async () => {
-    const { app, made } = await mount({ api: [agent("a1", "idle", "x")] });
-
-    fireEvent.click(document.querySelector(".rail-row")!);
-    await waitFor(() => expect(selected()).toBe("a1"));
-    app.dropFiles(over(100, rowY("a1")));
-    app.dropFiles(over(400, 300));
-    expect(document.querySelectorAll("[data-drop=hover]")).toHaveLength(0);
-    app.dropFiles(drop(400, 300, "/Users/me/My Pics/it's.png"));
-
-    await waitFor(() => expect(made.get("t-a1")!.pasted).toHaveLength(1));
-    expect(made.get("t-a1")!.pasted[0]).toContain("My Pics");
-    expect(callsTo(app.of("/Users/me/api"), "terminal.write")).toHaveLength(1);
-    expect(targets()).toEqual([]);
-  });
-
   it("u348_a_drop_with_no_paths_shows_no_target_and_calls_nothing", async () => {
     const { app, made } = await mount({ api: TREE });
 

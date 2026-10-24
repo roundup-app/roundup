@@ -119,6 +119,14 @@ it("u3800a_one_drag_fixture", async () => {
   const focusedA = () => browser("wait", "--fn", `document.activeElement?.getAttribute('aria-label') === 'Move A'`);
 
   await load();
+  const press = await read<{x: number; y: number}>(`(() => { const box = document.querySelector('[aria-label="Move A"]').getBoundingClientRect(); return {x:box.x + box.width / 2,y:box.y + box.height / 2}; })()`);
+
+  await browser("mouse", "move", String(Math.round(press.x)), String(Math.round(press.y)));
+  await browser("mouse", "down");
+  await browser("mouse", "move", String(Math.round(press.x + 2)), String(Math.round(press.y)));
+  await browser("mouse", "up");
+  await browser("wait", "--fn", `document.querySelector('[aria-label=Actions]').textContent === '1'`);
+  expect(await commits()).toBe("0");
   await drag("A", "C");
   await browser("wait", "--fn", `document.querySelector('.sortable-fixture').dataset.sortableIndex === '2'`);
   expect(await order()).toEqual(['A', 'B', 'C']);
@@ -132,7 +140,7 @@ it("u3800a_one_drag_fixture", async () => {
   await browser("mouse", "up");
   await committed("B,C,A");
   await browser("click", '[aria-label="Inspect A"]');
-  await browser("wait", "--fn", `document.querySelector('[aria-label=Actions]').textContent === '1'`);
+  await browser("wait", "--fn", `document.querySelector('[aria-label=Actions]').textContent === '2'`);
   expect(await commits()).toBe("1");
 
   await load();
@@ -159,6 +167,38 @@ it("u3800a_one_drag_fixture", async () => {
   await browser("press", "Space");
   await committed("B,A,C");
   await focusedA();
+
+  // U3800b uses the App's native event seam and real routing, in this same browser session.
+  await browser("open", new URL("/harness.html?seed=tree-40", origin).href);
+  await browser("wait", "--fn", `document.querySelector('.rail-row[data-id="agent-4"]') !== null`);
+  await browser("click", '.rail-row[data-id="agent-4"]');
+  await browser("wait", "--fn", `document.querySelector('.rail-row[data-id="agent-4"]').dataset.selected === 'true' && document.querySelector('.pane-body') !== null`);
+
+  const files = async (selector: string, phase = "over", paths: string[] = []) => read<boolean>(`(() => {
+    const box = document.querySelector(${JSON.stringify(selector)}).getBoundingClientRect();
+    window.__fake.app.dropFiles({phase:${JSON.stringify(phase)}, paths:${JSON.stringify(paths)}, x:box.x + box.width / 2, y:box.y + box.height / 2});
+    return true;
+  })()`);
+
+  const writes = () => read<{ id: string; text: string }[]>(`window.__fake.app.calls.filter(call => call.method === 'terminal.write').map(call => ({id:call.params.id, text:atob(call.params.data)}))`);
+
+  await files('.rail-row[data-id="agent-1"]');
+  expect(await read<string[]>(`[...document.querySelectorAll('[data-drop=hover]')].map(row => row.dataset.id)`)).toEqual(["agent-1"]);
+  await files('.rail-row[data-id="agent-4"]');
+  expect(await read<string[]>(`[...document.querySelectorAll('[data-drop=hover]')].map(row => row.dataset.id)`)).toEqual(["agent-4"]);
+  await files('.pane-body');
+  expect(await read<boolean>(`document.querySelector('.pane-body').classList.contains('drop-over') && document.querySelectorAll('[data-drop=hover]').length === 0`)).toBe(true);
+  await files('.pane-body', "leave");
+  expect(await read<number>(`document.querySelectorAll('[data-drop],.drop-over').length`)).toBe(0);
+  await files('.pane-body');
+  await files('.pane-body', "drop", ["/Users/me/My Pics/it's.png", "/tmp/second.txt"]);
+  await browser("wait", "--fn", `window.__fake.app.calls.filter(call => call.method === 'terminal.write').length === 1`);
+  expect(await writes()).toEqual([{id: "t-agent-4", text: "'/Users/me/My Pics/it'\\''s.png' '/tmp/second.txt' "}]);
+  expect(await read<number>(`document.querySelectorAll('[data-drop],.drop-over').length`)).toBe(0);
+  await files('.pane-body', "drop");
+  await read<boolean>(`(() => {window.__fake.app.dropFiles({phase:'drop',paths:['/tmp/no.txt'],x:-1,y:-1});return true})()`);
+  expect(await writes()).toHaveLength(1);
+  expect(await read<number>(`window.__fake.app.calls.filter(call => call.method === 'rail.move').length`)).toBe(0);
 }, 90_000);
 
 it("u484_scroll_and_stop", async () => {
