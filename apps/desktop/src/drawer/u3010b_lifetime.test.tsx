@@ -4,7 +4,7 @@ import { afterEach, expect, it, vi } from "vitest";
 import { createDrawer } from "./drawer";
 import { DrawerHost } from "./DrawerHost";
 import { drawerSliding } from "./sliding";
-import { mountApp } from "../decisions/decisionsFixture";
+import { mountApp } from "../testing/appFixture";
 import { openRecovery } from "../testing/recovery";
 import { connectProject, ConnectedProjectContext } from "../state/connectedProject";
 import { createFakeApp } from "../testing/fakeApp";
