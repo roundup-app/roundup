@@ -1,3 +1,4 @@
+import { noInlineDeleteConfirmationRule } from "./rules/no-inline-delete-confirmation.ts";
 import { noTooltipBypassRule } from "./rules/no-tooltip-bypass.ts";
 import { eslintCompatPlugin } from "@oxlint/plugins";
 
@@ -25,6 +26,7 @@ const antiSlopPlugin = eslintCompatPlugin({
 	meta: { name: "anti-slop" },
 	rules: {
         "no-tooltip-bypass": noTooltipBypassRule,
+        "no-inline-delete-confirmation": noInlineDeleteConfirmationRule,
 		"no-array-filter-map": noArrayFilterMapRule,
 		"no-reduce-accumulator-copy": noReduceAccumulatorCopyRule,
 		"no-chained-type-assertions": noChainedTypeAssertionsRule,

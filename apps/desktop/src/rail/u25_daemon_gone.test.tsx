@@ -2,7 +2,7 @@ import { cleanup, screen } from "@solidjs/testing-library";
 import { createSignal } from "solid-js";
 import { afterEach, describe, expect, it } from "vitest";
 import type { DaemonExit } from "../app/seam";
-import { glyphOf, mountRail, rowNames, rowOf } from "./railFixture";
+import { rowGlyph as glyphOf, mountRail, rowNames, rowOf } from "./railFixture";
 import { agent } from "../testing/nodes";
 
 afterEach(cleanup);
