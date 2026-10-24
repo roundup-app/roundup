@@ -16,13 +16,7 @@ pub(crate) fn call(
     args: &Value,
 ) -> Option<Result<Value, RpcError>> {
     Some(match (namespace, method) {
-        (_, "daemon.ping") => Ok(json!({
-            "pong": true,
-            "pid": std::process::id(),
-            "project": daemon.project,
-            "projectKey": daemon.project_key,
-            "contract": { "fingerprint": methods::fingerprint(), "methods": methods::method_names() },
-        })),
+        (_, "daemon.ping") => serde_json::from_str(&ping_json(daemon)).map_err(RpcError::internal),
         (_, "daemon.identify") => params::<IdentifyParams>(args.clone()).map(|p| {
             conn.actor = p.actor;
             Value::Null
@@ -42,6 +36,22 @@ pub(crate) fn call(
         ("daemon" | "events" | "provenance", _) => Err(RpcError::method_not_found(method)),
         _ => return None,
     })
+}
+
+/// The `daemon.ping` result as JSON text. The Contract part is the same for the Daemon's whole
+/// life, so it is written once; building it as a `Value` per ping cost a sort and 300 strings.
+pub(crate) fn ping_json(daemon: &Daemon) -> String {
+    static CONTRACT: std::sync::LazyLock<String> = std::sync::LazyLock::new(|| {
+        json!({ "fingerprint": methods::fingerprint(), "methods": methods::method_names() })
+            .to_string()
+    });
+    format!(
+        r#"{{"pong":true,"pid":{},"project":{},"projectKey":{},"contract":{}}}"#,
+        std::process::id(),
+        json!(daemon.project),
+        json!(daemon.project_key),
+        *CONTRACT,
+    )
 }
 
 /// D11: a bad `after` fails here, before any Event is sent.
