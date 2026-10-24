@@ -34,6 +34,7 @@ export const DiffReader = (props: { id: string; name: string; path: string; note
 
   const [read, setRead] = createSignal<FileComparison>();
   const [failure, setFailure] = createSignal<string | null>(null);
+  const [loading, setLoading] = createSignal(true);
   const [version, setVersion] = createSignal(0);
   const [coarse, setCoarse] = createSignal(false);
   const [host, setHost] = createSignal<HTMLDivElement>();
@@ -41,7 +42,7 @@ export const DiffReader = (props: { id: string; name: string; path: string; note
   const notice = createMemo(() => {
     const value = read();
 
-    if (!value) return failure() ? null : copy.loadingDiff;
+    if (!value) return loading() ? (failure() ? null : copy.loadingDiff) : failure() ? null : copy.diffNotLoaded;
 
     if (value.status === null) return copy.noDifference;
 
@@ -52,14 +53,16 @@ export const DiffReader = (props: { id: string; name: string; path: string; note
 
   createEffect(() => {
     version();
+    setLoading(true);
     setRead(undefined);
-    setFailure(null);
     setCoarse(false);
     let current = true;
     void reply(() => app.rpc("agent.compareFile", { id: props.id, path: props.path })).then(result => {
       if (!current) return;
 
-      if (result.kind === "ok") setRead(result.value);
+      setLoading(false);
+
+      if (result.kind === "ok") { setRead(result.value); setFailure(null); }
       else setFailure(result.text);
     });
     onCleanup(() => { current = false; });
@@ -161,7 +164,7 @@ export const DiffReader = (props: { id: string; name: string; path: string; note
         <button type="button" data-button="quiet" onClick={props.onClose}>{copy.closeChanges}</button>
       </div>
     </header>
-    <ReservedLine message={failure()} status={notice()}><Show when={failure()}><button type="button" data-button="quiet" onClick={() => setVersion(v => v + 1)}>{copy.retry}</button></Show></ReservedLine>
+    <ReservedLine message={failure()} status={notice()}><Show when={!loading() && !read()}><button type="button" data-button="quiet" onClick={() => setVersion(v => v + 1)}>{copy.retry}</button></Show><Show when={failure()}><button type="button" data-button="quiet" onClick={() => setFailure(null)}>{copy.dismissFailure}</button></Show></ReservedLine>
     <Show when={read()}>{value => <>
       <Show when={value().status !== null}>
         <Show when={value().old.kind !== "binary" && value().new.kind !== "binary"}>

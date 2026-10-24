@@ -11,7 +11,6 @@ Data for the QA sweep and the Design critic.
 | `door-stopped` | selected Workstream whose Door exited 0; U143’s state and restart action |
 | `thread-report` | selected Workstream `workstream-1` with a three-line order, a note, a question with `**` and the user’s answer; U197’s one column |
 | `pinned-question` | selected Workstream `workstream-1` whose order is a 12-line clarifying question; U354’s pinned question |
-| `decisions` | `agents-10`, `agent-1` selected, with a permission, an `ask_user` and an unanswerable Decision on `agent-1` to `agent-3`; answering clears it |
 | `earlier-run` | selected `done` Agent with no Terminal; U83’s `no output kept from an earlier run` |
 | `context-bar` | four selected-able closed Agents: full split, no split, a 5-part densest split, 96% used (U83b) |
 | `agents-10` | ten Agents, one per Kind in turn |

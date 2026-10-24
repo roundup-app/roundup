@@ -1,6 +1,5 @@
 import { createFakeApp } from "../testing/fakeApp";
 import { questionDialog, answerQuestion } from "../shelf/bulkQuestionHarness";
-import { questionProbe } from "../testing/menuProbe";
 import { cleanup, fireEvent, render, waitFor, within } from "@solidjs/testing-library";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { createSignal, type JSX } from "solid-js";
@@ -27,8 +26,7 @@ import { Tabs } from "../ui/Tabs";
 import { Pane } from "../terminal/Pane";
 import { fakeEmulators } from "../terminal/paneHarness";
 import { OrderDrawer } from "../orders/OrderDrawer";
-import { DecisionCard } from "../decisions/DecisionCard";
-import { decision, gate, mountApp, select } from "../decisions/decisionsFixture";
+import { gate, mountApp, select } from "../testing/appFixture";
 import { mountControl } from "../changes/harness";
 import { DiffReader } from "../changes/DiffReader";
 import { notesFor } from "../changes/notes";
@@ -250,13 +248,6 @@ it("u3807_each_site_shows_its_message_in_the_reserved_line: Order editor", async
   expect(within(view.container).getByLabelText<HTMLTextAreaElement>("Ask").value).toBe("  Newer unsent ask 🧭\n");
 });
 
-it("u3807_each_site_shows_its_message_in_the_reserved_line: Decision cards", async () => {
-  const mounted = await mountTodos([]);
-  const [failure, setFailure] = createSignal(false);
-  const view = render(() => <ConnectedProjectContext.Provider value={mounted.connected}><DecisionCard decision={decision("d", "a", failure() ? { failure: { attempt: "1", failed_at: 0, error_code: -32003, answered_by: USER, message: FAILURE } } : {})} name="alpha" focusTerminal={() => {}} ref={() => {}} onFocusIn={() => {}} onFocusOut={() => {}} /></ConnectedProjectContext.Provider>);
-  await cycle(view.container, () => setFailure(true), () => setFailure(false));
-});
-
 it("u3807_each_site_shows_its_message_in_the_reserved_line: Diff reader", async () => {
   const mounted = await mountTodos([]);
   mounted.app.handlers["agent.compareFile"] = () => ({ ...COMPARISON, status: null });
@@ -445,22 +436,13 @@ it("u3807_each_site_shows_its_message_in_the_reserved_line: ProjectTab", async (
     () => { rejected = false; fireEvent.click(within(surface).getByRole("button", { name: "Copy name" })); });
 });
 
-it.each(["pane-failure", "decision-list failure"])("u3807_each_site_shows_its_message_in_the_reserved_line: Terminal %s", async site => {
+it("u3807_each_site_shows_its_message_in_the_reserved_line: Terminal pane-failure", async () => {
   const mounted = await mountTodos([]);
   const [notice, setNotice] = createSignal<string | null>(null);
   const view = render(() => <ConnectedProjectContext.Provider value={mounted.connected}><Pane notice={notice()} createEmulator={fakeEmulators().factory} /></ConnectedProjectContext.Provider>);
 
-  if (site === "pane-failure") await cycle(view.container, () => setNotice(FAILURE), () => setNotice(null));
-  else {
-    const original = mounted.app.handlers["decision.list"]!;
-    await cycle(view.container,
-      async () => { mounted.app.handlers["decision.list"] = () => { throw new RpcError(-32003, FAILURE); };
-
- mounted.connected.decisions.retryList(); },
-      async () => { mounted.app.handlers["decision.list"] = original; mounted.connected.decisions.retryList(); });
-  }
+  await cycle(view.container, () => setNotice(FAILURE), () => setNotice(null));
 });
-
 
 it("u3807_each_site_shows_its_message_in_the_reserved_line: Todo field recovery and retry", async () => {
   const mounted = await mountTodos([todo(1)]);

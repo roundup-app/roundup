@@ -5,9 +5,7 @@ mod door_terminals;
 mod rupd_harness;
 #[path = "support/takeover_run.rs"]
 mod takeover_run;
-use door_terminals::{
-    door_terminal, idle, order_child, recorded_bytes, rewrite_script, start_answer_door,
-};
+use door_terminals::{door_terminal, idle, order_child, recorded_bytes, rewrite_script};
 use takeover_run::{BOUND, Run};
 
 use base64::{Engine, engine::general_purpose::STANDARD};
@@ -265,86 +263,6 @@ async fn b6_begin_racing_a_door_resume_waits_for_the_new_attempt() {
     assert_eq!(message["status"], "held");
     assert_eq!(message["reason"], "takeover");
     run.finish().await;
-}
-
-async fn answer_takeover_race(kind: &str, guarded: bool) {
-    let (run, _) = order_child().await;
-    let (door, terminal) = start_answer_door(&run).await;
-    let (decision, waiting) = run.open(kind).await;
-    let identity = run.capture(&decision).await;
-    let gate = run.dir.path().join("effect-gate");
-    std::fs::write(&gate, "before").unwrap();
-    let mut params =
-        json!({"id":decision["id"],"answer":if kind == "permission" { "allow" } else { "Yes" }});
-    if guarded {
-        params["identity"] = identity;
-    }
-    std::fs::write(
-        run.dir.path().join("peer-request"),
-        serde_json::to_vec(&json!({
-            "jsonrpc":"2.0", "id":1,"method":"decision.answer",
-            "params":params
-        }))
-        .unwrap(),
-    )
-    .unwrap();
-    // The real Door process calls without identify: connection actor defaults to user.
-    run.user
-        .request(
-            "terminal.write",
-            json!({"id":terminal,"data":STANDARD.encode(b"\x02")}),
-        )
-        .await
-        .unwrap();
-    run.paused().await;
-    let user = Arc::clone(&run.user);
-    let child = run.child.clone();
-    let mut begin =
-        tokio::spawn(async move { user.request("takeover.begin", json!({"agent":child})).await });
-    let early = tokio::time::timeout(Duration::from_millis(200), &mut begin).await;
-    std::fs::remove_file(&gate).unwrap();
-    let result = tokio::time::timeout(BOUND, async {
-        loop {
-            if let Ok(text) = std::fs::read_to_string(run.dir.path().join("peer-result"))
-                && let Ok(value) = serde_json::from_str::<Value>(&text)
-            {
-                break value;
-            }
-            tokio::task::yield_now().await;
-        }
-    })
-    .await
-    .unwrap();
-    assert!(
-        early.is_err(),
-        "Takeover acquired before the Door answer: {early:?}; {result}"
-    );
-    assert!(result.get("result").is_some(), "{result}");
-    waiting.await.unwrap().unwrap();
-    tokio::time::timeout(BOUND, begin)
-        .await
-        .unwrap()
-        .unwrap()
-        .unwrap();
-    run.user
-        .request("agent.stop", json!({"id":door}))
-        .await
-        .unwrap();
-    run.finish().await;
-}
-
-#[tokio::test]
-async fn b6_begin_racing_a_door_answer_uses_the_process_identity() {
-    for kind in ["permission", "ask_user"] {
-        answer_takeover_race(kind, true).await;
-    }
-}
-
-#[tokio::test]
-async fn b6_begin_racing_a_bare_door_answer_uses_the_process_identity() {
-    for kind in ["permission", "ask_user"] {
-        answer_takeover_race(kind, false).await;
-    }
 }
 
 async fn ending_takeover_race(method: &'static str) {

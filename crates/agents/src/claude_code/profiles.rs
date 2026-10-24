@@ -2,18 +2,18 @@
 
 use super::Role;
 
-/// F2, M11: the only tools a Door is started with; `ToolSearch` is there because its Brief tells it to load the deferred roundup tools with it, and `Skill` because its Brief tells it to run `hope:intent` on each ask (LC14). Every other tool Claude Code has, `Bash`, `Edit`,
+/// F2, M11: the only tools a Door is started with; `ToolSearch` is there because its Brief tells it to load the deferred roundup tools with it, and `Skill` because its Brief tells it to run `hope:intent` on each ask (LC14), and `AskUserQuestion` because the user answers the Door's questions natively in its Terminal (A3564a). Every other tool Claude Code has, `Bash`, `Edit`,
 /// `Write` and `Agent` among them, is absent; the MCP servers' tools stay (F1).
-pub const DOOR_TOOLS: &str = "Read,Grep,Glob,ToolSearch,Skill";
+pub const DOOR_TOOLS: &str = "Read,Grep,Glob,ToolSearch,Skill,AskUserQuestion";
 
 /// M2219: a Door's tools with no roundup server; its Brief no longer tells it to load tools, so `ToolSearch` goes.
-pub const DOOR_TOOLS_NO_MCP: &str = "Read,Grep,Glob,Skill";
+pub const DOOR_TOOLS_NO_MCP: &str = "Read,Grep,Glob,Skill,AskUserQuestion";
 
 /// LC1: a scout's tools; it reads and searches, and `Bash` is how it searches a repository.
-pub const SCOUT_TOOLS: &str = "Read,Grep,Glob,Bash,ToolSearch";
+pub const SCOUT_TOOLS: &str = "Read,Grep,Glob,Bash,ToolSearch,AskUserQuestion";
 
 /// M2219 for a scout.
-pub const SCOUT_TOOLS_NO_MCP: &str = "Read,Grep,Glob,Bash";
+pub const SCOUT_TOOLS_NO_MCP: &str = "Read,Grep,Glob,Bash,AskUserQuestion";
 
 /// LC1: what a Role's child starts with, beyond LC2's settings, which every row shares.
 pub struct Profile {

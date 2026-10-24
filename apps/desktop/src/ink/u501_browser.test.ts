@@ -20,7 +20,7 @@ const failClose = async () => {
 };
 
 it("u501_controls_have_names", async () => {
-  for (const seed of ["tree-40", "decisions", "bubbles", "resources"]) {
+  for (const seed of ["tree-40", "bubbles", "resources"]) {
     await open(seed);
 
     if (seed === "bubbles") await browser("click", '[data-id="runner"]');
@@ -28,7 +28,7 @@ it("u501_controls_have_names", async () => {
     await wait(`document.querySelector('.bubbles, .rail') !== null`);
 
     const names = await read<{ named: string[]; unnamed: number; titled: number }>(`(() => {
-      const icon = [...document.querySelectorAll('.bubbles button, .toasts button, .decision-card button, .resource-strip button')].filter(button => button.checkVisibility() && !button.textContent.trim().replace(/[·\\s]/g, ''));
+      const icon = [...document.querySelectorAll('.bubbles button, .toasts button, .resource-strip button')].filter(button => button.checkVisibility() && !button.textContent.trim().replace(/[·\\s]/g, ''));
 
       return { named: icon.map(button => button.getAttribute('aria-label') ?? '').filter(Boolean), unnamed: icon.filter(button => !button.getAttribute('aria-label')).length, titled: document.querySelectorAll('.ink[title], .resource-value[title], .terminal-tab-pair [title], .ask [title], .toasts [title], [class*=resize] [title]').length };
     })()`);
