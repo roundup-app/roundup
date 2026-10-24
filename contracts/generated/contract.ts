@@ -48,7 +48,6 @@ export const CONTRACT = {
     "message.drop": "5016380ce53c6e0a",
     "message.get": "1de0012e412ba03d",
     "message.list": "600022bb0edeedb9",
-    "message.pass": "5d86d5d07928c6f6",
     "message.progress": "ae67f6bea48e4f87",
     "message.reconcileWork": "b575d23b7e9f133f",
     "message.report": "5fba8698e2cb5199",

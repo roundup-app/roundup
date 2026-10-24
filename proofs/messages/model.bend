@@ -1,10 +1,7 @@
 import Base
 
-# Pure model of `step` in crates/messages for ONE receiver (docs/messages.md; B1 to B9, B37) and for ONE question's
-# escalation chain (B13 to B17). A Message is its id. Its status is the list its id sits in.
-# The chain's own state is the Question `Q`; `step` runs the delivery events on the World and `qstep` the chain
-# events on the Question, and each leaves the other's state alone: a hop is an ordinary Message (B13), so its
-# delivery is the World's M1 to M7, and what the chain adds is which Agent is the next hop and when.
+# Pure model of `step` in crates/messages for ONE receiver (docs/messages.md; B1 to B9, B37). A Message is its id.
+# Its status is the list its id sits in. A question is an ordinary Message: nothing passes it on.
 
 type Route is Data:
   Auto{}
@@ -26,7 +23,7 @@ type Route is Data:
 # a new receiver generation; final Message ids never revive. A35 projections below apply
 # after this classification. M1/M4/M6/M7/M10 keep their guards and fair-Idle assumption;
 # perpetual Busy cannot guarantee progress. These proofs cover the model, not the Rust
-# lifecycle projection: #1847 owns its B37 repair and runtime/Decision-note observers.
+# lifecycle projection: #1847 owns its B37 repair and runtime observers.
 # No event, transition or law is added to represent a vendor hook name.
 type Ev is Data:
   Send{from_user: Bool, route: Route}
@@ -41,13 +38,6 @@ type Ev is Data:
   UserDeliver{id: Nat}
   UserDrop{id: Nat}
   Restart{alive: Bool}
-  Ask{origin: Nat, chain: +List<Nat>}
-  HopMade{}
-  HopEnded{}
-  BoundPassed{}
-  Answer{}
-  Escalate{}
-  Reply{}
 
 # queue: `pending` ids, in the order they became deliverable (B7).
 # held_af: `held` for ask-first. held_tk: `held` for takeover.
@@ -394,162 +384,11 @@ def run(evs: +List<Ev>, s: World) -> World:
     case Con{e, rest}:
       run(rest, step(e, s))
 
-# ---- the escalation chain (B13 to B17), one question
-
-# NoQ: no question yet. Chained: the chain is read, no hop made. OnHop: the current hop is live.
-# Ended: the current hop ended without an answer, the next is due. Answered: B17 stopped the bubble, or the user answered.
-# Escalated: the Escalated question is `held escalated` for the user (B15).
-type Phase is Data:
-  NoQ{}
-  Chained{}
-  OnHop{}
-  Ended{}
-  Answered{}
-  Escalated{}
-
-# origin: the sender, never a hop. rest: the hops still to make, nearest first. hops: the hops made, latest first.
-# bounds: how many per-hop bounds (B14) have passed.
-type Q is Data:
-  Qn{ph: Phase, origin: Nat, rest: +List<Nat>, hops: +List<Nat>, bounds: Nat}
-
-def qinit() -> Q:
-  Qn{NoQ{}, 0n, [], [], 0n}
-
-# B13: the chain as read when the sender sends: the sender skipped, an Agent at most once.
-def clean_step(b: Bool, +x: Nat, tail: +List<Nat>) -> +List<Nat>:
-  match b:
-    case True{}:
-      tail
-    case False{}:
-      x <> tail
-
-def clean(+o: Nat, xs: +List<Nat>) -> +List<Nat>:
-  match xs:
-    case Nil{}:
-      []
-    case Con{+x, +rest}:
-      clean_step(Bool.or(Nat.is_eq(x, o), mem(x, rest)), x, clean(o, rest))
-
-# B13: the question is sent; the chain is read once (a Rail move afterwards changes nothing), and it is the only question.
-def ask(+o: Nat, chain: +List<Nat>, q: Q) -> Q:
-  match q:
-    case Qn{ph, +o0, +rest, +hops, b}:
-      match ph:
-        case NoQ{}:
-          Qn{Chained{}, o, clean(o, chain), [], 0n}
-        case _:
-          q
-
-# B13, B16: the next hop is made: the nearest Agent left in the chain, once the chain is read or the last hop ended.
-def hop_made_go(ph: Phase, o: Nat, rest: +List<Nat>, hops: +List<Nat>, b: Nat) -> Q:
-  match rest:
-    case Nil{}:
-      Qn{ph, o, [], hops, b}
-    case Con{+x, +r}:
-      Qn{OnHop{}, o, r, x <> hops, b}
-
-def hop_made(q: Q) -> Q:
-  match q:
-    case Qn{ph, o, +rest, +hops, b}:
-      match ph:
-        case Chained{}:
-          hop_made_go(Chained{}, o, rest, hops, b)
-        case Ended{}:
-          hop_made_go(Ended{}, o, rest, hops, b)
-        case _:
-          Qn{ph, o, rest, hops, b}
-
-# B16: a hop ended without an answer (its Message dropped, or its Agent gone): the next is due at once, with no wait for the bound.
-def hop_ended(q: Q) -> Q:
-  match q:
-    case Qn{ph, o, +rest, +hops, b}:
-      match ph:
-        case OnHop{}:
-          Qn{Ended{}, o, rest, hops, b}
-        case _:
-          Qn{ph, o, rest, hops, b}
-
-# B14: the live hop's bound ran out; it passes.
-def bound_passed(q: Q) -> Q:
-  match q:
-    case Qn{ph, o, +rest, +hops, b}:
-      match ph:
-        case OnHop{}:
-          Qn{Ended{}, o, rest, hops, 1n+b}
-        case _:
-          Qn{ph, o, rest, hops, b}
-
-# B17: the current hop's Agent answered; no further hop is made.
-def answer(q: Q) -> Q:
-  match q:
-    case Qn{ph, o, +rest, +hops, b}:
-      match ph:
-        case OnHop{}:
-          Qn{Answered{}, o, rest, hops, b}
-        case _:
-          Qn{ph, o, rest, hops, b}
-
-# B15: no Door is left; the Escalated question is made, `held escalated`, once.
-def escalate_go(ph: Phase, o: Nat, rest: +List<Nat>, hops: +List<Nat>, b: Nat) -> Q:
-  match rest:
-    case Nil{}:
-      Qn{Escalated{}, o, [], hops, b}
-    case Con{+x, +r}:
-      Qn{ph, o, x <> r, hops, b}
-
-def escalate(q: Q) -> Q:
-  match q:
-    case Qn{ph, o, +rest, +hops, b}:
-      match ph:
-        case Chained{}:
-          escalate_go(Chained{}, o, rest, hops, b)
-        case Ended{}:
-          escalate_go(Ended{}, o, rest, hops, b)
-        case _:
-          Qn{ph, o, rest, hops, b}
-
-# B15, M2: a question held `escalated` leaves `held` only by the user's reply.
-def reply(q: Q) -> Q:
-  match q:
-    case Qn{ph, o, +rest, +hops, b}:
-      match ph:
-        case Escalated{}:
-          Qn{Answered{}, o, rest, hops, b}
-        case _:
-          Qn{ph, o, rest, hops, b}
-
-# The chain's transition table; the delivery events leave the question alone.
-def qstep(e: Ev, q: Q) -> Q:
-  match e:
-    case Ask{o, chain}:
-      ask(o, chain, q)
-    case HopMade{}:
-      hop_made(q)
-    case HopEnded{}:
-      hop_ended(q)
-    case BoundPassed{}:
-      bound_passed(q)
-    case Answer{}:
-      answer(q)
-    case Escalate{}:
-      escalate(q)
-    case Reply{}:
-      reply(q)
-    case _:
-      q
-
-def qrun(evs: +List<Ev>, q: Q) -> Q:
-  match evs:
-    case Nil{}:
-      q
-    case Con{e, rest}:
-      qrun(rest, qstep(e, q))
-
 # A35: durable reservation projects temporary stop/error, next Attempt and reopen to Busy,
 # never Exit (final receiver ending). A final removal bypasses the reservation. Releasing
 # after matching SessionStart/first-prompt acknowledgement supplies Idle when ready,
 # including B37 live error. A reopened Takeover releases via Restart{True} first.
-# Ask-first/escalated holds are unchanged.
+# Ask-first holds are unchanged.
 # This projection is shared with Rust's restart_event; ordinary step and all laws stay intact.
 def restart_event(reserved: Bool, e: Ev) -> Ev:
   match reserved:
@@ -562,10 +401,6 @@ def restart_event(reserved: Bool, e: Ev) -> Ev:
         case Exit{}:
           Busy{}
         case Restart{alive}:
-          Busy{}
-        case HopEnded{}:
-          Busy{}
-        case BoundPassed{}:
           Busy{}
         case _:
           e
@@ -643,7 +478,7 @@ def store_journal(s: ReservationStore) -> PromptJournal:
       journal
 
 # A35 retirement is distinct from ordinary final Exit and a retained restart. The durable
-# selected state never becomes eligible again, even after completion/reopen. It grants no
+# selected state never becomes eligible again, even after completion/reopen. It gives no
 # Takeover consent. Authorized Takeover end clears memory separately, preserving its records.
 type Retirement is Data:
   Removing{}

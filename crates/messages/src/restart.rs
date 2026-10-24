@@ -42,10 +42,7 @@ impl Messages {
         }
         let mut store = self.store()?;
         accept_reservation(&self.inner, &mut store, node)?;
-        store.atomically(|s| {
-            s.reserve_restart(agent, key, binding(node).0, first_prompt)?;
-            s.arm_chains((self.inner.clock)())
-        })
+        store.atomically(|s| s.reserve_restart(agent, key, binding(node).0, first_prompt))
     }
 
     /// After the coordinator has observed the matching SessionStart AND first-prompt
@@ -109,7 +106,6 @@ impl Messages {
                 None,
                 (self.inner.clock)(),
                 at,
-                None,
             )?;
             s.record_restart_note(agent, key, message.id)?;
             Ok(message)
@@ -187,7 +183,7 @@ impl Messages {
                     "first prompt acknowledgement is newer than release Attempt",
                 ));
             }
-            store.atomically(|s| s.release_restart(agent, key, at, (self.inner.clock)()))?;
+            store.atomically(|s| s.release_restart(agent, key, at))?;
             store.rebind_takeover(agent, at);
         }
         nudge(&self.inner, agent).await;
