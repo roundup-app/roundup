@@ -1,3 +1,4 @@
+import { ExitButton } from "../ui/IconButton";
 import { createStore, reconcile } from "solid-js/store";
 import { createEffect, createMemo, createSignal, For, on, onCleanup, onMount, Show } from "solid-js";
 import type { JSX } from "solid-js";
@@ -249,7 +250,7 @@ export const MeasurementDashboard = (props: { home: string; name: string; back: 
   const retry = () => <Show when={problem()}><button data-button="quiet" type="button" aria-disabled={pending()} onClick={() => { if (!pending()) void read(retryMore); }}>{copy.retry}</button></Show>;
 
   return <section class="measurement-dashboard" ref={region} role="region" aria-label={copy.costAndTime} aria-busy={pending()} data-home={props.home} data-revision={snapshot()?.revision} tabIndex={-1} onKeyDown={(event) => { if (event.key === "Escape" && !event.defaultPrevented) { event.stopPropagation(); props.back(); } }}>
-    <header class="measurement-header"><h2>{props.name}</h2>{header()}<div class="measurement-actions">{retry()}<button data-button="quiet" type="button" onClick={props.back}>{copy.back}</button></div></header>
+    <header class="measurement-header"><h2>{props.name}</h2>{header()}<div class="measurement-actions">{retry()}<ExitButton onClick={props.back} /></div></header>
     <div class="measurement-tiles">
       <div class="measurement-tile" data-tile="time">
         <h3>{copy.measurementTime}</h3>
