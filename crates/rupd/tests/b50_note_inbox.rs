@@ -324,7 +324,10 @@ impl Run {
     fn repair_protocol(&self) {
         for file in std::fs::read_dir(self.sessions()).unwrap() {
             let path = file.unwrap().path();
-            if path.extension().is_some_and(|extension| extension == "json") {
+            if path
+                .extension()
+                .is_some_and(|extension| extension == "json")
+            {
                 let mut listing: Value =
                     serde_json::from_slice(&std::fs::read(&path).unwrap()).unwrap();
                 listing["peerProtocol"] = json!(1);
@@ -665,8 +668,19 @@ async fn b3563c_all_senders_use_the_inbox_while_terminal_input_is_unsent() {
                 (Some(kind), Some(body.as_str()))
             );
             assert_eq!(stored["status"], "pending");
-            assert_eq!(stored["from"]["kind"], if sender == "agent" { "agent" } else { stored["from"]["kind"].as_str().unwrap() });
-            assert_eq!(run.typed().await, drafted, "{sender} {kind}: Message bytes were typed");
+            assert_eq!(
+                stored["from"]["kind"],
+                if sender == "agent" {
+                    "agent"
+                } else {
+                    stored["from"]["kind"].as_str().unwrap()
+                }
+            );
+            assert_eq!(
+                run.typed().await,
+                drafted,
+                "{sender} {kind}: Message bytes were typed"
+            );
             run.record(&[id]).await;
             until("receipt", async || {
                 (run.status(id).await.0 == "delivered").then_some(())
@@ -682,11 +696,19 @@ async fn b3563c_all_senders_use_the_inbox_while_terminal_input_is_unsent() {
         run.signal(json!({"hook_event_name":"Stop"})).await;
         sent.extend([first, second]);
         until("both queued entries", async || {
-            (run.entries() == sent.iter().map(|id| format!("rup-{id}")).collect::<Vec<_>>())
-                .then_some(())
+            (run.entries()
+                == sent
+                    .iter()
+                    .map(|id| format!("rup-{id}"))
+                    .collect::<Vec<_>>())
+            .then_some(())
         })
         .await;
-        assert_eq!(run.typed().await, drafted, "{sender}: queued Messages were typed");
+        assert_eq!(
+            run.typed().await,
+            drafted,
+            "{sender}: queued Messages were typed"
+        );
         run.record(&[first, second]).await;
         assert_eq!(run.seen().await, sent, "{sender}");
     }
@@ -718,7 +740,10 @@ async fn b3563c_receipt_and_restart_preserve_each_message_once() {
         run.restart().await;
         run.idle_edge().await;
         assert_eq!(run.status(id).await.0, "delivered");
-        assert!(run.entries().is_empty(), "an acknowledged Message was sent again");
+        assert!(
+            run.entries().is_empty(),
+            "an acknowledged Message was sent again"
+        );
         let all = run
             .user
             .request("message.list", json!({"to":run.child}))
@@ -776,7 +801,10 @@ async fn b3563c_unavailable_inbox_keeps_pending_identity_and_reports_the_cause()
         for id in &ids {
             assert_eq!(run.status(*id).await, ("pending".into(), None), "{case}");
         }
-        assert!(run.entries().is_empty(), "{case}: written to an unavailable inbox");
+        assert!(
+            run.entries().is_empty(),
+            "{case}: written to an unavailable inbox"
+        );
         assert_eq!(run.typed().await, 0, "{case}: fell back to the Terminal");
         assert!(run.seen().await.is_empty(), "{case}");
         if mismatch {

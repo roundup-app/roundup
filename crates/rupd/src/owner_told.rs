@@ -330,10 +330,7 @@ async fn read(told: &mut Told, reader: &Reader, event: &Event) {
 }
 
 /// Runs until the Bus closes.
-pub async fn tell_owners(
-    reader: Reader,
-    mut events: rpc::Subscription,
-) {
+pub async fn tell_owners(reader: Reader, mut events: rpc::Subscription) {
     let todos = reader
         .world()
         .await

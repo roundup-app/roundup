@@ -664,12 +664,7 @@ async fn changed_children_under_caps() {
         .await;
         all = accounted(&run, base, 19 + i).await;
         eprintln!("B21/B22: {} changes accounted", 19 + i);
-        assert!(
-            all.iter()
-                .filter(|m| m["status"] == "pending")
-                .count()
-                <= 20
-        );
+        assert!(all.iter().filter(|m| m["status"] == "pending").count() <= 20);
     }
     assert_eq!(
         all.iter()

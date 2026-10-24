@@ -44,10 +44,7 @@ fn door_of<'a>(nodes: &'a [RailNode], agent: &str) -> Option<&'a RailNode> {
 
 /// On each `decision.opened`, send the Agent's Door a note, unless the Decision is not
 /// `answerable` or the Door is gone. Runs until the Bus closes.
-pub async fn tell_doors(
-    reader: Reader,
-    mut events: Receiver<contracts::Event>,
-) {
+pub async fn tell_doors(reader: Reader, mut events: Receiver<contracts::Event>) {
     loop {
         let decision = match events.recv().await {
             Ok(event) => match event.data {

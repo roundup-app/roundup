@@ -346,14 +346,8 @@ mod tests {
             )
             .unwrap(),
         );
-        let messages = Arc::new(
-            messages::Messages::open(
-                &dir,
-                bus.clone(),
-                agents.clone(),
-            )
-            .unwrap(),
-        );
+        let messages =
+            Arc::new(messages::Messages::open(&dir, bus.clone(), agents.clone()).unwrap());
         let sender = Arc::new(std::sync::OnceLock::new());
         sender.set(messages.clone()).ok();
         let touches = Arc::new(provenance::Touches::open(&dir.join("provenance.db")).unwrap());

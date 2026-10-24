@@ -41,7 +41,10 @@ pub use handshake::{HANDSHAKE_BOUND, Handshake, HandshakeError, read_handshake};
 
 use connection::failure;
 pub use connection::serve;
-use observers::{messages_env, prompt_effect_observer, resume_effect_observer, steer_effect_observer, terminal_exit_observer, terminal_input_observer};
+use observers::{
+    messages_env, prompt_effect_observer, resume_effect_observer, steer_effect_observer,
+    terminal_exit_observer, terminal_input_observer,
+};
 use route::{HomeOnly, OwnerOnly};
 use specialist::Specialist;
 use std::collections::HashMap;

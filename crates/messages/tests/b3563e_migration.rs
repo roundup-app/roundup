@@ -116,8 +116,15 @@ fn b3563e_legacy_rows_reopen_as_pending_delivered_or_auto() {
             .map(|r| (r.0, r.1.clone(), r.2.clone(), r.3.clone(), r.5.clone()))
             .collect()
     };
-    assert_eq!(identity(&before), identity(&after), "ids, senders and bodies");
-    let outcome: Vec<_> = after.iter().map(|r| (r.4.as_str(), r.6.as_deref())).collect();
+    assert_eq!(
+        identity(&before),
+        identity(&after),
+        "ids, senders and bodies"
+    );
+    let outcome: Vec<_> = after
+        .iter()
+        .map(|r| (r.4.as_str(), r.6.as_deref()))
+        .collect();
     assert_eq!(
         outcome,
         [
@@ -148,8 +155,14 @@ fn b3563e_legacy_rows_reopen_as_pending_delivered_or_auto() {
         .unwrap()
         .collect::<Result<_, _>>()
         .unwrap();
-    let delivery: Vec<_> = routes.iter().map(|r| (r.0.as_str(), r.2.as_str())).collect();
-    assert_eq!(delivery, [("a", "auto"), ("c", "drop"), ("d", "auto"), ("e", "auto")]);
+    let delivery: Vec<_> = routes
+        .iter()
+        .map(|r| (r.0.as_str(), r.2.as_str()))
+        .collect();
+    assert_eq!(
+        delivery,
+        [("a", "auto"), ("c", "drop"), ("d", "auto"), ("e", "auto")]
+    );
     drop(db);
 
     reopen(dir.path());

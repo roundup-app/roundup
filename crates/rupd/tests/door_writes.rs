@@ -1,12 +1,12 @@
 //! B6's Agent prerequisite: real Daemon, fake Claude and its recorded Terminal input.
+#[path = "support/child_run.rs"]
+mod child_run;
 #[path = "support/door_terminals.rs"]
 mod door_terminals;
 #[path = "support/rupd_harness.rs"]
 mod rupd_harness;
-#[path = "support/child_run.rs"]
-mod child_run;
-use door_terminals::{door_terminal, idle, order_child, order_result, recorded_bytes};
 use child_run::BOUND;
+use door_terminals::{door_terminal, idle, order_child, order_result, recorded_bytes};
 
 use base64::{Engine, engine::general_purpose::STANDARD};
 use rpc::Client;

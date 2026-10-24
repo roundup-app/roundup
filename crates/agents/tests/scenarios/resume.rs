@@ -5,7 +5,7 @@ use std::time::Duration;
 
 use contracts::Kind;
 use contracts::agent::RailNode;
-use rpc::{Module, code};
+use rpc::code;
 use serde_json::{Value, json};
 
 use crate::common::Fixture;

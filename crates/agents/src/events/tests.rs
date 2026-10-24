@@ -47,7 +47,7 @@ async fn a2703a_errors_use_rail_names() {
                         prompt: None,
                         starred: false,
                         terminal_id: None,
-                        held: VecDeque::new(),
+                        parked: VecDeque::new(),
                         done: tokio::sync::oneshot::channel().0,
                     },
                 );
@@ -98,7 +98,7 @@ async fn a2703a_errors_use_rail_names() {
 }
 
 #[tokio::test(start_paused = true)]
-async fn a2_a_held_star_reads_idle_when_star_hold_has_passed_and_not_before() {
+async fn a2_a_parked_star_reads_idle_when_star_hold_has_passed_and_not_before() {
     let mut w = Watched::start();
     w.signal("PreToolUse");
     assert_eq!(w.next_kind().await, Kind::Working);
@@ -106,7 +106,7 @@ async fn a2_a_held_star_reads_idle_when_star_hold_has_passed_and_not_before() {
 
     w.star();
 
-    // An observation window: no Status may change while the star is held.
+    // An observation window: no Status may change while the star is parked.
     tokio::time::sleep(HOLD - Duration::from_millis(1)).await;
     assert!(!w.has_news());
     assert_eq!(w.next_kind().await, Kind::Idle);
@@ -127,7 +127,7 @@ async fn a2_a_second_star_during_a_hold_keeps_the_first_stars_deadline() {
     assert_eq!(star.elapsed().as_millis(), HOLD.as_millis());
 }
 #[tokio::test(start_paused = true)]
-async fn a2_an_exit_ends_the_watch_without_waiting_out_a_held_star() {
+async fn a2_an_exit_ends_the_watch_without_waiting_out_a_parked_star() {
     let w = Watched::start();
     w.signal("PreToolUse");
     w.star();
@@ -156,7 +156,7 @@ fn a14_a_non_signal_observation_for_a_starting_id_is_still_not_found() {
             attempt: "1".into(),
             since: 0,
             named: false,
-            held: VecDeque::new(),
+            parked: VecDeque::new(),
         },
     );
 
@@ -166,10 +166,10 @@ fn a14_a_non_signal_observation_for_a_starting_id_is_still_not_found() {
 
     assert_eq!(err.code, rpc::code::NOT_FOUND);
 }
-/// A held Signal whose `rail.rename` fails (a SQLite trigger refuses the update) must not panic while `finish_starting` still holds `rail` and `runs`: a panic
+/// A parked Signal whose `rail.rename` fails (a SQLite trigger refuses the update) must not panic while `finish_starting` still holds `rail` and `runs`: a panic
 /// there would poison both mutexes, so every later `rail()`/`runs()` call would panic too.
 #[test]
-fn a14_a_failed_rail_write_for_a_held_signal_does_not_poison_the_locks() {
+fn a14_a_failed_rail_write_for_a_parked_signal_does_not_poison_the_locks() {
     let (dir, _bus, shared) = shared_over_temp_dir(Arc::new(|| 0));
     let id = shared
         .rail()
@@ -177,8 +177,8 @@ fn a14_a_failed_rail_write_for_a_held_signal_does_not_poison_the_locks() {
         .unwrap()
         .id;
     shared.mark_starting(&id, "1".into());
-    if let Some(Slot::Starting { held, .. }) = shared.runs().get_mut(&id) {
-        held.push_back((
+    if let Some(Slot::Starting { parked, .. }) = shared.runs().get_mut(&id) {
+        parked.push_back((
             Actor::daemon(),
             json!({"hook_event_name": "UserPromptSubmit", "prompt": "fix the build"}),
         ));
@@ -212,12 +212,12 @@ fn a14_a_failed_rail_write_for_a_held_signal_does_not_poison_the_locks() {
     assert!(matches!(shared.runs().get(&id), Some(Slot::Running(_))));
     shared.rail().tree().unwrap();
 }
-/// A21: a held `SessionStart` whose conversation save fails must abort `finish_starting`
+/// A21: a parked `SessionStart` whose conversation save fails must abort `finish_starting`
 /// outright (never apply it, never drain anything after it) rather than log and continue as
 /// a failed rename does; and it must put `id` back as `Running` so the caller's own
 /// failed-spawn cleanup (which only removes an Attempt it still finds in `runs`) still runs.
 #[test]
-fn a21_a_failed_held_save_reinserts_so_the_caller_can_clean_up() {
+fn a21_a_failed_parked_save_reinserts_so_the_caller_can_clean_up() {
     let (dir, _bus, shared) = shared_over_temp_dir(Arc::new(|| 0));
     let id = shared
         .rail()
@@ -225,8 +225,8 @@ fn a21_a_failed_held_save_reinserts_so_the_caller_can_clean_up() {
         .unwrap()
         .id;
     shared.mark_starting(&id, "1".into());
-    if let Some(Slot::Starting { held, .. }) = shared.runs().get_mut(&id) {
-        held.push_back((
+    if let Some(Slot::Starting { parked, .. }) = shared.runs().get_mut(&id) {
+        parked.push_back((
             Actor::daemon(),
             json!({
                 "hook_event_name": "SessionStart",
@@ -234,7 +234,7 @@ fn a21_a_failed_held_save_reinserts_so_the_caller_can_clean_up() {
             }),
         ));
         // Never reached if the save aborts the drain as it must.
-        held.push_back((Actor::daemon(), json!({"hook_event_name": "Stop"})));
+        parked.push_back((Actor::daemon(), json!({"hook_event_name": "Stop"})));
     }
     let db = refuse_rail_writes(dir.path());
 
@@ -265,13 +265,13 @@ fn a21_a_failed_held_save_reinserts_so_the_caller_can_clean_up() {
     let Some(Slot::Running(run)) = runs.get(&id) else {
         panic!("put back as Running for the caller's cleanup to find")
     };
-    // The Stop held after the SessionStart was never drained: the abort is immediate.
+    // The Stop parked after the SessionStart was never drained: the abort is immediate.
     assert_eq!(run.adapter.status().unwrap().kind, Kind::Working);
 }
 /// Keep all 20,000 interleavings using one reusable late-observer thread. The
 /// build rendezvous checks lock exclusion before releasing the actual late Signal.
 #[test]
-fn a14_a_signal_released_once_the_agent_is_registered_never_outruns_the_held_one() {
+fn a14_a_signal_released_once_the_agent_is_registered_never_outruns_the_parked_one() {
     let (_dir, bus, shared) = shared_over_temp_dir(Arc::new(|| 0));
     let mut events = bus.subscribe();
     let (observe, observations) = mpsc::sync_channel::<String>(0);
@@ -310,7 +310,7 @@ fn a14_a_signal_released_once_the_agent_is_registered_never_outruns_the_held_one
                     attempt: "1".into(),
                     since: 0,
                     named: false,
-                    held: VecDeque::from([(
+                    parked: VecDeque::from([(
                         Actor::daemon(),
                         json!({"hook_event_name":"PreToolUse", "tool_name":"Bash"}),
                     )]),
