@@ -218,11 +218,12 @@ it.each(["history", "read", "render"].flatMap(failure => ["dismiss", "switch"].m
   if (action === "dismiss") {
     fireEvent.click(screen.getByRole("button", { name: "Dismiss failure" }));
     expect(screen.queryByRole("alert")).toBeNull();
+  } else {
+    app.handlers["provenance.history"] = () => [];
+    setItem("next item");
+    await screen.findByText("next item");
+    expect(screen.queryByRole("alert")).toBeNull();
   }
 
-  app.handlers["provenance.history"] = () => [];
-  setItem("next item");
-  await screen.findByText("next item");
-  expect(screen.queryByRole("alert")).toBeNull();
   expect(connected.drafts.list()).toEqual([draft]);
 });
