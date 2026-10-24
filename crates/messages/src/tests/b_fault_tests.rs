@@ -129,6 +129,7 @@ impl Faulty {
             kind: Kind::Idle,
             label: "x".into(),
             since: 0,
+            finished: "0".into(),
         };
         self.bus.emit(
             Actor::daemon(),
@@ -410,6 +411,7 @@ async fn b28_status_acknowledgement_waits_for_delivery_to_finish() {
                     kind: Kind::Idle,
                     label: "x".into(),
                     since: 0,
+                    finished: "0".into(),
                 },
             })),
         );
