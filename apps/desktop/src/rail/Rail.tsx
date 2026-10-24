@@ -260,7 +260,7 @@ export const Rail = () => {
   /** One indent step (--rail-step) in pixels: how far sideways the pointer goes to change the drop's depth. */
   const [railStep, setRailStep] = createSignal(1);
 
-  const [drop, setDrop] = createSignal<{ depth: number; top: number } | null>(null);
+  const [drop, setDrop] = createSignal<{ depth: number; top: number; height: number } | null>(null);
 
   /** Whether the press that began the drag was a pointer's: a keyboard lift has no pointer to leave the Rail. */
   let pointerPressed = false;
@@ -324,7 +324,7 @@ export const Rail = () => {
     });
   });
 
-  /** Where the drop line sits: at the top of the room the library opened for the dragged row, once it has moved there. */
+  /** Where the drop slot sits: at the top of the room the library opened for the dragged row, once it has moved there. */
   const placeDrop = (next: { depth: number } | null) => {
     if (next === null) {
       const back = liftedRow;
@@ -341,7 +341,7 @@ export const Rail = () => {
       const base = container()?.getBoundingClientRect();
       const room = container()?.querySelector("[data-dnd-placeholder]")?.getBoundingClientRect();
 
-      setDrop(base && room ? { depth: next.depth, top: room.top - base.top } : null);
+      setDrop(base && room ? { depth: next.depth, top: room.top - base.top, height: room.height } : null);
     });
   };
 
@@ -685,7 +685,7 @@ export const Rail = () => {
         </For>
       </TreeView.Tree>
       <Show when={drop()}>
-        {(line) => <div class="drop-line" aria-hidden="true" style={{ top: `${line().top}px`, "--depth": line().depth }} />}
+        {(line) => <div class="drop-line" aria-hidden="true" style={{ top: `${line().top}px`, height: `${line().height}px`, "--depth": line().depth }} />}
       </Show>
       </Sortable.Root>
     </TreeView.Root>

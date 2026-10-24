@@ -274,9 +274,19 @@
   position: absolute;
   left: calc(var(--space-4) + var(--depth) * var(--rail-step) + var(--rail-inset));
   right: 0;
-  height: 2px;
-  background: var(--grey);
+  box-sizing: border-box;
+  border: 2px dashed var(--accent);
+  border-radius: var(--radius-row);
   pointer-events: none;
+}
+
+/* U3800a: the slot drawn at the drop depth is the only landing marker; the library's own slot only keeps the space. */
+.rail-tree [data-dnd-placeholder] {
+  animation: none;
+}
+
+.rail-tree [data-dnd-placeholder]::after {
+  display: none;
 }
 
 /* Greyed, not faded: opacity would sink the Live lines under the 4.5:1 contrast U25 keeps; grayscale holds it (rail/u25_daemon_gone.test.tsx). */
@@ -691,23 +701,6 @@
   overflow: hidden;
   clip-path: inset(50%);
   white-space: nowrap;
-}
-
-/* U348: while files are dragged, a Rail row takes a 2 px --accent ring inside its edge, and the one under the pointer --hover; no size changes (U5, U46), nothing animates (D6). */
-.rail-row[data-drop] {
-  position: relative;
-}
-
-.rail-row[data-drop]::after {
-  content: "";
-  position: absolute;
-  inset: 0;
-  border: 2px solid var(--accent);
-  pointer-events: none;
-}
-
-.rail-row[data-drop="hover"] {
-  background: var(--hover);
 }
 
 .rail-tree [data-dnd-dragging] {
