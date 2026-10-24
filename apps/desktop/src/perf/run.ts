@@ -180,6 +180,11 @@ export const createKeystrokeRun = (app: AppSeam) => {
 
     create.click();
     await appears(() => document.querySelector('[role="treeitem"][aria-selected="true"]'), "the new Workstream's selected row");
+    // The Workstream's Agent Terminal takes focus when it shows, and focus outside a bubble folds it, which pauses xterm's rendering: open the bubble after.
+    await appears(
+      () => [...document.querySelectorAll("textarea.xterm-helper-textarea")].find((input) => !input.closest(".bubble[data-bubble]")) ?? null,
+      "the new Workstream's Agent input",
+    );
     // U165: ⌘T opens the Terminal in the selected Workstream; its bubble takes the keys.
     document.dispatchEvent(new KeyboardEvent("keydown", { key: "t", code: "KeyT", metaKey: true, bubbles: true, cancelable: true }));
 
