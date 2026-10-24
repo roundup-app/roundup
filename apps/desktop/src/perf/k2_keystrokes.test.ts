@@ -32,6 +32,43 @@ describe("k2 a sample is keydown to the render that shows its echo", () => {
     expect(received).toEqual(["shell"]);
   });
 
+  it("r20_the_ready_line_survives_every_output_split_after_parsing", async () => {
+    for (const line of ["ready\n", "ready\r\n"]) {
+      for (let split = 1; split < line.length; split += 1) {
+        const parsed: (() => void)[] = [];
+        const run = reportTerminal(() => ({ write: (_bytes: Uint8Array, done?: () => void) => { if (done) parsed.push(done); } }));
+        const shell = run.createEmulator("shell");
+        const agent = run.createEmulator("agent");
+
+        shell.write(bytes(line.slice(0, split)));
+        parsed.shift()!();
+        agent.write(bytes("unrelated output\n"));
+        parsed.shift()!();
+        shell.write(bytes(line.slice(split)));
+
+        expect(run.target()).toBeNull();
+        parsed.shift()!();
+        expect(run.target()).toBe("shell");
+        await run.printed;
+      }
+    }
+  });
+
+  it("r20_only_a_complete_ready_line_selects_the_report_terminal", async () => {
+    const run = reportTerminal(() => ({ write: (_bytes: Uint8Array, parsed?: () => void) => parsed?.() }));
+    const agent = run.createEmulator("agent");
+    const shell = run.createEmulator("shell");
+
+    for (const text of ["already\n", "not ready\n", "readying\n", "x".repeat(100_000) + "rea", "dy\n", "ready"]) {
+      agent.write(bytes(text));
+      expect(run.target()).toBeNull();
+    }
+
+    shell.write(bytes("welcome\r\nready\n"));
+    await run.printed;
+    expect(run.target()).toBe("shell");
+  });
+
   it("k2_the_render_after_the_echo_counts_as_the_time_since_the_keydown", () => {
     const time = clock();
     const probe = createKeystrokeProbe(time.now, "a");

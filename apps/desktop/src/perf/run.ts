@@ -127,14 +127,23 @@ export const reportTerminal = <E extends Pick<Emulator, "write">>(create: (id: s
       ?.querySelector<HTMLTextAreaElement>("textarea.xterm-helper-textarea") ?? null,
     createEmulator: (id: string): E => {
       const emulator = create(id);
+      const decoder = new TextDecoder();
+      // A PTY may split READY anywhere; retain its preceding newline without buffering an unbounded output line.
+      let tail = "\n";
 
       return {
         ...emulator,
         write: (bytes, parsed) =>
           emulator.write(bytes, () => {
-            if (target === null && new TextDecoder().decode(bytes).includes(READY)) {
-              target = id;
-              announce();
+            if (target === null) {
+              const text = tail + decoder.decode(bytes, { stream: true });
+
+              if (text.includes(`\n${READY}\n`) || text.includes(`\n${READY}\r\n`)) {
+                target = id;
+                announce();
+              }
+
+              tail = text.slice(-(READY.length + 2));
             }
 
             parsed?.();
