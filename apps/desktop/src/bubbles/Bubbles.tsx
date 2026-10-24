@@ -1,3 +1,4 @@
+import { writeText } from "../app/clipboard";
 import { createTerminalClose } from "./close";
 import { ReservedLine } from "../ink/ReservedLine";
 import { CHORDS, LEADER } from "../keys/chords";
@@ -85,7 +86,7 @@ export const Bubbles = (props: {
     if (!parsed?.success) return;
 
     try {
-      await navigator.clipboard.writeText(parsed.output.name);
+      await writeText(connected.app, parsed.output.name);
       failCopy(held => held?.revision === draft!.revision ? null : held);
     } catch (error) {
       failCopy({ revision: draft!.revision, message: copy.copyDraftFailure(error instanceof Error ? error.message : String(error)) });

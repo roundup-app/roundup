@@ -10,13 +10,11 @@ mod clear;
 mod connection;
 mod context;
 pub mod data;
-mod decision_notes;
 mod deliverables;
 mod digest;
 mod event_log;
 mod evidence;
 mod guards;
-mod handshake;
 mod link;
 mod observers;
 mod open;
@@ -38,14 +36,12 @@ mod todo_refs;
 mod waits;
 mod wake;
 
-pub use handshake::{HANDSHAKE_BOUND, Handshake, HandshakeError, read_handshake};
-
 use connection::failure;
 pub use connection::serve;
 use guards::is_child_read;
 use observers::{
-    messages_env, prompt_effect_observer, resume_effect_observer, steer_effect_observer,
-    terminal_exit_observer, terminal_input_observer,
+    messages_env, resume_effect_observer, steer_effect_observer, terminal_exit_observer,
+    terminal_input_observer,
 };
 use route::{HomeOnly, OwnerOnly};
 use specialist::Specialist;
@@ -106,8 +102,6 @@ pub struct Daemon {
     wake_events: std::sync::Mutex<Option<tokio::sync::broadcast::Receiver<contracts::Event>>>,
     /// B41: serialises the decisions on Wake requests.
     wake_gate: Arc<tokio::sync::Mutex<wake::Gate>>,
-    /// H21: subscribed at `open`, taken once with `pushes`.
-    notes: std::sync::Mutex<Option<tokio::sync::broadcast::Receiver<contracts::Event>>>,
     /// H21: knows the Agent behind a calling process.
     agents: Arc<agents::Agents>,
     /// X14: where a connection's selected output streams come from.
@@ -324,7 +318,7 @@ impl Daemon {
 
     /// Stop every running Terminal's program, Agents' included, and return once none is running.
     /// Each Agent's Claude Code is first asked to end itself, so Claude Code counts the end as a
-    /// clean one. A program that ignores SIGHUP is killed by the Terminal module's own escalation. A
+    /// clean one. A program that ignores SIGHUP is killed by the Terminal module's own kill step. A
     /// Terminal spawned while this runs is caught by the next round, up to [`STOP_ROUNDS`]; past
     /// that the caller gets an error rather than a loop that never ends.
     pub async fn stop_terminals(&self) -> Result<(), RpcError> {
@@ -407,5 +401,5 @@ fn test_daemon_with_agents(
     configure: impl FnOnce(agents::Agents) -> agents::Agents,
 ) -> Result<Daemon, OpenError> {
     assert!(dir.is_absolute(), "test data directory must be absolute");
-    Daemon::open_stores(dir, dir, None, configure)
+    Daemon::open_stores(dir, dir, configure)
 }

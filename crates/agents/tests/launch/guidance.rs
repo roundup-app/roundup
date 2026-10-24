@@ -20,7 +20,7 @@ fn q6_brief() {
         assert!(text.contains(&asset("reduce.md")), "{role:?}");
         assert!(text.contains(&asset("show-me.md")), "{role:?}");
         assert!(text.contains(
-            "Run `reduce` on every Work order, Message to `you`, `ask_user` question, Digest, Pad reply and Todo title"
+            "Run `reduce` on every Work order, Message to `you`, `AskUserQuestion` question, Digest, Pad reply and Todo title"
         ));
         assert_eq!(text, brief(&s, "7", role));
     }
@@ -112,26 +112,6 @@ fn q9_door_guidance_names_the_four_paddings() {
 }
 
 #[test]
-fn h14b_the_brief_carries_the_ask_user_rules() {
-    let s = setup();
-    for role in [Role::Agent, Role::Door] {
-        let text = brief(&s, "7", role);
-        for rule in [
-            "The question is one line: the decision.",
-            "The context is at most 3 lines, only what the pick turns on, and you run `reduce` on it.",
-            "The answers are 2 to 4, the recommended one first and its label ending ` (recommended)`.",
-            "A label is at most 5 words.",
-            "A description is the tradeoff: what the pick gains and what it costs.",
-            "A preview is the smallest `show-me` sketch of what the pick builds, and is required when the user has not met its terms.",
-            "An open question the user answers in their own words takes no answers.",
-            "Never ask what you can answer by looking, and never ask `you` in a Message what `ask_user` asks.",
-        ] {
-            assert!(text.contains(rule), "{rule}");
-        }
-    }
-}
-
-#[test]
 fn q9_ordinary_brief_has_no_door_guidance() {
     let s = setup();
     let text = brief(&s, "7", Role::Agent);
@@ -151,9 +131,6 @@ fn m9_a_doors_brief_names_the_workstream_and_project_tools() {
         "`project_open`",
         "`agent_stop`",
         "`agent_prompt`",
-        "`decision_list`",
-        "`decision_answer`",
-        "`[decision <id>]`",
         "Reach",
     ] {
         assert!(door.contains(needle), "{needle}");
@@ -195,5 +172,23 @@ fn q11_the_users_output_style_replaces_plain() {
         assert!(!text.contains(&asset("hold-plain.md")));
         assert!(!text.contains("## Output style"));
         assert_eq!(text, brief(&s, "8", role));
+    }
+}
+
+#[test]
+fn a3564c_each_brief_separates_peer_and_user_questions() {
+    let s = setup();
+    for role in [Role::Agent, Role::Door] {
+        let text = brief(&s, "7", role);
+        for rule in [
+            "Ask the user with `AskUserQuestion`",
+            "Ask another Agent with `message_send` as a question",
+            "names your question in `replyTo`",
+            "Never answer another Agent's `AskUserQuestion` or permission prompt, and never type into its Terminal.",
+        ] {
+            assert!(text.contains(rule), "{role:?}: {rule}");
+        }
+        assert!(!text.contains(&["ask", "user"].join("_")), "{role:?}");
+        assert!(!text.contains("decision_answer"), "{role:?}");
     }
 }

@@ -475,6 +475,17 @@ class Pick(unittest.TestCase):
                 builder.main([command, '{}'] if command == 'engine-read-only' else [command])
             self.assertEqual(codex.call_args.args[-1], effort)
 
+    def test_l82_a_conflict_runs_at_low_effort_on_a_prompt_that_keeps_its_scope(self):
+        with patch.object(builder, 'codex', return_value=0) as codex, patch.object(builder, 'worked', return_value=True), \
+                patch.object(builder, 'switched', return_value=False), \
+                patch.dict(os.environ, RUNNER_TEMP='/tmp', GITHUB_OUTPUT=os.devnull), patch.object(sys, 'stdin', io.StringIO('x')):
+            builder.main(['engine-conflict'])
+        self.assertEqual(codex.call_args.args[-1], 'low')
+        role = builder.role('conflict')
+        for scope in ('only the files git lists as conflicted', 'only the tests those files reach', 'merge-loss', 'Read no scenario'):
+            self.assertIn(scope, role)
+        self.assertIn('Read no scenario', builder.CAUSES['conflict'])
+
     def test_l23_a_pr_with_a_live_fix_run_gets_no_second(self):
         prs = [pr(number=2), pr(number=3)]
         sent, errors = [], io.StringIO()
@@ -1104,17 +1115,28 @@ class Plumbing(unittest.TestCase):
             self.assertFalse(plumbing)
             self.assertIn(('pr', 'close', '9', '--delete-branch'), github.writes)
 
+    def test_l82_a_fourth_conflict_closes_the_pr_for_a_fresh_build_and_starts_no_model(self):
+        history = [(n, 'Fix PR #9: conflict', MODEL) for n in range(1, builder.CONFLICT_RUNS + 1)]
+        task, plumbing, github = self.start(pr(**CONFLICTED), 'conflict', history=history)
+        self.assertIsNone(task)
+        self.assertEqual([w for w in github.writes if w[:2] == ('pr', 'close')],
+                         [('pr', 'close', '9', '--comment', 'Rebuilt fresh from main after 3 conflict fixes.', '--delete-branch')])
+        task, _, github = self.start(pr(**CONFLICTED), 'conflict', history=history[1:])
+        self.assertTrue(task)
+        self.assertEqual(github.writes, [])
+
     def test_l82_past_the_ceiling_a_plumbing_cause_counts_as_any_other(self):
-        title = 'Fix PR #9: conflict'
+        title = 'Fix PR #9: rules'
         def history(count):
             return [(n, title, MODEL) for n in range(1, count + 1)]
-        view, notes = pr(**CONFLICTED), [note(PLUMBED)] * builder.ATTEMPTS
-        task, plumbing, _ = self.start(view, 'conflict', notes, history(builder.PLUMBING_RUNS))
+        view, steps = rules_run('loop/rules.sh ci-trailers "$PR"')
+        notes = [note(PLUMBED)] * builder.ATTEMPTS
+        task, plumbing, _ = self.start(view, 'rules', notes, history(builder.PLUMBING_RUNS), steps)
         self.assertIsNone(task)
         self.assertFalse(plumbing)
         # This run, runs of other PRs and causes, and runs whose model job never started are not plumbing runs.
-        other = [(10, 'Fix PR #9: check', MODEL), (11, 'Fix PR #8: conflict', MODEL), (12, title, [dict(name='fix-run', conclusion='skipped')])]
-        task, plumbing, _ = self.start(view, 'conflict', notes, history(builder.PLUMBING_RUNS - 1) + other + [(99, title, MODEL)])
+        other = [(10, 'Fix PR #9: check', MODEL), (11, 'Fix PR #8: rules', MODEL), (12, title, [dict(name='fix-run', conclusion='skipped')])]
+        task, plumbing, _ = self.start(view, 'rules', notes, history(builder.PLUMBING_RUNS - 1) + other + [(99, title, MODEL)], steps)
         self.assertTrue(task and plumbing)
 
 
@@ -1158,7 +1180,7 @@ class Generated(unittest.TestCase):
 
     def resolve(self, root, regenerate=REGENERATE):
         with chdir(root):
-            return builder.resolve_generated(regenerate)
+            return builder.merge_main(regenerate)
 
     def test_l82_a_generated_only_conflict_is_regenerated_with_no_model(self):
         root = self.conflict()
@@ -1166,6 +1188,34 @@ class Generated(unittest.TestCase):
         parents = subprocess.run(['git', 'rev-list', '--parents', '-1', 'HEAD'], cwd=root, text=True, capture_output=True).stdout
         self.assertEqual(len(parents.split()), 3)
         self.assertEqual((root / 'contracts/generated/methods.ts').read_text(), 'm0\nm_main\nm_pr\nx\n')
+
+    def test_l82_a_clean_merge_of_main_is_committed_with_no_model(self):
+        root = Path(tempfile.mkdtemp())
+        self.addCleanup(lambda: subprocess.run(['rm', '-rf', str(root)]))
+
+        def git(*args):
+            subprocess.run(['git', '-c', 'user.name=t', '-c', 'user.email=t@t', '-c', 'init.defaultBranch=main', *args],
+                           cwd=root, check=True, capture_output=True)
+
+        def commit(name):
+            (root / name).write_text(f'{name}\n')
+            git('add', '-A')
+            git('commit', '-m', name)
+
+        git('init')
+        commit('base.txt')
+        git('switch', '-c', 'build/x')
+        commit('pr.txt')
+        git('switch', 'main')
+        commit('main.txt')
+        git('update-ref', 'refs/remotes/origin/main', 'main')
+        git('switch', 'build/x')
+        with patch.object(builder, 'engine') as engine:
+            self.assertTrue(self.resolve(root, ('false',)))  # a regenerate would fail: nothing conflicted, so it never runs
+        engine.assert_not_called()
+        parents = subprocess.run(['git', 'rev-list', '--parents', '-1', 'HEAD'], cwd=root, text=True, capture_output=True).stdout
+        self.assertEqual(len(parents.split()), 3)
+        self.assertTrue((root / 'main.txt').is_file())
 
     def test_l82_a_conflict_that_also_touches_source_or_cannot_regenerate_leaves_the_branch_untouched(self):
         cases = [(True, self.REGENERATE), (False, ('false',)),

@@ -139,7 +139,7 @@ it("u2773e_recovery_actions_keep_surface_draft", async () => {
   try {
     fireEvent.input(field, { target: { value: "  recoverable é 🪁  " } });
     const clipboard = vi.fn(async () => {});
-    Object.defineProperty(navigator, "clipboard", { configurable: true, value: { writeText: clipboard } });
+    vi.spyOn(app, "clipboardWrite").mockImplementation(clipboard);
     fireEvent.click(screen.getByRole("button", { name: "Copy name" }));
     expect(clipboard).toHaveBeenCalledWith("  recoverable é 🪁  ");
     expect(localStorage.getItem("roundup:drafts:/p")).toBe(raw);

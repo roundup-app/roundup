@@ -1,6 +1,6 @@
 import { fireEvent, waitFor, within } from "@solidjs/testing-library";
 import { expect, it } from "vitest";
-import { mountApp, select } from "../decisions/decisionsFixture";
+import { mountApp, select } from "../testing/appFixture";
 import { screen } from "@solidjs/testing-library";
 import { INTERNAL_CODE, RpcError } from "../app/seam";
 import type { Reconciliation } from "@contracts/message/Reconciliation";
@@ -18,7 +18,7 @@ let sent_: Sent[] = [];
 const open = async (plans: () => Record<string, Reconciliation>) => {
   const sent: Sent[] = [];
 
-  const mounted = await mountApp([], (app) => {
+  const mounted = await mountApp((app) => {
     app.handlers["rail.tree"] = () => [
       agent("a", "working", "editing", { name: "alpha", order: 0, work: { kind: "work", ask: "Fix login", done: "Login passes", limits: [] } }),
       agent("b", "working", "editing", { name: "beta", order: 1, work: clarifying("which?") }),

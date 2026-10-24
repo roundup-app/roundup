@@ -1,6 +1,6 @@
 import { fireEvent, screen, waitFor } from "@solidjs/testing-library";
 import { describe, expect, it } from "vitest";
-import { mountApp, select } from "../decisions/decisionsFixture";
+import { mountApp, select } from "../testing/appFixture";
 import { agent, clarifying, door, event } from "../testing/nodes";
 
 const work = {
@@ -10,7 +10,7 @@ const work = {
 };
 
 const mount = () =>
-  mountApp([], (app) => {
+  mountApp((app) => {
     app.handlers["rail.tree"] = () => [
       agent("a", "working", "editing", { name: "alpha", order: 0, work }),
       agent("b", "working", "editing", {
@@ -53,7 +53,7 @@ describe("O6: the order on one line above the Terminal", () => {
   });
 
   it("o2_an_agent_that_holds_no_order_shows_no_line", async () => {
-    await mountApp([], (app) => {
+    await mountApp((app) => {
       // A spawn with neither prompt nor order holds no order (O2).
       app.handlers["rail.tree"] = () => [0, 1, 2].map((order) => agent(`p${order}`, "working", "editing", { name: `pip${order}`, order, work: null }));
     });

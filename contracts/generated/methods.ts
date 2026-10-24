@@ -43,17 +43,6 @@ import type { SubscribeParams as common_SubscribeParams } from "./SubscribeParam
 import type { SubscribeResult as common_SubscribeResult } from "./SubscribeResult";
 import type { Touch as common_Touch } from "./Touch";
 import type { TouchedParams as common_TouchedParams } from "./TouchedParams";
-import type { AnswerParams as decision_AnswerParams } from "./decision/AnswerParams";
-import type { AnsweredDecision as decision_AnsweredDecision } from "./decision/AnsweredDecision";
-import type { AnswersParams as decision_AnswersParams } from "./decision/AnswersParams";
-import type { AskOutput as decision_AskOutput } from "./decision/AskOutput";
-import type { AskParams as decision_AskParams } from "./decision/AskParams";
-import type { CaptureParams as decision_CaptureParams } from "./decision/CaptureParams";
-import type { Decision as decision_Decision } from "./decision/Decision";
-import type { PermissionOutput as decision_PermissionOutput } from "./decision/PermissionOutput";
-import type { PermissionParams as decision_PermissionParams } from "./decision/PermissionParams";
-import type { PromptIdentity as decision_PromptIdentity } from "./decision/PromptIdentity";
-import type { RevokeParams as decision_RevokeParams } from "./decision/RevokeParams";
 import type { Deliverable as deliverable_Deliverable } from "./deliverable/Deliverable";
 import type { DeliverableId as deliverable_DeliverableId } from "./deliverable/DeliverableId";
 import type { ListParams as deliverable_ListParams } from "./deliverable/ListParams";
@@ -109,7 +98,6 @@ import type { ProjectModels as project_ProjectModels } from "./project/ProjectMo
 import type { ProjectSettings as project_ProjectSettings } from "./project/ProjectSettings";
 import type { RenameParams as project_RenameParams } from "./project/RenameParams";
 import type { Resources as project_Resources } from "./project/Resources";
-import type { WeeklyLimit as project_WeeklyLimit } from "./project/WeeklyLimit";
 import type { Worktrees as project_Worktrees } from "./project/Worktrees";
 import type { CreateParams as reaction_CreateParams } from "./reaction/CreateParams";
 import type { Preview as reaction_Preview } from "./reaction/Preview";
@@ -167,7 +155,6 @@ import type { StartWorkstreamParams as workstream_StartWorkstreamParams } from "
 export type RpcMethods = {
   "project.measurements": { params: null; result: project_Measurements };
   "project.measurementSummary": { params: project_MeasurementSummaryParams; result: project_MeasurementSummary };
-  "project.weeklyLimit": { params: null; result: project_WeeklyLimit };
   "deliverable.publish": { params: deliverable_PublishParams; result: deliverable_Deliverable };
   "deliverable.list": { params: deliverable_ListParams; result: deliverable_Deliverable[] };
   "deliverable.get": { params: deliverable_DeliverableId; result: deliverable_Deliverable };
@@ -260,13 +247,6 @@ export type RpcMethods = {
   "agent.instructions": { params: agent_NodeId; result: agent_Instructions };
   "agent.channelUp": { params: agent_NodeId; result: null };
   "agent.signal": { params: agent_SignalParams; result: agent_SignalOutcome | null };
-  "agent.permission": { params: decision_PermissionParams; result: decision_PermissionOutput };
-  "agent.ask": { params: decision_AskParams; result: decision_AskOutput };
-  "decision.list": { params: null; result: decision_Decision[] };
-  "decision.answers": { params: decision_AnswersParams; result: decision_AnsweredDecision[] };
-  "decision.capture": { params: decision_CaptureParams; result: decision_PromptIdentity };
-  "decision.answer": { params: decision_AnswerParams; result: null | agent_HeldAction };
-  "decision.revoke": { params: decision_RevokeParams; result: null };
   "rail.tree": { params: null; result: agent_RailNode[] };
   "rail.list": { params: null; result: agent_RailNode[] };
   "workstream.setAuto": { params: workstream_AutoParams; result: null };
@@ -298,7 +278,6 @@ export type RpcMethods = {
   "message.reconcileWork": { params: message_ProgressParams; result: message_Reconciliation };
   "message.resumeWork": { params: message_ResumeWorkParams; result: message_ResumeWork };
   "message.send": { params: message_SendParams; result: message_Message };
-  "message.pass": { params: message_MessageId; result: message_Message };
   "message.get": { params: message_MessageId; result: message_Message };
   "message.list": { params: message_ListParams; result: message_Message[] };
   "message.deliver": { params: message_MessageId; result: message_Message };

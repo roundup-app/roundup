@@ -4,7 +4,7 @@
 //! path (`#[path = ".../support/rupd_harness.rs"]`); neither keeps a copy.
 #![allow(dead_code)] // each includer uses its own part of the handle
 
-use std::io::{Read, Write};
+use std::io::Read;
 use std::path::{Path, PathBuf};
 use std::process::{Child, ChildStderr, ChildStdin, Command, Stdio};
 use std::time::{Duration, Instant};
@@ -34,9 +34,6 @@ pub fn start(
     configure: impl FnOnce(&mut Command),
 ) -> Rupd {
     let mut daemon = spawn(rupd, project, attached, configure);
-    if attached && let Some(stdin) = daemon.stdin.as_mut() {
-        writeln!(stdin, "roundup-proof 1 {}", "0".repeat(64)).unwrap();
-    }
     let started = Instant::now();
     loop {
         if ping(&daemon.socket) {

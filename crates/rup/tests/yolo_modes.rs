@@ -3,9 +3,9 @@
 #[allow(dead_code)]
 mod daemon;
 
-use contracts::EventData;
+use contracts::{EventData, Kind};
 use daemon::next;
-use serde_json::{Value, json};
+use serde_json::json;
 use std::time::Duration;
 #[path = "common/doors.rs"]
 #[allow(dead_code)]
@@ -98,16 +98,7 @@ async fn a2693a_real_claude_resumes_yolo_and_restarts_normal() {
 
 #[tokio::test]
 async fn a2693a_real_claude_skips_only_yolo_tool_permissions() {
-    use std::os::unix::fs::PermissionsExt;
-    let hooks = tempfile::tempdir().unwrap();
-    let wrapper = hooks.path().join("rup");
-    let calls = hooks.path().join("permissions");
-    std::fs::write(&wrapper, format!("#!/bin/sh\nif [ \"$1\" = permission ]; then echo permission >> '{}'; fi\nexec '{}' \"$@\"\n", calls.display(), env!("CARGO_BIN_EXE_rup"))).unwrap();
-    std::fs::set_permissions(&wrapper, std::fs::Permissions::from_mode(0o755)).unwrap();
-    let project = daemon::start_real(
-        "a2693a_tools",
-        &[("ROUNDUP_RUP_BIN", wrapper.to_str().unwrap())],
-    );
+    let project = daemon::start_real("a2693a_tools", &[]);
     let mut client = project.subscribed().await;
     let model = project.model.as_ref().unwrap();
     let node = client
@@ -118,10 +109,11 @@ async fn a2693a_real_claude_skips_only_yolo_tool_permissions() {
         .await
         .unwrap();
     let id = node["id"].as_str().unwrap();
-    for (mode, prompt, expected_calls) in [
-        (None, "A2693 normal tool", 1),
-        (Some("yolo"), "A2693 yolo tool", 1),
-        (Some("normal"), "A2693 restarted tool", 2),
+    let effect = project.dir.path().join("a2693-effect");
+    for (mode, prompt) in [
+        (None, "A2693 normal tool"),
+        (Some("yolo"), "A2693 yolo tool"),
+        (Some("normal"), "A2693 restarted tool"),
     ] {
         if let Some(mode) = mode {
             client
@@ -134,31 +126,20 @@ async fn a2693a_real_claude_skips_only_yolo_tool_permissions() {
                 .unwrap();
         }
         if mode != Some("yolo") {
-            let decision = next(&mut client, |event| match event {
-                EventData::DecisionOpened(d) if d.agent == id => Some(d),
+            // The permission prompt puts the Agent in needs-you; typing its "Yes" choice allows it in the Terminal.
+            next(&mut client, |event| match event {
+                EventData::AgentStatus(s) if s.id == id && s.status.kind == Kind::NeedsYou => {
+                    Some(())
+                }
                 _ => None,
             })
             .await;
-            assert_eq!(decision.tool, "Bash");
-            client
-                .request(
-                    "decision.answer",
-                    json!({"id":decision.id,"answer":"deny","proof":daemon::H21_PROOF}),
-                )
-                .await
-                .unwrap();
+            assert!(!effect.exists(), "the tool ran before it was allowed");
+            daemon::allow_prompt(&client, id).await;
         }
         turn_done(model, &client, id, prompt).await;
-        assert_eq!(
-            std::fs::read_to_string(&calls).unwrap().lines().count(),
-            expected_calls
-        );
-        assert_eq!(
-            project.dir.path().join("a2693-effect").exists(),
-            mode.is_some()
-        );
-        let decisions = client.request("decision.list", Value::Null).await.unwrap();
-        assert!(decisions.as_array().unwrap().is_empty());
+        assert!(effect.exists());
+        std::fs::remove_file(&effect).unwrap();
     }
     model.assert_matched();
 }
@@ -258,15 +239,6 @@ async fn b2693b_real_yolo_receiver_takes_a_note_without_approval() {
             })
             .collect();
         assert_eq!(requests.len(), 1);
-        assert!(
-            client
-                .request("decision.list", Value::Null)
-                .await
-                .unwrap()
-                .as_array()
-                .unwrap()
-                .is_empty()
-        );
     }
     let mut audit = project.client().await;
     let subscribed = audit
@@ -281,8 +253,8 @@ async fn b2693b_real_yolo_receiver_takes_a_note_without_approval() {
                 EventData::MessageDelivered(m) if ids.contains(&(m.id as u64)) => {
                     delivered.push(m.id as u64)
                 }
-                EventData::DecisionOpened(d) if d.agent == id => {
-                    panic!("a note opened a permission Decision")
+                EventData::AgentStatus(s) if s.id == id && s.status.kind == Kind::NeedsYou => {
+                    panic!("a note raised a permission prompt")
                 }
                 _ => {}
             }

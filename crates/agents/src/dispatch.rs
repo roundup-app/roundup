@@ -3,15 +3,7 @@ use super::*;
 #[async_trait]
 impl Module for Agents {
     fn namespaces(&self) -> &'static [&'static str] {
-        &[
-            "agent",
-            "rail",
-            "project",
-            "import",
-            "decision",
-            "models",
-            "workstream",
-        ]
+        &["agent", "rail", "project", "import", "models", "workstream"]
     }
 
     async fn call(&self, ctx: &Ctx, method: &str, value: Value) -> Result<Value, RpcError> {
@@ -35,18 +27,12 @@ impl Module for Agents {
                 }
                 if let Some(params) = summary {
                     // U3016i: the live Status says whether an Agent still runs.
-                    let runs = shared.runs();
-                    let tree = rail
-                        .tree()?
-                        .into_iter()
-                        .map(|node| shared.present(node, &runs, &rail))
-                        .collect::<Result<Vec<_>, _>>()?;
+                    let tree = shared.presented_tree(&rail)?;
                     reply(&measurement::summarize(measurements, tree, params)?)
                 } else {
                     reply(&measurements)
                 }
             }
-            "project.weeklyLimit" => reply(&self.launcher.weekly_limit().await),
             "agent.spawn" => reply(&self.spawn(ctx, params(value)?).await?),
             "agent.extras" => reply(&claude_code::extras::available(
                 &self.launcher.extras_sources(self.project_dir()),
@@ -180,44 +166,6 @@ impl Module for Agents {
                     )?;
                 }
                 reply(&drop.then_some(SignalOutcome { drop }))
-            }
-            "agent.permission" => {
-                let PermissionParams { id, payload } = params(value)?;
-                reply(&shared.permission(ctx.actor.clone(), &id, payload).await?)
-            }
-            "agent.ask" => {
-                let ask: contracts::decision::AskParams = params(value)?;
-                reply(&shared.ask(ctx.actor.clone(), ask).await?)
-            }
-            "decision.answers" => {
-                let contracts::decision::AnswersParams { agent } = params(value)?;
-                reply(&shared.answers_for(&ctx.actor, &agent)?)
-            }
-            "decision.list" => reply(&shared.decisions_for(&ctx.actor)?),
-            "decision.capture" => {
-                let CaptureParams { id } = params(value)?;
-                reply(&shared.capture(&ctx.actor, &id)?)
-            }
-            "decision.answer" => {
-                let answer: AnswerParams = params(value)?;
-                let shared = Arc::clone(shared);
-                let ctx = Ctx {
-                    actor: ctx.actor.clone(),
-                    bus: ctx.bus.clone(),
-                    touches: Arc::clone(&ctx.touches),
-                };
-                // An answer may wait for a guarded physical write. Keep that wait off
-                // the reactor so the user's competing call can reach its own effect.
-                tokio::task::spawn_blocking(move || shared.answer(&ctx, answer))
-                    .await
-                    .map_err(|err| {
-                        RpcError::unknown_outcome(format!("prompt effect worker ended: {err}"))
-                    })??;
-                reply(&())
-            }
-            "decision.revoke" => {
-                let revoke: contracts::decision::RevokeParams = params(value)?;
-                reply(&shared.revoke(ctx, revoke)?)
             }
             "rail.tree" | "rail.list" => reply(&shared.tree()?),
             "workstream.setAuto" => {

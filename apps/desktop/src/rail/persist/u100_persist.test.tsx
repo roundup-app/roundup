@@ -183,7 +183,7 @@ it("u100_first_tree_is_restored_without_flash_scroll_focus_or_extra_rpc", async 
   expect(scroll).not.toHaveBeenCalled();
   expect(document.activeElement).toBe(field);
   expect(app.calls.map((call) => call.method).sort()).toEqual([
-    "ask.list", "daemon.ping", "decision.list", "deliverable.list", "message.list", "pad.list", "rail.tree", "reaction.list", "terminal.list", "terminal.resize", "terminal.scheme", "terminal.snapshot", "todo.list", "todo.listHanded", "workstream.queue",
+    "ask.list", "daemon.ping", "deliverable.list", "message.list", "pad.list", "rail.tree", "reaction.list", "terminal.list", "terminal.resize", "terminal.scheme", "terminal.snapshot", "todo.list", "todo.listHanded", "workstream.queue",
   ]);
   field.remove();
 });
@@ -211,7 +211,7 @@ it("u100_later_selection_reveals_ancestors_and_saves_each_change", async () => {
   expect(read()).toEqual({ selected: "tokens", collapsed: [] });
   await collapse("auth");
   expect(read()).toEqual({ selected: "tokens", collapsed: ["auth"] });
-  app.emit(event({ name: "agent.status", data: { status_revision: "2", attempt: "1", id: "logins", status: { kind: "error", label: "failed", since: 0 } } }));
+  app.emit(event({ name: "agent.status", data: { status_revision: "2", attempt: "1", id: "logins", status: { kind: "error", label: "failed", since: 0, finished: "0" } } }));
   leaderKey("KeyJ");
   expect(row("logins")?.getAttribute("aria-selected")).toBe("true");
   expect(read()).toEqual({ selected: "logins", collapsed: [] });

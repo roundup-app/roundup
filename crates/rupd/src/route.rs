@@ -29,9 +29,13 @@ impl Daemon {
         let id = request.get("id").cloned();
         let method = request["method"].as_str().unwrap_or_default();
         let params = request.get("params").cloned().unwrap_or(Value::Null);
-        if method.starts_with("decision.") {
-            // Preserve the wire reader's authenticated identity while earlier actions finish.
-            conn.actor = actor.unwrap_or_else(|| self.decision_actor(conn));
+        if method == "terminal.write" {
+            // A child may not turn its Terminal keystrokes into a user's answer by claiming
+            // `user`; H21's process identity applies here. The wire reader already resolved it.
+            let actor = actor.unwrap_or_else(|| self.terminal_writer(conn));
+            if actor.kind == ActorKind::Agent {
+                conn.actor = actor;
+            }
         } else if method.starts_with("deliverable.")
             || method.starts_with("reaction.")
             || matches!(
@@ -84,14 +88,6 @@ impl Daemon {
     ) -> Result<Value, RpcError> {
         self.start_pushes();
         self.start_queue();
-        // A child may not turn its Terminal keystrokes into a user's answer by
-        // claiming `user`; H21's process identity applies to this input path too.
-        if method == "terminal.write" {
-            let actor = self.terminal_writer(conn);
-            if actor.kind == ActorKind::Agent {
-                conn.actor = actor;
-            }
-        }
         let namespace = method.split('.').next().unwrap_or_default();
         if matches!(method, "daemon.identify" | "events.subscribe") {
             return builtin::call(self, conn, namespace, method, &params)
@@ -189,11 +185,7 @@ impl Daemon {
                 // Begin needs the write lock, so this check under the read guard is final.
                 let guard = if matches!(
                     method,
-                    "agent.interrupt"
-                        | "agent.prompt"
-                        | "agent.setOrder"
-                        | "agent.resume"
-                        | "decision.answer"
+                    "agent.interrupt" | "agent.prompt" | "agent.setOrder" | "agent.resume"
                 ) && self.sender.get().is_some_and(|m| m.takeover_active(child))
                 {
                     drop(guard);
@@ -248,18 +240,7 @@ impl Daemon {
         if matches!(method, "agent.context" | "agent.brief") {
             return self.awareness(conn, method, params).await;
         }
-        if matches!(
-            method,
-            "decision.list"
-                | "decision.answer"
-                | "decision.capture"
-                | "decision.answers"
-                | "decision.revoke"
-        ) {
-            return self.decision_call(conn, method, params).await;
-        }
-        self.before_prompt_effect(&conn.actor, method, &params)
-            .await?;
+        self.before_prompt_effect(&conn.actor, method).await?;
         if matches!(
             method,
             "message.progress"
@@ -393,18 +374,12 @@ impl Daemon {
                     .map_err(|err| {
                         RpcError::new(code::INVALID_PARAMS, format!("data is not base64: {err}"))
                     })?;
-                let guarded = write.identity.is_some();
-                if conn.actor.kind == ActorKind::User && !guarded {
+                if conn.actor.kind == ActorKind::User {
                     self.note_user_input(&params).await;
                 }
                 self.agents
-                    .write_terminal(&conn.actor, &write.id, bytes, write.identity)
+                    .write_terminal(&conn.actor, &write.id, bytes)
                     .await?;
-                // A refused guarded submit wrote no bytes and cannot release Messages
-                // waiting behind the user's input. Ordinary writes retain their queued cut.
-                if conn.actor.kind == ActorKind::User && guarded {
-                    self.note_user_input(&params).await;
-                }
                 return rpc::reply(&());
             }
         }

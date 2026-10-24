@@ -8,7 +8,7 @@ use contracts::agent::RailNode;
 use rpc::code;
 use serde_json::{Value, json};
 
-use super::daemon::{Project, h21_ask, h21_bash, h21_poll, rail_tree, signal, start};
+use super::daemon::{Project, h21_poll, needs_you, rail_tree, signal, start};
 use super::{actor, agent_in_as, client_as, start_door};
 
 pub(super) const STOP: &str = "Stop";
@@ -368,7 +368,7 @@ async fn b43_error_and_needs_you_reach_a_non_door_parent() {
         "{note}"
     );
     let d = agent_in_as(&s.project, &s.w).await;
-    let _ask = h21_ask(&s.project, &d, "Bash", h21_bash()).await;
+    needs_you(&s.user, &d).await;
     let n = name_of(&s.user, &d).await;
     h21_poll("the needs-you note", async || {
         let found = messages(&s.user, &s.w, "[digest]").await;
@@ -507,6 +507,7 @@ pub(super) fn finished_event(id: &str, kind: contracts::Kind) -> String {
                 kind,
                 label: "finished".into(),
                 since: 0,
+                finished: "0".into(),
             },
         })),
     })
@@ -528,6 +529,20 @@ pub(super) fn head(project: &Project) -> u64 {
         .query_row("SELECT MAX(id) FROM events", [], |row| row.get(0))
         .unwrap();
     top as u64
+}
+
+/// The reaction once its observer has saved a cleared cause; the firing commits before that save.
+pub(super) async fn cleared_cause(user: &rpc::Client, id: &str) -> contracts::reaction::Reaction {
+    super::daemon::h21_poll("the cleared acceptance failure", async || {
+        let seen: contracts::reaction::Reaction = serde_json::from_value(
+            user.request("reaction.get", json!({ "id": id }))
+                .await
+                .unwrap(),
+        )
+        .unwrap();
+        seen.observation.cause.is_none().then_some(seen)
+    })
+    .await
 }
 
 /// The Door comes back after a restart, as the user starts it.
