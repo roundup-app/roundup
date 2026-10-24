@@ -1,0 +1,97 @@
+{
+  "purpose": "Diagnostic only. No paired historical comparison or R16 regression verdict; #3720 remains open for the 9V45 Builder.",
+  "source_commit": "78b879910f518b11ba1ef6eb36797fe75f86a5bb",
+  "recorded_utc": "2026-10-24T19:14:54.919168+00:00",
+  "machine": {
+    "cpu_model": "AMD EPYC 7763 64-Core Processor",
+    "architecture": "x86_64",
+    "distribution": {
+      "NAME": "Ubuntu",
+      "ID": "ubuntu",
+      "PRETTY_NAME": "Ubuntu 24.04.5 LTS",
+      "VERSION_ID": "24.04",
+      "VERSION": "24.04.5 LTS (Noble Numbat)",
+      "VERSION_CODENAME": "noble",
+      "ID_LIKE": "debian",
+      "HOME_URL": "https://www.ubuntu.com/",
+      "SUPPORT_URL": "https://help.ubuntu.com/",
+      "BUG_REPORT_URL": "https://bugs.launchpad.net/ubuntu/",
+      "PRIVACY_POLICY_URL": "https://www.ubuntu.com/legal/terms-and-policies/privacy-policy",
+      "UBUNTU_CODENAME": "noble",
+      "LOGO": "ubuntu-logo"
+    },
+    "kernel": "6.17.0-1022-azure",
+    "available_cpus": [
+      0,
+      1,
+      2,
+      3
+    ],
+    "online_cpus": "0-3"
+  },
+  "rustc": "rustc 1.99.0 (b940084d7 2026-09-28)",
+  "build_command": "cargo build --release -p rupd -p rup -p perf --jobs 2; tools/sidecar/bundle.sh target/release/sidecar",
+  "binary_sha256": {
+    "rupd": "6ca400757478fa3af13365e10cb023177464a27584582f1e2cd8ecd4a473de03",
+    "rup": "4a36ea34340ba3e2c5934e789e4cf6ada24f39341215546dd1fa4a3e26b3ae26",
+    "perf": "af159146ad5e1fca53538efa15541c41f2486456a8a1cf4fdb6814fec508c786"
+  },
+  "calls_per_latency_measurement": 1000,
+  "observer_source": "fn main() {\n    let root = std::env::current_dir().unwrap();\n    let runtime = tokio::runtime::Runtime::new().unwrap();\n    for invocation in 1..=3 {\n        let load_before: f64 = std::fs::read_to_string(\"/proc/loadavg\").unwrap().split_whitespace().next().unwrap().parse().unwrap();\n        let sample = runtime.block_on(perf::measure::one_run(&root.join(\"target/release/rupd\"), &root.join(\"target/release/rup\"), 1000, std::process::Stdio::inherit())).unwrap();\n        println!(\"{}\", serde_json::json!({\"invocation\": invocation, \"load_before\": load_before, \"metrics\": sample}));\n    }\n}\n",
+  "daemon_startup_logs": [
+    "rupd: serving /tmp/.tmpRpJpqE/project on /tmp/.tmpRpJpqE/rupd.sock (open 11.24 ms, bound 11.31 ms)",
+    "rupd: serving /tmp/.tmpQCoY58/project on /tmp/.tmpQCoY58/rupd.sock (open 12.67 ms, bound 12.72 ms)",
+    "rupd: serving /tmp/.tmp92y2EG/project on /tmp/.tmp92y2EG/rupd.sock (open 12.79 ms, bound 12.84 ms)"
+  ],
+  "runs": [
+    {
+      "invocation": 1,
+      "load_before": 0.27,
+      "metrics": {
+        "cold_plugin_materialization_ms": 11.951207,
+        "cold_start_ms": 13.857718,
+        "hook_loop_ms": 293.53338499999995,
+        "ping_p95_ms": 0.11219,
+        "rail_tree_10_p95_ms": 0.395537,
+        "rail_tree_40_p95_ms": 1.106271,
+        "rss_extra_mb": 3.1484375,
+        "terminal_write_p95_ms": 0.14313499999999998,
+        "write_to_output_p95_ms": 0.252681
+      }
+    },
+    {
+      "invocation": 2,
+      "load_before": 0.4,
+      "metrics": {
+        "cold_plugin_materialization_ms": 11.761446999999999,
+        "cold_start_ms": 15.695018000000001,
+        "hook_loop_ms": 292.282482,
+        "ping_p95_ms": 0.119613,
+        "rail_tree_10_p95_ms": 0.35802700000000004,
+        "rail_tree_40_p95_ms": 1.1007230000000001,
+        "rss_extra_mb": 3.07421875,
+        "terminal_write_p95_ms": 0.13697,
+        "write_to_output_p95_ms": 0.259803
+      }
+    },
+    {
+      "invocation": 3,
+      "load_before": 0.4,
+      "metrics": {
+        "cold_plugin_materialization_ms": 11.611032,
+        "cold_start_ms": 15.992202,
+        "hook_loop_ms": 293.76018700000003,
+        "ping_p95_ms": 0.10214,
+        "rail_tree_10_p95_ms": 0.39840299999999995,
+        "rail_tree_40_p95_ms": 1.078381,
+        "rss_extra_mb": 3.1484375,
+        "terminal_write_p95_ms": 0.137493,
+        "write_to_output_p95_ms": 0.24984300000000004
+      }
+    }
+  ],
+  "absolute_limits": {
+    "cold_start_under_300_ms": true,
+    "rss_extra_under_150_mb": true
+  }
+}
