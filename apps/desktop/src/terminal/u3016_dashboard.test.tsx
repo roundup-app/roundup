@@ -534,3 +534,21 @@ it("u3016k_partial_figures_keep_their_own_notes_and_price_basis", async () => {
   expect(screen.getByRole("tooltip").textContent).toContain("reported figure $1.13");
   expect(screen.getByRole("tooltip").textContent).toContain("Opus 5.5 $0.98");
 });
+
+it("p3557c_failure_lifetime_measurement_dashboard", async () => {
+  const { app } = await dashboard();
+
+  app.handlers["project.measurementSummary"] = () => { throw new Error("Read unavailable"); };
+
+  app.emit(event({ name: "project.measurementsChanged", data: { revision: "5" } }));
+  await screen.findByText(/Read unavailable/, {}, { timeout: 3000 });
+
+  // an unrelated item's removal is not this read's recovery
+  app.emit(event({ name: "rail.changed" }));
+  await waitFor(() => expect(app.calls.some((call) => call.method === "rail.tree")).toBe(true));
+  expect(screen.getByText(/Read unavailable/)).toBeTruthy();
+
+  app.handlers["project.measurementSummary"] = (params) => summary(params.home, params.category, "7");
+  fireEvent.click(screen.getByRole("button", { name: "Retry" }));
+  await waitFor(() => expect(screen.queryByText(/Read unavailable/)).toBeNull());
+});
