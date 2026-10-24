@@ -531,6 +531,20 @@ pub(super) fn head(project: &Project) -> u64 {
     top as u64
 }
 
+/// The reaction once its observer has saved a cleared cause; the firing commits before that save.
+pub(super) async fn cleared_cause(user: &rpc::Client, id: &str) -> contracts::reaction::Reaction {
+    super::daemon::h21_poll("the cleared acceptance failure", async || {
+        let seen: contracts::reaction::Reaction = serde_json::from_value(
+            user.request("reaction.get", json!({ "id": id }))
+                .await
+                .unwrap(),
+        )
+        .unwrap();
+        seen.observation.cause.is_none().then_some(seen)
+    })
+    .await
+}
+
 /// The Door comes back after a restart, as the user starts it.
 pub(super) async fn start_again(user: &rpc::Client, door: &str) {
     user.request("rail.startDoor", json!({ "id": door }))
