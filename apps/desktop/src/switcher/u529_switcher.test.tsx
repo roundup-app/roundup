@@ -3,7 +3,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { createSignal, Show } from "solid-js";
 import { Combobox } from "../ui/Combobox";
 import { info } from "../testing/nodes";
-import { openSwitcher, field, mountSwitcher, press, rows } from "./switcherFixture";
+import { openSwitcher, field, mountSwitcher, switcherKey as press, rows } from "./switcherFixture";
 
 afterEach(() => { cleanup(); localStorage.clear(); vi.restoreAllMocks(); });
 

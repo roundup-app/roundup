@@ -141,18 +141,18 @@ export const createRailMenu = (app: AppSeam, rail: RailState, onFailure: (messag
 
     if (current.node.kind === "workstream") {
       if (!current.confirming) void confirmWorkstream(current);
-      else if (current.removal) void remove(current);
+      else if (current.removal) return remove(current);
 
       return;
     }
 
-    if (!current.confirming && needsConfirmation(current)) {
+    if (!current.confirming) {
       setState({ ...current, confirming: true });
 
       return;
     }
 
-    void remove(current);
+    return remove(current);
   };
 
   const remove = (current: MenuState) =>

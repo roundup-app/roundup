@@ -1,6 +1,6 @@
 import { cleanup, waitFor } from "@solidjs/testing-library";
 import { afterEach, expect, it } from "vitest";
-import { mountSwitcher, press } from "../switcher/switcherFixture";
+import { mountSwitcher, switcherKey as press } from "../switcher/switcherFixture";
 
 afterEach(cleanup);
 
