@@ -9,7 +9,7 @@ Accepted implementation target: U3010a–d in `scenarios/ui-motion.md`, commissi
 | M1 | Keys, keyboard list moves, tab switches and Return/Space activation: final state/focus by next frame, no timed effect, even during pointer motion | U3010b behavioral App seam plus rendered key interruption |
 | M2 | Enabled pointer press: scale 1→0.97 in 100 ms; release/cancel/blur returns to 1 in 100 ms; no added background | U3010b rendered press/cancel; disabled action regression |
 | M3 | Pointer Drawer, Shelf and Terminal Bubble: Motion spring, duration target 250 ms, bounce ≤0.1, retarget displayed position and velocity | U3010b continuity trace; existing focus/resize regressions |
-| M4 | Pointer menu/popover: trigger-corner scale 0.96→1 and opacity 0→1, 150 ms enter, 100 ms exit | U3010b rendered placement/exit; Ark focus/action test |
+| M4 | Pointer App-rendered menu/popover: trigger-corner scale 0.96→1 and opacity 0→1, 150 ms enter, 100 ms exit | U3010b rendered placement/exit; Ark focus/action test |
 | M5 | Pointer/incoming reorder, nest, add/remove: Motion layout, 200 ms; no height keyframes | U3010c measured Solid layout probe and source review |
 | M6 | Dragging: accent outline on lifted row, dashed landing slot, other rows stationary; committed drop uses M5 | U3010c rendered drag; #3540 owns shared drag behavior |
 | M7 | Acknowledged pointer Todo completion: tick draws, row starts folding at acknowledgement +300 ms through M5; data/count changes immediately | U3010c fake-clock lifetime and rendered tick/fold |
@@ -32,7 +32,7 @@ Key source always overrides the preset to instant. Under reduced motion every no
 | Terminal Bubble / pointer open-close | Spatial consistency / spring | Same spring; transform/opacity | Current position/velocity; existing single-bubble placement/focus | U3010b M3; U2580a amended |
 | Drawer, Shelf, Bubble, Help, Leader, Switcher / key open-close | Immediate access / none | 0 | Cancel stale effects; final content/focus next frame | U3010b M1; U2580a |
 | Help, Leader, Switcher / pointer | Immediate access / none | 0 | Existing immediate dismissal/focus | U2580a |
-| Menu/popover / pointer open-close | Spatial consistency / corner entrance | Scale 0.96→1 plus fade, 150 ms in, 100 ms out | Resolved trigger origin follows Ark placement; exit inert; key immediate | U3010b M4 |
+| App-rendered menu/popover / pointer open-close | Spatial consistency / corner entrance | Scale 0.96→1 plus fade, 150 ms in, 100 ms out | Resolved trigger origin follows Ark placement; exit inert; key immediate | U3010b M4 |
 | Web modal and scrim / pointer | Feedback / fade | Existing 120 ms crossfade Token; opacity | Current opacity; Ark owns focus/dismissal; key immediate | U3512; U3010b/d |
 | Toast / arrival | Feedback / edge lift | Existing 200 ms enter Token/easing; transform/opacity | Current displayed state; no new alert eligibility | U3793; U3010a/d |
 | Toast / expiry or dismissal | Feedback / sink and fade | Existing 150 ms exit Token/easing; transform/opacity | Existing timer pauses on hover/focus/hidden window; keyboard dismissal immediate | U3791/U3793; U3010a/d |
@@ -52,7 +52,7 @@ Key source always overrides the preset to instant. Under reduced motion every no
 | Other five Kinds, Rail leaf fold, hover, restored state / all | Immediate state / none | 0 | No arrival pulse, shake or timed hover | U446/U405/U112; U3010a |
 | Copy control / acknowledged clipboard write | Feedback / own label | 1.5 s label lifetime, instant label replacement | Per-control deadline restarts; reject shows cause; cleanup cancels stale timers | U3010c M8 |
 
-Inventory all remaining App effects during implementation; migrate each under its accepted purpose to a conforming Motion row or delete its timed effect. Do not add unrelated effects. U404's Live line and retired U105 remain removed; the five non-working Kinds remain still at rest. P3 permits no routine-progress alert. System NSAlert animation and third-party editor/Terminal internals are not App-owned effects.
+Inventory all remaining App effects during implementation; migrate each under its accepted purpose to a conforming Motion row or delete its timed effect. Do not add unrelated effects. U404's Live line and retired U105 remain removed; the five non-working Kinds remain still at rest. P3 permits no routine-progress alert. Native menus and NSAlert animation are system-owned; third-party editor/Terminal internals are not App-owned effects. M4 governs App-rendered menus/popovers and changes no native menu App seam.
 
 ## Copy controls
 
