@@ -8,7 +8,7 @@ import { createFakeApp } from "../testing/fakeApp";
 import { event, info, node, workstream, door, USER } from "../testing/nodes";
 import { createRailState } from "./rail";
 
-const status = (label: string): Status => ({ kind: "working", label, since: 1 });
+const status = (label: string): Status => ({ kind: "working", label, since: 1, finished: "0" });
 
 const open = async (tree: RailNode[], terminals: TerminalInfo[] = []) => {
   const app = createFakeApp();
@@ -205,7 +205,7 @@ describe("u3 Rail state", () => {
 it("u62_old_status_cannot_overwrite_a_restarted_door", async () => {
   const current = node("workstream", { kind: "workstream", attempt: "2", terminal_id: "new" });
   const { app, rail } = await open([current]);
-  app.emit(event({ name: "agent.status", data: { status_revision: "2", id: "workstream", attempt: "1", status: { kind: "done", label: "old exit", since: 1 } } }));
+  app.emit(event({ name: "agent.status", data: { status_revision: "2", id: "workstream", attempt: "1", status: { kind: "done", label: "old exit", since: 1, finished: "0" } } }));
   expect(rail.nodes[0]).toEqual(current);
   app.emit(event({ name: "agent.status", data: { status_revision: "2", id: "workstream", attempt: "2", status: status("new work") } }));
   expect(rail.nodes[0]?.status?.label).toBe("new work");
@@ -214,7 +214,7 @@ it("u62_old_status_cannot_overwrite_a_restarted_door", async () => {
 it("a7_delayed_same_attempt_status_cannot_replace_a_later_revision", async () => {
   const current = node("door", { kind: "workstream", attempt: "1", status_revision: "3", status: status("recovered") });
   const { app, rail } = await open([current]);
-  app.emit(event({ name: "agent.status", data: { id: "door", attempt: "1", status_revision: "2", status: { kind: "error", label: "old failure", since: 0 } } }));
+  app.emit(event({ name: "agent.status", data: { id: "door", attempt: "1", status_revision: "2", status: { kind: "error", label: "old failure", since: 0, finished: "0" } } }));
   expect(rail.nodes[0]?.status?.label).toBe("recovered");
   app.emit(event({ name: "agent.status", data: { id: "door", attempt: "1", status_revision: "4", status: status("new work") } }));
   expect(rail.nodes[0]?.status?.label).toBe("new work");

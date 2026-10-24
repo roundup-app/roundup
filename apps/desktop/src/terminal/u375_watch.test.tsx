@@ -170,7 +170,7 @@ describe("u375 the user watches an Agent's screen without taking it over", () =>
     const { app, connected, emulators } = await mountCentre(tree(), { select: "workstream" });
 
     const status = (kind: "needs-you" | "working", revision: string) =>
-      app.emit(event({ name: "agent.status", data: { id: "a", attempt: "1", status_revision: revision, status: { kind, label: kind, since: NOW } } }));
+      app.emit(event({ name: "agent.status", data: { id: "a", attempt: "1", status_revision: revision, status: { kind, label: kind, since: NOW, finished: "0" } } }));
 
     status("needs-you", "2");
     // U412: activating the child's Toast selects its row, as a click on the row does.

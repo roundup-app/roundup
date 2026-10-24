@@ -160,7 +160,7 @@ async fn n20_current_store_opens() {
     let path = dir.path().join("digest.db");
     let nodes = serde_json::from_value::<Vec<contracts::agent::RailNode>>(json!([
         {"id":"door","kind":"workstream","name":"Door","attempt":"1","order":0,"can_resume":false,"stray":[]},
-        {"id":"child","kind":"agent","name":"Child","parent":"door","status":{"kind":"done","label":"Done","since":0},"order":0,"can_resume":false,"stray":[]}
+        {"id":"child","kind":"agent","name":"Child","parent":"door","status":{"kind":"done","label":"Done","since":0,"finished":"0"},"order":0,"can_resume":false,"stray":[]}
     ])).unwrap();
     let actor = Actor {
         kind: ActorKind::Agent,
