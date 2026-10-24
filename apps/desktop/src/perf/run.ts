@@ -1,8 +1,8 @@
-import type { AppSeam } from "../app/seam";
+import type { App, AppSeam, ProjectCalls } from "../app/seam";
 import { toBase64 } from "../terminal/base64";
 import { createXtermEmulators } from "../terminal/emulator";
 import { PATIENCE_MS, WARMUP_KEYS, createKeystrokeProbe, typeKeys } from "./keystrokes";
-import type { Summary } from "./keystrokes";
+import type { HopSummary, Summary } from "./keystrokes";
 
 const KEYS = 1000;
 
@@ -76,6 +76,8 @@ export const timerResolutionMs = (): number => {
 type PerfReport =
   | { error: string }
   | (Summary & {
+      hops: Record<string, HopSummary>;
+      hop_uncertainty_ms: number;
       keys: number;
       patience_ms: number;
       renderer: "webgl" | "dom";
@@ -104,6 +106,8 @@ export const createKeystrokeRun = (app: AppSeam) => {
   const isReady = new Promise<void>((resolve) => (ready = resolve));
 
   const emulators = createXtermEmulators({
+    input: probe.input,
+    arrived: probe.arrived,
     written: (bytes) => {
       probe.written(bytes);
 
@@ -138,21 +142,37 @@ export const createKeystrokeRun = (app: AppSeam) => {
     textarea.focus();
 
     const frame = await frameMs();
+    const timerResolution = timerResolutionMs();
 
     await typeKeys(probe, { press: () => press(textarea), sleep, random: Math.random }, KEYS + WARMUP_KEYS);
     await report({
       ...probe.summary(WARMUP_KEYS),
+      hops: probe.hops(WARMUP_KEYS),
+      hop_uncertainty_ms: timerResolution,
       keys: KEYS,
       patience_ms: PATIENCE_MS,
       renderer: webgl ? "webgl" : "dom",
       frame_ms: frame,
-      timer_resolution_ms: timerResolutionMs(),
+      timer_resolution_ms: timerResolution,
       device_pixel_ratio: window.devicePixelRatio,
       user_agent: navigator.userAgent,
     });
   };
 
+  /** The App's own `terminal.write` calls stamp the dispatch and the Daemon's answer; every call goes through unchanged. */
+  const traced = <T extends Pick<ProjectCalls, "rpc">>(calls: T): T => ({
+    ...calls,
+    rpc: (method, params) => {
+      if (method !== "terminal.write") return calls.rpc(method, params);
+
+      probe.dispatched();
+
+      return calls.rpc(method, params).finally(probe.replied);
+    },
+  });
+
   return {
+    traced: (real: App): App => ({ ...real, forProject: (path) => traced(real.forProject(path)) }),
     createEmulator: (id: string) => {
       terminalId = id;
 

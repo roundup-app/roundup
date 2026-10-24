@@ -14,14 +14,14 @@ const root = document.getElementById("root");
 
 if (!root) throw new Error("index.html has no #root element");
 
-const app = createTauriApp();
+const tauri = createTauriApp();
 
 const reducedMotion = createRoot(() => createReducedMotion((query) => window.matchMedia(query)));
 
 // Only a build made with VITE_ROUNDUP_PERF carries the keystroke run and the frame run (U3010e); Vite drops the branch and the import from every other build (K1).
 const keystrokes = import.meta.env.VITE_ROUNDUP_PERF
   ? await import("./perf/run").then(async ({ createKeystrokeRun }) => {
-      const measured = (await app.projects()).at(-1);
+      const measured = (await tauri.projects()).at(-1);
 
       if (!measured) throw new Error("the keystroke run needs a Project open");
 
@@ -30,12 +30,14 @@ const keystrokes = import.meta.env.VITE_ROUNDUP_PERF
       if (workload) {
         const { createFrameRun } = await import("./perf/frame_run");
 
-        return createFrameRun(app.forProject(measured.path), workload, measured.path);
+        return createFrameRun(tauri.forProject(measured.path), workload, measured.path);
       }
 
-      return createKeystrokeRun(app.forProject(measured.path));
+      return createKeystrokeRun(tauri.forProject(measured.path));
     })
   : null;
+
+const app = keystrokes?.traced(tauri) ?? tauri;
 
 render(() => <App app={app} reducedMotion={reducedMotion} clock={Date.now} createEmulator={keystrokes?.createEmulator} />, root);
 

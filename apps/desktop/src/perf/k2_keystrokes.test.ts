@@ -95,4 +95,40 @@ describe("k2 a sample is keydown to the render that shows its echo", () => {
 
     expect(probe.summary(1)).toMatchObject({ n: 1, dropped: 2, p50: 6 });
   });
+
+  it("r20_hop_report_accounts_for_the_echo_round_trip", () => {
+    const time = clock();
+    const probe = createKeystrokeProbe(time.now, "a");
+
+    // A warm-up key (skipped), then a measured key whose output is preceded by unrelated output and a render before the echo.
+    for (const [queued, skip] of [[0, true], [7, false]] as const) {
+      void probe.keydown();
+      time.advance(2);
+      probe.input();
+      time.advance(queued);
+      probe.dispatched();
+      time.advance(1);
+      probe.arrived(bytes("noise"));
+      probe.written(bytes("noise"));
+      probe.rendered();
+      time.advance(3);
+      probe.arrived(bytes("a"));
+      probe.replied();
+      time.advance(4);
+      probe.written(bytes("a"));
+      time.advance(5);
+      probe.rendered();
+      expect(skip || queued > 0).toBe(true);
+    }
+
+    expect(probe.hops(1)).toEqual({
+      keydown_to_input: { n: 1, p50: 2, p95: 2 },
+      input_to_dispatch: { n: 1, p50: 7, p95: 7 },
+      dispatch_to_echo_event: { n: 1, p50: 4, p95: 4 },
+      echo_event_to_parsed: { n: 1, p50: 4, p95: 4 },
+      parsed_to_frame: { n: 1, p50: 5, p95: 5 },
+      write_reply: { n: 1, p50: 4, p95: 4 },
+    });
+    expect(probe.summary(1)).toMatchObject({ n: 1, p50: 22 });
+  });
 });

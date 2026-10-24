@@ -3,8 +3,17 @@
 use perf::webview::{checked, judge_runs, perf_line};
 use serde_json::json;
 
+fn hops() -> serde_json::Value {
+    let hop = json!({ "n": 1000, "p50": 1.0, "p95": 2.0 });
+    let mut all = serde_json::Map::new();
+    for name in perf::webview::HOPS {
+        all.insert(name.into(), hop.clone());
+    }
+    all.into()
+}
+
 fn report(frame_ms: f64, dropped: u64) -> serde_json::Value {
-    json!({ "p95": 9.0, "frame_ms": frame_ms, "dropped": dropped, "keys": 1000 })
+    json!({ "p95": 9.0, "frame_ms": frame_ms, "dropped": dropped, "keys": 1000, "hops": hops() })
 }
 
 #[test]
@@ -64,7 +73,7 @@ fn r21_invalid_observation_never_has_a_latency_verdict() {
         json!({"error": "missing PERF line"}),
         report(25.1, 0),
         json!({"p95": 1}),
-        json!({"frame_ms": 16, "keys": 1000, "dropped": 0, "p95": -1}),
+        json!({"frame_ms": 16, "keys": 1000, "dropped": 0, "p95": -1, "hops": hops()}),
     ] {
         let (exit, failures) = judge_runs(&[report(16.7, 0), invalid], 16.0);
         assert_eq!(exit, 2);
@@ -83,4 +92,26 @@ fn u3010e_the_frames_line_is_found_by_its_own_marker() {
         perf::webview::marked_line("PERF {\"p95\":9}\n", "FRAMES "),
         None
     );
+}
+
+#[test]
+fn r20_hop_report_accounts_for_the_echo_round_trip() {
+    for name in perf::webview::HOPS {
+        let mut missing = report(16.7, 0);
+        missing["hops"][name] = json!({ "n": 0, "p50": null, "p95": null });
+        let err = checked(&missing).unwrap_err().to_string();
+        assert!(
+            err.contains("hop attribution") && err.contains(name),
+            "{err}"
+        );
+
+        let mut absent = report(16.7, 0);
+        absent["hops"].as_object_mut().unwrap().remove(name);
+        assert!(checked(&absent).is_err());
+    }
+    let mut no_hops = report(16.7, 0);
+    no_hops.as_object_mut().unwrap().remove("hops");
+    let (exit, failures) = judge_runs(&[no_hops], 16.0);
+    assert_eq!(exit, 2);
+    assert!(failures[0].contains("hop attribution"));
 }
