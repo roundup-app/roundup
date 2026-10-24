@@ -1,3 +1,4 @@
+import { ExitButton } from "../ui/IconButton";
 import { createStore, reconcile } from "solid-js/store";
 import { createEffect, createMemo, createSignal, For, onCleanup, onMount, Show } from "solid-js";
 import type { JSX } from "solid-js";
@@ -204,7 +205,7 @@ export const MeasurementDashboard = (props: { home: string; name: string; back: 
   const note = () => [copy.measurementPartialTime, ...(snapshot()?.time.coverage ?? [])].join(" ");
 
   return <section class="measurement-dashboard" ref={region} role="region" aria-label={copy.measurementTime} aria-busy={pending()} data-home={props.home} data-revision={snapshot()?.revision} tabIndex={-1} onKeyDown={(event) => { if (event.key === "Escape" && !event.defaultPrevented) { event.stopPropagation(); props.back(); } }}>
-    <header class="measurement-header"><h2>{props.name}</h2>{header()}<div class="measurement-actions">{retry()}<button data-button="quiet" type="button" onClick={props.back}>{copy.back}</button></div></header>
+    <header class="measurement-header"><h2>{props.name}</h2>{header()}<div class="measurement-actions">{retry()}<ExitButton onClick={props.back} /></div></header>
     <p class="measurement-line">{copy.measurementElapsed(duration(snapshot()?.time.elapsed_ns ?? null))}<Show when={snapshot() && snapshot()!.time.elapsed_ns === null}><Partial note={note()} /></Show>
       <Show when={snapshot()}>{(value) => <>{copy.measurementSeparator}{copy.measurementAgentTime(duration(value().time.summed_ns))}<Show when={value().time.coverage.length > 0}><Partial note={note()} /></Show></>}</Show></p>
     <section class="measurement-chart" aria-label={copy.measurementTimeSpent}>
