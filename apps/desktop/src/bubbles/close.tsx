@@ -40,7 +40,7 @@ export const createTerminalClose = (connected: ConnectedProject, shown: Accessor
 
       await app.rpc("terminal.close", { id });
       await rail.refresh({ terminals: true });
-      setFailure(null);
+      if (retry() === null || retry()!.id === id) setFailure(null);
 
       if (controlHeldFocus) queueMicrotask(() => {
         const remaining = shown();
