@@ -24,7 +24,7 @@ const percentile = (sorted: number[], share: number): number => {
 };
 
 /** The ordered boundaries of one key, all read on the webview's clock so no cross-process subtraction is needed. */
-export const BOUNDARIES = ["keydown", "input", "dispatched", "replied", "arrived", "parsed", "rendered"] as const;
+export const BOUNDARIES = ["keydown", "input", "encoded", "dispatched", "replied", "arrived", "parsed", "rendered"] as const;
 
 type Boundary = (typeof BOUNDARIES)[number];
 
@@ -70,7 +70,13 @@ export const createKeystrokeProbe = (now: () => number, typed: string, target: (
 
       if (pending) pending.marks.input ??= now();
     },
-    /** `terminal.write` called (the bytes are base64-encoded just before, in the same tick) and, later, answered. */
+    /** The input queue's current batch has finished base64 encoding; includes any wait for the previous reply. */
+    encoded: (id: string) => {
+      if (id !== target()) return;
+
+      if (pending?.marks.input !== undefined) pending.marks.encoded ??= now();
+    },
+    /** `terminal.write` called and, later, answered. */
     dispatched: (id: string) => {
       if (id !== target()) return;
 
@@ -130,6 +136,8 @@ export const createKeystrokeProbe = (now: () => number, typed: string, target: (
       return {
         keydown_to_input: sample("keydown", "input"),
         input_to_dispatch: sample("input", "dispatched"),
+        input_to_encoded: sample("input", "encoded"),
+        encoded_to_dispatch: sample("encoded", "dispatched"),
         dispatch_to_echo_event: sample("dispatched", "arrived"),
         echo_event_to_parsed: sample("arrived", "parsed"),
         parsed_to_frame: sample("parsed", "rendered"),

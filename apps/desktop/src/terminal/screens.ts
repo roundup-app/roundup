@@ -478,6 +478,7 @@ export const createScreens = (connected: ConnectedProject, createEmulator: Emula
           const data = toBase64(Uint8Array.from(typed));
 
           typed = [];
+          emulator.inputEncoded?.();
           await attempt(id, app.rpc("terminal.write", { id, data }));
         }
       } finally {

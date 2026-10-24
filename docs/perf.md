@@ -319,11 +319,21 @@ cross-process subtraction is involved; a report without every hop is invalid
 | Hop | From → to |
 | --- | --- |
 | `keydown_to_input` | `keydown` → xterm `onData` |
-| `input_to_dispatch` | `onData` → `terminal.write` called; holds base64 (same tick, not separable) and the wait for the previous write's reply |
+| `input_to_dispatch` | `onData` → `terminal.write` called; retained coarse span for the earlier reports |
+| `input_to_encoded` | `onData` → base64 encoding completed; includes the input queue's wait for the previous write's reply |
+| `encoded_to_dispatch` | base64 encoding completed → `terminal.write` called |
 | `dispatch_to_echo_event` | `terminal.write` called → the echo reaches `emulator.write`; spans Tauri, the Daemon's write, the PTY, the echo read and the output channel |
 | `echo_event_to_parsed` | `emulator.write` → xterm has parsed the echo |
 | `parsed_to_frame` | parsed → the next render |
 | `write_reply` | `terminal.write` called → its reply (overlaps the echo's trip) |
+
+Screens stamps completed encoding of each dispatched batch through the existing
+optional emulator probe, after `toBase64` returns and before the RPC call. Queued
+keys are stamped when their batch is encoded, not when they first enter the
+queue. This adds a same-clock boundary; it does not split queue wait from
+encoding cost, calibrate Daemon clocks, or establish a latency repair. The
+previously retained five-span reports remain historical evidence; new reports
+require both additional spans, or exit 2.
 
 The Daemon-side boundaries inside `dispatch_to_echo_event` (Daemon received, PTY
 write completed, echo read) are not yet stamped: they need the Daemon's clock

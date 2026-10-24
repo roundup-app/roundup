@@ -5,10 +5,12 @@ use serde_json::Value;
 /// Frames slower than this mean the window was not drawn at full rate (behind other windows, occluded): the run says nothing about rendering.
 const FRAME_LIMIT_MS: f64 = 25.0;
 
-/// The hops of one key from keydown to the frame that shows its echo, in order (`apps/desktop/src/perf/keystrokes.ts`, `HOPS`).
-pub const HOPS: [&str; 5] = [
+/// Required hop attribution, including the retained coarse input-to-dispatch span (`apps/desktop/src/perf/keystrokes.ts`, `hops`).
+pub const HOPS: [&str; 7] = [
     "keydown_to_input",
     "input_to_dispatch",
+    "input_to_encoded",
+    "encoded_to_dispatch",
     "dispatch_to_echo_event",
     "echo_event_to_parsed",
     "parsed_to_frame",
