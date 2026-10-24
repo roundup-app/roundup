@@ -28,12 +28,18 @@ async fn a4_spawn_runs_claude_with_the_agents_settings_and_lists_an_agent() {
     let settings: Value =
         serde_json::from_str(&std::fs::read_to_string(settings).unwrap()).unwrap();
     assert_eq!(
-        settings["hooks"]["Stop"][0]["hooks"][0]["command"],
-        format!(
-            "ROUNDUP_ATTEMPT='1' '{}' signal '{}'",
-            f.dir.path().join("rup").display(),
-            node.id
+        shlex::split(
+            settings["hooks"]["Stop"][0]["hooks"][0]["command"]
+                .as_str()
+                .unwrap()
         )
+        .unwrap(),
+        [
+            "ROUNDUP_ATTEMPT=1",
+            f.dir.path().join("rup").to_str().unwrap(),
+            "signal",
+            &node.id,
+        ]
     );
     let trusted = f.dir.path().canonicalize().unwrap();
     let config: Value =

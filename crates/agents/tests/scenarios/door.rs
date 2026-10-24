@@ -371,12 +371,12 @@ fn hook_attempt(f: &Fixture, id: &str) -> String {
     let settings: Value = serde_json::from_str(&std::fs::read_to_string(path).unwrap()).unwrap();
     let command = settings["hooks"]["Stop"][0]["hooks"][0]["command"]
         .as_str()
-        .unwrap()
-        .to_owned();
-    let rest = command
-        .strip_prefix("ROUNDUP_ATTEMPT='")
-        .expect("Attempt first");
-    rest[..rest.find('\'').unwrap()].to_owned()
+        .unwrap();
+    let words = shlex::split(command).unwrap();
+    words[0]
+        .strip_prefix("ROUNDUP_ATTEMPT=")
+        .expect("Attempt first")
+        .to_owned()
 }
 
 #[tokio::test]
