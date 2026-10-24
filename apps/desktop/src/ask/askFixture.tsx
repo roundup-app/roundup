@@ -29,15 +29,11 @@ const RecoveryEntry = () => {
   return <Show when={entries().length > 0}><button type="button" onClick={() => void entries()[0]!.run?.()}>Recover unfinished work</button></Show>;
 };
 
-export const mountAskBar = async (asks: Ask[] | Error = [], selected: string | null = null, tree: RailNode[] | Promise<RailNode[]> = structuredClone(TREE), pane = false, path = `/ask-${crypto.randomUUID()}`, reducedMotion = false) => {
+export const mountAskBar = async (asks: Ask[] = [], selected: string | null = null, tree: RailNode[] | Promise<RailNode[]> = structuredClone(TREE), pane = false, path = `/ask-${crypto.randomUUID()}`, reducedMotion = false) => {
   const app = createFakeApp();
 
   app.handlers["rail.tree"] = () => tree instanceof Promise ? [] : tree;
-  app.handlers["ask.list"] = () => {
-    if (asks instanceof Error) throw asks;
-
-    return asks;
-  };
+  app.handlers["ask.list"] = () => asks;
 
   app.handlers["terminal.snapshot"] = () => ({ cols: 100, rows: 30, after: 0, data: "existing output" });
   app.handlers["terminal.resize"] = () => null;

@@ -284,10 +284,6 @@ export const AskBar = (props: {
           </div>;
         }}</For>
         <Show when={problem()}><button type="button" data-button="quiet" onClick={() => drafts.retry()}>{copy.storageRetry}</button></Show>
-        <Show when={!problem() && !failure() && asks.listFailure() && !records().some(draft => draft.status === "unknown")}>
-          <button type="button" data-button="quiet" class="word" onClick={() => asks.load()}>{copy.retry}</button>
-          <button type="button" data-button="quiet" class="word" onClick={() => asks.dismiss(asks.listFailure()!)}>{copy.dismiss}</button>
-        </Show>
         </ReservedLine>
         </div>
         <Show when={!over()}><ProjectOverview /><Reactions state={reactions} /><Deliverables state={deliverables} /></Show>
