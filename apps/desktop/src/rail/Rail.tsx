@@ -260,8 +260,6 @@ export const Rail = () => {
   /** One indent step (--rail-step) in pixels: how far sideways the pointer goes to change the drop's depth. */
   const [railStep, setRailStep] = createSignal(1);
 
-  const [drop, setDrop] = createSignal<{ depth: number; top: number; height: number } | null>(null);
-
   /** Whether the press that began the drag was a pointer's: a keyboard lift has no pointer to leave the Rail. */
   let pointerPressed = false;
   let pointerAt: { x: number; y: number } | null = null;
@@ -324,44 +322,13 @@ export const Rail = () => {
     });
   });
 
-  /** Where the drop slot sits: at the top of the room the library opened for the dragged row, once it has moved there. */
-  let followRoom: number | undefined;
-  let roomDepth = 0;
-
-  const measureRoom = () => {
-    const base = container()?.getBoundingClientRect();
-    const room = container()?.querySelector("[data-dnd-placeholder]")?.getBoundingClientRect();
-    const top = base && room ? room.top - base.top : 0;
-    const height = room?.height ?? 0;
-
-    setDrop((now) => (base && room ? (now && now.depth === roomDepth && now.top === top && now.height === height ? now : { depth: roomDepth, top, height }) : null));
-  };
-
-  // The library moves the room by its own DOM writes and animations: measure on every frame of the drag so the slot always matches the gap a release commits.
-  const followFrame = () => {
-    measureRoom();
-    followRoom = requestAnimationFrame(followFrame);
-  };
-
   const placeDrop = (next: { depth: number } | null) => {
-    if (next === null) {
-      if (followRoom !== undefined) cancelAnimationFrame(followRoom);
+    if (next !== null) return;
+    const back = liftedRow;
 
-      followRoom = undefined;
-      const back = liftedRow;
+    liftedRow = null;
 
-      liftedRow = null;
-      setDrop(null);
-
-      if (back !== null) requestAnimationFrame(() => focusRow(back));
-
-      return;
-    }
-
-    roomDepth = next.depth;
-    queueMicrotask(measureRoom);
-
-    if (followRoom === undefined) followRoom = requestAnimationFrame(followFrame);
+    if (back !== null) requestAnimationFrame(() => focusRow(back));
   };
 
   /** The index among all of `parent`'s other children for one counted among the shown ones: a done row folded into its `✓ n done` line is still a sibling. */
@@ -703,9 +670,6 @@ export const Rail = () => {
           )}
         </For>
       </TreeView.Tree>
-      <Show when={drop()}>
-        {(line) => <div class="drop-line" aria-hidden="true" style={{ top: `${line().top}px`, height: `${line().height}px`, "--depth": line().depth }} />}
-      </Show>
       </Sortable.Root>
     </TreeView.Root>
     </div>

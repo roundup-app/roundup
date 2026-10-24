@@ -1,9 +1,10 @@
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
-import { mkdtempSync, rmSync } from "node:fs";
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterAll, beforeAll, expect, it } from "vitest";
+import { captureDir } from "../testing/captures";
 import { appServer, type AppServer } from "../testing/appServer";
 
 const exec = promisify(execFile);
@@ -31,7 +32,8 @@ beforeAll(async () => {
   server = await appServer();
   origin = server.resolvedUrls.local[0]!;
   await browser("--profile", profile, "open", new URL(new URL("./u484Fixture.tsx", import.meta.url).pathname.replace("Fixture.tsx", ".html"), origin).href);
-
+  await browser("set", "viewport", "1512", "950");
+  await browser("set", "media", "dark");
 }, 90_000);
 
 afterAll(async () => {
@@ -53,6 +55,15 @@ const committed = async (value: string, count = 1) => {
   expect(await read<string>(`document.querySelector('[aria-label="Commits"]').textContent`)).toBe(String(count));
 };
 
+const capture = async (id: string, name: string) => {
+  const directory = captureDir(id);
+
+  if (!directory) return;
+  mkdirSync(directory, { recursive: true });
+  await browser("screenshot", join(directory, `${name}.png`));
+  writeFileSync(join(directory, `${name}.checks.json`), JSON.stringify(await read("window.__checks()"), null, 2));
+};
+
 const keyboard = async (id: string) => {
   await browser("focus", `[aria-label="Move ${id}"]`);
   await browser("press", "Space");
@@ -67,11 +78,12 @@ const down = async (expected: string[]) => {
 const drag = async (id: string, target: string) => {
   const point = async (selector: string) => read<{ x: number; y: number }>(`(() => { const rect = document.querySelector(${JSON.stringify(selector)}).getBoundingClientRect(); return { x: rect.x + rect.width / 2, y: rect.y + rect.height / 2 }; })()`);
   const start = await point(`[aria-label="Move ${id}"]`);
-  const end = await point(`[aria-label="Move ${target}"]`);
   await browser("mouse", "move", String(Math.round(start.x)), String(Math.round(start.y)));
   await browser("mouse", "down");
   await browser("mouse", "move", String(Math.round(start.x + 15)), String(Math.round(start.y)));
   await browser("wait", "--fn", `document.querySelector('[data-id="${id}"]').dataset.dragging === 'true'`);
+  const end = await point(`[aria-label="Move ${target}"]`);
+
   await browser("mouse", "move", String(Math.round(end.x)), String(Math.round(end.y)));
 };
 
@@ -136,6 +148,14 @@ it("u3800a_one_drag_fixture", async () => {
   expect(await commits()).toBe("1");
 
   await load();
+  const handle = await read<{x:number; y:number}>(`(() => { const b=document.querySelector('[aria-label="Move A"]').getBoundingClientRect(); return {x:Math.round(b.left+b.width/2),y:Math.round(b.top+b.height/2)}; })()`);
+
+  await browser("mouse", "move", String(handle.x), String(handle.y));
+  await browser("mouse", "down");
+  await browser("mouse", "move", String(handle.x + 2), String(handle.y));
+  await browser("mouse", "up");
+  expect(await read<string>(`document.querySelector('[aria-label=Actions]').textContent`)).toBe("1");
+  expect(await commits()).toBe("0");
   expect(await read<boolean>(`(() => {
     const row = document.querySelector('[data-id=A]');
     const transfer = new DataTransfer(); transfer.items.add(new File(['hello'], 'example.txt', {type: 'text/plain'}));
@@ -159,6 +179,41 @@ it("u3800a_one_drag_fixture", async () => {
   await browser("press", "Space");
   await committed("B,A,C");
   await focusedA();
+
+  // The same session exercises native path routing through the real App and fake event seam.
+  await browser("open", new URL("harness.html?seed=tree-40", origin).href);
+  await browser("wait", "--fn", "!!document.querySelector('.rail-row[data-id=tokens]')");
+  await browser("click", ".rail-row[data-id=tokens] .name");
+  await browser("wait", "--fn", "document.querySelector('.pane-body .xterm') !== null");
+
+  const feed = (phase: string, paths: string[] = []) => read(`(() => {
+    const b = document.querySelector('.pane-body').getBoundingClientRect();
+    window.__fake.app.dropFiles({phase:${JSON.stringify(phase)},paths:${JSON.stringify(paths)},x:b.left+b.width/2,y:b.top+b.height/2});
+    return true;
+  })()`);
+
+  await feed("over");
+  await browser("wait", "--fn", "!!document.querySelector('.pane-body.drop-over')");
+  expect(await read<number>("document.querySelectorAll('.drop-over,[data-drop=hover]').length")).toBe(1);
+  await capture("U3800b", "centre-hover");
+  await feed("leave");
+  expect(await read<number>("document.querySelectorAll('.drop-over,[data-drop=hover]').length")).toBe(0);
+  await feed("over");
+  await browser("click", ".rail-row[data-id=migrate] .name");
+  await browser("wait", "--fn", "document.querySelector('.rail-row[data-selected=true]')?.dataset.id === 'migrate'");
+  expect(await read<number>("document.querySelectorAll('.drop-over').length")).toBe(0);
+  await feed("over");
+  const writes = "window.__fake.app.calls.filter(c=>c.method==='terminal.write').map(c=>({id:c.params.id,text:atob(c.params.data)}))";
+  const before = await read<unknown[]>(writes);
+  await feed("drop");
+  expect(await read<unknown[]>(writes)).toEqual(before);
+  await feed("drop", ["/Users/me/My Pics/it's.png", "/Users/me/two.txt"]);
+  await browser("wait", "--fn", `${writes}.length === ${before.length + 1}`);
+  expect((await read<{id:string; text:string}[]>(writes)).slice(before.length)).toEqual([
+    {id:"t-migrate",text:"'/Users/me/My Pics/it'\\''s.png' '/Users/me/two.txt' "},
+  ]);
+  expect(await read<number>("document.querySelectorAll('.drop-over,[data-drop=hover]').length")).toBe(0);
+  expect(await read<unknown[]>("window.__fake.app.calls.filter(c=>c.method==='rail.move'||c.method==='todo.move')")).toEqual([]);
 }, 90_000);
 
 it("u484_scroll_and_stop", async () => {
@@ -204,45 +259,4 @@ it("u484_scroll_and_stop", async () => {
   const final = initial.filter(id => id !== "5"); final.splice(12, 0, "5");
   await committed(final.join(","));
   expect(new Set(await stopped()).size).toBe(1);
-}, 90_000);
-
-// U3800a's native qualification must use pointer input; synthetic DragEvents cannot establish compatibility.
-it("u3800a_native_candidate_probe", async () => {
-  await browser("open", new URL(`${new URL("./u484Fixture.tsx", import.meta.url).pathname.replace("Fixture.tsx", ".html")}?native-probe`, origin).href);
-  await browser("wait", "--fn", "document.querySelector('[aria-label=\"Native drag probe\"]') !== null");
-
-  const point = (id: string, bottom = false, handle = false) => read<{x:number; y:number}>(`(() => { const b = document.querySelector('[data-probe-id="${id}"]${handle ? " button" : ""}').getBoundingClientRect(); return {x:b.left + b.width / 2, y:${bottom ? "b.bottom - 2" : "b.top + b.height / 2"}}; })()`);
-
-  const begin = async (id: string, target: string, bottom = false) => {
-    const from = await point(id, false, true);
-    const to = await point(target, bottom);
-
-    await browser("mouse", "move", String(Math.round(from.x)), String(Math.round(from.y)));
-    await browser("mouse", "down");
-    await browser("mouse", "move", String(Math.round(from.x + 16)), String(Math.round(from.y)));
-    await browser("mouse", "move", String(Math.round(to.x)), String(Math.round(to.y)));
-    await browser("wait", "--fn", `document.querySelector('[data-probe-dragging]') !== null && document.querySelector('[data-probe-target]')?.dataset.probeId === '${target}'`);
-  };
-
-  const moves = () => read<unknown[]>("JSON.parse(document.querySelector('[aria-label=\"Native moves\"]').textContent)");
-
-  await begin("A", "B", true);
-  await browser("mouse", "up");
-  await browser("wait", "--fn", "JSON.parse(document.querySelector('[aria-label=\"Native moves\"]').textContent).length === 1");
-  expect(await moves()).toEqual([{id:"A", parent:null, index:1}]);
-
-  await begin("A", "C");
-  await browser("mouse", "up");
-  await browser("wait", "--fn", "JSON.parse(document.querySelector('[aria-label=\"Native moves\"]').textContent).length === 2");
-  expect(await moves()).toEqual([{id:"A", parent:null, index:1}, {id:"A", parent:"C", index:0}]);
-
-  // Native Escape requires the WKWebView observer; an injected Chromium key does not establish native cancellation.
-  const at = await point("B", false, true);
-  await browser("mouse", "move", String(Math.round(at.x)), String(Math.round(at.y)));
-  await browser("mouse", "down");
-  await browser("mouse", "move", String(Math.round(at.x + 2)), String(Math.round(at.y)));
-  await browser("mouse", "up");
-  await browser("wait", "--fn", "document.querySelector('[aria-label=\"Native clicks\"]').textContent === '1'");
-  expect(await moves()).toHaveLength(2);
-  expect(await read<string>("document.querySelector('[aria-label=\"Native starts\"]').textContent")).toBe("2");
 }, 90_000);

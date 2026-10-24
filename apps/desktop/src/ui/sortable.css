@@ -1,38 +1,41 @@
-/* The library's clipped live region stays offscreen without its off-scale negative margin. */
+/* Keep the library's live region clipped without its off-scale negative margin. */
 [id^="dnd-kit-announcement-"] {
   margin: 0 !important;
 }
 
-/* A plain Sortable list (rows inside a tree) draws no radius: the lifted row keeps its fill. */
-[data-dnd-dragging] {
-  background-color: var(--ground);
-  background-image: linear-gradient(var(--selected), var(--selected));
-}
-
-[data-dnd-dragging]:not([data-plain] *) {
-  border-radius: var(--radius-row);
-}
-
-/* U3800a: the source row stays in its place with a solid --accent edge (a ghost drawn over its original box); the lifted copy draws no box and the dashed slot marks the destination. */
+/* The real row keeps its layout and input state; an inset edge changes no geometry. */
 .sortable-source {
-  box-sizing: border-box;
-  margin: 0;
+  position: relative;
+}
+
+.sortable-source::after {
+  content: "";
+  position: absolute;
+  inset: 0;
   border: 2px solid var(--accent);
-  background-color: var(--ground);
-  background-image: linear-gradient(var(--selected), var(--selected));
   pointer-events: none;
+}
+
+.sortable-overlay {
+  box-sizing: border-box;
   overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  background: var(--ground);
+  color: var(--text);
+  padding: var(--space-2);
+  font: inherit;
 }
 
-.sortable-source:not([data-plain] *) {
-  border-radius: var(--radius-row);
+.sortable-slot {
+  box-sizing: border-box;
+  position: relative;
+  flex-shrink: 0;
+  margin-inline-start: var(--sortable-indent, 0px);
+  pointer-events: none;
 }
 
-.rail-tree .sortable-source {
-  border-radius: var(--tree-row-radius);
-}
-
-[data-dnd-placeholder]::after {
+.sortable-slot::after {
   content: "";
   position: absolute;
   inset: 0;
@@ -40,21 +43,16 @@
   pointer-events: none;
 }
 
-[data-dnd-placeholder] {
-  position: relative;
-  visibility: visible !important;
-}
-
 @media (prefers-reduced-motion: no-preference) {
-  [data-dnd-placeholder]:not(.rail-tree *) {
-    animation: sortable-slot var(--duration-crossfade) var(--easing-out);
+  .sortable-slot:not([data-keyboard="true"]) {
+    transition: opacity var(--duration-crossfade) var(--easing-out);
+
+    @starting-style {
+      opacity: 0;
+    }
   }
 }
 
-[data-dnd-placeholder] > * {
-  visibility: hidden;
-}
-
-@keyframes sortable-slot {
-  from { opacity: 0; }
+.sortable-slot[data-ending="true"] {
+  opacity: 0;
 }
