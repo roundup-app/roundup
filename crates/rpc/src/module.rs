@@ -272,12 +272,25 @@ impl Ctx {
 }
 
 /// One module of the Daemon. Owns one or more method namespaces (the part before the first dot).
+/// A module's answer to a call: a `Value`, or JSON text already written, which the Daemon sends
+/// without first building a `Value` tree for it.
+pub enum Reply {
+    Value(Value),
+    Json(String),
+}
+
 #[async_trait]
 pub trait Module: Send + Sync {
     fn namespaces(&self) -> &'static [&'static str];
 
     /// `method` is the full name, for example `todo.create`.
     async fn call(&self, ctx: &Ctx, method: &str, params: Value) -> Result<Value, RpcError>;
+
+    /// `call`, for a method whose reply is large enough that its `Value` tree costs more than
+    /// writing it. The default wraps `call`.
+    async fn call_reply(&self, ctx: &Ctx, method: &str, params: Value) -> Result<Reply, RpcError> {
+        self.call(ctx, method, params).await.map(Reply::Value)
+    }
 }
 
 /// Decode request parameters; a bad shape is the caller's error.
@@ -288,6 +301,13 @@ pub fn params<T: DeserializeOwned>(value: Value) -> Result<T, RpcError> {
             format!("invalid params: {err}"),
         )
     })
+}
+
+/// Encode a result as JSON text, for `Module::call_reply`.
+pub fn json<T: Serialize>(value: &T) -> Result<Reply, RpcError> {
+    serde_json::to_string(value)
+        .map(Reply::Json)
+        .map_err(RpcError::internal)
 }
 
 /// Encode a result.

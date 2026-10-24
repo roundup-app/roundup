@@ -9,7 +9,9 @@ use std::sync::{Arc, Mutex};
 use base64::Engine;
 use base64::engine::general_purpose::STANDARD;
 use contracts::terminal::{OutputEvent, OutputGap};
-use serde_json::{Value, json};
+use serde_json::json;
+
+use crate::connection::Frame;
 use terminal::{Output, OutputStream};
 use tokio::sync::mpsc;
 use tokio::task::JoinHandle;
@@ -20,7 +22,7 @@ pub(crate) const PENDING_FRAMES: usize = 64;
 /// A connection's output selections and the bounded path they write through.
 #[derive(Clone)]
 pub(crate) struct Port {
-    frames: mpsc::Sender<Value>,
+    frames: mpsc::Sender<Frame>,
     selected: Arc<Selected>,
 }
 
@@ -36,7 +38,7 @@ impl Drop for Selected {
 }
 
 impl Port {
-    pub(crate) fn new() -> (Self, mpsc::Receiver<Value>) {
+    pub(crate) fn new() -> (Self, mpsc::Receiver<Frame>) {
         let (frames, pending) = mpsc::channel(PENDING_FRAMES);
         (
             Self {
@@ -69,7 +71,7 @@ impl Port {
     }
 }
 
-async fn forward(id: String, mut stream: OutputStream, frames: mpsc::Sender<Value>) {
+async fn forward(id: String, mut stream: OutputStream, frames: mpsc::Sender<Frame>) {
     loop {
         let item = tokio::select! {
             _ = frames.closed() => return,
@@ -88,7 +90,7 @@ async fn forward(id: String, mut stream: OutputStream, frames: mpsc::Sender<Valu
                 "params": OutputGap { id: id.clone(), from, to },
             }),
         };
-        if frames.send(frame).await.is_err() {
+        if frames.send(frame.into()).await.is_err() {
             return;
         }
     }

@@ -194,8 +194,27 @@ impl Launcher {
         self
     }
 
-    fn door_lacks_intent(&self, role: Role) -> bool {
-        role == Role::Door && (self.lacks_intent || !plugins::has_intent())
+    fn door_lacks_intent(&self, role: Role, settings: &Value, project: &Path) -> bool {
+        if role != Role::Door {
+            return false;
+        }
+        if let Some(name) = enabled_plugin(settings, "hope") {
+            return extras::resolve(
+                &self.extras_sources(project),
+                &contracts::agent::Extras {
+                    plugins: vec![name.to_owned()],
+                    ..Default::default()
+                },
+            )
+            .ok()
+            .is_none_or(|delivery| {
+                !delivery
+                    .plugins
+                    .iter()
+                    .any(|path| path.join("skills/intent/SKILL.md").is_file())
+            });
+        }
+        self.lacks_intent || !plugins::has_intent()
     }
 
     pub fn from_env() -> Result<Self, OpenError> {
@@ -378,20 +397,8 @@ impl Launcher {
         };
         let mut carried =
             user_settings(&self.conversation_dir, &project).map_err(RpcError::internal)?;
-        if lean.is_some() {
-            // LC2, LC16: the original sources stay on so their commands list, and merge under
-            // this copy; so each exclusion is set off here, not left out.
-            let object = carried.as_object_mut().expect("settings object");
-            for key in ["mcpServers", "autoMemoryDirectory"] {
-                object.remove(key);
-            }
-            object.insert("outputStyle".into(), json!("default"));
-            object.insert("autoMemoryEnabled".into(), json!(false));
-            if let Some(Value::Object(plugins)) = object.get_mut("enabledPlugins") {
-                plugins.values_mut().for_each(|on| *on = json!(false));
-            }
-        }
-        let missing_intent = self.door_lacks_intent(role);
+        let missing_intent = self.door_lacks_intent(role, &carried, &project);
+        let plain = carried.get("outputStyle").is_none();
         replace_file(&settings, &{
             let mut own = self.settings_json(id, attempt, &path, mcp, missing_intent, &carried);
             if role == Role::Door && mcp {
@@ -403,7 +410,6 @@ impl Launcher {
                 );
             }
             if lean.is_some() {
-                own["env"]["CLAUDE_CODE_DISABLE_AUTO_MEMORY"] = json!("1");
                 // LC17: the Brief carries each `CLAUDE.md` as LC1 lists it; Claude Code loads none.
                 own["env"]["CLAUDE_CODE_DISABLE_CLAUDE_MDS"] = json!("1");
             }
@@ -451,11 +457,11 @@ impl Launcher {
             }
         }
         let brief_file = brief_path(&dir, id);
-        let mut brief = brief::text(role, mcp);
+        let mut brief = brief::text(role, mcp, plain);
         if missing_intent {
             brief = brief::without_intent(&brief);
         }
-        if lean.is_some() && profile(role).global_instructions {
+        if profile(role).global_instructions {
             self.append_global_instructions(&mut brief);
         }
         if lean.is_some() {
@@ -481,7 +487,6 @@ impl Launcher {
         if let Some(lean) = &lean {
             argv.push("--append-system-prompt-file".into());
             argv.push(brief_file.to_string_lossy().into_owned());
-            argv.push("--strict-mcp-config".into());
             let row = profile(role);
             if let Some((with, without)) = row.tools {
                 argv.push("--tools".into());
@@ -583,7 +588,6 @@ impl Launcher {
             command.env_remove(marker);
         }
         if lean_of(role, pair).is_some() {
-            command.env("CLAUDE_CODE_DISABLE_AUTO_MEMORY", "1");
             command.env("CLAUDE_CODE_DISABLE_CLAUDE_MDS", "1");
         }
         command.env("ROUNDUP_AGENT", id);
@@ -623,9 +627,7 @@ impl Launcher {
         );
         let lean = lean_of(role, &pair);
         let (resume_given, id_text) = (resume.is_some(), id.clone());
-        let missing = self.door_lacks_intent(role);
         let bundled = match &lean {
-            _ if missing => &[][..],
             None => profile(Role::Agent).bundled_plugins,
             Some(lean) => profile(if lean.scout { Role::Scout } else { role }).bundled_plugins,
         };
@@ -690,11 +692,19 @@ impl Launcher {
             .map_err(RpcError::internal)?;
         let command = command.as_std();
         argv[0] = command.get_program().to_string_lossy().into_owned();
-        // LC5, LC14: each role's bundled plugins, by the folder name `Runtime::command` passes.
+        let settings: Value =
+            serde_json::from_slice(&std::fs::read(&argv[2]).map_err(RpcError::internal)?)
+                .map_err(RpcError::internal)?;
+        let missing_intent = self.door_lacks_intent(role, &settings, folders.project);
+        // LC5: a user's enabled install takes precedence over the bundled plugin of the same name.
         let args: Vec<_> = command.get_args().collect();
         for pair in args.chunks(2) {
             let named = Path::new(pair[1]).file_name().and_then(OsStr::to_str);
-            if named.is_some_and(|name| bundled.contains(&name)) {
+            if named.is_some_and(|name| {
+                bundled.contains(&name)
+                    && enabled_plugin(&settings, name).is_none()
+                    && !(name == "hope" && missing_intent)
+            }) {
                 argv.extend(pair.iter().map(|arg| arg.to_string_lossy().into_owned()));
             }
         }
@@ -958,4 +968,13 @@ fn lean_of(role: Role, pair: &Pair) -> Option<Lean> {
 
 fn brief_path(dir: &Path, id: u64) -> PathBuf {
     agents_dir(dir).join(format!("{id}.brief.md"))
+}
+
+fn enabled_plugin<'a>(settings: &'a Value, name: &str) -> Option<&'a str> {
+    settings
+        .get("enabledPlugins")?
+        .as_object()?
+        .iter()
+        .find(|(key, value)| key.split('@').next() == Some(name) && value.as_bool() == Some(true))
+        .map(|(key, _)| key.as_str())
 }
