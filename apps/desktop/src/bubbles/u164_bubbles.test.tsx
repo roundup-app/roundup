@@ -1,3 +1,4 @@
+import { answerQuestion } from "../shelf/bulkQuestionHarness";
 import { nameOf } from "./places";
 import { cleanup, fireEvent, screen, waitFor } from "@solidjs/testing-library";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
@@ -193,6 +194,7 @@ describe("u164 a bubble floats over the centre pane", () => {
     const close = bubble("1").querySelector('button[aria-label="Close"]')!;
 
     fireEvent.click(close);
+    await answerQuestion(true);
     await waitFor(() => expect(document.querySelector('.bubble[data-bubble="1"]')).toBeNull());
     expect(bubbleCalls(mounted.app, "terminal.close")).toEqual([{ id: "1" }]);
 
@@ -202,6 +204,7 @@ describe("u164 a bubble floats over the centre pane", () => {
 
     fireEvent.click(document.querySelector('.terminal-tab[data-bubble="2"]')!);
     fireEvent.click(bubble("2").querySelector('button[aria-label="Close"]')!);
+    await answerQuestion(true);
     await waitFor(() => expect(screen.getByRole("alert").textContent).toContain("cannot close"));
     expect(bubble("2")).not.toBeNull();
   });

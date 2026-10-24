@@ -5,7 +5,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { promisify } from "node:util";
 import { chromePath } from "./chromePage";
-import { openSwitcher, field, press } from "../switcher/switcherFixture";
+import { openSwitcher, field, switcherKey as press } from "../switcher/switcherFixture";
 import { cleanup, fireEvent, render, screen, waitFor } from "@solidjs/testing-library";
 import { afterAll, afterEach, beforeAll, describe, expect, it } from "vitest";
 import { App } from "../App";
