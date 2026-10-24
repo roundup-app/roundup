@@ -15,8 +15,6 @@ import type { Model } from "./realModel";
 
 const REPO = resolve(process.cwd(), "../..");
 
-export const PROOF = "0".repeat(64);
-
 /** A running `rupd` of a fresh Project and the dev server that serves it to the harness page (U144, U146). */
 export type StartedDaemon = { daemon: ChildProcess; dir: string; dataDir: string; base: string; model?: Model | undefined; restart: () => Promise<void>; stop: () => Promise<void> };
 
@@ -117,7 +115,6 @@ export const startRealDaemon = async (env: Record<string, string>, inBrowser = f
     daemon = child;
     // A Daemon that exits at once closes its stdin; the wait below reports that exit.
     child.stdin!.on("error", () => {});
-    child.stdin!.write(`roundup-proof 1 ${PROOF}\n`);
     await new Promise<void>((serving, fail) => {
       child.stderr!.on("data", (chunk: Buffer) => chunk.toString().includes("serving") && serving());
       child.on("exit", () => fail(new Error("rupd exited before serving")));
@@ -145,7 +142,7 @@ export const startRealDaemon = async (env: Record<string, string>, inBrowser = f
       root: process.cwd(),
       cacheDir,
       logLevel: "silent",
-      plugins: [realDaemon({ project: dir, socket, proof: PROOF })],
+      plugins: [realDaemon({ project: dir, socket })],
       server: { host: "127.0.0.1", port: 0 },
       // A real browser page needs the bundled dependencies; the jsdom tests do not.
       optimizeDeps: inBrowser ? {} : { noDiscovery: true, include: [] },

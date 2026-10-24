@@ -6,8 +6,8 @@ use std::process::ExitCode;
 use std::time::Duration;
 
 use contracts::{
-    Actor, ActorKind, HistoryParams, IdentifyParams, TouchedParams, agent, checkpoint, decision,
-    deliverable, link, message, pad, project, reaction, terminal, todo, workstream,
+    Actor, ActorKind, HistoryParams, IdentifyParams, TouchedParams, agent, checkpoint, deliverable,
+    link, message, pad, project, reaction, terminal, todo, workstream,
 };
 use rmcp::model::{
     CacheScope, CallToolRequestParams, CallToolResponse, CallToolResult, ContentBlock,
@@ -30,8 +30,7 @@ pub(crate) const CALL_TIMEOUT: Duration = Duration::from_secs(10);
 mod agent_tools;
 use agent_tools::{
     agent_context, agent_digest, agent_extras, agent_extras_add, agent_set_order, agent_spawn,
-    agent_wake, checkpoint_write, decision_answer, workstream_handoff, workstream_rewind,
-    workstream_rewind_plan,
+    agent_wake, checkpoint_write, workstream_handoff, workstream_rewind, workstream_rewind_plan,
 };
 
 const TOOLS_TTL_MS: u64 = 3_600_000;
@@ -102,29 +101,6 @@ fn offered<P: JsonSchema>(method: &'static str, description: &'static str) -> Of
         unreachable!("a params struct's schema is an object");
     };
     offer(method, description, schema, true)
-}
-
-/// H14: the one tool that is not a method's name with the dot replaced; the Agent asks the user and the call returns the answer.
-fn ask_user() -> Offered {
-    let Ok(Value::Object(schema)) =
-        serde_json::to_value(schemars::schema_for!(decision::AskParams))
-    else {
-        unreachable!("a params struct's schema is an object");
-    };
-    Offered {
-        method: "agent.ask",
-        tool: Tool::new(
-            "ask_user",
-            "Ask the user a decision with up to four answers, each with its tradeoff and optionally a preview sketch. Waits for the user and returns `{answer, note}`: the label they picked or null for their own answer, and their note.",
-            schema,
-        ),
-        takes_params: true,
-        own_id: false,
-        own_reader: false,
-        waits_for_user: true,
-        door_only: false,
-        stream: false,
-    }
 }
 
 fn offered_without_params(method: &'static str, description: &'static str) -> Offered {
@@ -499,11 +475,6 @@ fn offered_tools() -> Vec<Offered> {
             "checkpoint.list",
             "List the Checkpoints of a Workstream, oldest first.",
         ),
-        offered_without_params(
-            "decision.list",
-            "List the open Decisions of the Agents below you: their permission requests and `ask_user` questions.",
-        ),
-        decision_answer(),
         offered::<terminal::TerminalId>(
             "terminal.screen",
             "Read a Terminal's screen as it is now, as plain text, with the `offset` to read from next. Only the Terminals of your Runs and your Workstream.",
@@ -538,7 +509,7 @@ fn offered_tools() -> Vec<Offered> {
         ),
         offered::<terminal::WriteParams>(
             "terminal.write",
-            "Type base64 `data` into a Terminal you or your Reach own. To prompt, interrupt or stop an Agent, or to answer its Decision, use `agent_prompt`, `agent_interrupt`, `agent_stop` or `decision_answer`; type keystrokes only when no direct tool does.",
+            "Type base64 `data` into a Terminal you or your Reach own. To prompt, interrupt or stop an Agent, use `agent_prompt`, `agent_interrupt` or `agent_stop`; type keystrokes only when no direct tool does.",
         ),
         offered::<terminal::ResizeParams>(
             "terminal.resize",
@@ -556,7 +527,6 @@ fn offered_tools() -> Vec<Offered> {
         agent_wake(),
         agent_set_order(),
         agent_run(),
-        ask_user(),
         agent_spawn(),
     ]
 }
@@ -614,34 +584,10 @@ pub(crate) async fn display_data(
                 }
             }
         }
-        "agent.context" => {
-            // A Door asks the user; only an Agent destination needs a Rail name.
-            if result["ask"]["to"].as_str().is_some_and(|to| to != "you") {
-                let nodes = rail_nodes(client).await?;
-                result["ask"]["name"] = rail_name(&nodes, &result["ask"]["to"]).into();
-            }
-        }
-        "decision.list" => {
-            let decisions = result
-                .as_array_mut()
-                .ok_or_else(|| RpcError::internal("invalid Decision list"))?;
-            if !decisions.is_empty() {
-                let nodes = rail_nodes(client).await?;
-                for decision in decisions {
-                    decision["agent_name"] = rail_name(&nodes, &decision["agent"]).into();
-                    if let Some(actor) = decision
-                        .get_mut("failure")
-                        .and_then(|failure| failure.get_mut("answered_by"))
-                    {
-                        if actor["kind"] == "agent" {
-                            actor["name"] = rail_name(&nodes, &actor["id"]).into();
-                        }
-                        if !actor["parent"].is_null() {
-                            actor["parent_name"] = rail_name(&nodes, &actor["parent"]).into();
-                        }
-                    }
-                }
-            }
+        // A Door asks the user; only an Agent destination needs a Rail name.
+        "agent.context" if result["ask"]["to"].as_str().is_some_and(|to| to != "you") => {
+            let nodes = rail_nodes(client).await?;
+            result["ask"]["name"] = rail_name(&nodes, &result["ask"]["to"]).into();
         }
         _ => {}
     }
@@ -652,9 +598,7 @@ pub(crate) async fn display_data(
 pub(crate) fn success_text(method: &str, params: &Value, result: Value) -> String {
     let unit = contracts::methods::METHODS
         .iter()
-        .any(|m| m.name == method && m.result == "null")
-        // A unit answer has nothing to return.
-        || method == "decision.answer" && result.is_null();
+        .any(|m| m.name == method && m.result == "null");
     if !unit {
         return result.to_string();
     }
@@ -664,14 +608,6 @@ pub(crate) fn success_text(method: &str, params: &Value, result: Value) -> Strin
     };
     let id = field("id");
     match method {
-        "decision.answer" => {
-            let answer = if params["answer"].is_null() {
-                field("note")
-            } else {
-                field("answer")
-            };
-            format!("answered Decision {id}: {answer}")
-        }
         "todo.delete" => format!("deleted Todo {id}"),
         "deliverable.remove" => format!("removed publication {id}"),
         "pad.delete" => format!("deleted Pad {}", field("name")),

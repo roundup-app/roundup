@@ -57,7 +57,7 @@ Cases:
 Ten additional situations:
 1. User renames a Todo, then changes Project → Recover text against the same Todo, not the newly selected one.
 2. A diff note is open when a file read completes → Keep note text and its original comparison identity.
-3. A question is replaced while its answer draft is open → Keep recoverable text but refuse delivery to the replacement question.
+3. The recipient of an open Ask draft is replaced → Keep recoverable text but refuse delivery to the replacement recipient.
 4. User edits the next draft before the prior send acknowledgement → Consume the acknowledged revision only.
 5. Emoji, composed text and non-Latin input are interrupted by a view change → Keep exact text; do not normalize or truncate it.
 6. Restoring Project A while Project B is active → No cross-Project draft or send.

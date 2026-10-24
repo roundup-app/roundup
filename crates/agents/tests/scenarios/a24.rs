@@ -205,7 +205,10 @@ async fn assert_f8_argv(f: &Fixture, resume: bool) {
     let args: Vec<_> = argv.lines().collect();
     assert_eq!(args.iter().filter(|&&arg| arg == "--tools").count(), 1);
     let at = args.iter().position(|&arg| arg == "--tools").unwrap();
-    assert_eq!(args[at + 1], "Read,Grep,Glob,ToolSearch,Skill");
+    assert_eq!(
+        args[at + 1],
+        "Read,Grep,Glob,ToolSearch,Skill,AskUserQuestion"
+    );
     assert_eq!(args.contains(&"--resume"), resume);
 }
 

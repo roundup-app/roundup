@@ -12,10 +12,6 @@ async fn u3016c_time_categories_use_observed_intervals() {
         ("b", observed(json!({"kind":"attempt"}), 0, 10)),
         (
             "a",
-            observed(json!({"kind":"decision","decision":"question"}), 6, 8),
-        ),
-        (
-            "a",
             observed(json!({"kind":"coordination","message":1}), 8, 9),
         ),
     ];
@@ -33,9 +29,8 @@ async fn u3016c_time_categories_use_observed_intervals() {
     let read = w.summary(&home).await;
     assert_eq!(read["time"]["elapsed_ns"], "10000000000");
     assert_eq!(read["time"]["summed_ns"], "20000000000");
-    assert_eq!(read["time"]["execution_ns"], "13000000000");
+    assert_eq!(read["time"]["execution_ns"], "15000000000");
     assert_eq!(read["time"]["tools_ns"], "4000000000");
-    assert_eq!(read["time"]["human_ns"], "2000000000");
     assert_eq!(read["time"]["coordination_ns"], "1000000000");
     assert_eq!(read["time"]["other_ns"], "0");
     assert_eq!(read["time"]["unmeasured_ns"], "0");
@@ -131,13 +126,7 @@ async fn u3016e_rank_and_totals_share_contributions() {
         .collect();
     assert_eq!(order, ["c", "a", "b"]);
     assert_eq!(read["contributors"], 3);
-    for category in [
-        "summed_ns",
-        "execution_ns",
-        "tools_ns",
-        "unmeasured_ns",
-        "human_ns",
-    ] {
+    for category in ["summed_ns", "execution_ns", "tools_ns", "unmeasured_ns"] {
         let rows: u128 = read["rows"]
             .as_array()
             .unwrap()

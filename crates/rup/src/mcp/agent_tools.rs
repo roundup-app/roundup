@@ -35,30 +35,6 @@ pub(super) fn checkpoint_write() -> Offered {
     }
 }
 
-/// H21: `decision.answer` takes `{id, answer, note}`; an Agent has no `proof` to send, and the Daemon
-/// ignores one, so the tool's schema omits it.
-pub(super) fn decision_answer() -> Offered {
-    let Ok(Value::Object(mut schema)) =
-        serde_json::to_value(schemars::schema_for!(decision::AnswerParams))
-    else {
-        unreachable!("a params struct's schema is an object");
-    };
-    if let Some(Value::Object(properties)) = schema.get_mut("properties") {
-        properties.remove("proof");
-    }
-    if let Some(Value::Array(required)) = schema.get_mut("required") {
-        required.retain(|name| name != "proof");
-    }
-    Offered {
-        tool: Tool::new(
-            "decision_answer",
-            "Answer an open Decision of an Agent below you: `allow` or `deny` for a permission request; for an `ask_user` question one of its labels, or null with a `note` as your own answer, and an optional `note`. Never your own.",
-            schema,
-        ),
-        ..offer("decision.answer", "", JsonObject::new(), true)
-    }
-}
-
 /// B41: ask to be woken when named Agents finish. The caller is the Agent itself, so `id` is not a parameter.
 pub(super) fn agent_wake() -> Offered {
     offered::<agent::WakeParams>(

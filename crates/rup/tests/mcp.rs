@@ -17,6 +17,8 @@ use tokio::net::UnixListener;
 use tokio::process::Child;
 use tokio::sync::mpsc;
 
+#[path = "mcp/removed_questions.rs"]
+mod removed_questions;
 #[path = "mcp/tool_lists.rs"]
 mod tool_lists;
 use tool_lists::{DOOR_METHODS, NO_TOOL, TOOL_METHODS, expected_tools, seam_commands};
@@ -265,7 +267,7 @@ fn m5_every_app_action_has_a_tool_or_a_reason() {
 }
 
 #[tokio::test]
-async fn m1_offers_one_tool_per_method_and_ask_user_and_no_others() {
+async fn m1_offers_one_tool_per_method_and_no_others() {
     let project = start_daemon();
     let shim = spawn_shim(&project.socket, "a1").await;
 
@@ -628,20 +630,6 @@ async fn m3_stdout_carries_only_protocol_messages_up_to_the_exit() {
 }
 
 #[tokio::test]
-async fn h14_ask_user_schema_is_the_contract_schema() {
-    let project = start_daemon();
-    let shim = spawn_shim(&project.socket, "a1").await;
-
-    let tools = shim.client.list_all_tools().await.unwrap();
-
-    let tool = tools.iter().find(|t| t.name == "ask_user").unwrap();
-    assert_eq!(
-        Value::Object((*tool.input_schema).clone()),
-        serde_json::to_value(schemars::schema_for!(contracts::decision::AskParams)).unwrap()
-    );
-}
-
-#[tokio::test]
 async fn u148_a_block_written_through_the_tools_is_stored_byte_exact() {
     let project = start_daemon();
     let shim = spawn_shim(&project.socket, "a1").await;
@@ -897,10 +885,6 @@ async fn m17_every_offered_unit_method_acknowledges_its_action() {
                 "requested renaming Project to New name",
             ),
             "terminal.show" => (json!({"id":"t1"}), "showing Terminal t1"),
-            "decision.answer" => (
-                json!({"id":"d1","answer":"allow"}),
-                "answered Decision d1: allow",
-            ),
             "workstream.handoff" => (
                 json!({"summary":"done","keep_todos":[],"keep_pads":[]}),
                 "handed off Workstream Door",
@@ -914,24 +898,6 @@ async fn m17_every_offered_unit_method_acknowledges_its_action() {
             expected,
             "{name}"
         );
-    }
-    // A refusal, a chosen option and a note alone each name what was submitted.
-    for (args, expected) in [
-        (
-            json!({"id":"d1","answer":"deny"}),
-            "answered Decision d1: deny",
-        ),
-        (
-            json!({"id":"d1","answer":"Yes","note":""}),
-            "answered Decision d1: Yes",
-        ),
-        (
-            json!({"id":"d1","answer":null,"note":"Use the other option"}),
-            "answered Decision d1: Use the other option",
-        ),
-    ] {
-        let result = shim.call("decision_answer", args).await;
-        assert_eq!(result.content[0].as_text().unwrap().text, expected);
     }
     server.abort();
 }
@@ -1331,7 +1297,6 @@ async fn m2706a_data_names_every_referenced_agent() {
     let fx = common::NamedRail::start().await;
     let door = spawn_shim(&fx.served.socket(), &fx.door).await;
     let child = spawn_shim(&fx.served.socket(), &fx.child).await;
-    let (_id, pending) = fx.decision().await;
     for renamed in [false, true] {
         if renamed {
             fx.rename().await;
@@ -1363,34 +1328,13 @@ async fn m2706a_data_names_every_referenced_agent() {
                 .iter()
                 .any(|entry| entry["name"] == name)
         );
-        let decisions = text(&door.call("decision_list", json!({})).await);
-        assert_eq!(decisions[0]["agent"], fx.child);
-        assert_eq!(decisions[0]["agent_name"], name);
-        assert!(decisions[0].get("failure").is_none());
-        assert_eq!(
-            serde_json::from_str::<Value>(decisions[0]["args"].as_str().unwrap()).unwrap()["question"],
-            "Choose"
-        );
     }
-    pending.abort();
 }
 
 #[tokio::test]
 async fn m2706a_non_agent_identifiers_keep_their_meaning() {
     let fx = common::NamedRail::start().await;
     let door = spawn_shim(&fx.served.socket(), &fx.door).await;
-    let (id, pending) = fx.decision().await;
-    let answered = door
-        .call(
-            "decision_answer",
-            json!({"id":id,"answer":"Yes","proof":"test-proof"}),
-        )
-        .await;
-    assert_eq!(
-        answered.content[0].as_text().unwrap().text,
-        format!("answered Decision {id}: Yes")
-    );
-    assert_eq!(pending.await.unwrap().unwrap()["answer"], "Yes");
     let todo = fx
         .user
         .request("todo.create", json!({"title":"Notes"}))
@@ -1442,29 +1386,6 @@ async fn m2706a_a_failed_name_lookup_sends_no_action() {
         reads += usize::from(request["method"] == "rail.tree");
     }
     assert_eq!(reads, 2, "startup and the action each read the Rail");
-}
-
-#[tokio::test]
-async fn m2706a_failed_answer_authors_have_names() {
-    let dir = tempfile::tempdir().unwrap();
-    let socket = dir.path().join("answer-author.sock");
-    let server = m17_daemon(
-        &socket,
-        json!([{
-            "id":"d1", "agent":"missing", "args":"authored content: missing",
-            "failure":{"answered_by":{"kind":"agent","id":"a1","parent":"a1"}}
-        }]),
-    );
-    let shim = spawn_shim(&socket, "a1").await;
-    let decisions = text(&shim.call("decision_list", json!({})).await);
-    assert_eq!(decisions[0]["agent_name"], "an Agent that is gone");
-    assert_eq!(decisions[0]["failure"]["answered_by"]["name"], "Door");
-    assert_eq!(
-        decisions[0]["failure"]["answered_by"]["parent_name"],
-        "Door"
-    );
-    assert_eq!(decisions[0]["args"], "authored content: missing");
-    server.abort();
 }
 
 #[tokio::test]

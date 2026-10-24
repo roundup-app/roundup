@@ -39,7 +39,7 @@ The vendor suppresses consecutive equal sender/text entries within a receiving A
 
 ### Escalation
 
-B13–B17's chain is frozen at send: initial receiver, nearest ancestors in its Workstream, Door when present, then the user; skip the origin, never revisit or cross Workstreams. Every non-user Agent hop uses the inbox with the original authenticated sender and kind `question`; `passedFrom` identifies the previous hop. Each hop's 60 000 ms bound applies while pending or delivered, It starts when the hop is first eligible for delivery, not at receipt. Receiver ending, Drop and other B16 unable-to-take cases skip immediately. Only an authorized note from the current delivered hop, addressed to the origin with that hop's `replyTo`, stops advancement. Earlier-hop answers, pending-hop answers and answers after escalation do not. The final Escalated user Message is stored `delivered`, made once, changes no Kind and raises no Decision or alert. B18 permission Decisions remain outside this chain.
+B13–B17's chain is frozen at send: initial receiver, nearest ancestors in its Workstream, Door when present, then the user; skip the origin, never revisit or cross Workstreams. Every non-user Agent hop uses the inbox with the original authenticated sender and kind `question`; `passedFrom` identifies the previous hop. Each hop's 60 000 ms bound applies while pending or delivered, It starts when the hop is first eligible for delivery, not at receipt. Receiver ending, Drop and other B16 unable-to-take cases skip immediately. Only an authorized note from the current delivered hop, addressed to the origin with that hop's `replyTo`, stops advancement. Earlier-hop answers, pending-hop answers and answers after escalation do not. The final Escalated user Message is stored `delivered`, made once, changes no Kind and raises no alert.
 
 ### Model interpretation and observers
 
@@ -49,7 +49,7 @@ Affected laws: M1 (delivery/receipt and same-id retry), M4 (delivery order), M5 
 
 B50's sender/kind table exercises actual Daemon delivery, inbox entries, `Agents::prompt` calls and Terminal writes. B13–B17 replay the chain through inbox questions with a fake clock. B51 covers failure, explicit delivery and the tested repeat boundary. B52 counts entries per id, receipts and events over 30 idle edges and the three restart states (pending, in flight, acknowledged). Assertions run after each completed operation/handshake. Every regression names its clause and rejected mutation, including the Note-only transport gate and missing current-hop validation. Existing note regressions remain unless a named surviving test rejects the same break.
 
-Gates and observers: P1/P11 require zero Message writes to Terminal input, so native input is not overwritten; P3 requires no Decision/alert from ordinary Messages or escalation; P4 keeps vendor handling in the Adapter; P9/P10 require authorized delivery with user prompt batching retained and zero non-user prompt calls. These are behavior observers, not new App visuals.
+Gates and observers: P1/P11 require zero Message writes to Terminal input, so native input is not overwritten; P3 requires no alert from ordinary Messages or escalation; P4 keeps vendor handling in the Adapter; P9/P10 require authorized delivery with user prompt batching retained and zero non-user prompt calls. These are behavior observers, not new App visuals.
 
 ## B37 lifecycle-to-model mapping
 
@@ -87,7 +87,7 @@ already implements it. At this alignment, `crates/agents/src/lib.rs`'s `prompt`
 accepts live `Idle | Error` and refuses ended/closing Attempts, while
 `crates/messages/src/lib.rs`'s `ended`, `on_status` and fresh-delivery scheduling
 still classify by Kind. #1847 owns that projection repair and B37's runtime,
-Decision-note and real-Claude observer acceptance; this alignment does not close
+real-Claude observer acceptance; this alignment does not close
 it. V4's existing pure transition correspondence remains unchanged; V7 must also
 check the lifecycle projection against those seams.
 

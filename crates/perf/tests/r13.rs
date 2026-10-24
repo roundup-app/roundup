@@ -30,6 +30,7 @@ fn budget(
 fn report(os: &str, cpus: usize, loads: &[f64], metrics: &[(&str, f64)]) -> Report {
     Report {
         os: os.into(),
+        class: None,
         cpus,
         runs: loads.len(),
         loads: loads.to_vec(),
@@ -268,7 +269,7 @@ fn r13_the_skipped_key_is_present_and_empty_when_nothing_was_skipped() {
     let dir = tempfile::tempdir().unwrap();
     let out = dir.path().join("perf.json");
 
-    assert!(conclude(per_run, vec![0.1], &budgets, &out).unwrap());
+    assert!(conclude(per_run, vec![0.1], &budgets, None, &out).unwrap());
 
     let written: serde_json::Value = serde_json::from_slice(&std::fs::read(&out).unwrap()).unwrap();
 
@@ -291,7 +292,7 @@ fn r13_the_skipped_key_in_perf_json_holds_the_skipped_metrics() {
     let dir = tempfile::tempdir().unwrap();
     let out = dir.path().join("perf.json");
 
-    assert!(conclude(per_run, vec![load], &budgets, &out).unwrap());
+    assert!(conclude(per_run, vec![load], &budgets, None, &out).unwrap());
 
     let written: serde_json::Value = serde_json::from_slice(&std::fs::read(&out).unwrap()).unwrap();
 
@@ -314,7 +315,7 @@ fn conclude_writes_perf_json_before_propagating_a_budget_check_error() {
     let dir = tempfile::tempdir().unwrap();
     let out = dir.path().join("perf.json");
 
-    assert!(conclude(BTreeMap::new(), vec![0.1], &budgets, &out).is_err());
+    assert!(conclude(BTreeMap::new(), vec![0.1], &budgets, None, &out).is_err());
     assert!(out.exists());
 }
 
@@ -355,7 +356,7 @@ fn r13_exits_0_when_every_metric_was_skipped_and_nothing_exceeded_its_limit() {
     let dir = tempfile::tempdir().unwrap();
     let out = dir.path().join("perf.json");
 
-    assert!(conclude(per_run, vec![cpus * 3.0], &budgets, &out).unwrap());
+    assert!(conclude(per_run, vec![cpus * 3.0], &budgets, None, &out).unwrap());
 
     // The 0 exit must come from both metrics' regression tests being
     // skipped for load, not from terminal_write_p95_ms coincidentally having

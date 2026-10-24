@@ -1,7 +1,6 @@
 import type { Actor } from "@contracts/Actor";
 import type { Event as DaemonEvent } from "@contracts/Event";
 import type { EventData } from "@contracts/EventData";
-import type { Decision } from "@contracts/decision/Decision";
 import type { Kind } from "@contracts/Kind";
 import type { Message } from "@contracts/message/Message";
 import type { ContextPart } from "@contracts/agent/ContextPart";
@@ -28,7 +27,7 @@ const NOT_FOUND = -32001;
 
 const KINDS: Kind[] = ["error", "needs-you", "blocked", "working", "idle", "done"];
 
-export const SEEDS = ["first-run", "agents-10", "tree-40", "daemon-exits", "conflict", "empty-project", "door-stopped", "door-report", "decisions", "earlier-run", "context-bar", "tabs-8", "bubbles", "resources", "import-candidates", "note-queue"] as const;
+export const SEEDS = ["first-run", "agents-10", "tree-40", "daemon-exits", "conflict", "empty-project", "door-stopped", "door-report", "earlier-run", "context-bar", "tabs-8", "bubbles", "resources", "import-candidates", "note-queue"] as const;
 
 export type SeedName = (typeof SEEDS)[number];
 
@@ -567,33 +566,6 @@ export const seedApp = (name: SeedName, now: number): Controls => {
       agents: [{ id: "worktree-agent", ...dense }, { id: "bare-agent", memory_bytes: 5e6, cpu_percent: 0, disk_bytes: null }],
       total: { memory_bytes: 999.9e9 + 5e6, cpu_percent: 1600, disk_bytes: 12.3e12 },
     });
-  }
-
-  if (name === "decisions") {
-    const open = new Map<string, Decision>([
-      ["d-1", { id: "d-1", agent: "agent-1", tool: "Bash", args: JSON.stringify({ command: "rm -rf build && cargo build --release", description: "Remove the build output" }), opened_at: now, answerable: true, scopes: ["once", "session"], risk: "destructive" }],
-      ["d-4", { id: "d-4", agent: "agent-4", tool: "Edit", args: JSON.stringify({ file_path: "/Users/you/project/src/main.rs", old_string: "let a = 1;", new_string: "let a = 2;\nlet b = 3;" }), opened_at: now, answerable: true, scopes: ["once", "session", "project"] }],
-      ["d-2", { id: "d-2", agent: "agent-2", tool: "ask_user", args: JSON.stringify({ question: "keep v1 routes?", answers: [{ label: "keep (recommended)", description: "no client breaks; the old routes stay to maintain", preview: "```text\nGET /v1/runs\nGET /v2/runs\n```" }, { label: "drop", description: "one set of routes; v1 clients break" }] }), opened_at: now, answerable: true }],
-      ["d-3", { id: "d-3", agent: "agent-3", tool: "AskUserQuestion", args: "Layout\nWhich layout?\n1. Grid\n   Tiles\n   first\n   second\n2. List\n   Rows", opened_at: now, answerable: false }],
-    ]);
-
-    app.handlers["decision.list"] = () => [...open.values()];
-    app.handlers["decision.capture"] = ({ id }) => {
-      const decision = open.get(id);
-
-      if (!decision) throw new RpcError(CONFLICT, "the original question is no longer open");
-
-      return { daemon: "harness", agent: decision.agent, attempt: "1", decision: id };
-    };
-
-    app.handlers["decision.answer"] = ({ id }) => {
-      open.delete(id);
-      controls.emit({ actor: USER, name: "decision.cleared", data: { id, outcome: "answered" } });
-
-      return null;
-    };
-
-    app.handlers["decision.revoke"] = () => null;
   }
 
   if (name === "daemon-exits") afterFirstLoad(app, () => app.exitDaemon({ code: 1 }));

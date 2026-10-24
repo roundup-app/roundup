@@ -24,8 +24,7 @@ use contracts::pad::Pad;
 use contracts::todo::Todo;
 use contracts::{Actor, ActorKind, EventData, IdentifyParams, Kind, Touch};
 use daemon::{
-    Project, TEN_IDLE_BOUND, h21_ask, h21_bash, h21_decision, h21_notes, h21_poll, next, next_kind,
-    rail_tree, signal, start, wait_until_idle,
+    Project, TEN_IDLE_BOUND, h21_poll, next, next_kind, rail_tree, signal, start, wait_until_idle,
 };
 use serde_json::{Value, json};
 use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
@@ -3004,192 +3003,6 @@ async fn m11_no_role_is_offered_a_tool_its_brief_does_not_name() {
     }
 }
 
-// H21: an Agent answers the Decisions of the Agents in its Reach, never its own.
-
-fn h21_script() -> String {
-    concat!(env!("CARGO_MANIFEST_DIR"), "/tests/e2e/answer_as.py").to_owned()
-}
-
-async fn h21_name(client: &rpc::Client, id: &str) -> String {
-    let tree = rail_tree(client).await;
-    tree.iter().find(|n| n.id == id).unwrap().name.clone()
-}
-
-#[tokio::test]
-async fn h21_opening_a_decision_sends_the_door_one_message_and_polls_nothing() {
-    let project = start(&[]);
-    let client = project.client().await;
-    let door = start_door(&client).await;
-    let child = agent_in(&project, &client, Some(&door)).await;
-
-    let long = "x".repeat(300);
-    let _open = h21_ask(&project, &child, "Bash", json!({ "command": long })).await;
-    let decision = h21_decision(&client, &child, None).await;
-    let notes = h21_notes(&client, &door, 1).await;
-    tokio::time::sleep(Duration::from_millis(1500)).await;
-
-    let name = h21_name(&client, &child).await;
-    let args = decision["args"].as_str().unwrap();
-    assert!(args.chars().count() > 200, "{args}");
-    let cut: String = args.chars().take(200).collect();
-    let want = format!(
-        "[decision {}] {name} asks Bash: {cut}",
-        decision["id"].as_str().unwrap()
-    );
-    assert_eq!(h21_notes(&client, &door, 1).await.len(), 1);
-    assert_eq!(notes[0]["body"], want);
-    assert_eq!(notes[0]["kind"], "note");
-    assert_eq!(notes[0]["from"]["id"], "rupd");
-}
-
-#[tokio::test]
-async fn h21_no_message_for_askuserquestion_or_a_doors_own() {
-    let project = start(&[]);
-    let client = project.client().await;
-    let door = start_door(&client).await;
-    let other = start_door(&client).await;
-    let asker = agent_in(&project, &client, Some(&door)).await;
-    let witness = agent_in(&project, &client, Some(&other)).await;
-
-    let _own = h21_ask(&project, &door, "Bash", h21_bash()).await;
-    let _question = h21_ask(
-        &project,
-        &asker,
-        "AskUserQuestion",
-        json!({"questions": []}),
-    )
-    .await;
-    let _barrier = h21_ask(&project, &witness, "Bash", h21_bash()).await;
-    let heard = h21_notes(&client, &other, 1).await;
-
-    assert_eq!(heard.len(), 1);
-    assert!(h21_notes(&client, &door, 0).await.is_empty());
-}
-
-#[tokio::test]
-async fn h21_a_replaced_decision_sends_one_message_for_the_new_one() {
-    let project = start(&[]);
-    let client = project.client().await;
-    let door = start_door(&client).await;
-    let child = agent_in(&project, &client, Some(&door)).await;
-
-    let _first = h21_ask(&project, &child, "Bash", h21_bash()).await;
-    let first = h21_decision(&client, &child, None).await;
-    let first = first["id"].as_str().unwrap().to_owned();
-    let _second = h21_ask(&project, &child, "Read", json!({"file_path": "a"})).await;
-    let second = h21_decision(&client, &child, Some(&first)).await;
-    let notes = h21_notes(&client, &door, 2).await;
-
-    assert_eq!(notes.len(), 2);
-    assert!(
-        notes[0]["body"]
-            .as_str()
-            .unwrap()
-            .starts_with(&format!("[decision {first}] "))
-    );
-    let id = second["id"].as_str().unwrap();
-    assert!(
-        notes[1]["body"]
-            .as_str()
-            .unwrap()
-            .starts_with(&format!("[decision {id}] "))
-    );
-}
-
-#[tokio::test]
-async fn h21_no_message_when_the_door_is_gone() {
-    let project = start(&[]);
-    let client = project.client().await;
-    let door = start_door(&client).await;
-    let gone = start_door(&client).await;
-    let live = start_door(&client).await;
-    let orphan = agent_in(&project, &client, Some(&gone)).await;
-    let witness = agent_in(&project, &client, Some(&live)).await;
-    client
-        .request("agent.stop", json!({ "id": gone }))
-        .await
-        .unwrap();
-
-    let _b = h21_ask(&project, &orphan, "Bash", h21_bash()).await;
-    let _c = h21_ask(&project, &witness, "Bash", h21_bash()).await;
-    let heard = h21_notes(&client, &live, 1).await;
-
-    assert_eq!(heard.len(), 1);
-    assert!(h21_notes(&client, &door, 0).await.is_empty());
-    assert!(h21_notes(&client, &gone, 0).await.is_empty());
-}
-
-/// A process below the child's `claude` that does `mode`, then answers the child's own Decision.
-async fn h21_below_claude(mode: &str) -> (Value, usize) {
-    let root = tempfile::tempdir().unwrap();
-    let gate = root.path().join("gate");
-    let door_file = root.path().join("door-id");
-    let out = root.path().join("out");
-    let process = json!([
-        "python3",
-        h21_script(),
-        gate,
-        out,
-        "d1",
-        door_file,
-        "PLACEHOLDER",
-        mode
-    ]);
-    let project = start(&[]);
-    let data = project.data_dir();
-    let process = {
-        let mut argv = process;
-        argv[6] = json!(data);
-        argv
-    };
-    let mut project = project;
-    project.restart(&[("FAKE_CLAUDE_CHILD_PROCESS", &process.to_string())]);
-    let client = project.client().await;
-    let door = start_door(&client).await;
-    std::fs::write(&door_file, &door).unwrap();
-    let child = agent_in(&project, &client, Some(&door)).await;
-    let _open = h21_ask(&project, &child, "Bash", h21_bash()).await;
-    assert_eq!(h21_decision(&client, &child, None).await["id"], "d1");
-
-    std::fs::write(&gate, "").unwrap();
-    let reply = h21_poll("the reply", async || {
-        std::fs::read_dir(root.path())
-            .unwrap()
-            .filter_map(|e| e.ok())
-            .find(|e| {
-                let name = e.file_name().to_string_lossy().into_owned();
-                name.starts_with("out.") && !name.ends_with(".tmp")
-            })
-            .map(|e| {
-                serde_json::from_str::<Value>(&std::fs::read_to_string(e.path()).unwrap()).unwrap()
-            })
-    })
-    .await;
-    let touches = client
-        .request("provenance.history", json!({ "item": "decision:d1" }))
-        .await
-        .unwrap();
-    let open = client.request("decision.list", Value::Null).await.unwrap();
-    assert_eq!(open.as_array().unwrap().len(), 1);
-    (reply, touches.as_array().unwrap().len())
-}
-
-#[tokio::test]
-async fn h21_a_terminal_process_claiming_the_door_stays_forbidden() {
-    let (reply, touches) = h21_below_claude("identify").await;
-
-    assert_eq!(reply["error"]["code"], rpc::code::FORBIDDEN, "{reply}");
-    assert_eq!(touches, 0);
-}
-
-#[tokio::test]
-async fn h21_reading_the_doors_launch_files_gives_no_authority() {
-    let (reply, touches) = h21_below_claude("files").await;
-
-    assert_eq!(reply["error"]["code"], rpc::code::FORBIDDEN, "{reply}");
-    assert_eq!(touches, 0);
-}
-
 /// M9: the Brief names exactly what its `rup mcp` offers, for a Door as for an Agent.
 #[tokio::test]
 async fn m9_the_brief_names_exactly_the_tools_offered() {
@@ -3209,8 +3022,6 @@ async fn m9_the_brief_names_exactly_the_tools_offered() {
         "project_open",
         "agent_stop",
         "agent_prompt",
-        "decision_list",
-        "decision_answer",
     ] {
         assert!(listed.iter().any(|t| t == tool), "{tool}");
     }
@@ -4527,12 +4338,7 @@ async fn m16_action_descriptions_prefer_direct_tools() {
             .to_owned()
     };
     let write = described("terminal_write");
-    for direct in [
-        "agent_prompt",
-        "agent_interrupt",
-        "agent_stop",
-        "decision_answer",
-    ] {
+    for direct in ["agent_prompt", "agent_interrupt", "agent_stop"] {
         assert!(write.contains(&format!("`{direct}`")), "{write}");
         assert!(!described(direct).contains("keystroke"), "{direct}");
     }

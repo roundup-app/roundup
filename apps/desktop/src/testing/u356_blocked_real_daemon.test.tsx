@@ -129,7 +129,7 @@ describe("u356 the fake claude holds an Agent blocked in every Workstream, obser
       await waitFor(() => expect(row(agent.id)).toBeTruthy());
     }
 
-    // Quiet: a working Agent opens no Decision Card and the selection stays.
+    // Quiet: a working Agent leaves the selection alone.
     const working = agents.find((each) => each.kind === "working")!.id;
 
     fireEvent.click(row(working).querySelector(".name")!);
@@ -138,7 +138,6 @@ describe("u356 the fake claude holds an Agent blocked in every Workstream, obser
     // an early synthetic acknowledgement must not become a late prompt failure.
     await new Promise((done) => setTimeout(done, 11_000));
     expect(selected()).toBe(working);
-    expect(screen.queryByRole("region", { name: /Decision for| wants to / })).toBeNull();
     expect(await kindOf(working)).toBe("working");
 
     // Jump: `error` before `needs-you`, oldest first, across both Workstreams, then it wraps.
@@ -154,12 +153,6 @@ describe("u356 the fake claude holds an Agent blocked in every Workstream, obser
       leaderKey("KeyJ");
       await waitFor(() => expect(selected()).not.toBe(visited.at(-1) ?? working));
       visited.push(selected());
-
-      if (urgent[press % urgent.length]?.status?.kind === "needs-you") {
-        await waitFor(() => expect(screen.getByRole("region", { name: /Decision for| wants to / })).toBeTruthy());
-      } else {
-        expect(screen.queryByRole("region", { name: /Decision for| wants to / })).toBeNull();
-      }
     }
 
     expect(visited.slice(0, urgent.length)).toEqual(urgent.map((node) => node.id));

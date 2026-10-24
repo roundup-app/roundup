@@ -57,7 +57,6 @@ async fn a7_b1_b9_real_daemon_fences_old_status_after_door_restart() {
         reactions: std::sync::Arc::new(crate::reaction::Reactions::in_memory()),
         prompt_effect_gate: None,
         agents: agents.clone(),
-        notes: Default::default(),
         renames: std::sync::Mutex::new(None),
         owner_events: std::sync::Mutex::new(None),
         wake_events: Default::default(),

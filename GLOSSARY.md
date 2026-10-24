@@ -56,7 +56,7 @@ never changes an already running Attempt or stores an app-wide default in the Da
 
 **Agent**:
 One supervised identity, with a Status, on the Rail under its Workstream; each launch of its program is an Attempt, and at most one runs at a time.
-_Avoid_: bot, worker; and _session_ for an Agent (only a Grant's `session` scope, Claude Code's own word, may carry it).
+_Avoid_: bot, worker; and _session_ for an Agent.
 
 **Terminal**:
 A shell or program roundup started, with a screen the user can watch; no Status beyond running or exited. Never a Rail row and never stored: it ends with the Daemon, with its owner's removal or when the user closes it. An Agent's own Terminal is its pane; any other is shown as a Bubble. A user-opened Terminal belongs to a Workstream, or to the Project before its first Workstream; a Project-owned Terminal uses the absolute Project folder path as its owner.
@@ -401,7 +401,7 @@ An extra label after a name; it never changes the Glyph.
 The Status label, in a Rail row's `title` and the Agent's pane; the Rail draws none.
 
 **Unseen** (`unseen`, user label: Unread result):
-An Agent's turn finish the user has not yet viewed. It is separate from Kind, a Decision, result acceptance and unseen output in a plain Terminal.
+An Agent's turn finish the user has not yet viewed. It is separate from Kind, result acceptance and unseen output in a plain Terminal.
 
 **Finish count** (`finished`):
 The number of an Agent's observed Kind transitions directly from `working` to `idle` or `done`, across its Attempts. It identifies newer finishes without claiming that their results were accepted or checked.
@@ -539,35 +539,11 @@ One Message of a bubbling question: sent to an Agent, then to each Agent above i
 The Message to the user that ends a bubbling question: stored `delivered` at once (B10); #3564 removes the rest of the escalation machinery.
 
 **Card**:
-Anything the user sees in the app (a permission request, a question, an Inbox Message, a status, a summary); it has a kind.
+Anything the user sees in the app (an Inbox Message, a status, a summary); it has a kind.
 _Avoid_: popup
 
 **Markdown**:
 The text format an Agent writes; `renderMarkdown` draws it as elements on every surface of generated text (`scenarios/plain-text.md` Q10), and text the user typed is not drawn.
-
-**Decision**:
-The kind of Card that blocks an Agent on a live hook or tool call; the user answers any of them, and an Agent answers only those of Agents in its Reach, never its own (`scenarios/decisions.md` H21). An Agent's `ask_user` call is one, answered with one of its listed answers (outcome `answered`).
-
-**Grant** (`Decision.scopes`, `Decision.risk`, `decision.answer.scope`, `decision.revoke`):
-How long a user's allow lasts: `once`, `session` or `project`, each a permission rule Claude Code itself suggested and the hook reply echoes (`scenarios/decisions.md` H23). Only a `project` Grant can be revoked. `Decision.risk` is `destructive` for a command H23 names; such a Decision offers no `project` Grant.
-
-**Answered Decision** (`AnsweredDecision`, `AnswersParams`, `decision.answers`):
-The Project's durable record of one accepted Decision answer: the full original Decision,
-complete prompt, request kind (`RequestKind`: question or permission), requesting Attempt, exact answer and note, authenticated answering Actor and answer time.
-Its Decision id distinguishes consecutive requests across Daemon runs. The user reads any
-Agent's records; an Agent reads only those in its Reach. Open Decisions stay ephemeral.
-
-**Failed answer** (`FailedAnswer`, `Decision.failure`):
-The latest refused authenticated Agent answer on one original live Decision,
-read through `decision.list` with its Reach filtering: requesting Attempt,
-answering Actor, failure time and exact RPC error code and message. It is not a
-successful answer record; replacement, clearing or successful delivery discards it.
-
-**Prompt identity** (`PromptIdentity`, `CaptureParams`, `decision.capture`):
-The original Decision's identity within one Daemon run, Agent and Attempt. An answer or answer-like Terminal write carries it into the effect; an answered, dismissed, replaced or unavailable original refuses with an error the Daemon can record as dropped. Equal text and a reused Decision id never revive it. It grants no Reach or Proof.
-
-**Prompt effect**:
-An answer or Terminal write applied to its captured Prompt identity. The check and effect exclude a concurrent answer, replacement or Attempt change; refusal writes no bytes, and a successful effect consumes the identity.
 
 **Actor**:
 The user, an Agent, an Extension or the Daemon (as `rupd`) making a call.
@@ -600,13 +576,13 @@ The last 1 MiB of a Terminal's output bytes, kept so an Agent can read what is n
 The offset in a Terminal's Output log where one reader's next `terminal.read` without `after` begins, set to the reply's `next`; each (Agent id, Terminal) pair has its own, it is Daemon state only, and it ends with its Terminal (`scenarios/terminal-stream.md` X16).
 
 **Reach** (`Agents::guard_reach`):
-The Rail nodes an Agent may act on through its MCP server: its descendants, and the Workstreams it created with theirs (`scenarios/mcp.md` M7); a call outside it is `FORBIDDEN`. It also bounds the Decisions an Agent lists and answers (H21).
+The Rail nodes an Agent may act on through its MCP server: its descendants, and the Workstreams it created with theirs (`scenarios/mcp.md` M7); a call outside it is `FORBIDDEN`.
 
 **project.requested**:
 The Event an Agent's `project_open` or `project_rename` emits, because a Daemon cannot reach the App; the webview answers it with `open_project` or `rename_project` (`scenarios/mcp.md` M8).
 
 **Touch**:
-One logged read or write of a Todo, a Pad, a Message or a Decision (`decision:<id>`) by an Actor.
+One logged read or write of a Todo, a Pad or a Message by an Actor.
 
 **Provenance**:
 The append-only log of Touches.
@@ -621,9 +597,6 @@ A durable `roundup://<kind>/<id>?project=<key>` URL naming one object of one Pro
 
 **Context menu** (`show_context_menu`):
 The macOS system menu (`NSMenu`) a right-click or `ContextMenu` key opens on a Rail row, a Project tab, a Terminal tab, a Pad or a Todo; the webview builds its items and the host pops it up (U2694a).
-
-**Proof**:
-The random secret the App gives its attached Daemon on stdin and the webview reads through `daemon_proof`; the user's `decision.answer` needs it; an Agent's is checked by Reach instead (H4, H18, H21).
 
 **openTarget**:
 The App seam command (`open_target`) that opens a web link in the browser, or an absolute path in its default app (a folder in Finder), when the user Cmd+clicks one printed in a Terminal; a missing path is `NOT_FOUND`, a scheme but http and https is `FORBIDDEN` (U365).
@@ -755,7 +728,7 @@ The matching spellings of one displayed Help chord.
 ### Ask placement
 
 **Ask** (`ask::Ask`, `Asks`, `SendParams`, `PickParams`):
-One message the user sends from the Ask bar; distinct from an Agent's Decision. `Asks` stores and delivers it; `SendParams` sends it and `PickParams` chooses one part's destination. `Steer::User` carries its exact words through `Agents::prompt`; ordinary `Steer::Instruction` keeps H20's lead.
+One message the user sends from the Ask bar; distinct from an Agent's own question in its Terminal. `Asks` stores and delivers it; `SendParams` sends it and `PickParams` chooses one part's destination. `Steer::User` carries its exact words through `Agents::prompt`; ordinary `Steer::Instruction` keeps H20's lead.
 
 **Ask submission** (`AskSubmission`, `submission`):
 The caller-captured identity of one submitted Ask revision within its original Project. Durable intake binds it to exact text and an optional captured Workstream id; equal replay returns the same Ask and conflicting replay refuses. Separate intentional submissions use distinct identities even for equal text.
@@ -798,7 +771,7 @@ tells subscribers to reconcile that revision. `MeasurementSource` reports last g
 failure cause and uncovered history. Explicit Project/Workstream deletion remains effective.
 
 **Timed activity** (`TimedActivity`):
-A roundup-observed Attempt lifetime, Startup, Idle phase, blocking Decision, or blocking coordination operation linked to its original Message. It is distinct from model/tool execution.
+A roundup-observed Attempt lifetime, Startup, Idle phase, or blocking coordination operation linked to its original Message. It is distinct from model/tool execution.
 
 **Startup** (`TimedActivity::Startup`):
 The positively observed launch phase ending at its first acknowledgement. It is retained only for an acknowledged Attempt; missing historical launch points stay unknown.
@@ -838,11 +811,11 @@ exact declared repository/PR/head. Unsupported sources and uncertain external ef
 remain unknown with a cause and checking action. Agent status and Terminal prose
 supply no verification authority.
 
-**Continuation** (`ContinuationAction`, `ContinuationDecision`, `Reconciliation`, `ResumeWorkParams`, `message.reconcileWork`, `message.resumeWork`):
+**Continuation** (`ContinuationAction`, `ContinuationChoice`, `Reconciliation`, `ResumeWorkParams`, `message.reconcileWork`, `message.resumeWork`):
 The user's explicit choice to resume one Agent's unfinished work. Reconciliation reads
 retained Result reports, acceptance and observations and changes nothing; an action is a
 current report's pending next step, identified by its Agent, instruction, target, output
-and next step, never by a report key or client request id. A decision accepts its actions
+and next step, never by a report key or client request id. A choice accepts its actions
 once and makes one successor Message in the same write; a stopped Agent, a removed target,
 an unknown external effect or a completed result never yields one.
 

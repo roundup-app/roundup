@@ -110,14 +110,6 @@ const TOOLS: &[(&str, &str)] = &[
         "read the Checkpoints written for a Workstream, oldest first",
     ),
     (
-        "decision_list",
-        "see the open permission requests and `ask_user` questions of the Agents below you",
-    ),
-    (
-        "decision_answer",
-        "answer one of those Decisions with `allow` or `deny`, or with one of the listed answers; never your own, never one outside the Agents below you",
-    ),
-    (
         "agent_context",
         "ask where you stand now: who you report to, whom to ask, your peers and your open Todos, for instance after you were moved",
     ),
@@ -187,10 +179,6 @@ const TOOLS: &[(&str, &str)] = &[
     (
         "message_pass",
         "hand a question you received on to the next Agent above, when it is not yours to answer",
-    ),
-    (
-        "ask_user",
-        "put a decision to the user with up to four answers, each with its tradeoff and a preview, and wait for the answer or the note they give back",
     ),
     (
         "todo_move",
@@ -385,11 +373,10 @@ const DOOR: &str = "\
 
 You are this Workstream's coordinating Door. Use the Todo tools to record the work and update it as it changes. \
 The user types to you in your own Terminal. Report the outcome directly in your Terminal when the work ends. \
-When the user's goal or a taste limit is unclear, ask directly in your Terminal and wait for their reply there. \
+When the user's goal or a taste limit is unclear, ask with `AskUserQuestion` and wait for their reply there. \
 {intent}\
 Delegate implementation to children with `agent_spawn`. You cannot execute commands or open or write to a Terminal. \
 Start a child with `agent_spawn` and talk to it with `message_send`. \
-A note beginning `[decision <id>]` tells you a child opened a permission request or question: read it with `decision_list` and answer it with `decision_answer`, which acts only on the Agents below you. \
 Make a Workstream with `rail_createWorkstream` and then `rail_startDoor`; a Workstream is never nested, and its Door asks the user what it is for. \
 Open another Project with `project_open`. \
 When the user asks to see a child's output, call `terminal_show` with the id of the child's Terminal and read nothing: no `terminal_screen`, `terminal_read`, `terminal_search` or `message_send`. \
@@ -427,7 +414,7 @@ const PLAIN_RULE: &str = "\
 ## Output style
 
 Write every reply, including direct Terminal prose, in hold:Plain regardless of recipient or tool. \
-Write every Work order, Message to `you`, `ask_user` question, Digest and Pad reply in the output style below. \
+Write every Work order, Message to `you`, `AskUserQuestion` question, Digest and Pad reply in the output style below. \
 Write each limit of a Work order as a rule that reads on its own, such as \"Change no file in the repo\".
 
 ";
@@ -458,21 +445,14 @@ const REDUCE: &str = include_str!("../../assets/reduce.md");
 /// 653b6411c1f70c275a18e37673b042ff99f67ceb, vendored byte for byte.
 const SHOW_ME: &str = include_str!("../../assets/show-me.md");
 
-/// H14b: how to ask with `ask_user`.
+/// A3564c: a question for the user goes through Claude Code's own `AskUserQuestion`, a question for
+/// another Agent is a Message, and neither channel answers for the other.
 const ASK_RULE: &str = "\
-## Asking the user
+## Asking
 
-When you call `ask_user`:
-
-- The question is one line: the decision.
-- The context is at most 3 lines, only what the pick turns on, and you run `reduce` on it.
-- The answers are 2 to 4, the recommended one first and its label ending ` (recommended)`.
-- A label is at most 5 words.
-- A description is the tradeoff: what the pick gains and what it costs.
-- A preview is the smallest `show-me` sketch of what the pick builds, and is required when the user has not met its terms.
-- An open question the user answers in their own words takes no answers.
-- Never ask what you can answer by looking, and never ask `you` in a Message what `ask_user` asks.
-- The reply is `{answer, note}`: `answer` is the label picked, or null for the user's own answer, and `note` is their text.
+Ask the user with `AskUserQuestion`: Claude Code shows it in your Terminal and the user answers there. \
+Ask another Agent with `message_send` as a question; it answers with a note that names your question in `replyTo`, and you read the answer in your own conversation. \
+Never answer another Agent's `AskUserQuestion` or permission prompt, and never type into its Terminal.
 
 ";
 
@@ -480,14 +460,14 @@ When you call `ask_user`:
 const REDUCE_RULE: &str = "\
 ## Reduce and show
 
-Run `reduce` on every Work order, Message to `you`, `ask_user` question, Digest, Pad reply and Todo title before you write it, \
+Run `reduce` on every Work order, Message to `you`, `AskUserQuestion` question, Digest, Pad reply and Todo title before you write it, \
 and lay it out as `show-me` does. Both skills follow. \
 When the text explains structure, a flow or a comparison, pick the smallest view that makes the point, and only a view the App draws:
 
 - a table, in any of that text;
 - a code-shape sketch, call tree, file tree or `diff` in a fenced block, in any of that text;
 - a Mermaid diagram only in a Pad, written with `pad_write` or `pad_append`: \
-a Message, `ask_user` question, Digest, Work order or Todo title never holds one, so write the diagram in a Pad and send the Pad's name;
+a Message, `AskUserQuestion` question, Digest, Work order or Todo title never holds one, so write the diagram in a Pad and send the Pad's name;
 - no HTML artifact: write no HTML file and never `open` one.
 
 ";
@@ -499,10 +479,9 @@ Write a list as the choices and nothing around them. \
 Leave out an acknowledgment such as \"On it.\", a connective such as \"Separately:\" and a list item that restates its question.
 ";
 
-/// M2219: the `rup` command for tool `name`: `noun_verbName` is `rup noun verb-name`, and `ask_user` is `rup agent ask`, and the two ref tools are `rup todo ref add|remove`.
+/// M2219: the `rup` command for tool `name`: `noun_verbName` is `rup noun verb-name`, and the two ref tools are `rup todo ref add|remove`.
 fn command(name: &str) -> String {
     match name {
-        "ask_user" => return "rup agent ask".into(),
         // T28: the one pair of commands with a group word between noun and verb.
         "todo_addRef" => return "rup todo ref add".into(),
         "todo_removeRef" => return "rup todo ref remove".into(),
@@ -553,12 +532,10 @@ fn with_tools(role: Role, mcp: bool) -> String {
     // M11: the tools to load together on the first turn.
     let first_turn = match (mcp, role) {
         (true, Role::Door) => {
-            "Load `agent_context`, `message_list`, `agent_digest` and `ask_user` together first."
+            "Load `agent_context`, `message_list` and `agent_digest` together first."
         }
         (true, _) => "Load `agent_context` and `todo_list` together first.",
-        (false, Role::Door) => {
-            "Run `agent_context`, `message_list`, `agent_digest` and `ask_user` first."
-        }
+        (false, Role::Door) => "Run `agent_context`, `message_list` and `agent_digest` first.",
         (false, _) => "Run `agent_context` and `todo_list` first.",
     };
     let (heading, help, tools) = if mcp {

@@ -40,11 +40,6 @@ pub struct OpenParams {
 #[derive(Clone, Debug, Serialize, Deserialize, TS, JsonSchema)]
 #[ts(export, export_to = "terminal/")]
 pub struct WriteParams {
-    /// Answer bytes require the captured original prompt. A stale or unavailable
-    /// identity is CONFLICT and writes no bytes.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    #[ts(optional)]
-    pub identity: Option<crate::decision::PromptIdentity>,
     pub id: String,
     /// Base64 of the bytes to type.
     pub data: String,
@@ -82,7 +77,7 @@ pub struct SchemeParams {
 pub struct TerminalInfo {
     pub id: String,
     /// Opaque, non-secret identity of this original Terminal; stable until removal, never reused
-    /// by another Terminal or Project, including after a Daemon restart. Grants no authority.
+    /// by another Terminal or Project, including after a Daemon restart. Confers no authority.
     pub incarnation: String,
     pub cwd: String,
     /// Latest OSC 0/2 window title, if any.
