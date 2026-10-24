@@ -108,7 +108,7 @@ describe("U83 closed Agent overview", () => {
       const button = await setup(async () => { if (failing) throw new Error("denied"); });
       fireEvent.click(button);
       expect((await screen.findByRole("alert")).textContent).toContain("Copy failed: denied. Select the text to copy it.");
-      expect(button.textContent).toBe(overview.id);
+      expect(button.textContent).toBe("Copy failed");
       failing = false;
       fireEvent.click(button);
       await waitFor(() => expect(screen.queryByRole("alert")).toBeNull());
