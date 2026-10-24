@@ -152,7 +152,7 @@ export const ProjectTab = (props: {
   ]);
 
   return <Tabs.Context>{(tabs) => <>
-    <FlatTab class="project-tab" selected={props.selected} role="presentation" data-path={props.tab.path} data-unfinished={records().length || problem() || copyFailure() ? "true" : undefined}
+    <FlatTab class="project-tab" selected={props.selected} role="presentation" data-path={props.tab.path} data-unseen={props.tab.unseen ? "true" : undefined} data-unfinished={records().length || problem() || copyFailure() ? "true" : undefined}
       style={editing() === null ? undefined : { width: `${editing()?.width}px` }}
       ref={(element) => { wrap = element; props.ref?.(element); }}
       onPointerEnter={handlers.onMouseEnter} onPointerLeave={handlers.onMouseLeave}
