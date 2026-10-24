@@ -108,7 +108,7 @@ it.each(readers)("u3807_each_site_shows_its_message_in_the_reserved_line: $site"
   expect(alert.textContent).toContain(FAILURE);
   unchanged(places, place);
   Object.assign(mounted.app.handlers, { [site.method]: original });
-  const retry = within(place).queryByRole("button");
+  const retry = within(place).queryByRole("button", { name: /^(?!Clear)/ });
 
   if (retry) fireEvent.click(retry);
   else site.refresh(mounted);
@@ -236,7 +236,7 @@ it("u3807_each_site_shows_its_message_in_the_reserved_line: Order editor", async
 
   await cycle(view.container,
     () => fireEvent.click(within(view.container).getByRole("button", { name: "Save" })),
-    () => { mounted.app.handlers["agent.setOrder"] = () => new Promise(() => {}); fireEvent.click(within(view.container).getByRole("button", { name: "Save" })); });
+    () => fireEvent.click(within(view.container).getByRole("button", { name: "Clear error" })));
 });
 
 it("u3807_each_site_shows_its_message_in_the_reserved_line: Decision cards", async () => {
