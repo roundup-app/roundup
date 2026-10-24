@@ -13,21 +13,24 @@
   border-radius: var(--radius-row);
 }
 
-/* U3800a: the lifted row keeps a solid --accent edge drawn inside its box, with the row's own Token radius; the slot where it will land is an empty dashed --accent box one row high. */
-[data-dnd-dragging] {
-  position: relative;
-}
-
-[data-dnd-dragging]::before {
-  content: "";
+/* U3800a: the source row stays in its place with a solid --accent edge (a ghost drawn over its original box); the lifted copy draws no box and the dashed slot marks the destination. */
+.sortable-source {
   position: absolute;
-  inset: 0;
+  box-sizing: border-box;
+  margin: 0;
   border: 2px solid var(--accent);
+  background-color: var(--ground);
+  background-image: linear-gradient(var(--selected), var(--selected));
   pointer-events: none;
+  overflow: hidden;
 }
 
-[data-dnd-dragging]:not([data-plain] *)::before {
+.sortable-source:not([data-plain] *) {
   border-radius: var(--radius-row);
+}
+
+.rail-tree .sortable-source {
+  border-radius: var(--tree-row-radius);
 }
 
 [data-dnd-placeholder]::after {

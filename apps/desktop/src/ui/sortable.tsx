@@ -190,8 +190,38 @@ const Root = <T extends ExternalTarget>(props: RootProps<T>) => {
   };
 
   let stopRestoringFocus: (() => void) | undefined;
+  let ghost: HTMLElement | null = null;
 
-  onCleanup(() => { stopRestoringFocus?.(); stopListening?.(); mark(null); });
+  /** The source row stays where it was lifted from: a still, solid-edged copy over its original box, under the lifted one. */
+  const leaveGhost = (source: Draggable | null | undefined) => {
+    const element = source?.element;
+    const box = list;
+
+    if (!(element instanceof HTMLElement) || !box) return;
+
+    const at = element.getBoundingClientRect();
+    const base = box.getBoundingClientRect();
+    // SAFETY: cloning an HTMLElement yields an HTMLElement.
+    const copy = element.cloneNode(true) as HTMLElement;
+
+    for (const name of copy.getAttributeNames()) if (name.startsWith("data-dnd-") || name === "style" || name === "id" || name === "popover") copy.removeAttribute(name);
+
+    copy.classList.add("sortable-source");
+    copy.setAttribute("aria-hidden", "true");
+    copy.setAttribute("inert", "");
+    copy.style.top = `${at.top - base.top + box.scrollTop}px`;
+    copy.style.left = `${at.left - base.left + box.scrollLeft}px`;
+    copy.style.width = `${at.width}px`;
+    copy.style.height = `${at.height}px`;
+
+    if (getComputedStyle(box).position === "static") box.style.position = "relative";
+    box.appendChild(copy);
+    ghost = copy;
+  };
+
+  const clearGhost = () => { ghost?.remove(); ghost = null; };
+
+  onCleanup(() => { clearGhost(); stopRestoringFocus?.(); stopListening?.(); mark(null); });
 
   // Installing even a no-op dragover callback makes dnd-kit save a new DOM position, changing flat-list restoration.
   // The provider reads every spread prop during cleanup; keep its callback shape independent of removed rows.
@@ -211,6 +241,9 @@ const Root = <T extends ExternalTarget>(props: RootProps<T>) => {
     const source = event.operation.source;
 
     previewed = null;
+    clearGhost();
+
+    if (!tree?.holdPlace) leaveGhost(source);
     projectedIndex = tree?.holdPlace && isSortable(source) ? source.index : null;
 
     if (tree?.holdPlace && isSortable(source) && source.element instanceof HTMLElement) {
@@ -267,6 +300,8 @@ const Root = <T extends ExternalTarget>(props: RootProps<T>) => {
     const source = event.operation.source;
     const outside = over;
     const pointerDrag = !(event.operation.activatorEvent instanceof KeyboardEvent);
+
+    clearGhost();
 
     mark(null);
     local.onDrag?.(false);
