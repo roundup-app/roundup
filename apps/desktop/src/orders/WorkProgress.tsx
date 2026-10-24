@@ -63,7 +63,14 @@ const ProgressContent = (props: { id: string }) => {
   const [failures, setFailures] = createSignal<Record<string, string>>({});
   const [dismissedRead, setDismissedRead] = createSignal<Read>();
   const [resumeFailure, setResumeFailure] = createSignal<"failed" | "unknown" | null>(null);
-  const present = () => rail.nodes.some(node => node.id === props.id);
+  let wasPresent = rail.nodes.some(node => node.id === props.id);
+  createEffect(() => {
+    if (rail.failure() !== null) return;
+    const present = rail.nodes.some(node => node.id === props.id);
+
+    if (wasPresent && !present) setResumeFailure(null);
+    wasPresent = present;
+  });
 
   const clearReport = (report: string) => setFailures(previous => {
     const next = { ...previous };
@@ -73,14 +80,6 @@ const ProgressContent = (props: { id: string }) => {
   });
 
   createEffect(() => {
-    if (!present()) {
-      setFailures({});
-      setResumeFailure(null);
-      setDismissedRead(read.latest);
-
-      return;
-    }
-
     const each = loaded();
 
     if (each) {
@@ -113,14 +112,14 @@ const ProgressContent = (props: { id: string }) => {
     try {
       const unavailable = await openDeliverable(app, result.report.publication.project, result.report.publication.id);
 
-      if (!disposed && present()) {
+      if (!disposed) {
         if (unavailable === null) clearReport(report);
         else setFailures(previous => ({ ...previous, [report]: unavailable }));
       }
     } catch (error) {
       if (!(error instanceof Error)) throw error;
 
-      if (!disposed && present()) setFailures(previous => ({ ...previous, [report]: error.message }));
+      if (!disposed) setFailures(previous => ({ ...previous, [report]: error.message }));
     } finally {
       if (!disposed) setOpening(null);
     }
@@ -233,7 +232,7 @@ const ProgressContent = (props: { id: string }) => {
         <For each={noteOf(result, plan)}>{(note) => <p class="progress-note" role="note">{sentence(note.cause)} {sentence(note.action)}</p>}</For>
         <button class="word progress-evidence" data-button="quiet" type="button" aria-label={copy.openEvidence(result.report.publication.title)}
           aria-disabled={opening() !== null ? true : undefined} onClick={() => void inspect(result)}>{result.report.publication.title}</button>
-        <ReservedLine message={failures()[result.report.report]}><IconButton aria-label="Dismiss failure" onClick={() => clearReport(result.report.report)}><Icon name="x" /></IconButton></ReservedLine>
+        <ReservedLine message={failures()[result.report.report]}><IconButton aria-label={copy.clearName(copy.error.toLowerCase())} onClick={() => clearReport(result.report.report)}><Icon name="x" /></IconButton></ReservedLine>
       </li>
     );
   };
@@ -241,14 +240,14 @@ const ProgressContent = (props: { id: string }) => {
   const unread = () => {
     const each = read.latest;
 
-    return present() && each !== dismissedRead() && each?.id === props.id && "failure" in each ? each.failure : undefined;
+    return each !== dismissedRead() && each?.id === props.id && "failure" in each ? each.failure : undefined;
   };
 
   return (
     <>
       <ReservedLine message={unread() ? copy.progressUnreadable(unread()!) : null}>
         <button class="word" data-button="quiet" type="button" onClick={refresh}>{copy.progressRetry}</button>
-        <IconButton aria-label="Dismiss failure" onClick={() => setDismissedRead(read.latest)}><Icon name="x" /></IconButton>
+        <IconButton aria-label={copy.clearName(copy.error.toLowerCase())} onClick={() => setDismissedRead(read.latest)}><Icon name="x" /></IconButton>
       </ReservedLine>
       <Show when={loaded()}>
         {(data) => (
@@ -261,8 +260,8 @@ const ProgressContent = (props: { id: string }) => {
                     onClick={() => void resume()}>{phase() === "pending" ? copy.resuming : phase() === "failed" || phase() === "unknown" ? copy.resumeRetry : copy.resumeUnfinished}</button>
                 </Show>
               </div>
-              <ReservedLine ref={status} class="progress-status" tabindex="-1" message={!present() ? null : resumeFailure() === "unknown" ? copy.resumeUnknown : resumeFailure() === "failed" ? copy.resumeFailed(sentence(cause())) : null}
-                status={phase() === "resumed" ? copy.resumed : phase() === "nothing" ? copy.resumeNothing : null}><Show when={resumeFailure()}><IconButton aria-label="Dismiss failure" onClick={() => setResumeFailure(null)}><Icon name="x" /></IconButton></Show></ReservedLine>
+              <ReservedLine ref={status} class="progress-status" tabindex="-1" message={resumeFailure() === "unknown" ? copy.resumeUnknown : resumeFailure() === "failed" ? copy.resumeFailed(sentence(cause())) : null}
+                status={phase() === "resumed" ? copy.resumed : phase() === "nothing" ? copy.resumeNothing : null}><Show when={resumeFailure()}><IconButton aria-label={copy.clearName(copy.error.toLowerCase())} onClick={() => setResumeFailure(null)}><Icon name="x" /></IconButton></Show></ReservedLine>
               <ul class="progress-rows"><For each={rows()?.current}>{(result) => row(result, data().plan)}</For></ul>
               <Show when={(rows()?.earlier.length ?? 0) > 0}>
                 <Disclosure class="progress-earlier" label={copy.progressEarlier(data().progress.results.filter((result) => !result.current).length)}>

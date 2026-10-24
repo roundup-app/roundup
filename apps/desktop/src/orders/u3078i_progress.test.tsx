@@ -1,6 +1,9 @@
-import { fireEvent, screen, waitFor, within } from "@solidjs/testing-library";
+import { fireEvent, render, screen, waitFor, within } from "@solidjs/testing-library";
 import { expect, it } from "vitest";
 import { gate, mountApp, select } from "../decisions/decisionsFixture";
+import { WorkProgress } from "./WorkProgress";
+import { connectProject, ConnectedProjectContext } from "../state/connectedProject";
+import { createFakeApp } from "../testing/fakeApp";
 import { INTERNAL_CODE, RpcError } from "../app/seam";
 import type { ResumeWork } from "@contracts/message/ResumeWork";
 import type { FakeApp } from "../testing/fakeApp";
@@ -172,9 +175,11 @@ it.each(["dismiss", "same report recovery", "unrelated report recovery", "report
   await view.findByText("Cannot open login; retry");
   fireEvent.click(view.getByRole("button", { name: "Open deployment v1" }));
   await view.findByText("Cannot open deployment; retry");
-  const other = section.querySelector('[data-report="r-deploy"]')!;
+  const row = (report: string) => section.querySelector<HTMLElement>(`[data-report="${report}"]`);
+  expect(within(row("r-login")!).getByText("Cannot open login; retry")).toBeTruthy();
+  expect(within(row("r-deploy")!).getByText("Cannot open deployment; retry")).toBeTruthy();
 
-  if (transition === "dismiss") fireEvent.click(within(section.querySelector<HTMLElement>('[data-report="r-login"]')!).getByRole("button", { name: "Dismiss failure" }));
+  if (transition === "dismiss") fireEvent.click(within(section.querySelector<HTMLElement>('[data-report="r-login"]')!).getByRole("button", { name: "Clear error" }));
 
   if (transition.includes("recovery")) {
     unavailable = false;
@@ -191,9 +196,10 @@ it.each(["dismiss", "same report recovery", "unrelated report recovery", "report
     else await waitFor(() => expect(section.querySelector('[data-report="r-login"]')).toBeNull());
   }
 
-  expect(view.queryByText("Cannot open login; retry") !== null).toBe(transition === "unrelated report recovery" || transition === "read failure");
-  expect(section.querySelector('[data-report="r-deploy"]')).toBe(other);
-  expect(view.queryByText("Cannot open deployment; retry") !== null).toBe(transition !== "unrelated report recovery");
+  const login = row("r-login");
+  expect(login !== null && within(login).queryByText("Cannot open login; retry") !== null).toBe(transition === "unrelated report recovery" || transition === "read failure");
+  expect(within(row("r-deploy")!).queryByText("Cannot open deployment; retry") !== null).toBe(transition !== "unrelated report recovery");
+  expect(within(row("r-deploy")!).queryByText("Cannot open login; retry")).toBeNull();
   expect(drafts("/p").list()).toEqual(before);
   expect(screen.getByLabelText<HTMLTextAreaElement>("Ask").value).toBe(exact);
 });
@@ -207,7 +213,7 @@ it.each(["dismiss", "acknowledge"] as const)("p3557c_failure_lifetime_work_progr
   fireEvent.click(view.getByRole("button", { name: "Resume unfinished work" }));
   await view.findByText(/Agent stopped; start it again/);
 
-  if (transition === "dismiss") fireEvent.click(view.getByRole("button", { name: "Dismiss failure" }));
+  if (transition === "dismiss") fireEvent.click(view.getByRole("button", { name: "Clear error" }));
   else {
     const reply = gate<ResumeWork>();
     app.handlers["message.resumeWork"] = () => reply.promise;
@@ -239,7 +245,7 @@ it.each(["dismiss", "recover", "unrelated removal"] as const)("p3557c_failure_li
   app.emit({ actor: { kind: "user", id: "you", parent: null }, name: "rail.changed" });
   await screen.findByText(/Progress read failed; retry/);
 
-  if (transition === "dismiss") fireEvent.click(screen.getByRole("button", { name: "Dismiss failure" }));
+  if (transition === "dismiss") fireEvent.click(screen.getByRole("button", { name: "Clear error" }));
 
   if (transition === "recover") {
     unreadable = false;
@@ -275,4 +281,26 @@ it("p3557c_failure_lifetime_work_progress_navigation", async () => {
   expect(screen.queryByText("Cannot open alpha; retry")).toBeNull();
   expect(drafts("/p").list()).toEqual(before);
   expect(before.map(draft => [draft.destination, draft.value["ask"]])).toEqual([[{ surface: "orders", object: "a", recipient: "a" }, exact]]);
+});
+
+
+it.each(["dismiss", "unrelated removal"] as const)("p3557c_failure_lifetime_work_progress_without_rail_fact: %s", async transition => {
+  const app = createFakeApp();
+  let nodes = [agent("other", "working", "editing")];
+  app.handlers["rail.tree"] = () => nodes;
+  app.handlers["message.progress"] = () => { throw new RpcError(-32003, "History could not be read; retry"); };
+
+  const connected = await connectProject(app, { name: "p", path: "/p" }, () => true, () => 0);
+  const draft = connected.drafts.edit({ surface: "orders", object: "other", recipient: "other" }, { ask: "  retained 草稿\n" }, null, "ordinary").draft;
+  render(() => <ConnectedProjectContext.Provider value={connected}><WorkProgress id="historical" /></ConnectedProjectContext.Provider>);
+  await screen.findByRole("alert");
+
+  if (transition === "dismiss") fireEvent.click(screen.getByRole("button", { name: "Clear error" }));
+  else {
+    nodes = [];
+    await connected.rail.refresh();
+  }
+
+  expect(screen.queryByRole("alert") !== null).toBe(transition === "unrelated removal");
+  expect(connected.drafts.list()).toEqual([draft]);
 });
