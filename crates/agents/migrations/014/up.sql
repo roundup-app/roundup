@@ -1,4 +1,4 @@
--- U3016m: roundup keeps no token or money. Request and money facts go with the table that
+-- U3016m (after U3566c took 013): roundup keeps no token or money. Request and money facts go with the table that
 -- attributed them; the facts that remain are time, so a reopened Project reads the same time.
 DROP TABLE IF EXISTS measurement_request_attempts;
 DROP TRIGGER IF EXISTS measurement_remember_erasure;
