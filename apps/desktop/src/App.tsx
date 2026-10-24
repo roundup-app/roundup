@@ -422,8 +422,8 @@ export const App = (props: {
                     </div>
                     <ProjectSettingsView />
                     </div>
-                    <ResourceStrip />
                     <Show when={screens()}>{(shared) => <Bubbles screens={shared()} />}</Show>
+                    <ResourceStrip />
                   </div>
                 );
               }}

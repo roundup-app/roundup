@@ -1,4 +1,4 @@
-import { journal } from "./mouseJournal";
+import { journal } from "./mouseJournalHarness";
 import type { Checks } from "../testing/checks";
 import { expect, it } from "vitest";
 import { execFile } from "node:child_process";
