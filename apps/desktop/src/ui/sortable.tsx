@@ -1,5 +1,7 @@
 import "./sortable.css";
-import { Accessibility, Cursor, Droppable, Feedback, KeyboardSensor, PointerActivationConstraints, PointerSensor, type Draggable } from "@dnd-kit/dom";
+import { Accessibility, Cursor, Feedback, PointerActivationConstraints, PointerSensor, type Draggable } from "@dnd-kit/dom";
+import { RestrictToElement } from "@dnd-kit/dom/modifiers";
+import { ProxiedElements } from "@dnd-kit/dom/utilities";
 import { effect } from "@dnd-kit/state";
 import { DragDropProvider, DragOverlay } from "@dnd-kit/solid";
 import { isSortable } from "@dnd-kit/dom/sortable";
@@ -46,7 +48,7 @@ type RootProps<T extends ExternalTarget> = Omit<JSX.HTMLAttributes<HTMLDivElemen
   onOrderChange?: ((ids: string[]) => void) | undefined;
   tree?: SortableTree | undefined;
   external?: External<T> | undefined;
-  /** The handles are buttons that keep their own meaning: the library adds no live region and no `aria-pressed`, `aria-grabbed`, `aria-disabled`, role description or description to them. */
+  /** The handles are buttons that keep their own meaning: the library adds no live region and no `aria-pressed`, `aria-grabbed`, `aria-disabled`, role description or description to them, and the list draws no box or radius around a moved row. */
   plain?: boolean;
   /** Called with true when a drag of one of this list's rows starts and false when it ends. */
   onDrag?: ((active: boolean) => void) | undefined;
@@ -134,72 +136,12 @@ const Root = <T extends ExternalTarget>(props: RootProps<T>) => {
   const [local, rest] = splitProps(props, ["ids", "onOrderChange", "tree", "external", "plain", "onDrag", "children"]);
   let over: T | null = null;
   let list: HTMLDivElement | undefined;
-  let projectedIndex: number | null = null;
   let sourceRow: HTMLElement | null = null;
   let slot: HTMLDivElement | null = null;
-  let slotTarget: Droppable | null = null;
-  let sourceHeight = 0;
-  let keyboardDrag = false;
-  let sourceDepth = 0;
-  let sourceIndent = 0;
-  let slotFrame: number | undefined;
-  let paddingEnd = "";
-  let originLeft = 0;
-  let overlayWidth = 0;
-  const [clip, setClip] = createSignal("inset(0)");
-  const retiring = new Set<HTMLElement>();
-
-  const clearSlot = (fade = false) => {
-    if (slotFrame !== undefined) cancelAnimationFrame(slotFrame);
-
-    slotTarget?.destroy();
-    slotTarget = null;
-    const leaving = slot;
-
-    if (fade && leaving?.isConnected) {
-      const at = leaving.getBoundingClientRect();
-
-      leaving.removeAttribute("data-dnd-placeholder");
-      Object.assign(leaving.style, { position: "fixed", top: `${at.top}px`, left: `${at.left}px`, width: `${at.width}px`, margin: "0" });
-      leaving.removeAttribute("data-open");
-      retiring.add(leaving);
-      // Reading animations flushes the reversed transition, including an interrupted entrance.
-      void Promise.allSettled(leaving.getAnimations().map(animation => animation.finished)).then(() => {
-        leaving.remove();
-        retiring.delete(leaving);
-      });
-    } else leaving?.remove();
-    slot = null;
-    sourceRow?.removeAttribute("data-sortable-source");
-    sourceRow = null;
-
-    if (list) {
-      list.style.paddingBlockEnd = paddingEnd;
-      delete list.dataset.sortableIndex;
-    }
-  };
-
-  // The library owns collision targets; this empty slot only reserves their landing space.
-  const placeSlot = (source: Draggable, index: number, depth = sourceDepth) => {
-    if (!list || !sourceRow || !slot || !isSortable(source)) return;
-    const targetId = local.ids[index];
-    const target = Array.from(source.manager?.registry.droppables ?? []).find(row => row.id === targetId)?.element;
-
-    if (!target) return;
-
-    if (index === source.initialIndex && slot.hidden) return;
-
-    slot.hidden = false;
-
-    list.style.paddingBlockEnd = paddingEnd;
-
-    const before = index < source.initialIndex;
-    const anchor = before ? target : target.nextSibling;
-
-    if (anchor !== slot && (slot.parentElement !== target.parentElement || slot.nextSibling !== anchor)) target.parentElement?.insertBefore(slot, anchor);
-    slot.style.marginInlineStart = `${Math.max(0, sourceIndent + (depth - sourceDepth) * (local.tree?.indent ?? 0))}px`;
-    list.dataset.sortableIndex = String(index);
-  };
+  let stopTracking: (() => void) | undefined;
+  let restoreSource: (() => void) | undefined;
+  let closingSlot: HTMLDivElement | null = null;
+  const [overlay, setOverlay] = createSignal({ text: "", width: 0 });
 
   // Keyboard drags choose depth with ArrowLeft and ArrowRight; `slot` is the gap `depth` belongs to.
   let keyboard: { slot: number; depth: number } | null = null;
@@ -211,6 +153,7 @@ const Root = <T extends ExternalTarget>(props: RootProps<T>) => {
 
     previewed = drop;
 
+    if (slot && drop && local.tree) slot.style.setProperty("--sortable-indent", `${drop.depth * local.tree.indent}px`);
     local.tree?.onPreview(drop);
   };
 
@@ -235,9 +178,7 @@ const Root = <T extends ExternalTarget>(props: RootProps<T>) => {
     const tree = local.tree;
 
     if (!tree || !isSortable(source)) return;
-    const { drop } = resolve(tree, String(source.id), projectedIndex ?? source.index, { initial: position.initial.x, current: position.current.x });
-    preview(drop);
-    placeSlot(source, projectedIndex ?? source.index, drop.depth);
+    preview(resolve(tree, String(source.id), source.index, { initial: position.initial.x, current: position.current.x }).drop);
   };
 
   const mark = (next: T | null) => {
@@ -254,105 +195,109 @@ const Root = <T extends ExternalTarget>(props: RootProps<T>) => {
 
   let stopRestoringFocus: (() => void) | undefined;
 
-  onCleanup(() => {
-    clearSlot();
+  const clearPreview = (animate = false) => {
+    closingSlot?.remove();
+    closingSlot = null;
+    const original = sourceRow;
 
-    for (const leaving of retiring) leaving.remove();
-    stopRestoringFocus?.();
-    stopListening?.();
-    mark(null);
-  });
+    original?.classList.remove("sortable-source");
+    sourceRow = null;
+    stopTracking?.();
+    stopTracking = undefined;
+    const ending = slot;
+    const restore = restoreSource;
 
-  return <DragDropProvider onDragOver={(event) => {
-    // Prevent the library's optimistic DOM swaps: the real source and every sibling stay in order.
-    event.preventDefault();
-    const { source, target, position } = event.operation;
+    restoreSource = undefined;
 
-    if (!keyboardDrag && isSortable(source) && isSortable(target)) {
-      projectedIndex = target.index;
-      placeSlot(source, target.index);
-      track(source, position);
-    }
-  }} onDragStart={(event) => {
+    const remove = () => {
+      // OptimisticSorting restores the proxy at dragend in the renderer's next task.
+      setTimeout(() => {
+        if (original && ProxiedElements.get(original) === ending) ProxiedElements.delete(original);
+        restore?.();
+        ending?.remove();
+      });
+    };
+
+    if (animate && ending?.isConnected && ending.dataset.keyboard !== "true" && !matchMedia("(prefers-reduced-motion: reduce)").matches) {
+      closingSlot = ending;
+      ending.dataset.ending = "true";
+      void Promise.allSettled(ending.getAnimations().map(animation => animation.finished)).then(() => {
+        remove();
+
+        if (closingSlot === ending) closingSlot = null;
+      });
+    } else remove();
+    slot = null;
+    list?.removeAttribute("data-sortable-index");
+  };
+
+  onCleanup(() => { clearPreview(); stopRestoringFocus?.(); stopListening?.(); mark(null); });
+
+  return <DragDropProvider sensors={defaults => defaults.map(sensor => sensor === PointerSensor ? PointerSensor.configure({ activationConstraints: [new PointerActivationConstraints.Distance({ value: PRESS_DRAG_PX })] }) : sensor)} modifiers={[RestrictToElement.configure({ element: () => list ?? null })]} onDragStart={(event) => {
     const tree = local.tree;
     const source = event.operation.source;
 
     previewed = null;
+    clearPreview();
 
-    if (list && !sourceRow) paddingEnd = list.style.paddingBlockEnd;
-
-    clearSlot();
-    projectedIndex = isSortable(source) ? source.index : null;
-    keyboardDrag = event.operation.activatorEvent instanceof KeyboardEvent;
-
-    if (isSortable(source) && source.element instanceof HTMLElement) {
+    if (source?.element instanceof HTMLElement) {
       sourceRow = source.element;
       const box = sourceRow.getBoundingClientRect();
-
-      sourceHeight = box.height;
-      originLeft = box.left - event.operation.position.initial.x;
-      overlayWidth = box.width;
-      setClip("inset(0)");
-      sourceDepth = tree ? withDepth(tree.rows).find(row => row.id === String(source.id))?.depth ?? 0 : 0;
-      sourceIndent = tree ? sourceDepth * tree.indent : 0;
-      sourceRow.setAttribute("data-sortable-source", "");
+      sourceRow.classList.add("sortable-source");
+      setOverlay({ text: sourceRow.innerText, width: Math.min(box.width, list?.clientWidth ?? box.width) });
       slot = document.createElement("div");
       slot.className = "sortable-slot";
-      slot.hidden = true;
-      list?.append(slot);
       slot.setAttribute("data-dnd-placeholder", "");
       slot.setAttribute("aria-hidden", "true");
-      slot.style.height = `${sourceHeight}px`;
+      slot.style.height = `${box.height}px`;
       slot.dataset.keyboard = String(event.operation.activatorEvent instanceof KeyboardEvent);
-      slotTarget = new Droppable({ id: `sortable-slot-${source.id}`, element: slot, collisionPriority: 100 }, source.manager);
+      sourceRow.insertAdjacentElement("afterend", slot);
+      ProxiedElements.set(sourceRow, slot);
 
-      if (list) {
-        paddingEnd = list.style.paddingBlockEnd;
-        list.style.paddingBlockEnd = `${parseFloat(getComputedStyle(list).paddingBlockEnd) + sourceHeight}px`;
+      if (isSortable(source)) {
+        const target = source.sortable.target;
+        const placeholder = slot;
+
+        source.sortable.target = placeholder;
+        void source.manager?.actions.setDropTarget(source.id);
+        restoreSource = () => {
+          if (source.sortable.target === placeholder) source.sortable.target = target;
+        };
       }
 
-      slotFrame = requestAnimationFrame(() => slot?.setAttribute("data-open", ""));
+      stopTracking = effect(() => {
+        if (!isSortable(source)) return;
+        list?.setAttribute("data-sortable-index", String(source.index));
+        track(source, event.operation.position);
+      });
     }
 
     stopListening?.();
     local.onDrag?.(true);
 
-    if (!isSortable(source) || !keyboardDrag) {
+    if (!tree || !isSortable(source) || !(event.operation.activatorEvent instanceof KeyboardEvent)) {
       keyboard = null;
 
       return;
     }
 
-    const rows = tree ? withDepth(tree.rows) : [];
-    const remaining = remainingRows(rows, String(source.id));
-    const own = rows.find(row => row.id === String(source.id));
+    const rows = withDepth(tree.rows);
+    const dragged = String(source.id);
+    const remaining = remainingRows(rows, dragged);
+    const own = rows.find((row) => row.id === dragged);
 
-    keyboard = tree && own ? { slot: rows.slice(0, rows.indexOf(own)).filter(row => remaining.includes(row)).length, depth: own.depth } : null;
+    if (!own) throw new Error(`no row ${dragged}`);
+    keyboard = { slot: rows.slice(0, rows.indexOf(own)).filter((row) => remaining.includes(row)).length, depth: own.depth };
 
-    // Arrow commands select the same library target indexes without moving real rows.
-    // Space/Escape and focus still belong to the library's keyboard sensor.
     const turn = (key: KeyboardEvent) => {
-      if (!["ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight"].includes(key.key)) return;
+      if (!keyboard || (key.key !== "ArrowLeft" && key.key !== "ArrowRight")) return;
       key.preventDefault();
       key.stopPropagation();
 
-      if (key.key === "ArrowUp" || key.key === "ArrowDown") {
-        projectedIndex = Math.min(Math.max((projectedIndex ?? source.index) + (key.key === "ArrowDown" ? 1 : -1), 0), local.ids.length - 1);
-        placeSlot(source, projectedIndex);
-        track(source, event.operation.position);
-        slot?.scrollIntoView({ block: "nearest" });
-
-        return;
-      }
-
-      if (!keyboard || !tree) return;
       const { min, max } = depthsAt(remaining, tree.nests, keyboard.slot);
 
       keyboard = { slot: keyboard.slot, depth: Math.min(Math.max(keyboard.depth + (key.key === "ArrowRight" ? 1 : -1), min), max) };
-      const drop = dropAt(remaining, tree.nests, keyboard.slot, keyboard.depth);
-
-      preview(drop);
-      placeSlot(source, projectedIndex ?? source.index, drop.depth);
+      preview(dropAt(remaining, tree.nests, keyboard.slot, keyboard.depth));
     };
 
     window.addEventListener("keydown", turn, { capture: true });
@@ -364,9 +309,6 @@ const Root = <T extends ExternalTarget>(props: RootProps<T>) => {
     const x = event.to?.x ?? position.current.x + (event.by?.x ?? 0);
     const y = event.to?.y ?? position.current.y + (event.by?.y ?? 0);
 
-    const bounds = list?.getBoundingClientRect();
-
-    if (bounds) setClip(`inset(0 ${Math.max(0, x + originLeft + overlayWidth - bounds.right)}px 0 ${Math.max(0, bounds.left - x - originLeft)}px)`);
     track(source, { initial: position.initial, current: { x } });
 
     if (!local.external || !source) return;
@@ -375,6 +317,8 @@ const Root = <T extends ExternalTarget>(props: RootProps<T>) => {
     const source = event.operation.source;
     const outside = over;
     const pointerDrag = !(event.operation.activatorEvent instanceof KeyboardEvent);
+
+    clearPreview(true);
 
     mark(null);
     local.onDrag?.(false);
@@ -402,13 +346,10 @@ const Root = <T extends ExternalTarget>(props: RootProps<T>) => {
     const inside = !pointerDrag || (box && point.x >= box.left && point.x < box.right && point.y >= box.top && point.y < box.bottom);
 
     const final = tree && inside && !event.canceled && isSortable(source)
-      ? resolve(tree, String(source.id), projectedIndex ?? source.index, { initial: event.operation.position.initial.x, current: event.operation.position.current.x })
+      ? resolve(tree, String(source.id), source.index, { initial: event.operation.position.initial.x, current: event.operation.position.current.x })
       : null;
 
-    clearSlot(true);
-
-    const projected = projectedIndex;
-    projectedIndex = null;
+    const index = isSortable(source) ? source.index : null;
     keyboard = null;
     previewed = null;
     tree?.onPreview(null);
@@ -429,14 +370,14 @@ const Root = <T extends ExternalTarget>(props: RootProps<T>) => {
       return;
     }
 
-    if (!isSortable(source) || projected === null || source.initialIndex === projected) return;
+    if (!isSortable(source) || source.initialIndex === index) return;
     const order = [...local.ids];
     const [moved] = order.splice(source.initialIndex, 1);
 
     if (moved === undefined) return;
-    order.splice(projected, 0, moved);
+    order.splice(index ?? source.initialIndex, 0, moved);
     local.onOrderChange?.(order);
-  }}><div {...rest} ref={list} data-plain={local.plain ? "" : undefined}>{local.children}</div><DragOverlay class="sortable-overlay" style={{ "clip-path": clip() }} dropAnimation={null}>{source => <span>{source.element?.querySelector("[data-reads=\"text\"]")?.textContent ?? source.handle?.textContent ?? source.element?.textContent}</span>}</DragOverlay></DragDropProvider>;
+  }}><div {...rest} ref={list} data-plain={local.plain ? "" : undefined}>{local.children}</div><DragOverlay class="sortable-overlay" dropAnimation={null} style={{ "max-width": `${overlay().width}px` }}><span>{overlay().text}</span></DragOverlay></DragDropProvider>;
 };
 
 type ItemProps = Pick<UseSortableInput, "id" | "index" | "disabled"> & {
@@ -446,12 +387,7 @@ type ItemProps = Pick<UseSortableInput, "id" | "index" | "disabled"> & {
 };
 
 const Item = (props: ItemProps) => {
-  const sensors = [
-    PointerSensor.configure({ activationConstraints: [new PointerActivationConstraints.Distance({ value: PRESS_DRAG_PX })] }),
-    ...(props.pressable ? [] : [KeyboardSensor]),
-  ];
-
-  const sortable = useSortable(mergeProps(props, { sensors }));
+  const sortable = useSortable(mergeProps(props, { transition: { duration: 0 } }, props.pressable ? { sensors: [PointerSensor.configure({ activationConstraints: [new PointerActivationConstraints.Distance({ value: PRESS_DRAG_PX })] })] } : {}));
 
   return props.children(sortable);
 };
