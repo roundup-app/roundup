@@ -91,6 +91,16 @@ The commands, full identity, statuses and existing-host search are retained in
 No R23 timing or profile was collected. The earlier 9V45 diagnosis below predates
 R23's candidate and supplies neither a live host nor an R23 observation.
 
+Builder [40131015578](https://github.com/saadshahd/roundup/actions/runs/40131015578)
+also failed the exact-model preflight (exit 2): its model is
+`Intel(R) Xeon(R) Platinum 8370C CPU @ 2.80GHz`. Ubuntu 24.04, x86_64,
+four online/available CPUs and affinity `0-3` match, but do not qualify that CPU.
+[Full identity and existing-host search](../crates/perf/evidence/r23-host-40131015578/README.md)
+retain the commands and statuses. No reachable qualified lifetime was identified;
+runner inventory returned HTTP 403 and active sibling logs HTTP 404. No resource,
+R23 timing or profile was produced. #3764 remains open and #3760 stays blocked;
+remaining measurement/repair work stays under #3720.
+
 For the next execution attempt, use the existing Builder facility:
 
 1. Search existing host evidence and active Actions jobs before allocating a host.
@@ -425,3 +435,36 @@ presentation change is included in the allocation observer, not this timing.
 The saved allocations are temporary request work, not an explanation of idle
 RSS. Budgets remain unchanged. R3696c's same-M4-Max full gate, remaining
 attribution, false-fail evidence and separate later main pass remain open.
+
+### Fresh-image search cost (#3696)
+
+`reidentified` searches a 507,904-byte migrated image twice to replace the two
+Project identities. `2a259871a` introduced a scalar comparison at every byte;
+this startup work is independent of SQLite, process sampling and the listing
+sidecar. `memchr::memmem::find_iter` replaces that scan, searching the immutable
+image before copying replacement bytes. The image, synchronization, migration
+fallback and budgets stay unchanged.
+
+Linux x86_64, Intel Xeon Platinum 8573C, four available CPUs, rustc 1.99.0:
+extract `reidentified`, `FRESH` and `IDENTITIES` from `storage.rs`, replace only
+the RNG call with `random.fill(0x71)`, and compile with `rustc -O --edition 2024`.
+Each invocation times seven batches of 1,000 copies, black-boxing every returned
+image. The after probe links the existing release `memchr` rlib. With builds
+and checks stopped, three alternating before/after invocations gave these
+median batch means (ms per copy):
+
+| Pair | Scalar scan | Library search |
+|---|---:|---:|
+| 1 | 0.68837 | 0.04957 |
+| 2 | 0.68939 | 0.04981 |
+| 3 | 0.69635 | 0.05155 |
+
+The repair removes about 0.64 ms of Linux image preparation. It excludes RNG,
+file writing, fsync, database opening and process startup; it is neither a full
+cold-start timing nor Mac attribution. The existing
+`r3696c_a_fresh_project_db_equals_the_migrated_one_with_its_own_identity` checks
+schema/data equivalence, different Project identities and removal of every
+placeholder. No new clock-sensitive test is added.
+
+R3696c's full Mac gate, remaining startup/RSS attribution, false-fail evidence and
+separate later main pass remain open. No baseline rebase is justified here.

@@ -48,7 +48,7 @@ type RootProps<T extends ExternalTarget> = Omit<JSX.HTMLAttributes<HTMLDivElemen
   onOrderChange?: ((ids: string[]) => void) | undefined;
   tree?: SortableTree | undefined;
   external?: External<T> | undefined;
-  /** The handles are buttons that keep their own meaning: the library adds no live region and no `aria-pressed`, `aria-grabbed`, `aria-disabled`, role description or description to them, and the list draws no box or radius around a moved row. */
+  /** The handles are buttons that keep their own meaning: the library adds no live region and no `aria-pressed`, `aria-grabbed`, `aria-disabled`, role description or description to them. */
   plain?: boolean;
   /** Called with true when a drag of one of this list's rows starts and false when it ends. */
   onDrag?: ((active: boolean) => void) | undefined;
