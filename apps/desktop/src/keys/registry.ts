@@ -1,3 +1,4 @@
+import { setInteractionModality } from "@zag-js/focus-visible";
 import { createSignal, onCleanup } from "solid-js";
 import { CHORDS, LEADER, chordsFor, leaderChord, TEXT_FIELDS } from "./chords";
 import type { Chord, LeaderKey } from "./chords";
@@ -111,6 +112,9 @@ const takeLeaderKey = (event: KeyboardEvent): void => {
 };
 
 const dispatch = (event: KeyboardEvent): void => {
+  // Modifier chords are keyboard actions too; the focus-visible library excludes them by default.
+  setInteractionModality("keyboard");
+
   if (!(event instanceof KeyboardEvent)) return;
 
   if (event.repeat && event.code === held) {
