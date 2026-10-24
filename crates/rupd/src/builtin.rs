@@ -17,6 +17,7 @@ pub(crate) fn call(
 ) -> Option<Result<Value, RpcError>> {
     Some(match (namespace, method) {
         (_, "daemon.ping") => serde_json::from_str(&ping_json(daemon)).map_err(RpcError::internal),
+        (_, "daemon.methods") => Ok(json!(methods::method_names())),
         (_, "daemon.identify") => params::<IdentifyParams>(args.clone()).map(|p| {
             conn.actor = p.actor;
             Value::Null
@@ -38,13 +39,11 @@ pub(crate) fn call(
     })
 }
 
-/// The `daemon.ping` result as JSON text. The Contract part is the same for the Daemon's whole
-/// life, so it is written once; building it as a `Value` per ping cost a sort and 300 strings.
+/// R16: ping writes only the fingerprint; the A38 method list made each round trip
+/// parse 2.7 KB. The separate `daemon.methods` read serves contract mismatches.
 pub(crate) fn ping_json(daemon: &Daemon) -> String {
-    static CONTRACT: std::sync::LazyLock<String> = std::sync::LazyLock::new(|| {
-        json!({ "fingerprint": methods::fingerprint(), "methods": methods::method_names() })
-            .to_string()
-    });
+    static CONTRACT: std::sync::LazyLock<String> =
+        std::sync::LazyLock::new(|| json!({ "fingerprint": methods::fingerprint() }).to_string());
     format!(
         r#"{{"pong":true,"pid":{},"project":{},"projectKey":{},"contract":{}}}"#,
         std::process::id(),

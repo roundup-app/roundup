@@ -136,6 +136,9 @@ One fresh conversation of a Workstream's Door, counted from 1; a Clear starts th
 **Home**:
 Where an item sits: a Workstream, or the Project root. Each item has one Home the user can change. A Todo's Home changes with `todo.move`, a Pad's with `pad.move`. Removing a Workstream deletes its done Todos and its Pads, and moves its open Todos and the Pads of its kept Agents to the Project root (A34). The Shelf follows the Rail selection; a Workstream view lists items with that Home.
 
+**Contract methods** (`daemon.methods`):
+The sorted RPC method names the Daemon serves, distinct from the Contract fingerprint that also covers their types.
+
 **Contract fingerprint**:
 A hash of every RPC method's name with its params and result types, computed in `crates/contracts` and reported by the Daemon's `daemon.ping`. The App derives its own at load from the per-method hashes in `contracts/generated/contract.ts` and compares the two at connect (A38, S11).
 

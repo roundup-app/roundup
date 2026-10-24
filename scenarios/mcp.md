@@ -24,7 +24,7 @@ An Agent does through its server everything the user does in the App, one tool p
 |---|---|
 | `message.drop` | the user's guard on what other Actors' Messages do (B3563b): an Agent that settled it could remove another Actor's Message. `route.set` left this row by M14 (Overturned by M14), with the limits M14 gives |
 | `terminal.spawn`, `terminal.write`, `terminal.resize`, `terminal.kill`, `terminal.list`, `terminal.snapshot`, `terminal.open`, `terminal.close` | a Door has no shell (F2); a tool that starts or types into a Terminal gives it one. Reading is offered by M13 (#814): `terminal.screen`, `terminal.read` and `terminal.search` are tools. An Agent steers another through `agent_prompt` and `message_send`. (Overturned by M14: only `terminal.list` and `terminal.snapshot` keep this row.) X14 adds `terminal.output` and `terminal.outputStop`, a connection's pushed byte stream, and the App commands `terminal_output` and `terminal_output_stop`: an Agent reads text with `terminal_read` |
-| `daemon.ping`, `daemon.identify`, `events.subscribe` | transport, not an action |
+| `daemon.ping`, `daemon.methods`, `daemon.identify`, `events.subscribe` | transport, not an action |
 | `todo.listHanded` | the App reads recorded Hand-offs for the plan marker (U3808); only the Daemon hands a Todo (T25), so this read grants no handing authority |
 | `todo.getHistory`, `todo.readHistory` | the open Todo Drawer's changes and read boundary (U462); Agents read the current Todo through `todo_get` |
 | `agent.brief`, `agent.channelUp`, `agent.signal`, `agent.skills` | the Claude Code hooks' own calls (A11); the Brief (E1) is in the Agent's argv and the skills list is the App's own palette |

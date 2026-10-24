@@ -154,7 +154,15 @@ pub(crate) async fn handle(stream: UnixStream, daemon: Arc<Daemon>) -> io::Resul
         let mut request_conn = conn.clone();
         let daemon = Arc::clone(&daemon);
         ordinary.spawn(async move {
-            if let Some(reply) = daemon.dispatch(&mut request_conn, &line, Some(actor)).await {
+            let reply = match request {
+                Some(request) => {
+                    daemon
+                        .dispatch_parsed(&mut request_conn, request, Some(actor))
+                        .await
+                }
+                None => daemon.dispatch(&mut request_conn, &line, Some(actor)).await,
+            };
+            if let Some(reply) = reply {
                 let _ = request_conn.events.send(reply);
             }
         });
