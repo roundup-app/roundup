@@ -284,7 +284,9 @@ async fn a38_ping_reports_the_generated_contract() {
         .filter_map(|line| line.trim().strip_suffix("\","))
         .filter_map(|line| line.strip_prefix('"')?.split_once("\": \""))
         .collect();
-    let names: Vec<&str> = contract["methods"]
+    assert!(contract.get("methods").is_none());
+    let methods = ask(&daemon, r#"{"id":8,"method":"daemon.methods"}"#).await;
+    let names: Vec<&str> = methods["result"]
         .as_array()
         .unwrap()
         .iter()
