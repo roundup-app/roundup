@@ -91,6 +91,16 @@ The commands, full identity, statuses and existing-host search are retained in
 No R23 timing or profile was collected. The earlier 9V45 diagnosis below predates
 R23's candidate and supplies neither a live host nor an R23 observation.
 
+Builder [40131015578](https://github.com/saadshahd/roundup/actions/runs/40131015578)
+also failed the exact-model preflight (exit 2): its model is
+`Intel(R) Xeon(R) Platinum 8370C CPU @ 2.80GHz`. Ubuntu 24.04, x86_64,
+four online/available CPUs and affinity `0-3` match, but do not qualify that CPU.
+[Full identity and existing-host search](../crates/perf/evidence/r23-host-40131015578/README.md)
+retain the commands and statuses. No reachable qualified lifetime was identified;
+runner inventory returned HTTP 403 and active sibling logs HTTP 404. No resource,
+R23 timing or profile was produced. #3764 remains open and #3760 stays blocked;
+remaining measurement/repair work stays under #3720.
+
 For the next execution attempt, use the existing Builder facility:
 
 1. Search existing host evidence and active Actions jobs before allocating a host.
