@@ -987,11 +987,7 @@ async fn lc17_a_lean_child_loads_no_claude_md_by_itself() {
             std::fs::read_to_string(Setup::after(&argv, "--append-system-prompt-file").unwrap())
                 .unwrap();
         assert_eq!(brief.matches("PROJECT_TOKEN").count(), 1, "{row:?}");
-        assert_eq!(
-            brief.matches("USER_GLOBAL_TOKEN").count(),
-            1,
-            "{row:?}"
-        );
+        assert_eq!(brief.matches("USER_GLOBAL_TOKEN").count(), 1, "{row:?}");
     }
 }
 
