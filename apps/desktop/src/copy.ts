@@ -425,6 +425,7 @@ export const copy = {
   inboxRejected: "Rejected",
   inboxAnswered: (answer: string) => `Answered: ${answer}`,
   inboxLastStep: "Last step",
+  inboxDismiss: "Dismiss",
   captureLabel: "Capture a Todo",
   captureFor: (name: string) => `For ${name}`,
   captureIn: (name: string) => `In ${name}`,
