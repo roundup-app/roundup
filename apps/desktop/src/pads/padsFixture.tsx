@@ -1,3 +1,4 @@
+// fallow-ignore-file duplicate-export -- AGENT is this fixture’s actor; toastFixture owns a different actor with the same local name.
 import { fireEvent, render, screen, waitFor } from "@solidjs/testing-library";
 import { expect } from "vitest";
 import type { Actor } from "@contracts/Actor";
