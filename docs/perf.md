@@ -373,3 +373,20 @@ presentation change is included in the allocation observer, not this timing.
 The saved allocations are temporary request work, not an explanation of idle
 RSS. Budgets remain unchanged. R3696c's same-M4-Max full gate, remaining
 attribution, false-fail evidence and separate later main pass remain open.
+
+### Fresh-image search cost (#3696)
+
+`reidentified` searches a 507,904-byte migrated image twice to replace the two
+Project identities. The scalar comparison at every byte is startup work unrelated
+to SQLite, process sampling or the listing sidecar. An optimized Linux probe of
+this function, using the actual image and a fixed random input to exclude RNG
+cost, measured about 1.3 ms per copy while the initial release build was running.
+This establishes a local cause, not a Mac attribution or an idle timing result.
+
+Use the maintained substring search already in the dependency graph to remove
+that scalar scan. The existing
+`r3696c_a_fresh_project_db_equals_the_migrated_one_with_its_own_identity` checks
+schema/data equivalence, different Project identities and removal of every
+placeholder. Keep the image, synchronization, migration fallback and budgets.
+R3696c's full Mac gate, remaining startup/RSS attribution, false-fail evidence and
+separate later main pass remain open.
