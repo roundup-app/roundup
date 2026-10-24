@@ -20,6 +20,10 @@ ROUNDUP_ALLOW_WINDOW=1 just perf-frames <layers|todos|glyphs>
 
 It builds the App with the recorder, opens a window kept above everything for about 100 s (10 s warm-up, 60 s sample, 30 s idle) under the 64 KiB/s Terminal stream, and writes the report to `target/perf-frames-<workload>.json`. Set `ROUNDUP_ALLOW_WINDOW=1` only for this run; no agent or CI job sets it.
 
+## What the report measures
+
+`stages.scheduling` is the `requestAnimationFrame` interval series the thresholds judge. `stages.update` is the main-thread cost of each sample frame's rendering update (style, layout and paint recording together, from the animation callback to the next task); it has no threshold and is not displayed time. `stages.presentation` stays `unmeasured`, its reason naming the entry types the webview lists (`performance_entry_types`): the page cannot see presentation, so U3010d stays incomplete until a native instrument does.
+
 ## Exit codes
 
 | Code | Meaning | Decides |
