@@ -75,6 +75,11 @@ Failure output (each row is asserted by `r16_observer_failure_exit_codes`):
 | Absolute limit exceeded, including when latency comparison is skipped | 1 | Name metric and limit |
 | Only R13 latency comparisons skipped | 0 | Keep loud skip output; not R16 completion evidence |
 
+**R22 every supported Builder class has committed R16 evidence.** R16's selection is complete only when each supported Builder class has a committed baseline, its measurement reports and its observations, so that `just perf` selects the class on that Builder instead of exiting 2. Observer: `just check` runs `r22_supported_builder_classes_have_committed_evidence`; the reports come from release `just perf` on each class (#3700 records them). Ownership stays in `crates/perf/`, `docs/perf.md` and this file.
+
+- Given each of R16's five supported Builder CPU models, then `crates/perf/classes.json` holds a baseline for it with provenance naming its calibration reports (R16 step 4: nine clean invocations) and its three clean observations (step 5: exit 0, empty `skipped`, all five Linux baseline metrics compared), and every named report is committed under `crates/perf/` and passes the R13 load threshold. `r22_supported_builder_classes_have_committed_evidence` asserts that a class missing its baseline, a named report absent from the tree, fewer than nine calibration or three observation reports, or a report with a non-empty `skipped` list or non-zero exit fails.
+- Given a supported Builder class whose evidence is incomplete, then `just perf` still exits 2 naming that class (R16), and R22 stays unmet; no fixture, other class's report or baseline copied across CPU models completes it (policy).
+
 ## Keystroke-to-render in the App (`apps/desktop`, run by `crates/perf`)
 
 **K1 opt-in.** Given a normal build, then its bundle holds no trace of the keystroke probe (the string `roundup-keystroke-probe` is absent). A build made with `VITE_ROUNDUP_PERF` carries it. The probe is chosen when the bundle is built, so a normal run pays nothing and no query or flag can switch it on.
