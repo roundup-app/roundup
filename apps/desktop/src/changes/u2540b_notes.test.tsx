@@ -44,7 +44,7 @@ it("u2540b_close_and_reopen_keep_unsent_notes", async () => {
 it("u2540b_edit_remove_and_batch_across_files", async () => {
   await openDiff();
   await saveNote("first");
-  fireEvent.click(screen.getByRole("button", { name: "Back" }));
+  fireEvent.click(screen.getByRole("button", { name: "Close" }));
   await openFile("src/deep/b.ts");
   await saveNote("second");
   fireEvent.click(screen.getByRole("button", { name: "Edit note 1" }));
@@ -440,7 +440,7 @@ it("u3474e_mutation_keeps_the_next_key_live", async () => {
   await waitFor(() => expect(document.activeElement).toBe(next));
   fireEvent.click(document.activeElement!);
   await waitFor(() => expect(screen.queryByRole("list", { name: "Notes" })).toBeNull());
-  expect(document.activeElement).toBe(screen.getByRole("button", { name: "Back" }));
+  expect(document.activeElement).toBe(screen.getByRole("button", { name: "Close" }));
 });
 
 it("u3474e_saving_a_note_returns_to_a_live_control", async () => {
@@ -465,7 +465,7 @@ it("u3474e_sending_the_batch_returns_to_a_live_control", async () => {
   const send = screen.getByRole("button", { name: /Send notes to/ });
   send.focus();
   fireEvent.click(send);
-  await waitFor(() => expect(document.activeElement).toBe(screen.getByRole("button", { name: "Back" })));
+  await waitFor(() => expect(document.activeElement).toBe(screen.getByRole("button", { name: "Close" })));
   expect(app.calls.filter(call => call.method === "message.send")).toHaveLength(1);
   fireEvent.click(document.activeElement!);
   expect(await screen.findByRole("button", { name: "View diff" })).toBeTruthy();
