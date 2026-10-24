@@ -126,6 +126,17 @@ async fn u3523a_vendor_results_merge_with_project_membership() {
     );
     std::fs::create_dir_all(external.join("pkg")).unwrap();
     let deleted = root.path().join("deleted-worktree");
+    git(
+        &project,
+        &[
+            "worktree",
+            "add",
+            "-q",
+            "--detach",
+            deleted.to_str().unwrap(),
+        ],
+    );
+    std::fs::remove_dir_all(&deleted).unwrap();
     let sibling = root.path().join("project-sibling");
     std::fs::create_dir(&sibling).unwrap();
     let elsewhere = root.path().join("elsewhere");
@@ -540,4 +551,78 @@ async fn u3523a_period_live_sessions_and_source_failures() {
             .is_some_and(|m| m.contains("newer listing")),
         "{replaced}"
     );
+}
+
+#[tokio::test]
+async fn u3523h_unrelated_sessions_are_not_read() {
+    let root = tempfile::tempdir().unwrap();
+    let project = root.path().join("project");
+    let config = root.path().join("config");
+    std::fs::create_dir_all(&project).unwrap();
+    git(&project, &["init", "-q", "-b", "main"]);
+    let mut eligible = Vec::new();
+    for n in 1..=10 {
+        eligible.push(session(&config, &project, n, &[&project], false));
+    }
+    eligible.sort();
+    // Unrelated sessions: some in a folder that exists, some in one that is gone. Each is 1 MB
+    // and holds a later cwd inside the Project, which only a read could find: an opened session
+    // becomes an extra candidate, so exactly the ten eligible ones means none was opened.
+    let elsewhere = root.path().join("elsewhere");
+    std::fs::create_dir_all(&elsewhere).unwrap();
+    for n in 0..3000usize {
+        let bucket = if n % 2 == 0 {
+            elsewhere.clone()
+        } else {
+            root.path().join(format!("gone-{}", n % 7))
+        };
+        let id = session(&config, &bucket, 100 + n, &[&bucket, &project], false);
+        let name: String = bucket
+            .to_string_lossy()
+            .chars()
+            .map(|c| if c.is_ascii_alphanumeric() { c } else { '-' })
+            .collect();
+        let file = config
+            .join("projects")
+            .join(name)
+            .join(format!("{id}.jsonl"));
+        let pad = vec![b' '; 1024 * 1024];
+        let mut body = std::fs::read(&file).unwrap();
+        body.extend_from_slice(&pad);
+        std::fs::write(&file, body).unwrap();
+    }
+    let cli = root.path().join("claude");
+    executable(&cli, "#!/bin/sh\nprintf '[]'\n");
+    let (dir, _) = package(root.path(), &format!("exec '{}' \"$@\"", real_node()));
+    let launcher = agents::claude_code::Launcher::new(
+        cli.to_string_lossy(),
+        config.join(".claude.json"),
+        "rup".into(),
+        None,
+    )
+    .with_sidecar(dir);
+    let daemon = daemon(&project, launcher);
+    // `import.list` is the SDK-backed listing; `project.importDiscover` answers the same period.
+    for method in ["import.list", "project.importDiscover"] {
+        let started = std::time::Instant::now();
+        let answer = ask(
+            &daemon,
+            &json!({"jsonrpc":"2.0", "id":1, "method":method, "params":{"period":"month"}})
+                .to_string(),
+        )
+        .await;
+        let elapsed = started.elapsed();
+        let mut sources: Vec<String> = answer["result"]["candidates"]
+            .as_array()
+            .unwrap_or_else(|| panic!("{method}: {answer}"))
+            .iter()
+            .map(|c| c["source"].as_str().unwrap().to_owned())
+            .collect();
+        sources.sort();
+        assert_eq!(sources, eligible, "{method}: {answer}");
+        assert!(
+            elapsed < std::time::Duration::from_secs(10),
+            "{method}: {elapsed:?}"
+        );
+    }
 }
