@@ -126,6 +126,17 @@ async fn u3523a_vendor_results_merge_with_project_membership() {
     );
     std::fs::create_dir_all(external.join("pkg")).unwrap();
     let deleted = root.path().join("deleted-worktree");
+    git(
+        &project,
+        &[
+            "worktree",
+            "add",
+            "-q",
+            "--detach",
+            deleted.to_str().unwrap(),
+        ],
+    );
+    std::fs::remove_dir_all(&deleted).unwrap();
     let sibling = root.path().join("project-sibling");
     std::fs::create_dir(&sibling).unwrap();
     let elsewhere = root.path().join("elsewhere");
@@ -544,16 +555,52 @@ async fn u3523a_period_live_sessions_and_source_failures() {
 
 #[tokio::test]
 async fn u3523h_unrelated_sessions_are_not_read() {
+    use std::os::unix::fs::PermissionsExt;
     let root = tempfile::tempdir().unwrap();
     let project = root.path().join("project");
     let config = root.path().join("config");
-    let elsewhere = root.path().join("elsewhere");
     std::fs::create_dir_all(&project).unwrap();
+    git(&project, &["init", "-q", "-b", "main"]);
+    let mut eligible = Vec::new();
+    for n in 1..=10 {
+        eligible.push(session(&config, &project, n, &[&project], false));
+    }
+    eligible.sort();
+    // Unrelated sessions: some in a folder that exists, some in one that is gone. Each holds a
+    // later cwd inside the Project, which only a read could find, and is 1 MB and unreadable:
+    // a content open fails the listing, so a clean answer means none was opened.
+    let elsewhere = root.path().join("elsewhere");
     std::fs::create_dir_all(&elsewhere).unwrap();
-    let mine = session(&config, &project, 1, &[&project], false);
-    // The SDK reports the first cwd; a later cwd inside the Project is only found by reading the
-    // file, which an unrelated Project's session must not get.
-    let unrelated = session(&config, &elsewhere, 2, &[&elsewhere, &project], false);
+    let mut unreadable = Vec::new();
+    for n in 0..3000usize {
+        let bucket = if n % 2 == 0 {
+            elsewhere.clone()
+        } else {
+            root.path().join(format!("gone-{}", n % 7))
+        };
+        let id = session(&config, &bucket, 100 + n, &[&bucket, &project], false);
+        let name: String = bucket
+            .to_string_lossy()
+            .chars()
+            .map(|c| if c.is_ascii_alphanumeric() { c } else { '-' })
+            .collect();
+        let file = config
+            .join("projects")
+            .join(name)
+            .join(format!("{id}.jsonl"));
+        let pad = vec![b' '; 1024 * 1024];
+        let mut body = std::fs::read(&file).unwrap();
+        body.extend_from_slice(&pad);
+        std::fs::write(&file, body).unwrap();
+        unreadable.push(file);
+    }
+    for file in &unreadable {
+        std::fs::set_permissions(file, std::fs::Permissions::from_mode(0)).unwrap();
+    }
+    assert!(
+        std::fs::File::open(&unreadable[0]).is_err(),
+        "fixture must be unreadable to this user"
+    );
 
     let cli = root.path().join("claude");
     executable(&cli, "#!/bin/sh\nprintf '[]'\n");
@@ -565,13 +612,22 @@ async fn u3523h_unrelated_sessions_are_not_read() {
         None,
     )
     .with_sidecar(dir);
-    let answer = list(&daemon(&project, launcher)).await;
-    let sources: Vec<&str> = answer["result"]["candidates"]
+    let daemon = daemon(&project, launcher);
+    let started = std::time::Instant::now();
+    let answer = ask(
+        &daemon,
+        &json!({"jsonrpc":"2.0", "id":1, "method":"project.importDiscover", "params":{"period":"month"}})
+            .to_string(),
+    )
+    .await;
+    let elapsed = started.elapsed();
+    let mut sources: Vec<String> = answer["result"]["candidates"]
         .as_array()
-        .unwrap()
+        .unwrap_or_else(|| panic!("{answer}"))
         .iter()
-        .map(|c| c["source"].as_str().unwrap())
+        .map(|c| c["source"].as_str().unwrap().to_owned())
         .collect();
-    assert_eq!(sources, [mine.as_str()], "{answer}");
-    assert!(!sources.contains(&unrelated.as_str()), "{answer}");
+    sources.sort();
+    assert_eq!(sources, eligible, "{answer}");
+    assert!(elapsed < std::time::Duration::from_secs(10), "{elapsed:?}");
 }
