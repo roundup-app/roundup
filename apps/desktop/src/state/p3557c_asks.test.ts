@@ -114,6 +114,7 @@ describe("p3557c_failure_lifetime_ask_state", () => {
     const { app, asks } = await open();
 
     app.handlers["ask.send"] = () => { throw new RpcError(-32602, "bad"); };
+
     await asks.send({ text: "y", submission: "s1" });
     expect(asks.failure()).toBe("bad");
 
