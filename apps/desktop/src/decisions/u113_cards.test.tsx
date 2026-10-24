@@ -122,30 +122,6 @@ describe("u113 the Card for the selected Agent or Workstream's Door", () => {
     expect(rpcCalls(app, "terminal.write")).toEqual([]);
   });
 
-  it("u113_a_rejected_answer_keeps_the_decision_with_its_error_and_a_retry", async () => {
-    const { app } = await mountApp([decision("d1", "a")]);
-    let attempts = 0;
-
-    app.handlers["decision.answer"] = () => {
-      attempts += 1;
-
-      if (attempts === 1) throw new RpcError(-32000, "the hook is gone");
-
-      return null;
-    };
-
-    select("alpha");
-    await waitFor(() => expect(card()).not.toBeNull());
-    fireEvent.click(within(card()!).getByRole("button", { name: "Deny" }));
-
-    await waitFor(() => expect(within(card()!).getByRole("alert").textContent).toContain("the hook is gone"));
-
-    fireEvent.click(within(card()!).getByRole("button", { name: "Deny" }));
-
-    await waitFor(() => expect(card()).toBeNull());
-    expect(rpcCalls(app, "decision.answer")).toHaveLength(2);
-  });
-
   it("u113_a_failed_proof_keeps_the_decision_and_sends_no_answer", async () => {
     const { app } = await mountApp([decision("d1", "a")]);
 
@@ -175,16 +151,6 @@ describe("u113 the Card for the selected Agent or Workstream's Door", () => {
 
     await waitFor(() => expect(card()?.textContent).toContain("Write"));
     expect(within(card()!).getByRole("button", { name: "Allow" }).matches('[aria-disabled="true"]')).toBe(false);
-  });
-
-  it("u113_an_external_clear_removes_the_card", async () => {
-    const { app } = await mountApp([decision("d1", "a")]);
-
-    select("alpha");
-    await waitFor(() => expect(card()).not.toBeNull());
-    app.emit(cleared("d1"));
-
-    await waitFor(() => expect(card()).toBeNull());
   });
 
   it("u113_clearing_a_focused_card_returns_focus_to_the_terminal_only_when_focus_was_inside", async () => {
@@ -221,4 +187,48 @@ describe("u113 the Card for the selected Agent or Workstream's Door", () => {
     await waitFor(() => expect(within(card()!).getByRole("button", { name: "Allow" }).matches('[aria-disabled="true"]')).toBe(true));
     expect(screen.getByRole("region", { name: "Rail" }).textContent).toContain("Daemon exited 1");
   });
+});
+
+// P3557c replaces the basic U113 rejection/retry and external-clear guards above:
+// every transition also checks original identity and exact unsubmitted work.
+it.each(["dismiss", "clear", "acknowledge", "unrelated"] as const)("p3557c_failure_lifetime_DecisionCard_%s", async (transition) => {
+  const original = asking("d1", "a", "Keep the original?", ["keep"]);
+  const { app, drafts } = await mountApp([original, decision("d2", "b")]);
+  app.handlers["decision.answer"] = () => { throw new RpcError(-32003, "Answer failed; try again"); };
+  select("alpha");
+  await waitFor(() => expect(card()?.querySelector("textarea")).toBeTruthy());
+  const input = card()!.querySelector("textarea")!;
+  const text = "  exact note\n日本語 🪴  ";
+  fireEvent.input(input, { target: { value: text } });
+  fireEvent.submit(input.form!);
+  await waitFor(() => expect(within(card()!).getByRole("alert").textContent).toContain("Answer failed"));
+  const retained = drafts("/p").list().filter(draft => draft.destination.surface === "decisions").map(draft => ({ destination: draft.destination, value: draft.value }));
+  expect(retained).toHaveLength(1);
+  expect(retained[0]!.value).toMatchObject({ agent: "a", decision: "d1", note: text });
+
+  if (transition === "dismiss") {
+    fireEvent.click(within(card()!).getByRole("button", { name: "Dismiss" }));
+  } else if (transition === "clear") {
+    app.emit(cleared("d1"));
+    app.emit(opened(decision("d3", "a")));
+  } else if (transition === "acknowledge") {
+    const pending = gate<null>();
+    app.handlers["decision.answer"] = () => pending.promise;
+    fireEvent.submit(input.form!);
+    await waitFor(() => expect(rpcCalls(app, "decision.answer")).toHaveLength(2));
+    // A retry has not recovered until its acknowledgement.
+    expect(within(card()!).getByRole("alert").textContent).toContain("Answer failed");
+    fireEvent.input(input, { target: { value: text + "newer" } });
+    pending.resolve(null);
+    await waitFor(() => expect(card()).toBeNull());
+    expect(drafts("/p").list().some(draft => draft.value.note === text + "newer")).toBe(true);
+    return;
+  } else {
+    app.emit(cleared("d2"));
+  }
+
+  await waitFor(() => expect(within(card()!).queryByRole("alert") !== null).toBe(transition === "unrelated"));
+  expect(rpcCalls(app, "decision.answer")).toHaveLength(1);
+  expect(drafts("/p").list().filter(draft => draft.destination.surface === "decisions").map(draft => ({ destination: draft.destination, value: draft.value }))).toEqual(retained);
+  if (transition !== "clear") expect(card()!.querySelector("textarea")!.value).toBe(text);
 });
