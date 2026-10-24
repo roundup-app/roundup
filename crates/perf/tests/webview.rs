@@ -96,7 +96,15 @@ fn u3010e_the_frames_line_is_found_by_its_own_marker() {
 
 #[test]
 fn r20_hop_report_accounts_for_the_echo_round_trip() {
-    for name in perf::webview::HOPS {
+    for name in [
+        "keydown_to_input",
+        "input_to_dispatch",
+        "input_to_encoded",
+        "encoded_to_dispatch",
+        "dispatch_to_echo_event",
+        "echo_event_to_parsed",
+        "parsed_to_frame",
+    ] {
         let mut missing = report(16.7, 0);
         missing["hops"][name] = json!({ "n": 0, "p50": null, "p95": null });
         let err = checked(&missing).unwrap_err().to_string();

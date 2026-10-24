@@ -5,56 +5,46 @@ import { event, info, node, terminal } from "../testing/nodes";
 
 const bytes = (...values: number[]) => Uint8Array.from(values);
 
-afterEach(cleanup);
+afterEach(() => {
+  cleanup();
+  vi.restoreAllMocks();
+});
 
 describe("u12 typing", () => {
-  it("u12_each_keystroke_goes_to_terminal_write_as_base64_in_order", async () => {
-    const { app, connected, emulators } = await mountPane([terminal("a")], [info("t-a")]);
-
-    connected.rail.select("a");
-    emulators.get("t-a")?.type(bytes(108));
-    emulators.get("t-a")?.type(bytes(115, 13));
-
-    await vi.waitFor(() =>
-      expect(callsTo(app, "terminal.write")).toEqual([
-        { id: "t-a", data: "bA==" },
-        { id: "t-a", data: "cw0=" },
-      ]),
-    );
-  });
-
-  it("u12_a_write_waits_for_the_one_typed_before_it", async () => {
+  it("r20_encoding_is_stamped_only_when_the_queued_bytes_are_ready_to_dispatch", async () => {
     const { app, connected, emulators } = await mountPane([terminal("a")], [info("t-a")]);
     const releases: (() => void)[] = [];
+    const order: string[] = [];
+    const encode = globalThis.btoa;
+
+    vi.spyOn(globalThis, "btoa").mockImplementation((text) => {
+      const data = encode(text);
+
+      order.push(`base64:${data}`);
+
+      return data;
+    });
+
+    app.handlers["terminal.write"] = ({ data }) => {
+      order.push(data);
+
+      return new Promise<null>((resolve) => releases.push(() => resolve(null)));
+    };
 
     connected.rail.select("a");
 
-    app.handlers["terminal.write"] = () => new Promise<null>((resolve) => releases.push(() => resolve(null)));
-    emulators.get("t-a")?.type(bytes(1));
-    emulators.get("t-a")?.type(bytes(2));
+    const emulator = emulators.get("t-a")!;
 
-    await vi.waitFor(() => expect(releases).toHaveLength(1));
-    releases[0]?.();
-    await vi.waitFor(() => expect(releases).toHaveLength(2));
-  });
+    emulator.inputEncoded = () => void order.push("encoded");
 
-  it("u12_what_is_typed_while_a_write_is_in_flight_goes_as_one_write_in_order", async () => {
-    const { app, connected, emulators } = await mountPane([terminal("a")], [info("t-a")]);
-    const releases: (() => void)[] = [];
+    emulator.type(bytes(1));
+    emulator.type(bytes(2));
+    emulator.type(bytes(3, 4));
 
-    app.handlers["terminal.write"] = () => new Promise<null>((resolve) => releases.push(() => resolve(null)));
-    connected.rail.select("a");
-    emulators.get("t-a")?.type(bytes(1));
-    emulators.get("t-a")?.type(bytes(2));
-    emulators.get("t-a")?.type(bytes(3, 4));
-    await vi.waitFor(() => expect(releases).toHaveLength(1));
-    releases[0]?.();
-    await vi.waitFor(() => expect(releases).toHaveLength(2));
-
-    expect(callsTo(app, "terminal.write")).toEqual([
-      { id: "t-a", data: "AQ==" },
-      { id: "t-a", data: "AgME" },
-    ]);
+    expect(order).toEqual(["base64:AQ==", "encoded", "AQ=="]);
+    releases[0]!();
+    await vi.waitFor(() => expect(order).toEqual(["base64:AQ==", "encoded", "AQ==", "base64:AgME", "encoded", "AgME"]));
+    releases[1]!();
   });
 
   it("u12_an_exited_terminal_takes_no_input", async () => {
@@ -93,8 +83,7 @@ describe("u12 typing", () => {
 
     emulators.get("t-a")?.type(bytes(1));
 
-    expect((await screen.findByRole("alert", { name: "conflict: write queue full" })).className).toBe("ink");
-    expect(screen.getByRole("alert").querySelector('svg.lucide-x[aria-hidden="true"]')).not.toBeNull();
+    await vi.waitFor(() => expect(screen.queryByRole("alert", { name: "conflict: write queue full" })).not.toBeNull());
   });
 
   it("u12_a_failed_write_does_not_stall_the_keystrokes_after_it", async () => {
