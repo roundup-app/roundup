@@ -97,3 +97,74 @@ rendered("u3078i_rendered_open_inspect_resume", async () => {
   await step("resumed");
   await browser("record", "stop");
 }, 240_000);
+
+const lifetimeArt = captureDir("P3557c");
+
+const lifetimeBase = process.env["P3557C_SIDE"] === "base";
+
+it.skipIf(!lifetimeArt)("p3557c_rendered_order_and_progress_failure_lifetime", { timeout: 120_000, retry: 0 }, async () => {
+  const directory = lifetimeBase ? join(lifetimeArt!, "base") : lifetimeArt!;
+  mkdirSync(directory, { recursive: true });
+
+  const step = async (name: string) => {
+    const checks = await evaluate<Checks>("window.__checks()");
+    writeFileSync(join(directory, `${name}.checks.json`), JSON.stringify(checks) + "\n");
+    await browser("screenshot", join(directory, `${name}.png`));
+
+    if (!lifetimeBase) for (const id of ["D2", "D5", "D6"] as const) expect(checks[id].status, id).toBe("pass");
+  };
+
+  await browser("set", "viewport", "1512", "950");
+  await browser("set", "media", "dark");
+  await browser("record", "start", join(directory, "orders-failure-lifetime.webm"), `${process.env["P3557C_ORIGIN"] ?? rig.server.resolvedUrls.local[0]}harness.html?seed=tree-40`);
+  await browser("set", "media", "dark");
+  await browser("wait", "--fn", "matchMedia('(prefers-color-scheme: dark)').matches");
+  await browser("wait", "--fn", "!!window.__fake && !!document.querySelector('.rail')");
+  await evaluate(`(async () => {
+    const { app } = window.__fake;
+    window.__fake.failNext(-32003, 'Order could not be saved; try saving again');
+    const refusal = await app.rpc('message.progress', null).catch(e => e);
+    window.__fake.failNext(-32003, 'Evidence could not be opened; try opening it again');
+    const evidenceRefusal = await app.rpc('message.progress', null).catch(e => e);
+    const tree = app.handlers['rail.tree'];
+    const nodes = await tree({});
+    const chosen = nodes.find(n => n.kind === 'agent');
+    window.__lifetimeAgent = chosen.id;
+    const seed = ${JSON.stringify(seeded)};
+    app.handlers['rail.tree'] = async args => (await tree(args)).map(n => n.id === chosen.id ? {...n, status: {...n.status, kind: 'done'}, work: {kind: 'work', title: 'Fix login', ask: 'Repair sign-in without losing unfinished work', done: 'Login passes', limits: []}} : n);
+    app.handlers['message.progress'] = () => seed.progress;
+    app.handlers['message.reconcileWork'] = () => ({...seed.plan, actions: []});
+    app.handlers['agent.setOrder'] = () => { throw refusal; };
+    app.handlers['deliverable.resolve'] = () => { throw evidenceRefusal; };
+    window.__fake.emit({actor: {kind:'user',id:'you',parent:null}, name:'rail.changed'});
+    return true;
+  })()`);
+  await browser("wait", "--fn", "!!document.querySelector('.rail-row[data-id=\"' + window.__lifetimeAgent + '\"]')");
+  await evaluate(`(() => { document.querySelector('.rail-row[data-id="' + window.__lifetimeAgent + '"]').click(); return true; })()`);
+  await browser("wait", ".order-line");
+  await browser("click", ".order-line");
+  await browser("wait", ".order-drawer");
+  await browser("click", '[aria-label="Edit order"]');
+  await browser("fill", 'textarea[name="ask"]', "  Keep this unfinished input\n草稿  ");
+  await browser("click", '.order-edit [type="submit"]');
+  await browser("wait", ".order-edit [role=alert]");
+  await step("order-failure");
+
+  if (!lifetimeBase) {
+    await evaluate(`(() => { [...document.querySelectorAll('.order-edit button')].find(b => b.getAttribute('aria-label') === 'Clear error').click(); return true; })()`);
+    await browser("wait", "--fn", "!document.querySelector('.order-edit [role=alert]')");
+    await step("order-dismissed");
+  }
+
+  await browser("click", '.progress-row[data-report="r-login"] .progress-evidence');
+  await browser("wait", '.progress-row[data-report="r-login"] [role=alert]');
+  await step("progress-failure");
+
+  if (!lifetimeBase) {
+    await evaluate(`(() => { [...document.querySelectorAll('.progress-row[data-report="r-login"] button')].find(b => b.getAttribute('aria-label') === 'Clear error').click(); return true; })()`);
+    await browser("wait", "--fn", "!document.querySelector('.progress-row [role=alert]')");
+    await step("progress-dismissed");
+  }
+
+  await browser("record", "stop");
+});

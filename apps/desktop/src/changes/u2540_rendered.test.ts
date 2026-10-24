@@ -118,7 +118,7 @@ it("u2540d_review_stage_rendered_observer", async () => {
     const after = await capture(`${theme}-diff`);
 
     for (const id of CHECK_IDS) if (baseline[id].status === "pass") expect(after[id].status, id).toBe("pass");
-    await click("Back");
+    await click("Close");
     await wait("!!document.querySelector('file-tree-container')");
     await click("Close");
     await open("/src/changes/u2540.html?dense");
@@ -128,14 +128,14 @@ it("u2540d_review_stage_rendered_observer", async () => {
     const dense = await capture(`${theme}-dense`);
 
     for (const id of CHECK_IDS) if (baseline[id].status === "pass") expect(dense[id].status, id).toBe("pass");
-    await click("Close");
+    await click("Close changes");
     await open("/src/changes/u2540.html?dense&failure");
     await showDiff();
     await wait("!!document.querySelector('[role=alert]')");
     const failure = await capture(`${theme}-failure`);
 
     for (const id of CHECK_IDS) if (baseline[id].status === "pass") expect(failure[id].status, id).toBe("pass");
-    await click("Back");
+    await click("Close");
     await click("Close");
   }
 }, 180_000);
@@ -188,7 +188,7 @@ it("u2773e_changes_rendered_retention_failure_is_actionable", async () => {
     await capture("real-retention-failure", "U2773e");
     await browser("screenshot", "/tmp/unfinished-changes-retention.png");
     expect(await app.rpc("message.list", { to: node.id, status: null })).toHaveLength(0);
-    await press("Close");
+    await press("Close changes");
     await wait("!document.querySelector('.worktree-panel')");
     await press("Recover Changes drafts");
     await wait("!!document.querySelector('.note-recovery')");

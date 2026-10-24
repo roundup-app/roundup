@@ -133,7 +133,7 @@ const Connection = (props: {
     if (!open || open instanceof Error) return;
 
     // Untracked: watchProject reads the Rail's nodes, and each Status change would else rebuild the watch with that change already seen.
-    onCleanup(untrack(() => watchProject(open, props.toasts.push, props.show, props.active)));
+    onCleanup(untrack(() => watchProject(open, props.toasts.push, props.show, props.active, props.toasts.settle)));
   });
 
   createEffect(() => {

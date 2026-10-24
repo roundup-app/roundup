@@ -4,3 +4,8 @@
 .toasts .reserved-status {
   display: contents;
 }
+
+/* P3557c: a failure has no time, so it shows no draining bar. */
+.app-toast-body ~ .app-toast-bar {
+  display: none;
+}

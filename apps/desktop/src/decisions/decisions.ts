@@ -27,6 +27,8 @@ export const promptKey = (prompt: PromptIdentity): string => JSON.stringify([pro
 /** U3795: the one line an answered permission Card folds to; memory only. */
 export type Folded = { id: string; agent: string; verdict: Scope | "denied"; target: string; removed: boolean };
 
+type AnswerFailure = { message: string | null; dismissed: string | null };
+
 export type DecisionsState = {
   /** U3795: the line that replaced `agent`'s answered Card, until its next Decision, a dismissal or its removal. */
   folded(agent: string | null): Folded | undefined;
@@ -46,6 +48,8 @@ export type DecisionsState = {
   retryList(): void;
   answering(id: string): boolean;
   answerFailure(id: string): string | null;
+  dismissFailure(id: string): void;
+  dismissRevokeFailure(agent: string): void;
   /** `answer` is a permission word or an `ask_user` label; null with a note is the user's own answer (H14). */
   answer(id: string, answer: string | null, note?: string, identity?: PromptIdentity, scope?: Scope): Promise<"acknowledged" | "failed" | "unknown">;
 };
@@ -54,11 +58,11 @@ export type DecisionsState = {
  * Subscribes before it lists, and reconciles by id: an id an Event touched while a list was in flight keeps what the
  * Event said, so an old list neither resurrects a cleared Decision nor overwrites its replacement.
  */
-export const createDecisions = (app: AppSeam, events: Events, daemonExit: Accessor<DaemonExit | null>, drafts: Pick<ConnectedProject["drafts"], "list" | "validate" | "registerRecovery">, present: Accessor<ReadonlySet<string>> = () => new Set()): DecisionsState => {
+export const createDecisions = (app: AppSeam, events: Events, daemonExit: Accessor<DaemonExit | null>, drafts: Pick<ConnectedProject["drafts"], "list" | "validate" | "registerRecovery">, present: Accessor<ReadonlySet<string> | null> = () => null): DecisionsState => {
   const [decisions, setDecisions] = createSignal<readonly Decision[]>([]);
   const [listFailure, setListFailure] = createSignal<string | null>(null);
   const [pending, setPending] = createSignal<ReadonlySet<string>>(new Set());
-  const [failures, setFailures] = createSignal<ReadonlyMap<string, string>>(new Map());
+  const [failures, setFailures] = createSignal<ReadonlyMap<string, AnswerFailure>>(new Map());
   const [observed, setObserved] = createSignal(false);
   const [folds, setFolds] = createSignal<ReadonlyMap<string, Folded>>(new Map());
   const [revokes, setRevokes] = createSignal<ReadonlySet<string>>(new Set());
@@ -109,14 +113,48 @@ export const createDecisions = (app: AppSeam, events: Events, daemonExit: Access
     setRevokeFailures((current) => new Map([...current].filter(([key]) => key !== agent)));
   };
 
-  // A removed Agent keeps no line; an empty Rail is a Rail still loading.
+  // An observed empty Rail also removes the last folded line.
   createEffect(() => {
     const agents = present();
 
-    if (agents.size > 0) for (const agent of folds().keys()) if (!agents.has(agent)) unfold(agent);
+    if (agents !== null) for (const agent of folds().keys()) if (!agents.has(agent)) unfold(agent);
   });
 
   const without = (id: string) => setDecisions((current) => current.filter((each) => each.id !== id));
+
+  // The shared clock may list the same refused answer again; only a new observation resurfaces it.
+  const refusalKey = (decision: Decision) => {
+    const failure = decision.failure;
+
+    return JSON.stringify([decision.agent, decision.opened_at, decision.tool, decision.args, failure?.attempt, failure?.failed_at, failure?.error_code, failure?.message, failure?.answered_by.kind, failure?.answered_by.id, failure?.answered_by.parent]);
+  };
+
+  const withoutDismissedFailure = (decision: Decision): Decision => {
+    const failure = failures().get(decision.id);
+
+    if (!decision.failure || failure?.dismissed !== refusalKey(decision)) return decision;
+    const next = { ...decision };
+
+    delete next.failure;
+
+    return next;
+  };
+
+  const dismissFailure = (id: string) => {
+    const decision = decisions().find(each => each.id === id);
+
+    setFailures(current => {
+      const next = new Map(current);
+
+      const dismissed = decision?.failure ? refusalKey(decision) : current.get(id)?.dismissed ?? null;
+
+      if (dismissed) next.set(id, { message: null, dismissed });
+      else next.delete(id);
+
+      return next;
+    });
+    setDecisions(current => current.map(withoutDismissedFailure));
+  };
 
   const forget = (id: string) => {
     reading?.add(id);
@@ -128,7 +166,7 @@ export const createDecisions = (app: AppSeam, events: Events, daemonExit: Access
     if (event.name === "decision.opened") {
       unfold(event.data.agent);
       reading?.add(event.data.id);
-      setDecisions((current) => [...current.filter((each) => each.id !== event.data.id), event.data]);
+      setDecisions((current) => [...current.filter((each) => each.id !== event.data.id), withoutDismissedFailure(event.data)]);
     } else if (event.name === "decision.cleared") {
       forget(event.data.id);
     }
@@ -144,7 +182,8 @@ export const createDecisions = (app: AppSeam, events: Events, daemonExit: Access
     try {
       const listed = await app.rpc("decision.list", null);
 
-      setDecisions((current) => [...current.filter((each) => touched.has(each.id)), ...listed.filter((each) => !touched.has(each.id))]);
+      setDecisions((current) => [...current.filter((each) => touched.has(each.id)), ...listed.filter((each) => !touched.has(each.id)).map(withoutDismissedFailure)]);
+      setFailures(current => new Map([...current].filter(([id]) => decisions().some(each => each.id === id))));
       setListFailure(null);
       setObserved(true);
     } catch (thrown) {
@@ -165,7 +204,6 @@ export const createDecisions = (app: AppSeam, events: Events, daemonExit: Access
     const asked = decisions().find((each) => each.id === id);
 
     setPending((current) => new Set(current).add(id));
-    setFailures((current) => new Map([...current].filter(([key]) => key !== id)));
 
     let sent = false;
 
@@ -181,9 +219,12 @@ export const createDecisions = (app: AppSeam, events: Events, daemonExit: Access
 
       sent = true;
       await app.rpc("decision.answer", note === undefined ? params : { ...params, note });
-      forget(id);
+      const current = decisions().find(each => each.id === id);
+      const original = !current || current.agent === asked?.agent && current.opened_at === asked.opened_at && current.args === asked.args;
 
-      if (asked && asked.answerable && asked.tool !== "ask_user" && (text === "allow" || text === "deny")) {
+      if (original) forget(id);
+
+      if (original && !decisions().some(each => each.agent === asked?.agent) && asked && asked.answerable && asked.tool !== "ask_user" && (text === "allow" || text === "deny")) {
         setFolds((current) => new Map(current).set(asked.agent, { id, agent: asked.agent, verdict: text === "deny" ? "denied" : scope ?? "once", target: readPermission(asked).target, removed: false }));
       }
 
@@ -191,7 +232,7 @@ export const createDecisions = (app: AppSeam, events: Events, daemonExit: Access
     } catch (thrown) {
       if (!(thrown instanceof Error)) throw thrown;
 
-      setFailures((current) => new Map(current).set(id, plainRefusal(thrown.message)));
+      if (decisions().some(each => each.id === id && each.agent === asked?.agent && each.opened_at === asked.opened_at && each.args === asked.args)) setFailures((current) => new Map(current).set(id, { message: plainRefusal(thrown.message), dismissed: current.get(id)?.dismissed ?? null }));
 
       return !sent || thrown instanceof RpcError && [-32700, -32601, -32602, -32001, -32002, -32003].includes(thrown.code) ? outcomes.failed : outcomes.unknown;
     } finally {
@@ -205,16 +246,20 @@ export const createDecisions = (app: AppSeam, events: Events, daemonExit: Access
     if (!line || line.verdict !== "project" || line.removed || revokes().has(agent) || daemonExit() !== null) return;
 
     setRevokes((current) => new Set(current).add(agent));
-    setRevokeFailures((current) => new Map([...current].filter(([key]) => key !== agent)));
 
     try {
       await app.rpc("decision.revoke", { id: line.id, proof: await app.daemonProof() });
-      unfold(agent);
+
+      if (folds().get(agent) === line) unfold(agent);
     } catch (thrown) {
       if (!(thrown instanceof Error)) throw thrown;
 
-      if (thrown instanceof RpcError && thrown.code === -32001) setFolds((current) => new Map(current).set(agent, { ...line, removed: true }));
-      else setRevokeFailures((current) => new Map(current).set(agent, thrown.message));
+      if (folds().get(agent) === line) {
+        if (thrown instanceof RpcError && thrown.code === -32001) {
+          setRevokeFailures((current) => new Map([...current].filter(([key]) => key !== agent)));
+          setFolds((current) => new Map(current).set(agent, { ...line, removed: true }));
+        } else setRevokeFailures((current) => new Map(current).set(agent, thrown.message));
+      }
     } finally {
       setRevokes((current) => new Set([...current].filter((key) => key !== agent)));
     }
@@ -223,6 +268,8 @@ export const createDecisions = (app: AppSeam, events: Events, daemonExit: Access
   return {
     folded: (agent) => agent === null ? undefined : folds().get(agent),
     dismiss: unfold,
+    dismissFailure,
+    dismissRevokeFailure: agent => setRevokeFailures(current => new Map([...current].filter(([key]) => key !== agent))),
     revoke,
     revoking: (agent) => revokes().has(agent),
     revokeFailure: (agent) => revokeFailures().get(agent) ?? null,
@@ -248,7 +295,11 @@ export const createDecisions = (app: AppSeam, events: Events, daemonExit: Access
     listFailure,
     retryList: () => void list(),
     answering: (id) => pending().has(id),
-    answerFailure: (id) => failures().get(id) ?? null,
+    answerFailure: (id) => {
+      const failure = failures().get(id);
+
+      return failure?.message ?? null;
+    },
     answer,
   };
 };
