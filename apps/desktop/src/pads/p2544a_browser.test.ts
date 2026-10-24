@@ -206,7 +206,7 @@ it("u3021c_open_restores_exact_revision_without_rpc_browser_focus", async () => 
     show(a.revision);
   })()`);
   await browser("wait", "[aria-label='Pad body']");
-  expect(await evaluate("window.getSelection().toString()")).toBe(" 🌱 é");
+  await expect.poll(() => evaluate("window.getSelection().toString()"), { timeout: 20_000 }).toBe(" 🌱 é");
   await browser("click", ".pad-head-name");
   expect(await evaluate("(() => { const p = window.__selectedPad; return [p.app.calls, p.connected.drafts.list()]; })()")).toEqual(
     await evaluate("[window.__selectedPad.calls, window.__selectedPad.retained]"),

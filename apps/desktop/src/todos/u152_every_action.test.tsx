@@ -282,7 +282,7 @@ for (const owner of ["open_row", "open_row_move", "editable_text_title", "editab
       m.app.handlers["todo.removeRef"] = refuse;
       fireEvent.click(await within(drawer()).findByRole("button", { name: "Remove link to notes" }));
     } else {
-      Object.defineProperty(navigator, "clipboard", { configurable: true, value: { writeText: refuse } });
+      m.app.clipboardWrite = refuse;
       fireEvent.click(await within(drawer()).findByRole("button", { name: /^Changes/ }));
       fireEvent.click(await within(drawer()).findByRole("button", { name: "Copy" }));
     }
@@ -425,7 +425,7 @@ it.each(["dismiss", "save", "delete"] as const)("p3557c_failure_lifetime_editabl
   fireEvent.keyDown(field, { key: "Escape" });
   const retained = m.connected.drafts.list();
   const problem = m.connected.drafts.problem();
-  Object.defineProperty(navigator, "clipboard", { configurable: true, value: { writeText: () => Promise.reject(new Error("Clipboard unavailable; retry")) } });
+  m.app.clipboardWrite = () => Promise.reject(new Error("Clipboard unavailable; retry"));
   fireEvent.click(within(drawer()).getByRole("button", { name: "Copy Todo" }));
   await within(drawer()).findByRole("alert", { name: /Clipboard unavailable; retry/ });
   m.app.emit(todoEvent("todo.updated", todo(2)));

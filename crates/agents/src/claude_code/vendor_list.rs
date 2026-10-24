@@ -21,6 +21,8 @@ use crate::worktree::canonical_path;
 const BUDGET: Duration = Duration::from_secs(18);
 const MAX_RECORD: u64 = 8 * 1024 * 1024;
 const MAX_CWDS: usize = 64;
+/// How much of an unrelated-Project session with no SDK cwd is read to find one (U3523h).
+const PROBE_BYTES: u64 = 256 * 1024;
 const MAX_FILES: usize = 10_000;
 const MAX_NOTICE_BYTES: u64 = 64 * 1024;
 
@@ -326,6 +328,20 @@ fn map_into_project(
         .map(Path::to_path_buf))
 }
 
+/// Worktree folders the Project's Git still records but that no longer exist: the one place a
+/// session's SDK cwd is gone yet its records may hold a later cwd inside the Project (U3523b).
+fn removed_worktrees(project: &Path) -> Vec<PathBuf> {
+    let Ok(entries) = std::fs::read_dir(project.join(".git/worktrees")) else {
+        return Vec::new();
+    };
+    entries
+        .flatten()
+        .filter_map(|e| std::fs::read_to_string(e.path().join("gitdir")).ok())
+        .filter_map(|g| Path::new(g.trim()).parent().map(canonical_path))
+        .filter(|dir| !dir.exists())
+        .collect()
+}
+
 /// The directories one saved session recorded, in order, and what else decides eligibility.
 struct Records {
     cwds: Vec<PathBuf>,
@@ -333,9 +349,14 @@ struct Records {
     foreign_identity: bool,
 }
 
-fn read_records(path: &Path, stem: &str, deadline: Instant) -> Result<Records, RpcError> {
+fn read_records(
+    path: &Path,
+    stem: &str,
+    limit: u64,
+    deadline: Instant,
+) -> Result<Records, RpcError> {
     let file = std::fs::File::open(path).map_err(|err| io_error(path, err))?;
-    let mut reader = BufReader::with_capacity(64 * 1024, file);
+    let mut reader = BufReader::with_capacity(64 * 1024, file.take(limit));
     let mut out = Records {
         cwds: Vec::new(),
         sidechain: false,
@@ -550,6 +571,7 @@ fn assemble(
     deadline: Instant,
 ) -> Result<(Listing, Vec<String>), RpcError> {
     let files = index_sources(root)?;
+    let removed_worktrees = removed_worktrees(project);
     let mut out = Listing::default();
     let mut admitted = Vec::new();
     let mut seen = std::collections::HashSet::new();
@@ -604,8 +626,15 @@ fn assemble(
         let mut sidechain = false;
         let mut foreign_identity = false;
         let mut revision = source_revision(&before);
-        if relative.is_none() {
-            let records = read_records(path, &source, deadline)?;
+        // An unrelated Project's session whose cwd the SDK reported and which still exists is
+        // decided without opening it; one with no cwd, or started in a since-deleted folder (a
+        // removed Worktree, U3523b), is probed only at its start (U3523h).
+        let placed = row.cwd.as_deref().is_some_and(|cwd| {
+            Path::new(cwd).exists() || !removed_worktrees.contains(&canonical_path(Path::new(cwd)))
+        }) || live_cwd.clone().next().is_some();
+        if relative.is_none() && (scoped || !placed) {
+            let limit = if scoped { u64::MAX } else { PROBE_BYTES };
+            let records = read_records(path, &source, limit, deadline)?;
             let after = path.metadata().map_err(|err| io_error(path, err))?;
             if source_revision(&before) != source_revision(&after) {
                 return Err(RpcError::conflict(format!(
@@ -662,4 +691,58 @@ fn assemble(
             .then_with(|| a.source.cmp(&b.source))
     });
     Ok((out, admitted))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn row(id: &str, cwd: Option<&Path>) -> (Row, bool) {
+        let row = Row {
+            session_id: id.into(),
+            summary: None,
+            custom_title: None,
+            last_modified: 1,
+            cwd: cwd.map(|c| c.to_string_lossy().into_owned()),
+        };
+        (row, false)
+    }
+
+    /// U3523h: a source that is a directory fails any content open, so an `assemble` that
+    /// opens a session errors; the listing of 3,000 unrelated sessions must stay clean.
+    #[test]
+    fn u3523h_unrelated_sessions_are_not_opened() {
+        let base = std::env::temp_dir().join(format!("u3523h-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&base);
+        let root = base.join("projects");
+        let project = base.join("project");
+        let elsewhere = base.join("elsewhere");
+        for dir in [&project, &elsewhere, &root.join("bucket")] {
+            std::fs::create_dir_all(dir).unwrap();
+        }
+        let id = |n: usize| format!("{n:08x}-0000-4000-8000-000000000000");
+        let mut rows = Vec::new();
+        for n in 1..=3000 {
+            std::fs::create_dir(root.join("bucket").join(format!("{}.jsonl", id(n)))).unwrap();
+            rows.push(row(&id(n), Some(&elsewhere)));
+        }
+        let deadline = Instant::now() + Duration::from_secs(30);
+        let run = |rows| {
+            assemble(
+                &root,
+                &project,
+                std::slice::from_ref(&project),
+                rows,
+                HashMap::new(),
+                0,
+                deadline,
+            )
+        };
+        let (listing, admitted) = run(rows).expect("no unrelated session is opened");
+        assert!(listing.candidates.is_empty() && admitted.is_empty());
+        // Control: the same kind of source, with no cwd to decide it, is opened and fails.
+        let control = run(vec![row(&id(1), None)]);
+        assert!(control.is_err(), "fixture must fail a content open");
+        std::fs::remove_dir_all(&base).unwrap();
+    }
 }
