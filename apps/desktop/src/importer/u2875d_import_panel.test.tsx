@@ -541,6 +541,7 @@ it.skipIf(!captureDir("U3299a")).each(["names", "retention"] as const)("u3299a_u
 it("u3817_closing_a_page_keeps_a_pending_import", async () => {
   const { app, connected } = await mount();
   let settle: (value: { outcomes: { source: string; workstream: string; agent: string; error: null }[] }) => void = () => {};
+
   app.handlers["project.importCommit"] = () => new Promise((resolve) => { settle = resolve; });
 
   await open();
