@@ -22,7 +22,6 @@ export const message = (id: number, over: Partial<Message> = {}): Message => ({
   replyTo: null,
   status: "delivered",
   reason: null,
-  passedFrom: null,
   at: NOW,
   ...over,
 });

@@ -1,12 +1,11 @@
 // fallow-ignore-file duplicate-export -- Clock sleeps for the frame driver; state/clock’s Clock reads time. Neither is barrel-exported.
-import type { AppSeam } from "../app/seam";
+import type { App, AppSeam } from "../app/seam";
 import { toBase64 } from "../terminal/base64";
 import { createXtermEmulators } from "../terminal/emulator";
-import type { Emulator } from "../terminal/emulator";
 import { recordFrames } from "./frames";
 import type { FrameReport } from "./frames";
 import type { NativeDragReport } from "./nativeDragProbe";
-import { READY, SETUP_BOUND_MS, appears, sleep, timerResolutionMs } from "./run";
+import { READY, SETUP_BOUND_MS, appears, bounded, reportTerminal, sleep, timerResolutionMs, writeInChunks } from "./run";
 
 /** `docs/motion.md`, **Native performance protocol**: every 2 s one cycle of the workload, over the 60 s sample. */
 const CYCLE_MS = 2000;
@@ -19,6 +18,18 @@ const HALF_SLIDE_MS = 90;
 const SETTLE_MS = 400;
 
 const WORKING_GLYPHS = 10;
+
+/** The first task after the rendering update that follows the current animation callback. */
+const afterUpdate = (callback: () => void) => {
+  const channel = new MessageChannel();
+
+  channel.port1.onmessage = () => {
+    channel.port1.close();
+    callback();
+  };
+
+  channel.port2.postMessage(null);
+};
 
 /** The only thing the drivers ask of time: a fake clock in tests, `setTimeout` in the App. */
 type Clock = { sleep(ms: number): Promise<void> };
@@ -40,18 +51,6 @@ export const everyTwoSeconds = async (clock: Clock, cycle: (index: number) => Pr
 
   return { performed, completed: true };
 };
-
-/** A report holds every raw interval, so it is tens of KiB; one write that large into a tty under the stream is the likeliest to be cut short. */
-const WRITE_CHUNK = 4096;
-
-/** Hands `bytes` to `write` in order, `WRITE_CHUNK` at a time, each after the last was accepted. */
-export const writeInChunks = async (bytes: Uint8Array, write: (chunk: Uint8Array) => Promise<void>): Promise<void> => {
-  for (let at = 0; at < bytes.length; at += WRITE_CHUNK) await write(bytes.subarray(at, at + WRITE_CHUNK));
-};
-
-/** Settles with `work`, or rejects naming `step` once `ms` pass: a setup call that never answers must still end in a report line, with its cause. */
-export const bounded = <T>(work: Promise<T>, ms: number, step: string): Promise<T> =>
-  Promise.race([work, sleep(ms).then(() => Promise.reject(new Error(`${step} did not finish within ${ms} ms`)))]);
 
 /** What the Layers driver presses; each answers whether its control was found. */
 export type Layers = {
@@ -170,12 +169,31 @@ const attempted = async <T>(work: () => Promise<T>): Promise<boolean> => {
   }
 };
 
-const domTodos = (app: AppSeam): Todos => {
+/**
+ * Creates a Todo in `home`. A created Todo has no home, and the Shelf of a selected Workstream lists only its own Todos: a homeless one
+ * never reaches a row the driver can press, so the Layers cycle found no target on WKWebView and the run stayed invalid (U3010g).
+ */
+export const createHomed = async (app: Pick<AppSeam, "rpc">, home: string, title: string): Promise<void> => {
+  const todo = await app.rpc("todo.create", { title, body: null, blockers: null });
+
+  await app.rpc("todo.move", { id: todo.id, home });
+};
+
+/** The Workstream the run made: the last one on the Rail, which the new Workstream's selected row is. */
+const runWorkstream = async (app: AppSeam): Promise<string> => {
+  const home = (await app.rpc("rail.tree", null)).filter((node) => node.kind === "workstream").at(-1)?.id;
+
+  if (!home) throw new Error("the Project has no Workstream to hold the Todos");
+
+  return home;
+};
+
+const domTodos = (app: AppSeam, home: string): Todos => {
   let made = 0;
 
   return {
-    open: async () => (await app.rpc("todo.list", null)).filter((todo) => !todo.done).map((todo) => todo.id),
-    create: () => attempted(() => app.rpc("todo.create", { title: `motion ${(made += 1)}`, body: null, blockers: null })),
+    open: async () => (await app.rpc("todo.list", null)).filter((todo) => !todo.done && todo.home === home).map((todo) => todo.id),
+    create: () => attempted(() => createHomed(app, home, `motion ${(made += 1)}`)),
     complete: (id) => attempted(() => app.rpc("todo.complete", { id })),
     toggleFold: () =>
       attempted(async () => {
@@ -213,12 +231,17 @@ const startWorkingAgents = async (app: AppSeam, cwd: string) => {
 const prepare = async (app: AppSeam, workload: string, cwd: string): Promise<(index: number) => Promise<boolean>> => {
   if (workload === "layers" || workload === "todos") {
     // Rows to open, complete and reorder; one open Todo always stays.
-    for (let each = 0; each < 4; each += 1) await app.rpc("todo.create", { title: `seed ${each}`, body: null, blockers: null });
+    const home = await runWorkstream(app);
+
+    for (let each = 0; each < 4; each += 1) await createHomed(app, home, `seed ${each}`);
+
+    // The press targets must be on screen before the sample, so a missing one is an error naming it, not a silent invalid run.
+    await appears(() => document.querySelector(SHELF_ROW), "the Shelf's first Todo row");
+
+    if (workload === "layers") return layersCycle(domLayers, wallClock);
+
+    return todosCycle(domTodos(app, home));
   }
-
-  if (workload === "layers") return layersCycle(domLayers, wallClock);
-
-  if (workload === "todos") return todosCycle(domTodos(app));
 
   if (workload === "glyphs") {
     await startWorkingAgents(app, cwd);
@@ -227,38 +250,6 @@ const prepare = async (app: AppSeam, workload: string, cwd: string): Promise<(in
   }
 
   throw new Error(`the workload ${workload} is not layers, todos or glyphs`);
-};
-
-/**
- * The report goes through the Terminal whose program printed `READY`, never the last one the page created: the workstream's `claude` Terminal
- * also gets an emulator, and a report written into it never reaches the runner reading the shell's output.
- */
-export const reportTerminal = <E extends Pick<Emulator, "write">>(create: (id: string) => E) => {
-  let target: string | null = null;
-  let announce: () => void = () => {};
-
-  const printed = new Promise<void>((resolve) => (announce = resolve));
-
-  return {
-    printed,
-    target: () => target,
-    createEmulator: (id: string): E => {
-      const emulator = create(id);
-
-      return {
-        ...emulator,
-        write: (bytes, parsed) =>
-          emulator.write(bytes, () => {
-            if (target === null && new TextDecoder().decode(bytes).includes(READY)) {
-              target = id;
-              announce();
-            }
-
-            parsed?.();
-          }),
-      };
-    },
-  };
 };
 
 /**
@@ -300,12 +291,13 @@ export const createFrameRun = (app: AppSeam, workload: string, cwd: string) => {
 
     await report(
       await recordFrames(
-        { frame: (callback) => void requestAnimationFrame(callback), hidden: () => document.hidden, after: (ms, callback) => void setTimeout(callback, ms) },
+        { frame: (callback) => void requestAnimationFrame(callback), hidden: () => document.hidden, now: () => performance.now(), afterUpdate: afterUpdate, after: (ms, callback) => void setTimeout(callback, ms) },
         {
           workload,
           engine: /Chrome|Chromium/.test(navigator.userAgent) ? "chromium" : "webkit",
           timerResolutionMs: timerResolutionMs(),
           userAgent: navigator.userAgent,
+          entryTypes: [...(PerformanceObserver.supportedEntryTypes ?? [])],
         },
         async () => (await everyTwoSeconds(wallClock, cycle)).completed,
       ),
@@ -313,6 +305,7 @@ export const createFrameRun = (app: AppSeam, workload: string, cwd: string) => {
   };
 
   return {
+    traced: (real: App): App => real,
     createEmulator: terminal.createEmulator,
     start: async () => {
       try {

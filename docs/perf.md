@@ -196,3 +196,33 @@ toolchain, profile and load when recording an observation. Do not replace or
 relax `budgets.json`. #1930 must migrate this output drain to selected streams
 in its Contract PR, rerun this command and retain zero Rail lag; this observer
 does not complete #1930 or X14's Terminal regression/journey acceptance.
+
+### R20 hop attribution
+
+Each report now carries `hops` and `hop_uncertainty_ms` (the 1 ms timer
+resolution). All boundaries are read on the webview's one clock, so no
+cross-process subtraction is involved; a report without every hop is invalid
+(exit 2). Per key, from the same key's echo (unrelated output is ignored):
+
+| Hop | From → to |
+| --- | --- |
+| `keydown_to_input` | `keydown` → xterm `onData` |
+| `input_to_dispatch` | `onData` → `terminal.write` called; holds base64 (same tick, not separable) and the wait for the previous write's reply |
+| `dispatch_to_echo_event` | `terminal.write` called → the echo reaches `emulator.write`; spans Tauri, the Daemon's write, the PTY, the echo read and the output channel |
+| `echo_event_to_parsed` | `emulator.write` → xterm has parsed the echo |
+| `parsed_to_frame` | parsed → the next render |
+| `write_reply` | `terminal.write` called → its reply (overlaps the echo's trip) |
+
+The Daemon-side boundaries inside `dispatch_to_echo_event` (Daemon received, PTY
+write completed, echo read) are not yet stamped: they need the Daemon's clock
+and a calibrated offset, and the first native report decides whether that hop
+needs splitting. The hop with the largest p95 is named here once the quiet-Mac
+before-repair reports exist; none exist yet, so no dominant hop and no repair
+are claimed.
+
+## macOS `cold_start_ms` and `rail_tree_40_p95_ms` (#3696)
+
+Neither is a spawned `ps`: `resources.rs` runs only for `daemon.resources` and `scan.rs` only with a live Door, and `strace -f -e execve` of a fresh `rupd` shows one `execve`, so the lazy sidecar adds no spawn at start. Measured on one Linux machine at one load, `just perf` at the macOS baseline commit `02fd86775` against `main`: `rail_tree_40_p95_ms` 0.25 against 0.71 ms, `ping_p95_ms` 0.046 against 0.093 ms, `cold_start_ms` 14 to 16 against 24 ms. The Daemon itself got slower after the baseline, as the Mac's ratios show.
+
+- `rail.tree`: `Shared::present` read each node's `finished` with `WHERE CAST(id AS TEXT)=?`, a full scan per node, and `load_nodes` parsed its SQL on every call. A tree read now takes one `finished_all` query and prepares both statements once; 0.71 became about 0.49 ms.
+- `cold_start_ms`: a fresh Project replays 37 migrations into `project.db` (`storage::open`), 11 to 12 ms of DDL parse and `ALTER TABLE` schema checks; an existing Project starts in 10 ms against 24 ms for a fresh one. `PRAGMA synchronous=OFF` saves 1 ms and `legacy_alter_table` nothing. `build.rs` now migrates an empty database once at build time (`VACUUM INTO`), and `storage::open` copies that image when `project.db` does not exist, giving the two per-Project ids (`deliverable_project`, `reaction_project`) fresh values. `r3696c_a_fresh_project_db_equals_the_migrated_one_with_its_own_identity` holds the image equal to the migrated database. No budget changes; the Mac's `target/perf.json` is the observer.
