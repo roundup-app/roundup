@@ -19,8 +19,6 @@ pub const SCOUT_TOOLS_NO_MCP: &str = "Read,Grep,Glob,Bash";
 pub struct Profile {
     /// `--tools` with roundup's MCP server and without it; `None` is every tool.
     pub tools: Option<(&'static str, &'static str)>,
-    /// Skills are on: no `--disable-slash-commands`, and the Project's skills are listed.
-    pub skills: bool,
     /// The bundled plugins passed with `--plugin-dir`, by name (LC5, LC14).
     pub bundled_plugins: &'static [&'static str],
     /// The user's global `CLAUDE.md` is appended to the Brief file (LC5).
@@ -34,7 +32,6 @@ pub const PROFILES: [(Role, Profile); 3] = [
         Profile {
             tools: Some((DOOR_TOOLS, DOOR_TOOLS_NO_MCP)),
             // A41: a `/command` sent to a Door runs there.
-            skills: true,
             bundled_plugins: &["hope", "hunch", "hold"],
             global_instructions: true,
         },
@@ -43,7 +40,6 @@ pub const PROFILES: [(Role, Profile); 3] = [
         Role::Scout,
         Profile {
             tools: Some((SCOUT_TOOLS, SCOUT_TOOLS_NO_MCP)),
-            skills: true,
             bundled_plugins: &["hope", "hunch", "hold"],
             global_instructions: true,
         },
@@ -52,7 +48,6 @@ pub const PROFILES: [(Role, Profile); 3] = [
         Role::Agent,
         Profile {
             tools: None,
-            skills: true,
             bundled_plugins: &["hope", "hunch", "hold"],
             global_instructions: true,
         },

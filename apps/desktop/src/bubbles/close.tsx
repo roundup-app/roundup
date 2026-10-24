@@ -2,12 +2,12 @@ import { Show } from "solid-js";
 import { ReservedLine } from "../ink/ReservedLine";
 import { copy } from "../copy";
 import { createSignal } from "solid-js";
-import type { Accessor, Setter } from "solid-js";
+import type { Accessor, JSX } from "solid-js";
 import type { TerminalInfo } from "@contracts/terminal/TerminalInfo";
 import type { ConnectedProject } from "../state/connectedProject";
 
 /** Terminal closure preserves the surviving tab focus and leaves failures on the originating surface. */
-export const createTerminalClose = (connected: ConnectedProject, shown: Accessor<readonly TerminalInfo[]>, nameFor: (terminal: TerminalInfo) => string, setFailure: Setter<string | null>) => {
+export const createTerminalClose = (connected: ConnectedProject, shown: Accessor<readonly TerminalInfo[]>, nameFor: (terminal: TerminalInfo) => string, setFailure: (message: string | null, terminal?: TerminalInfo) => void, clearItemFailure: (terminal: TerminalInfo) => void) => {
   const { app, rail } = connected;
   const [closing, setClosing] = createSignal<ReadonlySet<string>>(new Set());
   const [retry, setRetry] = createSignal<{ id: string; message: string } | null>(null);
@@ -15,16 +15,13 @@ export const createTerminalClose = (connected: ConnectedProject, shown: Accessor
   const close = async (id: string): Promise<void> => {
     if (closing().has(id)) return;
 
+    const terminal = shown().find(terminal => terminal.id === id);
     const active = document.activeElement;
     const controlHeldFocus = active instanceof Element && active.closest("[data-bubble]")?.getAttribute("data-bubble") === id;
     setClosing((ids) => new Set([...ids, id]));
 
     try {
-      const terminal = shown().find(terminal => terminal.id === id);
-
       if (!terminal) return;
-      setRetry(null);
-      setFailure(null);
       const accepted = await app.ask({ title: copy.closeQuestion(nameFor(terminal)), message: terminal.running ? copy.closeTerminalWarning : copy.closeTerminalOutputWarning, okLabel: copy.close, cancelLabel: copy.keep });
 
       if (!accepted) {
@@ -35,7 +32,8 @@ export const createTerminalClose = (connected: ConnectedProject, shown: Accessor
 
       await app.rpc("terminal.close", { id });
       await rail.refresh({ terminals: true });
-      setFailure(null);
+      setRetry((held) => held?.id === id ? null : held);
+      clearItemFailure(terminal);
 
       if (controlHeldFocus) queueMicrotask(() => {
         const remaining = shown();
@@ -47,18 +45,19 @@ export const createTerminalClose = (connected: ConnectedProject, shown: Accessor
       if (!(thrown instanceof Error)) throw thrown;
 
       setRetry({ id, message: thrown.message });
-      setFailure(thrown.message);
+      setFailure(thrown.message, terminal);
     } finally {
       setClosing((ids) => new Set([...ids].filter((held) => held !== id)));
     }
   };
 
-  const Failure = (props: { message: string | null }) => <ReservedLine overlay class={props.message ? "bubble-failure" : undefined} message={props.message}>
+  const Failure = (props: { message: string | null; children?: JSX.Element }) => <ReservedLine overlay class={props.message ? "bubble-failure" : undefined} message={props.message}>
     <Show when={retry()?.message === props.message ? retry() : null}>{failed => <button data-button="quiet" type="button" onClick={() => {
       // Retry starts from the original close control, so cancel and success keep their normal focus destinations.
       document.querySelector<HTMLElement>(`.terminal-tab-pair[data-bubble="${failed().id}"] button:last-child`)?.focus();
       void close(failed().id);
     }}>{copy.retry}</button>}</Show>
+    {props.children}
   </ReservedLine>;
 
   return { close, closing, Failure };
