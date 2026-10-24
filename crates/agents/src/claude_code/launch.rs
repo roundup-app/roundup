@@ -364,31 +364,23 @@ impl Launcher {
             (Some(lean), Role::Agent) if lean.scout => Role::Scout,
             _ => role,
         };
-        let mut delivery = match &lean {
+        let delivery = match &lean {
             Some(lean) => extras::resolve(&self.extras_sources(&project), &lean.extras)?,
             None => extras::Delivery::default(),
         };
-        if lean.is_some() && profile(role).skills {
-            for skill in extras::project_skills(&project) {
-                if !delivery.skills.iter().any(|(name, _)| *name == skill.0) {
-                    delivery.skills.push(skill);
-                }
-            }
-        }
         let mut carried =
             user_settings(&self.conversation_dir, &project).map_err(RpcError::internal)?;
         if lean.is_some() {
-            for key in [
-                "outputStyle",
-                "enabledPlugins",
-                "mcpServers",
-                "autoMemoryEnabled",
-                "autoMemoryDirectory",
-            ] {
-                carried
-                    .as_object_mut()
-                    .expect("settings object")
-                    .remove(key);
+            // LC2, LC16: the original sources stay on so their commands list, and merge under
+            // this copy; so each exclusion is set off here, not left out.
+            let object = carried.as_object_mut().expect("settings object");
+            for key in ["mcpServers", "autoMemoryDirectory"] {
+                object.remove(key);
+            }
+            object.insert("outputStyle".into(), json!("default"));
+            object.insert("autoMemoryEnabled".into(), json!(false));
+            if let Some(Value::Object(plugins)) = object.get_mut("enabledPlugins") {
+                plugins.values_mut().for_each(|on| *on = json!(false));
             }
         }
         let missing_intent = self.door_lacks_intent(role);
@@ -479,27 +471,14 @@ impl Launcher {
         if let Some(lean) = &lean {
             argv.push("--append-system-prompt-file".into());
             argv.push(brief_file.to_string_lossy().into_owned());
-            // LC2: use the merged copy so original sources cannot restore the named exclusions.
-            argv.extend(["--strict-mcp-config", "--setting-sources", ""].map(String::from));
+            argv.push("--strict-mcp-config".into());
             let row = profile(role);
             if let Some((with, without)) = row.tools {
                 argv.push("--tools".into());
                 argv.push(if mcp { with } else { without }.into());
             }
-            let skills = !delivery.skills.is_empty();
-            let commands = row
-                .skills
-                .then(|| project.join(".claude/commands"))
-                .filter(|path| path.is_dir());
-            if !row.skills && !skills {
-                argv.push("--disable-slash-commands".into());
-            }
-            if skills || commands.is_some() {
-                let folder = extras::skill_plugin(
-                    &extras_dir(&dir, id),
-                    &delivery.skills,
-                    commands.as_deref(),
-                )?;
+            if !delivery.skills.is_empty() {
+                let folder = extras::skill_plugin(&extras_dir(&dir, id), &delivery.skills)?;
                 argv.extend(["--plugin-dir".into(), folder.to_string_lossy().into_owned()]);
             }
             for plugin in &delivery.plugins {
