@@ -1,3 +1,4 @@
+// fallow-ignore-file duplicate-export -- Bubble geometry differs from keys/places focus regions; both are imported directly.
 import * as v from "valibot";
 import type { RailNode } from "@contracts/agent/RailNode";
 import type { TerminalInfo } from "@contracts/terminal/TerminalInfo";
