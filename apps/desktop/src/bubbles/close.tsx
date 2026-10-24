@@ -23,7 +23,6 @@ export const createTerminalClose = (connected: ConnectedProject, shown: Accessor
     try {
       if (!terminal) return;
       setRetry(null);
-      clearItemFailure(terminal);
       const accepted = await app.ask({ title: copy.closeQuestion(nameFor(terminal)), message: terminal.running ? copy.closeTerminalWarning : copy.closeTerminalOutputWarning, okLabel: copy.close, cancelLabel: copy.keep });
 
       if (!accepted) {
