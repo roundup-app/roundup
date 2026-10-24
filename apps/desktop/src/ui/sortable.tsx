@@ -195,29 +195,33 @@ const Root = <T extends ExternalTarget>(props: RootProps<T>) => {
   /** The source row stays where it was lifted from: a still, solid-edged copy over its original box, under the lifted one. */
   const leaveGhost = (source: Draggable | null | undefined) => {
     const element = source?.element;
-    const box = list;
+    const parent = element?.parentElement;
+    const frame = element instanceof HTMLElement ? element.offsetParent : null;
 
-    if (!(element instanceof HTMLElement) || !box) return;
+    if (!(element instanceof HTMLElement) || !parent || !(frame instanceof HTMLElement)) return;
 
     const at = element.getBoundingClientRect();
-    const base = box.getBoundingClientRect();
+    const base = frame.getBoundingClientRect();
     // SAFETY: cloning an HTMLElement yields an HTMLElement.
     const copy = element.cloneNode(true) as HTMLElement;
 
-    for (const name of copy.getAttributeNames()) if (name.startsWith("data-dnd-") || name === "style" || name === "id" || name === "popover") copy.removeAttribute(name);
+    // The copy keeps its inline style (a Rail row's indent) and sits beside the source, so the consumer's own selectors still lay it out.
+    for (const name of copy.getAttributeNames()) if (name.startsWith("data-dnd-") || name === "id" || name === "popover") copy.removeAttribute(name);
 
     copy.classList.add("sortable-source");
     copy.setAttribute("aria-hidden", "true");
     copy.setAttribute("inert", "");
     // A consumer's own `position` rule (the Rail's rows set one) must not put the copy in flow.
     copy.style.setProperty("position", "absolute", "important");
-    copy.style.top = `${at.top - base.top + box.scrollTop}px`;
-    copy.style.left = `${at.left - base.left + box.scrollLeft}px`;
+    copy.style.setProperty("transform", "none", "important");
+    copy.style.setProperty("translate", "none", "important");
+    copy.style.top = `${at.top - base.top - frame.clientTop + frame.scrollTop}px`;
+    copy.style.left = `${at.left - base.left - frame.clientLeft + frame.scrollLeft}px`;
     copy.style.width = `${at.width}px`;
     copy.style.height = `${at.height}px`;
+    copy.style.margin = "0";
 
-    if (getComputedStyle(box).position === "static") box.style.position = "relative";
-    box.appendChild(copy);
+    parent.appendChild(copy);
     ghost = copy;
   };
 
