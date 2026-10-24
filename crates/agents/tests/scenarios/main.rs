@@ -23,6 +23,7 @@ mod signal;
 mod spawn;
 mod steer;
 mod u2539a_changed_files;
+mod u3566;
 mod u3780a_tool_call;
 mod worktree_state;
 mod worktrees;
