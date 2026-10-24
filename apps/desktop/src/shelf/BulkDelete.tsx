@@ -179,6 +179,7 @@ export const createBulkDelete = <Id,>(props: {
 
   const shown = () => (readFailure() === null ? failures() : []);
   const failureText = (failure: { target: Target<Id>; message: string }) => `${copy.couldNotDelete} ${labelOf(failure.target)}${copy.colon}${failure.message}`;
+
   const clearButton = (failure: { target: Target<Id>; message: string }) => (
     <IconButton aria-label={`${copy.clear} ${labelOf(failure.target)}`} onClick={() => setFailures(held => held.filter(other => other.target.id !== failure.target.id))}><Icon name="x" /></IconButton>
   );
