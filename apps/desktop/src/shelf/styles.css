@@ -212,14 +212,16 @@
   z-index: 1;
   display: flex;
   flex-wrap: wrap;
-  column-gap: var(--space-4);
   margin: 0;
   padding-block: var(--space-1);
   background: var(--sunken);
   color: var(--grey);
   font-size: var(--text-caption);
+  text-transform: lowercase;
   user-select: none;
 }
+.triage-hint + .triage-hint::before { content: "·"; margin-inline: var(--space-2); }
+.triage-key { font: inherit; color: var(--text); text-transform: none; }
 
 .todo-create,
 .todos-tab,
