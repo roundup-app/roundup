@@ -108,7 +108,7 @@ const AskRow = (props: { keys: KeyScope; entry: AskEntry; part: AskPart; index: 
   const status = () => (props.part.state === "typed" ? node()?.status ?? null : null);
   const asking = () => !props.entry.pending && (props.part.state === "waiting" || props.part.state === "failed");
   const busy = () => asks.picking(props.entry.key, props.index);
-  const failure = (): string | undefined => asks.pickFailure(props.entry.key, props.index);
+  const failure = () => asks.partFailure(props.entry.key, props.index);
 
   const pick = (target: Target): void => void asks.pick(props.entry.key, props.index, target);
 
@@ -149,7 +149,7 @@ const AskRow = (props: { keys: KeyScope; entry: AskEntry; part: AskPart; index: 
             <button type="button" data-button="quiet" disabled={busy()} onClick={() => pick({ kind: "new" })}>{copy.askNewWorkstream}</button>
             <button type="button" data-button="quiet" disabled={busy()} onClick={() => pick({ kind: "drop" })}>{copy.askDrop}</button>
           </div>
-          <ReservedLine message={failure()} />
+          <ReservedLine message={failure()?.message}><Show when={failure()}>{(each) => <button type="button" data-button="quiet" onClick={() => asks.dismiss(each())}>{copy.dismiss}</button>}</Show></ReservedLine>
         </div>
       </Show>
     </li>

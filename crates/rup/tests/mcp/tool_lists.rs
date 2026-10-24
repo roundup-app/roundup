@@ -3,7 +3,7 @@
 use std::path::Path;
 /// M5: the methods with a tool for every Agent, each named after its method with the dot replaced
 /// by `_`, bar `agent.setOrder` (O4), whose tool is `agent_set_order`.
-pub const TOOL_METHODS: [&str; 91] = [
+pub const TOOL_METHODS: [&str; 92] = [
     "agent.wake",
     "reaction.create",
     "reaction.preview",
@@ -35,6 +35,8 @@ pub const TOOL_METHODS: [&str; 91] = [
     "pad.read",
     "link.read",
     "pad.list",
+    // U3523a: read-only listing for the import Agent
+    "import.list",
     "pad.write",
     "pad.append",
     "pad.appendSection",
@@ -120,7 +122,7 @@ pub const DOOR_METHODS: [&str; 8] = [
 ];
 
 /// M5: the methods and App commands with no tool; the reasons are in `scenarios/mcp.md`.
-pub const NO_TOOL: [&str; 71] = [
+pub const NO_TOOL: [&str; 72] = [
     // A3308: Auto is the user's choice; Agents read its value through the existing rail_tree tool.
     "workstream.setAuto",
     "rail.list",
@@ -194,8 +196,6 @@ pub const NO_TOOL: [&str; 71] = [
     "project.importDiscover",
     "project.importCommit",
     "agent.setModel",
-    // U3016h: the App's weekly-limit line, the account's figure
-    "project.weeklyLimit",
     // D8: the App's Resource strip
     "project.resources",
     // A32: the user's act of clearing; a Door answers it with `workstream_handoff`
@@ -206,8 +206,12 @@ pub const NO_TOOL: [&str; 71] = [
     "open_target",
     "open_in_editor",
     "save_pasted_image",
+    // U3560a: only the user writes the native pasteboard.
+    "plugin:clipboard-manager|write_text",
     // U2694a: the native menu of the user's right-click
     "show_context_menu",
+    // U3813: native commands act on the user’s selected tab.
+    "select_project_menu",
     // U449–U451: the user's native window, which an Agent cannot move or rename.
     "plugin:window-bar|set_window_title",
     "plugin:window-bar|drag_window",
@@ -255,6 +259,8 @@ pub fn seam_commands() -> Vec<String> {
             .into_iter()
             .map(|command| format!("plugin:window-bar|{command}")),
     );
+    // The maintained clipboard plugin registers its own commands. The web adapter observer probes this command.
+    registered.push("plugin:clipboard-manager|write_text".into());
     let mut declared = table.clone();
     registered.sort();
     declared.sort();

@@ -1,3 +1,4 @@
+import { ExitButton } from "../ui/IconButton";
 import { copy } from "../copy";
 import { createEffect, createMemo, createSignal, onCleanup, Show } from "solid-js";
 import type { FileComparison } from "@contracts/agent/FileComparison";
@@ -159,8 +160,8 @@ export const DiffReader = (props: { id: string; name: string; path: string; note
           <Show when={value().status !== null && value().old.kind !== "binary" && value().new.kind !== "binary"}><button type="button" data-button="quiet" ref={element => { addButton = element; }} onClick={() => setForm({ comparison: value(), selection: selection() })}>{copy.addNote}</button></Show>
           <button type="button" data-button="quiet" onClick={() => setVersion(v => v + 1)}>{copy.refresh}</button>
         </>}</Show>
-        <button type="button" data-button="quiet" ref={element => { backButton = element; }} onClick={props.onBack}>{copy.back}</button>
-        <button type="button" data-button="quiet" onClick={props.onClose}>{copy.close}</button>
+        <ExitButton ref={element => { backButton = element; }} onClick={props.onBack} />
+        <button type="button" data-button="quiet" onClick={props.onClose}>{copy.closeChanges}</button>
       </div>
     </header>
     <ReservedLine message={failure()} status={notice()}><Show when={failure()}><button type="button" data-button="quiet" onClick={() => setVersion(v => v + 1)}>{copy.retry}</button><button type="button" data-button="quiet" onClick={() => setFailure(null)}>Dismiss</button></Show></ReservedLine>

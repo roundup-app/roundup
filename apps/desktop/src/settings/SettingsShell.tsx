@@ -10,7 +10,7 @@ export const SettingsShell = (props: { heading: string; onClose: () => void; chi
   onMount(() => view.focus());
 
   return (
-  <section ref={view} tabindex="-1" class="settings-view" aria-label={props.heading} onKeyDown={event => { if (event.key === "Escape" && !event.isComposing) { event.preventDefault(); props.onClose(); } }}>
+  <section ref={view} tabindex="-1" class="settings-view" aria-label={props.heading} onKeyDown={event => { if (event.key === "Escape" && !event.isComposing && !event.defaultPrevented) { event.preventDefault(); props.onClose(); } }}>
     <header class="settings-head">
       <h2 class="settings-title">{props.heading}</h2>
       <button data-button="quiet" class="word" type="button" onClick={() => props.onClose()}>{copy.close}</button>

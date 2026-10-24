@@ -17,6 +17,8 @@ import { createAsks } from "./asks";
 import type { AsksState } from "./asks";
 import { syncTerminalScheme } from "../terminal/scheme";
 import { createRailState } from "./rail";
+import { createUnseen, unseenStorage } from "./unseen";
+import type { UnseenState } from "./unseen";
 import { createQueue } from "./queue";
 import { createTimelineLog } from "../timeline/log";
 import type { TimelineLog } from "../timeline/log";
@@ -44,6 +46,7 @@ type Recovery = (draft: Draft, facts: {
 
 type ProjectDrafts = Drafts & {
   importing: ReturnType<typeof createImport> | null;
+  settingsView: SettingsViewState;
   /** Surface-owned identity extraction, installed independently of the original editor.
    * App-run lifetime; facts come from the inspected connection, never a captured old one.
    */
@@ -76,6 +79,7 @@ export const createProjectDrafts = () => {
 
     const holder: ProjectDrafts = {
       importing: null,
+      settingsView: createSettingsView(),
       editor: storage.editor,
       recoverable: () => {
         revision();
@@ -126,6 +130,8 @@ export type ConnectedProject = {
   app: AppSeam;
   events: Events;
   rail: RailState;
+  /** U3566: the Agents whose latest finish the user has not viewed. */
+  unseen: UnseenState;
   /** U3744: the Workstreams waiting to start. */
   queue: QueueView;
   /** U3768: the Agents' Statuses heard since the Project connected, read by the timeline. */
@@ -161,6 +167,8 @@ export const connectProject = async (
   daemonExit: Accessor<DaemonExit | null> = () => null,
   storage?: RailStorage,
   drafts = createProjectDrafts()(project.path),
+  /** U3566: whether the selected Agent's pane is displayed in a visible, focused, active window. */
+  viewing: Accessor<boolean> = () => true,
 ): Promise<ConnectedProject> => {
   // Preserve the Project-owned Notes lookup for observers using the original connection.
   notesFor(app, project.path, drafts);
@@ -187,6 +195,17 @@ export const connectProject = async (
 
   if (ended) stopDecisions();
 
+  const settingsView = drafts.settingsView;
+  let stopUnseen = () => {};
+
+  const unseen = createRoot((dispose) => {
+    stopUnseen = dispose;
+
+    return createUnseen(() => rail.nodes, rail.selected, () => viewing() && !settingsView.open(), unseenStorage(project.path));
+  });
+
+  if (ended) stopUnseen();
+
   let stopQueue = () => {};
 
   const queue = createRoot((dispose) => {
@@ -211,7 +230,7 @@ export const connectProject = async (
 
   const takeover = createTakeover(app, events, daemonExit);
 
-  return { project, drafts, app, events, rail, queue, timeline, importing, worktrees: createWorktreeState(app, rail, now, daemonExit), drawer: createDrawer(), decisions, asks: createAsks(app, events), takeover, settingsView: createSettingsView(), notes: createNoteQueue(app, events, reducedMotion, daemonExit), reducedMotion, now, contractNotice, daemonExit, stopTerminalScheme: () => { timeline.stop(); stopDecisions(); stopQueue(); stopTerminalScheme(); } };
+  return { project, drafts, app, events, rail, unseen, queue, timeline, importing, worktrees: createWorktreeState(app, rail, now, daemonExit), drawer: createDrawer(), decisions, asks: createAsks(app, events), takeover, settingsView: drafts.settingsView, notes: createNoteQueue(app, events, reducedMotion, daemonExit), reducedMotion, now, contractNotice, daemonExit, stopTerminalScheme: () => { timeline.stop(); stopDecisions(); stopQueue(); stopUnseen(); stopTerminalScheme(); } };
 };
 
 /** App-run authority for owners outside a connection, including Project tabs.

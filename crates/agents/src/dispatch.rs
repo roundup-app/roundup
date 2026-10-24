@@ -7,6 +7,7 @@ impl Module for Agents {
             "agent",
             "rail",
             "project",
+            "import",
             "decision",
             "models",
             "workstream",
@@ -45,7 +46,6 @@ impl Module for Agents {
                     reply(&measurements)
                 }
             }
-            "project.weeklyLimit" => reply(&self.launcher.weekly_limit().await),
             "agent.spawn" => reply(&self.spawn(ctx, params(value)?).await?),
             "agent.extras" => reply(&claude_code::extras::available(
                 &self.launcher.extras_sources(self.project_dir()),
@@ -310,6 +310,10 @@ impl Module for Agents {
             "project.setPrepared" => {
                 self.set_prepared(params(value)?).await?;
                 reply(&())
+            }
+            "import.list" => {
+                let params: contracts::project::ImportListParams = params(value)?;
+                reply(&self.import_list(ctx, params).await?)
             }
             "project.importDiscover" => {
                 let params: contracts::project::ImportDiscoverParams = params(value)?;

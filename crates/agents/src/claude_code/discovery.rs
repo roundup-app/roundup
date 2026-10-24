@@ -372,7 +372,7 @@ pub(super) fn io_error(path: &Path, error: impl std::fmt::Display) -> RpcError {
     RpcError::internal(format!("{}: {error}", path.display()))
 }
 
-fn source_revision(metadata: &std::fs::Metadata) -> String {
+pub(super) fn source_revision(metadata: &std::fs::Metadata) -> String {
     format!(
         "{}:{}:{}:{}:{}:{}:{}:{}",
         metadata.dev(),
