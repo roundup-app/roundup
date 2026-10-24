@@ -166,12 +166,10 @@ claimed by the observer-safety changes.
 
 The flooding observation had 100–120% CPU each in the webview, Daemon and host
 App, versus about 30% for Solo's flooding Terminal. The proposed hidden-screen
-explanation remains unproven. Next native observation: on AC, Low Power Mode
-off and load per CPU <= 0.45, run
+explanation remains unproven. The native observations below use
 `ROUNDUP_ALLOW_WINDOW=1 just perf-keystroke --out target/perf-keystroke-before.json`.
-Keep all three reports and the exit code, commit, OS, CPU count and power-mode
-evidence. Hop instrumentation, the measured repair, the Solo comparisons and
-the final three passing native runs remain #3550 acceptance.
+The [retained reports](perf-keystroke-mac-observations.json) include the owner's
+complete comments, console output, source links and JSON, including the failures.
 
 
 The recorder repairs in #3694 and #3717 merged before a further native run at
@@ -185,12 +183,48 @@ release build. There are no latency, renderer, frame-time or timer-resolution
 measurements from these failed runs. Full console output and the saved report
 remain on [#3550](https://github.com/saadshahd/roundup/issues/3550).
 
-The next recorder repair binds typing to the Terminal that printed `ready`,
-which already owns report delivery. The old document-wide lookup could select
-an Agent's earlier xterm textarea. A no-window regression test demonstrates
-that case with two inputs, and asserts that only the ready shell receives the
-key. This repairs input selection, not a measured performance hop; complete
-R20 attribution and R21's latency repair remain open.
+#3748 binds typing to the Terminal that printed `ready`, which already owns
+report delivery. The old document-wide lookup could select an Agent's earlier
+xterm textarea. A no-window regression test demonstrates that case with two
+inputs and asserts that only the ready shell receives the key. The owner's
+repeat at `7ce598e5a` still failed all three runs with the same warm-up error
+(exit 2; [comment](https://github.com/saadshahd/roundup/issues/3550#issuecomment-6387912547)).
+
+### Successful idle observation on #3755 (2026-10-24)
+
+At `853f9440b8269b943dab07c9fa1dae79d060a204`, based on `59cff55ca`, the
+owner ran the command above on an M4 Max MacBook Pro, 16 CPUs, macOS 26.0.1,
+AC power, Low Power Mode off. Exit: 0. Each run reports 1000 measured keys,
+zero drops, WebGL, 1 ms timer resolution and device pixel ratio 2.
+
+| Run | 1-minute load / per CPU | p50 / p95 / p99 (ms) | Mean frame (ms) |
+| --- | --- | --- | --- |
+| 1 | 5.7705 / 0.361 | 6 / 10 / 12 | 8.3220 |
+| 2 | 4.4482 / 0.278 | 6 / 10 / 11 | 8.3559 |
+| 3 | 3.0508 / 0.191 | 6 / 10 / 15 | 8.3390 |
+
+All three are below R20's 0.45 load-per-CPU threshold. The owner identified
+an observer failure: the Workstream's Agent Terminal appeared about 200 ms
+after `ready`, took focus and folded the shell bubble. xterm's
+IntersectionObserver then paused rendering; echoes were parsed but never
+rendered. #3755 waits for that Agent Terminal before opening the shell Terminal.
+This repairs the recorder's visibility, not a measured production latency hop.
+The successful reports came from that open PR; they do not establish results
+for an unmodified `main` build.
+
+The largest reported hop is `parsed_to_frame`, p50 4 ms and p95 7 ms in all
+three runs. `dispatch_to_echo_event` is next, p50 2 / 1 / 2 ms and p95
+3 / 3 / 4 ms. `write_reply` overlaps that chain (p95 4 ms in each run).
+The reported uncertainty is 1 ms timer resolution, not cross-clock calibration.
+These coarse webview spans cannot identify the largest of all R20's required
+hops: base64, Daemon receipt, PTY write and echo read remain unsplit.
+
+#3550 stays open. Missing acceptance includes full R20 attribution and calibrated
+uncertainty, reproducible quiet-Mac Solo comparisons, a measured production
+repair with before/after distributions, the shared Agent/shell input-path test,
+and three passing runs while another Terminal floods output. The three idle
+runs above meet the numerical idle budget only. No further Mac timing is
+requested by this evidence update.
 
 
 ## X14 retained flood observation
@@ -252,10 +286,10 @@ cross-process subtraction is involved; a report without every hop is invalid
 
 The Daemon-side boundaries inside `dispatch_to_echo_event` (Daemon received, PTY
 write completed, echo read) are not yet stamped: they need the Daemon's clock
-and a calibrated offset, and the first native report decides whether that hop
-needs splitting. The hop with the largest p95 is named here once the quiet-Mac
-before-repair reports exist; none exist yet, so no dominant hop and no repair
-are claimed.
+and a calibrated offset. R20 requires those boundaries even when that coarse
+span is not largest.
+The quiet-Mac reports above place `parsed_to_frame` first among the recorded
+spans; full attribution and a production latency repair remain unclaimed.
 
 ## macOS `cold_start_ms` and `rail_tree_40_p95_ms` (#3696)
 
