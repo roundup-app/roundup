@@ -135,6 +135,17 @@ it("u3800a_one_drag_fixture", async () => {
   expect(await commits()).toBe("1");
 
   await load();
+  expect(await read<boolean>(`(() => {
+    const row = document.querySelector('[data-id=A]');
+    const transfer = new DataTransfer(); transfer.items.add(new File(['hello'], 'example.txt', {type: 'text/plain'}));
+    const over = new DragEvent('dragover', { bubbles: true, cancelable: true, dataTransfer: transfer });
+    row.dispatchEvent(over); row.dispatchEvent(new DragEvent('drop', { bubbles: true, cancelable: true, dataTransfer: transfer }));
+    return over.defaultPrevented;
+  })()`)).toBe(true);
+  await browser("wait", "--fn", `document.querySelector('[aria-label=Files]').textContent === 'example.txt'`);
+  expect(await commits()).toBe("0");
+  expect(await read<number>(`document.querySelectorAll('[data-dragging=true]').length`)).toBe(0);
+
   await keyboard("A");
   await down(["B", "A", "C"]);
   await browser("press", "Escape");
