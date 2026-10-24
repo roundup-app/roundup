@@ -46,6 +46,7 @@ type Recovery = (draft: Draft, facts: {
 
 type ProjectDrafts = Drafts & {
   importing: ReturnType<typeof createImport> | null;
+  settingsView: SettingsViewState;
   /** Surface-owned identity extraction, installed independently of the original editor.
    * App-run lifetime; facts come from the inspected connection, never a captured old one.
    */
@@ -78,6 +79,7 @@ export const createProjectDrafts = () => {
 
     const holder: ProjectDrafts = {
       importing: null,
+      settingsView: createSettingsView(),
       editor: storage.editor,
       recoverable: () => {
         revision();
@@ -193,7 +195,7 @@ export const connectProject = async (
 
   if (ended) stopDecisions();
 
-  const settingsView = createSettingsView();
+  const settingsView = drafts.settingsView;
   let stopUnseen = () => {};
 
   const unseen = createRoot((dispose) => {
@@ -228,7 +230,7 @@ export const connectProject = async (
 
   const takeover = createTakeover(app, events, daemonExit);
 
-  return { project, drafts, app, events, rail, unseen, queue, timeline, importing, worktrees: createWorktreeState(app, rail, now, daemonExit), drawer: createDrawer(), decisions, asks: createAsks(app, events), takeover, settingsView, notes: createNoteQueue(app, events, reducedMotion, daemonExit), reducedMotion, now, contractNotice, daemonExit, stopTerminalScheme: () => { timeline.stop(); stopDecisions(); stopQueue(); stopUnseen(); stopTerminalScheme(); } };
+  return { project, drafts, app, events, rail, unseen, queue, timeline, importing, worktrees: createWorktreeState(app, rail, now, daemonExit), drawer: createDrawer(), decisions, asks: createAsks(app, events), takeover, settingsView: drafts.settingsView, notes: createNoteQueue(app, events, reducedMotion, daemonExit), reducedMotion, now, contractNotice, daemonExit, stopTerminalScheme: () => { timeline.stop(); stopDecisions(); stopQueue(); stopUnseen(); stopTerminalScheme(); } };
 };
 
 /** App-run authority for owners outside a connection, including Project tabs.

@@ -1,6 +1,6 @@
 import { cleanup, fireEvent } from "@solidjs/testing-library";
 import { afterEach, describe, expect, it } from "vitest";
-import { glyphOf, itemOf, mountRail, rowNames, rowOf, settled } from "./railFixture";
+import { rowGlyph as glyphOf, itemOf, mountRail, rowNames, rowOf, settled } from "./railFixture";
 import { agent, event, workstream } from "../testing/nodes";
 
 afterEach(cleanup);

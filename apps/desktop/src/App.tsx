@@ -329,6 +329,8 @@ export const App = (props: {
     return path === null ? undefined : connections().get(path);
   });
 
+  createEffect(() => { void props.app.selectProjectMenu(projects.active()).catch(error => setWindowFailure(error instanceof Error ? error.message : String(error))); });
+
   /** U181: that Project opens and its most urgent Agent is selected, as leader `J` does. */
   const jumpTo = (path: string) => {
     projects.select(path);
@@ -431,12 +433,16 @@ export const App = (props: {
 
                 return (
                   <div class="centre-stack">
+                    <div class="project-center-area">
+                    <div class="project-center-content" inert={open.settingsView.open()} style={{ visibility: open.settingsView.open() ? "hidden" : "visible" }}>
                     <Pane notice={open.rail.failure() ?? jumpFailure() ?? open.contractNotice} createEmulator={tracked} screensRef={setScreens} />
                     <AskBar />
-                    <Show when={screens()}>{(shared) => <Bubbles screens={shared()} />}</Show>
                     <Switcher onFailure={setJumpFailure} onOpen={() => { if (document.querySelector('.window[data-shelf="open"][data-shelf-mode="overlay"]')) shelfFocus.toggle("key"); }} />
-                    <ResourceStrip />
+                    </div>
                     <ProjectSettingsView />
+                    </div>
+                    <Show when={screens()}>{(shared) => <Bubbles screens={shared()} />}</Show>
+                    <ResourceStrip />
                   </div>
                 );
               }}
