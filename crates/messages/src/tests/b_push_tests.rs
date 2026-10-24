@@ -62,7 +62,7 @@ impl Pushes {
         };
         let agents: Arc<dyn TerminalOwners> = rail.clone();
         let messages =
-            Arc::new(Messages::open_with(dir, bus.clone(), agents, noop_deliver(), env).unwrap());
+            Arc::new(Messages::open_with(dir, bus.clone(), agents, env).unwrap());
         Self {
             messages,
             bus,
@@ -140,7 +140,7 @@ async fn b22_the_ninth_push_in_a_window_waits_and_leaves_at_its_end_as_one_rollu
     assert_eq!(standing.len(), 9);
     let rollup = &standing[8];
     assert!(
-        rollup.body.starts_with("[digest] [3 updates held back]\n"),
+        rollup.body.starts_with("[digest] [3 updates kept back]\n"),
         "{}",
         rollup.body
     );
@@ -170,13 +170,13 @@ async fn b22_a_rollup_names_eight_children_and_the_rest_in_one_line_cut_at_512_b
     }
     h.at(60_000).await;
     let rollup = h.standing().await.pop().unwrap().body;
-    assert!(rollup.starts_with("[digest] [30 updates held back]\n"));
+    assert!(rollup.starts_with("[digest] [30 updates kept back]\n"));
     assert!(rollup.len() <= 4096, "{}", rollup.len());
     let lines: Vec<&str> = rollup.lines().collect();
-    let held = pushes::entries_of(&rollup);
-    assert_eq!(held.len(), 8);
+    let kept = pushes::entries_of(&rollup);
+    assert_eq!(kept.len(), 8);
     // Newest change first: the last child pushed leads.
-    assert!(held[0].name.starts_with("child-29-"));
+    assert!(kept[0].name.starts_with("child-29-"));
     let more = lines[lines.len() - 1];
     assert!(more.starts_with("[+22 more: child-21-"), "{more}");
     assert!(more.len() <= 512 && more.ends_with("[cut]"), "{more}");
@@ -219,7 +219,7 @@ async fn b22_the_twenty_first_open_digest_merges_the_oldest_two() {
 }
 
 #[tokio::test]
-async fn b22_a_merge_counts_the_changes_a_merged_digest_already_held() {
+async fn b22_a_merge_counts_the_changes_a_merged_digest_already_counted() {
     let dir = tempfile::tempdir().unwrap();
     let h = Pushes::new(dir.path());
     for n in 0..60_u32 {
@@ -240,23 +240,11 @@ async fn b22_a_merge_counts_the_changes_a_merged_digest_already_held() {
 }
 
 #[tokio::test]
-async fn b22_after_a_burst_of_100_changes_with_a_takeover_every_change_is_counted_once() {
+async fn b22_after_a_burst_of_100_changes_every_change_is_counted_once() {
     let dir = tempfile::tempdir().unwrap();
     let h = Pushes::new(dir.path());
     let mut changes = 0_u32;
     for round in 0..10_i64 {
-        if round == 3 {
-            h.call_as(Actor::user(), "takeover.begin", json!({"agent": "top"}))
-                .await
-                .unwrap();
-        }
-        if round == 7 {
-            let held = h.standing().await;
-            assert!(held.iter().any(|m| m.reason == Some(Reason::Takeover)));
-            h.call_as(Actor::user(), "takeover.end", json!({"agent": "top"}))
-                .await
-                .unwrap();
-        }
         h.at(round * 20_000).await;
         for _ in 0..10_u32 {
             h.push(&entry(&format!("c{changes}"), changes)).await;
@@ -310,9 +298,6 @@ async fn b22_after_a_burst_of_100_changes_with_a_takeover_every_change_is_counte
 async fn b22_pushes_never_get_conflict_and_do_not_fill_the_bound_of_32() {
     let dir = tempfile::tempdir().unwrap();
     let h = Pushes::new(dir.path());
-    h.call_as(Actor::user(), "takeover.begin", json!({"agent": "top"}))
-        .await
-        .unwrap();
     for _ in 0..32 {
         h.call_as(
             agent("c"),
@@ -339,7 +324,7 @@ async fn b22_pushes_never_get_conflict_and_do_not_fill_the_bound_of_32() {
         h.standing()
             .await
             .iter()
-            .all(|m| m.status == MessageStatus::Held)
+            .all(|m| m.status == MessageStatus::Pending)
     );
     // Twenty open digests do not make room for nor take from the Agents' 32.
     let again = h
@@ -427,7 +412,7 @@ async fn b33_a_push_a_rollup_and_a_merge_have_no_json() {
     assert!(
         standing
             .iter()
-            .any(|m| m.body.contains(" updates held back]\n"))
+            .any(|m| m.body.contains(" updates kept back]\n"))
     );
     assert!(
         standing
@@ -459,16 +444,6 @@ async fn burst_of_100(same_children: bool) {
     let h = Pushes::new(dir.path());
     let mut changes = 0_u32;
     for round in 0..10_i64 {
-        if round == 3 {
-            h.call_as(Actor::user(), "takeover.begin", json!({"agent": "top"}))
-                .await
-                .unwrap();
-        }
-        if round == 7 {
-            h.call_as(Actor::user(), "takeover.end", json!({"agent": "top"}))
-                .await
-                .unwrap();
-        }
         h.at(round * 20_000).await;
         for _ in 0..10_u32 {
             let name = if same_children { changes % 4 } else { changes };
@@ -518,24 +493,6 @@ async fn b34_two_pushes_of_one_child_are_one_entry_with_the_newest() {
     assert_eq!(got["reason"], "merged");
     h.push(&entry("c", 3)).await;
     assert!(h.standing().await[0].body.ends_with("(3 changes)"));
-}
-
-#[tokio::test]
-async fn b34_a_takeover_of_the_door_folds_the_held_pushes_at_its_end() {
-    let dir = tempfile::tempdir().unwrap();
-    let h = Pushes::new(dir.path());
-    h.call_as(Actor::user(), "takeover.begin", json!({"agent": "top"}))
-        .await
-        .unwrap();
-    for n in 0..3 {
-        h.push(&entry("c", n)).await;
-    }
-    h.call_as(Actor::user(), "takeover.end", json!({"agent": "top"}))
-        .await
-        .unwrap();
-    let standing = h.standing().await;
-    assert_eq!(standing.len(), 1);
-    assert_eq!(pushes::weight(&standing[0].body), 3);
 }
 
 #[tokio::test]
@@ -796,11 +753,11 @@ async fn b49_an_end_note_in_a_rollup_keeps_the_512_byte_entry() {
     h.at(60_000).await;
     let rollup = h.standing().await.pop().unwrap().body;
     assert!(
-        rollup.starts_with("[digest] [1 updates held back]\n"),
+        rollup.starts_with("[digest] [1 updates kept back]\n"),
         "{rollup}"
     );
-    let held = pushes::entries_of(&rollup);
-    assert_eq!(held[0].name, "ended");
-    assert!(held[0].last.len() <= 120 && held[0].last.ends_with("[cut]"));
-    assert!(digest::entry_text(&held[0]).len() <= 512);
+    let kept = pushes::entries_of(&rollup);
+    assert_eq!(kept[0].name, "ended");
+    assert!(kept[0].last.len() <= 120 && kept[0].last.ends_with("[cut]"));
+    assert!(digest::entry_text(&kept[0]).len() <= 512);
 }

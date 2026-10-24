@@ -36,8 +36,6 @@ export const mountSwitcher = async (selected: string | null = null, tree: RailNo
   app.handlers["terminal.write"] = () => null;
   app.handlers["terminal.resize"] = () => null;
   app.handlers["terminal.snapshot"] = () => ({ cols: 100, rows: 30, after: 0, data: "" });
-  app.handlers["takeover.begin"] = () => null;
-  app.handlers["takeover.end"] = () => null;
 
   const connected = await connectProject(app, { name: "p", path: "/p" }, () => false, () => 0, daemonExit);
   const emulators = fakeEmulators();

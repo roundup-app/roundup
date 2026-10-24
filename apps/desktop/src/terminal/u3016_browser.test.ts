@@ -124,11 +124,11 @@ it("u3016f_real_collection_to_dashboard_survives_reopen", async () => {
     expect(BigInt(timed.time.tools_ns)).toBeGreaterThan(0n);
     await capture("measured-waits");
     // A real source failure keeps the displayed successful subtotal and offers retry.
-    renameSync(file, `${file}.held`);
+    renameSync(file, `${file}.kept`);
     await until("document.querySelector('.measurement-state')?.dataset.state === 'stale'");
     expect(await evaluate("document.querySelector('.measurement-dashboard table').textContent.includes('570')")).toBe(true);
     await capture("stale");
-    renameSync(`${file}.held`, file);
+    renameSync(`${file}.kept`, file);
     await until("document.querySelector('.measurement-state')?.dataset.state !== 'stale'");
     await capture("retry");
     await app.rpc("agent.stop", { id: home.id });

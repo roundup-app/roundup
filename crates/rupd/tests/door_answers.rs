@@ -1,117 +1,14 @@
 //! B6's Agent prerequisite: real Daemon, fake Claude and its recorded Terminal input.
-#[path = "support/door_terminals.rs"]
-mod door_terminals;
 #[path = "support/rupd_harness.rs"]
 mod rupd_harness;
-#[path = "support/takeover_run.rs"]
-mod takeover_run;
-use door_terminals::{door_terminal, start_answer_door};
-use takeover_run::{BOUND, Run, launch};
+#[path = "support/child_run.rs"]
+mod child_run;
+use child_run::{BOUND, Run, launch};
 
 use base64::{Engine, engine::general_purpose::STANDARD};
 use rpc::Client;
 use serde_json::{Value, json};
 use std::sync::Arc;
-
-#[tokio::test]
-async fn b6_wire_door_decision_calls_wait_for_all_earlier_resizes() {
-    for (kind, method) in [
-        ("permission", "decision.list"),
-        ("ask_user", "decision.list"),
-        ("permission", "decision.capture"),
-        ("ask_user", "decision.capture"),
-        ("permission", "decision.answers"),
-        ("ask_user", "decision.answers"),
-        ("permission", "decision.answer"),
-        ("ask_user", "decision.answer"),
-    ] {
-        let (run, caller) = door_terminal().await;
-        let (door, terminal) = start_answer_door(&run).await;
-        let (decision, waiting) = run.open(kind).await;
-        let identity = run.capture(&decision).await;
-        run.pause();
-        let id = run.terminal.clone();
-        let first = tokio::spawn(async move {
-            caller
-                .request("terminal.resize", json!({"id":id,"cols":101,"rows":37}))
-                .await
-        });
-        run.paused().await;
-        let mut frames = vec![
-            json!({"id":1,"method":"daemon.identify","params":{"actor":{"kind":"agent","id":door}}}),
-        ];
-        for cols in 102..110 {
-            frames.push(json!({"id":cols,"method":"terminal.resize","params":{"id":run.terminal,"cols":cols,"rows":37}}));
-        }
-        let params = match method {
-            "decision.list" => Value::Null,
-            "decision.capture" => json!({"id":decision["id"]}),
-            "decision.answers" => json!({"agent":run.child}),
-            _ => {
-                json!({"id":decision["id"],"identity":identity,"answer":if kind == "permission" { "allow" } else { "Yes" }})
-            }
-        };
-        frames.push(json!({"id":110,"method":method,"params":params}));
-        frames.push(json!({"id":111,"method":"rail.tree"}));
-        std::fs::write(
-            run.dir.path().join("peer-request"),
-            serde_json::to_vec(&frames).unwrap(),
-        )
-        .unwrap();
-        // The real Door sends the batch, retaining H21's authenticated process identity.
-        run.user
-            .request(
-                "terminal.write",
-                json!({"id":terminal,"data":STANDARD.encode(b"\x02")}),
-            )
-            .await
-            .unwrap();
-        tokio::time::timeout(BOUND, async {
-            while !run.dir.path().join("peer-barrier").is_file() {
-                tokio::task::yield_now().await;
-            }
-        })
-        .await
-        .unwrap();
-        run.release();
-        let replies: Value = tokio::time::timeout(BOUND, async {
-            loop {
-                if let Ok(text) = std::fs::read_to_string(run.dir.path().join("peer-result"))
-                    && let Ok(value) = serde_json::from_str::<Value>(&text)
-                {
-                    break value;
-                }
-                tokio::task::yield_now().await;
-            }
-        })
-        .await
-        .unwrap();
-        first.await.unwrap().unwrap();
-        if method != "decision.answer" {
-            run.user_answer(&decision, kind).await;
-        }
-        waiting.await.unwrap().unwrap();
-        for reply in replies.as_array().unwrap() {
-            assert!(reply.get("result").is_some(), "{reply}");
-        }
-        let order: Vec<_> = replies
-            .as_array()
-            .unwrap()
-            .iter()
-            .map(|r| r["id"].as_u64().unwrap())
-            .collect();
-        run.user
-            .request("agent.stop", json!({"id":door}))
-            .await
-            .unwrap();
-        run.finish().await;
-        assert_eq!(
-            order,
-            [1, 111, 102, 103, 104, 105, 106, 107, 108, 109, 110],
-            "{kind} {method}: Decision call overtook an earlier wire resize"
-        );
-    }
-}
 
 // U468's backend prerequisite; the App observer belongs to #1497.
 #[tokio::test]

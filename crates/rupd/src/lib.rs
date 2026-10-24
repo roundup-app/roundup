@@ -27,7 +27,6 @@ mod reaction;
 mod reaction_checks;
 mod reaction_time;
 mod removal;
-mod resize;
 mod resources;
 mod resume;
 mod rewind;
@@ -42,11 +41,7 @@ pub use handshake::{HANDSHAKE_BOUND, Handshake, HandshakeError, read_handshake};
 
 use connection::failure;
 pub use connection::serve;
-use guards::is_child_read;
-use observers::{
-    messages_env, prompt_effect_observer, resume_effect_observer, steer_effect_observer,
-    terminal_exit_observer, terminal_input_observer,
-};
+use observers::{messages_env, prompt_effect_observer, resume_effect_observer, steer_effect_observer, terminal_exit_observer, terminal_input_observer};
 use route::{HomeOnly, OwnerOnly};
 use specialist::Specialist;
 use std::collections::HashMap;
@@ -72,13 +67,8 @@ pub struct Daemon {
     bus: Bus,
     todos: Arc<todos::Todos>,
     pads: Arc<pads::Pads>,
-    /// B6: spawn publication and its Door-owned first Steer are registered together.
-    door_first_steers: Arc<tokio::sync::Mutex<HashMap<String, String>>>,
-    held_actions: resize::HeldActions,
     /// LC12–LC13: lookup and replacement share one claim, including while a summary is pending.
     specialists: tokio::sync::Mutex<HashMap<(String, String), Specialist>>,
-    /// B6: Takeover acquisition excludes in-flight Door effects on this child.
-    child_effects: std::sync::Mutex<HashMap<String, std::sync::Weak<tokio::sync::RwLock<()>>>>,
     /// A31: the Project folder, where the Skills of an Agent with no Worktree are read.
     project: std::path::PathBuf,
     /// LK1: the Project's key, the name of its data folder (`data::project_data`).
@@ -120,7 +110,7 @@ pub struct Daemon {
     resources: resources::Sampler,
     publications: deliverables::Publications,
     reactions: Arc<reaction::Reactions>,
-    /// B6's isolated observer pauses a Door action or guarded call before its effect; absent in production.
+    /// An isolated observer pauses a guarded call before its effect; absent in production.
     prompt_effect_gate: Option<std::path::PathBuf>,
 }
 

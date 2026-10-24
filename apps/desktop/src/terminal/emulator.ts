@@ -186,15 +186,15 @@ export const createXtermEmulators = (
       return false;
     });
 
-    let cmdHeld = false;
+    let cmdDown = false;
     let linkListener: (printed: Printed) => void = () => {};
 
     const trackCmd = (event: Pick<KeyboardEvent, "metaKey">) => {
-      cmdHeld = event.metaKey;
+      cmdDown = event.metaKey;
     };
 
     const dropCmd = () => {
-      cmdHeld = false;
+      cmdDown = false;
     };
 
     // Capture reaches Bubble resize edges even when their handlers stop propagation.
@@ -209,9 +209,9 @@ export const createXtermEmulators = (
     window.addEventListener("keydown", trackCmd);
     window.addEventListener("keyup", trackCmd);
     window.addEventListener("blur", dropCmd);
-    // A held Cmd shows on mouse movement too, so a Cmd pressed before the window took focus is not missed.
+    // A pressed Cmd shows on mouse movement too, so a Cmd pressed before the window took focus is not missed.
     element.addEventListener("mousemove", trackCmd);
-    terminal.registerLinkProvider(createLinkProvider(terminal, () => cmdHeld, (printed) => linkListener(printed)));
+    terminal.registerLinkProvider(createLinkProvider(terminal, () => cmdDown, (printed) => linkListener(printed)));
 
     const shellTurns = attachTurns(terminal, (first, last) => terminal.selectLines(first, last));
 

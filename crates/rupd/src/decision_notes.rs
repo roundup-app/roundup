@@ -2,8 +2,6 @@
 //! Message about it. It is the Message source of P9: the Bus event is what wakes this, nothing
 //! is polled.
 
-use std::sync::Arc;
-
 use contracts::agent::{NodeKind, RailNode};
 use contracts::decision::Decision;
 use contracts::message::{Message, MessageKind, Reason, SendParams};
@@ -45,10 +43,9 @@ fn door_of<'a>(nodes: &'a [RailNode], agent: &str) -> Option<&'a RailNode> {
 }
 
 /// On each `decision.opened`, send the Agent's Door a note, unless the Decision is not
-/// `answerable`, the Agent is under a Takeover or the Door is gone. Runs until the Bus closes.
+/// `answerable` or the Door is gone. Runs until the Bus closes.
 pub async fn tell_doors(
     reader: Reader,
-    messages: Arc<messages::Messages>,
     mut events: Receiver<contracts::Event>,
 ) {
     loop {
@@ -80,9 +77,6 @@ pub async fn tell_doors(
             Err(RecvError::Lagged(_)) => continue,
             Err(RecvError::Closed) => return,
         };
-        if messages.takeover_active(&decision.agent) {
-            continue;
-        }
         let Ok(nodes) = reader
             .call::<Vec<RailNode>>(
                 "rail",

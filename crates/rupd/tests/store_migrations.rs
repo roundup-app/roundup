@@ -39,7 +39,6 @@ fn module(name: &str, dir: &Path, ctx: &Ctx) -> Arc<dyn Module> {
                 dir,
                 ctx.bus.clone(),
                 agents(dir, ctx.bus.clone()),
-                Arc::new(|_, _| Box::pin(async { panic!("no delivery expected") })),
                 messages::Env::system(ctx.touches.clone()),
             )
             .unwrap(),

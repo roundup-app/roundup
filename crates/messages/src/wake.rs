@@ -66,11 +66,6 @@ pub fn note_body(entries: &[DigestEntry]) -> String {
 }
 
 impl Messages {
-    /// B6, B32: whether a Takeover of `agent` or unsent input in its Terminal holds its Messages.
-    pub fn holds_terminal(&self, agent: &str) -> bool {
-        lock(&self.inner.store).holds_terminal(agent)
-    }
-
     /// B41: saves a request for `waiter`. Refused with `CONFLICT` at the eighth open request.
     pub fn save_wake(
         &self,

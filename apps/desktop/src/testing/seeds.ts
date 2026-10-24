@@ -374,8 +374,6 @@ const installDaemon = (app: FakeApp, tree: RailNode[], now: number, withShelf: b
   };
 
   app.handlers["terminal.resize"] = () => null;
-  app.handlers["takeover.begin"] = () => null;
-  app.handlers["takeover.end"] = () => null;
   app.handlers["terminal.snapshot"] = ({ id }) => {
     if (!owned.has(id) && !nodes.some((node) => node.terminal_id === id)) throw new RpcError(NOT_FOUND, `not found: terminal ${id}`);
 
@@ -536,7 +534,7 @@ export const seedApp = (name: SeedName, now: number): Controls => {
   }
 
   if (name === "note-queue") {
-    // U3780's observer: the densest queue, a long multi-line note, an unbreakable word, non-Latin text and an ask-first note from a Door.
+    // U3780's observer: the densest queue, a long multi-line note, an unbreakable word, non-Latin text and a pending note from another Agent.
     const from = { kind: "user", id: "user", parent: null } as const;
     const base = { to: "agent-4", kind: "note", replyTo: null, passedFrom: null, reason: null, status: "pending" } as const;
 
@@ -544,7 +542,7 @@ export const seedApp = (name: SeedName, now: number): Controls => {
       { ...base, id: 1, from, body: `${"A very long first line that cannot fit one row of the narrowest pane ".repeat(4)}\nand a second line`, at: now },
       { ...base, id: 2, from, body: "x".repeat(120), at: now },
       { ...base, id: 3, from, body: "メモ: 次のステップで確認してください", at: now },
-      { ...base, id: 4, from: { kind: "agent", id: "agent-2", parent: null }, status: "held", reason: "ask-first", body: "Shall I rebase onto main first?", at: now },
+      { ...base, id: 4, from: { kind: "agent", id: "agent-2", parent: null }, body: "Shall I rebase onto main first?", at: now },
     ];
 
     let next = 5;

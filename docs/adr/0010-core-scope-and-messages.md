@@ -13,8 +13,8 @@ The laws check a one-receiver Bend model, not Rust, SQLite, the Terminal or all 
 | Law | User protection | Recorded evidence | What a status-only FIFO would lose without additional rules |
 |---|---|---|---|
 | M1: at most once | A repeated delivery cannot start the same work twice or charge another turn. | [#634](https://github.com/saadshahd/roundup/pull/634) rejects a mutant that delivers an id without checking its hold; not a reported production incident. [#425](https://github.com/saadshahd/roundup/pull/425) asserts one escalation after failed chain movement and reopen. | A durable delivery cut and conditional claims; ordinary retry after Terminal ambiguity violates this protection. |
-| M2: ask-first ownership | Automation cannot silently approve a Message the user is deciding on. | #634's M2 mutant drops ask-first holds at receiver exit. It is injected, not a historical incident. M2's law body covers ask-first; escalated reply authorization also needs B15/B17 tests. | Eligibility by reason and authorized actor; a held row must not become available just because the receiver changes state. |
-| M3: Takeover/input isolation | An injected prompt cannot join or overwrite the user's draft or cut across their control of a child. | [#221](https://github.com/saadshahd/roundup/pull/221) exposed a specification contradiction: the user's explicit delivery must be permitted. [#786](https://github.com/saadshahd/roundup/pull/786) adds unsent-input protection; [#1578](https://github.com/saadshahd/roundup/pull/1578) makes authoritative ownership and input recording atomic. These are specification/implementation fixes, not defects proved in the Terminal by Bend. | Independent Takeover and unsent-input guards, explicit manual override, authoritative ownership and the cut before typing. |
+| M2: retired | Retired by #3563 with ask-first Routes and Message holds; no obligation replaces it. | — | — |
+| M3: retired | Retired by #3563 with Takeover and unsent-input holds; Messages reach an Agent through its Claude inbox and write nothing to Terminal input. | — | — |
 | M4: ordering | Ready work retains its order; one held item cannot indefinitely obstruct later eligible work (B7). | #634's mutant prepends instead of appending typed ids. The proved law is only typed-prefix growth: it does **not** prove B7 tie order or held-never-blocks. No independent historical ordering bug is established. | Eligibility rank and id tie-break, with selection skipping holds; raw FIFO head blocking is wrong. |
 | M5: final-state separation | The user does not see one Message both completed and dropped/waiting. B8 additionally requires final states never revive. | #634 rejects a mutant dropping an id without checking it is held. This is mutation evidence. The law body proves disjointness, not full temporal absorption or monotonic allocation by itself. | Guarded final transitions and never requeueing a final row; a status column alone does not enforce these. |
 | M6: conservation | Every accepted Message remains inspectable as pending, held, delivered or dropped with a reason. | #634's mutant forgets Takeover-held ids at exit. [#598](https://github.com/saadshahd/roundup/pull/598) repairs operation failure recovery/rollback; [#1256](https://github.com/saadshahd/roundup/pull/1256) fixes unsent Digest loss while a Door is stopped. Those integration defects were not discovered by the conservation proof. | Durable records, transaction rollback, retained Digest weights and explicit dropped reasons instead of deleting consumed jobs. |
@@ -31,7 +31,7 @@ The ordinary `just proofs` passes, but it does not run the mutation suite. On ma
 
 | Failure | Exit | Observed result |
 |---|---:|---|
-| M3 | 2 | `cannot apply m3.patch`: it still targets the pre-B32 Takeover guard. |
+| M3 | — | Retired by #3563 with its law. |
 | M4 | 2 | `cannot apply m4.patch`. |
 | M8 | 1 | Extracted **unmutated** proof fails: expected a defined name, observed `m1_main`, location `a35_m1`. The section selector omits a required helper. |
 | M10 | 2 | `cannot apply m10.patch`. |
@@ -96,7 +96,7 @@ Counts are physical lines of tracked `.rs/.ts/.tsx/.css/.bend/.sh/.patch` files,
 | pads | 4,242 / 2,611 | ui.md U18–U21; ui-rail.md U147–U149; pads.md | Door, Support | Keep current authoring; defer new capabilities under #1666. |
 | perf | 410 / 135 | ui-verify.md, perf.md | Support | Keep render latency evidence. |
 | plain | 240 / 120 | plain-text.md Q10 | Support | Keep safe Markdown on surviving surfaces. |
-| rail | 11,671 / 8,511 | ui-rail*.md, ui-kind-glyph.md, workstream.md, U467/U468 | Door, Attention | Keep identities, nesting of Agents, Status and Takeover. |
+| rail | 11,671 / 8,511 | ui-rail*.md, ui-kind-glyph.md, workstream.md, U467/U468 | Door, Attention | Keep identities, nesting of Agents and Status. |
 | resize | 551 / 315 | ui-resize.md | Support | Keep narrow usable panes; no freeform desktop layout engine. |
 | resources | 648 / 404 | resources.md D8/U408/U444 | Support | Keep selected-Agent CPU/RSS/disk values in the shared bottom bar. It is not Model usage accounting; no background telemetry suite. |
 | shelf | 2,379 / 1,664 | ui-shelf*.md, T12–T14, P12 | Door, Support | Keep Workstream-scoped items and review access. |

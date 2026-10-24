@@ -124,7 +124,7 @@ it("u3299a_named_targets_keep_identity", async () => {
 });
 
 it("nr9_firing_opens_only_its_recorded_message_and_returns_focus", async () => {
-  const { app } = await mount(() => [saved({ firings: [{ id: "f1", ordinal: 1, message: 42, matched: true, evidence: "finished", definition: "{}", outcome: "held" }] })]);
+  const { app } = await mount(() => [saved({ firings: [{ id: "f1", ordinal: 1, message: 42, matched: true, evidence: "finished", definition: "{}", outcome: "pending" }] })]);
   app.handlers["message.get"] = () => ({ id: 42, from: { kind: "user", id: "u", parent: null }, to: "a", body: "exact accepted instruction", kind: "note", replyTo: null, status: "dropped", reason: "receiver gone", passedFrom: null, at: 0 });
   fireEvent.click(await screen.findByRole("button", { name: /Ship it/ }));
   const link = await screen.findByRole("button", { name: /Firing 1/ });

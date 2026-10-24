@@ -38,7 +38,7 @@ describe("u3703 the App shows a Terminal the Daemon names", () => {
     app.emit(shown("t-a"));
     await vi.waitFor(() => expect(connected.rail.selected()).toBe("a"));
 
-    expect(app.calls.slice(before).map((call) => call.method).filter((method) => /^(terminal\.(write|spawn|open)|takeover\.|rail\.startDoor)/.test(method))).toEqual([]);
+    expect(app.calls.slice(before).map((call) => call.method).filter((method) => /^(terminal\.(write|spawn|open)|rail\.startDoor)/.test(method))).toEqual([]);
   });
 
   it("u3703_an_unknown_terminal_id_changes_nothing", async () => {

@@ -144,10 +144,10 @@ impl Messages {
     }
 
     /// Release only after the coordinator observes SessionStart and any reserved first prompt
-    /// has been recorded. Rebinds open Messages to `attempt`, preserving B7 ranks and holds.
+    /// has been recorded. Rebinds open Messages to `attempt`, preserving B7 ranks.
     /// A failed restart/reopen keeps its reservation for the same retry. Completed releases
     /// are no-ops even if that Attempt has since ended. Recovery may release a later live
-    /// Attempt after recording the original acknowledgement. No consent or Takeover changes.
+    /// Attempt after recording the original acknowledgement.
     pub async fn release_restart(
         &self,
         agent: &str,
@@ -188,7 +188,6 @@ impl Messages {
                 ));
             }
             store.atomically(|s| s.release_restart(agent, key, at, (self.inner.clock)()))?;
-            store.rebind_takeover(agent, at);
         }
         nudge(&self.inner, agent).await;
         Ok(())

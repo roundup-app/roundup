@@ -240,7 +240,6 @@
  "src/terminal/u375_watch.test.tsx": 2,
  "src/terminal/u38_empty_pane.test.tsx": 1,
  "src/terminal/u399_shift_enter.test.tsx": 1,
- "src/terminal/u407_no_takeover_line.test.tsx": 1,
  "src/terminal/u418_pasted_image.test.tsx": 1,
  "src/terminal/u467_browser.test.ts": 14,
  "src/terminal/u467_door_terminal.test.tsx": 1,

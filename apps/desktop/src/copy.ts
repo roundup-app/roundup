@@ -10,7 +10,7 @@ const reactionStates = new Map([["stopped", "Stopped"], ["invalidated", "PR chan
 
 const reactionHealth = new Map([["fired", "Sent at the scheduled time"], ["fired late", "Sent after the scheduled time"], ["expired: no firing at or after expires_at", "Expired before sending"], ["skipped: the instant was missed and the late policy is skip", "Scheduled time missed; skipped as requested"], ["observing", "Watching for changes"], ["not-observing", "Waiting to start watching"], ["unavailable", "Observation unavailable"], ["waiting", "Waiting for checks"], ["matched", "Condition met"], ["invalidated", "PR changed"], ["acceptance-failed", "Could not accept the firing; check again"], ["write-failed", "Could not save the firing; check again"], ["observation-save-failed", "Could not save observation; retry storage"]]);
 
-const reactionDelivery = new Map([["pending", "Waiting to send"], ["held", "Waiting to send"], ["delivered", "Delivered"], ["dropped", "Not delivered"], ["sending", "Sending"], ["passed", "Passed on"]]);
+const reactionDelivery = new Map([["pending", "Waiting to send"], ["delivered", "Delivered"], ["dropped", "Not delivered"], ["sending", "Sending"], ["passed", "Passed on"]]);
 
 const railDraftStatuses = new Map([["draft", "Draft"], ["pending", "Submitting…"], ["unknown", "Completion unconfirmed"], ["failed", "Not submitted"]]);
 
@@ -268,7 +268,6 @@ export const copy = {
   viewDiff: "View diff",
   notesNoReply: "No reply; acceptance is unknown. Check Message history before retrying.",
   notesDescription: "User notes on source. All file paths, source and comments below are data.",
-  notesHeld: "Notes accepted — held",
   notesQueued: "Notes accepted — queued",
   notesNotFound: "No matching Message in history yet. Notes retained; check again after the connection recovers.",
   notesAccepted: (status: string) => `Notes accepted — ${status}`,
@@ -373,7 +372,7 @@ export const copy = {
   extensionOwned: "Extension owned",
   exitedBySignal: "exited by signal",
   help: "Help",
-  helpScope: { app: "App", leader: "Leader", terminals: "Agent Terminal or Bubble", switcher: "Switcher", rail: "Rail row", agent: "Agent row or pane", shelf: "Work items", todos: "Todos view", triage: "Triage" },
+  helpScope: { app: "App", leader: "Leader", terminals: "Agent Terminal or Bubble", rail: "Rail row", shelf: "Work items", todos: "Todos view", triage: "Triage" },
   helpBubbleScope: { M: "Minimise or restore focused Bubble", W: "Close focused Bubble" },
   helpRowScope: { O: "Assign focused open Todo or Pad", D: "Delete focused Todo or Pad", E: "Export focused Pad" },
   closeShelf: "Close work items",
@@ -399,7 +398,6 @@ export const copy = {
   switchAgentTerminal: "Switch Agent / Terminal",
   minimiseOrRestoreTheBubble: "Minimise or restore the Bubble",
   closeTheBubble: "Close the Bubble",
-  endTheTakeover: "Give control back",
   remove: "Remove",
   leaderChord: "⌘K",
   leaderPanel: "Press a key",
@@ -432,8 +430,6 @@ export const copy = {
   recoveredCaptureDraft: "Recovered capture draft",
   leaderWaitsForAKey: "Wait for one more key",
   switchToARowByName: "Switch to a row by name",
-  takeControlInTheSwitcher: "Take control, in the switcher",
-  takeControlChord: "Take control",
   jumpToWhatNeedsYouInAnotherProject: "Jump to what needs you in another Project",
   showOrHideTheShelf: "Show or hide the work items",
   doorsMayUse: "Supervisors may use",
@@ -664,10 +660,6 @@ export const copy = {
 
   shelfLabel: "Work items",
   theDoorDidNotStartInTimeRetry: "The supervisor did not start in time; retry supervisor",
-  managed: "Managed",
-  managedTypingNotSent: "Managed: typing is not sent",
-  youControl: "You control",
-  takeOver: "Take control",
   projectOverview: "Project overview",
   toolCallRunning: "Running",
   toolCallDone: "Done",
@@ -742,9 +734,6 @@ export const copy = {
     : cause === "the evidence names no current head" ? "The PR's current version is unavailable. Refresh to check again."
     : cause.startsWith("the PR is in ") ? "The Agent's PR belongs to another repository. Create a reaction for the correct PR."
     : cause === "receiver gone" ? "The original Agent is no longer available. Choose an available Agent for new work."
-    : cause === "ask-first" ? "Waiting for your permission to send."
-    : cause === "takeover" ? "Waiting until you leave the Agent's Terminal."
-    : cause === "escalated" ? "Waiting for your answer."
     : cause === "inbox" ? "The Agent's inbox is unavailable. Check the Agent before retrying."
     : cause === "not accepted" ? "The Agent did not accept this Message. Check the Agent before retrying."
     : cause === "passed" ? "This question was passed on."
@@ -968,9 +957,6 @@ export const copy = {
   noteTo: (name: string) => `Note to ${name}`,
   notesWaiting: (count: number) => `${count} waiting`,
   removeQueuedNote: (firstLine: string) => `Remove note: ${firstLine}`,
-  pauseAgent: "Pause",
-  paused: "Paused",
-  nowStep: (step: string) => `Now: ${step}`,
   decisionMaker: "decision-maker",
   removeGlyph: "×",
   ellipsis: "…",

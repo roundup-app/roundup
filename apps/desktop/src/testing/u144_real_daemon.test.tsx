@@ -97,8 +97,8 @@ describe("u144 the harness serves the App on a real Daemon", () => {
 
   it("u144_a_method_the_daemon_rejects_shows_its_message_in_the_mounted_app", async () => {
     const served = createServedApp(base);
-    let held = false;
-    const app: AppSeam = { ...served, subscribe: (onEvent) => served.subscribe((event) => (held ? undefined : onEvent(event))), forProject: () => app };
+    let kept = false;
+    const app: AppSeam = { ...served, subscribe: (onEvent) => served.subscribe((event) => (kept ? undefined : onEvent(event))), forProject: () => app };
     const workstream = await served.rpc("rail.createWorkstream", { name: "doomed", parent: null });
 
     render(() => <App app={app} reducedMotion={() => false} clock={Date.now} createEmulator={fakeEmulators().factory} />);
@@ -109,7 +109,7 @@ describe("u144 the harness serves the App on a real Daemon", () => {
 
     const field = await within(rail).findByRole("textbox");
 
-    held = true;
+    kept = true;
     await served.rpc("rail.remove", { id: workstream.id });
 
     const rejected = await served.rpc("rail.rename", { id: workstream.id, name: "renamed" }).then(
@@ -280,18 +280,16 @@ describe("u2540 inspection and notes on the real Daemon", () => {
     fireEvent.click(screen.getByRole("button", { name: "Remove note 1" }));
     await saveNote("first exact comment");
     await saveNote("second exact comment");
-    await app.rpc("takeover.begin", { agent: first.id });
     fireEvent.click(screen.getByRole("button", { name: "Send notes to First" }));
     const messages = () => app.rpc("message.list", { to: first.id, status: null });
     await waitFor(async () => expect(await messages()).toHaveLength(1), { timeout: 20_000 });
     const accepted = (await messages())[0]!;
-    expect(accepted).toMatchObject({ to: first.id, from: { kind: "user", id: "you" }, kind: "note", status: "held", reason: "takeover" });
+    expect(accepted).toMatchObject({ to: first.id, from: { kind: "user", id: "you" }, kind: "note" });
     expect(JSON.parse(accepted.body)).toMatchObject({ notes: [
       { "Selected source:": "first source", "User comment:": "first exact comment" },
       { "Selected source:": "first source", "User comment:": "second exact comment" },
     ] });
     expect(await app.rpc("message.list", { to: second.id, status: null })).toHaveLength(0);
-    await app.rpc("takeover.end", { agent: first.id });
     await waitFor(async () => expect((await messages())[0]?.status).toBe("delivered"), { timeout: 30_000 });
     const prompts = await readFile(join(logs, "prompts.jsonl"), "utf8");
     expect(prompts).toContain("rup messages:");

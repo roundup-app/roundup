@@ -8,7 +8,7 @@ use contracts::{Actor, EventData, Kind, Status};
 use serde_json::{Value, json};
 
 use super::*;
-use super::{FakeRail, agent_node};
+use super::{FakeInbox, FakeRail, GatedInbox, agent_node, attach_inbox, fake_inbox};
 
 /// What the next call of one operation does when it reaches the lock.
 #[derive(Clone, Copy)]
@@ -19,10 +19,9 @@ enum Fail {
 
 struct Faulty {
     messages: Messages,
-    rail: Arc<FakeRail>,
     bus: Bus,
     touches: Arc<provenance::Touches>,
-    typed: Arc<StdMutex<Vec<(String, String)>>>,
+    inbox: Arc<FakeInbox>,
     armed: Arc<StdMutex<Option<(&'static str, Fail)>>>,
     calls: Arc<AtomicUsize>,
     clock: Arc<AtomicI64>,
@@ -37,12 +36,6 @@ impl Faulty {
     fn over(dir: &Path, nodes: Vec<RailNode>) -> Self {
         let bus = Bus::new();
         let touches = Arc::new(provenance::Touches::in_memory().unwrap());
-        let typed: Arc<StdMutex<Vec<(String, String)>>> = Arc::default();
-        let seen = Arc::clone(&typed);
-        let deliver: Deliver = Arc::new(move |id, text| {
-            seen.lock().unwrap().push((id, shown(text)));
-            Box::pin(async { Ok(()) })
-        });
         let armed: Arc<StdMutex<Option<(&'static str, Fail)>>> = Arc::default();
         let calls = Arc::new(AtomicUsize::new(0));
         let (trigger, counted) = (Arc::clone(&armed), Arc::clone(&calls));
@@ -71,14 +64,14 @@ impl Faulty {
             }),
         };
         let rail = FakeRail::new(nodes);
-        let messages = Messages::open_with(dir, bus.clone(), rail.clone(), deliver, env).unwrap();
+        let messages = Messages::open_with(dir, bus.clone(), rail.clone(), env).unwrap();
+        let inbox = attach_inbox(&messages, true);
         let completed = tokio::sync::Mutex::new(messages.inner.completed.subscribe());
         Self {
             messages,
-            rail,
             bus,
             touches,
-            typed,
+            inbox,
             armed,
             calls,
             clock,
@@ -167,9 +160,6 @@ async fn b28_a_panic_in_a_locked_operation_leaves_the_next_calls_working() {
     )
     .await
     .unwrap();
-    h.call("takeover.begin", json!({"agent": "a"}))
-        .await
-        .unwrap();
 }
 
 #[tokio::test]
@@ -223,13 +213,13 @@ async fn b28_a_failure_in_on_status_or_settle_does_not_stop_delivery_or_the_cloc
     h.becomes_idle("2");
     h.completed("on_status", 1, 100).await;
     assert!(h.armed.lock().unwrap().is_none());
-    assert!(h.typed.lock().unwrap().is_empty());
+    assert!(h.inbox.typed().is_empty());
 
     h.arm("settle", Fail::Panic);
     h.becomes_idle("3");
     h.completed("on_status", 1, 100).await;
     assert!(h.armed.lock().unwrap().is_none());
-    assert_eq!(h.typed.lock().unwrap().len(), 1);
+    assert_eq!(h.inbox.typed().len(), 1);
 
     a_hop_passes_at_the_bound(None).await;
 }
@@ -291,104 +281,23 @@ async fn a_hop_passes_at_the_bound(arm: Option<&'static str>) {
     );
 }
 
-#[tokio::test]
-async fn b32_r16_partial_input_failure_rolls_back_store_memory_and_events() {
-    let dir = tempfile::tempdir().unwrap();
-    let mut node = agent_node("a", Kind::Working);
-    node.terminal_id = Some("terminal".into());
-    let h = Faulty::over(dir.path(), vec![node]);
-    h.call(
-        "message.send",
-        json!({"to":"a","kind":"note","body":"wait"}),
-    )
-    .await
-    .unwrap();
-    let mut events = h.bus.subscribe();
-    h.arm("user_wrote", Fail::Err);
-    h.messages.user_wrote("terminal", b"text").await;
-    assert_eq!(
-        h.call("message.get", json!({"id":1})).await.unwrap()["status"],
-        "pending"
-    );
-    assert!(
-        !std::iter::from_fn(|| events.try_recv().ok())
-            .any(|e| matches!(e.data, EventData::MessageHeld(_)))
-    );
-    h.messages.user_wrote("terminal", b"text").await;
-    assert_eq!(
-        h.call("message.get", json!({"id":1})).await.unwrap()["status"],
-        "held",
-        "failed insert did not leave an in-memory positive"
-    );
-    h.call("takeover.begin", json!({"agent":"a"}))
-        .await
-        .unwrap();
-    h.rail.0.lock().unwrap()[0].attempt = Some("2".into());
-    let mut events = h.bus.subscribe();
-    h.arm("user_wrote", Fail::Err);
-    h.messages.user_wrote("terminal", b"next").await;
-    assert!(
-        h.messages.takeover_active("a"),
-        "failed reconciliation restores Takeover"
-    );
-    assert_eq!(
-        h.call("message.get", json!({"id":1})).await.unwrap()["status"],
-        "held"
-    );
-    assert!(
-        !std::iter::from_fn(|| events.try_recv().ok()).any(|e| matches!(
-            e.data,
-            EventData::MessageDropped(_) | EventData::TakeoverChanged(_)
-        ))
-    );
-    h.messages.user_wrote("terminal", b"next").await;
-    assert!(!h.messages.takeover_active("a"));
-    assert_eq!(
-        h.call("message.get", json!({"id":1})).await.unwrap()["status"],
-        "dropped"
-    );
-    h.arm("user_wrote", Fail::Err);
-    h.messages.user_wrote("terminal", b"\r").await;
-    let sent = h
-        .call(
-            "message.send",
-            json!({"to":"a","kind":"note","body":"still wait"}),
-        )
-        .await
-        .unwrap();
-    assert_eq!(
-        sent["status"], "held",
-        "failed clear did not leave an in-memory negative"
-    );
-    h.messages.user_wrote("terminal", b"\r").await;
-    assert_eq!(
-        h.call("message.get", json!({"id":2})).await.unwrap()["status"],
-        "pending"
-    );
-}
-
 #[tokio::test(start_paused = true)]
 async fn b28_status_acknowledgement_waits_for_delivery_to_finish() {
     let dir = tempfile::tempdir().unwrap();
     let entered = Arc::new(tokio::sync::Notify::new());
     let release = Arc::new(tokio::sync::Notify::new());
-    let (seen, proceed) = (entered.clone(), release.clone());
-    let deliver: Deliver = Arc::new(move |_, _| {
-        let (seen, proceed) = (seen.clone(), proceed.clone());
-        Box::pin(async move {
-            seen.notify_one();
-            proceed.notified().await;
-            Ok(())
-        })
-    });
     let bus = Bus::new();
     let messages = Messages::open(
         dir.path(),
         bus.clone(),
         FakeRail::new(vec![agent_node("a", Kind::Working)]),
-        deliver,
     )
     .unwrap();
+    messages.set_inbox(Arc::new(GatedInbox {
+        inbox: fake_inbox(&messages, true),
+        entered: entered.clone(),
+        release: release.clone(),
+    }));
     let mut completed = messages.inner.completed.subscribe();
     tokio::time::timeout(std::time::Duration::from_millis(100), async {
         while completed.recv().await.unwrap() != "initial" {}
@@ -545,7 +454,6 @@ async fn nr4_acceptance_rechecks_expiry_after_receiver_read() {
             dir.path(),
             ctx.bus.clone(),
             rail,
-            Arc::new(|_, _| Box::pin(async { Ok(()) })),
             Env::system(Arc::clone(&ctx.touches)),
         )
         .unwrap();

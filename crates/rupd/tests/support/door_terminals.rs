@@ -1,6 +1,6 @@
 //! Setup shared by the Takeover tests that drive a Door-spawned child Terminal.
 #![allow(dead_code)] // each includer uses its own part of the helpers
-use super::takeover_run::{BOUND, Run};
+use super::child_run::{BOUND, Run};
 
 use base64::{Engine, engine::general_purpose::STANDARD};
 use rpc::{Client, RpcError};

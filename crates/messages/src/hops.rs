@@ -3,7 +3,7 @@
 //! it, emits its events and logs its Touch.
 
 use contracts::agent::RailNode;
-use contracts::message::{Delivery, Message, MessageKind, MessageStatus, Reason};
+use contracts::message::{Delivery, Message, MessageKind, MessageStatus};
 use contracts::{Actor, ActorKind};
 use rpc::RpcError;
 
@@ -121,11 +121,7 @@ fn advance(
         let route = store
             .get_route(&chain.origin.id, &door)?
             .unwrap_or(Delivery::Auto);
-        let (status, reason) = send_status(
-            chain.origin.kind == ActorKind::User,
-            route,
-            store.is_takeover_active(&door),
-        );
+        let status = send_status(chain.origin.kind == ActorKind::User, route);
         let hop = store.insert(
             &chain.origin,
             &door,
@@ -133,7 +129,7 @@ fn advance(
             &chain.body,
             None,
             status,
-            reason,
+            None,
             now,
             binding(node),
             Some(previous),
@@ -154,8 +150,8 @@ fn advance(
         MessageKind::Question,
         &chain.body,
         None,
-        MessageStatus::Held,
-        Some(Reason::Escalated),
+        MessageStatus::Delivered,
+        None,
         now,
         (0, 0),
         Some(previous),

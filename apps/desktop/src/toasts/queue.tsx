@@ -46,11 +46,11 @@ export type ToastQueue = {
   notify(candidate: Candidate): void;
 };
 
-/** U410 to U414. Event policy lives here: held Toasts while away, coalescing by Agent, the summary card and the one-per-second sound. Lifetimes belong to the shared Toast; with nothing pushed, nothing runs. */
+/** U410 to U414. Event policy lives here: queued Toasts while away, coalescing by Agent, the summary card and the one-per-second sound. Lifetimes belong to the shared Toast; with nothing pushed, nothing runs. */
 export const createToastQueue = (inFront: () => boolean, chime: Chime, now: () => number = Date.now): ToastQueue => {
   const [entries, setEntries] = createSignal<readonly Entry[]>([]);
   const [failure, setFailure] = createSignal<string | null>(null);
-  const held = new Map<string, Candidate>();
+  const kept = new Map<string, Candidate>();
   // Entries whose card is closing stay findable until the next push, for the activation that closed them.
   const known = new Map<string, Entry>();
   const displayed = new Set<string>();
@@ -150,9 +150,9 @@ export const createToastQueue = (inFront: () => boolean, chime: Chime, now: () =
 
     stopListening();
 
-    const waiting = [...held.values()];
+    const waiting = [...kept.values()];
 
-    held.clear();
+    kept.clear();
     waiting.forEach(show);
   };
 
@@ -197,7 +197,7 @@ export const createToastQueue = (inFront: () => boolean, chime: Chime, now: () =
 
         show(candidate);
       } else {
-        held.set(candidate.key, candidate);
+        kept.set(candidate.key, candidate);
         listenForReturn();
       }
 
