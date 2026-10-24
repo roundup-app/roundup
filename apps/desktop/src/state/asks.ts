@@ -116,7 +116,7 @@ export const createAsks = (app: AppSeam, events: Events): AsksState => {
       try {
         const ask = await app.rpc("ask.send", captured);
         upsert(ask);
-        setIntakeFailure((current) => current?.submission === submission ? null : current);
+        setIntakeFailure(null);
 
         return { kind: "acknowledged", submission, ask };
       } catch (error) {
@@ -140,7 +140,7 @@ export const createAsks = (app: AppSeam, events: Events): AsksState => {
 
         if (ask) {
           upsert(ask);
-          setIntakeFailure((current) => current?.submission === submission ? null : current);
+          setIntakeFailure(null);
 
           return { kind: "acknowledged", submission, ask };
         }
