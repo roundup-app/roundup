@@ -184,8 +184,8 @@ async fn lc2_the_users_output_style_shapes_a_child() {
             assert!(!env.contains_key("CLAUDE_CODE_DISABLE_AUTO_MEMORY"));
             assert_eq!(argv.iter().filter(|arg| *arg == "--plugin-dir").count(), 3);
             let tools = match row {
-                Role::Door => Some("Read,Grep,Glob,ToolSearch,Skill"),
-                Role::Scout => Some("Read,Grep,Glob,Bash,ToolSearch"),
+                Role::Door => Some("Read,Grep,Glob,ToolSearch,Skill,AskUserQuestion"),
+                Role::Scout => Some("Read,Grep,Glob,Bash,ToolSearch,AskUserQuestion"),
                 Role::Agent => None,
             };
             assert_eq!(Setup::after(&argv, "--tools"), tools);
